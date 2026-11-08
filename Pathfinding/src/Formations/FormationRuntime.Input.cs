@@ -284,7 +284,6 @@ namespace Pathfinding.UnitCommands
             state.Width = width;
             lock (stateSync)
             {
-                releaseConsumptionWatch = null;
                 drag = state;
                 groundFrameObserver.SetActive(true);
             }

@@ -111,6 +111,8 @@ namespace Pathfinding.UnitCommands {
   private Func<bool,int> engineRunOriginal;
   private bool HasValidMap()=>mapValid;
   private void LogDebugNoThrow(string m) {} private void LogWarningNoThrow(string m) {}
+  private void BeginReleaseSupport(ActiveDrag state, int operation) {}
+  private void ReportFormationReleaseFailure(ActiveDrag state, int operation, string reason) {}
   private void ResetTransientState() { speechQueue.Clear();drag=null; }
   private void AbortDrag(string m) { drag=null; }
   private void AbortCommandMode(string phase,APIShared.Internal.GroundMovePreviewRejection rejection) { drag=null; }

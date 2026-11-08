@@ -30,7 +30,7 @@ internal static class FormationCommandPipelineTests
             "Pathfinding/tests/FriendlyMoatMovement.Tests/FormationCommandPipelineFixture.cs.txt"))
             .Replace("__MEMBERS__", members);
         string[] files = { "Formations/FormationModel.cs", "Formations/FormationOrderPacket.cs",
-            "Formations/FormationPresentation.cs", "Formations/FormationReleaseStateModel.cs",
+            "Formations/FormationPresentation.cs", "Formations/FormationReleaseStateModel.cs", "Formations/FormationMoveSupport.cs",
             "UnitCommands/Runtime/ManualRegionAdmissionBatch.cs" };
         var trees = files.Select(p => CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
             "Pathfinding/src", p)))).Append(CSharpSyntaxTree.ParseText(fixture));

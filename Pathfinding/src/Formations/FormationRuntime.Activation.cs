@@ -34,6 +34,8 @@ namespace Pathfinding.UnitCommands
             {
                 speechQueue.Clear();
                 pendingStart = null;
+                releaseConsumptionWatch = null;
+                lastSupportResult = null;
                 if (drag == null && pendingCommand == null && activeCommand == null) return;
                 abandoned = drag;
                 drag = null;

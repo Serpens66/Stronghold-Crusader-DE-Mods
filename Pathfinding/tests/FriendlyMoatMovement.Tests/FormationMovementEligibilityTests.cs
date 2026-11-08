@@ -75,6 +75,8 @@ namespace Pathfinding.UnitCommands {
         private FormationUnit[] ordered;
         private int availableSlots=8,plannedCount,plannedRows;
         private void DetectUnexpectedSecondOrder(TribeIssueOrderMoveHereEventArgs args,PendingFormationCommand pending){}
+        private void RecordFormationVeto(TribeIssueOrderMoveHereEventArgs args,string reason){}
+        private void RecordFormationTargets(TribeIssueOrderMoveHereEventArgs args,int count){}
         private FormationUnit[] CaptureOrderedGroupUnits(int tribe)=>ordered;
         private NativeDestination[] BuildManagedDestinations(int x,int y,FormationKind kind,int density,int direction,int rows,
             RangedPlacementMode placement,FormationUnit[] units,bool explicitDirection,out object indicator) {

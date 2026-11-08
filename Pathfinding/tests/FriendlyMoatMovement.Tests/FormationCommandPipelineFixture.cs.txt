@@ -70,6 +70,9 @@ namespace Pathfinding.UnitCommands {
   private FormationUnit[] CaptureOrderedGroupUnits(int t)=>ordered;
   private APIShared.Internal.GroundMovePreviewRejection EvaluateCommandMode()=>APIShared.Internal.GroundMovePreviewRejection.None;
   private void DetectUnexpectedSecondOrder(TribeIssueOrderMoveHereEventArgs a,PendingFormationCommand p){}
+  private void RecordFormationVeto(TribeIssueOrderMoveHereEventArgs a,string reason){}
+  private void RecordFormationTargets(TribeIssueOrderMoveHereEventArgs a,int count){}
+  private void CompleteFormationSupport(FormationOrderPacket packet,string source,FormationMoveSupport evidence){}
   private void LogErrorNoThrow(string m){}private void LogWarningNoThrow(string m){}private void LogDebugNoThrow(string m){}
   private void DisableAfterNativeFailure(string c,Exception e)=>throw e;
   __MEMBERS__

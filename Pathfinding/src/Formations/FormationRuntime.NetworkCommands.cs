@@ -116,13 +116,31 @@ namespace Pathfinding.UnitCommands
         {
             // Local release dispatch precedes EngineInterface.run's own lock. Received
             // Chores already hold it; both paths must plan from one synchronous state.
-            lock (speechEngineLock) return ApplyPacketLocked(packet, source);
+            lock (speechEngineLock)
+            {
+                if (packet == null) return ApplyPacketLocked(packet, source);
+                var evidence = new FormationMoveSupport(packet.TribeId, packet.TargetX, packet.TargetY);
+                var previous = FormationMoveSupport.Current;
+                FormationMoveSupport.Current = evidence;
+                using (new FormationMoveSupport.SourceScope(source))
+                {
+                    try { return ApplyPacketLocked(packet, source); }
+                    finally
+                    {
+                        FormationMoveSupport.Current = previous;
+                        try { CompleteFormationSupport(packet, source, evidence); }
+                        catch { } // Support logging must never change a synchronized command result.
+                    }
+                }
+            }
         }
 
         private bool ApplyPacketLocked(FormationOrderPacket packet, string source)
         {
             if (!ValidatePacket(packet, out string rejection))
             {
+                var evidence = FormationMoveSupport.Current;
+                if (evidence != null) evidence.Veto = rejection;
                 Shared.DebugLogHelper.LogErrorLimited(log, "formation-packet-" + rejection,
                     $"Rejected Formation Chore: {rejection}.");
                 // Consumed rejection: never restore the release or move a different selection.
@@ -230,6 +248,30 @@ namespace Pathfinding.UnitCommands
             // The native command was already submitted. A negative movement result
             // must not replay the original release as a second whole-group order.
             return true;
+        }
+
+        private void CompleteFormationSupport(FormationOrderPacket packet, string source, FormationMoveSupport evidence)
+        {
+            var identity = ReadFormationTribe(packet.TribeId);
+            int? tick = ReadFormationTick();
+            lock (stateSync)
+            {
+                lastSupportOperation = packet.OperationId;
+                lastSupportEpoch = commandRuntime.mapEpoch;
+                lastSupportTick = tick;
+                lastSupportSource = source;
+                lastSupportTribe = packet.TribeId;
+                lastSupportPlayer = identity.Player;
+                lastSupportX = packet.TargetX;
+                lastSupportY = packet.TargetY;
+                lastSupportResult = evidence;
+            }
+            if (!evidence.ShouldWarn) return;
+            LogFormationSupport("move-" + (evidence.Veto ?? (evidence.PostReturn.HasValue ? "native-result" : "no-post")),
+                $"FORMATION_MOVE_RESULT {FormationMission(Shared.MissionEvents.CurrentContext)} player={identity.Player} " +
+                $"operation={packet.OperationId} tribe={packet.TribeId}/{identity.GlobalId} " +
+                $"target={packet.TargetX},{packet.TargetY} release={(source == "singleplayer" ? "claimed" : "remote-or-local-chore")} " +
+                $"tick={tick?.ToString() ?? "unknown"} source={source} {evidence.Describe()}");
         }
 
         private static bool ValidatePacket(FormationOrderPacket packet, out string rejection)

@@ -56,6 +56,7 @@ namespace SHCDESE.Interop {
     }
 }
 namespace APIShared {
+    public sealed class MissionContext {}
     public enum UnitLookupFailure {None,ManagerUnavailable,Unavailable}
     public static unsafe class UnitAccess {
         public static GameUnit* Units=(GameUnit*)System.Runtime.InteropServices.Marshal.AllocHGlobal(sizeof(GameUnit)*1301);
@@ -184,6 +185,9 @@ namespace Pathfinding.UnitCommands {
         private void QueueSpeech(FormationSpeechRequest request) {}
         private void AgeReleaseConsumptionWatch() {}
         private void LogDebugNoThrow(string text) {} private void LogWarningNoThrow(string text) {}
+        private sealed class FormationMoveSupport {}
+        private void BeginReleaseSupport(ActiveDrag state, int operation) {}
+        private void ReportFormationReleaseFailure(ActiveDrag state, int operation, string reason) {}
         private void LogTargetRejection(APIShared.Internal.GroundMovePreviewRejection r,GroundTarget t) {}
         private string ToRejectionReason(APIShared.Internal.GroundMovePreviewRejection r)=>r.ToString();
         private FormationMouseState CaptureMouseState(EditorDirector d)=>new FormationMouseState(d.Left,d.RightDown,d.RightUp,d.StateRead,d.UpPending);

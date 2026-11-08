@@ -168,7 +168,11 @@ namespace Pathfinding.UnitCommands
             }
             if (cancelled) return FormationReleaseDisposition.Cancelled;
             // The identity snapshot and packet are captured under the same engine lock.
-            if (!TryCreatePacket(state, out packet)) return FormationReleaseDisposition.Cancelled;
+            if (!TryCreatePacket(state, out packet))
+            {
+                ReportFormationReleaseFailure(state, packet?.OperationId ?? 0, "packet-creation-failed");
+                return FormationReleaseDisposition.Cancelled;
+            }
             speech = CaptureSpeech(state, (TribeMoveType)packet.MoveType);
             if (TryDispatch(packet, out string rejection) == DispatchDisposition.Accepted)
                 return FormationReleaseDisposition.Accepted;
@@ -179,15 +183,7 @@ namespace Pathfinding.UnitCommands
 
         private void LogDispatchRejected(ActiveDrag state, FormationOrderPacket packet, string rejection)
         {
-            string category = rejection == "Vanilla rejected the synchronized move command" ? "native-refusal" :
-                rejection == "packet hook is unavailable" ? "packet-hook-unavailable" :
-                rejection == "Chore manager is unavailable" ? "chore-manager-unavailable" : "transport-rejected";
-            if (!formationSupportLogGate.TryReserve(category, 30, out long suppressed)) return;
-            LogWarningNoThrow(
-                $"FORMATION_DISPATCH_REJECTED: category={category}, reason={rejection}, operation={packet.OperationId}, " +
-                $"attempt={inputAttempt}, mapEpoch={state.MapEpoch}, player={state.PlayerId}, tribe={state.TribeId}, " +
-                $"selection={state.Selection.Length}, target=({packet.TargetX},{packet.TargetY}), " +
-                $"button={state.CommandButton}, patrol=0, releaseClaimed=true, suppressed={suppressed}; action=consume-owned-release.");
+            ReportFormationReleaseFailure(state, packet.OperationId, rejection);
         }
 
         private void ConsumeGestureRelease(ActiveDrag state, EditorDirector director, int operationId)
@@ -195,11 +191,7 @@ namespace Pathfinding.UnitCommands
             if (director == null) throw new InvalidOperationException("EditorDirector disappeared during release.");
             try { director.clearMouseStateForEngine(); }
             finally { ApplyMouseState(director, FormationReleaseStateModel.Consume()); }
-            lock (stateSync)
-                releaseConsumptionWatch = new ReleaseConsumptionWatch(operationId, state.TribeId, state.CommandButton, 2);
-#if SERP_DEVDIAG
-            RecordTestRelease(state.TribeId, operationId);
-#endif
+            BeginReleaseSupport(state, operationId);
         }
 
         private int RunOriginalWithDeferredRelease(ActiveDrag state, EditorDirector director, FormationMouseState input,
@@ -315,35 +307,58 @@ namespace Pathfinding.UnitCommands
 
         private void AgeReleaseConsumptionWatch()
         {
+            ReleaseConsumptionWatch expired;
             lock (stateSync)
             {
-                if (releaseConsumptionWatch == null)
-                    return;
-                if (!releaseConsumptionWatch.AdvanceEngineRun())
+                expired = releaseConsumptionWatch;
+                if (expired != null && expired.MapEpoch != commandRuntime.mapEpoch)
+                {
                     releaseConsumptionWatch = null;
+                    return;
+                }
+                if (expired == null || expired.AdvanceEngineRun())
+                    return;
+                releaseConsumptionWatch = null;
             }
+            ReportAdditionalOrder(expired);
         }
 
         private void DetectUnexpectedSecondOrder(
             TribeIssueOrderMoveHereEventArgs args,
             PendingFormationCommand pending)
         {
-            ReleaseConsumptionWatch watch;
+            var current = FormationMoveSupport.Current;
+            if (current != null && current.Matches(args))
+            {
+                if (args.Phase == EventHookPhase.Pre) current.PreSkip = args.SkipOriginalFunction;
+                else current.PostReturn = args.ReturnValue;
+            }
             lock (stateSync)
             {
-                watch = releaseConsumptionWatch;
-                if (watch == null || watch.Reported || args.TribeId != watch.TribeId)
+                var watch = releaseConsumptionWatch;
+                if (watch == null || watch.MapEpoch != commandRuntime.mapEpoch || args.TribeId != watch.TribeId)
                     return;
-                if (pending != null && pending.Matches(args))
+                if (args.Phase == EventHookPhase.Post)
+                {
+                    if (!watch.AdditionalAmbiguous && watch.Additional?.Matches(args) == true && !watch.Additional.PostReturn.HasValue &&
+                        Environment.CurrentManagedThreadId == watch.AdditionalThread && FormationMoveSupport.Source == watch.AdditionalSource)
+                        watch.Additional.PostReturn = args.ReturnValue;
                     return;
-                watch.Reported = true;
+                }
+                if ((pending != null && pending.Matches(args)) || current?.Matches(args) == true)
+                    return;
+                if (watch.Additional != null)
+                {
+                    if (!watch.Additional.PostReturn.HasValue && watch.Additional.Matches(args))
+                        watch.AdditionalAmbiguous = true;
+                    return;
+                }
+                watch.Additional = new FormationMoveSupport(args.TribeId, args.TileX, args.TileY) { PreSkip = args.SkipOriginalFunction };
+                watch.AdditionalSource = FormationMoveSupport.Source;
+                watch.AdditionalTick = ReadFormationTick();
+                watch.AdditionalThread = Environment.CurrentManagedThreadId;
+                watch.NewPress = inputAttempt != watch.Attempt;
             }
-
-            LogWarningNoThrow(
-                $"FORMATION_UNEXPECTED_SECOND_ORDER: operation={watch.OperationId}, " +
-                $"tribe={watch.TribeId}, button={watch.CommandButton}, " +
-                $"target={args.TileX},{args.TileY}, phase=Pre, pendingPresent={pending != null}, " +
-                $"skipOriginal={args.SkipOriginalFunction}; observed request only, native execution is not confirmed.");
         }
 
         private sealed class ReleaseConsumptionWatch
@@ -365,7 +380,16 @@ namespace Pathfinding.UnitCommands
             internal int OperationId { get; }
             internal int TribeId { get; }
             internal int CommandButton { get; }
-            internal bool Reported { get; set; }
+            internal APIShared.MissionContext Mission;
+            internal string Handoff;
+            internal uint GlobalId;
+            internal int? ReleaseTick, AdditionalTick;
+            internal long Attempt;
+            internal int Player, X, Y, MapEpoch;
+            internal FormationMoveSupport Additional;
+            internal string AdditionalSource;
+            internal int AdditionalThread;
+            internal bool NewPress, AdditionalAmbiguous;
 
             internal bool AdvanceEngineRun()
             {

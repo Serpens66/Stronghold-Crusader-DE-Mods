@@ -1,5 +1,6 @@
 using APIShared.GameModes;
 using BepInEx.Logging;
+using Pathfinding.UnitCommands;
 using R3;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
@@ -479,7 +480,13 @@ namespace Pathfinding
             ref bool trampolineEntered)
         {
             trampolineEntered = true;
-            moveChoreHandlerHook.Original();
+            if (choreMode != QueueNativeContract.ChoreExecuteMode)
+            {
+                moveChoreHandlerHook.Original();
+                return;
+            }
+            using (new FormationMoveSupport.SourceScope("vanilla-chore-17"))
+                moveChoreHandlerHook.Original();
         }
 
         private void HandleTargetOrderChore()
@@ -1484,13 +1491,14 @@ namespace Pathfinding
                 switch (command.Kind)
                 {
                     case QueueCommandKind.Move:
-                        issued = GameTribeManagerAPI.Instance.IssueMoveHereCommand(
-                            tribeId,
-                            command.Argument1,
-                            command.Argument2,
-                            isPatrolPath: false,
-                            bIsNewOrder: 1,
-                            tribeMoveType: (TribeMoveType)command.Argument3);
+                        using (new FormationMoveSupport.SourceScope("shift-queue"))
+                            issued = GameTribeManagerAPI.Instance.IssueMoveHereCommand(
+                                tribeId,
+                                command.Argument1,
+                                command.Argument2,
+                                isPatrolPath: false,
+                                bIsNewOrder: 1,
+                                tribeMoveType: (TribeMoveType)command.Argument3);
                         break;
                     case QueueCommandKind.AttackUnit:
                         issued = GameTribeManagerAPI.Instance.AttackUnitEx(

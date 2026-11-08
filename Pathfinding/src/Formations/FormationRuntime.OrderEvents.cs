@@ -31,9 +31,6 @@ namespace Pathfinding.UnitCommands
             if (!Enabled || args == null)
                 return;
 
-#if SERP_DEVDIAG
-            RecordTestMove(args);
-#endif
             if (args.Phase == EventHookPhase.Pre)
             {
                 PendingFormationCommand pending;
@@ -56,6 +53,7 @@ namespace Pathfinding.UnitCommands
                     FormationUnit[] units = CaptureOrderedGroupUnits(packet.TribeId);
                     if (units.Length != packet.UnitCount || ComputeSelectionHash(units) != packet.SelectionHash)
                     {
+                        RecordFormationVeto(args, "selection-mismatch");
                         commandRuntime.RejectPreparedMove(args);
                         lock (stateSync) if (ReferenceEquals(pendingCommand, pending)) pendingCommand = null;
                         return;
@@ -64,6 +62,7 @@ namespace Pathfinding.UnitCommands
                     units = UnitCommandPathAPI.Runtime?.AdmitFormationMembers(units, packet.TribeId, packet.TargetX, packet.TargetY) ?? units;
                     if (units.Length == 0)
                     {
+                        RecordFormationVeto(args, "no-admitted-units");
                         commandRuntime.RejectPreparedMove(args);
                         lock (stateSync) if (ReferenceEquals(pendingCommand, pending)) pendingCommand = null;
                         return;
@@ -88,6 +87,7 @@ namespace Pathfinding.UnitCommands
                         // structure and Assassin paths retain their prior native fallback.
                         if (!commandRuntime.TryRejectPreparedFormationWithoutSlots(args))
                             throw new InvalidOperationException("No ordinary formation slots; retain the special native command path.");
+                        RecordFormationVeto(args, "no-formation-slots");
                         lock (stateSync) if (ReferenceEquals(pendingCommand, pending)) pendingCommand = null;
                         return;
                     }
@@ -125,6 +125,7 @@ namespace Pathfinding.UnitCommands
 
             if (args.Phase != EventHookPhase.Post)
                 return;
+            DetectUnexpectedSecondOrder(args, null);
 
             ActiveFormationCommand completed = null;
             try
@@ -153,6 +154,7 @@ namespace Pathfinding.UnitCommands
                 return;
             int successfulFormationTargets = completed.SuccessfulTerminalCount;
             UnitFallbackSummary fallbackSummary = RunUnitFallbacks(completed);
+            RecordFormationTargets(args, successfulFormationTargets + fallbackSummary.Succeeded);
             LogFormationOrderResult(completed, successfulFormationTargets, fallbackSummary);
         }
 

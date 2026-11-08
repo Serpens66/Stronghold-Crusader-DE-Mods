@@ -17,6 +17,7 @@ internal static class FormationDispatchOutcomeTests
         string fixture="""
 using System;using System.Runtime.InteropServices;
 namespace SHCDESE.Interop.Enums {internal enum TribeMoveType {NoChange=0,DefaultInSync=1,Fast=-255}}
+namespace SHCDESE.EventAPI.Tribes { internal sealed class TribeIssueOrderMoveHereEventArgs { internal int TribeId, TileX, TileY; } }
 namespace Shared { public static class DebugLogHelper { public static void LogWarningLimited(object l,string k,string m) {} public static void LogErrorLimited(object l,string k,string m) {} } }
 namespace SHCDESE.API {
     internal sealed class GameTribeManagerAPI {
@@ -38,20 +39,37 @@ namespace Pathfinding.UnitCommands {
         private long playerMoveEntries;private Action<IntPtr,int,int,int,int,int> nativePlayerMove,traversalMoveProvider;
         private void ReportNativeDetourBarrier(string n,Exception e){}
         private void LogErrorNoThrow(string m){}private void LogWarningNoThrow(string m){}private void ClearUnitAssignmentFrames(object o){}
+        private FormationMoveSupport evidence;
+        private void CompleteFormationSupport(FormationOrderPacket packet,string source,FormationMoveSupport captured){evidence=captured;}
         __MEMBERS__
         public static void Run(){
             foreach(bool observed in new[]{false,true})foreach(bool result in new[]{false,true}){
                 var f=new OutcomeFixture();var api=GameTribeManagerAPI.Instance;api.Calls=0;
-                api.Move=()=>{if(observed)f.pendingCommand.NativeDispatchObserved=true;return result;};
+                api.Move=()=>{
+                    var trace=FormationMoveSupport.Current;
+                    if(trace==null||FormationMoveSupport.Source!="fixture")throw new Exception("Missing scoped move origin");
+                    if(observed){f.pendingCommand.NativeDispatchObserved=true;trace.PreSkip=false;}
+                    if(result)trace.PostReturn=1;
+                    return result;
+                };
                 bool consumed=f.ApplyPacket(new(),"fixture");
                 if(consumed!=(observed||result)||api.Calls!=1||f.dispatchDepth!=0||f.pendingCommand!=null)
                     throw new Exception("Native rejection/partial application must not replay an observed dispatch");
+                if(f.evidence.PostReturn.HasValue!=result||f.evidence.PreSkip.HasValue!=observed||
+                    f.evidence.ShouldWarn==result||FormationMoveSupport.Current!=null||FormationMoveSupport.Source!="unknown")
+                    throw new Exception("Pre and Post evidence must stay distinct and restore the caller scope");
             }
             foreach(bool enabled in new[]{false,true}){
                 var f=new OutcomeFixture{Enabled=enabled,Valid=false};var api=GameTribeManagerAPI.Instance;api.Calls=0;api.Move=()=>false;
                 if(!f.ApplyPacket(new(),"fallback")||api.Calls!=0||f.dispatchDepth!=0)
                     throw new Exception("Already issued fallback cannot authorize another whole-group command");
+                if(enabled&&(f.evidence.Veto!="fixture"||f.evidence.PostReturn.HasValue||!f.evidence.ShouldWarn))
+                    throw new Exception("A known veto cannot be reported as native execution");
             }
+            var executed=new FormationMoveSupport(1,20,20){PreSkip=false,PostReturn=0,Assigned=0};
+            if(!executed.ShouldWarn||!executed.Describe().Contains("execution=observed")||
+                !executed.Describe().Contains("postReturn=0"))
+                throw new Exception("A zero native return must be distinguishable from a missing Post");
             // Vanilla's Chore-17 handler (10AE0) passes the unit manager (67E8400); 196100 ignores
             // that argument and writes the tribe manager's +56C. The restore must use the tribe manager.
             IntPtr tribes=Marshal.AllocHGlobal(0x2000);IntPtr units=Marshal.AllocHGlobal(0x2000);
@@ -78,7 +96,8 @@ namespace Pathfinding.UnitCommands {
 """;
         fixture=fixture.Replace("__MEMBERS__",members);
         var references=((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator).Select(p=>MetadataReference.CreateFromFile(p));
-        var compilation=CSharpCompilation.Create("ProductionFormationDispatchOutcome",new[]{CSharpSyntaxTree.ParseText(fixture)},references,
+        var evidence=File.ReadAllText(Path.Combine(root,"Pathfinding/src/Formations/FormationMoveSupport.cs"));
+        var compilation=CSharpCompilation.Create("ProductionFormationDispatchOutcome",new[]{CSharpSyntaxTree.ParseText(fixture),CSharpSyntaxTree.ParseText(evidence)},references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,allowUnsafe:true));
         using var output=new MemoryStream();var result=compilation.Emit(output);
         if(!result.Success)throw new Exception(string.Join("\n",result.Diagnostics.Where(d=>d.Severity==DiagnosticSeverity.Error)));
