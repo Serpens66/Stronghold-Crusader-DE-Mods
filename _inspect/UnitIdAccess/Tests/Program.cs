@@ -209,7 +209,7 @@ static void CheckLookupSyntax(string text, string relative)
         {
             if (call.Expression is not MemberAccessExpressionSyntax member) continue;
             if (member.Name.Identifier.Text is "TryGetUnitById" or "TryGetUnitByIdEx")
-                Check(relative.Replace('\\','/')=="APIShared/src/Units/UnitAccess.cs", $"Direkter SDK-Lookup umgeht UnitAccess: {relative}:{call.GetLocation().GetLineSpan().StartLinePosition.Line+1}");
+                Check(relative.Replace('\\','/')=="APIShared/src/Units/Selection/UnitAccess.cs", $"Direkter SDK-Lookup umgeht UnitAccess: {relative}:{call.GetLocation().GetLineSpan().StartLinePosition.Line+1}");
             if (member.Expression.ToString().Contains("UnitAccess") && member.Name.Identifier.Text=="TryGetById")
                 Check(call.Parent is not ExpressionStatementSyntax, $"Ignored lookup result: {relative}:{call.GetLocation().GetLineSpan().StartLinePosition.Line+1}");
             var indirectNames = new HashSet<string> {
@@ -244,7 +244,7 @@ static void VerifyLookupFixtures()
     string guarded = "class C { bool Read() => APIShared.UnitAccess.TryGetById(1, out var unit, out var failure); }";
     CheckLookupSyntax(guarded, "consumer.cs");
     string direct = "class C { bool Read() => GameUnitManagerAPI.Instance.TryGetUnitById(1, out var unit); }";
-    CheckLookupSyntax(direct, "APIShared/src/Units/UnitAccess.cs");
+    CheckLookupSyntax(direct, "APIShared/src/Units/Selection/UnitAccess.cs");
     bool denied = false;
     try { CheckLookupSyntax(direct, "consumer.cs"); }
     catch (Exception ex) { denied = ex.Message.StartsWith("Direkter SDK-Lookup umgeht UnitAccess:"); }

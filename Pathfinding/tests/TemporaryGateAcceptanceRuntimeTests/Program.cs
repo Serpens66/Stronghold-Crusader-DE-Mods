@@ -12,9 +12,9 @@ SyntaxTree Parse(string text, string path = "") => CSharpSyntaxTree.ParseText(te
 string Render(SyntaxNode node) => node.ReplaceTrivia(node.DescendantTrivia()
     .Where(t => t.IsDirective || t.IsKind(SyntaxKind.DisabledTextTrivia)), (old, _) => default).ToFullString();
 string[] files = {
-    "APIShared/src/Pathfinding/GateRoutes/GateAccessRules.cs",
+    "APIShared/src/Pathfinding/GateRoutes/GateAccessRules.cs", "APIShared/src/Core/Events/OrderedRegistrations.cs",
     "BugfixesAndQoL/src/AI/Raid/RaidAttackFieldEvaluation.cs",
-    "APIShared/src/Pathfinding/Assassin/AssassinGateTransitionPolicy.cs", "APIShared/src/Pathfinding/GateRoutes/TemporaryGateRouteAcceptanceBridge.cs", "APIShared/src/Units/UnitAccess.cs", "Shared/Runtime/Native/TemporaryPackedRouteInspection.cs",
+    "APIShared/src/Pathfinding/Assassin/AssassinGateTransitionPolicy.cs", "APIShared/src/Pathfinding/GateRoutes/TemporaryGateRouteAcceptanceBridge.cs", "APIShared/src/Units/Selection/UnitAccess.cs", "Shared/Runtime/Native/TemporaryPackedRouteInspection.cs",
     "Pathfinding/src/UnitCommands/Movement/TemporaryGateRouteReporting.cs", "Pathfinding/src/GateRouting/TemporaryGateRouteAcceptance.DevDiag.cs",
     "Pathfinding/src/GateRouting/NativeAssassinTrace.DevDiag.cs", "Pathfinding/src/GateRouting/TemporaryGateAcceptanceAggregate.DevDiag.cs", "Pathfinding/src/GateRouting/RouteTilePolicySnapshot.cs",
     "Pathfinding/src/GateRouting/GateEdgeOwnership.cs", "Pathfinding/src/GateRouting/TemporaryGateCaptureTimeline.DevDiag.cs",

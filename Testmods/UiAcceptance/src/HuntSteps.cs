@@ -389,6 +389,16 @@ namespace UiAcceptance
             AcceptLog.Info("HUNT_RABBITS tribe=" + rabbitTribe + " at=" + x + "," + y + " rabbits=" + string.Join(",", rabbits));
         }
 
+        // Iterators cannot hold pointers, so the lookup lives outside the step body.
+        private static bool TryKillUnit(int unitId)
+        {
+            if (APIShared.UnitAccess.TryGetById(unitId, out GameUnit* _, out _))
+                GameUnitManagerAPI.Instance.KillUnit(unitId);
+            else
+                return false;
+            return true;
+        }
+
         private static bool RabbitLive(int id)
         {
             return APIShared.UnitAccess.TryGetById(id, out GameUnit* rabbit, out _) &&
@@ -1979,7 +1989,13 @@ namespace UiAcceptance
             Runner.Require(!lost, "the Hunter dropped the fixture before the hold check ended");
             Runner.Require(minHeld > 0, "the held lease reached zero");
             int killed;
-            lock (Engine()) { GameUnitManagerAPI.Instance.KillUnit(hunterId); killed = NativeTick(); }
+            bool hunterKilled;
+            lock (Engine())
+            {
+                hunterKilled = TryKillUnit(hunterId);
+                killed = NativeTick();
+            }
+            Runner.Require(hunterKilled, "the Hunter disappeared before it could be killed for the lease release check");
             int freedAt = -1;
             yield return new Until("lease released", () =>
             {

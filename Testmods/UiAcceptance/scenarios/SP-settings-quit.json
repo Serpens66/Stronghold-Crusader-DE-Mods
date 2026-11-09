@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "series": "SP-settings-quit",
+  "role": "sp",
+  "quitDelayMs": 0,
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 180000, "stopOnFail": true, "allowErrors": true },
+    { "id": "settle", "do": "Wait", "args": ["3000"] },
+    { "id": "edit-then-quit", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "ChickenMeat", "17"], "stopOnFail": true }
+  ]
+}

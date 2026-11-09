@@ -118,7 +118,7 @@ namespace UiAcceptance
             AcceptLog.Result("SUMMARY", failed == 0, "series=" + scenario.Series + " passed=" + passed + " failed=" + failed +
                 " skipped=" + Math.Max(0, scenario.Steps.Count - passed - failed));
             current = null; waiting = null;
-            if (scenario.QuitWhenDone) quitter = GameSteps.QuitSequence().GetEnumerator();
+            if (scenario.QuitWhenDone) quitter = GameSteps.QuitSequence(scenario.QuitDelayMs).GetEnumerator();
             else frame?.SetContinuous(false);
         }
 

@@ -29,13 +29,15 @@ namespace UiAcceptance
             fallback ?? throw new InvalidDataException("Step " + Id + " (" + Do + ") needs integer argument " + index);
     }
 
-    // { "enabled": true, "series": "SP-1", "role": "sp|host|client", "quitWhenDone": true,
+    // { "enabled": true, "series": "SP-1", "role": "sp|host|client", "quitWhenDone": true, "quitDelayMs": 2000,
     //   "steps": [ { "id": "load", "do": "LoadSave", "args": ["x.sav"], "timeoutMs": 90000,
     //                "stopOnFail": true, "allowErrors": false,
     //                "expect": [ { "marker": "regex", "min": 1, "max": 1 } ] } ] }
     internal sealed class Scenario
     {
         internal bool Enabled, QuitWhenDone = true;
+        // 0 quits in the frame after the summary, e.g. to prove that a pending write survives an immediate exit.
+        internal int QuitDelayMs = 2000;
         internal string Series, Role = "sp";
         internal readonly List<Step> Steps = new List<Step>();
 
@@ -50,8 +52,10 @@ namespace UiAcceptance
                 Enabled = Get(root, "enabled", false),
                 Series = Get(root, "series", Path.GetFileNameWithoutExtension(path)),
                 Role = Get(root, "role", "sp").ToLowerInvariant(),
-                QuitWhenDone = Get(root, "quitWhenDone", true)
+                QuitWhenDone = Get(root, "quitWhenDone", true),
+                QuitDelayMs = (int)Get(root, "quitDelayMs", 2000.0)
             };
+            if (scenario.QuitDelayMs < 0) throw new InvalidDataException("quitDelayMs must not be negative.");
             if (scenario.Role != "sp" && scenario.Role != "host" && scenario.Role != "client")
                 throw new InvalidDataException("role must be sp, host or client.");
             var steps = root.TryGetValue("steps", out object value) ? value as IList : null;

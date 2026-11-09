@@ -1,6 +1,6 @@
 {
-    "BuiltUtc":  "2026-11-05T21:41:31.7762445Z",
-    "WorkspaceCommit":  "d155fac5bb08abed98af9188f6eeb94af16cfbf2",
+    "BuiltUtc":  "2026-11-09T02:51:30.9721999Z",
+    "WorkspaceCommit":  "d12536442eb3856e802529fef017134ecd5ffae2",
     "ApiBranch":  "develop",
     "ApiCommit":  "cfd94c1b11348fa4c50d36f652ea1bf139742a27",
     "DevDiag":  false,
@@ -24,11 +24,11 @@
                    },
                    {
                        "Path":  "TESTING.md",
-                       "Sha256":  "90a57fed537e69d38a8dc67272d5bd303150b94b3fa19a11c414c8ae5d81c88f"
+                       "Sha256":  "4dcc5063fefe4a2591c2007a17c28402fe05357a85ac07cc27b0824e4cb848bf"
                    },
                    {
                        "Path":  "UpdateToNewDLL.md",
-                       "Sha256":  "2455802b29c8bf66f5038ec52faede1a6c359abde6d8d5a1663aab51d88f0710"
+                       "Sha256":  "87123ca2aef35eaa68eacf46eafe69beade6ed4acace8a10e6014020f790a99a"
                    },
                    {
                        "Path":  "src\\AssemblyInfo.cs",

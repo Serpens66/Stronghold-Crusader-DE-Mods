@@ -432,11 +432,11 @@ namespace UiAcceptance
         }
 
         // BepInEx flushes LogOutput.log on a timer; flush explicitly, then quit on the Unity thread
-        // two seconds later (PerfProbe pattern).
-        internal static IEnumerable<Wait> QuitSequence()
+        // after the scenario's delay (PerfProbe pattern: two seconds).
+        internal static IEnumerable<Wait> QuitSequence(int delayMs)
         {
             AcceptLog.Info("Quitting after scenario.");
-            yield return new Delay(2000);
+            if (delayMs > 0) yield return new Delay(delayMs);
             try
             {
                 foreach (BepInEx.Logging.ILogListener listener in BepInEx.Logging.Logger.Listeners)

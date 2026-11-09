@@ -19,7 +19,7 @@ $testSources = @($source,(Join-Path $testDir 'Program.cs'),(Join-Path $testDir '
     (Join-Path $workspace 'BugfixesAndQoL\src\AI\Raid\RaidSearchEvidence.cs'),
     (Join-Path $workspace 'BugfixesAndQoL\src\AI\Raid\RaidSearchObserver.cs'),
     (Join-Path $workspace 'Shared\Runtime\Diagnostics\DebugLogHelper.cs'),
-    (Join-Path $workspace 'APIShared\src\Units\UnitAccess.cs'),
+    (Join-Path $workspace 'APIShared\src\Units\Selection\UnitAccess.cs'),
     (Join-Path $workspace 'BugfixesAndQoL\src\AI\Raid\AiRaidRetargetFixRuntime.cs'),
     # TEMP_GATE_ROUTE_ACCEPTANCE: the isolated runtime fixture does not reference APIShared.
     (Join-Path $workspace 'APIShared\src\Pathfinding\GateRoutes\TemporaryGateRouteAcceptanceBridge.cs'),

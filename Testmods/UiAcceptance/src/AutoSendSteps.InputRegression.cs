@@ -23,7 +23,7 @@ namespace UiAcceptance
                 SHCDESE.UI.KeyboardCaptureBinding.SetEnabled(foreign, true);
                 var tip = new ToolTip { Style = (Style)Read(Read(runtime, "view"), "tooltipStyle"),
                     Content = "SE textbox owned by the acceptance test", IsHitTestVisible = false };
-                SHCDESE.UI.ToolTipResolutionScale.SetEnabled(tip, true);
+                APIShared.ModSettings.SharedToolTipSizing.SetEnabled(tip, true);
                 ToolTipService.SetToolTip(foreign, tip); ToolTipService.SetShowDuration(foreign, 60000);
                 return foreign;
             }, out var registration, out string reason, 200), "foreign textbox registration failed: " + reason);

@@ -57,7 +57,7 @@ internal static partial class Program
             publishing += reporting.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
                 .Where(m => m.Identifier.Text == "TemporaryAssassinPublicationRejected").Select(ActiveDiagnosticFixtureCode).Single();
         }
-        var api = CSharpSyntaxTree.ParseText(Read("APIShared/src/Pathfinding/Assassin/AssassinPathAPI.cs"));
+        var api = CSharpSyntaxTree.ParseText(Read("APIShared/src/Pathfinding/Assassin/AssassinPathAPI.RouteStaging.cs"));
         string boundary = string.Join("\n", api.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
             .Where(m => m.Identifier.Text is "TryStageWeightedRoute" or "TryGetCurrentWeightedRequest" or "BeginRouteOutput")
             .Select(m => ActiveDiagnosticFixtureCode(m)));

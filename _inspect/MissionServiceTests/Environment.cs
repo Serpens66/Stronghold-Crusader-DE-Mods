@@ -145,3 +145,51 @@ public class FatControler
     public void NewScene(Enums.SceneIDS target) { currentScene = target; }
     public void ExitApp() { }
 }
+namespace APIShared
+{
+    // Start admission, Coop import and lobby settings are separate services with their own tests.
+    // These doubles admit every start so the lifecycle state machine is exercised in isolation.
+    internal static class CoopAiStartImportService
+    {
+        public static void NotifyCoopInitialization(int coopTrail, int coopMission) { }
+        public static void NotifyAttemptFinished() { }
+    }
+    internal static class MapRecordLoadCoordinator
+    {
+        public static bool ValidateStart(string path, bool multiplayer) => true;
+        public static bool ValidateNativeAdmission(string path, bool multiplayer) => true;
+        public static void Abort(string reason) { }
+        public static void FinishLoad() { }
+    }
+}
+namespace APIShared.Economy
+{
+    internal static class WorkerProductionRuntime { public static string ValidateNativeAdmission(MissionContext context) => null; }
+}
+namespace APIShared.ModSettings
+{
+    internal static class LobbySettingsReceiveRuntime { public static void FlushBeforeMultiplayerStart() { } }
+}
+namespace APIShared.Internal
+{
+    // A non-null monitor keeps the production path that loads under the engine lock.
+    internal static class EngineMonitor { public static readonly object Current = new(); }
+}
+namespace APIShared.Units.AiMilitary
+{
+    internal sealed class AiMilitaryService
+    {
+        public static readonly AiMilitaryService Instance = new();
+        public long Generation => 0;
+        public bool DidRawRestoreFail => false;
+        public void CompleteNativeLoad() { }
+    }
+}
+namespace APIShared.Units.AiMilitary.Orders
+{
+    internal static class AiRecruitMutationReceipts
+    {
+        public static IDisposable Enter(Func<bool> isCurrentWorld) => new Scope();
+        sealed class Scope : IDisposable { public void Dispose() { } }
+    }
+}

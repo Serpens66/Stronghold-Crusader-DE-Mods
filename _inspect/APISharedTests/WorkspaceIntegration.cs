@@ -21,10 +21,10 @@ namespace APISharedTests
             string plugin = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "Core", "APISharedPlugin.cs"));
             string project = File.ReadAllText(Path.Combine(workspace, "APIShared", "APIShared.csproj"));
             string unitHud = string.Join("\n", Array.ConvertAll(Directory.GetFiles(Path.Combine(workspace, "APIShared", "src", "Presentation", "UnitHud"), "*.cs"), File.ReadAllText));
-            string lobbyState = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "Lobby", "LobbyStateCapability.cs"));
+            string lobbyState = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "Lobby", "LobbyStateService.cs"));
             string sharedPreset = string.Join("\n", Directory.GetFiles(Path.Combine(workspace, "APIShared", "src", "ModSettings"), "*.cs", SearchOption.AllDirectories).Select(File.ReadAllText));
-            string bugfixLord = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "LordUnitHudRegistration.cs"));
-            string bugfixGatehouse = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "GatehouseDistanceOriginRegistration.cs"));
+            string bugfixLord = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "LordAndControlGroups", "LordUnitHudRegistration.cs"));
+            string bugfixGatehouse = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "GateRouting", "GatehouseDistanceOriginRegistration.cs"));
             string extraGatehouse = File.ReadAllText(Path.Combine(workspace, "ExtraFeatures", "src", "GatehouseAutomationRuntime.cs"));
             string extraProject = File.ReadAllText(Path.Combine(workspace, "ExtraFeatures", "ExtraFeatures.csproj"));
             string extraAiv = File.ReadAllText(Path.Combine(workspace, "ExtraFeatures", "src", "AIDefenseRepairRuntime.cs"));
@@ -32,8 +32,8 @@ namespace APISharedTests
             string activeRuntime = File.ReadAllText(Path.Combine(workspace, "Helpers", "ActiveAIVDetector", "src", "ActiveAIVDetectionRuntime.cs"));
             string activePlugin = File.ReadAllText(Path.Combine(workspace, "Helpers", "ActiveAIVDetector", "src", "ActiveAIVDetectorPlugin.cs"));
             string activeProject = File.ReadAllText(Path.Combine(workspace, "Helpers", "ActiveAIVDetector", "ActiveAIVDetector.csproj"));
-            string bugfixControlGroups = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "ControlGroupDisbandCleanupRuntime.cs"));
-            string bugfixNativeDefinition = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "ControlGroupNativeDefinition.cs"));
+            string bugfixControlGroups = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "LordAndControlGroups", "ControlGroupDisbandCleanupRuntime.cs"));
+            string bugfixNativeDefinition = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "LordAndControlGroups", "ControlGroupNativeDefinition.cs"));
             string bugfixPlugin = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "BugfixesAndQoLPlugin.cs"));
             string bugfixProject = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "BugfixesAndQoL.csproj"));
             string castlePlanner = File.ReadAllText(Path.Combine(workspace, "CastlePlanner", "src", "CastlePlannerRuntime.cs"));
@@ -68,8 +68,7 @@ namespace APISharedTests
             string randomManifest = File.ReadAllText(Path.Combine(workspace, "RandomEvents", "info.json"));
             string hunterRoutes =
                 File.ReadAllText(Path.Combine(workspace, "ImprovedHunters", "src", "HunterPclReachability.cs")) + "\n" +
-                File.ReadAllText(Path.Combine(workspace, "ImprovedHunters", "src", "HunterActiveTargetReachability.cs")) + "\n" +
-                File.ReadAllText(Path.Combine(workspace, "ImprovedHunters", "src", "HunterPclReachabilityDiagnostic.cs"));
+                File.ReadAllText(Path.Combine(workspace, "ImprovedHunters", "src", "HunterActiveTargetReachability.cs"));
             string sourceManifest = File.ReadAllText(Path.Combine(workspace, "APIShared", "info.json"));
             string buildingPatchPath = Path.Combine(workspace, "APIShared", "Patches", "Assets", "GUI", "XAMLResources", "HUD_Buildings.xaml");
             string packagedBuildingPatchPath = Path.Combine(workspace, "APIShared", "BepInEx", "plugins", "APIShared_Serp", "Patches", "Assets", "GUI", "XAMLResources", "HUD_Buildings.xaml");
@@ -138,13 +137,17 @@ namespace APISharedTests
                 "own-troop actions inherit foreign-HUD suppression from the Vanilla selection container");
             Assert(beforeRenderMethod.IndexOf("ExpireRecruitment();", StringComparison.Ordinal) < beforeRenderMethod.IndexOf("MainViewModel.viewModelLoaded", StringComparison.Ordinal),
                 "pending tickets expire even when the HUD is unavailable");
-            int selectionRefreshStart = beforeRenderMethod.IndexOf("if ((refresh && HasCategories(UnitHudSurface.TroopSelection)) || troopSelectionChanged)", StringComparison.Ordinal);
-            int explicitRefreshStart = beforeRenderMethod.IndexOf("if (refresh)", selectionRefreshStart + 1, StringComparison.Ordinal);
+            // The refresh lives in its own method so the frame body allocates no closures.
+            Assert(beforeRenderMethod.Contains("try { RefreshPresentation(main, refresh); }"),
+                "the render frame must run the troop and global refresh as one independently failing area");
+            string refreshMethod = ExtractSourceMethod(unitHud, "private void RefreshPresentation(");
+            int selectionRefreshStart = refreshMethod.IndexOf("if ((refresh && HasCategories(UnitHudSurface.TroopSelection)) || troopSelectionChanged)", StringComparison.Ordinal);
+            int explicitRefreshStart = refreshMethod.IndexOf("if (refresh)", selectionRefreshStart + 1, StringComparison.Ordinal);
             string selectionRefreshBlock = selectionRefreshStart >= 0 && explicitRefreshStart > selectionRefreshStart
-                ? beforeRenderMethod.Substring(selectionRefreshStart, explicitRefreshStart - selectionRefreshStart)
+                ? refreshMethod.Substring(selectionRefreshStart, explicitRefreshStart - selectionRefreshStart)
                 : string.Empty;
             string explicitRefreshBlock = explicitRefreshStart >= 0
-                ? beforeRenderMethod.Substring(explicitRefreshStart)
+                ? refreshMethod.Substring(explicitRefreshStart)
                 : string.Empty;
             Assert(selectionRefreshBlock.Contains("SetupSelectedTroops()") &&
                 !selectionRefreshBlock.Contains("HUDControlGroups") &&
@@ -194,10 +197,14 @@ namespace APISharedTests
             Assert(loadedGuard >= 0 && loadedGuard < singletonRead &&
                 singletonRead < hudGuard && hudGuard < refreshConsume,
                 "render HUD readiness guards must precede the lazy singleton getter and refresh consumption");
-            Assert(renderMethod.Contains("TryApplyFrameArea(\"hover presentation\", () => ApplyHover(main));") &&
-                renderMethod.Contains("TryApplyFrameArea(\"army-report presentation\", () => ApplyArmyReport(main), HideArmyHosts);") &&
-                renderMethod.Contains("TryApplyFrameArea(\"recruitment presentation\", () => ApplyRecruitmentPresentation(main), HideRecruitmentControls);") &&
-                renderMethod.Contains("TryApplyFrameArea(\"unit-detail presentation\", () => ApplyUnitDetails(main), HideUnitDetailControls);") &&
+            string failureMethod = ExtractSourceMethod(unitHud, "private void ReportFrameAreaFailure(");
+            Assert(FailsClosed(renderMethod, "ApplyHover", "hover presentation", "None") &&
+                FailsClosed(renderMethod, "ApplyArmyReport", "army-report presentation", "ArmyHosts") &&
+                FailsClosed(renderMethod, "ApplyRecruitmentPresentation", "recruitment presentation", "RecruitmentControls") &&
+                FailsClosed(renderMethod, "ApplyUnitDetails", "unit-detail presentation", "UnitDetailControls") &&
+                failureMethod.Contains("case FrameAreaCleanup.ArmyHosts: HideArmyHosts(); break;") &&
+                failureMethod.Contains("case FrameAreaCleanup.RecruitmentControls: HideRecruitmentControls(); break;") &&
+                failureMethod.Contains("case FrameAreaCleanup.UnitDetailControls: HideUnitDetailControls(); break;") &&
                 unitHud.Contains("private void ApplyHover(MainViewModel main)") &&
                 unitHud.Contains("private void ApplyArmyReport(MainViewModel main)"),
                 "independent render HUD areas must reuse the readiness-checked view model and fail closed separately");
@@ -451,6 +458,10 @@ namespace APISharedTests
             }
             throw new InvalidOperationException("Unterminated method: "+signature);
         }
+        // A frame area fails closed when its own try block reports with its own cleanup.
+        private static bool FailsClosed(string method, string apply, string area, string cleanup) =>
+            Regex.IsMatch(method, @"try \{ " + apply + @"\(main\); \}\s*catch \(Exception ex\) \{ ReportFrameAreaFailure\(""" +
+                Regex.Escape(area) + @""", ex, FrameAreaCleanup\." + cleanup + @"\); \}");
         private static int Count(string value, string fragment)
         {
             int count=0, position=0;
