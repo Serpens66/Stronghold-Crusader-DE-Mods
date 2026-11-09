@@ -86,6 +86,20 @@ if ($ApiPluginPackage) {
     Assert-InGameTestApiPair $api $patcher
 }
 
+function Read-TestUnityLog {
+    # Unity can still hold an open writer after the game process exits.
+    $share = [IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete
+    $inputLog = [IO.File]::Open($playerLog, [IO.FileMode]::Open, [IO.FileAccess]::Read, $share)
+    $buffer = [IO.MemoryStream]::new()
+    $sha256 = [Security.Cryptography.SHA256]::Create()
+    try {
+        $inputLog.CopyTo($buffer)
+        $bytes = $buffer.ToArray()
+        [pscustomobject]@{ Bytes = $bytes; Hash = [Convert]::ToBase64String($sha256.ComputeHash($bytes)) }
+    }
+    finally { $sha256.Dispose(); $buffer.Dispose(); $inputLog.Dispose() }
+}
+
 function Get-TestGame {
     $gameProcesses = @(Get-Process -Name $processName -ErrorAction SilentlyContinue)
     if ($gameProcesses.Count -eq 0) { return }
@@ -141,7 +155,7 @@ try {
     $snapshots.Add((Save-InGameTestState $settings (Join-Path $rollback 'settings.cfg')))
     $snapshots.Add((Save-InGameTestState $apiSettings (Join-Path $rollback 'api-settings') -Directory))
     $snapshots.Add((Save-InGameTestState $log (Join-Path $rollback 'previous-LogOutput.log')))
-    $previousPlayerLog = if ([IO.File]::Exists($playerLog)) { Get-ApiRepositoryHash $playerLog }
+    $previousPlayerLog = if ([IO.File]::Exists($playerLog)) { (Read-TestUnityLog).Hash }
     [IO.File]::Delete($log) # Isolate the new log with either BepInEx AppendLog setting.
     $runLogIsolated = $true
 
@@ -203,8 +217,11 @@ finally {
                 catch { $restorationErrors.Add("Cannot save BepInEx log: $($_.Exception.Message)") }
             }
             try {
-                if ([IO.File]::Exists($playerLog) -and (Get-ApiRepositoryHash $playerLog) -cne $previousPlayerLog) {
-                    [IO.File]::Copy($playerLog, (Join-Path $evidence 'Player.log'), $false)
+                if ([IO.File]::Exists($playerLog)) {
+                    $unityLog = Read-TestUnityLog
+                    if ($unityLog.Hash -cne $previousPlayerLog) {
+                        [IO.File]::WriteAllBytes((Join-Path $evidence 'Player.log'), $unityLog.Bytes)
+                    }
                 }
             }
             catch { $restorationErrors.Add("Cannot save Unity log: $($_.Exception.Message)") }
