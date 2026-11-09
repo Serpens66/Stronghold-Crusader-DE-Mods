@@ -90,7 +90,7 @@ namespace BugfixesAndQoL
             patch.Generate((assembler, _) =>
             {
                 assembler.AddInstructions(new[] { jump });
-                // Keep the audited 16/18-byte spans of the two existing entry hooks.
+                // Keep the audited starting-troop entry span.
                 if (plan.EntryKind != 0)
                     for (int index = 6; index < plan.PhysicalLength; index++) assembler.nop();
             });
@@ -124,8 +124,7 @@ namespace BugfixesAndQoL
             if (active && plan.EntryKind != 0)
             {
                 ulong peace = imageBase + VanillaPeaceTimeNativeContract.PeaceTimeActiveFlagRva;
-                if (plan.EntryKind == 1) VanillaPeaceTimeNativeContract.EmitStartingTroopsGuardPrefix(a, peace);
-                else VanillaPeaceTimeNativeContract.EmitWildlifeGuardPrefix(a, peace);
+                VanillaPeaceTimeNativeContract.EmitStartingTroopsGuardPrefix(a, peace);
             }
             byte[] source = active ? plan.Active : plan.Original.Take(plan.PhysicalLength).ToArray();
             var decoder = Decoder.Create(64, new ByteArrayCodeReader(source)); decoder.IP = imageBase + (uint)plan.Rva;

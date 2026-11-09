@@ -12,7 +12,7 @@ using System.Reflection;
 namespace BugfixesAndQoL
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.3")]
-    [BepInDependency(ApiSharedGuid, "0.39.0")]
+    [BepInDependency(ApiSharedGuid, "0.43.0")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
@@ -36,7 +36,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.217";
+        public const string PluginVersion = "1.0.218";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;
@@ -370,42 +370,43 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(Logger, "PEACE_CIVILIAN_PROXIMITY_UNAVAILABLE: existing building rules remain active; " + ex);
             }
 
-            if (skirmishGameOptionsCompatible)
+            bool currentNative = Shared.DebugLogHelper.IsCurrentNativeLibraryVersion();
+            try
             {
-                bool currentNative = Shared.DebugLogHelper.IsCurrentNativeLibraryVersion();
-                try
+                var wildlifeRegistration = VanillaPeaceTimeGameplayPatch.RegisterWildlifeRules();
+                if (skirmishGameOptionsCompatible)
                 {
                     vanillaPeaceTimeGameplayPatch = new VanillaPeaceTimeGameplayPatch(
                         Logger,
                         context.ModuleHandle,
                         context.Region,
                         context.Memory,
-                        currentNative, Settings);
+                        currentNative, Settings, wildlifeRegistration);
                     skirmishGameOptionsRuntime?.SetPeaceTimeNativeAvailable(true);
+                }
+            }
+            catch (Exception ex)
+            {
+                skirmishGameOptionsRuntime?.SetPeaceTimeNativeAvailable(false);
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.vanilla-peace-time-patch", "BUGFIXES_AND_QOL_VANILLA_PEACE_TIME_PATCH_FAILED: " + ex);
+            }
+
+            if (skirmishGameOptionsCompatible && skirmishGameOptionsRuntime != null)
+            {
+                try
+                {
+                    noDogsNativePatch = new NoDogsNativePatch(
+                        Logger,
+                        context.ModuleHandle,
+                        context.Region,
+                        context.Memory,
+                        currentNative, Settings);
+                    skirmishGameOptionsRuntime.SetNoDogsNativeAvailable(true);
                 }
                 catch (Exception ex)
                 {
-                    skirmishGameOptionsRuntime?.SetPeaceTimeNativeAvailable(false);
-                    Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.vanilla-peace-time-patch", "BUGFIXES_AND_QOL_VANILLA_PEACE_TIME_PATCH_FAILED: " + ex);
-                }
-
-                if (skirmishGameOptionsRuntime != null)
-                {
-                    try
-                    {
-                        noDogsNativePatch = new NoDogsNativePatch(
-                            Logger,
-                            context.ModuleHandle,
-                            context.Region,
-                            context.Memory,
-                            currentNative, Settings);
-                        skirmishGameOptionsRuntime.SetNoDogsNativeAvailable(true);
-                    }
-                    catch (Exception ex)
-                    {
-                        skirmishGameOptionsRuntime.SetNoDogsNativeAvailable(false);
-                        Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.skirmish-game-options-no", "BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_NO_DOGS_PATCH_FAILED: " + ex);
-                    }
+                    skirmishGameOptionsRuntime.SetNoDogsNativeAvailable(false);
+                    Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.skirmish-game-options-no", "BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_NO_DOGS_PATCH_FAILED: " + ex);
                 }
             }
 

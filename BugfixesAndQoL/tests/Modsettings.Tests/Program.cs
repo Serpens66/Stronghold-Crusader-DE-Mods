@@ -51,6 +51,34 @@ internal static partial class Program
             Check(Bool(Feature(feature,vm),member)==(host?server:client)[index++],feature+" "+member+" H="+h+",C="+c+",O="+o);
         }
     }
+
+    private static void PeaceTimeWildlifeRuleTests()
+    {
+        var type = mod.GetType("BugfixesAndQoL.VanillaPeaceTimeGameplayPatch", true);
+        var rules = (Array)type.GetField("WildlifeRules", All).GetValue(null);
+        var actual = new HashSet<(string Species, int Player)>();
+        foreach (object rule in rules)
+        {
+            Type ruleType = rule.GetType();
+            object attacker = ruleType.GetProperty("Attacker").GetValue(rule);
+            object target = ruleType.GetProperty("Target").GetValue(rule);
+            Type selectorType = attacker.GetType();
+            PropertyInfo playerId = selectorType.GetProperty("PlayerId");
+            PropertyInfo unitType = selectorType.GetProperty("UnitType");
+            PropertyInfo globalId = selectorType.GetProperty("GlobalId");
+            Check(!(bool)ruleType.GetProperty("Bidirectional").GetValue(rule) &&
+                ruleType.GetProperty("Condition").GetValue(rule).ToString() == "WhilePeaceTimeActive" &&
+                playerId.GetValue(attacker) == null && globalId.GetValue(attacker) == null &&
+                unitType.GetValue(target) == null && globalId.GetValue(target) == null,
+                "wildlife rule has the original direction, native condition and selector scope");
+            Check(actual.Add((unitType.GetValue(attacker).ToString(), (int)playerId.GetValue(target))),
+                "wildlife rule covers a unique species and player slot");
+        }
+        string[] predators = { "CHIMP_TYPE_LION", "CHIMP_TYPE_HYENA", "CHIMP_TYPE_CROCODILE" };
+        Check(actual.SetEquals(predators.SelectMany(predator => Enumerable.Range(1, 8)
+            .Select(player => (predator, player)))), "wildlife rule covers all and only the audited predators and slots 1..8");
+    }
+
     public static int Main(string[] args)
     {
         try
@@ -130,6 +158,7 @@ internal static partial class Program
                 new[]{"PeaceTimeCivilianProximityFeature","DesiredEnabled","EnablePeaceTimeCivilianProximityReduction"},
                 new[]{"AbruptHostMigrationFix","StartupStateFixEnabled","EnableMultiplayerStartupStateFix"}})
                 Matrix(test[0],test[1],test[2],true);
+            PeaceTimeWildlifeRuleTests();
             Matrix("SkirmishAiSelectionMemoryHook","RandomEnhancementsEnabled","EnableRandomOpponentSelectionEnhancements",true);
             foreach(bool h in new[]{false,true})foreach(bool c in new[]{false,true})foreach(bool option in new[]{false,true})
             {

@@ -322,6 +322,17 @@ Regression tests execute the whole native predicate, historical faulty byte fixt
 
 Build/installation verification (2026-10-07): the prescribed elevated build.bat /nopause completed successfully, including all preflight/regression checks and the native execution tests above. Installed AssemblyVersion is 1.0.175.0 and info.json Version is 1.0.175; all 48 package DLL/metadata/resource files match their installed SHA-256. Build log: _inspect/WildlifePeaceTime-1.0.175-build.log. MSB3277 dependency-version warnings remain (Mono.Cecil in the runtime/test references; additional dependency warnings in the existing FriendlyMoatMovement test project); there were no build errors. No in-game acceptance was performed.
 
+### Shared wildlife target rules (1.0.218)
+
+APIShared 0.43.0 owns the target exclusion entry at `0x1867A0`. BugfixesAndQoL
+registers rules that protect players from lions, hyenas and crocodiles while the
+native Peace Time flag is active. The host-synchronized gameplay option controls
+both these rules and the remaining 23 native Peace Time sites in BugfixesAndQoL.
+On a new DLL, re-audit the shared entry in APIShared and the remaining QoL sites
+against the [native Peace Time baseline](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/VANILLA_PEACE_TIME.md).
+The November 2026 single-player runs observed natural predator contact before
+and after expiry, with and without Fixes.
+
 ## Gatehouse living capture integration
 
 Host setting EnableGatehouseLivingCaptureFix (default true), gated by EnableMod. Permanent X64InlineHook at B7540..B7552; native/layout/byte/backend contracts and tests in tests/GatehouseLivingCapture.Tests/UpdateToNewDLL.md. Test-GatehouseLivingCapturePreflight.ps1 -RunTests validates installed public APIs and runs the actual-backend suite. Setting changes are atomic data writes; no published teardown. Keep Fixes soft dependency and test gatehouse capture alongside existing gate controls.

@@ -25,7 +25,6 @@ namespace BugfixesAndQoL
             new Definition(0x1259F3, 6, "0F85F2020000", 0, "8B0529055403"),
             new Definition(0x156EAB, 6, "0F8599000000", 0, "664239BC2B2C0A0000"),
             new Definition(0x17F3E0, 6, "740485C07527", 0, "460FBF8C291E070000"),
-            new Definition(0x1867A0, 18, "48895C24084863C2488BD94C69D890040000", 2, "4C03D9"),
             new Definition(0x1868B2, 6, "740485C075D6", 0, "6683E92D"),
             new Definition(0x186976, 6, "743585C07431", 0, "B801000000"),
             new Definition(0x18699A, 6, "8B05F0E13E08", 0, "83F863"),
@@ -69,7 +68,7 @@ namespace BugfixesAndQoL
                 }
                 result.Add(new NativeSwitchPlan(d.Rva,d.Physical,d.Bytes,active,d.Entry,d.Following));
             }
-            if (result.Count!=(noDogs?1:24) || !noDogs && patches!=VanillaPeaceTimeNativeContract.PatchSites.Length)
+            if (result.Count!=(noDogs?1:23) || !noDogs && patches!=VanillaPeaceTimeNativeContract.PatchSites.Length)
                 throw new InvalidOperationException("Incomplete native logical switch group.");
             return result.ToArray();
         }

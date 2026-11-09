@@ -16,6 +16,10 @@ namespace BugfixesAndQoL
         private const string DllPath = @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll";
         private const long Base = 0x180000000;
         private const ulong PeacePatchStubAddress = 0x180500000;
+        private const int NativeUnitSentinel = 0x65C;
+        private const int NativeUnitStride = 0x490;
+        private const int NativeUnitTypeOffset = 0x6E6;
+        private const int NativeUnitPlayerOffset = 0x6EE;
         private static int assertions;
 
         private static int Main()
@@ -72,7 +76,7 @@ namespace BugfixesAndQoL
             TestPeaceTimeUpdateCaller(image);
             TestPeaceTimeFixedRatePatch(image);
             TestStartingTroopsGuardGenerator(image);
-            TestWildlifeBehavior(image);
+            TestHostilityBody(image);
         }
 
         private static void TestPeaceTimeUpdateCaller(byte[] image)
@@ -306,9 +310,13 @@ namespace BugfixesAndQoL
         [DllImport("kernel32.dll")]
         private static extern bool FlushInstructionCache(IntPtr process, IntPtr address, UIntPtr size);
 
-        private static void TestWildlifeBehavior(byte[] image)
+        private static void TestHostilityBody(byte[] image)
         {
             Check(IntPtr.Size == 8, "native behavior tests run as x64");
+            Check(Marshal.SizeOf<GameUnit>() == NativeUnitStride &&
+                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_UnitChimp)).ToInt32() + NativeUnitSentinel == NativeUnitTypeOffset &&
+                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_ControllableForPlayerId)).ToInt32() + NativeUnitSentinel == NativeUnitPlayerOffset,
+                "the copied hostility predicate receives the audited unit layout");
             const int classByteOffset = 0x984; // Native sentinel + GameUnit.N000000B8 (+0x328).
             const int teamsRva = 0x37EDF3C;
             const int modeRva = 0x8574B90;
@@ -316,7 +324,6 @@ namespace BugfixesAndQoL
             IntPtr arena = VirtualAlloc(IntPtr.Zero, (UIntPtr)(codeOffset + 0x4000), 0x3000, 0x04);
             Check(arena != IntPtr.Zero, "isolated native image arena allocated");
             IntPtr manager = Marshal.AllocHGlobal(0x3000);
-            X64InlineHook guard = null;
             try
             {
                 Marshal.Copy(new byte[0x3000], 0, manager, 0x3000);
@@ -332,20 +339,11 @@ namespace BugfixesAndQoL
                 Check(FlushInstructionCache(new IntPtr(-1), vanillaAddress, (UIntPtr)0x3000),
                     "isolated function instruction cache flushed");
                 var vanilla = Marshal.GetDelegateForFunctionPointer<Exclusion>(vanillaAddress);
-                var body = Marshal.GetDelegateForFunctionPointer<Exclusion>(correctedAddress);
+                var corrected = Marshal.GetDelegateForFunctionPointer<Exclusion>(correctedAddress);
                 var legacy = Marshal.GetDelegateForFunctionPointer<Exclusion>(legacyAddress);
 
-                guard = new X64InlineHook(unchecked((ulong)correctedAddress.ToInt64()),
-                    VanillaPeaceTimeNativeContract.WildlifeHookLength);
-                Check(guard.DisplacedByteCount == 18, "real installed inline backend displaces exactly 18 bytes");
-                guard.Generate((assembler, instructions, continuation) =>
-                {
-                    VanillaPeaceTimeNativeContract.EmitWildlifeGuardPrefix(assembler,
-                        arenaBase + VanillaPeaceTimeNativeContract.PeaceTimeActiveFlagRva);
-                    assembler.AddInstructions(instructions);
-                });
-                var corrected = Marshal.GetDelegateForFunctionPointer<Exclusion>(guard.StubAddress);
-                // Execute the prepared backend stub; never enable/restore a hook in the game or fixture.
+                // APIShared owns and tests the exclusion entry. Here the full copied predicate
+                // exercises only the hostility body changes that still belong to QoL.
                 IntPtr mode = IntPtr.Add(arena, modeRva);
                 IntPtr peace = IntPtr.Add(arena, VanillaPeaceTimeNativeContract.PeaceTimeActiveFlagRva);
                 Marshal.WriteInt32(IntPtr.Add(arena, teamsRva), 0);
@@ -356,12 +354,13 @@ namespace BugfixesAndQoL
                 SetUnit(manager, 2, eChimps.CHIMP_TYPE_SPEARMAN, 0, 1, classByteOffset);
                 Check(vanilla(manager, 1, 2, 0) == 0 && legacy(manager, 1, 2, 0) == 1 &&
                     corrected(manager, 1, 2, 0) == 0,
-                    "legacy unconditional shared branch reproduces lion immunity; corrected native stub restores Vanilla");
+                    "legacy unconditional shared branch reproduces lion immunity; corrected body restores Vanilla");
                 SetUnit(manager, 1, eChimps.CHIMP_TYPE_HYENA, 1, 0, classByteOffset);
                 Check(vanilla(manager, 1, 2, 0) == 0 && legacy(manager, 1, 2, 0) == 1 &&
                     corrected(manager, 1, 2, 0) == 0, "legacy hyena immunity is reproduced and corrected");
 
                 long inactiveCases = 0, activeCases = 0;
+                long mode0Exclusions = 0, mode99Exclusions = 0;
                 foreach (int nativeMode in new[] { 0, 1, 99 })
                 foreach (byte active in new byte[] { 0, 1 })
                 foreach (int sameTeam in new[] { 0, 1 })
@@ -380,41 +379,25 @@ namespace BugfixesAndQoL
                         SetUnit(manager, 1, (eChimps)attacker, attackerClass, attackerPlayer, classByteOffset);
                         SetUnit(manager, 2, (eChimps)target, targetClass, targetPlayer, classByteOffset);
                         int original = vanilla(manager, 1, 2, filter);
-                        bool wildlife = attacker == (int)eChimps.CHIMP_TYPE_LION ||
-                            attacker == (int)eChimps.CHIMP_TYPE_HYENA ||
-                            attacker == (int)eChimps.CHIMP_TYPE_CROCODILE;
-                        int expected = active == 0 ? original :
-                            wildlife && targetPlayer != 0 ? 1 : body(manager, 1, 2, filter);
                         int actual = corrected(manager, 1, 2, filter);
-                        if (actual != expected)
-                            throw new InvalidOperationException($"Native exclusion mismatch: mode={nativeMode}, peace={active}, " +
-                                $"attacker={attacker}/{attackerClass}/{attackerPlayer}, target={target}/{targetClass}/{targetPlayer}, " +
-                                $"sameTeam={sameTeam}, filter={filter}, expected={expected}, actual={actual}.");
+                        if (actual != original)
+                        {
+                            if (active == 0 || nativeMode == 1 || original != 0 || actual != 1)
+                                throw new InvalidOperationException($"Unexpected native exclusion change: mode={nativeMode}, peace={active}, " +
+                                    $"attacker={attacker}/{attackerClass}/{attackerPlayer}, target={target}/{targetClass}/{targetPlayer}, " +
+                                    $"sameTeam={sameTeam}, filter={filter}, original={original}, actual={actual}.");
+                            if (nativeMode == 0) mode0Exclusions++; else mode99Exclusions++;
+                        }
                         if (active == 0) inactiveCases++; else activeCases++;
-                        if (active != 0 && nativeMode == 1 && !(wildlife && targetPlayer != 0))
-                            Check(actual == original, "unrelated mode-1 active-peace behavior remains Vanilla");
                     }
                 }
                 Check(inactiveCases > 0 && activeCases == inactiveCases,
                     "exhaustive native cases cover both actual peace states equally");
-                foreach (eChimps animal in new[] { eChimps.CHIMP_TYPE_LION, eChimps.CHIMP_TYPE_HYENA,
-                    eChimps.CHIMP_TYPE_CROCODILE })
-                foreach (int nativeMode in new[] { 0, 1, 99 })
-                foreach (byte player in new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 255 })
-                {
-                    Marshal.WriteInt32(mode, nativeMode);
-                    SetUnit(manager, 1, animal, 1, 0, classByteOffset);
-                    SetUnit(manager, 2, eChimps.CHIMP_TYPE_SPEARMAN, 0, player, classByteOffset);
-                    Marshal.WriteByte(peace, 1);
-                    Check(corrected(manager, 1, 2, 0) == (player >= 1 && player <= 8 ? 1 : body(manager, 1, 2, 0)),
-                        "active wildlife guard covers exactly player IDs 1..8");
-                    Marshal.WriteByte(peace, 0);
-                    Check(corrected(manager, 1, 2, 0) == vanilla(manager, 1, 2, 0),
-                        "expiry immediately restores Vanilla on the same prepared stub and existing contact");
-                }
-                Console.WriteLine($"Native wildlife behavior: inactive={inactiveCases}, active={activeCases}; " +
-                    "three predators, all unit pairs/classes/owners/teams/filter flags, modes 0/1/99.");
-                TestWildlifeSpanRejections(image);
+                Check(mode0Exclusions > 0 && mode99Exclusions > 0,
+                    "the corrected body extends active Peace Time exclusions to modes 0 and 99");
+                Console.WriteLine($"Native hostility body: inactive={inactiveCases}, active={activeCases}; " +
+                    "all unit pairs/classes/owners/teams/filter flags, modes 0/1/99.");
+                TestHostilityBodyRejections(image);
                 // AssemblyPatch uses six bytes here, rather than the inline backend's 14-byte minimum.
                 IntPtr modeCopy = Marshal.AllocHGlobal(32);
                 try
@@ -433,7 +416,6 @@ namespace BugfixesAndQoL
             }
             finally
             {
-                guard?.Dispose(); // Prepared, never enabled or published; candidate rollback only.
                 Marshal.FreeHGlobal(manager);
                 VirtualFree(arena, UIntPtr.Zero, 0x8000);
             }
@@ -441,11 +423,11 @@ namespace BugfixesAndQoL
 
         private static void SetUnit(IntPtr manager, int id, eChimps type, byte classFlag, byte player, int classByteOffset)
         {
-            int slot = id * VanillaPeaceTimeNativeContract.NativeUnitStride;
-            Marshal.WriteInt16(manager, slot + VanillaPeaceTimeNativeContract.NativeUnitTypeOffset, (short)type);
+            int slot = id * NativeUnitStride;
+            Marshal.WriteInt16(manager, slot + NativeUnitTypeOffset, (short)type);
             Marshal.WriteByte(manager, slot + classByteOffset, classFlag);
             // Vanilla reads the owner as a word; the public field itself is the low byte.
-            Marshal.WriteInt16(manager, slot + VanillaPeaceTimeNativeContract.NativeUnitPlayerOffset, player);
+            Marshal.WriteInt16(manager, slot + NativeUnitPlayerOffset, player);
             Marshal.WriteInt16(manager, slot + 0x6D8, player); // war-dog alternate owner input.
         }
 
@@ -504,30 +486,23 @@ namespace BugfixesAndQoL
             Marshal.Copy(bytes, 0, destination, bytes.Length);
         }
 
-        private static void TestWildlifeSpanRejections(byte[] image)
+        private static void TestHostilityBodyRejections(byte[] image)
         {
             int start = VanillaPeaceTimeNativeContract.HostilityFunctionRva;
-            byte original = image[start];
-            try
-            {
-                image[start] = 0x90;
-                Expect<InvalidOperationException>(() => VanillaPeaceTimeNativeContract.Validate(image, (ulong)Base, true),
-                    "wildlife entry byte changes reject the complete candidate");
-            }
-            finally { image[start] = original; }
             int branch = start + 0x25; // Existing six-byte JBE, outside exact-byte validation spans.
             byte[] saved = image.Skip(branch + 2).Take(4).ToArray();
             try
             {
-                Buffer.BlockCopy(BitConverter.GetBytes(start + 5 - (branch + 6)), 0, image, branch + 2, 4);
+                int target = VanillaPeaceTimeNativeContract.HostilityPeaceModeRva + 2;
+                Buffer.BlockCopy(BitConverter.GetBytes(target - (branch + 6)), 0, image, branch + 2, 4);
                 bool rejected = false;
                 try { VanillaPeaceTimeNativeContract.Validate(image, (ulong)Base, true); }
                 catch (InvalidOperationException ex) { rejected = ex.Message.Contains("targets the interior"); }
-                Check(rejected, "incoming JBE into the hook interior is rejected specifically by control-flow validation");
+                Check(rejected, "incoming JBE into the peace-only mode patch interior is rejected by control-flow validation");
             }
             finally { Buffer.BlockCopy(saved, 0, image, branch + 2, saved.Length); }
             int shared = VanillaPeaceTimeNativeContract.HostilitySharedTestRva + 2;
-            original = image[shared];
+            byte original = image[shared];
             try
             {
                 image[shared] = 0xE9;
