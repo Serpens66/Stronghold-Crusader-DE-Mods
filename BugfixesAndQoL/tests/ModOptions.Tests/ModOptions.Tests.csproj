@@ -18,6 +18,8 @@
     <Compile Include="..\..\..\_inspect\UiWorkBoundaryDouble.cs" />
     <Compile Include="..\..\..\APIShared\src\Presentation\UiWork\UiWorkContracts.cs" />
     <Compile Include="..\..\..\APIShared\src\Presentation\UiWork\UiWorkScheduler.cs" />
+    <Compile Include="..\..\..\APIShared\src\Core\Events\OrderedRegistrations.cs" />
+    <Compile Include="..\..\..\APIShared\src\Core\Internal\Logging\FailureThrottle.cs" />
     <Compile Include="..\..\src\Plague\PlagueHerdLedger.cs" />
     <Compile Include="..\..\src\Plague\PlaguePopularityFix.cs" />
     <Compile Include="..\..\src\Plague\PlaguePopularitySaveState.cs" />

@@ -147,7 +147,7 @@ namespace AutoSendTest
         private ToolTip AttachTooltip(FrameworkElement element, string key)
         {
             var tip = new ToolTip { Style = tooltipStyle, Content = AutoSendText.Get(key), IsHitTestVisible = false };
-            SHCDESE.UI.ToolTipResolutionScale.SetEnabled(tip, true);
+            APIShared.ModSettings.SharedToolTipSizing.SetEnabled(tip, true);
             ToolTipService.SetToolTip(element, tip); ToolTipService.SetShowDuration(element, 60000);
             ToolTipService.SetShowOnDisabled(element, true);
             return tip;

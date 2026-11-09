@@ -941,8 +941,8 @@ foreach ($viewModelFile in $settingsViewModels) {
     }
 }
 
-$sharedSettingsSource = [string]::Join([Environment]::NewLine, @(Get-ChildItem -LiteralPath (Join-Path $workspace 'APIShared/src/ModSettings') -Recurse -Filter '*.cs' | Where-Object { $_.Name -like 'PresetLobbyModSettingsViewModel*' -or $_.Name -in @('PerPlayerLobbySettings.cs', 'LobbyModSettingsPresetRegistration.cs') } | ForEach-Object { [IO.File]::ReadAllText($_.FullName) }))
-$sharedLobbyStateSource = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared/src/Lobby/LobbyStateCapability.cs'))
+$sharedSettingsSource = [string]::Join([Environment]::NewLine, @(Get-ChildItem -LiteralPath (Join-Path $workspace 'APIShared/src/ModSettings') -Recurse -Filter '*.cs' | Where-Object { $_.Name -like 'PresetLobbyModSettingsViewModel*' -or $_.Name -like 'PerPlayerLobby*' -or $_.Name -eq 'LobbyModSettingsPresetRegistration.cs' } | ForEach-Object { [IO.File]::ReadAllText($_.FullName) }))
+$sharedLobbyStateSource = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared/src/Lobby/LobbyStateService.cs'))
 foreach ($required in @(
     'ActivatePerPlayerLobbySettings',
     'PerPlayerLobbySettingsBuilder',
@@ -957,8 +957,9 @@ foreach ($required in @(
 if ($sharedSettingsSource.Contains('ScriptExtenderMultiplayerSyncWorkaround')) {
     throw 'APIShared settings still contain the obsolete pre-2.0.2 multiplayer-sync workaround.'
 }
-$sharedSearchSource = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared/src/ModSettings/UI/ModSettingsSearch.cs'))
-$searchCatalogSource = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared/src/ModSettings/UI/ModSettingsSearchCatalog.cs'))
+# The search is split by responsibility into ModSettingsSearch*.cs and SearchSource.cs; audit the whole set.
+$sharedSearchSource = [string]::Join([Environment]::NewLine, @(Get-ChildItem -LiteralPath (Join-Path $workspace 'APIShared/src/ModSettings/UI') -File -Filter '*.cs' | Where-Object { $_.Name -like 'ModSettingsSearch*' -or $_.Name -eq 'SearchSource.cs' } | Sort-Object Name | ForEach-Object { [IO.File]::ReadAllText($_.FullName) }))
+$searchCatalogSource = ''
 foreach ($required in @(
     'DependencyProperty.RegisterAttached(',
     'System_GetModSettingsSearchEntries',
@@ -1394,7 +1395,6 @@ foreach ($required in @(
     'API_SHARED_LOBBY_OBSERVER',
     'PlayerIdentityHelper.TryCaptureHumanRoster(',
     'PlayerIdentityHelper.CaptureLocalPlayerId(',
-    'preferInGameRoster: true',
     'snapshot.HasUnresolvedPlayers',
     'never need to resolve or guess their own player ID',
     'preserveForMapTransition',
@@ -1404,6 +1404,13 @@ foreach ($required in @(
     if (-not $sharedSettingsSource.Contains($required)) {
         throw "APIShared per-player lifecycle/roster marker is missing: $required"
     }
+}
+# The final roster always comes from the in-game members (the former preferInGameRoster: true
+# option is now the only path of TryCaptureHumanRoster).
+$playerIdentitySource = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared/src/GameModes/Internal/PlayerIdentityHelper.cs'))
+if (-not ($playerIdentitySource.Contains('internal static bool TryCaptureHumanRoster(') -and
+        $playerIdentitySource.Contains('Platform_Multiplayer.Instance?.gameMembers'))) {
+    throw 'APIShared final human roster must be captured from the in-game members.'
 }
 foreach ($required in @(
     '.Subscribe(_ => OnMapStarting())',
@@ -1415,7 +1422,7 @@ foreach ($required in @(
 if ($sharedSettingsSource.Contains('sendPacketToSteamIdMethod')) {
     throw 'APIShared reliable lobby delivery must not route back through gameMembers-aware SendPacketToSteamId.'
 }
-$sharedGameModeSource = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared/src/GameModes/MissionModePolicy.cs'))
+$sharedGameModeSource = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared/src/GameModes/GameModeHelper.cs'))
 foreach ($required in @(
     'public static bool IsMapEditor()',
     'if (member.SkirmishMember)',
@@ -1517,7 +1524,7 @@ $crlfTargets = @($settings.Values) + @(
 ) + @(
     'APIShared/src/ModSettings/Presets/PresetLobbyModSettingsViewModel.cs',
     'APIShared/src/ModSettings/UI/ModSettingsSearch.cs',
-    'APIShared/src/GameModes/MissionModePolicy.cs',
+    'APIShared/src/GameModes/GameModeHelper.cs',
     'SerpsModsHost/src/ModSettingsSearchPolicy.cs',
     'SerpsModsHost/src/ModSettingsSearchViewModel.cs',
     '_inspect/HostClientPresetTests/Program.cs')

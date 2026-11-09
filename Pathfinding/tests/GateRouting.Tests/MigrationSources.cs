@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 namespace Pathfinding.GateRouting
 {
     internal static class MigrationSources
@@ -16,7 +17,9 @@ namespace Pathfinding.GateRouting
             // Development-only diagnosis moved to *.DevDiag.cs (SERP_DEVDIAG builds).
             string devDiag=Path.ChangeExtension(main,".DevDiag.cs");
             if(File.Exists(devDiag))return File.ReadAllText(devDiag);
-            if(File.Exists(api))return File.ReadAllText(api);
+            // APIShared splits large classes into partial files (Name.Part.cs); read the whole class.
+            if(File.Exists(api))return File.ReadAllText(api)+string.Concat(Directory.GetFiles(Path.GetDirectoryName(api),
+                Path.GetFileNameWithoutExtension(api)+".*.cs").OrderBy(f=>f,StringComparer.Ordinal).Select(File.ReadAllText));
             string normalized=path.Replace('\\','/');
             int apiSegment=normalized.IndexOf("APIShared/",StringComparison.Ordinal);
             if(apiSegment>=0)return File.ReadAllText(Path.Combine("..",normalized.Substring(apiSegment)));
