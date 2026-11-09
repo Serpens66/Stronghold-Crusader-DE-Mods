@@ -250,7 +250,8 @@ namespace EngineHarness
                 foreach (int id in new[] { 7, 9 })
                 {
                     GameUnit* unit = GameUnitManagerAPI.Instance.Units + id;
-                    if (unit->r_TribeId != tribe || unit->r_AliveState != AliveState.IsAlive || unit->r_GlobalId == 0) continue;
+                    // 11B520 admits no member with an AI exclusion mark (+0x428).
+                    if (unit->r_TribeId != tribe || unit->r_AliveState != AliveState.IsAlive || unit->r_GlobalId == 0 || unit->N000000D8 != 0) continue;
                     int fromX = unit->r_CurrentTilePositionX, count = Math.Abs(x - fromX);
                     var steps = new int[count];
                     for (int i = 0; i < count; i++) steps[i] = x > fromX ? 2 : 6;
@@ -451,6 +452,21 @@ namespace EngineHarness
                 Check(!fireEscapes.ContainsKey(7) && escapeFailed == failed + 1 && tribes.Moves.Count == 1 && walker->r_TribeId == 3 &&
                     table[1].r_AliveState == AliveState.Dead, "a soldier Vanilla did not admit was kept in its own tribe");
                 ResetFireEscapes();
+                // A stale AI exclusion mark from the soldier's former group order is cleared for its own move;
+                // without the APIShared helper the mark stays and Vanilla leaves the soldier behind.
+                walker->N000000D8 = 1; APIShared.Commands.GroupMoveExclusion.Available = false;
+                Stand(150); tribes.Moves.Clear(); tribes.Deleted.Clear(); failed = escapeFailed;
+                FireEscapeTick(Next());
+                APIShared.Commands.GroupMoveExclusion.Available = true;
+                Check(!fireEscapes.ContainsKey(7) && escapeFailed == failed + 1 && walker->N000000D8 == 1 && walker->r_TribeId == 3,
+                    "an unavailable mark helper changed the mark or the escape outcome");
+                ResetFireEscapes();
+                long cleared = soldierMoveMarksCleared;
+                Stand(150); tribes.Moves.Clear(); tribes.Deleted.Clear();
+                FireEscapeTick(Next());
+                Check(fireEscapes.ContainsKey(7) && walker->N000000D8 == 0 && soldierMoveMarksCleared == cleared + 1 && walker->r_AIState == 101,
+                    "a soldier with a stale AI exclusion mark did not escape");
+                Reset();
 
                 // Unburnt pitch counts as fire front: 147 is pitch, 146 is chosen; with pitch everywhere in
                 // reach the nearest tile off the fire (148) remains.

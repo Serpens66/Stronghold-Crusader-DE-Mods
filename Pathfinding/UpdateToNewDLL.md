@@ -91,6 +91,14 @@ same hash; Extender APIs only, no RVA of MoatMove's own):
   member, failed `0x196280`); MoatMove checks `r_AIState` 101/122 afterwards. Admission: AliveState 2,
   +0x29C/+0x29A/+0x40F/+0x428 zero, `r_AIState` != 207, +0x90 != 1, not types 40/41/61, types 39/77/58/59/60
   need their crew state (+0x3B0).
+- **AI exclusion mark (+0x428, audit 09.11.2026):** only the AI order routines `0x11DD10`/`0x1245B0` set it, for
+  their own next group order; tribe create/assign/unassign and player orders keep it, and only AI routines clear
+  it (those two, and `0x126020` right before the plain moves in `0x3D840`/`0x3E070`). An AI soldier in its own tribe would therefore not be admitted.
+  `TryMoveSoldier` clears it for the ordered soldier through APIShared's `Commands.GroupMoveExclusion` right
+  before the move (simulation tick on every peer; hash- and layout-gated in APIShared, contract in its
+  UpdateToNewDLL.md). The mark is not restored on rejoin: the AI rewrites the marks of its group before its next
+  own order. `ResumeReplanGroup` repeats an order on the AI's own group and keeps the marks (the AI's selection).
+  Recheck the field's writers and readers before keeping this on a new DLL.
 - **Single-member tribe:** the slot is the commanded tile (`0xDA590` seeds it, `0xE1D30` accepts it).
 - **Membership:** `0x11D370` (assign) and `0x123EA0` (remove) never touch state, route or targets; removing
   the last member deletes the tribe in the same tick (`0x1261F0`). `Create` is `0x119C00` (slots 1..4499).

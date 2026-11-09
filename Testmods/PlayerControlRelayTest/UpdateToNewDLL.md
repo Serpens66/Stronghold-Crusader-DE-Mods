@@ -67,7 +67,8 @@ fields may have been written. Stop returns 1 from case `0x1F`. A thrown exceptio
 the command as `Uncertain`, without a retry.
 
 Admission does not invent a new unit-type movement permission rule. The group
-dispatcher retains Vanilla's per-member type, deployment, life and state filters.
+dispatcher retains Vanilla's per-member type, deployment, life and state filters. Only the
+AI's own exclusion mark is cleared before Move and Patrol (see "Member exclusion mark").
 Consequently an accepted request need not move every member.
 An AI may issue a later order to its own group; this backend does not pause the AI
 or modify its role references. Whether AI role tables cope with regrouped units in a long
@@ -109,6 +110,31 @@ Current native chain:
   portals, builds/consumes native paths and can enter structure-exit state
   `0x199CD0`. Ordinary path builders/reconstruction retain their native repair
   behavior and shared scratch lifetime.
+
+### Member exclusion mark `+0x428`
+
+Audit 2026-11-09, same native hash. All three member loops of `0x11B520` skip a unit whose
+typed `GameUnit+0x428` (Extender `N000000D8`, `ushort`) is not 0. The complete Ghidra Xref export
+lists 20 references to that unit field (`0x1867E8E84` + slot*`0x490`), all in four functions:
+`0x11B520` only reads it; `0x11DD10` and `0x1245B0` rewrite it for every living member right before
+their own AI group order (for example 1 for a member less than 5 tiles from the target);
+`0x126020` sets it to 0 for every living member. Only AI routines reach these three writers, and
+Vanilla's AI calls `0x126020` immediately before its plain `0x11B520` calls in `0x3D840` and
+`0x3E070`. Chore 17 (`0x196100`), the public Extender group API, `Create`, `UnassignUnit` and
+`AssignUnit` leave the field unchanged, and no Extender, Fixes or workspace runtime code writes it.
+
+A unit therefore keeps the mark of its AI group's last order when the relay regroups or orders it.
+The acceptance runs on 2026-11-05 and 2026-11-09 lost exactly one AI group's share of the
+selection that way (`e84=1` on every skipped unit). For Move and Patrol, `Execute` writes 0 to this
+field for exactly the planned units after regrouping and before the public call. This is
+`0x126020`'s effect, limited to the ordered units. It runs inside the authenticated Chore on every
+peer and changes only simulation state that every peer holds alike. Stop, stance, disband and
+Attack Here (`0x11E960` case 5) do not reach `0x11B520`, so they leave the mark alone.
+`Initialize` checks the field's offset `0x428` and type `ushort`. The `Executed` result names
+the number of cleared marks as `aiMoveMarksCleared`.
+
+On a native update, recheck the Xref set of this field, the member loops of `0x11B520`, the AI
+writers and Vanilla's clear-before-move precedent before keeping this write.
 
 This is an execution call, not a read-only probe. A false return can follow native
 group-field writes. Never retry it, replay a consumed input
@@ -269,6 +295,9 @@ not execute the game's simulation or the terminal calls.
 replaces only Unity's mouse values. It checks real picking of foreign units, exact selections, their target
 change, no outsider in the ordered group, the Vanilla HUD with the foreign HUD closed, Stop, stance, patrol,
 disband, the Lord, regrouped AI units over about 50 s and no freeze with the Spectator placement mode.
+It writes the `+0x428` mark on every fourth unit before the 138-unit Move and requires the relay to report
+at least that many cleared marks and every unit to receive the target, because during peace time the AI
+does not take the fixture into its own groups.
 Attack Here is checked only up to the native call. It proves no physical mouse input and no network behavior.
 
 Game acceptance must compare standalone dependencies with the normal mod set,

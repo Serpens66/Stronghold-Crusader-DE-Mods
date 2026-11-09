@@ -92,7 +92,14 @@ unter dem Mauszeiger und Mauskachel; die Einstellung wird nur im Speicher umgesc
 die Auswahl von 1, 7, 2 (mit Umschalt), 138 Einheiten und dem Lord, Ziel und Bewegung, Vanillas HUD samt
 Zurückziehen des Foreign-HUD, Stopp per Taste und Knopf, Haltung, Patrouille samt Abbruch, Auflösen,
 „Hier angreifen“ bis zum nativen Aufruf, Porträtfilter und rund 50 Sekunden Weiterlaufen mit neu
-gebildeten KI-Gruppen. Die Bedienung mit der echten Maus und alles Folgende ersetzt das nicht:
+gebildeten KI-Gruppen. Das Szenario läuft seit 09.11.2026 mit Friedenszeit, Geschwindigkeit 300 und ohne
+RandomEvents. Weil die KI die Testeinheiten in der Friedenszeit nicht in eigene Gruppen übernimmt, setzt der
+Schritt `inject-marks` bei jeder vierten der 138 Einheiten die KI-Ausschlussmarke `GameUnit+0x428`. `move-many`
+verlangt dann, dass der Relay mindestens so viele Marken löscht (`aiMoveMarksCleared` im `Executed`-Log) und
+alle 138 Einheiten das Ziel bekommen. Ziele liegen um die aktuelle Mitte der ausgewählten Einheiten. Stopp
+wird an Befehlen gemessen, nicht an einer Entfernung nach fester Wartezeit: Nach dem Stopp erreicht kein
+Gruppenbefehl die gestoppte Einheit, und Vanilla versetzt sie höchstens um wenige Kacheln (`RELAY_WATCH`).
+Die Bedienung mit der echten Maus und alles Folgende ersetzt das nicht:
 
 - Zuerst mit deklarierten Abhängigkeiten, danach mit dem normalen Modsatz testen.
   Einzelspieler und Editor einschließen, soweit deren Lifecycle/Netzwerkpfad die
@@ -103,10 +110,29 @@ gebildeten KI-Gruppen. Die Bedienung mit der echten Maus und alles Folgende erse
   oder ein Auftrag unterwegs ist. Beim Auswählen dürfen keine zusätzlichen Chores
   oder Tribes entstehen. Eine vom Besitzer ausgewählte Einheit gehorcht und reagiert danach
   beim Besitzer wie beschrieben.
-- Offener Befund (05.11.2026, 11 Läufe von `SP-relay.json`, KI-Besitzer, frisch erzeugte Bogenschützen): In 4 Läufen
-  bekamen bei einem Befehl an 138 Einheiten 46 davon kein neues Ziel, obwohl das Log `Executed` und `skipped=0` meldet.
-  Es war jede dritte Einheit, sie stand noch am Startplatz. Die Ursache ist nicht geklärt; `RELAY_UNCHANGED` im Log
-  nennt dann die Felder, die der native Befehl pro Einheit prüft. Bei Einheiten echter Spieler ist das noch ungeprüft.
+- Behobener Befund (05.11.2026 und 09.11.2026, 13 Läufe von `SP-relay.json`, KI-Besitzer, frisch erzeugte
+  Bogenschützen): In 5 Läufen bekamen bei einem Befehl an 138 Einheiten 46 bzw. 33 davon kein neues Ziel, obwohl
+  das Log `Executed` und `skipped=0` meldet.
+  - Ursache (statisch gegen den DLL-Hash aus `UpdateToNewDLL.md`, mit den gesicherten Logs): Die KI verteilte die
+    Testeinheiten reihum auf drei oder vier eigene Gruppen. Übersprungen wurden genau die Mitglieder einer dieser
+    Gruppen. Der Gruppenbefehl `0x11B520` überspringt jede Einheit mit `GameUnit+0x428 != 0` (`N000000D8`, im Log
+    `e84`). Dieses Feld ist die Ausschlussmarke der KI für ihren eigenen nächsten Gruppenbefehl; nur die
+    KI-Routinen `0x11DD10` und `0x1245B0` setzen es, `0x126020` löscht es. Umgruppieren und die öffentliche
+    Extender-API lassen es stehen, Spielerbefehle löschen es nicht. KI-Zustand 11 war nur die Folge. Kein
+    Vanilla-Verhalten, das der Relay hinnehmen muss. Einzelheiten: `UpdateToNewDLL.md`, Abschnitt
+    „Member exclusion mark“, und die Baseline `GROUP_MOVE_EXCLUSION_MARK.md`.
+  - Korrektur (09.11.2026): Vor Move und Patrol schreibt `RelayWorld.Execute` im Chore für jede geplante Einheit
+    `N000000D8 = 0`, wie Vanillas KI mit `0x126020` vor einem einfachen Gruppenbefehl. Das `Executed`-Log nennt die
+    Anzahl als `aiMoveMarksCleared`.
+  - Nachweis im Spiel (09.11.2026, Geschwindigkeit 300, ohne RandomEvents, Logs unter `.work/a/relay-mark/001`
+    bis `004`): Ohne Friedenszeit übernahm die KI die Testeinheiten wie in den Fehlläufen, und der Relay löschte
+    vor dem Befehl an 138 Einheiten 125, 43, 98 und 120 Marken; alle 138 bekamen jedes Mal das Ziel. Mit
+    Friedenszeit und eingesetzten Marken: 3 von 3 Läufen vollständig bestanden (35 Marken gesetzt, 35 gelöscht,
+    138 von 138 Einheiten befohlen).
+  - Offen: Einheiten echter Spieler sind statisch nicht betroffen, weil nur KI-Routinen die Marke setzen; im
+    Spiel ungeprüft. In einem Lauf mit Friedenszeit ohne Marken (Ordner `001`, Lauf 2) lief der Lord nach dem
+    Relay-Befehl nicht los, sein Ziel stand nach 6 s wieder auf seiner eigenen Kachel. Die Ursache ist nicht
+    geklärt; seitdem zeichnet `RELAY_WATCH` den Lord pro Tick auf, und in den drei damit aufgezeichneten Läufen lief er.
 - Teilauswahl aus einer Rekrutengruppe, ganze Gruppe, mehr als 1000 Einheiten, Befehl
   im Kampf mit Verlusten, unpassierbares Ziel, Stop während besonderer Bewegung und
   gleichzeitige Besitzerbefehle prüfen. Nicht ausgewählte Einheiten müssen unverändert

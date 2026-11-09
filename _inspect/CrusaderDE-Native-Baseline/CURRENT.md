@@ -103,6 +103,7 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 - [Drawbridge AI decision audit](./sem/FBCB9319/knowledge/DRAWBRIDGE_AI_DECISIONS.md): player siege planning, candidate/task consumption, physical transitions and passive focused capture.
 - [Drawbridge native contracts](./sem/FBCB9319/knowledge/DRAWBRIDGES.md): tile topology, shared building height, three rendering paths, unit height and verified RedBird spans.
 - [Drawbridge stored-route contracts](./sem/FBCB9319/knowledge/ENEMY_GATE_BUILDING_CONTEXT.md): packed Unit path origin/cursor, existing movement publisher and passive route evidence; full installed-hash evidence under EnemyGateBuildingContextAudit/bridge-stored-path-evidence.txt.
+- [Group-move member exclusion mark](./sem/FBCB9319/knowledge/GROUP_MOVE_EXCLUSION_MARK.md): `GameUnit+0x428` read only by `0x11B520`, written only by AI routines, kept across regrouping; stale AI marks skipped relay-ordered units, cleared by PlayerControlRelayTest like `0x126020`; static audit plus acceptance-log correlation.
 - [Dry mixed-group admission before order mutation](./sem/FBCB9319/knowledge/MANUAL_GROUP_ADMISSION.md)
 - [Dry mixed-group movement recovery](./sem/FBCB9319/knowledge/MANUAL_GROUP_REGION_RECOVERY.md)
 - [Editor map lifecycle audit](./sem/FBCB9319/knowledge/EDITOR_MAP_LIFECYCLE.md): native creation/loading paths, managed completion, and event boundaries.

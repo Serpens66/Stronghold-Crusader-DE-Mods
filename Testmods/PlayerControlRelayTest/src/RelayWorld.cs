@@ -64,7 +64,9 @@ namespace PlayerControlRelayTest
                         Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_SelectionAllowed)).ToInt32() != 0x2A0 ||
                         Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_AIState)).ToInt32() != 0x2BC ||
                         Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_AIObjectiveState)).ToInt32() != 0x354 ||
-                        Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_TribeId)).ToInt32() != 0x2D4)
+                        Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_TribeId)).ToInt32() != 0x2D4 ||
+                        Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.N000000D8)).ToInt32() != 0x428 ||
+                        typeof(GameUnit).GetField(nameof(GameUnit.N000000D8))?.FieldType != typeof(ushort))
                         throw new InvalidOperationException("Installed unit/tribe interop differs from the audited layout.");
                     nativeModule = context.ModuleHandle;
                     unavailableReason = null;
@@ -178,6 +180,7 @@ namespace PlayerControlRelayTest
             int tribeId = plan.ExistingTribe;
             nativeCalled = true;
             if (tribeId <= 0 && !TryRegroup(command.Owner, plan, out tribeId, out reason)) return false;
+            int cleared = command.Action == RelayAction.Move || command.Action == RelayAction.Patrol ? ClearAiMoveExclusions(plan) : 0;
             bool success;
             try
             {
@@ -190,7 +193,7 @@ namespace PlayerControlRelayTest
             }
             if (isCurrent != null && !isCurrent()) { reason = "Relay world changed in the terminal callback; effects are not confirmed."; return false; }
             reason = (success ? plan.Slots.Count + " units ordered" : "Native order for " + plan.Slots.Count + " units returned failure") +
-                "; group=" + tribeId + "; skipped=" + plan.Skipped + "; movement/arrival is not confirmed.";
+                "; group=" + tribeId + "; skipped=" + plan.Skipped + "; aiMoveMarksCleared=" + cleared + "; movement/arrival is not confirmed.";
             return success;
         }
 
@@ -219,7 +222,24 @@ namespace PlayerControlRelayTest
             }
         }
 
-        // Same public calls and order as BugfixesAndQoL's EnsureDedicatedTribe, and the same native
+        // The group move 0x11B520 skips every member whose +0x428 is set. Only AI order routines
+        // (0x11DD10, 0x1245B0) write it, for their own next group order, and regrouping keeps it, so a
+        // unit can carry a stale AI mark into this order. Vanilla's AI clears it through 0x126020
+        // right before a plain group move (0x3D840, 0x3E070); this does the same for exactly the
+        // ordered units. Simulation state, written in the Chore on every peer.
+        private static int ClearAiMoveExclusions(RelayOrderPlan plan)
+        {
+            int cleared = 0;
+            foreach (int slot in plan.Slots)
+                if (UnitAccess.TryGetById(slot, out GameUnit* unit, out _) && unit->N000000D8 != 0)
+                {
+                    unit->N000000D8 = 0;
+                    cleared++;
+                }
+            return cleared;
+        }
+
+        // Same public calls and order as Pathfinding's EnsureDedicatedTribe, and the same native
         // functions as Vanilla's recruit path. Vanilla's maintenance 0x1261F0 clears emptied groups.
         private static bool TryRegroup(int owner, RelayOrderPlan plan, out int created, out string reason)
         {

@@ -79,3 +79,25 @@ AI and resume-state words), unit+98E (public+332, the Miller's storage target fr
 1377C0/138162/138290 path), and the existing public production-building/tile/cargo fields.
 The final diagnostic timeout includes the last observed identity, state, cargo, marker,
 target, stock changes and last capacity snapshot. No production assertion is weakened.
+
+## Pathfinding fire escape with a stale AI mark
+
+`FireEscapeSteps` (scenario `SP-fire-escape.json`) writes 1 to `GameUnit.N000000D8` (+0x428, UInt16)
+of its own fresh AI fixture units: the AI group-move exclusion mark that native `0x11B520` honours
+(`_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/GROUP_MOVE_EXCLUSION_MARK.md`). It
+creates pitch ditches with the public `GamePitchManagerAPI.CreatePitch` and sets their state to
+`PitchState.OnFire` under `EngineInterface.threadLock`, as PerfProbe's ignition does. Fresh ditches
+hold no pitch, so that alone made no fire record (run 002 of 09.11.2026); the step therefore also
+lights each pitch tile through the installed Extender's public static
+`SHCDESE.Detours.BulkProjectileDetours.c_game_spawn_fire_internal_hook_impl(int,int,int,int,int,int):int`
+(internal declaring type, checked reflection; Extender Pre/Post and native `0x9C120` run). Its
+coordinates are world units (tile*8, `0x9C120` adds a small random jitter); spread 2 adds no type
+`0x1A` record. It passes
+when every living marked fixture unit seen on a tile with a type-9 record in state 1 or 2 was later
+seen with the mark 0 and a move target without fire (the jitter leaves some pitch tiles unlit, and
+Pathfinding returns escaped soldiers once the short fire is out); only
+Pathfinding's soldier move and the AI's own order routines write the mark, and the fresh group is
+in no AI role table. A marked control group of two units in a fresh group at least 15 tiles away
+must keep its marks. For exposure and the progress log it reads, after the full-file hash check, the
+fire effect records (`0x2F7A680`, slots 1..5999 of `0xE8` bytes: `+0x3C` state 1 new or 2 active,
+`+0x3E` type 9, `+0x60` native tile id; `FIRE_EFFECTS.md`); read only.

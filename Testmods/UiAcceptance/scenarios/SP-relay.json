@@ -5,14 +5,17 @@
   "quitWhenDone": true,
   "steps": [
     { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 60000, "stopOnFail": true, "allowErrors": true },
+    { "id": "no-random-events", "do": "RandomEvents", "args": ["off"], "timeoutMs": 10000, "stopOnFail": true },
     { "id": "client-enabled", "do": "SetModSetting", "args": ["Spectator.SpectatorPlugin::processRoot.Settings", "EnableClientFeatures", "true"], "stopOnFail": true },
     { "id": "sp-tools", "do": "SetModSetting", "args": ["Spectator.SpectatorPlugin::processRoot.Settings", "EnableSingleplayerTestMode", "true"], "stopOnFail": true },
     { "id": "skirmish", "do": "Skirmish.Open", "timeoutMs": 15000, "stopOnFail": true },
     { "id": "map", "do": "Lobby.SelectMap", "args": ["4spielerkarte.map"], "timeoutMs": 15000, "stopOnFail": true },
     { "id": "ai", "do": "Lobby.AddAI", "args": ["1", "3"], "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "peace", "do": "Lobby.PeaceTime", "args": ["60"], "timeoutMs": 15000, "stopOnFail": true },
     { "id": "play", "do": "Lobby.Play", "timeoutMs": 45000, "stopOnFail": true },
     { "id": "briefing", "do": "AiMilitary.ResumeBriefing", "timeoutMs": 15000 },
     { "id": "warmup-unpause", "do": "Pause", "args": ["off"], "stopOnFail": true },
+    { "id": "speed", "do": "Speed", "args": ["300"] },
     { "id": "ready", "do": "WaitMarker", "args": ["Relay ready", "any"], "timeoutMs": 15000, "stopOnFail": true },
     { "id": "toolbar", "do": "Spectator.WaitToolbar", "timeoutMs": 20000, "stopOnFail": true },
     { "id": "ai-settle", "do": "Wait", "args": ["4000"] },
@@ -61,6 +64,7 @@
     {"id": "selected-many", "do": "Relay.ExpectLog", "args": ["Selected allied units: 138 "], "timeoutMs": 5000, "stopOnFail": true},
     {"id": "markers-many-settle", "do": "Wait", "args": ["300"]},
     {"id": "markers-many", "do": "Screenshot", "args": ["markers-many"]},
+    {"id": "inject-marks", "do": "Relay.InjectMarks", "args": ["12", "138", "4"], "stopOnFail": true},
     {"id": "move-many", "do": "Relay.MoveExpect", "args": ["12", "138"], "timeoutMs": 60000, "stopOnFail": true, "allowErrors": true},
     {"id": "right-left-ground-2", "do": "Relay.LeftGround", "stopOnFail": true},
 
@@ -135,6 +139,7 @@
     { "id": "alive", "do": "Log", "args": ["still-responsive"] },
     { "id": "placement-off", "do": "Spectator.Cmd", "args": ["Placement"] },
     { "id": "settle-off", "do": "Wait", "args": ["1000"] },
-    { "id": "quit", "do": "QuitToMenu", "timeoutMs": 25000 }
+    { "id": "quit", "do": "QuitToMenu", "timeoutMs": 25000 },
+    { "id": "restore-random-events", "do": "RandomEvents", "args": ["on"], "timeoutMs": 10000 }
   ]
 }

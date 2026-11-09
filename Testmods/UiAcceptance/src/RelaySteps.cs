@@ -5,11 +5,15 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading;
 using APIShared;
+using APIShared.Simulation;
 using CrusaderDE;
 using HarmonyLib;
+using R3;
 using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
+using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Tribes;
 
 namespace UiAcceptance
 {
@@ -25,6 +29,8 @@ namespace UiAcceptance
         private const int ReleasedLeftButton = 3, FinishedDragAction = 9;
         private static readonly List<int> units = new List<int>();
         private static readonly Dictionary<int, int> previousTargets = new Dictionary<int, int>();
+        private static readonly Dictionary<int, int> stopPositions = new Dictionary<int, int>();
+        private static int injectedMarks;
         private static readonly HashSet<int> usedTargets = new HashSet<int>();
         private static readonly HashSet<int> disbanded = new HashSet<int>();
         private static readonly FieldInfo selectedList = AccessTools.Field(typeof(EditorDirector), "selectedChimpList");
@@ -60,6 +66,7 @@ namespace UiAcceptance
             Runner.Register("Relay.LeftGround", s => Perform(new Gesture { Left = true, X = startX + 8, Y = startY + 8 }));
             Runner.Register("Relay.MarkOwnerSelected", s => GameSteps.Do(() => MarkOwnerSelected(s.Int(0))));
             Runner.Register("Relay.MoveExpect", MoveExpect);
+            Runner.Register("Relay.InjectMarks", s => GameSteps.Do(() => InjectMarks(s.Int(0), s.Int(1), s.Int(2, 4))));
             Runner.Register("Relay.PressStop", PressStop);
             Runner.Register("Relay.RightDown", s => Perform(new Gesture { RightDown = true }));
             Runner.Register("Relay.RightUp", s => Perform(new Gesture { RightUp = true, X = startX + 8, Y = startY + 8 }));
@@ -218,6 +225,7 @@ namespace UiAcceptance
             {
                 Runner.Require(APIShared.UnitAccess.TryGetById(lordId, out GameUnit* lord, out _), "fixture lord missing");
                 lordX = lord->r_CurrentTilePositionX; lordY = lord->r_CurrentTilePositionY;
+                Watch("lord", lordId);
                 int groupMembers = GameTribeManagerAPI.Instance.TryGetTribeById(lord->r_TribeId, out GameTribe* tribe) && tribe != null ? tribe->r_UnitsInGroup : -1;
                 AcceptLog.Info("RELAY_LORD target=" + lord->r_TargetTilePositionX + "," + lord->r_TargetTilePositionY + " wanted=" + x + "," + y +
                     " tile=" + lordX + "," + lordY + " tribe=" + lord->r_TribeId + " members=" + groupMembers);
@@ -373,10 +381,13 @@ namespace UiAcceptance
             int first = step.Int(0), count = step.Int(1), rounds = 0;
             var result = new Regex("owner=\\d (Executed|Uncertain|Rejected):");
             var accepted = new Regex("owner=\\d Executed: " + count + " units ordered");
+            // Targets around the selected units' current center, not the fixture start: the AI may have
+            // moved them, and a target among them would leave nothing to walk however many ticks pass.
+            Center(first, count, out int centerX, out int centerY);
             for (int radius = 8; radius <= 40; radius += 2)
                 foreach (var offset in new[] { new[] { 1, 1 }, new[] { -1, 1 }, new[] { 1, -1 }, new[] { -1, -1 } })
                 {
-                    int x = startX + offset[0] * radius, y = startY + offset[1] * radius;
+                    int x = centerX + offset[0] * radius, y = centerY + offset[1] * radius;
                     if (usedTargets.Contains(x << 16 | y) || !PrepareTarget(x, y)) continue;
                     usedTargets.Add(x << 16 | y);
                     rounds++;
@@ -384,11 +395,49 @@ namespace UiAcceptance
                     foreach (var wait in Perform(Command(targetX, targetY))) yield return wait;
                     yield return new Until("order result", () => AcceptLog.Count(mark, result) > 0);
                     if (AcceptLog.Count(mark, accepted) == 0) continue;
-                    AcceptLog.Info("RELAY_MOVE attempts=" + rounds + " target=" + targetX + "," + targetY);
+                    AcceptLog.Info("RELAY_MOVE attempts=" + rounds + " target=" + targetX + "," + targetY + " center=" + centerX + "," + centerY);
+                    CheckInjectedMarks(mark, count);
                     ExpectTargets(first, count);
                     yield break;
                 }
             throw new StepFailure("no tested tile accepted the order after " + rounds + " attempts");
+        }
+
+        private static void Center(int first, int count, out int x, out int y)
+        {
+            long sumX = 0, sumY = 0; int found = 0;
+            lock (engine)
+                foreach (int id in Range(first, count))
+                    if (APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _))
+                    { sumX += unit->r_CurrentTilePositionX; sumY += unit->r_CurrentTilePositionY; found++; }
+            Runner.Require(found > 0, "no selected fixture unit for the target center");
+            x = (int)(sumX / found); y = (int)(sumY / found);
+        }
+
+        // Reproduces the AI's member exclusion mark (GameUnit+0x428, written by 0x11DD10/0x1245B0 for the
+        // AI's own next group order) on every n-th selected unit, the state of the failed runs of
+        // 05.11./09.11.2026. During peace time the AI does not take the fixture over, so the test writes it.
+        private static void InjectMarks(int first, int count, int every)
+        {
+            lock (engine)
+            {
+                injectedMarks = 0;
+                foreach (int id in Range(first, count).Where((_, index) => index % every == 0))
+                    if (APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _)) { unit->N000000D8 = 1; injectedMarks++; }
+                AcceptLog.Info("RELAY_INJECTED marks=" + injectedMarks + " every=" + every);
+                Runner.Require(injectedMarks > 0, "no fixture unit received the mark");
+            }
+        }
+
+        // The relay must report at least the injected marks as cleared; the AI may have added its own.
+        private static void CheckInjectedMarks(long mark, int count)
+        {
+            if (injectedMarks == 0) return;
+            var cleared = AcceptLog.Numbers(mark, new Regex("owner=\\d Executed: " + count + " units ordered;.*aiMoveMarksCleared=(\\d+)"));
+            long reported = cleared.Count > 0 ? cleared[cleared.Count - 1] : -1;
+            AcceptLog.Info("RELAY_INJECTED_CLEARED injected=" + injectedMarks + " reported=" + reported);
+            Runner.Require(reported >= injectedMarks, "relay cleared " + reported + " of " + injectedMarks + " injected marks");
+            injectedMarks = 0;
         }
 
         private static bool PrepareTarget(int x, int y)
@@ -423,28 +472,110 @@ namespace UiAcceptance
                 if (APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _))
                 {
                     stopX = unit->r_CurrentTilePositionX; stopY = unit->r_CurrentTilePositionY;
+                    Watch("stopped", id);
+                    stopPositions.Clear();
+                    foreach (int other in units)
+                        if (APIShared.UnitAccess.TryGetById(other, out GameUnit* fixture, out _))
+                            stopPositions[other] = fixture->r_CurrentTilePositionX << 16 | fixture->r_CurrentTilePositionY;
                     AcceptLog.Info("RELAY_STOP unit=" + id + " tile=" + stopX + "," + stopY +
                         " target=" + unit->r_TargetTilePositionX + "," + unit->r_TargetTilePositionY);
                 }
             }
         }
 
-        // The real effect, later: the stopped unit stayed near its stop tile, while a unit of the
-        // same former group walked on. The AI could still order them, so this is evidence for this run.
+        // Follows the stopped unit and the Lord after their relay order in map ticks: every change of
+        // tile, target, AI state or group, and every group or unit move order that reaches them. A
+        // real-time wait spans a different number of ticks at each game speed; these records show what
+        // actually moved or reset a unit. Bounded per unit; runs on the simulation callbacks.
+        private sealed class Watched { public string Label, Last; public int Id, Tribe, Budget, GroupOrders, UnitMoves, MaxUnitStep; }
+        private static readonly List<Watched> watched = new List<Watched>();
+        private static bool watchRegistered;
+
+        private static void Watch(string label, int id)
+        {
+            lock (watched)
+            {
+                if (!watchRegistered)
+                {
+                    Runner.Require(SimulationTickEvents.TryRegister("UiAcceptance_Serp", "relay-watch", WatchTick, out string reason), reason);
+                    TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable.Subscribe(args =>
+                    { if (args.Phase == EventHookPhase.Pre) WatchOrder(args.TribeId, -1, "group-move " + args.TileX + "," + args.TileY + " patrol=" + args.IsPatrolPath); });
+                    TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable.Subscribe(args =>
+                    { if (args.Phase == EventHookPhase.Pre) WatchOrder(args.TribeId, -1, "group-target " + args.AICommand + " " + args.TargetValue1 + "," + args.TargetValue2); });
+                    UnitR3EventHooks.OnUnitMoveHere.Observable.Subscribe(args =>
+                    { if (args.Phase == EventHookPhase.Pre) WatchOrder(-1, args.UnitId, "unit-move " + args.TileX + "," + args.TileY, args.TileX, args.TileY); });
+                    watchRegistered = true;
+                }
+                watched.RemoveAll(entry => entry.Label == label);
+                watched.Add(new Watched { Label = label, Id = id, Budget = 80 });
+            }
+            SimulationTickEvents.TryGetCurrentTick(out int tick);
+            AcceptLog.Info("RELAY_WATCH " + label + " unit=" + id + " from tick=" + tick);
+        }
+
+        private static void WatchTick(int tick)
+        {
+            lock (watched)
+                foreach (var entry in watched)
+                {
+                    if (entry.Budget <= 0 || !APIShared.UnitAccess.TryGetById(entry.Id, out GameUnit* unit, out _)) continue;
+                    entry.Tribe = unit->r_TribeId;
+                    string state = "tile=" + unit->r_CurrentTilePositionX + "," + unit->r_CurrentTilePositionY + " target=" + unit->r_TargetTilePositionX + "," +
+                        unit->r_TargetTilePositionY + " ai=" + unit->r_AIState + " objective=" + unit->r_AIObjectiveState + " tribe=" + unit->r_TribeId;
+                    if (state == entry.Last) continue;
+                    entry.Last = state; entry.Budget--;
+                    AcceptLog.Info("RELAY_WATCH " + entry.Label + " tick=" + tick + " " + state);
+                }
+        }
+
+        // Counts every order; only the log is bounded.
+        private static void WatchOrder(int tribe, int unit, string order, int x = -1, int y = -1)
+        {
+            lock (watched)
+                foreach (var entry in watched)
+                {
+                    if (tribe > 0 && entry.Tribe == tribe) entry.GroupOrders++;
+                    else if (unit > 0 && entry.Id == unit)
+                    {
+                        entry.UnitMoves++;
+                        if (APIShared.UnitAccess.TryGetById(unit, out GameUnit* moved, out _))
+                            entry.MaxUnitStep = Math.Max(entry.MaxUnitStep, Math.Max(Math.Abs(x - moved->r_CurrentTilePositionX), Math.Abs(y - moved->r_CurrentTilePositionY)));
+                    }
+                    else continue;
+                    if (entry.Budget <= 0) continue;
+                    entry.Budget--;
+                    SimulationTickEvents.TryGetCurrentTick(out int tick);
+                    AcceptLog.Info("RELAY_WATCH " + entry.Label + " tick=" + tick + " " + order);
+                }
+        }
+
+        // The real effect, later, judged by orders rather than by distance after a real-time wait (the
+        // tick count of a wait depends on the game speed): no group order reached the stopped unit's group,
+        // and Vanilla moved it at most by idle repositioning steps on its crowded tile (logged unit-move
+        // targets one or two tiles away, 09.11.2026). A unit of the same former group kept its order: it
+        // walked on, or it stands on its target. The AI could still order them; this is evidence per run.
         private static void CheckMotion(int stopped, int moving)
         {
+            const int RepositionLimit = 4;
             lock (engine)
             {
                 GameUnit* still = null, walker = null;
                 Runner.Require(APIShared.UnitAccess.TryGetById(units[stopped], out still, out _) &&
                     APIShared.UnitAccess.TryGetById(units[moving], out walker, out _), "motion fixture units missing");
-                int stoppedDistance = Math.Max(Math.Abs(still->r_CurrentTilePositionX - stopX), Math.Abs(still->r_CurrentTilePositionY - stopY));
-                int walkedDistance = Math.Max(Math.Abs(walker->r_CurrentTilePositionX - stopX), Math.Abs(walker->r_CurrentTilePositionY - stopY));
+                Watched entry;
+                lock (watched) entry = watched.Find(item => item.Label == "stopped" && item.Id == units[stopped]);
+                Runner.Require(entry != null, "the stopped unit was not watched");
+                Runner.Require(stopPositions.TryGetValue(units[moving], out int start), "no stop-time position of the ordered unit");
+                int startX0 = start >> 16, startY0 = start & 0xFFFF;
+                int walked = Math.Max(Math.Abs(walker->r_CurrentTilePositionX - startX0), Math.Abs(walker->r_CurrentTilePositionY - startY0));
+                bool arrived = walker->r_CurrentTilePositionX == walker->r_TargetTilePositionX && walker->r_CurrentTilePositionY == walker->r_TargetTilePositionY;
                 AcceptLog.Info("RELAY_MOTION stopped=" + still->r_CurrentTilePositionX + "," + still->r_CurrentTilePositionY + " stopTile=" + stopX + "," + stopY +
-                    " stoppedTribe=" + still->r_TribeId + " moving=" + walker->r_CurrentTilePositionX + "," + walker->r_CurrentTilePositionY +
+                    " stoppedTribe=" + still->r_TribeId + " groupOrders=" + entry.GroupOrders + " unitMoves=" + entry.UnitMoves + " maxStep=" + entry.MaxUnitStep +
+                    " moving=" + walker->r_CurrentTilePositionX + "," + walker->r_CurrentTilePositionY + " movingStart=" + startX0 + "," + startY0 +
                     " movingTarget=" + walker->r_TargetTilePositionX + "," + walker->r_TargetTilePositionY + " movingTribe=" + walker->r_TribeId);
-                Runner.Require(stoppedDistance <= 2, "stopped unit moved " + stoppedDistance + " tiles");
-                Runner.Require(walkedDistance > 2, "ordered unit did not walk away");
+                Runner.Require(entry.GroupOrders == 0, entry.GroupOrders + " group orders reached the stopped unit");
+                Runner.Require(entry.MaxUnitStep <= RepositionLimit, "the stopped unit got a move of " + entry.MaxUnitStep + " tiles");
+                Runner.Require(walked > 2 || arrived, "ordered unit neither walked on nor stands on its target");
             }
         }
 

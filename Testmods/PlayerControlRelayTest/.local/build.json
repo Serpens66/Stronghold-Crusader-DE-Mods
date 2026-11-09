@@ -1,6 +1,6 @@
 {
-    "BuiltUtc":  "2026-11-09T02:51:30.9721999Z",
-    "WorkspaceCommit":  "d12536442eb3856e802529fef017134ecd5ffae2",
+    "BuiltUtc":  "2026-11-09T11:09:11.4735928Z",
+    "WorkspaceCommit":  "d03de12547fa47e07f1a0229fdcf949c812a7980",
     "ApiBranch":  "develop",
     "ApiCommit":  "cfd94c1b11348fa4c50d36f652ea1bf139742a27",
     "DevDiag":  false,
@@ -24,11 +24,11 @@
                    },
                    {
                        "Path":  "TESTING.md",
-                       "Sha256":  "4dcc5063fefe4a2591c2007a17c28402fe05357a85ac07cc27b0824e4cb848bf"
+                       "Sha256":  "d38a735fd53225d7fb1786f761f3a213e2845db3dd13f3a5d3bb6b071ae23047"
                    },
                    {
                        "Path":  "UpdateToNewDLL.md",
-                       "Sha256":  "87123ca2aef35eaa68eacf46eafe69beade6ed4acace8a10e6014020f790a99a"
+                       "Sha256":  "ad963acbaf0660e17303f46512248e3f11b1b25fc41570cf173873e1f950f8ff"
                    },
                    {
                        "Path":  "src\\AssemblyInfo.cs",
@@ -60,7 +60,7 @@
                    },
                    {
                        "Path":  "src\\RelayWorld.cs",
-                       "Sha256":  "255f6e442d762781e43dd6232af72c28452bf18de9587b99d80b3d2d76416eed"
+                       "Sha256":  "9029890fef74c7bda219ad068a894043f4805542fc5f6ac1d34618599dcfd97b"
                    },
                    {
                        "Path":  "src\\Core\\RelayCommand.cs",
@@ -106,13 +106,13 @@
                   },
                   {
                       "Name":  "PlayerControlRelayTest.dll",
-                      "Sha256":  "d109f219a661b481bd928e6bb240571777a3df950ee351785bee0b48fb949115"
+                      "Sha256":  "033a43eb8de3e9eda58c51b24a14bef584df7bc2b70533212a8d5d610620fde2"
                   },
                   {
                       "Name":  "PlayerControlRelayTest.pdb",
-                      "Sha256":  "a47d8f6eb113bfbd376fdc6ccfb0e02304fee57800d9df2aace2f5d4ad4fe269"
+                      "Sha256":  "17e199560e935cb67eb4f1c93a679ae3f25536bc3c573f3be3f144961a7d6ad8"
                   }
               ],
     "Package":  "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\PlayerControlRelayTest\\.local\\PlayerControlRelayTest.zip",
-    "PackageSha256":  "3049b8147b99e94d26fd94b26408e3b17bd9d68e7dfab074d5c1fc4985d2510c"
+    "PackageSha256":  "34e03ccd2ad115b2830a7b92c21b49b1bb5c4068571fbed66d54a909f83244d8"
 }

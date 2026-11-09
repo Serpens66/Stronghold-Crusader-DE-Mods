@@ -59,6 +59,7 @@ namespace EngineHarness
         public int r_SelectionAllowed;
         public int r_IsKilledByProjectile;
         public int r_CurrentSpeed;
+        public ushort N000000D8;
     }
     internal struct GameCursorManager { public uint r_HoverOverBuildingId,r_HoverOverUnitId,r_HoverOverBuildingTileId,r_MouseTileId2,r_HoveringOverWall,r_MouseTileId,r_MouseTileX,r_MouseTileY; }
     internal unsafe struct CursorPointer { public GameCursorManager* Pointer; }
@@ -1338,6 +1339,20 @@ namespace EngineHarness {
   internal int[] LogicGrid=new int[NativePackedTileCapacity];
   internal IntPtr Pointer=(IntPtr)1; public static implicit operator IntPtr(GameTileManagerView view)=>view.Pointer;
   public static implicit operator GameTileManagerView(IntPtr pointer)=>new GameTileManagerView { Pointer=pointer };
+ }
+}
+namespace APIShared.Commands {
+ // APIShared's helper over the harness unit table: living units only, nothing written while unavailable.
+ internal static unsafe class GroupMoveExclusion {
+  internal static bool Available=true;
+  internal static bool IsAvailable=>Available;
+  internal static string UnavailabilityReason=>Available?string.Empty:"harness: unavailable";
+  internal static bool TryClear(int unitId,out bool wasMarked) {
+   wasMarked=false;
+   if(!Available||!APIShared.UnitAccess.TryGetById(unitId,out EngineHarness.GameUnit* unit,out _)||!APIShared.UnitAccess.IsReallyAlive(unit))return false;
+   if(unit->N000000D8!=0){unit->N000000D8=0;wasMarked=true;}
+   return true;
+  }
  }
 }
 namespace APIShared {

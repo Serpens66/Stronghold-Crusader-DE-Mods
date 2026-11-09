@@ -397,6 +397,8 @@ namespace Pathfinding.Engine
             if (order.NewOrder && (tribe->r_CurrentPatrolPoints != 2 || tribe->r_PatrolCurrentTargetIndex != 1 ||
                 tribe->r_PatrolPoint2TileX != order.X || tribe->r_PatrolPoint2TileY != order.Y)) { held = HeldPoints; return false; }
             // The repeat is the same plain player move: its own Pre keeps the tribe's order plain.
+            // AI exclusion marks (GameUnit+0x428) stay: on the AI's own group they are the AI's current member
+            // selection for exactly this kind of order, unlike the solo moves (ClearSoldierMoveMark).
             int previous = playerMoveTribe; playerMoveTribe = wait.Tribe;
             bool issued;
             try { issued = GameTribeManagerAPI.Instance.IssueMoveHereCommand(wait.Tribe, order.X, order.Y, order.Patrol != 0, order.NewOrder ? 1 : 0, order.MoveType); }

@@ -244,9 +244,10 @@ var comparisonPlannerTree = CSharpSyntaxTree.ParseText("using APIShared; using S
 var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/Routes/RouteSearchContracts.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/Routes/RouteSearchEvents.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Core/Events/OrderedRegistrations.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/Routes/RouteTileRules.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "RouteSearchEventIntegrationTests.cs"))),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "Units", "UnitAccess.cs"))
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "Units", "Selection", "UnitAccess.cs"))
         .Replace("using SHCDESE.API;", "using GameUnitManagerAPI = EngineHarness.GameUnitManagerAPI;")
         .Replace("using SHCDESE.Interop;", "using GameUnit = EngineHarness.GameUnit;")
         .Replace("using SHCDESE.Interop.Enums;", "using AliveState = EngineHarness.AliveState;")
@@ -261,7 +262,7 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "Pathfinding", "Assassin", "AssassinRouteHandoff.cs"))),
     // The production BeginRouteOutput entry over the real handoff; the rest of AssassinPathAPI needs native hooks.
     CSharpSyntaxTree.ParseText("using System; namespace APIShared { public static partial class AssassinPathAPI {" +
-        CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "Pathfinding", "Assassin", "AssassinPathAPI.cs")))
+        CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "Pathfinding", "Assassin", "AssassinPathAPI.RouteStaging.cs")))
             .GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.Text == "BeginRouteOutput") + "} }"),
     referenceTree,
     comparisonTree,

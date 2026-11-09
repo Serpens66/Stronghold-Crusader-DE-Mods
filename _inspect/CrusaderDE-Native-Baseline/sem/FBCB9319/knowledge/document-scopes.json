@@ -703,6 +703,17 @@
       "note": "Managed workaround inline."
     },
     {
+      "file": "GROUP_MOVE_EXCLUSION_MARK.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "PlayerControlRelayTest"
+      ],
+      "integrationSections": [
+        "Runtime evidence",
+        "PlayerControlRelayTest"
+      ]
+    },
+    {
       "file": "MANUAL_GROUP_ADMISSION.md",
       "scope": "vanilla+integration",
       "components": [

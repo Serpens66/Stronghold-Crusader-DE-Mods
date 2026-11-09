@@ -18,7 +18,8 @@ namespace Pathfinding.Engine
         // Own receives the commands; Split: created for this case (deleted once empty). Original (0: none)
         // and OriginalGlobal identify the group to rejoin.
         private struct SoldierTribe { internal int Own, Original; internal uint OwnGlobal, OriginalGlobal; internal bool Split; }
-        private long soldierTribeSplits, soldierTribeRejoins, soldierTribeReleased, soldierTribeFailures, soldierTribeNotMoved;
+        private long soldierTribeSplits, soldierTribeRejoins, soldierTribeReleased, soldierTribeFailures, soldierTribeNotMoved, soldierMoveMarksCleared;
+        private static bool soldierMoveMarkUnavailableLogged;
         // An ordinary player move (8C5F0 -> 196100 -> 11B520(patrol 0, newOrder 1, flags 1)); 196100's
         // extra +0x56C "fast" flag is not part of the direct API. The move type is only tested for != 0
         // (destination marker counter +0x78), so DefaultInSync and Fast behave alike here.
@@ -79,12 +80,30 @@ namespace Pathfinding.Engine
             moveX = moveY = -1;
             if (!TryGetSoldier(id, global, out GameUnit* unit) || unit->r_TribeId != tribe.Own ||
                 !TryGetLiveTribe(tribe.Own, tribe.OwnGlobal, unit->r_ControllableForPlayerId, out _)) return false;
+            ClearSoldierMoveMark(id);
             if (!GameTribeManagerAPI.Instance.IssueMoveHereCommand(tribe.Own, x, y, false, SoldierMoveNewOrder, SoldierMoveType)) return false;
             if (!TryGetSoldier(id, global, out unit)) return false;
             // A member 11B520 did not admit keeps its old order and gets no route.
             if (!IsMoveCommanded(unit)) { soldierTribeNotMoved++; return false; }
             moveX = unit->r_TargetTilePositionX2; moveY = unit->r_TargetTilePositionY2;
             return true;
+        }
+
+        // 0x11B520 skips a member whose AI exclusion mark (GameUnit+0x428) is set. Only the AI's own group
+        // orders set it, and an AI soldier keeps it in the tribe this case orders, so the move would leave
+        // it behind (notMoved). Vanilla's AI clears the mark right before its own plain group moves
+        // (0x126020); this clears it for the one ordered soldier. Player soldiers never carry it. The mark
+        // is not restored on rejoin: the AI rewrites all marks of its group before its next own order.
+        // Simulation tick on every peer, like the move itself. Without the APIShared helper (other native
+        // image or layout) the move runs as before.
+        private void ClearSoldierMoveMark(int id)
+        {
+            if (APIShared.Commands.GroupMoveExclusion.TryClear(id, out bool wasMarked))
+            { if (wasMarked) soldierMoveMarksCleared++; return; }
+            if (APIShared.Commands.GroupMoveExclusion.IsAvailable || soldierMoveMarkUnavailableLogged) return;
+            soldierMoveMarkUnavailableLogged = true;
+            Shared.DebugLogHelper.LogError(log, "Pathfinding soldier moves cannot clear the AI group-move mark; AI soldiers may stay behind: " +
+                APIShared.Commands.GroupMoveExclusion.UnavailabilityReason);
         }
 
         // Ends a case: back into the original group (if it still exists). An AI soldier whose group is gone
@@ -123,8 +142,9 @@ namespace Pathfinding.Engine
         }
 
         private string FormatSoldierTribes() =>
-            $"tribes(splits={soldierTribeSplits} rejoins={soldierTribeRejoins} released={soldierTribeReleased} failures={soldierTribeFailures} notMoved={soldierTribeNotMoved})";
+            $"tribes(splits={soldierTribeSplits} rejoins={soldierTribeRejoins} released={soldierTribeReleased} failures={soldierTribeFailures} notMoved={soldierTribeNotMoved} aiMarksCleared={soldierMoveMarksCleared})";
 
-        private void ResetSoldierTribeMetrics() => soldierTribeSplits = soldierTribeRejoins = soldierTribeReleased = soldierTribeFailures = soldierTribeNotMoved = 0;
+        private void ResetSoldierTribeMetrics() =>
+            soldierTribeSplits = soldierTribeRejoins = soldierTribeReleased = soldierTribeFailures = soldierTribeNotMoved = soldierMoveMarksCleared = 0;
     }
 }
