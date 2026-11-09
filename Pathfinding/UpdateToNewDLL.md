@@ -532,10 +532,11 @@ mod-internal callable adapter, not a hook or a replacement movement command.
   Archer_debug remains allowed. Native 0x3BC0 owns selection, duplicate suppression
   and special-type branches; 0x3770/0x38A0 and 0xEDF0 remain untouched.
 
-Each new code target uses its complete-instruction signature, scanned only in PE
-executable sections; duplicate or missing matches fail closed. An invalid reference
-RVA still tries that executable pattern fallback. Data layouts have no semantic
-fallback and remain hash-bound. Resolution logs retain method and resolved RVA.
+Each code target first compares its complete-instruction signature at its reference
+RVA within an executable PE section. If the comparison fails, the resolver scans
+only executable sections for a unique match. Duplicate or missing search matches
+fail closed. Data layouts remain hash-bound. Resolution logs distinguish the
+reference comparison from an executable pattern fallback and report the resolved RVA.
 Only speech is disabled on resolution/capture/playback failure; formation and
 marker availability are not changed. No hook is added to any of these targets.
 

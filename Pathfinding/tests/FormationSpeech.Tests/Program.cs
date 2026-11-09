@@ -98,24 +98,38 @@ for (int n = 0; n < FormationSpeechNative.Patterns.Length; n++)
 {
     int rva = FormationSpeechNative.ReferenceRvas[n];
     string pattern = FormationSpeechNative.Patterns[n];
-    Check(FormationSpeechNative.Resolve(image, rva, pattern, out string method) == rva && method == "reference-rva", "Native entry unique");
+    Check(FormationSpeechNative.Resolve(image, rva, pattern, true, out string method) == rva &&
+        method == "reference-rva", "Native entry verified at reference RVA");
     byte[] bytes = image.AsSpan(rva, pattern.Split(' ').Length).ToArray();
     var decoder = Decoder.Create(64, new ByteArrayCodeReader(bytes));
     int decoded = 0;
     while (decoded < bytes.Length) { decoder.Decode(out var instruction); Check(!instruction.IsInvalid, "Valid instruction"); decoded += instruction.Length; }
     Check(decoded == bytes.Length, "Whole-instruction signature");
     // A valid executable fallback still resolves when the requested reference is wrong.
-    Check(FormationSpeechNative.Resolve(image, rva + 1, pattern, out method) == rva && method == "executable-pattern-fallback", "Reference failure fallback");
+    Check(FormationSpeechNative.Resolve(image, rva + 1, pattern, true, out method) == rva &&
+        method == "executable-pattern-fallback", "Reference failure fallback");
+    Check(FormationSpeechNative.Resolve(image, rva, pattern, false, out method) == rva &&
+        method == "executable-pattern-fallback", "Untrusted image searches even when its hit is at the reference RVA");
     var code = headers.SectionHeaders.First(s => ((int)s.SectionCharacteristics & 0x20000000) != 0);
     int duplicate = code.VirtualAddress + code.VirtualSize - bytes.Length;
     byte[] saved = image.AsSpan(duplicate, bytes.Length).ToArray();
     bytes.CopyTo(image, duplicate);
-    try { FormationSpeechNative.Resolve(image, rva, pattern, out _); Check(false, "Ambiguity accepted"); }
-    catch (InvalidOperationException) { Check(true, "Ambiguity rejected"); }
+    Check(FormationSpeechNative.Resolve(image, rva, pattern, true, out method) == rva &&
+        method == "reference-rva", "Verified reference uses no uniqueness scan");
+    try { FormationSpeechNative.Resolve(image, rva, pattern, false, out _); Check(false, "Ambiguity accepted"); }
+    catch (InvalidOperationException) { Check(true, "Untrusted ambiguity rejected"); }
+    try { FormationSpeechNative.Resolve(image, rva + 1, pattern, true, out _); Check(false, "Ambiguous fallback accepted"); }
+    catch (InvalidOperationException) { Check(true, "Reference failure fallback rejects ambiguity"); }
     saved.CopyTo(image, duplicate);
     byte original = image[rva]; image[rva] = 0xCC;
-    try { FormationSpeechNative.Resolve(image, rva, pattern, out _); Check(false, "Missing target accepted"); }
-    catch (InvalidOperationException) { Check(true, "Missing target rejected after fallback"); }
+    var data = headers.SectionHeaders.First(s => ((int)s.SectionCharacteristics & 0x20000000) == 0 &&
+        s.VirtualSize >= bytes.Length);
+    int dataRva = data.VirtualAddress;
+    byte[] savedData = image.AsSpan(dataRva, bytes.Length).ToArray();
+    bytes.CopyTo(image, dataRva);
+    try { FormationSpeechNative.Resolve(image, dataRva, pattern, true, out _); Check(false, "Data section target accepted"); }
+    catch (InvalidOperationException) { Check(true, "Missing executable target rejected despite data section match"); }
+    savedData.CopyTo(image, dataRva);
     image[rva] = original;
 }
 

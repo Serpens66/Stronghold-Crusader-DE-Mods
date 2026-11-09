@@ -24,13 +24,13 @@ namespace Pathfinding.UnitCommands
                 throw new InvalidOperationException("Native engine lock contract changed.");
         }
 
-        private void InitializeSpeech()
+        private void InitializeSpeech(bool referenceHashMatches)
         {
             try
             {
                 if (Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.N000000C4)).ToInt32() != 0x388)
                     throw new InvalidOperationException("Engineer speech exclusion field layout changed.");
-                speechNative = new FormationSpeechNative(libraryContext.ModuleHandle, libraryContext.Memory,
+                speechNative = new FormationSpeechNative(libraryContext.ModuleHandle, libraryContext.Memory, referenceHashMatches,
                     message => Shared.DebugLogHelper.LogInfo(log, message));
                 markerRenderer.NativeFrameCompleted = OnSpeechNativeFrame;
             }

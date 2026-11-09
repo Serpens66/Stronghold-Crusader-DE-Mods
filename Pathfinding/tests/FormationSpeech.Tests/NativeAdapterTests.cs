@@ -75,7 +75,11 @@ internal static class NativeAdapterTests
                 check(FlushInstructionCache(new IntPtr(-1), entry, (nuint)(prefixLength + body.Length)), "Flush private fixture code");
             }
             int resolutions = 0;
-            var native = new FormationSpeechNative(module, image, _ => resolutions++);
+            var native = new FormationSpeechNative(module, image, referenceHashMatches: true, message =>
+            {
+                check(message.Contains("reference-rva"), "Native adapter used the direct reference check");
+                resolutions++;
+            });
             check(resolutions == 4, "All native delegates resolved");
             var tribeManager = IntPtr.Add(module, 0x7CC6720);
             check(native.CaptureVoice(tribeManager, 123) == (int)eChimps.CHIMP_TYPE_SWORDSMAN &&

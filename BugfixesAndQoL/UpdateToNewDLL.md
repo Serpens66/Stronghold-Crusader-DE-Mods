@@ -185,12 +185,10 @@ distance <= range; allied Keeps use integer(range/2). This helper performs no
 terrain, occupation, enemy-distance or resource validation. Its coordinate
 guard returns zero for out-of-map cells; the caller owns other validity checks.
 
-Resolution validates the reference entry against the full 40-byte prologue
-pattern in `AIKeepRangeNativeContract.Pattern`. If that fails, the shared resolver searches
-executable PE sections for a unique match, including when the file hash matches.
-Then require the audited file hash, original RVA and complete function body.
-A new binary remains disabled even with a matching prologue: incoming-edge and
-caller semantics have not been proved for that binary. Error-level timestamped
+Resolution requires the audited file hash, the full 40-byte prologue at the
+reference RVA and the complete function body. A changed hash or entry stops
+validation before any pattern search. Caller and incoming-edge evidence applies
+to the audited binary and entry. Error-level timestamped
 diagnostics identify validation failures; no global override or alternate hook
 is used. Successful resolution reports its method and actual RVA at Info level.
 

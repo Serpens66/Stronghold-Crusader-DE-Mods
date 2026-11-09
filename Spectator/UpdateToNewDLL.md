@@ -13,12 +13,12 @@ All player IDs are one-based. Attack passes the actual attack target and order 1
 defend passes zero as attack target and `AIRequestOrderType.DefendMe`; cancel uses
 `ClearOrders`. The attack order integer is the native protocol branch, not a player index.
 
-The reference hash and executable PE section are checked, every reference instruction
-is decoded, and the entire live function must equal the reference bytes. A unique
-full-function signature scan is restricted to that executable section if the primary
-comparison fails. A relocated match is refused because RIP-relative data and calls
-have not been revalidated at another origin. Unknown native hashes are refused:
-there is deliberately no cross-version structure/layout fallback.
+Native initialization reads and verifies one raw DLL snapshot for AI orders,
+direct actions and placement. AI orders extract the full reference function
+from its executable PE section and decode every instruction. Only the 587 live
+bytes at the audited RVA are copied and compared. The adapter requires an exact
+match at that origin because its relative data references and calls are audited
+there. A changed native hash or a live byte mismatch leaves the adapter inactive.
 
 Vanilla flows through `DLL_GameAction` (0x81870), producer 0xD7520 and Chore 113
 (0x1A6F0). The test view instead invokes 0xD7580 while holding

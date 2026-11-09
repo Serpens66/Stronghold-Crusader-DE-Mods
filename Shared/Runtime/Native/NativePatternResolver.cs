@@ -86,6 +86,21 @@ namespace Shared
         public static bool MatchesPatternAt(ReadOnlySpan<byte> memory, int offset, string pattern) =>
             MatchesPatternAt(memory, offset, ParsePattern(pattern));
 
+        internal static bool MatchesPatternAt(ReadOnlySpan<byte> memory, int offset, string pattern,
+            NativePatternSearchScope searchScope)
+        {
+            PatternByte[] bytes = ParsePattern(pattern);
+            if (!MatchesPatternAt(memory, offset, bytes))
+                return false;
+            if (searchScope != NativePatternSearchScope.ExecutableSections)
+                return true;
+
+            foreach (NativeCodeRange range in GetExecutableCodeRanges(memory))
+                if (offset >= range.Offset && offset <= range.Offset + range.Length - bytes.Length)
+                    return true;
+            return false;
+        }
+
         public static NativeCodeRange[] GetExecutableCodeRanges(ReadOnlySpan<byte> memory)
         {
             if (memory.Length < 0x40 || memory[0] != 0x4D || memory[1] != 0x5A)

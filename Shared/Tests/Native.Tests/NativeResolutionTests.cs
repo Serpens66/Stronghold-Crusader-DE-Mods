@@ -117,6 +117,19 @@ public sealed class NativeResolutionTests
                 .ResolveUnique(moved, Pattern, 0x1234, "load");
             Assert.AreEqual("signature-fallback", rescanned.Method);
             Assert.AreEqual(RipLoad + 0x40, rescanned.Rva);
+
+            // Matching bytes outside .text or straddling its end do not authorize a code target.
+            foreach (int outsideCode in new[] { DataRva + 0x20, DataRva - 4 })
+            {
+                byte[] withExtraMatch = Image();
+                Array.Copy(image, RipLoad, withExtraMatch, outsideCode, 8);
+                second.Store("load", outsideCode);
+                Assert.IsTrue(second.Save());
+                var reopened = NativeResolutionCache.Open("owner", "1.0", "newhash", false, directory);
+                NativeResolution inCode = reopened.ResolveUnique(withExtraMatch, Pattern, 0x1234, "load");
+                Assert.AreEqual("signature-fallback", inCode.Method);
+                Assert.AreEqual(RipLoad, inCode.Rva);
+            }
         }
         finally { Directory.Delete(directory, true); }
     }

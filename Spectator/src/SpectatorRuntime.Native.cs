@@ -35,23 +35,36 @@ namespace Spectator
         private static volatile bool availabilityReady, visualsReady;
         private static void OnNativeLibraryLoaded(CrusaderLibraryLoadContext context)
         {
-            InitializeNativeOrders(context);
-            InitializeNativeActions(context);
-            if (availabilityDetour != null) return;
-            NativeDetour<BuildAvailabilityDelegate> candidate = null;
-            bool published = false;
+            byte[] image;
             try
             {
                 string path = Path.Combine(Paths.GameRootPath,
                     "Stronghold Crusader Definitive Edition_Data", "Plugins", "x86_64",
                     "CrusaderDE.dll");
-                using (var stream = File.OpenRead(path))
+                image = File.ReadAllBytes(path);
                 using (var sha = SHA256.Create())
                 {
-                    string hash = BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "");
+                    string hash = BitConverter.ToString(sha.ComputeHash(image)).Replace("-", "");
                     if (!string.Equals(hash, NativeSha256, StringComparison.OrdinalIgnoreCase))
                         throw new InvalidOperationException("Native DLL hash differs: " + hash);
                 }
+            }
+            catch (Exception error)
+            {
+                if (nativeOrder == null) log.LogError("TEST_AI_ORDERS_DISABLED: " + error);
+                log.LogError("TEST_NATIVE_ACTIONS_DISABLED: " + error);
+                if (availabilityDetour == null)
+                    log.LogError("SPECTATOR_EDITOR_BUILD_AVAILABILITY_DISABLED: " + error);
+                return;
+            }
+
+            InitializeNativeOrders(context, image);
+            InitializeNativeActions(context, image);
+            if (availabilityDetour != null) return;
+            NativeDetour<BuildAvailabilityDelegate> candidate = null;
+            bool published = false;
+            try
+            {
                 if (typeof(NativeDetour<>).Assembly.GetName().Version !=
                     new Version(1, 5, 0, 0))
                     throw new InvalidOperationException("Installed RedBird NativeX64 differs from 1.5.0.0.");

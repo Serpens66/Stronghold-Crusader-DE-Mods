@@ -225,7 +225,7 @@ namespace Pathfinding.UnitCommands {
     Check(!FormationNativeRunContext.IsActive(locked),"Frame cleaned after scope");
    } finally { locked.Free(); }
    var unavailable=new FormationRuntime();unavailable.Setup();try {
-    unavailable.InitializeSpeech();Check(unavailable.speechNative==null&&!unavailable.localFailed,"Adapter init failure is audio-only");
+    unavailable.InitializeSpeech(true);Check(unavailable.speechNative==null&&!unavailable.localFailed,"Adapter init failure is audio-only");
     unavailable.Tick();Check(unavailable.moves==1&&unavailable.originalRuns==1&&unavailable.markerRenderer.failures==0,"Formation survives unavailable adapter");
    } finally { unavailable.Free(); }
    var renderer=new Renderer();renderer.NativeFrameCompleted=()=>throw new Exception("unexpected callback failure");

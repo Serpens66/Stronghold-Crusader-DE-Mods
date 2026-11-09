@@ -79,7 +79,8 @@ namespace Shared
                 rva = referenceRva;
                 method = "reference-rva";
             }
-            else if (TryGet(name, out int cached) && NativePatternResolver.MatchesPatternAt(memory, cached, pattern))
+            else if (TryGet(name, out int cached) &&
+                NativePatternResolver.MatchesPatternAt(memory, cached, pattern, searchScope))
             {
                 rva = cached;
                 method = "cache";

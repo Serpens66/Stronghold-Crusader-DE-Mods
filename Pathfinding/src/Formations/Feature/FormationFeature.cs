@@ -114,7 +114,8 @@ namespace Pathfinding
             if (runtime != null) return;
             try
             {
-                if (!Shared.DebugLogHelper.IsCurrentNativeLibraryVersion())
+                bool referenceHashMatches = Shared.DebugLogHelper.IsCurrentNativeLibraryVersion();
+                if (!referenceHashMatches)
                     throw new InvalidOperationException("Unaudited native formation layout.");
                 var commands = UnitCommandPathAPI.Runtime;
                 var markers = LargeMoveTargetMarkerRuntime.Renderer;
@@ -123,7 +124,7 @@ namespace Pathfinding
                 // Root the candidate before publishing any hook or subscription. Initialization
                 // failure leaves the rooted candidate logically inactive until process exit.
                 runtime = new FormationRuntime(log, context, kind, density, placement, menu, settings, commands, markers);
-                runtime.Initialize();
+                runtime.Initialize(referenceHashMatches);
             }
             catch (Exception ex)
             {

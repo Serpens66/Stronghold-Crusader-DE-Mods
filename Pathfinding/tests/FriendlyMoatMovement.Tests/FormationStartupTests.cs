@@ -103,7 +103,8 @@ namespace APIShared.Internal {
 namespace Shared {
     public static class UnityMainThreadDispatch { public static void TryRunInlineOrEnqueue(Action a)=>a(); }
     public static class DebugLogHelper { public static bool DiagnosticsEnabled => true;
-        public static bool IsCurrentNativeLibraryVersion()=>true;
+        internal static bool ReferenceHashMatches=true;
+        public static bool IsCurrentNativeLibraryVersion()=>ReferenceHashMatches;
         public static void LogDebugLimited(ManualLogSource l, string site, params object[] parts) { LogDebug(l, System.String.Concat(parts)); } public static void LogDebug(ManualLogSource l,string m) {}
         public static void LogWarningLimited(ManualLogSource l, string site, params object[] parts) { LogWarning(l, System.String.Concat(parts)); } public static void LogWarning(ManualLogSource l,string m) {}
         public static void LogErrorLimited(ManualLogSource l, string site, params object[] parts) { LogError(l, System.String.Concat(parts)); } public static void LogError(ManualLogSource l,string m) {}
@@ -120,7 +121,7 @@ namespace Pathfinding.UnitCommands {
         internal FormationRuntime(ManualLogSource l,SHCDESE.API.LowLevel.CrusaderLibraryLoadContext c,
             ConfigEntry<FormationKind> k,ConfigEntry<int> d,ConfigEntry<RangedPlacementMode> p,
             IFormationPresentation m,Pathfinding.PathfindingViewModel s,object commands,object markers) { settings=s;Last=this; }
-        internal void Initialize() { if(ThrowOnInitialize) { Failed=true;throw new InvalidOperationException("Runtime failure"); } }
+        internal void Initialize(bool referenceHashMatches) { if(!referenceHashMatches||ThrowOnInitialize) { Failed=true;throw new InvalidOperationException("Runtime failure"); } }
         internal void ResetTransientState() {}
     }
 }
@@ -174,6 +175,10 @@ namespace Pathfinding {
             menu=Configure(config,options);
             Require(manager.Hosts.Count==2 && manager.Attempts.Count==2,"Early registration needs successful native initialization");
             UnitCommandPathAPI.Runtime=new object();Pathfinding.LargeMoveTargetMarkerRuntime.Renderer=new object();
+            Shared.DebugLogHelper.ReferenceHashMatches=false;
+            FormationFeature.Initialize(new SHCDESE.API.LowLevel.CrusaderLibraryLoadContext());
+            Require(FormationRuntime.Last==null && !menu.FeatureAvailable,"Unknown hash reached the formation runtime");
+            Shared.DebugLogHelper.ReferenceHashMatches=true;
             FormationRuntime.ThrowOnInitialize=true;
             FormationFeature.Initialize(new SHCDESE.API.LowLevel.CrusaderLibraryLoadContext());
             Require(!menu.FeatureAvailable && !menu.MenuVisible && !menu.RolloverVisible,"Failed runtime made menu available");

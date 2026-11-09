@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
 namespace Pathfinding.UnitCommands
@@ -40,16 +41,19 @@ namespace Pathfinding.UnitCommands
         };
         internal static readonly int[] ReferenceRvas = { SelectedVoiceRva, RepresentativeRva, SpeechRva, BusyRva };
 
-        internal FormationSpeechNative(IntPtr module, ReadOnlySpan<byte> image, Action<string> resolved)
+        internal FormationSpeechNative(IntPtr module, ReadOnlySpan<byte> image, bool referenceHashMatches,
+            Action<string> resolved)
         {
             // Fixed data addresses are valid only under FormationFeature's canonical hash gate.
+            if (!referenceHashMatches)
+                throw new InvalidOperationException("Unaudited formation speech data layout.");
             if (module == IntPtr.Zero || image.Length < SoundManagerRva + 0x43B0)
                 throw new InvalidOperationException("Formation speech native image is unavailable.");
             this.module = module;
             var targets = new IntPtr[ReferenceRvas.Length];
             for (int index = 0; index < targets.Length; index++)
             {
-                int rva = Resolve(image, ReferenceRvas[index], Patterns[index], out string method);
+                int rva = Resolve(image, ReferenceRvas[index], Patterns[index], referenceHashMatches, out string method);
                 targets[index] = IntPtr.Add(module, rva);
                 resolved($"Formation speech target 0x{ReferenceRvas[index]:X}: {method}, RVA=0x{rva:X}.");
             }
@@ -75,7 +79,8 @@ namespace Pathfinding.UnitCommands
                 request.Response, request.TargetTileId);
         }
 
-        internal static int Resolve(ReadOnlySpan<byte> image, int referenceRva, string pattern, out string method)
+        internal static int Resolve(ReadOnlySpan<byte> image, int referenceRva, string pattern,
+            bool referenceHashMatches, out string method)
         {
             string[] tokens = pattern.Split(' ');
             int[] bytes = Array.ConvertAll(tokens, token => token == "??" ? -1 : Convert.ToInt32(token, 16));
@@ -87,7 +92,7 @@ namespace Pathfinding.UnitCommands
                 throw new InvalidOperationException("Invalid formation speech PE header.");
             int count = ReadUShort(image, pe + 6);
             int table = checked(pe + 24 + ReadUShort(image, pe + 20));
-            int found = -1;
+            var executableSections = new List<(int Start, int LastStart)>();
             for (int section = 0; section < count; section++)
             {
                 int header = checked(table + section * 40);
@@ -97,19 +102,44 @@ namespace Pathfinding.UnitCommands
                 int start = ReadInt(image, header + 12), length = ReadInt(image, header + 8);
                 if (start < 0 || length < 0 || start > image.Length - length)
                     throw new InvalidOperationException("Invalid formation speech executable section.");
-                for (int offset = start; offset <= start + length - bytes.Length; offset++)
+                executableSections.Add((start, start + length - bytes.Length));
+            }
+            if (referenceHashMatches)
+            {
+                foreach (var section in executableSections)
                 {
-                    int index = 0;
-                    while (index < bytes.Length && (bytes[index] < 0 || image[offset + index] == bytes[index])) index++;
-                    if (index != bytes.Length) continue;
+                    if (referenceRva >= section.Start && referenceRva <= section.LastStart &&
+                        MatchesAt(image, referenceRva, bytes))
+                    {
+                        method = "reference-rva";
+                        return referenceRva;
+                    }
+                }
+            }
+
+            int found = -1;
+            foreach (var section in executableSections)
+            {
+                for (int offset = section.Start; offset <= section.LastStart; offset++)
+                {
+                    if (!MatchesAt(image, offset, bytes)) continue;
                     if (found >= 0) throw new InvalidOperationException("Ambiguous formation speech entry.");
                     found = offset;
                 }
             }
             if (found < 0) throw new InvalidOperationException("Formation speech entry unavailable, including pattern fallback.");
-            method = found == referenceRva ? "reference-rva" : "executable-pattern-fallback";
+            method = "executable-pattern-fallback";
             return found;
         }
+
+        private static bool MatchesAt(ReadOnlySpan<byte> image, int offset, int[] bytes)
+        {
+            for (int index = 0; index < bytes.Length; index++)
+                if (bytes[index] >= 0 && image[offset + index] != bytes[index])
+                    return false;
+            return true;
+        }
+
         private static int ReadInt(ReadOnlySpan<byte> image, int offset) =>
             BitConverter.ToInt32(image.Slice(offset, 4).ToArray(), 0);
         private static int ReadUShort(ReadOnlySpan<byte> image, int offset) =>

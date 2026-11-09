@@ -54,7 +54,7 @@ namespace Pathfinding.UnitCommands
                 throw new ArgumentNullException(nameof(menuViewModel));
         }
 
-        internal void Initialize()
+        internal void Initialize(bool referenceHashMatches)
         {
             if (initialized)
                 return;
@@ -133,7 +133,7 @@ namespace Pathfinding.UnitCommands
                 pendingKeyUp = null;
                 commandRuntime.formationRuntime = this;
                 initialized = true;
-                InitializeSpeech();
+                InitializeSpeech(referenceHashMatches);
 
                 Shared.DebugLogHelper.LogInfo(
                     log,

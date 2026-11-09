@@ -27,15 +27,13 @@ namespace BugfixesAndQoL
                 throw new InvalidOperationException("Native load context unavailable.");
             string path = Path.Combine(Paths.GameRootPath,
                 "Stronghold Crusader Definitive Edition_Data", "Plugins", "x86_64", "CrusaderDE.dll");
-            bool known = Shared.DebugLogHelper.GetFileSha256(path) == NativeHash;
-            var resolved = Shared.NativePatternResolver.ResolveUnique(context.Memory, Pattern, Rva,
-                known, "AI keep distance predicate");
-            // Full caller/xref coverage is bound to this binary; a pattern alone is not sufficient.
-            if (!known || resolved.Rva != Rva)
+            // Full caller/xref coverage is bound to this binary and this entry.
+            if (Shared.DebugLogHelper.GetFileSha256(path) != NativeHash ||
+                !Shared.NativePatternResolver.MatchesPatternAt(context.Memory, Rva, Pattern))
                 throw new InvalidOperationException("Unknown native identity/entry: re-audit callers and incoming edges before enabling.");
-            ulong target = unchecked((ulong)context.ModuleHandle.ToInt64()) + (ulong)resolved.Rva;
+            ulong target = unchecked((ulong)context.ModuleHandle.ToInt64()) + Rva;
             ValidateFunction(Capture(target, FunctionSize), target);
-            resolution = "method=" + resolved.Method + ", rva=0x" + resolved.Rva.ToString("X");
+            resolution = "method=reference-rva, rva=0x" + Rva.ToString("X");
             return target;
         }
 
