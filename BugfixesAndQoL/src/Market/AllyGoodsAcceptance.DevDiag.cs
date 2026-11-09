@@ -31,9 +31,9 @@ namespace BugfixesAndQoL
             try
             {
                 string[] lines = File.ReadAllLines(request);
-                if (lines.Length != 2 || lines[1] != "ally-goods" ||
+                if (lines.Length != 2 || (lines[1] != "ally-goods" && lines[1] != "normal-selection") ||
                     !Guid.TryParseExact(lines[0], "N", out Guid runId) || runId == Guid.Empty)
-                    throw new InvalidDataException("Expected a run GUID and the ally-goods scenario.");
+                    throw new InvalidDataException("Expected a run GUID and a supported QoL scenario.");
                 File.Delete(request);
 
                 string fixture = Path.Combine(Paths.BepInExRootPath, "SerpAutomationRollback", "fixture.sav");
@@ -44,16 +44,27 @@ namespace BugfixesAndQoL
                         StringComparison.Ordinal))
                         throw new InvalidDataException("The staged ally-goods fixture has an unexpected SHA-256.");
 
-                if (runtime.AllyGoodsAmountDisplay == null)
-                    throw new InvalidOperationException("QoL did not install the ally-goods controls.");
-                Settings.EnableClientFeatures = true;
-                Settings.EnableAllyGoodsAmountModifiers = true;
                 var acceptance = new AllyGoodsAcceptance(Logger);
+                AutomationStep exercise;
+                if (lines[1] == "normal-selection")
+                {
+                    exercise = new AutomationStep("normal-selection", TimeSpan.FromSeconds(35),
+                        acceptance.CheckSelection, missionBound: true);
+                }
+                else
+                {
+                    if (runtime.AllyGoodsAmountDisplay == null)
+                        throw new InvalidOperationException("QoL did not install the ally-goods controls.");
+                    Settings.EnableClientFeatures = true;
+                    Settings.EnableAllyGoodsAmountModifiers = true;
+                    exercise = new AutomationStep("ally-goods-confirm-once", TimeSpan.FromSeconds(40),
+                        acceptance.Check, missionBound: true);
+                }
+
                 ApiShared.ForMod(PluginGuid).Automation.Start(runId, new[]
                 {
                     new AutomationStep("ally-goods-load", TimeSpan.FromSeconds(120), run => run.LoadSave(fixture)),
-                    new AutomationStep("ally-goods-confirm-once", TimeSpan.FromSeconds(40),
-                        acceptance.Check, missionBound: true)
+                    exercise
                 }, Logger, quitWhenDone: true);
             }
             catch (Exception error)
@@ -70,8 +81,73 @@ namespace BugfixesAndQoL
             private const eGoods Good = eGoods.STORED_GOLD;
             private readonly ManualLogSource log;
             private int armed, managedCalls, successfulManagedCalls, nativeCalls, balancedNativeCalls;
+            private int requestArmed, requestCalls, vetoedRequests;
 
             internal AllyGoodsAcceptance(ManualLogSource log) => this.log = log;
+
+            internal IEnumerable<AutomationWait> CheckSelection(AutomationRun run)
+            {
+                var mission = run.CurrentMission;
+                Require(mission != null && mission.IsSave && mission.Mode.IsSingleplayerSkirmish &&
+                    !mission.Mode.IsRealMultiplayer && mission.LocalPlayerId == Sender,
+                    "Expected the isolated local save with player 1 controlled.");
+                yield return run.WaitForPlayState(mission);
+                foreach (var wait in run.SetPause(mission, false))
+                    yield return wait;
+                yield return run.WaitForTicks(mission, 2);
+
+                Require(run.InSimulation(mission, () =>
+                    IsLocalView() && GamePlayerManagerAPI.Instance.SetSelectedChimps(new List<int>())),
+                    "The local selection clear was refused.");
+                yield return run.WaitForTicks(mission, 3);
+                yield return AutomationWait.Until("empty local selection", () =>
+                    LocalSelectionAPI.TryCapture(Sender, out var snapshot) && snapshot.Count == 0);
+
+                var target = run.InSimulation(mission, () =>
+                {
+                    Require(IsLocalView(), "The controlled/viewed player changed before selection.");
+                    var selected = FindSelectionTarget();
+                    Require(GamePlayerManagerAPI.Instance.SetSelectedChimps(new List<int> { selected.UnitId }),
+                        "The local unit selection was refused.");
+                    return selected;
+                });
+                yield return run.WaitForTicks(mission, 3);
+                yield return AutomationWait.Until("selected local unit and troop HUD", () =>
+                    IsLocalView() && LocalSelectionAPI.TryCapture(Sender, out var snapshot) &&
+                    snapshot.Count == 1 && snapshot[0].UnitId == target.UnitId &&
+                    snapshot[0].UnitType == (int)target.Type &&
+                    MainViewModel.viewModelLoaded && MainViewModel.Instance.Show_HUD_Troops);
+                Require(run.InSimulation(mission, () => MatchesSelectionTarget(target)),
+                    "The selected unit's ownership or identity changed.");
+                Shared.DebugLogHelper.LogInfo(log,
+                    $"QOL_NORMAL_SELECTION_PASS session={mission.SessionId} local={Sender} selected=1 unit={target.UnitId} global={target.GlobalId} type={target.Type} hud=visible source=script-extender");
+            }
+
+            private static bool IsLocalView() => PlayerPerspectiveAPI.GetControlledPlayerId() == Sender &&
+                PlayerPerspectiveAPI.GetViewedPlayerId() == Sender;
+
+            private static unsafe (int UnitId, uint GlobalId, eChimps Type) FindSelectionTarget()
+            {
+                foreach (int unitId in UnitAccess.GetAllReallyAliveUnits())
+                {
+                    if (UnitAccess.TryGetById(unitId, out var unit, out _) && unit->r_ControllableForPlayerId == Sender &&
+                        unit->r_GlobalId != 0 && (unit->r_UnitChimp == eChimps.CHIMP_TYPE_ARCHER ||
+                        unit->r_UnitChimp == eChimps.CHIMP_TYPE_SPEARMAN || unit->r_UnitChimp == eChimps.CHIMP_TYPE_SWORDSMAN))
+                        return (unitId, unit->r_GlobalId, unit->r_UnitChimp);
+                }
+
+                int lordId = GamePlayerManagerAPI.Instance.GetLordUnitId(Sender);
+                if (UnitAccess.TryGetById(lordId, out var lord, out _) && UnitAccess.IsReallyAlive(lord) &&
+                    lord->r_ControllableForPlayerId == Sender && lord->r_GlobalId != 0 &&
+                    lord->r_UnitChimp == eChimps.CHIMP_TYPE_LORD)
+                    return (lordId, lord->r_GlobalId, lord->r_UnitChimp);
+                throw new InvalidOperationException("No eligible local unit was found in the saved fixture.");
+            }
+
+            private static unsafe bool MatchesSelectionTarget((int UnitId, uint GlobalId, eChimps Type) target) =>
+                UnitAccess.TryGetById(target.UnitId, out var unit, out _) && UnitAccess.IsReallyAlive(unit) &&
+                unit->r_ControllableForPlayerId == Sender && unit->r_GlobalId == target.GlobalId &&
+                unit->r_UnitChimp == target.Type;
 
             internal IEnumerable<AutomationWait> Check(AutomationRun run)
             {
@@ -95,7 +171,7 @@ namespace BugfixesAndQoL
                 }), "Loaded save did not expose the expected two allies and one enemy.");
                 yield return AutomationWait.Until("native ally transfer observer available", () => AllyTransfers.IsAvailable);
                 Require(GameActionEvents.TryRegister(PluginGuid, "diag-ally-goods-intent",
-                    null, ObserveManaged, out string reason), reason);
+                    VetoDiagnosticRequest, ObserveManaged, out string reason), reason);
                 Require(AllyTransferEvents.TryRegister(PluginGuid, "diag-ally-goods-execution",
                     null, ObserveNative, out reason), reason);
 
@@ -115,6 +191,14 @@ namespace BugfixesAndQoL
                 panel.ButtonClicked("X10");
                 Require(ReadSelection().Amount == Amount && main.Allies_GoodConfirmVis,
                     "The unmodified X10 command did not produce a confirmable amount of 10.");
+                panel.ButtonClicked("X10-");
+                Require(ReadSelection().Amount == 0, "Unmodified subtract did not clear the amount.");
+
+                CheckModifiedAmount(panel, shift: true, control: false, expected: 50);
+                CheckModifiedAmount(panel, shift: false, control: true, expected: 2);
+                CheckModifiedAmount(panel, shift: true, control: true, expected: Amount, keep: true);
+                Require(main.Allies_GoodConfirmVis, "The amount after both modifiers was not confirmable.");
+                Shared.DebugLogHelper.LogInfo(log, $"QOL_ALLY_GOODS_MODIFIERS_PASS session={mission.SessionId} baseline=10 shift=50 ctrl=2 both=10 source=devdiag");
 
                 Volatile.Write(ref armed, 1);
                 try
@@ -130,12 +214,48 @@ namespace BugfixesAndQoL
                     Shared.DebugLogHelper.LogInfo(log, $"QOL_ALLY_GOODS_PASS session={mission.SessionId} managed=1 native=1 debit=10 credit=10 followupTicks={followupTicks}");
                 }
                 finally { Volatile.Write(ref armed, 0); }
+
+                panel.ButtonClicked("Back");
+                panel.ButtonClicked(FindRecipientSlot(panel).ToString(CultureInfo.InvariantCulture));
+                panel.ButtonClicked("Request");
+                panel.ButtonClicked("G" + ((int)Good).ToString("00", CultureInfo.InvariantCulture));
+                panel.ButtonClicked("X10");
+                Require(ReadSelection(send: false).Amount == Amount && main.Allies_GoodConfirmVis,
+                    "The ordinary request did not produce a confirmable amount of 10.");
+                Volatile.Write(ref requestArmed, 1);
+                try
+                {
+                    panel.ButtonClicked("ConfirmGoods");
+                    yield return AutomationWait.Until("managed goods request veto receipt", () => Volatile.Read(ref requestCalls) > 0);
+                    yield return run.WaitForTicks(mission, 2);
+                    Require(Volatile.Read(ref requestCalls) == 1 && Volatile.Read(ref vetoedRequests) == 1,
+                        $"Expected one managed request veto, got requests={requestCalls} matchingVeto={vetoedRequests}.");
+                    Shared.DebugLogHelper.LogInfo(log, $"QOL_ALLY_GOODS_REQUEST_PASS session={mission.SessionId} managed=1 vetoed=1 native=not-executed");
+                }
+                finally { Volatile.Write(ref requestArmed, 0); }
             }
 
-            private static AllyGoodsPanelContext ReadSelection()
+            private static void CheckModifiedAmount(HUD_AlliesPanel panel, bool shift, bool control,
+                int expected, bool keep = false)
+            {
+                AllyGoodsAmountModifierHook.WithDiagnosticModifiers(shift, control, () =>
+                {
+                    panel.ButtonClicked("X10");
+                    Require(ReadSelection().Amount == expected,
+                        $"Expected amount {expected} with Shift={shift} and Ctrl={control}.");
+                    if (!keep)
+                    {
+                        panel.ButtonClicked("X10-");
+                        Require(ReadSelection().Amount == 0, "Modified subtract did not clear the amount.");
+                    }
+                });
+            }
+
+            private static AllyGoodsPanelContext ReadSelection(bool send = true)
             {
                 Require(AllyGoodsPanelExtensions.TryGetContext(out var selection) &&
-                    selection.IsSendMode && selection.LocalPlayerId == Sender && selection.ViewedPlayerId == Sender &&
+                    (send ? selection.IsSendMode : selection.IsRequestMode) &&
+                    selection.LocalPlayerId == Sender && selection.ViewedPlayerId == Sender &&
                     selection.RecipientPlayerId == Recipient && selection.Good == Good,
                     "The selected recipient, ware or player viewpoint changed.");
                 return selection;
@@ -153,8 +273,23 @@ namespace BugfixesAndQoL
                 return index;
             }
 
+            private void VetoDiagnosticRequest(GameActionPreEventArgs args)
+            {
+                // This probe checks managed routing. An AI gold request's native write path is unqualified.
+                if (Volatile.Read(ref requestArmed) != 0 && args.Command == Enums.GameActionCommand.Ally_RequestGoods)
+                    args.SkipOriginalFunction = true;
+            }
+
             private void ObserveManaged(GameActionPostEventArgs args)
             {
+                if (Volatile.Read(ref requestArmed) != 0 && args.Command == Enums.GameActionCommand.Ally_RequestGoods)
+                {
+                    if (args.WasSkipped && args.StructureId == Recipient && args.ActionState == (int)Good &&
+                        args.Value2 == Amount)
+                        Interlocked.Increment(ref vetoedRequests);
+                    Interlocked.Increment(ref requestCalls);
+                    return;
+                }
                 if (Volatile.Read(ref armed) == 0 || args.Command != Enums.GameActionCommand.Ally_SendGoods)
                     return;
                 if (!args.WasSkipped && args.Result == 0 && args.StructureId == Recipient &&
@@ -181,6 +316,34 @@ namespace BugfixesAndQoL
                 if (!condition)
                     throw new InvalidOperationException(error);
             }
+        }
+    }
+
+    internal sealed partial class AllyGoodsAmountModifierHook
+    {
+        [ThreadStatic] private static bool? diagnosticShift;
+        [ThreadStatic] private static bool? diagnosticControl;
+
+        internal static void WithDiagnosticModifiers(bool shift, bool control, Action click)
+        {
+            bool? oldShift = diagnosticShift;
+            bool? oldControl = diagnosticControl;
+            diagnosticShift = shift;
+            diagnosticControl = control;
+            try { click(); }
+            finally
+            {
+                diagnosticShift = oldShift;
+                diagnosticControl = oldControl;
+            }
+        }
+
+        static partial void OverrideDiagnosticKey(KeyCode left, ref bool held)
+        {
+            if (left == KeyCode.LeftShift)
+                held = diagnosticShift ?? held;
+            else if (left == KeyCode.LeftControl)
+                held = diagnosticControl ?? held;
         }
     }
 }

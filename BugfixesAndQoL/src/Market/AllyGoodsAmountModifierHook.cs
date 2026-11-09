@@ -14,7 +14,7 @@ using UnityEngine;
 
 namespace BugfixesAndQoL
 {
-    internal sealed class AllyGoodsAmountModifierHook : INotifyPropertyChanged
+    internal sealed partial class AllyGoodsAmountModifierHook : INotifyPropertyChanged
     {
         private delegate void UpdateGoodsDelegate(HUD_AlliesPanel self);
 
@@ -246,8 +246,14 @@ namespace BugfixesAndQoL
             }
         }
 
-        private static bool IsHeld(KeyCode left, KeyCode right) =>
-            Input.GetKey(left) || Input.GetKey(right);
+        private static bool IsHeld(KeyCode left, KeyCode right)
+        {
+            bool held = Input.GetKey(left) || Input.GetKey(right);
+            OverrideDiagnosticKey(left, ref held);
+            return held;
+        }
+
+        static partial void OverrideDiagnosticKey(KeyCode left, ref bool held);
 
         private void OnModifierKeyChanged(UnityInputEventArgs args)
         {
