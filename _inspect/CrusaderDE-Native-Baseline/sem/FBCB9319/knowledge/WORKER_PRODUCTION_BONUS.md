@@ -201,3 +201,18 @@ Extender captures its managed logical save path from the original outer argument
 before the shared writer swaps the native destination. There is no established
 temporary-name leak into the native header, restart source or Extender context.
 Evidence: `.work/a/prod-state/002/temp-routing-review.json`.
+
+## Fear stages and ingredient pickup [Vanilla follow-up, 2026-11-09]
+
+On the same installed DLL hash, `0xCD850` reads the per-player signed level at
+`0x379CF04 + player * 0x583C` and writes cached productivity at
+`0x379CEEC + player * 0x583C`. The mapping is
+`100 - 10 * clamp(level, -5, 5)`. The damage helper `0x180560` reads the same
+level cell. In the yield helper, `18D954` reads the owner from the supplied
+unit, and `18D95D` and `18D964` select the corresponding cache cell.
+
+Miller `137CF6` and Baker `138DD1` call yield during ingredient pickup and
+store AX as carry. Their later stock withdrawals at `137D86` and `138E58`
+use the pre-call ingredient count (R13D and R15D, respectively). The Baker
+bread call at `1390F8` follows the full state write `+0x918 = 0x5006D` and
+stores AX for bread delivery. Miller flour is produced in its separate path.
