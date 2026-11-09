@@ -6971,6 +6971,8 @@ namespace SHCDESE.API
 {
     public sealed class GamePlayerManagerAPI
     {
+        // Same value as the installed Script Extender API (SHCDESE.dll).
+        public const int MAX_PLAYERS = 8;
         public static GamePlayerManagerAPI Instance { get; } = new GamePlayerManagerAPI();
         public bool MapEditor { get; set; }
         public bool IsInMapEditor() => MapEditor;
@@ -7066,6 +7068,18 @@ namespace APIShared.Internal
         public static void LogInfo(BepInEx.Logging.ManualLogSource log, string text) { }
         public static void LogWarning(BepInEx.Logging.ManualLogSource log, string text) { }
         public static void LogError(BepInEx.Logging.ManualLogSource log, string text) { }
+    }
+}
+
+namespace APIShared
+{
+    // API logging boundary double (APIShared's single logging entry point); its real logger is tested in APIShared.
+    internal static class NativeApiLog
+    {
+        public static void Debug(BepInEx.Logging.ManualLogSource log, string message) { }
+        public static void Info(BepInEx.Logging.ManualLogSource log, string message) { }
+        public static void Warning(BepInEx.Logging.ManualLogSource log, string message) { }
+        public static void Error(BepInEx.Logging.ManualLogSource log, string message) { }
     }
 }
 

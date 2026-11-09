@@ -113,8 +113,9 @@
   </Target>
   <ItemGroup>
     <Compile Include="..\..\APIShared\src\ModSettings\Internal\AtomicFileReplacement.cs" />
-    <Compile Include="..\..\APIShared\src\Core\Internal\DebugLogHelper.cs" />
-    <Compile Include="..\..\APIShared\src\Core\Internal\RuntimeHealth.cs" />
+    <Compile Include="..\..\APIShared\src\Core\Internal\Logging\DebugLogHelper.cs" />
+    <Compile Include="..\..\APIShared\src\Core\Internal\Logging\RuntimeHealth.cs" />
+    <Compile Include="..\..\APIShared\src\Core\Internal\Logging\NativeApiLog.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Internal\DependencyFreeJson.cs" />
     <Compile Include="..\..\APIShared\src\Core\Internal\Native\NativePatternResolver.cs" />
   </ItemGroup>

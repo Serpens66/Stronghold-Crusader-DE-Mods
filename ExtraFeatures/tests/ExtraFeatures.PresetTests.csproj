@@ -57,7 +57,10 @@
       <HintPath>$(ExtenderDir)\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
       <Private>true</Private>
     </Reference>
-    <Compile Include="..\..\APIShared\src\GameModes\MissionModePolicy.cs" />
+    <Compile Include="..\..\APIShared\src\GameModes\GameModeHelper.cs" />
+    <Compile Include="..\..\APIShared\src\GameModes\GameModeKinds.cs" />
+    <Compile Include="..\..\APIShared\src\GameModes\GameModeSnapshot.cs" />
+    <Compile Include="..\..\APIShared\src\GameModes\SavedModeEvidence.cs" />
     <Compile Include="..\..\APIShared\src\GameModes\CustomizedLaunchOrigins.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -81,7 +84,16 @@
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.cs">
       <Link>PresetLobbyModSettingsViewModel.cs</Link>
     </Compile>
-    <Compile Include="..\..\APIShared\src\ModSettings\Lobby\PerPlayerLobbySettings.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.Access.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.Captions.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.ConfigurationBackend.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.PerPlayer.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.MissionContext.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Lobby\PerPlayerLobbySettingsCoordinator.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Lobby\PerPlayerLobbyBroadcastGuard.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Lobby\PerPlayerLobbySettingsBuilder.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Lobby\PerPlayerLobbySnapshot.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Lobby\PerPlayerLobbySettingContracts.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Lobby\HostLobbySettingsPublisher.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Internal\LobbySettingsRestoreScope.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetAtomicFilePublisher.cs" />
@@ -94,7 +106,16 @@
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.PresetIntegration.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetStorage.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\PersonalSettingsPaths.cs" />
-    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.Sources.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.PresetDialogs.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.SettingsSearch.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.SettingsSources.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PersonalSettingsWriteQueue.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\UI\ModSettingsSearchMatcher.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\UI\ModSettingsSearchVisibilityConverter.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\UI\ModSettingsSearchStateVisibilityConverter.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\UI\ReferenceEqualityComparer.cs" />
+    <Compile Include="..\..\APIShared\src\Players\PlayerSlots.cs" />
+    <Compile Include="..\..\APIShared\src\Core\Internal\Sha256Hex.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\UI\ModSettingsHorizontalFocusScrollGuard.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyModSettingsPresetRegistration.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\UI\ModSettingsSearch.cs">
