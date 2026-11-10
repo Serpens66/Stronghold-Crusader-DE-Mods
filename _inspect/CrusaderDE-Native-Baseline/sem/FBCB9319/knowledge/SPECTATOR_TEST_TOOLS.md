@@ -60,3 +60,21 @@ single encapsulated reflection read are required; publicized direct access is in
 Executable fixture checks live under Testmods/SpectatorEditorBuildTest/tests;
 the mod's UpdateToNewDLL.md records its supported origins, resolution limits,
 existing placement hooks and outstanding in-game acceptance matrix.
+
+
+## Defend eligibility, 2026-11-10 [Vanilla facts]
+
+On the same native image, the Defend evaluator at RVA 0x2A500 accepts an
+initialized AI when its help-block flag is zero and its signed eligible-army
+count is at least the signed AIC rescue threshold. These are distinct from
+the overall troop count and the accepted order fields. In the installed
+Extender 2.14.3 (SHA-256 5CB1C33BE5463086505A17F5C48AAA357D733CFFF7240E101C821F0E3C668498)
+the fields are GamePlayerResources.r_AILordMinusOne, N000040FB and N00004015;
+the threshold is InternalAIC.siege_troops_before_will_come_to_rescue.
+
+The help-block flag is written by RVA 0x2DFC0, which compares the nearby
+hostile strength plus its piecewise margin against the AI's own near-keep
+strength. RVA 0x182B00 counts units in the eligible AI roles. An allied AI
+can therefore have an army in the HUD and still decline a Defend request.
+A new order requires separate readback of the native order mode and
+requester after acceptance.

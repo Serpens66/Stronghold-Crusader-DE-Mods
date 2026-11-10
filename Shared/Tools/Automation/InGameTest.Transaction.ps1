@@ -161,6 +161,17 @@ function Set-InGameTestPackage([string]$Source, [string]$Target, [string]$Backup
         $original = Get-InGameTestTree $Target
         $package = Get-InGameTestTree $Source
         if (-not $package.Exists) { throw "Missing plugin package: $Source" }
+        if ($original.Exists -and $original.Files.Count -eq $package.Files.Count -and
+            $original.Directories.SetEquals($package.Directories)) {
+            $identical = $true
+            foreach ($relative in $package.Files.Keys) {
+                if ($original.Files[$relative] -cne $package.Files[$relative]) {
+                    $identical = $false
+                    break
+                }
+            }
+            if ($identical) { return }
+        }
         Copy-InGameTestTree $Source $stage $package
         $hadOriginal = $original.Exists
     } else {

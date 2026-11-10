@@ -50,9 +50,14 @@ $layoutExtender = Join-Path $layout '000shcdese'
 foreach ($path in @($oldPlugin, $layoutExtender)) { $null = [IO.Directory]::CreateDirectory($path) }
 [IO.File]::WriteAllText((Join-Path $oldPlugin 'old.dll'), 'original installation')
 [IO.File]::WriteAllText((Join-Path $layoutExtender 'se.dll'), 'extender')
+$installedExtender = Join-Path $plugins '000shcdese'
+Copy-InGameTestTree $layoutExtender $installedExtender (Get-InGameTestTree $layoutExtender)
 $installedPlugins = Get-InGameTestTree $plugins
 $layoutSwaps = [Collections.Generic.List[object]]::new()
 Set-InGameTestPluginLayout $layout $plugins (Join-Path $backup 'layout') $layoutSwaps @('consumer')
+if ($layoutSwaps.Count -ne 1 -or $layoutSwaps[0].Target -ne $oldPlugin) {
+    throw 'The unchanged Script Extender should not be moved during layout installation.'
+}
 Set-InGameTestPackage $source (Join-Path $plugins 'consumer') (Join-Path $backup 'consumer') $layoutSwaps -Directory
 if ([IO.Directory]::Exists($oldPlugin) -or ![IO.File]::Exists((Join-Path $plugins 'consumer/plugin.dll'))) {
     throw 'Explicit plugin layout was not isolated from the installed plugins.'

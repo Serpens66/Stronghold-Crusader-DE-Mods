@@ -1,5 +1,13 @@
 # Ingame-Tests per Code automatisieren
 
+## Maus und Tastatur bei Tests
+
+Der Nutzer arbeitet häufig während der Tests am PC weiter. Deshalb nach Möglichkeit direkt im Spiel automatisieren, etwa über APIShared oder Noesis, ohne den Windows-Mauszeiger zu bewegen oder Tastendrücke an Windows zu senden.
+
+- Globale Maus- oder Tastatureingaben erst nach vorheriger Nachfrage und ausdrücklicher Freigabe auslösen. Das gilt auch, wenn ein Skript oder ein Automationswerkzeug die Eingaben für den Agenten ausführt. Ein Testauftrag allein ist keine Freigabe.
+- Ist die Übernahme nötig, vor Testbeginn fragen, wann der Nutzer die Kontrolle kurz abgeben kann und ob die Freigabe für den gesamten konkreten Testauftrag gelten soll oder ob vor jeder einzelnen Übernahme erneut gefragt werden soll.
+- Erst zum vereinbarten Zeitpunkt und im freigegebenen Umfang übernehmen. Bei Einzelfreigabe vor jeder Übernahme auf ein ausdrückliches Ja warten. Sobald die Eingaben erledigt sind oder der Nutzer die Kontrolle zurückverlangt, die Steuerung beenden. Ohne Freigabe nur Schritte ohne globale Eingaben ausführen.
+
 ## Neue modbezogene Spieltests
 
 Für einen neuen Test das Szenario im betroffenen Mod als `*.DevDiag.cs` anlegen
@@ -443,7 +451,7 @@ Mod-Einstellungen nur im Menü setzen. Fremde Mods: `BepInEx.Bootstrap.Chainload
 
 ### Oberfläche bedienen
 
-Klicks gehen an Noesis, nicht an den echten Mauszeiger. Der Nutzer kann dabei weiterarbeiten. Das Spiel drängt sich aber oft in den Vordergrund:
+Die folgenden Klicks gehen direkt an Noesis und bewegen den Windows-Mauszeiger nicht. Das Spiel kann sich trotzdem in den Vordergrund drängen. Sind globale Eingaben nötig, gilt die [Freigaberegel für Maus und Tastatur](#maus-und-tastatur-bei-tests):
 
 ```csharp
 NoesisView view = FatControler.instance.NGview;
