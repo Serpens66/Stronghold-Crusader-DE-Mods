@@ -72,3 +72,15 @@ APIShared's shared base-price broker reuses the existing CEB10/CEB90 owner and
 keeps legacy total vetoes authoritative. The AI projection changes only the
 base cell around the original straight-line helper, restoring it afterward;
 no caller arithmetic or native damage/trade instructions are changed.
+
+## Persistence of the price table [Scope: Vanilla]
+
+Static audit of 2026-11-10 (hash FBCB9319...31E2); nothing executed in the game.
+
+- The current table (RVA 0x37ED9C8, 25 goods x 8 bytes) lies inside save section id 0x3FF (section table
+  0x336B20, pointer 0x37ED180, length 0x82474). Both .sav and editor .map files therefore store it.
+- The file reader 0x87D0 has exactly three direct callers: 0x85496 (DLL_LoadSaveGame, 0x853F0), 0x94B15 (skirmish
+  start, 0x94350) and 0x1006D7 (other map starts, 0x100530). Both map-to-play starts copy the static default prices
+  into the table after reading the file (0x100530 through `call 0x102FC0` at 0x1023C3; 0x94350 through its own loop
+  at 0x967C0..0x9696E, read from disassembly only). Prices stored in a map never reach a played mission.
+- DLL_LoadSaveGame resets first and reads afterwards, so a save and a map opened in the editor keep the stored values.

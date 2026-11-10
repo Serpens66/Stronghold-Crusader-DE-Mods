@@ -555,6 +555,8 @@ namespace BugfixesAndQoL
             int coopTrailId,
             int coopMissionId)
         {
+            // False until our own preparation is done: a later failure comes from the rest of the start chain.
+            bool prepared = false;
             try
             {
                 if (IsFeatureActive() && coopTrailId > 0 && self?.activeLobby?.gameTypeCoop == "1")
@@ -571,11 +573,15 @@ namespace BugfixesAndQoL
                             Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/MultiplayerAivSyncRuntime/StartGameHook.coop-trail-aiv-start", $"Coop Trail AIV start plans prepared: trail={coopTrailId}, mission={coopMissionId}, " +
                         $"plannedSlots={preparedSlots}, extraCandidateSlots={manifest?.Slots.Count ?? 0}.");
                     }
+                prepared = true;
                 startGameTrampoline(self, setup, map, coopTrailId, coopMissionId);
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/MultiplayerAivSyncRuntime/StartGameHook.could-not-prepare-multiplayer", "Bugfixes and QoL could not prepare multiplayer AIVs: " + ex);
+                // The start chain may refuse a start on purpose (e.g. APIShared's start validation) and
+                // reports that itself; only a failure of our own preparation is an AIV error.
+                if (!prepared)
+                    Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/MultiplayerAivSyncRuntime/StartGameHook.could-not-prepare-multiplayer", "Bugfixes and QoL could not prepare multiplayer AIVs: " + ex);
                 throw;
             }
             finally

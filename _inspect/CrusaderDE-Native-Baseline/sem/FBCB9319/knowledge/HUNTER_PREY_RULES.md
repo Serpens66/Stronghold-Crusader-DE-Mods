@@ -264,6 +264,10 @@ Static audit of 2026-11-08 (hash `FBCB9319…31E2`), core sites re-checked by di
   1 (`0x12FF7E`), 10 (`0x130521`, `0x1305C7`), `0xB` (`0x1306DD`), and `0x1941B4` in `0x1940C0`, which computes the idle
   reason (0x34) of the selected unit for its speech (`0x18CE60` <- `0x97DA0`). Only state 0 uses the id; the others use
   the result as yes/no. The entry span `[0x18AF50,0x18AF5E)` has no inbound branch and holds the hunter id in `edx`.
+- Thread (direct-branch scan of `.text`, 2026-11-10): the speech chain has one reference per link, `0x1940C0` <- `0x18CE77`
+  in `0x18CE60` <- `0x97E78` in `0x97DA0` <- tail jump `0x97CFC` in `0x97C70` <- `0x8692D` in `DLL_RunTick`. The speech
+  query therefore runs in the same `DLL_RunTick` call as the Hunter updates, on the engine thread, never concurrently
+  with them. Indirect calls through computed targets are not covered by the scan.
 - Candidate loop: `r14` = manager, `r13` = manager + hunter id * 0x490, `esi` = candidate id from 1, `rbx` = candidate
   public pointer + `0x29C`, bound `esi < [r14]`. Filters in order: alive state 2 (`0x18AFC0`), no corpse (`0x18AFCE`),
   owner 0 (`0x18AFD8`), type deer/goat (`0x18AFE6`, replaced by the Script Extender's hook), lease 0 (`0x18AFFD`),
