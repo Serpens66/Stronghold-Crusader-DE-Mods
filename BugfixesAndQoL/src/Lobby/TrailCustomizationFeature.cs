@@ -526,8 +526,11 @@ namespace BugfixesAndQoL
             string.Equals(command, "Play", StringComparison.Ordinal) ||
             string.Equals(command, "COOP_START", StringComparison.Ordinal);
 
+        // "Custom" opens the plain Skirmish setup. The menus normally reach it through "Skirmish", but
+        // a customized origin must not depend on that order to end.
         private static bool IsContextChangeCommand(string command) =>
             string.Equals(command, "Skirmish", StringComparison.Ordinal) ||
+            string.Equals(command, "Custom", StringComparison.Ordinal) ||
             string.Equals(command, "MapEditor", StringComparison.Ordinal) ||
             string.Equals(command, "BackMain", StringComparison.Ordinal) ||
             string.Equals(command, "Coops", StringComparison.Ordinal) ||
