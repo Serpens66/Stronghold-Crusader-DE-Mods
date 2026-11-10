@@ -10,7 +10,7 @@ using System.Threading;
 
 namespace ExtraFeatures
 {
-    public sealed partial class ExtraFeaturesViewModel : IModSettingsWorkingCopyEndpoint
+    public sealed partial class ExtraFeaturesViewModel : IModSettingsWorkingCopyEndpoint, IModSettingsSnapshotMigration
     {
         private int killRewardGoldHuman = -1, killRewardGoldAI = -1;
         private int killRewardGoodsHuman = -1, killRewardGoodsAI = -1;
@@ -172,6 +172,12 @@ namespace ExtraFeatures
             base.System_ExitMissionPreset();
             NormalizeOwnedKillReward();
         }
+
+        // A save written before the percentage settings still carries the retired suppression flags
+        // (and old proximity radii). APIShared verifies the applied host values, so it must be given
+        // the converted form before entering; entering alone converts only this model's own copy.
+        public Dictionary<string, byte[]> System_MigrateMissionSnapshot(Dictionary<string, byte[]> snapshot) =>
+            CanonicalKillRewardSnapshot(new Dictionary<string, byte[]>(snapshot ?? throw new ArgumentNullException(nameof(snapshot)), StringComparer.Ordinal));
 
         private static bool LegacyKillReward(Dictionary<string, byte[]> snapshot, string name)
         {

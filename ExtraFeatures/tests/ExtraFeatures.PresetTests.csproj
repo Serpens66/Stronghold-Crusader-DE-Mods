@@ -100,6 +100,7 @@
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.Catalog.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.Persistence.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\ModSettingsMigration.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.Mission.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.Snapshots.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\ILobbyPresetHost.cs" />

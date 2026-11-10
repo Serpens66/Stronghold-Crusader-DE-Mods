@@ -3,19 +3,26 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.132",
+  "Version": "1.0.133",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.34.0"
+      "MinimumVersion": "0.45.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.133",
+      "Changes": [
+        "Fix saves and Trail missions from before the kill-reward percentage settings: they load again and keep their saved kill-reward choice.",
+        "Require APIShared 0.45.0 or newer."
+      ]
+    },
     {
       "Version": "1.0.132",
       "Changes": [
