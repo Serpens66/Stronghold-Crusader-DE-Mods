@@ -1,4 +1,3 @@
-using APIShared.Maps;
 using ExtendedData.Core;
 using CrusaderDE;
 using System;
@@ -8,9 +7,8 @@ using System.Linq;
 
 namespace ExtendedData
 {
-    // Schema 5 export: every mission bundles an unchanged copy of its Trail (AIC, ordered castle candidates,
-    // flags, rotation and portraits of every AI slot) and the map extracted from it. Neither the original map
-    // nor the author's Lord installation is a source of these data any more.
+    // Schema 5 bundles the Trail's embedded Lord data and extracted map. The copy keeps the authored
+    // gameplay data while neutralizing the two lobby-owned settings.
     internal sealed class CoopTrailPackageExporter
     {
         internal const string BundledTrailFileName = "mission.trail";
@@ -162,13 +160,10 @@ namespace ExtendedData
         {
             string assetRoot = Path.Combine(missionsRoot, "Assets", ordinal.ToString("00"));
             Directory.CreateDirectory(assetRoot);
-            // One read: the bundled copy, the extracted map and the decoded setup all describe these bytes.
-            byte[] trailBytes = File.ReadAllBytes(trailPath);
-            byte[] restartBytes = TrailContainer.ReadRestartData(trailBytes);
             string bundledTrail = Path.Combine(assetRoot, BundledTrailFileName);
             string bundledMap = Path.Combine(assetRoot, BundledMapFileName);
-            File.WriteAllBytes(bundledTrail, trailBytes);
-            File.WriteAllBytes(bundledMap, TrailContainer.ExtractMap(trailBytes));
+            byte[] restartBytes = TrailAuthoringSetup.StageCoopMissionAssets(
+                trailPath, bundledTrail, bundledMap, ConfigSettings.Default_GameSpeed);
 
             // Vanilla's Trail decoding tolerates a missing original map (customTrailMission=true).
             FileHeader container = MapFileManager.Instance.GetFileInfoFromFileName(
@@ -278,11 +273,9 @@ namespace ExtendedData
                 AllowStockadeGuest = stockade,
                 MultiplayerSetup = new MultiplayerSetupSettings
                 {
-                    StartingGameSpeed = setup.starting_gamespeed,
                     WinCondition = setup.win_condition,
                     AllowAutoTrading = setup.allow_autotrading,
                     NoKnockdownWalls = setup.no_knockdown_walls,
-                    AutoSave = setup.autosave,
                     PeaceTime = setup.peacetime,
                     NoCows = setup.no_cows,
                     NoDogs = setup.no_dogs,

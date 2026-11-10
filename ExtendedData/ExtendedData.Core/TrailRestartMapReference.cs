@@ -22,7 +22,9 @@ namespace ExtendedData.Core
         internal string Source { get; }
         internal string Name { get; }
 
-        internal static TrailRestartMapReference Read(byte[] restart)
+        internal static TrailRestartMapReference Read(byte[] restart) => Read(restart, out _);
+
+        internal static TrailRestartMapReference Read(byte[] restart, out int setupOffset)
         {
             if (restart == null) throw new ArgumentNullException(nameof(restart));
             int position = 1;
@@ -39,10 +41,11 @@ namespace ExtendedData.Core
             if (length > restart.Length - position)
                 throw new InvalidDataException("The Trail restart block ended inside its map name.");
             string name = new UTF8Encoding(false, true).GetString(restart, position, length);
+            setupOffset = position + length;
             return new TrailRestartMapReference(kind == 1 ? "builtIn" : kind == 2 ? "workshop" : "user", name);
         }
 
-        private static int ReadInt32(byte[] data, ref int position)
+        internal static int ReadInt32(byte[] data, ref int position)
         {
             if (position < 0 || position > data.Length - 4)
                 throw new InvalidDataException("The Trail restart block ended unexpectedly.");

@@ -553,3 +553,7 @@ BugfixesAndQoL.EnablePitchStairsFixHelp=Prevents pitch fields from lowering the 
 BugfixesAndQoL.SettingsRework.Reason.EnablePitchStairsFix=Prevents pitch fields from blocking otherwise accessible stairs while preserving the original fire-spread behavior.
 BugfixesAndQoL.AiSelectionTitle=AI selection could not be prepared
 BugfixesAndQoL.AiSelectionInvalid=Lord: {Lord}, player: {Player}. No usable castle or Lord configuration could be prepared. Check the Lord package and select its castles and AIC again. Details: {Reason}
+BugfixesAndQoL.LocalAutosave=Autosave: {Interval}
+BugfixesAndQoL.LocalAutosaveOff=Off
+BugfixesAndQoL.LocalAutosaveMinutes={Minutes} min
+BugfixesAndQoL.LocalAutosaveHelp=Click to choose the next interval for this game. Each successful autosave replaces the previous single-player autosave.

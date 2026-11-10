@@ -91,7 +91,8 @@ namespace ExtendedData
             if (Encoding.UTF8.GetByteCount(json) > MaximumBytes)
                 throw new InvalidDataException("Lord requirements exceed 512 KiB.");
             string target = SidecarPath(missionPath);
-            string temporary = target + ".tmp-" + Guid.NewGuid().ToString("N");
+            // Keep the temporary file beside its target without repeating the sidecar name.
+            string temporary = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(target)), $".{Guid.NewGuid():N}.tmp");
             try
             {
                 File.WriteAllText(temporary, json, new UTF8Encoding(false));

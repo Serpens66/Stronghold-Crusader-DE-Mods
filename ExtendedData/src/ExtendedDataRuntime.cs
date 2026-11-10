@@ -1004,7 +1004,7 @@ namespace ExtendedData
                 self.AIVs = Enumerable.Range(0, 8).Select(_ => new FRONT_Multiplayer.MPAIVInfo()).ToArray();
 
             EngineInterface.MultiplayerSetupData setupData = (EngineInterface.MultiplayerSetupData)MpSetupDataField.GetValue(self);
-            ApplyMultiplayerSetup(setupData, selected.Loaded.Definition.Settings.MultiplayerSetup);
+            ApplyPackageLobbyRules(setupData, selected.Loaded.Definition.Settings.MultiplayerSetup);
             foreach (KeyValuePair<int, FRONT_Multiplayer.MPAIVInfo> entry in selected.AiInfoByPlayerIndex)
             {
                 self.AIVs[entry.Key] = CopyLordInfo(entry.Value);
@@ -1352,17 +1352,16 @@ namespace ExtendedData
             return null;
         }
 
-        private static void ApplyMultiplayerSetup(
+        private static void ApplyPackageLobbyRules(
             EngineInterface.MultiplayerSetupData target,
             MultiplayerSetupSettings source)
         {
             if (target == null || source == null)
                 return;
-            target.starting_gamespeed = source.StartingGameSpeed;
+            // The live lobby owns game speed and autosave, even when switching package missions.
             target.win_condition = source.WinCondition;
             target.allow_autotrading = source.AllowAutoTrading;
             target.no_knockdown_walls = source.NoKnockdownWalls;
-            target.autosave = source.AutoSave;
             target.peacetime = source.PeaceTime;
             target.no_cows = source.NoCows;
             target.no_dogs = source.NoDogs;

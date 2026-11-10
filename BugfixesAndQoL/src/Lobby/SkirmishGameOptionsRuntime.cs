@@ -1,9 +1,12 @@
+using APIShared;
+using APIShared.GameModes;
 using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
 using Noesis;
 using System;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace BugfixesAndQoL
 {
@@ -22,6 +25,76 @@ namespace BugfixesAndQoL
             typeof(FRONT_Multiplayer), "UpdateHostInfo", typeof(bool));
         private static readonly MethodInfo SetupSkirmishModeSettingsMethod = RequireMethod(
             typeof(FRONT_Multiplayer), "SetupSkirmishModeSettings");
+        // Vanilla keeps this setup object in the mission restart info. A new lobby or decoded
+        // save has a different object, so a setting from another launch cannot carry over.
+        private static readonly ConditionalWeakTable<EngineInterface.MultiplayerSetupData, AutosaveChoice>
+            LobbyAutosaveChoices = new ConditionalWeakTable<EngineInterface.MultiplayerSetupData, AutosaveChoice>();
+
+        private sealed class AutosaveChoice
+        {
+            internal int Minutes;
+        }
+
+        internal static int GetLocalAutosaveMinutes(MissionContext context)
+        {
+            if (context == null || context.IsSave || context.Mode.IsRealMultiplayer ||
+                !MainViewModel.viewModelLoaded)
+                return 0;
+
+            switch (context.Mode.Kind)
+            {
+                case GameModeKind.CustomGame:
+                case GameModeKind.CustomTrail:
+                case GameModeKind.CoopTrail:
+                    return GetConfirmedAutosave(MainViewModel.Instance.HUDIngameMenu?.restartSkirmishMapInfo?.MPsetupData);
+                default:
+                    return 0;
+            }
+        }
+
+        internal static int GetConfirmedAutosave(EngineInterface.MultiplayerSetupData setup) =>
+            setup != null && LobbyAutosaveChoices.TryGetValue(setup, out AutosaveChoice choice)
+                ? choice.Minutes
+                : 0;
+
+        internal static void ConfirmAutosave(EngineInterface.MultiplayerSetupData setup)
+        {
+            int minutes = setup.autosave;
+            LobbyAutosaveChoices.GetValue(setup, _ => new AutosaveChoice()).Minutes =
+                minutes == 5 || minutes == 10 || minutes == 20 ? minutes : 0;
+        }
+
+        internal static void ResetAutosave(EngineInterface.MultiplayerSetupData setup)
+        {
+            setup.autosave = 0;
+            LobbyAutosaveChoices.Remove(setup);
+        }
+
+        internal static int NextAutosaveMinutes(int current)
+        {
+            switch (current)
+            {
+                case 0: return 5;
+                case 5: return 10;
+                case 10: return 20;
+                default: return 0;
+            }
+        }
+
+        internal static void ShowAutosaveChoice(int minutes)
+        {
+            Enums.eTextValues text;
+            switch (minutes)
+            {
+                case 5: text = Enums.eTextValues.TEXT_SCN_SWORDSMEN; break;
+                case 10: text = Enums.eTextValues.TEXT_SCN_KNIGHTS; break;
+                case 20: text = Enums.eTextValues.TEXT_SCN_LADDERMEN; break;
+                default: text = Enums.eTextValues.TEXT_SCN_MACEMEN; break;
+            }
+            MainViewModel.Instance.MP_Settings_Autosave =
+                Translate.Instance.lookUpText(Enums.eTextSections.TEXT_XPLAY_WAITING_ROOM, text);
+            MainViewModel.Instance.MPSettings_Autosave_Opacity = 1f;
+        }
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
@@ -255,6 +328,8 @@ namespace BugfixesAndQoL
 
             EngineInterface.MultiplayerSetupData shadow = transaction.Begin(committed);
             shadow.advanced_options = shadow.advanced_skirmish_options;
+            if (FRONT_Multiplayer.coopGame && self.singlePlayerCoop)
+                shadow.autosave = GetConfirmedAutosave(committed);
             AuthoritativeSetupDataField.SetValue(self, shadow);
             try
             {
@@ -296,6 +371,15 @@ namespace BugfixesAndQoL
             if (committed == null || working == null)
             {
                 multiplayerButtonOriginal(self, command);
+                return;
+            }
+
+            if (FRONT_Multiplayer.coopGame && self.singlePlayerCoop &&
+                string.Equals(command, "Settings_Autosave", StringComparison.Ordinal))
+            {
+                // Vanilla ignores this action for a Coop mission with an AI ally.
+                working.autosave = NextAutosaveMinutes(working.autosave);
+                ShowAutosaveChoice(working.autosave);
                 return;
             }
 
@@ -355,6 +439,8 @@ namespace BugfixesAndQoL
             committed.advanced_options = 0;
 
             UpdateHostInfoMethod.Invoke(self, new object[] { false });
+            if (!self.trailMakerMode)
+                ConfirmAutosave(committed);
             RefreshAllSkirmishViews(self);
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
                 Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/SkirmishGameOptionsRuntime/Apply", $"BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_APPLY: peace={committed.peacetime}, advancedSkirmish={committed.advanced_skirmish_options}, strongWalls={committed.no_knockdown_walls}, noCows={committed.no_cows}, noDogs={committed.no_dogs}, autoTrading={committed.allow_autotrading}.");

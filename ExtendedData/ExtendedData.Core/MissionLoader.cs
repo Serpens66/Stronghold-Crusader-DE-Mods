@@ -183,9 +183,7 @@ namespace ExtendedData.Core
         {
             if (setup == null)
                 return;
-            ValidateRange(setup.StartingGameSpeed, 0, 1000, "settings.multiplayerSetup.startingGameSpeed");
             ValidateRange(setup.WinCondition, 0, 100, "settings.multiplayerSetup.winCondition");
-            ValidateRange(setup.AutoSave, 0, 10000, "settings.multiplayerSetup.autoSave");
             ValidateRange(setup.PeaceTime, 0, 10000, "settings.multiplayerSetup.peaceTime");
             ValidateFlag(setup.AllowAutoTrading, "allowAutoTrading");
             ValidateFlag(setup.NoKnockdownWalls, "noKnockdownWalls");

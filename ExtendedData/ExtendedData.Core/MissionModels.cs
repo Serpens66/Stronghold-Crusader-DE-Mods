@@ -53,13 +53,12 @@ namespace ExtendedData.Core
         public MultiplayerSetupSettings MultiplayerSetup { get; set; }
     }
 
+    /// <summary>Lobby rules that a Coop mission package is allowed to supply.</summary>
     public sealed class MultiplayerSetupSettings
     {
-        public int StartingGameSpeed { get; set; }
         public int WinCondition { get; set; }
         public int AllowAutoTrading { get; set; }
         public int NoKnockdownWalls { get; set; }
-        public int AutoSave { get; set; }
         public int PeaceTime { get; set; }
         public int NoCows { get; set; }
         public int NoDogs { get; set; }

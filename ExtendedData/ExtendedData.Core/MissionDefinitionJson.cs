@@ -77,13 +77,12 @@ namespace ExtendedData.Core
 
         private static MultiplayerSetupSettings ParseMultiplayerSetup(Dictionary<string, object> value)
         {
+            // Older packages may contain startingGameSpeed and autoSave. Both are owned by the lobby.
             return new MultiplayerSetupSettings
             {
-                StartingGameSpeed = RequiredInt(value, "startingGameSpeed"),
                 WinCondition = RequiredInt(value, "winCondition"),
                 AllowAutoTrading = RequiredInt(value, "allowAutoTrading"),
                 NoKnockdownWalls = RequiredInt(value, "noKnockdownWalls"),
-                AutoSave = RequiredInt(value, "autoSave"),
                 PeaceTime = RequiredInt(value, "peaceTime"),
                 NoCows = RequiredInt(value, "noCows"),
                 NoDogs = RequiredInt(value, "noDogs"),
@@ -116,11 +115,9 @@ namespace ExtendedData.Core
         private static Dictionary<string, object> WriteMultiplayerSetup(MultiplayerSetupSettings setup) =>
             new Dictionary<string, object>(StringComparer.Ordinal)
             {
-                ["startingGameSpeed"] = setup.StartingGameSpeed,
                 ["winCondition"] = setup.WinCondition,
                 ["allowAutoTrading"] = setup.AllowAutoTrading,
                 ["noKnockdownWalls"] = setup.NoKnockdownWalls,
-                ["autoSave"] = setup.AutoSave,
                 ["peaceTime"] = setup.PeaceTime,
                 ["noCows"] = setup.NoCows,
                 ["noDogs"] = setup.NoDogs,

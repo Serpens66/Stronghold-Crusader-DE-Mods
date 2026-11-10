@@ -38,6 +38,32 @@ the function and current-image xrefs were checked: none target the interior
 of `(0x13030,0x13036)`. This observation is tied to the image hash; it does
 not establish a hook-backend or unknown-version compatibility contract.
 
+## Native write completion
+
+Rechecked 2026-11-10 in the native image bound to the hash above. At
+`0x52B0` the binary CRT writes reach `WriteFile` through
+`0x1DDB94` → `0x1DDC2C` → `0x1DDD4C`. The writer ignores the
+write and close results after a successful open and returns 1 even if
+the resulting file is shorter than declared. The current writer emits a
+4036-byte section directory including its tag. The word after the tag
+declares the size of the following native payload. The Script Extender
+can append a ZIP after that payload before the file is closed.
+
+## Managed save gate and Trail setup strings
+
+Checked 2026-11-10 in the decompilation bound to the managed hash above.
+`EngineInterface.SaveSaveGame` calls `Director.SafeToSave(wait: true)` before
+setting the wait cursor or entering the native writer. If queued frames never
+reach zero outside the engine, the gate gives up after 100 sleeps of 10 ms.
+The wrapper then returns `false` without attempting to open the output file.
+A native write failure can also return `false`, so the Boolean alone does not
+identify why saving failed.
+
+`MultiplayerSetupData.FromString` reads the first field as either a negative
+version prefix or nonnegative fairness in the original unversioned format.
+Starting speed and autosave are respectively one and six fields after
+fairness, counting from zero. `ToString` writes a negative version prefix.
+
 ## Managed Lord identities
 
 Vanilla `FRONT_Multiplayer.MPAIVInfo` can retain an empty `lordName` with

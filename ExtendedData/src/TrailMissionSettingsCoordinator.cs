@@ -1057,7 +1057,20 @@ namespace ExtendedData
                 IReadOnlyList<TrailLordSlot> savedLordRequirements =
                     CaptureSavedLordRequirements(trailPath, restartInfo, out string lordRequirementsWarning);
 
-                saveCustomTrailMapOriginal(self, mapPath, mapName, trailPath, restartInfo);
+                EngineInterface.MultiplayerSetupData setup = restartInfo.MPsetupData;
+                int speed = setup.starting_gamespeed;
+                int autoSave = setup.autosave;
+                try
+                {
+                    setup.starting_gamespeed = ConfigSettings.Default_GameSpeed;
+                    setup.autosave = TrailAuthoringSetup.AutoSaveOff;
+                    saveCustomTrailMapOriginal(self, mapPath, mapName, trailPath, restartInfo);
+                }
+                finally
+                {
+                    setup.starting_gamespeed = speed;
+                    setup.autosave = autoSave;
+                }
                 string sidecar = MissionLoader.GetTrailModSettingsPath(trailPath);
                 try
                 {
@@ -1928,6 +1941,7 @@ namespace ExtendedData
                         string trailMakerSource = prepared.TrailMakerSourceStaging;
                         Directory.CreateDirectory(trailMakerSource);
                         exportOriginal(self, trailMakerSource);
+                        TrailAuthoringSetup.NeutralizeExportCopies(trailMakerSource, ConfigSettings.Default_GameSpeed);
                         ExportSidecars(trailMakerSource);
                         WriteLordRequirements(trailMakerSource, makerRoot, makerRequirements);
                         TrailLordMediaStore.Stage(makerRequirements.Values.SelectMany(x => x).Select(x => x.Presentation), prepared.LordMediaStaging);
@@ -1940,7 +1954,7 @@ namespace ExtendedData
                     }
                     else
                     {
-                        exportOriginal(self, destination);
+                        ExportPlayableTrailCopies(self, destination);
                         ExportSidecars(destination);
                         WriteLordRequirements(destination, makerRoot, makerRequirements);
                         TrailLordMediaStore.Publish(makerRequirements.Values.SelectMany(x => x).Select(x => x.Presentation), destination);
@@ -1957,6 +1971,27 @@ namespace ExtendedData
                 finally
                 {
                     prepared?.Dispose();
+                }
+            }
+
+            private void ExportPlayableTrailCopies(FRONT_ManageTrail self, string destination)
+            {
+                string staging = IOPath.Combine(destination, ".trail-export-" + Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(staging);
+                try
+                {
+                    exportOriginal(self, staging);
+                    TrailAuthoringSetup.NeutralizeExportCopies(staging, ConfigSettings.Default_GameSpeed);
+                    TrailAuthoringSetup.PublishExportCopies(staging, destination);
+                }
+                finally
+                {
+                    TryFileOperation("remove temporary Trail export files", () =>
+                    {
+                        foreach (string trail in Directory.GetFiles(staging, "*.trail"))
+                            File.Delete(trail);
+                        Directory.Delete(staging);
+                    });
                 }
             }
 
@@ -2077,7 +2112,7 @@ namespace ExtendedData
             }
 
             // Uses the same source-to-output numbering as Vanilla's export and the mod-settings sidecars.
-            // The exported Trail is a byte copy of its Maker source, so the prepared slots bind to it.
+            // Bind the prepared slots to the exported copy after its setup has been neutralized.
             private static void WriteLordRequirements(string destination, string makerRoot,
                 IReadOnlyDictionary<string, IReadOnlyList<TrailLordSlot>> prepared)
             {

@@ -4,4 +4,44 @@
              XPath="//n:Grid[@Visibility='{Binding Show_MPNotSkirmishIsHost, Converter={StaticResource booleanToVisibilityConverter}}']"
              AttributeName="Visibility"
              Value="{Binding Show_MPIsHost, Converter={StaticResource booleanToVisibilityConverter}}" />
+  <!-- These two lobby options belong to the player who launches the Trail. -->
+  <Operation Type="SetAttribute" XPath="//n:Button[@CommandParameter='Settings_Autosave']" AttributeName="Visibility" />
+  <Operation Type="SetAttribute" XPath="//n:Button[@CommandParameter='Settings_Autosave']" AttributeName="Style" />
+  <Operation Type="InsertBefore" XPath="//n:Button[@CommandParameter='Settings_Autosave']/*[1]">
+    <Content>
+      <Button.Style>
+        <Style TargetType="Button" BasedOn="{StaticResource BTN_SH_GlowS}">
+          <Setter Property="Visibility" Value="Collapsed" />
+          <Style.Triggers>
+            <MultiDataTrigger>
+              <MultiDataTrigger.Conditions>
+                <Condition Binding="{Binding Show_MPOnlySettings}" Value="True" />
+                <Condition Binding="{Binding MultiplayerNonTrailMakerMode}" Value="True" />
+              </MultiDataTrigger.Conditions>
+              <Setter Property="Visibility" Value="Visible" />
+            </MultiDataTrigger>
+          </Style.Triggers>
+        </Style>
+      </Button.Style>
+    </Content>
+  </Operation>
+  <Operation Type="SetAttribute" XPath="//n:Grid[n:StackPanel/n:Slider[@Name='MP_Settings_GameSpeed_Slider']]" AttributeName="Visibility" />
+  <Operation Type="InsertBefore" XPath="//n:Grid[n:StackPanel/n:Slider[@Name='MP_Settings_GameSpeed_Slider']]/*[1]">
+    <Content>
+      <Grid.Style>
+        <Style TargetType="Grid">
+          <Setter Property="Visibility" Value="Collapsed" />
+          <Style.Triggers>
+            <MultiDataTrigger>
+              <MultiDataTrigger.Conditions>
+                <Condition Binding="{Binding Show_MPOnlySettings}" Value="True" />
+                <Condition Binding="{Binding MultiplayerNonTrailMakerMode}" Value="True" />
+              </MultiDataTrigger.Conditions>
+              <Setter Property="Visibility" Value="Visible" />
+            </MultiDataTrigger>
+          </Style.Triggers>
+        </Style>
+      </Grid.Style>
+    </Content>
+  </Operation>
 </Patch>

@@ -21,6 +21,12 @@ namespace BugfixesAndQoL
         private delegate void FrontendOpenCustomTrailDelegate(FrontendMenus self, string trailName, int level);
         private delegate void FrontendButtonDelegate(FrontendMenus self, string command);
         private delegate void MultiplayerButtonDelegate(FRONT_Multiplayer self, string command);
+        private delegate void MultiplayerOpenDelegate(
+            FRONT_Multiplayer self, bool skirmishSetup, bool fromNew,
+            HUD_IngameMenu.RestartSkirmishMapInfo restartInfo, bool coopSetup, bool trailMaker,
+            int customiseTrailType, int customiseTrailId);
+        private delegate void DirectCustomTrailDelegate(
+            FRONT_Multiplayer self, HUD_IngameMenu.RestartSkirmishMapInfo restartInfo, FileHeader header);
         private delegate void StartSkirmishGameDelegate(
             FRONT_Multiplayer self,
             HUD_IngameMenu.RestartSkirmishMapInfo customTrailRestartInfo);
@@ -42,10 +48,14 @@ namespace BugfixesAndQoL
         private Hook frontendOpenCustomTrailHook;
         private Hook frontendButtonHook;
         private Hook multiplayerButtonHook;
+        private Hook multiplayerOpenHook;
+        private Hook directCustomTrailHook;
         private Hook startSkirmishGameHook;
         private FrontendOpenCustomTrailDelegate frontendOpenCustomTrailOriginal;
         private FrontendButtonDelegate frontendButtonOriginal;
         private MultiplayerButtonDelegate multiplayerButtonOriginal;
+        private MultiplayerOpenDelegate multiplayerOpenOriginal;
+        private DirectCustomTrailDelegate directCustomTrailOriginal;
         private StartSkirmishGameDelegate startSkirmishGameOriginal;
         private HUD_IngameMenu.RestartSkirmishMapInfo customTrailSetupRestartInfo;
         private FileHeader customTrailSetupHeader;
@@ -84,6 +94,17 @@ namespace BugfixesAndQoL
                 typeof(FRONT_Multiplayer).GetMethod("ButtonClicked", new[] { typeof(string) }),
                 (MultiplayerButtonDelegate)MultiplayerButtonHook,
                 out multiplayerButtonOriginal);
+            multiplayerOpenHook = InstallHook(
+                typeof(FRONT_Multiplayer).GetMethod(nameof(FRONT_Multiplayer.doOpen),
+                    new[] { typeof(bool), typeof(bool), typeof(HUD_IngameMenu.RestartSkirmishMapInfo),
+                        typeof(bool), typeof(bool), typeof(int), typeof(int) }),
+                (MultiplayerOpenDelegate)MultiplayerOpenHook,
+                out multiplayerOpenOriginal);
+            directCustomTrailHook = InstallHook(
+                typeof(FRONT_Multiplayer).GetMethod(nameof(FRONT_Multiplayer.StartCustomTrailMission),
+                    new[] { typeof(HUD_IngameMenu.RestartSkirmishMapInfo), typeof(FileHeader) }),
+                (DirectCustomTrailDelegate)DirectCustomTrailHook,
+                out directCustomTrailOriginal);
             startSkirmishGameHook = InstallHook(
                 typeof(FRONT_Multiplayer).GetMethod(
                     "StartSkirmishGame",
@@ -199,7 +220,69 @@ namespace BugfixesAndQoL
                     TrailCustomizationLaunchOriginApi.MissionId,
                     launch: true);
             }
+            if (settings.EnableMod && FRONT_Multiplayer.coopGame && self?.currentLobby?.isHost == true)
+            {
+                if (string.Equals(command, "Settings_Autosave", StringComparison.Ordinal) &&
+                    !(FRONT_Multiplayer.skirmishGame && MainViewModel.Instance.Show_MPSettings))
+                {
+                    var setup = (EngineInterface.MultiplayerSetupData)MpSetupDataField?.GetValue(self);
+                    multiplayerButtonOriginal(self, command);
+                    if (setup != null)
+                    {
+                        if (self.singlePlayerCoop)
+                        {
+                            setup.autosave = SkirmishGameOptionsRuntime.NextAutosaveMinutes(
+                                SkirmishGameOptionsRuntime.GetConfirmedAutosave(setup));
+                            SkirmishGameOptionsRuntime.ShowAutosaveChoice(setup.autosave);
+                        }
+                        SkirmishGameOptionsRuntime.ConfirmAutosave(setup);
+                    }
+                    return;
+                }
+                if (self.singlePlayerCoop && string.Equals(command, "CoopOptions", StringComparison.Ordinal))
+                {
+                    multiplayerButtonOriginal(self, command);
+                    var setup = (EngineInterface.MultiplayerSetupData)MpSetupDataField?.GetValue(self);
+                    SkirmishGameOptionsRuntime.ShowAutosaveChoice(
+                        SkirmishGameOptionsRuntime.GetConfirmedAutosave(setup));
+                    return;
+                }
+            }
             multiplayerButtonOriginal(self, command);
+        }
+
+        private void MultiplayerOpenHook(
+            FRONT_Multiplayer self, bool skirmishSetup, bool fromNew,
+            HUD_IngameMenu.RestartSkirmishMapInfo restartInfo, bool coopSetup, bool trailMaker,
+            int customiseTrailType, int customiseTrailId)
+        {
+            bool newLocalSetup = settings.EnableMod && skirmishSetup && fromNew && !coopSetup && !trailMaker;
+            if (newLocalSetup)
+                UsePlayerTrailSettings(restartInfo);
+
+            multiplayerOpenOriginal(self, skirmishSetup, fromNew, restartInfo, coopSetup, trailMaker,
+                customiseTrailType, customiseTrailId);
+
+            if (newLocalSetup && restartInfo == null &&
+                MpSetupDataField?.GetValue(self) is EngineInterface.MultiplayerSetupData setup)
+                SkirmishGameOptionsRuntime.ResetAutosave(setup);
+        }
+
+        private void DirectCustomTrailHook(
+            FRONT_Multiplayer self, HUD_IngameMenu.RestartSkirmishMapInfo restartInfo, FileHeader header)
+        {
+            if (settings.EnableMod)
+                UsePlayerTrailSettings(restartInfo);
+            directCustomTrailOriginal(self, restartInfo, header);
+        }
+
+        private static void UsePlayerTrailSettings(HUD_IngameMenu.RestartSkirmishMapInfo restartInfo)
+        {
+            if (restartInfo?.customTrail != true || restartInfo.MPsetupData == null)
+                return;
+
+            SkirmishGameOptionsRuntime.ResetAutosave(restartInfo.MPsetupData);
+            restartInfo.MPsetupData.starting_gamespeed = ConfigSettings.Settings_GameSpeed;
         }
 
         private void StartSkirmishGameHook(

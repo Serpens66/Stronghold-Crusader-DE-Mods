@@ -553,3 +553,7 @@ BugfixesAndQoL.EnablePitchStairsFixHelp=Verhindert, dass Pechfelder den Boden ab
 BugfixesAndQoL.SettingsRework.Reason.EnablePitchStairsFix=Verhindert, dass Pechfelder sonst erreichbare Treppen blockieren, und erhält die ursprüngliche Feuerweitergabe.
 BugfixesAndQoL.AiSelectionTitle=KI-Auswahl konnte nicht vorbereitet werden
 BugfixesAndQoL.AiSelectionInvalid=Lord: {Lord}, Spieler: {Player}. Es konnte keine verwendbare Burg- oder Lord-Auswahl vorbereitet werden. Prüfe das Lord-Paket und wähle Burgen und AIC erneut aus. Details: {Reason}
+BugfixesAndQoL.LocalAutosave=Autosave: {Interval}
+BugfixesAndQoL.LocalAutosaveOff=Aus
+BugfixesAndQoL.LocalAutosaveMinutes={Minutes} Min.
+BugfixesAndQoL.LocalAutosaveHelp=Ein Klick wählt das nächste Intervall für diese Partie. Jeder erfolgreiche Autosave ersetzt den bisherigen Einzelspieler-Autosave.

@@ -36,7 +36,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.219";
+        public const string PluginVersion = "1.0.220";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;
@@ -256,6 +256,12 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.trail-deletion-binding-failed", "Bugfixes and QoL Trail deletion binding failed: " + ex);
             }
             InitializePersistentUiAndMapCallbacks();
+
+            try { LocalAutosaveRuntime.Initialize(Logger, Settings); }
+            catch (Exception error)
+            {
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "local-autosave/init", "Local autosave unavailable: " + error);
+            }
 
             try
             {

@@ -52,6 +52,88 @@ internal static partial class Program
         }
     }
 
+    private static void LocalAutosaveFileTests()
+    {
+        MethodInfo write = mod.GetType("BugfixesAndQoL.LocalAutosaveRuntime", true)
+            .GetMethod("WriteSaveFile", All);
+        string directory = Path.Combine(Path.GetTempPath(), "shcde-autosave-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        string local = Path.Combine(directory, "Autosave - Singleplayer.sav");
+        string multiplayer = Path.Combine(directory, "autosave.msv");
+
+        byte[] SaveFrame(byte value, bool archive = false)
+        {
+            using (var bytes = new MemoryStream())
+            using (var writer = new BinaryWriter(bytes))
+            {
+                writer.Write(0xFFFFFFFEu);
+                for (int block = 0; block < 6; block++) writer.Write(0);
+                writer.Write(4036);
+                writer.Write(1); // Declared native payload length.
+                writer.Write(1); // One section.
+                writer.Write(new byte[4036 - 3 * sizeof(int)]);
+                writer.Write(value);
+                if (archive)
+                {
+                    writer.Write(0x06054B50u);
+                    writer.Write(new byte[18]); // Valid empty ZIP, with no comment.
+                }
+                return bytes.ToArray();
+            }
+        }
+
+        void Save(byte[] contents, bool complete)
+        {
+            write.Invoke(null, new object[] { directory, (Func<string, bool>)(path =>
+            {
+                Check(Path.GetDirectoryName(path) != directory && Path.GetExtension(path) == ".sav",
+                    "game writes a staged save outside the visible save listing");
+                File.WriteAllBytes(path, contents);
+                return complete;
+            }) });
+        }
+
+        try
+        {
+            File.WriteAllText(multiplayer, "online");
+            byte[] first = SaveFrame(1);
+            byte[] second = SaveFrame(2, archive: true);
+            Save(first, true);
+            Check(File.ReadAllBytes(local).SequenceEqual(first), "first autosave is published");
+            bool published = (bool)write.Invoke(null, new object[] { directory, (Func<string, bool>)(_ => false) });
+            Check(!published && File.ReadAllBytes(local).SequenceEqual(first),
+                "a refusal before writing can be retried without changing the previous save");
+
+            foreach (var failure in new[]
+            {
+                (Contents: new byte[] { 1 }, Complete: false),
+                (Contents: Array.Empty<byte>(), Complete: true),
+                (Contents: first.Take(first.Length - 1).ToArray(), Complete: true),
+                (Contents: second.Where((_, index) => index != first.Length - 1).ToArray(), Complete: true),
+                (Contents: second.Take(second.Length - 1).ToArray(), Complete: true),
+            })
+            {
+                try
+                {
+                    Save(failure.Contents, failure.Complete);
+                    throw new Exception("incomplete save was accepted");
+                }
+                catch (TargetInvocationException error) when (error.InnerException is IOException)
+                {
+                    Check(File.ReadAllBytes(local).SequenceEqual(first), "failed writer preserves previous autosave");
+                }
+            }
+
+            Save(second, true);
+            Check(File.ReadAllBytes(local).SequenceEqual(second), "successful writer replaces previous autosave");
+            Check(File.ReadAllText(multiplayer) == "online", "separate multiplayer autosave is preserved");
+            Check(Directory.GetFiles(directory, "*.sav", SearchOption.AllDirectories).Length == 1,
+                "only the completed local autosave remains");
+            Check(Directory.GetDirectories(directory).Length == 0, "staging directories are removed");
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
     private static void PeaceTimeWildlifeRuleTests()
     {
         var type = mod.GetType("BugfixesAndQoL.VanillaPeaceTimeGameplayPatch", true);
@@ -115,6 +197,12 @@ internal static partial class Program
                 return null;
             };
             mod=Assembly.LoadFrom(dll);modelType=mod.GetType("BugfixesAndQoL.BugfixesAndQoLViewModel",true);
+            LocalAutosaveFileTests();
+            if (args.Length > 3 && args[3] == "--local-autosave-only")
+            {
+                Console.WriteLine("PASS: local autosave file checks: " + checks);
+                return 0;
+            }
             FixesSuppressMessagesSyncTests(game);
             object presetModel = FormatterServices.GetUninitializedObject(modelType);
             var retired = modelType.GetMethod("IsRetiredPresetProperty", All);

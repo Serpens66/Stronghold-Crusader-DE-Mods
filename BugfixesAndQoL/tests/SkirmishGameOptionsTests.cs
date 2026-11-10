@@ -226,6 +226,23 @@ namespace BugfixesAndQoL
             string setup = File.ReadAllText(setupPath);
             check(setup.Contains("Show_MPNotSkirmishIsHost") && setup.Contains("Show_MPIsHost"),
                 "Vanilla preset strip is enabled for local Skirmish hosts");
+            var setupOperations = XDocument.Parse(setup).Root.Elements("Operation");
+            var protectedRows = new[] { "Settings_Autosave", "MP_Settings_GameSpeed_Slider" };
+            foreach (string row in protectedRows)
+            {
+                var rowOperations = setupOperations.Where(operation => ((string)operation.Attribute("XPath")).Contains(row));
+                check(rowOperations.Any(operation =>
+                          (string)operation.Attribute("AttributeName") == "Visibility" &&
+                          operation.Attribute("Value") == null) &&
+                      rowOperations.Any(operation => operation.Descendants("MultiDataTrigger").Any(trigger =>
+                          trigger.Descendants("Condition").Any(condition =>
+                              (string)condition.Attribute("Binding") == "{Binding Show_MPOnlySettings}" &&
+                              (string)condition.Attribute("Value") == "True") &&
+                          trigger.Descendants("Condition").Any(condition =>
+                              (string)condition.Attribute("Binding") == "{Binding MultiplayerNonTrailMakerMode}" &&
+                              (string)condition.Attribute("Value") == "True"))),
+                    row + " uses Vanilla options visibility outside Trail Maker only");
+            }
 
             string runtime = File.ReadAllText(Path.Combine(project, @"src\Lobby\SkirmishGameOptionsRuntime.cs"));
             // The built-DLL settings suite separately executes PeaceAvailable for both Host states.
