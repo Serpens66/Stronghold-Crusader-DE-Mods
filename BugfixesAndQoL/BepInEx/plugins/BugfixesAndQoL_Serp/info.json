@@ -3,19 +3,51 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.214",
+  "Version": "1.0.219",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.3",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.35.0"
+      "MinimumVersion": "0.43.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.219",
+      "Changes": [
+        "A Coop Trail Customize start that failed or was abandoned no longer marks the next normal game as a customized Trail."
+      ]
+    },
+    {
+      "Version": "1.0.218",
+      "Changes": [
+        "Share wildlife protection during Peace Time through APIShared so compatible mods can use the same attack target check.",
+        "Require APIShared 0.43.0 or newer."
+      ]
+    },
+    {
+      "Version": "1.0.217",
+      "Changes": [
+        "Coordinate ally-goods amount buttons and send confirmation through APIShared so compatible mods can share the same panel.",
+        "Require APIShared 0.39.0 or newer."
+      ]
+    },
+    {
+      "Version": "1.0.216",
+      "Changes": [
+        "Lord portraits in the troop HUD show the Lord's current skin in the player's colour and use the previous icon size. A single Lord no longer shows a unit count."
+      ]
+    },
+    {
+      "Version": "1.0.215",
+      "Changes": [
+        "AI outpost troops choose a new enemy using the AI lord's normal priorities after their target player is defeated. This fix is enabled by default."
+      ]
+    },
     {
       "Version": "1.0.214",
       "Changes": [

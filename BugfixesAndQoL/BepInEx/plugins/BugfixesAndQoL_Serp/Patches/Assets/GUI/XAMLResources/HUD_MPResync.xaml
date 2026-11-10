@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
        xmlns:local="clr-namespace:CrusaderDE"
-       xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
+       xmlns:bugfixesApi="clr-namespace:APIShared.ModSettings;assembly=APIShared">
+  <Operation Type="AddNamespace" AttributeName="bugfixesApi" Value="clr-namespace:APIShared.ModSettings;assembly=APIShared" />
   <Operation Type="Replace" XPath="//n:Grid[@x:Name='LayoutRoot']">
     <Content>
       <Grid x:Name="LayoutRoot" Width="620" Height="110"
@@ -9,16 +10,18 @@
             Background="#00000000" Opacity="0.8"
             IsHitTestVisible="{Binding MPConectionIssueButtonVisible}" UseLayoutRounding="True">
         <Grid.Resources>
-    <Style TargetType="{x:Type ToolTip}">
+    <Style x:Key="ModSettingsToolTipStyle" TargetType="{x:Type ToolTip}">
       <Setter Property="Background" Value="#FF1D1710"/>
       <Setter Property="Foreground" Value="White"/>
-      <Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True"/>
+      <Setter Property="FontSize" Value="{x:Static bugfixesApi:ToolTipPresentation.AutomaticFontSize}"/>
+      <Setter Property="MaxWidth" Value="{x:Static bugfixesApi:ToolTipPresentation.AutomaticMaximumWidth}"/>
+      <Setter Property="Padding" Value="24,18"/>
+      <Setter Property="BorderThickness" Value="4.5"/>
       <Setter Property="BorderBrush" Value="#FFF2D48A"/>
-      <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="{x:Type ToolTip}">
-            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="2" Padding="{TemplateBinding Padding}" MaxWidth="{TemplateBinding MaxWidth}">
+            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="{TemplateBinding Padding}" MaxWidth="{TemplateBinding MaxWidth}">
               <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap"/>
             </Border>
           </ControlTemplate>
@@ -50,9 +53,8 @@
                 local:PropEx.TextCentre="{Binding MPConnectionIssueButtonText}"
                 local:PropEx.TextLeft="" local:PropEx.TextRight=""
                 Command="{Binding ButtonMPConnectionIssueCommand}"
-                Visibility="{Binding MPConectionIssueButtonVisible, Converter={StaticResource booleanToVisibilityConverter}}"
-                ToolTip="{Binding MPConnectionIssueText}" ToolTipService.ShowDuration="60000"
-                MouseEnter="CommonRedButtonEnter" Style="{StaticResource BTN_SH_GlowS}" />
+                Visibility="{Binding MPConectionIssueButtonVisible, Converter={StaticResource booleanToVisibilityConverter}}" ToolTipService.ShowDuration="60000"
+                MouseEnter="CommonRedButtonEnter" Style="{StaticResource BTN_SH_GlowS}"><Button.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" bugfixesApi:SharedToolTipSizing.Enabled="True" Content="{Binding MPConnectionIssueText}"/></Button.ToolTip></Button>
       </Grid>
     </Content>
   </Operation>

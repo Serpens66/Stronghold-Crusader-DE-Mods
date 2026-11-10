@@ -237,3 +237,4 @@ ExtendedData.EmbedLordMediaHelp=The complete lordmeta.json is always saved. Enab
 ExtendedData.LordMediaIncluded=Lord metadata and media are included in the exported trail.
 ExtendedData.LordMetadataOnly=Lord metadata is included; media files are not embedded.
 ExtendedData.LordMetadataLegacy=This trail has no embedded Lord metadata.
+ExtendedData.CoopAdvancedOptionsHint=Applies to single-player and multiplayer.

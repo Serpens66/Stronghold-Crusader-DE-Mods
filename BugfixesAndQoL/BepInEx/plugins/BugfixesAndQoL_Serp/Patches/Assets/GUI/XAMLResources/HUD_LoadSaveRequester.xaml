@@ -3,7 +3,8 @@
        xmlns:local="clr-namespace:CrusaderDE"
        xmlns:bugfixes="clr-namespace:BugfixesAndQoL;assembly=BugfixesAndQoL"
        xmlns:shared="clr-namespace:Shared;assembly=BugfixesAndQoL"
-       xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
+       xmlns:bugfixesApi="clr-namespace:APIShared.ModSettings;assembly=APIShared">
+  <Operation Type="AddNamespace" AttributeName="bugfixesApi" Value="clr-namespace:APIShared.ModSettings;assembly=APIShared" />
   <Operation Type="AddNamespace"
              AttributeName="bugfixes"
              Value="clr-namespace:BugfixesAndQoL;assembly=BugfixesAndQoL" />
@@ -53,17 +54,16 @@
             VerticalAlignment="Top"
             Visibility="{Binding DeleteMapVisibility}">
         <Grid.Resources>
-          <Style TargetType="{x:Type ToolTip}">
+          <Style x:Key="ModSettingsToolTipStyle" TargetType="{x:Type ToolTip}">
             <Setter Property="Background" Value="#FF1D1710" />
-            <Setter Property="Foreground" Value="White" /><Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True"/>
+            <Setter Property="Foreground" Value="White" /><Setter Property="FontSize" Value="{x:Static bugfixesApi:ToolTipPresentation.AutomaticFontSize}"/><Setter Property="MaxWidth" Value="{x:Static bugfixesApi:ToolTipPresentation.AutomaticMaximumWidth}"/><Setter Property="Padding" Value="24,18"/><Setter Property="BorderThickness" Value="4.5"/>
             <Setter Property="BorderBrush" Value="#FFF2D48A" />
-            <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Template">
               <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ToolTip}">
                   <Border Background="{TemplateBinding Background}"
                           BorderBrush="{TemplateBinding BorderBrush}"
-                          BorderThickness="1"
+                          BorderThickness="{TemplateBinding BorderThickness}"
                           CornerRadius="2"
                           Padding="{TemplateBinding Padding}"
                           MaxWidth="{TemplateBinding MaxWidth}">
@@ -87,8 +87,7 @@
                 Command="{Binding DeleteMapCommand}"
                 MouseEnter="CommonRedButtonEnter"
                 Style="{StaticResource BTN_SH_GlowSDisable}"
-                ToolTip="{Binding DeleteMapHelpText}"
-                ToolTipService.ShowDuration="60000" />
+                ToolTipService.ShowDuration="60000"><Button.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" bugfixesApi:SharedToolTipSizing.Enabled="True" Content="{Binding DeleteMapHelpText}"/></Button.ToolTip></Button>
       </Grid>
     </Content>
   </Operation>
@@ -103,18 +102,20 @@
             VerticalAlignment="Top"
             Visibility="{Binding DeleteSaveVisibility}">
         <Grid.Resources>
-          <Style TargetType="{x:Type ToolTip}">
+          <Style x:Key="ModSettingsToolTipStyle" TargetType="{x:Type ToolTip}">
             <Setter Property="Background" Value="#FF1D1710" />
             <Setter Property="Foreground" Value="White" />
-            <Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True" />
+            <Setter Property="FontSize" Value="{x:Static bugfixesApi:ToolTipPresentation.AutomaticFontSize}"/>
+            <Setter Property="MaxWidth" Value="{x:Static bugfixesApi:ToolTipPresentation.AutomaticMaximumWidth}"/>
+            <Setter Property="Padding" Value="24,18"/>
+            <Setter Property="BorderThickness" Value="4.5"/>
             <Setter Property="BorderBrush" Value="#FFF2D48A" />
-            <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Template">
               <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ToolTip}">
                   <Border Background="{TemplateBinding Background}"
                           BorderBrush="{TemplateBinding BorderBrush}"
-                          BorderThickness="1"
+                          BorderThickness="{TemplateBinding BorderThickness}"
                           CornerRadius="2"
                           Padding="{TemplateBinding Padding}"
                           MaxWidth="{TemplateBinding MaxWidth}">
@@ -139,8 +140,7 @@
                 Command="{Binding DeleteSaveCommand}"
                 MouseEnter="CommonRedButtonEnter"
                 Style="{StaticResource BTN_SH_GlowSDisable}"
-                ToolTip="{Binding DeleteSaveHelpText}"
-                ToolTipService.ShowDuration="60000" />
+                ToolTipService.ShowDuration="60000"><Button.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" bugfixesApi:SharedToolTipSizing.Enabled="True" Content="{Binding DeleteSaveHelpText}"/></Button.ToolTip></Button>
       </Grid>
     </Content>
   </Operation>
@@ -155,17 +155,16 @@
             VerticalAlignment="Bottom"
             Visibility="{Binding ShowVanillaMapsVisibility}">
         <Grid.Resources>
-          <Style TargetType="{x:Type ToolTip}">
+          <Style x:Key="ModSettingsToolTipStyle" TargetType="{x:Type ToolTip}">
             <Setter Property="Background" Value="#FF1D1710" />
-            <Setter Property="Foreground" Value="White" /><Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True"/>
+            <Setter Property="Foreground" Value="White" /><Setter Property="FontSize" Value="{x:Static bugfixesApi:ToolTipPresentation.AutomaticFontSize}"/><Setter Property="MaxWidth" Value="{x:Static bugfixesApi:ToolTipPresentation.AutomaticMaximumWidth}"/><Setter Property="Padding" Value="24,18"/><Setter Property="BorderThickness" Value="4.5"/>
             <Setter Property="BorderBrush" Value="#FFF2D48A" />
-            <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Template">
               <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ToolTip}">
                   <Border Background="{TemplateBinding Background}"
                           BorderBrush="{TemplateBinding BorderBrush}"
-                          BorderThickness="1"
+                          BorderThickness="{TemplateBinding BorderThickness}"
                           CornerRadius="2"
                           Padding="{TemplateBinding Padding}"
                           MaxWidth="{TemplateBinding MaxWidth}">
@@ -184,8 +183,7 @@
                   VerticalAlignment="Center"
                   IsChecked="{Binding ShowVanillaMaps, Mode=TwoWay}"
                   Style="{StaticResource CheckBox_Template}"
-                  ToolTip="{Binding ShowVanillaMapsHelpText}"
-                  ToolTipService.ShowDuration="60000">
+                  ToolTipService.ShowDuration="60000"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" bugfixesApi:SharedToolTipSizing.Enabled="True" Content="{Binding ShowVanillaMapsHelpText}"/></CheckBox.ToolTip>
           <TextBlock Margin="0,2,0,-2"
                      VerticalAlignment="Center"
                      FontSize="18"

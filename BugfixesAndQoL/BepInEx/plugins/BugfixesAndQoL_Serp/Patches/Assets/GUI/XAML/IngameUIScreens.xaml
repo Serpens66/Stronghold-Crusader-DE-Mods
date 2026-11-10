@@ -5,6 +5,21 @@
       <Canvas x:Name="ForeignTroopHudPanel" xmlns:local="clr-namespace:CrusaderDE"
               Width="416" Height="170" Margin="0,0,242,0" HorizontalAlignment="Right" VerticalAlignment="Bottom"
               Panel.ZIndex="10020" ClipToBounds="True" Visibility="Collapsed">
+        <Canvas.Resources>
+          <Style x:Key="BugfixesAndQoL-ForeignTroopPortrait" TargetType="Button" BasedOn="{StaticResource BTN_Image}">
+            <Style.Triggers>
+              <!-- The view sets the type label even when a portrait makes it invisible. -->
+              <Trigger Property="Tag" Value="Typ 55">
+                <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+                <Setter Property="RenderTransform">
+                  <Setter.Value>
+                    <ScaleTransform ScaleX="1.07" ScaleY="1.07" />
+                  </Setter.Value>
+                </Setter>
+              </Trigger>
+            </Style.Triggers>
+          </Style>
+        </Canvas.Resources>
         <Canvas x:Name="ForeignTroopSlot1" Width="52" Height="170" Canvas.Left="0" Visibility="Collapsed" IsHitTestVisible="True">
           <Viewbox Width="52" Height="20" Canvas.Left="0" Canvas.Top="42" Stretch="Uniform" StretchDirection="DownOnly">
             <TextBlock x:Name="ForeignTroopCurrentHealth1" TextAlignment="Center" Foreground="#FF66CC66" FontSize="15">
@@ -12,7 +27,8 @@
             </TextBlock>
           </Viewbox>
           <Button x:Name="ForeignTroopImage1" Width="45" Height="86" Canvas.Left="4" Canvas.Top="53"
-                  Style="{StaticResource BTN_Image}" IsHitTestVisible="True" Focusable="False" Visibility="Collapsed"/>
+                  Style="{StaticResource BugfixesAndQoL-ForeignTroopPortrait}" Tag="{Binding Text, ElementName=ForeignTroopType1}"
+                  IsHitTestVisible="True" Focusable="False" Visibility="Collapsed"/>
           <TextBlock x:Name="ForeignTroopType1" Width="46" Canvas.Left="3" Canvas.Top="53"
                      TextAlignment="Center" TextWrapping="Wrap" Foreground="#FFF2E7CB" FontSize="11" Visibility="Collapsed"/>
           <TextBlock x:Name="ForeignTroopOwner1" Width="24" Canvas.Left="14" Canvas.Top="56"
@@ -35,7 +51,8 @@
             </TextBlock>
           </Viewbox>
           <Button x:Name="ForeignTroopImage2" Width="45" Height="86" Canvas.Left="4" Canvas.Top="53"
-                  Style="{StaticResource BTN_Image}" IsHitTestVisible="True" Focusable="False" Visibility="Collapsed"/>
+                  Style="{StaticResource BugfixesAndQoL-ForeignTroopPortrait}" Tag="{Binding Text, ElementName=ForeignTroopType2}"
+                  IsHitTestVisible="True" Focusable="False" Visibility="Collapsed"/>
           <TextBlock x:Name="ForeignTroopType2" Width="46" Canvas.Left="3" Canvas.Top="53"
                      TextAlignment="Center" TextWrapping="Wrap" Foreground="#FFF2E7CB" FontSize="11" Visibility="Collapsed"/>
           <TextBlock x:Name="ForeignTroopOwner2" Width="24" Canvas.Left="14" Canvas.Top="56"
@@ -58,7 +75,8 @@
             </TextBlock>
           </Viewbox>
           <Button x:Name="ForeignTroopImage3" Width="45" Height="86" Canvas.Left="4" Canvas.Top="53"
-                  Style="{StaticResource BTN_Image}" IsHitTestVisible="True" Focusable="False" Visibility="Collapsed"/>
+                  Style="{StaticResource BugfixesAndQoL-ForeignTroopPortrait}" Tag="{Binding Text, ElementName=ForeignTroopType3}"
+                  IsHitTestVisible="True" Focusable="False" Visibility="Collapsed"/>
           <TextBlock x:Name="ForeignTroopType3" Width="46" Canvas.Left="3" Canvas.Top="53"
                      TextAlignment="Center" TextWrapping="Wrap" Foreground="#FFF2E7CB" FontSize="11" Visibility="Collapsed"/>
           <TextBlock x:Name="ForeignTroopOwner3" Width="24" Canvas.Left="14" Canvas.Top="56"
@@ -81,7 +99,8 @@
             </TextBlock>
           </Viewbox>
           <Button x:Name="ForeignTroopImage4" Width="45" Height="86" Canvas.Left="4" Canvas.Top="53"
-                  Style="{StaticResource BTN_Image}" IsHitTestVisible="True" Focusable="False" Visibility="Collapsed"/>
+                  Style="{StaticResource BugfixesAndQoL-ForeignTroopPortrait}" Tag="{Binding Text, ElementName=ForeignTroopType4}"
+                  IsHitTestVisible="True" Focusable="False" Visibility="Collapsed"/>
           <TextBlock x:Name="ForeignTroopType4" Width="46" Canvas.Left="3" Canvas.Top="53"
                      TextAlignment="Center" TextWrapping="Wrap" Foreground="#FFF2E7CB" FontSize="11" Visibility="Collapsed"/>
           <TextBlock x:Name="ForeignTroopOwner4" Width="24" Canvas.Left="14" Canvas.Top="56"
@@ -104,7 +123,8 @@
             </TextBlock>
           </Viewbox>
           <Button x:Name="ForeignTroopImage5" Width="45" Height="86" Canvas.Left="4" Canvas.Top="53"
-                  Style="{StaticResource BTN_Image}" IsHitTestVisible="True" Focusable="False" Visibility="Collapsed"/>
+                  Style="{StaticResource BugfixesAndQoL-ForeignTroopPortrait}" Tag="{Binding Text, ElementName=ForeignTroopType5}"
+                  IsHitTestVisible="True" Focusable="False" Visibility="Collapsed"/>
           <TextBlock x:Name="ForeignTroopType5" Width="46" Canvas.Left="3" Canvas.Top="53"
                      TextAlignment="Center" TextWrapping="Wrap" Foreground="#FFF2E7CB" FontSize="11" Visibility="Collapsed"/>
           <TextBlock x:Name="ForeignTroopOwner5" Width="24" Canvas.Left="14" Canvas.Top="56"
@@ -127,7 +147,8 @@
             </TextBlock>
           </Viewbox>
           <Button x:Name="ForeignTroopImage6" Width="45" Height="86" Canvas.Left="4" Canvas.Top="53"
-                  Style="{StaticResource BTN_Image}" IsHitTestVisible="True" Focusable="False" Visibility="Collapsed"/>
+                  Style="{StaticResource BugfixesAndQoL-ForeignTroopPortrait}" Tag="{Binding Text, ElementName=ForeignTroopType6}"
+                  IsHitTestVisible="True" Focusable="False" Visibility="Collapsed"/>
           <TextBlock x:Name="ForeignTroopType6" Width="46" Canvas.Left="3" Canvas.Top="53"
                      TextAlignment="Center" TextWrapping="Wrap" Foreground="#FFF2E7CB" FontSize="11" Visibility="Collapsed"/>
           <TextBlock x:Name="ForeignTroopOwner6" Width="24" Canvas.Left="14" Canvas.Top="56"
@@ -150,7 +171,8 @@
             </TextBlock>
           </Viewbox>
           <Button x:Name="ForeignTroopImage7" Width="45" Height="86" Canvas.Left="4" Canvas.Top="53"
-                  Style="{StaticResource BTN_Image}" IsHitTestVisible="True" Focusable="False" Visibility="Collapsed"/>
+                  Style="{StaticResource BugfixesAndQoL-ForeignTroopPortrait}" Tag="{Binding Text, ElementName=ForeignTroopType7}"
+                  IsHitTestVisible="True" Focusable="False" Visibility="Collapsed"/>
           <TextBlock x:Name="ForeignTroopType7" Width="46" Canvas.Left="3" Canvas.Top="53"
                      TextAlignment="Center" TextWrapping="Wrap" Foreground="#FFF2E7CB" FontSize="11" Visibility="Collapsed"/>
           <TextBlock x:Name="ForeignTroopOwner7" Width="24" Canvas.Left="14" Canvas.Top="56"
@@ -173,7 +195,8 @@
             </TextBlock>
           </Viewbox>
           <Button x:Name="ForeignTroopImage8" Width="45" Height="86" Canvas.Left="4" Canvas.Top="53"
-                  Style="{StaticResource BTN_Image}" IsHitTestVisible="True" Focusable="False" Visibility="Collapsed"/>
+                  Style="{StaticResource BugfixesAndQoL-ForeignTroopPortrait}" Tag="{Binding Text, ElementName=ForeignTroopType8}"
+                  IsHitTestVisible="True" Focusable="False" Visibility="Collapsed"/>
           <TextBlock x:Name="ForeignTroopType8" Width="46" Canvas.Left="3" Canvas.Top="53"
                      TextAlignment="Center" TextWrapping="Wrap" Foreground="#FFF2E7CB" FontSize="11" Visibility="Collapsed"/>
           <TextBlock x:Name="ForeignTroopOwner8" Width="24" Canvas.Left="14" Canvas.Top="56"

@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
        xmlns:shared="clr-namespace:Shared;assembly=ExtendedData"
-       xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
+       xmlns:extendedDataApi="clr-namespace:APIShared.ModSettings;assembly=APIShared">
   <!-- One contextual option serves Trail and Custom Lord uploads. -->
+  <Operation Type="AddNamespace" AttributeName="extendedDataApi" Value="clr-namespace:APIShared.ModSettings;assembly=APIShared" />
   <Operation Type="SetAttribute"
              XPath="//n:TextBox[@Name='WorkshopMapDescription']"
              AttributeName="Height"
@@ -17,6 +18,29 @@
             HorizontalAlignment="Center"
             VerticalAlignment="Top"
             Visibility="{Binding OptionVisibility}">
+        <Grid.Resources>
+          <Style x:Key="ModSettingsToolTipStyle" TargetType="{x:Type ToolTip}">
+            <Setter Property="Background" Value="#FF1D1710"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#FFF2D48A"/>
+            <Setter Property="FontSize" Value="{x:Static extendedDataApi:ToolTipPresentation.AutomaticFontSize}"/>
+            <Setter Property="MaxWidth" Value="{x:Static extendedDataApi:ToolTipPresentation.AutomaticMaximumWidth}"/>
+            <Setter Property="Padding" Value="24,18"/>
+            <Setter Property="BorderThickness" Value="4.5"/>
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ToolTip}">
+                  <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2"
+                          Padding="{TemplateBinding Padding}" MaxWidth="{TemplateBinding MaxWidth}">
+                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                               FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap"/>
+                  </Border>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+        </Grid.Resources>
         <CheckBox HorizontalAlignment="Left"
                   VerticalAlignment="Top"
                   Foreground="Black"
@@ -24,26 +48,8 @@
                   IsChecked="{Binding IncludeExtendedData, Mode=TwoWay}"
                   ToolTipService.ShowDuration="60000">
           <CheckBox.ToolTip>
-            <ToolTip seui:ToolTipResolutionScale.Enabled="True" Content="{Binding HelpText}"
-                     Background="#FF1D1710"
-                     Foreground="White"
-                     BorderBrush="#FFF2D48A"
-                     BorderThickness="1">
-              <ToolTip.Template>
-                <ControlTemplate TargetType="{x:Type ToolTip}">
-                  <Border Background="{TemplateBinding Background}"
-                          BorderBrush="{TemplateBinding BorderBrush}"
-                          BorderThickness="1"
-                          CornerRadius="2"
-                          Padding="{TemplateBinding Padding}"
-                          MaxWidth="{TemplateBinding MaxWidth}">
-                    <TextBlock Text="{TemplateBinding Content}"
-                               Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}"
-                               TextWrapping="Wrap" />
-                  </Border>
-                </ControlTemplate>
-              </ToolTip.Template>
-            </ToolTip>
+            <ToolTip Style="{StaticResource ModSettingsToolTipStyle}" extendedDataApi:SharedToolTipSizing.Enabled="True"
+                     Content="{Binding HelpText}"/>
           </CheckBox.ToolTip>
         </CheckBox>
         <TextBlock Text="{Binding LordMediaStatusText}" Foreground="Black" TextWrapping="Wrap" Margin="0,27,0,0" VerticalAlignment="Top"/>
