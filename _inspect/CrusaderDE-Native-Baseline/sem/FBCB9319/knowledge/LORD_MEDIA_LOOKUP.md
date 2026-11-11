@@ -187,3 +187,99 @@ Lord-index bases and custom-text fallback. Runtime regression fixtures can verif
 hook results, save codecs and unchanged media/RNG behavior; such fixtures do not
 establish Unity rendering, an actual repeated save/load roundtrip or matching
 host/client acceptance. Those in-game checks remain separate from this static audit.
+
+## Allied messenger placeholders and presentation groups (2026-11-11) [Vanilla facts]
+
+The installed native SHA-256 was rechecked against CURRENT.json and the semantic
+manifest: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The matching managed baseline remains
+`BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`.
+The function labels below remain candidate names; the stated table addressing,
+record fields and managed call flow are confirmed-static from instructions,
+canonical PE table reads and the hash-bound managed decompilation.
+
+### Original per-Lord references
+
+The two addressing forms in wrapper RVA `0x103AA0` corroborate the speech table
+at RVA `0x316450` and video table at RVA `0x318340`: each category has 30 pointer
+slots, indexed by `category * 30 + originalSpeechLord`. Slots 1 through 29 are
+built-in Lords; slot zero is the generic/custom source. The original speech Lord
+comes from the AIC record's field at offset +4, so a player using a user AIC does
+not by itself lose the original Vanilla speech identity. The built-in text
+request uses `TEXT_SKIRMISH_SPEECH` and
+`(originalSpeechLord - 1) * 34 + category`; actual message categories are 1..33.
+The separate preliminary announcement has category zero and is not the message
+being spoken in this table lookup.
+
+For a goods request, Rat, Snake, Pig and Wolf all select `all_req_01.wav` and
+`bad_soldier_taunt.webm`. Their generic allied categories otherwise use the
+`all_*` voice family with `bad_soldier_taunt.webm` or the game's spelling
+`bad_soldier_nevous.webm`. This is a shared messenger presentation, not a distinct
+voice resource for each of those four Lords. Rat and Pig have their own
+`DieAlly` media and therefore must not be treated as generic for that category.
+Wolf also has generic `KillNpc` media; that category is outside the allied
+request/response group and must not be inferred to be an allied request merely
+because its media uses the same messenger family.
+
+Existing `Taunt1` references are:
+
+| Lord | Speech filename | Video filename |
+| --- | --- | --- |
+| Rat | `rt_taunt_01.wav` | `rt_taunt2.webm` |
+| Snake | `sn_taunt_01.wav` | `sn_taunt1.webm` |
+| Pig | `pg_taunt_03.wav` | `pg_taunt1.webm` |
+| Wolf | `wf_taunt_01.wav` | `wf_taunt1.webm` |
+
+These are original table references, not copied assets or a claim about the
+precise wording in any installed speech language. All 29 built-in Lords' 33
+message slots have nonempty speech and video reference strings in this image;
+that does not prove that every unused category has meaningful or playable media.
+
+### Output group and text lifetime
+
+Presentation RVA `0xFEE50` passes a text header to emitter `0x1A2850` before
+speech and video. A complete ordinary Lord group has record kinds 20 (text),
+18 (speech channel 1, gain 100), 22 (controls), then 21 (video). The optional
+frontend branch between controls and video can emit music/ambient changes or
+stop a previous video. The two byte booleans passed to `0x1A2850` become short
+fields `[13]` = audio present and `[14]` = video present in its 21-short record.
+Neither field is a speaker/player identity. The header's text section and index
+are stored in fields `[11]` and `[12]`.
+
+`GameMap.processTestMap` case 20 currently reads the text section/index and
+discards those two presence flags. Case 18 reads the speech filename from the
+supplied PlayState and submits it to `SFXManager.playSpeech`. Case 21 reads the
+video filename from that same PlayState. Its field `[3] < 0` means stop;
+`[3] == 0` is a valid ordinary nonlooping video start; `[3] > 0` requests looping.
+Field `[11] > 0` requests waiting for speech. `speechFileName` and `binkFileName`
+are one value each per PlayState, not independently carried by every record;
+they do not establish separate speaker identity for multiple headers.
+
+`OnScreenText` reuses one OST object per slot. Each MESSAGE_BAR add writes the
+current text data and deadline into that existing object; object identity alone
+therefore cannot distinguish two queued messages, even if their text indices
+are identical. Its regular `updateOST` resolves and displays the active message.
+The public `getOST(..., handleStatChange: false)` observes the active object
+without consuming its changed/off flags. `initOST` replaces the slot objects.
+
+## Lord message presentation extension (2026-11-11) [mod integration]
+
+APIShared's new Lord-message service attaches to the managed presentation path,
+after native queueing and the Extender's media choice. A local render-invocation
+and header-index pair identifies each validated complete group. Selection changes
+only the managed media call arguments and a generation-bound text presentation;
+no native queue field, text index or record buffer is rewritten. This avoids
+passing private provider-qualified filenames through the native queue's fixed
+100-byte path slots. The existing per-Lord media resolver and packaged custom-Lord
+claims retain their ownership and random-selection behaviour.
+
+The test consumer filters Rat, Snake, Pig and Wolf, the allied categories
+`RequestGoods` through `MerryChristmas` and `About2Siege` through `WillAttackEnemy`,
+and the effective original messenger audio/video. It then references `Taunt1`
+for all three components of that same Lord. A custom AIC retaining a Vanilla
+speech identity can match; authored Extender media with different effective paths
+must not match merely because the text index names one of these Lords.
+
+These are source/static integration contracts. Original table reads and isolated
+managed fixtures do not prove audible speech, video decoding, subtitle appearance,
+queue transitions or actual host/client acceptance in a running game.

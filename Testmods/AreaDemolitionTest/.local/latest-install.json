@@ -1,0 +1,116 @@
+{
+  "InstalledUtc": "2026-11-11T12:48:22.8949122Z",
+  "GUID": "AreaDemolitionTest_Serp",
+  "Version": "0.1.0",
+  "Destination": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\AreaDemolitionTest_Serp",
+  "BuildProof": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\a\\area-build\\002\\result.json",
+  "FileCount": 25,
+  "Files": [
+    {
+      "Relative": "AreaDemolitionTest.dll",
+      "Sha256": "609780c299f5f112ceae471792e2deb856c532c04507ba717552295b429fe430"
+    },
+    {
+      "Relative": "AreaDemolitionTest.pdb",
+      "Sha256": "3c61264b7e3925d42449e28e924a420e3c3ef81a85bbe0d9ce3582d0f2a1175e"
+    },
+    {
+      "Relative": "info.json",
+      "Sha256": "eed623729c182029909f5af0bbd7fe8ba6ced4a7d9c918efa198e4713e8abf6b"
+    },
+    {
+      "Relative": "TESTPLAN.txt",
+      "Sha256": "c485e35dc8ffa77ef2b9f5a593510007c53ccbd88950db3e8d5d5b83cca9420c"
+    },
+    {
+      "Relative": "Locales\\ar.txt",
+      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+    },
+    {
+      "Relative": "Locales\\cs-CZ.txt",
+      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+    },
+    {
+      "Relative": "Locales\\de-DE.txt",
+      "Sha256": "2cdae82b86c9b53ed5969e0f0acbe6807d10e2801df1907ac1f4f18e4eaa30cc"
+    },
+    {
+      "Relative": "Locales\\el-GR.txt",
+      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+    },
+    {
+      "Relative": "Locales\\en-US.txt",
+      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+    },
+    {
+      "Relative": "Locales\\es-ES.txt",
+      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+    },
+    {
+      "Relative": "Locales\\fr-FR.txt",
+      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+    },
+    {
+      "Relative": "Locales\\hu-HU.txt",
+      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+    },
+    {
+      "Relative": "Locales\\it-IT.txt",
+      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+    },
+    {
+      "Relative": "Locales\\ja-JP.txt",
+      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+    },
+    {
+      "Relative": "Locales\\ko-KR.txt",
+      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+    },
+    {
+      "Relative": "Locales\\nl-NL.txt",
+      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+    },
+    {
+      "Relative": "Locales\\pl-PL.txt",
+      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+    },
+    {
+      "Relative": "Locales\\pt-BR.txt",
+      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+    },
+    {
+      "Relative": "Locales\\ru-RU.txt",
+      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+    },
+    {
+      "Relative": "Locales\\sv-SE.txt",
+      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+    },
+    {
+      "Relative": "Locales\\th-TH.txt",
+      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+    },
+    {
+      "Relative": "Locales\\tr-TR.txt",
+      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+    },
+    {
+      "Relative": "Locales\\uk-UA.txt",
+      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+    },
+    {
+      "Relative": "Locales\\zh-CN.txt",
+      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+    },
+    {
+      "Relative": "Locales\\zh-HK.txt",
+      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+    }
+  ],
+  "UnchangedDependencies": {
+    "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\APIShared_Serp\\APIShared.dll": "528b7f983c27e0eb1fd036ed41cb73fb51fdf2fa47e341791a8c28c6e9eb2963",
+    "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\SHCDESE.dll": "5cb1c33be5463086505a17f5c48aaa357d733cfff7240e101c821f0e3c668498",
+    "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\patchers\\APIShared.DependencyBootstrap.dll": "18f5bcc6bfe3daf7c354ae9224d4ae134d40fda63f6df0b13dfee2007c901fbe"
+  },
+  "GameAcceptance": "User will perform single-player test; no game was launched by this installation."
+}

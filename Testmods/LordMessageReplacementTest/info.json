@@ -1,0 +1,11 @@
+{
+  "GUID": "LordMessageReplacementTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Lord Message Replacement Test",
+  "Description": "Replaces generic allied messenger messages of Rat, Snake, Pig and Wolf with each lord's existing first taunt, including voice, video and text. Testing only.",
+  "Version": "0.1.0",
+  "Manifest": 1,
+  "NetworkMode": 0,
+  "MinimumScriptExtenderVersion": "2.14.3",
+  "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.47.0" }]
+}
