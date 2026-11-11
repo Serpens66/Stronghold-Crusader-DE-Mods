@@ -5,21 +5,28 @@ layout with the declared Script Extender and APIShared dependencies. Test with
 and without Fixes. Start in single-player and repeat the applicable steps in
 the map editor. Keep the normal save and mod layout outside the fixture.
 
-1. Select pitch or moat and start a left drag while holding Ctrl. Check that the
-   start tile stays fixed, the cursor sets the end, and the preview matches an
-   ordinary wall for horizontal, vertical, diagonal and mixed directions. Hold
-   before releasing and compare the map and stock against their initial values.
+1. Select pitch or moat and hold Ctrl before clicking. Move the pointer and
+   check that exactly one field follows it. Compare the translucent stock
+   pitch sprite or blue moat tile at two zoom levels and on raised ground.
+   Start a left drag. Check that the start stays fixed and the preview follows
+   the wall raster in horizontal, vertical, diagonal and mixed directions.
+   Compare terrain and stock against their initial values before releasing.
 2. Release on the map with Ctrl still held. Check the displayed tiles, the
    64-tile limit, the one-tile width, and the one-tile click. Check that moat
    placement has the usual in-game or editor semantics and that pitch charges
    match the preview over all four starting positions in its payment cycle.
+   Compare short and 64-field lines at different game speeds. A settled local
+   game should place the next eligible field on each successive simulation
+   tick, without a real-time pause between fields. Native command delays still
+   wait for confirmation before submitting another field.
 3. Draw across existing pitch or moat markings, a building or prohibited
    terrain, and open tiles beyond them. Existing tiles are grey and blocked
    tiles red. Check that open, affordable tiles beyond either kind are placed.
    Repeat with zero and limited pitch stock and at the map edge. Check the
-   actual debit and stock in the vanilla build-menu tooltip. Change stock or
-   terrain while holding before release and verify the new result. Hover a
-   different tool and cancel the drag to check that the tooltip text clears.
+   actual debit and stock in the vanilla pitch row, including zero for a
+   prepaid field. Compare its icon and spacing with a wall's cost row. Change
+   stock or terrain before release and verify the new result. Hover another
+   build icon and check that its own costs take precedence.
    Check both orders of pitch and planned moat on the same tile. Compare the
    pitch flag and moat task slot, owner and progress before and after placing.
    Check that finishing the excavation still removes pitch as in vanilla.

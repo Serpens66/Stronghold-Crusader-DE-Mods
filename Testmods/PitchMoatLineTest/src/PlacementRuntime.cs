@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Threading;
 using APIShared;
 using APIShared.GameModes;
+using APIShared.Simulation;
 using BepInEx.Logging;
 using CrusaderDE;
 using SHCDESE.Interop;
@@ -11,16 +12,12 @@ using UnityEngine;
 
 namespace PitchMoatLineTest
 {
-    internal enum PlacementNotice { None, Busy, Stopped }
-
     internal sealed class PlacementRuntime
     {
         // Vanilla's MainControls.CurrentAction value for mapper placement.
         private const int MapperPlacement = 5;
         private static readonly long QuoteInterval = Stopwatch.Frequency / 10;
-        private static readonly long SubmitInterval = (Stopwatch.Frequency * 32 + 999) / 1000;
         private static readonly long ReceiptTimeout = Stopwatch.Frequency * 3;
-        private static readonly long BusyNoticeDuration = Stopwatch.Frequency;
         private static PlacementRuntime instance;
 
         private readonly NativePlacement native;
@@ -35,18 +32,18 @@ namespace PitchMoatLineTest
         private LineTile end;
         private bool hasEnd;
         private bool ownsButton;
-        private bool failed;
+        private volatile bool failed;
         private bool tickReported;
         private volatile Stage stage;
         private long nextQuote;
-        private long nextSubmit;
+        private int? lastSubmitTick;
         private long receiptDeadline;
         private int nextTile;
         private int countToSubmit;
         private int placedCount;
         private bool awaitingReceipt;
-        private NoticeSnapshot notice;
         private PreviewSnapshot preview;
+        private HoverRequest hover;
 #if SERP_DEVDIAG
         private int gestureNumber;
         private int quotedGesture;
@@ -176,7 +173,6 @@ namespace PitchMoatLineTest
                             if (stage == Stage.Dragging && state == 3 && UpdateEndpoint(director))
                             {
                                 stage = Stage.Released;
-                                nextSubmit = Stopwatch.GetTimestamp() + SubmitInterval;
                                 Volatile.Write(ref preview, null);
                             }
                             else if (!HasReleasedLine(stage))
@@ -192,7 +188,6 @@ namespace PitchMoatLineTest
                     {
                         ownsButton = true;
                         director.clearMouseStateForEngine();
-                        SetNotice(PlacementNotice.Busy, BusyNoticeDuration);
                         return true;
                     }
                     ClearPlacement();
@@ -250,8 +245,21 @@ namespace PitchMoatLineTest
         internal static void AfterInput(EditorDirector director)
         {
             var runtime = Volatile.Read(ref instance);
-            if (runtime == null || (runtime.stage == Stage.Idle && !runtime.ownsButton))
+            if (runtime == null)
                 return;
+            if (runtime.stage == Stage.Idle && !runtime.ownsButton)
+            {
+                try
+                {
+                    runtime.UpdateHover(director);
+                }
+                catch (Exception error)
+                {
+                    lock (ManagedBoundary.EngineGate)
+                        runtime.Fail(error.ToString());
+                }
+                return;
+            }
 #if SERP_DEVDIAG
             long wait = 0;
             DevDiag.Start(ref wait);
@@ -286,6 +294,24 @@ namespace PitchMoatLineTest
             }
         }
 
+        private void UpdateHover(EditorDirector director)
+        {
+            var context = Volatile.Read(ref mission);
+            var previous = Volatile.Read(ref hover);
+            if (context == null || !director.ctrlPressed || director.shiftPressed || Input.GetMouseButton(0) || IsCancelPressed() ||
+                !TryManagedTarget(director, context, out var current) || !TryPointerTile(director, out var tile))
+            {
+                if (previous != null) Volatile.Write(ref hover, null);
+                return;
+            }
+            if (previous != null && previous.Matches(context, current, tile))
+                return;
+            if (previous == null)
+                EnsurePreview(director);
+            if (!failed)
+                Volatile.Write(ref hover, new HoverRequest(context, current, tile));
+        }
+
         private bool UpdateEndpoint(EditorDirector director)
         {
             if (!ValidModifiers() || IsCancelPressed() || !TryTarget(director, out var current) ||
@@ -307,10 +333,12 @@ namespace PitchMoatLineTest
             return true;
         }
 
-        private bool TryTarget(EditorDirector director, out PlacementTarget result)
+        private bool TryTarget(EditorDirector director, out PlacementTarget result) =>
+            TryManagedTarget(director, mission, out result) && native.IsReadyForMapper(result.Mapper, result.InGame);
+
+        private bool TryManagedTarget(EditorDirector director, MissionContext context, out PlacementTarget result)
         {
             result = default;
-            var context = mission;
             if (failed || !ManagedBoundary.IsReady || context == null || (!context.IsEditor &&
                     readiness?.Current?.SessionId != context.SessionId) ||
                 !Application.isFocused || director == null || !director.IsActive ||
@@ -323,7 +351,7 @@ namespace PitchMoatLineTest
             if (!IsLineMapper(mapper))
                 return false;
             int player = director.ActivePlayerID;
-            if (player <= 0 || !native.IsReadyForMapper(mapper, !context.IsEditor))
+            if (player <= 0)
                 return false;
             result = new PlacementTarget(mapper, player, !context.IsEditor);
             return true;
@@ -365,10 +393,17 @@ namespace PitchMoatLineTest
             var runtime = Volatile.Read(ref instance);
             // This is the special Vanilla cursor branch only. Keep its brush
             // ghost off the map while the scene overlay owns the preview.
-            if (runtime != null && ManagedBoundary.IsReady && runtime.stage != Stage.Idle && constructingOnly && size == 0 &&
-                Monitor.IsEntered(ManagedBoundary.EngineGate) &&
-                runtime.target.Matches(new PlacementTarget(mapper, player, inGame)))
-                return;
+            if (runtime != null && ManagedBoundary.IsReady && constructingOnly && size == 0 &&
+                Monitor.IsEntered(ManagedBoundary.EngineGate))
+            {
+                var current = new PlacementTarget(mapper, player, inGame);
+                if (runtime.stage != Stage.Idle && runtime.target.Matches(current))
+                    return;
+                var request = Volatile.Read(ref runtime.hover);
+                if (state == 0 && request != null && request.Matches(runtime.mission, current, new LineTile(x, y)) &&
+                    runtime.native.IsReadyForMapper(mapper, inGame))
+                    return;
+            }
             EngineInterface.PlaceMapperItem(mapper, x, y, size, player, inGame, constructingOnly, state);
         }
 
@@ -403,7 +438,10 @@ namespace PitchMoatLineTest
                 log.LogInfo(Plugin.Stamp($"PITCH_MOAT_LINE_MISSION_TICK session={mission.SessionId} editor={mission.IsEditor}"));
             }
             if (stage == Stage.Idle)
+            {
+                TickHover();
                 return;
+            }
             // These getters only read managed fields. Unity input and scene objects
             // are sampled separately on the input thread.
             var controls = MainControls.instance;
@@ -427,19 +465,7 @@ namespace PitchMoatLineTest
                 bool available = TryQuote(line, out var quote);
                 var previous = Volatile.Read(ref preview);
                 if (previous == null || !previous.Matches(end, available, quote, tileStates))
-                {
-                    var displayTiles = new LineTile[line.Count];
-                    var displayStates = new LineTileState[line.Count];
-                    Array.Copy(tiles, displayTiles, line.Count);
-                    if (available)
-                        Array.Copy(tileStates, displayStates, line.Count);
-                    var snapshot = new PreviewSnapshot(displayTiles, displayStates, end, target.Mapper, target.Player,
-                        target.InGame, available, quote);
-#if SERP_DEVDIAG
-                    snapshot.GestureNumber = gestureNumber;
-#endif
-                    Volatile.Write(ref preview, snapshot);
-                }
+                    Volatile.Write(ref preview, MakePreview(target, end, line.Count, available, quote));
                 return;
             }
             if (stage == Stage.Released)
@@ -473,7 +499,17 @@ namespace PitchMoatLineTest
                 nextTile++;
                 placedCount++;
             }
-            if (nextTile < countToSubmit && (now < nextSubmit || native.IsNativeShiftHeld))
+            if (nextTile < countToSubmit && native.IsNativeShiftHeld)
+                return;
+            if (!SimulationClock.TryGetCurrentTick(mission, out int mapTick))
+            {
+                StopBatch("simulation clock was unavailable");
+                return;
+            }
+            // Engine runs can repeat without advancing map time. A confirmed
+            // predecessor allows the next field only on a new simulation tick.
+            if (lastSubmitTick.HasValue &&
+                (!SimulationClock.TryGetElapsedTicks(lastSubmitTick.Value, mapTick, out int elapsed) || elapsed == 0))
                 return;
             // Recheck the confirmed subset in order. A newly blocked tile leaves
             // the payment phase unchanged, so the next candidate can still fit.
@@ -503,9 +539,42 @@ namespace PitchMoatLineTest
                 return;
             }
             awaitingReceipt = true;
-            long submittedAt = Stopwatch.GetTimestamp();
-            nextSubmit = submittedAt + SubmitInterval;
-            receiptDeadline = submittedAt + ReceiptTimeout;
+            lastSubmitTick = mapTick;
+            receiptDeadline = Stopwatch.GetTimestamp() + ReceiptTimeout;
+        }
+
+        private void TickHover()
+        {
+            var request = Volatile.Read(ref hover);
+            if (request == null || !ReferenceEquals(request.Context, mission))
+                return;
+            long now = Stopwatch.GetTimestamp();
+            if (now < request.NextQuote)
+                return;
+            request.NextQuote = now + QuoteInterval;
+
+            var current = request.Target;
+            tiles[0] = request.Tile;
+            bool available = native.TryQuote(current.Mapper, current.Player, current.InGame, !mission.Mode.IsRealMultiplayer,
+                new ArraySegment<LineTile>(tiles, 0, 1), tileStates, out var quote);
+            var previous = Volatile.Read(ref request.Preview);
+            if (previous == null || !previous.Matches(request.Tile, available, quote, tileStates))
+                Volatile.Write(ref request.Preview, MakePreview(current, request.Tile, 1, available, quote));
+        }
+
+        private PreviewSnapshot MakePreview(PlacementTarget current, LineTile endpoint, int count, bool available, LineQuote quote)
+        {
+            var displayTiles = new LineTile[count];
+            var displayStates = new LineTileState[count];
+            Array.Copy(tiles, displayTiles, count);
+            if (available)
+                Array.Copy(tileStates, displayStates, count);
+            var snapshot = new PreviewSnapshot(displayTiles, displayStates, endpoint, current.Mapper, current.Player,
+                current.InGame, available, quote);
+#if SERP_DEVDIAG
+            snapshot.GestureNumber = gestureNumber;
+#endif
+            return snapshot;
         }
 
         private bool TryQuote(ArraySegment<LineTile> line, out LineQuote quote)
@@ -543,7 +612,8 @@ namespace PitchMoatLineTest
         {
             stage = Stage.Idle;
             awaitingReceipt = false;
-            Volatile.Write(ref notice, null);
+            lastSubmitTick = null;
+            Volatile.Write(ref hover, null);
             HideEndpoint();
         }
 
@@ -551,7 +621,6 @@ namespace PitchMoatLineTest
         {
             log.LogInfo(Plugin.Stamp($"PITCH_MOAT_LINE_STOP after {placedCount}/{countToSubmit} confirmed fields: {reason}"));
             ClearPlacement();
-            SetNotice(PlacementNotice.Stopped, Stopwatch.Frequency * 3);
         }
 
         private void Fail(string reason)
@@ -565,32 +634,32 @@ namespace PitchMoatLineTest
         internal static PreviewSnapshot GetPreview()
         {
             var runtime = Volatile.Read(ref instance);
-            return runtime == null ? null : Volatile.Read(ref runtime.preview);
+            if (runtime == null) return null;
+            if (runtime.stage != Stage.Idle) return Volatile.Read(ref runtime.preview);
+            var request = Volatile.Read(ref runtime.hover);
+            return request != null && ReferenceEquals(request.Context, Volatile.Read(ref runtime.mission))
+                ? Volatile.Read(ref request.Preview) : null;
         }
 
-        private void SetNotice(PlacementNotice kind, long duration) =>
-            Volatile.Write(ref notice, new NoticeSnapshot(target.Mapper, kind, Stopwatch.GetTimestamp() + duration));
-
-        internal static PlacementNotice GetNotice(int mapper)
+        private sealed class HoverRequest
         {
-            var runtime = Volatile.Read(ref instance);
-            var current = runtime == null ? null : Volatile.Read(ref runtime.notice);
-            return current != null && current.Mapper == mapper && Stopwatch.GetTimestamp() < current.Until
-                ? current.Kind : PlacementNotice.None;
-        }
+            internal readonly MissionContext Context;
+            internal readonly PlacementTarget Target;
+            internal readonly LineTile Tile;
+            // Only the engine tick writes the quote. The input thread retires
+            // the request itself, so an in-flight quote cannot restore it.
+            internal long NextQuote;
+            internal PreviewSnapshot Preview;
 
-        private sealed class NoticeSnapshot
-        {
-            internal readonly int Mapper;
-            internal readonly PlacementNotice Kind;
-            internal readonly long Until;
-
-            internal NoticeSnapshot(int mapper, PlacementNotice kind, long until)
+            internal HoverRequest(MissionContext context, PlacementTarget target, LineTile tile)
             {
-                Mapper = mapper;
-                Kind = kind;
-                Until = until;
+                Context = context;
+                Target = target;
+                Tile = tile;
             }
+
+            internal bool Matches(MissionContext context, PlacementTarget target, LineTile tile) =>
+                ReferenceEquals(Context, context) && Target.Matches(target) && Tile.X == tile.X && Tile.Y == tile.Y;
         }
 
         private enum Stage { Idle, Dragging, Released, Submitting }

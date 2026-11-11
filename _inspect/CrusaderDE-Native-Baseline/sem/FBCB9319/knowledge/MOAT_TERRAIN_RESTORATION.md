@@ -115,3 +115,18 @@ The pitch branch of `0x77E60` accepts `PlannedMoat`. It rejects `IsMoat` via
 `0x59380` sets `PitchTrap`. This removes a live dig task even though the pitch
 admission permitted the tile. The continuation at `0x6D912` writes the display
 grid, separate from the moat task-index grid.
+
+## Pitch and planned moat graphics
+
+On the same native image, `0x683CA` stores the visible pitch tile graphic
+as `0x8C0000 | (variant & 7)`. The tile export at `0x1A2D90` converts the
+zero-based variant to frames 1–8. In the matching managed image (`BC8B6A39…`),
+`SpriteMapping.setGenericBuildingTileGraphic` loads that frame from
+`Enums.GM.GM_PITCH_DITCHES`.
+
+The planned-moat display in `0x41D60` retains the current base terrain graphic
+and passes colour code `0x3F` for faint plan display or `0x39` for the moat
+tool to `0x1A2D90`, subject to Vanilla's visibility checks. The render record
+reaches the managed tile sprite and `floatColour` through `GameMap`.
+`gameTile.setTileColour` maps those codes to `TilemapManager.tileColBlueFaint`
+and `tileColBlue`, respectively.

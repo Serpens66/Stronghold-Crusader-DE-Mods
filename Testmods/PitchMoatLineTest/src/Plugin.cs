@@ -13,7 +13,7 @@ namespace PitchMoatLineTest
     public sealed class Plugin : BaseUnityPlugin
     {
         public const string Guid = "PitchMoatLineTest_Serp";
-        public const string Version = "0.2.0";
+        public const string Version = "0.3.1";
 
         private static ManualLogSource log;
         private static bool attempted;

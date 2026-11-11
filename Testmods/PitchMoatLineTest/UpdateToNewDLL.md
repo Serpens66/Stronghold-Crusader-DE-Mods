@@ -52,6 +52,15 @@ Pinselmittelpunkt entgegen. Mauszustand 1 ist der unabhängige Einzelauftrag.
   erwarteten Besitzer. Ein Chore wird niemals bei fehlender Bestätigung
   erneut gesendet.
 
+Die Verarbeitung nutzt den nativen Kartentick über APIShared `SimulationClock`.
+Pro fortschreitendem Tick wird höchstens ein Feld eingereicht. `DLL_RunTick`
+bei `0x86680` führt fällige Chores über `0x1F7E0` aus, bevor `0xCDE60` den
+Kartentick erhöht. Nach bestätigtem Feld kann der nächste Engine-Aufruf daher
+das nächste Feld mit dem aktuellen Vorrat prüfen und einreichen. Die separate
+32-ms-Pause entfällt. Wiederholte Engine-Aufrufe ohne Tickfortschritt senden
+kein weiteres Feld. Die native lokale Choreverzögerung wird nach dem
+Partiestart normalerweise null; der Mod verändert sie nicht.
+
 ## Pech und geplanter Graben auf demselben Feld
 
 `0x5CA40` und der Grabenplanpfad `0x6FE90 -> 0x59210` lassen das Pechflag

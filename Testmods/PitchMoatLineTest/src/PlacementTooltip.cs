@@ -1,11 +1,11 @@
 using System;
 using System.Reflection;
-using System.Text;
 using APIShared.Presentation;
 using BepInEx.Logging;
 using CrusaderDE;
 using HarmonyLib;
 using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
 
 namespace PitchMoatLineTest
 {
@@ -14,39 +14,29 @@ namespace PitchMoatLineTest
         // MainControls.CurrentAction for Vanilla mapper placement.
         private const int MapperPlacementAction = 5;
         private const int PitchMapper = (int)eMappers.MAPPER_PITCH_DITCH;
-        private const int MoatMapper = (int)eMappers.MAPPER_MOAT;
-        private const int DugMoatMapper = (int)eMappers.MAPPER_DUGMOAT;
+        private const int PitchStructure = (int)eStructs.STRUCT_PITCH_DITCH;
+        private const int PitchSprite = (int)Enums.eUISprites.SPRITE_GOODS_SMALL_PITCH;
 
         private readonly int unityThread = Environment.CurrentManagedThreadId;
-        private readonly StatusText pitchText = new StatusText();
-        private readonly StatusText moatText = new StatusText();
-        private AccessTools.FieldRef<HUD_Main, int> hoverStruct, selectedStruct;
-        private AccessTools.FieldRef<HUD_Main, string> selectedString;
-        private AccessTools.FieldRef<HUD_Main, bool> otherVisible, otherPriority;
-        private string titleLanguage, moatTitle, moatBaseline, lastMoatBase, lastMoatStatus, lastMoatText;
+        private readonly AccessTools.FieldRef<HUD_Main, int> hoverStruct = ReadField<int>("HoverStruct");
+        private readonly AccessTools.FieldRef<HUD_Main, int> selectedStruct = ReadField<int>("SelectedStruct");
+        private readonly AccessTools.FieldRef<HUD_Main, string> selectedString = ReadField<string>("SelectedString");
+        private readonly AccessTools.FieldRef<HUD_Main, bool> otherVisible = ReadField<bool>("OtherVisible");
+        private readonly AccessTools.FieldRef<HUD_Main, bool> otherPriority = ReadField<bool>("OtherHighestPri");
 
         internal static void Register(ManualLogSource log)
         {
-            // APIShared owns both process-lived registrations and calls them after Vanilla presentation.
-            var tooltip = new PlacementTooltip();
-            if (!TooltipPresentation.TryRegisterText(Plugin.Guid, "PitchLinePlacement", TooltipTarget.BuildingCompact,
-                TooltipPlacement.AfterMainLine, tooltip.PitchText, out string reason))
-                log.LogWarning(Plugin.Stamp("PITCH_LINE_TOOLTIP_UNAVAILABLE: " + reason));
-
             try
             {
-                tooltip.hoverStruct = ReadField<int>("HoverStruct");
-                tooltip.selectedStruct = ReadField<int>("SelectedStruct");
-                tooltip.selectedString = ReadField<string>("SelectedString");
-                tooltip.otherVisible = ReadField<bool>("OtherVisible");
-                tooltip.otherPriority = ReadField<bool>("OtherHighestPri");
+                // The APIShared publisher keeps this callback alive after the plugin's startup cleanup.
+                var tooltip = new PlacementTooltip();
                 if (!PresentationEvents.TryRegister(PresentationOperation.BuildingRollover, Plugin.Guid,
-                    "MoatLinePlacement", null, tooltip.AfterRollover, out reason))
-                    log.LogWarning(Plugin.Stamp("MOAT_LINE_TOOLTIP_UNAVAILABLE: " + reason));
+                    "PitchLinePlacement", null, tooltip.AfterRollover, out string reason, order: int.MaxValue - 1))
+                    log.LogWarning(Plugin.Stamp("PITCH_LINE_TOOLTIP_UNAVAILABLE: " + reason));
             }
             catch (Exception error)
             {
-                log.LogWarning(Plugin.Stamp("MOAT_LINE_TOOLTIP_UNAVAILABLE: " + error));
+                log.LogWarning(Plugin.Stamp("PITCH_LINE_TOOLTIP_UNAVAILABLE: " + error));
             }
         }
 
@@ -58,144 +48,88 @@ namespace PitchMoatLineTest
             return AccessTools.FieldRefAccess<HUD_Main, T>(field);
         }
 
-        private static int SelectedMapper()
-        {
-            var controls = MainControls.instance;
-            return controls != null && controls.CurrentAction == MapperPlacementAction ? controls.CurrentSubAction : 0;
-        }
-
-        private string PitchText(TooltipContext context)
-        {
-            if (!context.IsActive || context.IsSymbolHover || context.BuildingType != (int)eStructs.STRUCT_PITCH_DITCH ||
-                SelectedMapper() != PitchMapper || !MainViewModel.viewModelLoaded || MainViewModel.Instance.Show_HUD_Troops)
-                return null;
-
-            var snapshot = PlacementRuntime.GetPreview();
-            if (snapshot?.Mapper != PitchMapper || (snapshot.InGame && snapshot.Player != context.LocalPlayerId))
-                snapshot = null;
-            return pitchText.Get(snapshot, PlacementRuntime.GetNotice(PitchMapper), true);
-        }
-
         private void AfterRollover(PresentationPostEventArgs args)
         {
             if (!args.OriginalCompleted || Environment.CurrentManagedThreadId != unityThread || !MainViewModel.viewModelLoaded)
                 return;
-            int mapper = SelectedMapper();
-            if (mapper != MoatMapper && mapper != DugMoatMapper)
+
+            var preview = PlacementRuntime.GetPreview();
+            if (preview == null || !preview.Available || !preview.InGame || preview.Mapper != PitchMapper)
                 return;
 
-            var snapshot = PlacementRuntime.GetPreview();
-            if (snapshot?.Mapper != mapper)
-                snapshot = null;
-            var notice = PlacementRuntime.GetNotice(mapper);
-            if (snapshot == null && notice == PlacementNotice.None)
+            var controls = MainControls.instance;
+            var director = EditorDirector.instance;
+            if (controls == null || controls.CurrentAction != MapperPlacementAction || controls.CurrentSubAction != PitchMapper ||
+                director == null || !director.IsActive || director.ActivePlayerID != preview.Player)
                 return;
 
             var hud = args.BuildingHud;
             var main = MainViewModel.Instance;
             if (hud == null || !ReferenceEquals(hud, main.HUDmain) || main.Show_HUD_Troops ||
                 main.RolloverBuilding_TooltipVis || hoverStruct(hud) != 0 || !string.IsNullOrEmpty(hud.HoverString) ||
-                selectedStruct(hud) != 0 || GameData.Instance?.lastGameState == null)
+                selectedStruct(hud) != PitchStructure || (otherVisible(hud) && otherPriority(hud)))
                 return;
 
-            // Mapper 106 has only a selected title; the editor's mapper 45 has no title.
-            // Match the completed Vanilla rollover, including OtherVisible's empty-text/priority rule.
             string selected = selectedString(hud);
-            if (otherVisible(hud) && (string.IsNullOrEmpty(selected) || otherPriority(hud)))
+            string title = main.RollOverText;
+            if (string.IsNullOrEmpty(selected) || title == null || title.Length != selected.Length + 2 ||
+                !title.StartsWith("  ", StringComparison.Ordinal) || string.CompareOrdinal(title, 2, selected, 0, selected.Length) != 0)
                 return;
-            string baseline = main.RollOverText;
-            string title = MoatTitle();
-            if (mapper == MoatMapper)
+
+            var game = GameData.Instance;
+            var state = game?.lastGameState;
+            // Match Vanilla's cost-row visibility, including its siege-builder exception.
+            if (state == null || (main.IsMapEditorMode && game.game_type != (int)eGameTypeModes.GAMETYPE_SIEGE_THAT_BUILDER) ||
+                main.GameSprites == null || main.GameSprites.Count <= PitchSprite || main.GameSprites[PitchSprite] == null)
+                return;
+
+            var image = main.GameSprites[PitchSprite];
+            bool pitch1 = ReferenceEquals(main.RollOverText_GoodsImage1, image);
+            bool pitch2 = ReferenceEquals(main.RollOverText_GoodsImage2, image);
+            if (pitch1 && pitch2)
+                return;
+
+            var quote = preview.Quote;
+            if (pitch1 || pitch2)
             {
-                if (string.IsNullOrEmpty(title) || !string.Equals(selected, title, StringComparison.Ordinal) ||
-                    !string.Equals(baseline, moatBaseline, StringComparison.Ordinal))
+                int wood = 0, stone = 0, iron = 0, pitch = 0, gold = 0;
+                GameData.getStructureCosts(PitchStructure, ref wood, ref stone, ref iron, ref pitch, ref gold);
+                if (pitch <= 0)
                     return;
+                string brushCost = $"   {pitch} ";
+                int vanillaStock = state.resources[(int)eGoods.STORED_PITCH_RAW];
+                string stock = $"({vanillaStock})";
+                // Only substitute a complete Vanilla slot. Earlier HUD providers can own different output.
+                if (pitch1 && main.RollOverText_AmountReq1 == brushCost && main.RollOverText_AmountGot1 == stock)
+                {
+                    main.RollOverText_AmountReq1 = $"   {quote.TotalCost} ";
+                    main.RollOverText_AmountGot1 = quote.Stock == vanillaStock ? stock : $"({quote.Stock})";
+                }
+                else if (pitch2 && main.RollOverText_AmountReq2 == brushCost && main.RollOverText_AmountGot2 == stock + "  ")
+                {
+                    main.RollOverText_AmountReq2 = $"   {quote.TotalCost} ";
+                    main.RollOverText_AmountGot2 = $"({quote.Stock})  ";
+                }
+                return;
+            }
+
+            // A positive debit can use an empty Vanilla cost slot, with no extra row or displaced good.
+            if (quote.TotalCost <= 0 || main.RollOverText_GoodsImage2 != null ||
+                main.RollOverText_AmountReq2 != "" || main.RollOverText_AmountGot2 != "  ")
+                return;
+            if (main.RollOverText_GoodsImage1 == null)
+            {
+                if (main.RollOverText_AmountReq1 != "" || main.RollOverText_AmountGot1 != "")
+                    return;
+                main.RollOverText_AmountReq1 = $"   {quote.TotalCost} ";
+                main.RollOverText_AmountGot1 = $"({quote.Stock})";
+                main.RollOverText_GoodsImage1 = image;
             }
             else
             {
-                if (!string.IsNullOrEmpty(selected) || !string.IsNullOrEmpty(baseline) || string.IsNullOrEmpty(title))
-                    return;
-                baseline = moatBaseline;
-            }
-
-            string status = moatText.Get(snapshot, notice, false);
-            if (!string.Equals(lastMoatBase, baseline, StringComparison.Ordinal) || !ReferenceEquals(lastMoatStatus, status))
-            {
-                lastMoatBase = baseline;
-                lastMoatStatus = status;
-                lastMoatText = baseline + "\n  " + status.Replace("\n", "\n  ");
-            }
-            main.RollOverText = lastMoatText;
-        }
-
-        private string MoatTitle()
-        {
-            string language = FatControler.locale;
-            if (moatTitle == null || !string.Equals(titleLanguage, language, StringComparison.Ordinal))
-            {
-                titleLanguage = language;
-                moatTitle = Translate.Instance.lookUpText(Enums.eTextSections.TEXT_BUBBLE_HELP_TEXT, Enums.eTextValues.BHELP_TEXT_MOAT);
-                moatBaseline = "  " + moatTitle;
-            }
-            return moatTitle;
-        }
-
-        private sealed class StatusText
-        {
-            private PreviewSnapshot lastSnapshot;
-            private PlacementNotice lastNotice;
-            private bool lastGerman;
-            private string text;
-
-            internal string Get(PreviewSnapshot snapshot, PlacementNotice notice, bool pitch)
-            {
-                if (snapshot == null && notice == PlacementNotice.None)
-                {
-                    lastSnapshot = null;
-                    return null;
-                }
-
-                bool german = FatControler.locale == Translate.locale_german;
-                if (!ReferenceEquals(lastSnapshot, snapshot) || lastNotice != notice || lastGerman != german)
-                {
-                    lastSnapshot = snapshot;
-                    lastNotice = notice;
-                    lastGerman = german;
-                    text = Format(snapshot, notice, pitch, german);
-                }
-                return text;
-            }
-
-            private static string Format(PreviewSnapshot snapshot, PlacementNotice notice, bool pitch, bool german)
-            {
-                if (snapshot == null)
-                    return notice == PlacementNotice.Busy
-                        ? (german ? "Die vorige Linie wird noch gebaut" : "Still placing the previous line")
-                        : (german ? "Platzierung vorzeitig beendet" : "Placement stopped early");
-                if (!snapshot.Available)
-                    return german ? "Bauprüfung nicht verfügbar" : "Placement check unavailable";
-
-                var quote = snapshot.Quote;
-                var label = new StringBuilder();
-                if (pitch)
-                    label.Append(german ? $"Pechbedarf {quote.TotalCost} · Vorrat {quote.Stock}" :
-                        $"Pitch cost {quote.TotalCost} · Stock {quote.Stock}");
-                else
-                    label.Append(german ? "Keine Materialkosten" : "No material cost");
-                label.Append('\n').Append(german ? $"{quote.BuildableCount}/{snapshot.Tiles.Length} Felder baubar" :
-                    $"{quote.BuildableCount}/{snapshot.Tiles.Length} tiles buildable");
-                AppendCount(label, quote.ExistingCount, german ? "vorhanden" : "existing");
-                AppendCount(label, quote.BlockedCount, german ? "blockiert" : "blocked");
-                AppendCount(label, quote.MaterialCount, german ? "ohne Material" : "short on materials");
-                AppendCount(label, quote.CapacityCount, german ? "über dem Baulimit" : "over the limit");
-                AppendCount(label, quote.OverlapUnavailableCount, german ? "wegen Überlagerung übersprungen" : "skipped because overlap is unavailable");
-                return label.ToString();
-            }
-
-            private static void AppendCount(StringBuilder label, int count, string text)
-            {
-                if (count > 0)
-                    label.Append('\n').Append(count).Append(' ').Append(text);
+                main.RollOverText_AmountReq2 = $"   {quote.TotalCost} ";
+                main.RollOverText_AmountGot2 = $"({quote.Stock})  ";
+                main.RollOverText_GoodsImage2 = image;
             }
         }
     }
