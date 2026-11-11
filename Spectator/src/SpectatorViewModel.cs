@@ -37,8 +37,9 @@ namespace Spectator
         [PresetLocal]
         public bool EnableSpectatorPerspective { get => enableSpectatorPerspective; set => Set(ref enableSpectatorPerspective, value, nameof(EnableSpectatorPerspective)); }
         // Original singleplayer spectators control the player chosen in the portrait bar.
+        // Temporarily disabled (too buggy): the setting is hidden and every value, including stored presets, is forced off.
         [PresetLocal]
-        public bool EnableSpectatorControl { get => enableSpectatorControl; set => Set(ref enableSpectatorControl, value, nameof(EnableSpectatorControl)); }
+        public bool EnableSpectatorControl { get => enableSpectatorControl; set => Set(ref enableSpectatorControl, false, nameof(EnableSpectatorControl)); }
         [PresetLocal]
         public bool EnableStatistics { get => enableStatistics; set => Set(ref enableStatistics, value, nameof(EnableStatistics)); }
         [PresetLocal]
