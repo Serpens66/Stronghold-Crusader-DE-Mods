@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Pathfinding",
   "Description": "Faster and smarter unit movement: shared group routes, better commands, gate routing, Assassin climbing, formations, command queue and synchronized troop movement.",
-  "Version": "0.1.1",
+  "Version": "0.1.2",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.3",
   "MaximumScriptExtenderVersion": "",
@@ -19,6 +19,15 @@
     "2.8.0.2"
   ],
   "SerpChangelog": [
+    {
+      "Version": "0.1.2",
+      "Changes": [
+        "Restore translated formation names and the settings reset button in every supported language.",
+        "Avoid temporary allocations while waiting for queued movement and stop retaining obsolete move commands when unit slots are reused.",
+        "Keep unchanged gate routing policies cached in normal builds and calculate protected-center placement much faster for deep formations.",
+        "Report BugfixesAndQoL versions older than 1.0.215, which still contain the same movement features."
+      ]
+    },
     {
       "Version": "0.1.1",
       "Changes": [

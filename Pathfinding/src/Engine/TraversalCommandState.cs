@@ -9,8 +9,15 @@ namespace Pathfinding.Engine
 {
     internal sealed unsafe partial class FriendlyMoatTraversalProvider
     {
-        private readonly Dictionary<FastUnitIdentity, MoveCommandScope> deferredMoves =
-            new Dictionary<FastUnitIdentity, MoveCommandScope>();
+        private readonly struct DeferredMove
+        {
+            internal DeferredMove(uint global, MoveCommandScope command) { Global = global; Command = command; }
+            internal uint Global { get; }
+            internal MoveCommandScope Command { get; }
+        }
+        // A reused unit slot supersedes its old identity, which can never authorize a live unit again.
+        // Keep at most one retained command per slot instead of accumulating dead global identities.
+        private readonly Dictionary<int, DeferredMove> deferredMoves = new Dictionary<int, DeferredMove>();
         internal override void InvalidateFastMoatData() { ResetGroundFailureProofs(); MarkFastTopologyAll(); }
         // Native 3x3 tile or moat update: only that area (+-2 tiles, the edges it can change) is
         // re-read, so AI building activity no longer forces full anchor mask resweeps.
@@ -44,16 +51,15 @@ namespace Pathfinding.Engine
             foreach (int id in command.ActiveUnitIdsAtDispatch)
                 if (APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) && unit != null)
                 {
-                    var key = new FastUnitIdentity(id, unit->r_GlobalId);
-                    deferredMoves.Remove(key);
-                    if (command.MoatRelevant) deferredMoves[key] = command;
+                    if (command.MoatRelevant) deferredMoves[id] = new DeferredMove(unit->r_GlobalId, command);
+                    else deferredMoves.Remove(id);
                 }
         }
         internal override bool IsDeferredFastMoveAuthorized(PlanScope plan, GameUnit* unit)
         {
             if (plan == null || unit == null || activeMoveCommand != null) return false;
-            return deferredMoves.TryGetValue(new FastUnitIdentity(plan.UnitId, unit->r_GlobalId), out MoveCommandScope command) &&
-                command.TribeId == unit->r_TribeId && command.TargetX == plan.TargetX && command.TargetY == plan.TargetY;
+            return deferredMoves.TryGetValue(plan.UnitId, out DeferredMove move) && move.Global == unit->r_GlobalId &&
+                move.Command.TribeId == unit->r_TribeId && move.Command.TargetX == plan.TargetX && move.Command.TargetY == plan.TargetY;
         }
         // These are prefilters only. The original Fast implementation deliberately
         // leaves the actual decision to its exact reusable traversal fields.
@@ -64,6 +70,6 @@ namespace Pathfinding.Engine
         internal override void RecordFastSearch(WeightedMoatRouteSummary summary, long started, long before) { }
         internal override void RecordFastFieldSearch(MoatCandidateField field, long started) { }
         internal override bool HasPendingUnit(int id, uint global) =>
-            fastCommands.HasPredecessor(new[] { new FastUnitIdentity(id, global) });
+            fastCommands.HasPending(new FastUnitIdentity(id, global));
     }
 }

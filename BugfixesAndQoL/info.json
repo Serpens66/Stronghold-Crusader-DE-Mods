@@ -3,19 +3,26 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.220",
+  "Version": "1.0.221",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.3",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.47.0"
+      "MinimumVersion": "0.48.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.221",
+      "Changes": [
+        "Movement, formations, Shift queues, gate routing and Assassin pathfinding are provided by the separate Pathfinding mod, included alongside this mod in Serps Mods.",
+        "Require APIShared 0.48.0 or newer for safe managed game patches."
+      ]
+    },
     {
       "Version": "1.0.220",
       "Changes": [
@@ -25,7 +32,7 @@
         "Prevent engineers assigned to a newly built catapult, trebuchet or fire ballista from also becoming available as free units. This host fix is enabled by default.",
         "Engineers still operating a siege engine die when it burns down. This separate host option covers all eight siege engine types and is enabled by default.",
         "If a game update changes a game method that this mod adjusts, only that adjustment is skipped. Other mods' changes to the same method keep working.",
-        "Require APIShared 0.47.0 or newer."
+        "Require APIShared 0.48.0 or newer."
       ]
     },
     {

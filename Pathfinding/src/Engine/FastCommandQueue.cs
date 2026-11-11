@@ -72,6 +72,15 @@ namespace Pathfinding.Engine
             return false;
         }
 
+        // Called once per live cohort member by the Shift queue's tick check.
+        // Keep the single-identity query free of temporary collections and delegates.
+        internal bool HasPending(FastUnitIdentity member)
+        {
+            foreach (FastPendingCommand command in commands)
+                if (command.Members.Contains(member)) return true;
+            return false;
+        }
+
         internal void AppendWaypoint(int player, int tribeId, uint global, int x, int y,
             int index, short mode, int tick, IEnumerable<FastUnitIdentity> members)
         {

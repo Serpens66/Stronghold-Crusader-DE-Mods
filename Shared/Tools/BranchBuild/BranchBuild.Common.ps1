@@ -344,10 +344,6 @@ function Convert-BranchPowerShell([string]$Text, [string]$Relative, [string]$Suf
             $Text = $Text.Replace("Join-Path `$gameRoot 'BepInEx\plugins\Pathfinding_Serp'", "Join-Path `$gameRoot 'BepInEx\plugins\Pathfinding_Serp_dev'")
             $Text = $Text.Replace("'\BepInEx\plugins\Pathfinding_Serp'", "'\BepInEx\plugins\Pathfinding_Serp_dev'")
         }
-        'Testmods/MoatMove/tests/Install-Package.ps1' {
-            $Text = $Text.Replace("Join-Path `$gameRoot 'BepInEx\plugins\MoatMove_Serp'", "Join-Path `$gameRoot 'BepInEx\plugins\MoatMove_Serp_dev'")
-            $Text = $Text.Replace("`$gameRoot + '\BepInEx\plugins\MoatMove_Serp'", "`$gameRoot + '\BepInEx\plugins\MoatMove_Serp_dev'")
-        }
         'Testmods/DependencyBootstrapProbe/Build.ps1' {
             # The optional continuation helper binds a previously accepted startup to
             # fixed main paths. Do not let it touch those during a dev installation.
@@ -374,7 +370,7 @@ function Set-BranchBuildTools($Selection, [string]$ControllerRoot, [switch]$Api,
     $suffix = Get-BranchInstallSuffix $Selection.Branch $DriverArguments
     $overrides = @()
     $tracked = @(Invoke-BranchGit $Selection.Root @('-c','core.quotepath=false','ls-files'))
-    $installScripts = @('tools/Build.ps1','Testmods/OutpostTest/Build-OutpostTest.ps1','Testmods/MoatMove/tests/Install-Package.ps1','Pathfinding/tests/Install-Package.ps1',
+    $installScripts = @('tools/Build.ps1','Testmods/OutpostTest/Build-OutpostTest.ps1','Pathfinding/tests/Install-Package.ps1',
         'Testmods/DependencyBootstrapProbe/Build.ps1',
         'Testmods/PlagueHeightTest/verify-installed.ps1','Testmods/CrenelatedWallTest/verify-installed.ps1')
     foreach ($relative in $tracked) {

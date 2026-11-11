@@ -33,6 +33,14 @@
    "stopOnFail": true
   },
   {
+   "id": "pathfinding-defaults",
+   "do": "InvokeCommand",
+   "args": [
+    "Pathfinding.PathfindingPlugin::processRoot.Settings.ResetToDefaultCommand"
+   ],
+   "stopOnFail": true
+  },
+  {
    "id": "wait-page",
    "do": "Wait",
    "args": [

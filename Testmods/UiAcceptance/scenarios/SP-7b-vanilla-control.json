@@ -11,6 +11,14 @@
       "allowErrors": true
     },
     {
+      "id": "pathfinding-defaults",
+      "do": "InvokeCommand",
+      "args": [
+        "Pathfinding.PathfindingPlugin::processRoot.Settings.ResetToDefaultCommand"
+      ],
+      "stopOnFail": true
+    },
+    {
       "id": "manual-commands-off",
       "do": "SetModSetting",
       "args": [

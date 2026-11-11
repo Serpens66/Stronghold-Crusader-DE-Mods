@@ -138,10 +138,6 @@ public static class SerpLocalization
     public const string MultiplayerTimeControlEveryone = "SomeSettings.MultiplayerTimeControlEveryone";
     public const string EnableShiftGameSpeedSteps = "SomeSettings.EnableShiftGameSpeedSteps";
     public const string EnableShiftGameSpeedStepsHelp = "SomeSettings.EnableShiftGameSpeedStepsHelp";
-    public const string EnableTroopMovementFix = "SomeSettings.EnableTroopMovementFix";
-    public const string EnableTroopMovementFixHelp = "SomeSettings.EnableTroopMovementFixHelp";
-    public const string EnableImprovedMoatFilling = "BugfixesAndQoL.EnableImprovedMoatFilling";
-    public const string EnableImprovedMoatFillingHelp = "BugfixesAndQoL.EnableImprovedMoatFillingHelp";
     public const string EnableAiStoneReserveFix = "BugfixesAndQoL.EnableAiStoneReserveFix";
     public const string EnableAiStoneReserveFixHelp = "BugfixesAndQoL.EnableAiStoneReserveFixHelp";
     public const string EnablePlaguePopularityFix = "SomeSettings.EnablePlaguePopularityFix";
@@ -152,20 +148,12 @@ public static class SerpLocalization
     public const string EnableStuckApothecaryFixHelp = "SomeSettings.EnableStuckApothecaryFixHelp";
     public const string EnablePlagueTargetReservationFix = "SomeSettings.EnablePlagueTargetReservationFix";
     public const string EnablePlagueTargetReservationFixHelp = "SomeSettings.EnablePlagueTargetReservationFixHelp";
-    public const string EnableFastRecruitRallyMovement = "BugfixesAndQoL.EnableFastRecruitRallyMovement";
-    public const string EnableFastRecruitRallyMovementHelp = "BugfixesAndQoL.EnableFastRecruitRallyMovementHelp";
     public const string EnableFearFactorNeutralization = "SomeSettings.EnableFearFactorNeutralization";
     public const string EnableFearFactorNeutralizationHelp = "SomeSettings.EnableFearFactorNeutralizationHelp";
     public const string EnableMonksAlwaysRun = "SomeSettings.EnableMonksAlwaysRun";
     public const string EnableMonksAlwaysRunHelp = "SomeSettings.EnableMonksAlwaysRunHelp";
     public const string EnableKnightDismount = "SomeSettings.EnableKnightDismount";
     public const string EnableKnightDismountHelp = "SomeSettings.EnableKnightDismountHelp";
-    public const string EnableImprovedAssassinPathfinding = "SomeSettings.EnableImprovedAssassinPathfinding";
-    public const string EnableImprovedAssassinPathfindingHelp = "SomeSettings.EnableImprovedAssassinPathfindingHelp";
-    public const string EnableImprovedAssassinPathfindingAI = "SomeSettings.EnableImprovedAssassinPathfindingAI";
-    public const string EnableImprovedAssassinPathfindingAIHelp = "SomeSettings.EnableImprovedAssassinPathfindingAIHelp";
-    public const string EnableAssassinCombatResumeFix = "BugfixesAndQoL.EnableAssassinCombatResumeFix";
-    public const string EnableAssassinCombatResumeFixHelp = "BugfixesAndQoL.EnableAssassinCombatResumeFixHelp";
     public const string EnableTrailCustomizationButtons = "BugfixesAndQoL.EnableTrailCustomizationButtons";
     public const string EnableTrailCustomizationButtonsHelp = "BugfixesAndQoL.EnableTrailCustomizationButtonsHelp";
     public const string AssassinClimbingToggleTooltip = "BugfixesAndQoL.AssassinClimbingToggleTooltip";
@@ -523,8 +511,6 @@ public static class SerpLocalization
         { "BugfixesAndQoL.InterfaceTitle", "Interface and Controls" },
         { "BugfixesAndQoL.AiAivTitle", "AI and AIV" },
         { "BugfixesAndQoL.TroopMovementTitle", "Troop Movement" },
-        { EnableImprovedMoatFilling, "Improved moat filling" },
-        { EnableImprovedMoatFillingHelp, "When filling hostile moats, units choose another free valid edge tile instead of becoming idle when the first position is occupied." },
         { "BugfixesAndQoL.EnableHealerAttackCommandFix", "Keep Healers out of melee attack groups" },
         { "BugfixesAndQoL.EnableHealerAttackCommandFixHelp", "Prevents Bedouin Healers from following melee units into combat when a mixed selection is ordered to attack an enemy unit." },
         { "BugfixesAndQoL.PlagueTitle", "Plague" },
@@ -674,8 +660,6 @@ public static class SerpLocalization
         { MultiplayerTimeControlEveryone, "Everyone" },
         { EnableShiftGameSpeedSteps, "Enable 25-step game-speed keybinds" },
         { EnableShiftGameSpeedStepsHelp, "Press or hold the normal increase/decrease game-speed keybind. The first change is immediate and repeats every 0.25 seconds while held; hold Shift for 25 instead of 5 per step, up to Script Extender's configured maximum. The options slider keeps its 5-step increments. Multiplayer changes use Script Extender's tick-aligned Chore transport." },
-        { EnableTroopMovementFix, "Troop Speed Fix" },
-        { EnableTroopMovementFixHelp, "Fixes synchronized movement for mixed troop groups: with a normal movement command, all units move at the speed of the slowest unit in the group." },
         { EnableAiStoneReserveFix, "Preserve stone for pending AI castle buildings" },
         { EnableAiStoneReserveFixHelp, "Preserves stone for the most expensive castle building that has not completed its first build before the AI sells stone." },
         { EnablePlaguePopularityFix, "Plague Popularity Fix" },
@@ -686,22 +670,14 @@ public static class SerpLocalization
         { EnableStuckApothecaryFixHelp, "Completes Vanilla's building-exit transition when an apothecary finds a plague target, preventing it from remaining stuck at the building." },
         { EnablePlagueTargetReservationFix, "Apothecary Target Reservation Fix" },
         { EnablePlagueTargetReservationFixHelp, "Prevents different apothecaries from selecting plague clouds covered by the same expected area treatment." },
-        { EnableFastRecruitRallyMovement, "Recruits Run to Rally Points" },
         { "BugfixesAndQoL.EnableRallyTerrainSlowdownFix", "Fix Rally Point Terrain Slowdown" },
         { "BugfixesAndQoL.EnableRallyTerrainSlowdownFixHelp", "Units moving to rally points retain Vanilla slowdown in swamps, fords and while climbing. Applies to human and AI units, including loaded games. Independent of Recruits Run to Rally Points; does not add a running bonus." },
-        { EnableFastRecruitRallyMovementHelp, "Newly recruited human-player units move to their rally points using their own Vanilla Fast pace and animation while keeping terrain and state modifiers. AI units remain unchanged." },
         { EnableFearFactorNeutralization, "Disable fear-factor effects on soldiers" },
         { EnableFearFactorNeutralizationHelp, "Fear factor no longer has any effect on soldiers' combat strength." },
         { EnableMonksAlwaysRun, "Monks Always Run" },
         { EnableMonksAlwaysRunHelp, "Lets Monks use the normal troop running decision and running animation instead of their special walking restriction. Applies to both the Fighting Monk and Temple Guard skins." },
         { EnableKnightDismount, "Enable knight mount/dismount buttons" },
         { EnableKnightDismountHelp, "Adds command buttons to mount swordsmen and dismount mounted knights. Multiplayer actions use Script Extender's tick-aligned Chore transport." },
-        { EnableImprovedAssassinPathfinding, "Improved Assassin pathfinding (human players)" },
-        { EnableImprovedAssassinPathfindingHelp, "Chooses routes for the Assassins of human players by expected travel time, including climbing animations, and enables the per-player climbing-mode button." },
-        { EnableImprovedAssassinPathfindingAI, "Improved Assassin pathfinding (AI lords)" },
-        { EnableImprovedAssassinPathfindingAIHelp, "Chooses routes for the Assassins of AI lords by expected travel time, including climbing animations. When disabled, AI lords use Vanilla Assassin pathfinding." },
-        { EnableAssassinCombatResumeFix, "Resume Assassin movement after combat" },
-        { EnableAssassinCombatResumeFixHelp, "Makes Assassins continue their original movement order after an automatically fought melee combat, including routes that require climbing." },
         { AssassinClimbingToggleTooltip, "Toggle global climbing mode" },
         { AssassinClimbingActiveTooltipBody, "Is active" },
         { AssassinClimbingForbiddenTooltipBody, "Is forbidden" },

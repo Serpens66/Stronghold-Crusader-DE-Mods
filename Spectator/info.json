@@ -3,14 +3,14 @@
   "Author": "Serpens66",
   "Name": "Spectator",
   "Description": "Spectator perspectives, live statistics and local AI testing tools.",
-  "Version": "0.2.2",
+  "Version": "0.2.3",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.47.0"
+      "MinimumVersion": "0.48.0"
     }
   ],
   "Manifest": 1,
@@ -20,12 +20,18 @@
   ],
   "SerpChangelog": [
     {
+      "Version": "0.2.3",
+      "Changes": [
+        "Require APIShared 0.48.0 or newer for safe ally-panel and report patches."
+      ]
+    },
+    {
       "Version": "0.2.2",
       "Changes": [
         "Add Show while HUD hidden to the in-game statistics settings so an open scoreboard can stay visible when you hide the HUD.",
         "Add a local option to show and move the game date while the HUD is hidden. The date position is saved.",
         "If a game update changes the ally panel or the reports button, Spectator leaves that part unchanged. Other mods' changes to the same game methods keep working.",
-        "Require APIShared 0.47.0 or newer."
+        "Require APIShared 0.48.0 or newer."
       ]
     },
     {

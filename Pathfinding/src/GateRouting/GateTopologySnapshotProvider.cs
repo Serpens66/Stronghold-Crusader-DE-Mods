@@ -557,10 +557,11 @@ namespace Pathfinding.GateRouting
                     routePolicyConsumer?.Invoke(rebuilt.RoutePolicy);
                 peakMissingRequiredMasks = Math.Max(peakMissingRequiredMasks, rebuilt.RoutePolicy.MissingRequiredGateMasks.Length);
                 RecordTopologyCoverage(rebuilt);
+                // Cache validity is functional state in release builds too; only reporting is diagnostic.
+                if (policyChanged) lastTopologyFingerprint = rebuilt.Fingerprint;
 #if SERP_DEVDIAG
                 if (policyChanged)
                 {
-                    lastTopologyFingerprint = rebuilt.Fingerprint;
                     Interlocked.Increment(ref topologyChanges);
                     if (detailedDiagnostics) {
                                                  if (Shared.DebugLogHelper.DiagnosticsEnabled)

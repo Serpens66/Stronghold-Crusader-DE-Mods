@@ -29,6 +29,7 @@ internal static class Program
             TestRoleAssignment();
             TestDirectionAndDensityMatrix();
             TestRoleEdgeCases();
+            TestCenterRoleAssignmentParity();
             TestEffectivePreviewKeys();
             TestReleaseStateModel();
             TestGroundMovePreviewEligibility();
@@ -736,6 +737,89 @@ internal static class Program
             wedgeUnits, wedgeSlots, RangedPlacementMode.Center);
         Check(wedgeCenter.Distinct().Count() == wedgeUnits.Count,
             "Center mode handles protected overflow in a wedge");
+    }
+
+    private static void TestCenterRoleAssignmentParity()
+    {
+        foreach (int count in new[] { 1, 7, 31, 128 })
+        {
+            var units = Enumerable.Range(0, count).Select(index => new FormationUnit(
+                count - index, 0, (FormationRole)(index % 4))).ToArray();
+            foreach (FormationKind kind in new[] { FormationKind.Block, FormationKind.Line,
+                FormationKind.Column, FormationKind.Wedge, FormationKind.Circle })
+            foreach (int rows in new[] { 1, Math.Max(1, count / 3), count })
+            for (int direction = 0; direction < 8; direction++)
+            {
+                List<FormationPoint> slots = FormationModel.BuildRelativeSlots(
+                    kind, count, rows, 1 + direction % 4, direction);
+                Check(FormationModel.AssignSlotsByRole(units, slots, RangedPlacementMode.Center, kind)
+                    .SequenceEqual(ReferenceCenterAssignment(units, slots, kind)),
+                    $"Center assignment parity count={count}, kind={kind}, rows={rows}, direction={direction}");
+            }
+        }
+
+        var tiedUnits = Enumerable.Range(0, 80).Select(index => new FormationUnit(
+            80 - index, 0, (FormationRole)(index % 4))).ToArray();
+        var tiedSlots = Enumerable.Range(0, 80).Select(index => new FormationPoint(
+            index % 5, index / 5, index % 3 * 7, index % 2)).ToArray();
+        foreach (FormationKind kind in new[] { FormationKind.Block, FormationKind.Vanilla })
+            Check(FormationModel.AssignSlotsByRole(tiedUnits, tiedSlots, RangedPlacementMode.Center, kind)
+                .SequenceEqual(ReferenceCenterAssignment(tiedUnits, tiedSlots, kind)),
+                "Center assignment preserves sparse ranks, equal File ties and native-slot radius ordering");
+
+        var deepUnits = Enumerable.Range(0, 10000).Select(index => new FormationUnit(
+            10000 - index, 0, (FormationRole)(index % 4))).ToArray();
+        List<FormationPoint> deepSlots = FormationModel.BuildRelativeSlots(
+            FormationKind.Column, deepUnits.Length, deepUnits.Length, 1, 0);
+        Check(FormationModel.AssignSlotsByRole(deepUnits, deepSlots, RangedPlacementMode.Center,
+                FormationKind.Column).SequenceEqual(ReferenceCenterAssignment(
+                    deepUnits, deepSlots, FormationKind.Column)),
+            "maximum-depth Center column retains the reference assignment");
+    }
+
+    // Deliberately simple former rank-scan algorithm: an independent behavioral reference
+    // for the optimized grouping, including List.Sort's equal-File behavior. It is not timed.
+    private static int[] ReferenceCenterAssignment(IReadOnlyList<FormationUnit> units,
+        IReadOnlyList<FormationPoint> slots, FormationKind kind)
+    {
+        int count = Math.Min(units.Count, slots.Count);
+        var unitIndices = Enumerable.Range(0, count).ToList();
+        var slotIndices = Enumerable.Range(0, count).ToList();
+        Func<FormationRole, int> roleOrder = role => role == FormationRole.Front ? 0 :
+            role == FormationRole.Neutral ? 1 : 2;
+        unitIndices.Sort((left, right) => {
+            int role = roleOrder(units[left].Role).CompareTo(roleOrder(units[right].Role));
+            return role != 0 ? role : units[left].UnitId.CompareTo(units[right].UnitId);
+        });
+        int maximumRank = slots.Take(count).Max(slot => slot.Rank);
+        var rowPositions = new int[count];
+        var rowCounts = new int[maximumRank + 1];
+        for (int rank = 0; rank <= maximumRank; rank++)
+        {
+            var row = new List<int>();
+            for (int index = 0; index < count; index++)
+                if (slots[index].Rank == rank) row.Add(index);
+            row.Sort((left, right) => slots[left].File.CompareTo(slots[right].File));
+            rowCounts[rank] = row.Count;
+            for (int position = 0; position < row.Count; position++) rowPositions[row[position]] = position;
+        }
+        Func<int, int> boundaryDepth = index => Math.Min(
+            Math.Min(slots[index].Rank, maximumRank - slots[index].Rank),
+            Math.Min(rowPositions[index], rowCounts[slots[index].Rank] - 1 - rowPositions[index]));
+        Func<int, long> radius = index => (long)slots[index].X * slots[index].X +
+            (long)slots[index].Y * slots[index].Y;
+        slotIndices.Sort((left, right) => {
+            if (kind != FormationKind.Circle && kind != FormationKind.Vanilla)
+            {
+                int depth = boundaryDepth(left).CompareTo(boundaryDepth(right));
+                if (depth != 0) return depth;
+            }
+            int distance = radius(right).CompareTo(radius(left));
+            return distance != 0 ? distance : left.CompareTo(right);
+        });
+        var result = new int[count];
+        for (int index = 0; index < count; index++) result[unitIndices[index]] = slotIndices[index];
+        return result;
     }
 
     private static void TestPreviewMarkerNormalization()

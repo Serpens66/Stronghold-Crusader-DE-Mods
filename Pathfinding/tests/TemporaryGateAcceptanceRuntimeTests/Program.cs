@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Reflection;
 string root = Path.GetFullPath(args[0]);
+GateTopologyPublicationTests.Run(root);
 // This fixture executes retained development-only diagnostics and their producers.
 var parseOptions = CSharpParseOptions.Default.WithPreprocessorSymbols("SERP_DEVDIAG");
 SyntaxTree Parse(string text, string path = "") => CSharpSyntaxTree.ParseText(text, parseOptions, path);

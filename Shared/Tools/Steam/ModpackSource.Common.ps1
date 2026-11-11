@@ -131,9 +131,10 @@ function Get-PreparedModpackUploadSource([string]$Workspace,[bool]$Test,[string]
 function Get-ModpackCopiedOutputMap([string]$Root) {
     $map=@{}
     # Mod builds copy these tracked resources unchanged into their tracked package folders.
-    foreach($path in @(Invoke-ApiRepositoryGit $Root @('ls-files','--','SerpsModsHost/Locales','SerpsModsHost/Override','ExtendedData/Patches','Spectator/Patches','Spectator/Override'))){
+    foreach($path in @(Invoke-ApiRepositoryGit $Root @('ls-files','--','SerpsModsHost/Locales','SerpsModsHost/Override','ExtendedData/Patches','Spectator/Patches','Spectator/Override','Pathfinding/Locales','Pathfinding/Patches','Pathfinding/Override'))){
         if($path.StartsWith('SerpsModsHost/')){$output=$path.Replace('SerpsModsHost/','SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/')}
         elseif($path.StartsWith('Spectator/')){$output='Spectator/BepInEx/plugins/Spectator_Serp/'+$path.Substring('Spectator/'.Length)}
+        elseif($path.StartsWith('Pathfinding/')){$output='Pathfinding/BepInEx/plugins/Pathfinding_Serp/'+$path.Substring('Pathfinding/'.Length)}
         else{$output=$path.Replace('ExtendedData/','ExtendedData/BepInEx/plugins/ExtendedData_Serp/')}
         $map[$output]=$path
     }

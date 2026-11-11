@@ -13,9 +13,31 @@ namespace EngineHarness
         {
             var queue = new FastCommandQueue();
             var members = Enumerable.Range(1, 680).Select(i => new FastUnitIdentity(i, (uint)(10000 + i))).ToArray();
+            Check(!queue.HasPending(members[0]), "empty queue reports a pending unit");
             var first = queue.Enqueue(1, 1, 300, 12, 13, 0, -255, 17, members);
             var second = queue.Enqueue(1, 2, 301, 14, 15, 0, 1, 18, members.Take(100));
             Check(first.Members.Count == 580 && second.Members.Count == 100, "partial replacement loses remainder");
+            Check(queue.HasPending(members[0]) && queue.HasPending(members[679]), "single-unit query loses a pending cohort member");
+            Check(!queue.HasPending(new FastUnitIdentity(681, 10681)), "absent unit is pending");
+            Check(!queue.HasPending(new FastUnitIdentity(members[0].Id, members[0].Global + 1)), "reused unit ID borrows old pending command");
+            // Waiting Shift cohorts ask this on every tick, including when the Fast queue is empty.
+            // Warm the actual production query, then guard against collection/closure regressions.
+            var emptyQueue = new FastCommandQueue();
+            int hits = 0;
+            for (int i = 0; i < 1000; i++)
+            {
+                if (queue.HasPending(members[0])) hits++;
+                if (emptyQueue.HasPending(members[0])) hits++;
+            }
+            long allocated = GC.GetAllocatedBytesForCurrentThread();
+            for (int i = 0; i < 10000; i++)
+            {
+                if (queue.HasPending(members[0])) hits++;
+                if (queue.HasPending(new FastUnitIdentity(681, 10681))) hits++;
+                if (emptyQueue.HasPending(members[0])) hits++;
+            }
+            Check(GC.GetAllocatedBytesForCurrentThread() == allocated && hits == 11000,
+                "warm single-unit pending checks allocate or change answers");
             queue.Supersede(new[] { new FastUnitIdentity(101, 999) });
             Check(first.Members.Count == 580, "reused ID cancels previous identity");
             queue.Supersede(members.Take(100));
@@ -44,10 +66,12 @@ namespace EngineHarness
                 "saturated waypoint replacement loses unrelated members");
             queue.Remove(first);
             Check(!queue.HasPredecessor(waypoint.Members, waypoint.Sequence), "completed first move blocks waypoint");
+            Check(queue.HasPending(members[0]) && queue.HasPending(members[679]), "single-unit query ignores pending waypoints");
             queue.Supersede(members.Take(100));
             Check(queue.Commands.Count == 1 && queue.Commands[0].Members.Count == 580,
                 "Stop fails to cancel only the selected pending waypoints");
             queue.Clear();
+            Check(!queue.HasPending(members[679]), "cleared queue retains pending unit");
 
             bool allow = true;
             bool Edge(int a, int b, int d, out bool wet, out bool structure)

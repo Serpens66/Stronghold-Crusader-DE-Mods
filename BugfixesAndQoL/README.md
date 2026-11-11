@@ -4,6 +4,8 @@ BugfixesAndQoL fixes several problems in Stronghold Crusader Definitive Edition 
 
 Settings are grouped into collapsible topics with search and recommendation markers. The host controls gameplay fixes, while each player can independently enable or disable personal interface and control features.
 
+Unit commands, pathfinding, formations, Shift queues, gate routing, Assassin climbing and troop movement now belong to the separate [Pathfinding mod](../Pathfinding/README.md). Install it alongside BugfixesAndQoL to keep these improvements. Pathfinding imports the previous settings once; existing Pathfinding choices take precedence.
+
 ## Fixes
 
 ### Prevent Lord teleport exploits
@@ -14,11 +16,7 @@ This enabled-by-default host fix prevents human-controlled Lords from teleportin
 
 This enabled-by-default, Recommended host fix starts woodland trees killed by Tree Blight at the beginning of their normal dead phase and lets them decay even if they were previously damaged or felled. It covers both Vanilla events and events triggered by RandomEvents, and repairs stalled dead trees from existing saves during normal simulation updates. The trees stop blocking construction when they disappear; they cannot be built over before then. The setting is under **Host → Economy → Fixes**.
 
-### Restore terrain slowdown on the way to rally points
-
-The enabled-by-default **Fix Rally Point Terrain Slowdown** setting preserves Vanilla slowdown in swamps, fords and while climbing. Vanilla's rally movement state otherwise overwrites the terrain-adjusted movement delay with the unit's base delay before moving. The fix applies to all affected troop types, human and AI players, and units restored from saved games.
-
-This setting is independent of **Recruits Run to Rally Points**. It does not add a running bonus or change the unit's animation. With both options enabled, recruits use their own running pace while retaining terrain slowdown. Turning the terrain fix off restores the previous rally movement behavior.
+### Apply workshop production choices in prebuilt AI castles
 
 Complete AI starting castles use the configured "Both" production choices for their workshops.
 
@@ -57,12 +55,6 @@ Pressing the market hotkey while a market is already selected returns its interf
 ### Preserve the selected display resolution
 In borderless fullscreen mode, the game can automatically replace the resolution loaded from `settings.cfg` during startup or focus changes. This fix preserves that resolution while still respecting display changes explicitly applied by the user.
 
-### Fix synchronized movement for mixed troop groups
-With a normal synchronized movement order, every unit in a mixed group uses the slowest member's maximum speed and a matching animation pace. Units that can all run are not forced to walk merely because their individual movement speeds differ. Synchronized movement is preserved when saving and loading the game.
-
-### Improve hostile moat filling
-This enabled-by-default host option makes units filling hostile moats choose another free, valid edge tile when the first position is occupied. If an entire moat edge is unsuitable, they continue with the next moat found by Vanilla's normal search instead of becoming idle.
-
 ### Siege engine crews
 
 Under **Host → Gates and siege rules → Fixes**, the host can switch these two options independently. Both are enabled by default.
@@ -74,29 +66,14 @@ Under **Host → Gates and siege rules → Fixes**, the host can switch these tw
 
 In some castle designs, pitch fields at the foot of a staircase could make the game treat it as impassable, especially after loading a saved game. This fix restores the route up those stairs for all units, so both player-controlled and AI-controlled units can find their way to the buildings beyond them. The host option is enabled by default.
 
-### Allow cavalry movement onto stockpiles
-Knights, Horse Archers, Bedouin Camel Lancers, and Heavy Camels can be ordered onto passable stockpile tiles, matching their existing ability to cross them.
-
 ### Keep Healers out of melee attack groups
 When a mixed selection is ordered to attack an enemy unit, Bedouin Healers remain in place like Engineers instead of following the combat units into melee. Normal movement orders and healing behavior remain unchanged.
-
-### Attack through ladder-accessible walls
-Vanilla can find a route over a wall with a placed ladder for an ordinary movement order, but rejects the same route while searching for attack positions. This enabled-by-default host fix applies Vanilla's own ladder checks when units attack an enemy unit or building behind such a wall.
-
-### Resume Assassin movement after combat
-Assassins resume their original movement order after automatically fighting an enemy encountered along the way, including routes that climb onto or down from walls.
 
 ### Prevent AI Assassins from attacking captured gatehouses
 This enabled-by-default host setting prevents AI Assassins from attacking stone gatehouses captured by themselves or an ally. Vanilla or Fixes selects their next target. It can be disabled independently of Assassin climbing and pathfinding; human commands are unchanged.
 
-### Allow Assassins to climb gatehouses directly
-This enabled-by-default host setting lets human players and AI choose direct Assassin climbs onto and down from freestanding gatehouses. Existing player climbing restrictions still apply.
-
 ### Fix plague and apothecary behavior
 Each active plague outbreak applies exactly one point of negative popularity, which is reliably removed after all associated clouds are gone. Apothecary treatments make every affected cloud fade correctly, while reserving the entire treatment area so other healers choose a different useful target. The intended building-exit transition is also completed when a target is found, preventing apothecaries from becoming stuck inside their buildings.
-
-### Allow unrestricted rally-point placement
-Barracks, mercenary posts, engineer guilds, tunneler guilds, keeps, and Bedouin tents accept a rally point even when the game considers the destination unreachable. Their rally flags can be placed anywhere the normal rally-point controls allow.
 
 ### Rotate Keep flags with their Keeps
 The main flag stays in the same corner relative to the entrance when Vanilla, CastlePlanner, or Fixes rotates a human or AI Keep. This enabled-by-default host fix works in every game mode and supports Keep1, Keep2, and the larger Keep3.
@@ -190,21 +167,8 @@ Hold Ctrl while clicking a production building's pause button to pause or resume
 ### Repair all buildings with Shift
 Hold Shift while clicking a building's Repair button to repair the selected building first and then attempt every other damaged repairable building you own. Vanilla checks and deducts resources separately for every repair, so the sequence stops having an effect when the available resources are no longer sufficient.
 
-### Queue movement and attack commands with Shift
-The enabled-by-default host option extends Shift queues so movement orders and attacks against units or buildings share one deterministic FIFO with up to 128 pending commands. 
-
-### Choose unit arrangements and preview movement
-The enabled-by-default host option **Enable unit arrangement and complete target markers** adds an **Arrangement** button to your troop HUD. Choose Vanilla, Block, Line, Column, Wedge, or Circle, density 1-4, optional rear/centre role placement, and coloured previews. Personal defaults are Vanilla, density 2, role placement off, and role markers off.
-
-With at least two units selected, hold your configured Move-command mouse button over open ground and drag to set facing. Scroll up for fewer rows (wider), down for more rows (longer); release issues one synchronized Move. Circle and Vanilla keep their geometry; adjust density in the window. **Remember width/depth ratio**, on by default, saves the width-to-depth proportion per Block, Line, Column, and Wedge across restarts and adapts it to the number of reachable units.
-
-Destination markers cover large groups. The enabled-by-default local **Correct gatehouse target markers** option also corrects their height on gatehouses, including formation previews.
-
-### Make new recruits run to rally points
-Newly recruited human units move to their rally points at their own normal fastest pace, with the matching animation. Enable the separate **Fix Rally Point Terrain Slowdown** setting to retain terrain slowdown; both options are enabled by default.
-
-### Close gates only for reachable enemies
-Gatehouses can ignore enemies that cannot reach either entrance instead of closing for every nearby enemy.
+### Correct gatehouse target markers
+The enabled-by-default local option corrects target marker height on gatehouses, including previews from Pathfinding.
 
 ### Restock siege ammunition fairly
 One reload click can restock every selected catapult and trebuchet from a shared ammunition package, distributing the ammunition evenly in a way, that every unit has the same ammunition in the end. Hold Shift for five times the normal package or Ctrl for one fifth.
@@ -310,15 +274,8 @@ Press Alt+H to show health bars for visible damaged units and buildings without 
 ### Show timer countdowns
 The enabled-by-default per-player **Show timer countdowns** option adds remaining-time numbers to mission objectives and to the bars for Time Until Defeat, victory timers, and Peace Time. It changes only your display and can be turned off in the player QoL settings.
 
-### Improve and control Assassin climbing
-Assassins choose routes by expected travel time instead of treating every traversable step equally. The calculation includes normal movement speed as well as the additional time for climbing walls, so a nearby open gate can be preferred while climbing remains worthwhile along sufficiently long detours. Wall climbs can also start and end on walkable reserved building areas, such as barracks forecourts.
-The host can enable improved pathfinding separately for human and AI Assassins; both options are enabled by default. When an owned Assassin is selected, a troop-action button allows or forbids climbing for that player's Assassins, and this choice survives saving and loading. The setting affects new path requests only. Pressing the normal Stop button or Stop hotkey while an Assassin is climbing cancels the climb now.
-
 ### Control the Lord through the troop HUD
 Selecting your own Lord opens the complete troop HUD with normal commands, health display, troop-type controls, and control-group support. Disband surrenders only when the Lord is selected alone; in mixed selections it affects only normal units.
-
-### Improve manual unit commands
-The enabled-by-default host setting **Improved manual unit commands** allows reachable members of a selection to carry out movement, queued movement, patrol, attack, and moat-work orders, including units already standing in a moat.
 
 ### More Zoom Levels
 Adds more zoom levels (with game setting Extra Zoom enabled) which allows the same zooms on every game resolution.  
@@ -341,6 +298,6 @@ Adds "Customize" Button to custom and coop trails. Allows to use custom AI as Al
 
 ## Compatibility
 
-This mod requires the Script Extender and **APIShared 0.26.0 or newer**. Subscribe to APIShared separately when using the Steam modpack.
+This mod requires the Script Extender and **APIShared 0.48.0 or newer**. Subscribe to APIShared separately when using the Steam modpack.
 
 All multiplayer participants need matching modpack and APIShared versions. Gameplay timing follows the match's simulation time, keeping movement and other timed features consistent between players with different frame rates.

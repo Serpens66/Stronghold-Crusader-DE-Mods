@@ -717,12 +717,21 @@ namespace Pathfinding.UnitCommands
 
             var rowPositions = new int[count];
             var rowCounts = new int[maximumRank + 1];
+            // Build the same ascending-index input for each row in one pass. Scanning
+            // every slot for every rank makes a deep 10,000-unit column quadratic.
+            var rows = new List<int>[maximumRank + 1];
+            for (int index = 0; index < count; index++)
+            {
+                int rank = slots[index].Rank;
+                if (rows[rank] == null)
+                    rows[rank] = new List<int>();
+                rows[rank].Add(index);
+            }
             for (int rank = 0; rank <= maximumRank; rank++)
             {
-                var row = new List<int>();
-                for (int index = 0; index < count; index++)
-                    if (slots[index].Rank == rank)
-                        row.Add(index);
+                List<int> row = rows[rank];
+                if (row == null)
+                    continue;
                 row.Sort((left, right) => slots[left].File.CompareTo(slots[right].File));
                 rowCounts[rank] = row.Count;
                 for (int position = 0; position < row.Count; position++)

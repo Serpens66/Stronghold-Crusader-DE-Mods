@@ -737,8 +737,46 @@ namespace EngineHarness
                 AnchorIntegrationTests();
                 FillFormationTests();
                 BuildingCandidateTests();
+                DeferredMoveScopeTests(units);
             }
             finally { foreach (var p in allocations) NativeMemory.Free((void*)p); }
+        }
+
+        private void DeferredMoveScopeTests(GameUnit* units)
+        {
+            GameUnit saved = units[1];
+            MoveCommandScope active = activeMoveCommand;
+            try
+            {
+                ClearDeferredFastMoveScope(); activeMoveCommand = null;
+                units[1].r_TribeId = 3;
+                units[1].r_ControllableForPlayerId = 2; // Authorization keeps the existing foreign-control contract.
+                var command = new MoveCommandScope { GroupSummaryCaptured = true, TribeId = 3,
+                    TargetX = 17, TargetY = 10, MoatRelevant = true, ActiveUnitIdsAtDispatch = new[] { 1 } };
+                var plan = new PlanScope(1, 17, 10);
+                units[1].r_GlobalId = 500;
+                CaptureDeferredFastMoveScope(command);
+                Check(IsDeferredFastMoveAuthorized(plan, units + 1), "deferred move loses its live foreign-controlled member");
+                units[1].r_GlobalId++;
+                Check(!IsDeferredFastMoveAuthorized(plan, units + 1), "reused slot borrows the previous deferred move");
+                for (int generation = 0; generation < 1000; generation++)
+                {
+                    units[1].r_GlobalId++;
+                    CaptureDeferredFastMoveScope(command);
+                }
+                Check(deferredMoves.Count == 1 && IsDeferredFastMoveAuthorized(plan, units + 1),
+                    "reused slots retain obsolete commands or lose the newest identity");
+                Check(!IsDeferredFastMoveAuthorized(new PlanScope(1, 18, 10), units + 1), "deferred move ignores changed target");
+                units[1].r_TribeId++;
+                Check(!IsDeferredFastMoveAuthorized(plan, units + 1), "deferred move ignores changed tribe");
+                units[1].r_TribeId--; activeMoveCommand = command;
+                Check(!IsDeferredFastMoveAuthorized(plan, units + 1), "active command borrows a deferred scope");
+                activeMoveCommand = null; command.MoatRelevant = false;
+                CaptureDeferredFastMoveScope(command);
+                Check(deferredMoves.Count == 0 && !IsDeferredFastMoveAuthorized(plan, units + 1),
+                    "replacement without moat relevance keeps a deferred command");
+            }
+            finally { units[1] = saved; activeMoveCommand = active; ClearDeferredFastMoveScope(); }
         }
 
         private void TestUnitMovePipeline(byte* manager, GameUnit* units)
