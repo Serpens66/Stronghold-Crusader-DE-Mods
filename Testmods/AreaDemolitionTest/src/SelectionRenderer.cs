@@ -19,12 +19,14 @@ namespace AreaDemolitionTest
         private readonly int unityThread;
         private readonly FieldInfo animationsField, wallFillinsField, fliesField;
         private readonly HashSet<long> selectedCells = new HashSet<long>();
+        private readonly HashSet<long> selectedRenderCells = new HashSet<long>();
         private readonly HashSet<int> selectedBuildings = new HashSet<int>();
         private readonly HashSet<Tilemap> checkedTilemaps = new HashSet<Tilemap>();
         private readonly HashSet<SpriteRenderer> tintedSprites = new HashSet<SpriteRenderer>();
         private readonly List<TileRestore> tileRestore = new List<TileRestore>();
         private readonly List<SpriteRestore> spriteRestore = new List<SpriteRestore>();
-        private readonly List<RenderCell> renderCells = new List<RenderCell>();
+        private readonly List<RenderRow> renderRows = new List<RenderRow>();
+        private readonly Dictionary<Tilemap, RenderRow> rowLookup = new Dictionary<Tilemap, RenderRow>();
         private readonly Dictionary<int, DemolitionTarget> selectedDecorations = new Dictionary<int, DemolitionTarget>();
         private readonly List<DemolitionTarget> unpresentedDecorations = new List<DemolitionTarget>();
         private readonly ScreenSelection screenProjection = new ScreenSelection();
@@ -38,7 +40,7 @@ namespace AreaDemolitionTest
         private Dictionary<int, Fly> flies;
         private Camera activeCamera;
         private Material spriteMaterial;
-        private int rotation = -1;
+        private int rotation = -1, mapSize = -1;
         private bool flattened, hasRenderScope, scopeComplete, ready = true;
 
         internal SelectionRenderer(ManualLogSource log)
@@ -75,23 +77,30 @@ namespace AreaDemolitionTest
                 GameMap map = GameMap.instance;
                 if (map == null || TilemapManager.instance == null || spriteLoader.instance == null)
                     throw new InvalidOperationException("The map renderer is not ready.");
-                EnsureMaterials();
                 bool differentMap = !ReferenceEquals(map, currentMap);
-                bool newGeometry = differentMap || area != selection || rotation != (int)map.CurrentRotation() || flattened != EngineInterface.FlattenedLandscape;
+                int currentRotation = (int)map.CurrentRotation();
+                int currentSize = map.getMapTileSize();
+                if (!differentMap && rotation == currentRotation && mapSize == currentSize && ReferenceEquals(lastTargets, targets))
+                { area = selection; flattened = EngineInterface.FlattenedLandscape; return; }
+                EnsureMaterials();
+                bool newGeometry = differentMap || rotation != currentRotation || mapSize != currentSize;
+                if (newGeometry) { checkedTilemaps.Clear(); rowLookup.Clear(); }
                 if (differentMap)
                 {
-                    checkedTilemaps.Clear();
+                    checkedTilemaps.Clear(); rowLookup.Clear();
                     animations = animationsField.GetValue(map) as Dictionary<int, BuildingAnim>;
                     wallFillins = wallFillinsField.GetValue(map) as Dictionary<int, WallFillin>;
                     flies = fliesField.GetValue(map) as Dictionary<int, Fly>;
                     if (animations == null || wallFillins == null || flies == null)
                         throw new InvalidOperationException("Vanilla's scene render dictionaries are unavailable.");
                 }
-                bool newTargets = differentMap || !ReferenceEquals(lastTargets, targets);
-                currentMap = map; area = selection; rotation = (int)map.CurrentRotation(); flattened = EngineInterface.FlattenedLandscape;
+                bool newTargets = differentMap || !RenderSelectionGeometry.Equals(lastTargets, targets);
+                currentMap = map; area = selection; rotation = currentRotation; mapSize = currentSize; flattened = EngineInterface.FlattenedLandscape;
+                // Always replace the immutable receipt, including when its render geometry can be reused.
+                lastTargets = targets;
                 if (newTargets)
                 {
-                    selectedCells.Clear(); selectedBuildings.Clear(); selectedDecorations.Clear(); lastTargets = targets;
+                    selectedCells.Clear(); selectedBuildings.Clear(); selectedDecorations.Clear();
                     GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
                     foreach (DemolitionTarget target in targets ?? Array.Empty<DemolitionTarget>())
                     {
@@ -141,18 +150,20 @@ namespace AreaDemolitionTest
             {
                 AssertUnityThread(); Restore();
                 if (!ReferenceEquals(currentMap, GameMap.instance)) { Clear(); return; }
-                if (rotation != (int)currentMap.CurrentRotation() || flattened != EngineInterface.FlattenedLandscape)
+                if (rotation != (int)currentMap.CurrentRotation() || mapSize != currentMap.getMapTileSize() || flattened != EngineInterface.FlattenedLandscape)
                 {
-                    checkedTilemaps.Clear(); rotation = (int)currentMap.CurrentRotation(); flattened = EngineInterface.FlattenedLandscape;
+                    checkedTilemaps.Clear(); rotation = (int)currentMap.CurrentRotation(); mapSize = currentMap.getMapTileSize(); flattened = EngineInterface.FlattenedLandscape;
                     RebuildRenderCells();
                 }
                 activeCamera = camera; scopeTargets = lastTargets ?? Array.Empty<DemolitionTarget>(); hasRenderScope = true; scopeComplete = true;
-                foreach (RenderCell cell in renderCells)
+                foreach (RenderRow row in renderRows)
                 {
-                    Tilemap tilemap = cell.Tile.tilemapRef;
-                    if (tilemap == null || !tilemap.gameObject.activeInHierarchy) continue;
-                    TintTile(tilemap, cell.Position);
-                    Vector3Int side = cell.Position; side.z = 1; TintTile(tilemap, side);
+                    if (row.Tilemap == null || row.GameObject == null || !row.GameObject.activeInHierarchy) continue;
+                    foreach (Vector3Int position in row.Positions)
+                    {
+                        TintTile(row.Tilemap, position);
+                        Vector3Int side = position; side.z = 1; TintTile(row.Tilemap, side);
+                    }
                 }
                 foreach (BuildingAnim animation in animations.Values)
                 {
@@ -178,27 +189,30 @@ namespace AreaDemolitionTest
                     // need not have an active renderer; visible ground anchors must catch up.
                     Rect viewport = camera.pixelRect;
                     var visible = new ScreenRect(viewport.xMin, viewport.yMin, viewport.xMax, viewport.yMax);
-                    if (screenProjection.CaptureTileIds(visible, unpresentedDecorations, false).Length != 0) scopeComplete = false;
+                    if (screenProjection.CaptureTileIds(visible, unpresentedDecorations).Length != 0) scopeComplete = false;
                 }
             }
             catch (Exception error) { Fail(error); }
         }
 
         private bool ContainsRenderedCell(int x, int y)
-        {
-            GameMapTile tile = currentMap.getMapTile(x, y);
-            return tile != null && selectedCells.Contains(CellKey(tile.gameMapX, tile.gameMapY));
-        }
+            => selectedRenderCells.Contains(CellKey(x, y));
 
         private void RebuildRenderCells()
         {
-            renderCells.Clear();
+            renderRows.Clear(); selectedRenderCells.Clear();
+            foreach (RenderRow row in rowLookup.Values) row.Positions.Clear();
             // A quote is immutable and replaced at bounded intervals. Resolve coordinates only
             // when that quote or the projection changes, not for every target on every frame.
             foreach (long cell in selectedCells)
             {
                 if (!TryMapCell((int)(cell >> 32), unchecked((int)cell), out GameMapTile tile, out Vector3Int location)) continue;
-                ValidateTilemap(tile.tilemapRef); renderCells.Add(new RenderCell(tile, location));
+                Tilemap tilemap = tile.tilemapRef;
+                ValidateTilemap(tilemap); selectedRenderCells.Add(CellKey(location.x, location.y));
+                if (!rowLookup.TryGetValue(tilemap, out RenderRow row))
+                { row = new RenderRow(tilemap); rowLookup.Add(tilemap, row); }
+                if (row.Positions.Count == 0) renderRows.Add(row);
+                row.Positions.Add(location);
             }
         }
 
@@ -214,9 +228,11 @@ namespace AreaDemolitionTest
 
         private void TintSprite(SpriteRenderer renderer)
         {
-            if (renderer == null || renderer.sprite == null || !renderer.gameObject.activeInHierarchy || !tintedSprites.Add(renderer)) return;
+            if (renderer == null || !tintedSprites.Add(renderer)) return;
+            Sprite sprite = renderer.sprite;
+            if (sprite == null || !renderer.gameObject.activeInHierarchy) { tintedSprites.Remove(renderer); return; }
             Color original = renderer.color;
-            spriteRestore.Add(new SpriteRestore(renderer, renderer.sprite, renderer.sharedMaterial, original));
+            spriteRestore.Add(new SpriteRestore(renderer, sprite, renderer.sharedMaterial, original));
             // TeamColour interprets RGB as the palette, rather than tinting the complete sprite.
             // A render-only plain material colours all pixels and retains the current animation alpha.
             renderer.sharedMaterial = spriteMaterial;
@@ -263,8 +279,8 @@ namespace AreaDemolitionTest
 
         internal void Clear()
         {
-            AssertUnityThread(); Restore(); area = null; lastTargets = null; selectedCells.Clear(); selectedBuildings.Clear(); selectedDecorations.Clear(); renderCells.Clear();
-            checkedTilemaps.Clear(); currentMap = null; animations = null; wallFillins = null; flies = null; rotation = -1;
+            AssertUnityThread(); Restore(); area = null; lastTargets = null; selectedCells.Clear(); selectedRenderCells.Clear(); selectedBuildings.Clear(); selectedDecorations.Clear(); renderRows.Clear(); rowLookup.Clear();
+            checkedTilemaps.Clear(); currentMap = null; animations = null; wallFillins = null; flies = null; rotation = mapSize = -1;
         }
 
         private void Fail(Exception error)
@@ -286,10 +302,12 @@ namespace AreaDemolitionTest
             internal readonly Tilemap Tilemap; internal readonly Vector3Int Position; internal readonly Sprite Sprite; internal readonly Color Color;
             internal TileRestore(Tilemap tilemap, Vector3Int position, Sprite sprite, Color color) { Tilemap = tilemap; Position = position; Sprite = sprite; Color = color; }
         }
-        private readonly struct RenderCell
+        private sealed class RenderRow
         {
-            internal readonly GameMapTile Tile; internal readonly Vector3Int Position;
-            internal RenderCell(GameMapTile tile, Vector3Int position) { Tile = tile; Position = position; }
+            internal readonly Tilemap Tilemap;
+            internal readonly GameObject GameObject;
+            internal readonly List<Vector3Int> Positions = new List<Vector3Int>();
+            internal RenderRow(Tilemap tilemap) { Tilemap = tilemap; GameObject = tilemap.gameObject; }
         }
         private readonly struct SpriteRestore
         {

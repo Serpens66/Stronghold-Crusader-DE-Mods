@@ -51,10 +51,14 @@ namespace AreaDemolitionTest
         internal bool IntersectsQuad(ScreenPoint a, ScreenPoint b, ScreenPoint c, ScreenPoint d)
         {
             if (!IsFinite || !a.IsFinite || !b.IsFinite || !c.IsFinite || !d.IsFinite) return false;
-            if (Math.Max(Math.Max(a.X, b.X), Math.Max(c.X, d.X)) < MinX ||
-                Math.Min(Math.Min(a.X, b.X), Math.Min(c.X, d.X)) > MaxX ||
-                Math.Max(Math.Max(a.Y, b.Y), Math.Max(c.Y, d.Y)) < MinY ||
-                Math.Min(Math.Min(a.Y, b.Y), Math.Min(c.Y, d.Y)) > MaxY) return false;
+            float minX = Math.Min(Math.Min(a.X, b.X), Math.Min(c.X, d.X));
+            float maxX = Math.Max(Math.Max(a.X, b.X), Math.Max(c.X, d.X));
+            float minY = Math.Min(Math.Min(a.Y, b.Y), Math.Min(c.Y, d.Y));
+            float maxY = Math.Max(Math.Max(a.Y, b.Y), Math.Max(c.Y, d.Y));
+            if (maxX < MinX || minX > MaxX || maxY < MinY || minY > MaxY) return false;
+            // Large selections contain most footprint cells completely. Their AABB being
+            // inside the rectangle proves intersection without testing the four edge axes.
+            if (minX >= MinX && maxX <= MaxX && minY >= MinY && maxY <= MaxY) return true;
             return !Separates(a, b, a, b, c, d) && !Separates(b, c, a, b, c, d) &&
                 !Separates(c, d, a, b, c, d) && !Separates(d, a, a, b, c, d);
         }

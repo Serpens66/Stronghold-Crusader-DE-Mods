@@ -1,4 +1,4 @@
-Area Demolition Test 0.1.1
+Area Demolition Test 0.1.2
 
 Right-click the unchanged Vanilla Bulldozer button for local area filters.
 Ordinary click: Vanilla single removal on release. Drag: enabled categories.
@@ -10,12 +10,23 @@ Crossing HUD keeps the last valid screen endpoint; releasing there completes
 an area gesture and consumes the HUD release. A single release over HUD cancels.
 Cancel with right click, Escape, focus loss or tool change.
 Only dug moats are included. Planned digging marks remain unchanged.
+Stockpiles have their own local filter, initially disabled, beside Buildings.
+Only the requested Bulldozer settings hint is added as a tooltip. Selection type
+and counts remain; empty/forbidden selections produce no extra popup or help text.
+Ordinary preview starts (including busy-lock retries) are paced to10Hz; native
+root checks resume across frames with a2ms deadline and at most64 roots per step.
+The first final capture after release starts immediately; subsequent retries are
+paced. The frame follows input independently. Completed final targets still need
+a successful rendered receipt before authenticated mutation is submitted.
 
 Acceptance requires actual game evidence. Passing a build is not gameplay acceptance.
 2026-11-11: user explicitly deferred all game/MP tests while other tests run.
 0.1.0 was installed and manually tested in singleplayer by the user.
 0.1.1: normal build and installation requested; automated game/MP tests remain
 deferred. Offline checks do not establish acceptance of the changed UI routes.
+0.1.2: user explicitly requested no self-run in-game tests. Only offline tests,
+production algorithm benchmarks, real-assembly compilation and installation.
+Offline timing excludes Mono/Unity/native execution and proves no in-game FPS.
 SP/editor: input shield, shifted start, every category, footprint overlap, linked
 parts, correct refunds, pause, rotation, zoom, heights, cancelled colour restoration.
 Also check stationary late Shift, Shift release, fast direct HUD crossing, HUD
@@ -24,6 +35,10 @@ Check stockpile connections, every barracks/camp, engineers/tunnellers guild,
 quarry/pile, apple/wheat/hops/dairy farms, large gates/churches, and all six static
 decoration types. Check flags/braziers/heads sharing tiles and foreign decorations
 on building/wall removal. Every indirect consequence must be marked beforehand.
+For later user testing: rapidly drag across100+ buildings, including compounds;
+check smooth frame movement, final capture cancellation and delayed lock retries.
+Keep Stockpiles off and confirm the Buildings filter leaves them intact; enable
+only Stockpiles and confirm the inverse. Ordinary clicks/Shift keep their rules.
 MP: actual host/client, differing local filters, >32 targets, readiness mismatch,
 duplicates, stale load traffic, lost/mismatched acknowledgements, pause, spectator
 and defeated peer participation. No automatic retry or rollback claim.

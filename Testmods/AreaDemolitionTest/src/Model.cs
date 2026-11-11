@@ -8,7 +8,7 @@ using System.Text;
 namespace AreaDemolitionTest
 {
     internal enum TargetKind : byte { Building, Pitch, Wall, DugMoat, Decoration }
-    internal enum TargetGroup : byte { Buildings, Fortifications, PositiveFear, NegativeFear, DogCages, KillingPits, Pitch, DugMoats, Decorations }
+    internal enum TargetGroup : byte { Buildings, Fortifications, PositiveFear, NegativeFear, DogCages, KillingPits, Pitch, DugMoats, Decorations, Stockpiles=9 }
 
     internal readonly struct AreaRect
     {

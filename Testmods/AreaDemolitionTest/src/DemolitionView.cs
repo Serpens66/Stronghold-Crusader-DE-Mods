@@ -14,6 +14,8 @@ namespace AreaDemolitionTest
     // Scene controls are replaceable; the owning runtime and its callbacks outlive the startup cleanup.
     internal sealed class DemolitionView
     {
+        private static readonly TargetGroup[] FilterOrder={TargetGroup.Buildings,TargetGroup.Stockpiles,TargetGroup.Fortifications,
+            TargetGroup.PositiveFear,TargetGroup.NegativeFear,TargetGroup.DogCages,TargetGroup.KillingPits,TargetGroup.Pitch,TargetGroup.DugMoats,TargetGroup.Decorations};
         private readonly DemolitionSettings settings;
         private readonly ManualLogSource log;
         private readonly Func<bool> consumePrimaryRelease;
@@ -28,6 +30,8 @@ namespace AreaDemolitionTest
         private ScreenRect? selectionFrame;
         private TextBlock status;
         private bool menuOpen, closingClick, syncing, reportedFailure;
+        private bool layoutDirty=true,statusDirty=true;
+        private float lastWidth=-1,lastHeight=-1,lastRight,lastTop;
         private string statusText = "";
 
         internal DemolitionView(DemolitionSettings settings, ManualLogSource log,Func<bool> consumePrimaryRelease,Action primaryPressed)
@@ -83,7 +87,7 @@ namespace AreaDemolitionTest
             var contents = new StackPanel();
             contents.Children.Add(new TextBlock { Text = Text.Get("MenuTitle"), Foreground = foreground,
                 FontWeight = FontWeights.Bold, Margin = new Thickness(0, 0, 0, 6), FontSize = 17 });
-            foreach (TargetGroup group in Enum.GetValues(typeof(TargetGroup)))
+            foreach (TargetGroup group in FilterOrder)
             {
                 TargetGroup captured = group;
                 string key = "Group" + group;
@@ -91,9 +95,6 @@ namespace AreaDemolitionTest
                     FontSize = 15, Margin = new Thickness(0, 2, 0, 2), Tag = group };
                 check.Checked += (_, __) => ChangeFilter(captured, true);
                 check.Unchecked += (_, __) => ChangeFilter(captured, false);
-                var tip = Shared.MenuToolTip.Create(Text.Get(key + "Help"));
-                ToolTipService.SetToolTip(check, tip);
-                ToolTipService.SetShowDuration(check, 60000);
                 filters.Add(check); contents.Children.Add(check);
             }
             contents.Children.Add(new TextBlock { Text = Text.Get("DragHelp"), TextWrapping = TextWrapping.Wrap,
@@ -143,7 +144,7 @@ namespace AreaDemolitionTest
             if (args.ChangedButton != MouseButton.Right) return;
             args.Handled = true;
             if (menuOpen) { CloseForPointer(); return; }
-            closingClick = false; menuOpen = true;
+            closingClick = false; menuOpen = true;layoutDirty=true;
             backdrop.Visibility = Visibility.Visible; menu.Visibility = Visibility.Visible;
             SyncFilters(); UpdateLayout();
             if (hud != null) hud.HoverString = "";
@@ -174,7 +175,7 @@ namespace AreaDemolitionTest
         private void CloseForPointer()
         {
             closingClick = true;
-            bool changed = menuOpen; menuOpen = false;
+            bool changed = menuOpen; menuOpen = false;layoutDirty=true;
             if (menu != null) menu.Visibility = Visibility.Collapsed;
             if (backdrop != null) backdrop.Visibility = Visibility.Visible;
             if (changed) MenuChanged?.Invoke();
@@ -191,6 +192,7 @@ namespace AreaDemolitionTest
         internal void CloseMenu()
         {
             bool changed = menuOpen; menuOpen = false;
+            if(changed)layoutDirty=true;
             if (menu != null) menu.Visibility = Visibility.Collapsed;
             if (!closingClick && backdrop != null) backdrop.Visibility = Visibility.Collapsed;
             if (changed) MenuChanged?.Invoke();
@@ -198,8 +200,11 @@ namespace AreaDemolitionTest
 
         internal void SetStatus(string text)
         {
-            statusText = text ?? "";
+            text=text??"";
+            if(statusText==text && status!=null && !statusDirty)return;
+            statusText = text;layoutDirty=true;
             if (status == null) return;
+            statusDirty=false;
             status.Text = statusText;
             statusBox.Visibility = statusText.Length == 0 || menuOpen ? Visibility.Collapsed : Visibility.Visible;
             UpdateLayout();
@@ -228,22 +233,29 @@ namespace AreaDemolitionTest
             if (host == null || overlay == null) return;
             float width = host.ActualWidth, height = host.ActualHeight;
             if (width <= 0 || height <= 0) return;
-            backdrop.Width = width; backdrop.Height = height;
-            menu.Width = Math.Min(275, Math.Max(1, width - 12));
-            menu.MaxHeight = Math.Max(1, height - 12);
             float right = width - 8, top = height - 55;
             if (button != null)
             {
                 Noesis.Rect bounds = button.TransformToAncestor(host).TransformBounds(new Noesis.Rect(0, 0, button.ActualWidth, button.ActualHeight));
                 right = bounds.Right; top = bounds.Top - 7;
             }
-            menu.Measure(new Noesis.Size(Math.Max(1, width - 12), Math.Max(1, height - 12)));
-            float menuHeight = menu.DesiredSize.Height;
-            Canvas.SetLeft(menu, Math.Max(6, Math.Min(width - (float)menu.Width - 6, right - (float)menu.Width)));
-            Canvas.SetTop(menu, Math.Max(6, Math.Min(height - menuHeight - 6, top - menuHeight)));
-            statusBox.Measure(new Noesis.Size(Math.Max(1, width - 12), Math.Max(1, height - 12)));
-            Canvas.SetLeft(statusBox, Math.Max(6, Math.Min(width - statusBox.DesiredSize.Width - 6, right - statusBox.DesiredSize.Width)));
-            Canvas.SetTop(statusBox, Math.Max(6, top - statusBox.DesiredSize.Height));
+            if(!layoutDirty && width==lastWidth && height==lastHeight && right==lastRight && top==lastTop)return;
+            layoutDirty=false;lastWidth=width;lastHeight=height;lastRight=right;lastTop=top;
+            backdrop.Width = width; backdrop.Height = height;
+            if(menuOpen)
+            {
+                menu.Width = Math.Min(275, Math.Max(1, width - 12));menu.MaxHeight = Math.Max(1, height - 12);
+                menu.Measure(new Noesis.Size(Math.Max(1, width - 12), Math.Max(1, height - 12)));
+                float menuHeight = menu.DesiredSize.Height;
+                Canvas.SetLeft(menu, Math.Max(6, Math.Min(width - (float)menu.Width - 6, right - (float)menu.Width)));
+                Canvas.SetTop(menu, Math.Max(6, Math.Min(height - menuHeight - 6, top - menuHeight)));
+            }
+            if(statusText.Length!=0 && !menuOpen)
+            {
+                statusBox.Measure(new Noesis.Size(Math.Max(1, width - 12), Math.Max(1, height - 12)));
+                Canvas.SetLeft(statusBox, Math.Max(6, Math.Min(width - statusBox.DesiredSize.Width - 6, right - statusBox.DesiredSize.Width)));
+                Canvas.SetTop(statusBox, Math.Max(6, top - statusBox.DesiredSize.Height));
+            }
             statusBox.Visibility = statusText.Length == 0 || menuOpen ? Visibility.Collapsed : Visibility.Visible;
             UpdateSelectionFrame();
         }
@@ -252,6 +264,7 @@ namespace AreaDemolitionTest
         {
             bool changed = menuOpen || closingClick;
             menuOpen = closingClick = false;
+            layoutDirty=statusDirty=true;lastWidth=lastHeight=-1;
             if (button != null)
             {
                 button.MouseEnter -= OnButtonMouseEnter;

@@ -19,6 +19,7 @@ namespace AreaDemolitionTest
         private readonly ManualLogSource log;
         private readonly SelectionGesture gesture=new SelectionGesture();
         private readonly ScreenSelection screenSelection=new ScreenSelection();
+        private readonly PreviewWorkPolicy previewPolicy=new PreviewWorkPolicy(Stopwatch.Frequency);
         private IUiFrameWorkRegistration work;
         private IMissionLifecycleCapability lifecycle;
         private IMissionPlayStateReadinessCapability readiness;
@@ -27,17 +28,19 @@ namespace AreaDemolitionTest
         private DemolitionNetwork network;
         private MissionContext mission;
         private int actor, lastFrame=-1;
-        private long capturedSession, nextQuote;
+        private long capturedSession;
         private DemolitionTarget[] targets=Array.Empty<DemolitionTarget>();
-        private bool hasQuote;
-        private ScreenRect quotedArea;
-        private Matrix4x4 quotedProjection, quotedView;
-        private int quotedRotation, quotedWidth, quotedHeight, primaryReleaseFrame=-1;
-        private bool quotedFlattened;
+        private NativeDemolition.PreviewQuote previewQuote;
+        private ScreenRect quoteArea, finalArea;
+        private SelectionSpec quoteSelection, finalSelection;
+        private bool quoteIsFinal, finalCaptureRequested, finalStartAttempted;
+        private Matrix4x4 quoteProjection, quoteView;
+        private int quoteRotation, quoteWidth, quoteHeight, primaryReleaseFrame=-1;
+        private bool quoteFlattened;
+        private string selectionStatus="";
+        private long finalRequestedAt;
         private bool missionMarker;
-        private string lastNetworkStatus="";
-        private long statusUntil, localStatusUntil, nextPendingCheck;
-        private string localStatus="";
+        private long nextPendingCheck;
         private DemolitionTarget[] pendingCommit;
         private ScreenRect pendingArea;
         private long pendingSession;
@@ -50,7 +53,7 @@ namespace AreaDemolitionTest
             if(!api.Ui.TryRegisterBeforeRender("presentation",Present,out work,out string reason)) throw new InvalidOperationException(reason);
             view=new DemolitionView(settings,log,()=>gesture.Owned || primaryReleaseFrame==Time.frameCount,()=>primaryReleaseFrame=-1);
             renderer=new SelectionRenderer(log);
-            renderer.Failed+=reason=>{CancelSelection();view.SetStatus(Text.Get("PreviewUnavailable"));log.LogError(Plugin.Stamp("AREA_DEMOLITION_PREVIEW_DISABLED: "+reason));Wake();};
+            renderer.Failed+=reason=>{CancelSelection();log.LogError(Plugin.Stamp("AREA_DEMOLITION_PREVIEW_DISABLED: "+reason));Wake();};
             renderer.Presented+=snapshot=>{if(ReferenceEquals(snapshot,pendingCommit)){pendingPresented=true;Wake();}};
             network=new DemolitionNetwork(api,native,log);
             native.DiagnosticProduced+=message=>api.Ui.TryPost(()=>log.LogError(message));
@@ -84,7 +87,7 @@ namespace AreaDemolitionTest
             api.Ui.TryPost(()=>{if(Volatile.Read(ref mission)!=null)return;ResetScene();work.SetContinuous(false);});
         }
         private void ResetScene()
-        {gesture.Reset();primaryReleaseFrame=-1;pendingCommit=null;pendingPresented=false;targets=Array.Empty<DemolitionTarget>();hasQuote=false;lastNetworkStatus=localStatus="";localStatusUntil=0;renderer.Clear();view.Reset();view.SetStatus("");}
+        {gesture.Reset();primaryReleaseFrame=-1;CancelQuote();previewPolicy.Reset();pendingCommit=null;pendingPresented=false;targets=Array.Empty<DemolitionTarget>();selectionStatus="";renderer.Clear();view.Reset();view.SetStatus("");}
         private void GuiChecks(PresentationPostEventArgs note)
         { if(note.OriginalCompleted && MainViewModel.viewModelLoaded) view.RefreshHud(); }
         private void Wake()=>work?.Request();
@@ -92,11 +95,12 @@ namespace AreaDemolitionTest
         private void FocusChanged(bool focus){if(!focus){CancelSelection();view.CloseMenu();if(network.IsBusy)network.CancelPending();Wake();}}
         internal bool CancelWithEscape()
         {
-            bool consumed=gesture.Owned || pendingCommit!=null || view.IsMenuOpen || network.IsBusy;
+            bool consumed=gesture.Owned || pendingCommit!=null || finalCaptureRequested || view.IsMenuOpen || network.IsBusy;
             if(consumed){CancelSelection();view.CloseMenu();network.CancelPending();Wake();}
             return consumed;
         }
-        private void CancelSelection(){gesture.Cancel();pendingCommit=null;pendingPresented=false;targets=Array.Empty<DemolitionTarget>();hasQuote=false;renderer.Clear();view.SetSelectionFrame(null);}
+        private void CancelQuote(){previewQuote=null;finalCaptureRequested=false;}
+        private void CancelSelection(){gesture.Cancel();CancelQuote();pendingCommit=null;pendingPresented=false;targets=Array.Empty<DemolitionTarget>();selectionStatus="";renderer.Clear();view.SetSelectionFrame(null);view.SetStatus("");}
         internal bool HandlePrimary(EditorDirector director,int state)
         {
             if(gesture.Owned)
@@ -107,16 +111,16 @@ namespace AreaDemolitionTest
                 return true;
             }
             if(view.IsInputShieldActive) return true;
-            if(state==1 && pendingCommit!=null)CancelSelection();
+            if(state==1 && (pendingCommit!=null || finalCaptureRequested))CancelSelection();
             if(state!=1 || !CanCapture(director,out int owner) || !TryPointerTile(director,out int x,out int y)) return false;
             actor=owner;capturedSession=mission.SessionId;
             bool shift=Input.GetKey(KeyCode.LeftShift)||Input.GetKey(KeyCode.RightShift);
             DemolitionTarget start=native.AtTile(x,y,actor);
             var mouse=Input.mousePosition;
             primaryReleaseFrame=-1;
-            localStatusUntil=0;
+            previewPolicy.Reset();selectionStatus="";
             gesture.Begin(mouse.x,mouse.y,new SelectionSpec(settings.Mask,shift,start));
-            director.clearMouseStateForEngine(); hasQuote=false;nextQuote=0; Wake();
+            director.clearMouseStateForEngine();Wake();
             return true;
         }
         private bool CanCapture(EditorDirector director,out int owner) => CanContinue(director,out owner) && !director.overUI();
@@ -138,7 +142,8 @@ namespace AreaDemolitionTest
             var mouse=Input.mousePosition;
             bool valid=TryPointerTile(director,out _,out _);
             gesture.Move(mouse.x,mouse.y,valid,Math.Max(.5f,Screen.height/1080f));
-            if(gesture.SetSameType(Input.GetKey(KeyCode.LeftShift)||Input.GetKey(KeyCode.RightShift))) hasQuote=false;
+            if(gesture.SetSameType(Input.GetKey(KeyCode.LeftShift)||Input.GetKey(KeyCode.RightShift)))
+            {previewQuote=null;targets=Array.Empty<DemolitionTarget>();selectionStatus="";renderer.Clear();}
             return true;
         }
         private void CompletePrimary(EditorDirector director,bool actualRelease)
@@ -151,14 +156,14 @@ namespace AreaDemolitionTest
             primaryReleaseFrame=Time.frameCount;
             if(result==GestureRelease.Single) SingleClick(director);
             else if(result==GestureRelease.Area) Commit(area,selection);
-            if(pendingCommit==null){renderer.Clear();view.SetSelectionFrame(null);}
-            targets=Array.Empty<DemolitionTarget>();hasQuote=false;Wake();
+            if(pendingCommit==null){renderer.Clear();if(!finalCaptureRequested)view.SetSelectionFrame(null);}
+            targets=Array.Empty<DemolitionTarget>();selectionStatus="";Wake();
         }
         internal void AfterInput(EditorDirector director)
         {
             view.AfterInputFrame();
+            if(Input.GetMouseButtonDown(1) && (gesture.Owned || pendingCommit!=null || finalCaptureRequested)){CancelSelection();return;}
             if(!gesture.Owned) return;
-            if(Input.GetMouseButtonDown(1)){CancelSelection();return;}
             if(gesture.Stage!=GestureStage.Cancelled) UpdatePointer(director);
             if(Input.GetMouseButtonUp(0)) CompletePrimary(director,true);
             else if(!Input.GetMouseButton(0)) CompletePrimary(director,false);
@@ -180,37 +185,63 @@ namespace AreaDemolitionTest
             // Real current-pointer single action, not an arbitrary-coordinate batch; preserves other managed prefixes.
             EngineInterface.DeleteBuilding(x,y,actor,!mission.IsEditor,1);
         }
-        private DemolitionTarget[] Capture(ScreenRect area,SelectionSpec selection)
-        {
-            var candidates=native.CaptureCandidates(actor,selection);
-            bool ground=selection.SameType ? selection.Start!=null && (selection.Start.Kind==TargetKind.Wall || selection.Start.Kind==TargetKind.DugMoat) :
-                (selection.Filters&((1<<(int)TargetGroup.Fortifications)|(1<<(int)TargetGroup.DugMoats)))!=0;
-            var cells=screenSelection.CaptureTileIds(area,candidates,ground);
-            return native.CaptureTiles(cells,actor,selection);
-        }
         private void Commit(ScreenRect area,SelectionSpec selection)
         {
             if(mission?.SessionId!=capturedSession)return;
-            if(!renderer.IsReady){ShowLocalStatus("PreviewUnavailable");return;}
-            if(network.IsBusy){ShowLocalStatus("Busy");return;}
-            if(selection.SameType && selection.Start==null){ShowLocalStatus("StartOnObject");return;}
-            DemolitionTarget[] frozen;
-            try {frozen=DemolitionPolicy.Canonicalize(Capture(area,selection));}
-            catch(Exception error)
-            {
-                CancelSelection();ShowLocalStatus("PreviewUnavailable");
-                log.LogError(Plugin.Stamp("AREA_DEMOLITION_CAPTURE_FAILED: "+error));return;
-            }
-            if(frozen.Length==0){ShowLocalStatus("NoTargets");return;}
-            // Present the final immutable quote once, including any endpoint change on release.
-            // A camera failure therefore cannot turn unshown targets into a network operation.
-            pendingCommit=frozen;pendingArea=area;pendingSession=capturedSession;pendingActor=actor;pendingPresented=false;nextPendingCheck=0;
-            renderer.SetSelection(area,frozen);view.SetSelectionFrame(area);Wake();
+            if(!renderer.IsReady || network.IsBusy || selection.SameType && selection.Start==null)return;
+            // Release freezes the gesture, not a long synchronous native scan on the input callback.
+            previewQuote=null;finalArea=area;finalSelection=selection;finalCaptureRequested=true;finalStartAttempted=false;
+            finalRequestedAt=Stopwatch.GetTimestamp();view.SetSelectionFrame(area);Wake();
         }
-        private void ShowLocalStatus(string key)
+        private bool BeginPreview(ScreenRect area,SelectionSpec selection,bool final)
         {
-            localStatus=Text.Get(key);localStatusUntil=Stopwatch.GetTimestamp()+Stopwatch.Frequency*3;
-            view.SetStatus(localStatus);work.RequestAfter(TimeSpan.FromSeconds(3));Wake();
+            // A busy second monitor acquisition must not repeat snapshot preparation at frame rate.
+            previewPolicy.Began(Stopwatch.GetTimestamp());
+            if(!native.TryCreatePreviewSnapshot(actor,selection,out var snapshot)) return false;
+            int[] ground=null;
+            bool includeGround=selection.SameType ? selection.Start!=null && (selection.Start.Kind==TargetKind.Wall || selection.Start.Kind==TargetKind.DugMoat) :
+                (selection.Filters&((1<<(int)TargetGroup.Fortifications)|(1<<(int)TargetGroup.DugMoats)))!=0;
+            if(includeGround)
+            {
+                var broad=screenSelection.CaptureGroundTileIds(area);
+                if(!native.TryCaptureGroundCandidateTiles(broad,actor,selection,out ground))return false;
+            }
+            var cells=screenSelection.CaptureTileIds(area,snapshot.Candidates,ground);
+            previewQuote=native.BeginQuote(snapshot,cells,actor,selection);
+            quoteArea=area;quoteSelection=selection;quoteIsFinal=final;
+            var camera=Camera.main;quoteProjection=camera.projectionMatrix;quoteView=camera.worldToCameraMatrix;
+            quoteRotation=(int)GameMap.instance.CurrentRotation();quoteFlattened=EngineInterface.FlattenedLandscape;
+            quoteWidth=Screen.width;quoteHeight=Screen.height;
+            return true;
+        }
+        private bool SameProjection()
+        {
+            var camera=Camera.main;
+            return camera!=null && GameMap.instance!=null && camera.projectionMatrix==quoteProjection && camera.worldToCameraMatrix==quoteView &&
+                quoteRotation==(int)GameMap.instance.CurrentRotation() && quoteFlattened==EngineInterface.FlattenedLandscape && quoteWidth==Screen.width && quoteHeight==Screen.height;
+        }
+        private void AdvancePreview()
+        {
+            bool final=finalCaptureRequested;
+            // After release the selected world targets stay frozen even if the camera keeps moving.
+            if(previewQuote!=null && !quoteIsFinal && !SameProjection()){previewQuote=null;targets=Array.Empty<DemolitionTarget>();selectionStatus="";renderer.Clear();}
+            long now=Stopwatch.GetTimestamp();
+            if(previewQuote==null && previewPolicy.CanBegin(now,final && !finalStartAttempted))
+            {
+                if(final)finalStartAttempted=true;
+                if(!BeginPreview(final?finalArea:gesture.Area,final?finalSelection:gesture.Selection,final))return;
+            }
+            if(previewQuote==null)return;
+            if(!native.TryStepQuote(previewQuote,PreviewWorkPolicy.MaximumRootsPerStep,previewPolicy.Deadline(Stopwatch.GetTimestamp()),out bool complete,out var snapshot) || !complete)return;
+            previewQuote=null;
+            targets=snapshot;selectionStatus=QuoteStatus(quoteSelection,snapshot);
+            if(!quoteIsFinal)return;
+            finalCaptureRequested=false;
+            if(snapshot.Length==0){renderer.Clear();view.SetSelectionFrame(null);return;}
+            // The exact completed immutable quote must still cross one successful camera render.
+            pendingCommit=snapshot;pendingArea=quoteArea;pendingSession=capturedSession;pendingActor=actor;pendingPresented=false;nextPendingCheck=0;
+            renderer.SetSelection(pendingArea,pendingCommit);
+            if(renderer.IsReady && pendingCommit!=null)view.SetSelectionFrame(pendingArea);
         }
         private void Present()
         {
@@ -220,69 +251,63 @@ namespace AreaDemolitionTest
                 view.RefreshHud();network.Pump();
                 if(mission==null){renderer.Clear();view.SetSelectionFrame(null);work.SetContinuous(view.IsInputShieldActive);return;}
                 if(!missionMarker){missionMarker=true;log.LogInfo(Plugin.Stamp("AREA_DEMOLITION_MISSION_RENDER session="+mission.SessionId+" editor="+mission.IsEditor));}
-                if(pendingCommit!=null)
+                if(pendingCommit!=null || finalCaptureRequested)
                 {
                     var director=EditorDirector.instance;
-                    int currentActor=director==null?0:director.ActivePlayerID;
-                    if(currentActor<=0)currentActor=PlayerPerspectiveAPI.GetInputControlledPlayerId();
-                    if(pendingSession!=mission.SessionId || !renderer.IsReady || !Application.isFocused || currentActor!=pendingActor || MainControls.instance==null || MainControls.instance.CurrentAction!=BulldozerAction){CancelSelection();}
-                    else if(Stopwatch.GetTimestamp()>=nextPendingCheck && !PendingStillCurrent())
-                    {CancelSelection();ShowLocalStatus("StatusCancelled");}
-                    else if(pendingPresented)
-                    {
-                        var frozen=pendingCommit;pendingCommit=null;pendingPresented=false;
-                        renderer.Clear();view.SetSelectionFrame(null);network.Submit(pendingActor,frozen);
-                    }
-                    else {renderer.SetSelection(pendingArea,pendingCommit);view.SetSelectionFrame(pendingArea);view.SetStatus(QuoteStatus(gesture.Selection,pendingCommit));}
+                    if(mission.SessionId!=capturedSession || !CanContinue(director,out int currentActor) || currentActor!=actor){CancelSelection();}
+                    else if(finalCaptureRequested)
+                    {AdvancePreview();view.SetStatus(pendingCommit!=null?selectionStatus:finalCaptureRequested && Stopwatch.GetTimestamp()-finalRequestedAt>Stopwatch.Frequency/5?Text.Get("StatusWaiting"):"");}
+                    else PresentPending();
                 }
                 else if(gesture.Stage==GestureStage.Dragging)
                 {
                     var area=gesture.Area;
-                    var camera=Camera.main;
-                    bool moved=!hasQuote || area!=quotedArea || camera==null || camera.projectionMatrix!=quotedProjection || camera.worldToCameraMatrix!=quotedView ||
-                        quotedRotation!=(int)GameMap.instance.CurrentRotation() || quotedFlattened!=EngineInterface.FlattenedLandscape || quotedWidth!=Screen.width || quotedHeight!=Screen.height;
-                    long now=Stopwatch.GetTimestamp();
-                    if(moved || now>=nextQuote)
-                    {
-                        targets=network.IsBusy?Array.Empty<DemolitionTarget>():Capture(area,gesture.Selection);
-                        quotedArea=area;hasQuote=true;nextQuote=now+Stopwatch.Frequency/10;
-                        if(camera!=null){quotedProjection=camera.projectionMatrix;quotedView=camera.worldToCameraMatrix;}
-                        quotedRotation=(int)GameMap.instance.CurrentRotation();quotedFlattened=EngineInterface.FlattenedLandscape;quotedWidth=Screen.width;quotedHeight=Screen.height;
-                    }
+                    if(!network.IsBusy)AdvancePreview();
                     renderer.SetSelection(area,targets);
-                    view.SetSelectionFrame(area);
-                    view.SetStatus(QuoteStatus(gesture.Selection,targets));
+                    if(renderer.IsReady){view.SetSelectionFrame(area);view.SetStatus(selectionStatus);}
                 }
                 else
                 {
                     view.SetSelectionFrame(null);
-                    string currentStatus=network.Status??"";
-                    if(currentStatus!=lastNetworkStatus)
-                    {
-                        lastNetworkStatus=currentStatus;statusUntil=Stopwatch.GetTimestamp()+Stopwatch.Frequency*3;
-                        work.RequestAfter(TimeSpan.FromSeconds(3));
-                    }
-                    bool ordinary=currentStatus=="Ready." || currentStatus.StartsWith("Waiting for",StringComparison.Ordinal);
-                    view.SetStatus(network.IsBusy ? Text.NetworkStatus(currentStatus) : Stopwatch.GetTimestamp()<localStatusUntil ? localStatus :
-                        !ordinary && Stopwatch.GetTimestamp()<statusUntil ? Text.NetworkStatus(currentStatus) : "");
+                    view.SetStatus(network.IsBusy?Text.Get("StatusWaiting"):"");
                 }
-                work.SetContinuous(gesture.Owned || pendingCommit!=null || view.IsInputShieldActive || network.IsBusy);
+                work.SetContinuous(gesture.Owned || finalCaptureRequested || pendingCommit!=null || view.IsInputShieldActive || network.IsBusy);
             }
             catch(Exception error){CancelSelection();log.LogError(Plugin.Stamp("AREA_DEMOLITION_PRESENTATION_FAILED: "+error));work.SetContinuous(false);}
         }
-        private bool PendingStillCurrent()
+        private void PresentPending()
         {
-            nextPendingCheck=Stopwatch.GetTimestamp()+Stopwatch.Frequency/10;
-            return native.AreIdentitiesCurrent(pendingCommit);
+            if(pendingSession!=mission.SessionId){CancelSelection();return;}
+            if(Stopwatch.GetTimestamp()>=nextPendingCheck)
+            {
+                // The simulation may own this monitor for a long tick. UI work waits for a later frame.
+                if(!Monitor.TryEnter(native.EngineGate))return;
+                try
+                {
+                    nextPendingCheck=Stopwatch.GetTimestamp()+Stopwatch.Frequency/10;
+                    if(!native.AreIdentitiesCurrent(pendingCommit)){CancelSelection();return;}
+                }
+                finally {Monitor.Exit(native.EngineGate);}
+            }
+            if(pendingPresented)
+            {
+                var frozen=pendingCommit;pendingCommit=null;pendingPresented=false;
+                renderer.Clear();view.SetSelectionFrame(null);view.SetStatus("");network.Submit(pendingActor,frozen);
+            }
+            else
+            {
+                renderer.SetSelection(pendingArea,pendingCommit);
+                if(renderer.IsReady && pendingCommit!=null){view.SetSelectionFrame(pendingArea);view.SetStatus(selectionStatus);}
+            }
         }
         private string QuoteStatus(SelectionSpec selection,DemolitionTarget[] snapshot)
         {
+            if(snapshot.Length==0 || selection.SameType && selection.Start==null)return "";
             string filter=Text.Get("ByFilters");
             if(selection.SameType)
             {
                 var start=selection.Start;
-                if(start==null)filter=Text.Get("StartOnObject");
-                else if(start.Group==TargetGroup.PositiveFear || start.Group==TargetGroup.NegativeFear)filter=Text.Get("Group"+start.Group);
+                if(start.Group==TargetGroup.PositiveFear || start.Group==TargetGroup.NegativeFear)filter=Text.Get("Group"+start.Group);
                 else
                 {
                     string name=Text.Get("Group"+start.Group);

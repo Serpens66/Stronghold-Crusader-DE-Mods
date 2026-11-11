@@ -47,6 +47,8 @@ internal static class Program
         Check(ProtocolPolicy.ValidateSimulationPacket(decoded),"Current bounded receive schema rejected.");
         decoded.Protocol=1;
         Check(!ProtocolPolicy.ValidateSimulationPacket(decoded),"The previous decoration-free protocol must not execute on this receiver.");
+        decoded.Protocol=2;
+        Check(!ProtocolPolicy.ValidateSimulationPacket(decoded),"The previous stockpile-free group contract must not execute on this receiver.");
         decoded.Protocol=ProtocolPolicy.Version;
         decoded.Kind=byte.MaxValue;
         Check(!ProtocolPolicy.ValidateSimulationPacket(decoded),"Unknown simulation message kind accepted.");
@@ -72,6 +74,13 @@ internal static class Program
         Reject(()=>ProtocolPolicy.PackTargets(targets),"Unknown target kind accepted.");
         var invalidRecord=(byte[])decorationBytes.Clone();invalidRecord[1]=byte.MaxValue;
         Reject(()=>ProtocolPolicy.UnpackTargets(invalidRecord),"Unknown received target group accepted.");
+        targets[0].Kind=TargetKind.Building;targets[0].Group=TargetGroup.Stockpiles;
+        var stockpileBytes=ProtocolPolicy.PackTargets(targets);
+        Check(ProtocolPolicy.UnpackTargets(stockpileBytes)[0].Group==TargetGroup.Stockpiles,"Stockpile group was lost over the wire.");
+        var stockpilePacket=new DemolitionSimulationPacket {Kind=(byte)SimulationPacketKind.ApplyBatch,Token=token,Nonce=nonce,Operation=long.MaxValue,Batch=int.MaxValue,Payload=stockpileBytes,Digest=ProtocolPolicy.TargetHash(targets)};
+        Check(ProtocolPolicy.ValidateSimulationPacket(stockpilePacket) && MessagePackSerializer.Serialize(stockpilePacket).Length+2<=1200,"Stockpile receive schema rejects a bounded 32-target batch or exceeds transport cap.");
+        targets[0].Kind=TargetKind.Decoration;
+        Reject(()=>ProtocolPolicy.PackTargets(targets),"Decoration cannot claim the stockpile-only building group.");
         var skipped=new[] {new ApplyResult {Status=ApplyStatus.Missing},new ApplyResult {Status=ApplyStatus.Changed},new ApplyResult {Status=ApplyStatus.Forbidden}};
         Check(!ProtocolPolicy.HasNativeFailure(skipped),"Deterministic skips are not native failures.");
         Check(ProtocolPolicy.HasNativeFailure(skipped.Concat(new[] {new ApplyResult {Status=ApplyStatus.Failed}})),"Native failure must stop offline execution.");

@@ -45,7 +45,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="src\*.cs"/>
-    <Compile Include="..\..\Shared\Adapters\APIShared\MenuToolTip.cs"><Link>Shared\MenuToolTip.cs</Link></Compile>
     <Compile Include="..\..\Shared\Runtime\Diagnostics\DevDiag.cs"><Link>Shared\DevDiag.cs</Link></Compile>
     <Content Include="info.json;TESTPLAN.txt;Locales\*.txt"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
   </ItemGroup>

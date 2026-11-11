@@ -121,10 +121,10 @@ so presentation keeps Vanilla's original-viewpoint behavior.
 
 `0xEE640`, called by eligibility, reads enemy proximity state without gameplay
 writes. It remains the live hooked function, preserving Extender policy. Native
-queries run only after exact selected-tile overlap. CaptureCandidates visits own
+queries run only after exact selected-tile overlap. PreviewSnapshot visits own
 building/pitch/static-decoration records for renderer geometry without permission
-queries; CaptureTiles reads only the projected selected IDs and requested ground
-categories. No idle polling or full-map ground scan is introduced.
+queries; its incremental quote reads only the projected selected IDs and requested
+ground categories. No idle polling or full-map ground scan is introduced.
 
 The gate-child finder writes building-manager perimeter scratch at
 `+0x31B7D0/+0x31B7D4`; discovery restores both values. Compound membership comes
@@ -150,8 +150,59 @@ compound QUARRY; stockpile sectors canonicalize to the first live sector.
 Building targets freeze compound key in Flags and `(gridSize<<16)|reservedParentId`
 in TaskIndex (parent0 for other kinds). This per-kind stamp is included in identity
 and revalidation, preventing changed grouping or shape from reusing frozen approval.
-CaptureCandidates supplies own geometry without native permission scans;
-CaptureTiles examines only exact selected tile IDs, then permission and closure.
+PreviewSnapshot supplies own geometry without native permission scans;
+BeginQuote/TryStepQuote examine only exact selected tile IDs, then permission
+and indexed advisory closure. Final authority uses fresh uncached discovery.
+
+## Preview performance and authority boundary
+
+Performance follow-up observation2026-11-11; same canonical native hash. Preview
+now creates one copied PreviewSnapshot shared by screen projection and the quote:
+metadata/compound membership is indexed once, optional geometry computed once,
+and the6000-slot decoration array scanned once per snapshot. Selected building
+hits deduplicate by native slot before canonicalization and by canonical identity
+before native eligibility. Stockpile sectors/reserved children therefore do not
+repeat the same expensive79B90/EE640 query. Closure membership walks only indexed
+compound members, not the entire building span for every root/member. Logical
+counts read frozen metadata and do not query native state or hold EngineGate.
+
+TryCreatePreviewSnapshot, TryCaptureGroundCandidateTiles and TryStepQuote use
+nonblocking Monitor.TryEnter. Busy engine state defers work; it is not an empty
+selection. BeginQuote creates resumable tile-discovery and root-validation state;
+TryStepQuote obeys the caller's absolute Stopwatch deadline and maximum root count.
+The production root-step consumer is tested with64root/deadline boundaries and
+resumption over257roots. A single native eligibility call cannot be interrupted:
+the time budget bounds starting another root, not the duration of one call.
+Each distinct root enters fresh native eligibility when its quote step executes.
+An in-flight advisory quote retains completed step results while it resumes; no
+eligibility result is reused by a later quote or mutation. The native unit-scan
+policy, SE/Fixes hooks and final authenticated execution remain unchanged.
+
+Snapshots are advisory copies, not mutation authorization. Every included cached
+identity is checked against live metadata when quoted. A newly linked child or
+decoration absent from an older snapshot can conservatively invalidate final
+MakeBatches/Apply; it is never added silently to frozen approval. Final mutation
+still uses fully fresh native closure discovery, complete packet preflight and
+all per-helper reentrancy guards. Actor/session/spec scheduling belongs to Runtime.
+
+The selector has Stockpiles at bit9 (existing groups retain their numeric values).
+GOODS_YARD maps only to that group. The geometry candidate mask explicitly includes
+bit9; Shift logical-type matching continues independently of the menu filter.
+
+Offline tests exercise production PreviewIndex and CollectRegisteredTiles on
+120/600/1200compound-heavy records, compare canonical roots/compound closure
+with a complete reference scan, and compare duplicate geometry passes with one shared snapshot.
+A recorded1200-record five-pass fixture performed7200000legacy membership reads
+versus20000indexed member visits (~63.2ms versus2.7ms in that CLI observation).
+Geometry tile probes halve21600->10800 (~0.23ms->0.13ms in its private grid fixture).
+These are algorithm fixtures on .NET, not measurements of Mono/native query time,
+projection, real game FPS or multiplayer acceptance. Timings are printed per run;
+result-equivalence and work-count guarantees are the assertions.
+
+Native eligibility scratch uses stackalloc for exactly0x80cursor bytes,
+32neighbor bytes and QueryOffsets.Length(8) DWORDs instead of three heap arrays
+per query. The audited finally restore set/order is unchanged; the existing
+success/reject/exception private-memory suite still verifies every saved byte.
 
 ## Terrain identities and terminal fill
 

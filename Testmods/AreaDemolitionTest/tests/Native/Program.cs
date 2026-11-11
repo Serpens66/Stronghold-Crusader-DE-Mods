@@ -5,6 +5,7 @@ using AreaDemolitionTest;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System.Linq;
+using System.Diagnostics;
 
 internal static unsafe class Program
 {
@@ -14,7 +15,7 @@ internal static unsafe class Program
     {
         try
         {
-            ScratchRestoration(); PatternBoundaries(); ClassificationAndRefunds(); RegisteredFootprints(); DecorationContracts();
+            ScratchRestoration(); PatternBoundaries(); ClassificationAndRefunds(); RegisteredFootprints(); DecorationContracts(); PreviewIndexAndBudget(); PreviewGeometryBenchmark();
             Console.WriteLine("PASS: native demolition " + checks + " checks (private-memory scratch, native layout, resolver boundaries, registered footprints, decoration ownership/identity/closure, fear families, refund policy).");
             return 0;
         }
@@ -199,12 +200,115 @@ internal static unsafe class Program
         binding.RemoveDecorationTile(44);Check(calls==1,"Exactly one same-tile mutation");
     }
 
+    private static void PreviewGeometryBenchmark()
+    {
+        foreach(int count in new[]{120,600,1200})
+        {
+            const int capacity=65536;
+            var records=new GameBuilding[count];var structures=new ushort[capacity];var alpha=new int[capacity];var flags=new uint[capacity];
+            for(int i=0;i<count;i++)
+            {
+                records[i].r_BuildingType=eStructs.STRUCT_HOVEL;records[i].r_OccupyTileGridSize=3;
+                int x=1+(i%50)*4,y=1+(i/50)*4;records[i].r_TilePositionXBegin=(ushort)x;records[i].r_TilePositionYBegin=(ushort)y;
+                for(int dy=0;dy<3;dy++) for(int dx=0;dx<3;dx++) structures[(y+dy)*256+x+dx]=(ushort)(i+1);
+            }
+            long probes=0;
+            int Tile(int x,int y){probes++;return x>=0 && y>=0 && x<256 && y<256?y*256+x:-1;}
+            fixed(GameBuilding* buildings=records) fixed(ushort* st=structures) fixed(int* al=alpha) fixed(uint* fl=flags)
+            {
+                NativeDemolition.CollectRegisteredTiles(1,buildings,st,al,fl,capacity,Tile);
+                probes=0;var watch=Stopwatch.StartNew();long beforeSum=0;
+                for(int pass=0;pass<2;pass++) for(int i=0;i<count;i++) beforeSum+=NativeDemolition.CollectRegisteredTiles(i+1,buildings+i,st,al,fl,capacity,Tile).Length;
+                watch.Stop();long beforeProbes=probes;double beforeMs=watch.Elapsed.TotalMilliseconds;
+                probes=0;watch.Restart();var snapshot=new int[count][];
+                for(int i=0;i<count;i++) snapshot[i]=NativeDemolition.CollectRegisteredTiles(i+1,buildings+i,st,al,fl,capacity,Tile);
+                long afterSum=0;for(int pass=0;pass<2;pass++) foreach(var cells in snapshot) afterSum+=cells.Length;
+                watch.Stop();
+                Check(beforeSum==afterSum && afterSum==count*18L,"Shared production geometry snapshot preserves all120+ registered results");
+                Check(beforeProbes==probes*2,"Projection and quote reuse halves production geometry tile probes");
+                Console.WriteLine("BENCH preview-geometry records="+count+" duplicatePassMs="+beforeMs.ToString("F3")+" sharedSnapshotMs="+watch.Elapsed.TotalMilliseconds.ToString("F3")+" duplicateTileProbes="+beforeProbes+" sharedTileProbes="+probes);
+            }
+        }
+    }
+
+    private static void PreviewIndexAndBudget()
+    {
+        foreach(int count in new[]{120,600,1200})
+        {
+            var members=new List<NativeDemolition.BuildingMember>();
+            for(int slot=1;slot<=count;slot++)
+            {
+                int group=(slot-1)/6,position=(slot-1)%6;
+                eStructs type=position<4?eStructs.STRUCT_GOODS_YARD:position==4?eStructs.STRUCT_QUARRY:eStructs.STRUCT_QUARRYPILE;
+                uint key=(uint)(group*2+(position<4?1:2));
+                var target=new DemolitionTarget { Kind=TargetKind.Building,Group=NativeDemolition.Classify(type),Slot=slot,Owner=3,Type=(int)type,GlobalId=(uint)(slot+200),Flags=key,TaskIndex=2<<16,X=slot%100,Y=slot/100,TileId=slot };
+                members.Add(new NativeDemolition.BuildingMember(slot,3,AliveState.IsAlive,key,target));
+            }
+            var index=new NativeDemolition.PreviewIndex(members);
+            long referenceReads=0;
+            DemolitionTarget ReferenceRoot(DemolitionTarget target)
+            {
+                if ((eStructs)target.Type!=eStructs.STRUCT_GOODS_YARD && (eStructs)target.Type!=eStructs.STRUCT_QUARRYPILE) return target;
+                eStructs wanted=(eStructs)target.Type==eStructs.STRUCT_GOODS_YARD?eStructs.STRUCT_GOODS_YARD:eStructs.STRUCT_QUARRY;
+                foreach(var item in members)
+                { referenceReads++;if(item.Compound==target.Flags && item.Owner==target.Owner && item.State==AliveState.IsAlive && item.Target.Type==(int)wanted)return item.Target; }
+                return target;
+            }
+            foreach(var member in members)
+            {
+                Check(index.Canonical(member.Target).Identity==ReferenceRoot(member.Target).Identity,"Indexed canonical root equals full-slot scan");
+                Check(index.TryCompound(member.Slot,3,out var closure),"Own compound remains accepted");
+                var reference=members.Where(m=>m.Compound==member.Compound && m.State!=AliveState.MarkedForDeletion).Select(m=>m.Slot).ToArray();
+                Check(closure.SequenceEqual(reference),"Indexed compound closure equals complete old scan");
+            }
+            var watch=Stopwatch.StartNew();long beforeReads=0;
+            for(int pass=0;pass<5;pass++) foreach(var member in members)
+            {
+                ReferenceRoot(member.Target);
+                foreach(var other in members) { beforeReads++;if(other.Compound==member.Compound && other.Owner!=3)throw new Exception("Fixture ownership"); }
+            }
+            watch.Stop();double before=watch.Elapsed.TotalMilliseconds;
+            watch.Restart();long indexedMembers=0;
+            for(int pass=0;pass<5;pass++)
+            {
+                var production=new NativeDemolition.PreviewIndex(members);
+                foreach(var member in members) { production.Canonical(member.Target);production.TryCompound(member.Slot,3,out var group);indexedMembers+=group.Length; }
+            }
+            watch.Stop();
+            Check(indexedMembers<beforeReads,"Production index removes repeated full-slot membership walks");
+            Console.WriteLine("BENCH preview-index records="+count+" legacyMs="+before.ToString("F3")+" indexedMs="+watch.Elapsed.TotalMilliseconds.ToString("F3")+" legacyMembershipReads="+beforeReads+" indexedMembers="+indexedMembers);
+        }
+        var parent=new DemolitionTarget { Kind=TargetKind.Building,Type=(int)eStructs.STRUCT_BARRACKS_STONE,Group=TargetGroup.Buildings,Slot=1,Owner=3,GlobalId=1,Flags=99,TaskIndex=5<<16 };
+        var child=parent.Copy();child.Slot=2;child.GlobalId=2;child.Type=(int)eStructs.STRUCT_PARADEGROUND_LGT;child.TaskIndex=(5<<16)|1;
+        var own=new NativeDemolition.PreviewIndex(new[]{new NativeDemolition.BuildingMember(1,3,AliveState.IsAlive,99,parent),new NativeDemolition.BuildingMember(2,3,AliveState.IsAlive,99,child)});
+        Check(own.Canonical(child).Slot==1,"Reserved parent links use stamped parentID");
+        var foreign=new NativeDemolition.PreviewIndex(new[]{new NativeDemolition.BuildingMember(1,3,AliveState.IsAlive,99,parent),new NativeDemolition.BuildingMember(2,4,AliveState.MarkedForDeletion,99,null)});
+        Check(!foreign.TryCompound(1,3,out _),"Foreign compound members stay blocked even when already marked");
+        var initializing=new NativeDemolition.PreviewIndex(new[]{new NativeDemolition.BuildingMember(1,3,AliveState.IsAlive,99,parent),new NativeDemolition.BuildingMember(2,3,AliveState.NeedsInit,99,null)});
+        Check(!initializing.TryCompound(1,3,out _),"Unpreviewable initializing child rejects root");
+        var roots=Enumerable.Range(1,257).Select(i=>new DemolitionTarget { Kind=TargetKind.Building,Slot=i,GlobalId=(uint)i,Owner=3,Type=(int)eStructs.STRUCT_HOVEL }).ToArray();
+        var quote=new NativeDemolition.PreviewQuote { OrderedRoots=roots };
+        int evaluated=0;
+        IEnumerable<DemolitionTarget> Evaluate(DemolitionTarget target){evaluated++;return new[]{target};}
+        Check(!NativeDemolition.StepPreviewRoots(quote,64,100,Evaluate,()=>0) && evaluated==64,"Actual root-step consumer caps native evaluations at64");
+        var overBudget=new NativeDemolition.PreviewQuote { OrderedRoots=roots };
+        int oversizedCalls=0;
+        NativeDemolition.StepPreviewRoots(overBudget,int.MaxValue,100,t=>{oversizedCalls++;return new[]{t};},()=>0);
+        Check(oversizedCalls==64,"Native preview boundary caps an oversized caller budget at64");
+        Check(!NativeDemolition.StepPreviewRoots(quote,64,100,Evaluate,()=>100) && evaluated==64,"Expired deadline invokes no native evaluation");
+        long clock=0;
+        Check(!NativeDemolition.StepPreviewRoots(quote,64,3,Evaluate,()=>clock++) && evaluated==67,"Actual clock boundary stops a partially processed root batch");
+        while(!NativeDemolition.StepPreviewRoots(quote,64,100,Evaluate,()=>0)) { }
+        Check(evaluated==257 && DemolitionPolicy.TargetDigest(quote.Result)==DemolitionPolicy.TargetDigest(DemolitionPolicy.Canonicalize(roots)),"Resumed257-root result equals unbudgeted complete result");
+    }
+
     private static void ClassificationAndRefunds()
     {
         foreach (var type in new[]{eStructs.STRUCT_GARDEN,eStructs.STRUCT_GARDEN_SMALL,eStructs.STRUCT_GARDEN_MED,eStructs.STRUCT_GARDEN_LARGE,eStructs.STRUCT_POND,eStructs.STRUCT_POND_SMALL,eStructs.STRUCT_POND_LARGE,eStructs.STRUCT_POND5,eStructs.STRUCT_POND6,eStructs.STRUCT_POND7,eStructs.STRUCT_POND8})
             Check(NativeDemolition.Classify(type)==TargetGroup.PositiveFear,"Positive fear size/variant missing: "+type);
         Check(NativeDemolition.Classify(eStructs.STRUCT_RACK_FLOGGING)==TargetGroup.NegativeFear,"Flogging rack omitted by AIV subset must remain negative fear");
         Check(NativeDemolition.Classify(eStructs.STRUCT_HEAD_ON_SPIKE)==TargetGroup.NegativeFear,"Head on spike remains negative fear");
+        Check(NativeDemolition.Classify(eStructs.STRUCT_GOODS_YARD)==TargetGroup.Stockpiles,"Stockpiles have their independent filter group");
         Check(NativeDemolition.Classify(eStructs.STRUCT_DOG_CAGE)==TargetGroup.DogCages,"Dog cage structural trap precedence");
         Check(NativeDemolition.Classify(eStructs.STRUCT_KILLING_PIT)==TargetGroup.KillingPits,"Killing pit has its independent filter");
         Check(NativeDemolition.WallRefundPercent(0,60)==25,"Vanilla exact boundary lower side");

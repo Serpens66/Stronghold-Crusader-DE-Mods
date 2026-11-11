@@ -27,7 +27,7 @@ $sdkInputs=@((Join-Path $ApiSharedDir 'APIShared.dll'),(Join-Path $GameDir 'BepI
 $sdkHashes=@{};foreach($path in $sdkInputs){$sdkHashes[$path]=Get-ApiFileHash $path}
 $sourceInputs=@(Get-ChildItem -LiteralPath $project -Recurse -File | Where-Object {
  $_.FullName.Substring($project.Length) -notmatch '[\\/](bin|obj|\.local)[\\/]' -and $_.Extension -in @('.cs','.csproj','.ps1','.bat','.json','.md','.txt')
-} | ForEach-Object FullName) + @((Join-Path $workspace 'Shared\Adapters\APIShared\MenuToolTip.cs'),(Join-Path $workspace 'Shared\Runtime\Diagnostics\DevDiag.cs'))
+} | ForEach-Object FullName) + @((Join-Path $workspace 'Shared\Runtime\Diagnostics\DevDiag.cs'))
 $sourceHashes=@{};foreach($path in $sourceInputs){$sourceHashes[$path]=Get-ApiFileHash $path}
 foreach($dependency in @(@{Path=$ApiSharedDir;Guid='APIShared_Serp';Min=$manifest.Dependencies[0].MinimumVersion},@{Path=$extender;Guid='000shcdese';Min=$manifest.MinimumScriptExtenderVersion})){
  $found=Get-Content -LiteralPath (Join-Path $dependency.Path 'info.json') -Raw|ConvertFrom-Json

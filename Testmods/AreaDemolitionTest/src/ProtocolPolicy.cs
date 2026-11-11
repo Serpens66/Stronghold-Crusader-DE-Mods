@@ -43,8 +43,8 @@ namespace AreaDemolitionTest
 
     internal static class ProtocolPolicy
     {
-        // Version 2 admits decoration records. Old peers must reject this contract explicitly.
-        internal const int Version = 2, MaximumPeers = 32, TargetBytes = 31;
+        // Version 3 gives stockpiles their own group. Older peers reject this contract explicitly.
+        internal const int Version = 3, MaximumPeers = 32, TargetBytes = 31;
         internal static string NewNonce()
         { var bytes = new byte[16]; using (var random = RandomNumberGenerator.Create()) random.GetBytes(bytes); return Hex(bytes); }
         internal static bool IsNonce(string value) => IsHex(value, 32);
@@ -108,7 +108,7 @@ namespace AreaDemolitionTest
             switch(kind)
             {
                 case TargetKind.Building:
-                    return group==TargetGroup.Buildings || group==TargetGroup.Fortifications || group==TargetGroup.PositiveFear || group==TargetGroup.NegativeFear || group==TargetGroup.DogCages || group==TargetGroup.KillingPits;
+                    return group==TargetGroup.Buildings || group==TargetGroup.Fortifications || group==TargetGroup.PositiveFear || group==TargetGroup.NegativeFear || group==TargetGroup.DogCages || group==TargetGroup.KillingPits || group==TargetGroup.Stockpiles;
                 case TargetKind.Pitch:return group==TargetGroup.Pitch;
                 case TargetKind.Wall:return group==TargetGroup.Fortifications;
                 case TargetKind.DugMoat:return group==TargetGroup.DugMoats;

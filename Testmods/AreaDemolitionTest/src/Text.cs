@@ -37,18 +37,5 @@ namespace AreaDemolitionTest
             foreach(string row in File.ReadAllLines(path))
             {int equal=row.IndexOf('=');if(equal>0 && !row.StartsWith("#"))values[row.Substring(0,equal)]=row.Substring(equal+1);}
         }
-        // Translate only on Unity. Native/network callbacks retain diagnostic text without reading locale files.
-        internal static string NetworkStatus(string status)
-        {
-            if(string.IsNullOrEmpty(status))return "";
-            if(status=="Demolition completed.")return Get("StatusCompleted");
-            if(status=="Unsent demolition cancelled.")return Get("StatusCancelled");
-            if(status.StartsWith("Submitted batch",StringComparison.Ordinal))return Get("StatusCancelPending");
-            if(status.IndexOf("native failure",StringComparison.Ordinal)>=0)return Get("StatusNativeFailure");
-            if(status.IndexOf("different results",StringComparison.Ordinal)>=0 || status.StartsWith("Peers disagree",StringComparison.Ordinal))return Get("StatusMismatch");
-            if(status.StartsWith("Roster changed",StringComparison.Ordinal) || status.StartsWith("A peer loaded",StringComparison.Ordinal))return Get("StatusRosterChanged");
-            if(status.StartsWith("Waiting",StringComparison.Ordinal))return Get("StatusWaiting");
-            return Get("StatusUnavailable");
-        }
     }
 }

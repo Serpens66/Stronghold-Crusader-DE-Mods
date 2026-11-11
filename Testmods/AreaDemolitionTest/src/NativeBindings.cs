@@ -56,10 +56,10 @@ namespace AreaDemolitionTest
         internal bool Allows(DemolitionTarget target, int actor)
         {
             byte* cursor=ModulePointer+CursorRva, neighbours=ModulePointer+NeighboursRva, tiles=TilePointer;
-            var savedCursor=new byte[0x80]; var savedNeighbours=new byte[32]; var savedValues=new int[QueryOffsets.Length];
-            for (int i=0;i<savedCursor.Length;i++) savedCursor[i]=cursor[i];
-            for (int i=0;i<savedNeighbours.Length;i++) savedNeighbours[i]=neighbours[i];
-            for (int i=0;i<savedValues.Length;i++) savedValues[i]=*(int*)(tiles+QueryOffsets[i]);
+            byte* savedCursor=stackalloc byte[0x80];byte* savedNeighbours=stackalloc byte[32];int* savedValues=stackalloc int[QueryOffsets.Length];
+            for (int i=0;i<0x80;i++) savedCursor[i]=cursor[i];
+            for (int i=0;i<32;i++) savedNeighbours[i]=neighbours[i];
+            for (int i=0;i<QueryOffsets.Length;i++) savedValues[i]=*(int*)(tiles+QueryOffsets[i]);
             int oldActor=*(int*)(ModulePointer+ActorRva);
             try
             {
@@ -88,9 +88,9 @@ namespace AreaDemolitionTest
             }
             finally
             {
-                for (int i=0;i<savedCursor.Length;i++) cursor[i]=savedCursor[i];
-                for (int i=0;i<savedNeighbours.Length;i++) neighbours[i]=savedNeighbours[i];
-                for (int i=0;i<savedValues.Length;i++) *(int*)(tiles+QueryOffsets[i])=savedValues[i];
+                for (int i=0;i<0x80;i++) cursor[i]=savedCursor[i];
+                for (int i=0;i<32;i++) neighbours[i]=savedNeighbours[i];
+                for (int i=0;i<QueryOffsets.Length;i++) *(int*)(tiles+QueryOffsets[i])=savedValues[i];
                 *(int*)(ModulePointer+ActorRva)=oldActor;
             }
         }

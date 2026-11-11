@@ -42,12 +42,19 @@ internal static class Program
         var decoration=new DemolitionTarget {Kind=TargetKind.Decoration,Group=TargetGroup.Decorations,Type=9};
         Check(new SelectionSpec((ushort)(1<<(int)TargetGroup.Decorations),false,null).Matches(decoration),"ninth category bit is selectable");
         Check(!new SelectionSpec(255,false,null).Matches(decoration),"old eight category bits do not accidentally enable decorations");
+        var stockpile=Target(TargetGroup.Stockpiles,10,30);
+        Check((int)TargetGroup.Decorations==8 && (int)TargetGroup.Stockpiles==9,"new group appends without changing existing category identities");
+        Check(!plain.Matches(stockpile),"building-only filter excludes stockpiles");
+        Check(new SelectionSpec((ushort)(1<<(int)TargetGroup.Stockpiles),false,null).Matches(stockpile),"independent tenth category bit selects stockpiles");
+        Check(!new SelectionSpec((ushort)(1<<(int)TargetGroup.Stockpiles),false,null).Matches(Target(TargetGroup.Buildings)),"stockpile filter does not select ordinary buildings");
+        Check(new SelectionSpec(0,true,stockpile).Matches(Target(TargetGroup.Stockpiles,10,31)),"Shift selects matching stockpile type despite disabled category");
+        Check(!new SelectionSpec(0,true,stockpile).Matches(Target(TargetGroup.Buildings,11)),"Shift stockpile type remains distinct from other buildings");
         Check(new AreaRect(3,3,5,5).Intersects(new AreaRect(1,1,3,3)),"boundary tile overlap counts");
         Check(!new AreaRect(4,4,5,5).Intersects(new AreaRect(1,1,3,3)),"disjoint footprints excluded");
         var a=Target(TargetGroup.Buildings,1,2);var b=Target(TargetGroup.Buildings,1,1);
         Check(DemolitionPolicy.Canonicalize(new[]{a,b,a}).Length==2,"identities deduplicated");
         Check(DemolitionPolicy.TargetDigest(DemolitionPolicy.Canonicalize(new[]{a,b}))==DemolitionPolicy.TargetDigest(DemolitionPolicy.Canonicalize(new[]{b,a})),"canonical packet order");
-        ScreenGeometry();ColumnRanges();Settings();
+        ScreenGeometry();ColumnRanges();Settings();PreviewScheduling();RenderGeometry();ScreenGeometryReference.Verify(Check);
         Console.WriteLine("PASS "+checks+" policy behavior checks");
     }
     private static void ScreenGeometry()
@@ -70,10 +77,18 @@ internal static class Program
         var settings=new DemolitionSettings(file);
         Check(!settings.Get(TargetGroup.Buildings) && settings.Get(TargetGroup.Fortifications) && settings.Get(TargetGroup.Pitch),"old preference keys retain their values");
         Check(!settings.Get(TargetGroup.Decorations),"new decoration preference defaults off");
+        Check(!settings.Get(TargetGroup.Stockpiles),"new stockpile preference defaults off");
         ushort before=settings.Mask;int changes=0;settings.Changed+=()=>changes++;
         settings.Set(TargetGroup.Decorations,true);
         Check(settings.Mask==(ushort)(before|(1<<(int)TargetGroup.Decorations)) && settings.Get(TargetGroup.Pitch),"ninth bit does not truncate or alter old preferences");
         settings.Set(TargetGroup.Decorations,true);Check(changes==1,"unchanged preference does not republish");
+        ushort nine=settings.Mask;
+        settings.Set(TargetGroup.Stockpiles,true);
+        Check(settings.Mask==(ushort)(nine|(1<<(int)TargetGroup.Stockpiles)),"tenth bit preserves all nine original preferences");
+        var reopened=new DemolitionSettings(file);
+        Check(reopened.Get(TargetGroup.Stockpiles) && reopened.Mask==settings.Mask,"stockpile key persists independently of old keys");
+        reopened.Set(TargetGroup.Stockpiles,false);
+        Check(reopened.Mask==nine && !reopened.Get(TargetGroup.Buildings) && reopened.Get(TargetGroup.Decorations),"disabling stockpile leaves old settings untouched");
     }
     private static void ColumnRanges()
     {
@@ -109,5 +124,56 @@ internal static class Program
         var small=new ScreenRect(0,0,10,10);
         Check(small.TryGetColumnRange(0,0,0,-1024,1024,1,0,31,out int lo,out int hi) && lo==0 && hi==31,"vertical column projection conservatively includes every column");
         Check(!small.TryGetColumnRange(100,0,0,-1024,1024,1,0,31,out _,out _),"disjoint vertical column projection is excluded");
+        var nearlyVertical=new ScreenRect(1e-7f,0,1e-7f,1);
+        Check(nearlyVertical.TryGetColumnRange(0,1e-10,0,0,0,0,0,2000,out lo,out hi) && lo<=1000 && hi>=1000,"small nonzero projected column step is not treated as zero");
+    }
+    private static void PreviewScheduling()
+    {
+        const long frequency=1000000;
+        var policy=new PreviewWorkPolicy(frequency);
+        int starts=0;
+        // Every 100FPS input frame requests a different endpoint: dirtiness cannot bypass pacing.
+        for(int frame=0;frame<100;frame++)
+        {
+            long now=frame*frequency/100;
+            if(!policy.CanBegin(now,false))continue;
+            starts++;policy.Began(now);
+        }
+        Check(starts==10,"continuous 100FPS requests start at most ten ordinary quotes per second");
+        Check(!policy.CanBegin(frequency-1,false) && policy.CanBegin(frequency,false),"next ordinary quote waits until its deadline boundary");
+        policy.Began(frequency);
+        long releaseTime=frequency+frequency/1000;
+        Check(!policy.CanBegin(releaseTime,false) && policy.CanBegin(releaseTime,true),"final release can start immediately while an ordinary quote is delayed");
+        long ordinaryBudget=policy.Deadline(releaseTime)-releaseTime;
+        policy.Began(releaseTime);
+        Check(policy.Deadline(releaseTime)-releaseTime==ordinaryBudget,"final quote start does not expand the incremental step budget");
+        // Two milliseconds is the UI work contract, independent of the clock's tick units.
+        Check(ordinaryBudget*1000==frequency*2,"step deadline grants two milliseconds rather than an unbounded final capture");
+        Check(!policy.CanBegin(releaseTime,false),"completed final start also paces the next ordinary quote");
+        policy.Reset();Check(policy.CanBegin(0,false),"mission reset removes previous quote timing state");
+        var coarse=new PreviewWorkPolicy(1);coarse.Began(0);
+        Check(!coarse.CanBegin(0,false) && coarse.CanBegin(1,false) && coarse.Deadline(0)>0,"coarse clocks still require progress between steps");
+    }
+    private static void RenderGeometry()
+    {
+        var building=Target(TargetGroup.Buildings,4,7);building.X=10;building.Y=20;building.OccupiedTiles=new[]{100,101,102};
+        var other=Target(TargetGroup.Stockpiles,10,8);other.X=20;other.Y=30;other.OccupiedTiles=new[]{200,201};
+        var original=new[]{building,other};var clone=new[]{building.Copy(),other.Copy()};
+        clone[0].GlobalId++;clone[0].Owner=8;clone[0].Flags=456;clone[0].TaskIndex=789;
+        Check(RenderSelectionGeometry.Equals(original,clone),"fresh immutable receipt metadata does not invalidate identical render membership");
+        foreach(Action<DemolitionTarget> change in new Action<DemolitionTarget>[] {
+            t=>t.Kind=TargetKind.Pitch,t=>t.Slot++,t=>t.Type++,t=>t.X++,t=>t.Y++,
+            t=>t.OccupiedTiles=new[]{100,101,999},t=>t.OccupiedTiles=new[]{100,101},t=>t.OccupiedTiles=new[]{102,101,100}})
+        {
+            var changed=new[]{building.Copy(),other.Copy()};change(changed[0]);
+            Check(!RenderSelectionGeometry.Equals(original,changed),"render dependency mutation invalidates cached geometry");
+        }
+        Check(!RenderSelectionGeometry.Equals(original,new[]{building.Copy()}),"target count change invalidates cached geometry");
+        Check(!RenderSelectionGeometry.Equals(original,new[]{other.Copy(),building.Copy()}),"target order change cannot reuse an aligned comparison");
+        var decoration=new DemolitionTarget {Kind=TargetKind.Decoration,Group=TargetGroup.Decorations,Slot=25,Type=10,X=4,Y=5,OccupiedTiles=new[]{44}};
+        var decorationClone=decoration.Copy();decorationClone.OccupiedTiles=new[]{99,100};decorationClone.GlobalId=99;
+        Check(RenderSelectionGeometry.Equals(new[]{decoration},new[]{decorationClone}),"decoration render membership uses slot/type/XY rather than unrelated footprint metadata");
+        decorationClone.Type++;
+        Check(!RenderSelectionGeometry.Equals(new[]{decoration},new[]{decorationClone}),"decoration type change invalidates exact Fly membership");
     }
 }

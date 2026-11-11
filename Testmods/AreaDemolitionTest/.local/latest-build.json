@@ -1,173 +1,175 @@
 {
-    "CreatedUtc":  "2026-11-11T14:11:11.8347244Z",
-    "Head":  "e1f3fa97512e4469ebe82f2cffe80e7505cd13ae",
+    "CreatedUtc":  "2026-11-11T16:51:09.1029569Z",
+    "Head":  "2a2b7df46fc10fec3698dcd2980d847b35e5aa3a",
     "Source":  "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest",
-    "Package":  "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\a\\area-build\\003\\package\\BepInEx\\plugins\\AreaDemolitionTest_Serp",
-    "Archive":  "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\a\\area-build\\003\\AreaDemolitionTest.zip",
-    "ArchiveSha256":  "f47a01c64b4327f45f2c2bf13246f2997a4e880569ad250ef027f4832f9c2c78",
-    "Installed":  true,
+    "Package":  "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\a\\area-build\\006\\package\\BepInEx\\plugins\\AreaDemolitionTest_Serp",
+    "Archive":  "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\a\\area-build\\006\\AreaDemolitionTest.zip",
+    "ArchiveSha256":  "fe90049056ef1fe2ece9d0400f545d1065855b3012c5f8e126a0b36babe9d971",
+    "Installed":  false,
     "DevDiag":  false,
     "SdkHashes":  {
                       "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\Stronghold Crusader Definitive Edition_Data\\Plugins\\x86_64\\CrusaderDE.dll":  "fbcb93195fc7efca9bdac5204852efdd76f9818f59a6711750d77c9cef2831e2",
-                      "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\APIShared_Serp\\APIShared.dll":  "bfdd2cb177393c0f36a8791f619e65dc1df587d76e5c78d88572328621973959",
+                      "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\APIShared_Serp\\APIShared.dll":  "7c500788e4f946247c9af268eaa65164b6c549a157999b33b8374f3de7ef0972",
                       "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\Stronghold Crusader Definitive Edition_Data\\Managed\\Assembly-CSharp.dll":  "bc8b6a395f01d48557db413600c8dd8d1fdfd3abdf97bfbbb68a3c56b04fd789",
-                      "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\patchers\\APIShared.DependencyBootstrap.dll":  "96559217aca601232f40ae86b966e8ee3d60566d8d82931b5441c5bb4fb6d93d",
+                      "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\patchers\\APIShared.DependencyBootstrap.dll":  "fe545eceaff075e75117a236389209170d63592ed4dc5f8a33981562025e51cf",
                       "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\SHCDESE.dll":  "5cb1c33be5463086505a17f5c48aaa357d733cfff7240e101c821f0e3c668498"
                   },
     "SourceHashes":  {
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\DemolitionView.cs":  "b37dbd55ad7bcf05eec464109cd5c2b79fd8cc4e6c42812c07e788c44cfddf39",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\DemolitionView.cs":  "4030589848f884a63b9ccae9d486a1db629553012261b34c3bf85777884a5d3d",
                          "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Shared\\Runtime\\Diagnostics\\DevDiag.cs":  "07e3ecf61e36669ab5980d85d6066a77c76380ad21cff24c3953447f095a8797",
                          "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\tests\\Protocol\\Protocol.Tests.csproj":  "9d33e033bc1d3668541b2d7f8ac0fe2204c7b719d5ad53928078b31a37b15604",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\zh-HK.txt":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\zh-HK.txt":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
                          "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\tests\\Policy\\ConfigurationBoundary.cs":  "1e7bbcd435dcf255b8ecdf299b4baab434a1f3399ed4be27350736799aeb5f8e",
                          "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\AssemblyInfo.cs":  "49e7b08c258d4305462f806e1be1bb70fc7249bc32b0a3dab50e012f3a773b3f",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\fr-FR.txt":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\tr-TR.txt":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\es-ES.txt":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\ScreenSelection.cs":  "2156c69bdeabb2246125bec8df8674355e8ee828ebc2f18ae75bbe18b8fabcc8",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\zh-CN.txt":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\sv-SE.txt":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\ru-RU.txt":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\en-US.txt":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\ja-JP.txt":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\tools\\Build.ps1":  "7898c9e2d297bdf80ea890b8b924e557c6b3244f3925fd3f36fd88f46dfd58da",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\tests\\Policy\\Program.cs":  "2a02464af16e3211458fbf1bf09b307f4cfd57296034a9ad4516af7430cc8b0d",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\hu-HU.txt":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\tests\\Policy\\Policy.Tests.csproj":  "84b3eb3447ada99f61f7671efe856d5f40891dd675c092d5333abface15fce60",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\ScreenRect.cs":  "ce1b26b496b4916ecc78422dd86af717676cc3c427b9b48d626c38f519ac439a",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\SelectionGesture.cs":  "2bc2cb35744a56880360ce2cf0f8687a4f0cdf32b6b0f0288a55a5c4a7f496f3",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\info.json":  "4d2bd4ca07052b3cc38352f489e18c7af998ec6060e5afa3d7bdbb54af3eaf75",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\Runtime.cs":  "e085e90c0371c8667e54e2f16879c9f342af31200895d7f9871ac7c151401206",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\Plugin.cs":  "4698ed0e976e3fba78955eba79215a141591c61a0c95ba1d91f7aea7b5fc0ad8",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\Model.cs":  "32ae131d25cfb10aea1beb3c021458270b423425319cffa1396d19fd293e9578",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\UpdateToNewDLL.md":  "eac3446338e33f80369499c77d9b87da7ebc7eaed10e40b293436cbaa19b8903",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\ar.txt":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\Text.cs":  "437b3a3c19c85a570dbd51e23728b666f4e0aeeae546cd9c87b3c42dae3ec29c",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\uk-UA.txt":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\tests\\Protocol\\Program.cs":  "17ec6d3ddb72f1eaa7705939658d47aa79bc6afd499fdd84826e5aa2de62eb48",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\ko-KR.txt":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\NativeDemolition.cs":  "e6870de071a8e014d462092b030ef2325aacb059cf238bbfcf9bb3f7d9264597",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\fr-FR.txt":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\tr-TR.txt":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\es-ES.txt":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\ScreenSelection.cs":  "50eb4c64b946c157e2fe2ecd6c1a9f07cfdeeae6f07b8157c99dd2b4f88d60f9",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\zh-CN.txt":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\sv-SE.txt":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\ru-RU.txt":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\en-US.txt":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\ja-JP.txt":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\tools\\Build.ps1":  "1d7e90cb4843b70a652e60467d01a06c86f4bdeb1ec47724e22446339df478d1",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\tests\\Policy\\Program.cs":  "eba8af2943cb358c2985266135e2103469340a70992f6580b0f1d6b7ed569e17",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\hu-HU.txt":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\tests\\Policy\\Policy.Tests.csproj":  "6f1bf5a747d77d6ed411acb1d03aa9834c6a325714572ca492b6150672f3f2ed",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\ScreenRect.cs":  "f24419bc43a09085a4bdcb5883a7a581f53432d4f589f4744814e6dc345d72a6",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\PreviewWorkPolicy.cs":  "6515e17a4d4ee3286ff38673aba692bca889bef2ac7a63aed9a37102880e2695",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\info.json":  "43931a9590fba58413a278ab4d4f55888fbd7893b5575e5ec3238fc8cc14ab8b",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\Runtime.cs":  "f64ba004819f32fd6e8259c3c7264c9cdc474b79288280e1f1ec9bc94b7e3fed",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\Plugin.cs":  "145188ae38ea4221e16b241c2afdae623e0a176c18349270e9422c9f024653f9",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\Model.cs":  "51d6db2678def0b83bbbb9e388f5b4ba93117e609e5ebeeab3116056834dd58a",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\UpdateToNewDLL.md":  "ba16fff318685dae5a1423a388ca99070f42e36f18d74e0d613925e4f99d51a4",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\ar.txt":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\Text.cs":  "09beec714805c174c7daae1904587165efb4d5cbbac0177f3c7a7c9c9d38fd65",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\uk-UA.txt":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\tests\\Protocol\\Program.cs":  "a0e2f043abb8f57d664019421a8352ec4778902bd81fbebfb119d6ade5c68505",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\ko-KR.txt":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\NativeDemolition.cs":  "b021ea5a43556e89c0c8fd88fd8d917280cbc50703064ba12b31257073265e42",
                          "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\build.bat":  "0cd408e50d6f6acfcb01b3c9c2f1975eb82c8cdd332cfce7edfce3950d732d34",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\AreaDemolitionTest.csproj":  "bfc596fae471e7eb342a2964239e119ec0394f8db0b4dfe214a8f5baa8397879",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\it-IT.txt":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\cs-CZ.txt":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Shared\\Adapters\\APIShared\\MenuToolTip.cs":  "d037b37e1e10824bfc1b375a4271c2edce489a70c75def0fc813fe90a62ac299",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\pl-PL.txt":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\NativeBindings.cs":  "4174997758fb8e50a90ddb860eb4d82a7302ebf91d7852050acc56e97ee26e40",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\de-DE.txt":  "e093479cbddb010d6414e4166062359123ba988f216de7ab9ccdd03c5c3179ad",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\AreaDemolitionTest.csproj":  "ba1e942b6c7ad42729a56dd99d03e7e7e8ed856d356e52d6ba72d756a5b813e5",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\RenderSelectionGeometry.cs":  "f580e0df05afb03c8ba0898615d3235145f81b42814e3270e830091d4982a1a4",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\it-IT.txt":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\cs-CZ.txt":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\pl-PL.txt":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\NativeBindings.cs":  "0c36db26120f44c58c5838b0e0354f6605bc4b1afcfea8d376e53dbf060f3a98",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\de-DE.txt":  "f29e680a371a07278aafef6547bc142ea6378187b9a8e3d4e1c597e54fb58df5",
                          "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\Packets.cs":  "85c9f756a70fb35b9ddd189024c406c96f95c4452635751bd15254d54b2291d0",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\tests\\Native\\Program.cs":  "b67faa5129502479ec1231bef2ccc7953c2bb72390865f46808f984a665c9a1c",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\nl-NL.txt":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\pt-BR.txt":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\el-GR.txt":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\tests\\Native\\Program.cs":  "0abbc902727be5d59c233c914800a041292001a23055ad49fda78ab1c4fc5ab6",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\nl-NL.txt":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\pt-BR.txt":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\el-GR.txt":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
                          "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\DemolitionNetwork.cs":  "04a9a98fd11ce966e6691012a86e1ed14cf05270cf2abdb7822d3496fe4c8d96",
                          "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\ManagedInput.cs":  "5e507c5d44b91aa2eb54d07d1a7ce49c6516bc37ef424f0cd7582d75353aba26",
                          "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\DemolitionSettings.cs":  "634f15ca696ee50ab042fdf98d862c329f068d2923fae8cc5744d78940dce716",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\SelectionGesture.cs":  "2bc2cb35744a56880360ce2cf0f8687a4f0cdf32b6b0f0288a55a5c4a7f496f3",
                          "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\tests\\Native\\Native.Tests.csproj":  "31ef870f05cad033b05b8499667b10219a97b32f53600e3ea3f942fb0df274ca",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\ProtocolPolicy.cs":  "3fd849d24cdec4fd538e2fe06697e19276fcca9df9a0af886e87b4b7b0edd77d",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\TESTPLAN.txt":  "4b8d5d6570070086ec5cee6e0791cd5ef0a276032a141480664905b9e357a910",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\th-TH.txt":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
-                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\SelectionRenderer.cs":  "bef2574ebc8d643e3f253ff7dfe9eb9de86e77d147f6bd0a1ebbbe4b6bbaee74"
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\ProtocolPolicy.cs":  "127230e571044847eeb16c80acc6679a5ff115d9587b981323eb54ac898855b1",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\tests\\Policy\\ScreenGeometryReference.cs":  "94802817416c3e431a705bf9b3767263b3eb403c77609f387c02532c8b3299c5",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\TESTPLAN.txt":  "52d93c9d76a1687166a8faec6a4edbc46307589da7fb5f4a3205127b8f0217f1",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\Locales\\th-TH.txt":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
+                         "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AreaDemolitionTest\\src\\SelectionRenderer.cs":  "99e7ac44b747b0dc304ddda487805cf6631e248d2b9848ce393c6ab3b0c5668f"
                      },
     "Files":  [
                   {
-                      "Sha256":  "12f94a3a15aad6a83f9769d735ed3a2983ecc168f5562ae46b6bf4f92e9e4a80",
+                      "Sha256":  "c2dbe7058f1686e5e637ac514d7392b02a32252082344c1899d759cb0d8968e3",
                       "Path":  "AreaDemolitionTest.dll"
                   },
                   {
-                      "Sha256":  "e1de091cff8b488edad0b448e06b4063df97896006fd6788af4c2397c92e1dfb",
+                      "Sha256":  "97ab1f830ea8ffc14eae16fbfce70428ecf5444180b7d610573e0d9f3da47a4e",
                       "Path":  "AreaDemolitionTest.pdb"
                   },
                   {
-                      "Sha256":  "4d2bd4ca07052b3cc38352f489e18c7af998ec6060e5afa3d7bdbb54af3eaf75",
+                      "Sha256":  "43931a9590fba58413a278ab4d4f55888fbd7893b5575e5ec3238fc8cc14ab8b",
                       "Path":  "info.json"
                   },
                   {
-                      "Sha256":  "4b8d5d6570070086ec5cee6e0791cd5ef0a276032a141480664905b9e357a910",
+                      "Sha256":  "52d93c9d76a1687166a8faec6a4edbc46307589da7fb5f4a3205127b8f0217f1",
                       "Path":  "TESTPLAN.txt"
                   },
                   {
-                      "Sha256":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+                      "Sha256":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
                       "Path":  "Locales\\ar.txt"
                   },
                   {
-                      "Sha256":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+                      "Sha256":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
                       "Path":  "Locales\\cs-CZ.txt"
                   },
                   {
-                      "Sha256":  "e093479cbddb010d6414e4166062359123ba988f216de7ab9ccdd03c5c3179ad",
+                      "Sha256":  "f29e680a371a07278aafef6547bc142ea6378187b9a8e3d4e1c597e54fb58df5",
                       "Path":  "Locales\\de-DE.txt"
                   },
                   {
-                      "Sha256":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+                      "Sha256":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
                       "Path":  "Locales\\el-GR.txt"
                   },
                   {
-                      "Sha256":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+                      "Sha256":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
                       "Path":  "Locales\\en-US.txt"
                   },
                   {
-                      "Sha256":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+                      "Sha256":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
                       "Path":  "Locales\\es-ES.txt"
                   },
                   {
-                      "Sha256":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+                      "Sha256":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
                       "Path":  "Locales\\fr-FR.txt"
                   },
                   {
-                      "Sha256":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+                      "Sha256":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
                       "Path":  "Locales\\hu-HU.txt"
                   },
                   {
-                      "Sha256":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+                      "Sha256":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
                       "Path":  "Locales\\it-IT.txt"
                   },
                   {
-                      "Sha256":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+                      "Sha256":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
                       "Path":  "Locales\\ja-JP.txt"
                   },
                   {
-                      "Sha256":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+                      "Sha256":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
                       "Path":  "Locales\\ko-KR.txt"
                   },
                   {
-                      "Sha256":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+                      "Sha256":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
                       "Path":  "Locales\\nl-NL.txt"
                   },
                   {
-                      "Sha256":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+                      "Sha256":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
                       "Path":  "Locales\\pl-PL.txt"
                   },
                   {
-                      "Sha256":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+                      "Sha256":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
                       "Path":  "Locales\\pt-BR.txt"
                   },
                   {
-                      "Sha256":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+                      "Sha256":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
                       "Path":  "Locales\\ru-RU.txt"
                   },
                   {
-                      "Sha256":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+                      "Sha256":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
                       "Path":  "Locales\\sv-SE.txt"
                   },
                   {
-                      "Sha256":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+                      "Sha256":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
                       "Path":  "Locales\\th-TH.txt"
                   },
                   {
-                      "Sha256":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+                      "Sha256":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
                       "Path":  "Locales\\tr-TR.txt"
                   },
                   {
-                      "Sha256":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+                      "Sha256":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
                       "Path":  "Locales\\uk-UA.txt"
                   },
                   {
-                      "Sha256":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+                      "Sha256":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
                       "Path":  "Locales\\zh-CN.txt"
                   },
                   {
-                      "Sha256":  "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+                      "Sha256":  "b4afe9527130930ea6931981c15f33c541b8a0e5703b0544a33255e27c96c0e4",
                       "Path":  "Locales\\zh-HK.txt"
                   }
               ],
