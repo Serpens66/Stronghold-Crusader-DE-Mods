@@ -26,7 +26,7 @@ namespace AreaDemolitionTest
         {
             this.native = native; wallPolicy = native.WallPolicy;
             Diagnostic = wallPolicy < 0 ? "Native demolition available; unknown wall refund patch: walls disabled." : "Native demolition available.";
-            Fingerprint = NativeBindings.SupportedHash + ":demolition-v1:buildings,pitch,dug-moat:wall=" + wallPolicy;
+            Fingerprint = NativeBindings.SupportedHash + ":demolition-v2:registered-footprints,buildings,pitch,dug-moat,decorations10-15:wall=" + wallPolicy;
         }
 
         internal static bool TryCreate(CrusaderLibraryLoadContext context, ManualLogSource log, out NativeDemolition result)
@@ -44,75 +44,103 @@ namespace AreaDemolitionTest
             if (!available || actor < 1 || actor > 8) return null;
             lock (EngineGate)
             {
-                if (!IsValidTile(x, y)) return null;
-                var tiles = GameTileManagerAPI.Instance;
-                int tile = tiles.GetTileId(x, y);
-                int buildingId = tiles.GetStructureLayer()[tile];
-                DemolitionTarget target = Building(buildingId);
-                if (target != null) return target.Owner == actor && Permitted(target, actor) && ClosureOwn(target, actor, out _) ? target : null;
-                foreach (var other in GroundAt(tile, x, y))
-                    if (other.Owner == actor && Permitted(other, actor)) return other;
+                if (!IsValidTile(x,y)) return null;
+                var tiles=GameTileManagerAPI.Instance;
+                int tile=tiles.GetTileId(x,y);
+                var decorations=DecorationsByTile();
+                if (decorations.TryGetValue(tile,out var sameTile))
+                {
+                    var decoration=sameTile.FirstOrDefault(t=>t.Owner==actor);
+                    if (decoration!=null && Permitted(decoration,actor) && ClosureOwn(decoration,actor,out _,decorations)) return decoration;
+                }
+                var target=CanonicalBuilding(Building(BuildingAtTile(tile)));
+                if (target!=null) return target.Owner==actor && Permitted(target,actor) && ClosureOwn(target,actor,out _,decorations) ? target : null;
+                foreach (var ground in GroundAt(tile,x,y))
+                    if (ground.Owner==actor && Permitted(ground,actor) && ClosureOwn(ground,actor,out _,decorations)) return ground;
                 return null;
             }
         }
 
-        internal DemolitionTarget[] Capture(AreaRect area, int actor, SelectionSpec selection)
+        // Cheap geometry only. Native proximity/permission scans happen after screen overlap.
+        // Ground cells come from the renderer's bounded camera-region projection.
+        internal DemolitionTarget[] CaptureCandidates(int actor,SelectionSpec selection)
         {
-            if (!available || actor < 1 || actor > 8) return Array.Empty<DemolitionTarget>();
+            if (!available || actor<1 || actor>8) return Array.Empty<DemolitionTarget>();
             lock (EngineGate)
             {
-                var tiles = GameTileManagerAPI.Instance;
-                var roots = new Dictionary<string, DemolitionTarget>(StringComparer.Ordinal);
-                var buildingSpan = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
-                var structures = tiles.GetStructureLayer();
-                bool buildingsWanted=selection.SameType ? selection.Start!=null && selection.Start.Kind==TargetKind.Building : (selection.Filters&((1<<(int)TargetGroup.Pitch)-1))!=0;
-                for (int index = 0; buildingsWanted && index < buildingSpan.Length; index++)
+                var result=new Dictionary<string,DemolitionTarget>(StringComparer.Ordinal);
+                bool buildings=selection.SameType ? selection.Start?.Kind==TargetKind.Building : (selection.Filters&((1<<(int)TargetGroup.Pitch)-1))!=0;
+                if (buildings)
                 {
-                    ref var building = ref buildingSpan[index];
-                    if (building.r_AliveState != AliveState.IsAlive || building.r_PlayerIdOwner != actor) continue;
-                    var key = new DemolitionTarget { Kind=TargetKind.Building, Group=Classify(building.r_BuildingType), Type=(int)building.r_BuildingType };
-                    if (!selection.Matches(key)) continue;
-                    var target = Building(index + 1);
-                    if (target == null || !area.Intersects(target.Bounds)) continue;
-                    bool overlap = false;
-                    foreach (int tile in target.OccupiedTiles)
+                    var span=GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+                    for (int index=0;index<span.Length;index++)
                     {
-                        var point = tiles.GetTileVectorFromId(tile);
-                        // Test actual registered cells, not the enclosing box's empty corners or AIV yards.
-                        if (structures[tile] == target.Slot && area.Contains(point.X, point.Y)) { overlap = true; break; }
+                        if (span[index].r_AliveState!=AliveState.IsAlive || span[index].r_PlayerIdOwner!=actor) continue;
+                        var target=Building(index+1);
+                        var root=CanonicalBuilding(target);
+                        if (root!=null && selection.Matches(root) && target!=null) result[target.Identity]=target;
                     }
-                    if (overlap) AddRoot(target, actor, selection, roots);
                 }
-                bool pitch = WantsGround(selection, TargetKind.Pitch, TargetGroup.Pitch);
-                bool walls = WantsGround(selection, TargetKind.Wall, TargetGroup.Fortifications);
-                bool moats = WantsGround(selection, TargetKind.DugMoat, TargetGroup.DugMoats);
-                if (pitch)
-                    foreach (var target in PitchByTile().Values)
-                        if (area.Contains(target.X,target.Y) && (tiles.GetTilePropertyFlag(target.TileId)&TilePropertyFlag.PitchTrap)!=0)
-                            AddRoot(target,actor,selection,roots);
-                if (walls || moats)
+                if (WantsGround(selection,TargetKind.Pitch,TargetGroup.Pitch))
+                    foreach (var pitch in PitchByTile().Values) if (pitch.Owner==actor && selection.Matches(pitch)) result[pitch.Identity]=pitch;
+                if (WantsGround(selection,TargetKind.Decoration,TargetGroup.Decorations))
+                    foreach (var group in DecorationsByTile().Values)
+                        foreach (var decoration in group) if (decoration.Owner==actor && selection.Matches(decoration)) result[decoration.Identity]=decoration;
+                return DemolitionPolicy.Canonicalize(result.Values);
+            }
+        }
+
+        internal DemolitionTarget[] CaptureTiles(int[] tileIds,int actor,SelectionSpec selection) =>
+            CaptureTiles(tileIds==null ? null : new HashSet<int>(tileIds),actor,selection);
+
+        internal DemolitionTarget[] CaptureTiles(HashSet<int> tileIds,int actor,SelectionSpec selection)
+        {
+            if (!available || tileIds==null || actor<1 || actor>8) return Array.Empty<DemolitionTarget>();
+            lock (EngineGate)
+            {
+                var tiles=GameTileManagerAPI.Instance;
+                var roots=new Dictionary<string,DemolitionTarget>(StringComparer.Ordinal);
+                var checkedBuildings=new HashSet<int>();
+                bool pitchWanted=WantsGround(selection,TargetKind.Pitch,TargetGroup.Pitch);
+                var pitch=pitchWanted ? PitchByTile() : null;
+                var decorations=DecorationsByTile();
+                foreach (int tile in tileIds)
                 {
-                    int lowX = Math.Max(0, area.MinX), highX = Math.Min(GameTileManagerView.PackedMapAxisCapacity - 1, area.MaxX);
-                    int lowY = Math.Max(0, area.MinY), highY = Math.Min(GameTileManagerView.PackedMapAxisCapacity - 1, area.MaxY);
-                    for (int y = lowY; y <= highY; y++)
-                        for (int x = lowX; x <= highX; x++)
-                        {
-                            if (!IsValidTile(x,y)) continue;
-                            int tile=tiles.GetTileId(x,y); var flags=tiles.GetTilePropertyFlag(tile);
-                            if (walls) AddRoot(WallAt(tile,x,y,flags,actor),actor,selection,roots);
-                            if (moats) AddRoot(MoatAt(tile,x,y,flags,actor),actor,selection,roots);
-                        }
+                    if (!tiles.IsValidTileId(tile)) continue;
+                    var point=tiles.GetTileVectorFromId(tile);
+                    if (!IsValidTile(point.X,point.Y)) continue;
+                    int buildingId=BuildingAtTile(tile);
+                    if (buildingId>0 && checkedBuildings.Add(buildingId)) AddRoot(CanonicalBuilding(Building(buildingId)),actor,selection,roots);
+                    var flags=tiles.GetTilePropertyFlag(tile);
+                    if (pitchWanted && (flags&TilePropertyFlag.PitchTrap)!=0 && pitch.TryGetValue(tile,out var trap)) AddRoot(trap,actor,selection,roots);
+                    if (WantsGround(selection,TargetKind.Wall,TargetGroup.Fortifications)) AddRoot(WallAt(tile,point.X,point.Y,flags,actor),actor,selection,roots);
+                    if (WantsGround(selection,TargetKind.DugMoat,TargetGroup.DugMoats)) AddRoot(MoatAt(tile,point.X,point.Y,flags,actor),actor,selection,roots);
+                    if (WantsGround(selection,TargetKind.Decoration,TargetGroup.Decorations) && decorations.TryGetValue(tile,out var sameTile))
+                        foreach (var decoration in sameTile) AddRoot(decoration,actor,selection,roots);
                 }
-                var expanded = new Dictionary<string, DemolitionTarget>(StringComparer.Ordinal);
+                var expanded=new Dictionary<string,DemolitionTarget>(StringComparer.Ordinal);
                 foreach (var root in roots.Values)
-                    if (ClosureOwn(root, actor, out var closure))
-                        foreach (var target in closure) expanded[target.Identity] = target;
+                    if (ClosureOwn(root,actor,out var closure,decorations)) foreach (var target in closure) expanded[target.Identity]=target;
                 return DemolitionPolicy.Canonicalize(expanded.Values);
             }
         }
 
-        private void AddRoot(DemolitionTarget target, int actor, SelectionSpec selection, Dictionary<string, DemolitionTarget> roots)
-        { if (target != null && target.Owner == actor && selection.Matches(target) && Permitted(target, actor)) roots[target.Identity] = target; }
+        private int BuildingAtTile(int tile)
+        {
+            var tiles=GameTileManagerAPI.Instance;
+            int slot=tiles.GetStructureLayer()[tile];
+            if (slot>0) return slot;
+            // Stockpile cross cells have no StructureGrid ID. Their alpha entry is a live sector ID.
+            if ((tiles.GetTilePropertyFlag(tile)&TilePropertyFlag.GoodsyardConnection)==TilePropertyFlag.GoodsyardConnection)
+            {
+                int candidate=tiles.GetAlphaGfxLayer()[tile];
+                if (candidate>0 && GameBuildingManagerAPI.Instance.IsValidId(candidate) && GameBuildingManagerAPI.Instance.TryGetBuildingById(candidate,out var b) && b->r_BuildingType==eStructs.STRUCT_GOODS_YARD) return candidate;
+            }
+            return 0;
+        }
+
+        private void AddRoot(DemolitionTarget target,int actor,SelectionSpec selection,Dictionary<string,DemolitionTarget> roots)
+        { if (target!=null && target.Owner==actor && selection.Matches(target) && Permitted(target,actor)) roots[target.Identity]=target; }
 
         private static bool WantsGround(SelectionSpec selection,TargetKind kind,TargetGroup group) =>
             selection.SameType ? selection.Start!=null && selection.Start.Kind==kind : (selection.Filters&(1<<(int)group))!=0;
@@ -125,8 +153,9 @@ namespace AreaDemolitionTest
             lock (EngineGate)
             {
                 var all = DemolitionPolicy.Canonicalize(approved).ToDictionary(t => t.Identity, StringComparer.Ordinal);
+                // Frozen dependency membership is not on the wire. Never orphan surviving children.
+                if (!IdentitiesCurrent(all.Values,Resolve)) return Array.Empty<DemolitionTarget[]>();
                 var parent = all.Keys.ToDictionary(id => id, id => id, StringComparer.Ordinal);
-                var invalid = new HashSet<string>(StringComparer.Ordinal);
                 string Find(string id)
                 {
                     string root = id;
@@ -136,10 +165,10 @@ namespace AreaDemolitionTest
                 }
                 foreach (var item in all)
                 {
-                    if (!ClosureOwn(item.Value, item.Value.Owner, out var closure)) { invalid.Add(item.Key); continue; }
+                    if (!ClosureOwn(item.Value, item.Value.Owner, out var closure)) return Array.Empty<DemolitionTarget[]>();
                     foreach (var child in closure)
                     {
-                        if (!all.ContainsKey(child.Identity)) { invalid.Add(item.Key); continue; }
+                        if (!all.TryGetValue(child.Identity,out var expected) || !SameState(expected,child)) return Array.Empty<DemolitionTarget[]>();
                         string left = Find(item.Key), right = Find(child.Identity);
                         if (left != right) parent[right] = left;
                     }
@@ -149,7 +178,7 @@ namespace AreaDemolitionTest
                 foreach (var group in all.Keys.GroupBy(Find).OrderBy(g => g.Key, StringComparer.Ordinal))
                 {
                     var component = group.ToArray();
-                    if (component.Any(invalid.Contains) || component.Length > DemolitionPolicy.MaximumBatchTargets) continue;
+                    if (component.Length > DemolitionPolicy.MaximumBatchTargets) continue;
                     if (current.Count + component.Length > DemolitionPolicy.MaximumBatchTargets)
                     { batches.Add(DemolitionPolicy.Canonicalize(current)); current.Clear(); }
                     current.AddRange(component.Select(id => all[id]));
@@ -159,54 +188,155 @@ namespace AreaDemolitionTest
             }
         }
 
-        internal ApplyResult[] Apply(int actor, DemolitionTarget[] targets)
+        private sealed class Operation
         {
-            if (targets == null) return Array.Empty<ApplyResult>();
+            internal DemolitionTarget Root;
+            internal List<DemolitionTarget> Closure;
+        }
+
+        internal ApplyResult[] Apply(int actor,DemolitionTarget[] targets)
+        {
+            if (targets==null) return Array.Empty<ApplyResult>();
             lock (EngineGate)
             {
-                var approved = new HashSet<string>(targets.Where(t => t != null).Select(t => t.Identity), StringComparer.Ordinal);
-                var appliedEarlier = new HashSet<string>(StringComparer.Ordinal);
-                var results = new List<ApplyResult>(targets.Length);
-                foreach (var target in targets)
+                var results=targets.Select(t=>new ApplyResult { Identity=t?.Identity??"",Status=ApplyStatus.Forbidden }).ToArray();
+                if (!available || actor<1 || actor>8) return results;
+                var approved=new Dictionary<string,DemolitionTarget>(StringComparer.Ordinal);
+                var current=new Dictionary<string,DemolitionTarget>(StringComparer.Ordinal);
+                var blocked=new HashSet<string>(StringComparer.Ordinal);
+                var plans=new List<Operation>();
+                var executed=new HashSet<string>(StringComparer.Ordinal);
+                var attempted=new HashSet<string>(StringComparer.Ordinal);
+                try
                 {
-                    var result = new ApplyResult { Identity = target?.Identity ?? "", Status = ApplyStatus.Forbidden };
-                    results.Add(result);
-                    if (!available || actor < 1 || actor > 8 || target == null || target.Owner != actor) continue;
-                    if (appliedEarlier.Contains(target.Identity)) { result.Status = ApplyStatus.Applied; continue; }
-                    try
+                    // Freeze and validate every batch identity before the first mutation.
+                    for (int i=0;i<targets.Length;i++)
                     {
-                        var current = Resolve(target);
-                        if (current == null) { result.Status = ApplyStatus.Missing; continue; }
-                        if (!SameState(target, current)) { result.Status = ApplyStatus.Changed; continue; }
-                        if (current.Owner != actor || !Permitted(current, actor) ||
-                            !ClosureOwn(current, actor, out var closure) || closure.Any(t => !approved.Contains(t.Identity))) continue;
-                        Execute(current, actor);
-                        result.Status = Applied(current) ? ApplyStatus.Applied : ApplyStatus.Failed;
-                        if (result.Status == ApplyStatus.Applied)
-                            foreach (var affected in closure)
-                                if (Applied(affected)) appliedEarlier.Add(affected.Identity);
-                        if (result.Status == ApplyStatus.Failed) result.Detail = "Native operation did not reach the expected mark/removal state.";
+                        var expected=targets[i];
+                        if (expected==null) continue;
+                        approved[expected.Identity]=expected;
+                        var live=Resolve(expected);
+                        if (live==null) { results[i].Status=ApplyStatus.Missing;blocked.Add(expected.Identity);continue; }
+                        if (!SameState(expected,live)) { results[i].Status=ApplyStatus.Changed;blocked.Add(expected.Identity);continue; }
+                        if (expected.Owner!=actor) { blocked.Add(expected.Identity);continue; }
+                        current[expected.Identity]=live;
                     }
-                    catch (Exception error)
+                    // User-selected conservative policy: any stale identity rejects the entire packet.
+                    if (blocked.Count>0) return results;
+                    var decorations=DecorationsByTile();
+                    foreach (var item in current)
                     {
-                        result.Status = ApplyStatus.Failed; result.Detail = error.GetType().Name;
-                        // A partial native mutation is not replayable. Stop this process's optional adapter.
-                        Diagnostic = "Native demolition failed; remaining work disabled."; available = false;
-                        string diagnostic=DateTime.Now.ToString("HH:mm:ss.fff")+" DEMOLITION_APPLY_FAILED "+error;
-                        try { DiagnosticProduced?.Invoke(diagnostic); } catch { /* Diagnostics cannot repeat/interrupt a mutation. */ }
+                        var root=item.Value;
+                        var canonical=CanonicalBuilding(root);
+                        bool ownClosure=ClosureOwn(root,actor,out var closure,decorations);
+                        if (canonical==null || !ownClosure)
+                        { return results; }
+                        if (canonical.Identity!=root.Identity)
+                        {
+                            if (!current.ContainsKey(canonical.Identity)) return results;
+                            continue; // Reserved/compound children never receive independent refunds.
+                        }
+                        if (!Permitted(root,actor) || !ClosureMatchesApproval(closure,approved,current)) return results;
+                        plans.Add(new Operation { Root=root,Closure=closure });
                     }
+                    bool aborted=false;
+                    foreach (var plan in plans.OrderBy(p=>p.Root.Kind).ThenBy(p=>p.Root.Slot))
+                    {
+                        if (executed.Contains(plan.Root.Identity)) continue;
+                        // Live SE refund/bulldoze events can reenter while this monitor is held.
+                        // Revalidate after earlier operations and again after the permission callback path.
+                        if (!RefreshOperation(plan,actor,approved,executed,out var freshRoot,out var freshClosure))
+                        { aborted=true;break; }
+                        attempted.Add(plan.Root.Identity);
+                        Execute(freshRoot,actor,freshClosure,approved,executed);
+                        foreach (var child in freshClosure) if (Applied(child)) executed.Add(child.Identity);
+                        if (!executed.Contains(freshRoot.Identity)) { aborted=true;break; }
+                    }
+                    CompleteResults(targets,results,executed,attempted,aborted);
                 }
-                return results.ToArray();
+                catch (Exception error)
+                {
+                    Diagnostic="Native demolition failed; remaining work disabled.";available=false;
+                    CompleteResults(targets,results,executed,attempted,true);
+                    for (int i=0;i<results.Length;i++) if (results[i].Status==ApplyStatus.Failed) results[i].Detail=error.GetType().Name;
+                    string diagnostic=DateTime.Now.ToString("HH:mm:ss.fff")+" DEMOLITION_APPLY_FAILED "+error;
+                    try { DiagnosticProduced?.Invoke(diagnostic); } catch { /* Diagnostics cannot interrupt/repeat a mutation. */ }
+                }
+                return results;
             }
         }
 
-        private static bool SameState(DemolitionTarget expected, DemolitionTarget current) =>
+        private bool RefreshOperation(Operation plan,int actor,IDictionary<string,DemolitionTarget> approved,HashSet<string> executed,out DemolitionTarget freshRoot,out List<DemolitionTarget> freshClosure)
+        {
+            freshRoot=null;freshClosure=null;
+            if (!PendingIdentitiesCurrent(plan.Closure,executed,Resolve)) return false;
+            var root=Resolve(plan.Root);
+            if (root==null || root.Owner!=actor || !SameState(plan.Root,root) || !Permitted(root,actor)) return false;
+            // The query enters live mod chains too; don't reuse the pre-query metadata.
+            root=Resolve(plan.Root);
+            if (root==null || root.Owner!=actor || !SameState(plan.Root,root) || !PendingIdentitiesCurrent(plan.Closure,executed,Resolve)) return false;
+            var canonical=CanonicalBuilding(root);
+            if (canonical==null || canonical.Identity!=root.Identity || !ClosureOwn(root,actor,out var closure)) return false;
+            var current=new Dictionary<string,DemolitionTarget>(StringComparer.Ordinal);
+            foreach (var child in closure)
+            {
+                var live=Resolve(child);
+                if (live==null || live.Owner!=actor || !SameState(child,live)) return false;
+                current[child.Identity]=live;
+            }
+            if (!ClosureMatchesApproval(closure,approved,current)) return false;
+            freshRoot=root;freshClosure=closure;return true;
+        }
+
+        internal static bool PendingIdentitiesCurrent(IEnumerable<DemolitionTarget> closure,HashSet<string> executed,Func<DemolitionTarget,DemolitionTarget> resolve) =>
+            IdentitiesCurrent(closure.Where(t=>!executed.Contains(t.Identity)),resolve);
+
+        internal static void CompleteResults(DemolitionTarget[] targets,ApplyResult[] results,HashSet<string> executed,HashSet<string> attempted,bool aborted)
+        {
+            for (int i=0;i<targets.Length;i++)
+            {
+                string identity=targets[i]?.Identity;
+                if (identity==null) continue;
+                if (executed.Contains(identity)) { results[i].Status=ApplyStatus.Applied;results[i].Detail=""; }
+                else if (attempted.Contains(identity) || !aborted)
+                { results[i].Status=ApplyStatus.Failed;results[i].Detail="Native operation did not reach the expected mark/removal state."; }
+                else
+                { results[i].Status=ApplyStatus.Forbidden;results[i].Detail="Remaining packet skipped after live state changed."; }
+            }
+        }
+
+        internal bool AreIdentitiesCurrent(DemolitionTarget[] targets)
+        {
+            if (!available || targets==null) return false;
+            lock (EngineGate) return IdentitiesCurrent(targets,Resolve);
+        }
+
+        internal static bool IdentitiesCurrent(IEnumerable<DemolitionTarget> approved,Func<DemolitionTarget,DemolitionTarget> resolve)
+        {
+            foreach (var expected in approved)
+            {
+                if (expected==null || expected.Owner<1 || expected.Owner>8) return false;
+                var current=resolve(expected);
+                if (current==null || !SameState(expected,current)) return false;
+            }
+            return true;
+        }
+
+        internal static bool ClosureMatchesApproval(IEnumerable<DemolitionTarget> closure,IDictionary<string,DemolitionTarget> approved,IDictionary<string,DemolitionTarget> current)
+        {
+            foreach (var child in closure)
+                if (!approved.TryGetValue(child.Identity,out var expected) || !current.ContainsKey(child.Identity) || !SameState(expected,child)) return false;
+            return true;
+        }
+
+        internal static bool SameState(DemolitionTarget expected, DemolitionTarget current) =>
             expected.Identity == current.Identity && expected.Type == current.Type && expected.Owner == current.Owner &&
             expected.X == current.X && expected.Y == current.Y && expected.Flags == current.Flags;
 
         private DemolitionTarget Resolve(DemolitionTarget target)
         {
-            if (target.Kind == TargetKind.Building) return Building(target.Slot);
+            if (target.Kind == TargetKind.Building) return Building(target.Slot,false);
+            if (target.Kind == TargetKind.Decoration) return Decoration(target.Slot);
             if (!IsValidTile(target.X, target.Y)) return null;
             var tiles=GameTileManagerAPI.Instance;
             if (tiles.GetTileId(target.X,target.Y)!=target.TileId) return null;
@@ -217,28 +347,135 @@ namespace AreaDemolitionTest
             return null;
         }
 
-        private DemolitionTarget Building(int slot)
+        private DemolitionTarget Building(int slot,bool geometry=true)
         {
-            var buildings = GameBuildingManagerAPI.Instance;
-            if (slot <= 0 || !buildings.TryGetBuildingById(slot, out var b) || b == null || b->r_AliveState != AliveState.IsAlive || b->r_GlobalId == 0) return null;
-            int size = checked((int)b->r_OccupyTileGridSize);
-            // The record has exactly 36 registered-cell slots. Larger reserved AIV areas are not this array.
-            if (size < 1 || size > 6 || !IsValidTile(b->r_TilePositionXBegin, b->r_TilePositionYBegin)) return null;
-            var tiles = GameTileManagerAPI.Instance;
-            uint* ids = &b->r_OccupiedTileIdsArrayBegin;
-            var cells = new List<int>(size * size);
-            int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;
-            for (int i = 0; i < size * size; i++)
+            if (slot<=0 || !GameBuildingManagerAPI.Instance.TryGetBuildingById(slot,out var b) || b==null || b->r_AliveState!=AliveState.IsAlive || b->r_GlobalId==0 ||
+                b->r_OccupyTileGridSize<1 || b->r_OccupyTileGridSize>13 || !IsValidTile(b->r_TilePositionXBegin,b->r_TilePositionYBegin)) return null;
+            var tiles=GameTileManagerAPI.Instance;
+            int[] cells=Array.Empty<int>();
+            if (geometry)
             {
-                if (ids[i] > int.MaxValue || !tiles.IsValidTileId((int)ids[i])) return null;
-                int tile = (int)ids[i]; var point = tiles.GetTileVectorFromId(tile);
-                if (!IsValidTile(point.X, point.Y)) return null;
-                cells.Add(tile); minX = Math.Min(minX, point.X); minY = Math.Min(minY, point.Y); maxX = Math.Max(maxX, point.X); maxY = Math.Max(maxY, point.Y);
+                fixed (ushort* structures=tiles.GetStructureLayer())
+                fixed (int* alpha=tiles.GetAlphaGfxLayer())
+                fixed (int* flags=tiles.GetLogicLayer())
+                    cells=CollectRegisteredTiles(slot,b,structures,alpha,(uint*)flags,GameTileManagerView.NativePackedTileCapacity,TileAt);
             }
-            return new DemolitionTarget { Kind=TargetKind.Building, Group=Classify(b->r_BuildingType), Slot=slot,
-                Type=(int)b->r_BuildingType, Owner=b->r_PlayerIdOwner, GlobalId=b->r_GlobalId,
-                X=b->r_TilePositionXBegin, Y=b->r_TilePositionYBegin, TileId=checked((int)b->r_TileIdBegin),
-                Bounds=new AreaRect(minX,minY,maxX,maxY), OccupiedTiles=cells.Distinct().ToArray() };
+            if (geometry && cells.Length==0) return null;
+            int minX=b->r_TilePositionXBegin,minY=b->r_TilePositionYBegin,maxX=minX,maxY=minY;
+            if (cells.Length>0)
+            {
+                minX=int.MaxValue;minY=int.MaxValue;maxX=int.MinValue;maxY=int.MinValue;
+                foreach (int tile in cells) { var point=tiles.GetTileVectorFromId(tile); minX=Math.Min(minX,point.X);minY=Math.Min(minY,point.Y);maxX=Math.Max(maxX,point.X);maxY=Math.Max(maxY,point.Y); }
+            }
+            return new DemolitionTarget { Kind=TargetKind.Building,Group=Classify(b->r_BuildingType),Slot=slot,Type=(int)b->r_BuildingType,Owner=b->r_PlayerIdOwner,
+                GlobalId=b->r_GlobalId,Flags=b->N0000178A,
+                // Per-kind frozen stamp: grid size and reserved-child parent prevent stale regrouping/refunds.
+                TaskIndex=((int)b->r_OccupyTileGridSize<<16)|(IsReserved(b->r_BuildingType)?b->r_StoneQuarry_StockPileBuildingId:0),X=b->r_TilePositionXBegin,Y=b->r_TilePositionYBegin,TileId=checked((int)b->r_TileIdBegin),
+                Bounds=new AreaRect(minX,minY,maxX,maxY),OccupiedTiles=cells };
+        }
+
+        private int TileAt(int x,int y) => IsValidTile(x,y) ? GameTileManagerAPI.Instance.GetTileId(x,y) : -1;
+
+        // The fixed 36-value array is optional constructor-specific data, not a size-squared grid.
+        // Every accepted point is corroborated by the live registration layer.
+        internal static int[] CollectRegisteredTiles(int slot,GameBuilding* building,ushort* structures,int* alpha,uint* flags,int capacity,Func<int,int,int> tileAt)
+        {
+            int size=(int)building->r_OccupyTileGridSize;
+            if (size<1 || size>13) return Array.Empty<int>();
+            var cells=new HashSet<int>();
+            void Add(int tile) { if (tile>=0 && tile<capacity && structures[tile]==slot) cells.Add(tile); }
+            int x=building->r_TilePositionXBegin,y=building->r_TilePositionYBegin;
+            for (int dy=0;dy<size;dy++) for (int dx=0;dx<size;dx++) Add(tileAt(x+dx,y+dy));
+            uint* extra=&building->r_OccupiedTileIdsArrayBegin;
+            for (int i=0;i<36;i++) if (extra[i]<(uint)capacity) Add((int)extra[i]);
+            if (building->r_BuildingType==eStructs.STRUCT_GOODS_YARD)
+                for (int dy=-3;dy<=4;dy++) for (int dx=-3;dx<=4;dx++)
+                {
+                    int tile=tileAt(x+dx,y+dy);
+                    if (tile>=0 && tile<capacity && alpha[tile]==slot && (flags[tile]&(uint)TilePropertyFlag.GoodsyardConnection)==(uint)TilePropertyFlag.GoodsyardConnection) cells.Add(tile);
+                }
+            return cells.OrderBy(t=>t).ToArray();
+        }
+
+        private DemolitionTarget CanonicalBuilding(DemolitionTarget target)
+        {
+            if (target==null || target.Kind!=TargetKind.Building) return target;
+            var buildings=GameBuildingManagerAPI.Instance;
+            if (!buildings.TryGetBuildingById(target.Slot,out var b)) return null;
+            if (IsReserved(b->r_BuildingType))
+            {
+                int parentId=b->r_StoneQuarry_StockPileBuildingId; // Constructor's typed +192 parent link for reserved children.
+                var parent=Building(parentId,false);
+                if (parent==null || !buildings.TryGetBuildingById(parentId,out var p) || p->N0000178A==0 || p->N0000178A!=b->N0000178A || p->r_PlayerIdOwner!=b->r_PlayerIdOwner || IsReserved(p->r_BuildingType)) return null;
+                return parent;
+            }
+            if (b->r_BuildingType==eStructs.STRUCT_GOODS_YARD || b->r_BuildingType==eStructs.STRUCT_QUARRYPILE)
+            {
+                uint compound=b->N0000178A;
+                if (compound==0) return target;
+                var span=buildings.GetBuildingsAsSpan();
+                for (int i=0;i<span.Length;i++)
+                    if (span[i].r_AliveState==AliveState.IsAlive && span[i].N0000178A==compound && span[i].r_PlayerIdOwner==target.Owner &&
+                        (b->r_BuildingType==eStructs.STRUCT_GOODS_YARD ? span[i].r_BuildingType==eStructs.STRUCT_GOODS_YARD : span[i].r_BuildingType==eStructs.STRUCT_QUARRY)) return Building(i+1,false);
+            }
+            return target;
+        }
+
+        private static bool IsReserved(eStructs type) => type==eStructs.STRUCT_PARADEGROUND_OIL || type==eStructs.STRUCT_PARADEGROUND_ENG || type==eStructs.STRUCT_PARADEGROUND_TUN ||
+            type==eStructs.STRUCT_PARADEGROUND_MISS || type==eStructs.STRUCT_PARADEGROUND_LGT || type==eStructs.STRUCT_PARADEGROUND_HVY;
+
+        internal int CountLogicalBuildings(DemolitionTarget[] targets)
+        {
+            if (targets==null || !available) return 0;
+            lock (EngineGate) return targets.Where(t=>t!=null && t.Kind==TargetKind.Building).Select(CanonicalBuilding).Where(t=>t!=null).Select(t=>t.Identity).Distinct(StringComparer.Ordinal).Count();
+        }
+
+        internal static bool IsDecorationType(ProjectileType type) => type==ProjectileType.Flag1 || type==ProjectileType.Flag3 || type==ProjectileType.Flag2 ||
+            type==ProjectileType.CrusaderFlag || type==ProjectileType.Brazier || type==ProjectileType.Heads;
+
+        internal static int DecorationOwner(GameProjectile* projectile) => *(ushort*)&projectile->r_PlayerSourceId;
+
+        internal static bool OwnDecorationSet(IEnumerable<DemolitionTarget> group,int actor) =>
+            group.All(t=>t!=null && t.Kind==TargetKind.Decoration && t.Slot>=25 && t.Owner==actor && IsDecorationType((ProjectileType)t.Type));
+
+        private DemolitionTarget Decoration(int slot)
+        {
+            var span=GameProjectileManagerAPI.Instance.GetProjectilesAsSpan();
+            // Projectile span includes native slot zero, unlike the building API's sentinel-adjusted span.
+            if (slot<25 || slot>=span.Length) return null;
+            fixed (GameProjectile* first=span)
+            {
+                GameProjectile* p=first+slot;
+                if (p->r_AliveState!=AliveState.IsAlive || !IsDecorationType(p->r_ProjectileType) || p->r_CurrentTileId>int.MaxValue) return null;
+                int tile=(int)p->r_CurrentTileId;
+                var tiles=GameTileManagerAPI.Instance;
+                if (!tiles.IsValidTileId(tile)) return null;
+                var point=tiles.GetTileVectorFromId(tile);
+                if (!IsValidTile(point.X,point.Y) || p->r_CurrentTileX!=point.X || p->r_CurrentTileY!=point.Y) return null;
+                return Ground(TargetKind.Decoration,TargetGroup.Decorations,slot,(int)p->r_ProjectileType,DecorationOwner(p),point.X,point.Y,tile,p->r_GlobalId,0,0);
+            }
+        }
+
+        private Dictionary<int,List<DemolitionTarget>> DecorationsByTile()
+        {
+            var result=new Dictionary<int,List<DemolitionTarget>>();
+            var span=GameProjectileManagerAPI.Instance.GetProjectilesAsSpan();
+            for (int slot=1;slot<span.Length;slot++)
+            {
+                if (span[slot].r_AliveState!=AliveState.IsAlive || !IsDecorationType(span[slot].r_ProjectileType)) continue;
+                var target=Decoration(slot);
+                if (target==null)
+                {
+                    // Native9F410 would still touch an unidentifiable static record: retain a blocker.
+                    uint rawTile=span[slot].r_CurrentTileId;
+                    if (rawTile>=GameTileManagerView.NativePackedTileCapacity) continue;
+                    var point=GameTileManagerAPI.Instance.GetTileVectorFromId((int)rawTile);
+                    target=Ground(TargetKind.Decoration,TargetGroup.Decorations,slot,(int)span[slot].r_ProjectileType,0,point.X,point.Y,(int)rawTile,0,0,0);
+                }
+                if (!result.TryGetValue(target.TileId,out var group)) result.Add(target.TileId,group=new List<DemolitionTarget>());
+                group.Add(target);
+            }
+            return result;
         }
 
         private Dictionary<int, DemolitionTarget> PitchByTile()
@@ -309,11 +546,26 @@ namespace AreaDemolitionTest
             new DemolitionTarget { Kind=kind,Group=group,Slot=slot,Type=type,Owner=owner,X=x,Y=y,TileId=tile,GlobalId=globalId,TaskIndex=task,Flags=flags,
                 Bounds=new AreaRect(x,y,x,y),OccupiedTiles=new[]{tile} };
 
-        private bool ClosureOwn(DemolitionTarget root, int actor, out List<DemolitionTarget> closure)
+        private bool ClosureOwn(DemolitionTarget root, int actor, out List<DemolitionTarget> closure,Dictionary<int,List<DemolitionTarget>> decorations=null)
         {
             closure=new List<DemolitionTarget>();
             if (root==null || root.Owner!=actor) return false;
-            if (root.Kind!=TargetKind.Building) { closure.Add(root); return true; }
+            decorations=decorations??DecorationsByTile();
+            var result=closure;
+            var seenDecorations=new HashSet<string>(StringComparer.Ordinal);
+            bool AddDecorations(int tile)
+            {
+                if ((GameTileManagerAPI.Instance.GetMiscDisplayLayer()[tile]&0x1000)==0) return true;
+                if (!decorations.TryGetValue(tile,out var group)) return true;
+                if (!OwnDecorationSet(group,actor)) return false;
+                foreach (var decoration in group)
+                    if (seenDecorations.Add(decoration.Identity)) result.Add(decoration);
+                return true;
+            }
+            if (root.Kind==TargetKind.Decoration)
+                return AddDecorations(root.TileId) && closure.Any(t=>t.Identity==root.Identity);
+            if (root.Kind!=TargetKind.Building)
+            { closure.Add(root);return root.Kind!=TargetKind.Wall || AddDecorations(root.TileId); }
             var queue=new Queue<int>(); var seen=new HashSet<int>(); queue.Enqueue(root.Slot);
             var buildings=GameBuildingManagerAPI.Instance;
             while (queue.Count>0)
@@ -323,6 +575,12 @@ namespace AreaDemolitionTest
                 if (target==null || target.Owner!=actor) return false;
                 closure.Add(target);
                 if (!buildings.TryGetBuildingById(id,out var b)) return false;
+                //61EF0 removes static decoration on the core square, not on optional farm hints.
+                for (int dy=0;dy<(int)b->r_OccupyTileGridSize;dy++) for (int dx=0;dx<(int)b->r_OccupyTileGridSize;dx++)
+                {
+                    int tile=TileAt(b->r_TilePositionXBegin+dx,b->r_TilePositionYBegin+dy);
+                    if (tile>=0 && !AddDecorations(tile)) return false;
+                }
                 uint compound=b->N0000178A; // raw manager record +0x304, native C4290's linked-record key.
                 if (compound!=0)
                 {
@@ -358,59 +616,104 @@ namespace AreaDemolitionTest
         private bool Permitted(DemolitionTarget target,int actor)
         {
             if (target.Owner!=actor || !IsValidTile(target.X,target.Y) || (target.Kind==TargetKind.Wall && (wallPolicy<0 || native.WallPolicy!=wallPolicy))) return false;
+            if (target.Kind==TargetKind.Decoration)
+                return target.Slot>=25 && IsDecorationType((ProjectileType)target.Type) && (GameTileManagerAPI.Instance.GetMiscDisplayLayer()[target.TileId]&0x1000)!=0;
             return native.Allows(target,actor);
         }
 
-        private void Execute(DemolitionTarget target,int actor)
+        private void Execute(DemolitionTarget target,int actor,List<DemolitionTarget> closure,IDictionary<string,DemolitionTarget> approved,HashSet<string> executed)
         {
+            if (target.Kind==TargetKind.Building) { ExecuteBuilding(target,actor,closure,approved,executed);return; }
+            if (!GuardMutation(target,actor,closure,approved,executed)) return;
             switch (target.Kind)
             {
-                case TargetKind.Building:ExecuteBuilding(target,actor);break;
                 case TargetKind.Pitch:native.RemovePitch(native.Tiles,target.Slot);break;
                 case TargetKind.Wall:
                     var tiles=GameTileManagerAPI.Instance;
                     int percentage=WallRefundPercent(wallPolicy,tiles.GetHeightLayer()[target.TileId]-tiles.GetDefaultHeightLayer()[target.TileId]);
-                    native.Refund(native.Buildings,-1,actor,percentage); native.Wall(native.Tiles,actor,target.TileId);break;
-                case TargetKind.DugMoat:
-                    native.RemoveDugMoat(target.TaskIndex,target.TileId);break;
+                    native.Refund(native.Buildings,-1,actor,percentage);
+                    if (!GuardMutation(target,actor,closure,approved,executed)) return;
+                    native.Wall(native.Tiles,actor,target.TileId);break;
+                case TargetKind.DugMoat:native.RemoveDugMoat(target.TaskIndex,target.TileId);break;
+                case TargetKind.Decoration:native.RemoveDecorationTile(target.TileId);break;
             }
+            RecordApplied(closure,executed);
+        }
+
+        private bool GuardMutation(DemolitionTarget target,int actor,List<DemolitionTarget> closure,IDictionary<string,DemolitionTarget> approved,HashSet<string> executed)
+        {
+            if (executed.Contains(target.Identity)) return false;
+            if (!RefreshOperation(new Operation { Root=target,Closure=closure },actor,approved,executed,out _,out _))
+                throw new InvalidOperationException("Frozen demolition target/closure changed inside a live native callback; remaining work stopped.");
+            return true;
+        }
+
+        private void RecordApplied(IEnumerable<DemolitionTarget> closure,HashSet<string> executed)
+        { foreach (var child in closure) if (Applied(child)) executed.Add(child.Identity); }
+
+        private GameBuilding* ExpectedBuilding(DemolitionTarget expected,int actor)
+        {
+            var current=Resolve(expected);
+            if (current==null || current.Owner!=actor || !SameState(expected,current) || !GameBuildingManagerAPI.Instance.TryGetBuildingById(expected.Slot,out var b))
+                throw new InvalidOperationException("Frozen building changed inside a live native callback.");
+            return b;
         }
 
         internal static int WallRefundPercent(int policy,int heightDifference) => policy==1 || heightDifference>60 ? 50 : 25;
 
-        private void ExecuteBuilding(DemolitionTarget target,int actor)
+        private void ExecuteBuilding(DemolitionTarget target,int actor,List<DemolitionTarget> closure,IDictionary<string,DemolitionTarget> approved,HashSet<string> executed)
         {
-            var buildings=GameBuildingManagerAPI.Instance;
-            if (!buildings.TryGetBuildingById(target.Slot,out var b)) return;
             int oldContext=*(int*)(native.ModulePointer+NativeBindings.DemolitionContextRva);
             try
             {
+                var b=ExpectedBuilding(target,actor);
                 if (b->r_BuildingType==eStructs.STRUCT_GATE_MAIN || b->r_BuildingType==eStructs.STRUCT_GATE_INNER)
                 {
                     int previous=0;
                     for (int n=0;n<2;n++)
                     {
+                        if (!GuardMutation(target,actor,closure,approved,executed)) return;
+                        b=ExpectedBuilding(target,actor);
                         int child=native.Find(native.Buildings,actor,b->r_TilePositionXBegin,b->r_TilePositionYBegin,checked((int)b->r_OccupyTileGridSize),(int)eStructs.STRUCT_DRAWBRIDGE,previous);
                         if (child<=0) break;
-                        if (buildings.TryGetBuildingById(child,out var bridge))
+                        var expected=closure.FirstOrDefault(t=>t.Kind==TargetKind.Building && t.Slot==child);
+                        if (expected==null) throw new InvalidOperationException("New gate child is not approved.");
+                        if (!GuardMutation(target,actor,closure,approved,executed)) return;
+                        var bridge=ExpectedBuilding(expected,actor);
+                        if (bridge->r_AliveState!=AliveState.MarkedForDeletion)
                         {
                             *(int*)(native.ModulePointer+NativeBindings.DemolitionContextRva)=1;
-                            if (bridge->r_AliveState!=AliveState.MarkedForDeletion) native.Refund(native.Buildings,child,actor,50);
-                            native.Delete(native.Buildings,child);
+                            native.Refund(native.Buildings,child,actor,50);
                         }
+                        // Refund Pre/Post subscribers may replace or transfer either object.
+                        if (!GuardMutation(target,actor,closure,approved,executed)) return;
+                        ExpectedBuilding(expected,actor);
+                        *(int*)(native.ModulePointer+NativeBindings.DemolitionContextRva)=1;
+                        native.Delete(native.Buildings,child);
+                        RecordApplied(closure,executed);
                         previous=child;
                     }
                 }
-                *(int*)(native.ModulePointer+NativeBindings.DemolitionContextRva)=1;
-                if (ShouldRefund(b)) native.Refund(native.Buildings,target.Slot,actor,50);
+                if (!GuardMutation(target,actor,closure,approved,executed)) return;
+                b=ExpectedBuilding(target,actor);
+                if (ShouldRefund(b))
+                {
+                    *(int*)(native.ModulePointer+NativeBindings.DemolitionContextRva)=1;
+                    native.Refund(native.Buildings,target.Slot,actor,50);
+                }
+                if (!GuardMutation(target,actor,closure,approved,executed)) return;
+                b=ExpectedBuilding(target,actor);
                 if (*(int*)(native.ModulePointer+NativeBindings.ActorRva)==actor)
                 {
                     bool stone=b->r_BuildingType==eStructs.STRUCT_GATE_MAIN || b->r_BuildingType==eStructs.STRUCT_GATE_INNER ||
                         (b->r_BuildingType>=eStructs.STRUCT_TOWER1 && b->r_BuildingType<=eStructs.STRUCT_TOWER5);
-                    // These are the native demolition sound command IDs, not building/domain IDs.
                     native.Sound(IntPtr.Zero,target.X,target.Y,stone?0x96:0xAA);
                 }
+                if (!GuardMutation(target,actor,closure,approved,executed)) return;
+                ExpectedBuilding(target,actor);
+                *(int*)(native.ModulePointer+NativeBindings.DemolitionContextRva)=1;
                 native.Delete(native.Buildings,target.Slot);
+                RecordApplied(closure,executed);
             }
             finally { *(int*)(native.ModulePointer+NativeBindings.DemolitionContextRva)=oldContext; }
         }
@@ -419,6 +722,11 @@ namespace AreaDemolitionTest
         {
             if (target.Kind==TargetKind.Building)
                 return !GameBuildingManagerAPI.Instance.TryGetBuildingById(target.Slot,out var b) || b->r_GlobalId!=target.GlobalId || b->r_AliveState==AliveState.MarkedForDeletion || b->r_AliveState==AliveState.None;
+            if (target.Kind==TargetKind.Decoration)
+            {
+                var span=GameProjectileManagerAPI.Instance.GetProjectilesAsSpan();
+                return target.Slot<1 || target.Slot>=span.Length || span[target.Slot].r_GlobalId!=target.GlobalId || span[target.Slot].r_AliveState==AliveState.MarkedForDeletion || span[target.Slot].r_AliveState==AliveState.None;
+            }
             return Resolve(target)==null;
         }
 

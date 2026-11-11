@@ -43,7 +43,8 @@ namespace AreaDemolitionTest
 
     internal static class ProtocolPolicy
     {
-        internal const int Version = 1, MaximumPeers = 32, TargetBytes = 31;
+        // Version 2 admits decoration records. Old peers must reject this contract explicitly.
+        internal const int Version = 2, MaximumPeers = 32, TargetBytes = 31;
         internal static string NewNonce()
         { var bytes = new byte[16]; using (var random = RandomNumberGenerator.Create()) random.GetBytes(bytes); return Hex(bytes); }
         internal static bool IsNonce(string value) => IsHex(value, 32);
@@ -92,6 +93,29 @@ namespace AreaDemolitionTest
         internal static bool HasNativeFailure(IEnumerable<ApplyResult> results) => results.Any(r => r.Status == ApplyStatus.Failed);
         internal static bool HasFailedAcknowledgement(IEnumerable<DemolitionControlPacket> acknowledgements) => acknowledgements.Any(p => p.Failed);
         internal static bool OwnFreshNonce(ProtocolPeer[] vector, ulong localSteam, string nonce) => vector.Any(p => p.SteamId == localSteam && p.Nonce == nonce);
+        internal static bool ValidateSimulationPacket(DemolitionSimulationPacket packet)
+        {
+            if(packet==null || packet.Protocol!=Version || packet.Kind>(byte)SimulationPacketKind.ApplyBatch || !IsDigest(packet.Token) || !IsNonce(packet.Nonce) || !IsDigest(packet.Digest))return false;
+            try
+            {
+                if((SimulationPacketKind)packet.Kind==SimulationPacketKind.ReadyProof) return packet.Operation==0 && packet.Batch==0 && DecodePeers(packet.Payload,true).Length>0;
+                return packet.Operation>0 && packet.Batch>=0 && UnpackTargets(packet.Payload).Length>0;
+            }
+            catch {return false;}
+        }
+        private static bool ValidGroup(TargetKind kind,TargetGroup group)
+        {
+            switch(kind)
+            {
+                case TargetKind.Building:
+                    return group==TargetGroup.Buildings || group==TargetGroup.Fortifications || group==TargetGroup.PositiveFear || group==TargetGroup.NegativeFear || group==TargetGroup.DogCages || group==TargetGroup.KillingPits;
+                case TargetKind.Pitch:return group==TargetGroup.Pitch;
+                case TargetKind.Wall:return group==TargetGroup.Fortifications;
+                case TargetKind.DugMoat:return group==TargetGroup.DugMoats;
+                case TargetKind.Decoration:return group==TargetGroup.Decorations;
+                default:return false;
+            }
+        }
         internal static byte[] PackTargets(DemolitionTarget[] targets)
         {
             if (targets == null || targets.Length < 1 || targets.Length > DemolitionPolicy.MaximumBatchTargets) throw new InvalidDataException("Invalid target count.");
@@ -99,7 +123,7 @@ namespace AreaDemolitionTest
             {
                 foreach (var target in targets)
                 {
-                    if (target == null || target.Kind > TargetKind.DugMoat || target.Group > TargetGroup.DugMoats || target.Owner < 1 || target.Owner > 8 || target.Slot < 0 || target.Type < 0 && target.Kind != TargetKind.Wall || target.X < 0 || target.X > short.MaxValue || target.Y < 0 || target.Y > short.MaxValue) throw new InvalidDataException("Invalid target record.");
+                    if (target == null || !ValidGroup(target.Kind,target.Group) || target.Owner < 1 || target.Owner > 8 || target.Slot < 0 || target.Type < 0 && target.Kind != TargetKind.Wall || target.X < 0 || target.X > short.MaxValue || target.Y < 0 || target.Y > short.MaxValue) throw new InvalidDataException("Invalid target record.");
                     writer.Write((byte)target.Kind); writer.Write((byte)target.Group); writer.Write(target.Slot); writer.Write(target.Type); writer.Write((byte)target.Owner);
                     writer.Write((short)target.X); writer.Write((short)target.Y); writer.Write(target.TileId); writer.Write(target.TaskIndex); writer.Write(target.GlobalId); writer.Write(target.Flags);
                 }

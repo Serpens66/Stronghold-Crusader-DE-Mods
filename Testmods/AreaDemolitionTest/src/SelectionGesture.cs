@@ -8,22 +8,28 @@ namespace AreaDemolitionTest
         internal GestureStage Stage { get; private set; }
         internal bool Owned => Stage != GestureStage.Idle;
         internal SelectionSpec Selection { get; private set; }
-        internal AreaRect Area => new AreaRect(startX, startY, endX, endY);
-        private int startX, startY, endX, endY;
-        private float screenX, screenY;
-        internal void Begin(int x, int y, float sx, float sy, SelectionSpec selection)
-        { startX=endX=x; startY=endY=y; screenX=sx; screenY=sy; Selection=selection; Stage=GestureStage.Pressed; }
-        internal void Move(int x, int y, float sx, float sy, float scale)
+        internal ScreenRect Area => new ScreenRect(startX, startY, endX, endY);
+        private float startX, startY, endX, endY;
+        internal void Begin(float sx, float sy, SelectionSpec selection)
+        { startX=endX=sx; startY=endY=sy; Selection=selection; Stage=GestureStage.Pressed; }
+        internal void Move(float sx, float sy, bool endpointValid, float scale)
         {
             if (Stage != GestureStage.Pressed && Stage != GestureStage.Dragging) return;
-            endX=x; endY=y;
-            float dx=sx-screenX, dy=sy-screenY, threshold=4f*(scale > 0 ? scale : 1);
+            // HUD crossing freezes the endpoint, but still counts as physical movement.
+            if (endpointValid) { endX=sx; endY=sy; }
+            float dx=sx-startX, dy=sy-startY, threshold=4f*(scale > 0 ? scale : 1);
             if (dx*dx+dy*dy >= threshold*threshold) Stage=GestureStage.Dragging;
+        }
+        internal bool SetSameType(bool sameType)
+        {
+            if (!Owned || Stage==GestureStage.Cancelled || Selection.SameType==sameType) return false;
+            Selection=new SelectionSpec(Selection.Filters,sameType,Selection.Start);
+            return true;
         }
         internal void Cancel() { if (Owned) Stage=GestureStage.Cancelled; }
         internal GestureRelease Release(bool overUi)
         {
-            var result = !Owned ? GestureRelease.None : overUi || Stage==GestureStage.Cancelled ? GestureRelease.Cancelled : Stage==GestureStage.Dragging ? GestureRelease.Area : GestureRelease.Single;
+            var result = !Owned ? GestureRelease.None : Stage==GestureStage.Cancelled ? GestureRelease.Cancelled : Stage==GestureStage.Dragging ? GestureRelease.Area : overUi ? GestureRelease.Cancelled : GestureRelease.Single;
             Stage=GestureStage.Idle; return result;
         }
         internal void Reset() { Stage=GestureStage.Idle; }

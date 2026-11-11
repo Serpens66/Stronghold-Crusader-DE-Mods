@@ -12,7 +12,7 @@ namespace AreaDemolitionTest
     [BepInDependency("fixes",BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class Plugin : BaseUnityPlugin
     {
-        public const string Guid="AreaDemolitionTest_Serp", Version="0.1.0";
+        public const string Guid="AreaDemolitionTest_Serp", Version="0.1.1";
         private static ManualLogSource log;
         private static DemolitionSettings settings;
         private static Runtime runtime;

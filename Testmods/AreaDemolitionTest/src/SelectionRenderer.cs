@@ -7,7 +7,6 @@ using SHCDESE.API;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Tilemaps;
-using Object = UnityEngine.Object;
 
 namespace AreaDemolitionTest
 {
@@ -18,7 +17,7 @@ namespace AreaDemolitionTest
         private const int AnimationIdStride = 4000; // Native 19D110: layer * 4000 + 1-based building ID.
         private readonly ManualLogSource log;
         private readonly int unityThread;
-        private readonly FieldInfo animationsField, wallFillinsField;
+        private readonly FieldInfo animationsField, wallFillinsField, fliesField;
         private readonly HashSet<long> selectedCells = new HashSet<long>();
         private readonly HashSet<int> selectedBuildings = new HashSet<int>();
         private readonly HashSet<Tilemap> checkedTilemaps = new HashSet<Tilemap>();
@@ -26,25 +25,28 @@ namespace AreaDemolitionTest
         private readonly List<TileRestore> tileRestore = new List<TileRestore>();
         private readonly List<SpriteRestore> spriteRestore = new List<SpriteRestore>();
         private readonly List<RenderCell> renderCells = new List<RenderCell>();
-        private readonly Dictionary<int, GroundRow> rows = new Dictionary<int, GroundRow>();
+        private readonly Dictionary<int, DemolitionTarget> selectedDecorations = new Dictionary<int, DemolitionTarget>();
+        private readonly List<DemolitionTarget> unpresentedDecorations = new List<DemolitionTarget>();
+        private readonly ScreenSelection screenProjection = new ScreenSelection();
         private readonly Color tint = new Color(0.49f, 0.12f, 0.12f, 1f);
-        private AreaRect? area;
+        private ScreenRect? area;
         private DemolitionTarget[] lastTargets;
         private DemolitionTarget[] scopeTargets;
         private GameMap currentMap;
         private Dictionary<int, BuildingAnim> animations;
         private Dictionary<int, WallFillin> wallFillins;
+        private Dictionary<int, Fly> flies;
         private Camera activeCamera;
-        private GameObject groundRoot;
-        private Material fillMaterial, spriteMaterial;
+        private Material spriteMaterial;
         private int rotation = -1;
-        private bool flattened, hasRenderScope, ready = true;
+        private bool flattened, hasRenderScope, scopeComplete, ready = true;
 
         internal SelectionRenderer(ManualLogSource log)
         {
             this.log = log; unityThread = Thread.CurrentThread.ManagedThreadId;
             animationsField = RequireField("buildingAnims", typeof(Dictionary<int, BuildingAnim>));
             wallFillinsField = RequireField("wallFillins", typeof(Dictionary<int, WallFillin>));
+            fliesField = RequireField("flies", typeof(Dictionary<int, Fly>));
             // These process-lived event roots survive SHCDE's destruction of early plugin components.
             RenderPipelineManager.beginCameraRendering += BeforeCamera;
             RenderPipelineManager.endCameraRendering += AfterCamera;
@@ -62,7 +64,7 @@ namespace AreaDemolitionTest
             return field;
         }
 
-        internal void SetSelection(AreaRect? selection, DemolitionTarget[] targets)
+        internal void SetSelection(ScreenRect? selection, DemolitionTarget[] targets)
         {
             AssertUnityThread();
             Restore();
@@ -75,23 +77,25 @@ namespace AreaDemolitionTest
                     throw new InvalidOperationException("The map renderer is not ready.");
                 EnsureMaterials();
                 bool differentMap = !ReferenceEquals(map, currentMap);
-                bool newGeometry = differentMap || !SameArea(area, selection) || rotation != (int)map.CurrentRotation() || flattened != EngineInterface.FlattenedLandscape;
+                bool newGeometry = differentMap || area != selection || rotation != (int)map.CurrentRotation() || flattened != EngineInterface.FlattenedLandscape;
                 if (differentMap)
                 {
-                    DestroyGround(); checkedTilemaps.Clear();
+                    checkedTilemaps.Clear();
                     animations = animationsField.GetValue(map) as Dictionary<int, BuildingAnim>;
                     wallFillins = wallFillinsField.GetValue(map) as Dictionary<int, WallFillin>;
-                    if (animations == null || wallFillins == null)
+                    flies = fliesField.GetValue(map) as Dictionary<int, Fly>;
+                    if (animations == null || wallFillins == null || flies == null)
                         throw new InvalidOperationException("Vanilla's scene render dictionaries are unavailable.");
                 }
                 bool newTargets = differentMap || !ReferenceEquals(lastTargets, targets);
                 currentMap = map; area = selection; rotation = (int)map.CurrentRotation(); flattened = EngineInterface.FlattenedLandscape;
                 if (newTargets)
                 {
-                    selectedCells.Clear(); selectedBuildings.Clear(); lastTargets = targets;
+                    selectedCells.Clear(); selectedBuildings.Clear(); selectedDecorations.Clear(); lastTargets = targets;
                     GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
                     foreach (DemolitionTarget target in targets ?? Array.Empty<DemolitionTarget>())
                     {
+                        if (target.Kind == TargetKind.Decoration) { selectedDecorations[target.Slot] = target; continue; }
                         if (target.Kind == TargetKind.Building || target.Kind == TargetKind.Pitch) selectedBuildings.Add(target.Slot);
                         if (target.OccupiedTiles != null && target.OccupiedTiles.Length != 0)
                         {
@@ -105,15 +109,11 @@ namespace AreaDemolitionTest
                         else selectedCells.Add(CellKey(target.X, target.Y));
                     }
                 }
-                if (newGeometry) RebuildGround();
-                if (groundRoot != null) groundRoot.SetActive(true);
                 if (newTargets || newGeometry) RebuildRenderCells();
             }
             catch (Exception error) { Fail(error); }
         }
 
-        private static bool SameArea(AreaRect? first, AreaRect? second) => first.HasValue == second.HasValue &&
-            (!first.HasValue || first.Value.MinX == second.Value.MinX && first.Value.MinY == second.Value.MinY && first.Value.MaxX == second.Value.MaxX && first.Value.MaxY == second.Value.MaxY);
         private static long CellKey(int x, int y) => ((long)(uint)x << 32) | (uint)y;
 
         private void EnsureMaterials()
@@ -123,7 +123,6 @@ namespace AreaDemolitionTest
             if (source == null || source.shader == null || source.shader.name != PlainShader || !source.shader.isSupported)
                 throw new InvalidOperationException("The loaded Vanilla plain-sprite shader is unavailable.");
             if (spriteMaterial == null) spriteMaterial = new Material(source) { name = "AreaDemolition_SpriteTint" };
-            if (fillMaterial == null) fillMaterial = new Material(source) { name = "AreaDemolition_GroundFill", mainTexture = Texture2D.whiteTexture };
         }
 
         private void ValidateTilemap(Tilemap tilemap)
@@ -145,9 +144,9 @@ namespace AreaDemolitionTest
                 if (rotation != (int)currentMap.CurrentRotation() || flattened != EngineInterface.FlattenedLandscape)
                 {
                     checkedTilemaps.Clear(); rotation = (int)currentMap.CurrentRotation(); flattened = EngineInterface.FlattenedLandscape;
-                    RebuildGround(); RebuildRenderCells();
+                    RebuildRenderCells();
                 }
-                activeCamera = camera; scopeTargets = lastTargets ?? Array.Empty<DemolitionTarget>(); hasRenderScope = true;
+                activeCamera = camera; scopeTargets = lastTargets ?? Array.Empty<DemolitionTarget>(); hasRenderScope = true; scopeComplete = true;
                 foreach (RenderCell cell in renderCells)
                 {
                     Tilemap tilemap = cell.Tile.tilemapRef;
@@ -162,6 +161,25 @@ namespace AreaDemolitionTest
                 }
                 foreach (WallFillin fillin in wallFillins.Values)
                     if (ContainsRenderedCell(fillin.mapX, fillin.mapY)) TintSprite(fillin.sprRenderer);
+                foreach (KeyValuePair<int, DemolitionTarget> entry in selectedDecorations)
+                {
+                    DemolitionTarget target = entry.Value;
+                    if (!flies.TryGetValue(entry.Key, out Fly fly) || fly.gameObjectType != target.Type)
+                    { unpresentedDecorations.Add(target); continue; }
+                    GameMapTile tile = currentMap.getMapTile(fly.mapX, fly.mapY);
+                    if (tile == null || tile.gameMapX != target.X || tile.gameMapY != target.Y)
+                    { unpresentedDecorations.Add(target); continue; }
+                    TintSprite(fly.sprRenderer);
+                    if (fly.sprRenderer == null || !tintedSprites.Contains(fly.sprRenderer)) unpresentedDecorations.Add(target);
+                }
+                if (unpresentedDecorations.Count != 0)
+                {
+                    // Native 19D430 removes unseen flies. An offscreen linked effect therefore
+                    // need not have an active renderer; visible ground anchors must catch up.
+                    Rect viewport = camera.pixelRect;
+                    var visible = new ScreenRect(viewport.xMin, viewport.yMin, viewport.xMax, viewport.yMax);
+                    if (screenProjection.CaptureTileIds(visible, unpresentedDecorations, false).Length != 0) scopeComplete = false;
+                }
             }
             catch (Exception error) { Fail(error); }
         }
@@ -211,10 +229,11 @@ namespace AreaDemolitionTest
             try
             {
                 DemolitionTarget[] shown = scopeTargets;
+                bool complete = scopeComplete;
                 Restore();
                 // This exact immutable snapshot has now crossed a complete main-camera render.
                 // Consumers may schedule a later commit; no mutation is performed by the renderer.
-                Presented?.Invoke(shown);
+                if (complete) Presented?.Invoke(shown);
             }
             catch (Exception error) { Fail(error); }
         }
@@ -232,7 +251,7 @@ namespace AreaDemolitionTest
                 TileRestore item = tileRestore[i];
                 if (item.Tilemap != null && item.Tilemap.GetSprite(item.Position) == item.Sprite) item.Tilemap.SetColor(item.Position, item.Color);
             }
-            spriteRestore.Clear(); tileRestore.Clear(); tintedSprites.Clear(); hasRenderScope = false; activeCamera = null; scopeTargets = null;
+            spriteRestore.Clear(); tileRestore.Clear(); tintedSprites.Clear(); unpresentedDecorations.Clear(); hasRenderScope = false; scopeComplete = false; activeCamera = null; scopeTargets = null;
         }
 
         private bool TryMapCell(int x, int y, out GameMapTile tile, out Vector3Int location)
@@ -242,77 +261,15 @@ namespace AreaDemolitionTest
             return tile != null && tile.tilemapRef != null;
         }
 
-        private bool TryGround(int x, int y, out GameMapTile tile, out Vector3 center, out Vector3 planeCenter)
-        {
-            center = planeCenter = default;
-            if (!TryMapCell(x, y, out tile, out Vector3Int location)) return false;
-            planeCenter = tile.tilemapRef.GetCellCenterWorld(location); center = planeCenter;
-            center.z = currentMap.getSpritePosVector(location.x, location.y).z;
-            if (flattened) center.y += tile.height;
-            else
-            {
-                GameTileManagerAPI api = GameTileManagerAPI.Instance;
-                if (!api.IsTileInsideMapBounds(x, y)) return false;
-                int id = api.GetTileId(x, y);
-                if (!api.IsValidTileId(id)) return false;
-                center.y += api.GetTileDefaultHeight(id) / 32f;
-            }
-            return true;
-        }
-
-        private void RebuildGround()
-        {
-            if (!area.HasValue || currentMap == null) return;
-            if (groundRoot == null) groundRoot = new GameObject("AreaDemolition_Selection");
-            foreach (GroundRow row in rows.Values) row.Clear();
-            AreaRect bounds = area.Value;
-            for (int y = bounds.MinY; y <= bounds.MaxY; y++)
-            {
-                for (int x = bounds.MinX; x <= bounds.MaxX; x++)
-                {
-                    if (!TryGround(x, y, out GameMapTile tile, out Vector3 center, out Vector3 plane)) continue;
-                    Vector3 u, v;
-                    if (TryGround(x + 1, y, out _, out _, out Vector3 nextX)) u = nextX - plane;
-                    else if (TryGround(x - 1, y, out _, out _, out Vector3 previousX)) u = plane - previousX;
-                    else continue;
-                    if (TryGround(x, y + 1, out _, out _, out Vector3 nextY)) v = nextY - plane;
-                    else if (TryGround(x, y - 1, out _, out _, out Vector3 previousY)) v = plane - previousY;
-                    else continue;
-                    u.z = v.z = 0;
-                    if (!rows.TryGetValue(tile.row, out GroundRow row))
-                    {
-                        row = new GroundRow(tile.row, groundRoot.transform, fillMaterial); rows.Add(tile.row, row);
-                    }
-                    Vector3 p0 = center - u * 0.5f - v * 0.5f, p1 = center + u * 0.5f - v * 0.5f;
-                    Vector3 p2 = center + u * 0.5f + v * 0.5f, p3 = center - u * 0.5f + v * 0.5f;
-                    row.Quad(p0, p1, p2, p3, new Color32(132, 123, 109, 28));
-                    if (x == bounds.MinX) row.Edge(p0, p3);
-                    if (x == bounds.MaxX) row.Edge(p1, p2);
-                    if (y == bounds.MinY) row.Edge(p0, p1);
-                    if (y == bounds.MaxY) row.Edge(p3, p2);
-                }
-            }
-            foreach (GroundRow row in rows.Values) row.Upload();
-        }
-
         internal void Clear()
         {
-            AssertUnityThread(); Restore(); area = null; lastTargets = null; selectedCells.Clear(); selectedBuildings.Clear(); renderCells.Clear();
-            checkedTilemaps.Clear(); currentMap = null; animations = null; wallFillins = null; rotation = -1; DestroyGround();
-        }
-
-        private void DestroyGround()
-        {
-            foreach (GroundRow row in rows.Values) row.Destroy();
-            rows.Clear();
-            if (groundRoot != null) Object.Destroy(groundRoot);
-            groundRoot = null;
+            AssertUnityThread(); Restore(); area = null; lastTargets = null; selectedCells.Clear(); selectedBuildings.Clear(); selectedDecorations.Clear(); renderCells.Clear();
+            checkedTilemaps.Clear(); currentMap = null; animations = null; wallFillins = null; flies = null; rotation = -1;
         }
 
         private void Fail(Exception error)
         {
             Restore(); area = null;
-            if (groundRoot != null) groundRoot.SetActive(false);
             if (!ready) return;
             ready = false;
             string message = "Area demolition preview unavailable: " + error.Message;
@@ -340,45 +297,5 @@ namespace AreaDemolitionTest
             internal SpriteRestore(SpriteRenderer renderer, Sprite sprite, Material material, Color color) { Renderer = renderer; Sprite = sprite; Material = material; Color = color; }
         }
 
-        private sealed class GroundRow
-        {
-            private readonly GameObject gameObject;
-            private readonly Mesh mesh;
-            private readonly List<Vector3> vertices = new List<Vector3>();
-            private readonly List<Color32> colors = new List<Color32>();
-            private readonly List<Vector2> uv = new List<Vector2>();
-            private readonly List<int> triangles = new List<int>();
-            internal GroundRow(int row, Transform parent, Material material)
-            {
-                gameObject = new GameObject("AreaDemolition_Row_" + row); gameObject.transform.SetParent(parent, false);
-                mesh = new Mesh { name = gameObject.name, indexFormat = IndexFormat.UInt32 }; mesh.MarkDynamic();
-                gameObject.AddComponent<MeshFilter>().sharedMesh = mesh;
-                MeshRenderer renderer = gameObject.AddComponent<MeshRenderer>(); renderer.sharedMaterial = material;
-                renderer.sortingOrder = -20000 + row * 49 + 1;
-            }
-            internal void Clear() { vertices.Clear(); colors.Clear(); uv.Clear(); triangles.Clear(); }
-            internal void Quad(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, Color32 color)
-            {
-                int start = vertices.Count; vertices.Add(p0); vertices.Add(p1); vertices.Add(p2); vertices.Add(p3);
-                for (int i = 0; i < 4; i++) { colors.Add(color); uv.Add(new Vector2(0.5f, 0.5f)); }
-                if (Vector3.Cross(p1 - p0, p2 - p0).z < 0)
-                { triangles.Add(start); triangles.Add(start + 1); triangles.Add(start + 2); triangles.Add(start); triangles.Add(start + 2); triangles.Add(start + 3); }
-                else
-                { triangles.Add(start); triangles.Add(start + 2); triangles.Add(start + 1); triangles.Add(start); triangles.Add(start + 3); triangles.Add(start + 2); }
-            }
-            internal void Edge(Vector3 first, Vector3 last)
-            {
-                Vector3 delta = last - first;
-                Vector3 normal = new Vector3(-delta.y, delta.x, 0).normalized * 0.009f;
-                Quad(first - normal, last - normal, last + normal, first + normal, new Color32(153, 141, 121, 130));
-            }
-            internal void Upload()
-            {
-                gameObject.SetActive(vertices.Count != 0);
-                mesh.Clear(); if (vertices.Count == 0) return;
-                mesh.SetVertices(vertices); mesh.SetColors(colors); mesh.SetUVs(0, uv); mesh.SetTriangles(triangles, 0); mesh.RecalculateBounds();
-            }
-            internal void Destroy() { Object.Destroy(mesh); Object.Destroy(gameObject); }
-        }
     }
 }

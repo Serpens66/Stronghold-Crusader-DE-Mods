@@ -21,6 +21,12 @@
   },
   "documents": [
     {
+      "file": "UNIT_VOICES.md",
+      "scope": "vanilla+integration",
+      "components": ["APIShared", "BeduinFemaleTest"],
+      "integrationSections": ["APIShared integration"]
+    },
+    {
       "file": "AREA_DEMOLITION.md",
       "scope": "vanilla+integration",
       "components": ["AreaDemolitionTest"],

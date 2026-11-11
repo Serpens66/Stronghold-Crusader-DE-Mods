@@ -229,7 +229,7 @@ namespace AreaDemolitionTest
             {
                 if(!IsCurrent() || batches!=null || failed) {status="Another demolition is pending or the world is not ready.";return;}
                 if(actor<1 || actor>8 || targets.Any(t=>t.Owner!=actor)) {status="The selected objects do not belong to the issuer.";return;}
-                if(prepared.Length==0)return;
+                if(prepared.Length==0){status="Unsent demolition cancelled.";Notify();return;}
                 if(mission.Mode.IsRealMultiplayer && !peers.Any(p=>p.SteamId==localSteam && p.PlayerId==actor)) {status="A real local player is required.";return;}
                 this.actor=actor; batches=prepared; batchIndex=0; operation=checked(operation+1); cancelled=false;
                 status="Waiting for synchronized demolition.";
@@ -364,16 +364,7 @@ namespace AreaDemolitionTest
             }
             Notify();
         }
-        private static bool ValidateSimulation(DemolitionSimulationPacket packet)
-        {
-            if(packet==null || packet.Protocol!=ProtocolPolicy.Version || packet.Kind>(byte)SimulationPacketKind.ApplyBatch || !ProtocolPolicy.IsDigest(packet.Token) || !ProtocolPolicy.IsNonce(packet.Nonce) || !ProtocolPolicy.IsDigest(packet.Digest))return false;
-            try
-            {
-                if((SimulationPacketKind)packet.Kind==SimulationPacketKind.ReadyProof) return packet.Operation==0 && packet.Batch==0 && ProtocolPolicy.DecodePeers(packet.Payload,true).Length>0;
-                return packet.Operation>0 && packet.Batch>=0 && ProtocolPolicy.UnpackTargets(packet.Payload).Length>0;
-            }
-            catch {return false;}
-        }
+        private static bool ValidateSimulation(DemolitionSimulationPacket packet) => ProtocolPolicy.ValidateSimulationPacket(packet);
         private static bool ValidateControl(DemolitionControlPacket packet)
         {
             if(packet==null || packet.Protocol!=ProtocolPolicy.Version || packet.Kind>(byte)ControlPacketKind.ExecutionAck || !ProtocolPolicy.IsNonce(packet.ProbeNonce))return false;

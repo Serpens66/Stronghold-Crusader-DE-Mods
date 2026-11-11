@@ -158,6 +158,7 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 - [Savegame metadata without the original map](./sem/FBCB9319/knowledge/SAVEGAME_MISSING_MAP_METADATA.md): confirmed Vanilla map-availability rejection, embedded Lord presentation, safe serialization boundary and desktop-tested managed testmod.
 - [Savegame modsettings load boundaries](./sem/FBCB9319/knowledge/SAVEGAME_MODSETTINGS_LOAD.md): multiplayer map-load routing, installed archive-context mismatch, Solo/Coop boundaries and readiness validation limits.
 - [Situational unit audio](./sem/FBCB9319/knowledge/SITUATIONAL_UNIT_AUDIO.md): complete Arabian idle sword-draw production, buffer transport, per-play volume and permanent hook contracts.
+- [Unit speech sources and shared filename transport](./sem/FBCB9319/knowledge/UNIT_VOICES.md): troop, siege, recruitment and civilian voices; four filename writers, last-writer coalescing, managed playback and lifetime; static evidence, game acceptance separate.
 - [GameAction classes for a foreign-view observer](./sem/FBCB9319/knowledge/GAMEACTION_OBSERVER_CLASSES.md): every DLL_GameAction command classified as acting as the native viewpoint or not, open tick/autotrade paths, and the Spectator observer policy.
 - [Spectator building and wall placement](./sem/FBCB9319/knowledge/SPECTATOR_BUILD_PLACEMENT.md)
 - [Spectator report path](./sem/FBCB9319/knowledge/SPECTATOR_REPORTS.md): selected view index, native report buffer, managed Army gate, and Food action controls.

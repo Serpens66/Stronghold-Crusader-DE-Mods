@@ -1,116 +1,126 @@
 {
-  "InstalledUtc": "2026-11-11T12:48:22.8949122Z",
+  "InstalledUtc": "2026-11-11T14:12:40.3488143Z",
   "GUID": "AreaDemolitionTest_Serp",
-  "Version": "0.1.0",
+  "Version": "0.1.1",
+  "NetworkMode": 1,
   "Destination": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\AreaDemolitionTest_Serp",
-  "BuildProof": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\a\\area-build\\002\\result.json",
+  "BuildProof": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\a\\area-build\\003\\result.json",
   "FileCount": 25,
   "Files": [
     {
-      "Relative": "AreaDemolitionTest.dll",
-      "Sha256": "609780c299f5f112ceae471792e2deb856c532c04507ba717552295b429fe430"
+      "Sha256": "12f94a3a15aad6a83f9769d735ed3a2983ecc168f5562ae46b6bf4f92e9e4a80",
+      "Path": "AreaDemolitionTest.dll"
     },
     {
-      "Relative": "AreaDemolitionTest.pdb",
-      "Sha256": "3c61264b7e3925d42449e28e924a420e3c3ef81a85bbe0d9ce3582d0f2a1175e"
+      "Sha256": "e1de091cff8b488edad0b448e06b4063df97896006fd6788af4c2397c92e1dfb",
+      "Path": "AreaDemolitionTest.pdb"
     },
     {
-      "Relative": "info.json",
-      "Sha256": "eed623729c182029909f5af0bbd7fe8ba6ced4a7d9c918efa198e4713e8abf6b"
+      "Sha256": "4d2bd4ca07052b3cc38352f489e18c7af998ec6060e5afa3d7bdbb54af3eaf75",
+      "Path": "info.json"
     },
     {
-      "Relative": "TESTPLAN.txt",
-      "Sha256": "c485e35dc8ffa77ef2b9f5a593510007c53ccbd88950db3e8d5d5b83cca9420c"
+      "Sha256": "4b8d5d6570070086ec5cee6e0791cd5ef0a276032a141480664905b9e357a910",
+      "Path": "TESTPLAN.txt"
     },
     {
-      "Relative": "Locales\\ar.txt",
-      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+      "Sha256": "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+      "Path": "Locales\\ar.txt"
     },
     {
-      "Relative": "Locales\\cs-CZ.txt",
-      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+      "Sha256": "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+      "Path": "Locales\\cs-CZ.txt"
     },
     {
-      "Relative": "Locales\\de-DE.txt",
-      "Sha256": "2cdae82b86c9b53ed5969e0f0acbe6807d10e2801df1907ac1f4f18e4eaa30cc"
+      "Sha256": "e093479cbddb010d6414e4166062359123ba988f216de7ab9ccdd03c5c3179ad",
+      "Path": "Locales\\de-DE.txt"
     },
     {
-      "Relative": "Locales\\el-GR.txt",
-      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+      "Sha256": "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+      "Path": "Locales\\el-GR.txt"
     },
     {
-      "Relative": "Locales\\en-US.txt",
-      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+      "Sha256": "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+      "Path": "Locales\\en-US.txt"
     },
     {
-      "Relative": "Locales\\es-ES.txt",
-      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+      "Sha256": "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+      "Path": "Locales\\es-ES.txt"
     },
     {
-      "Relative": "Locales\\fr-FR.txt",
-      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+      "Sha256": "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+      "Path": "Locales\\fr-FR.txt"
     },
     {
-      "Relative": "Locales\\hu-HU.txt",
-      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+      "Sha256": "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+      "Path": "Locales\\hu-HU.txt"
     },
     {
-      "Relative": "Locales\\it-IT.txt",
-      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+      "Sha256": "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+      "Path": "Locales\\it-IT.txt"
     },
     {
-      "Relative": "Locales\\ja-JP.txt",
-      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+      "Sha256": "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+      "Path": "Locales\\ja-JP.txt"
     },
     {
-      "Relative": "Locales\\ko-KR.txt",
-      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+      "Sha256": "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+      "Path": "Locales\\ko-KR.txt"
     },
     {
-      "Relative": "Locales\\nl-NL.txt",
-      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+      "Sha256": "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+      "Path": "Locales\\nl-NL.txt"
     },
     {
-      "Relative": "Locales\\pl-PL.txt",
-      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+      "Sha256": "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+      "Path": "Locales\\pl-PL.txt"
     },
     {
-      "Relative": "Locales\\pt-BR.txt",
-      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+      "Sha256": "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+      "Path": "Locales\\pt-BR.txt"
     },
     {
-      "Relative": "Locales\\ru-RU.txt",
-      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+      "Sha256": "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+      "Path": "Locales\\ru-RU.txt"
     },
     {
-      "Relative": "Locales\\sv-SE.txt",
-      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+      "Sha256": "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+      "Path": "Locales\\sv-SE.txt"
     },
     {
-      "Relative": "Locales\\th-TH.txt",
-      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+      "Sha256": "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+      "Path": "Locales\\th-TH.txt"
     },
     {
-      "Relative": "Locales\\tr-TR.txt",
-      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+      "Sha256": "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+      "Path": "Locales\\tr-TR.txt"
     },
     {
-      "Relative": "Locales\\uk-UA.txt",
-      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+      "Sha256": "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+      "Path": "Locales\\uk-UA.txt"
     },
     {
-      "Relative": "Locales\\zh-CN.txt",
-      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+      "Sha256": "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+      "Path": "Locales\\zh-CN.txt"
     },
     {
-      "Relative": "Locales\\zh-HK.txt",
-      "Sha256": "0d0123fa6a5a8e154c533900b4052549a526a2aad3ee06733a54d52114afd430"
+      "Sha256": "329c8f4171e9b4223f7def26b9a890e30ea7be25366674b7da0659a388db24ae",
+      "Path": "Locales\\zh-HK.txt"
     }
   ],
   "UnchangedDependencies": {
-    "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\APIShared_Serp\\APIShared.dll": "528b7f983c27e0eb1fd036ed41cb73fb51fdf2fa47e341791a8c28c6e9eb2963",
-    "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\SHCDESE.dll": "5cb1c33be5463086505a17f5c48aaa357d733cfff7240e101c821f0e3c668498",
-    "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\patchers\\APIShared.DependencyBootstrap.dll": "18f5bcc6bfe3daf7c354ae9224d4ae134d40fda63f6df0b13dfee2007c901fbe"
+    "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\Stronghold Crusader Definitive Edition_Data\\Plugins\\x86_64\\CrusaderDE.dll": "fbcb93195fc7efca9bdac5204852efdd76f9818f59a6711750d77c9cef2831e2",
+    "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\APIShared_Serp\\APIShared.dll": "bfdd2cb177393c0f36a8791f619e65dc1df587d76e5c78d88572328621973959",
+    "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\Stronghold Crusader Definitive Edition_Data\\Managed\\Assembly-CSharp.dll": "bc8b6a395f01d48557db413600c8dd8d1fdfd3abdf97bfbbb68a3c56b04fd789",
+    "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\patchers\\APIShared.DependencyBootstrap.dll": "96559217aca601232f40ae86b966e8ee3d60566d8d82931b5441c5bb4fb6d93d",
+    "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\SHCDESE.dll": "5cb1c33be5463086505a17f5c48aaa357d733cfff7240e101c821f0e3c668498"
   },
-  "GameAcceptance": "User will perform single-player test; no game was launched by this installation."
+  "OfflineChecks": {
+    "Native": 2572,
+    "Protocol": 40,
+    "Total": 3269,
+    "PolicyAndGeometry": 657
+  },
+  "GameAcceptance": "User manually tested0.1.0 singleplayer; automated game/editor/MP acceptance for0.1.1 explicitly deferred. No game or global input used.",
+  "ConservativePolicy": "Before packing discard changed frozen selection; before mutation skip changed packet. Completed operations remain applied."
 }

@@ -49,6 +49,19 @@ if ((-not $ModDirectory -or $selectedFiles.Contains($wheatMemory)) -and (Test-Pa
     if (-not $?) { throw 'APIShared wheat startup boundary verification failed.' }
 }
 
+# Only the Roslyn-verified startup publication sites may enable a unit voice entry.
+# The checker verifies the once gate, process root, publication barrier, all publisher
+# callers, readiness order, and unpublished-only disposal; a filename is not permission.
+$startupPublications = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+$unitVoiceRuntime = Join-Path $workspace 'APIShared\src\Audio\UnitVoices\UnitVoiceNativeRuntime.cs'
+if ($selectedFiles.Contains($unitVoiceRuntime)) {
+    $project = Join-Path $workspace 'APIShared\tools\SourceContracts\SourceContracts.csproj'
+    $report = @(& dotnet run --project $project --configuration Release --verbosity quiet -- (Join-Path $workspace 'APIShared') hook-publications)
+    if ($LASTEXITCODE -ne 0) { throw 'Unit voice startup publication verification failed.' }
+    $sites = @($report[-1] | ConvertFrom-Json)
+    foreach ($site in $sites) { [void]$startupPublications.Add(([IO.Path]::GetFullPath($site.Path) + ':' + $site.Line)) }
+}
+
 # Returns the first/last line of the brace block that starts at the only line containing $Signature.
 function Get-SourceBlock([string[]]$Lines, [string]$Signature) {
     $starts = @(for ($i = 0; $i -lt $Lines.Length; $i++) { if ($Lines[$i].Contains($Signature)) { $i } })
@@ -136,7 +149,10 @@ foreach ($file in $files) {
             $freshPage = $freshPageBlocks.Count -gt 0 -and $line -notmatch '\bCodePatch\.|\.Hook\.|GatehouseNativeMutation' -and
                 ($line -match '^\s*(?:\[DllImport\([^\]]*\)\]\s*)?private static extern bool (?:VirtualProtect|FlushInstructionCache)\(' -or
                  @($freshPageBlocks | Where-Object { $index -ge $_.Start -and $index -le $_.End }).Count -gt 0)
-            if ($file.FullName -ne $wheatMemory -and -not $freshSpectatorStub -and -not $freshPage) {
+            $startupPublication = $line -match '\.Hook\.Enable\s*\(' -and
+                $line -notmatch '\.Hook\.Disable\s*\(|\bCodePatch\.|GatehouseNativeMutation|\bVirtualProtect\s*\(|\bFlushInstructionCache\s*\(' -and
+                $startupPublications.Contains(($file.FullName + ':' + ($index + 1)))
+            if ($file.FullName -ne $wheatMemory -and -not $freshSpectatorStub -and -not $freshPage -and -not $startupPublication) {
                 $errors.Add("$($file.FullName):$($index + 1): runtime executable-memory mutation: $($line.Trim())")
             }
         }

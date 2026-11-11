@@ -7,8 +7,8 @@ using System.Text;
 
 namespace AreaDemolitionTest
 {
-    internal enum TargetKind : byte { Building, Pitch, Wall, DugMoat }
-    internal enum TargetGroup : byte { Buildings, Fortifications, PositiveFear, NegativeFear, DogCages, KillingPits, Pitch, DugMoats }
+    internal enum TargetKind : byte { Building, Pitch, Wall, DugMoat, Decoration }
+    internal enum TargetGroup : byte { Buildings, Fortifications, PositiveFear, NegativeFear, DogCages, KillingPits, Pitch, DugMoats, Decorations }
 
     internal readonly struct AreaRect
     {
@@ -34,9 +34,9 @@ namespace AreaDemolitionTest
 
     internal readonly struct SelectionSpec
     {
-        internal SelectionSpec(byte filters, bool sameType, DemolitionTarget start)
+        internal SelectionSpec(ushort filters, bool sameType, DemolitionTarget start)
         { Filters=filters; SameType=sameType; Start=start; }
-        internal readonly byte Filters;
+        internal readonly ushort Filters;
         internal readonly bool SameType;
         internal readonly DemolitionTarget Start;
         internal bool Matches(DemolitionTarget target)

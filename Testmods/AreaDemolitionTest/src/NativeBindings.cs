@@ -16,7 +16,7 @@ namespace AreaDemolitionTest
     internal sealed unsafe class NativeBindings
     {
         internal const string SupportedHash = "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
-        internal const int TileManagerRva = 0x405EDB0, BuildingManagerRva = 0x64CCBB0;
+        internal const int TileManagerRva = 0x405EDB0, BuildingManagerRva = 0x64CCBB0, ProjectileManagerRva = 0x2F7A680;
         internal const int CursorRva = 0x3A11DC0, NeighboursRva = 0x8DDCA0;
         internal const int ActorRva = 0x88E3D70, DemolitionContextRva = 0x60AD528;
         internal const int WallRefundBranchRva = 0x13880;
@@ -36,20 +36,21 @@ namespace AreaDemolitionTest
         internal readonly object EngineGate;
         internal readonly QueryDelegate Query;
         internal readonly RefundDelegate Refund;
-        internal readonly DeleteDelegate Delete, RemovePitch;
+        internal readonly DeleteDelegate Delete, RemovePitch, RemoveDecorations;
         internal readonly FindDelegate Find;
         internal readonly WallDelegate Wall;
         internal readonly MoatDelegate Moat;
         internal readonly SoundDelegate Sound;
         internal IntPtr Tiles => new IntPtr(Module + TileManagerRva);
         internal IntPtr Buildings => new IntPtr(Module + BuildingManagerRva);
+        internal IntPtr Projectiles => new IntPtr(Module + ProjectileManagerRva);
         internal byte* TilePointer => (byte*)Tiles;
         internal byte* ModulePointer => (byte*)Module;
 
 #if AREA_DEMOLITION_TESTS
         // Private-memory fixtures exercise production scratch handling without loading/calling the game.
-        internal NativeBindings(IntPtr module, object engineGate, QueryDelegate query, MoatDelegate moat = null)
-        { Module = module.ToInt64(); EngineGate = engineGate; Query = query; Moat = moat; }
+        internal NativeBindings(IntPtr module, object engineGate, QueryDelegate query, MoatDelegate moat = null, DeleteDelegate decorations = null)
+        { Module = module.ToInt64(); EngineGate = engineGate; Query = query; Moat = moat; RemoveDecorations = decorations; }
 #endif
 
         internal bool Allows(DemolitionTarget target, int actor)
@@ -94,6 +95,8 @@ namespace AreaDemolitionTest
             }
         }
 
+        internal void RemoveDecorationTile(int tile) => RemoveDecorations(Projectiles,tile);
+
         internal void RemoveDugMoat(int taskIndex, int tile)
         {
             // Same ordered writes/call as 0x13818..0x13856. Task index was identity/owner checked by Apply.
@@ -111,16 +114,29 @@ namespace AreaDemolitionTest
                 throw new InvalidOperationException("Unsupported CrusaderDE.dll: demolition layouts are hash bound.");
             if (context.Memory.Length <= ActorRva + sizeof(int)) throw new InvalidOperationException("Native image is truncated.");
             if (GameGlobalsManager.Instance.GameTileManagerVA != unchecked((ulong)(Module + TileManagerRva)) ||
-                GameGlobalsManager.Instance.GameBuildingManagerVA != unchecked((ulong)(Module + BuildingManagerRva)))
+                GameGlobalsManager.Instance.GameBuildingManagerVA != unchecked((ulong)(Module + BuildingManagerRva)) ||
+                GameGlobalsManager.Instance.GameProjectilesManagerVA != unchecked((ulong)(Module + ProjectileManagerRva)))
                 throw new InvalidOperationException("Extender manager bindings differ from the audited native bases.");
             var field = typeof(EngineInterface).GetField("threadLock", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
             if (field == null || field.FieldType != typeof(object) || (EngineGate = field.GetValue(null)) == null)
                 throw new MissingFieldException("EngineInterface.threadLock");
-            if (sizeof(GameBuilding) != 0x32C || sizeof(MoatWorkTask) != 0x10 || sizeof(GamePitchDescriptor) != 0x14 ||
+            if (sizeof(GameBuilding) != 0x32C || sizeof(GameProjectile) != 0xE8 || sizeof(MoatWorkTask) != 0x10 || sizeof(GamePitchDescriptor) != 0x14 ||
                 Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_AliveState)).ToInt32() != 0xD0 ||
                 Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_GlobalId)).ToInt32() != 0xD8 ||
+                Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_OccupyTileGridSize)).ToInt32() != 0xF8 ||
+                Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_OccupiedTileIdsArrayBegin)).ToInt32() != 0x1C8 ||
+                Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_StoneQuarry_StockPileBuildingId)).ToInt32() != 0x192 ||
+                Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.N0000178A)).ToInt32() != 0x2A8 ||
+                Marshal.OffsetOf(typeof(GameProjectile), nameof(GameProjectile.r_GlobalId)).ToInt32() != 0x44 ||
+                Marshal.OffsetOf(typeof(GameProjectile), nameof(GameProjectile.r_PlayerSourceId)).ToInt32() != 0x40 ||
+                Marshal.OffsetOf(typeof(GameProjectile), nameof(GameProjectile.r_CurrentTileId)).ToInt32() != 0x60 ||
+                Marshal.OffsetOf(typeof(GameProjectile), nameof(GameProjectile.r_CurrentTileX)).ToInt32() != 0x58 ||
+                Marshal.OffsetOf(typeof(GameProjectile), nameof(GameProjectile.r_CurrentTileY)).ToInt32() != 0x5A ||
                 Marshal.OffsetOf(typeof(MoatWorkTask), nameof(MoatWorkTask.r_Progress)).ToInt32() != 0xD ||
-                (int)eStructs.STRUCT_DRAWBRIDGE != 0x31 || (uint)TilePropertyFlag.IsMoat != 0x40000000)
+                (int)eStructs.STRUCT_DRAWBRIDGE != 0x31 || (uint)TilePropertyFlag.IsMoat != 0x40000000 ||
+                // Native9F410's closed type interval; these are ABI assertions, not shadow domain constants.
+                (int)ProjectileType.Flag1 != 10 || (int)ProjectileType.Flag3 != 11 || (int)ProjectileType.Flag2 != 12 ||
+                (int)ProjectileType.CrusaderFlag != 13 || (int)ProjectileType.Brazier != 14 || (int)ProjectileType.Heads != 15)
                 throw new InvalidOperationException("Installed Extender native layout differs from the demolition audit.");
 
             Query = Bind<QueryDelegate>(context, log, 0x79B90, 1414, "D34F50E76C88D8165D41ACE03F0D08B2DB4EEFB40B92E5843B7FDD3F04F9AD8D", "44894C242044894424188954241048894C24085356415541574883EC684533FF");
@@ -128,6 +144,7 @@ namespace AreaDemolitionTest
             Delete = Bind<DeleteDelegate>(context, log, 0xC4290, 257, "713BF8FC70A1320F9EA7BB8B1CEBC82F0E52211C78A41D1DA3286EA5E24B0E56", "48895C240848896C2410488974241848897C242041564883EC2041BE03000000");
             Find = Bind<FindDelegate>(context, log, 0xB9330, 269, "D0E1D2F747CC546A18F3E845A016E06ADF7CD42C4AF3ECE5159CF95A4FA2B345", "48895C240848896C2410488974242044894424185741544155415641574883EC");
             RemovePitch = Bind<DeleteDelegate>(context, log, 0x62EB0, 176, "3BF3CDB006B64FC547950E938BD6340806006A039630E391B54DD10CC2E9C9D7", "40534883EC204C63C2BAFFDFFFFF498D801DC71900488D0480488D1C81486304");
+            RemoveDecorations = Bind<DeleteDelegate>(context, log, 0x9F410, 121, "E3F245F3E19DA54AD3C4AF52E3729A217DFAAC8198B1B21B25734222DE9719E9", "4883EC084863C24C8BC9488D0DCF58EC044C8D1441B800100000664185027454");
             Wall = Bind<WallDelegate>(context, log, 0x63700, 348, "450AF687D27EDC4A8402F742278FF9BC8D50EF6F8E1AF61CD85203723E3AE1D4", "48895C240848896C2410488974241857415641574883EC604963F84C8D3DDEC8");
             Moat = Bind<MoatDelegate>(context, log, 0x69470, 237, "F9E2EAEB9B1F1C53D33D402BF419D4459699BB2A3B3EB572F24A7404F1342AE5", "48896C24104889742418574883EC204863EA488BF1488BFD48C1E7044803F9FE");
             Sound = Bind<SoundDelegate>(context, log, 0x2960, 40, "DDC5CE169520CD99FC322CF1F43680C30414CE8045F7D5D9D16156B06A963705", "4883EC38418BC1C744242000000000458BC8488D0DA75EA900448BC28BD0E85D");

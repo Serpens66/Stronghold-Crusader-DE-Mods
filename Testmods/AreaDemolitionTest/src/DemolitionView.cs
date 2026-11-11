@@ -16,19 +16,22 @@ namespace AreaDemolitionTest
     {
         private readonly DemolitionSettings settings;
         private readonly ManualLogSource log;
+        private readonly Func<bool> consumePrimaryRelease;
+        private readonly Action primaryPressed;
         private readonly List<CheckBox> filters = new List<CheckBox>();
         private readonly Brush foreground = new SolidColorBrush(Color.FromArgb(255, 244, 232, 196));
         private HUD_Main hud;
         private Button button;
         private Grid host;
         private Canvas overlay;
-        private Border backdrop, menu, statusBox;
+        private Border backdrop, menu, statusBox, selectionBox;
+        private ScreenRect? selectionFrame;
         private TextBlock status;
         private bool menuOpen, closingClick, syncing, reportedFailure;
         private string statusText = "";
 
-        internal DemolitionView(DemolitionSettings settings, ManualLogSource log)
-        { this.settings = settings; this.log = log; }
+        internal DemolitionView(DemolitionSettings settings, ManualLogSource log,Func<bool> consumePrimaryRelease,Action primaryPressed)
+        { this.settings = settings; this.log = log; this.consumePrimaryRelease=consumePrimaryRelease;this.primaryPressed=primaryPressed; }
 
         internal event Action MenuChanged;
         internal bool IsMenuOpen => menuOpen;
@@ -49,6 +52,8 @@ namespace AreaDemolitionTest
                 {
                     Reset(); hud = candidate; host = candidateHost; button = candidateButton;
                     CreateOverlay();
+                    host.PreviewMouseUp += OnHostMouseUp;
+                    host.PreviewMouseDown += OnHostMouseDown;
                     button.MouseEnter += OnButtonMouseEnter;
                     button.PreviewMouseDown += OnButtonMouseDown;
                     button.PreviewMouseUp += OnButtonMouseUp;
@@ -71,6 +76,10 @@ namespace AreaDemolitionTest
             backdrop.PreviewMouseDown += OnBackdropDown;
             backdrop.PreviewMouseUp += OnBackdropUp;
             overlay.Children.Add(backdrop);
+            selectionBox = new Border { IsHitTestVisible=false, Visibility=Visibility.Collapsed,
+                BorderBrush=new SolidColorBrush(Color.FromArgb(190,180,170,150)), BorderThickness=new Thickness(1),
+                Background=new SolidColorBrush(Color.FromArgb(25,130,25,25)) };
+            overlay.Children.Add(selectionBox);
             var contents = new StackPanel();
             contents.Children.Add(new TextBlock { Text = Text.Get("MenuTitle"), Foreground = foreground,
                 FontWeight = FontWeights.Bold, Margin = new Thickness(0, 0, 0, 6), FontSize = 17 });
@@ -151,6 +160,14 @@ namespace AreaDemolitionTest
         { args.Handled = true; }
 
         private static void ConsumeMenuMouse(object sender, MouseButtonEventArgs args) => args.Handled = true;
+        private void OnHostMouseUp(object sender,MouseButtonEventArgs args)
+        {
+            // Preview routing reaches the common HUD ancestor before a button can act on release.
+            // The runtime also remembers a native-input completion for the rest of this frame.
+            if(args.ChangedButton==MouseButton.Left && consumePrimaryRelease()) args.Handled=true;
+        }
+        private void OnHostMouseDown(object sender,MouseButtonEventArgs args)
+        { if(args.ChangedButton==MouseButton.Left) primaryPressed(); }
         private void OnMenuKeyDown(object sender, KeyEventArgs args)
         { if (args.Key == Key.Escape) { args.Handled = true; CloseMenu(); } }
 
@@ -188,6 +205,24 @@ namespace AreaDemolitionTest
             UpdateLayout();
         }
 
+        internal void SetSelectionFrame(ScreenRect? rectangle)
+        { selectionFrame=rectangle;UpdateSelectionFrame(); }
+
+        private void UpdateSelectionFrame()
+        {
+            if(selectionBox==null || overlay==null) return;
+            if(!selectionFrame.HasValue || !selectionFrame.Value.IsFinite || menuOpen)
+            {selectionBox.Visibility=Visibility.Collapsed;return;}
+            var rect=selectionFrame.Value;
+            var topLeft=overlay.PointFromScreen(new Point(rect.MinX,Screen.height-rect.MaxY));
+            var bottomRight=overlay.PointFromScreen(new Point(rect.MaxX,Screen.height-rect.MinY));
+            Canvas.SetLeft(selectionBox,Math.Min(topLeft.X,bottomRight.X));
+            Canvas.SetTop(selectionBox,Math.Min(topLeft.Y,bottomRight.Y));
+            selectionBox.Width=Math.Abs(bottomRight.X-topLeft.X);
+            selectionBox.Height=Math.Abs(bottomRight.Y-topLeft.Y);
+            selectionBox.Visibility=Visibility.Visible;
+        }
+
         private void UpdateLayout()
         {
             if (host == null || overlay == null) return;
@@ -210,6 +245,7 @@ namespace AreaDemolitionTest
             Canvas.SetLeft(statusBox, Math.Max(6, Math.Min(width - statusBox.DesiredSize.Width - 6, right - statusBox.DesiredSize.Width)));
             Canvas.SetTop(statusBox, Math.Max(6, top - statusBox.DesiredSize.Height));
             statusBox.Visibility = statusText.Length == 0 || menuOpen ? Visibility.Collapsed : Visibility.Visible;
+            UpdateSelectionFrame();
         }
 
         internal void Reset()
@@ -222,9 +258,9 @@ namespace AreaDemolitionTest
                 button.PreviewMouseDown -= OnButtonMouseDown;
                 button.PreviewMouseUp -= OnButtonMouseUp;
             }
-            if (host != null && overlay != null) host.Children.Remove(overlay);
+            if(host!=null){host.PreviewMouseUp-=OnHostMouseUp;host.PreviewMouseDown-=OnHostMouseDown;if(overlay!=null)host.Children.Remove(overlay);}
             filters.Clear(); hud = null; button = null; host = null; overlay = null;
-            backdrop = menu = statusBox = null; status = null;
+            backdrop = menu = statusBox = selectionBox = null;selectionFrame=null; status = null;
             if (changed) MenuChanged?.Invoke();
         }
 

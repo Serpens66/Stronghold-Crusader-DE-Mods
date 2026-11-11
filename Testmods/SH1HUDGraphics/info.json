@@ -1,0 +1,15 @@
+{
+  "GUID": "HUDGraphics_Serp",
+  "Author": "Serpens66",
+  "Name": "HUD Graphics",
+  "Description": "Replacement artwork for the HUD, menus and dialogs. Requires the Script Extender.",
+  "Version": "0.1.1",
+  "Dependencies": [
+    {
+      "GUID": "000shcdese"
+    }
+  ],
+  "Manifest": 0,
+  "AssetMode": "Global",
+  "NetworkMode": 0
+}

@@ -1,16 +1,29 @@
-Area Demolition Test 0.1.0
+Area Demolition Test 0.1.1
 
 Right-click the unchanged Vanilla Bulldozer button for local area filters.
 Ordinary click: Vanilla single removal on release. Drag: enabled categories.
 Shift+drag: same starting type, or the entire positive/negative fear group.
+Shift can be pressed or released while holding the mouse. The starting object
+is fixed on press; decoration takes priority over its underlying building/wall.
+The screen-aligned rectangle selects actual projected occupied ground cells.
+Crossing HUD keeps the last valid screen endpoint; releasing there completes
+an area gesture and consumes the HUD release. A single release over HUD cancels.
 Cancel with right click, Escape, focus loss or tool change.
 Only dug moats are included. Planned digging marks remain unchanged.
 
 Acceptance requires actual game evidence. Passing a build is not gameplay acceptance.
 2026-11-11: user explicitly deferred all game/MP tests while other tests run.
-The normal package is prepared without installation to preserve that environment.
+0.1.0 was installed and manually tested in singleplayer by the user.
+0.1.1: normal build and installation requested; automated game/MP tests remain
+deferred. Offline checks do not establish acceptance of the changed UI routes.
 SP/editor: input shield, shifted start, every category, footprint overlap, linked
 parts, correct refunds, pause, rotation, zoom, heights, cancelled colour restoration.
+Also check stationary late Shift, Shift release, fast direct HUD crossing, HUD
+release followed by a normal HUD click, and no double submission on release.
+Check stockpile connections, every barracks/camp, engineers/tunnellers guild,
+quarry/pile, apple/wheat/hops/dairy farms, large gates/churches, and all six static
+decoration types. Check flags/braziers/heads sharing tiles and foreign decorations
+on building/wall removal. Every indirect consequence must be marked beforehand.
 MP: actual host/client, differing local filters, >32 targets, readiness mismatch,
 duplicates, stale load traffic, lost/mismatched acknowledgements, pause, spectator
 and defeated peer participation. No automatic retry or rollback claim.
