@@ -24,6 +24,7 @@ namespace BugfixesAndQoL
     [BepInIncompatibility("DrawbridgeDestructionFixTest_Serp")]
     [BepInIncompatibility("LordTeleportGuardTest_Serp")]
     [BepInIncompatibility("PitchStairsTest_Serp")]
+    [BepInIncompatibility("PitchMoatLineTest_Serp")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
 
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
@@ -96,6 +97,7 @@ namespace BugfixesAndQoL
                 FixesSuppressMessagesSync.Initialize(Logger, fixes.Instance.GetType().Assembly);
             LobbySaveLoadingFeature.Initialize(Logger, Settings);
             BuildPreview.BuildPreviewRuntime.Configure(Logger, Settings);
+            PitchMoatLines.PitchMoatLinesFeature.Configure(Logger, Settings);
             ArabianIdleSoundRuntime.Configure(Logger, Settings);
             skirmishGameOptionsCompatible = !HasLegacyExtraFeaturesPeaceTimeSetting();
             skirmishGameOptionsAccess = new SkirmishGameOptionsAccessViewModel(
@@ -328,6 +330,7 @@ namespace BugfixesAndQoL
 
             // Keep UI registration independent so one native feature cannot hide the whole mod.
             BuildPreview.BuildPreviewRuntime.Install(context);
+            PitchMoatLines.PitchMoatLinesFeature.Install(context);
             GatehouseTargetMarkerHeightHook.Install(context, Logger, Settings);
             try
             {

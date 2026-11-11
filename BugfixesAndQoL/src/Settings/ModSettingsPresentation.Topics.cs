@@ -30,6 +30,7 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableDisbandedUnitControlGroupCleanup => options["EnableDisbandedUnitControlGroupCleanup"];
         public SettingsOptionPresentation EnableEnemyProximityBulldozeCursorFix => options["EnableEnemyProximityBulldozeCursorFix"];
         public SettingsOptionPresentation EnableImprovedBuildPreview => options["EnableImprovedBuildPreview"];
+        public SettingsOptionPresentation EnablePitchMoatLines => options["EnablePitchMoatLines"];
         public SettingsOptionPresentation EnableTroopHudMiddleClickCameraJump => options["EnableTroopHudMiddleClickCameraJump"];
         public SettingsOptionPresentation AllowMinimapWhilePlacingBuilding => options["AllowMinimapWhilePlacingBuilding"];
         public SettingsOptionPresentation PreventMoveOrderOnPlacementCancel => options["PreventMoveOrderOnPlacementCancel"];
@@ -134,6 +135,7 @@ namespace BugfixesAndQoL
             AddOption("EnableDisbandedUnitControlGroupCleanup", "bugfixes.disbanded-unit-control-group-cleanup", SettingsCategory.Fixes, ClientControls);
             AddOption("EnableEnemyProximityBulldozeCursorFix", "bugfixes.enable-enemy-proximity-bulldoze-cursor-fix", SettingsCategory.Fixes, ClientControls);
             AddOption("EnableImprovedBuildPreview", "bugfixes.improved-build-preview", SettingsCategory.Qol, ClientControls);
+            AddOption("EnablePitchMoatLines", "bugfixes.pitch-moat-lines", SettingsCategory.Qol, ClientControls);
             AddOption("EnableTroopHudMiddleClickCameraJump", "bugfixes.troop-hud-middle-click-camera-jump", SettingsCategory.Qol, ClientControls);
             AddOption("AllowMinimapWhilePlacingBuilding", "bugfixes.allow-minimap-while-placing-building", SettingsCategory.Qol, ClientControls);
             AddOption("PreventMoveOrderOnPlacementCancel", "bugfixes.prevent-move-order-on-placement-cancel", SettingsCategory.Qol, ClientControls);

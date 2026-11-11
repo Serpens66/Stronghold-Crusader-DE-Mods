@@ -235,6 +235,10 @@ The circular order of goods in the detailed market view can be rearranged freely
 ### Trade exactly one market unit with Ctrl
 Hold Ctrl while buying or selling at the market to trade exactly one unit instead of the normal five.
 
+### Place pitch and moats in lines
+
+The enabled-by-default local **Pitch and moat lines** option is under **Client → Camera, building and controls → Quality of life**. Hold Ctrl and drag with the left mouse button to preview a one-tile-wide line along the wall grid. Releasing the mouse button places up to 64 valid, affordable tiles. Existing and blocked tiles are skipped, and pitch costs and stock appear in the normal building display. Releasing Ctrl early, right-clicking or pressing Escape cancels the gesture. In a game, moat tiles are marked for digging; in the map editor, they are excavated immediately. The normal brush and larger Shift brush remain available.
+
 ### Adjust ally goods-transfer amounts with Ctrl and Shift
 In the ally goods-transfer panel, Shift multiplies the clicked amount by five and Ctrl reduces it to one fifth, while the displayed button values update to show what will be sent. After selecting a good and a positive amount, the send button remains available even if the stock changes. Vanilla rechecks the current stock when clicked; successful and insufficient transfers both keep the panel open with the selection intact, while insufficient goods also play the normal warning.
 

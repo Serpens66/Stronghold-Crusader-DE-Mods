@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework>
+    <SdkDirectory>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese</SdkDirectory>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/PitchMoatLines/PitchLineNetwork.cs" Link="Production/PitchLineNetwork.cs" />
+    <Compile Include="../../src/PitchMoatLines/PitchLineNetworkPacket.cs" Link="Production/PitchLineNetworkPacket.cs" />
+    <Reference Include="MessagePack"><HintPath>$(SdkDirectory)\MessagePack.dll</HintPath></Reference>
+    <Reference Include="MessagePack.Annotations"><HintPath>$(SdkDirectory)\MessagePack.Annotations.dll</HintPath></Reference>
+    <Reference Include="Iced"><HintPath>$(SdkDirectory)\Iced.dll</HintPath></Reference>
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions"><HintPath>$(SdkDirectory)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath></Reference>
+    <Reference Include="RedBird.X64"><HintPath>$(SdkDirectory)\RedBird.X64.dll</HintPath></Reference>
+    <Reference Include="RedBird.Abstractions"><HintPath>$(SdkDirectory)\RedBird.Abstractions.dll</HintPath></Reference>
+    <Reference Include="RedBird.Core"><HintPath>$(SdkDirectory)\RedBird.Core.dll</HintPath></Reference>
+  </ItemGroup>
+</Project>

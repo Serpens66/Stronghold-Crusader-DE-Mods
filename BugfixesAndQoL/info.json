@@ -19,6 +19,7 @@
     {
       "Version": "1.0.220",
       "Changes": [
+        "Add an enabled-by-default local option to draw one-tile-wide pitch and moat lines with Ctrl and the left mouse button. Preview up to 64 tiles and pitch costs before releasing to build.",
         "Use the selected autosave interval in local skirmishes and Trails. Change it during local games from the pause menu.",
         "Keep the previous singleplayer autosave if the game writes an incomplete file.",
         "Prevent engineers assigned to a newly built catapult, trebuchet or fire ballista from also becoming available as free units. This host fix is enabled by default.",

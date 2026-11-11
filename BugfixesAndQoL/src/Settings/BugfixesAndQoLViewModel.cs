@@ -141,6 +141,8 @@ namespace BugfixesAndQoL
         private string multiplayerSafetyCompatibilityReport =
             MultiplayerSafetyPolicy.CompatibilityToken;
         private readonly string[] multiplayerSafetyCompatibilityReportData = new string[9];
+        private string pitchMoatLineCompatibilityReport = string.Empty;
+        private readonly string[] pitchMoatLineCompatibilityReportData = new string[9];
         private bool enableShiftGameSpeedSteps = true;
         private bool enableAllyGoodsAmountModifiers = true;
         private bool enableCustomTrailExtremeGoldFix = true;
@@ -164,6 +166,7 @@ namespace BugfixesAndQoL
         private const int DefaultArabianIdleSoundVolumePercent = 25;
         private int arabianIdleSoundVolumePercent = DefaultArabianIdleSoundVolumePercent;
         private bool enableImprovedBuildPreview = true;
+        private bool enablePitchMoatLines = true;
         private bool enableDamagedHealthBars = true;
         private int healthBarHotkey = DefaultHealthBarHotkey;
         private bool isCapturingHealthBarHotkey;
@@ -251,6 +254,15 @@ namespace BugfixesAndQoL
                     value => string.Equals(
                         value as string,
                         MultiplayerSafetyPolicy.CompatibilityToken,
+                        StringComparison.Ordinal))
+                .ResetSlotsWith(
+                    nameof(PitchMoatLineCompatibilityReport),
+                    () => null)
+                .RequireReport(
+                    nameof(PitchMoatLineCompatibilityReport),
+                    value => string.Equals(
+                        value as string,
+                        PitchMoatLines.PitchMoatLinesFeature.CompatibilityToken,
                         StringComparison.Ordinal))
                 .WhenLocalPlayerResolved(playerId => TrySetLocalPlayerId(playerId));
         }
@@ -489,6 +501,8 @@ namespace BugfixesAndQoL
         public string ShowForeignTroopHudHelpText => SerpLocalization.Get("BugfixesAndQoL.ShowForeignTroopHudHelp");
         public string ImprovedBuildPreviewText => SerpLocalization.Get("BugfixesAndQoL.ImprovedBuildPreview");
         public string ImprovedBuildPreviewHelpText => SerpLocalization.Get("BugfixesAndQoL.ImprovedBuildPreviewHelp");
+        public string PitchMoatLinesText => SerpLocalization.Get("BugfixesAndQoL.PitchMoatLines");
+        public string PitchMoatLinesHelpText => SerpLocalization.Get("BugfixesAndQoL.PitchMoatLinesHelp");
         public string DamagedHealthBarsHotkeyText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsHotkey");
         public string DamagedHealthBarsHotkeyHelpText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsHotkeyHelp");
         public string DamagedHealthBarsCaptureText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsCapture");
@@ -649,6 +663,8 @@ namespace BugfixesAndQoL
         public int[][] MarketGoodsOrderData => marketGoodsOrder.Data;
         public string[] MultiplayerSafetyCompatibilityReportData =>
             multiplayerSafetyCompatibilityReportData;
+        public string[] PitchMoatLineCompatibilityReportData =>
+            pitchMoatLineCompatibilityReportData;
 
         private bool CanClearSteamInviteBlacklist() =>
             steamInviteBlacklist.Count > 0 || !steamInviteBlacklist.IsUsable;
@@ -764,6 +780,13 @@ namespace BugfixesAndQoL
         {
             get => enableImprovedBuildPreview;
             set => SetSetting(ref enableImprovedBuildPreview, value, nameof(EnableImprovedBuildPreview));
+        }
+
+        [APIShared.ModSettings.PresetLocal]
+        public bool EnablePitchMoatLines
+        {
+            get => enablePitchMoatLines;
+            set => SetSetting(ref enablePitchMoatLines, value, nameof(EnablePitchMoatLines));
         }
 
         [APIShared.ModSettings.PresetLocal]
@@ -1535,6 +1558,20 @@ namespace BugfixesAndQoL
             }
         }
 
+        [SyncPerPlayer, SHCDESE.API.Components.ModManager.DoNotPersist]
+        public string PitchMoatLineCompatibilityReport
+        {
+            get => pitchMoatLineCompatibilityReport;
+            set
+            {
+                string normalized = value ?? string.Empty;
+                if (string.Equals(pitchMoatLineCompatibilityReport, normalized, StringComparison.Ordinal))
+                    return;
+                pitchMoatLineCompatibilityReport = normalized;
+                OnPropertyChanged(nameof(PitchMoatLineCompatibilityReport));
+            }
+        }
+
         [SyncHostOnly]
         public bool EnableShiftGameSpeedSteps
         {
@@ -1636,6 +1673,7 @@ namespace BugfixesAndQoL
             ShowSelectedUnitHealth = true;
             ShowForeignTroopHud = true;
             EnableImprovedBuildPreview = true;
+            EnablePitchMoatLines = true;
             ArabianIdleSoundVolumePercent = DefaultArabianIdleSoundVolumePercent;
             EnableDamagedHealthBars = true;
             HealthBarHotkey = DefaultHealthBarHotkey;

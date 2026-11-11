@@ -197,6 +197,13 @@ internal static partial class Program
                 return null;
             };
             mod=Assembly.LoadFrom(dll);modelType=mod.GetType("BugfixesAndQoL.BugfixesAndQoLViewModel",true);
+            if (args.Length > 3 && args[3] == "--settings-metadata-only")
+            {
+                Metadata(workspace);
+                SettingsPresentationTests(workspace);
+                Console.WriteLine("PASS: production settings metadata, defaults, reset, report slots and UI: " + checks);
+                return 0;
+            }
             LocalAutosaveFileTests();
             if (args.Length > 3 && args[3] == "--local-autosave-only")
             {
@@ -406,7 +413,7 @@ internal static partial class Program
     }
     private static void Metadata(string workspace)
     {
-        var scopes=new Dictionary<string,bool>{{"EnableCompactLobbyChat",false},{"EnableLordAndMapListEnhancements",false},{"EnableMissingMapSaveRecovery",false},{"EnableRandomOpponentSelectionEnhancements",true},{"EnableMultiplayerStartupStateFix",true},{"EnablePeaceTimeGameplayFixes",true},{"EnablePeaceTimeCivilianProximityReduction",true},{"EnablePitchStairsFix",true},{"EnableSiegeCrewDuplicationFix",true},{"EnableSiegeCrewFireLossFix",true},{"EnableTreeBlightDecayFix",true},{"EnablePrebuiltAiStorageFix",true},{"EnableAiOutpostRetargetFix",true}};
+        var scopes=new Dictionary<string,bool>{{"EnableCompactLobbyChat",false},{"EnableLordAndMapListEnhancements",false},{"EnableMissingMapSaveRecovery",false},{"EnablePitchMoatLines",false},{"EnableRandomOpponentSelectionEnhancements",true},{"EnableMultiplayerStartupStateFix",true},{"EnablePeaceTimeGameplayFixes",true},{"EnablePeaceTimeCivilianProximityReduction",true},{"EnablePitchStairsFix",true},{"EnableSiegeCrewDuplicationFix",true},{"EnableSiegeCrewFireLossFix",true},{"EnableTreeBlightDecayFix",true},{"EnablePrebuiltAiStorageFix",true},{"EnableAiOutpostRetargetFix",true}};
         MethodBase ctor=modelType.GetConstructors(All).Single();
         List<Tuple<OpCode,object>> body=Instructions(ctor);
         var xaml=new XmlDocument();xaml.Load(Path.Combine(workspace,"BugfixesAndQoL/Override/ScriptExtenderUI/BugfixesAndQoLSettings.xaml"));
@@ -437,6 +444,33 @@ internal static partial class Program
                 Equals(entry.instruction.Item2, setter) && entry.index > 0 &&
                 reset[entry.index - 1].Item1 == OpCodes.Ldc_I4_1), "reset restores enabled default for " + option);
         }
+        var pitchLines = modelType.GetProperty("EnablePitchMoatLines");
+        Check(!hostProperties.Any(property => property == pitchLines), "pitch/moat preference is excluded from host snapshots");
+        Check(!pitchLines.GetCustomAttributesData().Any(attribute => attribute.AttributeType.Name == "SyncPerPlayerAttribute"),
+            "pitch/moat preference remains local instead of being broadcast");
+        Check(reset.Select((instruction, index) => new { instruction, index }).Any(entry =>
+            Equals(entry.instruction.Item2, pitchLines.GetSetMethod()) && entry.index > 0 &&
+            reset[entry.index - 1].Item1 == OpCodes.Ldc_I4_1), "reset enables pitch/moat lines");
+
+        var report = modelType.GetProperty("PitchMoatLineCompatibilityReport");
+        var reportAttributes = report.GetCustomAttributesData().Select(attribute => attribute.AttributeType.Name).ToArray();
+        Check(reportAttributes.Contains("SyncPerPlayerAttribute") && reportAttributes.Contains("DoNotPersistAttribute"),
+            "pitch/moat compatibility is a nonpersistent per-player report");
+        var reportValue = modelType.GetField("pitchMoatLineCompatibilityReport", All);
+        Check(body.Select((instruction, index) => new { instruction, index }).Any(entry =>
+            entry.instruction.Item1 == OpCodes.Stfld && Equals(entry.instruction.Item2, reportValue) && entry.index > 0 &&
+            ((body[entry.index - 1].Item1 == OpCodes.Ldsfld && Equals(body[entry.index - 1].Item2, typeof(string).GetField("Empty"))) ||
+             (body[entry.index - 1].Item1 == OpCodes.Ldstr && Equals(body[entry.index - 1].Item2, "")))),
+            "pitch/moat compatibility starts unavailable until runtime validation succeeds");
+        Check(modelType.GetProperty("PitchMoatLineCompatibilityReportData").PropertyType == typeof(string[]),
+            "pitch/moat compatibility report has its player-slot companion");
+        var reportData = modelType.GetField("pitchMoatLineCompatibilityReportData", All);
+        Check(body.Select((instruction, index) => new { instruction, index }).Any(entry =>
+            entry.instruction.Item1 == OpCodes.Stfld && Equals(entry.instruction.Item2, reportData) && entry.index >= 2 &&
+            body[entry.index - 1].Item1 == OpCodes.Newarr && Equals(body[entry.index - 1].Item2, typeof(string)) &&
+            (body[entry.index - 2].Item1 == OpCodes.Ldc_I4_S || body[entry.index - 2].Item1 == OpCodes.Ldc_I4) &&
+            Convert.ToInt32(body[entry.index - 2].Item2) == 9),
+            "pitch/moat compatibility report reserves exactly slots zero through eight");
         XmlNode workshop=xaml.SelectSingleNode("//*[local-name()='CheckBox' and contains(@IsChecked,'EnableWorkshopUploadLordSelectionFix,')]");
         Check(Ancestors(workshop).Any(a=>a.Attributes?["IsEnabled"]?.Value=="{Binding CanEditClientSettings}"),"Workshop is locally editable by a multiplayer client");
         Check(!Ancestors(workshop).Any(a=>a.Attributes?["IsEnabled"]?.Value=="{Binding CanEditHostSettings}"),"Workshop no longer inherits Host authority");
@@ -462,8 +496,12 @@ internal static partial class Program
             {
                 case OperandType.InlineField:value=method.Module.ResolveField(BitConverter.ToInt32(il,n));size=4;break;
                 case OperandType.InlineMethod:value=method.Module.ResolveMethod(BitConverter.ToInt32(il,n));size=4;break;
+                case OperandType.InlineType:value=method.Module.ResolveType(BitConverter.ToInt32(il,n));size=4;break;
+                case OperandType.InlineString:value=method.Module.ResolveString(BitConverter.ToInt32(il,n));size=4;break;
+                case OperandType.InlineI:value=BitConverter.ToInt32(il,n);size=4;break;
+                case OperandType.ShortInlineI:value=unchecked((sbyte)il[n]);size=1;break;
                 case OperandType.InlineNone:break;
-                case OperandType.ShortInlineBrTarget:case OperandType.ShortInlineI:case OperandType.ShortInlineVar:size=1;break;
+                case OperandType.ShortInlineBrTarget:case OperandType.ShortInlineVar:size=1;break;
                 case OperandType.InlineVar:size=2;break;
                 case OperandType.InlineI8:case OperandType.InlineR:size=8;break;
                 case OperandType.InlineSwitch:size=4+4*BitConverter.ToInt32(il,n);break;

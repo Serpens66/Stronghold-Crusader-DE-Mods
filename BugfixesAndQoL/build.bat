@@ -86,7 +86,9 @@ set "EXTENDER_DIR="
 set "NO_PAUSE=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 
-rem Never touch build or installation output while the game has plugin DLLs loaded.
+rem An isolated /noinstall build writes only its Git build copy, never loaded DLLs.
+if "%NO_INSTALL%"=="1" if defined SHCDE_BRANCH_SOURCE_ROOT goto game_closed_check_completed
+rem Installing builds still require the game to be closed.
 echo [%date% %time%] Check that the game is closed
 call :step_start "prerequisites" "06-game-closed"
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
@@ -96,6 +98,7 @@ if not "%ERRORLEVEL%"=="0" (
   echo Lokales Paket und installierter Mod wurden nicht veraendert.
   exit /b 1
 )
+:game_closed_check_completed
 
 if not exist "%MSBUILD%" goto build_failed
 rem Prefer the validated release package; the source bin folder may contain a stale Debug build.
@@ -463,6 +466,14 @@ call :step_start "compile" "72-BugfixesAndQoL.csproj"
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 if "%BUILD_TEST_MODE%"=="none" goto artifact_tests_completed
+call :step_start "tests" "PitchMoatLines.Tests"
+dotnet run --project "%PROJECT_DIR%tests\PitchMoatLines.Tests\PitchMoatLines.Tests.csproj" --configuration Release
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "PitchMoatLines.Native.Tests"
+dotnet run --project "%PROJECT_DIR%tests\PitchMoatLines.Native.Tests\PitchMoatLines.Native.Tests.csproj" --configuration Release -- "%LOCAL_PLUGIN_DIR%\BugfixesAndQoL.dll" "%EXTENDER_DIR%"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 set "MODSETTINGS_NATIVE_OPTION="
 if "%BUILD_TEST_MODE%"=="full" set "MODSETTINGS_NATIVE_OPTION=-RunNative"
 call :step_start "tests" "73-Test-Modsettings.ps1"

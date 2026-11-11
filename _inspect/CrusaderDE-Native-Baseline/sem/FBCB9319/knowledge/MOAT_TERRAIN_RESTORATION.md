@@ -130,3 +130,23 @@ tool to `0x1A2D90`, subject to Vanilla's visibility checks. The render record
 reaches the managed tile sprite and `floatColour` through `GameMap`.
 `gameTile.setTileColour` maps those codes to `TilemapManager.tileColBlueFaint`
 and `tileColBlue`, respectively.
+
+## Pitch payment and native brush sizes
+
+Static follow-up, 2026-11-11, same native hash. In `0xC8A90`, the pitch
+structure branch returns before generic resource-table debits. Mode 6 returns
+without payment; normal phase 0 removes one raw pitch through `0xB7D80`
+(goods index 7), phases 1/2 advance without removal, and phase 3 wraps to 0.
+The iron, pitch, gold, wood and stone checks in `0xCC420` are admission
+thresholds; configured gold/wood/iron/stone thresholds do not become debits
+for pitch. On the prepaid pitch-shortage branch, later gold/wood/stone
+checks are skipped. Resource changes by other actions still require fresh
+admission before each actual placement.
+
+The ordinary moat brush is width 3 (nine unique cells, offsets -1..1 on
+both axes); Shift uses width 5 (25 unique cells, offsets -2..2). Counts
+13/41 from `0x2D1C38` are attempt counts, not distinct cells: `0x619C0`
+fills only width-squared offsets and clears the rest of the 169-entry block,
+so extra attempts repeat (0,0). The ordinary pitch brush is one cell;
+Shift pitch uses four cells with coordinate offsets 0/+1 in `0x12090`.
+These are Vanilla brush facts, independent of a line-placement overlay.

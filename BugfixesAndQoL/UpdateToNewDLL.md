@@ -3,6 +3,13 @@
 Native contracts of commands, routes, formations, the Shift queue, troop movement, gate routing and Assassin
 routes moved with their code to `Pathfinding/UpdateToNewDLL.md` (2026-11-07).
 
+## Pitch and moat lines (2026-11-11)
+
+The local input, single-tile moat brush, pitch lookup/payment model, queue receipts
+and authenticated multiplayer pitch scopes are documented in
+[PitchMoatLines.Native.md](docs/PitchMoatLines.Native.md).
+Keep these contracts independent of the adjacent MoatTerrain restoration hook.
+
 ## Engine presentation bridge (2026-10-23)
 
 The private VanillaPerformance bridge uses managed `EngineInterface.run` and

@@ -4560,29 +4560,38 @@ internal static class Program
 
     private static void TestBuildPreviewLocalIntegration()
     {
+        // Production metadata/default/reset checks live in BFQoL's Modsettings.Tests.
+        // This probe exercises the shared local-preset and client authority contract for both controls.
+        foreach (string option in new[] { nameof(BuildPreviewPresetProbe.EnableImprovedBuildPreview), nameof(BuildPreviewPresetProbe.EnablePitchMoatLines) })
+            TestLocalBuildingControlPreset(option);
+    }
+
+    private static void TestLocalBuildingControlPreset(string option)
+    {
         string pluginPath=Path.Combine(PresetFixtureInstallRoot,"BuildPreviewPresetProbe.dll");
         string settingsPath=new PersonalSettingsPaths(Path.Combine(PresetFixtureInstallRoot, "TestPlugin.dll"), "Tests.BuildPreviewPresetProbe").SettingsFile;
         if(File.Exists(settingsPath)) File.Delete(settingsPath);
         GameNetworkAPI.LocalHost=true;GameNetworkAPI.Networked=true;GameNetworkAPI.MultiplayerGame=true;
         var vm=new BuildPreviewPresetProbe();
         vm.PreparePresets(null,pluginPath,"BuildPreviewPresetProbe");vm.ActivatePresets();
-        Check(vm.EnableImprovedBuildPreview,"Build preview defaults to enabled");
+        var property = typeof(BuildPreviewPresetProbe).GetProperty(option);
+        Check((bool)property.GetValue(vm),"Local building control defaults to enabled: " + option);
         var manager=GameXAMLManagerAPI.Instance;manager.ResetRoutingProbe();
         manager.RegisterLobbyModSettings(new BepInEx.BaseUnityPlugin(),"BuildPreviewPresetProbe",vm,"unused.xaml");
-        vm.EnableImprovedBuildPreview=false;
-        Check(manager.BroadcastCount==0 && manager.SaveCount==0,"Build preview bypasses Extender network/host protocol");
-        Check(!vm.System_CreateDisabledMissionPresetSnapshot().ContainsKey(nameof(vm.EnableImprovedBuildPreview)),"Build preview excluded from host mission snapshot");
-        string path=vm.System_SavePersonalPreset("preview-off","Preview off","local probe",new[] { new PresetSaveSelection { PropertyName=nameof(vm.EnableImprovedBuildPreview), Mode=PublishedPresetValueMode.Fixed } },overwrite:true);
-        vm.EnableImprovedBuildPreview=true;
+        property.SetValue(vm, false);
+        Check(manager.BroadcastCount==0 && manager.SaveCount==0,"Local building control bypasses Extender network/host protocol: " + option);
+        Check(!vm.System_CreateDisabledMissionPresetSnapshot().ContainsKey(option),"Local building control is excluded from host mission snapshot: " + option);
+        string path=vm.System_SavePersonalPreset("preview-off","Preview off","local probe",new[] { new PresetSaveSelection { PropertyName=option, Mode=PublishedPresetValueMode.Fixed } },overwrite:true);
+        property.SetValue(vm, true);
         var saved=vm.System_TestPublishedPresets.Single(item=>item.Id=="preview-off");
         vm.System_TestLoadPreset(saved.StableId);
-        Check(!vm.EnableImprovedBuildPreview,"Local build preview follows preset selection");
+        Check(!(bool)property.GetValue(vm),"Local building control follows preset selection: " + option);
         GameNetworkAPI.LocalHost=false;vm.System_RefreshSettingsAccess();
-        vm.EnableImprovedBuildPreview=true;
-        Check(vm.EnableImprovedBuildPreview,"Client can independently enable build preview");
-        vm.EnableImprovedBuildPreview=false;
+        property.SetValue(vm, true);
+        Check((bool)property.GetValue(vm),"Client can independently enable local building control: " + option);
+        property.SetValue(vm, false);
         var restored=new BuildPreviewPresetProbe();restored.PreparePresets(null,pluginPath,"BuildPreviewPresetProbe");restored.ActivatePresets();
-        Check(!restored.EnableImprovedBuildPreview,"Local build preview persists across restart");
+        Check(!(bool)property.GetValue(restored),"Local building control persists across restart: " + option);
         GameNetworkAPI.LocalHost=true;
     }
 
@@ -7086,6 +7095,7 @@ namespace APIShared
 internal sealed class BuildPreviewPresetProbe : PresetLobbyModSettingsViewModel
 {
     private bool enableImprovedBuildPreview=true;
+    private bool enablePitchMoatLines=true;
     [PresetLocal]
     public bool EnableImprovedBuildPreview
     {
@@ -7095,6 +7105,17 @@ internal sealed class BuildPreviewPresetProbe : PresetLobbyModSettingsViewModel
             if(!CanMutateSetting(nameof(EnableImprovedBuildPreview)) || enableImprovedBuildPreview==value) return;
             enableImprovedBuildPreview=value;
             OnPropertyChanged(nameof(EnableImprovedBuildPreview));
+        }
+    }
+    [PresetLocal]
+    public bool EnablePitchMoatLines
+    {
+        get => enablePitchMoatLines;
+        set
+        {
+            if (!CanMutateSetting(nameof(EnablePitchMoatLines)) || enablePitchMoatLines == value) return;
+            enablePitchMoatLines = value;
+            OnPropertyChanged(nameof(EnablePitchMoatLines));
         }
     }
 }

@@ -1,0 +1,18 @@
+Area Demolition Test 0.1.0
+
+Right-click the unchanged Vanilla Bulldozer button for local area filters.
+Ordinary click: Vanilla single removal on release. Drag: enabled categories.
+Shift+drag: same starting type, or the entire positive/negative fear group.
+Cancel with right click, Escape, focus loss or tool change.
+Only dug moats are included. Planned digging marks remain unchanged.
+
+Acceptance requires actual game evidence. Passing a build is not gameplay acceptance.
+2026-11-11: user explicitly deferred all game/MP tests while other tests run.
+The normal package is prepared without installation to preserve that environment.
+SP/editor: input shield, shifted start, every category, footprint overlap, linked
+parts, correct refunds, pause, rotation, zoom, heights, cancelled colour restoration.
+MP: actual host/client, differing local filters, >32 targets, readiness mismatch,
+duplicates, stale load traffic, lost/mismatched acknowledgements, pause, spectator
+and defeated peer participation. No automatic retry or rollback claim.
+Check coexistence with Script Extender, Fixes, BFQoL, CastlePlanner,
+PitchMoatLineTest and Spectator. Preserve all unrelated user files and SDK binaries.

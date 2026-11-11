@@ -1,0 +1,11 @@
+{
+  "GUID": "AreaDemolitionTest_Serp",
+  "Name": "Area Demolition Test",
+  "Author": "Serpens66",
+  "Description": "Area demolition with native Bulldozer settings, selected-type and fear-factor filters; multiplayer prototype.",
+  "Version": "0.1.0",
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "MinimumScriptExtenderVersion": "2.14.3",
+  "Dependencies": [ { "GUID": "APIShared_Serp", "MinimumVersion": "0.46.0" } ]
+}

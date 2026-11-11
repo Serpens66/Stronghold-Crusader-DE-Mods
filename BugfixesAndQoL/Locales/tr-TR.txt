@@ -563,3 +563,7 @@ BugfixesAndQoL.EnableSiegeCrewFireLossFix=Crew loss in fires
 BugfixesAndQoL.EnableSiegeCrewFireLossFixHelp=Engineers die if their siege engine burns down while they are operating it.
 BugfixesAndQoL.SettingsRework.Reason.EnableSiegeCrewDuplicationFix=Prevents the same engineers from crewing several siege engines at once.
 BugfixesAndQoL.SettingsRework.Reason.EnableSiegeCrewFireLossFix=Applies crew losses when a fatal fire hit destroys a siege engine.
+
+BugfixesAndQoL.PitchMoatLines=Pitch and moat lines
+BugfixesAndQoL.PitchMoatLinesHelp=Hold Ctrl and drag with the left mouse button to draw a line. Release the mouse button to place up to 64 valid, affordable tiles.
+BugfixesAndQoL.SettingsRework.Reason.EnablePitchMoatLines=Choose whether Ctrl-drag places pitch and moats in lines.
