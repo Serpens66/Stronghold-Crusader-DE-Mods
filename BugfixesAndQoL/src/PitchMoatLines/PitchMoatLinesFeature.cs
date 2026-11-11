@@ -44,9 +44,6 @@ namespace BugfixesAndQoL.PitchMoatLines
                     settings.PitchMoatLineCompatibilityReport = network.IsAvailable && ManagedBoundary.IsReady && PlacementRuntime.IsReady
                         ? CompatibilityToken : string.Empty;
                     settings.System_RequestPerPlayerSettingsPublish();
-#if SERP_DEVDIAG
-                    PlacementAcceptance.Start(api, log);
-#endif
                 });
                 log.LogInfo(Stamp("PITCH_MOAT_LINE_READY"));
             }

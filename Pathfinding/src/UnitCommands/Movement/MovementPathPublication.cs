@@ -21,9 +21,6 @@ namespace Pathfinding.UnitCommands
         internal int BuildPathWithCompletedMoatRouteVariant(
             IntPtr pathManager, int movementClass, int movementProfile)
         {
-#if SERP_DEVDIAG
-            long freeze = FreezeBuilder(pathManager);
-#endif
             IEnemyGatePathPolicy gate = BeginEnemyGateSearch(
                 movementClass, EnemyGateSearchKind.Builder, out object gateScope);
             object bridgeSearch = EnemyBridgeDiagnosticBridge.BeginSearch("builder", movementClass);
@@ -71,9 +68,6 @@ namespace Pathfinding.UnitCommands
                 EndEnemyGateSearch(gate, gateScope, EnemyGateSearchKind.Builder,
                     completed, result > 0);
                 EnemyBridgeDiagnosticBridge.EndSearch(bridgeSearch, completed, result);
-#if SERP_DEVDIAG
-                GateAttackFreezeCapture.Leave(freeze, result, completed);
-#endif
             }
         }
 

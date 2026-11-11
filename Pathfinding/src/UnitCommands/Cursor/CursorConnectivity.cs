@@ -85,7 +85,9 @@ namespace Pathfinding.UnitCommands
         internal ulong cursorDiplomacy;
         internal byte* nativePortalGateStates;
         internal long cursorTopologyBuilds,cursorTopologyUpdates;
+#pragma warning disable CS0649 // Assigned only in DEVDIAG builds.
         internal long cursorLastLogTime, cursorLastLogQueries;
+#pragma warning restore CS0649
         internal struct CursorSelectionIdentity
         {
             public int Id, X, Y, Player, Type, Alive;
@@ -133,7 +135,6 @@ namespace Pathfinding.UnitCommands
         internal void ObserveCursorPerformance()
         {
 #if SERP_DEVDIAG
-            GateAttackFreezeCapture.Drain(UnityEngine.Time.frameCount);
             if (disposed)
                 return;
             // The friendly-moat cursor counters live in the Pathfinding provider; without it they stay zero.

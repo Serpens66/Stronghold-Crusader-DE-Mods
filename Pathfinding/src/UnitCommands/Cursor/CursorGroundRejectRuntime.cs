@@ -72,7 +72,7 @@ namespace Pathfinding.UnitCommands
                 CursorGroundRejectProof proof = batch.Ground[index];
                 if (proof.Player != request.Player || proof.Target != request.Target || proof.Mode != request.Mode ||
                     proof.Profile != request.Profile || !proof.Contains(request.Start)) continue;
-                if (proof.Policy == null) { DiagCursorGround(2, 0, 0, 0); return true; }
+                if (proof.Policy == null) { return true; }
                 // A fresh, successful scope must expose precisely the captured policy.
                 // A failed mask scope must not turn a filtered proof into an unfiltered one.
                 IEnemyGatePathPolicy gate = BeginEnemyGateSearch(request.Player, EnemyGateSearchKind.Builder, out object scope);
@@ -81,7 +81,7 @@ namespace Pathfinding.UnitCommands
                     if (scope != null && ReferenceEquals(gate, proof.Provider) && proof.Policy.IsCurrent &&
                         gate is IEnemyGateRoutePolicyProvider provider && provider.TryCaptureRoutePolicy(request.Player, out var policy) &&
                         ReferenceEquals(policy, proof.Policy))
-                    { DiagCursorGround(2, 0, 0, 0); return true; }
+                    { return true; }
                 }
                 finally { EndEnemyGateSearch(gate, scope, EnemyGateSearchKind.Builder, false, false); }
             }
@@ -112,23 +112,13 @@ namespace Pathfinding.UnitCommands
             if (gate != null && gate.HasPublishedMask && gate is IEnemyGateRoutePolicyProvider provider &&
                 provider.TryCaptureRoutePolicy(player, out var captured) && captured != null && captured.PlayerId == player && captured.IsCurrent)
                 policy = captured;
-            long measured = 0;
-            Shared.DevDiag.Start(ref measured);
-            bool valid = false;
-            try
-            {
-                valid = proof.Capture((short*)(nativeProbeGrid + NativeProbeGridBytes / 2), *(int*)(state + 4),
-                    observed.Start, observed.Target, nativeMovementMasks, nativeDirectionMasks,
-                    cursorGroundNeighborOffsets, cursorGroundRows, policy);
-                if (!valid) return;
-                proof.Player = player; proof.Target = observed.Target; proof.Mode = observed.Mode; proof.Profile = profile;
-                proof.Policy = policy; proof.Provider = policy == null ? null : gate;
-                observed.Pending = proof;
-            }
-            finally
-            {
-                DiagCursorGround(valid ? 0 : 3, measured, 0, 0);
-            }
+            if (!proof.Capture((short*)(nativeProbeGrid + NativeProbeGridBytes / 2), *(int*)(state + 4),
+                observed.Start, observed.Target, nativeMovementMasks, nativeDirectionMasks,
+                cursorGroundNeighborOffsets, cursorGroundRows, policy))
+                return;
+            proof.Player = player; proof.Target = observed.Target; proof.Mode = observed.Mode; proof.Profile = profile;
+            proof.Policy = policy; proof.Provider = policy == null ? null : gate;
+            observed.Pending = proof;
         }
 
         private bool TryRejectCursorNativeTarget(GameUnit* unit, int x, int y)
@@ -136,20 +126,19 @@ namespace Pathfinding.UnitCommands
             if (!cursorGroundContractReady || disposed || nativeManualProbe || nativePathManager == IntPtr.Zero ||
                 originalCentralMovementPlan == null || !APIShared.UnitAccess.IsReallyAlive(unit) || (uint)x >= MapWidth || (uint)y >= MapWidth) return false;
             // 18E1E0 checks availability before arrival, but target flags only AFTER arrival.
-            if (movementTargetAvailability[y * MapWidth + x] == 0) { DiagCursorGround(4, 0, 0, 0); return true; }
+            if (movementTargetAvailability[y * MapWidth + x] == 0) { return true; }
             if (unit->r_CurrentTilePositionX == x && unit->r_CurrentTilePositionY == y) return false;
             int target = GameTileManagerAPI.Instance.GetTileId(x, y);
             if ((uint)target >= CursorGroundRejectProof.TileCount) return false;
-            if ((tileFlags[target] & 0x30u) != 0) { DiagCursorGround(5, 0, 0, 0); return true; }
+            if ((tileFlags[target] & 0x30u) != 0) { return true; }
             if ((tileFlags[target] & 0x10000100u) == 0) return false;
             var profiles = APIShared.ScriptExtenderReplacements.GamePathingManagerAPI.Instance.GetUnitTypePathfindingProfiles();
             int type = unchecked((short)unit->r_UnitChimp);
             if ((uint)type < (uint)profiles.Length && profiles[type] == PathfindingProfile.Large)
-            { DiagCursorGround(6, 0, 0, 0); return true; }
+            { return true; }
             return false;
         }
 
-        partial void DiagCursorGround(int kind, long started, int sourceRegion, int targetRegion);
         partial void DiagCursorGroundReady(bool ready);
     }
 }

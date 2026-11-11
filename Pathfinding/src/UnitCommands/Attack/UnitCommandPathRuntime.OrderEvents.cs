@@ -142,11 +142,7 @@ namespace Pathfinding.UnitCommands
                         $"weightedSearchMs={(command?.WeightedSearchMilliseconds ?? 0):F3} " +
                         $"weightedMaxSearchMs={(command?.WeightedMaximumSearchMilliseconds ?? 0):F3} " +
                         $"routeMode={(int)(command?.Options.RouteMode ?? CurrentOptions.RouteMode)} " +
-                        $"groundChecks={command?.Required.GroundChecks ?? 0} groundHits={command?.Required.GroundHits ?? 0} samePclHits={command?.Required.SamePclHits ?? 0} topologyExclusions={command?.Required.TopologyExclusions ?? 0} " +
-                        $"groundDecisionCacheHits={command?.Required.GroundDecisionCacheHits ?? 0} decisionCacheHits={command?.Required.DecisionCacheHits ?? 0} " +
-                        $"exactGroundSearches={command?.Required.ExactGroundSearches ?? 0} exactGroundFieldCacheHits={command?.Required.ExactGroundFieldCacheHits ?? 0} exactGroundNodes={command?.Required.ExactGroundNodes ?? 0} " +
-                        $"groundProofMs={(command?.Required.GroundMilliseconds ?? 0):F3} exactGroundMs={(command?.Required.ExactGroundMilliseconds ?? 0):F3} " +
-                        $"requiredSearches={command?.Required.Searches ?? 0} requiredQualified={command?.Required.Qualified ?? 0} requiredSearchMs={(command?.Required.SearchMilliseconds ?? 0):F3} requiredPublished={command?.Required.Published ?? 0} " +
+                        $"requiredPublished={command?.Required.Published ?? 0} " +
                         $"requiredPublishAuditMs={(command?.Required.PublicationMilliseconds ?? 0):F3} requiredRejected={command?.Required.Rejected ?? 0} requiredReasons={FormatCounts(command?.Required.RejectionReasons)} " +
                         $"commandPreBuilderFailures={command?.PreBuilderFailures ?? 0} commandPreBuilderRecovered={command?.PreBuilderRecovered ?? 0} " +
                         $"commandPreBuilderRejected={FormatCounts(command?.PreBuilderRejectionReasons)} " +
@@ -246,9 +242,7 @@ namespace Pathfinding.UnitCommands
                             0.0, scope.QualificationMilliseconds - scope.FloodQualificationMilliseconds);
                         double exclusiveWeightedMilliseconds = Math.Max(
                             0.0, scope.WeightedPhaseMilliseconds - scope.WeightedAuditMilliseconds);
-                        double exclusiveRequiredMilliseconds = scope.Required.ExclusiveGroundMilliseconds +
-                            scope.Required.ExclusiveSearchMilliseconds +
-                            scope.Required.ExclusivePublicationMilliseconds;
+                        double exclusiveRequiredMilliseconds = scope.Required.ExclusivePublicationMilliseconds;
                         double accountedMilliseconds = scope.UnitFloodMilliseconds +
                             exclusiveQualificationMilliseconds + scope.NativeBuilderMilliseconds +
                             scope.AuditMilliseconds + exclusiveWeightedMilliseconds +
@@ -270,11 +264,7 @@ namespace Pathfinding.UnitCommands
                             $"auditCalls={scope.AuditCalls} auditMs={scope.AuditMilliseconds:F3} " +
                             $"weightedPhaseMs={scope.WeightedPhaseMilliseconds:F3} weightedAuditMs={scope.WeightedAuditMilliseconds:F3} residualMs={scope.ResidualMilliseconds:F3} " +
                             $"routeMode={(int)scope.Options.RouteMode} " +
-                            $"groundChecks={scope.Required.GroundChecks} groundHits={scope.Required.GroundHits} samePclHits={scope.Required.SamePclHits} topologyExclusions={scope.Required.TopologyExclusions} " +
-                            $"groundDecisionCacheHits={scope.Required.GroundDecisionCacheHits} decisionCacheHits={scope.Required.DecisionCacheHits} " +
-                            $"exactGroundSearches={scope.Required.ExactGroundSearches} exactGroundFieldCacheHits={scope.Required.ExactGroundFieldCacheHits} exactGroundNodes={scope.Required.ExactGroundNodes} " +
-                            $"groundProofMs={scope.Required.GroundMilliseconds:F3} exactGroundMs={scope.Required.ExactGroundMilliseconds:F3} groundExclusiveMs={scope.Required.ExclusiveGroundMilliseconds:F3} " +
-                            $"requiredSearches={scope.Required.Searches} requiredSearchMs={scope.Required.SearchMilliseconds:F3} requiredSearchExclusiveMs={scope.Required.ExclusiveSearchMilliseconds:F3} requiredPublished={scope.Required.Published} " +
+                            $"requiredPublished={scope.Required.Published} " +
                             $"requiredPublishAuditMs={scope.Required.PublicationMilliseconds:F3} requiredPublishExclusiveMs={scope.Required.ExclusivePublicationMilliseconds:F3} requiredRejected={scope.Required.Rejected} requiredReasons={FormatCounts(scope.Required.RejectionReasons)} " +
                             $"trackersStarted={scope.Required.TrackersStarted} trackersSuppressed={scope.Required.TrackersSuppressed}");
                         FlushAttackDiagnostics(scope);

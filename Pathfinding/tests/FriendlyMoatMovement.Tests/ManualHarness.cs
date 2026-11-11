@@ -143,9 +143,6 @@ namespace CommandFixture
         private int CaptureCurrentGameTick()=>fixtureTick;
         public static void Run()
         {
-#if SERP_DEVDIAG
-            ManualProbeCapture.Initialize(); ManualProbeCapture.ExchangeSummary();
-#endif
             var fixture=new UnitCommandPathRuntime(); fixture.Tests();
             fixture.DispatchTests();
             new UnitCommandPathRuntime().RejectTests();
@@ -272,43 +269,18 @@ namespace CommandFixture
                 Check(new ReadOnlySpan<byte>(units+1,sizeof(GameUnit)).SequenceEqual(unitBefore) &&
                     new ReadOnlySpan<byte>(units+2,sizeof(GameUnit)).SequenceEqual(unit2Before) &&
                     !nativeProbeBatchSnapshot && nativeProbeBatchDepth==0,"batch restores each unit and releases its snapshot");
-#if SERP_DEVDIAG
-                var batchEvidence = ManualProbeCapture.ExchangeSummary();
-                Check(batchEvidence.Probes==3 && batchEvidence.Fresh==2 && batchEvidence.Reused==1 &&
-                    batchEvidence.RestoreManager==3L*NativeProbeManagerBytes && batchEvidence.SaveManager==2L*NativeProbeManagerBytes &&
-                    batchEvidence.RestoreGrid==3L*NativeProbeGridBytes && batchEvidence.SaveGrid==2L*NativeProbeGridBytes &&
-                    batchEvidence.RestoreSmall==3L*(sizeof(GameUnit)+0x38),
-                    "diagnosis counts complete restoration per probe and only actual fresh snapshot copies");
-                using (var cursor = ManualProbeCapture.BeginOperation(ManualProbeCapture.TileCursor))
                 {
                     int before = calls;
                     Check(ProbeNativeCursorPath(1,20,20) && ProbeNativeCursorPath(1,20,20) && calls==before+1,
                         "cache hit retains result without a second native call");
-                    Check(cursor.Value.Hits==1 && cursor.Value.Misses==1 && cursor.Value.Probes==1 && cursor.Value.TickInvalidations==1,
-                        "cursor cache hits, executed probes and invalidations have independent counters");
                     Check(new ReadOnlySpan<byte>(manager,NativeProbeManagerBytes).SequenceEqual(managerBefore) &&
                         new ReadOnlySpan<byte>(units+1,sizeof(GameUnit)).SequenceEqual(unitBefore) &&
                         ReferenceEquals(activeMoveCommand,parent) && ReferenceEquals(activePlan,plan),
-                        "diagnostic cursor path leaves complete native and managed context unchanged");
+                        "cursor path leaves complete native and managed context unchanged");
                 }
-#endif
                 originalCentralMovementPlan=(m,id,x,y)=>throw new InvalidOperationException("native fixture failure");
                 bool threw=false; try{ProbeNativeManualPath(1,20,20);}catch(InvalidOperationException){threw=true;}
                 Check(threw && !nativeManualProbe && ReferenceEquals(activePlan,plan),"failed probe restores contexts");
-#if SERP_DEVDIAG
-                var failedEvidence=ManualProbeCapture.ExchangeSummary();
-                Check(failedEvidence.Incomplete==1 && failedEvidence.Probes==2 && failedEvidence.RestoreManager==2L*NativeProbeManagerBytes,
-                    "exception remains observable while diagnostic evidence includes complete restoration");
-                // Corrupt only diagnosis attribution to exercise its own failure boundary.
-                using (ManualProbeCapture.BeginOperation(99))
-                {
-                    long faults=ManualProbeCapture.Faults;
-                    originalCentralMovementPlan=(m,id,x,y)=>7;
-                    Check(ProbeNativeManualPath(1,20,20) && ManualProbeCapture.Faults==faults+1 && !nativeManualProbe &&
-                        ReferenceEquals(activePlan,plan) && new ReadOnlySpan<byte>(manager,NativeProbeManagerBytes).SequenceEqual(managerBefore),
-                        "diagnostic accounting failure cannot alter native result, complete memory restoration or parent context");
-                }
-#endif
                 Check(!ProbeNativeManualPath(1,800,20) && !ProbeNativeManualPath(0,20,20),"invalid probes never call native");
                 units[1].r_AliveState=AliveState.Dead;
                 Check(!ProbeNativeManualPath(1,20,20),"dead unit rejected"); units[1].r_AliveState=AliveState.IsAlive;
@@ -434,20 +406,3 @@ namespace APIShared
     }
 }
 
-namespace Pathfinding
-{
-    internal static class GateAttackFreezeCapture
-    {
-        internal const int ManualProbe=7;
-        internal struct Context { internal int Unit, Type, Tribe, Player, Command, Building, StartX, StartY, TargetX, TargetY; internal uint Global; }
-        internal sealed class Run { internal long Id;
-#if SERP_DEVDIAG
-            internal readonly ManualProbeCapture.Record Probes = new ManualProbeCapture.Record();
-#endif
-        }
-        internal static Run Current => null;
-        internal static long Enter(int stage, Context context)=>0;
-        internal static void Leave(long token, long result, bool completed){}
-        internal static void Fault(){}
-    }
-}

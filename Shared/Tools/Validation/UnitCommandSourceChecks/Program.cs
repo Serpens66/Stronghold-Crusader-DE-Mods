@@ -189,13 +189,4 @@ foreach (var relative in orderedProjects)
 }
 if (usageReport != null)
     usageReport.Write(Path.GetFullPath(Path.Combine(root, args[Array.IndexOf(args, "--api-usage-report") + 1])));
-if (args.Contains("--command-dependency-report") && errors == 0)
-{
-    CommandDependencyReport.VerifyFixtures();
-    var report = new CommandDependencyReport(root);
-    report.AddApi(compilations["APIShared"]);
-    foreach (var consumer in compilations.Values.Where(compilation => compilation.AssemblyName != "APIShared"))
-        report.AddConsumer(consumer);
-    report.Write(Path.GetFullPath(Path.Combine(root, args[Array.IndexOf(args, "--command-dependency-report") + 1])));
-}
 return errors == 0 ? 0 : 1;

@@ -24,10 +24,6 @@ namespace BugfixesAndQoL.SavegameMissingMap
             InitializeUnlessLegacy(Chainloader.PluginInfos.ContainsKey(LegacyGuid), () =>
             {
                 SavegameFix.RecoveryEnabled = recoveryEnabled;
-#if SERP_DEVDIAG
-                // Acceptance observation belongs exclusively to the dedicated diagnostic build.
-                RuntimeStartup.Report<Action>(register => register(), () => SavegameMissingMapDiagnostics.Register(log));
-#endif
                 startup.Subscribe(callback => callback(), Install, active => SavegameFix.Enabled = active,
                     message => RuntimeStartup.Report(SavegameFix.Log, message),
                     WriteError);

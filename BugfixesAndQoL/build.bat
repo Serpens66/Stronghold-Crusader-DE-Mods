@@ -529,10 +529,6 @@ if not exist "%LOCAL_PLUGIN_DIR%\BugfixesAndQoL.dll" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
 
 if "%NO_INSTALL%"=="1" goto prepared_no_install
-call :step_start "package" "74-Disable-LegacyGateTest.ps1"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Disable-LegacyGateTest.ps1" -GameDirectory "%GAME_DIR%"
-call :step_end %ERRORLEVEL%
-if not "%ERRORLEVEL%"=="0" goto copy_failed
 if exist "%GAME_PLUGIN_DIR%\" (
   rem Keep player-created lobby settings while replacing all packaged files.
   for /D %%D in ("%GAME_PLUGIN_DIR%\*") do (

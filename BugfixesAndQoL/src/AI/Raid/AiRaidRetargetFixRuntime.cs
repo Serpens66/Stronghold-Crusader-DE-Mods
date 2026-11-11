@@ -276,20 +276,6 @@ namespace BugfixesAndQoL
             string searchDetails = pre == null
                 ? "searchObserved=False,searchAssociation=missingPre,decision=[unavailable]"
                 : pre.Evidence.Describe(pairMatches, snapshot);
-            // TEMP_GATE_ROUTE_ACCEPTANCE: already associated decision, never changes classification.
-#if SERP_DEVDIAG
-                if (APIShared.TemporaryGateRouteAcceptanceBridge.CurrentRequested != null)
-            {
-                CandidateRecord diagnosticFirst = snapshot.Records.Length == 0 ? default : snapshot.Records[0];
-                APIShared.TemporaryGateRouteAcceptanceBridge.ReportRaid(raidPlayer, raidGroup, args.TribeId, tribeGlobalId, args.TargetValue1, targetGlobalId,
-                issuingFallback ? "raid-replacement-command" : "raid-command", result.ToString(),
-                "command=" + args.AICommand + ",searchSequence=" + pre?.Evidence.Sequence + ",freshness=" + freshness +
-                ",validation=" + validation + ",return=" + args.ReturnValue +
-                ",candidateApproach=" + diagnosticFirst.ApproachTile + ",candidateBuildingTile=" + diagnosticFirst.BuildingTile +
-                ",candidateIsNotRoute=true," + searchDetails);
-            }
-#endif
-
             if (raid && issuingFallback)
             {
                 if (args.TribeId == fallbackTribeId &&
@@ -886,14 +872,6 @@ namespace BugfixesAndQoL
         private void LogRetry(RaidRetry retry, string outcome, int selectedId, uint selectedGlobalId,
             int storedId = 0, uint storedGlobalId = 0)
         {
-            // TEMP_GATE_ROUTE_ACCEPTANCE: counts every completion, independent of warning suppression.
-#if SERP_DEVDIAG
-                if (APIShared.TemporaryGateRouteAcceptanceBridge.CurrentRequested != null)
-                APIShared.TemporaryGateRouteAcceptanceBridge.ReportRaid(retry.PlayerId, retry.Group, retry.TribeId, retry.TribeGlobalId,
-                selectedId, selectedGlobalId, "raid-retarget", outcome.Split(':')[0].Split(';')[0],
-                "original=" + retry.OriginalFailedId + "/" + retry.OriginalFailedGlobalId + ",attempts=" + retry.Attempts.Count + ",reason=" + outcome);
-#endif
-
             retryCount++;
             if (outcome == "selected")
             {

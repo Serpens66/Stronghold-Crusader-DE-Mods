@@ -110,6 +110,7 @@ namespace Pathfinding.GateRouting
 #if SERP_DEVDIAG
         private readonly bool detailedDiagnostics;
 #else
+#pragma warning disable CS0162 // Release: compile-time false diagnostic switches drop their branches.
         private const bool detailedDiagnostics = false;
 #endif
         private readonly DeferredGateDiagnosticErrors deferredErrors;

@@ -9,7 +9,9 @@ namespace Pathfinding.UnitCommands
     {
         private static readonly object Sync = new object();
         private static readonly List<UnitCommandPathRuntime> Candidates = new List<UnitCommandPathRuntime>();
+#pragma warning disable CS0649 // Assigned only in DEVDIAG builds.
         internal static Func<string> AssassinReconstructionRelaxation;
+#pragma warning restore CS0649
         internal static UnitCommandPathRuntime Runtime { get; private set; }
         internal static UnitCommandTraversalProvider Traversal { get; private set; }
         internal static bool FormationDispatchActive => Runtime?.formationRuntime?.IsDispatching == true;

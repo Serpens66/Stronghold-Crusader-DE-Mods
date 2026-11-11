@@ -23,7 +23,9 @@ namespace Pathfinding.GateRouting
     internal sealed class AiGateDecisionAggregate
     {
         // TEMP_GATE_ROUTE_ACCEPTANCE: suppress generic histories, preserve all raw counts/errors.
+#pragma warning disable CS0649 // Set only by the DEVDIAG gate acceptance and its tests.
         internal bool TemporaryCountsOnly;
+#pragma warning restore CS0649
         private readonly object gate = new object();
         private readonly Dictionary<Key, Row> rows = new Dictionary<Key, Row>();
         private readonly Dictionary<TribeKey, Target> lastTargets =

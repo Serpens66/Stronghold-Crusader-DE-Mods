@@ -48,9 +48,6 @@ internal static partial class Program
         // This kernel fixture has no active cursor proof scope; the observation
         // boundary itself is exercised with real snapshots by ManualHarness.
         publishing += "\nprivate void ObserveCursorGroundBuilder(IntPtr manager,int player,int profile,int result){}\n";
-        // Passive timing is supplied at the fixture boundary. Its implementation and
-        // exception isolation are covered by the production EnginePresentation fixture.
-        if (development) publishing += "\nprivate long FreezeBuilder(IntPtr manager)=>0; private static class GateAttackFreezeCapture { internal static void Leave(long token,int result,bool completed){} }\n";
         if (!before && development)
         {
             var reporting = CSharpSyntaxTree.ParseText(Read("Pathfinding/src/UnitCommands/Movement/TemporaryGateRouteReporting.cs"), parseOptions);

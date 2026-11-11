@@ -91,42 +91,18 @@ namespace Pathfinding.UnitCommands
                 return false;
             long measured = 0;
             Shared.DevDiag.Start(ref measured);
-#if SERP_DEVDIAG
-            var probeCapture = ManualProbeCapture.BeginProbe(FreezeProbeContext(unit, unitId, x, y), nativeProbeBatchSnapshot);
-            try
-            {
-#endif
             byte* savedUnit = stackalloc byte[sizeof(GameUnit)];
             byte* manager = (byte*)nativePathManager;
             Buffer.MemoryCopy(unit, savedUnit, sizeof(GameUnit), sizeof(GameUnit));
-#if SERP_DEVDIAG
-            ManualProbeCapture.Copied(ref probeCapture, false, 0, 0, sizeof(GameUnit));
-#endif
             if (!nativeProbeBatchSnapshot)
             {
                 Marshal.Copy(nativePathManager, nativeProbeManagerBackup, 0, NativeProbeManagerBytes);
-#if SERP_DEVDIAG
-                ManualProbeCapture.Copied(ref probeCapture, false, NativeProbeManagerBytes, 0, 0);
-#endif
                 Marshal.Copy((IntPtr)nativeProbeGrid, nativeProbeGridBackup, 0, NativeProbeGridBytes);
-#if SERP_DEVDIAG
-                ManualProbeCapture.Copied(ref probeCapture, false, 0, NativeProbeGridBytes, 0);
-#endif
                 Marshal.Copy((IntPtr)nativeProbeRectangle, nativeProbeRectangleBackup, 0, 0x20);
-#if SERP_DEVDIAG
-                ManualProbeCapture.Copied(ref probeCapture, false, 0, 0, 0x20);
-#endif
                 Marshal.Copy(nativePathManager - 0x18, nativeProbeMemoryHelperBackup, 0, 0x18);
-#if SERP_DEVDIAG
-                ManualProbeCapture.Copied(ref probeCapture, false, 0, 0, 0x18);
-                probeCapture.SnapshotCompleted = true;
-#endif
                 nativeProbeBatchSnapshot = nativeProbeBatchDepth > 0;
             }
             else Shared.DevDiag.Count("manual.probe.snapshotReused");
-#if SERP_DEVDIAG
-            ManualProbeCapture.Mark(ref probeCapture, ManualProbeCapture.Administration);
-#endif
             bool previousProbe = nativeManualProbe;
             MoveCommandScope savedMove = activeMoveCommand;
             AttackCommandScope savedAttack = activeAttackCommand;
@@ -148,43 +124,15 @@ namespace Pathfinding.UnitCommands
                 *(int*)(manager + 0x80) = 0;
                 *(int*)(manager + 0x84) = 0;
                 *(int*)(manager + 0x88) = 0;
-#if SERP_DEVDIAG
-                ManualProbeCapture.Mark(ref probeCapture, ManualProbeCapture.Native);
-                int probeResult = originalCentralMovementPlan((IntPtr)nativeUnitManager, unitId, x, y);
-                ManualProbeCapture.Result(ref probeCapture, probeResult);
-                ManualProbeCapture.Mark(ref probeCapture, ManualProbeCapture.Administration);
-                return probeResult > 0;
-#else
                 return originalCentralMovementPlan((IntPtr)nativeUnitManager, unitId, x, y) > 0;
-#endif
             }
             finally
             {
-#if SERP_DEVDIAG
-                ManualProbeCapture.Mark(ref probeCapture, ManualProbeCapture.Restore);
-#endif
                 Buffer.MemoryCopy(savedUnit, unit, sizeof(GameUnit), sizeof(GameUnit));
-#if SERP_DEVDIAG
-                ManualProbeCapture.Copied(ref probeCapture, true, 0, 0, sizeof(GameUnit));
-#endif
                 Marshal.Copy(nativeProbeManagerBackup, 0, nativePathManager, NativeProbeManagerBytes);
-#if SERP_DEVDIAG
-                ManualProbeCapture.Copied(ref probeCapture, true, NativeProbeManagerBytes, 0, 0);
-#endif
                 Marshal.Copy(nativeProbeGridBackup, 0, (IntPtr)nativeProbeGrid, NativeProbeGridBytes);
-#if SERP_DEVDIAG
-                ManualProbeCapture.Copied(ref probeCapture, true, 0, NativeProbeGridBytes, 0);
-#endif
                 Marshal.Copy(nativeProbeRectangleBackup, 0, (IntPtr)nativeProbeRectangle, 0x20);
-#if SERP_DEVDIAG
-                ManualProbeCapture.Copied(ref probeCapture, true, 0, 0, 0x20);
-#endif
                 Marshal.Copy(nativeProbeMemoryHelperBackup, 0, nativePathManager - 0x18, 0x18);
-#if SERP_DEVDIAG
-                ManualProbeCapture.Copied(ref probeCapture, true, 0, 0, 0x18);
-                probeCapture.RestoreCompleted = true;
-                ManualProbeCapture.Mark(ref probeCapture, ManualProbeCapture.Administration);
-#endif
                 activeMoveCommand = savedMove; activeAttackCommand = savedAttack;
                 activeDirectFillCommand = savedFill; activeMoatWorkSelection = savedWork;
                 activePlan = savedPlan; pendingPlan = savedPending; unitMoveFrame = savedFrame;
@@ -193,10 +141,6 @@ namespace Pathfinding.UnitCommands
                 nativeManualProbe = previousProbe;
                 Shared.DevDiag.Stop(ref measured, "manual.probe");
             }
-#if SERP_DEVDIAG
-            }
-            finally { ManualProbeCapture.EndProbe(ref probeCapture); }
-#endif
         }
 
         private readonly Dictionary<NativeCursorProbeKey, bool> nativeCursorAnswers = new Dictionary<NativeCursorProbeKey, bool>();
@@ -219,9 +163,6 @@ namespace Pathfinding.UnitCommands
             int tick = CaptureCurrentGameTick();
             if (nativeCursorAnswerTick != tick || nativeCursorAnswers.Count >= 4096)
             {
-#if SERP_DEVDIAG
-                ManualProbeCapture.Invalidate(nativeCursorAnswerTick != tick, nativeCursorAnswers.Count >= 4096, false);
-#endif
                 nativeCursorAnswers.Clear(); nativeCursorAnswerTick = tick;
             }
             // Cache-key fingerprint of the complete unit record, mixed eight bytes at a time.
@@ -234,14 +175,8 @@ namespace Pathfinding.UnitCommands
             var key = new NativeCursorProbeKey(id, x, y, mapEpoch, placementRevision, state, cursorDiplomacy);
             if (nativeCursorAnswers.TryGetValue(key, out bool result))
             {
-#if SERP_DEVDIAG
-                ManualProbeCapture.Cache(true, FreezeProbeContext(unit, id, x, y), result);
-#endif
                 return result;
             }
-#if SERP_DEVDIAG
-            ManualProbeCapture.Cache(false, FreezeProbeContext(unit, id, x, y));
-#endif
             result = ProbeCursorWithRegionReject(id, unit, x, y, tick);
             nativeCursorAnswers[key] = result;
             return result;
@@ -249,9 +184,6 @@ namespace Pathfinding.UnitCommands
 
         internal bool TryQualifyNativeMoatStart(PlanScope plan, out RouteProbeSummary summary)
         {
-#if SERP_DEVDIAG
-            using var probeOperation = ManualProbeCapture.BeginOperation(ManualProbeCapture.MoatStart);
-#endif
             summary = default;
             if (nativeManualProbe || !ManualCommandsEnabled || plan == null ||
                 !APIShared.UnitAccess.TryGetById(plan.UnitId, out GameUnit* unit, out _) || unit == null ||
@@ -269,9 +201,6 @@ namespace Pathfinding.UnitCommands
 
         internal bool ProbeNativeCursorConnectivity(int player, int start, int target, out RouteProbeSummary summary)
         {
-#if SERP_DEVDIAG
-            using var probeOperation = ManualProbeCapture.BeginOperation(ManualProbeCapture.BuildingCursor);
-#endif
             summary = new RouteProbeSummary(player);
             if (!ManualCommandsEnabled || !IsValidTileId(start) || !IsValidTileId(target) ||
                 GamePlayerManagerAPI.Instance.IsAIPlayer(player)) return false;
@@ -288,11 +217,6 @@ namespace Pathfinding.UnitCommands
         internal bool TryQualifyNativeSelection(AttackCursorPairScope template, int[] ids, string token,
             out AttackCursorPairScope bound, out CursorGroupRouteSummary group)
         {
-#if SERP_DEVDIAG
-            using var probeOperation = ManualProbeCapture.BeginOperation(
-                template?.FallbackKind == CursorPairFallbackKind.BuildingApproach ? ManualProbeCapture.BuildingCursor : ManualProbeCapture.TileCursor,
-                template?.BuildingId ?? 0);
-#endif
             bound = null; group = default; group.SelectionSignature = token;
             if (!ManualCommandsEnabled || GamePlayerManagerAPI.Instance.IsAIPlayer(template.PlayerId)) return false;
             // Tile probes run back to back with only managed reads between them. The building
@@ -338,9 +262,6 @@ namespace Pathfinding.UnitCommands
 
         internal void PrepareNativeManualGroup(TribeIssueOrderMoveHereEventArgs args)
         {
-#if SERP_DEVDIAG
-            using var probeOperation = ManualProbeCapture.BeginOperation(ManualProbeCapture.GroupFallback);
-#endif
             if (!ManualCommandsEnabled || args.SkipOriginalFunction ||
                 activeMoveCommand == null ||
                 !GameTribeManagerAPI.Instance.TryGetTribeById(args.TribeId, out GameTribe* tribe) || tribe == null ||

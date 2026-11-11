@@ -28,7 +28,15 @@ Pathfinding besitzt jetzt Befehle, Routenkern, Tor-Routing, Assassinen-Wege, For
 - **Neu in Pathfinding:** `tests/Movement.Tests` (aus `ImprovedMoatFilling.Tests` und `Modsettings.Tests`), `tests/GatehouseDiagnostics`, Rally-Prüfung in `tests/Test-Preflight.ps1`.
 - **Umgestellt:** `_inspect/FormationIntegration/Verify-Interop.ps1`, `_inspect/AssassinGateClimb/verify.ps1`, `Shared/Tools/Validation/{Test-UnitCommandSplit.ps1,UnitCommandSourceChecks,source-check-projects.txt,Test-PermanentNativeRuntimePatches.ps1}`, `_inspect/HostClientPresetTests`, `_inspect/BugfixesAndQoLNativeTests`, `Testmods/{BetterPathfindingTest,GroupPathProbe,EnemyBridgePathTest}`.
 - **Bewusst geändert:** Die Klettern-Prüfung verlangt die Einordnung als „Fixes“ nicht mehr, weil Pathfinding keine Fix/QoL-Aufteilung hat. Die Host-Berechtigung bleibt Pflicht.
-- **Entfallen:** `FreezeTests` in `EnginePresentation.Tests`, weil der Starter der Gate-Freeze-Diagnose wegfiel. `GateAttackFreezeCapture` liegt in Pathfinding und bleibt ohne Starter inaktiv.
+- **Entfallen:** `FreezeTests` in `EnginePresentation.Tests`, weil der Starter der Gate-Freeze-Diagnose wegfiel.
+
+## Bereinigung vom 11.11.2026
+
+- **Entfernt:** die DEVDIAG-Messungen `GateAttackFreezeCapture`, `GateAttackFreezeRuntime` und `ManualProbeCapture` samt Aufrufstellen und ihren Prüfungen in den Testgerüsten. Ihr einziger Starter lag in BFQoL und wurde beim Umzug gelöscht, sie liefen also nie mehr. Ebenfalls entfernt: die Startsperre gegen den alten Testmod `EnemyGatePathfindingTest`, BFQoLs Installationsschritt `Disable-LegacyGateTest.ps1` und der Abhängigkeitsbericht `CommandDependencyReport` (diente nur der Aufteilung zwischen BFQoL und MoatMove).
+- **Bereinigt:** Messfelder der früheren exakten Pflichtroutensuche, die kein Code mehr beschreibt (`RequiredRouteMetrics`), und ihre immer leeren Logwerte. Compiler-Warnungen der Diagnoseschalter sind gezielt unterdrückt bzw. die Felder als DEVDIAG- oder Testschalter gekennzeichnet.
+- **Ergänzt:** die beim Umzug fehlenden Formationsnamen (`Pathfinding.Lineup*`) und die Texte des Zurücksetzen-Knopfs in allen 21 Sprachen; `tests/Test-Preflight.ps1` prüft jetzt, dass jeder im Code verwendete Schlüssel `Pathfinding.Name` in jeder Sprachdatei steht.
+- **Fehlermeldung:** Mit BugfixesAndQoL vor 1.0.215 meldet Pathfinding beim Start `PATHFINDING_OUTDATED_BUGFIXES`, weil beide Fassungen die Funktionen sonst doppelt ausführen.
+- **Bleibt:** die übrigen DEVDIAG-Diagnosen der Torrouten (`TEMP_GATE_*`). Sie sind nur im Diagnose-Build enthalten und dienen weiter der Prüfung nach DLL-Updates.
 
 ## Gemeinsamer Betrieb
 

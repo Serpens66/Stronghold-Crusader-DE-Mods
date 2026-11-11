@@ -135,10 +135,50 @@
    ]
   },
   {
+   "id": "rollover-show",
+   "do": "InvokeCommand",
+   "args": [
+    "Pathfinding.FormationHudButton::menu.ShowRolloverCommand",
+    "Block"
+   ]
+  },
+  {
+   "id": "rollover-visible",
+   "do": "ExpectModSetting",
+   "args": [
+    "Pathfinding.FormationHudButton::menu",
+    "RolloverVisible",
+    "True"
+   ]
+  },
+  {
+   "id": "rollover-text",
+   "do": "ExpectModSetting",
+   "args": [
+    "Pathfinding.FormationHudButton::menu",
+    "RolloverText",
+    "Block"
+   ]
+  },
+  {
+   "id": "wait-rollover",
+   "do": "Wait",
+   "args": [
+    "300"
+   ]
+  },
+  {
    "id": "shot-menu",
    "do": "Screenshot",
    "args": [
     "pathfinding-formation-menu"
+   ]
+  },
+  {
+   "id": "rollover-hide",
+   "do": "InvokeCommand",
+   "args": [
+    "Pathfinding.FormationHudButton::menu.HideRolloverCommand"
    ]
   },
   {

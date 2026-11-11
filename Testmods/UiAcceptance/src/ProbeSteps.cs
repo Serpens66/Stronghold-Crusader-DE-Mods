@@ -13,7 +13,7 @@ using SHCDESE.API;
 namespace UiAcceptance
 {
     // Ingame menu actions, confirmation popups, APIShared UI work snapshot, Harmony call counters
-    // and the hash-bound BugfixesAndQoL 196100/+56C probe.
+    // and the hash-bound Pathfinding 196100/+56C probe.
     internal static unsafe class ProbeSteps
     {
         internal static void Register()
@@ -219,7 +219,7 @@ namespace UiAcceptance
             yield break;
         }
 
-        // ---- BugfixesAndQoL rejected-move probe (hash-bound, see UpdateToNewDLL.md) ----
+        // ---- Pathfinding rejected-move probe (hash-bound, see Pathfinding/UpdateToNewDLL.md) ----
         private const string NativeSha256 = "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
         private const int PlayerMoveRva = 0x196100, UnitManagerRva = 0x67E8400, TribeManagerRva = 0x7CC6720, TribeStride = 0x688, MoveModeOffset = 0x56C;
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void PlayerMoveDelegate(IntPtr manager, int tribe, int x, int y, int patrol, int flags);
@@ -246,7 +246,7 @@ namespace UiAcceptance
             Runner.Require(module != IntPtr.Zero, "CrusaderDE.dll not loaded");
             image = (ulong)module.ToInt64();
             // The full-file hash pins every RVA; the live entry is deliberately not compared because
-            // BugfixesAndQoL's detour is expected there and the call must go through it.
+            // Pathfinding's detour is expected there and the call must go through it.
             FieldInfo monitor = typeof(EngineInterface).GetField("threadLock", BindingFlags.Static | BindingFlags.NonPublic);
             engineLock = monitor?.GetValue(null) ?? throw new StepFailure("EngineInterface.threadLock missing");
             playerMove = Marshal.GetDelegateForFunctionPointer<PlayerMoveDelegate>((IntPtr)(long)(image + PlayerMoveRva));

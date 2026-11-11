@@ -99,10 +99,25 @@ stock, payment phases, pitch slots and moat task owner/progress on both peers.
 Use the standard rollback runner; do not control OS mouse/keyboard without the
 separate permission required by AGENTS.md. Preserve the original installed state.
 
-After successful acceptance, remove the three temporary
-`PlacementAcceptance*.DevDiag.cs` files, their startup call and synthetic-input
-branches/helpers. Keep useful production regression tests and native contracts.
-Then update the version consistently, build/check the normal package, replace
+Cleanup update, 2026-11-12: the user explicitly requested removal before the
+outstanding multiplayer acceptance. The three temporary acceptance files, startup
+call, synthetic input/focus/UI branches and completed gesture/timing diagnostics
+have therefore been removed from the main mod. Direct Vanilla/Unity input reads
+are restored. Production regression tests and native contracts remain. Archived
+diagnostic packages and test sources above are historical evidence; they are not
+the cleaned current runtime. Future game acceptance must use an independent test
+tool instead of putting scenario startup or synthetic input back into BFQoL.
+
+Cleanup verification: normal build 1167 and diagnostic build 1168 succeeded,
+without installation. Both compiled assemblies were inspected and contain none
+of the removed acceptance types or temporary bridges. Scoped source/lifecycle,
+dependency and tooltip checks, the line policy/network/36 native ABI cases,
+and the affected Raid, Outpost and Savegame regression suites passed. The
+independent source review found the cleaned line runtime semantically equivalent
+to the previous normal-build projection. No game was started for this cleanup.
+
+After the remaining multiplayer acceptance, update the version consistently,
+build/check the normal package, replace
 the installed BFQoL package with the game closed, and remove the installed old
 testmod/config and `Testmods/PitchMoatLineTest` sources. The testmod is intentionally
 retained until that acceptance and replacement is complete. Keep historical

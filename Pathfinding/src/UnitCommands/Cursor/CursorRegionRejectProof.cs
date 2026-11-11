@@ -91,7 +91,6 @@ namespace Pathfinding.UnitCommands
             int target = GameTileManagerAPI.Instance.GetTileId(x, y);
             if (!IsValidTileId(start) || !IsValidTileId(target)) return false;
             int sourcePcl = unchecked((short)pathRegionGrid[start]), targetPcl = unchecked((short)pathRegionGrid[target]);
-            DiagCursorGround(sourcePcl == targetPcl ? 7 : 8, 0, sourcePcl, targetPcl);
             if (sourcePcl == targetPcl) return false;
             key = new CursorRegionRejectKey(unchecked((short)unit->r_ControllableForPlayerId), sourcePcl, targetPcl,
                 unchecked((short)unit->r_PathConnectionMode));
@@ -111,8 +110,7 @@ namespace Pathfinding.UnitCommands
                 groundEligible = TryGetCursorGroundInputs(unit, x, y, tick, out ground);
             }
             catch (Exception) { if (batch != null) batch.Disabled = true; eligible = groundEligible = false; }
-            DiagCursorReject(0);
-            if (eligible && batch.Rejections.ContainsKey(key)) { DiagCursorReject(2); return false; }
+            if (eligible && batch.Rejections.ContainsKey(key)) { return false; }
             try { if (groundEligible && TryUseCursorGroundReject(ground)) return false; }
             catch (Exception) { if (batch != null) batch.Disabled = true; groundEligible = false; }
             CursorRejectObservation previous = cursorRejectObservation;
@@ -131,11 +129,11 @@ namespace Pathfinding.UnitCommands
                 {
                     if (eligible && completed && !reachable && observed.Calls == 1 && observed.Matches && observed.Result == 0 &&
                         CursorRejectContextMatches(batch, CaptureCurrentGameTick()) && batch.Rejections.Count < CursorRegionRejectPool.KeysPerBatch)
-                    { batch.Rejections[key] = 0; DiagCursorReject(1); }
+                    { batch.Rejections[key] = 0; }
                     if (groundEligible && completed && !reachable && observedGround.BuilderCalls == 1 && observedGround.Pending != null &&
                         CursorRejectContextMatches(batch, CaptureCurrentGameTick()) &&
                         (observedGround.Pending.Policy == null || observedGround.Pending.Policy.IsCurrent))
-                    { batch.GroundCount++; DiagCursorGround(1, 0, 0, 0); }
+                    { batch.GroundCount++; }
                 }
                 catch (Exception) { if (batch != null) batch.Disabled = true; }
             }
@@ -149,8 +147,6 @@ namespace Pathfinding.UnitCommands
                 ReferenceEquals(cursorRejectBatch, cursorRejectObservation.Batch) &&
                 cursorRejectObservation.Key.Equals(new CursorRegionRejectKey(player, source, target, mode));
             cursorRejectObservation.Result = result;
-            DiagCursorGround(cursorRejectObservation.Matches ? result == 0 ? 10 : 9 : 11, 0, source, target);
         }
-        partial void DiagCursorReject(int kind);
     }
 }

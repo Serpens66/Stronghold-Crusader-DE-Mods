@@ -46,11 +46,6 @@ namespace Pathfinding.UnitCommands
                 unitMoveFrame = new UnitMoveFrame(args, parent, mapEpoch,
                     CaptureCurrentGameTick(), activeMoveCommand,
                     MovementOptionsSnapshot.Capture(settings));
-#if SERP_DEVDIAG
-                var freezeContext = FreezeUnitContext(args.UnitId);
-                freezeContext.TargetX = args.TileX; freezeContext.TargetY = args.TileY;
-                unitMoveFrame.FreezeToken = GateAttackFreezeCapture.Enter(GateAttackFreezeCapture.Move, freezeContext);
-#endif
                 try { PreparePlacement(unitMoveFrame); }
                 catch (Exception ex) { TryLogDiagnosticFailure("placement-pre", ex); }
                 if (activeMoveCommand != null)
@@ -88,10 +83,6 @@ namespace Pathfinding.UnitCommands
                 }
             }
             unitMoveFrame = frame.Parent;
-#if SERP_DEVDIAG
-            GateAttackFreezeCapture.Leave(frame.FreezeToken, args.ReturnValue, true);
-            frame.FreezeToken = 0;
-#endif
             GetCurrentUnitMoveFrame();
         }
 
@@ -110,10 +101,6 @@ namespace Pathfinding.UnitCommands
 
         internal void AbandonUnitMoveFrame(UnitMoveFrame frame)
         {
-#if SERP_DEVDIAG
-            GateAttackFreezeCapture.Leave(frame.FreezeToken, 0, false);
-            frame.FreezeToken = 0;
-#endif
             FinishPlacement(frame.Placement, false);
             if (frame.Command != null)
                 frame.Command.UnitMoveAbandoned++;

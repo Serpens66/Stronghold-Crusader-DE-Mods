@@ -83,17 +83,9 @@ namespace CommandFixture
                 foreach(int size in new[]{100,200,550})
                 {
                     fixtureTick++;calls=queries=0;
-#if SERP_DEVDIAG
-                    ManualProbeCapture.ExchangeSummary();
-#endif
                     Check(TryQualifyNativeSelection(new(),ids[..size],"fixture",out var bound,out var group)&&bound==null&&!group.AllowFallback&&group.SelectedUnits==size,
                         "all unreachable candidates remain rejected");
                     Check(calls==1&&queries==1,"one full native probe for homogeneous rejected selection of "+size);Restored();
-#if SERP_DEVDIAG
-                    var evidence=ManualProbeCapture.ExchangeSummary();
-                    Check(evidence.Probes==1&&evidence.NativeAvoided==size-1&&evidence.RejectLearned==1&&evidence.RejectCandidates==size&&evidence.RestoreManager==NativeProbeManagerBytes,
-                        "diagnosis confirms reduced native calls and complete per-executed-probe restoration");
-#endif
                 }
                 // A reachable member in a different component must still be visited.
                 units[550].r_CurrentTilePositionX=21;fixtureTick++;calls=queries=0;

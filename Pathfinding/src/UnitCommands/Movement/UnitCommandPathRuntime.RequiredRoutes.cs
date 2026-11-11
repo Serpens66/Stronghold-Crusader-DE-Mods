@@ -115,24 +115,14 @@ namespace Pathfinding.UnitCommands
         {
             internal const int MaximumTrackedUnits = 8;
             internal readonly HashSet<int> trackedUnitIds = new HashSet<int>();
-            public int GroundChecks, GroundHits, SamePclHits, TopologyExclusions;
-            public int ExactGroundSearches, ExactGroundFieldCacheHits, Searches, Qualified, Published, Rejected;
-            public int DecisionCacheHits, GroundDecisionCacheHits, ExactGroundNodes;
+            public int Published, Rejected;
             public int TrackersStarted, TrackersSuppressed;
-            public long GroundTicks, ExactGroundTicks, SearchTicks, PublicationTicks, PublicationAuditTicks;
-            public long NestedGroundTicks, NestedSearchTicks;
+            public long PublicationTicks, PublicationAuditTicks;
             public Dictionary<string, int> RejectionReasons { get; } =
                 new Dictionary<string, int>(StringComparer.Ordinal);
-            public double GroundMilliseconds => GroundTicks * 1000.0 / Stopwatch.Frequency;
-            public double ExactGroundMilliseconds => ExactGroundTicks * 1000.0 / Stopwatch.Frequency;
-            public double SearchMilliseconds => SearchTicks * 1000.0 / Stopwatch.Frequency;
             public double PublicationMilliseconds => PublicationTicks * 1000.0 / Stopwatch.Frequency;
             public double ExclusivePublicationMilliseconds =>
                 Math.Max(0, PublicationTicks - PublicationAuditTicks) * 1000.0 / Stopwatch.Frequency;
-            public double ExclusiveGroundMilliseconds =>
-                Math.Max(0, GroundTicks - NestedGroundTicks) * 1000.0 / Stopwatch.Frequency;
-            public double ExclusiveSearchMilliseconds =>
-                Math.Max(0, SearchTicks - NestedSearchTicks) * 1000.0 / Stopwatch.Frequency;
 
             public bool TryTrackUnit(int unitId)
             {

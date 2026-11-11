@@ -44,6 +44,7 @@ namespace Pathfinding.GateRouting
         private readonly bool detailedDiagnostics;
         private readonly bool macemenDiagnostics;
 #else
+#pragma warning disable CS0162 // Release: compile-time false diagnostic switches drop their branches.
         private const bool detailedDiagnostics = false;
         private const bool macemenDiagnostics = false;
 #endif

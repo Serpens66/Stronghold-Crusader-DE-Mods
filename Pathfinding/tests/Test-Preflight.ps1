@@ -43,6 +43,18 @@ foreach ($file in Get-ChildItem -LiteralPath (Join-Path $modDir 'Locales') -Filt
         }
     }
 }
-[xml]$settingsXaml = [IO.File]::ReadAllText((Join-Path $modDir 'Override\ScriptExtenderUI\PathfindingSettings.xaml'))
+# Guardrail for literal text keys ("Pathfinding.Name" in code): a key without a locale entry shows up raw
+# in game. Keys composed at runtime are outside this check.
+$literalKeys = @($sources | ForEach-Object { [regex]::Matches([IO.File]::ReadAllText($_), '"(Pathfinding\.[A-Z][A-Za-z0-9]*)"') } |
+    ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+foreach ($file in Get-ChildItem -LiteralPath (Join-Path $modDir 'Locales') -Filter '*.txt') {
+    $text = [IO.File]::ReadAllText($file.FullName)
+    foreach ($key in $literalKeys) {
+        if ([regex]::Matches($text, '(?m)^' + [regex]::Escape($key) + '=.+$').Count -ne 1) {
+            throw "Missing or duplicate localization for a key used in code: $($file.Name), $key"
+        }
+    }
+}
+[xml]$settingsXaml =[IO.File]::ReadAllText((Join-Path $modDir 'Override\ScriptExtenderUI\PathfindingSettings.xaml'))
 if ($settingsXaml.OuterXml -notmatch 'EnableRallyTerrainSlowdownFix, Mode=TwoWay') { throw 'Rally terrain UI integration is missing.' }
 Write-Output "PASS preflight: $($sources.Count) runtime sources, JSON and lifecycle rules, CRLF, manifest identity."

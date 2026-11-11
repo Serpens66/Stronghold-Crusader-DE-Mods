@@ -20,33 +20,32 @@ namespace Pathfinding.UnitCommands
             byte* connections, byte* directionBits, int* neighborOffsets, ushort* rows,
             IEnemyGateRoutePolicySnapshot policy)
         {
-            if (generation < 1 || generation > 32000) { DiagGroundRejectReason(13); return false; }
+            if (generation < 1 || generation > 32000) { return false; }
             if ((uint)start >= TileCount || (uint)target >= TileCount || stamps == null || connections == null ||
-                directionBits == null || neighborOffsets == null || rows == null) { DiagGroundRejectReason(14); return false; }
+                directionBits == null || neighborOffsets == null || rows == null) { return false; }
             Array.Clear(Tiles, 0, Tiles.Length);
             for (int tile = 0; tile < TileCount; tile++)
                 if (stamps[tile] == generation) Tiles[tile >> 6] |= 1UL << (tile & 63);
-            if (!Contains(start)) { DiagGroundRejectReason(15); return false; }
-            if (Contains(target)) { DiagGroundRejectReason(16); return false; }
+            if (!Contains(start)) { return false; }
+            if (Contains(target)) { return false; }
             for (int tile = 0; tile < TileCount; tile++)
             {
                 if (!Contains(tile)) continue;
                 int row = rows[tile];
-                if ((uint)row >= 800) { DiagGroundRejectReason(17); return false; }
+                if ((uint)row >= 800) { return false; }
                 int mask = connections[tile];
                 for (int direction = 0; direction < 8; direction++)
                 {
                     if ((mask & directionBits[direction]) == 0) continue;
                     int next = tile + neighborOffsets[row * 8 + direction];
-                    if ((uint)next >= TileCount) { DiagGroundRejectReason(18); return false; }
+                    if ((uint)next >= TileCount) { return false; }
                     // Interior edges need no policy callback. The unfiltered graph is
                     // a safe superset when no exact, immutable gate policy is available.
-                    if (!Contains(next) && (policy == null || policy.IsDirectionAllowed(tile, direction))) { DiagGroundRejectReason(19); return false; }
+                    if (!Contains(next) && (policy == null || policy.IsDirectionAllowed(tile, direction))) { return false; }
                 }
             }
-            if (policy != null && !policy.IsCurrent) { DiagGroundRejectReason(20); return false; }
+            if (policy != null && !policy.IsCurrent) { return false; }
             return true;
         }
-        partial void DiagGroundRejectReason(int kind);
     }
 }

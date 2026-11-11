@@ -42,26 +42,16 @@ namespace Pathfinding.UnitCommands
             PathBuilderDelegate builder = originalPathBuilder;
             originalPathBuilder = (manager, movementClass, profile) =>
             {
-#if SERP_DEVDIAG
-                long freeze = GateAttackFreezeCapture.Enter(GateAttackFreezeCapture.OriginalBuilder, default);
-                bool freezeCompleted = false;
-#endif
                 builderOriginalEntries++;
                 long measured = 0;
                 Shared.DevDiag.Start(ref measured);
                 try
                 {
                     lastPathBuilderResult = builder(manager, movementClass, profile);
-#if SERP_DEVDIAG
-                    freezeCompleted = true;
-#endif
                     return lastPathBuilderResult;
                 }
                 finally
                 {
-#if SERP_DEVDIAG
-                    GateAttackFreezeCapture.Leave(freeze, lastPathBuilderResult, freezeCompleted);
-#endif
                     Shared.DevDiag.StopSpike(ref measured, "uc.vanilla.builder", 20000);
                 }
             };

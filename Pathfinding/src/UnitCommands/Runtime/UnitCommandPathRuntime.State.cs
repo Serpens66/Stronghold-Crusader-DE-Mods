@@ -428,7 +428,9 @@ namespace Pathfinding.UnitCommands
         internal bool attackTickSubscribed;
         internal int mapEpoch;
         internal int cacheMapEpoch = -1;
+#pragma warning disable CS0649 // Assigned only in DEVDIAG builds.
         internal int fallbackContractRejections;
+#pragma warning restore CS0649
         internal int cacheStartX = -1;
         internal int cacheStartY = -1;
         internal int cachePlayerId = -1;

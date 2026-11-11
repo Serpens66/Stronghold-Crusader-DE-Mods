@@ -308,7 +308,9 @@ namespace Pathfinding.Engine
         }
 
         // Test hook: the per-neighbour path also for FriendlyOnly searches (equality test).
+#pragma warning disable CS0649 // Comparison switch set only by the engine tests (AnchorIntegrationTests).
         internal bool DisableWordReachability;
+#pragma warning restore CS0649
 
         // An allowed edge into nextCell: state transition, visit, summary and queue.
         private void EnqueueNeighbour(int nextCell, int nextTileId, int currentState, MoatTraversalEdgeKind edgeKind,

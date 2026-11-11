@@ -52,6 +52,23 @@ namespace Pathfinding
             runtime = new PathfindingRuntime(Logger, Settings, System.IO.Path.GetDirectoryName(Info.Location));
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
             Shared.DebugLogHelper.LogInfo(Logger, $"{PluginName} {PluginVersion} loaded; awaiting native library.");
+            ReportOutdatedBugfixesAndQoL();
+        }
+
+        // BugfixesAndQoL up to 1.0.214 still contains every feature of this mod. Both copies would then
+        // install the same hooks and HUD buttons; only an error is reported (SerpsModsHost shows it in game).
+        private static readonly Version FirstBugfixesWithoutPathfinding = new Version(1, 0, 215);
+
+        private void ReportOutdatedBugfixesAndQoL()
+        {
+            if (!BepInEx.Bootstrap.Chainloader.PluginInfos.TryGetValue("BugfixesAndQoL_Serp", out PluginInfo bugfixes) ||
+                bugfixes?.Metadata == null || bugfixes.Metadata.Version >= FirstBugfixesWithoutPathfinding)
+                return;
+            Shared.DebugLogHelper.LogError(Logger,
+                $"PATHFINDING_OUTDATED_BUGFIXES: BugfixesAndQoL {bugfixes.Metadata.Version} is installed. " +
+                $"Its unit commands, gate routing, Assassin climbing, formations, command queue and troop movement now " +
+                $"belong to Pathfinding and run twice with this version. Update BugfixesAndQoL to " +
+                $"{FirstBugfixesWithoutPathfinding} or newer.");
         }
 
         private void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)

@@ -29,8 +29,7 @@
   <PropertyGroup Condition="'$(ExtenderDir)' == '' and Exists('$(LocalScriptExtenderBuildOutput)\SHCDESE.dll')"><ExtenderDir>$(LocalScriptExtenderBuildOutput)</ExtenderDir></PropertyGroup>
   <PropertyGroup Condition="'$(ExtenderDir)' == '' and Exists('$(LocalScriptExtenderModOutput)\SHCDESE.dll')"><ExtenderDir>$(LocalScriptExtenderModOutput)</ExtenderDir></PropertyGroup>
   <ItemGroup>
-    <Compile Include="src\PitchMoatLines\*.cs" Exclude="src\PitchMoatLines\*.DevDiag.cs" />
-    <Compile Include="src\PitchMoatLines\*.DevDiag.cs" Condition="'$(SerpDevDiagnostics)' == 'true'" />
+    <Compile Include="src\PitchMoatLines\*.cs" />
     <Compile Include="src\Lobby\LocalAutosaveRuntime.cs" />
     <Compile Include="src\Core\Native\BfqolNativeCache.cs" />
     <Compile Include="src\Core\Native\EngineThreadLock.cs" />
@@ -103,7 +102,6 @@
     <Compile Include="src\SavegameMissingMap\SavegameFix.cs" />
     <Compile Include="src\SavegameMissingMap\RuntimeStartup.cs" />
     <Compile Include="src\SavegameMissingMap\SavegameMissingMapFeature.cs" />
-    <Compile Include="src\SavegameMissingMap\SavegameMissingMapDiagnostics.cs" />
     <Compile Include="src\Core\Common\LocalSelectionSnapshot.cs" />
     <Compile Include="src\AI\Raid\AiRaidRetargetFixRuntime.cs" />
     <Compile Include="src\AI\Raid\RaidActivationState.cs" />

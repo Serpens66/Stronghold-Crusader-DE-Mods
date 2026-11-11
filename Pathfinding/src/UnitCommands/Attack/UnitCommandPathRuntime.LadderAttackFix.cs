@@ -1,3 +1,4 @@
+#pragma warning disable CS0162 // Release: compile-time false diagnostic switches drop their branches.
 using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;

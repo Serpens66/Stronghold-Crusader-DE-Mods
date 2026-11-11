@@ -68,7 +68,9 @@ namespace Pathfinding.Engine
         internal long Captures, CaptureRejects, Hits, Fallbacks, Stale, Verified, Mismatches, SelfChecks, SelfCheckFailures;
         internal string MismatchSample;
         // DEVDIAG only (null otherwise): DAFD0 itself, for the self-check after a capture.
+#pragma warning disable CS0649 // Assigned only in DEVDIAG builds.
         internal BreadthSearchDelegate VerifySearch;
+#pragma warning restore CS0649
 
         internal MoatFailureProofs(short* stamps, byte* valid, byte* directions, uint* flags, byte* heights, ushort* buildings, byte* typeWords,
             short* specialTiles, byte* specialContext, ushort* rows, int* rowStarts, int* neighborOffsets, IntPtr rectangle,

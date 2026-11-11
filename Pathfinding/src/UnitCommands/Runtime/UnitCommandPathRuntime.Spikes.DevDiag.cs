@@ -7,7 +7,6 @@ namespace Pathfinding.UnitCommands
     {
         partial void DiagWrapCursorPairOriginal()
         {
-            GateAttackFreezeCapture.ReadCounters = ReadFreezeCounters;
             CursorTilePairReachabilityDelegate pair = originalCursorTilePairReachability;
             originalCursorTilePairReachability = (manager, target, selected, cache) =>
             {
@@ -25,22 +24,18 @@ namespace Pathfinding.UnitCommands
             BuildingApproachBuilderDelegate approach = originalBuildingApproachBuilder;
             originalBuildingApproachBuilder = (manager, tribe, building, requested, region, movementClass) =>
             {
-                long freeze = GateAttackFreezeCapture.Enter(GateAttackFreezeCapture.OriginalApproach, FreezeGroupContext(tribe, building));
-                bool completed = false;
                 long started = 0;
                 Shared.DevDiag.Start(ref started);
-                try { approach(manager, tribe, building, requested, region, movementClass); completed = true; }
-                finally { GateAttackFreezeCapture.Leave(freeze, int.MinValue, completed); Shared.DevDiag.StopSpike(ref started, "uc.vanilla.buildingApproach", 100000); }
+                try { approach(manager, tribe, building, requested, region, movementClass); }
+                finally { Shared.DevDiag.StopSpike(ref started, "uc.vanilla.buildingApproach", 100000); }
             };
             BuildingCandidateConsumerDelegate consumer = originalBuildingCandidateConsumer;
             originalBuildingCandidateConsumer = (manager, tribe, variant) =>
             {
-                long freeze = GateAttackFreezeCapture.Enter(GateAttackFreezeCapture.OriginalConsumer, FreezeGroupContext(tribe, activeAttackCommand?.TargetValue1 ?? 0));
-                bool completed = false;
                 long started = 0;
                 Shared.DevDiag.Start(ref started);
-                try { consumer(manager, tribe, variant); completed = true; }
-                finally { GateAttackFreezeCapture.Leave(freeze, int.MinValue, completed); Shared.DevDiag.StopSpike(ref started, "uc.vanilla.buildingConsumer", 100000); }
+                try { consumer(manager, tribe, variant); }
+                finally { Shared.DevDiag.StopSpike(ref started, "uc.vanilla.buildingConsumer", 100000); }
             };
         }
 

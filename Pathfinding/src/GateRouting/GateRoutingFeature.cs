@@ -22,7 +22,12 @@ namespace Pathfinding.GateRouting
         private static ManualLogSource log;
         private static EnemyGatePathfindingRuntime runtime;
         private static CrusaderLibraryLoadContext context;
-        private static bool initialized, configured, map, editor, active, attempted, detailed, macemen;
+        private static bool initialized, configured, map, editor, active, attempted;
+#if SERP_DEVDIAG
+        private static bool detailed, macemen;
+#else
+        private const bool detailed = false, macemen = false;
+#endif
         private static long rulesVersion;
         private static bool ownRule;
         private static readonly object StateGate=new object();
@@ -153,9 +158,6 @@ namespace Pathfinding.GateRouting
             if(runtime!=null||attempted||context==null)return;
             attempted=true;
             try {
-                // The installed legacy package is removed by the migration driver before startup.
-                if(BepInEx.Bootstrap.Chainloader.PluginInfos.ContainsKey("EnemyGatePathfindingTest_Serp"))
-                    throw new InvalidOperationException("Legacy gate testmod is loaded; disable it before integrated gate initialization");
                 var candidate=new EnemyGatePathfindingRuntime(log,detailed,macemen);
                 candidate.InitializeNative(context,true);runtime=candidate;
             }catch(Exception ex){Shared.DebugLogHelper.LogError(log,"Gate routing initialization failed; unrelated mainmod features remain active: "+ex);}

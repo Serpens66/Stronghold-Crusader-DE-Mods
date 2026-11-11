@@ -53,6 +53,7 @@ namespace Pathfinding
 #if SERP_DEVDIAG
         private static bool PerformanceDiagnosticsEnabled => Shared.DebugLogHelper.DiagnosticsEnabled;
 #else
+#pragma warning disable CS0162 // Release: compile-time false diagnostic switches drop their branches.
         private const bool PerformanceDiagnosticsEnabled = false;
 #endif
         private const int MaximumDetailedRequestsPerCommand = 8;

@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using Shared;
 using SHCDESE.Interop;
 using UnityEngine;
 using UnityEngine.Tilemaps;
@@ -27,9 +26,6 @@ namespace BugfixesAndQoL.PitchMoatLines
         private Sprite pitchSprite;
         private int nextPitchLookup;
         private int visibleGhosts, outlineCount;
-#if SERP_DEVDIAG
-        private int renderedGesture = int.MinValue;
-#endif
 
         internal static void EnsureOn(EditorDirector director)
         {
@@ -45,21 +41,10 @@ namespace BugfixesAndQoL.PitchMoatLines
             view.enabled = true;
         }
 
-        private static bool HasFocus
-        {
-            get
-            {
-#if SERP_DEVDIAG
-                if (PlacementAcceptance.TryInput(out var input)) return input.Focused;
-#endif
-                return Application.isFocused;
-            }
-        }
-
         private void LateUpdate()
         {
             var snapshot = PlacementRuntime.GetPreview();
-            if (snapshot == null || !HasFocus)
+            if (snapshot == null || !Application.isFocused)
             {
                 HideFrame();
                 return;
@@ -77,25 +62,7 @@ namespace BugfixesAndQoL.PitchMoatLines
                 terrainRenderers.Clear();
             }
 
-#if SERP_DEVDIAG
-            long firstDraw = 0;
-            if (renderedGesture != snapshot.GestureNumber)
-            {
-                renderedGesture = snapshot.GestureNumber;
-                DevDiag.Start(ref firstDraw);
-            }
-            try
-            {
-                DrawFrame(snapshot, map, controls);
-            }
-            finally
-            {
-                DevDiag.StopSpike(ref firstDraw, "pitch-moat.preview.first-draw", 0,
-                    () => $"gesture={snapshot.GestureNumber} fields={snapshot.Tiles.Length} sprites={visibleGhosts}");
-            }
-#else
             DrawFrame(snapshot, map, controls);
-#endif
         }
 
         private void DrawFrame(PreviewSnapshot snapshot, GameMap map, MainControls controls)
@@ -230,10 +197,6 @@ namespace BugfixesAndQoL.PitchMoatLines
 
         private void OnApplicationFocus(bool focused)
         {
-#if SERP_DEVDIAG
-            if (PlacementAcceptance.TryInput(out var input) && input.Focused)
-                return;
-#endif
             if (!focused)
                 HideFrame();
         }
@@ -248,7 +211,7 @@ namespace BugfixesAndQoL.PitchMoatLines
 
         private void OnGUI()
         {
-            if (Event.current.type != EventType.Repaint || !HasFocus || outlineCount == 0 ||
+            if (Event.current.type != EventType.Repaint || !Application.isFocused || outlineCount == 0 ||
                 !ReferenceEquals(frameSnapshot, PlacementRuntime.GetPreview()))
                 return;
             var camera = Camera.main;

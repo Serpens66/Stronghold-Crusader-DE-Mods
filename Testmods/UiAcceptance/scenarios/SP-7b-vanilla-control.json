@@ -11,10 +11,10 @@
       "allowErrors": true
     },
     {
-      "id": "bfq-manual-off",
+      "id": "manual-commands-off",
       "do": "SetModSetting",
       "args": [
-        "BugfixesAndQoL.BugfixesAndQoLRuntime::processUnitCommandPathRuntime.settings",
+        "Pathfinding.PathfindingRuntime::processUnitCommandPathRuntime.settings",
         "EnableImprovedManualUnitCommands",
         "false"
       ],

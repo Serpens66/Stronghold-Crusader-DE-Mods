@@ -75,17 +75,10 @@ namespace CommandFixture
                 {
                     APIShared.ScriptExtenderReplacements.GamePathingManagerAPI.Instance.Profiles[26]=profile;
                     fixtureTick++;calls=0;
-#if SERP_DEVDIAG
-                    Pathfinding.ManualProbeCapture.ExchangeSummary();
-#endif
                     var clock=System.Diagnostics.Stopwatch.StartNew();
                     Check(TryQualifyNativeSelection(new(),ids[..size],"closed",out var bound,out var group)&&bound==null&&!group.AllowFallback,"same-region island stays rejected");
                     Check(calls==1,"one native probe, remaining closed-set probes avoided: "+size+"/"+profile);Restored();
                     Console.WriteLine($"CLOSED SET units={size} profile={profile} fullProbes={calls} ms={clock.Elapsed.TotalMilliseconds:F3}");
-#if SERP_DEVDIAG
-                    var evidence=Pathfinding.ManualProbeCapture.ExchangeSummary();
-                    Check(evidence.GroundReasons[1]==1&&evidence.GroundReasons[2]==size-1&&evidence.NativeAvoided==size-1&&evidence.RestoreManager==NativeProbeManagerBytes,"ground diagnostics correlate actual probes, hits and full restore bytes");
-#endif
                 }
                 for(int i=1;i<=550;i++)
                 {

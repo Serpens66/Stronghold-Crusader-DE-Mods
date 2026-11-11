@@ -7,7 +7,6 @@ using APIShared.Simulation;
 using BepInEx.Logging;
 using CrusaderDE;
 using SHCDESE.Interop;
-using Shared;
 using UnityEngine;
 
 namespace BugfixesAndQoL.PitchMoatLines
@@ -47,10 +46,6 @@ namespace BugfixesAndQoL.PitchMoatLines
         private bool awaitingReceipt;
         private PreviewSnapshot preview;
         private HoverRequest hover;
-#if SERP_DEVDIAG
-        private int gestureNumber;
-        private int quotedGesture;
-#endif
 
         private PlacementRuntime(NativePlacement native, ManualLogSource log, BugfixesAndQoLViewModel settings, PitchLineNetwork network)
         {
@@ -128,11 +123,6 @@ namespace BugfixesAndQoL.PitchMoatLines
 
         private void FocusChanged(bool focused)
         {
-#if SERP_DEVDIAG
-            // Synthetic pointer gestures model a focused game without taking OS focus.
-            if (PlacementAcceptance.TryInput(out var input) && input.Focused)
-                return;
-#endif
             if (focused)
                 return;
             lock (ManagedBoundary.EngineGate)
@@ -143,11 +133,6 @@ namespace BugfixesAndQoL.PitchMoatLines
         // SE key events have separate UI filtering and cannot consume this engine gesture.
         internal static void ForwardButton(EditorDirector director, int state)
         {
-#if SERP_DEVDIAG
-            // Ignore physical edges while an in-process acceptance gesture owns input.
-            if (PlacementAcceptance.TryInput(out _) && !PlacementAcceptance.IsSyntheticEdge)
-                return;
-#endif
             var runtime = Volatile.Read(ref instance);
             if (runtime != null && runtime.ShouldHandleButton(state) &&
                 runtime.HandleButton(director, state, out bool showPreview))
@@ -174,15 +159,8 @@ namespace BugfixesAndQoL.PitchMoatLines
         private bool HandleButton(EditorDirector director, int state, out bool showPreview)
         {
             showPreview = false;
-#if SERP_DEVDIAG
-            long wait = 0;
-            DevDiag.Start(ref wait);
-#endif
             lock (ManagedBoundary.EngineGate)
             {
-#if SERP_DEVDIAG
-                DevDiag.StopSpike(ref wait, "pitch-moat.button.engine-wait", state == 1 ? 0 : 8000);
-#endif
                 try
                 {
                     // A fresh down also ends a stale capture if focus or the
@@ -210,13 +188,6 @@ namespace BugfixesAndQoL.PitchMoatLines
                     if (state != 1)
                         return false;
                     bool canUseTool = TryTarget(director, out var current);
-#if SERP_DEVDIAG
-                    DevDiag.Log(() => $"pitch-moat: input target={canUseTool} focused={InputFocused()}/{Application.isFocused} " +
-                        $"active={director.IsActive} enabled={enabled} failed={failed} ready={ManagedBoundary.IsReady} " +
-                        $"session={mission?.SessionId} playState={readiness?.Current?.SessionId} " +
-                        $"action={MainControls.instance?.CurrentAction}/{MainControls.instance?.CurrentSubAction} " +
-                        $"paused={Director.instance?.Paused} modifiers={ValidModifiers()}");
-#endif
                     if (HasReleasedLine(stage) && canUseTool && current.Matches(target) && !IsCancelPressed())
                     {
                         ownsButton = true;
@@ -238,9 +209,6 @@ namespace BugfixesAndQoL.PitchMoatLines
                     stage = Stage.Dragging;
                     nextQuote = 0;
                     showPreview = true;
-#if SERP_DEVDIAG
-                    gestureNumber++;
-#endif
                     return true;
                 }
                 catch (Exception error)
@@ -253,10 +221,6 @@ namespace BugfixesAndQoL.PitchMoatLines
 
         private void EnsurePreview(EditorDirector director)
         {
-#if SERP_DEVDIAG
-            long started = 0;
-            DevDiag.Start(ref started);
-#endif
             try
             {
                 PlacementPreview.EnsureOn(director);
@@ -266,13 +230,6 @@ namespace BugfixesAndQoL.PitchMoatLines
                 lock (ManagedBoundary.EngineGate)
                     Fail(error.ToString());
             }
-#if SERP_DEVDIAG
-            finally
-            {
-                DevDiag.StopSpike(ref started, "pitch-moat.preview.ensure", 0,
-                    () => $"gesture={gestureNumber}");
-            }
-#endif
         }
 
         internal static void AfterInput(EditorDirector director)
@@ -293,25 +250,18 @@ namespace BugfixesAndQoL.PitchMoatLines
                 }
                 return;
             }
-#if SERP_DEVDIAG
-            long wait = 0;
-            DevDiag.Start(ref wait);
-#endif
             lock (ManagedBoundary.EngineGate)
             {
-#if SERP_DEVDIAG
-                DevDiag.StopSpike(ref wait, "pitch-moat.after-input.engine-wait", 8000);
-#endif
                 try
                 {
-                    if (!InputFocused() || IsCancelPressed() ||
+                    if (!Application.isFocused || IsCancelPressed() ||
                         (runtime.stage == Stage.Dragging && !ValidModifiers()) ||
                         (runtime.stage != Stage.Idle && (!runtime.TryTarget(director, out var current) ||
                             !current.Matches(runtime.target))))
                         runtime.ClearPlacement();
-                    if (runtime.stage == Stage.Dragging && OverUi(director))
+                    if (runtime.stage == Stage.Dragging && director.overUI())
                         runtime.HideEndpoint();
-                    if (runtime.ownsButton && !PrimaryHeld())
+                    if (runtime.ownsButton && !Input.GetMouseButton(0))
                     {
                         // A release that never reached the game edge (for example
                         // after focus loss) cannot confirm any placement.
@@ -376,7 +326,7 @@ namespace BugfixesAndQoL.PitchMoatLines
         {
             var context = Volatile.Read(ref mission);
             var previous = Volatile.Read(ref hover);
-            if (!enabled || context == null || !ControlHeld(director) || ShiftHeld() || PrimaryHeld() || IsCancelPressed() ||
+            if (!enabled || context == null || !director.ctrlPressed || ShiftHeld() || Input.GetMouseButton(0) || IsCancelPressed() ||
                 !TryManagedTarget(director, context, out var current) || !TryPointerTile(director, out var tile))
             {
                 if (previous != null) Volatile.Write(ref hover, null);
@@ -420,7 +370,7 @@ namespace BugfixesAndQoL.PitchMoatLines
             if (!enabled || failed || !ManagedBoundary.IsReady || context == null ||
                 (context.Mode.IsRealMultiplayer && !PitchMoatLinesFeature.MultiplayerCompatible) || (!context.IsEditor &&
                     readiness?.Current?.SessionId != context.SessionId) ||
-                !InputFocused() || director == null || !director.IsActive ||
+                !Application.isFocused || director == null || !director.IsActive ||
                 !MainViewModel.viewModelLoaded || MainControls.instance == null ||
                 MainControls.instance.CurrentAction != MapperPlacement || Director.instance == null ||
                 Director.instance.Paused || GameData.scenario?.InGameoverSituation != false ||
@@ -439,13 +389,6 @@ namespace BugfixesAndQoL.PitchMoatLines
         private static bool TryPointerTile(EditorDirector director, out LineTile tile)
         {
             tile = default;
-#if SERP_DEVDIAG
-            if (PlacementAcceptance.TryInput(out var input))
-            {
-                tile = input.Tile;
-                return input.OnMap;
-            }
-#endif
             if (director.overUI() || GameMap.instance == null)
                 return false;
             var mouse = Input.mousePosition;
@@ -462,58 +405,17 @@ namespace BugfixesAndQoL.PitchMoatLines
 
         private static bool ValidModifiers()
         {
-#if SERP_DEVDIAG
-            if (PlacementAcceptance.TryInput(out var input)) return input.Control && !input.Shift;
-#endif
-            return InputFocused() && !ShiftHeld() &&
+            return Application.isFocused && !ShiftHeld() &&
                 (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl));
-        }
-
-        private static bool InputFocused()
-        {
-#if SERP_DEVDIAG
-            if (PlacementAcceptance.TryInput(out var input)) return input.Focused;
-#endif
-            return Application.isFocused;
-        }
-
-        private static bool OverUi(EditorDirector director)
-        {
-#if SERP_DEVDIAG
-            if (PlacementAcceptance.TryInput(out var input)) return !input.OnMap;
-#endif
-            return director.overUI();
-        }
-
-        private static bool ControlHeld(EditorDirector director)
-        {
-#if SERP_DEVDIAG
-            if (PlacementAcceptance.TryInput(out var input)) return input.Control;
-#endif
-            return director.ctrlPressed;
-        }
-
-        private static bool PrimaryHeld()
-        {
-#if SERP_DEVDIAG
-            if (PlacementAcceptance.TryInput(out var input)) return input.Held;
-#endif
-            return Input.GetMouseButton(0);
         }
 
         private static bool ShiftHeld()
         {
-#if SERP_DEVDIAG
-            if (PlacementAcceptance.TryInput(out var input)) return input.Shift;
-#endif
             return Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
         }
 
         private static bool IsCancelPressed()
         {
-#if SERP_DEVDIAG
-            if (PlacementAcceptance.TryInput(out var input)) return input.Cancel;
-#endif
             return Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape);
         }
 
@@ -665,9 +567,6 @@ namespace BugfixesAndQoL.PitchMoatLines
             }
             if (nextTile == countToSubmit)
             {
-#if SERP_DEVDIAG
-                DevDiag.Log(() => $"pitch-moat: line completed, gesture={gestureNumber}, mapper={target.Mapper}, fields={placedCount}");
-#endif
                 ClearPlacement();
                 return;
             }
@@ -719,32 +618,13 @@ namespace BugfixesAndQoL.PitchMoatLines
                 Array.Copy(tileStates, displayStates, count);
             var snapshot = new PreviewSnapshot(displayTiles, displayStates, endpoint, current.Mapper, current.Player,
                 current.InGame, available, quote);
-#if SERP_DEVDIAG
-            snapshot.GestureNumber = gestureNumber;
-#endif
             return snapshot;
         }
 
         private bool TryQuote(ArraySegment<LineTile> line, out LineQuote quote)
         {
-#if SERP_DEVDIAG
-            long started = 0;
-            bool firstQuote = quotedGesture != gestureNumber;
-            quotedGesture = gestureNumber;
-            DevDiag.Start(ref started);
-            try
-            {
-#endif
                 return native.TryQuote(target.Mapper, target.Player, target.InGame, AllowOverlap,
                     line, tileStates, out quote);
-#if SERP_DEVDIAG
-            }
-            finally
-            {
-                DevDiag.StopSpike(ref started, "pitch-moat.quote", firstQuote ? 0 : 8000,
-                    () => $"gesture={gestureNumber} stage={stage} mapper={target.Mapper} fields={line.Count}");
-            }
-#endif
         }
 
         private ArraySegment<LineTile> CurrentLine() =>
@@ -842,9 +722,6 @@ namespace BugfixesAndQoL.PitchMoatLines
         internal readonly bool Available;
         internal readonly LineQuote Quote;
         private readonly LineTile end;
-#if SERP_DEVDIAG
-        internal int GestureNumber;
-#endif
 
         internal PreviewSnapshot(LineTile[] tiles, LineTileState[] states, LineTile end, int mapper, int player,
             bool inGame, bool available, LineQuote quote)

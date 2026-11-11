@@ -12,7 +12,7 @@ foreach (bool diagnostic in new[] { false, true })
 var options = new CSharpParseOptions(preprocessorSymbols: diagnostic ? new[] { "SERP_DEVDIAG" } : Array.Empty<string>());
 var syntax=CSharpSyntaxTree.ParseText(File.ReadAllText(path), options);
 var names=new HashSet<string> {"nativeManualProbe","manualCommandContexts","ManualCommandContext",
-    "nativeCursorAnswers","nativeCursorAnswerTick","NativeCursorProbeKey","ProbeNativeCursorPath","FreezeProbeContext","TryQualifyNativeSelection",
+    "nativeCursorAnswers","nativeCursorAnswerTick","NativeCursorProbeKey","ProbeNativeCursorPath","TryQualifyNativeSelection",
     "NativeProbeManagerBytes","NativeProbeGridBytes","nativeProbeGrid","nativeProbeRectangle",
     "nativeProbeManagerBackup","nativeProbeGridBackup","nativeProbeRectangleBackup","nativeProbeMemoryHelperBackup",
     "PushManualCommandContext","RestoreManualCommandContext","ProbeNativeManualPath",
@@ -22,7 +22,6 @@ var names=new HashSet<string> {"nativeManualProbe","manualCommandContexts","Manu
     "DispatchMoveEvent","DispatchTargetEvent","InvalidateFastMoatData","InvalidateFastMoatTile","InvalidateFastMoatDirections","LogAndResetFastMoatMetrics","ClearDeferredFastMoveScope"};
 var permanent=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Pathfinding/src/UnitCommands/Native/PermanentCommandHooks.cs")));
 var traversal=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Pathfinding/src/UnitCommands/Movement/TraversalDispatch.cs")));
-var adapter=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Pathfinding/src/UnitCommands/Runtime/GateAttackFreezeRuntime.DevDiag.cs")), options);
 var proof=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Pathfinding/src/UnitCommands/Cursor/CursorRegionRejectProof.cs")), options, "CursorRegionRejectProof.cs");
 var proofDiag=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Pathfinding/src/UnitCommands/Cursor/CursorRegionRejectProof.DevDiag.cs")), options, "CursorRegionRejectProof.DevDiag.cs");
 var ground=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Pathfinding/src/UnitCommands/Cursor/CursorGroundRejectRuntime.cs")), options, "CursorGroundRejectRuntime.cs");
@@ -35,7 +34,7 @@ names.Add("moveAdmissionParents");
 names.Add("queueDefersMove");
 var unitMovement=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Pathfinding/src/UnitCommands/Movement/UnitMovementContext.cs")), options);
 names.Add("ObserveScopedRegionPairReachability");
-var members=(diagnostic ? new[]{syntax,permanent,traversal,adapter,proof,proofDiag,region,ground,recovery} : new[]{syntax,permanent,traversal,proof,region,ground,recovery}).SelectMany(t=>t.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>()
+var members=(diagnostic ? new[]{syntax,permanent,traversal,proof,proofDiag,region,ground,recovery} : new[]{syntax,permanent,traversal,proof,region,ground,recovery}).SelectMany(t=>t.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>()
     .Single(c=>c.Identifier.Text=="UnitCommandPathRuntime").Members).Where(m=>m switch {
         _ when m.SyntaxTree==proof || m.SyntaxTree==proofDiag || m.SyntaxTree==ground=>true,
         MethodDeclarationSyntax method when m.SyntaxTree==recovery=>admissionNames.Contains(method.Identifier.Text),
@@ -86,11 +85,6 @@ trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Pathfin
 trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Pathfinding/tests/FriendlyMoatMovement.Tests/ManualGroundHarness.cs")), options));
 trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Pathfinding/tests/FriendlyMoatMovement.Tests/ManualRecoveryHarness.cs")), options));
 trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Pathfinding/src/UnitCommands/Runtime/ManualRegionAdmissionBatch.cs")), options));
-if (diagnostic)
-{
-    trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Pathfinding/src/UnitCommands/Runtime/ManualProbeCapture.DevDiag.cs")), options));
-    trees.Add(CSharpSyntaxTree.ParseText("namespace Pathfinding.UnitCommands {"+proofDiag.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c=>c.Identifier.Text=="CursorGroundRejectProof").ToFullString()+"}", options));
-}
 var references=((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))!.Split(Path.PathSeparator)
     .Select(p=>MetadataReference.CreateFromFile(p));
 var compilation=CSharpCompilation.Create("ActualManualCommandFixture",trees,references,
