@@ -106,6 +106,8 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableMoatTerrainRestoration => options["EnableMoatTerrainRestoration"];
         public SettingsOptionPresentation EnablePitchStairsFix => options["EnablePitchStairsFix"];
         public SettingsOptionPresentation EnableDrawbridgeDestructionFix => options["EnableDrawbridgeDestructionFix"];
+        public SettingsOptionPresentation EnableSiegeCrewDuplicationFix => options["EnableSiegeCrewDuplicationFix"];
+        public SettingsOptionPresentation EnableSiegeCrewFireLossFix => options["EnableSiegeCrewFireLossFix"];
         public SettingsOptionPresentation EnableTunnelPlacementDistanceFix => options["EnableTunnelPlacementDistanceFix"];
         public SettingsOptionPresentation EnableCenteredGatehouseDistanceFix => options["EnableCenteredGatehouseDistanceFix"];
         public SettingsOptionPresentation EnableFairSiegeAmmoRestock => options["EnableFairSiegeAmmoRestock"];
@@ -214,6 +216,8 @@ namespace BugfixesAndQoL
             HostSiege = AddTopic("HostSiege", "bugfixes.topic.host-siege", true);
             AddOption("EnableGatehouseLivingCaptureFix", "bugfixes.enable-gatehouse-living-capture-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableDrawbridgeDestructionFix", "bugfixes.enable-drawbridge-destruction-fix", SettingsCategory.Fixes, HostSiege);
+            AddOption("EnableSiegeCrewDuplicationFix", "bugfixes.siege-crew-duplication-fix", SettingsCategory.Fixes, HostSiege);
+            AddOption("EnableSiegeCrewFireLossFix", "bugfixes.siege-crew-fire-loss-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableMoatTerrainRestoration", "bugfixes.moat-terrain-restoration", SettingsCategory.Fixes, HostSiege);
             AddOption("EnablePitchStairsFix", "bugfixes.pitch-stairs-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableTunnelPlacementDistanceFix", "bugfixes.enable-tunnel-placement-distance-fix", SettingsCategory.Fixes, HostSiege);

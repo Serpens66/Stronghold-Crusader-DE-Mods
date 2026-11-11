@@ -1,5 +1,6 @@
 using VanillaFootprintCandidate = APIShared.GatehouseFootprintCandidate;
 // Feature: Prevent unreachable enemies from closing protected inner gatehouses.
+using APIShared.Buildings;
 using BepInEx.Logging;
 using R3;
 using SHCDESE.API;
@@ -105,9 +106,8 @@ namespace Pathfinding
                     vanillaCandidateCanClose);
                 if (args.ShouldClose != true)
                     return;
-                // Vanilla ignores the answer for units outside its closing range; the
-                // reachability evaluation could not change the gate there.
-                if (!IsWithinVanillaCloseRange(unit, building))
+                // Reachability cannot affect a candidate outside both active closing ranges.
+                if (GatehouseClosingRules.IsDefinitelyOutsideRange(in *building, in *unit))
                 {
 #if SERP_DEVDIAG
                     GatehouseDiagnosticRuntime.Current.RangeSkips++;
@@ -333,18 +333,6 @@ namespace Pathfinding
             passEndpoints = 0;
             return found;
         }
-
-        // Native gate loop 0xB7B70..0xB7BD7 (FBCB9319): after this query Vanilla closes only for a unit
-        // whose Chebyshev distance max(|8*X - unitX|, |8*Y - unitY|) between the gate origin tile and the
-        // unit's fine world position is below 200 (below 140 when its siege flag is set). The fields
-        // are read as the native signed words; any distance of at least 200 never closes the gate.
-        // The rule is shared with ExtraFeatures, which skips the same queries.
-        private static bool IsWithinVanillaCloseRange(GameUnit* unit, GameBuilding* gatehouse) =>
-            Shared.GatehouseQueryUnitIdPolicy.IsWithinVanillaCloseRange(
-                (short)gatehouse->r_TilePositionXBegin,
-                (short)gatehouse->r_TilePositionYBegin,
-                (short)unit->r_CurrentWorldPositionX,
-                (short)unit->r_CurrentWorldPositionY);
 
         // Entry/exit validity depends only on the gate record and the map bounds.
         private bool HaveValidGateEndpoints(int gatehouseBuildingId, PathConnectionRecord* gatehouse,

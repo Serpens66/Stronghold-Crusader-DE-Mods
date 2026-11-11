@@ -406,7 +406,7 @@ internal static partial class Program
     }
     private static void Metadata(string workspace)
     {
-        var scopes=new Dictionary<string,bool>{{"EnableCompactLobbyChat",false},{"EnableLordAndMapListEnhancements",false},{"EnableMissingMapSaveRecovery",false},{"EnableRandomOpponentSelectionEnhancements",true},{"EnableMultiplayerStartupStateFix",true},{"EnablePeaceTimeGameplayFixes",true},{"EnablePeaceTimeCivilianProximityReduction",true},{"EnablePitchStairsFix",true},{"EnableTreeBlightDecayFix",true},{"EnablePrebuiltAiStorageFix",true},{"EnableAiOutpostRetargetFix",true}};
+        var scopes=new Dictionary<string,bool>{{"EnableCompactLobbyChat",false},{"EnableLordAndMapListEnhancements",false},{"EnableMissingMapSaveRecovery",false},{"EnableRandomOpponentSelectionEnhancements",true},{"EnableMultiplayerStartupStateFix",true},{"EnablePeaceTimeGameplayFixes",true},{"EnablePeaceTimeCivilianProximityReduction",true},{"EnablePitchStairsFix",true},{"EnableSiegeCrewDuplicationFix",true},{"EnableSiegeCrewFireLossFix",true},{"EnableTreeBlightDecayFix",true},{"EnablePrebuiltAiStorageFix",true},{"EnableAiOutpostRetargetFix",true}};
         MethodBase ctor=modelType.GetConstructors(All).Single();
         List<Tuple<OpCode,object>> body=Instructions(ctor);
         var xaml=new XmlDocument();xaml.Load(Path.Combine(workspace,"BugfixesAndQoL/Override/ScriptExtenderUI/BugfixesAndQoLSettings.xaml"));
@@ -424,6 +424,18 @@ internal static partial class Program
                 !string.IsNullOrWhiteSpace(popupHelp?.Value), "new setting tooltip contract");
             string role=pair.Value?"CanEditHostSettings":"CanEditClientSettings";
             Check(Ancestors(node).Any(a=>a.Attributes?["IsEnabled"]?.Value=="{Binding "+role+"}"),"new editor inherits its own role authority");
+        }
+        var presetApplication = modelType.BaseType.Assembly.GetType("APIShared.ModSettings.ModSettingsApplication", true);
+        var hostProperties = (PropertyInfo[])presetApplication.GetMethod("GetHostProperties")
+            .Invoke(null, new[] { FormatterServices.GetUninitializedObject(modelType) });
+        var reset = Instructions(modelType.GetMethod("ResetToDefault", All));
+        foreach (string option in new[] { "EnableSiegeCrewDuplicationFix", "EnableSiegeCrewFireLossFix" })
+        {
+            Check(hostProperties.Any(property => property.Name == option), "preset discovery includes host option " + option);
+            var setter = modelType.GetProperty(option).GetSetMethod();
+            Check(reset.Select((instruction, index) => new { instruction, index }).Any(entry =>
+                Equals(entry.instruction.Item2, setter) && entry.index > 0 &&
+                reset[entry.index - 1].Item1 == OpCodes.Ldc_I4_1), "reset restores enabled default for " + option);
         }
         XmlNode workshop=xaml.SelectSingleNode("//*[local-name()='CheckBox' and contains(@IsChecked,'EnableWorkshopUploadLordSelectionFix,')]");
         Check(Ancestors(workshop).Any(a=>a.Attributes?["IsEnabled"]?.Value=="{Binding CanEditClientSettings}"),"Workshop is locally editable by a multiplayer client");

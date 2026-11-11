@@ -20,7 +20,9 @@
       "Version": "1.0.220",
       "Changes": [
         "Use the selected autosave interval in local skirmishes and Trails. Change it during local games from the pause menu.",
-        "Keep the previous singleplayer autosave if the game writes an incomplete file."
+        "Keep the previous singleplayer autosave if the game writes an incomplete file.",
+        "Prevent engineers assigned to a newly built catapult, trebuchet or fire ballista from also becoming available as free units. This host fix is enabled by default.",
+        "Engineers still operating a siege engine die when it burns down. This separate host option covers all eight siege engine types and is enabled by default."
       ]
     },
     {

@@ -84,6 +84,7 @@ namespace BugfixesAndQoL
         private static MoatTerrain.TerrainRuntime processMoatTerrainRuntime;
         private static bool moatTerrainInitializationAttempted;
         private static DrawbridgeDestructionFix.FixRuntime processDrawbridgeDestructionFixRuntime;
+        private static SiegeCrew.FixRuntime processSiegeCrewFixRuntime;
         private static TreeBlightDecay.FixRuntime processTreeBlightDecayRuntime;
         private static bool treeBlightDecayInitializationAttempted;
         private static bool drawbridgeDestructionFixInitializationAttempted;
@@ -383,6 +384,12 @@ namespace BugfixesAndQoL
                 processTreeBlightDecayRuntime.Install(context, isFixedLayoutHashValidated);
                 processTreeBlightDecayRuntime.SetEnabled(settings.EnableMod, settings.EnableTreeBlightDecayFix);
             });
+            TryInitializePersistentFeature("siege crew fixes", () =>
+            {
+                processSiegeCrewFixRuntime = new SiegeCrew.FixRuntime(log);
+                processSiegeCrewFixRuntime.Install(context, settings.EnableMod,
+                    settings.EnableSiegeCrewDuplicationFix, settings.EnableSiegeCrewFireLossFix);
+            });
             TryInitializePersistentFeature("drawbridge destruction fix", () =>
             {
                 if (drawbridgeDestructionFixInitializationAttempted) return;
@@ -470,6 +477,8 @@ namespace BugfixesAndQoL
             TryApplyFeature("AI sell threshold safety", ApplyAiSellThresholdFix);
             processGatehouseLivingCaptureRuntime?.SetEnabled(settings.EnableMod, settings.EnableGatehouseLivingCaptureFix);
             processDrawbridgeDestructionFixRuntime?.SetEnabled(settings.EnableMod, settings.EnableDrawbridgeDestructionFix);
+            processSiegeCrewFixRuntime?.SetEnabled(settings.EnableMod,
+                settings.EnableSiegeCrewDuplicationFix, settings.EnableSiegeCrewFireLossFix);
             processTreeBlightDecayRuntime?.SetEnabled(settings.EnableMod, settings.EnableTreeBlightDecayFix);
             processLordTeleportGuard?.SetEnabled(settings.EnableMod, settings.EnableLordReturnTeleportFix);
             TryApplyFeature("moat terrain restoration", () => processMoatTerrainRuntime?.Refresh());

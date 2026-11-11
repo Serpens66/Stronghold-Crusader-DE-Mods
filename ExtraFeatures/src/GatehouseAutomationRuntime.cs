@@ -1,6 +1,8 @@
 using APIShared.GameModes;
 // Feature: Reachability-aware and per-building manual gatehouse automation.
 using APIShared;
+using APIShared.Buildings;
+using APIShared.Simulation;
 using BepInEx.Logging;
 using CrusaderDE;
 using MessagePack;
@@ -26,7 +28,7 @@ using UnityEngine;
 
 namespace ExtraFeatures
 {
-    internal sealed unsafe class GatehouseAutomationRuntime
+    internal sealed unsafe partial class GatehouseAutomationRuntime
     {
         private delegate void BuildingHudActionDelegate(MainViewModel self);
         private delegate void EditorPlayerActionDelegate(EditorDirector self, int playerId);
@@ -39,8 +41,8 @@ namespace ExtraFeatures
         private readonly ExtraFeaturesViewModel settings;
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly GatehouseAutomationButtonViewModel buttonViewModel;
-        // Guards manualOnlyGateGlobalIds and pendingMapLocators, which the simulation (queries,
-        // Chore packets), the main thread (HUD, clicks) and lifecycle callbacks share. Methods that
+        // Guards edits to manualOnlyGateGlobalIds and pendingMapLocators by Chore packets,
+        // HUD clicks and lifecycle callbacks. The simulation reads a published snapshot. Methods that
         // also write native gate timers take EngineLock.Gate first; never in the reverse order.
         private readonly object stateLock = new object();
         private readonly HashSet<int> manualOnlyGateGlobalIds = new HashSet<int>();
@@ -122,6 +124,9 @@ namespace ExtraFeatures
                 throw;
             }
             initialized = true;
+            if (!EngineRunEvents.TryRegister(ExtraFeaturesPlugin.PluginGuid, "gatehouse-query-cache",
+                    BeginGateQueryRun, EndGateQueryRun, out string cacheFailure))
+                LogWarning($"Gatehouse candidate lookups will be read fresh: {cacheFailure}.");
             if (!timingReadinessRegistered)
             {
                 timingReadinessRegistered = true;
@@ -164,6 +169,7 @@ namespace ExtraFeatures
 
         public void BeginMap()
         {
+            InvalidateGateQueryCache();
             bool wasActive = mapActive;
             loadedMapStatePending = false;
             mapActive = true;
@@ -546,10 +552,11 @@ namespace ExtraFeatures
 
                 lock (stateLock)
                 {
-                    if (automaticEnabled)
-                        manualOnlyGateGlobalIds.Remove(globalId);
-                    else
-                        manualOnlyGateGlobalIds.Add(globalId);
+                    bool changed = automaticEnabled
+                        ? manualOnlyGateGlobalIds.Remove(globalId)
+                        : manualOnlyGateGlobalIds.Add(globalId);
+                    if (changed)
+                        PublishManualGateIdsLocked();
                 }
 
                 SetManualGateTimer(building, !automaticEnabled);
@@ -587,15 +594,9 @@ namespace ExtraFeatures
                     return;
                 }
 
-                // Most queries come from distant units of the owner's list. Vanilla cannot
-                // close for them whatever the answer, so leaving the Extender default there
-                // is exact (BugfixesAndQoL skips the same queries).
-                if (!Shared.GatehouseQueryUnitIdPolicy.IsWithinVanillaCloseRange(
-                        (short)building->r_TilePositionXBegin,
-                        (short)building->r_TilePositionYBegin,
-                        (short)unit->r_CurrentWorldPositionX,
-                        (short)unit->r_CurrentWorldPositionY) ||
-                    !TryGetLiveGatehouse(args.BuildingId, out _, out _))
+                // Only candidates outside the active native rule are safe to skip.
+                if (GatehouseClosingRules.IsDefinitelyOutsideRange(in *building, in *unit) ||
+                    !HasLivePathConnectionForQuery(args.BuildingId, building))
                 {
                     return;
                 }
@@ -685,6 +686,7 @@ namespace ExtraFeatures
             }
 
             ValidateLocators(savedLocators);
+            InvalidateGateQueryCache();
 
             int manualOnlyCount;
             int pendingLocatorCount;
@@ -702,6 +704,7 @@ namespace ExtraFeatures
                     pendingMapLocators.AddRange(savedLocators);
                 }
 
+                PublishManualGateIdsLocked();
                 manualOnlyCount = manualOnlyGateGlobalIds.Count;
                 pendingLocatorCount = pendingMapLocators.Count;
             }
@@ -772,12 +775,15 @@ namespace ExtraFeatures
 
             pendingMapLocators.Clear();
             pendingMapLocators.AddRange(remaining);
+            if (resolved > 0)
+                PublishManualGateIdsLocked();
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
                 LogInfo($"gatehouse map locators resolved: resolved={resolved}, pending={pendingMapLocators.Count}, ambiguous={ambiguous}, finalPass={removeUnresolved}.");
         }
 
         public void BeginEditorMap()
         {
+            InvalidateGateQueryCache();
             loadedMapStatePending = false;
             mapActive = true;
             editorSessionActive = true;
@@ -916,7 +922,10 @@ namespace ExtraFeatures
                 for (int index = 0; index < missing.Count; index++)
                     manualOnlyGateGlobalIds.Remove(missing[index]);
                 if (missing.Count > 0)
+                {
+                    PublishManualGateIdsLocked();
                     LogWarning($"ignored {missing.Count} saved gatehouse IDs that do not resolve on the loaded map.");
+                }
             }
         }
 
@@ -975,7 +984,9 @@ namespace ExtraFeatures
                     ReleaseManualGateTimersLocked();
                 int manualOnlyCount = manualOnlyGateGlobalIds.Count;
                 manualOnlyGateGlobalIds.Clear();
+                PublishManualGateIdsLocked();
                 pendingMapLocators.Clear();
+                InvalidateGateQueryCache();
                 return manualOnlyCount;
             }
         }
@@ -1011,33 +1022,6 @@ namespace ExtraFeatures
             return true;
         }
 
-        private static bool TryGetLiveGatehouse(int buildingId, out GameBuilding* building, out PathConnectionRecord* gatehouse)
-        {
-            gatehouse = null;
-            if (!TryGetLiveGatehouseBuilding(buildingId, out building))
-                return false;
-            if (building->r_BuildingType == eStructs.STRUCT_DRAWBRIDGE)
-                return true;
-            return GamePathingManagerAPI.Instance.TryGetPathConnectionRecordByBuildingId(buildingId, out gatehouse) &&
-                gatehouse != null && gatehouse->r_BuildingId == buildingId &&
-                gatehouse->r_SubjectGlobalId == building->r_GlobalId;
-        }
-
-        // Building-array checks of TryGetLiveGatehouse without the path-record lookup.
-        private static bool TryGetLiveGatehouseBuilding(int buildingId, out GameBuilding* building)
-        {
-            building = null;
-            if (buildingId <= 0 || !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out building) ||
-                building == null || building->r_AliveState != AliveState.IsAlive || building->r_GlobalId == 0 ||
-                building->r_GlobalId > int.MaxValue ||
-                (building->r_BuildingType != eStructs.STRUCT_DRAWBRIDGE && !IsGatehouseType(building->r_BuildingType)))
-            {
-                building = null;
-                return false;
-            }
-            return true;
-        }
-
         private static bool TryFindGatehouseByGlobalId(int globalId, out GameBuilding* building, out int buildingId)
         {
             building = null;
@@ -1061,23 +1045,6 @@ namespace ExtraFeatures
             }
             return false;
         }
-
-        private bool IsManualOnlyBuilding(int buildingId) =>
-            automationReady && mapActive && !loadedMapStatePending &&
-            Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
-            TryGetLiveGatehouse(buildingId, out GameBuilding* building, out _) &&
-            IsManualOnlyGlobalId((int)building->r_GlobalId);
-
-        private bool IsManualOnlyGlobalId(int globalId)
-        {
-            lock (stateLock)
-                return manualOnlyGateGlobalIds.Contains(globalId);
-        }
-
-        private static bool IsGatehouseType(eStructs type) =>
-            type == eStructs.STRUCT_GATE_MAIN || type == eStructs.STRUCT_GATE_INNER ||
-            type == eStructs.STRUCT_GATE_WOOD || type == eStructs.STRUCT_GATE_POSTERN ||
-            type == eStructs.STRUCT_GATEHOUSE;
 
         private static void SetManualGateTimer(GameBuilding* building, bool manual)
         {

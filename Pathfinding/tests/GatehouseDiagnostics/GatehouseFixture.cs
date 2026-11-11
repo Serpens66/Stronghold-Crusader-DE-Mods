@@ -22,11 +22,29 @@ namespace SHCDESE.Interop
     public enum eChimps { CHIMP_TYPE_LION, FixtureSoldier }
     public enum eStructs { STRUCT_DRAWBRIDGE, FixtureGate }
     public struct GameUnit { public bool Alive; public eChimps r_UnitChimp; public int r_ControllableForPlayerId,r_CurrentHealth,r_PathConnectionMode; public uint r_CurrentPositionTileId; public ushort r_CurrentWorldPositionX,r_CurrentWorldPositionY; }
-    public struct GameBuilding { public Enums.AliveState r_AliveState; public eStructs r_BuildingType; public uint r_GlobalId; public int r_OccupyTileGridSize,r_TilePositionXBegin,r_TilePositionYBegin; }
+    public struct GameBuilding { public Enums.AliveState r_AliveState; public eStructs r_BuildingType; public uint r_GlobalId,r_OccupyTileGridSize; public ushort r_TilePositionXBegin,r_TilePositionYBegin; }
     public struct PathConnectionRecord { public uint r_EntryTileId,r_ExitTileId,r_SubjectGlobalId; public int r_IsActive,r_EntryTilePositionX,r_EntryTilePositionY,r_ExitTilePositionX,r_ExitTilePositionY,r_BuildingId; }
 }
 namespace APIShared
 {
+    public enum GatehouseDistanceOrigin { VanillaBuildingBegin, BuildingBoundsCenter }
+
+    // Stand-in for the native configuration publisher. The real API rule is compiled into the fixture.
+    internal sealed class ApiSharedRuntime
+    {
+        internal static ApiSharedRuntime ProcessInstance { get; } = new ApiSharedRuntime();
+        internal bool RangeAvailable = true;
+        internal GatehouseDistanceOrigin Origin;
+        internal int MaximumNativeDistance = 200;
+
+        internal bool TryReadGatehouseClosingRange(out GatehouseDistanceOrigin origin, out int maximumNativeDistance)
+        {
+            origin = Origin;
+            maximumNativeDistance = MaximumNativeDistance;
+            return RangeAvailable;
+        }
+    }
+
     public static unsafe class UnitAccess
     {
         public static SHCDESE.Interop.GameUnit* Units;
@@ -281,31 +299,64 @@ namespace Pathfinding
 #endif
             digest.Add("pass:"+string.Join("|",rows));
         }
-        // Native gate loop: a unit at Chebyshev distance >= 200 (fine units, gate origin tile * 8) never
-        // closes the gate, so its query must keep Vanilla's candidate decision without any evaluation;
-        // a unit at 199 is still evaluated (here: unreachable, so the close is vetoed).
+        // A reachable range test drives the actual Pathfinding veto for an unreachable enemy.
+        // Outside the known range the route and drawbridge evaluators must not run.
         private static void TestCloseRange(SHCDESE.Interop.GameUnit* units,SHCDESE.Interop.GameBuilding* buildings,SHCDESE.Interop.PathConnectionRecord* gate,List<string> digest)
         {
             var tiles=SHCDESE.API.GameTileManagerAPI.Instance;var paths=SHCDESE.API.GamePathingManagerAPI.Instance;
             tiles.Occupancy.Clear();tiles.Bridge=false;tiles.OnRead=null;paths.Throw=false;paths.Target=0;
             buildings[0].r_TilePositionXBegin=100;buildings[0].r_TilePositionYBegin=50;buildings[0].r_OccupyTileGridSize=1;
             gate[0].r_IsActive=1;gate[0].r_EntryTilePositionX=3;gate[0].r_EntryTilePositionY=3;gate[0].r_ExitTilePositionX=3;gate[0].r_ExitTilePositionY=4;
-            var rows=new List<string>();
-            foreach(var (x,y,inRange) in new[]{(601,400,true),(600,400,false),(999,400,true),(1000,400,false),(800,201,true),(800,200,false),(800,599,true),(800,600,false)})
+            var rows = new List<string>();
+            var publisher = APIShared.ApiSharedRuntime.ProcessInstance;
+            var runtime = new ReachableEnemyGatehouseRuntime(new BepInEx.Logging.ManualLogSource(), new PathfindingViewModel());
+            runtime.SetNativeCompatibility(true);
+
+            void CheckCandidate(int x, int y, bool shouldEvaluate)
             {
-                units[0].r_CurrentWorldPositionX=(ushort)x;units[0].r_CurrentWorldPositionY=(ushort)y;
-                var runtime=new ReachableEnemyGatehouseRuntime(new BepInEx.Logging.ManualLogSource(),new PathfindingViewModel());
-                runtime.SetNativeCompatibility(true);SHCDESE.API.GameTimeManagerAPI.Instance.Tick++;
-                int before=paths.Calls,fetches=tiles.LayerFetches;
-                var args=new SHCDESE.EventAPI.Buildings.GatehouseQueryEventArgs{BuildingId=1,UnitId=1};runtime.Call(args);
-                bool evaluated=paths.Calls!=before;
-                Check(evaluated==inRange&&args.ShouldClose==!inRange&&(tiles.LayerFetches!=fetches)==inRange,
-                    "Close range boundary differs at "+x+"/"+y+": evaluated="+evaluated+" close="+args.ShouldClose);
-                rows.Add(x+"/"+y+":"+args.ShouldClose);
+                units[0].r_CurrentWorldPositionX = (ushort)x;
+                units[0].r_CurrentWorldPositionY = (ushort)y;
+                SHCDESE.API.GameTimeManagerAPI.Instance.Tick++;
+                int before = paths.Calls, fetches = tiles.LayerFetches;
+                var args = new SHCDESE.EventAPI.Buildings.GatehouseQueryEventArgs { BuildingId = 1, UnitId = 1 };
+                runtime.Call(args);
+                bool evaluated = paths.Calls != before;
+                Check(evaluated == shouldEvaluate && args.ShouldClose == !shouldEvaluate &&
+                    (tiles.LayerFetches != fetches) == shouldEvaluate,
+                    "Close range differs at " + x + "/" + y + ": evaluated=" + evaluated + " close=" + args.ShouldClose);
+                rows.Add(x + "/" + y + ":" + args.ShouldClose);
             }
-            units[0].r_CurrentWorldPositionX=units[0].r_CurrentWorldPositionY=0;
-            buildings[0].r_TilePositionXBegin=buildings[0].r_TilePositionYBegin=3;
-            digest.Add("range:"+string.Join(",",rows));
+
+            foreach (var (x, y, inRange) in new[] { (601, 400, true), (600, 400, false), (999, 400, true),
+                (1000, 400, false), (800, 201, true), (800, 200, false), (800, 599, true), (800, 600, false) })
+                CheckCandidate(x, y, inRange);
+
+            publisher.MaximumNativeDistance = 400;
+            CheckCandidate(1040, 400, true); // Unreachable enemy at 30 tiles, with an active 50-tile range.
+            CheckCandidate(1199, 799, true);
+            CheckCandidate(1200, 400, false);
+
+            publisher.MaximumNativeDistance = 200;
+            publisher.Origin = APIShared.GatehouseDistanceOrigin.BuildingBoundsCenter;
+            buildings[0].r_OccupyTileGridSize = 7;
+            // Editor units stand at tile * 8 + 4. Tile (103, 53) is the middle of this 7x7 gate.
+            const int centerX = 103 * 8 + 4, centerY = 53 * 8 + 4;
+            foreach (var (dx, dy) in new[] { (-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, 1) })
+            {
+                CheckCandidate(centerX + dx * 200, centerY + dy * 200, false);
+                CheckCandidate(centerX + dx * 199, centerY + dy * 199, true);
+                CheckCandidate(centerX + dx * 201, centerY + dy * 201, false);
+            }
+            publisher.Origin = APIShared.GatehouseDistanceOrigin.VanillaBuildingBegin;
+            CheckCandidate(1027, centerY, false);
+
+            publisher.RangeAvailable = false;
+            CheckCandidate(1200, 400, true);
+            publisher.RangeAvailable = true;
+            units[0].r_CurrentWorldPositionX = units[0].r_CurrentWorldPositionY = 0;
+            buildings[0].r_TilePositionXBegin = buildings[0].r_TilePositionYBegin = 3;
+            buildings[0].r_OccupyTileGridSize = 1;
+            digest.Add("range:" + string.Join(",", rows));
         }
         // Lookups made by production code only: the diagnostic build adds one verification lookup per hit.
         private static int PassHits()

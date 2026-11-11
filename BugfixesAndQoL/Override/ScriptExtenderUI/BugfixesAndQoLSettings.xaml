@@ -1666,6 +1666,30 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
                 </CheckBox>
               </Grid>
             </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.siege-crew-duplication-fix" shared:ModSettingsSearch.Title="{Binding EnableSiegeCrewDuplicationFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableSiegeCrewDuplicationFixHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="28"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableSiegeCrewDuplicationFix}"><ContentControl.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ToolTip}"/></ContentControl.ToolTip></ContentControl>
+              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
+                <CheckBox IsChecked="{Binding EnableSiegeCrewDuplicationFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" Margin="0,0,14,8"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding EnableSiegeCrewDuplicationFixHelpText}"/></CheckBox.ToolTip>
+                  <TextBlock Text="{Binding EnableSiegeCrewDuplicationFixText}" Foreground="White" TextWrapping="Wrap"/>
+                </CheckBox>
+              </Grid>
+            </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.siege-crew-fire-loss-fix" shared:ModSettingsSearch.Title="{Binding EnableSiegeCrewFireLossFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableSiegeCrewFireLossFixHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="28"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableSiegeCrewFireLossFix}"><ContentControl.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ToolTip}"/></ContentControl.ToolTip></ContentControl>
+              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
+                <CheckBox IsChecked="{Binding EnableSiegeCrewFireLossFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" Margin="0,0,14,8"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding EnableSiegeCrewFireLossFixHelpText}"/></CheckBox.ToolTip>
+                  <TextBlock Text="{Binding EnableSiegeCrewFireLossFixText}" Foreground="White" TextWrapping="Wrap"/>
+                </CheckBox>
+              </Grid>
+            </Grid>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.moat-terrain-restoration" shared:ModSettingsSearch.Title="{Binding EnableMoatTerrainRestorationText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableMoatTerrainRestorationHelpText}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="28"/>

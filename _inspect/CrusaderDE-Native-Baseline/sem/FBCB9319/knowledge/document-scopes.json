@@ -39,6 +39,12 @@
       "integrationSections": ["Shared implementation and evidence"]
     },
     {
+      "file": "SIEGE_ENGINEER_CREW_TIMEOUT.md",
+      "scope": "vanilla",
+      "components": [],
+      "integrationSections": []
+    },
+    {
       "file": "HUNTER_PREY_RULES.md",
       "scope": "vanilla+integration",
       "components": ["ImprovedHunters"],

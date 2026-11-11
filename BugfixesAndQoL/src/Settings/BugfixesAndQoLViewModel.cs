@@ -90,6 +90,8 @@ namespace BugfixesAndQoL
         private bool enableAiRaidRetargetFix = true;
         private bool enableMoatTerrainRestoration = true;
         private bool enableDrawbridgeDestructionFix = true;
+        private bool enableSiegeCrewDuplicationFix = true;
+        private bool enableSiegeCrewFireLossFix = true;
         private bool enableTreeBlightDecayFix = true;
         private bool enableGatehouseLivingCaptureFix = true;
         private bool enableAssassinCapturedGateProtectionFix = true;
@@ -359,6 +361,10 @@ namespace BugfixesAndQoL
 
         public string EnableDrawbridgeDestructionFixText => SerpLocalization.Get("BugfixesAndQoL.EnableDrawbridgeDestructionFix");
         public string EnableDrawbridgeDestructionFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableDrawbridgeDestructionFixHelp");
+        public string EnableSiegeCrewDuplicationFixText => SerpLocalization.Get("BugfixesAndQoL.EnableSiegeCrewDuplicationFix");
+        public string EnableSiegeCrewDuplicationFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableSiegeCrewDuplicationFixHelp");
+        public string EnableSiegeCrewFireLossFixText => SerpLocalization.Get("BugfixesAndQoL.EnableSiegeCrewFireLossFix");
+        public string EnableSiegeCrewFireLossFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableSiegeCrewFireLossFixHelp");
         public string EnableGatehouseLivingCaptureFixText => SerpLocalization.Get("BugfixesAndQoL.EnableGatehouseLivingCaptureFix");
         public string EnableAssassinCapturedGateProtectionFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAssassinCapturedGateProtectionFix");
         public string EnableAssassinCapturedGateProtectionFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAssassinCapturedGateProtectionFixHelp");
@@ -1140,6 +1146,20 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableSiegeCrewDuplicationFix
+        {
+            get => enableSiegeCrewDuplicationFix;
+            set => SetSetting(ref enableSiegeCrewDuplicationFix, value, nameof(EnableSiegeCrewDuplicationFix));
+        }
+
+        [SyncHostOnly]
+        public bool EnableSiegeCrewFireLossFix
+        {
+            get => enableSiegeCrewFireLossFix;
+            set => SetSetting(ref enableSiegeCrewFireLossFix, value, nameof(EnableSiegeCrewFireLossFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableGatehouseLivingCaptureFix
         {
             get => enableGatehouseLivingCaptureFix;
@@ -1541,6 +1561,8 @@ namespace BugfixesAndQoL
                 EnableMoatTerrainRestoration = true;
                 EnablePitchStairsFix = true;
                 EnableDrawbridgeDestructionFix = true;
+                EnableSiegeCrewDuplicationFix = true;
+                EnableSiegeCrewFireLossFix = true;
                 EnableTreeBlightDecayFix = true;
                 EnableGatehouseLivingCaptureFix = true;
                 EnableAssassinCapturedGateProtectionFix = true;

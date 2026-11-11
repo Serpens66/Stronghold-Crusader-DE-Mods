@@ -1,0 +1,43 @@
+Pitch and Moat Line Test
+
+Install the contents of the package into the game folder in an isolated test
+layout with the declared Script Extender and APIShared dependencies. Test with
+and without Fixes. Start in single-player and repeat the applicable steps in
+the map editor. Keep the normal save and mod layout outside the fixture.
+
+1. Select pitch or moat and start a left drag while holding Ctrl. Check that the
+   start tile stays fixed, the cursor sets the end, and the preview matches an
+   ordinary wall for horizontal, vertical, diagonal and mixed directions. Hold
+   before releasing and compare the map and stock against their initial values.
+2. Release on the map with Ctrl still held. Check the displayed tiles, the
+   64-tile limit, the one-tile width, and the one-tile click. Check that moat
+   placement has the usual in-game or editor semantics and that pitch charges
+   match the preview over all four starting positions in its payment cycle.
+3. Draw across existing pitch or moat markings, a building or prohibited
+   terrain, and open tiles beyond them. Existing tiles are grey and blocked
+   tiles red. Check that open, affordable tiles beyond either kind are placed.
+   Repeat with zero and limited pitch stock and at the map edge. Check the
+   actual debit and stock in the vanilla build-menu tooltip. Change stock or
+   terrain while holding before release and verify the new result. Hover a
+   different tool and cancel the drag to check that the tooltip text clears.
+   Check both orders of pitch and planned moat on the same tile. Compare the
+   pitch flag and moat task slot, owner and progress before and after placing.
+   Check that finishing the excavation still removes pitch as in vanilla.
+4. Cancel by releasing Ctrl early, right-clicking, pressing Escape, switching
+   tools, changing focus, or releasing over UI or off the map. Check that
+   there is no later placement and that normal dragging and Shift still work.
+   Restart or change map during a pending line and check for stale placement.
+   Start a second stroke with the same tool while a released line is still
+   building. The first line should finish. In the editor, switch players
+   during a released line and check that it stops submitting new tiles.
+5. Multiplayer is disabled in the normal prototype. For acceptance, use
+   matching diagnostic builds and dependencies on both peers, and enable
+   AllowUnverifiedMultiplayerTest on both sides. In a disposable session,
+   compare placed tiles, stock and limits as both host and client. Pitch on
+   planned moat is skipped in real multiplayer. Require synchronized overlap
+   behavior and clean checksums before enabling it for multiplayer.
+6. For a first-click hitch, use the diagnostic build and compare the first
+   Ctrl drag on a fresh game launch with a second drag on the same map and
+   tool. Record short and long lines separately. Look for DEVDIAG lines for
+   pitch-moat.button.engine-wait, pitch-moat.preview.ensure, pitch-moat.quote
+   and pitch-moat.preview.first-draw in the BepInEx log.

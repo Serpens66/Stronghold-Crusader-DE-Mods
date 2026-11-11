@@ -3,14 +3,14 @@
   "Author": "Serpens66",
   "Name": "Pathfinding",
   "Description": "Faster and smarter unit movement: shared group routes, better commands, gate routing, Assassin climbing, formations, command queue and synchronized troop movement.",
-  "Version": "0.1.0",
+  "Version": "0.1.1",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.3",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.35.0"
+      "MinimumVersion": "0.46.0"
     }
   ],
   "Manifest": 1,
@@ -19,6 +19,13 @@
     "2.8.0.2"
   ],
   "SerpChangelog": [
+    {
+      "Version": "0.1.1",
+      "Changes": [
+        "Prevent unreachable enemies from closing gates anywhere inside the active closing range, including extended ranges and distances measured from the gate center.",
+        "Require APIShared 0.46.0 or newer."
+      ]
+    },
     {
       "Version": "0.1.0",
       "Changes": [

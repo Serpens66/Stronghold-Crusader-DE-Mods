@@ -59,7 +59,7 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 - [AI resource reserve audit](./sem/FBCB9319/knowledge/AI_RESOURCE_RESERVE.md)
 - [Bedouin healer target-selection audit](./sem/FBCB9319/knowledge/BEDOUIN_HEALER_TARGETS.md): candidate-list exclusions, selection, movement and healing flow.
 - [Cursor dispatcher: verified boundary and embedded tables](./sem/FBCB9319/knowledge/UNIT_COMMAND_CURSOR_BOUNDARY.md)
-- [Gatehouse query pass](./sem/FBCB9319/knowledge/GATEHOUSE_QUERY_PASS.md): DLL_RunTick → game tick → building dispatcher → gatehouse handler chain, one query pass per gate and engine run without native writes between queries, conditional Extender tick; confirmed by disassembly.
+- [Gatehouse query pass](./sem/FBCB9319/knowledge/GATEHOUSE_QUERY_PASS.md): DLL_RunTick → game tick → building dispatcher → gatehouse handler chain, one query pass per gate and engine run without native writes between queries, conditional Extender tick; confirmed by disassembly. See [gatehouse footprint origin](./sem/FBCB9319/knowledge/GATEHOUSE_QUERY_PASS.md#2026-11-10-gatehouse-footprint-origin-and-closing-cadence) for Vanilla's corner origin, the editor's unit coordinates and the derivation of the footprint center.
 - [Health-bar rendering audit](./sem/FBCB9319/knowledge/HEALTH_BAR_RENDERING.md): visible-map render paths, selection gates, HP storage and candidate hook spans.
 - [Keep and campground ground: verified records](./sem/FBCB9319/knowledge/KEEP_CAMPGROUND_GROUND.md)
 - [Keep main-flag rotation audit](./sem/FBCB9319/knowledge/KEEP_FLAG_ROTATION.md): view-dependent Vanilla micro-anchors, Keep-relative rotation, and projectile coordinate contracts.
@@ -76,6 +76,7 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 
 - [Worker production bonus and reduced output](./sem/FBCB9319/knowledge/WORKER_PRODUCTION_BONUS.md): signed fixed contribution, complete producer/completion chains, reduced Ox loads, display and raw save/transfer/checksum contracts; static and isolated execution evidence, game acceptance separate.
 
+- [Siege engineer crew timeout](./sem/FBCB9319/knowledge/SIEGE_ENGINEER_CREW_TIMEOUT.md): crew refresh, release at 121 and the missing timeout reset when a full crew transfers from the tent.
 - [Hunter prey ownership, reservation and shot states](./sem/FBCB9319/knowledge/HUNTER_PREY_RULES.md): three owner barriers, state 10 as the shot, reservation countdown, chicken population, melee rabbit contact and cow facts; single-player acceptance, multiplayer pending. Includes the complete access list of the reservation word (`+0x448`/`+0xAA4`), its war-dog and Engineer meanings, and corpse dead-time thresholds; herd kinds, spawn arts and route readers; the three filters for units attacking animals by themselves.
 
 - [Ally goods gifts and transfer boundaries](./sem/FBCB9319/knowledge/ALLY_GOODS_TRANSFERS.md): complete send/Chore/storage/Gold path and actual-transfer boundary; corrective 2026-11-05 audit reuses the existing Extender owner; game acceptance pending.

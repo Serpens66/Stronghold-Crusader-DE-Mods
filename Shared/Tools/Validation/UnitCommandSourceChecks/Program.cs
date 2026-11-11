@@ -39,7 +39,6 @@ if (args.Contains("--really-alive"))
         "RandomEvents/RandomEvents.csproj", "StartConditions/StartConditions.csproj",
         "Testmods/AIDefenseTest/AIDefenseTest.csproj",
         "Testmods/EnemyGatePathfindingTest/EnemyGatePathfindingTest.csproj",
-        "Testmods/EngineerSiegeFixTest/EngineerSiegeFixTest.csproj",
         "Pathfinding/Pathfinding.csproj",
         "Testmods/OutpostTest/OutpostTest.csproj",
         "Testmods/StockpileAccessFixTest/StockpileAccessFixTest.csproj",

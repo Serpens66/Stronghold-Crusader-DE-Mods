@@ -3,19 +3,27 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.133",
+  "Version": "1.0.134",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.45.0"
+      "MinimumVersion": "0.46.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.134",
+      "Changes": [
+        "Apply gatehouse candidate checks across the configured closing distance, including ranges beyond 25 tiles.",
+        "Reuse gatehouse connection lookups within a simulation run and skip them when checking manual control for automatic gates.",
+        "Require APIShared 0.46.0 or newer."
+      ]
+    },
     {
       "Version": "1.0.133",
       "Changes": [

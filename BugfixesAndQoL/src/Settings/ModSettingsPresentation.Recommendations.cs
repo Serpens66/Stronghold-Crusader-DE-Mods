@@ -100,6 +100,8 @@ namespace BugfixesAndQoL
             options["EnableGatehouseLivingCaptureFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableGatehouseLivingCaptureFix");
             options["EnableTreeBlightDecayFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableTreeBlightDecayFix");
             options["EnableDrawbridgeDestructionFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableDrawbridgeDestructionFix");
+            options["EnableSiegeCrewDuplicationFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableSiegeCrewDuplicationFix");
+            options["EnableSiegeCrewFireLossFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableSiegeCrewFireLossFix");
             options["EnableTunnelPlacementDistanceFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableTunnelPlacementDistanceFix");
             options["EnableCenteredGatehouseDistanceFix"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableCenteredGatehouseDistanceFix");
             options["EnableFairSiegeAmmoRestock"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableFairSiegeAmmoRestock");

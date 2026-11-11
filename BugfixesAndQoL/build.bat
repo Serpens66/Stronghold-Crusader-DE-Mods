@@ -500,6 +500,17 @@ call :step_start "tests" "PitchStairs.Tests execution"
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed
 :pitch_stairs_checks_completed
+if "%BUILD_TEST_MODE%"=="none" goto siege_crew_checks_completed
+call :step_start "tests" "SiegeCrew.Tests build"
+"%MSBUILD%" "%PROJECT_DIR%tests\SiegeCrew.Tests\SiegeCrew.Tests.csproj" /p:Configuration=Release /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed
+call :step_start "tests" "SiegeCrew.Tests execution"
+"%PROJECT_DIR%tests\SiegeCrew.Tests\bin\SiegeCrew.Tests.exe" "%GAME_DIR%\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed
+:siege_crew_checks_completed
+
 
 
 rem The project copies every resource and hash-verifies the package, including neutral patches.

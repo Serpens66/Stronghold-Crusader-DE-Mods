@@ -4,6 +4,7 @@ if($PSVersionTable.PSVersion.Major -lt 7){throw 'Use pwsh for this in-memory sou
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 $files=@('Pathfinding/src/GateRouting/ReachableEnemyGatehouseRuntime.cs','Pathfinding/src/GateRouting/SynchronizedGatehouseReachabilityPolicy.cs',
     'APIShared/src/Buildings/Gatehouse/GatehouseDrawbridgeCoupling.cs','Shared/Runtime/Gameplay/GatehouseQueryUnitIdPolicy.cs',
+    'APIShared/src/Buildings/BuildingGeometry.cs','APIShared/src/Buildings/Gatehouse/GatehouseClosingRules.cs',
     'Pathfinding/tests/GatehouseDiagnostics/GatehouseFixture.cs')
 $options=@('/unsafe','/nowarn:0649,0414')
 if($Diagnostic){$files+='Pathfinding/src/GateRouting/ReachableEnemyGatehouseRuntime.DevDiag.cs';$options+='/define:SERP_DEVDIAG'}
@@ -13,7 +14,8 @@ if($BaselineRef){
     . (Join-Path $root 'Shared/Tools/Paths/WorkPaths.ps1')
     $fixture=New-ShortWorkDirectory -Root $root -Kind t -Name 'gate-baseline' -Identity $commit
     $files=@(foreach($file in $files){
-        if($file -match '^Pathfinding/src/GateRouting/ReachableEnemyGatehouseRuntime(\.DevDiag)?\.cs$'){
+        if($file -match '^Pathfinding/src/GateRouting/ReachableEnemyGatehouseRuntime(\.DevDiag)?\.cs$' -or
+           $file -eq 'Shared/Runtime/Gameplay/GatehouseQueryUnitIdPolicy.cs'){
             $source=@(& git -C $root show ($commit+':'+$file))
             if($LASTEXITCODE -ne 0){throw "Missing baseline source: $file"}
             $path=Join-Path $fixture ([IO.Path]::GetFileName($file))

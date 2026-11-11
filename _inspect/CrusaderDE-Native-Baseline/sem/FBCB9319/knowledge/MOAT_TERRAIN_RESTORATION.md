@@ -98,3 +98,20 @@ its buffer after save registration or the first attempted Enable, and publishes
 readiness only after all installed-span checks. Initialization failures after either
 publication boundary keep the feature logically disabled and retain all resources.
 This changes no Vanilla bytes, native spans or terrain/persistence semantics above.
+
+## Pitch on a planned moat
+
+Static audit, 2026-11-11, for the same canonical hash. The moat plan admission
+at `0x5CA40` and mode 0 of `0x6FE90` accept an otherwise eligible pitch tile.
+`0x59210` creates the dig task and the plan path sets `PlannedMoat` while
+retaining `PitchTrap`. `0x639C0` removes that pitch only when excavation
+reaches progress 4. Immediate completed placement in the editor removes
+pitch in `0x6FE90`.
+
+The pitch branch of `0x77E60` accepts `PlannedMoat`. It rejects `IsMoat` via
+`0x7B060` with the installed pitch structure's zero permission entry. At
+`0x6D8DF`, `0x6D580` tests the two moat bits. The branch calls `0x61ED0` at
+`0x6D902` and clears both bits at `0x6D907` before the normal pitch writer
+`0x59380` sets `PitchTrap`. This removes a live dig task even though the pitch
+admission permitted the tile. The continuation at `0x6D912` writes the display
+grid, separate from the moat task-index grid.

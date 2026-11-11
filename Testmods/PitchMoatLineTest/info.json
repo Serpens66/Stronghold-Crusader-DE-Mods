@@ -1,0 +1,13 @@
+{
+  "GUID": "PitchMoatLineTest_Serp",
+  "Name": "Pitch and Moat Line Test",
+  "Author": "Serpens66",
+  "Description": "Test one-tile pitch and moat lines with Ctrl and left mouse drag.",
+  "Version": "0.2.0",
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "MinimumScriptExtenderVersion": "2.14.3",
+  "Dependencies": [
+    { "GUID": "APIShared_Serp", "MinimumVersion": "0.46.0" }
+  ]
+}

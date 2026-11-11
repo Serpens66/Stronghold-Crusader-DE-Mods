@@ -1038,3 +1038,34 @@ The observation span `0x30651..0x3065F` follows the call at `0x3064C` to the nat
 The trace opens on Center of Power and remembers the observed native wave members by slot and global ID. A Lord kill event or native Lord loss opens a 1,600-map-tick observation window for the wave. Successful retarget also starts the window when the loss marker was unavailable. The Extender command event is recorded as a request, since intervening subscribers can change its arguments. The per-member snapshots record actual command, state, path fields and position, and distinguish detached, dead, reused and unreadable members. The native exclusion word at GameUnit `+0x428` is sampled as raw state. `0x11DD10` writes it and `0x11B520` checks it. A snapshot of the word alone cannot prove which branch set it.
 
 Look for `OUTPOST_TRACE_READY`, `START`, `WAVE`, `LORD_KILL` or `LOSS`, `GATE`, `RETARGET`, `ORDER_REQUEST`, `UNIT`, `SAMPLE`, and `DONE`. `ERROR`, `LIMIT` or `TICK_FALLBACK` qualify the evidence. Match the last Lord and melee attacker identities to the same wave, then compare member tiles and path state across samples. A second loss after the first window can still log the target change but does not reopen that wave's member trace. A prepared build or successful hook install is separate from gameplay evidence.
+
+## Siege crew timeout reset
+
+The [standalone test mod investigation](docs/SIEGE_CREW_INVESTIGATION.md) preserves the earlier observations and diagnostic runs.
+
+The supported native image is `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. The patch acts only in the successful full-crew loops of the tent building handlers. A failed spawn or an incomplete crew follows the original branch without entering a stub.
+
+| Tent | Function RVA | Displaced half-open span | Vanilla writes | Unit manager register |
+| --- | --- | --- | --- | --- |
+| Arab ballista | `0xA65A0` | `[0xA68EF, 0xA6900)` | `664689B42918090000 4288B42986090000` | `r13` |
+| Catapult | `0xA8E40` | `[0xA916A, 0xA917B)` | `6646898C2918090000 4288B42986090000` | `r13` |
+| Trebuchet | `0xA93C0` | `[0xA97F6, 0xA9808)` | `6646898C3118090000 42C684318609000000` | `r14` |
+
+In each span, `rcx` is a one-based unit ID multiplied by the native `0x490` stride. Add that displacement to the manager register. Vanilla writes main state 5 at `+0x918` and the low visual byte at `+0x986`. The stub prepends a signed 32-bit timeout reset at `+0x974` on the same record. The dispatcher increments this field for bound engineers at `0x1832C7` and resets it for matching siege crew at `0x1839C0`. The engineer state handler releases the engineer when the counter is greater than 120 at `0x14C3E0`. In the debugger's GameUnit view the counter is at `+0x318`, which overlaps the first crew global ID field used by siege devices.
+
+The spans contain exactly two complete MOV instructions. No direct branch or exported incoming xref targets their interiors. The Tribok comparison immediately preceding the span sets the flags consumed by the following JNE at `0xA9808`. The gate preserves RAX, RFLAGS and RSP before replaying both original MOVs exactly once and returning to the first undisplaced instruction. The other two continuations begin at the following comparison. The native stubs make no calls.
+
+The loader validates the hash, exact pristine span and continuation bytes, and exact live span, then registers all three spans together. This version is hash-bound. The instruction bytes alone do not establish record layout, timeout semantics or placement inside a full-crew branch in another DLL. A mismatch disables the affected patch group. If executable publication has already begun, dormant stubs and their zeroed gate stay alive until process exit. APIShared's engineering provenance detours are at the function entries and do not overlap the three spans.
+
+For a new native image, trace the complete and incomplete crew branches, confirm both counter writers and the timeout reader, verify manager and slot arithmetic, decode the spans and continuation, recheck direct/indirect entries and installed Extender/Fixes/APIShared sites, then run the executable stub fixture and the build/burn/rebuild reproduction.
+
+
+### Fatal fire damage
+
+The same DLL hash also pins the fatal non-Lord branch of the unit fire damage function at `0x192400`. The half-open span `[0x1925DB, 0x1925EE)` is `B804000000 6689BB24090000 668983E4060000`. Its continuation is `418D41F7`. The direct branch at `0x19255A` and the unwind record both point to the span start. The span has no incoming interior target. The Extender fire damage hook is upstream at `0x1924B0` and changes the damage input. The new hook acts after the final health decision. The eight crew-bearing types all select the default conversion to type 2.
+
+At the hook, RBX is the victim record anchor and R9D is its type. The stub uses module base plus `0x67E8400` for the unit manager. Unit IDs must be positive, below the manager's next ID and below the physical 10000-slot limit. Each native record anchor is manager plus ID times `0x490`. The count at `+0xA0C` bounds the 16-bit IDs at `+0x96C` and 32-bit global IDs at `+0x974`. Counts above the audited per-type capacity are rejected. The dismissal marker at `+0xA48` preserves Vanilla's exclusion for dismissed machines. Each engineer must be live, match the global ID and owner and be in state 5 or transitioning to 5 via packed state `0x0005006D`.
+
+The only added write is `AliveState.MarkedForDeletion` at the engineer anchor plus `0x6E4`. Vanilla processes deletion at `0x1869C0`. The stub preserves registers and flags, replays the three original MOV instructions and resumes at the LEA. The fire conversion, effects and sound use the original instructions. The site has its own registry claim, transaction and activation word. Both groups read their own activation word. BugfixesAndQoL sets each word from the global mod switch and the corresponding synchronized host option.
+
+For another DLL, verify the fatal branch, table coverage, dismissal and mounted-state contracts, record layout and native deletion pass. Recheck the span, continuation, unwind entry and all native-site owners. The same byte sequence alone does not establish those contracts.

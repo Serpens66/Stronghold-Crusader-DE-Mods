@@ -63,6 +63,13 @@ With a normal synchronized movement order, every unit in a mixed group uses the 
 ### Improve hostile moat filling
 This enabled-by-default host option makes units filling hostile moats choose another free, valid edge tile when the first position is occupied. If an entire moat edge is unsuitable, they continue with the next moat found by Vanilla's normal search instead of becoming idle.
 
+### Siege engine crews
+
+Under **Host → Gates and siege rules → Fixes**, the host can switch these two options independently. Both are enabled by default.
+
+- **Prevent duplicate engineers** keeps engineers assigned when they finish building a catapult, trebuchet or fire ballista. They become available for another engine after they dismount. The fix applies to new crew assignments, including those made after loading a save.
+- **Crew loss in fires** makes engineers die with their siege engine when it burns down while they are operating it. It covers catapults, trebuchets, mangonels, siege towers, battering rams, portable shields, ballistas and fire ballistas.
+
 ### Keep stairs behind pitch fields accessible
 
 In some castle designs, pitch fields at the foot of a staircase could make the game treat it as impassable, especially after loading a saved game. This fix restores the route up those stairs for all units, so both player-controlled and AI-controlled units can find their way to the buildings beyond them. The host option is enabled by default.
@@ -317,6 +324,13 @@ The statistics screen shows team markers next to the colour shields.
 
 ### Compact lobby chat
 The enabled-by-default local **Compact lobby chat** QoL option shows the shield, sender and message on the same line in multiplayer Skirmish lobbies and all four Coop Trail chats. Long messages wrap automatically. Each player chooses the layout independently of the host; switching the option preserves the current history. Find it under local client options, Menus/Lobby. The in-game chat is unchanged.
+
+### Autosave in local games
+With **Enable local client features** on, use **Autosave** next to **Save Game** in the pause menu. Each click cycles through Off, 5, 10 and 20 minutes for the current game. It works in local games that support manual saving, including campaigns, skirmishes, Custom Trails and solo Coop Trails.
+
+New games start with autosave off unless you selected an interval in the lobby. Loading a save starts with autosave off. A mission restart uses the original lobby choice, if there was one. A regular Custom Trail started without **Customize** uses your current singleplayer game speed and starts with autosave off.
+
+Successful autosaves replace the single **Autosave - Singleplayer.sav** slot. If a write fails, the previous autosave stays available. In online games the host controls autosave in the lobby.
 
 ### Customize trails
 Adds "Customize" Button to custom and coop trails. Allows to use custom AI as Ally in Coop Trails.

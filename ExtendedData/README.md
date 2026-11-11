@@ -12,6 +12,10 @@ Trail authors can store host-managed settings of compatible mods per mission. Ex
 
 Active map, Trail and savegame mod settings are kept when restarting a mission, including the Trail author's fixed rules. Packaged Coop missions use their saved AI behaviour and castles even without BugfixesAndQoL; conflicting AI selections or missing synchronization are explained before the mission starts.
 
+Coop packages leave the autosave interval and starting game speed to the lobby. Existing packages may contain these values, but the lobby ignores them and keeps its settings when you switch missions. Online, the host chooses both options. In solo Coop, BugfixesAndQoL uses the lobby interval to write a local autosave.
+
+With BugfixesAndQoL installed, Trail Maker hides both options. Saving or exporting a Trail removes the author's choices from the resulting files.
+
 A custom Coop Trail ends after its last included mission. Later mission slots are unavailable while that package is selected; select Vanilla Coop Trails to play the original missions again.
 
 Saving or exporting a Custom or Coop Trail again preserves its required Lord content and companion files. If extra Lord data cannot be verified, you can confirm an export using only the saved AI behaviour, castles and portrait; unverified extras such as Fixes preferences and required scripts are then omitted.
@@ -73,6 +77,10 @@ ExtendedData ergänzt Stronghold Crusader DE um gemeinsam nutzbare Zusatzdaten f
 Trail-Ersteller können hostverwaltete Einstellungen kompatibler Mods pro Mission speichern. ExtendedData unterstützt außerdem portable Koop-Trail-Pakete mit ihren Missionen und den benötigten Maps, Lords und AIV-Dateien.
 
 Beim Neustart einer Mission bleiben die aktiven Mod-Einstellungen aus Karte, Trail oder Spielstand sowie feste Vorgaben des Trail-Erstellers erhalten. Koop-Pakete verwenden ihr gespeichertes KI-Verhalten und ihre Burgen auch ohne BugfixesAndQoL; widersprüchliche KI-Auswahlen oder fehlende Synchronisierung werden vor dem Start erklärt.
+
+Bei Koop-Paketen bestimmt die Lobby das Autosave-Intervall und das Spieltempo beim Start. Die Lobby ignoriert entsprechende Vorgaben in älteren Paketen und behält ihre Einstellungen beim Missionswechsel. Online wählt der Host beide Werte. Im Solo-Koop nutzt BugfixesAndQoL das Intervall aus der Lobby für den lokalen Autosave.
+
+Mit installiertem BugfixesAndQoL blendet der Trail Maker beide Optionen aus. Beim Speichern und Exportieren übernimmt ExtendedData die Vorgaben des Autors für diese beiden Optionen nicht in die erzeugten Dateien.
 
 Ein benutzerdefinierter Koop-Trail endet nach seiner letzten enthaltenen Mission. Spätere Missionsplätze sind nicht verfügbar, solange dieses Paket ausgewählt ist. Wähle wieder die Vanilla-Koop-Trails, um die ursprünglichen Missionen zu spielen.
 
