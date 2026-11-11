@@ -16,7 +16,9 @@ namespace BugfixesAndQoL
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly int mainThread;
-        private readonly ILHook hook;
+        private readonly APIShared.Patching.SafeIlHook hook;
+        // BugfixesAndQoLPlugin.PluginGuid; repeated because the settings test compiles this file without the plugin.
+        private const string OwnerGuid = "BugfixesAndQoL_Serp";
         private readonly ViewState[] views = new ViewState[5];
         private bool? lastEnabled;
         private bool failed;
@@ -45,20 +47,11 @@ namespace BugfixesAndQoL
                 context.Invoke(il => CompactLobbyChatIl.Patch(il, OnRebuilt));
                 definition.Generate();
             }
-            ILHook candidate = null;
-            try
-            {
-                candidate = new ILHook(refresh, il => CompactLobbyChatIl.Patch(il, OnRebuilt),
-                    new ILHookConfig { ManualApply = true, ID = "BugfixesAndQoL.CompactLobbyChat" });
-                candidate.Apply();
-                hook = candidate;
-                candidate = null;
-            }
-            catch
-            {
-                candidate?.Dispose(); // Unpublished installation candidate only.
-                throw;
-            }
+            // A failed installation leaves nothing behind; a later failing rebuild keeps the other patches.
+            if (!APIShared.Patching.SafeIlHook.TryInstall(OwnerGuid, "BugfixesAndQoL.CompactLobbyChat", refresh,
+                il => CompactLobbyChatIl.Patch(il, OnRebuilt), log, out var installed, out string failure))
+                throw new InvalidOperationException("Compact lobby chat unavailable: " + failure);
+            hook = installed;
             // Logging must not turn a published hook into a failed constructor.
             try { Shared.DebugLogHelper.LogInfo(log, "Compact lobby chat installed; local presentation only."); }
             catch { }

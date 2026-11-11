@@ -14,7 +14,9 @@ namespace BugfixesAndQoL
     internal static class LobbySaveLoadingFeature
     {
         private delegate void SetupDelegate(FRONT_Multiplayer self);
-        private static ILHook soloHook;
+        private static APIShared.Patching.SafeIlHook soloHook;
+        // BugfixesAndQoLPlugin.PluginGuid; repeated because the lobby test compiles this file without the plugin.
+        private const string OwnerGuid = "BugfixesAndQoL_Serp";
         private static Hook visibilityHook;
         private static SetupDelegate setupOriginal;
         private static FieldInfo readyField, loadButtonField;
@@ -29,7 +31,6 @@ namespace BugfixesAndQoL
             // Each installation is independent: an unknown IL body cannot suppress visibility repair.
             if (soloHook == null && !soloFailure)
             {
-                ILHook candidate = null;
                 try
                 {
                     readyField = RequireField("MPLocalReady", typeof(bool));
@@ -41,16 +42,15 @@ namespace BugfixesAndQoL
                         context.Invoke(il => LobbySaveLoadingIl.Patch(il, ResolveSoloLoad));
                         definition.Generate(); // Compile the entire transformed body before installing.
                     }
-                    candidate = new ILHook(update, il => LobbySaveLoadingIl.Patch(il, ResolveSoloLoad),
-                        new ILHookConfig { ManualApply = true, ID = "BugfixesAndQoL.SoloMultiplayerSaveLoading" });
-                    candidate.Apply();
-                    soloHook = candidate;
-                    candidate = null; // Publication ends rollback ownership, including logging failures.
+                    // A failed installation leaves nothing behind; a later failing rebuild keeps the other patches.
+                    if (!APIShared.Patching.SafeIlHook.TryInstall(OwnerGuid, "BugfixesAndQoL.SoloMultiplayerSaveLoading", update,
+                        il => LobbySaveLoadingIl.Patch(il, ResolveSoloLoad), log, out var installed, out string failure))
+                        throw new InvalidOperationException(failure);
+                    soloHook = installed;
                     Info("SOLO_MP_SAVE_LOADING installed; Vanilla save/remapping path retained.");
                 }
                 catch (Exception error)
                 {
-                    candidate?.Dispose(); // Only an unpublished initialization candidate.
                     soloFailure = true;
                     Error("SOLO_MP_SAVE_LOADING_INSTALL", error);
                 }

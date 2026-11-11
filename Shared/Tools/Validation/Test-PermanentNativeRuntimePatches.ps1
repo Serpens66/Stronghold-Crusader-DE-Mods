@@ -200,7 +200,8 @@ $permanentManagedContracts = @(
     },
     @{
         Path = 'APIShared\src\Units\Recruitment\RecruitmentMaterialUi.cs'
-        Required = @('ManualApply = true', 'RecruitmentMaterialUiIlContract.Validate(method)', 'candidate.Apply();', 'hook = candidate;')
+        # SafeIlHook applies manually and removes only an unpublished failed candidate.
+        Required = @('Patching.SafeIlHook.TryInstall(', 'RecruitmentMaterialUiIlContract.Validate(method)', 'hook = installed;')
         Forbidden = @('public void Dispose()', 'hook.Dispose(', 'hook?.Dispose(', 'hook.Undo(', 'hook?.Undo(')
     },
     @{

@@ -30,6 +30,10 @@ namespace Spectator
                 panelOpen == null || playerIdGetter == null || viewPlayerGetter == null)
                 throw new MissingMemberException("Installed Assembly-CSharp ally contract changed.");
 
+            // An unsupported game version fails here; the transpiler itself never throws.
+            RequireViewReads(allies, 3);
+            RequireViewReads(enemies, 2);
+            RequireViewReads(update, 2);
             // Replace only the ally panel's view reads; GameData.playerID remains the real network identity.
             var viewPatch = new HarmonyMethod(typeof(SpectatorAllyHooks), nameof(AllyViewTranspiler));
             harmony.Patch(allies, transpiler: viewPatch);
@@ -46,12 +50,29 @@ namespace Spectator
             installed = true;
         }
 
+        private static void RequireViewReads(MethodInfo method, int expected)
+        {
+            int found = 0;
+            foreach (CodeInstruction instruction in PatchProcessor.GetOriginalInstructions(method))
+                if ((instruction.opcode == OpCodes.Call || instruction.opcode == OpCodes.Callvirt) && Equals(instruction.operand, playerIdGetter))
+                    found++;
+            if (found != expected)
+                throw new InvalidOperationException("Vanilla ally view reads changed in " + method.Name +
+                    "; expected " + expected + ", found " + found + ".");
+        }
+
         private static int GetViewPlayerId(GameData data)
         {
             return SpectatorPerspectiveRuntime.GetAllyViewPlayerId(data);
         }
 
-        private static IEnumerable<CodeInstruction> AllyViewTranspiler(IEnumerable<CodeInstruction> instructions, MethodBase original)
+        // Harmony reruns this on every patch change of the method; a failure keeps the original IL and
+        // every other patch of it. The ally panel then shows the real player's view.
+        private static IEnumerable<CodeInstruction> AllyViewTranspiler(IEnumerable<CodeInstruction> instructions, MethodBase original) =>
+            APIShared.Patching.SafeTranspiler.Run(SpectatorPlugin.PluginGuid, "Spectator.AllyView." + original.Name, instructions,
+                code => ReplaceViewReads(code, original), SpectatorRuntime.RawLog);
+
+        private static IEnumerable<CodeInstruction> ReplaceViewReads(IEnumerable<CodeInstruction> instructions, MethodBase original)
         {
             int replaced = 0;
             foreach (CodeInstruction instruction in instructions)

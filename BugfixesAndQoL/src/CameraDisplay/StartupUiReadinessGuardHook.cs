@@ -13,7 +13,7 @@ namespace BugfixesAndQoL
         private static readonly StartupUiReadinessGuardState startupState =
             new StartupUiReadinessGuardState();
 
-        private readonly ILHook hook;
+        private readonly APIShared.Patching.SafeIlHook hook;
 
         internal StartupUiReadinessGuardHook(ManualLogSource log)
         {
@@ -33,25 +33,17 @@ namespace BugfixesAndQoL
             StartupUiReadinessGuardIlContract.ValidateVulnerableRadarScrollMap(
                 FindRadarScrollMapMethod());
 
-            ILHook candidate = null;
-            try
-            {
-                candidate = new ILHook(
+            // A failed installation leaves nothing behind; a later failing rebuild keeps the other patches.
+            if (!APIShared.Patching.SafeIlHook.TryInstall(
+                    BugfixesAndQoLPlugin.PluginGuid,
+                    "BugfixesAndQoL.StartupUiReadinessGuard",
                     target,
                     PatchUiUpdateReadinessBranch,
-                    new ILHookConfig
-                    {
-                        ManualApply = true,
-                        ID = "BugfixesAndQoL.StartupUiReadinessGuard"
-                    });
-                candidate.Apply();
-                hook = candidate;
-            }
-            catch
-            {
-                candidate?.Dispose();
-                throw;
-            }
+                    log,
+                    out APIShared.Patching.SafeIlHook installed,
+                    out string failure))
+                throw new InvalidOperationException("Startup UI readiness guard unavailable: " + failure);
+            hook = installed;
 
             Shared.DebugLogHelper.LogDebug(
                 log,

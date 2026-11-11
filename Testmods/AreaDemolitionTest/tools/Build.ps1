@@ -73,7 +73,7 @@ foreach($path in $sourceInputs){if((Get-ApiFileHash $path) -ne $sourceHashes[$pa
 $files=@(Get-ChildItem -LiteralPath $output -Recurse -File|ForEach-Object {@{Path=$_.FullName.Substring($output.Length+1);Sha256=Get-ApiFileHash $_.FullName}})
 $zip=Join-Path $run 'AreaDemolitionTest.zip'
 Compress-Archive -LiteralPath (Join-Path $package 'BepInEx') -DestinationPath $zip
-$record=[ordered]@{CreatedUtc=[DateTime]::UtcNow.ToString('o');Head=$head;Source=$project;Package=$output;Archive=$zip;ArchiveSha256=Get-ApiFileHash $zip;Installed=$installed;DevDiag=$DevDiag.IsPresent;SdkHashes=$sdkHashes;SourceHashes=$sourceHashes;Files=$files;GameAcceptance='Explicitly deferred by user; no game or multiplayer acceptance claimed.'}
+$record=[ordered]@{CreatedUtc=[DateTime]::UtcNow.ToString('o');Head=$head;Source=$project;Package=$output;Archive=$zip;ArchiveSha256=Get-ApiFileHash $zip;Installed=$installed;DevDiag=$DevDiag.IsPresent;SdkHashes=$sdkHashes;SourceHashes=$sourceHashes;Files=$files;GameAcceptance='This build implies no game acceptance; consult separate automation evidence. Multiplayer acceptance remains deferred.'}
 $recordText=($record|ConvertTo-Json -Depth 6)+"`r`n"
 [IO.File]::WriteAllText((Join-Path $run 'result.json'),$recordText,[Text.UTF8Encoding]::new($false))
 [void][IO.Directory]::CreateDirectory((Join-Path $project '.local'))

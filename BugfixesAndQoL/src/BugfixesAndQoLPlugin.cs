@@ -12,7 +12,7 @@ using System.Reflection;
 namespace BugfixesAndQoL
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.3")]
-    [BepInDependency(ApiSharedGuid, "0.43.0")]
+    [BepInDependency(ApiSharedGuid, "0.47.0")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
@@ -28,7 +28,7 @@ namespace BugfixesAndQoL
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
 
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
-    public sealed partial class BugfixesAndQoLPlugin : BaseUnityPlugin
+    public sealed class BugfixesAndQoLPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
         private const string ApiSharedGuid = "APIShared_Serp";
@@ -457,11 +457,8 @@ namespace BugfixesAndQoL
             }
             // Results of a one-time native fallback (unknown game build) are reused on the next start.
             BfqolNativeCache.Save();
-            TryStartAllyGoodsAcceptance();
             return true;
         }
-
-        partial void TryStartAllyGoodsAcceptance();
 
         private static bool HasLegacyExtraFeaturesPeaceTimeSetting()
         {

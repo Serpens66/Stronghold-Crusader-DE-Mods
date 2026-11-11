@@ -10,12 +10,25 @@ Der Nutzer arbeitet häufig während der Tests am PC weiter. Deshalb nach Mögli
 
 ## Neue modbezogene Spieltests
 
-Für einen neuen Test das Szenario im betroffenen Mod als `*.DevDiag.cs` anlegen
-und nur über `build.bat /devdiag` einbinden. Der temporäre Einstiegspunkt liest
-und löscht die Anforderung aus `BepInEx/config/SerpAutomation/<ModGuid>.run`
-(Lauf-GUID im N-Format und Szenarioname, je eine Zeile). Auf dem validierten
+Ein neuer Test gehört in einen **eigenen Testmod** unter `Testmods/`, nicht in
+den getesteten Hauptmod. Der Testmod hängt per `BepInDependency` von APIShared
+und den getesteten Mods ab, nutzt die öffentliche APIShared-Test-API und liest
+interne Zustände notfalls per Reflection. Grund: Szenarien in Hauptmods bleiben
+nach dem Auftrag oft liegen, sammeln sich als Müll an und können andere Tests
+blockieren (Beispiel: ein altes Szenario löschte jede fremde Anforderung).
+
+Nur wenn ein Test nachweislich nicht außerhalb des Mods möglich ist, darf er
+temporär als `*.DevDiag.cs` im Mod liegen, eingebunden nur über
+`build.bat /devdiag`. Ihn samt Einstiegspunkt im selben Auftrag wieder entfernen.
+
+Der Einstiegspunkt liest die Anforderung aus
+`BepInEx/config/SerpAutomation/<ModGuid>.run` (Lauf-GUID im N-Format und
+Szenarioname, je eine Zeile). Er löscht sie nur, wenn der Szenarioname ihm
+gehört; fremde Anforderungen lässt er unangetastet. Auf dem validierten
 Unity-Thread nach der APIShared-Initialisierung startet er den Lauf. Ohne
-Anforderung bleibt der Modstart regulär.
+Anforderung bleibt der Modstart regulär. Bei einem Testmod ist `<ModGuid>` die
+GUID des Testmods; die getesteten Mods müssen im passenden Stand installiert
+sein, für genaue Kombinationen über `-PluginLayout`.
 
 ```csharp
 using System;
@@ -45,8 +58,9 @@ Das [Laufwerkzeug](Shared/Tools/Automation/Invoke-InGameTest.ps1) erhält
 Für einen vorbereiteten APIShared-Teststand zusätzlich `-ApiPluginPackage`
 und `-ApiPatcherPackage` gemeinsam übergeben. Das Werkzeug sichert die
 Laufprotokolle und stellt die ersetzten Dateien und gesicherten Einstellungen
-wieder her. Nach Abschluss den temporären Szenariocode samt Einstiegspunkt
-entfernen und den normalen Mod-Build prüfen. Für Abnahmen mit genau vorgegebenen Modkombinationen nimmt `-PluginLayout`
+wieder her. Bei einem Testmod `-ModGuid` und `-ModPackage` des Testmods übergeben.
+Wurde ausnahmsweise ein `*.DevDiag.cs` im Hauptmod genutzt, ihn nach Abschluss
+samt Einstiegspunkt entfernen und den normalen Mod-Build prüfen. Für Abnahmen mit genau vorgegebenen Modkombinationen nimmt `-PluginLayout`
 einen externen Plugin-Ordner mit Script Extender und den Begleitmods entgegen.
 Der Runner sichert und ersetzt die einzelnen Plugin-Pakete. Nach dem Lauf
 prüft er das gesamte Plugin-Inventar gegen den ursprünglichen Stand. `-ModPackage` und das APIShared-Paar werden

@@ -4,6 +4,16 @@
 using System;
 using System.Collections.Generic;
 namespace BepInEx.Logging { public sealed class ManualLogSource { } }
+// Installation is a game boundary: these tests never construct the feature, so the guard is never called.
+namespace APIShared.Patching
+{
+    public sealed class SafeIlHook
+    {
+        public static bool TryInstall(string ownerGuid, string id, System.Reflection.MethodBase target,
+            MonoMod.Cil.ILContext.Manipulator manipulator, BepInEx.Logging.ManualLogSource log, out SafeIlHook hook, out string reason)
+        { hook = null; reason = "Test boundary: SafeIlHook is not available offline."; return false; }
+    }
+}
 namespace Shared
 {
     internal static partial class DebugLogHelper

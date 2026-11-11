@@ -9,6 +9,7 @@ namespace AreaDemolitionTest
         internal event Action Changed;
         internal DemolitionSettings(ConfigFile config)
         {
+            // Appended categories get independent default-off keys; existing preferences keep their names.
             for (int i=0;i<entries.Length;i++)
             {
                 var group=(TargetGroup)i;

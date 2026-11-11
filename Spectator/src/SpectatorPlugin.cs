@@ -9,7 +9,7 @@ namespace Spectator
 {
     [BepInPlugin(PluginGuid, "Spectator", PluginVersion)]
     [BepInDependency("000shcdese", "2.14.0")]
-    [BepInDependency("APIShared_Serp", "0.37.0")]
+    [BepInDependency("APIShared_Serp", "0.47.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("CheatMod_Serp", BepInDependency.DependencyFlags.SoftDependency)]

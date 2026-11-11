@@ -10,7 +10,7 @@
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.37.0"
+      "MinimumVersion": "0.47.0"
     }
   ],
   "Manifest": 1,
@@ -24,7 +24,8 @@
       "Changes": [
         "Add Show while HUD hidden to the in-game statistics settings so an open scoreboard can stay visible when you hide the HUD.",
         "Add a local option to show and move the game date while the HUD is hidden. The date position is saved.",
-        "Require APIShared 0.37.0 or newer."
+        "If a game update changes the ally panel or the reports button, Spectator leaves that part unchanged. Other mods' changes to the same game methods keep working.",
+        "Require APIShared 0.47.0 or newer."
       ]
     },
     {

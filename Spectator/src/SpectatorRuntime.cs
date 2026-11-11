@@ -184,10 +184,14 @@ namespace Spectator
         }
 
 
+        // The plugin logger for APIShared helpers that report through a ManualLogSource.
+        internal static ManualLogSource RawLog { get; private set; }
+
         internal static void Initialize(ManualLogSource logger, SpectatorViewModel currentSettings)
         {
             if (harmony != null) return;
             log = new TimestampLog(logger, RequestRender);
+            RawLog = logger;
             settings = currentSettings;
             Shared.DevDiag.Attach(logger);
             var candidate = new Harmony(Guid);

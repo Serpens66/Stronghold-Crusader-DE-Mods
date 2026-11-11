@@ -12,5 +12,6 @@
     <Compile Include="../../src/Packets.cs" Link="Packets.cs" />
     <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath></Reference>
     <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath></Reference>
+    <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath></Reference>
   </ItemGroup>
 </Project>

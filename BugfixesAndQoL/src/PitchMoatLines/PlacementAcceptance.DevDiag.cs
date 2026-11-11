@@ -68,9 +68,10 @@ namespace BugfixesAndQoL.PitchMoatLines
             string request = Path.Combine(Paths.ConfigPath, "SerpAutomation", BugfixesAndQoLPlugin.PluginGuid + ".run");
             if (!File.Exists(request)) return;
             string[] lines = File.ReadAllLines(request);
+            // Other BugfixesAndQoL scenarios share this request file; leave theirs untouched.
+            if (lines.Length != 2 || !ValidScenario(lines[1])) return;
             File.Delete(request);
-            if (lines.Length != 2 || !Guid.TryParseExact(lines[0], "N", out Guid id) || id == Guid.Empty ||
-                !ValidScenario(lines[1]))
+            if (!Guid.TryParseExact(lines[0], "N", out Guid id) || id == Guid.Empty)
                 throw new InvalidDataException("Invalid focused placement acceptance request.");
             logger = log;
             scenarioName = lines[1];

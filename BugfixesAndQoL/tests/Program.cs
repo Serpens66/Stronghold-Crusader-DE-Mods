@@ -998,12 +998,14 @@ namespace BugfixesAndQoL
             string contract = File.ReadAllText(Path.Combine("src", "CameraDisplay/StartupUiReadinessGuardIlContract.cs"));
             string plugin = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLPlugin.cs"));
             string project = File.ReadAllText("BugfixesAndQoL.csproj");
-            Check(hook.Contains("ManualApply = true") &&
-                    hook.Contains("candidate.Apply()") &&
+            // SafeIlHook applies manually and removes only an unpublished failed candidate; a later failing
+            // rebuild of FatControler.Update keeps every other patch of it.
+            Check(hook.Contains("APIShared.Patching.SafeIlHook.TryInstall(") &&
+                    hook.Contains("PatchUiUpdateReadinessBranch,") &&
                     hook.Contains("target.ReturnType != typeof(void)") &&
-                    hook.Contains("candidate?.Dispose()") &&
+                    !hook.Contains("new ILHook(") &&
                     !hook.Contains("public void Dispose()"),
-                "startup UI guard manually applies and can roll back its unpublished candidate");
+                "startup UI guard installs through SafeIlHook, which applies manually and can roll back its unpublished candidate");
             Check(contract.Contains("operand is ILLabel label") &&
                     contract.Contains("operand as Instruction") &&
                     contract.Contains("TryGetExpectedPostBlockTail") &&
@@ -1602,7 +1604,7 @@ namespace BugfixesAndQoL
             string settingsXaml = File.ReadAllText(Path.Combine(
                 "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
 
-            Check(feature.Contains("new ILHook(updateMethod, PatchRightClickBranch)") &&
+            Check(feature.Contains("SafeIlHook.TryInstall(") && feature.Contains("PatchRightClickBranch, log, out var installed") &&
                   feature.Contains("cursor.RemoveRange(4)") &&
                   feature.Contains("CancelPlacementAndGetRightDown") &&
                   feature.Contains("GetRightUpForEngine") &&

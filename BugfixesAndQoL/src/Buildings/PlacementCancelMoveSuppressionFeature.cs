@@ -14,7 +14,7 @@ namespace BugfixesAndQoL
     {
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
-        private ILHook editorDirectorUpdateIlHook;
+        private APIShared.Patching.SafeIlHook editorDirectorUpdateIlHook;
         private bool classificationFailureLogged;
         private bool suppressNextRightUp;
 
@@ -37,7 +37,11 @@ namespace BugfixesAndQoL
             if (updateMethod == null)
                 throw new MissingMethodException(typeof(EditorDirector).FullName, "Update");
 
-            editorDirectorUpdateIlHook = new ILHook(updateMethod, PatchRightClickBranch);
+            // A failing rebuild of EditorDirector.Update keeps every other patch of it; see SafeIlHook.
+            if (!APIShared.Patching.SafeIlHook.TryInstall(BugfixesAndQoLPlugin.PluginGuid, "BugfixesAndQoL.PlacementCancelMoveSuppression", updateMethod,
+                PatchRightClickBranch, log, out var installed, out string failure))
+                throw new InvalidOperationException("Placement cancel move suppression unavailable: " + failure);
+            editorDirectorUpdateIlHook = installed;
         }
 
         private void PatchRightClickBranch(ILContext context)

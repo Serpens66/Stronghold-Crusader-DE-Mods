@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
 
 namespace AreaDemolitionTest
 {
@@ -43,8 +45,8 @@ namespace AreaDemolitionTest
 
     internal static class ProtocolPolicy
     {
-        // Version 3 gives stockpiles their own group. Older peers reject this contract explicitly.
-        internal const int Version = 3, MaximumPeers = 32, TargetBytes = 31;
+        // Version 4 separates ordinary walls from fortifications while stairs retain their group.
+        internal const int Version = 4, MaximumPeers = 32, TargetBytes = 31;
         internal static string NewNonce()
         { var bytes = new byte[16]; using (var random = RandomNumberGenerator.Create()) random.GetBytes(bytes); return Hex(bytes); }
         internal static bool IsNonce(string value) => IsHex(value, 32);
@@ -103,14 +105,16 @@ namespace AreaDemolitionTest
             }
             catch {return false;}
         }
-        private static bool ValidGroup(TargetKind kind,TargetGroup group)
+        private static bool ValidGroup(TargetKind kind,TargetGroup group,uint flags,int type)
         {
             switch(kind)
             {
                 case TargetKind.Building:
+                    if(group==TargetGroup.Walls)
+                        return type==(int)eStructs.STRUCT_WOOD_WALL || type==(int)eStructs.STRUCT_STONE_WALL || type==(int)eStructs.STRUCT_CRENAL_WALL;
                     return group==TargetGroup.Buildings || group==TargetGroup.Fortifications || group==TargetGroup.PositiveFear || group==TargetGroup.NegativeFear || group==TargetGroup.DogCages || group==TargetGroup.KillingPits || group==TargetGroup.Stockpiles;
                 case TargetKind.Pitch:return group==TargetGroup.Pitch;
-                case TargetKind.Wall:return group==TargetGroup.Fortifications;
+                case TargetKind.Wall:return group==((flags&(uint)TilePropertyFlag.IsStairs)!=0 ? TargetGroup.Fortifications : TargetGroup.Walls);
                 case TargetKind.DugMoat:return group==TargetGroup.DugMoats;
                 case TargetKind.Decoration:return group==TargetGroup.Decorations;
                 default:return false;
@@ -123,7 +127,7 @@ namespace AreaDemolitionTest
             {
                 foreach (var target in targets)
                 {
-                    if (target == null || !ValidGroup(target.Kind,target.Group) || target.Owner < 1 || target.Owner > 8 || target.Slot < 0 || target.Type < 0 && target.Kind != TargetKind.Wall || target.X < 0 || target.X > short.MaxValue || target.Y < 0 || target.Y > short.MaxValue) throw new InvalidDataException("Invalid target record.");
+                    if (target == null || !ValidGroup(target.Kind,target.Group,target.Flags,target.Type) || target.Owner < 1 || target.Owner > 8 || target.Slot < 0 || target.Type < 0 && target.Kind != TargetKind.Wall || target.X < 0 || target.X > short.MaxValue || target.Y < 0 || target.Y > short.MaxValue) throw new InvalidDataException("Invalid target record.");
                     writer.Write((byte)target.Kind); writer.Write((byte)target.Group); writer.Write(target.Slot); writer.Write(target.Type); writer.Write((byte)target.Owner);
                     writer.Write((short)target.X); writer.Write((short)target.Y); writer.Write(target.TileId); writer.Write(target.TaskIndex); writer.Write(target.GlobalId); writer.Write(target.Flags);
                 }

@@ -1,6 +1,7 @@
 # Build orchestration: explicit source selection wins; automated default is the working tree.
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
+. (Join-Path $PSScriptRoot 'BuildRunLifecycle.ps1')
 function Write-BranchMessage([string]$Message) {
     Write-Host ('[{0:yyyy-MM-dd HH:mm:ss.fff}] {1}' -f [DateTime]::Now, $Message)
 }

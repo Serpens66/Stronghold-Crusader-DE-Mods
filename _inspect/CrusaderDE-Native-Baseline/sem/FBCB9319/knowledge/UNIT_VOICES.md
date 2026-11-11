@@ -71,6 +71,56 @@ Speech clips are unloaded when replaced, naturally finished, stopped or when
 StopAllGameSounds runs. MyAudioManager.OnDestroy calls StopAllGameSounds.
 These are audio-manager lifetime paths, not BepInEx plugin startup teardown.
 
+## Troop dispatcher table and unrouted intents [Vanilla facts]
+
+Static audit of 2026-11-11 (same hash): semantic decompile of `0x3BC0`, raw table
+reads from the DLL, a direct call/jump scan of `.text`, and ilspycmd output of
+`SFXManager` and `MyAudioManager`. Not run in the game.
+
+- **Type to column:** a switch maps the requested type to one of 27 columns, for example
+  archer 0, crossbow 1, spearman 2, maceman 3, pikeman 4, swordsman 5, knight 6, monk 7
+  (or 26 by religion), tunneler 8, ladderman 9, engineer 10, Arabian/Bedouin types 11-25.
+  Unlisted types return silently. Siege devices go to the engineer helper `0x3770` or to
+  column 10.
+- **Slot:** situation 42 becomes 21 (sapper/demolisher instead use `0x38A0`). Valid range
+  `0 <= situation < 42`, `column < 27`. The file is `0x2AD298[((situation + variant) * 42) + column]`;
+  the variant count is at `0x2AD290 + situation * 0x150`, a counter per situation and column
+  at `0x2AD370 + (situation * 0x54 + column) * 4`. Start rows and counts: 0 (6), 6 (3),
+  9 (1), 10 (1), 11 (5), 16 (1), 17 (4), 21 (4), 25 (4), 29-32 (1 each), 33 (3), 36 (3),
+  39 (2), 41 (1). In column 10 a switch (`DAT_183665f28 == 0 && DAT_183665f0c == 2`) takes
+  the file from `0x2B0EB0[situation]` instead; the meaning of these globals is unknown.
+- **Callers:** 18 direct call/jump sites, no pointer reference. Situation 33 comes only from
+  `0x143B16` in the spearman handler `0x143400` with the type fixed to spearman. It fires
+  when `0x18CD10` finds an adjacent enemy ladderman in state 3 (pushing the ladder off),
+  for the viewing player's units, with a 4-second throttle. Rows 33-35 hold
+  `spear_ladder1-3.wav` in both the spearman and the pikeman column; the pikeman entries
+  are never requested. Managed `troopsSpeech` lists `Pike_Ladder1-3.wav`, which native code
+  never emits. No other file is shared between columns apart from `Null.wav`.
+- **Unrouted intents:** 29 native file names have no entry in the managed speech lists.
+  `knight_atks1-4` and `sword_atks1-4` are never requested (attack-unit commands for
+  types 0x1B/0x1C always pass situation 21). `ladder_atkw1-4` has a native path; whether
+  laddermen can receive that order was not checked. The Arabian engineer lines
+  `aengineer_equip1-3`, `launchcow2-6`, `pouroil2-9` and `sshield` are reachable under
+  the column-10 switch above. `sshield` is misspelled in the managed list
+  (`AEngineer_Ssheild.wav`).
+- **Managed side:** `SFXManager.playSpeech` plays a path only if it is in `speechFolders`
+  (built from the speech arrays); anything else is dropped before any load, without a log.
+  `MyAudioManager.PlaySpeech` checks neither the file nor the lists: it applies
+  busy/force rules, and `LoadClip` only builds the path (`folder == "*"` means an absolute
+  path). Only `LoadClip(string)` touches the file; a missing file logs and yields a null clip.
+  `folder` forms only the path; `unitsSpeech` chooses UnitSpeechVolume and is derived from
+  `folder == "troops"` in `SFXManager`.
+
+## Civilian comment repetition [Vanilla facts]
+
+`0x97DA0` runs from `DLL_RunTick` (via `0x97C70`) on every tick while a worker panel is
+open (panel state `0x46`). It returns at once when the selected civilian
+(`0x67E839C`) is zero. Its only speech output is `0x3B20` at the end, which it reaches only
+when the selected civilian differs from the previous one at `0x2D9E58` (compare at
+`0x97E09`, store at `0x97E11`). `0x4660`, called on every run, is empty; the helpers
+`0x18B880` and `0x18CE60` (idle reason, Hunter query `0x18AF50`) emit no speech. An
+unchanged selection therefore never speaks.
+
 ## APIShared integration [mod integration]
 
 The Unit Voices extension captures primitive source snapshots, tags accepted
@@ -85,5 +135,11 @@ goes through UnitVoiceEvents. Existing SFX sites remain independent.
 Prepared resources own PCM data, not reusable speech AudioClips. Each replacement
 owns a fresh clip whose release follows the existing speech cleanup sites.
 Async request frames carry OneShot gains, including neutral frames for ordinary
-or nested speech. Current implementation and validation results belong to the
+or nested speech.
+
+The civilian source's native guard skips the managed callback for a zero or unchanged
+selection, the exact Vanilla condition above. A replacement of an unrouted intent
+plays through its voice bank's folder; `UnitVoiceContext.OriginalIsSilent` marks such
+requests. All IL edits run through `SafeIlHook` and cannot remove other patches of the
+same method. Current implementation and validation results belong to the
 workspace's unit-voices run evidence; no game success is asserted here.

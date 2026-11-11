@@ -23,6 +23,8 @@
     <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath></Reference>
     <Reference Include="System.Buffers"><HintPath>$(ExtenderDir)\System.Buffers.dll</HintPath></Reference>
     <Reference Include="System.Runtime.CompilerServices.Unsafe"><HintPath>$(ExtenderDir)\System.Runtime.CompilerServices.Unsafe.dll</HintPath></Reference>
+    <!-- The feature installs its IL hook through APIShared.Patching.SafeIlHook; the workspace package sets the path. -->
+    <Reference Include="APIShared" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />

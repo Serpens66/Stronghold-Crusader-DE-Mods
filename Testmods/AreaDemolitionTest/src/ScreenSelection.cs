@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using SHCDESE.API;
 using UnityEngine;
@@ -32,51 +33,133 @@ namespace AreaDemolitionTest
         private ScreenPoint screenOrigin, screenX, screenY, screenHeight;
         private int centerX, centerY;
 
-        internal ScreenHitGeometry CreateHitGeometry(IEnumerable<PreviewHitCandidate> candidates)
+        internal sealed class ProjectionContext
         {
-            Camera currentCamera = Camera.main;
-            if (currentCamera == null) throw new InvalidOperationException("The selection camera is unavailable.");
-            Rect pixels = currentCamera.pixelRect;
-            var viewport = new ScreenRect(pixels.xMin, pixels.yMin, pixels.xMax, pixels.yMax);
-            if (!PrepareProjection(viewport)) throw new InvalidOperationException("The selection viewport is invalid.");
-            if (PerfectPixelWithZoom.instance == null) throw new InvalidOperationException("Vanilla's current zoom is unavailable.");
-            float zoom = PerfectPixelWithZoom.instance.getZoom();
-            if (!ScreenRect.Finite(zoom) || zoom <= 0) throw new InvalidOperationException("Vanilla's current zoom is invalid.");
-            hitCells.Clear(); emptyHitCells.Clear(); spriteHeights.Clear();
-            var roots = new List<DemolitionTarget>();
-            var shapes = new List<ScreenHitHull[]>();
-            if (candidates != null)
-                foreach (PreviewHitCandidate candidate in candidates)
+            internal readonly GameMap Map;
+            internal readonly GameTileManagerAPI Tiles;
+            internal readonly Vector3 Origin;
+            internal readonly Vector3Int OriginCell;
+            internal readonly ScreenPoint ScreenOrigin,ScreenX,ScreenY,ScreenHeight;
+            internal readonly ScreenRect Viewport;
+            internal readonly float Zoom;
+            private readonly int rotation,size;
+            private readonly bool flattened;
+            internal ProjectionContext(ScreenSelection source,ScreenRect viewport,float zoom)
+            {
+                Map=source.map;Tiles=source.tiles;Origin=source.origin;OriginCell=source.originCell;
+                ScreenOrigin=source.screenOrigin;ScreenX=source.screenX;ScreenY=source.screenY;ScreenHeight=source.screenHeight;
+                Viewport=viewport;Zoom=zoom;rotation=(int)Map.CurrentRotation();size=Map.getMapTileSize();flattened=EngineInterface.FlattenedLandscape;
+            }
+            // Camera-only movement is harmless: all screen axes above were frozen on capture.
+            internal bool IsMapCurrent => ReferenceEquals(Map,GameMap.instance) && Map!=null &&
+                rotation==(int)Map.CurrentRotation() && size==Map.getMapTileSize() && flattened==EngineInterface.FlattenedLandscape;
+        }
+
+        internal ProjectionContext CaptureProjection()
+        {
+            Camera current=Camera.main;
+            if(current==null)throw new InvalidOperationException("The selection camera is unavailable.");
+            Rect pixels=current.pixelRect;
+            var viewport=new ScreenRect(pixels.xMin,pixels.yMin,pixels.xMax,pixels.yMax);
+            if(!PrepareProjection(viewport))throw new InvalidOperationException("The selection viewport is invalid.");
+            if(PerfectPixelWithZoom.instance==null)throw new InvalidOperationException("Vanilla's current zoom is unavailable.");
+            float zoom=PerfectPixelWithZoom.instance.getZoom();
+            if(!ScreenRect.Finite(zoom) || zoom<=0)throw new InvalidOperationException("Vanilla's current zoom is invalid.");
+            return new ProjectionContext(this,viewport,zoom);
+        }
+
+        private void UseProjection(ProjectionContext context,ScreenRect rectangle)
+        {
+            AssertUnityThread();
+            if(context==null || !context.IsMapCurrent)throw new InvalidOperationException("The captured map projection is no longer current.");
+            map=context.Map;tiles=context.Tiles;origin=context.Origin;originCell=context.OriginCell;
+            screenOrigin=context.ScreenOrigin;screenX=context.ScreenX;screenY=context.ScreenY;screenHeight=context.ScreenHeight;
+            centerX=GameTileManagerAPI.MAX_WIDTH/2;centerY=GameTileManagerAPI.MAX_HEIGHT/2;
+            checkedTilemaps.Clear();visited.Clear();hits.Clear();
+            SetColumnRanges(rectangle);
+        }
+
+        internal sealed class HitGeometryPreparation
+        {
+            internal readonly ProjectionContext Context;
+            internal readonly PreviewHitCandidate[] Candidates;
+            internal readonly ScreenRect? SelectArea;
+            internal readonly ScreenHitGeometry Geometry;
+            internal readonly List<DemolitionTarget> Selected=new List<DemolitionTarget>();
+            internal readonly HashSet<string> SelectedIds=new HashSet<string>(StringComparer.Ordinal);
+            internal int CandidateIndex,RequestIndex,OccupiedIndex,Phase;
+            internal bool CurrentHit;
+            internal DemolitionTarget[] SelectedRoots=Array.Empty<DemolitionTarget>();
+            internal bool Complete;
+            internal HitGeometryPreparation(PreviewHitCandidate[] candidates,ProjectionContext context,ScreenRect? selectArea)
+            {Candidates=candidates??Array.Empty<PreviewHitCandidate>();Context=context;SelectArea=selectArea;Geometry=new ScreenHitGeometry(Candidates.Length);}
+        }
+
+        internal HitGeometryPreparation BeginHitGeometry(PreviewHitCandidate[] candidates,ProjectionContext context,ScreenRect? selectArea=null)
+        {
+            UseProjection(context,context.Viewport);
+            hitCells.Clear();emptyHitCells.Clear();spriteHeights.Clear();rootShapes.Clear();bodyCells.Clear();groundCells.Clear();
+            return new HitGeometryPreparation(candidates,context,selectArea);
+        }
+
+        internal bool StepHitGeometry(HitGeometryPreparation job,long deadline,out ScreenHitGeometry geometry)
+        {
+            AssertUnityThread();geometry=null;
+            if(job==null || !job.Context.IsMapCurrent)throw new InvalidOperationException("The geometry job has no current map.");
+            if(job.Complete){geometry=job.Geometry;return true;}
+            while(Stopwatch.GetTimestamp()<deadline && job.CandidateIndex<job.Candidates.Length)
+            {
+                var candidate=job.Candidates[job.CandidateIndex];
+                if(candidate?.Root==null){job.CandidateIndex++;continue;}
+                if(job.Phase==0)
                 {
-                    if (candidate?.Root == null) continue;
-                    rootShapes.Clear(); bodyCells.Clear(); groundCells.Clear();
-                    foreach (int tileId in candidate.RequestTiles ?? Array.Empty<int>())
-                        if (bodyCells.Add(tileId))
-                        {
-                            CellHitShapes cell = GetHitCell(tileId, zoom, viewport);
-                            if (cell.HasBody) rootShapes.Add(cell.Body);
-                        }
-                    DemolitionTarget root = candidate.Root;
-                    // Retain every prior occupied-ground hit as a union, independently of the
-                    // request-cell hulls needed for the Vanilla hover/delete resolver.
-                    if (root.OccupiedTiles != null && root.OccupiedTiles.Length != 0)
-                    {
-                        foreach (int tileId in root.OccupiedTiles)
-                            if (groundCells.Add(tileId))
-                            {
-                                CellHitShapes cell = GetHitCell(tileId, zoom, viewport);
-                                if (cell.HasGround) rootShapes.Add(cell.Ground);
-                            }
-                    }
-                    else if (tiles.IsTileInsideMapBounds(root.X, root.Y))
-                    {
-                        CellHitShapes cell = GetHitCell(tiles.GetTileId(root.X, root.Y), zoom, viewport);
-                        if (cell.HasGround) rootShapes.Add(cell.Ground);
-                    }
-                    if (rootShapes.Count == 0) continue;
-                    roots.Add(root); shapes.Add(rootShapes.ToArray());
+                    rootShapes.Clear();bodyCells.Clear();groundCells.Clear();
+                    job.RequestIndex=job.OccupiedIndex=0;job.CurrentHit=false;job.Phase=1;
                 }
-            return new ScreenHitGeometry(roots.ToArray(), shapes.ToArray());
+                if(job.Phase==1)
+                {
+                    var request=candidate.RequestTiles??Array.Empty<int>();
+                    if(job.RequestIndex<request.Length)
+                    {
+                        int tile=request[job.RequestIndex++];
+                        if(bodyCells.Add(tile))
+                        {var cell=GetHitCell(tile,job.Context.Zoom,job.Context.Viewport);if(cell.HasBody)AddHull(job,cell.Body);}
+                        continue;
+                    }
+                    job.Phase=2;
+                }
+                var root=candidate.Root;
+                var occupied=root.OccupiedTiles;
+                if(occupied!=null && occupied.Length!=0)
+                {
+                    if(job.OccupiedIndex<occupied.Length)
+                    {
+                        int tile=occupied[job.OccupiedIndex++];
+                        if(groundCells.Add(tile))
+                        {var cell=GetHitCell(tile,job.Context.Zoom,job.Context.Viewport);if(cell.HasGround)AddHull(job,cell.Ground);}
+                        continue;
+                    }
+                }
+                else if(job.OccupiedIndex++==0 && tiles.IsTileInsideMapBounds(root.X,root.Y))
+                {
+                    var cell=GetHitCell(tiles.GetTileId(root.X,root.Y),job.Context.Zoom,job.Context.Viewport);
+                    if(cell.HasGround)AddHull(job,cell.Ground);
+                    continue;
+                }
+                if(rootShapes.Count!=0)
+                {
+                    job.Geometry.AddRoot(root,rootShapes.ToArray());
+                    if(job.CurrentHit && job.SelectedIds.Add(root.Identity))job.Selected.Add(root);
+                }
+                job.Phase=0;job.CandidateIndex++;
+            }
+            if(job.CandidateIndex<job.Candidates.Length)return false;
+            job.SelectedRoots=job.Selected.ToArray();job.Complete=true;geometry=job.Geometry;return true;
+        }
+        private void AddHull(HitGeometryPreparation job,ScreenHitHull hull)
+        {
+            rootShapes.Add(hull);
+            if(job.SelectArea.HasValue && !job.CurrentHit && hull.Intersects(job.SelectArea.Value))job.CurrentHit=true;
         }
 
         private CellHitShapes GetHitCell(int tileId, float zoom, ScreenRect viewport)
@@ -158,21 +241,33 @@ namespace AreaDemolitionTest
             hits.Sort(); return hits.ToArray();
         }
 
-        // This broad phase performs no per-cell Unity work. The native raw owner/mapper
-        // filter runs on these IDs before the exact projection touches ground candidates.
-        internal int[] CaptureGroundTileIds(ScreenRect rectangle)
+        // This broad phase performs no per-cell Unity work. Its row/cell cursor is
+        // retained across frames; the native owner/mapper pass runs before exact geometry.
+        internal sealed class GroundTilePreparation
         {
-            if (!PrepareProjection(rectangle)) return Array.Empty<int>();
-            for (int y = 0; y < GameTileManagerAPI.MAX_HEIGHT; y++)
+            internal readonly ProjectionContext Context;
+            internal readonly List<int> Tiles=new List<int>();
+            internal int Row,Column;
+            internal int[] Result;
+            internal GroundTilePreparation(ProjectionContext context,int first){Context=context;Column=first;}
+        }
+        internal GroundTilePreparation BeginGroundTileCapture(ScreenRect rectangle,ProjectionContext context)
+        {UseProjection(context,rectangle);return new GroundTilePreparation(context,firstColumns[0]);}
+        internal bool StepGroundTileCapture(GroundTilePreparation job,long deadline,out int[] ids)
+        {
+            AssertUnityThread();ids=null;
+            if(job==null || !job.Context.IsMapCurrent)throw new InvalidOperationException("The ground job has no current map.");
+            if(job.Result!=null){ids=job.Result;return true;}
+            while(job.Row<GameTileManagerAPI.MAX_HEIGHT && Stopwatch.GetTimestamp()<deadline)
             {
-                for (int x = firstColumns[y]; x <= lastColumns[y]; x++)
-                    if (tiles.IsTileInsideMapBounds(x, y))
-                    {
-                        int tileId = tiles.GetTileId(x, y);
-                        if (tiles.IsValidTileId(tileId)) hits.Add(tileId);
-                    }
+                if(job.Column>lastColumns[job.Row])
+                {job.Row++;if(job.Row<GameTileManagerAPI.MAX_HEIGHT)job.Column=firstColumns[job.Row];continue;}
+                int x=job.Column++;
+                if(tiles.IsTileInsideMapBounds(x,job.Row))
+                {int tile=tiles.GetTileId(x,job.Row);if(tiles.IsValidTileId(tile))job.Tiles.Add(tile);}
             }
-            return hits.ToArray();
+            if(job.Row<GameTileManagerAPI.MAX_HEIGHT)return false;
+            ids=job.Result=job.Tiles.ToArray();return true;
         }
 
         private bool PrepareProjection(ScreenRect rectangle)
@@ -200,6 +295,14 @@ namespace AreaDemolitionTest
             screenHeight = Difference(Project(origin + Vector3.up), screenOrigin);
             double determinant = (double)screenX.X * screenY.Y - (double)screenX.Y * screenY.X;
             if (Math.Abs(determinant) < 1e-8) throw new InvalidOperationException("The map grid has a singular screen projection.");
+            SetColumnRanges(rectangle);
+            return true;
+        }
+
+        private void AssertUnityThread()
+        {if(Thread.CurrentThread.ManagedThreadId!=unityThread)throw new InvalidOperationException("Screen projection requires Unity's main thread.");}
+        private void SetColumnRanges(ScreenRect rectangle)
+        {
             double halfWidth = (Math.Abs(screenX.X) + Math.Abs(screenY.X)) * 0.5;
             for (int y = 0; y < GameTileManagerAPI.MAX_HEIGHT; y++)
             {
@@ -208,7 +311,6 @@ namespace AreaDemolitionTest
                     halfWidth, 0, GameTileManagerAPI.MAX_WIDTH - 1, out firstColumns[y], out lastColumns[y]))
                 { firstColumns[y] = 0; lastColumns[y] = -1; }
             }
-            return true;
         }
 
         private void AddIfIntersecting(ScreenRect rectangle, int tileId)

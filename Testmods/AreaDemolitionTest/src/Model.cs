@@ -8,7 +8,7 @@ using System.Text;
 namespace AreaDemolitionTest
 {
     internal enum TargetKind : byte { Building, Pitch, Wall, DugMoat, Decoration }
-    internal enum TargetGroup : byte { Buildings, Fortifications, PositiveFear, NegativeFear, DogCages, KillingPits, Pitch, DugMoats, Decorations, Stockpiles=9 }
+    internal enum TargetGroup : byte { Buildings, Fortifications, PositiveFear, NegativeFear, DogCages, KillingPits, Pitch, DugMoats, Decorations, Stockpiles=9, Walls=10 }
 
     // Local preview metadata; never serialized as multiplayer authority.
     internal sealed class PreviewHitCandidate

@@ -10,7 +10,7 @@
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.43.0"
+      "MinimumVersion": "0.47.0"
     }
   ],
   "Manifest": 1,
@@ -19,8 +19,13 @@
     {
       "Version": "1.0.220",
       "Changes": [
+        "Add an enabled-by-default local option to draw one-tile-wide pitch and moat lines with Ctrl and the left mouse button. Preview up to 64 tiles and pitch costs before releasing to build.",
         "Use the selected autosave interval in local skirmishes and Trails. Change it during local games from the pause menu.",
-        "Keep the previous singleplayer autosave if the game writes an incomplete file."
+        "Keep the previous singleplayer autosave if the game writes an incomplete file.",
+        "Prevent engineers assigned to a newly built catapult, trebuchet or fire ballista from also becoming available as free units. This host fix is enabled by default.",
+        "Engineers still operating a siege engine die when it burns down. This separate host option covers all eight siege engine types and is enabled by default.",
+        "If a game update changes a game method that this mod adjusts, only that adjustment is skipped. Other mods' changes to the same method keep working.",
+        "Require APIShared 0.47.0 or newer."
       ]
     },
     {

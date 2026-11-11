@@ -11,14 +11,18 @@ an area gesture and consumes the HUD release. A single release over HUD cancels.
 Cancel with right click, Escape, focus loss or tool change.
 Only dug moats are included. Planned digging marks remain unchanged.
 Stockpiles have their own local filter, initially disabled, beside Buildings.
-Only the requested Bulldozer settings hint is added as a tooltip. Selection type
-and counts remain; empty/forbidden selections produce no extra popup or help text.
+Only the requested Bulldozer settings hint is added as a tooltip. There is no
+selection/status text box, including counts, waiting, success or error messages.
+Walls have a separate default-off filter; stairs, towers, gates and drawbridges
+remain Fortifications. Existing configuration keys retain their saved values.
 Ordinary preview starts (including busy-lock retries) are paced to10Hz; native
-root checks resume across frames with a2ms deadline and at most64 roots per step.
+snapshot, ground discovery, projection and root checks share a2ms frame deadline.
+Already approved roots appear incrementally; unchanged preceding advisory roots
+remain until fresh checks replace/revoke them. Network packets still cap32targets.
 The first final capture after release starts immediately; subsequent retries are
 paced. The frame follows input independently. Completed final targets still need
 a successful rendered receipt before authenticated mutation is submitted.
-0.1.3 uses filtered visual hits for owned selection/status decorations, preserving
+The filtered visual hit test skips our owned selection decoration, preserving
 the real HUD below them. Shrinking and crossing the start removes complete roots
 and closures from preview immediately; late larger quotes are clipped again.
 Hit areas combine prior occupied-ground cells with conservative Vanilla height
@@ -55,3 +59,17 @@ duplicates, stale load traffic, lost/mismatched acknowledgements, pause, spectat
 and defeated peer participation. No automatic retry or rollback claim.
 Check coexistence with Script Extender, Fixes, BFQoL, CastlePlanner,
 PitchMoatLineTest and Spectator. Preserve all unrelated user files and SDK binaries.
+
+0.1.4 development acceptance preparation (2026-11-11): user now requests real
+CastlePlanner wolf1 testing but will explicitly announce when the game may run.
+Do not start or close the currently running game before that announcement.
+Temporary /devdiag scenarios wolf1-walls and wolf1-combined use public APIShared
+automation, CastlePlanner's normal confirm/restart path and current spawn settings.
+They drive the production gesture/quote/render/transport flow through an explicit
+instance-scoped diagnostic pointer; no Windows mouse/keyboard input is sent.
+Reconcile independent expected wall eligibility, red/final/sent targets, individual
+ApplyResults and terminal native wall fields, with per-phase time measurements.
+Record every unexplained remaining wall; a successful build is not a fix claim.
+Only after game acceptance remove temporary scenarios, update all active version
+fields to0.1.4, build normally against installed assemblies and install closed-game.
+Multiplayer acceptance remains deferred. No README, SDK, Extender or Fixes changes.

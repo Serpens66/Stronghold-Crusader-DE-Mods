@@ -14,7 +14,7 @@ namespace AreaDemolitionTest
     // Scene controls are replaceable; the owning runtime and its callbacks outlive the startup cleanup.
     internal sealed class DemolitionView
     {
-        private static readonly TargetGroup[] FilterOrder={TargetGroup.Buildings,TargetGroup.Stockpiles,TargetGroup.Fortifications,
+        private static readonly TargetGroup[] FilterOrder={TargetGroup.Buildings,TargetGroup.Stockpiles,TargetGroup.Fortifications,TargetGroup.Walls,
             TargetGroup.PositiveFear,TargetGroup.NegativeFear,TargetGroup.DogCages,TargetGroup.KillingPits,TargetGroup.Pitch,TargetGroup.DugMoats,TargetGroup.Decorations};
         private readonly DemolitionSettings settings;
         private readonly ManualLogSource log;
@@ -30,13 +30,11 @@ namespace AreaDemolitionTest
         private Button button;
         private Grid host;
         private Canvas overlay;
-        private Border backdrop, menu, statusBox, selectionBox;
+        private Border backdrop, menu, selectionBox;
         private ScreenRect? selectionFrame;
-        private TextBlock status;
         private bool menuOpen, closingClick, syncing, reportedFailure;
-        private bool layoutDirty=true,statusDirty=true;
+        private bool layoutDirty=true;
         private float lastWidth=-1,lastHeight=-1,lastRight,lastTop;
-        private string statusText = "";
 
         internal DemolitionView(DemolitionSettings settings, ManualLogSource log,Func<bool> consumePrimaryRelease,Action primaryPressed)
         {
@@ -48,7 +46,7 @@ namespace AreaDemolitionTest
         internal bool IsMenuOpen => menuOpen;
         internal bool IsInputShieldActive => menuOpen || closingClick;
 
-        internal bool TryIsPointerOverUi(out bool overUi)
+        internal bool TryIsPointerOverUi(Vector3 mouse,out bool overUi)
         {
             overUi=true;
             if(host==null || overlay==null || !MainViewModel.viewModelLoaded)return false;
@@ -56,11 +54,10 @@ namespace AreaDemolitionTest
             {
                 var root=VisualTreeHelper.GetRoot(host) as Visual;
                 if(root==null)return false;
-                var mouse=Input.mousePosition;
                 var point=root.PointFromScreen(new Point(mouse.x,Screen.height-mouse.y));
                 pointerHit=null;
                 // Keep our visuals blocking Vanilla's raw query; this filtered query can still
-                // see a real HUD control underneath the selection frame or status text.
+                // see a real HUD control underneath the selection frame.
                 VisualTreeHelper.HitTest(root,pointerFilter,pointerResult,new PointHitTestParameters(point));
                 if(pointerHit==null){overUi=false;return true;}
                 pointerTags.Clear();
@@ -80,7 +77,7 @@ namespace AreaDemolitionTest
 
         private HitTestFilterBehavior FilterPointerVisual(Visual visual)
         {
-            var role=ReferenceEquals(visual,selectionBox) || ReferenceEquals(visual,statusBox) ? PointerVisualRole.Decoration :
+            var role=ReferenceEquals(visual,selectionBox) ? PointerVisualRole.Decoration :
                 ReferenceEquals(visual,overlay) ? PointerVisualRole.Overlay : PointerVisualRole.Ordinary;
             switch(PointerUiPolicy.Filter(role))
             {
@@ -162,12 +159,8 @@ namespace AreaDemolitionTest
             menu.MouseUp += ConsumeMenuMouse;
             menu.KeyDown += OnMenuKeyDown;
             overlay.Children.Add(menu);
-            status = new TextBlock { Foreground = foreground, FontSize = 15, TextWrapping = TextWrapping.Wrap };
-            statusBox = new Border { Child = status, Padding = new Thickness(7, 4, 7, 4), MaxWidth = 420,
-                Background = new SolidColorBrush(Color.FromArgb(220, 29, 23, 16)),
-                IsHitTestVisible = false, Visibility = Visibility.Collapsed };
-            overlay.Children.Add(statusBox); host.Children.Add(overlay);
-            SyncFilters(); SetStatus(statusText);
+            host.Children.Add(overlay);
+            SyncFilters();
         }
 
         private void ChangeFilter(TargetGroup group, bool value)
@@ -250,18 +243,6 @@ namespace AreaDemolitionTest
             if (changed) MenuChanged?.Invoke();
         }
 
-        internal void SetStatus(string text)
-        {
-            text=text??"";
-            if(statusText==text && status!=null && !statusDirty)return;
-            statusText = text;layoutDirty=true;
-            if (status == null) return;
-            statusDirty=false;
-            status.Text = statusText;
-            statusBox.Visibility = statusText.Length == 0 || menuOpen ? Visibility.Collapsed : Visibility.Visible;
-            UpdateLayout();
-        }
-
         internal void SetSelectionFrame(ScreenRect? rectangle)
         { selectionFrame=rectangle;UpdateSelectionFrame(); }
 
@@ -302,13 +283,6 @@ namespace AreaDemolitionTest
                 Canvas.SetLeft(menu, Math.Max(6, Math.Min(width - (float)menu.Width - 6, right - (float)menu.Width)));
                 Canvas.SetTop(menu, Math.Max(6, Math.Min(height - menuHeight - 6, top - menuHeight)));
             }
-            if(statusText.Length!=0 && !menuOpen)
-            {
-                statusBox.Measure(new Noesis.Size(Math.Max(1, width - 12), Math.Max(1, height - 12)));
-                Canvas.SetLeft(statusBox, Math.Max(6, Math.Min(width - statusBox.DesiredSize.Width - 6, right - statusBox.DesiredSize.Width)));
-                Canvas.SetTop(statusBox, Math.Max(6, top - statusBox.DesiredSize.Height));
-            }
-            statusBox.Visibility = statusText.Length == 0 || menuOpen ? Visibility.Collapsed : Visibility.Visible;
             UpdateSelectionFrame();
         }
 
@@ -316,7 +290,7 @@ namespace AreaDemolitionTest
         {
             bool changed = menuOpen || closingClick;
             menuOpen = closingClick = false;
-            layoutDirty=statusDirty=true;lastWidth=lastHeight=-1;
+            layoutDirty=true;lastWidth=lastHeight=-1;
             if (button != null)
             {
                 button.MouseEnter -= OnButtonMouseEnter;
@@ -325,7 +299,7 @@ namespace AreaDemolitionTest
             }
             if(host!=null){host.PreviewMouseUp-=OnHostMouseUp;host.PreviewMouseDown-=OnHostMouseDown;if(overlay!=null)host.Children.Remove(overlay);}
             filters.Clear(); hud = null; button = null; host = null; overlay = null;
-            backdrop = menu = statusBox = selectionBox = null;selectionFrame=null; status = null;
+            backdrop = menu = selectionBox = null;selectionFrame=null;
             if (changed) MenuChanged?.Invoke();
         }
 

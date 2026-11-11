@@ -49,6 +49,13 @@ internal static class Program
         Check(!new SelectionSpec((ushort)(1<<(int)TargetGroup.Stockpiles),false,null).Matches(Target(TargetGroup.Buildings)),"stockpile filter does not select ordinary buildings");
         Check(new SelectionSpec(0,true,stockpile).Matches(Target(TargetGroup.Stockpiles,10,31)),"Shift selects matching stockpile type despite disabled category");
         Check(!new SelectionSpec(0,true,stockpile).Matches(Target(TargetGroup.Buildings,11)),"Shift stockpile type remains distinct from other buildings");
+        var wall=new DemolitionTarget {Kind=TargetKind.Wall,Group=TargetGroup.Walls,Type=1};
+        var stairs=new DemolitionTarget {Kind=TargetKind.Wall,Group=TargetGroup.Fortifications,Type=2};
+        var fortifications=new SelectionSpec((ushort)(1<<(int)TargetGroup.Fortifications),false,null);
+        var walls=new SelectionSpec((ushort)(1<<(int)TargetGroup.Walls),false,null);
+        Check(fortifications.Matches(stairs) && !fortifications.Matches(wall),"fortifications retain stairs and exclude ordinary walls");
+        Check(walls.Matches(wall) && !walls.Matches(stairs),"walls have an independent eleventh category bit");
+        Check(new SelectionSpec(0,true,wall).Matches(new DemolitionTarget {Kind=TargetKind.Wall,Group=TargetGroup.Walls,Type=1}),"Shift selects wall type despite disabled category");
         Check(new AreaRect(3,3,5,5).Intersects(new AreaRect(1,1,3,3)),"boundary tile overlap counts");
         Check(!new AreaRect(4,4,5,5).Intersects(new AreaRect(1,1,3,3)),"disjoint footprints excluded");
         var a=Target(TargetGroup.Buildings,1,2);var b=Target(TargetGroup.Buildings,1,1);
@@ -78,6 +85,7 @@ internal static class Program
         Check(!settings.Get(TargetGroup.Buildings) && settings.Get(TargetGroup.Fortifications) && settings.Get(TargetGroup.Pitch),"old preference keys retain their values");
         Check(!settings.Get(TargetGroup.Decorations),"new decoration preference defaults off");
         Check(!settings.Get(TargetGroup.Stockpiles),"new stockpile preference defaults off");
+        Check(!settings.Get(TargetGroup.Walls),"independent wall preference defaults off even when fortifications were enabled");
         ushort before=settings.Mask;int changes=0;settings.Changed+=()=>changes++;
         settings.Set(TargetGroup.Decorations,true);
         Check(settings.Mask==(ushort)(before|(1<<(int)TargetGroup.Decorations)) && settings.Get(TargetGroup.Pitch),"ninth bit does not truncate or alter old preferences");
@@ -89,6 +97,12 @@ internal static class Program
         Check(reopened.Get(TargetGroup.Stockpiles) && reopened.Mask==settings.Mask,"stockpile key persists independently of old keys");
         reopened.Set(TargetGroup.Stockpiles,false);
         Check(reopened.Mask==nine && !reopened.Get(TargetGroup.Buildings) && reopened.Get(TargetGroup.Decorations),"disabling stockpile leaves old settings untouched");
+        ushort oldFilters=reopened.Mask;
+        reopened.Set(TargetGroup.Walls,true);
+        var withWalls=new DemolitionSettings(file);
+        Check(withWalls.Get(TargetGroup.Walls) && withWalls.Mask==(ushort)(oldFilters|(1<<(int)TargetGroup.Walls)),"wall preference persists without changing ten original keys");
+        withWalls.Set(TargetGroup.Fortifications,false);
+        Check(withWalls.Get(TargetGroup.Walls),"disabling fortifications leaves the independent wall preference enabled");
     }
     private static void ColumnRanges()
     {

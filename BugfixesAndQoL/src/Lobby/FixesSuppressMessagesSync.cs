@@ -22,7 +22,7 @@ namespace BugfixesAndQoL
         private const string ModelName = "Fixes.UI.LobbySettingsViewModel";
         private const string PropertyName = "SuppressMessages";
         private const string RoutingType = "SHCDESE.API.Components.ModManager.LobbyModSettingsRouting";
-        private static readonly ILHook[] Hooks = new ILHook[3];
+        private static readonly APIShared.Patching.SafeIlHook[] Hooks = new APIShared.Patching.SafeIlHook[3];
         private static PropertyInfo localProperty;
         private static bool attempted;
 
@@ -48,9 +48,9 @@ namespace BugfixesAndQoL
                 Probe(change, changePatch);
                 Probe(join, joinPatch);
                 Probe(receive, PatchReceive);
-                Install(0, change, changePatch);
-                Install(1, join, joinPatch);
-                Install(2, receive, PatchReceive);
+                Install(0, change, changePatch, log);
+                Install(1, join, joinPatch, log);
+                Install(2, receive, PatchReceive, log);
                 // Until all hooks are installed their callbacks pass through the original policy.
                 Volatile.Write(ref localProperty, property);
                 Shared.DebugLogHelper.LogInfo(log, "FIXES_SUPPRESS_MESSAGES_LOCAL: local storage retained and lobby sync disabled for SuppressMessages.");
@@ -109,13 +109,13 @@ namespace BugfixesAndQoL
             }
         }
 
-        private static void Install(int index, MethodInfo method, ILContext.Manipulator patch)
+        private static void Install(int index, MethodInfo method, ILContext.Manipulator patch, ManualLogSource log)
         {
-            var candidate = new ILHook(method, patch, new ILHookConfig
-                { ManualApply = true, ID = "BugfixesAndQoL.FixesSuppressMessagesSync." + method.Name });
-            // Root even a partially failed publication. It stays logically dormant on failure.
-            Hooks[index] = candidate;
-            candidate.Apply();
+            // Installed hooks stay rooted and logically dormant until all three are installed.
+            if (!APIShared.Patching.SafeIlHook.TryInstall(BugfixesAndQoLPlugin.PluginGuid, "BugfixesAndQoL.FixesSuppressMessagesSync." + method.Name,
+                method, patch, log, out var installed, out string failure))
+                throw new InvalidOperationException(failure);
+            Hooks[index] = installed;
         }
 
         private static void PatchSend(ILContext il, string sendMethod)

@@ -62,7 +62,7 @@ Vor jedem Tool- oder Shellaufruf die einschlägigen Punkte prüfen; bereits doku
 
 ## 4. Dateien, Änderungen und Builds
 
-- Neue modbezogene Ingame-Automation über die öffentliche APIShared-Test-API und temporäre `*.DevDiag.cs` im getesteten Mod umsetzen. Bestehende Testmods für ihre spezialisierten Läufe verwenden. Einstieg, Laufwerkzeug und Bereinigung stehen in [AutomatisierungTest.md](AutomatisierungTest.md#neue-modbezogene-spieltests).
+- **Kein Testcode in Hauptmods:** Neue Ingame-Automation und Testszenarien als eigenen Testmod unter `Testmods/` über die öffentliche APIShared-Test-API umsetzen, nicht in den getesteten Mods. Interne Zustände dort notfalls per Reflection lesen. Bestehende Testmods für ihre spezialisierten Läufe verwenden. Nur wenn ein Test nachweislich nicht außerhalb des Mods möglich ist, eine temporäre `*.DevDiag.cs` im Mod anlegen und sie samt Einstiegspunkt im selben Auftrag wieder entfernen. Grund: liegengebliebene Szenarien sammeln sich als Müll an und blockieren andere Tests. Einstieg, Laufwerkzeug und Bereinigung stehen in [AutomatisierungTest.md](AutomatisierungTest.md#neue-modbezogene-spieltests).
 
 - `README.md`-Dateien nur auf ausdrückliche Bitte ändern. Bekommt ein Mod ein neues Feature, fragen, ob es nach Fertigstellung in die README soll.
 - Mod-READMEs richten sich an Spieler. Beschreibe in verständlicher Sprache, welches Problem im Spiel auftritt und was Spieler mit dem Fix oder Feature konkret erleben. Erwähne Einstellungen, Voraussetzungen und Grenzen, wenn sie für Spieler wichtig sind. Technische Details zur Umsetzung gehören in die Entwicklerdokumentation.

@@ -11,7 +11,7 @@ namespace BugfixesAndQoL.SavegameMissingMap
     {
         internal const string LegacyGuid = "SavegameMissingMapFixTest_Serp";
         private static readonly RuntimeStartup startup = new RuntimeStartup();
-        private static readonly List<ILHook> hooks = new List<ILHook>();
+        private static readonly List<APIShared.Patching.SafeIlHook> hooks = new List<APIShared.Patching.SafeIlHook>();
         private static bool attempted;
         private static ManualLogSource log;
 
@@ -51,7 +51,11 @@ namespace BugfixesAndQoL.SavegameMissingMap
             SavegameFix.ValidateMembers();
             SavegameFix.RunHookPlan(SavegameFix.HookTargets, SavegameFix.HookTransforms, () => { }, (method, transform) =>
             {
-                hooks.Add(new ILHook(method, transform));
+                // A failing rebuild of these Vanilla methods must keep every other patch of them.
+                if (!APIShared.Patching.SafeIlHook.TryInstall(BugfixesAndQoLPlugin.PluginGuid, "BugfixesAndQoL.SavegameMissingMap." + method.Name, method,
+                    transform, log, out var installed, out string failure))
+                    throw new InvalidOperationException(failure);
+                hooks.Add(installed);
                 RuntimeStartup.Report(SavegameFix.HookDiagnostic, method);
             });
         }

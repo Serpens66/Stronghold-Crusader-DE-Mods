@@ -10,7 +10,7 @@ using SHCDESE.Interop.Enums;
 
 namespace AreaDemolitionTest
 {
-    internal sealed unsafe class NativeDemolition
+    internal sealed unsafe partial class NativeDemolition
     {
         private readonly NativeBindings native;
         private volatile bool available = true;
@@ -26,7 +26,7 @@ namespace AreaDemolitionTest
         {
             this.native = native; wallPolicy = native.WallPolicy;
             Diagnostic = wallPolicy < 0 ? "Native demolition available; unknown wall refund patch: walls disabled." : "Native demolition available.";
-            Fingerprint = NativeBindings.SupportedHash + ":demolition-v3:registered-footprints,buildings,stockpiles,pitch,dug-moat,decorations10-15:wall=" + wallPolicy;
+            Fingerprint = NativeBindings.SupportedHash + ":demolition-v4:registered-footprints,buildings,stockpiles,walls-vs-stairs,pitch,dug-moat,decorations10-15:wall=" + wallPolicy;
         }
 
         internal static bool TryCreate(CrusaderLibraryLoadContext context, ManualLogSource log, out NativeDemolition result)
@@ -43,13 +43,18 @@ namespace AreaDemolitionTest
         private int[] CardinalNeighbours(int tile) => TileNeighbours(tile,true);
         private int[] TileNeighbours(int tile,bool cardinal)
         {
+            var result=new int[cardinal?4:8];int count=FillTileNeighbours(tile,cardinal,result);
+            if(count!=result.Length)Array.Resize(ref result,count);return result;
+        }
+        private int FillTileNeighbours(int tile,bool cardinal,int[] result)
+        {
             var tiles=GameTileManagerAPI.Instance;
-            if (!tiles.IsValidTileId(tile)) return Array.Empty<int>();
+            if (!tiles.IsValidTileId(tile)) return 0;
             var point=tiles.GetTileVectorFromId(tile);
             // DF9D0 validates the initial coordinates, but intermediate nodes use packed bounds/border bits only.
-            if (cardinal ? (uint)tile>=320000 || point.Y>=800 : !IsValidTile(point.X,point.Y)) return Array.Empty<int>();
+            if (cardinal ? (uint)tile>=320000 || point.Y>=800 : !IsValidTile(point.X,point.Y)) return 0;
             var deltas=tiles.TileManager.PackedNeighborTileDeltas;
-            var result=new int[cardinal?4:8];int count=0;
+            int count=0;
             for (int direction=0;direction<8;direction+=cardinal?2:1)
             {
                 int neighbour=tile+deltas[point.Y*8+direction];
@@ -57,8 +62,7 @@ namespace AreaDemolitionTest
                 var next=tiles.GetTileVectorFromId(neighbour);
                 if (cardinal || IsValidTile(next.X,next.Y)) result[count++]=neighbour;
             }
-            if (count!=result.Length) Array.Resize(ref result,count);
-            return result;
+            return count;
         }
 
         private bool IsBorder(int tile) => (GameTileManagerAPI.Instance.GetTilePropertyFlag(tile)&(TilePropertyFlag.RealityEdge|TilePropertyFlag.MapBorder))!=0;
@@ -248,6 +252,7 @@ namespace AreaDemolitionTest
             internal SelectionSpec Selection;
             internal PreviewIndex Index;
             internal PreviewHitCandidate[] HitCandidates=Array.Empty<PreviewHitCandidate>();
+            internal readonly HashSet<DemolitionTarget> Roots=new HashSet<DemolitionTarget>();
             internal readonly Dictionary<int,DemolitionTarget> Geometry=new Dictionary<int,DemolitionTarget>();
             internal Dictionary<int,DemolitionTarget> Pitch;
             internal Dictionary<int,List<DemolitionTarget>> Decorations;
@@ -270,14 +275,15 @@ namespace AreaDemolitionTest
             private readonly Dictionary<uint,List<BuildingMember>> compounds=new Dictionary<uint,List<BuildingMember>>();
             internal PreviewIndex(IEnumerable<BuildingMember> source)
             {
-                foreach (var member in source)
-                {
-                    members[member.Slot]=member;
-                    if (member.Compound==0) continue;
-                    if (!compounds.TryGetValue(member.Compound,out var group)) compounds.Add(member.Compound,group=new List<BuildingMember>());
-                    group.Add(member);
-                }
+                foreach (var member in source) Add(member);
                 foreach (var group in compounds.Values) group.Sort((left,right)=>left.Slot.CompareTo(right.Slot));
+            }
+            internal void Add(BuildingMember member)
+            {
+                members[member.Slot]=member;
+                if(member.Compound==0)return;
+                if(!compounds.TryGetValue(member.Compound,out var group))compounds.Add(member.Compound,group=new List<BuildingMember>());
+                group.Add(member);
             }
             internal IEnumerable<BuildingMember> Members => members.Values;
             internal DemolitionTarget Target(int slot) => members.TryGetValue(slot,out var member)?member.Target:null;
@@ -315,91 +321,142 @@ namespace AreaDemolitionTest
         }
 
         private static bool WantsBuildings(SelectionSpec selection) => selection.SameType ? selection.Start?.Kind==TargetKind.Building :
-            (selection.Filters&(((1<<(int)TargetGroup.Pitch)-1)|(1<<(int)TargetGroup.Stockpiles)))!=0;
+            (selection.Filters&(((1<<(int)TargetGroup.Pitch)-1)|(1<<(int)TargetGroup.Stockpiles)|(1<<(int)TargetGroup.Walls)))!=0;
 
-        private PreviewSnapshot CreatePreviewSnapshot(int actor,SelectionSpec selection)
+        internal sealed class PreviewPreparation
         {
-            var snapshot=new PreviewSnapshot { Actor=actor,Selection=selection };
-            if (!available || actor<1 || actor>8) return snapshot;
-            lock (EngineGate)
+            internal readonly PreviewSnapshot Snapshot;
+            internal readonly List<BuildingMember> Members=new List<BuildingMember>();
+            internal readonly Dictionary<string,CandidatePreparation> Candidates=new Dictionary<string,CandidatePreparation>(StringComparer.Ordinal);
+            internal readonly List<CandidatePreparation> Ordered=new List<CandidatePreparation>();
+            internal readonly Dictionary<int,int[]> Neighbours=new Dictionary<int,int[]>();
+            internal int Phase,At,Limit,CellAt,TargetAt;
+            internal CandidatePreparation Active;
+            internal int[] Cells;
+            internal List<DemolitionTarget>[] DecorationGroups;
+            internal PreviewHitCandidate[] Result;
+            internal PreviewPreparation(int actor,SelectionSpec selection)
+            { Snapshot=new PreviewSnapshot { Actor=actor,Selection=selection,Index=new PreviewIndex(Array.Empty<BuildingMember>()),Pitch=new Dictionary<int,DemolitionTarget>(),Decorations=new Dictionary<int,List<DemolitionTarget>>() }; }
+        }
+        internal sealed class CandidatePreparation
+        {
+            internal DemolitionTarget Root;
+            internal readonly HashSet<int> Requests=new HashSet<int>(),Occupied=new HashSet<int>();
+        }
+
+        internal PreviewPreparation BeginPreviewPreparation(int actor,SelectionSpec selection) => new PreviewPreparation(actor,selection);
+
+        internal bool TryStepPreviewPreparation(PreviewPreparation job,long deadlineStopwatch,out bool complete,out PreviewSnapshot snapshot)
+        {
+            complete=false;snapshot=null;
+            if(job==null)throw new ArgumentNullException(nameof(job));
+            if(job.Phase==8){complete=true;snapshot=job.Snapshot;return true;}
+            if(!System.Threading.Monitor.TryEnter(EngineGate))return false;
+            try
             {
-                var members=new List<BuildingMember>();
-                if (WantsBuildings(selection))
-                {
-                    var span=GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
-                    for (int index=0;index<span.Length;index++)
+                if(!available || job.Snapshot.Actor<1 || job.Snapshot.Actor>8)job.Phase=8;
+                while(job.Phase!=8 && System.Diagnostics.Stopwatch.GetTimestamp()<deadlineStopwatch) StepPreparationUnit(job);
+                complete=job.Phase==8;if(complete)snapshot=job.Snapshot;return true;
+            }
+            finally {System.Threading.Monitor.Exit(EngineGate);}
+        }
+
+        private CandidatePreparation PreparationCandidate(PreviewPreparation job,DemolitionTarget root)
+        {
+            string identity=root.Identity;
+            if(!job.Candidates.TryGetValue(identity,out var candidate))
+            { candidate=new CandidatePreparation {Root=root.Copy()};job.Candidates.Add(identity,candidate);job.Ordered.Add(candidate); }
+            return candidate;
+        }
+        private int[] PreparationNeighbours(PreviewPreparation job,int tile)
+        { if(!job.Neighbours.TryGetValue(tile,out var result))job.Neighbours.Add(tile,result=Neighbours(tile));return result; }
+        private void PreparationRequest(PreviewPreparation job,CandidatePreparation candidate,int tile)
+        {
+            if(candidate.Root.Kind==TargetKind.Building)
+            {
+                var tiles=GameTileManagerAPI.Instance;int slot=tiles.GetStructureLayer()[tile];
+                bool related=(tiles.GetTilePropertyFlag(tile)&TilePropertyFlag.GoodsyardRelated)!=0;
+                if(!BuildingRequestMatches(job.Snapshot.Index,candidate.Root,slot,related,
+                    slot==0 && related && (eStructs)candidate.Root.Type==eStructs.STRUCT_GOODS_YARD?
+                    PreparationNeighbours(job,tile).Select(neighbour=>(int)tiles.GetStructureLayer()[neighbour]):Array.Empty<int>()))return;
+            }
+            candidate.Requests.Add(tile);
+        }
+        // One unit is a metadata slot, one footprint cell (at most8neighbours), or one root finalization.
+        // No native span/pointer or monitor survives this call's frame boundary.
+        private void StepPreparationUnit(PreviewPreparation job)
+        {
+            var snapshot=job.Snapshot;int actor=snapshot.Actor;var selection=snapshot.Selection;
+            switch(job.Phase)
+            {
+                case 0:
+                    job.Limit=WantsBuildings(selection)?GameBuildingManagerAPI.Instance.GetBuildingsAsSpan().Length:0;
+                    job.At=0;job.Phase=1;break;
+                case 1:
+                    if(job.At>=job.Limit){job.At=0;job.Phase=2;break;}
+                    var span=GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();int index=job.At++;
+                    if(index>=span.Length)break;
+                    ref var building=ref span[index];
+                    if(building.r_AliveState==AliveState.None)break;
+                    var member=new BuildingMember(index+1,building.r_PlayerIdOwner,building.r_AliveState,building.N0000178A,Building(index+1,false));
+                    job.Members.Add(member);snapshot.Index.Add(member);break;
+                case 2:
+                    if(job.Active!=null)
                     {
-                        ref var building=ref span[index];
-                        if (building.r_AliveState==AliveState.None) continue;
-                        members.Add(new BuildingMember(index+1,building.r_PlayerIdOwner,building.r_AliveState,building.N0000178A,Building(index+1,false)));
-                    }
-                }
-                snapshot.Index=new PreviewIndex(members);
-                var candidates=new Dictionary<string,PreviewHitCandidate>(StringComparer.Ordinal);
-                var requests=new Dictionary<string,HashSet<int>>(StringComparer.Ordinal);
-                var occupied=new Dictionary<string,HashSet<int>>(StringComparer.Ordinal);
-                var neighbourCache=new Dictionary<int,int[]>();
-                int[] CachedNeighbours(int tile)
-                { if (!neighbourCache.TryGetValue(tile,out var cells)) neighbourCache.Add(tile,cells=Neighbours(tile));return cells; }
-                void Add(DemolitionTarget root,int[] cells)
-                {
-                    if (!requests.TryGetValue(root.Identity,out var set))
-                    { requests.Add(root.Identity,set=new HashSet<int>());occupied.Add(root.Identity,new HashSet<int>());candidates.Add(root.Identity,new PreviewHitCandidate { Root=root.Copy() }); }
-                    foreach (int cell in cells) set.Add(cell);
-                }
-                foreach (var member in snapshot.Index.Members)
-                {
-                    if (member.Owner!=actor || member.Target==null) continue;
-                    var root=snapshot.Index.Canonical(member.Target);
-                    if (root==null || !selection.Matches(root)) continue;
-                    var geometry=Building(member.Slot);
-                    if (geometry!=null)
-                    {
-                        snapshot.Geometry[member.Slot]=geometry;Add(root,ExpandNeighbourRequests(geometry.OccupiedTiles,CachedNeighbours));
-                        foreach (int cell in geometry.OccupiedTiles) occupied[root.Identity].Add(cell);
-                    }
-                }
-                snapshot.Pitch=WantsGround(selection,TargetKind.Pitch,TargetGroup.Pitch)?PitchByTile():new Dictionary<int,DemolitionTarget>();
-                foreach (var target in snapshot.Pitch.Values) if (target.Owner==actor && selection.Matches(target)) Add(target,ExpandNeighbourRequests(target.OccupiedTiles,CachedNeighbours));
-                snapshot.Decorations=DecorationsByTile();
-                if (WantsGround(selection,TargetKind.Decoration,TargetGroup.Decorations))
-                    foreach (var group in snapshot.Decorations.Values)
-                    {
-                        if (group.Count==0 || FirstOwnDecorationAt(group[0].TileId,actor)==0) continue;
-                        int[] cells=DecorationRequestTiles(group[0].TileId,CardinalNeighbours,IsBorder);
-                        foreach (var target in group) if (target.Owner==actor && selection.Matches(target)) Add(target,cells);
-                    }
-                foreach (var item in candidates)
-                {
-                    IEnumerable<int> cells=requests[item.Key];
-                    if (item.Value.Root.Kind==TargetKind.Building)
-                    {
-                        var tiles=GameTileManagerAPI.Instance;
-                        cells=cells.Where(tile=>
+                        if(job.CellAt<job.Cells.Length)
                         {
-                            int slot=tiles.GetStructureLayer()[tile];
-                            bool related=(tiles.GetTilePropertyFlag(tile)&TilePropertyFlag.GoodsyardRelated)!=0;
-                            return BuildingRequestMatches(snapshot.Index,item.Value.Root,slot,related,
-                                slot==0 && related && (eStructs)item.Value.Root.Type==eStructs.STRUCT_GOODS_YARD?
-                                CachedNeighbours(tile).Select(neighbour=>(int)tiles.GetStructureLayer()[neighbour]):Array.Empty<int>());
-                        });
+                            int tile=job.Cells[job.CellAt++];job.Active.Occupied.Add(tile);PreparationRequest(job,job.Active,tile);
+                            foreach(int neighbour in PreparationNeighbours(job,tile))PreparationRequest(job,job.Active,neighbour);
+                            break;
+                        }
+                        job.Active=null;job.Cells=null;
                     }
-                    item.Value.RequestTiles=cells.OrderBy(t=>t).ToArray();
-                    if (occupied[item.Key].Count>0) item.Value.Root.OccupiedTiles=occupied[item.Key].OrderBy(t=>t).ToArray();
-                }
-                snapshot.HitCandidates=candidates.Values.ToArray();
-                return snapshot;
+                    if(job.At>=job.Members.Count)
+                    {job.At=1;job.Limit=WantsGround(selection,TargetKind.Pitch,TargetGroup.Pitch)?GamePitchManagerAPI.Instance.GetPitchArrayAsSpan().Length:1;job.Phase=3;break;}
+                    var next=job.Members[job.At++];
+                    if(next.Owner!=actor || next.Target==null)break;
+                    var root=snapshot.Index.Canonical(next.Target);
+                    if(root==null || !selection.Matches(root))break;
+                    var geometry=Building(next.Slot);
+                    if(geometry==null)break;
+                    snapshot.Geometry[next.Slot]=geometry;job.Active=PreparationCandidate(job,root);job.Cells=geometry.OccupiedTiles;job.CellAt=0;break;
+                case 3:
+                    if(job.At>=job.Limit)
+                    {job.At=1;job.Limit=GameProjectileManagerAPI.Instance.GetProjectilesAsSpan().Length;job.Phase=4;break;}
+                    var pitch=Pitch(job.At++);
+                    if(pitch==null)break;
+                    snapshot.Pitch[pitch.TileId]=pitch;
+                    if(pitch.Owner==actor && selection.Matches(pitch))
+                    {var candidate=PreparationCandidate(job,pitch);foreach(int tile in pitch.OccupiedTiles){candidate.Requests.Add(tile);foreach(int neighbour in PreparationNeighbours(job,tile))candidate.Requests.Add(neighbour);}}
+                    break;
+                case 4:
+                    if(job.At>=job.Limit)
+                    {job.DecorationGroups=snapshot.Decorations.Values.ToArray();job.At=0;job.TargetAt=0;job.Cells=null;job.Phase=5;break;}
+                    var decoration=DecorationSnapshotSlot(job.At++);
+                    if(decoration==null)break;
+                    if(!snapshot.Decorations.TryGetValue(decoration.TileId,out var group))snapshot.Decorations.Add(decoration.TileId,group=new List<DemolitionTarget>());
+                    group.Add(decoration);break;
+                case 5:
+                    if(!WantsGround(selection,TargetKind.Decoration,TargetGroup.Decorations) || job.At>=job.DecorationGroups.Length)
+                    {job.At=0;job.Result=new PreviewHitCandidate[job.Ordered.Count];job.Phase=6;break;}
+                    var decorations=job.DecorationGroups[job.At];
+                    if(job.Cells==null)
+                    {
+                        if(decorations.Count==0 || FirstOwnDecorationAt(decorations[0].TileId,actor)==0){job.At++;break;}
+                        job.Cells=DecorationRequestTiles(decorations[0].TileId,CardinalNeighbours,IsBorder);job.TargetAt=0;
+                    }
+                    if(job.TargetAt>=decorations.Count){job.At++;job.Cells=null;break;}
+                    var target=decorations[job.TargetAt++];
+                    if(target.Owner==actor && selection.Matches(target))PreparationCandidate(job,target).Requests.UnionWith(job.Cells);
+                    break;
+                case 6:
+                    if(job.At>=job.Ordered.Count){snapshot.HitCandidates=job.Result;job.Phase=8;break;}
+                    var prepared=job.Ordered[job.At];
+                    if(prepared.Occupied.Count>0)prepared.Root.OccupiedTiles=prepared.Occupied.OrderBy(t=>t).ToArray();
+                    snapshot.Roots.Add(prepared.Root);
+                    job.Result[job.At++]=new PreviewHitCandidate {Root=prepared.Root,RequestTiles=prepared.Requests.OrderBy(t=>t).ToArray()};break;
             }
         }
-
-        internal bool TryCreatePreviewSnapshot(int actor,SelectionSpec selection,out PreviewSnapshot snapshot)
-        {
-            snapshot=null;
-            if (!System.Threading.Monitor.TryEnter(EngineGate)) return false;
-            try { snapshot=CreatePreviewSnapshot(actor,selection);return true; }
-            finally { System.Threading.Monitor.Exit(EngineGate); }
-        }
-
         internal sealed class PreviewQuote
         {
             internal PreviewSnapshot Snapshot;
@@ -413,10 +470,9 @@ namespace AreaDemolitionTest
 
         internal PreviewQuote BeginQuote(PreviewSnapshot snapshot,DemolitionTarget[] hitRoots,int actor,SelectionSpec selection)
         {
-            var allowed=(snapshot?.HitCandidates??Array.Empty<PreviewHitCandidate>()).ToDictionary(c=>c.Root.Identity,c=>c.Root,StringComparer.Ordinal);
-            return new PreviewQuote { Snapshot=snapshot,Actor=actor,Selection=selection,OrderedRoots=(hitRoots??Array.Empty<DemolitionTarget>())
-                .Where(t=>t!=null && allowed.ContainsKey(t.Identity)).Select(t=>allowed[t.Identity]).Where(t=>t.Owner==actor && selection.Matches(t))
-                .GroupBy(t=>t.Identity,StringComparer.Ordinal).Select(g=>g.First()).ToArray() };
+            // Geometry supplies an immutable unique-root array. Validate membership in each
+            // budgeted root step instead of constructing another full identity/group index.
+            return new PreviewQuote {Snapshot=snapshot,Actor=actor,Selection=selection,OrderedRoots=hitRoots??Array.Empty<DemolitionTarget>()};
         }
 
         internal bool TryStepQuote(PreviewQuote quote,int maximumRoots,long deadlineStopwatch,out bool complete,out DemolitionTarget[] targets)
@@ -437,6 +493,7 @@ namespace AreaDemolitionTest
 
         private IEnumerable<DemolitionTarget> EvaluatePreviewRoot(PreviewSnapshot snapshot,DemolitionTarget expected,int actor)
         {
+            if(expected==null || !snapshot.Roots.Contains(expected) || expected.Owner!=actor || !snapshot.Selection.Matches(expected))return null;
             var current=Resolve(expected);
             if (current==null || !SameState(expected,current) || !Permitted(current,actor)) return null;
             return PreviewClosure(snapshot,expected,actor,out var closure)?closure:null;
@@ -447,7 +504,6 @@ namespace AreaDemolitionTest
         internal static bool StepPreviewRoots(PreviewQuote quote,int maximumRoots,long deadlineStopwatch,Func<DemolitionTarget,IEnumerable<DemolitionTarget>> evaluate,Func<long> clock=null)
         {
             clock=clock??PreviewClock;
-            maximumRoots=Math.Min(maximumRoots,64); // Native preview boundary caps work even if a caller supplies a larger budget.
             int processed=0;
             while (quote.NextRoot<quote.OrderedRoots.Length && processed<maximumRoots && clock()<deadlineStopwatch)
             {
@@ -464,41 +520,70 @@ namespace AreaDemolitionTest
             quote.Result=DemolitionPolicy.Canonicalize(quote.Expanded.Values);return true;
         }
 
-        internal bool TryAddGroundHitCandidates(PreviewSnapshot snapshot,int[] broadPhaseTileIds,int actor,SelectionSpec selection)
+        internal sealed class GroundPreparation
         {
-            if (!available || snapshot==null || broadPhaseTileIds==null || actor<1 || actor>8 || snapshot.Actor!=actor) return true;
-            bool walls=WantsGround(selection,TargetKind.Wall,TargetGroup.Fortifications),moats=WantsGround(selection,TargetKind.DugMoat,TargetGroup.DugMoats);
-            if (!walls && !moats) return true;
-            if (!System.Threading.Monitor.TryEnter(EngineGate)) return false;
+            internal PreviewSnapshot Snapshot;
+            internal int[] Requests;
+            internal int Actor,Phase,At;
+            internal SelectionSpec Selection;
+            internal readonly HashSet<int> Discovered=new HashSet<int>();
+            internal readonly Dictionary<string,PreviewHitCandidate> Result=new Dictionary<string,PreviewHitCandidate>(StringComparer.Ordinal);
+            internal readonly int[] Scratch=new int[8];
+        }
+        internal GroundPreparation BeginGroundPreparation(PreviewSnapshot snapshot,int[] broadPhaseTileIds,int actor,SelectionSpec selection) =>
+            new GroundPreparation {Snapshot=snapshot,Requests=broadPhaseTileIds??Array.Empty<int>(),Actor=actor,Selection=selection};
+
+        internal bool TryStepGroundPreparation(GroundPreparation job,long deadlineStopwatch,out bool complete)
+        {
+            complete=false;if(job==null)throw new ArgumentNullException(nameof(job));
+            if(job.Phase==3){complete=true;return true;}
+            if(!System.Threading.Monitor.TryEnter(EngineGate))return false;
             try
             {
-                var tiles=GameTileManagerAPI.Instance;
-                var discovered=new HashSet<int>();
-                var result=snapshot.HitCandidates.ToDictionary(c=>c.Root.Identity,StringComparer.Ordinal);
-                void Consider(int tile)
+                bool walls=WantsWalls(job.Selection),moats=WantsGround(job.Selection,TargetKind.DugMoat,TargetGroup.DugMoats);
+                if(!available || job.Snapshot==null || job.Actor<1 || job.Actor>8 || job.Snapshot.Actor!=job.Actor || !walls && !moats)job.Phase=3;
+                while(job.Phase!=3 && System.Diagnostics.Stopwatch.GetTimestamp()<deadlineStopwatch)
                 {
-                    if (!discovered.Add(tile)) return;
-                    var flags=tiles.GetTilePropertyFlag(tile);
-                    if ((!walls || (flags&TilePropertyFlag.IsWall)==0) && (!moats || (flags&TilePropertyFlag.IsMoat)==0)) return;
-                    var point=tiles.GetTileVectorFromId(tile);
-                    void Add(DemolitionTarget target)
-                    { if (target!=null && selection.Matches(target)) result[target.Identity]=new PreviewHitCandidate { Root=target,RequestTiles=ExpandNeighbourRequests(target.OccupiedTiles,Neighbours) }; }
-                    if (walls) Add(WallAt(tile,point.X,point.Y,flags,actor));
-                    if (moats) Add(MoatAt(tile,point.X,point.Y,flags,actor));
+                    if(job.Phase==0)
+                    {
+                        if(job.At<job.Snapshot.HitCandidates.Length)
+                        {var candidate=job.Snapshot.HitCandidates[job.At++];job.Result[candidate.Root.Identity]=candidate;continue;}
+                        job.At=0;job.Phase=1;continue;
+                    }
+                    if(job.Phase==1)
+                    {
+                        if(job.At>=job.Requests.Length){job.Phase=2;continue;}
+                        int request=job.Requests[job.At++];var tiles=GameTileManagerAPI.Instance;
+                        if(!tiles.IsValidTileId(request))continue;
+                        var point=tiles.GetTileVectorFromId(request);if(!IsValidTile(point.X,point.Y))continue;
+                        ConsiderGround(job,request,walls,moats);
+                        int count=FillTileNeighbours(request,false,job.Scratch);
+                        for(int i=0;i<count;i++)ConsiderGround(job,job.Scratch[i],walls,moats);
+                        continue;
+                    }
+                    job.Snapshot.HitCandidates=job.Result.Values.ToArray();job.Phase=3;
                 }
-                foreach (int request in broadPhaseTileIds)
-                {
-                    if (!tiles.IsValidTileId(request)) continue;
-                    var point=tiles.GetTileVectorFromId(request);
-                    if (!IsValidTile(point.X,point.Y)) continue;
-                    Consider(request);
-                    foreach (int tile in Neighbours(request)) Consider(tile);
-                }
-                snapshot.HitCandidates=result.Values.ToArray();return true;
+                complete=job.Phase==3;return true;
             }
-            finally { System.Threading.Monitor.Exit(EngineGate); }
+            finally {System.Threading.Monitor.Exit(EngineGate);}
         }
-
+        private void ConsiderGround(GroundPreparation job,int tile,bool walls,bool moats)
+        {
+            if(!job.Discovered.Add(tile))return;
+            var tiles=GameTileManagerAPI.Instance;var flags=tiles.GetTilePropertyFlag(tile);
+            if((!walls || (flags&TilePropertyFlag.IsWall)==0) && (!moats || (flags&TilePropertyFlag.IsMoat)==0))return;
+            var point=tiles.GetTileVectorFromId(tile);
+            void Add(DemolitionTarget target)
+            {
+                if(target==null || !job.Selection.Matches(target))return;
+                job.Result[target.Identity]=new PreviewHitCandidate {Root=target,RequestTiles=ExpandNeighbourRequests(target.OccupiedTiles,Neighbours)};
+                job.Snapshot.Roots.Add(target);
+            }
+            if(walls)Add(WallAt(tile,point.X,point.Y,flags,job.Actor));
+            if(moats)Add(MoatAt(tile,point.X,point.Y,flags,job.Actor));
+        }
+        private static bool WantsWalls(SelectionSpec selection) => selection.SameType ? selection.Start?.Kind==TargetKind.Wall :
+            (selection.Filters&((1<<(int)TargetGroup.Walls)|(1<<(int)TargetGroup.Fortifications)))!=0;
         private bool PreviewClosure(PreviewSnapshot snapshot,DemolitionTarget root,int actor,out List<DemolitionTarget> closure)
         {
             closure=new List<DemolitionTarget>();
@@ -877,28 +962,30 @@ namespace AreaDemolitionTest
             }
         }
 
+        private DemolitionTarget DecorationSnapshotSlot(int slot)
+        {
+            var span=GameProjectileManagerAPI.Instance.GetProjectilesAsSpan();
+            if(slot<1 || slot>=span.Length || span[slot].r_AliveState!=AliveState.IsAlive || !IsDecorationType(span[slot].r_ProjectileType))return null;
+            var target=Decoration(slot);
+            if(target!=null)return target;
+            // Native9F410 would still touch this unidentifiable record; retain the same blocker.
+            uint rawTile=span[slot].r_CurrentTileId;
+            if(rawTile>=GameTileManagerView.NativePackedTileCapacity)return null;
+            var point=GameTileManagerAPI.Instance.GetTileVectorFromId((int)rawTile);
+            return Ground(TargetKind.Decoration,TargetGroup.Decorations,slot,(int)span[slot].r_ProjectileType,0,point.X,point.Y,(int)rawTile,0,0,0);
+        }
         private Dictionary<int,List<DemolitionTarget>> DecorationsByTile()
         {
             var result=new Dictionary<int,List<DemolitionTarget>>();
-            var span=GameProjectileManagerAPI.Instance.GetProjectilesAsSpan();
-            for (int slot=1;slot<span.Length;slot++)
+            int count=GameProjectileManagerAPI.Instance.GetProjectilesAsSpan().Length;
+            for(int slot=1;slot<count;slot++)
             {
-                if (span[slot].r_AliveState!=AliveState.IsAlive || !IsDecorationType(span[slot].r_ProjectileType)) continue;
-                var target=Decoration(slot);
-                if (target==null)
-                {
-                    // Native9F410 would still touch an unidentifiable static record: retain a blocker.
-                    uint rawTile=span[slot].r_CurrentTileId;
-                    if (rawTile>=GameTileManagerView.NativePackedTileCapacity) continue;
-                    var point=GameTileManagerAPI.Instance.GetTileVectorFromId((int)rawTile);
-                    target=Ground(TargetKind.Decoration,TargetGroup.Decorations,slot,(int)span[slot].r_ProjectileType,0,point.X,point.Y,(int)rawTile,0,0,0);
-                }
-                if (!result.TryGetValue(target.TileId,out var group)) result.Add(target.TileId,group=new List<DemolitionTarget>());
+                var target=DecorationSnapshotSlot(slot);if(target==null)continue;
+                if(!result.TryGetValue(target.TileId,out var group))result.Add(target.TileId,group=new List<DemolitionTarget>());
                 group.Add(target);
             }
             return result;
         }
-
         private Dictionary<int, DemolitionTarget> PitchByTile()
         {
             var result = new Dictionary<int, DemolitionTarget>();
@@ -929,8 +1016,9 @@ namespace AreaDemolitionTest
             // Native tile signature, not another eStruct enum: material/height variants remain distinct.
             int signature=unchecked((int)((uint)flags&WallIdentityMask));
             signature|=(tiles.GetHeightLayer()[tile]-tiles.GetDefaultHeightLayer()[tile])<<24;
-            return Ground(TargetKind.Wall,TargetGroup.Fortifications,tile,signature,owner,x,y,tile,0,0,(uint)flags&WallIdentityMask);
+            return Ground(TargetKind.Wall,WallGroup(flags),tile,signature,owner,x,y,tile,0,0,(uint)flags&WallIdentityMask);
         }
+        internal static TargetGroup WallGroup(TilePropertyFlag flags) => (flags&TilePropertyFlag.IsStairs)!=0?TargetGroup.Fortifications:TargetGroup.Walls;
 
         private DemolitionTarget MoatAt(int tile,int x,int y,TilePropertyFlag flags,int actor=0)
         {
@@ -948,12 +1036,12 @@ namespace AreaDemolitionTest
         {
             closure=new List<DemolitionTarget>();
             if (root==null || root.Owner!=actor) return false;
-            decorations=decorations??DecorationsByTile();
             var result=closure;
             var seenDecorations=new HashSet<string>(StringComparer.Ordinal);
             bool AddDecorations(int tile)
             {
                 if ((GameTileManagerAPI.Instance.GetMiscDisplayLayer()[tile]&0x1000)==0) return true;
+                decorations=decorations??DecorationsByTile();
                 if (!decorations.TryGetValue(tile,out var group)) return true;
                 if (!OwnDecorationSet(group,actor)) return false;
                 foreach (var decoration in group)
@@ -1148,7 +1236,8 @@ namespace AreaDemolitionTest
                 case eStructs.STRUCT_GATEHOUSE:case eStructs.STRUCT_TOWER:case eStructs.STRUCT_TOWER1:case eStructs.STRUCT_TOWER2:case eStructs.STRUCT_TOWER3:case eStructs.STRUCT_TOWER4:case eStructs.STRUCT_TOWER5:
                 case eStructs.STRUCT_GATE_WOOD1A:case eStructs.STRUCT_GATE_WOOD1B:case eStructs.STRUCT_GATE_WOOD1C:case eStructs.STRUCT_GATE_WOOD1D:
                 case eStructs.STRUCT_GATE_STONE1A:case eStructs.STRUCT_GATE_STONE1B:case eStructs.STRUCT_GATE_STONE2A:case eStructs.STRUCT_GATE_STONE2B:
-                case eStructs.STRUCT_WOOD_WALL:case eStructs.STRUCT_STONE_WALL:case eStructs.STRUCT_CRENAL_WALL:case eStructs.STRUCT_STAIRS:return TargetGroup.Fortifications;
+                case eStructs.STRUCT_STAIRS:return TargetGroup.Fortifications;
+                case eStructs.STRUCT_WOOD_WALL:case eStructs.STRUCT_STONE_WALL:case eStructs.STRUCT_CRENAL_WALL:return TargetGroup.Walls;
                 default:return TargetGroup.Buildings;
             }
         }

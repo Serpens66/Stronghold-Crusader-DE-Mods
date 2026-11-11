@@ -23,6 +23,12 @@ namespace Spectator
             if (foodAction == null || reportsAction == null || nameSetter == null || freezeField == null || forceArmyMethod == null)
                 throw new MissingMemberException("Installed Assembly-CSharp report contract changed.");
 
+            // An unsupported game version fails here; the transpiler itself never throws.
+            int freezeReads = 0;
+            foreach (CodeInstruction instruction in PatchProcessor.GetOriginalInstructions(reportsAction))
+                if (instruction.opcode == OpCodes.Ldfld && Equals(instruction.operand, freezeField)) freezeReads++;
+            if (freezeReads != 1)
+                throw new InvalidOperationException("Vanilla ButtonReports freeze branch changed; expected one field read, found " + freezeReads + ".");
             // Install the read-only guard first. Published patches stay installed for the process lifetime.
             harmony.Patch(foodAction, prefix: new HarmonyMethod(typeof(SpectatorReportHooks), nameof(AllowFoodChange)));
             harmony.Patch(nameSetter, prefix: new HarmonyMethod(typeof(SpectatorReportHooks), nameof(UseSelectedReportName)));
@@ -50,7 +56,12 @@ namespace Spectator
                 SpectatorPerspectiveRuntime.IsSpectatorObserver(), SpectatorPerspectiveRuntime.IsActiveSpectator());
         }
 
-        private static IEnumerable<CodeInstruction> ReportTranspiler(IEnumerable<CodeInstruction> instructions)
+        // Harmony reruns this on every patch change of the method; a failure keeps the original IL and
+        // every other patch of it. Spectators then keep Vanilla's report rights.
+        private static IEnumerable<CodeInstruction> ReportTranspiler(IEnumerable<CodeInstruction> instructions) =>
+            APIShared.Patching.SafeTranspiler.Run(SpectatorPlugin.PluginGuid, "Spectator.Reports", instructions, ReplaceFreezeRead, SpectatorRuntime.RawLog);
+
+        private static IEnumerable<CodeInstruction> ReplaceFreezeRead(IEnumerable<CodeInstruction> instructions)
         {
             int replaced = 0;
             foreach (CodeInstruction instruction in instructions)

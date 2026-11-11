@@ -8,7 +8,6 @@ namespace AreaDemolitionTest
     {
         private static readonly Dictionary<string,string> values=new Dictionary<string,string>(StringComparer.Ordinal);
         private static string language;
-        internal static int Revision {get;private set;}
         internal static string Get(string key)
         {
             string current="en-US";
@@ -27,7 +26,6 @@ namespace AreaDemolitionTest
                 var root=Path.Combine(Path.GetDirectoryName(typeof(Text).Assembly.Location),"Locales");
                 Read(Path.Combine(root,"en-US.txt"));
                 if(current.IndexOfAny(new[]{'/','\\',':'})<0)Read(Path.Combine(root,current+".txt"));
-                Revision++;
             }
             return values.TryGetValue(key,out string value)?value:key;
         }

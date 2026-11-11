@@ -46,7 +46,19 @@ namespace BugfixesAndQoL.PitchMoatLines
         private static void Patch(MethodInfo target, string method) =>
             Harmony.Patch(target, transpiler: new HarmonyMethod(typeof(ManagedBoundary), method) { priority = Priority.Last });
 
-        private static IEnumerable<CodeInstruction> TransformInput(IEnumerable<CodeInstruction> instructions)
+        // Harmony reruns these on every patch change of the method; a failure keeps the original IL
+        // and every other patch of it, and marks this boundary unavailable.
+        private static IEnumerable<CodeInstruction> TransformInput(IEnumerable<CodeInstruction> instructions) =>
+            APIShared.Patching.SafeTranspiler.Run(BugfixesAndQoLPlugin.PluginGuid, "BugfixesAndQoL.PitchMoatLines.Input", instructions,
+                TransformInputCore, log, applied => { if (!applied) inputReady = false; });
+        private static IEnumerable<CodeInstruction> TransformMapper(IEnumerable<CodeInstruction> instructions) =>
+            APIShared.Patching.SafeTranspiler.Run(BugfixesAndQoLPlugin.PluginGuid, "BugfixesAndQoL.PitchMoatLines.Mapper", instructions,
+                TransformMapperCore, log, applied => { if (!applied) mapperReady = false; });
+        private static IEnumerable<CodeInstruction> TransformEngine(IEnumerable<CodeInstruction> instructions) =>
+            APIShared.Patching.SafeTranspiler.Run(BugfixesAndQoLPlugin.PluginGuid, "BugfixesAndQoL.PitchMoatLines.Engine", instructions,
+                TransformEngineCore, log, applied => { if (!applied) engineReady = false; });
+
+        private static IEnumerable<CodeInstruction> TransformInputCore(IEnumerable<CodeInstruction> instructions)
         {
             var code = instructions.ToList();
             var edges = code.Where(i => IsCall(i, typeof(EditorDirector),
@@ -74,7 +86,7 @@ namespace BugfixesAndQoL.PitchMoatLines
             return code;
         }
 
-        private static IEnumerable<CodeInstruction> TransformMapper(IEnumerable<CodeInstruction> instructions)
+        private static IEnumerable<CodeInstruction> TransformMapperCore(IEnumerable<CodeInstruction> instructions)
         {
             var code = instructions.ToList();
             var calls = code.Where(i => IsCall(i, typeof(EngineInterface),
@@ -91,7 +103,7 @@ namespace BugfixesAndQoL.PitchMoatLines
             return code;
         }
 
-        private static IEnumerable<CodeInstruction> TransformEngine(IEnumerable<CodeInstruction> instructions)
+        private static IEnumerable<CodeInstruction> TransformEngineCore(IEnumerable<CodeInstruction> instructions)
         {
             var code = instructions.ToList();
             int enter = FindUniqueCall(code, typeof(Monitor), nameof(Monitor.Enter));

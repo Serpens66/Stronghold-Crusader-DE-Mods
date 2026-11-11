@@ -166,17 +166,35 @@ repeat the same expensive79B90/EE640 query. Closure membership walks only indexe
 compound members, not the entire building span for every root/member. Logical
 counts read frozen metadata and do not query native state or hold EngineGate.
 
-TryCreatePreviewSnapshot, TryCaptureGroundCandidateTiles and TryStepQuote use
-nonblocking Monitor.TryEnter. Busy engine state defers work; it is not an empty
-selection. BeginQuote creates resumable tile-discovery and root-validation state;
-TryStepQuote obeys the caller's absolute Stopwatch deadline and maximum root count.
-The production root-step consumer is tested with64root/deadline boundaries and
-resumption over257roots. A single native eligibility call cannot be interrupted:
-the time budget bounds starting another root, not the duration of one call.
+Snapshot preparation, bounded ground discovery and root validation are separate
+resumable jobs. Native chunks use nonblocking Monitor.TryEnter and release the
+monitor before returning to Unity; no job retains native pointers or a monitor
+across frames. Busy engine state defers work; it is not an empty selection.
+Projection and all native preparation phases share one absolute2ms frame deadline.
+Root validation is governed by that deadline rather than a64-root/frame throttle;
+the independent32-target network packet limit is unchanged. A single native
+eligibility call cannot be interrupted: the time budget bounds starting another
+unit of work, not the duration of one indivisible native call.
 Each distinct root enters fresh native eligibility when its quote step executes.
 An in-flight advisory quote retains completed step results while it resumes; no
 eligibility result is reused by a later quote or mutation. The native unit-scan
 policy, SE/Fixes hooks and final authenticated execution remain unchanged.
+
+Approved advisory roots are published incrementally and clipped to the latest
+rectangle, including their dependent targets. Only a completed fresh final quote
+can obtain a renderer receipt and reach submission. Projection jobs retain frozen
+screen axes/zoom; a changed map generation or rotation cancels unfinished work.
+Decoration discovery in live closures is lazy after checking an affected tile's
+native decoration bit. A live index is never carried across refund/delete callbacks.
+
+Protocol4 appends the independent Walls group without changing earlier group IDs.
+Wall-kind targets with IsStairs remain Fortifications; other wall-kind targets use
+Walls. Height/material identity, ownership and refund contracts are unchanged.
+The source-visible status box and count/type text were removed entirely.
+
+The requested wolf1 reproduction remains gated on explicit user start permission.
+Its diagnostic scenario must reconcile rendered targets, prepared packets and each
+ApplyResult; successful compilation is not evidence that leftover walls are fixed.
 
 Snapshots are advisory copies, not mutation authorization. Every included cached
 identity is checked against live metadata when quoted. A newly linked child or

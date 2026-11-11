@@ -43,23 +43,24 @@ namespace AreaDemolitionTest
     // clipping a completed quote never re-enters Unity, native permission checks or deletion.
     internal sealed class ScreenHitGeometry
     {
-        private readonly RootShapes[] roots;
+        private readonly List<RootShapes> roots;
         private readonly Dictionary<RootKey, RootShapes> byIdentity = new Dictionary<RootKey, RootShapes>();
-        internal ScreenHitGeometry(DemolitionTarget[] targets, ScreenHitHull[][] shapes)
+        internal ScreenHitGeometry(int capacity=0) { roots=new List<RootShapes>(capacity); }
+        internal ScreenHitGeometry(DemolitionTarget[] targets, ScreenHitHull[][] shapes) : this(targets?.Length??0)
         {
             if (targets == null || shapes == null || targets.Length != shapes.Length) throw new ArgumentException("Root and hit-shape counts differ.");
-            var records = new List<RootShapes>(targets.Length);
             for (int i = 0; i < targets.Length; i++)
-            {
-                if (targets[i] == null || shapes[i] == null || shapes[i].Length == 0) continue;
-                var key = new RootKey(targets[i]);
-                if (byIdentity.TryGetValue(key, out RootShapes existing)) existing.Append(shapes[i]);
-                else
-                {
-                    var record = new RootShapes(targets[i], shapes[i]); byIdentity.Add(key, record); records.Add(record);
-                }
-            }
-            roots = records.ToArray();
+                AddRoot(targets[i],shapes[i]);
+        }
+
+        // The Unity builder adds one finished root per budgeted step. It publishes the
+        // geometry only after construction, so readers never observe mutable records.
+        internal void AddRoot(DemolitionTarget target,ScreenHitHull[] shapes)
+        {
+            if(target==null || shapes==null || shapes.Length==0)return;
+            var key=new RootKey(target);
+            if(byIdentity.TryGetValue(key,out RootShapes existing))existing.Append(shapes);
+            else {var record=new RootShapes(target,shapes);byIdentity.Add(key,record);roots.Add(record);}
         }
 
         internal DemolitionTarget[] SelectRoots(ScreenRect rectangle)
@@ -72,6 +73,7 @@ namespace AreaDemolitionTest
 
         internal bool Intersects(DemolitionTarget root, ScreenRect rectangle) => root != null && rectangle.IsFinite &&
             byIdentity.TryGetValue(new RootKey(root), out RootShapes shapes) && shapes.Intersects(rectangle);
+        internal bool ContainsRoot(DemolitionTarget root) => root!=null && byIdentity.ContainsKey(new RootKey(root));
 
         private sealed class RootShapes
         {

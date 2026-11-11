@@ -15,7 +15,7 @@ internal static unsafe class Program
     {
         try
         {
-            ScratchRestoration(); PatternBoundaries(); ClassificationAndRefunds(); RegisteredFootprints(); DecorationContracts(); RequestHitContracts(); PreviewIndexAndBudget(); PreviewGeometryBenchmark();
+            ScratchRestoration(); PatternBoundaries(); ClassificationAndRefunds(); RegisteredFootprints(); DecorationContracts(); RequestHitContracts(); PreviewIndexAndBudget(); PreparationMonitorContracts(); PreviewGeometryBenchmark();
             Console.WriteLine("PASS: native demolition " + checks + " checks (private-memory scratch, native layout, resolver boundaries, registered footprints, decoration ownership/identity/closure, fear families, refund policy).");
             return 0;
         }
@@ -429,7 +429,7 @@ internal static unsafe class Program
         var overBudget=new NativeDemolition.PreviewQuote { OrderedRoots=roots };
         int oversizedCalls=0;
         NativeDemolition.StepPreviewRoots(overBudget,int.MaxValue,100,t=>{oversizedCalls++;return new[]{t};},()=>0);
-        Check(oversizedCalls==64,"Native preview boundary caps an oversized caller budget at64");
+        Check(oversizedCalls==roots.Length,"Clock-budgeted preview does not impose an arbitrary64-root frame delay");
         Check(!NativeDemolition.StepPreviewRoots(quote,64,100,Evaluate,()=>100) && evaluated==64,"Expired deadline invokes no native evaluation");
         long clock=0;
         Check(!NativeDemolition.StepPreviewRoots(quote,64,3,Evaluate,()=>clock++) && evaluated==67,"Actual clock boundary stops a partially processed root batch");
@@ -437,6 +437,47 @@ internal static unsafe class Program
         Check(evaluated==257 && DemolitionPolicy.TargetDigest(quote.Result)==DemolitionPolicy.TargetDigest(DemolitionPolicy.Canonicalize(roots)),"Resumed257-root result equals unbudgeted complete result");
     }
 
+    private static void PreparationMonitorContracts()
+    {
+        // Only managed preflight/expired/error branches are exercised here. Zero base pointers
+        // deliberately cannot service a game API read, so no game or Unity process is needed.
+        var gate=new object();
+        var native=(NativeDemolition)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(NativeDemolition));
+        typeof(NativeDemolition).GetField("native",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance)
+            .SetValue(native,new NativeBindings(IntPtr.Zero,gate,null));
+        typeof(NativeDemolition).GetField("available",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance).SetValue(native,true);
+        var selection=new SelectionSpec((ushort)(1<<(int)TargetGroup.Walls),false,null);
+        var job=native.BeginPreviewPreparation(3,selection);
+        using var entered=new System.Threading.ManualResetEventSlim();
+        using var release=new System.Threading.ManualResetEventSlim();
+        var worker=System.Threading.Tasks.Task.Run(()=>{lock(gate){entered.Set();release.Wait();}});
+        Check(entered.Wait(2000),"Fixture owns native monitor before testing busy path");
+        try
+        {
+            Check(!native.TryStepPreviewPreparation(job,long.MaxValue,out bool complete,out _) && !complete,"Busy preparation monitor defers without advancing native work");
+            var ground=native.BeginGroundPreparation(job.Snapshot,Array.Empty<int>(),3,selection);
+            Check(!native.TryStepGroundPreparation(ground,long.MaxValue,out complete) && !complete,"Busy ground preparation monitor defers without waiting");
+        }
+        finally {release.Set();worker.GetAwaiter().GetResult();}
+        Check(native.TryStepPreviewPreparation(job,0,out bool done,out _) && !done && job.Phase==0,"Expired preparation deadline reads no native slot and retains resumable phase");
+        Check(!System.Threading.Monitor.IsEntered(gate),"Preparation returns with native monitor released");
+        var expiredGround=native.BeginGroundPreparation(job.Snapshot,Array.Empty<int>(),3,selection);
+        Check(native.TryStepGroundPreparation(expiredGround,0,out done) && !done && expiredGround.Phase==0,"Expired ground deadline retains resumable phase");
+        Check(!System.Threading.Monitor.IsEntered(gate),"Ground preparation releases monitor on a budget yield");
+        job.Phase=6;job.Ordered.Add(null);job.Result=new PreviewHitCandidate[1];
+        bool threw=false;
+        try {native.TryStepPreviewPreparation(job,long.MaxValue,out _,out _);} catch(NullReferenceException){threw=true;}
+        Check(threw && !System.Threading.Monitor.IsEntered(gate),"Preparation exception never retains monitor across frames");
+        var invalid=native.BeginGroundPreparation(new NativeDemolition.PreviewSnapshot {Actor=3,HitCandidates=new PreviewHitCandidate[]{null}},Array.Empty<int>(),3,selection);
+        threw=false;try {native.TryStepGroundPreparation(invalid,long.MaxValue,out _);} catch(NullReferenceException){threw=true;}
+        Check(threw && !System.Threading.Monitor.IsEntered(gate),"Ground preparation exception releases monitor");
+        var closureMethod=typeof(NativeDemolition).GetMethod("ClosureOwn",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic);
+        foreach(var kind in new[]{TargetKind.Pitch,TargetKind.DugMoat})
+        {
+            var root=new DemolitionTarget {Kind=kind,Owner=3};object[] args={root,3,null,null};
+            Check((bool)closureMethod.Invoke(native,args) && ((List<DemolitionTarget>)args[2]).Single()==root,"Non-decoration closure avoids global projectile reads: "+kind);
+        }
+    }
     private static void ClassificationAndRefunds()
     {
         foreach (var type in new[]{eStructs.STRUCT_GARDEN,eStructs.STRUCT_GARDEN_SMALL,eStructs.STRUCT_GARDEN_MED,eStructs.STRUCT_GARDEN_LARGE,eStructs.STRUCT_POND,eStructs.STRUCT_POND_SMALL,eStructs.STRUCT_POND_LARGE,eStructs.STRUCT_POND5,eStructs.STRUCT_POND6,eStructs.STRUCT_POND7,eStructs.STRUCT_POND8})
@@ -444,6 +485,11 @@ internal static unsafe class Program
         Check(NativeDemolition.Classify(eStructs.STRUCT_RACK_FLOGGING)==TargetGroup.NegativeFear,"Flogging rack omitted by AIV subset must remain negative fear");
         Check(NativeDemolition.Classify(eStructs.STRUCT_HEAD_ON_SPIKE)==TargetGroup.NegativeFear,"Head on spike remains negative fear");
         Check(NativeDemolition.Classify(eStructs.STRUCT_GOODS_YARD)==TargetGroup.Stockpiles,"Stockpiles have their independent filter group");
+        Check(NativeDemolition.Classify(eStructs.STRUCT_STAIRS)==TargetGroup.Fortifications,"Stair structures stay fortifications");
+        foreach(var wall in new[]{eStructs.STRUCT_WOOD_WALL,eStructs.STRUCT_STONE_WALL,eStructs.STRUCT_CRENAL_WALL})
+            Check(NativeDemolition.Classify(wall)==TargetGroup.Walls,"Wall structures have the independent wall filter");
+        Check(NativeDemolition.WallGroup(TilePropertyFlag.IsWall)==TargetGroup.Walls,"Ordinary wall tiles use Walls");
+        Check(NativeDemolition.WallGroup(TilePropertyFlag.IsWall|TilePropertyFlag.IsStairs)==TargetGroup.Fortifications,"Stair wall tiles stay Fortifications");
         Check(NativeDemolition.Classify(eStructs.STRUCT_DOG_CAGE)==TargetGroup.DogCages,"Dog cage structural trap precedence");
         Check(NativeDemolition.Classify(eStructs.STRUCT_KILLING_PIT)==TargetGroup.KillingPits,"Killing pit has its independent filter");
         Check(NativeDemolition.WallRefundPercent(0,60)==25,"Vanilla exact boundary lower side");

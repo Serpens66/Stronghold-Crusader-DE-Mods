@@ -5,7 +5,9 @@ namespace AreaDemolitionTest
     // Only expensive quotes are paced. The screen frame continues following every input frame.
     internal sealed class PreviewWorkPolicy
     {
-        internal const int MaximumRootsPerStep=64;
+        // A frame is limited by its shared deadline, not by a second, root-count throttle.
+        // Network packets retain their separate hard limit of32 mutation targets.
+        internal const int MaximumRootsPerStep=int.MaxValue;
         private readonly long interval, budget;
         private long nextQuote;
         internal PreviewWorkPolicy(long frequency)

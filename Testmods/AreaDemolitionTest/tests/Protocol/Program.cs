@@ -2,6 +2,8 @@ using System;
 using System.Linq;
 using AreaDemolitionTest;
 using MessagePack;
+using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
 
 internal static class Program
 {
@@ -49,6 +51,8 @@ internal static class Program
         Check(!ProtocolPolicy.ValidateSimulationPacket(decoded),"The previous decoration-free protocol must not execute on this receiver.");
         decoded.Protocol=2;
         Check(!ProtocolPolicy.ValidateSimulationPacket(decoded),"The previous stockpile-free group contract must not execute on this receiver.");
+        decoded.Protocol=3;
+        Check(!ProtocolPolicy.ValidateSimulationPacket(decoded),"Peers with the combined wall/fortification group must not execute this split-group contract.");
         decoded.Protocol=ProtocolPolicy.Version;
         decoded.Kind=byte.MaxValue;
         Check(!ProtocolPolicy.ValidateSimulationPacket(decoded),"Unknown simulation message kind accepted.");
@@ -62,6 +66,30 @@ internal static class Program
         Reject(()=>ProtocolPolicy.PackTargets(targets.Concat(new[] {targets[0]}).ToArray()),"Oversized batch accepted.");
         targets[0].Kind=TargetKind.Wall;targets[0].Group=TargetGroup.Fortifications;targets[0].Type=int.MinValue;
         Check(ProtocolPolicy.UnpackTargets(ProtocolPolicy.PackTargets(targets))[0].Type==int.MinValue,"Signed wall signature changed over the wire.");
+        targets[0].Flags&=~(uint)TilePropertyFlag.IsStairs;
+        Reject(()=>ProtocolPolicy.PackTargets(targets),"An ordinary wall cannot claim the fortifications group.");
+        targets[0].Group=TargetGroup.Walls;
+        byte[] wallBytes=ProtocolPolicy.PackTargets(targets);
+        Check(ProtocolPolicy.UnpackTargets(wallBytes)[0].Group==TargetGroup.Walls,"Independent ordinary-wall group was lost over the wire.");
+        var forgedWall=(byte[])wallBytes.Clone();forgedWall[1]=(byte)TargetGroup.Fortifications;
+        Reject(()=>ProtocolPolicy.UnpackTargets(forgedWall),"Received ordinary wall with the stair-only group accepted.");
+        targets[0].Flags|=(uint)TilePropertyFlag.IsStairs;
+        Reject(()=>ProtocolPolicy.PackTargets(targets),"A stair tile cannot claim the ordinary-wall group.");
+        targets[0].Group=TargetGroup.Fortifications;
+        Check(ProtocolPolicy.UnpackTargets(ProtocolPolicy.PackTargets(targets))[0].Group==TargetGroup.Fortifications,"Stair flag did not preserve the fortifications group.");
+        targets[0].Kind=TargetKind.Building;targets[0].Group=TargetGroup.Walls;
+        foreach(var wallType in new[]{eStructs.STRUCT_WOOD_WALL,eStructs.STRUCT_STONE_WALL,eStructs.STRUCT_CRENAL_WALL})
+        {
+            targets[0].Type=(int)wallType;
+            var structuralWall=ProtocolPolicy.UnpackTargets(ProtocolPolicy.PackTargets(targets))[0];
+            Check(structuralWall.Kind==TargetKind.Building && structuralWall.Group==TargetGroup.Walls && structuralWall.Type==(int)wallType,"Native structural-wall records must retain their kind, type and independent walls group.");
+        }
+        foreach(var wrongWallType in new[]{eStructs.STRUCT_TOWER1,eStructs.STRUCT_GATE_MAIN})
+        {
+            targets[0].Type=(int)wrongWallType;
+            Reject(()=>ProtocolPolicy.PackTargets(targets),"A tower or gate cannot claim the walls-only filter group.");
+        }
+        targets[0].Kind=TargetKind.Wall;targets[0].Group=TargetGroup.Fortifications;targets[0].Type=int.MinValue;
         targets[0].Owner=0; Reject(()=>ProtocolPolicy.PackTargets(targets),"Owner zero accepted.");
         targets[0].Owner=8;targets[0].Kind=TargetKind.Decoration;targets[0].Group=TargetGroup.Decorations;targets[0].Type=int.MaxValue;
         var decorationBytes=ProtocolPolicy.PackTargets(targets);

@@ -557,3 +557,13 @@ BugfixesAndQoL.LocalAutosave=Autosave: {Interval}
 BugfixesAndQoL.LocalAutosaveOff=Aus
 BugfixesAndQoL.LocalAutosaveMinutes={Minutes} Min.
 BugfixesAndQoL.LocalAutosaveHelp=Ein Klick wählt das nächste Intervall für diese Partie. Jeder erfolgreiche Autosave ersetzt den bisherigen Einzelspieler-Autosave.
+BugfixesAndQoL.EnableSiegeCrewDuplicationFix=Doppelte Baumeister verhindern
+BugfixesAndQoL.EnableSiegeCrewDuplicationFixHelp=Verhindert, dass Baumeister nach Fertigstellung eines Katapults, Triboks oder einer Feuerballiste zugleich als Besatzung und als freie Einheiten verfügbar sind.
+BugfixesAndQoL.EnableSiegeCrewFireLossFix=Besatzungsverlust bei Feuer
+BugfixesAndQoL.EnableSiegeCrewFireLossFixHelp=Baumeister sterben, wenn ihr Gerät verbrennt, während sie es bedienen.
+BugfixesAndQoL.SettingsRework.Reason.EnableSiegeCrewDuplicationFix=Verhindert, dass dieselben Baumeister mehrere Belagerungsgeräte gleichzeitig bedienen.
+BugfixesAndQoL.SettingsRework.Reason.EnableSiegeCrewFireLossFix=Lässt die gebundene Besatzung beim tödlichen Brandtreffer zusammen mit dem Gerät sterben.
+
+BugfixesAndQoL.PitchMoatLines=Pech und Graben in Linien
+BugfixesAndQoL.PitchMoatLinesHelp=Strg halten und mit der linken Maustaste eine Linie ziehen. Beim Loslassen werden bis zu 64 baubare, bezahlbare Felder platziert.
+BugfixesAndQoL.SettingsRework.Reason.EnablePitchMoatLines=Bestimmt, ob Strg-Ziehen Pech und Gräben in Linien platziert.
