@@ -54,7 +54,7 @@ internal static class Program
         var a=Target(TargetGroup.Buildings,1,2);var b=Target(TargetGroup.Buildings,1,1);
         Check(DemolitionPolicy.Canonicalize(new[]{a,b,a}).Length==2,"identities deduplicated");
         Check(DemolitionPolicy.TargetDigest(DemolitionPolicy.Canonicalize(new[]{a,b}))==DemolitionPolicy.TargetDigest(DemolitionPolicy.Canonicalize(new[]{b,a})),"canonical packet order");
-        ScreenGeometry();ColumnRanges();Settings();PreviewScheduling();RenderGeometry();ScreenGeometryReference.Verify(Check);
+        ScreenGeometry();ColumnRanges();Settings();PreviewScheduling();RenderGeometry();PointerUi();ShrinkingGestures();ScreenGeometryReference.Verify(Check);BodySelectionChecks.Verify(Check);
         Console.WriteLine("PASS "+checks+" policy behavior checks");
     }
     private static void ScreenGeometry()
@@ -175,5 +175,37 @@ internal static class Program
         Check(RenderSelectionGeometry.Equals(new[]{decoration},new[]{decorationClone}),"decoration render membership uses slot/type/XY rather than unrelated footprint metadata");
         decorationClone.Type++;
         Check(!RenderSelectionGeometry.Equals(new[]{decoration},new[]{decorationClone}),"decoration type change invalidates exact Fly membership");
+    }
+    private static void PointerUi()
+    {
+        Check(PointerUiPolicy.Filter(PointerVisualRole.Decoration)==PointerHitDisposition.SkipSubtree,"selection frame and status text subtree do not hit their own drag");
+        Check(PointerUiPolicy.Filter(PointerVisualRole.Overlay)==PointerHitDisposition.SkipSelf,"overlay self is ignored while its menu/backdrop children remain searchable");
+        Check(PointerUiPolicy.Filter(PointerVisualRole.Ordinary)==PointerHitDisposition.Continue,"real HUD/menu/backdrop are retained by filtered hit traversal");
+        Check(PointerUiPolicy.IsBlocking(new string[]{null,null},false),"underlying ordinary HUD remains blocking after decoration is skipped");
+        Check(!PointerUiPolicy.IsBlocking(new[]{"IgnoreSelf",(string)null},false),"Vanilla exact-hit IgnoreSelf remains pass-through");
+        Check(PointerUiPolicy.IsBlocking(new[]{(string)null,"IgnoreSelf"},false),"ancestor IgnoreSelf does not make an ordinary text/button hit pass-through");
+        Check(!PointerUiPolicy.IsBlocking(new[]{(string)null,"Ignore"},false),"Vanilla Ignore applies across a child-to-parent walk");
+        Check(!PointerUiPolicy.IsBlocking(new[]{"IgnoreNotME"},false) && PointerUiPolicy.IsBlocking(new[]{"IgnoreNotME"},true),"IgnoreNotME honors Vanilla editor-menu mode");
+        Check(PointerUiPolicy.IsBlocking(new[]{"IgnoreME"},false) && !PointerUiPolicy.IsBlocking(new[]{"IgnoreME"},true),"IgnoreME honors Vanilla editor-menu mode");
+        Check(PointerUiPolicy.IsBlocking(new[]{"ignore"},false),"unknown or differently cased tags never weaken the HUD shield");
+        Check(PointerUiPolicy.IsBlocking(null,false) && PointerUiPolicy.IsBlocking(Array.Empty<string>(),false),"an unclassified remaining visual fails closed");
+    }
+    private static void ShrinkingGestures()
+    {
+        var g=new SelectionGesture();var selection=new SelectionSpec(1,false,null);
+        foreach(int dx in new[]{-1,1})foreach(int dy in new[]{-1,1})
+        {
+            g.Begin(100,100,selection);g.Move(100+80*dx,100+60*dy,true,1);
+            var large=g.Area;
+            g.Move(100+20*dx,100+15*dy,true,1);
+            Check(g.Area.Width==20 && g.Area.Height==15 && g.Area.Width<large.Width && g.Area.Height<large.Height,"all four drag directions shrink while held toward their start");
+            g.Move(100-30*dx,100-25*dy,true,1);
+            Check(g.Area==new ScreenRect(100,100,100-30*dx,100-25*dy),"drag can cross its original start without retaining the historical extent");
+            var beforeHud=g.Area;g.Move(100,100,false,1);
+            Check(g.Area==beforeHud,"real HUD still freezes the last valid endpoint during reverse motion");
+            g.Move(100,100,true,1);
+            Check(g.Area.Width==0 && g.Area.Height==0 && g.Stage==GestureStage.Dragging,"returning to the origin shrinks to zero without becoming a single demolition");
+            Check(g.Release(false)==GestureRelease.Area,"reverse-drag completion preserves area semantics");
+        }
     }
 }

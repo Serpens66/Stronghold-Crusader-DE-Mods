@@ -1023,7 +1023,8 @@ namespace CastlePlanner.AIVPlacement
 
             string message =
                 $"Lobby placement is unexpectedly not evaluable: playerId={result.PlayerId}, " +
-                $"generation={result.Generation}, reason={result.FailureKind}, detail={result.FailureMessage}.";
+                $"generation={result.Generation}, reason={result.FailureKind}, detail={result.FailureMessage}." +
+                LobbyEvaluationLogPolicy.FormatSourceDiagnostics(result);
             string key = $"evaluation-result-{result.PlayerId}-{result.FailureKind}-{result.FailureMessage}";
             if (severity == LobbyEvaluationLogSeverity.Error)
                 LogErrorOnce(key, message);

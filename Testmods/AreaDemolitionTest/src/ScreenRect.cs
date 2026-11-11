@@ -19,6 +19,8 @@ namespace AreaDemolitionTest
         internal float Height => MaxY - MinY;
         internal bool IsFinite => Finite(MinX) && Finite(MinY) && Finite(MaxX) && Finite(MaxY);
         internal static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
+        internal bool Intersects(ScreenRect other) => IsFinite && other.IsFinite &&
+            MinX <= other.MaxX && MaxX >= other.MinX && MinY <= other.MaxY && MaxY >= other.MinY;
 
         // A conservative broad phase for one native grid row. Height only broadens screen X;
         // the exact quad test below still decides whether the cell belongs to the rectangle.
@@ -49,27 +51,41 @@ namespace AreaDemolitionTest
         // The quad's perimeter must be ordered. Inclusive SAT also catches crossings where
         // neither polygon contains a vertex of the other, without selecting empty AABB corners.
         internal bool IntersectsQuad(ScreenPoint a, ScreenPoint b, ScreenPoint c, ScreenPoint d)
+            => IntersectsExtrudedQuad(a, b, c, d, 0);
+
+        // The convex hull of a quad and its vertical translation has the quad's edge
+        // normals plus the rectangle's horizontal/vertical axes. No pixel raster is needed.
+        internal bool IntersectsExtrudedQuad(ScreenPoint a, ScreenPoint b, ScreenPoint c, ScreenPoint d, float maximumRise)
         {
-            if (!IsFinite || !a.IsFinite || !b.IsFinite || !c.IsFinite || !d.IsFinite) return false;
+            if (!IsFinite || !a.IsFinite || !b.IsFinite || !c.IsFinite || !d.IsFinite || !Finite(maximumRise) || maximumRise < 0) return false;
             float minX = Math.Min(Math.Min(a.X, b.X), Math.Min(c.X, d.X));
             float maxX = Math.Max(Math.Max(a.X, b.X), Math.Max(c.X, d.X));
             float minY = Math.Min(Math.Min(a.Y, b.Y), Math.Min(c.Y, d.Y));
-            float maxY = Math.Max(Math.Max(a.Y, b.Y), Math.Max(c.Y, d.Y));
+            float maxY = Math.Max(Math.Max(a.Y, b.Y), Math.Max(c.Y, d.Y)) + maximumRise;
             if (maxX < MinX || minX > MaxX || maxY < MinY || minY > MaxY) return false;
             // Large selections contain most footprint cells completely. Their AABB being
             // inside the rectangle proves intersection without testing the four edge axes.
             if (minX >= MinX && maxX <= MaxX && minY >= MinY && maxY <= MaxY) return true;
-            return !Separates(a, b, a, b, c, d) && !Separates(b, c, a, b, c, d) &&
-                !Separates(c, d, a, b, c, d) && !Separates(d, a, a, b, c, d);
+            return !Separates(a, b, a, b, c, d, maximumRise) && !Separates(b, c, a, b, c, d, maximumRise) &&
+                !Separates(c, d, a, b, c, d, maximumRise) && !Separates(d, a, a, b, c, d, maximumRise);
         }
 
-        private bool Separates(ScreenPoint first, ScreenPoint second, ScreenPoint a, ScreenPoint b, ScreenPoint c, ScreenPoint d)
+        private bool Separates(ScreenPoint first, ScreenPoint second, ScreenPoint a, ScreenPoint b, ScreenPoint c, ScreenPoint d, float maximumRise)
         {
             double nx = -(double)second.Y + first.Y, ny = (double)second.X - first.X;
             if (nx == 0 && ny == 0) return false;
             double pa = nx * a.X + ny * a.Y, pb = nx * b.X + ny * b.Y;
             double pc = nx * c.X + ny * c.Y, pd = nx * d.X + ny * d.Y;
             double qMin = Math.Min(Math.Min(pa, pb), Math.Min(pc, pd)), qMax = Math.Max(Math.Max(pa, pb), Math.Max(pc, pd));
+            if (maximumRise > 0)
+            {
+                // Include the actual float-translated vertices. Adding a double support
+                // offset can otherwise exclude a rounded corner at a valid Vanilla probe.
+                double sa = nx * a.X + ny * (float)(a.Y + maximumRise), sb = nx * b.X + ny * (float)(b.Y + maximumRise);
+                double sc = nx * c.X + ny * (float)(c.Y + maximumRise), sd = nx * d.X + ny * (float)(d.Y + maximumRise);
+                qMin = Math.Min(qMin, Math.Min(Math.Min(sa, sb), Math.Min(sc, sd)));
+                qMax = Math.Max(qMax, Math.Max(Math.Max(sa, sb), Math.Max(sc, sd)));
+            }
             double rMin = nx * (nx < 0 ? MaxX : MinX) + ny * (ny < 0 ? MaxY : MinY);
             double rMax = nx * (nx < 0 ? MinX : MaxX) + ny * (ny < 0 ? MinY : MaxY);
             return qMax < rMin || qMin > rMax;

@@ -15,7 +15,7 @@ internal static unsafe class Program
     {
         try
         {
-            ScratchRestoration(); PatternBoundaries(); ClassificationAndRefunds(); RegisteredFootprints(); DecorationContracts(); PreviewIndexAndBudget(); PreviewGeometryBenchmark();
+            ScratchRestoration(); PatternBoundaries(); ClassificationAndRefunds(); RegisteredFootprints(); DecorationContracts(); RequestHitContracts(); PreviewIndexAndBudget(); PreviewGeometryBenchmark();
             Console.WriteLine("PASS: native demolition " + checks + " checks (private-memory scratch, native layout, resolver boundaries, registered footprints, decoration ownership/identity/closure, fear families, refund policy).");
             return 0;
         }
@@ -66,6 +66,35 @@ internal static unsafe class Program
                     foreach (var pair in saved) Check(p[pair.Key]==pair.Value,"Query leaked scratch at "+pair.Key.ToString("X"));
                 }
             }
+            var request=new NativeBindings.RequestState(100,77,991,17,992,993,101,78,(uint)TilePropertyFlag.IsMoat,19,true);
+            var requestBinding=new NativeBindings(allocation,new object(),(manager,actor,x,y)=>
+            {
+                byte* cursor=p+NativeBindings.CursorRva,tiles=(byte*)manager;
+                Check(*(int*)(cursor+0x14)==991 && *(int*)(cursor+0x68)==993,"Request query preserves distinct requested/effective tiles");
+                Check(*(int*)(cursor+0x6C)==101 && *(int*)(cursor+0x70)==78,"Request query receives effective coordinates");
+                Check(*(int*)(cursor+0x24)==17 && *(int*)(cursor+0x5C)==992 && *(int*)(cursor+0x4C)==19,"Request query retains each independent selector");
+                Check(*(uint*)(cursor+0x44)==(uint)TilePropertyFlag.IsMoat && *(int*)(tiles+0x204E694)==1,"Request query retains native flattened/moat context");
+                *(int*)(cursor+0x5C)=994;*(int*)(tiles+0x204E774)=995;
+                *(int*)(tiles+0x204E720)=-19;*(int*)(tiles+0x204E76C)=1;*(int*)(tiles+0x204E770)=0;*(int*)(tiles+0x204E6FC)=0;
+            });
+            Check(requestBinding.QueryRequested(request,4,out int selected,out bool wall,out bool moat,out int wallTile,out int moatTile) && selected==-19 && wall && !moat && wallTile==994 && moatTile==995,"Request query copies native outputs before restoring scratch");
+            foreach (var pair in saved) Check(p[pair.Key]==pair.Value,"Requested-point query leaked scratch at "+pair.Key.ToString("X"));
+            foreach (bool injectFailure in new[]{false,true})
+            {
+                var rejected=new NativeBindings(allocation,new object(),(manager,actor,x,y)=>
+                {
+                    for(int i=0;i<0x80;i++) p[NativeBindings.CursorRva+i]=0xAA;
+                    for(int i=0;i<32;i++) p[NativeBindings.NeighboursRva+i]=0xBB;
+                    foreach(int offset in NativeBindings.QueryOffsets) *(int*)((byte*)manager+offset)=1;
+                    *(int*)(p+NativeBindings.ActorRva)=7;
+                    if(injectFailure) throw new InvalidOperationException("injected request-query failure");
+                });
+                bool threw=false;
+                try { Check(!rejected.QueryRequested(request,4,out _,out _,out _,out _,out _),"Native requested-point rejection remains a rejection"); }
+                catch(InvalidOperationException) { threw=true; }
+                Check(threw==injectFailure,"Only injected requested-point exception propagates");
+                foreach(var pair in saved) Check(p[pair.Key]==pair.Value,"Rejected/throwing requested-point query leaked scratch at "+pair.Key.ToString("X"));
+            }
             Check(Marshal.OffsetOf<SHCDESE.Interop.MoatWorkTask>(nameof(SHCDESE.Interop.MoatWorkTask.r_Progress)).ToInt32()==0xD,"Chore41 zeroes progress, not work type");
             var task=(MoatWorkTask*)(p+NativeBindings.TileManagerRva+0x1F3EE30)+5;
             task->r_Progress=4; task->r_WorkType=SHCDESE.Interop.Enums.MoatWorkType.FillDugMoat;
@@ -82,8 +111,114 @@ internal static unsafe class Program
             moatBinding.RemoveDugMoat(5,991);
             Check(calls==1,"One native fill call for a completed moat");
             Check(display[991]==0xFBFF,"Only the pending-demolition display bit is cleared");
+            foreach(bool injectFailure in new[]{false,true})
+            {
+                int deletes=0;
+                var single=new NativeBindings(allocation,new object(),null);
+                bool threw=false;
+                try
+                {
+                    single.ScopeVanillaSingle(request,123,()=>
+                    {
+                        deletes++;byte* cursor=p+NativeBindings.CursorRva;
+                        Check(*(int*)(cursor+8)==1 && *(int*)(cursor+0x30)==123,"Single stages fresh active point and unit hover");
+                        Check(*(int*)(cursor+0x14)==991 && *(int*)(cursor+0x24)==17 && *(int*)(cursor+0x4C)==19 && *(int*)(cursor+0x5C)==992,"Single stages independent building/pitch/wall selectors");
+                        for(int i=0;i<0x80;i++) cursor[i]=0xCC;
+                        *(int*)(p+NativeBindings.TileManagerRva+0x204E720)=4321; // Stand-in for legitimate native output, not input scratch.
+                        if(injectFailure) throw new InvalidOperationException("injected single wrapper failure");
+                    });
+                }
+                catch(InvalidOperationException) { threw=true; }
+                Check(threw==injectFailure && deletes==1,"Single invokes its normal Vanilla wrapper exactly once, including failure");
+                for(int i=0;i<0x80;i++) Check(p[NativeBindings.CursorRva+i]==saved[NativeBindings.CursorRva+i],"Single restores complete cursor after callback success/failure");
+                Check(*(int*)(p+NativeBindings.TileManagerRva+0x204E720)==4321,"Single preserves real native output instead of rolling back gameplay/queue effects");
+            }
         }
         finally { Marshal.FreeHGlobal(allocation); }
+    }
+
+    private static void RequestHitContracts()
+    {
+        Check(NativeDemolition.SelectUnitHover(9,-32767,-40000,false)==9,"No-building sentinel permits foreground unit");
+        Check(NativeDemolition.SelectUnitHover(9,-32766,-32767,false)==0,"Exact native invalid-depth threshold is strict");
+        Check(NativeDemolition.SelectUnitHover(9,-32766,-32766,false)==9,"Equal building/unit depth includes unit");
+        Check(NativeDemolition.SelectUnitHover(9,100,99,false)==0 && NativeDemolition.SelectUnitHover(9,100,99,true)==9,"Selection-on preserves native unit-depth bypass");
+        Check(NativeDemolition.SelectUnitHover(0,0,0,true)==0 && NativeDemolition.SelectUnitHover(-1,0,0,true)==0,"Absent/invalid first unit never stages a stale hover");
+        Check(NativeDemolition.SelectUnitHover(9,100-49,75,false)==9 && NativeDemolition.SelectUnitHover(9,100,75,false)==0,"Managed building click depth requires the audited RunTick minus49 convention");
+        const int width=17;
+        int[] Cardinal(int tile)
+        {
+            int x=tile%width,y=tile/width;var result=new List<int>();
+            if(y>0) result.Add(tile-width);if(x<width-1) result.Add(tile+1);
+            if(y<width-1) result.Add(tile+width);if(x>0) result.Add(tile-1);
+            return result.ToArray();
+        }
+        int centre=8*width+8;
+        Check(NativeDemolition.DecorationSearchTiles(centre,Cardinal,_=>false).Length==25,"Depth1..4 visits25 cardinal cells, not a radius4/square halo");
+        Check(!NativeDemolition.DecorationSearchTiles(centre,Cardinal,_=>false).Contains(centre+4),"Four cardinal steps are outside native decoration recognition");
+        foreach (var blocked in new[]{new HashSet<int>(),new HashSet<int>{centre},new HashSet<int>{centre-1,centre+1,centre-width},new HashSet<int>{0,1,width,centre+2}})
+        {
+            bool Border(int tile)=>blocked.Contains(tile);
+            var inverted=NativeDemolition.DecorationRequestTiles(centre,Cardinal,Border).ToHashSet();
+            for(int source=0;source<width*width;source++)
+                Check(inverted.Contains(source)==NativeDemolition.DecorationSearchTiles(source,Cardinal,Border).Contains(centre),"Reverse decoration search equals forward recognition, including destination-border asymmetry");
+        }
+        var records=new GameProjectile[40];
+        for(int slot=25;slot<36;slot++) { records[slot].N000053FA_2=(ushort)(slot+1);records[slot].r_ProjectileType=ProjectileType.ArcherArrow;records[slot].r_PlayerSourceId=4; }
+        records[33].r_ProjectileType=ProjectileType.Flag1;records[33].r_PlayerSourceId=0x12340003;
+        fixed(GameProjectile* first=records)
+        {
+            Check(NativeDemolition.FirstOwnDecorationSlot(25,first,records.Length,3)==33,"Native ninth link is visible and ownership uses low16 bits");
+            records[33].r_PlayerSourceId=4;records[34].r_ProjectileType=ProjectileType.Flag1;records[34].r_PlayerSourceId=3;
+            Check(NativeDemolition.FirstOwnDecorationSlot(25,first,records.Length,3)==0,"Native tenth link must not extend the candidate search");
+            records[25].N000053FA_2=25;
+            Check(NativeDemolition.FirstOwnDecorationSlot(25,first,records.Length,3)==0,"Self-linked unrelated projectile terminates safely");
+            Check(NativeDemolition.FirstOwnDecorationSlot(-1,first,records.Length,3)==0 && NativeDemolition.FirstOwnDecorationSlot(40,first,records.Length,3)==0,"Invalid signed FlyGrid IDs fail closed");
+        }
+        var towerCodes=new HashSet<int>{0x28,0x29,0x2A,0x2B,0x2C,0x3D,0x4A,0x4B,0x4C,0x4D,0x4E}; // Exact audited459D0 switch, independent fixture input.
+        foreach(eStructs type in Enum.GetValues(typeof(eStructs)))
+            Check(NativeDemolition.EffectiveRequestTile(100,TilePropertyFlag.IsBuilding,0,101,TilePropertyFlag.IsElevated,type)==(towerCodes.Contains((int)type)?101:0),"459D0 keep/tower-only elevated-neighbour branch: "+type);
+        Check(NativeDemolition.EffectiveRequestTile(100,0,2,101,0,default)==100,"Connected ordinary tile keeps requested cell");
+        Check(NativeDemolition.EffectiveRequestTile(100,TilePropertyFlag.IsMoat,0,101,0,default)==100,"Dug moat keeps requested tile even without path connection");
+        Check(NativeDemolition.EffectiveRequestTile(100,TilePropertyFlag.CrenelatedLow,2,101,TilePropertyFlag.IsWall,default)==101,"Crenellation selects neighbouring wall");
+        Check(NativeDemolition.EffectiveRequestTile(100,TilePropertyFlag.CrenelatedLow,0,101,0,default)==100,"Crenellation without neighbouring wall falls back");
+        int[] Eight(int tile)=>new[]{tile-18,tile-17,tile-16,tile-1,tile+1,tile+16,tile+17,tile+18};
+        var halo=NativeDemolition.ExpandNeighbourRequests(new[]{centre,centre+1},Eight);
+        Check(halo.Length==12 && halo.Contains(centre-18) && halo.Contains(centre+19),"Registered-cell inverse includes all eight view directions and deduplicates overlaps");
+        var house=new DemolitionTarget { Kind=TargetKind.Building,Type=(int)eStructs.STRUCT_HOVEL,Slot=1,GlobalId=1,Owner=3,Flags=77,TaskIndex=3<<16 };
+        var other=house.Copy();other.Slot=2;other.GlobalId=2;other.Flags=88;
+        var stock=house.Copy();stock.Type=(int)eStructs.STRUCT_GOODS_YARD;stock.Slot=3;stock.GlobalId=3;stock.Flags=99;
+        var sector=stock.Copy();sector.Slot=4;sector.GlobalId=4;
+        var reserved=house.Copy();reserved.Slot=5;reserved.GlobalId=5;reserved.Type=(int)eStructs.STRUCT_PARADEGROUND_LGT;reserved.TaskIndex=(5<<16)|1;
+        var requestIndex=new NativeDemolition.PreviewIndex(new[]{house,other,stock,sector,reserved}.Select(t=>new NativeDemolition.BuildingMember(t.Slot,t.Owner,AliveState.IsAlive,t.Flags,t)));
+        Check(!NativeDemolition.BuildingRequestMatches(requestIndex,house,0,false,new[]{1}),"Plain grass beside a house is not a building request cell");
+        Check(NativeDemolition.BuildingRequestMatches(requestIndex,house,1,false,Array.Empty<int>()),"Requested registered structure reaches its actual house");
+        Check(!NativeDemolition.BuildingRequestMatches(requestIndex,house,2,false,new[]{1}),"Another requested building never redirects to an adjacent ordinary house");
+        Check(NativeDemolition.BuildingRequestMatches(requestIndex,house,5,false,Array.Empty<int>()),"Reserved-child request preserves canonical barracks/root linkage");
+        Check(NativeDemolition.BuildingRequestMatches(requestIndex,stock,0,true,new[]{4}),"Stockpile connector can reach another sector of the same canonical stockpile");
+        Check(!NativeDemolition.BuildingRequestMatches(requestIndex,stock,0,false,new[]{4}),"Plain grass next to stockpile does not enter the native connector branch");
+        Check(!NativeDemolition.BuildingRequestMatches(requestIndex,stock,2,true,new[]{4}),"Existing requested structure takes precedence over connector neighbour fallback");
+        foreach(int count in new[]{120,600,1200})
+        {
+            var watch=Stopwatch.StartNew();long cells=0;
+            for(int root=0;root<count;root++)
+            {
+                int start=1000+root*100;
+                var occupied=Enumerable.Range(0,3).SelectMany(y=>Enumerable.Range(0,3).Select(x=>start+y*17+x)).ToArray();
+                var requests=NativeDemolition.ExpandNeighbourRequests(occupied,Eight);cells+=requests.Length;
+                var reference=Enumerable.Range(-1,5).SelectMany(y=>Enumerable.Range(-1,5).Select(x=>start+y*17+x)).ToHashSet();
+                Check(reference.SetEquals(requests),"Production120+ root inverse equals independent5x5 geometric fixture");
+            }
+            watch.Stop();
+            Check(cells==25L*count,"Request expansion stays linear in selected registered cells");
+            Console.WriteLine("BENCH preview-request-roots="+count+" expandedCells="+cells+" productionAndReferenceMs="+watch.Elapsed.TotalMilliseconds.ToString("F3"));
+        }
+        var roots=Enumerable.Range(1,120).Select(i=>new DemolitionTarget { Kind=TargetKind.Building,Owner=3,Slot=i,GlobalId=(uint)i,TileId=i }).ToArray();
+        var quote=new NativeDemolition.PreviewQuote { OrderedRoots=roots };
+        IEnumerable<DemolitionTarget> Closure(DemolitionTarget root)=>root.Slot%2==0?new[]{root,new DemolitionTarget { Kind=TargetKind.Decoration,Owner=3,Slot=1000+root.Slot,TileId=root.TileId }}:null;
+        while(!NativeDemolition.StepPreviewRoots(quote,64,1,Closure,()=>0)) { }
+        Check(quote.CompletedRoots.Count==60 && quote.CompletedRoots.All(r=>r.Root.Slot%2==0 && r.Closure.Length==2),"Approved120-root quote retains per-root closures; failed roots never become clipping entries");
+        Check(quote.CompletedRoots.SelectMany(r=>r.Closure).Select(t=>t.Identity).ToHashSet().SetEquals(quote.Result.Select(t=>t.Identity)),"Root-associated quote result equals the frozen flat closure union");
     }
 
     private static void PatternBoundaries()

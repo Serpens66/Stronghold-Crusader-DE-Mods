@@ -6,6 +6,7 @@ using AreaDemolitionTest;
 // The reference intentionally retains the old full SAT to detect selection broadening.
 internal static class ScreenGeometryReference
 {
+    internal static bool IntersectsQuadReference(ScreenRect rectangle,ScreenPoint a,ScreenPoint b,ScreenPoint c,ScreenPoint d)=>FullSat(rectangle,new Quad(a,b,c,d));
     internal static void Verify(Action<bool,string> check)
     {
         var rectangles=new[]{new ScreenRect(-100,-100,160,140),new ScreenRect(.8f,.8f,1,1),new ScreenRect(-2,-.1f,2,.1f),new ScreenRect(0,-1000,0,1000),new ScreenRect(-100000,-100000,100000,100000)};
@@ -23,7 +24,7 @@ internal static class ScreenGeometryReference
             check(rect.IntersectsQuad(diamond.A,diamond.B,diamond.C,diamond.D)==FullSat(rect,diamond),"reference agrees at corner/crossing/zero-width boundaries");
         foreach(var quad in new[]{Make(0,0,0,0,0,0),Make(0,0,0,1,0,1),Make(0,0,float.NaN,1,1,0),Make(float.PositiveInfinity,0,1,0,0,1)})
             check(rectangles[0].IntersectsQuad(quad.A,quad.B,quad.C,quad.D)==FullSat(rectangles[0],quad),"fast path preserves degenerate and nonfinite behavior");
-        Benchmark(100);Benchmark(1000);BenchmarkRenderReuse(100);BenchmarkRenderReuse(1000);
+        Benchmark(100);Benchmark(500);Benchmark(1000);BenchmarkRenderReuse(100);BenchmarkRenderReuse(500);BenchmarkRenderReuse(1000);
     }
 
     private static void Benchmark(int buildings)

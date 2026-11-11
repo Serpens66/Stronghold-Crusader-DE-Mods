@@ -230,7 +230,8 @@ terrain by manually writing replacement grids.
 to15 and Brazier mapper148 to14, queued through Chore69 (`0x172B0`). These six
 are projectile records, not the similarly named eStruct menu values. Do not
 include other projectiles. `0x90830` calls `0x7A340 ->0xDF9D0` before building
-permission; native Chore97 (`0x19630 ->0x628C0 ->0xDF9D0`) searches radius4.
+permission; native Chore97 (`0x19630 ->0x628C0 ->0xDF9D0`) passes maximum depth4,
+starting at depth1: at most three cardinal tile steps, not a four-step radius.
 The area adapter uses only its terminal exact-tile helper `0x9F410`, avoiding
 unselected neighboring targets and shared BFS scratch.
 
@@ -272,6 +273,111 @@ GameMap.processTestMap divides it by32 into the managed tile height.
 Renderer correspondence (separate audit): `0x41D60` passes the native projectile
 slot to `0x1A13C0`; sourceMap row10 keeps it unchanged, row20 is its type. This
 allows scoped managed Fly tint lookup with slot/type/tile correlation.
+
+## Bulldozer request-cell coverage and Shift lookup
+
+The 2026-11-11 selection follow-up uses the installed managed assembly SHA-256
+`BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`.
+`MainControls.computeMouseMapPosition` uses `GameMap.CalcMapTileFromMousePos`
+with both height options enabled for bulldozer action6. That resolver tests
+screen Y offsets -800..0 in steps2. At each step it computes ScreenToWorldPoint
+and WorldToCell, then accepts the first cell for which offset/zoom plus
+`testHeight*64 + buildingHeight*64` is nonnegative. If buildingHeight is zero,
+the additional height is instead mirrorTileImage.rect.height-32 when positive;
+constructionOrigImage overrides that sprite. There is no alpha test or direct
+Fly hit test. Higher offsets take precedence; conservative hulls intentionally
+do not reproduce occlusion or the two-pixel quantization exactly.
+
+`PreviewHitCandidate` keeps a logical canonical root attached to its possible
+requested cells. Building cells are actual registered core/hint/stockpile-alpha
+cells from every canonical compound member. A one-neighbour broad phase covers
+all view directions, but ordinary building request cells must then resolve through
+requested StructureGrid to that exact canonical root. `0x90830` refreshes this
+selector before `0x79B90`; plain grass beside a house cannot target the house.
+Only structure-free GoodsyardRelated cells retain the audited stockpile-neighbour
+fallback through `0x64F80`. Reserved children and stockpile sectors still normalize
+to their canonical root. No native permission query is made for each hull cell.
+Pitch and bounded ground wall/moat candidates use the same inverse. Ground
+discovery inspects only the screen broad-phase request cells and their neighbours,
+never a full-map wall/moat scan. Pure managed projection may select a root from
+these cells, but quoting never reinterprets a request cell as a different object.
+
+For six-type decorations, `0xDF9D0` expands only directions0,2,4,6 from the native
+packed-neighbour table. Admission checks border flags RealityEdge|MapBorder
+(0x30); other terrain and buildings do not block this search. Reverse coverage
+has at most25 cells and checks the forward edge's destination border bit, so a
+border seed is not assumed to have symmetric reachability. Native FlyGrid is a
+signed slot head; record+32 is the signed next link. At most nine records are
+examined, owner is low16 of+40, and the first matching type10..15 wins the query.
+The query itself does not test AliveState. An unidentifiable/dead winning static
+record therefore blocks Shift lookup rather than falling through to a building.
+Normal snapshot coverage requires a qualifying own chain member on the target
+tile; its full own same-tile closure is still checked before preview approval.
+No pathfinder generation, BFS scratch, linked list or Chore is mutated.
+
+`AtTile` follows decoration BFS order, then prepares only the eligibility inputs
+from `0x459D0`. `0x90830` refreshes the building selector from the requested
+StructureGrid cell; `0x79B90` retains stockpile neighbour normalization. The
+intermediate `0x8AAF0` dispatcher resets cursor+68 to the requested tile; the
+direct point-query contract reproduces that reset too, while preserving the
+moat/pitch selector calculation and effective coordinates from `0x459D0`. The
+permission output is dispatched in native90830 priority: moat, wall, signed
+building/pitch slot. Canonical parents and exact-own complete closures remain
+required, even when vanilla would also remove foreign same-tile decoration.
+
+Additional read contract: native view direction at RVA `0x60AD41C`, anchored by
+the complete immutable cursor-builder body at `0x459D0`, length812, SHA-256
+`F46306230DDC09A978046DE8FF6778470F4241EF63AD51CA257C9D7E1514A879`.
+The body reads that global for (view+4)&7, PCL at tileManager+108D8E0, native
+neighbour deltas at tileManager+0, StructureGrid and the existing flat flag.
+No cursor-builder delegate is created or invoked. The data offsets and complete
+selector semantics remain native-hash bound; there is no cross-version pattern
+fallback that would infer them from a single instruction. A mismatching body
+fails startup closed. `QueryRequested` uses the same stack-allocated complete
+cursor/neighbour/query/actor save and finally restore as canonical Allows.
+
+Each budgeted quote now receives explicit frozen roots and records approved
+`PreviewRootResult { Root, Closure }` entries. Live rectangle shrink can discard
+an entire root and all of its indirect children without accidentally retaining
+an orphan. Completed flat results are the union of these approved closures.
+Native permission calls remain budgeted and authoritative MakeBatches/Apply
+identity, owner, permission and reentrant pre-mutation checks remain fresh.
+
+### Single-click cursor freshness
+
+Managed pointer recomputation alone is insufficient when an owned visual overlay
+prevented Vanilla's previous `DLL_RunTick` cursor refresh. Public DeleteBuilding
+(`0x85BD0 ->0x8AAF0 ->0x90830`) refreshes coordinates, +68 and StructureGrid+24,
+but leaves wall+5C, pitch+4C, moat+44 and unit-hover+30 otherwise stale.
+`VanillaSingle` therefore temporarily stages fresh audited point selectors under
+EngineInterface.threadLock around exactly one call to the existing public
+DeleteBuilding wrapper. It restores all128 cursor bytes in finally. It does not
+restore real queued commands, legitimate query outputs, unit orders or gameplay
+effects. No native cursor-builder, RunTick or TroopSelection is invoked.
+
+The fresh unit comes from public `GameMap.grabTroopsOnScreen` in its zero/zero
+point branch at the frozen release position. That path tests body boxes, sorts
+descending baseSortLayer and returns firstID/depth; its only stored diagnostic
+change is debugGrabbedChimps. Native `0x879A0 ->0x8AC80` sets cursor+30 to the
+first under-cursor ID unless the building is in front. The exact gate is:
+`buildingDepth < -32766 || selectionOn || buildingDepth <= troopDepth`.
+RunTick `0x86680` receives the managed CalcMapTileFromMousePos clickDepth minus49
+as buildingDepth, and grabTroopsOnScreen/baseSortLayer unchanged as troopDepth.
+selectionOn is the fresh `TroopSelector.selection_on OR
+EditorDirector.troopSelectionBoxOn`; the private box flag requires a validated
+managed access in the input owner. Established-selection flags only affect
+selected-list truncation, not this hover assignment. The adapter does not alter
+selection lists or flags; native90830 retains all of its existing owner/type/MP
+conditions and unit-special/building/decor branches.
+
+Reference audit bodies: `0x879A0`,377 bytes,
+`73993440F8A139674E6B4654B7331DFAB34DC740CAAC734B8630F88232407715`;
+`0x8AC80`,313 bytes,
+`C31AF075825391F3308503FC314419EA104F0D2BD9C151A197B86CE7E787F70A`.
+They are semantic evidence only; the adapter adds no delegate or fixed-address
+read for them. Supported native-image hashing still gates the reproduced contract.
+CLI fixtures exercise gate boundaries/ties/selection bypass and cursor restoration
+after callback success/failure, while preserving the callback's legitimate output.
 
 ## Fixes low-wall refund
 

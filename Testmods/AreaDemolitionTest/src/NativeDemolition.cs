@@ -39,25 +39,204 @@ namespace AreaDemolitionTest
 
         internal bool IsValidTile(int x, int y) => available && GameTileManagerAPI.Instance.IsTileInsideMapBounds(x, y);
 
+        private int[] Neighbours(int tile) => TileNeighbours(tile,false);
+        private int[] CardinalNeighbours(int tile) => TileNeighbours(tile,true);
+        private int[] TileNeighbours(int tile,bool cardinal)
+        {
+            var tiles=GameTileManagerAPI.Instance;
+            if (!tiles.IsValidTileId(tile)) return Array.Empty<int>();
+            var point=tiles.GetTileVectorFromId(tile);
+            // DF9D0 validates the initial coordinates, but intermediate nodes use packed bounds/border bits only.
+            if (cardinal ? (uint)tile>=320000 || point.Y>=800 : !IsValidTile(point.X,point.Y)) return Array.Empty<int>();
+            var deltas=tiles.TileManager.PackedNeighborTileDeltas;
+            var result=new int[cardinal?4:8];int count=0;
+            for (int direction=0;direction<8;direction+=cardinal?2:1)
+            {
+                int neighbour=tile+deltas[point.Y*8+direction];
+                if (!tiles.IsValidTileId(neighbour) || cardinal && (uint)neighbour>=320000) continue;
+                var next=tiles.GetTileVectorFromId(neighbour);
+                if (cardinal || IsValidTile(next.X,next.Y)) result[count++]=neighbour;
+            }
+            if (count!=result.Length) Array.Resize(ref result,count);
+            return result;
+        }
+
+        private bool IsBorder(int tile) => (GameTileManagerAPI.Instance.GetTilePropertyFlag(tile)&(TilePropertyFlag.RealityEdge|TilePropertyFlag.MapBorder))!=0;
+
+        // Conservative one-neighbour inverse covers every 459D0 view direction and flat-view path.
+        internal static int[] ExpandNeighbourRequests(IEnumerable<int> occupied,Func<int,int[]> neighbours)
+        {
+            var result=new HashSet<int>();
+            foreach (int tile in occupied)
+            { result.Add(tile);foreach (int neighbour in neighbours(tile)) result.Add(neighbour); }
+            return result.OrderBy(t=>t).ToArray();
+        }
+
+        // 90830 refreshes StructureGrid[requested] before 79B90. A neighbouring ordinary
+        // building can therefore never be reached from plain grass; only stockpile connectors
+        // have the explicit structure-free neighbour fallback in 79B90/64F80.
+        internal static bool BuildingRequestMatches(PreviewIndex index,DemolitionTarget root,int requestedSlot,bool stockpileRelated,IEnumerable<int> neighbourSlots)
+        {
+            if (requestedSlot!=0)
+            {
+                var requested=index.Canonical(index.Target(requestedSlot));
+                return SameRootIdentity(requested,root);
+            }
+            if (!stockpileRelated || (eStructs)root.Type!=eStructs.STRUCT_GOODS_YARD) return false;
+            foreach (int slot in neighbourSlots)
+            {
+                var candidate=index.Canonical(index.Target(slot));
+                if (candidate!=null && candidate.Type==(int)eStructs.STRUCT_GOODS_YARD && SameRootIdentity(candidate,root)) return true;
+            }
+            return false;
+        }
+
+        private static bool SameRootIdentity(DemolitionTarget left,DemolitionTarget right) => left!=null && right!=null && left.Kind==right.Kind &&
+            left.Slot==right.Slot && left.GlobalId==right.GlobalId && left.TileId==right.TileId && left.TaskIndex==right.TaskIndex;
+
+        // Native DF9D0 starts depth1 and inspects at most depth4: three cardinal edges.
+        // Reverse traversal tests the current node's border bit (the forward edge's destination).
+        internal static int[] DecorationRequestTiles(int tile,Func<int,int[]> neighbours,Func<int,bool> border) =>
+            DecorationTiles(tile,neighbours,border,true);
+        internal static int[] DecorationSearchTiles(int tile,Func<int,int[]> neighbours,Func<int,bool> border) =>
+            DecorationTiles(tile,neighbours,border,false);
+        private static int[] DecorationTiles(int tile,Func<int,int[]> neighbours,Func<int,bool> border,bool reverse)
+        {
+            var result=new List<int>(25) { tile };var depths=new List<int>(25) { 0 };var seen=new HashSet<int> { tile };
+            for (int at=0;at<result.Count;at++)
+            {
+                if (depths[at]==3 || reverse && border(result[at])) continue;
+                foreach (int neighbour in neighbours(result[at]))
+                {
+                    if ((!reverse && border(neighbour)) || !seen.Add(neighbour)) continue;
+                    result.Add(neighbour);depths.Add(depths[at]+1);
+                }
+            }
+            return result.ToArray();
+        }
+
+        internal static int FirstOwnDecorationSlot(int head,GameProjectile* projectiles,int count,int actor)
+        {
+            int slot=head;
+            for (int visited=0;visited<9 && slot!=0;visited++)
+            {
+                if (slot<0 || slot>=count) return 0;
+                var record=projectiles+slot;
+                if (DecorationOwner(record)==actor && IsDecorationType(record->r_ProjectileType)) return slot;
+                int next=(short)record->N000053FA_2;
+                if (next==slot) break;
+                slot=next;
+            }
+            return 0;
+        }
+
+        private int FirstOwnDecorationAt(int tile,int actor)
+        {
+            var projectiles=GameProjectileManagerAPI.Instance.GetProjectilesAsSpan();
+            fixed (GameProjectile* records=projectiles)
+                return FirstOwnDecorationSlot(GameTileManagerAPI.Instance.GetFlyLayer()[tile],records,projectiles.Length,actor);
+        }
+
+        private DemolitionTarget GroundTargetAt(int tile,TargetKind kind,int actor)
+        {
+            var tiles=GameTileManagerAPI.Instance;
+            if (!tiles.IsValidTileId(tile)) return null;
+            var point=tiles.GetTileVectorFromId(tile);
+            if (!IsValidTile(point.X,point.Y)) return null;
+            var flags=tiles.GetTilePropertyFlag(tile);
+            return kind==TargetKind.Wall?WallAt(tile,point.X,point.Y,flags,actor):MoatAt(tile,point.X,point.Y,flags,actor);
+        }
+
+        private NativeBindings.RequestState BuildRequestState(int tile,int x,int y)
+        {
+            var tiles=GameTileManagerAPI.Instance;var flags=tiles.GetTilePropertyFlag(tile);
+            int building=tiles.GetStructureLayer()[tile],wall=((uint)flags&0x102)==0x100?tile:0,effective=tile;
+            if (tiles.GetPathConnectionLayer()[tile]==0 || (flags&TilePropertyFlag.CrenelatedLow)!=0)
+            {
+                int direction=(native.ViewDirection+4)&7;
+                int neighbour=tile+tiles.TileManager.PackedNeighborTileDeltas[y*8+direction];
+                var type=GameBuildingManagerAPI.Instance.TryGetBuildingById(building,out var b)?b->r_BuildingType:default;
+                effective=EffectiveRequestTile(tile,flags,tiles.GetPathConnectionLayer()[tile],neighbour,
+                    tiles.IsValidTileId(neighbour)?tiles.GetTilePropertyFlag(neighbour):0,type);
+            }
+            int ex=0,ey=0,pitch=0;uint moat=0;bool flat=native.Flattened;
+            if (effective>0 && tiles.IsValidTileId(effective))
+            {
+                var point=tiles.GetTileVectorFromId(effective);ex=point.X;ey=point.Y;
+                int selected=flat?tile:effective;
+                var selectedFlags=tiles.GetTilePropertyFlag(selected);
+                var selectedPoint=tiles.GetTileVectorFromId(selected);
+                if ((selectedFlags&TilePropertyFlag.IsMoat)!=0 && tiles.TryGetMoatWorkTaskAtTile(selectedPoint.X,selectedPoint.Y,out _)) moat=(uint)TilePropertyFlag.IsMoat;
+                if ((selectedFlags&TilePropertyFlag.PitchTrap)!=0)
+                    foreach (var item in PitchByTile()) if (item.Key==selected) { pitch=item.Value.Slot;break; }
+            }
+            else effective=0;
+            // 8AAF0 resets +68 to requested after 459D0 prepared the other selectors.
+            return new NativeBindings.RequestState(x,y,tile,building,wall,tile,ex,ey,moat,pitch,flat);
+        }
+
+        internal static int EffectiveRequestTile(int tile,TilePropertyFlag flags,int pathConnection,int neighbour,TilePropertyFlag neighbourFlags,eStructs type)
+        {
+            if (pathConnection!=0 && (flags&TilePropertyFlag.CrenelatedLow)==0 || (flags&TilePropertyFlag.IsMoat)!=0) return tile;
+            if ((flags&TilePropertyFlag.CrenelatedLow)!=0) return (neighbourFlags&TilePropertyFlag.IsWall)!=0?neighbour:tile;
+            if ((flags&TilePropertyFlag.IsBuilding)!=0 && CursorTowerType(type)) return (neighbourFlags&TilePropertyFlag.IsElevated)!=0?neighbour:tile;
+            return 0;
+        }
+
+        private static bool CursorTowerType(eStructs type)
+        {
+            switch (type)
+            {
+                case eStructs.STRUCT_KEEP_ONE:case eStructs.STRUCT_KEEP_TWO:case eStructs.STRUCT_KEEP_THREE:
+                case eStructs.STRUCT_KEEP_FOUR:case eStructs.STRUCT_KEEP_FIVE:
+                case eStructs.STRUCT_TOWER:case eStructs.STRUCT_TOWER1:case eStructs.STRUCT_TOWER2:
+                case eStructs.STRUCT_TOWER3:case eStructs.STRUCT_TOWER4:case eStructs.STRUCT_TOWER5:return true;
+                default:return false;
+            }
+        }
+
         internal DemolitionTarget AtTile(int x, int y, int actor)
         {
             if (!available || actor < 1 || actor > 8) return null;
             lock (EngineGate)
             {
-                if (!IsValidTile(x,y)) return null;
+                if (!IsValidTile(x,y) || (uint)native.ViewDirection>=8) return null;
                 var tiles=GameTileManagerAPI.Instance;
                 int tile=tiles.GetTileId(x,y);
                 var decorations=DecorationsByTile();
-                if (decorations.TryGetValue(tile,out var sameTile))
+                // Same BFS/linked-list priority as 90830 -> 7A340, without touching pathfinder scratch.
+                foreach (int nearby in DecorationSearchTiles(tile,CardinalNeighbours,IsBorder))
                 {
-                    var decoration=sameTile.FirstOrDefault(t=>t.Owner==actor);
-                    if (decoration!=null && Permitted(decoration,actor) && ClosureOwn(decoration,actor,out _,decorations)) return decoration;
+                    int slot=FirstOwnDecorationAt(nearby,actor);
+                    if (slot==0) continue;
+                    var decoration=Decoration(slot);
+                    return decoration!=null && Permitted(decoration,actor) && ClosureOwn(decoration,actor,out _,decorations)?decoration:null;
                 }
-                var target=CanonicalBuilding(Building(BuildingAtTile(tile)));
-                if (target!=null) return target.Owner==actor && Permitted(target,actor) && ClosureOwn(target,actor,out _,decorations) ? target : null;
-                foreach (var ground in GroundAt(tile,x,y))
-                    if (ground.Owner==actor && Permitted(ground,actor) && ClosureOwn(ground,actor,out _,decorations)) return ground;
-                return null;
+                var request=BuildRequestState(tile,x,y);
+                if (!native.QueryRequested(request,actor,out int selected,out bool wall,out bool moat,out int wallTile,out int moatTile)) return null;
+                DemolitionTarget target=null;
+                if (moat) target=GroundTargetAt(moatTile,TargetKind.DugMoat,actor);
+                else if (wall) target=GroundTargetAt(wallTile,TargetKind.Wall,actor);
+                else if (selected<0) target=Pitch(-selected);
+                else if (selected>0) target=CanonicalBuilding(Building(selected,false));
+                return target!=null && target.Owner==actor && Permitted(target,actor) && ClosureOwn(target,actor,out _,decorations)?target:null;
+            }
+        }
+
+        internal static int SelectUnitHover(int firstUnit,int buildingDepth,int troopDepth,bool selectionOn) =>
+            firstUnit>0 && (buildingDepth < -32766 || selectionOn || buildingDepth<=troopDepth)?firstUnit:0;
+
+        internal bool VanillaSingle(int x,int y,int actor,int firstUnit,int buildingDepth,int troopDepth,bool selectionOn,Action delete)
+        {
+            if (!available || delete==null || actor<1 || actor>8 || firstUnit<0) return false;
+            lock (EngineGate)
+            {
+                if (!IsValidTile(x,y) || (uint)native.ViewDirection>=8) return false;
+                int unit=SelectUnitHover(firstUnit,buildingDepth,troopDepth,selectionOn);
+                if (unit>0 && !GameUnitManagerAPI.Instance.IsValidId(unit)) return false;
+                int tile=GameTileManagerAPI.Instance.GetTileId(x,y);
+                native.ScopeVanillaSingle(BuildRequestState(tile,x,y),unit,delete);
+                return true;
             }
         }
 
@@ -68,7 +247,7 @@ namespace AreaDemolitionTest
             internal int Actor;
             internal SelectionSpec Selection;
             internal PreviewIndex Index;
-            internal DemolitionTarget[] Candidates=Array.Empty<DemolitionTarget>();
+            internal PreviewHitCandidate[] HitCandidates=Array.Empty<PreviewHitCandidate>();
             internal readonly Dictionary<int,DemolitionTarget> Geometry=new Dictionary<int,DemolitionTarget>();
             internal Dictionary<int,DemolitionTarget> Pitch;
             internal Dictionary<int,List<DemolitionTarget>> Decorations;
@@ -156,22 +335,59 @@ namespace AreaDemolitionTest
                     }
                 }
                 snapshot.Index=new PreviewIndex(members);
-                var candidates=new List<DemolitionTarget>();
+                var candidates=new Dictionary<string,PreviewHitCandidate>(StringComparer.Ordinal);
+                var requests=new Dictionary<string,HashSet<int>>(StringComparer.Ordinal);
+                var occupied=new Dictionary<string,HashSet<int>>(StringComparer.Ordinal);
+                var neighbourCache=new Dictionary<int,int[]>();
+                int[] CachedNeighbours(int tile)
+                { if (!neighbourCache.TryGetValue(tile,out var cells)) neighbourCache.Add(tile,cells=Neighbours(tile));return cells; }
+                void Add(DemolitionTarget root,int[] cells)
+                {
+                    if (!requests.TryGetValue(root.Identity,out var set))
+                    { requests.Add(root.Identity,set=new HashSet<int>());occupied.Add(root.Identity,new HashSet<int>());candidates.Add(root.Identity,new PreviewHitCandidate { Root=root.Copy() }); }
+                    foreach (int cell in cells) set.Add(cell);
+                }
                 foreach (var member in snapshot.Index.Members)
                 {
                     if (member.Owner!=actor || member.Target==null) continue;
                     var root=snapshot.Index.Canonical(member.Target);
                     if (root==null || !selection.Matches(root)) continue;
                     var geometry=Building(member.Slot);
-                    if (geometry!=null) { snapshot.Geometry[member.Slot]=geometry;candidates.Add(geometry); }
+                    if (geometry!=null)
+                    {
+                        snapshot.Geometry[member.Slot]=geometry;Add(root,ExpandNeighbourRequests(geometry.OccupiedTiles,CachedNeighbours));
+                        foreach (int cell in geometry.OccupiedTiles) occupied[root.Identity].Add(cell);
+                    }
                 }
                 snapshot.Pitch=WantsGround(selection,TargetKind.Pitch,TargetGroup.Pitch)?PitchByTile():new Dictionary<int,DemolitionTarget>();
-                foreach (var target in snapshot.Pitch.Values) if (target.Owner==actor && selection.Matches(target)) candidates.Add(target);
+                foreach (var target in snapshot.Pitch.Values) if (target.Owner==actor && selection.Matches(target)) Add(target,ExpandNeighbourRequests(target.OccupiedTiles,CachedNeighbours));
                 snapshot.Decorations=DecorationsByTile();
                 if (WantsGround(selection,TargetKind.Decoration,TargetGroup.Decorations))
                     foreach (var group in snapshot.Decorations.Values)
-                        foreach (var target in group) if (target.Owner==actor && selection.Matches(target)) candidates.Add(target);
-                snapshot.Candidates=candidates.ToArray();
+                    {
+                        if (group.Count==0 || FirstOwnDecorationAt(group[0].TileId,actor)==0) continue;
+                        int[] cells=DecorationRequestTiles(group[0].TileId,CardinalNeighbours,IsBorder);
+                        foreach (var target in group) if (target.Owner==actor && selection.Matches(target)) Add(target,cells);
+                    }
+                foreach (var item in candidates)
+                {
+                    IEnumerable<int> cells=requests[item.Key];
+                    if (item.Value.Root.Kind==TargetKind.Building)
+                    {
+                        var tiles=GameTileManagerAPI.Instance;
+                        cells=cells.Where(tile=>
+                        {
+                            int slot=tiles.GetStructureLayer()[tile];
+                            bool related=(tiles.GetTilePropertyFlag(tile)&TilePropertyFlag.GoodsyardRelated)!=0;
+                            return BuildingRequestMatches(snapshot.Index,item.Value.Root,slot,related,
+                                slot==0 && related && (eStructs)item.Value.Root.Type==eStructs.STRUCT_GOODS_YARD?
+                                CachedNeighbours(tile).Select(neighbour=>(int)tiles.GetStructureLayer()[neighbour]):Array.Empty<int>());
+                        });
+                    }
+                    item.Value.RequestTiles=cells.OrderBy(t=>t).ToArray();
+                    if (occupied[item.Key].Count>0) item.Value.Root.OccupiedTiles=occupied[item.Key].OrderBy(t=>t).ToArray();
+                }
+                snapshot.HitCandidates=candidates.Values.ToArray();
                 return snapshot;
             }
         }
@@ -187,18 +403,21 @@ namespace AreaDemolitionTest
         internal sealed class PreviewQuote
         {
             internal PreviewSnapshot Snapshot;
-            internal int[] Tiles;
-            internal int Actor,NextTile,NextRoot;
-            internal readonly HashSet<int> BuildingHits=new HashSet<int>();
+            internal int Actor,NextRoot;
             internal SelectionSpec Selection;
-            internal readonly Dictionary<string,DemolitionTarget> Roots=new Dictionary<string,DemolitionTarget>(StringComparer.Ordinal);
             internal readonly Dictionary<string,DemolitionTarget> Expanded=new Dictionary<string,DemolitionTarget>(StringComparer.Ordinal);
+            internal readonly List<PreviewRootResult> CompletedRoots=new List<PreviewRootResult>();
             internal DemolitionTarget[] OrderedRoots;
             internal DemolitionTarget[] Result;
         }
 
-        internal PreviewQuote BeginQuote(PreviewSnapshot snapshot,int[] selectedIds,int actor,SelectionSpec selection) =>
-            new PreviewQuote { Snapshot=snapshot,Tiles=selectedIds??Array.Empty<int>(),Actor=actor,Selection=selection };
+        internal PreviewQuote BeginQuote(PreviewSnapshot snapshot,DemolitionTarget[] hitRoots,int actor,SelectionSpec selection)
+        {
+            var allowed=(snapshot?.HitCandidates??Array.Empty<PreviewHitCandidate>()).ToDictionary(c=>c.Root.Identity,c=>c.Root,StringComparer.Ordinal);
+            return new PreviewQuote { Snapshot=snapshot,Actor=actor,Selection=selection,OrderedRoots=(hitRoots??Array.Empty<DemolitionTarget>())
+                .Where(t=>t!=null && allowed.ContainsKey(t.Identity)).Select(t=>allowed[t.Identity]).Where(t=>t.Owner==actor && selection.Matches(t))
+                .GroupBy(t=>t.Identity,StringComparer.Ordinal).Select(g=>g.First()).ToArray() };
+        }
 
         internal bool TryStepQuote(PreviewQuote quote,int maximumRoots,long deadlineStopwatch,out bool complete,out DemolitionTarget[] targets)
         {
@@ -209,33 +428,7 @@ namespace AreaDemolitionTest
             if (maximumRoots<1 || !System.Threading.Monitor.TryEnter(EngineGate)) return false;
             try
             {
-                var snapshot=quote.Snapshot;var selection=quote.Selection;
-                var tiles=GameTileManagerAPI.Instance;
-                bool buildings=WantsBuildings(selection),pitch=WantsGround(selection,TargetKind.Pitch,TargetGroup.Pitch);
-                bool walls=WantsGround(selection,TargetKind.Wall,TargetGroup.Fortifications),moats=WantsGround(selection,TargetKind.DugMoat,TargetGroup.DugMoats);
-                bool decorationWanted=WantsGround(selection,TargetKind.Decoration,TargetGroup.Decorations);
-                void Add(DemolitionTarget target)
-                { if (target!=null && target.Owner==quote.Actor && selection.Matches(target)) quote.Roots[target.Identity]=target; }
-                while (quote.NextTile<quote.Tiles.Length && System.Diagnostics.Stopwatch.GetTimestamp()<deadlineStopwatch)
-                {
-                    int tile=quote.Tiles[quote.NextTile++];
-                    if (!tiles.IsValidTileId(tile)) continue;
-                    var point=tiles.GetTileVectorFromId(tile);
-                    if (!IsValidTile(point.X,point.Y)) continue;
-                    if (buildings)
-                    {
-                        int slot=BuildingAtTile(tile);
-                        if (slot>0 && quote.BuildingHits.Add(slot)) Add(snapshot.Index.Canonical(snapshot.Index.Target(slot)));
-                    }
-                    var flags=tiles.GetTilePropertyFlag(tile);
-                    if (pitch && (flags&TilePropertyFlag.PitchTrap)!=0 && snapshot.Pitch.TryGetValue(tile,out var trap)) Add(trap);
-                    if (walls) Add(WallAt(tile,point.X,point.Y,flags,quote.Actor));
-                    if (moats) Add(MoatAt(tile,point.X,point.Y,flags,quote.Actor));
-                    if (decorationWanted && snapshot.Decorations.TryGetValue(tile,out var group)) foreach (var target in group) Add(target);
-                }
-                if (quote.NextTile<quote.Tiles.Length) return true;
-                if (quote.OrderedRoots==null) quote.OrderedRoots=quote.Roots.Values.ToArray();
-                complete=StepPreviewRoots(quote,maximumRoots,deadlineStopwatch,expected=>EvaluatePreviewRoot(snapshot,expected,quote.Actor));
+                complete=StepPreviewRoots(quote,maximumRoots,deadlineStopwatch,expected=>EvaluatePreviewRoot(quote.Snapshot,expected,quote.Actor));
                 if (complete) targets=quote.Result;
                 return true;
             }
@@ -260,34 +453,48 @@ namespace AreaDemolitionTest
             {
                 var expected=quote.OrderedRoots[quote.NextRoot++];processed++;
                 var closure=evaluate(expected);
-                if (closure!=null) foreach (var target in closure) quote.Expanded[target.Identity]=target;
+                if (closure!=null)
+                {
+                    var frozen=closure.ToArray();
+                    quote.CompletedRoots.Add(new PreviewRootResult { Root=expected,Closure=frozen });
+                    foreach (var target in frozen) quote.Expanded[target.Identity]=target;
+                }
             }
             if (quote.NextRoot!=quote.OrderedRoots.Length) return false;
             quote.Result=DemolitionPolicy.Canonicalize(quote.Expanded.Values);return true;
         }
 
-        internal bool TryCaptureGroundCandidateTiles(int[] broadPhaseTileIds,int actor,SelectionSpec selection,out int[] filtered)
+        internal bool TryAddGroundHitCandidates(PreviewSnapshot snapshot,int[] broadPhaseTileIds,int actor,SelectionSpec selection)
         {
-            filtered=Array.Empty<int>();
-            if (!available || broadPhaseTileIds==null || actor<1 || actor>8) return true;
+            if (!available || snapshot==null || broadPhaseTileIds==null || actor<1 || actor>8 || snapshot.Actor!=actor) return true;
             bool walls=WantsGround(selection,TargetKind.Wall,TargetGroup.Fortifications),moats=WantsGround(selection,TargetKind.DugMoat,TargetGroup.DugMoats);
             if (!walls && !moats) return true;
             if (!System.Threading.Monitor.TryEnter(EngineGate)) return false;
             try
             {
-                var tiles=GameTileManagerAPI.Instance;var result=new List<int>();
-                foreach (int tile in broadPhaseTileIds)
+                var tiles=GameTileManagerAPI.Instance;
+                var discovered=new HashSet<int>();
+                var result=snapshot.HitCandidates.ToDictionary(c=>c.Root.Identity,StringComparer.Ordinal);
+                void Consider(int tile)
                 {
-                    if (!tiles.IsValidTileId(tile)) continue;
+                    if (!discovered.Add(tile)) return;
                     var flags=tiles.GetTilePropertyFlag(tile);
-                    if ((!walls || (flags&TilePropertyFlag.IsWall)==0) && (!moats || (flags&TilePropertyFlag.IsMoat)==0)) continue;
+                    if ((!walls || (flags&TilePropertyFlag.IsWall)==0) && (!moats || (flags&TilePropertyFlag.IsMoat)==0)) return;
                     var point=tiles.GetTileVectorFromId(tile);
-                    if (!IsValidTile(point.X,point.Y)) continue;
-                    var target=walls?WallAt(tile,point.X,point.Y,flags,actor):null;
-                    if (target==null && moats) target=MoatAt(tile,point.X,point.Y,flags,actor);
-                    if (target!=null && selection.Matches(target)) result.Add(tile);
+                    void Add(DemolitionTarget target)
+                    { if (target!=null && selection.Matches(target)) result[target.Identity]=new PreviewHitCandidate { Root=target,RequestTiles=ExpandNeighbourRequests(target.OccupiedTiles,Neighbours) }; }
+                    if (walls) Add(WallAt(tile,point.X,point.Y,flags,actor));
+                    if (moats) Add(MoatAt(tile,point.X,point.Y,flags,actor));
                 }
-                filtered=result.ToArray();return true;
+                foreach (int request in broadPhaseTileIds)
+                {
+                    if (!tiles.IsValidTileId(request)) continue;
+                    var point=tiles.GetTileVectorFromId(request);
+                    if (!IsValidTile(point.X,point.Y)) continue;
+                    Consider(request);
+                    foreach (int tile in Neighbours(request)) Consider(tile);
+                }
+                snapshot.HitCandidates=result.Values.ToArray();return true;
             }
             finally { System.Threading.Monitor.Exit(EngineGate); }
         }
@@ -350,23 +557,6 @@ namespace AreaDemolitionTest
             }
             return true;
         }
-
-        private int BuildingAtTile(int tile)
-        {
-            var tiles=GameTileManagerAPI.Instance;
-            int slot=tiles.GetStructureLayer()[tile];
-            if (slot>0) return slot;
-            // Stockpile cross cells have no StructureGrid ID. Their alpha entry is a live sector ID.
-            if ((tiles.GetTilePropertyFlag(tile)&TilePropertyFlag.GoodsyardConnection)==TilePropertyFlag.GoodsyardConnection)
-            {
-                int candidate=tiles.GetAlphaGfxLayer()[tile];
-                if (candidate>0 && GameBuildingManagerAPI.Instance.IsValidId(candidate) && GameBuildingManagerAPI.Instance.TryGetBuildingById(candidate,out var b) && b->r_BuildingType==eStructs.STRUCT_GOODS_YARD) return candidate;
-            }
-            return 0;
-        }
-
-        private void AddRoot(DemolitionTarget target,int actor,SelectionSpec selection,Dictionary<string,DemolitionTarget> roots)
-        { if (target!=null && target.Owner==actor && selection.Matches(target) && Permitted(target,actor)) roots[target.Identity]=target; }
 
         private static bool WantsGround(SelectionSpec selection,TargetKind kind,TargetGroup group) =>
             selection.SameType ? selection.Start!=null && selection.Start.Kind==kind : (selection.Filters&(1<<(int)group))!=0;
@@ -728,29 +918,6 @@ namespace AreaDemolitionTest
             if (!GamePitchManagerAPI.Instance.TryGetPitchById(slot,out var pitch) || !pitch->IsAlive || !IsValidTile(pitch->TileX,pitch->TileY)) return null;
             int tile=GameTileManagerAPI.Instance.GetTileId(pitch->TileX,pitch->TileY);
             return Ground(TargetKind.Pitch,TargetGroup.Pitch,slot,(int)eStructs.STRUCT_PITCH_DITCH,pitch->OwnerId,pitch->TileX,pitch->TileY,tile,pitch->GlobalId,0,0);
-        }
-
-        private IEnumerable<DemolitionTarget> GroundAt(int tile, int x, int y, Dictionary<int, DemolitionTarget> pitchByTile = null)
-        {
-            var result = new List<DemolitionTarget>(3);
-            var tiles=GameTileManagerAPI.Instance;
-            if (!IsValidTile(x,y) || tiles.GetTileId(x,y)!=tile) return result;
-            TilePropertyFlag flags=tiles.GetTilePropertyFlag(tile);
-            if ((flags & TilePropertyFlag.PitchTrap)!=0)
-            {
-                if (pitchByTile!=null)
-                { if (pitchByTile.TryGetValue(tile,out var pitch)) result.Add(pitch); }
-                else
-                {
-                    var slots=GamePitchManagerAPI.Instance.GetPitchArrayAsSpan();
-                    for (int slot=1;slot<slots.Length;slot++)
-                        if (slots[slot].IsAlive && slots[slot].TileX==x && slots[slot].TileY==y)
-                        { var found=Pitch(slot); if (found!=null) result.Add(found); break; }
-                }
-            }
-            var wall=WallAt(tile,x,y,flags); if (wall!=null) result.Add(wall);
-            var moat=MoatAt(tile,x,y,flags); if (moat!=null) result.Add(moat);
-            return result;
         }
 
         private DemolitionTarget WallAt(int tile,int x,int y,TilePropertyFlag flags,int actor=0)

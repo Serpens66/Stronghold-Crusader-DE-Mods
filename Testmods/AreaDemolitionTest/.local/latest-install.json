@@ -1,27 +1,27 @@
 {
-  "InstalledUtc": "2026-11-11T16:51:46.9726270Z",
+  "InstalledUtc": "2026-11-11T18:34:28.3011862Z",
   "GUID": "AreaDemolitionTest_Serp",
-  "Version": "0.1.2",
+  "Version": "0.1.3",
   "NetworkMode": 1,
   "Destination": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\AreaDemolitionTest_Serp",
-  "BuildProof": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\a\\area-build\\006\\result.json",
+  "BuildProof": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\a\\area-build\\007\\result.json",
   "FileCount": 25,
   "Files": [
     {
       "Relative": "AreaDemolitionTest.dll",
-      "Sha256": "c2dbe7058f1686e5e637ac514d7392b02a32252082344c1899d759cb0d8968e3"
+      "Sha256": "d01a17e690f35b463ed511c18253a928c276f239c6250e02315ced86eb45025e"
     },
     {
       "Relative": "AreaDemolitionTest.pdb",
-      "Sha256": "97ab1f830ea8ffc14eae16fbfce70428ecf5444180b7d610573e0d9f3da47a4e"
+      "Sha256": "1ea239094dd7bd6f3482cd9c9a7f91e09fe7bff179359182cc89f21cbbab59fc"
     },
     {
       "Relative": "info.json",
-      "Sha256": "43931a9590fba58413a278ab4d4f55888fbd7893b5575e5ec3238fc8cc14ab8b"
+      "Sha256": "d844c38dc60db80d76c682dd3a45d0258138d2e84d5bb63a4aa60ea9016fe4c6"
     },
     {
       "Relative": "TESTPLAN.txt",
-      "Sha256": "52d93c9d76a1687166a8faec6a4edbc46307589da7fb5f4a3205127b8f0217f1"
+      "Sha256": "92390f848d49ae8f6270be8b16de338582134d69bbd225841b215e07549d4921"
     },
     {
       "Relative": "Locales\\ar.txt",
@@ -110,16 +110,16 @@
   ],
   "UnchangedDependencies": {
     "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\Stronghold Crusader Definitive Edition_Data\\Plugins\\x86_64\\CrusaderDE.dll": "fbcb93195fc7efca9bdac5204852efdd76f9818f59a6711750d77c9cef2831e2",
-    "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\APIShared_Serp\\APIShared.dll": "7c500788e4f946247c9af268eaa65164b6c549a157999b33b8374f3de7ef0972",
+    "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\APIShared_Serp\\APIShared.dll": "547dddb187233ec4a18ba72b4f0da6445c2ddff76bf8ce0275abcd0a01c0811b",
     "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\Stronghold Crusader Definitive Edition_Data\\Managed\\Assembly-CSharp.dll": "bc8b6a395f01d48557db413600c8dd8d1fdfd3abdf97bfbbb68a3c56b04fd789",
-    "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\patchers\\APIShared.DependencyBootstrap.dll": "fe545eceaff075e75117a236389209170d63592ed4dc5f8a33981562025e51cf",
+    "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\patchers\\APIShared.DependencyBootstrap.dll": "e0a07e2730c3fcfa8c0d61d99dfb7683e3e74c6b16b3912e6469d04867b675de",
     "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\SHCDESE.dll": "5cb1c33be5463086505a17f5c48aaa357d733cfff7240e101c821f0e3c668498"
   },
   "OfflineChecks": {
-    "Native": 8350,
-    "Total": 14232,
     "Protocol": 44,
-    "PolicyAndGeometry": 5838
+    "Total": 20739,
+    "PolicyAndGeometry": 8143,
+    "Native": 12552
   },
   "GameAcceptance": "User explicitly forbids self-run game tests. No game launch, in-game automation, mouse or keyboard input performed. Offline benchmarks exclude Unity/Mono/native/FPS."
 }

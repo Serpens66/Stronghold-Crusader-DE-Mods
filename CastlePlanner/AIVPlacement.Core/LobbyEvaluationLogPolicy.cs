@@ -34,6 +34,25 @@ namespace CastlePlanner.AIVPlacement.Core
                 : LobbyEvaluationLogSeverity.Warning;
         }
 
+        public static string FormatSourceDiagnostics(AivPlacementCheckResult result)
+        {
+            if (result == null) throw new ArgumentNullException(nameof(result));
+            var text = new System.Text.StringBuilder();
+            foreach (var candidate in result.SourceDiagnostics)
+            {
+                text.Append("; candidateId=").Append(candidate.CandidateId)
+                    .Append(", name=[").Append(Escape(candidate.Name))
+                    .Append("], sourceKind=").Append(candidate.SourceKind)
+                    .Append(", source=[").Append(Escape(candidate.Source))
+                    .Append("], failure=").Append(candidate.FailureKind);
+            }
+            return text.ToString();
+        }
+
+        private static string Escape(string value) => value.Replace("\\", "\\\\")
+            .Replace("\"", "\\\"").Replace("\r", "\\r").Replace("\n", "\\n")
+            .Replace("\u0085", "\\u0085").Replace("\u2028", "\\u2028").Replace("\u2029", "\\u2029");
+
         private static bool IsExpectedUnavailableRequest(string reason) =>
             string.Equals(reason, LobbyRequestFailureKind.PreBuildSequenceUnsupported.ToString(), StringComparison.Ordinal) ||
             string.Equals(reason, LobbyRequestFailureKind.ClientEvaluationNotRequired.ToString(), StringComparison.Ordinal) ||

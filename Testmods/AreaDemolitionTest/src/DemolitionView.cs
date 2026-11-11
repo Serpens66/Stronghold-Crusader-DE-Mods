@@ -20,6 +20,10 @@ namespace AreaDemolitionTest
         private readonly ManualLogSource log;
         private readonly Func<bool> consumePrimaryRelease;
         private readonly Action primaryPressed;
+        private readonly HitTestFilterCallback pointerFilter;
+        private readonly HitTestResultCallback pointerResult;
+        private readonly List<string> pointerTags=new List<string>();
+        private DependencyObject pointerHit;
         private readonly List<CheckBox> filters = new List<CheckBox>();
         private readonly Brush foreground = new SolidColorBrush(Color.FromArgb(255, 244, 232, 196));
         private HUD_Main hud;
@@ -35,11 +39,59 @@ namespace AreaDemolitionTest
         private string statusText = "";
 
         internal DemolitionView(DemolitionSettings settings, ManualLogSource log,Func<bool> consumePrimaryRelease,Action primaryPressed)
-        { this.settings = settings; this.log = log; this.consumePrimaryRelease=consumePrimaryRelease;this.primaryPressed=primaryPressed; }
+        {
+            this.settings = settings; this.log = log; this.consumePrimaryRelease=consumePrimaryRelease;this.primaryPressed=primaryPressed;
+            pointerFilter=FilterPointerVisual;pointerResult=CapturePointerHit;
+        }
 
         internal event Action MenuChanged;
         internal bool IsMenuOpen => menuOpen;
         internal bool IsInputShieldActive => menuOpen || closingClick;
+
+        internal bool TryIsPointerOverUi(out bool overUi)
+        {
+            overUi=true;
+            if(host==null || overlay==null || !MainViewModel.viewModelLoaded)return false;
+            try
+            {
+                var root=VisualTreeHelper.GetRoot(host) as Visual;
+                if(root==null)return false;
+                var mouse=Input.mousePosition;
+                var point=root.PointFromScreen(new Point(mouse.x,Screen.height-mouse.y));
+                pointerHit=null;
+                // Keep our visuals blocking Vanilla's raw query; this filtered query can still
+                // see a real HUD control underneath the selection frame or status text.
+                VisualTreeHelper.HitTest(root,pointerFilter,pointerResult,new PointHitTestParameters(point));
+                if(pointerHit==null){overUi=false;return true;}
+                pointerTags.Clear();
+                DependencyObject current=pointerHit;
+                while(current is FrameworkElement element)
+                {
+                    pointerTags.Add(element.Tag as string);
+                    current=element.Parent??VisualTreeHelper.GetParent(element);
+                }
+                var main=MainViewModel.Instance;
+                overUi=PointerUiPolicy.IsBlocking(pointerTags,main.IsMapEditorMode && main.MEMode==0);
+                return true;
+            }
+            catch(Exception error){Report(error);return false;}
+            finally {pointerHit=null;pointerTags.Clear();}
+        }
+
+        private HitTestFilterBehavior FilterPointerVisual(Visual visual)
+        {
+            var role=ReferenceEquals(visual,selectionBox) || ReferenceEquals(visual,statusBox) ? PointerVisualRole.Decoration :
+                ReferenceEquals(visual,overlay) ? PointerVisualRole.Overlay : PointerVisualRole.Ordinary;
+            switch(PointerUiPolicy.Filter(role))
+            {
+                case PointerHitDisposition.SkipSubtree:return HitTestFilterBehavior.ContinueSkipSelfAndChildren;
+                case PointerHitDisposition.SkipSelf:return HitTestFilterBehavior.ContinueSkipSelf;
+                default:return HitTestFilterBehavior.Continue;
+            }
+        }
+
+        private HitTestResultBehavior CapturePointerHit(HitTestResult hit)
+        {pointerHit=hit.VisualHit;return pointerHit==null?HitTestResultBehavior.Continue:HitTestResultBehavior.Stop;}
 
         internal void RefreshHud()
         {

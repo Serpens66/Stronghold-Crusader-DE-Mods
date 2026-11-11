@@ -1,4 +1,4 @@
-Area Demolition Test 0.1.2
+Area Demolition Test 0.1.3
 
 Right-click the unchanged Vanilla Bulldozer button for local area filters.
 Ordinary click: Vanilla single removal on release. Drag: enabled categories.
@@ -18,6 +18,13 @@ root checks resume across frames with a2ms deadline and at most64 roots per step
 The first final capture after release starts immediately; subsequent retries are
 paced. The frame follows input independently. Completed final targets still need
 a successful rendered receipt before authenticated mutation is submitted.
+0.1.3 uses filtered visual hits for owned selection/status decorations, preserving
+the real HUD below them. Shrinking and crossing the start removes complete roots
+and closures from preview immediately; late larger quotes are clipped again.
+Hit areas combine prior occupied-ground cells with conservative Vanilla height
+envelopes and native request-neighbor/deco-search cells. Continuous envelopes and
+ignored occlusion can select extra edge/hidden targets; all are previewed first.
+Shift captures a fresh Vanilla point resolution and the native own target priority.
 
 Acceptance requires actual game evidence. Passing a build is not gameplay acceptance.
 2026-11-11: user explicitly deferred all game/MP tests while other tests run.
@@ -27,6 +34,10 @@ deferred. Offline checks do not establish acceptance of the changed UI routes.
 0.1.2: user explicitly requested no self-run in-game tests. Only offline tests,
 production algorithm benchmarks, real-assembly compilation and installation.
 Offline timing excludes Mono/Unity/native execution and proves no in-game FPS.
+0.1.3 follows the same explicit ban on self-run in-game testing. Offline coverage
+uses the401-probe point resolver, fractional zoom/float boundary regressions,
+root-closure shrink tests, native request scratch restoration and100/500/1000
+object benchmarks. No actual game/editor/multiplayer/FPS acceptance is claimed.
 SP/editor: input shield, shifted start, every category, footprint overlap, linked
 parts, correct refunds, pause, rotation, zoom, heights, cancelled colour restoration.
 Also check stationary late Shift, Shift release, fast direct HUD crossing, HUD

@@ -19,6 +19,7 @@ namespace AreaDemolitionTest
         internal const int TileManagerRva = 0x405EDB0, BuildingManagerRva = 0x64CCBB0, ProjectileManagerRva = 0x2F7A680;
         internal const int CursorRva = 0x3A11DC0, NeighboursRva = 0x8DDCA0;
         internal const int ActorRva = 0x88E3D70, DemolitionContextRva = 0x60AD528;
+        internal const int ViewDirectionRva = 0x60AD41C;
         internal const int WallRefundBranchRva = 0x13880;
         internal static readonly int[] QueryOffsets = { 0x204E6FC, 0x204E704, 0x204E720, 0x204E76C, 0x204E770, 0x204E774, 0x204E7F8, 0x204E694 };
         private static readonly object HashGate = new object();
@@ -53,7 +54,36 @@ namespace AreaDemolitionTest
         { Module = module.ToInt64(); EngineGate = engineGate; Query = query; Moat = moat; RemoveDecorations = decorations; }
 #endif
 
+        internal readonly struct RequestState
+        {
+            internal RequestState(int x,int y,int tile,int building,int wall,int effective,int effectiveX,int effectiveY,uint moat,int pitch,bool flat)
+            { X=x;Y=y;Tile=tile;Building=building;Wall=wall;Effective=effective;EffectiveX=effectiveX;EffectiveY=effectiveY;Moat=moat;Pitch=pitch;Flat=flat; }
+            internal readonly int X,Y,Tile,Building,Wall,Effective,EffectiveX,EffectiveY,Pitch;
+            internal readonly uint Moat;
+            internal readonly bool Flat;
+        }
+
+        internal int ViewDirection => *(int*)(ModulePointer+ViewDirectionRva);
+        internal bool Flattened => *(int*)(TilePointer+0x204E694)!=0;
+
         internal bool Allows(DemolitionTarget target, int actor)
+        {
+            var request=new RequestState(target.X,target.Y,target.TileId,target.Kind==TargetKind.Building?target.Slot:0,
+                target.Kind==TargetKind.Wall?target.TileId:0,target.TileId,target.X,target.Y,
+                target.Kind==TargetKind.DugMoat?(uint)TilePropertyFlag.IsMoat:0,target.Kind==TargetKind.Pitch?target.Slot:0,false);
+            if (!QueryRequested(request,actor,out int selected,out bool wall,out bool moat,out _,out _)) return false;
+            switch (target.Kind)
+            {
+                case TargetKind.Building:return selected==target.Slot && !wall && !moat;
+                case TargetKind.Pitch:return selected==-target.Slot;
+                case TargetKind.Wall:return wall;
+                case TargetKind.DugMoat:return moat;
+                default:return false;
+            }
+        }
+
+        // Pure selectors reproduce the input contract, never the side-effecting 459D0 cursor builder.
+        internal bool QueryRequested(RequestState request,int actor,out int selected,out bool wall,out bool moat,out int wallTile,out int moatTile)
         {
             byte* cursor=ModulePointer+CursorRva, neighbours=ModulePointer+NeighboursRva, tiles=TilePointer;
             byte* savedCursor=stackalloc byte[0x80];byte* savedNeighbours=stackalloc byte[32];int* savedValues=stackalloc int[QueryOffsets.Length];
@@ -63,28 +93,15 @@ namespace AreaDemolitionTest
             int oldActor=*(int*)(ModulePointer+ActorRva);
             try
             {
-                for (int i=0;i<0x80;i++) cursor[i]=0;
-                *(int*)(cursor+0xC)=target.X; *(int*)(cursor+0x10)=target.Y;
-                *(int*)(cursor+0x14)=target.TileId; *(int*)(cursor+0x68)=target.TileId;
-                *(int*)(cursor+0x6C)=target.X; *(int*)(cursor+0x70)=target.Y;
-                if (target.Kind==TargetKind.Building) *(int*)(cursor+0x24)=target.Slot;
-                if (target.Kind==TargetKind.Pitch) *(int*)(cursor+0x4C)=target.Slot;
-                if (target.Kind==TargetKind.Wall) *(int*)(cursor+0x5C)=target.TileId;
-                if (target.Kind==TargetKind.DugMoat) *(uint*)(cursor+0x44)=(uint)TilePropertyFlag.IsMoat;
-                *(int*)(tiles+0x204E694)=0; // Canonical ground target, independent of the local flattened view.
+                WriteRequestCursor(cursor,request,0);
+                *(int*)(tiles+0x204E694)=request.Flat?1:0;
                 *(int*)(tiles+0x204E76C)=0; *(int*)(tiles+0x204E770)=0;
                 *(int*)(tiles+0x204E720)=0; *(int*)(tiles+0x204E704)=0; *(int*)(tiles+0x204E7F8)=0;
                 *(int*)(ModulePointer+ActorRva)=actor;
-                Query(Tiles,actor,(uint)target.X,(uint)target.Y);
-                if (*(int*)(tiles+0x204E6FC)!=0) return false;
-                switch (target.Kind)
-                {
-                    case TargetKind.Building:return *(int*)(tiles+0x204E720)==target.Slot && *(int*)(tiles+0x204E76C)==0 && *(int*)(tiles+0x204E770)==0;
-                    case TargetKind.Pitch:return *(int*)(tiles+0x204E720)==-target.Slot;
-                    case TargetKind.Wall:return *(int*)(tiles+0x204E76C)!=0;
-                    case TargetKind.DugMoat:return *(int*)(tiles+0x204E770)!=0;
-                    default:return false;
-                }
+                Query(Tiles,actor,(uint)request.X,(uint)request.Y);
+                selected=*(int*)(tiles+0x204E720);wall=*(int*)(tiles+0x204E76C)!=0;moat=*(int*)(tiles+0x204E770)!=0;
+                wallTile=*(int*)(cursor+0x5C);moatTile=*(int*)(tiles+0x204E774);
+                return *(int*)(tiles+0x204E6FC)==0;
             }
             finally
             {
@@ -93,6 +110,28 @@ namespace AreaDemolitionTest
                 for (int i=0;i<QueryOffsets.Length;i++) *(int*)(tiles+QueryOffsets[i])=savedValues[i];
                 *(int*)(ModulePointer+ActorRva)=oldActor;
             }
+        }
+
+        private static void WriteRequestCursor(byte* cursor,RequestState request,int unit)
+        {
+            for (int i=0;i<0x80;i++) cursor[i]=0;
+            *(int*)(cursor+8)=1;
+            *(int*)(cursor+0xC)=request.X;*(int*)(cursor+0x10)=request.Y;
+            *(int*)(cursor+0x14)=request.Tile;*(int*)(cursor+0x78)=request.Tile;
+            *(int*)(cursor+0x68)=request.Effective;*(int*)(cursor+0x6C)=request.EffectiveX;*(int*)(cursor+0x70)=request.EffectiveY;
+            *(int*)(cursor+0x24)=request.Building;*(int*)(cursor+0x30)=unit;*(int*)(cursor+0x4C)=request.Pitch;
+            *(int*)(cursor+0x5C)=request.Wall;*(uint*)(cursor+0x44)=request.Moat;
+        }
+
+        // One real Vanilla click, not a permission query. Only the temporary input cursor is
+        // restored: native queued commands, legitimate selector outputs and gameplay effects remain.
+        internal void ScopeVanillaSingle(RequestState request,int unit,Action delete)
+        {
+            if (delete==null) throw new ArgumentNullException(nameof(delete));
+            byte* cursor=ModulePointer+CursorRva;byte* saved=stackalloc byte[0x80];
+            for(int i=0;i<0x80;i++) saved[i]=cursor[i];
+            try { WriteRequestCursor(cursor,request,unit);delete(); }
+            finally { for(int i=0;i<0x80;i++) cursor[i]=saved[i]; }
         }
 
         internal void RemoveDecorationTile(int tile) => RemoveDecorations(Projectiles,tile);
@@ -128,6 +167,7 @@ namespace AreaDemolitionTest
                 Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_StoneQuarry_StockPileBuildingId)).ToInt32() != 0x192 ||
                 Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.N0000178A)).ToInt32() != 0x2A8 ||
                 Marshal.OffsetOf(typeof(GameProjectile), nameof(GameProjectile.r_GlobalId)).ToInt32() != 0x44 ||
+                Marshal.OffsetOf(typeof(GameProjectile), nameof(GameProjectile.N000053FA_2)).ToInt32() != 0x32 ||
                 Marshal.OffsetOf(typeof(GameProjectile), nameof(GameProjectile.r_PlayerSourceId)).ToInt32() != 0x40 ||
                 Marshal.OffsetOf(typeof(GameProjectile), nameof(GameProjectile.r_CurrentTileId)).ToInt32() != 0x60 ||
                 Marshal.OffsetOf(typeof(GameProjectile), nameof(GameProjectile.r_CurrentTileX)).ToInt32() != 0x58 ||
@@ -140,6 +180,10 @@ namespace AreaDemolitionTest
                 throw new InvalidOperationException("Installed Extender native layout differs from the demolition audit.");
 
             Query = Bind<QueryDelegate>(context, log, 0x79B90, 1414, "D34F50E76C88D8165D41ACE03F0D08B2DB4EEFB40B92E5843B7FDD3F04F9AD8D", "44894C242044894424188954241048894C24085356415541574883EC684533FF");
+            // This immutable body pins both ViewDirectionRva and the read-only selector reproduction.
+            if (Hash(context.Memory.Slice(0x459D0,812).ToArray())!="F46306230DDC09A978046DE8FF6778470F4241EF63AD51CA257C9D7E1514A879")
+                throw new InvalidOperationException("Native cursor selector contract differs: RVA 0x459D0.");
+            log?.LogInfo(DateTime.Now.ToString("HH:mm:ss.fff")+" DEMOLITION_NATIVE request-selector method=reference-rva RVA=0x459D0 view-direction=0x"+ViewDirectionRva.ToString("X"));
             Refund = Bind<RefundDelegate>(context, log, 0xC4480, 1320, "C1E4DC936740B9D35117AC1539BC0A07D48EF212F61CE57778DC2A82AA8445D7", "4585C90F841E050000534883EC50458BD14963D8448B0D8D1A5A034C8BD94183");
             Delete = Bind<DeleteDelegate>(context, log, 0xC4290, 257, "713BF8FC70A1320F9EA7BB8B1CEBC82F0E52211C78A41D1DA3286EA5E24B0E56", "48895C240848896C2410488974241848897C242041564883EC2041BE03000000");
             Find = Bind<FindDelegate>(context, log, 0xB9330, 269, "D0E1D2F747CC546A18F3E845A016E06ADF7CD42C4AF3ECE5159CF95A4FA2B345", "48895C240848896C2410488974242044894424185741544155415641574883EC");

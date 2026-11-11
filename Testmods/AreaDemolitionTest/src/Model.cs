@@ -10,6 +10,18 @@ namespace AreaDemolitionTest
     internal enum TargetKind : byte { Building, Pitch, Wall, DugMoat, Decoration }
     internal enum TargetGroup : byte { Buildings, Fortifications, PositiveFear, NegativeFear, DogCages, KillingPits, Pitch, DugMoats, Decorations, Stockpiles=9 }
 
+    // Local preview metadata; never serialized as multiplayer authority.
+    internal sealed class PreviewHitCandidate
+    {
+        internal DemolitionTarget Root;
+        internal int[] RequestTiles=Array.Empty<int>();
+    }
+    internal sealed class PreviewRootResult
+    {
+        internal DemolitionTarget Root;
+        internal DemolitionTarget[] Closure=Array.Empty<DemolitionTarget>();
+    }
+
     internal readonly struct AreaRect
     {
         internal AreaRect(int x1, int y1, int x2, int y2)
