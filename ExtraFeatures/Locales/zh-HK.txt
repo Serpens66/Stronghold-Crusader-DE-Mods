@@ -617,3 +617,4 @@ ExtraFeatures.TreeRespawn.Help=Sets the delay for original map trees at game spe
 ExtraFeatures.TreeRespawn.Off=Off
 ExtraFeatures.MatureTreeHarvest.Title=Only cut down mature trees
 ExtraFeatures.MatureTreeHarvest.Help=Human and AI woodcutters wait until healthy young trees reach growth stage 3. They can finish cutting damaged young trees and continue harvesting felled logs. Changes apply when starting or loading a map.
+ExtraFeatures.ElevatedMoatTooltip=Designate an area to dig moat. Command engineers and low-ranking troops to dig it. Hold Shift for a larger area. Also possible on elevated terrain.

@@ -122,6 +122,7 @@ namespace ExtraFeatures
         public object GatehouseAutomationButton => gatehouseAutomationRuntime.ButtonViewModel;
         public void InitializeNetwork()
         {
+            TryRunFeature("elevated moat tooltip", () => elevatedMoatRuntime.RegisterTooltip(settings));
             TryRunFeature("keep build range lifecycle", () =>
             {
                 if (processKeepBuildRangeRuntime == null)

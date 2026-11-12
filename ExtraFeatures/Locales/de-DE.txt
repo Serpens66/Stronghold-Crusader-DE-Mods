@@ -617,3 +617,4 @@ ExtraFeatures.TreeRespawn.Help=Legt die Wartezeit für ursprüngliche Kartenbäu
 ExtraFeatures.TreeRespawn.Off=Aus
 ExtraFeatures.MatureTreeHarvest.Title=Nur ausgewachsene Bäume fällen
 ExtraFeatures.MatureTreeHarvest.Help=Holzfäller von Menschen und KI warten bei gesunden Jungbäumen bis zur Wachstumsstufe 3. Angeschlagene Jungbäume dürfen fertig gefällt und gefällte Stämme weiter abgeerntet werden. Änderungen gelten ab Kartenstart oder Laden.
+ExtraFeatures.ElevatedMoatTooltip=Markiert eine Fläche zum Ausheben eines Grabens. Befehligt Ingenieure und einfache Truppen, den Graben auszuheben. Shift halten: größere Fläche. Auch auf erhöhtem Gelände möglich.

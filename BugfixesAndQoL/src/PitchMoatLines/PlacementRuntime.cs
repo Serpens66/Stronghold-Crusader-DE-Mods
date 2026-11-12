@@ -81,7 +81,7 @@ namespace BugfixesAndQoL.PitchMoatLines
 
         private void RegisterMissionObservers(ModApiClient api)
         {
-            PlacementTooltip.Register(log);
+            PlacementTooltip.Register(log, settings);
             if (!api.TryGetMissionPlayStateReadiness(out readiness, out var diagnostic) ||
                 !api.TryGetMissionLifecycle(out var lifecycle, out diagnostic) ||
                 !lifecycle.TryRegisterObserver("placement-session", OnStarted, OnEnded, null, out diagnostic))

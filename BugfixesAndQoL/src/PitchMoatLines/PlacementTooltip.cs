@@ -32,12 +32,23 @@ namespace BugfixesAndQoL.PitchMoatLines
             return costText;
         }
 
-        internal static void Register(ManualLogSource log)
+        internal static void Register(ManualLogSource log, BugfixesAndQoLViewModel settings)
         {
             try
             {
                 // The APIShared publisher keeps this callback alive after the plugin's startup cleanup.
                 var tooltip = new PlacementTooltip();
+                if (!TooltipPresentation.TryRegisterText(BugfixesAndQoLPlugin.PluginGuid, "PitchMoatLineHelp",
+                    TooltipTarget.BuildingDetailed, TooltipPlacement.AfterDescription, context =>
+                    {
+                        if (!context.IsActive || !settings.EnableClientFeatures || !settings.EnablePitchMoatLines ||
+                            !PlacementRuntime.IsReady || !ManagedBoundary.IsReady) return null;
+                        if (context.BuildingType == (int)eStructs.STRUCT_PITCH_DITCH)
+                            return SerpLocalization.Get("BugfixesAndQoL.PitchLineTooltip");
+                        return context.BuildingType == (int)eStructs.STRUCT_NEW_DIG_MOAT
+                            ? SerpLocalization.Get("BugfixesAndQoL.MoatLineTooltip") : null;
+                    }, out string helpReason))
+                    log.LogWarning(PitchMoatLinesFeature.Stamp("LINE_HELP_UNAVAILABLE: " + helpReason));
                 if (!PresentationEvents.TryRegister(PresentationOperation.BuildingRollover, BugfixesAndQoLPlugin.PluginGuid,
                     "PitchLinePlacement", null, tooltip.AfterRollover, out string reason, order: int.MaxValue - 1))
                     log.LogWarning(PitchMoatLinesFeature.Stamp("PITCH_LINE_TOOLTIP_UNAVAILABLE: " + reason));
