@@ -12,10 +12,16 @@ namespace BugfixesAndQoL.AreaDemolition
         private float startX, startY, endX, endY;
         internal void Begin(float sx, float sy, SelectionSpec selection)
         { startX=endX=sx; startY=endY=sy; Selection=selection; Stage=GestureStage.Pressed; }
+        internal void MoveOnScreen(float sx,float sy,float width,float height,float scale)
+        {
+            bool valid=ScreenRect.Finite(sx) && ScreenRect.Finite(sy) &&
+                sx>=0 && sy>=0 && sx<width && sy<height;
+            Move(sx,sy,valid,scale);
+        }
         internal void Move(float sx, float sy, bool endpointValid, float scale)
         {
             if (Stage != GestureStage.Pressed && Stage != GestureStage.Dragging) return;
-            // HUD crossing freezes the endpoint, but still counts as physical movement.
+            // Leaving the window freezes the endpoint, but still counts as physical movement.
             if (endpointValid) { endX=sx; endY=sy; }
             float dx=sx-startX, dy=sy-startY, threshold=4f*(scale > 0 ? scale : 1);
             if (dx*dx+dy*dy >= threshold*threshold) Stage=GestureStage.Dragging;

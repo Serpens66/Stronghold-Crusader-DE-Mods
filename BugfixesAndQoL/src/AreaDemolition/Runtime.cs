@@ -157,8 +157,8 @@ namespace BugfixesAndQoL.AreaDemolition
                 !CanContinue(director,out int currentActor) || currentActor!=actor)
             {CancelSelection();return false;}
             var mouse=Input.mousePosition;
-            bool valid=TryPointerTile(director,out _,out _);
-            gesture.Move(mouse.x,mouse.y,valid,Math.Max(.5f,Screen.height/1080f));
+            // An owned drag uses screen geometry, including the map behind the HUD.
+            gesture.MoveOnScreen(mouse.x,mouse.y,Screen.width,Screen.height,Math.Max(.5f,Screen.height/1080f));
             if(gesture.SetSameType(Input.GetKey(KeyCode.LeftShift)||Input.GetKey(KeyCode.RightShift)))
             {ClearPreviewWork();rootSelection.Clear();completedStamp=null;targets=Array.Empty<DemolitionTarget>();renderer.Clear();}
             return true;

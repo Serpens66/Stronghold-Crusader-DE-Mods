@@ -19,6 +19,7 @@ namespace UiAcceptance
             TannerSteps.Register();
             MissionReadinessSteps.Register();
             WorkerProductionSteps.Register();
+            LocalAutosaveSteps.Register();
         }
     }
 }

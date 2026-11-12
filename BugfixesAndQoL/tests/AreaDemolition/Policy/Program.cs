@@ -16,12 +16,13 @@ internal static class Program
         g.Begin(0,0,plain);g.Cancel();Check(g.Owned,"cancel owns remaining input");Check(g.Release(false)==GestureRelease.Cancelled,"cancel has no deletion");
         g.Begin(0,0,plain);Check(g.Release(true)==GestureRelease.Cancelled,"single release over UI cancels");
         g.Begin(10,10,plain);g.Move(25,40,true,1);var lastValid=g.Area;g.Move(400,400,false,1);
-        Check(g.Area==lastValid && g.Stage==GestureStage.Dragging,"HUD crossing retains last valid endpoint and gesture");
+        Check(g.Area==lastValid && g.Stage==GestureStage.Dragging,"invalid endpoint retains last valid position and gesture");
         Check(g.Release(true)==GestureRelease.Area,"owned area release over HUD commits");
         Check(g.Release(true)==GestureRelease.None,"the same release cannot commit twice");
         g.Begin(10,10,plain);g.Move(100,100,false,1);
-        Check(g.Stage==GestureStage.Dragging && g.Area==new ScreenRect(10,10,10,10),"fast HUD crossing still meets screen movement threshold");
-        g.Move(50,60,true,1);Check(g.Area==new ScreenRect(10,10,50,60),"return to map resumes endpoint tracking");g.Reset();
+        Check(g.Stage==GestureStage.Dragging && g.Area==new ScreenRect(10,10,10,10),"fast window exit still meets screen movement threshold");
+        g.Move(50,60,true,1);Check(g.Area==new ScreenRect(10,10,50,60),"return to window resumes endpoint tracking");g.Reset();
+        ScreenEndpointGestures();
         var same=new SelectionSpec(0,true,Target(TargetGroup.PositiveFear));
         Check(same.Matches(Target(TargetGroup.PositiveFear,99)),"positive fear crosses variants");
         Check(!same.Matches(Target(TargetGroup.NegativeFear)),"fear signs stay separate");
@@ -252,6 +253,36 @@ internal static class Program
         decorationClone.Type++;
         Check(!RenderSelectionGeometry.Equals(new[]{decoration},new[]{decorationClone}),"decoration type change invalidates exact Fly membership");
     }
+    private static void ScreenEndpointGestures()
+    {
+        // Production entry point receives raw mouse coordinates, independently of HUD hits.
+        var g=new SelectionGesture();var selection=new SelectionSpec(1,false,null);
+        foreach(int dx in new[]{-1,1}) foreach(int dy in new[]{-1,1})
+        {
+            g.Begin(500,400,selection);
+            g.MoveOnScreen(500+dx*200,400+dy*150,1000,800,1);
+            Check(g.Area==new ScreenRect(500,400,500+dx*200,400+dy*150),"owned drag follows screen endpoint over HUD in each direction");
+            g.MoveOnScreen(500+dx*20,400+dy*15,1000,800,1);
+            Check(g.Area==new ScreenRect(500,400,500+dx*20,400+dy*15),"return over HUD shrinks selection");
+            g.MoveOnScreen(500-dx*40,400-dy*30,1000,800,1);
+            Check(g.Area==new ScreenRect(500,400,500-dx*40,400-dy*30),"HUD drag can cross original start");
+            Check(g.Release(true)==GestureRelease.Area,"HUD release commits owned screen selection");
+            Check(g.Release(true)==GestureRelease.None,"HUD release remains single-use");
+        }
+        g.Begin(500,400,selection);g.MoveOnScreen(750,600,1000,800,1);var last=g.Area;
+        foreach(var point in new[]{new[]{-1f,400f},new[]{500f,-1f},new[]{1000f,400f},new[]{500f,800f},new[]{float.NaN,400f},new[]{500f,float.PositiveInfinity}})
+        {
+            g.MoveOnScreen(point[0],point[1],1000,800,1);
+            Check(g.Area==last,"outside or nonfinite screen endpoint preserves last valid rectangle");
+        }
+        g.MoveOnScreen(0,0,1000,800,1);Check(g.Area==new ScreenRect(500,400,0,0),"lower screen boundary remains selectable");
+        g.MoveOnScreen(999,799,1000,800,1);Check(g.Area==new ScreenRect(500,400,999,799),"return to screen resumes tracking");g.Reset();
+        g.Begin(500,400,selection);g.MoveOnScreen(502,401,1000,800,1);
+        Check(g.Release(true)==GestureRelease.Cancelled,"single click released over HUD never demolishes");
+        g.Begin(500,400,selection);g.Cancel();g.MoveOnScreen(750,600,1000,800,1);
+        Check(g.Release(true)==GestureRelease.Cancelled,"screen movement cannot revive cancelled gesture");
+        g.MoveOnScreen(750,600,1000,800,1);Check(!g.Owned,"screen movement cannot start a gesture on HUD");
+    }
     private static void PointerUi()
     {
         Check(PointerUiPolicy.Filter(PointerVisualRole.Decoration)==PointerHitDisposition.SkipSubtree,"selection frame and status text subtree do not hit their own drag");
@@ -277,9 +308,9 @@ internal static class Program
             Check(g.Area.Width==20 && g.Area.Height==15 && g.Area.Width<large.Width && g.Area.Height<large.Height,"all four drag directions shrink while held toward their start");
             g.Move(100-30*dx,100-25*dy,true,1);
             Check(g.Area==new ScreenRect(100,100,100-30*dx,100-25*dy),"drag can cross its original start without retaining the historical extent");
-            var beforeHud=g.Area;g.Move(100,100,false,1);
-            Check(g.Area==beforeHud,"real HUD still freezes the last valid endpoint during reverse motion");
-            g.Move(100,100,true,1);
+            var beforeExit=g.Area;g.MoveOnScreen(-1,100,1000,800,1);
+            Check(g.Area==beforeExit,"leaving the window freezes the endpoint during reverse motion");
+            g.MoveOnScreen(100,100,1000,800,1);
             Check(g.Area.Width==0 && g.Area.Height==0 && g.Stage==GestureStage.Dragging,"returning to the origin shrinks to zero without becoming a single demolition");
             Check(g.Release(false)==GestureRelease.Area,"reverse-drag completion preserves area semantics");
         }
