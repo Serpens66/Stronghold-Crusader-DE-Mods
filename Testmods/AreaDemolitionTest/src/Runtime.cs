@@ -306,7 +306,6 @@ namespace AreaDemolitionTest
             if(!quoteIsFinal)
             {
                 rootSelection.UpdateProgress(quoteGeometry,previewQuote.OrderedRoots,previewQuote.NextRoot,previewQuote.CompletedRoots);completedStamp=quoteStamp;
-                rootSelection.Refresh(gesture.Area);targets=rootSelection.Targets;
                 if(complete)ClearPreviewWork();
                 return;
             }

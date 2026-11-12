@@ -11,5 +11,5 @@ GroupDogCages=Dog cages
 GroupKillingPits=Killing pits
 GroupPitch=Pitch ditches
 GroupDugMoats=Dug moats
-GroupDecorations=Flags and decorations
-GroupStockpiles=Stockpiles
+GroupDecorations=Decorations and braziers
+GroupStockpiles=Storage buildings

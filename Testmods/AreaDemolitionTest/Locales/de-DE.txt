@@ -11,5 +11,5 @@ GroupDogCages=Hundekäfige
 GroupKillingPits=Mörderlöcher
 GroupPitch=Pechgräben
 GroupDugMoats=Ausgehobene Burggräben
-GroupDecorations=Fahnen und Dekorationen
-GroupStockpiles=Vorratslager
+GroupDecorations=Dekorationen und Feuerschalen
+GroupStockpiles=Lagergebäude

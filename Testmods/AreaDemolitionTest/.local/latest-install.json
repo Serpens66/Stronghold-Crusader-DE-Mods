@@ -1,115 +1,124 @@
 {
-  "InstalledUtc": "2026-11-12T10:43:56.9040765Z",
+  "InstalledUtc": "2026-11-12T15:49:09.7098561Z",
   "Installed": true,
   "GUID": "AreaDemolitionTest_Serp",
-  "Version": "0.1.5",
+  "Version": "0.1.6",
   "NetworkMode": 1,
+  "Protocol": 6,
   "Destination": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\AreaDemolitionTest_Serp",
-  "BuildProof": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\a\\area-build\\018\\result.json",
+  "BuildProof": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\a\\area-build\\019\\result.json",
   "FileCount": 25,
   "Files": [
     {
       "Relative": "AreaDemolitionTest.dll",
-      "Sha256": "24d5f8a572aa9c081ae37b6157c2886deb800007f09902ce0757b1f5a051e5ec"
+      "Sha256": "b8d81679c7564d0056077bf18729fcae0ef689299d95a0c2ae3e3a0a7dca9f96"
     },
     {
       "Relative": "AreaDemolitionTest.pdb",
-      "Sha256": "5edae2eb9f929627592bd08bb22b7dea49ff5a6d8a7d8a63508d71025b024ee8"
+      "Sha256": "2118df39aa3e654cbe8688e5c93d88e9d5c386da786bbc44c07f13f56e5dc710"
     },
     {
       "Relative": "info.json",
-      "Sha256": "b92d9dc36ba581988abd1fc8add91933a806a56cba6a96a9fb4cff23fc984f06"
+      "Sha256": "2cb95e48ec2e49b00c86ab7c9771c43610d6ee06c5283f23c9a407de85a9377b"
     },
     {
       "Relative": "TESTPLAN.txt",
-      "Sha256": "a2660ee211036e3e0aa855813732584b02468688a2c12e45e2c847512bc82f71"
+      "Sha256": "df91468ca464a02009460a0498a74c9e47cf529270b88641997693d137c14e2b"
     },
     {
       "Relative": "Locales\\ar.txt",
-      "Sha256": "9b0adc5f8103e0ea860641f94cdbe4823f056c8a3801d1bc71f18529f472f86a"
+      "Sha256": "40e022d0699ce01e9b7fc58c9a2d9601ab1cc3c29ca9792e8dafbbee115d8ee8"
     },
     {
       "Relative": "Locales\\cs-CZ.txt",
-      "Sha256": "9b0adc5f8103e0ea860641f94cdbe4823f056c8a3801d1bc71f18529f472f86a"
+      "Sha256": "40e022d0699ce01e9b7fc58c9a2d9601ab1cc3c29ca9792e8dafbbee115d8ee8"
     },
     {
       "Relative": "Locales\\de-DE.txt",
-      "Sha256": "974d65f1c19f51c3937d91ae45af3c88c5c94e92c68bbd678c6aa8863b6fb5e9"
+      "Sha256": "9b314002495ebf3b3e531dd1a0cf44112161e5f783a2846f22bf9240b69547b7"
     },
     {
       "Relative": "Locales\\el-GR.txt",
-      "Sha256": "9b0adc5f8103e0ea860641f94cdbe4823f056c8a3801d1bc71f18529f472f86a"
+      "Sha256": "40e022d0699ce01e9b7fc58c9a2d9601ab1cc3c29ca9792e8dafbbee115d8ee8"
     },
     {
       "Relative": "Locales\\en-US.txt",
-      "Sha256": "9b0adc5f8103e0ea860641f94cdbe4823f056c8a3801d1bc71f18529f472f86a"
+      "Sha256": "40e022d0699ce01e9b7fc58c9a2d9601ab1cc3c29ca9792e8dafbbee115d8ee8"
     },
     {
       "Relative": "Locales\\es-ES.txt",
-      "Sha256": "9b0adc5f8103e0ea860641f94cdbe4823f056c8a3801d1bc71f18529f472f86a"
+      "Sha256": "40e022d0699ce01e9b7fc58c9a2d9601ab1cc3c29ca9792e8dafbbee115d8ee8"
     },
     {
       "Relative": "Locales\\fr-FR.txt",
-      "Sha256": "9b0adc5f8103e0ea860641f94cdbe4823f056c8a3801d1bc71f18529f472f86a"
+      "Sha256": "40e022d0699ce01e9b7fc58c9a2d9601ab1cc3c29ca9792e8dafbbee115d8ee8"
     },
     {
       "Relative": "Locales\\hu-HU.txt",
-      "Sha256": "9b0adc5f8103e0ea860641f94cdbe4823f056c8a3801d1bc71f18529f472f86a"
+      "Sha256": "40e022d0699ce01e9b7fc58c9a2d9601ab1cc3c29ca9792e8dafbbee115d8ee8"
     },
     {
       "Relative": "Locales\\it-IT.txt",
-      "Sha256": "9b0adc5f8103e0ea860641f94cdbe4823f056c8a3801d1bc71f18529f472f86a"
+      "Sha256": "40e022d0699ce01e9b7fc58c9a2d9601ab1cc3c29ca9792e8dafbbee115d8ee8"
     },
     {
       "Relative": "Locales\\ja-JP.txt",
-      "Sha256": "9b0adc5f8103e0ea860641f94cdbe4823f056c8a3801d1bc71f18529f472f86a"
+      "Sha256": "40e022d0699ce01e9b7fc58c9a2d9601ab1cc3c29ca9792e8dafbbee115d8ee8"
     },
     {
       "Relative": "Locales\\ko-KR.txt",
-      "Sha256": "9b0adc5f8103e0ea860641f94cdbe4823f056c8a3801d1bc71f18529f472f86a"
+      "Sha256": "40e022d0699ce01e9b7fc58c9a2d9601ab1cc3c29ca9792e8dafbbee115d8ee8"
     },
     {
       "Relative": "Locales\\nl-NL.txt",
-      "Sha256": "9b0adc5f8103e0ea860641f94cdbe4823f056c8a3801d1bc71f18529f472f86a"
+      "Sha256": "40e022d0699ce01e9b7fc58c9a2d9601ab1cc3c29ca9792e8dafbbee115d8ee8"
     },
     {
       "Relative": "Locales\\pl-PL.txt",
-      "Sha256": "9b0adc5f8103e0ea860641f94cdbe4823f056c8a3801d1bc71f18529f472f86a"
+      "Sha256": "40e022d0699ce01e9b7fc58c9a2d9601ab1cc3c29ca9792e8dafbbee115d8ee8"
     },
     {
       "Relative": "Locales\\pt-BR.txt",
-      "Sha256": "9b0adc5f8103e0ea860641f94cdbe4823f056c8a3801d1bc71f18529f472f86a"
+      "Sha256": "40e022d0699ce01e9b7fc58c9a2d9601ab1cc3c29ca9792e8dafbbee115d8ee8"
     },
     {
       "Relative": "Locales\\ru-RU.txt",
-      "Sha256": "9b0adc5f8103e0ea860641f94cdbe4823f056c8a3801d1bc71f18529f472f86a"
+      "Sha256": "40e022d0699ce01e9b7fc58c9a2d9601ab1cc3c29ca9792e8dafbbee115d8ee8"
     },
     {
       "Relative": "Locales\\sv-SE.txt",
-      "Sha256": "9b0adc5f8103e0ea860641f94cdbe4823f056c8a3801d1bc71f18529f472f86a"
+      "Sha256": "40e022d0699ce01e9b7fc58c9a2d9601ab1cc3c29ca9792e8dafbbee115d8ee8"
     },
     {
       "Relative": "Locales\\th-TH.txt",
-      "Sha256": "9b0adc5f8103e0ea860641f94cdbe4823f056c8a3801d1bc71f18529f472f86a"
+      "Sha256": "40e022d0699ce01e9b7fc58c9a2d9601ab1cc3c29ca9792e8dafbbee115d8ee8"
     },
     {
       "Relative": "Locales\\tr-TR.txt",
-      "Sha256": "9b0adc5f8103e0ea860641f94cdbe4823f056c8a3801d1bc71f18529f472f86a"
+      "Sha256": "40e022d0699ce01e9b7fc58c9a2d9601ab1cc3c29ca9792e8dafbbee115d8ee8"
     },
     {
       "Relative": "Locales\\uk-UA.txt",
-      "Sha256": "9b0adc5f8103e0ea860641f94cdbe4823f056c8a3801d1bc71f18529f472f86a"
+      "Sha256": "40e022d0699ce01e9b7fc58c9a2d9601ab1cc3c29ca9792e8dafbbee115d8ee8"
     },
     {
       "Relative": "Locales\\zh-CN.txt",
-      "Sha256": "9b0adc5f8103e0ea860641f94cdbe4823f056c8a3801d1bc71f18529f472f86a"
+      "Sha256": "40e022d0699ce01e9b7fc58c9a2d9601ab1cc3c29ca9792e8dafbbee115d8ee8"
     },
     {
       "Relative": "Locales\\zh-HK.txt",
-      "Sha256": "9b0adc5f8103e0ea860641f94cdbe4823f056c8a3801d1bc71f18529f472f86a"
+      "Sha256": "40e022d0699ce01e9b7fc58c9a2d9601ab1cc3c29ca9792e8dafbbee115d8ee8"
     }
   ],
   "DependenciesUnchanged": true,
-  "GameWasClosed": true,
-  "GameTests": "None; existing verified normal package installed without game launch."
+  "SourceHashesVerified": true,
+  "NormalBinaryGate": true,
+  "OfflineChecks": {
+    "Native": 12619,
+    "Policy": 8202,
+    "Protocol": 162,
+    "Total": 20983
+  },
+  "MaximumApplyPacketBytesIncludingId": 1180,
+  "GameTests": "None performed for0.1.6; no game launch or OS input."
 }

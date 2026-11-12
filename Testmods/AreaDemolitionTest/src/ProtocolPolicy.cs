@@ -45,8 +45,8 @@ namespace AreaDemolitionTest
 
     internal static class ProtocolPolicy
     {
-        // Version 5 packs kind/group into one byte and freezes dependency components in the freed byte.
-        internal const int Version = 5, MaximumPeers = 32, TargetBytes = 31;
+        // Version 6 binds ReadyProof and ProofAck to a positive outgoing proof attempt.
+        internal const int Version = 6, MaximumPeers = 32, TargetBytes = 31;
         internal static string NewNonce()
         { var bytes = new byte[16]; using (var random = RandomNumberGenerator.Create()) random.GetBytes(bytes); return Hex(bytes); }
         internal static bool IsNonce(string value) => IsHex(value, 32);
@@ -100,10 +100,22 @@ namespace AreaDemolitionTest
             if(packet==null || packet.Protocol!=Version || packet.Kind>(byte)SimulationPacketKind.ApplyBatch || !IsDigest(packet.Token) || !IsNonce(packet.Nonce) || !IsDigest(packet.Digest))return false;
             try
             {
-                if((SimulationPacketKind)packet.Kind==SimulationPacketKind.ReadyProof) return packet.Operation==0 && packet.Batch==0 && DecodePeers(packet.Payload,true).Length>0;
+                if((SimulationPacketKind)packet.Kind==SimulationPacketKind.ReadyProof) return packet.Operation>0 && packet.Batch==0 && DecodePeers(packet.Payload,true).Length>0;
                 return packet.Operation>0 && packet.Batch>=0 && UnpackTargets(packet.Payload).Length>0;
             }
             catch {return false;}
+        }
+        internal static bool ValidateControlPacket(DemolitionControlPacket packet)
+        {
+            if(packet==null || packet.Protocol!=Version || packet.Kind>(byte)ControlPacketKind.ExecutionAck || !IsNonce(packet.ProbeNonce))return false;
+            if((ControlPacketKind)packet.Kind==ControlPacketKind.Probe || (ControlPacketKind)packet.Kind==ControlPacketKind.Echo)
+            {
+                if(!IsDigest(packet.Fingerprint) || packet.Kind==(byte)ControlPacketKind.Echo && !IsNonce(packet.PeerNonce))return false;
+                try{return DecodePeers(packet.Roster,false).Length>0;}catch{return false;}
+            }
+            if(!IsNonce(packet.PeerNonce) || !IsDigest(packet.Token) || packet.Operation<=0 || packet.Batch<0)return false;
+            return (ControlPacketKind)packet.Kind==ControlPacketKind.ProofAck ? packet.Batch==0 :
+                packet.Origin!=0 && IsDigest(packet.InputDigest) && IsDigest(packet.ResultDigest);
         }
         private static bool ValidGroup(TargetKind kind,TargetGroup group,uint flags,int type)
         {

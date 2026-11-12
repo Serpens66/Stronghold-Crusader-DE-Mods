@@ -26,7 +26,7 @@ namespace AreaDemolitionTest
         {
             this.native = native; wallPolicy = native.WallPolicy;
             Diagnostic = wallPolicy < 0 ? "Native demolition available; unknown wall refund patch: walls disabled." : "Native demolition available.";
-            Fingerprint = NativeBindings.SupportedHash + ":demolition-v5:frozen-components-v1:registered-footprints,buildings,stockpiles,walls-vs-stairs,pitch,dug-moat,decorations10-15:wall-stable-identity-v1:wall=" + wallPolicy;
+            Fingerprint = NativeBindings.SupportedHash + ":demolition-v6:frozen-components-v1:storage-goods-granary-armoury-v1:proof-attempt-v1:dispatch-ticket-v1:registered-footprints,buildings,stockpiles,walls-vs-stairs,pitch,dug-moat,decorations10-15:wall-stable-identity-v1:wall=" + wallPolicy;
         }
 
         internal static bool TryCreate(CrusaderLibraryLoadContext context, ManualLogSource log, out NativeDemolition result)
@@ -1249,7 +1249,7 @@ namespace AreaDemolitionTest
         {
             switch (type)
             {
-                case eStructs.STRUCT_GOODS_YARD:return TargetGroup.Stockpiles;
+                case eStructs.STRUCT_GOODS_YARD:case eStructs.STRUCT_GRANARY:case eStructs.STRUCT_ARMOURY:return TargetGroup.Stockpiles;
                 case eStructs.STRUCT_DOG_CAGE:return TargetGroup.DogCages;
                 case eStructs.STRUCT_KILLING_PIT:return TargetGroup.KillingPits;
                 case eStructs.STRUCT_MAYPOLE:case eStructs.STRUCT_GARDEN:case eStructs.STRUCT_GARDEN_SMALL:case eStructs.STRUCT_GARDEN_MED:case eStructs.STRUCT_GARDEN_LARGE:

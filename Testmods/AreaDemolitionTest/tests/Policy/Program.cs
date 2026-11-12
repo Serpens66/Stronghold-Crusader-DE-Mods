@@ -61,9 +61,60 @@ internal static class Program
         var a=Target(TargetGroup.Buildings,1,2);var b=Target(TargetGroup.Buildings,1,1);
         Check(DemolitionPolicy.Canonicalize(new[]{a,b,a}).Length==2,"identities deduplicated");
         Check(DemolitionPolicy.TargetDigest(DemolitionPolicy.Canonicalize(new[]{a,b}))==DemolitionPolicy.TargetDigest(DemolitionPolicy.Canonicalize(new[]{b,a})),"canonical packet order");
-        ScreenGeometry();ColumnRanges();Settings();PreviewScheduling();RenderGeometry();PointerUi();ShrinkingGestures();ScreenGeometryReference.Verify(Check);BodySelectionChecks.Verify(Check);
+        ScreenGeometry();ColumnRanges();Settings();PreviewScheduling();RenderGeometry();PointerUi();ShrinkingGestures();SinglePreviewRefresh();ScreenGeometryReference.Verify(Check);BodySelectionChecks.Verify(Check);
         Console.WriteLine("PASS "+checks+" policy behavior checks");
     }
+    private static void SinglePreviewRefresh()
+    {
+        var a=Target(TargetGroup.Buildings,1,1);var b=Target(TargetGroup.Buildings,1,2);var c=Target(TargetGroup.Buildings,1,3);
+        var dependent=Target(TargetGroup.Decorations,10,4);dependent.Kind=TargetKind.Decoration;
+        var ordered=new[]{a,b,c};
+        ScreenHitHull Hull(float x) => new ScreenHitHull(new ScreenPoint(x-1,-1),new ScreenPoint(x+1,-1),new ScreenPoint(x+1,1),new ScreenPoint(x-1,1),0);
+        ScreenHitGeometry Geometry() => new ScreenHitGeometry(ordered,new[]{new[]{Hull(-20)},new[]{Hull(20)},new[]{Hull(60)}});
+        var geometry=Geometry();
+        var first=new PreviewRootResult {Root=a,Closure=new[]{a}};
+        var second=new PreviewRootResult {Root=b,Closure=new[]{b,dependent}};
+        var third=new PreviewRootResult {Root=c,Closure=new[]{c}};
+        var single=new PreviewRootSelection();var repeated=new PreviewRootSelection();
+        void Progress(ScreenHitGeometry shape,int processed,params PreviewRootResult[] approved)
+        {
+            single.UpdateProgress(shape,ordered,processed,approved);
+            repeated.UpdateProgress(shape,ordered,processed,approved);
+        }
+        void Compare(ScreenRect area,params DemolitionTarget[] expected)
+        {
+            // The old advisory path refreshed here and then again in its presentation caller.
+            // Compare the actual production selection with only that caller refresh retained.
+            repeated.Refresh(area);var prior=repeated.Targets;repeated.Refresh(area);
+            single.Refresh(area);
+            Check(ReferenceEquals(prior,repeated.Targets),"redundant same-area refresh does not publish another immutable snapshot");
+            Check(single.Targets.Length==expected.Length && repeated.Targets.Length==expected.Length,"one refresh preserves the expected complete closure count");
+            for(int i=0;i<expected.Length;i++)
+                Check(ReferenceEquals(single.Targets[i],expected[i]) && ReferenceEquals(repeated.Targets[i],expected[i]),"one refresh preserves exact immutable target records and canonical order");
+        }
+        var all=new ScreenRect(-25,-2,65,2);var right=new ScreenRect(0,-2,25,2);var crossed=new ScreenRect(-25,-2,0,2);
+        Progress(geometry,2,first,second);
+        Compare(right,b,dependent); // Initial approval and a linked effect.
+        Compare(all,a,b,dependent); // Growth does not invent the still-pending third root.
+        Compare(right,b,dependent); // Shrink removes the first root again.
+        Compare(crossed,a); // Crossing the drag start changes the selected side.
+        Progress(geometry,3,first,second,third);
+        Compare(crossed,a); // A late quote must not revive an out-of-area target.
+        Compare(all,a,b,c,dependent);
+        var next=Geometry();
+        Progress(next,1); // Fresh rejection revokes the old first root, retaining unchecked roots.
+        Compare(all,b,c,dependent);
+        var freshB=b.Copy();freshB.Flags=17;
+        var freshDependent=dependent.Copy();freshDependent.Flags=23;
+        var refreshed=new PreviewRootResult {Root=freshB,Closure=new[]{freshB,freshDependent}};
+        Progress(next,2,refreshed);
+        Compare(all,freshB,c,freshDependent); // Same membership still replaces changed receipt metadata.
+        Compare(crossed);
+        Progress(next,3,refreshed,third);
+        Compare(crossed);Compare(right,freshB,freshDependent);
+        single.Clear();repeated.Clear();Compare(all);
+    }
+
     private static void ScreenGeometry()
     {
         var a=new ScreenPoint(0,1);var b=new ScreenPoint(1,0);var c=new ScreenPoint(0,-1);var d=new ScreenPoint(-1,0);

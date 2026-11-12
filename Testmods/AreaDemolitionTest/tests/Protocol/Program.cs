@@ -56,6 +56,8 @@ internal static class Program
         Check(!ProtocolPolicy.ValidateSimulationPacket(decoded),"Peers with the combined wall/fortification group must not execute this split-group contract.");
         decoded.Protocol=4;
         Check(!ProtocolPolicy.ValidateSimulationPacket(decoded),"Packets without frozen dependency metadata cannot execute on this receiver.");
+        decoded.Protocol=5;
+        Check(!ProtocolPolicy.ValidateSimulationPacket(decoded),"Readiness proofs without explicit attempt identities cannot execute on this receiver.");
         decoded.Protocol=ProtocolPolicy.Version;
         decoded.Kind=byte.MaxValue;
         Check(!ProtocolPolicy.ValidateSimulationPacket(decoded),"Unknown simulation message kind accepted.");
@@ -122,7 +124,7 @@ internal static class Program
         Check(!ProtocolPolicy.HasFailedAcknowledgement(new[] {new DemolitionControlPacket {ResultDigest=result}}),"Successful acknowledgement incorrectly failed.");
         ledger.Complete("failure",1,0,input,result,true);
         Check(!ledger.CanApply("failure",1,0,input,out duplicate) && duplicate.Failed,"Duplicate failure lost its stop flag.");
-        Components();PackedCategories();
+        Components();PackedCategories();ReadinessPolicies();DispatchPolicies();ExecutionAcknowledgements();
         Console.WriteLine("PASS: "+checks+" protocol checks.");
     }
     private static DemolitionTarget Target(int id) => new DemolitionTarget {Kind=TargetKind.Building,Group=TargetGroup.Buildings,Owner=1,Type=(int)eStructs.STRUCT_HOVEL,Slot=id,GlobalId=(uint)id,TileId=id,X=id,Y=1,OccupiedTiles=new[]{id}};
@@ -193,5 +195,114 @@ internal static class Program
         invalid.Dependency=1;Reject(()=>ProtocolPolicy.PackTargets(new[]{invalid}),"Dependency beyond target count accepted by sender.");
         var invalidWire=ProtocolPolicy.PackTargets(new[]{examples[0]});invalidWire[1]=1;
         Reject(()=>ProtocolPolicy.UnpackTargets(invalidWire),"Dependency beyond target count accepted by receiver.");
+    }
+    private static void ReadinessPolicies()
+    {
+        string a=ProtocolPolicy.NewNonce(),b=ProtocolPolicy.NewNonce(),c=ProtocolPolicy.NewNonce();
+        var abc=new[]{new ProtocolPeer {SteamId=11,PlayerId=1,Nonce=a},new ProtocolPeer {SteamId=22,PlayerId=2,Nonce=b},new ProtocolPeer {SteamId=33,PlayerId=0,Nonce=c}};
+        var ab=abc.Take(2).ToArray();string fingerprint=DemolitionPolicy.Digest("readiness-adapter");
+        string abcToken=ProtocolPolicy.WorldToken(fingerprint,abc),abToken=ProtocolPolicy.WorldToken(fingerprint,ab);
+        DemolitionControlPacket Ack(ulong sender,long attempt,string token,int command=42,int tick=123) => new DemolitionControlPacket {
+            Kind=(byte)ControlPacketKind.ProofAck,Operation=attempt,Token=token,ProbeNonce=a,PeerNonce=sender==11?a:sender==22?b:c,Command=command,Tick=tick};
+        var proofs=new NativeProofLedger();proofs.Prove(abcToken,a);
+        var ready=new ReadinessAckLedger();ready.Begin(11,a,abcToken,1,abc);
+        Check(ready.TryAccept(22,Ack(22,1,abcToken)) && ready.Evaluate()==ReadinessAckState.Pending,"Remote readiness alone cannot bypass the local native proof or spectator acknowledgement.");
+        var mutableAck=Ack(11,1,abcToken);Check(ready.TryAccept(11,mutableAck),"Local native reply uses the same validated ACK boundary.");
+        mutableAck.Command=999;mutableAck.Tick=999;
+        Check(ready.TryAccept(33,Ack(33,1,abcToken)) && ready.Evaluate()==ReadinessAckState.Ready,"All simulator endpoints must agree, and accepted receipts must be immutable.");
+        ready.Clear();
+        Check(!ready.TryAccept(22,Ack(22,1,abcToken)) && !ready.TryAccept(11,Ack(11,1,abcToken)),"Roster invalidation rejects both queued remote ACKs and delayed native local replies.");
+        Check(proofs.HasProof(abcToken,a),"Outgoing readiness invalidation must not retire an already proved native world.");
+        ready.Begin(11,a,abToken,2,ab);
+        Check(!ready.TryAccept(22,Ack(22,1,abcToken)),"An old roster ACK cannot poison the new candidate.");
+        Check(ready.TryAccept(11,Ack(11,2,abToken)) && ready.TryAccept(22,Ack(22,2,abToken)) && ready.Evaluate()==ReadinessAckState.Ready,"The replacement two-peer proof can become ready independently of retired receipts.");
+        // ABC -> AB -> ABC deliberately reuses exactly the first world token.
+        ready.Begin(11,a,abcToken,3,abc.Reverse().ToArray());
+        Check(!ready.TryAccept(22,Ack(22,1,abcToken)) && !ready.TryAccept(11,Ack(11,1,abcToken)),"Token reuse still rejects old-attempt remote ACKs and local replies.");
+        var wrongNonce=Ack(22,3,abcToken);wrongNonce.PeerNonce=ProtocolPolicy.NewNonce();
+        Check(!ready.TryAccept(22,wrongNonce) && !ready.TryAccept(44,Ack(33,3,abcToken)),"The current attempt also requires the frozen endpoint identity and nonce.");
+        var otherOrigin=Ack(22,3,abcToken);otherOrigin.ProbeNonce=b;
+        Check(!ready.TryAccept(22,otherOrigin),"A different origin's proof ACK cannot enter this outgoing candidate.");
+        Check(ready.TryAccept(22,Ack(22,3,abcToken)) && ready.TryAccept(11,Ack(11,3,abcToken)) && ready.Evaluate()==ReadinessAckState.Pending,"A spectator's current ACK remains mandatory after token reuse.");
+        Check(ready.TryAccept(33,Ack(33,3,abcToken)) && ready.Evaluate()==ReadinessAckState.Ready,"Reordered peers and out-of-order ACKs preserve current-attempt readiness.");
+        ready.Begin(11,a,abcToken,4,abc);
+        ready.TryAccept(11,Ack(11,4,abcToken));ready.TryAccept(22,Ack(22,4,abcToken,43));ready.TryAccept(33,Ack(33,4,abcToken));
+        Check(ready.Evaluate()==ReadinessAckState.Mismatch,"Different command IDs for the same attempt must not grant readiness.");
+        ready.Begin(11,a,abcToken,5,abc);
+        ready.TryAccept(11,Ack(11,5,abcToken));ready.TryAccept(22,Ack(22,5,abcToken,42,124));ready.TryAccept(33,Ack(33,5,abcToken));
+        Check(ready.Evaluate()==ReadinessAckState.Mismatch,"Different native ticks for the same attempt must not grant readiness.");
+        ready.Begin(11,a,abToken,6,ab);ab[1].Nonce=ProtocolPolicy.NewNonce();
+        Check(ready.TryAccept(11,Ack(11,6,abToken)) && ready.TryAccept(22,Ack(22,6,abToken)) && ready.Evaluate()==ReadinessAckState.Ready,"Candidate endpoint nonces are copied rather than retaining mutable roster objects.");
+        ab[1].Nonce=b;
+        Reject(()=>ready.Begin(11,a,abToken,0,ab),"Nonpositive outgoing proof attempt accepted.");
+        Check(!ready.TryAccept(11,Ack(11,6,abToken)),"Invalid Begin cannot leave the previous candidate active.");
+        var proof=new DemolitionSimulationPacket {Kind=(byte)SimulationPacketKind.ReadyProof,Token=abToken,Nonce=a,Operation=7,Digest=fingerprint,Payload=ProtocolPolicy.EncodePeers(ab,true)};
+        Check(ProtocolPolicy.ValidateSimulationPacket(MessagePackSerializer.Deserialize<DemolitionSimulationPacket>(MessagePackSerializer.Serialize(proof))),"Positive proof attempts survive the unchanged simulation formatter.");
+        proof.Operation=0;Check(!ProtocolPolicy.ValidateSimulationPacket(proof),"Legacy zero-attempt readiness proof accepted.");
+        proof.Operation=-1;Check(!ProtocolPolicy.ValidateSimulationPacket(proof),"Negative readiness proof attempt accepted.");
+        proof.Operation=7;proof.Batch=1;Check(!ProtocolPolicy.ValidateSimulationPacket(proof),"A readiness proof cannot masquerade as a gameplay batch.");
+        var ack=Ack(11,7,abToken);
+        Check(ProtocolPolicy.ValidateControlPacket(MessagePackSerializer.Deserialize<DemolitionControlPacket>(MessagePackSerializer.Serialize(ack))),"Positive proof attempts survive the unchanged control formatter.");
+        ack.Operation=0;Check(!ProtocolPolicy.ValidateControlPacket(ack),"Zero proof ACK attempt accepted.");
+        ack.Operation=-1;Check(!ProtocolPolicy.ValidateControlPacket(ack),"Negative proof ACK attempt accepted.");
+        ack.Operation=7;ack.Batch=1;Check(!ProtocolPolicy.ValidateControlPacket(ack),"Proof ACK batch field must remain zero.");
+        var execution=new DemolitionControlPacket {Kind=(byte)ControlPacketKind.ExecutionAck,ProbeNonce=a,PeerNonce=b,Token=abToken,Origin=11,Operation=999,Batch=2,InputDigest=fingerprint,ResultDigest=fingerprint};
+        Check(ProtocolPolicy.ValidateControlPacket(execution),"Gameplay operation IDs remain independent from readiness attempt IDs.");
+        ready.Begin(11,a,abToken,8,ab);Check(!ready.TryAccept(22,execution),"A gameplay ACK cannot enter the readiness ledger.");
+    }
+    private static void DispatchPolicies()
+    {
+        int sends=0;
+        var queued=new GameplayDispatchTicket(10,1,0);
+        Check(queued.CancelQueued() && queued.Phase==GameplayDispatchPhase.Cancelled,"Escape before Pump cancels queued gameplay.");
+        if(queued.TryBeginSend(10,1,0,queued,false,false))sends++;
+        Check(sends==0,"A cancelled queued batch must never reach the transport boundary.");
+        var entered=new GameplayDispatchTicket(10,2,0);
+        if(entered.TryBeginSend(10,2,0,entered,false,false))sends++;
+        Check(sends==1 && entered.Phase==GameplayDispatchPhase.Submitting && !entered.CancelQueued(),"Cancellation after transport entry must retain uncertain execution and its receipts.");
+        entered.CompleteSend(true);
+        Check(entered.Phase==GameplayDispatchPhase.Submitted && !entered.TryBeginSend(10,2,0,entered,false,false),"A submitted batch cannot be sent twice.");
+        var uncertain=new GameplayDispatchTicket(10,3,0);
+        Check(uncertain.TryBeginSend(10,3,0,uncertain,false,false),"Current queued gameplay can cross the transport boundary once.");
+        uncertain.CompleteSend(false);
+        Check(uncertain.Phase==GameplayDispatchPhase.Submitting && !uncertain.CancelQueued() && !uncertain.TryBeginSend(10,3,0,uncertain,false,false),"A failed/uncertain Send cannot be cancelled as unsent or automatically replayed.");
+        var afterFailure=new GameplayDispatchTicket(10,4,0);
+        if(afterFailure.TryBeginSend(10,4,0,afterFailure,false,true))sends++;
+        Check(sends==1 && afterFailure.Phase==GameplayDispatchPhase.Cancelled,"An earlier send failure blocks a later queued gameplay transport call.");
+        Check(!afterFailure.TryBeginSend(10,4,0,afterFailure,false,false),"Clearing a failure flag cannot resurrect discarded queued work.");
+        var cancelledBeforeEntry=new GameplayDispatchTicket(10,5,0);
+        Check(!cancelledBeforeEntry.TryBeginSend(10,5,0,cancelledBeforeEntry,true,false),"The actual pre-Send boundary rechecks cancellation even before explicit queue removal.");
+        var staleGeneration=new GameplayDispatchTicket(10,6,0);
+        Check(!staleGeneration.TryBeginSend(11,6,0,staleGeneration,false,false),"A stale world-generation item cannot start gameplay.");
+        var staleOperation=new GameplayDispatchTicket(11,6,0);
+        Check(!staleOperation.TryBeginSend(11,7,0,staleOperation,false,false),"A stale operation item cannot start gameplay.");
+        var staleBatch=new GameplayDispatchTicket(11,7,0);
+        Check(!staleBatch.TryBeginSend(11,7,1,staleBatch,false,false),"An earlier batch cannot borrow a later batch's dispatch permission.");
+        var oldTicket=new GameplayDispatchTicket(11,8,0);var currentTicket=new GameplayDispatchTicket(11,8,0);
+        Check(!oldTicket.TryBeginSend(11,8,0,currentTicket,false,false) && currentTicket.Phase==GameplayDispatchPhase.Queued,"An old queue item cannot mutate the current ticket even if its numeric fields match.");
+        Check(currentTicket.TryBeginSend(11,8,0,currentTicket,false,false),"Discarding old queue entries does not block the new operation.");
+    }
+    private static void ExecutionAcknowledgements()
+    {
+        string own=ProtocolPolicy.NewNonce(),other=ProtocolPolicy.NewNonce(),token=DemolitionPolicy.Digest("current-token"),oldToken=DemolitionPolicy.Digest("retired-token");
+        string input=DemolitionPolicy.Digest("current-input"),result=DemolitionPolicy.Digest("current-result");
+        var vector=new[]{new ProtocolPeer {SteamId=11,PlayerId=1,Nonce=own},new ProtocolPeer {SteamId=22,PlayerId=2,Nonce=other}};
+        var inflight=new DemolitionSimulationPacket {Kind=(byte)SimulationPacketKind.ApplyBatch,Token=token,Nonce=own,Operation=3,Batch=1,Digest=input};
+        DemolitionControlPacket Ack(ulong sender) => new DemolitionControlPacket {Kind=(byte)ControlPacketKind.ExecutionAck,Origin=11,ProbeNonce=own,PeerNonce=sender==11?own:other,Token=token,Operation=3,Batch=1,InputDigest=input,ResultDigest=result};
+        Check(ExecutionAckPolicy.Matches(11,11,own,inflight,vector,Ack(11)),"A current native local receipt passes the shared execution ACK policy.");
+        Check(ExecutionAckPolicy.Matches(22,11,own,inflight,vector,Ack(22)),"A current authenticated remote endpoint passes the same execution ACK policy.");
+        var retained=new NativeProofLedger();retained.Prove(oldToken,own);retained.Complete("old-token-origin",1,0,input,result);
+        Check(!retained.CanApply("old-token-origin",1,0,input,out var cached) && cached!=null,"A retained old-token native receipt can legitimately produce a cached reply.");
+        var old=Ack(11);old.Token=oldToken;old.Operation=1;old.Batch=0;old.ResultDigest=cached.Result;
+        Check(!ExecutionAckPolicy.Matches(11,11,own,inflight,vector,old),"A retained old-token local reply cannot overwrite the new inflight receipt.");
+        var wrong=Ack(11);wrong.Operation=2;Check(!ExecutionAckPolicy.Matches(11,11,own,inflight,vector,wrong),"Old gameplay operation receipt rejected locally.");
+        wrong=Ack(11);wrong.Batch=0;Check(!ExecutionAckPolicy.Matches(11,11,own,inflight,vector,wrong),"Wrong gameplay batch receipt rejected locally.");
+        wrong=Ack(11);wrong.InputDigest=DemolitionPolicy.Digest("other-input");Check(!ExecutionAckPolicy.Matches(11,11,own,inflight,vector,wrong),"Wrong input digest receipt rejected locally.");
+        wrong=Ack(22);wrong.PeerNonce=ProtocolPolicy.NewNonce();Check(!ExecutionAckPolicy.Matches(22,11,own,inflight,vector,wrong),"A changed peer world cannot supply the current receipt.");
+        wrong=Ack(11);wrong.ProbeNonce=other;Check(!ExecutionAckPolicy.Matches(11,11,own,inflight,vector,wrong),"A reply for another origin world is rejected locally.");
+        wrong=Ack(11);wrong.Origin=22;Check(!ExecutionAckPolicy.Matches(11,11,own,inflight,vector,wrong),"A reply for another issuer is rejected locally.");
+        Check(!ExecutionAckPolicy.Matches(33,11,own,inflight,vector,Ack(22)),"An endpoint absent from the proof vector cannot supply an execution receipt.");
+        Check(!ExecutionAckPolicy.Matches(11,11,own,null,vector,Ack(11)),"A local cached reply cannot create unsolicited inflight state.");
+        Check(retained.HasProof(oldToken,own),"Filtering a stale outgoing receipt preserves retired native proof authorization.");
     }
 }

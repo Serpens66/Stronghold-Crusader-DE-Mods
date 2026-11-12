@@ -611,7 +611,25 @@ internal static unsafe class Program
             Check(NativeDemolition.Classify(type)==TargetGroup.PositiveFear,"Positive fear size/variant missing: "+type);
         Check(NativeDemolition.Classify(eStructs.STRUCT_RACK_FLOGGING)==TargetGroup.NegativeFear,"Flogging rack omitted by AIV subset must remain negative fear");
         Check(NativeDemolition.Classify(eStructs.STRUCT_HEAD_ON_SPIKE)==TargetGroup.NegativeFear,"Head on spike remains negative fear");
-        Check(NativeDemolition.Classify(eStructs.STRUCT_GOODS_YARD)==TargetGroup.Stockpiles,"Stockpiles have their independent filter group");
+        var storageTypes=new[]{eStructs.STRUCT_GOODS_YARD,eStructs.STRUCT_GRANARY,eStructs.STRUCT_ARMOURY};
+        var buildingsFilter=new SelectionSpec((ushort)(1<<(int)TargetGroup.Buildings),false,null);
+        var storageFilter=new SelectionSpec((ushort)(1<<(int)TargetGroup.Stockpiles),false,null);
+        foreach(var type in storageTypes)
+        {
+            var target=new DemolitionTarget {Kind=TargetKind.Building,Type=(int)type,Group=NativeDemolition.Classify(type)};
+            Check(target.Group==TargetGroup.Stockpiles,"Storage building has its existing independent filter group: "+type);
+            Check(storageFilter.Matches(target) && !buildingsFilter.Matches(target),"Storage is selected only by its own enabled group: "+type);
+            var shift=new SelectionSpec(0,true,target);
+            foreach(var otherType in storageTypes)
+            {
+                var other=new DemolitionTarget {Kind=TargetKind.Building,Type=(int)otherType,Group=NativeDemolition.Classify(otherType)};
+                Check(shift.Matches(other)==(type==otherType),"Shift keeps each storage building's exact type despite disabled filters: "+type+"/"+otherType);
+            }
+        }
+        var house=new DemolitionTarget {Kind=TargetKind.Building,Type=(int)eStructs.STRUCT_HOVEL,Group=NativeDemolition.Classify(eStructs.STRUCT_HOVEL)};
+        Check(buildingsFilter.Matches(house) && !storageFilter.Matches(house),"Ordinary buildings remain outside the storage filter");
+        foreach(var type in new[]{ProjectileType.Flag1,ProjectileType.Flag2,ProjectileType.Flag3,ProjectileType.CrusaderFlag,ProjectileType.Brazier,ProjectileType.Heads})
+            Check(NativeDemolition.IsDecorationType(type),"Renaming the decoration filter preserves its native static type: "+type);
         Check(NativeDemolition.Classify(eStructs.STRUCT_STAIRS)==TargetGroup.Fortifications,"Stair structures stay fortifications");
         foreach(var wall in new[]{eStructs.STRUCT_WOOD_WALL,eStructs.STRUCT_STONE_WALL,eStructs.STRUCT_CRENAL_WALL})
             Check(NativeDemolition.Classify(wall)==TargetGroup.Walls,"Wall structures have the independent wall filter");

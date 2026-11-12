@@ -9,6 +9,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="../../src/Model.cs" Link="Model.cs" />
     <Compile Include="../../src/ProtocolPolicy.cs" Link="ProtocolPolicy.cs" />
+    <Compile Include="../../src/NetworkPolicies.cs" Link="NetworkPolicies.cs" />
     <Compile Include="../../src/Packets.cs" Link="Packets.cs" />
     <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath></Reference>
     <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath></Reference>

@@ -25,7 +25,7 @@ namespace AreaDemolitionTest
         private readonly Dictionary<string, ProtocolPeer[]> vectors = new Dictionary<string, ProtocolPeer[]>(StringComparer.Ordinal);
         private readonly Dictionary<ulong, string> echoes = new Dictionary<ulong, string>();
         private readonly Dictionary<ulong, string> seenProbes = new Dictionary<ulong, string>();
-        private readonly Dictionary<ulong, DemolitionControlPacket> proofAcks = new Dictionary<ulong, DemolitionControlPacket>();
+        private readonly ReadinessAckLedger proofAcks = new ReadinessAckLedger();
         private readonly Dictionary<ulong, DemolitionControlPacket> executionAcks = new Dictionary<ulong, DemolitionControlPacket>();
         private readonly Queue<Outbound> outbox = new Queue<Outbound>();
         private readonly Queue<string> diagnostics = new Queue<string>();
@@ -33,10 +33,11 @@ namespace AreaDemolitionTest
         private ProtocolPeer[] peers = Array.Empty<ProtocolPeer>();
         private string rosterDigest = "", nonce = "", fingerprint = "", token = "", status = "";
         private ulong localSteam;
-        private long generation, worldGeneration, operation;
+        private long generation, worldGeneration, operation, proofAttempt;
         private int actor, batchIndex;
         private DemolitionTarget[][] batches;
         private DemolitionSimulationPacket inflight;
+        private GameplayDispatchTicket inflightDispatch;
         private bool proofSubmitted, ready, failed, cancelled;
 
         private sealed class Outbound
@@ -45,6 +46,7 @@ namespace AreaDemolitionTest
             internal ulong Destination;
             internal DemolitionControlPacket Control;
             internal DemolitionSimulationPacket Simulation;
+            internal GameplayDispatchTicket Dispatch;
         }
         internal DemolitionNetwork(ModApiClient api, NativeDemolition native, ManualLogSource log)
         {
@@ -73,9 +75,10 @@ namespace AreaDemolitionTest
         internal void End() { lock(sync) { Reset(); mission=null; status=""; } Notify(); }
         private void Reset()
         {
+            inflightDispatch?.CancelQueued();
             generation++; worldGeneration++; nonce=""; token=""; rosterDigest=""; localSteam=0; peers=Array.Empty<ProtocolPeer>();
             ledger.Clear(); vectors.Clear(); echoes.Clear(); seenProbes.Clear(); proofAcks.Clear(); executionAcks.Clear(); outbox.Clear();
-            proofSubmitted=ready=failed=cancelled=false; batches=null; inflight=null; batchIndex=0; actor=0;
+            proofSubmitted=ready=failed=cancelled=false; batches=null; inflight=null; inflightDispatch=null; batchIndex=0; actor=0;proofAttempt=0;
         }
         private bool IsCurrent() => mission!=null && readiness.Current?.SessionId==mission.SessionId;
 
@@ -94,17 +97,30 @@ namespace AreaDemolitionTest
             while(true)
             {
                 Outbound item;
-                lock(sync) { if(outbox.Count==0)break; item=outbox.Dequeue(); if(item.Generation!=generation || !IsCurrent())continue; }
-                NetworkSendResult result=item.Simulation!=null ? simulation.Send(item.Simulation) : control.SendToSteamPeer(item.Control,item.Destination);
-                if(!result.Submitted)
+                lock(sync)
                 {
-                    lock(sync) if(item.Generation==generation)
-                    {
-                        // An uncertain submission is never replayed automatically.
-                        failed=true; status="Network submission stopped: "+result.Reason; batches=null; inflight=null;
-                    }
-                    Report(result.Reason);
+                    if(outbox.Count==0)break;
+                    item=outbox.Dequeue();
+                    if(item.Generation!=generation || !IsCurrent())
+                    {item.Dispatch?.CancelQueued();if(item.Dispatch!=null)ForgetQueuedBatch(item.Dispatch);continue;}
+                    if(item.Dispatch!=null && !item.Dispatch.TryBeginSend(generation,operation,batchIndex,inflightDispatch,cancelled,failed))
+                    {ForgetQueuedBatch(item.Dispatch);continue;}
+                    // Mark Submitting under this lock before crossing the external transport.
                 }
+                NetworkSendResult result=item.Simulation!=null ? simulation.Send(item.Simulation) : control.SendToSteamPeer(item.Control,item.Destination);
+                lock(sync)
+                {
+                    item.Dispatch?.CompleteSend(result.Submitted);
+                    if(!result.Submitted && item.Generation==generation)
+                    {
+                        // Entered work may already have reached native code. Keep its receipts,
+                        // but cancel every still-queued Apply without dropping control ACKs.
+                        failed=true; status="Network submission stopped: "+result.Reason;
+                        if(inflight==null)batches=null;
+                        else CancelQueuedBatch();
+                    }
+                }
+                if(!result.Submitted)Report(result.Reason);
             }
             string[] messages;
             lock(sync) { messages=diagnostics.ToArray(); diagnostics.Clear(); }
@@ -129,7 +145,12 @@ namespace AreaDemolitionTest
                 {
                     // Missing roster evidence can stop submissions, but cannot revoke a
                     // native proof for a Chore that may already be executing elsewhere.
-                    ready=false; batches=null; inflight=null; outbox.Clear(); status="Waiting for a complete simulator roster.";
+                    // A roster invalidation abandons outgoing tracking rather than waiting
+                    // forever for a departed peer. Old native world proofs remain valid.
+                    inflightDispatch?.CancelQueued();
+                    ready=proofSubmitted=false;token="";rosterDigest="";proofAcks.Clear();
+                    batches=null;inflight=null;inflightDispatch=null;outbox.Clear();executionAcks.Clear();
+                    status="Waiting for a complete simulator roster.";
                 }
                 return;
             }
@@ -144,7 +165,8 @@ namespace AreaDemolitionTest
                 // at world replacement; otherwise asynchronous leave timing could drop a
                 // submitted batch on one simulator while the others still execute it.
                 generation++; echoes.Clear(); seenProbes.Clear(); proofAcks.Clear(); executionAcks.Clear(); outbox.Clear();
-                ready=proofSubmitted=failed=cancelled=false; batches=null; inflight=null;
+                inflightDispatch?.CancelQueued();
+                ready=proofSubmitted=failed=cancelled=false;token=""; batches=null; inflight=null;inflightDispatch=null;
                 peers=roster; localSteam=self[0].steamID; rosterDigest=digest;
                 fingerprint=DemolitionPolicy.Digest(native.Fingerprint); if(nonce.Length==0)nonce=ProtocolPolicy.NewNonce(); echoes[localSteam]=nonce;
                 status=changed ? "Roster changed; unsent demolition cancelled. Waiting for peers." : "Waiting for all simulators.";
@@ -155,7 +177,8 @@ namespace AreaDemolitionTest
         private DemolitionControlPacket Probe() => new DemolitionControlPacket {Kind=(byte)ControlPacketKind.Probe,ProbeNonce=nonce,Fingerprint=fingerprint,Roster=ProtocolPolicy.EncodePeers(peers,false)};
         private void QueueControl(ulong destination, DemolitionControlPacket packet)
         { if(outbox.Count<256)outbox.Enqueue(new Outbound {Generation=generation,Destination=destination,Control=packet}); else { failed=true; status="Protocol queue limit reached."; } }
-        private void QueueSimulation(DemolitionSimulationPacket packet) => outbox.Enqueue(new Outbound {Generation=generation,Simulation=packet});
+        private void QueueSimulation(DemolitionSimulationPacket packet,GameplayDispatchTicket dispatch=null) =>
+            outbox.Enqueue(new Outbound {Generation=generation,Simulation=packet,Dispatch=dispatch});
 
         private void ReceiveControl(NetworkMessage<DemolitionControlPacket> message)
         {
@@ -181,8 +204,7 @@ namespace AreaDemolitionTest
                         PrepareProof();
                         break;
                     case ControlPacketKind.ProofAck:
-                        if(packet.ProbeNonce!=nonce || packet.Token!=token || !vectors.TryGetValue(token,out var vector) || !vector.Any(p=>p.SteamId==message.SenderSteamId && p.Nonce==packet.PeerNonce))return;
-                        proofAcks[message.SenderSteamId]=packet;
+                        if(!proofSubmitted || !proofAcks.TryAccept(message.SenderSteamId,packet))return;
                         EvaluateProofAcks();
                         break;
                     case ControlPacketKind.ExecutionAck:
@@ -197,24 +219,28 @@ namespace AreaDemolitionTest
             // Keep our current-world nonce and native receipt ledger. Replacing our nonce
             // in response to a remote nonce would cause endless mutual epoch changes.
             ready=proofSubmitted=failed=cancelled=false; proofAcks.Clear(); executionAcks.Clear(); outbox.Clear();
-            token=""; batches=null; inflight=null; status=reason;
+            inflightDispatch?.CancelQueued();
+            token=""; batches=null; inflight=null;inflightDispatch=null; status=reason;
         }
         private void PrepareProof()
         {
-            if(proofSubmitted || failed || peers.Any(p=>!echoes.ContainsKey(p.SteamId)))return;
+            if(proofSubmitted || failed || peers.Length==0 || peers.Any(p=>!echoes.ContainsKey(p.SteamId)))return;
             var own=peers.First(p=>p.SteamId==localSteam);
             // Observers acknowledge over the control channel; they never impersonate a player.
             if(own.PlayerId<1 || PlayerPerspectiveAPI.GetControlledPlayerId()!=own.PlayerId)return;
             var vector=peers.Select(p=>new ProtocolPeer {SteamId=p.SteamId,PlayerId=p.PlayerId,Nonce=echoes[p.SteamId]}).ToArray();
             token=ProtocolPolicy.WorldToken(fingerprint,vector);
+            proofAttempt=checked(proofAttempt+1);
+            proofAcks.Begin(localSteam,nonce,token,proofAttempt,vector);
             vectors[token]=vector; proofSubmitted=true;
-            QueueSimulation(new DemolitionSimulationPacket {Kind=(byte)SimulationPacketKind.ReadyProof,Token=token,Nonce=nonce,Payload=ProtocolPolicy.EncodePeers(vector,true),Digest=fingerprint});
+            QueueSimulation(new DemolitionSimulationPacket {Kind=(byte)SimulationPacketKind.ReadyProof,Token=token,Nonce=nonce,Operation=proofAttempt,Payload=ProtocolPolicy.EncodePeers(vector,true),Digest=fingerprint});
         }
         private void EvaluateProofAcks()
         {
-            if(ready || !proofSubmitted || failed || peers.Length==0 || peers.Any(p=>!proofAcks.ContainsKey(p.SteamId)))return;
-            var first=proofAcks[localSteam];
-            if(proofAcks.Values.Any(p=>p.Command!=first.Command || p.Tick!=first.Tick))
+            if(ready || !proofSubmitted || failed)return;
+            var outcome=proofAcks.Evaluate();
+            if(outcome==ReadinessAckState.Pending)return;
+            if(outcome==ReadinessAckState.Mismatch)
             { failed=true; status="Peers disagree about the native readiness proof."; return; }
             ready=true; status=batches==null ? "Ready." : "Waiting for synchronized demolition.";
             TryQueueBatch();
@@ -245,7 +271,9 @@ namespace AreaDemolitionTest
                 var targets=batches[batchIndex];
                 var packet=new DemolitionSimulationPacket {Kind=(byte)SimulationPacketKind.ApplyBatch,Token=token,Nonce=nonce,Operation=operation,Batch=batchIndex,Payload=ProtocolPolicy.PackTargets(targets),Digest=ProtocolPolicy.TargetHash(targets)};
                 if(GameNetworkAPI.Serialize(packet).Length+2>1200) throw new InvalidOperationException("A linked demolition batch exceeds the native transport limit.");
-                executionAcks.Clear(); inflight=packet; QueueSimulation(packet);
+                executionAcks.Clear(); inflight=packet;
+                inflightDispatch=new GameplayDispatchTicket(generation,operation,batchIndex);
+                QueueSimulation(packet,inflightDispatch);
             }
             catch(Exception error) {failed=true;batches=null;status="Demolition batch preparation stopped: "+error.Message;}
         }
@@ -269,7 +297,7 @@ namespace AreaDemolitionTest
                     if(origin==null)return;
                     if(vectors.Count>=ProtocolPolicy.MaximumPeers && !vectors.ContainsKey(packet.Token))return;
                     vectors[packet.Token]=vector; ledger.Prove(packet.Token,nonce);
-                    Reply(origin.SteamId,new DemolitionControlPacket {Kind=(byte)ControlPacketKind.ProofAck,ProbeNonce=origin.Nonce,PeerNonce=nonce,Token=packet.Token,Command=message.CommandId,Tick=message.ScheduledTick});
+                    Reply(origin.SteamId,new DemolitionControlPacket {Kind=(byte)ControlPacketKind.ProofAck,ProbeNonce=origin.Nonce,PeerNonce=nonce,Token=packet.Token,Operation=packet.Operation,Command=message.CommandId,Tick=message.ScheduledTick});
                     Notify(); return;
                 }
                 if(!ledger.HasProof(packet.Token,nonce) || !vectors.TryGetValue(packet.Token,out var proved))return;
@@ -306,28 +334,30 @@ namespace AreaDemolitionTest
             // Only copied protocol data crosses threads; Pump performs every send on Unity.
             if(destination==localSteam)
             {
-                if((ControlPacketKind)packet.Kind==ControlPacketKind.ProofAck) {proofAcks[localSteam]=packet;}
-                else executionAcks[localSteam]=packet;
+                if((ControlPacketKind)packet.Kind==ControlPacketKind.ProofAck) {if(proofSubmitted)proofAcks.TryAccept(localSteam,packet);}
+                else AcceptExecutionAck(localSteam,packet);
                 // Do not queue subsequent Chores from simulation; evaluation happens in Pump.
             }
             else QueueControl(destination,packet);
         }
         private void AcceptExecutionAck(ulong sender,DemolitionControlPacket packet)
         {
-            if(inflight==null || packet.Origin!=localSteam || packet.ProbeNonce!=nonce || packet.Token!=inflight.Token || packet.Operation!=inflight.Operation || packet.Batch!=inflight.Batch || packet.InputDigest!=inflight.Digest || !vectors.TryGetValue(packet.Token,out var vector) || !vector.Any(p=>p.SteamId==sender && p.Nonce==packet.PeerNonce))return;
+            if(!ProtocolPolicy.IsDigest(packet?.Token) || !vectors.TryGetValue(packet.Token,out var vector) ||
+                !ExecutionAckPolicy.Matches(sender,localSteam,nonce,inflight,vector,packet))return;
             executionAcks[sender]=packet;
         }
         private void EvaluateExecutionAcks()
         {
             if(inflight==null)return;
             if(ProtocolPolicy.HasFailedAcknowledgement(executionAcks.Values))
-            { failed=true;status="Demolition stopped after a native failure; earlier changes remain applied.";batches=null;inflight=null;return; }
+            { failed=true;status="Demolition stopped after a native failure; earlier changes remain applied.";batches=null;inflight=null;inflightDispatch=null;return; }
             if(peers.Any(p=>!executionAcks.ContainsKey(p.SteamId)))return;
             string result=executionAcks[localSteam].ResultDigest;
             if(executionAcks.Values.Any(p=>p.ResultDigest!=result))
-            { failed=true; status="Demolition stopped: peers reported different results."; batches=null; inflight=null;return; }
-            inflight=null;
-            if(cancelled || ++batchIndex>=batches.Length) { batches=null; status=cancelled ? "Unsent demolition cancelled." : "Demolition completed.";return; }
+            { failed=true; status="Demolition stopped: peers reported different results."; batches=null; inflight=null;inflightDispatch=null;return; }
+            inflight=null;inflightDispatch=null;
+            if(cancelled || failed || ++batchIndex>=batches.Length)
+            { batches=null;if(!failed)status=cancelled ? "Unsent demolition cancelled." : "Demolition completed.";return; }
             TryQueueBatch();
         }
         internal void CancelPending()
@@ -335,10 +365,23 @@ namespace AreaDemolitionTest
             lock(sync)
             {
                 cancelled=true;
-                if(inflight==null) {batches=null;status="Unsent demolition cancelled.";}
+                if(inflight==null || CancelQueuedBatch()) {batches=null;status="Unsent demolition cancelled.";}
                 else status="Submitted batch remains pending; unsent remainder cancelled.";
             }
             Notify();
+        }
+        private bool CancelQueuedBatch()
+        {
+            var ticket=inflightDispatch;
+            if(ticket==null || !ticket.CancelQueued())return false;
+            ForgetQueuedBatch(ticket);return true;
+        }
+        private void ForgetQueuedBatch(GameplayDispatchTicket ticket)
+        {
+            if(!ReferenceEquals(ticket,inflightDispatch) || ticket.Phase!=GameplayDispatchPhase.Cancelled)return;
+            var keep=outbox.Where(item=>!ReferenceEquals(item.Dispatch,ticket)).ToArray();
+            outbox.Clear();foreach(var item in keep)outbox.Enqueue(item);
+            batches=null;inflight=null;inflightDispatch=null;executionAcks.Clear();
         }
         private void OfflineTick(int ignored)
         {
@@ -365,16 +408,7 @@ namespace AreaDemolitionTest
             Notify();
         }
         private static bool ValidateSimulation(DemolitionSimulationPacket packet) => ProtocolPolicy.ValidateSimulationPacket(packet);
-        private static bool ValidateControl(DemolitionControlPacket packet)
-        {
-            if(packet==null || packet.Protocol!=ProtocolPolicy.Version || packet.Kind>(byte)ControlPacketKind.ExecutionAck || !ProtocolPolicy.IsNonce(packet.ProbeNonce))return false;
-            if((ControlPacketKind)packet.Kind==ControlPacketKind.Probe || (ControlPacketKind)packet.Kind==ControlPacketKind.Echo)
-            {
-                if(!ProtocolPolicy.IsDigest(packet.Fingerprint) || packet.Kind==(byte)ControlPacketKind.Echo && !ProtocolPolicy.IsNonce(packet.PeerNonce))return false;
-                try{return ProtocolPolicy.DecodePeers(packet.Roster,false).Length>0;}catch{return false;}
-            }
-            return ProtocolPolicy.IsNonce(packet.PeerNonce) && ProtocolPolicy.IsDigest(packet.Token) && ((ControlPacketKind)packet.Kind==ControlPacketKind.ProofAck || packet.Origin!=0 && packet.Operation>0 && packet.Batch>=0 && ProtocolPolicy.IsDigest(packet.InputDigest) && ProtocolPolicy.IsDigest(packet.ResultDigest));
-        }
+        private static bool ValidateControl(DemolitionControlPacket packet) => ProtocolPolicy.ValidateControlPacket(packet);
         private void Report(string text) {lock(sync) {if(diagnostics.Count<32)diagnostics.Enqueue(text);} Notify();}
         private void Notify() => Changed?.Invoke();
     }

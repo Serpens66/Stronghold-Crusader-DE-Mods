@@ -1,4 +1,4 @@
-Area Demolition Test 0.1.5
+Area Demolition Test 0.1.6
 
 Right-click the unchanged Vanilla Bulldozer button for local area filters.
 Ordinary click: Vanilla single removal on release. Drag: enabled categories.
@@ -10,7 +10,10 @@ Crossing HUD keeps the last valid screen endpoint; releasing there completes
 an area gesture and consumes the HUD release. A single release over HUD cancels.
 Cancel with right click, Escape, focus loss or tool change.
 Only dug moats are included. Planned digging marks remain unchanged.
-Stockpiles have their own local filter, initially disabled, beside Buildings.
+Storage buildings group stockpiles, granaries and armouries together, beside
+Buildings. The existing default-off Stockpiles configuration key retains its value.
+Shift still selects only the exact starting building type. Decorations and braziers
+is a caption change only; all four flags, braziers and heads retain their filter.
 Only the requested Bulldozer settings hint is added as a tooltip. There is no
 selection/status text box, including counts, waiting, success or error messages.
 Walls have a separate default-off filter; stairs, towers, gates and drawbridges
@@ -22,7 +25,7 @@ remain until fresh checks replace/revoke them. Network packets still cap32target
 The first final capture after release starts immediately; subsequent retries are
 paced. The frame follows input independently. Completed final targets still need
 a successful rendered receipt before authenticated mutation is submitted.
-Final closures retain their frozen dependencies through batching and protocol5.
+Final closures retain their frozen dependencies through batching and protocol6.
 Ordinary missing, changed or forbidden targets protect only their linked component;
 unrelated permitted targets in the same packet and subsequent packets continue.
 Surviving child/decorations never become independent when their parent disappears.
@@ -36,6 +39,14 @@ ignored occlusion can select extra edge/hidden targets; all are previewed first.
 Shift captures a fresh Vanilla point resolution and the native own target priority.
 
 Acceptance requires actual game evidence. Passing a build is not gameplay acceptance.
+0.1.6 follow-up: offline coverage for storage membership/Shift, unchanged decoration
+types, current proof-attempt ACKs (including local replies and recurring rosters),
+and queued-versus-entered dispatch cancellation. Old native proofs stay valid for
+already submitted batches; stale queued gameplay never begins transport after
+cancellation. Production policies, packet size and ordinary geometry regressions
+are checked offline. No further game or multiplayer tests are authorized here.
+One redundant advisory Refresh is removed; this alone claims no in-game FPS gain
+or complete elimination of visible preview lag. The final render receipt remains.
 2026-11-12 selective-execution follow-up: user superseded whole-packet conservative
 rejection and explicitly requested no further ingame tests for this change.
 Offline regressions must cover one blocked wall beside31 permitted walls, stale
@@ -63,8 +74,9 @@ decoration types. Check flags/braziers/heads sharing tiles and foreign decoratio
 on building/wall removal. Every indirect consequence must be marked beforehand.
 For later user testing: rapidly drag across100+ buildings, including compounds;
 check smooth frame movement, final capture cancellation and delayed lock retries.
-Keep Stockpiles off and confirm the Buildings filter leaves them intact; enable
-only Stockpiles and confirm the inverse. Ordinary clicks/Shift keep their rules.
+Keep Storage buildings off and confirm Buildings leaves stockpiles, granaries and
+armouries intact; enable only Storage buildings and confirm the inverse. Ordinary
+clicks and exact-type Shift selection keep their rules.
 MP: actual host/client, differing local filters, >32 targets, readiness mismatch,
 duplicates, stale load traffic, lost/mismatched acknowledgements, pause, spectator
 and defeated peer participation. No automatic retry or rollback claim.

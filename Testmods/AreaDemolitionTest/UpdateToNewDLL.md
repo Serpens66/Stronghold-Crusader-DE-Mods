@@ -72,13 +72,39 @@ A missing parent therefore still protects its surviving decoration or reserved p
 A newly linked/unapproved child cannot be authorized by another component's presence.
 No final whole-selection identity gate cancels otherwise admissible targets.
 
-Internal protocol5 keeps the31-byte target record and unchanged packet envelope:
+Internal protocol6 keeps the31-byte target record and unchanged packet envelope:
 byte0 packs Kind in bits0..2 and Group in bits3..6 (bit7 reserved/zero); byte1 is
 the packet-local dependency component ID, bounded by target count. Remaining fields
 are unchanged. Dependency membership is copied, serialized and included in target
-digests. The capability fingerprint includes frozen-components-v1; protocol4 peers
-are rejected. Canonical packet order,32-target cap and full wire limit remain.
+digests. The capability fingerprint includes frozen-components-v1 and the current
+storage/readiness/dispatch contracts; older protocol peers are rejected. Canonical
+packet order,32-target cap and full wire limit remain.
 No new APIShared interfaces or native commands are introduced.
+
+Readiness proof attempts use a separate positive monotonic counter in the existing
+ReadyProof.Operation field; ProofAck.Operation echoes it. Reset this counter only
+with the mission's fresh local nonce, not on a roster or remote-nonce change.
+The shared outgoing-ACK ledger binds each receipt to the current token, attempt,
+local nonce and complete peer vector, including local replies and observer peers.
+The same world token can recur after a roster returns to an earlier composition;
+its old attempt must not satisfy or poison a new proof. Clearing the outgoing
+candidate never clears authenticated native world proofs/receipts for work already
+submitted. ApplyBatch.Operation remains the separate demolition job number.
+Local and remote execution acknowledgements also use the same current-batch
+predicate: token, origin, job/batch, input digest and the sender's peer nonce must
+match. A retained receipt from an older world token cannot overwrite the current
+batch's local result merely because it was delivered through the local reply path.
+
+Each outgoing gameplay batch owns a dispatch ticket: queued, submitting, submitted,
+or cancelled. A queued ticket is revalidated under the network monitor immediately
+before entering the external send call. Escape, focus loss and prior submission
+failure discard queued gameplay only; existing control acknowledgements remain
+available. Once transport entry begins, cancellation retains the batch's receipt
+tracking. An uncertain or failed send is never automatically retried. Stale queue
+items cannot reuse a newer batch's ticket. No extra wire fields are needed.
+Roster/peer-world invalidation still abandons outgoing tracking and the unsent
+remainder rather than waiting forever for a departed simulator. This does not
+revoke native proof/receipt entries for a Chore that has already entered transport.
 
 Each operation repeats live root identity/owner/canonical-root, native permission
 and full child/decor closure checks immediately before mutation. Previously
@@ -225,9 +251,18 @@ MakeBatches/Apply; it is never added silently to frozen approval. Final mutation
 still uses fully fresh native closure discovery, frozen-component preflight and
 all per-helper reentrancy guards. Actor/session/spec scheduling belongs to Runtime.
 
-The selector has Stockpiles at bit9 (existing groups retain their numeric values).
-GOODS_YARD maps only to that group. The geometry candidate mask explicitly includes
-bit9; Shift logical-type matching continues independently of the menu filter.
+The selector retains Stockpiles at bit9 and its existing configuration/locale keys.
+Its visible caption is Storage buildings (German: Lagergebäude); GOODS_YARD,
+GRANARY and ARMOURY map only to that group. The geometry candidate mask explicitly
+includes bit9; Shift still matches the exact building type independently of the
+menu filter. Stockpile connector and sector canonicalization remain restricted to
+GOODS_YARD; granaries and armouries use ordinary building registration/removal.
+
+The decoration caption is Decorations and braziers (German: Dekorationen und
+Feuerschalen). This is a text change only: the four flags, Brazier and Heads remain
+the same six static projectile types. The normal advisory quote no longer repeats
+the caller's root-selection Refresh in the same frame. Final partial quotes and
+the exact camera-render receipt are unchanged; no minimum display delay is added.
 
 Offline tests exercise production PreviewIndex and CollectRegisteredTiles on
 120/600/1200compound-heavy records, compare canonical roots/compound closure
