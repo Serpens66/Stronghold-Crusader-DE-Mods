@@ -26,7 +26,7 @@ namespace AreaDemolitionTest
         {
             this.native = native; wallPolicy = native.WallPolicy;
             Diagnostic = wallPolicy < 0 ? "Native demolition available; unknown wall refund patch: walls disabled." : "Native demolition available.";
-            Fingerprint = NativeBindings.SupportedHash + ":demolition-v4:registered-footprints,buildings,stockpiles,walls-vs-stairs,pitch,dug-moat,decorations10-15:wall-stable-identity-v1:wall=" + wallPolicy;
+            Fingerprint = NativeBindings.SupportedHash + ":demolition-v5:frozen-components-v1:registered-footprints,buildings,stockpiles,walls-vs-stairs,pitch,dug-moat,decorations10-15:wall-stable-identity-v1:wall=" + wallPolicy;
         }
 
         internal static bool TryCreate(CrusaderLibraryLoadContext context, ManualLogSource log, out NativeDemolition result)
@@ -646,100 +646,115 @@ namespace AreaDemolitionTest
         private static bool WantsGround(SelectionSpec selection,TargetKind kind,TargetGroup group) =>
             selection.SameType ? selection.Start!=null && selection.Start.Kind==kind : (selection.Filters&(1<<(int)group))!=0;
 
-        // Keep every indirect native consequence in the same authenticated packet as its root.
-        // A changed closure is rejected rather than silently adding an unpreviewed object.
-        internal DemolitionTarget[][] MakeBatches(DemolitionTarget[] approved)
-        {
-            if (approved == null || !available) return Array.Empty<DemolitionTarget[]>();
-            lock (EngineGate)
-            {
-                var all = DemolitionPolicy.Canonicalize(approved).ToDictionary(t => t.Identity, StringComparer.Ordinal);
-                // Frozen dependency membership is not on the wire. Never orphan surviving children.
-                if (!IdentitiesCurrent(all.Values,Resolve)) return Array.Empty<DemolitionTarget[]>();
-                var parent = all.Keys.ToDictionary(id => id, id => id, StringComparer.Ordinal);
-                string Find(string id)
-                {
-                    string root = id;
-                    while (parent[root] != root) root = parent[root];
-                    while (parent[id] != id) { string next = parent[id]; parent[id] = root; id = next; }
-                    return root;
-                }
-                foreach (var item in all)
-                {
-                    if (!ClosureOwn(item.Value, item.Value.Owner, out var closure)) return Array.Empty<DemolitionTarget[]>();
-                    foreach (var child in closure)
-                    {
-                        if (!all.TryGetValue(child.Identity,out var expected) || !SameState(expected,child)) return Array.Empty<DemolitionTarget[]>();
-                        string left = Find(item.Key), right = Find(child.Identity);
-                        if (left != right) parent[right] = left;
-                    }
-                }
-                var batches = new List<DemolitionTarget[]>();
-                var current = new List<DemolitionTarget>();
-                foreach (var group in all.Keys.GroupBy(Find).OrderBy(g => g.Key, StringComparer.Ordinal))
-                {
-                    var component = group.ToArray();
-                    if (component.Length > DemolitionPolicy.MaximumBatchTargets) continue;
-                    if (current.Count + component.Length > DemolitionPolicy.MaximumBatchTargets)
-                    { batches.Add(DemolitionPolicy.Canonicalize(current)); current.Clear(); }
-                    current.AddRange(component.Select(id => all[id]));
-                }
-                if (current.Count > 0) batches.Add(DemolitionPolicy.Canonicalize(current));
-                return batches.ToArray();
-            }
-        }
-
-        private sealed class Operation
+        // Membership comes from the rendered frozen quote, never from a changed live world.
+        internal DemolitionTarget[][] MakeBatches(DemolitionTarget[] approved) =>
+            available ? DemolitionPolicy.MakeBatches(approved) : Array.Empty<DemolitionTarget[]>();
+        internal sealed class Operation
         {
             internal DemolitionTarget Root;
             internal List<DemolitionTarget> Closure;
         }
 
+        // Whole components remain atomic for permission/identity checks. Unrelated components
+        // in the same transport packet continue after an ordinary rejection.
+        internal static ApplyResult[] ApplyComponents(DemolitionTarget[] targets,Func<DemolitionTarget[],ApplyResult[]> apply)
+        {
+            if (targets==null) return Array.Empty<ApplyResult>();
+            var results=targets.Select(target=>new ApplyResult {Identity=target?.Identity??"",Status=ApplyStatus.Forbidden,Detail="Remaining component skipped after a native failure."}).ToArray();
+            foreach (var group in targets.Select((target,index)=>new {Target=target,Index=index}).GroupBy(item=>item.Target.Dependency))
+            {
+                var members=group.ToArray();
+                var received=apply(members.Select(item=>item.Target).ToArray());
+                for (int i=0;i<members.Length;i++) results[members[i].Index]=received[i];
+                if (received.Any(result=>result.Status==ApplyStatus.Failed)) break;
+            }
+            return results;
+        }
+
+        // The actual commit preflight, with immediate native views supplied by the adapter.
+        // Frozen membership is independent of whether a parent still exists at receipt time.
+        internal static bool PlanComponent(int actor,DemolitionTarget[] targets,Func<DemolitionTarget,DemolitionTarget> resolve,
+            Func<DemolitionTarget,DemolitionTarget> canonical,Func<DemolitionTarget,List<DemolitionTarget>> ownClosure,
+            Func<DemolitionTarget,bool> permitted,out Dictionary<string,DemolitionTarget> approved,out List<Operation> plans,out ApplyResult[] results)
+        {
+            approved=new Dictionary<string,DemolitionTarget>(StringComparer.Ordinal);plans=new List<Operation>();
+            results=targets.Select(target=>new ApplyResult {Identity=target?.Identity??"",Status=ApplyStatus.Forbidden,Detail="Frozen dependent component rejected."}).ToArray();
+            if (actor<1 || actor>8 || targets.Length==0) return false;
+            var current=new Dictionary<string,DemolitionTarget>(StringComparer.Ordinal);bool blocked=false;
+            for (int i=0;i<targets.Length;i++)
+            {
+                var expected=targets[i];
+                if (expected==null) {blocked=true;continue;}
+                if (approved.ContainsKey(expected.Identity)) {blocked=true;results[i].Detail="Duplicate frozen identity.";continue;}
+                approved.Add(expected.Identity,expected);
+                var live=resolve(expected);
+                if (live==null) {results[i].Status=ApplyStatus.Missing;results[i].Detail="Frozen target no longer exists.";blocked=true;continue;}
+                if (!SameState(expected,live)) {results[i].Status=ApplyStatus.Changed;results[i].Detail="Frozen target identity or state changed.";blocked=true;continue;}
+                if (expected.Owner!=actor) {results[i].Detail="Frozen target is not owned by the issuer.";blocked=true;continue;}
+                current.Add(expected.Identity,live);
+            }
+            if (blocked) return false;
+            var covered=new HashSet<string>(StringComparer.Ordinal);
+            foreach (var root in current.Values)
+            {
+                var principal=canonical(root);
+                if (principal==null) return false;
+                if (principal.Identity!=root.Identity)
+                {
+                    if (!current.TryGetValue(principal.Identity,out var expectedPrincipal) || !SameState(expectedPrincipal,principal)) return false;
+                    continue; // Linked/reserved children never receive independent refunds.
+                }
+                var closure=ownClosure(root);
+                if (closure==null || !closure.Any(child=>child.Identity==root.Identity) ||
+                    !ClosureMatchesApproval(closure,approved,current) || !permitted(root)) return false;
+                foreach (var child in closure) covered.Add(child.Identity);
+                plans.Add(new Operation {Root=root,Closure=closure});
+            }
+            return current.Keys.All(covered.Contains);
+        }
+
+        internal sealed class ExpectedRejectionException : Exception
+        {
+            internal ExpectedRejectionException(ApplyStatus status,string message):base(message) {Status=status;}
+            internal readonly ApplyStatus Status;
+        }
+        internal sealed class MutationAttempt
+        {
+            internal bool Started {get;private set;}
+            // Set before entering a live helper: even a throwing Post observer may follow a refund.
+            internal void BeforeMutation() {Started=true;}
+        }
+        internal static bool TryMutationAttempt(Action<MutationAttempt> execute,out ExpectedRejectionException rejection)
+        {
+            var attempt=new MutationAttempt();rejection=null;
+            try {execute(attempt);return true;}
+            catch (ExpectedRejectionException error) when (!attempt.Started) {rejection=error;return false;}
+        }
+
         internal ApplyResult[] Apply(int actor,DemolitionTarget[] targets)
+        {
+            lock (EngineGate) return ApplyComponents(targets,component=>ApplyComponent(actor,component));
+        }
+
+        private ApplyResult[] ApplyComponent(int actor,DemolitionTarget[] targets)
         {
             if (targets==null) return Array.Empty<ApplyResult>();
             lock (EngineGate)
             {
                 var results=targets.Select(t=>new ApplyResult { Identity=t?.Identity??"",Status=ApplyStatus.Forbidden }).ToArray();
-                if (!available || actor<1 || actor>8) return results;
-                var approved=new Dictionary<string,DemolitionTarget>(StringComparer.Ordinal);
-                var current=new Dictionary<string,DemolitionTarget>(StringComparer.Ordinal);
-                var blocked=new HashSet<string>(StringComparer.Ordinal);
-                var plans=new List<Operation>();
+                if (!available)
+                {
+                    if (results.Length>0) {results[0].Status=ApplyStatus.Failed;results[0].Detail="Native demolition is disabled after a previous failure.";}
+                    return results;
+                }
+                if (actor<1 || actor>8) return results;
                 var executed=new HashSet<string>(StringComparer.Ordinal);
                 var attempted=new HashSet<string>(StringComparer.Ordinal);
                 try
                 {
-                    // Freeze and validate every batch identity before the first mutation.
-                    for (int i=0;i<targets.Length;i++)
-                    {
-                        var expected=targets[i];
-                        if (expected==null) continue;
-                        approved[expected.Identity]=expected;
-                        var live=Resolve(expected);
-                        if (live==null) { results[i].Status=ApplyStatus.Missing;blocked.Add(expected.Identity);continue; }
-                        if (!SameState(expected,live)) { results[i].Status=ApplyStatus.Changed;blocked.Add(expected.Identity);continue; }
-                        if (expected.Owner!=actor) { blocked.Add(expected.Identity);continue; }
-                        current[expected.Identity]=live;
-                    }
-                    // User-selected conservative policy: any stale identity rejects the entire packet.
-                    if (blocked.Count>0) return results;
-                    var decorations=DecorationsByTile();
-                    foreach (var item in current)
-                    {
-                        var root=item.Value;
-                        var canonical=CanonicalBuilding(root);
-                        bool ownClosure=ClosureOwn(root,actor,out var closure,decorations);
-                        if (canonical==null || !ownClosure)
-                        { return results; }
-                        if (canonical.Identity!=root.Identity)
-                        {
-                            if (!current.ContainsKey(canonical.Identity)) return results;
-                            continue; // Reserved/compound children never receive independent refunds.
-                        }
-                        if (!Permitted(root,actor) || !ClosureMatchesApproval(closure,approved,current)) return results;
-                        plans.Add(new Operation { Root=root,Closure=closure });
-                    }
+                    if (!PlanComponent(actor,targets,Resolve,CanonicalBuilding,
+                        root=>ClosureOwn(root,actor,out var closure)?closure:null,root=>Permitted(root,actor),
+                        out var approved,out var plans,out results)) return results;
                     bool aborted=false;
                     foreach (var plan in plans.OrderBy(p=>p.Root.Kind).ThenBy(p=>p.Root.Slot))
                     {
@@ -749,7 +764,12 @@ namespace AreaDemolitionTest
                         if (!RefreshOperation(plan,actor,approved,executed,out var freshRoot,out var freshClosure))
                         { aborted=true;break; }
                         attempted.Add(plan.Root.Identity);
-                        Execute(freshRoot,actor,freshClosure,approved,executed);
+                        if (!TryMutationAttempt(attempt=>Execute(freshRoot,actor,freshClosure,approved,executed,attempt),out var rejection))
+                        {
+                            attempted.Remove(plan.Root.Identity);
+                            var result=results.First(r=>r.Identity==plan.Root.Identity);result.Status=rejection.Status;result.Detail=rejection.Message;
+                            aborted=true;break;
+                        }
                         foreach (var child in freshClosure) if (Applied(child)) executed.Add(child.Identity);
                         if (!executed.Contains(freshRoot.Identity)) { aborted=true;break; }
                     }
@@ -759,6 +779,9 @@ namespace AreaDemolitionTest
                 {
                     Diagnostic="Native demolition failed; remaining work disabled.";available=false;
                     CompleteResults(targets,results,executed,attempted,true);
+                    // Exceptions during preflight must stop later components/batches too.
+                    var failed=results.FirstOrDefault(result=>result.Status!=ApplyStatus.Applied);
+                    if (failed!=null) failed.Status=ApplyStatus.Failed;
                     for (int i=0;i<results.Length;i++) if (results[i].Status==ApplyStatus.Failed) results[i].Detail=error.GetType().Name;
                     string diagnostic=DateTime.Now.ToString("HH:mm:ss.fff")+" DEMOLITION_APPLY_FAILED "+error;
                     try { DiagnosticProduced?.Invoke(diagnostic); } catch { /* Diagnostics cannot interrupt/repeat a mutation. */ }
@@ -802,14 +825,11 @@ namespace AreaDemolitionTest
                 else if (attempted.Contains(identity) || !aborted)
                 { results[i].Status=ApplyStatus.Failed;results[i].Detail="Native operation did not reach the expected mark/removal state."; }
                 else
-                { results[i].Status=ApplyStatus.Forbidden;results[i].Detail="Remaining packet skipped after live state changed."; }
+                {
+                    if (results[i].Status!=ApplyStatus.Missing && results[i].Status!=ApplyStatus.Changed) results[i].Status=ApplyStatus.Forbidden;
+                    if (string.IsNullOrEmpty(results[i].Detail)) results[i].Detail="Remaining dependent component skipped after live state changed.";
+                }
             }
-        }
-
-        internal bool AreIdentitiesCurrent(DemolitionTarget[] targets)
-        {
-            if (!available || targets==null) return false;
-            lock (EngineGate) return IdentitiesCurrent(targets,Resolve);
         }
 
         internal static bool IdentitiesCurrent(IEnumerable<DemolitionTarget> approved,Func<DemolitionTarget,DemolitionTarget> resolve)
@@ -1112,21 +1132,21 @@ namespace AreaDemolitionTest
             return native.Allows(target,actor);
         }
 
-        private void Execute(DemolitionTarget target,int actor,List<DemolitionTarget> closure,IDictionary<string,DemolitionTarget> approved,HashSet<string> executed)
+        private void Execute(DemolitionTarget target,int actor,List<DemolitionTarget> closure,IDictionary<string,DemolitionTarget> approved,HashSet<string> executed,MutationAttempt attempt)
         {
-            if (target.Kind==TargetKind.Building) { ExecuteBuilding(target,actor,closure,approved,executed);return; }
+            if (target.Kind==TargetKind.Building) { ExecuteBuilding(target,actor,closure,approved,executed,attempt);return; }
             if (!GuardMutation(target,actor,closure,approved,executed)) return;
             switch (target.Kind)
             {
-                case TargetKind.Pitch:native.RemovePitch(native.Tiles,target.Slot);break;
+                case TargetKind.Pitch:attempt.BeforeMutation();native.RemovePitch(native.Tiles,target.Slot);break;
                 case TargetKind.Wall:
                     var tiles=GameTileManagerAPI.Instance;
                     int percentage=WallRefundPercent(wallPolicy,tiles.GetHeightLayer()[target.TileId]-tiles.GetDefaultHeightLayer()[target.TileId]);
-                    native.Refund(native.Buildings,-1,actor,percentage);
+                    attempt.BeforeMutation();native.Refund(native.Buildings,-1,actor,percentage);
                     if (!GuardMutation(target,actor,closure,approved,executed)) return;
-                    native.Wall(native.Tiles,actor,target.TileId);break;
-                case TargetKind.DugMoat:native.RemoveDugMoat(target.TaskIndex,target.TileId);break;
-                case TargetKind.Decoration:native.RemoveDecorationTile(target.TileId);break;
+                    attempt.BeforeMutation();native.Wall(native.Tiles,actor,target.TileId);break;
+                case TargetKind.DugMoat:attempt.BeforeMutation();native.RemoveDugMoat(target.TaskIndex,target.TileId);break;
+                case TargetKind.Decoration:attempt.BeforeMutation();native.RemoveDecorationTile(target.TileId);break;
             }
             RecordApplied(closure,executed);
         }
@@ -1135,7 +1155,7 @@ namespace AreaDemolitionTest
         {
             if (executed.Contains(target.Identity)) return false;
             if (!RefreshOperation(new Operation { Root=target,Closure=closure },actor,approved,executed,out _,out _))
-                throw new InvalidOperationException("Frozen demolition target/closure changed inside a live native callback; remaining work stopped.");
+                throw new ExpectedRejectionException(ApplyStatus.Forbidden,"Frozen demolition target/closure changed before the next native mutation.");
             return true;
         }
 
@@ -1145,14 +1165,15 @@ namespace AreaDemolitionTest
         private GameBuilding* ExpectedBuilding(DemolitionTarget expected,int actor)
         {
             var current=Resolve(expected);
-            if (current==null || current.Owner!=actor || !SameState(expected,current) || !GameBuildingManagerAPI.Instance.TryGetBuildingById(expected.Slot,out var b))
-                throw new InvalidOperationException("Frozen building changed inside a live native callback.");
+            if (current==null) throw new ExpectedRejectionException(ApplyStatus.Missing,"Frozen building no longer exists.");
+            if (current.Owner!=actor || !SameState(expected,current) || !GameBuildingManagerAPI.Instance.TryGetBuildingById(expected.Slot,out var b))
+                throw new ExpectedRejectionException(ApplyStatus.Changed,"Frozen building changed before the next native mutation.");
             return b;
         }
 
         internal static int WallRefundPercent(int policy,int heightDifference) => policy==1 || heightDifference>60 ? 50 : 25;
 
-        private void ExecuteBuilding(DemolitionTarget target,int actor,List<DemolitionTarget> closure,IDictionary<string,DemolitionTarget> approved,HashSet<string> executed)
+        private void ExecuteBuilding(DemolitionTarget target,int actor,List<DemolitionTarget> closure,IDictionary<string,DemolitionTarget> approved,HashSet<string> executed,MutationAttempt attempt)
         {
             int oldContext=*(int*)(native.ModulePointer+NativeBindings.DemolitionContextRva);
             try
@@ -1168,19 +1189,19 @@ namespace AreaDemolitionTest
                         int child=native.Find(native.Buildings,actor,b->r_TilePositionXBegin,b->r_TilePositionYBegin,checked((int)b->r_OccupyTileGridSize),(int)eStructs.STRUCT_DRAWBRIDGE,previous);
                         if (child<=0) break;
                         var expected=closure.FirstOrDefault(t=>t.Kind==TargetKind.Building && t.Slot==child);
-                        if (expected==null) throw new InvalidOperationException("New gate child is not approved.");
+                        if (expected==null) throw new ExpectedRejectionException(ApplyStatus.Changed,"New gate child is not approved.");
                         if (!GuardMutation(target,actor,closure,approved,executed)) return;
                         var bridge=ExpectedBuilding(expected,actor);
                         if (bridge->r_AliveState!=AliveState.MarkedForDeletion)
                         {
                             *(int*)(native.ModulePointer+NativeBindings.DemolitionContextRva)=1;
-                            native.Refund(native.Buildings,child,actor,50);
+                            attempt.BeforeMutation();native.Refund(native.Buildings,child,actor,50);
                         }
                         // Refund Pre/Post subscribers may replace or transfer either object.
                         if (!GuardMutation(target,actor,closure,approved,executed)) return;
                         ExpectedBuilding(expected,actor);
                         *(int*)(native.ModulePointer+NativeBindings.DemolitionContextRva)=1;
-                        native.Delete(native.Buildings,child);
+                        attempt.BeforeMutation();native.Delete(native.Buildings,child);
                         RecordApplied(closure,executed);
                         previous=child;
                     }
@@ -1190,7 +1211,7 @@ namespace AreaDemolitionTest
                 if (ShouldRefund(b))
                 {
                     *(int*)(native.ModulePointer+NativeBindings.DemolitionContextRva)=1;
-                    native.Refund(native.Buildings,target.Slot,actor,50);
+                    attempt.BeforeMutation();native.Refund(native.Buildings,target.Slot,actor,50);
                 }
                 if (!GuardMutation(target,actor,closure,approved,executed)) return;
                 b=ExpectedBuilding(target,actor);
@@ -1198,12 +1219,12 @@ namespace AreaDemolitionTest
                 {
                     bool stone=b->r_BuildingType==eStructs.STRUCT_GATE_MAIN || b->r_BuildingType==eStructs.STRUCT_GATE_INNER ||
                         (b->r_BuildingType>=eStructs.STRUCT_TOWER1 && b->r_BuildingType<=eStructs.STRUCT_TOWER5);
-                    native.Sound(IntPtr.Zero,target.X,target.Y,stone?0x96:0xAA);
+                    attempt.BeforeMutation();native.Sound(IntPtr.Zero,target.X,target.Y,stone?0x96:0xAA);
                 }
                 if (!GuardMutation(target,actor,closure,approved,executed)) return;
                 ExpectedBuilding(target,actor);
                 *(int*)(native.ModulePointer+NativeBindings.DemolitionContextRva)=1;
-                native.Delete(native.Buildings,target.Slot);
+                attempt.BeforeMutation();native.Delete(native.Buildings,target.Slot);
                 RecordApplied(closure,executed);
             }
             finally { *(int*)(native.ModulePointer+NativeBindings.DemolitionContextRva)=oldContext; }

@@ -61,21 +61,31 @@ Gate-main/inner handling uses at most two `STRUCT_DRAWBRIDGE` searches, matching
 Chore 29. All linked consequences must be owned by the actor and present in the
 frozen packet. `MakeBatches` keeps each linked closure in one bounded packet;
 new/unapproved children and closures larger than the packet capacity are rejected.
-User-selected conservative stale-state policy: MakeBatches checks the entire frozen
-selection before partitioning; any missing/changed/foreign identity or unknown
-closure returns no batches. Apply validates the complete <=32-target packet,
-permissions and closures before its first mutation. Any mismatch skips the whole
-packet, including otherwise valid unrelated roots. Frozen dependency associations
-are not encoded separately on the wire, so partial stale-root skipping would risk
-orphaning a still-live decoration. A skipped selection/packet requires a fresh
-selection; receivers never independently retry targets.
+Selective stale-state policy (updated 2026-11-12): final approved preview closures
+are unioned into frozen dependency components before the quote is discarded.
+MakeBatches partitions that frozen graph without reconstructing it from live state.
+Every linked component stays in one packet; unrelated components may share a packet.
+Apply freshly validates identities, ownership, canonical roots, native permission
+and closures against only that component's approvals. An ordinary Missing, Changed
+or Forbidden result skips that component, while all independent components proceed.
+A missing parent therefore still protects its surviving decoration or reserved part.
+A newly linked/unapproved child cannot be authorized by another component's presence.
+No final whole-selection identity gate cancels otherwise admissible targets.
+
+Internal protocol5 keeps the31-byte target record and unchanged packet envelope:
+byte0 packs Kind in bits0..2 and Group in bits3..6 (bit7 reserved/zero); byte1 is
+the packet-local dependency component ID, bounded by target count. Remaining fields
+are unchanged. Dependency membership is copied, serialized and included in target
+digests. The capability fingerprint includes frozen-components-v1; protocol4 peers
+are rejected. Canonical packet order,32-target cap and full wire limit remain.
+No new APIShared interfaces or native commands are introduced.
 
 Each operation repeats live root identity/owner/canonical-root, native permission
 and full child/decor closure checks immediately before mutation. Previously
 completed identities are tracked separately. This is required even under the
 engine monitor: live SE `C4480` refund and `C4290` bulldoze hooks synchronously
 raise Pre/Post events, and a subscriber may change a later plan reentrantly.
-A changed remaining operation aborts the rest without rollback or further refunds;
+A changed remaining operation skips its dependency component before mutation;
 already completed results remain Applied. Metadata is refreshed after the live
 permission chain, and newly affected/unapproved children still reject execution.
 
@@ -212,7 +222,7 @@ Snapshots are advisory copies, not mutation authorization. Every included cached
 identity is checked against live metadata when quoted. A newly linked child or
 decoration absent from an older snapshot can conservatively invalidate final
 MakeBatches/Apply; it is never added silently to frozen approval. Final mutation
-still uses fully fresh native closure discovery, complete packet preflight and
+still uses fully fresh native closure discovery, frozen-component preflight and
 all per-helper reentrancy guards. Actor/session/spec scheduling belongs to Runtime.
 
 The selector has Stockpiles at bit9 (existing groups retain their numeric values).
@@ -498,7 +508,7 @@ tile-based walls expose no independent generation identity in this contract.
    injected exceptions), terrain progress ordering, resolver section boundaries,
    live fear families, refund boundaries, empty/large/reserved/farm/stockpile
    registered geometry, six-type ownership, zero-generation identity and closure
-   conservative selection/packet preflight, missing-parent/surviving-decoration
+   selective component preflight, missing-parent/surviving-decoration
    and new-unapproved-dependent rejection. These tests call no game engine.
 5. Build the integrated mod and perform the separately authorized SP/editor/MP
    acceptance matrix. CLI fixtures do not establish rendering or actual two-peer

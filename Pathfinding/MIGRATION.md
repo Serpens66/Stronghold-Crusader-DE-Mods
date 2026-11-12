@@ -241,3 +241,71 @@ globale Maus-/Tastatureingaben wurden nicht verwendet.
   ausdrücklich Releasevoraussetzungen.
 - Veröffentlichung/Commit erst auf ausdrücklichen Nutzerauftrag.
 - Die parallelen Arbeiten an BFQoL-PlacementAcceptance gehören nicht zu diesem Auftrag.
+
+## Zusätzliche Lastprüfung vom 12.11.2026
+
+Auf Nutzerauftrag folgten weitere Messungen mit `test_stresstest5.sav` und neue
+kontrollierte Bewegungsfälle mit 5000 Einheiten. Die Richtungsüberwachung wurde
+unter Erhalt aller Koordinaten-Aliase, Einzelreads, unmittelbaren Invalidierungen,
+Budgets und Ausnahmezustände vereinfacht. Vier abwechselnde Messläufe unter dem
+echten Mono ergaben Mediane von 42,059/42,259 µs für den bisherigen und
+37,373/33,773 µs für den neuen warmen Aufruf. Das belegt einen lokalen Gewinn,
+keinen FPS- oder Gesamtbefehlsgewinn.
+
+Der Vollbuild des Kandidaten `1190` sowie die finalen Builds `1191` (DEVDIAG,
+`/noinstall`) und `1192` (normal, installiert und `/syncpackage`) bestanden.
+Pathfinding steht jetzt auf **0.1.3**; APIShared bleibt unverändert 0.48.0,
+Pathfindings erforderliche Mindestversion bleibt 0.46.0. Der installierte normale
+Watcher hat dieselbe IL wie der gemessene Kandidat. Alle 29 Paketdateien,
+80 unveränderten übrigen Hauptmod-Dateien sowie 45 APIShared-Plugin-Dateien und
+der passende Bootstrap-Patcher wurden abschließend abgeglichen.
+
+Vier Open-5000- und vier abwechselnde Mauer-5000-Läufe bestanden; das finale Paket
+bestand zusätzlich den Mauerfall allein und mit BFQoL. Alle 5000 Einheiten wurden
+in Auswahl und Gruppe verifiziert, erhielten Wege und bewegten sich über die
+600-Tick-Beobachtung ohne Identitätsverlust. Die Mauer besteht aus 80 nachgelesenen
+Zellen mit einer fünf Zellen breiten Lücke. Eine Ankunft aller Einheiten und ein
+verbesserter gesamter Befehlsdurchsatz werden daraus nicht abgeleitet.
+
+Die Ingame-Automation liegt ausschließlich in `Testmods/PathfindingLoadTest`.
+Ihre optionale Friedenszeit-UI-Voraussetzung wurde entfernt; beide Schlussläufe
+verwendeten den gelesenen nativen Zustand ohne aktive Friedenszeit. Radar- und
+Weltkoordinaten werden getrennt geprüft. Die neue native Wissenszusammenfassung
+ist über `CURRENT.md` als `UNIT_LOAD_PLACEMENT_CONTRACTS.md` registriert.
+
+Nachweise: `.work/a/pf-opt/001/results.md`, `results.json`, `watch-results.json`,
+`wall-results.json`, `final-runs.json` und `final-verification.json`. Der letzte
+Nachweis bestätigt normale Artefakte ohne DEVDIAG, entfernte Testhelfer,
+vorhandenes RandomEvents und beendetes Spiel. Einstellungen, Plugin-Auswahl und
+Migrationsjournal wurden rückgesichert; keine globalen Eingaben, Commits oder
+Veröffentlichungen.
+
+Grenzen: Beim Start frischer Karten im Zusammenbetrieb bleibt eine bereits beim
+bisherigen Code vorhandene Extender-Meldung `TryGetBuildingById(0/3999)` ungeklärt;
+im Standalone-Schlusslauf und den Save-Diagnosen trat sie nicht auf. Ein früherer
+gesunder AI110-Auflösungsfall auf der Moat-Testkarte ist ebenfalls nicht kausal
+zugeordnet. Beides wird nicht als bestätigte Pathfinding-Regression ausgegeben.
+Echter Mehrspielertest und manueller Augentest bleiben offene Releasevoraussetzungen.
+
+## Ergänzung vom 12.11.2026: BFQoL-Startmeldung behoben
+
+Die oben noch ungeklärte Meldung `TryGetBuildingById(0/3999)` ist inzwischen
+über den ursprünglichen Log-Aufrufer eindeutig BFQoLs Behandlung eines
+Abriss-Ereignisses mit Gebäude-ID 0 beim gewöhnlichen Partiestart zugeordnet.
+BFQoL 1.0.222 verwirft nichtpositive IDs vor dem Extender-Lookup; das bisherige
+Ergebnis `false` mit leerem Snapshot und die Verarbeitung positiver IDs bleiben
+erhalten. Native Hooks und Pathfinding wurden dafür nicht geändert.
+
+Der vollständige BFQoL-Arbeitsstand-Build 1194 bestand und ist installiert.
+Der reduzierte neue Skirmish-Start bestand gemeinsam mit Pathfinding 0.1.3;
+die echte Snapshot-Methode wurde zusätzlich für 0, -1, int.MinValue und ein
+gültiges Gebäude geprüft. Keine Error-/Fatal-Zeile und keine Meldung
+`PATHFINDING_OUTDATED_BUGFIXES` im eingefrorenen Testlog. Plugin-Auswahl,
+Einstellungen und Migrationsjournal wurden rückgesichert, Testhelfer entfernt;
+RandomEvents ist wieder vorhanden und das Spiel beendet.
+
+Nachweise: `.work/a/pf-startup/001/fix-result.md`, `fix-test-result.json`,
+`post-fix-verification.json` und der Lauf
+`.work/t/pf-game/036/00c152f4bf6c/LogOutput.log`.
+Der andere historische AI110-Auflösungsfall sowie echter Mehrspielertest und
+manueller Augentest bleiben von dieser gezielten Korrektur unberührt.

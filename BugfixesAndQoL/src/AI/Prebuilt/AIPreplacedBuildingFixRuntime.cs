@@ -2146,6 +2146,8 @@ namespace BugfixesAndQoL
         private bool TryCaptureBuilding(int buildingId, out BuildingSnapshot snapshot)
         {
             snapshot = default;
+            // Startup bulldoze events can carry no building; the Extender expects positive IDs.
+            if (buildingId <= 0) return false;
             if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building)) return false;
             snapshot = Snapshot(buildingId, ref *building);
             return true;

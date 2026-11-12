@@ -46,7 +46,6 @@ namespace AreaDemolitionTest
         private bool quoteIsFinal, finalCaptureRequested, finalStartAttempted;
         private int primaryReleaseFrame=-1,primaryDownObservedFrame=-1;
         private bool missionMarker;
-        private long nextPendingCheck;
         private DemolitionTarget[] pendingCommit;
         private ScreenRect pendingArea;
         private long pendingSession;
@@ -319,12 +318,15 @@ namespace AreaDemolitionTest
                 if(renderer.IsReady)view.SetSelectionFrame(quoteArea);
                 return;
             }
+            // Preserve the approved dependency graph before clearing the quote. A missing
+            // parent later must not turn its surviving decoration into an independent job.
+            snapshot=DemolitionPolicy.FreezeComponents(previewQuote.CompletedRoots);
             ClearPreviewWork();
             targets=snapshot;
             finalCaptureRequested=false;
             if(snapshot.Length==0){renderer.Clear();view.SetSelectionFrame(null);return;}
             // The exact completed immutable quote must still cross one successful camera render.
-            pendingCommit=snapshot;pendingArea=quoteArea;pendingSession=capturedSession;pendingActor=actor;pendingPresented=false;nextPendingCheck=0;
+            pendingCommit=snapshot;pendingArea=quoteArea;pendingSession=capturedSession;pendingActor=actor;pendingPresented=false;
             renderer.SetSelection(pendingArea,pendingCommit);
             if(renderer.IsReady && pendingCommit!=null)view.SetSelectionFrame(pendingArea);
         }
@@ -368,17 +370,8 @@ namespace AreaDemolitionTest
         private void PresentPending()
         {
             if(pendingSession!=mission.SessionId){CancelSelection();return;}
-            if(Stopwatch.GetTimestamp()>=nextPendingCheck)
-            {
-                // The simulation may own this monitor for a long tick. UI work waits for a later frame.
-                if(!Monitor.TryEnter(native.EngineGate))return;
-                try
-                {
-                    nextPendingCheck=Stopwatch.GetTimestamp()+Stopwatch.Frequency/10;
-                    if(!native.AreIdentitiesCurrent(pendingCommit)){CancelSelection();return;}
-                }
-                finally {Monitor.Exit(native.EngineGate);}
-            }
+            // Current identity/permission checks belong to each frozen component in Apply.
+            // One stale target must not cancel unrelated, already presented targets.
             if(pendingPresented)
             {
                 var frozen=pendingCommit;pendingCommit=null;pendingPresented=false;

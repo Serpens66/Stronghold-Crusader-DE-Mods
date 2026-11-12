@@ -3,19 +3,32 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.220",
+  "Version": "1.0.222",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.3",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.47.0"
+      "MinimumVersion": "0.48.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.222",
+      "Changes": [
+        "Avoid a spurious building lookup error when starting a new game."
+      ]
+    },
+    {
+      "Version": "1.0.221",
+      "Changes": [
+        "Movement, formations, Shift queues, gate routing and Assassin pathfinding are provided by the separate Pathfinding mod, included alongside this mod in Serps Mods.",
+        "Require APIShared 0.48.0 or newer for safe managed game patches."
+      ]
+    },
     {
       "Version": "1.0.220",
       "Changes": [
@@ -91,7 +104,9 @@
     },
     {
       "Version": "1.0.210",
-      "Changes": ["Improved manual unit commands: a fully rejected group move no longer changes the group's fast/formation movement mode. The restore previously never applied to real player orders and now also works without the separate MoatMove test mod."]
+      "Changes": [
+        "Improved manual unit commands: a fully rejected group move no longer changes the group's fast/formation movement mode. The restore previously never applied to real player orders and now also works without the separate MoatMove test mod."
+      ]
     },
     {
       "Version": "1.0.209",
@@ -103,7 +118,9 @@
     },
     {
       "Version": "1.0.208",
-      "Changes": ["Use native map ticks for gameplay scheduling and deadlines, preserving initialization, save behavior and logical activation."]
+      "Changes": [
+        "Use native map ticks for gameplay scheduling and deadlines, preserving initialization, save behavior and logical activation."
+      ]
     },
     {
       "Version": "1.0.207",
@@ -166,19 +183,28 @@
     },
     {
       "Version": "1.0.200",
-      "Changes": ["Disable AI sell-threshold safety by default and on reset; preserve existing saved choices. Mark it as a gameplay preference and explain in tooltips that some lord creators deliberately use negative sell thresholds for unlimited AI gold."]
+      "Changes": [
+        "Disable AI sell-threshold safety by default and on reset; preserve existing saved choices. Mark it as a gameplay preference and explain in tooltips that some lord creators deliberately use negative sell thresholds for unlimited AI gold."
+      ]
     },
     {
       "Version": "1.0.199",
-      "Changes": ["Add a default-enabled host option under Game setup, multiplayer and spectators to redraw the minimap at most every 0.1 seconds instead of on every simulation tick, giving clearly higher game speed on large maps (about 85 to 144 ticks per second on an 8-AI test map)."]
+      "Changes": [
+        "Add a default-enabled host option under Game setup, multiplayer and spectators to redraw the minimap at most every 0.1 seconds instead of on every simulation tick, giving clearly higher game speed on large maps (about 85 to 144 ticks per second on an 8-AI test map)."
+      ]
     },
     {
       "Version": "1.0.198",
-      "Changes": ["Avoid raid missing-Post warnings for regularly skipped calls and report discarded invocation identities; warn about missing plague corrections only after an observed player-local calculation opportunity.", "Hold notification video frames until speech ends with the bounded HD waiting rule."]
+      "Changes": [
+        "Avoid raid missing-Post warnings for regularly skipped calls and report discarded invocation identities; warn about missing plague corrections only after an observed player-local calculation opportunity.",
+        "Hold notification video frames until speech ends with the bounded HD waiting rule."
+      ]
     },
     {
       "Version": "1.0.197",
-      "Changes": ["Add a default-enabled Host option under Fixes? to prevent AI sales without stock through negative sell thresholds, using shared native reserve and quantity safety for every goods category."]
+      "Changes": [
+        "Add a default-enabled Host option under Fixes? to prevent AI sales without stock through negative sell thresholds, using shared native reserve and quantity safety for every goods category."
+      ]
     },
     {
       "Version": "1.0.196",
@@ -213,27 +239,40 @@
     },
     {
       "Version": "1.0.194",
-      "Changes": ["Faster game start: native hooks install without suspending game threads while the library loads, the native DLL hash is computed once, and gate-routing hooks install at game start instead of the first map tick.", "Lower in-game cost: cheaper AI assassin group path searches, a demand-gated move-marker render hook, and faster gatehouse-reachability and building-attack fallback searches; routes and behavior are unchanged."]
+      "Changes": [
+        "Faster game start: native hooks install without suspending game threads while the library loads, the native DLL hash is computed once, and gate-routing hooks install at game start instead of the first map tick.",
+        "Lower in-game cost: cheaper AI assassin group path searches, a demand-gated move-marker render hook, and faster gatehouse-reachability and building-attack fallback searches; routes and behavior are unchanged."
+      ]
     },
     {
       "Version": "1.0.193",
-      "Changes": ["Keep uncertain AI raid search diagnostics at Debug level; preserve warnings for validation failures and leave raid behavior unchanged."]
+      "Changes": [
+        "Keep uncertain AI raid search diagnostics at Debug level; preserve warnings for validation failures and leave raid behavior unchanged."
+      ]
     },
     {
       "Version": "1.0.192",
-      "Changes": ["Disable detailed gate diagnosis by default and migrate existing diagnostic configs once; gate rules and pathfinding remain unchanged."]
+      "Changes": [
+        "Disable detailed gate diagnosis by default and migrate existing diagnostic configs once; gate rules and pathfinding remain unchanged."
+      ]
     },
     {
       "Version": "1.0.191",
-      "Changes": ["Add a local Arabian swordsman idle-volume slider under Fixes?: 0-100%, default 25%; combat sounds unchanged."]
+      "Changes": [
+        "Add a local Arabian swordsman idle-volume slider under Fixes?: 0-100%, default 25%; combat sounds unchanged."
+      ]
     },
     {
       "Version": "1.0.190",
-      "Changes": ["Rename the local ground-requirements setting in all supported languages and document its tile counts and red ground markings."]
+      "Changes": [
+        "Rename the local ground-requirements setting in all supported languages and document its tile counts and red ground markings."
+      ]
     },
     {
       "Version": "1.0.189",
-      "Changes": ["Add a default-on local improved building preview: required ground counts and red unsuitable tiles for farms, quarry, iron mine and pitch rig; shared APIShared tooltips preserve other contributions."]
+      "Changes": [
+        "Add a default-on local improved building preview: required ground counts and red unsuitable tiles for farms, quarry, iron mine and pitch rig; shared APIShared tooltips preserve other contributions."
+      ]
     },
     {
       "Version": "1.0.188",

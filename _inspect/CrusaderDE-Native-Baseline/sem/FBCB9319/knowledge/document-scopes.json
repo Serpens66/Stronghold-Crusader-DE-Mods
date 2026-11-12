@@ -21,6 +21,12 @@
   },
   "documents": [
     {
+      "file": "UNIT_LOAD_PLACEMENT_CONTRACTS.md",
+      "scope": "vanilla+integration",
+      "components": ["PathfindingLoadTest", "Pathfinding", "APIShared", "Script Extender"],
+      "integrationSections": ["Test observations and external adapters"]
+    },
+    {
       "file": "UNIT_VOICES.md",
       "scope": "vanilla+integration",
       "components": ["APIShared", "BeduinFemaleTest"],

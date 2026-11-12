@@ -1,4 +1,4 @@
-Area Demolition Test 0.1.4
+Area Demolition Test 0.1.5
 
 Right-click the unchanged Vanilla Bulldozer button for local area filters.
 Ordinary click: Vanilla single removal on release. Drag: enabled categories.
@@ -22,6 +22,11 @@ remain until fresh checks replace/revoke them. Network packets still cap32target
 The first final capture after release starts immediately; subsequent retries are
 paced. The frame follows input independently. Completed final targets still need
 a successful rendered receipt before authenticated mutation is submitted.
+Final closures retain their frozen dependencies through batching and protocol5.
+Ordinary missing, changed or forbidden targets protect only their linked component;
+unrelated permitted targets in the same packet and subsequent packets continue.
+Surviving child/decorations never become independent when their parent disappears.
+Unexpected native errors or changes after mutation begins still stop without retry.
 The filtered visual hit test skips our owned selection decoration, preserving
 the real HUD below them. Shrinking and crossing the start removes complete roots
 and closures from preview immediately; late larger quotes are clipped again.
@@ -31,6 +36,12 @@ ignored occlusion can select extra edge/hidden targets; all are previewed first.
 Shift captures a fresh Vanilla point resolution and the native own target priority.
 
 Acceptance requires actual game evidence. Passing a build is not gameplay acceptance.
+2026-11-12 selective-execution follow-up: user superseded whole-packet conservative
+rejection and explicitly requested no further ingame tests for this change.
+Offline regressions must cover one blocked wall beside31 permitted walls, stale
+parents with surviving decorations, changed owners/replaced identities, new linked
+parts across component boundaries, before/after-mutation failures, component wire
+roundtrips/digests, multi-packet selection and the full1200-byte transport boundary.
 2026-11-11: user explicitly deferred all game/MP tests while other tests run.
 0.1.0 was installed and manually tested in singleplayer by the user.
 0.1.1: normal build and installation requested; automated game/MP tests remain

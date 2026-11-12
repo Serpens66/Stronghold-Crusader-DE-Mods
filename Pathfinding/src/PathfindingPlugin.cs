@@ -27,7 +27,7 @@ namespace Pathfinding
 
         public const string PluginGuid = "Pathfinding_Serp";
         public const string PluginName = "Pathfinding";
-        public const string PluginVersion = "0.1.2";
+        public const string PluginVersion = "0.1.3";
 
         // Static roots: the plugin component itself is destroyed by the SHCDE startup cleanup.
         private static PathfindingPlugin processRoot;

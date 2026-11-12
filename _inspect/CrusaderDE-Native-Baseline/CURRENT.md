@@ -72,6 +72,8 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 
 ## Vanilla audits with mod integration
 
+- [Unit load, health and ordinary wall placement](./sem/FBCB9319/knowledge/UNIT_LOAD_PLACEMENT_CONTRACTS.md): initialized HP, healthy AI110 deletion alternatives, global allocation versus player quotas, Stone capacity, ordinary wall gates/range and direction-grid producer boundaries; specific run013 deletion cause remains unknown.
+
 - [Bulldozer query and typed removal](./sem/FBCB9319/knowledge/AREA_DEMOLITION.md): complete permission scratch, Chore 29/41 execution, one-operation dug-moat removal, linked children and the batch integration boundary; static audit, game acceptance deferred.
 
 - [Custom Lord initial selection and failed dialog refresh](./sem/FBCB9319/knowledge/CUSTOM_LORD_AIV_SELECTION.md): package-first defaults, slot-dependent types, invalid Standard flags, interrupted dialog refresh and supplied snapshot evidence; static audit, live callback sequence unverified.

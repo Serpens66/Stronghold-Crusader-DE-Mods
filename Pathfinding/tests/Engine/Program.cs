@@ -10,6 +10,8 @@ try
 string root = Path.GetFullPath(args.Length == 0 ? "." : args[0]);
 if (args.Contains("--redbird-only")) { InstalledRedBirdContract.Validate(); return; }
 OutsideBuilderDiagnosticsTests.Run(root);
+DirectionWatchTests.Run(root);
+if (args.Contains("--direction-watch-only")) return;
 string sourceDir = Path.Combine(root, "Pathfinding", "src", "Engine");
 string testDir = Path.Combine(root, "Pathfinding", "tests", "Engine");
 string RuntimeSource(string name)

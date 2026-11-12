@@ -15,7 +15,7 @@ internal static unsafe class Program
     {
         try
         {
-            ScratchRestoration(); PatternBoundaries(); ClassificationAndRefunds(); WallIdentityNormalization(); RegisteredFootprints(); DecorationContracts(); RequestHitContracts(); PreviewIndexAndBudget(); PreparationMonitorContracts(); PreviewGeometryBenchmark();
+            ScratchRestoration(); PatternBoundaries(); ClassificationAndRefunds(); WallIdentityNormalization(); RegisteredFootprints(); DecorationContracts(); ComponentCommitContracts(); RequestHitContracts(); PreviewIndexAndBudget(); PreparationMonitorContracts(); PreviewGeometryBenchmark();
             Console.WriteLine("PASS: native demolition " + checks + " checks (private-memory scratch, native layout, resolver boundaries, registered footprints, decoration ownership/identity/closure, fear families, refund policy).");
             return 0;
         }
@@ -301,13 +301,13 @@ internal static unsafe class Program
         Check(!NativeDemolition.SameState(flag,reused),"Same slot/type/location with a new generation is changed, not approved");
         var parent=flag.Copy();parent.Kind=TargetKind.Building;parent.Slot=1;parent.GlobalId=4;
         var frozen=new[]{parent,flag};
-        Check(!NativeDemolition.IdentitiesCurrent(frozen,t=>t.Kind==TargetKind.Building?null:t.Copy()),"Missing parent rejects frozen selection before MakeBatches can orphan its surviving decoration");
-        Check(!NativeDemolition.IdentitiesCurrent(frozen,t=>{var copy=t.Copy();if(copy.Kind==TargetKind.Building)copy.Owner=4;return copy;}),"Owner change rejects complete frozen identity preflight");
+        Check(!NativeDemolition.IdentitiesCurrent(frozen,t=>t.Kind==TargetKind.Building?null:t.Copy()),"Missing parent fails its frozen dependent component identity check");
+        Check(!NativeDemolition.IdentitiesCurrent(frozen,t=>{var copy=t.Copy();if(copy.Kind==TargetKind.Building)copy.Owner=4;return copy;}),"Owner change fails the frozen dependent component identity check");
         Check(NativeDemolition.IdentitiesCurrent(frozen,t=>t.Copy()),"Unchanged complete frozen selection remains usable");
         var expected=frozen.ToDictionary(t=>t.Identity,StringComparer.Ordinal);
         var live=frozen.ToDictionary(t=>t.Identity,t=>t.Copy(),StringComparer.Ordinal);
         var newChild=flag.Copy();newChild.Slot=27;
-        Check(!NativeDemolition.ClosureMatchesApproval(new[]{parent,flag,newChild},expected,live),"Unknown new same-tile dependent rejects packet before mutation");
+        Check(!NativeDemolition.ClosureMatchesApproval(new[]{parent,flag,newChild},expected,live),"Unknown new same-tile dependent rejects component before mutation");
         live.Remove(parent.Identity);
         Check(!NativeDemolition.ClosureMatchesApproval(frozen,expected,live),"Missing root cannot pass commit closure preflight while its decoration survives");
         live[parent.Identity]=parent.Copy();
@@ -328,11 +328,115 @@ internal static unsafe class Program
         Check(NativeDemolition.PendingIdentitiesCurrent(new[]{first,next},executed,Live),"Own completed child need not remain alive for later shared closure");
         var receipt=new[]{new ApplyResult(),new ApplyResult()};
         NativeDemolition.CompleteResults(new[]{first,next},receipt,executed,new HashSet<string>(StringComparer.Ordinal){first.Identity},true);
-        Check(receipt[0].Status==ApplyStatus.Applied && receipt[1].Status==ApplyStatus.Forbidden,"Aborting remaining packet preserves the earlier completed result");
+        Check(receipt[0].Status==ApplyStatus.Applied && receipt[1].Status==ApplyStatus.Forbidden,"Aborting remaining dependent component preserves the earlier completed result");
         int calls=0;
         var binding=new NativeBindings(new IntPtr(0x10000000),new object(),null,null,(manager,tile)=>
         { calls++;Check(manager.ToInt64()==0x10000000L+NativeBindings.ProjectileManagerRva,"Static helper uses projectile manager");Check(tile==44,"Static helper gets tileID, not projectile slot"); });
         binding.RemoveDecorationTile(44);Check(calls==1,"Exactly one same-tile mutation");
+    }
+
+    private static void ComponentCommitContracts()
+    {
+        DemolitionTarget Wall(int slot,int dependency=0) => new DemolitionTarget {Kind=TargetKind.Wall,Group=TargetGroup.Walls,
+            Slot=slot,TileId=1000+slot,Type=1,Owner=3,X=slot,Y=4,Dependency=dependency};
+        bool Plan(DemolitionTarget[] targets,Func<DemolitionTarget,DemolitionTarget> resolve,
+            Func<DemolitionTarget,DemolitionTarget> canonical,Func<DemolitionTarget,List<DemolitionTarget>> closure,
+            Func<DemolitionTarget,bool> permitted,out List<NativeDemolition.Operation> operations,out ApplyResult[] results) =>
+            NativeDemolition.PlanComponent(3,targets,resolve,canonical,closure,permitted,out _,out operations,out results);
+        var walls=Enumerable.Range(1,32).Select(id=>Wall(id,id-1)).ToArray();
+        int permissionCalls=0,plannedOperations=0;
+        var receipts=NativeDemolition.ApplyComponents(walls,component=>
+        {
+            bool allowed=Plan(component,t=>t.Copy(),t=>t,t=>new List<DemolitionTarget>{t},t=>{permissionCalls++;return t.Slot!=13;},out var plans,out var results);
+            if(allowed)
+            {
+                plannedOperations+=plans.Count;
+                foreach(var result in results)result.Status=ApplyStatus.Applied;
+            }
+            return results;
+        });
+        Check(permissionCalls==32 && plannedOperations==31,"Production component preflight checks each independent wall and keeps31 eligible plans");
+        Check(receipts.Count(r=>r.Status==ApplyStatus.Applied)==31 && receipts[12].Status==ApplyStatus.Forbidden,"One occupied wall does not discard31 independent wall receipts");
+        var parent=Wall(40);parent.Kind=TargetKind.Building;parent.Group=TargetGroup.Buildings;parent.GlobalId=40;
+        var decoration=Wall(41);decoration.Kind=TargetKind.Decoration;decoration.Group=TargetGroup.Decorations;decoration.GlobalId=41;
+        var independent=Wall(42,1);
+        var frozen=new[]{parent,decoration,independent};int visited=0;
+        receipts=NativeDemolition.ApplyComponents(frozen,component=>
+        {
+            visited++;
+            bool allowed=Plan(component,t=>t.Identity==parent.Identity?null:t.Copy(),t=>t,
+                t=>new List<DemolitionTarget>{t},t=>true,out _,out var results);
+            if(allowed)foreach(var result in results)result.Status=ApplyStatus.Applied;
+            return results;
+        });
+        Check(visited==2 && receipts[0].Status==ApplyStatus.Missing && receipts[1].Status==ApplyStatus.Forbidden && receipts[2].Status==ApplyStatus.Applied,
+            "Missing parent protects its live decoration while independent wall proceeds through actual PlanComponent");
+        foreach(int change in new[]{0,1,2})
+        {
+            bool allowed=Plan(new[]{parent,decoration},t=>
+            {
+                var live=t.Copy();
+                if(t.Identity==parent.Identity)
+                {
+                    if(change==0)live.GlobalId++;
+                    if(change==1)live.Owner=4;
+                    if(change==2)live.Flags++;
+                }
+                return live;
+            },t=>t,t=>new List<DemolitionTarget>{t},t=>true,out _,out var results);
+            Check(!allowed && results[0].Status==ApplyStatus.Changed && results[1].Status==ApplyStatus.Forbidden,
+                "Replacement, owner transfer and compound changes block the frozen family, variant"+change);
+        }
+        var child=parent.Copy();child.Slot=43;child.GlobalId=43;
+        Check(Plan(new[]{parent,child},t=>t.Copy(),t=>t.Identity==child.Identity?parent:t,
+            t=>new List<DemolitionTarget>{parent,child},t=>true,out var linkedPlans,out _)
+            && linkedPlans.Count==1 && linkedPlans[0].Root.Identity==parent.Identity,"Canonical linked child contributes closure but never an independent refund plan");
+        Check(!Plan(new[]{child},t=>t.Copy(),t=>parent,t=>new List<DemolitionTarget>{child},t=>true,out _,out _),
+            "Canonical root absent from frozen component cannot orphan or separately refund its child");
+        Check(!Plan(new[]{parent,child},t=>t.Copy(),t=>t.Identity==child.Identity?parent:t,
+            t=>new List<DemolitionTarget>{parent},t=>true,out _,out _),"Every frozen linked child must remain covered by an approved root closure");
+        Check(!Plan(new[]{parent},t=>t.Copy(),t=>t,t=>new List<DemolitionTarget>{parent,independent},t=>true,out _,out _),
+            "New live child from another packet component cannot borrow that component's approval");
+        Check(!Plan(new[]{parent},t=>t.Copy(),t=>t,t=>null,t=>true,out _,out _),"Unowned or unsupported live closure rejects before any plan executes");
+        bool fatal=false;
+        try {Plan(new[]{parent},t=>throw new InvalidOperationException("native preflight failure"),t=>t,t=>new List<DemolitionTarget>{t},t=>true,out _,out _);}
+        catch(InvalidOperationException){fatal=true;}
+        Check(fatal,"Actual PlanComponent propagates genuine native preflight exceptions to the fatal adapter boundary");
+        bool accepted=NativeDemolition.TryMutationAttempt(_=>throw new NativeDemolition.ExpectedRejectionException(ApplyStatus.Changed,"stale before mutation"),out var rejected);
+        Check(!accepted && rejected.Status==ApplyStatus.Changed,"Typed expected rejection before the first helper is locally recoverable");
+        foreach(bool nativeError in new[]{false,true})
+        {
+            fatal=false;int refunds=0,deletes=0;
+            try
+            {
+                NativeDemolition.TryMutationAttempt(attempt=>
+                {
+                    attempt.BeforeMutation();refunds++;
+                    if(nativeError)throw new InvalidOperationException("refund Post failed");
+                    throw new NativeDemolition.ExpectedRejectionException(ApplyStatus.Changed,"refund Post replaced target");
+                },out _);
+                deletes++;
+            }
+            catch(Exception){fatal=true;}
+            Check(fatal && refunds==1 && deletes==0,"After refund begins both stale rejection and genuine exception are fatal, without delete/retry");
+        }
+        fatal=false;
+        try {NativeDemolition.TryMutationAttempt(_=>throw new InvalidOperationException("genuine helper failure before tracked mutation"),out _);}
+        catch(InvalidOperationException){fatal=true;}
+        Check(fatal,"An arbitrary exception is never reclassified as a benign stale target");
+        int appliedComponents=0;
+        receipts=NativeDemolition.ApplyComponents(walls,component=>
+        {
+            appliedComponents++;
+            return component.Select(t=>new ApplyResult {Identity=t.Identity,Status=ApplyStatus.Failed}).ToArray();
+        });
+        Check(appliedComponents==1 && receipts[0].Status==ApplyStatus.Failed && receipts.Skip(1).All(r=>r.Status==ApplyStatus.Forbidden),
+            "A genuine native failure stops later components inside the current packet too");
+        var completed=new HashSet<string>(StringComparer.Ordinal){parent.Identity};
+        var partial=new[]{new ApplyResult(),new ApplyResult {Status=ApplyStatus.Changed,Detail="replacement"}};
+        NativeDemolition.CompleteResults(new[]{parent,child},partial,completed,new HashSet<string>(),true);
+        Check(partial[0].Status==ApplyStatus.Applied && partial[1].Status==ApplyStatus.Changed && partial[1].Detail=="replacement",
+            "Component completion preserves already Applied identities and precise pre-mutation rejection status");
     }
 
     private static void PreviewGeometryBenchmark()

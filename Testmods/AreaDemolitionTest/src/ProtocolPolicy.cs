@@ -45,8 +45,8 @@ namespace AreaDemolitionTest
 
     internal static class ProtocolPolicy
     {
-        // Version 4 separates ordinary walls from fortifications while stairs retain their group.
-        internal const int Version = 4, MaximumPeers = 32, TargetBytes = 31;
+        // Version 5 packs kind/group into one byte and freezes dependency components in the freed byte.
+        internal const int Version = 5, MaximumPeers = 32, TargetBytes = 31;
         internal static string NewNonce()
         { var bytes = new byte[16]; using (var random = RandomNumberGenerator.Create()) random.GetBytes(bytes); return Hex(bytes); }
         internal static bool IsNonce(string value) => IsHex(value, 32);
@@ -127,8 +127,8 @@ namespace AreaDemolitionTest
             {
                 foreach (var target in targets)
                 {
-                    if (target == null || !ValidGroup(target.Kind,target.Group,target.Flags,target.Type) || target.Owner < 1 || target.Owner > 8 || target.Slot < 0 || target.Type < 0 && target.Kind != TargetKind.Wall || target.X < 0 || target.X > short.MaxValue || target.Y < 0 || target.Y > short.MaxValue) throw new InvalidDataException("Invalid target record.");
-                    writer.Write((byte)target.Kind); writer.Write((byte)target.Group); writer.Write(target.Slot); writer.Write(target.Type); writer.Write((byte)target.Owner);
+                    if (target == null || !ValidGroup(target.Kind,target.Group,target.Flags,target.Type) || target.Dependency<0 || target.Dependency>=targets.Length || target.Owner < 1 || target.Owner > 8 || target.Slot < 0 || target.Type < 0 && target.Kind != TargetKind.Wall || target.X < 0 || target.X > short.MaxValue || target.Y < 0 || target.Y > short.MaxValue) throw new InvalidDataException("Invalid target record.");
+                    writer.Write((byte)((byte)target.Kind|((byte)target.Group<<3)));writer.Write((byte)target.Dependency);writer.Write(target.Slot); writer.Write(target.Type); writer.Write((byte)target.Owner);
                     writer.Write((short)target.X); writer.Write((short)target.Y); writer.Write(target.TileId); writer.Write(target.TaskIndex); writer.Write(target.GlobalId); writer.Write(target.Flags);
                 }
                 return stream.ToArray();
@@ -140,7 +140,11 @@ namespace AreaDemolitionTest
             using (var reader = new BinaryReader(new MemoryStream(bytes, false)))
             {
                 var targets = new DemolitionTarget[bytes.Length / TargetBytes];
-                for (int i=0;i<targets.Length;i++) targets[i] = new DemolitionTarget { Kind=(TargetKind)reader.ReadByte(), Group=(TargetGroup)reader.ReadByte(), Slot=reader.ReadInt32(), Type=reader.ReadInt32(), Owner=reader.ReadByte(), X=reader.ReadInt16(), Y=reader.ReadInt16(), TileId=reader.ReadInt32(), TaskIndex=reader.ReadInt32(), GlobalId=reader.ReadUInt32(), Flags=reader.ReadUInt32() };
+                for (int i=0;i<targets.Length;i++)
+                {
+                    byte category=reader.ReadByte();if((category&0x80)!=0)throw new InvalidDataException("Reserved target category bit.");
+                    targets[i] = new DemolitionTarget { Kind=(TargetKind)(category&7), Group=(TargetGroup)((category>>3)&15), Dependency=reader.ReadByte(), Slot=reader.ReadInt32(), Type=reader.ReadInt32(), Owner=reader.ReadByte(), X=reader.ReadInt16(), Y=reader.ReadInt16(), TileId=reader.ReadInt32(), TaskIndex=reader.ReadInt32(), GlobalId=reader.ReadUInt32(), Flags=reader.ReadUInt32() };
+                }
                 PackTargets(targets); // Apply the same bounded domain contract on received records.
                 return targets;
             }

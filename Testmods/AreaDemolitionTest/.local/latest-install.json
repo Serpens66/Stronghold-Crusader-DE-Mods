@@ -1,27 +1,28 @@
 {
-  "InstalledUtc": "2026-11-12T00:57:25.7790776Z",
+  "InstalledUtc": "2026-11-12T10:43:56.9040765Z",
+  "Installed": true,
   "GUID": "AreaDemolitionTest_Serp",
-  "Version": "0.1.4",
+  "Version": "0.1.5",
   "NetworkMode": 1,
   "Destination": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\AreaDemolitionTest_Serp",
-  "BuildProof": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\a\\area-build\\017\\result.json",
+  "BuildProof": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\a\\area-build\\018\\result.json",
   "FileCount": 25,
   "Files": [
     {
       "Relative": "AreaDemolitionTest.dll",
-      "Sha256": "9f8f20d4d67c944ed7035c2c4c059ecf6ca38aa00bd40847079160e7cbba3eb3"
+      "Sha256": "24d5f8a572aa9c081ae37b6157c2886deb800007f09902ce0757b1f5a051e5ec"
     },
     {
       "Relative": "AreaDemolitionTest.pdb",
-      "Sha256": "0b69c49bf9024fdeb866ae0856ee9d89cac4bdcbdebd26e8ec58b70967d83d10"
+      "Sha256": "5edae2eb9f929627592bd08bb22b7dea49ff5a6d8a7d8a63508d71025b024ee8"
     },
     {
       "Relative": "info.json",
-      "Sha256": "4e9cb0d9584cd55d1a0fc722bb23d53eaa15e798eaa81e37f6d72458ce241666"
+      "Sha256": "b92d9dc36ba581988abd1fc8add91933a806a56cba6a96a9fb4cff23fc984f06"
     },
     {
       "Relative": "TESTPLAN.txt",
-      "Sha256": "8205de6f199d4fa556af999e737fa9d85dfbf26a111d66d044d7de01d30d821d"
+      "Sha256": "a2660ee211036e3e0aa855813732584b02468688a2c12e45e2c847512bc82f71"
     },
     {
       "Relative": "Locales\\ar.txt",
@@ -108,12 +109,7 @@
       "Sha256": "9b0adc5f8103e0ea860641f94cdbe4823f056c8a3801d1bc71f18529f472f86a"
     }
   ],
-  "DiagnosticCodeAbsent": true,
-  "AcceptedTestSdkUnchanged": true,
-  "Acceptance": {
-    "Combined": ".work/t/area-wolf1/014/combined/f4d6dadef87b/LogOutput.log",
-    "Editor": "Deferred",
-    "Multiplayer": "Deferred",
-    "Walls": ".work/t/area-wolf1/010/walls/cd09d5449e11/LogOutput.log"
-  }
+  "DependenciesUnchanged": true,
+  "GameWasClosed": true,
+  "GameTests": "None; existing verified normal package installed without game launch."
 }

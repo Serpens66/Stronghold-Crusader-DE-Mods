@@ -742,21 +742,30 @@ namespace Pathfinding.Engine
             { anchorWatchTiles = new int[total]; anchorWatchBytes = new byte[total]; anchorWatchCursor = anchorWatchPrimed = 0; }
             int end = Math.Min(total, anchorWatchCursor + AnchorWatchNodesPerTick);
             GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
-            for (int node = anchorWatchCursor; node < end; node++)
+            int node = anchorWatchCursor, warmEnd = Math.Min(end, anchorWatchPrimed);
+            // Cached ids increase by one within each coordinate row, including diamond aliases.
+            // Keep every native read and its immediate invalidation in the original node order.
+            while (node < warmEnd)
             {
-                if (node >= anchorWatchPrimed)
-                {
-                    int id = tiles.GetTileId(node % MapWidth, node / MapWidth);
-                    anchorWatchTiles[node] = IsValidTileId(id) ? id : -1;
-                    anchorWatchBytes[node] = IsValidTileId(id) ? masks[id] : (byte)0;
-                    continue;
-                }
+                int rowEnd = Math.Min(warmEnd, node + MapWidth - node % MapWidth);
                 int tile = anchorWatchTiles[node];
-                if (tile < 0) continue;
-                byte current = masks[tile];
-                if (current == anchorWatchBytes[node]) continue;
-                anchorWatchBytes[node] = current; anchorWatchChanges++;
-                MarkFastTopologyTile(tile, 1);
+                while (tile < 0 && ++node < rowEnd) tile = anchorWatchTiles[node];
+                if (node == rowEnd) continue;
+                int validEnd = node + Math.Min(rowEnd - node, NativeTileCount - tile);
+                for (; node < validEnd; node++, tile++)
+                {
+                    byte current = masks[tile];
+                    if (current == anchorWatchBytes[node]) continue;
+                    anchorWatchBytes[node] = current; anchorWatchChanges++;
+                    MarkFastTopologyTile(tile, 1);
+                }
+                node = rowEnd; // Numeric-invalid suffix, if this row runs past NativeTileCount.
+            }
+            for (; node < end; node++)
+            {
+                int id = tiles.GetTileId(node % MapWidth, node / MapWidth);
+                anchorWatchTiles[node] = IsValidTileId(id) ? id : -1;
+                anchorWatchBytes[node] = IsValidTileId(id) ? masks[id] : (byte)0;
             }
             if (end > anchorWatchPrimed) anchorWatchPrimed = end;
             anchorWatchCursor = end >= total ? 0 : end;
