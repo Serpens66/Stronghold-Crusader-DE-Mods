@@ -63,6 +63,8 @@ namespace AreaDemolitionTest
         private readonly List<string> errors=new List<string>();
         private Wolf1Wall[] baseline;
         private Wolf1Expectation expected;
+        private ScreenRect usableArea;
+        private bool clippedFixture;
         private int owner;
         private long session;
 
@@ -86,6 +88,15 @@ namespace AreaDemolitionTest
         {
             string map=Path.Combine(Application.streamingAssetsPath,"Maps","Wide_Open_Plain.map");
             if(!File.Exists(map))throw new FileNotFoundException("Wolf1 fixture map is missing.",map);
+            object settings=null;
+            yield return AutomationWait.Until("editable CastlePlanner settings before the fresh mission",()=>
+            {
+                if(run.CurrentMission!=null || !MainViewModel.viewModelLoaded || FatControler.currentScene!=Enums.SceneIDS.FrontEnd ||
+                    !MainViewModel.Instance.Show_Frontend_MainMenu)return false;
+                settings=CastleSettings();
+                return settings!=null && ReadProperty<bool>(settings,"CanEditHostSettings");
+            });
+            EnableCastleSpawn(settings);
             foreach(var wait in run.StartSkirmish(map,new[]{AILords.SK_RAT},60))yield return wait;
             yield return run.WaitForPlayState(run.CurrentMission);
             ResumeBriefing();yield return AutomationWait.NextFrame;
@@ -112,8 +123,19 @@ namespace AreaDemolitionTest
             ResumeBriefing();yield return AutomationWait.Until("restarted briefing closed",()=>{ResumeBriefing();return !MainViewModel.Instance.Show_HUD_Briefing;});
             foreach(var wait in run.SetPause(mission,false))yield return wait;
             yield return run.WaitForTicks(mission,12);
-            owner=PlayerPerspectiveAPI.GetInputControlledPlayerId();session=mission.SessionId;
-            if(owner<1 || owner>8)throw new InvalidOperationException("No real controlled player.");
+            session=mission.SessionId;
+            int directorOwner=EditorDirector.instance?.ActivePlayerID??0;
+            int perspectiveOwner=PlayerPerspectiveAPI.GetInputControlledPlayerId();
+            Report("owner-initial director="+directorOwner+" perspective="+perspectiveOwner);
+            yield return AutomationWait.Until("controlled player using the production director-first contract",()=>
+            {
+                if(run.CurrentMission?.SessionId!=session)throw new InvalidOperationException("The settled castle session changed while resolving its player.");
+                directorOwner=EditorDirector.instance?.ActivePlayerID??0;
+                perspectiveOwner=PlayerPerspectiveAPI.GetInputControlledPlayerId();
+                owner=directorOwner>0?directorOwner:perspectiveOwner;
+                return owner>=1 && owner<=8;
+            });
+            Report("owner-resolved director="+directorOwner+" perspective="+perspectiveOwner+" selected="+owner);
             string previous=null;int stable=0;
             for(int attempt=0;attempt<30 && stable<4;attempt++)
             {
@@ -129,21 +151,8 @@ namespace AreaDemolitionTest
             expected=run.InSimulation(mission,()=>driver.Expected(baseline,owner,mask));
             var baselineRows=baseline.ToDictionary(w=>w.Tile);
             foreach(var entry in expected.Walls)Report("expected eligible="+entry.Allowed+" reason="+entry.Reason+" "+baselineRows[entry.Tile].Describe());
-            GamePlayerManagerAPI.Instance.SetScreenCenterToTilePosition(new System.Numerics.Vector2((float)baseline.Average(w=>w.X),(float)baseline.Average(w=>w.Y)));
-            yield return AutomationWait.Delay(TimeSpan.FromMilliseconds(500));
-            bool fit=false;
-            for(int zoom=0;zoom<10;zoom++)
-            {
-                var rectangle=CastleRectangle();
-                fit=rectangle.MinX>Screen.width*.13f && rectangle.MaxX<Screen.width*.83f && rectangle.MinY>Screen.height*.17f && rectangle.MaxY<Screen.height*.88f;
-                if(fit)break;
-                float beforeZoom=PerfectPixelWithZoom.instance.getZoom(),afterZoom=beforeZoom;
-                foreach(var wait in run.ZoomStep(mission,false,value=>afterZoom=value))yield return wait;
-                yield return AutomationWait.Delay(TimeSpan.FromMilliseconds(150));
-                if(afterZoom==beforeZoom)break;
-            }
-            if(!fit)throw new InvalidOperationException("The settled castle does not fit the unobstructed test viewport at available zoom.");
             Directory.CreateDirectory(artifacts);
+            foreach(var wait in FitCamera(run,mission))yield return wait;
             Report("artifacts="+artifacts+" zoom="+PerfectPixelWithZoom.instance.getZoom());
         }
 
@@ -153,13 +162,29 @@ namespace AreaDemolitionTest
             if(mission.SessionId!=session)throw new InvalidOperationException("Wrong settled castle session.");
             ushort mask=combined?AllFilters():(ushort)(1<<(int)TargetGroup.Walls);
             driver.Reset();
-            var full=CastleRectangle();
+            var full=clippedFixture?usableArea:CastleRectangle();
+            if(!Contained(usableArea,full)){clippedFixture=true;full=usableArea;}
+            var expectedInView=new HashSet<int>(expected.Walls.Where(w=>w.Allowed && ContainsGroundPoint(full,w.Target)).Select(w=>w.Tile));
+            Report("fixture bounds="+Describe(full)+" clipped="+clippedFixture+" expectedVisible="+expectedInView.Count+
+                " expectedOutside="+expected.Walls.Count(w=>w.Allowed && !expectedInView.Contains(w.Tile)));
+            if(expectedInView.Count<100)
+            {
+                ScreenCapture.CaptureScreenshot(Path.Combine(artifacts,label+"-too-few-visible-walls.png"));
+                yield return AutomationWait.Delay(TimeSpan.FromMilliseconds(600));
+                throw new InvalidOperationException("The actual unobstructed viewport contains fewer than100 native-eligible wall centers: "+expectedInView.Count);
+            }
             var corners=new[]{new Vector2(full.MinX,full.MinY),new Vector2(full.MinX,full.MaxY),new Vector2(full.MaxX,full.MinY),new Vector2(full.MaxX,full.MaxY)};
             Vector2 anchor=default,end=default;bool began=false;
+            var cameraControls=CameraControls2D.instance;
+            bool originalAllowMove=cameraControls.AllowMove;
             try
             {
+                cameraControls.AllowMove=false;
                 foreach(var point in corners)
                 {
+                    bool valid=Runtime.Wolf1PointStatus(point,out string reason);
+                    Report("corner screen="+point.x+","+point.y+" canStart="+valid+" "+reason);
+                    if(!valid)continue;
                     driver.Begin(point,mask);yield return AutomationWait.NextFrame;
                     if(driver.Read().GestureOwned)
                     {anchor=point;end=new Vector2(point.x==full.MinX?full.MaxX:full.MinX,point.y==full.MinY?full.MaxY:full.MinY);began=true;break;}
@@ -184,7 +209,7 @@ namespace AreaDemolitionTest
                 }
                 var red=driver.Read();
                 var redWalls=red.RedTargets.Where(t=>t.Kind==TargetKind.Wall).ToArray();
-                var eligibleIds=new HashSet<int>(expected.Walls.Where(w=>w.Allowed).Select(w=>w.Tile));
+                var eligibleIds=expectedInView;
                 var redIds=new HashSet<int>(redWalls.Select(w=>w.TileId));
                 int[] missedRed=eligibleIds.Where(tile=>!redIds.Contains(tile)).OrderBy(tile=>tile).ToArray();
                 Report("red count="+red.RedTargets.Length+" walls="+redWalls.Length+" maxFrameMs="+maximumFrameMs.ToString("F3",CultureInfo.InvariantCulture)+" ids="+Ids(redWalls.Select(t=>t.TileId)));
@@ -224,7 +249,119 @@ namespace AreaDemolitionTest
                 if(final.Results.Any(r=>r.Status!=ApplyStatus.Applied))errors.Add("Some actual receipts were not Applied.");
                 if(errors.Count!=0)throw new InvalidOperationException(string.Join(" | ",errors));
             }
-            finally {driver.Cancel();}
+            finally {try{driver.Cancel();}finally{if(cameraControls!=null)cameraControls.AllowMove=originalAllowMove;}}
+        }
+
+        private IEnumerable<AutomationWait> FitCamera(AutomationRun run,MissionContext mission)
+        {
+            var controls=CameraControls2D.instance;
+            if(controls==null || Camera.main==null)throw new InvalidOperationException("The public map camera is not ready.");
+            bool originalAllowMove=controls.AllowMove;controls.AllowMove=false;
+            try
+            {
+                usableArea=FindUsableArea();
+                bool fit=false;
+                for(int zoom=0;zoom<12;zoom++)
+                {
+                    ScreenRect before=CastleRectangle();
+                    var camera=Camera.main;
+                    Vector3 from=camera.ScreenToWorldPoint(new Vector3((before.MinX+before.MaxX)*.5f,(before.MinY+before.MaxY)*.5f,0));
+                    Vector3 to=camera.ScreenToWorldPoint(new Vector3((usableArea.MinX+usableArea.MaxX)*.5f,(usableArea.MinY+usableArea.MaxY)*.5f,0));
+                    Vector3 delta=from-to;
+                    GamePlayerManagerAPI.Instance.SetScreenCenterPosition(new System.Numerics.Vector2(controls.getCameraXPos()+delta.x,controls.getCameraYPos()+delta.y));
+                    yield return AutomationWait.Delay(TimeSpan.FromMilliseconds(250));
+                    ScreenRect bounds=CastleRectangle();
+                    float currentZoom=PerfectPixelWithZoom.instance.getZoom();
+                    Report("fit step="+zoom+" screen="+Screen.width+"x"+Screen.height+" zoom="+currentZoom.ToString("F4",CultureInfo.InvariantCulture)+
+                        " bounds="+Describe(bounds)+" usable="+Describe(usableArea)+" camera="+controls.getCameraXPos()+","+controls.getCameraYPos());
+                    fit=Contained(usableArea,bounds) && HasValidOppositeCorners(bounds);
+                    if(fit)break;
+                    float afterZoom=currentZoom;
+                    foreach(var wait in run.ZoomStep(mission,false,value=>afterZoom=value))yield return wait;
+                    yield return AutomationWait.Delay(TimeSpan.FromMilliseconds(150));
+                    if(afterZoom==currentZoom)break;
+                }
+                clippedFixture=!fit;
+                if(!fit)
+                {
+                    ScreenCapture.CaptureScreenshot(Path.Combine(artifacts,label+"-fit-visible-fallback.png"));
+                    yield return AutomationWait.Delay(TimeSpan.FromMilliseconds(600));
+                    Report("fit wholeCastle=false; using largest sampled unobstructed visible rectangle; native expected centers are clipped explicitly, not silently discarded");
+                    usableArea=ValidVisibleArea(usableArea);
+                }
+            }
+            finally {if(controls!=null)controls.AllowMove=originalAllowMove;}
+        }
+
+        private ScreenRect FindUsableArea()
+        {
+            Rect pixels=Camera.main.pixelRect;
+            var viewport=new ScreenRect(pixels.xMin+16,pixels.yMin+16,pixels.xMax-16,pixels.yMax-16);
+            const int columns=16,rows=10;
+            bool[,] free=new bool[rows,columns];
+            float dx=viewport.Width/columns,dy=viewport.Height/rows;
+            for(int y=0;y<rows;y++)for(int x=0;x<columns;x++)
+            {
+                float x0=viewport.MinX+x*dx,y0=viewport.MinY+y*dy;
+                free[y,x]=Runtime.Wolf1PointAllowed(new Vector2(x0+2,y0+2)) && Runtime.Wolf1PointAllowed(new Vector2(x0+dx-2,y0+2)) &&
+                    Runtime.Wolf1PointAllowed(new Vector2(x0+2,y0+dy-2)) && Runtime.Wolf1PointAllowed(new Vector2(x0+dx-2,y0+dy-2)) &&
+                    Runtime.Wolf1PointAllowed(new Vector2(x0+dx*.5f,y0+dy*.5f));
+            }
+            float best=0;ScreenRect result=default;
+            for(int bottom=0;bottom<rows;bottom++)
+            {
+                bool[] clear=Enumerable.Repeat(true,columns).ToArray();
+                for(int top=bottom;top<rows;top++)
+                {
+                    int start=-1;
+                    for(int x=0;x<=columns;x++)
+                    {
+                        if(x<columns)clear[x]&=free[top,x];
+                        if(x<columns && clear[x]){if(start<0)start=x;continue;}
+                        if(start<0)continue;
+                        float area=(x-start)*dx*(top-bottom+1)*dy;
+                        if(area>best){best=area;result=new ScreenRect(viewport.MinX+start*dx+3,viewport.MinY+bottom*dy+3,viewport.MinX+x*dx-3,viewport.MinY+(top+1)*dy-3);}
+                        start=-1;
+                    }
+                }
+            }
+            if(best<=0)
+            {
+                ScreenCapture.CaptureScreenshot(Path.Combine(artifacts,label+"-no-free-viewport.png"));
+                throw new InvalidOperationException("No unobstructed test rectangle was found; screen="+Screen.width+"x"+Screen.height);
+            }
+            Report("viewport="+Describe(viewport)+" unobstructedSampled="+Describe(result));
+            return result;
+        }
+        private ScreenRect ValidVisibleArea(ScreenRect area)
+        {
+            float cx=(area.MinX+area.MaxX)*.5f,cy=(area.MinY+area.MaxY)*.5f;
+            for(int step=0;step<9;step++)
+            {
+                float scale=1-step*.08f;
+                var candidate=new ScreenRect(cx-area.Width*.5f*scale,cy-area.Height*.5f*scale,cx+area.Width*.5f*scale,cy+area.Height*.5f*scale);
+                if(HasValidOppositeCorners(candidate)){Report("visible-map-safe="+Describe(candidate));return candidate;}
+            }
+            foreach(var point in new[]{new Vector2(area.MinX,area.MinY),new Vector2(area.MinX,area.MaxY),new Vector2(area.MaxX,area.MinY),new Vector2(area.MaxX,area.MaxY)})
+            {Runtime.Wolf1PointStatus(point,out string reason);Report("failed-fit-corner screen="+point.x+","+point.y+" "+reason);}
+            ScreenCapture.CaptureScreenshot(Path.Combine(artifacts,label+"-no-map-safe-rectangle.png"));
+            throw new InvalidOperationException("No opposite pair of real map/UI-valid rectangle corners was found.");
+        }
+        private static bool HasValidOppositeCorners(ScreenRect area)
+        {
+            bool lowerLeft=Runtime.Wolf1PointStatus(new Vector2(area.MinX,area.MinY),out _),upperRight=Runtime.Wolf1PointStatus(new Vector2(area.MaxX,area.MaxY),out _);
+            if(lowerLeft && upperRight)return true;
+            return Runtime.Wolf1PointStatus(new Vector2(area.MinX,area.MaxY),out _) && Runtime.Wolf1PointStatus(new Vector2(area.MaxX,area.MinY),out _);
+        }
+        private static bool Contained(ScreenRect outer,ScreenRect inner)=>inner.MinX>=outer.MinX && inner.MaxX<=outer.MaxX && inner.MinY>=outer.MinY && inner.MaxY<=outer.MaxY;
+        private static string Describe(ScreenRect area)=>string.Format(CultureInfo.InvariantCulture,"{0:F1},{1:F1}..{2:F1},{3:F1}",area.MinX,area.MinY,area.MaxX,area.MaxY);
+        private static bool ContainsGroundPoint(ScreenRect area,DemolitionTarget target)
+        {
+            if(target==null)return false;
+            GameMap.instance.mapGameTileToTilemapCoord(target.X,target.Y,out int tx,out int ty);
+            var tile=GameMap.instance.getMapTile(tx,ty);if(tile==null)return false;
+            Vector3 screen=Camera.main.WorldToScreenPoint(TilemapManager.instance.gameTileMap.GetCellCenterWorld(new Vector3Int(tx,ty,0))+Vector3.up*tile.height);
+            return screen.z>0 && screen.x>=area.MinX && screen.x<=area.MaxX && screen.y>=area.MinY && screen.y<=area.MaxY;
         }
 
         private static ushort AllFilters()
@@ -255,6 +392,41 @@ namespace AreaDemolitionTest
             return new ScreenRect(minX-12,minY-12,maxX+12,maxY+12);
         }
         private static object CastleModel()=>GameXAMLManagerAPI.Instance.FindGlobalElement("CastlePlannerBlueprintHud")?.DataContext;
+        private static object CastleSettings()
+        {
+            var types=AppDomain.CurrentDomain.GetAssemblies().Select(a=>a.GetType("CastlePlanner.CastlePlannerPlugin",false)).Where(t=>t!=null).ToArray();
+            if(types.Length==0)return null;
+            if(types.Length!=1)throw new InvalidOperationException("Ambiguous CastlePlanner plugin assembly.");
+            // CastlePlanner roots this exact settings instance after its BepInEx component is destroyed.
+            var field=types[0].GetField("processSettings",BindingFlags.Static|BindingFlags.NonPublic);
+            if(field==null || field.FieldType.FullName!="CastlePlanner.CastlePlannerSettingsViewModel")
+                throw new MissingMemberException("CastlePlanner processSettings lifetime contract changed.");
+            return field.GetValue(null);
+        }
+        private void EnableCastleSpawn(object settings)
+        {
+            string[] preserved={"SpawnFortifications","SpawnBuildings","SpawnDefensiveGroundFeatures","SpawnFearFactorBuildings",
+                "SpawnSiegeEngines","SpawnBraziersAndFlags","AllowRotation"};
+            var before=preserved.ToDictionary(name=>name,name=>ReadProperty<bool>(settings,name),StringComparer.Ordinal);
+            string selected=ReadProperty<string>(settings,"SelectedCastle");
+            bool wasEnabled=ReadProperty<bool>(settings,"SpawnCastle");
+            SetPublicBoolean(settings,"SpawnCastle",true);
+            // The real false->true setter intentionally resets these filters. Restore its side effects
+            // through their ordinary public setters, never by writing private fields or settings files.
+            foreach(string name in preserved)
+                if(ReadProperty<bool>(settings,name)!=before[name])SetPublicBoolean(settings,name,before[name]);
+            if(!ReadProperty<bool>(settings,"SpawnCastle") || preserved.Any(name=>ReadProperty<bool>(settings,name)!=before[name]) ||
+                ReadProperty<string>(settings,"SelectedCastle")!=selected)
+                throw new InvalidOperationException("CastlePlanner rejected SpawnCastle activation while preserving its existing content/rotation/selection.");
+            Report("frontend SpawnCastle="+wasEnabled+"->true selection="+selected+" preserved="+string.Join(",",preserved.Select(name=>name+":"+before[name])));
+        }
+        private static void SetPublicBoolean(object model,string name,bool value)
+        {
+            var property=model.GetType().GetProperty(name,BindingFlags.Public|BindingFlags.Instance);
+            if(property==null || property.PropertyType!=typeof(bool) || property.GetSetMethod()==null)
+                throw new MissingMemberException("CastlePlanner public setting setter: "+name);
+            property.SetValue(model,value,null);
+        }
         private static T ReadProperty<T>(object model,string name)
         {
             var property=model?.GetType().GetProperty(name,BindingFlags.Public|BindingFlags.Instance);
@@ -280,6 +452,32 @@ namespace AreaDemolitionTest
                     Height=heights[tile],DefaultHeight=defaults[tile],Pending=display[tile]&0x400});
             }
             return result.ToArray();
+        }
+    }
+
+    internal sealed partial class Runtime
+    {
+        internal static bool Wolf1PointAllowed(Vector2 point)
+        {
+            var runtime=wolfObserver;
+            if(runtime==null || !runtime.wolfRun || runtime.view==null)throw new InvalidOperationException("The explicit Wolf1 HUD test bridge is unavailable.");
+            return runtime.view.TryIsPointerOverUi(new Vector3(point.x,point.y,0),out bool blocked) && !blocked;
+        }
+        internal static bool Wolf1PointStatus(Vector2 point,out string reason)
+        {
+            bool ui=Wolf1PointAllowed(point);
+            var map=GameMap.instance;
+            if(map==null){reason="ui="+ui+" map=unavailable";return false;}
+            float oldHeight=map.lastMouseLandscapeHeight;bool oldTop=map.overTopHalf;
+            try
+            {
+                Vector3 world=default;Vector3Int cell=default;int depth=-32767;
+                map.CalcMapTileFromMousePos(new Vector3(point.x,point.y,0),ref world,ref cell,ref depth,true,true);
+                var tile=map.getMapTile(cell.x,cell.y);
+                reason="uiAllowed="+ui+" map="+(tile==null?"none":tile.gameMapX+","+tile.gameMapY)+" depth="+depth;
+                return ui && tile!=null;
+            }
+            finally {map.lastMouseLandscapeHeight=oldHeight;map.overTopHalf=oldTop;}
         }
     }
 

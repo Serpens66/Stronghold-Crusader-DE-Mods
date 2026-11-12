@@ -94,6 +94,9 @@ namespace Pathfinding
             catch (Exception ex) { LogMigrationError(ex); }
             try
             {
+                // Registration can persist defaults. Preserve the pre-registration migration intent first.
+                if (legacySettings == null || !legacySettings.RegistrationSafe)
+                    throw new InvalidOperationException("Settings registration deferred: the initial settings/migration journal could not be read or saved safely. Retry after fixing the logged file error.");
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Shared.DebugLogHelper.ForExternalCode(Logger),

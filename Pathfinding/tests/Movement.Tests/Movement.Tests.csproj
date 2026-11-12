@@ -23,6 +23,10 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="Microsoft.CSharp" />
+    <!-- Only resolves the production view-model symbols used by nameof in the linked importer.
+         The alias avoids replacing the source-linked save-codec types with the packaged copies. -->
+    <Reference Include="Pathfinding"><HintPath>..\..\BepInEx\plugins\Pathfinding_Serp\Pathfinding.dll</HintPath><Aliases>PathfindingModel</Aliases><Private>false</Private></Reference>
     <Reference Include="Assembly-CSharp"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath><Private>true</Private></Reference>
@@ -35,6 +39,10 @@
     <Compile Include="Program.cs" />
     <Compile Include="MovementFastPathParityHarness.cs" />
     <Compile Include="TraversalBoundary.cs" />
+    <Compile Include="LegacySettingsMigrationTests.cs" />
+    <Compile Include="MigrationModelReference.cs" />
+    <Compile Include="..\..\src\Settings\LegacyBfqolSettings.cs"><Link>LegacyBfqolSettings.cs</Link></Compile>
+    <Compile Include="..\..\..\Shared\Runtime\Persistence\DependencyFreeJson.cs"><Link>DependencyFreeJson.cs</Link></Compile>
     <Compile Include="..\..\src\Core\Common\FeatureSaveStates.cs"><Link>FeatureSaveStates.cs</Link></Compile>
     <Compile Include="..\..\src\UnitCommands\Runtime\MovementOptionsSnapshot.cs"><Link>MovementOptionsSnapshot.cs</Link></Compile>
     <Compile Include="..\..\src\TroopMovement\MovementLoggingStateTracker.cs"><Link>MovementLoggingStateTracker.cs</Link></Compile>

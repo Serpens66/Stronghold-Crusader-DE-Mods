@@ -1215,6 +1215,8 @@ namespace Pathfinding.Engine
             {
                 if (!anchorAvailable || pathManager == IntPtr.Zero) return runtime.CallVanillaBuilder(pathManager, movementClass, movementProfile, reconstruction);
                 if (TryPublishAnchorSingle(pathManager, plan, reconstruction, out int single)) return single;
+                if (!Shared.DebugLogHelper.DiagnosticsEnabled)
+                    return CallVanillaBuilderMoatProven(pathManager, movementClass, movementProfile, reconstruction);
                 long outsideStarted = System.Diagnostics.Stopwatch.GetTimestamp();
                 int outside = CallVanillaBuilderMoatProven(pathManager, movementClass, movementProfile, reconstruction);
                 long outsideElapsed = System.Diagnostics.Stopwatch.GetTimestamp() - outsideStarted;

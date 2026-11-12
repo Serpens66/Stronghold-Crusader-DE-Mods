@@ -79,7 +79,6 @@ cursorDecisionDetails.Clear();
             trackedAttackUnits.Clear();
             activeMoveCommand = null;
             if (Traversal != null) ResetMapStep("traversal-provider", Traversal.ResetMapState);
-            ResetMapStep("deferred-fast-move", ClearDeferredFastMoveScope);
             activePlan = null;
             pendingPlan = null;
             pendingAttackCursorPair = null;

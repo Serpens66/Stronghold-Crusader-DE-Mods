@@ -134,8 +134,7 @@ namespace Pathfinding.UnitCommands
         private IDisposable keyDownSubscription;
         private IDisposable keyHeldSubscription;
         private IDisposable keyUpSubscription;
-        private IDisposable packetSubscription;
-        private R3PacketEventHook<FormationOrderPacket> packetHook;
+        private APIShared.Networking.AuthenticatedChoreChannel<FormationOrderPacket> packetChannel;
         private FieldInfo leftMouseStateField;
         private FieldInfo rightMouseDownField;
         private FieldInfo rightMouseUpField;

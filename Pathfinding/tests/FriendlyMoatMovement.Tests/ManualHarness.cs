@@ -80,12 +80,11 @@ namespace CommandFixture
         private MaintenanceProvider Traversal;
         private sealed class MaintenanceProvider
         {
-            internal int Invalidations, TileInvalidations, DirectionInvalidations, Resets, Clears;
+            internal int Invalidations, TileInvalidations, DirectionInvalidations, Resets;
             internal void InvalidateFastMoatData()=>Invalidations++;
             internal void InvalidateFastMoatTile(int tile)=>TileInvalidations++;
             internal void InvalidateFastMoatDirections()=>DirectionInvalidations++;
             internal void LogAndResetFastMoatMetrics()=>Resets++;
-            internal void ClearDeferredFastMoveScope()=>Clears++;
         }
         private MoveCommandScope activeMoveCommand;
         private AttackCommandScope activeAttackCommand;
@@ -153,10 +152,10 @@ namespace CommandFixture
         private void DispatchTests()
         {
             Traversal=new MaintenanceProvider(); TraversalEnabled=false; ManualCommandsEnabled=false;
-            InvalidateFastMoatData();InvalidateFastMoatTile(5);InvalidateFastMoatDirections();LogAndResetFastMoatMetrics();ClearDeferredFastMoveScope();
-            Check(Traversal.Invalidations==1 && Traversal.TileInvalidations==1 && Traversal.DirectionInvalidations==1 && Traversal.Resets==1 && Traversal.Clears==1,
-                "disabled traversal policy still receives topology invalidation and context cleanup");
-            Traversal=null;InvalidateFastMoatData();InvalidateFastMoatTile(5);InvalidateFastMoatDirections();ClearDeferredFastMoveScope();
+            InvalidateFastMoatData();InvalidateFastMoatTile(5);InvalidateFastMoatDirections();LogAndResetFastMoatMetrics();
+            Check(Traversal.Invalidations==1 && Traversal.TileInvalidations==1 && Traversal.DirectionInvalidations==1 && Traversal.Resets==1,
+                "disabled traversal policy still receives topology invalidation and metrics reset");
+            Traversal=null;InvalidateFastMoatData();InvalidateFastMoatTile(5);InvalidateFastMoatDirections();
             ManualCommandsEnabled=true;
             var parent=new MoveCommandScope(); activeMoveCommand=parent;
             queueMoveEvent=a=>order.Add("queue-"+a.Phase);

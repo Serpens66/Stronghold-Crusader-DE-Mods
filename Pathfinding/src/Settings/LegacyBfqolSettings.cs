@@ -134,8 +134,14 @@ namespace Pathfinding
         // A later explicit edit must also win when a role restriction deferred the import.
         internal void PreserveEdit(string key)
         {
-            if (!prepared || !pending.Remove(key)) return;
-            baseline.Remove(key); SaveJournal();
+            if (!RegistrationSafe) return;
+            bool changed = pending.Remove(key);
+            changed = baseline.Remove(key) || changed;
+            if (!changed) return;
+            // A failed source read can leave only part of Pending populated. Eligibility is
+            // authoritative until source validation finishes; never journal that partial read.
+            if (awaitingSource) pending.Clear();
+            SaveJournal();
         }
 
         private void SaveJournal()

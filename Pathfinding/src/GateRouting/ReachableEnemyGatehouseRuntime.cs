@@ -23,12 +23,11 @@ namespace Pathfinding
         private readonly PathfindingViewModel settings;
         private readonly Dictionary<ReachabilityKey, bool> reachabilityCache =
             new Dictionary<ReachabilityKey, bool>();
-        // Entry/exit-only results per tick (key signature 0); drawbridges are not involved.
+        // Entry/exit-only results within one gate query pass (signature 0).
         private readonly Dictionary<ReachabilityKey, bool> directReachabilityCache =
             new Dictionary<ReachabilityKey, bool>();
         private IDisposable gatehouseQuerySubscription;
         private bool reachabilityAvailable;
-        private int lastCacheTick = int.MinValue;
         private int failureLogs;
 
         public ReachableEnemyGatehouseRuntime(
@@ -172,14 +171,6 @@ namespace Pathfinding
                 return false;
             }
 
-            int tick = GameTimeManagerAPI.Instance.CaptureTimeStamp().CapturedGameTick;
-            if (tick != lastCacheTick)
-            {
-                reachabilityCache.Clear();
-                directReachabilityCache.Clear();
-                lastCacheTick = tick;
-            }
-
             int playerId = unit->r_ControllableForPlayerId;
             int sourcePcl = pathConnections[sourceTileId];
             int entryPcl = pathConnections[entryTileId];
@@ -190,7 +181,7 @@ namespace Pathfinding
 
 #if SERP_DEVDIAG
             var diagnostics = GatehouseDiagnosticRuntime.Current;
-            GatehouseDiagnosticRuntime.Context(tick, playerId, sourcePcl, entryPcl, exitPcl, mode);
+            GatehouseDiagnosticRuntime.Context(GameTimeManagerAPI.Instance.CaptureTimeStamp().CapturedGameTick, playerId, sourcePcl, entryPcl, exitPcl, mode);
 #endif
             PathConnectionQueryMode queryMode = (PathConnectionQueryMode)mode;
             // A reachable entry or exit already decides "reachable" (the caller then keeps
@@ -319,6 +310,10 @@ namespace Pathfinding
                 }
             }
 
+            // Only continuing queries of this same gate pass have the audited unchanged graph.
+            // Extender ticks can repeat across native runs/load/editor work and are not an identity.
+            reachabilityCache.Clear();
+            directReachabilityCache.Clear();
             bool found = TryGetLiveGatehouse(buildingId, out building, out gatehouse);
             // Only the thread inside a marked run owns the pass state; other callers never touch it.
             if (run == 0)
@@ -637,7 +632,6 @@ namespace Pathfinding
         {
             reachabilityCache.Clear();
             directReachabilityCache.Clear();
-            lastCacheTick = int.MinValue;
             passRun = 0;
         }
 

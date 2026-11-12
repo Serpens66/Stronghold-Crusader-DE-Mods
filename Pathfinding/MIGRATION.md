@@ -68,10 +68,71 @@ Die Vergleichszeile lief mit Gräbenquerung an und einem älteren MoatMove-Paket
 
 Die laufenden Routenstatistiken (`stage=anchor-*`, `stage=fast-performance`, `anchor-move-unreached`, `anchor-unreachable-found`, `reachability-slow`) erscheinen nur mit `[Diagnostics] Enabled`. `tools/Run-PathfindingIteration.ps1 -RouteStats` schaltet das für einen Lauf ein.
 
+## Abschlussarbeiten und Gegenprüfung vom 12.11.2026
+
+Der Arbeitsstand wurde erneut nach Funktionsbereichen und mit unabhängigen Gegenprüfungen
+untersucht. Nachweise liegen unter `.work/a/pf-finish/001`; dies ist eine datierte
+Prüfbeobachtung, keine Zusicherung allgemeiner Fehlerfreiheit. Während der Arbeit wurde
+`develop` durch parallele Arbeit von `340846a58` auf `e529b355f` fortgeschrieben.
+Die nachfolgenden Korrekturen wurden darauf aufgebaut; dieser Auftrag erzeugt keine Commits.
+
+- **Bereinigung:** MoatMove ist nach Prüfung der übernommenen Quellen entfernt.
+  `migration/moatmove-notes.md` bündelt das weiterhin benötigte Wissen. Historische
+  Quellen bleiben in Git, das alte Log unter `_inspect/MoatMove`; 175 ignorierte
+  Nachweisdateien sind hashgeprüft unter `.work/a/moat-retired/001` erhalten.
+  Die aktiven Buildadapter sind entfernt. Zwölf tatsächlich unbenutzte Shared-Texte
+  samt Rückfallwerten sind entfernt; noch verwendete Assassin-Texte bleiben bestehen.
+- **Befehle und Kosten:** Einzelabfragen der wartenden Fast-Befehle allokieren keine
+  temporären Sammlungen mehr. Der ungenutzte verzögerte Bewegungskontext und seine
+  privaten Weiterleitungen sind entfernt; die weiterhin verwendete
+  Gruppenroutenverteilung bleibt erhalten. Ohne aktivierte Diagnostik entfallen
+  deren nicht ausgegebene Messungen/Kategorien für Vanilla-Fallbacks.
+- **Formationen:** Mittige Rollenplatzierung gruppiert Reihen einmalig statt die
+  gesamten Plätze für jede Reihe erneut zu durchsuchen. Referenzvergleiche decken
+  Formen, Rollen, gleiche Sortierwerte, lückenhafte Reihen und maximale Tiefe ab.
+  Isolierte Messungen mit Produktionscode ergaben bei 10.000 Reihen rund
+  439–466 ms vorher und 32–36 ms nachher, bei identischer Ergebnisprüfsumme;
+  dies ist kein Ingame-FPS-Nachweis.
+- **Tore:** Der funktionale Topologie-Fingerprint wird auch im normalen Build
+  gespeichert. Erreichbarkeitsantworten gelten nur innerhalb desselben
+  auditierten Tor-Abfragedurchlaufs; ein gleicher Extender-Zeitwert nach
+  Simulationsdurchlauf, Laden oder Editorarbeit legitimiert keine Wiederverwendung.
+  Die Produktionsmethoden werden in normalen und Diagnose-Fixtures geprüft.
+- **Import:** Vor sicherem Migrationsjournal darf die Settingsregistrierung keine
+  Standardwerte materialisieren. Explizite Änderungen bleiben auch dann erhalten,
+  wenn die alte BFQoL-Datei zunächst nicht lesbar ist. Die neuen Verhaltenstests
+  verwenden den echten Importer und den tatsächlichen Bootstrap-Aufrufpfad.
+- **Netzwerk:** Assassin-Klettern und Formationen nutzen APIShareds native
+  Absenderprüfung. Der Empfänger prüft die Spieleridentität beziehungsweise den
+  lebenden Tribe-Besitzer. Pakettypen, Format und Registrierungsreihenfolge bleiben
+  erhalten. Formationen behalten ihren synchronen Versand im Simulationspfad;
+  die nur auf Unity erlaubte Kanal-Sendemethode wird dort nicht verwendet.
+- **Abhängigkeiten und Veröffentlichung:** APIShared 0.48.0 bezeichnet die
+  SafeIlHook-/SafeTranspiler-Verträge eindeutig; BFQoL und Spectator verlangen
+  diese Mindestversion. Pathfinding benötigt weiterhin 0.46.0. Release- und
+  Workshop-Registrierung sind ergänzt; die Packprüfung lehnt BFQoL ohne
+  Pathfinding ab und berücksichtigt Änderungen an nativen Quellen.
+  Beide Spieler-READMEs und die modweiten Versionen/Changelogs sind angepasst
+  (Pathfinding 0.1.2, BFQoL 1.0.221, Spectator 0.2.3).
+
+Der historische Drift von `FeatureSaveStates.cs` gegenüber `source-map.json` ist
+beabsichtigt: BFQoL behält nur SingleBuildingPause, Pathfinding besitzt AssassinClimb
+und TroopMovementSync. Die ursprünglichen Blob-Nachweise bleiben unverändert.
+
+Der vor der Testsperre abgeschlossene UI-Lauf `pf-ui-recheck` bestand 43/43 Schritte
+mit rückgesicherten Einstellungen und Plugin-Auswahl. Die gespeicherten Screenshots
+zeigen „Block“ und „Reset to default“, das Log enthält keine Error-/Fatal-Zeilen
+und kein `PATHFINDING_OUTDATED_BUGFIXES`. Dieser Lauf liegt vor den letzten
+Import-, Cache- und Netzwerkänderungen und ersetzt deren Spielabnahme nicht.
+
 ## Noch offen
 
-- Echter Mehrspielertest mit zwei Rechnern und Augentest.
-- Veröffentlichung: `Shared/Tools/Release/release-projects.json`, `Shared/Tools/Steam/WorkshopConfiguration.ps1`, `Test-SteamPackPolicy.ps1`, `ModpackSource.Common.ps1`. BFQoL darf ohne Pathfinding nicht in den Pack, sonst fehlen die Funktionen.
-- `BugfixesAndQoL/README.md` nennt die umgezogenen Funktionen noch (nur auf Nutzerauftrag ändern). BFQoL-Version und `SerpChangelog` werden erst zum Abschluss gesetzt.
-- `Testmods/MoatMove` ist ohne BFQoL-Interna nicht mehr baubar; der Ordner und seine Installationsadapter in `Shared/Tools/BranchBuild` bleiben bis zur Entscheidung des Nutzers.
-- Tote Einträge in `Shared/Runtime/Localization/SerpLocalization.cs` (Konstanten und englische Rückfalltexte der umgezogenen Schlüssel) sind harmlos. Das Entfernen würde alle verlinkenden Mods neu bauen und kann mit der nächsten Shared-Änderung erfolgen.
+- Auf Nutzerwunsch derzeit **keine weiteren Spieltests oder Installationsänderungen**.
+  Die spätesten Quellkorrekturen sind deshalb noch nicht im Spiel installiert.
+- Nach erneuter Freigabe: finale gemeinsame und Standalone-Abnahme mit
+  `SP-pathfinding.json`, `SP-7b-vanilla-control.json` und die vergleichbaren
+  Performance-Läufe (Extender, APIShared, Pathfinding, BFQoL zusammen).
+- Echter Mehrspielertest mit zwei Rechnern und manueller Augentest bleiben
+  ausdrücklich Releasevoraussetzungen.
+- Veröffentlichung/Commit erst auf ausdrücklichen Nutzerauftrag.
+- Die parallelen Arbeiten an BFQoL-PlacementAcceptance gehören nicht zu diesem Auftrag.

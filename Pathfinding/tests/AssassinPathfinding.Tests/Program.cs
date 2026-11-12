@@ -52,6 +52,7 @@ internal static partial class Program
             TestActualRequestIndex(args);
             TestGatehouseActivation(args);
             TestSelectionCache(Path.GetFullPath(args[0]));
+            TestClimbAuthority(Path.GetFullPath(args[0]));
             TestProductionKernel(Path.GetFullPath(args[0]));
             TestTemporaryHandoffEvidence();
             Console.WriteLine($"PASS: {assertions} Assassin A*/Dijkstra assertions.");

@@ -80,9 +80,7 @@ namespace Pathfinding.UnitCommands
         internal virtual void ObserveFormationDestinations(int tribeId, int[] unitIds, uint[] globalIds, int[] targetX, int[] targetY) { }
         internal abstract void LogAndResetFastMoatMetrics();
         internal abstract bool HasFastFriendlyMoatBridge(int playerId, int startTileId, int targetTileId);
-        internal abstract void ClearDeferredFastMoveScope();
-        internal abstract void CaptureDeferredFastMoveScope(MoveCommandScope command);
-        internal abstract bool IsDeferredFastMoveAuthorized(PlanScope plan, GameUnit* unit);
+        internal abstract void RetainFastMoveDistribution(MoveCommandScope command);
         internal abstract bool HasFastFriendlyMoatBridgeForCells(
             int playerId, IList<int> starts, IList<int> targets);
         internal abstract bool TryProbeFastCursorRoute(int playerId, int startTileId, int targetTileId,

@@ -23,8 +23,11 @@
       "Version": "0.1.2",
       "Changes": [
         "Restore translated formation names and the settings reset button in every supported language.",
-        "Avoid temporary allocations while waiting for queued movement and stop retaining obsolete move commands when unit slots are reused.",
+        "Avoid temporary allocations while waiting for queued movement and remove an unused deferred-move context that retained old commands.",
         "Keep unchanged gate routing policies cached in normal builds and calculate protected-center placement much faster for deep formations.",
+        "Refresh gatehouse reachability between native query passes, including loads and editor work that share the same game timestamp.",
+        "Preserve the previous settings when migration files cannot be read or written, including explicit changes made before an import can finish.",
+        "Accept multiplayer Assassin climbing and formation commands only from the verified player who controls the affected mode or owns the troop group.",
         "Report BugfixesAndQoL versions older than 1.0.215, which still contain the same movement features."
       ]
     },

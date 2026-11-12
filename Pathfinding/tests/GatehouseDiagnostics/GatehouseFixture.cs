@@ -130,13 +130,23 @@ namespace Pathfinding
                     var args=new SHCDESE.EventAPI.Buildings.GatehouseQueryEventArgs { BuildingId=1,UnitId=1 };
                     runtime.Call(args);Check(args.ShouldClose==(scenario!=2),"Production close decision changed: "+scenario);
                 }
+#if GEOMETRY_OPTIMIZED
+                int expected=scenario==0?2:scenario==1?6:scenario==2?4:2;
+#else
+                // Historical comparison source caches reachability for the Extender tick.
                 int expected=scenario==0?1:scenario==1?3:2;
+#endif
                 Check(paths.Calls==expected,"Original route count changed: "+scenario+" got="+paths.Calls);
 #if SERP_DEVDIAG
                 var totals=GatehouseDiagnosticRuntime.Current;
                 Check(totals.Queries==2&&totals.RouteCalls==expected,"Diagnostic route/callback counters differ");
-                if(scenario!=3)Check(totals.DirectMisses==1&&totals.DirectHits==1,"Direct cache decisions differ");
-                if(scenario==1)Check(totals.FullMisses==1&&totals.FullHits==1&&totals.Bridges==2&&totals.Approaches==2&&totals.TraceCalls==2,"Bridge/cache stages differ");
+#if GEOMETRY_OPTIMIZED
+                if(scenario!=3)Check(totals.DirectMisses==2&&totals.DirectHits==0,"Direct cache decisions differ");
+                if(scenario==1)Check(totals.FullMisses==2&&totals.FullHits==0&&totals.Bridges==2&&totals.Approaches==2&&totals.TraceCalls==2,"Bridge/cache stages differ");
+#else
+                if(scenario!=3)Check(totals.DirectMisses==1&&totals.DirectHits==1,"Historical direct cache decisions differ");
+                if(scenario==1)Check(totals.FullMisses==1&&totals.FullHits==1&&totals.Bridges==2&&totals.Approaches==2&&totals.TraceCalls==2,"Historical bridge/cache stages differ");
+#endif
 #if GEOMETRY_OPTIMIZED
                 if(scenario==1)Check(totals.FootprintScans==2&&totals.FootprintCalls+totals.FootprintCacheHits==2&&totals.CollectionTileProbes==tiles.Reads&&
                     tiles.LayerFetches==totals.FootprintScans&&totals.LayerProbes>0,"Geometry creation/reuse/live probes were conflated");
@@ -183,7 +193,7 @@ namespace Pathfinding
             long bytes=GC.GetAllocatedBytesForCurrentThread()-before;
             // Every query still reads the live building layer (one fetch per scan; no result reuse across queries).
 #if GEOMETRY_OPTIMIZED
-            Check(args.ShouldClose==false&&paths.Calls==0&&tiles.Reads==0&&tiles.LayerFetches==count,"Allocation measurement changed decisions or live reads");
+            Check(args.ShouldClose==false&&paths.Calls==count*2&&tiles.Reads==0&&tiles.LayerFetches==count,"Allocation measurement changed decisions or live reads");
 #else
             Check(args.ShouldClose==false&&paths.Calls==0&&tiles.Reads==count*20,"Allocation measurement changed decisions or live reads");
 #endif
@@ -256,7 +266,7 @@ namespace Pathfinding
                 SimulationRunScope.Enter();
                 string reused;int lookups,fetches;
                 try{reused=Pass(3,out lookups,out fetches);}finally{SimulationRunScope.Exit();}
-                Check(reused==fresh,"Reused pass decisions differ: "+reused+" vs "+fresh);
+                Check(reused.Split(':')[0]==fresh.Split(':')[0],"Reused pass decisions differ: "+reused+" vs "+fresh);
 #if SERP_DEVDIAG
                 // The diagnostic build re-evaluates every reused result as in-game evidence.
                 Check(lookups==1&&GatehouseDiagnosticRuntime.Current.PassMismatches==0,"Diagnostic pass check differs: "+lookups);
@@ -297,6 +307,48 @@ namespace Pathfinding
 #if SERP_DEVDIAG
             Check(GatehouseDiagnosticRuntime.Current.PassMismatches==0,"Reused pass results disagree with fresh evaluation");
 #endif
+            // Timestamp is deliberately unchanged: only the audited gate pass may reuse a result.
+            bool Decision()
+            {
+                var args=new SHCDESE.EventAPI.Buildings.GatehouseQueryEventArgs {BuildingId=1,UnitId=1};
+                runtime.Call(args);return args.ShouldClose==true;
+            }
+            paths.Target=2;
+            SimulationRunScope.Enter();
+            try
+            {
+                int calls=paths.Calls;
+                Check(Decision()&&Decision()&&paths.Calls==calls+1,"Same gate pass must reuse direct reachability");
+            }
+            finally{SimulationRunScope.Exit();}
+            paths.Target=0;
+            SimulationRunScope.Enter();
+            try{Check(!Decision(),"A new native run at the same timestamp must refresh connectivity");}
+            finally{SimulationRunScope.Exit();}
+            paths.Target=2;Check(Decision(),"Outside a run must read changed connectivity freshly");
+            paths.Target=0;Check(!Decision(),"Repeated outside-run query must not cache by timestamp");
+            SimulationRunScope.Enter();
+            try
+            {
+                paths.Target=2;Check(Decision(),"First gate in run should be reachable");
+                Query(2);paths.Target=0;
+                Check(!Decision(),"Another gate handler ends the old gate result cache even within one run");
+            }
+            finally{SimulationRunScope.Exit();}
+            // Load-like replacement happens between native runs, never inside the audited unit loop.
+            paths.Target=2;buildings[0].r_GlobalId++;gate[0].r_SubjectGlobalId=buildings[0].r_GlobalId;
+            SimulationRunScope.Enter();
+            try{Check(Decision(),"Reused gate/PCL IDs in a new run must get fresh reachability");}
+            finally{SimulationRunScope.Exit();}
+            tiles.Bridge=true;paths.Target=3;
+            SimulationRunScope.Enter();
+            try{Check(Decision(),"Drawbridge exterior should be reachable in its pass");}
+            finally{SimulationRunScope.Exit();}
+            paths.Target=0;
+            SimulationRunScope.Enter();
+            try{Check(!Decision(),"Full drawbridge reachability must refresh across same-timestamp runs");}
+            finally{SimulationRunScope.Exit();}
+            tiles.Bridge=false;
             digest.Add("pass:"+string.Join("|",rows));
         }
         // A reachable range test drives the actual Pathfinding veto for an unreachable enemy.

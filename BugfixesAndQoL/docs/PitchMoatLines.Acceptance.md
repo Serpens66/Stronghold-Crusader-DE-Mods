@@ -116,9 +116,30 @@ and the affected Raid, Outpost and Savegame regression suites passed. The
 independent source review found the cleaned line runtime semantically equivalent
 to the previous normal-build projection. No game was started for this cleanup.
 
-After the remaining multiplayer acceptance, update the version consistently,
-build/check the normal package, replace
-the installed BFQoL package with the game closed, and remove the installed old
-testmod/config and `Testmods/PitchMoatLineTest` sources. The testmod is intentionally
-retained until that acceptance and replacement is complete. Keep historical
-`.work` evidence; do not rewrite old build records.
+Retirement update, 2026-11-12: the user explicitly authorized removing the old
+standalone testmod before the remaining multiplayer acceptance. The
+`Testmods/PitchMoatLineTest` directory, including its tests, build tools and
+local build outputs, has been removed. Its production policies, executable native
+regressions and native contract are retained in BFQoL. The incompatibility
+declaration for `PitchMoatLineTest_Serp` remains to reject obsolete duplicate
+installations. No installed package or configuration for that identity was found.
+Historical `.work` evidence and old build records remain unchanged.
+
+BFQoL is the sole maintained implementation. Multiplayer remains enabled with
+its shared capability checks, but genuine host/client game acceptance is still
+outstanding. That acceptance is not a prerequisite for retiring the prototype.
+A publication or installation is outside this cleanup request.
+
+Retirement verification, 2026-11-12: normal build 1176 and diagnostic build 1177
+both succeeded without installation, using the existing validated APIShared 0.48.0
+package. Both line source sets match the current workspace byte-for-byte. Scoped
+consumer preflight, line/payment policies, the production network coordinator and
+36 executable native ABI/branch cases passed. Binary inspection of both flavors
+found no removed acceptance types or standalone-testmod dependency; the normal
+package also passed the development-diagnostics release guard. Independent input,
+lifecycle, UI and network/native reviews found no confirmed defect. The builds
+retain the existing Mono.Cecil reference-version warning; no compile errors
+occurred. Packages, build records and check logs are in `.work/a/pm-retire/001`.
+No in-game test, installation, SDK modification or publication was performed.
+Parallel APIShared/BFQoL changes were preserved; this cleanup changes only this
+document and removes the old standalone testmod directory.

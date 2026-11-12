@@ -678,7 +678,6 @@ namespace Pathfinding.UnitCommands
             disposed = true;
             ClearUnitMoveFrames();
             activeMoveCommand = null;
-            ClearDeferredFastMoveScope();
             activePlan = null;
             pendingPlan = null;
             pendingAttackCursorPair = null;

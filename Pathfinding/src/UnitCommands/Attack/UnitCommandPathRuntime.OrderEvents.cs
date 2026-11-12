@@ -165,13 +165,12 @@ namespace Pathfinding.UnitCommands
                 }
                 try
                 {
-                    CaptureDeferredFastMoveScope(command);
+                    RetainFastMoveDistribution(command);
                 }
                 catch (Exception ex)
                 {
-                    // This scope is optional and must fail closed without affecting Vanilla.
-                    ClearDeferredFastMoveScope();
-                    TryLogDiagnosticFailure("deferred-fast-move-scope", ex);
+                    // Retaining distribution is optional and must not affect Vanilla.
+                    TryLogDiagnosticFailure("fast-move-distribution", ex);
                 }
                 RestoreManualCommandContext();
             }

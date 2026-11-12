@@ -9,15 +9,6 @@ namespace Pathfinding.Engine
 {
     internal sealed unsafe partial class FriendlyMoatTraversalProvider
     {
-        private readonly struct DeferredMove
-        {
-            internal DeferredMove(uint global, MoveCommandScope command) { Global = global; Command = command; }
-            internal uint Global { get; }
-            internal MoveCommandScope Command { get; }
-        }
-        // A reused unit slot supersedes its old identity, which can never authorize a live unit again.
-        // Keep at most one retained command per slot instead of accumulating dead global identities.
-        private readonly Dictionary<int, DeferredMove> deferredMoves = new Dictionary<int, DeferredMove>();
         internal override void InvalidateFastMoatData() { ResetGroundFailureProofs(); MarkFastTopologyAll(); }
         // Native 3x3 tile or moat update: only that area (+-2 tiles, the edges it can change) is
         // re-read, so AI building activity no longer forces full anchor mask resweeps.
@@ -37,30 +28,8 @@ namespace Pathfinding.Engine
             if (AnchorNodeTiles() != null) { anchorRebuildsWatched++; return; }
             MarkFastTopologyAll();
         }
-        internal override void ResetMapState()
-        {
-            deferredMoves.Clear();
-            ResetFastCommandMap();
-        }
-        internal override void ClearDeferredFastMoveScope() => deferredMoves.Clear();
-        internal override void CaptureDeferredFastMoveScope(MoveCommandScope command)
-        {
-            RetainFastDistribution(command);
-            if (command == null) return;
-            runtime.EnsureMoveCommandGroupSummary(command);
-            foreach (int id in command.ActiveUnitIdsAtDispatch)
-                if (APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) && unit != null)
-                {
-                    if (command.MoatRelevant) deferredMoves[id] = new DeferredMove(unit->r_GlobalId, command);
-                    else deferredMoves.Remove(id);
-                }
-        }
-        internal override bool IsDeferredFastMoveAuthorized(PlanScope plan, GameUnit* unit)
-        {
-            if (plan == null || unit == null || activeMoveCommand != null) return false;
-            return deferredMoves.TryGetValue(plan.UnitId, out DeferredMove move) && move.Global == unit->r_GlobalId &&
-                move.Command.TribeId == unit->r_TribeId && move.Command.TargetX == plan.TargetX && move.Command.TargetY == plan.TargetY;
-        }
+        internal override void ResetMapState() => ResetFastCommandMap();
+        internal override void RetainFastMoveDistribution(MoveCommandScope command) => RetainFastDistribution(command);
         // These are prefilters only. The original Fast implementation deliberately
         // leaves the actual decision to its exact reusable traversal fields.
         internal override bool HasFastFriendlyMoatBridge(int player, int start, int target) =>

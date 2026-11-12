@@ -31,20 +31,9 @@ namespace Pathfinding.UnitCommands
             Traversal?.LogAndResetFastMoatMetrics();
              return;
         }
-        internal void ClearDeferredFastMoveScope()
+        internal void RetainFastMoveDistribution(MoveCommandScope command)
         {
-            Traversal?.ClearDeferredFastMoveScope();
-             return;
-        }
-        internal void CaptureDeferredFastMoveScope(MoveCommandScope command)
-        {
-            if (TraversalEnabled) Traversal.CaptureDeferredFastMoveScope(command);
-             return;
-        }
-        internal bool IsDeferredFastMoveAuthorized(PlanScope plan, GameUnit* unit)
-        {
-            if (TraversalEnabled) return Traversal.IsDeferredFastMoveAuthorized(plan, unit);
-             return false;
+            if (TraversalEnabled) Traversal.RetainFastMoveDistribution(command);
         }
         internal bool TryChooseFastFormation(IntPtr manager, int x, int y, out int tile)
         {

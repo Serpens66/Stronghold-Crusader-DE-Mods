@@ -69,7 +69,7 @@ namespace Pathfinding.UnitCommands
                 return DispatchDisposition.Rejected;
             }
 
-            if (packetHook == null)
+            if (packetChannel == null)
             {
                 rejection = "packet hook is unavailable";
                 return DispatchDisposition.Rejected;
@@ -81,8 +81,11 @@ namespace Pathfinding.UnitCommands
             }
             try
             {
+                // Release dispatch runs in EngineInterface.run, which may be on the simulation thread.
+                // Keep the existing synchronous sender (channel.Send is Unity-only); receive still
+                // requires APIShared's body-bound native issuer and the live tribe owner below.
                 if (APIShared.Networking.ChoreTransport.TrySend(
-                    packet, packetHook.GetPacketId(), packetHook != null,
+                    packet, packetChannel.PacketId, packetChannel != null,
                     out _, out rejection))
                     return DispatchDisposition.Accepted;
                 return DispatchDisposition.Rejected;
@@ -94,13 +97,22 @@ namespace Pathfinding.UnitCommands
             }
         }
 
-        private void OnPacketReceived(ReceiveCustomPacketEventArgs<FormationOrderPacket> args)
+        private static bool IsAuthorizedFormationMessage(
+            APIShared.Networking.AuthenticatedChoreMessage<FormationOrderPacket> message)
         {
-            if (args?.Phase != EventHookPhase.Post || args.SenderSteamId.HasValue)
-                return;
+            if (message == null || !ValidatePacket(message.Packet, out _)) return false;
+            // This matches local gesture admission: a human can order only their own live tribe.
+            return GameTribeManagerAPI.Instance.TryGetTribeById(message.Packet.TribeId, out GameTribe* tribe) &&
+                tribe != null && tribe->r_AliveState == AliveState.IsAlive &&
+                tribe->r_PlayerIdOwner == message.SenderPlayerId;
+        }
+
+        private void OnPacketReceived(APIShared.Networking.AuthenticatedChoreMessage<FormationOrderPacket> message)
+        {
+            if (!IsAuthorizedFormationMessage(message)) return;
             try
             {
-                if (!ApplyPacket(args.Packet, "multiplayer-chore"))
+                if (!ApplyPacket(message.Packet, "multiplayer-chore"))
                 {
                     LogErrorNoThrow(
                         "Formation Chore was rejected before Vanilla could accept it.");

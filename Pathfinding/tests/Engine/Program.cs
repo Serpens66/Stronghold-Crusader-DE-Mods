@@ -9,6 +9,7 @@ try
 // assembly is produced or installed by this standalone regression runner.
 string root = Path.GetFullPath(args.Length == 0 ? "." : args[0]);
 if (args.Contains("--redbird-only")) { InstalledRedBirdContract.Validate(); return; }
+OutsideBuilderDiagnosticsTests.Run(root);
 string sourceDir = Path.Combine(root, "Pathfinding", "src", "Engine");
 string testDir = Path.Combine(root, "Pathfinding", "tests", "Engine");
 string RuntimeSource(string name)

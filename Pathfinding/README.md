@@ -1,6 +1,6 @@
 # Pathfinding
 
-Pathfinding makes units move faster, smarter and without the stutter that big armies usually cause. Large groups share one route search instead of searching one unit at a time, so AI attacks and mass orders stop freezing the game. It also collects the fixes and improvements for moving, attacking and giving orders in one place.
+Pathfinding improves unit movement and reduces pauses caused by large armies. Large groups can share route searches instead of searching separately for every unit, which reduces the cost of AI attacks and mass orders. It also collects the fixes and improvements for moving, attacking and giving orders in one place.
 
 Every feature can be switched in the mod settings. The host decides for everyone; only the performance option is personal. All players in a multiplayer match need the same version of the mod.
 

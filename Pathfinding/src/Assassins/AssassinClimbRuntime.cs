@@ -74,8 +74,7 @@ namespace Pathfinding
         private readonly AssassinClimbButtonViewModel buttonViewModel;
         private readonly bool[] climbingAllowed = new bool[9];
         private readonly int[] lastOperationIds = new int[9];
-        private R3PacketEventHook<AssassinClimbStatePacket> packetHook;
-        private IDisposable packetSubscription;
+        private APIShared.Networking.AuthenticatedChoreChannel<AssassinClimbStatePacket> climbChannel;
         private SessionSaveRecordSlot<AssassinClimbSaveState> saveSlot;
         private bool initialized;
         private bool networkInitialized;
@@ -155,8 +154,13 @@ namespace Pathfinding
             if (networkInitialized)
                 return;
 
-            packetHook = GameNetworkAPI.Instance.GetPacketEventFor<AssassinClimbStatePacket>();
-            packetSubscription = packetHook.GetBaseHook().Observable.Subscribe(OnPacketReceived);
+            climbChannel = APIShared.ApiShared.ForMod(PathfindingPlugin.PluginGuid).Network
+                .RegisterAuthenticatedChore<AssassinClimbStatePacket>("assassin-climb-state", OnPacketReceived,
+                    new APIShared.Networking.AuthenticatedChoreChannelOptions<AssassinClimbStatePacket>
+                    {
+                        ValidatePayload = IsValidClimbPacket,
+                        ValidateReceive = IsAuthorizedClimbMessage
+                    });
             networkInitialized = true;
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
                 LogDebug($"Assassin climb-state synchronization registered: protocolVersion={ChoreProtocolVersion}.");
@@ -383,36 +387,33 @@ namespace Pathfinding
                 OperationId = operationId,
                 AllowClimbing = targetState
             };
-            short packetId = packetHook?.GetPacketId() ?? (short)0;
-            if (!APIShared.Networking.ChoreTransport.TrySend(
-                    packet,
-                    packetId,
-                    networkInitialized && packetHook != null,
-                    out byte[] body,
-                    out string rejectionReason))
+            var result = climbChannel.Send(packet);
+            if (!result.Submitted)
             {
-                LogError($"Assassin climb-state Chore was not queued; no local change was applied: operationId={operationId}, reason={rejectionReason}.");
+                LogError($"Assassin climb-state Chore was not queued; no local change was applied: operationId={operationId}, reason={result.Reason}.");
                 return false;
             }
 
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                LogDebug($"Assassin climb-state Chore queued: operationId={operationId}, payloadBytes={sizeof(short) + body.Length}.");
+                LogDebug($"Assassin climb-state Chore queued: operationId={operationId}, payloadBytes={sizeof(short) + result.BodyBytes}.");
             return true;
         }
 
-        private void OnPacketReceived(ReceiveCustomPacketEventArgs<AssassinClimbStatePacket> args)
+        private static bool IsValidClimbPacket(AssassinClimbStatePacket packet) =>
+            packet != null && packet.ProtocolVersion == ChoreProtocolVersion &&
+            packet.PlayerId > 0 && packet.PlayerId <= 8 && packet.OperationId > 0;
+
+        private static bool IsAuthorizedClimbMessage(
+            APIShared.Networking.AuthenticatedChoreMessage<AssassinClimbStatePacket> message) =>
+            message != null && IsValidClimbPacket(message.Packet) &&
+            message.SenderPlayerId == message.Packet.PlayerId;
+
+        private void OnPacketReceived(
+            APIShared.Networking.AuthenticatedChoreMessage<AssassinClimbStatePacket> message)
         {
-            if (!APIShared.Networking.ChoreTransport.IsChoreDelivery(args))
-                return;
-
-            AssassinClimbStatePacket packet = args?.Packet;
-            if (packet == null || packet.ProtocolVersion != ChoreProtocolVersion ||
-                packet.PlayerId <= 0 || packet.PlayerId >= climbingAllowed.Length || packet.OperationId <= 0)
-            {
-                LogError("Rejected an Assassin climb-state Chore with an invalid payload.");
-                return;
-            }
-
+            // Defense at the consumer boundary as well as the channel's receive validator.
+            if (!IsAuthorizedClimbMessage(message)) return;
+            AssassinClimbStatePacket packet = message.Packet;
             ApplyState(packet.PlayerId, packet.OperationId, packet.AllowClimbing, "multiplayer-chore");
             Shared.UnityMainThreadDispatch.TryEnqueue(RefreshButtonVisibility);
         }
@@ -436,8 +437,7 @@ namespace Pathfinding
 
         private bool IsChoreTransportReady()
         {
-            return APIShared.Networking.ChoreTransport.IsAvailable(
-                networkInitialized && packetHook != null);
+            return networkInitialized && climbChannel != null && climbChannel.IsAvailable;
         }
 
         private bool HasSelectedOwnAssassin(int playerId)

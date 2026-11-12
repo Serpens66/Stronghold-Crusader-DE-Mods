@@ -19,7 +19,7 @@ var names=new HashSet<string> {"nativeManualProbe","manualCommandContexts","Manu
     "nativeProbeBatchDepth","nativeProbeBatchSnapshot","BeginNativeProbeBatch","EndNativeProbeBatch",
     "PrepareNativeManualGroup","IsNativeManualGroupFlood","CaptureTargetCommandContext",
     "moveEventObservers","moveEventDepths","targetCommandParents","targetEventObservers",
-    "DispatchMoveEvent","DispatchTargetEvent","InvalidateFastMoatData","InvalidateFastMoatTile","InvalidateFastMoatDirections","LogAndResetFastMoatMetrics","ClearDeferredFastMoveScope"};
+    "DispatchMoveEvent","DispatchTargetEvent","InvalidateFastMoatData","InvalidateFastMoatTile","InvalidateFastMoatDirections","LogAndResetFastMoatMetrics"};
 var permanent=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Pathfinding/src/UnitCommands/Native/PermanentCommandHooks.cs")));
 var traversal=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Pathfinding/src/UnitCommands/Movement/TraversalDispatch.cs")));
 var proof=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Pathfinding/src/UnitCommands/Cursor/CursorRegionRejectProof.cs")), options, "CursorRegionRejectProof.cs");

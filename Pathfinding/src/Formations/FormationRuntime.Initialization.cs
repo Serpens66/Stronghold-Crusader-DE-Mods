@@ -64,7 +64,6 @@ namespace Pathfinding.UnitCommands
             IDisposable pendingKeyDown = null;
             IDisposable pendingKeyHeld = null;
             IDisposable pendingKeyUp = null;
-            IDisposable pendingPacket = null;
             try
             {
                 mainThreadId = Environment.CurrentManagedThreadId;
@@ -117,14 +116,18 @@ namespace Pathfinding.UnitCommands
                 pendingCameraUpdate = null;
                 cameraUpdateHook.Apply();
 
-                packetHook = GameNetworkAPI.Instance.GetPacketEventFor<FormationOrderPacket>();
-                pendingPacket = packetHook.GetBaseHook().Observable.Subscribe(OnPacketReceived);
+                // Keep the same packet type and registration order; APIShared verifies its native issuer.
+                packetChannel = APIShared.ApiShared.ForMod(PathfindingPlugin.PluginGuid).Network
+                    .RegisterAuthenticatedChore<FormationOrderPacket>("formation-order", OnPacketReceived,
+                        new APIShared.Networking.AuthenticatedChoreChannelOptions<FormationOrderPacket>
+                        {
+                            ValidatePayload = packet => ValidatePacket(packet, out _),
+                            ValidateReceive = IsAuthorizedFormationMessage
+                        });
                 pendingKeyDown = InputR3EventHooks.OnKeyDown.Observable.Subscribe(OnKeyDown);
                 pendingKeyHeld = InputR3EventHooks.OnKey.Observable.Subscribe(OnKeyHeld);
                 pendingKeyUp = InputR3EventHooks.OnKeyUp.Observable.Subscribe(OnKeyUp);
 
-                packetSubscription = pendingPacket;
-                pendingPacket = null;
                 keyDownSubscription = pendingKeyDown;
                 pendingKeyDown = null;
                 keyHeldSubscription = pendingKeyHeld;
@@ -149,7 +152,6 @@ namespace Pathfinding.UnitCommands
                 pendingKeyUp?.Dispose();
                 pendingKeyHeld?.Dispose();
                 pendingKeyDown?.Dispose();
-                pendingPacket?.Dispose();
                 pendingCameraUpdate?.Dispose();
                 pendingEngineRun?.Dispose();
                 throw;

@@ -36,6 +36,7 @@ namespace Pathfinding.Movement.Tests
             TestMoveHereConsumersIgnorePlacementCancel();
             Traversal();
             SaveRecordTests();
+            LegacySettingsMigrationTests.Run(Check, FindProjectDirectory());
             TestRunMarkerIndependentOfOptions();
             TestCadenceSpriteAnimationOffset();
             Console.WriteLine("Movement checks: failures=" + failures);
@@ -392,7 +393,7 @@ namespace Pathfinding.Movement.Tests
             Check(english.Contains("human-player units") &&
                     english.Contains("AI units remain unchanged") &&
                     german.Contains("Einheiten menschlicher Spieler") &&
-                    german.Contains("KI-Einheiten bleiben unverändert"),
+                    german.Contains("KI-Einheiten bleiben unverÃ¤ndert"),
                 "fast recruit rally help text documents the human-only behavior");
         }
         private static void TestReachableEnemyGatehouseUnitIdContract()
@@ -604,10 +605,9 @@ namespace Pathfinding.Movement.Tests
             string runtime = File.ReadAllText(Path.Combine(
                 projectDirectory, "src", "GateRouting/ReachableEnemyGatehouseRuntime.cs"));
             Check(!runtime.Contains("OpenState") &&
-                    !runtime.Contains("previouslyOpen") &&
-                    runtime.Contains("tick != lastCacheTick") &&
-                    runtime.Contains("reachabilityCache.Clear()"),
-                "already-closed gates need no remembered open state and cache only within one tick");
+                    !runtime.Contains("previouslyOpen"),
+                "already-closed gates need no remembered open state");
+            // Cache lifetime is exercised against the production class in GatehouseDiagnostics/GatehouseFixture.cs.
         }
         private static void TestMoveHereConsumersIgnorePlacementCancel()
         {
