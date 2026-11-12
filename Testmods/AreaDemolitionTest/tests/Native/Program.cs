@@ -15,7 +15,7 @@ internal static unsafe class Program
     {
         try
         {
-            ScratchRestoration(); PatternBoundaries(); ClassificationAndRefunds(); RegisteredFootprints(); DecorationContracts(); RequestHitContracts(); PreviewIndexAndBudget(); PreparationMonitorContracts(); PreviewGeometryBenchmark();
+            ScratchRestoration(); PatternBoundaries(); ClassificationAndRefunds(); WallIdentityNormalization(); RegisteredFootprints(); DecorationContracts(); RequestHitContracts(); PreviewIndexAndBudget(); PreparationMonitorContracts(); PreviewGeometryBenchmark();
             Console.WriteLine("PASS: native demolition " + checks + " checks (private-memory scratch, native layout, resolver boundaries, registered footprints, decoration ownership/identity/closure, fear families, refund policy).");
             return 0;
         }
@@ -478,6 +478,29 @@ internal static unsafe class Program
             Check((bool)closureMethod.Invoke(native,args) && ((List<DemolitionTarget>)args[2]).Single()==root,"Non-decoration closure avoids global projectile reads: "+kind);
         }
     }
+    private static void WallIdentityNormalization()
+    {
+        const int tile=233160,x=376,y=504;
+        var flags=TilePropertyFlag.IsWall|TilePropertyFlag.CrenelatedLow;
+        DemolitionTarget Wall(TilePropertyFlag value,int height=98,int owner=1) =>
+            NativeDemolition.CreateWallIdentity(tile,x,y,value,owner,height);
+        var frozen=Wall(flags);
+        var normalized=Wall(flags|TilePropertyFlag.CrenelatedHigh);
+        Check(NativeDemolition.SameState(frozen,normalized),"Observed neighbor normalization preserves the same wall: flags0x300 to0x400300, height106/default8");
+        Check(NativeDemolition.SameState(normalized,frozen),"Frozen identity is independent of the derived High appearance bit");
+        Check(frozen.Type==normalized.Type && frozen.Flags==normalized.Flags,"Both wire identity fields omit only derived High");
+        Check(!NativeDemolition.SameState(frozen,Wall(flags&~TilePropertyFlag.CrenelatedLow)),"Crenellated material change remains rejected");
+        Check(!NativeDemolition.SameState(frozen,Wall(flags|TilePropertyFlag.IsLowWall)),"Low-wall material change remains rejected");
+        Check(!NativeDemolition.SameState(frozen,Wall(flags|TilePropertyFlag.IsStairs)),"Stair conversion remains rejected");
+        Check(!NativeDemolition.SameState(frozen,Wall(flags&~TilePropertyFlag.IsWall)),"Removed wall remains rejected");
+        Check(!NativeDemolition.SameState(frozen,Wall(flags,97)),"Changed height remains rejected");
+        Check(!NativeDemolition.SameState(frozen,Wall(flags,98,2)),"Changed owner remains rejected");
+        var low=Wall(TilePropertyFlag.IsWall|TilePropertyFlag.IsLowWall,60);
+        Check(!NativeDemolition.SameState(low,Wall(flags|TilePropertyFlag.CrenelatedHigh,68)),"Observed low-wall and crenellated-wall variants remain distinct");
+        var other=NativeDemolition.CreateWallIdentity(tile+1,x+1,y,flags,1,98);
+        Check(!NativeDemolition.SameState(frozen,other),"Adjacent replacement tile remains rejected");
+    }
+
     private static void ClassificationAndRefunds()
     {
         foreach (var type in new[]{eStructs.STRUCT_GARDEN,eStructs.STRUCT_GARDEN_SMALL,eStructs.STRUCT_GARDEN_MED,eStructs.STRUCT_GARDEN_LARGE,eStructs.STRUCT_POND,eStructs.STRUCT_POND_SMALL,eStructs.STRUCT_POND_LARGE,eStructs.STRUCT_POND5,eStructs.STRUCT_POND6,eStructs.STRUCT_POND7,eStructs.STRUCT_POND8})

@@ -13,15 +13,38 @@ if($BaselineRef){
     if($LASTEXITCODE -ne 0 -or $commit -notmatch '^[0-9a-f]{40}$'){throw 'Invalid baseline commit.'}
     . (Join-Path $root 'Shared/Tools/Paths/WorkPaths.ps1')
     $fixture=New-ShortWorkDirectory -Root $root -Kind t -Name 'gate-baseline' -Identity $commit
+    # Compile runtime helpers from the same historical image. The current fixture supplies
+    # external boundaries only; never borrow a newer cache/scope implementation silently.
+    $historicalSources=@{}
+    function Read-HistoricalSource([string]$file){
+        $source=@(& git -C $root show ($commit+':'+$file) 2>$null)
+        if($LASTEXITCODE -ne 0){throw "Unsupported historical dependency at ${commit}: $file"}
+        return ($source -join "`r`n")
+    }
+    $runtimePath='Pathfinding/src/GateRouting/ReachableEnemyGatehouseRuntime.cs'
+    $historicalSources[$runtimePath]=Read-HistoricalSource $runtimePath
+    $helpers=@{
+        SimulationRunScope='Pathfinding/src/Core/Common/SimulationRunScope.cs'
+        GatehouseFootprintGeometryCache='Pathfinding/src/GateRouting/GatehouseFootprintGeometryCache.cs'
+    }
+    foreach($name in @($helpers.Keys|Sort-Object)){
+        if($historicalSources[$runtimePath] -match ('\b'+[regex]::Escape($name)+'\b')){
+            $path=$helpers[$name]
+            $historicalSources[$path]=Read-HistoricalSource $path
+            $files+=$path
+        }
+    }
     $files=@(foreach($file in $files){
-        if($file -match '^Pathfinding/src/GateRouting/ReachableEnemyGatehouseRuntime(\.DevDiag)?\.cs$' -or
+        if($historicalSources.ContainsKey($file) -or
+           $file -match '^Pathfinding/src/GateRouting/ReachableEnemyGatehouseRuntime(\.DevDiag)?\.cs$' -or
            $file -eq 'Shared/Runtime/Gameplay/GatehouseQueryUnitIdPolicy.cs'){
-            $source=@(& git -C $root show ($commit+':'+$file))
-            if($LASTEXITCODE -ne 0){throw "Missing baseline source: $file"}
+            if(!$historicalSources.ContainsKey($file)){$historicalSources[$file]=Read-HistoricalSource $file}
             $path=Join-Path $fixture ([IO.Path]::GetFileName($file))
-            [IO.File]::WriteAllText($path,($source -join "`r`n"),[Text.UTF8Encoding]::new($false)); $path
+            [IO.File]::WriteAllText($path,$historicalSources[$file],[Text.UTF8Encoding]::new($false)); $path
         }else{Join-Path $root $file}
     })
+    Write-Output ("HISTORICAL COMPARISON commit="+$commit+"; historical runtime dependencies="+(@($historicalSources.Keys|Sort-Object)-join ','))
+
 }else{
     $files+='Pathfinding/src/GateRouting/GatehouseFootprintGeometryCache.cs'
     $files+='Pathfinding/src/Core/Common/SimulationRunScope.cs'
@@ -30,6 +53,10 @@ if($BaselineRef){
     $files=@($files|ForEach-Object{Join-Path $root $_})
 }
 $references=@(Get-ChildItem (Join-Path $PSHOME ref) -File -Filter '*.dll'|ForEach-Object FullName)
-Add-Type -Path $files -ReferencedAssemblies $references -CompilerOptions $options
+try { Add-Type -Path $files -ReferencedAssemblies $references -CompilerOptions $options }
+catch {
+    if($BaselineRef){throw "Unsupported historical dependency or fixture contract at ${commit}: $($_.Exception.Message)"}
+    throw
+}
 [Pathfinding.GatehouseFixtureRunner]::Run()
 [Pathfinding.GatehouseFixtureRunner]::AllocationReport

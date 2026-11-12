@@ -25,6 +25,8 @@ namespace PerfProbe
                 "Write the 5 s render/zoom snapshot lines (original purpose of PerfProbe).").Value;
             PerfProbeRuntime.SpikeLines = config.Bind("Spikes", "Enabled", true,
                 "Write immediate DEVDIAG spike lines for slow run calls, main-thread calls and frame gaps.").Value;
+            PerfProbeRuntime.RunPhaseTiming = config.Bind("Spikes", "RunPhaseTiming", true,
+                "Measure internal run phases by transforming engine IL. Disable when another mod requires the original Monitor calls; outer run timing and sampling remain active.").Value;
             PerfProbeRuntime.SetThresholds(
                 config.Bind("Spikes", "SimulationMs", 100, "Minimum EngineInterface.run duration for a spike line.").Value,
                 config.Bind("Spikes", "MainThreadMs", 100, "Minimum Director.Update / GUI-check duration for a spike line.").Value,
@@ -118,7 +120,7 @@ namespace PerfProbe
             try
             {
                 harmony.Patch(target, prefix: prefix, postfix: postfix, finalizer: finalizer,
-                    transpiler: new HarmonyMethod(typeof(PerfProbeRunTiming), nameof(PerfProbeRunTiming.SafeTranspile)), ilmanipulator: null);
+                    transpiler: RunPhaseTiming ? new HarmonyMethod(typeof(PerfProbeRunTiming), nameof(PerfProbeRunTiming.SafeTranspile)) : null, ilmanipulator: null);
             }
             catch (Exception exception)
             {
@@ -161,6 +163,7 @@ namespace PerfProbe
         // The active tick age at return is only a point-in-time observation, not total lock wait.
         // Configured in DiagBindConfig (BepInEx config); defaults apply if binding failed.
         internal static bool RenderSnapshots = true, SpikeLines = true;
+        internal static bool RunPhaseTiming = true;
         private static long SimSpikeTicks = Stopwatch.Frequency / 10;     // 100 ms
         private static long MainSpikeTicks = Stopwatch.Frequency / 10;    // 100 ms
         private static long FrameSpikeTicks = Stopwatch.Frequency / 10;   // 100 ms

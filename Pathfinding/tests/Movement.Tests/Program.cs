@@ -393,7 +393,7 @@ namespace Pathfinding.Movement.Tests
             Check(english.Contains("human-player units") &&
                     english.Contains("AI units remain unchanged") &&
                     german.Contains("Einheiten menschlicher Spieler") &&
-                    german.Contains("KI-Einheiten bleiben unverÃ¤ndert"),
+                    german.Contains("KI-Einheiten bleiben unverändert"),
                 "fast recruit rally help text documents the human-only behavior");
         }
         private static void TestReachableEnemyGatehouseUnitIdContract()

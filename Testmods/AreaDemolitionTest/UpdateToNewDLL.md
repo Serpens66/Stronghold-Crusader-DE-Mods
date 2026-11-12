@@ -192,9 +192,21 @@ Wall-kind targets with IsStairs remain Fortifications; other wall-kind targets u
 Walls. Height/material identity, ownership and refund contracts are unchanged.
 The source-visible status box and count/type text were removed entirely.
 
-The requested wolf1 reproduction remains gated on explicit user start permission.
-Its diagnostic scenario must reconcile rendered targets, prepared packets and each
-ApplyResult; successful compilation is not evidence that leftover walls are fixed.
+Authorized singleplayer wolf1 acceptance completed2026-11-12. Walls run010
+(.work/t/area-wolf1/010/walls/cd09d5449e11/LogOutput.log) applied all2,077 received
+wall targets in65 batches with zero selected walls remaining. Combined run014
+(.work/t/area-wolf1/014/combined/f4d6dadef87b/LogOutput.log) applied all1,853 received
+targets in58 batches (1,245 walls,192 building objects,143 pitch,272 dug moats and
+one decoration); no selected walls or alive received building objects remained.
+Both reconciled native expected eligibility, red/final/received targets and actual
+ApplyResults. They used1920x1080, applied zoom0.175 and an explicitly clipped,
+sampled unobstructed viewport fallback; offscreen castle parts are outside this
+acceptance. Synthetic instance-scoped input exercised production Runtime without
+global mouse/keyboard control. The temporary diagnostic driver was removed after
+these runs. This is current-mod-combination SP evidence (including SE2.14.3,
+Fixes1.29.1, APIShared0.48.0 and CastlePlanner0.8.51), not an isolated Vanilla/FPS
+baseline. The full loaded-mod list, timings and observation limits are in TESTPLAN.
+Actual editor, multiplayer and remaining manual HUD/device cases remain deferred.
 
 Snapshots are advisory copies, not mutation authorization. Every included cached
 identity is checked against live metadata when quoted. A newly linked child or
@@ -407,6 +419,72 @@ these two live states and includes the selected policy in its capability
 fingerprint. Any other live state disables wall targets without disabling unrelated
 building/pitch/moat functions. A later policy change also rejects wall execution.
 No external setting is changed and no live code is written.
+
+## Deferred crenellated-wall appearance and frozen identity
+
+Follow-up audit and reproduction: 2026-11-12, canonical native SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The canonical file, CURRENT.json and selected semantic dataset identity matched.
+The index labels below remain `candidate`; the relevant field writes, predicates
+and call order were inspected directly, including canonical machine code for the
+appearance-bit write. These RVAs are evidence, not new callable bindings.
+
+Vanilla data/control chain:
+
+- `0x63700(tileManager*, actor:int, packedTileId:int)` clears only the target's
+  wall/stair/crenellation flags with `0xFFBEF4FF`, resets its HeightGrid byte
+  (`+0xD7E5A0`) to DefaultHeightGrid (`+0xDCCAC0`), removes same-tile decoration,
+  updates pathfinding, and calls `0xE3B90(pathManager*,9,x,y)`.
+- `0xE3B90` traverses the bounded eight-neighbour region and marks ChangedGrid
+  (`tileManager+0xA20D40`) plus the relevant ten-by-ten dirty blocks. It does not
+  change neighbouring wall material/height itself.
+- On a later `0xCDE60` update, the ordered render-maintenance calls include
+  `0x7C0A0`, `0x7D170`, `0x65830`, `0x650C0`, then `0xE5E60` dirty clearing.
+  `0x7C0A0` updates visual layers and the unrelated `0x8000` logic bit.
+- `0x65830` processes dirty tiles. For a wall with no registered structure and
+  no active damage byte, the CrenelatedLow branch chooses a neighbour-dependent
+  image. `0x5C2D0` tests opposing cardinal CrenelatedLow neighbours and absence of
+  the other pair (directions0/2 cover both axes); `0x5C1C0` distinguishes corner
+  patterns. If neither straight-pair branch applies, the image path additionally
+  sets CrenelatedHigh on that existing wall. At **RVA `0x65EF0`**, the instruction
+  is `or dword ptr [rbx+rax*4+0x898400],0x400000`; `rbx` is TileManager and `rax`
+  is its current packed tile index from `+0x204E814`. Removing a neighbour can
+  therefore change High from zero to one without replacing the wall. This path
+  does not clear High or recalculate CrenelatedLow, IsLowWall or native height.
+- These material/height fields have actual construction semantics in `0x6F230`;
+  they are retained in the frozen identity. Eligibility `0x79B90` still checks
+  live IsWall, structure/Goodsyard status, ownership and native proximity rules.
+  It does not distinguish walls by High/Low crenellation flags. Refund `0x13750`
+  still reads actual Height minus DefaultHeight, with its existing Fixes policy.
+
+High is not globally cosmetic: existing baseline `knowledge/CRENELATED_WALLS.md`
+records height/path consumers including `0x6B530`, `0x9C730`, `0xD86F0` and
+`0xDC900`. The adapter neither changes nor masks the live native flag. Its
+normalization applies exclusively to frozen target comparison; live permission,
+rendering, pathfinding and deletion continue reading the current native state.
+
+The full observed run is preserved at
+`.work/t/area-wolf1/009/walls/e23b931662da/LogOutput.log`. It selected/sent1,975
+wall targets and left672 after conservative packet rejection. Before packet5,
+tile233160 changed flags `0x300 ->0x400300`, while owner1, Height106,
+DefaultHeight8, unit0 and structure0 stayed unchanged; packet7 showed the same
+High-only change at tile234924 with Height76/DefaultHeight8. This reproduces
+Vanilla's deferred writer and explains rejection of the affected frozen targets;
+it does not imply every remaining wall independently changed.
+
+`CreateWallIdentity` is the single production builder used by WallAt. Its mask
+omits **only CrenelatedHigh**; IsWall, CrenelatedLow, IsLowWall, IsStairs,
+height-difference signature, owner and tile coordinates remain frozen. SameState,
+fresh native permission, dependent closure checks, reentrant pre-mutation checks
+and conservative packet handling are unchanged. Protocol4's layout remains
+unchanged; the capability fingerprint adds `wall-stable-identity-v1`, preventing
+old/new peers from accepting mismatched identity semantics.
+
+Native CLI regression fixtures pass production-built identities through the real
+SameState comparator: High-only normalization is equal, while crenellation,
+low-wall/stair/material, height, owner and tile changes are rejected. This is not
+a guarantee against an indistinguishable same-owner/same-material replacement;
+tile-based walls expose no independent generation identity in this contract.
 
 ## Verification on updates
 

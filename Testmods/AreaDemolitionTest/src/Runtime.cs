@@ -9,7 +9,7 @@ using UnityEngine;
 
 namespace AreaDemolitionTest
 {
-    internal sealed partial class Runtime
+    internal sealed class Runtime
     {
         private const int BulldozerAction=6; // Vanilla MainControls action state, not a building/mapper ID.
         private readonly ModApiClient api;
@@ -72,22 +72,7 @@ namespace AreaDemolitionTest
                !api.TryGetMissionLifecycle(out lifecycle,out diagnostic) ||
                !lifecycle.TryRegisterObserver("mission",Started,Ended,null,out diagnostic)) throw new InvalidOperationException(diagnostic?.Reason);
             Application.focusChanged+=FocusChanged;
-            DiagRegister();
         }
-        // The optional diagnostic partial is compiled only by /devdiag. Normal builds keep
-        // Unity's device reads and contain neither a driver nor an input override.
-        partial void DiagRegister();
-        partial void DiagPointer(ref Vector3 point);
-        partial void DiagMouseButton(int button,int phase,ref bool value);
-        partial void DiagShift(ref bool value);
-        partial void DiagFocus(ref bool value);
-        partial void DiagFreshPointer(ref bool fresh);
-        partial void DiagFilters(ref ushort filters);
-        private Vector3 PointerPosition { get {var value=Input.mousePosition;DiagPointer(ref value);return value;} }
-        private bool MouseButton(int button,int phase=0)
-        {bool value=phase==1?Input.GetMouseButtonDown(button):phase==2?Input.GetMouseButtonUp(button):Input.GetMouseButton(button);DiagMouseButton(button,phase,ref value);return value;}
-        private bool ShiftHeld {get {bool value=Input.GetKey(KeyCode.LeftShift)||Input.GetKey(KeyCode.RightShift);DiagShift(ref value);return value;} }
-        private bool InputFocused {get {bool value=Application.isFocused;DiagFocus(ref value);return value;} }
         private void Started(MissionLifecycleNotification note)
         {
             Volatile.Write(ref mission,note.Context); missionMarker=false;
@@ -130,8 +115,8 @@ namespace AreaDemolitionTest
             if(gesture.Owned)
             {
                 if(state==2) UpdatePointer(director);
-                if((state==3 || state==0) && MouseButton(0,2)) CompletePrimary(director,true);
-                else if((state==3 || state==0) && !MouseButton(0)) CompletePrimary(director,false);
+                if((state==3 || state==0) && Input.GetMouseButtonUp(0)) CompletePrimary(director,true);
+                else if((state==3 || state==0) && !Input.GetMouseButton(0)) CompletePrimary(director,false);
                 return true;
             }
             if(view.IsInputShieldActive) return true;
@@ -139,23 +124,22 @@ namespace AreaDemolitionTest
             if(state==1 && (pendingCommit!=null || finalCaptureRequested))CancelSelection();
             if(state!=1 || !CanCapture(director,out int owner) || !TryPointerTile(director,out int x,out int y,true)) return false;
             actor=owner;capturedSession=mission.SessionId;
-            bool shift=ShiftHeld;
+            bool shift=Input.GetKey(KeyCode.LeftShift)||Input.GetKey(KeyCode.RightShift);
             DemolitionTarget start=native.AtTile(x,y,actor);
-            var mouse=PointerPosition;
+            var mouse=Input.mousePosition;
             primaryReleaseFrame=-1;
             CancelQuote();targets=Array.Empty<DemolitionTarget>();renderer.Clear();previewPolicy.Reset();
-            ushort filters=settings.Mask;DiagFilters(ref filters);
-            gesture.Begin(mouse.x,mouse.y,new SelectionSpec(filters,shift,start));
+            gesture.Begin(mouse.x,mouse.y,new SelectionSpec(settings.Mask,shift,start));
             director.clearMouseStateForEngine();Wake();
             return true;
         }
-        private bool IsPointerOverUi() => !view.TryIsPointerOverUi(PointerPosition,out bool overUi) || overUi;
+        private bool IsPointerOverUi() => !view.TryIsPointerOverUi(Input.mousePosition,out bool overUi) || overUi;
         private bool CanCapture(EditorDirector director,out int owner) => CanContinue(director,out owner) && !IsPointerOverUi();
         private bool CanContinue(EditorDirector director,out int owner)
         {
             owner=0;
             var current=Volatile.Read(ref mission);
-            if(!native.Available || !renderer.IsReady || current==null || readiness.Current?.SessionId!=current.SessionId || !InputFocused ||
+            if(!native.Available || !renderer.IsReady || current==null || readiness.Current?.SessionId!=current.SessionId || !Application.isFocused ||
                 director==null || MainControls.instance==null || MainControls.instance.CurrentAction!=BulldozerAction) return false;
             owner=director.ActivePlayerID;
             if(owner<=0) owner=PlayerPerspectiveAPI.GetInputControlledPlayerId();
@@ -163,13 +147,13 @@ namespace AreaDemolitionTest
         }
         private bool UpdatePointer(EditorDirector director)
         {
-            if(mission?.SessionId!=capturedSession || !InputFocused || MainControls.instance==null || MainControls.instance.CurrentAction!=BulldozerAction ||
+            if(mission?.SessionId!=capturedSession || !Application.isFocused || MainControls.instance==null || MainControls.instance.CurrentAction!=BulldozerAction ||
                 !CanContinue(director,out int currentActor) || currentActor!=actor)
             {CancelSelection();return false;}
-            var mouse=PointerPosition;
+            var mouse=Input.mousePosition;
             bool valid=TryPointerTile(director,out _,out _);
             gesture.Move(mouse.x,mouse.y,valid,Math.Max(.5f,Screen.height/1080f));
-            if(gesture.SetSameType(ShiftHeld))
+            if(gesture.SetSameType(Input.GetKey(KeyCode.LeftShift)||Input.GetKey(KeyCode.RightShift)))
             {ClearPreviewWork();rootSelection.Clear();completedStamp=null;targets=Array.Empty<DemolitionTarget>();renderer.Clear();}
             return true;
         }
@@ -189,16 +173,16 @@ namespace AreaDemolitionTest
         internal void AfterInput(EditorDirector director)
         {
             view.AfterInputFrame();
-            if(MouseButton(1,1) && (gesture.Owned || pendingCommit!=null || finalCaptureRequested)){CancelSelection();return;}
+            if(Input.GetMouseButtonDown(1) && (gesture.Owned || pendingCommit!=null || finalCaptureRequested)){CancelSelection();return;}
             // Vanilla may suppress the setter entirely on our raw visual hit. Recover only an
             // otherwise unobserved physical down, never a down already passed to Vanilla.
-            if(!gesture.Owned && MouseButton(0,1) && primaryDownObservedFrame!=Time.frameCount &&
+            if(!gesture.Owned && Input.GetMouseButtonDown(0) && primaryDownObservedFrame!=Time.frameCount &&
                 MainControls.instance!=null && MainControls.instance.CurrentAction==BulldozerAction && director.overUI() && !IsPointerOverUi())
                 HandlePrimary(director,1);
             if(!gesture.Owned) return;
             if(gesture.Stage!=GestureStage.Cancelled) UpdatePointer(director);
-            if(MouseButton(0,2)) CompletePrimary(director,true);
-            else if(!MouseButton(0)) CompletePrimary(director,false);
+            if(Input.GetMouseButtonUp(0)) CompletePrimary(director,true);
+            else if(!Input.GetMouseButton(0)) CompletePrimary(director,false);
         }
         private bool TryPointerTile(EditorDirector director,out int x,out int y,bool fresh=false)
             => TryPointerTile(director,out x,out y,out _,fresh);
@@ -206,9 +190,8 @@ namespace AreaDemolitionTest
         {
             x=y=0;clickDepth=-32767;
             if(director==null || IsPointerOverUi() || MainControls.instance==null || GameMap.instance==null) return false;
-            var mouse=PointerPosition;
+            var mouse=Input.mousePosition;
             if(mouse.x<0 || mouse.y<0 || mouse.x>=Screen.width || mouse.y>=Screen.height) return false;
-            DiagFreshPointer(ref fresh);
             float tx=0,ty=0;
             if(fresh)
             {
@@ -226,7 +209,7 @@ namespace AreaDemolitionTest
             if(context==null || context.SessionId!=capturedSession || !CanCapture(director,out int currentActor) || currentActor!=actor ||
                 !TryPointerTile(director,out int x,out int y,out int buildingDepth,true) || !ManagedInput.TryGetSelectionOn(director,out bool selectionOn)) return;
             int[] units=null;int troopDepth=-32767;
-            var mouse=PointerPosition;
+            var mouse=Input.mousePosition;
             GameMap.instance.grabTroopsOnScreen(Vector2.zero,Vector2.zero,ref units,new Vector2(mouse.x,mouse.y),ref troopDepth);
             int firstUnit=units==null || units.Length==0?0:units[0];
             int issuer=actor;bool inGameNotEditor=!context.IsEditor;

@@ -72,8 +72,8 @@ namespace Pathfinding
         private readonly PathfindingViewModel settings;
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly AssassinClimbButtonViewModel buttonViewModel;
-        private readonly bool[] climbingAllowed = new bool[9];
-        private readonly int[] lastOperationIds = new int[9];
+        private readonly bool[] climbingAllowed = new bool[GamePlayerManagerAPI.MAX_PLAYERS + 1];
+        private readonly int[] lastOperationIds = new int[GamePlayerManagerAPI.MAX_PLAYERS + 1];
         private APIShared.Networking.AuthenticatedChoreChannel<AssassinClimbStatePacket> climbChannel;
         private SessionSaveRecordSlot<AssassinClimbSaveState> saveSlot;
         private bool initialized;
@@ -401,7 +401,7 @@ namespace Pathfinding
 
         private static bool IsValidClimbPacket(AssassinClimbStatePacket packet) =>
             packet != null && packet.ProtocolVersion == ChoreProtocolVersion &&
-            packet.PlayerId > 0 && packet.PlayerId <= 8 && packet.OperationId > 0;
+            packet.PlayerId > 0 && packet.PlayerId <= GamePlayerManagerAPI.MAX_PLAYERS && packet.OperationId > 0;
 
         private static bool IsAuthorizedClimbMessage(
             APIShared.Networking.AuthenticatedChoreMessage<AssassinClimbStatePacket> message) =>

@@ -3596,8 +3596,9 @@ internal static class Program
                 fileName + " retains the removed raw Chore transport");
         }
         string climbSender = File.ReadAllText(Path.Combine(workspaceRoot, "Pathfinding", "src", "Assassins", "AssassinClimbRuntime.cs"));
-        Check(climbSender.Contains("APIShared.Networking.ChoreTransport.TrySend("),
-            "AssassinClimbRuntime.cs does not use the fail-closed Chore sender contract");
+        // API boundary guard only; Pathfinding's actual send/receive behavior is covered by its runtime fixtures.
+        Check(climbSender.Contains(".RegisterAuthenticatedChore<AssassinClimbStatePacket>("),
+            "AssassinClimbRuntime.cs does not register the authenticated Chore contract");
         Check(!climbSender.Contains("ChoreNetworkTransport") && !climbSender.Contains("SendRawBlob"),
             "AssassinClimbRuntime.cs retains the removed raw Chore transport");
 

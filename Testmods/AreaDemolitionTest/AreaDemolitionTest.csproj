@@ -48,10 +48,6 @@
     <Compile Include="..\..\Shared\Runtime\Diagnostics\DevDiag.cs"><Link>Shared\DevDiag.cs</Link></Compile>
     <Content Include="info.json;TESTPLAN.txt;Locales\*.txt"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
   </ItemGroup>
-  <ItemGroup Condition="'$(SerpDevDiagnostics)' == 'true'">
-    <Reference Include="System.Numerics"/>
-    <Reference Include="UnityEngine.ScreenCaptureModule"><HintPath>$(GameManaged)\UnityEngine.ScreenCaptureModule.dll</HintPath><Private>false</Private></Reference>
-  </ItemGroup>
   <ItemGroup Condition="'$(SerpDevDiagnostics)' != 'true'"><Compile Remove="src\*.DevDiag.cs"/></ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
   <Target Name="ValidateSelectedReferences" BeforeTargets="ResolveAssemblyReferences">

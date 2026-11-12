@@ -12,8 +12,16 @@ internal static partial class Program
         string[] names = { "IsValidClimbPacket", "IsAuthorizedClimbMessage", "OnPacketReceived", "ApplyState" };
         string methods = string.Join("\n", syntax.DescendantNodes().OfType<MethodDeclarationSyntax>()
             .Where(m => names.Contains(m.Identifier.ValueText)).Select(m => m.ToFullString()));
+        string extender = Environment.GetEnvironmentVariable("SHCDESE_EXTENDER_DIR") ??
+            @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese";
+        string extenderAssembly = Path.Combine(extender, "SHCDESE.dll");
+        var playerLimit = Assembly.LoadFrom(extenderAssembly).GetType("SHCDESE.API.GamePlayerManagerAPI", true)!
+            .GetField("MAX_PLAYERS", BindingFlags.Public | BindingFlags.Static);
+        if (playerLimit == null || !playerLimit.IsLiteral || playerLimit.FieldType != typeof(int))
+            throw new Exception("Installed Extender must expose its public constant player bound.");
         string fixture = """
 using System;
+using SHCDESE.API;
 namespace APIShared.Networking {
  // Public authenticated-message boundary only: native authentication is tested by APIShared.
  public sealed class AuthenticatedChoreMessage<T> where T:class {
@@ -31,7 +39,7 @@ public sealed class AssassinClimbStatePacket {
 }
 public sealed class ClimbAuthorityFixture {
  const int ChoreProtocolVersion=1;
- readonly bool[] climbingAllowed=new bool[9]; readonly int[] lastOperationIds=new int[9];
+ readonly bool[] climbingAllowed=new bool[GamePlayerManagerAPI.MAX_PLAYERS+1]; readonly int[] lastOperationIds=new int[GamePlayerManagerAPI.MAX_PLAYERS+1];
  void RefreshButtonVisibility() {} void LogDebug(string text) {}
  METHODS
  static void Require(bool condition,string message) {if(!condition)throw new Exception(message);}
@@ -48,7 +56,7 @@ public sealed class ClimbAuthorityFixture {
   packet.AllowClimbing=true; r.OnPacketReceived(forged);
   Require(!r.climbingAllowed[2],"duplicate ignored"); packet.OperationId=2;r.OnPacketReceived(forged);
   Require(r.climbingAllowed[2]&&r.lastOperationIds[2]==2,"later own operation applies");
-  foreach(int id in new[]{0,9}) {packet.PlayerId=id;Require(!IsValidClimbPacket(packet),"invalid player");r.OnPacketReceived(forged);}
+  foreach(int id in new[]{0,GamePlayerManagerAPI.MAX_PLAYERS+1}) {packet.PlayerId=id;Require(!IsValidClimbPacket(packet),"invalid player");r.OnPacketReceived(forged);}
   packet.PlayerId=2;packet.OperationId=0;Require(!IsValidClimbPacket(packet),"invalid operation");r.OnPacketReceived(forged);
   packet.OperationId=3;packet.ProtocolVersion=2;Require(!IsValidClimbPacket(packet),"invalid protocol");r.OnPacketReceived(forged);
   Require(!IsValidClimbPacket(null)&&!IsAuthorizedClimbMessage(null),"nulls");
@@ -57,7 +65,8 @@ public sealed class ClimbAuthorityFixture {
 }
 """.Replace("METHODS", methods);
         var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
-            .Select(path => MetadataReference.CreateFromFile(path));
+            .Select(path => MetadataReference.CreateFromFile(path))
+            .Append(MetadataReference.CreateFromFile(extenderAssembly));
         var compilation = CSharpCompilation.Create("ActualClimbAuthority", new[] { CSharpSyntaxTree.ParseText(fixture) },
             references, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         using var output = new MemoryStream();

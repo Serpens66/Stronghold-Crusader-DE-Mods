@@ -10,7 +10,7 @@ using SHCDESE.Interop.Enums;
 
 namespace AreaDemolitionTest
 {
-    internal sealed unsafe partial class NativeDemolition
+    internal sealed unsafe class NativeDemolition
     {
         private readonly NativeBindings native;
         private volatile bool available = true;
@@ -20,13 +20,13 @@ namespace AreaDemolitionTest
         internal string Diagnostic { get; private set; }
         internal string Fingerprint { get; }
         internal event Action<string> DiagnosticProduced;
-        private const uint WallIdentityMask = (uint)(TilePropertyFlag.IsWall | TilePropertyFlag.IsLowWall | TilePropertyFlag.IsStairs | TilePropertyFlag.CrenelatedHigh | TilePropertyFlag.CrenelatedLow);
+        private const uint WallIdentityMask = (uint)(TilePropertyFlag.IsWall | TilePropertyFlag.IsLowWall | TilePropertyFlag.IsStairs | TilePropertyFlag.CrenelatedLow);
 
         private NativeDemolition(NativeBindings native, ManualLogSource log)
         {
             this.native = native; wallPolicy = native.WallPolicy;
             Diagnostic = wallPolicy < 0 ? "Native demolition available; unknown wall refund patch: walls disabled." : "Native demolition available.";
-            Fingerprint = NativeBindings.SupportedHash + ":demolition-v4:registered-footprints,buildings,stockpiles,walls-vs-stairs,pitch,dug-moat,decorations10-15:wall=" + wallPolicy;
+            Fingerprint = NativeBindings.SupportedHash + ":demolition-v4:registered-footprints,buildings,stockpiles,walls-vs-stairs,pitch,dug-moat,decorations10-15:wall-stable-identity-v1:wall=" + wallPolicy;
         }
 
         internal static bool TryCreate(CrusaderLibraryLoadContext context, ManualLogSource log, out NativeDemolition result)
@@ -1013,10 +1013,15 @@ namespace AreaDemolitionTest
             if ((flags&TilePropertyFlag.IsWall)==0 || (flags&TilePropertyFlag.GoodsyardRelated)!=0 || tiles.GetStructureLayer()[tile]!=0) return null;
             int owner=(tiles.GetWallOwnerLayer()[tile]&7)+1;
             if (actor>0 && actor!=owner) return null;
-            // Native tile signature, not another eStruct enum: material/height variants remain distinct.
-            int signature=unchecked((int)((uint)flags&WallIdentityMask));
-            signature|=(tiles.GetHeightLayer()[tile]-tiles.GetDefaultHeightLayer()[tile])<<24;
-            return Ground(TargetKind.Wall,WallGroup(flags),tile,signature,owner,x,y,tile,0,0,(uint)flags&WallIdentityMask);
+            return CreateWallIdentity(tile,x,y,flags,owner,tiles.GetHeightLayer()[tile]-tiles.GetDefaultHeightLayer()[tile]);
+        }
+        internal static DemolitionTarget CreateWallIdentity(int tile,int x,int y,TilePropertyFlag flags,int owner,int heightDifference)
+        {
+            // Dirty-neighbour graphics update 65830/65EF0 can add CrenelatedHigh to the same wall.
+            // Omit only that dynamic bit from comparison; live gameplay flags remain untouched.
+            uint stableFlags=(uint)flags&WallIdentityMask;
+            int signature=unchecked((int)stableFlags)|(heightDifference<<24);
+            return Ground(TargetKind.Wall,WallGroup(flags),tile,signature,owner,x,y,tile,0,0,stableFlags);
         }
         internal static TargetGroup WallGroup(TilePropertyFlag flags) => (flags&TilePropertyFlag.IsStairs)!=0?TargetGroup.Fortifications:TargetGroup.Walls;
 
