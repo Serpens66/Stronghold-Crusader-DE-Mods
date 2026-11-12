@@ -54,7 +54,7 @@ namespace Pathfinding.UnitCommands
             int type = unchecked((short)unit->r_UnitChimp);
             // Both F32B0 (Large) and F3060 (Default), plus DAAC0/DA590/DB650,
             // use subsets of the same directed connection grid in ordinary mode.
-            if ((uint)type >= (uint)profiles.Length ||
+            if (!APIShared.IndexBounds.IsValidIndex(type, profiles.Length) ||
                 (profiles[type] != PathfindingProfile.Large && profiles[type] != PathfindingProfile.Default)) return false;
             int start = GameTileManagerAPI.Instance.GetTileId(unit->r_CurrentTilePositionX, unit->r_CurrentTilePositionY);
             int target = GameTileManagerAPI.Instance.GetTileId(x, y);
@@ -134,7 +134,7 @@ namespace Pathfinding.UnitCommands
             if ((tileFlags[target] & 0x10000100u) == 0) return false;
             var profiles = APIShared.ScriptExtenderReplacements.GamePathingManagerAPI.Instance.GetUnitTypePathfindingProfiles();
             int type = unchecked((short)unit->r_UnitChimp);
-            if ((uint)type < (uint)profiles.Length && profiles[type] == PathfindingProfile.Large)
+            if (APIShared.IndexBounds.IsValidIndex(type, profiles.Length) && profiles[type] == PathfindingProfile.Large)
             { return true; }
             return false;
         }

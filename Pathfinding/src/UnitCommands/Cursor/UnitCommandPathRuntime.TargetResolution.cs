@@ -99,8 +99,8 @@ namespace Pathfinding.UnitCommands
             }
 
             int buildingId = (int)rawBuildingId;
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(
-                    buildingId, out GameBuilding* building) ||
+            if (!APIShared.BuildingAccess.TryGetById(
+                    buildingId, out GameBuilding* building, out _) ||
                 building == null || building->r_AliveState != AliveState.IsAlive ||
                 building->r_GlobalId == 0 || IsWallStairOrRampStructure(building->r_BuildingType))
             {
@@ -297,7 +297,7 @@ namespace Pathfinding.UnitCommands
                 GameTileManagerAPI.Instance.GetTileBuildingId(hoverTileId) == buildingId;
             if (buildingId <= 0 ||
                 (structureBuildingId != buildingId && !hoverTileBelongs) ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+                !APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) ||
                 building == null || building->r_AliveState != AliveState.IsAlive ||
                 building->r_GlobalId == 0)
             {
@@ -339,8 +339,8 @@ namespace Pathfinding.UnitCommands
             GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
             if (buildingId <= 0 || buildingGlobalId == 0 ||
                 !playerApi.IsPlayerIdValid(playerId) ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(
-                    buildingId, out GameBuilding* candidate) ||
+                !APIShared.BuildingAccess.TryGetById(
+                    buildingId, out GameBuilding* candidate, out _) ||
                 candidate == null || candidate->r_AliveState != AliveState.IsAlive ||
                 candidate->r_GlobalId != buildingGlobalId ||
                 IsWallStairOrRampStructure(candidate->r_BuildingType))

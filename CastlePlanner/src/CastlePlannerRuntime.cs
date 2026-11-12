@@ -1190,7 +1190,7 @@ namespace CastlePlanner
 
         private static SupplementalBuildingIdentity? LookupSupplementalBuilding(int id)
         {
-            if (id <= 0 || !GameBuildingManagerAPI.Instance.TryGetBuildingById(id, out GameBuilding* building) || building == null)
+            if (id <= 0 || !global::APIShared.BuildingAccess.TryGetById(id, out GameBuilding* building, out _) || building == null)
                 return null;
             return new SupplementalBuildingIdentity(building->r_GlobalId, building->r_PlayerIdOwner,
                 building->r_BuildingType, building->r_TilePositionXBegin, building->r_TilePositionYBegin, building->r_AliveState);

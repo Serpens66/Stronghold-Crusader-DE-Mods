@@ -143,7 +143,7 @@ namespace Pathfinding.Engine
             public bool TryGetBuilding(int buildingId, out eStructs type, out int baseHeight)
             {
                 type = default; baseHeight = 0;
-                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) || building == null) return false;
+                if (!APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) || building == null) return false;
                 type = building->r_BuildingType; baseHeight = building->r_HeightElevation;
                 return true;
             }

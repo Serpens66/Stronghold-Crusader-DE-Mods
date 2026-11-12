@@ -2044,7 +2044,7 @@ namespace UiAcceptance
         {
             int local = Local();
             HutTile(out int hutX, out int hutY, out int height);
-            Runner.Require(GameBuildingManagerAPI.Instance.TryGetBuildingById(GamePlayerManagerAPI.Instance.GetPlayerKeepId(local), out GameBuilding* keep) && keep != null, "no keep");
+            Runner.Require(global::APIShared.BuildingAccess.TryGetById(GamePlayerManagerAPI.Instance.GetPlayerKeepId(local), out GameBuilding* keep, out _) && keep != null, "no keep");
             int size = (int)keep->r_OccupyTileGridSize;
             int keepX = (int)keep->r_TilePositionXBegin + size / 2, keepY = (int)keep->r_TilePositionYBegin + size / 2;
             // Beside the keep's first row on the far side, as in the case found on 08.11.2026 (keep 400..406 x 275..281,
@@ -2264,12 +2264,17 @@ namespace UiAcceptance
         private static IEnumerable<Wait> OpenRing(Step step)
         {
             lock (Engine())
-                Runner.Require(GameBuildingManagerAPI.Instance.DeleteBuildingSafe(ringPlug), "the plug would not go");
+                Runner.Require(DeleteRingPlug(), "the plug would not go");
             yield return new Until("the ring is open again", () =>
             {
                 lock (Engine()) return !RingCutOff(Local());
             });
         }
+
+        // Pointer-bearing lookups stay in a synchronous method, outside the iterator.
+        private static bool DeleteRingPlug() =>
+            global::APIShared.BuildingAccess.TryGetById(ringPlug, out _, out _) &&
+            GameBuildingManagerAPI.Instance.DeleteBuildingSafe(ringPlug);
 
         // The Hunter gives up prey that became unreachable while he was on his way.
         private static IEnumerable<Wait> ExpectTargetDropped(Step step)

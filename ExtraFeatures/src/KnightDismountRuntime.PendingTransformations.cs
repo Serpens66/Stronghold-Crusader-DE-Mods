@@ -584,7 +584,7 @@ namespace ExtraFeatures
             if (knightGlobalId <= 0 || knightUnitId <= 0 ||
                 knight->r_LinkedStableBuildingId != 0 || knight->r_LinkedStableGlobalId != 0 ||
                 !ReservationMatches(pending, swordsmanUnitId, swordsman) ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(allocation.StableId, out GameBuilding* stable) ||
+                !global::APIShared.BuildingAccess.TryGetById(allocation.StableId, out GameBuilding* stable, out _) ||
                 !IsUsableStable(stable, allocation.OwnerPlayerId) ||
                 (int)stable->r_GlobalId != allocation.StableGlobalId)
             {
@@ -647,7 +647,7 @@ namespace ExtraFeatures
         private bool ReservationMatches(PendingKnightTransformation pending, int unitId, GameUnit* unit)
         {
             HorseAllocation allocation = pending.Allocation;
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(allocation.StableId, out GameBuilding* stable) ||
+            if (!global::APIShared.BuildingAccess.TryGetById(allocation.StableId, out GameBuilding* stable, out _) ||
                 !IsUsableStable(stable, allocation.OwnerPlayerId) ||
                 (int)stable->r_GlobalId != allocation.StableGlobalId)
             {
@@ -662,7 +662,7 @@ namespace ExtraFeatures
 
         private static bool ReservationSlotIsFree(HorseAllocation allocation)
         {
-            return GameBuildingManagerAPI.Instance.TryGetBuildingById(allocation.StableId, out GameBuilding* stable) &&
+            return global::APIShared.BuildingAccess.TryGetById(allocation.StableId, out GameBuilding* stable, out _) &&
                 IsUsableStable(stable, allocation.OwnerPlayerId) &&
                 (int)stable->r_GlobalId == allocation.StableGlobalId &&
                 IsStableHorseSlotFree(stable, allocation.Slot);
@@ -706,7 +706,7 @@ namespace ExtraFeatures
             int unitGlobalId,
             string reason)
         {
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(allocation.StableId, out GameBuilding* stable) ||
+            if (!global::APIShared.BuildingAccess.TryGetById(allocation.StableId, out GameBuilding* stable, out _) ||
                 !IsUsableStable(stable, allocation.OwnerPlayerId) ||
                 (int)stable->r_GlobalId != allocation.StableGlobalId)
             {

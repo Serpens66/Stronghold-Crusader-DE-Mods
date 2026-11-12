@@ -285,7 +285,7 @@ namespace BugfixesAndQoL
             for (int index = 0; index < selection.Count; index++)
             {
                 int spanIndex = selection[index] - 1;
-                if (spanIndex < 0 || spanIndex >= units.Length) continue;
+                if (!APIShared.IndexBounds.IsValidIndex(spanIndex, units.Length)) continue;
                 ref GameUnit unit = ref units[spanIndex];
                 if (!APIShared.UnitAccess.IsReallyAlive(in unit) || unit.r_UnitHover == 0) continue;
                 hoveredCount++;
@@ -379,7 +379,7 @@ namespace BugfixesAndQoL
             for (int index = 0; index < selection.Count && count < 12; index++)
             {
                 int spanIndex = selection[index] - 1;
-                if (spanIndex < 0 || spanIndex >= units.Length) continue;
+                if (!APIShared.IndexBounds.IsValidIndex(spanIndex, units.Length)) continue;
                 ref GameUnit unit = ref units[spanIndex];
                 if (!APIShared.UnitAccess.IsReallyAlive(in unit) || unit.r_UnitHover == 0) continue;
                 count++;
@@ -424,7 +424,7 @@ namespace BugfixesAndQoL
                 for (int index = 0; index < selection.Count; index++)
                 {
                     int spanIndex = selection[index] - 1;
-                    if (spanIndex < 0 || spanIndex >= units.Length) continue;
+                    if (!APIShared.IndexBounds.IsValidIndex(spanIndex, units.Length)) continue;
                     ref GameUnit unit = ref units[spanIndex];
                     if (!APIShared.UnitAccess.IsReallyAlive(in unit) || unit.r_UnitHover == 0 ||
                         unit.r_ControllableForPlayerId != owner || (int)unit.r_UnitChimp != type)

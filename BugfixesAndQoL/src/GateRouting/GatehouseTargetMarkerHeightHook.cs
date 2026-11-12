@@ -102,8 +102,7 @@ namespace BugfixesAndQoL
                 if ((flags & GatehouseTargetMarkerHeightPolicy.WallFlag) == 0 ||
                     (flags & GatehouseTargetMarkerHeightPolicy.ElevatedFlag) != 0) return;
                 int buildingId = tiles.GetTileBuildingId(tileId); // Already a 1-based game ID.
-                if (buildingId == 0 || !buildings.IsValidId(buildingId) ||
-                    !buildings.TryGetBuildingById(buildingId, out GameBuilding* building) || building == null) return;
+                if (buildingId == 0 || !APIShared.BuildingAccess.TryGetById(buildings, buildingId, out GameBuilding* building, out _) || building == null) return;
                 int originalHeight = tile_y;
                 if (GatehouseTargetMarkerHeightPolicy.TryAdjust(Volatile.Read(ref enabled) != 0,
                     file, image, tile_x, hiMode, detailed, flattened, flattenAllowed,

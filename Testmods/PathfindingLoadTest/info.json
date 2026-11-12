@@ -6,7 +6,7 @@
   "Version": "0.1.0",
   "MinimumScriptExtenderVersion": "2.14.3",
   "Dependencies": [
-    { "GUID": "APIShared_Serp", "MinimumVersion": "0.48.0" },
+    { "GUID": "APIShared_Serp", "MinimumVersion": "0.49.0" },
     { "GUID": "Pathfinding_Serp", "MinimumVersion": "0.1.2" }
   ],
   "Manifest": 1,

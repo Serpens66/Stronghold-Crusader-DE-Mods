@@ -102,7 +102,7 @@ namespace BugfixesAndQoL
 
             foreach (int buildingId in buildingIds)
             {
-                if (!buildingApi.TryGetBuildingById(buildingId, out GameBuilding* building) || building == null)
+                if (!APIShared.BuildingAccess.TryGetById(buildingApi, buildingId, out GameBuilding* building, out _) || building == null)
                     continue;
 
                 // Reuse Vanilla's general repair-button classifier instead of maintaining a tower/gatehouse list.

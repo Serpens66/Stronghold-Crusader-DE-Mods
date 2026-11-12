@@ -233,7 +233,7 @@ namespace BugfixesAndQoL.MoatTerrain
                 if ((flags & TilePropertyFlag.PlannedMoat) != 0 && (value & TerrainState.Planned) != 0) continue;
                 int buildingId = structures[tile];
                 if ((value & TerrainState.Bridge) != 0 && buildingId > 0 &&
-                    GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) &&
+                    APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) &&
                     building->r_BuildingType == eStructs.STRUCT_DRAWBRIDGE) continue;
                 tiles[tile] = 0;
             }

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using SHCDESE.API;
+using SHCDESE.Interop;
 namespace Pathfinding.GateRouting {
 // SDK lookup/liveness and configuration calls are controlled fixture boundaries.
 // The complete production Allows body and pure transition rule are compiled unchanged.
@@ -16,16 +18,20 @@ enum eChimps : short { CHIMP_TYPE_ARAB_ASSASIN=73 }
 [FieldOffset(0x2B0)] internal short r_MovementDirection;
 [FieldOffset(0x2BC)] internal ushort r_AIState;
 }
-struct GameBuilding { internal uint r_GlobalId; internal ushort r_PlayerIdOwner,r_CapturedByPlayerId; internal byte r_GateState; }
+}
+namespace SHCDESE.Interop { public struct GameBuilding { internal uint r_GlobalId; internal ushort r_PlayerIdOwner,r_CapturedByPlayerId; internal byte r_GateState; } }
+namespace Pathfinding.GateRouting {
 struct X64SmartCPUContext { internal ulong RBX,R14,RDI,R12,RBP,RDX,R9,R11; }
 static unsafe class UnitAccess { internal static GameUnit* Unit; internal static bool Alive=true, Lookup=true;
 internal static bool TryGetById(int id,out GameUnit* u,out int x) { u=Unit;x=0;return Lookup; }
 internal static bool IsReallyAlive(in GameUnit u)=>Alive; }
 static class AssassinPathAPI { internal static bool DirectGatehouseClimbingEnabled=true, Endpoint=true;
 internal static Action OnEndpoint; internal static bool IsDirectGatehouseClimbEndpoint(int t) { OnEndpoint?.Invoke(); return Endpoint; } }
-unsafe class GameBuildingManagerAPI { internal static GameBuildingManagerAPI Instance=new(); internal static GameBuilding* Building;
+}
+namespace SHCDESE.API { public unsafe class GameBuildingManagerAPI { internal static GameBuildingManagerAPI Instance=new(); internal static GameBuilding* Building;
 internal bool IsValidId(int id)=>id>0&&id<4000;
-internal bool TryGetBuildingById(int id,out GameBuilding* b) { b=Building;return true; } }
+internal bool TryGetBuildingById(int id,out GameBuilding* b) { b=Building;return true; } } }
+namespace Pathfinding.GateRouting {
 unsafe class Program {
 static int checks; static void Check(bool ok,string why) { checks++;if(!ok)throw new Exception(why); }
 static int Main() { try { Run(); return 0; } catch(Exception e) { Console.Error.WriteLine(e); return 1; } }

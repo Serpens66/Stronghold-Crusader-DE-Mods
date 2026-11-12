@@ -16,7 +16,7 @@ namespace ExtraFeatures
             try
             {
                 if (args.Phase != EventHookPhase.Pre ||
-                    !GameBuildingManagerAPI.Instance.TryGetBuildingById(args.BuildingId, out GameBuilding* building) ||
+                    !global::APIShared.BuildingAccess.TryGetById(args.BuildingId, out GameBuilding* building, out _) ||
                     building->r_BuildingType != eStructs.STRUCT_GOODS_YARD)
                 {
                     return;
@@ -84,7 +84,7 @@ namespace ExtraFeatures
             RemoveResourceRefundGuards(args);
 
             if (args.Phase != EventHookPhase.Pre || args.BuildingId <= 0 || !settings.KeepStorageContent ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(args.BuildingId, out GameBuilding* building))
+                !global::APIShared.BuildingAccess.TryGetById(args.BuildingId, out GameBuilding* building, out _))
             {
                 return;
             }

@@ -35,8 +35,8 @@ namespace BugfixesAndQoL.BuildPreview
                 if (*(byte*)(imageBase + PreviewNativeContract.ValidMapMaskRva + (ulong)(tileY * 800 + tileX)) == 0)
                     return false;
                 int index = checked(*(int*)(imageBase + PreviewNativeContract.PackedRowRva + (ulong)tileY * 12) + (int)tileX);
-                if ((uint)index >= (uint)view.ConstructionGrid.Length || (uint)index >= (uint)view.LogicGrid.Length ||
-                    (uint)index >= (uint)view.Logic2Grid.Length)
+                if (!APIShared.IndexBounds.IsValidIndex(index, view.ConstructionGrid.Length) || !APIShared.IndexBounds.IsValidIndex(index, view.LogicGrid.Length) ||
+                    !APIShared.IndexBounds.IsValidIndex(index, view.Logic2Grid.Length))
                     throw new InvalidOperationException("Packed footprint index exceeds native layers.");
                 indices[i] = index;
                 logic[i] = view.LogicGrid[index];

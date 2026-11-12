@@ -166,7 +166,7 @@ namespace BugfixesAndQoL
             // Plan the entire group before writing; a changed building must not receive a partial fix.
             foreach (SpawnObservation item in items)
             {
-                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(item.Id, out GameBuilding* building) ||
+                if (!APIShared.BuildingAccess.TryGetById(item.Id, out GameBuilding* building, out _) ||
                     building->r_AliveState != AliveState.NeedsInit || building->r_PlayerIdOwner != playerId ||
                     building->r_BuildingType != type || building->r_NextProducedGoodId != vanillaDefault ||
                     building->r_ProducedGoodId != vanillaDefault)
@@ -185,7 +185,7 @@ namespace BugfixesAndQoL
             for (int index = 0; index < choices.Count; index++)
             {
                 Correction choice = choices[index];
-                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(choice.Id, out GameBuilding* building) ||
+                if (!APIShared.BuildingAccess.TryGetById(choice.Id, out GameBuilding* building, out _) ||
                     building->r_AliveState != AliveState.NeedsInit || building->r_PlayerIdOwner != playerId ||
                     building->r_BuildingType != type || building->r_NextProducedGoodId != vanillaDefault ||
                     building->r_ProducedGoodId != vanillaDefault)
@@ -221,7 +221,7 @@ namespace BugfixesAndQoL
                 foreach (SpawnObservation item in observed.Values.OrderBy(item => item.PlayerId)
                     .ThenBy(item => (int)item.Type).ThenBy(item => item.Id))
                 {
-                    if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(item.Id, out GameBuilding* building) ||
+                    if (!APIShared.BuildingAccess.TryGetById(item.Id, out GameBuilding* building, out _) ||
                         building->r_PlayerIdOwner != item.PlayerId || building->r_BuildingType != item.Type ||
                         building->r_NextProducedGoodId != building->r_ProducedGoodId)
                     {
@@ -241,7 +241,7 @@ namespace BugfixesAndQoL
                 }
                 foreach (Correction choice in corrected)
                 {
-                    if (GameBuildingManagerAPI.Instance.TryGetBuildingById(choice.Id, out GameBuilding* building) &&
+                    if (APIShared.BuildingAccess.TryGetById(choice.Id, out GameBuilding* building, out _) &&
                         building->r_PlayerIdOwner == choice.PlayerId && building->r_BuildingType == choice.Type &&
                         building->r_NextProducedGoodId == choice.Good && building->r_ProducedGoodId == choice.Good)
                         verified++;

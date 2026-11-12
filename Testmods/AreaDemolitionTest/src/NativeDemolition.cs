@@ -159,7 +159,7 @@ namespace AreaDemolitionTest
             {
                 int direction=(native.ViewDirection+4)&7;
                 int neighbour=tile+tiles.TileManager.PackedNeighborTileDeltas[y*8+direction];
-                var type=GameBuildingManagerAPI.Instance.TryGetBuildingById(building,out var b)?b->r_BuildingType:default;
+                var type=global::APIShared.BuildingAccess.TryGetById(building,out var b, out _)?b->r_BuildingType:default;
                 effective=EffectiveRequestTile(tile,flags,tiles.GetPathConnectionLayer()[tile],neighbour,
                     tiles.IsValidTileId(neighbour)?tiles.GetTilePropertyFlag(neighbour):0,type);
             }
@@ -870,7 +870,7 @@ namespace AreaDemolitionTest
 
         private DemolitionTarget Building(int slot,bool geometry=true)
         {
-            if (slot<=0 || !GameBuildingManagerAPI.Instance.TryGetBuildingById(slot,out var b) || b==null || b->r_AliveState!=AliveState.IsAlive || b->r_GlobalId==0 ||
+            if (slot<=0 || !global::APIShared.BuildingAccess.TryGetById(slot,out var b, out _) || b==null || b->r_AliveState!=AliveState.IsAlive || b->r_GlobalId==0 ||
                 b->r_OccupyTileGridSize<1 || b->r_OccupyTileGridSize>13 || !IsValidTile(b->r_TilePositionXBegin,b->r_TilePositionYBegin)) return null;
             var tiles=GameTileManagerAPI.Instance;
             int[] cells=Array.Empty<int>();
@@ -923,12 +923,12 @@ namespace AreaDemolitionTest
         {
             if (target==null || target.Kind!=TargetKind.Building) return target;
             var buildings=GameBuildingManagerAPI.Instance;
-            if (!buildings.TryGetBuildingById(target.Slot,out var b)) return null;
+            if (!global::APIShared.BuildingAccess.TryGetById(buildings, target.Slot,out var b, out _)) return null;
             if (IsReserved(b->r_BuildingType))
             {
                 int parentId=b->r_StoneQuarry_StockPileBuildingId; // Constructor's typed +192 parent link for reserved children.
                 var parent=Building(parentId,false);
-                if (parent==null || !buildings.TryGetBuildingById(parentId,out var p) || p->N0000178A==0 || p->N0000178A!=b->N0000178A || p->r_PlayerIdOwner!=b->r_PlayerIdOwner || IsReserved(p->r_BuildingType)) return null;
+                if (parent==null || !global::APIShared.BuildingAccess.TryGetById(buildings, parentId,out var p, out _) || p->N0000178A==0 || p->N0000178A!=b->N0000178A || p->r_PlayerIdOwner!=b->r_PlayerIdOwner || IsReserved(p->r_BuildingType)) return null;
                 return parent;
             }
             if (b->r_BuildingType==eStructs.STRUCT_GOODS_YARD || b->r_BuildingType==eStructs.STRUCT_QUARRYPILE)
@@ -1085,7 +1085,7 @@ namespace AreaDemolitionTest
                 var target=Building(id);
                 if (target==null || target.Owner!=actor) return false;
                 closure.Add(target);
-                if (!buildings.TryGetBuildingById(id,out var b)) return false;
+                if (!global::APIShared.BuildingAccess.TryGetById(buildings, id,out var b, out _)) return false;
                 //61EF0 removes static decoration on the core square, not on optional farm hints.
                 for (int dy=0;dy<(int)b->r_OccupyTileGridSize;dy++) for (int dx=0;dx<(int)b->r_OccupyTileGridSize;dx++)
                 {
@@ -1166,7 +1166,7 @@ namespace AreaDemolitionTest
         {
             var current=Resolve(expected);
             if (current==null) throw new ExpectedRejectionException(ApplyStatus.Missing,"Frozen building no longer exists.");
-            if (current.Owner!=actor || !SameState(expected,current) || !GameBuildingManagerAPI.Instance.TryGetBuildingById(expected.Slot,out var b))
+            if (current.Owner!=actor || !SameState(expected,current) || !global::APIShared.BuildingAccess.TryGetById(expected.Slot,out var b, out _))
                 throw new ExpectedRejectionException(ApplyStatus.Changed,"Frozen building changed before the next native mutation.");
             return b;
         }
@@ -1233,7 +1233,7 @@ namespace AreaDemolitionTest
         private bool Applied(DemolitionTarget target)
         {
             if (target.Kind==TargetKind.Building)
-                return !GameBuildingManagerAPI.Instance.TryGetBuildingById(target.Slot,out var b) || b->r_GlobalId!=target.GlobalId || b->r_AliveState==AliveState.MarkedForDeletion || b->r_AliveState==AliveState.None;
+                return !global::APIShared.BuildingAccess.TryGetById(target.Slot,out var b, out _) || b->r_GlobalId!=target.GlobalId || b->r_AliveState==AliveState.MarkedForDeletion || b->r_AliveState==AliveState.None;
             if (target.Kind==TargetKind.Decoration)
             {
                 var span=GameProjectileManagerAPI.Instance.GetProjectilesAsSpan();

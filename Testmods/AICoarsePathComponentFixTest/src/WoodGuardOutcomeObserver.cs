@@ -336,7 +336,7 @@ namespace AICoarsePathComponentFixTest
             if (!tiles.IsTileInsideMapBounds(x, y)) return result;
             int id = tiles.GetTileId(x, y);
             Span<byte> owners = tiles.GetWallOwnerLayer();
-            if (id <= 0 || (uint)id >= (uint)owners.Length)
+            if (id <= 0 || !global::APIShared.IndexBounds.IsValidIndex(id, owners.Length))
             { result.Status = "invalid-tile-id"; return result; }
             result.TileId = id;
             result.Flags = (uint)tiles.GetTilePropertyFlag(id);
@@ -345,7 +345,7 @@ namespace AICoarsePathComponentFixTest
             result.Height = tiles.GetTileHeight(id);
             result.Building = tiles.GetTileBuildingId(id);
             Span<ushort> components = GamePathingManagerAPI.Instance.GetPathComponentGrid();
-            result.Component = (uint)id < (uint)components.Length ? components[id] : -1;
+            result.Component = global::APIShared.IndexBounds.IsValidIndex(id, components.Length) ? components[id] : -1;
             result.Status = "ok";
             return result;
         }

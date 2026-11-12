@@ -1070,7 +1070,7 @@ namespace ExtraFeatures
         {
             if (buildingId <= 0)
                 return "none";
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) || building == null)
+            if (!global::APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) || building == null)
                 return "unresolvable";
             return $"type={building->r_BuildingType},alive={building->r_AliveState},owner={building->r_PlayerIdOwner},globalId={building->r_GlobalId}";
         }

@@ -76,6 +76,7 @@ namespace BugfixesAndQoL
         private bool enableLordAndMapListEnhancements = true;
         private bool enableMissingMapSaveRecovery = true;
         private bool enableCompactLobbyChat = true;
+        private bool enableLocalAutosave = true;
         private bool enableRandomOpponentSelectionEnhancements = true;
         private bool enableMultiplayerStartupStateFix = true;
         private bool enablePeaceTimeGameplayFixes = true;
@@ -302,6 +303,15 @@ namespace BugfixesAndQoL
         {
             get => enableCompactLobbyChat;
             set => SetSetting(ref enableCompactLobbyChat, value, nameof(EnableCompactLobbyChat));
+        }
+
+        public string EnableLocalAutosaveText => SerpLocalization.Get("BugfixesAndQoL.EnableLocalAutosave");
+        public string EnableLocalAutosaveHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableLocalAutosaveHelp");
+        [APIShared.ModSettings.PresetLocal]
+        public bool EnableLocalAutosave
+        {
+            get => enableLocalAutosave;
+            set => SetSetting(ref enableLocalAutosave, value, nameof(EnableLocalAutosave));
         }
 
         public string EnableLordAndMapListEnhancementsText => SerpLocalization.Get("BugfixesAndQoL.EnableLordAndMapListEnhancements");
@@ -1657,6 +1667,7 @@ namespace BugfixesAndQoL
             EnableLordAndMapListEnhancements = true;
             EnableMissingMapSaveRecovery = true;
             EnableCompactLobbyChat = true;
+            EnableLocalAutosave = true;
             AllowMinimapWhilePlacingBuilding = true;
             PreventMoveOrderOnPlacementCancel = true;
             AllowCameraMovementWithModifiers = true;

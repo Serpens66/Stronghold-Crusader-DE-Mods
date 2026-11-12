@@ -208,7 +208,7 @@ namespace AIAttackTest
                 diagnostics[playerId] = diagnostic;
                 Enums.AILords lord = playerApi.GetAILord(playerId);
                 int aicIndex = (int)lord;
-                if (aicIndex <= 0 || aicIndex >= aics.Length)
+                if (aicIndex <= 0 || !global::APIShared.IndexBounds.IsValidIndex(aicIndex, aics.Length))
                     continue;
                 InternalAIC aic = aics.GetValue(aicIndex);
                 int gold = playerApi.GetPlayerGold(playerId);
@@ -315,7 +315,7 @@ namespace AIAttackTest
             if (sizeof(InternalAIC) != InternalAicSize)
                 throw new InvalidOperationException("InternalAIC changed before SetAICFromBytes.");
             var aics = GameAIManagerAPI.Instance.GetAICArray();
-            if (aics.GetArrayAddress() == IntPtr.Zero || aicIndex <= 0 || aicIndex >= aics.Length)
+            if (aics.GetArrayAddress() == IntPtr.Zero || aicIndex <= 0 || !global::APIShared.IndexBounds.IsValidIndex(aicIndex, aics.Length))
                 throw new InvalidOperationException($"AIC index {aicIndex} is not writable.");
             ReadOnlySpan<byte> bytes = new ReadOnlySpan<byte>(&value, sizeof(InternalAIC));
             if (bytes.Length != InternalAicSize)

@@ -535,7 +535,7 @@ namespace SkinTest
             }
             int tileId = GameTileManagerAPI.Instance.GetTileId(tile.gameMapX, tile.gameMapY);
             int buildingId = GameTileManagerAPI.Instance.GetTileBuildingId(tileId);
-            if (buildingId <= 0 || !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building))
+            if (buildingId <= 0 || !global::APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _))
             {
                 WarnOnce("castle-anim-building-unresolved",
                     $"Castle animation tile has no resolvable building: tileId={tileId}, buildingId={buildingId}, image={image}.");
@@ -781,7 +781,7 @@ namespace SkinTest
                     return;
                 int tileId = GameTileManagerAPI.Instance.GetTileId(tile.gameMapX, tile.gameMapY);
                 int buildingId = GameTileManagerAPI.Instance.GetTileBuildingId(tileId);
-                if (buildingId <= 0 || !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building))
+                if (buildingId <= 0 || !global::APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _))
                     return;
                 if (building->r_BuildingType != eStructs.STRUCT_TOWER5 &&
                     building->r_BuildingType != eStructs.STRUCT_TOWER5_DESTROYED)

@@ -454,7 +454,7 @@ namespace BugfixesAndQoL
             if (buildingId <= 0 || GetControlledPlayerId() <= 0)
                 return false;
 
-            return GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) &&
+            return APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) &&
                 building != null &&
                 building->r_AliveState == AliveState.IsAlive &&
                 building->r_BuildingType == eStructs.STRUCT_TRADEPOST &&

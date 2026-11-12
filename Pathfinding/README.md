@@ -68,7 +68,7 @@ Loading a map takes slightly longer, because the route data is prepared in advan
 
 ## Good to know
 
-- The mod needs APIShared 0.46.0 or newer and Script Extender 2.14.3 or newer. When using BugfixesAndQoL alongside it, install APIShared 0.48.0 or newer.
+- The mod needs APIShared 0.49.0 or newer and Script Extender 2.14.3 or newer.
 - These features moved out of BugfixesAndQoL. Pathfinding imports their old settings once; existing Pathfinding settings and later edits win. Use BugfixesAndQoL 1.0.215 or newer alongside it to avoid running the old features twice.
 - Do not install the old MoatMove test mod next to it; Pathfinding stays inactive then.
 - Fire and plague avoidance only affects routes the fast search calculates. In the rare moments when the game's own search takes over, a new order can lead past a hazard; soldiers still replan before they reach it.

@@ -333,7 +333,8 @@ namespace CanarariWoodTest
             string access = "unobserved-no-spawn";
             if (probeSpawnId > 0 && probeSpawnId <= int.MaxValue)
             {
-                var point = GameBuildingManagerAPI.Instance.GetAccessPosition((int)probeSpawnId);
+                var point = global::APIShared.BuildingAccess.TryGetById((int)probeSpawnId, out _, out _)
+                    ? GameBuildingManagerAPI.Instance.GetAccessPosition((int)probeSpawnId) : default;
                 access = $"({point.X},{point.Y})";
                 if (GameTileManagerAPI.Instance.IsTileInsideMapBounds(point.X, point.Y))
                 {

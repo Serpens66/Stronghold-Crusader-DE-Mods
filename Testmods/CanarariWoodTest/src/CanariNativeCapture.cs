@@ -140,7 +140,7 @@ namespace CanarariWoodTest
                             continue;
                         int tileId = Marshal.ReadInt32(new IntPtr(checked(moduleBase +
                             0x402FF2C + (long)tileY * 12))) + tileX;
-                        if ((uint)tileId >= (uint)grid.Length) continue;
+                        if (!global::APIShared.IndexBounds.IsValidIndex(tileId, grid.Length)) continue;
                         nativeAnchors[snapshotIndex] = (ushort)Marshal.ReadInt16(
                             new IntPtr(checked(moduleBase + 0x50EC690 + (long)tileId * 2)));
                         apiAnchors[snapshotIndex] = grid[tileId];
@@ -195,7 +195,7 @@ namespace CanarariWoodTest
                 return new AiPathTileSample(x, y, -1, -1, -1, 0, -1, -1, -1, "outside-map");
             int tileId = Marshal.ReadInt32(new IntPtr(checked(moduleBase + 0x402FF2C +
                 (long)y * 12))) + x;
-            if ((uint)tileId >= (uint)grid.Length)
+            if (!global::APIShared.IndexBounds.IsValidIndex(tileId, grid.Length))
                 return new AiPathTileSample(x, y, tileId, -1, -1, 0, -1, -1, -1, "tile-id-out-of-range");
             int nativeComponent = (ushort)Marshal.ReadInt16(new IntPtr(checked(
                 moduleBase + 0x50EC690 + (long)tileId * 2)));
@@ -204,10 +204,10 @@ namespace CanarariWoodTest
             Span<ushort> organisms = tiles.GetOrganismLayer();
             Span<CompactPlayerBitMask> occupancies = tiles.GetOccupancyLayer();
             Span<byte> heights = tiles.GetHeightLayer();
-            if ((uint)tileId >= (uint)wallOwners.Length ||
-                (uint)tileId >= (uint)organisms.Length ||
-                (uint)tileId >= (uint)occupancies.Length ||
-                (uint)tileId >= (uint)heights.Length)
+            if (!global::APIShared.IndexBounds.IsValidIndex(tileId, wallOwners.Length) ||
+                !global::APIShared.IndexBounds.IsValidIndex(tileId, organisms.Length) ||
+                !global::APIShared.IndexBounds.IsValidIndex(tileId, occupancies.Length) ||
+                !global::APIShared.IndexBounds.IsValidIndex(tileId, heights.Length))
                 return new AiPathTileSample(x, y, tileId, nativeComponent, grid[tileId],
                     0, -1, -1, -1, "tile-layer-out-of-range");
             return new AiPathTileSample(x, y, tileId, nativeComponent, grid[tileId],
@@ -239,8 +239,8 @@ namespace CanarariWoodTest
                 (long)playerId * PlayerStride)));
             int targetTile = Marshal.ReadInt32(new IntPtr(checked(moduleBase + 0x402FF2C +
                 (long)tileY * 12))) + tileX;
-            if ((uint)sourceTile >= (uint)grid.Length ||
-                (uint)targetTile >= (uint)grid.Length)
+            if (!global::APIShared.IndexBounds.IsValidIndex(sourceTile, grid.Length) ||
+                !global::APIShared.IndexBounds.IsValidIndex(targetTile, grid.Length))
                 return Unavailable("tile-id-outside-path-grid", tileX, tileY, sourceTile, targetTile);
             int source = grid[sourceTile];
             int target = grid[targetTile];

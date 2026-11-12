@@ -205,6 +205,7 @@ internal static partial class Program
                 return 0;
             }
             LocalAutosaveFileTests();
+            LocalAutosaveSchedulingTests();
             if (args.Length > 3 && args[3] == "--local-autosave-only")
             {
                 Console.WriteLine("PASS: local autosave file checks: " + checks);
@@ -413,7 +414,7 @@ internal static partial class Program
     }
     private static void Metadata(string workspace)
     {
-        var scopes=new Dictionary<string,bool>{{"EnableCompactLobbyChat",false},{"EnableLordAndMapListEnhancements",false},{"EnableMissingMapSaveRecovery",false},{"EnablePitchMoatLines",false},{"EnableRandomOpponentSelectionEnhancements",true},{"EnableMultiplayerStartupStateFix",true},{"EnablePeaceTimeGameplayFixes",true},{"EnablePeaceTimeCivilianProximityReduction",true},{"EnablePitchStairsFix",true},{"EnableSiegeCrewDuplicationFix",true},{"EnableSiegeCrewFireLossFix",true},{"EnableTreeBlightDecayFix",true},{"EnablePrebuiltAiStorageFix",true},{"EnableAiOutpostRetargetFix",true}};
+        var scopes=new Dictionary<string,bool>{{"EnableCompactLobbyChat",false},{"EnableLocalAutosave",false},{"EnableLordAndMapListEnhancements",false},{"EnableMissingMapSaveRecovery",false},{"EnablePitchMoatLines",false},{"EnableRandomOpponentSelectionEnhancements",true},{"EnableMultiplayerStartupStateFix",true},{"EnablePeaceTimeGameplayFixes",true},{"EnablePeaceTimeCivilianProximityReduction",true},{"EnablePitchStairsFix",true},{"EnableSiegeCrewDuplicationFix",true},{"EnableSiegeCrewFireLossFix",true},{"EnableTreeBlightDecayFix",true},{"EnablePrebuiltAiStorageFix",true},{"EnableAiOutpostRetargetFix",true}};
         MethodBase ctor=modelType.GetConstructors(All).Single();
         List<Tuple<OpCode,object>> body=Instructions(ctor);
         var xaml=new XmlDocument();xaml.Load(Path.Combine(workspace,"BugfixesAndQoL/Override/ScriptExtenderUI/BugfixesAndQoLSettings.xaml"));
@@ -436,6 +437,13 @@ internal static partial class Program
         var hostProperties = (PropertyInfo[])presetApplication.GetMethod("GetHostProperties")
             .Invoke(null, new[] { FormatterServices.GetUninitializedObject(modelType) });
         var reset = Instructions(modelType.GetMethod("ResetToDefault", All));
+        var localAutosave = modelType.GetProperty("EnableLocalAutosave");
+        Check(!hostProperties.Any(property => property == localAutosave), "local autosave preference is excluded from host snapshots");
+        Check(!localAutosave.GetCustomAttributesData().Any(attribute => attribute.AttributeType.Name == "SyncPerPlayerAttribute"),
+            "local autosave preference is not broadcast to other players");
+        Check(reset.Select((instruction, index) => new { instruction, index }).Any(entry =>
+            Equals(entry.instruction.Item2, localAutosave.GetSetMethod()) && entry.index > 0 &&
+            reset[entry.index - 1].Item1 == OpCodes.Ldc_I4_1), "reset enables local autosave");
         foreach (string option in new[] { "EnableSiegeCrewDuplicationFix", "EnableSiegeCrewFireLossFix" })
         {
             Check(hostProperties.Any(property => property.Name == option), "preset discovery includes host option " + option);

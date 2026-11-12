@@ -41,8 +41,8 @@ namespace Pathfinding.Engine
             approachY = -1;
             summary = default;
             if (scope == null || scope.BuildingId <= 0 ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(
-                    scope.BuildingId, out GameBuilding* building) || building == null ||
+                !APIShared.BuildingAccess.TryGetById(
+                    scope.BuildingId, out GameBuilding* building, out _) || building == null ||
                 building->r_AliveState != AliveState.IsAlive ||
                 building->r_GlobalId != scope.BuildingGlobalId ||
                 building->r_PlayerIdOwner != scope.BuildingOwnerId ||

@@ -359,7 +359,7 @@ namespace BugfixesAndQoL
         private static BuildingIdentity CaptureBuilding(int buildingId)
         {
             if (buildingId <= 0 ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+                !APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) ||
                 building == null)
             {
                 return BuildingIdentity.Missing;

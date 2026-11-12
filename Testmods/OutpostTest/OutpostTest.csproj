@@ -40,6 +40,6 @@
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="ValidateReferences" BeforeTargets="BeforeBuild">
     <Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="Installed SHCDESE.dll required." />
-    <Error Condition="!Exists('$(GameDir)\BepInEx\plugins\APIShared_Serp\APIShared.dll')" Text="Installed APIShared required." />
+    <Error Condition="!Exists('$(ApiSharedDir)\APIShared.dll')" Text="Selected APIShared required." />
   </Target>
 </Project>

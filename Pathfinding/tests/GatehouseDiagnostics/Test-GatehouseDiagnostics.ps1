@@ -46,6 +46,8 @@ if($BaselineRef){
     Write-Output ("HISTORICAL COMPARISON commit="+$commit+"; historical runtime dependencies="+(@($historicalSources.Keys|Sort-Object)-join ','))
 
 }else{
+    $files+='APIShared/src/Buildings/BuildingAccess.cs'
+    $files+='APIShared/src/Core/Collections/IndexBounds.cs'
     $files+='Pathfinding/src/GateRouting/GatehouseFootprintGeometryCache.cs'
     $files+='Pathfinding/src/Core/Common/SimulationRunScope.cs'
     $files+='Pathfinding/tests/GatehouseDiagnostics/GeometryCacheTests.cs'

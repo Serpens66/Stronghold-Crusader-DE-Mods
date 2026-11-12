@@ -72,7 +72,7 @@ namespace OutpostTest
         private bool ValidBuilding(OutpostRallyState.Record r,out GameBuilding* b)
         {
             b=null;
-            return GameBuildingManagerAPI.Instance.TryGetBuildingById(r.Building,out b) && b->r_AliveState==AliveState.IsAlive &&
+            return global::APIShared.BuildingAccess.TryGetById(r.Building,out b, out _) && b->r_AliveState==AliveState.IsAlive &&
                 r.Matches(b->r_GlobalId,b->r_PlayerIdOwner,(int)b->r_BuildingType) && Human(r.Owner);
         }
         internal bool TrySelected(out int id,out uint global,out int owner,out int type)
@@ -83,7 +83,7 @@ namespace OutpostTest
             if(data==null || data.lastGameState==null || data.app_mode!=16 || data.app_sub_mode!=45) return false;
             id=GamePlayerManagerAPI.Instance.GetSelectedBuildingId();
             if(!OutpostPresentationState.Selection(data.app_mode,data.app_sub_mode,id,data.lastGameState.in_structure))return false;
-            if(!GameBuildingManagerAPI.Instance.TryGetBuildingById(id,out var b) || b->r_AliveState!=AliveState.IsAlive ||
+            if(!global::APIShared.BuildingAccess.TryGetById(id,out var b, out _) || b->r_AliveState!=AliveState.IsAlive ||
                 !OutpostSchedule.IsOutpost((int)b->r_BuildingType) || b->r_PlayerIdOwner!=GamePlayerManagerAPI.Instance.GetLocalPlayerId() || !Human(b->r_PlayerIdOwner)) return false;
             global=b->r_GlobalId;owner=b->r_PlayerIdOwner;type=(int)b->r_BuildingType;return true;
         }

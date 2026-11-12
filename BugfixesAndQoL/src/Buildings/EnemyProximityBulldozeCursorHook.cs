@@ -129,7 +129,7 @@ namespace BugfixesAndQoL
                 0) != 0;
         }
 
-        private static void ResolveProximityCheckPosition(
+        private static unsafe void ResolveProximityCheckPosition(
             GamePlayerManagerAPI playerApi,
             out int tileX,
             out int tileY)
@@ -142,7 +142,9 @@ namespace BugfixesAndQoL
                 // false negatives over buildings. c_game_repairs_allowed reads GameBuilding at
                 // offsets 0x14A/0x14C, exposed as r_TilePositionXBegin/YBegin, so mirror that logic.
                 UnmanagedVector2<ushort> buildingPosition =
-                    GameBuildingManagerAPI.Instance.GetBeginPosition(hoveredBuildingId);
+                    APIShared.BuildingAccess.TryGetById(hoveredBuildingId, out GameBuilding* building, out _)
+                        ? *(UnmanagedVector2<ushort>*)(&building->r_TilePositionXBegin)
+                        : default;
                 GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
                 if (tileApi.IsTileInsideMapBounds(buildingPosition.X, buildingPosition.Y))
                 {

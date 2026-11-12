@@ -100,7 +100,7 @@ namespace ImprovedHunters
                 if (state != null &&
                     state.app_sub_mode == (int)Enums.InBuildingModes.INSIDE_TANNERS_WORKSHOP &&
                     TannerRunTable.IsValidId(state.in_structure) &&
-                    GameBuildingManagerAPI.Instance.TryGetBuildingById(state.in_structure, out GameBuilding* record) &&
+                    global::APIShared.BuildingAccess.TryGetById(state.in_structure, out GameBuilding* record, out _) &&
                     record != null &&
                     record->r_BuildingType == eStructs.STRUCT_TANNERS_WORKSHOP &&
                     record->r_PlayerIdOwner == APIShared.PlayerPerspectiveAPI.GetControlledPlayerId())

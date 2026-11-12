@@ -163,7 +163,7 @@ namespace ImprovedHunters
             int unitTile = tiles.GetTileId(unit->r_CurrentTilePositionX, unit->r_CurrentTilePositionY);
             int herdTile = tiles.GetTileId(herdLeader->r_CurrentTilePositionX, herdLeader->r_CurrentTilePositionY);
             if (!tiles.IsValidTileId(unitTile) || !tiles.IsValidTileId(herdTile) ||
-                (uint)unitTile >= (uint)components.Length || (uint)herdTile >= (uint)components.Length)
+                !global::APIShared.IndexBounds.IsValidIndex(unitTile, components.Length) || !global::APIShared.IndexBounds.IsValidIndex(herdTile, components.Length))
             {
                 return true;
             }

@@ -106,7 +106,7 @@ namespace ExtraFeatures
         private static bool TryGetLiveGatehouseBuilding(int buildingId, out GameBuilding* building)
         {
             building = null;
-            if (buildingId <= 0 || !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out building) ||
+            if (buildingId <= 0 || !global::APIShared.BuildingAccess.TryGetById(buildingId, out building, out _) ||
                 building == null || building->r_AliveState != AliveState.IsAlive || building->r_GlobalId == 0 ||
                 building->r_GlobalId > int.MaxValue ||
                 (building->r_BuildingType != eStructs.STRUCT_DRAWBRIDGE && !IsGatehouseType(building->r_BuildingType)))

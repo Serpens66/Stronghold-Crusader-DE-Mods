@@ -184,8 +184,7 @@ namespace Pathfinding.GateRouting
         }
         private static uint BuildingGlobal(int building)
         {
-            return GameBuildingManagerAPI.Instance.IsValidId(building) &&
-                GameBuildingManagerAPI.Instance.TryGetBuildingById(building, out GameBuilding* live) && live != null
+            return APIShared.BuildingAccess.TryGetById(building, out GameBuilding* live, out _) && live != null
                 ? live->r_GlobalId : 0;
         }
         private void Record(int player, int role, string kind, string result, string target, string detail, string dimensions = "")
@@ -361,8 +360,7 @@ namespace Pathfinding.GateRouting
             AssassinTransitionKind movement = functionalMovement ?? AssassinPathAPI.ClassifyNativeTransition(from, to, direction, true);
             RouteTilePolicySnapshot.GateIdentity identity = default;
             bool stableGate = gate > 0 && route.Snapshot.GateIdentities.TryGetValue(gate, out identity) &&
-                identity.Global != 0 && GameBuildingManagerAPI.Instance.IsValidId(gate) &&
-                GameBuildingManagerAPI.Instance.TryGetBuildingById(gate, out GameBuilding* gateLive) && gateLive != null &&
+                identity.Global != 0 && APIShared.BuildingAccess.TryGetById(gate, out GameBuilding* gateLive, out _) && gateLive != null &&
                 gateLive->r_GlobalId == identity.Global && gateLive->r_PlayerIdOwner == identity.Owner && gateLive->r_CapturedByPlayerId == identity.Capturer &&
                 (int)gateLive->r_AliveState != 0 && (int)gateLive->r_AliveState != 3 &&
                 ((int)gateLive->r_BuildingType == 45 || (int)gateLive->r_BuildingType == 46);
@@ -419,7 +417,7 @@ namespace Pathfinding.GateRouting
                     ((uint)tiles.GetTilePropertyFlag(to)).ToString("X") + ",nativeAcceptedBranch=" +
                     (functionalEvidence != null && functionalEvidence.StartsWith("movementSource=observed-native-reconstruction", StringComparison.Ordinal)
                         ? "observed-reconstruction/movement-unresolved" : "not-observed");
-                if (gateGlobal != 0 && GameBuildingManagerAPI.Instance.TryGetBuildingById(gate, out GameBuilding* live) && live != null)
+                if (gateGlobal != 0 && APIShared.BuildingAccess.TryGetById(gate, out GameBuilding* live, out _) && live != null)
                     detail += ",gateTypeRaw=" + (int)live->r_BuildingType + ",gateOwnerRaw=" + live->r_PlayerIdOwner +
                         ",gateCapturerRaw=" + live->r_CapturedByPlayerId + ",gateAliveRaw=" + (int)live->r_AliveState;
             }
@@ -474,8 +472,7 @@ namespace Pathfinding.GateRouting
             }
             foreach (var gateIdentity in route.SnapshotGateIdentities)
             {
-                if (!GameBuildingManagerAPI.Instance.IsValidId(gateIdentity.Key) ||
-                    !GameBuildingManagerAPI.Instance.TryGetBuildingById(gateIdentity.Key, out GameBuilding* completionGate) || completionGate == null ||
+                if (!APIShared.BuildingAccess.TryGetById(gateIdentity.Key, out GameBuilding* completionGate, out _) || completionGate == null ||
                     completionGate->r_GlobalId != gateIdentity.Value.Global ||
                     (int)completionGate->r_AliveState == 0 || (int)completionGate->r_AliveState == 3 ||
                     ((int)completionGate->r_BuildingType != 45 && (int)completionGate->r_BuildingType != 46))
@@ -687,8 +684,7 @@ namespace Pathfinding.GateRouting
         private static string RaidTargetDimensions(int building, uint global)
         {
             var api = GameBuildingManagerAPI.Instance;
-            if (global == 0 || !api.IsValidId(building) ||
-                !api.TryGetBuildingById(building, out GameBuilding* live) || live == null || live->r_GlobalId != global)
+            if (global == 0 || !APIShared.BuildingAccess.TryGetById(api, building, out GameBuilding* live, out _) || live == null || live->r_GlobalId != global)
                 return ",targetIdentity=unverified,targetType=unknown";
             int type = (int)live->r_BuildingType;
             int owner = live->r_PlayerIdOwner;

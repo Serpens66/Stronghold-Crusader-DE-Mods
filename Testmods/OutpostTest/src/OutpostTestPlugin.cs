@@ -9,7 +9,7 @@ namespace OutpostTest
 {
     [BepInPlugin(Guid, "Outpost Test", PluginVersion)]
     [BepInDependency("000shcdese", "2.10.4")]
-    [BepInDependency("APIShared_Serp", "0.26.0")]
+    [BepInDependency("APIShared_Serp", "0.49.0")]
     public sealed class OutpostTestPlugin : BaseUnityPlugin
     {
         public const string Guid = "OutpostTest_Serp";

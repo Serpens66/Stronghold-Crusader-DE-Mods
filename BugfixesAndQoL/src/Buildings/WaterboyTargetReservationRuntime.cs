@@ -367,7 +367,7 @@ namespace BugfixesAndQoL
             int count = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan().Length;
             for (int buildingId = 1; buildingId <= count; buildingId++)
             {
-                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+                if (!APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) ||
                     building == null || building->r_AliveState != AliveState.IsAlive || building->r_OnFireTicks == 0)
                     continue;
                 NativeIdentity identity = new NativeIdentity(buildingId, building->r_GlobalId);
@@ -391,7 +391,7 @@ namespace BugfixesAndQoL
             {
                 try
                 {
-                    if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(item.Identity.Slot, out GameBuilding* building) ||
+                    if (!APIShared.BuildingAccess.TryGetById(item.Identity.Slot, out GameBuilding* building, out _) ||
                         building == null || building->r_GlobalId != item.Identity.GlobalId)
                         throw new InvalidOperationException($"Masked building identity changed: {item.Identity}.");
                     if (building->r_OnFireTicks != 0)
@@ -455,7 +455,7 @@ namespace BugfixesAndQoL
 
         private static GameBuilding* ResolveBurningBuilding(int buildingId)
         {
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+            if (!APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) ||
                 building == null || building->r_AliveState != AliveState.IsAlive ||
                 building->r_GlobalId == 0 || building->r_OnFireTicks == 0)
                 throw new InvalidOperationException($"Vanilla returned a building that is no longer burning: {buildingId}.");
@@ -463,7 +463,7 @@ namespace BugfixesAndQoL
         }
 
         private static bool TryResolveBurningBuilding(NativeIdentity identity, out GameBuilding* building) =>
-            GameBuildingManagerAPI.Instance.TryGetBuildingById(identity.Slot, out building) &&
+            APIShared.BuildingAccess.TryGetById(identity.Slot, out building, out _) &&
             building != null && building->r_GlobalId == identity.GlobalId &&
             building->r_AliveState == AliveState.IsAlive && building->r_OnFireTicks != 0;
 

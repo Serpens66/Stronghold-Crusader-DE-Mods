@@ -303,8 +303,8 @@ namespace BugfixesAndQoL
             bool eligible = result == AttackResult.NoAttackPoint &&
                 TryIsMeleeRaidGroup(args.TribeId, tribeGlobalId, out eligibilityReason);
             if (eligible &&
-                GameBuildingManagerAPI.Instance.TryGetBuildingById(args.TargetValue1,
-                    out GameBuilding* failedBuilding) && failedBuilding != null &&
+                APIShared.BuildingAccess.TryGetById(args.TargetValue1,
+                    out GameBuilding* failedBuilding, out _) && failedBuilding != null &&
                 failedBuilding->r_GlobalId == targetGlobalId &&
                 TryGetPriorityTable(out int priorityTableRva, out _))
             {
@@ -701,8 +701,7 @@ namespace BugfixesAndQoL
         private static bool IsLiveBuildingIdentity(int id, uint globalId, int owner)
         {
             var buildings = GameBuildingManagerAPI.Instance;
-            return buildings.IsValidId(id) &&
-                buildings.TryGetBuildingById(id, out GameBuilding* building) &&
+            return APIShared.BuildingAccess.TryGetById(buildings, id, out GameBuilding* building, out _) &&
                 building != null && building->r_AliveState == AliveState.IsAlive &&
                 building->r_GlobalId == globalId && building->r_PlayerIdOwner == owner;
         }
@@ -772,8 +771,7 @@ namespace BugfixesAndQoL
                 {
                     int id = ids[index];
                     var buildings = GameBuildingManagerAPI.Instance;
-                    if (id <= 0 || !buildings.IsValidId(id) ||
-                        !buildings.TryGetBuildingById(id, out GameBuilding* building) ||
+                    if (id <= 0 || !APIShared.BuildingAccess.TryGetById(buildings, id, out GameBuilding* building, out _) ||
                         building == null || building->r_AliveState != AliveState.IsAlive ||
                         building->r_PlayerIdOwner != retry.TargetPlayerId ||
                         (int)building->r_BuildingType != priorities[rank]) continue;
@@ -838,8 +836,7 @@ namespace BugfixesAndQoL
         private static uint? ReadBuildingGlobalId(int buildingId)
         {
             var buildings = GameBuildingManagerAPI.Instance;
-            if (!buildings.IsValidId(buildingId) ||
-                !buildings.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+            if (!APIShared.BuildingAccess.TryGetById(buildings, buildingId, out GameBuilding* building, out _) ||
                 building == null || building->r_AliveState != AliveState.IsAlive)
                 return null;
             return building->r_GlobalId;

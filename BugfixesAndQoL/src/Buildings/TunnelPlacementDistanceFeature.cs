@@ -213,9 +213,9 @@ namespace BugfixesAndQoL
             int buildingId = tiles.GetTileBuildingId(tileId);
             if (buildingId > 0)
             {
-                if (GameBuildingManagerAPI.Instance.TryGetBuildingById(
+                if (APIShared.BuildingAccess.TryGetById(
                         buildingId,
-                        out GameBuilding* building))
+                        out GameBuilding* building, out _))
                 {
                     if (building->r_AliveState == AliveState.IsAlive &&
                         IsHostilePlayer(players, placingPlayerId, building->r_PlayerIdOwner))

@@ -9,6 +9,7 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
 $files = @(
     (Join-Path $PSScriptRoot 'src/GatehouseAutomationRuntime.Lookups.cs')
     (Join-Path $PSScriptRoot 'tests/GatehouseLookupFixture.cs')
+    (Join-Path $PSScriptRoot '../APIShared/src/Buildings/BuildingAccess.cs')
 )
 Add-Type -Path $files -CompilerOptions @('/unsafe')
 [ExtraFeatures.GatehouseLookupFixture]::Run()

@@ -14,7 +14,7 @@ namespace EnemyBridgePathTest
 {
     [BepInPlugin("EnemyBridgePathTest_Serp", "Enemy Bridge Path Test", "0.1.1")]
     [BepInDependency("000shcdese", "2.14.0")]
-    [BepInDependency("APIShared_Serp", "0.30.0")]
+    [BepInDependency("APIShared_Serp", "0.49.0")]
     [BepInDependency("Pathfinding_Serp")]
     public sealed class EnemyBridgePathTestPlugin : BaseUnityPlugin
     {

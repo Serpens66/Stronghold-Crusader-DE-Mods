@@ -91,7 +91,7 @@ namespace BugfixesAndQoL
                     return Fail(tick, "native-path-manager-unavailable", out diagnostic);
 
                 GameBuildingManagerAPI buildingsApi = GameBuildingManagerAPI.Instance;
-                if (!buildingsApi.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+                if (!APIShared.BuildingAccess.TryGetById(buildingsApi, buildingId, out GameBuilding* building, out _) ||
                     building == null)
                 {
                     return Fail(tick, "building-not-found", out diagnostic);
@@ -193,7 +193,7 @@ namespace BugfixesAndQoL
         {
             GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
             Span<ushort> pcls = GamePathingManagerAPI.Instance.GetPathComponentGrid();
-            if (!tiles.IsValidTileId(tileId) || (uint)tileId >= (uint)pcls.Length)
+            if (!tiles.IsValidTileId(tileId) || !APIShared.IndexBounds.IsValidIndex(tileId, pcls.Length))
             {
                 pcl = 0;
                 return false;
@@ -237,8 +237,7 @@ namespace BugfixesAndQoL
 
                 int portalBuildingId = nativePathManager[offset + PortalBuildingIdOffsetDwords];
                 int portalOwnerId = nativePathManager[offset + PortalOwnerOffsetDwords];
-                if (!buildingsApi.IsValidId(portalBuildingId) ||
-                    !buildingsApi.TryGetBuildingById(portalBuildingId, out GameBuilding* portalBuilding) ||
+                if (!APIShared.BuildingAccess.TryGetById(buildingsApi, portalBuildingId, out GameBuilding* portalBuilding, out _) ||
                     portalBuilding == null || portalBuilding->r_AliveState != AliveState.IsAlive ||
                     portalBuilding->r_GlobalId == 0 || portalBuilding->r_PlayerIdOwner != portalOwnerId ||
                     !TemporaryGateBlockagePolicy.IsGateOrDrawbridge(portalBuilding->r_BuildingType))

@@ -2278,8 +2278,7 @@ namespace Pathfinding
                     unit->r_CurrentHealth != 0;
             }
 
-            if (!GameBuildingManagerAPI.Instance.IsValidId(command.Argument1) ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(command.Argument1, out GameBuilding* building) ||
+            if (!APIShared.BuildingAccess.TryGetById(command.Argument1, out GameBuilding* building, out _) ||
                 building == null)
             {
                 return false;

@@ -115,7 +115,7 @@ namespace Spectator
             }
             if (first == 0 || first > int.MaxValue ||
                 (!capture && target.Id != (int)first) ||
-                !buildings.TryGetBuildingById((int)first, out GameBuilding* building) || building == null ||
+                !global::APIShared.BuildingAccess.TryGetById(buildings, (int)first, out GameBuilding* building, out _) || building == null ||
                 building->r_GlobalId == 0 || building->r_AliveState != AliveState.IsAlive ||
                 building->r_PlayerIdOwner != target.Owner || building->r_BuildingType != target.Type) return false;
             int x = building->r_TilePositionXBegin + 1, y = building->r_TilePositionYBegin + 1;

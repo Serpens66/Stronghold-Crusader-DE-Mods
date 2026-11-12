@@ -188,7 +188,7 @@ namespace ImprovedHunters
             var centerY = new int[count];
             for (int index = 0; index < count; index++)
             {
-                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(keeps.KeepBuildingIds[index], out GameBuilding* keep) || keep == null)
+                if (!global::APIShared.BuildingAccess.TryGetById(keeps.KeepBuildingIds[index], out GameBuilding* keep, out _) || keep == null)
                     return false;
 
                 centerX[index] = (int)keep->r_TilePositionXBegin + (int)keep->r_OccupyTileGridSize / 2;
@@ -209,7 +209,7 @@ namespace ImprovedHunters
             var door = GamePlayerManagerAPI.Instance.GetPlayerKeepDoorPosition(player);
             int doorTile = tiles.GetTileId(door.X, door.Y);
             int outside = 0, threats = 0, nearKeep = 0, blocked = 0, otherLand = 0, refused = 0;
-            bool doorOnLand = tiles.IsValidTileId(doorTile) && (uint)doorTile < (uint)components.Length;
+            bool doorOnLand = tiles.IsValidTileId(doorTile) && global::APIShared.IndexBounds.IsValidIndex(doorTile, components.Length);
             foreach ((int x, int y) in WildlifeStartPlaces.Around(centerX[index], centerY[index], MapMiddle, MapMiddle))
             {
                 if (!tiles.IsTileInsideMapBounds(x, y)) { outside++; continue; }
@@ -220,7 +220,7 @@ namespace ImprovedHunters
                 if (!tiles.IsValidTileId(tile) || !tiles.IsTileWalkableAndUnoccupied(tile)) { blocked++; continue; }
 
                 // An AI castle's walls can part the door from the land around it, its gates connect them.
-                if (!doorOnLand || (uint)tile >= (uint)components.Length ||
+                if (!doorOnLand || !global::APIShared.IndexBounds.IsValidIndex(tile, components.Length) ||
                     !GamePathingManagerAPI.Instance.ArePathComponentsConnected(player, components[doorTile], components[tile], PathConnectionQueryMode.ExcludeLadderClimb))
                 {
                     otherLand++;

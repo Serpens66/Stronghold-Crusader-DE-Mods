@@ -11,7 +11,7 @@ namespace AIAttackTest
     [BepInDependency(ScriptExtenderGuid, "2.6.0")]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency("APIShared_Serp", "0.3.6")]
+    [BepInDependency("APIShared_Serp", "0.49.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class AIAttackTestPlugin : BaseUnityPlugin
     {

@@ -122,7 +122,7 @@ static void Scan(string[] arguments)
         checkedFiles++;
         CheckLookupSyntax(File.ReadAllText(file), relative);
     }
-    Console.WriteLine($"PASS: {checkedFiles} runtime source files; SDK unit lookups are confined to UnitAccess and callers consume their boolean results.");
+    Console.WriteLine($"PASS: {checkedFiles} runtime source files; SDK unit/building lookups are confined to UnitAccess/BuildingAccess and callers consume their boolean results.");
     using var inventory=JsonDocument.Parse(File.ReadAllText(Path.Combine(root,"_inspect/UnitIdAccess/inventory.json")));
     foreach (var projectEntry in inventory.RootElement.GetProperty("projects").EnumerateObject())
     {
@@ -210,7 +210,9 @@ static void CheckLookupSyntax(string text, string relative)
             if (call.Expression is not MemberAccessExpressionSyntax member) continue;
             if (member.Name.Identifier.Text is "TryGetUnitById" or "TryGetUnitByIdEx")
                 Check(relative.Replace('\\','/')=="APIShared/src/Units/Selection/UnitAccess.cs", $"Direkter SDK-Lookup umgeht UnitAccess: {relative}:{call.GetLocation().GetLineSpan().StartLinePosition.Line+1}");
-            if (member.Expression.ToString().Contains("UnitAccess") && member.Name.Identifier.Text=="TryGetById")
+            if (member.Name.Identifier.Text is "TryGetBuildingById" or "TryGetBuildingByIdEx")
+                Check(relative.Replace('\\','/')=="APIShared/src/Buildings/BuildingAccess.cs", $"Direkter SDK-Lookup umgeht BuildingAccess: {relative}:{call.GetLocation().GetLineSpan().StartLinePosition.Line+1}");
+            if ((member.Expression.ToString().Contains("UnitAccess") || member.Expression.ToString().Contains("BuildingAccess")) && member.Name.Identifier.Text=="TryGetById")
                 Check(call.Parent is not ExpressionStatementSyntax, $"Ignored lookup result: {relative}:{call.GetLocation().GetLineSpan().StartLinePosition.Line+1}");
             var indirectNames = new HashSet<string> {
                 "DeleteUnit", "DeleteUnitSafe", "GetGlobalId", "GetTribe", "GetOwner", "GetType",
@@ -253,7 +255,21 @@ static void VerifyLookupFixtures()
     try { CheckLookupSyntax("class C { void Read() { APIShared.UnitAccess.TryGetById(1, out var unit, out var failure); } }", "consumer.cs"); }
     catch (Exception ex) { ignored = ex.Message.StartsWith("Ignored lookup result:"); }
     Check(ignored, "Ignored UnitAccess result fixture must fail the real scanner rule");
-    Console.WriteLine("PASS: UnitAccess scanner fixtures: guarded consumer and central owner accepted; direct SDK and ignored result rejected.");
+    CheckLookupSyntax("class C { bool Read() => APIShared.BuildingAccess.TryGetById(1, out var building, out var failure); }", "consumer.cs");
+    string directBuilding = "class C { bool Read() => GameBuildingManagerAPI.Instance.TryGetBuildingById(0, out var building); }";
+    CheckLookupSyntax(directBuilding, "APIShared/src/Buildings/BuildingAccess.cs");
+    foreach (string forbidden in new[] { directBuilding, directBuilding.Replace("TryGetBuildingById(", "TryGetBuildingByIdEx(") })
+    {
+        bool rejected = false;
+        try { CheckLookupSyntax(forbidden, "consumer.cs"); }
+        catch (Exception ex) { rejected = ex.Message.StartsWith("Direkter SDK-Lookup umgeht BuildingAccess:"); }
+        Check(rejected, "Direct building SDK fixture must fail the real scanner rule");
+    }
+    bool ignoredBuilding = false;
+    try { CheckLookupSyntax("class C { void Read() { APIShared.BuildingAccess.TryGetById(1, out var building, out var failure); } }", "consumer.cs"); }
+    catch (Exception ex) { ignoredBuilding = ex.Message.StartsWith("Ignored lookup result:"); }
+    Check(ignoredBuilding, "Ignored BuildingAccess result fixture must fail the real scanner rule");
+    Console.WriteLine("PASS: UnitAccess/BuildingAccess scanner fixtures: guarded consumer and central owner accepted; direct SDK and ignored result rejected.");
 }
 
 

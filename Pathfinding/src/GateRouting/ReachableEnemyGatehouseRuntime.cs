@@ -164,9 +164,9 @@ namespace Pathfinding
             }
 
             Span<ushort> pathConnections = pathingApi.GetPathComponentGrid();
-            if ((uint)sourceTileId >= (uint)pathConnections.Length ||
-                (uint)entryTileId >= (uint)pathConnections.Length ||
-                (uint)exitTileId >= (uint)pathConnections.Length)
+            if (!APIShared.IndexBounds.IsValidIndex(sourceTileId, pathConnections.Length) ||
+                !APIShared.IndexBounds.IsValidIndex(entryTileId, pathConnections.Length) ||
+                !APIShared.IndexBounds.IsValidIndex(exitTileId, pathConnections.Length))
             {
                 return false;
             }
@@ -429,7 +429,7 @@ namespace Pathfinding
                 {
                     int tile = tileApi.GetTileId(c.X, c.Y);
                     // The layer spans exactly the Extender's valid packed tile IDs.
-                    if ((uint)tile < (uint)structures.Length) id = structures[tile];
+                    if (APIShared.IndexBounds.IsValidIndex(tile, structures.Length)) id = structures[tile];
                 }
                 if (id <= 0 || id == first || id == second || id == rejected) continue;
                 if (!TryGetLiveDrawbridge(id, out _)) { rejected = id; continue; }
@@ -515,7 +515,7 @@ namespace Pathfinding
                         {
                             Span<ushort> currentComponents =
                                 GamePathingManagerAPI.Instance.GetPathComponentGrid();
-                            return (uint)tileId < (uint)currentComponents.Length
+                            return APIShared.IndexBounds.IsValidIndex(tileId, currentComponents.Length)
                                 ? currentComponents[tileId]
                                 : 0;
                         },
@@ -597,7 +597,7 @@ namespace Pathfinding
         {
             drawbridge = null;
             return buildingId > 0 &&
-                GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out drawbridge) &&
+                APIShared.BuildingAccess.TryGetById(buildingId, out drawbridge, out _) &&
                 drawbridge != null && drawbridge->r_AliveState == AliveState.IsAlive &&
                 drawbridge->r_BuildingType == eStructs.STRUCT_DRAWBRIDGE;
         }
@@ -619,7 +619,7 @@ namespace Pathfinding
             gatehouse = null;
             GameBuildingManagerAPI api = GameBuildingManagerAPI.Instance;
             return buildingId > 0 &&
-                api.TryGetBuildingById(buildingId, out building) && building != null &&
+                APIShared.BuildingAccess.TryGetById(api, buildingId, out building, out _) && building != null &&
                 building->r_AliveState == AliveState.IsAlive &&
                 GamePathingManagerAPI.Instance.TryGetPathConnectionRecordByBuildingId(
                     buildingId,

@@ -367,7 +367,7 @@ namespace ImprovedHunters
 
             ushort linkedBuildingId = hunter->r_LinkedProductionBuildingId;
             if (linkedBuildingId != 0 &&
-                GameBuildingManagerAPI.Instance.TryGetBuildingById(linkedBuildingId, out GameBuilding* building) &&
+                global::APIShared.BuildingAccess.TryGetById(linkedBuildingId, out GameBuilding* building, out _) &&
                 building != null &&
                 building->r_AliveState == AliveState.IsAlive &&
                 building->r_BuildingType == eStructs.STRUCT_HUNTERS_HUT)

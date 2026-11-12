@@ -15,7 +15,7 @@ namespace BugfixesAndQoL
             int activePlayerId = EditorDirector.instance?.ActivePlayerID ?? -1;
             int buildingId = GamePlayerManagerAPI.Instance.GetSelectedBuildingId();
             return activePlayerId > 0 && buildingId > 0 &&
-                GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) &&
+                APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) &&
                 building != null &&
                 building->r_AliveState == AliveState.IsAlive &&
                 building->r_BuildingType == eStructs.STRUCT_TRADEPOST &&

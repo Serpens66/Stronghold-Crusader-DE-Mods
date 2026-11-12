@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Unit Limit",
   "Description": "Limits the number of active soldier units per type for human players in Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.109",
+  "Version": "1.0.110",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.110",
+      "Changes": [
+        "Use shared validation for building lookups; require APIShared 0.49.0. Gameplay rules and settings are unchanged."
+      ]
+    },
     {
       "Version": "1.0.109",
       "Changes": [
@@ -233,7 +239,7 @@
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.27.0"
+      "MinimumVersion": "0.49.0"
     }
   ]
 }

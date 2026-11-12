@@ -38,7 +38,7 @@ namespace BugfixesAndQoL
             subscription.Dispose();
         }
 
-        private void OnKeyDown(UnityInputEventArgs args)
+        private unsafe void OnKeyDown(UnityInputEventArgs args)
         {
             try
             {
@@ -54,8 +54,8 @@ namespace BugfixesAndQoL
                     return;
 
                 int selectedBuildingId = GamePlayerManagerAPI.Instance.GetSelectedBuildingId();
-                if (selectedBuildingId <= 0 ||
-                    GameBuildingManagerAPI.Instance.GetType(selectedBuildingId) != eStructs.STRUCT_TRADEPOST ||
+                if (!APIShared.BuildingAccess.TryGetById(selectedBuildingId, out GameBuilding* selectedBuilding, out _) ||
+                    selectedBuilding->r_BuildingType != eStructs.STRUCT_TRADEPOST ||
                     !IsSelectedTradepostControlled(selectedBuildingId))
                 {
                     return;
@@ -104,7 +104,7 @@ namespace BugfixesAndQoL
 
             int activePlayerId = EditorDirector.instance?.ActivePlayerID ?? -1;
             return activePlayerId > 0 &&
-                GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) &&
+                APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) &&
                 building != null &&
                 building->r_AliveState == AliveState.IsAlive &&
                 building->r_PlayerIdOwner == activePlayerId;

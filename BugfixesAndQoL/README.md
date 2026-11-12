@@ -298,6 +298,6 @@ Adds "Customize" Button to custom and coop trails. Allows to use custom AI as Al
 
 ## Compatibility
 
-This mod requires the Script Extender and **APIShared 0.48.0 or newer**. Subscribe to APIShared separately when using the Steam modpack.
+This mod requires the Script Extender and **APIShared 0.50.0 or newer**. Subscribe to APIShared separately when using the Steam modpack.
 
 All multiplayer participants need matching modpack and APIShared versions. Gameplay timing follows the match's simulation time, keeping movement and other timed features consistent between players with different frame rates.

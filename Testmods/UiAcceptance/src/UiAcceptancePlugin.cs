@@ -14,7 +14,7 @@ namespace UiAcceptance
     // UI work service, which survives the startup destruction of early plugin components.
     [BepInPlugin(Guid, Name, Version)]
     [BepInDependency("000shcdese", "2.14.0")]
-    [BepInDependency("APIShared_Serp", "0.34.0")]
+    [BepInDependency("APIShared_Serp", "0.49.0")]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("Spectator_Serp", BepInDependency.DependencyFlags.SoftDependency)]

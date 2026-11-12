@@ -87,6 +87,7 @@ trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Pathfin
 trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Pathfinding/src/UnitCommands/Runtime/ManualRegionAdmissionBatch.cs")), options));
 var references=((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))!.Split(Path.PathSeparator)
     .Select(p=>MetadataReference.CreateFromFile(p));
+trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"APIShared/src/Core/Collections/IndexBounds.cs")), options));
 var compilation=CSharpCompilation.Create("ActualManualCommandFixture",trees,references,
     new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,allowUnsafe:true));
 using var stream=new MemoryStream();var emitted=compilation.Emit(stream);

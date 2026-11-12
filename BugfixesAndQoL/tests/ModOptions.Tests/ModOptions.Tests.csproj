@@ -14,6 +14,7 @@
     <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath></Reference>
     <Reference Include="System.Buffers"><HintPath>$(ExtenderDir)\System.Buffers.dll</HintPath></Reference>
     <Reference Include="System.Runtime.CompilerServices.Unsafe"><HintPath>$(ExtenderDir)\System.Runtime.CompilerServices.Unsafe.dll</HintPath></Reference>
+    <Compile Include="../../../APIShared/src/Buildings/BuildingAccess.cs" />
     <Compile Include="Program.cs" /><Compile Include="Environment.cs" />
     <Compile Include="..\..\..\_inspect\UiWorkBoundaryDouble.cs" />
     <Compile Include="..\..\..\APIShared\src\Presentation\UiWork\UiWorkContracts.cs" />

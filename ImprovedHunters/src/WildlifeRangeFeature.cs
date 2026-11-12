@@ -130,7 +130,7 @@ namespace ImprovedHunters
             Span<ushort> components = GamePathingManagerAPI.Instance.GetPathComponentGrid();
             int from = tiles.GetTileId(fromX, fromY), to = tiles.GetTileId(toX, toY);
             return tiles.IsValidTileId(from) && tiles.IsValidTileId(to) &&
-                (uint)from < (uint)components.Length && (uint)to < (uint)components.Length &&
+                global::APIShared.IndexBounds.IsValidIndex(from, components.Length) && global::APIShared.IndexBounds.IsValidIndex(to, components.Length) &&
                 components[from] == components[to];
         }
     }

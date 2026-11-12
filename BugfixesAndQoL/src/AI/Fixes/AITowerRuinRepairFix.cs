@@ -190,8 +190,8 @@ namespace BugfixesAndQoL
                 int playerId = *(int*)(registers->RSP + PlacementPlayerIdStackOffset);
                 if (buildingId <= 0 || playerId < 1 || playerId > 8 ||
                     !GamePlayerManagerAPI.Instance.IsAIPlayer(playerId) ||
-                    !GameBuildingManagerAPI.Instance.TryGetBuildingById(
-                        buildingId, out GameBuilding* building) ||
+                    !APIShared.BuildingAccess.TryGetById(
+                        buildingId, out GameBuilding* building, out _) ||
                     building->r_AliveState != AliveState.IsAlive ||
                     building->r_PlayerIdOwner != playerId ||
                     building->r_BuildingType != type ||
@@ -311,7 +311,7 @@ namespace BugfixesAndQoL
                     return;
 
                 if (!GamePlayerManagerAPI.Instance.IsAIPlayer(args.PlayerId) ||
-                    !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+                    !APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) ||
                     building->r_GlobalId == 0 || building->r_PlayerIdOwner != args.PlayerId ||
                     building->r_BuildingType != args.Building ||
                     (building->r_AliveState != AliveState.NeedsInit &&
@@ -340,8 +340,8 @@ namespace BugfixesAndQoL
             {
                 if (!runtimeRuins.TryGetValue(buildingId, out RuntimeTowerRuin tracked))
                     return;
-                if (GameBuildingManagerAPI.Instance.TryGetBuildingById(
-                        buildingId, out GameBuilding* current) &&
+                if (APIShared.BuildingAccess.TryGetById(
+                        buildingId, out GameBuilding* current, out _) &&
                     current->r_GlobalId != tracked.GlobalId)
                 {
                     runtimeRuins.Remove(buildingId);

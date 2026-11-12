@@ -20,7 +20,7 @@ namespace EnemyBridgePathTest
             internal int MinX=800,MinY=800,MaxX=-1,MaxY=-1;
             internal string Link;
         }
-        internal static int SpanIndex(int gameId,int capacity) => gameId>0&&gameId<=capacity?gameId-1:-1;
+        internal static int SpanIndex(int gameId,int capacity) => gameId>0&&global::APIShared.IndexBounds.IsValidIndex(gameId-1,capacity)?gameId-1:-1;
         internal static bool IsCurrent(Entry entry,uint global,int owner,int parentRaw,int grid,int orientation,int originX=-1,int originY=-1) =>
             entry.Global==global&&entry.Owner==owner&&entry.NativeParent==parentRaw&&entry.Grid==grid&&entry.Orientation==orientation&&(originX<0||entry.OriginX==originX)&&(originY<0||entry.OriginY==originY);
         private long generation=1, built, nextCheck;

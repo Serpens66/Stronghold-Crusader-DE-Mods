@@ -8,7 +8,7 @@ namespace AreaDemolitionTest
 {
     [BepInPlugin(Guid,"Area Demolition Test",Version)]
     [BepInDependency("000shcdese","2.14.3")]
-    [BepInDependency("APIShared_Serp","0.46.0")]
+    [BepInDependency("APIShared_Serp","0.49.0")]
     [BepInDependency("fixes",BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class Plugin : BaseUnityPlugin
     {

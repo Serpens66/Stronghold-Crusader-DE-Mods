@@ -307,7 +307,7 @@ namespace BugfixesAndQoL
             protected override void OnCreated(Shared.StoragePlacement placement, Shared.StorageCreatedSection section)
             {
                 if (!IsCurrent(placement, out string reason) ||
-                    !GameBuildingManagerAPI.Instance.TryGetBuildingById(section.LastBuildingId, out GameBuilding* last) ||
+                    !APIShared.BuildingAccess.TryGetById(section.LastBuildingId, out GameBuilding* last, out _) ||
                     last->r_GlobalId != section.LastGlobalId || last->r_PlayerIdOwner != playerId ||
                     last->r_BuildingType != placement.Mapper.ConvertToEStructs() ||
                     (last->r_AliveState != AliveState.NeedsInit && last->r_AliveState != AliveState.IsAlive))

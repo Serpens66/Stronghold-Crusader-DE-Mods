@@ -477,7 +477,7 @@ namespace AIDefenseTest
 
             foreach (int buildingId in aliveBuildingIds)
             {
-                if (!buildingApi.TryGetBuildingById(buildingId, out GameBuilding* tower) ||
+                if (!global::APIShared.BuildingAccess.TryGetById(buildingApi, buildingId, out GameBuilding* tower, out _) ||
                     tower == null ||
                     tower->r_AliveState != AliveState.IsAlive ||
                     !TowerTypes.Contains(tower->r_BuildingType))

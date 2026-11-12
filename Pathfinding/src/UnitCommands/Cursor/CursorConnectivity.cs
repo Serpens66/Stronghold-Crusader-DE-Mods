@@ -53,7 +53,7 @@ namespace Pathfinding.UnitCommands
         {
             if (disposed || unitId <= 0 || buildingId <= 0 ||
                 !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null ||
-                (!ManualCommandsEnabled && !CanDigMoat(unit)) || !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) || building == null)
+                (!ManualCommandsEnabled && !CanDigMoat(unit)) || !APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) || building == null)
                 return originalBuildingCursorReachability(manager, buildingId, unitId);
             var previous = activeBuildingCursorConnectivity;
             activeBuildingCursorConnectivity = new BuildingCursorConnectivityScope {
@@ -72,7 +72,7 @@ namespace Pathfinding.UnitCommands
             if ((!ManualCommandsEnabled && !TraversalEnabled) || scope == null || useCache != 0 || nativeStart != scope.StartTile) return false;
             if (!APIShared.UnitAccess.TryGetById(scope.UnitId, out GameUnit* unit, out _) || unit == null ||
                 unit->r_GlobalId != scope.UnitGlobalId || unit->r_ControllableForPlayerId != scope.PlayerId ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(scope.BuildingId, out GameBuilding* building) || building == null ||
+                !APIShared.BuildingAccess.TryGetById(scope.BuildingId, out GameBuilding* building, out _) || building == null ||
                 building->r_GlobalId != scope.BuildingGlobalId) return true;
             if (ProbeCursorConnectivity(scope.PlayerId, nativeStart, candidate, out RouteProbeSummary summary))
                 result = summary.RouteFound ? 1 : 0;

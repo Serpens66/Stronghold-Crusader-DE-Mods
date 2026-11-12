@@ -90,7 +90,7 @@ namespace PathfindingLoadTest
             var api = SHCDESE.API.GameBuildingManagerAPI.Instance;
             foreach (int id in api.GetAllAliveBuildings())
             {
-                if (!api.TryGetBuildingById(id, out SHCDESE.Interop.GameBuilding* building)) continue;
+                if (!global::APIShared.BuildingAccess.TryGetById(api, id, out SHCDESE.Interop.GameBuilding* building, out _)) continue;
                 var args = new object[] { id, null };
                 if (!(bool)capture.Invoke(runtime, args)) throw new InvalidOperationException("Valid building rejected.");
                 var snapshot = args[1];

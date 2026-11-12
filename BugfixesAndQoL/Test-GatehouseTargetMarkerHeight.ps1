@@ -60,7 +60,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Unknown-build marker prefix regression failed.
 $runtime = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\GateRouting\GatehouseTargetMarkerHeightHook.cs'))
 foreach ($required in @('private static readonly Harmony harmony', 'Volatile.Read(ref enabled)',
     'Volatile.Write(ref enabled', 'GATEHOUSE_TARGET_MARKER_POST_STARTUP', 'IsTileInsideMapBounds',
-    'IsValidTileId', 'IsValidId(buildingId)', 'TryGetBuildingById(buildingId', '__instance?.getMapTile(x, y)',
+    # BuildingAccess owns ID/capacity rejection; the production prefix fixture above executes its real implementation.
+    'IsValidTileId', 'BuildingAccess.TryGetById(buildings, buildingId', '__instance?.getMapTile(x, y)',
     'ref tile_y', 'tile.gameMapX, tile.gameMapY', 'CurrentNativeSha256 != GatehouseTargetMarkerHeightPolicy.NativeSha256',
     'GATEHOUSE_TARGET_MARKER_INSTALLED', 'GATEHOUSE_TARGET_MARKER_APPLIED',
     'IsMoveTarget(file, image, tile_x, hiMode)')) {

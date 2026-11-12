@@ -85,8 +85,7 @@ namespace Pathfinding.GateRouting
             int target = tile + *(int*)(module + 0x405EDB0 + (uint)(direction + u->r_CurrentTilePositionY * 8) * 4UL);
             if ((uint)target >= 320800 || target == tile) return false;
             int gate = *(short*)(module + 0x4B6AA50 + (uint)tile * 2UL);
-            if (!GameBuildingManagerAPI.Instance.IsValidId(gate) ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(gate, out GameBuilding* b) || b == null ||
+            if (!APIShared.BuildingAccess.TryGetById(gate, out GameBuilding* b, out _) || b == null ||
                 b->r_GlobalId == 0 || b->r_PlayerIdOwner < 1 || b->r_PlayerIdOwner > 8 || b->r_CapturedByPlayerId > 8 ||
                 b->r_GateState != 2 || !AssassinPathAPI.IsDirectGatehouseClimbEndpoint(tile)) return false;
             // Immediate live identity, not a policy permission. The endpoint check validates

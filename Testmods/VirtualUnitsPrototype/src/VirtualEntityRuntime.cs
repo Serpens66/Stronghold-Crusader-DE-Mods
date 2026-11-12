@@ -173,7 +173,7 @@ namespace VirtualUnitsPrototype
             if (!CanMutate) return Result(VirtualApiResultCode.UnsupportedGameMode, "Assignments are allowed only in a loaded singleplayer skirmish.");
             if (!buildingDefinitions.TryGetValue(typeId ?? string.Empty, out VirtualBuildingDefinition definition)) return Result(VirtualApiResultCode.UnknownTypeId, "Unknown building type ID.");
             if (!TryReadBuilding(buildingId, definition.BaseType, out uint globalId, out int maxHealth, out int currentHealth, out VirtualApiResult failure)) return failure;
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* assignedBuilding) || assignedBuilding == null || assignedBuilding->r_AliveState != AliveState.IsAlive)
+            if (!global::APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* assignedBuilding, out _) || assignedBuilding == null || assignedBuilding->r_AliveState != AliveState.IsAlive)
                 return Result(VirtualApiResultCode.EntityNotFound, "Building is not fully initialized.");
             PendingSpawn pending;
             lock (sync)
@@ -414,12 +414,14 @@ namespace VirtualUnitsPrototype
                 if (buildingId <= 0) return Result(VirtualApiResultCode.SpawnFailed, $"CreatePrefab did not produce a correlated building ({resultDiagnostic}, eventId={buildingId}).");
                 if (!TryReadBuilding(buildingId, definition.BaseType, out uint globalId, out int maxHealth, out int currentHealth, out VirtualApiResult failure))
                 {
-                    GameBuildingManagerAPI.Instance.DeleteBuildingSafe(buildingId);
+                    if (global::APIShared.BuildingAccess.TryGetById(buildingId, out _, out _))
+                        GameBuildingManagerAPI.Instance.DeleteBuildingSafe(buildingId);
                     return failure;
                 }
-                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) || building == null || building->r_PlayerIdOwner != playerId)
+                if (!global::APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) || building == null || building->r_PlayerIdOwner != playerId)
                 {
-                    GameBuildingManagerAPI.Instance.DeleteBuildingSafe(buildingId);
+                    if (global::APIShared.BuildingAccess.TryGetById(buildingId, out _, out _))
+                        GameBuildingManagerAPI.Instance.DeleteBuildingSafe(buildingId);
                     return Result(VirtualApiResultCode.SpawnFailed, $"Spawned building {buildingId} has an unexpected owner.");
                 }
                 var pending = PendingSpawn.ForBuilding(buildingId, globalId, typeId, definition.DefinitionVersion, playerId, tileX, tileY, maxHealth, currentHealth, building->r_AliveState, currentSimulationTick + SpawnInitializationTickBudget, ticket);
@@ -673,7 +675,7 @@ namespace VirtualUnitsPrototype
             lock (sync) candidates = pendingBuildings.Values.ToArray();
             foreach (PendingSpawn pending in candidates)
             {
-                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(pending.GameId, out GameBuilding* building) || building == null)
+                if (!global::APIShared.BuildingAccess.TryGetById(pending.GameId, out GameBuilding* building, out _) || building == null)
                 {
                     FailPending(pending, "native building slot is no longer available", false);
                     continue;
@@ -746,7 +748,7 @@ namespace VirtualUnitsPrototype
 
         private bool PendingIdentityMatches(PendingSpawn pending) => pending.Kind == VirtualEntityKind.Unit
             ? (APIShared.UnitAccess.TryGetById(pending.GameId, out _, out _) ? GameUnitManagerAPI.Instance.GetGlobalId(pending.GameId) : -1) == unchecked((int)pending.GlobalId)
-            : GameBuildingManagerAPI.Instance.GetGlobalId(pending.GameId) == unchecked((int)pending.GlobalId);
+            : (global::APIShared.BuildingAccess.TryGetById(pending.GameId, out _, out _) ? GameBuildingManagerAPI.Instance.GetGlobalId(pending.GameId) : -1) == unchecked((int)pending.GlobalId);
 
         private int CountLinkedFootprintTiles(int buildingId, GameBuilding* building)
         {
@@ -854,7 +856,7 @@ namespace VirtualUnitsPrototype
                 else
                 {
                     valid = buildingDefinitions.TryGetValue(stored.TypeId, out VirtualBuildingDefinition definition) &&
-                        GameBuildingManagerAPI.Instance.TryGetBuildingById(stored.GameId, out GameBuilding* building) && building != null &&
+                        global::APIShared.BuildingAccess.TryGetById(stored.GameId, out GameBuilding* building, out _) && building != null &&
                         building->r_GlobalId == stored.GlobalId && building->r_BuildingType == definition.BaseType && building->r_AliveState == AliveState.IsAlive;
                 }
                 lock (sync)
@@ -894,7 +896,7 @@ namespace VirtualUnitsPrototype
         {
             global = 0; max = current = 0;
             if (id <= 0) { failure = Result(VirtualApiResultCode.InvalidGameId, "Building ID must be 1-based and positive."); return false; }
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(id, out GameBuilding* building) || building == null || (building->r_AliveState != AliveState.NeedsInit && building->r_AliveState != AliveState.IsAlive)) { failure = Result(VirtualApiResultCode.EntityNotFound, "Building is not active."); return false; }
+            if (!global::APIShared.BuildingAccess.TryGetById(id, out GameBuilding* building, out _) || building == null || (building->r_AliveState != AliveState.NeedsInit && building->r_AliveState != AliveState.IsAlive)) { failure = Result(VirtualApiResultCode.EntityNotFound, "Building is not active."); return false; }
             if (building->r_BuildingType != expected) { failure = Result(VirtualApiResultCode.BaseTypeMismatch, "Building base type differs from the definition."); return false; }
             global = building->r_GlobalId; max = GameBuildingManagerAPI.Instance.GetMaxHealth(id); current = GameBuildingManagerAPI.Instance.GetCurrentHealth(id);
             if (global == 0 || max <= 0) { failure = Result(VirtualApiResultCode.EntityNotFound, "Building identity or base values are unavailable."); return false; }
@@ -933,7 +935,7 @@ namespace VirtualUnitsPrototype
             }
         }
         private void RestoreExistingSlot(VirtualEntityKind kind, int id) { if (instances.TryGetSlot((byte)kind, id, out uint g, out StoredInstance old)) { if (IdentityMatches(old)) Restore(old); instances.Remove((byte)kind, id); } }
-        private bool IdentityMatches(StoredInstance stored) => stored.Kind == VirtualEntityKind.Unit ? (APIShared.UnitAccess.TryGetById(stored.GameId, out _, out _) ? GameUnitManagerAPI.Instance.GetGlobalId(stored.GameId) : -1) == unchecked((int)stored.GlobalId) : GameBuildingManagerAPI.Instance.GetGlobalId(stored.GameId) == unchecked((int)stored.GlobalId);
+        private bool IdentityMatches(StoredInstance stored) => stored.Kind == VirtualEntityKind.Unit ? (APIShared.UnitAccess.TryGetById(stored.GameId, out _, out _) ? GameUnitManagerAPI.Instance.GetGlobalId(stored.GameId) : -1) == unchecked((int)stored.GlobalId) : (global::APIShared.BuildingAccess.TryGetById(stored.GameId, out _, out _) ? GameBuildingManagerAPI.Instance.GetGlobalId(stored.GameId) : -1) == unchecked((int)stored.GlobalId);
         private void Forget(VirtualEntityKind kind, int id) { lock (sync) { instances.Remove((byte)kind, id); (kind == VirtualEntityKind.Unit ? pendingUnits : pendingBuildings).Remove(id); } }
         private void ClearMapState()
         {
@@ -961,7 +963,7 @@ namespace VirtualUnitsPrototype
         {
             try
             {
-                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(id, out GameBuilding* building) || building == null) return;
+                if (!global::APIShared.BuildingAccess.TryGetById(id, out GameBuilding* building, out _) || building == null) return;
                 uint gridSize = building->r_OccupyTileGridSize;
                 if (gridSize == 0 || gridSize > Shared.GameBuildingFootprint.MaximumGridSize) return;
                 int tileCount = checked((int)(gridSize * gridSize));

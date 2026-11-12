@@ -309,3 +309,34 @@ Nachweise: `.work/a/pf-startup/001/fix-result.md`, `fix-test-result.json`,
 `.work/t/pf-game/036/00c152f4bf6c/LogOutput.log`.
 Der andere historische AI110-Auflösungsfall sowie echter Mehrspielertest und
 manueller Augentest bleiben von dieser gezielten Korrektur unberührt.
+
+## Ergänzung vom 12.11.2026: gemeinsame Gebäude- und Indexprüfungen
+
+Die Gebäudezugriffe und passenden nullbasierten Span-Prüfungen verwenden jetzt
+APIShareds neue `BuildingAccess`- und `IndexBounds`-Helfer. Fachliche Grenzen,
+Identität, Eigentümer und Lebenszustand werden weiterhin durch die Verbraucher
+geprüft. Pathfinding steht auf **0.1.4**, Mindestversion APIShared **0.49.0**.
+Der gemeinsam mit der parallelen Menü-/Autosave-Arbeit geprüfte und installierte
+SDK-Stand ist **0.50.0**; BFQoL **1.0.223** benötigt dessen neue Menü-API.
+
+Die elf betroffenen Hauptmods bestanden die normalen Vollbuilds gegen dasselbe
+SDK (1214–1224), zusätzlich bestand Pathfindings Diagnosecompilerbuild 1225 ohne
+Installation und ohne Paketabgleich. Alle 869 normalen Paketdateien blieben
+dabei unverändert. Ein bestätigter `PreserveNewest`-Paketfehler für `info.json`
+wurde reproduziert und durch zwingendes Kopieren der aktuellen Manifestdatei
+behoben; kompilierte Version und Paketmanifest sind jetzt beide 0.1.4.
+
+Der gewöhnliche Kartenstart bestand erneut gemeinsam mit BFQoL: ungültige IDs
+0/-1/int.MinValue liefern im tatsächlichen Snapshot-Helfer `false` und ein
+leeres Ergebnis; der gültige Gebäudeabruf blieb unverändert. Keine ungültige
+Lookup-Meldung, keine Error-/Fatal-Zeile und kein
+`PATHFINDING_OUTDATED_BUGFIXES` im eingefrorenen Testlog. Testhelfer sind entfernt,
+Einstellungen und Plugin-Auswahl rückgesichert, RandomEvents wieder vorhanden.
+1454 Plugin-/Patcher-/Konfigurationsdateien stimmen mit dem geprüften Zustand
+nach Installation überein. Das Spiel ist beendet; keine globalen Eingaben.
+
+Nachweise: `.work/a/access/001/results.md`, `build-map-joint.json`,
+`joint-installation-result.json`, `joint-final-verification.json` und
+`.work/t/access-game/001/58ab578a4383/LogOutput.log`.
+Echter Mehrspielertest und manueller Augentest bleiben ausdrücklich offen;
+die neuen lokalen Menüfelder wurden nicht durch globale Eingaben getestet.

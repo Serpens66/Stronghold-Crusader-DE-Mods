@@ -696,6 +696,16 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
                 <CheckBox IsChecked="{Binding EnableCompactLobbyChat, Mode=TwoWay}" Content="{Binding EnableCompactLobbyChatText}" Foreground="White" Margin="0,0,14,8" ToolTipService.ShowDuration="60000"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding EnableCompactLobbyChatHelpText}"/></CheckBox.ToolTip></CheckBox>
               </Grid>
             </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.local-autosave" shared:ModSettingsSearch.Title="{Binding EnableLocalAutosaveText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableLocalAutosaveHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="28"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableLocalAutosave}"><ContentControl.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ToolTip}"/></ContentControl.ToolTip></ContentControl>
+              <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
+                <CheckBox IsChecked="{Binding EnableLocalAutosave, Mode=TwoWay}" Content="{Binding EnableLocalAutosaveText}" Foreground="White" Margin="0,0,14,8" ToolTipService.ShowDuration="60000"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding EnableLocalAutosaveHelpText}"/></CheckBox.ToolTip></CheckBox>
+              </Grid>
+            </Grid>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.improve-yellow-lobby-contrast" shared:ModSettingsSearch.Title="{Binding ImproveYellowLobbyContrastText}" shared:ModSettingsSearch.ToolTipText="{Binding ImproveYellowLobbyContrastHelpText}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="28"/>

@@ -12,7 +12,7 @@
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.4.10"
+      "MinimumVersion": "0.49.0"
     }
   ],
   "SerpChangelog": [

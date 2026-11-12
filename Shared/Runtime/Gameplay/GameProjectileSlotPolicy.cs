@@ -33,7 +33,7 @@ namespace Shared
                 return false;
 
             int candidate = FirstLiveSpanIndex + projectileId - 1;
-            if ((uint)candidate >= (uint)ExposedSpanLength)
+            if (!global::APIShared.IndexBounds.IsValidIndex(candidate, ExposedSpanLength))
                 return false;
 
             spanIndex = candidate;

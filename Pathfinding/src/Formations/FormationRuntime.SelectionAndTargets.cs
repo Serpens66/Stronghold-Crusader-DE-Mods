@@ -149,9 +149,9 @@ namespace Pathfinding.UnitCommands
             return tileManager != null &&
                 (uint)target.NativeX < MapWidth &&
                 (uint)target.NativeY < MapWidth &&
-                (uint)tileId < (uint)tileManager.TileUnitIdGrid.Length &&
-                (uint)tileId < (uint)tileManager.StructureGrid.Length &&
-                (uint)tileId < (uint)tileManager.PathConnectionGrid.Length;
+                APIShared.IndexBounds.IsValidIndex(tileId, tileManager.TileUnitIdGrid.Length) &&
+                APIShared.IndexBounds.IsValidIndex(tileId, tileManager.StructureGrid.Length) &&
+                APIShared.IndexBounds.IsValidIndex(tileId, tileManager.PathConnectionGrid.Length);
         }
 
         private static string ToRejectionReason(

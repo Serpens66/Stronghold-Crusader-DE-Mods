@@ -33,7 +33,8 @@ internal static class FormationCommandPipelineTests
             "Formations/FormationPresentation.cs", "Formations/FormationReleaseStateModel.cs", "Formations/FormationMoveSupport.cs",
             "UnitCommands/Runtime/ManualRegionAdmissionBatch.cs" };
         var trees = files.Select(p => CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
-            "Pathfinding/src", p)))).Append(CSharpSyntaxTree.ParseText(fixture));
+            "Pathfinding/src", p)))).Append(CSharpSyntaxTree.ParseText(fixture))
+            .Append(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Core/Collections/IndexBounds.cs"))));
         var refs = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
             .Select(p => MetadataReference.CreateFromFile(p)).ToList();
         refs.Add(MetadataReference.CreateFromFile(typeof(MessagePack.MessagePackWriter).Assembly.Location));

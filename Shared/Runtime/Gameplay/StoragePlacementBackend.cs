@@ -151,7 +151,7 @@ namespace Shared
             capture.Events++;
             if (args.ReturnValue <= 0 || args.ReturnValue > int.MaxValue) return;
             int id = (int)args.ReturnValue;
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(id, out GameBuilding* b) || b == null ||
+            if (!global::APIShared.BuildingAccess.TryGetById(id, out GameBuilding* b, out _) || b == null ||
                 !Matches(ref *b, args.Building, args.TileX, args.TileY) || !IsPresent(b->r_AliveState)) return;
             Identity identity = new Identity(id, b->r_GlobalId);
             capture.Identities.Add(identity);
@@ -187,7 +187,7 @@ namespace Shared
             var ids = new HashSet<int>();
             foreach (Identity identity in capture.Identities)
             {
-                if (!ids.Add(identity.Id) || !GameBuildingManagerAPI.Instance.TryGetBuildingById(identity.Id, out GameBuilding* b) ||
+                if (!ids.Add(identity.Id) || !global::APIShared.BuildingAccess.TryGetById(identity.Id, out GameBuilding* b, out _) ||
                     b == null || b->r_GlobalId != identity.GlobalId || !IsPresent(b->r_AliveState) ||
                     b->r_PlayerIdOwner != playerId || b->r_BuildingType != type ||
                     b->r_TilePositionXBegin < placement.X || b->r_TilePositionXBegin >= placement.X + placement.Size ||
@@ -202,7 +202,7 @@ namespace Shared
 
         private StorageSectionState InspectIdentity(Identity identity, eStructs type, int x, int y)
         {
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(identity.Id, out GameBuilding* b) || b == null ||
+            if (!global::APIShared.BuildingAccess.TryGetById(identity.Id, out GameBuilding* b, out _) || b == null ||
                 b->r_GlobalId != identity.GlobalId || !Matches(ref *b, type, x, y) || !IsPresent(b->r_AliveState))
                 return StorageSectionState.Lost;
             return b->r_AliveState == AliveState.IsAlive ? StorageSectionState.IsAlive : StorageSectionState.NeedsInit;

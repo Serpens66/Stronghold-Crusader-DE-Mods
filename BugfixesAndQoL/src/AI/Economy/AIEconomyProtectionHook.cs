@@ -510,7 +510,7 @@ namespace BugfixesAndQoL
                 GameBuilding* building = null;
                 bool isLivingAiBuilding =
                     buildingId > 0 &&
-                    GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out building) &&
+                    APIShared.BuildingAccess.TryGetById(buildingId, out building, out _) &&
                     building != null &&
                     building->r_AliveState == AliveState.IsAlive &&
                     building->r_PlayerIdOwner == playerId &&

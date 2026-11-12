@@ -150,7 +150,7 @@ namespace AIWoodSafetyTest
             dirty.Clear();
             foreach (int id in refresh)
             {
-                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(id, out GameBuilding* b) || b == null)
+                if (!global::APIShared.BuildingAccess.TryGetById(id, out GameBuilding* b, out _) || b == null)
                     throw new InvalidOperationException("Tracked building lookup unavailable: " + id);
                 masks.Update(id, CopyFortification(id, in *b));
             }
@@ -269,7 +269,7 @@ namespace AIWoodSafetyTest
                 try
                 {
                     if (!UnitAccess.TryGetById(point.UnitId, out GameUnit* u, out _) || u == null || point.BuildingId <= 0 ||
-                        !GameBuildingManagerAPI.Instance.TryGetBuildingById(point.BuildingId, out GameBuilding* b) || b == null) return default;
+                        !global::APIShared.BuildingAccess.TryGetById(point.BuildingId, out GameBuilding* b, out _) || b == null) return default;
                     if (!DeathCounterPolicy.TryUndo(u, point.UnitId, point.UnitGlobal, b, point.BuildingId, point.BuildingGlobal, point.NativeAfter, IsAI(b->r_PlayerIdOwner))) return default;
                     uint unitGlobal = u->r_GlobalId, buildingGlobal = b->r_GlobalId;
                     short corrected = DeathCounterPolicy.UndoSingleIncrement(point.NativeAfter);

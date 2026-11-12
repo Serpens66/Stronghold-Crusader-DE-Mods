@@ -35,6 +35,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\src\BuildPreview\FootprintMarker.cs" />
+    <Compile Include="../../../APIShared/src/Core/Collections/IndexBounds.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="..\..\src\BuildPreview\BuildPreviewState.cs" />
     <Compile Include="..\..\src\BuildPreview\GroundTooltipModel.cs" />

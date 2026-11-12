@@ -1,30 +1,36 @@
 using APIShared;
 using APIShared.GameModes;
 using APIShared.Presentation;
-using APIShared.Simulation;
 using BepInEx.Logging;
 using CrusaderDE;
 using SHCDESE.API;
 using System;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
-using System.Threading;
 using UnityEngine;
 
 namespace BugfixesAndQoL
 {
-    // Process-lived through the APIShared registrations. Only the active schedule belongs to a mission.
+    // The process-lived APIShared registrations root this runtime after startup cleanup.
+    // Mutable scheduling/menu state is owned exclusively by the validated Unity thread.
     internal sealed class LocalAutosaveRuntime
     {
         private const string RegistrationId = "local-autosave";
         private const string FileName = "Autosave - Singleplayer.sav";
+        private static readonly TimeSpan EditDelay = TimeSpan.FromSeconds(15);
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly IMissionLifecycleCapability missions;
         private readonly IMissionPlayStateReadinessCapability readiness;
+        private readonly UiWorkClient ui;
+        private readonly IUiFrameWorkRegistration frameWork, pendingWork;
         private IngameMenuActionRegistration menu;
+        private MainViewModel observedMain;
         private Launch launch;
-        private Schedule schedule;
+        private LocalAutosaveSchedule schedule;
+        private readonly LocalAutosavePendingChoice pending = new LocalAutosavePendingChoice();
+        private bool initialized;
         private volatile bool enabled;
 
         private LocalAutosaveRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings)
@@ -32,166 +38,244 @@ namespace BugfixesAndQoL
             this.log = log;
             this.settings = settings;
             var client = ApiShared.ForMod(BugfixesAndQoLPlugin.PluginGuid);
+            ui = client.Ui;
             if (!client.TryGetMissionLifecycle(out missions, out var diagnostic) ||
-                !client.TryGetMissionPlayStateReadiness(out readiness, out diagnostic) ||
-                !missions.TryRegisterObserver(RegistrationId, Started, Ended, null, out diagnostic) ||
+                !client.TryGetMissionPlayStateReadiness(out readiness, out diagnostic))
+                throw new InvalidOperationException(diagnostic?.Reason);
+            if (!ui.TryRegisterBeforeRender(RegistrationId, OnBeforeRender, out frameWork, out string reason) ||
+                !ui.TryRegisterBeforeRender(RegistrationId + "-edit", ApplyPendingWhenIdle, out pendingWork, out reason))
+                throw new InvalidOperationException(reason);
+
+            if (!IngameMenuActions.TryRegisterContent(BugfixesAndQoLPlugin.PluginGuid, RegistrationId,
+                MenuState, CreateMenuControl, new IngameMenuActionOptions(IngameMenuRow.Save, IngameMenuSlot.Left),
+                out menu, out reason) &&
+                !IngameMenuActions.TryRegisterContent(BugfixesAndQoLPlugin.PluginGuid, RegistrationId,
+                    MenuState, CreateMenuControl, new IngameMenuActionOptions(), out menu, out reason))
+                throw new InvalidOperationException(reason);
+
+            // Observers may synchronously replay; callbacks retain state but remain dormant
+            // until all required process-lifetime registrations have succeeded.
+            if (!missions.TryRegisterObserver(RegistrationId, Started, Ended, null, out diagnostic) ||
                 !readiness.TryRegisterObserver(RegistrationId, Ready, out diagnostic))
                 throw new InvalidOperationException(diagnostic?.Reason);
-
-            if (!SimulationTickEvents.TryRegister(BugfixesAndQoLPlugin.PluginGuid, RegistrationId,
-                OnTick, out string reason))
-                throw new InvalidOperationException(reason);
-
-            if (!IngameMenuActions.TryRegister(BugfixesAndQoLPlugin.PluginGuid, RegistrationId,
-                MenuState, Cycle, new IngameMenuActionOptions(IngameMenuRow.Save, IngameMenuSlot.Left),
-                out menu, out reason) &&
-                !IngameMenuActions.TryRegister(BugfixesAndQoLPlugin.PluginGuid, RegistrationId,
-                    MenuState, Cycle, new IngameMenuActionOptions(), out menu, out reason))
-                throw new InvalidOperationException(reason);
-
             settings.SettingChanged += SettingsChanged;
-            SettingsChanged(null);
+            initialized = true;
+            ApplySettings();
         }
 
         internal static void Initialize(ManualLogSource log, BugfixesAndQoLViewModel settings) =>
             new LocalAutosaveRuntime(log, settings);
 
         private static bool IsLocalGame(MissionContext context) =>
-            context != null && !context.IsEditor &&
-            !context.Mode.IsRealMultiplayer && context.Mode.Kind != GameModeKind.Unknown &&
-            context.Mode.Kind != GameModeKind.Tutorial;
+            context != null && !context.IsEditor && !context.Mode.IsRealMultiplayer &&
+            context.Mode.Kind != GameModeKind.Unknown && context.Mode.Kind != GameModeKind.Tutorial;
 
         private void SettingsChanged(string property)
         {
-            if (property == null || property == nameof(settings.EnableClientFeatures))
-            {
-                enabled = settings.EnableClientFeatures;
-                menu?.Invalidate();
-            }
+            if (property != null && property != nameof(settings.EnableClientFeatures) &&
+                property != nameof(settings.EnableLocalAutosave)) return;
+            bool value = settings.EnableClientFeatures && settings.EnableLocalAutosave;
+            if (!value) enabled = false;
+            if (Shared.UnityMainThreadDispatch.IsMainThread) ApplySettings(value);
+            else if (!ui.TryPost(() => ApplySettings(value)))
+                Shared.DebugLogHelper.LogErrorLimited(log, "local-autosave/settings-dispatch",
+                    "Local autosave settings could not be dispatched to Unity.");
+        }
+
+        private void ApplySettings() => ApplySettings(settings.EnableClientFeatures && settings.EnableLocalAutosave);
+
+        private void ApplySettings(bool value)
+        {
+            enabled = value;
+            schedule?.SetEnabled(enabled, Stopwatch.GetTimestamp());
+            if (!enabled) CancelPendingEdit();
+            UpdateDemand();
+            menu?.Invalidate();
         }
 
         private void Started(MissionLifecycleNotification notification)
         {
             var context = notification.Context;
-            var previous = Volatile.Read(ref launch);
-            if (!IsLocalGame(context))
+            var previous = launch;
+            schedule?.Cancel(Stopwatch.GetTimestamp());
+            schedule = null;
+            CancelPendingEdit();
+            if (!IsLocalGame(context)) launch = null;
+            else
             {
-                Volatile.Write(ref launch, null);
-                return;
+                int minutes = 0;
+                if (!context.IsSave)
+                    minutes = context.IsRestart
+                        ? (previous != null && context.RestartedFromSessionId == previous.SessionId ? previous.Minutes : 0)
+                        : SkirmishGameOptionsRuntime.GetLocalAutosaveMinutes(context);
+                launch = new Launch(context.SessionId, minutes);
             }
-
-            int minutes = 0;
-            if (!context.IsSave)
-            {
-                minutes = context.IsRestart
-                    ? (previous != null && context.RestartedFromSessionId == previous.SessionId ? previous.Minutes : 0)
-                    : SkirmishGameOptionsRuntime.GetLocalAutosaveMinutes(context);
-            }
-            Volatile.Write(ref launch, new Launch(context.SessionId, minutes));
+            UpdateDemand();
         }
 
         private void Ended(MissionLifecycleNotification notification)
         {
-            var current = Volatile.Read(ref schedule);
-            if (current?.SessionId == notification.Context.SessionId)
-                Interlocked.CompareExchange(ref schedule, null, current);
+            if (schedule?.SessionId == notification.Context.SessionId)
+            {
+                schedule.Cancel(Stopwatch.GetTimestamp());
+                schedule = null;
+                CancelPendingEdit();
+            }
+            UpdateDemand();
             menu?.Invalidate();
         }
 
         private void Ready(MissionPlayStateReadyNotification notification)
         {
             var context = notification.Context;
-            if (!IsLocalGame(context) || missions.Current?.SessionId != context.SessionId)
-                return;
-            var initial = Volatile.Read(ref launch);
-            Volatile.Write(ref schedule, new Schedule(context.SessionId,
-                initial?.SessionId == context.SessionId ? initial.Minutes : 0));
+            if (!IsLocalGame(context) || missions.Current?.SessionId != context.SessionId ||
+                schedule?.SessionId == context.SessionId) return;
+            schedule?.Cancel(Stopwatch.GetTimestamp());
+            schedule = new LocalAutosaveSchedule(context.SessionId,
+                launch?.SessionId == context.SessionId ? launch.Minutes : 0,
+                Stopwatch.GetTimestamp(), Stopwatch.Frequency, enabled);
+            UpdateDemand();
             menu?.Invalidate();
         }
 
-        private Schedule CurrentSchedule()
-        {
-            var current = Volatile.Read(ref schedule);
-            return current != null && enabled && readiness.Current?.SessionId == current.SessionId
-                ? current : null;
-        }
+        private LocalAutosaveSchedule CurrentSchedule() =>
+            initialized && enabled && schedule != null && readiness.Current?.SessionId == schedule.SessionId &&
+                missions.Current?.SessionId == schedule.SessionId ? schedule : null;
+
+        private void UpdateDemand() => frameWork.SetContinuous(CurrentSchedule()?.Minutes > 0);
 
         private IngameMenuActionState MenuState()
         {
             var current = CurrentSchedule();
-            if (current == null || Director.instance == null || !Director.instance.SimRunning)
-                return null;
-            string interval = current.Minutes == 0
-                ? SerpLocalization.Get("BugfixesAndQoL.LocalAutosaveOff")
-                : SerpLocalization.Get("BugfixesAndQoL.LocalAutosaveMinutes").Replace("{Minutes}", current.Minutes.ToString());
-            return new IngameMenuActionState(
-                SerpLocalization.Get("BugfixesAndQoL.LocalAutosave").Replace("{Interval}", interval),
+            if (current == null || Director.instance == null || !Director.instance.SimRunning) return null;
+            return new IngameMenuActionState(SerpLocalization.Get("BugfixesAndQoL.LocalAutosave")
+                .Replace("{Interval}", current.Minutes == 0 ? SerpLocalization.Get("BugfixesAndQoL.LocalAutosaveOff") :
+                    SerpLocalization.Get("BugfixesAndQoL.LocalAutosaveMinutes").Replace("{Minutes}", current.Minutes.ToString())),
                 true, true, SerpLocalization.Get("BugfixesAndQoL.LocalAutosaveHelp"));
         }
 
-        private void Cycle()
+        private Noesis.Control CreateMenuControl(IngameMenuContentContext context)
+        {
+            ObserveMain();
+            return new LocalAutosaveMenuControl(context, GetEditorMinutes, SetPendingMinutes, TouchPendingEdit, CancelPendingEdit);
+        }
+
+        private void ObserveMain()
+        {
+            if (!MainViewModel.viewModelLoaded) return;
+            var main = MainViewModel.Instance;
+            if (ReferenceEquals(main, observedMain)) return;
+            if (observedMain != null) observedMain.PropertyChanged -= MainChanged;
+            observedMain = main;
+            if (main != null) main.PropertyChanged += MainChanged;
+        }
+
+        private void MainChanged(object sender, PropertyChangedEventArgs args)
+        {
+            if (args.PropertyName != nameof(MainViewModel.Show_HUD_IngameMenu) ||
+                !ReferenceEquals(sender, observedMain)) return;
+            if (Shared.UnityMainThreadDispatch.IsMainThread) ApplyPendingIfMenuClosed();
+            else if (!ui.TryPost(ApplyPendingIfMenuClosed))
+                Shared.DebugLogHelper.LogErrorLimited(log, "local-autosave/menu-dispatch",
+                    "Local autosave menu close could not be dispatched to Unity.");
+        }
+
+        private void ApplyPendingIfMenuClosed()
+        { if (observedMain != null && !observedMain.Show_HUD_IngameMenu) ApplyPending(); }
+
+        private int GetEditorMinutes() => pending.EditorMinutes(CurrentSchedule());
+
+        private void SetPendingMinutes(int minutes)
         {
             var current = CurrentSchedule();
-            if (current == null || Director.instance == null || !Director.instance.SimRunning)
-                return;
-            int minutes = SkirmishGameOptionsRuntime.NextAutosaveMinutes(current.Minutes);
-            Interlocked.CompareExchange(ref schedule, new Schedule(current.SessionId, minutes), current);
-            menu.Invalidate();
+            if (current == null || minutes < 0 || minutes > LocalAutosaveInputPolicy.MaximumMinutes) return;
+            pending.Set(current, minutes, Stopwatch.GetTimestamp());
+            pendingWork.RequestAfter(EditDelay);
         }
 
-        private void OnTick(int tick)
+        private void TouchPendingEdit()
         {
-            var current = Volatile.Read(ref schedule);
-            if (current == null || current.Minutes == 0 || !enabled ||
-                Stopwatch.GetTimestamp() < Interlocked.Read(ref current.Due) ||
-                Interlocked.CompareExchange(ref current.Queued, 1, 0) != 0)
-                return;
-            if (!Shared.UnityMainThreadDispatch.TryEnqueue(() => TrySave(current)))
-                DelayRetry(current);
+            // A valid numeric prefix must never be committed after the user made the
+            // visible draft invalid (for example 14 -> 1441).
+            pending.Invalidate(Stopwatch.GetTimestamp());
+            pendingWork.CancelPending();
         }
 
-        private void TrySave(Schedule requested)
+        private void CancelPendingEdit()
         {
-            bool resetInterval = false;
+            pending.Clear();
+            pendingWork.CancelPending();
+        }
+
+        private void ApplyPendingWhenIdle()
+        {
+            long remaining = pending.RemainingTicks(Stopwatch.GetTimestamp(), Stopwatch.Frequency);
+            if (remaining < 0) return;
+            if (remaining > 0)
+            {
+                pendingWork.RequestAfter(TimeSpan.FromSeconds(remaining / (double)Stopwatch.Frequency));
+                return;
+            }
+            ApplyPending();
+        }
+
+        private void ApplyPending()
+        {
+            var current = CurrentSchedule();
+            if (pending.TryTake(current, out int minutes))
+            {
+                current.SetMinutes(minutes, Stopwatch.GetTimestamp());
+                UpdateDemand();
+            }
+            CancelPendingEdit();
+        }
+
+        private void OnBeforeRender()
+        {
+            var current = CurrentSchedule();
+            if (current == null || current.Minutes == 0) return;
+            bool active = IsPlaying();
+            long now = Stopwatch.GetTimestamp();
+            current.Sample(now, active);
+            if (active && current.TryQueue(now, out long generation)) QueueSave(current, generation);
+        }
+
+        private void QueueSave(LocalAutosaveSchedule requested, long generation)
+        {
+            if (!ui.TryPost(() => TrySave(requested, generation)))
+                requested.Complete(generation, LocalAutosaveAttemptResult.Deferred, Stopwatch.GetTimestamp());
+        }
+
+        private void TrySave(LocalAutosaveSchedule requested, long generation)
+        {
+            long now = Stopwatch.GetTimestamp();
+            if (!ReferenceEquals(CurrentSchedule(), requested) || !requested.IsCurrentAttempt(generation, now)) return;
+            var result = LocalAutosaveAttemptResult.Deferred;
             try
             {
-                if (!ReferenceEquals(CurrentSchedule(), requested) || !CanSave())
-                    return;
-                resetInterval = WriteSave();
+                if (!CanSave()) return;
+                requested.Sample(now, false);
+                result = WriteSave() ? LocalAutosaveAttemptResult.Saved : LocalAutosaveAttemptResult.Deferred;
             }
             catch (Exception error)
             {
-                resetInterval = true;
+                result = LocalAutosaveAttemptResult.Failed;
                 Shared.DebugLogHelper.LogErrorLimited(log, "local-autosave/write", "Local autosave failed: " + error);
             }
-            finally
-            {
-                if (resetInterval)
-                {
-                    Interlocked.Exchange(ref requested.Due, Schedule.Deadline(requested.Minutes));
-                    Volatile.Write(ref requested.Queued, 0);
-                }
-                else
-                    DelayRetry(requested);
-            }
+            finally { requested.Complete(generation, result, Stopwatch.GetTimestamp()); }
         }
 
-        private static void DelayRetry(Schedule requested)
-        {
-            Interlocked.Exchange(ref requested.Due, Stopwatch.GetTimestamp() + Stopwatch.Frequency);
-            Volatile.Write(ref requested.Queued, 0);
-        }
-
-        private static bool CanSave()
+        private static bool IsPlaying()
         {
             if (!MainViewModel.viewModelLoaded || Director.instance == null || !Director.instance.SimRunning ||
-                Director.instance.Paused || CameraControls2D.instance == null ||
-                PerfectPixelWithZoom.instance == null || GameMap.instance == null)
-                return false;
+                Director.instance.Paused) return false;
             var view = MainViewModel.Instance;
-            return !view.Show_HUD_Briefing && !view.Show_HUD_MissionOver &&
+            return !view.Show_HUD_IngameMenu && !view.Show_HUD_Briefing && !view.Show_HUD_MissionOver &&
                 !GamePlayerManagerAPI.Instance.IsLocalPaused();
         }
+
+        private static bool CanSave() => IsPlaying() && CameraControls2D.instance != null &&
+            PerfectPixelWithZoom.instance != null && GameMap.instance != null;
 
         private static bool WriteSave()
         {
@@ -309,23 +393,6 @@ namespace BugfixesAndQoL
             internal readonly long SessionId;
             internal readonly int Minutes;
             internal Launch(long sessionId, int minutes) { SessionId = sessionId; Minutes = minutes; }
-        }
-
-        private sealed class Schedule
-        {
-            internal readonly long SessionId;
-            internal readonly int Minutes;
-            internal long Due;
-            internal int Queued;
-
-            internal Schedule(long sessionId, int minutes)
-            {
-                SessionId = sessionId;
-                Minutes = minutes;
-                Due = Deadline(minutes);
-            }
-
-            internal static long Deadline(int minutes) => Stopwatch.GetTimestamp() + minutes * 60L * Stopwatch.Frequency;
         }
     }
 }

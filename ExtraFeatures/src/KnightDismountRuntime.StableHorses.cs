@@ -27,7 +27,7 @@ namespace ExtraFeatures
             for (int i = 0; i < stableIds.Count && allocations.Count < maxCount; i++)
             {
                 int stableId = stableIds[i];
-                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(stableId, out GameBuilding* stable))
+                if (!global::APIShared.BuildingAccess.TryGetById(stableId, out GameBuilding* stable, out _))
                     continue;
 
                 if (!IsUsableStable(stable, playerId))
@@ -69,7 +69,7 @@ namespace ExtraFeatures
             if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* mountedUnit, out _))
                 return false;
 
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(allocation.StableId, out GameBuilding* stable))
+            if (!global::APIShared.BuildingAccess.TryGetById(allocation.StableId, out GameBuilding* stable, out _))
                 return false;
 
             if (!IsUsableStable(stable, allocation.OwnerPlayerId))
@@ -241,7 +241,7 @@ namespace ExtraFeatures
 
             if (linkedStableId <= 0 || linkedStableGlobalId <= 0 || !hasSlotLink ||
                 slotStableId != linkedStableId || slot < 0 || slot >= StableHorseSlotCount ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(linkedStableId, out GameBuilding* stable) ||
+                !global::APIShared.BuildingAccess.TryGetById(linkedStableId, out GameBuilding* stable, out _) ||
                 stable->r_AliveState != AliveState.IsAlive ||
                 stable->r_BuildingType != eStructs.STRUCT_STABLES ||
                 (int)stable->r_GlobalId != linkedStableGlobalId ||
@@ -316,7 +316,7 @@ namespace ExtraFeatures
             if (!consumedHorse.IsActive)
                 return;
 
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(consumedHorse.StableId, out GameBuilding* stable) ||
+            if (!global::APIShared.BuildingAccess.TryGetById(consumedHorse.StableId, out GameBuilding* stable, out _) ||
                 stable->r_AliveState != AliveState.IsAlive ||
                 stable->r_BuildingType != eStructs.STRUCT_STABLES ||
                 (int)stable->r_GlobalId != consumedHorse.StableGlobalId ||
@@ -380,7 +380,7 @@ namespace ExtraFeatures
             for (int i = 0; i < stableIds.Count; i++)
             {
                 int candidateStableId = stableIds[i];
-                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(candidateStableId, out GameBuilding* stable))
+                if (!global::APIShared.BuildingAccess.TryGetById(candidateStableId, out GameBuilding* stable, out _))
                     continue;
 
                 for (int candidateSlot = 0; candidateSlot < StableHorseSlotCount; candidateSlot++)

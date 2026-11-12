@@ -131,7 +131,7 @@ namespace ImprovedHunters
 
         private static unsafe bool IsOwnTannery(AuthenticatedChoreMessage<TannerRatioPacket> message)
         {
-            return GameBuildingManagerAPI.Instance.TryGetBuildingById(message.Packet.BuildingId, out GameBuilding* building) &&
+            return global::APIShared.BuildingAccess.TryGetById(message.Packet.BuildingId, out GameBuilding* building, out _) &&
                 building != null &&
                 building->r_GlobalId == message.Packet.GlobalId &&
                 building->r_BuildingType == eStructs.STRUCT_TANNERS_WORKSHOP &&

@@ -219,7 +219,7 @@ namespace ImprovedHunters
             GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
             Span<ushort> components = GamePathingManagerAPI.Instance.GetPathComponentGrid();
             int hunterTile = tiles.GetTileId(hunter->r_CurrentTilePositionX, hunter->r_CurrentTilePositionY);
-            if (!tiles.IsValidTileId(hunterTile) || (uint)hunterTile >= (uint)components.Length || components[hunterTile] == 0)
+            if (!tiles.IsValidTileId(hunterTile) || !global::APIShared.IndexBounds.IsValidIndex(hunterTile, components.Length) || components[hunterTile] == 0)
                 return false;
 
             ushort hunterLand = components[hunterTile];
@@ -240,7 +240,7 @@ namespace ImprovedHunters
                             continue;
 
                         int tile = tiles.GetTileId(x, y);
-                        if (!tiles.IsValidTileId(tile) || (uint)tile >= (uint)components.Length || !tiles.IsTileWalkableAndUnoccupied(tile))
+                        if (!tiles.IsValidTileId(tile) || !global::APIShared.IndexBounds.IsValidIndex(tile, components.Length) || !tiles.IsTileWalkableAndUnoccupied(tile))
                             continue;
 
                         ushort land = components[tile];

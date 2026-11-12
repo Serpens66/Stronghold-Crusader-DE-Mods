@@ -41,6 +41,8 @@ namespace SHCDESE.API
         public GameBuilding* Buildings;
         public int Lookups;
 
+        public bool IsValidId(int id) => id >= 1 && id <= 2;
+
         public bool TryGetBuildingById(int id, out GameBuilding* building)
         {
             Lookups++;

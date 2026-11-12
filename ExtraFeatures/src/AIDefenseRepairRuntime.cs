@@ -464,7 +464,7 @@ namespace ExtraFeatures
 
         private bool IsLiveDefense(DefenseTargetKey target, LiveDefenseIdentity identity)
         {
-            return GameBuildingManagerAPI.Instance.TryGetBuildingById(identity.BuildingId, out GameBuilding* building) &&
+            return global::APIShared.BuildingAccess.TryGetById(identity.BuildingId, out GameBuilding* building, out _) &&
                 building->r_GlobalId == identity.GlobalId &&
                 building->r_PlayerIdOwner == target.PlayerId &&
                 (building->r_AliveState == AliveState.IsAlive ||
@@ -717,7 +717,7 @@ namespace ExtraFeatures
                     if (!IsTowerRuin(args.Building))
                     {
                         int buildingId = checked((int)args.ReturnValue);
-                        if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+                        if (!global::APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) ||
                             building->r_GlobalId == 0 || building->r_PlayerIdOwner != args.PlayerId ||
                             building->r_BuildingType != args.Building ||
                             (building->r_AliveState != AliveState.NeedsInit &&
@@ -772,7 +772,7 @@ namespace ExtraFeatures
                         ? tileApi.GetTileBuildingId(args.TileId)
                         : 0;
                     if (buildingId <= 0 ||
-                        !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+                        !global::APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) ||
                         building->r_GlobalId == 0 || building->r_CurrentHealth <= 0 ||
                         building->r_AliveState != AliveState.IsAlive ||
                         IsTowerRuin(building->r_BuildingType) ||

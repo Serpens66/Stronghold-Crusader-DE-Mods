@@ -653,7 +653,7 @@ namespace Pathfinding.Engine
                 {
                     int building = k == 0 ? anchorPortals[at + 4] : anchorPortalsNext[at + 4];
                     if (building <= 0 || k == 1 && building == anchorPortals[at + 4]) continue;
-                    if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(building, out GameBuilding* record) || record == null ||
+                    if (!APIShared.BuildingAccess.TryGetById(building, out GameBuilding* record, out _) || record == null ||
                         !Shared.GameBuildingFootprint.TryGetBounds(record, out Shared.GameBuildingFootprintBounds bounds)) return false;
                     for (int y = Math.Max(0, bounds.MinY - 2); y <= Math.Min(MapWidth - 1, bounds.MaxY + 2); y++)
                         for (int x = Math.Max(0, bounds.MinX - 2); x <= Math.Min(MapWidth - 1, bounds.MaxX + 2); x++)

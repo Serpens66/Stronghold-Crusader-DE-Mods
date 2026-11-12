@@ -103,8 +103,7 @@ namespace OutpostTest
                 var removed = new List<int>();
                 foreach (var pair in entries) if (pair.Value.Seen != tick)
                 {
-                    GameBuildingManagerAPI.Instance.TryGetBuildingById(pair.Key, out var b);
-                    Retire(pair.Value, b, "building-ended"); removed.Add(pair.Key);
+                    Retire(pair.Value, global::APIShared.BuildingAccess.TryGetById(pair.Key, out var b, out _) ? b : null, "building-ended"); removed.Add(pair.Key);
                 }
                 foreach (int id in removed) entries.Remove(id);
             }

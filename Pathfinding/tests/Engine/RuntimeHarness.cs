@@ -1233,6 +1233,7 @@ namespace EngineHarness {
         public static GameBuildingManagerAPI Instance = new GameBuildingManagerAPI();
         public GameBuilding* Building;
         public int LookupCalls;
+        public bool IsValidId(int id) => id == 1;
         public bool TryGetBuildingById(int id,out GameBuilding* building) { LookupCalls++; building=id==1?Building:null;return building!=null; }
     }
 }

@@ -102,7 +102,7 @@ namespace ExtraFeatures
         {
             try
             {
-                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building))
+                if (!global::APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _))
                     return;
 
                 if (building->r_AliveState != AliveState.IsAlive || building->r_BuildingType != expectedStructure)
@@ -134,7 +134,7 @@ namespace ExtraFeatures
 
         private static bool IsExpectedBuilding(int buildingId, eStructs expectedStructure)
         {
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building))
+            if (!global::APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _))
                 return false;
 
             return building->r_AliveState == AliveState.IsAlive && building->r_BuildingType == expectedStructure;

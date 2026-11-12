@@ -248,7 +248,7 @@ namespace BugfixesAndQoL
             {
                 int keepId = GamePlayerManagerAPI.Instance.GetPlayerKeepId(playerId);
                 if (keepId <= 0 ||
-                    !GameBuildingManagerAPI.Instance.TryGetBuildingById(keepId, out GameBuilding* keep) ||
+                    !APIShared.BuildingAccess.TryGetById(keepId, out GameBuilding* keep, out _) ||
                     keep == null || keep->r_AliveState == AliveState.None)
                 {
                     continue;

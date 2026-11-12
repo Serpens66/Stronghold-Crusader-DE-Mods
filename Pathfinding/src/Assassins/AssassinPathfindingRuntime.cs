@@ -1816,8 +1816,7 @@ private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key
             if (!(policy is IEnemyGateClimbRoutePolicySnapshot identities) ||
                 !identities.TryGetBlockedGateIdentity(from, direction, out int gate, out uint global, out int owner, out int capturer) ||
                 (buildingLayer[from] != gate && buildingLayer[to] != gate) ||
-                !GameBuildingManagerAPI.Instance.IsValidId(gate) ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(gate, out GameBuilding* live) || live == null ||
+                !APIShared.BuildingAccess.TryGetById(gate, out GameBuilding* live, out _) || live == null ||
                 live->r_GlobalId != global || live->r_PlayerIdOwner != owner || live->r_CapturedByPlayerId != capturer ||
                 live->r_AliveState == AliveState.None || live->r_AliveState == AliveState.MarkedForDeletion ||
                 (live->r_BuildingType != eStructs.STRUCT_GATE_MAIN && live->r_BuildingType != eStructs.STRUCT_GATE_INNER)) return false;

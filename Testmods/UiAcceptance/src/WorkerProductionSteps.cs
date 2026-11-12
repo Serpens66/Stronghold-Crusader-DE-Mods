@@ -347,7 +347,7 @@ namespace UiAcceptance
             ushort marker = ReadU16(Row(millerId), 6);
             key = worker->r_GlobalId + "/" + worker->r_UnitChimp + "/" + worker->r_AliveState + "/" + worker->r_CarryGoodAmount + "/" + marker + "/" + rawState + "/" + target;
             string targetState = "unresolved";
-            if (target > 0 && GameBuildingManagerAPI.Instance.TryGetBuildingById(target, out GameBuilding* store) && store != null)
+            if (target > 0 && global::APIShared.BuildingAccess.TryGetById(target, out GameBuilding* store, out _) && store != null)
                 targetState = store->r_GlobalId + ":" + store->r_BuildingType + ":" + store->r_AliveState + "@" + store->r_TilePositionXBegin + "," + store->r_TilePositionYBegin;
             return "unit=" + millerId + ":" + worker->r_GlobalId + " expectedGid=" + millerGid + " kind=" + worker->r_UnitChimp + " alive=" + worker->r_AliveState +
                 " carry=" + worker->r_CarryGoodAmount + " marker=" + marker + " ai=" + worker->r_AIState + " raw918=0x" + rawState.ToString("X8") +

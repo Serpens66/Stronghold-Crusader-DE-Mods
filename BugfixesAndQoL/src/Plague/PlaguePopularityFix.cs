@@ -170,7 +170,7 @@ namespace BugfixesAndQoL
                 HerdCapture capture = null;
                 try
                 {
-                    if (GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) &&
+                    if (APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) &&
                         building != null &&
                         IsValidPlayerId(building->r_PlayerIdOwner))
                     {

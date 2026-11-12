@@ -177,8 +177,8 @@ namespace Pathfinding.UnitCommands
                     "The Vanilla formation anchor is not pathable.");
             }
             int anchorTile = GameTileManagerAPI.Instance.GetTileId(anchorX, anchorY);
-            if ((uint)anchorTile >= (uint)components.Length ||
-                (uint)anchorTile >= (uint)edges.Length || components[anchorTile] == 0)
+            if (!APIShared.IndexBounds.IsValidIndex(anchorTile, components.Length) ||
+                !APIShared.IndexBounds.IsValidIndex(anchorTile, edges.Length) || components[anchorTile] == 0)
             {
                 throw new InvalidOperationException(
                     "The Vanilla formation anchor is not pathable.");
@@ -281,8 +281,8 @@ namespace Pathfinding.UnitCommands
                 (uint)x >= MapWidth || (uint)y >= MapWidth)
                 return;
             int tileId = GameTileManagerAPI.Instance.GetTileId(x, y);
-            if ((uint)tileId >= (uint)visited.Length || visited[tileId] ||
-                (uint)tileId >= (uint)edges.Length || components[tileId] != component)
+            if (!APIShared.IndexBounds.IsValidIndex(tileId, visited.Length) || visited[tileId] ||
+                !APIShared.IndexBounds.IsValidIndex(tileId, edges.Length) || components[tileId] != component)
                 return;
             visited[tileId] = true;
             queue.Enqueue(new VanillaSearchNode(tileId, x, y, pathDistance));
@@ -322,8 +322,8 @@ namespace Pathfinding.UnitCommands
             if ((uint)anchorX >= MapWidth || (uint)anchorY >= MapWidth ||
                 movementTargetAvailability == null ||
                 movementTargetAvailability[anchorY * MapWidth + anchorX] == 0 ||
-                (uint)anchorTile >= (uint)components.Length ||
-                (uint)anchorTile >= (uint)edges.Length || components[anchorTile] == 0)
+                !APIShared.IndexBounds.IsValidIndex(anchorTile, components.Length) ||
+                !APIShared.IndexBounds.IsValidIndex(anchorTile, edges.Length) || components[anchorTile] == 0)
                 return new List<NativeDestination>();
 
             int capacity = Math.Min(components.Length, MapWidth * MapWidth);
@@ -340,9 +340,9 @@ namespace Pathfinding.UnitCommands
                     if ((uint)x >= MapWidth || (uint)y >= MapWidth ||
                         movementTargetAvailability[y * MapWidth + x] == 0) continue;
                     int tile = GameTileManagerAPI.Instance.GetTileId(x, y);
-                    if ((uint)tile < (uint)capacity && (uint)tile < (uint)edges.Length &&
+                    if ((uint)tile < (uint)capacity && APIShared.IndexBounds.IsValidIndex(tile, edges.Length) &&
                         components[tile] == component && (!assassinOnly ||
-                        ((uint)tile < (uint)logic.Length && (logic[tile] & 0x10000100) == 0)))
+                        (APIShared.IndexBounds.IsValidIndex(tile, logic.Length) && (logic[tile] & 0x10000100) == 0)))
                         pending.Add(tile);
                 }
                 visited[anchorTile] = true;
@@ -429,8 +429,8 @@ namespace Pathfinding.UnitCommands
                 (uint)x >= MapWidth || (uint)y >= MapWidth)
                 return;
             int tileId = GameTileManagerAPI.Instance.GetTileId(x, y);
-            if ((uint)tileId >= (uint)visited.Length || visited[tileId] ||
-                (uint)tileId >= (uint)edges.Length ||
+            if (!APIShared.IndexBounds.IsValidIndex(tileId, visited.Length) || visited[tileId] ||
+                !APIShared.IndexBounds.IsValidIndex(tileId, edges.Length) ||
                 components[tileId] != component)
                 return;
             visited[tileId] = true;

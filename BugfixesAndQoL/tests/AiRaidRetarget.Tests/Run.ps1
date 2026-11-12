@@ -20,6 +20,7 @@ $testSources = @($source,(Join-Path $testDir 'Program.cs'),(Join-Path $testDir '
     (Join-Path $workspace 'BugfixesAndQoL\src\AI\Raid\RaidSearchObserver.cs'),
     (Join-Path $workspace 'Shared\Runtime\Diagnostics\DebugLogHelper.cs'),
     (Join-Path $workspace 'APIShared\src\Units\Selection\UnitAccess.cs'),
+    (Join-Path $workspace 'APIShared\src\Buildings\BuildingAccess.cs'),
     (Join-Path $workspace 'BugfixesAndQoL\src\AI\Raid\AiRaidRetargetFixRuntime.cs'),
     (Join-Path $workspace 'APIShared\src\Pathfinding\Assassin\AssassinGateTransitionPolicy.cs'),
     (Join-Path $workspace 'BugfixesAndQoL\src\AI\Raid\RaidActivationState.cs'),

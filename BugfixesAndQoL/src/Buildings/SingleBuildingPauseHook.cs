@@ -201,7 +201,7 @@ namespace BugfixesAndQoL
             int rejected = 0;
             foreach (SingleBuildingPauseSaveEntry entry in state.Entries)
             {
-                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(entry.BuildingId, out GameBuilding* building) ||
+                if (!APIShared.BuildingAccess.TryGetById(entry.BuildingId, out GameBuilding* building, out _) ||
                     building->r_AliveState != AliveState.IsAlive ||
                     (int)building->r_GlobalId != entry.GlobalId ||
                     building->r_PlayerIdOwner != entry.Owner ||
@@ -240,7 +240,7 @@ namespace BugfixesAndQoL
                 return false;
 
             GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
-            if (!buildingApi.TryGetBuildingById(entry.BuildingId, out GameBuilding* building) ||
+            if (!APIShared.BuildingAccess.TryGetById(buildingApi, entry.BuildingId, out GameBuilding* building, out _) ||
                 building->r_AliveState != AliveState.IsAlive ||
                 (IntPtr)(&building->r_IsSleeping) != sleepingAddress ||
                 (int)building->r_GlobalId != entry.GlobalId ||
@@ -411,7 +411,7 @@ namespace BugfixesAndQoL
                 return;
 
             GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
-            if (!buildingApi.TryGetBuildingById(buildingId, out GameBuilding* building))
+            if (!APIShared.BuildingAccess.TryGetById(buildingApi, buildingId, out GameBuilding* building, out _))
                 return;
 
             bool hasOverride = TryGetManualSleepOverride(buildingId, out bool overrideSleeping);
@@ -462,7 +462,7 @@ namespace BugfixesAndQoL
                 return;
 
             GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
-            if (!buildingApi.TryGetBuildingById(selectedBuildingId, out GameBuilding* selectedBuilding))
+            if (!APIShared.BuildingAccess.TryGetById(buildingApi, selectedBuildingId, out GameBuilding* selectedBuilding, out _))
                 return;
 
             bool selectedHasOverride = TryGetManualSleepOverride(selectedBuildingId, out bool overrideSleeping);
@@ -563,7 +563,7 @@ namespace BugfixesAndQoL
                 }
 
                 int buildingId = FindAliveBuildingIdByGlobalId(packet.BuildingGlobalId);
-                if (buildingId <= 0 || !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+                if (buildingId <= 0 || !APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) ||
                     building->r_PlayerIdOwner != packet.PlayerId)
                 {
                     LogError($"single-building pause Chore could not resolve the owned building: operationId={packet.OperationId}, buildingGlobalId={packet.BuildingGlobalId}, playerId={packet.PlayerId}.");
@@ -648,7 +648,7 @@ namespace BugfixesAndQoL
         private static unsafe bool IsSelectedBuildingOwnedByControlledPlayer(int buildingId)
         {
             return buildingId > 0 &&
-                GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) &&
+                APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) &&
                 building != null &&
                 building->r_AliveState == AliveState.IsAlive &&
                 building->r_PlayerIdOwner == GetControlledPlayerId();
@@ -664,7 +664,7 @@ namespace BugfixesAndQoL
             }
 
             GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
-            if (!buildingApi.TryGetBuildingById(selectedBuildingId, out GameBuilding* selectedBuilding))
+            if (!APIShared.BuildingAccess.TryGetById(buildingApi, selectedBuildingId, out GameBuilding* selectedBuilding, out _))
             {
                 buttonTrampoline(self, parameter);
                 return;
@@ -735,7 +735,7 @@ namespace BugfixesAndQoL
         private static unsafe BuildingGoodsSnapshot CaptureGoods(int buildingId)
         {
             if (buildingId <= 0 ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+                !APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) ||
                 building->r_AliveState != AliveState.IsAlive || building->r_GlobalId == 0 ||
                 !SingleBuildingPauseGoodsPolicy.IsPreservedType(building->r_BuildingType))
                 return default;
@@ -763,7 +763,7 @@ namespace BugfixesAndQoL
         private static unsafe void RestoreGoods(BuildingGoodsSnapshot snapshot)
         {
             if (snapshot.BuildingId <= 0 ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(snapshot.BuildingId, out GameBuilding* building) ||
+                !APIShared.BuildingAccess.TryGetById(snapshot.BuildingId, out GameBuilding* building, out _) ||
                 !SingleBuildingPauseGoodsPolicy.ShouldRestore(
                     snapshot.GlobalId, (int)building->r_GlobalId,
                     snapshot.Owner, building->r_PlayerIdOwner,
@@ -843,7 +843,7 @@ namespace BugfixesAndQoL
                 return false;
 
             GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
-            if (!buildingApi.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+            if (!APIShared.BuildingAccess.TryGetById(buildingApi, buildingId, out GameBuilding* building, out _) ||
                 building->r_AliveState != AliveState.IsAlive)
             {
                 return false;
@@ -1015,9 +1015,9 @@ namespace BugfixesAndQoL
         {
             int selectedBuildingId = TryGetSelectedBuildingId();
             if (selectedBuildingId > 0 &&
-                GameBuildingManagerAPI.Instance.TryGetBuildingById(
+                APIShared.BuildingAccess.TryGetById(
                     selectedBuildingId,
-                    out GameBuilding* selectedBuilding) &&
+                    out GameBuilding* selectedBuilding, out _) &&
                 selectedBuilding->r_PlayerIdOwner == playerId &&
                 selectedBuilding->r_BuildingType == buildingType)
             {

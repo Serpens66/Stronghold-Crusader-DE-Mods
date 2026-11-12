@@ -15,7 +15,7 @@ using System.Diagnostics;
 namespace HunterQueryTargetDiagnostic
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.0")]
-    [BepInDependency("APIShared_Serp", "0.4.10")]
+    [BepInDependency("APIShared_Serp", "0.49.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class HunterQueryTargetDiagnosticPlugin : BaseUnityPlugin
     {
@@ -473,7 +473,7 @@ namespace HunterQueryTargetDiagnostic
                 GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
                 linkedBuildingIdValid = buildingApi.IsValidId(linkedBuildingId);
                 if (!linkedBuildingIdValid ||
-                    !buildingApi.TryGetBuildingById(linkedBuildingId, out GameBuilding* building) ||
+                    !global::APIShared.BuildingAccess.TryGetById(buildingApi, linkedBuildingId, out GameBuilding* building, out _) ||
                     building == null)
                 {
                     return;

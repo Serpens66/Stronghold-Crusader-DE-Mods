@@ -217,8 +217,8 @@ namespace BugfixesAndQoL
                     out int originalOrientation,
                     out int pass);
                 if (blockerId <= 0 || placingPlayerId < 1 || placingPlayerId > 8 ||
-                    !GameBuildingManagerAPI.Instance.TryGetBuildingById(
-                        blockerId, out GameBuilding* blocker) ||
+                    !APIShared.BuildingAccess.TryGetById(
+                        blockerId, out GameBuilding* blocker, out _) ||
                     (blocker->r_AliveState != AliveState.NeedsInit &&
                      blocker->r_AliveState != AliveState.IsAlive) ||
                     blocker->r_BuildingType != blockerStructureType)
@@ -455,8 +455,8 @@ namespace BugfixesAndQoL
         {
             globalId = 0;
             if (buildingId <= 0 ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(
-                    buildingId, out GameBuilding* building))
+                !APIShared.BuildingAccess.TryGetById(
+                    buildingId, out GameBuilding* building, out _))
             {
                 return false;
             }

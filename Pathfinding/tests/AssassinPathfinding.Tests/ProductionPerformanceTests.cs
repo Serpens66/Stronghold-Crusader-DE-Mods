@@ -161,7 +161,13 @@ internal static partial class Program
         // The policy byte-mask view lives with Pathfinding's gate policy publication (not compiled here).
         const string maskSource = "namespace Pathfinding.GateRouting { internal interface IAssassinDirectionMaskSource { byte[] DirectionMask { get; } } }";
         var trees = files.Select(f => CSharpSyntaxTree.ParseText(Read(f), parseOptions)).Append(CSharpSyntaxTree.ParseText(fixture, parseOptions))
-            .Append(CSharpSyntaxTree.ParseText(maskSource, parseOptions));
+            .Append(CSharpSyntaxTree.ParseText(maskSource, parseOptions))
+            .Append(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Buildings/BuildingAccess.cs"))
+                .Replace("using SHCDESE.API;", "")
+                .Replace("GameBuildingManagerAPI", "global::GameBuildingManagerAPI")
+                .Replace("using SHCDESE.Interop;", "")
+                .Replace("GameBuilding*", "global::GameBuilding*")
+                .Replace("public static unsafe class BuildingAccess", "internal static unsafe class BuildingAccess"), parseOptions));
         var refs = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator)
             .Select(p => MetadataReference.CreateFromFile(p));
         var compilation = CSharpCompilation.Create("ProductionAssassin" + (before ? "Before" : "After"), trees, refs,

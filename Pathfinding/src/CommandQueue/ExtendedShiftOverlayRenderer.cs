@@ -247,9 +247,9 @@ namespace Pathfinding
                 return true;
             }
 
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(
+            if (!APIShared.BuildingAccess.TryGetById(
                     command.Argument1,
-                    out GameBuilding* building) ||
+                    out GameBuilding* building, out _) ||
                 building == null || building->r_AliveState != AliveState.IsAlive ||
                 building->r_CurrentHealth <= 0 ||
                 building->r_GlobalId != unchecked((uint)command.Argument2))

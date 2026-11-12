@@ -10,6 +10,7 @@
     <Compile Include="..\..\src\Model.cs" Link="Model.cs"/>
     <Compile Include="..\..\src\NativeBindings.cs" Link="NativeBindings.cs"/>
     <Compile Include="..\..\src\NativeDemolition.cs" Link="NativeDemolition.cs"/>
+    <Compile Include="../../../../APIShared/src/Buildings/BuildingAccess.cs" Link="Production/BuildingAccess.cs"/>
     <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath></Reference>
     <Reference Include="Assembly-CSharp"><HintPath>$(GameManaged)\Assembly-CSharp.dll</HintPath></Reference>
     <Reference Include="UnityEngine"><HintPath>$(GameManaged)\UnityEngine.dll</HintPath></Reference>

@@ -59,6 +59,7 @@ namespace SHCDESE.API
     {
         public static readonly GameBuildingManagerAPI Instance=new GameBuildingManagerAPI();
         public SHCDESE.Interop.GameBuilding* Buildings;
+        public bool IsValidId(int id) => id > 0 && id <= 3;
         public bool TryGetBuildingById(int id,out SHCDESE.Interop.GameBuilding* value) { value=id>0&&id<=3?Buildings+id-1:null;return value!=null; }
     }
     public sealed unsafe class GamePathingManagerAPI

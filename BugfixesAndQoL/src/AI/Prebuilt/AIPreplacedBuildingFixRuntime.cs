@@ -2103,7 +2103,7 @@ namespace BugfixesAndQoL
         private bool IsCurrentPreplaced(int buildingId)
         {
             return preplacedBuildings.TryGetValue(buildingId, out PreplacedIdentity identity) &&
-                GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) && building != null &&
+                APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) && building != null &&
                 identity.Matches(buildingId, building->r_GlobalId, building->r_PlayerIdOwner, (int)building->r_BuildingType);
         }
 
@@ -2126,7 +2126,7 @@ namespace BugfixesAndQoL
         {
             pcl = 0;
             Span<ushort> grid = GamePathingManagerAPI.Instance.GetPathComponentGrid();
-            if (grid.Length != NativePclEntryCount || (uint)tileId >= (uint)grid.Length)
+            if (grid.Length != NativePclEntryCount || !APIShared.IndexBounds.IsValidIndex(tileId, grid.Length))
             {
                 RecordInvalidPclAccess(tileId, source, grid.Length);
                 return false;
@@ -2146,9 +2146,7 @@ namespace BugfixesAndQoL
         private bool TryCaptureBuilding(int buildingId, out BuildingSnapshot snapshot)
         {
             snapshot = default;
-            // Startup bulldoze events can carry no building; the Extender expects positive IDs.
-            if (buildingId <= 0) return false;
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building)) return false;
+            if (!APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _)) return false;
             snapshot = Snapshot(buildingId, ref *building);
             return true;
         }

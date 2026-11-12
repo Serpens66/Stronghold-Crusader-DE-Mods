@@ -574,7 +574,7 @@ namespace Spectator
                     GameBuildingManagerAPI buildings = GameBuildingManagerAPI.Instance;
                     if (buildings == null) return;
                     int keepId = players.GetPlayerKeepId(owner);
-                    if (keepId <= 0 || !buildings.TryGetBuildingById(keepId, out GameBuilding* keep) ||
+                    if (keepId <= 0 || !global::APIShared.BuildingAccess.TryGetById(buildings, keepId, out GameBuilding* keep, out _) ||
                         keep == null || keep->r_AliveState != AliveState.IsAlive ||
                         keep->r_PlayerIdOwner != owner || keep->r_GlobalId == 0 ||
                         keep->r_BuildingType < eStructs.STRUCT_KEEP_ONE ||

@@ -530,7 +530,7 @@ namespace Pathfinding.UnitCommands {
             "Pathfinding/src/Formations/FormationPresentation.cs",
             "Pathfinding/src/Formations/FormationNativeRunContext.cs", "Pathfinding/src/Core/Common/SimulationRunScope.cs", "Pathfinding/src/Formations/FormationReleaseStateModel.cs",
             "Pathfinding/src/Formations/FormationFailurePolicy.cs" };
-        var trees = paths.Select(p => CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,p))))
+        var trees = paths.Append("APIShared/src/Core/Collections/IndexBounds.cs").Select(p => CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,p))))
             .Append(CSharpSyntaxTree.ParseText(fixture));
         var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
             .Select(p => MetadataReference.CreateFromFile(p)).Append(MetadataReference.CreateFromFile(typeof(MessagePack.MessagePackWriter).Assembly.Location));

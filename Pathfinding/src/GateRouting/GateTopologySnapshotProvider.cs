@@ -224,8 +224,7 @@ namespace Pathfinding.GateRouting
             {
                 if (info.GateId <= 0 || !observed.Add(info.GateId))
                     continue;
-                if (!buildings.IsValidId(info.GateId) ||
-                    !buildings.TryGetBuildingById(info.GateId, out GameBuilding* gate) ||
+                if (!APIShared.BuildingAccess.TryGetById(buildings, info.GateId, out GameBuilding* gate, out _) ||
                     gate == null || gate->r_GlobalId != info.GateGlobal)
                 {
                     result.Add(new GateLiveStateObservation(info.GateId,
@@ -241,7 +240,7 @@ namespace Pathfinding.GateRouting
                     if (link.GateId != info.GateId || link.BridgeId <= 0 || !bridgeIds.Add(link.BridgeId)) continue;
                     if (bridges.Length != 0) bridges.Append('/');
                     bridges.Append(link.BridgeId).Append(':').Append(link.BridgeGlobal).Append(':');
-                    if (!buildings.TryGetBuildingById(link.BridgeId, out GameBuilding* bridge) ||
+                    if (!APIShared.BuildingAccess.TryGetById(buildings, link.BridgeId, out GameBuilding* bridge, out _) ||
                         bridge == null || bridge->r_GlobalId != link.BridgeGlobal)
                     { bridges.Append("identity-changed"); bridgeIdentityChanged = true; }
                     else bridges.Append((int)bridge->r_AliveState);
@@ -371,8 +370,7 @@ namespace Pathfinding.GateRouting
             int aliveState,
             bool checkCaptured)
         {
-            if (buildingId <= 0 || !buildings.IsValidId(buildingId) ||
-                !buildings.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+            if (buildingId <= 0 || !APIShared.BuildingAccess.TryGetById(buildings, buildingId, out GameBuilding* building, out _) ||
                 building == null)
                 return true;
             return building->r_GlobalId != globalId ||
@@ -647,8 +645,7 @@ namespace Pathfinding.GateRouting
                     continue;
                 rejections.ScannedGatehouses++;
                 int gateId = entryPointer->r_BuildingId;
-                if (gateInfosById.ContainsKey(gateId) || !buildingApi.IsValidId(gateId) ||
-                    !buildingApi.TryGetBuildingById(gateId, out GameBuilding* gate) || gate == null)
+                if (gateInfosById.ContainsKey(gateId) || !APIShared.BuildingAccess.TryGetById(buildingApi, gateId, out GameBuilding* gate, out _) || gate == null)
                 {
                     RecordRejection(ref rejections, rejectionSamples,
                         TopologyDiagnosticDisposition.InvalidGatehouseId,
@@ -850,7 +847,7 @@ namespace Pathfinding.GateRouting
                     }
                     continue;
                 }
-                if (!buildingApi.TryGetBuildingById(buildingId, out GameBuilding* reread) ||
+                if (!APIShared.BuildingAccess.TryGetById(buildingApi, buildingId, out GameBuilding* reread, out _) ||
                     reread == null || reread->r_GlobalId != building.r_GlobalId ||
                     reread->r_GatehouseId != rawGatehouseId ||
                     !IsDiagnosticActive(reread->r_AliveState))
@@ -909,8 +906,7 @@ namespace Pathfinding.GateRouting
                 {
                     fingerprint = (fingerprint ^ (uint)entry->r_BuildingId) * 1099511628211UL;
                     fingerprint = (fingerprint ^ entry->r_SubjectGlobalId) * 1099511628211UL;
-                    if (buildings.IsValidId(entry->r_BuildingId) &&
-                        buildings.TryGetBuildingById(entry->r_BuildingId, out GameBuilding* gate) &&
+                    if (APIShared.BuildingAccess.TryGetById(buildings, entry->r_BuildingId, out GameBuilding* gate, out _) &&
                         gate != null)
                     {
                         fingerprint = (fingerprint ^ gate->r_GlobalId) * 1099511628211UL;
@@ -952,8 +948,7 @@ namespace Pathfinding.GateRouting
                 PathConnectionRecord* entry = entries.GetValuePointer(index);
                 if (entry == null || entry->r_IsActive == 0 || entry->r_BuildingId <= 0 ||
                     entry->r_BuildingId >= records.Length || records[entry->r_BuildingId].Valid ||
-                    !buildings.IsValidId(entry->r_BuildingId) ||
-                    !buildings.TryGetBuildingById(entry->r_BuildingId, out GameBuilding* gate) ||
+                    !APIShared.BuildingAccess.TryGetById(buildings, entry->r_BuildingId, out GameBuilding* gate, out _) ||
                     gate == null || !IsDiagnosticActive(gate->r_AliveState) ||
                     !IsGatehouseBuildingType(gate->r_BuildingType) ||
                     gate->r_GlobalId == 0 || gate->r_GlobalId != entry->r_SubjectGlobalId)

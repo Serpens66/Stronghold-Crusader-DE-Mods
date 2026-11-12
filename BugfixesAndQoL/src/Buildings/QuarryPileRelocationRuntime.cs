@@ -456,7 +456,7 @@ namespace BugfixesAndQoL
                 return;
 
             int quarryId = (int)args.ReturnValue;
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(quarryId, out GameBuilding* quarry) ||
+            if (!APIShared.BuildingAccess.TryGetById(quarryId, out GameBuilding* quarry, out _) ||
                 quarry == null ||
                 quarry->r_BuildingType != eStructs.STRUCT_QUARRY ||
                 quarry->r_PlayerIdOwner != args.PlayerId ||
@@ -553,7 +553,7 @@ namespace BugfixesAndQoL
                 return;
             }
 
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(pending.QuarryId, out GameBuilding* quarry) ||
+            if (!APIShared.BuildingAccess.TryGetById(pending.QuarryId, out GameBuilding* quarry, out _) ||
                 quarry == null ||
                 (int)quarry->r_GlobalId != quarryGlobalId ||
                 quarry->r_BuildingType != eStructs.STRUCT_QUARRY ||
@@ -572,7 +572,7 @@ namespace BugfixesAndQoL
 
             int keepId = GamePlayerManagerAPI.Instance.GetPlayerKeepId(pending.PlayerId);
             if (keepId <= 0 ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(keepId, out GameBuilding* keep) ||
+                !APIShared.BuildingAccess.TryGetById(keepId, out GameBuilding* keep, out _) ||
                 keep == null ||
                 keep->r_PlayerIdOwner != pending.PlayerId ||
                 (keep->r_AliveState != AliveState.NeedsInit && keep->r_AliveState != AliveState.IsAlive))
@@ -785,7 +785,7 @@ namespace BugfixesAndQoL
             failure = "quarry-slot-outside-link-capacity";
             if (quarryId > ushort.MaxValue) return false;
             failure = "quarry-slot-invalid";
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(quarryId, out GameBuilding* quarry) || quarry == null)
+            if (!APIShared.BuildingAccess.TryGetById(quarryId, out GameBuilding* quarry, out _) || quarry == null)
                 return false;
             if (!IsAliveBuilding(quarry, eStructs.STRUCT_QUARRY, operation.PlayerId))
             {
@@ -797,7 +797,7 @@ namespace BugfixesAndQoL
             int oldPileId = quarry->r_StoneQuarry_StockPileBuildingId;
             GameBuilding* oldPile = null;
             bool pileFound = oldPileId > 0 &&
-                GameBuildingManagerAPI.Instance.TryGetBuildingById(oldPileId, out oldPile) && oldPile != null;
+                APIShared.BuildingAccess.TryGetById(oldPileId, out oldPile, out _) && oldPile != null;
             int linkedGlobalId = pileFound ? (int)oldPile->r_GlobalId : 0;
             var receipts = viaChore ? System.Threading.Volatile.Read(ref committedRotations) : null;
             QuarryPileRotationReceipt receipt = default;
@@ -1029,7 +1029,7 @@ namespace BugfixesAndQoL
             {
                 int candidateId = capture.BuildingIds[index];
                 if (candidateId == oldPileId ||
-                    !GameBuildingManagerAPI.Instance.TryGetBuildingById(candidateId, out GameBuilding* candidate) ||
+                    !APIShared.BuildingAccess.TryGetById(candidateId, out GameBuilding* candidate, out _) ||
                     !IsValidFreshSpawn(candidate, eStructs.STRUCT_QUARRYPILE, playerId))
                 {
                     continue;
@@ -1074,7 +1074,7 @@ namespace BugfixesAndQoL
                         building.r_TilePositionYBegin,
                         target))
                 {
-                    if (GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out pile))
+                    if (APIShared.BuildingAccess.TryGetById(buildingId, out pile, out _))
                         return buildingId;
                 }
             }
@@ -1138,7 +1138,7 @@ namespace BugfixesAndQoL
             if (oldPileId <= 0)
                 return false;
 
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(oldPileId, out oldPile))
+            if (!APIShared.BuildingAccess.TryGetById(oldPileId, out oldPile, out _))
                 return false;
 
             if (!IsAliveBuilding(oldPile, eStructs.STRUCT_QUARRYPILE, ownerPlayerId))
@@ -1157,7 +1157,7 @@ namespace BugfixesAndQoL
             if (quarryId <= 0)
                 return false;
 
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(quarryId, out quarry))
+            if (!APIShared.BuildingAccess.TryGetById(quarryId, out quarry, out _))
                 return false;
 
             if (!IsAliveBuilding(quarry, eStructs.STRUCT_QUARRY, ownerPlayerId))
@@ -1251,7 +1251,7 @@ namespace BugfixesAndQoL
                 GameBuilding* pile = null;
                 bool valid = quarryId <= ushort.MaxValue &&
                     pileId > 0 &&
-                    GameBuildingManagerAPI.Instance.TryGetBuildingById(pileId, out pile) &&
+                    APIShared.BuildingAccess.TryGetById(pileId, out pile, out _) &&
                     IsAliveBuilding(pile, eStructs.STRUCT_QUARRYPILE, quarry.r_PlayerIdOwner);
                 uint pileGroupId = valid ? Shared.NativeBuildingCompoundGroup.Read(pile) : 0;
                 ushort pileLegacyReverseLink = valid ? pile->r_StoneQuarry_StockPileBuildingId : (ushort)0;
@@ -1292,8 +1292,8 @@ namespace BugfixesAndQoL
             for (int index = 0; index < repairs.Count; index++)
             {
                 QuarryPileVanillaGroupRepair repair = repairs[index];
-                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(repair.QuarryId, out GameBuilding* quarry) ||
-                    !GameBuildingManagerAPI.Instance.TryGetBuildingById(repair.PileId, out GameBuilding* pile) ||
+                if (!APIShared.BuildingAccess.TryGetById(repair.QuarryId, out GameBuilding* quarry, out _) ||
+                    !APIShared.BuildingAccess.TryGetById(repair.PileId, out GameBuilding* pile, out _) ||
                     !IsAliveBuilding(quarry, eStructs.STRUCT_QUARRY, pile->r_PlayerIdOwner) ||
                     !IsAliveBuilding(pile, eStructs.STRUCT_QUARRYPILE, quarry->r_PlayerIdOwner) ||
                     quarry->r_StoneQuarry_StockPileBuildingId != repair.PileId)
@@ -1360,11 +1360,11 @@ namespace BugfixesAndQoL
                 int quarryId = FindAliveBuildingIdByGlobalId(operation.QuarryGlobalId);
                 int slot = 0;
                 var buildings = GameBuildingManagerAPI.Instance;
-                if (quarryId > 0 && buildings.TryGetBuildingById(quarryId, out GameBuilding* quarry) &&
+                if (quarryId > 0 && APIShared.BuildingAccess.TryGetById(buildings, quarryId, out GameBuilding* quarry, out _) &&
                     quarry != null && quarry->r_BuildingType == eStructs.STRUCT_QUARRY)
                     slot = quarry->r_StoneQuarry_StockPileBuildingId;
                 string linked = "unknown";
-                if (slot > 0 && buildings.TryGetBuildingById(slot, out GameBuilding* pile) && pile != null)
+                if (slot > 0 && APIShared.BuildingAccess.TryGetById(buildings, slot, out GameBuilding* pile, out _) && pile != null)
                     linked = $"{pile->r_GlobalId},type={pile->r_BuildingType},owner={pile->r_PlayerIdOwner}," +
                         $"alive={pile->r_AliveState},position={pile->r_TilePositionXBegin},{pile->r_TilePositionYBegin}";
                 var receipts = System.Threading.Volatile.Read(ref committedRotations);

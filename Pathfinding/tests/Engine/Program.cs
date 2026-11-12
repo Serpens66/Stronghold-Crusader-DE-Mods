@@ -255,6 +255,11 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
         .Replace("using SHCDESE.Interop;", "using GameUnit = EngineHarness.GameUnit;")
         .Replace("using SHCDESE.Interop.Enums;", "using AliveState = EngineHarness.AliveState;")
         .Replace("public static unsafe class UnitAccess", "internal static unsafe class UnitAccess")),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Buildings/BuildingAccess.cs"))
+        .Replace("using SHCDESE.API;", "using GameBuildingManagerAPI = EngineHarness.GameBuildingManagerAPI;")
+        .Replace("using SHCDESE.Interop;", "using GameBuilding = EngineHarness.GameBuilding;")
+        .Replace("public static unsafe class BuildingAccess", "internal static unsafe class BuildingAccess")),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Core/Collections/IndexBounds.cs"))),
     CSharpSyntaxTree.ParseText("namespace BepInEx.Logging { public class ManualLogSource { public void LogDebug(object message) { } } }"),
     
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "Pathfinding", "GateRoutes", "EnemyGatePathPolicyBridge.cs"))),

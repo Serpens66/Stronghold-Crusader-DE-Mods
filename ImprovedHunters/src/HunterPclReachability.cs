@@ -285,8 +285,8 @@ namespace ImprovedHunters
             }
 
             Span<ushort> pathConnections = GamePathingManagerAPI.Instance.GetPathComponentGrid();
-            if ((uint)sourceTileId >= (uint)pathConnections.Length ||
-                (uint)targetTileId >= (uint)pathConnections.Length)
+            if (!global::APIShared.IndexBounds.IsValidIndex(sourceTileId, pathConnections.Length) ||
+                !global::APIShared.IndexBounds.IsValidIndex(targetTileId, pathConnections.Length))
             {
                 failure = "path-connection-grid-index-out-of-range";
                 return false;

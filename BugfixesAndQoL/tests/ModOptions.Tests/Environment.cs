@@ -71,6 +71,7 @@ namespace SHCDESE.API
     {
         public static readonly GameBuildingManagerAPI Instance = new GameBuildingManagerAPI();
         public readonly GameBuilding* Building = (GameBuilding*)Marshal.AllocHGlobal(sizeof(GameBuilding));
+        public bool IsValidId(int id) => id > 0 && id <= 3999;
         public bool TryGetBuildingById(int id, out GameBuilding* value) { value = Building; return true; }
     }
     public sealed class TestTimerEngine

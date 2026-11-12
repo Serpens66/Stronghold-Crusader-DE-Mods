@@ -318,7 +318,7 @@ namespace Pathfinding.GateRouting
             if (snapshot == null || !snapshot.GateIdentities.TryGetValue(id, out var identity) ||
                 (requestedGlobal != 0 && requestedGlobal != identity.Global)) return default;
             var manager = GameBuildingManagerAPI.Instance;
-            if (!manager.IsValidId(id) || !manager.TryGetBuildingById(id, out GameBuilding* building) || building == null ||
+            if (!APIShared.BuildingAccess.TryGetById(manager, id, out GameBuilding* building, out _) || building == null ||
                 building->r_GlobalId != identity.Global || building->r_PlayerIdOwner != identity.Owner ||
                 building->r_CapturedByPlayerId != identity.Capturer) return default;
             return new MacemenGate(id, identity.Global, identity.Owner, identity.Capturer,

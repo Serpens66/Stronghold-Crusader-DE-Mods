@@ -3,19 +3,27 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.222",
+  "Version": "1.0.223",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.3",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.48.0"
+      "MinimumVersion": "0.50.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.223",
+      "Changes": [
+        "Use shared validation for building lookups; require APIShared 0.50.0.",
+        "Add a separate local autosave option and a numeric interval field in the pause menu. Changes apply when closing the menu or after 15 seconds without further editing.",
+        "Count active play time for local autosaves, excluding observed pauses, menus and saving; keep elapsed progress when changing a positive interval."
+      ]
+    },
     {
       "Version": "1.0.222",
       "Changes": [

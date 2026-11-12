@@ -40,7 +40,7 @@ namespace CastlePlanner {
     // including owner and live type, before publishing the retained plan.
     int keepId=GamePlayerManagerAPI.Instance.GetPlayerKeepId(player);
     var buildings=GameBuildingManagerAPI.Instance;
-    if(!buildings.IsValidId(keepId) || !buildings.TryGetBuildingById(keepId,out GameBuilding* keep) ||
+    if(!global::APIShared.BuildingAccess.TryGetById(buildings, keepId,out GameBuilding* keep, out _) ||
        keep->r_PlayerIdOwner!=player || !IsKeep(keep->r_BuildingType) || keep->r_AliveState!=AliveState.IsAlive)return null;
     var api=GameAIVManagerAPI.Instance;
     if(!api.TryGetVillageSlotByPlayerId(player,out int slot) || !api.TryGetVillageByPlayerId(player,out AivVillageState* village) || village->OwnerPlayerId!=player || village->LayoutSelectionState==AivLayoutSelectionState.None)return null;

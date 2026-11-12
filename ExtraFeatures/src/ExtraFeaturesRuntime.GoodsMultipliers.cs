@@ -13,7 +13,7 @@ namespace ExtraFeatures
         // Market base prices are per lot of five goods (APIShared MarketPriceEvents.CalculateTradeTotal).
         private const double MarketPriceLotSize = 5.0;
 
-        private void OnGoodsyardAddGood(AddGoodToGoodsyardEventArgs args)
+        private unsafe void OnGoodsyardAddGood(AddGoodToGoodsyardEventArgs args)
         {
             // Raised for every stockpile change of every player (both phases, additions and
             // removals): the event-shape checks come before any native lookup or key.
@@ -21,7 +21,9 @@ namespace ExtraFeatures
                 return;
             try
             {
-                int playerId = GameBuildingManagerAPI.Instance.GetOwner(args.BuildingId);
+                if (!global::APIShared.BuildingAccess.TryGetById(args.BuildingId, out GameBuilding* building, out _))
+                    return;
+                int playerId = building->r_PlayerIdOwner;
                 if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId))
                     return;
                 long key = ResourceEventKey(playerId, args.Good);

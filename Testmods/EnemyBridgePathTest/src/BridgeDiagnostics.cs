@@ -300,7 +300,7 @@ namespace EnemyBridgePathTest
             var api = GameTileManagerAPI.Instance;
             int tile = api.GetTileId(x, y);
             var pcl = GamePathingManagerAPI.Instance.GetPathComponentGrid();
-            return (uint)tile < (uint)pcl.Length ? pcl[tile] : -1;
+            return global::APIShared.IndexBounds.IsValidIndex(tile, pcl.Length) ? pcl[tile] : -1;
         }
         private void Push(Frame frame)
         {

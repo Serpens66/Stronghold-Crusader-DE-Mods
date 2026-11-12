@@ -20,7 +20,7 @@ namespace SHCDESE.Interop
         STRUCT_TRADEPOST, STRUCT_BARRACKS_STONE, STRUCT_ENGINEERS_GUILD, STRUCT_TUNNELLERS_GUILD }
     internal struct GamePlayerResources { internal uint r_FirstGoodsyardId, r_FirstGranaryId,
         r_FirstArmouryId, r_TradePostId, r_EuroMercPostId, r_EngineersGuildId, r_TunnelersGuildId; }
-    internal struct GameBuilding { internal uint r_GlobalId; internal AliveState r_AliveState;
+    public struct GameBuilding { internal uint r_GlobalId; internal AliveState r_AliveState;
         internal int r_PlayerIdOwner, r_TilePositionXBegin, r_TilePositionYBegin; internal eStructs r_BuildingType; }
 }
 namespace SHCDESE.API
@@ -39,11 +39,12 @@ namespace SHCDESE.API
         internal bool TryGetPlayerResourcesById(int owner, out GamePlayerResources* resources)
         { resources = Readable && owner == 3 ? Resources : null; return resources != null; }
     }
-    internal unsafe sealed class GameBuildingManagerAPI
+    public unsafe sealed class GameBuildingManagerAPI
     {
         internal static readonly GameBuildingManagerAPI Instance = new GameBuildingManagerAPI();
         internal readonly GameBuilding* Building = (GameBuilding*)Marshal.AllocHGlobal(sizeof(GameBuilding));
         internal bool Throw;
+        public bool IsValidId(int id) => id >= 1 && id <= 5;
         internal bool TryGetBuildingById(int id, out GameBuilding* building)
         { if (Throw) throw new InvalidOperationException("storage unavailable"); building = id == 5 ? Building : null; return building != null; }
     }

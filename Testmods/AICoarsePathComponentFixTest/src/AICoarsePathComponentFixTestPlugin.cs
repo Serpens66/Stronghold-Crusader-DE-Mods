@@ -10,7 +10,7 @@ using System;
 namespace AICoarsePathComponentFixTest
 {
     [BepInDependency("000shcdese", "2.11.0")]
-    [BepInDependency("APIShared_Serp", "0.4.6")]
+    [BepInDependency("APIShared_Serp", "0.49.0")]
     [BepInDependency("BugfixesAndQoL_Serp", "1.0.181")]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(Guid, Name, Version)]

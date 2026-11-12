@@ -47,7 +47,7 @@ namespace BugfixesAndQoL
             if (!players.IsAIPlayer(player)) return false;
             int buildingId = buildings[unit->r_AI_ContextTargetBuildingTileId];
             if (buildingId == 0 ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+                !APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) ||
                 !AssassinCapturedGateProtectionPolicy.IsProtectedGate(in *building, true)) return false;
             int capturer = building->r_CapturedByPlayerId;
             return capturer == player || players.IsPlayerAlliedTo(player, capturer);

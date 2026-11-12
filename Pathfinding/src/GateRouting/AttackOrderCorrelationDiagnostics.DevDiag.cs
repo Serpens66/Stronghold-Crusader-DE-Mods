@@ -323,7 +323,7 @@ namespace Pathfinding.GateRouting
             NativeFrame frame = nativeFrames[nativeFrames.Count - 1];
             frame.Tribe = tribeId;
             string identity = "buildingIdentity=unavailable";
-            if (GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) && building != null)
+            if (APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) && building != null)
                 identity = "buildingGlobal=" + building->r_GlobalId + ",buildingOwner=" + building->r_PlayerIdOwner;
             frame.Building = "buildingId=" + buildingId + "," + identity +
                 ",sourcePcl=" + sourceRegion + ",rawSearchPlayer=" + rawSearchPlayer;

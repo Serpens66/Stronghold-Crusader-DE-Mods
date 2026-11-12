@@ -9,7 +9,7 @@ namespace PathfindingLoadTest
 {
     [BepInPlugin(Guid, "Pathfinding Load Test", "0.1.0")]
     [BepInDependency("000shcdese", "2.14.3")]
-    [BepInDependency("APIShared_Serp", "0.48.0")]
+    [BepInDependency("APIShared_Serp", "0.49.0")]
     [BepInDependency("Pathfinding_Serp", "0.1.2")]
     public sealed class Plugin : BaseUnityPlugin
     {

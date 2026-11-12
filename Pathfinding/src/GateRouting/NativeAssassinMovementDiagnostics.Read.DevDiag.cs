@@ -36,8 +36,7 @@ namespace Pathfinding.GateRouting
             if (tile < 320800)
             {
                 int building = *(short*)(module + 0x4B6AA50 + tile * 2UL);
-                if (GameBuildingManagerAPI.Instance.IsValidId(building) &&
-                    GameBuildingManagerAPI.Instance.TryGetBuildingById(building, out GameBuilding* b) && b != null &&
+                if (APIShared.BuildingAccess.TryGetById(building, out GameBuilding* b, out _) && b != null &&
                     (b->r_BuildingType == eStructs.STRUCT_GATE_MAIN || b->r_BuildingType == eStructs.STRUCT_GATE_INNER))
                 { s.Gate = building; s.GateGlobal = b->r_GlobalId; s.GateOwner = b->r_PlayerIdOwner;
                     s.Capturer = b->r_CapturedByPlayerId; s.GateState = b->r_GateState; }

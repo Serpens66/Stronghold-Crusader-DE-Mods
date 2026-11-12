@@ -4145,7 +4145,7 @@ namespace BugfixesAndQoL
             Check(feature.Contains("BuildingR3EventHooks.OnPlacementValidation") &&
                     feature.Contains("EventHookPhase.Pre") &&
                     feature.Contains("GetTileBuildingId(tileId)") &&
-                    feature.Contains("TryGetBuildingById(") &&
+                    feature.Contains("BuildingAccess.TryGetById(") &&
                     feature.Contains("building->r_AliveState == AliveState.IsAlive") &&
                     feature.Contains("building->r_PlayerIdOwner") &&
                     feature.Contains("TilePropertyFlag.IsWall") &&
