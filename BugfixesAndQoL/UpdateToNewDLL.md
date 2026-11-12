@@ -1076,3 +1076,14 @@ At the hook, RBX is the victim record anchor and R9D is its type. The stub uses 
 The only added write is `AliveState.MarkedForDeletion` at the engineer anchor plus `0x6E4`. Vanilla processes deletion at `0x1869C0`. The stub preserves registers and flags, replays the three original MOV instructions and resumes at the LEA. The fire conversion, effects and sound use the original instructions. The site has its own registry claim, transaction and activation word. Both groups read their own activation word. BugfixesAndQoL sets each word from the global mod switch and the corresponding synchronized host option.
 
 For another DLL, verify the fatal branch, table coverage, dismissal and mounted-state contracts, record layout and native deletion pass. Recheck the span, continuation, unwind entry and all native-site owners. The same byte sequence alone does not establish those contracts.
+
+## Area demolition: native and protocol contracts
+
+The default-on local AreaDemolition feature retains the audited Vanilla eligibility,
+refund, linked-building, wall, pitch, dug-moat and decoration contracts from its
+standalone prototype. Full RVAs, layouts, immutable-body checks, live Fixes refund
+recognition and protocol6 semantics are documented in
+[src/AreaDemolition/UpdateToNewDLL.md](src/AreaDemolition/UpdateToNewDLL.md).
+Packet registration and authenticated execution are independent of local UI settings
+and optional native/presentation initialization. Unknown native contracts disable
+area commands while preserving Vanilla input and deterministic channel identities.

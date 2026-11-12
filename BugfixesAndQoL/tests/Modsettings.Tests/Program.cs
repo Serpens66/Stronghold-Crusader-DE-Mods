@@ -414,7 +414,7 @@ internal static partial class Program
     }
     private static void Metadata(string workspace)
     {
-        var scopes=new Dictionary<string,bool>{{"EnableCompactLobbyChat",false},{"EnableLocalAutosave",false},{"EnableLordAndMapListEnhancements",false},{"EnableMissingMapSaveRecovery",false},{"EnablePitchMoatLines",false},{"EnableRandomOpponentSelectionEnhancements",true},{"EnableMultiplayerStartupStateFix",true},{"EnablePeaceTimeGameplayFixes",true},{"EnablePeaceTimeCivilianProximityReduction",true},{"EnablePitchStairsFix",true},{"EnableSiegeCrewDuplicationFix",true},{"EnableSiegeCrewFireLossFix",true},{"EnableTreeBlightDecayFix",true},{"EnablePrebuiltAiStorageFix",true},{"EnableAiOutpostRetargetFix",true}};
+        var scopes=new Dictionary<string,bool>{{"EnableCompactLobbyChat",false},{"EnableLocalAutosave",false},{"EnableLordAndMapListEnhancements",false},{"EnableMissingMapSaveRecovery",false},{"EnablePitchMoatLines",false},{"EnableAreaDemolition",false},{"EnableRandomOpponentSelectionEnhancements",true},{"EnableMultiplayerStartupStateFix",true},{"EnablePeaceTimeGameplayFixes",true},{"EnablePeaceTimeCivilianProximityReduction",true},{"EnablePitchStairsFix",true},{"EnableSiegeCrewDuplicationFix",true},{"EnableSiegeCrewFireLossFix",true},{"EnableTreeBlightDecayFix",true},{"EnablePrebuiltAiStorageFix",true},{"EnableAiOutpostRetargetFix",true}};
         MethodBase ctor=modelType.GetConstructors(All).Single();
         List<Tuple<OpCode,object>> body=Instructions(ctor);
         var xaml=new XmlDocument();xaml.Load(Path.Combine(workspace,"BugfixesAndQoL/Override/ScriptExtenderUI/BugfixesAndQoLSettings.xaml"));
@@ -452,13 +452,16 @@ internal static partial class Program
                 Equals(entry.instruction.Item2, setter) && entry.index > 0 &&
                 reset[entry.index - 1].Item1 == OpCodes.Ldc_I4_1), "reset restores enabled default for " + option);
         }
-        var pitchLines = modelType.GetProperty("EnablePitchMoatLines");
-        Check(!hostProperties.Any(property => property == pitchLines), "pitch/moat preference is excluded from host snapshots");
-        Check(!pitchLines.GetCustomAttributesData().Any(attribute => attribute.AttributeType.Name == "SyncPerPlayerAttribute"),
-            "pitch/moat preference remains local instead of being broadcast");
-        Check(reset.Select((instruction, index) => new { instruction, index }).Any(entry =>
-            Equals(entry.instruction.Item2, pitchLines.GetSetMethod()) && entry.index > 0 &&
-            reset[entry.index - 1].Item1 == OpCodes.Ldc_I4_1), "reset enables pitch/moat lines");
+        foreach(string option in new[]{"EnablePitchMoatLines","EnableAreaDemolition"})
+        {
+            var localPreference=modelType.GetProperty(option);
+            Check(!hostProperties.Any(property=>property==localPreference),option+" is excluded from host snapshots");
+            Check(!localPreference.GetCustomAttributesData().Any(attribute=>attribute.AttributeType.Name=="SyncPerPlayerAttribute"),
+                option+" remains local instead of being broadcast");
+            Check(reset.Select((instruction,index)=>new{instruction,index}).Any(entry=>
+                Equals(entry.instruction.Item2,localPreference.GetSetMethod()) && entry.index>0 &&
+                reset[entry.index-1].Item1==OpCodes.Ldc_I4_1),"reset enables "+option);
+        }
 
         var report = modelType.GetProperty("PitchMoatLineCompatibilityReport");
         var reportAttributes = report.GetCustomAttributesData().Select(attribute => attribute.AttributeType.Name).ToArray();

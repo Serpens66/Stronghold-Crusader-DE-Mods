@@ -168,6 +168,7 @@ namespace BugfixesAndQoL
         private int arabianIdleSoundVolumePercent = DefaultArabianIdleSoundVolumePercent;
         private bool enableImprovedBuildPreview = true;
         private bool enablePitchMoatLines = true;
+        private bool enableAreaDemolition = true;
         private bool enableDamagedHealthBars = true;
         private int healthBarHotkey = DefaultHealthBarHotkey;
         private bool isCapturingHealthBarHotkey;
@@ -513,6 +514,8 @@ namespace BugfixesAndQoL
         public string ImprovedBuildPreviewHelpText => SerpLocalization.Get("BugfixesAndQoL.ImprovedBuildPreviewHelp");
         public string PitchMoatLinesText => SerpLocalization.Get("BugfixesAndQoL.PitchMoatLines");
         public string PitchMoatLinesHelpText => SerpLocalization.Get("BugfixesAndQoL.PitchMoatLinesHelp");
+        public string EnableAreaDemolitionText => SerpLocalization.Get("BugfixesAndQoL.EnableAreaDemolition");
+        public string EnableAreaDemolitionHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAreaDemolitionHelp");
         public string DamagedHealthBarsHotkeyText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsHotkey");
         public string DamagedHealthBarsHotkeyHelpText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsHotkeyHelp");
         public string DamagedHealthBarsCaptureText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsCapture");
@@ -797,6 +800,13 @@ namespace BugfixesAndQoL
         {
             get => enablePitchMoatLines;
             set => SetSetting(ref enablePitchMoatLines, value, nameof(EnablePitchMoatLines));
+        }
+
+        [APIShared.ModSettings.PresetLocal]
+        public bool EnableAreaDemolition
+        {
+            get => enableAreaDemolition;
+            set => SetSetting(ref enableAreaDemolition, value, nameof(EnableAreaDemolition));
         }
 
         [APIShared.ModSettings.PresetLocal]
@@ -1685,6 +1695,7 @@ namespace BugfixesAndQoL
             ShowForeignTroopHud = true;
             EnableImprovedBuildPreview = true;
             EnablePitchMoatLines = true;
+            EnableAreaDemolition = true;
             ArabianIdleSoundVolumePercent = DefaultArabianIdleSoundVolumePercent;
             EnableDamagedHealthBars = true;
             HealthBarHotkey = DefaultHealthBarHotkey;

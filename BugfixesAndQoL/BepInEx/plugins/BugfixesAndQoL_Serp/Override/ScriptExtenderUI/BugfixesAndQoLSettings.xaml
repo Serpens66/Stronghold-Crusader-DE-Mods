@@ -558,6 +558,18 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
                 </CheckBox>
               </Grid>
             </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.area-demolition" shared:ModSettingsSearch.Title="{Binding EnableAreaDemolitionText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAreaDemolitionHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="28"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAreaDemolition}"><ContentControl.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ToolTip}"/></ContentControl.ToolTip></ContentControl>
+              <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
+                <CheckBox IsChecked="{Binding EnableAreaDemolition, Mode=TwoWay}" Foreground="White" Margin="0,0,14,8" ToolTipService.ShowDuration="60000"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding EnableAreaDemolitionHelpText}"/></CheckBox.ToolTip>
+                  <TextBlock Text="{Binding EnableAreaDemolitionText}" Foreground="White" TextWrapping="Wrap"/>
+                </CheckBox>
+              </Grid>
+            </Grid>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.troop-hud-middle-click-camera-jump" shared:ModSettingsSearch.Title="{Binding EnableTroopHudMiddleClickCameraJumpText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableTroopHudMiddleClickCameraJumpHelpText}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="28"/>

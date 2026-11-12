@@ -27,6 +27,7 @@ namespace BugfixesAndQoL
             options["EnableEnemyProximityBulldozeCursorFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableEnemyProximityBulldozeCursorFix");
             options["EnableImprovedBuildPreview"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableImprovedBuildPreview");
             options["EnablePitchMoatLines"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnablePitchMoatLines");
+            options["EnableAreaDemolition"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableAreaDemolition");
             options["EnableTroopHudMiddleClickCameraJump"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableTroopHudMiddleClickCameraJump");
             options["AllowMinimapWhilePlacingBuilding"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.AllowMinimapWhilePlacingBuilding");
             options["PreventMoveOrderOnPlacementCancel"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.PreventMoveOrderOnPlacementCancel");

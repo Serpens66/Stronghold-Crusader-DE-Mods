@@ -474,6 +474,18 @@ call :step_start "tests" "PitchMoatLines.Native.Tests"
 dotnet run --project "%PROJECT_DIR%tests\PitchMoatLines.Native.Tests\PitchMoatLines.Native.Tests.csproj" --configuration Release -- "%LOCAL_PLUGIN_DIR%\BugfixesAndQoL.dll" "%EXTENDER_DIR%"
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "AreaDemolition.Native.Tests"
+dotnet run --project "%PROJECT_DIR%tests\AreaDemolition\Native\Native.Tests.csproj" --configuration Release
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "AreaDemolition.Policy.Tests"
+dotnet run --project "%PROJECT_DIR%tests\AreaDemolition\Policy\Policy.Tests.csproj" --configuration Release
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "AreaDemolition.Protocol.Tests"
+dotnet run --project "%PROJECT_DIR%tests\AreaDemolition\Protocol\Protocol.Tests.csproj" --configuration Release
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 set "MODSETTINGS_NATIVE_OPTION="
 if "%BUILD_TEST_MODE%"=="full" set "MODSETTINGS_NATIVE_OPTION=-RunNative"
 call :step_start "tests" "73-Test-Modsettings.ps1"

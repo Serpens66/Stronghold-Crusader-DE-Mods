@@ -25,6 +25,7 @@ namespace BugfixesAndQoL
     [BepInIncompatibility("LordTeleportGuardTest_Serp")]
     [BepInIncompatibility("PitchStairsTest_Serp")]
     [BepInIncompatibility("PitchMoatLineTest_Serp")]
+    [BepInIncompatibility("AreaDemolitionTest_Serp")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
 
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
@@ -37,7 +38,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.223";
+        public const string PluginVersion = "1.0.224";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;
@@ -98,6 +99,7 @@ namespace BugfixesAndQoL
             LobbySaveLoadingFeature.Initialize(Logger, Settings);
             BuildPreview.BuildPreviewRuntime.Configure(Logger, Settings);
             PitchMoatLines.PitchMoatLinesFeature.Configure(Logger, Settings);
+            AreaDemolition.AreaDemolitionFeature.Configure(Logger, Settings, Config);
             ArabianIdleSoundRuntime.Configure(Logger, Settings);
             skirmishGameOptionsCompatible = !HasLegacyExtraFeaturesPeaceTimeSetting();
             skirmishGameOptionsAccess = new SkirmishGameOptionsAccessViewModel(
@@ -207,6 +209,8 @@ namespace BugfixesAndQoL
         // Runs inside the initial native installation window; false = stopped fail-closed.
         private bool InitializeLibraryRuntime(CrusaderLibraryLoadContext context)
         {
+            // Register even when local controls or the optional native adapter are unavailable.
+            AreaDemolition.AreaDemolitionFeature.RegisterNetwork();
             // Register packet types immediately after Script Extender and before settings can vary.
             try
             {
@@ -331,6 +335,7 @@ namespace BugfixesAndQoL
             // Keep UI registration independent so one native feature cannot hide the whole mod.
             BuildPreview.BuildPreviewRuntime.Install(context);
             PitchMoatLines.PitchMoatLinesFeature.Install(context);
+            AreaDemolition.AreaDemolitionFeature.Install(context);
             GatehouseTargetMarkerHeightHook.Install(context, Logger, Settings);
             try
             {

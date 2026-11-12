@@ -573,3 +573,22 @@ BugfixesAndQoL.SettingsRework.Reason.EnableLocalAutosave=Autosave und sein Inter
 
 BugfixesAndQoL.LocalAutosaveLabel=Autosave:
 BugfixesAndQoL.LocalAutosaveUnit=Min.
+
+BugfixesAndQoL.EnableAreaDemolition=Flächenabriss
+BugfixesAndQoL.EnableAreaDemolitionHelp=Erweitert den normalen Bulldozer um Flächenabriss. Rechtsklick auf seine Schaltfläche öffnet die Filter; Ziehen markiert passende Objekte rot. Mit Shift wählst du den Starttyp oder die positive beziehungsweise negative Angstfaktor-Gruppe. Einzelklicks bleiben unverändert. Diese lokale Option steuert deine Bedienung; im Multiplayer benötigen alle Spieler Bugfixes and QoL. Bereits übermittelte Aufträge werden noch ausgeführt.
+BugfixesAndQoL.SettingsRework.Reason.EnableAreaDemolition=Bestimmt, ob Ziehen mit dem Bulldozer mehrere Objekte markiert und entfernt.
+BugfixesAndQoL.AreaDemolition.MenuTitle=Filter für Flächenabriss
+BugfixesAndQoL.AreaDemolition.RightClickSettings=Rechtsklick: Einstellungen
+BugfixesAndQoL.AreaDemolition.DragHelp=Ziehen: nach eingeschalteten Filtern
+BugfixesAndQoL.AreaDemolition.ShiftHelp=Shift halten: Starttyp oder positive/negative Angstfaktor-Gruppe. Auch während des Ziehens wechselbar.
+BugfixesAndQoL.AreaDemolition.GroupBuildings=Gebäude
+BugfixesAndQoL.AreaDemolition.GroupFortifications=Befestigungen
+BugfixesAndQoL.AreaDemolition.GroupWalls=Mauern
+BugfixesAndQoL.AreaDemolition.GroupPositiveFear=Positiver Angstfaktor
+BugfixesAndQoL.AreaDemolition.GroupNegativeFear=Negativer Angstfaktor
+BugfixesAndQoL.AreaDemolition.GroupDogCages=Hundekäfige
+BugfixesAndQoL.AreaDemolition.GroupKillingPits=Mörderlöcher
+BugfixesAndQoL.AreaDemolition.GroupPitch=Pechgräben
+BugfixesAndQoL.AreaDemolition.GroupDugMoats=Ausgehobene Burggräben
+BugfixesAndQoL.AreaDemolition.GroupDecorations=Dekorationen und Feuerschalen
+BugfixesAndQoL.AreaDemolition.GroupStockpiles=Lagergebäude

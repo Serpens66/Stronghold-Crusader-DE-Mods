@@ -573,3 +573,22 @@ BugfixesAndQoL.SettingsRework.Reason.EnableLocalAutosave=Autosave and its pause-
 
 BugfixesAndQoL.LocalAutosaveLabel=Autosave:
 BugfixesAndQoL.LocalAutosaveUnit=min
+
+BugfixesAndQoL.EnableAreaDemolition=Area demolition
+BugfixesAndQoL.EnableAreaDemolitionHelp=Adds area demolition to the normal bulldozer. Right-click its button to choose filters, then drag to mark matching objects red. Hold Shift to select the starting type or positive/negative fear-factor group. Single clicks remain unchanged. This local option controls your input; in multiplayer all players need Bugfixes and QoL. Already submitted orders still execute.
+BugfixesAndQoL.SettingsRework.Reason.EnableAreaDemolition=Chooses whether dragging with the bulldozer marks and removes several objects at once.
+BugfixesAndQoL.AreaDemolition.MenuTitle=Area demolition filters
+BugfixesAndQoL.AreaDemolition.RightClickSettings=Right-click: settings
+BugfixesAndQoL.AreaDemolition.DragHelp=Drag: enabled filters
+BugfixesAndQoL.AreaDemolition.ShiftHelp=Hold Shift: starting type or positive/negative fear group. Can also be changed while dragging.
+BugfixesAndQoL.AreaDemolition.GroupBuildings=Buildings
+BugfixesAndQoL.AreaDemolition.GroupFortifications=Fortifications
+BugfixesAndQoL.AreaDemolition.GroupWalls=Walls
+BugfixesAndQoL.AreaDemolition.GroupPositiveFear=Positive fear factor
+BugfixesAndQoL.AreaDemolition.GroupNegativeFear=Negative fear factor
+BugfixesAndQoL.AreaDemolition.GroupDogCages=Dog cages
+BugfixesAndQoL.AreaDemolition.GroupKillingPits=Killing pits
+BugfixesAndQoL.AreaDemolition.GroupPitch=Pitch ditches
+BugfixesAndQoL.AreaDemolition.GroupDugMoats=Dug moats
+BugfixesAndQoL.AreaDemolition.GroupDecorations=Decorations and braziers
+BugfixesAndQoL.AreaDemolition.GroupStockpiles=Storage buildings

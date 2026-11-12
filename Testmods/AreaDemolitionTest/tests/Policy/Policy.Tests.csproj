@@ -1,4 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><EnableDefaultCompileItems>false</EnableDefaultCompileItems></PropertyGroup>
-  <ItemGroup><Compile Include="Program.cs"/><Compile Include="ConfigurationBoundary.cs"/><Compile Include="ScreenGeometryReference.cs"/><Compile Include="BodySelectionChecks.cs"/><Compile Include="..\..\src\Model.cs"/><Compile Include="..\..\src\ScreenRect.cs"/><Compile Include="..\..\src\SelectionGesture.cs"/><Compile Include="..\..\src\DemolitionSettings.cs"/><Compile Include="..\..\src\PreviewWorkPolicy.cs"/><Compile Include="..\..\src\RenderSelectionGeometry.cs"/><Compile Include="..\..\src\PointerUiPolicy.cs"/><Compile Include="..\..\src\ScreenHitGeometry.cs"/><Compile Include="..\..\src\PreviewRootSelection.cs"/></ItemGroup>
-</Project>
