@@ -5197,14 +5197,20 @@ namespace BugfixesAndQoL
                     !HasBranchIntoOriginalInterior(aivStub, 0x18005471F, 17),
                 "AIV real replay preserves both decision paths, omits only enabled JB, and returns at safe RVA 0x54730");
 
-            string xrefsPath = Path.GetFullPath(Path.Combine(
-                FindProjectDirectory(),
-                "..",
-                "_inspect",
-                "CrusaderDE-Native-Baseline",
-                "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
-                "exports",
-                "xrefs.jsonl"));
+            string localBaseline = Path.GetFullPath(Path.Combine(
+                FindProjectDirectory(), "..", "_inspect", "CrusaderDE-Native-Baseline"));
+            string sharedBaseline = Environment.GetEnvironmentVariable("SHCDE_NATIVE_BASELINE_ROOT");
+            string baseline = string.IsNullOrWhiteSpace(sharedBaseline) ? localBaseline : sharedBaseline;
+            // Shared exports must belong to the exact metadata selected by these sources.
+            string currentText = File.ReadAllText(Path.Combine(localBaseline, "CURRENT.json"));
+            var current = (IDictionary<string, object>)Shared.DependencyFreeJson.Parse(currentText);
+            string manifestPath = (string)current["databaseManifest"];
+            if ((string)current["currentNativeHash"] != ExpectedHash ||
+                File.ReadAllText(Path.Combine(baseline, "CURRENT.json")) != currentText ||
+                File.ReadAllText(Path.Combine(baseline, manifestPath)) !=
+                    File.ReadAllText(Path.Combine(localBaseline, manifestPath)))
+                throw new InvalidOperationException("Shared native baseline differs from selected sources.");
+            string xrefsPath = Path.Combine(baseline, ExpectedHash, "exports", "xrefs.jsonl");
             if (!File.Exists(xrefsPath))
             {
                 Check(false, "native hook interior-target regression requires the canonical xrefs export");
