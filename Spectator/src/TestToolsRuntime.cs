@@ -145,7 +145,7 @@ namespace Spectator
             if (!IsToolsSession() || (action.Kind != TestActionKind.PowerToggle && !IsToolsPlayer(action.Actor, action.Kind != TestActionKind.Credit)))
             { ReportTestAction(action, SerpLocalization.Get("Tools.InvalidTarget")); return; }
             action.Session = CurrentSessionId;
-            action.PowerGeneration = powerGeneration;
+            action.PowerGeneration = Interlocked.Read(ref powerGeneration);
             action.Operation = Interlocked.Increment(ref nextTestAction);
             testActions.Enqueue(action);
             RequestRender();

@@ -6,6 +6,7 @@ namespace UiAcceptance
         {
             GameSteps.Register();
             SpectatorSteps.Register();
+            SpectatorPowerRegressionSteps.Register();
             InputSteps.Register();
             ProbeSteps.Register();
             LobbySteps.Register();

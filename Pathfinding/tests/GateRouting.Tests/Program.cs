@@ -1263,10 +1263,8 @@ namespace Pathfinding.GateRouting
             Assert(source.IndexOf("__dword_ptr.gs[0x48]", StringComparison.Ordinal) >= 0 &&
                     source.IndexOf("ThreadSlotCount", StringComparison.Ordinal) >= 0,
                 "native adapters validate the fixed TEB thread slot");
-            Assert(source.IndexOf("assembler.and(al", StringComparison.Ordinal) >= 0 &&
-                    source.IndexOf("assembler.and(r11b", StringComparison.Ordinal) >= 0 &&
-                    source.IndexOf("assembler.and(cl", StringComparison.Ordinal) >= 0,
-                "all native direction-load destination registers are masked");
+            // DirectionAdapterExecutionTests verifies the masked destination and
+            // preserved registers/flags for every site using actual machine code.
             foreach (string method in new[]
             {
                 "EmitRaxDestination", "EmitR11Destination", "EmitRcxDestination",

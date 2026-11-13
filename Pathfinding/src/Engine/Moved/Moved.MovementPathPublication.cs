@@ -550,8 +550,7 @@ namespace Pathfinding.Engine
                 }
                 result = route.DirectionCount;
                 plan.PublishedUsesMoat = summary.MoatEdges > 0;
-                details = $"length={result} moatEdges={summary.MoatEdges} " +
-                    $"expanded={summary.ExpandedNodes} searchMs={summary.SearchMilliseconds:F3}";
+                details = string.Empty;
                 return true;
             }
             catch (Exception ex)

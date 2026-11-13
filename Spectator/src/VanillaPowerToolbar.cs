@@ -32,14 +32,14 @@ namespace Spectator
             if (!GameActionEvents.TryRegister(Guid, "SelectedAiExtremePower", args => {
                 if (!log.IsMainThread || args.Command != Enums.GameActionCommand.ExtremePower || args.SkipOriginalFunction ||
                     !HasPowerTestContext() || (uint)args.StructureId >= 8) return;
-                args.State = new ToolbarRequest { Session = CurrentSessionId, Generation = powerGeneration, Actor = humanSelectedOwner, Power = args.StructureId };
+                args.State = new ToolbarRequest { Session = CurrentSessionId, Generation = System.Threading.Interlocked.Read(ref powerGeneration), Actor = humanSelectedOwner, Power = args.StructureId };
                 args.SkipOriginalFunction = true;
             }, args => {
                 if (!(args.State is ToolbarRequest request)) return;
                 // Never run UI/native actions recursively inside the shared GameAction publisher.
                 PostPresentation(() => {
                     if (!IsCurrentSession(request.Session) || !ToolPolicy.PowerContextMatches(request.Session, CurrentSessionId,
-                        request.Actor, humanSelectedOwner, request.Generation, powerGeneration, HasPowerTestContext())) return;
+                        request.Actor, humanSelectedOwner, request.Generation, System.Threading.Interlocked.Read(ref powerGeneration), HasPowerTestContext())) return;
                     SelectPower(request.Power);
                 });
             }, out string reason)) throw new InvalidOperationException("Extreme power command registration failed: " + reason);

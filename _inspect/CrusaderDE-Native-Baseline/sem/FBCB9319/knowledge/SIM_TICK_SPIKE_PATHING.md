@@ -65,3 +65,58 @@ Release runs on the same save at game speed 215 with Script Extender, APIShared 
 - **Cost per member:** each fresh `0xD9C40` expanded ~208,000 tiles before reaching the slot. With Script Extender only, PerfProbe counted 1,023 Assassin searches (`assassinSearches` = `+0xBC`) in 90 s. In the siege phase the AI re-issues `move/NoChange` to its ~1,100 Assassins every 6-8 s.
 - **`+0x94` writers:** only `0xE1110`/`0xE1640` write it, so before or without them it holds an earlier route's value. Testing `+0x94` at `0xD9C40` time reads an earlier route's value (measured: ~78 % of a wave without weighted route).
 - Mod contract of the group fields: [BugfixesAndQoL/UpdateToNewDLL.md, Group fields of Assassin group moves](../../../../../BugfixesAndQoL/UpdateToNewDLL.md#group-fields-of-assassin-group-moves-2026-11-03-contract-0x01000002).
+
+## Enemy-distance scan kernel, 2026-11-13 [Vanilla facts]
+
+This audit uses the same native hash stated above. The data/control flow below is
+confirmed from the complete pseudocode and the 2,665 decoded bytes of RVA
+`0x18C160`; its exported `FUN_18018c160` symbol remains unnamed. Evidence is
+retained under `.work/a/stress90/001/native-full-0x*.json`,
+`native-hot-0x18C160.json`, and `native-disasm-18C160.json` in the workspace.
+Mod-installation measurements are separate evidence, not a Vanilla-only baseline.
+
+- `DLL_RunTick` -> `0xCDE60` -> `0x182B00` updates units in ascending ID order.
+  The ordinary `0x18C160(unitManager, unitId)` invocation is staggered using the
+  unit mask at `unitManager + unitId*0x490 + 0xA94`, the native cadence global at RVA
+  `0x37ED4D0`, and a per-unit cadence comparison value at the same
+  slot-relative `+0x9DC` (read as 32 bits; its origin is not established here).
+  `0x19A240` initializes the mask from the native
+  type table at RVA `0x32BAD0`; common table entries are 63 or 127. This is not
+  one unconditional full enemy scan per unit on every tick. The writer and
+  increment contract of that cadence global are not established here; it must
+  not be confused with the separately audited current-game-tick global.
+- Military state handlers can additionally call `0x19A1F0`, which requests an
+  immediate scan and publishes its distance and auxiliary output. The relative
+  frequency of ordinary and forced scans is not established by this static audit.
+- The scan reads a per-owner candidate ID array at RVA `0x38C19E8 + player*20000`,
+  corresponding global IDs at `0x38ED908 + player*40000`, and a count at
+  `0x379CE58 + player*0x583C`. Coordinates are read from the current unit slots.
+  For each candidate it computes the integer distance approximation
+  `max + (((min*2)/5)*min)/max`, with the original zero-distance branch and
+  truncation order. The variable signed division is at `0x18C525` or
+  `0x18C54C`, depending on the larger coordinate difference.
+- Distance and nearest-distance accumulation occur before the candidate's
+  global-ID and acquisition-range checks. Thus even a retained stale list entry
+  can affect the distance result. Target acquisition has additional stance,
+  order, cooldown, type, invisibility, load and weighted-score gates; defensive
+  stance can use the stored home origin. An auxiliary minimum is published via
+  `unitManager+0x1C` for the applicable unit-type branch.
+- Acquiring a candidate can inspect eight neighboring cells through `0x6B910`,
+  ask PCL reachability through `0xE2610`, choose an adjacent destination through
+  `0x698E0`, and issue movement through `0x196280`. Failure/no-target branches
+  also clear targets, update cooldowns or issue a return move. The distance
+  return is capped at 32000; `0x182B00` publishes it at `GameUnit+0x2A2` for
+  subsequent type-specific state handlers. Skipping acquisition alone does not
+  make the nearest-distance result unused.
+- `0x181340` builds each owner's list with alive/death, team, type and additional
+  eligibility filters. `0xD1AD0` schedules player rebuild slots in a 200-step
+  cycle (10..18, 60..68, 101..108, 160..168; slot 100 is excluded by a prior
+  branch). Units move while lists persist.
+  Initialization (`0xCF8D0`), load/legacy conversion (`0xD3380`, `0xD4820`,
+  `0xD4970`, `0xD4A70`), transfer (`0x15C60`) and checksum (`0x22020`) paths
+  also participate in the list's state contract.
+
+Consequently, range-only enumeration, removing stale entries at read time,
+lower scan cadence, or a spatial index updated only when the candidate list is
+rebuilt are not proven result-identical replacements. They can change distance
+outputs, reaction timing, target side effects or the live position observed.
