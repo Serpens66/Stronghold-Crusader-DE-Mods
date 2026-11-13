@@ -1,4 +1,5 @@
 @echo off
+rem SHCDE_BUILD_PARAMETERS: explicit SDK, installation suffix and no-install settings from the dispatcher.
 setlocal EnableExtensions
 rem SHCDE_BRANCH_DISPATCH: select committed sources; the selected child owns its build.
 if defined SHCDE_BRANCH_SOURCE_ROOT goto :shcde_branch_selected
@@ -62,7 +63,9 @@ set "LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\mod_output\00
 set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\src\SHCDESE.BepInEx\bin\net481"
 set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
 set "API_SHARED_DIR=%~dp0..\APIShared\BepInEx\plugins\APIShared_Serp"
+if defined SHCDE_BRANCH_API_PACKAGE set "API_SHARED_DIR=%SHCDE_BRANCH_API_PACKAGE%"
 set "LOCAL_API_SHARED_DIR=%PROJECT_DIR%..\APIShared\BepInEx\plugins\APIShared_Serp"
+if defined SHCDE_BRANCH_API_PACKAGE set "LOCAL_API_SHARED_DIR=%SHCDE_BRANCH_API_PACKAGE%"
 rem The installed release is canonical; SHCDESE_EXTENDER_DIR is the explicit override.
 if defined SHCDESE_EXTENDER_DIR set "GAME_SCRIPT_EXTENDER_DIR=%SHCDESE_EXTENDER_DIR%"
 rem Release automation can explicitly use the validated workspace package.
@@ -81,7 +84,7 @@ set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%GAME_SCRIPT_EXTENDER_DIR%"
 set "LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT=%GAME_SCRIPT_EXTENDER_DIR%"
 set "PLUGIN_NAME=BugfixesAndQoL_Serp"
 set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
-set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%%SHCDE_BRANCH_INSTALL_SUFFIX%"
 set "EXTENDER_DIR="
 set "NO_PAUSE=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
@@ -128,7 +131,7 @@ pushd "%PROJECT_DIR%"
 if "%BUILD_TEST_MODE%"=="none" goto foreign_hud_checks_completed
 rem Exercise the linked production display hook in every checked build, including quick mode.
 call :step_start "tests" "display-DisplayResolutionFocusGuardTests.csproj"
-"%MSBUILD%" "%PROJECT_DIR%..\_inspect\DisplayResolutionFocusGuardTests\DisplayResolutionFocusGuardTests.csproj" /p:Configuration=Release /nologo /verbosity:minimal
+"%MSBUILD%" "%PROJECT_DIR%..\_inspect\DisplayResolutionFocusGuardTests\DisplayResolutionFocusGuardTests.csproj" /p:Configuration=Release /nologo /verbosity:minimal %SHCDE_BRANCH_MSBUILD_API%
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "display-DisplayResolutionFocusGuardTests.exe"
@@ -142,7 +145,7 @@ if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 rem Exercise remembered and named AI selection repairs before a checked build can publish output.
 call :step_start "tests" "ai-selection-memory"
-"%MSBUILD%" "%PROJECT_DIR%..\_inspect\BugfixesAndQoLAivMemoryTests\BugfixesAndQoLAivMemoryTests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal
+"%MSBUILD%" "%PROJECT_DIR%..\_inspect\BugfixesAndQoLAivMemoryTests\BugfixesAndQoLAivMemoryTests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal %SHCDE_BRANCH_MSBUILD_API%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 "%PROJECT_DIR%..\_inspect\BugfixesAndQoLAivMemoryTests\bin\BugfixesAndQoLAivMemoryTests.exe"
 call :step_end %ERRORLEVEL%
@@ -185,7 +188,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-Build
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "13-BuildPreview.Tests.csproj"
-"%MSBUILD%" "%PROJECT_DIR%tests\BuildPreview.Tests\BuildPreview.Tests.csproj" /p:Configuration=Release /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal
+"%MSBUILD%" "%PROJECT_DIR%tests\BuildPreview.Tests\BuildPreview.Tests.csproj" /p:Configuration=Release /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal %SHCDE_BRANCH_MSBUILD_API%
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "14-BuildPreview.Tests.exe"
@@ -248,7 +251,7 @@ if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] PowerShell checks / build step
 echo [%date% %time%] Arabian idle volume consumer tests
 call :step_start "tests" "27-ArabianIdleSound.Tests.csproj"
-"%MSBUILD%" "%PROJECT_DIR%tests\ArabianIdleSound.Tests\ArabianIdleSound.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+"%MSBUILD%" "%PROJECT_DIR%tests\ArabianIdleSound.Tests\ArabianIdleSound.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" %SHCDE_BRANCH_MSBUILD_API%
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "28-ArabianIdleSoundVolume.Tests.exe"
@@ -257,7 +260,7 @@ call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Compile projects
 call :step_start "tests" "29-HostClientPresetTests.csproj"
-"%MSBUILD%" "%PROJECT_DIR%..\_inspect\HostClientPresetTests\HostClientPresetTests.csproj" /p:Configuration=Debug
+"%MSBUILD%" "%PROJECT_DIR%..\_inspect\HostClientPresetTests\HostClientPresetTests.csproj" /p:Configuration=Debug %SHCDE_BRANCH_MSBUILD_API%
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "30-HostClientPresetTests.exe"
@@ -270,7 +273,7 @@ call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Compile projects
 call :step_start "tests" "35-WaterboyTargetReservation.Tests.csproj"
-"%MSBUILD%" tests\WaterboyTargetReservation.Tests\WaterboyTargetReservation.Tests.csproj /p:Configuration=Release /p:ExtenderDir="%EXTENDER_DIR%"
+"%MSBUILD%" tests\WaterboyTargetReservation.Tests\WaterboyTargetReservation.Tests.csproj /p:Configuration=Release /p:ExtenderDir="%EXTENDER_DIR%" %SHCDE_BRANCH_MSBUILD_API%
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "36-WaterboyTargetReservation.Tests.exe"
@@ -284,7 +287,7 @@ call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Compile projects
 call :step_start "tests" "38-TannerFade.Tests.csproj"
-"%MSBUILD%" tests\TannerFade.Tests\TannerFade.Tests.csproj /p:Configuration=Release
+"%MSBUILD%" tests\TannerFade.Tests\TannerFade.Tests.csproj /p:Configuration=Release %SHCDE_BRANCH_MSBUILD_API%
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "39-TannerFade.Tests.exe"
@@ -293,7 +296,7 @@ call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Compile projects
 call :step_start "tests" "40-WorkshopIdleDelay.Tests.csproj"
-"%MSBUILD%" tests\WorkshopIdleDelay.Tests\WorkshopIdleDelay.Tests.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+"%MSBUILD%" tests\WorkshopIdleDelay.Tests\WorkshopIdleDelay.Tests.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" %SHCDE_BRANCH_MSBUILD_API%
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "41-WorkshopIdleDelay.Tests.exe"
@@ -302,7 +305,7 @@ call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Tree-blight native regression
 call :step_start "tests" "TreeBlightDecay.Tests build"
-"%MSBUILD%" tests\TreeBlightDecay.Tests\TreeBlightDecay.Tests.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+"%MSBUILD%" tests\TreeBlightDecay.Tests\TreeBlightDecay.Tests.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" %SHCDE_BRANCH_MSBUILD_API%
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "TreeBlightDecay.Tests execution"
@@ -311,7 +314,7 @@ call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Compile projects
 call :step_start "tests" "42-WorkerBreakPause.Tests.csproj"
-"%MSBUILD%" tests\WorkerBreakPause.Tests\WorkerBreakPause.Tests.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+"%MSBUILD%" tests\WorkerBreakPause.Tests\WorkerBreakPause.Tests.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" %SHCDE_BRANCH_MSBUILD_API%
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "43-WorkerBreakPause.Tests.exe"
@@ -320,7 +323,7 @@ call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Compile projects
 call :step_start "tests" "44-BugfixesAndQoLNativeTests.csproj"
-"%MSBUILD%" "%PROJECT_DIR%..\_inspect\BugfixesAndQoLNativeTests\BugfixesAndQoLNativeTests.csproj" /p:Configuration=Release
+"%MSBUILD%" "%PROJECT_DIR%..\_inspect\BugfixesAndQoLNativeTests\BugfixesAndQoLNativeTests.csproj" /p:Configuration=Release %SHCDE_BRANCH_MSBUILD_API%
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "45-BugfixesAndQoLNativeTests.exe"
@@ -329,7 +332,7 @@ call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Compile projects
 call :step_start "tests" "46-VanillaPeaceTimeNativeTests.csproj"
-"%MSBUILD%" "%PROJECT_DIR%..\_inspect\VanillaPeaceTimeNativeTests\VanillaPeaceTimeNativeTests.csproj" /p:Configuration=Release
+"%MSBUILD%" "%PROJECT_DIR%..\_inspect\VanillaPeaceTimeNativeTests\VanillaPeaceTimeNativeTests.csproj" /p:Configuration=Release %SHCDE_BRANCH_MSBUILD_API%
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "47-VanillaPeaceTimeNativeTests.exe"
@@ -338,7 +341,7 @@ call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Compile projects
 call :step_start "tests" "48-ImprovedMoatFilling.Tests.csproj"
-"%MSBUILD%" tests\ImprovedMoatFilling.Tests.csproj /p:Configuration=Debug
+"%MSBUILD%" tests\ImprovedMoatFilling.Tests.csproj /p:Configuration=Debug %SHCDE_BRANCH_MSBUILD_API%
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Run tests
@@ -353,7 +356,7 @@ call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Captured-gate protection tests
 call :step_start "tests" "54-AssassinCapturedGateProtection.Tests.csproj"
-"%MSBUILD%" "tests\AssassinCapturedGateProtection.Tests\AssassinCapturedGateProtection.Tests.csproj" /p:Configuration=Release
+"%MSBUILD%" "tests\AssassinCapturedGateProtection.Tests\AssassinCapturedGateProtection.Tests.csproj" /p:Configuration=Release %SHCDE_BRANCH_MSBUILD_API%
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "55-AssassinCapturedGateProtectionTests.exe"
@@ -362,7 +365,7 @@ call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Tribe member lookup machine tests (V14 against Vanilla's 0x119F90 copy)
 call :step_start "tests" "55b-TribeMemberLookup.Tests.csproj"
-"%MSBUILD%" "tests\TribeMemberLookup.Tests\TribeMemberLookup.Tests.csproj" /p:Configuration=Release /p:ExtenderDir="%EXTENDER_DIR%"
+"%MSBUILD%" "tests\TribeMemberLookup.Tests\TribeMemberLookup.Tests.csproj" /p:Configuration=Release /p:ExtenderDir="%EXTENDER_DIR%" %SHCDE_BRANCH_MSBUILD_API%
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "55c-TribeMemberLookup.Tests.exe"
@@ -390,7 +393,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-Notif
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "60-ImprovedMoatFilling.Tests.csproj"
-"%MSBUILD%" tests\ImprovedMoatFilling.Tests.csproj /p:Configuration=Debug /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal
+"%MSBUILD%" tests\ImprovedMoatFilling.Tests.csproj /p:Configuration=Debug /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal %SHCDE_BRANCH_MSBUILD_API%
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "61-ImprovedMoatFilling.Tests.exe"
@@ -406,7 +409,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-Runti
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "63-ImprovedMoatFilling.Tests.csproj"
-"%MSBUILD%" tests\ImprovedMoatFilling.Tests.csproj /p:Configuration=Debug /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal
+"%MSBUILD%" tests\ImprovedMoatFilling.Tests.csproj /p:Configuration=Debug /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal %SHCDE_BRANCH_MSBUILD_API%
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "64-ImprovedMoatFilling.Tests.exe"
@@ -428,7 +431,7 @@ if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 goto foreign_hud_behavior_checks
 
 :coop_checks
-"%MSBUILD%" "%PROJECT_DIR%tests\ImprovedMoatFilling.Tests.csproj" /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal
+"%MSBUILD%" "%PROJECT_DIR%tests\ImprovedMoatFilling.Tests.csproj" /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal %SHCDE_BRANCH_MSBUILD_API%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 "%PROJECT_DIR%tests\bin\ImprovedMoatFilling.Tests.exe" --coop-ai
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
@@ -493,7 +496,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-Modse
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "LordTeleportGuard.Tests build"
-"%MSBUILD%" "%PROJECT_DIR%tests\LordTeleportGuard.Tests\LordTeleportGuard.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+"%MSBUILD%" "%PROJECT_DIR%tests\LordTeleportGuard.Tests\LordTeleportGuard.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" %SHCDE_BRANCH_MSBUILD_API%
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed
 call :step_start "tests" "LordTeleportGuard.Tests execution"
@@ -502,7 +505,7 @@ call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed
 
 call :step_start "tests" "AiOutpostRetarget.Tests build"
-"%MSBUILD%" "%PROJECT_DIR%tests\AiOutpostRetarget.Tests\AiOutpostRetarget.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+"%MSBUILD%" "%PROJECT_DIR%tests\AiOutpostRetarget.Tests\AiOutpostRetarget.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" %SHCDE_BRANCH_MSBUILD_API%
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed
 call :step_start "tests" "AiOutpostRetarget.Tests execution"
@@ -515,7 +518,7 @@ popd
 
 if "%BUILD_TEST_MODE%"=="none" goto pitch_stairs_checks_completed
 call :step_start "tests" "PitchStairs.Tests build"
-"%MSBUILD%" "%PROJECT_DIR%tests\PitchStairs.Tests\PitchStairs.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal
+"%MSBUILD%" "%PROJECT_DIR%tests\PitchStairs.Tests\PitchStairs.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal %SHCDE_BRANCH_MSBUILD_API%
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed
 call :step_start "tests" "PitchStairs.Tests execution"
@@ -525,7 +528,7 @@ if not "%ERRORLEVEL%"=="0" goto build_failed
 :pitch_stairs_checks_completed
 if "%BUILD_TEST_MODE%"=="none" goto siege_crew_checks_completed
 call :step_start "tests" "SiegeCrew.Tests build"
-"%MSBUILD%" "%PROJECT_DIR%tests\SiegeCrew.Tests\SiegeCrew.Tests.csproj" /p:Configuration=Release /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal
+"%MSBUILD%" "%PROJECT_DIR%tests\SiegeCrew.Tests\SiegeCrew.Tests.csproj" /p:Configuration=Release /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal %SHCDE_BRANCH_MSBUILD_API%
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed
 call :step_start "tests" "SiegeCrew.Tests execution"

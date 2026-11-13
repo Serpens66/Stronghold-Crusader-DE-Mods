@@ -1,4 +1,5 @@
 @echo off
+rem SHCDE_BUILD_PARAMETERS: explicit SDK, installation suffix and no-install settings from the dispatcher.
 setlocal EnableExtensions
 rem SHCDE_BRANCH_DISPATCH: select committed sources; the selected child owns its build.
 if defined SHCDE_BRANCH_SOURCE_ROOT goto :shcde_branch_selected
@@ -34,7 +35,7 @@ exit /b 1
 
 :build_driver_main
 echo [%date% %time%] Workspace source and runtime preflight
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1" -ModDirectory "Helpers/ActiveAIVDetector"
 if not "%ERRORLEVEL%"=="0" exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 
@@ -43,6 +44,7 @@ set "MSBUILD=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBu
 set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
 set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
 set "API_SHARED_DIR=%~dp0..\..\APIShared\BepInEx\plugins\APIShared_Serp"
+if defined SHCDE_BRANCH_API_PACKAGE set "API_SHARED_DIR=%SHCDE_BRANCH_API_PACKAGE%"
 rem The installed release is canonical; SHCDESE_EXTENDER_DIR is the explicit override.
 if defined SHCDESE_EXTENDER_DIR set "GAME_SCRIPT_EXTENDER_DIR=%SHCDESE_EXTENDER_DIR%"
 if defined SHCDE_API_SHARED_DIR set "API_SHARED_DIR=%SHCDE_API_SHARED_DIR%"
@@ -112,7 +114,7 @@ if "%BUILD_EXIT_CODE%"=="0" (
   echo Build erfolgreich.
   set "PLUGIN_NAME=ActiveAIVDetector_Serp"
   set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\!PLUGIN_NAME!"
-  set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\!PLUGIN_NAME!"
+  set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\!PLUGIN_NAME!%SHCDE_BRANCH_INSTALL_SUFFIX%"
   set "VANILLA_EXPORT_DIR="
 
   if not exist "!LOCAL_PLUGIN_DIR!\" (
@@ -167,6 +169,7 @@ echo [%date% %time%] Copy package files
     )
   )
 
+if "%SHCDE_BRANCH_NOINSTALL%"=="1" exit /b 0
   echo Kopiere Plugin in den Spielordner...
   if exist "!GAME_PLUGIN_DIR!\" (
     rem Replace only packaged asset directories; preserve captures and player data.
@@ -204,7 +207,21 @@ echo [%date% %time%] Copy package files
     )
     echo Installiere explizit aktivierte Chat-10-Prebuild-Trace-Konfiguration...
 echo [%date% %time%] Copy package files
-    copy /Y "!CHAT10_TRACE_CONFIG!" "%GAME_DIR%\BepInEx\config\ActiveAIVDetector_Serp.cfg" >nul
+    rem SHCDE_TRACE_INSTALL_BEGIN
+    if "%SHCDE_BRANCH_INSTALL_SUFFIX%"=="" (
+      copy /Y "!CHAT10_TRACE_CONFIG!" "%GAME_DIR%\BepInEx\config\ActiveAIVDetector_Serp.cfg" >nul
+    ) else (
+    if exist "%GAME_DIR%\BepInEx\config\ActiveAIVDetector_Serp.cfg" (
+      fc /B "!CHAT10_TRACE_CONFIG!" "%GAME_DIR%\BepInEx\config\ActiveAIVDetector_Serp.cfg" >nul
+      if errorlevel 1 (
+        echo ERROR: Existing shared trace configuration preserved. Select the configuration manually after switching the installed mod.
+        goto copy_failed
+      )
+    ) else (
+      copy /Y "!CHAT10_TRACE_CONFIG!" "%GAME_DIR%\BepInEx\config\ActiveAIVDetector_Serp.cfg" >nul
+    )
+    )
+    rem SHCDE_TRACE_INSTALL_END
     if not errorlevel 0 cmd /c exit 1
     if errorlevel 1 goto copy_failed
     echo Chat-10-Prebuild-Trace aktiviert.

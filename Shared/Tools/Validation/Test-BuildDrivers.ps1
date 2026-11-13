@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param([string]$Workspace, [string[]]$ModDirectories)
+try {
 $ErrorActionPreference = 'Stop'
 if (-not $Workspace) { $Workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..')) }
 $drivers = @(& git -C $Workspace ls-files -- '**/build.bat' | Where-Object { $_ -notmatch '^(_inspect|shcde-script-extender)/' })
@@ -11,7 +12,7 @@ if ($ModDirectories) {
     if (@($selected | Where-Object { $_ -notin $drivers }).Count) { throw 'A selected build driver was not found.' }
 }
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
-$fixtureRoot = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'BuildDrivers'
+$fixtureRoot = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'BuildDrivers' -Transient
 [IO.Directory]::CreateDirectory($fixtureRoot) | Out-Null
 $previousDirectory = (Get-Location).Path
 $cases = 0
@@ -101,3 +102,7 @@ try {
     Write-Host "PASS: $standardDrivers standard build drivers; $cases isolated success/error, argument, working-directory and interactive-pause cases."
     Write-Host "Fixture evidence: $fixtureRoot"
 } finally { Set-Location -LiteralPath $previousDirectory }
+
+} finally {
+    if (Get-Command Complete-TransientWorkDirectories -ErrorAction SilentlyContinue) { Complete-TransientWorkDirectories -Owner $PSCommandPath }
+}

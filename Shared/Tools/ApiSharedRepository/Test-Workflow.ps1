@@ -1,8 +1,10 @@
+
+try {
 # Integration fixtures exercise Git itself; package fixtures double only external files.
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ApiShared.Common.ps1')
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
-$temp = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'Workflow'
+$temp = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'Workflow' -Transient
 $oldProtocol=$env:GIT_ALLOW_PROTOCOL
 $env:GIT_ALLOW_PROTOCOL='file'
 function Check([bool]$value,[string]$message) { if(-not$value){throw $message} }
@@ -97,6 +99,7 @@ try {
     foreach($dir in @('src','Properties','Patches','tools','Workshop','tools/WorkshopUploader')) { [IO.Directory]::CreateDirectory((Join-Path $releaseApi $dir)) | Out-Null }
     Write-Fixture (Join-Path $releaseApi 'APIShared.csproj') '<Project />'
     Write-Fixture (Join-Path $releaseApi 'src/example.cs') 'production input boundary'
+    Write-Fixture (Join-Path $releaseApi 'Locales/en.txt') 'locale input boundary'
     Write-Fixture (Join-Path $releaseApi 'build.bat') 'build entry boundary'
     Write-Fixture (Join-Path $releaseApi 'bootstrap/APIShared.DependencyBootstrap.csproj') '<Project />'
     Write-Fixture (Join-Path $releaseApi 'bootstrap/src/Package/PairContract.cs') 'bootstrap input boundary'
@@ -184,6 +187,9 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Independent repository migration/setup regression failed.' }
 } finally {
     $env:GIT_ALLOW_PROTOCOL=$oldProtocol
-    # Keep failed fixture contents inspectable; successful fixtures are ordinary disposable test data.
-    Write-Host "Git fixtures: $temp"
+    # The outer finally removes disposable fixtures after either outcome.
+}
+
+} finally {
+    if (Get-Command Complete-TransientWorkDirectories -ErrorAction SilentlyContinue) { Complete-TransientWorkDirectories -Owner $PSCommandPath }
 }

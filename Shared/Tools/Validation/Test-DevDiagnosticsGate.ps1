@@ -4,6 +4,7 @@ param(
     [string]$GameDir = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition',
     [string]$MSBuild = 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe'
 )
+try {
 # Behavior test for the DEVDIAG release protection: a fixture compiled with /devdiag must
 # be rejected by the release gate; the same sources compiled normally must pass and contain
 # no DevDiag call. Retained source is allowed; the compiled artifact is the release boundary.
@@ -22,7 +23,7 @@ function Write-CrLf([string]$Path, [string[]]$Lines) {
     [IO.File]::WriteAllText($Path, (($Lines + '') -join "`r`n"), [Text.UTF8Encoding]::new($false))
 }
 
-$work = New-ShortWorkDirectory -Root $Root -Kind t -Name 'devdiag-gate'
+$work = New-ShortWorkDirectory -Root $Root -Kind t -Name 'devdiag-gate' -Transient
 $helper = Join-Path $Root 'Shared\Runtime\Diagnostics\DevDiag.cs'
 Write-CrLf (Join-Path $work 'Fixture.csproj') @(
     '<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">',
@@ -98,3 +99,7 @@ Check (Test-Path -LiteralPath (Join-Path $work 'src/Probe.DevDiag.cs')) 'normal 
 if ($failures) { Write-Host "DEVDIAG gate test failed: $failures check(s). Evidence: $work"; exit 1 }
 Write-Host "DEVDIAG gate test passed. Evidence: $work"
 exit 0
+
+} finally {
+    if (Get-Command Complete-TransientWorkDirectories -ErrorAction SilentlyContinue) { Complete-TransientWorkDirectories -Owner $PSCommandPath }
+}

@@ -1,3 +1,5 @@
+
+try {
 . (Join-Path $PSScriptRoot 'NexusRelease.Common.ps1')
 
 function Assert-True([bool]$Condition, [string]$Message) {
@@ -41,7 +43,7 @@ foreach ($mod in $mods) {
 }
 
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
-$notesTestRoot = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'NexusRelease'
+$notesTestRoot = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'NexusRelease' -Transient
 try {
     [void][IO.Directory]::CreateDirectory($notesTestRoot)
     $notesRelease = [PSCustomObject]@{ ModName='NotesTest'; Version='1.2.3'; Directory=$notesTestRoot }
@@ -62,7 +64,7 @@ try {
 }
 
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
-$artifactTestRoot = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'NexusRelease'
+$artifactTestRoot = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'NexusRelease' -Transient
 try {
     $artifactReleaseDirectory = Join-Path $artifactTestRoot '.release-output\Synthetic\v1.2.3'
     $thinStage = Join-Path $artifactTestRoot 'thin-stage\BepInEx\plugins\Synthetic_Serp'
@@ -244,7 +246,7 @@ try {
 }
 
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
-$tamperRoot = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'NexusRelease'
+$tamperRoot = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'NexusRelease' -Transient
 try {
     [void][IO.Directory]::CreateDirectory($tamperRoot)
     $source = Get-LatestNexusLocalRelease -Root $root -ModName 'StartConditions'
@@ -290,3 +292,7 @@ try {
 
 $global:LASTEXITCODE = 0
 Write-Host 'Nexus-Release-Tests erfolgreich.' -ForegroundColor Green
+
+} finally {
+    if (Get-Command Complete-TransientWorkDirectories -ErrorAction SilentlyContinue) { Complete-TransientWorkDirectories -Owner $PSCommandPath }
+}

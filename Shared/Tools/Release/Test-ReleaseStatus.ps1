@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param([switch]$SourceOnly)
-
+try {
 . (Join-Path $PSScriptRoot 'Release.Common.ps1')
 . (Join-Path $PSScriptRoot 'SCDEModManagerPackage.ps1')
 . (Join-Path $PSScriptRoot 'ReleaseStatus.Common.ps1')
@@ -125,7 +125,7 @@ foreach ($project in $config.Projects) {
 }
 if (-not $SourceOnly) {
     . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
-    $managerTestRoot = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'ReleaseStatus'
+    $managerTestRoot = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'ReleaseStatus' -Transient
     try {
         [void](New-Item -ItemType Directory -Path $managerTestRoot -Force)
         $apiMetadata = Get-TestPluginMetadata -ModName 'APIShared'
@@ -168,7 +168,7 @@ function Assert-ApiSharedValidationFails {
         [Parameter(Mandatory)][string]$ExpectedMessage
     )
     . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
-    $fixtureRoot = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'ReleaseStatus'
+    $fixtureRoot = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'ReleaseStatus' -Transient
     try {
         $fixturePackage = Join-Path $fixtureRoot 'APIShared\BepInEx\plugins\APIShared_Serp'
         [void](New-Item -ItemType Directory -Path $fixturePackage -Force)
@@ -236,7 +236,7 @@ try {
 }
 if (-not $SourceOnly) {
     . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
-    $dependencyFixtureRoot = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'ReleaseStatus'
+    $dependencyFixtureRoot = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'ReleaseStatus' -Transient
     try {
         $fixtureGameDir = Join-Path $dependencyFixtureRoot 'Game'
         $fixtureExtenderDir = Join-Path $dependencyFixtureRoot 'Extender'
@@ -336,4 +336,8 @@ if ($SourceOnly) {
     Write-Host 'Release status source/fixture tests succeeded. Fresh-package validation, package import order and live DLL provenance were not run.' -ForegroundColor Green
 } else {
     Write-Host 'Release status tests succeeded, including local package integration.' -ForegroundColor Green
+}
+
+} finally {
+    if (Get-Command Complete-TransientWorkDirectories -ErrorAction SilentlyContinue) { Complete-TransientWorkDirectories -Owner $PSCommandPath }
 }

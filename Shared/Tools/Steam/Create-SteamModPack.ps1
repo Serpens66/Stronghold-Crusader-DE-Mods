@@ -22,7 +22,7 @@ $previousApiSharedTestMode = $env:SHCDE_WORKSHOP_TEST
 . (Join-Path $PSScriptRoot '../ApiSharedRepository/MainSource.Common.ps1')
 . (Join-Path $PSScriptRoot 'ApiSharedSdkPolicy.ps1')
 $mainWorkspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
-if(-not $env:SHCDE_API_SHARED_MAIN_SELECTION){$env:SHCDE_API_SHARED_MAIN_SELECTION=Resolve-ApiMainSelection $mainWorkspace}
+if(-not $env:SHCDE_API_SHARED_MAIN_SELECTION){$env:SHCDE_API_SHARED_MAIN_SELECTION=Resolve-ApiMainSelection $mainWorkspace -RequireExisting:$Validate}
 if(-not $Validate){Ensure-ApiMainBuild $mainWorkspace;Ensure-ApiMainConsumerSource $mainWorkspace}
 $script:ApiMainRoot=Get-WorkshopApiRoot $mainWorkspace
 $previousGameDirectory = $env:SHCDE_GAME_DIR
@@ -1779,7 +1779,7 @@ try {
     if ($null -ne $previousPack -and [string]$previousPack.Provenance.ContentSignature -eq $contentSignature -and $previousPack.Provenance.PSObject.Properties.Name -contains 'Workshop') {
         Write-RunLog "Pack content is unchanged from $($previousPack.Tag); reusing the published map." 'OK'
         $finalDir = Get-WorkshopFolder (Get-WorkshopConfiguration) (Get-WorkshopConfiguration).SerpsMods ([bool]$TestMode)
-        if (-not $finalDir.StartsWith($script:Root + '\', [StringComparison]::OrdinalIgnoreCase)) { Fail-Pack 8 'Unsafe final output path.' }
+        if (-not $finalDir.StartsWith((Get-ApiMainWorkspace $script:Root) + '\', [StringComparison]::OrdinalIgnoreCase)) { Fail-Pack 8 'Unsafe final output path.' }
         $reuseStage=Join-Path $script:OutputRoot ("reuse-"+[guid]::NewGuid().ToString("N")); [void][IO.Directory]::CreateDirectory($reuseStage)
         $workshopZipName=[string]$previousPack.Provenance.Workshop.File
         if ([IO.Path]::GetFileName($workshopZipName) -cne $workshopZipName) { Fail-Pack 10 'Invalid Workshop content ZIP name.' }
@@ -1972,7 +1972,7 @@ try {
     Assert-PreparedLooseFolder $workshop.Directory $packVersion
     Publish-PackRelease -Version $packVersion -ZipPath $zipPath -ZipShaPath $zipShaPath -MapPath $mapPath -MapShaPath $mapShaPath -ProvenancePath $provenancePath -NotesPath $notesPath -WorkshopZipPath $workshopZipPath
     $finalDir = Get-WorkshopFolder (Get-WorkshopConfiguration) (Get-WorkshopConfiguration).SerpsMods ([bool]$TestMode)
-    if (-not $finalDir.StartsWith($script:Root + '\', [StringComparison]::OrdinalIgnoreCase)) { Fail-Pack 8 'Unsafe final output path.' }
+    if (-not $finalDir.StartsWith((Get-ApiMainWorkspace $script:Root) + '\', [StringComparison]::OrdinalIgnoreCase)) { Fail-Pack 8 'Unsafe final output path.' }
     Publish-WorkshopFolder $workshop.Directory $finalDir $script:Root
     Save-WorkshopReleaseReference (Get-WorkshopConfiguration) ([bool]$TestMode) $provenancePath
     $journal.Status = 'complete'; $journal.CompletedUtc = [DateTime]::UtcNow.ToString('o'); Write-JsonCrLf -Path $script:JournalPath -Value $journal

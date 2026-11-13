@@ -3,7 +3,8 @@ $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'WorkshopOptions.Common.ps1')
 $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
-$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'ModpackBranches'
+$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'ModpackBranches' -Transient
+try {
 $root=Join-Path $fixture 'author';$caller=Join-Path $fixture 'caller'
 $checks=0
 function Check($Ok,$Message){if(-not $Ok){throw $Message};$script:checks++}
@@ -229,7 +230,7 @@ $generatedBytes=[IO.File]::ReadAllText($generated);[IO.File]::WriteAllText($gene
 & (Join-Path $caller 'UploadWorkshop.bat') /modpack /test /validate /nopause *> $log
 Check ($LASTEXITCODE -eq 0 -and (Get-ApiRepositoryHash $testProof) -ceq $before) 'Unrelated main outputs must not replace the prepared develop upload'
 [IO.File]::WriteAllText($generated,$generatedBytes)
-$payload=Join-Path $p.ModpackSource.Root '.release-output/SteamWorkshop/test/packages/SerpsMods/payload.txt'
+$payload=Join-Path $root '.release-output/SteamWorkshop/test/packages/SerpsMods/payload.txt'
 $originalPayload=[IO.File]::ReadAllText($payload);[IO.File]::WriteAllText($payload,'tampered')
 & (Join-Path $caller 'UploadWorkshop.bat') /modpack /test /validate /nopause *> $log
 Check ($LASTEXITCODE -ne 0 -and [IO.File]::ReadAllText($payload) -ceq 'tampered') 'Changed prepared payload must be rejected without overwriting the preparation'
@@ -278,6 +279,22 @@ Invoke-ApiRepositoryGit $releaseFolder @('checkout','--','.gitignore')|Out-Null
 Invoke-ApiRepositoryGit $releaseFolder @('-c','user.name=Fixture','-c','user.email=fixture@example.invalid','-c','commit.gpgsign=false','commit','--quiet','--allow-empty','-m','unpushed')|Out-Null
 Reject {Remove-ModpackReleaseWorktree $root ([pscustomobject]@{Root=$releaseFolder;Branch='release'})}
 Check (Test-Path -LiteralPath $releaseFolder) 'Release folder with unpushed commits was removed'
+# Exercise the actual current allocation, not only historical .release-output paths.
+$shortRepo=Join-Path $fixture 'short-release';$shortOrigin=Join-Path $fixture 'short-origin'
+Invoke-ApiRepositoryProcess 'git' @('init','--quiet','--initial-branch=develop',$shortRepo)|Out-Null
+[IO.File]::WriteAllText((Join-Path $shortRepo '.gitignore'),".work/`r`n")
+[void][IO.Directory]::CreateDirectory((Join-Path $shortRepo '_inspect'))
+[IO.File]::WriteAllBytes((Join-Path $shortRepo '_inspect/large.sqlite'),[byte[]]::new(1048577))
+[IO.File]::WriteAllText((Join-Path $shortRepo '_inspect/source.cs'),'small source fixture')
+Invoke-ApiRepositoryGit $shortRepo @('add','-A')|Out-Null
+Invoke-ApiRepositoryGit $shortRepo @('-c','user.name=Fixture','-c','user.email=fixture@example.invalid','-c','commit.gpgsign=false','commit','--quiet','-m','fixture')|Out-Null
+Invoke-ApiRepositoryGit $shortRepo @('branch','main')|Out-Null
+Invoke-ApiRepositoryProcess 'git' @('clone','--quiet','--bare',$shortRepo,$shortOrigin)|Out-Null
+Invoke-ApiRepositoryGit $shortRepo @('remote','add','origin',$shortOrigin)|Out-Null
+$shortSource=Resolve-ModpackSource $shortRepo 'main'
+Check (-not(Test-Path -LiteralPath (Join-Path $shortSource.Root '_inspect/large.sqlite')) -and (Test-Path -LiteralPath (Join-Path $shortSource.Root '_inspect/source.cs'))) 'Release sparse checkout copied large analysis data or lost small sources'
+Remove-ModpackReleaseWorktree $shortRepo $shortSource
+Check (-not(Test-Path -LiteralPath $shortSource.Root)) 'Current allocated release worktree was retained'
 # New tracked resources and untracked build copies must be source-identical and frozen.
 Put 'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/Locales/en-US.txt' 'new localized host text'
 Put 'ExtendedData/BepInEx/plugins/ExtendedData_Serp/Patches/Assets/GUI/XAML/FrontendMenus.xaml' '<Patch />'
@@ -301,3 +318,4 @@ Put 'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/Locales/en-US.txt' 'new locali
 Put 'unexpected.txt' 'unrelated untracked file'
 Reject {Get-ModpackDirtyOutputs $root}
 Write-Host "PASS: $checks modpack branch/menu/worktree/proof/ID checks with real BAT and PowerShell children. Fixtures: $fixture"
+} finally { Complete-TransientWorkDirectories -Owner $PSCommandPath }

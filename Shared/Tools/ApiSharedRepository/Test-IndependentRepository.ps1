@@ -1,7 +1,9 @@
+
+try {
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'RepositoryProcess.Common.ps1')
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
-$temp = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'IndependentRepository'
+$temp = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'IndependentRepository' -Transient
 $env:GIT_ALLOW_PROTOCOL='file'
 function G([string]$Root,[string[]]$Arguments){return Invoke-ApiRepositoryGit $Root $Arguments}
 function Check([bool]$Value,[string]$Message){if(-not $Value){throw $Message}}
@@ -64,3 +66,7 @@ $setup=Invoke-ApiRepositoryProcess 'powershell.exe' $setupArgs
 Check ($setup.ExitCode -ne 0) 'Initializer replaced existing checkout'
 Check ([IO.File]::ReadAllText((Join-Path $fresh 'APIShared/file.txt')) -ceq 'keep local') 'Initializer changed local files'
 Write-Host "PASS: migration, rollback, unpublished commits, independent metadata, linked worktree, open/staged files and unrelated parent staging. Fixtures: $temp"
+
+} finally {
+    if (Get-Command Complete-TransientWorkDirectories -ErrorAction SilentlyContinue) { Complete-TransientWorkDirectories -Owner $PSCommandPath }
+}

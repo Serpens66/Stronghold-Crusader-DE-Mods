@@ -1,4 +1,5 @@
 @echo off
+rem SHCDE_BUILD_PARAMETERS: explicit SDK, installation suffix and no-install settings from the dispatcher.
 setlocal EnableExtensions
 rem SHCDE_BRANCH_DISPATCH: select committed sources; the selected child owns its build.
 if defined SHCDE_BRANCH_SOURCE_ROOT goto :shcde_branch_selected
@@ -43,6 +44,7 @@ set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitiv
 set "EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
 if defined SHCDESE_EXTENDER_DIR set "EXTENDER_DIR=%SHCDESE_EXTENDER_DIR%"
 set "API_SHARED_DIR=%~dp0..\APIShared\BepInEx\plugins\APIShared_Serp"
+if defined SHCDE_BRANCH_API_PACKAGE set "API_SHARED_DIR=%SHCDE_BRANCH_API_PACKAGE%"
 rem Release automation can explicitly use the validated workspace package.
 if defined SHCDE_API_SHARED_DIR set "API_SHARED_DIR=%SHCDE_API_SHARED_DIR%"
 rem APIShared source: /apishared:main (release branch) or /apishared:dev (local checkout, default).
@@ -86,7 +88,7 @@ dotnet test "%PROJECT_DIR%tests\Formations.Core.Tests\Formations.Core.Tests.cspr
 if not "%ERRORLEVEL%"=="0" goto failed
 dotnet run --project "%PROJECT_DIR%tests\FormationSpeech.Tests\FormationSpeech.Tests.csproj" --configuration Release -p:ExtenderDir="%EXTENDER_DIR%" -- "%PROJECT_DIR%.."
 if not "%ERRORLEVEL%"=="0" goto failed
-"%MSBUILD%" "%PROJECT_DIR%tests\Formations.Tests\Formations.Tests.csproj" /p:Configuration=Release /p:ExtenderDir="%EXTENDER_DIR%" /nologo /v:minimal
+"%MSBUILD%" "%PROJECT_DIR%tests\Formations.Tests\Formations.Tests.csproj" /p:Configuration=Release /p:ExtenderDir="%EXTENDER_DIR%" /nologo /v:minimal %SHCDE_BRANCH_MSBUILD_API%
 if not "%ERRORLEVEL%"=="0" goto failed
 "%PROJECT_DIR%tests\Formations.Tests\bin\Formations.Tests.exe"
 if not "%ERRORLEVEL%"=="0" goto failed

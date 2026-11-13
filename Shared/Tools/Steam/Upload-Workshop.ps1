@@ -241,7 +241,7 @@ try {
     $apiRoot=Get-WorkshopApiRoot $config.Root
     $publisher=Join-Path $apiRoot '.local/WorkshopUploader/WorkshopUploader.exe'
     if(-not(Test-Path -LiteralPath $publisher)){throw 'Build APIShared/tools/WorkshopUploader/build.bat first.'}
-    Assert-WorkshopPublisherBuild $apiRoot
+    $null=Assert-ApiMainDeliveryIdentity $config.Root $proof.MainSource
     $state=Get-WorkshopStateRoot $config $test
     $id=Get-WorkshopItemId $config $targetConfig $test
     $itemPath=Join-Path $state ('items/'+$config.AppId+'-'+$Target+'.item-id')

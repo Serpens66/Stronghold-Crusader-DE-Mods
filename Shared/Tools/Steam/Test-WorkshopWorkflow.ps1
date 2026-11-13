@@ -1,3 +1,4 @@
+try {
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'WorkshopConfiguration.ps1')
 . (Join-Path $PSScriptRoot 'WorkshopWorkflow.Common.ps1')
@@ -20,7 +21,7 @@ Reject {Invoke-WorkshopTargets @('APIShared','SerpsMods') {param($target) $compl
 Check (($completed -join ',') -ceq 'APIShared,SerpsMods') 'First success was not retained before second failure.'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
-$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'WorkshopWorkflow'
+$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'WorkshopWorkflow' -Transient
 [void][IO.Directory]::CreateDirectory($fixture)
 $config=Get-WorkshopConfiguration;$config.Root=$fixture;$config.APIShared.Folder=Join-Path $fixture 'APISharedWorkshop';$config.SerpsMods.Folder=Join-Path $fixture 'SerpsMods'
 Check ((Get-WorkshopItemId $config $config.SerpsMods $false) -ceq '3788821961') 'SerpsMods identity changed.'
@@ -74,3 +75,5 @@ foreach($test in @('Test-ModpackBranches.ps1','Test-PublishedSdkPolicy.ps1','Tes
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot $test)
     if($LASTEXITCODE -ne 0){throw "$test failed."}
 }
+
+} finally { if(Get-Command Complete-TransientWorkDirectories -ErrorAction SilentlyContinue){Complete-TransientWorkDirectories -Owner $PSCommandPath} }

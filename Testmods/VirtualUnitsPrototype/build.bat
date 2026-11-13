@@ -1,4 +1,5 @@
 @echo off
+rem SHCDE_BUILD_PARAMETERS: explicit SDK, installation suffix and no-install settings from the dispatcher.
 setlocal EnableExtensions
 rem SHCDE_BRANCH_DISPATCH: select committed sources; the selected child owns its build.
 if defined SHCDE_BRANCH_SOURCE_ROOT goto :shcde_branch_selected
@@ -34,7 +35,7 @@ exit /b 1
 
 :build_driver_main
 echo [%date% %time%] Workspace source and runtime preflight
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1" -ModDirectory "Testmods/VirtualUnitsPrototype"
 if not "%ERRORLEVEL%"=="0" exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 set "PROJECT_DIR=%~dp0"
@@ -58,20 +59,20 @@ if not exist "%EXTENDER_DIR%\SHCDESE.dll" ( echo SHCDESE.dll wurde nicht gefunde
 
 pushd "%PROJECT_DIR%"
 echo [%date% %time%] Compile projects
-"%MSBUILD%" tests\VirtualUnitsPrototype.Tests.csproj /p:Configuration=Release
+"%MSBUILD%" tests\VirtualUnitsPrototype.Tests.csproj /p:Configuration=Release %SHCDE_BRANCH_MSBUILD_API%
 if not "%ERRORLEVEL%"=="0" ( popd& goto failed )
 echo [%date% %time%] Run tests
 "%PROJECT_DIR%tests\bin\VirtualUnitsPrototype.Tests.exe"
 if not "%ERRORLEVEL%"=="0" ( popd& goto failed )
 if exist "%PROJECT_DIR%BepInEx\plugins\VirtualUnitsPrototype_Serp\" rmdir /S /Q "%PROJECT_DIR%BepInEx\plugins\VirtualUnitsPrototype_Serp"
 echo [%date% %time%] Compile projects
-"%MSBUILD%" VirtualUnitsPrototype.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+"%MSBUILD%" VirtualUnitsPrototype.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" %SHCDE_BRANCH_MSBUILD_API%
 set "BUILD_EXIT_CODE=%ERRORLEVEL%"
 popd
 if not "%BUILD_EXIT_CODE%"=="0" goto failed
 
 set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\VirtualUnitsPrototype_Serp"
-set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\VirtualUnitsPrototype_Serp"
+set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\VirtualUnitsPrototype_Serp%SHCDE_BRANCH_INSTALL_SUFFIX%"
 if not exist "%LOCAL_PLUGIN_DIR%\VirtualUnitsPrototype.dll" goto failed
 if "%NO_INSTALL%"=="1" (
   echo Build and tests successful. Installation skipped.

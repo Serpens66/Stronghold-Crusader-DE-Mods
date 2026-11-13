@@ -1,3 +1,4 @@
+# SHCDE_BUILD_PARAMETERS: installation paths consume the explicit dispatcher suffix.
 param([switch]$NoInstall)
 $ErrorActionPreference = 'Stop'
 function Get-OutpostFileHash([string]$Path) {
@@ -24,7 +25,7 @@ try {
     $package = Join-Path $root 'BepInEx\plugins\OutpostTest_Serp'
     Copy-Item -LiteralPath (Join-Path $root 'info.json') -Destination $package -Force
     if ($NoInstall) { Write-Output 'OutpostTest build/tests successful; installation skipped.'; exit 0 }
-    $destination = Join-Path $game 'BepInEx\plugins\OutpostTest_Serp'
+    $destination = Join-Path $game ('BepInEx\plugins\OutpostTest_Serp' + $env:SHCDE_BRANCH_INSTALL_SUFFIX)
     [IO.Directory]::CreateDirectory($destination) | Out-Null
     foreach ($name in @('OutpostTest.dll', 'OutpostTest.pdb', 'info.json')) {
         Copy-Item -LiteralPath (Join-Path $package $name) -Destination (Join-Path $destination $name) -Force

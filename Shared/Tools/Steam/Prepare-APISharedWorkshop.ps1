@@ -3,7 +3,7 @@ $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'WorkshopConfiguration.ps1')
 . (Join-Path $PSScriptRoot '../ApiSharedRepository/MainSource.Common.ps1')
 $config=Get-WorkshopConfiguration
-if(-not $env:SHCDE_API_SHARED_MAIN_SELECTION){$env:SHCDE_API_SHARED_MAIN_SELECTION=Resolve-ApiMainSelection $config.Root}
+if(-not $env:SHCDE_API_SHARED_MAIN_SELECTION){$env:SHCDE_API_SHARED_MAIN_SELECTION=Resolve-ApiMainSelection $config.Root -RequireExisting:([bool]$ValidateOnly)}
 if(-not $ValidateOnly){Ensure-ApiMainBuild $config.Root}
 . (Join-Path $PSScriptRoot 'WorkshopWorkflow.Common.ps1')
 $config=Get-WorkshopConfiguration;$test=$TestMode -eq 1;$api=$config.APIShared

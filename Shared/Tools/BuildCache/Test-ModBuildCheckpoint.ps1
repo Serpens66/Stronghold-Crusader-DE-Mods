@@ -1,9 +1,10 @@
 param([switch]$NativeToolchainOnly)
+try {
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ModBuildCheckpoint.ps1')
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
 $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
-$fixture=New-ShortWorkDirectory -Root $workspace -Kind t -Name ModBuildCheckpoint
+$fixture=New-ShortWorkDirectory -Root $workspace -Kind t -Name ModBuildCheckpoint -Transient
 $checks=0;$script:runs=0;$script:exitCode=0
 function Check([bool]$Value,[string]$Message){if(-not $Value){throw $Message};$script:checks++}
 function Put([string]$Path,[string]$Value){[void][IO.Directory]::CreateDirectory((Split-Path -Parent $Path));[IO.File]::WriteAllText($Path,$Value,[Text.UTF8Encoding]::new($false))}
@@ -172,3 +173,7 @@ try {
     finally{$lock.Dispose()}
     Write-Host "PASS: $checks completed-build checkpoint reuse, invalidation, original identity, failure, metadata bounds and concurrency checks. Fixture: $fixture"
 } finally {$env:SHCDE_NATIVE_BASELINE_ROOT=$oldBaseline;$env:MOD_CHECKPOINT_TEST=$oldEnvironment;$env:SHCDESE_EXTENDER_DIR=$oldExtender}
+
+} finally {
+    if (Get-Command Complete-TransientWorkDirectories -ErrorAction SilentlyContinue) { Complete-TransientWorkDirectories -Owner $PSCommandPath }
+}

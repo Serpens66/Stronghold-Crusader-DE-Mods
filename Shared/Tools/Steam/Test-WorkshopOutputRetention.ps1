@@ -31,7 +31,7 @@ if($ResumeFixture){
 }
 $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
-$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'WorkshopOutputRetention'
+$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'WorkshopOutputRetention' -Transient
 [void][IO.Directory]::CreateDirectory($fixture)
 function New-Case([string]$Name,[string]$Key='APIShared',[bool]$Test=$false){
     $root=Join-Path $fixture $Name
@@ -102,8 +102,7 @@ foreach($key in @('APIShared','SerpsMods')){
             $result=Invoke-WorkshopOutputRetention $case.Config $case.Target $false $before $lock
             Check ($result.Deferred -eq 0) 'Valid generation deferred.'
             $backups=@(Get-WorkshopOutputBackups $case.Config $case.Target $false)
-            Check ($backups.Count -eq [Math]::Min(1,$generation-1)) 'History is not bounded to one predecessor.'
-            if($generation -gt 1){$inventory=Get-WorkshopOutputBackupInventory $backups[0].FullName $case.Target;Check ($inventory.Version -ceq ('1.0.'+($generation-1))) 'Immediate predecessor was not retained.'}
+            Check ($backups.Count -eq 0) 'Successful preparation retained a predecessor payload.'
         }
         $null=Assert-WorkshopPreparation $case.Config $case.Target $false
         Check (-not (Test-Path -LiteralPath (Join-Path $case.State ('retention/'+$key+'.pending.json')))) 'Completed retention left a job.'
@@ -114,7 +113,7 @@ $old=Backup $case -Legacy
 Put (Join-Path $old 'SerpsMods.map.sha256') ((Get-WorkshopFileHash (Join-Path $old 'SerpsMods.map'))+'  SerpsMods.map')
 $new=Backup $case '1.0.1'
 $result=Run $case @([IO.Path]::GetFileName($old))
-Check ($result.Removed -eq 1 -and -not (Test-Path -LiteralPath $old) -and (Test-Path -LiteralPath $new)) 'Legacy SerpsMods backup was not safely pruned.'
+Check ($result.Removed -eq 2 -and -not (Test-Path -LiteralPath $old) -and -not (Test-Path -LiteralPath $new)) 'Legacy SerpsMods backup was not safely pruned.'
 foreach($kind in @('unknown','hidden','empty-directory','serps-unknown-directory','serps-settings-directory','bad-map','checksum','wrong-owner','bad-payload','junction')){
     $key=if($kind -cin @('bad-payload','serps-unknown-directory','serps-settings-directory')){'SerpsMods'}else{'APIShared'}
     $case=New-Case $kind $key;Ready $case;$old=Backup $case;$new=Backup $case '1.0.1'
@@ -131,7 +130,7 @@ foreach($kind in @('unknown','hidden','empty-directory','serps-unknown-directory
         'junction'{$outside=Join-Path $case.Root 'outside';Put (Join-Path $outside 'personal.txt') 'keep';$null=New-Item -ItemType Junction -Path (Join-Path $old 'linked') -Target $outside}
     }
     $result=Run $case @([IO.Path]::GetFileName($old))
-    Check ($result.Deferred -gt 0 -and (Test-Path -LiteralPath $old) -and (Test-Path -LiteralPath $new)) ('Unsafe backup not protected: '+$kind)
+    Check ($result.Deferred -gt 0 -and (Test-Path -LiteralPath $old) -and -not (Test-Path -LiteralPath $new)) ('Unsafe backup not protected: '+$kind)
 }
 $case=New-Case 'bad-proof';Ready $case;$old=Backup $case;$new=Backup $case
 Put (Join-Path $case.Destination 'preview.png') 'changed after proof'
@@ -139,7 +138,7 @@ $result=Run $case @([IO.Path]::GetFileName($old))
 Check ($result.Removed -eq 0 -and $result.Deferred -gt 0 -and (Test-Path -LiteralPath $old)) 'Changed preparation allowed pruning.'
 Proof $case
 $result=Run $case @([IO.Path]::GetFileName($old))
-Check ($result.Removed -eq 1) 'Retry after repaired preparation failed.'
+Check ($result.Removed -eq 2) 'Retry after repaired preparation failed.'
 $case=New-Case 'multiple-new';Ready $case;$a=Backup $case;$b=Backup $case
 $result=Run $case @()
 Check ($result.Removed -eq 0 -and $result.Deferred -gt 0) 'Ambiguous simultaneous backups were deleted.'
@@ -147,11 +146,11 @@ $case=New-Case 'tie';Ready $case;$a=Backup $case;$b=Backup $case
 [IO.Directory]::SetLastWriteTimeUtc($a,[DateTime]::Parse('2020-01-01T00:00:00Z').ToUniversalTime());[IO.Directory]::SetLastWriteTimeUtc($b,[DateTime]::Parse('2020-01-01T00:00:00Z').ToUniversalTime())
 $keep=@($a,$b)|Sort-Object|Select-Object -First 1
 $result=Run $case
-Check ($result.Removed -eq 1 -and (Test-Path -LiteralPath $keep)) 'Timestamp ties are not deterministic.'
+Check ($result.Removed -eq 2 -and -not (Test-Path -LiteralPath $a) -and -not (Test-Path -LiteralPath $b)) 'Tied predecessor timestamps retained payload history.'
 $case=New-Case 'test-isolation' 'APIShared' $true;Ready $case;$a=Backup $case;$b=Backup $case
 $prod=$case.Config.APIShared.Folder+'.previous-'+[guid]::NewGuid().ToString('N');New-Contents $prod $case.Target '0.1.0'
 $result=Run $case @([IO.Path]::GetFileName($a))
-Check ($result.Removed -eq 1 -and (Test-Path -LiteralPath $prod)) 'Test pruning changed production outputs.'
+Check ($result.Removed -eq 2 -and (Test-Path -LiteralPath $prod)) 'Test pruning changed production outputs.'
 $case=New-Case 'locked';Ready $case;$old=Backup $case;$jobPath=Pending $case $old
 $stream=[IO.File]::Open((Join-Path $old 'APIShared.map'),[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
 try{$result=Run $case;Check ($result.Deferred -gt 0 -and (Test-Path -LiteralPath $jobPath)) 'Locked deletion lost its pending job.'}finally{$stream.Dispose()}
@@ -185,7 +184,7 @@ $case=New-Case 'unfinished';Ready $case;$a=Backup $case;$b=Backup $case
 $unfinished=$case.Destination+'.ready-'+[guid]::NewGuid().ToString('N');Put (Join-Path $unfinished 'keep.txt') 'unfinished'
 $unknown=$case.Destination+'.previous-manual';Put (Join-Path $unknown 'keep.txt') 'unknown'
 $result=Run $case @([IO.Path]::GetFileName($a))
-Check ($result.Removed -eq 1 -and $result.Deferred -eq 2 -and (Test-Path -LiteralPath $unfinished) -and (Test-Path -LiteralPath $unknown)) 'Unfinished/unrecognized output was not protected and reported.'
+Check ($result.Removed -eq 2 -and $result.Deferred -eq 2 -and (Test-Path -LiteralPath $unfinished) -and (Test-Path -LiteralPath $unknown)) 'Unfinished/unrecognized output was not protected and reported.'
 $case=New-Case 'changed-new';Ready $case;$a=Backup $case;$b=Backup $case
 Put (Join-Path $b 'personal.txt') 'keep'
 $result=Run $case @([IO.Path]::GetFileName($a))
@@ -195,4 +194,4 @@ $current=Get-WorkshopFileHash (Join-Path $case.Destination 'APIShared.map')
 $result=Run $case -DeleteOnly $names
 Check ($result.Removed -eq 3 -and (Get-WorkshopFileHash (Join-Path $case.Destination 'APIShared.map')) -ceq $current) 'Explicit one-time pruning changed current output.'
 Write-Host ('PASS: '+$checks+' output-retention checks, 100 generations per package, legacy and loose packages, hidden/unknown files, junctions, pins, locking and real process interruption. Fixtures: '+$fixture)
-} finally {$env:SHCDE_API_SHARED_MAIN_SELECTION=$savedSelection}
+} finally {$env:SHCDE_API_SHARED_MAIN_SELECTION=$savedSelection;if(Get-Command Complete-TransientWorkDirectories -ErrorAction SilentlyContinue){Complete-TransientWorkDirectories -Owner $PSCommandPath}}

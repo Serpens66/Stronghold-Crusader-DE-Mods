@@ -1,4 +1,5 @@
 @echo off
+rem SHCDE_BUILD_PARAMETERS: explicit SDK, installation suffix and no-install settings from the dispatcher.
 setlocal EnableExtensions
 rem SHCDE_BRANCH_DISPATCH: select committed sources; the selected child owns its build.
 if defined SHCDE_BRANCH_SOURCE_ROOT goto :shcde_branch_selected
@@ -34,7 +35,7 @@ exit /b 1
 
 :build_driver_main
 echo [%date% %time%] Workspace source and runtime preflight
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1" -ModDirectory "Testmods/EnemyBridgePathTest"
 if not "%ERRORLEVEL%"=="0" exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 
@@ -46,8 +47,9 @@ rem The installed release is canonical; SHCDESE_EXTENDER_DIR is the only explici
 if defined SHCDESE_EXTENDER_DIR set "GAME_SCRIPT_EXTENDER_DIR=%SHCDESE_EXTENDER_DIR%"
 set "PLUGIN_NAME=EnemyBridgePathTest_Serp"
 set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
-set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%%SHCDE_BRANCH_INSTALL_SUFFIX%"
 set "API_SHARED_DIR=%~dp0..\..\APIShared\BepInEx\plugins\APIShared_Serp"
+if defined SHCDE_BRANCH_API_PACKAGE set "API_SHARED_DIR=%SHCDE_BRANCH_API_PACKAGE%"
 echo [%date% %time%] PowerShell checks / build step
 rem APIShared source: /apishared:main (release branch) or /apishared:dev (local checkout, default).
 call "%~dp0..\..\Shared\Tools\ApiSharedRepository\Select-ApiSharedBranch.cmd" %*
@@ -86,7 +88,7 @@ if not "%ERRORLEVEL%"=="0" goto api_shared_failed
 
 rem Hash-bound native reference runs only in a separate x64 process/private image.
 echo [%date% %time%] Compile projects
-"%MSBUILD%" "%PROJECT_DIR%..\..\_inspect\BridgePlanningTests\BridgePlanningTests.csproj" /p:Configuration=Debug
+"%MSBUILD%" "%PROJECT_DIR%..\..\_inspect\BridgePlanningTests\BridgePlanningTests.csproj" /p:Configuration=Debug %SHCDE_BRANCH_MSBUILD_API%
 if not "%ERRORLEVEL%"=="0" goto build_failed
 "%PROJECT_DIR%..\..\_inspect\BridgePlanningTests\bin\BridgePlanningTests.exe"
 if not "%ERRORLEVEL%"=="0" goto build_failed
@@ -94,7 +96,7 @@ if not "%ERRORLEVEL%"=="0" goto build_failed
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
 pushd "%PROJECT_DIR%"
 echo [%date% %time%] Compile projects
-"%MSBUILD%" EnemyBridgePathTest.PolicyTests.csproj /p:Configuration=Debug
+"%MSBUILD%" EnemyBridgePathTest.PolicyTests.csproj /p:Configuration=Debug %SHCDE_BRANCH_MSBUILD_API%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Run tests
 "%PROJECT_DIR%tests\bin\EnemyBridgePathTest.PolicyTests.exe"

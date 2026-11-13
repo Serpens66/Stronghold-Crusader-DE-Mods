@@ -6,7 +6,14 @@ $workshopApiToolsRoot=Get-WorkshopApiRoot ([IO.Path]::GetFullPath((Join-Path $PS
 . (Join-Path $PSScriptRoot 'WorkshopOptions.Common.ps1')
 . (Join-Path $PSScriptRoot 'PublishedModpack.Common.ps1')
 function Get-WorkshopStateRoot($Config,[bool]$Test){$stateWorkspace=Get-ApiMainWorkspace $Config.Root;$path=Join-Path $stateWorkspace '.release-output/SteamWorkshop';if($Test){$path=Join-Path $path 'test'};return $path}
-function Get-WorkshopFolder($Config,$Target,[bool]$Test){if($Test){return (Join-Path $Config.Root ('.release-output/SteamWorkshop/test/packages/'+$Target.Key))};return $Target.Folder}
+function Get-WorkshopFolder($Config,$Target,[bool]$Test){
+    $workspace=Get-ApiMainWorkspace $Config.Root
+    if($Test){return (Join-Path $workspace ('.release-output/SteamWorkshop/test/packages/'+$Target.Key))}
+    $prefix=[IO.Path]::GetFullPath($Config.Root).TrimEnd('\','/')+'\'
+    $folder=[IO.Path]::GetFullPath($Target.Folder)
+    if(-not $folder.StartsWith($prefix,[StringComparison]::OrdinalIgnoreCase)){throw 'Workshop folder escapes its workspace.'}
+    return (Join-Path $workspace $folder.Substring($prefix.Length))
+}
 function Get-WorkshopItemId($Config,$Target,[bool]$Test){
     $state=Get-WorkshopStateRoot $Config $Test
     $path=Join-Path $state ('items/'+$Config.AppId+'-'+$Target.Key+'.item-id')
@@ -49,6 +56,9 @@ function Write-WorkshopPreparation($Config,$Target,[bool]$Test,[string]$Version,
     if($Target.Key -eq 'APIShared' -and $SdkIdentity){$proof.PublishedSdk=$SdkIdentity}
     if($PublishedRelease){$proof.PublishedRelease=$PublishedRelease}
     if($env:SHCDE_API_SHARED_MAIN_SELECTION){$proof.MainSource=Get-ApiMainDeliveryIdentity $Config.Root}
+    if($proof.Contains('MainSource') -and (Test-FrozenWorkshopIdentity $proof.MainSource) -and $proof.Contains('ModpackSource')){
+        $proof.ModpackSource=[ordered]@{Branch=$proof.ModpackSource.Branch;Commit=$proof.ModpackSource.Commit;Frozen=$true;GeneratedOutputs=@($proof.ModpackSource.GeneratedOutputs)}
+    }
     if($Target.Key -eq 'SerpsMods'){$reference=Join-Path (Get-WorkshopStateRoot $Config $Test) 'references/SerpsMods.provenance.json';$proof.ReleaseProvenance=$reference;$proof.ReleaseProvenanceSha256=Get-WorkshopFileHash $reference}
     Write-SteamWorkshopJson -Path (Join-Path (Get-WorkshopStateRoot $Config $Test) ('prepared/'+$Target.Key+'.json')) -Value $proof
     return $proof
@@ -87,7 +97,8 @@ function Assert-WorkshopPreparation($Config,$Target,[bool]$Test){
 }
 function Publish-WorkshopFolder([string]$Source,[string]$Destination,[string]$Workspace){
     $full=[IO.Path]::GetFullPath($Destination)
-    if(-not $full.StartsWith([IO.Path]::GetFullPath($Workspace).TrimEnd('\')+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'Output escapes workspace.'}
+    $coordinator=Get-ApiMainWorkspace $Workspace
+    if(-not $full.StartsWith([IO.Path]::GetFullPath($coordinator).TrimEnd('\')+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'Output escapes workspace.'}
     Assert-ApiWorkshopUnlinkedPath $full;Assert-ApiWorkshopUnlinkedTree $Source
     $candidate=$full+'.ready-'+[guid]::NewGuid().ToString('N');[void][IO.Directory]::CreateDirectory($candidate)
     Get-ChildItem -LiteralPath $Source -Force|ForEach-Object {Copy-Item -LiteralPath $_.FullName -Destination $candidate -Recurse}
@@ -114,7 +125,9 @@ function Assert-PreparedWorkshopFolder([string]$Directory,[string]$Version,[stri
     $apiRoot=Get-WorkshopApiRoot $root
     $publisher=Join-Path $apiRoot '.local/WorkshopUploader/WorkshopUploader.exe'
     if(-not(Test-Path -LiteralPath $publisher)){throw 'Build APIShared/tools/WorkshopUploader/build.bat before preparing Workshop packages.'}
-    Assert-WorkshopPublisherBuild $apiRoot
+    $frozen=$false
+    if($env:SHCDE_API_SHARED_MAIN_SELECTION){$frozen=Test-FrozenWorkshopIdentity (Assert-ApiMainSelection $root $env:SHCDE_API_SHARED_MAIN_SELECTION)}
+    if(-not $frozen){Assert-WorkshopPublisherBuild $apiRoot}
     $run=Join-Path $root ('.release-output/SteamWorkshop/validation/'+[guid]::NewGuid().ToString('N'))
     [void][IO.Directory]::CreateDirectory($run)
     $request=Join-Path $run 'request.json';$result=Join-Path $run 'result.json'

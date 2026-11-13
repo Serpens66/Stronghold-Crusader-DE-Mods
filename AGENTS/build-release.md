@@ -76,7 +76,7 @@ Buildbezogene Abläufe und Prüfungslisten in diesen Anweisungen sind Empfehlung
 
 ## Steam-Modpack „Serps Mods“
 
-- `CreateSteamModPack.bat` ist der kanonische Einstieg. Mit Ziel „APIShared“ oder „Beide“ legt er ein fehlendes APIShared-Release nach Bestätigung aus dem gepinnten öffentlichen `main` an; andere Branches werden nie veröffentlicht. Nach einem PR-Merge auf GitHub spult die Vorbereitung den sauberen lokalen Release-Branch per Fast-Forward nach. `main` wird in einem temporären Git-Worktree (`.release-output\Modpack\main\source`) gebaut, damit der Workspace auf `develop` bleibt; die veröffentlichten Release-Dateien werden nach `.release-output\SerpsMods\v<Version>` des Workspaces kopiert, und `UploadWorkshop.bat` entfernt den Worktree nach erfolgreichem Upload. Ein neuer kompatibler Mod wird ausschließlich über die Liste `Mods` in `Shared/Tools/Steam/WorkshopConfiguration.ps1` aufgenommen.
+- `CreateSteamModPack.bat` ist der kanonische Einstieg. Mit Ziel „APIShared“ oder „Beide“ legt er ein fehlendes APIShared-Release nach Bestätigung aus dem gepinnten öffentlichen `main` an; andere Branches werden nie veröffentlicht. Nach einem PR-Merge auf GitHub spult die Vorbereitung den sauberen lokalen Release-Branch per Fast-Forward nach. `main` wird bei Bedarf in einem kleinen temporären Git-Worktree unter `.work/b/modpack-main` gebaut, damit der Workspace auf `develop` bleibt. Pakete, Publisher und Herkunftsnachweise liegen zentral unter `.release-output`; nach dem Einfrieren und Prüfen der Vorbereitung werden temporäre Quellen freigegeben. `UploadWorkshop.bat` im Hauptordner verwendet die zentrale Vorbereitung ohne vollständige Quellcheckouts. Ein neuer kompatibler Mod wird ausschließlich über die Liste `Mods` in `Shared/Tools/Steam/WorkshopConfiguration.ps1` aufgenommen.
 - Host-GUID `SerpsMods_Serp`, veröffentlichte Child-GUIDs und alle ausgelieferten relativen Pfade sind unveränderlich: nicht umbenennen, wiederverwenden oder stillschweigend entfernen.
 - Einmal ausgelieferte Pfade bleiben in jedem späteren Paket typgültig vorhanden: entfernte DLLs als gültige minimale No-op-Assembly mit gleichem Dateinamen und gleicher Plugin-GUID; JSON/XAML/strukturierte Dateien als formatspezifisch gültige neutrale Tombstones (keine leeren oder ungültigen Dateien).
 - Stillgelegte Mods bleiben in `serps-modpack.json` mit `State: Retired` und erwarteten Tombstone-Hashes. Echte Pfadentfernung erst nach erfolgreichem Update-/Löschtest des verwendeten Extenders.
@@ -88,47 +88,46 @@ Buildbezogene Abläufe und Prüfungslisten in diesen Anweisungen sind Empfehlung
 
 ## Short development paths
 
-New branch sources use `.work/b/<branch>/<number>`; full commits remain in build records.
-`build.bat /source:working /nopause /noinstall` builds an isolated copy of current
-tracked and untracked sources without committing or switching the checkout.
-`/noinstall` is optional and independent of this source selection. Automated
-`/nopause` calls without a source choice default to the working tree; calls without
-arguments retain the branch menu.
-Do not combine it with `/branch`. Every branch or working build removes its copy
-afterwards; source copy sizes depend on the tracked analysis data. An external lifecycle
-record and exclusive lease identify preparing, building, retained and cleaned runs.
-Preparation failures also reach cleanup. `/keepsource`, protected sources, live users,
-unreferenced commits and unclassified contents prevent automatic removal.
-The `.build.json` records hashes; they alone cannot restore uncommitted inputs.
-Compact `.retained.json` manifests and verified deduplicated objects under
-`.work/b/.retained-objects` preserve required unique bytes before a copy is removed.
-Reachable Git blobs (including explicitly verified CRLF restoration) are referenced,
-not copied. Reproducible compiler caches are excluded. Old copies without lifecycle
-ownership require a separate inventory; age alone never authorizes deletion.
-Standalone APIShared branch builds keep source-bound SDKs until explicitly unused;
-identical validated full no-install SDKs can be reused. Its
-`tools/BranchBuild/Release-BranchSource.ps1 -Root <path>` previews retirement;
-`-Release` explicitly attests that no consumer needs it and applies guarded cleanup.
-Working APIShared builds still use the main checkout directly.
-`/syncpackage` (working-tree mod builds only; rejected with `/branch`) mirrors the built
-`<Mod>/BepInEx/plugins/<Guid>` folders back into the tracked workspace package after a successful
-build, removes files the build no longer produced and verifies each file by SHA-256; use it to
-refresh the tracked packages before committing them.
-The record hashes only files that differ from its commit (working overlays, adapter
-rewrites, untracked inputs); the commit identifies everything else.
-An APIShared `main`/`develop` SDK is built and fully tested once per input state and kept
-as the only SDK of that branch in `.work/c/apishared-<branch>` (a Git worktree of the
-APIShared repository). Consumer builds reuse it while `Assert-ApiBuildProof` still matches
-(sources, tests, tools, game/Extender references, MSBuild); any change rebuilds and retests
-it once. Consumer builds of the same SDK branch are serialized. The cache may be deleted
-at any time through `git -C APIShared worktree remove --force <path>`; the next build
-recreates it. Mod consumers can select a previously validated
-package explicitly with `/apishared:package` and `SHCDE_API_SHARED_DIR`; the package
-is verified, never rebuilt. Test and analysis work uses `.work/t` and `.work/a`.
-Historical evidence and published package paths retain their original locations.
+Normale Entwicklungsbuilds (`/source:working`, auch `/workspace`, oder der automatische
+Standard bei `/nopause`) nutzen den vorhandenen Arbeitsstand direkt. Keine vollständige
+Quellkopie und keine Laufzeitanpassung von Quelltexten oder Buildtreibern. SDK-Auswahl,
+Installation und Diagnose werden ausdrücklich als Parameter bzw. Prozessumgebung übergeben.
+`/noinstall` bleibt unabhängig von der Quellauswahl; nicht mit `/branch` kombinieren.
+Aufrufe ohne Argumente behalten das Branchmenü.
 
-Native audits resolve the database through CURRENT.json and its database manifest.
-Branch builds pass SHCDE_NATIVE_BASELINE_ROOT for read-only access to local baseline
-artifacts; audit code must verify that source and shared metadata identify the same
-dataset. Missing databases use the documented RestoreDatabase command, never an
-older guessed filename. Generated audit buffers belong in .work/a.
+Pro Mod und notwendiger Konfiguration bleibt ein aktueller Ausgabestand. Ein erfolgreicher
+Build entfernt überholte Paketdateien und ersetzt den bisherigen Stand; vorübergehendes
+Staging ist zulässig, dauerhafte Buildbackups nicht. Fehlerhafte Builds sind kein gültiger
+Erfolgsnachweis. Kompakte aktuelle Buildmetadaten reichen; kein wachsendes Binärarchiv.
+
+Andere Branches verwenden bei Bedarf `.work/b/<branch>/<nummer>` mit nur den benötigten
+Quellen und Abhängigkeiten. Vollständige Commits stehen in Metadaten, nicht im Ordnernamen.
+Große `_inspect`-Daten werden nicht mitkopiert. Native Audits verwenden CURRENT.json und
+sein Datenbankmanifest über SHCDE_NATIVE_BASELINE_ROOT; die Dataset-Identität bleibt geprüft.
+Fehlende Datenbanken nur mit dem dokumentierten RestoreDatabase-Befehl wiederherstellen.
+
+Isolierte Buildquellen und Test-Fixtures nach Abschluss auch im Fehlerfall aufräumen.
+Aktive Nutzer, echte Entwicklungsänderungen und nicht integrierte Commits schützen;
+einzelne einmalige Dateien gegebenenfalls mit überprüfbarem Wiederherstellungsnachweis
+sichern, statt eine vollständige Arbeitskopie zu behalten. `/keepsource` verlangt einen
+konkreten Bedarf und anschließende Bereinigung im selben Auftrag. Historische Altbestände
+einzeln prüfen, nicht nach Alter oder Ordnername pauschal löschen. Bereits vorhandene
+historische Nachweise bleiben unverändert; überholte Schutzvermerke aktuell berichtigen.
+
+APIShared-SDKs je benötigtem Branch auf einen wiederverwendbaren Stand unter
+`.work/c/apishared-<branch>` begrenzen. Wiederverwendung verlangt weiterhin die passende
+vollständige Buildprüfung samt Quellen, Werkzeugen und Referenzen. Verbraucher desselben
+Caches serialisieren. Registrierte Caches ausschließlich über Git entfernen; der nächste
+Build erzeugt sie bei Bedarf neu. `/apishared:package` mit SHCDE_API_SHARED_DIR nutzt ein
+geprüftes vorhandenes Paket ohne Neubuild. Standalone-APIShared-Arbeitsstandbuilds nutzen
+den eigenen Checkout direkt; sein unabhängiger Branch-Workflow bleibt erhalten.
+
+`/syncpackage` bleibt für Arbeitsstandbuilds zulässig: bei direkter Ausgabe ist keine
+Quellkopie zurückzuspiegeln. Für `/branch` bleibt die Option unzulässig.
+
+Tests und Analysen verwenden `.work/t` bzw. `.work/a` ausschließlich für notwendige
+vorübergehende Eingaben. Nach Auswertung große erneut erzeugbare Rohdaten entfernen;
+kompakte Resultate und notwendige Fehlerbelege erhalten. Eigene Testverzeichnisse auch
+bei Fehlern mit dem sicheren Aufräumhelfer freigeben; Reparse Points nie verfolgen,
+registrierte Git-Worktrees über Git entfernen. Ingame-Akzeptanznachweise und eigenständige
+Entwicklungsquellen sind keine wegwerfbaren Fixtures.

@@ -1,10 +1,11 @@
 [CmdletBinding()]
 param()
+try {
 $ErrorActionPreference = 'Stop'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 . (Join-Path $workspace 'Shared/Tools/Paths/WorkPaths.ps1')
 . (Join-Path $workspace 'Shared/Tools/ScriptExtenderUpdate/ScriptExtenderUpdate.Common.ps1')
-$fixture = New-ShortWorkDirectory -Root $workspace -Kind t -Name runtime-inputs -Identity 'Evaluated runtime Compile/Reference selection'
+$fixture = New-ShortWorkDirectory -Root $workspace -Kind t -Name runtime-inputs -Identity 'Evaluated runtime Compile/Reference selection' -Transient
 function Write-Fixture([string]$Relative, [string]$Text) {
     $path = Join-Path $fixture $Relative
     [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($path))
@@ -70,3 +71,7 @@ Reject 'linked startup teardown' 'startup lifecycle method reaches teardown'
 Write-Fixture 'linked/Safe.cs' 'class LinkedRuntime { }'
 Accept 'corrected evaluated project passes again'
 Write-Host "PASS: $checks evaluated runtime input regressions; fixtures retained at $fixture"
+
+} finally {
+    if (Get-Command Complete-TransientWorkDirectories -ErrorAction SilentlyContinue) { Complete-TransientWorkDirectories -Owner $PSCommandPath }
+}

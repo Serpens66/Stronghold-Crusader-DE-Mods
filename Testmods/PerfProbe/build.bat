@@ -1,4 +1,5 @@
 @echo off
+rem SHCDE_BUILD_PARAMETERS: explicit SDK, installation suffix and no-install settings from the dispatcher.
 setlocal EnableExtensions
 rem SHCDE_BRANCH_DISPATCH: select committed sources; the selected child owns its build.
 if defined SHCDE_BRANCH_SOURCE_ROOT goto :shcde_branch_selected
@@ -35,14 +36,15 @@ if not "%ERRORLEVEL%"=="0" exit /b 1
 if "%VERIFY_ONLY%"=="1" exit /b 0
 set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
 set "MSBUILD=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
-"%MSBUILD%" "%~dp0PerfProbe.csproj" /p:Configuration=Debug /nologo /verbosity:minimal
+"%MSBUILD%" "%~dp0PerfProbe.csproj" /p:Configuration=Debug /nologo /verbosity:minimal %SHCDE_BRANCH_MSBUILD_API%
 if not "%ERRORLEVEL%"=="0" exit /b 1
 copy /Y "%~dp0info.json" "%~dp0BepInEx\plugins\PerfProbe_Serp\info.json" >nul
 if not "%ERRORLEVEL%"=="0" exit /b 1
 if "%SHCDE_BRANCH_NOINSTALL%"=="1" goto :built
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }"
 if not "%ERRORLEVEL%"=="0" goto :game_running
-xcopy "%~dp0BepInEx\plugins\PerfProbe_Serp" "%GAME_DIR%\BepInEx\plugins\PerfProbe_Serp\" /E /I /Q /Y
+if "%SHCDE_BRANCH_NOINSTALL%"=="1" exit /b 0
+xcopy "%~dp0BepInEx\plugins\PerfProbe_Serp" "%GAME_DIR%\BepInEx\plugins\PerfProbe_Serp%SHCDE_BRANCH_INSTALL_SUFFIX%\" /E /I /Q /Y
 if not "%ERRORLEVEL%"=="0" exit /b 1
 echo PerfProbe built and installed.
 exit /b 0
