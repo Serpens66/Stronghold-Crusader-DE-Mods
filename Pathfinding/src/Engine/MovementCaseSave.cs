@@ -104,8 +104,9 @@ namespace Pathfinding.Engine
             if (entries != null) RestoreMovementCases(entries);
         }
 
-        // Orders first: restored waits compare their order with the tribe's last one. Escapes before solos
-        // and waits: a soldier has at most one case, and an escape is the one that holds its own tribe.
+        // Orders first: restored waits compare their order with the tribe's last one. A solo case may
+        // own the temporary tribe that a nested escape borrows (Split=false). Restore both layers:
+        // ProcessReplanSolos defers its rejoin until that escape ends, exactly as without a load.
         private void RestoreMovementCases(IReadOnlyDictionary<string, byte[]> entries)
         {
             long restored = casesRestored, ended = casesEnded, dropped = casesDropped, unreadable = casesUnreadable;
@@ -137,7 +138,8 @@ namespace Pathfinding.Engine
                 e.Kind = (FireReturnKind)kind; e.Hazard = (EscapeHazard)hazard; e.Safe = (flags & 1) != 0; e.Returning = (flags & 2) != 0;
                 return () =>
                 {
-                    bool enabled = e.Hazard == EscapeHazard.Plague ? PlagueEscapeEnabled : FireEscapeEnabled;
+                    bool enabled = AllowsAutomaticHazardControl(e.Player) &&
+                        (e.Hazard == EscapeHazard.Plague ? PlagueEscapeEnabled : FireEscapeEnabled);
                     if (enabled && !fireEscapes.ContainsKey(id) && CanContinueInOwnTribe(id, e.Global, e.Player, e.Tribe)) { fireEscapes[id] = e; casesRestored++; }
                     else EndRestoredCase(id, e.Global, e.Tribe);
                 };
@@ -150,7 +152,15 @@ namespace Pathfinding.Engine
                 var solo = new ReplanSolo { Global = r.ReadUInt32(), MoveX = r.ReadInt32(), MoveY = r.ReadInt32(), Tribe = ReadTribe(r) };
                 return () =>
                 {
-                    if (replanning && !fireEscapes.ContainsKey(id) && !replanSolos.ContainsKey(id) &&
+                    // Escaping does not require AnchorSingleMoves. If its outer solo watch
+                    // is now disabled, hand that tribe's ownership to the borrowed escape:
+                    // keeping an unprocessed solo or rejoining here would orphan/end it.
+                    if (!replanning && solo.Tribe.Split && fireEscapes.TryGetValue(id, out FireEscapeEntry escape) &&
+                        escape.Global == solo.Global && !escape.Tribe.Split && escape.Tribe.Own == solo.Tribe.Own &&
+                        escape.Tribe.OwnGlobal == solo.Tribe.OwnGlobal &&
+                        CanContinueInOwnTribe(id, solo.Global, escape.Player, solo.Tribe))
+                    { escape.Tribe = solo.Tribe; casesRestored++; return; }
+                    if (replanning && !replanSolos.ContainsKey(id) &&
                         TryGetSoldier(id, solo.Global, out GameUnit* unit) && CanContinueInOwnTribe(id, solo.Global, unit->r_ControllableForPlayerId, solo.Tribe))
                     { replanSolos[id] = solo; casesRestored++; }
                     else EndRestoredCase(id, solo.Global, solo.Tribe);
@@ -168,7 +178,8 @@ namespace Pathfinding.Engine
                 {
                     wait.Policy = policy == CasePolicyFire ? fireAbortPolicy : policy == CasePolicyPlague ? plagueAbortPolicy : null;
                     // A dropped wait leaves the soldier stopped where it waited (like an aborted fire wait), in its own group.
-                    if (replanning && wait.Policy != null && !fireEscapes.ContainsKey(id) && !replanWaits.ContainsKey(id) && TryGetSoldier(id, wait.Global, out _))
+                    if (replanning && wait.Policy != null && AllowsAutomaticHazardControl(wait.Player) &&
+                        !fireEscapes.ContainsKey(id) && !replanWaits.ContainsKey(id) && TryGetSoldier(id, wait.Global, out _))
                     { replanWaits[id] = wait; casesRestored++; }
                     else casesDropped++;
                 };

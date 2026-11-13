@@ -77,6 +77,8 @@ namespace CommandFixture
         private Func<IntPtr,int,int,int,int,int> originalRegionReachability;
         private byte* nativeUnitManager;
         private bool ManualCommandsEnabled=true, TraversalEnabled;
+        // No tile rules in this legacy command fixture; the actual rule guard is exercised by ForbiddenMoveTargetTests.
+        private bool IsForbiddenMoveTarget(int tribe,int x,int y) => false;
         private MaintenanceProvider Traversal;
         private sealed class MaintenanceProvider
         {

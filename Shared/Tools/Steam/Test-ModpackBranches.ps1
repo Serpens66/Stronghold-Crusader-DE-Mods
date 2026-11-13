@@ -21,7 +21,7 @@ Reject {Resolve-WorkshopOptions @('/modpack','/branch:invalid')}
 $init=Invoke-ApiRepositoryProcess 'git' @('init','--initial-branch=main',$root);Check ($init.ExitCode -eq 0) 'Init failed'
 foreach($relative in @('Shared/Tools/Paths/WorkPaths.ps1','Shared/Tools/ApiSharedRepository/RepositoryProcess.Common.ps1','Shared/Tools/ApiSharedRepository/MainSource.Common.ps1',
  'Shared/Tools/Steam/ModpackSource.Common.ps1','Shared/Tools/Steam/WorkshopOptions.Common.ps1','Shared/Tools/Steam/WorkshopWorkflow.ps1',
- 'Shared/Tools/Steam/WorkshopWorkflow.Common.ps1','Shared/Tools/Steam/WorkshopOutputRetention.ps1','Shared/Tools/Steam/SteamWorkshopHistory.ps1',
+ 'Shared/Tools/Steam/WorkshopWorkflow.Common.ps1','Shared/Tools/Steam/WorkshopPublisherScope.ps1','Shared/Tools/Steam/WorkspaceReleaseRetention.ps1','Shared/Tools/Steam/WorkshopOutputRetention.ps1','Shared/Tools/Steam/SteamWorkshopHistory.ps1',
  'Shared/Tools/Steam/PublishedModpack.Common.ps1','Shared/Tools/Steam/ReleaseAssetCache.ps1','Shared/Tools/Steam/ApiSharedSdkPolicy.ps1',
  'CreateSteamModPack.bat','UploadWorkshop.bat')){Put $relative ([IO.File]::ReadAllText((Join-Path $workspace $relative)))}
 Put 'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/SerpsModsHost.dll' 'original fixture build'

@@ -111,4 +111,5 @@ CircleProjectionTests.Validate(root);
 FormationMovementEligibilityTests.Validate(root);
 FormationCommandPipelineTests.Validate(root);
 FormationDispatchOutcomeTests.Validate(root);
+ForbiddenMoveTargetTests.Validate(root);
 Console.WriteLine("PASS: main command fixes use native probes and group fallback; actual installed RedBird contracts verified.");

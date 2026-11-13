@@ -6,6 +6,66 @@ Momentaufnahme vom 07.11.2026, zusammengeführt aus den `UpdateToNewDLL.md` von 
 
 Alle Befehls-Hooks gehören `UnitCommands`; der Engine-Provider (`src/Engine`) installiert selbst keinen Hook. Nativer Fehlschlag schaltet das betroffene Teilfeature ab, Vanilla übernimmt. Neu seit der Zusammenführung: Ohne Grabenquerung veröffentlicht der Kern Bodenwege nur bei `+0x84 == 0` (`0xF4930`-Grabenmodus bleibt Vanilla, `GROUND_ROUTE_BUILDERS.md`), siehe `BuildEngineRoute`.
 
+## Nachtrag 13.11.2026: Aufnahme-, Warte- und Ablehnungsverträge
+
+Gilt ausschließlich für SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`;
+installierte kanonische DLL, CURRENT.json und ausgewähltes DATABASE_INFO.json
+wurden abgeglichen. Historische Abschnitte unten bleiben datierte Nachweise.
+Neue Guard-Felder wurden zusätzlich gegen die **installierte** verwaltete Assembly
+auf Sichtbarkeit, Typ und Marshal-Offset geprüft. Keine neue native Hookstelle.
+
+`0x11B520` kann 1 liefern, ohne ein Mitglied aufzunehmen; ein alter AIState
+101/122 bleibt dann erhalten. `SoldierTribeMoves.TryMoveSoldier` prüft nach dem
+bestehenden `GroupMoveExclusion.TryClear` und vor dem Befehl daher folgende Felder:
+
+| GameUnit-Feld | Offset / Typ | Zulässiger Wert |
+| --- | --- | --- |
+| `r_InterestingTodo1` | `+0x29A`, UInt16 | 0 |
+| `r_IsKilledByProjectile` | `+0x29C`, UInt16 | 0 |
+| `N000001F6_3` | `+0x40F`, byte | 0 |
+| `N000000D8` | `+0x428`, UInt16 | 0 nach Markierungshelfer |
+| `N00000573` | `+0x90`, UInt16 | ungleich 1 |
+
+Zusätzlich gelten lebende Unit/Global-ID, passende lebende Own-Tribe/Global-ID und
+Eigentümer, `IsReplanSoldier` sowie AIState ungleich 207. Die vollständig ausgeschlossenen
+Belagerungstypen decken auch die nativen Sonderfälle mit Crew-Zulassung ab. Nach
+dem Befehl wird die Identität erneut und der neue Walking-/Exit-Zustand geprüft.
+Bei DLL-/Layoutwechsel den vollständigen Aufnahme- und Folgezustandspfad neu
+auditieren; bloßes Umbenennen generischer Felder oder erfolgreicher Build genügt nicht.
+Die Regression mit altem 101 scheiterte vorher; 101 und 122 bestehen nach Korrektur.
+
+**Mod work, not Vanilla:** geeignete menschliche Soldaten erhalten aktive Gefahr-
+Stop-/Fluchtbefehle; KI nur sichere Kostenwege in bestehenden Befehlen bis zu
+separatem Zustandsaudit und Spielabnahme. Alte KI-Fälle werden beendet/bereinigt.
+Die beiden Hostoptionen `FireWaitIndefinitely`/`PlagueWaitIndefinitely` (Default false)
+betreffen ausschließlich eigene Routenwartefälle. APIShareds `MaximumWaitTicks=0`
+bedeutet weiterhin kein Stoppen. Rückkehrfristen werden nicht verlängert;
+Fristablauf eigener begrenzter Gefahrwartefälle bricht ab. Neue Aufträge, Tod und
+Identitäts-/Eigentumswechsel lösen alte Wartefälle ab. Tick-basierte Rotation unter
+unbegrenzten Wartefällen erhält deterministische Probeverteilung nach Save/Load;
+keine Uhrzeitbudgets und keine Saveformatänderung.
+
+**G8-Befehlsgrenze:** Nur mit aktiver Pathfinding-Engine und nachgewiesenem lebendem
+Gruppeneigentümer blockiert `ForbiddenMoveTargets` ein verbotenes Ziel. Direkte
+Bewegungen und neue Queue-Wegpunkte werden vor Auftrags-/Queueänderungen abgelehnt;
+der Spielerwrapper erhält Tribe `+0x56C` zurück, das `0x196100` vor seinem Gruppenruf
+schreibt. Vollständigen Wrapper-/Gruppen-/Queuepfad bei DLL-Wechsel prüfen.
+Start-im-Verbot bleibt verlassbar, kein Ersatz-Endziel, keine globale Vanilla- oder
+öffentliche APIShared-Semantikänderung. **Extendervertrag:** Alle Subscriber sehen
+Pre auch nach `SkipOriginalFunction=true`; bei übersprungener Originalfunktion
+gibt es **kein Post**. Deshalb darf die spätere `OnAnchorMoveHere`-Subscription
+in diesem Pre weder Auftrag beobachten noch einen Frame beginnen. Post eines
+akzeptierten Elternaufrufs muss auch nach verschachtelter Ablehnung schließen.
+Tatsächliche beide Subscriber werden gemeinsam regressionsgeprüft.
+
+Nachweise/Abnahmegrenzen: [OfflineImplementation](Findings/OfflineImplementation.md),
+[OfflineHazards](Findings/OfflineHazards.md) und
+[OfflineOptimization](Findings/OfflineOptimization.md).
+Feuer-/Pestfreigabe, dynamische Höhen-/Wegeverifikation und Zweirechner-MP sind
+weiter offen. G1/G2-Arithmetikkandidaten wurden nach negativem Nettokostennachweis
+nicht produktiv eingebaut; ihre Offline-Hookspannen sind keine Runtime-Abhängigkeit.
+
 # Aus MoatMove
 
 

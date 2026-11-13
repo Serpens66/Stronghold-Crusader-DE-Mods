@@ -60,6 +60,8 @@ namespace EngineHarness
         public int r_IsKilledByProjectile;
         public int r_CurrentSpeed;
         public ushort N000000D8;
+        public ushort r_InterestingTodo1, N00000573;
+        public byte N000001F6_3;
     }
     internal struct GameCursorManager { public uint r_HoverOverBuildingId,r_HoverOverUnitId,r_HoverOverBuildingTileId,r_MouseTileId2,r_HoveringOverWall,r_MouseTileId,r_MouseTileX,r_MouseTileY; }
     internal unsafe struct CursorPointer { public GameCursorManager* Pointer; }
@@ -1272,6 +1274,7 @@ namespace EngineHarness {
   // 1: Pathfinding's required-only flow (its only mode); 0 only models Pathfinding without Pathfinding.
   internal int RouteMode=1;
   internal bool AnchorSingleMoves;
+  internal bool FireWaitIndefinitely, PlagueWaitIndefinitely;
   internal string PluginDirectory;
  }
 }

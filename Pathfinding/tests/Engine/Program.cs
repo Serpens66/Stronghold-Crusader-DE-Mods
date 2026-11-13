@@ -11,6 +11,9 @@ string root = Path.GetFullPath(args.Length == 0 ? "." : args[0]);
 if (args.Contains("--redbird-only")) { InstalledRedBirdContract.Validate(); return; }
 Pathfinding.Settings.Tests.SettingsDependencyTests.Run(root);
 if (args.Contains("--settings-only")) return;
+HazardScannerTests.Run(root);
+if (args.Contains("--hazards-only")) return;
+AnchorMoveVetoTests.Run(root);
 OutsideBuilderDiagnosticsTests.Run(root);
 DirectionWatchTests.Run(root);
 if (args.Contains("--direction-watch-only")) return;
@@ -317,6 +320,8 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "CursorTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "PlacementTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "AnchorIntegrationTests.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "WaitModeTests.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "HazardEscapeLoadTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FormationBoundaryFixture.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FillFormationTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "DigWorkFallbackTests.cs"))),

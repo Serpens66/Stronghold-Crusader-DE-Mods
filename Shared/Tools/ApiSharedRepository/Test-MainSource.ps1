@@ -315,7 +315,7 @@ Write-Host ('PUBLISHED_SDK='+$env:API_SHARED_DIR)
     Check ([IO.File]::ReadAllText((Join-Path $api 'open.txt')) -ceq 'unfinished development') 'PR helper changed open file.'
     # Exercise both original BAT entrypoints with real policy/worktrees and inert target services.
     $steam=Join-Path $root 'Shared/Tools/Steam'
-    foreach($file in @('PublishedModpack.Common.ps1','ReleaseAssetCache.ps1','ModpackSource.Common.ps1','WorkshopWorkflow.ps1','WorkshopWorkflow.Common.ps1','WorkshopOutputRetention.ps1','WorkshopOptions.Common.ps1','SteamWorkshopHistory.ps1','ApiSharedSdkPolicy.ps1')) {
+    foreach($file in @('PublishedModpack.Common.ps1','ReleaseAssetCache.ps1','ModpackSource.Common.ps1','WorkshopWorkflow.ps1','WorkshopWorkflow.Common.ps1','WorkshopPublisherScope.ps1','WorkspaceReleaseRetention.ps1','WorkshopOutputRetention.ps1','WorkshopOptions.Common.ps1','SteamWorkshopHistory.ps1','ApiSharedSdkPolicy.ps1')) {
         Copy-Item -LiteralPath (Join-Path $workspace ('Shared/Tools/Steam/'+$file)) -Destination (Join-Path $steam $file)
     }
     foreach($file in @('CreateSteamModPack.bat','UploadWorkshop.bat')){Copy-Item -LiteralPath (Join-Path $workspace $file) -Destination (Join-Path $root $file)}

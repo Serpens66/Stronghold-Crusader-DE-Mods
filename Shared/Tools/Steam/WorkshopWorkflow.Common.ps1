@@ -1,4 +1,5 @@
 . (Join-Path $PSScriptRoot '../ApiSharedRepository/MainSource.Common.ps1')
+. (Join-Path $PSScriptRoot 'WorkshopPublisherScope.ps1')
 $workshopApiToolsRoot=Get-WorkshopApiRoot ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..')))
 . (Join-Path $workshopApiToolsRoot 'tools/WorkshopPackage.ps1')
 . (Join-Path $PSScriptRoot 'SteamWorkshopHistory.ps1')
@@ -132,8 +133,8 @@ function Assert-PreparedWorkshopFolder([string]$Directory,[string]$Version,[stri
     [void][IO.Directory]::CreateDirectory($run)
     $request=Join-Path $run 'request.json';$result=Join-Path $run 'result.json'
     Write-SteamWorkshopJson $request ([ordered]@{SchemaVersion=1;Mode='Production';PackageId=$PackageId;Version=$Version;SourceDirectory=$Directory;StateRoot=$run;PreviewFile=(Join-Path $Directory 'preview.png');Title=$PackageId;Description='Package validation';ChangeNote='';Visibility='Private';WorkshopId='';PreservePresentation=$false;ForbiddenItemIds=@()})
-    & $publisher --validate $request $result
-    if($LASTEXITCODE -ne 0){throw "Complete package validation failed: $result"}
+    $publisherExit=Invoke-ScopedWorkshopPublisher $publisher validate $request $result
+    if($publisherExit -ne 0){throw "Complete package validation failed: $result"}
 }
 function Assert-PreparedLooseFolder([string]$Directory,[string]$Version){Assert-PreparedWorkshopFolder $Directory $Version 'SerpsMods_Serp'}
 function Initialize-WorkshopBootstrapEnvironment([string]$Workspace) {

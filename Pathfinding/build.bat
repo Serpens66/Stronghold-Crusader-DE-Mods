@@ -106,10 +106,6 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Va
 if not "%ERRORLEVEL%"=="0" goto failed
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\_inspect\AssassinGateClimb\verify.ps1" -SkipPermanentHooks -SkipCommonChecks
 if not "%ERRORLEVEL%"=="0" goto failed
-"%MSBUILD%" "%PROJECT_DIR%tests\Movement.Tests\Movement.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%" /nologo /v:minimal
-if not "%ERRORLEVEL%"=="0" goto failed
-"%PROJECT_DIR%tests\Movement.Tests\bin\Movement.Tests.exe"
-if not "%ERRORLEVEL%"=="0" goto failed
 pwsh.exe -NoProfile -File "%PROJECT_DIR%tests\GatehouseDiagnostics\Test-GatehouseDiagnostics.ps1"
 if not "%ERRORLEVEL%"=="0" goto failed
 pwsh.exe -NoProfile -File "%PROJECT_DIR%tests\GatehouseDiagnostics\Test-GatehouseDiagnostics.ps1" -Diagnostic
@@ -120,6 +116,14 @@ if not "%ERRORLEVEL%"=="0" goto failed
 echo [%date% %time%] Compile projects
 "%MSBUILD%" "%PROJECT_DIR%Pathfinding.csproj" /t:Build /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%" %CONFIG_ARGS% /nologo /v:minimal
 if not "%ERRORLEVEL%"=="0" goto failed
+rem Movement.Tests references the current main assembly as PathfindingModel. Branch
+rem dispatch may clean the package first, so compile that assembly before this suite.
+if "%NO_TESTS%"=="1" goto package_native_cores
+"%MSBUILD%" "%PROJECT_DIR%tests\Movement.Tests\Movement.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%" /nologo /v:minimal
+if not "%ERRORLEVEL%"=="0" goto failed
+"%PROJECT_DIR%tests\Movement.Tests\bin\Movement.Tests.exe"
+if not "%ERRORLEVEL%"=="0" goto failed
+:package_native_cores
 echo [%date% %time%] Package native cores
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%native\Build-PathfindingAnchor.ps1" -CopyOnly -OutputDirectory "%LOCAL_PLUGIN_DIR%"
 if not "%ERRORLEVEL%"=="0" goto failed

@@ -1104,3 +1104,52 @@ recognition and protocol6 semantics are documented in
 Packet registration and authenticated execution are independent of local UI settings
 and optional native/presentation initialization. Unknown native contracts disable
 area commands while preserving Vanilla input and deterministic channel identities.
+
+## AI harassment recruitment readiness
+
+Owner: `SiegeCrew.AiCrewReadinessPatch`. The existing default-on synchronized
+`EnableSiegeCrewDuplicationFix` and the global mod switch control its own activation
+word independently of the timeout and fatal-fire groups. No tick callback, managed
+native callback, new setting or save data is needed. Previously stranded reserves
+are not automatically repaired.
+
+Reference DLL SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+Exclusive half-open span `[0x2EECC,0x2EEDB)` in deployment function `0x2ECD0`:
+`428B8C2BE4E67903 33FF 83F908 7C0A` (8+2+3+2 bytes). Continuation at
+`0x2EEDB` is `8BCF`. The displaced JL targets `0x2EEE5`; rejection targets
+`0x2F059`, the epilogue which restores RSI, RDI, R14 and R15 before R12.
+`0x2F06D` is not a valid rejection target at this point. The upstream branch at
+`0x2EDE5` enters the span start; no native direct branch or baseline cross-reference
+enters its interior. APIShared's quota span at `0x2EDC7` may also jump to this start.
+Fixes' delayed order at `0x2EFCB` is downstream and does not overlap.
+
+Entry: R13=image base, RBX=owner*0x583C, EBP=owner, RSI=one-based reserve tribe ID,
+R14=RSI*0x688. Other registers remain live. The added native scan preserves every
+used GPR, flags and stack; it uses no SIMD or calls. Dormant and successful paths
+replay all four displaced instructions once, preserving the original index branches.
+Rejection has no writes and leaves the machine index, tent creation and normal
+order untouched for the next regular AI invocation. The full group must be ready;
+Vanilla's prerequisite remains two members. Extra members are validated too.
+
+Hash-bound data: tribe manager `0x7CC6720`, stride `0x688`, valid IDs1..4499;
+unit manager `0x67E8400`, stride `0x490`, valid IDs1..9999 and below nextID at manager+0.
+Tribe anchor fields: owner word+0x2C, global dword+0x34, life word+0x40,
+member count word+0x5C,625 membership-bitmap words+0x60. Unit anchors use life+0x6E4,
+type+0x6E6, owner+0x6EE, global+0x6F0, death marker+0x8F8, main state+0x918,
+tribe ID+0x930, tribe global+0x93C, recruitment flag+0x9CA and native role+0xA82.
+The native role22 is distinct from AI tribe storage role165. Stored reserve tribe
+global is `0x379FB5C+owner*0x583C`; machine index is `0x379E6E4+owner*0x583C`.
+A live same-owner Engineer with nonzero identity, matching reciprocal tribe ID/global,
+role22, no death/recruitment marker and idle main state0..2 is ready. The entire
+bitmap including tail and declared count is checked without writing it.
+
+There is no semantic fallback on another DLL: matching instruction bytes cannot
+establish recruitment semantics or the audited layouts. Unknown hash, occupied span,
+byte mismatch or installation failure leaves this independent group logically off.
+For updates repeat recruitment `0x1819D0`, order15 `0x11E960`, engineer handler
+`0x14AED0`, converter `0x195D10`, deployment/counting audit, incoming-edge and
+foreign-span checks. `tests/SiegeCrew.Tests` executes the production emitter with
+ready, pending, stale, dead, foreign and inconsistent groups, register/flag sentinels,
+both index branches and activation combinations. `Testmods/AiSiegeCrewTest` owns
+live simulation scenarios; it seeds only disposable fixture recruits and calls the
+ordinary AI routine, retaining real placement, pathing, delayed commands and building.

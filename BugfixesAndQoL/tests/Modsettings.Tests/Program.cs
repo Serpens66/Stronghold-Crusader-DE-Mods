@@ -320,6 +320,7 @@ internal static partial class Program
             SettingsPresentationTests(workspace);
             CompactLobbyChatTests(workspace, game);
             CallerGates();
+            SiegeCrewActivationMatrix();
             Console.WriteLine("PASS: built production DLL settings matrices, independent AI-list capacity, callers, classifications/defaults/XAML: "+checks+" checks.");return 0;
         }
         catch(Exception ex){Console.Error.WriteLine(ex);return 1;}
@@ -487,6 +488,34 @@ internal static partial class Program
         Check(!Ancestors(workshop).Any(a=>a.Attributes?["IsEnabled"]?.Value=="{Binding CanEditHostSettings}"),"Workshop no longer inherits Host authority");
     }
     private static IEnumerable<XmlNode> Ancestors(XmlNode n){for(;n!=null;n=n.ParentNode)yield return n;}
+    private static void SiegeCrewActivationMatrix()
+    {
+        // Exercise the production toggle method without publishing executable hooks.
+        Type type = mod.GetType("BugfixesAndQoL.SiegeCrew.FixRuntime", true);
+        object runtime = FormatterServices.GetUninitializedObject(type);
+        string[] gates = { "timeoutActivation", "aiReadinessActivation", "fireActivation" };
+        IntPtr[] words = gates.Select(_ => System.Runtime.InteropServices.Marshal.AllocHGlobal(4)).ToArray();
+        try
+        {
+            for (int n = 0; n < gates.Length; n++) type.GetField(gates[n], All).SetValue(runtime, words[n]);
+            foreach (bool master in new[] { false, true })
+            foreach (bool crew in new[] { false, true })
+            foreach (bool fire in new[] { false, true })
+            {
+                type.GetMethod("SetEnabled", All).Invoke(runtime, new object[] { master, crew, fire });
+                for (int n = 0; n < gates.Length; n++)
+                    Check(System.Runtime.InteropServices.Marshal.ReadInt32(words[n]) == (master && (n == 2 ? fire : crew) ? 1 : 0),
+                        "independent production siege activation " + gates[n]);
+            }
+            // An independently failed installation leaves a null gate and must
+            // neither throw nor prevent the other groups from switching.
+            type.GetField("aiReadinessActivation", All).SetValue(runtime, IntPtr.Zero);
+            type.GetMethod("SetEnabled", All).Invoke(runtime, new object[] { true, true, false });
+            Check(System.Runtime.InteropServices.Marshal.ReadInt32(words[0]) == 1 &&
+                System.Runtime.InteropServices.Marshal.ReadInt32(words[2]) == 0, "absent AI group preserves independent switches");
+        }
+        finally { foreach (IntPtr word in words) System.Runtime.InteropServices.Marshal.FreeHGlobal(word); }
+    }
     private static void CallerGates()
     {
         foreach(var pair in new[]{new[]{"LobbySaveLoadingFeature","ResolveSoloLoad","get_EnableSoloMultiplayerSaveLoading"},new[]{"LobbySaveLoadingFeature","AfterSetup","get_FixSkirmishLoadButtonVisibility"},new[]{"WorkshopUploadLordSelectionFix","ButtonClickedHook","get_EnableWorkshopUploadLordSelectionFix"}})

@@ -36,6 +36,8 @@ namespace Pathfinding.UnitCommands {
         private bool Valid=true;private bool ValidatePacket(FormationOrderPacket p,out string reason){reason="fixture";return Valid;}
         private class UnitAssignmentFrame {} private class UnitFallbackAttempt {} private UnitAssignmentFrame unitAssignmentFrame;private UnitFallbackAttempt unitFallbackAttempt;private ManualPlayerMoveFrame manualPlayerMove;
         private bool manualAdmissionReady=true,TraversalEnabled;private IntPtr nativeTribeManager;private const int TribeRecordSize=0x688;
+        // Tile-rule rejection has its own production-dispatch fixture.
+        private bool IsForbiddenMoveTarget(int tribe,int x,int y)=>false;
         private long playerMoveEntries;private Action<IntPtr,int,int,int,int,int> nativePlayerMove,traversalMoveProvider;
         private void ReportNativeDetourBarrier(string n,Exception e){}
         private void LogErrorNoThrow(string m){}private void LogWarningNoThrow(string m){}private void ClearUnitAssignmentFrames(object o){}

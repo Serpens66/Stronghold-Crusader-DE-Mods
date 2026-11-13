@@ -21,6 +21,12 @@
   },
   "documents": [
     {
+      "file": "PATHFINDING_MIGRATION.md",
+      "scope": "mod",
+      "components": ["Pathfinding", "BugfixesAndQoL", "APIShared", "MoatMove"],
+      "vanillaSections": []
+    },
+    {
       "file": "UNIT_LOAD_PLACEMENT_CONTRACTS.md",
       "scope": "vanilla+integration",
       "components": ["PathfindingLoadTest", "Pathfinding", "APIShared", "Script Extender"],

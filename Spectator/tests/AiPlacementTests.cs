@@ -8,6 +8,13 @@ internal static class AiPlacementTests
     public static int Main()
     {
         var model = new AiPlacementModel();
+        foreach (var mapper in new[] { eMappers.MAPPER_PEOPLE_MACEMEN, eMappers.MAPPER_PEOPLE_ARCHERS, eMappers.MAPPER_PEOPLE_ENGINEERS })
+        {
+            Check(AiMapperTypes.IsUnitPlacement(7, mapper), "Normal troop selection must expose AI placement in SP and editor.");
+            Check(!AiMapperTypes.IsUnitPlacement(0, mapper), "Cancellation must hide AI placement even with a retained subtype.");
+            Check(!AiMapperTypes.IsUnitPlacement(5, mapper), "Building action must not expose a retained troop subtype.");
+        }
+        Check(!AiMapperTypes.IsUnitPlacement(7, eMappers.MAPPER_CATAPULT), "Non-unit mappers must not expose AI placement.");
         foreach (bool enabled in new[] { false, true })
         foreach (bool editor in new[] { false, true })
         foreach (bool multiplayer in new[] { false, true })

@@ -112,6 +112,10 @@ namespace Pathfinding.Engine
         // Every EscapeInterval ticks after the fire and plague scans of this tick.
         private bool FireEscapeEnabled => fireEscapeActive && fireEscapePolicy != null;
         private bool PlagueEscapeEnabled => plagueEscapeActive && plagueEscapePolicy != null;
+        // AI Lords own their order/group state. Route costs still apply to their ordinary
+        // searches, but active stop/flee commands await the separate AI game acceptance.
+        private static bool AllowsAutomaticHazardControl(int player) =>
+            player >= 1 && player <= 8 && !GamePlayerManagerAPI.Instance.IsAIPlayer(player);
         private void FireEscapeTick(int tick)
         {
             if (!FireEscapeEnabled && !PlagueEscapeEnabled || runtime.nativeUnitManager == null || (tick % EscapeInterval) != 0) return;
@@ -131,7 +135,7 @@ namespace Pathfinding.Engine
                     escapeChecks++;
                     if (!IsReplanSoldier(unit) || fireEscapes.ContainsKey(id)) continue;
                     int player = unit->r_ControllableForPlayerId;
-                    if (player < 1 || player > 8) continue;
+                    if (!AllowsAutomaticHazardControl(player)) continue;
                     if (fireEscapeRetry.TryGetValue(id, out int retry)) { if (tick - retry < 0) continue; fireEscapeRetry.Remove(id); }
                     if (!TryGetEscapeHazard(unit, x, y, out EscapeHazard hazard)) continue;
                     StartFireEscape(id, unit, player, x, y, hazard, tick);
@@ -323,6 +327,8 @@ namespace Pathfinding.Engine
                 if (!APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) || unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                     unit->r_GlobalId != entry.Global)
                 { LogEscape("end-gone", id, entry); EndFireEscape(id, entry); escapeEndedGone++; continue; }
+                if (!AllowsAutomaticHazardControl(entry.Player) || unit->r_ControllableForPlayerId != entry.Player)
+                { LogEscape("end-control", id, entry); EndFireEscape(id, entry); escapeEndedOrder++; continue; }
                 int targetX = unit->r_TargetTilePositionX2, targetY = unit->r_TargetTilePositionY2;
                 // Vanilla moves a walker whose target tile is taken to a neighbouring tile (same order and tribe).
                 if (unit->r_TribeId == entry.Tribe.Own && (targetX != entry.MoveX || targetY != entry.MoveY) && IsMoveCommanded(unit) &&

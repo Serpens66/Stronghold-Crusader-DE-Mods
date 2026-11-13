@@ -5,7 +5,9 @@ if($null -eq $Options){$Options=@()}
 . (Join-Path $PSScriptRoot 'WorkshopOptions.Common.ps1')
 . (Join-Path $PSScriptRoot '../ApiSharedRepository/MainSource.Common.ps1')
 . (Join-Path $PSScriptRoot 'ModpackSource.Common.ps1')
-$exitCode=0;$settings=$null;$lock=$null;$mainSdkMutex=$null
+. (Join-Path $PSScriptRoot 'WorkshopPublisherScope.ps1')
+. (Join-Path $PSScriptRoot 'WorkspaceReleaseRetention.ps1')
+$exitCode=0;$settings=$null;$lock=$null;$mainSdkMutex=$null;$cleanupWorkspace=$null
 $previousMainSelection=$env:SHCDE_API_SHARED_MAIN_SELECTION
 $noPauseRequested=@($Options|Where-Object {$_ -ieq '/nopause'}).Count -gt 0
 # Leave delegated work through this block so only the original caller owns the pause.
@@ -16,6 +18,7 @@ try{
     $settings=Resolve-WorkshopOptions $Options
     if($settings.Target -eq 'Cancel'){exit 0}
     $config=Get-WorkshopConfiguration
+    if($Action -eq 'Prepare' -and -not $settings.Validate){$cleanupWorkspace=Get-ApiMainWorkspace $config.Root}
     if($settings.Target -in @('SerpsMods','Both')){
         if($Action -eq 'Prepare'){
             $settings.Branch=Get-ModpackBranchChoice $settings.Branch
@@ -125,6 +128,7 @@ try{
     }
     if($Action -eq 'Prepare' -and -not $settings.Validate){Remove-SupersededWorkshopDeliveries $config.Root $previousDeliveries}
 }catch{Write-Host $_.Exception.Message -ForegroundColor Red;$exitCode=1}finally{
+    if($cleanupWorkspace){$null=Clear-WorkspaceReleaseOutputs $cleanupWorkspace -WorkflowLease $lock}
     if($lock){$lock.Dispose()}
     if($mainSdkMutex){$mainSdkMutex.ReleaseMutex();$mainSdkMutex.Dispose()}
     $env:SHCDE_API_SHARED_MAIN_SELECTION=$previousMainSelection

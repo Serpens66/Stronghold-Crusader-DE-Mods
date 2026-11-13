@@ -536,6 +536,10 @@ namespace Pathfinding.Engine
                     if (anchorEndedUnreached != 0) LogAnchorUnreached();
                     return;
                 }
+                // A command-boundary veto (including Forbidden targets) still reaches this
+                // later subscriber, but the Extender emits no Post. Preserve the prior order
+                // and any enclosing frame instead of opening an unfinishable child frame.
+                if (args.SkipOriginalFunction) return;
                 // The replan watch repeats only a tribe's last observed order (simulation thread only).
                 if (Environment.CurrentManagedThreadId == anchorSimThread)
                     ObserveTribeOrder(args.TribeId, true, args.TileX, args.TileY, args.IsPatrolPath, args.IsNewOrder, args.MoveType,

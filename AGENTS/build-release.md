@@ -61,6 +61,13 @@ Buildbezogene Abläufe und Prüfungslisten in diesen Anweisungen sind Empfehlung
 
 - Kritische Datei-/Paket-Hashprüfungen in Build-/Release-Treibern nutzen die vorhandenen gemeinsamen .NET-SHA-256-Helfer statt `Get-FileHash` (Verfügbarkeit/Modulauflösung nicht vorausgesetzt). Streams und Hashobjekte zuverlässig freigeben; bei Fehlern abbrechen, nie überspringen oder schwächer vergleichen.
 
+## Temporäre Ausgaben und lokale Releasearchive
+
+- Compilerverzeichnisse (`bin`, `obj`) und simulierte Testdaten sind erneut erzeugbar. Tests räumen eigene Fixtures bei Erfolg und Fehler auf; nach abgeschlossenen Untersuchungen kompakte Ergebnisse und notwendige Fehlerbelege statt vollständiger Compiler- oder Fixturebäume behalten. Nicht zuordenbare Quellen und echte Spielcaptures vorher prüfen und erhalten.
+- Publisher-Aufrufe besitzen eigene temporäre Paketkopien. Nach Prozessende diese Kopien entfernen; Workshop-IDs, Versions-/Fingerprint-Zustand, Wiederanlaufmetadaten und kompakte Aufruf-/Changelog-Nachweise erhalten. Aktuelle eingefrorene Publisherdateien nicht verändern und aktive Aufrufe anderer Prozesse nicht bereinigen.
+- Keine zusätzlichen lokalen Releasearchive auf Vorrat behalten. Nach erfolgreicher Vorbereitung können unreferenzierte Versionspakete, Download-/Entpackcaches und Staging-Daten entfernt werden. Aktuelle Uploadpakete, Publisher und alle tatsächlich von deren Vorbereitung benötigten Dateien bleiben erhalten. Historische Versionen bei Bedarf von GitHub beziehen oder aus dem passenden Quellstand neu erzeugen; ein Neubuild garantiert keine byteidentischen historischen Binärdateien.
+- Installierte Analysewerkzeuge und Unity-Rücksetzdateien von heruntergeladenen Installern und Entpackresten unterscheiden. Aktuelle, manifestierte Analyseindizes und benötigtes Wissen erhalten; nicht mehr verwendete, erneut erzeugbare Indizes und abgeschlossene Checkpoints können nach Prüfung der Referenzen entfallen. Historische Metadaten und getrackte Quellen dabei nicht umschreiben.
+
 ## Lokale Mod-Buildcheckpoints
 
 - Release-, Kompatibilitäts- und Hostbuilds mit explizitem `/noinstall` können vollständig erfolgreiche Builds samt Prüfungen über `Shared/Tools/BuildCache/ModBuildCheckpoint.ps1` wiederverwenden. Installierende Aufrufe führen ihre Buildaktion immer aus, weil vorhandene Paketdateien keine erfolgreiche Installation belegen. Dies überspringt keine aktuellen Git-, Abhängigkeits-, Versions-, Paket-, DEVDIAG- oder Veröffentlichungssperren. Teilweise bestandene Prüfungen eines fehlgeschlagenen Builds werden nicht als Erfolg gespeichert.

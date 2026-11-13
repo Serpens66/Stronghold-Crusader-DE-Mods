@@ -66,6 +66,7 @@ internal static partial class Program
 
                 VerifyFirePatch(image, activation);
                 VerifySettingsCombinations(image, activation);
+                VerifyAiReadiness(image, activation);
 
                 // Model a backend that can fail after a site was enabled, including
                 // the last one. Every stub still executes its dormant native path.

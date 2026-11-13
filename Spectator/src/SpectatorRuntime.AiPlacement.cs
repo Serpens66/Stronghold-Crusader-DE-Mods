@@ -242,9 +242,10 @@ namespace Spectator
             { if (aiEditorCanvas != null) DetachAiPlacementPanel(); else if (aiPlacementPanel != null) aiPlacementPanel.Visibility = Visibility.Collapsed; return; }
             EnsureAiPlacementPanel();
             if (aiPlacementPanel == null) return;
-            int mapper = MainControls.instance?.CurrentAction == (editor ? 7 : 5) ? MainControls.instance.CurrentSubAction : -1;
+            int mapper = MainControls.instance?.CurrentSubAction ?? -1;
             bool visible = (editor || IsPlacementSession() && humanPanel?.Visibility == Visibility.Visible && humanPanel.Opacity > 0) &&
-                MainViewModel.Instance.Show_HUD_Main && !MainViewModel.Instance.Show_HUD_IngameMenu && IsUnitMapper((eMappers)mapper);
+                MainViewModel.Instance.Show_HUD_Main && !MainViewModel.Instance.Show_HUD_IngameMenu &&
+                AiMapperTypes.IsUnitPlacement(MainControls.instance?.CurrentAction ?? -1, (eMappers)mapper);
             aiPlacementPanel.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
             if (!visible) return;
             string locale = ActiveLocale();

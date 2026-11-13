@@ -16,6 +16,7 @@
     { "id": "warmup-unpause", "do": "Pause", "args": ["off"], "stopOnFail": true },
     { "id": "owner-ready", "do": "AiMilitary.WaitOwner", "timeoutMs": 15000, "stopOnFail": true },
     { "id": "sp-ui", "do": "AiUi.Prepare", "args": ["sp", "ai"], "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "sp-normal-selection", "do": "AiUi.SelectionTransitions", "timeoutMs": 15000, "stopOnFail": true },
     { "id": "pause", "do": "Pause", "args": ["on"], "stopOnFail": true },
     { "id": "sp-none", "do": "AiUi.Select", "args": ["None", "Regular"], "stopOnFail": true },
     { "id": "unpause", "do": "Pause", "args": ["off"], "stopOnFail": true },

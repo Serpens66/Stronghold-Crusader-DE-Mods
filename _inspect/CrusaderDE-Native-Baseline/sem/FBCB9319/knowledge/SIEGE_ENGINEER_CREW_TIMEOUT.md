@@ -30,3 +30,36 @@ Ordinary siege death uses the unit handlers listed below. Each checks the crew g
 | Arab ballista | 0x4D | 0x171C50 | 2 |
 
 The tower's native deployment has an alternate branch that releases its engineers and clears the crew count. The deployed building proxy type 0x45 is rejected by the Vanilla building ignition check at `0xC1F60` called from `0xC4D30`. The unit and building are distinct records.
+
+## Harassment reserves and pending recruitment [Vanilla facts]
+
+Audited on2026-11-13 against the same native hash. Recruitment at0x1819D0 reserves
+an existing live peasant and immediately returns its identity. It writes requested
+type+0x922, pending state+0x924, packed state0x0000006D at+0x918, recruitment word1
+at+0x9CA and visual0x0100 at+0x986. The AI attaches that ID to its harassment reserve
+before conversion/fade completes. The reserve entry is therefore not proof that
+an Engineer is ready to receive an order.
+
+Deployment0x2ECD0 requires reserve count>=2, active harassment devices below the
+AIC maximum, and role22 engineer count below20. Both construction and recruitment
+are skipped at20. Order15 in0x11E960 skips peasants but accepts Engineers without
+checking+0x9CA; accepted members are removed from the group, so repeated ordinal
+lookup while removing members is intentional, not duplicate iteration.
+
+An Engineer's tent arrival in0x14AED0 writes packed state0x0007006D and appends the
+same ID/global to the tent. If recruitment+0x9CA is still set, the transition at
+0x14D252 schedules life4 (conversion) after33 updates. Converter0x195D10 then copies
+pending main state0 over the bound/build state, keeping global identity. This path
+is independent of the bound-crew timeout+0x974. Only idle Engineer processing after
+initial fade clears the recruitment marker. Native role22 accounting still counts
+stranded live engineers, explaining the quota stall without creating new identities.
+
+Isolated execution of original order bytes with native membership operations gave
+states8/8 with two ready Engineers and an empty reserve, states8/0 with one Engineer
+and one pending peasant and one remaining reserve member, and states8/8 with a still
+recruiting Engineer. After33 original Engineer transition updates, recruitment0
+retained life2 whereas recruitment1 scheduled life4. Executing original converter
+bytes from a bound Engineer with timeout0 produced state0/type30/life2 with the same
+global ID and recruitment1. These probes substitute path/visual boundaries and do
+not identify which trigger occurred in the reporter's match. A screenshot alone
+cannot establish identity duplication or the original recruitment timing.

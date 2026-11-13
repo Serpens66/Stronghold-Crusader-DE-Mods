@@ -558,10 +558,10 @@ BugfixesAndQoL.LocalAutosaveOff=Aus
 BugfixesAndQoL.LocalAutosaveMinutes={Minutes} Min.
 BugfixesAndQoL.LocalAutosaveHelp=0 bis 1440 ganze Minuten eingeben; 0 wird als Aus angezeigt. Die Pfeile ändern den angezeigten Wert um eine Minute. Der Timer übernimmt ihn beim Schließen des ESC-Menüs oder 15 Sekunden nach der letzten Bedienung dieses Felds. Es zählt nur Echtzeit ohne Pausen, unabhängig vom Spieltempo. Intervalländerungen erhalten die verstrichene Zeit; beim Bearbeiten kurz über 0 zu gehen startet den Timer nicht neu. Erst wenn Aus übernommen wurde, beginnt erneutes Einschalten ein neues Intervall. Jeder erfolgreiche Autosave ersetzt den bisherigen Einzelspieler-Autosave.
 BugfixesAndQoL.EnableSiegeCrewDuplicationFix=Doppelte Baumeister verhindern
-BugfixesAndQoL.EnableSiegeCrewDuplicationFixHelp=Verhindert, dass Baumeister nach Fertigstellung eines Katapults, Triboks oder einer Feuerballiste zugleich als Besatzung und als freie Einheiten verfügbar sind.
+BugfixesAndQoL.EnableSiegeCrewDuplicationFixHelp=Verhindert doppelte Besatzungen bei neu gebauten Katapulten, Triboks und Feuerballisten. Die KI setzt Baumeister für Störangriffe erst nach abgeschlossener Rekrutierung ein, damit keine ungenutzten Baumeister zurückbleiben.
 BugfixesAndQoL.EnableSiegeCrewFireLossFix=Besatzungsverlust bei Feuer
 BugfixesAndQoL.EnableSiegeCrewFireLossFixHelp=Baumeister sterben, wenn ihr Gerät verbrennt, während sie es bedienen.
-BugfixesAndQoL.SettingsRework.Reason.EnableSiegeCrewDuplicationFix=Verhindert, dass dieselben Baumeister mehrere Belagerungsgeräte gleichzeitig bedienen.
+BugfixesAndQoL.SettingsRework.Reason.EnableSiegeCrewDuplicationFix=Verhindert doppelte Besatzungen und durch zu früh eingesetzte Rekruten blockierte KI-Störangriffe.
 BugfixesAndQoL.SettingsRework.Reason.EnableSiegeCrewFireLossFix=Lässt die gebundene Besatzung beim tödlichen Brandtreffer zusammen mit dem Gerät sterben.
 
 BugfixesAndQoL.PitchMoatLines=Pech und Graben in Linien

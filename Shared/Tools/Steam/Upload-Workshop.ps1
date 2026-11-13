@@ -3,6 +3,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'SteamWorkshopHistory.ps1')
 . (Join-Path $PSScriptRoot 'WorkshopChangelog.ps1')
+. (Join-Path $PSScriptRoot 'WorkshopPublisherScope.ps1')
 
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
 . (Join-Path $PSScriptRoot '../ApiSharedRepository/MainSource.Common.ps1')
@@ -267,16 +268,16 @@ try {
         SourceDirectory=$folder;StateRoot=(Join-Path $state 'publisher');PreviewFile=(Join-Path $folder 'preview.png');Title=$targetConfig.Title;Description=($targetConfig.Title+' / '+$proof.ReleaseTag);
         ChangeNote=$note.Text;Visibility=$(if($test){'Private'}else{$targetConfig.Visibility});WorkshopId=$id;PreservePresentation=(-not $test -and [bool]$id);ForbiddenItemIds=$forbidden;ExpectedFiles=@($proof.Files)}
     Write-SteamWorkshopJson $requestPath $request
-    & $publisher --validate $requestPath $resultPath
-    if($LASTEXITCODE -ne 0){throw 'Complete package validation failed.'}
+    $publisherExit=Invoke-ScopedWorkshopPublisher $publisher validate $requestPath $resultPath
+    if($publisherExit -ne 0){throw 'Complete package validation failed.'}
     $checked=[IO.File]::ReadAllText($resultPath)|ConvertFrom-Json
     $request.Fingerprint=$checked.Fingerprint;Write-SteamWorkshopJson $requestPath $request
     $note | Add-Member -NotePropertyName ContentFingerprint -NotePropertyValue $checked.Fingerprint
     [IO.File]::WriteAllText((Join-Path $run 'changelog.txt'), $note.Text + "`r`n", [Text.UTF8Encoding]::new($false))
     Write-UploadLog ('CHANGELOG: '+$note.Text)
     if($Validate){Write-UploadLog 'Complete package validated without Steam initialization or upload.' 'OK';exit 0}
-    & $publisher --inspect $requestPath $resultPath
-    if($LASTEXITCODE -ne 0){throw 'Steam item/prerequisite validation failed; no upload started.'}
+    $publisherExit=Invoke-ScopedWorkshopPublisher $publisher inspect $requestPath $resultPath
+    if($publisherExit -ne 0){throw 'Steam item/prerequisite validation failed; no upload started.'}
     Write-UploadLog "Target=$Target; mode=$($request.Mode); version=$($proof.Version); item=$id; files=$(@($proof.Files).Count); fingerprint=$($request.Fingerprint)"
     # Steam truncated the 2026-11-04 ASCII change note at its roughly 8000-byte boundary.
     # Count UTF-8 bytes so non-ASCII notes also warn before that boundary; do not block upload.
@@ -285,8 +286,7 @@ try {
         Write-UploadLog "WARNUNG: Changelog zu lang ($changeNoteBytes UTF-8-Bytes). Steam kann ab ca. 8000 Bytes abschneiden; Abschnitte am Ende koennen fehlen. Volltext: $run\changelog.txt. Upload bleibt erlaubt." 'WARN'
     }
     if((Read-Host 'Type HOCHLADEN to submit this reviewed snapshot') -cne 'HOCHLADEN'){throw 'Upload cancelled.'}
-    & $publisher --publish $requestPath $resultPath
-    $publisherExit=$LASTEXITCODE
+    $publisherExit=Invoke-ScopedWorkshopPublisher $publisher publish $requestPath $resultPath
     $result=[IO.File]::ReadAllText($resultPath)|ConvertFrom-Json
     # The core also persists IDs at CreateItem completion, including after interruption.
     if($result.WorkshopId -match '^[1-9][0-9]*$'){Save-ItemId $itemPath $result.WorkshopId}

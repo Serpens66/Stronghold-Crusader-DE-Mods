@@ -23,6 +23,7 @@ namespace Pathfinding.Settings.Tests
                 public sealed partial class PathfindingViewModel {
                     public bool EnableMod = true, EnablePathfindingCore, AvoidFire, AvoidPlague, EscapePlague;
                     public bool EnableFriendlyMoatTraversal = true, AnchorSingleMoves = true, EscapeFire = true, EscapePlagueRaised = true;
+                    public bool FireWaitIndefinitely, PlagueWaitIndefinitely;
                     public int FireWaitSeconds = 37, FireReturnSeconds = 119, FireDetourPercent = 75, FireDetourMinTiles = 14;
                     public int PlagueWaitSeconds = 83, PlagueReturnSeconds = 173;
                     public bool HostSettingsEnabled = true, CanEditHostSettings = true;
@@ -67,7 +68,8 @@ namespace Pathfinding.Settings.Tests
                     { "AnchorSingleMoves", "CoreOptionsEnabled" }, { "EnableFriendlyMoatTraversal", "CoreOptionsEnabled" },
                     { "AvoidFire", "CoreOptionsEnabled" }, { "AvoidPlague", "CoreOptionsEnabled" },
                     { "EscapeFire", "FireOptionsEnabled" }, { "EscapePlague", "PlagueOptionsEnabled" },
-                    { "EscapePlagueRaised", "PlagueRaisedOptionsEnabled" }
+                    { "EscapePlagueRaised", "PlagueRaisedOptionsEnabled" },
+                    { "FireWaitIndefinitely", "FireOptionsEnabled" }, { "PlagueWaitIndefinitely", "PlagueOptionsEnabled" }
                 };
                 foreach (var pair in dependentControls)
                 {
@@ -88,14 +90,20 @@ namespace Pathfinding.Settings.Tests
                         (string)editor.Parent.Attribute("Style") == "{StaticResource DependentGrid}",
                         "hazard value editor shares its complete dependency and dimming: " + pair.Key);
                 }
-                for (int flags = 0; flags < 16; flags++)
+                check(!(bool)Captured("FireWaitIndefinitely") && !(bool)Captured("PlagueWaitIndefinitely"),
+                    "old settings without the optional wait modes keep bounded waiting");
+                for (int flags = 0; flags < 64; flags++)
                 {
                     bool core = (flags & 1) != 0, fire = (flags & 2) != 0, plague = (flags & 4) != 0, escape = (flags & 8) != 0;
+                    bool fireForever = (flags & 16) != 0, plagueForever = (flags & 32) != 0;
                     Set("EnablePathfindingCore", core); Set("AvoidFire", fire); Set("AvoidPlague", plague); Set("EscapePlague", escape);
+                    Set("FireWaitIndefinitely", fireForever); Set("PlagueWaitIndefinitely", plagueForever);
                     check(!(bool)Captured("AvoidFire") && !(bool)Captured("AvoidPlague"), "release capture overrides persisted hazard opt-ins " + flags);
                     check((bool)Captured("EnablePathfindingCore") == core && (bool)Captured("AnchorSingleMoves") &&
                         (bool)Captured("EnableFriendlyMoatTraversal") && (string)Captured("PluginDirectory") == "fixture-plugin",
                         "release gate preserves independent core options " + flags);
+                    check((bool)Captured("FireWaitIndefinitely") == fireForever && (bool)Captured("PlagueWaitIndefinitely") == plagueForever,
+                        "mission capture preserves independent wait modes while hazards remain gated " + flags);
                     check((int)Captured("FireWaitSeconds") == 37 && (int)Captured("FireReturnSeconds") == 119 &&
                         (int)Captured("FireDetourPercent") == 75 && (int)Captured("FireDetourMinTiles") == 14 && (bool)Captured("EscapeFire") &&
                         (int)Captured("PlagueWaitSeconds") == 83 && (int)Captured("PlagueReturnSeconds") == 173 &&
@@ -104,7 +112,9 @@ namespace Pathfinding.Settings.Tests
                         Read("PlagueOptionsEnabled") == (core && plague) && Read("PlagueRaisedOptionsEnabled") == (core && plague && escape) &&
                         Read("DetourSettingsEnabled") == (core && (fire || plague)), "dependency truth table " + flags);
                     check(EffectiveEnabled(Control("EscapePlagueRaised")) == (core && plague && escape) &&
-                        EffectiveEnabled(Control("EscapeFire")) == (core && fire), "hidden UI binding fixture " + flags);
+                        EffectiveEnabled(Control("EscapeFire")) == (core && fire) &&
+                        EffectiveEnabled(Control("FireWaitIndefinitely")) == (core && fire) &&
+                        EffectiveEnabled(Control("PlagueWaitIndefinitely")) == (core && plague), "hidden UI binding fixture " + flags);
                     Set("CanEditHostSettings", false);
                     check(dependentControls.Keys.All(key => !EffectiveEnabled(Control(key))), "host permission also disables children " + flags);
                     Set("CanEditHostSettings", true);
