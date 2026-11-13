@@ -1,13 +1,18 @@
 import bisect
 import hashlib
 import json
+import os
 import pathlib
 import sys
 import capstone
 import pefile
 
 native_path, workspace = map(pathlib.Path, sys.argv[1:])
-identity = json.loads((workspace / '_inspect/CrusaderDE-Native-Baseline/CURRENT.json').read_text())
+local_baseline = workspace / '_inspect/CrusaderDE-Native-Baseline'
+baseline = pathlib.Path(os.environ.get('SHCDE_NATIVE_BASELINE_ROOT', str(local_baseline)))
+identity = json.loads((local_baseline / 'CURRENT.json').read_text(encoding='utf-8-sig'))
+assert json.loads((baseline / 'CURRENT.json').read_text(encoding='utf-8-sig')) == identity
+assert json.loads((baseline / identity['databaseManifest']).read_text(encoding='utf-8-sig')) == json.loads((local_baseline / identity['databaseManifest']).read_text(encoding='utf-8-sig'))
 native_hash = hashlib.sha256(native_path.read_bytes()).hexdigest().upper()
 assert native_hash == identity['currentNativeHash']
 pe = pefile.PE(str(native_path))
@@ -17,7 +22,6 @@ assert pe.get_data(start, 6) == entry
 entries = {e.struct.BeginAddress: e.struct.EndAddress for e in pe.DIRECTORY_ENTRY_EXCEPTION}
 assert entries[start] == stop
 decoder = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
-baseline = workspace / '_inspect/CrusaderDE-Native-Baseline'
 refs = baseline / native_hash / 'exports/xrefs.jsonl'
 computed = {}
 for line in refs.open(encoding='utf-8-sig'):
