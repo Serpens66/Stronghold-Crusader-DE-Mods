@@ -72,6 +72,8 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 
 ## Vanilla audits with mod integration
 
+- [Movement search and physical surface profiles](./sem/FBCB9319/knowledge/MOVEMENT_SURFACE_PROFILES.md): Large-search versus next-tile restrictions, independent native execution, shared surface classes and safe route publication.
+
 - [Unit load, health and ordinary wall placement](./sem/FBCB9319/knowledge/UNIT_LOAD_PLACEMENT_CONTRACTS.md): initialized HP, healthy AI110 deletion alternatives, global allocation versus player quotas, Stone capacity, ordinary wall gates/range and direction-grid producer boundaries; specific run013 deletion cause remains unknown.
 
 - [Bulldozer query and typed removal](./sem/FBCB9319/knowledge/AREA_DEMOLITION.md): complete permission scratch, Chore 29/41 execution, one-operation dug-moat removal, linked children and the batch integration boundary; static audit, game acceptance deferred.
@@ -80,7 +82,7 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 
 - [Worker production bonus and reduced output](./sem/FBCB9319/knowledge/WORKER_PRODUCTION_BONUS.md): signed fixed contribution, complete producer/completion chains, reduced Ox loads, display and raw save/transfer/checksum contracts; static and isolated execution evidence, game acceptance separate.
 
-- [Siege engineer crew timeout](./sem/FBCB9319/knowledge/SIEGE_ENGINEER_CREW_TIMEOUT.md): crew refresh, release at 121 and the missing timeout reset when a full crew transfers from the tent.
+- [Siege engineer crew timeout](./sem/FBCB9319/knowledge/SIEGE_ENGINEER_CREW_TIMEOUT.md): crew refresh and release at121; pending recruitment, normal101/105 waiting, serialized user-save evidence and the state6 automatic-crew duplication cause.
 - [Hunter prey ownership, reservation and shot states](./sem/FBCB9319/knowledge/HUNTER_PREY_RULES.md): three owner barriers, state 10 as the shot, reservation countdown, chicken population, melee rabbit contact and cow facts; single-player acceptance, multiplayer pending. Includes the complete access list of the reservation word (`+0x448`/`+0xAA4`), its war-dog and Engineer meanings, and corpse dead-time thresholds; herd kinds, spawn arts and route readers; the three filters for units attacking animals by themselves.
 
 - [Ally goods gifts and transfer boundaries](./sem/FBCB9319/knowledge/ALLY_GOODS_TRANSFERS.md): complete send/Chore/storage/Gold path and actual-transfer boundary; corrective 2026-11-05 audit reuses the existing Extender owner; game acceptance pending.
@@ -98,6 +100,7 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 - [AIV defensive build range](./sem/FBCB9319/knowledge/AIV_BUILD_RANGE.md): map-size limits, Keep reference, full-footprint range, Baibars reproduction, ExtraFeatures API ownership, integrated BugfixesAndQoL AI-only EEF90 detour, target-relative probe allocation, and type-zero AIV cell-clear import semantics.
 - [AIV lobby selection audit](./sem/FBCB9319/knowledge/AIV_LOBBY_SELECTION.md): candidate order, rotation branches, thresholds, and completed-castle state boundary.
 - [Assassin direct gatehouse climb: native audit](./sem/FBCB9319/knowledge/ASSASSIN_DIRECT_GATEHOUSE_CLIMB.md)
+- [Assassin stockpile wall flags and Keep side entry](./sem/FBCB9319/knowledge/ASSASSIN_STOCKPILE_CLIMB.md): exact-map/runtime stockpile-to-Keep descent, separate raw and roof heights, and weighted fallback correction preserving ordinary connections.
 - [Assassin reconstruction repair](./sem/FBCB9319/knowledge/ASSASSIN_RECONSTRUCTION_REPAIR.md): E1640 mode-3 one-way connection failure, per-unit full-map repair cost and the APIShared 0xE19C0 correction; confirmed by runtime replay and executed fixture.
 - [Enemy-unit proximity during building actions](./sem/FBCB9319/knowledge/ENEMY_BUILD_PROXIMITY.md): separate civilian/military radii, unchanged building/wall restrictions, native predicate and migration contracts.
 - [Building repair contract (CrusaderDE.dll FBCB9319…F2831E2)](./sem/FBCB9319/knowledge/BUILDING_REPAIR.md)
@@ -179,6 +182,8 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 - [Knight replacement selection and input lifetime](./sem/FBCB9319/knowledge/KNIGHT_SELECTION_TRANSFERS.md): replacement initialization/removal, three-phase input ordering, stale selection repair and the accepted Extender cancellation boundary; original game scenario user-confirmed, extended editor/MP acceptance pending.
 
 Design, diagnosis, acceptance and migration records of our mods and testmods. Use only their `[Vanilla facts]` sections as Vanilla knowledge.
+
+- [Pathfinding migration and acceptance](./sem/FBCB9319/knowledge/PATHFINDING_MIGRATION.md): ownership, save identities, import/coexistence contracts, dated acceptance evidence and remaining release gates; not Vanilla evidence.
 
 - [Assassin attack control test](./sem/FBCB9319/knowledge/ASSASSIN_ATTACK_CONTROL_TEST.md)
 - [Assassin gate-policy diagnosis](./sem/FBCB9319/knowledge/ENEMY_GATE_ASSASSINS.md): separate native/weighted/cached requests, exact directed-edge attribution and explicitly unmeasured native cache/fallback hits.

@@ -46,7 +46,8 @@ namespace Pathfinding.Engine
                 state.Maps.Add(player, map);
             }
             return (int a, int b, int direction, out bool wet, out bool structure) =>
-                map.Edge(a, b, direction, key.Ground, out wet, out structure);
+                map.Edge(a, b, direction, key.Ground, out wet, out structure) &&
+                runtime.IsMovementSurfaceAllowed(key.Surface, GameTileManagerAPI.Instance.GetTileId(b % MapWidth, b / MapWidth));
         }
 
         private bool FastLiveEdge(int player, int from, int to, int direction, bool ground,
@@ -163,6 +164,7 @@ namespace Pathfinding.Engine
             {
                 if (fastTileMarkEpochs == null || fastTileMarkEpochs.Length != MapWidth * MapWidth) fastTileMarkEpochs = new int[MapWidth * MapWidth];
                 int center = position.Y * MapWidth + position.X;
+                MarkMovementSurface(center);
                 if (fastTileMarkEpochs[center] == fastMarkEpoch) return;
                 fastTileMarkEpochs[center] = fastMarkEpoch;
             }
@@ -170,6 +172,7 @@ namespace Pathfinding.Engine
                 for (int x = Math.Max(0, position.X - radius); x <= Math.Min(MapWidth - 1, position.X + radius); x++)
                 {
                     int node = y * MapWidth + x;
+                    MarkMovementSurface(node);
                     if (fastSimulationRouting != null) foreach (var map in fastSimulationRouting.Maps.Values) map.Mark(node);
                     if (fastCursorRouting != null) foreach (var map in fastCursorRouting.Maps.Values) map.Mark(node);
                     foreach (var map in anchorMaps) map?.Mark(node);
@@ -230,6 +233,7 @@ namespace Pathfinding.Engine
         private void MarkFastTopologyAll(bool anchorMasks = true)
         {
             InvalidateEdgeMemo();
+            surfaceNext = 0;
             if (fastSimulationRouting != null) foreach (var map in fastSimulationRouting.Maps.Values) map.MarkAll();
             if (fastCursorRouting != null) foreach (var map in fastCursorRouting.Maps.Values) map.MarkAll();
             if (anchorMasks) { anchorResweepGlobal++; ResweepAnchorMasks(); }
@@ -251,8 +255,14 @@ namespace Pathfinding.Engine
             FastRoutingState state = GetFastRouting(false);
             RefreshFastRouting(state);
             int requestedTarget = ty * MapWidth + tx;
-            TryFastGroupSuffix(player, requestedTarget, out int anchor, out byte[] suffix, unitId);
-            using (FastFieldLease lease = state.Pool.Acquire(new FastFieldKey(player, anchor, groundOnly, reserved)))
+            RouteSurfaceClass surface = RouteSurfaceClass.Any;
+            if (unitId > 0 && APIShared.UnitAccess.TryGetById(unitId, out GameUnit* owner, out _) && owner != null)
+                surface = runtime.ResolveMovementSurface(owner);
+            int anchor = requestedTarget; byte[] suffix = null;
+            // Distribution suffixes belong to moat-capable ordinary troops. Restricted profiles
+            // search their exact target instead of adopting an untyped shared suffix.
+            if (surface == RouteSurfaceClass.Any) TryFastGroupSuffix(player, requestedTarget, out anchor, out suffix, unitId);
+            using (FastFieldLease lease = state.Pool.Acquire(new FastFieldKey(player, anchor, groundOnly, reserved, surface)))
             {
                 if (lease == null) { summary = WeightedMoatRouteSummary.Failed("fast-pool-busy", 0); return false; }
                 int start = sy * MapWidth + sx;
@@ -270,7 +280,7 @@ namespace Pathfinding.Engine
                 if (lease.Field.WritePacked(start, bytes, out int written) != FastRouteStatus.Found) return false;
                 if (suffix != null) foreach (byte direction in suffix)
                 { bytes[written >> 1] |= (byte)(direction << ((written & 1) * 4)); written++; }
-                return TryFinishFastEncoded(player, start, requestedTarget, bytes, written, groundOnly, lease.Field.Expanded, out summary, out route);
+                return TryFinishFastEncoded(player, start, requestedTarget, bytes, written, groundOnly, lease.Field.Expanded, out summary, out route, surface: surface);
             }
         }
 
@@ -278,9 +288,11 @@ namespace Pathfinding.Engine
         // anchor: the route comes from an anchor mask, audited with the anchor's gate rule; a
         // failed edge re-reads only the area of the stale node instead of every anchor mask.
         private bool TryFinishFastEncoded(int player, int start, int requestedTarget, byte[] bytes, int written, bool groundOnly,
-            int expanded, out WeightedMoatRouteSummary summary, out WeightedMoatEncodedRoute route, bool anchor = false)
+            int expanded, out WeightedMoatRouteSummary summary, out WeightedMoatEncodedRoute route, bool anchor = false, RouteSurfaceClass surface = RouteSurfaceClass.Any)
         {
             route = default;
+            if (!AuditRouteSurface(bytes, written, start, surface))
+            { summary = WeightedMoatRouteSummary.Failed("movement-surface-rejected", 0); return false; }
             int node = start, moat = 0, structures = 0, diagonal = 0, changes = 0, previous = -1;
             ulong fingerprint = 14695981039346656037UL;
             for (int i = 0; i < written; i++)
@@ -320,24 +332,28 @@ namespace Pathfinding.Engine
                 sy * MapWidth + sx, plan.TargetY * MapWidth + plan.TargetX, plan.UnitId);
             if (ground)
             {
+                RouteSurfaceClass surface = runtime.ResolveMovementSurface(unit);
                 plan.QualifiedRoute = null; plan.QualifiedTerminalRoute = default;
                 if (TryFastEncoded(plan.PlayerId, sx, sy, plan.TargetX, plan.TargetY, false,
                     out WeightedMoatRouteSummary summary, out WeightedMoatEncodedRoute route,
                     plan.UnitId, groundOnly: true))
                     plan.QualifiedRoute = new QualifiedMovementRoute(sx, sy, plan.TargetX, plan.TargetY,
                         plan.PlayerId, runtime.mapEpoch, CaptureCurrentGameTick(), runtime.placementRevision,
-                        route, summary, default, false);
+                        route, summary, default, false, surface, GetMovementSurfaceRevision(surface));
             }
             return ground;
         }
 
         private bool FastGroundReachable(FastRoutingState state, int player, int start, int target, int unitId)
         {
-            if (TryFastGroupSuffix(player, target, out int anchor, out _, unitId)) target = anchor;
+            RouteSurfaceClass surface = RouteSurfaceClass.Any;
+            if (unitId > 0 && APIShared.UnitAccess.TryGetById(unitId, out GameUnit* owner, out _) && owner != null)
+                surface = runtime.ResolveMovementSurface(owner);
+            if (surface == RouteSurfaceClass.Any && TryFastGroupSuffix(player, target, out int anchor, out _, unitId)) target = anchor;
             int a = GameTileManagerAPI.Instance.GetTileId(start % MapWidth, start / MapWidth);
             int b = GameTileManagerAPI.Instance.GetTileId(target % MapWidth, target / MapWidth);
             if (!IsValidTileId(a) || !IsValidTileId(b) || runtime.IsCompletedMoatTile(a) || runtime.IsCompletedMoatTile(b)) return false;
-            using (FastFieldLease lease = state.Pool.Acquire(new FastFieldKey(player, target, true)))
+            using (FastFieldLease lease = state.Pool.Acquire(new FastFieldKey(player, target, true, surface: surface)))
             {
                 if (lease == null) throw new InvalidOperationException("Fast synchronous ground reserve unavailable.");
                 // A route longer than the packed buffer still proves a ground alternative.
@@ -388,9 +404,10 @@ namespace Pathfinding.Engine
             plan.QualifiedTerminalRoute = default;
             plan.QualifiedTerminalSummary = default;
             WeightedMoatRouteSummary found = default;
+            RouteSurfaceClass surface = runtime.ResolveMovementSurface(unit);
             if (!ground && TryFastEncoded(plan.PlayerId, sx, sy, plan.TargetX, plan.TargetY, reserved, out found, out WeightedMoatEncodedRoute route, plan.UnitId))
                 plan.QualifiedRoute = new QualifiedMovementRoute(sx, sy, plan.TargetX, plan.TargetY, plan.PlayerId,
-                    runtime.mapEpoch, CaptureCurrentGameTick(), runtime.placementRevision, route, found, default, false);
+                    runtime.mapEpoch, CaptureCurrentGameTick(), runtime.placementRevision, route, found, default, false, surface, GetMovementSurfaceRevision(surface));
             if (!ground && plan.QualifiedRoute == null && plan.MoatWorkMovement &&
                 TryBuildTerminalFillRoute(plan, unit, sx, sy, out found, out WeightedMoatEncodedRoute terminal))
             { plan.QualifiedTerminalRoute = terminal; plan.QualifiedTerminalSummary = found; }

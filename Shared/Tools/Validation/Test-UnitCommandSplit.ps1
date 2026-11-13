@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param([switch]$SkipCommonChecks, [switch]$SkipCompiler, [string]$ModDirectory, [switch]$SkipPermanentHooks)
+try {
 $ErrorActionPreference = 'Stop'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
 $projects = @('APIShared\APIShared.csproj', 'Pathfinding\Pathfinding.csproj')
@@ -57,10 +58,14 @@ if (-not $SkipPermanentHooks) {
 }
 if (-not $SkipCompiler) {
     . (Join-Path $workspace 'Shared/Tools/Paths/WorkPaths.ps1')
-    $checkRoot = New-ShortWorkDirectory -Root $workspace -Kind t -Name command-scope
+    $checkRoot = New-ShortWorkDirectory -Root $workspace -Kind t -Name command-scope -Transient
     $projectList = Join-Path $checkRoot 'projects.txt'
     [IO.File]::WriteAllText($projectList, (($projects + '') -join "`r`n"), [Text.UTF8Encoding]::new($false))
     & dotnet run --project (Join-Path $workspace 'Shared\Tools\Validation\UnitCommandSourceChecks\UnitCommandSourceChecks.csproj') -- $workspace --real --projects-file $projectList
     if ($LASTEXITCODE -ne 0) { throw 'Real installed game assembly source check failed.' }
 }
 Write-Output "PASS: command preflight ($count project/source entries), JSON, callbacks, CRLF, XAML and permanent hooks; projects: $($projects -join ', ')."
+
+} finally {
+    if (Get-Command Complete-TransientWorkDirectories -ErrorAction SilentlyContinue) { Complete-TransientWorkDirectories -Owner $PSCommandPath }
+}

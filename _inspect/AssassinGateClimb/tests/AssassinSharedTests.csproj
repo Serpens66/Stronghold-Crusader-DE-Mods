@@ -2,7 +2,8 @@
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
   <PropertyGroup>
-    <OutputType>Exe</OutputType><AssemblyName>AssassinSharedTests</AssemblyName>
+    <!-- Use the existing APISharedTests friend grant to exercise the actual compiled API, not source copies. -->
+    <OutputType>Exe</OutputType><AssemblyName>APISharedTests</AssemblyName>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion><LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks><PlatformTarget>x64</PlatformTarget>
     <OutputPath>bin\</OutputPath><Configuration>Release</Configuration>
@@ -23,17 +24,11 @@
     <Reference Include="RedBird.Backends.NativeX64"><HintPath>$(ExtenderDir)\RedBird.Backends.NativeX64.dll</HintPath></Reference>
     <Reference Include="Microsoft.Extensions.Logging.Abstractions"><HintPath>$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath></Reference>
     <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath></Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
-    <Compile Include="..\..\..\APIShared\src\Pathfinding\AssassinGateTransitionPolicy.cs" />
-    <Compile Include="..\..\..\APIShared\src\Pathfinding\AssassinPathAPI.cs" />
-    <Compile Include="..\..\..\APIShared\src\Pathfinding\AssassinRouteHandoff.cs" />
-    <Compile Include="..\..\..\APIShared\src\Pathfinding\AssassinEndpointEmitter.cs" />
-    <Compile Include="..\..\..\APIShared\src\Pathfinding\AssassinPathNativeDefinition.cs" />
-    <Compile Include="..\..\..\APIShared\src\Core\NativeInfrastructure.cs" />
-    <Compile Include="..\..\..\APIShared\src\Core\UniquePatternSearch.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

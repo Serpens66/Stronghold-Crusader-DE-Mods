@@ -6,6 +6,66 @@ Momentaufnahme vom 07.11.2026, zusammengeführt aus den `UpdateToNewDLL.md` von 
 
 Alle Befehls-Hooks gehören `UnitCommands`; der Engine-Provider (`src/Engine`) installiert selbst keinen Hook. Nativer Fehlschlag schaltet das betroffene Teilfeature ab, Vanilla übernimmt. Neu seit der Zusammenführung: Ohne Grabenquerung veröffentlicht der Kern Bodenwege nur bei `+0x84 == 0` (`0xF4930`-Grabenmodus bleibt Vanilla, `GROUND_ROUTE_BUILDERS.md`), siehe `BuildEngineRoute`.
 
+## Nachtrag 13.11.2026: Aufnahme-, Warte- und Ablehnungsverträge
+
+Gilt ausschließlich für SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`;
+installierte kanonische DLL, CURRENT.json und ausgewähltes DATABASE_INFO.json
+wurden abgeglichen. Historische Abschnitte unten bleiben datierte Nachweise.
+Neue Guard-Felder wurden zusätzlich gegen die **installierte** verwaltete Assembly
+auf Sichtbarkeit, Typ und Marshal-Offset geprüft. Keine neue native Hookstelle.
+
+`0x11B520` kann 1 liefern, ohne ein Mitglied aufzunehmen; ein alter AIState
+101/122 bleibt dann erhalten. `SoldierTribeMoves.TryMoveSoldier` prüft nach dem
+bestehenden `GroupMoveExclusion.TryClear` und vor dem Befehl daher folgende Felder:
+
+| GameUnit-Feld | Offset / Typ | Zulässiger Wert |
+| --- | --- | --- |
+| `r_InterestingTodo1` | `+0x29A`, UInt16 | 0 |
+| `r_IsKilledByProjectile` | `+0x29C`, UInt16 | 0 |
+| `N000001F6_3` | `+0x40F`, byte | 0 |
+| `N000000D8` | `+0x428`, UInt16 | 0 nach Markierungshelfer |
+| `N00000573` | `+0x90`, UInt16 | ungleich 1 |
+
+Zusätzlich gelten lebende Unit/Global-ID, passende lebende Own-Tribe/Global-ID und
+Eigentümer, `IsReplanSoldier` sowie AIState ungleich 207. Die vollständig ausgeschlossenen
+Belagerungstypen decken auch die nativen Sonderfälle mit Crew-Zulassung ab. Nach
+dem Befehl wird die Identität erneut und der neue Walking-/Exit-Zustand geprüft.
+Bei DLL-/Layoutwechsel den vollständigen Aufnahme- und Folgezustandspfad neu
+auditieren; bloßes Umbenennen generischer Felder oder erfolgreicher Build genügt nicht.
+Die Regression mit altem 101 scheiterte vorher; 101 und 122 bestehen nach Korrektur.
+
+**Mod work, not Vanilla:** geeignete menschliche Soldaten erhalten aktive Gefahr-
+Stop-/Fluchtbefehle; KI nur sichere Kostenwege in bestehenden Befehlen bis zu
+separatem Zustandsaudit und Spielabnahme. Alte KI-Fälle werden beendet/bereinigt.
+Die beiden Hostoptionen `FireWaitIndefinitely`/`PlagueWaitIndefinitely` (Default false)
+betreffen ausschließlich eigene Routenwartefälle. APIShareds `MaximumWaitTicks=0`
+bedeutet weiterhin kein Stoppen. Rückkehrfristen werden nicht verlängert;
+Fristablauf eigener begrenzter Gefahrwartefälle bricht ab. Neue Aufträge, Tod und
+Identitäts-/Eigentumswechsel lösen alte Wartefälle ab. Tick-basierte Rotation unter
+unbegrenzten Wartefällen erhält deterministische Probeverteilung nach Save/Load;
+keine Uhrzeitbudgets und keine Saveformatänderung.
+
+**G8-Befehlsgrenze:** Nur mit aktiver Pathfinding-Engine und nachgewiesenem lebendem
+Gruppeneigentümer blockiert `ForbiddenMoveTargets` ein verbotenes Ziel. Direkte
+Bewegungen und neue Queue-Wegpunkte werden vor Auftrags-/Queueänderungen abgelehnt;
+der Spielerwrapper erhält Tribe `+0x56C` zurück, das `0x196100` vor seinem Gruppenruf
+schreibt. Vollständigen Wrapper-/Gruppen-/Queuepfad bei DLL-Wechsel prüfen.
+Start-im-Verbot bleibt verlassbar, kein Ersatz-Endziel, keine globale Vanilla- oder
+öffentliche APIShared-Semantikänderung. **Extendervertrag:** Alle Subscriber sehen
+Pre auch nach `SkipOriginalFunction=true`; bei übersprungener Originalfunktion
+gibt es **kein Post**. Deshalb darf die spätere `OnAnchorMoveHere`-Subscription
+in diesem Pre weder Auftrag beobachten noch einen Frame beginnen. Post eines
+akzeptierten Elternaufrufs muss auch nach verschachtelter Ablehnung schließen.
+Tatsächliche beide Subscriber werden gemeinsam regressionsgeprüft.
+
+Nachweise/Abnahmegrenzen: [OfflineImplementation](Findings/OfflineImplementation.md),
+[OfflineHazards](Findings/OfflineHazards.md) und
+[OfflineOptimization](Findings/OfflineOptimization.md).
+Feuer-/Pestfreigabe, dynamische Höhen-/Wegeverifikation und Zweirechner-MP sind
+weiter offen. G1/G2-Arithmetikkandidaten wurden nach negativem Nettokostennachweis
+nicht produktiv eingebaut; ihre Offline-Hookspannen sind keine Runtime-Abhängigkeit.
+
 # Aus MoatMove
 
 
@@ -864,7 +924,36 @@ let an exception unwind through the kernel; a failed callback discards the nativ
 and fails at the same predicate, and the following searches still agree. `GateRouting.Tests` checks that
 `DirectionMask` and `IsDirectionAllowed` of every captured gate snapshot decide identically.
 
-#### Group fields of Assassin group moves (2026-11-03, contract `0x01000002`)
+#### Stockpile wall eligibility (2026-11-13, current contract `0x01000003`)
+
+`PathfindingAssassin.dll` and `AssassinNativeSearch.Tables` append a UInt32
+`NonClimbWallFlags` (offset 96, x64 table size 104). The managed binding supplies
+`TilePropertyFlag.GoodsyardRelated`; the C++ kernel contains no separate stockpile
+ID or flag value. Both managed and native climb fallback require at least one
+endpoint with `IsWall` and without the excluded flag. Ordinary forward/reverse
+connections remain authoritative before this test. A*, existence, backward proof,
+group fields and cached-route publication use this same eligibility.
+
+Reference native SHA-256:
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+No new native address or hook is introduced. APIShared's existing E19F9 endpoint
+owner enforces the same rule through the opt-in three-argument
+`SetWeightedReconstructionEnabled(..., ignoreGoodsyardWallFlag: true)` contract;
+its two-argument API retains previous behavior. Keep types are not blacklisted.
+
+The user's `test_assassinkeep.map` (SHA-256
+`928340F97CB9768DF65C7FE60C111A7322E70C6DA14731744D05AA862F20A034`)
+contains stockpile(368,398): flags 0x102, height18, connections0x04, building0,
+beside Keep(367,398): flags0x10008000, height8, connections0xF1, building1.
+Neither ordinary east/west bit connects them. The old fallback admitted this edge;
+DCE60 initialized descent128 with height10, then 16CD70/180A80 committed the Keep
+tile and 184FD0 added its separate roof height. The regression fixture executes
+the productive managed/native search, group field, reachability and cache checks
+on both directions of this edge, with real-wall and ordinary-connection controls.
+On a native/SDK update, re-audit the flag semantics and the existing search,
+reconstruction and physical transition chain; a matching C ABI alone is insufficient.
+
+#### Group fields of Assassin group moves (2026-11-03, initially contract `0x01000002`)
 
 `bfq_assassin_field_create`/`bfq_assassin_field_route` answer the members of one Assassin move command with one
 backward Dijkstra from the move target over exactly `Search::Run`'s edges and costs (`Search::Edge`): each member
@@ -1079,3 +1168,78 @@ Client evidence: CenterOfPower.map, 2026-10-30 14:11:18.354, BUILD_PREVIEW_CALLB
 Regression: existing BuildPreview.Tests production memory fixture covers all seven supported mappers, first/last invalid mask cells, both coordinate axes including extremes, valid-edge-valid recovery, unchanged complete-placement sampling, and fatal corrupt-row/scale contracts. Existing snapshot tests cover retirement and generation safety. This is offline evidence, not in-game acceptance; retest apple farm and quarry below and at their building limits.
 
 
+
+## Profile-aware surface routing (2026-11-13)
+
+- Owner: shared route core, unit-bound output validation and hazard movement.
+- Reference native SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+- Building surface whitelist: RVA `0x2E68D0`, Int32 indexed by signed building type.
+  Two independent code anchors pin it: F32B0 `0xF34E9` bytes
+  `44 39 94 8A D0 68 2E 00`, and DCD60 `0xDCDFE` bytes
+  `41 83 BC 83 D0 68 2E 00 00`. The type reader `0xDCDF5` bytes
+  `4A 0F BF 84 19 DE CC 4C 06` corroborates the existing building basis
+  `0x64CCCDE` and record stride `0x32C`. No new hook or executable patch.
+- The complete unit-command runtime remains reference-hash bound. No unknown-DLL
+  structure/table fallback is claimed: the two predicates and restricted-type
+  switch must be re-audited as a single contract before admitting a new hash.
+  An incompatible image retains native behavior; never reuse the old whitelist RVA.
+- Update audit: F4930 profile argument/branch; F32B0 versus F3060; DAAC0/DA590;
+  E1640 surface count; DB650 and its native unsafe fallback; 196280 publication;
+  1855A0/DCE60/DCD60 consumers; SE surface bypass; building/Goodsyard exceptions.
+- Native route-core ABI `0x04000011` and managed adapter must ship together.
+  New surface write/update exports carry one metadata byte per map node; task
+  and single-route functions carry the class explicitly after moat cost.
+- Classes are private ABI integers: `0=Any`, `1=LargeSearch`,
+  `2=RestrictedMovement`. Metadata uses `0x80=valid`, `0x01=Large allowed`,
+  `0x02=Restricted allowed`; all other bits are rejected. Unknown metadata
+  denies entry for classes 1/2. The starting node is not filtered.
+- `mma_surface_write(ctx, first, count, byteValues, changed)` and
+  `mma_surface_update(ctx, nodeIds, byteValues, count, changed)` validate the
+  entire input before mutation. Writes and searches share the existing
+  serialized calling contract. Native task/field freshness includes the
+  selected class's permission revision; Any is unaffected by surface changes.
+- Managed metadata uses existing map initialization, tile-dirty notifications
+  and bounded refresh work. Live route audits and the final unit-bound output
+  guard read current permissions even while a metadata resweep is incomplete.
+  Qualified routes and their audit memos carry the selected class's revision;
+  reuse checks it independently of friendly-moat traversal being enabled.
+  The other F4930 caller 18E1E0 uses a probe buffer and is deliberately excluded
+  from the unit-publication guard. E32B0's sole caller is 196280.
+- See native baseline `MOVEMENT_SURFACE_PROFILES.md` for predicates and evidence.
+
+### Deterministic counted memory budget (private ABI `0x04000011`)
+
+The context partitions its existing counted `Vec`/`Alloc` buffer limit into one
+persistent store budget (player masks, surface bytes and stored fields) and nine
+logical workspaces: one caller scratch and eight batch banks. Each workspace has
+the same fixed quota, independent of the physical worker count. Its quota is the
+larger of `min(32 MiB, limit/16)` and the whole-MiB ceiling of
+`13*nodeCount + 512*sizeof(Vec<int>) + 1 MiB`. The persistent store receives the
+remaining budget. Child allocators also debit one root counter; counted live bytes
+cannot exceed the original total limit. Existing bounded `std::vector` containers
+such as route bytes, enclosure stamps and task starts remain outside this counter;
+the limit is not a claim about total process RAM.
+
+At the production 768 MiB limit, the partitions are nine 32 MiB workspaces and
+480 MiB for masks/surfaces/stored fields. The eight banks are constructed with the
+context, and `Scratch.local` serves both main fields and query work; there is no
+second set of worker search grids. A 64 MiB, 800-by-800 context cannot fit the fixed
+minimum partitions and returns `NoMemory` with a null context uniformly.
+
+`mma_step` and `mma_query_batch` use fixed batches of at most eight logical jobs.
+Job index selects its bank; physical workers only schedule those jobs. Accepted
+thread arguments remain 1..64 and execution clamps to eight. Stored main fields
+are admitted on the calling thread in task-ID order, and batch errors are reduced
+in input order. Thus workspace capacity history and internal-budget fallback do
+not depend on physical worker counts or scheduling. Ring entries are cleared by
+RAII after success and exceptions. Subanchors are published only after their
+complete stored field exists; a failed mask rewrite retains the previous mask.
+
+The default native build executes the production regression suite. The
+2026-11-13 ABI11 run passed 238,555 assertions, including 1/2/4/8 workers with
+different warmup histories, tight-store admission and routes, all three search
+exception/reentry paths, and failed subanchor publication/retry. Under the tested
+768 MiB/288-task pressure, every worker variant admitted 192 tasks and failed 96,
+with identical route outputs and counted peak 598,563,448 bytes. Evidence:
+`.work/a/pf-surface/001/native-abi11-tests.log`. This proves the tested internal
+budget contract; actual multiplayer acceptance is a separate requirement.

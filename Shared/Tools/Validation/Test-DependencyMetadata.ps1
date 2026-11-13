@@ -3,13 +3,18 @@ param([string]$Workspace, [string[]]$ProjectFiles)
 $ErrorActionPreference = 'Stop'
 Write-Host '[Preflight] Checking manifest and plugin minimum dependencies...'
 if (-not $Workspace) { $Workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..')) }
-. (Join-Path $Workspace 'APIShared\tools\Validation\DependencyMetadata.Common.ps1')
+$selectedApiRoot = if ($env:SHCDE_BRANCH_API_ROOT) { [IO.Path]::GetFullPath($env:SHCDE_BRANCH_API_ROOT) } else { Join-Path $Workspace 'APIShared' }
+. (Join-Path $selectedApiRoot 'tools/Validation/DependencyMetadata.Common.ps1')
+function Get-DependencyRelativePath([string]$Path) {
+    if ($Path.StartsWith($selectedApiRoot+'\',[StringComparison]::OrdinalIgnoreCase)) { return 'APIShared\' + $Path.Substring($selectedApiRoot.Length+1) }
+    return $Path.Substring($Workspace.Length).TrimStart('\')
+}
 $count = 0
 $projects = if ($ProjectFiles) { @($ProjectFiles | ForEach-Object { Get-Item -LiteralPath $_ }) } else {
     @(Get-ChildItem -LiteralPath $Workspace -Recurse -File -Filter '*.csproj')
 }
 foreach ($project in $projects | Where-Object {
-     ('\' + $_.FullName.Substring($Workspace.Length).TrimStart('\')) -notmatch '[\\/](shcde-script-extender|tests|bin|obj|BepInEx|\.local|\.tools|\.inspect|_inspect|\.native-analysis|\.work|\.release-output|before)[\\/]'
+     ('\' + (Get-DependencyRelativePath $_.FullName)) -notmatch '[\\/](shcde-script-extender|tests|bin|obj|BepInEx|\.local|\.tools|\.inspect|_inspect|\.native-analysis|\.work|\.release-output|before)[\\/]'
 }) {
     $manifestPath = Join-Path $project.Directory.FullName 'info.json'
     if (-not (Test-Path -LiteralPath $manifestPath)) {
@@ -19,7 +24,7 @@ foreach ($project in $projects | Where-Object {
         $manifestPath = $infos[0].FullName
     }
     $sourceFiles = @(Get-ChildItem -LiteralPath $project.Directory.FullName -Recurse -File -Filter '*.cs' | Where-Object {
-         ('\' + $_.FullName.Substring($Workspace.Length).TrimStart('\')) -notmatch '[\\/](tests|examples|bin|obj|BepInEx|\.local|\.work|\.release-output)[\\/]'
+         ('\' + (Get-DependencyRelativePath $_.FullName)) -notmatch '[\\/](tests|examples|bin|obj|BepInEx|\.local|\.work|\.release-output)[\\/]'
     })
     $source = ($sourceFiles | ForEach-Object { [IO.File]::ReadAllText($_.FullName) }) -join [Environment]::NewLine
     if ($source -notmatch '\[BepInPlugin\(') { continue }

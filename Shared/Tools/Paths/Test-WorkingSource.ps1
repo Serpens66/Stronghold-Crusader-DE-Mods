@@ -1,10 +1,11 @@
+try {
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '../BranchBuild/BranchBuild.Common.ps1')
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 $adapterInput = 'set "API_SHARED_DIR=old"' + "`r`n" + 'set "LOCAL_API_SHARED_DIR=old"' + "`r`n"
 $adapterOutput = Convert-BranchBatch $adapterInput 'Fixture/build.bat' ''
 if ($adapterOutput -match '(?<!\r)\n|\r(?!\n)') { throw 'SDK adaptation corrupted CRLF.' }
-$fixture = New-ShortWorkDirectory -Root $workspace -Name working-source
+$fixture = New-ShortWorkDirectory -Root $workspace -Name working-source -Transient
 # The selected package is independent of the SDK inspection source root. Exercise the BAT contract.
 $probe = Join-Path $fixture 'sdk-adapter.cmd'
 $selectedPackage = Join-Path $fixture 'selected-sdk'
@@ -47,7 +48,7 @@ foreach ($arguments in @(@('/source:working','/branch:develop','/noinstall','/no
 }
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $dispatcher -Repository ($repo + '/.') -Driver Fixture/build.bat /source:working /noinstall /nopause
 if ($LASTEXITCODE) { throw 'Working build failed.' }
-$records = @(Get-ChildItem -LiteralPath (Join-Path $repo '.work/b/working') -Filter '*.build.json')
+$records = @(Get-Item -LiteralPath (Join-Path $repo '.release-output/builds/Fixture/working.build.json'))
 if ($records.Count -ne 1) { throw 'Working build record missing.' }
 $record = [IO.File]::ReadAllText($records[0].FullName) | ConvertFrom-Json
 # The commit covers unchanged files; the record hashes exactly the working differences.
@@ -56,3 +57,7 @@ if (-not $record.WorkingSource -or -not $record.NoInstall -or ($recorded -join '
     -not @($record.SourceFiles | Where-Object { $_.Path -eq 'Fixture/deleted.txt' -and $_.Deleted }).Count) { throw 'Working provenance incomplete.' }
 if (((Invoke-BranchGit $repo @('rev-parse','HEAD')) -join '') -cne $head) { throw 'Working build moved HEAD.' }
 Write-Host "PASS: working/deleted/untracked sources, forbidden argument combinations, no-install, changed-file hashes and unchanged HEAD; $fixture"
+
+} finally {
+    if (Get-Command Complete-TransientWorkDirectories -ErrorAction SilentlyContinue) { Complete-TransientWorkDirectories -Owner $PSCommandPath }
+}

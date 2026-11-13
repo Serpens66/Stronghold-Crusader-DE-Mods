@@ -210,3 +210,29 @@ but its complete unscoped script is not recorded as passing. Those external work
 in progress sources and scanner expectations were not modified. Build warnings
 remain the existing linked JSON type-name collisions and an unused field; no
 compile errors occurred.
+
+### AI harassment delayed-order ABI review (2026-11-13)
+
+This dated check concerns the installed Fixes1.29.1 assembly, SHA256
+`BE7D8E42AEE2C8FEF400A701472F5481A0A6F864E4DDAB54182302465DAE19C0`,
+and installed RedBird.X64.dll, SHA256
+`E085B83B2B87B5D2142C980090D8D9EC616A90A443BD125C17B41E0BB47A44EB`.
+It does not update the older canonical clone's source-review identity above.
+
+At the hash-bound native call site0x2EFCB, Vanilla includes a MOV of EAX into
+`[RSP+0x20]` before calling order15. Fixes replays only the first two displaced
+instructions before its six-argument X64FastcallSafe wrapper. It also requests
+FromOriginalStack indices0 and1, whose audited implementation reads original
+RSP+0x28 and+0x30 (function-entry convention). At this inline call site, native
+arguments5/6 instead occupy+0x20/+0x28. Recorded delayed calls consequently
+included target global0 and a6=15. Merely replaying the omitted MOV would not
+correct the additional eight-byte argument shift.
+
+This is a separate argument discrepancy, not sufficient proof of the reported
+crew-duplication cause. The tent branch of native order15 reads the current
+building's actual global into Engineer+0x6F8 and repurposes its parameter5 for
+required crew. The live duplicate arose later from the state6 automatic
+crew search selecting already bound role22 engineers; see the Vanilla
+`SIEGE_ENGINEER_CREW_TIMEOUT.md` audit. Do not attribute that confirmed failure
+solely to a zero GID in the delayed order. No Fixes patch or replacement was
+introduced for this separate ABI observation in the engineer correction.

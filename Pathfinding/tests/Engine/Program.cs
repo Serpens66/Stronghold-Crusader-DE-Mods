@@ -11,6 +11,9 @@ string root = Path.GetFullPath(args.Length == 0 ? "." : args[0]);
 if (args.Contains("--redbird-only")) { InstalledRedBirdContract.Validate(); return; }
 Pathfinding.Settings.Tests.SettingsDependencyTests.Run(root);
 if (args.Contains("--settings-only")) return;
+HazardScannerTests.Run(root);
+if (args.Contains("--hazards-only")) return;
+AnchorMoveVetoTests.Run(root);
 OutsideBuilderDiagnosticsTests.Run(root);
 DirectionWatchTests.Run(root);
 if (args.Contains("--direction-watch-only")) return;
@@ -61,10 +64,11 @@ string GitSource(string path)
 if (args.Contains("--fast-model-only"))
 {
     var modelSources = new[] { "IFastRouteField.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs" }
-        .Select(name => CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, name)))).ToList();
+        .Select(name => CSharpSyntaxTree.ParseText(RuntimeSource(name))).ToList();
     var edgeDeclaration = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "Pathfinding/src/UnitCommands/Moat/MoatCandidateField.cs")))
         .GetRoot().DescendantNodes().OfType<DelegateDeclarationSyntax>().Single(d => d.Identifier.Text == "MoatSearchEdge");
     modelSources.Add(CSharpSyntaxTree.ParseText("namespace EngineHarness {" + edgeDeclaration + "}"));
+    modelSources.Add(CSharpSyntaxTree.ParseText("namespace EngineHarness {" + CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "Pathfinding/src/UnitCommands/Movement/MovementSurfacePolicy.cs"))).GetRoot().DescendantNodes().OfType<EnumDeclarationSyntax>().Single(t => t.Identifier.Text == "RouteSurfaceClass") + "}"));
     foreach (string test in new[] { "FastRouteFieldTests.cs", "FastStateTests.cs" })
         modelSources.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, test))));
     var modelReferences = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))
@@ -95,12 +99,12 @@ string[] runtimeSourceNames =
 {
     "AssassinSelectionAdapters.cs",
     "CursorConnectivity.cs", "CursorRegionGraph.cs", "DirectMoatCommandScopes.cs",
-    "AnchorRouting.cs", "RouteReplanWatch.cs", "FireEscape.cs", "SoldierTribeMoves.cs", "MovementCaseSave.cs", "AnchorEdgeMemo.cs", "PlagueDamageModel.cs", "GroundFailureProofs.cs", "MoatFailureProofs.cs", "FastIntegration.cs", "DigWorkFallback.cs", "IFastRouteField.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs",
+    "AnchorRouting.cs", "MovementSurfaces.cs", "RouteReplanWatch.cs", "FireEscape.cs", "SoldierTribeMoves.cs", "MovementCaseSave.cs", "AnchorEdgeMemo.cs", "PlagueDamageModel.cs", "GroundFailureProofs.cs", "MoatFailureProofs.cs", "FastIntegration.cs", "DigWorkFallback.cs", "IFastRouteField.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs",
     "FastMoatRouting.cs", "FastMovementScheduler.cs", "FastGroupDistribution.cs", "FillWeightedRoutes.cs",
     "FriendlyMoatMovementRuntime.cs",
     "MoatPlacement.cs", "MoatPlacementSearch.cs",
     "MoatSearchKernel.cs", "MovementOptionsSnapshot.cs",
-    "MovementPathPublication.cs", "MovementSearchContext.cs", "NativeFormationSlots.cs",
+    "MovementPathPublication.cs", "MovementSearchContext.cs", "MovementSurfacePolicy.cs", "NativeDetourBarriers.cs", "NativeFormationSlots.cs",
     "NativeMovementCadenceResolver.cs", "NativeMovementRecovery.cs", "UnitMovementContext.cs",
     "WeightedMoatPublication.cs", "WeightedMoatRoutePlanner.cs"
 };
@@ -123,7 +127,7 @@ var methods = new HashSet<string>(new[] {
     "LogDetailedInfo",
     "EnsureMoveCommandGroupSummary",
     "TryApplyBuildingConsumerFallback", "IsLegalBuildingCandidate", "BuildingCandidateEdge", "TryCaptureOrderedActiveGroupUnits", "CaptureBuildingApproachCandidates", "CaptureBuildingApproachBuffer", "RestoreBuildingApproachBuffer", "WriteBuildingApproachCandidates", "WriteBuildingApproachCandidate", "PublishBuildingApproachPairs", "TryGetPublishedBuildingFootprint", "MatchesSynchronousAttackMovementContext", "TryGetUnitAttackMoveTile", "IsValidBuildingApproachPair", "IsWalkableBuildingApproachEndpoint", "IsExactBuildingContextTile", "TryValidateHostileBuildingTarget",
-    "GetReusableQualifiedRoute",
+    "GetReusableQualifiedRoute", "TryCaptureAnchorMoveSpecs", "CaptureFastMembers", "TryGetFastMember", "ResolveMovementSurface", "ReadMovementSurfaceTile", "IsMovementSurfaceAllowed", "GetMovementSurfaceBuildingPolicyFingerprint", "FilterPublishedMovementSurface", "RejectPublishedMovementSurface", "PathBuilderBarrier", "PathReconstructionBarrier",
     "InvalidateMovementSearchData",
     "TryCaptureBuilderWeightedScope", "ObserveWeightedMoatShadowResult", "FindMoatWorkTargetWithOwnerRoute",
     "TryCreateMoatWorkSelectionScope", "TryCreatePendingDigMoatTarget", "ResolveMoatWorkTileWithOwnerRoute",
@@ -155,6 +159,7 @@ var types = new HashSet<string>(new[] {
 var properties = new HashSet<string>(new[] { "CurrentOptions", "ExtensionsEnabled", "RequiredOnlyMode" });
 var constants = new HashSet<string>(new[] {
     "buildingFallbackWorkBuffers", "DetailedDiagnosticsEnabled", "assassinExactPublicationLogged",
+    "movementSurfaceBuildingWhitelist", "movementSurfaceBuildingTypes", "movementSurfaceBuildingTypeCount",
     "VanillaUnreachableCandidateScore", "buildingCandidateFields", "BuildingContextBlockingTileFlagMask", "VanillaAttackFloodResultCapacity", "PathManagerFloodGenerationOffset", "PathManagerFloodDepthOffset", "PathManagerFloodQueueHeadOffset", "PathManagerFloodQueueTailOffset", "PathManagerFloodResultTileOffset", "PathManagerFloodResultStride", "BuildingCandidateApproachTileOffset", "BuildingCandidateFootprintTileOffset", "BuildingCandidateScoreOffset",
     "SelectedMoatTileIdOffset", "SelectedMoatApproachXOffset", "SelectedMoatApproachYOffset",
     "TribeRecordSize", "TribeLeadUnitIdOffset", "TribeUnitCountOffset", "UnitGroupInactiveStateOffset", "MaximumTribeCount", "MoatRecordArrayOffset", "MoatRecordCountOffset", "MoatRecordSize", "MoatRecordTileIdOffset", "MoatRecordXOffset", "MoatRecordYOffset", "NativeUnitSlotDataOffset", "MaximumMoatRecordId", "MaximumRegionId", "MaximumUnitCount", "MapWidth", "MapCellCount", "NativeTileCount",
@@ -278,6 +283,7 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     comparisonTree,
     comparisonPlannerTree,
     CSharpSyntaxTree.ParseText(extracted),
+    CSharpSyntaxTree.ParseText("namespace EngineHarness {" + string.Join("\n", CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "Pathfinding/src/UnitCommands/Movement/MovementSurfacePolicy.cs"))).GetRoot().DescendantNodes().OfType<BaseTypeDeclarationSyntax>().Where(t => t.Identifier.Text == "RouteSurfaceClass" || t.Identifier.Text == "MovementSurfacePolicy")) + "}"),
     CSharpSyntaxTree.ParseText(RuntimeSource("WeightedMoatRoutePlanner.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("MoatSearchKernel.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("WeightedGridSearchKernel.cs")),
@@ -297,6 +303,7 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(RuntimeSource("SoldierTribeMoves.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("MovementCaseSave.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("AnchorEdgeMemo.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("MovementSurfaces.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("PlagueDamageModel.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("GroundFailureProofs.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("MoatFailureProofs.cs")),
@@ -317,6 +324,9 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "CursorTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "PlacementTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "AnchorIntegrationTests.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "SurfaceRouteTests.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "WaitModeTests.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "HazardEscapeLoadTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FormationBoundaryFixture.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FillFormationTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "DigWorkFallbackTests.cs"))),

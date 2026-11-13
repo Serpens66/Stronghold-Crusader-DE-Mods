@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.226.0</AssemblyVersion>
-    <FileVersion>1.0.226.0</FileVersion>
+    <AssemblyVersion>1.0.227.0</AssemblyVersion>
+    <FileVersion>1.0.227.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -72,6 +72,8 @@
     <Compile Include="src\DrawbridgeDestructionFix\NativeContract.cs" />
     <Compile Include="src\DrawbridgeDestructionFix\FixRuntime.cs" />
     <Compile Include="src\SiegeCrew\NativeContract.cs" />
+    <Compile Include="src\SiegeCrew\AiCrewReadinessPatch.cs" />
+    <Compile Include="src\SiegeCrew\AutoCrewBindingPatch.cs" />
     <Compile Include="src\SiegeCrew\SiegeCrewFirePatch.cs" />
     <Compile Include="src\SiegeCrew\FixRuntime.cs" />
     <Reference Include="System" /><Reference Include="System.Core" /><Reference Include="System.Numerics" /><Reference Include="System.Xml" /><Reference Include="System.Xml.Linq" />

@@ -1,4 +1,5 @@
 @echo off
+rem SHCDE_BUILD_PARAMETERS: explicit SDK, installation suffix and no-install settings from the dispatcher.
 setlocal EnableExtensions
 rem SHCDE_BRANCH_DISPATCH: select committed sources; the selected child owns its build.
 if defined SHCDE_BRANCH_SOURCE_ROOT goto :shcde_branch_selected
@@ -34,7 +35,7 @@ exit /b 1
 
 :build_driver_main
 echo [%date% %time%] Workspace source and runtime preflight
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1" -ModDirectory "Testmods/AivLobbyPresetTest"
 if not "%ERRORLEVEL%"=="0" exit /b 1
 setlocal EnableExtensions
 set "PROJECT_DIR=%~dp0"
@@ -42,7 +43,7 @@ set "MSBUILD=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBu
 set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
 set "EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
 set "OUTPUT=%PROJECT_DIR%BepInEx\plugins\AivLobbyPresetTest_Serp"
-set "INSTALL=%GAME_DIR%\BepInEx\plugins\AivLobbyPresetTest_Serp"
+set "INSTALL=%GAME_DIR%\BepInEx\plugins\AivLobbyPresetTest_Serp%SHCDE_BRANCH_INSTALL_SUFFIX%"
 set "NO_PAUSE=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 echo [%date% %time%] Check that the game is closed
@@ -54,15 +55,16 @@ echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tests\Test-Preflight.ps1" -ProjectDir "%PROJECT_DIR%."
 if not "%ERRORLEVEL%"=="0" goto failed
 echo [%date% %time%] Compile projects
-"%MSBUILD%" "%PROJECT_DIR%tests\AivLobbyPresetTest.Tests.csproj" /p:Configuration=Debug
+"%MSBUILD%" "%PROJECT_DIR%tests\AivLobbyPresetTest.Tests.csproj" /p:Configuration=Debug %SHCDE_BRANCH_MSBUILD_API%
 if not "%ERRORLEVEL%"=="0" goto failed
 echo [%date% %time%] Run tests
 "%PROJECT_DIR%tests\bin\AivLobbyPresetTest.Tests.exe" "%PROJECT_DIR%CraterLakePreset.json" "%PROJECT_DIR%AivLobbyTestSeries.json" "%PROJECT_DIR%AivLobbyFullMapProbeSeries.json" "%PROJECT_DIR%AivLobbyCrater180ProbeSeries.json" "%PROJECT_DIR%AivLobbySixMatchSeries.json" "%PROJECT_DIR%AivLobbyMultiAivSeries.json" "%PROJECT_DIR%AivLobbyConnectedRecordProbeSeries.json" "%PROJECT_DIR%AivLobbyStartRebuildRegressionSeries.json"
 if not "%ERRORLEVEL%"=="0" goto failed
 echo [%date% %time%] Compile projects
-"%MSBUILD%" "%PROJECT_DIR%AivLobbyPresetTest.csproj" /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+"%MSBUILD%" "%PROJECT_DIR%AivLobbyPresetTest.csproj" /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" %SHCDE_BRANCH_MSBUILD_API%
 if not "%ERRORLEVEL%"=="0" goto failed
 if not exist "%OUTPUT%\AivLobbyPresetTest.dll" goto failed
+if "%SHCDE_BRANCH_NOINSTALL%"=="1" exit /b 0
 if not exist "%INSTALL%" mkdir "%INSTALL%"
 echo [%date% %time%] Copy package files
 copy /Y "%OUTPUT%\AivLobbyPresetTest.dll" "%INSTALL%\AivLobbyPresetTest.dll" >nul

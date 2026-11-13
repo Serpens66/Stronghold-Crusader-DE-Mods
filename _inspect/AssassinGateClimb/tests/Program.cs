@@ -6,6 +6,7 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.IO;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using static Iced.Intel.AssemblerRegisters;
 
@@ -21,9 +22,11 @@ internal static class Program
         try
         {
             Check((int)eStructs.STRUCT_GATE_MAIN == 45 && (int)eStructs.STRUCT_GATE_INNER == 46 &&
+                (uint)TilePropertyFlag.GoodsyardRelated == 2 &&
                 (int)TilePropertyFlag.IsWall == 256 && (int)AliveState.MarkedForDeletion == 3, "Installed enum contracts");
             TestBackend();
             TestEndpoints();
+            TestPolicyPublication();
             Console.WriteLine("PASS: " + checks + " Assassin shared native execution checks.");
             return 0;
         }
@@ -122,6 +125,7 @@ internal static class Program
                 wrapper.mov(r10d,eax); wrapper.mov(r11d,eax);
                 wrapper.mov(rax,module+AssassinPathAPI.TileFlagsRva);
                 wrapper.mov(r9d,__dword_ptr[rax+400]); wrapper.mov(edi,__dword_ptr[rax+404]);
+                wrapper.and(r9d,(int)TilePropertyFlag.IsWall); // E178F masks the live source flag.
                 if (site == 1 || site == 3)
                 {
                     wrapper.mov(rax,module+AssassinPathAPI.BuildingGridRva);
@@ -136,7 +140,7 @@ internal static class Program
                 Write(new IntPtr((long)wrapperAddress),Assemble(wrapper,wrapperAddress));
                 fixtures[site]=Marshal.GetDelegateForFunctionPointer<Fixture>(new IntPtr((long)wrapperAddress));
             }
-            for (int policyValue = 0; policyValue <= 3; policyValue++)
+            for (int policyValue = 0; policyValue <= 7; policyValue++)
             {
                 Marshal.WriteInt32(policy,policyValue);
                 foreach (int type in new[] { 45,46,47,41 })
@@ -158,15 +162,77 @@ internal static class Program
                         // In Vanilla, source rejection makes the neighbor compare's source ID zero.
                         // Test the neighbor's disabled compare both ways as native instructions specify.
                         bool vanilla = site==3 ? targetGate==sourceGate : !occupied;
-                        bool active = site>=2 ? policyValue!=0 : (policyValue&2)!=0;
+                        bool active = site>=2 ? (policyValue&3)!=0 : (policyValue&2)!=0;
                         bool expected = active ? broad || !occupied || gateAllowed : vanilla;
                         Check(fixtures[site]() == (expected?1:0),
                             $"Endpoint site={site}/policy={policyValue}/type={type}/alive={alive}/source={sourceGate}/target={targetGate}");
                     }
                 }
             }
+            // Source/neighbor direction matters: stockpile flags alone are insufficient,
+            // while a genuine wall at either endpoint remains a valid climb candidate.
+            Marshal.WriteInt16(IntPtr.Add(allocation,AssassinPathAPI.BuildingGridRva+200),0);
+            Marshal.WriteInt16(IntPtr.Add(allocation,AssassinPathAPI.BuildingGridRva+202),0);
+            foreach (int sourceFlags in new[] { 0,2,0x100,0x102,0x502,0x10100,0x10008000 })
+            foreach (int targetFlags in new[] { 0,2,0x100,0x102,0x502,0x10100,0x10008000 })
+            for (int policyValue = 0; policyValue <= 7; policyValue++)
+            {
+                Marshal.WriteInt32(IntPtr.Add(allocation,AssassinPathAPI.TileFlagsRva+400),sourceFlags);
+                Marshal.WriteInt32(IntPtr.Add(allocation,AssassinPathAPI.TileFlagsRva+404),targetFlags);
+                Marshal.WriteInt32(policy,policyValue);
+                for (int site=2; site<4; site++)
+                {
+                    bool rawWall = ((sourceFlags|targetFlags)&0x100)!=0;
+                    bool genuineWall = (sourceFlags&0x102)==0x100 || (targetFlags&0x102)==0x100;
+                    bool expected = site==2 || rawWall && ((policyValue&5)!=5 || genuineWall);
+                    Check(fixtures[site]() == (expected?1:0),
+                        $"Stockpile wall site={site}/policy={policyValue}/source={sourceFlags:X}/target={targetFlags:X}");
+                }
+            }
             GC.KeepAlive(fixtures);
         }
         finally { VirtualFree(allocation,UIntPtr.Zero,0x8000); }
+    }
+
+    private static void TestPolicyPublication()
+    {
+        const BindingFlags binding = BindingFlags.Static | BindingFlags.NonPublic;
+        var api = typeof(AssassinPathAPI);
+        FieldInfo owner = api.GetField("weightedOwner",binding), gateOwner = api.GetField("gateOwner",binding);
+        FieldInfo flags = api.GetField("flags",binding);
+        IntPtr policy = (IntPtr)api.GetField("policyFlags",binding).GetValue(null);
+        object publication = api.GetField("publication",binding).GetValue(null);
+        FieldInfo publicationState = publication.GetType().GetField("state",BindingFlags.Instance|BindingFlags.NonPublic);
+        object oldOwner=owner.GetValue(null), oldGateOwner=gateOwner.GetValue(null), oldFlags=flags.GetValue(null);
+        object oldState=publicationState.GetValue(publication);
+        try
+        {
+            // Model a validated installation without installing any hook in the game.
+            owner.SetValue(null,"fixture"); gateOwner.SetValue(null,null);
+            flags.SetValue(null,0); Marshal.WriteInt32(policy,0); publicationState.SetValue(publication,2);
+            AssassinPathAPI.SetWeightedReconstructionEnabled("fixture",true,true);
+            Check(Marshal.ReadInt32(policy)==5,"Stockpile correction publishes aligned weighted policy data");
+            AssassinPathAPI.SetDirectGatehouseClimbing("fixture",true);
+            Check(Marshal.ReadInt32(policy)==7,"Gate enable preserves stockpile correction");
+            AssassinPathAPI.SetDirectGatehouseClimbing("fixture",false);
+            Check(Marshal.ReadInt32(policy)==5,"Gate disable preserves stockpile correction");
+            AssassinPathAPI.SetWeightedReconstructionEnabled("fixture",true);
+            Check(Marshal.ReadInt32(policy)==1,"Legacy overload restores unrestricted weighted defaults");
+            AssassinPathAPI.SetWeightedReconstructionEnabled("fixture",true,true);
+            AssassinPathAPI.SetDirectGatehouseClimbing("fixture",true);
+            AssassinPathAPI.SetWeightedReconstructionEnabled("fixture",false,true);
+            Check(Marshal.ReadInt32(policy)==2,"Weighted disable clears correction while preserving gate policy");
+            AssassinPathAPI.SetWeightedReconstructionEnabled("fixture",true);
+            Check(Marshal.ReadInt32(policy)==3,"Legacy re-enable retains gate policy and unrestricted defaults");
+            bool rejected=false;
+            try { AssassinPathAPI.SetWeightedReconstructionEnabled("other",true,true); }
+            catch (InvalidOperationException) { rejected=true; }
+            Check(rejected && Marshal.ReadInt32(policy)==3,"Foreign owner cannot change weighted stockpile policy");
+        }
+        finally
+        {
+            owner.SetValue(null,oldOwner); gateOwner.SetValue(null,oldGateOwner); flags.SetValue(null,oldFlags);
+            Marshal.WriteInt32(policy,(int)oldFlags); publicationState.SetValue(publication,oldState);
+        }
     }
 }

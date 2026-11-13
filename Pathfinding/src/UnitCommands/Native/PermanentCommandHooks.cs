@@ -61,6 +61,9 @@ namespace Pathfinding.UnitCommands
             () => { targetEntries++; native(); };
         private void DispatchPlayerMove(IntPtr manager, int tribe, int x, int y, int patrol, int flags)
         {
+            // Before Fast capture or 196100's tribe+56C write: a rejected destination must not
+            // supersede queued work or mutate the previous native order.
+            if (IsForbiddenMoveTarget(tribe, x, y)) return;
             long entries = playerMoveEntries;
             ManualPlayerMoveFrame parentPlayerMove = manualPlayerMove;
             // 196100 ignores its first argument (Vanilla's Chore-17 handler 10AE0 passes the unit
@@ -102,6 +105,18 @@ namespace Pathfinding.UnitCommands
         {
             if (args.Phase == SHCDESE.EventAPI.EventHookPhase.Pre)
             {
+                if (!args.SkipOriginalFunction && IsForbiddenMoveTarget(args.TribeId, args.TileX, args.TileY))
+                {
+                    args.SkipOriginalFunction = true; args.ReturnValue = 0;
+                    // Only this wrapper's first matching event owns its earlier +56C write.
+                    // A nested rejected group command must not reject an accepted parent.
+                    if (manualPlayerMove.Valid && !manualPlayerMove.GroupSeen && manualPlayerMove.Tribe == args.TribeId)
+                    {
+                        manualPlayerMove.GroupSeen = true; manualPlayerMove.GroupArguments = args; manualPlayerMove.Rejected = true;
+                    }
+                    // The Extender emits no Post for a skipped Pre; no scope stack was entered.
+                    return;
+                }
                 ManualRegionAdmissionBatch admissionParent = BeginManualGroupAdmission(args);
                 if (moveAdmissionParents == null) moveAdmissionParents = new Stack<ManualRegionAdmissionBatch>();
                 moveAdmissionParents.Push(admissionParent);
@@ -190,6 +205,8 @@ namespace Pathfinding.UnitCommands
         }
         private void DispatchAppend(IntPtr manager, int tribe, ushort x, ushort y, int index, short mode)
         {
+            // Reject a newly appended forbidden waypoint before either queue provider records it.
+            if (IsForbiddenMoveTarget(tribe, x, y)) return;
             long entries = appendEntries;
             try
             {

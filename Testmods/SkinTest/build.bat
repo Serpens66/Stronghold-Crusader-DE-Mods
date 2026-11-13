@@ -1,4 +1,5 @@
 @echo off
+rem SHCDE_BUILD_PARAMETERS: explicit SDK, installation suffix and no-install settings from the dispatcher.
 setlocal EnableExtensions
 rem SHCDE_BRANCH_DISPATCH: select committed sources; the selected child owns its build.
 if defined SHCDE_BRANCH_SOURCE_ROOT goto :shcde_branch_selected
@@ -34,7 +35,7 @@ exit /b 1
 
 :build_driver_main
 echo [%date% %time%] Workspace source and runtime preflight
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1" -ModDirectory "Testmods/SkinTest"
 if not "%ERRORLEVEL%"=="0" exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 set "PROJECT_DIR=%~dp0"
@@ -42,6 +43,7 @@ set "MSBUILD=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBu
 set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
 set "EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
 set "API_SHARED_DIR=%~dp0..\..\APIShared\BepInEx\plugins\APIShared_Serp"
+if defined SHCDE_BRANCH_API_PACKAGE set "API_SHARED_DIR=%SHCDE_BRANCH_API_PACKAGE%"
 echo [%date% %time%] PowerShell checks / build step
 rem APIShared source: /apishared:main (release branch) or /apishared:dev (local checkout, default).
 call "%~dp0..\..\Shared\Tools\ApiSharedRepository\Select-ApiSharedBranch.cmd" %*
@@ -71,7 +73,7 @@ if not exist "%PROJECT_DIR%Assets\CrusaderUI\UIButtonsO018_colour8.png" ( echo P
 
 pushd "%PROJECT_DIR%"
 echo [%date% %time%] Compile projects
-"%MSBUILD%" tests\SkinTest.Tests.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+"%MSBUILD%" tests\SkinTest.Tests.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" %SHCDE_BRANCH_MSBUILD_API%
 if not "%ERRORLEVEL%"=="0" ( popd& goto failed )
 echo [%date% %time%] Run tests
 "%PROJECT_DIR%tests\bin\SkinTest.Tests.exe"
@@ -85,7 +87,7 @@ popd
 if not "%BUILD_EXIT_CODE%"=="0" goto failed
 
 set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\SkinTest_Serp"
-set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\SkinTest_Serp"
+set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\SkinTest_Serp%SHCDE_BRANCH_INSTALL_SUFFIX%"
 if not exist "%LOCAL_PLUGIN_DIR%\SkinTest.dll" goto failed
 if "%NO_INSTALL%"=="1" goto built_without_install
 echo [%date% %time%] Copy package files

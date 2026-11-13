@@ -1,4 +1,5 @@
 @echo off
+rem SHCDE_BUILD_PARAMETERS: explicit SDK, installation suffix and no-install settings from the dispatcher.
 setlocal EnableExtensions
 rem SHCDE_BRANCH_DISPATCH: select committed sources; the selected child owns its build.
 if defined SHCDE_BRANCH_SOURCE_ROOT goto :shcde_branch_selected
@@ -34,7 +35,7 @@ exit /b 1
 
 :build_driver_main
 echo [%date% %time%] Workspace source and runtime preflight
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1" -ModDirectory "ExtremePowers"
 if not "%ERRORLEVEL%"=="0" exit /b 1
 setlocal EnableExtensions
 set "PROJECT_DIR=%~dp0"
@@ -61,13 +62,13 @@ if not exist "%EXTENDER_DIR%\SHCDESE.dll" (
 )
 pushd "%PROJECT_DIR%"
 echo [%date% %time%] Compile projects
-"%MSBUILD%" ExtremePowers.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+"%MSBUILD%" ExtremePowers.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" %SHCDE_BRANCH_MSBUILD_API%
 set "BUILD_EXIT_CODE=%ERRORLEVEL%"
 popd
 if not "%BUILD_EXIT_CODE%"=="0" goto done
 set "LOCAL_BUILD_DIR=%PROJECT_DIR%bin\Debug"
 set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\ExtremePowers_Serp"
-set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\ExtremePowers_Serp"
+set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\ExtremePowers_Serp%SHCDE_BRANCH_INSTALL_SUFFIX%"
 set "SETTINGS_STATE_BEFORE=%TEMP%\ExtremePowersSettingsBefore-%RANDOM%-%RANDOM%.txt"
 set "SETTINGS_STATE_AFTER=%TEMP%\ExtremePowersSettingsAfter-%RANDOM%-%RANDOM%.txt"
 set "SETTINGS_DIR=%GAME_PLUGIN_DIR%\LobbyModSettings"
@@ -104,6 +105,7 @@ xcopy "%LOCAL_BUILD_DIR%\Patches" "%LOCAL_PLUGIN_DIR%\Patches\" /E /I /Y >nul
 if not "%ERRORLEVEL%"=="0" set "BUILD_EXIT_CODE=1"
 if exist "%LOCAL_PLUGIN_DIR%\LobbyModSettings" set "BUILD_EXIT_CODE=1"
 if not "%BUILD_EXIT_CODE%"=="0" goto done
+if "%SHCDE_BRANCH_NOINSTALL%"=="1" goto done
 if exist "%GAME_PLUGIN_DIR%" (
     rem Replace packaged content while preserving player-created lobby settings.
     for /D %%D in ("%GAME_PLUGIN_DIR%\*") do (

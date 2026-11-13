@@ -36,8 +36,8 @@ namespace Pathfinding
                 EnableMoveFormationEnhancements = true; EnableExtendedShiftCommandQueue = true;
                 EnableTroopMovementFix = true; EnableRallyTerrainSlowdownFix = true; EnableFastRecruitRallyMovement = true;
                 EnableMountedStockpileMovementFix = true; EnableAssemblyPointPlacementFix = true;
-                AvoidFire = false; EscapeFire = true; FireWaitSeconds = 60; FireReturnSeconds = 120; FireDetourPercent = 50; FireDetourMinTiles = 10;
-                AvoidPlague = false; EscapePlague = true; EscapePlagueRaised = false; PlagueWaitSeconds = 90; PlagueReturnSeconds = 180;
+                AvoidFire = false; EscapeFire = true; FireWaitIndefinitely = false; FireWaitSeconds = 60; FireReturnSeconds = 120; FireDetourPercent = 50; FireDetourMinTiles = 10;
+                AvoidPlague = false; EscapePlague = true; EscapePlagueRaised = false; PlagueWaitIndefinitely = false; PlagueWaitSeconds = 90; PlagueReturnSeconds = 180;
             }
             if (CanEditClientSettings)
             {
@@ -64,6 +64,7 @@ namespace Pathfinding
         private bool enableTroopMovementFix = true, enableRallyTerrainSlowdownFix = true, enableFastRecruitRallyMovement = true;
         private bool enableMountedStockpileMovementFix = true, enableAssemblyPointPlacementFix = true;
         private bool avoidFire, escapeFire = true, avoidPlague, escapePlague = true, escapePlagueRaised;
+        private bool fireWaitIndefinitely, plagueWaitIndefinitely;
         private int fireWaitSeconds = 60, fireReturnSeconds = 120, fireDetourPercent = 50, fireDetourMinTiles = 10;
         private int plagueWaitSeconds = 90, plagueReturnSeconds = 180;
         private bool enableVanillaPerformanceOptimizations = true;
@@ -91,6 +92,7 @@ namespace Pathfinding
         [SyncHostOnly] public bool EnableAssemblyPointPlacementFix { get => enableAssemblyPointPlacementFix; set => Set(ref enableAssemblyPointPlacementFix, value, nameof(EnableAssemblyPointPlacementFix)); }
         [SyncHostOnly] public bool AvoidFire { get => avoidFire; set => Set(ref avoidFire, value, nameof(AvoidFire)); }
         [SyncHostOnly] public bool EscapeFire { get => escapeFire; set => Set(ref escapeFire, value, nameof(EscapeFire)); }
+        [SyncHostOnly] public bool FireWaitIndefinitely { get => fireWaitIndefinitely; set => Set(ref fireWaitIndefinitely, value, nameof(FireWaitIndefinitely)); }
         [SyncHostOnly] public int FireWaitSeconds { get => fireWaitSeconds; set => SetBounded(ref fireWaitSeconds, value, 1, 1800, nameof(FireWaitSeconds)); }
         [SyncHostOnly] public int FireReturnSeconds { get => fireReturnSeconds; set => SetBounded(ref fireReturnSeconds, value, 1, 1800, nameof(FireReturnSeconds)); }
         [SyncHostOnly] public int FireDetourPercent { get => fireDetourPercent; set => SetBounded(ref fireDetourPercent, value, 0, 1000, nameof(FireDetourPercent)); }
@@ -98,6 +100,7 @@ namespace Pathfinding
         [SyncHostOnly] public bool AvoidPlague { get => avoidPlague; set => Set(ref avoidPlague, value, nameof(AvoidPlague)); }
         [SyncHostOnly] public bool EscapePlague { get => escapePlague; set => Set(ref escapePlague, value, nameof(EscapePlague)); }
         [SyncHostOnly] public bool EscapePlagueRaised { get => escapePlagueRaised; set => Set(ref escapePlagueRaised, value, nameof(EscapePlagueRaised)); }
+        [SyncHostOnly] public bool PlagueWaitIndefinitely { get => plagueWaitIndefinitely; set => Set(ref plagueWaitIndefinitely, value, nameof(PlagueWaitIndefinitely)); }
         [SyncHostOnly] public int PlagueWaitSeconds { get => plagueWaitSeconds; set => SetBounded(ref plagueWaitSeconds, value, 1, 1800, nameof(PlagueWaitSeconds)); }
         [SyncHostOnly] public int PlagueReturnSeconds { get => plagueReturnSeconds; set => SetBounded(ref plagueReturnSeconds, value, 1, 1800, nameof(PlagueReturnSeconds)); }
 

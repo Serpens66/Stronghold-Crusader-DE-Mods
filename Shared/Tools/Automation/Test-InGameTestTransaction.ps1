@@ -1,10 +1,12 @@
+
+try {
 # Exercise the file and result boundaries without starting Steam or writing to the game.
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
 . (Join-Path $PSScriptRoot '../ApiSharedRepository/RepositoryProcess.Common.ps1')
 . (Join-Path $PSScriptRoot 'InGameTest.Transaction.ps1')
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
-$root = New-ShortWorkDirectory -Root $workspace -Name 'ingame-runner'
+$root = New-ShortWorkDirectory -Root $workspace -Name 'ingame-runner' -Transient
 $install = Join-Path $root 'install'
 $backup = Join-Path $root 'rollback'
 $source = Join-Path $root 'package'
@@ -121,3 +123,7 @@ if ([IO.File]::Exists($testSave) -or [IO.File]::ReadAllText((Join-Path $root $te
 }
 Remove-InGameTestTree $backup $root
 Write-Host "PASS: package swap, APIShared pair, settings restoration, save preservation and terminal marker isolation. Fixture: $root"
+
+} finally {
+    if (Get-Command Complete-TransientWorkDirectories -ErrorAction SilentlyContinue) { Complete-TransientWorkDirectories -Owner $PSCommandPath }
+}

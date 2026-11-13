@@ -1,7 +1,9 @@
+
+try {
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ApiShared.Common.ps1')
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
-$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'PublishedConsumerPackage'
+$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'PublishedConsumerPackage' -Transient
 $previousProof = $env:SHCDE_API_SHARED_RELEASE_PROOF
 $previousProofHash = $env:SHCDE_API_SHARED_RELEASE_PROOF_SHA256
 $env:SHCDE_API_SHARED_RELEASE_PROOF_SHA256 = ''
@@ -157,4 +159,8 @@ try {
     $env:SHCDE_WORKSHOP_TEST = $previousTest
     $env:SHCDE_API_SHARED_DIR = $previousDirectory
     if ([IO.Path]::GetFullPath($fixture).StartsWith([IO.Path]::GetTempPath(), [StringComparison]::OrdinalIgnoreCase)) { Remove-Item -LiteralPath $fixture -Recurse -Force -ErrorAction SilentlyContinue }
+}
+
+} finally {
+    if (Get-Command Complete-TransientWorkDirectories -ErrorAction SilentlyContinue) { Complete-TransientWorkDirectories -Owner $PSCommandPath }
 }

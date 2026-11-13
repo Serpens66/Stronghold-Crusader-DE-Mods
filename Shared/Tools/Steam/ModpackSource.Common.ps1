@@ -56,7 +56,16 @@ function Resolve-ModpackSource([string]$Workspace,[string]$Branch,[switch]$Allow
         $root=New-ShortWorkDirectory -Root (Get-ModpackCoordinator $Workspace) -Kind b -Name ('modpack-'+$Branch) -Identity (((Invoke-ApiRepositoryGit $Workspace @('rev-parse',$Branch))-join '').Trim())
         Assert-ApiMainUnlinkedPath $root
         if(@(Get-ChildItem -LiteralPath $root -Force).Count){throw 'Allocated modpack worktree is not empty.'}
-        Invoke-ApiRepositoryGit $Workspace @('worktree','add',$root,$Branch)|Out-Null
+        Invoke-ApiRepositoryGit $Workspace @('worktree','add','--no-checkout',$root,$Branch)|Out-Null
+        $patterns=@('/*')
+        foreach($line in @(Invoke-ApiRepositoryGit $Workspace @('ls-tree','-rl',$Branch,'--','_inspect','.inspect','.native-analysis'))){
+            if($line -match '^\d+ blob [0-9a-f]+\s+(\d+)\t(.+)$'){
+                $size=[long]$Matches[1];$relative=$Matches[2]
+                if($size -gt 1048576 -and [IO.Path]::GetExtension($relative).ToLowerInvariant() -in @('.jsonl','.gbf','.log','.gz','.zip','.sqlite','.db')){$patterns+='!/'+$relative}
+            }
+        }
+        Invoke-ApiRepositoryGit $root (@('sparse-checkout','set','--no-cone','--')+$patterns)|Out-Null
+        Invoke-ApiRepositoryGit $root @('checkout','--quiet',$Branch)|Out-Null
     }
     # Only a new preparation follows origin; uploads keep the worktree of their proof.
     if(-not $AllowGeneratedOutputs){Sync-ModpackBranchFromOrigin $root $Branch}
@@ -67,16 +76,26 @@ function Resolve-ModpackSource([string]$Workspace,[string]$Branch,[switch]$Allow
     }else{$null=Assert-ModpackSource $Workspace $source -Clean}
     return $source
 }
-# A release worktree below .release-output\Modpack is temporary: after the upload the GitHub
+# An allocated release worktree is temporary: after the upload the GitHub
 # release, its proofs and the copied release files remain, and the next preparation recreates it.
 # Only a pushed worktree whose sole changes are the frozen host build outputs is removed.
 function Remove-ModpackReleaseWorktree([string]$Workspace,$Source) {
     $coordinator=Get-ModpackCoordinator $Workspace
     $root=[IO.Path]::GetFullPath([string]$Source.Root).TrimEnd('\','/')
     $base=[IO.Path]::GetFullPath((Join-Path $coordinator '.release-output\Modpack')).TrimEnd('\','/')
-    if(-not $root.StartsWith($base+'\',[StringComparison]::OrdinalIgnoreCase) -or -not (Test-Path -LiteralPath $root)){return}
+    $shortBase=[IO.Path]::GetFullPath((Join-Path $coordinator '.work/b'))
+    $short=$root -match ('^'+[regex]::Escape($shortBase)+'\\modpack-(main|develop)\\[0-9]+$')
+    if(-not $root.StartsWith($base+'\',[StringComparison]::OrdinalIgnoreCase) -and -not $short){return}
+    if(-not (Test-Path -LiteralPath $root)){return}
+    if($short){
+        $allocatedBranch=$Matches[1]
+        if($Source.Branch -cne $allocatedBranch){throw 'Release worktree branch does not match its allocation.'}
+        Assert-ShortWorkDirectory -Path $root
+    }
     Assert-ApiMainUnlinkedPath $root
+    if((Get-ModpackCoordinator $root) -ine $coordinator){throw 'Release worktree belongs to another repository.'}
     $branch=[string]$Source.Branch
+    if(((Invoke-ApiRepositoryGit $root @('branch','--show-current'))-join '').Trim() -cne $branch){throw 'Release worktree changed branch.'}
     Invoke-ApiRepositoryGit $root @('fetch','--no-tags','origin',("+refs/heads/{0}:refs/remotes/origin/{0}" -f $branch))|Out-Null
     $head=((Invoke-ApiRepositoryGit $root @('rev-parse','HEAD')) -join '').Trim()
     if((Invoke-ApiRepositoryProcess 'git' @('-C',$root,'merge-base','--is-ancestor',$head,"refs/remotes/origin/$branch")).ExitCode -ne 0){throw "local $branch in $root has unpushed commits."}
@@ -107,6 +126,14 @@ function Get-PreparedModpackSource([string]$Workspace,[bool]$Test,[string]$Branc
     $source=$proof.ModpackSource
     if(($Branch -and $source.Branch -cne $Branch) -or ($source.Branch -eq 'develop' -and -not $Test) -or
         $proof.Mode -cne $(if($Test){'Test'}else{'Production'}) -or $proof.Commit -cne $source.Commit){throw 'Prepared modpack branch/mode/commit mismatch.'}
+    if($source.PSObject.Properties['Frozen'] -and $source.Frozen){
+        if($source.Branch -cnotin @('main','develop') -or $source.Commit -cnotmatch '^[0-9a-f]{40}$' -or
+            -not $proof.MainSource.PSObject.Properties['Kind'] -or $proof.MainSource.Kind -cne 'FrozenWorkshopDelivery'){
+            throw 'Invalid frozen modpack source identity.'
+        }
+        $null=Assert-ApiMainDeliveryIdentity $Workspace $proof.MainSource
+        return [pscustomobject]@{Root=[IO.Path]::GetFullPath($Workspace);Branch=$source.Branch;Commit=$source.Commit;Frozen=$true}
+    }
     $root=Assert-ModpackSource $Workspace $source
     Assert-ModpackPreparedOutputs $root $source.GeneratedOutputs
     return $source
@@ -122,6 +149,10 @@ function Get-PreparedModpackUploadSource([string]$Workspace,[bool]$Test,[string]
     if($proof.PSObject.Properties['ModpackSource']){return Get-PreparedModpackSource $Workspace $Test $Branch}
     if(-not $proof.PSObject.Properties['PublishedRelease'] -or ($Branch -and $Branch -cne 'main')){
         throw 'Prepared modpack has no matching source or historical release proof.'
+    }
+    if($proof.MainSource.PSObject.Properties['Kind'] -and $proof.MainSource.Kind -ceq 'FrozenWorkshopDelivery'){
+        $null=Assert-ApiMainDeliveryIdentity $Workspace $proof.MainSource
+        return [pscustomobject]@{Root=[IO.Path]::GetFullPath($Workspace);Branch='main';Commit=$proof.Commit;Frozen=$true}
     }
     return Resolve-ModpackSource $Workspace 'main' -AllowGeneratedOutputs
 }

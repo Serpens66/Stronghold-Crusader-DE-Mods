@@ -1,0 +1,14 @@
+{
+  "GUID": "AiSiegeCrewTest_Serp",
+  "Author": "Serpens66",
+  "Name": "AI Siege Crew Test",
+  "Description": "Explicit-request-only recruitment readiness and repeated AI harassment siege construction fixture.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.14.3",
+  "Dependencies": [
+    { "GUID": "APIShared_Serp", "MinimumVersion": "0.49.0" },
+    { "GUID": "BugfixesAndQoL_Serp", "MinimumVersion": "1.0.226" }
+  ],
+  "Manifest": 1,
+  "NetworkMode": 1
+}

@@ -1,5 +1,7 @@
+# SHCDE_BUILD_PARAMETERS: installation paths consume the explicit dispatcher suffix.
 param([switch]$NoInstall, [switch]$CorrectionTrial, [switch]$LifecycleObservation, [switch]$LocalUpdate)
 $ErrorActionPreference = 'Stop'
+if ($LifecycleObservation -and -not $NoInstall -and $env:SHCDE_BRANCH_INSTALL_SUFFIX) { throw 'This lifecycle continuation uses fixed main installation paths; use /noinstall for a development build.' }
 $game = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 if($LocalUpdate){$LifecycleObservation=$true;. (Join-Path $PSScriptRoot 'tools/ProbeContinuation.ps1');. (Join-Path $PSScriptRoot 'tools/UpdateTrialPackage.ps1');Assert-LocalUpdateTargets $game}
@@ -15,7 +17,7 @@ if($LifecycleObservation -and -not $NoInstall){
 if ($CorrectionTrial) {
     & (Join-Path $PSScriptRoot 'Test-CorrectionControl.ps1')
     & (Join-Path $PSScriptRoot 'tests\Test-ControlLifecycle.ps1')
-    if (-not $NoInstall -and (Test-Path -LiteralPath (Join-Path $game 'BepInEx\plugins\DependencyBootstrapProbeControl_Serp'))) { throw 'Control target already exists; preserve it.' }
+    if (-not $NoInstall -and (Test-Path -LiteralPath (Join-Path $game ('BepInEx\plugins\DependencyBootstrapProbeControl_Serp' + $env:SHCDE_BRANCH_INSTALL_SUFFIX)))) { throw 'Control target already exists; preserve it.' }
 }
 & (Join-Path $PSScriptRoot 'verify.ps1')
 & (Join-Path $workspace 'Shared\Tools\Validation\Test-SharedBoundaries.ps1') -ModDirectory 'Testmods\DependencyBootstrapProbe' -IndependentRuntime
@@ -31,7 +33,7 @@ foreach ($project in @('DependencyBootstrapProbe.Patcher.csproj','DependencyBoot
     & $msbuild (Join-Path $PSScriptRoot $project) /nologo /verbosity:minimal /p:Configuration=Release
     if ($LASTEXITCODE -ne 0) { throw "Compilation failed: $project" }
 }
-if (-not $NoInstall -and -not $LifecycleObservation) { & (Join-Path $PSScriptRoot 'Set-ProbeMode.ps1') -Mode Observe }
+if (-not $NoInstall -and -not $LifecycleObservation -and -not $env:SHCDE_BRANCH_INSTALL_SUFFIX) { & (Join-Path $PSScriptRoot 'Set-ProbeMode.ps1') -Mode Observe }
 $plugin = 'BepInEx\plugins\DependencyBootstrapProbe_Serp'
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'info.json') -Destination (Join-Path $PSScriptRoot "$plugin\info.json") -Force
 $files = @('BepInEx\patchers\DependencyBootstrapProbe.Patcher.dll', "$plugin\DependencyBootstrapProbe.dll", "$plugin\info.json")
@@ -55,7 +57,12 @@ foreach ($relative in $files) {
     $source = Join-Path $PSScriptRoot $relative
     if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw "Missing output: $relative" }
     if (-not $NoInstall) {
-        $target = Join-Path $game $relative
+        $installRelative = $relative
+        if ($env:SHCDE_BRANCH_INSTALL_SUFFIX) {
+            $installRelative = $relative -replace '^(BepInEx\\plugins\\[^\\]+)', ('${1}' + $env:SHCDE_BRANCH_INSTALL_SUFFIX)
+            $installRelative = $installRelative -replace '^BepInEx\\patchers\\', ('BepInEx\patchers\DependencyBootstrapProbe' + $env:SHCDE_BRANCH_INSTALL_SUFFIX + '\')
+        }
+        $target = Join-Path $game $installRelative
         [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target)) | Out-Null
         Copy-Item -LiteralPath $source -Destination $target -Force
         if ([Convert]::ToBase64String([IO.File]::ReadAllBytes($source)) -cne [Convert]::ToBase64String([IO.File]::ReadAllBytes($target))) { throw "Copy verification failed: $relative" }

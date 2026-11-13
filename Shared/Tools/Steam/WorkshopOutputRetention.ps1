@@ -158,7 +158,7 @@ function Invoke-WorkshopOutputRetention($Config,$Target,[bool]$Test,[string[]]$B
         if($other){$other.Dispose();throw 'Workflow lock is not exclusive.'}
         $null=Assert-WorkshopPreparation $Config $Target $Test
         $destination=[IO.Path]::GetFullPath((Get-WorkshopFolder $Config $Target $Test))
-        $workspace=[IO.Path]::GetFullPath($Config.Root).TrimEnd('\')+'\'
+        $workspace=[IO.Path]::GetFullPath((Get-ApiMainWorkspace $Config.Root)).TrimEnd('\')+'\'
         if(-not $destination.StartsWith($workspace,[StringComparison]::OrdinalIgnoreCase)){throw 'Retention output escapes workspace.'}
         $backups=@(Get-WorkshopOutputBackups $Config $Target $Test)
         $leaf=[IO.Path]::GetFileName($destination)
@@ -183,15 +183,13 @@ function Invoke-WorkshopOutputRetention($Config,$Target,[bool]$Test,[string[]]$B
             try{$inventory=Get-WorkshopOutputBackupInventory $backup.FullName $Target;$valid+=@([pscustomobject]@{Directory=$backup;Inventory=$inventory})}
             catch{$deferred++;Write-Host ('WARNING: backup retained: '+$backup.FullName+'; '+$_.Exception.Message)}
         }
-        $keep=$null
-        if($null -eq $DeleteOnly){
-            if($new.Count -eq 1){
-                $keep=$new[0].Name
-                if(-not @($valid|Where-Object {$_.Directory.Name -ceq $keep}).Count){throw 'The newest backup is not valid; retain older backups.'}
-            }elseif($valid.Count){$keep=($valid|Sort-Object @{Expression={$_.Directory.LastWriteTimeUtc};Descending=$true},@{Expression={$_.Directory.Name};Descending=$false}|Select-Object -First 1).Directory.Name}
+        # The predecessor exists only to roll back the replacement transaction.
+        # After the new preparation is verified, no payload backup is needed.
+        if($null -eq $DeleteOnly -and $new.Count -eq 1 -and -not @($valid|Where-Object {$_.Directory.Name -ceq $new[0].Name}).Count){
+            throw 'The new predecessor contains unclassified data; inspect before pruning.'
         }
         foreach($entry in $valid){
-            if($entry.Directory.Name -ceq $keep -or ($null -ne $DeleteOnly -and $entry.Directory.Name -cnotin $DeleteOnly)){continue}
+            if($null -ne $DeleteOnly -and $entry.Directory.Name -cnotin $DeleteOnly){continue}
             $job=[ordered]@{SchemaVersion=1;Target=$Target.Key;PackageId=$Target.Guid;Mode=$(if($Test){'Test'}else{'Production'});Destination=$destination;DirectoryName=$entry.Directory.Name;Layout=$entry.Inventory.Layout;Files=@($entry.Inventory.Files);Directories=@($entry.Inventory.Directories)}
             $job.Digest=Get-WorkshopRetentionJobHash $job
             Write-WorkshopRetentionJob $pending $job

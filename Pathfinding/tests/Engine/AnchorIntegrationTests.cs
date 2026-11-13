@@ -503,6 +503,10 @@ namespace EngineHarness
                 GamePlayerManagerAPI.Instance.AIPlayerMask = 1 << 1;
                 Stand(150); tribes.Moves.Clear(); tribes.Deleted.Clear();
                 FireEscapeTick(Next());
+                Check(!fireEscapes.ContainsKey(7) && tribes.Moves.Count == 0,
+                    "AI active hazard control was released before its separate game acceptance");
+                // Legacy AI cases still need safe cleanup if an old save or changed owner leaves one.
+                StartFireEscape(7, walker, 1, 150, 10, EscapeHazard.Fire, now);
                 table[3].r_GlobalId = 3999;
                 Route(7, 150, 10, new[] { 2, 2 }, 152, 10);
                 FireEscapeTick(Next());
@@ -541,6 +545,21 @@ namespace EngineHarness
                 Check(!fireEscapes.ContainsKey(7) && escapeFailed == failed + 1 && walker->N000000D8 == 1 && walker->r_TribeId == 3,
                     "an unavailable mark helper changed the mark or the escape outcome");
                 ResetFireEscapes();
+                // The same native admission rejection while the unit was already walking:
+                // neither old AIState 101 nor 122 proves that this new command moved it.
+                foreach (int oldState in new[] { 101, 122 })
+                {
+                    walker->r_AIState = oldState; walker->N000000D8 = 1;
+                    APIShared.Commands.GroupMoveExclusion.Available = false;
+                    Route(7, 150, 10, new[] { 2, 2, 2, 2 }, 154, 10);
+                    tribes.Moves.Clear(); failed = escapeFailed;
+                    FireEscapeTick(Next());
+                    APIShared.Commands.GroupMoveExclusion.Available = true;
+                    Check(!fireEscapes.ContainsKey(7) && escapeFailed == failed + 1 && walker->r_TribeId == 3 &&
+                        walker->r_TargetTilePositionX2 == 154 && walker->N000000D8 == 1,
+                        "old state " + oldState + " falsely confirmed a newly rejected escape command");
+                    ResetFireEscapes();
+                }
                 long cleared = soldierMoveMarksCleared;
                 Stand(150); tribes.Moves.Clear(); tribes.Deleted.Clear();
                 FireEscapeTick(Next());
@@ -684,8 +703,8 @@ namespace EngineHarness
                 Check(!fireEscapes.ContainsKey(7) && casesEnded == ended + 1 && walker->r_TribeId == 3 && table[3].r_UnitsInGroup == 2 &&
                     table[own].r_AliveState == AliveState.Dead, "an escape that cannot continue did not rejoin its group");
                 // The same for an AI soldier whose group is gone: it leaves its own tribe for Vanilla's repair.
-                GamePlayerManagerAPI.Instance.AIPlayerMask = 1 << 1; tribes.Deleted.Clear();
                 FireEscapeTick(Next());
+                GamePlayerManagerAPI.Instance.AIPlayerMask = 1 << 1; tribes.Deleted.Clear();
                 own = walker->r_TribeId;
                 Check(fireEscapes.ContainsKey(7) && own != 3, "the AI save test soldier did not escape");
                 record = Save(); table[3].r_GlobalId = 3999;
@@ -728,6 +747,72 @@ namespace EngineHarness
                 for (int i = 0; i < 8 && replanSolos.Count != 0; i++) ReplanTick(++now);
                 Check(!replanSolos.ContainsKey(7) && walker->r_TribeId == 3 && table[soloTribe.Own].r_AliveState == AliveState.Dead,
                     "a restored solo walker did not rejoin its group");
+
+                // A resumed formation member can start escaping while its outer solo case still owns
+                // the temporary tribe. Save/load must retain both layers, including old v1 records.
+                string OverlappingCase(bool plague, int phase, bool load, bool enabled, bool replanning = true)
+                {
+                    ResetReplanWatch(); ResetFireEscapes(); fireTiles.Clear(); plagueTiles.Clear(); plagueNear.Clear();
+                    walker->r_TribeId = 3; table[3].r_UnitsInGroup = 2; Stand(150);
+                    fireEscapeActive = !plague; plagueEscapeActive = plague;
+                    plagueEscapePolicy = plagueAbortPolicy = new APIShared.Pathfinding.RouteReplanPolicy(3, 50, 10, 400);
+                    Check(ResumeReplanSolo(7, new ReplanWait { Global = 9007, Player = 1, TargetX = 170, TargetY = 10 }, out _),
+                        "overlap: the production solo resume failed");
+                    int ownTribe = walker->r_TribeId;
+                    (plague ? plagueTiles : fireTiles).Set(10 * MapWidth + 150, true);
+                    FireEscapeTick(Next());
+                    Check(replanSolos.ContainsKey(7) && fireEscapes.TryGetValue(7, out _), "overlap: both case layers were not created");
+                    FireEscapeEntry escape = fireEscapes[7];
+                    if (phase >= 1) { Arrive(escape.MoveX); FireEscapeTick(Next()); Check(escape.Safe, "overlap: safe arrival missing"); }
+                    if (phase >= 2)
+                    {
+                        fireTiles.Clear(); plagueTiles.Clear(); plagueNear.Clear();
+                        for (int i = 0; i < 8 && !escape.Returning; i++) FireEscapeTick(Next());
+                        Check(escape.Returning, "overlap: return was not issued");
+                    }
+                    ProcessReplanSolos();
+                    Check(walker->r_TribeId == ownTribe && replanSolos.ContainsKey(7), "overlap: running escape lost outer ownership");
+                    var overlapRecord = Save();
+                    if (!enabled) { fireEscapeActive = plagueEscapeActive = false; settings.AnchorSingleMoves = false; }
+                    else settings.AnchorSingleMoves = replanning;
+                    if (load) Load(overlapRecord);
+                    if (enabled)
+                    {
+                        Check(walker->r_TribeId == ownTribe && replanSolos.ContainsKey(7) == replanning && fireEscapes.ContainsKey(7),
+                            $"overlap: load prematurely rejoined solo/escape (plague={plague}, phase={phase})");
+                        if (replanning) Check(Same(Save(), overlapRecord), "overlap: v1 case bytes changed on load");
+                        else Check(fireEscapes[7].Tribe.Split && fireEscapes[7].Tribe.Original == 3,
+                            "overlap: disabled watch lost the outer temporary tribe owner");
+                        escape = fireEscapes[7];
+                        fireTiles.Clear(); plagueTiles.Clear(); plagueNear.Clear();
+                        if (!escape.Safe) { Arrive(escape.MoveX); FireEscapeTick(Next()); }
+                        for (int i = 0; i < 8 && !escape.Returning; i++) FireEscapeTick(Next());
+                        Check(escape.Returning, "overlap: continuation target was lost");
+                        Arrive(170); FireEscapeTick(Next()); ProcessReplanSolos();
+                    }
+                    else
+                    {
+                        Check(load && !fireEscapes.ContainsKey(7) && !replanSolos.ContainsKey(7), "overlap: disabled cases survived load");
+                    }
+                    Check(walker->r_TribeId == 3 && table[ownTribe].r_AliveState != AliveState.IsAlive,
+                        "overlap: temporary tribe not released exactly at case end");
+                    string outcome = $"{walker->r_TribeId}:{walker->r_CurrentTilePositionX},{walker->r_CurrentTilePositionY}:" +
+                        $"{fireEscapes.Count}:{replanSolos.Count}:{table[3].r_UnitsInGroup}";
+                    settings.AnchorSingleMoves = true; fireEscapeActive = true; plagueEscapeActive = false;
+                    return outcome;
+                }
+                foreach (bool plague in new[] { false, true })
+                    for (int phase = 0; phase < 3; phase++)
+                    {
+                        string uninterrupted = OverlappingCase(plague, phase, false, true);
+                        Check(OverlappingCase(plague, phase, true, true) == uninterrupted,
+                            "overlap: save/load differs from uninterrupted continuation");
+                        Check(OverlappingCase(plague, phase, true, true, false) == uninterrupted,
+                            "overlap: disabling the watch lost active escape ownership");
+                        OverlappingCase(plague, phase, true, false);
+                    }
+                plagueEscapeActive = false; plagueEscapePolicy = plagueAbortPolicy = null;
+                tribeOrders[3] = groupOrder;
 
                 // Replanning off after the load: the solo walker rejoins at once, the wait is dropped (the unit stays).
                 Check(TryIsolateSoldier(7, 9007, 1, out soloTribe) && TryMoveSoldier(7, 9007, soloTribe, 158, 10, out soloX, out soloY), "the second solo walker was not moved");
@@ -1267,6 +1352,7 @@ namespace EngineHarness
 
                 InitializeAnchor();
                 Check(anchorAvailable, "anchor core does not load from the plugin directory");
+                SurfaceNativeTests();
 
                 // Reachability words (anchor mode): every corridor edge answers exactly like the live
                 // FriendlyOnly predicate VisitNeighbour used before (allowed, moat kind, structure).
@@ -1587,7 +1673,11 @@ namespace EngineHarness
                 tileRules.ClearAll(); AnchorTick(++ticks);
                 Check(AnchorNative.mma_task_status(anchorContext, penaltyTask) == AnchorNative.Stale, "a removed Penalty rule stays in the core");
                 ReleaseAnchorTask(penaltyTask);
+                SurfaceGroupIntegrationTests();
+                SurfaceHazardTests(ref ticks);
                 ReplanWatchTests(ref ticks);
+                WaitModeTests(ref ticks);
+                HazardEscapeLoadTests(ref ticks);
                 FireEscapeTests(ref ticks);
                 MovementCaseSaveTests(ref ticks);
                 PlagueDamageModelTests();

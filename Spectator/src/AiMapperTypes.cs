@@ -4,6 +4,9 @@ namespace Spectator
 {
     internal static class AiMapperTypes
     {
+        // Vanilla's troop buttons use action 7 in both editor and live test placement.
+        internal static bool IsUnitPlacement(int action, eMappers mapper) => action == 7 && TryGet(mapper, out _);
+
         internal static bool NeedsCrew(eChimps type) => type == eChimps.CHIMP_TYPE_CATAPULT ||
             type == eChimps.CHIMP_TYPE_TREBUCHET || type == eChimps.CHIMP_TYPE_BATTERING_RAM ||
             type == eChimps.CHIMP_TYPE_SIEGE_TOWER || type == eChimps.CHIMP_TYPE_PORTABLE_SHIELD ||

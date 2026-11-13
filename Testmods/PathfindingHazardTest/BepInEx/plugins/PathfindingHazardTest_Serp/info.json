@@ -1,0 +1,14 @@
+{
+  "GUID": "PathfindingHazardTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Pathfinding Hazard Test",
+  "Description": "Explicit-request-only prepared-save observer for Pathfinding fire/plague waits and escapes. Test utility, not accepted gameplay.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.14.3",
+  "Dependencies": [
+    { "GUID": "APIShared_Serp", "MinimumVersion": "0.51.0" },
+    { "GUID": "Pathfinding_Serp", "MinimumVersion": "0.1.5" }
+  ],
+  "Manifest": 1,
+  "NetworkMode": 1
+}

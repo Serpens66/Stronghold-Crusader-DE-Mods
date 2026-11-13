@@ -137,10 +137,14 @@ there is no automatic update or background synchronization.
 
 `CreateSteamModPack.bat` retains APIShared / SerpsMods / Both and `/test`,
 `/validate`, `/nopause`. It resolves public `main` once and pins that commit for
-all targets. An isolated detached worktree is created/reused under
-`.work/b/api-main/<number>`, with the full commit in selection metadata. Existing pinned evidence retains its original path. This is the explicitly approved
-exception to the single DEVELOPMENT-checkout rule. Changed or unexpected worktrees
-are preserved and rejected, never reset or overwritten.
+all targets. Preparation shares the single validated public-main SDK under
+`.work/c/apishared-main` with mod builds, holding the same SDK mutex until preparation
+finishes. The full public commit remains in selection metadata; a changed public
+main replaces the previous reproducible cache state after source-preservation checks.
+No numbered source copies are allocated for each release. Historical pinned evidence
+retains its original path. This is the explicitly approved exception to the single
+DEVELOPMENT-checkout rule. Unique development changes and unexpected worktrees are
+preserved and rejected, never reset or overwritten.
 
 Manifest, build, bootstrap helpers, SDK comparison and publisher come from main.
 Missing builds use its `build.bat /nopause /noinstall`; only machine reference paths
@@ -162,13 +166,22 @@ dirty mod-repository inputs still block production preparation.
 
 ## Upload and test mode
 
-`UploadWorkshop.bat` uploads exactly the preparation. It verifies package files,
-SDK provenance, pinned main source and publisher input/output evidence. New main
-commits do not silently change it. Preparations without main identity must be
-prepared again. Both packages must share one main selection for a combined upload.
+`UploadWorkshop.bat` in the main workspace uploads exactly the central preparation.
+Preparation first verifies the selected main source and publisher build, then freezes
+its identity and the required publisher/helper files under
+`.release-output/SteamWorkshop/delivery/<identity>`. Upload verifies the manifest,
+publisher files, packages and SDK/release provenance without retaining full source
+checkouts. New main commits do not silently change a preparation. Both packages must
+share one pinned main identity for a combined upload. Temporary source checkouts can
+be retired once the frozen preparation is verified; never ask users to run a copied
+BAT inside `.work`.
 
 Tests also use main, retaining private separate IDs, drafts and isolated outputs.
 Dev branches/test tags are not production publication proofs. No command switches
 or stashes the development checkout or promotes develop to main.
-Retained worktrees and test artifacts remain inspectable; do not manually delete
-Git worktree directories.
+Disposable source and test worktrees are removed through Git after their verified
+outputs or compact failure evidence have been recorded. Retain unique development
+inputs and unintegrated commits, not full reproducible build histories. Reusable SDK
+caches are bounded to one current input state per needed branch. Normal working-tree
+mod builds use the existing checkout directly and replace the current package output;
+they do not allocate a new source copy or rewrite build sources during execution.

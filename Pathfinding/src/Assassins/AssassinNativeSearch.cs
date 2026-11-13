@@ -5,14 +5,14 @@ using System.Runtime.InteropServices;
 
 namespace Pathfinding
 {
-    // C ABI of native/PathfindingAssassin.cpp (PathfindingAssassin.dll, contract 0x01000002): the bucket A* of
+    // C ABI of native/PathfindingAssassin.cpp (PathfindingAssassin.dll, contract 0x01000003): the bucket A* of
     // AssassinPathfindingRuntime.TryBuildWeightedRoute with identical results, and the group fields of
     // Assassin group moves (bfq_assassin_field_*). The DLL is loaded once by full path from the plugin folder
     // and stays loaded for the process; without it the managed search runs and group fields are unused.
     internal static unsafe class AssassinNativeSearch
     {
         internal const string Library = "PathfindingAssassin.dll";
-        internal const int Contract = 0x01000002;
+        internal const int Contract = 0x01000003;
         internal const int StatusNone = 0, StatusFound = 1, StatusOverflow = 2, StatusRejectedRoute = 3, StatusFieldFailed = 4;
         internal const int FieldRecycled = -4;
 
@@ -21,6 +21,7 @@ namespace Pathfinding
         {
             internal IntPtr ValidCoordinates, RowLookup, TileFlags, Occupancy, Building, Height, DirectionMasks,
                 SpecialTile, SpecialContext, DirectGatehouseEndpoint, MaskedTransition, DirectionAllowed;
+            internal uint NonClimbWallFlags;
         }
         [StructLayout(LayoutKind.Sequential)]
         internal struct Request

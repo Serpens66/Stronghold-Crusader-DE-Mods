@@ -1,4 +1,5 @@
 @echo off
+rem SHCDE_BUILD_PARAMETERS: explicit SDK, installation suffix and no-install settings from the dispatcher.
 setlocal EnableExtensions
 rem SHCDE_BRANCH_DISPATCH: select committed sources; the selected child owns its build.
 if defined SHCDE_BRANCH_SOURCE_ROOT goto :shcde_branch_selected
@@ -34,7 +35,7 @@ exit /b 1
 
 :build_driver_main
 echo [%date% %time%] Workspace source and runtime preflight
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1" -ModDirectory "Testmods/PrebuiltWorkshopBothFixTest"
 if not "%ERRORLEVEL%"=="0" exit /b 1
 setlocal EnableExtensions
 set "PROJECT_DIR=%~dp0"
@@ -43,6 +44,7 @@ set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitiv
 set "EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
 if defined SHCDESE_EXTENDER_DIR set "EXTENDER_DIR=%SHCDESE_EXTENDER_DIR%"
 set "API_SHARED_DIR=%~dp0..\..\APIShared\BepInEx\plugins\APIShared_Serp"
+if defined SHCDE_BRANCH_API_PACKAGE set "API_SHARED_DIR=%SHCDE_BRANCH_API_PACKAGE%"
 echo [%date% %time%] PowerShell checks / build step
 rem APIShared source: /apishared:main (release branch) or /apishared:dev (local checkout, default).
 call "%~dp0..\..\Shared\Tools\ApiSharedRepository\Select-ApiSharedBranch.cmd" %*
@@ -51,7 +53,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools
 if not "%ERRORLEVEL%"=="0" exit /b 1
 set "PLUGIN_NAME=PrebuiltWorkshopBothFixTest_Serp"
 set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
-set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%%SHCDE_BRANCH_INSTALL_SUFFIX%"
 set "NO_PAUSE=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 
@@ -75,6 +77,7 @@ copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
 if not "%ERRORLEVEL%"=="0" goto failed
 if not exist "%LOCAL_PLUGIN_DIR%\PrebuiltWorkshopBothFixTest.dll" goto failed
 echo [%date% %time%] Copy package files
+if "%SHCDE_BRANCH_NOINSTALL%"=="1" exit /b 0
 xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
 if not "%ERRORLEVEL%"=="0" goto failed
 echo Prebuilt Workshop Both Fix Test built and installed.

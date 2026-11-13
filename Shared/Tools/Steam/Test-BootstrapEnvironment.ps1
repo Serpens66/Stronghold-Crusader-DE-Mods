@@ -1,7 +1,7 @@
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'WorkshopWorkflow.Common.ps1')
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
-$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'BootstrapEnvironment'
+$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'BootstrapEnvironment' -Transient
 $savedGame=$env:SHCDE_GAME_DIR; $savedExtender=$env:SHCDESE_EXTENDER_DIR; $savedCompiler=$env:SHCDE_MSBUILD
 function Write-EnvironmentFixture([string]$Path,[string]$Text) {
     [void][IO.Directory]::CreateDirectory((Split-Path -Parent $Path))
@@ -30,5 +30,5 @@ try {
     Write-Host 'PASS: bootstrap environment from saved paths, fresh child inheritance, explicit invalid paths and missing references.'
 } finally {
     $env:SHCDE_GAME_DIR=$savedGame;$env:SHCDESE_EXTENDER_DIR=$savedExtender;$env:SHCDE_MSBUILD=$savedCompiler
-    if([IO.Path]::GetFullPath($fixture).StartsWith([IO.Path]::GetTempPath(),[StringComparison]::OrdinalIgnoreCase)){Remove-Item -LiteralPath $fixture -Recurse -Force -ErrorAction SilentlyContinue}
+    Remove-ShortWorkDirectory $fixture
 }

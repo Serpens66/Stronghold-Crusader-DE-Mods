@@ -5,7 +5,7 @@ namespace Spectator
 {
     internal static class AiEditorPlacementPolicy
     {
-        // Vanilla's editor unit mapper is action 7; action 5 belongs to live placement.
+        // Vanilla's unit mapper is action 7, including live test placement.
         internal static bool Enabled(bool enabled, bool editor, bool multiplayer, int action, int owner, bool unitMapper) =>
             enabled && editor && !multiplayer && action == 7 && owner >= 1 && owner <= 8 && unitMapper;
     }

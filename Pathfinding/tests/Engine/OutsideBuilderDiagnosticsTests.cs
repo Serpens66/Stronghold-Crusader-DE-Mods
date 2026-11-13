@@ -78,7 +78,7 @@ public unsafe sealed class OutsideFixture {
   return unitMoveFrame=new UnitMoveFrame {MapEpoch=mapEpoch,Tick=Tick,Command=activeMoveCommand};
  }
  private IntPtr SeenManager;private int SeenClass,SeenProfile;private bool SeenReconstruction;
- private bool TryPublishAnchorSingle(IntPtr p,PlanScope plan,bool reconstruction,out int single) {
+ private bool TryPublishAnchorSingle(IntPtr p,PlanScope plan,bool reconstruction,int profile,out int single) {
   GetCurrentUnitMoveFrame();single=23;return Publish;
  }
  private int CallVanillaBuilder(IntPtr p,int c,int f,bool reconstruction)=>CallVanillaBuilderMoatProven(p,c,f,reconstruction);

@@ -81,6 +81,12 @@ namespace Pathfinding.Engine
             if (!TryGetSoldier(id, global, out GameUnit* unit) || unit->r_TribeId != tribe.Own ||
                 !TryGetLiveTribe(tribe.Own, tribe.OwnGlobal, unit->r_ControllableForPlayerId, out _)) return false;
             ClearSoldierMoveMark(id);
+            // 11B520 leaves excluded members' old walking state/route untouched and may
+            // still return 1. Its audited member gate must pass before that state can
+            // count as evidence of this command (FBCB9319; UpdateToNewDLL.md).
+            if (!IsReplanSoldier(unit) || unit->r_InterestingTodo1 != 0 || unit->r_IsKilledByProjectile != 0 ||
+                unit->N000001F6_3 != 0 || unit->N000000D8 != 0 || unit->N00000573 == 1 || unit->r_AIState == 207)
+            { soldierTribeNotMoved++; return false; }
             if (!GameTribeManagerAPI.Instance.IssueMoveHereCommand(tribe.Own, x, y, false, SoldierMoveNewOrder, SoldierMoveType)) return false;
             if (!TryGetSoldier(id, global, out unit)) return false;
             // A member 11B520 did not admit keeps its old order and gets no route.

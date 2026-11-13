@@ -60,7 +60,7 @@ Am 13.11.2026 aus `PathfindingRoadmap.md` vor deren Bereinigung übernommen
 historische Modversuche, keine Vanilla-Verträge und keine aktuellen Benchmarks.
 Sie verhindern, dass bereits verworfene Ansätze ohne neue Begründung wiederholt
 werden. Verbleibende Aufgaben stehen in
-[PathfindingFutureImprovements.md](../../PathfindingFutureImprovements.md).
+[Pathfinding/src/TODO.md](../src/TODO.md#allgemeine-verbesserungen-und-untersuchungen).
 
 - **Vollständige Zielfelder für unabhängige Einzelbefehle lohnten sich nicht.**
   `pf-iter-27`: fortsetzbare Felder je Ziel kosteten 17,8 statt 7,2 s mit Vanilla.

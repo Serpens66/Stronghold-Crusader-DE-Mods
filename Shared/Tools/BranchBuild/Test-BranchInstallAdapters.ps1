@@ -1,13 +1,16 @@
 [CmdletBinding()]
 param([string]$Workspace)
+try {
 $ErrorActionPreference = 'Stop'
 if (-not $Workspace) { $Workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..')) }
 . (Join-Path $PSScriptRoot 'BranchBuild.Common.ps1')
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
-$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'BranchInstallAdapters'
+$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'BranchInstallAdapters' -Transient
 [void][IO.Directory]::CreateDirectory($fixture)
 $game = Join-Path $fixture 'game'
 $cases = 0
+$savedInstallSuffix = $env:SHCDE_BRANCH_INSTALL_SUFFIX
+$env:SHCDE_BRANCH_INSTALL_SUFFIX = '_dev'
 function Assert-Install([bool]$Condition, [string]$Message) { if (-not $Condition) { throw $Message }; $script:cases++ }
 try {
     # Execute the real APIShared destination expressions and its leaf-name guard.
@@ -95,10 +98,11 @@ exit /b 0
     $traceSource = Join-Path $fixture 'trace.cfg'
     Write-BranchText $traceConfig 'MAIN_TRACE_SETTINGS'
     Write-BranchText $traceSource 'OTHER_TRACE_SETTINGS'
-    $traceCopy = @([IO.File]::ReadAllLines((Join-Path $Workspace 'Helpers/ActiveAIVDetector/build.bat')) | Where-Object { $_ -match '^    copy /Y "!CHAT10_TRACE_CONFIG!"' })
-    if ($traceCopy.Count -ne 1) { throw 'Trace installation expression changed.' }
+    $traceSourceText = [IO.File]::ReadAllText((Join-Path $Workspace 'Helpers/ActiveAIVDetector/build.bat'))
+    $traceBlock = [regex]::Match($traceSourceText, '(?s)    rem SHCDE_TRACE_INSTALL_BEGIN\r?\n(.*?)    rem SHCDE_TRACE_INSTALL_END').Groups[1].Value
+    if (-not $traceBlock) { throw 'Trace installation block missing.' }
     $traceBatch = "@echo off`r`nsetlocal EnableDelayedExpansion`r`nset `"GAME_DIR=$game`"`r`nset `"CHAT10_TRACE_CONFIG=$traceSource`"`r`n"
-    $traceBatch += 'for %%A in (%*) do if /I "%%~A"=="/noinstall" exit /b 0' + "`r`n" + $traceCopy[0] + "`r`nexit /b 0`r`n:copy_failed`r`nexit /b 1`r`n"
+    $traceBatch += 'for %%A in (%*) do if /I "%%~A"=="/noinstall" exit /b 0' + "`r`n" + $traceBlock + "`r`nexit /b 0`r`n:copy_failed`r`nexit /b 1`r`n"
     $traceDriver = Join-Path $fixture 'trace fixture.bat'
     Write-BranchText $traceDriver (Convert-BranchBatch $traceBatch 'Helpers/ActiveAIVDetector/build.bat' '_dev')
     & $traceDriver
@@ -126,7 +130,7 @@ exit /b 0
                 foreach ($running in @(0,1)) {
                     $header = "@echo off`r`nsetlocal EnableExtensions`r`nset `"NO_INSTALL=$noInstall`"`r`n"
                     $sourceRoot = if ($isolated) { $fixture } else { '' }
-                    $header += "set `"SHCDE_BRANCH_SOURCE_ROOT=$sourceRoot`"`r`n"
+                    $header += "set `"SHCDE_BRANCH_SOURCE_ROOT=$sourceRoot`"`r`nset `"SHCDE_BUILD_ISOLATED=$isolated`"`r`n"
                     $header += "set `"FIXTURE_GAME_RUNNING=$running`"`r`n"
                     $guardDriver = Join-Path $fixture ($mod+' running gate.bat')
                     Write-BranchText $guardDriver ($header+$gateText+"`r`nexit /b 0`r`n:fixture_game_running`r`nexit /b %FIXTURE_GAME_RUNNING%`r`n")
@@ -151,4 +155,8 @@ exit /b 0
     Assert-Install ($apiBuild -notmatch "throw 'Dependency bootstrap is development-only") 'Obsolete APIShared development installation gate'
     Write-Host "PASS: $cases installer, patcher, publisher, guard and PowerShell syntax checks."
     Write-Host "Fixture evidence retained: $fixture"
-} catch { Write-Host "Fixture evidence retained: $fixture"; throw }
+} catch { Write-Host "Fixture: $fixture"; throw } finally { $env:SHCDE_BRANCH_INSTALL_SUFFIX = $savedInstallSuffix }
+
+} finally {
+    if (Get-Command Complete-TransientWorkDirectories -ErrorAction SilentlyContinue) { Complete-TransientWorkDirectories -Owner $PSCommandPath }
+}

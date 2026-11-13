@@ -100,6 +100,28 @@ namespace EngineHarness
                 Check(isolated.Field.Status(399) == FastRouteStatus.Pending, "blocked frontier dependency omitted");
             }
 
+            bool largeAllowed = true;
+            var surfacePool = new FastRoutePool(20, 20, 3 * 20 * 20 * 9,
+                key => (int a, int b, int d, out bool wet, out bool structure) =>
+                { wet = structure = false; return key.Surface != RouteSurfaceClass.LargeSearch || largeAllowed; });
+            using (var any = surfacePool.Acquire(new FastFieldKey(1, 399, true, surface: RouteSurfaceClass.Any)))
+            using (var large = surfacePool.Acquire(new FastFieldKey(1, 399, true, surface: RouteSurfaceClass.LargeSearch)))
+            using (var restricted = surfacePool.Acquire(new FastFieldKey(1, 399, true, surface: RouteSurfaceClass.RestrictedMovement)))
+            {
+                Check(!ReferenceEquals(any.Field, large.Field) && !ReferenceEquals(large.Field, restricted.Field),
+                    "Fast pool shares one field across distinct surface classes");
+                Check(any.Field.Advance(0, int.MaxValue) == FastRouteStatus.Found &&
+                    large.Field.Advance(0, int.MaxValue) == FastRouteStatus.Found &&
+                    restricted.Field.Advance(0, int.MaxValue) == FastRouteStatus.Found,
+                    "surface pool fixture failed to establish three independent routes");
+                largeAllowed = false; surfacePool.InvalidateSurface(RouteSurfaceClass.LargeSearch);
+                Check(any.Field.Status(0) == FastRouteStatus.Found && restricted.Field.Status(0) == FastRouteStatus.Found &&
+                    large.Field.Status(0) == FastRouteStatus.Pending,
+                    "surface invalidation retains a stale field or discards another class's proof");
+                Check(large.Field.Advance(0, int.MaxValue) == FastRouteStatus.NoRoute,
+                    "Fast pool retained the previous surface class's edges after reset");
+            }
+
             bool open = true;
             var cache = new FastTraversalCache(4, 4,
                 (int a, int b, int d, bool ground, out bool wet, out bool structure) =>

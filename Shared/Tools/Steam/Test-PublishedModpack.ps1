@@ -1,3 +1,4 @@
+try {
 $ErrorActionPreference='Stop'
 $env:SHCDE_API_SHARED_MAIN_SELECTION=$null
 $env:SHCDE_MODPACK_COORDINATOR=$null
@@ -11,7 +12,7 @@ function Reject([scriptblock]$Action){$failed=$false;try{& $Action|Out-Null}catc
 function Put($Path,$Text){[void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($Path));[IO.File]::WriteAllText($Path,$Text,[Text.UTF8Encoding]::new($false))}
 $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
-$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'PublishedModpack'
+$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'PublishedModpack' -Transient
 $root=Join-Path $fixture 'repository';[void][IO.Directory]::CreateDirectory($root)
 $init=Invoke-ApiRepositoryProcess 'git' @('init','--initial-branch=main',$root);Check ($init.ExitCode -eq 0) 'Init'
 function Git([string[]]$Arguments){Invoke-ApiRepositoryGit $root $Arguments}
@@ -146,3 +147,5 @@ Git @('tag','SerpsMods/v9.0.0')|Out-Null
 Git @('checkout','main')|Out-Null
 Reject {Get-PublishedModpackCommit $root 'SerpsMods/v9.0.0'}
 Write-Host "PASS: $checks published-release/latest/main-history/cache/repair/private/provenance checks. Fixtures: $fixture"
+
+} finally { if(Get-Command Complete-TransientWorkDirectories -ErrorAction SilentlyContinue){Complete-TransientWorkDirectories -Owner $PSCommandPath} }

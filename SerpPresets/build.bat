@@ -1,4 +1,5 @@
 @echo off
+rem SHCDE_BUILD_PARAMETERS: explicit SDK, installation suffix and no-install settings from the dispatcher.
 setlocal EnableExtensions
 rem SHCDE_BRANCH_DISPATCH: select committed sources; the selected child owns its build.
 if defined SHCDE_BRANCH_SOURCE_ROOT goto :shcde_branch_selected
@@ -37,7 +38,7 @@ setlocal EnableExtensions
 
 set "PROJECT_DIR=%~dp0"
 set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
-set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\SerpPresets_Serp"
+set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\SerpPresets_Serp%SHCDE_BRANCH_INSTALL_SUFFIX%"
 set "NO_PAUSE=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 
@@ -56,6 +57,7 @@ if not exist "%GAME_DIR%\BepInEx\plugins\000shcdese\SHCDESE.dll" (
 echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%verify.ps1" -PackageRoot "%PROJECT_DIR%."
 if not "%ERRORLEVEL%"=="0" goto failed
+if "%SHCDE_BRANCH_NOINSTALL%"=="1" exit /b 0
 
 if not exist "%GAME_PLUGIN_DIR%\" mkdir "%GAME_PLUGIN_DIR%"
 if not "%ERRORLEVEL%"=="0" goto failed

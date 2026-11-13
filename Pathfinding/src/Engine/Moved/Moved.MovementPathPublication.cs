@@ -40,7 +40,7 @@ namespace Pathfinding.Engine
             // Anchor dispatch: units that cannot enter moats have no Pathfinding plan; their
             // ground route comes from the group's ground-only task instead of Vanilla's search.
             if (plan == null && !reconstruction && !runtime.disposed &&
-                TryPublishAnchorGroundWithoutPlan(pathManager, frame, out int anchorPublished))
+                TryPublishAnchorGroundWithoutPlan(pathManager, frame, movementProfile, out int anchorPublished))
             { RecordBuilderResult(command, anchorPublished); return anchorPublished; }
             if (plan != null) anchorDecline = "builder:noDiggerOrManager";
             if (runtime.disposed || pathManager != runtime.nativePathManager || plan == null ||
@@ -64,7 +64,7 @@ namespace Pathfinding.Engine
                 originalVariant != 0 && originalVariant != 1 ? "builder:variant" : "builder:notRequiredMode";
             // Anchor dispatch, ground decision: the core's ground route replaces Vanilla's search.
             bool anchorGround = !reconstruction && !qualified && owned &&
-                (originalVariant == 0 || originalVariant == 1) && TryPrepareAnchorGround(plan, unit);
+                (originalVariant == 0 || originalVariant == 1) && TryPrepareAnchorGround(plan, unit, runtime.ResolveMovementSurface(unit, movementProfile));
             if (owned && (qualified || groundReconstruction || anchorGround) && (originalVariant == 0 || originalVariant == 1))
             {
                 // 196280 has already bound its real unit buffer. A ready shared field

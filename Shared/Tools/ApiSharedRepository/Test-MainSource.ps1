@@ -3,8 +3,8 @@ $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ApiShared.Common.ps1')
 $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
-$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'MainSource'
-$savedSelection=$env:SHCDE_API_SHARED_MAIN_SELECTION;$savedProof=$env:SHCDE_API_SHARED_RELEASE_PROOF;$savedDirectory=$env:SHCDE_API_SHARED_DIR;$savedProofHash=$env:SHCDE_API_SHARED_RELEASE_PROOF_SHA256
+$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'MainSource' -Transient
+$savedSelection=$env:SHCDE_API_SHARED_MAIN_SELECTION;$savedProof=$env:SHCDE_API_SHARED_RELEASE_PROOF;$savedDirectory=$env:SHCDE_API_SHARED_DIR;$savedProofHash=$env:SHCDE_API_SHARED_RELEASE_PROOF_SHA256;$savedBuildCounter=$env:APISHARED_BUILD_COUNTER
 $checks=0
 function Check([bool]$Condition,[string]$Message){if(-not $Condition){throw $Message};$script:checks++}
 function Reject([scriptblock]$Action){$failed=$false;try{& $Action|Out-Null}catch{$failed=$true};Check $failed 'Expected rejection.'}
@@ -40,7 +40,7 @@ function Get-WorkshopFileHash($Path) { Get-ApiRepositoryHash $Path }
     Write-Fixture (Join-Path $author 'tools/BuildProof.ps1') @'
 function Assert-ApiBuildProof($Root) {
     if(-not(Test-Path -LiteralPath (Join-Path $Root '.local/built'))){throw 'Missing build'}
-    return @{Commit=((& git -C $Root rev-parse HEAD)-join '');Version='1.0.0'}
+    return [pscustomobject]@{Commit=((& git -C $Root rev-parse HEAD)-join '');Version='1.0.0';GameDir=$env:SHCDE_GAME_DIR;ExtenderDir=$env:SHCDESE_EXTENDER_DIR;MSBuild=$env:SHCDE_MSBUILD}
 }
 '@
     Write-Fixture (Join-Path $author 'tools/WorkshopUploader/PublisherBuildProof.ps1') @'
@@ -52,6 +52,7 @@ function Assert-WorkshopPublisherBuild($Root) {
     Write-Fixture (Join-Path $author 'fixture-build.ps1') @'
 $root=$PSScriptRoot
 if($env:APISHARED_BUILD_FAIL -eq '1'){exit 1}
+if($env:APISHARED_BUILD_COUNTER){[IO.File]::AppendAllText($env:APISHARED_BUILD_COUNTER,"build`r`n")}
 [void][IO.Directory]::CreateDirectory((Join-Path $root '.local/WorkshopUploader'))
 [IO.File]::WriteAllText((Join-Path $root '.local/built'),'built')
 $exe=Join-Path $root '.local/WorkshopUploader/WorkshopUploader.exe'
@@ -60,7 +61,7 @@ $stream=[IO.File]::OpenRead($exe);$sha=[Security.Cryptography.SHA256]::Create()
 try{$hash=([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-','').ToLowerInvariant()}finally{$stream.Dispose();$sha.Dispose()}
 [IO.File]::WriteAllText((Join-Path $root '.local/WorkshopUploader/build-proof.json'),('{"Hash":"'+$hash+'","Outputs":[{"Name":"WorkshopUploader.exe","Sha256":"'+$hash+'"}]}'))
 '@
-    Write-Fixture (Join-Path $author 'build.bat') "@echo off`r`npowershell.exe -NoProfile -ExecutionPolicy Bypass -File `"%~dp0fixture-build.ps1`"`r`nexit /b %ERRORLEVEL%`r`n"
+    Write-Fixture (Join-Path $author 'build.bat') "@echo off`r`nrem SHCDE_BUILD_PARAMETERS`r`npowershell.exe -NoProfile -ExecutionPolicy Bypass -File `"%~dp0fixture-build.ps1`"`r`nexit /b %ERRORLEVEL%`r`n"
     Commit-Fixture $author
     Invoke-ApiRepositoryGit $author @('push','origin','main')|Out-Null
     Invoke-ApiRepositoryGit $author @('branch','develop')|Out-Null
@@ -73,6 +74,11 @@ try{$hash=([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-','').
     foreach($file in @('RepositoryProcess.Common.ps1','MainSource.Common.ps1','Open-PullRequest.ps1')){Copy-Item -LiteralPath (Join-Path $PSScriptRoot $file) -Destination (Join-Path $root ('Shared/Tools/ApiSharedRepository/'+$file))}
     [void][IO.Directory]::CreateDirectory((Join-Path $root 'Shared/Tools/Paths'))
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1') -Destination (Join-Path $root 'Shared/Tools/Paths/WorkPaths.ps1')
+    foreach($file in @('BranchBuild/BranchBuild.Common.ps1','BranchBuild/BuildRunLifecycle.ps1','BranchBuild/Invoke-BranchBuild.ps1','Validation/DevDiagnostics.Common.ps1')){
+        $destination=Join-Path $root ('Shared/Tools/'+$file)
+        [void][IO.Directory]::CreateDirectory((Split-Path -Parent $destination))
+        Copy-Item -LiteralPath (Join-Path $workspace ('Shared/Tools/'+$file)) -Destination $destination
+    }
     [IO.File]::AppendAllText((Join-Path $root 'Shared/Tools/ApiSharedRepository/RepositoryProcess.Common.ps1'),"`r`n"+$shim)
     foreach($bat in @('APIShared-PRCheck-develop.bat','APIShared-PRCheck-main.bat')){Copy-Item -LiteralPath (Join-Path $workspace $bat) -Destination (Join-Path $root $bat)}
     . ([scriptblock]::Create($shim))
@@ -81,6 +87,10 @@ try{$hash=([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-','').
     Commit-Fixture $api
     $devHead=(Invoke-ApiRepositoryGit $api @('rev-parse','HEAD'))-join ''
     Write-Fixture (Join-Path $api 'open.txt') 'unfinished development'
+    $env:APISHARED_BUILD_COUNTER=Join-Path $fixture 'build-count.txt'
+    $env:SHCDE_API_SHARED_MAIN_SELECTION=''
+    Reject {Resolve-ApiMainSelection $root -RequireExisting}
+    Check (-not(Test-Path -LiteralPath $env:APISHARED_BUILD_COUNTER) -and -not(Test-Path -LiteralPath (Join-Path $root '.work/c/apishared-main'))) 'Validation-only selection built or copied an absent SDK.'
     $env:SHCDE_API_SHARED_MAIN_SELECTION=Resolve-ApiMainSelection $root
     $selected=Assert-ApiMainSelection $root $env:SHCDE_API_SHARED_MAIN_SELECTION
     Check (([IO.File]::ReadAllText((Join-Path $selected.Root 'info.json'))|ConvertFrom-Json).Version -ceq '1.0.0') 'Development manifest entered main selection.'
@@ -88,6 +98,15 @@ try{$hash=([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-','').
     Check (((Invoke-ApiRepositoryGit $api @('branch','--show-current'))-join '') -ceq 'dev/Serpens66') 'Selection switched dev branch.'
     Check ([IO.File]::ReadAllText((Join-Path $api 'open.txt')) -ceq 'unfinished development') 'Selection changed open file.'
     Ensure-ApiMainBuild $root
+    $initialSelection=$env:SHCDE_API_SHARED_MAIN_SELECTION
+    $builtAt=(Get-Item -LiteralPath (Join-Path $selected.Root '.local/built')).LastWriteTimeUtc
+    $treesBefore=@(Invoke-ApiRepositoryGit $api @('worktree','list','--porcelain')) -join "`n"
+    $env:SHCDE_API_SHARED_MAIN_SELECTION=''
+    $again=Resolve-ApiMainSelection $root
+    Check ($again -ceq $initialSelection -and $selected.Root -ieq (Join-Path $root '.work/c/apishared-main')) 'Workshop did not reuse the single main SDK cache.'
+    Check ((Get-Item -LiteralPath (Join-Path $selected.Root '.local/built')).LastWriteTimeUtc -eq $builtAt -and
+        ((@(Invoke-ApiRepositoryGit $api @('worktree','list','--porcelain')) -join "`n") -ceq $treesBefore)) 'Repeated same-main selection rebuilt or copied its SDK.'
+    $env:SHCDE_API_SHARED_MAIN_SELECTION=$again
     $cache=Join-Path $root '.release-output/APIShared/cache/v1.0.0'
     $sdk=Join-Path $cache 'audit/BepInEx/plugins/APIShared_Serp'
     [void][IO.Directory]::CreateDirectory($sdk)
@@ -107,7 +126,7 @@ try{$hash=([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-','').
     Reject {Add-Type -TypeDefinition 'public class NeedsUnreleasedApi { public APIShared.DevOnly Value; }' -ReferencedAssemblies $dll -OutputAssembly (Join-Path $fixture 'invalid-consumer.dll') -ErrorAction Stop}
     # Regression: compatibility builds dispatch working sources, but their SDK must remain the
     # published audit package. Its root deliberately has no Git metadata or tools/BuildProof.ps1.
-    foreach($file in @('BranchBuild/BranchBuild.Common.ps1','BranchBuild/Invoke-BranchBuild.ps1',
+    foreach($file in @('BranchBuild/BranchBuild.Common.ps1','BranchBuild/BuildRunLifecycle.ps1','BranchBuild/Invoke-BranchBuild.ps1',
         'ApiSharedRepository/ApiShared.Common.ps1','ApiSharedRepository/Select-ApiSharedBranch.ps1',
         'ApiSharedRepository/Select-ApiSharedBranch.cmd','Steam/SteamPackPolicy.ps1')){
         $destination=Join-Path $root ('Shared/Tools/'+$file)
@@ -124,8 +143,9 @@ try{$hash=([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-','').
     $consumerBatch=$driverText.Substring(0,$prefixEnd+":shcde_branch_selected`r`nendlocal`r`n".Length).Replace('BuildingCosts/build.bat','Fixture/build.bat')+@'
 @echo off
 setlocal EnableExtensions
-rem A legacy fixed SDK path must be replaced with the exact selected binary package.
+rem The maintained driver consumes the selected binary package explicitly.
 set "API_SHARED_DIR=%~dp0..\APIShared\BepInEx\plugins\APIShared_Serp"
+if defined SHCDE_API_SHARED_DIR set "API_SHARED_DIR=%SHCDE_API_SHARED_DIR%"
 call "%~dp0..\Shared\Tools\ApiSharedRepository\Select-ApiSharedBranch.cmd" %*
 if errorlevel 1 exit /b 1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0inspect.ps1"
@@ -142,7 +162,7 @@ $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
 . (Join-Path $root 'Shared/Tools/ApiSharedRepository/ApiShared.Common.ps1')
 $null=Assert-ApiConsumerPackage $root $env:API_SHARED_DIR
-$source=[IO.File]::ReadAllText((Join-Path $root 'APIShared/info.json'))|ConvertFrom-Json
+$source=[IO.File]::ReadAllText((Join-Path $env:SHCDE_BRANCH_API_ROOT 'info.json'))|ConvertFrom-Json
 if($source.Version -cne '1.0.0'){throw 'Unreleased APIShared sources entered preflight.'}
 if($env:API_SHARED_DIR -cne $env:SHCDE_BRANCH_API_PACKAGE -or
    $env:SHCDE_BRANCH_MSBUILD_API -cne ('"/p:ApiSharedDir='+$env:API_SHARED_DIR+'"')){throw 'Binary SDK selection diverged.'}
@@ -165,17 +185,15 @@ Write-Host ('PUBLISHED_SDK='+$env:API_SHARED_DIR)
     Check ($output.Contains('PUBLISHED_SDK='+$publishedSdkPath)) 'Dispatcher replaced the published binary SDK.'
     Check ([IO.File]::ReadAllText((Join-Path $package 'built.txt')) -ceq 'compatibility working source') 'Published SDK build did not mirror working-source output.'
     Check (-not(Test-Path -LiteralPath (Join-Path $package 'stale.txt'))) 'Published SDK sync kept stale output.'
-    $buildRecord=Get-ChildItem -LiteralPath (Join-Path $root '.work/b/working') -Filter '*.build.json' | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
-    $record=[IO.File]::ReadAllText($buildRecord.FullName)|ConvertFrom-Json
+    $buildRecord=Join-Path $root '.release-output/builds/Fixture/working.build.json'
+    $record=[IO.File]::ReadAllText($buildRecord)|ConvertFrom-Json
     Check ($record.ApiShared.Branch -ceq 'published' -and $record.ApiShared.Commit -ceq $selected.Commit -and
         $record.ApiShared.PublishedCommit -ceq $selected.Commit -and $record.ApiShared.PackageDirectory -ceq $publishedSdkPath -and
         $record.ApiShared.ProvenanceSha256 -ceq $env:SHCDE_API_SHARED_RELEASE_PROOF_SHA256) 'Published SDK build provenance lost its source/package identity.'
-    Write-Fixture (Join-Path $package 'built.txt') 'preserve failed build'
-    $preservedPackageHash=Get-ApiRepositoryHash (Join-Path $package 'built.txt')
     Write-Fixture (Join-Path $root 'Fixture/fail.txt') 'fail'
     $null=Invoke-PublishedConsumer @('/nopause','/noinstall','/syncpackage') 27
     [IO.File]::Delete((Join-Path $root 'Fixture/fail.txt'))
-    Check ((Get-ApiRepositoryHash (Join-Path $package 'built.txt')) -ceq $preservedPackageHash) 'Failed published SDK build mirrored output.'
+    Check (-not(Test-Path -LiteralPath (Join-Path $package 'built.txt'))) 'Failed direct build left a successful package output.'
     foreach($choice in @('/apishared:dev','/apishared:main','/apishared:package')){
         $output=Invoke-PublishedConsumer @('/nopause','/noinstall',$choice) 1
         Check (-not $output.Contains('PUBLISHED_SDK=')) 'Explicit SDK override executed the consumer.'
@@ -205,10 +223,27 @@ Write-Host ('PUBLISHED_SDK='+$env:API_SHARED_DIR)
     $env:SHCDE_API_SHARED_RELEASE_PROOF='';$env:SHCDE_API_SHARED_DIR=''
     $delivery=Get-ApiMainDeliveryIdentity $root
     $null=Assert-ApiMainDeliveryIdentity $root $delivery
+    $emptyOutside=Join-Path $fixture 'empty-outside';[void][IO.Directory]::CreateDirectory($emptyOutside)
+    $emptyLink=Join-Path (Split-Path -Parent $delivery.Selection) 'empty-junction'
+    $null=New-Item -ItemType Junction -Path $emptyLink -Target $emptyOutside
+    try{Reject {Assert-ApiMainDeliveryIdentity $root $delivery}}
+    finally{[IO.Directory]::Delete($emptyLink,$false)}
+    # Upload must remain valid after its build checkout disappears. Move it using
+    # Git so the real source boundary fails while the frozen delivery stays valid.
+    $away=$selected.Root+'.away'
+    Invoke-ApiRepositoryGit $api @('worktree','move',$selected.Root,$away)|Out-Null
+    try{
+        $null=Assert-ApiMainDeliveryIdentity $root $delivery
+        Reject {Assert-ApiMainSelection $root $publishedSelection}
+    }finally{Invoke-ApiRepositoryGit $api @('worktree','move',$away,$selected.Root)|Out-Null}
     Check (-not(Test-Path -LiteralPath (Join-Path $api '.local/built'))) 'main build wrote to development output.'
     $mainPublisher=Join-Path $selected.Root '.local/WorkshopUploader/WorkshopUploader.exe'
-    [IO.File]::WriteAllText($mainPublisher,'tampered');Reject {Assert-ApiMainDeliveryIdentity $root $delivery}
+    $frozenPublisher=Join-Path (Split-Path -Parent $delivery.Selection) '.local/WorkshopUploader/WorkshopUploader.exe'
+    [IO.File]::WriteAllText($mainPublisher,'changed after preparation')
+    $null=Assert-ApiMainDeliveryIdentity $root $delivery
     [IO.File]::WriteAllText($mainPublisher,'main publisher')
+    [IO.File]::WriteAllText($frozenPublisher,'tampered');Reject {Assert-ApiMainDeliveryIdentity $root $delivery}
+    [IO.File]::WriteAllText($frozenPublisher,'main publisher')
     # Actual publisher outputs can include nested Locales paths. This is an inventory/
     # filesystem boundary fixture; the independent APIShared tests validate the publisher binary.
     $publisherDirectory=Split-Path -Parent $mainPublisher
@@ -224,9 +259,10 @@ Write-Host ('PUBLISHED_SDK='+$env:API_SHARED_DIR)
     $nestedDelivery=Get-ApiMainDeliveryIdentity $root
     Check (@($nestedDelivery.PublisherOutputs|Where-Object Name -ceq 'Locales/en-US.txt').Count -eq 1) 'Nested locale output was not preserved.'
     $null=Assert-ApiMainDeliveryIdentity $root $nestedDelivery
-    Write-Fixture $locale 'Fixture.Caption=Tampered'
+    $frozenLocale=Join-Path (Split-Path -Parent $nestedDelivery.Selection) '.local/WorkshopUploader/Locales/en-US.txt'
+    Write-Fixture $frozenLocale 'Fixture.Caption=Tampered'
     Reject {Assert-ApiMainDeliveryIdentity $root $nestedDelivery}
-    Write-Fixture $locale 'Fixture.Caption=Publisher'
+    Write-Fixture $frozenLocale 'Fixture.Caption=Publisher'
     foreach($invalidName in @('../escape.dll','Locales/../escape.txt','/absolute.dll','C:/absolute.dll',
         'Locales\en-US.txt','Locales//extra.txt','Locales/./extra.txt','Locales/NUL.txt','Locales/name.','locales/en-us.txt')){
         $invalidProof=$nestedPublisherProof|ConvertFrom-Json
@@ -251,10 +287,10 @@ Write-Host ('PUBLISHED_SDK='+$env:API_SHARED_DIR)
     Invoke-ApiRepositoryGit $author @('switch','main')|Out-Null
     Write-Fixture (Join-Path $author 'next-main.txt') 'new main'
     Commit-Fixture $author;Invoke-ApiRepositoryGit $author @('push','origin','main')|Out-Null
-    Check ((Resolve-ApiMainSelection $root) -ceq $delivery.Selection) 'Pinned preparation changed to newer main.'
+    Check ((Resolve-ApiMainSelection $root) -ceq $publishedSelection) 'Pinned source preparation changed to newer main.'
     $env:SHCDE_API_SHARED_MAIN_SELECTION=''
     $later=Resolve-ApiMainSelection $root
-    Check ($later -cne $delivery.Selection) 'New preparation reused old main.'
+    Check ($later -ceq $publishedSelection -and (Assert-ApiMainSelection $root $later).Commit -cne $selected.Commit) 'New main did not replace the existing single SDK cache.'
     $old=Assert-ApiMainDeliveryIdentity $root $delivery
     Check ($old -ceq $delivery.Selection) 'Upload changed to newer main.'
     $env:SHCDE_API_SHARED_MAIN_SELECTION=''
@@ -279,7 +315,7 @@ Write-Host ('PUBLISHED_SDK='+$env:API_SHARED_DIR)
     Check ([IO.File]::ReadAllText((Join-Path $api 'open.txt')) -ceq 'unfinished development') 'PR helper changed open file.'
     # Exercise both original BAT entrypoints with real policy/worktrees and inert target services.
     $steam=Join-Path $root 'Shared/Tools/Steam'
-    foreach($file in @('PublishedModpack.Common.ps1','ReleaseAssetCache.ps1','ModpackSource.Common.ps1','WorkshopWorkflow.ps1','WorkshopWorkflow.Common.ps1','WorkshopOutputRetention.ps1','WorkshopOptions.Common.ps1','SteamWorkshopHistory.ps1','ApiSharedSdkPolicy.ps1')) {
+    foreach($file in @('PublishedModpack.Common.ps1','ReleaseAssetCache.ps1','ModpackSource.Common.ps1','WorkshopWorkflow.ps1','WorkshopWorkflow.Common.ps1','WorkshopPublisherScope.ps1','WorkspaceReleaseRetention.ps1','WorkshopOutputRetention.ps1','WorkshopOptions.Common.ps1','SteamWorkshopHistory.ps1','ApiSharedSdkPolicy.ps1')) {
         Copy-Item -LiteralPath (Join-Path $workspace ('Shared/Tools/Steam/'+$file)) -Destination (Join-Path $steam $file)
     }
     foreach($file in @('CreateSteamModPack.bat','UploadWorkshop.bat')){Copy-Item -LiteralPath (Join-Path $workspace $file) -Destination (Join-Path $root $file)}
@@ -342,9 +378,22 @@ exit 0
     foreach($generation in 1..3){
         & (Join-Path $root 'CreateSteamModPack.bat') /apishared /nopause *> $batLog
         Check ($LASTEXITCODE -eq 0) ('Repeated prepare BAT failed: '+[IO.File]::ReadAllText($batLog))
-        Check (@(Get-ChildItem -LiteralPath $root -Directory -Filter 'APISharedWorkshop.previous-*').Count -eq 1) 'Real BAT path did not bound predecessor folders.'
+        Check (@(Get-ChildItem -LiteralPath $root -Directory -Filter 'APISharedWorkshop.previous-*').Count -eq 0) 'Real BAT path retained predecessor payloads.'
     }
     $backupsBefore=@(Get-ChildItem -LiteralPath $root -Directory -Filter 'APISharedWorkshop.previous-*')
+    $counterBefore=[IO.File]::ReadAllText($env:APISHARED_BUILD_COUNTER)
+    $cachedMain=Join-Path $root '.work/c/apishared-main'
+    $builtMarker=Join-Path $cachedMain '.local/built'
+    [IO.File]::Delete($builtMarker)
+    & (Join-Path $root 'CreateSteamModPack.bat') /apishared /validate /nopause *> $batLog
+    Check ($LASTEXITCODE -ne 0 -and [IO.File]::ReadAllText($env:APISHARED_BUILD_COUNTER) -ceq $counterBefore -and -not(Test-Path -LiteralPath $builtMarker)) 'Validate-only BAT rebuilt a stale SDK.'
+    Write-Fixture $builtMarker 'built'
+    $awayCache=$cachedMain+'.away'
+    Invoke-ApiRepositoryGit $api @('worktree','move',$cachedMain,$awayCache)|Out-Null
+    try{
+        & (Join-Path $root 'CreateSteamModPack.bat') /apishared /validate /nopause *> $batLog
+        Check ($LASTEXITCODE -ne 0 -and [IO.File]::ReadAllText($env:APISHARED_BUILD_COUNTER) -ceq $counterBefore -and -not(Test-Path -LiteralPath $cachedMain)) 'Validate-only BAT created or built a missing SDK.'
+    }finally{Invoke-ApiRepositoryGit $api @('worktree','move',$awayCache,$cachedMain)|Out-Null}
     & (Join-Path $root 'CreateSteamModPack.bat') /apishared /validate /nopause *> $batLog
     Check ($LASTEXITCODE -eq 0 -and @(Get-ChildItem -LiteralPath $root -Directory -Filter 'APISharedWorkshop.previous-*').Count -eq $backupsBefore.Count) 'Validate-only preparation changed backups.'
     $env:APISHARED_RETENTION_FIXTURE_FAIL='child'
@@ -355,7 +404,7 @@ exit 0
     Check ($LASTEXITCODE -ne 0 -and @(Get-ChildItem -LiteralPath $root -Directory -Filter 'APISharedWorkshop.previous-*').Count -eq ($backupsBefore.Count+1)) 'Failed proof write pruned backups.'
     $env:APISHARED_RETENTION_FIXTURE_FAIL=''
     & (Join-Path $root 'CreateSteamModPack.bat') /apishared /nopause *> $batLog
-    Check ($LASTEXITCODE -eq 0 -and @(Get-ChildItem -LiteralPath $root -Directory -Filter 'APISharedWorkshop.previous-*').Count -eq 1) 'Successful BAT retry did not prune deferred backups.'
+    Check ($LASTEXITCODE -eq 0 -and @(Get-ChildItem -LiteralPath $root -Directory -Filter 'APISharedWorkshop.previous-*').Count -eq 0) 'Successful BAT retry did not prune deferred backups.'
     $productionProof=Join-Path $root '.release-output/SteamWorkshop/prepared/APIShared.json'
     $production=[IO.File]::ReadAllText($productionProof)|ConvertFrom-Json
     Invoke-ApiRepositoryGit $author @('switch','main')|Out-Null
@@ -377,7 +426,7 @@ exit 0
     Check $tamperRejected 'Upload BAT accepted modified preparation.'
     Check (((Invoke-ApiRepositoryGit $api @('rev-parse','HEAD'))-join '') -ceq $devHead) 'Workshop BATs changed development HEAD.'
     Check ([IO.File]::ReadAllText((Join-Path $api 'open.txt')) -ceq 'unfinished development') 'Workshop BATs changed development files.'
-    $env:SHCDE_API_SHARED_MAIN_SELECTION=$delivery.Selection
+    $env:SHCDE_API_SHARED_MAIN_SELECTION=$publishedSelection
     [IO.File]::Delete((Join-Path $selected.Root '.local/built'))
     $env:APISHARED_BUILD_FAIL='1'
     Reject {Ensure-ApiMainBuild $root}
@@ -389,5 +438,7 @@ exit 0
     [IO.File]::Delete((Join-Path $selected.Root '.local/WorkshopUploader/extra.dll'))
     Write-Host "PASS: $checks pinned-main, changed-worktree, publisher, preserved Dev, PR/conflict and real BAT checks. Fixtures: $fixture"
 } finally {
+    Complete-TransientWorkDirectories -Owner $PSCommandPath
+    $env:APISHARED_BUILD_COUNTER=$savedBuildCounter
     $env:SHCDE_API_SHARED_MAIN_SELECTION=$savedSelection;$env:SHCDE_API_SHARED_RELEASE_PROOF=$savedProof;$env:SHCDE_API_SHARED_RELEASE_PROOF_SHA256=$savedProofHash;$env:SHCDE_API_SHARED_DIR=$savedDirectory;$env:APISHARED_PR_FIXTURE='';$env:APISHARED_BUILD_FAIL='';$env:APISHARED_RETENTION_FIXTURE_FAIL=''
 }

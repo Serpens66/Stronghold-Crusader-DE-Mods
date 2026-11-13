@@ -22,7 +22,7 @@ namespace Pathfinding
 
         public void SetEnabled(bool enabled)
         {
-            AssassinPathAPI.SetWeightedReconstructionEnabled(PathfindingPlugin.PluginGuid, enabled);
+            AssassinPathAPI.SetWeightedReconstructionEnabled(PathfindingPlugin.PluginGuid, enabled, ignoreGoodsyardWallFlag: true);
             applied = enabled;
         }
     }

@@ -13,6 +13,8 @@ namespace Pathfinding.Engine
         // Burning pitch as APIShared route tile rules (FireRouteRules); moving units re-plan around
         // new fire only with AnchorSingleMoves.
         internal bool AvoidFire { get; set; }
+        // Route waits only: escape return windows remain finite even when this is enabled.
+        internal bool FireWaitIndefinitely { get; set; }
         // With AvoidFire: wait in front of fire before the move is aborted, and the window in which a
         // soldier that left a fire continues to its old move target (seconds of game time, 40 ticks each).
         internal int FireWaitSeconds { get; set; } = 60;
@@ -29,6 +31,7 @@ namespace Pathfinding.Engine
         // re-planning, waiting and aborting as fire; only where units would really take damage (APIShared's
         // plague height policy for walls, gates, towers and keeps).
         internal bool AvoidPlague { get; set; }
+        internal bool PlagueWaitIndefinitely { get; set; }
         // With AvoidPlague: wait in front of plague before the move is aborted, and the window in which a
         // soldier that left plague continues to its old move target (seconds of game time).
         internal int PlagueWaitSeconds { get; set; } = 90;
@@ -53,9 +56,10 @@ namespace Pathfinding.Engine
             EnableFriendlyMoatTraversal = settings.EnableFriendlyMoatTraversal, AnchorSingleMoves = settings.AnchorSingleMoves,
             // Release gate: keep hazard avoidance inactive until full in-game acceptance, including saved/preset opt-ins.
             AvoidFire = false,
-            FireWaitSeconds = settings.FireWaitSeconds, FireReturnSeconds = settings.FireReturnSeconds,
+            FireWaitIndefinitely = settings.FireWaitIndefinitely, FireWaitSeconds = settings.FireWaitSeconds, FireReturnSeconds = settings.FireReturnSeconds,
             FireDetourPercent = settings.FireDetourPercent, FireDetourMinTiles = settings.FireDetourMinTiles, EscapeFire = settings.EscapeFire,
-            AvoidPlague = false, PlagueWaitSeconds = settings.PlagueWaitSeconds, PlagueReturnSeconds = settings.PlagueReturnSeconds,
+            AvoidPlague = false, PlagueWaitIndefinitely = settings.PlagueWaitIndefinitely,
+            PlagueWaitSeconds = settings.PlagueWaitSeconds, PlagueReturnSeconds = settings.PlagueReturnSeconds,
             EscapePlague = settings.EscapePlague, EscapePlagueRaised = settings.EscapePlagueRaised,
         };
     }

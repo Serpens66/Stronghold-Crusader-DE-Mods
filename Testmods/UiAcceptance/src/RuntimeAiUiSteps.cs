@@ -40,6 +40,7 @@ namespace UiAcceptance
             Runner.Register("AiUi.DisabledEditor", DisabledEditor);
             Runner.Register("AiUi.Menu", Menu);
             Runner.Register("AiUi.NoAiPreviewOwner", NoAiPreviewOwner);
+            Runner.Register("AiUi.SelectionTransitions", SelectionTransitions);
         }
 
         private static IAiMilitaryCapability Capability()
@@ -99,7 +100,8 @@ namespace UiAcceptance
             // The scenario only needs this audited primary unit; machines are exercised by options.
             type = mapper == eMappers.MAPPER_PEOPLE_ENGINEERS ? eChimps.CHIMP_TYPE_ENGINEER :
                 mapper == eMappers.MAPPER_PEOPLE_ARCHERS ? eChimps.CHIMP_TYPE_ARCHER :
-                throw new StepFailure("UI fixture supports engineer/archer mapper symbols");
+                mapper == eMappers.MAPPER_PEOPLE_MACEMEN ? eChimps.CHIMP_TYPE_MACEMAN :
+                throw new StepFailure("UI fixture supports engineer/archer/maceman mapper symbols");
             owner = step.Arg(1) == "ai" ? FindAiOwner() : step.Int(1);
             Runner.Require(owner >= 1 && owner <= GamePlayerManagerAPI.MAX_PLAYERS, "invalid UI fixture owner");
             if (engine == null)
@@ -113,7 +115,7 @@ namespace UiAcceptance
             {
                 EditorDirector.instance.SetEditorPlayerID(owner);
                 Runner.Require(EditorDirector.instance.ActivePlayerID == owner, "native editor owner setter declined");
-                StartEditorTroopMapper(mapper);
+                foreach (var wait in SelectTroopButton(mapper)) yield return wait;
             }
             else
             {
@@ -134,8 +136,7 @@ namespace UiAcceptance
                     command.Execute("Placement");
                 }
                 yield return PrepareWait("active placement mode", () => Read<bool>(tools, "PlacementActive"), selected);
-                EngineInterface.StartMapperItem((int)mapper);
-                MainControls.instance.CurrentAction = 5; MainControls.instance.CurrentSubAction = (int)mapper;
+                foreach (var wait in SelectTroopButton(mapper)) yield return wait;
             }
             Runner.Require(ObserveNativeMapper("after-start") == (int)mapper, "native mapper did not start with the selected unit");
             yield return PrepareWait("visible AI placement strip", () => Visible(Find("SpectatorAiPlacementPanel")));
@@ -264,8 +265,8 @@ namespace UiAcceptance
                     if (item is ComboBoxItem)
                         Runner.Require((string)container.Content == Read<string>(choice, "Name"), "explicit role row label differs");
                     if (!available && item is ComboBoxItem)
-                        Runner.Require(ToolTipService.GetToolTip(container) is ToolTip tip && tip.Content is TextBlock text &&
-                            text.Text == Read<string>(choice, "Help"), "disabled role row lacks its concrete reason tooltip");
+                        Runner.Require(ToolTipService.GetToolTip(container) is ToolTip tip &&
+                            Equals(tip.Content, Read<string>(choice, "Help")), "disabled role row lacks its concrete reason tooltip");
                     if (container.IsEnabled == available)
                     { if (!available) disabledBound++; continue; }
                     mismatches++;
@@ -508,7 +509,8 @@ namespace UiAcceptance
                 " apiHarnessScope=False path=native-mapper-with-real-UI-intent");
         }
 
-        // args: Applied|Declared|Rejected (after unpausing SP when necessary).
+        // args: Applied|Declared|Rejected, optional reason, optional normal (public API proof).
+        // Existing diagnostic scenarios additionally require the consumer's native-state receipt.
         private static IEnumerable<Wait> Check(Step step)
         {
             var expected = (AiMilitaryAssignmentStatus)Enum.Parse(typeof(AiMilitaryAssignmentStatus), step.Arg(0));
@@ -537,12 +539,14 @@ namespace UiAcceptance
                 yield break;
             }
             yield return new Until("actual mapper terminal result " + expected, () => api.TryGetState(placed, out current) && current.Status == expected);
-            Runner.Require(current.Assignment.Role.ToString() == wantedRole &&
+            Runner.Require(current.Unit.Equals(placed) && current.Assignment.Role.ToString() == wantedRole &&
                 current.Assignment.RecruitmentMode == (additional ? AiRecruitmentMode.Additional : AiRecruitmentMode.Regular), "mapper terminal intent differs");
             if (expected == AiMilitaryAssignmentStatus.Applied)
                 Runner.Require(api.IsExcludedFromRecruitmentQuota(placed) == additional, "actual mapper quota marker differs");
-            yield return new Until("Spectator DevDiag actual mapper result", () => AcceptLog.Count(placementLog, diagnostic) > 0);
-            AcceptLog.Info("AI_UI_VERIFIED editor=" + editor + " unit=" + placed + " status=" + expected + " realConsumerDevDiag=True");
+            bool normalBuild = step.Arg(2, "devdiag") == "normal";
+            if (!normalBuild)
+                yield return new Until("Spectator DevDiag actual mapper result", () => AcceptLog.Count(placementLog, diagnostic) > 0);
+            AcceptLog.Info("AI_UI_VERIFIED editor=" + editor + " unit=" + placed + " status=" + expected + " realConsumerDevDiag=" + !normalBuild);
         }
 
         private static unsafe bool RejectedIdentityGone() => !UnitAccess.TryGetById(placed.UnitId, out GameUnit* unit, out _) ||
@@ -601,6 +605,59 @@ namespace UiAcceptance
             MainControls.instance.StopAllPlacement();
             yield return new Until("AI placement strip retired", () => !Visible(Find("SpectatorAiPlacementPanel")));
             AcceptLog.Info("AI_UI_RETIRED editor=" + editor);
+        }
+
+        private static IEnumerable<Wait> SelectTroopButton(eMappers selectedMapper)
+        {
+            if (editor)
+            {
+                var buildings = Find("ButtonBuildModeBuildings");
+                yield return new Until("native editor building mode toggle", () => Visible(buildings) && buildings.IsEnabled);
+                Click(buildings);
+                yield return new Delay(350);
+            }
+            string name = selectedMapper == eMappers.MAPPER_PEOPLE_MACEMEN ? "ButtonBuildMEMaceman" :
+                selectedMapper == eMappers.MAPPER_PEOPLE_ARCHERS ? "ButtonBuildMEArcher" : "ButtonBuildMEEngineer";
+            var tab = Find("RadioButtonMETroops");
+            yield return new Until("normal troop tab", () => Visible(tab));
+            Click(tab);
+            yield return new Until("normal troop button " + name, () => Visible(Find(name)));
+            // Vanilla animates the page after making its buttons visible. Wait for the
+            // scroll transition before sending a hit-tested click at the measured position.
+            yield return new Delay(350);
+            var button = Find(name) as Button;
+            AcceptLog.Info("AI_UI_TROOP_BUTTON name=" + name + " visible=" + Visible(button) + " enabled=" + button?.IsEnabled +
+                " mapperAvailable=" + MainViewModel.Instance.CanPlaceMapper(button?.CommandParameter) +
+                " editor=" + MainViewModel.Instance.IsMapEditorMode + " meMode=" + MainViewModel.Instance.MEMode +
+                " page=" + MainViewModel.Instance.buildScreenID);
+            Click(Find(name));
+            yield return new Until("normal troop command", () => MainControls.instance.CurrentAction == 7 &&
+                MainControls.instance.CurrentSubAction == (int)selectedMapper);
+        }
+
+        private static IEnumerable<Wait> SelectionTransitions(Step step)
+        {
+            foreach (var selected in new[] { eMappers.MAPPER_PEOPLE_MACEMEN, eMappers.MAPPER_PEOPLE_ARCHERS, eMappers.MAPPER_PEOPLE_ENGINEERS })
+            {
+                foreach (var wait in SelectTroopButton(selected)) yield return wait;
+                yield return new Until("AI strip after normal troop selection", () => Visible(Find("SpectatorAiPlacementPanel")));
+                Runner.Require(ObserveNativeMapper("normal-button") == (int)selected, "native troop mapper differs");
+                MainControls.instance.StopAllPlacement();
+                yield return new Until("AI strip after cancellation", () => !Visible(Find("SpectatorAiPlacementPanel")));
+            }
+            // Switch through the ordinary food tab and granary button, rather than requesting
+            // a siege-tent mapper whose availability depends on a separate construction context.
+            foreach (var wait in SelectTroopButton(mapper)) yield return wait;
+            Click(Find("TabBuildFood"));
+            yield return new Until("normal granary button", () => Visible(Find("ButtonBuildGranary")));
+            yield return new Delay(350);
+            Click(Find("ButtonBuildGranary"));
+            yield return new Until("AI strip after building selection", () => MainControls.instance.CurrentAction == 5 &&
+                !Visible(Find("SpectatorAiPlacementPanel")));
+            MainControls.instance.StopAllPlacement();
+            foreach (var wait in SelectTroopButton(mapper)) yield return wait;
+            yield return new Until("AI strip restored after building selection", () => Visible(Find("SpectatorAiPlacementPanel")));
+            AcceptLog.Info("AI_UI_SELECTION_TRANSITIONS maceman=True archer=True engineer=True cancelHidden=True buildingHidden=True");
         }
 
         private static IEnumerable<Wait> DisabledEditor(Step step)

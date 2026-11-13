@@ -1,3 +1,4 @@
+using Pathfinding.UnitCommands;
 using System;
 using System.Collections.Generic;
 
@@ -5,16 +6,17 @@ namespace Pathfinding.Engine
 {
     internal readonly struct FastFieldKey : IEquatable<FastFieldKey>
     {
-        internal FastFieldKey(int player, int target, bool ground, bool reserved = false)
-        { Player = player; Target = target; Ground = ground; Reserved = reserved; }
+        internal FastFieldKey(int player, int target, bool ground, bool reserved = false, RouteSurfaceClass surface = RouteSurfaceClass.Any)
+        { Player = player; Target = target; Ground = ground; Reserved = reserved; Surface = surface; }
         internal int Player { get; }
         internal int Target { get; }
         internal bool Ground { get; }
         internal bool Reserved { get; }
+        internal RouteSurfaceClass Surface { get; }
         public bool Equals(FastFieldKey other) => Player == other.Player && Target == other.Target &&
-            Ground == other.Ground && Reserved == other.Reserved;
+            Ground == other.Ground && Reserved == other.Reserved && Surface == other.Surface;
         public override bool Equals(object value) => value is FastFieldKey key && Equals(key);
-        public override int GetHashCode() => unchecked(((Player * 397 ^ Target) * 397 ^ (Ground ? 1 : 0)) * 397 ^ (Reserved ? 1 : 0));
+        public override int GetHashCode() => unchecked(((Player * 397 ^ Target) * 397 ^ (int)Surface) * 397 ^ (Ground ? 2 : 0) ^ (Reserved ? 1 : 0));
     }
 
     internal sealed class FastFieldLease : IDisposable
@@ -109,6 +111,12 @@ namespace Pathfinding.Engine
                 }
                 if (affected) { entry.Field.Reset(entry.Key.Target); Invalidations++; }
             }
+        }
+
+        internal void InvalidateSurface(RouteSurfaceClass surface)
+        {
+            foreach (Entry entry in entries)
+                if (entry.Key.Surface == surface) { entry.Field.Reset(entry.Key.Target); Invalidations++; }
         }
 
         internal void Clear()

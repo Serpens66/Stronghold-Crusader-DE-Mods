@@ -1,4 +1,5 @@
 @echo off
+rem SHCDE_BUILD_PARAMETERS: explicit SDK, installation suffix and no-install settings from the dispatcher.
 setlocal EnableExtensions
 rem SHCDE_BRANCH_DISPATCH: select committed sources; the selected child owns its build.
 if defined SHCDE_BRANCH_SOURCE_ROOT goto :shcde_branch_selected
@@ -43,6 +44,7 @@ set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitiv
 set "EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
 if defined SHCDESE_EXTENDER_DIR set "EXTENDER_DIR=%SHCDESE_EXTENDER_DIR%"
 set "API_SHARED_DIR=%~dp0..\APIShared\BepInEx\plugins\APIShared_Serp"
+if defined SHCDE_BRANCH_API_PACKAGE set "API_SHARED_DIR=%SHCDE_BRANCH_API_PACKAGE%"
 rem Release automation can explicitly use the validated workspace package.
 if defined SHCDE_API_SHARED_DIR set "API_SHARED_DIR=%SHCDE_API_SHARED_DIR%"
 rem APIShared source: /apishared:main (release branch) or /apishared:dev (local checkout, default).
@@ -71,7 +73,9 @@ echo [%date% %time%] Preflight
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tests\Test-Preflight.ps1"
 if not "%ERRORLEVEL%"=="0" goto failed
 echo [%date% %time%] Compile native cores
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%native\Build-PathfindingAnchor.ps1"
+set "NATIVE_TEST_ARGS="
+if "%NO_TESTS%"=="1" set "NATIVE_TEST_ARGS=-SkipTests"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%native\Build-PathfindingAnchor.ps1" %NATIVE_TEST_ARGS%
 if not "%ERRORLEVEL%"=="0" goto failed
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%native\Build-PathfindingAssassin.ps1"
 if not "%ERRORLEVEL%"=="0" goto failed
@@ -86,7 +90,7 @@ dotnet test "%PROJECT_DIR%tests\Formations.Core.Tests\Formations.Core.Tests.cspr
 if not "%ERRORLEVEL%"=="0" goto failed
 dotnet run --project "%PROJECT_DIR%tests\FormationSpeech.Tests\FormationSpeech.Tests.csproj" --configuration Release -p:ExtenderDir="%EXTENDER_DIR%" -- "%PROJECT_DIR%.."
 if not "%ERRORLEVEL%"=="0" goto failed
-"%MSBUILD%" "%PROJECT_DIR%tests\Formations.Tests\Formations.Tests.csproj" /p:Configuration=Release /p:ExtenderDir="%EXTENDER_DIR%" /nologo /v:minimal
+"%MSBUILD%" "%PROJECT_DIR%tests\Formations.Tests\Formations.Tests.csproj" /p:Configuration=Release /p:ExtenderDir="%EXTENDER_DIR%" /nologo /v:minimal %SHCDE_BRANCH_MSBUILD_API%
 if not "%ERRORLEVEL%"=="0" goto failed
 "%PROJECT_DIR%tests\Formations.Tests\bin\Formations.Tests.exe"
 if not "%ERRORLEVEL%"=="0" goto failed
@@ -104,10 +108,6 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Va
 if not "%ERRORLEVEL%"=="0" goto failed
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\_inspect\AssassinGateClimb\verify.ps1" -SkipPermanentHooks -SkipCommonChecks
 if not "%ERRORLEVEL%"=="0" goto failed
-"%MSBUILD%" "%PROJECT_DIR%tests\Movement.Tests\Movement.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%" /nologo /v:minimal
-if not "%ERRORLEVEL%"=="0" goto failed
-"%PROJECT_DIR%tests\Movement.Tests\bin\Movement.Tests.exe"
-if not "%ERRORLEVEL%"=="0" goto failed
 pwsh.exe -NoProfile -File "%PROJECT_DIR%tests\GatehouseDiagnostics\Test-GatehouseDiagnostics.ps1"
 if not "%ERRORLEVEL%"=="0" goto failed
 pwsh.exe -NoProfile -File "%PROJECT_DIR%tests\GatehouseDiagnostics\Test-GatehouseDiagnostics.ps1" -Diagnostic
@@ -118,6 +118,14 @@ if not "%ERRORLEVEL%"=="0" goto failed
 echo [%date% %time%] Compile projects
 "%MSBUILD%" "%PROJECT_DIR%Pathfinding.csproj" /t:Build /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%" %CONFIG_ARGS% /nologo /v:minimal
 if not "%ERRORLEVEL%"=="0" goto failed
+rem Movement.Tests references the current main assembly as PathfindingModel. Branch
+rem dispatch may clean the package first, so compile that assembly before this suite.
+if "%NO_TESTS%"=="1" goto package_native_cores
+"%MSBUILD%" "%PROJECT_DIR%tests\Movement.Tests\Movement.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%" /nologo /v:minimal
+if not "%ERRORLEVEL%"=="0" goto failed
+"%PROJECT_DIR%tests\Movement.Tests\bin\Movement.Tests.exe"
+if not "%ERRORLEVEL%"=="0" goto failed
+:package_native_cores
 echo [%date% %time%] Package native cores
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%native\Build-PathfindingAnchor.ps1" -CopyOnly -OutputDirectory "%LOCAL_PLUGIN_DIR%"
 if not "%ERRORLEVEL%"=="0" goto failed

@@ -215,7 +215,8 @@ namespace Pathfinding.UnitCommands
             QualifiedMovementRoute saved = plan?.QualifiedRoute;
             if (saved == null || unit == null || !saved.Route.IsValid || saved.Epoch != mapEpoch ||
                 saved.Tick != CaptureCurrentGameTick() || saved.Revision != placementRevision ||
-                saved.Player != unit->r_ControllableForPlayerId || saved.TargetX != plan.TargetX || saved.TargetY != plan.TargetY ||
+                saved.SurfaceRevision != (Traversal?.GetMovementSurfaceRevision(saved.SurfaceClass) ?? 0) ||
+                saved.Player != unit->r_ControllableForPlayerId || saved.SurfaceClass != ResolveMovementSurface(unit) || saved.TargetX != plan.TargetX || saved.TargetY != plan.TargetY ||
                 !APIShared.UnitAccess.TryGetById(plan.UnitId, out GameUnit* bound, out _) || bound != unit ||
                 (plan.IdentityBound && plan.UnitGlobalId != unit->r_GlobalId))
                 return null;

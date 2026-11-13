@@ -1,16 +1,27 @@
 [CmdletBinding()]
 param([string]$Workspace)
+try {
 $ErrorActionPreference = 'Stop'
 if (-not $Workspace) { $Workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..')) }
 . (Join-Path $PSScriptRoot 'BranchBuild.Common.ps1')
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
-$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'BranchBuild'
+$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'BranchBuild' -Transient
 [void][IO.Directory]::CreateDirectory($fixture)
 $repo = Join-Path $fixture 'repository'
 $game = Join-Path $fixture 'game'
 [void][IO.Directory]::CreateDirectory($repo)
 function Assert-Case([bool]$Condition, [string]$Message) { if (-not $Condition) { throw $Message }; $script:cases++ }
 function Git-Fixture([string[]]$Arguments) { Invoke-BranchGit $repo $Arguments | Out-Null }
+function Assert-RetainedText([string]$ManifestPath,[string]$Relative,[string]$Expected) {
+    $manifest = [IO.File]::ReadAllText($ManifestPath) | ConvertFrom-Json
+    $items = @($manifest.Files | Where-Object Path -eq $Relative)
+    Assert-Case ($items.Count -eq 1 -and $items[0].Object) "Unique input not retained: $Relative"
+    $stream = [IO.File]::OpenRead($items[0].Object)
+    $gzip = [IO.Compression.GZipStream]::new($stream,[IO.Compression.CompressionMode]::Decompress)
+    $reader = [IO.StreamReader]::new($gzip)
+    try { Assert-Case ($reader.ReadToEnd() -ceq $Expected) "Unique retained bytes not recoverable: $Relative" }
+    finally { $reader.Dispose(); $gzip.Dispose(); $stream.Dispose() }
+}
 function Invoke-Fixture([string[]]$Arguments, [int]$Expected = 0, [string]$Driver = 'Fixture/build.bat') {
     $output = @(& (Join-Path $repo $Driver) @Arguments 2>&1)
     $code = $LASTEXITCODE
@@ -53,9 +64,13 @@ copy /Y "%~dp0source.txt" "%GAME_PLUGIN_DIR%\built.txt" >nul
 if errorlevel 1 exit /b 1
 exit /b 0
 '@.Replace('FIXTURE_GAME',$game)
+    # Maintained drivers consume explicit parameters without source rewriting.
+    $batch = 'rem SHCDE_BUILD_PARAMETERS' + "`r`n" + (Convert-BranchBatch $batch 'Fixture/build.bat' '_dev').Replace('_dev','%SHCDE_BRANCH_INSTALL_SUFFIX%')
     Write-BranchText (Join-Path $repo 'Fixture/build.bat') $batch
     Write-BranchText (Join-Path $repo 'Retired/build.bat') "@echo off`r`nexit /b 99`r`n"
     Write-BranchText (Join-Path $repo 'Fixture/source.txt') "MAIN_COMMITTED`r`n"
+    Write-BranchText (Join-Path $repo '_inspect/source-fixture.cs') 'small audited helper source'
+    Write-BranchText (Join-Path $repo '_inspect/capture-fixture.jsonl') ('x' * 1048577)
     Git-Fixture @('add','.')
     Git-Fixture @('commit','-m','main fixture')
     Git-Fixture @('checkout','-b','develop')
@@ -75,7 +90,7 @@ exit /b 0
     Invoke-BranchGit $apiRepo @('init','-b','main') | Out-Null
     Invoke-BranchGit $apiRepo @('config','user.name','Branch build fixture') | Out-Null
     Invoke-BranchGit $apiRepo @('config','user.email','fixture@example.invalid') | Out-Null
-    Write-BranchText (Join-Path $apiRepo '.gitignore') "BepInEx/`r`n.work/`r`n.release-output/`r`n"
+    Write-BranchText (Join-Path $apiRepo '.gitignore') "BepInEx/`r`n.work/`r`n.local/`r`n.release-output/`r`n"
     Write-BranchText (Join-Path $apiRepo 'source.txt') 'API_MAIN'
     Write-BranchText (Join-Path $apiRepo 'build.bat') @'
 @echo off
@@ -122,6 +137,7 @@ function Assert-ApiBuildProof([string]$Root) {
         Assert-Case $locked 'a second cleaner acquired the active run lease'
         # A failure after registering a worktree must remain cleanable without $source returning.
         $null = New-BranchSource $repo 'develop' $owned.Root
+        Assert-Case (-not (Test-Path -LiteralPath (Join-Path $owned.Root '_inspect/capture-fixture.jsonl')) -and (Test-Path -LiteralPath (Join-Path $owned.Root '_inspect/source-fixture.cs'))) 'Sparse branch source copied large captures or lost small helper sources'
         Write-BranchText (Join-Path $owned.Root 'Fixture/source.txt') 'UNIQUE_PREPARATION_BYTES'
         $testDirectory = New-ShortWorkDirectory -Root $owned.Root -Kind t -Name 'generated-fixture'
         Write-BranchText (Join-Path $testDirectory 'result.json') '{"passed":true}'
@@ -150,11 +166,9 @@ function Assert-ApiBuildProof([string]$Root) {
         $null = New-BranchSource $repo 'develop' $unclassified.Root
         Write-BranchText (Join-Path $unclassified.Root '.work/private-data.bin') 'cannot classify this evidence'
         Complete-BranchRun $repo $unclassified
-        Assert-Case ([IO.Directory]::Exists($unclassified.Root)) 'unknown ignored bytes were silently discarded'
-        Assert-Case (([IO.File]::ReadAllText($unclassified.Root + '.lifecycle.json') | ConvertFrom-Json).Phase -eq 'cleanup-failed') 'cleanup failure not actionable'
-        [IO.File]::Delete((Join-Path $unclassified.Root '.work/private-data.bin'))
-        Complete-BranchRun $repo $unclassified
-        Assert-Case (-not [IO.Directory]::Exists($unclassified.Root)) 'cleanup could not retry after resolving unknown content'
+        Assert-Case (-not [IO.Directory]::Exists($unclassified.Root)) 'unknown regular evidence retained a full tree'
+        Assert-RetainedText ($unclassified.Root+'.retained.json') '.work/private-data.bin' 'cannot classify this evidence'
+        Assert-Case (([IO.File]::ReadAllText($unclassified.Root + '.lifecycle.json') | ConvertFrom-Json).Phase -eq 'cleaned') 'compact cleanup was not completed'
     } finally { $unclassified.Lease.Dispose() }
     $staged = Start-BranchRun $repo 'develop' 'Fixture/build.bat' $false
     try {
@@ -167,9 +181,9 @@ function Assert-ApiBuildProof([string]$Root) {
         Invoke-BranchGit $staged.Root @('reset','--quiet','HEAD','--','Fixture/source.txt') | Out-Null
         Write-BranchText (Join-Path $staged.Root '.work/obj/unique.cs') 'user source in ignored directory'
         Complete-BranchRun $repo $staged
-        Assert-Case ([IO.Directory]::Exists($staged.Root)) 'unknown ignored source was treated as a compiler cache'
-        [IO.File]::Delete((Join-Path $staged.Root '.work/obj/unique.cs'))
-        Complete-BranchRun $repo $staged
+        Assert-Case (-not [IO.Directory]::Exists($staged.Root)) 'authored ignored source retained a full tree'
+        Assert-RetainedText ($staged.Root+'.retained.json') '.work/obj/unique.cs' 'user source in ignored directory'
+        Assert-RetainedText ($staged.Root+'.retained.json') 'Fixture/source.txt' 'WORKTREE_OTHER'
     } finally { $staged.Lease.Dispose() }
     # The nested SDK may hold the only copy of a test result; its ignored content is not disposable.
     $nestedRun = Start-BranchRun $repo 'develop' 'Fixture/build.bat' $false
@@ -180,12 +194,14 @@ function Assert-ApiBuildProof([string]$Root) {
         Write-BranchText (Join-Path $sdkCopy '.work/unique.trx') 'sole SDK test evidence'
         Write-BranchText (Join-Path $sdkCopy '.work/obj/SourceContracts.dll') 'reproducible nested compiler output'
         Write-BranchText (Join-Path $sdkCopy '.work/obj/unique.cs') 'sole authored SDK source'
+        Write-BranchText (Join-Path $sdkCopy 'source.txt') 'UNIQUE_NESTED_SDK_SOURCE'
         Complete-BranchRun $repo $nestedRun
-        Assert-Case ([IO.Directory]::Exists($nestedRun.Root)) 'unique authored nested source was treated as a generated cache'
-        [IO.File]::Delete((Join-Path $sdkCopy '.work/obj/unique.cs'))
-        Complete-BranchRun $repo $nestedRun
+        Assert-RetainedText ($nestedRun.Root+'.retained.json') 'APIShared/.work/obj/unique.cs' 'sole authored SDK source'
+        Assert-RetainedText ($nestedRun.Root+'.retained.json') 'APIShared/source.txt' 'UNIQUE_NESTED_SDK_SOURCE'
         Assert-Case (-not [IO.Directory]::Exists($nestedRun.Root)) 'exported nested SDK evidence retained the entire source'
         $nestedManifest = [IO.File]::ReadAllText($nestedRun.Root + '.retained.json') | ConvertFrom-Json
+        Assert-Case (@($nestedManifest.Files | Where-Object Path -eq 'APIShared/source.txt').Count -eq 1) 'Unique nested SDK source was not compactly preserved'
+        Assert-Case (@($nestedManifest.NestedRepositories).Count -eq 1 -and $nestedManifest.NestedRepositories[0].BaseCommit -ceq ((Invoke-BranchGit $apiRepo @('rev-parse','develop')) -join '') -and $nestedManifest.NestedRepositories[0].Path -ceq 'APIShared') 'Retained SDK changes lost their independent base commit'
         Assert-Case (@($nestedManifest.Files | Where-Object Path -eq 'APIShared/.work/unique.trx').Count -eq 1) 'nested ignored test evidence was discarded'
         Assert-Case (@($nestedManifest.Files | Where-Object Path -eq 'APIShared/.work/obj/SourceContracts.dll').Count -eq 0) 'nested compiler output was archived'
     } finally { $nestedRun.Lease.Dispose() }
@@ -225,6 +241,15 @@ function Assert-ApiBuildProof([string]$Root) {
     Assert-Case (($output -join "`n") -match 'API_MAIN' -and ($output -join "`n") -notmatch 'API_DEVELOP') 'main did not select APIShared main'
     Assert-Case ([IO.File]::ReadAllText((Join-Path $mainDir 'built.txt')).Trim() -ceq 'MAIN_COMMITTED') 'main installation failed'
     Assert-Case (-not (Test-Path -LiteralPath (Join-Path $devDir 'built.txt'))) 'main touched develop installation'
+    $latestMain = [IO.File]::ReadAllText((Join-Path $repo '.release-output/builds/Fixture/main.build.json')) | ConvertFrom-Json
+    Assert-Case (@($latestMain.PackageOutputs).Count -gt 0 -and @($latestMain.PackageOutputs | Where-Object { -not [IO.File]::Exists($_.Output) }).Count -eq 0) 'Branch package was not exported to its one current output'
+    $latestRetained = [IO.File]::ReadAllText($latestMain.SourceRoot + '.retained.json') | ConvertFrom-Json
+    Assert-Case (@($latestRetained.Files | Where-Object { $_.Path -like 'Fixture/BepInEx/*' }).Count -eq 0) 'Exported branch package was archived again'
+    # A changed producer may intentionally stop emitting an output tree entirely.
+    $emptySource = Join-Path $fixture 'empty-producer'
+    [void][IO.Directory]::CreateDirectory($emptySource)
+    $null = Save-LatestBranchPackage $repo 'Fixture/build.bat' 'main' $emptySource
+    Assert-Case (-not (Test-Path -LiteralPath (Join-Path $repo '.release-output/builds/Fixture/main/BepInEx'))) 'A missing new package retained previous output bytes'
     $output = Invoke-Fixture @('/branch:develop','/nopause')
     Assert-Case (($output -join "`n") -match 'DEVELOP_COMMITTED' -and ($output -join "`n") -notmatch 'UNCOMMITTED_MUST_NOT_BUILD') 'develop source selection failed'
     Assert-Case (($output -join "`n") -match 'API_DEVELOP') 'develop did not select APIShared develop'
@@ -245,6 +270,21 @@ function Assert-ApiBuildProof([string]$Root) {
     Assert-Case ($kept.Count -eq 1) '/keepsource did not keep exactly one build copy'
     Remove-BranchSource $repo $kept[0].FullName
     Assert-Case (-not (Test-Path -LiteralPath $kept[0].FullName) -and @(Get-ApiCopies).Count -eq 2) 'kept build copy could not be removed'
+    # Cache replacement must never discard authored edits, even in an ignored folder.
+    $cachedSource = Join-Path $cacheRoot 'apishared-main/source.txt'
+    $cachedSourceBytes = [IO.File]::ReadAllBytes($cachedSource)
+    try {
+        Write-BranchText $cachedSource 'UNIQUE_CACHE_SOURCE'
+        $rejected = $false
+        try { Remove-CachedApiSdk $apiRepo (Join-Path $cacheRoot 'apishared-main') } catch { $rejected = $_.Exception.Message -match 'unique source' }
+        Assert-Case ($rejected -and [IO.File]::ReadAllText($cachedSource) -ceq 'UNIQUE_CACHE_SOURCE') 'SDK cache replacement discarded authored source changes'
+    } finally { [IO.File]::WriteAllBytes($cachedSource,$cachedSourceBytes) }
+    $cachedIgnoredSource = Join-Path $cacheRoot 'apishared-main/.local/private.cs'
+    Write-BranchText $cachedIgnoredSource 'UNIQUE_IGNORED_SOURCE'
+    $rejected = $false
+    try { Remove-CachedApiSdk $apiRepo (Join-Path $cacheRoot 'apishared-main') } catch { $rejected = $_.Exception.Message -match 'unique ignored source' }
+    Assert-Case ($rejected -and [IO.File]::Exists($cachedIgnoredSource)) 'SDK cache replacement discarded ignored authored source'
+    [IO.File]::Delete($cachedIgnoredSource)
     # A changed SDK input invalidates the cache and rebuilds it exactly once.
     Write-BranchText (Join-Path $apiRepo 'source.txt') 'API_DEVELOP_CHANGED'
     Invoke-BranchGit $apiRepo @('commit','-am','API develop change') | Out-Null
@@ -277,7 +317,16 @@ function Assert-ApiBuildProof([string]$Root) {
     Assert-Case (($output -join "`n") -match 'API_PERSONAL_DIRTY') 'explicit personal SDK was not retained'
     Assert-Case ([IO.File]::ReadAllText((Join-Path $apiRepo 'source.txt')) -ceq 'API_PERSONAL_DIRTY') 'personal SDK sources changed'
     # Working sources use current file contents; install and no-install remain independent.
+    $workingDriverHash = Get-BranchHash (Join-Path $repo 'Fixture/build.bat')
     $workingOutput = Invoke-Fixture @('/nopause','/noinstall')
+    Assert-Case ((Get-BranchHash (Join-Path $repo 'Fixture/build.bat')) -ceq $workingDriverHash) 'Working build rewrote its driver'
+    Assert-Case (-not (Test-Path -LiteralPath (Join-Path $repo '.work/b/working'))) 'Working build allocated a source copy'
+    $workingRecord = [IO.File]::ReadAllText((Join-Path $repo '.release-output/builds/Fixture/working.build.json')) | ConvertFrom-Json
+    Assert-Case ($workingRecord.SourceRoot -ieq $repo -and @($workingRecord.BuildToolOverrides).Count -eq 0) 'Working build did not use untouched checkout'
+    $null = Invoke-Fixture @('/source:working','/noinstall','/nopause')
+    Assert-Case (@(Get-ChildItem -LiteralPath (Join-Path $repo '.release-output/builds/Fixture') -File -Filter 'working.build.json').Count -eq 1 -and -not (Test-Path -LiteralPath (Join-Path $repo '.work/b/working'))) 'Repeated working builds accumulated copies or records'
+    $null = Invoke-Fixture @('/source:working','/apishared:invalid','/noinstall','/nopause') 1
+    Assert-Case (-not (Test-Path -LiteralPath (Join-Path $repo '.release-output/builds/Fixture/working.build.json'))) 'SDK preparation failure left a successful latest build proof'
     Assert-Case (($workingOutput -join "`n") -notmatch 'RETIRED_DRIVER_PRESENT') 'Working source restored a deleted tracked driver'
     Assert-Case (-not (Test-Path -LiteralPath (Join-Path $repo 'Retired/build.bat'))) 'Build restored a retired driver in the developer checkout'
     Assert-Case (($workingOutput -join "`n") -match 'UNCOMMITTED_MUST_NOT_BUILD' -and ($workingOutput -join "`n") -match 'API_PERSONAL_DIRTY') 'Automatic working-source/default local SDK selection failed'
@@ -292,8 +341,8 @@ function Assert-ApiBuildProof([string]$Root) {
     $null = Invoke-Fixture @('/source:working','/install:dev','/install:main','/nopause') 1
     $null = Invoke-Fixture @('/source:working','/install:unknown','/nopause') 1
     $null = Invoke-Fixture @('/source:working','/branch:main','/nopause') 1
-    # /syncpackage mirrors only a successful working build into the workspace package folder,
-    # deletes files the build no longer produced and never reaches the build driver itself.
+    # /syncpackage is an accepted compatibility option; direct builds replace the package,
+    # delete stale output, invalidate failed output and never forward the option to the child.
     $workspacePackage = Join-Path $repo 'Fixture/BepInEx/plugins/Fixture_Serp'
     Write-BranchText (Join-Path $workspacePackage 'stale.txt') 'STALE'
     $syncOutput = Invoke-Fixture @('/source:working','/noinstall','/nopause','/syncpackage')
@@ -302,17 +351,17 @@ function Assert-ApiBuildProof([string]$Root) {
     Assert-Case (-not (Test-Path -LiteralPath (Join-Path $workspacePackage 'stale.txt'))) '/syncpackage kept a file the build no longer produced'
     Write-BranchText (Join-Path $workspacePackage 'built.txt') 'KEEP_AFTER_FAILED_BUILD'
     Write-BranchText (Join-Path $repo 'Fixture/fail.txt') 'fail'
-    $recordsBefore = @(Get-ChildItem -LiteralPath (Join-Path $repo '.work/b') -Recurse -Filter '*.build.json' | ForEach-Object FullName)
+    $workingRecordPath = Join-Path $repo '.release-output/builds/Fixture/working.build.json'
     $null = Invoke-Fixture @('/source:working','/noinstall','/nopause','/syncpackage') 27
     [IO.File]::Delete((Join-Path $repo 'Fixture/fail.txt'))
     # The deliberate failure's record is checked here and removed; later checks cover successful builds.
-    $failedRecords = @(Get-ChildItem -LiteralPath (Join-Path $repo '.work/b') -Recurse -Filter '*.build.json' | Where-Object { $_.FullName -notin $recordsBefore })
+    $failedRecords = @(Get-Item -LiteralPath $workingRecordPath)
     Assert-Case ($failedRecords.Count -eq 1 -and ([IO.File]::ReadAllText($failedRecords[0].FullName) | ConvertFrom-Json).ExitCode -eq 27) 'failed /syncpackage build record missing'
     [IO.File]::Delete($failedRecords[0].FullName)
-    Assert-Case ([IO.File]::ReadAllText((Join-Path $workspacePackage 'built.txt')) -ceq 'KEEP_AFTER_FAILED_BUILD') 'A failed build mirrored its package'
+    Assert-Case (-not (Test-Path -LiteralPath $workspacePackage)) 'A failed build retained a package that could be mistaken for success'
     $null = Invoke-Fixture @('/branch:main','/noinstall','/nopause','/syncpackage') 1
-    Assert-Case ([IO.File]::ReadAllText((Join-Path $workspacePackage 'built.txt')) -ceq 'KEEP_AFTER_FAILED_BUILD') 'A branch build mirrored its package'
-    [IO.Directory]::Delete((Join-Path $repo 'Fixture/BepInEx'), $true)
+    Assert-Case (-not (Test-Path -LiteralPath $workspacePackage)) 'A branch build mirrored its package'
+    if (Test-Path -LiteralPath (Join-Path $repo 'Fixture/BepInEx')) { [IO.Directory]::Delete((Join-Path $repo 'Fixture/BepInEx'), $true) }
     Write-BranchText (Join-Path $mainDir 'built.txt') 'KEEP_MAIN_NOINSTALL'
     $previousPrepareOnly = $env:SHCDE_PREPARE_ONLY
     try {
@@ -413,7 +462,7 @@ function Assert-ApiBuildProof([string]$Root) {
     foreach ($mode in @('full','quick','none')) {
         $output=Invoke-Fixture @('/source:working','/apishared:dev','/noinstall','/nopause',"/tests:$mode") 0 $bfDriver
         Assert-Case (($output -join "`n") -match "BUILD_ARGUMENTS=.*?/tests:$mode") 'test mode argument did not reach the selected BAT'
-        $latest=@(Get-ChildItem -LiteralPath (Join-Path $repo '.work/b/working') -Filter '*.build.json' | Sort-Object LastWriteTimeUtc -Descending)[0]
+        $latest=Get-Item -LiteralPath (Join-Path $repo '.release-output/builds/BugfixesAndQoL/working.build.json')
         $record=[IO.File]::ReadAllText($latest.FullName) | ConvertFrom-Json
         Assert-Case ($record.TestSelection.Mode -eq $mode) 'test mode missing from build record'
     }
@@ -452,5 +501,9 @@ function Assert-ApiBuildProof([string]$Root) {
         }
     }
     Write-Host "PASS: $cases branch, source, BAT, no-install, installation isolation and driver adaptation checks."
-    Write-Host "Fixture evidence retained: $fixture"
-} catch { Write-Host "Fixture evidence retained: $fixture"; throw }
+    Write-Host "Fixture: $fixture"
+} catch { Write-Host "Fixture: $fixture"; throw }
+
+} finally {
+    if (Get-Command Complete-TransientWorkDirectories -ErrorAction SilentlyContinue) { Complete-TransientWorkDirectories -Owner $PSCommandPath }
+}

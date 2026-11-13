@@ -1,10 +1,11 @@
+# SHCDE_BUILD_PARAMETERS: installation paths consume the explicit dispatcher suffix.
 param([Parameter(Mandatory = $true)][string]$GameDir)
 $ErrorActionPreference = 'Stop'
 $modDir = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $localDir = [IO.Path]::GetFullPath((Join-Path $modDir 'BepInEx\plugins\Pathfinding_Serp'))
 $gameRoot = [IO.Path]::GetFullPath($GameDir)
-$installedDir = [IO.Path]::GetFullPath((Join-Path $gameRoot 'BepInEx\plugins\Pathfinding_Serp'))
-if ($installedDir -ne ($gameRoot.TrimEnd('\') + '\BepInEx\plugins\Pathfinding_Serp')) { throw 'Invalid package target.' }
+$installedDir = [IO.Path]::GetFullPath((Join-Path $gameRoot ('BepInEx\plugins\Pathfinding_Serp' + $env:SHCDE_BRANCH_INSTALL_SUFFIX)))
+if ($installedDir -ne ($gameRoot.TrimEnd('\') + '\BepInEx\plugins\Pathfinding_Serp' + $env:SHCDE_BRANCH_INSTALL_SUFFIX)) { throw 'Invalid package target.' }
 if (-not (Test-Path -LiteralPath (Join-Path $localDir 'Pathfinding.dll') -PathType Leaf)) { throw 'Build the package first.' }
 Copy-Item -LiteralPath (Join-Path $modDir 'info.json') -Destination (Join-Path $localDir 'info.json') -Force
 [IO.Directory]::CreateDirectory($installedDir) | Out-Null

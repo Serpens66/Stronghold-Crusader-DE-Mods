@@ -6578,6 +6578,15 @@ namespace SHCDESE.Interop
 
 namespace SHCDESE.Interop.Enums
 {
+    // Boundary double for the linked climb policy; values match Extender TileProperty.cs.
+    // Preset tests exercise settings, while the Assassin suite tests real tile flags.
+    [Flags]
+    public enum TilePropertyFlag : uint
+    {
+        GoodsyardRelated = 1u << 1,
+        IsWall = 1u << 8
+    }
+
     public enum AliveState : short
     {
         None = 0,

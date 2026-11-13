@@ -73,7 +73,7 @@ namespace Pathfinding.Engine
         private struct ReplanSettled { internal uint Global; internal int TargetX, TargetY; }
         private readonly Dictionary<int, ReplanSettled> replanSettled = new Dictionary<int, ReplanSettled>();
         // One group command (ReplanGroupKey) shares a wait decision of the same rule version.
-        private struct ReplanGroupWait { internal long Version; internal int Tick; }
+        private struct ReplanGroupWait { internal long Version, SurfaceRevision; internal int Tick; }
         private readonly Dictionary<long, ReplanGroupWait> replanGroupWaits = new Dictionary<long, ReplanGroupWait>();
         private readonly byte[] replanRoute = new byte[2000];
         private long replanChecks, replanTriggers, replanDetours, replanWaitsStarted, replanResumed, replanExpired, replanEnded, replanKept,
@@ -82,6 +82,24 @@ namespace Pathfinding.Engine
         // Pathfinding's fire and plague policies: an expired wait aborts the move instead of walking through the rule tiles.
         private RouteReplanPolicy fireAbortPolicy, plagueAbortPolicy;
         private bool IsAbortPolicy(RouteReplanPolicy policy) => policy != null && (ReferenceEquals(policy, fireAbortPolicy) || ReferenceEquals(policy, plagueAbortPolicy));
+        // Mod-local route waiting, not APIShared's MaximumWaitTicks=0 contract (which means no stop).
+        // Read the mission snapshot so restored v1 waits retain their deadline without a format change.
+        private bool IsIndefiniteHazardWait(RouteReplanPolicy policy) => policy != null &&
+            ((ReferenceEquals(policy, fireAbortPolicy) && settings.FireWaitIndefinitely) ||
+             (ReferenceEquals(policy, plagueAbortPolicy) && settings.PlagueWaitIndefinitely));
+
+        // A new owner/group/order cancels our wait even while no safe route exists. Otherwise an
+        // indefinite wait would notice a superseding order only after a successful route probe.
+        // Foreign policies keep their existing resume-time ownership contract.
+        private bool OwnHazardWaitIsCurrent(ReplanWait wait, GameUnit* unit)
+        {
+            if (!AllowsAutomaticHazardControl(wait.Player)) return false;
+            if (unit->r_ControllableForPlayerId != wait.Player || unit->r_TribeId != wait.Tribe) return false;
+            if (wait.Tribe <= 0) return true;
+            if (!TryGetLiveTribe(wait.Tribe, wait.Order.Global, wait.Player, out _)) return false;
+            return wait.Order.Sequence == 0 ||
+                (tribeOrders.TryGetValue(wait.Tribe, out TribeOrder latest) && latest.Sequence == wait.Order.Sequence);
+        }
         // 196280's result for ReplanMove, from the Extender's OnUnitMoveHere Post (MoveToTile drops it).
         private int replanMoveUnit;
         private long replanMoveResult;
@@ -129,6 +147,7 @@ namespace Pathfinding.Engine
         {
             Array.Clear(replanTiles, 0, replanTiles.Length); replanTileCount = 0; replanVersion++;
             replanHot.Clear(); replanHotSet.Clear(); replanWaits.Clear(); replanSettled.Clear(); replanGroupWaits.Clear();
+            replanWaitWork.Clear();
             replanFastUntil = null; replanRebuildCursor = -1; tribeOrders.Clear(); playerMoveTribe = playerQueuedTribe = 0;
             // The tribes belong to the old map: solo walkers are dropped without rejoining. A save keeps
             // them, its orders and its waits (MovementCaseSave), and its load restores them.
@@ -194,6 +213,7 @@ namespace Pathfinding.Engine
             if (distance < 0) return false;
             RouteReplanPolicy policy = RouteTileRules.GetReplanPolicy(node % MapWidth, node / MapWidth, player);
             if (policy == null) return false;
+            if (IsAbortPolicy(policy) && !AllowsAutomaticHazardControl(player)) return false;
             if (distance > policy.TriggerDistance) return true;
             DecideReplan(id, unit, player, policy, length - cursor, targetX, targetY, tick);
             return false;
@@ -240,8 +260,8 @@ namespace Pathfinding.Engine
 
         // One group command: the same tribe and a move target in the same 16 x 16 cell (formation
         // members have nearby but different targets).
-        private static long ReplanGroupKey(GameUnit* unit, int targetX, int targetY) =>
-            unit->r_TribeId <= 0 ? 0 : ((long)unit->r_TribeId << 32) | (uint)((targetY >> 4) * (MapWidth >> 4) + (targetX >> 4));
+        private static long ReplanGroupKey(GameUnit* unit, int targetX, int targetY, RouteSurfaceClass surface = RouteSurfaceClass.Any) =>
+            unit->r_TribeId <= 0 ? 0 : ((long)unit->r_TribeId << 32) | ((long)surface << 24) | (uint)((targetY >> 4) * (MapWidth >> 4) + (targetX >> 4));
 
         // The unit is at most TriggerDistance steps before a rule tile: re-plan to the same target and
         // keep the new route if the policy allows it and it avoids rule tiles, else stop and wait.
@@ -251,9 +271,10 @@ namespace Pathfinding.Engine
             GetNativeMovementStart(unit, out int startX, out int startY);
             if ((uint)startX >= MapWidth || (uint)startY >= MapWidth || (uint)targetX >= MapWidth || (uint)targetY >= MapWidth) return;
             uint global = unit->r_GlobalId;
-            long group = ReplanGroupKey(unit, targetX, targetY);
+            RouteSurfaceClass surface = runtime.ResolveMovementSurface(unit);
+            long group = ReplanGroupKey(unit, targetX, targetY, surface);
             if (group != 0 && policy.MaximumWaitTicks > 0 && replanGroupWaits.TryGetValue(group, out ReplanGroupWait shared) &&
-                shared.Version == replanVersion && tick - shared.Tick < ReplanGroupTicks)
+                shared.Version == replanVersion && shared.SurfaceRevision == surfaceRevisions[(int)surface] && tick - shared.Tick < ReplanGroupTicks)
             {
                 // A member of the same group command already found no allowed route.
                 replanGroupShared++;
@@ -277,7 +298,7 @@ namespace Pathfinding.Engine
                 replanSettled[id] = new ReplanSettled { Global = global, TargetX = targetX, TargetY = targetY };
                 return;
             }
-            if (group != 0) replanGroupWaits[group] = new ReplanGroupWait { Version = replanVersion, Tick = tick };
+            if (group != 0) replanGroupWaits[group] = new ReplanGroupWait { Version = replanVersion, SurfaceRevision = surfaceRevisions[(int)surface], Tick = tick };
             StartReplanWait(id, unit, player, policy, remaining, targetX, targetY, startX, startY, tick);
         }
 
@@ -302,19 +323,36 @@ namespace Pathfinding.Engine
         // Vanilla's group command again (ResumeReplanGroup): 0x11B520 restores the walking state and
         // animation of the stopped soldiers, which 0x196280 alone does not.
         private readonly List<int> replanWaitDone = new List<int>();
+        private readonly List<KeyValuePair<int, ReplanWait>> replanWaitWork = new List<KeyValuePair<int, ReplanWait>>();
         // Tribes whose group command was given again in this pass: their other waits end with it.
         private readonly List<int> replanResumedTribes = new List<int>();
         private void ProcessReplanWaits(int tick)
         {
             replanWaitDone.Clear(); replanResumedTribes.Clear();
+            replanWaitWork.Clear();
+            bool rotate = false;
             foreach (KeyValuePair<int, ReplanWait> entry in replanWaits)
             {
+                replanWaitWork.Add(entry);
+                if (IsIndefiniteHazardWait(entry.Value.Policy)) rotate = true;
+            }
+            // Permanently saturated probes must not keep serving the first few IDs
+            // every time their retry becomes due. Native ticks survive save/load:
+            // rotation needs no additional saved cursor and agrees on every peer.
+            // Bounded and foreign-only waits retain their existing sorted-ID order.
+            int offset = rotate && replanWaitWork.Count != 0 ? (int)(((uint)tick >> 3) % (uint)replanWaitWork.Count) : 0;
+            int position = offset;
+            for (int index = 0; index < replanWaitWork.Count; index++)
+            {
+                KeyValuePair<int, ReplanWait> entry = replanWaitWork[position];
+                if (++position == replanWaitWork.Count) position = 0;
                 int id = entry.Key; ReplanWait wait = entry.Value;
                 if (!APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) || unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                     unit->r_GlobalId != wait.Global) { replanWaitDone.Add(id); replanEnded++; continue; }
                 // A group command given again earlier in this pass moves this member as well.
                 if (wait.Tribe != 0 && replanResumedTribes.Contains(wait.Tribe)) { replanWaitDone.Add(id); replanResumed++; SettleResumed(id, wait); continue; }
-                if (unit->r_TargetTilePositionX2 != wait.StopX || unit->r_TargetTilePositionY2 != wait.StopY ||
+                if ((IsAbortPolicy(wait.Policy) && !OwnHazardWaitIsCurrent(wait, unit)) ||
+                    unit->r_TargetTilePositionX2 != wait.StopX || unit->r_TargetTilePositionY2 != wait.StopY ||
                     (unit->r_PathPlanStateBitFlags != 0 && unit->r_CurrentPathPlanIndex < unit->r_PathPlanLength))
                 {
                     // Another order (player, AI state, group command) took over.
@@ -324,14 +362,14 @@ namespace Pathfinding.Engine
                     else replanSettled[id] = new ReplanSettled { Global = wait.Global, TargetX = unit->r_TargetTilePositionX2, TargetY = unit->r_TargetTilePositionY2 };
                     continue;
                 }
-                bool expired = tick - wait.Until >= 0;
+                bool expired = !IsIndefiniteHazardWait(wait.Policy) && tick - wait.Until >= 0;
                 if (!expired && tick - wait.NextProbe < 0) continue;
                 if (!expired)
                 {
                     if (tick != replanProbeTick) { replanProbeTick = tick; replanProbeLeft = ReplanProbeTickSettles; }
                     if (replanProbeLeft <= 0) { wait.NextProbe = tick + 1; replanProbesDeferred++; continue; }
                     wait.NextProbe = tick + ReplanWaitProbeTicks;
-                    if (!ReplanRouteClear(wait)) continue;
+                    if (!ReplanRouteClear(wait, unit)) continue;
                 }
                 replanWaitDone.Add(id);
                 if (expired && IsAbortPolicy(wait.Policy))
@@ -359,6 +397,7 @@ namespace Pathfinding.Engine
                     if (entry.Value.Tribe != 0 && replanResumedTribes.Contains(entry.Value.Tribe) && !replanWaitDone.Contains(entry.Key))
                     { replanWaitDone.Add(entry.Key); replanResumed++; SettleResumed(entry.Key, entry.Value); }
             foreach (int id in replanWaitDone) replanWaits.Remove(id);
+            replanWaitWork.Clear();
         }
 
         [System.Diagnostics.Conditional("SERP_DEVDIAG")]
@@ -469,9 +508,9 @@ namespace Pathfinding.Engine
         // A probe over ReplanProbeSettles (or the tick's remaining probe budget) counts as not clear: the
         // wait ends at its expiry anyway.
         private const int ReplanProbeSettles = 65536;
-        private bool ReplanRouteClear(ReplanWait wait)
+        private bool ReplanRouteClear(ReplanWait wait, GameUnit* unit)
         {
-            int probe = CoreRouteProbe(wait.Player, wait.StopX, wait.StopY, wait.TargetX, wait.TargetY, wait.Policy, wait.Remaining);
+            int probe = CoreRouteProbe(wait.Player, wait.StopX, wait.StopY, wait.TargetX, wait.TargetY, wait.Policy, wait.Remaining, runtime.ResolveMovementSurface(unit));
             replanProbeOutcomes[probe]++;
             return probe == ProbeClear;
         }
@@ -483,10 +522,10 @@ namespace Pathfinding.Engine
 
         // Whether the core's route from (startX,startY) avoids every replan and burning tile and fits the
         // policy against `remaining` steps. Consumes the tick's probe budget.
-        private int CoreRouteProbe(int player, int startX, int startY, int targetX, int targetY, RouteReplanPolicy policy, int remaining)
+        private int CoreRouteProbe(int player, int startX, int startY, int targetX, int targetY, RouteReplanPolicy policy, int remaining, RouteSurfaceClass surface = RouteSurfaceClass.Any)
         {
             int start = startY * MapWidth + startX, target = targetY * MapWidth + targetX;
-            int code = AnchorNative.mma_single_route_limited(anchorContext, player, target, 1, 0, start, Math.Min(ReplanProbeSettles, Math.Max(1, replanProbeLeft)),
+            int code = AnchorNative.mma_single_route_limited(anchorContext, player, target, 1, 0, surface, start, Math.Min(ReplanProbeSettles, Math.Max(1, replanProbeLeft)),
                 replanRoute, replanRoute.Length, out AnchorNative.QueryResult result);
             replanProbeLeft -= result.Settles;
             if (code != 0 || result.Status != AnchorNative.Ready) return ProbeNoRoute;
@@ -496,6 +535,7 @@ namespace Pathfinding.Engine
             {
                 x += FastRouteField.Dx[replanRoute[i]]; y += FastRouteField.Dy[replanRoute[i]];
                 int n = y * MapWidth + x;
+                if (!runtime.IsMovementSurfaceAllowed(surface, GameTileManagerAPI.Instance.GetTileId(x, y))) { MarkMovementSurface(n); return ProbeNoRoute; }
                 if ((replanTiles[n >> 6] & (1UL << (n & 63))) != 0 || IsHazardNode(n)) return ProbeRuleTile;
             }
             return ProbeClear;

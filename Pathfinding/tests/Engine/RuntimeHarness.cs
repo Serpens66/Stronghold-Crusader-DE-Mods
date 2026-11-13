@@ -23,7 +23,9 @@ namespace EngineHarness
     {
         internal const int CHIMP_TYPE_ARAB_ASSASIN = 0x49, CHIMP_TYPE_CATAPULT = 0x27, CHIMP_TYPE_TREBUCHET = 0x28, CHIMP_TYPE_MANGONEL = 0x29,
             CHIMP_TYPE_SIEGE_TOWER = 0x3A, CHIMP_TYPE_BATTERING_RAM = 0x3B, CHIMP_TYPE_PORTABLE_SHIELD = 0x3C, CHIMP_TYPE_BALLISTA = 0x3D,
-            CHIMP_TYPE_ARAB_BALLISTA = 0x4D, CHIMP_TYPE_HEALER = 34, CHIMP_TYPE_LORD = 55;
+            CHIMP_TYPE_ARAB_BALLISTA = 0x4D, CHIMP_TYPE_HEALER = 34, CHIMP_TYPE_LORD = 55,
+            CHIMP_TYPE_KNIGHT = 28, CHIMP_TYPE_LADDERMAN = 29, CHIMP_TYPE_ARAB_HORSEMAN = 74,
+            CHIMP_TYPE_BEDOUIN_CAMEL_LANCER = 78, CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL = 83;
     }
     internal enum TribeAICommand { Move, AttackUnit=4, AttackBuilding=5, DigMoatTileId = 6, Unknown7 = 7 }
     internal enum EventHookPhase { Pre, Post }
@@ -60,6 +62,8 @@ namespace EngineHarness
         public int r_IsKilledByProjectile;
         public int r_CurrentSpeed;
         public ushort N000000D8;
+        public ushort r_InterestingTodo1, N00000573;
+        public byte N000001F6_3;
     }
     internal struct GameCursorManager { public uint r_HoverOverBuildingId,r_HoverOverUnitId,r_HoverOverBuildingTileId,r_MouseTileId2,r_HoveringOverWall,r_MouseTileId,r_MouseTileX,r_MouseTileY; }
     internal unsafe struct CursorPointer { public GameCursorManager* Pointer; }
@@ -151,7 +155,11 @@ namespace EngineHarness
         private void EndTemporaryRouteReport(IntPtr m,object token,bool completed,int result) {}
         private void ObserveTemporaryNativeBuilderOutput(object token,int result) {}
         private static bool TemporaryAssassinPublicationRejected(string reason) => false;
-        private void ReportNativeDetourBarrier(string stage,Exception ex) => throw new InvalidOperationException(stage,ex);
+        private int nativeBarrierReports;
+        private bool suppressNativeBarrierReports;
+        private long builderOriginalEntries, reconstructionOriginalEntries;
+        private int lastPathBuilderResult, lastPathReconstructionResult;
+        private void ReportNativeDetourBarrier(string stage,Exception ex) { nativeBarrierReports++; if (!suppressNativeBarrierReports) throw new InvalidOperationException(stage,ex); }
         private void ResetFastCommandMap() {}
 
         private bool IsNativeManualGroupFlood(IntPtr manager,int p,int r,int x,int y)=>false;
@@ -408,6 +416,9 @@ namespace EngineHarness
                 byte* masks = (byte*)Alloc(NativeTileCount); nativeMovementMasks = masks;
                 byte* directions = (byte*)Alloc(8);
                 byte* types = (byte*)Alloc(0x32C * 10001);
+                movementSurfaceBuildingTypes = types + 0x12E;
+                movementSurfaceBuildingTypeCount = 512;
+                movementSurfaceBuildingWhitelist = (int*)Alloc(movementSurfaceBuildingTypeCount * sizeof(int));
                 for (int i = 0; i < 8; i++) directions[i] = (byte)(1 << i);
                 for (int tile = 0; tile < NativeTileCount; tile++) tileFlags[tile] = 0x100;
                 // One-tile-wide corridor: ground 10..12, friendly moat 13, ground 14..18.
@@ -442,6 +453,7 @@ namespace EngineHarness
                 byte* manager = (byte*)nativePathManager;
                 *(int*)(manager + 8) = 10; *(int*)(manager + 12) = 10;
                 *(int*)(manager + 16) = 17; *(int*)(manager + 20) = 10;
+                SurfacePolicyAndPublicationTests();
 
                 byte* buildingResultEntry = manager + PathManagerFloodResultTileOffset;
                 *(int*)buildingResultEntry = 128900;
@@ -1272,6 +1284,7 @@ namespace EngineHarness {
   // 1: Pathfinding's required-only flow (its only mode); 0 only models Pathfinding without Pathfinding.
   internal int RouteMode=1;
   internal bool AnchorSingleMoves;
+  internal bool FireWaitIndefinitely, PlagueWaitIndefinitely;
   internal string PluginDirectory;
  }
 }
@@ -1396,3 +1409,19 @@ namespace APIShared.Internal { internal static class GroundMovePreviewEligibilit
 namespace Shared { internal static class MissionEvents {
  internal static bool TryGetCurrentMapTick(out int tick) { tick=EngineHarness.FriendlyMoatMovementRuntime.CaptureCurrentGameTick(); return true; }
 } }
+
+namespace EngineHarness {
+ internal enum PathfindingProfile { Large=0, Default=1 }
+ internal sealed class GamePathingManagerAPI {
+  internal static readonly GamePathingManagerAPI Instance=new GamePathingManagerAPI();
+  internal readonly bool[] SurfaceBypasses=new bool[90];
+  public bool GetUnitTypeNextTileSurfaceValidationBypass(int type)=>type>=0&&type<SurfaceBypasses.Length&&SurfaceBypasses[type];
+ }
+}
+namespace APIShared.ScriptExtenderReplacements {
+ internal sealed class GamePathingManagerAPI {
+  internal static readonly GamePathingManagerAPI Instance=new GamePathingManagerAPI();
+  internal readonly EngineHarness.PathfindingProfile[] Profiles=System.Linq.Enumerable.Repeat(EngineHarness.PathfindingProfile.Default,90).ToArray();
+  public System.Span<EngineHarness.PathfindingProfile> GetUnitTypePathfindingProfiles()=>Profiles;
+ }
+}

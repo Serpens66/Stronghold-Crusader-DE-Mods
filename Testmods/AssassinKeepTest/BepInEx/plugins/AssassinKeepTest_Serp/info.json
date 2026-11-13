@@ -1,0 +1,14 @@
+{
+  "GUID": "AssassinKeepTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Assassin Keep Test",
+  "Description": "Explicit-request-only Assassin Keep climb trace. No save writes or OS input.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.14.3",
+  "Dependencies": [
+    { "GUID": "APIShared_Serp", "MinimumVersion": "0.52.0" },
+    { "GUID": "Pathfinding_Serp", "MinimumVersion": "0.1.5" }
+  ],
+  "Manifest": 1,
+  "NetworkMode": 1
+}

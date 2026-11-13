@@ -112,6 +112,10 @@ namespace Pathfinding.Engine
         // Every EscapeInterval ticks after the fire and plague scans of this tick.
         private bool FireEscapeEnabled => fireEscapeActive && fireEscapePolicy != null;
         private bool PlagueEscapeEnabled => plagueEscapeActive && plagueEscapePolicy != null;
+        // AI Lords own their order/group state. Route costs still apply to their ordinary
+        // searches, but active stop/flee commands await the separate AI game acceptance.
+        private static bool AllowsAutomaticHazardControl(int player) =>
+            player >= 1 && player <= 8 && !GamePlayerManagerAPI.Instance.IsAIPlayer(player);
         private void FireEscapeTick(int tick)
         {
             if (!FireEscapeEnabled && !PlagueEscapeEnabled || runtime.nativeUnitManager == null || (tick % EscapeInterval) != 0) return;
@@ -131,7 +135,7 @@ namespace Pathfinding.Engine
                     escapeChecks++;
                     if (!IsReplanSoldier(unit) || fireEscapes.ContainsKey(id)) continue;
                     int player = unit->r_ControllableForPlayerId;
-                    if (player < 1 || player > 8) continue;
+                    if (!AllowsAutomaticHazardControl(player)) continue;
                     if (fireEscapeRetry.TryGetValue(id, out int retry)) { if (tick - retry < 0) continue; fireEscapeRetry.Remove(id); }
                     if (!TryGetEscapeHazard(unit, x, y, out EscapeHazard hazard)) continue;
                     StartFireEscape(id, unit, player, x, y, hazard, tick);
@@ -220,6 +224,8 @@ namespace Pathfinding.Engine
         private bool TryFindFireEscape(int id, int player, int startX, int startY, out int escapeX, out int escapeY)
         {
             escapeX = escapeY = -1;
+            if (!APIShared.UnitAccess.TryGetById(id, out GameUnit* movingUnit, out _) || movingUnit == null) return false;
+            RouteSurfaceClass surface = runtime.ResolveMovementSurface(movingUnit);
             if (++escapeGenerationCounter == int.MaxValue) { escapeGenerationCounter = 1; Array.Clear(escapeGeneration, 0, escapeGeneration.Length); }
             int generation = escapeGenerationCounter, count = 0, frontX = -1, frontY = -1, frontFire = int.MaxValue;
             int originX = startX - EscapeRadius, originY = startY - EscapeRadius;
@@ -246,7 +252,8 @@ namespace Pathfinding.Engine
                     int next = (ny - originY) * EscapeWindow + (nx - originX), nextNode = ny * MapWidth + nx;
                     int nextCost = (cost / EscapeFireCost + (IsHazardNode(nextNode) ? 1 : 0)) * EscapeFireCost + cost % EscapeFireCost + 1;
                     if (escapeGeneration[next] == generation && escapeCost[next] <= nextCost) continue;
-                    if (!LiveEdge(player, node, nextNode, d, false, null, out _, out _)) continue;
+                    if (!runtime.IsMovementSurfaceAllowed(surface, GameTileManagerAPI.Instance.GetTileId(nx, ny)) ||
+                        !LiveEdge(player, node, nextNode, d, false, null, out _, out _)) continue;
                     escapeGeneration[next] = generation; escapeCost[next] = nextCost;
                     HeapPush(ref count, ((long)nextCost << 16) | (uint)next);
                 }
@@ -323,6 +330,8 @@ namespace Pathfinding.Engine
                 if (!APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) || unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                     unit->r_GlobalId != entry.Global)
                 { LogEscape("end-gone", id, entry); EndFireEscape(id, entry); escapeEndedGone++; continue; }
+                if (!AllowsAutomaticHazardControl(entry.Player) || unit->r_ControllableForPlayerId != entry.Player)
+                { LogEscape("end-control", id, entry); EndFireEscape(id, entry); escapeEndedOrder++; continue; }
                 int targetX = unit->r_TargetTilePositionX2, targetY = unit->r_TargetTilePositionY2;
                 // Vanilla moves a walker whose target tile is taken to a neighbouring tile (same order and tribe).
                 if (unit->r_TribeId == entry.Tribe.Own && (targetX != entry.MoveX || targetY != entry.MoveY) && IsMoveCommanded(unit) &&
@@ -375,7 +384,7 @@ namespace Pathfinding.Engine
                 if (replanProbeLeft <= 0) { entry.NextProbe = tick + 1; replanProbesDeferred++; continue; }
                 entry.NextProbe = tick + EscapeProbeTicks;
                 int distance = Math.Max(Math.Abs(entry.ReturnX - x), Math.Abs(entry.ReturnY - y));
-                int probe = CoreRouteProbe(entry.Player, x, y, entry.ReturnX, entry.ReturnY, EscapePolicy(entry.Hazard), distance);
+                int probe = CoreRouteProbe(entry.Player, x, y, entry.ReturnX, entry.ReturnY, EscapePolicy(entry.Hazard), distance, runtime.ResolveMovementSurface(unit));
                 escapeReturnProbes[probe]++;
                 if (probe != ProbeClear) { LogFireCase("return-blocked", id, $"probe={probe}"); continue; }
                 if (TryMoveSoldier(id, entry.Global, entry.Tribe, entry.ReturnX, entry.ReturnY, out int returnX, out int returnY))

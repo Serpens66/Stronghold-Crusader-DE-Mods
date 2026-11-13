@@ -91,7 +91,7 @@ function Test-BranchGeneratedCacheFile([string]$Relative) {
     if ($Relative -notmatch '(^|/)(bin|obj|packages|node_modules)/') { return $false }
     if ($Relative -match '\.(cs|cpp|c|h|ps1|py|bat|sh)$' -and
         $Relative -notmatch '(\.g\.cs|\.AssemblyInfo\.cs|\.AssemblyAttributes\.cs)$') {
-        throw "Unclassified source inside build cache: $Relative"
+        return $false
     }
     return $true
 }
@@ -110,6 +110,8 @@ function Save-BranchRunContents([string]$Repository, $Run) {
     $nestedSurvivors = [Collections.Generic.List[object]]::new()
     $nestedIgnored = @()
     $nestedDifferences = @()
+    $nestedUnique = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $nestedIdentity = $null
     $nested = Join-Path $root 'APIShared'
     if (Test-Path -LiteralPath (Join-Path $nested '.git') -PathType Leaf) {
         Assert-BranchUnlinkedPath $nested
@@ -117,6 +119,7 @@ function Save-BranchRunContents([string]$Repository, $Run) {
         $owner = Split-Path -Parent $common
         if ([IO.Path]::GetFullPath($owner).TrimEnd('\','/') -ine (Join-Path $Repository 'APIShared')) { throw 'Nested SDK has an unexpected owner.' }
         $nestedHead = ((Invoke-BranchGit $nested @('rev-parse','HEAD')) -join '').Trim()
+        $nestedIdentity = [ordered]@{ Path='APIShared'; BaseCommit=$nestedHead; GitCommonDirectory=$common; Repository=$owner }
         if ($nestedHead -notin @(Invoke-BranchGit $owner @('rev-list','--all'))) { throw 'Nested SDK has an unreferenced commit.' }
         if (@(Invoke-BranchGit $nested @('diff','--cached','--name-only','HEAD')).Count) { throw 'Nested SDK contains staged changes; explicit review required.' }
         # A dirty SDK inspection copy is removable only while the real SDK still has identical bytes.
@@ -125,9 +128,11 @@ function Save-BranchRunContents([string]$Repository, $Run) {
             $survivor = Join-Path $owner $difference.Path
             Assert-BranchUnlinkedPath $survivor
             if ($difference.Deleted) {
-                if ([IO.File]::Exists($survivor)) { throw 'Nested SDK contains an unmatched deletion.' }
+                if ([IO.File]::Exists($survivor)) { [void]$nestedUnique.Add([string]$difference.Path); $nestedEvidence.Add('APIShared/' + $difference.Path) }
             } elseif (-not [IO.File]::Exists($survivor) -or (Get-BranchHash $survivor) -cne $difference.Sha256) {
-                throw "Nested SDK has unique changes; retaining source: $($difference.Path)"
+                # Preserve the unique bytes, not the entire SDK and mod checkout.
+                [void]$nestedUnique.Add([string]$difference.Path)
+                $nestedEvidence.Add('APIShared/' + $difference.Path)
             }
         }
     }
@@ -144,9 +149,9 @@ function Save-BranchRunContents([string]$Repository, $Run) {
                 continue
             }
             if (Test-BranchGeneratedCacheFile $relative) { continue }
-            if ($relative -match '\.(log|trx|json)$' -or (Test-BranchOwnedFixtureFile $nested $relative)) {
-                $nestedEvidence.Add('APIShared/' + $relative)
-            } else { throw "Nested SDK has unique ignored contents: $relative" }
+            # Unknown regular files may contain authored input or evidence. Keep
+            # their exact bytes compactly instead of retaining both full trees.
+            $nestedEvidence.Add('APIShared/' + $relative)
         }
     }
     foreach ($relative in @(Invoke-BranchGit $root @('ls-files','--others','--exclude-standard'))) {
@@ -159,6 +164,21 @@ function Save-BranchRunContents([string]$Repository, $Run) {
     $snapshot = $root + '.retained'
     $objects = Join-Path $Repository '.work/b/.retained-objects'
     $paths = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $exported = @{}
+    $buildRecord = $root + '.build.json'
+    if ([IO.File]::Exists($buildRecord)) {
+        $built = [IO.File]::ReadAllText($buildRecord) | ConvertFrom-Json
+        if ($built.SourceRoot -ieq $root -and $built.ExitCode -eq 0 -and $built.PSObject.Properties['PackageOutputs']) {
+            $latestBase = [IO.Path]::GetFullPath((Join-Path $Repository '.release-output/builds')).TrimEnd('\') + '\'
+            foreach ($output in @($built.PackageOutputs)) {
+                $latest = [IO.Path]::GetFullPath([string]$output.Output)
+                if (-not $latest.StartsWith($latestBase,[StringComparison]::OrdinalIgnoreCase)) { throw 'Exported package escapes current build outputs.' }
+                Assert-BranchUnlinkedPath $latest
+                if (-not [IO.File]::Exists($latest) -or (Get-BranchHash $latest) -cne $output.Sha256) { throw 'Latest branch package changed before source cleanup.' }
+                $exported[[string]$output.Path] = [string]$output.Sha256
+            }
+        }
+    }
     foreach ($difference in $differences) { [void]$paths.Add([string]$difference.Path) }
     foreach ($relative in $nestedEvidence) { [void]$paths.Add($relative) }
     # The final package and provenance are results of this run, not the disposable compiler cache.
@@ -180,13 +200,19 @@ function Save-BranchRunContents([string]$Repository, $Run) {
         if (Test-BranchGeneratedCacheFile $relative) { continue }
         if ($relative -match '^APIShared/' -or $relative -match '^\.release-output/checkpoints/') { continue }
         if ($relative.StartsWith('.release-output/local/') -or $relative.StartsWith($project.Replace('\','/') + '/BepInEx/plugins/')) { continue }
-        if ($relative -match '\.(log|trx)$') { [void]$paths.Add($relative); continue }
-        throw "Unclassified ignored build content; retaining full source: $relative"
+        $candidate = Join-Path $root $relative
+        Assert-BranchUnlinkedPath $candidate
+        if ([IO.Directory]::Exists($candidate)) { throw "Ignored nested repository/directory requires review: $relative" }
+        [void]$paths.Add($relative)
     }
     foreach ($relative in $paths) {
         # Explicit no-install builds need no exact compiler binary history. Installed
         # or unknown runs still preserve sole delivered bytes (including MVID/PDB).
         $normalized = $relative.Replace('\','/')
+        if ($exported.ContainsKey($normalized)) {
+            if ((Get-BranchHash (Join-Path $root $relative)) -cne $exported[$normalized]) { throw 'Build package changed after latest output export.' }
+            continue
+        }
         if ($Run.State.NoInstall -eq $true -and $normalized -match '\.(dll|pdb)$' -and
             ($normalized.StartsWith($project.Replace('\','/') + '/BepInEx/plugins/', [StringComparison]::OrdinalIgnoreCase) -or
              $normalized -match '(^|/)(bin|obj)/')) { continue }
@@ -229,7 +255,8 @@ function Save-BranchRunContents([string]$Repository, $Run) {
         $records.Add([ordered]@{Path=$relative;Sha256=$hash;Object=$object})
     }
     # A record preserves deletions and exact raw bytes, without duplicating committed files.
-    $manifest = [ordered]@{SchemaVersion=1;Repository=$Repository;BaseCommit=$head;Root=$root;CreatedUtc=[DateTime]::UtcNow.ToString('o');Files=$records.ToArray()}
+    $manifest = [ordered]@{SchemaVersion=1;Repository=$Repository;BaseCommit=$head;Root=$root;CreatedUtc=[DateTime]::UtcNow.ToString('o');NestedRepositories=@();Files=$records.ToArray()}
+    if ($nestedIdentity) { $manifest.NestedRepositories = @($nestedIdentity) }
     Write-BranchText ($snapshot + '.json') (($manifest | ConvertTo-Json -Depth 10) + "`r`n")
     $Run.State.RetentionManifest = $snapshot + '.json'
     $after = @(Get-BranchSourceDifferences $root | Where-Object { $_.Path.TrimEnd('/','\') -ine 'APIShared' })
@@ -243,6 +270,7 @@ function Save-BranchRunContents([string]$Repository, $Run) {
     if (((Invoke-BranchGit $root @('rev-parse','HEAD')) -join '').Trim() -cne $head) { throw 'Build HEAD changed during preservation.' }
     if (Test-Path -LiteralPath (Join-Path $nested '.git') -PathType Leaf) {
         foreach ($difference in @($nestedDifferences) + @($nestedSurvivors)) {
+            if ($nestedUnique.Contains([string]$difference.Path)) { continue }
             $survivor = Join-Path $owner $difference.Path
             if ($difference.Deleted) {
                 if ([IO.File]::Exists($survivor)) { throw 'Surviving SDK source changed during preservation.' }

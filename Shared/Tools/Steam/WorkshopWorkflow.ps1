@@ -5,7 +5,9 @@ if($null -eq $Options){$Options=@()}
 . (Join-Path $PSScriptRoot 'WorkshopOptions.Common.ps1')
 . (Join-Path $PSScriptRoot '../ApiSharedRepository/MainSource.Common.ps1')
 . (Join-Path $PSScriptRoot 'ModpackSource.Common.ps1')
-$exitCode=0;$settings=$null;$lock=$null
+. (Join-Path $PSScriptRoot 'WorkshopPublisherScope.ps1')
+. (Join-Path $PSScriptRoot 'WorkspaceReleaseRetention.ps1')
+$exitCode=0;$settings=$null;$lock=$null;$mainSdkMutex=$null;$cleanupWorkspace=$null
 $previousMainSelection=$env:SHCDE_API_SHARED_MAIN_SELECTION
 $noPauseRequested=@($Options|Where-Object {$_ -ieq '/nopause'}).Count -gt 0
 # Leave delegated work through this block so only the original caller owns the pause.
@@ -16,6 +18,7 @@ try{
     $settings=Resolve-WorkshopOptions $Options
     if($settings.Target -eq 'Cancel'){exit 0}
     $config=Get-WorkshopConfiguration
+    if($Action -eq 'Prepare' -and -not $settings.Validate){$cleanupWorkspace=Get-ApiMainWorkspace $config.Root}
     if($settings.Target -in @('SerpsMods','Both')){
         if($Action -eq 'Prepare'){
             $settings.Branch=Get-ModpackBranchChoice $settings.Branch
@@ -27,6 +30,7 @@ try{
             $settings.Branch=$source.Branch
         }
         $env:SHCDE_MODPACK_COORDINATOR=Get-ModpackCoordinator $config.Root
+        if(-not $env:SHCDE_NATIVE_BASELINE_ROOT){$env:SHCDE_NATIVE_BASELINE_ROOT=Join-Path $env:SHCDE_MODPACK_COORDINATOR '_inspect/CrusaderDE-Native-Baseline'}
         $env:SHCDE_MODPACK_BRANCH=$source.Branch
         Write-Host ('Modpack-Branch: '+$source.Branch+' / '+$source.Commit+' / APIShared: validated main release')
         if([IO.Path]::GetFullPath($source.Root).TrimEnd('\','/') -ine $config.Root.TrimEnd('\','/')){
@@ -36,16 +40,31 @@ try{
             if($settings.Validate){$argsForChild+='/validate'}
             & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $source.Root 'Shared/Tools/Steam/WorkshopWorkflow.ps1') -Action $Action @argsForChild
             $exitCode=$LASTEXITCODE
-            # The temporary release folder is only needed until its package is uploaded.
-            if($Action -eq 'Upload' -and $exitCode -eq 0 -and -not $settings.Validate -and -not $settings.Test){
-                try{Remove-ModpackReleaseWorktree $config.Root $source}catch{Write-Host ('WARNING: temporary release folder was kept: '+$_.Exception.Message)}
+            # Successful preparation already freezes every upload input centrally.
+            # The source checkout is no longer needed while waiting for Steam upload.
+            if($exitCode -eq 0 -and -not $settings.Validate -and -not $settings.Test){
+                try{
+                    $canRetire=$Action -eq 'Upload'
+                    if($Action -eq 'Prepare'){
+                        $preparedPath=Join-Path (Get-ModpackStateRoot $config.Root $false) 'prepared/SerpsMods.json'
+                        $prepared=[IO.File]::ReadAllText($preparedPath)|ConvertFrom-Json
+                        $canRetire=(Test-FrozenWorkshopIdentity $prepared.MainSource) -and
+                            (-not $prepared.PSObject.Properties['ModpackSource'] -or
+                                ($prepared.ModpackSource.PSObject.Properties['Frozen'] -and $prepared.ModpackSource.Frozen))
+                    }
+                    if($canRetire){Remove-ModpackReleaseWorktree $config.Root $source}
+                }catch{Write-Host ('WARNING: temporary release folder was kept: '+$_.Exception.Message)}
             }
             break workflow
         }
     }
     $targets=if($settings.Target -eq 'Both'){@($config.APIShared,$config.SerpsMods)}else{@($config.($settings.Target))}
     if($Action -eq 'Prepare'){
-        $env:SHCDE_API_SHARED_MAIN_SELECTION=Resolve-ApiMainSelection $config.Root
+        $mainSdkMutex=[Threading.Mutex]::new($false,'Local\SHCDE-APIShared-SDK-main')
+        try{
+            if(-not $mainSdkMutex.WaitOne(0)){Write-Host 'Waiting for another build that uses the APIShared main SDK...';[void]$mainSdkMutex.WaitOne()}
+        }catch [Threading.AbandonedMutexException]{}
+        $env:SHCDE_API_SHARED_MAIN_SELECTION=Resolve-ApiMainSelection $config.Root -RequireExisting:$settings.Validate
     }else{
         $preparedState=if($env:SHCDE_MODPACK_COORDINATOR){Get-ModpackStateRoot $config.Root $settings.Test}else{Join-Path $config.Root '.release-output/SteamWorkshop'}
         if($settings.Test -and -not $env:SHCDE_MODPACK_COORDINATOR){$preparedState=Join-Path $preparedState 'test'}
@@ -65,6 +84,16 @@ try{
     if($Action -eq 'Prepare' -and $settings.Target -in @('SerpsMods','Both') -and -not(Get-WorkshopItemId $config $config.APIShared $settings.Test)){throw 'APIShared Workshop ID missing. Prepare and upload APIShared first. No release changes were made.'}
     $state=Get-WorkshopStateRoot $config $settings.Test;Assert-ApiWorkshopUnlinkedPath $state;[void][IO.Directory]::CreateDirectory($state)
     $lock=[IO.File]::Open((Join-Path $state 'workflow.lock'),[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+    $previousDeliveries=@()
+    if($Action -eq 'Prepare' -and -not $settings.Validate){
+        foreach($target in $targets){
+            $path=Join-Path $state ('prepared/'+$target.Key+'.json')
+            if([IO.File]::Exists($path)){
+                $old=[IO.File]::ReadAllText($path)|ConvertFrom-Json
+                if($old.PSObject.Properties['MainSource'] -and (Test-FrozenWorkshopIdentity $old.MainSource)){$previousDeliveries+=@([string]$old.MainSource.Selection)}
+            }
+        }
+    }
     if($Action -eq 'Prepare' -and -not $settings.Validate){Ensure-ApiMainBuild $config.Root}
     if($Action -eq 'Upload'){
         # Freeze the selected SDK and package across preparation and upload.
@@ -97,7 +126,13 @@ try{
         $modpackProof=Assert-WorkshopPreparation $config $config.SerpsMods $settings.Test
         Assert-ModpackApiSharedIdentity $apiProof.PublishedSdk $modpackProof.PublishedSdk
     }
-}catch{Write-Host $_.Exception.Message -ForegroundColor Red;$exitCode=1}finally{if($lock){$lock.Dispose()};$env:SHCDE_API_SHARED_MAIN_SELECTION=$previousMainSelection}
+    if($Action -eq 'Prepare' -and -not $settings.Validate){Remove-SupersededWorkshopDeliveries $config.Root $previousDeliveries}
+}catch{Write-Host $_.Exception.Message -ForegroundColor Red;$exitCode=1}finally{
+    if($cleanupWorkspace){$null=Clear-WorkspaceReleaseOutputs $cleanupWorkspace -WorkflowLease $lock}
+    if($lock){$lock.Dispose()}
+    if($mainSdkMutex){$mainSdkMutex.ReleaseMutex();$mainSdkMutex.Dispose()}
+    $env:SHCDE_API_SHARED_MAIN_SELECTION=$previousMainSelection
+}
 }while($false)
 if(-not $noPauseRequested){[void](Read-Host 'Enter zum Schliessen')}
 exit $exitCode

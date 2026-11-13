@@ -1,3 +1,4 @@
+try {
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'WorkshopConfiguration.ps1')
@@ -28,7 +29,7 @@ function Write-UploadLog($Message, $Level) { }
 . (Join-Path $PSScriptRoot 'SteamPackPolicy.ps1')
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
-$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'WorkshopCacheAndChangelo'
+$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'WorkshopCacheAndChangelo' -Transient
 [void][IO.Directory]::CreateDirectory($fixture)
 $cache = Join-Path $fixture 'cache'
 $script:downloads = 0
@@ -194,12 +195,13 @@ $config=Get-WorkshopConfiguration
 $preparation=Join-Path $root '.release-output/SteamWorkshop/prepared/SerpsMods.json'
 # UploadWorkshop removes the temporary release folder after a successful upload; its consumed
 # preparation then has no local package left to compare.
-$preparedRoot=if(Test-Path -LiteralPath $preparation){$p0=[IO.File]::ReadAllText($preparation)|ConvertFrom-Json;if($p0.PSObject.Properties['ModpackSource']){[string]$p0.ModpackSource.Root}else{''}}else{''}
+$preparedRoot=if(Test-Path -LiteralPath $preparation){$p0=[IO.File]::ReadAllText($preparation)|ConvertFrom-Json;if($p0.PSObject.Properties['ModpackSource'] -and $p0.ModpackSource.PSObject.Properties['Root']){[string]$p0.ModpackSource.Root}else{''}}else{''}
 if($preparedRoot -and -not (Test-Path -LiteralPath $preparedRoot)){Write-Host "SKIP: prepared package folder was removed after its upload: $preparedRoot"}
 elseif (Test-Path -LiteralPath $preparation) {
     # Prepared files belong to their selected checkout, even when this test starts on develop.
     $prepared=[IO.File]::ReadAllText($preparation)|ConvertFrom-Json
-    if($prepared.PSObject.Properties['PublishedRelease']){
+    if((Test-FrozenWorkshopIdentity $prepared.MainSource)){$config.Root=$root}
+    elseif($prepared.PSObject.Properties['PublishedRelease']){
         . (Join-Path $PSScriptRoot 'ModpackSource.Common.ps1')
         $config.Root=(Resolve-ModpackSource $root 'main' -AllowGeneratedOutputs).Root
     }elseif($prepared.PSObject.Properties['ModpackSource']){$config.Root=$prepared.ModpackSource.Root}
@@ -228,3 +230,5 @@ elseif (Test-Path -LiteralPath $preparation) {
     Write-Host "Current package: $expectedSections original version sections; changelog: $fixture/SerpsMods-changelog.txt"
 }
 Write-Host "PASS: $checks cache/changelog checks. Fixtures: $fixture"
+
+} finally { if(Get-Command Complete-TransientWorkDirectories -ErrorAction SilentlyContinue){Complete-TransientWorkDirectories -Owner $PSCommandPath} }

@@ -1,4 +1,5 @@
 @echo off
+rem SHCDE_BUILD_PARAMETERS: explicit SDK, installation suffix and no-install settings from the dispatcher.
 setlocal EnableExtensions
 rem SHCDE_BRANCH_DISPATCH: select committed sources; the selected child owns its build.
 if defined SHCDE_BRANCH_SOURCE_ROOT goto :shcde_branch_selected
@@ -42,8 +43,8 @@ set "PATCHER_NAME=StartupPerformanceDiagnostic.Patcher.dll"
 set "PLUGIN_NAME=StartupPerformanceDiagnostic_Serp"
 set "LOCAL_PATCHER_DIR=%PROJECT_DIR%BepInEx\patchers"
 set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
-set "GAME_PATCHER=%GAME_DIR%\BepInEx\patchers\%PATCHER_NAME%"
-set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+set "GAME_PATCHER=%GAME_DIR%\BepInEx\patchers\%SHCDE_BRANCH_PATCHER_FOLDER%\%PATCHER_NAME%"
+set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%%SHCDE_BRANCH_INSTALL_SUFFIX%"
 set "NO_PAUSE=0"
 set "NO_INSTALL=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
@@ -72,13 +73,13 @@ if exist "%PROJECT_DIR%tests\bin\" rmdir /S /Q "%PROJECT_DIR%tests\bin"
 
 pushd "%PROJECT_DIR%"
 echo [%date% %time%] Compile projects
-"%MSBUILD%" StartupPerformanceDiagnostic.Patcher.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%"
+"%MSBUILD%" StartupPerformanceDiagnostic.Patcher.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" %SHCDE_BRANCH_MSBUILD_API%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Compile projects
-"%MSBUILD%" StartupPerformanceDiagnostic.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%"
+"%MSBUILD%" StartupPerformanceDiagnostic.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" %SHCDE_BRANCH_MSBUILD_API%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Compile projects
-"%MSBUILD%" tests\StartupPerformanceDiagnostic.Tests.csproj /p:Configuration=Debug
+"%MSBUILD%" tests\StartupPerformanceDiagnostic.Tests.csproj /p:Configuration=Debug %SHCDE_BRANCH_MSBUILD_API%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Run tests
 "%PROJECT_DIR%tests\bin\StartupPerformanceDiagnostic.Tests.exe"
@@ -93,7 +94,7 @@ if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
 if exist "%LOCAL_PLUGIN_DIR%\StartupPerformanceDiagnostic.Patcher.dll" goto package_failed
 if "%NO_INSTALL%"=="1" goto built_without_install
 
-if not exist "%GAME_DIR%\BepInEx\patchers\" mkdir "%GAME_DIR%\BepInEx\patchers"
+if not exist "%GAME_DIR%\BepInEx\patchers\%SHCDE_BRANCH_PATCHER_FOLDER%\" mkdir "%GAME_DIR%\BepInEx\patchers\%SHCDE_BRANCH_PATCHER_FOLDER%"
 echo [%date% %time%] Copy package files
 copy /Y "%LOCAL_PATCHER_DIR%\%PATCHER_NAME%" "%GAME_PATCHER%" >nul
 if not "%ERRORLEVEL%"=="0" goto copy_failed

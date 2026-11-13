@@ -1,8 +1,9 @@
+try {
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'WorkshopWorkflow.Common.ps1')
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
-$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'WorkshopOutputGit'
+$fixture = New-ShortWorkDirectory -Root ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))) -Kind t -Name 'WorkshopOutputGit' -Transient
 [void][IO.Directory]::CreateDirectory($fixture)
 $checks = 0
 function Check([bool]$Condition, [string]$Message) {
@@ -53,3 +54,5 @@ $newSource = Join-Path $fixture 'SerpsModsHost/new-source.cs'
 [IO.File]::WriteAllText($newSource, 'new source')
 Check (@(Invoke-FixtureGit @('status', '--porcelain=v1', '--untracked-files=normal', '--', 'SerpsModsHost/new-source.cs')).Count -eq 1) 'New host source hidden.'
 Write-Host "PASS: $checks Workshop output Git checks. Fixtures: $fixture"
+
+} finally { if(Get-Command Complete-TransientWorkDirectories -ErrorAction SilentlyContinue){Complete-TransientWorkDirectories -Owner $PSCommandPath} }
