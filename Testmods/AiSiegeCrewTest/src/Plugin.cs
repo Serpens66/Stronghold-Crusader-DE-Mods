@@ -32,13 +32,14 @@ namespace AiSiegeCrewTest
             string map = Config.Bind("Fixture", "Map", "test AI.map",
                 "Unique local Skirmish map filename; missing/unsuitable maps fail the test.").Value;
             string scenario = lines[1];
+            Shared.DevDiag.Attach(log);
             File.Delete(request); // Only our recognized scenario is consumed.
             var api = ApiShared.ForMod(Guid);
             api.WhenReady(_ => {
                 if (!api.Ui.TryPost(() => {
                     active = new Fixture(map, scenario, Stamp);
                     api.Automation.Start(run, active.Steps(), log,
-                        result => { Stamp("finished status=" + result.Status + " detail=" + result.Detail); }, quitWhenDone: true);
+                        result => { Trace.Stop(); Stamp("finished status=" + result.Status + " detail=" + result.Detail); }, quitWhenDone: true);
                 })) Stamp("Unable to dispatch owned test to Unity.");
             });
         }

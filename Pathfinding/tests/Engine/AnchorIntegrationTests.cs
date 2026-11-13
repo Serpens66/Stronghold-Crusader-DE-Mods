@@ -1352,6 +1352,7 @@ namespace EngineHarness
 
                 InitializeAnchor();
                 Check(anchorAvailable, "anchor core does not load from the plugin directory");
+                SurfaceNativeTests();
 
                 // Reachability words (anchor mode): every corridor edge answers exactly like the live
                 // FriendlyOnly predicate VisitNeighbour used before (allowed, moat kind, structure).
@@ -1672,6 +1673,8 @@ namespace EngineHarness
                 tileRules.ClearAll(); AnchorTick(++ticks);
                 Check(AnchorNative.mma_task_status(anchorContext, penaltyTask) == AnchorNative.Stale, "a removed Penalty rule stays in the core");
                 ReleaseAnchorTask(penaltyTask);
+                SurfaceGroupIntegrationTests();
+                SurfaceHazardTests(ref ticks);
                 ReplanWatchTests(ref ticks);
                 WaitModeTests(ref ticks);
                 HazardEscapeLoadTests(ref ticks);

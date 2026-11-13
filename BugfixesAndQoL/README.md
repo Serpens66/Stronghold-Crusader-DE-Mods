@@ -59,7 +59,7 @@ In borderless fullscreen mode, the game can automatically replace the resolution
 
 Under **Host → Gates and siege rules → Fixes**, the host can switch these two options independently. Both are enabled by default.
 
-- **Prevent duplicate engineers** keeps engineers assigned when they finish building a catapult, trebuchet or fire ballista. They become available for another engine after they dismount. The fix applies to new crew assignments, including those made after loading a save.
+- **Prevent duplicate engineers** keeps engineers assigned when they finish building a catapult, trebuchet or fire ballista, and prevents all eight siege engine types from taking engineers who already operate another engine or man a tent. AI harassment groups wait until their engineers have finished recruitment before building, helping the AI keep sending siege engines instead of accumulating unused engineers near the guild. Engineers become available again after dismounting. This enabled-by-default host fix also protects new assignments after loading a save; it does not repair crews already duplicated in that save.
 - **Crew loss in fires** makes engineers die with their siege engine when it burns down while they are operating it. It covers catapults, trebuchets, mangonels, siege towers, battering rams, portable shields, ballistas and fire ballistas.
 
 ### Keep stairs behind pitch fields accessible

@@ -208,15 +208,17 @@ namespace Pathfinding.UnitCommands
         internal sealed class QualifiedMovementRoute
         {
             public readonly int StartX, StartY, TargetX, TargetY, Player, Epoch, Tick;
-            public readonly long Revision;
+            public readonly long Revision, SurfaceRevision;
             public readonly WeightedMoatEncodedRoute Route;
             public readonly WeightedMoatRouteSummary Summary;
             public readonly WeightedMovementCostProfile Profile;
             public readonly bool Optimal;
+            public readonly RouteSurfaceClass SurfaceClass;
             public QualifiedMovementRoute(int sx,int sy,int tx,int ty,int player,int epoch,int tick,long revision,
-                WeightedMoatEncodedRoute route,WeightedMoatRouteSummary summary,WeightedMovementCostProfile profile,bool optimal)
+                WeightedMoatEncodedRoute route,WeightedMoatRouteSummary summary,WeightedMovementCostProfile profile,bool optimal,
+                RouteSurfaceClass surfaceClass = RouteSurfaceClass.Any, long surfaceRevision = 0)
             { StartX=sx;StartY=sy;TargetX=tx;TargetY=ty;Player=player;Epoch=epoch;Tick=tick;Revision=revision;
-                Route=route;Summary=summary;Profile=profile;Optimal=optimal; }
+                Route=route;Summary=summary;Profile=profile;Optimal=optimal;SurfaceClass=surfaceClass;SurfaceRevision=surfaceRevision; }
         }
 
         internal readonly struct TargetedRouteDecision

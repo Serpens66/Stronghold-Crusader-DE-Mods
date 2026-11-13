@@ -117,12 +117,13 @@ namespace Pathfinding.UnitCommands
             long measured = 0;
             Shared.DevDiag.Start(ref measured);
             long entries = builderOriginalEntries;
-            try { return BuildPathWithCompletedMoatRouteVariant(pathManager, movementClass, movementProfile); }
+            try { return FilterPublishedMovementSurface(pathManager,
+                BuildPathWithCompletedMoatRouteVariant(pathManager, movementClass, movementProfile), movementProfile); }
             catch (Exception ex)
             {
                 ReportNativeDetourBarrier("F4930-builder", ex);
-                if (builderOriginalEntries != entries) return lastPathBuilderResult;
-                try { return originalPathBuilder(pathManager, movementClass, movementProfile); }
+                if (builderOriginalEntries != entries) return FilterPublishedMovementSurface(pathManager, lastPathBuilderResult, movementProfile);
+                try { return FilterPublishedMovementSurface(pathManager, originalPathBuilder(pathManager, movementClass, movementProfile), movementProfile); }
                 catch (Exception fallback) { ReportNativeDetourBarrier("F4930-builder-fallback", fallback); return 0; }
             }
             finally { Shared.DevDiag.StopSpike(ref measured, "uc.builder", 20000); }
@@ -133,12 +134,12 @@ namespace Pathfinding.UnitCommands
             long measured = 0;
             Shared.DevDiag.Start(ref measured);
             long entries = reconstructionOriginalEntries;
-            try { return BuildReconstructedUnitPath(pathManager); }
+            try { return FilterPublishedMovementSurface(pathManager, BuildReconstructedUnitPath(pathManager)); }
             catch (Exception ex)
             {
                 ReportNativeDetourBarrier("E32B0-reconstruction", ex);
-                if (reconstructionOriginalEntries != entries) return lastPathReconstructionResult;
-                try { return originalPathReconstruction(pathManager); }
+                if (reconstructionOriginalEntries != entries) return FilterPublishedMovementSurface(pathManager, lastPathReconstructionResult);
+                try { return FilterPublishedMovementSurface(pathManager, originalPathReconstruction(pathManager)); }
                 catch (Exception fallback) { ReportNativeDetourBarrier("E32B0-reconstruction-fallback", fallback); return 0; }
             }
             finally { Shared.DevDiag.StopSpike(ref measured, "uc.reconstruction", 20000); }

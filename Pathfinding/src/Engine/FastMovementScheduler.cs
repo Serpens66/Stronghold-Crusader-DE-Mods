@@ -546,15 +546,16 @@ namespace Pathfinding.Engine
                         QueueNativeContract.TryDecodeQueuedMoveType((int)args.MoveType, out _));
                 // A skipped original raises no Post; other threads (UI probes) keep Vanilla.
                 AnchorTaskSpec digger = null, ground = null; int[] memberIds = null;
+                var surfaceSpecs = new AnchorTaskSpec[6];
                 if (!args.SkipOriginalFunction && runtime.EngineEnabled &&
                     Environment.CurrentManagedThreadId == anchorSimThread)
                 {
                     long started = System.Diagnostics.Stopwatch.GetTimestamp();
-                    TryCaptureAnchorMoveSpecs(args.TribeId, args.TileX, args.TileY, out digger, out ground, out memberIds);
+                    TryCaptureAnchorMoveSpecs(args.TribeId, args.TileX, args.TileY, out digger, out ground, out memberIds, surfaceSpecs);
                     long elapsed = System.Diagnostics.Stopwatch.GetTimestamp() - started;
                     if (digger != null || ground != null) { anchorPreTicks += elapsed; anchorPreMaxTicks = Math.Max(anchorPreMaxTicks, elapsed); }
                 }
-                BeginAnchorFrame(args.TribeId, 0, 0, memberIds, digger, ground);
+                BeginAnchorFrame(args.TribeId, 0, 0, memberIds, digger, ground, surfaceSpecs);
             }
             catch (Exception ex) { runtime.TryLogDiagnosticFailure("anchor-move", ex); }
         }
@@ -617,10 +618,10 @@ namespace Pathfinding.Engine
             return mask;
         }
 
-        // One weighted task for moat-capable members and one ground-only task for the others.
-        // Only the starts and the profile are captured here; ResolveAnchorTask computes a field
-        // once the first member asks.
-        private void TryCaptureAnchorMoveSpecs(int tribeId, int x, int y, out AnchorTaskSpec digger, out AnchorTaskSpec ground, out int[] memberIds)
+        // One task per terrain/cost policy and effective surface class. Starts of different
+        // movement capabilities never share a field, including the early group-single queries.
+        private void TryCaptureAnchorMoveSpecs(int tribeId, int x, int y, out AnchorTaskSpec digger,
+            out AnchorTaskSpec ground, out int[] memberIds, AnchorTaskSpec[] surfaceSpecs = null)
         {
             digger = ground = null; memberIds = null;
             if ((uint)x >= MapWidth || (uint)y >= MapWidth ||
@@ -628,54 +629,45 @@ namespace Pathfinding.Engine
                 tribe->r_AliveState != AliveState.IsAlive) return;
             int player = tribe->r_PlayerIdOwner;
             if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(player)) return;
-            // Human and AI group moves alike; every group move (simulation-deterministic)
-            // may start that player's mask.
             bool ai = GamePlayerManagerAPI.Instance.IsAIPlayer(player);
             RequestAnchorMask(player);
             if (!AnchorReady(player)) { anchorMaskPendingMoves++; return; }
             List<FastUnitIdentity> members = CaptureFastMembers(tribeId);
             memberIds = new int[members.Count];
-            for (int i = 0; i < members.Count; i++) memberIds[i] = members[i].Id;
-            // Diggers fill the buffer from the front, all other members from the back.
-            // Two starts per member: the native start (current or next tile) used by the unit's
-            // own route and the current tile used by the group moat probe inside 11B520.
-            int[] starts = AnchorStartBuffer(members.Count * 2); int diggers = 0, others = 0; long groundCost = 0, moat = 0;
-            foreach (FastUnitIdentity member in members)
+            var starts = new List<int>[6];
+            var groundCosts = new long[3]; var moatCosts = new long[3];
+            for (int i = 0; i < members.Count; i++)
             {
+                FastUnitIdentity member = members[i]; memberIds[i] = member.Id;
                 if (!TryGetFastMember(member, player, out GameUnit* unit)) continue;
                 GetNativeMovementStart(unit, out int sx, out int sy);
                 if ((uint)sx >= MapWidth || (uint)sy >= MapWidth) continue;
                 int native = sy * MapWidth + sx, cx = unit->r_CurrentTilePositionX, cy = unit->r_CurrentTilePositionY;
                 int current = (uint)cx < MapWidth && (uint)cy < MapWidth ? cy * MapWidth + cx : native;
-                if (!AnchorDigger(unit))
-                {
-                    starts[starts.Length - 1 - others++] = native;
-                    if (current != native) starts[starts.Length - 1 - others++] = current;
-                    continue;
-                }
-                starts[diggers++] = native;
-                if (current != native) starts[diggers++] = current;
-                // The first capable member defines the group profile (deterministic order).
-                if (groundCost == 0 && runtime.TryCaptureWeightedMovementCostProfile(unit, out WeightedMovementCostProfile profile, out _))
-                { groundCost = profile.GetEdgeFixedCost(false); moat = profile.GetEdgeFixedCost(true); }
+                RouteSurfaceClass surface = runtime.ResolveMovementSurface(unit);
+                int groundSlot = SurfaceSlot(true, surface), weightedSlot = SurfaceSlot(false, surface);
+                List<int> dry = starts[groundSlot] ?? (starts[groundSlot] = new List<int>());
+                dry.Add(native); if (current != native) dry.Add(current);
+                if (!AnchorDigger(unit)) continue;
+                List<int> wet = starts[weightedSlot] ?? (starts[weightedSlot] = new List<int>());
+                wet.Add(native); if (current != native) wet.Add(current);
+                if (groundCosts[(int)surface] == 0 && runtime.TryCaptureWeightedMovementCostProfile(unit, out WeightedMovementCostProfile profile, out _))
+                { groundCosts[(int)surface] = profile.GetEdgeFixedCost(false); moatCosts[(int)surface] = profile.GetEdgeFixedCost(true); }
             }
-            int anchor = y * MapWidth + x;
-            if (diggers != 0 && groundCost > 0)
+            bool any = false;
+            for (int slot = 0; slot < starts.Length; slot++)
             {
-                var front = new int[diggers]; Array.Copy(starts, front, diggers);
-                digger = new AnchorTaskSpec { Player = player, Anchor = anchor, Ground = groundCost, Moat = moat, Starts = front };
+                if (starts[slot] == null || starts[slot].Count == 0) continue;
+                RouteSurfaceClass surface = (RouteSurfaceClass)(slot / 2); bool dry = (slot & 1) != 0;
+                long cost = dry ? 1 : groundCosts[(int)surface];
+                if (cost <= 0) continue;
+                var spec = new AnchorTaskSpec { Player = player, Anchor = y * MapWidth + x,
+                    Ground = cost, Moat = dry ? 0 : moatCosts[(int)surface], Starts = starts[slot].ToArray(), Surface = surface };
+                if (surfaceSpecs != null) surfaceSpecs[slot] = spec;
+                if (slot == 0) digger = spec; else if (slot == 1) ground = spec;
+                any = true;
             }
-            if (others != 0 || diggers != 0)
-            {
-                // The tail holds the others in reverse member order; the spec keeps member order.
-                // Diggers follow: a digger the moat task cannot route (DAFD0's height rule on a
-                // keep, tower or wall) takes the ground task's DA590 route instead of Vanilla's.
-                var back = new int[others + diggers];
-                for (int i = 0; i < others; i++) back[i] = starts[starts.Length - 1 - i];
-                Array.Copy(starts, 0, back, others, diggers);
-                ground = new AnchorTaskSpec { Player = player, Anchor = anchor, Ground = 1, Moat = 0, Starts = back };
-            }
-            if (digger != null || ground != null) { if (ai) anchorAiMoves++; else anchorHumanMoves++; }
+            if (any) { if (ai) anchorAiMoves++; else anchorHumanMoves++; }
         }
 
         private bool DispatchFastCommand(FastPendingCommand command)

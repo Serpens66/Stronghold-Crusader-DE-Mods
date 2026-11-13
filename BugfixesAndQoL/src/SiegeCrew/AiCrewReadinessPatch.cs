@@ -31,6 +31,7 @@ namespace BugfixesAndQoL.SiegeCrew
             Label word = a.CreateLabel();
             Label member = a.CreateLabel();
             Label nextWord = a.CreateLabel();
+            Label stateReady = a.CreateLabel();
             a.pushfq();
             a.push(rax);
             a.mov(rax, activation);
@@ -112,10 +113,17 @@ namespace BugfixesAndQoL.SiegeCrew
             a.jne(failed);
             a.cmp(__word_ptr[r12 + 0x9CA], 0);
             a.jne(failed);
-            // Idle states 0..2 are safe. Moving/bound/building/exit transitions
-            // remain under Vanilla until that member is ready again.
-            a.cmp(__word_ptr[r12 + 0x918], 2);
-            a.ja(failed);
+            // Engineer101 moves normally;105 waits at the guild and need not
+            // return to0..2. Vanilla order15 can interrupt both. Neither is a
+            // recruitment-completion signal: the recruitment flag above is.
+            a.movzx(ecx, __word_ptr[r12 + 0x918]);
+            a.cmp(ecx, 2);
+            a.jbe(stateReady);
+            a.cmp(ecx, 0x65);
+            a.je(stateReady);
+            a.cmp(ecx, 0x69);
+            a.jne(failed);
+            a.Label(ref stateReady);
             a.inc(r9d);
             a.cmp(r9d, r8d);
             a.jg(failed);

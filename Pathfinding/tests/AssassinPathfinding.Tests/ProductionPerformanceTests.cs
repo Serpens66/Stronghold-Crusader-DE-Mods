@@ -156,6 +156,8 @@ internal static partial class Program
             "Pathfinding/src/Assassins/AssassinPathfindingRuntime.CacheKeys.cs", "Pathfinding/src/Assassins/AssassinAStarPolicy.cs",
             "Pathfinding/src/Assassins/AssassinClimbCostPolicy.cs", "Pathfinding/src/Assassins/AssassinClimbTransitionPolicy.cs",
             "Pathfinding/src/Assassins/AssassinRouteEncoding.cs", "Pathfinding/src/Assassins/AssassinNativeSearch.cs",
+            "shcde-script-extender/src/SHCDESE.BepInEx/Interop/EStructs.cs",
+            "shcde-script-extender/src/SHCDESE.BepInEx/Interop/Enums/TileProperty.cs",
             // Real development-diagnostics facade: without SERP_DEVDIAG every call compiles away.
             "Shared/Runtime/Diagnostics/DevDiag.cs" };
         // The policy byte-mask view lives with Pathfinding's gate policy publication (not compiled here).
@@ -198,6 +200,8 @@ internal static partial class Program
         InvokeKernel(enabled, "Verify");
         // The packaged native kernel (build.bat compiles it before the tests) must equal the managed search.
         string nativeDirectory = Environment.GetEnvironmentVariable("BFQOL_ASSASSIN_NATIVE_DIR") ?? Path.Combine(root, "Pathfinding", "obj", "native");
+        InvokeKernel(disabled, "VerifyGoodsyard", nativeDirectory);
+        Console.WriteLine("PASS: captured stockpile/Keep edge rejects climbing in both directions; managed/native, group, existence, proof and cached publication agree; ordinary connections and real walls remain.");
         Console.WriteLine("PASS: native Assassin search equals managed: " + InvokeKernel(disabled, "VerifyNative", nativeDirectory));
         Type developmentKernel = CompileProductionKernel(root, false, development: true);
         InvokeKernel(developmentKernel, "VerifyTemporaryDecisions");

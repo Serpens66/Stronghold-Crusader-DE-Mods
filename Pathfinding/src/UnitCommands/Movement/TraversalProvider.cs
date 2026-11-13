@@ -61,6 +61,8 @@ namespace Pathfinding.UnitCommands
         internal abstract bool Enabled { get; }
         // The shared route core runs although friendly moat traversal (Enabled) may be off.
         internal virtual bool EngineActive => Enabled;
+        // Surface policy is independent of friendly-moat enablement and never persists in saves.
+        internal virtual long GetMovementSurfaceRevision(RouteSurfaceClass surface) => 0;
         // Builder entry while the core runs without moat traversal; the default keeps Vanilla.
         internal virtual int BuildEngineRoute(UnitCommandPathRuntime runtime, IntPtr pathManager, int movementClass, int movementProfile,
             PlanScope resolvedPlan, bool planResolved, bool reconstruction) =>

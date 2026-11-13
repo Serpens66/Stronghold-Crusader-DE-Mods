@@ -64,8 +64,8 @@ namespace Pathfinding.UnitCommands {
         private void RestoreManualCommandContext(){manualCommandContexts.RemoveAt(manualCommandContexts.Count-1);}
         private void ReportNativeDetourBarrier(string label,Exception error){runtime.Errors++;}
         private void ObserveTribeOrder(int id,bool move,int x,int y,short patrol,bool newOrder,TribeMoveType type,bool queued){sequence++;}
-        private void TryCaptureAnchorMoveSpecs(int id,int x,int y,out AnchorTaskSpec digger,out AnchorTaskSpec ground,out int[] members){captures++;digger=ground=null;members=null;}
-        private void BeginAnchorFrame(int id,int task,int ground,int[] members,AnchorTaskSpec digger,AnchorTaskSpec groundSpec){opens++;anchorFrames.Add(id);}
+        private void TryCaptureAnchorMoveSpecs(int id,int x,int y,out AnchorTaskSpec digger,out AnchorTaskSpec ground,out int[] members,AnchorTaskSpec[] surfaceSpecs=null){captures++;digger=ground=null;members=null;}
+        private void BeginAnchorFrame(int id,int task,int ground,int[] members,AnchorTaskSpec digger,AnchorTaskSpec groundSpec,AnchorTaskSpec[] surfaceSpecs=null){opens++;anchorFrames.Add(id);}
         private void EndAnchorFrame(int id){closes++;anchorFrames.RemoveAt(anchorFrames.Count-1);}
         private void LogAnchorUnreached(){}
         __MEMBERS__

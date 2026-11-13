@@ -21,6 +21,18 @@
   },
   "documents": [
     {
+      "file": "ASSASSIN_STOCKPILE_CLIMB.md",
+      "scope": "vanilla+integration",
+      "components": ["Pathfinding", "APIShared", "AssassinKeepTest"],
+      "integrationSections": ["Weighted-path correction"]
+    },
+    {
+      "file": "MOVEMENT_SURFACE_PROFILES.md",
+      "scope": "vanilla+integration",
+      "components": ["Pathfinding", "Script Extender"],
+      "integrationSections": ["Profile-aware route integration"]
+    },
+    {
       "file": "PATHFINDING_MIGRATION.md",
       "scope": "mod",
       "components": ["Pathfinding", "BugfixesAndQoL", "APIShared", "MoatMove"],

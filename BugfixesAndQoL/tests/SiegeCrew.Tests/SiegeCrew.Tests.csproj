@@ -27,6 +27,8 @@
     <Compile Include="Program.cs" />
     <Compile Include="FirePatchTests.cs" />
     <Compile Include="AiReadinessTests.cs" />
+    <Compile Include="AutoBindingTests.cs" />
+    <Compile Include="..\..\src\SiegeCrew\AutoCrewBindingPatch.cs" />
     <Compile Include="..\..\src\SiegeCrew\AiCrewReadinessPatch.cs" />
     <Compile Include="..\..\src\SiegeCrew\SiegeCrewFirePatch.cs" />
     <Compile Include="..\..\src\SiegeCrew\NativeContract.cs" />

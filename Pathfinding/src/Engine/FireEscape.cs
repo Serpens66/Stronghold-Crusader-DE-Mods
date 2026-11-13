@@ -224,6 +224,8 @@ namespace Pathfinding.Engine
         private bool TryFindFireEscape(int id, int player, int startX, int startY, out int escapeX, out int escapeY)
         {
             escapeX = escapeY = -1;
+            if (!APIShared.UnitAccess.TryGetById(id, out GameUnit* movingUnit, out _) || movingUnit == null) return false;
+            RouteSurfaceClass surface = runtime.ResolveMovementSurface(movingUnit);
             if (++escapeGenerationCounter == int.MaxValue) { escapeGenerationCounter = 1; Array.Clear(escapeGeneration, 0, escapeGeneration.Length); }
             int generation = escapeGenerationCounter, count = 0, frontX = -1, frontY = -1, frontFire = int.MaxValue;
             int originX = startX - EscapeRadius, originY = startY - EscapeRadius;
@@ -250,7 +252,8 @@ namespace Pathfinding.Engine
                     int next = (ny - originY) * EscapeWindow + (nx - originX), nextNode = ny * MapWidth + nx;
                     int nextCost = (cost / EscapeFireCost + (IsHazardNode(nextNode) ? 1 : 0)) * EscapeFireCost + cost % EscapeFireCost + 1;
                     if (escapeGeneration[next] == generation && escapeCost[next] <= nextCost) continue;
-                    if (!LiveEdge(player, node, nextNode, d, false, null, out _, out _)) continue;
+                    if (!runtime.IsMovementSurfaceAllowed(surface, GameTileManagerAPI.Instance.GetTileId(nx, ny)) ||
+                        !LiveEdge(player, node, nextNode, d, false, null, out _, out _)) continue;
                     escapeGeneration[next] = generation; escapeCost[next] = nextCost;
                     HeapPush(ref count, ((long)nextCost << 16) | (uint)next);
                 }
@@ -381,7 +384,7 @@ namespace Pathfinding.Engine
                 if (replanProbeLeft <= 0) { entry.NextProbe = tick + 1; replanProbesDeferred++; continue; }
                 entry.NextProbe = tick + EscapeProbeTicks;
                 int distance = Math.Max(Math.Abs(entry.ReturnX - x), Math.Abs(entry.ReturnY - y));
-                int probe = CoreRouteProbe(entry.Player, x, y, entry.ReturnX, entry.ReturnY, EscapePolicy(entry.Hazard), distance);
+                int probe = CoreRouteProbe(entry.Player, x, y, entry.ReturnX, entry.ReturnY, EscapePolicy(entry.Hazard), distance, runtime.ResolveMovementSurface(unit));
                 escapeReturnProbes[probe]++;
                 if (probe != ProbeClear) { LogFireCase("return-blocked", id, $"probe={probe}"); continue; }
                 if (TryMoveSoldier(id, entry.Global, entry.Tribe, entry.ReturnX, entry.ReturnY, out int returnX, out int returnY))

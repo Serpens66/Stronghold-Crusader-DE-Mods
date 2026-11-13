@@ -2,8 +2,9 @@
 param(
     [Parameter(Mandatory)][string]$SdkRoot,
     [Parameter(Mandatory)][string]$OutputDirectory,
-    [ValidateSet('ready-cycles','slow-peasant','slow-engineer','control-peasant')][string]$Scenario='slow-engineer',
+    [ValidateSet('ready-cycles','slow-peasant','slow-engineer','control-peasant','save-before-on','save-before-off','save-happened-on','save-happened-off')][string]$Scenario='slow-engineer',
     [switch]$WithoutFixesDelay,
+    [switch]$KeepInstalledLayout,
     [string]$GameDir='E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
 )
 $ErrorActionPreference='Stop'
@@ -19,7 +20,8 @@ try {
     if(@(Get-ChildItem -LiteralPath (Join-Path $GameDir 'BepInEx/config/SerpAutomation') -Filter '*.run' -ErrorAction SilentlyContinue).Count){throw 'Another automation request is pending.'}
     $layout=Join-Path $fixture 'layout'
     [void][IO.Directory]::CreateDirectory($layout)
-    foreach($plugin in @('000shcdese','fixes')){
+    $plugins=if($KeepInstalledLayout){@(Get-ChildItem -LiteralPath (Join-Path $GameDir 'BepInEx/plugins') -Directory | Where-Object {$_.Name -notin @('APIShared_Serp','BugfixesAndQoL_Serp','AiSiegeCrewTest_Serp')} | Select-Object -ExpandProperty Name)}else{@('000shcdese','fixes')}
+    foreach($plugin in $plugins){
         Copy-Item -LiteralPath (Join-Path $GameDir ('BepInEx/plugins/'+$plugin)) -Destination $layout -Recurse
     }
     Copy-Item -LiteralPath (Join-Path $workspace 'BugfixesAndQoL/BepInEx/plugins/BugfixesAndQoL_Serp') -Destination $layout -Recurse

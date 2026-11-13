@@ -67,7 +67,7 @@ internal static partial class Program
                 ("changed group", data => Put16(data, second + 0x930, 6)),
                 ("reused group slot", data => Marshal.WriteInt32(data, second + 0x93C, 701)),
                 ("wrong role", data => Put16(data, second + 0xA82, 10)),
-                ("moving", data => Put16(data, second + StateOffset, 0x65)),
+                ("engaged work", data => Put16(data, second + StateOffset, 9)),
                 ("already building", data => Put16(data, second + StateOffset, 8)),
                 ("already bound", data => Put16(data, second + StateOffset, 5)),
                 ("exit transition", data => Marshal.WriteInt32(data, second + StateOffset, 0x0007006D)),
@@ -84,8 +84,14 @@ internal static partial class Program
             };
             foreach (var test in invalid)
                 ExecuteReadiness(module, output, activation, 0, test.Alter, 1);
-            foreach (int state in new[] { 0, 1, 2 })
+            foreach (int state in new[] { 0, 1, 2, 0x65, 0x69 })
+            {
                 ExecuteReadiness(module, output, activation, 0, data => Put16(data, second + StateOffset, state), 0);
+                ExecuteReadiness(module, output, activation, 0, data => {
+                    Put16(data, second + StateOffset, state);
+                    Put16(data, second + 0x9CA, 1);
+                }, 1);
+            }
             ExecuteReadiness(module, output, activation, 0,
                 data => Put16(data, AiGroup + 0x2E, 0xABCD), 0); // Owner is a word, not the adjacent field.
         }

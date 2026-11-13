@@ -409,6 +409,7 @@ namespace Pathfinding.UnitCommands
             nativeProbeGrid = (byte*)(libraryBase + 0x5225B10);
             nativeProbeRectangle = (byte*)(libraryBase + 0x34A9F50);
             InitializeCursorGroundContract(memory, libraryBase);
+            InitializeMovementSurfacePolicy(memory, libraryBase);
             floodStamps = (short*)(nativeProbeGrid + NativeProbeGridBytes / 2);
             exactFloodMembership = floodResolution.Rva == TribeFloodMembership.MembershipRva && groupUnitResolution.Rva == TribeFloodMembership.GroupUnitRva &&
                 TribeFloodMembership.BodyMatches(memory, TribeFloodMembership.MembershipRva, TribeFloodMembership.MembershipBodyLength, TribeFloodMembership.MembershipBodySha256) &&

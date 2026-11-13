@@ -6,7 +6,7 @@ using System;
 namespace Pathfinding
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.3")]
-    [BepInDependency(ApiSharedGuid, "0.51.0")]
+    [BepInDependency(ApiSharedGuid, "0.53.0")]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -27,7 +27,7 @@ namespace Pathfinding
 
         public const string PluginGuid = "Pathfinding_Serp";
         public const string PluginName = "Pathfinding";
-        public const string PluginVersion = "0.1.5";
+        public const string PluginVersion = "0.1.7";
 
         // Static roots: the plugin component itself is destroyed by the SHCDE startup cleanup.
         private static PathfindingPlugin processRoot;

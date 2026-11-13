@@ -14,8 +14,8 @@ using SHCDESE.Interop.Enums;
 namespace AiSiegeCrewTest
 {
     // Explicit local fixture. Every native access/call is inside InSimulation.
-    // The local human owner runs the original AI decision on demand, avoiding
-    // unrelated AI scheduling while retaining real placement, orders and pathing.
+    // The local slot receives a disposable AI context and runs the original
+    // decision. The ordinary simulation can also schedule that context.
     internal sealed class Fixture
     {
         private readonly string map, scenario;
@@ -34,9 +34,16 @@ namespace AiSiegeCrewTest
         private static void Execute(AutomationRun run, Action action) => run.InSimulation(run.CurrentMission, () => { action(); return 0; });
         internal Fixture(string map, string scenario, Action<string> log)
         { this.map = map; this.scenario = scenario; this.log = log; }
-        internal static bool Owns(string name) => name == "ready-cycles" || name == "slow-peasant" || name == "slow-engineer" || name == "control-peasant";
+        internal static bool Owns(string name) => name == "ready-cycles" || name == "slow-peasant" || name == "slow-engineer" || name == "control-peasant" ||
+            name == "save-before-on" || name == "save-before-off" || name == "save-happened-on" || name == "save-happened-off";
         internal IEnumerable<AutomationStep> Steps()
         {
+            if (scenario.StartsWith("save-", StringComparison.Ordinal))
+            {
+                yield return new AutomationStep("load-user-save", TimeSpan.FromSeconds(180), LoadSave);
+                yield return new AutomationStep("observe-user-save", TimeSpan.FromSeconds(300), WatchSave, true);
+                yield break;
+            }
             yield return new AutomationStep("skirmish", TimeSpan.FromSeconds(180), Start);
             yield return new AutomationStep("ready", TimeSpan.FromSeconds(60), Ready, true);
             yield return new AutomationStep("native-build-loss-cycles", TimeSpan.FromSeconds(240), Cycles, true);
@@ -59,6 +66,7 @@ namespace AiSiegeCrewTest
             yield return run.WaitForTicks(run.CurrentMission, 12);
             foreach (var wait in run.SetPause(run.CurrentMission, true)) yield return wait;
             Execute(run, Prepare);
+            Trace.Start(run.CurrentMission);
             bool guildPlaced = false;
             int guild = 0;
             for (int dy = 8; dy <= 32 && !guildPlaced; dy += 4)
@@ -73,6 +81,44 @@ namespace AiSiegeCrewTest
             foreach (var wait in run.SetPause(run.CurrentMission, true)) yield return wait;
             log("ordinary engineers guild confirmed=" + guild);
             Director.instance.SetEngineFrameRate(250);
+        }
+        private IEnumerable<AutomationWait> LoadSave(AutomationRun run)
+        {
+            Require(Trace.Available, "Save observation requires build.bat /devdiag");
+            bool before = scenario.Contains("before");
+            Require(scenario == "save-before-on" || scenario == "save-before-off" ||
+                scenario == "save-happened-on" || scenario == "save-happened-off", "Unknown save scenario");
+            var plugin = BepInEx.Bootstrap.Chainloader.PluginInfos["BugfixesAndQoL_Serp"].Instance;
+            object settings = plugin.GetType().GetProperty("Settings").GetValue(plugin);
+            settings.GetType().GetProperty("EnableMod").SetValue(settings, true);
+            settings.GetType().GetProperty("EnableSiegeCrewDuplicationFix").SetValue(settings, scenario.EndsWith("-on", StringComparison.Ordinal));
+            string path = Path.Combine(ConfigSettings.GetSavesPath(), before ? "test AI engineer dupe before.sav" : "test AI engineer dupe happened.sav");
+            // Use the explicitly selected test settings, not a historical mod-settings snapshot.
+            APIShared.SavegameModSettings.PrepareLoad(path, true);
+            foreach (var wait in run.LoadSave(path)) yield return wait;
+        }
+        private IEnumerable<AutomationWait> WatchSave(AutomationRun run)
+        {
+            yield return run.WaitForPlayState(run.CurrentMission);
+            foreach (var wait in run.SetPause(run.CurrentMission, true)) yield return wait;
+            Trace.Start(run.CurrentMission);
+            Execute(run, () => Trace.Capture("loaded-paused"));
+            Director.instance.SetEngineFrameRate(250);
+            foreach (var wait in run.SetPause(run.CurrentMission, false)) yield return wait;
+            // The supplied snapshots are5639 map ticks apart. Observe beyond
+            // that window so the second device assignment is not missed.
+            for (int sample = 0; sample < 26; sample++)
+            {
+                yield return run.WaitForTicks(run.CurrentMission, 256);
+                Execute(run, () => Trace.Capture("save-sample"));
+            }
+            foreach (var wait in run.SetPause(run.CurrentMission, true)) yield return wait;
+            Execute(run, () => Trace.Capture("save-end"));
+            int newAliases = run.InSimulation(run.CurrentMission, () => Trace.NewAliases);
+            Require(run.InSimulation(run.CurrentMission, () => Trace.Healthy), "Diagnostic observation faulted or did not observe enough native runs");
+            log("save observation newAliasPairs=" + newAliases);
+            if (scenario == "save-before-on") Require(newAliases == 0, "New multiple crew references appeared with the active fix");
+            log("save observation complete; no fixture units, groups, resources or AI orders were injected");
         }
         private unsafe void Prepare()
         {
@@ -131,6 +177,11 @@ namespace AiSiegeCrewTest
                 {
                     for (int attempt = 0; attempt < 3; attempt++)
                         Execute(run, AssertDeferred);
+                    // WaitForTicks is a minimum, not exact stepping. Keep the
+                    // two early probes inside the native33-update transition
+                    // even if Unity presents a frame late. The high-speed
+                    // setting is restored before waiting for actual readiness.
+                    Director.instance.SetEngineFrameRate(5);
                     foreach (var wait in run.SetPause(run.CurrentMission, false)) yield return wait;
                     yield return run.WaitForTicks(run.CurrentMission, 1);
                     Execute(run, AssertDeferred);
@@ -138,6 +189,7 @@ namespace AiSiegeCrewTest
                     // scheduling opportunity; the gate must depend on readiness.
                     yield return run.WaitForTicks(run.CurrentMission, 1);
                     Execute(run, AssertDeferred);
+                    Director.instance.SetEngineFrameRate(250);
                     yield return AutomationWait.Until("native recruitment/fade completed", () => run.InSimulation(run.CurrentMission, BothReady));
                     foreach (var wait in run.SetPause(run.CurrentMission, true)) yield return wait;
                 }
@@ -177,8 +229,9 @@ namespace AiSiegeCrewTest
             foreach (int id in ids)
             {
                 Require(GameUnitManagerAPI.Instance.TryGetUnitById(id, out GameUnit* u) && u->r_GlobalId == globals[ids.IndexOf(id)], "Recruit identity changed");
+                int state = (ushort)Marshal.ReadInt16(Anchor(id), 0x918);
                 if (u->r_AliveState != AliveState.IsAlive || u->r_UnitChimp != eChimps.CHIMP_TYPE_ENGINEER ||
-                    Marshal.ReadInt16(Anchor(id), 0x9CA) != 0 || (ushort)Marshal.ReadInt16(Anchor(id), 0x918) > 2) return false;
+                    Marshal.ReadInt16(Anchor(id), 0x9CA) != 0 || state > 2 && state != 0x65 && state != 0x69) return false;
             }
             return true;
         }

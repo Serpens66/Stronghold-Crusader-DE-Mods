@@ -24,6 +24,7 @@ namespace BugfixesAndQoL.SiegeCrew
         private IntPtr timeoutActivation;
         private IntPtr fireActivation;
         private IntPtr aiReadinessActivation;
+        private IntPtr autoBindingActivation;
 
         private delegate void EmitSite(Assembler assembler, Site site, ulong activation, ReadOnlySpan<Instruction> original);
 
@@ -37,7 +38,7 @@ namespace BugfixesAndQoL.SiegeCrew
                 !string.Equals(Shared.DebugLogHelper.GetFileSha256(path), NativeHash, StringComparison.OrdinalIgnoreCase))
             {
                 Shared.DebugLogHelper.LogError(log,
-                    "SIEGE_CREW_TIMEOUT_FIX_INACTIVE / SIEGE_CREW_FIRE_FIX_INACTIVE / AI_SIEGE_CREW_READY_FIX_INACTIVE: the native layout requires the audited image.");
+                    "SIEGE_CREW_TIMEOUT_FIX_INACTIVE / SIEGE_CREW_FIRE_FIX_INACTIVE / AI_SIEGE_CREW_READY_FIX_INACTIVE / SIEGE_CREW_AUTO_BIND_FIX_INACTIVE: the native layout requires the audited image.");
                 return;
             }
 
@@ -52,6 +53,10 @@ namespace BugfixesAndQoL.SiegeCrew
                 new[] { AiCrewReadinessPatch.Site },
                 (assembler, site, activation, original) => AiCrewReadinessPatch.Emit(assembler, activation,
                     unchecked((ulong)context.ModuleHandle.ToInt64())), enableMod && enableTimeout);
+            autoBindingActivation = InstallGroup(context, "siege-crew-automatic-binding", "SIEGE_CREW_AUTO_BIND_FIX",
+                AutoCrewBindingPatch.Sites,
+                (assembler, site, activation, original) => AutoCrewBindingPatch.Emit(assembler, site, activation,
+                    unchecked((ulong)context.ModuleHandle.ToInt64()), original), enableMod && enableTimeout);
         }
 
         internal void SetEnabled(bool enableMod, bool enableTimeout, bool enableFire)
@@ -59,6 +64,7 @@ namespace BugfixesAndQoL.SiegeCrew
             SetActivation(timeoutActivation, enableMod, enableTimeout);
             SetActivation(fireActivation, enableMod, enableFire);
             SetActivation(aiReadinessActivation, enableMod, enableTimeout);
+            SetActivation(autoBindingActivation, enableMod, enableTimeout);
         }
 
         private IntPtr InstallGroup(CrusaderLibraryLoadContext context, string name, string marker,

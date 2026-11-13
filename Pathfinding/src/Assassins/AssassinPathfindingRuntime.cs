@@ -1045,7 +1045,7 @@ namespace Pathfinding
                 allowWalkableReservedClimbEndpoints,
                 buildingLayer[target],
                 occupancyLayer[target]) || AssassinPathAPI.IsDirectGatehouseClimbEndpoint(target);
-            bool hasWall = ((currentFlags | targetFlags) & IsWallFlag) != 0;
+            bool hasWall = AssassinClimbTransitionPolicy.HasClimbWall(currentFlags, targetFlags);
             return targetAccepted && startAccepted && targetBuildingAccepted && hasWall;
         }
 
@@ -1085,14 +1085,16 @@ namespace Pathfinding
         internal void BindNativeSearch(IntPtr specialTile, IntPtr specialContext)
         {
             if (!AssassinNativeSearch.Available) return;
-            nativeSearchTables = new AssassinNativeSearch.Tables
+            var tables = new AssassinNativeSearch.Tables
             {
                 ValidCoordinates = (IntPtr)validCoordinates, RowLookup = (IntPtr)rowLookup, TileFlags = (IntPtr)tileFlags,
                 Occupancy = (IntPtr)occupancyLayer, Building = (IntPtr)buildingLayer, Height = (IntPtr)heightLayer,
                 DirectionMasks = (IntPtr)directionMasks, SpecialTile = specialTile, SpecialContext = specialContext,
                 MaskedTransition = Marshal.GetFunctionPointerForDelegate(NativeMaskedTransition),
                 DirectionAllowed = Marshal.GetFunctionPointerForDelegate(NativeDirectionAllowed),
+                NonClimbWallFlags = (uint)TilePropertyFlag.GoodsyardRelated,
             };
+            nativeSearchTables = tables;
             nativeSearchBound = true;
         }
 

@@ -73,7 +73,9 @@ echo [%date% %time%] Preflight
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tests\Test-Preflight.ps1"
 if not "%ERRORLEVEL%"=="0" goto failed
 echo [%date% %time%] Compile native cores
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%native\Build-PathfindingAnchor.ps1"
+set "NATIVE_TEST_ARGS="
+if "%NO_TESTS%"=="1" set "NATIVE_TEST_ARGS=-SkipTests"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%native\Build-PathfindingAnchor.ps1" %NATIVE_TEST_ARGS%
 if not "%ERRORLEVEL%"=="0" goto failed
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%native\Build-PathfindingAssassin.ps1"
 if not "%ERRORLEVEL%"=="0" goto failed

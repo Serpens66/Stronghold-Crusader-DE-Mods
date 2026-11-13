@@ -73,7 +73,7 @@ namespace Pathfinding.Engine
         private struct ReplanSettled { internal uint Global; internal int TargetX, TargetY; }
         private readonly Dictionary<int, ReplanSettled> replanSettled = new Dictionary<int, ReplanSettled>();
         // One group command (ReplanGroupKey) shares a wait decision of the same rule version.
-        private struct ReplanGroupWait { internal long Version; internal int Tick; }
+        private struct ReplanGroupWait { internal long Version, SurfaceRevision; internal int Tick; }
         private readonly Dictionary<long, ReplanGroupWait> replanGroupWaits = new Dictionary<long, ReplanGroupWait>();
         private readonly byte[] replanRoute = new byte[2000];
         private long replanChecks, replanTriggers, replanDetours, replanWaitsStarted, replanResumed, replanExpired, replanEnded, replanKept,
@@ -260,8 +260,8 @@ namespace Pathfinding.Engine
 
         // One group command: the same tribe and a move target in the same 16 x 16 cell (formation
         // members have nearby but different targets).
-        private static long ReplanGroupKey(GameUnit* unit, int targetX, int targetY) =>
-            unit->r_TribeId <= 0 ? 0 : ((long)unit->r_TribeId << 32) | (uint)((targetY >> 4) * (MapWidth >> 4) + (targetX >> 4));
+        private static long ReplanGroupKey(GameUnit* unit, int targetX, int targetY, RouteSurfaceClass surface = RouteSurfaceClass.Any) =>
+            unit->r_TribeId <= 0 ? 0 : ((long)unit->r_TribeId << 32) | ((long)surface << 24) | (uint)((targetY >> 4) * (MapWidth >> 4) + (targetX >> 4));
 
         // The unit is at most TriggerDistance steps before a rule tile: re-plan to the same target and
         // keep the new route if the policy allows it and it avoids rule tiles, else stop and wait.
@@ -271,9 +271,10 @@ namespace Pathfinding.Engine
             GetNativeMovementStart(unit, out int startX, out int startY);
             if ((uint)startX >= MapWidth || (uint)startY >= MapWidth || (uint)targetX >= MapWidth || (uint)targetY >= MapWidth) return;
             uint global = unit->r_GlobalId;
-            long group = ReplanGroupKey(unit, targetX, targetY);
+            RouteSurfaceClass surface = runtime.ResolveMovementSurface(unit);
+            long group = ReplanGroupKey(unit, targetX, targetY, surface);
             if (group != 0 && policy.MaximumWaitTicks > 0 && replanGroupWaits.TryGetValue(group, out ReplanGroupWait shared) &&
-                shared.Version == replanVersion && tick - shared.Tick < ReplanGroupTicks)
+                shared.Version == replanVersion && shared.SurfaceRevision == surfaceRevisions[(int)surface] && tick - shared.Tick < ReplanGroupTicks)
             {
                 // A member of the same group command already found no allowed route.
                 replanGroupShared++;
@@ -297,7 +298,7 @@ namespace Pathfinding.Engine
                 replanSettled[id] = new ReplanSettled { Global = global, TargetX = targetX, TargetY = targetY };
                 return;
             }
-            if (group != 0) replanGroupWaits[group] = new ReplanGroupWait { Version = replanVersion, Tick = tick };
+            if (group != 0) replanGroupWaits[group] = new ReplanGroupWait { Version = replanVersion, SurfaceRevision = surfaceRevisions[(int)surface], Tick = tick };
             StartReplanWait(id, unit, player, policy, remaining, targetX, targetY, startX, startY, tick);
         }
 
@@ -368,7 +369,7 @@ namespace Pathfinding.Engine
                     if (tick != replanProbeTick) { replanProbeTick = tick; replanProbeLeft = ReplanProbeTickSettles; }
                     if (replanProbeLeft <= 0) { wait.NextProbe = tick + 1; replanProbesDeferred++; continue; }
                     wait.NextProbe = tick + ReplanWaitProbeTicks;
-                    if (!ReplanRouteClear(wait)) continue;
+                    if (!ReplanRouteClear(wait, unit)) continue;
                 }
                 replanWaitDone.Add(id);
                 if (expired && IsAbortPolicy(wait.Policy))
@@ -507,9 +508,9 @@ namespace Pathfinding.Engine
         // A probe over ReplanProbeSettles (or the tick's remaining probe budget) counts as not clear: the
         // wait ends at its expiry anyway.
         private const int ReplanProbeSettles = 65536;
-        private bool ReplanRouteClear(ReplanWait wait)
+        private bool ReplanRouteClear(ReplanWait wait, GameUnit* unit)
         {
-            int probe = CoreRouteProbe(wait.Player, wait.StopX, wait.StopY, wait.TargetX, wait.TargetY, wait.Policy, wait.Remaining);
+            int probe = CoreRouteProbe(wait.Player, wait.StopX, wait.StopY, wait.TargetX, wait.TargetY, wait.Policy, wait.Remaining, runtime.ResolveMovementSurface(unit));
             replanProbeOutcomes[probe]++;
             return probe == ProbeClear;
         }
@@ -521,10 +522,10 @@ namespace Pathfinding.Engine
 
         // Whether the core's route from (startX,startY) avoids every replan and burning tile and fits the
         // policy against `remaining` steps. Consumes the tick's probe budget.
-        private int CoreRouteProbe(int player, int startX, int startY, int targetX, int targetY, RouteReplanPolicy policy, int remaining)
+        private int CoreRouteProbe(int player, int startX, int startY, int targetX, int targetY, RouteReplanPolicy policy, int remaining, RouteSurfaceClass surface = RouteSurfaceClass.Any)
         {
             int start = startY * MapWidth + startX, target = targetY * MapWidth + targetX;
-            int code = AnchorNative.mma_single_route_limited(anchorContext, player, target, 1, 0, start, Math.Min(ReplanProbeSettles, Math.Max(1, replanProbeLeft)),
+            int code = AnchorNative.mma_single_route_limited(anchorContext, player, target, 1, 0, surface, start, Math.Min(ReplanProbeSettles, Math.Max(1, replanProbeLeft)),
                 replanRoute, replanRoute.Length, out AnchorNative.QueryResult result);
             replanProbeLeft -= result.Settles;
             if (code != 0 || result.Status != AnchorNative.Ready) return ProbeNoRoute;
@@ -534,6 +535,7 @@ namespace Pathfinding.Engine
             {
                 x += FastRouteField.Dx[replanRoute[i]]; y += FastRouteField.Dy[replanRoute[i]];
                 int n = y * MapWidth + x;
+                if (!runtime.IsMovementSurfaceAllowed(surface, GameTileManagerAPI.Instance.GetTileId(x, y))) { MarkMovementSurface(n); return ProbeNoRoute; }
                 if ((replanTiles[n >> 6] & (1UL << (n & 63))) != 0 || IsHazardNode(n)) return ProbeRuleTile;
             }
             return ProbeClear;

@@ -18,12 +18,12 @@ namespace Pathfinding.Engine
     // queries keep Fast's rules. Until a player's mask is complete, Fast applies.
     internal sealed unsafe partial class FriendlyMoatTraversalProvider
     {
-        // Private C ABI of native/PathfindingAnchor.cpp (contract 0x0400000F). The DLL is loaded
+        // Private C ABI of native/PathfindingAnchor.cpp (contract 0x04000011). The DLL is loaded
         // once by full path from the plugin folder and stays loaded for the process.
         private static class AnchorNative
         {
             internal const string Library = "PathfindingAnchor.dll";
-            internal const int Contract = 0x0400000F, Ready = 0, Unreachable = 1, OverLimit = 2, Pending = 3, Stale = 4, Invalid = 5, Failed = 6;
+            internal const int Contract = 0x04000011, Ready = 0, Unreachable = 1, OverLimit = 2, Pending = 3, Stale = 4, Invalid = 5, Failed = 6;
             [StructLayout(LayoutKind.Sequential)] internal struct QueryResult { internal int Status, Ground, Moat, Length, Flags, Settles; internal long Cost; }
             [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] private static extern IntPtr LoadLibraryEx(string file, IntPtr reserved, uint flags);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_contract();
@@ -33,8 +33,10 @@ namespace Pathfinding.Engine
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_mask_write(IntPtr context, int player, int first, int count, uint[] words, out int changed);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_mask_update(IntPtr context, int player, int[] nodes, uint[] words, int count, out int changed);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_penalty_update(IntPtr context, int player, int[] nodes, byte[] values, int count, out int changed);
-            [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_single_route_limited(IntPtr context, int player, int target, int ground, int moat, int start, int budget, byte[] bytes, int capacity, out QueryResult result);
-            [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_task_create(IntPtr context, int player, int anchor, int ground, int moat, int[] starts, int count, out int id);
+            [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_single_route_limited(IntPtr context, int player, int target, int ground, int moat, RouteSurfaceClass surface, int start, int budget, byte[] bytes, int capacity, out QueryResult result);
+            [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_task_create(IntPtr context, int player, int anchor, int ground, int moat, RouteSurfaceClass surface, int[] starts, int count, out int id);
+            [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_surface_write(IntPtr context, int first, int count, byte[] values, out int changed);
+            [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_surface_update(IntPtr context, int[] nodes, byte[] values, int count, out int changed);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_task_restart(IntPtr context, int id);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_task_release(IntPtr context, int id);
             [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int mma_task_status(IntPtr context, int id);
@@ -142,6 +144,7 @@ namespace Pathfinding.Engine
         {
             internal int Tribe, Task, GroundTask, Previous, PreviousGround, Stamp; internal long Started; internal int[] Members;
             internal AnchorTaskSpec DiggerSpec, GroundSpec;
+            internal AnchorSurfaceSlot[] SurfaceSlots;
             // Formation plan of this move (unit id -> target node); null for Vanilla's own spreading.
             internal Dictionary<int, int> Targets;
             // Exact single routes answered before the field (TryAnchorGroupSingle); NoSingles after an
@@ -161,11 +164,11 @@ namespace Pathfinding.Engine
             internal int Task; internal AnchorNative.QueryResult[] Results = new AnchorNative.QueryResult[0];
             internal byte[] Bytes = new byte[0]; internal int[] Starts = new int[0], Slots = new int[0];
         }
-        private readonly AnchorBatchSet[] anchorBatchSets = { new AnchorBatchSet(), new AnchorBatchSet() };
+        private readonly AnchorBatchSet[] anchorBatchSets = { new AnchorBatchSet(), new AnchorBatchSet(), new AnchorBatchSet(), new AnchorBatchSet(), new AnchorBatchSet(), new AnchorBatchSet() };
         private readonly Dictionary<long, int> anchorBatchIndex = new Dictionary<long, int>();
         private long anchorBatchCalls, anchorBatchUnits, anchorBatchHits, anchorBatchTicks;
         private static long AnchorBatchKey(int task, int start, int target) => ((long)task << 40) | ((long)start << 20) | (uint)target;
-        internal sealed class AnchorTaskSpec { internal int Player, Anchor; internal long Ground, Moat; internal int[] Starts; }
+        internal sealed class AnchorTaskSpec { internal int Player, Anchor; internal long Ground, Moat; internal int[] Starts; internal RouteSurfaceClass Surface; }
         private const int AnchorPendingTask = -1;
         private readonly List<AnchorDispatchFrame> anchorFrames = new List<AnchorDispatchFrame>();
         private readonly int[] anchorUnitStamps = new int[MaximumUnitCount + 2];
@@ -263,6 +266,7 @@ namespace Pathfinding.Engine
             anchorPlayersRequested = anchorBuildAll = false; anchorUnreachedLogs = 0; anchorUnreachableLogs = 0; anchorAliveUnits = 0; reachabilitySlowLogs = 0; anchorEndedUnreached = 0; anchorPortalCount = -1;
             for (int p = 0; p < anchorMaskNext.Length; p++) { anchorMaskNext[p] = -1; anchorBlocked[p]?.Clear(); }
             anchorSweepCursor = -1; anchorSweepLeft = 0; anchorSweepRequestStart = anchorSweptSinceRequest = 0;
+            ResetMovementSurfaces();
             ResetReplanWatch();
             ResetFireEscapes();
             ResetGroundFailureProofs();
@@ -305,16 +309,16 @@ namespace Pathfinding.Engine
         // Creates and computes one group's task synchronously (fork-join inside the move call).
         // moat == 0 is a ground-only field. Returns the ready task, or 0 when the core cannot
         // answer (the move keeps Vanilla/Fast).
-        private int TryComputeAnchorTask(int player, int anchor, long ground, long moat, int[] starts, int count)
+        private int TryComputeAnchorTask(int player, int anchor, long ground, long moat, int[] starts, int count, RouteSurfaceClass surface = RouteSurfaceClass.Any)
         {
             if (!anchorAvailable || count <= 0 || ground <= 0 || moat < 0) return 0;
             long divisor = Gcd(ground, moat); ground /= divisor; moat /= divisor;
             if (ground > AnchorMaxCost || moat > AnchorMaxCost) return 0;
-            if (AnchorNative.mma_task_create(anchorContext, player, anchor, (int)ground, (int)moat, starts, count, out int task) != 0) return 0;
+            if (AnchorNative.mma_task_create(anchorContext, player, anchor, (int)ground, (int)moat, surface, starts, count, out int task) != 0) return 0;
             anchorLiveTasks.Add(task); anchorTasks++;
             int tick = CaptureCurrentGameTick();
             if (tick != anchorTickTaskKeysTick) { anchorTickTaskKeys.Clear(); anchorTickTaskKeysTick = tick; }
-            bool repeated = !anchorTickTaskKeys.Add(((long)player << 56) | ((long)ground << 48) | ((long)moat << 40) | (uint)anchor);
+            bool repeated = !anchorTickTaskKeys.Add(((long)player << 56) | ((long)ground << 48) | ((long)moat << 40) | ((long)surface << 32) | (uint)anchor);
             long started = System.Diagnostics.Stopwatch.GetTimestamp();
             int code = AnchorNative.mma_step(anchorContext, anchorLiveTasks.Count, anchorThreads, out _);
             long elapsed = System.Diagnostics.Stopwatch.GetTimestamp() - started;
@@ -357,7 +361,7 @@ namespace Pathfinding.Engine
         {
             costs = costs ?? BeginAnchorCosts(spec, ground);
             if (costs.Skipped) return 0;
-            int task = TryComputeAnchorTask(spec.Player, spec.Anchor, costs.Ground, costs.Moat, spec.Starts, spec.Starts.Length);
+            int task = TryComputeAnchorTask(spec.Player, spec.Anchor, costs.Ground, costs.Moat, spec.Starts, spec.Starts.Length, spec.Surface);
             CompleteAnchorCosts(costs, task != 0, task != 0 ? "anchor-field" : "anchor-field-unavailable");
             return task;
         }
@@ -373,15 +377,16 @@ namespace Pathfinding.Engine
         // whole component) hands the move to the field at once.
         private const int AnchorGroupSingles = 8, AnchorGroupSingleBudget = 4096;
         private long anchorGroupSingleRoutes, anchorGroupSingleTicks;
-        private bool TryAnchorGroupSingle(bool ground, int start, int target, out int code, out AnchorNative.QueryResult result)
+        private bool TryAnchorGroupSingle(bool ground, int start, int target, out int code, out AnchorNative.QueryResult result, RouteSurfaceClass surface = RouteSurfaceClass.Any)
         {
             code = 0; result = default;
-            if ((ground ? anchorGroundTask : anchorDispatchTask) != AnchorPendingTask || anchorFrames.Count == 0) return false;
+            if (CurrentAnchorTask(ground, surface) != AnchorPendingTask || anchorFrames.Count == 0) return false;
             int top = anchorFrames.Count - 1;
             AnchorDispatchFrame frame = anchorFrames[top];
-            AnchorTaskSpec spec = ground ? frame.GroundSpec : frame.DiggerSpec;
+            AnchorSurfaceSlot surfaceSlot = CurrentSurfaceSlot(ground, surface);
+            AnchorTaskSpec spec = surface == RouteSurfaceClass.Any ? (ground ? frame.GroundSpec : frame.DiggerSpec) : surfaceSlot?.Spec;
             if (spec == null || frame.Targets != null || frame.NoSingles || frame.Singles >= AnchorGroupSingles) return false;
-            AnchorCostProfile costs = ground ? null : frame.DiggerCosts ?? (frame.DiggerCosts = BeginAnchorCosts(spec, false));
+            AnchorCostProfile costs = ground ? null : surfaceSlot != null ? surfaceSlot.Costs ?? (surfaceSlot.Costs = BeginAnchorCosts(spec, false)) : frame.DiggerCosts ?? (frame.DiggerCosts = BeginAnchorCosts(spec, false));
             anchorFrames[top] = frame;
             if (costs != null && costs.Skipped) return false;
             long groundCost = costs?.Ground ?? spec.Ground, moatCost = costs?.Moat ?? spec.Moat;
@@ -389,7 +394,7 @@ namespace Pathfinding.Engine
             long divisor = Gcd(groundCost, moatCost); groundCost /= divisor; moatCost /= divisor;
             if (groundCost > AnchorMaxCost || moatCost > AnchorMaxCost) return false;
             long started = System.Diagnostics.Stopwatch.GetTimestamp();
-            code = AnchorNative.mma_single_route_limited(anchorContext, spec.Player, target, (int)groundCost, (int)moatCost, start,
+            code = AnchorNative.mma_single_route_limited(anchorContext, spec.Player, target, (int)groundCost, (int)moatCost, surface, start,
                 AnchorGroupSingleBudget, anchorBuffer, anchorBuffer.Length, out result);
             anchorGroupSingleTicks += System.Diagnostics.Stopwatch.GetTimestamp() - started;
             frame.Singles++;
@@ -405,35 +410,51 @@ namespace Pathfinding.Engine
         // Pre of a group move: unit decisions inside this call query the task (0: none). A spec
         // instead of a task is computed on the first query (ResolveAnchorTask).
         private void BeginAnchorFrame(int tribe, int task, int groundTask = 0, int[] members = null,
-            AnchorTaskSpec diggerSpec = null, AnchorTaskSpec groundSpec = null)
+            AnchorTaskSpec diggerSpec = null, AnchorTaskSpec groundSpec = null, AnchorTaskSpec[] surfaceSpecs = null)
         {
             ResetGroundFailureProofs();
             if (diggerSpec != null) task = AnchorPendingTask;
             if (groundSpec != null) groundTask = AnchorPendingTask;
             Dictionary<int, int> targets = null;
             if (anchorPendingFormationTribe == tribe) { targets = anchorPendingFormation; anchorPendingFormationTribe = -1; anchorPendingFormation = null; }
+            var slots = new AnchorSurfaceSlot[6];
+            if (surfaceSpecs != null) for (int i = 2; i < slots.Length; i++)
+                if (surfaceSpecs[i] != null) slots[i] = new AnchorSurfaceSlot { Spec = surfaceSpecs[i] };
             anchorFrames.Add(new AnchorDispatchFrame { Tribe = tribe, Task = task, GroundTask = groundTask,
                 Previous = anchorDispatchTask, PreviousGround = anchorGroundTask, Stamp = ++anchorStampCounter,
-                Started = System.Diagnostics.Stopwatch.GetTimestamp(), Members = members, DiggerSpec = diggerSpec, GroundSpec = groundSpec, Targets = targets });
+                Started = System.Diagnostics.Stopwatch.GetTimestamp(), Members = members, DiggerSpec = diggerSpec, GroundSpec = groundSpec, Targets = targets, SurfaceSlots = slots });
             // A move without tasks (unsupported owner, pending mask) hides an enclosing move's tasks.
-            anchorDispatchTask = task; anchorGroundTask = groundTask;
+            // Globals mark a dispatch even when it contains only restricted classes.
+            anchorDispatchTask = task != 0 ? task : slots[2] != null || slots[4] != null ? AnchorPendingTask : 0;
+            anchorGroundTask = groundTask != 0 ? groundTask : slots[3] != null || slots[5] != null ? AnchorPendingTask : 0;
         }
 
         // Current task of the innermost move (ground: the ground-only task), computing a pending
         // one now. The current tasks always belong to the innermost open frame. Queries happen in
         // Vanilla's deterministic unit order, so every peer computes the same task at the same point.
-        private int ResolveAnchorTask(bool ground)
+        private int ResolveAnchorTask(bool ground, RouteSurfaceClass surface = RouteSurfaceClass.Any)
         {
-            int task = ground ? anchorGroundTask : anchorDispatchTask;
+            int task = CurrentAnchorTask(ground, surface);
             if (task != AnchorPendingTask) return task;
             int top = anchorFrames.Count - 1;
             AnchorDispatchFrame frame = anchorFrames[top];
-            AnchorTaskSpec spec = ground ? frame.GroundSpec : frame.DiggerSpec;
-            task = spec == null ? 0 : ComputeAnchorTaskWithCostRules(spec, ground, ground ? null : frame.DiggerCosts);
+            AnchorSurfaceSlot surfaceSlot = CurrentSurfaceSlot(ground, surface);
+            AnchorTaskSpec spec = surface == RouteSurfaceClass.Any ? (ground ? frame.GroundSpec : frame.DiggerSpec) : surfaceSlot?.Spec;
+            task = spec == null ? 0 : ComputeAnchorTaskWithCostRules(spec, ground, ground ? null : surfaceSlot != null ? surfaceSlot.Costs : frame.DiggerCosts);
             if (task != 0) anchorLazyTasks++;
-            if (ground) { frame.GroundTask = task; anchorGroundTask = task; } else { frame.Task = task; anchorDispatchTask = task; }
+            if (surfaceSlot != null) surfaceSlot.Task = task;
+            else if (ground)
+            {
+                frame.GroundTask = task;
+                anchorGroundTask = task != 0 ? task : frame.SurfaceSlots != null && (frame.SurfaceSlots[3] != null || frame.SurfaceSlots[5] != null) ? AnchorPendingTask : 0;
+            }
+            else
+            {
+                frame.Task = task;
+                anchorDispatchTask = task != 0 ? task : frame.SurfaceSlots != null && (frame.SurfaceSlots[2] != null || frame.SurfaceSlots[4] != null) ? AnchorPendingTask : 0;
+            }
             anchorFrames[top] = frame;
-            if (task != 0 && frame.Targets != null && frame.Members != null) BatchAnchorQueries(task, ground, spec.Player, frame);
+            if (task != 0 && frame.Targets != null && frame.Members != null) BatchAnchorQueries(task, ground, spec.Player, frame, surface);
             return task;
         }
 
@@ -457,9 +478,10 @@ namespace Pathfinding.Engine
         // All members of the task's class with a planned target, answered at once on the core's
         // worker threads. Members iterate in capture order, so every peer computes the same answers;
         // a unit later finds its answer by (task, native start, target), anything else asks singly.
-        private void BatchAnchorQueries(int task, bool ground, int player, in AnchorDispatchFrame frame)
+        private void BatchAnchorQueries(int task, bool ground, int player, in AnchorDispatchFrame frame, RouteSurfaceClass surface = RouteSurfaceClass.Any)
         {
-            AnchorBatchSet set = anchorBatchSets[ground ? 1 : 0];
+            int batchSlot = SurfaceSlot(ground, surface);
+            AnchorBatchSet set = anchorBatchSets[batchSlot];
             int capacity = frame.Members.Length, count = 0;
             if (set.Starts.Length < capacity)
             {
@@ -472,7 +494,7 @@ namespace Pathfinding.Engine
                 if (!frame.Targets.TryGetValue(id, out int target) ||
                     !APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) || unit == null ||
                     !APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_ControllableForPlayerId != player ||
-                    AnchorDigger(unit) == ground) continue;
+                    AnchorDigger(unit) == ground || runtime.ResolveMovementSurface(unit) != surface) continue;
                 GetNativeMovementStart(unit, out int sx, out int sy);
                 if ((uint)sx >= MapWidth || (uint)sy >= MapWidth) continue;
                 set.Starts[count] = sy * MapWidth + sx; set.Slots[count] = target; count++;
@@ -486,7 +508,7 @@ namespace Pathfinding.Engine
             anchorBatchTicks += elapsed; anchorQueryTicks += elapsed; anchorBatchCalls++;
             if (code != 0) return;
             set.Task = task; anchorBatchUnits += count;
-            int tag = (ground ? 1 : 0) << 24;
+            int tag = batchSlot << 24;
             for (int i = 0; i < count; i++)
             {
                 long key = AnchorBatchKey(task, set.Starts[i], set.Slots[i]);
@@ -511,6 +533,8 @@ namespace Pathfinding.Engine
                 anchorFrames.RemoveAt(anchorFrames.Count - 1);
                 anchorDispatchTask = frame.Previous; anchorGroundTask = frame.PreviousGround;
                 ReleaseAnchorTask(frame.Task); ReleaseAnchorTask(frame.GroundTask);
+                if (frame.SurfaceSlots != null) foreach (AnchorSurfaceSlot slot in frame.SurfaceSlots)
+                    if (slot != null) { ReleaseAnchorTask(slot.Task); if (slot.Costs != null) CompleteAnchorCosts(slot.Costs, false, "move-ended"); }
                 if (frame.Task != 0 || frame.GroundTask != 0) RecordAnchorMoveEnd(frame);
                 if (frame.Task == AnchorPendingTask && frame.GroundTask <= 0 || frame.GroundTask == AnchorPendingTask && frame.Task <= 0)
                     anchorUnusedMoves++;
@@ -836,6 +860,7 @@ namespace Pathfinding.Engine
             if (anchorAuditedRoutes.Count != 0) anchorAuditedRoutes.Clear();
             if (anchorBatchIndex.Count != 0) anchorBatchIndex.Clear();
             anchorPendingFormationTribe = -1; anchorPendingFormation = null;
+            RefreshMovementSurfaces(anchorBuildAll);
             ulong access = ReadFastAccessFingerprint();
             if (!anchorAccessKnown || access != anchorAccess)
             {
@@ -959,9 +984,10 @@ namespace Pathfinding.Engine
         // Vanilla's per-unit search (F4930) is skipped. Moat routes qualify in the mode probe;
         // intermediate builder targets, work and attack plans keep Vanilla. Units that cannot
         // enter moats query the group's ground-only task.
-        internal bool TryPrepareAnchorGround(PlanScope plan, GameUnit* unit)
+        internal bool TryPrepareAnchorGround(PlanScope plan, GameUnit* unit, RouteSurfaceClass? effectiveSurface = null)
         {
             bool digger = unit != null && AnchorDigger(unit);
+            RouteSurfaceClass surface = effectiveSurface ?? runtime.ResolveMovementSurface(unit);
             anchorDecline = plan == null || unit == null ? "prepare:noPlan" : (digger ? anchorDispatchTask : anchorGroundTask) == 0 ? "prepare:noTask" :
                 plan.ExactRouteEndpoints ? "prepare:exactEndpoints" : plan.MoatWorkMovement ? "prepare:moatWork" :
                 plan.AttackMovementQualified ? "prepare:attack" : plan.ModeObserved && plan.VanillaModeDetected ? "prepare:vanillaMode" : "prepare:identity";
@@ -975,13 +1001,14 @@ namespace Pathfinding.Engine
             plan.PlayerId = unit->r_ControllableForPlayerId; plan.UnitGlobalId = unit->r_GlobalId; plan.IdentityBound = true;
             // Same tick, start, target and identity as the mode probe's ground decision: no second query.
             QualifiedMovementRoute decided = runtime.GetReusableQualifiedRoute(plan, unit);
-            if (decided != null && decided.Summary.MoatEdges == 0) { anchorRouteReuses++; return true; }
+            if (decided != null && decided.SurfaceClass == surface && decided.Summary.MoatEdges == 0 &&
+                AuditRouteSurface(decided.Route.Bytes, decided.Route.DirectionCount, sy * MapWidth + sx, surface)) { anchorRouteReuses++; return true; }
             anchorDecline = "prepare:bounds";
-            bool answered = TryAnchorGroupRoute(plan, false, sx, sy, out _, out bool moat, !digger, publishGround: true);
+            bool answered = TryAnchorGroupRoute(plan, false, sx, sy, out _, out bool moat, !digger, publishGround: true, surface: surface);
             // Exactly unreachable for the moat task: the ground task decides with Vanilla's ground rules.
             if (!answered && digger && anchorUnreachableUnit == plan.UnitId)
             {
-                answered = TryAnchorGroupRoute(plan, false, sx, sy, out _, out moat, true, publishGround: true);
+                answered = TryAnchorGroupRoute(plan, false, sx, sy, out _, out moat, true, publishGround: true, surface: surface);
                 if (answered) anchorDiggerGroundRoutes++;
             }
             if (!answered) return false;
@@ -994,7 +1021,7 @@ namespace Pathfinding.Engine
         // Builder call of a unit without a Pathfinding plan (it cannot enter moats) during an
         // anchor dispatch: publishes the ground-only task's route into the bound unit buffer
         // with the same live audit, or leaves buffer, variant and mode untouched for Vanilla.
-        private bool TryPublishAnchorGroundWithoutPlan(IntPtr pathManager, UnitMoveFrame frame, out int published)
+        private bool TryPublishAnchorGroundWithoutPlan(IntPtr pathManager, UnitMoveFrame frame, int movementProfile, out int published)
         {
             published = 0;
             anchorDecline = "noPlan:noGroundTask";
@@ -1019,7 +1046,7 @@ namespace Pathfinding.Engine
             if (!TryCaptureUnitFallbackPathBuffer(pathManager, plan, unit, out byte* path, out int before, out byte[] backup)) return false;
             long publishStarted = System.Diagnostics.Stopwatch.GetTimestamp(); int ready = 0;
             // Without a core route nothing is attempted (counted as a missing answer, not a rejection).
-            bool prepared = TryPrepareAnchorGround(plan, unit); string details = null;
+            bool prepared = TryPrepareAnchorGround(plan, unit, runtime.ResolveMovementSurface(unit, movementProfile)); string details = null;
             bool replaced = prepared &&
                 TryReplaceUnsafeFallbackPath(pathManager, path, backup, before, plan, unit, out ready, out details, requireMoat: false);
             if (prepared) RecordAnchorPublish(publishStarted, replaced, "nonDigger", details);
@@ -1092,7 +1119,7 @@ namespace Pathfinding.Engine
                 IsValidTileId(startTile) && IsValidTileId(targetTile) &&
                 runtime.pathRegionGrid[startTile] == runtime.pathRegionGrid[targetTile];
         }
-        private bool TryPublishAnchorSingle(IntPtr pathManager, PlanScope plan, bool reconstruction, out int published)
+        private bool TryPublishAnchorSingle(IntPtr pathManager, PlanScope plan, bool reconstruction, int movementProfile, out int published)
         {
             published = 0;
             UnitMoveFrame frame = runtime.GetCurrentUnitMoveFrame();
@@ -1109,6 +1136,7 @@ namespace Pathfinding.Engine
                 (plan.ModeObserved && plan.VanillaModeDetected))) return false;
             int unitId = frame.Args.UnitId;
             if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null || !APIShared.UnitAccess.IsReallyAlive(unit)) return false;
+            RouteSurfaceClass surface = runtime.ResolveMovementSurface(unit, movementProfile);
             int player = unit->r_ControllableForPlayerId;
             if (player < 1 || player > 8 || anchorMaskNext[player] < MapWidth * MapWidth) return false;
             int* variant = (int*)(manager + PathManagerRouteVariantOffset);
@@ -1123,7 +1151,7 @@ namespace Pathfinding.Engine
             {
                 int start = startY * MapWidth + startX, target = targetY * MapWidth + targetX;
                 // Budget 0: unlimited (Assassins).
-                if (AnchorNative.mma_single_route_limited(anchorContext, player, target, 1, 0, start, assassin ? 0 : anchorSingleBudgetLeft, anchorBuffer,
+                if (AnchorNative.mma_single_route_limited(anchorContext, player, target, 1, 0, surface, start, assassin ? 0 : anchorSingleBudgetLeft, anchorBuffer,
                     anchorBuffer.Length, out AnchorNative.QueryResult result) != 0) return false;
                 anchorSingleBudgetLeft -= result.Settles;
                 if (result.Status == AnchorNative.OverLimit && anchorSingleBudgetLeft <= 0) anchorSingleOverBudget++;
@@ -1132,11 +1160,11 @@ namespace Pathfinding.Engine
                 var bytes = new byte[(result.Length + 1) / 2];
                 for (int i = 0; i < result.Length; i++) bytes[i >> 1] |= (byte)(anchorBuffer[i] << ((i & 1) * 4));
                 if (!TryFinishFastEncoded(player, start, target, bytes, result.Length, true, 0, out WeightedMoatRouteSummary found,
-                    out WeightedMoatEncodedRoute route, anchor: true)) { anchorSingleRejects++; return false; }
+                    out WeightedMoatEncodedRoute route, anchor: true, surface: surface)) { anchorSingleRejects++; return false; }
                 PlanScope owner = plan ?? new PlanScope(unitId, targetX, targetY);
                 if (owner.TargetX != targetX || owner.TargetY != targetY) return false;
                 owner.QualifiedRoute = new QualifiedMovementRoute(startX, startY, targetX, targetY, player,
-                    runtime.mapEpoch, CaptureCurrentGameTick(), runtime.placementRevision, route, found, default, false);
+                    runtime.mapEpoch, CaptureCurrentGameTick(), runtime.placementRevision, route, found, default, false, surface, GetMovementSurfaceRevision(surface));
                 anchorAuditedRoutes.Add(owner.QualifiedRoute);
                 if (!TryCaptureUnitFallbackPathBuffer(pathManager, owner, unit, out byte* path, out int before, out byte[] backup)) return false;
                 if (TryReplaceUnsafeFallbackPath(pathManager, path, backup, before, owner, unit, out int ready, out _, requireMoat: false))
@@ -1196,7 +1224,7 @@ namespace Pathfinding.Engine
         {
             PlanScope plan = planResolved ? resolvedPlan : runtime.GetBuilderPlan(pathManager, reportMismatch: false);
             UnitMoveFrame frame = runtime.GetCurrentUnitMoveFrame();
-            if (plan == null && !reconstruction && !runtime.disposed && TryPublishAnchorGroundWithoutPlan(pathManager, frame, out int published))
+            if (plan == null && !reconstruction && !runtime.disposed && TryPublishAnchorGroundWithoutPlan(pathManager, frame, movementProfile, out int published))
             { RecordBuilderResult(activeMoveCommand, published); return published; }
             if (plan != null && !reconstruction && !runtime.disposed && !plan.MoatWorkMovement && !plan.AttackMovementQualified &&
                 pathManager == runtime.nativePathManager && *runtime.moatPathMode == 0 &&
@@ -1205,7 +1233,7 @@ namespace Pathfinding.Engine
             {
                 int* variant = (int*)((byte*)pathManager.ToPointer() + PathManagerRouteVariantOffset);
                 int originalVariant = *variant;
-                if ((originalVariant == 0 || originalVariant == 1) && TryPrepareAnchorGround(plan, unit) &&
+                if ((originalVariant == 0 || originalVariant == 1) && TryPrepareAnchorGround(plan, unit, runtime.ResolveMovementSurface(unit, movementProfile)) &&
                     TryReplaceUnsafeFallbackPath(pathManager, path, backup, before, plan, unit, out int ready, out _, requireMoat: false))
                 {
                     *variant = 0; *runtime.moatPathMode = 0; anchorGroundOnlyRoutes++;
@@ -1223,7 +1251,7 @@ namespace Pathfinding.Engine
             if (anchorDispatchTask == 0 && anchorGroundTask == 0)
             {
                 if (!anchorAvailable || pathManager == IntPtr.Zero) return runtime.CallVanillaBuilder(pathManager, movementClass, movementProfile, reconstruction);
-                if (TryPublishAnchorSingle(pathManager, plan, reconstruction, out int single)) return single;
+                if (TryPublishAnchorSingle(pathManager, plan, reconstruction, movementProfile, out int single)) return single;
                 if (!Shared.DebugLogHelper.DiagnosticsEnabled)
                 {
                     int unmeasured = CallVanillaBuilderMoatProven(pathManager, movementClass, movementProfile, reconstruction);
@@ -1359,7 +1387,8 @@ namespace Pathfinding.Engine
 
         internal bool IsAnchorAuditedRoute(QualifiedMovementRoute route)
         {
-            if (route == null || !anchorAuditedRoutes.Contains(route)) return false;
+            if (route == null || route.SurfaceRevision != GetMovementSurfaceRevision(route.SurfaceClass) ||
+                !anchorAuditedRoutes.Contains(route)) return false;
             anchorAuditSkips++;
             return true;
         }
@@ -1384,23 +1413,24 @@ namespace Pathfinding.Engine
         // Same decision for the innermost move's task (ground: the ground-only task); a pending task
         // first answers with exact single routes (TryAnchorGroupSingle) before its field is computed.
         private bool TryAnchorGroupRoute(PlanScope plan, bool reserved, int sx, int sy,
-            out RouteProbeSummary summary, out bool moatRoute, bool ground, bool publishGround = false)
+            out RouteProbeSummary summary, out bool moatRoute, bool ground, bool publishGround = false, RouteSurfaceClass? surface = null)
         {
             summary = default; moatRoute = false;
             if (!anchorAvailable || reserved) return false;
+            RouteSurfaceClass routeSurface = surface ?? SurfaceForPlan(plan);
             int start = sy * MapWidth + sx, target = plan.TargetY * MapWidth + plan.TargetX;
             long queried = System.Diagnostics.Stopwatch.GetTimestamp();
-            if (TryAnchorGroupSingle(ground, start, target, out int code, out AnchorNative.QueryResult result))
+            if (TryAnchorGroupSingle(ground, start, target, out int code, out AnchorNative.QueryResult result, routeSurface))
             {
                 anchorQueries++;
-                return FinishAnchorAnswer(plan, sx, sy, start, target, ground ? anchorGroundTask : anchorDispatchTask, code, result,
-                    queried, publishGround, out summary, out moatRoute);
+                return FinishAnchorAnswer(plan, sx, sy, start, target, CurrentAnchorTask(ground, routeSurface), code, result,
+                    queried, publishGround, out summary, out moatRoute, routeSurface);
             }
-            return TryAnchorRequiredRoute(plan, reserved, sx, sy, out summary, out moatRoute, ResolveAnchorTask(ground), publishGround);
+            return TryAnchorRequiredRoute(plan, reserved, sx, sy, out summary, out moatRoute, ResolveAnchorTask(ground, routeSurface), publishGround, routeSurface);
         }
 
         private bool TryAnchorRequiredRoute(PlanScope plan, bool reserved, int sx, int sy,
-            out RouteProbeSummary summary, out bool moatRoute, int task, bool publishGround = false)
+            out RouteProbeSummary summary, out bool moatRoute, int task, bool publishGround = false, RouteSurfaceClass surface = RouteSurfaceClass.Any)
         {
             summary = default; moatRoute = false;
             if (!anchorAvailable || task <= 0 || reserved) return false;
@@ -1420,12 +1450,12 @@ namespace Pathfinding.Engine
             }
             else
                 code = AnchorNative.mma_query(anchorContext, task, start, target, AnchorMargin, anchorBuffer, anchorBuffer.Length, out result);
-            return FinishAnchorAnswer(plan, sx, sy, start, target, task, code, result, queried, publishGround, out summary, out moatRoute);
+            return FinishAnchorAnswer(plan, sx, sy, start, target, task, code, result, queried, publishGround, out summary, out moatRoute, surface);
         }
 
         // Shared tail of a core answer (field query or group single route): audit, encoding, plan route.
         private bool FinishAnchorAnswer(PlanScope plan, int sx, int sy, int start, int target, int task, int code, AnchorNative.QueryResult result,
-            long queried, bool publishGround, out RouteProbeSummary summary, out bool moatRoute)
+            long queried, bool publishGround, out RouteProbeSummary summary, out bool moatRoute, RouteSurfaceClass surface = RouteSurfaceClass.Any)
         {
             summary = default; moatRoute = false;
             long answered = System.Diagnostics.Stopwatch.GetTimestamp();
@@ -1451,11 +1481,11 @@ namespace Pathfinding.Engine
             for (int i = 0; i < result.Length; i++) bytes[i >> 1] |= (byte)(anchorBuffer[i] << ((i & 1) * 4));
             // Every route passes the same live audit as Fast's own routes before publication.
             bool encoded = TryFinishFastEncoded(plan.PlayerId, start, target, bytes, result.Length, result.Moat == 0, 0,
-                out WeightedMoatRouteSummary found, out WeightedMoatEncodedRoute route, anchor: true);
+                out WeightedMoatRouteSummary found, out WeightedMoatEncodedRoute route, anchor: true, surface: surface);
             anchorEncodeTicks += System.Diagnostics.Stopwatch.GetTimestamp() - answered;
             if (!encoded) { anchorEncodeRejects++; anchorDecline = "query:auditReject"; return false; }
             plan.QualifiedRoute = new QualifiedMovementRoute(sx, sy, plan.TargetX, plan.TargetY, plan.PlayerId,
-                runtime.mapEpoch, CaptureCurrentGameTick(), runtime.placementRevision, route, found, default, false);
+                runtime.mapEpoch, CaptureCurrentGameTick(), runtime.placementRevision, route, found, default, false, surface, GetMovementSurfaceRevision(surface));
             anchorAuditedRoutes.Add(plan.QualifiedRoute);
             summary = FastSummary(plan.PlayerId, sx, sy, plan.TargetX, plan.TargetY, found.MoatEdges == 0, found);
             moatRoute = found.MoatEdges > 0;

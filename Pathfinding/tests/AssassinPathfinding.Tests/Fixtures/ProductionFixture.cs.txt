@@ -5,9 +5,10 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using APIShared;
 using APIShared.UnitCommands;
+using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
 using BepInEx.Logging;
 enum eChimps { CHIMP_TYPE_ARAB_ASSASIN=73 }
-enum eStructs { STRUCT_GATE_MAIN,STRUCT_GATE_INNER }
 enum AliveState { None,IsAlive,MarkedForDeletion }
 struct GameUnit {
  public uint r_GlobalId,N0000019A; public eChimps r_UnitChimp; public AliveState r_AliveState;
@@ -385,6 +386,48 @@ internal ITemporaryAssassinGateObserver DetailedObserver;internal Dictionary<int
    }
    VERIFY_BOUND_PROFILE
   }
+  // Native kernel (PathfindingAssassin.dll) against the managed bucket search on every terrain: found, cost,
+  public static void VerifyGoodsyard(string directory){
+   AssassinNativeSearch.Load(directory);
+   Assert(Marshal.SizeOf<AssassinNativeSearch.Tables>()==104&&Marshal.OffsetOf<AssassinNativeSearch.Tables>("NonClimbWallFlags").ToInt32()==96,"native search table ABI includes SDK wall exclusion mask");
+   // Exact edge from test_assassinkeep.map SHA256928340F9...F20A034:
+   // stockpile(368,398) flags102,height18,connections04,building0 ->
+   // Keep(367,398) flags10008000,height8,connectionsF1,building1.
+   // Only the two endpoints are retained, so no ordinary entrance can mask a bad shortcut.
+   foreach(int scenario in new[]{0,1,2})foreach(bool reverse in new[]{false,true}){
+    var r=new AssassinPathfindingRuntime("open");
+    try{
+     new Span<byte>(r.validCoordinates,CoordinateCount).Clear();
+     r.validCoordinates[800+1]=r.validCoordinates[800+2]=1;
+     int keep=65,stock=66;
+     r.tileFlags[stock]=(uint)TilePropertyFlag.GoodsyardConnection;
+     r.tileFlags[keep]=0x10008000u;r.heightLayer[stock]=18;r.heightLayer[keep]=8;
+     r.buildingLayer[keep]=1;r.occupancyLayer[stock]=0x04;r.occupancyLayer[keep]=0xF1;
+     if(scenario==1){r.occupancyLayer[stock]|=1<<6;r.occupancyLayer[keep]|=1<<2;}
+     if(scenario==2){r.tileFlags[keep]=(uint)TilePropertyFlag.IsWall;r.heightLayer[keep]=98;}
+     int sx=reverse?1:2,tx=reverse?2:1,from=reverse?keep:stock,to=reverse?stock:keep;
+     bool expected=scenario!=0;
+     r.BindNativeSearch(IntPtr.Zero,IntPtr.Zero);
+     foreach(bool native in new[]{false,true}){
+      r.nativeSearchBound=native;
+      bool found=r.TryBuildWeightedRoute(sx,1,tx,1,TileCount,4,true,true,null,null,out var summary);
+      Assert(found==expected,"stockpile-only wall cannot supply a climb; ordinary and real-wall edges remain (native="+native+",case="+scenario+",reverse="+reverse+")");
+      if(found)Assert(summary.ClimbEdges==(scenario==1?0:1),"ordinary connection precedes climb wall filter");
+     }
+     Assert(r.FindAnyWeightedRoute(sx,1,tx,1,4,true,true,null)==(expected?RouteExistence.Exists:RouteExistence.None),"existence uses same stockpile wall rule");
+     Assert(r.ProvesTargetUnreachable(sx,1,tx,1,true,true,null)==!expected,"reverse proof agrees for stockpile edge");
+     var key=new RouteCacheKey(sx,1,tx,1,TileCount,4,2,true,true,null,true);
+     int cost=AssassinClimbCostPolicy.GetCardinalMovementTicks(4)+(scenario==1?0:r.GetClimbTicks(from,to));
+     var old=new CachedRoute(new[]{800+tx,800+sx},new RouteSearchSummary(2,scenario==1?1:0,scenario==1?0:1,cost,0,0,0,0,false),r,key,0);
+     Assert(r.ValidateCachedRoute(key,old)==expected,"old cached stockpile shortcut is revalidated before publication");
+     r.nativeSearchBound=true;
+     var fieldKey=new SuffixCacheKey(tx,1,4,true,true,0,null,AssassinPathAPI.DirectGatehouseClimbingEnabled);
+     int status=r.RunGroupRoute(r.NewCommand(),fieldKey,sx,1,tx,1,40,57,true,true,null,0,out var group);
+     Assert(status>=0&&(status==AssassinNativeSearch.StatusFound)==expected,"native group field shares stockpile wall eligibility");
+    }finally{r.Release();}
+   }
+  }
+
   // Native kernel (PathfindingAssassin.dll) against the managed bucket search on every terrain: found, cost,
   // route nodes and their costs, edge counts and expansions must be identical, also with climbing off,
   // reserved endpoints off, small node limits and both policy shapes (mask callback, masked transitions).

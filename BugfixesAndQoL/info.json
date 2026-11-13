@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.226",
+  "Version": "1.0.227",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.3",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,13 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.227",
+      "Changes": [
+        "Prevent empty siege engines from claiming engineers who are already operating another engine or manning a tent, covering all eight siege engine types.",
+        "Wait for AI harassment engineers to finish recruitment before sending their group to build. This extends the default-enabled Prevent duplicate engineers host option; existing duplicated crews in saves are not rewritten."
+      ]
+    },
     {
       "Version": "1.0.226",
       "Changes": [

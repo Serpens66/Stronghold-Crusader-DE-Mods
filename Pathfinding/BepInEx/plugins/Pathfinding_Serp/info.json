@@ -3,14 +3,14 @@
   "Author": "Serpens66",
   "Name": "Pathfinding",
   "Description": "Faster and smarter unit movement: shared group routes, better commands, gate routing, Assassin climbing, formations, command queue and synchronized troop movement.",
-  "Version": "0.1.5",
+  "Version": "0.1.7",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.3",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.51.0"
+      "MinimumVersion": "0.53.0"
     }
   ],
   "Manifest": 1,
@@ -19,6 +19,19 @@
     "2.8.0.2"
   ],
   "SerpChangelog": [
+    {
+      "Version": "0.1.7",
+      "Changes": [
+        "Stop treating stockpile platforms as walls for improved Assassin climbing. Assassins use the Keep entrance instead of instantly climbing its side from a nearby stockpile; ordinary wall connections and gatehouse climbing remain available. Requires APIShared 0.53.0."
+      ]
+    },
+    {
+      "Version": "0.1.6",
+      "Changes": [
+        "Keep mounted troops and affected siege engines on suitable surfaces when finding individual and shared group routes, including when fast individual searches are disabled. Foot troops retain their usable wall and stair routes. Existing saved routes are not automatically repaired.",
+        "Keep native route results and memory-limit fallbacks identical across different worker counts for multiplayer."
+      ]
+    },
     {
       "Version": "0.1.5",
       "Changes": [

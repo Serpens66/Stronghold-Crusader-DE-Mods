@@ -1140,7 +1140,7 @@ tribe ID+0x930, tribe global+0x93C, recruitment flag+0x9CA and native role+0xA82
 The native role22 is distinct from AI tribe storage role165. Stored reserve tribe
 global is `0x379FB5C+owner*0x583C`; machine index is `0x379E6E4+owner*0x583C`.
 A live same-owner Engineer with nonzero identity, matching reciprocal tribe ID/global,
-role22, no death/recruitment marker and idle main state0..2 is ready. The entire
+role22, no death/recruitment marker and idle main state0..2, ordinary movement101 or guild waiting105 is ready. The entire
 bitmap including tail and declared count is checked without writing it.
 
 There is no semantic fallback on another DLL: matching instruction bytes cannot
@@ -1153,3 +1153,70 @@ ready, pending, stale, dead, foreign and inconsistent groups, register/flag sent
 both index branches and activation combinations. `Testmods/AiSiegeCrewTest` owns
 live simulation scenarios; it seeds only disposable fixture recruits and calls the
 ordinary AI routine, retaining real placement, pathing, delayed commands and building.
+
+## Automatic crew binding protection
+
+Owner: `SiegeCrew.AutoCrewBindingPatch`, controlled by the existing synchronized
+`EnableSiegeCrewDuplicationFix` and the global master switch. A fourth independent
+activation word and one APIShared claim cover all eight sites together. Hash,
+pristine bytes, first continuation instruction, live bytes, actual displacement
+length and published return jumps are validated through the common installer.
+A conflict disables this group without disabling timeout, fire or recruitment.
+The native contract is the same FBCB9319 image pinned in the preceding crew sections;
+there is no semantic fallback for an unknown layout.
+
+| Device | Site/bytes | Continue | Skip candidate | Candidate anchor |
+| --- | --- | --- | --- | --- |
+|Catapult|0x15258A/15|0x152599|0x152681|R11-0x8F8|
+|Trebuchet|0x153AFA/15|0x153B09|0x153BD6|R11-0x8F8|
+|Mangonel|0x154DBC/16|0x154DCC|0x154E94|R8+R9|
+|Tower|0x15F278/15|0x15F287|0x15F34A|R11-0x6E6|
+|Ram|0x16082A/15|0x160839|0x160907|R11-0x8F8|
+|Shield|0x161549/15|0x161558|0x16161B|R11-0x8F8|
+|Ballista|0x16221C/16|0x16222C|0x1622F5|R8+R9|
+|Fire ballista|0x17224A/15|0x172259|0x172345|R11-0x8F8|
+
+R8 is the unit manager and R9 the existing candidate ID displacement0x490.
+Each complete span is CMP/JNE: type30, except command16 for the tower. Original
+comparisons/branches run once before the activation check, retaining the cheap
+rejection path for unrelated units. Additional checks use only RAX and flags,
+both saved/restored, with no managed callback. Recruitment word+0x9CA must be0.
+Main5/main7 and packed0x0005006D/0x0007006D are excluded as already assigned or
+entering a crew. State8 remains legal because a late builder may need to join
+the device which replaced its completed tent. Existing owner/capture, type,
+distance and target-command rules remain Vanilla; no new same-owner restriction.
+No direct entry exists in a span interior across the4478-function scan. Relevant
+SE WorldDistance patches use displacement8FE, outside these spans. Fixes' speed
+and delayed-command patches do not overlap these comparisons.
+
+`AutoBindingTests` executes the production generator with all eight register
+layouts, both original outcomes, all activation combinations, recruitment0/1,
+free/approaching/bound/tent/entering states and full GPR/flag/data sentinels.
+Already duplicated save crews are not reassigned on load. The supplied before/
+happened saves and actual state6 re-binding trace are preserved as investigation
+evidence, separately from implementation and live acceptance.
+
+### Live acceptance, 2026-11-13
+
+The supplied before save reproduces multiple live devices sharing the same
+ID/global crew pairs with this option disabled, even when both engineers have
+completed recruitment. The full correction ran the original save with Fixes'
+harassment delay both enabled and disabled: ticks26607..37851 and26607..33490,
+respectively, with zero new alias pairs. It also passed three native build/loss
+cycles for each of ready crew, pending peasant and initializing engineer, with
+both delay choices (18 cycles). The early single-tick probes use speed5 so a
+Unity scheduling delay cannot be mistaken for unchanged native recruitment.
+
+Evidence under workspace `.work/a/ai-save/001`: `before-off-long/0fdab722af38`,
+`full-fix-before/724fd1bda2f0`, `full-fix-no-delay/fe73177fd4ee`, and the six
+successful scenarios under `cycles` (the slow-engineer delay-on run is
+`a62fa0b84246`; its earlier timing-fixture failure is not an accepted run).
+The readonly save inspector checks serialized identities and CRCs independently.
+All installation/settings/save rollback checks must pass before calling a run
+complete. These tests do not establish real multiplayer acceptance or repair
+already duplicated crew in the happened snapshot.
+The happened save was separately observed from tick32244 to72295 with all four
+production gates active. Its initial duplicate pair was detected; no new alias
+pairs appeared and no observer errors occurred. Existing stationary role22
+workers and the consequences of old assignments were deliberately not repaired.
+Evidence: `.work/a/ai-save/001/happened-on/edf82879dae6/LogOutput.log`.

@@ -1,8 +1,20 @@
 // Feature: Pure tile eligibility rules for Assassin wall-climb transitions.
+using SHCDESE.Interop.Enums;
+
 namespace Pathfinding
 {
     internal static class AssassinClimbTransitionPolicy
     {
+        // Goodsyard uses IsWall for its walkable platform, not an Assassin climbing
+        // surface. Ordinary connections still win before this fallback is evaluated.
+        public static bool HasClimbWall(uint sourceFlags, uint targetFlags)
+        {
+            const uint required = (uint)TilePropertyFlag.IsWall;
+            const uint excluded = (uint)TilePropertyFlag.GoodsyardRelated;
+            return (sourceFlags & (required | excluded)) == required ||
+                (targetFlags & (required | excluded)) == required;
+        }
+
         public static bool CanUseStartTile(
             bool allowWalkableReservedStartTiles,
             ushort buildingId,

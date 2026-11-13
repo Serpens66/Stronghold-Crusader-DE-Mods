@@ -493,7 +493,7 @@ internal static partial class Program
         // Exercise the production toggle method without publishing executable hooks.
         Type type = mod.GetType("BugfixesAndQoL.SiegeCrew.FixRuntime", true);
         object runtime = FormatterServices.GetUninitializedObject(type);
-        string[] gates = { "timeoutActivation", "aiReadinessActivation", "fireActivation" };
+        string[] gates = { "timeoutActivation", "aiReadinessActivation", "autoBindingActivation", "fireActivation" };
         IntPtr[] words = gates.Select(_ => System.Runtime.InteropServices.Marshal.AllocHGlobal(4)).ToArray();
         try
         {
@@ -504,7 +504,7 @@ internal static partial class Program
             {
                 type.GetMethod("SetEnabled", All).Invoke(runtime, new object[] { master, crew, fire });
                 for (int n = 0; n < gates.Length; n++)
-                    Check(System.Runtime.InteropServices.Marshal.ReadInt32(words[n]) == (master && (n == 2 ? fire : crew) ? 1 : 0),
+                    Check(System.Runtime.InteropServices.Marshal.ReadInt32(words[n]) == (master && (n == 3 ? fire : crew) ? 1 : 0),
                         "independent production siege activation " + gates[n]);
             }
             // An independently failed installation leaves a null gate and must
@@ -512,7 +512,8 @@ internal static partial class Program
             type.GetField("aiReadinessActivation", All).SetValue(runtime, IntPtr.Zero);
             type.GetMethod("SetEnabled", All).Invoke(runtime, new object[] { true, true, false });
             Check(System.Runtime.InteropServices.Marshal.ReadInt32(words[0]) == 1 &&
-                System.Runtime.InteropServices.Marshal.ReadInt32(words[2]) == 0, "absent AI group preserves independent switches");
+                System.Runtime.InteropServices.Marshal.ReadInt32(words[2]) == 1 &&
+                System.Runtime.InteropServices.Marshal.ReadInt32(words[3]) == 0, "absent AI group preserves independent switches");
         }
         finally { foreach (IntPtr word in words) System.Runtime.InteropServices.Marshal.FreeHGlobal(word); }
     }

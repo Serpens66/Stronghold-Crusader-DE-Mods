@@ -48,3 +48,49 @@ configuration bytes. Logs certify only completed steps and matching run identiti
 For a new DLL, repeat the complete production audit and recheck all setup offsets,
 public interop fields, deployed engine mapper, function ABI and normal death path.
 The fixture must never bypass production guards to turn an unknown image green.
+
+## DEVDIAG save and binding observation
+
+`build.bat -SdkRoot <verified SDK> /devdiag /nopause` compiles the diagnostic
+observer through Shared.DevDiag. Without `/devdiag`, all observer registrations,
+native readback and detailed logs are excluded. Save scenarios fail explicitly
+without that build. The normal production mod contains none of this test logic.
+`Run.ps1` accepts `-KeepInstalledLayout` to retain byte-identical unrelated plugins
+when an external process holds a DLL open; the common runner still verifies and
+restores the entire selected installation and APIShared plugin/patcher pair.
+
+Recognized save scenarios are `save-before-on/off` and `save-happened-on/off`.
+They load the named original save through public AutomationRun.LoadSave with the
+explicitly selected current settings and observe at least6656 native ticks,
+beyond the supplied snapshots'5639-tick gap. They inject no units, groups, gold,
+AI orders or repairs. Fresh PlayState and the normal engine monitor guard all
+readback. Original saves are covered by the common runner's inventory rollback.
+
+The process-rooted EngineRunEvents observer samples only advancing native time,
+under the original EngineInterface.threadLock. Existing tribe-order and unit
+transition events report requests, not proof of execution. Completed native
+records provide slot/global identity, type/life/state, recruitment, pending type,
+tribe identity, timeout, positions/path, device crew pairs and tent progress.
+A128-tick summary compares native role22 accounting with physical live Engineers.
+Device crew references use per-type capacities and compare global identities;
+new alias pairs are counted separately from aliases already present at load.
+Save-before-on fails on any new alias pair. Diagnostic faults or insufficient
+native-run samples cannot produce a successful save observation.
+
+No additional native hook is installed by this observer. The module-relative
+unit/device/pool fields use the production crew contracts; bounds are1..9999 for
+units,1..3999 for buildings and1..4499 for tribes. Tent manager0x64CCBB0 has
+stride0x32C; crew count+0x1F6, IDs+0x1FA, globals+0x204 and raw progress+0x2D4
+are the existing builder/provenance layout. Detailed output is bounded to12000
+lines; the counters and guard checks continue after that logging budget.
+
+Early slow-recruit probes run at simulation speed5 because WaitForTicks requests
+at least a number of ticks, not exact single stepping. Speed250 resumes after
+those probes. A delayed Unity frame must not be mistaken for an unchanged
+recruitment flag when the actual native transition already completed.
+
+`Inspect-Saves.ps1` is a separate read-only PowerShell7 CLI. It compiles the
+existing MapParser.Core in memory, verifies canonical hash and native load
+section descriptors, DCL/CRC/lengths and unit/tribe ID bases, and emits JSON.
+No game process or installation is involved. It compares actual ID/global crew
+pairs; missing claims alone are reported without declaring an engineer stranded.

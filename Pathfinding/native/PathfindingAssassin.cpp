@@ -38,6 +38,7 @@ struct BfqAssassinTables {
     int (*maskedTransition)(int from, int to, int direction, int allowClimbing, int allowReserved);
     // IsDirectionAllowed of a policy without a direction mask (test fixtures); unused with policyMask.
     int (*directionAllowed)(int tile, int direction);
+    uint32_t nonClimbWallFlags;        // SDK surface flags which do not supply a climb wall
 };
 struct BfqAssassinRequest {
     int startX, startY, targetX, targetY, maximumNodes, cardinalTicks, diagonalTicks, allowClimbing, allowReserved;
@@ -120,7 +121,8 @@ struct Search {
             targetAccepted = t.specialTile != nullptr && t.specialTile(t.specialContext, target) != 0;
         bool startAccepted = t.building[current] == 0 || (r.allowReserved && t.occupancy[current] != 0) || GatehouseEndpoint(current);
         bool targetBuildingAccepted = t.building[target] == 0 || (r.allowReserved && t.occupancy[target] != 0) || GatehouseEndpoint(target);
-        bool hasWall = ((currentFlags | targetFlags) & IsWallFlag) != 0;
+        const uint32_t wallMask = IsWallFlag | t.nonClimbWallFlags;
+        bool hasWall = (currentFlags & wallMask) == IsWallFlag || (targetFlags & wallMask) == IsWallFlag;
         return targetAccepted && startAccepted && targetBuildingAccepted && hasWall;
     }
     // AssassinClimbCostPolicy.GetAdditionalTicks for a climb edge.
@@ -357,7 +359,7 @@ bool ValidRequest(const BfqAssassinTables* tables, const BfqAssassinRequest* req
 }
 
 extern "C" {
-__declspec(dllexport) int bfq_assassin_contract() { return 0x01000002; }
+__declspec(dllexport) int bfq_assassin_contract() { return 0x01000003; }
 
 // Starts a group field towards the request's target (start fields are ignored) in a free or the least recently
 // used slot and returns its handle (> 0). Negative on invalid arguments, allocation failure, or movement costs

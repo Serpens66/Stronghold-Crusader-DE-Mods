@@ -1,0 +1,7 @@
+# Pathfinding Surface Test native read contract
+
+Reference DLL SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+
+The fixture calls only public Extender/APIShared APIs. `Fixture.Wall.cs` also reads normal wall-command validation scratch immediately after `CreateWall`: offsets `0x204E6E4` (invalid), `0x204E6FC` (query blocked), `0x204E704` (reason) relative to the public tile-manager pointer. The base signature is public `IntPtr GameTileManagerAPI.GetTileManager()`; each field is read as signed `Int32` through `Marshal.ReadInt32(IntPtr, int)`. These are diagnostics, never permissions; reason can be stale. Every requested tile is independently checked through public tile flags/height/building/unit APIs. There are no native writes, function calls or hooks in this test.
+
+Hash verification precedes the first diagnostic access. Unknown image => setup fails before construction/offset reads; no fallback to historical offsets. Reaudit the complete wall validation/execution chain and update the hash/offsets only after evidence. Canonical baseline `UNIT_LOAD_PLACEMENT_CONTRACTS.md` and its `wall-placement-audit.md` establish the range/resource/scratch contract. CF640/6F230 ordinary placement still needs real stored Stone; an SE cost multiplier of zero is not resource provisioning. Normal multipliers0.5/0.25 and actual requested-resource readback establish this fixture's prerequisite.

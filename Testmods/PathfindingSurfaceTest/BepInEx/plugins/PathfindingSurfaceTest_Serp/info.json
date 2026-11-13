@@ -1,0 +1,14 @@
+{
+  "GUID": "PathfindingSurfaceTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Pathfinding Surface Test",
+  "Description": "Explicit-request-only native stair and wall route acceptance. No save writes or OS input.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.14.3",
+  "Dependencies": [
+    { "GUID": "APIShared_Serp", "MinimumVersion": "0.51.0" },
+    { "GUID": "Pathfinding_Serp", "MinimumVersion": "0.1.5" }
+  ],
+  "Manifest": 1,
+  "NetworkMode": 1
+}
