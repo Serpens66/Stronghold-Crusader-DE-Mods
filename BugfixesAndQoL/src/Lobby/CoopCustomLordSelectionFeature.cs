@@ -69,6 +69,8 @@ namespace BugfixesAndQoL
             RequireField(typeof(FRONT_Multiplayer), "coopShowHiddenFriends", AllInstance);
         private static readonly FieldInfo SinglePlayerCoopAllyField =
             RequireField(typeof(FRONT_Multiplayer), "singlePlayerCoopAlly", AllInstance);
+        private static readonly FieldInfo SelectedCoopMissionField =
+            RequireField(typeof(FRONT_Multiplayer), "selectedCoopMissionID", AllInstance);
         private static readonly MethodInfo UpdateHostInfoMethod =
             RequireMethod(typeof(FRONT_Multiplayer), "UpdateHostInfo", AllInstance, typeof(bool));
         private static readonly MethodInfo SetCoopRowMethod =
@@ -257,7 +259,7 @@ namespace BugfixesAndQoL
                 FRONT_Multiplayer.coopGame && !FRONT_Multiplayer.customCoopGame &&
                 string.Equals(command, "COOP_START", StringComparison.Ordinal) && self.AIVs?.Length == 8 &&
                 self.currentLobby?.members != null && self.currentLobby.this_player_to_SteamID_mapping?.Length == 8)
-                Shared.CoopAiStartPlanFactory.PrepareDirectPartner(self.currentLobby, self.AIVs);
+                Shared.CoopAiStartPlanFactory.PrepareDirectPartner(self.currentLobby, self.AIVs, FRONT_Multiplayer.coopGame);
 
             if (string.Equals(command, "CoopSinglePlayer", StringComparison.Ordinal))
                 feature.ClearSelection("new Coop run");
@@ -755,11 +757,11 @@ namespace BugfixesAndQoL
                 return PreviewMultiplayerCoopStart(self);
             int selectedAllyLordType = checked((int)(ulong)SinglePlayerCoopAllyField.GetValue(self));
             if (self.singlePlayerCoop)
-                Shared.CoopAiStartPlanFactory.ValidateLobby(self.currentLobby, self.AIVs);
+                Shared.CoopAiStartPlanFactory.ValidateLobby(self.currentLobby, self.AIVs, FRONT_Multiplayer.coopGame);
             var plans = new List<CoopAiSlotPlan>();
             foreach (Platform_Multiplayer.MPLobbyMember member in self.currentLobby.members)
             {
-                if (member == null || !member.SkirmishMember || member.SkirmishHumanMember)
+                if (!Shared.CoopAiStartPlanFactory.IsAiMember(self.currentLobby, member, FRONT_Multiplayer.coopGame))
                     continue;
                 int playerId = self.currentLobby.getThisPlayerFromSteamID(member.GetSteamID());
                 int lordType = member.GetLordType();
@@ -811,11 +813,11 @@ namespace BugfixesAndQoL
                 if (feature.IsActiveCustomContext(self))
                     CustomLordLobbyUtility.ValidateSelectedCoopPartner(
                         self.currentLobby, self.AIVs, feature.selectedLordName);
-                Shared.CoopAiStartPlanFactory.ValidateLobby(self.currentLobby, self.AIVs);
+                Shared.CoopAiStartPlanFactory.ValidateLobby(self.currentLobby, self.AIVs, FRONT_Multiplayer.coopGame);
                 var expected = new List<CoopAiSlotPlan>();
                 foreach (Platform_Multiplayer.MPLobbyMember member in self.currentLobby.members)
                 {
-                    if (member == null || !member.SkirmishMember || member.SkirmishHumanMember) continue;
+                    if (!Shared.CoopAiStartPlanFactory.IsAiMember(self.currentLobby, member, FRONT_Multiplayer.coopGame)) continue;
                     int id = self.currentLobby.getThisPlayerFromSteamID(member.GetSteamID());
                     CoopAiSlotPlan plan = Shared.CoopAiStartPlanFactory.Create(self.AIVs[id - 1], id,
                         member.GetLordType(), -1, null, true);
@@ -826,8 +828,16 @@ namespace BugfixesAndQoL
                     if (expected.Count == 0) return true;
                     throw new Shared.CoopAiSelectionException("MissingImportPlan", expected[0].PlayerId, "preview unavailable");
                 }
-                if (!feature.coopAiPreview.TryPreview(self.currentLobby.coopTrailID + 1,
-                    self.currentLobby.coopSelectedMission - 1, out CoopAiStartPreview preview, out NativeCapabilityDiagnostic diagnostic))
+                // A restarted lobby leaves its Coop coordinates at CLR defaults.
+                // Read the same selected frontend coordinates as Vanilla's start.
+                int missionIndex = SelectedCoopMissionField.FieldType == typeof(int)
+                    ? (int)SelectedCoopMissionField.GetValue(self) : -1;
+                if (!CoopCustomLordSelectionPolicy.TryResolveCoopStartIdentity(
+                    FrontendMenus.CurrentSelectedTrail, missionIndex, out int coopTrail, out int coopMission))
+                    throw new Shared.CoopAiSelectionException("ImportPlanMismatch", 0,
+                        "selected Coop start identity is unavailable");
+                if (!feature.coopAiPreview.TryPreview(coopTrail,
+                    coopMission, out CoopAiStartPreview preview, out NativeCapabilityDiagnostic diagnostic))
                     throw new Shared.CoopAiSelectionException("ImportPlanMismatch", 0, diagnostic?.Reason ?? "preview unavailable");
                 if (!preview.Succeeded)
                     throw new Shared.CoopAiSelectionException("ImportPlanMismatch", 0, preview.Failure);
@@ -841,7 +851,7 @@ namespace BugfixesAndQoL
                     "Blocked Coop start: trail=" + (self.currentLobby?.coopTrailID + 1) +
                     ", mission=" + self.currentLobby?.coopSelectedMission + ", route=" +
                     (MissionRestart.IsInProgress ? "restart" : FRONT_Multiplayer.skirmishGame ? "customize" : "direct") + "; " + failure +
-                    "; selections=[" + Shared.CoopAiStartPlanFactory.DescribeLobby(self.currentLobby, self.AIVs) + "]");
+                    "; selections=[" + Shared.CoopAiStartPlanFactory.DescribeLobby(self.currentLobby, self.AIVs, FRONT_Multiplayer.coopGame) + "]");
                 HUD_ConfirmationPopup.ShowConfirmationOKMessage(SerpLocalization.Get("CoopAi.StartBlocked"), () => { },
                     SerpLocalization.Get("CoopAi.Error." + failure.Code).Replace("{Player}", failure.PlayerId.ToString()));
                 MainViewModel.Instance.Show_HUD_Confirmation = false;
@@ -862,7 +872,7 @@ namespace BugfixesAndQoL
             var plans = new List<CoopAiSlotPlan>();
             foreach (Platform_Multiplayer.MPLobbyMember member in self.currentLobby.members)
             {
-                if (member == null || !member.SkirmishMember || member.SkirmishHumanMember)
+                if (!Shared.CoopAiStartPlanFactory.IsAiMember(self.currentLobby, member, FRONT_Multiplayer.coopGame))
                     continue;
                 int playerId = self.currentLobby.getThisPlayerFromSteamID(member.GetSteamID());
                 if (playerId < 2 || playerId > 8 || playerId > self.AIVs.Length)
@@ -905,7 +915,7 @@ namespace BugfixesAndQoL
             var snapshot = new Dictionary<int, CoopAiSlotPlan>();
             foreach (Platform_Multiplayer.MPLobbyMember member in lobby.members)
             {
-                if (member == null || !member.SkirmishMember || member.SkirmishHumanMember)
+                if (!Shared.CoopAiStartPlanFactory.IsAiMember(lobby, member, FRONT_Multiplayer.coopGame))
                     continue;
                 int playerId = lobby.getThisPlayerFromSteamID(member.GetSteamID());
                 if (playerId < 2 || playerId > 8)

@@ -572,7 +572,7 @@ namespace ExtendedData
             if (activation.CoopPackages && self?.singlePlayerCoop == true &&
                 string.Equals(command, "COOP_START", StringComparison.Ordinal))
             {
-                try { Shared.CoopAiStartPlanFactory.PrepareDirectPartner(self.currentLobby, self.AIVs); }
+                try { Shared.CoopAiStartPlanFactory.PrepareDirectPartner(self.currentLobby, self.AIVs, FRONT_Multiplayer.coopGame); }
                 catch (Shared.CoopAiSelectionException failure)
                 {
                     LogError(CoopLaunchDiagnostic(self) + ": " + failure);

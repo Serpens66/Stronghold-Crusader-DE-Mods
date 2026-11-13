@@ -61,7 +61,7 @@ namespace BugfixesAndQoL
                     throw new InvalidOperationException("Lobby selection data is unavailable.");
                 foreach (var member in lobby.members)
                 {
-                    if (member == null || !member.SkirmishMember || member.SkirmishHumanMember) continue;
+                    if (!Shared.CoopAiStartPlanFactory.IsAiMember(lobby, member, FRONT_Multiplayer.coopGame)) continue;
                     playerId = lobby.getThisPlayerFromSteamID(member.GetSteamID());
                     lord = member.customLordName ?? string.Empty;
                     if (playerId < 1 || playerId > frontend.AIVs.Length)

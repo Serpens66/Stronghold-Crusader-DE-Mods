@@ -9,6 +9,22 @@ namespace BugfixesAndQoL
         internal static int CustomPartnerLordType => checked((int)AILords.SK_X2 - 1);
         internal static ulong SharedProgressId => checked((ulong)CustomPartnerLordType + 1000UL);
 
+        internal static bool TryResolveCoopStartIdentity(
+            int frontendPage, int selectedMissionIndex, out int coopTrail, out int coopMission)
+        {
+            coopTrail = 0;
+            coopMission = -1;
+            // Vanilla's frontend protocol uses pages 21..24 for native Coop trails 1..4;
+            // the Extender has no corresponding page enum. StartSkirmishGame passes its
+            // already zero-based selectedCoopMissionID unchanged, including on restart.
+            const int firstCoopFrontendPage = 21, lastCoopFrontendPage = 24;
+            if (frontendPage < firstCoopFrontendPage || frontendPage > lastCoopFrontendPage || selectedMissionIndex < 0)
+                return false;
+            coopTrail = frontendPage - firstCoopFrontendPage + 1;
+            coopMission = selectedMissionIndex;
+            return true;
+        }
+
         internal static int CalculatePortraitContentHeight(int customLordCount)
         {
             const int portraitColumns = 9;

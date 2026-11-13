@@ -485,6 +485,7 @@ namespace ExtendedData
                 {
                     return trailSource.Activate(document, source, () =>
                     {
+                        document = MissionSettingsMigration.Migrate(document ?? ModSettingsDefinition.CreateModDefaults());
                         document = ModSettingsJson.NormalizeAndValidate(document, source + ".modSettings");
                         ModSettingsApplication.EnterContext(BuildRestartContext(source, document));
                         ApplyDocument(document, editable, presetLabel);
@@ -521,6 +522,7 @@ namespace ExtendedData
 
             internal ModSettingsDefinition ValidateStrict(ModSettingsDefinition document, string source)
             {
+                document = MissionSettingsMigration.Migrate(document ?? ModSettingsDefinition.CreateModDefaults());
                 document = ModSettingsJson.NormalizeAndValidate(document, source + ".modSettings");
                 ValidateDocumentValues(document);
                 return document;
@@ -542,7 +544,9 @@ namespace ExtendedData
                 coopSettingsDraft.Prepare(source, launchedThroughCustomize, editable, starting,
                     () => Enter(document, editable, source),
                     FreezeWorkingDraft, ReopenWorkingDraft);
-                return GetMissingMentionedMods(document);
+                // Enter owns migration; repeated Ready/lobby callbacks reuse the
+                // effective author document rather than cloning a large source again.
+                return GetMissingMentionedMods(activeCreatorDocument ?? document);
             }
 
             internal bool HasCustomizeDraft => trailContext && launchedThroughCustomize;
@@ -588,7 +592,7 @@ namespace ExtendedData
             internal Dictionary<string, Dictionary<string, TrailCreatorRule>> CaptureCreatorRulesForActiveTrail()
             {
                 var result = new Dictionary<string, Dictionary<string, TrailCreatorRule>>(StringComparer.Ordinal);
-                ModSettingsDefinition document = activeCreatorDocument;
+                ModSettingsDefinition document = CloneDocument(activeCreatorDocument);
                 if (document == null || !trailContext) return result;
                 foreach (var participant in FindCompatibleViewModels())
                 {
@@ -741,7 +745,7 @@ namespace ExtendedData
                 string.Equals(sourceId, ModSettingsWorkingSourceRegistry.MapId, StringComparison.Ordinal) ? "Map" : "Mod defaults";
 
             private static ModSettingsDefinition CloneDocument(ModSettingsDefinition document) =>
-                document == null ? null : ModSettingsJson.ParseObject(ModSettingsJson.Serialize(document));
+                MissionSettingsMigration.Migrate(document);
 
             internal bool IsContextActive(string presetLabel) =>
                 trailContext && string.Equals(activeContextLabel, presetLabel, StringComparison.Ordinal);
@@ -2727,7 +2731,7 @@ namespace ExtendedData
 
             private static void ValidateSinglePlayerCoopAivs(FRONT_Multiplayer self)
             {
-                Shared.CoopAiStartPlanFactory.ValidateLobby(self?.currentLobby, self?.AIVs);
+                Shared.CoopAiStartPlanFactory.ValidateLobby(self?.currentLobby, self?.AIVs, FRONT_Multiplayer.coopGame);
             }
 
             private void FrontendOpenCustomTrailHook(FrontendMenus self, string trailName, int level)
@@ -3373,7 +3377,7 @@ namespace ExtendedData
                     self.CoopMissionChanged(trailId, mission);
                     // Start the editor with the actual partner's defaults, not Vanilla's redundant Rat placeholder.
                     if (self.singlePlayerCoop)
-                        Shared.CoopAiStartPlanFactory.PrepareDirectPartner(self.currentLobby, self.AIVs);
+                        Shared.CoopAiStartPlanFactory.PrepareDirectPartner(self.currentLobby, self.AIVs, FRONT_Multiplayer.coopGame);
                     launchedThroughCustomize = true;
                     if (notifyClients)
                         BroadcastCoopCustomize(trailId, mission);
@@ -3733,7 +3737,7 @@ namespace ExtendedData
             {
                 // Store an independent normalized copy because ApplyDocument removes obsolete
                 // properties from the instance it receives.
-                trailMakerWorkingDocument = ModSettingsJson.ParseObject(ModSettingsJson.Serialize(document));
+                trailMakerWorkingDocument = CloneDocument(document);
                 trailMakerWorkingSnapshots = CaptureCurrentSnapshots(FindCompatibleViewModels());
                 trailMakerTrailPath = string.IsNullOrWhiteSpace(trailPath)
                     ? null
@@ -3782,6 +3786,7 @@ namespace ExtendedData
                     ModSettingsDefinition document = exists
                         ? ModSettingsJson.Read(sidecar)
                         : ModSettingsDefinition.CreateModDefaults();
+                    document = MissionSettingsMigration.Migrate(document);
                     workingSourceContextId = "trail:" + IOPath.GetFullPath(sidecar);
                     return trailSource.Activate(exists ? document : null, workingSourceContextId, () =>
                     {
@@ -3885,6 +3890,15 @@ namespace ExtendedData
                         target.Mods[id].Overrides = entry.Overrides;
                     }
                 }
+                // A registered split can add a new provider before application. Keep
+                // it in the runtime document used for reset sources and author rules.
+                foreach (var item in source.Mods)
+                    if (!target.Mods.ContainsKey(item.Key))
+                        target.Mods[item.Key] = item.Value == null ? null : new ModSettingsEntry
+                        {
+                            PlayerSettings = item.Value.PlayerSettings,
+                            Overrides = item.Value.Overrides
+                        };
             }
 
             private Dictionary<string, Dictionary<string, byte[]>> CaptureCurrentSnapshots(

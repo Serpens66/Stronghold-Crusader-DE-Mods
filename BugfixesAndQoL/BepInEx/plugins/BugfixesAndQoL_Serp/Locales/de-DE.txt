@@ -592,3 +592,5 @@ BugfixesAndQoL.AreaDemolition.GroupPitch=Pechgräben
 BugfixesAndQoL.AreaDemolition.GroupDugMoats=Ausgehobene Burggräben
 BugfixesAndQoL.AreaDemolition.GroupDecorations=Dekorationen und Feuerschalen
 BugfixesAndQoL.AreaDemolition.GroupStockpiles=Lagergebäude
+BugfixesAndQoL.PitchLineTooltip=Ctrl halten: als Linie ziehen.
+BugfixesAndQoL.MoatLineTooltip=Ctrl halten: mit kleinem Pinsel als Linie ziehen.

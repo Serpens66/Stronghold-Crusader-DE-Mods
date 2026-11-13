@@ -7,6 +7,7 @@ internal static class TrailSetupTests
 {
     internal static void Sources()
     {
+        MovedSources();
         var state = new TrailSettingsSourceState();
         var authored = ModSettingsJson.ParseObject("{\"schemaVersion\":3,\"mods\":{\"mod\":{\"playerSettings\":[\"personal\"],\"overrides\":{\"fixed\":17,\"sequence\":[1,2]}}}}");
         string original = ModSettingsJson.Serialize(authored);
@@ -54,6 +55,67 @@ internal static class TrailSetupTests
         Check(!state.IsAvailable && state.Capture() == null && state.ContextId == "", "exit retained a mission source");
         state.Set(null, "trail-without-sidecar");
         Check(!state.IsAvailable, "a missing sidecar became a Trail reset source");
+    }
+
+    private static void MovedSources()
+    {
+        const string oldId = "ExtendedData.Tests.Previous", newId = "ExtendedData.Tests.Current";
+        APIShared.ModSettings.ModSettingsMigration.RegisterModMove(newId, "source-reset",
+            new APIShared.ModSettings.ModSettingsModMove(oldId, newId,
+                new[] { new APIShared.ModSettings.ModSettingMove("Moved", "Moved", typeof(bool)) },
+                new[] { new APIShared.ModSettings.ModSettingMove("EnableMod", "EnableMod", typeof(bool)) },
+                new Dictionary<string, object> { ["NewFeature"] = false }));
+        var source = new ModSettingsDefinition
+        {
+            Mods = new Dictionary<string, ModSettingsEntry>
+            {
+                [oldId] = new ModSettingsEntry
+                {
+                    PlayerSettings = new[] { "Moved" },
+                    Overrides = new Dictionary<string, object> { ["EnableMod"] = true, ["Unmoved"] = 17 }
+                }
+            }
+        };
+        string before = ModSettingsJson.Serialize(source);
+        var migrated = MissionSettingsMigration.Migrate(source);
+        Check(migrated.Mods[newId].PlayerSettings.SequenceEqual(new[] { "Moved" }) &&
+            (bool)migrated.Mods[newId].Overrides["EnableMod"] && !(bool)migrated.Mods[newId].Overrides["NewFeature"],
+            "moved source lost Player/activation rules or enabled a new feature");
+        Check(!migrated.Mods[oldId].PlayerSettings.Contains("Moved") &&
+            Convert.ToInt32(migrated.Mods[oldId].Overrides["Unmoved"]) == 17 && ModSettingsJson.Serialize(source) == before,
+            "migration changed the input or discarded unmoved author rules");
+        Check(ModSettingsJson.Serialize(MissionSettingsMigration.Migrate(migrated)) == ModSettingsJson.Serialize(migrated),
+            "repeated migration changed an effective document");
+        var state = new TrailSettingsSourceState();
+        state.Activate(source, "old-trail", () =>
+        {
+            source.Mods[oldId].Overrides["EnableMod"] = false;
+            return true;
+        });
+        var reset = state.Capture();
+        Check((bool)reset.Mods[newId].Overrides["EnableMod"] && reset.Mods[newId].PlayerSettings.Contains("Moved"),
+            "reset source was copied before migration or captured later live edits");
+        reset.Mods[newId].PlayerSettings[0] = "Changed";
+        reset.Mods[newId].Overrides["EnableMod"] = false;
+        Check(state.Capture().Mods[newId].PlayerSettings.Contains("Moved") &&
+            (bool)state.Capture().Mods[newId].Overrides["EnableMod"], "migrated reset copies share mutable data");
+        source.Mods[newId] = new ModSettingsEntry();
+        var explicitTarget = MissionSettingsMigration.Migrate(source);
+        Check(explicitTarget.Mods.ContainsKey(newId) && explicitTarget.Mods[newId].Overrides.Count == 0 &&
+            explicitTarget.Mods[newId].PlayerSettings.Length == 0, "an explicit empty new owner lost priority");
+        bool applied = false;
+        source.Mods.Remove(newId);
+        source.Mods[oldId].PlayerSettings = Array.Empty<string>();
+        source.Mods[oldId].Overrides["Moved"] = "not a boolean";
+        try
+        {
+            state.Activate(source, "invalid-trail", () => { applied = true; return true; });
+            throw new Exception("invalid moved author value was accepted");
+        }
+        catch (InvalidDataException)
+        {
+            Check(!applied && !state.IsAvailable, "failed migration applied settings or retained the previous reset source");
+        }
     }
 
     internal static void Presentation()

@@ -1,4 +1,5 @@
 using System;
+using APIShared.ModSettings;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.IO;
@@ -50,6 +51,7 @@ namespace Pathfinding.Movement.Tests
 
         internal static void Run(Action<bool, string> check, string project)
         {
+            TestMissionSettingsMove(check);
             string suite = TestWorkDirectory.New("PathfindingMigration");
             int caseNumber = 0;
             Func<string> next = () => { string path = Path.Combine(suite, "case-" + ++caseNumber); Directory.CreateDirectory(path); return path; };
@@ -136,6 +138,75 @@ namespace Pathfinding.Movement.Tests
             Console.WriteLine("Legacy settings migration fixtures: " + suite);
         }
 
+        private static void TestMissionSettingsMove(Action<bool, string> check)
+        {
+            // Real consumer declaration and public APIShared implementation: this catches a missing
+            // moved setting, an incorrect copy policy, or accidental activation of a new-only feature.
+            LegacyMissionSettingsMigration.Register();
+            const string sourceGuid = "BugfixesAndQoL_Serp";
+            string targetGuid = PathfindingPlugin.PluginGuid;
+            string master = nameof(PathfindingViewModel.EnableMod);
+            // Published archive names are the compatibility contract. Keep this fixture independent
+            // of the consumer's key list so accidentally dropping a migrated feature fails here.
+            string[] archivedKeys = { "EnableImprovedManualUnitCommands", "EnableImprovedMoatFilling",
+                "EnableLadderAttackPathfindingFix", "EnableEnemyGatePathfindingFix", "RequireReachableEnemyForAutomaticGateClosing",
+                "EnableImprovedAssassinPathfinding", "EnableImprovedAssassinPathfindingAI", "EnableAssassinGatehouseClimbFix",
+                "EnableAssassinCombatResumeFix", "EnableMoveFormationEnhancements", "EnableExtendedShiftCommandQueue",
+                "EnableTroopMovementFix", "EnableRallyTerrainSlowdownFix", "EnableFastRecruitRallyMovement",
+                "EnableMountedStockpileMovementFix", "EnableAssemblyPointPlacementFix" };
+            string[] newGates = { nameof(PathfindingViewModel.EnablePathfindingCore),
+                nameof(PathfindingViewModel.EnableFriendlyMoatTraversal), nameof(PathfindingViewModel.AvoidFire), nameof(PathfindingViewModel.AvoidPlague) };
+            var source = new MissionModSettingsEntry();
+            source.Overrides.Add(master, false);
+            source.Overrides.Add("UnrelatedBfqolSetting", true);
+            source.PlayerSettings = archivedKeys.Where((_, index) => index % 2 == 0).ToArray();
+            foreach (string key in archivedKeys.Where((_, index) => index % 2 != 0)) source.Overrides.Add(key, false);
+            var document = new MissionModSettingsDocument();
+            document.Mods.Add(sourceGuid, source);
+            MissionModSettingsDocument migrated = ModSettingsMigration.MigrateMissionDocument(document);
+            MissionModSettingsEntry target = migrated.Mods[targetGuid];
+            foreach (string key in archivedKeys)
+                check(source.PlayerSettings.Contains(key) ? target.PlayerSettings.Contains(key) :
+                    target.Overrides.TryGetValue(key, out object moved) && Equals(moved, false),
+                    "mission split preserves the author-selected value mode of " + key);
+            check(Equals(target.Overrides[master], false) && Equals(migrated.Mods[sourceGuid].Overrides[master], false),
+                "mission split copies the disabled master without removing BFQoL's own activation");
+            check(newGates.All(key => target.Overrides.TryGetValue(key, out object value) && Equals(value, false)),
+                "old mission documents explicitly keep new-only Pathfinding gameplay gates off");
+            check(migrated.Mods[sourceGuid].Overrides.ContainsKey("UnrelatedBfqolSetting") &&
+                !migrated.Mods[sourceGuid].PlayerSettings.Any(key => archivedKeys.Contains(key)) &&
+                !migrated.Mods[sourceGuid].Overrides.Keys.Any(key => archivedKeys.Contains(key)),
+                "only moved BFQoL settings leave the source entry");
+            check(source.PlayerSettings.SequenceEqual(archivedKeys.Where((_, index) => index % 2 == 0)) &&
+                source.Overrides.ContainsKey(archivedKeys[1]) && !document.Mods.ContainsKey(targetGuid),
+                "mission migration leaves the source document and nested entries unchanged");
+
+            var playerMaster = new MissionModSettingsDocument();
+            playerMaster.Mods.Add(sourceGuid, new MissionModSettingsEntry {
+                PlayerSettings = new[] { master, archivedKeys[0] }
+            });
+            var playerResult = ModSettingsMigration.MigrateMissionDocument(playerMaster);
+            check(playerResult.Mods[sourceGuid].PlayerSettings.Contains(master) &&
+                playerResult.Mods[targetGuid].PlayerSettings.Contains(master),
+                "copied Player master belongs to both current mod owners after the split");
+
+            var explicitTarget = new MissionModSettingsEntry();
+            explicitTarget.Overrides.Add(master, false);
+            explicitTarget.Overrides.Add(newGates[0], true);
+            document.Mods.Add(targetGuid, explicitTarget);
+            var existing = ModSettingsMigration.MigrateMissionDocument(document);
+            check(existing.Mods[targetGuid].Overrides.Count == explicitTarget.Overrides.Count &&
+                Equals(existing.Mods[targetGuid].Overrides[newGates[0]], true) && existing.Mods[targetGuid].PlayerSettings.Length == 0,
+                "an explicit Pathfinding entry is fully authoritative, including absent moved properties");
+
+            var modern = new MissionModSettingsDocument();
+            modern.Mods.Add(sourceGuid, new MissionModSettingsEntry { Overrides = new Dictionary<string, object> { { master, true } } });
+            check(!ModSettingsMigration.MigrateMissionDocument(modern).Mods.ContainsKey(targetGuid),
+                "a modern BFQoL-only mission cannot be mistaken for a pre-split document");
+            check(!ModSettingsMigration.MigrateMissionDocument(new MissionModSettingsDocument()).Mods.ContainsKey(targetGuid),
+                "a document without old feature settings never enables a new mod");
+        }
+
         private static void TestBootstrapGate(Action<bool, string> check, string project, Func<string> next)
         {
             // Compile the actual production initializer. Only external registration/native services
@@ -150,10 +221,11 @@ namespace Pathfinding.Movement.Tests
             string boundary = @"
 using System;
 namespace APIShared.ModSettings { public static class LobbyModSettingsPresetRegistration {
- public static Action OnRegister; public static void Register(object plugin, object log, string guid, object settings, string xaml, bool logRoutineActivity) { OnRegister(); }
+ public static Action OnRegister; public static void Register(object plugin, object log, string guid, object settings, string xaml, bool logRoutineActivity) { if (Pathfinding.LegacyMissionSettingsMigration.Registrations == 0) throw new InvalidOperationException(""Mission ownership must register first.""); OnRegister(); }
 } }
 namespace Shared { public static class DebugLogHelper { public static bool DiagnosticsEnabled; public static object ForExternalCode(object log) { return log; } public static bool IsCurrentNativeLibraryVersion() { return true; } public static void LogError(object log,string error) {} } }
 namespace Pathfinding {
+public static class LegacyMissionSettingsMigration { public static int Registrations; public static bool Fail; public static void Register() { if (Fail) throw new InvalidOperationException(""Conflicting move registration.""); Registrations++; } }
 public class CrusaderLibraryLoadContext {}
 public static class FormationFeature { public static void Initialize(object context) {} }
 public static class PathfindingNativeCache { public static void Save() {} }
@@ -186,6 +258,10 @@ public class PathfindingPlugin {
                 var corruptPlan = Create(corruptRoot);
                 success = (bool)run.Invoke(Activator.CreateInstance(type), new object[] { (Action)(() => corruptPlan.Prepare(Defaults())), (Func<bool>)(() => corruptPlan.RegistrationSafe), register, true });
                 check(!success && registrations == 1 && corrupt.SequenceEqual(File.ReadAllBytes(corruptTarget)), "actual bootstrap preserves unreadable own settings without registering defaults");
+                Type moveBoundary = compiled.CompiledAssembly.GetType("Pathfinding.LegacyMissionSettingsMigration");
+                moveBoundary.GetField("Fail").SetValue(null, true);
+                success = (bool)run.Invoke(Activator.CreateInstance(type), new object[] { (Action)(() => { }), (Func<bool>)(() => true), register, true });
+                check(!success && registrations == 1, "conflicting mission move registration stops bootstrap before preset defaults or native runtime publication");
             }
         }
     }

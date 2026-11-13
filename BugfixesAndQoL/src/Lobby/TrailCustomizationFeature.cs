@@ -466,7 +466,7 @@ namespace BugfixesAndQoL
             {
                 self.CoopMissionChanged(trailId, missionId);
                 if (self.singlePlayerCoop)
-                    Shared.CoopAiStartPlanFactory.PrepareDirectPartner(self.currentLobby, self.AIVs);
+                    Shared.CoopAiStartPlanFactory.PrepareDirectPartner(self.currentLobby, self.AIVs, FRONT_Multiplayer.coopGame);
                 if (notifyClients)
                     Broadcast(trailId, missionId, launch: false);
 

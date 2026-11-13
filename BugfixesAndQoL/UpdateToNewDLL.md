@@ -3,6 +3,23 @@
 Native contracts of commands, routes, formations, the Shift queue, troop movement, gate routing and Assassin
 routes moved with their code to `Pathfinding/UpdateToNewDLL.md` (2026-11-07).
 
+## Managed local Coop restart validation (2026-11-13)
+
+The AI guards mirror Vanilla `FRONT_Multiplayer.StartSkirmishGame`: a member is human
+when its human flag is set, or when the current Coop context maps it to player 1.
+Vanilla's restart constructor can recreate the Steam host without its human flag;
+it also leaves the new lobby's Coop coordinates and `coopTrailGame` at defaults.
+The shared classifier receives the existing static `FRONT_Multiplayer.coopGame`
+explicitly and never changes roster entries, mappings or flags.
+
+Local AI previews use public static `FrontendMenus.CurrentSelectedTrail` (Vanilla
+frontend pages 21–24 correspond to native Coop trails 1–4) and private instance
+Int32 `FRONT_Multiplayer.selectedCoopMissionID` (already zero-based). The private
+field is read through cached, required reflection with an Int32 check; no publicized
+direct access or reconstructed-lobby fallback is used. Invalid identities block
+the preview. Recheck both member signatures, the page mapping and the Vanilla
+start/restart writer chain on a game update. This adds no native hook or RVA access.
+
 ## Pitch and moat lines (2026-11-11)
 
 The local input, single-tile moat brush, pitch lookup/payment model, queue receipts

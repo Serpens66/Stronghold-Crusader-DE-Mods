@@ -121,3 +121,68 @@ Unit-state guards also affect the decision. The projectile hit function
 `0x192750` uses the same flag selection for its Spearman damage adjustment.
 These instruction checks explain the mode difference for unequal flags.
 The player log did not record the values of those flags.
+
+## Frontend selection visibility, 2026-11-13 [Vanilla facts]
+
+Rechecked against the native and managed SHA-256 values recorded above and actual
+managed module MVID `29ade4ef-f587-422f-a1eb-f81dff066e0a`. These are managed/XAML
+contracts; no new native address or hook is involved.
+
+`MainMenu_CombatButton` sends `ButtonMainMenuCommand` with parameter `Skirmish`.
+`MainViewModel.ButtonMainMenuFunction` forwards it to `FrontendMenus.ButtonClicked`.
+That branch clears the old panels, sets `Show_FrontMenus=true` and
+`Show_Frontend_Skirmish=true`, and begins `MainMenu_ShowSkirmish` (its animation
+content is commented out in this hash). In `FrontendMenus.xaml`, the ancestor
+Grid at line 2632 binds its Visibility to `Show_Frontend_Skirmish`. It contains
+`CoopMenu_Button`, whose command parameter is `Coops` at line 2697. The `Coops`
+branch clears the Skirmish panel and sets `Show_Frontend_Coop=true`, displaying
+the next, separate Coop-selection screen. `Coop` then selects frontend page 21
+and opens the ordinary Coop setup, provided `SteamUser.BLoggedOn()` succeeds.
+Controls placed beside `CoopMenu_Button` belong to the Skirmish screen, even
+when their names or purpose refer to Coop. Looking up a named control does not
+prove that its ancestor screen is visible.
+
+## Local Coop restart roster and identity, 2026-11-13 [Vanilla facts]
+
+`StartSkirmishGame` captures `RestartSkirmishMapInfo.importMembers` and
+`importAIVs` before starting the simulation. Real Steam-lobby human members have
+neither `SkirmishMember` nor `SkirmishHumanMember` set. `importMembers` tests only
+`SkirmishHumanMember`: flagged humans produce the sentinel -1, while other
+members produce `(int)member.id.m_SteamID`. For Steam IDs with a nonnegative low
+Int32, the local human therefore has nonnegative serialized Lord data.
+`MPLobby(RestartSkirmishMapInfo)` reconstructs that entry as a Skirmish member
+without the human flag. The constructor does not write `coopTrailGame`,
+`coopTrailID` or `coopSelectedMission`; they retain false/0/0. This was checked
+against actual assembly IL, not inferred from a publicized reference.
+
+`RestartSkirmishGame` restores that roster, AIVs, setup and header, updates the
+mapping, removes dummy slots and updates the mapping again. It does not restore
+those three lobby fields. Static `FRONT_Multiplayer.coopGame` retains the actual
+Coop context. The subsequent `StartSkirmishGame` explicitly treats
+`member.SkirmishHumanMember || (coopGame && mappedPlayerId == 1)` as human and
+calls `RegisterMPPlayer`; the other members take the AI-registration/AIV path.
+Code classifying local Coop AI must preserve this distinction without changing
+member flags or identities. Extra simulation ticks cannot repair or alter this
+synchronous snapshot/reconstruction contract.
+
+The actual start derives native trail 1..4 from `FrontendMenus.CurrentSelectedTrail`
+21..24 and passes its already zero-based `selectedCoopMissionID` unchanged.
+`CurrentSelectedTrail` is a public static Int32; `selectedCoopMissionID` is a
+private instance Int32. By contrast, lobby `coopSelectedMission` is one-based:
+`CoopMissionChanged` forwards its UI mission unchanged to `SetCoopTrailProgress`.
+Those lobby fields are not the source of restart launch identity. Normal local
+Coop starts do not guarantee a briefing: only `!coopGame` schedules the deferred
+`ButtonGotoBriefing`; the Coop branch clears blackout directly.
+
+Static evidence: hash-matched FrontendMenus, MainViewModel, HUD_Main,
+HUD_IngameMenu, FRONT_Multiplayer, Platform_Multiplayer and EngineInterface,
+plus installed assembly visibility/constructor IL checks. Current task evidence:
+`.work/a/trail-migration/001/start-audit.json` and `restart-audit.json`; the first
+start-route observation was corrected by the ancestor audit above. Runtime
+rechecks using ordinary frontend/HUD commands are archived at
+`.work/t/trail-game/005/2024c96d14ea/LogOutput.log` (2026-11-13 01:20:20..26)
+and `.work/t/trail-game/006/d39959e6ea58/LogOutput.log` (01:21:41..46).
+Both record a visible/enabled package control on the Skirmish screen, a local
+Coop session, a new linked restart session and PASS after fresh PlayState/ticks.
+These runs validate the managed local route; they do not establish multiplayer
+acceptance or new native layout facts.

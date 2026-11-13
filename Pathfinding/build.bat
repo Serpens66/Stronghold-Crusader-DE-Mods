@@ -104,7 +104,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Va
 if not "%ERRORLEVEL%"=="0" goto failed
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\_inspect\AssassinGateClimb\verify.ps1" -SkipPermanentHooks -SkipCommonChecks
 if not "%ERRORLEVEL%"=="0" goto failed
-"%MSBUILD%" "%PROJECT_DIR%tests\Movement.Tests\Movement.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /nologo /v:minimal
+"%MSBUILD%" "%PROJECT_DIR%tests\Movement.Tests\Movement.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%" /nologo /v:minimal
 if not "%ERRORLEVEL%"=="0" goto failed
 "%PROJECT_DIR%tests\Movement.Tests\bin\Movement.Tests.exe"
 if not "%ERRORLEVEL%"=="0" goto failed

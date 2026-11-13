@@ -48,6 +48,6 @@ namespace ExtendedData
         }
 
         private static ModSettingsDefinition Copy(ModSettingsDefinition source) =>
-            source == null ? null : ModSettingsJson.ParseObject(ModSettingsJson.Serialize(source));
+            MissionSettingsMigration.Migrate(source);
     }
 }

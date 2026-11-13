@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>ExtendedData</RootNamespace>
     <AssemblyName>ExtendedData</AssemblyName>
-    <AssemblyVersion>1.0.25.0</AssemblyVersion>
-    <FileVersion>1.0.25.0</FileVersion>
+    <AssemblyVersion>1.0.26.0</AssemblyVersion>
+    <FileVersion>1.0.26.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <Nullable>annotations</Nullable>
@@ -115,6 +115,7 @@
     <Compile Include="..\Shared\Adapters\APIShared\MenuToolTip.cs"><Link>Shared\Adapters\APIShared\MenuToolTip.cs</Link></Compile>
     <Compile Include="src\MissionAssetResolver.cs" />
     <Compile Include="src\MissionAssetException.cs" />
+    <Compile Include="src\MissionSettingsMigration.cs" />
     <Compile Include="src\CoopTrailPackageExporter.cs" />
     <Compile Include="src\ResolvedMission.cs" />
     <Compile Include="src\LordUpload\CustomLordCompatibilityProfile.cs" />

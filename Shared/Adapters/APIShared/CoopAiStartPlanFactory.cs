@@ -19,6 +19,14 @@ namespace Shared
     // supplies plans uses this one translation, so equal selections produce equal plans and merge.
     internal static class CoopAiStartPlanFactory
     {
+        // Vanilla's Coop restart reconstructs the Steam host as a SkirmishMember without the human flag.
+        // StartSkirmishGame still treats mapped player 1 as human when its static coopGame is true;
+        // the reconstructed lobby's coopTrailGame is false, so it cannot identify this context.
+        // Callers pass that actual Vanilla flag; keeping it explicit leaves this adapter pure data logic.
+        internal static bool IsAiMember(Platform_Multiplayer.MPLobby lobby, Platform_Multiplayer.MPLobbyMember member, bool coopGame) =>
+            member != null && member.SkirmishMember && !member.SkirmishHumanMember &&
+            !(coopGame && lobby.getThisPlayerFromSteamID(member.GetSteamID()) == 1);
+
         internal static string Describe(FRONT_Multiplayer.MPAIVInfo info, int lordType) =>
             "lobbyType=" + lordType + ", selectionType=" + (info == null ? "missing" : info.lordType.ToString()) +
             ", lord=" + (info?.lordName ?? "").Replace('\r', ' ').Replace('\n', ' ').Substring(0, Math.Min(120, (info?.lordName ?? "").Length)) +
@@ -32,7 +40,7 @@ namespace Shared
             FRONT_Multiplayer.MPAIVInfo info, int lordType, string extra = "") =>
             new CoopAiSelectionException(code, playerId, Describe(info, lordType) + extra);
 
-        internal static string DescribeLobby(Platform_Multiplayer.MPLobby lobby, FRONT_Multiplayer.MPAIVInfo[] infos)
+        internal static string DescribeLobby(Platform_Multiplayer.MPLobby lobby, FRONT_Multiplayer.MPAIVInfo[] infos, bool coopGame)
         {
             if (lobby?.members == null || lobby.this_player_to_SteamID_mapping?.Length != 8)
                 return "lobby mapping unavailable";
@@ -40,7 +48,7 @@ namespace Shared
             for (int id = 2; id <= 8; id++)
             {
                 var member = lobby.GetLobbyMemberFromThis_PlayerID(id);
-                if (member == null || !member.SkirmishMember || member.SkirmishHumanMember) continue;
+                if (!IsAiMember(lobby, member, coopGame)) continue;
                 slots.Add("player=" + id + ", " + Describe(infos != null && id <= infos.Length ? infos[id - 1] : null,
                     member.GetLordType()));
             }
@@ -80,7 +88,7 @@ namespace Shared
             return castle;
         }
 
-        internal static void ValidateLobby(Platform_Multiplayer.MPLobby lobby, FRONT_Multiplayer.MPAIVInfo[] infos)
+        internal static void ValidateLobby(Platform_Multiplayer.MPLobby lobby, FRONT_Multiplayer.MPAIVInfo[] infos, bool coopGame)
         {
             if (lobby?.members == null || infos == null || infos.Length != 8)
                 throw new CoopAiSelectionException("MissingSelection", 0, "lobby or eight-slot selection array unavailable");
@@ -93,7 +101,7 @@ namespace Shared
             var seen = new HashSet<int>();
             foreach (Platform_Multiplayer.MPLobbyMember member in lobby.members)
             {
-                if (member == null || !member.SkirmishMember || member.SkirmishHumanMember) continue;
+                if (!IsAiMember(lobby, member, coopGame)) continue;
                 int playerId = lobby.getThisPlayerFromSteamID(member.GetSteamID());
                 if (playerId < 2 || playerId > 8 || !seen.Add(playerId))
                     throw Failure("InvalidSlot", playerId, null, member.GetLordType());
@@ -104,13 +112,13 @@ namespace Shared
         // Fresh COOP_START and entry into a new Customize setup only; never a saved/restarted selection.
         // Replacing the entry avoids mutating remembered/package objects.
         internal static void PrepareDirectPartner(Platform_Multiplayer.MPLobby lobby,
-            FRONT_Multiplayer.MPAIVInfo[] infos)
+            FRONT_Multiplayer.MPAIVInfo[] infos, bool coopGame)
         {
             if (lobby?.members == null || lobby.this_player_to_SteamID_mapping == null ||
                 lobby.this_player_to_SteamID_mapping.Length != 8)
                 throw new CoopAiSelectionException("InvalidSlot", 2, "partner lobby mapping unavailable");
             Platform_Multiplayer.MPLobbyMember partner = lobby?.GetLobbyMemberFromThis_PlayerID(2);
-            if (partner == null || !partner.SkirmishMember || partner.SkirmishHumanMember) return;
+            if (!IsAiMember(lobby, partner, coopGame)) return;
             int type = partner.GetLordType();
             if (type < 0 || type >= CoopAiSelectionRules.FirstCustomLordType) return;
             if (infos == null || infos.Length != 8) throw Failure("MissingSelection", 2, null, type);

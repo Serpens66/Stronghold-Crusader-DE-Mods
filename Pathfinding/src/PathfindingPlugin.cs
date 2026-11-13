@@ -6,7 +6,7 @@ using System;
 namespace Pathfinding
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.3")]
-    [BepInDependency(ApiSharedGuid, "0.49.0")]
+    [BepInDependency(ApiSharedGuid, "0.51.0")]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -27,7 +27,7 @@ namespace Pathfinding
 
         public const string PluginGuid = "Pathfinding_Serp";
         public const string PluginName = "Pathfinding";
-        public const string PluginVersion = "0.1.4";
+        public const string PluginVersion = "0.1.5";
 
         // Static roots: the plugin component itself is destroyed by the SHCDE startup cleanup.
         private static PathfindingPlugin processRoot;
@@ -97,6 +97,7 @@ namespace Pathfinding
                 // Registration can persist defaults. Preserve the pre-registration migration intent first.
                 if (legacySettings == null || !legacySettings.RegistrationSafe)
                     throw new InvalidOperationException("Settings registration deferred: the initial settings/migration journal could not be read or saved safely. Retry after fixing the logged file error.");
+                LegacyMissionSettingsMigration.Register();
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Shared.DebugLogHelper.ForExternalCode(Logger),
