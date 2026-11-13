@@ -1,6 +1,7 @@
 """Read-only static audit of the current native image and retained baseline edges."""
 import hashlib
 import json
+import os
 import struct
 import sys
 from pathlib import Path
@@ -8,8 +9,12 @@ import capstone
 import pefile
 
 root = Path(sys.argv[1])
-index = json.loads((root / '_inspect/CrusaderDE-Native-Baseline/CURRENT.json').read_text(encoding='utf-8-sig'))
-manifest = json.loads((root / '_inspect/CrusaderDE-Native-Baseline' / index['databaseManifest']).read_text(encoding='utf-8-sig'))
+local_baseline = root / '_inspect/CrusaderDE-Native-Baseline'
+baseline = Path(os.environ.get('SHCDE_NATIVE_BASELINE_ROOT', str(local_baseline)))
+index = json.loads((local_baseline / 'CURRENT.json').read_text(encoding='utf-8-sig'))
+assert json.loads((baseline / 'CURRENT.json').read_text(encoding='utf-8-sig')) == index
+manifest = json.loads((local_baseline / index['databaseManifest']).read_text(encoding='utf-8-sig'))
+assert json.loads((baseline / index['databaseManifest']).read_text(encoding='utf-8-sig')) == manifest
 native = next(b for b in manifest['binaries'] if b['role'] == 'current-native')
 path = Path(native['sourcePath'])
 assert hashlib.sha256(path.read_bytes()).hexdigest().upper() == index['currentNativeHash'] == native['hash']
@@ -28,7 +33,7 @@ for i in instructions:
     if i.group(capstone.CS_GRP_JUMP) or i.group(capstone.CS_GRP_CALL):
         for operand in i.operands:
             assert not (operand.type == capstone.CS_OP_IMM and base + 0x7EE6B < operand.imm < base + 0x7EE7A)
-edges = root / '_inspect/CrusaderDE-Native-Baseline' / index['currentNativeHash'] / 'exports/xrefs.jsonl'
+edges = baseline / index['currentNativeHash'] / 'exports/xrefs.jsonl'
 for line in edges.read_text(encoding='utf-8-sig').splitlines():
     target = json.loads(line).get('toRva')
     assert not (target and 0x7EE6B < int(target, 16) < 0x7EE7A)
