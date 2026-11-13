@@ -79,6 +79,7 @@ namespace EngineHarness
                 Check(replanResumed == resumed + 1 && !replanWaits.ContainsKey(7) && units.Moves.Count == 0 && tribes.Moves.Count == 1 &&
                     tribes.Moves[0][0] == 3 && tribes.Moves[0][1] == 160 && walker->r_TargetTilePositionX2 == 160 && walker->r_PathPlanStateBitFlags != 0,
                     $"a waiting unit did not resume with its group command once its route was clear (moves={tribes.Moves.Count})");
+                Check(replanSettled.ContainsKey(7), "a foreign policy lost its settled-route bypass");
                 // Without rule tiles or waits the watch returns at once.
                 long checks = replanChecks;
                 for (int i = 0; i < 40; i++) ReplanTick(++ticks);
@@ -166,6 +167,18 @@ namespace EngineHarness
                 Check(replanWaits.Count == 0 && replanResumed == resumed + 2 && tribes.Moves.Count == 1 && tribes.Moves[0][0] == 3 &&
                     walker->r_TargetTilePositionX2 == 160 && second->r_TargetTilePositionX2 == 160 && units.Moves.Count == 0,
                     $"two waiting members of a group did not resume with one group command (moves={tribes.Moves.Count})");
+                Check(!replanSettled.ContainsKey(7) && !replanSettled.ContainsKey(9), "resumed hazard group members were excluded from later checks");
+                // Reverse the probe order: unit 7 is visited before unit 9 issues the shared command.
+                Route(7, 140, 10, new int[0], 140, 10); Route(9, 141, 10, new int[0], 141, 10);
+                due = ticks + 8 - (ticks & 7);
+                replanWaits[7] = new ReplanWait { Global = 9007, Player = 1, TargetX = 160, TargetY = 10, StopX = 140, StopY = 10, Remaining = 20,
+                    Until = due + 400, NextProbe = due + 40, Policy = fireAbortPolicy, Tribe = 3, Order = tribeOrders[3] };
+                replanWaits[9] = new ReplanWait { Global = 9009, Player = 1, TargetX = 161, TargetY = 10, StopX = 141, StopY = 10, Remaining = 20,
+                    Until = due + 400, NextProbe = due, Policy = fireAbortPolicy, Tribe = 3, Order = tribeOrders[3] };
+                tribes.Moves.Clear();
+                while (ticks < due) ReplanTick(++ticks);
+                Check(replanWaits.Count == 0 && tribes.Moves.Count == 1 && !replanSettled.ContainsKey(7) && !replanSettled.ContainsKey(9),
+                    "an earlier-visited member retained a hazard bypass after the shared resume");
 
                 // A formation order (a player move outside 196100): the member walks alone to its own slot in a
                 // tribe of its own and rejoins group 3 on arrival.
@@ -222,11 +235,63 @@ namespace EngineHarness
                 // A group without an observed order (a load without saved cases) is not split up either.
                 tribeOrders.Remove(3);
                 WaitAndResume("a member of a group without an observed order", false, ref ticks);
+
+                // A resumed hazard move must be watched again, also after save/load. A new external
+                // order that takes over from a hazard wait needs the same protection. No test clears
+                // settled entries between the resume/new order and the following hazard check.
+                foreach (bool plague in new[] { false, true })
+                {
+                    fire.ClearAll(); AnchorTick(++ticks); ResetReplanWatch();
+                    var hazardPolicy = new APIShared.Pathfinding.RouteReplanPolicy(3, 50, 10, 400);
+                    fire.ReplanPolicy = hazardPolicy;
+                    fireAbortPolicy = plague ? null : hazardPolicy; plagueAbortPolicy = plague ? hazardPolicy : null;
+                    tribeOrders[3] = plain; second->r_TribeId = 0; second->r_SelectionAllowed = 0;
+                    Route(7, 140, 10, new int[0], 140, 10); answer = tooLong;
+                    StartReplanWait(7, walker, 1, hazardPolicy, 20, 160, 10, 140, 10, ticks);
+                    for (int i = 0; i < 64 && replanWaits.ContainsKey(7); i++) ReplanTick(++ticks);
+                    Check(!replanWaits.ContainsKey(7) && walker->r_TargetTilePositionX2 == 160 && !replanSettled.ContainsKey(7),
+                        $"{(plague ? "plague" : "fire")} resume suppressed later checks");
+                    var entries = new System.Collections.Generic.Dictionary<string, byte[]>();
+                    CaptureMovementCases((name, bytes) => entries.Add(name, bytes));
+                    ResetReplanWatch(); StageMovementCases(entries); ApplyLoadedMovementCases();
+                    Check(!replanSettled.ContainsKey(7), "save/load restored a bypass for a resumed hazard move");
+                    Check(fire.Set(143, 10, APIShared.Pathfinding.RouteTileEffect.Penalty, 254), "second hazard rule rejected");
+                    AnchorTick(++ticks);
+                    long hazardTriggers = replanTriggers;
+                    for (int i = 0; i < 48 && !replanWaits.ContainsKey(7); i++) ReplanTick(++ticks);
+                    Check(replanTriggers == hazardTriggers + 1 && replanWaits.ContainsKey(7),
+                        "a second hazard on the resumed move did not start another wait");
+
+                    // The soldier receives another move while waiting; its target changes to 170.
+                    var newSteps = new int[30]; for (int i = 0; i < newSteps.Length; i++) newSteps[i] = 2;
+                    ObserveTribeOrder(3, true, 170, 10, 0, true, TribeMoveType.DefaultInSync);
+                    Route(7, 140, 10, newSteps, 170, 10);
+                    hazardTriggers = replanTriggers;
+                    for (int i = 0; i < 64 && replanTriggers == hazardTriggers; i++) ReplanTick(++ticks);
+                    Check(replanTriggers == hazardTriggers + 1 && replanWaits.TryGetValue(7, out ReplanWait replacement) && replacement.TargetX == 170,
+                        "a replacement order was excluded from hazard checks after ending the previous wait");
+                }
+                plagueAbortPolicy = null;
+
+                // Foreign policies may intentionally continue through their rule tiles after expiry.
+                fire.ClearAll(); AnchorTick(++ticks); ResetReplanWatch(); tribeOrders[3] = plain;
+                var foreignPolicy = new APIShared.Pathfinding.RouteReplanPolicy(3, 50, 10, 8);
+                fire.ReplanPolicy = foreignPolicy; fireAbortPolicy = null;
+                Route(7, 140, 10, new int[0], 140, 10);
+                StartReplanWait(7, walker, 1, foreignPolicy, 20, 160, 10, 140, 10, ticks);
+                long foreignExpired = replanExpired;
+                for (int i = 0; i < 24 && replanWaits.ContainsKey(7); i++) ReplanTick(++ticks);
+                Check(replanExpired == foreignExpired + 1 && replanSettled.ContainsKey(7), "foreign wait expiry lost its deliberate bypass");
+                Check(fire.Set(143, 10, APIShared.Pathfinding.RouteTileEffect.Penalty, 254), "foreign rule rejected");
+                AnchorTick(++ticks);
+                long foreignTriggers = replanTriggers;
+                for (int i = 0; i < 48; i++) ReplanTick(++ticks);
+                Check(replanTriggers == foreignTriggers && !replanWaits.ContainsKey(7), "a foreign expired move was stopped again");
             }
             finally
             {
                 units.MoveHandler = null; units.Moves.Clear(); fire.ClearAll(); fire.ReplanPolicy = null; AnchorTick(++ticks);
-                *walker = saved; *second = savedSecond; ResetReplanWatch(); fireAbortPolicy = null; settings.AnchorSingleMoves = singleBefore;
+                *walker = saved; *second = savedSecond; ResetReplanWatch(); fireAbortPolicy = plagueAbortPolicy = null; loadedCases = null; settings.AnchorSingleMoves = singleBefore;
                 RemoveTribeTable(table);
             }
         }
@@ -327,6 +392,21 @@ namespace EngineHarness
                     walker->r_TribeId == 1 && table[3].r_UnitsInGroup == 1 && table[1].r_TribeStance == TribeStance.Aggressive && units.Moves.Count == 0 &&
                     fireEscapes.TryGetValue(7, out entry) && entry.ReturnX == 150 && entry.ReturnY == 10 && entry.Kind == FireReturnKind.Position,
                     $"a soldier on fire did not escape off the fire front in a tribe of its own (moves={tribes.Moves.Count})");
+                // Leaving this tile requires crossing burning 149. The ordinary replan watch must
+                // not stop the active escape, regardless of any rules still ahead on that route.
+                Check(APIShared.Pathfinding.RouteTileRules.TryRegister("tests.moatmove", "escape-watch", out APIShared.Pathfinding.RouteTileRuleSet escapeRules, out _),
+                    "escape watch rule registration failed");
+                escapeRules.ReplanPolicy = fireEscapePolicy;
+                Check(escapeRules.Set(149, 10, APIShared.Pathfinding.RouteTileEffect.Penalty, 254), "escape watch hazard rejected");
+                NoteReplanTile(149, 10);
+                try
+                {
+                    long escapeReplanTriggers = replanTriggers;
+                    int escapeMoves = tribes.Moves.Count;
+                    Check(!CheckReplanUnit(7, now) && replanTriggers == escapeReplanTriggers && tribes.Moves.Count == escapeMoves && !replanWaits.ContainsKey(7),
+                        "the ordinary hazard watch interrupted a soldier escaping through fire");
+                }
+                finally { escapeRules.ClearAll(); escapeRules.ReplanPolicy = null; NoteReplanTile(149, 10); }
                 // The last step is still in progress (cursor == length, next tile ahead) on a burning tile: no new escape.
                 long again = escapeReescaped;
                 walker->r_CurrentTilePositionX = 149; walker->r_NextTilePositionX2 = 148; walker->r_CurrentPathPlanIndex = walker->r_PathPlanLength;
@@ -640,7 +720,7 @@ namespace EngineHarness
                     "a solo walker, a wait or the watch state was not restored");
                 Check(Same(Save(), record), "restored replan cases save differently");
                 // The wait resumes with its group's command, the solo walker rejoins on arrival.
-                tribes.Moves.Clear(); replanSettled.Remove(9);
+                tribes.Moves.Clear();
                 while (now < due) ReplanTick(++now);
                 Check(!replanWaits.ContainsKey(9) && tribes.Moves.Count == 1 && tribes.Moves[0][0] == 3 && second->r_TargetTilePositionX2 == 160 && walker->r_TribeId == soloTribe.Own,
                     $"a restored wait did not resume with its group command (moves={tribes.Moves.Count})");

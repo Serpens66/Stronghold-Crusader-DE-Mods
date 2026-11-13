@@ -25,12 +25,10 @@ namespace BugfixesAndQoL.PitchMoatLines
         private const string PitchMoatOriginal = PitchMoatLoadAndTest + "0F8447010000";
         private const string PitchMoatVanillaEntry = "F784B30084890000400040";
         private const int ChoreExecutingSlot = 0x84CC8, ChoreTransferDirection = 0x84CCC;
-        private const int ChoreTransferredBytes = 0x370BF8, ChoreExecutingSender = 0x36FA4C, ChoreLocalSender = 0x36FA50;
-        private const int ChoreSender = 4, ChoreOpcode = 8, ChoreCommandId = 12, ChoreBody = 17;
+        private const int ChoreExecutingSender = 0x36FA4C;
+        private const int ChoreSender = 4, ChoreOpcode = 8, ChoreCommandId = 12;
         private const int ChoreCommandIdStride = 100_000_000;
-        private const int StageAuxiliaryRva = 0x86C1340, EditorChoreActorRva = 0x88E3D78;
-        private const int PitchChoreBytes = 10;
-        private const int PitchChoreShape = (int)eMappers.MAPPER_PITCH_DITCH | (BrushWidth << 16);
+        private const int EditorChoreActorRva = 0x88E3D78;
         private const int LogicOffset = 0x898400, MoatTaskIndexOffset = 0x1EA23F0;
         private const int MoatTaskBase = 0x1F3EE30, MoatTaskLimit = 0x2038E30, MoatTaskStrideShift = 4;
         private const int MoatTaskTile = 0, MoatTaskX = 4, MoatTaskY = 6, MoatTaskOwner = 12;
@@ -77,12 +75,11 @@ namespace BugfixesAndQoL.PitchMoatLines
                 ulong token = NativeAddress(pitchMoatToken);
                 ulong chores = NativeAddress(choreManager);
                 ulong tiles = NativeAddress(tileManager);
-                ulong auxiliary = NativeAddress(Address(StageAuxiliaryRva));
                 pitchMoatHook = new X64InlineHook(target, PitchMoatLength, NullLogger.Instance, PitchMoatSiteName);
                 if (pitchMoatHook.TargetAddress != target || pitchMoatHook.DisplacedByteCount != PitchMoatLength)
                     throw new InvalidOperationException("RedBird selected an unexpected pitch/moat span.");
-                pitchMoatHook.Generate((a, _, __) => EmitPitchMoatStub(a, token, chores, tiles, auxiliary, occupied, vanilla, preserve));
-                VerifyEmittedPitchMoatStub(token, chores, tiles, auxiliary, occupied, vanilla, preserve);
+                pitchMoatHook.Generate((a, _, __) => EmitPitchMoatStub(a, token, chores, tiles, occupied, vanilla, preserve));
+                VerifyEmittedPitchMoatStub(token, chores, tiles, occupied, vanilla, preserve);
 
                 // Once published, the hook and token remain rooted through NativePlacement.rooted.
                 publishing = true;
@@ -132,35 +129,7 @@ namespace BugfixesAndQoL.PitchMoatLines
         private int ReadPitchMoatToken(int offset) => Marshal.ReadInt32(pitchMoatToken, offset);
         private void WritePitchMoatToken(int offset, int value) => Marshal.WriteInt32(pitchMoatToken, offset, value);
 
-        internal bool TryArmPitchMoat(LineTile tile, int tileId, int player, int slot)
-        {
-            if (!PitchMoatReady || (uint)tileId >= GameTileManagerView.NativePackedTileCapacity || (uint)slot >= ChoreQueueCount ||
-                (ReadPitchMoatToken(TokenActive) != 0 && HasQueuedPitchMoatToken()))
-                return false;
-            ClearPitchMoatScope();
-            int sender = Marshal.ReadInt32(choreManager, ChoreLocalSender);
-            bool editorOwner = Read(NativeMapTypeRva) == EditorPitchOwnerMapType;
-            int actor = editorOwner ? Read(EditorChoreActorRva) : sender;
-            int serial = Marshal.ReadInt32(choreManager, ChoreSerialOffset);
-            // The local Chore sender field aliases NativePlayerRva in this image.
-            if (sender != player ||
-                sender < 1 || sender > GamePlayerManagerAPI.MAX_PLAYERS ||
-                actor < 1 || actor > GamePlayerManagerAPI.MAX_PLAYERS ||
-                serial < 0 || serial >= ChoreCommandIdStride)
-                return false;
-
-            WritePitchMoatToken(TokenSlot, slot);
-            WritePitchMoatToken(TokenSender, sender);
-            WritePitchMoatToken(TokenCommand, sender * ChoreCommandIdStride + serial);
-            WritePitchMoatToken(TokenTile, tileId);
-            WritePitchMoatToken(TokenXY, tile.X | (tile.Y << 16));
-            WritePitchMoatToken(TokenActor, actor);
-            WritePitchMoatToken(TokenOpcode, (byte)ChoreType.PlaceBuildingCategory2);
-            WritePitchMoatToken(TokenActive, 1);
-            return true;
-        }
-
-        private bool TryArmNetworkPitchMoat(LineTile tile, int tileId, int player, int commandId)
+        private bool TryArmNetworkPitchMoat(LineTile tile, int tileId, int player, int actor, int commandId)
         {
             if (!PitchMoatReady || ReadPitchMoatToken(TokenActive) != 0 ||
                 (uint)tileId >= GameTileManagerView.NativePackedTileCapacity ||
@@ -181,20 +150,10 @@ namespace BugfixesAndQoL.PitchMoatLines
             WritePitchMoatToken(TokenCommand, commandId);
             WritePitchMoatToken(TokenTile, tileId);
             WritePitchMoatToken(TokenXY, tile.X | (tile.Y << 16));
-            WritePitchMoatToken(TokenActor, player);
+            WritePitchMoatToken(TokenActor, actor);
             WritePitchMoatToken(TokenOpcode, (byte)ChoreType.ScriptExtenderChore);
             WritePitchMoatToken(TokenActive, 1);
             return true;
-        }
-
-        internal bool ConfirmPitchMoatSubmission(bool enqueued)
-        {
-            if (PitchMoatExecuted) return enqueued; // Immediate execution can already have cleared its slot.
-            if (ReadPitchMoatToken(TokenActive) == 0) return false;
-            // A matching queued command can still run even if a separate staging check failed.
-            if (HasQueuedPitchMoatToken()) return enqueued;
-            ClearPitchMoatScope();
-            return false;
         }
 
         internal void ClearPitchMoatScope()
@@ -224,23 +183,10 @@ namespace BugfixesAndQoL.PitchMoatLines
             return state != 0 && state < FreeTerminalState;
         }
 
-        private bool HasQueuedPitchMoatToken()
-        {
-            int slot = ReadPitchMoatToken(TokenSlot);
-            if ((uint)slot >= ChoreQueueCount) return false;
-            IntPtr entry = ChoreSlotAddress(slot);
-            return IsLiveChore(entry) && Marshal.ReadInt32(entry, ChoreSender) == ReadPitchMoatToken(TokenSender) &&
-                Marshal.ReadByte(entry, ChoreOpcode) == (byte)ChoreType.PlaceBuildingCategory2 &&
-                Marshal.ReadInt32(entry, ChoreCommandId) == ReadPitchMoatToken(TokenCommand) &&
-                Marshal.ReadInt32(entry, ChoreBody) == ReadPitchMoatToken(TokenXY) &&
-                Marshal.ReadInt32(entry, ChoreBody + 4) == PitchChoreShape;
-        }
-
         private static void EmitPitchMoatStub(Assembler a, ulong token, ulong chores, ulong tiles,
-            ulong auxiliary, ulong occupied, ulong vanilla, ulong preserve)
+            ulong occupied, ulong vanilla, ulong preserve)
         {
             Label ordinary = a.CreateLabel(), unrelated = a.CreateLabel();
-            Label vanillaPayload = a.CreateLabel(), verified = a.CreateLabel();
             // Preserve the signed occupant load and TEST flags so the ordinary branch can
             // resume at the same target as the native JE. For pitch both targets otherwise
             // reach the same moat-removal entry.
@@ -272,22 +218,8 @@ namespace BugfixesAndQoL.PitchMoatLines
             a.cmp(edx, __dword_ptr[rcx + ChoreSender]); a.jne(unrelated);
             a.mov(edx, __dword_ptr[rax + TokenCommand]);
             a.cmp(edx, __dword_ptr[rcx + ChoreCommandId]); a.jne(unrelated);
-            a.cmp(__dword_ptr[rax + TokenOpcode], (byte)ChoreType.ScriptExtenderChore); a.jne(vanillaPayload);
+            a.cmp(__dword_ptr[rax + TokenOpcode], (byte)ChoreType.ScriptExtenderChore); a.jne(unrelated);
             a.cmp(__byte_ptr[rcx + ChoreOpcode], (byte)ChoreType.ScriptExtenderChore); a.jne(unrelated);
-            a.jmp(verified);
-            a.Label(ref vanillaPayload);
-            a.cmp(__dword_ptr[rax + TokenOpcode], (byte)ChoreType.PlaceBuildingCategory2); a.jne(unrelated);
-            a.cmp(__byte_ptr[rcx + ChoreOpcode], (byte)ChoreType.PlaceBuildingCategory2); a.jne(unrelated);
-            a.mov(rdx, chores);
-            a.cmp(__dword_ptr[rdx + ChoreTransferredBytes], PitchChoreBytes); a.jne(unrelated);
-            a.mov(edx, __dword_ptr[rax + TokenXY]);
-            a.cmp(edx, __dword_ptr[rcx + ChoreBody]); a.jne(unrelated);
-            a.cmp(__dword_ptr[rcx + ChoreBody + 4], PitchChoreShape); a.jne(unrelated);
-            a.mov(rdx, auxiliary);
-            a.movzx(edx, __word_ptr[rdx]);
-            a.cmp(dx, __word_ptr[rcx + ChoreBody + 8]); a.jne(unrelated);
-
-            a.Label(ref verified);
             a.mov(__dword_ptr[rax + TokenActive], 0);
             a.mov(__dword_ptr[rax + TokenOutcome], PitchExecuted);
             a.mov(ecx, __dword_ptr[rbx + rsi * 4 + LogicOffset]);
@@ -320,14 +252,14 @@ namespace BugfixesAndQoL.PitchMoatLines
             a.jmp(occupied);
         }
 
-        private void VerifyEmittedPitchMoatStub(ulong token, ulong chores, ulong tiles, ulong auxiliary,
+        private void VerifyEmittedPitchMoatStub(ulong token, ulong chores, ulong tiles,
             ulong occupied, ulong vanilla, ulong preserve)
         {
             if (pitchMoatHook.State != HookState.Prepared || pitchMoatHook.StubAddress == IntPtr.Zero)
                 throw new InvalidOperationException("RedBird did not prepare a pitch/moat stub.");
             ulong ip = NativeAddress(pitchMoatHook.StubAddress);
             var assembler = new Assembler(64);
-            EmitPitchMoatStub(assembler, token, chores, tiles, auxiliary, occupied, vanilla, preserve);
+            EmitPitchMoatStub(assembler, token, chores, tiles, occupied, vanilla, preserve);
             using (var stream = new MemoryStream())
             {
                 if (!assembler.TryAssemble(new StreamCodeWriter(stream), ip, out string error, out _))

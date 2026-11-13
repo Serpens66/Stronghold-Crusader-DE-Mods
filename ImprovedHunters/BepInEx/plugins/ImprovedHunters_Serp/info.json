@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Improved Hunters",
   "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels and chickens.",
-  "Version": "1.2.1",
+  "Version": "1.2.2",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.2.2",
+      "Changes": [
+        "Report both Tanner meat and armour deliveries through APIShared's confirmed production receipt adapter while retaining ordinary production if optional receipt capture is unavailable."
+      ]
+    },
     {
       "Version": "1.2.1",
       "Changes": [
@@ -672,7 +678,7 @@
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.49.0"
+      "MinimumVersion": "0.52.0"
     }
   ]
 }

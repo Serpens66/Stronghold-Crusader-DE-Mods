@@ -145,6 +145,7 @@
     <Compile Include="../src/ExtraFeaturesViewModel.Popularity.cs" />
     <Compile Include="../src/ExtraFeaturesViewModel.ProductionBonus.cs" />
     <Compile Include="../src/WorkerProductionBonusRuntime.cs" />
+    <Compile Include="../src/ProductionGoodsMoneyRuntime.cs" />
     <Compile Include="WorkerProductionBonusTests.cs" />
     <Compile Include="../src/ExtraFeaturesViewModel.PeriodicGold.cs" />
     <Compile Include="../src/ExtraFeaturesViewModel.TreeRespawn.cs" />

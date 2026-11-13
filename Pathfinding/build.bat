@@ -123,6 +123,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%native\Bui
 if not "%ERRORLEVEL%"=="0" goto failed
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%native\Build-PathfindingAssassin.ps1" -CopyOnly -OutputDirectory "%LOCAL_PLUGIN_DIR%"
 if not "%ERRORLEVEL%"=="0" goto failed
+echo [%date% %time%] Verify package assets against sources
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tests\Test-Preflight.ps1" -VerifyPackage
+if not "%ERRORLEVEL%"=="0" goto failed
 if "%NO_INSTALL%"=="1" goto built_without_install
 echo [%date% %time%] Install package
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tests\Install-Package.ps1" -GameDir "%GAME_DIR%"

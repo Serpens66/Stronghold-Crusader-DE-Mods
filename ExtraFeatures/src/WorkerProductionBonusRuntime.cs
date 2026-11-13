@@ -13,7 +13,7 @@ namespace ExtraFeatures
 {
     // EF owns desired settings and its activation policy. The shared owner performs
     // preparation, native publication, exact state, and all-peer admission.
-    internal sealed class WorkerProductionBonusRuntime
+    internal sealed partial class WorkerProductionBonusRuntime
     {
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel settings;
@@ -32,9 +32,10 @@ namespace ExtraFeatures
         private WorkerProductionStatus pendingFault;
         private bool registered,detailsRequested;
         internal WorkerProductionBonusRuntime(ManualLogSource log,ExtraFeaturesViewModel settings,Action<string,string> showLocalDialog=null,
-            Action<Action> deferPresentation=null,Func<Action,Action> registerPresentation=null,Func<Action,bool> tryPostPresentation=null)
+            Action<Action> deferPresentation=null,Func<Action,Action> registerPresentation=null,Func<Action,bool> tryPostPresentation=null, IProductionGoodsMoneyWorld moneyWorld=null)
         {
             this.log=log;this.settings=settings??throw new ArgumentNullException(nameof(settings));
+            this.moneyWorld=moneyWorld??new ProductionGoodsMoneyWorld();
             this.showLocalDialog=showLocalDialog??ShowLocalDialog;this.deferPresentation=deferPresentation;
             this.registerPresentation=registerPresentation??RegisterPresentation;
             this.tryPostPresentation=tryPostPresentation??TryPostPresentation;
@@ -76,17 +77,30 @@ namespace ExtraFeatures
             settings.SettingChanged+=SettingChanged;
             settings.ProductionBonusDetailsRequested+=()=>{detailsRequested=true;RequestPresentation();};
             WorkerProductionModifiers.TryRegisterObserver(ExtraFeaturesPlugin.PluginGuid,"production-status",StatusChanged,out reason);
+            RegisterMoney();
             PublishDesired();
         }
         private void PublishDesired()
         {
-            registration?.SetProfile(!settings.EnableMod || settings.FixedProductionBonusPercent==50 ? null :
-                new WorkerProductionProfile(fixedBonusPercent:ValueModifierContribution.FixedValue(settings.FixedProductionBonusPercent),
+            bool hasBase = settings.MultiplyGoodsGainHuman != 1 || settings.MultiplyGoodsGainAI != 1;
+            var amounts = new Dictionary<SHCDESE.Interop.eChimps, WorkerProductionValues>();
+            if (hasBase)
+                foreach (var worker in WorkerProductionModifiers.SupportedWorkers)
+                    amounts.Add(worker, new WorkerProductionValues(
+                        ValueModifierContribution.Factor((decimal)settings.MultiplyGoodsGainHuman, ValueModifierStage.AfterFixedValue),
+                        ValueModifierContribution.Factor((decimal)settings.MultiplyGoodsGainAI, ValueModifierStage.AfterFixedValue)));
+            registration?.SetProfile(!settings.EnableMod || (!hasBase && settings.FixedProductionBonusPercent==50) ? null :
+                new WorkerProductionProfile(baseAmounts:amounts,
+                    fixedBonusPercent:settings.FixedProductionBonusPercent==50 ? ValueModifierContribution.None :
+                        ValueModifierContribution.FixedValue(settings.FixedProductionBonusPercent),
                     activation:Shared.SerpsModProfiles.GetProfile(ExtraFeaturesPlugin.PluginGuid,ExtraFeaturesPlugin.PluginName)));
         }
         private void SettingChanged(string name)
         {
-            if(name==nameof(settings.EnableMod) || name==nameof(settings.FixedProductionBonusPercent))PublishDesired();
+            if(name==nameof(settings.EnableMod) || name==nameof(settings.FixedProductionBonusPercent) ||
+                name==nameof(settings.MultiplyGoodsGainHuman) || name==nameof(settings.MultiplyGoodsGainAI))PublishDesired();
+            if(name==nameof(settings.EnableMod) || name==nameof(settings.MultiplyGoodsGainInMoneyHuman) ||
+                name==nameof(settings.MultiplyGoodsGainInMoneyAI)) { RefreshMoneyActivation(false); RequestPresentation(); }
         }
         private void Initializing(MissionLifecycleNotification note)
         {session=note.Context.SessionId;settings.SetFixedProductionBonusMissionLocked(true);}
@@ -140,6 +154,8 @@ namespace ExtraFeatures
             lock(faultSync){fault=pendingFault;pendingFault=null;}
             if(fault!=null)detailsRequested=true;
             string issue=string.Join(" ",state.Issues.Select(value=>Text(value.Code.ToString())).Distinct());
+            string moneyIssue = MoneyAvailabilityIssue();
+            if(moneyIssue.Length!=0)issue+=(issue.Length==0?"":" ")+moneyIssue;
             string readiness=state.PeerReadinessCode;
             string warning=string.IsNullOrEmpty(readiness)?"":Text(readiness);
             if(registration==null)issue=Text("Unavailable")+(issue.Length==0?"":" "+issue);
@@ -149,6 +165,7 @@ namespace ExtraFeatures
             string details=string.Join("\n\n",dialogState.Issues.Select(value=>Text(value.Code.ToString())+"\n"+value.Diagnostic));
             if(rejectedNow && state.RejectedLocalLaunchCode.Length!=0)details+=(details.Length==0?"":"\n\n")+Text(state.RejectedLocalLaunchCode);
             if(warning.Length!=0)details+=(details.Length==0?"":"\n\n")+warning+"\n"+state.PeerReadinessDiagnostic;
+            if(moneyIssue.Length!=0)details+=(details.Length==0?"":"\n\n")+moneyIssue+"\n"+ProductionGoodsReceived.Diagnostic;
             if(details.Length==0)details=SerpLocalization.Get("ExtraFeatures.ProductionBonus.NoIssues");
             showLocalDialog(SerpLocalization.Get("ExtraFeatures.ProductionBonus.DetailsTitle"),details);
         }

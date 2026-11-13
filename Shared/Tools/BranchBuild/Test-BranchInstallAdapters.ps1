@@ -107,6 +107,36 @@ exit /b 0
     $writeTime = [IO.File]::GetLastWriteTimeUtc($traceConfig)
     & $traceDriver
     Assert-Install ($LASTEXITCODE -eq 0 -and [IO.File]::GetLastWriteTimeUtc($traceConfig) -eq $writeTime) 'Identical trace settings were rewritten'
+    # Execute the production game-running gates with only process observation doubled.
+    # Isolated no-install builds may run beside the game; installers and direct local
+    # builds retain their closed-game requirement. These fixtures never touch a real game.
+    foreach ($mod in @('ExtraFeatures','ImprovedHunters')) {
+        $driverSource = [IO.File]::ReadAllText((Join-Path $Workspace ($mod+'/build.bat')))
+        $gateStart = $driverSource.IndexOf('rem Isolated /noinstall builds only write')
+        $gateEnd = $driverSource.IndexOf(':build_driver_game_ready', $gateStart)
+        # The first occurrence is the GOTO operand; locate the label on its own line.
+        $label = [regex]::Match($driverSource.Substring($gateStart), '(?m)^:build_driver_game_ready\r?$')
+        if ($gateStart -lt 0 -or -not $label.Success) { throw "$mod game-running guard boundary changed." }
+        $gateText = $driverSource.Substring($gateStart, $label.Index+$label.Length)
+        $processLine = [regex]::Matches($gateText, '(?m)^powershell\.exe[^\r\n]*Get-Process[^\r\n]*')
+        if ($processLine.Count -ne 1) { throw "$mod process-observation contract changed." }
+        $gateText = $gateText.Replace($processLine[0].Value, 'call :fixture_game_running >nul 2>&1')
+        foreach ($noInstall in @(0,1)) {
+            foreach ($isolated in @(0,1)) {
+                foreach ($running in @(0,1)) {
+                    $header = "@echo off`r`nsetlocal EnableExtensions`r`nset `"NO_INSTALL=$noInstall`"`r`n"
+                    $sourceRoot = if ($isolated) { $fixture } else { '' }
+                    $header += "set `"SHCDE_BRANCH_SOURCE_ROOT=$sourceRoot`"`r`n"
+                    $header += "set `"FIXTURE_GAME_RUNNING=$running`"`r`n"
+                    $guardDriver = Join-Path $fixture ($mod+' running gate.bat')
+                    Write-BranchText $guardDriver ($header+$gateText+"`r`nexit /b 0`r`n:fixture_game_running`r`nexit /b %FIXTURE_GAME_RUNNING%`r`n")
+                    & $guardDriver
+                    $expected = if ($running -and -not ($noInstall -and $isolated)) { 1 } else { 0 }
+                    Assert-Install ($LASTEXITCODE -eq $expected) "$mod game-running gate: noinstall=$noInstall isolated=$isolated running=$running"
+                }
+            }
+        }
+    }
     # Optional mod installers vary by branch; retired directories are not a build
     # contract. The required APIShared builder was read and exercised above.
     $installers = @('APIShared/tools/Build.ps1','Testmods/OutpostTest/Build-OutpostTest.ps1','Pathfinding/tests/Install-Package.ps1','Testmods/DependencyBootstrapProbe/Build.ps1','Testmods/PlagueHeightTest/verify-installed.ps1','Testmods/CrenelatedWallTest/verify-installed.ps1','ExtraFeatures/tools/Verify-Package.ps1')

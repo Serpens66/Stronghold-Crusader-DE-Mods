@@ -17,13 +17,12 @@ namespace BugfixesAndQoL.PitchMoatLines
     internal sealed unsafe partial class NativePlacement
     {
         private const int BrushWidth = 1;
-        private const int MouseDown = 1;
         private const int MoatReserve = 50;
         private const int PitchReserve = 15;
         private const int TileManagerRva = 0x405EDB0, PlayerManagerRva = 0x366C210;
         private const int PathContextRva = 0x60AD660, VegetationManagerRva = 0x32DE440;
         private const int ActiveGridRva = 0x3A11EA4, ActiveMapperRva = 0x60AD45C;
-        private const int NativePlayerRva = 0x88E3D70, NativeShiftRva = 0x8EBA9F;
+        private const int NativePlayerRva = 0x88E3D70;
         private const int NativeModeRva = 0x3665F28, NativeMapTypeRva = 0x3665ED8;
         private const int NativeFreeConstructionRva = 0x3665FC8, NativeBusyRva = 0x366A0F8;
         private const int PitchChargePhaseRva = 0x379D04C, PlayerStride = 0x583C;
@@ -36,10 +35,7 @@ namespace BugfixesAndQoL.PitchMoatLines
         private const int ChoreRva = 0x8574320, ChoreSerialOffset = 0xDA0;
         private const int ChoreQueueCursor = 0x370BF4, ChoreQueueStart = 0xB0BF8, ChoreQueueStride = 0x500;
         private const int ChoreQueueCount = 500, ChoreStateOffset = 9, FreeTerminalState = 10;
-        private const int StageXRva = 0x86C132C, StageYRva = 0x86C1330;
-        private const int StageTypeRva = 0x86C1334, StageDataRva = 0x86C1338, StageVariantRva = 0x86C133C;
-        private const int MapPlacementX = 0x3A11DCC, MapPlacementY = 0x3A11DD0;
-        private const int MoatPlanVariant = 0, MoatCompletedVariant = 2, MoatStageOperation = 0x40000000;
+        private const int MoatPlanVariant = 0, MoatCompletedVariant = 2;
         private const int EditorPitchOwnerMapType = 12;
         private const byte NativePreviewMode = 1;
 
@@ -58,6 +54,14 @@ namespace BugfixesAndQoL.PitchMoatLines
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate int PitchStockValidator(IntPtr players, int mapper, int player, int feedback);
 
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate void MoatPlacement(IntPtr tiles, int player, int packedTileId, int y,
+            int width, uint operation, int variant, byte auxiliary);
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate void MoatPathRefresh(IntPtr pathContext, int radius, int x, int y);
+        private readonly MoatPlacement placeMoat;
+        private readonly MoatPathRefresh refreshMoatPath;
+
         private readonly IntPtr module;
         private readonly IntPtr tileManager;
         private readonly IntPtr choreManager;
@@ -70,7 +74,6 @@ namespace BugfixesAndQoL.PitchMoatLines
         private readonly PitchStockValidator hasPitchStock;
         private readonly LineTile[] submissionTile = new LineTile[1];
         private readonly LineTileState[] submissionState = new LineTileState[1];
-        private PendingNativeCommand pendingCommand;
         private static NativePlacement rooted;
 
         private NativePlacement(CrusaderLibraryLoadContext context)
@@ -86,6 +89,10 @@ namespace BugfixesAndQoL.PitchMoatLines
             findPitchSlot = Bind<FindPitchSlot>(context, FindPitchSlotRva, "4C6391C4C6040241B9010000004D3BD1");
             isRemovableVegetation = Bind<VegetationValidator>(context, 0x107160, "4863C2488D15A66E9C04480FBF1442");
             hasPitchStock = Bind<PitchStockValidator>(context, 0xCC420, "48895C242044894424188954241048894C240855");
+            placeMoat = Bind<MoatPlacement>(context, 0x6FE90, "48895C240844894C24204489442418895424105556574154");
+            refreshMoatPath = Bind<MoatPathRefresh>(context, 0xE3B90, "40535556574883EC284963F88BEA4963F1488BD9");
+            RequireOriginal(context, 0x1C0A0, "3BCA0F4FD18BC2C3", false);
+            RequireOriginal(context, 0x111D0, "48895C24084889742410574883EC40", false);
             RequireOriginal(context, 0x6D580, "89542410535556574155415641574883EC70448B", false);
         }
 
@@ -98,7 +105,7 @@ namespace BugfixesAndQoL.PitchMoatLines
                 VerifyImage(context);
                 var candidate = new NativePlacement(context);
                 rooted = candidate;
-                candidate.InstallMoatWidthHook(context);
+                candidate.RegisterNativeCalls();
                 try
                 {
                     candidate.InstallPitchMoatHook(context);
@@ -108,7 +115,7 @@ namespace BugfixesAndQoL.PitchMoatLines
                     Shared.DebugLogHelper.LogWarning(log, "PITCH_MOAT_LINE_OVERLAP_UNAVAILABLE: " + error);
                 }
                 placement = candidate;
-                Shared.DebugLogHelper.LogInfo(log, "PITCH_MOAT_LINE_NATIVE_READY: reference-rva 0x923AB+18; continuation 0x923BD; " +
+                Shared.DebugLogHelper.LogInfo(log, "PITCH_MOAT_LINE_NATIVE_READY: reference-rva moat execution 0x6FE90 / path refresh 0xE3B90; " +
                     "validators 0x77E60 / 0x5CA40 / 0xEC130; capacity 0x6C990 / 0x6C9D0; pitch lookup 0x695C0; editor vegetation 0x107160.");
                 return true;
             }
@@ -122,8 +129,8 @@ namespace BugfixesAndQoL.PitchMoatLines
         private bool IsPitch(int mapper) => mapper == (int)eMappers.MAPPER_PITCH_DITCH;
         private bool IsMoat(int mapper) => mapper == (int)eMappers.MAPPER_MOAT || mapper == (int)eMappers.MAPPER_DUGMOAT;
         private eGameTypeModes Mode => (eGameTypeModes)Read(NativeModeRva);
+        internal PitchLineOperation MoatOperation => CompleteMoat ? PitchLineOperation.CompletedMoat : PitchLineOperation.PlannedMoat;
         private bool CompleteMoat => Mode == eGameTypeModes.GAMETYPE_BUILDER || Mode == eGameTypeModes.GAMETYPE_SIEGE_THAT_BUILDER;
-        internal bool IsNativeShiftHeld => Marshal.ReadByte(Address(NativeShiftRva)) != 0;
 
         internal bool IsReadyForMapper(int mapper, bool inGame)
         {
@@ -256,95 +263,6 @@ namespace BugfixesAndQoL.PitchMoatLines
 
         private bool TrackPitchMoat(int mapper, bool allowOverlap) => IsPitch(mapper) && allowOverlap && PitchMoatReady;
 
-        internal NativeSubmitResult TrySubmit(int mapper, int player, bool inGame, bool allowOverlap, LineTile tile)
-        {
-            // A tool change may abandon managed receipts, but cannot cancel an
-            // already queued native field. Let it retire before a new gesture.
-            if (IsCommandPending(pendingCommand)) return NativeSubmitResult.Busy;
-            if (!ValidContext(mapper, player, inGame) || !TryTileId(tile, out int tileId))
-                return NativeSubmitResult.Rejected;
-            if (IsNativeShiftHeld || !TryFindFreeChoreSlot(out int freeSlot))
-                return NativeSubmitResult.Busy;
-            bool pitch = IsPitch(mapper);
-            // The caller freshly quotes this candidate under the same engine monitor.
-            // A Busy retry must go through that quote again on the next tick.
-            bool trackPitch = TrackPitchMoat(mapper, allowOverlap);
-            if (pitch)
-            {
-                var flags = GameTileManagerAPI.Instance.GetTilePropertyFlag(tileId);
-                if ((flags & (TilePropertyFlag.PitchTrap | TilePropertyFlag.IsMoat)) != 0 ||
-                    (!trackPitch && (flags & TilePropertyFlag.PlannedMoat) != 0) ||
-                    !TryGetPitchOwner(tileId, tile, out int owner) || owner != 0 ||
-                    (trackPitch && !TryArmPitchMoat(tile, tileId, player, freeSlot)))
-                    return NativeSubmitResult.Rejected;
-            }
-            else if (GameTileManagerAPI.Instance.GetMoatWorkTaskIndexLayer()[tileId] != 0)
-                return NativeSubmitResult.Rejected;
-
-            int serial = Marshal.ReadInt32(choreManager, ChoreSerialOffset);
-            if (!TryPrepareCommand(pitch ? (byte)ChoreType.PlaceBuildingCategory2 : (byte)ChoreType.SetTileProperty,
-                player, out var command))
-                return NativeSubmitResult.Busy;
-            int action = pitch ? mapper : (int)eMappers.MAPPER_MOAT;
-            int moatVariant = CompleteMoat ? MoatCompletedVariant : MoatPlanVariant;
-            bool enqueued = false;
-            try
-            {
-                if (!pitch)
-                {
-                    widthScope = this;
-                    scopedTile = tile;
-                    scopedPlayer = player;
-                    widthApplied = false;
-                }
-                EngineInterface.PlaceMapperItem(action, tile.X, tile.Y, 0, player, inGame, true, MouseDown);
-                enqueued = Marshal.ReadInt32(choreManager, ChoreSerialOffset) == unchecked(serial + 1) &&
-                    Read(StageXRva) == tile.X && Read(StageYRva) == tile.Y && (pitch
-                    ? Read(StageTypeRva) == (int)eMappers.MAPPER_PITCH_DITCH && Read(StageDataRva) == BrushWidth && Read(StageVariantRva) == 0
-                    : widthApplied && Read(StageTypeRva) == BrushWidth && Read(StageDataRva) == MoatStageOperation && Read(StageVariantRva) == moatVariant);
-            }
-            finally
-            {
-                widthScope = null;
-                if (trackPitch)
-                    enqueued = ConfirmPitchMoatSubmission(enqueued);
-            }
-            if (enqueued)
-            {
-                pendingCommand = command;
-                return NativeSubmitResult.Submitted;
-            }
-            // The unchanged native sequence is a proof that this attempt never entered
-            // the queue. Recheck the whole quote on the next tick before retrying.
-            return Marshal.ReadInt32(choreManager, ChoreSerialOffset) == serial
-                ? NativeSubmitResult.Busy : NativeSubmitResult.Rejected;
-        }
-
-        internal LineReceipt PollReceipt(int mapper, int player, bool inGame, bool allowOverlap, LineTile tile)
-        {
-            if (!ValidContext(mapper, player, inGame) || !TryTileId(tile, out int tileId))
-                return LineReceipt.Rejected;
-            // A same-owner brush/script may have changed the field before this
-            // delayed command. Native states1..9 still await execution, not an ack.
-            if (IsCommandPending(pendingCommand)) return LineReceipt.Pending;
-            var tiles = GameTileManagerAPI.Instance;
-            TilePropertyFlag flags = tiles.GetTilePropertyFlag(tileId);
-            if (IsPitch(mapper))
-            {
-                if ((flags & TilePropertyFlag.PitchTrap) == 0 ||
-                    (TrackPitchMoat(mapper, allowOverlap) && !PitchMoatExecuted))
-                    return IsCommandPending(pendingCommand) ? LineReceipt.Pending : LineReceipt.Rejected;
-                int owner = Read(NativeMapTypeRva) == EditorPitchOwnerMapType ? 1 : player;
-                return TryGetPitchOwner(tileId, tile, out int actualOwner) && actualOwner == owner
-                    ? LineReceipt.Accepted : LineReceipt.Rejected;
-            }
-            TilePropertyFlag expected = CompleteMoat ? TilePropertyFlag.IsMoat : TilePropertyFlag.PlannedMoat;
-            if ((flags & expected) == 0)
-                return IsCommandPending(pendingCommand) ? LineReceipt.Pending : LineReceipt.Rejected;
-            return tiles.TryGetMoatWorkTaskAtTile(tile.X, tile.Y, out var moat) && moat.Pointer->r_OwnerPlayerId == player
-                ? LineReceipt.Accepted : LineReceipt.Rejected;
-        }
-
         internal readonly struct PendingNativeCommand
         {
             internal readonly int Slot, Sender, CommandId;
@@ -374,14 +292,63 @@ namespace BugfixesAndQoL.PitchMoatLines
                 Marshal.ReadInt32(slot, ChoreCommandId) == command.CommandId;
         }
 
-        // Called only by the authenticated, synchronous MP receiver under EngineGate.
-        // No local mapper, key, selected player, or client setting participates here.
-        internal LineReceipt ExecuteNetworkPitch(LineTile tile, int player, int commandId)
+        // Captured on Unity before submission. In MapType12 Vanilla28 uses a
+        // separate editor actor; neither a later tool nor an editor-player switch
+        // is allowed to reinterpret the already submitted batch.
+        internal bool TryGetBatchActor(int sender, out int actor)
         {
-            if (!PitchMoatReady || player < 1 || player > GamePlayerManagerAPI.MAX_PLAYERS ||
-                !GamePlayerManagerAPI.Instance.IsPlayerIdValid(player) ||
-                Marshal.ReadInt32(choreManager, ChoreExecutingSender) != player)
+            actor = Read(NativeMapTypeRva) == EditorPitchOwnerMapType ? Read(EditorChoreActorRva) : sender;
+            return sender >= 1 && sender <= GamePlayerManagerAPI.MAX_PLAYERS &&
+                actor >= 1 && actor <= GamePlayerManagerAPI.MAX_PLAYERS;
+        }
+
+        internal bool BatchReady => PitchMoatReady && placeMoat != null && refreshMoatPath != null;
+
+        internal bool IsBatchActorAllowed(int sender, int actor, bool isEditor) =>
+            sender >= 1 && sender <= GamePlayerManagerAPI.MAX_PLAYERS &&
+            actor >= 1 && actor <= GamePlayerManagerAPI.MAX_PLAYERS &&
+            (actor == sender || isEditor && Read(NativeMapTypeRva) == EditorPitchOwnerMapType);
+
+        internal bool IsBatchOperationAllowed(PitchLineOperation operation) =>
+            operation == PitchLineOperation.Pitch ||
+            operation == (CompleteMoat ? PitchLineOperation.CompletedMoat : PitchLineOperation.PlannedMoat);
+
+        // Called synchronously by the authenticated106 receiver under EngineGate,
+        // in local games as well as MP. No local tool/view/input is consulted.
+        internal LineReceipt ExecuteBatchTile(PitchLineOperation operation, LineTile tile,
+            int sender, int actor, int commandId)
+        {
+            if (!BatchReady || !IsBatchOperationAllowed(operation) ||
+                GameTileManagerAPI.Instance.GetTileManager() != tileManager ||
+                GamePlayerManagerAPI.Instance.GetPlayerManager() != Address(PlayerManagerRva) ||
+                GameGlobalsManager.Instance.ChoreManagerVA != unchecked((ulong)choreManager.ToInt64()) ||
+                !IsExecutingBatch(sender, commandId) ||
+                !GamePlayerManagerAPI.Instance.IsPlayerIdValid(sender) ||
+                !GamePlayerManagerAPI.Instance.IsPlayerIdValid(actor))
                 return LineReceipt.Rejected;
+            if (operation == PitchLineOperation.Pitch)
+                return ExecuteBatchPitch(tile, sender, actor, commandId);
+            if (actor != sender)
+                return LineReceipt.Rejected;
+            return ExecuteBatchMoat(tile, sender, operation == PitchLineOperation.CompletedMoat);
+        }
+
+        private bool IsExecutingBatch(int sender, int commandId)
+        {
+            if (sender < 1 || sender > GamePlayerManagerAPI.MAX_PLAYERS ||
+                Marshal.ReadInt32(choreManager, ChoreExecutingSender) != sender ||
+                Marshal.ReadInt32(choreManager, ChoreTransferDirection) != 0)
+                return false;
+            int slot = Marshal.ReadInt32(choreManager, ChoreExecutingSlot);
+            if ((uint)slot >= ChoreQueueCount) return false;
+            IntPtr entry = ChoreSlotAddress(slot);
+            return Marshal.ReadByte(entry, ChoreOpcode) == (byte)ChoreType.ScriptExtenderChore &&
+                Marshal.ReadInt32(entry, ChoreSender) == sender &&
+                Marshal.ReadInt32(entry, ChoreCommandId) == commandId;
+        }
+
+        private LineReceipt ExecuteBatchPitch(LineTile tile, int sender, int actor, int commandId)
+        {
             if (!TryTileId(tile, out int tileId)) return LineReceipt.Skipped;
             var flags = GameTileManagerAPI.Instance.GetTilePropertyFlag(tileId);
             if ((flags & (TilePropertyFlag.PitchTrap | TilePropertyFlag.IsMoat)) != 0)
@@ -392,24 +359,78 @@ namespace BugfixesAndQoL.PitchMoatLines
             if ((flags & TilePropertyFlag.PlannedMoat) != 0 &&
                 !HasCoherentPlannedMoat(tile, tileId)) return LineReceipt.Skipped;
             submissionTile[0] = tile;
-            ClassifyTiles(true, player, true, submissionTile, submissionState);
+            ClassifyTiles(true, actor, true, submissionTile, submissionState);
             if (submissionState[0] != LineTileState.Buildable) return LineReceipt.Skipped;
-            // Vanilla Chore28 performs this stock check before entering the builder.
-            if (hasPitchStock(Address(PlayerManagerRva), (int)eMappers.MAPPER_PITCH_DITCH, player, 0) == 0)
+            // Vanilla28 checks stock against the issuer before its optional
+            // MapType12 actor substitution. The builder itself retains its debit.
+            if (hasPitchStock(Address(PlayerManagerRva), (int)eMappers.MAPPER_PITCH_DITCH, sender, 0) == 0)
                 return LineReceipt.Rejected;
-            if (!TryArmNetworkPitchMoat(tile, tileId, player, commandId)) return LineReceipt.Rejected;
+            if (!TryArmNetworkPitchMoat(tile, tileId, sender, actor, commandId)) return LineReceipt.Rejected;
             try
             {
-                // Preserve the normal SE validation/build events and native cost cycle.
-                // The ABI return is not a success result; confirm the actual Pitch record.
-                GameBuildingManagerAPI.Instance.CreatePrefab(player, tile.X, tile.Y,
+                GameBuildingManagerAPI.Instance.CreatePrefab(actor, tile.X, tile.Y,
                     eMappers.MAPPER_PITCH_DITCH, BrushWidth, 0, false, false);
                 return PitchMoatExecuted &&
                     (GameTileManagerAPI.Instance.GetTilePropertyFlag(tileId) & TilePropertyFlag.PitchTrap) != 0 &&
-                    TryGetPitchOwner(tileId, tile, out int actualOwner) && actualOwner == player
+                    TryGetPitchOwner(tileId, tile, out int actualOwner) && actualOwner == actor
                     ? LineReceipt.Accepted : LineReceipt.Rejected;
             }
             finally { ClearPitchMoatScope(); }
+        }
+
+        private LineReceipt ExecuteBatchMoat(LineTile tile, int player, bool completed)
+        {
+            if (!TryTileId(tile, out int tileId)) return LineReceipt.Skipped;
+            var tiles = GameTileManagerAPI.Instance;
+            TilePropertyFlag flags = tiles.GetTilePropertyFlag(tileId);
+            if ((flags & (TilePropertyFlag.IsMoat | TilePropertyFlag.PlannedMoat)) != 0 ||
+                tiles.GetMoatWorkTaskIndexLayer()[tileId] != 0)
+                return LineReceipt.Skipped;
+            if (countMoatSlots(tileManager) < MoatReserve) return LineReceipt.Rejected;
+            int keepLimit = Read(KeepPathLimitRva);
+            if (keepLimit < 0 || keepLimit > GameTileManagerAPI.MAX_WIDTH)
+                return LineReceipt.Rejected;
+            if (blocksKeepPath(Address(PathContextRva), tile.X, tile.Y, keepLimit + 5) != 0 ||
+                !IsBatchMoatTileAllowed(tileId, flags, completed))
+                return LineReceipt.Skipped;
+            ApplyMoat(tile, tileId, player, completed);
+            TilePropertyFlag expected = completed ? TilePropertyFlag.IsMoat : TilePropertyFlag.PlannedMoat;
+            if ((tiles.GetTilePropertyFlag(tileId) & expected) == 0)
+                return LineReceipt.Rejected; // The attempted native mutation was not confirmed.
+            return tiles.TryGetMoatWorkTaskAtTile(tile.X, tile.Y, out var task) &&
+                task.Pointer->r_TileId == tileId && task.Pointer->r_TileX == tile.X && task.Pointer->r_TileY == tile.Y &&
+                task.Pointer->r_OwnerPlayerId == player &&
+                task.Pointer->r_Progress == (completed ? MoatCompletedProgress : 0) &&
+                task.Pointer->r_WorkType == (completed ? MoatWorkType.FillDugMoat : MoatWorkType.DigPlannedMoat)
+                ? LineReceipt.Accepted : LineReceipt.Rejected;
+        }
+
+        private void ApplyMoat(LineTile tile, int tileId, int player, bool completed)
+        {
+            // Native Chore21 passes packed X (row offset included), ordinary Y,
+            // width1, IsMoat operation and variant0/2. The terminal function uses
+            // the explicit issuer for all proximity/ownership checks, unlike5CA40.
+            placeMoat(tileManager, player, tileId, tile.Y, BrushWidth,
+                (uint)TilePropertyFlag.IsMoat, completed ? MoatCompletedVariant : MoatPlanVariant, 0);
+            // 111D0 uses max(9,width+3); 1C0A0 is max, not min.
+            refreshMoatPath(Address(PathContextRva), Math.Max(9, BrushWidth + 3), tile.X, tile.Y);
+        }
+
+        private bool IsBatchMoatTileAllowed(int tileId, TilePropertyFlag flags, bool completed)
+        {
+            if (completed) return IsCompletedMoatTileAllowed(tileId, flags);
+            // 5CA40's terrain predicate without its local-player and local pending-
+            // preview reads. Shared proximity rules execute in6FE90 with the issuer.
+            const TilePropertyFlag blocked = TilePropertyFlag.RealityEdge | TilePropertyFlag.IsElevated |
+                TilePropertyFlag.IsBuilding | TilePropertyFlag.IsWall | TilePropertyFlag.Sea |
+                TilePropertyFlag.River | TilePropertyFlag.Ford | TilePropertyFlag.ImpassableEdge |
+                TilePropertyFlag.HasStone | TilePropertyFlag.HasIron | TilePropertyFlag.IsSwamp |
+                TilePropertyFlag.IsFarm;
+            // Height is decided by the live terminal gate in6FE90. Duplicating
+            // Vanilla's <13 test here would bypass ExtraFeatures' elevated-moat hook.
+            return (flags & blocked) == 0 &&
+                Marshal.ReadInt16(tileManager, TileStructureOffset + tileId * sizeof(short)) == 0 &&
+                Marshal.ReadInt16(tileManager, TileVegetationOffset + tileId * sizeof(short)) == 0;
         }
 
         private bool HasCoherentPlannedMoat(LineTile tile, int tileId)

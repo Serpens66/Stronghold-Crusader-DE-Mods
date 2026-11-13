@@ -10,7 +10,7 @@ namespace BugfixesAndQoL.PitchMoatLines
     // Process-rooted runtime; the plugin GameObject is destroyed during startup.
     internal static class PitchMoatLinesFeature
     {
-        internal const string CompatibilityToken = "pitch-moat-lines-v1";
+        internal const string CompatibilityToken = "pitch-moat-lines-batch-v2";
         private static BugfixesAndQoLViewModel settings;
         private static ManualLogSource log;
         private static PitchLineNetwork network;

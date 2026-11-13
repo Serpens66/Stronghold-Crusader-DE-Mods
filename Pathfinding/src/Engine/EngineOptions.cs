@@ -50,10 +50,12 @@ namespace Pathfinding.Engine
         internal static EngineOptions Capture(PathfindingViewModel settings, string pluginDirectory) => new EngineOptions
         {
             PluginDirectory = pluginDirectory, EnablePathfindingCore = settings.EnableMod && settings.EnablePathfindingCore,
-            EnableFriendlyMoatTraversal = settings.EnableFriendlyMoatTraversal, AnchorSingleMoves = settings.AnchorSingleMoves, AvoidFire = settings.AvoidFire,
+            EnableFriendlyMoatTraversal = settings.EnableFriendlyMoatTraversal, AnchorSingleMoves = settings.AnchorSingleMoves,
+            // Release gate: keep hazard avoidance inactive until full in-game acceptance, including saved/preset opt-ins.
+            AvoidFire = false,
             FireWaitSeconds = settings.FireWaitSeconds, FireReturnSeconds = settings.FireReturnSeconds,
             FireDetourPercent = settings.FireDetourPercent, FireDetourMinTiles = settings.FireDetourMinTiles, EscapeFire = settings.EscapeFire,
-            AvoidPlague = settings.AvoidPlague, PlagueWaitSeconds = settings.PlagueWaitSeconds, PlagueReturnSeconds = settings.PlagueReturnSeconds,
+            AvoidPlague = false, PlagueWaitSeconds = settings.PlagueWaitSeconds, PlagueReturnSeconds = settings.PlagueReturnSeconds,
             EscapePlague = settings.EscapePlague, EscapePlagueRaised = settings.EscapePlagueRaised,
         };
     }

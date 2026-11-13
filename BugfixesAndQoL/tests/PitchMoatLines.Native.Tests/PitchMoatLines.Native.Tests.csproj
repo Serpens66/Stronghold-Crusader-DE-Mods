@@ -4,6 +4,7 @@
     <SdkDirectory>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese</SdkDirectory>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../src/PitchMoatLines/LinePolicy.cs" Link="Production/LinePolicy.cs" />
     <Compile Include="../../src/PitchMoatLines/PitchLineNetwork.cs" Link="Production/PitchLineNetwork.cs" />
     <Compile Include="../../src/PitchMoatLines/PitchLineNetworkPacket.cs" Link="Production/PitchLineNetworkPacket.cs" />
     <Reference Include="MessagePack"><HintPath>$(SdkDirectory)\MessagePack.dll</HintPath></Reference>

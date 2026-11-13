@@ -65,10 +65,10 @@ SomeSettings.VanillaValue50=Vanilla value: 50%.
 SomeSettings.KeepStorageContent=Keep Storage Content
 SomeSettings.KeepStorageContentHelp=When enabled, bulldozing a granary, armory, or stockpile keeps the goods stored inside by adding them back as incoming goods.\nIf Granary was built for free can't credit goods back (happens when building it while no wood is on stock)
 SomeSettings.EconomyBuffsTitle=Economy Bonuses
-SomeSettings.MultiplyGoodsGain=Multiply goods gain
-SomeSettings.MultiplyGoodsGainHelp=Multiplier for gained goods. 1 = unchanged, 2 = double, 3 = triple. Values 1 or lower add nothing.
-SomeSettings.MultiplyGoodsAsMoney=Multiply goods as money
-SomeSettings.MultiplyGoodsAsMoneyHelp=Extra gold payouts based on sell value of gained goods. 0 = unchanged, 1 = one sell-value payout, 2 = two payouts.
+SomeSettings.MultiplyGoodsGain=Multiply production output
+SomeSettings.MultiplyGoodsGainHelp=Multiplies actual worker production for humans and AI separately. 1 = unchanged, 2 = double, 0.5 = half, 0 = no output. Includes wheat, flour and bread. Ingredients are still consumed. Production and fear bonuses apply in addition; fractions accumulate per worker. Starting goods, gifts, purchases and storage transfers are not multiplied. Change this setting between missions only.
+SomeSettings.MultiplyGoodsAsMoney=Production income as money
+SomeSettings.MultiplyGoodsAsMoneyHelp=Awards extra gold for goods from real production successfully delivered to player storage. The reward is the current base sell value divided by five, multiplied by the delivered amount and this factor, rounded per receipt. Includes the additional goods from production multipliers and bonuses. Goods are kept. Starting goods, gifts, purchases, refunds and ingredient transfers give no reward. 0 = disabled. Change this setting between missions only.
 SomeSettings.MarketPriceMultipliersTitle=Market Prices
 SomeSettings.MarketGoodPriceMultipliersHelp=The upper slider controls buying and the lower slider selling. Each individual factor is multiplied by its general factor. A combined factor of 1.0 leaves current prices unchanged. Other factors scale Vanilla prices; different direct prices from other mods take precedence and are preserved. Resetting removes only this mod's changes.
 SomeSettings.MarketGoodPriceMultiplierHelp={Good} - {Direction}: {Value}. This individual factor is multiplied by the corresponding general market factor.
@@ -618,3 +618,4 @@ ExtraFeatures.TreeRespawn.Off=Off
 ExtraFeatures.MatureTreeHarvest.Title=Only cut down mature trees
 ExtraFeatures.MatureTreeHarvest.Help=Human and AI woodcutters wait until healthy young trees reach growth stage 3. They can finish cutting damaged young trees and continue harvesting felled logs. Changes apply when starting or loading a map.
 ExtraFeatures.ElevatedMoatTooltip=Designate an area to dig moat. Command engineers and low-ranking troops to dig it. Hold Shift for a larger area. Also possible on elevated terrain.
+ExtraFeatures.ProductionGoods.Unavailable=The production delivery service needed for the money bonus is unavailable. Check the installed mods before starting.

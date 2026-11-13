@@ -65,10 +65,10 @@ SomeSettings.VanillaValue50=Vanilla-Wert: 50%.
 SomeSettings.KeepStorageContent=Lagerinhalt behalten
 SomeSettings.KeepStorageContentHelp=Wenn aktiviert, bleiben beim Abreissen von Kornspeicher, Waffenkammer oder Vorratslager die enthaltenen Gueter erhalten und werden als eingehende Gueter wieder hinzugefuegt. Wurde der Kornspeicher kostenlos gebaut, koennen die Gueter nicht gutgeschrieben werden; dies kann geschehen, wenn beim Bau kein Holz im Lager liegt.
 SomeSettings.EconomyBuffsTitle=Wirtschaftsboni
-SomeSettings.MultiplyGoodsGain=Guetergewinn multiplizieren
-SomeSettings.MultiplyGoodsGainHelp=Multiplikator für erhaltene Gueter. 1 = unverändert, 2 = doppelt, 3 = dreifach. Werte 1 oder kleiner fuegen nichts hinzu.
-SomeSettings.MultiplyGoodsAsMoney=Gueter als Geld multiplizieren
-SomeSettings.MultiplyGoodsAsMoneyHelp=Extra-Goldzahlungen basierend auf dem Verkaufswert erhaltener Gueter. 0 = unverändert, 1 = eine Verkaufswert-Zahlung, 2 = zwei Zahlungen.
+SomeSettings.MultiplyGoodsGain=Produktionsmenge multiplizieren
+SomeSettings.MultiplyGoodsGainHelp=Multipliziert die tatsächliche Arbeiterproduktion für Menschen und KI getrennt. 1 = unverändert, 2 = doppelt, 0,5 = halbiert, 0 = keine Ausgabe. Gilt auch für Weizen, Mehl und Brot. Zutaten werden weiterhin verbraucht. Produktions- und Furchtboni wirken zusätzlich; Bruchteile sammeln sich je Arbeiter. Startwaren, Geschenke, Käufe und Lagerumlagerungen werden nicht multipliziert. Nur zwischen Partien ändern.
+SomeSettings.MultiplyGoodsAsMoney=Produktion zusätzlich als Gold vergüten
+SomeSettings.MultiplyGoodsAsMoneyHelp=Gewährt zusätzliches Gold für Waren aus echter Produktion, die erfolgreich im Spielerlager abgeliefert wurden. Vergütung: aktueller Basisverkaufswert geteilt durch fünf, mal abgelieferter Menge und diesem Faktor; je Eingang gerundet. Enthält zusätzliche Waren aus Produktionsfaktoren und Boni. Die Waren bleiben erhalten. Startwaren, Geschenke, Käufe, Rückerstattungen und Zutatenumlagerungen werden nicht vergütet. 0 = deaktiviert. Nur zwischen Partien ändern.
 SomeSettings.MarketPriceMultipliersTitle=Marktpreise
 SomeSettings.MarketGoodPriceMultipliersHelp=Der obere Regler steuert den Kauf, der untere den Verkauf. Der individuelle Faktor wird mit dem allgemeinen Faktor multipliziert. Ein Gesamtfaktor von 1,0 lässt aktuelle Preise unverändert. Andere Faktoren skalieren Vanilla-Preise; abweichende direkte Preise anderer Mods haben Vorrang und bleiben erhalten. Zurücksetzen nimmt nur eigene Änderungen zurück.
 SomeSettings.MarketGoodPriceMultiplierHelp={Good} - {Direction}: {Value}. Dieser einzelne Faktor wird mit dem entsprechenden allgemeinen Marktfaktor multipliziert.
@@ -618,3 +618,4 @@ ExtraFeatures.TreeRespawn.Off=Aus
 ExtraFeatures.MatureTreeHarvest.Title=Nur ausgewachsene Bäume fällen
 ExtraFeatures.MatureTreeHarvest.Help=Holzfäller von Menschen und KI warten bei gesunden Jungbäumen bis zur Wachstumsstufe 3. Angeschlagene Jungbäume dürfen fertig gefällt und gefällte Stämme weiter abgeerntet werden. Änderungen gelten ab Kartenstart oder Laden.
 ExtraFeatures.ElevatedMoatTooltip=Markiert eine Fläche zum Ausheben eines Grabens. Befehligt Ingenieure und einfache Truppen, den Graben auszuheben. Shift halten: größere Fläche. Auch auf erhöhtem Gelände möglich.
+ExtraFeatures.ProductionGoods.Unavailable=Der für den Geldbonus benötigte Dienst für Produktionseingänge ist nicht verfügbar. Vor dem Start die installierten Mods prüfen.

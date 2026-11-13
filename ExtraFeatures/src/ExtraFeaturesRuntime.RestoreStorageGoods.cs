@@ -80,8 +80,6 @@ namespace ExtraFeatures
         private unsafe void HandleBuildingRefund(BuildingRefundEventArgs args)
         {
             NormalizeRefundPercentage(args);
-            AddResourceRefundGuards(args);
-            RemoveResourceRefundGuards(args);
 
             if (args.Phase != EventHookPhase.Pre || args.BuildingId <= 0 || !settings.KeepStorageContent ||
                 !global::APIShared.BuildingAccess.TryGetById(args.BuildingId, out GameBuilding* building, out _))

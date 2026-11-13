@@ -319,7 +319,9 @@ namespace Pathfinding.Engine
                 {
                     // Another order (player, AI state, group command) took over.
                     replanWaitDone.Add(id); replanEnded++;
-                    replanSettled[id] = new ReplanSettled { Global = wait.Global, TargetX = unit->r_TargetTilePositionX2, TargetY = unit->r_TargetTilePositionY2 };
+                    // A replacement order still needs protection from later fire or drifting plague.
+                    if (IsAbortPolicy(wait.Policy)) replanSettled.Remove(id);
+                    else replanSettled[id] = new ReplanSettled { Global = wait.Global, TargetX = unit->r_TargetTilePositionX2, TargetY = unit->r_TargetTilePositionY2 };
                     continue;
                 }
                 bool expired = tick - wait.Until >= 0;
@@ -367,7 +369,12 @@ namespace Pathfinding.Engine
         private void SettleResumed(int id, ReplanWait wait)
         {
             if (APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) && unit != null && unit->r_GlobalId == wait.Global)
-                replanSettled[id] = new ReplanSettled { Global = wait.Global, TargetX = unit->r_TargetTilePositionX2, TargetY = unit->r_TargetTilePositionY2 };
+            {
+                // Our hazards never grant permission to cross danger: a later hazard on this same
+                // move must be checked again. Foreign policies keep their deliberate wait-expiry bypass.
+                if (IsAbortPolicy(wait.Policy)) replanSettled.Remove(id);
+                else replanSettled[id] = new ReplanSettled { Global = wait.Global, TargetX = unit->r_TargetTilePositionX2, TargetY = unit->r_TargetTilePositionY2 };
+            }
         }
 
         // Resumes the move of a waiting unit (see TribeOrder): the tribe (global id, owner) must still hold

@@ -162,6 +162,9 @@ public static class SettingsPresentationTests
             "production options show the shared resolved bonus");
         Check(production.Attributes["IsEnabled"].Value == "{Binding CanConfigureFixedProductionBonus}",
             "production editor uses the mission and host authority guard");
+        foreach (string key in new[] { "extra.multiply-goods-gain", "extra.multiply-goods-as-money" })
+            Check(nodes.Single(n => Search(n, "Key") == key).Attributes["IsEnabled"].Value == "{Binding CanConfigureProductionGoods}",
+                "Production goods and money editors share the mission and host authority guard: " + key);
         XmlNode productionInput = production.SelectNodes(".//*[local-name()='TextBox']").Cast<XmlNode>().Single();
         Check(productionInput.Attributes["Text"].Value == "{Binding FixedProductionBonusValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" &&
             PopupHelpText(productionInput) == Search(production, "ToolTipText") &&

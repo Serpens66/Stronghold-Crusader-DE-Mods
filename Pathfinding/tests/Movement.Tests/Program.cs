@@ -390,11 +390,19 @@ namespace Pathfinding.Movement.Tests
                     Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_CurrentSpeed2)).ToInt32() == 0x346 &&
                     Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_CurrentSpeed)).ToInt32() == 0x348,
                 "native fastpath offsets match the installed Script Extender GameUnit layout");
-            Check(english.Contains("human-player units") &&
-                    english.Contains("AI units remain unchanged") &&
-                    german.Contains("Einheiten menschlicher Spieler") &&
-                    german.Contains("KI-Einheiten bleiben unverändert"),
+            // Wording guardrail only: check the relevant tooltip, not unrelated locale entries.
+            string englishRallyHelp = english.Split('\n').Single(line =>
+                line.StartsWith("Pathfinding.EnableFastRecruitRallyMovementHelp=", StringComparison.Ordinal));
+            string germanRallyHelp = german.Split('\n').Single(line =>
+                line.StartsWith("Pathfinding.EnableFastRecruitRallyMovementHelp=", StringComparison.Ordinal));
+            Check(englishRallyHelp.Contains("belonging to human players") &&
+                    englishRallyHelp.Contains("AI recruits are unchanged") &&
+                    germanRallyHelp.Contains("Einheiten menschlicher Spieler") &&
+                    germanRallyHelp.Contains("KI-Rekruten bleiben unverändert"),
                 "fast recruit rally help text documents the human-only behavior");
+            Check(englishRallyHelp.Contains("Terrain and other speed modifiers still apply") &&
+                    germanRallyHelp.Contains("Gelände und andere Geschwindigkeitsmodifikatoren wirken weiterhin"),
+                "fast recruit rally help text documents preserved terrain and speed modifiers");
         }
         private static void TestReachableEnemyGatehouseUnitIdContract()
         {

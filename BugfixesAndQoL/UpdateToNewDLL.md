@@ -20,10 +20,10 @@ direct access or reconstructed-lobby fallback is used. Invalid identities block
 the preview. Recheck both member signatures, the page mapping and the Vanilla
 start/restart writer chain on a game update. This adds no native hook or RVA access.
 
-## Pitch and moat lines (2026-11-11)
+## Pitch and moat lines (2026-11-13)
 
-The local input, single-tile moat brush, pitch lookup/payment model, queue receipts
-and authenticated multiplayer pitch scopes are documented in
+The local input, whole-line authenticated Chores in all modes, pitch lookup/payment
+model, native moat execution/path refresh and preservation scopes are documented in
 [PitchMoatLines.Native.md](docs/PitchMoatLines.Native.md).
 Keep these contracts independent of the adjacent MoatTerrain restoration hook.
 

@@ -1,6 +1,29 @@
+[CmdletBinding()]
+param([switch]$VerifyPackage)
 $ErrorActionPreference = 'Stop'
 # Runtime rules of the new mod: no JSON serializers, no teardown of published hooks, consistent identity.
 $modDir = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+if ($VerifyPackage) {
+    # Compare actual bytes after MSBuild: timestamps cannot prove that the release UI is current.
+    $workspaceRoot = [IO.Path]::GetDirectoryName($modDir)
+    . (Join-Path $workspaceRoot 'Shared/Tools/ApiSharedRepository/RepositoryProcess.Common.ps1')
+    $packageRoot = Join-Path $modDir 'BepInEx/plugins/Pathfinding_Serp'
+    $assets = @(Get-Item -LiteralPath (Join-Path $modDir 'info.json'))
+    foreach ($directory in @('Locales', 'Patches', 'Override')) {
+        $assets += @(Get-ChildItem -LiteralPath (Join-Path $modDir $directory) -Recurse -File |
+            Where-Object { $_.Extension -in @('.txt', '.xaml', '.png') })
+    }
+    foreach ($asset in $assets) {
+        $relative = $asset.FullName.Substring($modDir.Length).TrimStart('\', '/')
+        $packaged = Join-Path $packageRoot $relative
+        if (-not (Test-Path -LiteralPath $packaged -PathType Leaf) -or
+            (Get-ApiRepositoryHash $asset.FullName) -cne (Get-ApiRepositoryHash $packaged)) {
+            throw "Packaged asset differs from source: $relative"
+        }
+    }
+    Write-Output "PASS package assets: $($assets.Count) manifest, locale, patch and override files match source bytes."
+    exit 0
+}
 $sources = [IO.Directory]::GetFiles((Join-Path $modDir 'src'), '*.cs', [IO.SearchOption]::AllDirectories)
 $forbidden = 'System\.Web\.Extensions|JavaScriptSerializer|System\.Text\.Json|Newtonsoft\.Json|DataContractJsonSerializer|JsonUtility'
 foreach ($file in $sources) {

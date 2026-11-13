@@ -3,19 +3,26 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.135",
+  "Version": "1.0.136",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.49.0"
+      "MinimumVersion": "0.52.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.136",
+      "Changes": [
+        "Multiply genuine production through APIShared instead of adding bonus stockpile goods; prevent unusable raw-log piles and duplicate bonuses.",
+        "Award production money only for goods actually delivered to storage, including production modifiers. Goods factors from zero to one now reduce output, and both features are locked during a mission."
+      ]
+    },
     {
       "Version": "1.0.135",
       "Changes": [

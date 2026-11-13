@@ -216,3 +216,48 @@ store AX as carry. Their later stock withdrawals at `137D86` and `138E58`
 use the pre-call ingredient count (R13D and R15D, respectively). The Baker
 bread call at `1390F8` follows the full state write `+0x918 = 0x5006D` and
 stores AX for bread delivery. Miller flour is produced in its separate path.
+
+## Final storage receipts (2026-11-13) [Vanilla facts]
+
+Canonical native hash rechecked:
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+Internal function labels remain candidate symbols; the following machine/data
+flows were checked against the current instruction packets, complete relevant
+delivery branches, native xrefs and file-backed tables.
+
+Woodcutter `12BC00` stores raw logs (good1) in its own hut through `B6100` with
+capacity3, converts them into planks (good2), then carries the final plank batch
+computed by `18D940`. `BFD30` nevertheless maps good1 to stockpile type10 and the
+table at `2E5FA0` gives good1 capacity48. `C1CE0` excludes good1 when rebuilding
+usable stockpile totals. Thus inserting bonus raw logs through player add
+`B58B0` can fill an unusable 48-log stockpile tile; the generic low-level storage
+event is not a genuine-production or usable-wood contract.
+
+The final `B6100` CALL RVAs are Wood12CA0C, Hunter130AFF, Pitch1338E0,
+Hops1359A3, Apple1368F5, Cattle1373A7, Iron14E01C, Wheat134A40,
+Miller13827D, Baker1393C7, Ox132E4B, QuarryGrunt132502, Brewer13A51F,
+Fletcher12DD21, Poleturner13B70A, Blacksmith13C898, Armourer13DA12,
+Tanner13EF43. Other calls in those handlers include ingredients and local buffers.
+Both stone carriers can deliver actual output; the Grunt's negative call131F0D
+is a separate pickup. Miller's negative wheat call137D86 and Baker's negative
+flour call138E58 are ingredient withdrawal, not production receipts.
+
+Successful proximity/capacity branches reach these final calls; failed paths
+search for a new storage target or wait/return. Callers decrement carry and
+update statistics after the call without testing its result. Therefore neither
+carry decrease, statistics nor the following Extender dropoff notification proves
+accepted quantity. `B6100` itself checks target GlobalId and local+amount bounds,
+updates local and player totals, recomputes visual and total storage, and returns1
+only on the accepted positive-capacity branch. Capacity0 clears the local field
+and returns0; add0 is a dry run, even when it returns1.
+
+## Receipt integration [mod integration]
+
+APIShared's additive `ProductionGoodsReceived` observes only these final-call
+owners, after effective SE Pre arguments and actual Original mutation. Source
+frames are claimed at wrapper entry, preventing nested Pre additions from stealing
+provenance. Existing weapon owners choose latched recipe OutputGood before their
+call. ImprovedHunters' separate Tanner owner may then select meat/capacity250;
+both of its emitted calls use the shared adapter without another entry hook.
+The source definitions, ABI fixtures and update contract live in APIShared.
+Isolated execution does not establish live game or real multiplayer acceptance.

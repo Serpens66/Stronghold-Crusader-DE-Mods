@@ -594,3 +594,4 @@ BugfixesAndQoL.AreaDemolition.GroupDecorations=Decorations and braziers
 BugfixesAndQoL.AreaDemolition.GroupStockpiles=Storage buildings
 BugfixesAndQoL.PitchLineTooltip=Hold Ctrl: drag to draw a line.
 BugfixesAndQoL.MoatLineTooltip=Hold Ctrl: drag a line with a small brush.
+BugfixesAndQoL.LineSubmissionFailed=The line placement could not be confirmed. Check the fields before placing it again.

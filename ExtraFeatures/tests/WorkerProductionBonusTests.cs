@@ -15,10 +15,53 @@ namespace APIShared.Economy
 {
     public sealed class WorkerProductionProfile
     {
-        public WorkerProductionProfile(ValueModifierContribution fixedBonusPercent=default,GameplayModActivationProfile? activation=null)
-        {FixedBonusPercent=fixedBonusPercent;Activation=activation;}
+        public WorkerProductionProfile(IDictionary<SHCDESE.Interop.eChimps, WorkerProductionValues> baseAmounts=null,
+            ValueModifierContribution fixedBonusPercent=default,GameplayModActivationProfile? activation=null)
+        {BaseAmounts=baseAmounts;FixedBonusPercent=fixedBonusPercent;Activation=activation;}
+        public IDictionary<SHCDESE.Interop.eChimps, WorkerProductionValues> BaseAmounts {get;}
         public ValueModifierContribution FixedBonusPercent {get;}
         public GameplayModActivationProfile? Activation {get;}
+    }
+    public readonly struct WorkerProductionValues
+    {
+        public WorkerProductionValues(ValueModifierContribution human, ValueModifierContribution ai) { Human=human; AI=ai; }
+        public ValueModifierContribution Human {get;}
+        public ValueModifierContribution AI {get;}
+    }
+    public sealed class ProductionGoodsReceipt
+    {
+        public int PlayerId {get;set;}
+        public SHCDESE.Interop.eGoods Good {get;set;}
+        public int Amount {get;set;}
+    }
+    public sealed class ProductionGoodsReceivedRegistration
+    {
+        internal Action<ProductionGoodsReceipt> Observer;
+        internal Action<long, APIShared.GameModes.GameModeSnapshot> Admission;
+        internal Action<long> End;
+        public bool Enabled {get;private set;}
+        public bool Required {get;private set;}
+        public GameplayModActivationProfile? Activation {get;private set;}
+        public void SetEnabled(bool value) { Enabled=value; }
+        public void SetRequiredForMission(bool required, GameplayModActivationProfile? activation=null)
+        { Required=required;Activation=activation; }
+    }
+    public static class ProductionGoodsReceived
+    {
+        internal static readonly List<ProductionGoodsReceivedRegistration> Registrations=new List<ProductionGoodsReceivedRegistration>();
+        public static bool IsAvailable {get;set;}=true;
+        public static string Diagnostic=>IsAvailable ? "" : "fixture receipt unavailable";
+        public static bool TryRegister(string owner,string id,Action<ProductionGoodsReceipt> observer,
+            out ProductionGoodsReceivedRegistration registration,out string diagnostic,int order=0,
+            Action<long, APIShared.GameModes.GameModeSnapshot> onMissionAdmitted=null, Action<long> onMissionEnded=null)
+        { registration=new ProductionGoodsReceivedRegistration { Observer=observer, Admission=onMissionAdmitted, End=onMissionEnded };
+          Registrations.Add(registration);diagnostic="";return true; }
+        internal static void Admit(long sessionId, APIShared.GameModes.GameModeSnapshot mode)
+        { foreach(var registration in Registrations.ToArray())registration.Admission?.Invoke(sessionId,mode); }
+        internal static void End(long sessionId)
+        { foreach(var registration in Registrations.ToArray())registration.End?.Invoke(sessionId); }
+        internal static void Publish(ProductionGoodsReceipt receipt)
+        { foreach(var registration in Registrations.ToArray())if(registration.Enabled)registration.Observer(receipt); }
     }
     public enum WorkerProductionIssueCode {NativeUnavailable,RuntimeFault}
     public sealed class WorkerProductionIssue
@@ -45,6 +88,9 @@ namespace APIShared.Economy
     }
     public static class WorkerProductionModifiers
     {
+        public static IReadOnlyList<SHCDESE.Interop.eChimps> SupportedWorkers {get;} = new[] {
+            SHCDESE.Interop.eChimps.CHIMP_TYPE_WOODCUTTER, SHCDESE.Interop.eChimps.CHIMP_TYPE_MILLER,
+            SHCDESE.Interop.eChimps.CHIMP_TYPE_TANNER };
         private static readonly List<Action<WorkerProductionStatus>> observers=new List<Action<WorkerProductionStatus>>();
         public static int Registrations;
         public static WorkerProductionModifierRegistration Last;
@@ -63,6 +109,7 @@ internal static class WorkerProductionBonusTests
     internal static void Run(Action<bool,string> check)
     {
         Settings(check);
+        GoodsAndMoney(check);
         var settings=new ExtraFeaturesViewModel(false);
         settings.PreparePresets(null,Path.Combine(TestWorkDirectory.New("ProductionBonusRuntime"),"ExtraFeatures.dll"),"ProductionBonusRuntime");
         settings.ActivatePresets();settings.FixedProductionBonusPercent=-50;
@@ -144,6 +191,107 @@ internal static class WorkerProductionBonusTests
 
     }
 
+    private sealed class MoneyWorld : IProductionGoodsMoneyWorld
+    {
+        internal int HumanGold, AiGold;
+        public bool IsValidPlayer(int id) => id==1 || id==2;
+        public bool IsAIPlayer(int id) => id==2;
+        public int SellPrice(SHCDESE.Interop.eGoods good) => good==SHCDESE.Interop.eGoods.STORED_WOOD_PLANKS ? 5 : 2;
+        public void AddGold(int id,int amount) { if(id==1)HumanGold+=amount;else AiGold+=amount; }
+    }
+    private static void GoodsAndMoney(Action<bool,string> check)
+    {
+        var settings = new ExtraFeaturesViewModel(false);
+        settings.MultiplyGoodsGainHuman=0.5;settings.MultiplyGoodsGainAI=3;
+        settings.MultiplyGoodsGainInMoneyHuman=1.5;settings.MultiplyGoodsGainInMoneyAI=2;
+        var world=new MoneyWorld();
+        var runtime=new WorkerProductionBonusRuntime(null,settings,(a,b)=>{},a=>a(),moneyWorld:world);
+        runtime.Register();
+        var profile=APIShared.Economy.WorkerProductionModifiers.Last.Profile;
+        check(profile.BaseAmounts.Count==APIShared.Economy.WorkerProductionModifiers.SupportedWorkers.Count &&
+            profile.BaseAmounts.All(pair=>pair.Value.Human.Value==0.5m && pair.Value.AI.Value==3m &&
+                pair.Value.Human.Stage==ValueModifierStage.AfterFixedValue && pair.Value.AI.Stage==ValueModifierStage.AfterFixedValue),
+            "Human and AI factors cover the shared output catalogue and follow fixed base overrides");
+        check(profile.FixedBonusPercent.Kind==ValueModifierKind.None,
+            "Base factors leave the independent default fixed-bonus channel unclaimed");
+        settings.MultiplyGoodsGainHuman=0;
+        check(APIShared.Economy.WorkerProductionModifiers.Last.Profile.BaseAmounts.Values.All(v=>v.Human.Value==0),
+            "Zero production is a real zero factor rather than the former neutral setting");
+        var receipt=APIShared.Economy.ProductionGoodsReceived.Registrations.Last();
+        check(receipt.Required && receipt.Activation.HasValue &&
+            receipt.Activation.Value.ModGuid==ExtraFeaturesPlugin.PluginGuid,
+            "Configured production money requires receipt readiness under the owner's mission policy before launch");
+        var item=new APIShared.Economy.ProductionGoodsReceipt { PlayerId=1,Good=SHCDESE.Interop.eGoods.STORED_WOOD_PLANKS,Amount=3 };
+        APIShared.Economy.ProductionGoodsReceived.Publish(item);
+        check(!receipt.Enabled && world.HumanGold==0,"No production money is booked before mission readiness");
+        var mode=new GameModeSnapshot(false,true,true,false,false,false,true,false,false,false,false,
+            0,0,0,0,0,0,0,-1,0,GameModeKind.CustomGame,GameModeLaunchVariant.Standard,0,-1,-1,-1,0,false);
+        var context=new MissionContext(19101,MissionStartKind.NewGame,mode,null,"fixture",false);
+        Shared.MissionEvents.Publish(new MissionLifecycleNotification(context,MissionLifecycleKind.Initialization,
+            MissionInitializationPhase.BeforeLoad,MissionEndReason.None,false));
+        check(!settings.CanConfigureProductionGoods,"Both goods editors lock before mission loading");
+        settings.MultiplyGoodsGainHuman=5;settings.MultiplyGoodsGainInMoneyHuman=5;
+        check(settings.MultiplyGoodsGainHuman==0 && settings.MultiplyGoodsGainInMoneyHuman==1.5,
+            "Direct setters cannot change the admitted production factors or money rewards mid-mission");
+        // The generic managed gate may still be unknown when the native world is admitted.
+        Shared.GameplayModActivationGate.Gate.Update(default(GameModeSnapshot));
+        APIShared.Economy.ProductionGoodsReceived.Admit(context.SessionId, mode);
+        APIShared.Economy.ProductionGoodsReceived.Publish(item);
+        check(receipt.Enabled && world.HumanGold==5 && !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod),
+            "Native admission rewards the first receipt before managed Started even while its generic gate is unknown");
+        Shared.MissionEvents.Publish(new MissionLifecycleNotification(context,MissionLifecycleKind.Initialization,
+            MissionInitializationPhase.NativeLoaded,MissionEndReason.None,false));
+        Shared.MissionEvents.Publish(new MissionLifecycleNotification(context,MissionLifecycleKind.Start,
+            MissionInitializationPhase.NativeLoaded,MissionEndReason.None,false));
+        APIShared.Economy.ProductionGoodsReceived.Publish(item);
+        check(receipt.Enabled && world.HumanGold==10,
+            "Later NativeLoaded and Started neither reset nor arm the native-admitted reward snapshot");
+        APIShared.Economy.ProductionGoodsReceived.IsAvailable=false;
+        settings.EnableMod=false; settings.EnableMod=true;
+        APIShared.Economy.ProductionGoodsReceived.Publish(item);
+        check(!receipt.Enabled && world.HumanGold==10,"An admitted mission cannot enable partial money receipts when a backend source is unavailable");
+        APIShared.Economy.ProductionGoodsReceived.IsAvailable=true;
+        settings.EnableMod=false; settings.EnableMod=true;
+        check(receipt.Enabled,"A complete backend can re-enable an already admitted enabled money observer");
+        APIShared.Economy.ProductionGoodsReceived.IsAvailable=false;
+        APIShared.Economy.ProductionGoodsReceived.Publish(item);
+        check(world.HumanGold==10,"An enabled observer checks backend readiness again before paying");
+        APIShared.Economy.ProductionGoodsReceived.IsAvailable=true;
+        APIShared.Economy.ProductionGoodsReceived.Publish(item);
+        check(receipt.Enabled && world.HumanGold==15,"Final delivered quantity is rewarded once with the existing midpoint-away rounding");
+        item.PlayerId=2;item.Amount=4;APIShared.Economy.ProductionGoodsReceived.Publish(item);
+        check(world.AiGold==8,"AI uses its independent money factor");
+        item.PlayerId=7;APIShared.Economy.ProductionGoodsReceived.Publish(item);
+        item.PlayerId=1;item.Amount=0;APIShared.Economy.ProductionGoodsReceived.Publish(item);
+        check(world.HumanGold==15 && world.AiGold==8,"Invalid owners and nonpositive receipt amounts never award gold");
+        settings.EnableMod=false;item.Amount=3;APIShared.Economy.ProductionGoodsReceived.Publish(item);
+        check(!receipt.Enabled && !receipt.Required && world.HumanGold==15,
+            "Disabling the mod logically disables the receipt observer and its mission requirement");
+        settings.EnableMod=true;
+        APIShared.Economy.ProductionGoodsReceived.End(context.SessionId-1);
+        check(receipt.Enabled,"A late native end from another session cannot retire the current admitted observer");
+        APIShared.Economy.ProductionGoodsReceived.End(context.SessionId);
+        APIShared.Economy.ProductionGoodsReceived.Publish(item);
+        check(!receipt.Enabled && world.HumanGold==15 && !settings.CanConfigureProductionGoods,
+            "Native retirement stops payouts before the later managed End unlocks the editors");
+        Shared.MissionEvents.Publish(new MissionLifecycleNotification(context,MissionLifecycleKind.End,
+            MissionInitializationPhase.NativeLoaded,MissionEndReason.Unloaded,true));
+        check(settings.CanConfigureProductionGoods,"Managed End unlocks the production editors independently of native retirement");
+        settings.EnableMod=false;
+        APIShared.Economy.ProductionGoodsReceived.Admit(context.SessionId+1, mode);
+        settings.EnableMod=true;APIShared.Economy.ProductionGoodsReceived.Publish(item);
+        check(!receipt.Enabled && world.HumanGold==15,
+            "A world admitted with the mod disabled cannot arm its money feature by enabling it later");
+        APIShared.Economy.ProductionGoodsReceived.End(context.SessionId+1);
+        APIShared.Economy.ProductionGoodsReceived.Admit(context.SessionId+2, default(GameModeSnapshot));
+        APIShared.Economy.ProductionGoodsReceived.Publish(item);
+        check(!receipt.Enabled && world.HumanGold==15,"Authoritative excluded admission mode cannot reward production");
+        APIShared.Economy.ProductionGoodsReceived.End(context.SessionId+2);
+        APIShared.Economy.ProductionGoodsReceived.IsAvailable=false;
+        check(runtime.MoneyAvailabilityIssue().Length>0,"Missing receipt support is surfaced instead of silently rewarding generic storage events");
+        APIShared.Economy.ProductionGoodsReceived.IsAvailable=true;
+    }
+
     private static void Settings(Action<bool, string> check)
     {
         string path = Path.Combine(TestWorkDirectory.New("ProductionBonusPreset"), "ExtraFeatures.dll");
@@ -207,5 +355,22 @@ internal static class WorkerProductionBonusTests
         check(own.FixedProductionBonusPercent == -25 && !own.CanConfigureFixedProductionBonus,
             "A genuine mission-exit snapshot restores the owned setting while the editor remains locked");
         own.SetFixedProductionBonusMissionLocked(false);
+        own.MultiplyGoodsGainHuman=0;own.MultiplyGoodsGainAI=0.5;
+        own.MultiplyGoodsGainInMoneyHuman=1.5;own.MultiplyGoodsGainInMoneyAI=3;
+        var restoredGoods=prepare();
+        check(restoredGoods.MultiplyGoodsGainHuman==0 && restoredGoods.MultiplyGoodsGainAI==0.5 &&
+            restoredGoods.MultiplyGoodsGainInMoneyHuman==1.5 && restoredGoods.MultiplyGoodsGainInMoneyAI==3,
+            "The existing setting identities preserve production and money factors through a real preset restart");
+        restoredGoods.SetFixedProductionBonusMissionLocked(true);
+        var goodsSnapshot=restoredGoods.System_CreateModDefaultSnapshot();
+        goodsSnapshot[nameof(restoredGoods.MultiplyGoodsGainHuman)]=MessagePack.MessagePackSerializer.Serialize(2.0);
+        goodsSnapshot[nameof(restoredGoods.MultiplyGoodsGainInMoneyHuman)]=MessagePack.MessagePackSerializer.Serialize(2.5);
+        restoredGoods.System_ApplyWorkingSnapshot(goodsSnapshot);
+        check(restoredGoods.MultiplyGoodsGainHuman==0 && restoredGoods.MultiplyGoodsGainInMoneyHuman==1.5,
+            "A local snapshot cannot bypass the goods and money mission lock");
+        restoredGoods.System_EnterMissionPreset(goodsSnapshot,"production receipt save",false);
+        check(restoredGoods.MultiplyGoodsGainHuman==2 && restoredGoods.MultiplyGoodsGainInMoneyHuman==2.5 &&
+            !restoredGoods.CanConfigureProductionGoods,"An authoritative mission snapshot restores both locked production features");
+        restoredGoods.System_ExitMissionPreset();restoredGoods.SetFixedProductionBonusMissionLocked(false);
     }
 }

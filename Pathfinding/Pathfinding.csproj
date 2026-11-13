@@ -71,11 +71,11 @@
     <Compile Include="..\Shared\Adapters\APIShared\MissionEventsAdapter.cs"><Link>Shared\MissionEventsAdapter.cs</Link></Compile>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Locales\*.txt"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
-    <Content Include="Patches\**\*.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
-    <Content Include="Override\**\*.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
-    <Content Include="Override\**\*.png"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
-    <!-- The manifest is authoritative even when an isolated copy gives stale output a newer timestamp. -->
+    <!-- Sources are authoritative: isolated copies can give stale package files newer timestamps. -->
+    <Content Include="Locales\*.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></Content>
+    <Content Include="Patches\**\*.xaml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></Content>
+    <Content Include="Override\**\*.xaml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></Content>
+    <Content Include="Override\**\*.png"><CopyToOutputDirectory>Always</CopyToOutputDirectory></Content>
     <Content Include="info.json"><CopyToOutputDirectory>Always</CopyToOutputDirectory></Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

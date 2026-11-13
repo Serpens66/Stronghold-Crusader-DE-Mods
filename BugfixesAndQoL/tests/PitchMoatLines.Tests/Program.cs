@@ -77,7 +77,70 @@ internal static class Program
         Check(quote.BuildableCount == 1 && quote.CapacityCount == 2 && quote.TotalCost == 0 &&
             states[1] == LineTileState.Buildable && states[3] == LineTileState.Capacity,
             "capacity skips the next charge rather than spending pitch on it");
+        CompareBatchPaymentWithOrderedReference();
         Console.WriteLine("PASS: wall raster, per-tile skips, capacity, pitch affordability, and actual debit.");
+    }
+
+    private static void CompareBatchPaymentWithOrderedReference()
+    {
+        // Reference uses the audited charge positions (one debit at ordinal
+        // 0/4/8... shifted by the initial prepaid phase), rather than mutating
+        // a second copy of PitchBudget. This checks batch quoting over skips and
+        // bounds against ordered admission, including nonstandard thresholds.
+        for (int phase = 0; phase < 4; phase++)
+        for (int stock = 0; stock <= 17; stock++)
+        for (int minimum = 0; minimum <= 3; minimum++)
+        foreach (int capacity in new[] { 0, 7, LinePolicy.MaxTiles })
+        foreach (bool skipFields in new[] { false, true })
+        foreach (bool laterGoods in new[] { false, true })
+        {
+            var states = new LineTileState[LinePolicy.MaxTiles];
+            int candidates = 0;
+            for (int i = 0; i < states.Length; i++)
+            {
+                states[i] = skipFields && i % 5 == 1 ? LineTileState.Existing :
+                    skipFields && i % 5 == 3 ? LineTileState.Blocked : LineTileState.Buildable;
+                if (states[i] == LineTileState.Buildable) candidates++;
+            }
+            var original = (LineTileState[])states.Clone();
+            int affordable = 0;
+            while (affordable < candidates)
+            {
+                int remaining = stock - ReferenceDebits(stock, phase, affordable);
+                bool prepaid = (phase + affordable) % 4 != 0;
+                // Native CC420's pitch-shortage branch bypasses later goods
+                // only for prepaid fields. Iron was already checked before it.
+                bool admitted = remaining < minimum ? prepaid : laterGoods;
+                if (!admitted) break;
+                affordable++;
+            }
+            int accepted = Math.Min(capacity, affordable);
+            var actual = LinePolicy.ApplyLimits(states, states.Length, capacity,
+                new PitchBudget(stock, phase, minimum, PitchPayment.Standard,
+                    ironAllowed: true, laterResourcesAllowed: laterGoods));
+            string context = $"phase={phase} stock={stock} minimum={minimum} capacity={capacity} skips={skipFields} goods={laterGoods}";
+            Check(actual.BuildableCount == accepted && actual.TotalCost == ReferenceDebits(stock, phase, accepted),
+                "batch matches ordered native payment reference: " + context);
+            int candidate = 0;
+            for (int i = 0; i < states.Length; i++)
+            {
+                var expected = original[i];
+                if (expected == LineTileState.Buildable)
+                {
+                    if (candidate >= accepted)
+                        expected = accepted == capacity ? LineTileState.Capacity : LineTileState.Material;
+                    candidate++;
+                }
+                Check(states[i] == expected, "batch retains ordered skips/material/capacity at field " + i + ": " + context);
+            }
+        }
+    }
+
+    private static int ReferenceDebits(int stock, int phase, int accepted)
+    {
+        int firstChargeOrdinal = (4 - phase) % 4;
+        int chargePositions = accepted <= firstChargeOrdinal ? 0 : 1 + (accepted - firstChargeOrdinal - 1) / 4;
+        return Math.Min(stock, chargePositions);
     }
 
     private static void ExpectQuote(string name, int count, int stock, int phase, int rawMinimum,

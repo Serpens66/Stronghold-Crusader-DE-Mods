@@ -150,3 +150,31 @@ fills only width-squared offsets and clears the rest of the 169-entry block,
 so extra attempts repeat (0,0). The ordinary pitch brush is one cell;
 Shift pitch uses four cells with coordinate offsets 0/+1 in `0x12090`.
 These are Vanilla brush facts, independent of a line-placement overlay.
+## Chore21 terminal call contract (2026-11-13)
+
+Static follow-up on the same canonical native SHA-256. The unnamed database
+symbols remain candidates; these particular parameter flows were confirmed
+against the current image and decompiler export. Chore21 at0x111D0 deserializes
+ordinary X/Y, brush width, operation and variant. Execution passes0x6FE90 the
+native TileManager, executing issuer, **packed tile ID** (X plus native row offset),
+ordinary Y, width, operation, variant and byte0. For operation0x40000000, variant0
+plans and variant2 creates completed moat. After that call,21 invokes0xE3B90 with
+PathContext, max(9,width+3), ordinary X/Y. The helper0x1C0A0 bytes
+3BCA0F4FD18BC2C3 implement max; the width1 radius is9.
+
+The preview predicate0x5CA40 uses local native player0x88E3D70 and local pending
+preview grid0x5DC7D20. It is not an issuer-independent receive predicate. Terminal
+0x6FE90 uses its explicit player for proximity and task ownership. Its allocator
+0x59210 stores type1/progress0 for planned moat and type2/progress4 for immediate
+completed moat, with the same packed tile, ordinary XY and explicit owner.
+
+### Integration consequences [mod integration]
+
+BFQoL's authenticated whole-line106 handler may call the live0x6FE90 entry and
+reproduce21's path invalidation without invoking21 on an incompatible106 body.
+The live entry preserves SE BulkMapEditorDetours and the existing MoatTerrain
+interior hooks. Planned height acceptance must remain with the live terminal gate:
+ExtraFeatures' elevated-human-moat hooks bypass the height gates at0x5CC1E and
+0x704CC. A copied unconditional height<13 gate would reject that supported path.
+Static contracts and an isolated call-ABI fixture do not claim gameplay or real
+multiplayer acceptance.

@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Threading;
 using APIShared;
 using APIShared.GameModes;
-using APIShared.Simulation;
 using BepInEx.Logging;
 using CrusaderDE;
 using SHCDESE.Interop;
@@ -24,8 +23,6 @@ namespace BugfixesAndQoL.PitchMoatLines
         private readonly PitchLineNetwork network;
         private volatile bool enabled;
         private bool lifecycleReady;
-        private bool pitchSendRequested;
-        private bool multiplayerReceipt;
         private readonly LineTile[] tiles = new LineTile[LinePolicy.MaxTiles];
         private readonly LineTileState[] tileStates = new LineTileState[LinePolicy.MaxTiles];
         private MissionContext mission;
@@ -37,13 +34,9 @@ namespace BugfixesAndQoL.PitchMoatLines
         private bool ownsButton;
         private volatile bool failed;
         private bool tickReported;
+        private bool submissionFailurePending;
         private volatile Stage stage;
         private long nextQuote;
-        private int? lastSubmitTick;
-        private int nextTile;
-        private int countToSubmit;
-        private int placedCount;
-        private bool awaitingReceipt;
         private PreviewSnapshot preview;
         private HoverRequest hover;
 
@@ -99,6 +92,7 @@ namespace BugfixesAndQoL.PitchMoatLines
             {
                 ClearPlacement();
                 native.ClearPitchMoatScope();
+                submissionFailurePending = false;
                 tickReported = false;
                 var context = notification.Context;
                 PitchMoatLinesFeature.CaptureMultiplayerCompatibility(context);
@@ -114,6 +108,7 @@ namespace BugfixesAndQoL.PitchMoatLines
                 if (mission?.SessionId != notification.Context.SessionId)
                     return;
                 Volatile.Write(ref mission, null);
+                submissionFailurePending = false;
                 network.SetMission(null);
                 PitchMoatLinesFeature.CaptureMultiplayerCompatibility(null);
                 ClearPlacement();
@@ -149,7 +144,7 @@ namespace BugfixesAndQoL.PitchMoatLines
             if (ownsButton)
                 return true;
             if (!enabled || state != 1 || Volatile.Read(ref mission) == null || !ManagedBoundary.IsReady ||
-                (!HasReleasedLine(stage) && !ValidModifiers()))
+                !ValidModifiers())
                 return false;
             var controls = MainControls.instance;
             return controls != null && controls.CurrentAction == MapperPlacement &&
@@ -176,10 +171,9 @@ namespace BugfixesAndQoL.PitchMoatLines
                             ownsButton = false;
                             if (stage == Stage.Dragging && state == 3 && UpdateEndpoint(director))
                             {
-                                stage = Stage.Released;
-                                Volatile.Write(ref preview, null);
+                                CommitLine();
                             }
-                            else if (!HasReleasedLine(stage))
+                            else
                                 ClearPlacement();
                         }
                         return true;
@@ -188,12 +182,6 @@ namespace BugfixesAndQoL.PitchMoatLines
                     if (state != 1)
                         return false;
                     bool canUseTool = TryTarget(director, out var current);
-                    if (HasReleasedLine(stage) && canUseTool && current.Matches(target) && !IsCancelPressed())
-                    {
-                        ownsButton = true;
-                        director.clearMouseStateForEngine();
-                        return true;
-                    }
                     ClearPlacement();
                     if (!canUseTool || !ValidModifiers() || IsCancelPressed() ||
                         !TryPointerTile(director, out start))
@@ -237,6 +225,7 @@ namespace BugfixesAndQoL.PitchMoatLines
             var runtime = Volatile.Read(ref instance);
             if (runtime == null)
                 return;
+            runtime.ShowSubmissionFailure();
             if (runtime.stage == Stage.Idle && !runtime.ownsButton)
             {
                 try
@@ -269,57 +258,12 @@ namespace BugfixesAndQoL.PitchMoatLines
                         if (runtime.stage == Stage.Dragging)
                             runtime.ClearPlacement();
                     }
-                    runtime.SubmitPreparedPitch(director);
                 }
                 catch (Exception error)
                 {
                     runtime.Fail(error.ToString());
                 }
             }
-        }
-
-        private void SubmitPreparedPitch(EditorDirector director)
-        {
-            if (!pitchSendRequested || stage != Stage.Submitting || awaitingReceipt)
-                return;
-            if (!TryTarget(director, out var current) || !current.Matches(target) ||
-                mission?.Mode.IsRealMultiplayer != true || !PitchMoatLinesFeature.MultiplayerCompatible)
-            {
-                ClearPlacement();
-                return;
-            }
-            if (!SimulationClock.TryGetCurrentTick(mission, out int mapTick))
-            {
-                StopBatch("simulation clock was unavailable before submission");
-                return;
-            }
-            if (lastSubmitTick.HasValue &&
-                (!SimulationClock.TryGetElapsedTicks(lastSubmitTick.Value, mapTick, out int elapsed) || elapsed == 0))
-                return;
-            if (!native.TryQuote(target.Mapper, target.Player, target.InGame, true,
-                new ArraySegment<LineTile>(tiles, nextTile, 1), tileStates, out _))
-            {
-                StopBatch("live pitch check was unavailable");
-                return;
-            }
-            if (tileStates[0] != LineTileState.Buildable)
-            {
-                pitchSendRequested = false;
-                nextTile++;
-                return;
-            }
-            var submitted = network.TrySubmit(tiles[nextTile], target.Player);
-            if (submitted == NativeSubmitResult.Busy)
-                return;
-            pitchSendRequested = false;
-            if (submitted != NativeSubmitResult.Submitted)
-            {
-                StopBatch("pitch submission was not accepted");
-                return;
-            }
-            awaitingReceipt = true;
-            multiplayerReceipt = true;
-            lastSubmitTick = mapTick;
         }
 
         private void UpdateHover(EditorDirector director)
@@ -423,8 +367,6 @@ namespace BugfixesAndQoL.PitchMoatLines
             mapper == (int)eMappers.MAPPER_PITCH_DITCH || mapper == (int)eMappers.MAPPER_MOAT ||
             mapper == (int)eMappers.MAPPER_DUGMOAT;
 
-        private static bool HasReleasedLine(Stage current) => current == Stage.Released || current == Stage.Submitting;
-
         internal static void ForwardMapper(int mapper, int x, int y, int size, int player,
             bool inGame, bool constructingOnly, int state)
         {
@@ -463,8 +405,7 @@ namespace BugfixesAndQoL.PitchMoatLines
 
         private void Tick()
         {
-            if (failed || !enabled)
-                return;
+            if (failed || !enabled) return;
             if (!ManagedBoundary.IsReady)
             {
                 ClearPlacement();
@@ -480,8 +421,8 @@ namespace BugfixesAndQoL.PitchMoatLines
                 TickHover();
                 return;
             }
-            // These getters only read managed fields. Unity input and scene objects
-            // are sampled separately on the input thread.
+            // Only an unconfirmed gesture is tied to the current tool. Confirmed
+            // batches already belong to the native queue, not this input runtime.
             var controls = MainControls.instance;
             var director = Director.instance;
             var map = GameMap.instance;
@@ -492,102 +433,65 @@ namespace BugfixesAndQoL.PitchMoatLines
                 ClearPlacement();
                 return;
             }
-
             long now = Stopwatch.GetTimestamp();
-            if (stage == Stage.Dragging)
+            if (!hasEnd || now < nextQuote) return;
+            nextQuote = now + QuoteInterval;
+            var line = CurrentLine();
+            bool available = TryQuote(line, out var quote);
+            var previous = Volatile.Read(ref preview);
+            if (previous == null || !previous.Matches(end, available, quote, tileStates))
+                Volatile.Write(ref preview, MakePreview(target, end, line.Count, available, quote));
+        }
+
+        // The game's release edge is on Unity, under EngineGate. Snapshot and
+        // enqueue before returning to Vanilla so the next input cannot revoke it.
+        private void CommitLine()
+        {
+            try
             {
-                if (!hasEnd || now < nextQuote)
-                    return;
-                nextQuote = now + QuoteInterval;
                 var line = CurrentLine();
-                bool available = TryQuote(line, out var quote);
-                var previous = Volatile.Read(ref preview);
-                if (previous == null || !previous.Matches(end, available, quote, tileStates))
-                    Volatile.Write(ref preview, MakePreview(target, end, line.Count, available, quote));
-                return;
-            }
-            if (stage == Stage.Released)
-            {
-                var line = CurrentLine();
-                if (!TryQuote(line, out var quote) || quote.BuildableCount == 0)
+                if (!TryQuote(line, out var quote))
                 {
-                    ClearPlacement();
+                    ReportUnsubmitted("live placement check unavailable");
                     return;
                 }
-                countToSubmit = 0;
+                if (quote.BuildableCount == 0) return;
+                int count = 0;
                 for (int i = 0; i < line.Count; i++)
                     if (tileStates[i] == LineTileState.Buildable)
-                        tiles[countToSubmit++] = tiles[i];
-                nextTile = 0;
-                placedCount = 0;
-                stage = Stage.Submitting;
+                        tiles[count++] = tiles[i];
+                var operation = target.Mapper == (int)eMappers.MAPPER_PITCH_DITCH
+                    ? PitchLineOperation.Pitch : native.MoatOperation;
+                var result = network.TrySubmit(operation, new ArraySegment<LineTile>(tiles, 0, count), target.Player);
+                if (result != NativeSubmitResult.Submitted)
+                    ReportUnsubmitted(result == NativeSubmitResult.Busy ? "native queue full" : "batch submission rejected");
             }
-            bool allowOverlap = !mission.Mode.IsRealMultiplayer || PitchMoatLinesFeature.MultiplayerCompatible;
-            if (awaitingReceipt)
+            finally { ClearPlacement(); }
+        }
+
+        private void ReportUnsubmitted(string reason)
+        {
+            submissionFailurePending = true;
+            log.LogWarning(PitchMoatLinesFeature.Stamp("PITCH_MOAT_LINE_NOT_SUBMITTED: " + reason));
+        }
+
+        private void ShowSubmissionFailure()
+        {
+            if (!submissionFailurePending || mission == null || !MainViewModel.viewModelLoaded)
+                return;
+            submissionFailurePending = false;
+            // AfterInput is Unity-only and outside EngineGate. An error dialog
+            // must never hold the native monitor or participate in Chore receive.
+            try
             {
-                var receipt = multiplayerReceipt ? network.PollReceipt(tiles[nextTile], target.Player) :
-                    native.PollReceipt(target.Mapper, target.Player, target.InGame, allowOverlap, tiles[nextTile]);
-                if (receipt == LineReceipt.Pending)
-                    return;
-                if (receipt != LineReceipt.Accepted && receipt != LineReceipt.Skipped)
-                {
-                    StopBatch("execution was not confirmed");
-                    return;
-                }
-                awaitingReceipt = false;
-                nextTile++;
-                if (receipt == LineReceipt.Accepted)
-                    placedCount++;
+                HUD_ConfirmationPopup.ShowConfirmationOKMessage(
+                    SerpLocalization.Get("BugfixesAndQoL.PitchMoatLines"), () => { },
+                    SerpLocalization.Get("BugfixesAndQoL.LineSubmissionFailed"));
             }
-            if (nextTile < countToSubmit && native.IsNativeShiftHeld)
-                return;
-            if (!SimulationClock.TryGetCurrentTick(mission, out int mapTick))
+            catch (Exception error)
             {
-                StopBatch("simulation clock was unavailable");
-                return;
+                log.LogWarning(PitchMoatLinesFeature.Stamp("PITCH_MOAT_LINE_NOTICE_FAILED: " + error));
             }
-            // Engine runs can repeat without advancing map time. A confirmed
-            // predecessor allows the next field only on a new simulation tick.
-            if (lastSubmitTick.HasValue &&
-                (!SimulationClock.TryGetElapsedTicks(lastSubmitTick.Value, mapTick, out int elapsed) || elapsed == 0))
-                return;
-            // Recheck the confirmed subset in order. A newly blocked tile leaves
-            // the payment phase unchanged, so the next candidate can still fit.
-            while (nextTile < countToSubmit)
-            {
-                if (!native.TryQuote(target.Mapper, target.Player, target.InGame, allowOverlap,
-                    new ArraySegment<LineTile>(tiles, nextTile, 1), tileStates, out _))
-                {
-                    StopBatch("live placement check was unavailable");
-                    return;
-                }
-                if (tileStates[0] == LineTileState.Buildable)
-                    break;
-                nextTile++;
-            }
-            if (nextTile == countToSubmit)
-            {
-                ClearPlacement();
-                return;
-            }
-            if (mission.Mode.IsRealMultiplayer && target.Mapper == (int)eMappers.MAPPER_PITCH_DITCH)
-            {
-                // Authenticated transport is Unity-only. The next local input update
-                // revalidates this candidate under the same monitor before submission.
-                pitchSendRequested = true;
-                return;
-            }
-            var submitted = native.TrySubmit(target.Mapper, target.Player, target.InGame, allowOverlap, tiles[nextTile]);
-            if (submitted == NativeSubmitResult.Busy)
-                return;
-            if (submitted != NativeSubmitResult.Submitted)
-            {
-                StopBatch("Vanilla did not accept the next field");
-                return;
-            }
-            awaitingReceipt = true;
-            multiplayerReceipt = false;
-            lastSubmitTick = mapTick;
         }
 
         private void TickHover()
@@ -639,18 +543,8 @@ namespace BugfixesAndQoL.PitchMoatLines
         private void ClearPlacement()
         {
             stage = Stage.Idle;
-            awaitingReceipt = false;
-            pitchSendRequested = false;
-            multiplayerReceipt = false;
-            lastSubmitTick = null;
             Volatile.Write(ref hover, null);
             HideEndpoint();
-        }
-
-        private void StopBatch(string reason)
-        {
-            log.LogInfo(PitchMoatLinesFeature.Stamp($"PITCH_MOAT_LINE_STOP after {placedCount}/{countToSubmit} confirmed fields: {reason}"));
-            ClearPlacement();
         }
 
         private void Fail(string reason)
@@ -692,7 +586,7 @@ namespace BugfixesAndQoL.PitchMoatLines
                 ReferenceEquals(Context, context) && Target.Matches(target) && Tile.X == tile.X && Tile.Y == tile.Y;
         }
 
-        private enum Stage { Idle, Dragging, Released, Submitting }
+        private enum Stage { Idle, Dragging }
 
         private readonly struct PlacementTarget
         {

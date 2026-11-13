@@ -1506,3 +1506,18 @@ function table `0x321CB0`; `SizeOf(GameUnit)` remains `0x490`. Exact-RVA probes
 retain their local semantic validation where their short pattern is not globally
 unique. Live hunting, chicken, visibility and recovery scenarios remain smoke
 tests.
+
+## Shared production receipt forwarding (2026-11-13)
+
+The existing permanent Tanner deposit owner at `0x13EF38` forwards both its meat
+and logical-disabled Vanilla paths through APIShared's native delivery adapter.
+No additional native span is introduced. The original seven-argument deposit ABI
+and result are retained; demand zero stays native. Confirmation occurs only after
+the complete Tanner native cohort has been permanently published. APIShared skips
+its standalone Tanner source when this plugin is discovered and rejects receipt
+availability if this external publication never confirms.
+
+Receipt integration is additive: if its shared adapter is unavailable, the existing
+Tanner cohort still publishes with its already resolved ordinary B6100 target.
+It does not confirm receipt support in that case, so required money observers fail
+closed independently of Tanner meat production. No second native owner is installed.

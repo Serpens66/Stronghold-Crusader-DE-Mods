@@ -14,6 +14,7 @@ namespace ExtraFeatures
         private bool productionBonusResolvedValid=true;
         private string productionBonusIssueText="",productionBonusWarningText="";
         private RelayCommand productionBonusDetailsCommand;
+        public bool CanConfigureProductionGoods=>CanEditHostSettings&&!fixedProductionBonusMissionLocked;
         public bool CanConfigureFixedProductionBonus=>CanEditHostSettings&&!fixedProductionBonusMissionLocked;
         public string FixedProductionBonusTitle=>SerpLocalization.Get("ExtraFeatures.ProductionBonus.Title");
         public string FixedProductionBonusHelp=>SerpLocalization.Get("ExtraFeatures.ProductionBonus.Help");
@@ -54,8 +55,9 @@ namespace ExtraFeatures
         internal void SetFixedProductionBonusMissionLocked(bool locked)
         {
             if(fixedProductionBonusMissionLocked==locked)return;fixedProductionBonusMissionLocked=locked;
-            if(Thread.CurrentThread.ManagedThreadId==uiThread)OnPropertyChanged(nameof(CanConfigureFixedProductionBonus));
-            else if(uiContext!=null)uiContext.Post(_=>OnPropertyChanged(nameof(CanConfigureFixedProductionBonus)),null);
+            Action notify = () => { OnPropertyChanged(nameof(CanConfigureFixedProductionBonus)); OnPropertyChanged(nameof(CanConfigureProductionGoods)); };
+            if(Thread.CurrentThread.ManagedThreadId==uiThread)notify();
+            else if(uiContext!=null)uiContext.Post(_=>notify(),null);
         }
     }
 }

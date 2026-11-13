@@ -1,4 +1,4 @@
-// Feature: Lifecycle orchestration and shared event guards for Extra Features.
+// Feature: Lifecycle orchestration and storage restoration for Extra Features.
 using APIShared;
 using BepInEx.Logging;
 using RedBird.Core.Memory;
@@ -22,13 +22,7 @@ namespace ExtraFeatures
     public sealed partial class ExtraFeaturesRuntime
     {
         private static readonly int GoodsCount = (int)eGoods.Count;
-        // Guard windows are measured in simulation ticks, not wall-clock time, so every
-        // multiplayer peer expires them at the same tick. Vanilla simulates 40 ticks per
-        // game second at normal speed; 80 ticks preserve the previous two-second window.
-        private const int ResourceGuardLifetimeTicks = 80;
         private const int StockpileRefundLifetimeTicks = 80;
-        private const int MarketBuyAmount = 5;
-        private const int MarketBuyShiftAmount = 25;
         private const float VanillaRefundMultiplier = 0.5f;
         // Must match the upper bound of ExtraFeaturesViewModel.CampfirePeasantsLimit.
         internal const int CampfirePeasantsMaximum = 200;
@@ -48,16 +42,8 @@ namespace ExtraFeatures
         // Process-lifetime mission subscriptions; intentionally never disposed.
         private readonly List<IDisposable> lifecycleSubscriptions = new List<IDisposable>();
         private bool missionLifecycleSubscribed;
-        // Keys pack (player, good) without allocation; see ResourceEventKey.
-        // Guards the resource-event state below and pendingStockpileRefund: the simulation's
-        // building and market hooks use it while settings and lifecycle callbacks clear it.
-        // Re-entrant on purpose: adding goods raises OnGoodsyardAddGood on the same thread.
+        // Synchronizes pending storage restoration across lifecycle and demolition callbacks.
         private readonly object resourceGuardSync = new object();
-        private readonly HashSet<long> resourceAddReentryGuards = new HashSet<long>();
-        private readonly Dictionary<long, ResourceEventCountGuard> marketBuyResourceGuards = new Dictionary<long, ResourceEventCountGuard>();
-        private readonly Dictionary<long, ResourceEventCountGuard> refundResourceGuards = new Dictionary<long, ResourceEventCountGuard>();
-        private readonly List<long> activeRefundGuardKeys = new List<long>();
-        private readonly List<long> expiredResourceGuardKeys = new List<long>();
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly UnitLimitBridge unitLimitBridge;
         private readonly KnightDismountRuntime knightDismountRuntime;
@@ -65,7 +51,6 @@ namespace ExtraFeatures
         private readonly GatehouseAutomationRuntime gatehouseAutomationRuntime;
         private readonly AIDefenseRepairRuntime aiDefenseRepairRuntime;
         private readonly HealthModifierRuntime healthModifierRuntime;
-        private readonly MarketTradeGuardBridge marketTradeGuardBridge;
         private readonly ElevatedMoatRuntime elevatedMoatRuntime;
         private readonly NoKillRewardHook noKillRewardHook;
         private HealerTargetsRuntime healerTargetsRuntime;
@@ -112,7 +97,6 @@ namespace ExtraFeatures
             gatehouseAutomationRuntime = new GatehouseAutomationRuntime(log, settings, multiplayerFeatureGate);
             aiDefenseRepairRuntime = new AIDefenseRepairRuntime(log, settings);
             healthModifierRuntime = new HealthModifierRuntime(log, settings);
-            marketTradeGuardBridge = new MarketTradeGuardBridge(log, this);
             elevatedMoatRuntime = new ElevatedMoatRuntime(log);
             noKillRewardHook = new NoKillRewardHook(log);
             gatedSettingHandlers = CreateGatedSettingHandlers();
@@ -183,8 +167,6 @@ namespace ExtraFeatures
                 candidate.Register();
                 popularityRuntime = candidate;
             });
-            // LibraryLoaded runs after every plugin's Awake, so Bugfixes and QoL is now present.
-            TryRunFeature("market-purchase guard integration", marketTradeGuardBridge.TryConnect);
         }
 
         private void InitializeMissionLifecycle()
@@ -203,7 +185,7 @@ namespace ExtraFeatures
                 lifecycleSubscriptions.Add(Shared.MissionEvents.Ended.Subscribe(OnUnloadMap));
                 lifecycleSubscriptions.Add(Shared.MissionEvents.Initialization
                     .Where(e => e.Phase == APIShared.MissionInitializationPhase.NativeLoaded)
-                    .Subscribe(_ => ClearResourceEventGuards()));
+                    .Subscribe(_ => ClearPendingStorageRefund()));
             }
             catch (Exception ex)
             {
@@ -327,10 +309,6 @@ namespace ExtraFeatures
                 BuildingR3EventHooks.OnBuildingBulldoze.Observable.Subscribe(OnBuildingBulldoze));
             TrySubscribeFeature("refund tracking", () =>
                 BuildingR3EventHooks.OnBuildingRefund.Observable.Subscribe(OnBuildingRefund));
-            TrySubscribeFeature("goods gain tracking", () =>
-                BuildingR3EventHooks.OnGoodsyardAddGood.Observable.Subscribe(OnGoodsyardAddGood));
-            TrySubscribeFeature("market trade tracking", () =>
-                PlayerR3EventHooks.OnPlayerMarketInteraction.Observable.Subscribe(OnPlayerMarketInteraction));
             TrySubscribeFeature("church priest spawn handling", () =>
                 BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(churchPriestCountRuntime.ApplySpawnedBuilding));
             TryRunFeature("health tick", ReconcileHealthModifierRuntime);
@@ -346,7 +324,7 @@ namespace ExtraFeatures
             subscriptions.Clear();
             TryRunFeature("knight mount/dismount cleanup", knightDismountRuntime.Deactivate);
             TryRunFeature("health cleanup", healthModifierRuntime.ResetMapState);
-            ClearResourceEventGuards();
+            ClearPendingStorageRefund();
             hooksSubscribed = false;
         }
 
@@ -616,7 +594,7 @@ namespace ExtraFeatures
             sessionStarted = false;
             aiMarketVanillaPriceHook?.SetSessionOverride(false);
             healthModifierRuntime.ResetMapState();
-            ClearResourceEventGuards();
+            ClearPendingStorageRefund();
             multiplayerFeatureGate.Reset();
             gatehouseAutomationRuntime.EndMap();
         }
@@ -927,20 +905,10 @@ namespace ExtraFeatures
             originalCampPeasantsCap = null;
         }
 
-        // Same identity as the former "player:good" text key, without per-event allocation.
-        private static long ResourceEventKey(int playerId, eGoods good) =>
-            ((long)playerId << 32) | (uint)(int)good;
-
-        private void ClearResourceEventGuards()
+        private void ClearPendingStorageRefund()
         {
             lock (resourceGuardSync)
-            {
-                activeRefundGuardKeys.Clear();
-                resourceAddReentryGuards.Clear();
-                marketBuyResourceGuards.Clear();
-                refundResourceGuards.Clear();
                 pendingStockpileRefund = null;
-            }
         }
 
         private sealed class PendingStockpileRefund
@@ -950,12 +918,6 @@ namespace ExtraFeatures
             public int? CreatedTick;
             public int PartsRemaining;
             public HashSet<int> ProcessedBuildingIds = new HashSet<int>();
-        }
-
-        private sealed class ResourceEventCountGuard
-        {
-            public int RemainingAmount { get; set; }
-            public int? CreatedTick { get; set; }
         }
 
         private static int? CurrentGameTick() =>

@@ -143,3 +143,20 @@ occurred. Packages, build records and check logs are in `.work/a/pm-retire/001`.
 No in-game test, installation, SDK modification or publication was performed.
 Parallel APIShared/BFQoL changes were preserved; this cleanup changes only this
 document and removes the old standalone testmod directory.
+
+## Whole-line batch update (2026-11-13)
+
+The current working implementation replaces the historical single-field paths
+above. All modes use one authenticated106 Chore per confirmed line, with at most
+64 fields; preview input is released immediately. Tool/focus/player changes do
+not revoke a submitted line. Pitch admission/payment remain native per field;
+planned/completed moats use the live terminal21 behavior and path invalidation.
+Protocol and capability token are v2; old peer reports do not authorize it.
+The old single-tile width hook and28 preservation-token path have been removed.
+
+New verification evidence is under .work/a/pm-batch/001. The user requested a
+thorough source review followed by a normal build without installation, and asked
+to wait for the concurrently rebuilt APIShared package. No game installation or
+in-game acceptance is authorized as part of that build. Historical acceptance
+runs above therefore do not prove current batching, input behavior or MP latency.
+Real SP/editor and two-peer acceptance remain separate outstanding checks.

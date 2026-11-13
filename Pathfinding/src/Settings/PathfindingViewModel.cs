@@ -22,9 +22,6 @@ namespace Pathfinding
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
         public string ResetToDefaultHelpText => SerpLocalization.Get(SerpLocalization.ResetToDefaultHelp);
 
-        // Fire and plague share the detour rule.
-        public bool DetourSettingsEnabled => AvoidFire || AvoidPlague;
-
         public PathfindingViewModel() => ResetToDefaultCommand = new RelayCommand(ResetToDefault);
 
         private void ResetToDefault()
@@ -133,7 +130,7 @@ namespace Pathfinding
             field = value;
             SettingChanged?.Invoke(name);
             OnPropertyChanged(name);
-            if (name == nameof(AvoidFire) || name == nameof(AvoidPlague)) OnPropertyChanged(nameof(DetourSettingsEnabled));
+            NotifyDependentSettingsChanged(name);
         }
 
         private void SetBounded(ref int field, int value, int minimum, int maximum, string name) =>

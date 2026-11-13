@@ -66,6 +66,103 @@ static class Fixture
         asm.ret();
     }
 
+
+    private static void VerifyMoatCalls(Type type, object runtime, long module, long tiles, object cell)
+    {
+        long code = Alloc(0x1000, true), capture = Alloc(0x1000);
+        var nativeCall = new Assembler(64);
+        nativeCall.mov(rax, (ulong)capture);
+        nativeCall.mov(__qword_ptr[rax], rcx);
+        nativeCall.mov(__dword_ptr[rax + 8], edx);
+        nativeCall.mov(__dword_ptr[rax + 12], r8d);
+        nativeCall.mov(__dword_ptr[rax + 16], r9d);
+        for (int i = 0; i < 3; i++)
+        {
+            nativeCall.mov(r10d, __dword_ptr[rsp + 40 + i * 8]);
+            nativeCall.mov(__dword_ptr[rax + 20 + i * 4], r10d);
+        }
+        nativeCall.movzx(r10d, __byte_ptr[rsp + 64]);
+        nativeCall.mov(__dword_ptr[rax + 32], r10d);
+        nativeCall.inc(__dword_ptr[rax + 96]);
+        nativeCall.ret();
+        Write(nativeCall, code);
+        var refresh = new Assembler(64);
+        refresh.mov(rax, (ulong)capture);
+        refresh.mov(__qword_ptr[rax + 40], rcx);
+        refresh.mov(__dword_ptr[rax + 48], edx);
+        refresh.mov(__dword_ptr[rax + 52], r8d);
+        refresh.mov(__dword_ptr[rax + 56], r9d);
+        refresh.mov(r10d, __dword_ptr[rax + 96]);
+        refresh.mov(__dword_ptr[rax + 60], r10d);
+        refresh.inc(__dword_ptr[rax + 100]);
+        refresh.ret();
+        Write(refresh, code + 0x300);
+        var placeField = type.GetField("placeMoat", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var pathField = type.GetField("refreshMoatPath", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var place = Marshal.GetDelegateForFunctionPointer((IntPtr)code, placeField.FieldType);
+        var path = Marshal.GetDelegateForFunctionPointer((IntPtr)(code + 0x300), pathField.FieldType);
+        placeField.SetValue(runtime, place);
+        pathField.SetValue(runtime, path);
+        type.GetField("tileManager", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(runtime, (IntPtr)tiles);
+        var apply = type.GetMethod("ApplyMoat", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        foreach (bool completed in new[] { false, true })
+        {
+            Write32(capture, 96, 0); Write32(capture, 100, 0);
+            apply.Invoke(runtime, [cell, Tile, Sender, completed]);
+            if (Read64(capture, 0) != tiles || Read32(capture, 8) != Sender ||
+                Read32(capture, 12) != Tile || Read32(capture, 16) != Y ||
+                Read32(capture, 20) != 1 || Read32(capture, 24) != 0x40000000 ||
+                Read32(capture, 28) != (completed ? 2 : 0) || Read32(capture, 32) != 0 ||
+                Read64(capture, 40) != module + 0x60AD660 || Read32(capture, 48) != 9 ||
+                Read32(capture, 52) != X || Read32(capture, 56) != Y ||
+                Read32(capture, 60) != 1 || Read32(capture, 96) != 1 || Read32(capture, 100) != 1)
+                throw new Exception("Production moat invocation ABI, coordinate conversion, variant or refresh order.");
+        }
+        GC.KeepAlive(place); GC.KeepAlive(path);
+        Console.WriteLine("PASS actual production planned/completed moat native invocation, stack arguments and radius9 refresh.");
+        var admission = type.GetMethod("IsBatchMoatTileAllowed", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        Type flagType = admission.GetParameters()[1].ParameterType;
+        bool Admit(int flags) => (bool)admission.Invoke(runtime, [Tile, Enum.ToObject(flagType, flags), false])!;
+        Write8(tiles, 0xD7E5A0 + Tile, 20);
+        if (!Admit(0)) throw new Exception("Planned batch masks an optional live elevated-moat gate.");
+        Write16(tiles, 0xA6F260 + Tile * 2, 1);
+        if (Admit(0)) throw new Exception("Planned batch accepted vegetation before terminal validation.");
+        Write16(tiles, 0xA6F260 + Tile * 2, 0);
+        Write16(tiles, 0xB0BCA0 + Tile * 2, 1);
+        if (Admit(0)) throw new Exception("Planned batch accepted a structure.");
+        Write16(tiles, 0xB0BCA0 + Tile * 2, 0);
+        if (Admit(0x10000400)) throw new Exception("Planned batch accepted blocked geometry.");
+        Console.WriteLine("PASS planned moat height delegates to live terminal rules while retaining geometry guards.");
+        var actorAllowed = type.GetMethod("IsBatchActorAllowed", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var captureActor = type.GetMethod("TryGetBatchActor", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        bool ActorAllowed(int sender, int actor, bool editor) =>
+            (bool)actorAllowed.Invoke(runtime, [sender, actor, editor])!;
+        Write32(module, 0x3665ED8, 12); Write32(module, 0x88E3D78, Actor);
+        object[] captureArgs = [Sender, 0];
+        if (!(bool)captureActor.Invoke(runtime, captureArgs)! || (int)captureArgs[1] != Actor ||
+            !ActorAllowed(Sender, Actor, true) || ActorAllowed(Sender, Actor, false))
+            throw new Exception("Editor actor capture/authorization differs from Vanilla12.");
+        Write32(module, 0x88E3D78, 8);
+        if (!ActorAllowed(Sender, (int)captureArgs[1], true))
+            throw new Exception("Later editor selection revoked the captured actor.");
+        Write32(module, 0x3665ED8, 0);
+        if (ActorAllowed(Sender, Actor, true) || !ActorAllowed(Sender, Sender, false) ||
+            ActorAllowed(0, Actor, true) || ActorAllowed(Sender, 9, true))
+            throw new Exception("Native actor range or non-editor owner restriction.");
+        var operationAllowed = type.GetMethod("IsBatchOperationAllowed", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var operationType = operationAllowed.GetParameters()[0].ParameterType;
+        bool OperationAllowed(string name) =>
+            (bool)operationAllowed.Invoke(runtime, [Enum.Parse(operationType, name)])!;
+        foreach (int mode in new[] { 0, 1, 6 })
+        {
+            Write32(module, 0x3665F28, mode);
+            bool completed = mode == 1 || mode == 6;
+            if (!OperationAllowed("Pitch") || OperationAllowed("CompletedMoat") != completed ||
+                OperationAllowed("PlannedMoat") == completed)
+                throw new Exception("Native operation mode permits the wrong moat variant.");
+        }
+        Console.WriteLine("PASS native captured editor actor and planning/completed mode policies.");
+    }
     public static void Main(string[] args)
     {
         if (args.Length == 1 && args[0] == "--network") { NetworkContractTests.Run(); return; }
@@ -111,7 +208,7 @@ static class Fixture
 
         var hook = new X64InlineHook((ulong)seam, 16, NullLogger.Instance, "pitch and moat fixture");
         if (hook.DisplacedByteCount != 16) throw new Exception("fixture displacement");
-        object[] addresses = [(ulong)state, (ulong)chore, (ulong)tile, (ulong)aux, (ulong)occupied, (ulong)vanilla, (ulong)preserve];
+        object[] addresses = [(ulong)state, (ulong)chore, (ulong)tile, (ulong)occupied, (ulong)vanilla, (ulong)preserve];
         hook.Generate((assembler, _, _) => emit.Invoke(null, [assembler, .. addresses]));
         object runtime = System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(type);
         hookField.SetValue(runtime, hook);
@@ -122,10 +219,10 @@ static class Fixture
         void Reset()
         {
             Write32(state, 0, 1); Write32(state, 4, Slot); Write32(state, 8, Sender); Write32(state, 12, Command);
-            Write32(state, 16, Tile); Write32(state, 20, X | Y << 16); Write32(state, 24, Actor); Write32(state, 28, 0); Write32(state, 32, 28);
+            Write32(state, 16, Tile); Write32(state, 20, X | Y << 16); Write32(state, 24, Actor); Write32(state, 28, 0); Write32(state, 32, 106);
             Write32(chore, 0x84CC8, Slot); Write32(chore, 0x84CCC, 0); Write32(chore, 0x370BF8, 10);
             Write32(chore, 0x36FA4C, Sender);
-            Write32(chore, Chore, 30); Write32(chore, Chore + 4, Sender); Write8(chore, Chore + 8, 28);
+            Write32(chore, Chore, 30); Write32(chore, Chore + 4, Sender); Write8(chore, Chore + 8, 106);
             Write32(chore, Chore + 12, Command); Write32(chore, Chore + 17, X | Y << 16);
             Write32(chore, Chore + 21, Shape); Write16(chore, Chore + 25, 17); Write16(aux, 0, 17);
             Write16(tile, 0xBF6C00 + Tile * 2, 0);
@@ -167,11 +264,8 @@ static class Fixture
         Verify("different opcode", 1, 0, () => Write8(chore, Chore + 8, 21));
         Verify("different actor", 1, 0, () => Write32(state, 24, Actor + 1));
         Verify("different packed field", 1, 0, () => Write32(state, 16, Tile + 1));
-        Verify("different raw coordinates", 1, 0, () => Write32(chore, Chore + 17, X + 1 | Y << 16));
+        Verify("different captured coordinates", 1, 0, () => Write32(state, 20, X + 1 | Y << 16));
         Verify("wrong phase", 1, 0, () => Write32(chore, 0x84CCC, 1));
-        Verify("truncated body", 1, 0, () => Write32(chore, 0x370BF8, 9));
-        Verify("different auxiliary body", 1, 0, () => Write16(chore, Chore + 25, 18));
-        Verify("different width and shape", 1, 0, () => Write32(chore, Chore + 21, Shape | 0x1000000));
         Verify("clean field", 1, 1, () => Write32(tile, 0x898400 + Tile * 4, 0));
         Verify("finished moat", 1, 1, () => Write32(tile, 0x898400 + Tile * 4, 0x40000000));
         Verify("planned and finished", 1, 1, () => Write32(tile, 0x898400 + Tile * 4, 0x40004000));
@@ -195,8 +289,7 @@ static class Fixture
         });
         Verify("authenticated106 wrong command cannot preserve", 1, 0, () =>
         { Write32(state, 32, 106); Write8(chore, Chore + 8, 106); Write32(chore, Chore + 12, Command + 1); });
-        Verify("authenticated106 scope cannot affect ordinary28", 1, 0, () => Write32(state, 32, 106));
-        Verify("ordinary28 scope cannot affect106", 1, 0, () => Write8(chore, Chore + 8, 106));
+        Verify("authenticated106 scope cannot affect ordinary28", 1, 0, () => Write8(chore, Chore + 8, 28));
         Verify("unknown scope opcode", 1, 0, () => Write32(state, 32, 99));
         Console.WriteLine($"{passed} native branch and ABI scenarios passed.");
         // Exercise the managed half of the production command token against independent native memory.
@@ -205,57 +298,26 @@ static class Fixture
         type.GetField("choreManager", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(runtime, (IntPtr)chore);
         type.GetField("pitchMoatToken", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(runtime, (IntPtr)state);
         type.GetProperty("PitchMoatReady", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(runtime, true);
-        var armMethod = type.GetMethod("TryArmPitchMoat", BindingFlags.NonPublic | BindingFlags.Instance)!;
-        var confirmMethod = type.GetMethod("ConfirmPitchMoatSubmission", BindingFlags.NonPublic | BindingFlags.Instance)!;
         var clearMethod = type.GetMethod("ClearPitchMoatScope", BindingFlags.NonPublic | BindingFlags.Instance)!;
         object cell = Activator.CreateInstance(type.Assembly.GetType("BugfixesAndQoL.PitchMoatLines.LineTile", true)!,
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, new object[] { X, Y }, null)!;
-        bool Arm() => (bool)armMethod.Invoke(runtime, [cell, Tile, Sender, Slot])!;
-        bool Confirm(bool submitted) => (bool)confirmMethod.Invoke(runtime, [submitted])!;
         void Clear() => clearMethod.Invoke(runtime, null);
-
-        Reset(); Clear();
-        Write32(module, 0x3665ED8, 12); Write32(module, 0x88E3D78, Actor);
-        Write32(chore, 0x36FA50, Sender); Write32(chore, 0xDA0, 81); Write32(chore, 0x370BF4, Slot - 1);
-        Write8(chore, Chore + 9, 0);
-        if (!Arm() || Read32(state, 12) != Command || Read32(state, 24) != Actor || Confirm(false) || Read32(state, 0) != 0)
-            throw new Exception("managed arm or failed-submit cleanup");
-        if (!Arm()) throw new Exception("managed immediate re-arm");
-        Write8(chore, Chore + 9, 1);
-        if (!Confirm(true) || Arm() || Confirm(false) || Read32(state, 0) != 1)
-            throw new Exception("managed delayed pending token protection");
-        run();
-        Write8(chore, Chore + 9, 10);
-        if (!Confirm(true) || !Arm() || Read32(state, 28) != 0)
-            throw new Exception("managed token re-arm after observed execution");
-        Write8(chore, Chore + 9, 1);
-        if (!Confirm(true)) throw new Exception("managed fresh delayed token");
-        Write8(chore, Chore + 9, 10);
-        if (!Arm()) throw new Exception("managed token retirement without writer execution");
-        run();
-        Write8(chore, Chore + 9, 0);
-        if (!Confirm(true) || Read32(state, 28) != 2)
-            throw new Exception("managed immediate token survives slot clear");
-        Clear();
-        if (Read32(state, 0) != 0 || Read32(state, 28) != 0)
-            throw new Exception("managed mission clear");
-        Console.WriteLine("PASS production managed arm, delayed and immediate confirmation, orphan retirement and mission clear.");
-
         var armNetwork = type.GetMethod("TryArmNetworkPitchMoat", BindingFlags.NonPublic | BindingFlags.Instance)!;
         Reset(); Clear(); Write8(chore, Chore + 8, 106);
-        if (!(bool)armNetwork.Invoke(runtime, [cell, Tile, Sender, Command])! || Read32(state, 32) != 106 ||
-            Read32(state, 24) != Sender || (bool)armNetwork.Invoke(runtime, [cell, Tile, Sender, Command])!)
+        if (!(bool)armNetwork.Invoke(runtime, [cell, Tile, Sender, Actor, Command])! || Read32(state, 32) != 106 ||
+            Read32(state, 24) != Actor || (bool)armNetwork.Invoke(runtime, [cell, Tile, Sender, Actor, Command])!)
             throw new Exception("authenticated receiver scope must bind issuer and refuse nesting");
         Clear();
-        if ((bool)armNetwork.Invoke(runtime, [cell, Tile, Sender, Command + 1])!)
+        if ((bool)armNetwork.Invoke(runtime, [cell, Tile, Sender, Actor, Command + 1])!)
             throw new Exception("authenticated scope accepted a foreign command");
         Write8(chore, Chore + 8, 28);
-        if ((bool)armNetwork.Invoke(runtime, [cell, Tile, Sender, Command])!)
+        if ((bool)armNetwork.Invoke(runtime, [cell, Tile, Sender, Actor, Command])!)
             throw new Exception("authenticated scope accepted Vanilla28");
         Console.WriteLine("PASS synchronous106 arm, exact issuer/command/opcode and finally-clear boundary.");
 
         var prepare = type.GetMethod("TryPrepareCommand", BindingFlags.NonPublic | BindingFlags.Instance)!;
         var pendingMethod = type.GetMethod("IsCommandPending", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        Write32(chore, 0xDA0, Command - Sender * 100000000);
         Write32(module, 0x88E3D70, Sender); Write32(chore, 0x370BF4, Slot - 1); Write8(chore, Chore + 9, 0);
         object[] pendingArgs = [(byte)106, Sender, null!];
         if (!(bool)prepare.Invoke(runtime, pendingArgs)!) throw new Exception("queue receipt preflight");
@@ -269,6 +331,7 @@ static class Fixture
         Write8(chore, Chore + 9, 1); Write32(chore, Chore + 12, Command + 1);
         if ((bool)pendingMethod.Invoke(runtime, [receipt])!) throw new Exception("recycled queue receipt");
         Console.WriteLine("PASS live, terminal and recycled native queue receipt identity.");
+        VerifyMoatCalls(type, runtime, module, tile, cell);
         GC.KeepAlive(hook);
     }
 }

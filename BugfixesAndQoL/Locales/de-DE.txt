@@ -594,3 +594,4 @@ BugfixesAndQoL.AreaDemolition.GroupDecorations=Dekorationen und Feuerschalen
 BugfixesAndQoL.AreaDemolition.GroupStockpiles=Lagergebäude
 BugfixesAndQoL.PitchLineTooltip=Ctrl halten: als Linie ziehen.
 BugfixesAndQoL.MoatLineTooltip=Ctrl halten: mit kleinem Pinsel als Linie ziehen.
+BugfixesAndQoL.LineSubmissionFailed=Die Platzierung der Linie konnte nicht bestätigt werden. Prüfe die Felder, bevor du sie erneut platzierst.

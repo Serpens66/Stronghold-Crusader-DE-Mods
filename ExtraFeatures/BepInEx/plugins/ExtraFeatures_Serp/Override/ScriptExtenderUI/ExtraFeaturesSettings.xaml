@@ -870,7 +870,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
                 <TextBlock Text="{Binding HumanText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="2" FontWeight="Bold" />
                 <TextBlock Text="{Binding AiText}" Style="{StaticResource CompactSettingLabel}" Grid.Column="4" FontWeight="Bold" />
               </Grid>
-              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.multiply-goods-gain" shared:ModSettingsSearch.Title="{Binding MultiplyGoodsGainText}" shared:ModSettingsSearch.ToolTipText="{Binding MultiplyGoodsGainHelpText}">
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" IsEnabled="{Binding CanConfigureProductionGoods}" shared:ModSettingsSearch.Key="extra.multiply-goods-gain" shared:ModSettingsSearch.Title="{Binding MultiplyGoodsGainText}" shared:ModSettingsSearch.ToolTipText="{Binding MultiplyGoodsGainHelpText}">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
                   <ColumnDefinition Width="16" />
@@ -898,7 +898,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
                   <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding MultiplyGoodsGainAIText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" MinWidth="64" MaxWidth="130" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Margin="0" MinHeight="28" Grid.Column="2" Width="Auto"><TextBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding MultiplyGoodsGainHelpText}"/></TextBox.ToolTip></TextBox>
                 </Grid>
               </Grid>
-              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.multiply-goods-as-money" shared:ModSettingsSearch.Title="{Binding MultiplyGoodsAsMoneyText}" shared:ModSettingsSearch.ToolTipText="{Binding MultiplyGoodsAsMoneyHelpText}">
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" IsEnabled="{Binding CanConfigureProductionGoods}" shared:ModSettingsSearch.Key="extra.multiply-goods-as-money" shared:ModSettingsSearch.Title="{Binding MultiplyGoodsAsMoneyText}" shared:ModSettingsSearch.ToolTipText="{Binding MultiplyGoodsAsMoneyHelpText}">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="Auto" SharedSizeGroup="SettingLabel" MaxWidth="220" />
                   <ColumnDefinition Width="16" />

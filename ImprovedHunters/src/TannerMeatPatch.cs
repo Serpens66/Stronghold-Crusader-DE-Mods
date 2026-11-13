@@ -142,6 +142,14 @@ namespace ImprovedHunters
                 RunTable = table.Address
             };
 
+            // Both the meat and logical-disabled Vanilla branch enter the shared
+            // receipt relay; it stays entirely native when no observer is active.
+            bool hasReceiptAdapter = APIShared.Economy.ProductionGoodsReceived.TryGetNativeDeliveryAdapter(out ulong receiptAdapter, out string receiptDiagnostic);
+            if (hasReceiptAdapter)
+                addresses.Deposit = receiptAdapter;
+            else
+                Shared.DebugLogHelper.LogError(log, "Tanner production receipts unavailable; the independent Tanner meat path retains its normal deposit: " + receiptDiagnostic);
+
             ulong yieldHelper = Relative(memory, imageBase, yield + YieldCallOperand);
             int meat = (int)eGoods.STORED_FOOD_MEAT;
             IntPtr candidateAmount = Marshal.AllocHGlobal(sizeof(int));
@@ -165,6 +173,7 @@ namespace ImprovedHunters
                 candidate.Commit();
                 gate = candidate;
                 meatAmount = candidateAmount;
+                if (hasReceiptAdapter) APIShared.Economy.ProductionGoodsReceived.ConfirmExternalTannerAdapter();
             }
             catch
             {

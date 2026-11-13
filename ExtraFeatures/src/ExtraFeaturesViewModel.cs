@@ -40,6 +40,7 @@ namespace ExtraFeatures
                 OnPropertyChanged(nameof(CanConfigureTreeRespawn));
                 OnPropertyChanged(nameof(CanConfigureMatureTreeHarvest));
                 OnPropertyChanged(nameof(CanConfigureFixedProductionBonus));
+                OnPropertyChanged(nameof(CanConfigureProductionGoods));
                 OnPropertyChanged(nameof(CanConfigureKillReward));
                 OnPropertyChanged(nameof(CanConfigureEnemyProximity));
             }
@@ -289,10 +290,10 @@ namespace ExtraFeatures
         public string PitchRefundPercentValueText { get => FormatRefundPercent(PitchRefundPercent); set => SetIntValueText(value, parsed => PitchRefundPercent = parsed, nameof(PitchRefundPercentValueText)); }
         public string GoldRefundPercentValueText { get => FormatRefundPercent(GoldRefundPercent); set => SetIntValueText(value, parsed => GoldRefundPercent = parsed, nameof(GoldRefundPercentValueText)); }
 
-        [SyncHostOnly] public double MultiplyGoodsGainAI { get => multiplyGoodsGainAI; set => SetDoubleSetting(ref multiplyGoodsGainAI, value, 0.0, 5.0, nameof(MultiplyGoodsGainAI), nameof(MultiplyGoodsGainAIText)); }
-        [SyncHostOnly] public double MultiplyGoodsGainHuman { get => multiplyGoodsGainHuman; set => SetDoubleSetting(ref multiplyGoodsGainHuman, value, 0.0, 5.0, nameof(MultiplyGoodsGainHuman), nameof(MultiplyGoodsGainHumanText)); }
-        [SyncHostOnly] public double MultiplyGoodsGainInMoneyAI { get => multiplyGoodsGainInMoneyAI; set => SetDoubleSetting(ref multiplyGoodsGainInMoneyAI, value, 0.0, 5.0, nameof(MultiplyGoodsGainInMoneyAI), nameof(MultiplyGoodsGainInMoneyAIText)); }
-        [SyncHostOnly] public double MultiplyGoodsGainInMoneyHuman { get => multiplyGoodsGainInMoneyHuman; set => SetDoubleSetting(ref multiplyGoodsGainInMoneyHuman, value, 0.0, 5.0, nameof(MultiplyGoodsGainInMoneyHuman), nameof(MultiplyGoodsGainInMoneyHumanText)); }
+        [SyncHostOnly] public double MultiplyGoodsGainAI { get => multiplyGoodsGainAI; set { if (!fixedProductionBonusMissionLocked || IsApplyingMissionSettingsSnapshot) SetDoubleSetting(ref multiplyGoodsGainAI, value, 0.0, 5.0, nameof(MultiplyGoodsGainAI), nameof(MultiplyGoodsGainAIText)); } }
+        [SyncHostOnly] public double MultiplyGoodsGainHuman { get => multiplyGoodsGainHuman; set { if (!fixedProductionBonusMissionLocked || IsApplyingMissionSettingsSnapshot) SetDoubleSetting(ref multiplyGoodsGainHuman, value, 0.0, 5.0, nameof(MultiplyGoodsGainHuman), nameof(MultiplyGoodsGainHumanText)); } }
+        [SyncHostOnly] public double MultiplyGoodsGainInMoneyAI { get => multiplyGoodsGainInMoneyAI; set { if (!fixedProductionBonusMissionLocked || IsApplyingMissionSettingsSnapshot) SetDoubleSetting(ref multiplyGoodsGainInMoneyAI, value, 0.0, 5.0, nameof(MultiplyGoodsGainInMoneyAI), nameof(MultiplyGoodsGainInMoneyAIText)); } }
+        [SyncHostOnly] public double MultiplyGoodsGainInMoneyHuman { get => multiplyGoodsGainInMoneyHuman; set { if (!fixedProductionBonusMissionLocked || IsApplyingMissionSettingsSnapshot) SetDoubleSetting(ref multiplyGoodsGainInMoneyHuman, value, 0.0, 5.0, nameof(MultiplyGoodsGainInMoneyHuman), nameof(MultiplyGoodsGainInMoneyHumanText)); } }
         [SyncHostOnly] public double MarketBuyPriceMultiplier { get => marketBuyPriceMultiplier; set => SetDoubleSetting(ref marketBuyPriceMultiplier, value, 0.0, 5.0, nameof(MarketBuyPriceMultiplier), nameof(MarketBuyPriceMultiplierValueText)); }
         [SyncHostOnly] public double MarketSellPriceMultiplier { get => marketSellPriceMultiplier; set => SetDoubleSetting(ref marketSellPriceMultiplier, value, 0.0, 5.0, nameof(MarketSellPriceMultiplier), nameof(MarketSellPriceMultiplierValueText)); }
         [SyncHostOnly] public bool MarketPricesAlsoForAI { get => marketPricesAlsoForAI; set => SetSetting(ref marketPricesAlsoForAI, value, nameof(MarketPricesAlsoForAI)); }

@@ -1,155 +1,149 @@
 # Pitch and moat line native contract
 
-Reference image: installed `CrusaderDE.dll`, SHA-256
+Reference image: installed CrusaderDE.dll, SHA-256
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
-Addresses below are RVAs. This feature remains hash-bound: patterns alone cannot
-establish the queue layouts, record bounds, cost cycle and writer control flow.
-The script extender and Fixes remain on the normal call path.
+Snapshot: 2026-11-13. Addresses are RVAs. These contracts remain hash-bound;
+a matching function pattern alone does not establish field layouts or cost semantics.
+The native database's unnamed functions remain candidate symbols; the particular
+branches and parameter contracts below were checked against this image.
 
-## Local input and Vanilla commands
+## Input and whole-line transport
 
-Single-player and editor pitch use normal Chore28; moat uses normal Chore21 in
-every mode. The width hook at `0x923AB+18` changes only this line's native input
-staging to one tile. Thread, player, current mapper and exact XY must match.
-Ordinary brushes retain their size. The executed Chore21 carries its own width,
-so remote moat execution needs no receive-side width override.
+The existing composed Harmony boundaries own Ctrl input, scene previews and the
+locked engine quote. A mouse release freshly quotes and copies the eligible prefix
+into one immutable batch, submits on Unity under the engine monitor, and clears the
+gesture immediately. There is no outstanding-field input state. Tool/option/focus
+changes cancel only an unconfirmed gesture, never an admitted native command.
+A rejected/uncertain submission is logged and shown from AfterInput outside the monitor.
 
-The width span is `890DA7B0010681FA1F0300000F872EFCFFFF`, resumes at `0x923BD`
-and retains the native rejected branch `0x91FEB`. The RedBird backend must
-displace exactly18 bytes and preserve the store/compare/branch sequence.
+All modes, including single-player and editor, use one authenticated APIShared106
+Chore per line. The closed explicit MessagePack array has five fields:
+version2, operation (Pitch1 / PlannedMoat2 / CompletedMoat3), captured actor,
+positive request ID and an array of packed XY integers (X | Y<<16).
+The array has 1..64 fields, each coordinate0..799. The maximum valid body plus
+two-byte packet ID fits the configured512-byte bound (native limit1200).
+The constructor copies the buffer and publishes a read-only view. The formatter
+bounds the nested array before allocation. No cost, native slot or trusted issuer
+comes from the payload. Authenticated native execution supplies the issuer.
 
-Shared input, tick and queue access holds the existing engine monitor. At most
-one field is outstanding. An unchanged queue sequence proves no enqueue and
-allows a fresh quote on a later tick. A full queue or held Shift also defers
-before enqueue. Ambiguous submission failures never cause an automatic resend.
-Receipts track `(slot, sender, opcode, commandId)` until native terminal state
-or slot reuse; they do not time out after an arbitrary wall-clock interval.
-States1..9 await execution; the executor writes state10 after the handler.
-An old live command defers a later gesture even after a tool change. A field
-changed by another same-owner command cannot acknowledge a still-live command.
+The channel is registered on all peers regardless of personal options. Local
+missions require native readiness; real multiplayer additionally requires the
+frozen peer agreement `pitch-moat-lines-batch-v2`. Receive never reads the local
+tool, key, selected player, personal input option or host's general EnableMod.
+The sender does not mutate simulation in advance. Local execution can complete
+inside Send; no separate acknowledgement is required to admit another line.
 
-## Multiplayer pitch
+Queue preflight still checks500 slots of stride0x500, states0 or signed>=10 free,
+and captures slot/sender/opcode/command ID before the one Send. Submission failure
+with a matching live queue identity counts as submitted. Ambiguous failures stop,
+without retry. Native queue and authenticated context validate the command body;
+there is no Steam fallback. Mission lifecycle retires the local context.
 
-The packet registration is unconditional and in the same order on every peer,
-including a peer where native installation subsequently fails. The protocol
-is one authenticated APIShared Chore106 per pitch field, with a closed five-int
-MessagePack schema: version1, Pitch operation1, X, Y and positive local request
-ID. Player identity comes exclusively from the authenticated native issuer.
-No array of fields, native slot, selected player or cost value is transmitted.
+## Per-field execution and cost
 
-Unity sends an immutable packet through `RegisterAuthenticatedChore`. Its public
-transport validates controlled-player identity and queue capacity under the
-engine monitor and has no Steam fallback. The sender does not apply beforehand.
-All receivers, including the sender, execute the same native builder synchronously.
-Their receive activation depends on the common mission capability snapshot,
-never the personal input option or the host's general EnableMod setting.
+All fields execute in packet order inside the same synchronous106 callback.
+Existing/blocked fields are skipped. Stock/capacity exhaustion or an unconfirmed
+terminal mutation stops the remainder; successful earlier fields remain.
 
-The receiver checks issuer1..8, executing issuer, active map coordinates,
-no existing pitch or completed moat, coherent optional planned-moat task,
-and the native pitch reserve15 (`0x6C9D0`). It then calls exactly the stock
-check from Vanilla Chore28 (`0x12090`):
+Pitch uses exactly the ordinary28 admission then build sequence:
+`0xCC420(playerManager, MAPPER_PITCH_DITCH, issuer, feedback0)`, followed by
+`GameBuildingManagerAPI.CreatePrefab(actor,X,Y,PITCH,1,0,false,false)`.
+That public route enters the live SE building detour and native0x6D580; it preserves
+events, validation, visuals, path effects and payment0xC8A90. It is not a
+BulkChoreDetours wrapper. Never infer success from its ABI return value.
 
-    CC420(playerManager, MAPPER_PITCH_DITCH, sender, feedback:0)
-    scoped authenticated106 preservation
-    GameBuildingManagerAPI.CreatePrefab(sender, X, Y, PITCH, 1, 0, false, false)
+The four-field payment cycle is native: phase0 removes one raw pitch, later phases
+advance/wrap without debit. CC420's prepaid pitch-shortage branch skips later
+gold/wood/stone checks, but not iron. Those goods are admission thresholds rather
+than extra pitch debits. Free construction/builder and siege-builder behavior remain
+native. No aggregate debit, stock reservation or substitute resource formula runs.
 
-`CC420` must precede the builder. `0x6D580` validates placement and debits through
-`0xC8A90` but does not itself enforce stock affordability. CC420's prepaid-pitch
-branch can skip later gold/wood/stone checks; no replacement all-resource check
-is equivalent. Configured zero pitch threshold and the four-field charge cycle
-are retained. Gold/wood/iron/stone remain admission thresholds only: the pitch
-branch returns before their generic debit path. No Lord/alive heuristic rejects native builder modes.
+Ordinary28 uses issuer for stock admission, but MapType12 substitutes the editor
+actor at0x88E3D78 for its builder. Capture that actor before enqueue and validate
+1..8. A different payload actor is permitted only in editor MapType12; multiplayer
+requires actor=issuer. Later editor selection cannot change the captured actor.
+Pitch confirmation requires the preservation scope to execute, PitchTrap and a
+coherent pitch lookup0x695C0 with the captured owner and exclusive signed slot bound.
+Capacity uses0x6C9D0 with reserve15.
 
-The public CreatePrefab signature was verified against the installed SHCDESE
-assembly. It calls BulkBuildingDetours, preserving normal SE validation/build
-events and native pathing/visual effects. It does not call a BulkChoreDetours
-wrapper. Normal optional editor mirroring remains on that same SE route.
+## Graben execution
 
-The executing actor at `ChoreManager+0x36FA4C` aliases RVA `0x88E3D6C` and is
-already set by `0x1F7E0`; the receiver must not overwrite the local view/player
-at `0x88E3D70`. It must not call the Vanilla28 handler on a106 slot or mutate
-the28 staging fields. Native builder scratch and terminal state retain normal
-semantics; preview-only validator scratch is separately restored.
+The normal21 chain is0x111D0 ->0x6FE90 ->0x59210. The adapter calls the live
+0x6FE90 entry, preserving SE BulkMapEditorDetours and BFQoL MoatTerrain interior
+hooks. Win64 signature:
 
-Neither public CreatePrefab's long return nor native RAX proves success:
-native6D580 is effectively void. Confirmation checks the scope execution,
-PitchTrap flag, and `0x695C0` lookup with coherent XY/owner under the signed
-exclusive live pitch-slot bound. A rejected terminal result ends the line.
-Fresh shared geometry checks restore the same preview scratch as local quotes.
-A newly existing pitch or blocked field returns Skipped, so later candidates
-remain eligible. Stock/capacity exhaustion or an unconfirmed builder ends the line.
+    void(TileManager*, int issuer, int packedTileId, int y,
+         int width, uint operation, int variant, byte auxiliary)
 
-## Exact preservation scope
+Use width1, IsMoat operation0x40000000, variant0 planned or2 immediately completed,
+auxiliary0. Packed X includes the native row offset; ordinary X is incorrect here.
+After each call reproduce21's0xE3B90(PathContext*, radius, X, Y).
+Radius is max(9,width+3)=9;0x1C0A0 is max (3BCA0F4FD18BC2C3).
+These are live calls, not calls into a Chore handler with incompatible staging bytes.
 
-The seam is `0x6D788+16`:
-`0FBFAC73006CBF0085ED0F8447010000`. Preserve the signed occupant load and TEST
-flags. Ordinary empty tiles continue at `0x6D8DF`; occupied tiles at `0x6D798`.
-For pitch (struct0x44), the latter dispatches to0x6D8DF as well, without unit
-cleanup. The table at0x6DFE8 starts with0x6D8DF and selector0x6E007 is0.
+Before execution check active-map bounds, empty moat/task occupancy, reserve50
+through0x6C990, keep-path exclusion0xEC130 and geometry. Do not reuse0x5CA40 in
+receive: it reads local player0x88E3D70 and the local pending-preview grid.
+Its geometry mask can be checked independently; proximity and the planned height
+gate remain with live0x6FE90 and the explicit issuer. In particular, do not duplicate
+height<13 for planned batches: ExtraFeatures can allow elevated human moats at
+both0x5CC1E and0x704CC. The existing completed-preview rules remain unchanged.
 
-Only an armed matching pitch tile, width1, actor, sender, execution slot,
-command ID and execute phase may depart. Vanilla28 also requires its exact
-ten-byte coordinates/mapper/width/variant/auxiliary payload. Authenticated106
-uses a separate token discriminator and never interprets MessagePack as28.
-APIShared verifies the exact106 body before the receiver arms the scope.
+0x59210 allocates a16-byte task with packed tile, XY and owner. Planned variant
+creates DigPlannedMoat/type1,progress0 plus PlannedMoat. Completed variant creates
+FillDugMoat/type2,progress4 plus IsMoat. Confirm all those fields after mutation.
+Native mode determines which variant is allowed; a packet cannot request completed
+terrain in a planning-only mode. New bindings:
+0x6FE90 prologue48895C240844894C24204489442418895424105556574154;
+0xE3B90 prologue40535556574883EC284963F88BEA4963F1488BD9;
+0x111D0 prologue48895C24084889742410574883EC40.
+Call-only registry claims include both targets.
 
-On a coherent planned moat, jump to0x6D912, skipping deletion through0x61ED0
-and the associated flag clear. Task checks include packed tile, XY, owner1..8,
-progress<4, DigPlannedMoat and a valid exclusive upper bound <=64000.
-This bypass also preserves BFQoL MoatTerrain history at0x6D8DF+20. Any existing
-adjacent detour must be that exact registry-owned MoatTerrainRestoration hook.
-All unrelated commands retain original behavior. Scope closes in finally;
-focus/tool changes do not revoke an already queued command. Published hooks
-and their native memory remain rooted for process lifetime.
+## Exact pitch/planned-moat preservation
 
-## Other audited native dependencies
+The permanent seam remains0x6D788+16:
+0FBFAC73006CBF0085ED0F8447010000. Preserve signed occupant load and TEST flags.
+Empty ordinary tiles continue0x6D8DF; occupied0x6D798. Pitch's occupied dispatch
+also reaches0x6D8DF without unit cleanup (table0x6DFE8, selector0x6E007).
 
-TileManager0x405EDB0, PlayerManager0x366C210, ChoreManager0x8574320;
-native input player0x88E3D70, Shift0x8EBA9F, mapper0x60AD45C;
-mode0x3665F28, map type0x3665ED8, free construction0x3665FC8.
-Pitch validation0x77E60, moat validation0x5CA40, keep proximity0xEC130,
-moat free slots0x6C990, pitch free slots0x6C9D0, pitch lookup0x695C0,
-editor vegetation0x107160. Their independently verified machine contracts
-and complete reference layouts below are validated before use.
+Arm one tile at a time only inside the authenticated106 callback. Token binds
+slot, sender, command, packed tile, XY, actor and opcode106. The hook checks
+execute phase, width1, structure PITCH, manager, actor and exact command.
+Ordinary28 commands cannot consume it. Clear in finally after every attempt.
+A coherent planned moat branches to0x6D912, preserving its task and flags and the
+adjacent MoatTerrain restoration history. Task checks include owner1..8, type1,
+progress<4, exact tile/XY and exclusive bound<=64000. The adjacent writer at0x6D8DF
+must be the exact registry-owned MoatTerrainRestoration span or unchanged bytes.
+Published code and token stay rooted for process lifetime.
 
-Queue slots are500 records at manager+0xB0BF8, stride0x500. Fields: tick0,
-sender4, opcode8, state9, command12, payload17; state0 or signed>=10 is free.
-Cursor+0x370BF4, sequence+0xDA0, executing slot+0x84CC8, phase+0x84CCC,
-executing sender+0x36FA4C. Identity is player*100000000+sequence. Commands
-can receive a different final tick through the host barrier; separate metadata
-and Vanilla28 Chores therefore do not provide an atomic authorization pair.
+The obsolete local width hook0x923AB and per-field28/21 submission/receipt state
+were removed, including the old28 token discriminator. Ordinary brushes are
+untouched by this feature.
 
-Before updating the DLL, re-audit callers, every writer predecessor and branch,
-all record layouts/bounds, native cost configuration and terminal states.
-The executable fixture in tests/PitchMoatLines.Native.Tests runs the production
-stub for both opcodes and checks flags, registers, stack, task coherency,
-ordinary continuations and queue receipt identities. A successful fixture does
-not replace live single-player/editor and genuine two-peer MP acceptance.
+## Data/update ledger and verification
 
-## Reference layout ledger
+TileManager0x405EDB0; PlayerManager0x366C210; PathContext0x60AD660;
+VegetationManager0x32DE440; ChoreManager0x8574320.
+Active grid0x3A11EA4 uses800 columns. Input-only mapper0x60AD45C,
+player0x88E3D70 and busy0x366A0F8 never decide a received command.
+Mode0x3665F28, map type0x3665ED8, free construction0x3665FC8.
+Pitch phase0x379D04C + player*0x583C; keep limit0x37EF8F8.
+Queue base+0xB0BF8, cursor+0x370BF4, serial+0xDA0, executing slot+0x84CC8,
+phase+0x84CCC, issuer+0x36FA4C. Record tick0,sender4,opcode8,state9,command12,
+body17. Command identity is sender*100000000+serial.
+Pitch bound+0x204C6C4; lookup0x695C0; validation0x77E60.
+Quote scratch+0x204E6FC..+0x204E78C, reason0x60AD4B4 and distance0x34A9F5C
+are restored after queries. Height+0xD7E5A0, vegetation+0xA6F260,
+structure+0xB0BCA0 and packed task layer+0x1EA23F0 retain audited layouts.
 
-| RVA / Layout | Verwendung und Beleg |
-| --- | --- |
-| `0x923AB + 18` | Nur eigener Schreibbereich. `89 0D A7 B0 01 06` schreibt ECX nach `0x60AD458`, `81 FA 1F 03 00 00` vergleicht EDX mit der Rastergrenze, `0F 87 2E FC FF FF` verzweigt nach `0x91FEB`. Der Fall-through bei `0x923BD` beginnt mit `48 63 05 0C FA 97 03`. Disassembly der ausführbaren Sektion zeigt keine direkten eingehenden Kanten in die Spanne. Die Verzweigung aus der Mapperentscheidung landet vor dem Hook. |
-| `0x92390..0x923AB`, `0x2D1C38`, `0x69850` | Vanilla berechnet Breite 3 oder 5 anhand des Shift-Bytes. Die Brush-Tabelle liefert für Breite 1 eine Kachel. Die Koordinatenversätze werden nach dem geprüften nativen Brush-Vertrag von `0x69850` angewandt. |
-| `0x77E60`, `0x5CA40`, `0xEC130`, `0x6C990`, `0x6C9D0`, `0x107160` | Direkte Aufrufe der Live-Einstiege für Pechprüfung, normale Grabenprüfung, Erreichbarkeit des Keeps, freie Graben-/Pechslots und im Editor entfernbares Geländeobjekt. Jeweils an Prolog im unveränderten Abbild und native Signatur gebunden. |
-| `0x695C0`, TileManager `+0x204C6C4` | Schreibfreier Pech-Lookup, Win64 `int(TileManager*, int packedTileId)`. Prolog `4C 63 91 C4 C6 04 02 41 B9 01 00 00 00 4D 3B D1`. Die vorzeichenbehaftete exklusive Suchgrenze wird gegen die Länge der Extender-Slotansicht geprüft. Vanilla beginnt bei Slot 1, vergleicht die gepackte Tile-ID und prüft den Besitzer als Belegungssignal. Rückgabe 0 bedeutet kein Eintrag. Positive Ergebnisse werden zusätzlich gegen Suchgrenze, Koordinaten und gültigen Besitzer geprüft. Die Extender-Ansicht `GetPitchSlotLookup()` mit 4.000 Elementen ist keine nach gepackter Tile-ID adressierbare Kartenebene. |
-| `0x405EDB0`, `0x366C210`, `0x60AD660`, `0x32DE440` | Tile-, Player-, Pfad- und Vegetationsmanager aus den Vanilla-Aufrufen. Tile- und Playerbasis zusätzlich gegen die Extender-API abgleichen. |
-| `0x3A11EA4`, `0x3A11DCC`, `0x3A11DD0` | Aktivitätsmatrix mit 800 Spalten und Eingabekoordinaten. Der Dispatcher schreibt die Koordinaten, die Grabenprüfung prüft diese Matrix. Gepackte Tile-IDs danach über den Extender ermitteln und gegen die tatsächliche Kapazität prüfen. |
-| `0x60AD45C`, `0x88E3D70`, `0x8EBA9F` | Aktiver Mapper aus der Werkzeugauswahl, aktueller Spieler und Shift-Byte aus `DLL_RunTick`. `DLL_SetEditorPlayer` bei `0x872E0` setzt für reguläre Spieler-IDs denselben Spielerwert unter dem Engine-Monitor. `DLL_MapAction` setzt ihn vorübergehend auf den Auftragsspieler. Der Hook verlangt Thread, Mapper, Spieler und genau dieselbe Kachel. |
-| `0x3665F28`, `0x3665ED8`, `0x3665FC8`, `0x366A0F8` | Nativer Modus, Map-Untertyp für den Editor-Eigentümer, Gratisbau- und Eingabesperre. Gelesen aus den Branches von `0x8BD60`, `0x12090`, `0xCC420/0xC8A90`, `0x90CD0`. |
-| `0x379D04C + playerId * 0x583C`, `0x37EF8F8` | 16-Bit-Phase aus `0xCC57B` und `0xC8A90`, Reichweite aus dem Aufruf von `0xEC130`. Spieler-IDs sind im nativen Record 1-basiert. |
-| TileManager `+0x204E6FC..+0x204E78C`, `0x60AD4B4`, `0x34A9F5C` | Platzierungs-, Pinsel-, Ablehnungs- und Abstandszwischenwerte für die Vorschau. Der Mod stellt diese Ergebnisse nach seinen Abfragen wieder her. Die nativen Pfadsuchfunktionen behalten ihren eigenen Scratch-Zustand für die nächste Suche. |
-| TileManager `+0xD7E5A0`, `+0xA6F260`, `+0xB0BCA0` | Höhe, Vegetationsindex, Strukturindex. Byte bzw. 16-Bit-Felder im Grabencommit von `0x6FE90`. Pech- und Grabenbelegung aus der Extender-API. |
-| `0x8574320` und `+0xDA0/+0x370BF4/+0xB0BF8` | Chore-Manager, Schreibsequenz, Cursor und Queue. `0x20950` sucht 500 Slots zu je `0x500` Bytes, Status bei Slot `+9`, frei bei 0 oder signed >=10. `0x23A16` erhöht die lokale Sequenz. Manager zusätzlich über Extender-Adresse prüfen. |
-| `0x86C132C..0x86C133C` | Fünf Staging-Dwords für X, Y, Maß/Mapper, Operation/Maß und Variante aus `0x90CD0`, gelesen von `0x111D0` und `0x12090`. |
+On a DLL update re-audit producer/execute chains, all modes and terminal branches,
+queue identity, stock/phase/debit, task bounds and SE/Fixes/ExtraFeatures sites.
+A hash mismatch disables this feature; no old RVA fallback is applied.
 
-Der generierte RedBird-Stub erhält die GPRs. Nur ECX ändert sich beim
-passenden, threadlokal markierten Auftrag. Der verdrängte CMP läuft
-danach und erzeugt die Flags für den verdrängten JA erneut. Ohne
-passenden Auftrag bleibt die Breite unverändert. Nach Veröffentlichung
-bleibt der Stub bis zum Prozessende installiert. Es gibt keine
-Überschneidung mit dem Extender-Validator bei `0x77E60` oder dem
-ExtraFeatures-Höheneingriff innerhalb von `0x5CA40`. Der Fixes-Quellbaum
-hat für die exklusive Spanne keinen Eingriff. Die tatsächliche Spanne
-wird zusätzlich im Registry und gegen Live-Bytes geprüft.
+The production native fixture executes the actual preservation emitter, including
+GPR/XMM/flags/stack/branches, scope identity and queue recycling. Its moat fixture
+injects only native boundaries and executes the production ApplyMoat invocation
+to capture register/stack parameters and refresh order. Coordinator tests execute
+the actual protocol/coordinator with boundary doubles, including64 fields per Chore,
+multiple pending lines, immediate Send execution, skips, exhaustion and immutable
+buffers. These checks do not substitute for real gameplay or host/client acceptance.
