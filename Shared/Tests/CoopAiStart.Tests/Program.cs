@@ -91,6 +91,8 @@ internal static class Program
             "selection identity compares AIC, castle source and the known candidates");
 
         TestLocalLaunchValidation();
+        TestCoopRestartHostClassification();
+        TestCoopStartIdentity();
         TestExistingCoopPartner();
 
         Console.WriteLine(failures == 0 ? "All Coop AI start plan tests passed." : failures + " Coop AI start plan test(s) failed.");
@@ -305,6 +307,97 @@ internal static class Program
         }
     }
 
+    private static void TestCoopStartIdentity()
+    {
+        // Independent published Vanilla frontend/native identity pairs, not reconstructed lobby fields:
+        // the restart constructor leaves those fields at zero, although the actual mission remains selected.
+        var pages = new[] { new[] { 21, 1 }, new[] { 22, 2 }, new[] { 23, 3 }, new[] { 24, 4 } };
+        foreach (int[] pair in pages)
+            foreach (int selectedMissionIndex in new[] { 0, 1, 9, int.MaxValue })
+                Check(BugfixesAndQoL.CoopCustomLordSelectionPolicy.TryResolveCoopStartIdentity(
+                    pair[0], selectedMissionIndex, out int trail, out int mission) &&
+                    trail == pair[1] && mission == selectedMissionIndex,
+                    "Coop preview uses Vanilla page " + pair[0] + " and unchanged zero-based mission " + selectedMissionIndex);
+        foreach (int invalidPage in new[] { int.MinValue, 0, 20, 25, 90, int.MaxValue })
+            Check(!BugfixesAndQoL.CoopCustomLordSelectionPolicy.TryResolveCoopStartIdentity(
+                invalidPage, 0, out int trail, out int mission) && trail == 0 && mission == -1,
+                "invalid frontend page has no guessed Coop preview identity: " + invalidPage);
+        foreach (int invalidMission in new[] { -1, int.MinValue })
+            Check(!BugfixesAndQoL.CoopCustomLordSelectionPolicy.TryResolveCoopStartIdentity(
+                21, invalidMission, out int trail, out int mission) && trail == 0 && mission == -1,
+                "unselected mission has no guessed Coop preview identity: " + invalidMission);
+    }
+
+    private static void TestCoopRestartHostClassification()
+    {
+        bool coopGame = false;
+        int rat = checked((int)AILords.SK_RAT - 1), snake = checked((int)AILords.SK_SNAKE - 1);
+        var source = new Platform_Multiplayer.MPLobby();
+        // Real Steam lobby humans have neither Skirmish flag. A positive low Int32 of the Steam ID
+        // reproduces the observed Vanilla importMembers -> restart constructor conversion without Steam.
+        var human = new Platform_Multiplayer.MPLobbyMember
+            { id = new Steamworks.CSteamID((1UL << 56) | 100001UL), colourID = 1 };
+        var ally = new Platform_Multiplayer.MPLobbyMember { colourID = 2 };
+        var enemy = new Platform_Multiplayer.MPLobbyMember { colourID = 3 };
+        ally.SetSkirmishPlayer(rat, 0); enemy.SetSkirmishPlayer(snake, 0);
+        source.members.AddRange(new[] { human, ally, enemy });
+        source.this_player_to_SteamID_mapping[0] = human.GetSteamID();
+        source.this_player_to_SteamID_mapping[1] = ally.GetSteamID();
+        source.this_player_to_SteamID_mapping[2] = enemy.GetSteamID();
+        source.setTeam(human, 1); source.setTeam(ally, 1); source.setTeam(enemy, 2);
+        var infos = Enumerable.Range(0, 8).Select(_ => Info(rat, true, true)).ToArray();
+        infos[1] = Info(rat, false, false, candidates: 2);
+        infos[2] = Info(snake, false, false, candidates: 3);
+        var restart = new HUD_IngameMenu.RestartSkirmishMapInfo();
+        restart.importMembers(source);
+        restart.importAIVs(infos);
+        var restored = new Platform_Multiplayer.MPLobby(restart);
+        restored.kickEmptySlots();
+        // The private Vanilla mapping writer also touches keep/native game state; supply only its
+        // audited output boundary here. The actual import and roster reconstruction above are unmodified.
+        for (int index = 0; index < restored.members.Count; index++)
+            restored.this_player_to_SteamID_mapping[index] = restored.members[index].GetSteamID();
+        var host = restored.GetLobbyMemberFromThis_PlayerID(1);
+        Check(restart.lordTypes[0] == 100001 && host.SkirmishMember && !host.SkirmishHumanMember &&
+            !restored.coopTrailGame, "real Vanilla restart reconstructs the unflagged Steam host without a human flag or lobby Coop flag");
+
+        var members = restored.members.ToArray();
+        ulong[] ids = members.Select(member => member.GetSteamID()).ToArray();
+        bool[] aiFlags = members.Select(member => member.SkirmishMember).ToArray();
+        bool[] humanFlags = members.Select(member => member.SkirmishHumanMember).ToArray();
+        ulong[] mapping = restored.this_player_to_SteamID_mapping.ToArray();
+        var selections = restart.aivs.ToArray();
+        coopGame = false;
+        Check(CoopAiStartPlanFactory.IsAiMember(restored, host, coopGame) &&
+            Reject<CoopAiSelectionException>(() => CoopAiStartPlanFactory.ValidateLobby(restored, restart.aivs, coopGame))?.Code == "InvalidSlot",
+            "outside Vanilla Coop context an AI mapped to player 1 remains invalid");
+        coopGame = true;
+        Check(!CoopAiStartPlanFactory.IsAiMember(restored, host, coopGame) &&
+            !CoopAiStartPlanFactory.IsAiMember(restored, human, coopGame) &&
+            !CoopAiStartPlanFactory.IsAiMember(restored, null, coopGame) &&
+            Reject<Exception>(() => CoopAiStartPlanFactory.ValidateLobby(restored, restart.aivs, coopGame)) == null,
+            "Vanilla Coop context excludes its reconstructed host from AI validation");
+        int[] aiPlayers = restored.members.Where(member => CoopAiStartPlanFactory.IsAiMember(restored, member, coopGame))
+            .Select(member => restored.getThisPlayerFromSteamID(member.GetSteamID())).ToArray();
+        Check(aiPlayers.SequenceEqual(new[] { 2, 3 }) && aiPlayers.All(id =>
+            CoopAiStartPlanFactory.Create(restart.aivs[id - 1], id,
+                restored.GetLobbyMemberFromThis_PlayerID(id).GetLordType(), -1, null, true)
+                .CandidateCount == id), "reconstructed ally and enemy retain their complete AIC/AIV plans");
+        Check(members.SequenceEqual(restored.members) && ids.SequenceEqual(members.Select(member => member.GetSteamID())) &&
+            aiFlags.SequenceEqual(members.Select(member => member.SkirmishMember)) &&
+            humanFlags.SequenceEqual(members.Select(member => member.SkirmishHumanMember)) &&
+            mapping.SequenceEqual(restored.this_player_to_SteamID_mapping) && selections.SequenceEqual(restart.aivs) &&
+            !human.SkirmishMember && !human.SkirmishHumanMember && restart.lordTypes[0] == 100001,
+            "Coop host classification and validation never mutate either roster, mapping, flags or selections");
+        restored.members.Add(members[1]);
+        Check(Reject<CoopAiSelectionException>(() => CoopAiStartPlanFactory.ValidateLobby(restored, restart.aivs, coopGame))?.Code == "InvalidSlot",
+            "Coop host exception retains duplicate AI slot rejection");
+        restored.members.RemoveAt(restored.members.Count - 1);
+        restored.this_player_to_SteamID_mapping[2] = 0;
+        Check(Reject<CoopAiSelectionException>(() => CoopAiStartPlanFactory.ValidateLobby(restored, restart.aivs, coopGame))?.Code == "InvalidSlot",
+            "Coop host exception retains unmapped AI rejection");
+    }
+
     private static void TestLocalLaunchValidation()
     {
         int rat = checked((int)AILords.SK_RAT - 1), snake = checked((int)AILords.SK_SNAKE - 1);
@@ -319,7 +412,7 @@ internal static class Program
         lobby.this_player_to_SteamID_mapping[2] = opponent.GetSteamID();
         var infos = Enumerable.Range(0, 8).Select(_ => Info(rat, true, true)).ToArray();
         infos[2] = Info(abbot, false, true); // The real Abbot report: empty name, custom AIC, standard castles.
-        Check(Reject<Exception>(() => CoopAiStartPlanFactory.ValidateLobby(lobby, infos)) == null,
+        Check(Reject<Exception>(() => CoopAiStartPlanFactory.ValidateLobby(lobby, infos, false)) == null,
             "production launch validation permits Snake's Vanilla placeholder and unnamed Abbot AIC");
         foreach (int lord in new[] { rat, snake, abbot })
             Check(!CoopAiStartPlanFactory.Validate(Info(rat, true, true), 2, lord, out bool needed)
@@ -329,7 +422,7 @@ internal static class Program
         var remembered = Info(snake, false, false, candidates: 2);
         infos[1] = remembered;
         FRONT_Multiplayer.MPAIVInfo missionAi = infos[2];
-        CoopAiStartPlanFactory.PrepareDirectPartner(lobby, infos);
+        CoopAiStartPlanFactory.PrepareDirectPartner(lobby, infos, false);
         Check(!ReferenceEquals(infos[1], remembered) && infos[1].lordType == snake && infos[1].builtInLord &&
             infos[1].builtIn && infos[1].aivs.Count == 0 && remembered.aivs.Count == 2 &&
             !remembered.builtInLord && ReferenceEquals(infos[2], missionAi),
@@ -339,8 +432,8 @@ internal static class Program
         lobby.this_player_to_SteamID_mapping[1] = partner.GetSteamID();
         infos[1] = Info(custom, false, false, name: "Nox", candidates: 2);
         FRONT_Multiplayer.MPAIVInfo nox = infos[1];
-        CoopAiStartPlanFactory.PrepareDirectPartner(lobby, infos);
-        Check(ReferenceEquals(nox, infos[1]) && Reject<Exception>(() => CoopAiStartPlanFactory.ValidateLobby(lobby, infos)) == null,
+        CoopAiStartPlanFactory.PrepareDirectPartner(lobby, infos, false);
+        Check(ReferenceEquals(nox, infos[1]) && Reject<Exception>(() => CoopAiStartPlanFactory.ValidateLobby(lobby, infos, false)) == null,
             "direct Custom partner keeps its configuration and candidates");
 
         Check(BugfixesAndQoL.CoopCustomLordSelectionPolicy.ShouldUseSelectedCoopAiv(true, false, true, true, true, 2),
@@ -349,28 +442,28 @@ internal static class Program
             Info(abbot, false, false, historical: true), Info(abbot, false, false, candidates: 2) })
         {
             infos[2] = selection;
-            Check(Reject<Exception>(() => CoopAiStartPlanFactory.ValidateLobby(lobby, infos)) == null,
+            Check(Reject<Exception>(() => CoopAiStartPlanFactory.ValidateLobby(lobby, infos, false)) == null,
                 "production launch gate accepts unnamed Vanilla AIC with castle source " +
                 CoopAiStartPlanFactory.Validate(selection, 3, abbot, out _));
         }
 
         infos[2] = Info(abbot, false, true); infos[2].lordConfig = null;
-        Check(Reject<CoopAiSelectionException>(() => CoopAiStartPlanFactory.ValidateLobby(lobby, infos))?.Code == "MissingAic",
+        Check(Reject<CoopAiSelectionException>(() => CoopAiStartPlanFactory.ValidateLobby(lobby, infos, false))?.Code == "MissingAic",
             "missing AIC is distinguished from a legitimate empty Lord name");
         infos[2] = Info(snake, false, true);
-        Check(Reject<CoopAiSelectionException>(() => CoopAiStartPlanFactory.ValidateLobby(lobby, infos))?.Code == "LordTypeMismatch",
+        Check(Reject<CoopAiSelectionException>(() => CoopAiStartPlanFactory.ValidateLobby(lobby, infos, false))?.Code == "LordTypeMismatch",
             "nonstandard data with a different actual Lord still blocks");
         infos[2] = null;
-        Check(Reject<CoopAiSelectionException>(() => CoopAiStartPlanFactory.ValidateLobby(lobby, infos))?.Code == "MissingSelection",
+        Check(Reject<CoopAiSelectionException>(() => CoopAiStartPlanFactory.ValidateLobby(lobby, infos, false))?.Code == "MissingSelection",
             "missing mission selection never becomes a Vanilla fallback");
         infos[2] = Info(abbot, false, false, candidates: 2); infos[2].aivs[1].data = null;
-        var badCandidate = Reject<CoopAiSelectionException>(() => CoopAiStartPlanFactory.ValidateLobby(lobby, infos));
+        var badCandidate = Reject<CoopAiSelectionException>(() => CoopAiStartPlanFactory.ValidateLobby(lobby, infos, false));
         Check(badCandidate?.Code == "InvalidCandidate" && badCandidate.Message.Contains("candidate=1"),
             "invalid selected candidate reports its slot and index");
         Check(CoopAiStartPlanFactory.Create(infos[2], 3, abbot, 1, null, false).CandidateCount == 1,
             "a known transmitted prefix does not inspect unused candidate data");
         infos[2].builtIn = true;
-        Check(Reject<Exception>(() => CoopAiStartPlanFactory.ValidateLobby(lobby, infos)) == null,
+        Check(Reject<Exception>(() => CoopAiStartPlanFactory.ValidateLobby(lobby, infos, false)) == null,
             "inactive candidate data does not invalidate an effective standard castle source");
         Check(Reject<CoopAiSelectionException>(() => CoopAiStartPlanFactory.Validate(Info(0, true, true), 2, -1, out _))?.Code == "InvalidLordType" &&
             Reject<CoopAiSelectionException>(() => CoopAiStartPlanFactory.Validate(Info(0, true, true), 9, rat, out _))?.Code == "InvalidSlot",
@@ -391,23 +484,23 @@ internal static class Program
 
         // The final gate has no cached success: a rejected selection can be repaired in the same lobby.
         infos[2] = Info(abbot, false, true); infos[2].lordConfig = null;
-        Check(Reject<CoopAiSelectionException>(() => CoopAiStartPlanFactory.ValidateLobby(lobby, infos)) != null,
+        Check(Reject<CoopAiSelectionException>(() => CoopAiStartPlanFactory.ValidateLobby(lobby, infos, false)) != null,
             "first launch rejects incomplete AIC");
         infos[2] = Info(abbot, false, true);
-        Check(Reject<Exception>(() => CoopAiStartPlanFactory.ValidateLobby(lobby, infos)) == null,
+        Check(Reject<Exception>(() => CoopAiStartPlanFactory.ValidateLobby(lobby, infos, false)) == null,
             "repaired selection passes a second launch without reopening the lobby");
         ulong[] mapping = lobby.this_player_to_SteamID_mapping;
         lobby.this_player_to_SteamID_mapping = null;
-        Check(Reject<CoopAiSelectionException>(() => CoopAiStartPlanFactory.ValidateLobby(lobby, infos))?.Code == "InvalidSlot",
+        Check(Reject<CoopAiSelectionException>(() => CoopAiStartPlanFactory.ValidateLobby(lobby, infos, false))?.Code == "InvalidSlot",
             "missing lobby mapping produces an actionable failure before a lookup");
         lobby.this_player_to_SteamID_mapping = mapping;
         lobby.members.Add(partner);
-        Check(Reject<CoopAiSelectionException>(() => CoopAiStartPlanFactory.ValidateLobby(lobby, infos))?.Code == "InvalidSlot",
+        Check(Reject<CoopAiSelectionException>(() => CoopAiStartPlanFactory.ValidateLobby(lobby, infos, false))?.Code == "InvalidSlot",
             "two AI entries cannot use the same mapped player slot");
         lobby.members.RemoveAt(lobby.members.Count - 1);
         var restart = new CrusaderDE.HUD_IngameMenu.RestartSkirmishMapInfo();
         restart.importAIVs(infos);
-        CoopAiStartPlanFactory.ValidateLobby(lobby, restart.aivs);
+        CoopAiStartPlanFactory.ValidateLobby(lobby, restart.aivs, false);
         CoopAiSlotPlan restored = CoopAiStartPlanFactory.Create(restart.aivs[1], 2, custom, -1, null, true);
         Check(Reject<Exception>(() => CoopAiStartPlanFactory.RequirePlan(expected, restored, true)) == null,
             "Vanilla's actual restart snapshot preserves the effective Customize AIC and candidate list");

@@ -13,7 +13,7 @@ using SHCDESE.API;
 namespace UiAcceptance
 {
     // Ingame menu actions, confirmation popups, APIShared UI work snapshot, Harmony call counters
-    // and the hash-bound BugfixesAndQoL 196100/+56C probe.
+    // and the hash-bound Pathfinding 196100/+56C probe.
     internal static unsafe class ProbeSteps
     {
         internal static void Register()
@@ -26,6 +26,7 @@ namespace UiAcceptance
             Runner.Register("CountCalls", CountCalls);
             Runner.Register("ExpectCalls", ExpectCalls);
             Runner.Register("SelectOwnUnits", SelectOwnUnits);
+            Runner.Register("SelectOwnUnitsNative", SelectOwnUnitsNative);
             Runner.Register("PlayerMove", PlayerMove);
             Runner.Register("ExpectMoveMode", ExpectMoveMode);
             Runner.Register("RegionScan", RegionScan);
@@ -218,26 +219,34 @@ namespace UiAcceptance
             yield break;
         }
 
-        // ---- BugfixesAndQoL rejected-move probe (hash-bound, see UpdateToNewDLL.md) ----
+        // ---- Pathfinding rejected-move probe (hash-bound, see Pathfinding/UpdateToNewDLL.md) ----
         private const string NativeSha256 = "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
         private const int PlayerMoveRva = 0x196100, UnitManagerRva = 0x67E8400, TribeManagerRva = 0x7CC6720, TribeStride = 0x688, MoveModeOffset = 0x56C;
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void PlayerMoveDelegate(IntPtr manager, int tribe, int x, int y, int patrol, int flags);
         private static PlayerMoveDelegate playerMove;
         private static ulong image;
         private static object engineLock;
+        private static bool nativeHashVerified;
+
+        internal static void RequireNativeReferenceHash()
+        {
+            if (nativeHashVerified) return;
+            string file = Path.Combine(BepInEx.Paths.GameRootPath, "Stronghold Crusader Definitive Edition_Data", "Plugins", "x86_64", "CrusaderDE.dll");
+            using (var sha = SHA256.Create())
+                if (BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(file))).Replace("-", "") != NativeSha256)
+                    throw new StepFailure("unknown CrusaderDE.dll; native fixture contracts are hash-bound");
+            nativeHashVerified = true;
+        }
 
         private static void Bind()
         {
             if (playerMove != null) return;
-            string file = Path.Combine(BepInEx.Paths.GameRootPath, "Stronghold Crusader Definitive Edition_Data", "Plugins", "x86_64", "CrusaderDE.dll");
-            using (var sha = SHA256.Create())
-                if (BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(file))).Replace("-", "") != NativeSha256)
-                    throw new StepFailure("unknown CrusaderDE.dll; the 196100 probe is hash-bound");
+            RequireNativeReferenceHash();
             IntPtr module = GetModuleHandle("CrusaderDE.dll");
             Runner.Require(module != IntPtr.Zero, "CrusaderDE.dll not loaded");
             image = (ulong)module.ToInt64();
             // The full-file hash pins every RVA; the live entry is deliberately not compared because
-            // BugfixesAndQoL's detour is expected there and the call must go through it.
+            // Pathfinding's detour is expected there and the call must go through it.
             FieldInfo monitor = typeof(EngineInterface).GetField("threadLock", BindingFlags.Static | BindingFlags.NonPublic);
             engineLock = monitor?.GetValue(null) ?? throw new StepFailure("EngineInterface.threadLock missing");
             playerMove = Marshal.GetDelegateForFunctionPointer<PlayerMoveDelegate>((IntPtr)(long)(image + PlayerMoveRva));
@@ -258,6 +267,18 @@ namespace UiAcceptance
             lastSelection = selected;
             AcceptLog.Info("SELECTED player=" + player + " units=" + string.Join(",", selected));
             yield return new Delay(300);
+        }
+
+        // Native selection of own units through the Extender, which also opens the troop panel. args: player, count.
+        private static IEnumerable<Wait> SelectOwnUnitsNative(Step step)
+        {
+            int player = step.Int(0), count = step.Int(1);
+            List<int> selected = OwnUnits(player, count);
+            Runner.Require(selected.Count == count, "player " + player + " has only " + selected.Count + " alive units");
+            Runner.Require(SHCDESE.API.GamePlayerManagerAPI.Instance.SetSelectedChimps(selected), "native selection was refused");
+            lastSelection = selected;
+            AcceptLog.Info("SELECTED_NATIVE player=" + player + " units=" + string.Join(",", selected));
+            yield return new Until("troop panel", () => MainViewModel.viewModelLoaded && MainViewModel.Instance.Show_HUD_Troops);
         }
 
         private static List<int> OwnUnits(int player, int count)

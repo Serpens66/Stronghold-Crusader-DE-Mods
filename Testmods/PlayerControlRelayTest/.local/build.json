@@ -1,0 +1,118 @@
+{
+    "BuiltUtc":  "2026-11-09T11:09:11.4735928Z",
+    "WorkspaceCommit":  "d03de12547fa47e07f1a0229fdcf949c812a7980",
+    "ApiBranch":  "develop",
+    "ApiCommit":  "cfd94c1b11348fa4c50d36f652ea1bf139742a27",
+    "DevDiag":  false,
+    "Installed":  false,
+    "Inputs":  [
+                   {
+                       "Path":  "build.bat",
+                       "Sha256":  "bf23b0fdf59eff09eb616f4d3aee8b05cd9252f97b56e2b492d215be46197d82"
+                   },
+                   {
+                       "Path":  "build.ps1",
+                       "Sha256":  "361ce084be48b94c608e91f8bddc899cbf9c2b2dd09a3b08975ea719d6c2a472"
+                   },
+                   {
+                       "Path":  "info.json",
+                       "Sha256":  "0e9dd25f082f57966267758b6e392dae76ac4aef3d17ef37c330fcdfef0be780"
+                   },
+                   {
+                       "Path":  "PlayerControlRelayTest.csproj",
+                       "Sha256":  "124cba306db7ba4e89b50a821aefc8eb10a0a7cba7d72980547815b07f3a53f2"
+                   },
+                   {
+                       "Path":  "TESTING.md",
+                       "Sha256":  "d38a735fd53225d7fb1786f761f3a213e2845db3dd13f3a5d3bb6b071ae23047"
+                   },
+                   {
+                       "Path":  "UpdateToNewDLL.md",
+                       "Sha256":  "ad963acbaf0660e17303f46512248e3f11b1b25fc41570cf173873e1f950f8ff"
+                   },
+                   {
+                       "Path":  "src\\AssemblyInfo.cs",
+                       "Sha256":  "bffb7ff3d51526e84653f2b714f9ebda2e2bb411ee53be244274e7751b57bc44"
+                   },
+                   {
+                       "Path":  "src\\PlayerControlRelayPlugin.cs",
+                       "Sha256":  "27f6ac669166da689634e651aa203f3d5b92e74eb427a81da4174ab2c261a91f"
+                   },
+                   {
+                       "Path":  "src\\RelayHud.cs",
+                       "Sha256":  "d23207112a67b76818e169e4cd60406558a2e43da86c818928153c7a99c12ed5"
+                   },
+                   {
+                       "Path":  "src\\RelayInput.cs",
+                       "Sha256":  "d8db1675fffd2948615e5d47934248c0651bbc9d7b0191526b8db53179c99b04"
+                   },
+                   {
+                       "Path":  "src\\RelayMarkers.cs",
+                       "Sha256":  "9f8023de1e1a07b7006cf6e6d6d2c016839f4c2f511d6dae286a3adfe2b38129"
+                   },
+                   {
+                       "Path":  "src\\RelayRuntime.cs",
+                       "Sha256":  "2d3b8df1ea8bf697bb9d670aceafc08c2ed92bc70ac7c87c18a8142edb669588"
+                   },
+                   {
+                       "Path":  "src\\RelayWire.cs",
+                       "Sha256":  "1a635cd8304b638e62354043239d2eeb4eb279b2972aca6e735dfc1432a9fa23"
+                   },
+                   {
+                       "Path":  "src\\RelayWorld.cs",
+                       "Sha256":  "9029890fef74c7bda219ad068a894043f4805542fc5f6ac1d34618599dcfd97b"
+                   },
+                   {
+                       "Path":  "src\\Core\\RelayCommand.cs",
+                       "Sha256":  "9e2c8e4fe3217a67db77bd02d79f387ec6a6c36aae9a00d344bbe631f557ce2b"
+                   },
+                   {
+                       "Path":  "src\\Core\\RelayGesture.cs",
+                       "Sha256":  "588484655d8e93a828918715d6741b706b8157d3b97979173f6c013074684ff9"
+                   },
+                   {
+                       "Path":  "src\\Core\\RelayLedger.cs",
+                       "Sha256":  "78011e030c403d9bb803cec93c287fa45b3cb264a44d9817590c795090e64df3"
+                   },
+                   {
+                       "Path":  "src\\Core\\RelayValidation.cs",
+                       "Sha256":  "59e06c228141c9105f031955b5170febf7e93b1291e74491dfe3480349d4e09e"
+                   },
+                   {
+                       "Path":  "src\\Core\\RelayWorldReadiness.cs",
+                       "Sha256":  "36e4b1c7ab9fc9720cb1b93d4ffab42145b662382d8038a6adef724a3b233033"
+                   },
+                   {
+                       "Path":  "tests\\PlayerControlRelayCoreTests.csproj",
+                       "Sha256":  "36d1f54a80674e29ca3b99bd468c74f6b44c5f738f4b57e7f4e058df8636a0ec"
+                   },
+                   {
+                       "Path":  "tests\\PlayerControlRelayWireTests.csproj",
+                       "Sha256":  "e013bf0de1b0874cb8708e2a8f75f6bb06e6646e2d5076556bc7755c32197be9"
+                   },
+                   {
+                       "Path":  "tests\\Program.cs",
+                       "Sha256":  "5cf16a49d31d2bd59583e338c988c979e209b3ad5d818a79fda7730485704bff"
+                   },
+                   {
+                       "Path":  "tests\\WireProgram.cs",
+                       "Sha256":  "80c680414d3c9e57f8357ec74e23c8779086bb9e0390eb228bf90836763a6f20"
+                   }
+               ],
+    "Files":  [
+                  {
+                      "Name":  "info.json",
+                      "Sha256":  "0e9dd25f082f57966267758b6e392dae76ac4aef3d17ef37c330fcdfef0be780"
+                  },
+                  {
+                      "Name":  "PlayerControlRelayTest.dll",
+                      "Sha256":  "033a43eb8de3e9eda58c51b24a14bef584df7bc2b70533212a8d5d610620fde2"
+                  },
+                  {
+                      "Name":  "PlayerControlRelayTest.pdb",
+                      "Sha256":  "17e199560e935cb67eb4f1c93a679ae3f25536bc3c573f3be3f144961a7d6ad8"
+                  }
+              ],
+    "Package":  "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\PlayerControlRelayTest\\.local\\PlayerControlRelayTest.zip",
+    "PackageSha256":  "34e03ccd2ad115b2830a7b92c21b49b1bb5c4068571fbed66d54a909f83244d8"
+}

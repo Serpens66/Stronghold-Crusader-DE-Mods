@@ -1,10 +1,8 @@
-using BepInEx;
 using Iced.Intel;
 using SHCDESE.API.LowLevel;
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 
 namespace Spectator
 {
@@ -16,16 +14,11 @@ namespace Spectator
         private const int OrderRva = 0xD7580;
         private const int OrderLength = 587;
 
-        private static void InitializeNativeOrders(CrusaderLibraryLoadContext context)
+        private static void InitializeNativeOrders(CrusaderLibraryLoadContext context, byte[] image)
         {
             if (nativeOrder != null) return;
             try
             {
-                string file = Path.Combine(Paths.GameRootPath, "Stronghold Crusader Definitive Edition_Data", "Plugins", "x86_64", "CrusaderDE.dll");
-                byte[] image = File.ReadAllBytes(file);
-                using (var sha = SHA256.Create())
-                    if (BitConverter.ToString(sha.ComputeHash(image)).Replace("-", "") != NativeSha256)
-                        throw new InvalidOperationException("Unknown native image; AI state-layout contract is hash-bound.");
                 int pe = BitConverter.ToInt32(image, 60);
                 int table = pe + 24 + BitConverter.ToUInt16(image, pe + 20);
                 int count = BitConverter.ToUInt16(image, pe + 6);
@@ -52,25 +45,13 @@ namespace Spectator
                     decoded += instruction.Length;
                 }
                 if (decoded != OrderLength) throw new InvalidDataException("Order function boundary changed.");
-                long module = context.ModuleHandle.ToInt64();
-                var live = new byte[size];
-                Marshal.Copy(new IntPtr(module + sectionRva), live, 0, size);
-                int offset = OrderRva - sectionRva;
-                string method = "reference-rva";
-                if (!Matches(live, offset, expected))
-                {
-                    offset = -1;
-                    for (int candidate = 0; candidate <= live.Length - expected.Length; candidate++)
-                        if (Matches(live, candidate, expected))
-                        { if (offset >= 0) throw new InvalidDataException("Ambiguous order signature."); offset = candidate; }
-                    if (offset < 0) throw new InvalidDataException("No unchanged order function found.");
-                    // Relative references are valid only at the audited origin for this image/layout.
-                    if (sectionRva + offset != OrderRva) throw new InvalidDataException("Relocated order signature has unvalidated relative references.");
-                    method = "pattern-fallback";
-                }
-                nativeOrder = (NativeOrderCall)Marshal.GetDelegateForFunctionPointer(
-                    new IntPtr(module + sectionRva + offset), typeof(NativeOrderCall));
-                log.LogInfo("TEST_AI_ORDERS_READY method=" + method + " rva=0x" + (sectionRva + offset).ToString("X") + " bytes=" + OrderLength);
+                var address = new IntPtr(context.ModuleHandle.ToInt64() + OrderRva);
+                var live = new byte[OrderLength];
+                Marshal.Copy(address, live, 0, live.Length);
+                if (!Matches(live, 0, expected))
+                    throw new InvalidDataException("Live native order function differs at the audited RVA.");
+                nativeOrder = (NativeOrderCall)Marshal.GetDelegateForFunctionPointer(address, typeof(NativeOrderCall));
+                log.LogInfo($"TEST_AI_ORDERS_READY method=reference-rva rva=0x{OrderRva:X} bytes={OrderLength}");
             }
             catch (Exception error) { log.LogError("TEST_AI_ORDERS_DISABLED: " + error); }
         }

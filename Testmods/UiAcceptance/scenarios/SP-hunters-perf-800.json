@@ -1,0 +1,17 @@
+{
+  "enabled": true,
+  "series": "SP-hunters-perf-800",
+  "role": "sp",
+  "quitWhenDone": true,
+  "steps": [
+    {"id": "menu", "do": "WaitMainMenu", "timeoutMs": 60000, "stopOnFail": true, "allowErrors": true},
+    {"id": "no-random-events", "do": "RandomEvents", "args": ["off"], "timeoutMs": 10000, "stopOnFail": true},
+    {"id": "enable", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "EnableMod", "true"]},
+    {"id": "load", "do": "LoadSave", "args": ["test_stresstest5.sav"], "timeoutMs": 180000, "stopOnFail": true},
+    {"id": "unpause", "do": "Pause", "args": ["off"], "timeoutMs": 15000, "stopOnFail": true},
+    {"id": "speed", "do": "Speed", "args": ["40"]},
+    {"id": "measure", "do": "Wait", "args": ["60000"], "timeoutMs": 120000},
+    {"id": "menu-back", "do": "QuitToMenu", "timeoutMs": 60000},
+    {"id": "restore-random-events", "do": "RandomEvents", "args": ["on"], "timeoutMs": 10000}
+  ]
+}

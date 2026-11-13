@@ -173,10 +173,15 @@ namespace BugfixesAndQoL
                 project,
                 @"Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml");
             XDocument settingsXaml = XDocument.Load(settingsPath);
+            // Fixes/QoL subfilters share the topic key; only the owning searchable
+            // section carries IsSection=True and contains all of these controls.
             XElement hostInterface = settingsXaml.Descendants().Single(element =>
                 element.Attributes().Any(attribute =>
                     attribute.Name.LocalName == "ModSettingsSearch.SectionKey" &&
-                    (string)attribute == "bugfixes.topic.host-setup"));
+                    (string)attribute == "bugfixes.topic.host-setup") &&
+                element.Attributes().Any(attribute =>
+                    attribute.Name.LocalName == "ModSettingsSearch.IsSection" &&
+                    (string)attribute == "True"));
             string[] interfaceSettingKeys =
             {
                 "bugfixes.show-mp-advanced-settings-in-sp",
@@ -221,8 +226,25 @@ namespace BugfixesAndQoL
             string setup = File.ReadAllText(setupPath);
             check(setup.Contains("Show_MPNotSkirmishIsHost") && setup.Contains("Show_MPIsHost"),
                 "Vanilla preset strip is enabled for local Skirmish hosts");
+            var setupOperations = XDocument.Parse(setup).Root.Elements("Operation");
+            var protectedRows = new[] { "Settings_Autosave", "MP_Settings_GameSpeed_Slider" };
+            foreach (string row in protectedRows)
+            {
+                var rowOperations = setupOperations.Where(operation => ((string)operation.Attribute("XPath")).Contains(row));
+                check(rowOperations.Any(operation =>
+                          (string)operation.Attribute("AttributeName") == "Visibility" &&
+                          operation.Attribute("Value") == null) &&
+                      rowOperations.Any(operation => operation.Descendants("MultiDataTrigger").Any(trigger =>
+                          trigger.Descendants("Condition").Any(condition =>
+                              (string)condition.Attribute("Binding") == "{Binding Show_MPOnlySettings}" &&
+                              (string)condition.Attribute("Value") == "True") &&
+                          trigger.Descendants("Condition").Any(condition =>
+                              (string)condition.Attribute("Binding") == "{Binding MultiplayerNonTrailMakerMode}" &&
+                              (string)condition.Attribute("Value") == "True"))),
+                    row + " uses Vanilla options visibility outside Trail Maker only");
+            }
 
-            string runtime = File.ReadAllText(Path.Combine(project, @"src\SkirmishGameOptionsRuntime.cs"));
+            string runtime = File.ReadAllText(Path.Combine(project, @"src\Lobby\SkirmishGameOptionsRuntime.cs"));
             // The built-DLL settings suite separately executes PeaceAvailable for both Host states.
             check(runtime.Contains("viewModel.Show_MPPeacetime = PeaceAvailable;") &&
                   !runtime.Contains("ExtraFeatures") &&
@@ -233,7 +255,7 @@ namespace BugfixesAndQoL
                 "integrated dialog owns Vanilla Peace Time, fails closed and normalizes Skirmish advanced state");
             string access = File.ReadAllText(Path.Combine(
                 project,
-                @"src\SkirmishGameOptionsAccessViewModel.cs"));
+                @"src\Lobby\SkirmishGameOptionsAccessViewModel.cs"));
             int bindingGuardStart = access.IndexOf(
                 "if (button == null || vanillaViewModel == null ||",
                 StringComparison.Ordinal);
@@ -267,10 +289,10 @@ namespace BugfixesAndQoL
                 "injected Settings buttons use MainViewModel.Instance.MP_Settings_Button and never the Invite text key");
             string noDogsPatch = File.ReadAllText(Path.Combine(
                 project,
-                @"src\NoDogsNativePatch.cs"));
+                @"src\PeaceTime\NoDogsNativePatch.cs"));
             string peaceTimePatch = File.ReadAllText(Path.Combine(
                 project,
-                @"src\VanillaPeaceTimeGameplayPatch.cs"));
+                @"src\PeaceTime\VanillaPeaceTimeGameplayPatch.cs"));
             check(!runtime.Contains("DebugLogHelper.LogInfo(") &&
                   !access.Contains("DebugLogHelper.LogInfo(") &&
                   runtime.Contains("DebugLogHelper.LogDebug(") &&
@@ -291,7 +313,7 @@ namespace BugfixesAndQoL
 
             string bugfixSettings = File.ReadAllText(Path.Combine(
                 project,
-                @"src\BugfixesAndQoLViewModel.cs"));
+                @"src\Settings\BugfixesAndQoLViewModel.cs"));
             check(bugfixSettings.Contains("private bool showMpAdvancedSettingsInSingleplayer = true;") &&
                   bugfixSettings.Contains("public bool ShowMpAdvancedSettingsInSingleplayer") &&
                   bugfixSettings.Contains("public string InterfaceTitleText") &&

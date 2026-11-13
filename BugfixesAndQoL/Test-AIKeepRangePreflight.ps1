@@ -1,10 +1,10 @@
 param([switch]$SkipTests, [string]$GameDir, [string]$ExtenderDir, [string]$ApiSharedDir, [switch]$SkipPermanentHooks)
 $ErrorActionPreference = 'Stop'
 $workspace = Split-Path -Parent $PSScriptRoot
-$runtimePath = Join-Path $PSScriptRoot 'src\AIKeepRangeRuntime.cs'
+$runtimePath = Join-Path $PSScriptRoot 'src\AI\Fixes\AIKeepRangeRuntime.cs'
 $runtime = [IO.File]::ReadAllText($runtimePath)
-$contract = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\AIKeepRangeNativeContract.cs'))
-$decision = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\AIKeepRangeDecision.cs'))
+$contract = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\AI\Fixes\AIKeepRangeNativeContract.cs'))
+$decision = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\AI\Fixes\AIKeepRangeDecision.cs'))
 $source = $runtime + $contract + $decision
 if ($contract -match 'AllocHGlobal|FreeHGlobal|VirtualFree|NativeMemoryManager.Free' -or
     $contract -notmatch 'ProbeBackend\(target, NativeMemoryManager.AllocateStub\)' -or
@@ -14,8 +14,8 @@ if ($contract -match 'AllocHGlobal|FreeHGlobal|VirtualFree|NativeMemoryManager.F
     $runtime -notmatch 'AIKeepRangeNativeContract\.Backend\)?\.CreateDetour') {
     throw 'Probe storage must use target-relative RedBird slabs and the same Indirect-only backend as the real hook.'
 }
-$vm = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\BugfixesAndQoLViewModel.cs'))
-$parent = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\BugfixesAndQoLRuntime.cs'))
+$vm = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\Settings\BugfixesAndQoLViewModel.cs'))
+$parent = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\Core\Bootstrap\BugfixesAndQoLRuntime.cs'))
 if ($source -match 'System\.Web\.Extensions|JavaScriptSerializer|System\.Text\.Json|Newtonsoft|DataContractJsonSerializer|JsonUtility|threadLock|KeepProximityOverride|SetKeepProximityRange|CodePatch\.Write|Marshal\.Write|VirtualProtect|\.Undo\s*\(|\.Disable\s*\(') { throw 'Forbidden serializer/engine access/global override/executable mutation.' }
 if ($source -match '\b(OnDestroy|OnDisable|OnApplicationQuit|OnApplicationPause|Update|LateUpdate|FixedUpdate|StartCoroutine)\s*\(') { throw 'Unexpected Unity lifecycle or polling.' }
 if ($source -match '\bhook\??\.(Enable|Dispose)\s*\(' -or
@@ -44,7 +44,7 @@ foreach ($file in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'Locales')
         if ([regex]::Matches($text,'(?m)^'+[regex]::Escape($key)+'=.+').Count -ne 1) { throw "Locale key: $($file.Name) $key" }
     }
 }
-$files = @('src\AIKeepRangeRuntime.cs','src\AIKeepRangeNativeContract.cs','src\AIKeepRangeDecision.cs','Test-AIKeepRangePreflight.ps1',
+$files = @('src\AI\Fixes\AIKeepRangeRuntime.cs','src\AI\Fixes\AIKeepRangeNativeContract.cs','src\AI\Fixes\AIKeepRangeDecision.cs','Test-AIKeepRangePreflight.ps1',
     'tests\AIKeepRange.Tests\Program.cs','tests\AIKeepRange.Tests\RuntimeHarness.cs','tests\AIKeepRange.Tests\AIKeepRange.Tests.csproj')
 foreach ($file in $files) {
     $text=[IO.File]::ReadAllText((Join-Path $PSScriptRoot $file))

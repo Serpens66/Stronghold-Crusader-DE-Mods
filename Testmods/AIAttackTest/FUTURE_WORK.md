@@ -9,5 +9,5 @@ Diese Rotation ist in AIAttackTest 0.1.0 absichtlich nicht enthalten. Stronghold
 ## Abgrenzung der vorhandenen Änderungen
 
 - AIAttackTest 0.1.0 ändert nach einem Durchbruch nur die Vanilla-Begrenzung, die ansonsten lediglich dem ersten geeigneten Tribe einen Lord-Angriff erlaubt.
-- `BugfixesAndQoL/src/AiWallTargetingFix.cs` entfernt unabhängig davon die Reservierungssperre, damit mehrere einzelne Angreifer dasselbe gültige Mauersegment wählen können.
+- `BugfixesAndQoL/src/AI/Fixes/AiWallTargetingFix.cs` entfernt unabhängig davon die Reservierungssperre, damit mehrere einzelne Angreifer dasselbe gültige Mauersegment wählen können.
 - Die spätere 4/2/1-Rotation wäre ein drittes, strategisches Feature und darf weder mit dem Lord-Patch noch mit dem Wall-Targeting-Fix gleichgesetzt oder ungeprüft an deren RVAs angehängt werden.

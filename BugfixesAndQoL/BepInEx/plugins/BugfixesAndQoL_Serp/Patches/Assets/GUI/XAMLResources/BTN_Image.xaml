@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Operation Type="Add" XPath="/n:ResourceDictionary/n:Style[@x:Key='BTN_Image']/n:Setter[@Property='Template']/n:Setter.Value/n:ControlTemplate/n:ControlTemplate.Triggers">
+    <Content>
+      <Trigger Property="Tag" Value="BugfixesAndQoL_Serp:controlled-lord">
+        <Setter TargetName="BaseGrid" Property="RenderTransform">
+          <Setter.Value>
+            <ScaleTransform ScaleX="1.07" ScaleY="1.07" />
+          </Setter.Value>
+        </Setter>
+      </Trigger>
+    </Content>
+  </Operation>
+</Patch>

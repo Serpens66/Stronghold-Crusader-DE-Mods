@@ -225,7 +225,7 @@ namespace Shared
 
             keepBuildingId = players.GetPlayerKeepId(playerId);
             return keepBuildingId > 0 &&
-                   GameBuildingManagerAPI.Instance.TryGetBuildingById(keepBuildingId, out GameBuilding* keep) &&
+                   global::APIShared.BuildingAccess.TryGetById(keepBuildingId, out GameBuilding* keep, out _) &&
                    keep != null &&
                    keep->r_PlayerIdOwner == playerId &&
                    IsKeepType(keep->r_BuildingType) &&

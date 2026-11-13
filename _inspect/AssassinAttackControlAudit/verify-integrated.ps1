@@ -45,7 +45,7 @@ if($project -match 'publicized') { throw 'Mainmod must reference real Unity asse
 $native='E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll'
 if((Get-Sha256 $native) -ne 'FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2') { throw 'Native image changed' }
 
-$runtimeSource=[IO.File]::ReadAllText((Join-Path $mod 'src\AssassinCapturedGateProtectionRuntime.cs'))
+$runtimeSource=[IO.File]::ReadAllText((Join-Path $mod 'src\Assassins\AssassinCapturedGateProtectionRuntime.cs'))
 if($runtimeSource -match 'AlternativeSearch|CaptureTraversal|MoveToTile|OnTick|SortedDictionary|BuildGoals|AdvanceSearch') { throw 'Captured-gate runtime must not search, queue or issue movement orders' }
 if($guard -match 'IAssassinTraversalView|RegisterTraversal|CaptureTraversal|IsTraversalAvailable' -or
     $guard -notmatch 'RegisterGuard\(ownerGuid, callback, AssassinObstacleCompletionMode.IdleOnly\)' -or
@@ -55,7 +55,7 @@ if($completion -notmatch 'unit->r_AIObjectiveRole2' -or $completion -notmatch 'f
 
 Write-Host 'PASS Assassin attack runtime JSON/lifecycle/permanent-hook/XAML/CRLF/native-hash contracts.'
 
-$view=[IO.File]::ReadAllText((Join-Path $mod 'src\BugfixesAndQoLViewModel.cs'))
+$view=[IO.File]::ReadAllText((Join-Path $mod 'src\Settings\BugfixesAndQoLViewModel.cs'))
 foreach($required in @('private bool enableAssassinCapturedGateProtectionFix = true;', 'EnableAssassinCapturedGateProtectionFix = true;', 'SetSetting(ref enableAssassinCapturedGateProtectionFix, value, nameof(EnableAssassinCapturedGateProtectionFix))')) {
     if(-not $view.Contains($required)){throw "Missing protection setting: $required"}
 }

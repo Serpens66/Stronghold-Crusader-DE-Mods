@@ -10,6 +10,10 @@
 - Die externen Quellbäume bleiben unverändert (Extender-Fork und Fixes-Klon sind Analysequellen). Native Audits, permanente Hooklebensdauer, Kompatibilitätsprüfungen und Rücksprache-Empfehlungen bei APIShared-Breaking-Changes gelten auch für diese Korrekturen.
 - Statische Befunde nicht als nachgewiesene gamebreaking Bugs behandeln. Keine zusätzlichen Nachweise oder Testmods für die folgenden Hinweise ohne neuen Auftrag.
 
+## Bewusst akzeptierter Auswahl-Randfall
+
+- **Nutzerentscheidung vom 04.11.2026:** Bereits an `SetSelectedChimps` übergebene Extender-Aufträge können bei einem Karten-/Spielerwechsel innerhalb ihrer drei Eingabephasen weiterlaufen. Das Fenster ist normalerweise sehr kurz (ca. 75 ms im Standardtakt), durch Pause aber verlängerbar. Ein praktischer Fehlerfall wurde nicht im Spiel reproduziert; es gibt keinen öffentlichen sicheren Abbruch. Der Nutzer akzeptiert diese Grenze: keine zusätzlichen Hooks, privaten Resets oder Ersatzaufträge auf Verdacht. Nicht erneut als neuen Befund melden oder ungefragt absichern. Nur bei neuen konkreten Laufzeitbelegen oder einer verfügbaren eindeutig risikoarmen Abbruchmöglichkeit neu bewerten. Eigene Sitzungs-/Spieler-/Identitätsprüfungen beibehalten. Nachweis: `KNIGHT_SELECTION_TRANSFERS.md` im durch [CURRENT.json](../_inspect/CrusaderDE-Native-Baseline/CURRENT.json) bestimmten Semantic-Ordner.
+
 ## Fixes-Kompatibilität
 
 - Quelle: kanonischer lokaler Klon `D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Fremde Mods\shcde-fixes-main` (https://gitlab.com/rawra-stronghold-crusader/shcde-fixes). Nach dem Fixes-Mod zu laden ist eine erlaubte Kompatibilitätslösung.

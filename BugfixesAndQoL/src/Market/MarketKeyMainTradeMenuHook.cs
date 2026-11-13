@@ -1,0 +1,113 @@
+using APIShared.GameModes;
+// Feature: Pressing the market key again returns an open tradepost to its main panel.
+using BepInEx.Logging;
+using CrusaderDE;
+using R3;
+using SHCDESE.API;
+using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Input;
+using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
+using System;
+
+namespace BugfixesAndQoL
+{
+    internal sealed class MarketKeyMainTradeMenuHook : IDisposable
+    {
+        private const int BuildingAppMode = 16;
+        private const int TradepostMainPanel = 25;
+        private const int TradepostPricesPanel = 53;
+        private const int TradepostFoodPanel = 54;
+        private const int TradepostResourcesPanel = 55;
+        private const int TradepostWeaponsPanel = 56;
+        private const int TradepostTradePanel = 57;
+
+        private readonly ManualLogSource log;
+        private readonly BugfixesAndQoLViewModel settings;
+        private readonly IDisposable subscription;
+
+        public MarketKeyMainTradeMenuHook(ManualLogSource log, BugfixesAndQoLViewModel settings)
+        {
+            this.log = log ?? throw new ArgumentNullException(nameof(log));
+            this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            subscription = InputR3EventHooks.OnKeyDown.Observable.Subscribe(OnKeyDown);
+        }
+
+        public void Dispose()
+        {
+            subscription.Dispose();
+        }
+
+        private unsafe void OnKeyDown(UnityInputEventArgs args)
+        {
+            try
+            {
+                if (!settings.EnableClientFeatures || !settings.EnableMarketKeyMainMenuFix ||
+                    args.Phase != EventHookPhase.Post)
+                    return;
+
+                KeyManager keyManager = KeyManager.instance;
+                if (keyManager == null || !keyManager.IsActionPressed(Enums.KeyFunctions.Market))
+                    return;
+
+                if (GameData.Instance?.lastGameState == null || GameData.Instance.app_mode != BuildingAppMode)
+                    return;
+
+                int selectedBuildingId = GamePlayerManagerAPI.Instance.GetSelectedBuildingId();
+                if (!APIShared.BuildingAccess.TryGetById(selectedBuildingId, out GameBuilding* selectedBuilding, out _) ||
+                    selectedBuilding->r_BuildingType != eStructs.STRUCT_TRADEPOST ||
+                    !IsSelectedTradepostControlled(selectedBuildingId))
+                {
+                    return;
+                }
+
+                int subMode = GameData.Instance.app_sub_mode;
+                if (subMode == TradepostMainPanel || !IsTradepostSubPanel(subMode))
+                    return;
+
+                if (EditorDirector.instance == null || MainViewModel.Instance == null)
+                    return;
+
+                EditorDirector.instance.directSetAppSubMode(TradepostMainPanel);
+                MainViewModel.Instance.setUpInbuilding(
+                    TradepostMainPanel,
+                    (int)eStructs.STRUCT_TRADEPOST);
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                {
+                    // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
+                    var diagnosticSelectedBuildingId = @selectedBuildingId;
+                    var diagnosticSubMode = @subMode;
+                    Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/MarketKeyMainTradeMenuHook/OnKeyDown.reset-tradepost-menu-market", () => $"Bugfixes and QoL reset tradepost menu from market key: selectedBuildingId={diagnosticSelectedBuildingId}, previousSubMode={diagnosticSubMode}.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/MarketKeyMainTradeMenuHook/OnKeyDown.market-key-tradepost-menu", $"Bugfixes and QoL market key tradepost menu reset failed: {ex}");
+            }
+        }
+
+        private static bool IsTradepostSubPanel(int subMode)
+        {
+            return subMode == TradepostPricesPanel ||
+                subMode == TradepostFoodPanel ||
+                subMode == TradepostResourcesPanel ||
+                subMode == TradepostWeaponsPanel ||
+                subMode == TradepostTradePanel;
+        }
+
+        private static bool IsMapEditor() => APIShared.GameModes.GameModeHelper.IsMapEditor();
+
+        private static unsafe bool IsSelectedTradepostControlled(int buildingId)
+        {
+            if (!IsMapEditor())
+                return true;
+
+            int activePlayerId = EditorDirector.instance?.ActivePlayerID ?? -1;
+            return activePlayerId > 0 &&
+                APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) &&
+                building != null &&
+                building->r_AliveState == AliveState.IsAlive &&
+                building->r_PlayerIdOwner == activePlayerId;
+        }
+    }
+}

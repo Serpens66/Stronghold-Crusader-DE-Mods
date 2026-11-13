@@ -16,8 +16,8 @@ namespace CrenelatedWallTest
         {
             if (endpoint == null || endpoint.Row != row || row < 0 || row >= 800 ||
                 (direction != 0 && direction != 2 && direction != 4 && direction != 6) ||
-                (uint)tile >= (uint)logic.Length || row * 8 + 7 >= deltas.Length ||
-                tile >= damage.Length || tile >= structure.Length || tile >= owner.Length ||
+                !global::APIShared.IndexBounds.IsValidIndex(tile, logic.Length) || !global::APIShared.IndexBounds.IsValidIndex(row * 8 + 7, deltas.Length) ||
+                !global::APIShared.IndexBounds.IsValidIndex(tile, damage.Length) || !global::APIShared.IndexBounds.IsValidIndex(tile, structure.Length) || !global::APIShared.IndexBounds.IsValidIndex(tile, owner.Length) ||
                 (logic[tile] & 0x400300) != 0x300 || damage[tile] != 0 || structure[tile] != 0 ||
                 (owner[tile] & 7) + 1 != endpoint.Owner) return false;
             int count = 0, neighbor = -1;

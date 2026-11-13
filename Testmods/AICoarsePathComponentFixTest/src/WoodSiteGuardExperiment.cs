@@ -325,7 +325,7 @@ namespace AICoarsePathComponentFixTest
                     int x = anchorX + dx;
                     if ((uint)x >= 800 || !tiles.IsTileInsideMapBounds(x, y)) return false;
                     int tileId = checked(rowBase + x);
-                    if ((uint)tileId >= (uint)components.Length) return false;
+                    if (!global::APIShared.IndexBounds.IsValidIndex(tileId, components.Length)) return false;
                     ushort nativeComponent = unchecked((ushort)Marshal.ReadInt16(new IntPtr(
                         checked((long)module + 0x50EC690 + (long)tileId * 2))));
                     if (nativeComponent != components[tileId]) return false;

@@ -42,9 +42,11 @@ Semantic reverse-engineering baseline:
 
 ## Knowledge tooling
 
-- [NativeKnowledge in Ghidra](./tools/semantic/NATIVE_KNOWLEDGE.md): all 88 APIShared catalog fields and four double-reviewed function records, including newly named building-height-offset and unit-standing-height helpers; confidence, provenance, historical views and reader documentation remain visible; raw baseline unchanged.
+- [NativeKnowledge in Ghidra](./tools/semantic/NATIVE_KNOWLEDGE.md): 88 fields and four reviewed function records in the published catalog snapshot, including the building-height-offset and unit-standing-height helpers. The weapon-workshop field additions are documented below and in APIShared's source catalog.
 
 ## Vanilla behavior audits
+
+- [Side HUD visibility](./sem/FBCB9319/knowledge/SIDE_HUD_VISIBILITY.md) documents the managed HUD toggle and independent side-HUD flag.
 
 - [Enemy HP: offline team reference and real multiplayer gate](./sem/FBCB9319/knowledge/ENEMY_HP_MULTIPLIER.md): spectator reference AI/team exemption, per-owner HP consumers, and the mode-1 network-start bypass; static evidence, no new game/host-client acceptance run.
 
@@ -57,15 +59,31 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 - [AI resource reserve audit](./sem/FBCB9319/knowledge/AI_RESOURCE_RESERVE.md)
 - [Bedouin healer target-selection audit](./sem/FBCB9319/knowledge/BEDOUIN_HEALER_TARGETS.md): candidate-list exclusions, selection, movement and healing flow.
 - [Cursor dispatcher: verified boundary and embedded tables](./sem/FBCB9319/knowledge/UNIT_COMMAND_CURSOR_BOUNDARY.md)
-- [Gatehouse query pass](./sem/FBCB9319/knowledge/GATEHOUSE_QUERY_PASS.md): DLL_RunTick → game tick → building dispatcher → gatehouse handler chain, one query pass per gate and engine run without native writes between queries, conditional Extender tick; confirmed by disassembly.
+- [Gatehouse query pass](./sem/FBCB9319/knowledge/GATEHOUSE_QUERY_PASS.md): DLL_RunTick → game tick → building dispatcher → gatehouse handler chain, one query pass per gate and engine run without native writes between queries, conditional Extender tick; confirmed by disassembly. See [gatehouse footprint origin](./sem/FBCB9319/knowledge/GATEHOUSE_QUERY_PASS.md#2026-11-10-gatehouse-footprint-origin-and-closing-cadence) for Vanilla's corner origin, the editor's unit coordinates and the derivation of the footprint center.
 - [Health-bar rendering audit](./sem/FBCB9319/knowledge/HEALTH_BAR_RENDERING.md): visible-map render paths, selection gates, HP storage and candidate hook spans.
 - [Keep and campground ground: verified records](./sem/FBCB9319/knowledge/KEEP_CAMPGROUND_GROUND.md)
 - [Keep main-flag rotation audit](./sem/FBCB9319/knowledge/KEEP_FLAG_ROTATION.md): view-dependent Vanilla micro-anchors, Keep-relative rotation, and projectile coordinate contracts.
 - [Long simulation ticks from AI group movement (FBCB9319)](./sem/FBCB9319/knowledge/SIM_TICK_SPIKE_PATHING.md): AI group-order stalls, `0x119F90` member lookup, Assassin per-member `0xD9C40` and the `+0x94` route output; mod contracts and mod measurements are only linked.
 - [Minimap (radar) pass 0xF5A40 (FBCB9319)](./sem/FBCB9319/knowledge/RADAR_PASS_F5A40.md)
+- [Outpost attack targets after a defeat](./sem/FBCB9319/knowledge/OUTPOST_ATTACK_RETARGET.md): completion queue, persistent target, native order branches and mid-match Lord validity.
 - [Surrender selection and multiplayer checksum audit](./sem/FBCB9319/knowledge/SURRENDER_SELECTION.md): selected Lord field, checksum buckets, deselection and trace evidence.
 
+- [Weapon workshop production fields](./sem/FBCB9319/knowledge/WEAPON_WORKSHOP_FIELDS.md): current and next goods IDs, interop pointer origin, and verified Vanilla workshop scope.
+
 ## Vanilla audits with mod integration
+
+- [Unit load, health and ordinary wall placement](./sem/FBCB9319/knowledge/UNIT_LOAD_PLACEMENT_CONTRACTS.md): initialized HP, healthy AI110 deletion alternatives, global allocation versus player quotas, Stone capacity, ordinary wall gates/range and direction-grid producer boundaries; specific run013 deletion cause remains unknown.
+
+- [Bulldozer query and typed removal](./sem/FBCB9319/knowledge/AREA_DEMOLITION.md): complete permission scratch, Chore 29/41 execution, one-operation dug-moat removal, linked children and the batch integration boundary; static audit, game acceptance deferred.
+
+- [Custom Lord initial selection and failed dialog refresh](./sem/FBCB9319/knowledge/CUSTOM_LORD_AIV_SELECTION.md): package-first defaults, slot-dependent types, invalid Standard flags, interrupted dialog refresh and supplied snapshot evidence; static audit, live callback sequence unverified.
+
+- [Worker production bonus and reduced output](./sem/FBCB9319/knowledge/WORKER_PRODUCTION_BONUS.md): signed fixed contribution, complete producer/completion chains, reduced Ox loads, display and raw save/transfer/checksum contracts; static and isolated execution evidence, game acceptance separate.
+
+- [Siege engineer crew timeout](./sem/FBCB9319/knowledge/SIEGE_ENGINEER_CREW_TIMEOUT.md): crew refresh, release at 121 and the missing timeout reset when a full crew transfers from the tent.
+- [Hunter prey ownership, reservation and shot states](./sem/FBCB9319/knowledge/HUNTER_PREY_RULES.md): three owner barriers, state 10 as the shot, reservation countdown, chicken population, melee rabbit contact and cow facts; single-player acceptance, multiplayer pending. Includes the complete access list of the reservation word (`+0x448`/`+0xAA4`), its war-dog and Engineer meanings, and corpse dead-time thresholds; herd kinds, spawn arts and route readers; the three filters for units attacking animals by themselves.
+
+- [Ally goods gifts and transfer boundaries](./sem/FBCB9319/knowledge/ALLY_GOODS_TRANSFERS.md): complete send/Chore/storage/Gold path and actual-transfer boundary; corrective 2026-11-05 audit reuses the existing Extender owner; game acceptance pending.
 
 - [Player-control context and Chore issuer](./sem/FBCB9319/knowledge/PLAYER_CONTROL_CONTEXT.md): transport-source flow, identity-only native helper, view-dependent enqueue, selection reservation side effects and the additive APIShared adapter; foreign-control backend and peer acceptance remain pending.
 
@@ -90,6 +108,7 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 - [Drawbridge AI decision audit](./sem/FBCB9319/knowledge/DRAWBRIDGE_AI_DECISIONS.md): player siege planning, candidate/task consumption, physical transitions and passive focused capture.
 - [Drawbridge native contracts](./sem/FBCB9319/knowledge/DRAWBRIDGES.md): tile topology, shared building height, three rendering paths, unit height and verified RedBird spans.
 - [Drawbridge stored-route contracts](./sem/FBCB9319/knowledge/ENEMY_GATE_BUILDING_CONTEXT.md): packed Unit path origin/cursor, existing movement publisher and passive route evidence; full installed-hash evidence under EnemyGateBuildingContextAudit/bridge-stored-path-evidence.txt.
+- [Group-move member exclusion mark](./sem/FBCB9319/knowledge/GROUP_MOVE_EXCLUSION_MARK.md): `GameUnit+0x428` read only by `0x11B520`, written only by AI routines, kept across regrouping; stale AI marks skipped relay-ordered units, cleared by PlayerControlRelayTest like `0x126020`; static audit plus acceptance-log correlation.
 - [Dry mixed-group admission before order mutation](./sem/FBCB9319/knowledge/MANUAL_GROUP_ADMISSION.md)
 - [Dry mixed-group movement recovery](./sem/FBCB9319/knowledge/MANUAL_GROUP_REGION_RECOVERY.md)
 - [Editor map lifecycle audit](./sem/FBCB9319/knowledge/EDITOR_MAP_LIFECYCLE.md): native creation/loading paths, managed completion, and event boundaries.
@@ -126,7 +145,7 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 - [Outpost static audit](./sem/FBCB9319/knowledge/OUTPOSTS.md): profiles, spawn/guard/group flows, selection, rally scope and documented runtime gaps.
 - [Packaged Coop maps and Ready admission](./sem/FBCB9319/knowledge/COOP_PACKAGE_MAP_READINESS.md): direct package headers versus Vanilla multiplayer catalogs, cached verification, silent Ready rejection and lobby system-message rendering; confirmed-static managed path, two-peer acceptance pending.
 - [Pause and zoom automation boundaries](./sem/FBCB9319/knowledge/AUTOMATION_PAUSE_ZOOM.md): native versus managed pause, multiplayer transport asymmetry, public camera methods and static validation limits.
-- [Pitch traps and stairs](./sem/FBCB9319/knowledge/PITCH_STAIRS_HEIGHT.md): direction/search height inconsistency, stale direction bytes after pitch placement, AIV/manual construction over pitch, building-access and demolition checks, pitch-drop writer/compensation inventory and fire path; original-code isolated execution plus PitchStairsTest live counters under `[mod integration]`; no multiplayer acceptance.
+- [Pitch traps and stairs](./sem/FBCB9319/knowledge/PITCH_STAIRS_HEIGHT.md): direction/search height inconsistency, stale direction bytes after pitch placement, AIV/manual construction over pitch, building-access and demolition checks, pitch-drop writer/compensation inventory, terminal burn-out/load windows, native pitch-record/layout anchors and projectile/Disease/ranged-height boundaries; BugfixesAndQoL migration and historical PitchStairsTest live counters are under `[mod integration]`; no integrated fourteen-site game or multiplayer acceptance.
 - [Plague cloud height and damage](./sem/FBCB9319/knowledge/PLAGUE_HEIGHT.md): explicit wall/roof immunity, standing-height contracts and standalone PlagueHeightTest native fixture evidence.
 - [Plague popularity: scheduling and identity contract](./sem/FBCB9319/knowledge/PLAGUE_POPULARITY.md)
 - [Player defeat observation audit](./sem/FBCB9319/knowledge/PLAYER_DEFEAT.md)
@@ -141,6 +160,7 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 - [Savegame metadata without the original map](./sem/FBCB9319/knowledge/SAVEGAME_MISSING_MAP_METADATA.md): confirmed Vanilla map-availability rejection, embedded Lord presentation, safe serialization boundary and desktop-tested managed testmod.
 - [Savegame modsettings load boundaries](./sem/FBCB9319/knowledge/SAVEGAME_MODSETTINGS_LOAD.md): multiplayer map-load routing, installed archive-context mismatch, Solo/Coop boundaries and readiness validation limits.
 - [Situational unit audio](./sem/FBCB9319/knowledge/SITUATIONAL_UNIT_AUDIO.md): complete Arabian idle sword-draw production, buffer transport, per-play volume and permanent hook contracts.
+- [Unit speech sources and shared filename transport](./sem/FBCB9319/knowledge/UNIT_VOICES.md): troop, siege, recruitment and civilian voices; four filename writers, last-writer coalescing, managed playback and lifetime; static evidence, game acceptance separate.
 - [GameAction classes for a foreign-view observer](./sem/FBCB9319/knowledge/GAMEACTION_OBSERVER_CLASSES.md): every DLL_GameAction command classified as acting as the native viewpoint or not, open tick/autotrade paths, and the Spectator observer policy.
 - [Spectator building and wall placement](./sem/FBCB9319/knowledge/SPECTATOR_BUILD_PLACEMENT.md)
 - [Spectator report path](./sem/FBCB9319/knowledge/SPECTATOR_REPORTS.md): selected view index, native report buffer, managed Army gate, and Food action controls.
@@ -148,11 +168,15 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 - [Trail import list and local deletion](./sem/FBCB9319/knowledge/TRAIL_IMPORT_DELETION.md)
 - [Trail Maker custom AIC export and confirmation overlay](./sem/FBCB9319/knowledge/TRAIL_CUSTOM_AIC_EXPORT.md)
 - [Tree Blight and woodland decay](./sem/FBCB9319/knowledge/TREE_BLIGHT_DECAY.md): common Vanilla/RandomEvents path, native mode distinction, cumulative thresholds, blocked decay, permanent interception and pending game acceptance.
+- [Original woodland sites and seedling placement](./sem/FBCB9319/knowledge/TREE_RESPAWN.md) describes native vegetation slot identity, full deletion, natural seeding, and the ExtraFeatures integration.
+- [Woodcutter tree maturity](./sem/FBCB9319/knowledge/WOODCUTTER_TREE_MATURITY.md) describes woodland yield and growth, target selection, and the worker's arrival and strike states.
 - [Unified mission lifecycle audit](./sem/FBCB9319/knowledge/MISSION_LIFECYCLE.md): gameplay, save, editor and multiplayer operation boundaries and central mode permissions.
 - [Vanilla peace-time gameplay audit](./sem/FBCB9319/knowledge/VANILLA_PEACE_TIME.md): all 36 active-flag references, mode-gated gameplay predicates, and the starting-troop dispatcher entry contract.
 - [Weighted Assassin search cost](./sem/FBCB9319/knowledge/ASSASSIN_WEIGHTED_SEARCH_COST.md): D9C40 depth limit 800 and climb-fallback rules, the post-load AI target burst with whole-component searches toward unreachable targets, and the exact backward unreachability proof; runtime evidence on the 8-lord stress save.
 
 ## Mod and testmod work (not Vanilla)
+
+- [Knight replacement selection and input lifetime](./sem/FBCB9319/knowledge/KNIGHT_SELECTION_TRANSFERS.md): replacement initialization/removal, three-phase input ordering, stale selection repair and the accepted Extender cancellation boundary; original game scenario user-confirmed, extended editor/MP acceptance pending.
 
 Design, diagnosis, acceptance and migration records of our mods and testmods. Use only their `[Vanilla facts]` sections as Vanilla knowledge.
 

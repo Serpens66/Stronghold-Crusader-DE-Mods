@@ -15,7 +15,6 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Reflection;
 using System.Runtime.InteropServices;
 
 namespace BugfixesAndQoL.MoatTerrain
@@ -50,11 +49,8 @@ namespace BugfixesAndQoL.MoatTerrain
                 throw new InvalidOperationException("Moat terrain native hash differs.");
             NativeDefinition.ValidateLayouts();
             NativeDefinition.ValidateCode(context.Memory);
-            // Existing Vanilla lock serializes run, editor mutations and saving. Resolve it once;
-            // never depend on another optional feature having initialized its own bridge.
-            FieldInfo gate = typeof(EngineInterface).GetField("threadLock", BindingFlags.Static | BindingFlags.NonPublic);
-            if (gate == null || gate.FieldType != typeof(object) || (engineGate = gate.GetValue(null)) == null)
-                throw new MissingFieldException("EngineInterface.threadLock");
+            // Existing Vanilla lock serializes run, editor mutations and saving.
+            engineGate = EngineThreadLock.Gate;
             ulong image = unchecked((ulong)context.ModuleHandle.ToInt64());
             nativeTileManager = unchecked((long)(image + NativeDefinition.TileManager));
             foreach (NativeDefinition.Site site in NativeDefinition.Sites)
@@ -237,7 +233,7 @@ namespace BugfixesAndQoL.MoatTerrain
                 if ((flags & TilePropertyFlag.PlannedMoat) != 0 && (value & TerrainState.Planned) != 0) continue;
                 int buildingId = structures[tile];
                 if ((value & TerrainState.Bridge) != 0 && buildingId > 0 &&
-                    GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) &&
+                    APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) &&
                     building->r_BuildingType == eStructs.STRUCT_DRAWBRIDGE) continue;
                 tiles[tile] = 0;
             }

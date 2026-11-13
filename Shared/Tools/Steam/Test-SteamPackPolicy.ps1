@@ -6,6 +6,33 @@ function Assert-True([bool]$Condition, [string]$Message) {
     if (-not $Condition) { throw "Steam pack policy test failed: $Message" }
 }
 
+# Exercise the actual environment-list entry point; no publishing driver is started.
+$selectionTokens=$null; $selectionErrors=$null
+$selectionAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot 'Create-SteamModPack.ps1'),[ref]$selectionTokens,[ref]$selectionErrors)
+$selectionNode=$selectionAst.Find({param($item) $item -is [Management.Automation.Language.FunctionDefinitionAst] -and $item.Name -ceq 'Get-ModNames'},$true)
+if (-not $selectionNode -or $selectionErrors.Count) { throw 'Could not load production mod selection guard.' }
+. ([scriptblock]::Create($selectionNode.Extent.Text))
+function Fail-Pack($Code,$Message) { throw $Message }
+$previousModSelection=$env:SERPS_STEAM_MODS
+try {
+    foreach ($selection in @('BugfixesAndQoL|Pathfinding','Pathfinding','BuildingCosts','bugfixesandqol|pathfinding')) {
+        $env:SERPS_STEAM_MODS=$selection
+        Assert-True (@(Get-ModNames).Count -eq $selection.Split('|').Count) "valid mod selection: $selection"
+    }
+    foreach ($selection in @('BugfixesAndQoL','BuildingCosts|BugfixesAndQoL','bugfixesandqol')) {
+        $env:SERPS_STEAM_MODS=$selection
+        $rejected=$false
+        try { Get-ModNames | Out-Null } catch { $rejected=$_.Exception.Message -match 'requires Pathfinding' }
+        Assert-True $rejected "BFQoL without Pathfinding must fail before release preparation: $selection"
+    }
+    . (Join-Path $PSScriptRoot 'WorkshopConfiguration.ps1')
+    $configuredMods=@((Get-WorkshopConfiguration).Mods)
+    $env:SERPS_STEAM_MODS=$configuredMods -join '|'
+    Assert-True ('Pathfinding' -in @(Get-ModNames)) 'the default Workshop selection must include Pathfinding'
+    $releaseConfig=Get-Content -LiteralPath (Join-Path $PSScriptRoot '../Release/release-projects.json') -Raw | ConvertFrom-Json
+    Assert-True ('Pathfinding' -in @($releaseConfig.Projects)) 'Pathfinding must be release-enabled'
+} finally { $env:SERPS_STEAM_MODS=$previousModSelection }
+
 function Get-TestFileSha256([string]$Path) {
     $stream = [IO.File]::OpenRead($Path)
     $sha256 = [Security.Cryptography.SHA256]::Create()
@@ -40,6 +67,9 @@ $nestedSource = @(Get-SteamReleaseRelevantChanges -ModName 'ExtendedData' `
     -PackageDirectoryPath 'ExtendedData/BepInEx/plugins/ExtendedData_Serp' `
     -ChangedPaths @('ExtendedData/ExtendedData.Core/ModSettingsJson.cs'))
 Assert-True ($nestedSource.Count -eq 1) 'nested project sources must require a new release'
+$nativeChanges=@('Pathfinding/native/PathfindingAnchor.cpp','Pathfinding/native/PathfindingAssassin.cpp','Pathfinding/native/Build-PathfindingAnchor.ps1')
+$nativeRelevant=@(Get-SteamReleaseRelevantChanges -ModName 'Pathfinding' -PackageDirectoryPath 'Pathfinding/BepInEx/plugins/Pathfinding_Serp' -ChangedPaths $nativeChanges)
+Assert-True ($nativeRelevant.Count -eq $nativeChanges.Count) 'native core sources and build inputs must invalidate a reused Pathfinding release'
 
 Assert-True ((Resolve-SteamPackVersion -PreviousVersion '1.0.10' -PreparedVersion '1.0.12') -ceq '1.0.12') 'a prepared host version must not be lowered'
 Assert-True ((Resolve-SteamPackVersion -PreviousVersion '1.0.11' -PreparedVersion '1.0.11') -ceq '1.0.12') 'an unchanged host version must advance past the published pack'
@@ -302,7 +332,9 @@ Assert-True ($createScriptText.Contains('Get-LegacyApiSharedFiles -History $uplo
 Assert-True ($createScriptText.Contains('New-ApiWorkshopInventory -Directory $hostStage -LegacyFiles $legacyApiSharedFiles')) 'the final host payload must ship its historical migration inventory'
 Assert-True ($createScriptText.Contains("-Arguments @('/nopause','/noinstall','/syncpackage') -FailureCode 4")) 'compatibility builds must not install and must audit the mirrored built package'
 Assert-True ($createScriptText.IndexOf("Fail-Pack 2 'Prepare APIShared first") -lt $createScriptText.IndexOf('foreach ($mod in @($mods | Where-Object NeedsSourceEdit)) { Set-ModCompatibility')) 'missing APIShared releases must fail before consumer source changes'
-foreach ($modName in @('BugfixesAndQoL','BuildingCosts','BuildingLimit','ExtraFeatures','RandomEvents','CastlePlanner','StartConditions','UnitCosts','UnitLimit','ExtendedData','Spectator')) {
+foreach ($modName in $configuredMods) {
     $driver = [IO.File]::ReadAllText((Join-Path $workspace "$modName/build.bat"))
-    Assert-True ($driver.Contains('if "%NO_INSTALL%"=="1" goto prepared_no_install')) "$modName must support preparation without touching installed files"
+    # Limited source guard for the declared no-install branch; game/install behavior is tested separately.
+    $noInstallBranch=[regex]::Match($driver,'(?im)^if "%NO_INSTALL%"=="1" goto ([A-Za-z0-9_]+)\s*$')
+    Assert-True ($noInstallBranch.Success -and $driver.Contains(':'+$noInstallBranch.Groups[1].Value)) "$modName must support preparation without touching installed files"
 }

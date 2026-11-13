@@ -104,7 +104,7 @@ try {
     if ($resolver.Count -ne 1 -or $getter.Count -ne 1) { throw 'Installed SE video resolver signature or public Instance visibility changed.' }
 } finally { $extender.Dispose() }
 
-$feature = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\NotificationLastFrameFeature.cs'))
+$feature = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\Notifications\NotificationLastFrameFeature.cs'))
 if ($feature -match 'public\s+void\s+Dispose\s*\(' -or
     $feature -match '(?:videoEndedHook|playBinkHook)\s*\.\s*(?:Undo|Dispose)\s*\(' -or
     $feature -match '\b(?:Update|LateUpdate|FixedUpdate|StartCoroutine)\s*\(') {
@@ -117,7 +117,7 @@ if (-not $feature.Contains('PresentationOperation.GuiChecks') -or
     throw 'Last-frame Vanilla fallback or persistent event path is incomplete.'
 }
 
-$speechFeature = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\NotificationSpeechPlayback.cs'))
+$speechFeature = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\Notifications\NotificationSpeechPlayback.cs'))
 # Source guardrails only: fixed-deadline/end/latch behavior is executed below against
 # the actual production sources with a controllable monotone clock.
 if ($feature -match 'NotificationSpeechPlayback|OST_Message_Bar_Vis|addOSTEntry|DateTime|binkWaitForSpeech\s*=' -or

@@ -145,7 +145,7 @@ internal static partial class Program
             Check(marker.Attributes?["DataContext"]?.Value == "{Binding SettingsPresentation." + editor.Property + "}" &&
                 marker.Attributes?["Content"]?.Value == "{Binding Symbol}" &&
                 marker.Attributes?["Style"]?.Value == "{StaticResource RecommendationMarker}" &&
-                marker.Attributes?["ToolTip"]?.Value == "{Binding ToolTip}" &&
+                marker.SelectSingleNode("./*[local-name()='ContentControl.ToolTip']/*[local-name()='ToolTip']/@Content")?.Value == "{Binding ToolTip}" &&
                 marker.Attributes?["ToolTipService.ShowDuration"]?.Value == "60000" &&
                 SearchAttribute(marker, "Exclude") == "True" &&
                 marker.Attributes?["Grid.Column"] == null &&
@@ -198,6 +198,19 @@ internal static partial class Program
             SearchAttribute(keepRow, "Key") == "bugfixes.remove-ai-keep-range-limit" &&
             keepEditor.Node.Attributes?["IsChecked"]?.Value == "{Binding RemoveAIKeepRangeLimit, Mode=TwoWay}",
             "AI keep range is recommended and appears once at the end of AI fixes with its original binding and search identity");
+        const string outpostOption = "EnableAiOutpostRetargetFix";
+        object outpostFix = options.Single(o => (string)Get(o, "PropertyName") == outpostOption);
+        var outpostEditor = editors.Single(e => e.Property == outpostOption);
+        XmlNode outpostRow = Ancestors(outpostEditor.Node).First(a => SearchAttribute(a, "Key") != null);
+        Check(Get(outpostFix, "Category").ToString() == "Fixes" && (string)Get(outpostFix, "Symbol") == "★" &&
+            outpostRow.ParentNode.Attributes?["Visibility"]?.Value == "{Binding SettingsPresentation.HostAi.FixesVisibility}" &&
+            SearchAttribute(outpostRow, "Key") == "bugfixes.enable-ai-outpost-retarget-fix",
+            "Outpost retarget is discoverable as a recommended AI fix");
+        var outpostReset = Instructions(modelType.GetMethod("ResetToDefault", All));
+        Check(outpostReset.Select((instruction, index) => new { instruction, index }).Any(item =>
+            item.instruction.Item2 is MethodBase method && method.Name == "set_" + outpostOption &&
+            item.index > 0 && outpostReset[item.index - 1].Item1 == OpCodes.Ldc_I4_1),
+            "compiled reset enables the Outpost fix through its synchronized setter");
         object lordFix = options.Single(o => (string)Get(o, "PropertyName") == "EnableLordReturnTeleportFix");
         var lordEditor = editors.Single(e => e.Property == "EnableLordReturnTeleportFix");
         XmlNode lordRow = Ancestors(lordEditor.Node).First(a => SearchAttribute(a, "Key") != null);
@@ -208,8 +221,8 @@ internal static partial class Program
             "Lord teleport is a recommended host troop fix with a unique search identity");
         var troopRows = lordRow.ParentNode.ChildNodes.Cast<XmlNode>().Where(n => n.LocalName == "Grid").ToArray();
         int lordOrdinal = Array.IndexOf(troopRows, lordRow);
-        Check(lordOrdinal > 0 && SearchAttribute(troopRows[lordOrdinal-1],"Key") == "bugfixes.enable-assassin-combat-resume-fix",
-            "Lord option directly follows Assassin combat correction");
+        Check(lordOrdinal > 0 && SearchAttribute(troopRows[lordOrdinal-1],"Key") == "bugfixes.enable-healer-attack-command-fix",
+            "Lord option directly follows the healer correction");
         object treeDecay = options.Single(o => (string)Get(o, "PropertyName") == "EnableTreeBlightDecayFix");
         var treeEditor = editors.Single(e => e.Property == "EnableTreeBlightDecayFix");
         XmlNode treeRow = Ancestors(treeEditor.Node).First(a => SearchAttribute(a, "Key") != null);
@@ -225,6 +238,29 @@ internal static partial class Program
             "moat terrain is a host-controlled fix classified as a personal preference");
         Check(modelType.GetProperty("EnableMoatTerrainRestoration").GetCustomAttributesData()
             .Any(a => a.AttributeType.Name == "SyncHostOnlyAttribute"), "moat terrain is synchronized by the host");
+        object pitchFix = options.Single(o => (string)Get(o, "PropertyName") == "EnablePitchStairsFix");
+        var pitchEditor = editors.Single(e => e.Property == "EnablePitchStairsFix");
+        XmlNode pitchRow = Ancestors(pitchEditor.Node).First(a => SearchAttribute(a, "Key") != null);
+        Check(Get(pitchFix, "Category").ToString() == "Fixes" && (string)Get(pitchFix, "Symbol") == "★" &&
+            !(bool)Get(pitchFix, "IsPreference") &&
+            pitchRow.ParentNode.Attributes?["Visibility"]?.Value == "{Binding SettingsPresentation.HostSiege.FixesVisibility}" &&
+            SearchAttribute(pitchRow, "Key") == "bugfixes.pitch-stairs-fix" &&
+            pitchEditor.Node.Attributes?["IsEnabled"]?.Value == "{Binding CanConfigurePitchStairs}" &&
+            pitchEditor.Node.SelectSingleNode("ancestor::*[@IsEnabled='{Binding CanEditHostSettings}']") != null,
+            "pitch stairs is a recommended host siege fix with mission-aware editing");
+        var siegeRows = pitchRow.ParentNode.ChildNodes.Cast<XmlNode>().Where(n => n.LocalName == "Grid").ToArray();
+        int pitchOrdinal = Array.IndexOf(siegeRows, pitchRow);
+        Check(pitchOrdinal > 0 && SearchAttribute(siegeRows[pitchOrdinal - 1], "Key") == "bugfixes.moat-terrain-restoration",
+            "pitch stairs directly follows moat terrain restoration");
+        var pitchProperty = modelType.GetProperty("EnablePitchStairsFix");
+        Check(pitchProperty.GetCustomAttributesData().Any(a => a.AttributeType.Name == "SyncHostOnlyAttribute") &&
+            Instructions(pitchProperty.SetMethod).Any(i => i.Item2 is MethodBase method && method.Name == "SetSetting"),
+            "compiled pitch property retains host sync and the central setter");
+        var pitchReset = Instructions(modelType.GetMethod("ResetToDefault", All));
+        Check(pitchReset.Select((instruction, index) => new { instruction, index }).Any(item =>
+            item.instruction.Item2 is MethodBase method && method.Name == "set_EnablePitchStairsFix" &&
+            item.index > 0 && pitchReset[item.index - 1].Item1 == OpCodes.Ldc_I4_1),
+            "compiled reset assigns true through the actual pitch setter and its mission guard");
         Type terrainType = mod.GetType("BugfixesAndQoL.MoatTerrain.TerrainRuntime", true);
         object terrainRuntime = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(terrainType);
         object saveRegistration = terrainType.GetMethod("CreateSaveRegistration", All).Invoke(terrainRuntime, null);
@@ -267,7 +303,8 @@ internal static partial class Program
 
         object display = Get(presentation, "ClientDisplay"), controls = Get(presentation, "ClientControls");
         int notifications = 0;
-        ((INotifyPropertyChanged)display).PropertyChanged += (_, e) => notifications++;
+        var headingChanges = new HashSet<string>();
+        ((INotifyPropertyChanged)display).PropertyChanged += (_, e) => { notifications++; headingChanges.Add(e.PropertyName); };
         Execute(display, "ToggleCommand"); Execute(controls, "ToggleCommand");
         Check(Visible(display, "ContentVisibility") && Visible(controls, "ContentVisibility"), "several topics open together");
         Check((bool)Get(display, "IsExpanded") && (bool)Get(controls, "IsExpanded"), "manual expansion updates vector arrows");
@@ -277,6 +314,8 @@ internal static partial class Program
         Check(topics.Where(t => (bool)Get(t, "IsHost")).All(t => !Visible(t, "ContentVisibility")) && Visible(display, "ContentVisibility"),
             "bulk operation is limited to its role");
         Check(notifications > 0, "view changes publish binding notifications");
+        Check(new[] { "FixesSearchTitle", "QolSearchTitle", "PossibleSearchTitle" }.All(headingChanges.Contains),
+            "topic refresh notifies the category search bindings along with its localized title");
 
         // Use the real shared catalog on the production XAML. Test doubles supply only text/item getters.
         // No native UI is created, measured, traversed or required by this fixture.
@@ -289,13 +328,64 @@ internal static partial class Program
         object entries = read[1];
         object[] indexed = ((IEnumerable)entries).Cast<object>().ToArray();
         Check(options.All(o => indexed.Any(e => (string)Get(e, "Key") == (string)Get(o, "Key"))), "closed-topic XAML catalog includes every main option");
+        Check(indexed.Count(e => (bool)Get(e, "IsSection")) == topics.Length,
+            "category metadata does not add global section hits that suppress individual options");
+        Type matcher = catalog.Assembly.GetType("APIShared.ModSettings.ModSettingsSearchMatcher", true);
+        MethodInfo match = matcher.GetMethods().Single(m => m.Name == "IsMatch" && m.GetParameters().Length == 8);
+        Func<object, string, bool, bool> matches = (entry, query, tips) => (bool)match.Invoke(null, new object[]
+        {
+            query, tips, "", Get(entry, "Key"), Get(entry, "Title"), Get(entry, "ToolTip"), Get(entry, "SectionKey"), Get(entry, "SectionTitle")
+        });
+        foreach (object option in options)
+        {
+            string key = (string)Get(option, "Key"), category = Get(option, "Category").ToString();
+            var editor = editors.Single(e => e.Property == (string)Get(option, "PropertyName"));
+            XmlNode topicNode = Ancestors(editor.Node).First(a => SearchAttribute(a, "IsSection") == "True");
+            string topicKey = SearchAttribute(topicNode, "SectionKey");
+            string topicName = Regex.Match(SearchAttribute(topicNode, "SectionTitle"), @"SettingsPresentation\.(\w+)\.Title").Groups[1].Value;
+            object entry = indexed.Single(e => (string)Get(e, "Key") == key);
+            object label = Get(SearchFixtureBase.Labels, topicName);
+            Check((string)Get(entry, "SectionKey") == topicKey &&
+                (string)Get(entry, "SectionTitle") == (string)Get(label, category + "SearchTitle"),
+                "every option retains its theme and receives exactly its category: " + key);
+            string query = category == "Qol" ? "QoL" : category == "Possible" ? "Fixes?" : "Fixes";
+            Check(matches(entry, query, false), "category matches without tooltip search: " + key);
+            Check(matches(entry, "Theme " + topicName + " " + query, false),
+                "theme and category can be combined: " + key);
+            Check(matches(entry, query + " " + Get(entry, "Title"), false),
+                "category and option title can be combined: " + key);
+            if (category == "Possible") Check(matches(entry, "Fixes", false), "Fixes includes Fixes?: " + key);
+        }
         MethodInfo refresh = presentationType.GetMethod("RefreshSearch", All);
         Action<string, bool, string> search = (text, tooltips, exact) => refresh.Invoke(presentation, new[] { (object)text, tooltips, exact, entries, Enum.ToObject(catalog.Assembly.GetType("APIShared.ModSettings.ModSettingsSearchStateFilter", true), 0), fixture });
 
-        object performance = Get(presentation, "HostPerformance"), market = Get(presentation, "ClientMarket");
+        object performance = Get(presentation, "HostTroops"), market = Get(presentation, "ClientMarket");
         string performanceKey = (string)Get(performance, "Key");
-        object assassin = Get(presentation, "EnableImprovedAssassinPathfindingAI");
+        object assassin = Get(presentation, "EnableLordUnitControls");
         string assassinKey = (string)Get(assassin, "Key");
+        foreach (string query in new[] { "QoL", "qol", "Fixes", "Fixes?" })
+        {
+            search(query, false, "");
+            foreach (object topic in topics)
+            {
+                object[] found = indexed.Where(e => !(bool)Get(e, "IsSection") &&
+                    (string)Get(e, "SectionKey") == (string)Get(topic, "Key") && matches(e, query, false)).ToArray();
+                Check(Visible(topic, "Visibility") == (found.Length > 0), "local and global category matches agree: " + query + "/" + Get(topic, "Key"));
+                foreach (string category in new[] { "Fixes", "Qol", "Possible" })
+                    Check(Visible(topic, category + "Visibility") == found.Any(e =>
+                        (options.FirstOrDefault(o => (string)Get(o, "Key") == (string)Get(e, "Key")) is object option
+                            ? Get(option, "Category").ToString() : "Qol") == category),
+                        "only matching category headings remain: " + query + "/" + Get(topic, "Key") + "/" + category);
+            }
+        }
+        Check(indexed.Any(e => (string)Get(e, "Key") == "bugfixes.market-good.fixture" && matches(e, "QoL", false)),
+            "dynamic market goods inherit the QoL category");
+        Check(indexed.Any(e => (string)Get(e, "Key") == "bugfixes.restore-hd-market-order" && matches(e, "QoL", false)),
+            "auxiliary market actions inherit the QoL category");
+        search("QoL Theme HostTroops", false, "");
+        Check(Visible(performance, "ContentVisibility") && Visible(performance, "QolVisibility") &&
+            !Visible(performance, "FixesVisibility") && !Visible(display, "Visibility"),
+            "combined theme/category query opens only the matching category");
         search("", false, assassinKey);
         Check(Visible(performance, "ContentVisibility") && !Visible(display, "Visibility") && !Visible(presentation, "BulkActionsVisibility"),
             "exact global option opens closed topic and hides unrelated topics");
@@ -308,11 +398,11 @@ internal static partial class Program
         Check(!(bool)Get(performance, "IsExpanded"), "clearing search restores the arrow's manual state");
         search("", false, performanceKey);
         Check(Visible(performance, "FixesVisibility") && Visible(performance, "QolVisibility"), "exact theme hit reveals its categories");
-        search("Theme HostPerformance", false, "");
+        search("Theme HostTroops", false, "");
         Check(Visible(performance, "ContentVisibility"), "theme title text reveals its options");
-        search("Help.EnableImprovedAssassinPathfindingAIHelpText", false, "");
+        search("Help.EnableLordUnitControlsHelpText", false, "");
         Check(!Visible(performance, "Visibility"), "tooltip search can be disabled");
-        search("Help.EnableImprovedAssassinPathfindingAIHelpText", true, "");
+        search("Help.EnableLordUnitControlsHelpText", true, "");
         Check(Visible(performance, "ContentVisibility"), "tooltip search reveals matching closed topic");
         search("", false, "bugfixes.market-good.fixture");
         Check(Visible(market, "ContentVisibility") && Visible(market, "QolVisibility"), "dynamic goods exact hit reveals editor and QoL heading");
@@ -333,14 +423,35 @@ internal static partial class Program
         Check(Visible(performance, "ContentVisibility"), "refreshed catalog remains searchable");
         search("", true, "");
         Check(!Visible(performance, "ContentVisibility"), "catalog replacement preserves manual state");
+        try
+        {
+            SearchTopicLabel.QolTitle = "Komfort";
+            register.Invoke(null, new object[] { fixture, file, null, "BFQoL localized fixture", null });
+            read = new object[] { fixture, null }; catalog.GetMethod("TryGetEntries").Invoke(null, read); entries = read[1];
+            search("Komfort Theme HostTroops", false, "");
+            Check(Visible(performance, "QolVisibility") && !Visible(performance, "FixesVisibility"),
+                "re-registering localized metadata refreshes category text");
+            Check(!((IEnumerable)entries).Cast<object>().Any(e => matches(e, "QoL", false)),
+                "old category text is absent after a language refresh");
+        }
+        finally
+        {
+            SearchTopicLabel.QolTitle = "QoL";
+            register.Invoke(null, new object[] { fixture, file, null, "BFQoL restored fixture", null });
+            read = new object[] { fixture, null }; catalog.GetMethod("TryGetEntries").Invoke(null, read); entries = read[1];
+            search("", false, "");
+        }
         bool[] manualTopicVisibility = topics.Select(topic => Visible(topic, "ContentVisibility")).ToArray();
         Type stateType = catalog.Assembly.GetType("APIShared.ModSettings.ModSettingsSearchStateFilter", true);
         refresh.Invoke(presentation, new object[] { "", false, "", entries, Enum.ToObject(stateType, 1), fixture });
         Check(topics.All(t => !Visible(t, "Visibility")), "unsupported values and unchecked checkboxes do not create active topics");
-        ((SearchFixtureBase)fixture).EnableImprovedAssassinPathfindingAI = true;
+        ((SearchFixtureBase)fixture).EnableLordUnitControls = true;
         refresh.Invoke(presentation, new object[] { "", false, "", entries, Enum.ToObject(stateType, 1), fixture });
         Check(Visible(performance, "ContentVisibility") && !Visible(display, "Visibility"), "status-only search opens the matching topic");
-        ((SearchFixtureBase)fixture).EnableImprovedAssassinPathfindingAI = false;
+        refresh.Invoke(presentation, new object[] { "QoL", false, "", entries, Enum.ToObject(stateType, 1), fixture });
+        Check(Visible(performance, "QolVisibility") && !Visible(performance, "FixesVisibility") && !Visible(display, "Visibility"),
+            "category and active-state filters combine");
+        ((SearchFixtureBase)fixture).EnableLordUnitControls = false;
         refresh.Invoke(presentation, new object[] { "", false, "", entries, Enum.ToObject(stateType, 2), fixture });
         Check(Visible(performance, "ContentVisibility"), "inactive checkbox opens its topic");
         search("", false, "");
@@ -348,7 +459,8 @@ internal static partial class Program
 
         Check(topicNodes.All(n => !n.SelectNodes(".//*[local-name()='ScrollViewer']").Cast<XmlNode>().Any()), "no nested scrolling in topics");
         Check(nodes.Where(n => n.LocalName == "Button" && Ancestors(n).Any(a => SearchAttribute(a, "IsSection") == "True"))
-            .All(n => n.Attributes?["ToolTipService.ShowDuration"]?.Value == "60000" && n.Attributes?["ToolTip"] != null), "new and retained buttons have 60s tooltips");
+            .All(n => n.Attributes?["ToolTipService.ShowDuration"]?.Value == "60000" &&
+                n.SelectSingleNode("./*[local-name()='Button.ToolTip']/*[local-name()='ToolTip']/@Content") != null), "new and retained buttons have 60s tooltips");
         string[] expectedKeys = null;
         foreach (string locale in Directory.GetFiles(Path.Combine(workspace, "BugfixesAndQoL/Locales"), "*.txt"))
         {
@@ -384,7 +496,7 @@ internal static partial class Program
 
 public class SearchFixtureBase
 {
-    public bool EnableImprovedAssassinPathfindingAI { get; set; }
+    public bool EnableLordUnitControls { get; set; }
     public static SearchPresentationLabels Labels;
     public SearchPresentationLabels SettingsPresentation => Labels;
     public SearchGoodFixture[] MarketGoodsOrderItems => new[] { new SearchGoodFixture() };
@@ -395,7 +507,14 @@ public class SearchGoodFixture
     public string SearchTitle => "Fixture goods";
     public string GoodToolTip => "Fixture goods tooltip";
 }
-public class SearchTopicLabel { public string Title { get; set; } }
+public class SearchTopicLabel
+{
+    public static string QolTitle = "QoL";
+    public string Title { get; set; }
+    public string FixesSearchTitle => Title + " Fixes";
+    public string QolSearchTitle => Title + " " + QolTitle;
+    public string PossibleSearchTitle => Title + " Fixes?";
+}
 public class SearchPresentationLabels
 {
     public SearchTopicLabel ClientDisplay => new SearchTopicLabel { Title = "Theme ClientDisplay" };

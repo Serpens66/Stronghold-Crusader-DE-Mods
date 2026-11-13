@@ -298,35 +298,6 @@ namespace BugfixesAndQoL
             Check(Rejects<SingleBuildingPauseSaveState>(Raw(1, new object[] { new object[] { 3, 70, 9, 20, true } })), "out-of-range pause owner is rejected");
             Check(Rejects<SingleBuildingPauseSaveState>(Raw(1, new object[] { new object[] { 3, 0, 1, 20, true } })), "pause entry without global ID is rejected");
             Check(Rejects<SingleBuildingPauseSaveState>(new byte[] { MessagePackCode.Nil }), "invalidated pause record restores nothing");
-
-            var climb = new AssassinClimbSaveState { ForbiddenPlayerIds = new[] { 2, 8 } };
-            AssassinClimbSaveState climbCopy = MessagePackSerializer.Deserialize<AssassinClimbSaveState>(MessagePackSerializer.Serialize(climb));
-            Check(climbCopy.ForbiddenPlayerIds.SequenceEqual(new[] { 2, 8 }), "Assassin climb record round-trips forbidden players");
-            Check(Rejects<AssassinClimbSaveState>(Raw(1, new object[] { 2, 2 })), "duplicate Assassin climb player is rejected");
-            Check(Rejects<AssassinClimbSaveState>(Raw(1, new object[] { 0 })) && Rejects<AssassinClimbSaveState>(Raw(1, new object[] { 9 })),
-                "out-of-range Assassin climb players are rejected");
-            Check(Rejects<AssassinClimbSaveState>(Raw(1, new object[] { 1, 2, 3, 4, 5, 6, 7, 8, 1 })), "oversized Assassin climb record is rejected");
-            Check(Rejects<AssassinClimbSaveState>(Raw(2, new object[0])), "newer Assassin climb version is rejected");
-
-            var movement = new TroopMovementSyncSaveState
-            {
-                Entries = new[]
-                {
-                    new TroopMovementSyncSaveEntry { TribeId = 5, TribeGlobalId = 900, Running = true, RunningSpeedBonus = 4, PreviousMovementSpeed = 30, AppliedMovementSpeed = 18 },
-                    new TroopMovementSyncSaveEntry { TribeId = 4500, TribeGlobalId = uint.MaxValue, Running = false, RunningSpeedBonus = 0, PreviousMovementSpeed = ushort.MaxValue, AppliedMovementSpeed = 1 }
-                }
-            };
-            TroopMovementSyncSaveState movementCopy = MessagePackSerializer.Deserialize<TroopMovementSyncSaveState>(MessagePackSerializer.Serialize(movement));
-            Check(movementCopy.Entries.Length == 2 && movementCopy.Entries[0].TribeId == 5 && movementCopy.Entries[0].TribeGlobalId == 900 &&
-                movementCopy.Entries[0].Running && movementCopy.Entries[0].RunningSpeedBonus == 4 &&
-                movementCopy.Entries[0].PreviousMovementSpeed == 30 && movementCopy.Entries[0].AppliedMovementSpeed == 18 &&
-                movementCopy.Entries[1].TribeGlobalId == uint.MaxValue && !movementCopy.Entries[1].Running &&
-                movementCopy.Entries[1].PreviousMovementSpeed == ushort.MaxValue, "troop movement record round-trips every field");
-            Check(Rejects<TroopMovementSyncSaveState>(Raw(1, new object[] { new object[] { 4501, 1u, false, 0, 1, 1 } })), "tribe beyond the cadence table is rejected");
-            Check(Rejects<TroopMovementSyncSaveState>(Raw(1, new object[] { new object[] { 5, 1u, false, 3, 1, 1 } })), "walking cadence with a running bonus is rejected");
-            Check(Rejects<TroopMovementSyncSaveState>(Raw(1, new object[] { new object[] { 5, 1u, false, 0, 1, 1 }, new object[] { 5, 2u, false, 0, 1, 1 } })),
-                "duplicate troop movement tribe is rejected");
-            Check(Rejects<TroopMovementSyncSaveState>(Raw(1, new object[] { new object[] { 5, 1u, false, 0, 1 } })), "short troop movement entry is rejected");
         }
 
         private static void CountdownTests()

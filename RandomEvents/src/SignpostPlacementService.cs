@@ -108,7 +108,7 @@ namespace RandomEvents
                     continue;
                 bool usableAndReachable = false;
                 if (
-                    GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* signpost) &&
+                    global::APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* signpost, out _) &&
                     signpost->r_BuildingType == eStructs.STRUCT_SIGNPOST &&
                     (signpost->r_AliveState == AliveState.NeedsInit || signpost->r_AliveState == AliveState.IsAlive) &&
                     GameBuildingFootprint.TryGetBounds(signpost, out GameBuildingFootprintBounds footprint))
@@ -436,7 +436,7 @@ namespace RandomEvents
 
             int candidateId = capturedBuildingId > 0 ? capturedBuildingId : unchecked((int)result);
             if (candidateId <= 0 ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(candidateId, out GameBuilding* building))
+                !global::APIShared.BuildingAccess.TryGetById(candidateId, out GameBuilding* building, out _))
             {
                 return -1;
             }
@@ -465,7 +465,7 @@ namespace RandomEvents
             foreach (int buildingId in buildingIds)
             {
                 if (buildingId <= 0 ||
-                    !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+                    !global::APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) ||
                     building->r_BuildingType != eStructs.STRUCT_SIGNPOST ||
                     building->r_PlayerIdOwner != NaturePlayerId)
                 {
@@ -479,7 +479,7 @@ namespace RandomEvents
         {
             int buildingId = GameTileManagerAPI.Instance.GetTileBuildingId(args.TileId);
             if (!protectedSignpostIds.Contains(buildingId) ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+                !global::APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) ||
                 building->r_BuildingType != eStructs.STRUCT_SIGNPOST ||
                 building->r_PlayerIdOwner != NaturePlayerId)
             {
@@ -564,7 +564,7 @@ namespace RandomEvents
             foreach (int id in registered)
             {
                 if (id <= 0 || used.Contains(id) ||
-                    !GameBuildingManagerAPI.Instance.TryGetBuildingById(id, out GameBuilding* building) ||
+                    !global::APIShared.BuildingAccess.TryGetById(id, out GameBuilding* building, out _) ||
                     building->r_AliveState != AliveState.IsAlive ||
                     building->r_BuildingType != eStructs.STRUCT_SIGNPOST)
                 {
@@ -726,7 +726,7 @@ namespace RandomEvents
                     if ((!includeFootprint && inside) || !tiles.IsTileInsideMapBounds(x, y))
                         continue;
                     int tileId = tiles.GetTileId(x, y);
-                    if ((uint)tileId >= (uint)pathConnections.Length ||
+                    if (!global::APIShared.IndexBounds.IsValidIndex(tileId, pathConnections.Length) ||
                         !tiles.IsTileWalkableAndUnoccupied(tileId))
                         continue;
                     ushort component = pathConnections[tileId];
@@ -756,7 +756,7 @@ namespace RandomEvents
             {
                 int playerId = snapshot.PlayerIds[index];
                 int keepId = snapshot.KeepBuildingIds[index];
-                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(keepId, out GameBuilding* keep) || keep == null)
+                if (!global::APIShared.BuildingAccess.TryGetById(keepId, out GameBuilding* keep, out _) || keep == null)
                 {
                     failure = $"player {playerId} Keep {keepId} cannot be resolved.";
                     return false;

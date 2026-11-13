@@ -51,3 +51,36 @@ The Script Extender 2.14.1 and canonical Fixes v1.26.3 source searches found no 
 of these two helper entries. Occupied entries or unknown native hashes fail closed.
 Evidence and caller exports are retained in .inspect/APISharedHookAudit. This is a
 static/backend contract audit; no interactive host/client gameplay run is asserted.
+## Base-price composition and HUD limits (2026-11-04)
+
+The current packed Int32 buy/sell table is at manager offsets 1817B8/1817BC,
+stride eight; absolute VA 1837ED9C8. Composition belongs at this base-lot level,
+not at completed helper totals. Manual/auto/HUD callers retain their respective
+native arithmetic. Defaults are separate from the mutable current table.
+
+The installed canonical DLL hash was rechecked before decoding 19EC2E..19ECD7
+with Capstone. The native report builder calls CEB00 at 19EC2E, stores AX as the
+buy lot price at 19EC33, then the 25-good preview branch at 19EC82..19EC92 uses
+16-bit shift/add to multiply that price by five. A composed positive buy base
+must therefore be at most floor(Int16.MaxValue / 5) = 6553. The same preview
+calls CEBB0 at 19ECB0 and stores AX at 19ECB5; its division-first 25-good sell
+arithmetic permits base prices through 6554 because floor(6554/5)*25 = 32750,
+whereas 6555 produces 32775. These limits protect displayed prices as well as
+base storage; merely capping the buy base at Int16.MaxValue is insufficient.
+
+APIShared's shared base-price broker reuses the existing CEB10/CEB90 owner and
+keeps legacy total vetoes authoritative. The AI projection changes only the
+base cell around the original straight-line helper, restoring it afterward;
+no caller arithmetic or native damage/trade instructions are changed.
+
+## Persistence of the price table [Scope: Vanilla]
+
+Static audit of 2026-11-10 (hash FBCB9319...31E2); nothing executed in the game.
+
+- The current table (RVA 0x37ED9C8, 25 goods x 8 bytes) lies inside save section id 0x3FF (section table
+  0x336B20, pointer 0x37ED180, length 0x82474). Both .sav and editor .map files therefore store it.
+- The file reader 0x87D0 has exactly three direct callers: 0x85496 (DLL_LoadSaveGame, 0x853F0), 0x94B15 (skirmish
+  start, 0x94350) and 0x1006D7 (other map starts, 0x100530). Both map-to-play starts copy the static default prices
+  into the table after reading the file (0x100530 through `call 0x102FC0` at 0x1023C3; 0x94350 through its own loop
+  at 0x967C0..0x9696E, read from disassembly only). Prices stored in a map never reach a played mission.
+- DLL_LoadSaveGame resets first and reads afterwards, so a save and a map opened in the editor keep the stored values.

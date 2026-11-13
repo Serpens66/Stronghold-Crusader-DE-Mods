@@ -13,18 +13,16 @@ validates its derived branches, tables and operands. An absent, ambiguous or
 semantically inconsistent match disables only the affected feature. Raw unit
 fields still require an in-game smoke test after a game update.
 
-Version `1.1.67` changes no RVA, pattern, or native hook span. Production wiring
-is now separated by feature: initial target selection and PCL filtering, active
-pathfinding/visibility recovery, and correlated projectile damage recovery have
-independent host gates. Chicken patches and granary management jointly follow
-only `HuntChicken`; corpse timers and camel compatibility follow their respective
-animal opt-ins. An update audit must therefore also confirm that every switch
-mutates only its own callback path and that disabled features leave native
+Production wiring is separated by feature: initial target selection and PCL
+filtering, active pathfinding/visibility recovery and the
+melee rabbit rule have independent gates. Corpse timers and camel compatibility
+follow their respective animal opt-ins. An update audit must therefore also confirm
+that every switch mutates only its own path and that disabled features leave native
 registers, flags, and patch bytes unchanged.
 
 The temporary `HunterNativeVisibilityProbe`,
-`HunterTargetSearchFallbackDiagnostic`, and
-`HunterVanillaPathContinuationDiagnostic` are deliberately stricter: they are
+`HunterTargetSearchFallback`, and
+`HunterVanillaPathContinuation` are deliberately stricter: they are
 enabled only on the exact audited hash. Their available entry/sequence patterns
 still serve as RVA fallbacks after a local reference-byte failure, but they do
 not approve an unknown DLL because the features also depend on the complete
@@ -38,14 +36,13 @@ only these diagnostic paths.
 | --- | ---: | --- |
 | `CamelDespawnTickTimePattern` | `0x1584B8` | signed immediate at `+13` |
 | `ChickenDespawnTickTimePattern` | `0x163465` | signed immediate at `+13` |
-| `TargetSelectionTypeDispatchPattern` | `0x18F2B2` | automatic target type dispatch |
-| `ManualAttackCommandPattern` | `0x18EB36` | explicit `AttackUnit` command path |
-| `ManualAttackTargetAssignmentPattern` | `0x18ED96` | explicit target assignment before automatic dispatch |
-| `ManualAttackDecisionSequencePattern` | `0x18EBE8` | explicit `AttackUnit` compatibility decision; hook at `+0x2B` (`0x18EC13`) |
+| `HostilityRabbitChainPattern` | `0x18694C` | melee rabbit rule, hash-bound; span `[0x186952,0x186962)`, results `0x18688E`/`0x1869AD` |
+| `MeleeOrderBlockPattern` | `0x11EE64` | melee rabbit rule, hash-bound; span 19 bytes in the melee branch of tribe order case 4 |
+| `StanceScanFilterPattern` | `0x18C731` | melee rabbit rule, hash-bound; span 14 bytes, accept `0x18C75D` |
+| `RangedFlagReaderPattern` | `0x18F315` | melee rabbit rule, hash-bound; reader of tribe flag `+0x58E`, absolute `0x7CC6CAE` |
 | `ComparisonSequencePattern` | `0xD2AB4` | granary chicken target comparison hook at `+11` (`0xD2ABF`) |
-| `HunterQueryCandidateLoopPattern` | `0x18AFC0` | temporary Script Extender issue-123 actor capture |
 | Native Hunter visibility wrapper | `0xA06F0` | behavior-neutral direct probe; seven arguments including context |
-| Native Hunter visibility core | `0x9E350` | wrapper calls forward first and returns immediately when positive; reverse is called only after forward returns zero; `1.1.52` validates the entry and may call both directions explicitly |
+| Native Hunter visibility core | `0x9E350` | wrapper calls forward first and returns immediately when positive; reverse is called only after forward returns zero; `1.1.52` validates the entry and may call both directions explicitly; returns `0` when blocked, otherwise its step count along the line (up to `1000`, `100000` for the same point); the direct attack at `0x18ED6A` treats every positive value as visible, the target query at `0x18B0A2` only `1..0x1B0` |
 | Shared obstacle-height helper | `0x6B990` | reads tile flags, building identity/type and effective obstacle height |
 | Building-height type switch | `0x6B9F8` | dispatches building types `7..78` |
 | Building-height dispatch targets | `0x6BAB4` | entries `0..3`; entry `3` is the normal fixed-height case |
@@ -58,11 +55,12 @@ only these diagnostic paths.
 | Hunter distance helper | `0x79C0` | exact state-1 range result retained in `EDI` |
 | State-0 query handoff | `0x12FDB7` | query return hook at `0x12FDD9`; query callee `0x18AF50` |
 | State-0 `MoveHere` result | `0x12FE7A` | immediately after call to `0x196280` |
-| State-1 near-target refresh | `0x130069` / `0x130072` / `0x12FF7E` | safe compare hook and Vanilla actor load; `1.1.66` reuses the exact 14-byte query-result span only for a guarded stale-moving-target State-0 replan |
+| State-0 `MoveHere` destination | `0x12FE63` | span `[0x12FE63,0x12FE75)`: reservation write and X load (9 + 9 bytes) right before the call to `0x196280`; firing positions replace R8/R9 (see below) |
+| State-1 near-target refresh | `0x130069` / `0x130072` | safe compare hook and Vanilla actor load; the former query-result hook at `0x12FF7E` was removed in `1.2.0` (see below) |
 | State-1 distance-28 compare | `0x13013A` | since `1.1.56` the authoritative snapshot-based attack/continuation decision; sequence begins at `0x130122` |
 | State-1 direct-attack result | `0x130199` | observation-only `test eax,eax` after call to `0x18E9A0` |
 | `StateZeroMoveResultSequencePattern` | `0x12FE63` | unique `.text` fallback; derives result hook `0x12FE7A` and validates `MoveHere` call target |
-| `StateOneRefreshQuerySequencePattern` | `0x12FF57` | unique `.text` fallback; derives refresh-result hook and query call target |
+| `StateOneRefreshQuerySequencePattern` | `0x12FF57` | unique `.text` fallback; derives the near-refresh jump target and query call target |
 | `StateOneDirectAttackSequencePattern` | `0x13018D` | unique `.text` fallback; derives direct-attack result hook `0x130199` |
 | `DistanceStageSequencePattern` (speed recovery) | `0x1300AC` | unique `.text` fallback; derives and validates remaining-path speed stages |
 | `StateTenPrimaryQuerySequencePattern` | `0x130516` | hash-bound diagnostic with local/pattern resolution; derives primary query-result hook |
@@ -71,10 +69,6 @@ only these diagnostic paths.
 | `FailedDirectAttackWriterPattern` | `0x1301C1` | hash-bound diagnostic writer hook after semantic span validation |
 | State-6 writer | `0x12FFA8` | fixed control-flow validation target; no independent fallback because it is part of the hash-bound full `HunterUpdate` audit |
 | State-0 continuation | `0x12FF8E` | fixed control-flow validation target; same full-function hash-bound dependency |
-| Attack-gate hook | `0x130160` | fixed decoded hook span inside hash-bound `HunterUpdate`; no independent safe fallback |
-| Attack-gate ready target | `0x13017A` | decoded branch target validated for the attack-gate hook |
-| Attack-gate second branch | `0x130174` | decoded branch instruction validated for the attack-gate hook |
-| Attack-gate exit target | `0x131402` | decoded far branch target validated against the full hash-bound function |
 | Projectile spawn entry | `0x9B2B0` | Script Extender signature target; creates a live projectile and is not used for LOS preflight |
 | Projectile manager tick | `0x9F960` | iterates live projectiles before their type-specific update |
 | Common projectile flight step | `0x9EF20` | mutates live projectile motion and calls collision, height and orientation helpers |
@@ -84,98 +78,56 @@ only these diagnostic paths.
 
 The source constants contain the complete wildcard patterns.
 
-The automatic target selector starts at RVA `0x18E9A0`. A valid explicit
-`TribeAICommand.AttackUnit` is checked at RVA `0x18EB36` and assigns its target
-at RVA `0x18ED96`, before the automatic candidate type dispatch.
+### Owned chickens, reservation countdown and Hunter query identity (in APIShared since ImprovedHunters 1.2.0)
 
-Non-Hunters in that explicit branch call Vanilla's unit compatibility function
-at RVA `0x1867A0`. On the audited DLL it returns `1` for chicken type `62`, and
-the `test eax,eax` at RVA `0x18EC13` therefore rejects the otherwise valid
-manual order. Hunters bypass this call at RVA `0x18EBEC`. Improved Hunters hooks
-only the explicit branch's test instruction and changes the well-known boolean
-result from `1` to `0` when the target resolves to the same live chicken and the
-attacker resolves to a live, supported ranged unit. The explicit classification
-contains regular projectile attackers: archers, crossbowmen, the debug archer,
-catapult, trebuchet, mangonel, both ballista types, Arabian bowmen, slingers,
-horse archers and fire throwers, plus Bedouin ambushers, skirmishers and heavy
-camels. Hunters bypass the compatibility call in Vanilla. Melee and support
-units retain Vanilla's rejection instead of accepting an order their later
-combat path cannot complete. Vanilla has already validated command, target
-slot/global ID and alive state; its existing range and line-of-sight checks then
-run before the regular target assignment continues. The callback is inactive
-unless the mod, chicken hunting and the independent automatic-target patch are
-all active.
+APIShared (`APIShared.Wildlife`, see its `UpdateToNewDLL.md` sections "Huntable prey reservation
+word", "Hunter native sites" and "Hunter owner gates") now owns the three owned-chicken gates
+(`0x18AFD8`, `0x18EBDA`, `0x192AA7`), the reservation release of rabbits, camels and chickens and the
+correct Hunter id of `OnUnitHunterQueryTarget` (Script Extender issue 123). Improved Hunters registers
+rabbit, camel and chicken through `HuntablePrey` (chicken with own-player prey, all three with corpse
+removal when butchering starts), its target selection through `HunterTargetPolicies` and its meat
+settings through `HunterMeatYieldEvents`, and installs none of these native sites itself. A changed DLL
+is therefore audited in APIShared first.
+### Chicken population
 
-The managed context callback must preserve `X64SmartCPUContextRegs.Volatile` in
-addition to `R14` and `R15`. Vanilla reloads the unit-manager pointer into `R8`
-at RVA `0x18EC04` and dereferences it immediately after the accepted branch at
-RVA `0x18EC22`. Version 1.1.28 captured only `RAX`, `R14` and `R15`; the managed
-call was therefore allowed to clobber live `R8`, causing a native CTD after the
-callback had logged its successful `1 -> 0` decision. Version 1.1.29 captures
-all Windows-x64 volatile registers, restores the callback's intentional `RAX`
-change and returns every other live volatile register unchanged.
+`0xD29E0` compares its food-based target in `eax` with `[rdi+0x2048]` at `0xD2ABF`.
+`GranaryChickenLimitPatch` sets `eax` to `ChickensPerPlayer`. The flags of that one
+comparison decide both branches: `jle` to `0xD2BA7` (no spawn), where `jge` reuses them
+and otherwise removes one chicken of the player. `rbx` is the player (the removal loop
+compares with `ebx`). Spawning needs a bakery, mill or granary of the player (`0xBF510`).
 
-The dispatch target table is at RVA `0x18FA14`, and the type-to-dispatch-index
-table is at RVA `0x18FA30`. Chicken type `62` has table index `62 - 44 = 18`,
-so its byte is at RVA `0x18FA42`. Vanilla value `6` routes to the general
-acceptance case at RVA `0x18F3F6`. Improved Hunters temporarily writes value
-`0`, which routes to RVA `0x18F2DE`; that case accepts only attacker type `6`
-(hunter) and otherwise rejects the candidate at RVA `0x18F7A4`.
+### Melee rabbit rule
 
-Vanilla's per-player granary chicken update starts at RVA `0xD29E0`. Its
-food/population-derived target is in `eax` when RVA `0xD2ABF` compares it with
-the current native player chicken count at `[rdi+0x2048]`. The following signed
-`jle` skips spawning at RVA `0xD2BA7`; otherwise Vanilla reaches the existing
-granary spawn event at RVA `0xD2B4C` and the unit creation call at RVA `0xD2B5C`.
-Improved Hunters hooks only the comparison and normalizes `eax` to `INT_MAX`
-below the configured tracked limit or to `0` at/above it. Thus exactly the next
-Vanilla spawn is permitted or denied while Vanilla retains its keep, granary,
-mode, position and timing checks.
+Melee has no candidate entry for rabbits: `0x18C160` rejects them, but adjacent contact
+goes `0x182B00` -> `0x195170` -> `0x188A20` -> `0x1867A0`, where `0x186952` accepts type
+`0x2E`. `0x187230` and `0x188A20` pass `r9b == 0`; the ranged caller at `0x18EBFF` passes
+1 and stays unchanged. Tribe flag `+0x58E` is cleared by every order (`0x11E9CA`) and set
+by Vanilla only in the ranged branches (`0x11EC89`, `0x11F2AF`). `RabbitMeleeOrderPatch`:
 
-The comparison callback identifies the source player through `rbx` (validated
-range `1..8`). Runtime tracking stores source player, one-based unit slot and
-`GameUnit.r_GlobalId`; both `AliveState.NeedsInit` and live, healthy
-`AliveState.IsAlive` chickens count. Slot/global mismatches, dead/corpse units
-and deletion states are removed. Loaded neutral chickens are assigned to the
-nearest active granary using Chebyshev distance, then building ID and player ID
-as deterministic tie-breakers. Relevant fields are unit type `+0x8A`, owner
-`+0x92`, global ID `+0x94`, tile `+0xC0/+0xC2`, corpse flag `+0x29C`, and
-building alive/type/owner/global/tile fields in the publicized `GameBuilding`
-layout.
+- `0x186952`: a rabbit is attackable only with the flag on the attacker's tribe; Hunters
+  and `r9b != 0` keep Vanilla's result.
+- `0x11EE64`: the melee branch of order case 4 sets the flag for a rabbit target.
+- `0x18C731`: the stance scan accepts rabbits while the flag is set, which gives melee
+  the follow-up behaviour of ranged units.
 
-The Script Extender versions through the locally inspected 1.41.0 can report
-the caller's saved `RBX` value instead of the native Hunter ID in
-`OnUnitHunterQueryTarget`; see upstream work item 123. Improved Hunters installs
-a temporary read-only context hook at the candidate-loop anchor `0x18AFC0`.
-At this point `R13 = UnitManager + hunterId * 0x490`, `R14 = UnitManager` and
-`ESI` is the one-based candidate ID. The mod reconstructs and validates the
-Hunter ID from the exact divisible delta and consumes it only for the matching
-public query candidate on the same thread. If capture and the reported ID are
-both invalid, the callback leaves Vanilla's target decision unchanged. Remove
-this workaround once the minimum supported Script Extender fixes work item 123.
+The flag has no second independent code anchor, so this feature stays bound to the
+audited hash and logs an error otherwise.
 
-### Temporary native Hunter visibility probe
+### Native Hunter visibility call
 
 `HunterNativeVisibilityProbe.cs` calls, but does not hook or patch, Vanilla's
 visibility wrapper at `0xA06F0`. On the audited hash it validates the wrapper
 entry, both core-call sequences, both relative core targets (`0x9E350`), and the
 query/direct-order callsites plus their relative targets before creating the
-delegate. Any mismatch disables the probe without changing Hunter behavior.
+delegate. Any mismatch disables it without changing Hunter behavior.
 
 The validated native signature is
 `int(context, startX, startY, startHeight, endX, endY, endHeight)`. Hunter input
 uses `GameUnit +0xB2/+0xB4` and `+0xB6 + signed(+0xB8) + 30`; prey input uses the
 same fields with height bias `+26`. The wrapper writes only `context +0xC`, so
-the test supplies a zero-initialized private 16-byte context surrounded by
-canaries. Any change outside `+0xC` disables the probe immediately. The native
-global context is never passed.
-
-Candidates are captured from the public Hunter query event and invoked later
-only on the same managed thread in the established 100-ms native scan. The log
-separates Manhattan query phases (`>20`, fallback `>5`, and the `>=54` early-LOS
-bypass), the query acceptance range `1..432`, and the later direct-order rule
-`>0`. Calls and logs are bounded; no target result, unit field, reservation,
-movement order, or native branch is changed.
+a zero-initialized private 16-byte context surrounded by canaries is supplied. Any
+change outside `+0xC` disables the call immediately. The native global context is
+never passed.
 
 ### Hunter's Hut visibility dispatch correction
 
@@ -199,14 +151,11 @@ On the audited hash the patch validates helper, switch, both tables, dispatch
 targets, original byte and height value before installing a permanent reader
 hook at `0x6BA0C` (17 displaced bytes). A changed hash requires a unique
 executable-section match for the type-switch pattern and then re-derives and
-validates every table address and target. The automatic chicken dispatch uses
-the same permanent reader stub at `0x18F2CA` (15 displaced bytes). Each stub
-emits its original index load and target load once. A disabled feature or a
-different source type executes both Vanilla loads; a matching source type
-selects the replacement index and then executes the original target load.
-Only an atomic data flag changes after hook publication. The hooks remain
-installed until process exit; both features stay disabled in real multiplayer
-and the map editor pending feature-specific synchronization.
+validates every table address and target. The stub emits its original index load
+and target load once. A disabled feature or a different source type executes both
+Vanilla loads; a matching source type selects the replacement index and then executes
+the original target load. Only an atomic data flag changes after hook publication. The
+hook remains installed until process exit and stays disabled in the map editor.
 
 ### Native PCL reachability precheck calibration
 
@@ -296,37 +245,170 @@ MoveHere rejection, that the concrete query event still observes every Vanilla
 candidate, and that a complete set of PCL-rejected candidates reaches Vanilla's
 normal no-target progression.
 
+## Simulation time and multiplayer
+
+All time-dependent decisions read `HunterSimulationTime`, a thin reader of APIShared's native map tick.
+The scan runs in `SimulationTickEvents` every `NativeScanIntervalMapTicks`, never from Unity or movement
+events. A new mission can reuse earlier tick values, so every field holding a tick must be cleared in
+`OnMapStarted` or a `ResetForMap`; add new fields there. Durations are map ticks, so they follow game speed.
+`GameplayFeatureModePolicy` allows both Hunter features in real multiplayer. Older sections of this file
+that describe them as disabled there or as using `Stopwatch` are history. All hooks are announced to
+`NativeSiteRegistry` after installation. The multiplayer check is
+`Testmods/UiAcceptance/scenarios/MP-hunters-*.json`, compared with `tools/Compare-HuntHashes.py`.
+
+## Tanner meat path
+
+Owner: `TannerMeatPatch` with `HunterNativeStubs.EmitTanner*`; state `TannerRunTable`, sync and save
+`TannerRatioSync`, panel `TannerModePanel` and `Patches/Assets/GUI/XAMLResources/HUD_Buildings.xaml`.
+Bound to the audited hash: the building fields have no second anchor, so an unknown DLL leaves Tanneries
+on Vanilla's behaviour (error log, no hook). Pattern and offsets are in `TannerMeatPatch.cs`;
+`_inspect/ImprovedHuntersChickenTests` checks the patterns against the DLL and executes all stubs.
+
+| RVA | Span | Purpose |
+|---|---|---|
+| `0x13EBF7` | 14 | end of a run: decide the trip from the table, then call `0x18D940` (base amount `TannerMeatPerTrip` on a meat trip) |
+| `0x13ED8B` | 16 | state 7 search: `0xBF9F0` instead of `0xB9AA0`, granary warning `0x17FB80` |
+| `0x13EEFB` | 16 | state 8 acceptance: `0xBD470` instead of `0xB9AA0` |
+| `0x13EF38` | 16 | state 8 deposit: good, capacity `0xFA`, food statistic, sound `0x21` |
+| `0x13F009` | 15 | state 8 re-search: `0xBF9F0` |
+
+All spans have no incoming branches. R10/R11 are dead at all of them because each sits directly
+before or around a call; RAX is dead except where the stub replays Vanilla's value first. RSI holds the
+building manager, R12 the unit manager, R13D is one, RDI zero. At `0x13EBF7` RCX, EDX and R8D already
+hold Vanilla's arguments for `0x18D940`; the stub only replaces EDX on a meat trip.
+
+State: `TannerRunTable` is indexed by building ID and holds the global ID (`+0x134`), the meat runs per cow
+and whether the current trip carries meat. Stubs read it directly and ignore an entry with another
+global ID. A run carries meat if fewer hides than meat runs remain after it took its own hide.
+Do not store this in the building record: `+0x2EC`/`+0x2EA` are Vanilla's workshop choice and stay free
+for mods that add goods to the Tannery. Non-meat runs replay the displaced Vanilla instructions unchanged.
+
+Sync: a slider change is `RegisterAuthenticatedChore` (`tanner-ratio`), checked on every peer against the
+live building, its type, global ID and owner; never applied locally. Saved as the simulation-relevant
+record `ImprovedHunters.Tanneries`; a load without a record and a mission without an archive load clear it.
+
+Bonus: every meat setting is a base amount passed to `0x18D940`; the Hunter through
+`OnCalculateBonusYield` without skipping the original, the Tanner through EDX. See the Vanilla rule in
+the baseline's `HUNTER_PREY_RULES.md`. The Hunter's prey type comes from his last target in the tick scan,
+because the corpse may be gone when the yield runs; after loading a save during that trip the type is
+unknown until his next target, and that one yield stays at Vanilla's base 6.
+
+Update audit: confirm that `0x13E0B0` still adds three hides, that `+0x134` is still the global ID and
+`+0x190` the hides, that the Hunter's meat path matches the stubs, and that `0x18D940` still takes
+(unit, base amount, bonus flag).
+
+## Hunter's hut availability
+
+Owner: `HunterHutAvailabilityPatch` with `HunterNativeStubs.EmitHutAlwaysAvailable`, setting
+`HunterHutAlwaysAvailable`. Site `0xFFDA6` in `0xFFC70` case `0x4E`: outside single player (`0x8574B90` != 0) the
+build button is off when the map started without deer and goats (`0x37EF97C`, written in `0x94350` from `0x1860E0`).
+Only the UI asks this; placing a hut by code was never blocked. Update audit: the case, the mode read and the counter.
+
+## Search range
+
+Owner: `HunterSearchRangePolicy`, used in `OnHunterQueryTarget` and `TryGetTargetSelectionForHunter`. No native site.
+Update audit: `0x18AF50` still has no upper distance limit and still measures from the Hunter's own tile with
+`0x79C0`, field `+0xC`.
+
+## Wildlife respawn
+
+Owner: `WildlifeRespawnFeature` with `WildlifeOriginTable`. Since 1.2.0 herd records and spawning come from APIShared's
+`Herds` service (`TryGet`, `TryCopyMemberUnitIds`, `TrySpawn`), which owns their native contract (APIShared `UpdateToNewDLL.md`,
+section "Herds"); the mod keeps only `WildlifeNativeAddresses.MultiplayerMode`, the mode word that Vanilla's own respawn `0x123670`
+compares (`RespawnPattern`, the `cmp dword ptr [rip+disp], 0` at +0x33), bound to the audited hash. Vanilla's respawn runs only in
+mode 0; the mod's runs in the other modes. At the first tick divisible by 10 of a mission without saved data it reads all wild deer
+and goat herds. Every 30 s of simulation it checks each herd: in use, the same `GlobalId` (saved as the herd serial), the leader, and
+only for a dead leader the members. A herd without a living animal returns after the waiting time through `Herds.TrySpawn` with two
+animals, on the simulation tick. Save record `ImprovedHunters.WildlifeOrigins`, version 1. Update audit: the mode word above, and
+that newborn animals join the same herd (`0x118130` to `0x11D370`) and herds do not split.
+
+## Start herds
+
+Owner: `WildlifeRespawnFeature.PlaceStartHerds`, places from `WildlifeStartPlaces`, setting `StartHerdMode`. New maps only, right after the capture above: one herd per player with a keep,
+through `Herds.TrySpawn`, cut to Vanilla's smallest size. Reads the keeps through `ActivePlayerKeepReadiness`, the door through `GetPlayerKeepDoorPosition`, the path components, and the sector's unit counter
+through `HerdFlightRules.TryGetSectorThreats`. The Hunter's hut button (`0xFFC70`, `0x37EF97C`) does not know these herds, so `HunterHutAvailabilityPatch` stays on with them.
+Update audit: the same as for the respawn, and that the door position is a tile on the walkable land around the keep.
+
+## Herd range
+
+Owner: `WildlifeRangeFeature`, policy `WildlifeRangePolicy`, setting `HerdRangeSize`. A `HerdRouteEvents` handler of APIShared (route
+builder `0x127E60`, owned there since 1.2.0) shortens deer and goat routes to the area around the start place or replaces them with one
+waypoint home, in flight too: in a crowded area herds set each other off, and with Vanilla's route each flight led further out (seen in
+the first test). APIShared gives an emptied route the leader's tile as its first waypoint. It is active from the native start on,
+because herds get their first routes in the ticks before the mission counts as started. Own mode decision
+`GameplayFeatureId.ImprovedHunterWildlifeRange`, independent of the mod's gate, without the editor, where `0x124E80` and `0x125290`
+return before any route (`0x3665F28 == 1`). Update audit: that `0x11B520` is what follows a waypoint, and whether another writer of
+`+0x5DE` (`0x11A980`, `0x11C3A0`, `0x11DB40`, `0x1222A0`) handles animal herds.
+
+## Herd flight only in sight
+
+Owner: `HerdFleeSightFeature`, settings `DeerFleeOnlyInSight` and `HerdsIgnoreFleeingHerds`. Since 1.2.0 a `HerdFlightRules` rule of
+APIShared, whose native gates at `0x124F20` (deer) and `0x125330` (goats) give a calm herd no sector threat. The tick scan marks each
+deer and goat herd calm or not from simulation data at every scan; with both settings off it clears its marks. APIShared clears all
+marks at mission start and end, and they need no save. The scan reads the predator counter through `TryGetSectorThreats` and the
+flight state through `HerdInfo.IsFleeing`. Update audit: that the counters still mean predators and units plus fleeing deer and goats
+(`0x126810`), and that the Fixes mod still hooks `DeerUpdate` (`0x156130`) and not these functions.
+
+## Free corpses
+
+Owner: `HunterCorpseChoicePatch` with `HunterNativeStubs.EmitCorpseChoice*`, logic in `HunterCorpseChoiceFeature`,
+setting `CollectFreeCorpses`, which alone decides; it does not need `ImprovedTargetSelection` or
+`ReliableHunterProjectiles`. Earlier versions stored an unused `AllowDeadTargets` with the value false, so this one has
+a new name. Bound to the audited hash.
+
+| RVA | Bytes | Behaviour |
+|---|---|---|
+| `0x12FE07` | 15 | state 0, after `0x18AF50` and the hut check: a valid choice jumps to `0x130548` with the corpse ID in EAX |
+| `0x13053A` | 14 | state 10, before `0x18B640`: a valid choice skips that search and goes on at `0x130548` |
+
+`0x130548` is Vanilla's only corpse handoff: it sets the target (`+0x99C`, `+0x9F6`, `+0x9F8`), state `0xB` and calls
+`0x196280`. It needs R13 (unit manager) and EBP = 0, and reloads RBX itself; both sites have that. Nothing else jumps
+into either span; the only jumps go to their first byte (`0x12FDE4`, `0x1304E8`). Neighbours that must stay clear:
+`HunterTargetSearchFallback` hooks `0x12FDB7` (19 bytes) and `0x12FDD9` (20 bytes), which is why the search site
+is not at the search call, and `HunterPostShotContinuation` `0x130526` and `0x1305CC`.
+
+The table has 8 bytes per Hunter (global ID, unit ID) and is filled by the tick scan. The stub checks the choice again
+(same global ID, `+0x6E4` == 2, `+0x8F8` != 0, `+0xAA4` == 0), writes reservation 2, which Vanilla would write in state
+`0xB` one tick later, and clears the entry. That closes the gap in which a second Hunter could take the same corpse. No
+save: the table is rebuilt from simulation data.
+
+A deer or goat corpse decays within seconds at speed 80, which a Vanilla handoff next to the Hunter outlasts but a longer
+walk does not. `KeepCorpseForWalkingHunter` therefore holds `+0x2C4` at 0 during state `0xB`, until Vanilla sets it on
+arrival. Reservation does not protect a corpse from that timer.
+
+On arrival Vanilla sets the corpse's timer to 1000 (`0x1306BD`). A deer or goat then enters its fading state `0x6E` on the next
+update and is deleted 33 ticks later, while no one renews the reservation. Such a corpse is not free, or a second Hunter
+collects it and `KeepCorpseForWalkingHunter` keeps it alive for him: `IsFadingCorpse` excludes it from the choice and from
+that timer, and each scan drops a choice whose corpse is no longer free. For rabbits, camels and chickens `0x6E` is the normal
+corpse state and the mod deletes them on arrival. Update audit: the two thresholds in the deer and goat updates (`0x156C25`, `0x156C53`).
+
+A kill by a Hunter's own arrow of an animal he did not aim at comes from `UnitR3EventHooks.OnUnitKilledByProjectile`,
+with shooter and aim read from the projectile (`r_SourceUnitId`, `r_TargetUnidId`). A Hunter on his way drops his
+target through the same global-ID mismatch `RequeryHuntersWithUnreachableActivePrey` uses.
+
+Update audit: both sequences, the register use above, the fields, and that state `0xB` at `0x1305E0` still writes
+reservation 2 and handles any prey type.
+
 ## Required update audit
 
 1. Require one semantic match for both despawn patterns and verify that operand 1 at
    pattern offset `13` remains the signed 16-bit despawn duration.
-2. Revalidate both automatic target dispatch tables, the chicken entry, the
-   hunter-only acceptance/rejection branches and that explicit `AttackUnit`
-   target assignment still occurs before automatic candidate dispatch.
-3. Revalidate the explicit `AttackUnit` decision sequence at `0x18EB98`, its
-   compatibility call target, Hunter bypass target, `R14` target ID, `R15D`
-   attacker ID and that forcing `EAX` from `1` to `0` at `0x18EBC3` still
-   reaches Vanilla's existing target assignment without bypassing its earlier
-   identity, alive-state, range or line-of-sight checks.
+2. Confirm that the APIShared version in use supports the new DLL for huntable prey,
+   Hunter native sites and owner gates (owned chickens, reservation release, query identity).
+3. Revalidate the reservation writers in `HunterUpdate` that this mod's own hooks rely on.
 4. Revalidate the Script Extender unit array and raw fields `+0x88`, `+0x92`,
    `+0x94`, `+0xC0`, `+0xC2`, `+0x29C`, `+0x2BC`, `+0x2C4`, `+0x370`,
    `+0x39A`, `+0x39C` and `+0x448`.
-5. Confirm hunter/prey states, corpse flag, death timer, reservations, target
-   IDs, coordinates, camel health and visual health refresh behavior.
-6. Test automatic ranged rejection, explicit ranged `AttackUnit`, Hunter
-   retargeting, normal Vanilla `0x6E` corpse pickup, line-of-sight recovery
-   movement, corpse cleanup, camel health and chicken neutralization on fresh
-   and loaded maps.
-7. Revalidate the granary chicken function at `0xD29E0`, the comparison
-   sequence at `0xD2AB4`, hook instruction at `0xD2ABF`, signed `jle` target
-   `0xD2BA7`, spawn event path `0xD2B4C`, `rbx` player identity and native
-   count field `[rdi+0x2048]`.
+5. Confirm hunter/prey states, corpse flag, death timer, target IDs, coordinates,
+   camel health and visual health refresh behavior.
+6. Run `Testmods/UiAcceptance/scenarios/SP-hunters.json`: chickens keep their owner
+   and walk, the configured count holds, a Hunter completes the chain from target to
+   delivered meat without a warning sound, soldiers ignore rabbits until ordered.
+7. Revalidate the population comparison at `0xD2AB4`, hook `0xD2ABF`, signed `jle`
+   target `0xD2BA7`, its `jge` on the same flags, `rbx` player and `[rdi+0x2048]`.
 8. Update all reference RVAs and the dispatch-table map before approving
-   the new shared hash.
-9. Revalidate the Hunter query candidate-loop signature, `R13`/`R14` slot
-   formula, `ESI` candidate ID and callback ordering before the public Extender
-   event. Check whether upstream work item 123 is fixed and remove the temporary
-   workaround when it is no longer needed.
+   the new shared hash. Re-derive the melee rabbit spans and the tribe flag.
+9. Revalidate the Hunter query candidate loop this mod's own query hooks rely on.
 10. Revalidate visibility wrapper `0xA06F0`, core `0x9E350`, query call
     `0x18B052`, direct-order call `0x18ED1A`, the seven-argument ABI, both core
     relative targets, context write boundary `+0xC`, world/height field
@@ -343,31 +425,6 @@ normal no-target progression.
     MoveHere RVA `0x1964D3`. Confirm the caller still passes public unit fields
     `+0x92` and `+0x35C`, target/source PCL in `R8D/R9D`, and branches to failure
     on zero before enabling the production pre-filter.
-
-## Temporary Hunter visibility diagnostic
-
-Version 1.1.26 keeps the visibility investigation in the removable
-`HunterVisibilityDiagnostic.cs` file. It installs no native hook and changes no
-branch result or unit state. Version 1.1.25 briefly used behavior-neutral hooks
-at RVAs `0x18EE14` and `0x130171`; the first real blocked-order test ended in a
-native CTD before the hook's first confirmation marker. Those hooks and their
-patterns were therefore removed completely rather than retained as fallbacks.
-
-The diagnostic now correlates the public Hunter-query event, targets observed
-by the existing 100-ms native unit scan and successful projectile-spawn events.
-When that safe scan observes a Hunter in AI state `6`, it resolves the current,
-recently assigned or recently accepted chicken by unit slot plus global ID. The
-bounded log records movement at most every two seconds while positions remain
-unchanged. It includes unit tile and world positions, elevation and look-at
-coordinates, Hunter path/order fields, matching-projectile age, the straight
-tile line's terrain-height range, and each building ID, type, owner, footprint
-and occupied-line-tile count. The existing projectile-spawn event emits the same
-line context for successful attack paths, providing a behavior-neutral control.
-
-The diagnostic reads the already documented `GameUnit` layout fields at
-`+0x88`, `+0x8A`, `+0x94`, `+0xC0/+0xC2`, `+0xF2`, `+0xF4`, `+0x2BC`,
-`+0x398`, `+0x39A`, `+0x39C`, `+0x3FE` and `+0x448`. Because it adds no native
-address, a future DLL update requires only the normal structure-layout audit.
 
 ## Hunter blocked-shot and line-of-sight recovery
 
@@ -572,7 +629,7 @@ public `+0xF2` also exits. Otherwise RVA `0x13013D` calls direct attack function
 timer-20, return-to-hut writer at `0x130171`.
 
 Version `1.1.38` adds a fourth, observation-only hook to the separately
-removable `HunterTargetSearchFallbackDiagnostic.cs`. The audited sequence begins
+removable `HunterTargetSearchFallback.cs`. The audited sequence begins
 at `0x13013D`, the hook is at offset `+0xC` (`0x130149`), and its relative call
 must resolve to `0x18E950`. It captures volatile registers plus `RDI`, correlates
 only a validated accepted state-0 move with the same live Hunter/target identity
@@ -592,7 +649,7 @@ path state `+0xF2=2`, progress `+0xF6=0`, and length `+0xF8`; generic Vanilla
 unit movement advances `+0xF6`. Reissuing `MoveHere` would reset that progress.
 
 Version `1.1.39` adds the separately removable, exact-hash-only
-`HunterVanillaPathContinuationDiagnostic`. Its full distance-stage pattern
+`HunterVanillaPathContinuation`. Its full distance-stage pattern
 starts at RVA `0x1300D2`; the hook validates `cmp edi,28`, its signed short
 branch target, and runs before the compare at RVA `0x1300EA`. For a live
 same-identity state-1 Hunter with path state `+0xF2=2`, remaining progress
@@ -1317,6 +1374,57 @@ the State-9 and failed-attack stride multiplies. The three MOV immediates remain
 `OpKind.Immediate32`; no accepted byte, instruction length, register,
 displacement or branch target changed.
 
+### Firing positions in 1.2.0
+
+Vanilla's Hunter gives up (State 1 to State 6, `HunterUpdate` `0x12FC70`) when his path ends without sight of
+the prey, and a direct attack at tile distance 0 or 1 returns 0. Found 08.11.2026 with a deer at the far corner
+of the own keep: the Hunter reached the deer, but the keep's corner cut the line from his side, and the deer
+then stepped onto his tile. The failed-attack recovery sent him back onto the same tile, and the next search
+picked the same deer again: an endless walk between hut and deer.
+
+`HunterFiringPositionSearch` handles this rare case:
+
+- Detection runs in the existing 10-tick scan, over the Hunters only: State 1 to State 6 with the same live
+  target global ID and nothing carried. A failed direct attack at tile distance <= 1 (result hook `0x130199`,
+  RDI) is the second trigger.
+- The search walks rings 4..12 around the prey (inside 20 world units Vanilla's State-1 near refresh `0x130069` sends the Hunter onto the prey's tile, where the direct attack fails). A tile counts when it is walkable, reachable for the Hunter's
+  player (`FindNextComponentTowardDestination` with the Hunter's path mode, so enemy gates and walls count) and
+  the visibility core `0x9E350` sees in both directions from its centre (world = tile * 8 + 4, height = tile
+  height + 30), the same rule as the near-target handoff. At most 64 tiles are tested per search.
+- The hook at `0x12FE63` runs after the relocated reservation write and X load, before the untouched call to
+  `MoveHere` `0x196280`. RDX holds the Hunter ID, R8/R9 the destination. For a staged Hunter whose target global ID
+  still matches, it writes the firing tile into R8/R9 once. No flags are involved; the call follows directly.
+  `0x13052F` and `0x1305DB` jump to `0x12FE8E`, outside the span; the full `HunterUpdate` branch audit runs before
+  installation and the displaced byte count must be 18.
+- When that approach fails as well, or no tile qualifies, the Hunter/prey pair gets a cooldown of 120 seconds in
+  map ticks, and the Hunter takes other prey.
+
+On a new DLL hash, revalidate the span and its register contract together with the other `HunterUpdate` hooks.
+
+### Flag-based hooks removed in 1.2.0
+
+Two context hooks decided an untouched conditional jump through
+`X64SmartCPUContext.Rflags`. The installed RedBird `ContextAssemblyGenerator`
+runs `sub rsp,144` before `pushfq` and `add rsp,144+redZone` after `popfq`, so
+the callback always read ZF=0 and the jump after the hook always saw ZF=0,
+independent of the callback and of the mod's settings (see
+`AGENTS/native-hooks.md`, Flags).
+
+- Attack gate `[0x130160,0x130174)`: the untouched `je 0x131402` at `0x130174`
+  (path state 2 keeps walking) was never taken, so a Hunter at tile distance
+  <= 28 with an unfinished step (`+0xF4 != 0`) called the direct attack early.
+  The intended visible-attack handoff never ran. Removed; Vanilla decides again.
+- State-1 refresh query result `[0x12FF7E,0x12FF8C)`: the untouched
+  `je 0x12FFA3` (zero result, State 6) was never taken, so an empty query always
+  led to State 0. Removed; an empty query leads to Vanilla's State 6 again. The
+  stale-moving-target detection still lets Vanilla's refresh query run, but no
+  longer forces State 0. A correct replacement cannot use a span after the call:
+  `0x13052F` and `0x1305DB` jump to `0x12FF8E`, leaving 11 bytes between the
+  query result and the branch, below RedBird's 14-byte minimum. It is planned
+  as an APIShared hook at the query function entry `0x18AF50`.
+
+The sections below describe the removed hooks as they were built.
+
 ### Guarded stale-moving-target replan in 1.1.66
 
 The exact-hash State-1 result hook is restored at RVA `0x12FF2E` with span
@@ -1398,3 +1506,18 @@ function table `0x321CB0`; `SizeOf(GameUnit)` remains `0x490`. Exact-RVA probes
 retain their local semantic validation where their short pattern is not globally
 unique. Live hunting, chicken, visibility and recovery scenarios remain smoke
 tests.
+
+## Shared production receipt forwarding (2026-11-13)
+
+The existing permanent Tanner deposit owner at `0x13EF38` forwards both its meat
+and logical-disabled Vanilla paths through APIShared's native delivery adapter.
+No additional native span is introduced. The original seven-argument deposit ABI
+and result are retained; demand zero stays native. Confirmation occurs only after
+the complete Tanner native cohort has been permanently published. APIShared skips
+its standalone Tanner source when this plugin is discovered and rejects receipt
+availability if this external publication never confirms.
+
+Receipt integration is additive: if its shared adapter is unavailable, the existing
+Tanner cohort still publishes with its already resolved ordinary B6100 target.
+It does not confirm receipt support in that case, so required money observers fail
+closed independently of Tanner meat production. No second native owner is installed.

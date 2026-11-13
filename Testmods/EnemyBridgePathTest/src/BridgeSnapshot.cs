@@ -91,9 +91,9 @@ namespace EnemyBridgePathTest
                 if (parent != null) { bridge.GateId = parent.Id; bridge.GateGlobal = parent.Global;
                     bridge.Owner = parent.Owner; bridge.Captured = parent.Captured; }
                 bool identityStable = bridge.Global != 0 && (parent == null || parent.Global != 0) &&
-                    manager.IsValidId(bridge.Id) && manager.TryGetBuildingById(bridge.Id, out GameBuilding* liveBridge) &&
+                    global::APIShared.BuildingAccess.TryGetById(manager, bridge.Id, out GameBuilding* liveBridge, out _) &&
                     liveBridge != null && liveBridge->r_GlobalId == bridge.Global && Active(liveBridge->r_AliveState);
-                if (parent != null && (!manager.IsValidId(parent.Id) || !manager.TryGetBuildingById(parent.Id, out GameBuilding* liveGate) ||
+                if (parent != null && (!global::APIShared.BuildingAccess.TryGetById(manager, parent.Id, out GameBuilding* liveGate, out _) ||
                     liveGate == null || liveGate->r_GlobalId != parent.Global || !Active(liveGate->r_AliveState) ||
                     liveGate->r_PlayerIdOwner != parent.Owner || liveGate->r_CapturedByPlayerId != parent.Captured)) identityStable = false;
                 if (!identityStable) { bridge.Link = "identity-or-live-state-mismatch"; parent = null; }
@@ -128,7 +128,7 @@ namespace EnemyBridgePathTest
                 {
                     var xy = tiles.GetTileVectorFromId(tile);
                     state.Append(tile).Append('@').Append(xy.X).Append('/').Append(xy.Y).Append(":pcl=")
-                        .Append((uint)tile < (uint)pcl.Length ? pcl[tile] : -1).Append(":flags=0x")
+                        .Append(global::APIShared.IndexBounds.IsValidIndex(tile, pcl.Length) ? pcl[tile] : -1).Append(":flags=0x")
                         .Append(((uint)tiles.GetTilePropertyFlag(tile)).ToString("X8")).Append(';');
                 }
                 state.Append("],closure=[");

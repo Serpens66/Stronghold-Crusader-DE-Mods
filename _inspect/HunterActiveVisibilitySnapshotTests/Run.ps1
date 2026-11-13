@@ -5,7 +5,7 @@ $sourcePath = Join-Path $workspace 'ImprovedHunters\src\HunterActiveTargetVisibi
 $source = [System.IO.File]::ReadAllText($sourcePath)
 $runtimePath = Join-Path $workspace 'ImprovedHunters\src\ImprovedHuntersRuntime.cs'
 $runtime = [System.IO.File]::ReadAllText($runtimePath)
-$continuationPath = Join-Path $workspace 'ImprovedHunters\src\HunterVanillaPathContinuationDiagnostic.cs'
+$continuationPath = Join-Path $workspace 'ImprovedHunters\src\HunterVanillaPathContinuation.cs'
 $continuation = [System.IO.File]::ReadAllText($continuationPath)
 $nativeProbePath = Join-Path $workspace 'ImprovedHunters\src\HunterNativeVisibilityProbe.cs'
 $nativeProbe = [System.IO.File]::ReadAllText($nativeProbePath)
@@ -79,7 +79,7 @@ if ($scanStart -lt 0 -or $scanEnd -le $scanStart) {
 }
 
 $scanBlock = $source.Substring($scanStart, $scanEnd - $scanStart)
-if (-not $source.Contains('TrackerRetentionInterval = Stopwatch.Frequency * 2') -or
+if (-not $source.Contains('TrackerRetentionInterval = HunterSimulationTime.MapTicksPerSecond * 2') -or
     -not $scanBlock.Contains('timestamp - tracker.LastValidatedAt < TrackerRetentionInterval') -or
     -not $scanBlock.Contains('tracker retained after') -or
     -not $scanBlock.Contains('tracker expired after scan absence')) {
@@ -95,7 +95,7 @@ if (-not $scanBlock.Contains('allowProbeReservationOne: true') -or
     -not $source.Contains('RawReservation = rawReservation')) {
     throw 'Only behavior-neutral scan probes may accept raw reservation 1 while stable identity remains normalized to the Hunter reservation.'
 }
-if (-not $source.Contains('NearTargetProbeInterval = Stopwatch.Frequency / 4') -or
+if (-not $source.Contains('NearTargetProbeInterval = HunterSimulationTime.MapTicksPerSecond / 4') -or
     -not $scanBlock.Contains('inputs.TileManhattanDistance <= 30') -or
     -not $scanBlock.Contains('tracker.LastProbeRequestedAt')) {
     throw 'Near active targets must use the bounded 250-ms probe interval without changing the far-target interval.'
@@ -195,24 +195,20 @@ if (-not $continuation.Contains('release-distance-override-vanilla-attack-gate-r
     throw 'A visible snapshot log must distinguish distance release from Vanilla locomotion-gate readiness.'
 }
 if (-not $continuation.Contains('ValidateDistanceContinuationHookSpan') -or
-    -not $continuation.Contains('ValidateAttackGateHookSpan') -or
     -not $continuation.Contains('ValidateNoExternalDirectBranchTargetsInsideHook') -or
     -not $continuation.Contains('FlowControl.IndirectBranch') -or
-    -not $continuation.Contains('hookLength != 0x13') -or
-    -not $continuation.Contains('hookLength != AttackGateHookLength')) {
-    throw 'Both native hook spans must be instruction-decoded and audited against external direct branch targets before installation.'
-}
-if (-not $continuation.Contains('AttackGateHookRva = 0x130160') -or
-    -not $continuation.Contains('AttackGateHookLength = 0x14') -or
-    -not $continuation.Contains('AttackGateFirstBranchTargetRva = 0x13017A') -or
-    -not $continuation.Contains('placement: OverwrittenInstructionPlacement.BeforeCallback')) {
-    throw 'The attack-gate handoff must use the audited 20-byte basic-block span and run only after its relocated comparisons.'
-}
-if (-not $continuation.Contains('TryHandoffFreshVisibleAttack') -or
-    -not $continuation.Contains('visibility.PositionsMatch') -or
-    -not $continuation.Contains('FreshAttackGateSnapshotLifetime') -or
-    -not $continuation.Contains('context.Pointer->Rflags &= ~ZeroFlagMask')) {
-    throw 'Attack-gate handoff must require a fresh position-matched visible snapshot and change only the captured zero flag.'
+    -not $continuation.Contains('hookLength != 0x13')) {
+    throw 'The distance hook span must be instruction-decoded and audited against external direct branch targets before installation.'
 }
 
-Write-Output 'Hunter active visibility snapshot tests passed: reservation-1 scan gaps are covered; near probes are position-bound; stale blocking remains conservative; both native spans and the zero-flag-only visible handoff are guarded.'
+# Guardrail for a confirmed failure class (1.1.88): RedBird's context wrapper changes the flags around every
+# callback (sub/add rsp), so a callback can neither read the original flags nor steer a following jump through
+# Rflags (AGENTS/native-hooks.md, Flags). This is a source-text heuristic over the mod's hook code, not a runtime proof.
+$flagUsers = @(Get-ChildItem -LiteralPath (Join-Path $workspace 'ImprovedHunters\src') -Filter '*.cs' |
+    Where-Object { [System.IO.File]::ReadAllText($_.FullName).Contains('Rflags') } |
+    ForEach-Object { $_.Name })
+if ($flagUsers.Count -ne 0) {
+    throw ('A context hook callback uses Rflags: ' + ($flagUsers -join ', '))
+}
+
+Write-Output 'Hunter active visibility snapshot tests passed: reservation-1 scan gaps are covered; near probes are position-bound; stale blocking remains conservative; the distance span is audited and no hook callback steers through Rflags.'

@@ -268,6 +268,8 @@ function Get-ModNames {
     if ($mods.Count -eq 0) { Fail-Pack 2 'The configured mod list is empty.' }
     $duplicates = @($mods | Group-Object | Where-Object Count -gt 1)
     if ($duplicates.Count -gt 0) { Fail-Pack 2 "Duplicate mod names: $(@($duplicates.Name) -join ', ')" }
+    try { Assert-SteamPackModSelection -ModNames $mods }
+    catch { Fail-Pack 2 $_.Exception.Message }
     return $mods
 }
 

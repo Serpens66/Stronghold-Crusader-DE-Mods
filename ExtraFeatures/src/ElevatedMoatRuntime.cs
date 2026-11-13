@@ -49,6 +49,35 @@ namespace ExtraFeatures
             }
         }
 
+        // The shared publisher roots this callback beyond plugin startup cleanup.
+        internal void RegisterTooltip(ExtraFeaturesViewModel settings)
+        {
+            string ownedText = null;
+            if (!APIShared.Presentation.PresentationEvents.TryRegister(
+                APIShared.Presentation.PresentationOperation.BuildingRollover,
+                ExtraFeaturesPlugin.PluginGuid, "ElevatedMoatDescription", null, args =>
+                {
+                    if (!args.OriginalCompleted || !CrusaderDE.MainViewModel.viewModelLoaded) return;
+                    var main = CrusaderDE.MainViewModel.Instance;
+                    if (!ReferenceEquals(main.HUDmain, args.BuildingHud) || !main.RolloverBuilding_TooltipVis) return;
+                    // Vanilla caches the body while hovering the same button. Recognize only
+                    // the original or our own last value; never overwrite another mod's text.
+                    string original = CrusaderDE.Translate.Instance.lookUpText(
+                        Enums.eTextSections.TEXT_BUILDING_DESCRIPTIONS, 54);
+                    string current = main.RolloverBuilding_TooltipBody;
+                    if (current != original && (ownedText == null || current != ownedText)) return;
+                    bool enabled = processPatch != null && !processPatchUnavailable &&
+                        Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
+                        (APIShared.GameModes.GameModeHelper.IsMapEditor()
+                            ? settings.AllowElevatedMoatAI || settings.AllowElevatedMoatHuman
+                            : settings.AllowElevatedMoatHuman);
+                    string next = enabled ? SerpLocalization.Get("ExtraFeatures.ElevatedMoatTooltip") : original;
+                    if (current != next) main.RolloverBuilding_TooltipBody = next;
+                    ownedText = enabled ? next : null;
+                }, out string reason, order: int.MaxValue - 2))
+                throw new InvalidOperationException(reason);
+        }
+
         internal void Reconcile(bool allowAIPlacement, bool allowHumanPlacement)
         {
             if (context == null)

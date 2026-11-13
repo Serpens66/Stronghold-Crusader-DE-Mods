@@ -373,7 +373,7 @@ namespace CanarariWoodTest
             if ((uint)cx >= 160 || (uint)cy >= 160) return false;
             Span<AivCoarseCell> grid = GameAIVManagerAPI.Instance.GetCoarseGrid();
             int index = cx * 160 + cy;
-            if ((uint)index >= (uint)grid.Length) return false;
+            if (!global::APIShared.IndexBounds.IsValidIndex(index, grid.Length)) return false;
             AivCoarseCell c = grid[index];
             raw = "foreign=" + c.ForeignPathComponentTileCount +
                 ",treeWeight=" + c.TreeObstructionWeight +

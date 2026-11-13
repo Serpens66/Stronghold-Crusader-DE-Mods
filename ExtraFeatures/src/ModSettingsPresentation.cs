@@ -38,7 +38,7 @@ namespace ExtraFeatures
         // Group membership only controls contextual captions/rows; APIShared remains the sole search index.
         public SettingsGroupPresentation SoldierOptions { get; } = new SettingsGroupPresentation("fear-factor-neutralization", "monks-always-run");
         public SettingsGroupPresentation KnightOptions { get; } = new SettingsGroupPresentation("knight-dismount", "instant-horse", "knight-transform-gold", "knight-transform-delay");
-        public SettingsGroupPresentation LordOptions { get; } = new SettingsGroupPresentation("lord-health");
+        public SettingsGroupPresentation LordOptions { get; } = new SettingsGroupPresentation("lord-health", "soldier-health", "civilian-health", "building-health");
         public SettingsGroupPresentation MoatOptions { get; } = new SettingsGroupPresentation("elevated-moat");
         public SettingsGroupPresentation GateOptions { get; } = new SettingsGroupPresentation("human-gate-reopen-delay", "ai-gate-reopen-delay", "human-gate-closing-distance", "ai-gate-closing-distance");
         public SettingsGroupPresentation GateReopenOptions { get; } = new SettingsGroupPresentation("human-gate-reopen-delay", "ai-gate-reopen-delay");
@@ -50,7 +50,7 @@ namespace ExtraFeatures
         public SettingsGroupPresentation AiRebuildOptions { get; } = new SettingsGroupPresentation("ai-tower-gate-rebuild-delay");
         public SettingsGroupPresentation PopulationOptions { get; } = new SettingsGroupPresentation("extra-church-priests", "campfire-peasants");
         public SettingsGroupPresentation KillRewardOptions { get; } = new SettingsGroupPresentation("kill-reward-gold", "kill-reward-goods", "kill-reward-maximum");
-        public SettingsGroupPresentation EconomyBonusOptions { get; } = new SettingsGroupPresentation("multiply-goods-gain", "multiply-goods-as-money");
+        public SettingsGroupPresentation EconomyBonusOptions { get; } = new SettingsGroupPresentation("fixed-production-bonus", "multiply-goods-gain", "multiply-goods-as-money");
         public SettingsGroupPresentation PeriodicGoldOptions { get; } = new SettingsGroupPresentation("periodic-gold-human", "periodic-gold-ai");
         public SettingsGroupPresentation RefundOptions { get; } = new SettingsGroupPresentation("wood-refund", "stone-refund", "iron-refund", "pitch-refund", "gold-refund");
         public SettingsGroupPresentation PlagueOptions { get; } = new SettingsGroupPresentation("plague-damage-walls", "plague-damage-gates", "plague-damage-towers", "plague-damage-keeps", "plague-duration", "apothecary-plague-search-distance");

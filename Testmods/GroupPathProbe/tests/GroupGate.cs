@@ -277,7 +277,7 @@ internal static class GroupGate
     private static Dictionary<string, string> OracleHashes(string root)
     {
         var result = new Dictionary<string, string>();
-        foreach (string relative in new[] { "BugfixesAndQoL/src/UnitCommands/Movement/WeightedGridSearchKernel.cs", "BugfixesAndQoL/src/UnitCommands/Movement/WeightedMoatRoutePlanner.cs", "BugfixesAndQoL/src/UnitCommands/Moat/MoatCandidateField.cs", "BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandContracts.cs" })
+        foreach (string relative in new[] { "Pathfinding/src/UnitCommands/Movement/WeightedGridSearchKernel.cs", "Pathfinding/src/UnitCommands/Movement/WeightedMoatRoutePlanner.cs", "Pathfinding/src/UnitCommands/Moat/MoatCandidateField.cs", "Pathfinding/src/UnitCommands/Runtime/UnitCommandContracts.cs" })
             result[relative] = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(root, "../..", relative))));
         return result;
     }

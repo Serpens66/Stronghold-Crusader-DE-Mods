@@ -41,6 +41,24 @@ foreach ($folder in @('Patches','Override','Locales')) {
 foreach ($relative in $expected) {
     Assert-SameFile (Join-Path $SourceDirectory $relative) (Join-Path $PackageDirectory $relative)
 }
+$sprites = Join-Path $PackageDirectory 'Override/Assets/GUI/Sprites'
+[xml]$patch = Get-Content -LiteralPath (Join-Path $PackageDirectory 'Patches/Assets/GUI/Sprites/UI-MasterAtlas.xaml') -Raw
+$keyNamespace = 'http://schemas.microsoft.com/winfx/2006/xaml'
+$atlasResources = @($patch.SelectNodes('/Patch/Operation/Content/BitmapImage') | Where-Object {
+    $_.GetAttribute('Key', $keyNamespace) -ceq 'BugfixesAndQoL-LordSource'
+})
+if ($atlasResources.Count -ne 1 -or $atlasResources[0].UriSource -cne 'BugfixesAndQoL-Lord.png') {
+    throw 'The Lord portrait atlas must resolve through the packaged Noesis bitmap resource.'
+}
+Add-Type -AssemblyName System.Drawing
+$atlas = [Drawing.Image]::FromFile((Join-Path $sprites 'BugfixesAndQoL-Lord.png'))
+try {
+    if ($atlas.Width -ne 648 -or $atlas.Height -ne 984 -or -not [Drawing.Image]::IsAlphaPixelFormat($atlas.PixelFormat)) {
+        throw 'The Lord portrait atlas must contain eight rows of nine transparent 72 x 123 cells.'
+    }
+} finally {
+    $atlas.Dispose()
+}
 if (-not $Installed) {
     # Extra generated resources can resurrect removed code. Keep historical paths as explicit
     # source tombstones instead of silently shipping stale files or deleting them here.

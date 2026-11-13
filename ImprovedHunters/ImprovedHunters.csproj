@@ -97,6 +97,10 @@
       <HintPath>$(ExtenderDir)\RedBird.Abstractions.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="RedBird.Backends.NativeX64">
+      <HintPath>$(ExtenderDir)\RedBird.Backends.NativeX64.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="RedBird.Core">
       <HintPath>$(ExtenderDir)\RedBird.Core.dll</HintPath>
       <Private>false</Private>
@@ -122,6 +126,7 @@
     <Compile Include="..\Shared\Runtime\Diagnostics\CrashBreadcrumbRecorder.cs">
       <Link>Shared\Runtime\Diagnostics\CrashBreadcrumbRecorder.cs</Link>
     </Compile>
+    <Compile Include="..\Shared\Runtime\Diagnostics\DevDiag.cs"><Link>Shared\Runtime\Diagnostics\DevDiag.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Diagnostics\DebugLogHelper.cs">
       <Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link>
     </Compile>
@@ -131,35 +136,50 @@
     <Compile Include="..\Shared\Runtime\Localization\SerpLocalization.cs">
       <Link>Shared\Runtime\Localization\SerpLocalization.cs</Link>
     </Compile>
+    <Compile Include="..\Shared\Adapters\APIShared\ActivePlayerKeepReadiness.cs"><Link>Shared\Adapters\APIShared\ActivePlayerKeepReadiness.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Gameplay\ActivePlayerHelper.cs"><Link>Shared\Runtime\Gameplay\ActivePlayerHelper.cs</Link></Compile>
     <Compile Include="src\ImprovedHuntersPlugin.cs" />
     <Compile Include="src\HunterHookInfrastructure.cs" />
     <Compile Include="src\PermanentDispatchIndexOverride.cs" />
     <Compile Include="src\DispatchIndexStub.cs" />
-    <Compile Include="src\AutomaticChickenTargetPatch.cs" />
-    <Compile Include="src\ManualChickenAttackPolicy.cs" />
-    <Compile Include="src\ManualChickenAttackPatch.cs" />
+    <Compile Include="src\HunterNativeStubs.cs" />
+    <Compile Include="src\HunterSearchRangePolicy.cs" />
+    <Compile Include="src\HunterCorpseChoicePatch.cs" />
+    <Compile Include="src\HunterCorpseChoiceFeature.cs" />
+    <Compile Include="src\HunterHutAvailabilityPatch.cs" />
+    <Compile Include="src\WildlifeNativeAddresses.cs" />
+    <Compile Include="src\WildlifeRespawnFeature.cs" />
+    <Compile Include="src\WildlifeRangeFeature.cs" />
+    <Compile Include="src\WildlifeRangePolicy.cs" />
+    <Compile Include="src\HerdSettingsPolicy.cs" />
+    <Compile Include="src\WildlifeOriginTable.cs" />
+    <Compile Include="src\HerdFleeSightFeature.cs" />
+    <Compile Include="src\HunterSimulationTime.cs" />
+    <Compile Include="src\PermanentNativeGate.cs" />
+    <Compile Include="src\RabbitMeleeOrderPatch.cs" />
+    <Compile Include="src\TannerMeatPatch.cs" />
+    <Compile Include="src\TannerMeatPolicy.cs" />
+    <Compile Include="src\TannerModePanel.cs" />
+    <Compile Include="src\TannerRatioSync.cs" />
+    <Compile Include="src\TannerRunTable.cs" />
     <Compile Include="src\GranaryChickenLimitPatch.cs" />
     <Compile Include="src\GranaryChickenSpawnPolicy.cs" />
-    <Compile Include="src\HunterQueryActorPolicy.cs" />
-    <Compile Include="src\HunterQueryActorWorkaround.cs" />
     <Compile Include="src\HunterTargetSelectionFeature.cs" />
+    <Compile Include="src\HuntablePreyIntegration.cs" />
     <Compile Include="src\HunterProjectileObservationFeature.cs" />
     <Compile Include="src\HunterAnimalCompatibilityFeature.cs" />
-    <Compile Include="src\HunterChickenCompatibilityFeature.cs" />
-    <Compile Include="src\HunterLineOfSightRecovery.cs" />
     <Compile Include="src\HunterMovementSnapshot.cs" />
     <Compile Include="src\HunterHutVisibilityPatch.cs" />
     <Compile Include="src\HunterNativeVisibilityProbe.cs" />
     <Compile Include="src\HunterActiveTargetVisibilitySnapshot.cs" />
     <Compile Include="src\HunterPclReachability.cs" />
     <Compile Include="src\HunterActiveTargetReachability.cs" />
-    <Compile Include="src\HunterPclReachabilityDiagnostic.cs" />
     <Compile Include="src\HunterRemainingPathSpeedRecovery.cs" />
-    <Compile Include="src\HunterPostShotContinuationDiagnostic.cs" />
-    <Compile Include="src\HunterTargetSearchFallbackDiagnostic.cs" />
-    <Compile Include="src\HunterMovingTargetPathfindingDiagnostic.cs" />
-    <Compile Include="src\HunterVanillaPathContinuationDiagnostic.cs" />
-    <Compile Include="src\HunterVisibilityDiagnostic.cs" />
+    <Compile Include="src\HunterPostShotContinuation.cs" />
+    <Compile Include="src\HunterTargetSearchFallback.cs" />
+    <Compile Include="src\HunterFiringPositionSearch.cs" />
+    <Compile Include="src\HunterMovingTargetPathfinding.cs" />
+    <Compile Include="src\HunterVanillaPathContinuation.cs" />
     <Compile Include="src\ImprovedHuntersRuntime.cs" />
     <Compile Include="src\ImprovedHuntersViewModel.cs" />
   </ItemGroup>
@@ -180,7 +200,6 @@
     <Compile Include="..\Shared\Adapters\APIShared\SerpsModProfiles.cs"><Link>Shared\Adapters\APIShared\SerpsModProfiles.cs</Link></Compile>
     <Compile Include="..\Shared\Adapters\APIShared\GameplayFeatureModePolicy.cs"><Link>Shared\Adapters\APIShared\GameplayFeatureModePolicy.cs</Link></Compile>
     <Compile Include="..\Shared\Adapters\APIShared\GameplayModActivationGate.cs"><Link>Shared\Adapters\APIShared\GameplayModActivationGate.cs</Link></Compile>
-    <Compile Include="..\Shared\Runtime\UI\ToolTipPresentation.cs"><Link>Shared\Runtime\UI\ToolTipPresentation.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\UI\NumericTextInput.cs"><Link>Shared\Runtime\UI\NumericTextInput.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

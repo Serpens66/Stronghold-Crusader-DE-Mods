@@ -11,7 +11,7 @@ namespace AIWoodSafetyTest
 {
     [BepInPlugin(Guid, "AI Wood Safety Test", Version)]
     [BepInDependency("000shcdese", "2.14.0")]
-    [BepInDependency("APIShared_Serp", "0.26.0")]
+    [BepInDependency("APIShared_Serp", "0.49.0")]
     [BepInDependency("BugfixesAndQoL_Serp", "1.0.192")]
     [BepInDependency("AIBuildDiagnoseTest_Serp", "0.2.1")]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]

@@ -4,7 +4,6 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using RedBird.Core.Memory;
 
 namespace ImprovedHunters
@@ -75,11 +74,11 @@ namespace ImprovedHunters
         private const int MaxDiagnosticLogs = 240;
         private const int MaxProbeSampleLogs = 240;
 
-        private static readonly long ProbeInterval = Stopwatch.Frequency;
-        private static readonly long NearTargetProbeInterval = Stopwatch.Frequency / 4;
-        private static readonly long SnapshotLifetime = Stopwatch.Frequency * 2;
-        private static readonly long PendingLifetime = Stopwatch.Frequency * 2;
-        private static readonly long TrackerRetentionInterval = Stopwatch.Frequency * 2;
+        private static readonly long ProbeInterval = HunterSimulationTime.MapTicksPerSecond;
+        private static readonly long NearTargetProbeInterval = HunterSimulationTime.MapTicksPerSecond / 4;
+        private static readonly long SnapshotLifetime = HunterSimulationTime.MapTicksPerSecond * 2;
+        private static readonly long PendingLifetime = HunterSimulationTime.MapTicksPerSecond * 2;
+        private static readonly long TrackerRetentionInterval = HunterSimulationTime.MapTicksPerSecond * 2;
 
         private readonly ManualLogSource log;
         private readonly ImprovedHuntersViewModel settings;
@@ -144,7 +143,7 @@ namespace ImprovedHunters
 
             // The validated state-0 MoveHere result is the path boundary. Raw
             // +0xF4 and +0xF6 values oscillate while that same path advances.
-            LogDiagnostic(
+            LogSample(
                 "Improved Hunters accepted Vanilla path generation advanced: " +
                 $"hunter={hunterUnitId}, target={preyUnitId}/{preyGlobalId}/{preyType}, " +
                 $"pathGeneration={previousGeneration}->{generation}, " +
@@ -200,7 +199,9 @@ namespace ImprovedHunters
                 }
             }
 
+#if SERP_DEVDIAG
             List<string> retentionLogs = null;
+#endif
             lock (stateLock)
             {
                 List<int> staleHunters = null;
@@ -224,6 +225,7 @@ namespace ImprovedHunters
                     // snapshot alive; a real inactive context still expires.
                     if (timestamp - tracker.LastValidatedAt < TrackerRetentionInterval)
                     {
+#if SERP_DEVDIAG
                         if (!tracker.RetentionMissLogged)
                         {
                             tracker.RetentionMissLogged = true;
@@ -237,6 +239,7 @@ namespace ImprovedHunters
                                 $"reason={captureFailure}, retentionMs=" +
                                 $"{ToMilliseconds(TrackerRetentionInterval)}.");
                         }
+#endif
 
                         continue;
                     }
@@ -244,6 +247,7 @@ namespace ImprovedHunters
                     if (staleHunters == null)
                         staleHunters = new List<int>();
                     staleHunters.Add(hunterUnitId);
+#if SERP_DEVDIAG
                     if (retentionLogs == null)
                         retentionLogs = new List<string>();
                     retentionLogs.Add(
@@ -254,6 +258,7 @@ namespace ImprovedHunters
                         $"absenceMs={ToMilliseconds(timestamp - tracker.MissingSince)}, " +
                         $"lastValidatedAgeMs={ToMilliseconds(timestamp - tracker.LastValidatedAt)}, " +
                         $"reason={tracker.LastCaptureFailure}.");
+#endif
                 }
 
                 if (staleHunters != null)
@@ -264,11 +269,13 @@ namespace ImprovedHunters
 
             }
 
+#if SERP_DEVDIAG
             if (retentionLogs != null)
             {
                 foreach (string message in retentionLogs)
-                    LogDiagnostic(message);
+                    LogSample(message);
             }
+#endif
 
             foreach (ProbeRequest request in requests)
                 Probe(request, timestamp);
@@ -418,7 +425,7 @@ namespace ImprovedHunters
                         out string inputFailure) ||
                     !current.Equals(before))
                 {
-                    LogDiagnostic(
+                    LogSample(
                         "Improved Hunters active-target visibility probe skipped: " +
                         $"hunter={before.HunterUnitId}/{before.HunterGlobalId}, " +
                         $"target={before.PreyUnitId}/{before.PreyGlobalId}/{before.PreyType}, " +
@@ -551,7 +558,7 @@ namespace ImprovedHunters
 
                 if (changed)
                 {
-                    LogDiagnostic(
+                    LogSample(
                         "Improved Hunters active-target visibility snapshot refreshed: " +
                         $"hunter={before.HunterUnitId}/{before.HunterGlobalId}, " +
                         $"target={before.PreyUnitId}/{before.PreyGlobalId}/{before.PreyType}, " +
@@ -856,7 +863,10 @@ namespace ImprovedHunters
             state = HunterActiveVisibilityState.Pending;
             classification = string.Empty;
             failure = string.Empty;
-            if (wrapperResult < 0 || wrapperResult > 432)
+            // Core 0x9E350 returns 0 when blocked and otherwise its step count (up to 1000, 100000 for the
+            // same point). The direct attack at 0x18ED6A, which this decision feeds, takes every positive result;
+            // only the target query at 0x18B0A2 limits it to 1..0x1B0. Far targets give large valid results.
+            if (wrapperResult < 0)
             {
                 failure = $"wrapper-result-{wrapperResult}";
                 return false;
@@ -869,8 +879,7 @@ namespace ImprovedHunters
                 return true;
             }
 
-            if (hunterToPreyResult < 0 || hunterToPreyResult > 432 ||
-                preyToHunterResult < 0 || preyToHunterResult > 432)
+            if (hunterToPreyResult < 0 || preyToHunterResult < 0)
             {
                 failure = $"directional-results-{hunterToPreyResult}-{preyToHunterResult}";
                 return false;
@@ -907,7 +916,7 @@ namespace ImprovedHunters
                 positionsMatch: false);
 
         private static long ToMilliseconds(long ticks) =>
-            Math.Max(0, ticks) * 1000 / Stopwatch.Frequency;
+            Math.Max(0, ticks) * 1000 / HunterSimulationTime.MapTicksPerSecond;
 
         private void LogDiagnostic(string message, bool warning = false)
         {
@@ -922,6 +931,11 @@ namespace ImprovedHunters
                 Shared.DebugLogHelper.LogInfo(log, bounded);
         }
 
+        // Development samples only: /devdiag builds compile these calls including their message text.
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
+        private void LogSample(string message, bool warning = false) => LogDiagnostic(message, warning);
+
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         private void LogProbeSample(string message, bool warning)
         {
             if (probeSampleLogs >= MaxProbeSampleLogs)
@@ -957,7 +971,9 @@ namespace ImprovedHunters
             public long LastValidatedAt;
             public long MissingSince;
             public string LastCaptureFailure;
+#if SERP_DEVDIAG
             public bool RetentionMissLogged;
+#endif
             public bool HasSnapshot;
             public long ObservedAt;
             public long UsableUntil;

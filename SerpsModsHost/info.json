@@ -2,8 +2,8 @@
     "GUID":  "SerpsMods_Serp",
     "Author":  "Serpens66",
     "Name":  "Serps Mods - Fully Customizable Collection",
-    "Description":  "APIShared must be subscribed separately in the Steam Workshop! / APIShared muss separat im Steam Workshop abonniert werden!\n\nMultiplayer: all players need the same versions of this modpack and APIShared. / Mehrspieler: Alle Spieler brauchen dieselbe Version dieses Modpacks und von APIShared.\n\nAll included mods can be freely configured in the in-game Mod Settings.\n\nIncluded mods:\n- Bugfixes and QoL\n- Building Costs\n- Building Limit\n- Extra Features\n- Random Events\n- CastlePlanner\n- Start Conditions\n- Unit Costs\n- Unit Limit\n- Extended Data\n- Spectator",
-    "Version":  "1.0.35",
+    "Description":  "APIShared must be subscribed separately in the Steam Workshop! / APIShared muss separat im Steam Workshop abonniert werden!\n\nMultiplayer: all players need the same versions of this modpack and APIShared. / Mehrspieler: Alle Spieler brauchen dieselbe Version dieses Modpacks und von APIShared.\n\nAll included mods can be freely configured in the in-game Mod Settings.\n\nIncluded mods:\n- Bugfixes and QoL\n- Pathfinding\n- Building Costs\n- Building Limit\n- Extra Features\n- Random Events\n- CastlePlanner\n- Start Conditions\n- Unit Costs\n- Unit Limit\n- Extended Data\n- Spectator",
+    "Version":  "1.0.36",
     "Website":  "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods",
     "MinimumScriptExtenderVersion":  "2.3.0",
     "MaximumScriptExtenderVersion":  "",
@@ -16,6 +16,16 @@
     "Manifest":  1,
     "NetworkMode":  1,
     "SerpChangelog":  [
+                          {
+                            "Version": "1.0.36",
+                            "Changes": [
+                              "Include the separate Pathfinding mod with movement, formations, Shift queues, gate routing and Assassin pathfinding. Preserve settings and author rules moved from Bugfixes and QoL in older saves, maps and Trails.",
+                              "Bugfixes and QoL: add local area demolition with building filters, Ctrl-drag pitch and moat lines, configurable local autosaves, and fixes for siege crews, pitch stairs, AI outpost targets and Coop Trail restarts.",
+                              "Extra Features: add tree respawn, mature-tree harvesting, separate unit and building health multipliers, and a configurable production bonus; improve automatic gate closing and legacy save compatibility. Multiply actual base production and award production income only for goods delivered to storage.",
+                              "Spectator: add saved AI assignments for placed units and options to retain statistics and the game date while the HUD is hidden. CastlePlanner and Spectator wait for slow mission startup.",
+                              "Extended Data: keep autosave and starting speed player-owned and preserve moved Map/Trail settings. This package requires APIShared 0.52.0 or newer; all multiplayer participants need matching modpack and APIShared versions."
+                            ]
+                          },
                           {
                               "Version":  "1.0.35",
                               "Changes":  [

@@ -1,0 +1,39 @@
+AutoSendTest: kompakte Versandautomatik
+=====================================
+
+Im Vanilla-Allies-Menü einen lebenden Verbündeten, Waren senden und eine Ware
+wählen. Die eigene Reserve gilt pro Ware für alle Verbündeten gemeinsam.
+Empfänger-Minimum, Maximum und Aktivierung gelten für Ware und Verbündeten.
+
+Waren-Slider: 0 bis 100, Schritt 1. Gold: 0 bis 10000, Schritt 10. Textboxen
+akzeptieren größere nichtnegative Ganzzahlen und einzelne Goldstücke. Der
+Slider darf diese Werte beim Anzeigen niemals überschreiben.
+
+Slider beim Loslassen übernehmen, Texte bei Enter oder Fokusverlust. Escape
+verwirft die Eingabe. Minimum über Maximum hebt das Maximum an; Maximum unter
+Minimum senkt das Minimum. Maximum 0 stoppt die Regel. Der Button zeigt den
+bestätigten Zustand; ausstehende Änderungen sperren nicht die Zahlenfelder.
+Der Kreispfeil am Warenicon kennzeichnet die eingeschaltete Regel für den gerade
+gewählten Verbündeten, auch wenn momentan keine Lieferung möglich ist.
+Das Empfänger-Minimum priorisiert Bedarf; übrigen Überschuss fair verteilen.
+
+Automatischer Spieltest
+----------------------
+UiAcceptance/scenarios/SP-autosend.json startet über tools/Run-Acceptance.ps1
+einen eigenen frischen SP-Skirmish mit drei KIs. Nur diese Testpartie erhält
+geänderte Teams/Bestände. Ein eindeutig benannter AutoSendCheck-Spielstand wird
+erzeugt. Persönliche APIShared-Einstellungen und Bildschirmkonfiguration werden
+vom Treiber wiederhergestellt. Logs/Screenshots vor weiteren Starts sichern.
+
+Geprüft: echte Noesis-Eingaben, freie Zahlen, gekoppelte Grenzen, Aktivierung,
+Auswahlwechsel bei ausstehenden Chores, stabile Controls, zwei Markeranbieter,
+native Verteilung (fair, Notversorgung, Maximum, Reserve, Pause, Abschalten,
+Gold), manueller Versand, vier gespeicherte Regeln und frische Standardwerte.
+Nur SUMMARY PASS ohne FAIL/SKIP gilt als vollständiger Lauf. Der einmalige
+Autostart deaktiviert sich selbst und bleibt anschließend aus.
+
+Zusätzlich prüfen: Darstellung und Fokus bei 1080p/1440p/4K, manuelle Strg-/Shift-
+Mengen mit BugfixesAndQoL, Editorstart und geladene Editorkarten. Echter Host/Client
+benötigt identische Mod- und APIShared-Pakete (Plugin UND Bootstrap aus demselben
+Build). Beide Sender, Menschen/KI, gemeinsamen Empfänger, gleiche Bestände und
+einmalige Ausführung prüfen. Ein lokaler KI-Lauf beweist weder MP noch Editor.

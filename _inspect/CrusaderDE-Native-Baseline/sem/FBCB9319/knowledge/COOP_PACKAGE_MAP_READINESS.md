@@ -59,3 +59,55 @@ characters and never treats chat text as network authority.
 Source verification: the managed files selected through CURRENT.json and the
 installed assembly metadata. Runtime acceptance still requires a real host/client
 run, including a bundled mission change and ordinary installed-map comparison.
+
+## AI roster and the advertised count
+
+Checked 2026-11-07 against the native and managed hashes above. In the managed
+`Platform_Multiplayer.CreateLobby` path, the host constructs `MPLobby` without
+setting `AIPlayers`. `CreateLobbyResult` publishes an initial `aiplayers` value
+of `0` to Steam. `UpdateHostLobbyInfo` publishes the current value from
+`MPLobby.CountAIPlayers()` without writing it back to the host's `AIPlayers`
+field. The non-host branch in `RefreshLobbyList` reads the advertised value
+into `AIPlayers`. The field can therefore differ on host and client even with
+the same actual roster.
+
+`CountAIPlayers()` returns the integer number of entries in `MPLobby.members`
+whose IDs are below the game's AI boundary of 1000. The host publishes its
+member order and slot mapping. The client applies that order using
+`setHostMemberOrder`, adding AI entries found in the host order and removing
+those no longer present. The live count therefore converges as the roster is
+applied. `ButtonClicked("Play")` publishes the host setup before calling
+`HostStartGame`, which publishes `GO!` with the AIV checksum. The later start
+path consumes the lobby setup. This finding concerns managed lobby data before
+native initialization and requires no native offset or patch.
+
+For APIShared's new-map readiness comparison, use the live count on both peers.
+Keep a real roster, AIV or settings mismatch as a reason to withhold agreement.
+The static finding explains an independent false mismatch across peers. The
+recorded Crater Lake host-side drift had no per-field snapshot and does not
+identify the AI count as its trigger.
+
+## Inactive Coop Trail fields in standard lobbies
+
+Checked 2026-11-07 against the same installed native and managed hashes. The
+standard multiplayer frontend calls `CreateLobby` with the default
+`_coopTrailGame = -1`. The host stores `coopTrailGame = false` and
+`coopTrailID = -1`. `CreateLobbyResult` publishes Steam metadata `cooptrail=-1`.
+
+The client constructs a lobby with the managed default `coopTrailID = 0`.
+On join and on subsequent non-host refreshes, `coopTrailGameSetup("-1")`
+sets `coopTrailGame = false` and clears progress, then returns without
+assigning the ID, selected mission or order flag. Only the active trail path
+decodes those fields. An inactive trail ID can thus differ for the same
+lobby indefinitely. The later standard game start passes no active trail
+selection to the native initializer.
+
+### APIShared integration
+
+The installed map-readiness protocol 3 hashes the inactive ID on both sides.
+The default standard-lobby states alone therefore produce different hashes,
+so the client waits before acknowledging and the host cannot publish GO.
+On Crater Lake at 22:52, the client logged the received host digest and a
+different local digest with `trail=False/0/0/False` while still awaiting
+readiness. The complete host-side values were not recorded, so this
+observation does not establish whether any other input also differed.

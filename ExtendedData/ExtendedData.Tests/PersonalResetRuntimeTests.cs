@@ -118,7 +118,7 @@ class Fixture:Base,IModSettingsWorkingSourceProvider {
 """;
         fixture = fixture.Replace("__PROVIDER__", Methods("ExtendedData/src/TrailMissionSettingsCoordinator.cs",
             "GetSources", "Apply", "ApplyMany", "CopyPersonalSnapshot", "CommitPersonalSource", "ResolveWorkingSource", "DescribeWorkingSource"))
-            .Replace("__SELECTOR__", Methods("APIShared/src/ModSettings/Presets/PresetLobbyModSettingsViewModel.Sources.cs", "RebuildSettingsSources", "LoadSelectedSettingsSource"))
+            .Replace("__SELECTOR__", Methods("APIShared/src/ModSettings/Presets/PresetLobbyModSettingsViewModel.SettingsSources.cs", "RebuildSettingsSources", "LoadSelectedSettingsSource"))
             .Replace("__GLOBAL__", Methods("SerpsModsHost/src/SerpsModsDiagnosticsViewModel.cs", "RefreshGlobalSources", "RequestGlobalSettingsReset", "ConfirmGlobalSettingsReset", "CancelGlobalSettingsReset"));
         var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator).Select(p => MetadataReference.CreateFromFile(p));
         var trees = new[] { CSharpSyntaxTree.ParseText(fixture),

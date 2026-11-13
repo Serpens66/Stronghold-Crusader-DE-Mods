@@ -14,17 +14,20 @@
     <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath></Reference>
     <Reference Include="System.Buffers"><HintPath>$(ExtenderDir)\System.Buffers.dll</HintPath></Reference>
     <Reference Include="System.Runtime.CompilerServices.Unsafe"><HintPath>$(ExtenderDir)\System.Runtime.CompilerServices.Unsafe.dll</HintPath></Reference>
+    <Compile Include="../../../APIShared/src/Buildings/BuildingAccess.cs" />
     <Compile Include="Program.cs" /><Compile Include="Environment.cs" />
     <Compile Include="..\..\..\_inspect\UiWorkBoundaryDouble.cs" />
     <Compile Include="..\..\..\APIShared\src\Presentation\UiWork\UiWorkContracts.cs" />
     <Compile Include="..\..\..\APIShared\src\Presentation\UiWork\UiWorkScheduler.cs" />
-    <Compile Include="..\..\src\PlagueHerdLedger.cs" />
-    <Compile Include="..\..\src\PlaguePopularityFix.cs" />
-    <Compile Include="..\..\src\PlaguePopularitySaveState.cs" />
-    <Compile Include="..\..\src\SessionSaveRecordSlot.cs" />
-    <Compile Include="..\..\src\FeatureSaveStates.cs" />
-    <Compile Include="..\..\src\TimerCountdownFeature.cs" />
-    <Compile Include="..\..\src\TimerCountdownPolicy.cs" />
+    <Compile Include="..\..\..\APIShared\src\Core\Events\OrderedRegistrations.cs" />
+    <Compile Include="..\..\..\APIShared\src\Core\Internal\Logging\FailureThrottle.cs" />
+    <Compile Include="..\..\src\Plague\PlagueHerdLedger.cs" />
+    <Compile Include="..\..\src\Plague\PlaguePopularityFix.cs" />
+    <Compile Include="..\..\src\Plague\PlaguePopularitySaveState.cs" />
+    <Compile Include="..\..\src\Core\Common\SessionSaveRecordSlot.cs" />
+    <Compile Include="..\..\src\Core\Common\FeatureSaveStates.cs" />
+    <Compile Include="..\..\src\Hud\TimerCountdownFeature.cs" />
+    <Compile Include="..\..\src\Hud\TimerCountdownPolicy.cs" />
     <Compile Include="..\..\src\VanillaPerformance\SpriteSheetMergeMode.cs" />
     <Compile Include="..\..\src\VanillaPerformance\RadarThrottlePolicy.cs" />
     <Compile Include="RadarThrottleTests.cs" />

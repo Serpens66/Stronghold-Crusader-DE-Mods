@@ -412,9 +412,17 @@ namespace Spectator
 
         private static bool BeforePlaceMapperItem(int item, int x, int y, int size,
             ref int player, ref bool inGameNotEditor, bool constructingOnly, int mouseState,
-            out WallStoneScope __state)
+            out MapperPlacementScope __state)
         {
             __state = null;
+            // The native editor owns its player selection and action-7 troop mapper. Capture only
+            // supported owned units; unowned animals/people retain ordinary editor placement.
+            if (IsEditorAiPlacementSession())
+            {
+                if (TryAiMapperType(item, out _) && player >= 1 && player <= 8 && mouseState == 3 && !constructingOnly)
+                    return BeginAiPlacement(item, player, out __state);
+                return true;
+            }
             if (!IsPlacementSession())
             {
                 // Vanilla passes the spectator's nonpositive managed ID; control builds as the
@@ -424,13 +432,6 @@ namespace Spectator
                 return true;
             }
             eMappers mapper = (eMappers)item;
-            // The real editor already owns free placement, input state and visual registration.
-            // Only route its building/unit owner; keep its complete native editor path.
-            if (IsEditorToolsSession())
-            {
-                if (IsAllowedMapper(mapper) && CurrentAiOwner() > 0) player = CurrentAiOwner();
-                return true;
-            }
             if (!IsAllowedMapper(mapper)) return false;
             WallRequest wall = mouseState == 3 ? pendingWall : activeWall;
             SpecialDragRequest special = activeSpecial;
@@ -448,7 +449,7 @@ namespace Spectator
             if (IsWallMapper(mapper))
             {
                 bool raised = TryRaiseStone(owner, out WallStoneScope stone);
-                __state = stone;
+                __state = new MapperPlacementScope { Stone = stone };
                 if (!raised) return false;
                 DiagLimited(mouseState != 0 ? "wall-input" : "wall-preview", mouseState != 0 ? 40 : 12,
                     () => "SPECTATOR_EDITOR_WALL_NATIVE state=" + mouseState +
@@ -505,6 +506,7 @@ namespace Spectator
                     DiagPlacingUnit(owner);
                     DiagLimited("unit-request", 32, () => "SPECTATOR_EDITOR_UNIT_REQUEST owner=" + owner + " mapper=" +
                         mapper + " tile=" + x + "," + y);
+                    return BeginAiPlacement(item, owner, out __state);
                 }
                 return true;
             }
@@ -558,8 +560,10 @@ namespace Spectator
             return true;
         }
 
-        private static void AfterPlaceMapperItem()
+        private static void AfterPlaceMapperItem(MapperPlacementScope __state)
         {
+            try { EndAiPlacement(__state, true); }
+            catch (Exception error) { LogOnce("SPECTATOR_AI_COMPLETION_FAILED: " + error); RejectAiPlacement(AiText("Unavailable")); }
             DiagPlacementInputEnd();
             DiagPlacingUnit(0);
             pitchClickScope = null;
@@ -572,10 +576,12 @@ namespace Spectator
         }
 
         private static Exception FinalizePlaceMapperItem(Exception __exception,
-            WallStoneScope __state)
+            MapperPlacementScope __state)
         {
+            try { EndAiPlacement(__state, false); }
+            catch (Exception error) { LogOnce("SPECTATOR_AI_SCOPE_CLEANUP_FAILED: " + error); }
             DiagPlacementInputEnd();
-            if (__state != null) RestoreStone(__state.Owner, __state.OriginalStone);
+            if (__state?.Stone != null) RestoreStone(__state.Stone.Owner, __state.Stone.OriginalStone);
             if (__exception != null && pitchClickScope != null)
                 lock (pitchLock) pendingPitch.Remove(pitchClickScope);
             pitchClickScope = null;

@@ -26,12 +26,18 @@ namespace Shared
         ImprovedHunterTargetSelection,
         /// <summary>ImprovedHunterPathfinding.</summary>
         ImprovedHunterPathfinding,
+        /// <summary>ImprovedHunterWildlifeRange.</summary>
+        ImprovedHunterWildlifeRange,
         /// <summary>CastleSpawning.</summary>
         CastleSpawning,
         /// <summary>FreeCastlePreview.</summary>
         FreeCastlePreview,
         /// <summary>CastleBlueprints.</summary>
         CastleBlueprints,
+        /// <summary>Spectator test tools, foreign-player input and observer ally commands.</summary>
+        SpectatorGameplayActions,
+        /// <summary>Read-only Spectator statistics preview.</summary>
+        SpectatorStatistics,
     }
 
     /// <summary>GameplayFeatureActivationProfile in the centralized mission policy contract.</summary>
@@ -130,16 +136,29 @@ namespace Shared
                 case GameplayFeatureId.ImprovedHunterPathfinding:
                     expectedGuid = "ImprovedHunters_Serp";
                     contexts = NonEditorGameplayContexts;
-                    allowRealMultiplayer = false;
                     break;
                 case GameplayFeatureId.CastleSpawning:
                 case GameplayFeatureId.FreeCastlePreview:
                     expectedGuid = "CastlePlanner_Serp";
                     contexts = NonEditorGameplayContexts;
                     break;
+                case GameplayFeatureId.ImprovedHunterWildlifeRange:
+                    expectedGuid = "ImprovedHunters_Serp";
+                    // Vanilla's herds stand still in the editor, so there is nothing to limit there.
+                    contexts = AllRecognizedContexts & ~GameplayModAllowedContext.MapEditor;
+                    break;
                 case GameplayFeatureId.CastleBlueprints:
                     expectedGuid = "CastlePlanner_Serp";
                     contexts = AllRecognizedContexts;
+                    break;
+                case GameplayFeatureId.SpectatorGameplayActions:
+                    expectedGuid = "Spectator_Serp";
+                    contexts = NonEditorGameplayContexts;
+                    allowRealMultiplayer = false;
+                    break;
+                case GameplayFeatureId.SpectatorStatistics:
+                    expectedGuid = "Spectator_Serp";
+                    contexts = AllRecognizedContexts & ~GameplayModAllowedContext.MapEditor;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(featureId), featureId, "Unknown gameplay feature ID.");
@@ -293,11 +312,16 @@ namespace Shared
                 case "ImprovedHunters_Serp":
                     yield return GetProfile(modGuid, GameplayFeatureId.ImprovedHunterTargetSelection);
                     yield return GetProfile(modGuid, GameplayFeatureId.ImprovedHunterPathfinding);
+                    yield return GetProfile(modGuid, GameplayFeatureId.ImprovedHunterWildlifeRange);
                     break;
                 case "CastlePlanner_Serp":
                     yield return GetProfile(modGuid, GameplayFeatureId.CastleSpawning);
                     yield return GetProfile(modGuid, GameplayFeatureId.FreeCastlePreview);
                     yield return GetProfile(modGuid, GameplayFeatureId.CastleBlueprints);
+                    break;
+                case "Spectator_Serp":
+                    yield return GetProfile(modGuid, GameplayFeatureId.SpectatorGameplayActions);
+                    yield return GetProfile(modGuid, GameplayFeatureId.SpectatorStatistics);
                     break;
             }
         }

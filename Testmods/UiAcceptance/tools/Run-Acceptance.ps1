@@ -126,6 +126,13 @@ try {
             $stalled = $true; break
         }
         Start-Sleep -Seconds 2
+        if (-not (Get-Process -Name $process -ErrorAction SilentlyContinue)) {
+            # Steam can end the first game process and start a second one a few seconds later. Restoring
+            # settings in that gap let the second process run the scenario unsupervised on 08.11.2026 and
+            # overwrite personal settings, so only a sustained absence counts as the end of the run.
+            $relaunchUntil = (Get-Date).AddSeconds(20)
+            while (-not (Get-Process -Name $process -ErrorAction SilentlyContinue) -and (Get-Date) -lt $relaunchUntil) { Start-Sleep -Seconds 1 }
+        }
     }
     Start-Sleep -Seconds 3
 }
@@ -153,3 +160,10 @@ if (Test-Path -LiteralPath $shots) { Get-ChildItem -LiteralPath $shots -Filter (
 $restored = [Linq.Enumerable]::SequenceEqual([byte[]]$settingsOriginal, [byte[]][IO.File]::ReadAllBytes($settings))
 "run=$Label duration=" + [int]((Get-Date) - $started).TotalSeconds + "s settingsRestored=$restored modSettingsRestored=$modSettingsRestored files=$($settingsBackup.Count)" + $(if ($stalled) { ' STALLED/TIMEOUT: game stopped' } else { '' })
 Select-String -LiteralPath $savedLog -Pattern 'ACCEPT run=' | ForEach-Object { $_.Line }
+# Process exit alone also occurs after a startup crash. Only this run's complete
+# successful scenario plus verified settings restoration can qualify as acceptance.
+$summaryPattern = 'ACCEPT run=' + [regex]::Escape($Label) + ' step=SUMMARY PASS .* failed=0 skipped=0(?:\s|$)'
+$completeSummary = @(Select-String -LiteralPath $savedLog -Pattern $summaryPattern)
+if ($stalled -or -not $restored -or -not $modSettingsRestored -or $completeSummary.Count -ne 1) {
+    throw "Acceptance did not complete successfully: $Label. Evidence: $OutputDirectory"
+}

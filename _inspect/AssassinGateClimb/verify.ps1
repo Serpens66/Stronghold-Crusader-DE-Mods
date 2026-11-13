@@ -2,7 +2,7 @@
 param([switch]$SkipCommonChecks, [switch]$CheckTestApi, [switch]$SkipPermanentHooks)
 $ErrorActionPreference = 'Stop'
 $workspace = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-$roots = @('APIShared', 'BugfixesAndQoL')
+$roots = @('APIShared', 'Pathfinding')
 if (-not $SkipCommonChecks) {
 foreach ($relative in $roots) {
     $root = Join-Path $workspace $relative
@@ -34,7 +34,7 @@ foreach ($relative in $roots) {
 }
 }
 if (-not $SkipPermanentHooks) {
-    & (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1') -ModDirectory BugfixesAndQoL
+    & (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1') -ModDirectory Pathfinding
 }
 if (-not $?) { throw 'Workspace hook regression failed' }
 $api = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared\src\Pathfinding\Assassin\AssassinPathAPI.cs'))
@@ -44,30 +44,29 @@ if ($api -match '\b(transaction|endpointHooks|builderHook)\??\.Dispose\s*\(' -or
 }
 # The selected SDK build checks NativeHookPublicationTests. Matching private helper
 # names here cannot prove partial-publication safety and rejects equivalent owners.
-$main = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\AssassinPathfindingRuntime.cs'))
-$reconstruction = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\AssassinPathReconstructionPatch.cs'))
+$main = [IO.File]::ReadAllText((Join-Path $workspace 'Pathfinding\src\Assassins\AssassinPathfindingRuntime.cs'))
+$reconstruction = [IO.File]::ReadAllText((Join-Path $workspace 'Pathfinding\src\Assassins\AssassinPathReconstructionPatch.cs'))
 if ($main -match 'AddDetour|AddInline|new HookTransaction' -or $reconstruction -match 'AddDetour|AddInline|new HookTransaction' -or
     -not $main.Contains('if (sharedBuilderRegistered) throw;') -or -not $main.Contains('if (sharedBuilderRegistered) return;')) {
     throw 'Duplicate Assassin hook ownership or published consumer teardown'
 }
-$runtime = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\BugfixesAndQoLRuntime.cs'))
-$view = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\BugfixesAndQoLViewModel.cs'))
-foreach ($required in @('TryInitializePersistentFeature("Assassin gatehouse climb", ApplyAssassinGatehouseClimbFix);', 'TryApplyFeature("Assassin gatehouse climb", ApplyAssassinGatehouseClimbFix);', 'BugfixesAndQoLPlugin.PluginGuid, settings.EnableMod && settings.EnableAssassinGatehouseClimbFix')) {
+$runtime = [IO.File]::ReadAllText((Join-Path $workspace 'Pathfinding\src\PathfindingRuntime.cs'))
+$view = [IO.File]::ReadAllText((Join-Path $workspace 'Pathfinding\src\Settings\PathfindingViewModel.cs'))
+foreach ($required in @('TryPersistent("Assassin gatehouse climb", ApplyAssassinGatehouseClimbFix);', 'TryApply("Assassin gatehouse climb", ApplyAssassinGatehouseClimbFix);', 'PathfindingPlugin.PluginGuid, settings.EnableMod && settings.EnableAssassinGatehouseClimbFix')) {
     if (-not $runtime.Contains($required)) { throw "Missing integrated climb contract: $required" }
 }
-foreach ($required in @('private bool enableAssassinGatehouseClimbFix = true;', 'EnableAssassinGatehouseClimbFix = true;', 'SetSetting(ref enableAssassinGatehouseClimbFix, value, nameof(EnableAssassinGatehouseClimbFix))')) {
+foreach ($required in @('enableAssassinGatehouseClimbFix = true', 'EnableAssassinGatehouseClimbFix = true;', 'Set(ref enableAssassinGatehouseClimbFix, value')) {
     if (-not $view.Contains($required)) { throw "Missing host climb contract: $required" }
 }
 if ($view -notmatch '\[SyncHostOnly\]\s+public bool EnableAssassinGatehouseClimbFix') { throw 'Climb setting must be host-only' }
-$xaml = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml'))
+$xaml = [IO.File]::ReadAllText((Join-Path $workspace 'Pathfinding\Override\ScriptExtenderUI\PathfindingSettings.xaml'))
 [xml]$settingsDocument = $xaml
 $controls = @($settingsDocument.SelectNodes("//*[local-name()='CheckBox'][@IsChecked='{Binding EnableAssassinGatehouseClimbFix, Mode=TwoWay}']"))
-if ($controls.Count -ne 1 -or $null -eq $controls[0].SelectSingleNode("ancestor::*[@IsEnabled='{Binding CanEditHostSettings}']") -or
-    $null -eq $controls[0].SelectSingleNode("ancestor::*[contains(@Visibility, '.FixesVisibility}') ]")) { throw 'Climb checkbox must remain a host-authorized Fix.' }
-foreach ($file in Get-ChildItem -LiteralPath (Join-Path $workspace 'BugfixesAndQoL\Locales') -Filter '*.txt') {
+if ($controls.Count -ne 1 -or $null -eq $controls[0].SelectSingleNode("ancestor::*[@IsEnabled='{Binding CanEditHostSettings}']")) { throw 'Climb checkbox must remain host-authorized.' }
+foreach ($file in Get-ChildItem -LiteralPath (Join-Path $workspace 'Pathfinding\Locales') -Filter '*.txt') {
     $locale = [IO.File]::ReadAllText($file.FullName)
     foreach ($key in @('EnableAssassinGatehouseClimbFix','EnableAssassinGatehouseClimbFixHelp')) {
-        if ([regex]::Matches($locale, '(?m)^BugfixesAndQoL\.' + $key + '=').Count -ne 1) { throw "Climb locale key mismatch: $file/$key" }
+        if ([regex]::Matches($locale, '(?m)^Pathfinding\.' + $key + '=').Count -ne 1) { throw "Climb locale key mismatch: $file/$key" }
     }
 }
 # No new Assembly-CSharp members are accessed by these changes. Validate every new

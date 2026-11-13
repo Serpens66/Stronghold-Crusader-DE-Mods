@@ -31,10 +31,10 @@ foreach ($address in @('1864ccc28', '1864cccca', '1864ccd24')) {
     }
 }
 
-$source = [IO.File]::ReadAllText((Join-Path $root 'src\NativeTannerFade.cs'))
-$state = [IO.File]::ReadAllText((Join-Path $root 'src\NativeTannerFadeState.cs'))
-$runtime = [IO.File]::ReadAllText((Join-Path $root 'src\BugfixesAndQoLRuntime.cs'))
-$view = [IO.File]::ReadAllText((Join-Path $root 'src\BugfixesAndQoLViewModel.cs'))
+$source = [IO.File]::ReadAllText((Join-Path $root 'src\Buildings\NativeTannerFade.cs'))
+$state = [IO.File]::ReadAllText((Join-Path $root 'src\Buildings\NativeTannerFadeState.cs'))
+$runtime = [IO.File]::ReadAllText((Join-Path $root 'src\Core\Bootstrap\BugfixesAndQoLRuntime.cs'))
+$view = [IO.File]::ReadAllText((Join-Path $root 'src\Settings\BugfixesAndQoLViewModel.cs'))
 $xaml = [IO.File]::ReadAllText((Join-Path $root 'Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml'))
 [xml]$xamlDocument = $xaml
 foreach ($contract in @(
@@ -47,14 +47,18 @@ foreach ($contract in @(
     'Volatile.Read(ref enabled) == 0')) {
     if (-not $source.Contains($contract)) { throw "Missing tannery native contract: $contract" }
 }
+[xml]$settings = $xaml
+$tanneryEditor = $settings.SelectSingleNode("//*[local-name()='CheckBox'][@IsChecked='{Binding EnableTanneryAnimationFix, Mode=TwoWay}']")
+$tanneryHelp = if ($tanneryEditor) {
+    $tanneryEditor.SelectSingleNode("./*[local-name()='CheckBox.ToolTip']/*[local-name()='ToolTip']/@Content")
+}
 if ($source.Contains('GameTimeManagerAPI.Instance.OnTick') -or
     $source.Contains('PacketWriterRva') -or
     $source -match '\.(Undo|Disable|Apply)\s*\(' -or
     -not $state.Contains('FadeUpdates = 64') -or
     -not $runtime.Contains('private static NativeTannerFade processNativeTannerFade;') -or
     -not [regex]::IsMatch($view, '\[SyncHostOnly\]\s+public bool EnableTanneryAnimationFix') -or
-    -not $xaml.Contains('IsChecked="{Binding EnableTanneryAnimationFix, Mode=TwoWay}"') -or
-    -not $xaml.Contains('ToolTip="{Binding EnableTanneryAnimationFixHelpText}"')) {
+    !$tanneryHelp -or $tanneryHelp.Value -cne '{Binding EnableTanneryAnimationFixHelpText}') {
     throw 'Tannery lifecycle, settings or hook contract failed.'
 }
 
@@ -91,10 +95,10 @@ foreach ($file in $locales) {
 }
 
 $paths = @(
-    (Join-Path $root 'src\NativeTannerFade.cs'),
-    (Join-Path $root 'src\NativeTannerFadeState.cs'),
-    (Join-Path $root 'src\BugfixesAndQoLRuntime.cs'),
-    (Join-Path $root 'src\BugfixesAndQoLViewModel.cs'),
+    (Join-Path $root 'src\Buildings\NativeTannerFade.cs'),
+    (Join-Path $root 'src\Buildings\NativeTannerFadeState.cs'),
+    (Join-Path $root 'src\Core\Bootstrap\BugfixesAndQoLRuntime.cs'),
+    (Join-Path $root 'src\Settings\BugfixesAndQoLViewModel.cs'),
     (Join-Path $root 'Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml'),
     (Join-Path $root 'tests\TannerFade.Tests\Program.cs'),
     (Join-Path $root 'tests\TannerFade.Tests\TannerFade.Tests.csproj'),

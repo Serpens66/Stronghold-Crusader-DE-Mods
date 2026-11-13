@@ -21,6 +21,8 @@ try {
         if ($field.Count -ne 1 -or -not $field[0].IsPrivate -or $field[0].IsStatic -ne $entry[2] -or $field[0].FieldType.FullName -cne $entry[1]) { throw 'Report buffer reflection contract changed.' }
     }
     foreach ($entry in @(
+        @('EditorDirector','get_ActivePlayerID','method'),
+        @('EditorDirector','SetEditorPlayerID','method'),
         @('CrusaderDE.MainViewModel','viewModelLoaded','field'),
         @('CrusaderDE.MainViewModel','HUDMPChatPanel','field'),
         @('CrusaderDE.MainViewModel','HUDMeritPanel','field'),
@@ -30,6 +32,21 @@ try {
         @('MemoryBuffers/MemBuffer','gameState','field'),
         @('CrusaderDE.MainViewModel','buildScreenID','field'),
         @('CrusaderDE.MainViewModel','get_Show_HUD_Extras','method'),
+        @('CrusaderDE.MainViewModel','get_Show_InGame','method'),
+        @('CrusaderDE.MainViewModel','get_Show_InGameUI','method'),
+        @('CrusaderDE.MainViewModel','get_OST_Date_Text','method'),
+        @('CrusaderDE.MainViewModel','get_OST_Date_Vis','method'),
+        @('CrusaderDE.MainViewModel','get_Show_BlackOut','method'),
+        @('CrusaderDE.MainViewModel','get_Show_HUD_Options','method'),
+        @('CrusaderDE.MainViewModel','get_Show_HUD_Help','method'),
+        @('CrusaderDE.MainViewModel','get_Show_HUD_FreebuildMenu','method'),
+        @('CrusaderDE.MainViewModel','get_Show_HUD_WorkshopUploader','method'),
+        @('CrusaderDE.MainViewModel','get_Show_HUD_Confirmation','method'),
+        @('CrusaderDE.MainViewModel','get_Show_HUD_LoadSaveRequester','method'),
+        @('CrusaderDE.MainViewModel','get_Show_HUD_Briefing','method'),
+        @('CrusaderDE.MainViewModel','get_Show_HUD_MissionOver','method'),
+        @('MainControls','instance','field'),
+        @('MainControls','get_IsUIVisible','method'),
         @('CrusaderDE.MainViewModel','get_Show_HUD_IngameMenu','method'),
         @('CrusaderDE.MainViewModel','get_MEMode','method'),
         @('CrusaderDE.HUD_Main','NewBuildScreenBlank','method'),
@@ -120,6 +137,12 @@ try {
     if (-not @($binding.Properties | Where-Object { $_.Name -eq 'Source' -and $_.GetMethod.IsPublic -and $_.SetMethod.IsPublic }).Count -or
         -not @($binding.Methods | Where-Object { $_.IsConstructor -and $_.IsPublic -and $_.Parameters.Count -eq 1 -and $_.Parameters[0].ParameterType.FullName -eq 'System.String' }).Count) { throw 'Missing public explicit-source Binding contract.' }
     Write-Host 'PASS: Noesis input, paste rollback, focus and explicit-source binding contracts.'
+    foreach ($name in @('add_Opened','remove_Opened','add_Closed','remove_Closed')) {
+        if (-not @($noesis.MainModule.GetType('Noesis.Popup').Methods | Where-Object { $_.Name -eq $name -and $_.IsPublic }).Count) { throw "Missing public AI-picker popup event: $name" }
+    }
+    foreach ($entry in @(@('Noesis.FrameworkElement','ApplyTemplate'),@('Noesis.FrameworkElement','add_Reloaded'),@('Noesis.FrameworkElement','remove_Reloaded'),@('Noesis.FrameworkTemplate','FindName'))) {
+        if (-not @($noesis.MainModule.GetType($entry[0]).Methods | Where-Object { $_.Name -eq $entry[1] -and $_.IsPublic }).Count) { throw "Missing public AI-picker template member: $($entry -join '.')" }
+    }
     foreach ($entry in @(@('Noesis.BindingOperations','GetBindingBase'),@('Noesis.BindingOperations','SetBinding'),@('Noesis.DependencyObject','ReadLocalValue'),@('Noesis.Keyboard','ClearFocus'),@('Noesis.Keyboard','get_FocusedElement'),@('Noesis.VisualTreeHelper','GetChild'),@('Noesis.VisualTreeHelper','GetChildrenCount'),@('Noesis.Visual','PointToScreen'),@('Noesis.Grid','SetRow'),@('Noesis.Grid','SetColumn'),@('Noesis.FrameworkElement','add_Loaded'),@('Noesis.FrameworkElement','add_SizeChanged'),@('Noesis.ToolTip','add_Opened'),@('Noesis.ToolTip','add_Closed'),@('Noesis.ToolTip','get_PlacementTarget'))) {
         if (-not @($noesis.MainModule.GetType($entry[0]).Methods | Where-Object { $_.Name -eq $entry[1] -and $_.IsPublic }).Count) { throw "Missing public toolbar/focus member: $($entry -join '.')" }
     }

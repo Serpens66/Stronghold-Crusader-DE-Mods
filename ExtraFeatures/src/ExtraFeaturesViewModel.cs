@@ -37,6 +37,10 @@ namespace ExtraFeatures
             {
                 NormalizeOwnedKillReward();
                 OnPropertyChanged(nameof(CanConfigurePeriodicGold));
+                OnPropertyChanged(nameof(CanConfigureTreeRespawn));
+                OnPropertyChanged(nameof(CanConfigureMatureTreeHarvest));
+                OnPropertyChanged(nameof(CanConfigureFixedProductionBonus));
+                OnPropertyChanged(nameof(CanConfigureProductionGoods));
                 OnPropertyChanged(nameof(CanConfigureKillReward));
                 OnPropertyChanged(nameof(CanConfigureEnemyProximity));
             }
@@ -103,8 +107,14 @@ namespace ExtraFeatures
         private int campfirePeasantsLimit = -1;
         private int keepBuildRange = -1;
         private int vanillaPeaceTimeMinutes;
-        private int humanLordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
-        private int aiLordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
+        private int humanLordHealthPercent = HealthMultiplierPolicy.DefaultPercent;
+        private int aiLordHealthPercent = HealthMultiplierPolicy.DefaultPercent;
+        private int humanSoldierHealthPercent = HealthMultiplierPolicy.DefaultPercent;
+        private int aiSoldierHealthPercent = HealthMultiplierPolicy.DefaultPercent;
+        private int humanCivilianHealthPercent = HealthMultiplierPolicy.DefaultPercent;
+        private int aiCivilianHealthPercent = HealthMultiplierPolicy.DefaultPercent;
+        private int humanBuildingHealthPercent = HealthMultiplierPolicy.DefaultPercent;
+        private int aiBuildingHealthPercent = HealthMultiplierPolicy.DefaultPercent;
         private bool keepStorageContent = true;
         private bool enableMonksAlwaysRun;
         private bool enableFearFactorNeutralization;
@@ -196,6 +206,14 @@ namespace ExtraFeatures
         public string NewFeaturesTitleText => SerpLocalization.Get("SomeSettings.NewFeaturesTitle");
         public string LordHealthTitleText => SerpLocalization.Get(SerpLocalization.LordHealthTitle);
         public string LordHealthHelpText => SerpLocalization.Get(SerpLocalization.LordHealthHelp);
+        public string HealthTitleText => SerpLocalization.Get(SerpLocalization.HealthTitle);
+        public string HealthHelpText => SerpLocalization.Get(SerpLocalization.HealthHelp);
+        public string SoldierHealthTitleText => SerpLocalization.Get(SerpLocalization.SoldierHealthTitle);
+        public string SoldierHealthHelpText => SerpLocalization.Get(SerpLocalization.SoldierHealthHelp);
+        public string CivilianHealthTitleText => SerpLocalization.Get(SerpLocalization.CivilianHealthTitle);
+        public string CivilianHealthHelpText => SerpLocalization.Get(SerpLocalization.CivilianHealthHelp);
+        public string BuildingHealthTitleText => SerpLocalization.Get(SerpLocalization.BuildingHealthTitle);
+        public string BuildingHealthHelpText => SerpLocalization.Get(SerpLocalization.BuildingHealthHelp);
         public string BuildingsProductionTitleText => SerpLocalization.Get(SerpLocalization.BuildingsProductionTitle);
         public string PlagueDamageSurfacesText => SerpLocalization.Get("SomeSettings.PlagueDamageSurfaces");
         public string PlagueDamageWallsText => SerpLocalization.Get("SomeSettings.PlagueDamageWalls");
@@ -247,8 +265,14 @@ namespace ExtraFeatures
         public string HumanEnemyProximityMultiplayerText => SerpLocalization.Get("SomeSettings.HumanEnemyProximityMultiplayer");
         public string AIEnemyProximitySingleplayerText => SerpLocalization.Get("SomeSettings.AIEnemyProximitySingleplayer");
         public string AIEnemyProximityMultiplayerText => SerpLocalization.Get("SomeSettings.AIEnemyProximityMultiplayer");
-        public string HumanEnemyProximityHelpText => SerpLocalization.Get("SomeSettings.HumanEnemyProximityHelp");
-        public string AIEnemyProximityHelpText => SerpLocalization.Get("SomeSettings.AIEnemyProximityHelp");
+        public string HumanCivilianEnemyProximitySingleplayerHelpText => SerpLocalization.Get("SomeSettings.HumanCivilianEnemyProximitySingleplayerHelp");
+        public string AICivilianEnemyProximitySingleplayerHelpText => SerpLocalization.Get("SomeSettings.AICivilianEnemyProximitySingleplayerHelp");
+        public string HumanMilitaryEnemyProximitySingleplayerHelpText => SerpLocalization.Get("SomeSettings.HumanMilitaryEnemyProximitySingleplayerHelp");
+        public string AIMilitaryEnemyProximitySingleplayerHelpText => SerpLocalization.Get("SomeSettings.AIMilitaryEnemyProximitySingleplayerHelp");
+        public string HumanCivilianEnemyProximityMultiplayerHelpText => SerpLocalization.Get("SomeSettings.HumanCivilianEnemyProximityMultiplayerHelp");
+        public string AICivilianEnemyProximityMultiplayerHelpText => SerpLocalization.Get("SomeSettings.AICivilianEnemyProximityMultiplayerHelp");
+        public string HumanMilitaryEnemyProximityMultiplayerHelpText => SerpLocalization.Get("SomeSettings.HumanMilitaryEnemyProximityMultiplayerHelp");
+        public string AIMilitaryEnemyProximityMultiplayerHelpText => SerpLocalization.Get("SomeSettings.AIMilitaryEnemyProximityMultiplayerHelp");
         public string AITowerGateRebuildDelayText => SerpLocalization.Get("SomeSettings.AITowerGateRebuildDelay");
         public string AITowerGateRebuildDelayHelpText => SerpLocalization.Get("SomeSettings.AITowerGateRebuildDelayHelp");
 
@@ -266,10 +290,10 @@ namespace ExtraFeatures
         public string PitchRefundPercentValueText { get => FormatRefundPercent(PitchRefundPercent); set => SetIntValueText(value, parsed => PitchRefundPercent = parsed, nameof(PitchRefundPercentValueText)); }
         public string GoldRefundPercentValueText { get => FormatRefundPercent(GoldRefundPercent); set => SetIntValueText(value, parsed => GoldRefundPercent = parsed, nameof(GoldRefundPercentValueText)); }
 
-        [SyncHostOnly] public double MultiplyGoodsGainAI { get => multiplyGoodsGainAI; set => SetDoubleSetting(ref multiplyGoodsGainAI, value, 0.0, 5.0, nameof(MultiplyGoodsGainAI), nameof(MultiplyGoodsGainAIText)); }
-        [SyncHostOnly] public double MultiplyGoodsGainHuman { get => multiplyGoodsGainHuman; set => SetDoubleSetting(ref multiplyGoodsGainHuman, value, 0.0, 5.0, nameof(MultiplyGoodsGainHuman), nameof(MultiplyGoodsGainHumanText)); }
-        [SyncHostOnly] public double MultiplyGoodsGainInMoneyAI { get => multiplyGoodsGainInMoneyAI; set => SetDoubleSetting(ref multiplyGoodsGainInMoneyAI, value, 0.0, 5.0, nameof(MultiplyGoodsGainInMoneyAI), nameof(MultiplyGoodsGainInMoneyAIText)); }
-        [SyncHostOnly] public double MultiplyGoodsGainInMoneyHuman { get => multiplyGoodsGainInMoneyHuman; set => SetDoubleSetting(ref multiplyGoodsGainInMoneyHuman, value, 0.0, 5.0, nameof(MultiplyGoodsGainInMoneyHuman), nameof(MultiplyGoodsGainInMoneyHumanText)); }
+        [SyncHostOnly] public double MultiplyGoodsGainAI { get => multiplyGoodsGainAI; set { if (!fixedProductionBonusMissionLocked || IsApplyingMissionSettingsSnapshot) SetDoubleSetting(ref multiplyGoodsGainAI, value, 0.0, 5.0, nameof(MultiplyGoodsGainAI), nameof(MultiplyGoodsGainAIText)); } }
+        [SyncHostOnly] public double MultiplyGoodsGainHuman { get => multiplyGoodsGainHuman; set { if (!fixedProductionBonusMissionLocked || IsApplyingMissionSettingsSnapshot) SetDoubleSetting(ref multiplyGoodsGainHuman, value, 0.0, 5.0, nameof(MultiplyGoodsGainHuman), nameof(MultiplyGoodsGainHumanText)); } }
+        [SyncHostOnly] public double MultiplyGoodsGainInMoneyAI { get => multiplyGoodsGainInMoneyAI; set { if (!fixedProductionBonusMissionLocked || IsApplyingMissionSettingsSnapshot) SetDoubleSetting(ref multiplyGoodsGainInMoneyAI, value, 0.0, 5.0, nameof(MultiplyGoodsGainInMoneyAI), nameof(MultiplyGoodsGainInMoneyAIText)); } }
+        [SyncHostOnly] public double MultiplyGoodsGainInMoneyHuman { get => multiplyGoodsGainInMoneyHuman; set { if (!fixedProductionBonusMissionLocked || IsApplyingMissionSettingsSnapshot) SetDoubleSetting(ref multiplyGoodsGainInMoneyHuman, value, 0.0, 5.0, nameof(MultiplyGoodsGainInMoneyHuman), nameof(MultiplyGoodsGainInMoneyHumanText)); } }
         [SyncHostOnly] public double MarketBuyPriceMultiplier { get => marketBuyPriceMultiplier; set => SetDoubleSetting(ref marketBuyPriceMultiplier, value, 0.0, 5.0, nameof(MarketBuyPriceMultiplier), nameof(MarketBuyPriceMultiplierValueText)); }
         [SyncHostOnly] public double MarketSellPriceMultiplier { get => marketSellPriceMultiplier; set => SetDoubleSetting(ref marketSellPriceMultiplier, value, 0.0, 5.0, nameof(MarketSellPriceMultiplier), nameof(MarketSellPriceMultiplierValueText)); }
         [SyncHostOnly] public bool MarketPricesAlsoForAI { get => marketPricesAlsoForAI; set => SetSetting(ref marketPricesAlsoForAI, value, nameof(MarketPricesAlsoForAI)); }
@@ -301,8 +325,14 @@ namespace ExtraFeatures
             get => vanillaPeaceTimeMinutes;
             set => SetLegacyPeaceTimeMinutes(value);
         }
-        [SyncHostOnly] public int HumanLordHealthPercent { get => humanLordHealthPercent; set => SetIntSetting(ref humanLordHealthPercent, value, LordHealthMultiplierPolicy.MinimumPercent, LordHealthMultiplierPolicy.MaximumPercent, nameof(HumanLordHealthPercent), nameof(HumanLordHealthPercentText)); }
-        [SyncHostOnly] public int AILordHealthPercent { get => aiLordHealthPercent; set => SetIntSetting(ref aiLordHealthPercent, value, LordHealthMultiplierPolicy.MinimumPercent, LordHealthMultiplierPolicy.MaximumPercent, nameof(AILordHealthPercent), nameof(AILordHealthPercentText)); }
+        [SyncHostOnly] public int HumanLordHealthPercent { get => humanLordHealthPercent; set => SetIntSetting(ref humanLordHealthPercent, value, HealthMultiplierPolicy.MinimumPercent, HealthMultiplierPolicy.MaximumPercent, nameof(HumanLordHealthPercent), nameof(HumanLordHealthPercentText)); }
+        [SyncHostOnly] public int AILordHealthPercent { get => aiLordHealthPercent; set => SetIntSetting(ref aiLordHealthPercent, value, HealthMultiplierPolicy.MinimumPercent, HealthMultiplierPolicy.MaximumPercent, nameof(AILordHealthPercent), nameof(AILordHealthPercentText)); }
+        [SyncHostOnly] public int HumanSoldierHealthPercent { get => humanSoldierHealthPercent; set => SetIntSetting(ref humanSoldierHealthPercent, value, HealthMultiplierPolicy.MinimumPercent, HealthMultiplierPolicy.MaximumPercent, nameof(HumanSoldierHealthPercent), nameof(HumanSoldierHealthPercentText)); }
+        [SyncHostOnly] public int AISoldierHealthPercent { get => aiSoldierHealthPercent; set => SetIntSetting(ref aiSoldierHealthPercent, value, HealthMultiplierPolicy.MinimumPercent, HealthMultiplierPolicy.MaximumPercent, nameof(AISoldierHealthPercent), nameof(AISoldierHealthPercentText)); }
+        [SyncHostOnly] public int HumanCivilianHealthPercent { get => humanCivilianHealthPercent; set => SetIntSetting(ref humanCivilianHealthPercent, value, HealthMultiplierPolicy.MinimumPercent, HealthMultiplierPolicy.MaximumPercent, nameof(HumanCivilianHealthPercent), nameof(HumanCivilianHealthPercentText)); }
+        [SyncHostOnly] public int AICivilianHealthPercent { get => aiCivilianHealthPercent; set => SetIntSetting(ref aiCivilianHealthPercent, value, HealthMultiplierPolicy.MinimumPercent, HealthMultiplierPolicy.MaximumPercent, nameof(AICivilianHealthPercent), nameof(AICivilianHealthPercentText)); }
+        [SyncHostOnly] public int HumanBuildingHealthPercent { get => humanBuildingHealthPercent; set => SetIntSetting(ref humanBuildingHealthPercent, value, HealthMultiplierPolicy.MinimumPercent, HealthMultiplierPolicy.MaximumPercent, nameof(HumanBuildingHealthPercent), nameof(HumanBuildingHealthPercentText)); }
+        [SyncHostOnly] public int AIBuildingHealthPercent { get => aiBuildingHealthPercent; set => SetIntSetting(ref aiBuildingHealthPercent, value, HealthMultiplierPolicy.MinimumPercent, HealthMultiplierPolicy.MaximumPercent, nameof(AIBuildingHealthPercent), nameof(AIBuildingHealthPercentText)); }
         [SyncHostOnly] public bool EnableFearFactorNeutralization { get => enableFearFactorNeutralization; set => SetSetting(ref enableFearFactorNeutralization, value, nameof(EnableFearFactorNeutralization)); }
         [SyncHostOnly] public bool AllowElevatedMoatAI { get => allowElevatedMoatAI; set => SetSetting(ref allowElevatedMoatAI, value, nameof(AllowElevatedMoatAI)); }
         [SyncHostOnly] public bool AllowElevatedMoatHuman { get => allowElevatedMoatHuman; set => SetSetting(ref allowElevatedMoatHuman, value, nameof(AllowElevatedMoatHuman)); }
@@ -368,6 +398,12 @@ namespace ExtraFeatures
         public string AITowerGateRebuildDelayValueText { get => FormatWholeSeconds(AITowerGateRebuildDelaySeconds); set => SetIntValueText(value, parsed => AITowerGateRebuildDelaySeconds = parsed, nameof(AITowerGateRebuildDelayValueText)); }
         public string HumanLordHealthPercentText { get => FormatPercent(HumanLordHealthPercent); set => SetIntValueText(value, parsed => HumanLordHealthPercent = parsed, nameof(HumanLordHealthPercentText)); }
         public string AILordHealthPercentText { get => FormatPercent(AILordHealthPercent); set => SetIntValueText(value, parsed => AILordHealthPercent = parsed, nameof(AILordHealthPercentText)); }
+        public string HumanSoldierHealthPercentText { get => FormatPercent(HumanSoldierHealthPercent); set => SetIntValueText(value, parsed => HumanSoldierHealthPercent = parsed, nameof(HumanSoldierHealthPercentText)); }
+        public string AISoldierHealthPercentText { get => FormatPercent(AISoldierHealthPercent); set => SetIntValueText(value, parsed => AISoldierHealthPercent = parsed, nameof(AISoldierHealthPercentText)); }
+        public string HumanCivilianHealthPercentText { get => FormatPercent(HumanCivilianHealthPercent); set => SetIntValueText(value, parsed => HumanCivilianHealthPercent = parsed, nameof(HumanCivilianHealthPercentText)); }
+        public string AICivilianHealthPercentText { get => FormatPercent(AICivilianHealthPercent); set => SetIntValueText(value, parsed => AICivilianHealthPercent = parsed, nameof(AICivilianHealthPercentText)); }
+        public string HumanBuildingHealthPercentText { get => FormatPercent(HumanBuildingHealthPercent); set => SetIntValueText(value, parsed => HumanBuildingHealthPercent = parsed, nameof(HumanBuildingHealthPercentText)); }
+        public string AIBuildingHealthPercentText { get => FormatPercent(AIBuildingHealthPercent); set => SetIntValueText(value, parsed => AIBuildingHealthPercent = parsed, nameof(AIBuildingHealthPercentText)); }
 
         private void SetLegacyPeaceTimeMinutes(int value)
         {
@@ -397,8 +433,11 @@ namespace ExtraFeatures
                 MultiplyGoodsGainHuman = 1;
                 MultiplyGoodsGainInMoneyAI = 0;
                 MultiplyGoodsGainInMoneyHuman = 0;
+                FixedProductionBonusPercent = 50;
                 PeriodicGoldHuman = 0;
                 PeriodicGoldAI = 0;
+                TreeRespawnMinutes = TreeRespawnState.Off;
+                MatureTreesOnly = true;
                 MarketBuyPriceMultiplier = 1.0;
                 MarketSellPriceMultiplier = 1.0;
                 MarketPricesAlsoForAI = false;
@@ -412,8 +451,14 @@ namespace ExtraFeatures
                 ApothecaryPlagueSearchDistance = 50;
                 CampfirePeasantsLimit = -1;
                 KeepBuildRange = -1;
-                HumanLordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
-                AILordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
+                HumanLordHealthPercent = HealthMultiplierPolicy.DefaultPercent;
+                AILordHealthPercent = HealthMultiplierPolicy.DefaultPercent;
+                HumanSoldierHealthPercent = HealthMultiplierPolicy.DefaultPercent;
+                AISoldierHealthPercent = HealthMultiplierPolicy.DefaultPercent;
+                HumanCivilianHealthPercent = HealthMultiplierPolicy.DefaultPercent;
+                AICivilianHealthPercent = HealthMultiplierPolicy.DefaultPercent;
+                HumanBuildingHealthPercent = HealthMultiplierPolicy.DefaultPercent;
+                AIBuildingHealthPercent = HealthMultiplierPolicy.DefaultPercent;
                 EnableMonksAlwaysRun = false;
                 EnableFearFactorNeutralization = false;
                 AllowElevatedMoatAI = true;

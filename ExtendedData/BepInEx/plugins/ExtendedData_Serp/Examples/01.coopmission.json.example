@@ -16,11 +16,9 @@
     "allowMercenaryPostGuest": true,
     "allowStockadeGuest": true,
     "multiplayerSetup": {
-      "startingGameSpeed": 40,
       "winCondition": 0,
       "allowAutoTrading": 1,
       "noKnockdownWalls": 1,
-      "autoSave": 10,
       "peaceTime": 15,
       "noCows": 0,
       "noDogs": 0,

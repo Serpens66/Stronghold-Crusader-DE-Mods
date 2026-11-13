@@ -184,10 +184,14 @@ namespace Spectator
         }
 
 
+        // The plugin logger for APIShared helpers that report through a ManualLogSource.
+        internal static ManualLogSource RawLog { get; private set; }
+
         internal static void Initialize(ManualLogSource logger, SpectatorViewModel currentSettings)
         {
             if (harmony != null) return;
             log = new TimestampLog(logger, RequestRender);
+            RawLog = logger;
             settings = currentSettings;
             Shared.DevDiag.Attach(logger);
             var candidate = new Harmony(Guid);
@@ -214,6 +218,8 @@ namespace Spectator
                     nameof(BeforeObserverButtonBuild), postfix: false, typeof(object));
                 Patch(candidate, typeof(EngineInterface), nameof(EngineInterface.StartMapperItem),
                     nameof(BeforeObserverStartMapper), postfix: false, typeof(int));
+                Patch(candidate, typeof(EditorDirector), nameof(EditorDirector.SetEditorPlayerID),
+                    nameof(AfterEditorPlacementOwnerChanged), postfix: true, typeof(int));
                 Patch(candidate, typeof(GameData), nameof(GameData.setGameState), nameof(AfterToolsPlayState), true, typeof(EngineInterface.PlayState));
                 Patch(candidate, typeof(MainViewModel), nameof(MainViewModel.InBuildingGameAction), nameof(BeforeVanillaHudTransition), false);
                 Patch(candidate, typeof(MainViewModel), nameof(MainViewModel.TroopsSelectedGameAction), nameof(BeforeVanillaTroopTransition), false, typeof(bool));

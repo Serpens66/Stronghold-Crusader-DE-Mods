@@ -11,10 +11,18 @@
       "allowErrors": true
     },
     {
-      "id": "bfq-manual-off",
+      "id": "pathfinding-defaults",
+      "do": "InvokeCommand",
+      "args": [
+        "Pathfinding.PathfindingPlugin::processRoot.Settings.ResetToDefaultCommand"
+      ],
+      "stopOnFail": true
+    },
+    {
+      "id": "manual-commands-off",
       "do": "SetModSetting",
       "args": [
-        "BugfixesAndQoL.BugfixesAndQoLRuntime::processUnitCommandPathRuntime.settings",
+        "Pathfinding.PathfindingRuntime::processUnitCommandPathRuntime.settings",
         "EnableImprovedManualUnitCommands",
         "false"
       ],

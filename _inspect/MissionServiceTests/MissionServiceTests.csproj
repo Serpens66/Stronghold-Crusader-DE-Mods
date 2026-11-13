@@ -3,7 +3,7 @@
   <ItemGroup>
     <Compile Include="..\..\APIShared\src\Missions\MissionLifecycleState.cs" />
     <Compile Include="..\..\APIShared\src\Missions\MissionLifecycleContracts.cs" />
-    <Compile Include="..\..\APIShared\src\Missions\MissionLifecycleCapability.cs" />
+    <Compile Include="..\..\APIShared\src\Missions\MissionLifecycleService.cs" />
     <Compile Include="..\..\APIShared\src\Missions\MissionLifecycleService.Restart.cs" />
     <Compile Include="..\..\APIShared\src\Missions\MissionRestart.cs" />
   </ItemGroup>

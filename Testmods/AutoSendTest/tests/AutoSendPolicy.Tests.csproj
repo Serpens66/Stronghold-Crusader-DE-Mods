@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <GameDir Condition="'$(GameDir)' == ''">E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
+    <ExtenderDir Condition="'$(ExtenderDir)' == ''">$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="ProbeTests.cs" />
+    <Compile Include="EditTests.cs" />
+    <Compile Include="../src/AutoSendEdits.cs" Link="AutoSendEdits.cs" />
+    <Compile Include="../src/AutoSendPacket.cs" Link="AutoSendPacket.cs" />
+    <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath></Reference>
+    <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath></Reference>
+    <Compile Include="../src/AutoSendPolicy.cs" Link="AutoSendPolicy.cs" />
+    <Compile Include="../src/AutoSendSaveCodec.cs" Link="AutoSendSaveCodec.cs" />
+    <Compile Include="../src/AutoSendSavedPlayers.cs" Link="AutoSendSavedPlayers.cs" />
+    <Compile Include="../src/AutoSendEpochs.cs" Link="AutoSendEpochs.cs" />
+    <Compile Include="../src/AutoSendInitialRoster.cs" Link="AutoSendInitialRoster.cs" />
+    <Compile Include="../src/AutoSendProbe.DevDiag.cs" Link="AutoSendProbe.DevDiag.cs" />
+  </ItemGroup>
+</Project>

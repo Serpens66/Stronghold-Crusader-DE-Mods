@@ -7,5 +7,6 @@
 <ItemGroup><Compile Include="..\src\StatusInlineFormat.cs"/><Compile Include="StatusInlineFormatTests.cs"/></ItemGroup>
 <ItemGroup><Compile Include="..\src\ToolbarRefreshPolicy.cs"/></ItemGroup>
 <ItemGroup><Compile Include="..\src\PresentationRefreshState.cs"/></ItemGroup>
+<ItemGroup><Compile Include="..\src\PerspectiveInitializationWait.cs"/><Compile Include="PerspectiveInitializationWaitTests.cs"/></ItemGroup>
 <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
 </Project>

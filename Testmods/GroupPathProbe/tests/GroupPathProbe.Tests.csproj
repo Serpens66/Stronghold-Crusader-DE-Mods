@@ -9,10 +9,10 @@
     <!-- Frozen copies; this probe never compiles BetterPathfindingTest sources. -->
     <Compile Include="../src/Core/*.cs" Link="Core/%(Filename)%(Extension)" />
     <!-- Current unchanged production Precise kernel as comparison oracle, offline only. -->
-    <Compile Include="../../../BugfixesAndQoL/src/UnitCommands/Movement/WeightedGridSearchKernel.cs" Link="Oracle/WeightedGridSearchKernel.cs" />
-    <Compile Include="../../../BugfixesAndQoL/src/UnitCommands/Movement/WeightedMoatRoutePlanner.cs" Link="Oracle/WeightedMoatRoutePlanner.cs" />
-    <Compile Include="../../../BugfixesAndQoL/src/UnitCommands/Moat/MoatCandidateField.cs" Link="Oracle/MoatCandidateField.cs" />
-    <Compile Include="../../../BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandContracts.cs" Link="Oracle/UnitCommandContracts.cs" />
+    <Compile Include="../../../Pathfinding/src/UnitCommands/Movement/WeightedGridSearchKernel.cs" Link="Oracle/WeightedGridSearchKernel.cs" />
+    <Compile Include="../../../Pathfinding/src/UnitCommands/Movement/WeightedMoatRoutePlanner.cs" Link="Oracle/WeightedMoatRoutePlanner.cs" />
+    <Compile Include="../../../Pathfinding/src/UnitCommands/Moat/MoatCandidateField.cs" Link="Oracle/MoatCandidateField.cs" />
+    <Compile Include="../../../Pathfinding/src/UnitCommands/Runtime/UnitCommandContracts.cs" Link="Oracle/UnitCommandContracts.cs" />
     <Reference Include="APIShared"><HintPath>$(ApiSharedDir)\APIShared.dll</HintPath></Reference>
   </ItemGroup>
 </Project>

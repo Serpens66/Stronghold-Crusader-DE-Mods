@@ -40,7 +40,7 @@ namespace AIAttackTest
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             if (context == null)
                 throw new ArgumentNullException(nameof(context));
-            if (!referenceHashMatches)
+            if (!referenceHashMatches || Shared.DebugLogHelper.CurrentNativeSha256 != AIAttackNativeContract.ReferenceSha256)
                 throw new InvalidOperationException("The audited CrusaderDE.dll hash is required.");
 
             ValidateManagedLayout();
@@ -48,24 +48,17 @@ namespace AIAttackTest
 
             bool recruitAvailable = !FixesOwnsRecruitment();
             if (!recruitAvailable) Shared.DebugLogHelper.LogInfo(log, "Recruitment test capability skipped: Fixes owns the comparison hook; lord and AIC tests remain available.");
-            int recruitContext = recruitAvailable ? Shared.NativePatternResolver.FindUniquePattern(
-                context.Memory,
-                AIAttackNativeContract.RecruitContextPattern,
-                "AI initial defense-only recruitment comparison") : AIAttackNativeContract.RecruitContextRva;
-            int lordContext = Shared.NativePatternResolver.FindUniquePattern(
-                context.Memory,
-                AIAttackNativeContract.LordContextPattern,
-                "AI post-breach lord command limiter");
-            if (recruitContext != AIAttackNativeContract.RecruitContextRva ||
-                lordContext != AIAttackNativeContract.LordContextRva)
-            {
-                throw new InvalidOperationException(
-                    $"Native AI contexts resolved at unexpected RVAs: " +
-                    $"recruit=0x{recruitContext:X}, lord=0x{lordContext:X}.");
-            }
+            if (recruitAvailable && !Shared.NativePatternResolver.MatchesPatternAt(
+                context.Memory, AIAttackNativeContract.RecruitContextRva, AIAttackNativeContract.RecruitContextPattern,
+                Shared.NativePatternSearchScope.ExecutableSections))
+                throw new InvalidOperationException("Reference AI recruitment comparison changed.");
+            if (!Shared.NativePatternResolver.MatchesPatternAt(
+                context.Memory, AIAttackNativeContract.LordContextRva, AIAttackNativeContract.LordContextPattern,
+                Shared.NativePatternSearchScope.ExecutableSections))
+                throw new InvalidOperationException("Reference AI lord command limiter changed.");
 
-            int recruitRva = checked(recruitContext + AIAttackNativeContract.RecruitImmediateOffset);
-            int lordRva = checked(lordContext + AIAttackNativeContract.LordBranchOffset);
+            int recruitRva = checked(AIAttackNativeContract.RecruitContextRva + AIAttackNativeContract.RecruitImmediateOffset);
+            int lordRva = checked(AIAttackNativeContract.LordContextRva + AIAttackNativeContract.LordBranchOffset);
             if (recruitAvailable) ValidateLoadedBytes(
                 context.Memory,
                 recruitRva,
@@ -215,7 +208,7 @@ namespace AIAttackTest
                 diagnostics[playerId] = diagnostic;
                 Enums.AILords lord = playerApi.GetAILord(playerId);
                 int aicIndex = (int)lord;
-                if (aicIndex <= 0 || aicIndex >= aics.Length)
+                if (aicIndex <= 0 || !global::APIShared.IndexBounds.IsValidIndex(aicIndex, aics.Length))
                     continue;
                 InternalAIC aic = aics.GetValue(aicIndex);
                 int gold = playerApi.GetPlayerGold(playerId);
@@ -322,7 +315,7 @@ namespace AIAttackTest
             if (sizeof(InternalAIC) != InternalAicSize)
                 throw new InvalidOperationException("InternalAIC changed before SetAICFromBytes.");
             var aics = GameAIManagerAPI.Instance.GetAICArray();
-            if (aics.GetArrayAddress() == IntPtr.Zero || aicIndex <= 0 || aicIndex >= aics.Length)
+            if (aics.GetArrayAddress() == IntPtr.Zero || aicIndex <= 0 || !global::APIShared.IndexBounds.IsValidIndex(aicIndex, aics.Length))
                 throw new InvalidOperationException($"AIC index {aicIndex} is not writable.");
             ReadOnlySpan<byte> bytes = new ReadOnlySpan<byte>(&value, sizeof(InternalAIC));
             if (bytes.Length != InternalAicSize)

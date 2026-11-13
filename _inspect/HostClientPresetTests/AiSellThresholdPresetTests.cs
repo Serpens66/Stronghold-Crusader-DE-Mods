@@ -96,12 +96,12 @@ internal static class AiSellThresholdPresetTests
         vm.System_ExitMissionPreset();
         Check(vm.EnableAiSellThresholdFix, "save exit restores local working state");
         string root = FindRoot();
-        string source = File.ReadAllText(Path.Combine(root, "BugfixesAndQoL/src/BugfixesAndQoLViewModel.cs"));
+        string source = File.ReadAllText(Path.Combine(root, "BugfixesAndQoL/src/Settings/BugfixesAndQoLViewModel.cs"));
         Check(source.Contains("private bool enableAiSellThresholdFix = false;") &&
             source.Contains("[SyncHostOnly]\r\n        public bool EnableAiSellThresholdFix") &&
             source.Contains("SetSetting(ref enableAiSellThresholdFix, value, nameof(EnableAiSellThresholdFix))") &&
             source.Contains("EnableAiSellThresholdFix = false;"), "production property default, host classification, setter and reset");
-        string runtime = File.ReadAllText(Path.Combine(root, "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs"));
+        string runtime = File.ReadAllText(Path.Combine(root, "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
         Check(runtime.Contains("settings.EnableMod && settings.EnableAiSellThresholdFix") &&
             runtime.Contains("TryApplyFeature(\"AI sell threshold safety\", ApplyAiSellThresholdFix)"), "main switch and central settings application on all peers");
         Console.WriteLine("PASS: AI sell setting defaults, legacy/stored values, host/client authority, persistence, reset, Trail/save snapshots and production wiring.");

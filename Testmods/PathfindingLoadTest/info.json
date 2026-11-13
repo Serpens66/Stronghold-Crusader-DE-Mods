@@ -1,0 +1,14 @@
+{
+  "GUID": "PathfindingLoadTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Pathfinding Load Test",
+  "Description": "Explicit-request-only local Skirmish load fixture for 1000/5000 units. Test utility.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.14.3",
+  "Dependencies": [
+    { "GUID": "APIShared_Serp", "MinimumVersion": "0.49.0" },
+    { "GUID": "Pathfinding_Serp", "MinimumVersion": "0.1.2" }
+  ],
+  "Manifest": 1,
+  "NetworkMode": 1
+}

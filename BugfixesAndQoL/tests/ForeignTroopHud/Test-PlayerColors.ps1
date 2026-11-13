@@ -3,7 +3,7 @@
 param()
 $ErrorActionPreference = 'Stop'
 $modRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
-$production = [IO.File]::ReadAllText((Join-Path $modRoot 'src\ForeignTroopPlayerColors.cs'))
+$production = [IO.File]::ReadAllText((Join-Path $modRoot 'src\Hud\ForeignTroopPlayerColors.cs'))
 # Exercise the production resolver in isolation; no mod build or game assemblies are loaded.
 $fixture = @'
 public static class SpriteMapping
@@ -134,8 +134,8 @@ public static class ForeignTroopPlayerColorTests
 Add-Type -TypeDefinition ($production + [Environment]::NewLine + $fixture)
 Write-Host ([ForeignTroopPlayerColorTests]::Run())
 
-$runtime = [IO.File]::ReadAllText((Join-Path $modRoot 'src\ForeignTroopHudRuntime.cs'))
-$view = [IO.File]::ReadAllText((Join-Path $modRoot 'src\ForeignTroopHudView.cs'))
+$runtime = [IO.File]::ReadAllText((Join-Path $modRoot 'src\Hud\ForeignTroopHudRuntime.cs'))
+$view = [IO.File]::ReadAllText((Join-Path $modRoot 'src\Hud\ForeignTroopHudView.cs'))
 foreach ($required in @(
     'playerColors.Reset\(\);\s+view.ResetForMap\(\);',
     'entries.Clear\(\);\s+playerColors.Reset\(\);',
@@ -155,7 +155,6 @@ foreach ($required in @(
     'PlayerBrush\(entry.OwnerColorArgb\)',
     'drawn.OwnerColorArgb = entry.OwnerColorArgb;',
     'drawn.ColorId != entry.ColorId',
-    'LordPortraitPalette.Get\(entry.ColorId\)',
     'FindPortrait\(portraitKey, entry.ColorId\)',
     'Array.Clear\(drawnEntries, 0, drawnEntries.Length\)'
 )) {

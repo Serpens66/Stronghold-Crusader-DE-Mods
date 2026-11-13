@@ -120,7 +120,7 @@ internal static class Program
     {
         IntPtr arena=Image(image);ulong b=(ulong)arena.ToInt64();
         var plans=NativeSwitchCatalog.CreatePlans(image,b,false);
-        Check(plans.Length==24 && plans.Count(p=>p.EntryKind!=0)==2,"complete grouped peace plan");
+        Check(plans.Length==23 && plans.Count(p=>p.EntryKind!=0)==1,"complete grouped peace plan");
         // Reject any changed byte copied by the larger blocks, not only the old patch bytes.
         foreach(var plan in plans)
         {
@@ -139,12 +139,16 @@ internal static class Program
         bool overlap=false;try {Roots.Add(new PermanentNativeSwitch(null,(ulong)foreign.ToInt64(),NativeSwitchCatalog.CreatePlans(image,(ulong)foreign.ToInt64(),false),VanillaPeaceTimeNativeContract.ReferenceSha256));}catch(InvalidOperationException){overlap=true;}
         Check(overlap,"non-jump live change at a continuation rejected");
         Copy(arena,0x8EA60,new byte[]{0xFF,0x25,0,0,0,0});
+        int sharedEntry=VanillaPeaceTimeNativeContract.HostilityFunctionRva;
+        byte[] sharedOwner=new byte[]{0xFF,0x25,0,0,0,0,0x90,0x90};
+        Copy(arena,sharedEntry,sharedOwner);
         var installed=new PermanentNativeSwitch(null,b,plans,VanillaPeaceTimeNativeContract.ReferenceSha256);Roots.Add(installed);
         byte[][] before=plans.Select(p=>Read(arena,p.Rva,p.PhysicalLength)).ToArray();
         foreach(bool value in new[]{false,true,false,true})
         {
             installed.SetEnabled(value);
             for(int i=0;i<plans.Length;i++)Check(Read(arena,plans[i].Rva,plans[i].PhysicalLength).SequenceEqual(before[i]),"peace switch updates only demand data");
+            Check(Read(arena,sharedEntry,sharedOwner.Length).SequenceEqual(sharedOwner),"shared target entry remains with its owner");
         }
         foreach(var plan in plans)
         {
@@ -156,7 +160,7 @@ internal static class Program
             Instruction last=default;while(d.IP<end){last=d.Decode();Check(!last.IsInvalid,"dormant block completely decoded");}
             Check(last.Mnemonic==Mnemonic.Jmp && last.NearBranchTarget==b+(uint)plan.Rva+(uint)plan.PhysicalLength,"dormant block returns to original continuation");
         }
-        Console.WriteLine("PASS: real 24-group peace installer, unchanged executable code across toggles, rejection and original continuations.");
+        Console.WriteLine("PASS: real 23-group peace installer coexists with the shared target entry; executable code and continuations stay unchanged across toggles.");
     }
     private static List<Instruction> Decode(byte[] bytes,ulong ip)
     {

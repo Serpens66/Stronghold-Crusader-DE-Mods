@@ -9,6 +9,7 @@ internal static class MissionSettingsAdapterTests
     internal static void Run()
     {
         MissionClassification();
+        PreparedEntriesKeepNewOwners();
         var entry = new ModSettingsEntry { PlayerSettings = new[] { "z", "a", "z" } };
         var document = new ModSettingsDefinition {
             Mods = new Dictionary<string, ModSettingsEntry>(StringComparer.OrdinalIgnoreCase) {
@@ -62,6 +63,43 @@ internal static class MissionSettingsAdapterTests
         try { action(); }
         catch (InvalidDataException) { return; }
         throw new Exception("Expected InvalidDataException");
+    }
+
+    private static void PreparedEntriesKeepNewOwners()
+    {
+        string root = AppContext.BaseDirectory;
+        while (!File.Exists(Path.Combine(root, "ExtendedData/src/TrailMissionSettingsCoordinator.cs")))
+            root = Directory.GetParent(root)?.FullName ?? throw new Exception("Workspace not found.");
+        string method = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
+            "ExtendedData/src/TrailMissionSettingsCoordinator.cs"))).GetRoot().DescendantNodes()
+            .OfType<MethodDeclarationSyntax>().Single(item => item.Identifier.Text == "CopyPreparedEntries").ToFullString();
+        string fixture = """
+using System; using System.Collections.Generic; using System.Linq;
+using APIShared.ModSettings; using ExtendedData.Core;
+public class CopyFixture {
+ __METHOD__
+ public static void Run() {
+  var source = new MissionModSettingsDocument();
+  source.Mods["new.owner"] = new MissionModSettingsEntry { PlayerSettings=new[]{"Moved"}, Overrides=new(){{"EnableMod",true}} };
+  var target = new ModSettingsDefinition(); target.Mods["retired.owner"] = new ModSettingsEntry();
+  CopyPreparedEntries(source,target);
+  if(target.Mods.ContainsKey("retired.owner") || !target.Mods.ContainsKey("new.owner") ||
+     !target.Mods["new.owner"].PlayerSettings.Contains("Moved") || !(bool)target.Mods["new.owner"].Overrides["EnableMod"])
+   throw new Exception("Prepared document lost a newly synthesized owner or retained a removed owner.");
+ }
+}
+""";
+        var paths = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator)
+            .Concat(new[] { typeof(ModSettingsDefinition).Assembly.Location,
+                typeof(APIShared.ModSettings.MissionModSettingsDocument).Assembly.Location }).Distinct();
+        var compilation = CSharpCompilation.Create("PreparedOwnerCopy", new[] { CSharpSyntaxTree.ParseText(
+            fixture.Replace("__METHOD__", method)) }, paths.Select(path => MetadataReference.CreateFromFile(path)),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var output = new MemoryStream();
+        var result = compilation.Emit(output);
+        if (!result.Success) throw new Exception(string.Join("\n", result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)));
+        try { Assembly.Load(output.ToArray()).GetType("CopyFixture").GetMethod("Run").Invoke(null, null); }
+        catch (TargetInvocationException error) { System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(error.InnerException ?? error).Throw(); }
     }
 
     private static void MissionClassification()

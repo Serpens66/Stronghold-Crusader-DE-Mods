@@ -6,6 +6,7 @@ using RedBird.X64.Assembly;
 using RedBird.X64.Hooks;
 using RedBird.X64.Hooks.Context;
 using RedBird.X64.Hooks.Transaction;
+using System.Collections.Generic;
 using System.Threading;
 
 namespace ExtraFeatures
@@ -14,6 +15,23 @@ namespace ExtraFeatures
     {
         // Managed ID of the thread that opened the initial installation window (0 = closed).
         private static int initialLibraryLoadThread;
+
+        private static readonly object CommitAttemptRootsSync = new object();
+        private static readonly List<object> CommitAttemptRoots = new List<object>();
+
+        // Call directly before HookTransaction.Commit(). RedBird logs and swallows every rollback
+        // failure (HookCommitPipeline.Rollback, HookTransaction.Dispose), so after a commit attempt
+        // no caller can prove that the candidate's patches are gone. The owner (its callbacks and
+        // the native memory its stubs read) and the transaction therefore stay reachable until
+        // process exit, and that native memory must never be freed once this was called.
+        internal static void RootBeforeCommit(object owner, HookTransaction candidate)
+        {
+            lock (CommitAttemptRootsSync)
+            {
+                CommitAttemptRoots.Add(owner);
+                CommitAttemptRoots.Add(candidate);
+            }
+        }
 
         // True only on the thread running ExtraFeaturesPlugin.OnCrusaderLibraryLoaded: the native
         // library has just loaded and no simulation, AI or pathing code runs yet. Detours created

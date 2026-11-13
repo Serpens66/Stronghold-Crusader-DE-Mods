@@ -99,10 +99,10 @@ namespace BugfixesAndQoL
 
         private static void CheckRuntimeIntegration(Action<bool, string> check)
         {
-            string runtime = File.ReadAllText(Path.Combine("src", "CorruptLordDataSpawnRuntime.cs"));
-            string policy = File.ReadAllText(Path.Combine("src", "CorruptLordDataSpawnPolicy.cs"));
-            string viewModel = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLViewModel.cs"));
-            string orchestrator = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLRuntime.cs"));
+            string runtime = File.ReadAllText(Path.Combine("src", "AI/Fixes/CorruptLordDataSpawnRuntime.cs"));
+            string policy = File.ReadAllText(Path.Combine("src", "AI/Fixes/CorruptLordDataSpawnPolicy.cs"));
+            string viewModel = File.ReadAllText(Path.Combine("src", "Settings/BugfixesAndQoLViewModel.cs"));
+            string orchestrator = File.ReadAllText(Path.Combine("src", "Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
             string xaml = File.ReadAllText(Path.Combine("Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
 
             check(runtime.Contains("for (int playerId = 1; playerId <= 8; playerId++)") &&

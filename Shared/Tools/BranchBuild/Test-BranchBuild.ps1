@@ -66,7 +66,7 @@ exit /b 0
     Remove-Item -LiteralPath (Join-Path $repo 'Retired/build.bat')
     Write-BranchText (Join-Path $repo 'Fixture/source.txt') "UNCOMMITTED_MUST_NOT_BUILD`r`n"
     # main builds also load the DEVDIAG release guard.
-    foreach ($name in @('BranchBuild.Common.ps1','Invoke-BranchBuild.ps1','../Paths/WorkPaths.ps1','../Validation/DevDiagnostics.Common.ps1')) {
+    foreach ($name in @('BranchBuild.Common.ps1','BuildRunLifecycle.ps1','Invoke-BranchBuild.ps1','../Paths/WorkPaths.ps1','../Validation/DevDiagnostics.Common.ps1')) {
         Write-BranchText (Join-Path $repo ('Shared/Tools/BranchBuild/' + $name)) ([IO.File]::ReadAllText((Join-Path $PSScriptRoot $name)))
     }
     # Independent fake APIShared: no game binaries, compiler or network are used.
@@ -99,7 +99,7 @@ function Assert-ApiBuildProof([string]$Root) {
     Write-BranchText (Join-Path $apiRepo 'source.txt') 'API_DEVELOP'
     Invoke-BranchGit $apiRepo @('add','.') | Out-Null
     Invoke-BranchGit $apiRepo @('commit','-m','API develop fixture') | Out-Null
-    foreach ($name in @('BranchBuild.Common.ps1','Invoke-BranchBuild.ps1','../Paths/WorkPaths.ps1')) {
+    foreach ($name in @('BranchBuild.Common.ps1','BuildRunLifecycle.ps1','Invoke-BranchBuild.ps1','../Paths/WorkPaths.ps1')) {
         Write-BranchText (Join-Path $apiRepo ('tools/BranchBuild/' + $name)) ([IO.File]::ReadAllText((Join-Path $PSScriptRoot $name)))
     }
     $entry = [IO.File]::ReadAllText((Join-Path $Workspace 'BuildingCosts/build.bat'))
@@ -112,6 +112,113 @@ function Assert-ApiBuildProof([string]$Root) {
     $devDir = Join-Path $game 'BepInEx/plugins/Fixture_Serp_dev'
     Write-BranchText (Join-Path $mainDir 'sentinel.txt') 'main sentinel'
     Write-BranchText (Join-Path $devDir 'sentinel.txt') 'dev sentinel'
+    # Owned preparation records exist before checkout and the lease excludes other cleaners.
+    $owned = Start-BranchRun $repo 'develop' 'Fixture/build.bat' $false
+    try {
+        Assert-Case ([IO.File]::Exists($owned.Root + '.lifecycle.json')) 'preparation ownership was not persisted'
+        $locked = $false
+        try { $other = [IO.File]::Open($owned.Root + '.lease','Open','ReadWrite','None'); $other.Dispose() }
+        catch [IO.IOException] { $locked = $true }
+        Assert-Case $locked 'a second cleaner acquired the active run lease'
+        # A failure after registering a worktree must remain cleanable without $source returning.
+        $null = New-BranchSource $repo 'develop' $owned.Root
+        Write-BranchText (Join-Path $owned.Root 'Fixture/source.txt') 'UNIQUE_PREPARATION_BYTES'
+        $testDirectory = New-ShortWorkDirectory -Root $owned.Root -Kind t -Name 'generated-fixture'
+        Write-BranchText (Join-Path $testDirectory 'result.json') '{"passed":true}'
+        Write-BranchText (Join-Path $testDirectory 'private-input.cs') 'unique fixture source'
+        $csharpFixture = New-ShortWorkDirectory -Root $owned.Root -Kind t -Name 'castle-storage'
+        # Exact existing C# TestWorkDirectory.Record contract (no Kind property).
+        [IO.File]::WriteAllText($csharpFixture + '.run.json', '{"SchemaVersion":1,"Root":"' + $csharpFixture.Replace('\','\\').Replace('"','\"') + '"}')
+        Write-BranchText (Join-Path $csharpFixture 'result.json') '{"passed":true}'
+        Assert-Case (Test-BranchOwnedFixtureFile $owned.Root '.work/t/castle-storage/001.run.json') 'canonical C# allocator sidecar was not recognized'
+
+        Complete-BranchRun $repo $owned
+        Assert-Case (-not [IO.Directory]::Exists($owned.Root)) 'registered preparation failure left a full copy'
+        $retained = [IO.File]::ReadAllText($owned.Root + '.retained.json') | ConvertFrom-Json
+        Assert-Case (@($retained.Files | Where-Object { $_.Path -like '.work/t/*/private-input.cs' }).Count -eq 1) 'allocated fixture source was discarded'
+        Assert-Case (@($retained.Files | Where-Object Path -eq '.work/t/castle-storage/001.run.json').Count -eq 1) 'C# allocator metadata was discarded'
+        $entry = @($retained.Files | Where-Object Path -eq 'Fixture/source.txt')[0]
+        $input = [IO.File]::OpenRead($entry.Object)
+        $gzip = [IO.Compression.GZipStream]::new($input,[IO.Compression.CompressionMode]::Decompress)
+        $reader = [IO.StreamReader]::new($gzip)
+        try { Assert-Case ($reader.ReadToEnd().Trim() -ceq 'UNIQUE_PREPARATION_BYTES') 'unique source bytes were not restorable' }
+        finally { $reader.Dispose(); $input.Dispose() }
+        Assert-Case (([IO.File]::ReadAllText($owned.Root + '.lifecycle.json') | ConvertFrom-Json).Phase -eq 'cleaned') 'cleanup state missing'
+    } finally { $owned.Lease.Dispose() }
+    $unclassified = Start-BranchRun $repo 'develop' 'Fixture/build.bat' $false
+    try {
+        $null = New-BranchSource $repo 'develop' $unclassified.Root
+        Write-BranchText (Join-Path $unclassified.Root '.work/private-data.bin') 'cannot classify this evidence'
+        Complete-BranchRun $repo $unclassified
+        Assert-Case ([IO.Directory]::Exists($unclassified.Root)) 'unknown ignored bytes were silently discarded'
+        Assert-Case (([IO.File]::ReadAllText($unclassified.Root + '.lifecycle.json') | ConvertFrom-Json).Phase -eq 'cleanup-failed') 'cleanup failure not actionable'
+        [IO.File]::Delete((Join-Path $unclassified.Root '.work/private-data.bin'))
+        Complete-BranchRun $repo $unclassified
+        Assert-Case (-not [IO.Directory]::Exists($unclassified.Root)) 'cleanup could not retry after resolving unknown content'
+    } finally { $unclassified.Lease.Dispose() }
+    $staged = Start-BranchRun $repo 'develop' 'Fixture/build.bat' $false
+    try {
+        $null = New-BranchSource $repo 'develop' $staged.Root
+        Write-BranchText (Join-Path $staged.Root 'Fixture/source.txt') 'STAGED_UNIQUE'
+        Invoke-BranchGit $staged.Root @('add','Fixture/source.txt') | Out-Null
+        Write-BranchText (Join-Path $staged.Root 'Fixture/source.txt') 'WORKTREE_OTHER'
+        Complete-BranchRun $repo $staged
+        Assert-Case ([IO.Directory]::Exists($staged.Root)) 'unique staged source was discarded'
+        Invoke-BranchGit $staged.Root @('reset','--quiet','HEAD','--','Fixture/source.txt') | Out-Null
+        Write-BranchText (Join-Path $staged.Root '.work/obj/unique.cs') 'user source in ignored directory'
+        Complete-BranchRun $repo $staged
+        Assert-Case ([IO.Directory]::Exists($staged.Root)) 'unknown ignored source was treated as a compiler cache'
+        [IO.File]::Delete((Join-Path $staged.Root '.work/obj/unique.cs'))
+        Complete-BranchRun $repo $staged
+    } finally { $staged.Lease.Dispose() }
+    # The nested SDK may hold the only copy of a test result; its ignored content is not disposable.
+    $nestedRun = Start-BranchRun $repo 'develop' 'Fixture/build.bat' $false
+    try {
+        $null = New-BranchSource $repo 'develop' $nestedRun.Root
+        $sdkCopy = Join-Path $nestedRun.Root 'APIShared'
+        $null = New-BranchSource $apiRepo 'develop' $sdkCopy
+        Write-BranchText (Join-Path $sdkCopy '.work/unique.trx') 'sole SDK test evidence'
+        Write-BranchText (Join-Path $sdkCopy '.work/obj/SourceContracts.dll') 'reproducible nested compiler output'
+        Write-BranchText (Join-Path $sdkCopy '.work/obj/unique.cs') 'sole authored SDK source'
+        Complete-BranchRun $repo $nestedRun
+        Assert-Case ([IO.Directory]::Exists($nestedRun.Root)) 'unique authored nested source was treated as a generated cache'
+        [IO.File]::Delete((Join-Path $sdkCopy '.work/obj/unique.cs'))
+        Complete-BranchRun $repo $nestedRun
+        Assert-Case (-not [IO.Directory]::Exists($nestedRun.Root)) 'exported nested SDK evidence retained the entire source'
+        $nestedManifest = [IO.File]::ReadAllText($nestedRun.Root + '.retained.json') | ConvertFrom-Json
+        Assert-Case (@($nestedManifest.Files | Where-Object Path -eq 'APIShared/.work/unique.trx').Count -eq 1) 'nested ignored test evidence was discarded'
+        Assert-Case (@($nestedManifest.Files | Where-Object Path -eq 'APIShared/.work/obj/SourceContracts.dll').Count -eq 0) 'nested compiler output was archived'
+    } finally { $nestedRun.Lease.Dispose() }
+    $recoverable = Start-BranchRun $repo 'develop' 'Fixture/build.bat' $false
+    $null = New-BranchSource $repo 'develop' $recoverable.Root
+    Repair-AbandonedBranchRuns $repo 'develop'
+    Assert-Case ([IO.Directory]::Exists($recoverable.Root)) 'recovery touched a live lease'
+    $recoverable.State.OwnerPid = 2147483647
+    Set-BranchRunPhase $recoverable 'cleanup-failed' 'simulated dead controller'
+    $recoverable.Lease.Dispose()
+    $processBoundary = (Get-Item Function:Get-BranchRunProcesses).ScriptBlock
+    try {
+        function Get-BranchRunProcesses { throw 'simulated unavailable process inventory' }
+        Repair-AbandonedBranchRuns $repo 'develop'
+        Assert-Case ([IO.Directory]::Exists($recoverable.Root)) 'unavailable process inspection permitted cleanup'
+        function Get-BranchRunProcesses { @() }
+        Repair-AbandonedBranchRuns $repo 'develop'
+        Assert-Case (-not [IO.Directory]::Exists($recoverable.Root)) 'complete dead-owner run did not recover through Git'
+    } finally { Set-Item Function:Get-BranchRunProcesses $processBoundary }
+
+    foreach ($noInstall in @($true,$false)) {
+        $binaryRun = Start-BranchRun $repo 'develop' 'Fixture/build.bat' $false $noInstall
+        try {
+            $null = New-BranchSource $repo 'develop' $binaryRun.Root
+            $binaryPath = 'Fixture/BepInEx/plugins/Fixture_Serp/generated.dll'
+            Write-BranchText (Join-Path $binaryRun.Root $binaryPath) 'sole compiler output bytes'
+            Complete-BranchRun $repo $binaryRun
+            Assert-Case (-not [IO.Directory]::Exists($binaryRun.Root)) 'binary retention test left a full source copy'
+            $binaryManifest = [IO.File]::ReadAllText($binaryRun.Root + '.retained.json') | ConvertFrom-Json
+            $binaryEntries = @($binaryManifest.Files | Where-Object Path -eq $binaryPath)
+            Assert-Case ($binaryEntries.Count -eq $(if ($noInstall) { 0 } else { 1 })) 'no-install compiler bytes were archived or delivered bytes lost'
+        } finally { $binaryRun.Lease.Dispose() }
+    }
     $output = Invoke-Fixture @('/branch:main','/nopause')
     Assert-Case (($output -join "`n") -match 'RETIRED_DRIVER_PRESENT') 'Committed source lost its historical driver'
     Assert-Case (($output -join "`n") -match 'MAIN_COMMITTED' -and ($output -join "`n") -notmatch 'UNCOMMITTED_MUST_NOT_BUILD') 'main source selection failed'

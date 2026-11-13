@@ -4,7 +4,6 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Core.Memory;
@@ -41,16 +40,17 @@ namespace ImprovedHunters
         private const ushort HunterStateFollowingTarget = 1;
         private const ushort ActivePathState = 2;
         private const int MaximumSelectedDistance = 41;
-        private const int MaximumVisibilityResult = 432;
         private const int MaxDiagnosticLogs = 600;
+        // A Hunter at the end of his path is normal; the failed-attack recovery takes over from there.
+        private const string PathFinishedReason = "path-finished";
 
         private const string DistanceStageSequencePattern =
             "48 69 CB 90 04 00 00 83 FF 28 7E 1B " +
             "BE 01 00 00 00 42 89 B4 29 60 06 00 00 " +
             "66 42 89 B4 29 A4 09 00 00";
 
-        private static readonly long MaxNoProgressDuration = Stopwatch.Frequency * 3;
-        private static readonly long RetryCooldownDuration = Stopwatch.Frequency * 5;
+        private static readonly long MaxNoProgressDuration = HunterSimulationTime.MapTicksPerSecond * 3;
+        private static readonly long RetryCooldownDuration = HunterSimulationTime.MapTicksPerSecond * 5;
 
         private readonly ManualLogSource log;
         private readonly ImprovedHuntersViewModel settings;
@@ -251,8 +251,7 @@ namespace ImprovedHunters
                     snapshot.PreyGlobalId,
                     prey->r_UnitChimp,
                     out int visibilityResult) ||
-                visibilityResult < 0 ||
-                visibilityResult > MaximumVisibilityResult)
+                visibilityResult < 0)
             {
                 StopAttempt(hunterUnitId, "visibility-probe-unavailable", nativeDistance, logRelease: false);
                 LogSkipOnce("visibility-probe-unavailable-or-invalid", hunterUnitId, nativeDistance);
@@ -287,7 +286,7 @@ namespace ImprovedHunters
                 hunter->r_GlobalId,
                 snapshot.PreyUnitId,
                 snapshot.PreyGlobalId);
-            long timestamp = Stopwatch.GetTimestamp();
+            long timestamp = HunterSimulationTime.Now;
             if (!TryContinueAttempt(identity, snapshot, timestamp, nativeDistance))
                 return;
 
@@ -361,12 +360,16 @@ namespace ImprovedHunters
             ushort pathProgress = *(ushort*)(hunterBytes + HunterPathProgressOffset);
             uint pathLength = *(uint*)(hunterBytes + HunterPathLengthOffset);
             ushort pathAdvanceControl = *(ushort*)(hunterBytes + HunterPathAdvanceControlOffset);
-            if (pathState != ActivePathState ||
-                pathLength <= 1 ||
-                pathLength > MaximumPathSteps ||
-                pathProgress >= pathLength)
+            if (pathState == ActivePathState && pathLength <= MaximumPathSteps &&
+                (pathLength <= 1 || pathProgress >= pathLength))
             {
-                failureReason = "path-unavailable-complete-or-out-of-range";
+                failureReason = PathFinishedReason;
+                return false;
+            }
+
+            if (pathState != ActivePathState || pathLength > MaximumPathSteps)
+            {
+                failureReason = "path-unavailable-or-out-of-range";
                 return false;
             }
 
@@ -526,7 +529,7 @@ namespace ImprovedHunters
                         "reason=no-progress, " +
                         $"nativeDistance={nativeDistance}, path={snapshot.PathState}/" +
                         $"{snapshot.PathProgress}/{snapshot.PathLength}, selections={attempt.Selections}, " +
-                        $"retryCooldownSeconds={RetryCooldownDuration / Stopwatch.Frequency}, " +
+                        $"retryCooldownSeconds={RetryCooldownDuration / HunterSimulationTime.MapTicksPerSecond}, " +
                         "currentCallbackMutation=False.",
                         warning: true);
                     return false;
@@ -557,7 +560,7 @@ namespace ImprovedHunters
 
             if (removed && logRelease)
             {
-                LogDiagnostic(
+                LogSample(
                     "Improved Hunters released remaining-path speed recovery: " +
                     $"hunter={attempt.Identity.HunterUnitId}/{attempt.Identity.HunterGlobalId}, " +
                     $"target={attempt.Identity.PreyUnitId}/{attempt.Identity.PreyGlobalId}, " +
@@ -619,7 +622,7 @@ namespace ImprovedHunters
                 return;
 
             uint remainingSteps = snapshot.PathLength - snapshot.PathProgress;
-            LogDiagnostic(
+            LogSample(
                 "Improved Hunters remaining-path speed observation: " +
                 $"hunter={hunterUnitId}/{hunter->r_GlobalId}, " +
                 $"target={snapshot.PreyUnitId}/{snapshot.PreyGlobalId}, " +
@@ -646,12 +649,29 @@ namespace ImprovedHunters
                     return;
             }
 
-            LogDiagnostic(
-                "Improved Hunters remaining-path speed recovery skipped: " +
-                $"reason={reason}, hunter={hunterUnitId}, nativeDistance={nativeDistance}, " +
-                "currentCallbackMutation=False.",
-                warning: true);
+            // Path-decoding invariants and probe failures are faults; other reasons are expected outcomes.
+            if (reason == "invalid-packed-path-direction" ||
+                reason == "path-count-invariant-failed" ||
+                reason == "visibility-probe-unavailable-or-invalid")
+            {
+                LogDiagnostic(FormatSkip(reason, hunterUnitId, nativeDistance), warning: true);
+            }
+            else
+            {
+                LogSample(
+                    FormatSkip(reason, hunterUnitId, nativeDistance),
+                    warning: reason != PathFinishedReason);
+            }
         }
+
+        private static string FormatSkip(string reason, int hunterUnitId, int nativeDistance) =>
+            "Improved Hunters remaining-path speed recovery skipped: " +
+            $"reason={reason}, hunter={hunterUnitId}, nativeDistance={nativeDistance}, " +
+            "currentCallbackMutation=False.";
+
+        // Development samples only: /devdiag builds compile these calls including their message text.
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
+        private void LogSample(string message, bool warning = false) => LogDiagnostic(message, warning);
 
         private void LogDiagnostic(string message, bool warning = false)
         {

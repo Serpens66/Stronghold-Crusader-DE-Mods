@@ -1,0 +1,108 @@
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using System.Reflection;
+
+internal static class FormationDispatchOutcomeTests
+{
+    internal static void Validate(string root)
+    {
+        var syntax=CSharpSyntaxTree.ParseText(FeatureSourceModel.Read(root,"FormationRuntime","Pathfinding/src/Formations")).GetRoot();
+        string members=string.Join("\n",syntax.DescendantNodes().OfType<MethodDeclarationSyntax>()
+            .Where(m=>m.Identifier.Text is "ApplyPacket" or "ApplyPacketLocked" or "TryIssuePacketVanillaFallback").Select(m=>m.ToFullString()));
+        var playerSyntax=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Pathfinding/src/UnitCommands/Native/PermanentCommandHooks.cs"))).GetRoot();
+        members += playerSyntax.DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m=>m.Identifier.Text=="DispatchPlayerMove").ToFullString();
+        var frameSyntax=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Pathfinding/src/UnitCommands/Runtime/ManualGroupAdmission.cs"))).GetRoot();
+        members += frameSyntax.DescendantNodes().OfType<StructDeclarationSyntax>().Single(m=>m.Identifier.Text=="ManualPlayerMoveFrame").ToFullString();
+        string fixture="""
+using System;using System.Runtime.InteropServices;
+namespace SHCDESE.Interop.Enums {internal enum TribeMoveType {NoChange=0,DefaultInSync=1,Fast=-255}}
+namespace SHCDESE.EventAPI.Tribes { internal sealed class TribeIssueOrderMoveHereEventArgs { internal int TribeId, TileX, TileY; } }
+namespace Shared { public static class DebugLogHelper { public static void LogWarningLimited(object l,string k,string m) {} public static void LogErrorLimited(object l,string k,string m) {} } }
+namespace SHCDESE.API {
+    internal sealed class GameTribeManagerAPI {
+        internal static GameTribeManagerAPI Instance=new();internal Func<bool> Move;internal int Calls;
+        internal bool IssueMoveHereCommand(int t,int x,int y,bool isPatrolPath,int bIsNewOrder,SHCDESE.Interop.Enums.TribeMoveType tribeMoveType){Calls++;return Move();}
+    }
+}
+namespace Pathfinding.UnitCommands {
+    using SHCDESE.API;using SHCDESE.Interop.Enums;
+    internal sealed class FormationOrderPacket {internal int TribeId=1,TargetX=20,TargetY=20,IsNewOrder=1,MoveType=1,OperationId=1,UnitCount=2;internal ulong SelectionHash=1;}
+    public unsafe sealed class OutcomeFixture {
+        private object log; private struct FormationUnit {} private FormationUnit[] CaptureOrderedGroupUnits(int t)=>new FormationUnit[2]; private ulong ComputeSelectionHash(FormationUnit[] u)=>1; private readonly object speechEngineLock=new();private readonly object stateSync=new();private bool Enabled=true;private const int MaximumTribeCount=4500,MapWidth=800;
+        private PendingFormationCommand pendingCommand;private ActiveFormationCommand activeCommand,commonGroupCommand;private int dispatchDepth;
+        private sealed class PendingFormationCommand {internal PendingFormationCommand(FormationOrderPacket p,string s){Packet=p;}internal FormationOrderPacket Packet;internal bool NativeDispatchObserved;}
+        private sealed class ActiveFormationCommand {internal PendingFormationCommand Pending;}
+        private bool Valid=true;private bool ValidatePacket(FormationOrderPacket p,out string reason){reason="fixture";return Valid;}
+        private class UnitAssignmentFrame {} private class UnitFallbackAttempt {} private UnitAssignmentFrame unitAssignmentFrame;private UnitFallbackAttempt unitFallbackAttempt;private ManualPlayerMoveFrame manualPlayerMove;
+        private bool manualAdmissionReady=true,TraversalEnabled;private IntPtr nativeTribeManager;private const int TribeRecordSize=0x688;
+        private long playerMoveEntries;private Action<IntPtr,int,int,int,int,int> nativePlayerMove,traversalMoveProvider;
+        private void ReportNativeDetourBarrier(string n,Exception e){}
+        private void LogErrorNoThrow(string m){}private void LogWarningNoThrow(string m){}private void ClearUnitAssignmentFrames(object o){}
+        private FormationMoveSupport evidence;
+        private void CompleteFormationSupport(FormationOrderPacket packet,string source,FormationMoveSupport captured){evidence=captured;}
+        __MEMBERS__
+        public static void Run(){
+            foreach(bool observed in new[]{false,true})foreach(bool result in new[]{false,true}){
+                var f=new OutcomeFixture();var api=GameTribeManagerAPI.Instance;api.Calls=0;
+                api.Move=()=>{
+                    var trace=FormationMoveSupport.Current;
+                    if(trace==null||FormationMoveSupport.Source!="fixture")throw new Exception("Missing scoped move origin");
+                    if(observed){f.pendingCommand.NativeDispatchObserved=true;trace.PreSkip=false;}
+                    if(result)trace.PostReturn=1;
+                    return result;
+                };
+                bool consumed=f.ApplyPacket(new(),"fixture");
+                if(consumed!=(observed||result)||api.Calls!=1||f.dispatchDepth!=0||f.pendingCommand!=null)
+                    throw new Exception("Native rejection/partial application must not replay an observed dispatch");
+                if(f.evidence.PostReturn.HasValue!=result||f.evidence.PreSkip.HasValue!=observed||
+                    f.evidence.ShouldWarn==result||FormationMoveSupport.Current!=null||FormationMoveSupport.Source!="unknown")
+                    throw new Exception("Pre and Post evidence must stay distinct and restore the caller scope");
+            }
+            foreach(bool enabled in new[]{false,true}){
+                var f=new OutcomeFixture{Enabled=enabled,Valid=false};var api=GameTribeManagerAPI.Instance;api.Calls=0;api.Move=()=>false;
+                if(!f.ApplyPacket(new(),"fallback")||api.Calls!=0||f.dispatchDepth!=0)
+                    throw new Exception("Already issued fallback cannot authorize another whole-group command");
+                if(enabled&&(f.evidence.Veto!="fixture"||f.evidence.PostReturn.HasValue||!f.evidence.ShouldWarn))
+                    throw new Exception("A known veto cannot be reported as native execution");
+            }
+            var executed=new FormationMoveSupport(1,20,20){PreSkip=false,PostReturn=0,Assigned=0};
+            if(!executed.ShouldWarn||!executed.Describe().Contains("execution=observed")||
+                !executed.Describe().Contains("postReturn=0"))
+                throw new Exception("A zero native return must be distinguishable from a missing Post");
+            // Vanilla's Chore-17 handler (10AE0) passes the unit manager (67E8400); 196100 ignores
+            // that argument and writes the tribe manager's +56C. The restore must use the tribe manager.
+            IntPtr tribes=Marshal.AllocHGlobal(0x2000);IntPtr units=Marshal.AllocHGlobal(0x2000);
+            try{
+                ushort* unitAlias=(ushort*)((byte*)units+TribeRecordSize+0x56C);
+                foreach(bool reject in new[]{false,true}){
+                    var f=new OutcomeFixture{nativeTribeManager=tribes};ushort* mode=(ushort*)((byte*)tribes+TribeRecordSize+0x56C);*mode=17;*unitAlias=29;
+                    f.nativePlayerMove=(m,t,x,y,p,n)=>{
+                        if(m!=units)throw new Exception("The original must receive Vanilla's unit-manager argument");
+                        f.playerMoveEntries++;*mode=0;f.manualPlayerMove.GroupSeen=true;f.manualPlayerMove.Rejected=reject;};
+                    f.DispatchPlayerMove(units,1,20,20,0,0);
+                    if(*mode!=(reject?17:0)||*unitAlias!=29||f.manualPlayerMove.Valid)throw new Exception("Player flag restore/teardown mismatch");
+                }
+                var nested=new OutcomeFixture{nativeTribeManager=tribes};ushort* flag=(ushort*)((byte*)tribes+TribeRecordSize+0x56C);*flag=17;int calls=0;
+                nested.nativePlayerMove=(m,t,x,y,p,n)=>{nested.playerMoveEntries++;calls++;*flag=0;
+                    nested.manualPlayerMove.GroupSeen=true;
+                    if(calls==1)nested.DispatchPlayerMove(units,1,20,20,0,0);else nested.manualPlayerMove.Rejected=true;};
+                nested.DispatchPlayerMove(units,1,20,20,0,0);
+                if(*flag!=0||calls!=2||nested.manualPlayerMove.Valid)throw new Exception("Child rejection rolled back an accepted parent player's order");
+            }finally{Marshal.FreeHGlobal(tribes);Marshal.FreeHGlobal(units);}
+        }
+    }
+}
+""";
+        fixture=fixture.Replace("__MEMBERS__",members);
+        var references=((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator).Select(p=>MetadataReference.CreateFromFile(p));
+        var evidence=File.ReadAllText(Path.Combine(root,"Pathfinding/src/Formations/FormationMoveSupport.cs"));
+        var compilation=CSharpCompilation.Create("ProductionFormationDispatchOutcome",new[]{CSharpSyntaxTree.ParseText(fixture),CSharpSyntaxTree.ParseText(evidence)},references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,allowUnsafe:true));
+        using var output=new MemoryStream();var result=compilation.Emit(output);
+        if(!result.Success)throw new Exception(string.Join("\n",result.Diagnostics.Where(d=>d.Severity==DiagnosticSeverity.Error)));
+        try{Assembly.Load(output.ToArray()).GetType("Pathfinding.UnitCommands.OutcomeFixture")!.GetMethod("Run")!.Invoke(null,null);}
+        catch(TargetInvocationException e){throw e.InnerException??e;}
+        Console.WriteLine("PASS: production formation dispatch consumes observed rejection/partial application once; no whole-group replay.");
+    }
+}

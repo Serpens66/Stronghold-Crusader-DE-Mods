@@ -164,6 +164,7 @@ for %%F in (ExtendedData.dll ExtendedData.Core.dll info.json) do (
 )
 if not exist "%LOCAL_PLUGIN_DIR%\Patches\Assets\GUI\XAMLResources\HUD_ConfirmationPopup.xaml" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\Patches\Assets\GUI\XAMLResources\FRONT_EditorSetup.xaml" goto package_failed
+if not exist "%LOCAL_PLUGIN_DIR%\Patches\Assets\GUI\XAMLResources\FRONT_Multiplayer.xaml" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\Locales\en-US.txt" goto package_failed
 echo Installiere geprueftes Paket...
 if "%NO_INSTALL%"=="1" goto prepared_no_install

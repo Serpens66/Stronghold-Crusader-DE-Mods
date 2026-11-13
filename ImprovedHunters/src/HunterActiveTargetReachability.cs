@@ -4,7 +4,6 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 
 namespace ImprovedHunters
 {
@@ -98,8 +97,7 @@ namespace ImprovedHunters
 
                 if (logChangedObservation)
                 {
-                    Shared.DebugLogHelper.LogInfo(
-                        log,
+                    LogSample(
                         "Improved Hunters active-target PCL snapshot refreshed: " +
                         $"hunter={hunterUnitId}/{inputs.HunterGlobalId}, " +
                         $"target={preyUnitId}/{preyGlobalId}/{preyType}, " +
@@ -173,14 +171,13 @@ namespace ImprovedHunters
 
             if (logPromotion)
             {
-                Shared.DebugLogHelper.LogInfo(
-                    log,
+                LogSample(
                     "Improved Hunters promoted positive selection PCL result to active-target snapshot: " +
                     $"hunter={hunterUnitId}/{inputs.HunterGlobalId}, " +
                     $"target={preyUnitId}/{preyGlobalId}/{preyType}, " +
                     $"player={inputs.PlayerId}, mode={inputs.Mode}, " +
                     $"sourcePcl={inputs.SourcePcl}, targetPcl={inputs.TargetPcl}, " +
-                    $"selectionAgeMs={Math.Max(0, timestamp - observedAt) * 1000 / Stopwatch.Frequency}.");
+                    $"selectionAgeMs={Math.Max(0, timestamp - observedAt) * 1000 / HunterSimulationTime.MapTicksPerSecond}.");
             }
             return true;
         }
@@ -238,7 +235,7 @@ namespace ImprovedHunters
                 }
 
                 long ageTicks = Math.Max(0, timestamp - snapshot.ObservedAt);
-                ageMilliseconds = ageTicks * 1000 / Stopwatch.Frequency;
+                ageMilliseconds = ageTicks * 1000 / HunterSimulationTime.MapTicksPerSecond;
                 if (timestamp >= snapshot.UsableUntil)
                 {
                     status = "expired";
@@ -253,5 +250,8 @@ namespace ImprovedHunters
             }
         }
 
+        // Development samples only: /devdiag builds compile these calls including their message text.
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
+        private void LogSample(string message) => Shared.DebugLogHelper.LogInfo(log, message);
     }
 }

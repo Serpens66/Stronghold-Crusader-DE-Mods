@@ -72,3 +72,24 @@ isolated unit/color inputs: first-unit skin choice, mixed-skin aggregation and
 pooled-entry reset execute directly. A narrow source guard retains the audited
 material offset. These tests do not prove actual Noesis rendering or mission
 transitions in-game.
+
+## Lord skins and their assets [Vanilla facts]
+
+Verified 2026-11-08 against the installed hashes above. The periodic player
+initializer at RVA `0xC23C0` stores the Lord's game ID and global ID after a
+successful spawn. The Lord updater at `0x15A950` writes the current graphic
+material for variants 1 through 7 (Arabic, Bedouin, Scribe, Crusader Female,
+Bessy, Arabic Female, Bedouin Female, respectively). Its default branch
+leaves the current material alone. Initialization and reset at `0x19A240`
+and `0x19C130` load the type default, `GM_BODY_LORD`. The visible-unit
+packet path through `0x41D60` and `0x1A13C0` uses the current material.
+The roles are confirmed from the data flow in the semantic export.
+
+The UI master atlas provides fixed emblems for the eight skins. The body
+sprite assets use the palettes and texture pairs wired by `spriteLoader`.
+For the installed Gamma player, the `Unlit/TeamColour` DXBC pixel program
+multiplies each diffuse RGB channel by the linear interpolation from white
+to the sprite tint with the team mask's red channel as weight. With full
+opacity and zero foot cutoff, it keeps the diffuse alpha. Sprite and mask
+sample the same UVs. The tight sprite mesh matters because the bounding
+rectangle can overlap pixels from another packed frame.

@@ -65,10 +65,10 @@ SomeSettings.VanillaValue50=Vanilla-Wert: 50%.
 SomeSettings.KeepStorageContent=Lagerinhalt behalten
 SomeSettings.KeepStorageContentHelp=Wenn aktiviert, bleiben beim Abreissen von Kornspeicher, Waffenkammer oder Vorratslager die enthaltenen Gueter erhalten und werden als eingehende Gueter wieder hinzugefuegt. Wurde der Kornspeicher kostenlos gebaut, koennen die Gueter nicht gutgeschrieben werden; dies kann geschehen, wenn beim Bau kein Holz im Lager liegt.
 SomeSettings.EconomyBuffsTitle=Wirtschaftsboni
-SomeSettings.MultiplyGoodsGain=Guetergewinn multiplizieren
-SomeSettings.MultiplyGoodsGainHelp=Multiplikator für erhaltene Gueter. 1 = unverändert, 2 = doppelt, 3 = dreifach. Werte 1 oder kleiner fuegen nichts hinzu.
-SomeSettings.MultiplyGoodsAsMoney=Gueter als Geld multiplizieren
-SomeSettings.MultiplyGoodsAsMoneyHelp=Extra-Goldzahlungen basierend auf dem Verkaufswert erhaltener Gueter. 0 = unverändert, 1 = eine Verkaufswert-Zahlung, 2 = zwei Zahlungen.
+SomeSettings.MultiplyGoodsGain=Grundertrag multiplizieren
+SomeSettings.MultiplyGoodsGainHelp=Multipliziert den Grundertrag für Menschen und KI getrennt: 1 = unverändert, 2 = doppelt, 0 = kein Ertrag. Gilt auch für Weizen, Mehl und Brot. Produktions- und Angstbonus werden danach berechnet. Rohstoffverbrauch bleibt gleich.
+SomeSettings.MultiplyGoodsAsMoney=Produktion zusätzlich als Gold vergüten
+SomeSettings.MultiplyGoodsAsMoneyHelp=Gewährt zusätzliches Gold für Waren aus echter Produktion, die erfolgreich im Spielerlager abgeliefert wurden. Vergütung: aktueller Basisverkaufswert geteilt durch fünf, mal abgelieferter Menge und diesem Faktor; je Eingang gerundet. Enthält zusätzliche Waren aus Produktionsfaktoren und Boni. Die Waren bleiben erhalten. Startwaren, Geschenke, Käufe, Rückerstattungen und Zutatenumlagerungen werden nicht vergütet. 0 = deaktiviert. Nur zwischen Partien ändern.
 SomeSettings.MarketPriceMultipliersTitle=Marktpreise
 SomeSettings.MarketGoodPriceMultipliersHelp=Der obere Regler steuert den Kauf, der untere den Verkauf. Der individuelle Faktor wird mit dem allgemeinen Faktor multipliziert. Ein Gesamtfaktor von 1,0 lässt aktuelle Preise unverändert. Andere Faktoren skalieren Vanilla-Preise; abweichende direkte Preise anderer Mods haben Vorrang und bleiben erhalten. Zurücksetzen nimmt nur eigene Änderungen zurück.
 SomeSettings.MarketGoodPriceMultiplierHelp={Good} - {Direction}: {Value}. Dieser einzelne Faktor wird mit dem entsprechenden allgemeinen Marktfaktor multipliziert.
@@ -116,7 +116,7 @@ SomeSettings.NewFeaturesTitle=Neue Spielfunktionen
 SomeSettings.VanillaPeaceTime=Vanilla-Waffenruhe (Minuten)
 SomeSettings.VanillaPeaceTimeHelp=Startet bei neuen Partien die vollständige Vanilla-Waffenruhe. 0 = deaktiviert; erlaubter Bereich: 0 bis 60 Minuten. Savegames behalten ihren gespeicherten Vanilla-Resttimer. Direkte Vanilla-Trails, der Karteneditor und der Freies-Bauen-Modus bleiben unverändert. In benutzerdefinierten Multiplayer-Lobbys wird dieser Wert mit Vanillas Waffenruhe-Regler synchronisiert.
 SomeSettings.LordHealthTitle=Lebenspunkte der Lords
-SomeSettings.LordHealthHelp=Multipliziert beim Start der Partie die maximalen und aktuellen Lebenspunkte aller Lords. Menschen- und KI-Lords koennen getrennt eingestellt werden; die individuellen Lebenspunktunterschiede der KI-Lords bleiben erhalten. 100% entspricht Vanilla.
+SomeSettings.LordHealthHelp=Multipliziert die Lebenspunkte der Lords beim Initialisieren oder Laden. Menschen- und KI-Lords sind getrennt einstellbar; individuelle Unterschiede der KI-Lords bleiben erhalten. Eine spätere Übernahme ändert die maximalen Lebenspunkte nicht. Sichere Spielgrenzen gelten. 100% fügt keinen zusätzlichen Multiplikator hinzu.
 SomeSettings.TilesValueFormat={0} Felder
 SomeSettings.GatehousesTitle=Torhäuser und Zugbrücken
 SomeSettings.HumanGateReopenDelay=Wiederöffnungsverzögerung (Mensch)
@@ -135,8 +135,14 @@ SomeSettings.HumanEnemyProximitySingleplayer=Mensch - Singleplayer
 SomeSettings.HumanEnemyProximityMultiplayer=Mensch - Multiplayer
 SomeSettings.AIEnemyProximitySingleplayer=KI - Singleplayer
 SomeSettings.AIEnemyProximityMultiplayer=KI - Multiplayer
-SomeSettings.HumanEnemyProximityHelp=Abstand in Feldern zu feindlichen Einheiten der gewählten Kategorie, der normales Bauen, Reparieren und Abreißen durch Menschen blockiert. Zivilisten umfassen Arbeiter, freie Bauern, Wirtschaftstransporte und zivile Burgbewohner. Militärische Ingenieure, Tunnelbauer, kämpfende Mönche und Sklaven zählen zu Soldaten. -1 behält den kontextspezifischen Vanilla-Radius bei (normalerweise 15 oder 30, je nach nativem Spielkontext); 0 entfernt die Abstandssperre dieser Kategorie. Spezielle Platzierungsprüfungen, feindliche Gebäude/Mauern, Gelände und direkte Belegung bleiben unverändert.
-SomeSettings.AIEnemyProximityHelp=Abstand in Feldern zu feindlichen Einheiten der gewählten Kategorie, der klassifizierte KI-Reparaturen von Verteidigungsbauten und Mauern sowie den Wiederaufbau zuvor gebauter Türme und Torhäuser blockiert. Zivilisten umfassen Arbeiter, freie Bauern, Wirtschaftstransporte und zivile Burgbewohner; militärische Ingenieure, Tunnelbauer, kämpfende Mönche und Sklaven zählen zu Soldaten. -1 behält den kontextspezifischen Vanilla-Radius bei; 0 entfernt die Abstandssperre dieser Kategorie. KI-Erstplatzierungen, nicht klassifizierte Aufrufe und die Prüfungen für feindliche Gebäude/Mauern bleiben unverändert.
+SomeSettings.HumanCivilianEnemyProximitySingleplayerHelp=Vanilla (−1): 15 oder 30 Felder, je nach Spielkontext. Abstand zu feindlichen Zivilisten beim Bauen, Reparieren und Abreißen im Singleplayer. 0 = keine Abstandssperre. Mit der Friedensregel von BugfixesAndQoL höchstens 3 Felder.
+SomeSettings.AICivilianEnemyProximitySingleplayerHelp=Vanilla (−1): Mauerreparatur 5 Felder; Wiederaufbau je nach Prüfung 3, 5 oder 15. Abstand zu feindlichen Zivilisten bei KI-Verteidigungsreparaturen und Wiederaufbau im Singleplayer. 0 = keine Abstandssperre. Mit der Friedensregel von BugfixesAndQoL höchstens 3 Felder.
+SomeSettings.HumanMilitaryEnemyProximitySingleplayerHelp=Vanilla (−1): 15 oder 30 Felder, je nach Spielkontext. Abstand zu feindlichen Soldaten beim Bauen, Reparieren und Abreißen im Singleplayer. 0 = keine Abstandssperre.
+SomeSettings.AIMilitaryEnemyProximitySingleplayerHelp=Vanilla (−1): Mauerreparatur 5 Felder; Wiederaufbau je nach Prüfung 3, 5 oder 15. Abstand zu feindlichen Soldaten bei KI-Verteidigungsreparaturen und Wiederaufbau im Singleplayer. 0 = keine Abstandssperre.
+SomeSettings.HumanCivilianEnemyProximityMultiplayerHelp=Vanilla (−1): 15 oder 30 Felder, je nach Spielkontext. Abstand zu feindlichen Zivilisten beim Bauen, Reparieren und Abreißen im Multiplayer. 0 = keine Abstandssperre. Mit der Friedensregel von BugfixesAndQoL höchstens 3 Felder.
+SomeSettings.AICivilianEnemyProximityMultiplayerHelp=Vanilla (−1): Mauerreparatur 5 Felder; Wiederaufbau je nach Prüfung 3, 5 oder 15. Abstand zu feindlichen Zivilisten bei KI-Verteidigungsreparaturen und Wiederaufbau im Multiplayer. 0 = keine Abstandssperre. Mit der Friedensregel von BugfixesAndQoL höchstens 3 Felder.
+SomeSettings.HumanMilitaryEnemyProximityMultiplayerHelp=Vanilla (−1): 15 oder 30 Felder, je nach Spielkontext. Abstand zu feindlichen Soldaten beim Bauen, Reparieren und Abreißen im Multiplayer. 0 = keine Abstandssperre.
+SomeSettings.AIMilitaryEnemyProximityMultiplayerHelp=Vanilla (−1): Mauerreparatur 5 Felder; Wiederaufbau je nach Prüfung 3, 5 oder 15. Abstand zu feindlichen Soldaten bei KI-Verteidigungsreparaturen und Wiederaufbau im Multiplayer. 0 = keine Abstandssperre.
 SomeSettings.AITowerGateRebuildDelay=Wiederaufbauverzögerung für Türme und Torhäuser
 SomeSettings.AITowerGateRebuildDelayHelp=Simulationszeit seit der bestätigten Zerstörung eines zuvor vorhandenen Turms oder Torhauses, bevor die KI ihn beziehungsweise es wiederaufbauen darf. Wurde die Zerstörung nicht beobachtet, beginnt die Zeit bei der ersten Erkennung des fehlenden Ziels. Ruinenabriss sowie blockierte oder erfolglose Versuche starten oder verlängern den Delay niemals. Erstplatzierungen sowie der Wiederaufbau von Mauern, Zinnen und Treppen bleiben Vanilla. -1 behält das vollständige Vanilla-Wiederaufbau-Timing bei; 0 fügt keine Wartezeit hinzu.
 Common.ModSettingsSearchLabel=Suche
@@ -572,3 +578,44 @@ ExtraFeatures.KillReward.Goods.Help=Güter für den siegreichen Spieler als Ante
 ExtraFeatures.KillReward.Maximum.Help=Maximale Goldbeute pro besiegtem Lord. -1 behält Vanillas Obergrenze von 100.000 Gold bei. Jede positive ganze Zahl setzt die absolute Obergrenze unabhängig vom Goldanteil. Eine Grenze unter 500 ersetzt auch den Vanilla-Mindestbetrag. Die Einstellung gilt für den siegreichen Spieler.
 SomeSettings.CivilianEnemyProximity=Zivilisten
 SomeSettings.MilitaryEnemyProximity=Soldaten
+ExtraFeatures.HealthTitle=Lebenspunkte
+ExtraFeatures.HealthHelp=Die Multiplikatoren gelten einmalig beim Erzeugen, Einheiten-Typwechsel oder Laden. Eine spätere Übernahme ändert die maximalen Lebenspunkte nicht. Sichere Spielgrenzen können den wirksamen Multiplikator begrenzen. Der Karteneditor bleibt unverändert. Neue Lebenspunktkategorien bleiben in alten Spielständen ohne gemeinsame Lebenspunktdaten inaktiv.
+ExtraFeatures.SoldierHealthTitle=Lebenspunkte der Soldaten
+ExtraFeatures.SoldierHealthHelp=Multipliziert die Lebenspunkte von Soldaten einschließlich mobiler Belagerungsgeräte, Ingenieure und anderer militärischer Unterstützung. Belagerungsturm und zugehöriges Bauwerk teilen einen sicheren Multiplikator. Lords, Tiere und Dekorationsfiguren sind ausgeschlossen. 100% fügt keinen zusätzlichen Multiplikator hinzu.
+ExtraFeatures.CivilianHealthTitle=Lebenspunkte der Zivilisten
+ExtraFeatures.CivilianHealthHelp=Multipliziert die Lebenspunkte von Bauern und funktionalen zivilen Arbeitern. Tiere und passive Dekorationsfiguren sind ausgeschlossen. 100% fügt keinen zusätzlichen Multiplikator hinzu.
+ExtraFeatures.BuildingHealthTitle=Lebenspunkte der Gebäude
+ExtraFeatures.BuildingHealthHelp=Multipliziert die Lebenspunkte gewöhnlicher Gebäude einschließlich Türmen und Torhäusern. Mauern und Objekte ohne Lebenspunkte bleiben unverändert. Mobile Belagerungstürme verwenden den Soldaten-Multiplikator. Sichere Spielgrenzen können den wirksamen Wert begrenzen. 100% fügt keinen zusätzlichen Multiplikator hinzu.
+ExtraFeatures.ProductionBonus.Title=Produktionszuschlag (Standard: +50 %)
+ExtraFeatures.ProductionBonus.Help=Legt den Zuschlag auf den Grundertrag fest: +50 % = 1,5-facher Grundertrag, 0 % = kein Zuschlag. Gilt für Menschen und KI in Gefechten und Mehrspieler, außer für Weizen, Mehl und Brot. Wird nach dem Multiplikator berechnet; Angstbonus kommt hinzu. Rohstoffverbrauch bleibt gleich.
+ExtraFeatures.ProductionBonus.Effective=Zusatzbonus nach allen Mod-Regeln: {0} %
+ExtraFeatures.ProductionBonus.EffectiveInvalid=Der gewünschte Zusatzbonus kann noch nicht angewandt werden.
+ExtraFeatures.ProductionBonus.Details=Produktionsdetails
+ExtraFeatures.ProductionBonus.DetailsHelp=Zeigt den Grund einer Produktionswarnung auf diesem Rechner.
+ExtraFeatures.ProductionBonus.DetailsTitle=Produktionseinstellungen
+ExtraFeatures.ProductionBonus.NoIssues=Aktuell wird kein Produktionsproblem gemeldet.
+ExtraFeatures.ProductionBonus.Issue.Unknown=Eine Produktionseinstellung muss vor dem Spielstart geprüft werden.
+ExtraFeatures.ProductionBonus.Issue.NativeUnavailable=Die benötigte Produktionsunterstützung ist nicht verfügbar. Prüfe die installierten Mods.
+ExtraFeatures.ProductionBonus.Issue.UnsupportedWorker=Eine Mod verändert einen nicht unterstützten Arbeiterberuf.
+ExtraFeatures.ProductionBonus.Issue.NegativeBaseAmount=Die gemeinsamen Produktionsregeln würden eine negative Warenmenge ergeben.
+ExtraFeatures.ProductionBonus.Issue.BaseAmountOutOfRange=Die gemeinsame Produktionsmenge überschreitet den unterstützten Bereich. Verringere einen Produktionsmodifikator.
+ExtraFeatures.ProductionBonus.Issue.FixedBonusOutOfRange=Der gemeinsame Zusatzbonus muss zwischen -100 und +1000 % liegen.
+ExtraFeatures.ProductionBonus.Issue.PrecisionNotRepresentable=Die gemeinsamen Produktionsbruchteile sind zu genau für eine sichere Speicherung. Verwende einfachere Werte.
+ExtraFeatures.ProductionBonus.Issue.SavedDenominatorInvalid=Die gespeicherten Produktionsbruchteile können nicht sicher wiederhergestellt werden.
+ExtraFeatures.ProductionBonus.Issue.ActivationUnknown=Die Produktionsregeln warten auf die Bestätigung des gewählten Spielmodus.
+ExtraFeatures.ProductionBonus.Issue.PublicationFailed=Die Produktionsregeln konnten nicht sicher aktiviert werden.
+ExtraFeatures.ProductionBonus.Issue.RuntimeFault=Die Produktion wurde angehalten, weil ein Wert nicht sicher verarbeitet werden konnte. Beachte die Details.
+ExtraFeatures.ProductionBonus.Issue.Pending=Warte auf die Bestätigung derselben Produktionsregeln durch alle Spieler.
+ExtraFeatures.ProductionBonus.Issue.Roster=Warte auf die Erkennung der aktuellen Spieler.
+ExtraFeatures.ProductionBonus.Issue.Mismatch=Die Spieler haben unterschiedliche Produktionsregeln oder Unterstützung. Das Spiel kann nicht starten.
+ExtraFeatures.ProductionBonus.Issue.Protocol=Die Spieler verwenden inkompatible Produktionsunterstützung. Aktualisiere APIShared auf allen Rechnern.
+ExtraFeatures.ProductionBonus.Issue.InvalidData=Die Produktionsdaten des gewählten Spielstands oder der Karte fehlen oder sind ungültig. Ein sicheres Laden ist nicht möglich.
+ExtraFeatures.ProductionBonus.Issue.Sidecar=Der gewählte Spielstand oder die Karte benötigt eine Unterstützung für Produktionsdaten, die nicht auf allen Rechnern verfügbar ist.
+ExtraFeatures.ProductionBonus.Issue.Unavailable=Der benötigte Produktionsdienst ist nicht bereit.
+ExtraFeatures.TreeRespawn.Title=Bäume nachwachsen lassen
+ExtraFeatures.TreeRespawn.Help=Legt die Wartezeit für ursprüngliche Kartenbäume bei Spieltempo 40 fest. Richtwert: 10 Minuten. Bei 0 wächst der Baum nach vollständiger Entfernung beim nächsten Durchlauf nach, sofern die Stelle frei ist. Die Stellen werden einmal pro Spielminute geprüft. Änderungen gelten ab Kartenstart oder Laden.
+ExtraFeatures.TreeRespawn.Off=Aus
+ExtraFeatures.MatureTreeHarvest.Title=Nur ausgewachsene Bäume fällen
+ExtraFeatures.MatureTreeHarvest.Help=Holzfäller von Menschen und KI warten bei gesunden Jungbäumen bis zur Wachstumsstufe 3. Angeschlagene Jungbäume dürfen fertig gefällt und gefällte Stämme weiter abgeerntet werden. Änderungen gelten ab Kartenstart oder Laden.
+ExtraFeatures.ElevatedMoatTooltip=Markiert eine Fläche zum Ausheben eines Grabens. Befehligt Ingenieure und einfache Truppen, den Graben auszuheben. Shift halten: größere Fläche. Auch auf erhöhtem Gelände möglich.
+ExtraFeatures.ProductionGoods.Unavailable=Der für den Geldbonus benötigte Dienst für Produktionseingänge ist nicht verfügbar. Vor dem Start die installierten Mods prüfen.

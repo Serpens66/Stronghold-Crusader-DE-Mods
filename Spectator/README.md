@@ -5,6 +5,8 @@
 - Let eliminated human players keep watching the match with spectator views (host option); their original player slot stays unchanged
 - Open the detailed Vanilla statistics screen during the match
 - Show the lord overview with the crown button; the host can allow extra enemy statistics for active players
+- Enable **Show while HUD hidden** in the statistics settings to keep an open scoreboard visible when you hide the HUD.
+- Enable **Show date when HUD is hidden** in the local view settings to show the game date. Drag it to move it and save its position.
 
 ## Test tools
 
@@ -22,6 +24,6 @@ Click directly in the amount field to edit it. **Enter** or **Esc** finishes edi
 
 ## Compatibility
 
-This mod requires the Script Extender and **APIShared 0.27.0 or newer**. Subscribe to APIShared separately when using the Steam modpack. Local options (views, control, statistics, lord overview and test tools) can be changed by every player; eliminated-player spectator views and extra enemy statistics follow the host settings.
+This mod requires the Script Extender and **APIShared 0.37.0 or newer**. Subscribe to APIShared separately when using the Steam modpack. Local options (views, control, statistics, lord overview and test tools) can be changed by every player; eliminated-player spectator views and extra enemy statistics follow the host settings.
 
 All multiplayer participants need matching modpack and APIShared versions. The optional singleplayer control setting requires player perspectives, applies only to spectators from the start of a skirmish and leaves the selected player's AI active.

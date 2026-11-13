@@ -10,7 +10,7 @@ using System;
 namespace PrebuiltWorkshopBothFixTest
 {
     [BepInDependency("000shcdese", "2.9.0")]
-    [BepInDependency("APIShared_Serp", "0.4.2")]
+    [BepInDependency("APIShared_Serp", "0.49.0")]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(Guid, Name, Version)]
     public sealed class PrebuiltWorkshopBothFixTestPlugin : BaseUnityPlugin

@@ -1,4 +1,3 @@
-using APIShared.Maps;
 using ExtendedData.Core;
 using CrusaderDE;
 using System;
@@ -8,9 +7,8 @@ using System.Linq;
 
 namespace ExtendedData
 {
-    // Schema 5 export: every mission bundles an unchanged copy of its Trail (AIC, ordered castle candidates,
-    // flags, rotation and portraits of every AI slot) and the map extracted from it. Neither the original map
-    // nor the author's Lord installation is a source of these data any more.
+    // Schema 5 bundles the Trail's embedded Lord data and extracted map. The copy keeps the authored
+    // gameplay data while neutralizing the two lobby-owned settings.
     internal sealed class CoopTrailPackageExporter
     {
         internal const string BundledTrailFileName = "mission.trail";
@@ -162,13 +160,10 @@ namespace ExtendedData
         {
             string assetRoot = Path.Combine(missionsRoot, "Assets", ordinal.ToString("00"));
             Directory.CreateDirectory(assetRoot);
-            // One read: the bundled copy, the extracted map and the decoded setup all describe these bytes.
-            byte[] trailBytes = File.ReadAllBytes(trailPath);
-            byte[] restartBytes = TrailContainer.ReadRestartData(trailBytes);
             string bundledTrail = Path.Combine(assetRoot, BundledTrailFileName);
             string bundledMap = Path.Combine(assetRoot, BundledMapFileName);
-            File.WriteAllBytes(bundledTrail, trailBytes);
-            File.WriteAllBytes(bundledMap, TrailContainer.ExtractMap(trailBytes));
+            byte[] restartBytes = TrailAuthoringSetup.StageCoopMissionAssets(
+                trailPath, bundledTrail, bundledMap, ConfigSettings.Default_GameSpeed);
 
             // Vanilla's Trail decoding tolerates a missing original map (customTrailMission=true).
             FileHeader container = MapFileManager.Instance.GetFileInfoFromFileName(
@@ -266,7 +261,7 @@ namespace ExtendedData
             bool barracks = setup.MP_BuildingsAvailable != null && setup.MP_BuildingsAvailable.Length > 0 && setup.MP_BuildingsAvailable[0] != 0;
             bool mercenaryPost = setup.MP_BuildingsAvailable != null && setup.MP_BuildingsAvailable.Length > 1 && setup.MP_BuildingsAvailable[1] != 0;
             bool stockade = setup.MP_BuildingsAvailable != null && setup.MP_BuildingsAvailable.Length > 2 && setup.MP_BuildingsAvailable[2] != 0;
-            return new CoopSettings
+            var settings = new CoopSettings
             {
                 Fairness = Math.Max(1, Math.Min(5, setup.fairness)),
                 StartingGoodsLevel = Math.Max(1, Math.Min(4, setup.starting_goods_level)),
@@ -278,11 +273,9 @@ namespace ExtendedData
                 AllowStockadeGuest = stockade,
                 MultiplayerSetup = new MultiplayerSetupSettings
                 {
-                    StartingGameSpeed = setup.starting_gamespeed,
                     WinCondition = setup.win_condition,
                     AllowAutoTrading = setup.allow_autotrading,
                     NoKnockdownWalls = setup.no_knockdown_walls,
-                    AutoSave = setup.autosave,
                     PeaceTime = setup.peacetime,
                     NoCows = setup.no_cows,
                     NoDogs = setup.no_dogs,
@@ -290,8 +283,6 @@ namespace ExtendedData
                     ExtremePowers = setup.extreme_powers,
                     ExtremePowersAroundLord = setup.extreme_powers_around_lord,
                     AllowOutposts = setup.allow_outposts,
-                    AdvancedOptions = setup.advanced_options,
-                    AdvancedSkirmishOptions = setup.advanced_skirmish_options,
                     PreBuild = setup.advopt_pre_build,
                     ImprovedArabSwordsmen = setup.advopt_improved_arabswordsmen,
                     ImprovedLaddermen = setup.advopt_improved_laddermen,
@@ -311,6 +302,9 @@ namespace ExtendedData
                     TroopsAvailable = CopyRequiredArray(setup.MP_TroopsAvailable, 32, "troops"),
                 },
             };
+            // The Trail Maker edits the skirmish flag. Both Coop start paths should honor it.
+            settings.MultiplayerSetup.SetTrailMakerAdvancedOptions(setup.advanced_skirmish_options);
+            return settings;
         }
 
         private static int[] CopyRequiredArray(int[] source, int expectedLength, string label)

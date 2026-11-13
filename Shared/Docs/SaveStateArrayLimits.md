@@ -33,7 +33,7 @@ Die Grenze schützt sowohl `ManualOnlyGateGlobalIds` als auch `ManualOnlyGateLoc
 
 Implementierung:
 
-- `BugfixesAndQoL/src/PlaguePopularitySaveState.cs`
+- `BugfixesAndQoL/src/Plague/PlaguePopularitySaveState.cs`
 - `PlaguePopularitySaveLimitPolicy`
 - `PlaguePopularitySaveLimits`
 

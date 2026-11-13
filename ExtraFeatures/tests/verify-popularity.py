@@ -21,8 +21,10 @@ for slider in sliders:
     assert math.isclose(large / float(step), round(large / float(step))), (name, 'LargeChange')
     assert slider.get('IsSnapToTickEnabled') == 'True', name
 for node in xaml.iter():
-    if node.tag.rsplit('}', 1)[-1] in ('CheckBox', 'Slider', 'TextBox', 'Button', 'ComboBox'):
-        assert node.get('ToolTipService.ShowDuration') == '60000' and node.get('ToolTip'), node.attrib
+    control = node.tag.rsplit('}', 1)[-1]
+    if control in ('CheckBox', 'Slider', 'TextBox', 'Button', 'ComboBox'):
+        popup = node.find(f'p:{control}.ToolTip/p:ToolTip', ns)
+        assert node.get('ToolTipService.ShowDuration') == '60000' and popup is not None and popup.get('Content', '').strip(), node.attrib
 viewers = xaml.findall('.//p:ScrollViewer', ns)
 assert any(v.get('HorizontalScrollBarVisibility') == v.get('VerticalScrollBarVisibility') == 'Auto' for v in viewers)
 keys = None

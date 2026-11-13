@@ -18,10 +18,10 @@ public static class SettingsPresentationTests
     private static int checks;
     private static readonly Dictionary<string, string[]> Membership = new Dictionary<string, string[]>
     {
-        { "Units", new[] { "fear-factor-neutralization", "monks-always-run", "knight-dismount", "instant-horse", "knight-transform-gold", "knight-transform-delay", "lord-health" } },
+        { "Units", new[] { "fear-factor-neutralization", "monks-always-run", "knight-dismount", "instant-horse", "knight-transform-gold", "knight-transform-delay", "lord-health", "soldier-health", "civilian-health", "building-health" } },
         { "Gatehouses", new[] { "elevated-moat", "human-gate-reopen-delay", "ai-gate-reopen-delay", "human-gate-closing-distance", "ai-gate-closing-distance" } },
         { "Building", new[] { "building-repair", "keep-build-range", "human-civilian-enemy-proximity-singleplayer", "ai-civilian-enemy-proximity-singleplayer", "human-military-enemy-proximity-singleplayer", "ai-military-enemy-proximity-singleplayer", "human-civilian-enemy-proximity-multiplayer", "ai-civilian-enemy-proximity-multiplayer", "human-military-enemy-proximity-multiplayer", "ai-military-enemy-proximity-multiplayer", "ai-tower-gate-rebuild-delay" } },
-        { "Economy", new[] { "extra-church-priests", "campfire-peasants", "kill-reward-gold", "kill-reward-goods", "kill-reward-maximum", "periodic-gold-human", "periodic-gold-ai", "multiply-goods-gain", "multiply-goods-as-money" } },
+        { "Economy", new[] { "extra-church-priests", "campfire-peasants", "kill-reward-gold", "kill-reward-goods", "kill-reward-maximum", "periodic-gold-human", "periodic-gold-ai", "tree-respawn", "mature-tree-harvest", "fixed-production-bonus", "multiply-goods-gain", "multiply-goods-as-money" } },
         { "Demolition", new[] { "keep-storage-content", "wood-refund", "stone-refund", "iron-refund", "pitch-refund", "gold-refund" } },
         { "Plague", new[] { "plague-damage-walls", "plague-damage-gates", "plague-damage-towers", "plague-damage-keeps", "plague-duration", "apothecary-plague-search-distance", "healer-targets" } },
         { "Market", new[] { "market-prices-also-ai", "market-buy-price-multiplier", "market-sell-price-multiplier" } }
@@ -46,6 +46,17 @@ public static class SettingsPresentationTests
             .FirstOrDefault(a => a.LocalName == "ModSettingsSearch." + name);
         return attribute == null ? null : attribute.Value;
     }
+    private static XmlAttribute PopupHelp(XmlNode owner)
+    {
+        return owner.SelectSingleNode("./*[local-name()='" + owner.LocalName + ".ToolTip']/*[local-name()='ToolTip']/@Content") as XmlAttribute;
+    }
+
+    private static string PopupHelpText(XmlNode owner)
+    {
+        XmlAttribute help = PopupHelp(owner);
+        return help == null ? null : help.Value;
+    }
+
     private static IEnumerable<XmlNode> Ancestors(XmlNode node)
     {
         for (XmlNode parent = node.ParentNode; parent != null; parent = parent.ParentNode) yield return parent;
@@ -79,12 +90,26 @@ public static class SettingsPresentationTests
         foreach (XmlNode node in nodes.Where(n => new[] { "Button", "CheckBox", "ComboBox", "Slider", "TextBox" }.Contains(n.LocalName)))
         {
             Check(node.Attributes["ToolTipService.ShowDuration"] != null && node.Attributes["ToolTipService.ShowDuration"].Value == "60000" &&
-                node.Attributes["ToolTip"] != null && !string.IsNullOrWhiteSpace(node.Attributes["ToolTip"].Value), "nonempty 60000-ms tooltip: " + node.LocalName);
+                !string.IsNullOrWhiteSpace(PopupHelpText(node)), "nonempty 60000-ms tooltip: " + node.LocalName);
             if (!Ancestors(node).Any(n => Search(n, "IsSection") == "True")) continue;
             if (node.LocalName == "Button" && Search(node, "Exclude") == "True") continue;
             Check(Ancestors(node).Any(HostGuard), "every topic editor remains host guarded");
             Check(Ancestors(node).Count(n => Search(n, "IsSection") == "True") == 1, "editor in exactly one topic");
             Check(Ancestors(node).Any(n => Search(n, "Key") != null), "editor retains an explicit setting key");
+        }
+        // Each proximity setting must expose the same dedicated help in its editor and search result.
+        // This guards the shared-tooltip regression without depending on getter names.
+        XmlNode[] proximityRows = nodes.Where(n => (Search(n, "Key") ?? "").Contains("-enemy-proximity-")).ToArray();
+        var proximityHelp = new HashSet<string>(StringComparer.Ordinal);
+        foreach (XmlNode row in proximityRows)
+        {
+            string help = Search(row, "ToolTipText");
+            Check(!string.IsNullOrWhiteSpace(help) && proximityHelp.Add(help), "each proximity setting has dedicated help");
+            Check(PopupHelpText(row) == help,
+                "proximity row and search use identical help");
+            XmlNode[] editors = row.SelectNodes(".//*[local-name()='Slider' or local-name()='TextBox']").Cast<XmlNode>().ToArray();
+            Check(editors.Length == 2 && editors.All(n => PopupHelpText(n) == help),
+                "proximity slider and numeric input use their own row's help");
         }
         XmlNode items = nodes.Single(n => n.LocalName == "ItemsControl" && n.Attributes["ItemsSource"] != null && n.Attributes["ItemsSource"].Value == "{Binding MarketGoodPriceItems}");
         foreach (string kind in new[] { "gold", "goods", "maximum" })
@@ -109,6 +134,42 @@ public static class SettingsPresentationTests
             Check(Ancestors(cell).Any(n => n.Attributes != null && n.Attributes["IsEnabled"] != null &&
                 n.Attributes["IsEnabled"].Value == "{Binding CanConfigurePeriodicGold}"), "gold editors are locked during missions");
         }
+        XmlNode tree = nodes.Single(n => Search(n, "Key") == "extra.tree-respawn");
+        XmlNode treeSlider = tree.SelectNodes(".//*[local-name()='Slider']").Cast<XmlNode>().Single();
+        Check(tree.Attributes["IsEnabled"].Value == "{Binding CanConfigureTreeRespawn}" &&
+            treeSlider.Attributes["Minimum"].Value == "-1" && treeSlider.Attributes["Maximum"].Value == "120" &&
+            treeSlider.Attributes["TickFrequency"].Value == "1" && treeSlider.Attributes["SmallChange"].Value == "1" &&
+            treeSlider.Attributes["LargeChange"].Value == "1" && treeSlider.Attributes["IsSnapToTickEnabled"].Value == "True" &&
+            Search(treeSlider, "InactiveValues") == "-1" && PopupHelpText(treeSlider) == Search(tree, "ToolTipText"),
+            "Tree Respawn slider keeps the one-minute steps, distinct off state, searchable tooltip and mission guard");
+        XmlNode mature = nodes.Single(n => Search(n, "Key") == "extra.mature-tree-harvest");
+        XmlNode matureToggle = mature.SelectSingleNode(".//*[local-name()='CheckBox']");
+        Check(mature.Attributes["IsEnabled"].Value == "{Binding CanConfigureMatureTreeHarvest}" &&
+            matureToggle.Attributes["IsChecked"].Value == "{Binding MatureTreesOnly, Mode=TwoWay}" &&
+            PopupHelpText(matureToggle) == Search(mature, "ToolTipText"),
+            "Mature tree harvesting uses its own mission-locked toggle and searchable tooltip");
+        XmlNode production = nodes.Single(n => Search(n, "Key") == "extra.fixed-production-bonus");
+        XmlNode productionWarning = nodes.Single(n => n.Attributes != null && n.Attributes["Visibility"] != null &&
+            n.Attributes["Visibility"].Value == "{Binding ProductionBonusWarningVisibility}");
+        Check(Search(productionWarning, "Exclude") == "True" && !Ancestors(productionWarning).Any(n =>
+            n.Attributes != null && n.Attributes["Visibility"] != null && n.Attributes["Visibility"].Value.Contains("SettingsPresentation.")),
+            "production warning remains independent of topic and search filters");
+        Check(productionWarning.SelectNodes(".//*[local-name()='Button']").Cast<XmlNode>().Any(n =>
+            n.Attributes["Command"].Value == "{Binding ProductionBonusDetailsCommand}"),
+            "production issues provide a local details action outside host-only editors");
+        Check(nodes.Any(n => n.Attributes != null && n.Attributes["Text"] != null &&
+            n.Attributes["Text"].Value == "{Binding EffectiveFixedProductionBonusText}"),
+            "production options show the shared resolved bonus");
+        Check(production.Attributes["IsEnabled"].Value == "{Binding CanConfigureFixedProductionBonus}",
+            "production editor uses the mission and host authority guard");
+        foreach (string key in new[] { "extra.multiply-goods-gain", "extra.multiply-goods-as-money" })
+            Check(nodes.Single(n => Search(n, "Key") == key).Attributes["IsEnabled"].Value == "{Binding CanConfigureProductionGoods}",
+                "Production goods and money editors share the mission and host authority guard: " + key);
+        XmlNode productionInput = production.SelectNodes(".//*[local-name()='TextBox']").Cast<XmlNode>().Single();
+        Check(productionInput.Attributes["Text"].Value == "{Binding FixedProductionBonusValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" &&
+            PopupHelpText(productionInput) == Search(production, "ToolTipText") &&
+            production.SelectNodes(".//*[local-name()='TextBlock' and @Text='%']").Count == 1,
+            "production input shares its searchable help, signed whole-percent setter and visible percent unit");
         Check(items.Attributes["Width"] == null && items.Attributes["HorizontalAlignment"].Value == "Stretch" &&
             items.SelectNodes(".//*[local-name()='WrapPanel']").Cast<XmlNode>().All(n => n.Attributes["Width"] == null), "goods wrap to the finite available width");
         Check(nodes.Any(n => n.LocalName == "ScrollViewer" && n.Attributes["HorizontalScrollBarVisibility"].Value == "Auto" &&
@@ -123,7 +184,7 @@ public static class SettingsPresentationTests
                 int.Parse(blocks[0].Attributes["Grid.Column"].Value)<int.Parse(blocks[1].Attributes["Grid.Column"].Value),"Human then AI on the same row");
             XmlNode caption=row.SelectNodes("./*[local-name()='TextBlock']").Cast<XmlNode>().Single();
             Check(caption.Attributes["TextWrapping"].Value=="NoWrap" && caption.Attributes["TextTrimming"].Value=="CharacterEllipsis" &&
-                caption.Attributes["ToolTip"]!=null,"long row captions remain single-line and accessible in a tooltip");
+                !string.IsNullOrWhiteSpace(PopupHelpText(caption)),"long row captions remain single-line and accessible in a tooltip");
             foreach(XmlNode block in blocks) {
                 if(block.SelectNodes(".//*[local-name()='Slider']").Count>0)
                     Check(block.SelectNodes(".//*[local-name()='CheckBox' or local-name()='TextBlock']").Count==0,"value cells contain only slider and numeric editor");
@@ -186,7 +247,7 @@ public static class SettingsPresentationTests
             Check(texts[0].Attributes["Text"].Value == "{Binding HumanText}" && texts[0].Attributes["Grid.Column"].Value == "2" &&
                 texts[1].Attributes["Text"].Value == "{Binding AiText}" && texts[1].Attributes["Grid.Column"].Value == "4", "human-first role headers");
         }
-        foreach (string name in new[] { "AllowElevatedMoatHuman", "KillRewardGoldHuman", "MultiplyGoodsGainHuman", "MultiplyGoodsGainInMoneyHuman", "HumanLordHealthPercent" })
+        foreach (string name in new[] { "AllowElevatedMoatHuman", "KillRewardGoldHuman", "MultiplyGoodsGainHuman", "MultiplyGoodsGainInMoneyHuman", "HumanLordHealthPercent", "HumanSoldierHealthPercent", "HumanCivilianHealthPercent", "HumanBuildingHealthPercent" })
         {
             XmlNode editor = nodes.Single(n => n.Attributes["IsChecked"] != null && n.Attributes["IsChecked"].Value == "{Binding " + name + ", Mode=TwoWay}" ||
                 n.LocalName == "Slider" && n.Attributes["Value"] != null && n.Attributes["Value"].Value == "{Binding " + name + ", Mode=TwoWay}");
@@ -196,7 +257,7 @@ public static class SettingsPresentationTests
         }
         XmlNode context = nodes.Single(n => n.Attributes["Text"] != null && n.Attributes["Text"].Value == "{Binding EnemyProximityTitleText}");
         Check(Ancestors(context).Any(n => n.Attributes != null && n.Attributes["Visibility"] != null && n.Attributes["Visibility"].Value == "{Binding SettingsPresentation.EnemyProximityOptions.Visibility}"), "enemy-proximity context follows its search group");
-        foreach (string text in new[] { "BuildingsProductionTitleText", "EconomyBuffsTitleText", "LordHealthTitleText", "BulldozeHelpText", "PlagueDamageSurfacesText", "MarketGoodPriceMultipliersHelpText" })
+        foreach (string text in new[] { "BuildingsProductionTitleText", "EconomyBuffsTitleText", "HealthTitleText", "LordHealthTitleText", "SoldierHealthTitleText", "CivilianHealthTitleText", "BuildingHealthTitleText", "BulldozeHelpText", "PlagueDamageSurfacesText", "MarketGoodPriceMultipliersHelpText" })
             Check(nodes.Any(n => n.Attributes["Text"] != null && n.Attributes["Text"].Value == "{Binding " + text + "}"), "retained contextual heading/explanation: " + text);
     }
 
@@ -219,6 +280,17 @@ public static class SettingsPresentationTests
         NegativeXaml(document, d => ((XmlElement)d.SelectSingleNode("//*[@shared:ModSettingsSearch.IsSection='True']", Namespaces(d))).SetAttribute("IsEnabled", "{Binding CanEditHostSettings}"));
         NegativeXaml(document, d => ((XmlElement)d.SelectSingleNode("//*[@IsEnabled='{Binding CanEditHostSettings}' and @Opacity]")).RemoveAttribute("IsEnabled"));
         NegativeXaml(document, d => ((XmlElement)d.SelectSingleNode("//*[local-name()='Slider']")).SetAttribute("ToolTipService.ShowDuration", "100"));
+        NegativeXaml(document, d => {
+            XmlNode row = d.SelectNodes("//*").Cast<XmlNode>().First(n => (Search(n, "Key") ?? "").Contains("-enemy-proximity-"));
+            PopupHelp(row.SelectSingleNode(".//*[local-name()='Slider']")).Value = "wrong setting help";
+        });
+        NegativeXaml(document, d => {
+            XmlNode[] rows = d.SelectNodes("//*").Cast<XmlNode>().Where(n => (Search(n, "Key") ?? "").Contains("-enemy-proximity-")).ToArray();
+            string sharedHelp = Search(rows[0], "ToolTipText");
+            rows[1].Attributes.Cast<XmlAttribute>().Single(a => a.LocalName == "ModSettingsSearch.ToolTipText").Value = sharedHelp;
+            PopupHelp(rows[1]).Value = sharedHelp;
+            foreach (XmlElement editor in rows[1].SelectNodes(".//*[local-name()='Slider' or local-name()='TextBox']")) PopupHelp(editor).Value = sharedHelp;
+        });
         NegativeXaml(document, d => ((XmlElement)d.SelectSingleNode("//*[local-name()='ItemsPanelTemplate']/*[local-name()='WrapPanel']")).SetAttribute("Width", "760"));
         NegativeXaml(document, d => ((XmlElement)d.SelectSingleNode("//*[local-name()='CheckBox' and contains(@IsChecked,'EnableKnightDismount')]")).SetAttribute("MinHeight", "20"));
         NegativeXaml(document, d => ((XmlElement)d.SelectSingleNode("//*[@shared:ModSettingsSearch.Key='extra.knight-transform-gold']/*[local-name()='Grid.ColumnDefinitions']/*[1]", Namespaces(d))).SetAttribute("Width", "*"));
@@ -470,6 +542,15 @@ public static class SettingsPresentationTests
             string[] layoutKeys = new[] { "SoldierBehavior", "KnightTransformation", "GateControl", "ReopenDelay", "ClosingDistance", "Singleplayer", "Multiplayer" }
                 .Select(key => "ExtraFeatures.SettingsLayout." + key).OrderBy(key => key).ToArray();
             Check(layout.Select(line => line.Split('=')[0]).OrderBy(key => key).SequenceEqual(layoutKeys) && layout.All(line => line.IndexOf('=') < line.Length - 1), "compact layout locales are complete/unique/nonempty");
+            string[] proximity = File.ReadAllLines(file).Where(line => Regex.IsMatch(line,
+                @"^SomeSettings\.(Human|AI)(Civilian|Military)EnemyProximity(Singleplayer|Multiplayer)Help=")).ToArray();
+            Check(proximity.Length == 8 && proximity.Select(line => line.Split('=')[0]).Distinct().Count() == 8,
+                "all eight proximity help translations are present exactly once");
+            string[] helpTexts = proximity.Select(line => line.Substring(line.IndexOf('=') + 1)).ToArray();
+            Check(helpTexts.Distinct().Count() == 8 && helpTexts.All(text => Regex.IsMatch(text, @"^Vanilla\b[^:]*[−-]1\b")),
+                "each proximity tooltip is distinct and leads with the Vanilla setting");
+            Check(proximity.All(line => line.Contains("BugfixesAndQoL") == line.Split('=')[0].Contains("Civilian")),
+                "only civilian proximity help describes the optional Peace Time cap");
         }
     }
 }

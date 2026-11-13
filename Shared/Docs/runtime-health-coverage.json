@@ -99,7 +99,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "single-building pause save restore",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -108,7 +108,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "troop movement save restore",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -117,7 +117,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "Assassin captured-gate protection",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializePersistentFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -126,7 +126,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "Assassin gatehouse descent",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializePersistentFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -135,7 +135,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "Assassin gatehouse climb",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializePersistentFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -144,7 +144,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "enemy gate routing",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializePersistentFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -153,7 +153,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "drawbridge destruction fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializePersistentFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -162,7 +162,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "gatehouse living capture",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializePersistentFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -171,7 +171,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "AI melee raid retarget fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializePersistentFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -180,7 +180,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "plague popularity fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -189,7 +189,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "plague cloud removal fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -198,7 +198,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "plague target-reservation fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -207,7 +207,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "stuck-apothecary fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -216,7 +216,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "assembly-point placement fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -225,7 +225,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "Healer attack-command fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -234,7 +234,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "mounted-stockpile movement fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -243,7 +243,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "disbanded-unit control-group cleanup",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -252,7 +252,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "Lord control groups",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -261,7 +261,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "AI stone-reserve fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -270,7 +270,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "AI keep build range",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializePersistentFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -279,7 +279,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "AI defense patrol fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -288,7 +288,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "AI wall-targeting fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -297,7 +297,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "baker/miller breaks",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -306,7 +306,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "workshop idle delay",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -315,7 +315,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "AIV defender-position fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -324,7 +324,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "AI preplaced-map-building fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializePersistentFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -333,7 +333,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "AI tower-ruin repair fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -342,7 +342,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "better AI overbuild rules",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -351,7 +351,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "ally goods amount modifiers",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -360,7 +360,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "Ctrl single-unit market trade",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -369,7 +369,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "Assassin gatehouse climb",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -378,7 +378,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "AI melee raid retarget fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -387,7 +387,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "Trail Customize buttons",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -396,7 +396,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "Coop custom-lord selection",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -405,7 +405,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "moved feature settings",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -414,7 +414,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "AI tower-ruin repair fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -423,7 +423,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "better AI overbuild rules",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -432,7 +432,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "AI defense patrol fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -441,7 +441,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "AI wall-targeting fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -450,7 +450,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "baker/miller breaks",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -459,7 +459,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "workshop idle delay",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -468,7 +468,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "AIV defender-position fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -477,7 +477,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "ally goods amount modifiers",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -486,7 +486,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "surrender",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -495,7 +495,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "Lord troop HUD",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -504,7 +504,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "shared unit HUD",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -513,7 +513,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "selected-unit health display",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -522,7 +522,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "selected-unit health display",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -531,7 +531,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "surrender",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -540,7 +540,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "resync host kick",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -549,7 +549,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "AI castle/settings selection memory",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -558,7 +558,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "Workshop upload Lord-selection fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -567,7 +567,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "AI castle/settings selection memory",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -576,7 +576,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "custom-lord list enhancements",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -585,7 +585,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "custom-lord list enhancements",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -594,7 +594,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "AI castle/settings list enhancements",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -603,7 +603,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "AI castle/settings list enhancements",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -612,7 +612,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "map-origin sorting",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -621,7 +621,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "Vanilla maps in the editor",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -630,7 +630,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "troop movement fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -639,7 +639,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "multiplayer game speed",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -648,7 +648,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "assembly-point placement fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -657,7 +657,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "Healer attack-command fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -666,7 +666,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "mounted-stockpile movement fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -675,7 +675,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "Lord control groups",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -684,7 +684,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "AI stone-reserve fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -693,7 +693,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "AI defense patrol fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -702,7 +702,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "Assassin path reconstruction",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -711,7 +711,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "Assassin climb button",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -720,7 +720,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "Assassin climb button cleanup",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -729,7 +729,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "enemy-proximity bulldoze cursor",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "InitializeFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -738,7 +738,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "plague target-reservation fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",
@@ -747,7 +747,7 @@
     {
       "Mod": "BugfixesAndQoL_Serp",
       "Feature": "troop movement fix",
-      "Source": "BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs",
+      "Source": "BugfixesAndQoL/src/Core/Bootstrap/BugfixesAndQoLRuntime.cs",
       "Trigger": "ApplyFeature",
       "Postcondition": "Guarded action returned; initialization/execution only.",
       "Failure": "Named feature failure is unconditional and isolated by the existing boundary.",

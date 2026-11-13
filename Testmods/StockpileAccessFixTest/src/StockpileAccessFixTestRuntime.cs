@@ -1170,7 +1170,7 @@ namespace StockpileAccessFixTest
             ushort entryX = 0;
             ushort entryY = 0;
             if (storageBuildingId > 0 &&
-                GameBuildingManagerAPI.Instance.TryGetBuildingById(storageBuildingId, out GameBuilding* building) &&
+                global::APIShared.BuildingAccess.TryGetById(storageBuildingId, out GameBuilding* building, out _) &&
                 building != null)
             {
                 ownedStockpile = building->r_AliveState == AliveState.IsAlive &&

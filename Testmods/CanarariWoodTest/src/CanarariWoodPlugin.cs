@@ -10,7 +10,7 @@ using System;
 namespace CanarariWoodTest
 {
     [BepInDependency("000shcdese", "2.11.0")]
-    [BepInDependency("APIShared_Serp", "0.23.0")]
+    [BepInDependency("APIShared_Serp", "0.49.0")]
     [BepInDependency("BugfixesAndQoL_Serp", "1.0.181")]
     [BepInDependency("AIBuildDiagnoseTest_Serp", "0.1.2")]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]

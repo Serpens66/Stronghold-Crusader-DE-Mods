@@ -10,7 +10,7 @@ foreach ($script in @('_inspect\Fixes124Implementation\Verify-Implementation.ps1
     & (Join-Path $workspace $script)
     if (-not $?) { throw "Consumer compatibility check failed: $script" }
 }
-foreach ($suite in @('APISharedTests','LobbyModSettingsPresetTests')) {
+foreach ($suite in @('APISharedTests','LobbyModSettingsPresetTests','MissionServiceTests')) {
     & dotnet run --project (Join-Path $workspace "_inspect\$suite\$suite.csproj") --configuration Release
     if ($LASTEXITCODE -ne 0) { throw "Workspace consumer tests failed: $suite" }
 }

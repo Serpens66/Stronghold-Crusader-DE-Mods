@@ -547,7 +547,7 @@ internal static class Program
               buildingHook.Value.IndexOf("GetTileBuildingId(tileId)", StringComparison.Ordinal),
             "Round-tower placement preview must use Vanilla tile fragments, direct indices and conflict-friendly sprite-only replacement before building resolution.");
         Check(runtime.Contains("buildingTrampoline(tile, file, image, light);") &&
-              runtime.Contains("GetTileBuildingId(tileId)") && runtime.Contains("TryGetBuildingById(buildingId") &&
+              runtime.Contains("GetTileBuildingId(tileId)") && runtime.Contains("BuildingAccess.TryGetById(buildingId") &&
               runtime.Contains("STRUCT_TOWER5_DESTROYED") && runtime.Contains("SH1DE round-tower skin applied"),
             "Round-tower replacement, one-based building resolution or diagnostics are incomplete.");
         Check(runtime.Contains("AddUpdateBuildingAnimHook") && runtime.Contains("AddUpdateWallFillinHook") &&

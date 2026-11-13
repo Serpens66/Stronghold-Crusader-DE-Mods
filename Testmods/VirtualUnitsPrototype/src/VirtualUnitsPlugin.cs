@@ -6,7 +6,7 @@ using VirtualUnitsPrototype.API;
 namespace VirtualUnitsPrototype
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.0")]
-    [BepInDependency(ApiSharedGuid, "0.26.0")]
+    [BepInDependency(ApiSharedGuid, "0.49.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class VirtualUnitsPlugin : BaseUnityPlugin
     {

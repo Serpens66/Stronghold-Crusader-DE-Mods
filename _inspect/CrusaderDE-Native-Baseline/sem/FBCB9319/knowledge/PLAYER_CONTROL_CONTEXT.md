@@ -354,3 +354,98 @@ An inactive cell follows the complete original loads, including zero/negative
 native spectator IDs. A failed partial publication must retain all executable
 roots with that cell inactive. This describes the bounded integration contract;
 it is not evidence of live host/client acceptance of a corrective build.
+
+## Group allocation and explicit relay orders (2026-11-04) [Vanilla facts]
+
+Rechecked for native SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The relative call at `0x11E17C` resolves to the create-group function `0x119C00`.
+Its allocation tests the group state at raw record `+0x40`, but does not test the
+local pending-selection reservation at `+0x2A`. It then clears the complete
+record and assigns its new global identity. This differs from `0x11D1B0`, which
+requires both state and reservation to be clear. A synchronized caller therefore
+cannot assume that independently calling the public Extender `Create` on every
+peer chooses a reservation-safe identical slot. The false second argument avoids
+the optional current-selected-tribe header write; it does not repair allocation.
+
+Assignment `0x11D370` adds the target membership bit/count and rewrites the unit's
+tribe/leader/global references. It does not remove the previous membership.
+Explicit regrouping needs the audited removal and rest-group lifecycle, not just
+an assignment followed by a movement call. These are confirmed-static instruction
+and data-flow facts; internal symbolic names remain candidate labels.
+
+The Extender group-move entry reaches `0x11B520` directly. It does not traverse
+Vanilla's Chore-17 wrapper `0x196100` and its separate group `+0x56C` write.
+Existing group-order events and inner native hooks remain reachable, but this is
+not proof of identical ordinary-input semantics. Stop follows `0x11E960` case
+`0x1F`, rather than disband case `0x1E`; its special traversal cleanup can still
+perform normal native relocation/damage. A successful public call is not proof
+that all members moved or reached the requested destination.
+
+## Relay experiment boundary (2026-11-04) [mod integration]
+
+The bounded experimental integration and its actual public API calls are recorded
+in `Testmods/PlayerControlRelayTest/UpdateToNewDLL.md`. Private selection does not
+mutate native selection; ordinary consequences of a synchronized order remain
+simulation mutations. No new live-game or real-peer acceptance is claimed here.
+
+## Group lifetime and tick order for relay orders (2026-11-05) [Vanilla facts]
+
+Rechecked for native SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. Static evidence
+from the semantic export and the installed DLL bytes; no live-game acceptance.
+
+Ordinary soldiers reach their group through `0x127A0 -> 0xD5250 -> 0x190CA0 -> 0x117000`;
+special types and Arab troops reach `0x117000` through `0x1819D0`. `0x117000` keeps a
+per-player recruit group: Engineer (30), Tunneler (5) and Ladderman (29) have one each,
+Monk (37) has a separate record and all other types share index 0. Each record is
+revalidated by the group's global ID and recreated through `0x119C00`. Vanilla selection
+`0x191250` creates a new group for the selected units, so stable small groups usually
+come from the owner's selection.
+
+`DLL_RunTick` runs input `0x8C5F0`, then due Chores `0x1F7E0`, then `0xCDE60`. Inside its
+simulation pass, unit loop `0x182B00` precedes group maintenance `0x1261F0`. The latter
+removes members with a death marker, members whose tribe field differs and members in
+other states through `0x123EA0`, and clears groups without living members through
+`0x118C70`. Corpses therefore stay in a group's bitmap only until that maintenance.
+
+`0x11D1B0` reserves by the native view passed from `0x191130`. Two PCs viewing the same
+player choose the same free slot, and `0x119CE0` clears the record for the later
+opcode-16 execution. The selection count at unit manager `+0x24 + player*4` is per player.
+Sharing a view with an active human owner is therefore not a safe control path.
+
+Wrapper `0x196100` calls `0x11B520` with a fixed new-order argument of 1 and the move
+flags without bit 7 as move type; bit 7 selects the `+0x56C` value. Input `0x8C5F0` starts
+from flags 1, or 0x81 when its byte at RVA `0x8EBAC1` is set, and toggles bit 7 for a
+repeated click on the same tile within 500 ms.
+`0x11B520` returns 0 only before its per-member loops; group fields may be written by
+then. Target dispatcher case `0x1F` (Stop) always reaches its final `return 1`.
+
+Local marking `0x1904C0` receives the unit IDs of all owners from `DLL_TroopSelection` but
+marks only units of the native view, excluding Lords. Its per-unit filter requires state 2,
+no death marker, nonzero raw `+0x8FC` (typed `r_SelectionAllowed`), zero raw `+0x9B0`, a
+raw `+0x918` other than the disband state 0x6D and zero raw `+0x708`. Foreign units therefore
+have neither Vanilla's selection nor its highlight.
+
+The public `UnassignUnit` pattern matches only `0x123EA0` in this image. Whether `0x1142E0`
+uses `0x119D60` in multiplayer for a reason other than its player mapping is not established.
+
+## Managed mouse input for foreign-unit control (2026-11-05)
+
+Managed baseline `BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`, `EditorDirector`:
+
+- `TroopSelection(mousePosX, mousePosY)` receives screen pixels (`Input.mousePosition.x`, `Screen.height - y`), not a tile.
+- The order tile is `mouseOverX/Y` of `preDLLCallActions`: `gameMapX/Y` of the tile under the cursor, -1 over GUI unless `CurrentAction == 9`. `EngineInterface.run` passes these values to `DLL_RunTick`.
+- `GameMap.grabTroopsOnScreen` iterates all drawn chimps without an owner test, so `selectedChimps` and `underCursorChimps` hold foreign units too. `CurrentAction` 8 turns into 9 on release, and `preDLLCallActions` sets it to 0 before the `TroopSelection` call with state 3.
+
+Verification: decompiled from the installed managed assembly; `SP-relay.json` drives this path.
+
+Observation from `SP-relay.json`, 2026-11-05, AI player 2, 150 archers spawned into a separate tribe: within 300 ms the AI moved them into its own tribes in high slots (for example 4482, 4490, 4498), and the emptied tribe became free for `0x119C00` again. Tribes built later with `Create`/`UnassignUnit`/`AssignUnit` kept their members for the 51 s observed. One run on one map; it does not establish a general AI rule.
+
+## Mouse mode and troop HUD inputs (2026-11-05)
+
+`ConfigSettings.Settings_SH1RTSControls` is `DLL_RunTick` argument 26 and `param_4` of input `0x8C5F0`. True: left release orders, right press deselects through `0x1800897F0`. False: right release (`param_5`) orders, a left press without Shift deselects and reruns the input as release. Type 0x37 (55) is the Lord: `0x1904C0` leaves him out of box marking, while `0x191C90` finds a selectable Lord for the local view and the HUD reads `lordOnlySelected`.
+
+`0x19D960` writes the play-state troop fields: `troops_show_attack_here_and_type` is 1 (`0x1968B0` and `0x1968F0`), 2 (`0x196CB0`), 3 (types 0x27/0x28, with `0x40A` as ammunition), 4 (`0x196A30`), 5 or 0 (`0x196AC0` true gives 0). `DLL_GameAction` maps Stop 0x3F2 and Disband 0x3F3 to queued group commands 0x1F and 0x1E, arms Attack Here 0x3F4 through `0x90510`, and returns mapper 0x22 for Patrol 0x3FB, which the managed wrapper turns into `placeBuilding`.
+
+Evidence: decompiled current image and managed export. Observed through `SP-relay.json`; the classification of the `0x196A30` and `0x196AC0` type lists was not resolved to unit names.

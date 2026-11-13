@@ -9,10 +9,10 @@ APIShared/APIShared.csproj
 APIShared/examples/ThirdPartyMod/ThirdPartyMod.csproj
 BugfixesAndQoL/BugfixesAndQoL.csproj
 BugfixesAndQoL/tests/AIKeepRange.Tests/AIKeepRange.Tests.csproj
-BugfixesAndQoL/tests/AssassinPathfinding.Tests/AssassinPathfinding.Tests.csproj
-BugfixesAndQoL/tests/ExtendedShiftCommandQueue.Tests/ExtendedShiftCommandQueue.Tests.csproj
-BugfixesAndQoL/tests/Formations.Tests/Formations.Tests.csproj
-BugfixesAndQoL/tests/FriendlyMoatMovement.Tests/FriendlyMoatMovement.Tests.csproj
+Pathfinding/tests/AssassinPathfinding.Tests/AssassinPathfinding.Tests.csproj
+Pathfinding/tests/ExtendedShiftCommandQueue.Tests/ExtendedShiftCommandQueue.Tests.csproj
+Pathfinding/tests/Formations.Tests/Formations.Tests.csproj
+Pathfinding/tests/FriendlyMoatMovement.Tests/FriendlyMoatMovement.Tests.csproj
 BugfixesAndQoL/tests/GatehouseLivingCapture.Tests/GatehouseLivingCapture.Tests.csproj
 BugfixesAndQoL/tests/ImprovedMoatFilling.Tests.csproj
 BugfixesAndQoL/tests/ModOptions.Tests/ModOptions.Tests.csproj
@@ -32,6 +32,7 @@ ExtremePowers/ExtremePowers.csproj
 Helpers/ActiveAIVDetector/ActiveAIVDetector.csproj
 Helpers/HunterQueryTargetDiagnostic/HunterQueryTargetDiagnostic.csproj
 ImprovedHunters/ImprovedHunters.csproj
+Pathfinding/Pathfinding.csproj
 RandomEvents/RandomEvents.csproj
 SerpsModsHost/SerpsModsHost.csproj
 Shared/Tests/Json.Tests/Shared.Json.Tests.csproj
@@ -47,9 +48,7 @@ Testmods/AIMarketOverbuyDiagnostic/AIMarketOverbuyDiagnostic.csproj
 Testmods/AivLobbyPresetTest/AivLobbyPresetTest.csproj
 Testmods/EnemyBridgePathTest/EnemyBridgePathTest.csproj
 Testmods/EnemyBridgePathTest/EnemyBridgePathTest.PolicyTests.csproj
-Testmods/EngineerSiegeFixTest/EngineerSiegeFixTest.csproj
 Testmods/MainViewModelInitProbe/MainViewModelInitProbe.csproj
-Testmods/MoatMove/MoatMove.csproj
 Testmods/OutpostTest/OutpostTest.csproj
 Testmods/OutpostTest/tests/OutpostTest.Tests.csproj
 Testmods/PrebuiltWorkshopBothFixTest/PrebuiltWorkshopBothFixTest.csproj

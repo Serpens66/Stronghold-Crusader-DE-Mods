@@ -1,0 +1,44 @@
+using System;
+using System.Collections.Generic;
+using SHCDESE.Interop;
+namespace Pathfinding.UnitCommands
+{
+    internal sealed unsafe partial class UnitCommandPathRuntime
+    {
+        internal UnitCommandTraversalProvider Traversal => UnitCommandPathAPI.Traversal;
+        internal bool TraversalEnabled => !nativeManualProbe && !disposed && CurrentOptions.TraversalEnabled && Traversal?.Enabled == true;
+        internal bool EngineEnabled => !nativeManualProbe && !disposed && Traversal?.EngineActive == true;
+        internal bool ManualCommandsEnabled => !disposed && settings.EnableMod && settings.EnableImprovedManualUnitCommands;
+        internal void InvalidateFastMoatData()
+        {
+            // Maintenance must continue while policy is disabled; no route is searched.
+            Traversal?.InvalidateFastMoatData();
+             return;
+        }
+        internal void InvalidateFastMoatTile(int tile)
+        {
+            // Maintenance must continue while policy is disabled; no route is searched.
+            Traversal?.InvalidateFastMoatTile(tile);
+             return;
+        }
+        internal void InvalidateFastMoatDirections()
+        {
+            // Maintenance must continue while policy is disabled; no route is searched.
+            Traversal?.InvalidateFastMoatDirections();
+        }
+        internal void LogAndResetFastMoatMetrics()
+        {
+            Traversal?.LogAndResetFastMoatMetrics();
+             return;
+        }
+        internal void RetainFastMoveDistribution(MoveCommandScope command)
+        {
+            if (TraversalEnabled) Traversal.RetainFastMoveDistribution(command);
+        }
+        internal bool TryChooseFastFormation(IntPtr manager, int x, int y, out int tile)
+        {
+            if (TraversalEnabled) return Traversal.TryChooseFastFormation(manager, x, y, out tile);
+            tile = default; return false;
+        }
+    }
+}

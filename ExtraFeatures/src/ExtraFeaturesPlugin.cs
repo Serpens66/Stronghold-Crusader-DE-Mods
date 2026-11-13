@@ -9,7 +9,7 @@ using System;
 namespace ExtraFeatures
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.0")]
-    [BepInDependency(ApiSharedGuid, "0.25.0")]
+    [BepInDependency(ApiSharedGuid, "0.52.0")]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("FearFactorNeutralizationTest_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -25,7 +25,7 @@ namespace ExtraFeatures
 
         public const string PluginGuid = "ExtraFeatures_Serp";
         public const string PluginName = "Extra Features";
-        public const string PluginVersion = "1.0.129";
+        public const string PluginVersion = "1.0.136";
 
         private ExtraFeaturesRuntime runtime;
         private bool marketGoodPriceVisualRefreshFailureLogged;
@@ -49,7 +49,7 @@ namespace ExtraFeatures
             bool legacySomeSettingsLoaded = Chainloader.PluginInfos.ContainsKey(LegacySomeSettingsGuid);
             if (legacySomeSettingsLoaded)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/src/ExtraFeaturesPlugin.cs:51", $"The obsolete mod '{LegacySomeSettingsGuid}' is loaded together with {PluginName}. " +
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/ExtraFeaturesPlugin/Awake", $"The obsolete mod '{LegacySomeSettingsGuid}' is loaded together with {PluginName}. " +
                     "Uninstall it to avoid duplicate or conflicting features.");
             }
 
@@ -79,7 +79,7 @@ namespace ExtraFeatures
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/src/ExtraFeaturesPlugin.cs:75", $"Extra Features Chore registration failed; synchronized multiplayer actions remain unavailable: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/ExtraFeaturesPlugin/InitializeLibraryRuntime.chore-registration-failed-synchronized", $"Extra Features Chore registration failed; synchronized multiplayer actions remain unavailable: {ex}");
             }
 
             try
@@ -91,7 +91,7 @@ namespace ExtraFeatures
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/src/ExtraFeaturesPlugin.cs:89", $"Extra Features market-price editor initialization failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/ExtraFeaturesPlugin/InitializeLibraryRuntime.market-price-editor-initialization", $"Extra Features market-price editor initialization failed: {ex}");
             }
 
             try
@@ -111,19 +111,8 @@ namespace ExtraFeatures
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/src/ExtraFeaturesPlugin.cs:104", $"Extra Features settings UI registration failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/ExtraFeaturesPlugin/InitializeLibraryRuntime.settings-ui-registration-failed", $"Extra Features settings UI registration failed: {ex}");
                 return;
-            }
-
-            try
-            {
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "SerpTroopAction_0100_ExtraFeaturesKnightTransform",
-                    runtime.KnightDismountButton);
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/src/ExtraFeaturesPlugin.cs:116", $"Extra Features knight button binding failed: {ex}");
             }
 
             try
@@ -137,7 +126,7 @@ namespace ExtraFeatures
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/src/ExtraFeaturesPlugin.cs:130", $"Extra Features gatehouse automation button binding failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/ExtraFeaturesPlugin/InitializeLibraryRuntime.gatehouse-automation-button-binding", $"Extra Features gatehouse automation button binding failed: {ex}");
             }
 
             try
@@ -148,7 +137,7 @@ namespace ExtraFeatures
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/src/ExtraFeaturesPlugin.cs:141", $"Extra Features native runtime initialization failed; unaffected features may continue: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/ExtraFeaturesPlugin/InitializeLibraryRuntime.native-runtime-initialization-failed", $"Extra Features native runtime initialization failed; unaffected features may continue: {ex}");
             }
 
             try
@@ -157,7 +146,7 @@ namespace ExtraFeatures
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/src/ExtraFeaturesPlugin.cs:150", $"Extra Features settings reconciliation failed; already initialized features remain active: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/ExtraFeaturesPlugin/InitializeLibraryRuntime.settings-reconciliation-failed-already", $"Extra Features settings reconciliation failed; already initialized features remain active: {ex}");
             }
 
             try
@@ -166,7 +155,7 @@ namespace ExtraFeatures
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/src/ExtraFeaturesPlugin.cs:159", $"Extra Features AI Vanilla market-price initialization failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/ExtraFeaturesPlugin/InitializeLibraryRuntime.ai-vanilla-market-price", $"Extra Features AI Vanilla market-price initialization failed: {ex}");
             }
 
             Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; Extra Features initialization stages completed.");
@@ -185,7 +174,7 @@ namespace ExtraFeatures
                     return;
 
                 marketGoodPriceVisualRefreshFailureLogged = true;
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/src/ExtraFeaturesPlugin.cs:177", $"Extra Features market-price visual/search refresh failed; multiplier controls remain usable: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/ExtraFeaturesPlugin/RefreshMarketGoodPriceVisuals", $"Extra Features market-price visual/search refresh failed; multiplier controls remain usable: {ex}");
             }
         }
 
@@ -202,7 +191,7 @@ namespace ExtraFeatures
                     return;
 
                 buildingRepairIconRefreshFailureLogged = true;
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/src/ExtraFeaturesPlugin.cs:196", $"Extra Features building repair settings icon refresh failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/ExtraFeaturesPlugin/RefreshSettingsVisuals", $"Extra Features building repair settings icon refresh failed: {ex}");
             }
         }
 

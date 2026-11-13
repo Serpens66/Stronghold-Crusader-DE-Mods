@@ -21,6 +21,66 @@
   },
   "documents": [
     {
+      "file": "UNIT_LOAD_PLACEMENT_CONTRACTS.md",
+      "scope": "vanilla+integration",
+      "components": ["PathfindingLoadTest", "Pathfinding", "APIShared", "Script Extender"],
+      "integrationSections": ["Test observations and external adapters"]
+    },
+    {
+      "file": "UNIT_VOICES.md",
+      "scope": "vanilla+integration",
+      "components": ["APIShared", "BeduinFemaleTest"],
+      "integrationSections": ["APIShared integration"]
+    },
+    {
+      "file": "AREA_DEMOLITION.md",
+      "scope": "vanilla+integration",
+      "components": ["AreaDemolitionTest"],
+      "integrationSections": ["Testmod integration"]
+    },
+    {
+      "file": "SIDE_HUD_VISIBILITY.md",
+      "scope": "vanilla",
+      "components": [],
+      "integrationSections": []
+    },
+    {
+      "file": "CUSTOM_LORD_AIV_SELECTION.md",
+      "scope": "vanilla+integration",
+      "components": ["BugfixesAndQoL"],
+      "integrationSections": ["Remembered selection and stale enhanced rows", "Supplied evidence and limits"]
+    },
+    {
+      "file": "WORKER_PRODUCTION_BONUS.md",
+      "scope": "vanilla+integration",
+      "components": ["APIShared", "ExtraFeatures", "ImprovedHunters"],
+      "integrationSections": ["Shared implementation and evidence"]
+    },
+    {
+      "file": "SIEGE_ENGINEER_CREW_TIMEOUT.md",
+      "scope": "vanilla",
+      "components": [],
+      "integrationSections": []
+    },
+    {
+      "file": "HUNTER_PREY_RULES.md",
+      "scope": "vanilla+integration",
+      "components": ["ImprovedHunters"],
+      "integrationSections": ["ImprovedHunters integration", "Evidence and limits"]
+    },
+    {
+      "file": "WEAPON_WORKSHOP_FIELDS.md",
+      "scope": "vanilla",
+      "components": [],
+      "integrationSections": []
+    },
+    {
+      "file": "KNIGHT_SELECTION_TRANSFERS.md",
+      "scope": "mod",
+      "components": ["ExtraFeatures", "Script Extender"],
+      "integrationSections": ["ExtraFeatures integration and verification"]
+    },
+    {
       "file": "ENEMY_HP_MULTIPLIER.md",
       "scope": "vanilla",
       "components": [],
@@ -35,9 +95,9 @@
     {
       "file": "PITCH_STAIRS_HEIGHT.md",
       "scope": "vanilla+integration",
-      "components": ["PitchStairsTest"],
-      "integrationSections": ["PitchStairsTest measurements"],
-      "note": "Live counters of the PitchStairsTest testmod; all other sections are Vanilla."
+      "components": ["BugfixesAndQoL", "PitchStairsTest"],
+      "integrationSections": ["PitchStairsTest measurements", "BugfixesAndQoL migration and validation boundary"],
+      "note": "Historical testmod counters and the main-mod migration are integration knowledge; record/layout, terminal-window and generic physics supplements are Vanilla facts."
     },
     {
       "file": "SAVE_WRITER_ROUTES.md",
@@ -667,6 +727,17 @@
       "note": "Managed workaround inline."
     },
     {
+      "file": "GROUP_MOVE_EXCLUSION_MARK.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "PlayerControlRelayTest"
+      ],
+      "integrationSections": [
+        "Runtime evidence",
+        "PlayerControlRelayTest"
+      ]
+    },
+    {
       "file": "MANUAL_GROUP_ADMISSION.md",
       "scope": "vanilla+integration",
       "components": [
@@ -761,6 +832,10 @@
         "Diagnostic refinement (2026-10-23)",
         "Confirmed URI rejection and consumer correction (2026-10-23)"
       ]
+    },
+    {
+      "file": "OUTPOST_ATTACK_RETARGET.md",
+      "scope": "vanilla"
     },
     {
       "file": "OUTPOSTS.md",
@@ -1071,6 +1146,18 @@
       "note": "Mod usage inline."
     },
     {
+      "file": "TREE_RESPAWN.md",
+      "scope": "vanilla+integration",
+      "components": ["ExtraFeatures", "Script Extender", "APIShared"],
+      "integrationSections": ["ExtraFeatures integration"]
+    },
+    {
+      "file": "WOODCUTTER_TREE_MATURITY.md",
+      "scope": "vanilla+integration",
+      "components": ["ExtraFeatures", "APIShared", "Script Extender", "Fixes"],
+      "integrationSections": ["ExtraFeatures integration"]
+    },
+    {
       "file": "TREE_BLIGHT_DECAY.md",
       "scope": "vanilla+integration",
       "components": [
@@ -1148,6 +1235,12 @@
       "integrationSections": [
         "Spectator observer command policy"
       ]
+    },
+    {
+      "file": "ALLY_GOODS_TRANSFERS.md",
+      "scope": "vanilla+integration",
+      "components": ["APIShared"],
+      "integrationSections": ["Shared adapter and hook evidence [mod integration]"]
     }
   ]
 }

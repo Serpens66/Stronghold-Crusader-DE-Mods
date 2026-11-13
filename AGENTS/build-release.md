@@ -55,7 +55,7 @@ Buildbezogene Abläufe und Prüfungslisten in diesen Anweisungen sind Empfehlung
 - Alle `DevDiag`-Methoden sind `[Conditional("SERP_DEVDIAG")]`: ohne Symbol entfernt der Compiler Aufruf und Argumentauswertung; Call-Sites brauchen kein `#if`. Größere Diagnoseblöcke liegen in `src/**/*.DevDiag.cs` und werden nur mit Symbol kompiliert; funktionale Klassen binden sie über `partial void Diag…(…)`-Deklarationen an, deren Implementierung im `*.DevDiag.cs`-Teil liegt (ohne ihn entfernt der Compiler Aufrufe samt Argumenten). Nach dem Löschen der `*.DevDiag.cs`-Dateien auch die dann wirkungslosen `Diag…`-Deklarationen und -Aufrufe entfernen; die Inventur listet sie. Projekte mit Messpunkten verlinken `Shared/Runtime/Diagnostics/DevDiag.cs` ausdrücklich im csproj (wie `DebugLogHelper.cs`), damit auch csproj-lesende Quellprüfungen ihn sehen.
 - Aktivierung nur ausdrücklich per `build.bat /devdiag` (setzt `SHCDE_DEVDIAG=1` nur für diesen Build; eine geerbte Variable wird verworfen). Für `main` verboten. Ausgabe: gedrosselte `DEVDIAG perf:`-Zeilen mit ms-Zeitstempel, nach `DevDiag.Attach(log)`.
 - Sperren prüfen das erzeugte Artefakt: Eine DEVDIAG-Assembly trägt `AssemblyMetadata("SerpDevDiagnostics","true")` und `Shared.DevDiagRuntime`; `Release-Mod.ps1` und `Create-SteamModPack.ps1` brechen dann ab (`Assert-NoDevDiagnosticAssemblies`). Diagnosequellen sind auf allen Branches zulässig und blockieren einen normalen `main`-Build nicht. Inventur: `Shared/Tools/Validation/Test-DevDiagnostics.ps1 -ModDirectory <Mod>`; sie ist keine Entfernungsliste. `Test-DevDiagnosticsGate.ps1` prüft normale und Diagnose-Fixtures einschließlich Argumentauswertung, Partial-Aufrufen und der Binärsperre.
-- Wiederverwendbare Diagnosequellen dürfen nach einer Untersuchung erhalten bleiben; ihre Entfernung ist keine Releasevoraussetzung. Veraltete Diagnose bei Bedarf gezielt bereinigen. DEVDIAG-Artefakte nie als normalen Build oder Release weitergeben.
+- Wiederverwendbare Diagnosequellen (Messpunkte) dürfen nach einer Untersuchung erhalten bleiben; ihre Entfernung ist keine Releasevoraussetzung. Ingame-Testszenarien gehören nicht dazu: sie liegen in eigenen Testmods unter `Testmods/`, und ein ausnahmsweise im Hauptmod angelegtes Szenario wird im selben Auftrag entfernt ([AutomatisierungTest.md](../AutomatisierungTest.md#neue-modbezogene-spieltests)). Veraltete Diagnose bei Bedarf gezielt bereinigen. DEVDIAG-Artefakte nie als normalen Build oder Release weitergeben.
 
 ## Hashprüfungen in Treibern
 
@@ -95,8 +95,21 @@ tracked and untracked sources without committing or switching the checkout.
 `/nopause` calls without a source choice default to the working tree; calls without
 arguments retain the branch menu.
 Do not combine it with `/branch`. Every branch or working build removes its copy
-afterwards (about 5 GB, mostly tracked `_inspect` data); the `.build.json` record and
-local provenance stay beside it. Pass `/keepsource` only to inspect a copy, then remove it.
+afterwards; source copy sizes depend on the tracked analysis data. An external lifecycle
+record and exclusive lease identify preparing, building, retained and cleaned runs.
+Preparation failures also reach cleanup. `/keepsource`, protected sources, live users,
+unreferenced commits and unclassified contents prevent automatic removal.
+The `.build.json` records hashes; they alone cannot restore uncommitted inputs.
+Compact `.retained.json` manifests and verified deduplicated objects under
+`.work/b/.retained-objects` preserve required unique bytes before a copy is removed.
+Reachable Git blobs (including explicitly verified CRLF restoration) are referenced,
+not copied. Reproducible compiler caches are excluded. Old copies without lifecycle
+ownership require a separate inventory; age alone never authorizes deletion.
+Standalone APIShared branch builds keep source-bound SDKs until explicitly unused;
+identical validated full no-install SDKs can be reused. Its
+`tools/BranchBuild/Release-BranchSource.ps1 -Root <path>` previews retirement;
+`-Release` explicitly attests that no consumer needs it and applies guarded cleanup.
+Working APIShared builds still use the main checkout directly.
 `/syncpackage` (working-tree mod builds only; rejected with `/branch`) mirrors the built
 `<Mod>/BepInEx/plugins/<Guid>` folders back into the tracked workspace package after a successful
 build, removes files the build no longer produced and verifies each file by SHA-256; use it to

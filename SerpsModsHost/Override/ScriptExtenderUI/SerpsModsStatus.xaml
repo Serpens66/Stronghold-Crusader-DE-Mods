@@ -2,11 +2,10 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:ui="clr-namespace:SHCDESE.UI;assembly=SHCDESE"
       xmlns:shared="clr-namespace:APIShared.ModSettings;assembly=APIShared"
-      xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
+      xmlns:apiui="clr-namespace:APIShared.ModSettings;assembly=APIShared">
   <Grid.Resources>
-    <Style TargetType="{x:Type ToolTip}">
-      <Setter Property="Background" Value="#FF1D1710"/><Setter Property="Foreground" Value="White"/><Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True"/><Setter Property="BorderBrush" Value="#FFF2D48A"/><Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="{x:Type ToolTip}"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="2" Padding="{TemplateBinding Padding}" MaxWidth="{TemplateBinding MaxWidth}"><TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap"/></Border></ControlTemplate></Setter.Value></Setter>
+    <Style x:Key="ModSettingsToolTipStyle" TargetType="{x:Type ToolTip}">
+      <Setter Property="Background" Value="#FF1D1710"/><Setter Property="Foreground" Value="White"/><Setter Property="FontSize" Value="{x:Static apiui:ToolTipPresentation.AutomaticFontSize}"/><Setter Property="MaxWidth" Value="{x:Static apiui:ToolTipPresentation.AutomaticMaximumWidth}"/><Setter Property="Padding" Value="24,18"/><Setter Property="BorderThickness" Value="4.5"/><Setter Property="BorderBrush" Value="#FFF2D48A"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="{x:Type ToolTip}"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="{TemplateBinding Padding}" MaxWidth="{TemplateBinding MaxWidth}"><TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap"/></Border></ControlTemplate></Setter.Value></Setter>
     </Style>
     <Style x:Key="SectionHeader" TargetType="{x:Type TextBlock}"><Setter Property="Foreground" Value="#FFF2D48A"/><Setter Property="FontWeight" Value="Bold"/><Setter Property="FontSize" Value="18"/></Style>
   </Grid.Resources>
@@ -23,22 +22,22 @@
         <TextBlock Text="{Binding SummaryTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
       <TextBlock Text="{Binding SummaryText}" Foreground="White" TextWrapping="Wrap" Margin="0,0,0,12"/>
       <StackPanel Orientation="Horizontal" Margin="0,0,0,12" shared:ModSettingsSearch.Exclude="True">
-        <Button Content="{Binding RefreshText}" Command="{Binding RefreshCommand}" Padding="10,3" Margin="0,0,8,0" ToolTipService.ShowDuration="60000" ToolTip="{Binding RefreshHelpText}"/>
-        <Button Content="{Binding ClearErrorsText}" Command="{Binding ClearErrorsCommand}" Padding="10,3" ToolTipService.ShowDuration="60000" ToolTip="{Binding ClearErrorsHelpText}"/>
+        <Button Content="{Binding RefreshText}" Command="{Binding RefreshCommand}" Padding="10,3" Margin="0,0,8,0" ToolTipService.ShowDuration="60000"><Button.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding RefreshHelpText}"/></Button.ToolTip></Button>
+        <Button Content="{Binding ClearErrorsText}" Command="{Binding ClearErrorsCommand}" Padding="10,3" ToolTipService.ShowDuration="60000"><Button.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ClearErrorsHelpText}"/></Button.ToolTip></Button>
       </StackPanel>
         <Border Visibility="{Binding RestartPreparationVisibility}" BorderBrush="#FFFFCC66" BorderThickness="1" Padding="8" Margin="0,4,0,10">
           <StackPanel>
             <TextBlock Text="{Binding RestartTitle}" Style="{StaticResource SectionHeader}"/>
             <TextBlock Text="{Binding RestartDetails}" Foreground="White" TextWrapping="Wrap" MaxWidth="700"/>
             <WrapPanel>
-              <Button Visibility="{Binding RestartDiscardVisibility}" Content="{Binding RestartDiscardText}" Command="{Binding RequestRestartDiscardCommand}" ToolTip="{Binding RestartHelp}" ToolTipService.ShowDuration="60000" Padding="10,3" Margin="0,4,8,0"/>
-              <Button Content="{Binding GlobalSettingsResetDismissText}" Command="{Binding DismissRestartResultCommand}" ToolTip="{Binding GlobalSettingsResetDismissText}" ToolTipService.ShowDuration="60000" Padding="10,3" Margin="0,4,0,0"/>
+              <Button Visibility="{Binding RestartDiscardVisibility}" Content="{Binding RestartDiscardText}" Command="{Binding RequestRestartDiscardCommand}" ToolTipService.ShowDuration="60000" Padding="10,3" Margin="0,4,8,0"><Button.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding RestartHelp}"/></Button.ToolTip></Button>
+              <Button Content="{Binding GlobalSettingsResetDismissText}" Command="{Binding DismissRestartResultCommand}" ToolTipService.ShowDuration="60000" Padding="10,3" Margin="0,4,0,0"><Button.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding GlobalSettingsResetDismissText}"/></Button.ToolTip></Button>
             </WrapPanel>
             <StackPanel Visibility="{Binding RestartConfirmationVisibility}">
               <TextBlock Text="{Binding RestartHelp}" Foreground="#FFFFCC66" TextWrapping="Wrap" MaxWidth="700" Margin="0,6,0,4"/>
               <WrapPanel>
-                <Button Content="{Binding RestartConfirmText}" Command="{Binding ConfirmRestartDiscardCommand}" ToolTip="{Binding RestartHelp}" ToolTipService.ShowDuration="60000" Padding="10,3" Margin="0,0,8,0"/>
-                <Button Content="{Binding GlobalSettingsResetCancelText}" Command="{Binding CancelRestartDiscardCommand}" ToolTip="{Binding GlobalSettingsResetCancelText}" ToolTipService.ShowDuration="60000" Padding="10,3"/>
+                <Button Content="{Binding RestartConfirmText}" Command="{Binding ConfirmRestartDiscardCommand}" ToolTipService.ShowDuration="60000" Padding="10,3" Margin="0,0,8,0"><Button.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding RestartHelp}"/></Button.ToolTip></Button>
+                <Button Content="{Binding GlobalSettingsResetCancelText}" Command="{Binding CancelRestartDiscardCommand}" ToolTipService.ShowDuration="60000" Padding="10,3"><Button.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding GlobalSettingsResetCancelText}"/></Button.ToolTip></Button>
               </WrapPanel>
             </StackPanel>
           </StackPanel>
@@ -46,25 +45,25 @@
         <TextBlock Text="{Binding ErrorsTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
         <TextBlock Text="{Binding ErrorsText}" Foreground="#FFFF7777" TextWrapping="Wrap"/>
         <StackPanel Margin="0,14,0,0" shared:ModSettingsSearch.Exclude="True">
-          <StackPanel Orientation="Horizontal" ToolTipService.ShowDuration="60000" ToolTip="{Binding GlobalSettingsSourceHelpText}">
+          <StackPanel Orientation="Horizontal" ToolTipService.ShowDuration="60000"><StackPanel.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding GlobalSettingsSourceHelpText}"/></StackPanel.ToolTip>
             <TextBlock Text="{Binding GlobalSettingsSourceText}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center"/>
-            <ComboBox IsEnabled="{Binding CanSelectGlobalSettingsSource}" ItemsSource="{Binding GlobalSettingsSources}" SelectedItem="{Binding SelectedGlobalSettingsSource, Mode=TwoWay}" ToolTipService.ShowDuration="60000" ToolTip="{Binding GlobalSettingsSourceHelpText}" Width="260" Margin="8,0,0,0"/>
-            <Button IsEnabled="{Binding CanLoadGlobalSettingsSource}" Content="{Binding LoadGlobalSettingsSourceText}" Command="{Binding LoadGlobalSettingsSourceCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding GlobalSettingsSourceHelpText}" Padding="10,3" Margin="8,0,0,0"/>
+            <ComboBox IsEnabled="{Binding CanSelectGlobalSettingsSource}" ItemsSource="{Binding GlobalSettingsSources}" SelectedItem="{Binding SelectedGlobalSettingsSource, Mode=TwoWay}" ToolTipService.ShowDuration="60000" Width="260" Margin="8,0,0,0"><ComboBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding GlobalSettingsSourceHelpText}"/></ComboBox.ToolTip></ComboBox>
+            <Button IsEnabled="{Binding CanLoadGlobalSettingsSource}" Content="{Binding LoadGlobalSettingsSourceText}" Command="{Binding LoadGlobalSettingsSourceCommand}" ToolTipService.ShowDuration="60000" Padding="10,3" Margin="8,0,0,0"><Button.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding GlobalSettingsSourceHelpText}"/></Button.ToolTip></Button>
           </StackPanel>
           <Border Visibility="{Binding GlobalSettingsResetConfirmationVisibility}" BorderBrush="#FFFFCC66" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,8,0,0">
             <StackPanel>
               <TextBlock Text="{Binding GlobalSettingsResetConfirmationTitle}" Foreground="#FFFFCC66" FontWeight="Bold"/>
               <TextBlock Text="{Binding GlobalSettingsResetConfirmationText}" Foreground="White" TextWrapping="Wrap" MaxWidth="700" Margin="0,4,0,0"/>
               <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
-                <Button Content="{Binding GlobalSettingsResetConfirmText}" Command="{Binding ConfirmGlobalSettingsResetCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding GlobalSettingsResetConfirmationText}" Padding="10,3"/>
-                <Button Content="{Binding GlobalSettingsResetCancelText}" Command="{Binding CancelGlobalSettingsResetCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding GlobalSettingsResetCancelText}" Padding="10,3" Margin="8,0,0,0"/>
+                <Button Content="{Binding GlobalSettingsResetConfirmText}" Command="{Binding ConfirmGlobalSettingsResetCommand}" ToolTipService.ShowDuration="60000" Padding="10,3"><Button.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding GlobalSettingsResetConfirmationText}"/></Button.ToolTip></Button>
+                <Button Content="{Binding GlobalSettingsResetCancelText}" Command="{Binding CancelGlobalSettingsResetCommand}" ToolTipService.ShowDuration="60000" Padding="10,3" Margin="8,0,0,0"><Button.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding GlobalSettingsResetCancelText}"/></Button.ToolTip></Button>
               </StackPanel>
             </StackPanel>
           </Border>
           <Border Visibility="{Binding GlobalSettingsResetErrorVisibility}" BorderBrush="#FFFF7777" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,8,0,0">
             <StackPanel Orientation="Horizontal">
               <TextBlock Text="{Binding GlobalSettingsResetStatusText}" Foreground="#FFFFAAAA" TextWrapping="Wrap" MaxWidth="650"/>
-              <Button Content="{Binding GlobalSettingsResetDismissText}" Command="{Binding DismissGlobalSettingsResetStatusCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding GlobalSettingsResetDismissText}" Padding="8,2" Margin="8,0,0,0" VerticalAlignment="Top"/>
+              <Button Content="{Binding GlobalSettingsResetDismissText}" Command="{Binding DismissGlobalSettingsResetStatusCommand}" ToolTipService.ShowDuration="60000" Padding="8,2" Margin="8,0,0,0" VerticalAlignment="Top"><Button.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding GlobalSettingsResetDismissText}"/></Button.ToolTip></Button>
             </StackPanel>
           </Border>
         </StackPanel>
@@ -73,17 +72,17 @@
             <TextBlock Text="{Binding Search.SearchLabelText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,5"/>
             <Grid>
               <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="38"/></Grid.ColumnDefinitions>
-              <TextBox x:Name="SerpsModSettingsSearchTextBox" ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding Search.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MaxLength="100" Padding="6,4" Foreground="White" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" ToolTip="{Binding Search.SearchHelpText}" ToolTipService.ShowDuration="60000"/>
-              <Button Grid.Column="1" Content="×" Command="{Binding Search.ClearSearchCommand}" Margin="4,0,0,0" ToolTip="{Binding Search.ClearSearchHelpText}" ToolTipService.ShowDuration="60000"/>
+              <TextBox x:Name="SerpsModSettingsSearchTextBox" ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding Search.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MaxLength="100" Padding="6,4" Foreground="White" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" ToolTipService.ShowDuration="60000"><TextBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding Search.SearchHelpText}"/></TextBox.ToolTip></TextBox>
+              <Button Grid.Column="1" Content="×" Command="{Binding Search.ClearSearchCommand}" Margin="4,0,0,0" ToolTipService.ShowDuration="60000"><Button.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding Search.ClearSearchHelpText}"/></Button.ToolTip></Button>
             </Grid>
             <Grid Margin="0,6,0,0">
               <Grid.ColumnDefinitions><ColumnDefinition Width="260"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-              <ComboBox ItemsSource="{Binding Search.ModFilters}" DisplayMemberPath="DisplayName" SelectedItem="{Binding Search.SelectedModFilter, Mode=TwoWay}" ToolTip="{Binding Search.ModFilterHelpText}" ToolTipService.ShowDuration="60000"/>
-              <CheckBox Grid.Column="1" Content="{Binding Search.IncludeToolTipsText}" IsChecked="{Binding Search.IncludeToolTips, Mode=TwoWay}" Foreground="White" Margin="12,0,0,0" VerticalAlignment="Center" ToolTip="{Binding Search.IncludeToolTipsHelpText}" ToolTipService.ShowDuration="60000"/>
+              <ComboBox ItemsSource="{Binding Search.ModFilters}" DisplayMemberPath="DisplayName" SelectedItem="{Binding Search.SelectedModFilter, Mode=TwoWay}" ToolTipService.ShowDuration="60000"><ComboBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding Search.ModFilterHelpText}"/></ComboBox.ToolTip></ComboBox>
+              <CheckBox Grid.Column="1" Content="{Binding Search.IncludeToolTipsText}" IsChecked="{Binding Search.IncludeToolTips, Mode=TwoWay}" Foreground="White" Margin="12,0,0,0" VerticalAlignment="Center" ToolTipService.ShowDuration="60000"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding Search.IncludeToolTipsHelpText}"/></CheckBox.ToolTip></CheckBox>
             </Grid>
             <WrapPanel Orientation="Horizontal" Margin="0,5,0,0">
               <TextBlock Text="{Binding Search.StateFilterLabelText}" Foreground="White" VerticalAlignment="Center" Margin="0,0,8,0"/>
-              <ComboBox ItemsSource="{Binding Search.StateFilters}" SelectedIndex="{Binding Search.SelectedStateFilterIndex, Mode=TwoWay}" MinWidth="140" ToolTip="{Binding Search.StateFilterHelpText}" ToolTipService.ShowDuration="60000"/>
+              <ComboBox ItemsSource="{Binding Search.StateFilters}" SelectedIndex="{Binding Search.SelectedStateFilterIndex, Mode=TwoWay}" MinWidth="140" ToolTipService.ShowDuration="60000"><ComboBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding Search.StateFilterHelpText}"/></ComboBox.ToolTip></ComboBox>
             </WrapPanel>
             <StackPanel Visibility="{Binding Search.SearchResultsVisibility}" Margin="0,10,0,0">
               <TextBlock Text="{Binding Search.ResultsTitleText}" Foreground="#FF77AAFF" FontWeight="Bold" FontSize="18"/>
@@ -93,11 +92,11 @@
                 <ItemsControl ItemsSource="{Binding Search.Results}" HorizontalAlignment="Stretch">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                      <Border Background="#221F5F9F" BorderBrush="#5577AAFF" BorderThickness="1" CornerRadius="2" Padding="8,6" Margin="0,0,0,6" HorizontalAlignment="Stretch" ToolTip="{Binding DisplayToolTip}" ToolTipService.ShowDuration="60000">
+                      <Border Background="#221F5F9F" BorderBrush="#5577AAFF" BorderThickness="1" CornerRadius="2" Padding="8,6" Margin="0,0,0,6" HorizontalAlignment="Stretch" ToolTipService.ShowDuration="60000"><Border.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding DisplayToolTip}"/></Border.ToolTip>
                         <StackPanel>
                           <TextBlock Text="{Binding ModName}" Foreground="#FF77AAFF" FontWeight="Bold" TextWrapping="Wrap" Margin="2,0,0,3"/>
                           <Grid>
-                            <Button Command="{Binding OpenCommand}" HorizontalContentAlignment="Stretch" Padding="6,3" ToolTip="{Binding OpenResultHelpText}" ToolTipService.ShowDuration="60000">
+                            <Button Command="{Binding OpenCommand}" HorizontalContentAlignment="Stretch" Padding="6,3" ToolTipService.ShowDuration="60000"><Button.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding OpenResultHelpText}"/></Button.ToolTip>
                               <TextBlock Text="{Binding Title}" TextWrapping="Wrap" TextAlignment="Left"/>
                             </Button>
                           </Grid>

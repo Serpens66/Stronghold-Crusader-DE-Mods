@@ -1,0 +1,244 @@
+using APIShared.Presentation;
+using APIShared.GameModes;
+// Feature: Lord-specific action handling; shared troop presentation lives in APIShared.
+using BepInEx.Logging;
+using CrusaderDE;
+using MonoMod.RuntimeDetour;
+using Noesis;
+using SHCDESE.API;
+using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
+using System;
+using System.Reflection;
+
+namespace BugfixesAndQoL
+{
+    internal sealed unsafe class LordUnitControlsFeature
+    {
+        private delegate void ButtonUnitDisbandDelegate(MainViewModel self, object parameter);
+
+        private readonly ManualLogSource log;
+        private readonly BugfixesAndQoLViewModel settings;
+        private readonly SurrenderFeature surrenderFeature;
+        private readonly LordUnitHudRegistration hudRegistration;
+        private readonly Func<bool> isMixedDisbandContractValidated;
+        private Hook disbandHook;
+        private ButtonUnitDisbandDelegate disbandOriginal;
+        private HUD_Troops activePanel;
+        private UIElement disbandElement;
+        private UIElement attackHereElement;
+        private int lastFrame = -1;
+        private bool lordModeActive;
+        private bool callbackErrorLogged;
+        private APIShared.Presentation.IUiFrameWorkRegistration frameWork;
+        private volatile bool presentationSession;
+
+        internal LordUnitControlsFeature(ManualLogSource log, BugfixesAndQoLViewModel settings, SurrenderFeature surrenderFeature,
+            LordUnitHudRegistration hudRegistration, Func<bool> isMixedDisbandContractValidated)
+        {
+            this.log = log ?? throw new ArgumentNullException(nameof(log));
+            this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            this.surrenderFeature = surrenderFeature ?? throw new ArgumentNullException(nameof(surrenderFeature));
+            this.hudRegistration = hudRegistration ?? throw new ArgumentNullException(nameof(hudRegistration));
+            this.isMixedDisbandContractValidated = isMixedDisbandContractValidated ?? throw new ArgumentNullException(nameof(isMixedDisbandContractValidated));
+            MethodInfo disband = RequireMethod(typeof(MainViewModel), "ButtonUnitDisband", BindingFlags.Instance | BindingFlags.NonPublic);
+            try
+            {
+                disbandHook = new Hook(disband, (ButtonUnitDisbandDelegate)ButtonUnitDisbandHook);
+                disbandOriginal = disbandHook.GenerateTrampoline<ButtonUnitDisbandDelegate>();
+                if (!PresentationEvents.TryRegister(PresentationOperation.TroopPanelEnter, BugfixesAndQoLPlugin.PluginGuid,
+                    "LordStanceTooltip", BeforeTooltip, AfterTooltip, out string reason)) throw new InvalidOperationException(reason);
+            }
+            catch { DisposeHooks(); throw; }
+            if (!APIShared.ApiShared.ForMod(BugfixesAndQoLPlugin.PluginGuid).Ui.TryRegisterBeforeRender(
+                "lord-unit-controls", OnBeforeRender, out frameWork, out string schedulingReason, 100))
+                throw new InvalidOperationException("Lord HUD scheduling unavailable: " + schedulingReason);
+            var client = APIShared.ApiShared.ForMod(BugfixesAndQoLPlugin.PluginGuid);
+            if (!client.TryGetMissionLifecycle(out APIShared.IMissionLifecycleCapability lifecycle, out APIShared.NativeCapabilityDiagnostic diagnostic) ||
+                !lifecycle.TryRegisterObserver("lord-unit-controls-presentation", _ => {
+                    presentationSession = true; UpdatePresentationDemand(); frameWork.Request();
+                }, _ => {
+                    presentationSession = false; frameWork.SetContinuous(false); frameWork.Request();
+                }, null, out diagnostic))
+                throw new InvalidOperationException("Lord HUD mission observation unavailable: " + diagnostic?.Reason);
+            RefreshSetting();
+        }
+
+        internal void RefreshSetting()
+        {
+            UpdatePresentationDemand();
+            frameWork?.Request();
+            if (!settings.EnableMod || !settings.EnableLordUnitControls)
+                DeactivateLordOnlyMode(true);
+        }
+
+        private void OnBeforeRender()
+        {
+            bool retiring = !presentationSession || !settings.EnableMod || !settings.EnableLordUnitControls;
+            if (retiring) hudRegistration.RefreshPortrait(false);
+            if (retiring && !lordModeActive) return;
+            MainViewModel main = MainViewModel.viewModelLoaded ? MainViewModel.Instance : null;
+            if (main?.HUDmain == null)
+            { if (lordModeActive) frameWork.RequestAfter(TimeSpan.FromMilliseconds(100)); return; }
+            if (lastFrame == UnityEngine.Time.frameCount) return;
+            lastFrame = UnityEngine.Time.frameCount;
+            try
+            {
+                if (retiring) DeactivateLordOnlyMode(true);
+                else
+                {
+                    RefreshLordOnlyHud();
+                    hudRegistration.RefreshPortrait(main.Show_HUD_Troops || main.Show_HUD_ControlGroups);
+                }
+            }
+            catch (Exception ex)
+            {
+                if (!retiring) DeactivateLordOnlyMode(false);
+                if (callbackErrorLogged) return;
+                callbackErrorLogged = true;
+                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/LordUnitControlsFeature/OnBeforeRender", $"Lord action HUD failed closed; Vanilla presentation remains active: {ex}");
+            }
+            finally { if (retiring && lordModeActive) frameWork.RequestAfter(TimeSpan.FromMilliseconds(100)); }
+        }
+
+        private void UpdatePresentationDemand() => frameWork?.SetContinuous(
+            presentationSession && settings.EnableMod && settings.EnableLordUnitControls);
+
+        private void RefreshLordOnlyHud()
+        {
+            MainViewModel main = MainViewModel.Instance;
+            bool active = TryGetSoleControlledLord(out _);
+            if (!active || main == null)
+            {
+                // The selection is only scanned on the one call that leaves Lord mode.
+                bool returnToDefaultHud = LordUnitControlsPolicy.ShouldReturnToDefaultHud(
+                    lordModeActive,
+                    main?.Show_HUD_Troops == true,
+                    lordModeActive && SelectionContainsNormalUnit());
+                DeactivateLordOnlyMode(!returnToDefaultHud);
+                if (returnToDefaultHud)
+                {
+                    if (APIShared.GameModes.GameModeHelper.IsMapEditor()) main.DefaultMapEditorUIGameAction();
+                    else main.DefaultGameUIGameAction();
+                }
+                return;
+            }
+            if (!main.Show_HUD_Troops) main.TroopsSelectedGameAction(true);
+            HUD_Troops panel = main.HUDTroopPanel ?? throw new InvalidOperationException("HUD_Troops is unavailable.");
+            if (!ReferenceEquals(activePanel, panel) || attackHereElement == null || disbandElement == null)
+            {
+                UIElement attack = RequireElement<UIElement>(panel, "UnitAttackHere");
+                UIElement disband = RequireElement<UIElement>(panel, "UnitDisband");
+                activePanel = panel;
+                attackHereElement = attack;
+                disbandElement = disband;
+            }
+            if (attackHereElement.Visibility != Visibility.Visible) attackHereElement.Visibility = Visibility.Visible;
+            Visibility desired = LordUnitControlsPolicy.CanShowDisband(true, settings.EnableMod && settings.EnableSurrenderAndStatistics, APIShared.GameModes.GameModeHelper.IsMapEditor()) ? Visibility.Visible : Visibility.Collapsed;
+            if (disbandElement.Visibility != desired) disbandElement.Visibility = desired;
+            lordModeActive = true;
+        }
+
+        private void ButtonUnitDisbandHook(MainViewModel self, object parameter)
+        {
+            bool sole = TryGetSoleControlledLord(out _);
+            bool contains = ShouldIncludeControlledLord(out _);
+            LordDisbandAction action = LordUnitControlsPolicy.GetDisbandAction(settings.EnableMod && settings.EnableLordUnitControls, sole, contains, contains && SelectionContainsOtherThanControlledLord(), isMixedDisbandContractValidated());
+            if (action == LordDisbandAction.UseVanilla) { disbandOriginal(self, parameter); return; }
+            if (action == LordDisbandAction.RejectUnsafeMixedSelection)
+            {
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/LordUnitControlsFeature/ButtonUnitDisbandHook.mixed-lord-disband-rejected", "Mixed Lord disband rejected because its native ignore contract is unavailable.");
+                return;
+            }
+            if (!surrenderFeature.TryRequestSurrenderFromLordHud())
+                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/LordUnitControlsFeature/ButtonUnitDisbandHook.lord-surrender-request-rejected", "Lord surrender request was rejected; Vanilla disband was not called.");
+        }
+
+        private void BeforeTooltip(PresentationPreEventArgs args)
+        {
+            if (args.SkipOriginalFunction) return;
+            LordStanceTooltipAction action = LordUnitControlsPolicy.GetStanceTooltipAction(lordModeActive && TryGetSoleControlledLord(out _), args.Parameter as string);
+            args.State = action;
+            if (action == LordStanceTooltipAction.UseVanillaStandGround) args.Parameter = "GuardStanceButton";
+        }
+
+        private void AfterTooltip(PresentationPostEventArgs args)
+        {
+            if (args.OriginalCompleted && args.State is LordStanceTooltipAction action && action == LordStanceTooltipAction.ShowVanillaBehavior)
+            {
+                args.ViewModel.TroopsPanelRollover = SerpLocalization.Get("BugfixesAndQoL.LordStanceVanillaBehavior");
+                args.ViewModel.TroopsPanelRollover_AmountGot1 = string.Empty;
+            }
+        }
+        private bool TryGetSoleControlledLord(out SurrenderLordSnapshot lord)
+        {
+            EngineInterface.PlayState state = GameData.Instance?.lastGameState;
+            bool editor = APIShared.GameModes.GameModeHelper.IsMapEditor();
+            int count = state?.numSelectedChimps ?? 0;
+            int selectedId = count == 1 && state.selectedChimps != null && state.selectedChimps.Length > 0 ? state.selectedChimps[0] : -1;
+            int player = GetControlledPlayerId(editor);
+            lord = CaptureLord(player);
+            // GetLocalPlayerId already reports the input-controlled player; only an uncontrolled spectator is blocked.
+            int spectatorMode = state?.spectatorMode ?? 0;
+            int inputControlledPlayerId = spectatorMode != 0 ? APIShared.PlayerPerspectiveAPI.GetInputControlledPlayerId() : 0;
+            bool spectator = SpectatorInputControlPolicy.IsObservingSpectator(spectatorMode, inputControlledPlayerId);
+            return LordUnitControlsPolicy.CanActivate(settings.EnableMod, settings.EnableLordUnitControls, IsActiveMatch(), editor, spectator, count, selectedId, player, lord);
+        }
+
+        private bool ShouldIncludeControlledLord(out SurrenderLordSnapshot lord)
+        {
+            lord = CaptureLord(GetControlledPlayerId(APIShared.GameModes.GameModeHelper.IsMapEditor()));
+            if (!settings.EnableMod || !settings.EnableLordUnitControls || !SurrenderPolicy.IsValidLord(lord)) return false;
+            EngineInterface.PlayState state = GameData.Instance?.lastGameState;
+            if (state?.selectedChimps == null) return false;
+            int count = Math.Min(state.numSelectedChimps, state.selectedChimps.Length);
+            for (int i = 0; i < count; i++) if (state.selectedChimps[i] == lord.UnitId) return true;
+            return false;
+        }
+
+        private bool SelectionContainsOtherThanControlledLord()
+        {
+            if (!ShouldIncludeControlledLord(out SurrenderLordSnapshot lord)) return false;
+            EngineInterface.PlayState state = GameData.Instance.lastGameState;
+            int count = Math.Min(state.numSelectedChimps, state.selectedChimps.Length);
+            for (int i = 0; i < count; i++) if (state.selectedChimps[i] > 0 && state.selectedChimps[i] != lord.UnitId) return true;
+            return false;
+        }
+
+        private static bool SelectionContainsNormalUnit()
+        {
+            EngineInterface.PlayState state = GameData.Instance?.lastGameState;
+            if (state?.selectedChimps == null || GameUnitManagerAPI.Instance == null) return false;
+            int count = Math.Min(state.numSelectedChimps, state.selectedChimps.Length);
+            for (int i = 0; i < count; i++)
+                if (state.selectedChimps[i] > 0 && APIShared.UnitAccess.TryGetById(state.selectedChimps[i], out GameUnit* unit, out _) && unit != null && APIShared.UnitAccess.IsReallyAlive(unit) && unit->r_UnitChimp != eChimps.CHIMP_TYPE_LORD) return true;
+            return false;
+        }
+
+        private void DeactivateLordOnlyMode(bool refresh)
+        {
+            if (!lordModeActive) return;
+            if (!MainViewModel.viewModelLoaded || MainViewModel.Instance?.HUDmain == null) return;
+            MainViewModel current = MainViewModel.Instance;
+            // A delayed retirement must never restore a cached panel from a replaced HUD.
+            if (refresh && current.Show_HUD_Troops && ReferenceEquals(activePanel, current.HUDTroopPanel))
+                activePanel?.SelectedTroops();
+            lordModeActive = false;
+        }
+
+        private static SurrenderLordSnapshot CaptureLord(int playerId)
+        {
+            if (playerId < 1 || playerId > 8 || GamePlayerManagerAPI.Instance == null || GameUnitManagerAPI.Instance == null) return default(SurrenderLordSnapshot);
+            int unitId = GamePlayerManagerAPI.Instance.GetLordUnitId(playerId);
+            if (unitId <= 0 || !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null) return new SurrenderLordSnapshot(playerId, unitId, -1, -1, false);
+            return new SurrenderLordSnapshot(playerId, unitId, (int)unit->r_GlobalId, unit->r_ControllableForPlayerId, APIShared.UnitAccess.IsReallyAlive(unit) && unit->r_UnitChimp == eChimps.CHIMP_TYPE_LORD && unit->r_CurrentHealth > 0);
+        }
+
+        private static bool IsActiveMatch() => FatControler.currentScene == Enums.SceneIDS.ActualMainGame && Director.instance != null && Director.instance.SimRunning && GameData.Instance?.lastGameState != null;
+        private static int GetControlledPlayerId(bool editor) => editor ? (EditorDirector.instance?.ActivePlayerID ?? -1) : (GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1);
+        private static MethodInfo RequireMethod(Type type, string name, BindingFlags flags) => type.GetMethod(name, flags, null, new[] { typeof(object) }, null) ?? throw new MissingMethodException(type.FullName, name);
+        private static T RequireElement<T>(HUD_Troops panel, string name) where T : class => panel.FindName(name) as T ?? throw new InvalidOperationException($"HUD_Troops element '{name}' was not found.");
+        private void DisposeHooks() { Undo(ref disbandHook); disbandOriginal = null; }
+        private static void Undo(ref Hook hook) { if (hook == null) return; try { hook.Undo(); } finally { hook.Dispose(); hook = null; } }
+    }
+}

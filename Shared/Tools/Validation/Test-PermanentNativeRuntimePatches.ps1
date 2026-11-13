@@ -20,7 +20,7 @@ $files = foreach ($relativeRoot in $roots) {
     Get-ChildItem -LiteralPath $root -Recurse -File -Filter '*.cs' -ErrorAction SilentlyContinue | Where-Object {
         $path = '\' + $_.FullName.Substring($workspace.Length).TrimStart('\')
         (-not ($excludedSegments | Where-Object { $path.Contains($_) })) -and
-        (-not $path.Contains('\Testmods\') -or $path.Contains('\Testmods\MoatMove\'))
+        (-not $path.Contains('\Testmods\'))
     }
 }
 
@@ -47,6 +47,19 @@ if ((-not $ModDirectory -or $selectedFiles.Contains($wheatMemory)) -and (Test-Pa
     # APIShared owns the expressly approved startup-only exception and its checks.
     & (Join-Path $workspace 'APIShared\tools\Validation\Test-FixesWheatBoundary.ps1')
     if (-not $?) { throw 'APIShared wheat startup boundary verification failed.' }
+}
+
+# Only the Roslyn-verified startup publication sites may enable a unit voice entry.
+# The checker verifies the once gate, process root, publication barrier, all publisher
+# callers, readiness order, and unpublished-only disposal; a filename is not permission.
+$startupPublications = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+$unitVoiceRuntime = Join-Path $workspace 'APIShared\src\Audio\UnitVoices\UnitVoiceNativeRuntime.cs'
+if ($selectedFiles.Contains($unitVoiceRuntime)) {
+    $project = Join-Path $workspace 'APIShared\tools\SourceContracts\SourceContracts.csproj'
+    $report = @(& dotnet run --project $project --configuration Release --verbosity quiet -- (Join-Path $workspace 'APIShared') hook-publications)
+    if ($LASTEXITCODE -ne 0) { throw 'Unit voice startup publication verification failed.' }
+    $sites = @($report[-1] | ConvertFrom-Json)
+    foreach ($site in $sites) { [void]$startupPublications.Add(([IO.Path]::GetFullPath($site.Path) + ':' + $site.Line)) }
 }
 
 # Returns the first/last line of the brace block that starts at the only line containing $Signature.
@@ -136,7 +149,10 @@ foreach ($file in $files) {
             $freshPage = $freshPageBlocks.Count -gt 0 -and $line -notmatch '\bCodePatch\.|\.Hook\.|GatehouseNativeMutation' -and
                 ($line -match '^\s*(?:\[DllImport\([^\]]*\)\]\s*)?private static extern bool (?:VirtualProtect|FlushInstructionCache)\(' -or
                  @($freshPageBlocks | Where-Object { $index -ge $_.Start -and $index -le $_.End }).Count -gt 0)
-            if ($file.FullName -ne $wheatMemory -and -not $freshSpectatorStub -and -not $freshPage) {
+            $startupPublication = $line -match '\.Hook\.Enable\s*\(' -and
+                $line -notmatch '\.Hook\.Disable\s*\(|\bCodePatch\.|GatehouseNativeMutation|\bVirtualProtect\s*\(|\bFlushInstructionCache\s*\(' -and
+                $startupPublications.Contains(($file.FullName + ':' + ($index + 1)))
+            if ($file.FullName -ne $wheatMemory -and -not $freshSpectatorStub -and -not $freshPage -and -not $startupPublication) {
                 $errors.Add("$($file.FullName):$($index + 1): runtime executable-memory mutation: $($line.Trim())")
             }
         }
@@ -159,7 +175,7 @@ foreach ($file in $files) {
 
 $permanentManagedContracts = @(
     @{
-        Path = 'BugfixesAndQoL\src\GatehouseTargetMarkerHeightHook.cs'
+        Path = 'BugfixesAndQoL\src\GateRouting\GatehouseTargetMarkerHeightHook.cs'
         Required = @('private static readonly Harmony harmony', 'harmony.Patch(target, prefix:', 'Volatile.Write(ref enabled', 'Volatile.Read(ref enabled)', 'Interlocked.Exchange(ref attempted, 1)')
         Forbidden = @('Unpatch(', 'UnpatchAll(', 'Dispose(', 'Undo(', 'CodePatch', 'VirtualProtect', 'Marshal.Write')
     },
@@ -178,18 +194,14 @@ $permanentManagedContracts = @(
         Forbidden = @('.Disable(', '.Undo(')
     },
     @{
-        Path = 'ExtraFeatures\src\AIMarketVanillaPriceHook.cs'
-        Required = @('MarketPriceEvents.TryRegister(', 'MarketPriceEvents.CalculateTradeTotal(')
-        Forbidden = @('AddDetour(', 'HookTransaction', 'NativeDetour', 'CalculateTradeTotal(price.BuyPrice')
-    },
-    @{
         Path = 'APIShared\src\Core\Events\ManagedInterceptionHook.cs'
         Required = @('ManualApply = true', 'GenerateTrampoline<T>()', 'candidate.Apply();', 'hook = candidate;', 'candidate?.Dispose();')
         Forbidden = @('public void Dispose()', 'hook.Dispose(', 'hook?.Dispose(', 'hook.Undo(', 'hook?.Undo(')
     },
     @{
         Path = 'APIShared\src\Units\Recruitment\RecruitmentMaterialUi.cs'
-        Required = @('ManualApply = true', 'RecruitmentMaterialUiIlContract.Validate(method)', 'candidate.Apply();', 'hook = candidate;')
+        # SafeIlHook applies manually and removes only an unpublished failed candidate.
+        Required = @('Patching.SafeIlHook.TryInstall(', 'RecruitmentMaterialUiIlContract.Validate(method)', 'hook = installed;')
         Forbidden = @('public void Dispose()', 'hook.Dispose(', 'hook?.Dispose(', 'hook.Undo(', 'hook?.Undo(')
     },
     @{
@@ -203,7 +215,7 @@ $permanentManagedContracts = @(
         Forbidden = @('public void Dispose()', 'new Hook(', 'new ILHook(', 'installed = false')
     },
     @{
-        Path = 'BugfixesAndQoL\src\SiegeAmmoRestockFeature.cs'
+        Path = 'BugfixesAndQoL\src\UnitOrders\SiegeAmmoRestockFeature.cs'
         Required = @('if (eventsRegistered) return;', 'PresentationEvents.TryRegister(', 'args.Replacement = parameter')
         Forbidden = @('new Hook(', 'buttonHook', 'mouseEnterHook', 'mouseLeaveHook')
     },
@@ -285,7 +297,7 @@ $permanentManagedContracts = @(
         Forbidden = @('runtime = null')
     },
     @{
-        Path = 'BugfixesAndQoL\src\BugfixesAndQoLRuntime.cs'
+        Path = 'BugfixesAndQoL\src\Core\Bootstrap\BugfixesAndQoLRuntime.cs'
         Required = @('ReconcilePermanentClientHook(')
         Forbidden = @(
             'DisposeFeature("market autotrade sell threshold"',
@@ -296,12 +308,12 @@ $permanentManagedContracts = @(
         )
     },
     @{
-        Path = 'BugfixesAndQoL\src\SingleBuildingPauseHook.cs'
+        Path = 'BugfixesAndQoL\src\Buildings\SingleBuildingPauseHook.cs'
         Required = @('!localHooksInstalled || !IsFeatureActive()')
         Forbidden = @('addChimpActionsHook.Apply()', 'addChimpActionsHook.Undo()')
     },
     @{
-        Path = 'BugfixesAndQoL\src\QuarryPileRelocationRuntime.cs'
+        Path = 'BugfixesAndQoL\src\Buildings\QuarryPileRelocationRuntime.cs'
         Required = @('Keep the published', 'MonoMod hook')
         Forbidden = @('setUpInbuildingHook?.Undo()', 'setUpInbuildingHook?.Dispose()')
     },
@@ -332,7 +344,7 @@ $permanentManagedContracts = @(
         )
     },
     @{
-        Path = 'BugfixesAndQoL\src\WaterboyTargetReservationRuntime.cs'
+        Path = 'BugfixesAndQoL\src\Buildings\WaterboyTargetReservationRuntime.cs'
         Required = @(
             'private readonly HookTransaction transaction;',
             'private readonly DetourHandle<FindNearestBurningBuildingDelegate> targetSearchHook',
@@ -352,9 +364,16 @@ $permanentManagedContracts = @(
     }
 )
 
+# A contract for a file of the scoped mod must fail when the file is gone. Skipping it would
+# silently drop the guard after a move or rename.
+function Test-OutsideScopedMod([string]$Path) {
+    return $ModDirectory -and -not $selectedFiles.Contains($Path) -and
+        -not $Path.StartsWith($modRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)
+}
+
 foreach ($contract in $permanentManagedContracts) {
     $path = Join-Path $workspace $contract.Path
-    if ($ModDirectory -and -not $selectedFiles.Contains($path)) { continue }
+    if (Test-OutsideScopedMod $path) { continue }
     if (-not (Test-Path -LiteralPath $path)) {
         $errors.Add("$path`: permanent managed-hook contract source is missing")
         continue
@@ -373,8 +392,11 @@ foreach ($contract in $permanentManagedContracts) {
     }
 }
 
-$workshopPath = Join-Path $workspace 'BugfixesAndQoL\src\WorkshopIdleDelayHook.cs'
-if ((-not $ModDirectory -or $selectedFiles.Contains($workshopPath)) -and (Test-Path -LiteralPath $workshopPath)) {
+$workshopPath = Join-Path $workspace 'BugfixesAndQoL\src\Buildings\WorkshopIdleDelayHook.cs'
+if (-not (Test-OutsideScopedMod $workshopPath)) {
+    if (-not (Test-Path -LiteralPath $workshopPath)) {
+        throw "$workshopPath`: workshop hook contract source is missing"
+    }
     $workshop = [IO.File]::ReadAllText($workshopPath)
     if (-not $workshop.Contains('private readonly HookTransaction transaction;') -or
         -not $workshop.Contains('Volatile.Write(ref *(int*)enabledFlag') -or

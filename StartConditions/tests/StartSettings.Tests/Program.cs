@@ -91,9 +91,12 @@ Run("Settings", new[] { vm, Read("StartConditions/src/IStartConditionsSettings.c
 // Doubles replace engine pointers, roster/memory readiness and the upstream SE publisher only.
 if (!baseline) Run("SimulationReadiness", new[] {
     Read("Shared/Adapters/APIShared/ActivePlayerKeepReadiness.cs"),
+    Read("APIShared/src/Buildings/BuildingAccess.cs"),
     Read("APIShared/src/Simulation/SimulationClock.cs"),
+    Read("APIShared/src/Simulation/SimulationMutationScope.cs"),
     Read("APIShared/src/Simulation/SimulationTickRegistry.cs"),
     Read("APIShared/src/Core/Events/OwnedCallbacks.cs"),
+    Read("APIShared/src/Core/Events/OrderedRegistrations.cs"),
     """
 using System; using System.Collections.Generic; using System.Runtime.InteropServices;
 namespace SHCDESE.Interop { public enum eStructs { STRUCT_KEEP_ONE,STRUCT_KEEP_TWO,STRUCT_KEEP_THREE,STRUCT_KEEP_FOUR,STRUCT_KEEP_FIVE }
@@ -103,6 +106,7 @@ namespace SHCDESE.API {
  public class GameTimeManagerAPI { public static readonly GameTimeManagerAPI Instance=new(); public event Action<int> OnTick; }
  public class GamePlayerManagerAPI { public static readonly GamePlayerManagerAPI Instance=new(); public bool IsPlayerIdValid(int p)=>p==1; public int GetPlayerKeepId(int p)=>1; }
  public unsafe class GameBuildingManagerAPI { public static readonly GameBuildingManagerAPI Instance=new();
+  public bool IsValidId(int id)=>id==1;
   public bool TryGetBuildingById(int id,out SHCDESE.Interop.GameBuilding* b) { b=(SHCDESE.Interop.GameBuilding*)Shared.World.Building; return Shared.World.KeepReady; } }
 }
 namespace APIShared { public sealed class MissionContext {} }

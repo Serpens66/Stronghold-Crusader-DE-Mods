@@ -1,0 +1,672 @@
+using ImprovedHunters;
+using Iced.Intel;
+using RedBird.X64.Hooks;
+using System.Runtime.InteropServices;
+using static Iced.Intel.AssemblerRegisters;
+
+/// <summary>
+/// Executes the real stub generators on copies of the audited DLL's bytes with chosen
+/// register and memory contents. Catches wrong branch directions, clobbered registers and
+/// lost flags, which assembling and decoding alone cannot show. Native offsets here are
+/// the audited contract of FBCB9319; other DLLs are rejected by the pattern tests first.
+/// </summary>
+internal static unsafe class NativeStubExecutionTests
+{
+    private const int Hunter = 6;
+    private const int Rabbit = 46;
+    private const int Deer = 44;
+    private const int Chicken = 62;
+    private const int Archer = 22;
+    private const int UnitStride = 0x490;
+    private const int TribeStride = 0x688;
+    private const int TeamDisplacement = 0x37EDF3C;
+    private const int ProjectileOwnerDisplacement = 0x2F7A6C0;
+    private const int ProjectileHeightDisplacement = 0x2F7A6D0;
+    private const int ProjectileSourceDisplacement = 0x2F7A736;
+
+    // Sentinel results; a stub that reaches the wrong exit fails the comparison.
+    private const int ResultFallthrough = 0x11;
+    private const int ResultReject = 0x22;
+    private const int ResultContinue = 0x33;
+    private const int ResultMiss = 0x44;
+    private const int ResultNotAttackable = 0x55;
+    private const int ResultAttackable = 0x66;
+    private const int ResultNextChain = 0x77;
+
+    private static int assertions;
+    private static byte* flag;
+    private static byte* units;
+
+    [DllImport("kernel32", SetLastError = true)]
+    private static extern IntPtr VirtualAlloc(IntPtr address, nuint size, uint type, uint protect);
+
+    private static byte* Alloc(long size)
+    {
+        IntPtr memory = VirtualAlloc(IntPtr.Zero, (nuint)size, 0x3000, 0x40);
+        if (memory == IntPtr.Zero)
+            throw new InvalidOperationException("VirtualAlloc failed.");
+        return (byte*)memory;
+    }
+
+    private static void Check(bool condition, string message)
+    {
+        assertions++;
+        if (!condition)
+            throw new InvalidOperationException("Native stub: " + message);
+    }
+
+    private static void SetFlag(bool enabled) => *(int*)flag = enabled ? 1 : 0;
+
+    private static ulong Address(byte* pointer) => unchecked((ulong)pointer);
+
+    private static ulong ExitBlock(int result)
+    {
+        byte* code = Alloc(16);
+        code[0] = 0xB8;
+        *(int*)(code + 1) = result;
+        code[5] = 0xC3;
+        return Address(code);
+    }
+
+    private delegate void BodyEmitter(Assembler assembler, ReadOnlySpan<Instruction> instructions);
+
+    /// <summary>Builds the stub over a copy of the audited bytes; the bytes after the span are the given tail.</summary>
+    private static ulong BuildStub(byte[] image, int rva, int expectedDisplaced, byte[] tail, BodyEmitter body)
+    {
+        byte* copy = Alloc(256);
+        Marshal.Copy(image, rva, (IntPtr)copy, expectedDisplaced);
+        for (int index = 0; index < tail.Length; index++)
+            copy[expectedDisplaced + index] = tail[index];
+
+        var hook = new X64InlineHook(Address(copy), 14);
+        Check(hook.DisplacedByteCount == expectedDisplaced,
+            $"RVA 0x{rva:X} displaced {hook.DisplacedByteCount}, expected {expectedDisplaced}.");
+        hook.Generate((assembler, instructions, returnAddress) => body(assembler, instructions));
+        Check(hook.StubAddress != IntPtr.Zero, $"RVA 0x{rva:X} has no stub.");
+        return unchecked((ulong)hook.StubAddress.ToInt64());
+    }
+
+    private static readonly byte[] ReturnFallthrough = { 0xB8, ResultFallthrough, 0, 0, 0, 0xC3 };
+    // setne al; movzx eax,al; add eax,0x10; ret: exposes the flags a following JNE would read.
+    private static readonly byte[] ReturnNotEqualAs0x10 = { 0x0F, 0x95, 0xC0, 0x0F, 0xB6, 0xC0, 0x83, 0xC0, 0x10, 0xC3 };
+    private static readonly byte[] ReturnPlain = { 0xC3 };
+
+    private sealed class Registers
+    {
+        public ulong Rax, Rbx, Rcx, Rdx, Rbp, Rsi, Rdi, R8, R9, R10, R11, R12, R13, R15;
+        public ushort StackWord78;
+    }
+
+    private sealed class Outcome
+    {
+        public int Result;
+        public ulong Rax, R11;
+    }
+
+    private static Outcome Run(ulong stub, Registers r)
+    {
+        byte* output = Alloc(64);
+        var a = new Assembler(64);
+        foreach (AssemblerRegister64 pushed in new[] { rbx, rbp, rsi, rdi, r12, r13, r14, r15 })
+            a.push(pushed);
+        // Eight pushes plus the return address leave RSP misaligned by 8; 0xB8 realigns before the call.
+        a.sub(rsp, 0xB8);
+        // The stub sees [rsp+0x78] as this slot plus the call's return address.
+        a.mov(rax, (ulong)r.StackWord78);
+        a.mov(__qword_ptr[rsp + 0x70], rax);
+        a.mov(rax, stub);
+        a.mov(__qword_ptr[rsp + 0xA0], rax);
+        a.mov(rbx, r.Rbx); a.mov(rcx, r.Rcx); a.mov(rdx, r.Rdx); a.mov(rbp, r.Rbp); a.mov(rsi, r.Rsi); a.mov(rdi, r.Rdi);
+        a.mov(r8, r.R8); a.mov(r9, r.R9); a.mov(r10, r.R10); a.mov(r11, r.R11);
+        a.mov(r12, r.R12); a.mov(r13, r.R13); a.mov(r15, r.R15);
+        a.mov(rax, r.Rax);
+        a.call(__qword_ptr[rsp + 0xA0]);
+        a.mov(rcx, Address(output));
+        a.mov(__qword_ptr[rcx], rax);
+        a.mov(__qword_ptr[rcx + 8], r11);
+        a.add(rsp, 0xB8);
+        foreach (AssemblerRegister64 popped in new[] { r15, r14, r13, r12, rdi, rsi, rbp, rbx })
+            a.pop(popped);
+        a.ret();
+
+        byte* code = Alloc(1024);
+        var writer = new PointerWriter(code);
+        if (!a.TryAssemble(writer, Address(code), out string? error, out _))
+            throw new InvalidOperationException(error);
+        Marshal.GetDelegateForFunctionPointer<Action>((IntPtr)code)();
+        return new Outcome { Result = *(int*)output, Rax = *(ulong*)output, R11 = *(ulong*)(output + 8) };
+    }
+
+    private sealed class PointerWriter : CodeWriter
+    {
+        private byte* next;
+        public PointerWriter(byte* start) => next = start;
+        public override void WriteByte(byte value) => *next++ = value;
+    }
+
+    private static byte* Unit(int id) => units + id * UnitStride;
+
+    private static void SetUnit(int id, int type, int owner)
+    {
+        *(short*)(Unit(id) + 0x6E6) = (short)type;
+        *(short*)(Unit(id) + 0x6EE) = (short)owner;
+    }
+
+    public static void Run(byte[] image)
+    {
+        flag = Alloc(16);
+        units = Alloc(UnitStride * 16);
+        TestHostility(image);
+        TestMeleeOrder(image);
+        TestStance(image);
+        TestTanner(image);
+        TestHutAvailability(image);
+        TestCorpseChoice(image);
+        Console.WriteLine($"ImprovedHunters native stubs executed: assertions={assertions}.");
+    }
+
+    private static void TestHostility(byte[] image)
+    {
+        ulong notAttackable = ExitBlock(ResultNotAttackable);
+        ulong attackable = ExitBlock(ResultAttackable);
+        ulong nextChain = ExitBlock(ResultNextChain);
+        byte* tribes = Alloc(TribeStride * 8);
+        ulong stub = BuildStub(image, 0x186952, 16, ReturnNotEqualAs0x10,
+            (a, i) => HunterNativeStubs.EmitRabbitMeleeHostility(
+                a, i, Address(flag), Address(tribes), notAttackable, attackable, nextChain, Hunter));
+
+        int Check_(int targetType, bool enabled, int param4, int attacker, int tribe, short tribeFlag)
+        {
+            SetFlag(enabled);
+            *(short*)(Unit(1) + 0x930) = (short)tribe;
+            *(short*)(tribes + tribe * TribeStride) = tribeFlag;
+            return Run(stub, new Registers
+            {
+                Rcx = (ulong)targetType,
+                R9 = (ulong)param4,
+                R10 = (ulong)attacker,
+                R11 = Address(Unit(1))
+            }).Result;
+        }
+
+        const int soldier = 24;
+        Check(Check_(Rabbit, true, 0, soldier, 2, 0) == ResultNotAttackable, "a soldier without the tribe flag must ignore rabbits.");
+        Check(Check_(Rabbit, true, 0, soldier, 0, 0) == ResultNotAttackable, "units without a tribe must ignore rabbits.");
+        Check(Check_(Rabbit, true, 0, soldier, 2, 1) == ResultAttackable, "the ordered tribe must attack rabbits.");
+        Check(Check_(Rabbit, true, 1, soldier, 2, 0) == ResultAttackable, "the ranged caller keeps Vanilla's result.");
+        Check(Check_(Rabbit, true, 0, Hunter, 0, 0) == ResultAttackable, "Hunters keep Vanilla's result.");
+        Check(Check_(Rabbit, false, 0, soldier, 2, 0) == ResultAttackable, "disabled feature keeps Vanilla's result.");
+        Check(Check_(9, true, 0, soldier, 2, 0) == ResultNextChain, "type 9 continues Vanilla's chain.");
+        Check(Check_(0x33, true, 0, soldier, 2, 0) == 0x10, "type 0x33 sets Vanilla's flags for the JNE.");
+        Check(Check_(0x12, true, 0, soldier, 2, 0) == 0x11, "other types fall to Vanilla's JNE.");
+    }
+
+    private static void TestMeleeOrder(byte[] image)
+    {
+        byte* tribes = Alloc(TribeStride * 8);
+        const int order = 0x58E;
+        ulong stub = BuildStub(image, 0x11EE64, 19, ReturnPlain,
+            (a, i) => HunterNativeStubs.EmitRabbitMeleeOrder(a, i, Address(flag), Rabbit, order));
+
+        short Order(int targetType, bool enabled)
+        {
+            SetFlag(enabled);
+            SetUnit(2, targetType, 0);
+            *(int*)(Unit(2) + 0x72C) = 0x7777;
+            *(short*)(tribes + 2 * TribeStride + order) = 0;
+            Outcome outcome = Run(stub, new Registers
+            {
+                Rbx = Address(units),
+                Rbp = 2 * UnitStride,
+                R12 = 2 * TribeStride,
+                R15 = Address(tribes)
+            });
+            Check((uint)outcome.Rax == 0x7777, "the value loaded for the next instruction must survive.");
+            return *(short*)(tribes + 2 * TribeStride + order);
+        }
+
+        Check(Order(Rabbit, true) == 1, "a melee order on a rabbit must set the tribe flag.");
+        Check(Order(Rabbit, false) == 0, "a disabled feature must not set the flag.");
+        Check(Order(Deer, true) == 0, "other targets must not set the flag.");
+    }
+
+    private static void TestStance(byte[] image)
+    {
+        ulong accept = ExitBlock(ResultAttackable);
+        byte* tribes = Alloc(TribeStride * 8);
+        ulong stub = BuildStub(image, 0x18C731, 14, ReturnPlain,
+            (a, i) => HunterNativeStubs.EmitRabbitStanceScan(a, i, Address(flag), Address(tribes), accept, Rabbit));
+
+        Outcome Scan(int type, byte animalFlag, bool enabled, short tribeFlag)
+        {
+            SetFlag(enabled);
+            *(Unit(2) + 0x984) = animalFlag;
+            *(short*)(Unit(1) + 0x930) = 2;
+            *(short*)(tribes + 2 * TribeStride) = tribeFlag;
+            return Run(stub, new Registers
+            {
+                Rsi = Address(units),
+                R13 = UnitStride,
+                R9 = (ulong)type,
+                R10 = Address(Unit(2))
+            });
+        }
+
+        Check(Scan(24, 0, true, 0).Result == ResultAttackable, "non-animals are accepted like in Vanilla.");
+        Check(Scan(Rabbit, 1, true, 1).Result == ResultAttackable, "a flagged tribe accepts rabbits.");
+        Check((uint)Scan(Rabbit, 1, true, 0).Rax == Rabbit - 0x2D, "without the flag Vanilla's filter continues with its EAX.");
+        Check((uint)Scan(Rabbit, 1, false, 1).Rax == Rabbit - 0x2D, "a disabled feature keeps Vanilla's filter.");
+        Check((uint)Scan(Deer, 1, true, 1).Rax == unchecked((uint)(Deer - 0x2D)), "other animals keep Vanilla's filter.");
+    }
+
+    // --- Tanner meat path ---
+    private const int Meat = 12;
+    private const int LeatherArmour = 23;
+    private const int BuildingStride = 0x32C;
+    private const int TannerUnit = 2;
+    private const int TannerOwner = 3;
+    private const int Tannery = 3;
+    private const uint TanneryGlobalId = 0x7777;
+    private const int ManagerWorkplace = 0x990;
+    private const int ManagerCarried = 0x9E0;
+    private const int ManagerSoundPlayed = 0xAA6;
+    private const int ManagerDestinationGlobal = 0x6F8;
+
+    private sealed class Recorder
+    {
+        public ulong Address;
+        public ulong* Block;
+        public ulong Rcx => Block[0];
+        public ulong Rdx => Block[1];
+        public ulong R8 => Block[2];
+        public ulong R9 => Block[3];
+        public ulong Stack28 => Block[4];
+        public ulong Calls => Block[5];
+
+        public int Result
+        {
+            set => *(int*)(Address + 2) = value;
+        }
+
+        public void Reset()
+        {
+            for (int index = 0; index < 6; index++)
+                Block[index] = 0;
+        }
+    }
+
+    /// <summary>A native helper stand-in that stores its arguments and returns a chosen value.</summary>
+    private static Recorder NewRecorder(int result)
+    {
+        byte* block = Alloc(64);
+        byte* code = Alloc(256);
+        var a = new Assembler(64);
+        // One NOP puts the immediate of mov eax at +2, where Result rewrites it.
+        a.nop();
+        a.mov(eax, result);
+        a.mov(r10, Address(block));
+        a.mov(__qword_ptr[r10], rcx);
+        a.mov(__qword_ptr[r10 + 8], rdx);
+        a.mov(__qword_ptr[r10 + 16], r8);
+        a.mov(__qword_ptr[r10 + 24], r9);
+        a.mov(r11, __qword_ptr[rsp + 0x30]);
+        a.mov(__qword_ptr[r10 + 32], r11);
+        a.inc(__qword_ptr[r10 + 40]);
+        a.ret();
+        if (!a.TryAssemble(new PointerWriter(code), Address(code), out string? error, out _))
+            throw new InvalidOperationException(error);
+        return new Recorder { Address = Address(code), Block = (ulong*)block };
+    }
+
+    private sealed class TannerFixture
+    {
+        public byte* Buildings;
+        public int* CurrentUnit;
+        public int* LocalPlayer;
+        public int* MeatStat;
+        public Recorder Armoury = null!, Granary = null!, Warning = null!, Accept = null!, Deposit = null!, Stats = null!, Sound = null!;
+        public HunterNativeStubs.TannerMeatAddresses Addresses = null!;
+        public TannerRunTable Table = null!;
+
+        public byte* Entry(int id) => (byte*)Table.Address + id * TannerRunTable.EntrySize;
+
+        public byte* Building(int id) => Buildings + id * BuildingStride;
+
+        public Registers Registers(ulong rax, ulong rcx, ulong rdx, ulong r8, ulong r9) => new Registers
+        {
+            Rax = rax,
+            Rbx = TannerUnit * UnitStride,
+            Rcx = rcx,
+            Rdx = rdx,
+            Rsi = Address(Buildings),
+            Rdi = 0,
+            R8 = r8,
+            R9 = r9,
+            R12 = Address(units),
+            R13 = 1
+        };
+
+        public void Reset()
+        {
+            foreach (Recorder recorder in new[] { Armoury, Granary, Warning, Accept, Deposit, Stats, Sound })
+                recorder.Reset();
+        }
+    }
+
+    private static TannerFixture NewTannerFixture()
+    {
+        var f = new TannerFixture
+        {
+            Buildings = Alloc(BuildingStride * 8),
+            CurrentUnit = (int*)Alloc(16),
+            LocalPlayer = (int*)Alloc(16),
+            MeatStat = (int*)Alloc(64),
+            Armoury = NewRecorder(7),
+            Granary = NewRecorder(8),
+            Warning = NewRecorder(0),
+            Accept = NewRecorder(1),
+            Deposit = NewRecorder(1),
+            Stats = NewRecorder(0),
+            Sound = NewRecorder(0),
+            Table = new TannerRunTable()
+        };
+        *(uint*)(f.Building(Tannery) + 0x134) = TanneryGlobalId;
+        *f.CurrentUnit = TannerUnit;
+        *f.LocalPlayer = TannerOwner;
+        SetUnit(TannerUnit, 21, TannerOwner);
+        *(short*)(units + TannerUnit * UnitStride + ManagerWorkplace) = Tannery;
+        f.Addresses = new HunterNativeStubs.TannerMeatAddresses
+        {
+            CurrentUnit = Address((byte*)f.CurrentUnit),
+            LocalPlayer = Address((byte*)f.LocalPlayer),
+            ArmouryFind = f.Armoury.Address,
+            GranaryFind = f.Granary.Address,
+            GranaryMissingWarning = f.Warning.Address,
+            GranaryAccept = f.Accept.Address,
+            Deposit = f.Deposit.Address,
+            StatsManager = 0x1234,
+            StatsAdd = f.Stats.Address,
+            SoundManager = 0x5678,
+            SoundPlay = f.Sound.Address,
+            FoodDeliveredStat = Address((byte*)f.MeatStat),
+            AfterFindWarning = ExitBlock(ResultContinue),
+            AcceptFail = ExitBlock(ResultReject),
+            DepositDone = ExitBlock(ResultContinue),
+            RunTable = f.Table.Address
+        };
+        return f;
+    }
+
+    private static void SetRun(TannerFixture f, bool enabled, int latched, uint entryGlobalId = TanneryGlobalId)
+    {
+        SetFlag(enabled);
+        f.Table.Clear();
+        *(uint*)(f.Entry(Tannery) + TannerRunTable.GlobalIdOffset) = entryGlobalId;
+        f.Entry(Tannery)[TannerRunTable.MeatTripOffset] = (byte)(latched == Meat ? 1 : 0);
+        f.Reset();
+    }
+
+    private static void TestTannerYield(byte[] image, TannerFixture f)
+    {
+        int* amount = (int*)Alloc(16);
+        *amount = 5;
+        Recorder helper = NewRecorder(9);
+        ulong stub = BuildStub(image, 0x13EBF7, 14, ReturnPlain,
+            (a, i) => HunterNativeStubs.EmitTannerYield(a, i, Address(flag), f.Table.Address, Address((byte*)amount), helper.Address));
+        byte* unit = units + TannerUnit * UnitStride;
+        byte* entry = f.Entry(Tannery);
+
+        (int Base, int Trip) Yield(bool enabled, int meatRuns, int hides, uint entryGlobalId = TanneryGlobalId, int weaponBase = 1)
+        {
+            SetFlag(enabled);
+            f.Table.Clear();
+            *(uint*)(entry + TannerRunTable.GlobalIdOffset) = entryGlobalId;
+            entry[TannerRunTable.MeatRunsOffset] = (byte)meatRuns;
+            entry[TannerRunTable.MeatTripOffset] = 0x7F;
+            *(short*)(f.Building(Tannery) + 0x2EC) = 0x51;
+            *(short*)(f.Building(Tannery) + 0x2EA) = 0x52;
+            *(int*)(f.Building(Tannery) + 0x190) = hides;
+            helper.Reset();
+            Run(stub, f.Registers(0, 21, (ulong)weaponBase, 1, 0));
+            Check(helper.Calls == 1 && helper.Rcx == 21 && helper.R8 == 1, "the yield helper runs once, with Vanilla's unit and bonus flag.");
+            Check(*(short*)(unit + ManagerCarried) == 9, "the helper's result is carried, so its bonus stays.");
+            Check(*(short*)(f.Building(Tannery) + 0x2EC) == 0x51 && *(short*)(f.Building(Tannery) + 0x2EA) == 0x52,
+                "the workshop's produced-good fields stay free for Vanilla and other mods.");
+            return ((int)helper.Rdx, entry[TannerRunTable.MeatTripOffset]);
+        }
+
+        Check(Yield(false, 3, 0) == (1, 0x7F), "a disabled patch keeps Vanilla's yield and the table.");
+        Check(Yield(false, 3, 0, weaponBase: 7) == (7, 0x7F), "a disabled meat selector keeps an adjacent weapon base.");
+        Check(Yield(true, 0, 0, weaponBase: 7) == (7, 0), "an armoury trip keeps an adjacent weapon base.");
+        Check(Yield(true, 3, 0, weaponBase: 7) == (5, 1), "a meat trip uses the configured meat base independently of the weapon base.");
+        Check(Yield(true, 3, 0, 0x1234) == (1, 0x7F), "a stale entry of an earlier building on this slot does not count.");
+        for (int meatRuns = 0; meatRuns <= TannerMeatPolicy.HidesPerCow; meatRuns++)
+        {
+            for (int hides = 0; hides < TannerMeatPolicy.HidesPerCow; hides++)
+            {
+                bool meat = TannerMeatPolicy.RunCarriesMeat(hides, meatRuns);
+                Check(Yield(true, meatRuns, hides) == (meat ? 5 : 1, meat ? 1 : 0), "a run follows the slider: meat runs come last.");
+            }
+        }
+
+        *(short*)(unit + ManagerWorkplace) = (short)TannerRunTable.Capacity;
+        Check(Yield(true, 3, 0) == (1, 0x7F), "a building above the table keeps the workshop's own good.");
+        *(short*)(unit + ManagerWorkplace) = Tannery;
+    }
+
+    private static void TestTannerFind(byte[] image, TannerFixture f)
+    {
+        ulong stub = BuildStub(image, 0x13ED8B, 16, ReturnFallthrough,
+            (a, i) => HunterNativeStubs.EmitTannerFind(a, i, Address(flag), f.Addresses, Meat));
+        ulong manager = Address(f.Buildings);
+
+        int Find(bool enabled, int latched, int owner, int granary)
+        {
+            SetRun(f, enabled, latched);
+            f.Granary.Result = granary;
+            SetUnit(TannerUnit, 21, owner);
+            return Run(stub, f.Registers(9, manager, 0, 0, (ulong)owner)).Result;
+        }
+
+        Check(Find(false, Meat, TannerOwner, 8) == ResultFallthrough && f.Armoury.Calls == 1 && f.Granary.Calls == 0,
+            "a disabled patch must search the armoury.");
+        Check(Find(true, 0, TannerOwner, 8) == ResultFallthrough && f.Armoury.Calls == 1 && f.Armoury.R8 == 0x17 && f.Armoury.Rcx == manager,
+            "an armour run keeps Vanilla's search arguments.");
+        Check(Find(true, Meat, TannerOwner, 8) == ResultContinue && f.Armoury.Calls == 0 && f.Granary.Calls == 1,
+            "a meat run must search a granary and skip the armoury warning.");
+        Check(f.Granary.Rcx == manager && f.Granary.Rdx == Meat && f.Granary.R8 == 1 && f.Granary.R9 == TannerOwner,
+            "the granary search must use the Hunter's arguments.");
+        Check(f.Warning.Calls == 0, "a found granary must not warn.");
+        SetRun(f, true, Meat, 0x1234);
+        Check(Run(stub, f.Registers(9, manager, 0, 0, TannerOwner)).Result == ResultFallthrough && f.Granary.Calls == 0,
+            "a stale meat trip of an earlier building must not count.");
+        Check(Find(true, Meat, TannerOwner, 0) == ResultContinue && f.Warning.Calls == 1, "the local player is warned about a missing granary.");
+        Check(Find(true, Meat, TannerOwner + 1, 0) == ResultContinue && f.Warning.Calls == 0, "other players are not warned locally.");
+        SetUnit(TannerUnit, 21, TannerOwner);
+    }
+
+    private static void TestTannerAccept(byte[] image, TannerFixture f)
+    {
+        ulong stub = BuildStub(image, 0x13EEFB, 16, ReturnFallthrough,
+            (a, i) => HunterNativeStubs.EmitTannerAccept(a, i, Address(flag), f.Addresses, Meat));
+        ulong manager = Address(f.Buildings);
+
+        int Accept(bool enabled, int latched, int accepted, int armoury)
+        {
+            SetRun(f, enabled, latched);
+            f.Accept.Result = accepted;
+            f.Armoury.Result = armoury;
+            return Run(stub, f.Registers(0, TannerUnit * UnitStride, 5, 0x17, TannerOwner)).Result;
+        }
+
+        Check(Accept(false, Meat, 1, 7) == ResultFallthrough && f.Armoury.Calls == 1 && f.Accept.Calls == 0, "disabled keeps the armoury check.");
+        Check(Accept(true, 0, 1, 0) == ResultReject && f.Armoury.Calls == 1, "a full armoury goes to Vanilla's failure path.");
+        Check(Accept(true, 0, 1, 7) == ResultFallthrough && f.Armoury.Rcx == manager && f.Armoury.Rdx == 5 && f.Armoury.R8 == 0x17, "armour keeps Vanilla's arguments.");
+        Check(Accept(true, Meat, 1, 0) == ResultFallthrough && f.Accept.Calls == 1 && f.Armoury.Calls == 0, "meat asks the granary.");
+        Check(f.Accept.Rcx == manager && f.Accept.Rdx == 5 && f.Accept.R8 == Meat && f.Accept.R9 == 0xFA, "the granary check uses the Hunter's arguments.");
+        Check(Accept(true, Meat, 0, 7) == ResultReject, "a full granary goes to the failure path.");
+    }
+
+    private static void TestTannerDeposit(byte[] image, TannerFixture f)
+    {
+        ulong stub = BuildStub(image, 0x13EF38, 16, ReturnFallthrough,
+            (a, i) => HunterNativeStubs.EmitTannerDeposit(a, i, Address(flag), f.Addresses, Meat));
+        ulong manager = Address(f.Buildings);
+        byte* unit = units + TannerUnit * UnitStride;
+        *(int*)(unit + ManagerDestinationGlobal) = 0x4242;
+
+        int Deposit(bool enabled, int latched, byte soundPlayed, ulong weaponGood = 0x17)
+        {
+            SetRun(f, enabled, latched);
+            *(short*)(unit + ManagerCarried) = 5;
+            *(unit + ManagerSoundPlayed) = soundPlayed;
+            f.MeatStat[TannerOwner] = 0;
+            return Run(stub, f.Registers(0, TannerUnit * UnitStride, 6, 0, weaponGood)).Result;
+        }
+
+        Check(Deposit(false, Meat, 0) == ResultFallthrough && f.Deposit.Calls == 1 && f.Deposit.R9 == 0x17 && f.Stats.Calls == 0, "disabled keeps Vanilla's deposit.");
+        Check(*(short*)(unit + ManagerCarried) == 5 && f.MeatStat[TannerOwner] == 0, "Vanilla's own code counts armour after the deposit.");
+        Check(Deposit(true, 0, 0) == ResultFallthrough && f.Deposit.Rcx == manager && f.Deposit.R8 == 0x4242 && f.Deposit.R9 == 0x17, "armour keeps Vanilla's arguments.");
+        // Native STORED_CROSSBOWS is an alternate incoming R9D from the adjacent APIShared hook.
+        const ulong crossbow = 0x12;
+        Check(Deposit(false, Meat, 0, crossbow) == ResultFallthrough && f.Deposit.R9 == crossbow, "a disabled meat selector keeps an adjacent weapon good.");
+        Check(Deposit(true, 0, 0, crossbow) == ResultFallthrough && f.Deposit.R9 == crossbow, "an armoury trip keeps an adjacent weapon good.");
+        Check(Deposit(true, Meat, 0, crossbow) == ResultContinue, "meat must continue behind the armour bookkeeping.");
+        Check(f.Deposit.Rcx == manager && f.Deposit.Rdx == 6 && f.Deposit.R8 == 0x4242 && f.Deposit.R9 == Meat && (int)f.Deposit.Stack28 == 0xFA,
+            "meat must be stored with the Hunter's arguments.");
+        Check(f.MeatStat[TannerOwner] == 1 && f.Stats.Calls == 1 && f.Stats.Rcx == 0x1234 && f.Stats.Rdx == 2 && f.Stats.R8 == 1 && f.Stats.R9 == TannerOwner,
+            "meat counts as delivered food.");
+        Check(*(short*)(unit + ManagerCarried) == 4, "each delivery lowers the carried amount by one.");
+        Check(f.Sound.Calls == 1 && f.Sound.Rcx == 0x5678 && f.Sound.R9 == 0x21 && *(unit + ManagerSoundPlayed) == 1, "the first delivery plays the Hunter's sound once.");
+        Check(Deposit(true, Meat, 1) == ResultContinue && f.Sound.Calls == 0 && *(short*)(unit + ManagerCarried) == 4, "later deliveries stay silent.");
+    }
+
+    private static void TestTannerRefind(byte[] image, TannerFixture f)
+    {
+        ulong stub = BuildStub(image, 0x13F009, 15, ReturnFallthrough,
+            (a, i) => HunterNativeStubs.EmitTannerRefind(a, i, Address(flag), f.Addresses, Meat));
+        ulong manager = Address(f.Buildings);
+
+        int Refind(bool enabled, int latched)
+        {
+            SetRun(f, enabled, latched);
+            return Run(stub, f.Registers(5, TannerUnit * UnitStride, 0, 0x17, TannerOwner)).Result;
+        }
+
+        Check(Refind(false, Meat) == ResultFallthrough && f.Armoury.Calls == 1 && f.Granary.Calls == 0, "disabled keeps the armoury search.");
+        Check(Refind(true, 0) == ResultFallthrough && f.Armoury.Calls == 1 && f.Armoury.Rcx == manager && f.Armoury.R8 == 0x17, "armour keeps Vanilla's arguments.");
+        Check(Refind(true, Meat) == ResultFallthrough && f.Granary.Calls == 1 && f.Armoury.Calls == 0, "meat looks for another granary.");
+        Check(f.Granary.Rcx == manager && f.Granary.Rdx == Meat && f.Granary.R8 == 1 && f.Granary.R9 == TannerOwner, "the search uses the Hunter's arguments.");
+    }
+
+    private static void TestTanner(byte[] image)
+    {
+        TannerFixture fixture = NewTannerFixture();
+        TestTannerYield(image, fixture);
+        TestTannerFind(image, fixture);
+        TestTannerAccept(image, fixture);
+        TestTannerDeposit(image, fixture);
+        TestTannerRefind(image, fixture);
+    }
+
+    private static void TestHutAvailability(byte[] image)
+    {
+        int* hasPrey = (int*)Alloc(16);
+        ulong available = ExitBlock(ResultContinue);
+        ulong stub = BuildStub(image, 0xFFDAB, 14, new byte[] { 0x33, 0xC0, 0xC3 },
+            (a, i) => HunterNativeStubs.EmitHutAlwaysAvailable(a, i, Address(flag), Address((byte*)hasPrey), available));
+
+        int Check_(bool enabled, ulong mode, int prey)
+        {
+            SetFlag(enabled);
+            *hasPrey = prey;
+            return Run(stub, new Registers { Rax = 7, R10 = mode, Rdx = 0x4E }).Result;
+        }
+
+        Check(Check_(false, 99, 0) == 0, "without the setting Vanilla hides the hut on a map without prey.");
+        Check(Check_(false, 99, 5) == ResultContinue, "a map with prey keeps the hut.");
+        Check(Check_(false, 0, 0) == ResultContinue, "single player keeps the hut.");
+        Check(Check_(true, 99, 0) == ResultContinue, "the setting keeps the hut on a map without prey.");
+    }
+
+    private static void TestCorpseChoice(byte[] image)
+    {
+        const int Hunter = 3, Corpse = 5, Global = 0x1234;
+        const int WalkMarker = 0x1000;
+        byte* entries = Alloc(8 * 16);
+        // Add the marker to the corpse ID, so a result shows both the path and the ID it carried.
+        byte* walk = Alloc(16);
+        new ReadOnlySpan<byte>(new byte[] { 0x05, 0x00, 0x10, 0x00, 0x00, 0xC3 }).CopyTo(new Span<byte>(walk, 16));
+
+        void Fixture(int reservation = 0, int global = Global, short alive = 2, short corpse = 1, bool entry = true)
+        {
+            *(int*)(Unit(Corpse) + 0x6F0) = global;
+            *(short*)(Unit(Corpse) + 0x6E4) = alive;
+            *(short*)(Unit(Corpse) + 0x8F8) = corpse;
+            *(short*)(Unit(Corpse) + 0xAA4) = (short)reservation;
+            *(int*)(entries + Hunter * 8) = Global;
+            *(ushort*)(entries + Hunter * 8 + 4) = entry ? (ushort)Corpse : (ushort)0;
+        }
+
+        int* currentHunter = (int*)Alloc(16);
+        *currentHunter = 0x70;
+        ulong noPrey = ExitBlock(ResultMiss);
+        // add eax, edx; ret: shows both the found prey and the reloaded current Hunter.
+        ulong search = BuildStub(image, 0x12FE07, 15, new byte[] { 0x01, 0xD0, 0xC3 },
+            (a, i) => HunterNativeStubs.EmitCorpseChoiceInSearch(a, i, Address(flag), Address(entries), Address((byte*)currentHunter), noPrey, Address(walk)));
+        int Search(bool enabled, int found = 0)
+        {
+            SetFlag(enabled);
+            return Run(search, new Registers { Rax = (ulong)found, Rbx = Hunter, R13 = Address(units) }).Result;
+        }
+
+        Fixture();
+        Check(Search(false) == ResultMiss, "a disabled rule keeps Vanilla's search without prey.");
+        Check(Search(false, 9) == 0x79, "a disabled rule keeps the prey Vanilla found.");
+        Check(*(short*)(Unit(Corpse) + 0xAA4) == 0, "a disabled rule reserves nothing.");
+        Fixture(entry: false);
+        Check(Search(true) == ResultMiss, "without a choice and prey Vanilla goes on without prey.");
+        Check(Search(true, 9) == 0x79, "without a choice Vanilla keeps its prey.");
+        Fixture();
+        Check(Search(true, 9) == WalkMarker + Corpse, "a valid choice walks to that corpse, ahead of found prey.");
+        Check(*(short*)(Unit(Corpse) + 0xAA4) == 2, "the Hunter reserves the corpse at once.");
+        Check(*(ushort*)(entries + Hunter * 8 + 4) == 0, "the choice is used up.");
+        Check(Search(true) == ResultMiss, "a used choice is not taken twice.");
+        Fixture(global: Global + 1);
+        Check(Search(true, 9) == 0x79, "another unit on that ID is no choice.");
+        Check(*(short*)(Unit(Corpse) + 0xAA4) == 0, "another unit on that ID stays unreserved.");
+        Fixture(alive: 1);
+        Check(Search(true, 9) == 0x79, "a deleted unit is no choice.");
+        Fixture(corpse: 0);
+        Check(Search(true, 9) == 0x79, "a living animal is no corpse choice.");
+        Fixture(reservation: 1);
+        Check(Search(true, 9) == 0x79, "a reserved corpse is not stolen.");
+        Check(*(short*)(Unit(Corpse) + 0xAA4) == 1, "a foreign reservation stays.");
+
+        byte* vanillaFound = Alloc(16);
+        vanillaFound[0] = 0xB8;
+        vanillaFound[5] = 0xC3;
+        ulong noCorpse = ExitBlock(ResultMiss);
+        // add eax, marker; ret: the bytes after the span are where Vanilla walks to the corpse.
+        byte[] walkTail = { 0x05, 0x00, 0x10, 0x00, 0x00, 0xC3 };
+        ulong afterShot = BuildStub(image, 0x13053A, 14, walkTail,
+            (a, i) => HunterNativeStubs.EmitCorpseChoiceAfterShot(a, i, Address(flag), Address(entries), Address(vanillaFound), noCorpse));
+        int AfterShot(bool enabled, int vanilla)
+        {
+            SetFlag(enabled);
+            *(int*)(vanillaFound + 1) = vanilla;
+            return Run(afterShot, new Registers { Rbx = Hunter, R13 = Address(units) }).Result;
+        }
+
+        Fixture();
+        Check(AfterShot(false, 0) == ResultMiss, "disabled: no Vanilla corpse goes on to the next search.");
+        Check(AfterShot(false, 7) == WalkMarker + 7, "disabled: Vanilla's corpse is walked to.");
+        Check(AfterShot(true, 7) == WalkMarker + Corpse, "the choice comes before Vanilla's corpse.");
+        Check(*(short*)(Unit(Corpse) + 0xAA4) == 2, "after a shot the choice is reserved as well.");
+        Fixture(entry: false);
+        Check(AfterShot(true, 7) == WalkMarker + 7, "without a choice Vanilla's corpse stays.");
+        Check(AfterShot(true, 0) == ResultMiss, "without any corpse Vanilla goes on.");
+        Fixture(reservation: 2);
+        Check(AfterShot(true, 7) == WalkMarker + 7, "a taken choice falls back to Vanilla's corpse.");
+    }
+}

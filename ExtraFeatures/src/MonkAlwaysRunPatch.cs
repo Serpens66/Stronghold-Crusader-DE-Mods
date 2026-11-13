@@ -33,10 +33,6 @@ namespace ExtraFeatures
         private const ulong RunningTargetFromReturnAddress = 0x02;
         private const ulong WalkingTargetFromReturnAddress = 0x19;
 
-        private static readonly object PublishedRootsSync = new object();
-        private static readonly System.Collections.Generic.List<MonkAlwaysRunPatch> PublishedRoots =
-            new System.Collections.Generic.List<MonkAlwaysRunPatch>();
-
         private readonly ManualLogSource log;
         private HookTransaction transaction;
         private readonly HookHandle<X64InlineHook> movementDecisionHook =
@@ -72,6 +68,7 @@ namespace ExtraFeatures
             ValidateHookSpan(memory, imageBase, decisionRva);
 
             HookTransaction pendingTransaction = null;
+            bool commitAttempted = false;
             try
             {
                 enabledFlag = Marshal.AllocHGlobal(sizeof(int));
@@ -88,17 +85,18 @@ namespace ExtraFeatures
                             returnAddress,
                             unchecked((ulong)enabledFlag.ToInt64())),
                     hookSize: HookSize);
+                ExtraFeaturesHookInfrastructure.RootBeforeCommit(this, pendingTransaction);
+                commitAttempted = true;
                 CommitResult commitResult = pendingTransaction.Commit();
 
-                if (!commitResult.IsCompleteSuccess || !movementDecisionHook.Success)
+                // The span length is enforced inside Commit: the generator rejects anything but the
+                // audited 9/2/9-byte instructions.
+                if (!commitResult.IsCompleteSuccess || !movementDecisionHook.Success ||
+                    !movementDecisionHook.IsInstalled)
                     throw new InvalidOperationException("The Monk movement decision hook was not installed.");
 
                 transaction = pendingTransaction;
                 pendingTransaction = null;
-                // The runtime may drop its reference after a later logical failure; the
-                // published hook and its flag memory stay rooted until process exit.
-                lock (PublishedRootsSync)
-                    PublishedRoots.Add(this);
             }
             catch
             {
@@ -106,7 +104,8 @@ namespace ExtraFeatures
                 {
                     try { pendingTransaction.Dispose(); } catch { }
                 }
-                if (enabledFlag != IntPtr.Zero)
+                // After a commit attempt a stub may still read the flag (see RootBeforeCommit).
+                if (!commitAttempted && enabledFlag != IntPtr.Zero)
                 {
                     Marshal.FreeHGlobal(enabledFlag);
                     enabledFlag = IntPtr.Zero;
@@ -139,7 +138,7 @@ namespace ExtraFeatures
                 "MonkMovementSetting",
                 value ? 1 : 0);
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/MonkAlwaysRunPatch.cs:127", $"Extra Features Monks Always Run is now {(value ? "enabled" : "disabled")}; " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/MonkAlwaysRunPatch/SetEnabled", $"Extra Features Monks Always Run is now {(value ? "enabled" : "disabled")}; " +
                     "the native Monk movement decision applies to both skins.");
         }
 

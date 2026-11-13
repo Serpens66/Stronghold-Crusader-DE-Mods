@@ -295,14 +295,23 @@ namespace PerfProbe
         private static bool TrySetPause(bool paused)
         {
             Director director = Director.instance;
-            if (director == null || director.MultiplayerGame || director.Paused) return false;
+            if (director == null || director.MultiplayerGame || director.Paused)
+            {
+                Log("pause rejected requested=" + paused + " directorNull=" + (director == null) +
+                    " multiplayer=" + (director != null && director.MultiplayerGame) +
+                    " managedPaused=" + (director != null && director.Paused));
+                return false;
+            }
             GamePlayerManagerAPI players = GamePlayerManagerAPI.Instance;
             if (players.IsLocalPaused() != paused)
             {
                 int state = paused ? 1 : 0;
                 EngineInterface.GameAction(Enums.GameActionCommand.Game_Paused, state, state);
             }
-            return players.IsLocalPaused() == paused;
+            bool observed = players.IsLocalPaused();
+            if (observed != paused) Log("pause unconfirmed requested=" + paused + " nativePaused=" + observed +
+                " managedPaused=" + director.Paused);
+            return observed == paused;
         }
 
         private static void Enter(Phase next, string detail)

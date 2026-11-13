@@ -44,13 +44,6 @@ namespace ExtraFeatures
             "66 41 39 84 18 D0 00 00 00 7C 06 66 45 89 4C 18 28 " +
             "41 0F B7 44 18 14 49 8D 0C 18 66 83 C0 10 66 41 89 44 18 34";
 
-        // RedBird pins callback delegates only inside the hook instance. Once the comparison hook
-        // is published, this static root keeps the patch, hook and delegate alive until process exit
-        // even if the runtime later drops its reference after a logical failure.
-        private static readonly object PublishedRootsSync = new object();
-        private static readonly System.Collections.Generic.List<PlagueDurationPatch> PublishedRoots =
-            new System.Collections.Generic.List<PlagueDurationPatch>();
-
         private readonly ManualLogSource log;
         private HookTransaction conditionalTransaction;
         private readonly HookHandle<X64InlineHook> lifetimeComparisonHook = new HookHandle<X64InlineHook>();
@@ -154,14 +147,11 @@ namespace ExtraFeatures
                     hookSize: LifetimeComparisonMinimumHookSize,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
+                // RedBird pins the callback delegate only inside the hook instance.
+                ExtraFeaturesHookInfrastructure.RootBeforeCommit(this, candidate);
                 CommitResult commitResult = candidate.Commit();
                 if (!commitResult.IsCompleteSuccess || !lifetimeComparisonHook.Success)
                     throw new InvalidOperationException("The conditional plague-lifetime hook was not installed.");
-                // Root before any post-commit assertion: a rollback may still restore the bytes,
-                // but the native code must never be able to reach a collected callback.
-                lock (PublishedRootsSync)
-                    PublishedRoots.Add(this);
-
                 if (!lifetimeComparisonHook.IsInstalled)
                     throw new InvalidOperationException("The permanent plague-lifetime hook is not active.");
                 if (lifetimeComparisonHook.Hook.DisplacedByteCount != LifetimeComparisonDisplacedBytes)
@@ -181,7 +171,7 @@ namespace ExtraFeatures
                     }
                     catch (Exception ex)
                     {
-                        Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/src/PlagueDurationPatch.cs:158", "Extra Features could not initialize AI flag Disease tracking; " +
+                        Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/PlagueDurationPatch/TryInstallLifetimeComparisonHook.initialize-ai-flag-disease", "Extra Features could not initialize AI flag Disease tracking; " +
                             $"the permanent lifetime hook remains active without that exception: {ex}");
                     }
                 }
@@ -200,7 +190,7 @@ namespace ExtraFeatures
                 RollbackUnpublishedLifetimeComparisonHook(candidate, hookPublished);
                 aiFlagDiseaseTracker?.Dispose();
                 aiFlagDiseaseTracker = null;
-                Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/src/PlagueDurationPatch.cs:178", "Extra Features could not install the plague-lifetime hook; " +
+                Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/PlagueDurationPatch/TryInstallLifetimeComparisonHook.install-plague-lifetime-hook", "Extra Features could not install the plague-lifetime hook; " +
                     $"the plague duration multiplier is unavailable and Vanilla duration applies for this process: {ex}");
             }
         }
@@ -240,7 +230,7 @@ namespace ExtraFeatures
                     return;
 
                 conditionalCallbackFailureLogged = true;
-                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/PlagueDurationPatch.cs:220", "Extra Features plague lifetime callback was disabled for this process; " +
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/PlagueDurationPatch/ApplyConditionalLifetime", "Extra Features plague lifetime callback was disabled for this process; " +
                     $"the physically installed hook now preserves Vanilla behavior: {ex}");
             }
         }

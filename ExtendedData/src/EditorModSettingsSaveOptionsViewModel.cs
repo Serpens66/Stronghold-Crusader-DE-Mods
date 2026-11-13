@@ -42,6 +42,7 @@ namespace ExtendedData
         public string IncludeText => SerpLocalization.Get("EditorSave.IncludeModSettings");
         public string MapHelpText => SerpLocalization.Get("EditorSave.IncludeMapModSettingsHelp");
         public string TrailHelpText => SerpLocalization.Get("EditorSave.IncludeTrailModSettingsHelp");
+        public string CoopAdvancedOptionsHint => enabled ? SerpLocalization.Get("ExtendedData.CoopAdvancedOptionsHint") : string.Empty;
 
         internal void SetEnabled(bool value)
         {
@@ -50,6 +51,7 @@ namespace ExtendedData
             enabled = value;
             Changed(nameof(MapOptionVisibility));
             Changed(nameof(TrailOptionVisibility));
+            Changed(nameof(CoopAdvancedOptionsHint));
         }
 
         internal void OpenMap(bool hasExistingEntry)

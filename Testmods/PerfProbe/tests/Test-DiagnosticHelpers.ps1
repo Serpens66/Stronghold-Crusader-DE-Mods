@@ -8,6 +8,16 @@ $probeRoot = Split-Path -Parent $PSScriptRoot
 $harmonyPath = Join-Path $GameDirectory 'BepInEx\core\0Harmony.dll'
 Add-Type -Path $harmonyPath
 $references = @(Get-ChildItem -LiteralPath (Join-Path $PSHOME 'ref') -Filter '*.dll' -File | ForEach-Object { $_.FullName }) + @($harmonyPath)
+# Execute the production installer and config binding with only the patch publication
+# boundary replaced. Do not patch the user's game or duplicate the selection logic.
+$runtime = [IO.File]::ReadAllText((Join-Path $probeRoot 'src\PerfProbePlugin.DevDiag.cs'))
+$install = [regex]::Match($runtime, '(?ms)^        private static void InstallRunTiming\(\).*?^        }').Value
+$setting = [regex]::Match($runtime, '(?m)^        internal static bool RunPhaseTiming = .*?;').Value
+$binding = [regex]::Match($runtime, '(?s)PerfProbeRuntime\.RunPhaseTiming = config\.Bind\("Spikes", "RunPhaseTiming".*?\)\.Value;').Value
+if (!$install -or !$setting -or !$binding) { throw 'Production run timing installer/config could not be extracted.' }
+$fixture = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'RunTimingInstallTests.cs')).Replace('/* INSTALL */', $install).Replace('/* SETTING */', $setting).Replace('/* BINDING */', $binding)
+Add-Type -TypeDefinition $fixture -ReferencedAssemblies $references
+[PerfProbeInstallFixture.RunTimingInstallTests]::Run()
 Add-Type -Path @(
     (Join-Path $probeRoot 'src\PerfProbeLockTiming.DevDiag.cs'),
     (Join-Path $probeRoot 'src\PerfProbeLockHistory.DevDiag.cs'),

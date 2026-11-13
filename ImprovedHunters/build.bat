@@ -55,7 +55,9 @@ set "NO_INSTALL=0"
 for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 
-rem Never touch build or installation output while the game has plugin DLLs loaded.
+rem Isolated /noinstall builds only write their copied source/package tree.
+rem Installing builds still require the game to be closed before replacing any files.
+if "%NO_INSTALL%"=="1" if defined SHCDE_BRANCH_SOURCE_ROOT goto build_driver_game_ready
 echo [%date% %time%] Check that the game is closed
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
 if not "%ERRORLEVEL%"=="0" (
@@ -63,6 +65,7 @@ if not "%ERRORLEVEL%"=="0" (
   echo Lokales Paket und installierter Mod wurden nicht veraendert.
   exit /b 1
 )
+:build_driver_game_ready
 
 if not exist "%MSBUILD%" (
   echo MSBuild wurde nicht gefunden:

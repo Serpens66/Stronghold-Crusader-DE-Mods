@@ -7,8 +7,8 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using GroupPathProbe.Core;
 
-// Phase 1 contracts and measurement for the MoatMove anchor core (MoatMoveAnchor.dll).
-// One task per group (as one command in MoatMove), queries in group order.
+// Phase 1 contracts and measurement for the Pathfinding anchor core (PathfindingAnchor.dll).
+// One task per group (as one command in Pathfinding), queries in group order.
 internal static class AnchorCoreGate
 {
     private static int comparisons;
@@ -305,7 +305,7 @@ internal static class AnchorCoreGate
             long settles = core.Stats()[AnchorCoreInterop.Stat("singleSettles")];
             if (route.Status != SearchStatus.Found || route.Cost != 30 || settles > 4 * 30)
                 throw new InvalidOperationException($"Single route is not a corridor search: status={route.Status} cost={route.Cost} settles={settles}");
-            // The result reports the call's settles (MoatMove's per-tick single budget charges them).
+            // The result reports the call's settles (Pathfinding's per-tick single budget charges them).
             if (core.LastSettles != settles) throw new InvalidOperationException($"Single route settles not reported: {core.LastSettles} != {settles}");
             // Over a settle budget the search stops inconclusive; a sufficient budget gives the same route.
             if (core.SingleRoute(Player, 30 * 60 + 10, 1, 7, 30 * 60 + 40, 8).Reason != "over-2000-steps" || core.LastSettles != 8 ||
@@ -398,10 +398,10 @@ internal static class AnchorCoreGate
         string root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../.."));
         string output = Path.Combine(root, "results", "core-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff"));
         Directory.CreateDirectory(output);
-        string nativeDir = Path.GetFullPath(Path.Combine(root, "../MoatMove/.local/anchor"));
+        string nativeDir = Path.GetFullPath(Path.Combine(root, "../../Pathfinding/obj/native-anchor"));
         File.Copy(Path.Combine(nativeDir, "build.json"), Path.Combine(output, "native-build.json"));
         using (JsonDocument proof = JsonDocument.Parse(File.ReadAllText(Path.Combine(output, "native-build.json"))))
-            if (!string.Equals(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(nativeDir, "MoatMoveAnchor.dll")))), proof.RootElement.GetProperty("dllSha256").GetString(), StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Anchor core binary/proof mismatch");
+            if (!string.Equals(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(nativeDir, "PathfindingAnchor.dll")))), proof.RootElement.GetProperty("dllSha256").GetString(), StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Anchor core binary/proof mismatch");
         var rows = new List<object>(); int exit = 0;
         try
         {

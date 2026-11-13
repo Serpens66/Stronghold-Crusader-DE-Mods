@@ -2,10 +2,10 @@
 param()
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
-$hook = [IO.File]::ReadAllText((Join-Path $root 'src\WorkshopIdleDelayHook.cs'))
-$native = [IO.File]::ReadAllText((Join-Path $root 'src\WorkshopIdleDelayNative.cs'))
-$runtime = [IO.File]::ReadAllText((Join-Path $root 'src\BugfixesAndQoLRuntime.cs'))
-$settings = [IO.File]::ReadAllText((Join-Path $root 'src\BugfixesAndQoLViewModel.cs'))
+$hook = [IO.File]::ReadAllText((Join-Path $root 'src\Buildings\WorkshopIdleDelayHook.cs'))
+$native = [IO.File]::ReadAllText((Join-Path $root 'src\Buildings\WorkshopIdleDelayNative.cs'))
+$runtime = [IO.File]::ReadAllText((Join-Path $root 'src\Core\Bootstrap\BugfixesAndQoLRuntime.cs'))
+$settings = [IO.File]::ReadAllText((Join-Path $root 'src\Settings\BugfixesAndQoLViewModel.cs'))
 foreach ($required in @('private readonly HookTransaction transaction;', 'Volatile.Write(ref *(int*)enabledFlag',
     'Probe(imageBase + WorkshopIdleDelayNative.PoleRva)', 'Probe(imageBase + WorkshopIdleDelayNative.TannerRva)',
     'ValidateLayouts();', 'ValidateGenerator(imageBase, false)', 'ValidateGenerator(imageBase, true)',
@@ -43,7 +43,7 @@ foreach ($locale in Get-ChildItem -LiteralPath (Join-Path $root 'Locales') -Filt
         }
     }
 }
-$newFiles = @('src\WorkshopIdleDelayHook.cs', 'src\WorkshopIdleDelayNative.cs',
+$newFiles = @('src\Buildings\WorkshopIdleDelayHook.cs', 'src\Buildings\WorkshopIdleDelayNative.cs',
     'tests\WorkshopIdleDelay.Tests\Program.cs', 'tests\WorkshopIdleDelay.Tests\WorkshopIdleDelay.Tests.csproj',
     'Test-WorkshopIdleDelayPreflight.ps1')
 foreach ($relative in $newFiles) {

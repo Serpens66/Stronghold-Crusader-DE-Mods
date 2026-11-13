@@ -71,6 +71,7 @@ namespace SHCDESE.API
     {
         public static readonly GameBuildingManagerAPI Instance = new GameBuildingManagerAPI();
         public readonly GameBuilding* Building = (GameBuilding*)Marshal.AllocHGlobal(sizeof(GameBuilding));
+        public bool IsValidId(int id) => id > 0 && id <= 3999;
         public bool TryGetBuildingById(int id, out GameBuilding* value) { value = Building; return true; }
     }
     public sealed class TestTimerEngine
@@ -161,7 +162,7 @@ namespace BugfixesAndQoL
         public static RedBird.X64.Hooks.Transaction.HookTransaction CreateOwnedTransaction(RedBird.Core.Memory.ScanRegion region) => new RedBird.X64.Hooks.Transaction.HookTransaction();
         public static void AddContextHook(RedBird.X64.Hooks.Transaction.HookTransaction t, RedBird.Abstractions.Hooks.HookHandle<RedBird.X64.Hooks.X64InlineHook> h, ulong address, Action<NativePointer<RedBird.X64.Assembly.X64SmartCPUContext>> callback, RedBird.X64.Assembly.X64SmartCPUContextRegs registers, RedBird.Abstractions.Hooks.CallbackErrorMode errorMode, RedBird.Abstractions.Hooks.OverwrittenInstructionPlacement placement) { }
     }
-    internal static class PlagueNativePatternValidator { public static int Resolve(BepInEx.Logging.ManualLogSource l, ReadOnlySpan<byte> m, string p, int r, bool match, string name) => r; }
+    internal static class PlagueNativeResolver { public static int Resolve(BepInEx.Logging.ManualLogSource l, ReadOnlySpan<byte> m, string p, int r, bool match, string name) => r; }
     internal sealed class BugfixesAndQoLViewModel
     {
         public event Action<string> SettingChanged;

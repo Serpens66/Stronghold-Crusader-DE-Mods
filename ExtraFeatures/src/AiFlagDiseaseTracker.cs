@@ -92,6 +92,7 @@ namespace ExtraFeatures
                     aiFlagRoutineHook,
                     HookTarget.FromAddress(libraryBase + unchecked((ulong)routineRva)),
                     RunAiFlagRoutine);
+                ExtraFeaturesHookInfrastructure.RootBeforeCommit(this, candidate);
                 CommitResult commitResult = candidate.Commit();
                 if (!commitResult.IsCompleteSuccess || !aiFlagRoutineHook.Success)
                     throw new InvalidOperationException("The AI flag projectile hook was not installed.");
@@ -104,6 +105,8 @@ namespace ExtraFeatures
             }
             catch
             {
+                // A detour whose rollback failed silently must reach Vanilla only.
+                trackingAvailable = false;
                 RollbackUnpublishedHook(candidate, hookPublished);
                 DisposeManagedState();
                 throw;
@@ -145,7 +148,7 @@ namespace ExtraFeatures
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/src/AiFlagDiseaseTracker.cs:144", $"Could not register external Vanilla-equivalent Disease flag slot {slotId}: {ex.GetBaseException().Message}.");
+                Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/AiFlagDiseaseTracker/TryTrackExternalDiseaseFlag", $"Could not register external Vanilla-equivalent Disease flag slot {slotId}: {ex.GetBaseException().Message}.");
                 return false;
             }
         }
@@ -333,7 +336,7 @@ namespace ExtraFeatures
             }
             registry.Restore(identities);
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AiFlagDiseaseTracker.cs:333", $"AI flag disease state loaded: projectiles={registry.Count}.");
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/AiFlagDiseaseTracker/LoadState", $"AI flag disease state loaded: projectiles={registry.Count}.");
         }
 
         private void PruneInvalidProjectiles()
@@ -381,7 +384,7 @@ namespace ExtraFeatures
                 return;
 
             callbackFailureLogged = true;
-            Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/AiFlagDiseaseTracker.cs:381", "Extra Features Vanilla-duration Disease tracking was disabled for this process; " +
+            Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/AiFlagDiseaseTracker/DisableTracking", "Extra Features Vanilla-duration Disease tracking was disabled for this process; " +
                 $"the configured global plague duration remains active: {failure}");
         }
 

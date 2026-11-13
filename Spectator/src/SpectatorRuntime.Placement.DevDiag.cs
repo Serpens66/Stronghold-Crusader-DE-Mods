@@ -421,8 +421,8 @@ namespace Spectator
                     tileId < alpha.Length && tileId < structure.Length ?
                     "gfx=" + gfx[tileId] + " alpha=" + alpha[tileId] +
                     " structure=" + structure[tileId] : "tile=invalid";
-                if (buildingId > 0 && GameBuildingManagerAPI.Instance.TryGetBuildingById(
-                    buildingId, out GameBuilding* building) && building != null)
+                if (buildingId > 0 && global::APIShared.BuildingAccess.TryGetById(
+                    buildingId, out GameBuilding* building, out _) && building != null)
                     return tiles + " record=" + building->r_BuildingType + "/" +
                         building->r_SpriteVariationIndex + "/" +
                         building->r_SpritePlayerColorId + "/" +

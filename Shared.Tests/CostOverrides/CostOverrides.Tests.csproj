@@ -13,11 +13,12 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
     <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath></Reference>
     <Compile Include="..\..\Shared\Runtime\Gameplay\OwnedValueOverrides.cs"><Link>OwnedValueOverrides.cs</Link></Compile>
     <Compile Include="..\..\UnitCosts\src\UnitCostOverrides.cs"><Link>UnitCostOverrides.cs</Link></Compile>
-    <Compile Include="..\..\ExtraFeatures\src\MarketPriceOverrides.cs"><Link>MarketPriceOverrides.cs</Link></Compile>
-    <Compile Include="..\..\ExtraFeatures\src\MarketGoodPriceDefinition.cs"><Link>MarketGoodPriceDefinition.cs</Link></Compile>
+    <Compile Include="..\..\APIShared\src\Economy\MarketPriceTableCoordinator.cs"><Link>MarketPriceTableCoordinator.cs</Link></Compile>
+    <Compile Include="..\..\APIShared\src\Modifiers\ValueModifiers.cs"><Link>ValueModifiers.cs</Link></Compile>
     <Compile Include="Program.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

@@ -142,6 +142,7 @@ namespace Spectator
         private static void HideBlockedToolbar()
         {
             humanPanel.Opacity = 0; humanPanel.IsHitTestVisible = false;
+            if (aiPlacementPanel != null) aiPlacementPanel.Visibility = Visibility.Collapsed;
             SuspendToolbarInteraction();
         }
 

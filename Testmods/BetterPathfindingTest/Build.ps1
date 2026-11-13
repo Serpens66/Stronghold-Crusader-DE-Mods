@@ -45,7 +45,7 @@ function Get-PrototypeSourceHashes {
         foreach ($file in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot $folder) -Recurse -File | Where-Object { $_.FullName -notmatch '[\\/](bin|obj)[\\/]' -and $_.Extension -in @('.cs','.cpp','.ps1','.csproj') }) { $hashes[$file.FullName] = Get-ApiFileHash $file.FullName }
     }
     foreach ($name in @('BetterPathfindingTest.csproj','Build.ps1','build.bat','info.json')) { $p = Join-Path $PSScriptRoot $name; $hashes[$p] = Get-ApiFileHash $p }
-    foreach ($relative in @('Movement\WeightedGridSearchKernel.cs','Movement\WeightedMoatRoutePlanner.cs','Moat\MoatCandidateField.cs','Runtime\UnitCommandContracts.cs')) { $p=Join-Path $workspace "BugfixesAndQoL\src\UnitCommands\$relative"; $hashes[$p]=Get-ApiFileHash $p }
+    foreach ($relative in @('Movement\WeightedGridSearchKernel.cs','Movement\WeightedMoatRoutePlanner.cs','Moat\MoatCandidateField.cs','Runtime\UnitCommandContracts.cs')) { $p=Join-Path $workspace "Pathfinding\src\UnitCommands\$relative"; $hashes[$p]=Get-ApiFileHash $p }
     return $hashes
 }
 $sourceInputs = Get-PrototypeSourceHashes
@@ -91,7 +91,7 @@ Assert-InstalledDependencies
 if ($LASTEXITCODE) { throw 'Selected APIShared consumer package changed during the build.' }
 $sources = $sourceInputs
 foreach ($file in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'src'),(Join-Path $PSScriptRoot 'tests') -Recurse -File -Filter '*.cs' | Where-Object { $_.FullName -notmatch '[\\/](bin|obj)[\\/]' }) { $sources[$file.FullName] = Get-ApiFileHash $file.FullName }
-foreach ($relative in @('Movement\WeightedGridSearchKernel.cs','Movement\WeightedMoatRoutePlanner.cs','Moat\MoatCandidateField.cs','Runtime\UnitCommandContracts.cs')) { $path = Join-Path $workspace "BugfixesAndQoL\src\UnitCommands\$relative"; $sources[$path] = Get-ApiFileHash $path }
+foreach ($relative in @('Movement\WeightedGridSearchKernel.cs','Movement\WeightedMoatRoutePlanner.cs','Moat\MoatCandidateField.cs','Runtime\UnitCommandContracts.cs')) { $path = Join-Path $workspace "Pathfinding\src\UnitCommands\$relative"; $sources[$path] = Get-ApiFileHash $path }
 $nativeHash = if ($devdiag) { Get-ApiFileHash $nativeDll } else { $null }
 foreach ($folder in @('native')) { foreach ($file in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot $folder) -File) { $sources[$file.FullName] = Get-ApiFileHash $file.FullName } }
 $record = @{ nativeSha256=$nativeHash; timestampUtc=[DateTime]::UtcNow.ToString('o'); branch=$branch; head=(& git -C $workspace rev-parse HEAD); devdiag=$devdiag; installed=$install; dllSha256=(Get-ApiFileHash $dll); apiSharedDirectory=$apiSharedDirectory; selectedSdkDependencies=$sdkInputs; installedDependencies=$inputs; sourceSha256=$sources } | ConvertTo-Json -Depth 6

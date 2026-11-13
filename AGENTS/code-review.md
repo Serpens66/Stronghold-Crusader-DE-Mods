@@ -35,6 +35,7 @@ Vor der Meldung gezielt ausschließen:
 - Verhalten, das absichtlich Vanilla entspricht.
 - Fehler im Script Extender oder Fixes-Mod als Fehler des eigenen Mods ([external-components.md](external-components.md)).
 - Rein theoretische Überläufe oder Indexfehler außerhalb der realen Wertebereiche; IDs, Indizes und Enums nach [ids-enums.md](ids-enums.md) prüfen.
+- Den bewusst akzeptierten Extender-Auswahlrandfall nicht als neuen Befund wiederholen; Entscheidung und Grenzen unter [external-components.md](external-components.md#bewusst-akzeptierter-auswahl-randfall).
 
 ## Korrekturen genauso streng prüfen
 

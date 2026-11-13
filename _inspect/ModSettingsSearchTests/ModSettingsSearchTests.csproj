@@ -17,6 +17,10 @@
     <Compile Include="..\..\SerpsModsHost\src\ModSettingsSearchPolicy.cs" Link="Production\ModSettingsSearchPolicy.cs"/>
     <Compile Include="..\..\APIShared\src\ModSettings\UI\ModSettingsSearch.cs" Link="Production\ModSettingsSearch.cs"/>
     <Compile Include="..\..\APIShared\src\ModSettings\UI\ModSettingsSearchCatalog.cs" Link="Production\ModSettingsSearchCatalog.cs"/>
+    <Compile Include="..\..\APIShared\src\ModSettings\UI\ModSettingsSearchContracts.cs" Link="Production\ModSettingsSearchContracts.cs"/>
+    <Compile Include="..\..\APIShared\src\ModSettings\UI\ModSettingsSearchMatcher.cs" Link="Production\ModSettingsSearchMatcher.cs"/>
+    <Compile Include="..\..\APIShared\src\ModSettings\UI\SearchSource.cs" Link="Production\SearchSource.cs"/>
+    <Compile Include="..\..\APIShared\src\ModSettings\UI\ReferenceEqualityComparer.cs" Link="Production\ReferenceEqualityComparer.cs"/>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
 </Project>

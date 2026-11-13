@@ -1,5 +1,21 @@
 # Diagnose kurzer Lags ab 100 ms
 
+## Vergleichsmessung mit weiteren Engine-Transpilern (12.11.2026)
+
+`Spikes.RunPhaseTiming=false` lässt die ursprünglichen Monitor-Aufrufe in
+`EngineInterface.run` erhalten. Äußere Prefix-/Postfix-/Finalizer-Messung und
+Sim-Sampling bleiben aktiv; interne Phasen und deren Native-Aufrufzähler sind
+dann nicht gemessen (`runPhasesMeasured=False`). Der Standard bleibt `true` für
+gezielte Phasenanalysen. Insbesondere BFQoLs Pech-/Grabenlinien benötigen die
+Monitor-Aufrufe zur Prüfung ihrer sicheren Ausführungsgrenze; die Ersetzung durch
+den Phasenmesser führt dort zur vorgesehenen Abschaltung des Features.
+
+Für allgemeine Vergleiche zusätzlich `Extras.EngineCalls=false` setzen, wenn die
+einzelnen Engine-Aufruf- und Sperrzeitmessungen nicht benötigt werden. Alle
+Varianten derselben Messreihe verwenden dieselbe Instrumentierung. Ein Lauf mit
+abgeschaltetem Gameplay-Feature wegen eines Diagnosekonflikts zählt nicht als
+Abnahme des normalen gemeinsamen Betriebs.
+
 ## Spielzeit-Stillstand, Lag-Arten und Marker (Quellstand 28.10.2026)
 
 Auslöser: Editor, ca. 1350 Einheiten, Bewegungsbefehl (Log

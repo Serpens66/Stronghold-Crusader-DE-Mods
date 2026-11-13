@@ -82,9 +82,9 @@ if ($gateOffset -lt 0 -or $gateOffset -ge $allocationOffset -or
     $plugin.IndexOf('if (!tickSubscribed)') -le $allocationOffset) {
     throw 'Wood guard must be disabled before construction without disabling independent diagnostics.'
 }
-$main = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\BugfixesAndQoLRuntime.cs'))
-$economyMain = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\AIPreplacedBuildingFixRuntime.cs'))
-$woodScope = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\AiWoodBuildCallScope.cs'))
+$main = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\Core\Bootstrap\BugfixesAndQoLRuntime.cs'))
+$economyMain = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\AI\Prebuilt\AIPreplacedBuildingFixRuntime.cs'))
+$woodScope = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\AI\Prebuilt\AiWoodBuildCallScope.cs'))
 if ($source -notmatch 'DisplacedLength = 8' -or
     $source -notmatch 'probe\.Scheme\.ToString\(\) != "Indirect"' -or
     $source -notmatch 'ValidateInstalledHook\(target\)' -or
@@ -164,8 +164,8 @@ $textFiles = @(
     (Join-Path $project 'src\AICoarsePathComponentFixTestPlugin.cs'),
     (Join-Path $project 'src\WoodSiteGuardExperiment.cs'),
     (Join-Path $project 'src\WoodGuardOutcomeObserver.cs'),
-    (Join-Path $workspace 'BugfixesAndQoL\src\AiWoodBuildCallScope.cs'),
-    (Join-Path $workspace 'BugfixesAndQoL\src\AIPreplacedBuildingFixRuntime.cs'),
+    (Join-Path $workspace 'BugfixesAndQoL\src\AI\Prebuilt\AiWoodBuildCallScope.cs'),
+    (Join-Path $workspace 'BugfixesAndQoL\src\AI\Prebuilt\AIPreplacedBuildingFixRuntime.cs'),
     (Join-Path $project 'UpdateToNewDLL.md'),
     (Join-Path $project 'Properties\AssemblyInfo.cs'),
     (Join-Path $project 'AICoarsePathComponentFixTest.csproj'),

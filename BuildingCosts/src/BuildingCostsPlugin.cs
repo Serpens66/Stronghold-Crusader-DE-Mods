@@ -10,7 +10,7 @@ namespace BuildingCosts
     [BepInDependency(ScriptExtenderGuid, "2.3.0")]
     [BepInDependency(CrusaderDeTweakerGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency("APIShared_Serp", "0.13.0")]
+    [BepInDependency("APIShared_Serp", "0.27.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class BuildingCostsPlugin : BaseUnityPlugin
     {
@@ -19,7 +19,7 @@ namespace BuildingCosts
 
         public const string PluginGuid = "BuildingCosts_Serp";
         public const string PluginName = "Building Costs";
-        public const string PluginVersion = "1.0.117";
+        public const string PluginVersion = "1.0.118";
 
 
         private static BuildingCostsRuntime runtime;

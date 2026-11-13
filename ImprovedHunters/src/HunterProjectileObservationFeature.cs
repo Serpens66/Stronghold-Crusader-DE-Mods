@@ -27,17 +27,6 @@ namespace ImprovedHunters
                 out string hunterSource);
             if (!hasHunterContext)
                 hunterSource = "animal-arrow-fallback";
-            else if (eligibility.Type == eChimps.CHIMP_TYPE_CHICKEN)
-            {
-                long timestamp = Stopwatch.GetTimestamp();
-                hunterLineOfSightRecovery?.RecordProjectileSpawn(hunterUnitId, timestamp);
-                hunterVisibilityDiagnostic?.RecordProjectileSpawn(
-                    hunterUnitId,
-                    args.AttackedUnitId,
-                    eligibility.GlobalId,
-                    args.ReturnValue,
-                    hunterSource);
-            }
 
             uint projectileGlobalId = 0;
             if (args.ReturnValue > 0 &&
@@ -51,7 +40,7 @@ namespace ImprovedHunters
                 projectileGlobalId = projectile->r_GlobalId;
             }
 
-            hunterPostShotContinuationDiagnostic?.RecordProjectileSpawn(
+            hunterPostShotContinuation?.RecordProjectileSpawn(
                 hunterUnitId,
                 hunterGlobalId,
                 args.AttackedUnitId,
@@ -64,7 +53,7 @@ namespace ImprovedHunters
         {
             try
             {
-                hunterPostShotContinuationDiagnostic?.RecordProjectileDelete(args.ProjectileId);
+                hunterPostShotContinuation?.RecordProjectileDelete(args.ProjectileId);
             }
             catch (Exception exception)
             {

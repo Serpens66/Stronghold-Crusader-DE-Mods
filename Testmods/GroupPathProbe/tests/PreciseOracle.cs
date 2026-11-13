@@ -2,7 +2,7 @@
 using System;
 using System.Collections.Generic;
 using GroupPathProbe.Core;
-using BugfixesAndQoL.UnitCommands;
+using Pathfinding.UnitCommands;
 
 internal sealed class PreciseOracle
 {

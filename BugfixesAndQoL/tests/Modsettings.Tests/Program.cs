@@ -51,6 +51,116 @@ internal static partial class Program
             Check(Bool(Feature(feature,vm),member)==(host?server:client)[index++],feature+" "+member+" H="+h+",C="+c+",O="+o);
         }
     }
+
+    private static void LocalAutosaveFileTests()
+    {
+        MethodInfo write = mod.GetType("BugfixesAndQoL.LocalAutosaveRuntime", true)
+            .GetMethod("WriteSaveFile", All);
+        string directory = Path.Combine(Path.GetTempPath(), "shcde-autosave-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        string local = Path.Combine(directory, "Autosave - Singleplayer.sav");
+        string multiplayer = Path.Combine(directory, "autosave.msv");
+
+        byte[] SaveFrame(byte value, bool archive = false)
+        {
+            using (var bytes = new MemoryStream())
+            using (var writer = new BinaryWriter(bytes))
+            {
+                writer.Write(0xFFFFFFFEu);
+                for (int block = 0; block < 6; block++) writer.Write(0);
+                writer.Write(4036);
+                writer.Write(1); // Declared native payload length.
+                writer.Write(1); // One section.
+                writer.Write(new byte[4036 - 3 * sizeof(int)]);
+                writer.Write(value);
+                if (archive)
+                {
+                    writer.Write(0x06054B50u);
+                    writer.Write(new byte[18]); // Valid empty ZIP, with no comment.
+                }
+                return bytes.ToArray();
+            }
+        }
+
+        void Save(byte[] contents, bool complete)
+        {
+            write.Invoke(null, new object[] { directory, (Func<string, bool>)(path =>
+            {
+                Check(Path.GetDirectoryName(path) != directory && Path.GetExtension(path) == ".sav",
+                    "game writes a staged save outside the visible save listing");
+                File.WriteAllBytes(path, contents);
+                return complete;
+            }) });
+        }
+
+        try
+        {
+            File.WriteAllText(multiplayer, "online");
+            byte[] first = SaveFrame(1);
+            byte[] second = SaveFrame(2, archive: true);
+            Save(first, true);
+            Check(File.ReadAllBytes(local).SequenceEqual(first), "first autosave is published");
+            bool published = (bool)write.Invoke(null, new object[] { directory, (Func<string, bool>)(_ => false) });
+            Check(!published && File.ReadAllBytes(local).SequenceEqual(first),
+                "a refusal before writing can be retried without changing the previous save");
+
+            foreach (var failure in new[]
+            {
+                (Contents: new byte[] { 1 }, Complete: false),
+                (Contents: Array.Empty<byte>(), Complete: true),
+                (Contents: first.Take(first.Length - 1).ToArray(), Complete: true),
+                (Contents: second.Where((_, index) => index != first.Length - 1).ToArray(), Complete: true),
+                (Contents: second.Take(second.Length - 1).ToArray(), Complete: true),
+            })
+            {
+                try
+                {
+                    Save(failure.Contents, failure.Complete);
+                    throw new Exception("incomplete save was accepted");
+                }
+                catch (TargetInvocationException error) when (error.InnerException is IOException)
+                {
+                    Check(File.ReadAllBytes(local).SequenceEqual(first), "failed writer preserves previous autosave");
+                }
+            }
+
+            Save(second, true);
+            Check(File.ReadAllBytes(local).SequenceEqual(second), "successful writer replaces previous autosave");
+            Check(File.ReadAllText(multiplayer) == "online", "separate multiplayer autosave is preserved");
+            Check(Directory.GetFiles(directory, "*.sav", SearchOption.AllDirectories).Length == 1,
+                "only the completed local autosave remains");
+            Check(Directory.GetDirectories(directory).Length == 0, "staging directories are removed");
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
+    private static void PeaceTimeWildlifeRuleTests()
+    {
+        var type = mod.GetType("BugfixesAndQoL.VanillaPeaceTimeGameplayPatch", true);
+        var rules = (Array)type.GetField("WildlifeRules", All).GetValue(null);
+        var actual = new HashSet<(string Species, int Player)>();
+        foreach (object rule in rules)
+        {
+            Type ruleType = rule.GetType();
+            object attacker = ruleType.GetProperty("Attacker").GetValue(rule);
+            object target = ruleType.GetProperty("Target").GetValue(rule);
+            Type selectorType = attacker.GetType();
+            PropertyInfo playerId = selectorType.GetProperty("PlayerId");
+            PropertyInfo unitType = selectorType.GetProperty("UnitType");
+            PropertyInfo globalId = selectorType.GetProperty("GlobalId");
+            Check(!(bool)ruleType.GetProperty("Bidirectional").GetValue(rule) &&
+                ruleType.GetProperty("Condition").GetValue(rule).ToString() == "WhilePeaceTimeActive" &&
+                playerId.GetValue(attacker) == null && globalId.GetValue(attacker) == null &&
+                unitType.GetValue(target) == null && globalId.GetValue(target) == null,
+                "wildlife rule has the original direction, native condition and selector scope");
+            Check(actual.Add((unitType.GetValue(attacker).ToString(), (int)playerId.GetValue(target))),
+                "wildlife rule covers a unique species and player slot");
+        }
+        string[] predators = { "CHIMP_TYPE_LION", "CHIMP_TYPE_HYENA", "CHIMP_TYPE_CROCODILE" };
+        Check(actual.SetEquals(predators.SelectMany(predator => Enumerable.Range(1, 8)
+            .Select(player => (predator, player)))), "wildlife rule covers all and only the audited predators and slots 1..8");
+    }
+
     public static int Main(string[] args)
     {
         try
@@ -66,14 +176,42 @@ internal static partial class Program
             string game=@"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition";
             string api=args.Length>2?args[2]:Environment.GetEnvironmentVariable("API_SHARED_DIR");
             string[] dirs={Path.GetDirectoryName(dll),api,Path.Combine(workspace,"APIShared/BepInEx/plugins/APIShared_Serp"),Path.Combine(game,"BepInEx/plugins/000shcdese"),Path.Combine(game,"BepInEx/core"),Path.Combine(game,"Stronghold Crusader Definitive Edition_Data/Managed")};
+            var byteLoaded = new Dictionary<string, Assembly>(StringComparer.OrdinalIgnoreCase);
             AppDomain.CurrentDomain.AssemblyResolve+=(_,e)=>
             {
                 string name=new AssemblyName(e.Name).Name+".dll";
                 // The explicit BepInEx reference can retain Windows download-zone metadata.
                 // Keep game/Noesis load-context identity; do not change installed files.
-                foreach(string dir in dirs){if(string.IsNullOrWhiteSpace(dir))continue;string path=Path.Combine(dir,name);if(File.Exists(path))return (name=="BepInEx.dll" || name.StartsWith("Mono.",StringComparison.Ordinal) || name.StartsWith("MonoMod.",StringComparison.Ordinal))?Assembly.Load(File.ReadAllBytes(path)):Assembly.LoadFrom(path);}return null;
+                foreach (string dir in dirs)
+                {
+                    if (string.IsNullOrWhiteSpace(dir)) continue;
+                    string path = Path.Combine(dir, name);
+                    if (!File.Exists(path)) continue;
+                    if (name != "BepInEx.dll" && !name.StartsWith("Mono.", StringComparison.Ordinal) &&
+                        !name.StartsWith("MonoMod.", StringComparison.Ordinal)) return Assembly.LoadFrom(path);
+                    // The test runner and production DLL must share the exact Cecil/MonoMod type identities.
+                    if (!byteLoaded.TryGetValue(path, out Assembly loaded))
+                        byteLoaded.Add(path, loaded = Assembly.Load(File.ReadAllBytes(path)));
+                    return loaded;
+                }
+                return null;
             };
             mod=Assembly.LoadFrom(dll);modelType=mod.GetType("BugfixesAndQoL.BugfixesAndQoLViewModel",true);
+            if (args.Length > 3 && args[3] == "--settings-metadata-only")
+            {
+                Metadata(workspace);
+                SettingsPresentationTests(workspace);
+                Console.WriteLine("PASS: production settings metadata, defaults, reset, report slots and UI: " + checks);
+                return 0;
+            }
+            LocalAutosaveFileTests();
+            LocalAutosaveSchedulingTests();
+            if (args.Length > 3 && args[3] == "--local-autosave-only")
+            {
+                Console.WriteLine("PASS: local autosave file checks: " + checks);
+                return 0;
+            }
+            FixesSuppressMessagesSyncTests(game);
             object presetModel = FormatterServices.GetUninitializedObject(modelType);
             var retired = modelType.GetMethod("IsRetiredPresetProperty", All);
             foreach (string key in new[] { "EnableSpectatorPerspective", "EnableEliminatedPlayersBecomeSpectators" })
@@ -116,6 +254,7 @@ internal static partial class Program
                 new[]{"PeaceTimeCivilianProximityFeature","DesiredEnabled","EnablePeaceTimeCivilianProximityReduction"},
                 new[]{"AbruptHostMigrationFix","StartupStateFixEnabled","EnableMultiplayerStartupStateFix"}})
                 Matrix(test[0],test[1],test[2],true);
+            PeaceTimeWildlifeRuleTests();
             Matrix("SkirmishAiSelectionMemoryHook","RandomEnhancementsEnabled","EnableRandomOpponentSelectionEnhancements",true);
             foreach(bool h in new[]{false,true})foreach(bool c in new[]{false,true})foreach(bool option in new[]{false,true})
             {
@@ -181,31 +320,82 @@ internal static partial class Program
             SettingsPresentationTests(workspace);
             CompactLobbyChatTests(workspace, game);
             CallerGates();
-            Traversal();
             Console.WriteLine("PASS: built production DLL settings matrices, independent AI-list capacity, callers, classifications/defaults/XAML: "+checks+" checks.");return 0;
         }
         catch(Exception ex){Console.Error.WriteLine(ex);return 1;}
     }
-    private static void Traversal()
+
+    private sealed class UnrelatedSettings
     {
-        bool[] enabled={false,true,false,true,false,true,true,true};
-        int index=0;
-        foreach(bool h in new[]{false,true})foreach(bool own in new[]{false,true})foreach(bool provider in new[]{false,true})
-        {
-            foreach(bool required in new[]{false,true})
-            {
-                BugfixesAndQoL.UnitCommands.UnitCommandPathAPI.Traversal=new BugfixesAndQoL.UnitCommands.UnitCommandTraversalProvider{Enabled=provider,RequiredOnly=required};
-                var snapshot=BugfixesAndQoL.UnitCommands.MovementOptionsSnapshot.Capture(new BugfixesAndQoL.UnitCommands.TraversalSettings{EnableMod=h,EnableImprovedManualUnitCommands=own});
-                Check(snapshot.Enabled==enabled[index],"production movement demand: own H/option and independent provider");
-                Check(snapshot.TraversalEnabled==provider,"production provider demand is independent of own Host");
-                Check(snapshot.RequiredOnly==required,"provider route mode preserved");
-            }
-            index++;
-        }
-        BugfixesAndQoL.UnitCommands.UnitCommandPathAPI.Traversal=null;
-        var absent=BugfixesAndQoL.UnitCommands.MovementOptionsSnapshot.Capture(new BugfixesAndQoL.UnitCommands.TraversalSettings());
-        Check(!absent.Enabled && !absent.TraversalEnabled,"no hidden command feature without own or foreign demand");
+        public bool SuppressMessages { get; set; }
     }
+
+    private static void FixesSuppressMessagesSyncTests(string game)
+    {
+        string path = Path.Combine(game, "BepInEx/plugins/fixes/fixes.dll");
+        if (!File.Exists(path)) return;
+
+        var feature = mod.GetType("BugfixesAndQoL.FixesSuppressMessagesSync", true);
+        var findProperty = feature.GetMethod("FindLocalProperty", All);
+        Check(findProperty.Invoke(null, new object[] { typeof(Program).Assembly }) == null,
+            "a different mod cannot opt into the Fixes compatibility filter by using the same property name");
+        var property = (PropertyInfo)findProperty.Invoke(null, new object[] { Assembly.LoadFrom(path) });
+        if (property == null) return; // A newer Fixes build can correct the missing companion itself.
+
+        var allowSend = (Func<PropertyInfo, bool, bool>)Delegate.CreateDelegate(typeof(Func<PropertyInfo, bool, bool>),
+            feature.GetMethod("AllowSend", All));
+        var isLocal = (Func<PropertyInfo, bool>)Delegate.CreateDelegate(typeof(Func<PropertyInfo, bool>),
+            feature.GetMethod("IsLocal", All));
+        var active = feature.GetField("localProperty", All);
+        Check(allowSend(property, true) && !isLocal(property), "unpublished compatibility hooks pass through original routing");
+        try
+        {
+            active.SetValue(null, property);
+            var other = property.DeclaringType.GetProperty("PlayerKeepRotation");
+            var namesake = typeof(UnrelatedSettings).GetProperty(nameof(UnrelatedSettings.SuppressMessages));
+            Check(!allowSend(property, true) && isLocal(property), "Fixes suppression stays local in both directions");
+            Check(other != null && allowSend(other, true) && !isLocal(other), "Fixes keep rotation still synchronizes");
+            Check(allowSend(namesake, true) && !isLocal(namesake) && !allowSend(namesake, false),
+                "other mods and Extender routing decisions are preserved");
+        }
+        finally { active.SetValue(null, null); }
+
+        // Transform and compile the real installed Extender bodies, without patching the game or opening a lobby.
+        var manager = Type.GetType("SHCDESE.API.GameXAMLManagerAPI, SHCDESE", true);
+        var change = (MethodInfo)feature.GetMethod("FindChangeHandler", All).Invoke(null, new object[] { manager });
+        var probe = feature.GetMethod("Probe", All);
+        var patchSend = feature.GetMethod("PatchSend", All);
+        MonoMod.Cil.ILContext.Manipulator changePatch = il => patchSend.Invoke(null, new object[] { il, "BroadcastSettingChange" });
+        MonoMod.Cil.ILContext.Manipulator joinPatch = il => patchSend.Invoke(null, new object[] { il, "SendPacketToSteamId" });
+        var receivePatch = (MonoMod.Cil.ILContext.Manipulator)Delegate.CreateDelegate(typeof(MonoMod.Cil.ILContext.Manipulator),
+            feature.GetMethod("PatchReceive", All));
+        var receive = manager.GetMethod("ApplyPerPlayerUpdate", All);
+        probe.Invoke(null, new object[] { change, changePatch });
+        probe.Invoke(null, new object[] { manager.GetMethod("SyncSettingsToNewPlayer", All), joinPatch });
+        using (var definition = new MonoMod.Utils.DynamicMethodDefinition(receive))
+        using (var context = new MonoMod.Cil.ILContext(definition.Definition))
+        {
+            context.ReferenceBag = MonoMod.Cil.RuntimeILReferenceBag.Instance;
+            context.Invoke(il =>
+            {
+                var original = il.Body.Instructions[0];
+                receivePatch(il);
+                var guardReturn = original.Previous;
+                Check(guardReturn.OpCode == Mono.Cecil.Cil.OpCodes.Ret &&
+                    guardReturn.Previous.Operand is MonoMod.Cil.ILLabel continueOriginal && continueOriginal.Target == original,
+                    "the legacy receive guard returns before the original body and other properties branch to it");
+            });
+            var patchedReceive = definition.Generate();
+            try
+            {
+                active.SetValue(null, property);
+                patchedReceive.Invoke(null, new object[] { null, property, null, null, null });
+                Check(true, "the transformed Extender body executes for a legacy Fixes property");
+            }
+            finally { active.SetValue(null, null); }
+        }
+    }
+
     private static void Policies()
     {
         foreach(string name in new[]{"LobbyYellowContrastPolicy","BriefingNoStartingGoldFixPolicy"})
@@ -224,7 +414,7 @@ internal static partial class Program
     }
     private static void Metadata(string workspace)
     {
-        var scopes=new Dictionary<string,bool>{{"EnableCompactLobbyChat",false},{"EnableLordAndMapListEnhancements",false},{"EnableMissingMapSaveRecovery",false},{"EnableRandomOpponentSelectionEnhancements",true},{"EnableMultiplayerStartupStateFix",true},{"EnablePeaceTimeGameplayFixes",true},{"EnablePeaceTimeCivilianProximityReduction",true},{"EnableTreeBlightDecayFix",true},{"EnablePrebuiltAiStorageFix",true}};
+        var scopes=new Dictionary<string,bool>{{"EnableCompactLobbyChat",false},{"EnableLocalAutosave",false},{"EnableLordAndMapListEnhancements",false},{"EnableMissingMapSaveRecovery",false},{"EnablePitchMoatLines",false},{"EnableAreaDemolition",false},{"EnableRandomOpponentSelectionEnhancements",true},{"EnableMultiplayerStartupStateFix",true},{"EnablePeaceTimeGameplayFixes",true},{"EnablePeaceTimeCivilianProximityReduction",true},{"EnablePitchStairsFix",true},{"EnableSiegeCrewDuplicationFix",true},{"EnableSiegeCrewFireLossFix",true},{"EnableTreeBlightDecayFix",true},{"EnablePrebuiltAiStorageFix",true},{"EnableAiOutpostRetargetFix",true}};
         MethodBase ctor=modelType.GetConstructors(All).Single();
         List<Tuple<OpCode,object>> body=Instructions(ctor);
         var xaml=new XmlDocument();xaml.Load(Path.Combine(workspace,"BugfixesAndQoL/Override/ScriptExtenderUI/BugfixesAndQoLSettings.xaml"));
@@ -237,10 +427,61 @@ internal static partial class Program
             Check(body.Select((v,i)=>new{v,i}).Any(x=>x.v.Item1==OpCodes.Stfld && Equals(x.v.Item2,field) && x.i>0 && body[x.i-1].Item1==OpCodes.Ldc_I4_1),"new setting constructor default true: "+pair.Key);
             XmlNode node=xaml.SelectSingleNode("//*[local-name()='CheckBox' and contains(@IsChecked,'"+pair.Key+",')]");
             Check(node!=null,"new setting has a UI editor");
-            Check(node.Attributes["ToolTipService.ShowDuration"]?.Value=="60000" && node.Attributes["ToolTip"]!=null,"new setting tooltip contract");
+            XmlNode popupHelp = node.SelectSingleNode("./*[local-name()='CheckBox.ToolTip']/*[local-name()='ToolTip']/@Content");
+            Check(node.Attributes["ToolTipService.ShowDuration"]?.Value == "60000" &&
+                !string.IsNullOrWhiteSpace(popupHelp?.Value), "new setting tooltip contract");
             string role=pair.Value?"CanEditHostSettings":"CanEditClientSettings";
             Check(Ancestors(node).Any(a=>a.Attributes?["IsEnabled"]?.Value=="{Binding "+role+"}"),"new editor inherits its own role authority");
         }
+        var presetApplication = modelType.BaseType.Assembly.GetType("APIShared.ModSettings.ModSettingsApplication", true);
+        var hostProperties = (PropertyInfo[])presetApplication.GetMethod("GetHostProperties")
+            .Invoke(null, new[] { FormatterServices.GetUninitializedObject(modelType) });
+        var reset = Instructions(modelType.GetMethod("ResetToDefault", All));
+        var localAutosave = modelType.GetProperty("EnableLocalAutosave");
+        Check(!hostProperties.Any(property => property == localAutosave), "local autosave preference is excluded from host snapshots");
+        Check(!localAutosave.GetCustomAttributesData().Any(attribute => attribute.AttributeType.Name == "SyncPerPlayerAttribute"),
+            "local autosave preference is not broadcast to other players");
+        Check(reset.Select((instruction, index) => new { instruction, index }).Any(entry =>
+            Equals(entry.instruction.Item2, localAutosave.GetSetMethod()) && entry.index > 0 &&
+            reset[entry.index - 1].Item1 == OpCodes.Ldc_I4_1), "reset enables local autosave");
+        foreach (string option in new[] { "EnableSiegeCrewDuplicationFix", "EnableSiegeCrewFireLossFix" })
+        {
+            Check(hostProperties.Any(property => property.Name == option), "preset discovery includes host option " + option);
+            var setter = modelType.GetProperty(option).GetSetMethod();
+            Check(reset.Select((instruction, index) => new { instruction, index }).Any(entry =>
+                Equals(entry.instruction.Item2, setter) && entry.index > 0 &&
+                reset[entry.index - 1].Item1 == OpCodes.Ldc_I4_1), "reset restores enabled default for " + option);
+        }
+        foreach(string option in new[]{"EnablePitchMoatLines","EnableAreaDemolition"})
+        {
+            var localPreference=modelType.GetProperty(option);
+            Check(!hostProperties.Any(property=>property==localPreference),option+" is excluded from host snapshots");
+            Check(!localPreference.GetCustomAttributesData().Any(attribute=>attribute.AttributeType.Name=="SyncPerPlayerAttribute"),
+                option+" remains local instead of being broadcast");
+            Check(reset.Select((instruction,index)=>new{instruction,index}).Any(entry=>
+                Equals(entry.instruction.Item2,localPreference.GetSetMethod()) && entry.index>0 &&
+                reset[entry.index-1].Item1==OpCodes.Ldc_I4_1),"reset enables "+option);
+        }
+
+        var report = modelType.GetProperty("PitchMoatLineCompatibilityReport");
+        var reportAttributes = report.GetCustomAttributesData().Select(attribute => attribute.AttributeType.Name).ToArray();
+        Check(reportAttributes.Contains("SyncPerPlayerAttribute") && reportAttributes.Contains("DoNotPersistAttribute"),
+            "pitch/moat compatibility is a nonpersistent per-player report");
+        var reportValue = modelType.GetField("pitchMoatLineCompatibilityReport", All);
+        Check(body.Select((instruction, index) => new { instruction, index }).Any(entry =>
+            entry.instruction.Item1 == OpCodes.Stfld && Equals(entry.instruction.Item2, reportValue) && entry.index > 0 &&
+            ((body[entry.index - 1].Item1 == OpCodes.Ldsfld && Equals(body[entry.index - 1].Item2, typeof(string).GetField("Empty"))) ||
+             (body[entry.index - 1].Item1 == OpCodes.Ldstr && Equals(body[entry.index - 1].Item2, "")))),
+            "pitch/moat compatibility starts unavailable until runtime validation succeeds");
+        Check(modelType.GetProperty("PitchMoatLineCompatibilityReportData").PropertyType == typeof(string[]),
+            "pitch/moat compatibility report has its player-slot companion");
+        var reportData = modelType.GetField("pitchMoatLineCompatibilityReportData", All);
+        Check(body.Select((instruction, index) => new { instruction, index }).Any(entry =>
+            entry.instruction.Item1 == OpCodes.Stfld && Equals(entry.instruction.Item2, reportData) && entry.index >= 2 &&
+            body[entry.index - 1].Item1 == OpCodes.Newarr && Equals(body[entry.index - 1].Item2, typeof(string)) &&
+            (body[entry.index - 2].Item1 == OpCodes.Ldc_I4_S || body[entry.index - 2].Item1 == OpCodes.Ldc_I4) &&
+            Convert.ToInt32(body[entry.index - 2].Item2) == 9),
+            "pitch/moat compatibility report reserves exactly slots zero through eight");
         XmlNode workshop=xaml.SelectSingleNode("//*[local-name()='CheckBox' and contains(@IsChecked,'EnableWorkshopUploadLordSelectionFix,')]");
         Check(Ancestors(workshop).Any(a=>a.Attributes?["IsEnabled"]?.Value=="{Binding CanEditClientSettings}"),"Workshop is locally editable by a multiplayer client");
         Check(!Ancestors(workshop).Any(a=>a.Attributes?["IsEnabled"]?.Value=="{Binding CanEditHostSettings}"),"Workshop no longer inherits Host authority");
@@ -266,8 +507,12 @@ internal static partial class Program
             {
                 case OperandType.InlineField:value=method.Module.ResolveField(BitConverter.ToInt32(il,n));size=4;break;
                 case OperandType.InlineMethod:value=method.Module.ResolveMethod(BitConverter.ToInt32(il,n));size=4;break;
+                case OperandType.InlineType:value=method.Module.ResolveType(BitConverter.ToInt32(il,n));size=4;break;
+                case OperandType.InlineString:value=method.Module.ResolveString(BitConverter.ToInt32(il,n));size=4;break;
+                case OperandType.InlineI:value=BitConverter.ToInt32(il,n);size=4;break;
+                case OperandType.ShortInlineI:value=unchecked((sbyte)il[n]);size=1;break;
                 case OperandType.InlineNone:break;
-                case OperandType.ShortInlineBrTarget:case OperandType.ShortInlineI:case OperandType.ShortInlineVar:size=1;break;
+                case OperandType.ShortInlineBrTarget:case OperandType.ShortInlineVar:size=1;break;
                 case OperandType.InlineVar:size=2;break;
                 case OperandType.InlineI8:case OperandType.InlineR:size=8;break;
                 case OperandType.InlineSwitch:size=4+4*BitConverter.ToInt32(il,n);break;

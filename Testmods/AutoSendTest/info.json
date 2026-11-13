@@ -1,0 +1,11 @@
+{
+  "GUID": "AutoSendTest_Serp",
+  "Name": "Auto Send Test",
+  "Author": "Serpens66",
+  "Description": "Per-player automatic ally gifts with shared reserves, emergency thresholds and fair allocation; prototype.",
+  "Version": "0.2.1",
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "MinimumScriptExtenderVersion": "2.14.0",
+  "Dependencies": [ { "GUID": "APIShared_Serp", "MinimumVersion": "0.32.0" } ]
+}

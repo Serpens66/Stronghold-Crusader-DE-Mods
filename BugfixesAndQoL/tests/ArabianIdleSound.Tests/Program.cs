@@ -107,7 +107,7 @@ namespace BugfixesAndQoL
         }
         private static void TestRealSetting()
         {
-            string source = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL/src/BugfixesAndQoLViewModel.cs"));
+            string source = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL/src/Settings/BugfixesAndQoLViewModel.cs"));
             // Compile the actual field, property and bounded setter without constructing Noesis.
             string defaultValue = source.Split(new[] { '\r', '\n' }).Single(x => x.Contains("private const int DefaultArabianIdleSoundVolumePercent"));
             string field = source.Split(new[] { '\r', '\n' }).Single(x => x.Contains("private int arabianIdleSoundVolumePercent"));

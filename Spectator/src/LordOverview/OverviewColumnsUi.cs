@@ -2,12 +2,14 @@ using System;
 using System.ComponentModel;
 using System.Linq;
 using System.Collections.Generic;
+using APIShared.Presentation;
 using CrusaderDE;
 using Noesis;
 using SHCDESE.Interop;
 namespace Spectator.LordOverview {
  internal static partial class OverviewRuntime {
   private static Border settingsWindow;
+  private static CheckBox showWhileHudHiddenChoice;
   private static UIElement inputRoot;
   private static readonly ColumnMenuState menuState=new ColumnMenuState();
   private static readonly Dictionary<Metric,CheckBox> metricChecks=new Dictionary<Metric,CheckBox>();
@@ -25,7 +27,7 @@ namespace Spectator.LordOverview {
   });}
   private static void OnSettingsChanged(object sender,PropertyChangedEventArgs args){
    bool layoutChanged=args.PropertyName==nameof(OverviewSettings.Design) || args.PropertyName==nameof(OverviewSettings.LordGrid) || args.PropertyName==nameof(OverviewSettings.ValueGrid);
-   if(!layoutChanged && args.PropertyName!=nameof(OverviewSettings.SortBy) && args.PropertyName!=nameof(OverviewSettings.SortDescending) && args.PropertyName!=nameof(OverviewSettings.AllowEnemyDetails) && args.PropertyName!=nameof(OverviewSettings.ShowEliminated) && args.PropertyName!=nameof(OverviewSettings.Columns) && args.PropertyName!=nameof(OverviewSettings.EnableMod) &&
+   if(!layoutChanged && args.PropertyName!=nameof(OverviewSettings.SortBy) && args.PropertyName!=nameof(OverviewSettings.SortDescending) && args.PropertyName!=nameof(OverviewSettings.AllowEnemyDetails) && args.PropertyName!=nameof(OverviewSettings.ShowEliminated) && args.PropertyName!=nameof(OverviewSettings.ShowWhileHudHidden) && args.PropertyName!=nameof(OverviewSettings.Columns) && args.PropertyName!=nameof(OverviewSettings.EnableMod) &&
     args.PropertyName!=nameof(OverviewSettings.IsLocalSettingsHost) && args.PropertyName!=nameof(OverviewSettings.IsRealMultiplayerContext) &&
     args.PropertyName!=nameof(OverviewSettings.CanEditClientSettings))return;
    long id=System.Threading.Interlocked.Read(ref session);
@@ -44,6 +46,10 @@ namespace Spectator.LordOverview {
     if(args.PropertyName==nameof(OverviewSettings.AllowEnemyDetails)){if(panel?.IsVisible==true)RequestRefresh();}
     if(layoutChanged)ApplyLayout();
     if(args.PropertyName==nameof(OverviewSettings.ShowEliminated))ApplyPlayerFilter();
+    if(args.PropertyName==nameof(OverviewSettings.ShowWhileHudHidden)){
+     UpdateOverlayVisibility();
+     if(showWhileHudHiddenChoice!=null)showWhileHudHiddenChoice.IsChecked=settings.ShowWhileHudHidden;
+    }
    });
   }
   private static void AttachSettingsMenu(){
@@ -64,7 +70,7 @@ namespace Spectator.LordOverview {
   }
   private static void DetachSettingsMenu(){
    if(inputRoot!=null){inputRoot.PreviewMouseDown-=OnColumnsOutsideClick;inputRoot.PreviewKeyDown-=OnHeaderKeyDown;}inputRoot=null;
-   DetachMenuDrag();metricChecks.Clear();metricPages.Clear();categoryTabs.Clear();metricScroll=null;columnCount=null;restoringScroll=false;
+   DetachMenuDrag();metricChecks.Clear();metricPages.Clear();categoryTabs.Clear();metricScroll=null;columnCount=null;showWhileHudHiddenChoice=null;restoringScroll=false;
    RemoveHeaders(true);ResetLayoutMenu();if(settingsWindow!=null){settingsWindow.SizeChanged-=OnSettingsSizeChanged;overlay?.Children.Remove(settingsWindow);settingsWindow.Child=null;}settingsWindow=null;
   }
   private static string MetricHelp(Metric metric)=>providers.TryGetValue(metric,out var provider)?provider.GetTooltip():((int)metric<0?Metrics.Key(metric)+" â€” "+Text("Unavailable"):Text(metric.ToString())+(Metrics.Get(metric).Historical?" â€” "+Text("SinceStart"):" â€” "+Text(metric==Metric.Fear?"FearHelp":metric==Metric.GreatestLord?"GreatestLordHelp":"CurrentValue")));
@@ -81,7 +87,23 @@ namespace Spectator.LordOverview {
    var layout=new Grid();layout.RowDefinitions.Add(new RowDefinition {Height=GridLength.Auto});layout.RowDefinitions.Add(new RowDefinition {Height=new GridLength(1,GridUnitType.Star)});
    var head=new DockPanel {Margin=new Thickness(0,0,0,6)};
    var close=ActionButton("X",Text("Close"),CloseSettingsMenu);DockPanel.SetDock(close,Dock.Right);head.Children.Add(close);
-   menuDragHandle=new Border {Background=new SolidColorBrush(Color.FromArgb(1,0,0,0)),Padding=new Thickness(4),Child=Label(Text("SettingsTitle"))};Tip(menuDragHandle,Text("MoveSettings"));head.Children.Add(menuDragHandle);AttachMenuDrag();layout.Children.Add(head);
+   var heading=new Grid();
+   heading.ColumnDefinitions.Add(new ColumnDefinition {Width=GridLength.Auto});
+   heading.ColumnDefinitions.Add(new ColumnDefinition {Width=GridLength.Auto});
+   heading.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(1,GridUnitType.Star)});
+   // Keep the heading and empty area draggable, with the checkbox above the drag surface.
+   menuDragHandle=new Border {Background=new SolidColorBrush(Color.FromArgb(1,0,0,0))};
+   Grid.SetColumnSpan(menuDragHandle,3);heading.Children.Add(menuDragHandle);
+   Tip(menuDragHandle,Text("MoveSettings"));AttachMenuDrag();
+   var title=Label(Text("SettingsTitle"));title.Margin=new Thickness(4);title.IsHitTestVisible=false;heading.Children.Add(title);
+   bool visibilitySupported=SideHudVisibility.TryGetState(main,out _);
+   showWhileHudHiddenChoice=new CheckBox {Content=Label(Text("ShowWhileHudHidden")),
+    FontSize=OverviewPresentationPolicy.FontSize,Margin=new Thickness(18,0,0,0),VerticalAlignment=VerticalAlignment.Center,
+    IsEnabled=visibilitySupported,IsChecked=settings.ShowWhileHudHidden};
+   Tip(showWhileHudHiddenChoice,Text(visibilitySupported?"ShowWhileHudHiddenHelp":"ShowWhileHudHiddenUnavailable"));
+   showWhileHudHiddenChoice.Click+=(_,__)=>{bool selected=showWhileHudHiddenChoice.IsChecked==true;UiAction(()=>settings.SetShowWhileHudHidden(selected))();};
+   Grid.SetColumn(showWhileHudHiddenChoice,1);heading.Children.Add(showWhileHudHiddenChoice);
+   head.Children.Add(heading);layout.Children.Add(head);
    var body=new Grid {MinWidth=480};body.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(200)});body.ColumnDefinitions.Add(new ColumnDefinition {Width=new GridLength(1,GridUnitType.Star)});
    var preferences=new ScrollViewer {Content=BuildLayoutMenu(),HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,Margin=new Thickness(0,0,10,0)};body.Children.Add(preferences);
    var choices=new Grid();Grid.SetColumn(choices,1);body.Children.Add(choices);

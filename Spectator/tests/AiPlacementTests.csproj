@@ -1,0 +1,6 @@
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup><TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion><OutputType>Exe</OutputType><AssemblyName>AiPlacementTests</AssemblyName><LangVersion>latest</LangVersion></PropertyGroup>
+  <PropertyGroup Condition="'$(ExtenderDir)' == ''"><ExtenderDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese</ExtenderDir></PropertyGroup>
+  <ItemGroup><Reference Include="System"/><Reference Include="System.Core"/><Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath></Reference><Compile Include="AiPlacementTests.cs"/><Compile Include="..\src\AiPlacementModel.cs"/><Compile Include="..\src\AiMapperTypes.cs"/></ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
+</Project>

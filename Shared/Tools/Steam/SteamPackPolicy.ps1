@@ -1,5 +1,13 @@
 Set-StrictMode -Version Latest
 
+function Assert-SteamPackModSelection {
+    param([string[]]$ModNames)
+    # These features were moved out of BFQoL. A reduced pack must keep their new owner.
+    if ('BugfixesAndQoL' -in $ModNames -and 'Pathfinding' -notin $ModNames) {
+        throw 'BugfixesAndQoL requires Pathfinding in the mod pack after the pathfinding migration.'
+    }
+}
+
 function Get-SteamApiReleaseRelevantChanges([string[]]$ChangedPaths) {
     foreach ($path in $ChangedPaths) {
         $relative = $path.Replace('\','/')
@@ -35,7 +43,7 @@ function Get-SteamReleaseRelevantChanges {
         if (-not $normalized.StartsWith($modPrefix, [StringComparison]::OrdinalIgnoreCase)) { continue }
         $relative = $normalized.Substring($modPrefix.Length)
         if ($relative -match '(^|/)(tests|[^/]*\.Tests|bin|obj)/') { continue }
-        if ($relative -match '^(src|Patches|Override|Locales|Examples)/' -or
+        if ($relative -match '^(src|native|Patches|Override|Locales|Examples)/' -or
             $relative -match '\.(cs|csproj|props|targets)$' -or
             $relative -ceq 'info.json') {
             $normalized

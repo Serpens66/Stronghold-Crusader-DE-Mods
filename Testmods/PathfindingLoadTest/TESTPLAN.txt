@@ -1,0 +1,105 @@
+PathfindingLoadTest 0.1.0 â€” explicit local-only automation
+
+Scenarios: open-1000, wall-1000, open-5000, wall-5000.
+Additional independent scenario: watch-bench loads test_stresstest5.sav and times
+the actual installed private native-direction watcher in its normally initialized,
+paused mission. It does not create units/walls or use Fixture.Map.32 warm calls
+precede5 batches of2048calls; unchanged watcher counters/cursor/priming are required.
+No PerfProbe sampler or automation should run during this microbenchmark. Report
+its actual installed method IL hash/MVID and batch timings with alternating old/
+new Pathfinding packages; it is not an end-to-end frame/FPS measurement.
+No request means no scenario, world changes, callback installation or game launch.
+The plugin consumes only a recognized scenario in:
+  BepInEx/config/SerpAutomation/PathfindingLoadTest_Serp.run
+The two lines are the run GUID (N format) and exact scenario name.
+
+Build/package (coordinator only; no automatic installation):
+  MSBuild.exe PathfindingLoadTest.csproj /p:Configuration=Release
+References use the installed real Assembly-CSharp, Script Extender and APIShared.
+Optional /p:ApiSharedDir=<verified package directory> selects another public SDK.
+Output: BepInEx/plugins/PathfindingLoadTest_Serp.
+
+Official runner from workspace root:
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File Shared/Tools/Automation/Invoke-InGameTest.ps1 -GameDir "E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition" -ModGuid PathfindingLoadTest_Serp -ModPackage Testmods/PathfindingLoadTest/BepInEx/plugins/PathfindingLoadTest_Serp -Scenario wall-1000 -OutputDirectory <allocated evidence directory> -TimeoutSeconds 900
+The runner owns configuration/settings/plugin/save restoration. Select an exact
+external plugin layout when comparing SE+APIShared, +Pathfinding and +BFQoL.
+Run at least two alternating repetitions per variant. No Windows input is used.
+Leave incompatible timing transforms disabled in PerfProbe:
+  Spikes.RunPhaseTiming=false; Extras.EngineCalls=false.
+PerfProbe automation must be OFF: APIShared owns the single test run.
+
+Fixture.Map defaults to test AI.map. It MUST exist as one unique local
+Skirmish map row and offer a sufficiently large flat clear region. Missing map,
+unsuitable region, resources or failed native admission fails with a clear reason.
+The test does not edit the map file, terrain flags, unit state or private fields.
+Public lobby commands enable Extreme Troops; read-only reflection observes its
+private current value to avoid toggling an already enabled option. Public output
+chimps_limit must equal9999. Stock addition and walls use public Extender calls.
+The Rat opponent is placed at the opposite map end. No peace-time option is
+required: Vanilla local Skirmish does not offer that UI without optional BFQoL.
+The observed native peace state is logged; all-unit death/identity assertions remain.
+Before Play, public Radar1..Radar8 commands pin the actual mapped local human to
+its easternmost valid keep marker (max X, then max Y) and the Rat to the westernmost
+marker (min X, then min Y). Read-only MPsetup observation verifies each normal swap;
+no setup arrays or private fields are written by the fixture. The live order is
+re-read after moving the human because that swap can displace the Rat. The wrapper
+repeats this idempotently on completed lobby waits before the public starter plays.
+The loaded GameData keep order must retain both pinned indices and actual mapped
+players. Lobby and loaded radar-marker coordinates are logged separately from the
+public resource-record WORLD keep tile coordinates; no equality or guessed transform
+between those domains is used. Both native world keeps must exist, be distinct and
+lie inside the playable map. The coordinator must verify identical observed WORLD
+keep coordinates across all compared runs before treating them as comparable.
+This controls lobby random assignment; it is no proof of wall admission or identical
+AI simulation state. No Windows mouse or keyboard input is used.
+The declared minimum Script Extender is2.14.3, matching the inspected installed API.
+
+Preparation: verify a flat terrain rectangle with 6000/1200 candidate spawn sites,
+skip unit-occupied sites, reserve a vacant wall column and target, and build/read back
+standard walls with a five-tile gap (or verify open control). Allow48 native ticks for
+topology maintenance, then pause and create100-unit batches on distinct free tiles.
+Require actual coordinates to match requests and remain distinct. Recheck the target
+after topology settling and immediately before the command. Region rejection counters
+include maximum free capacity only for completely terrain-validated rectangles.
+Creation must return exactly the requested unique IDs and GlobalIds; occupied
+native slots plus requested count must fit the observed limit. Resume, wait every
+retained identity becomes really alive with requested troop type/control owner,
+then request one native selection. All selected IDs and group members must match
+the complete retained set; derive the actual dynamic tribe from native units.
+Read the completed local selection through APIShared.LocalSelectionAPI.TryCapture
+with the already validated native local owner. In the observed12Nov2026 local
+Skirmish, the Extender GetSelectedChimps getter's Steam-roster lookup returned-1
+despite native owner1 and initialized troops; it cannot establish this fixture's
+selection. Missing snapshot, wrong count or any different ID remains a failure.
+
+Command: paused under the normal engine monitor, send ordinary player-move entry
+196100 with exactly the existing UiAcceptance six-argument contract. Full canonical
+native SHA256 is checked BEFORE world preparation. Pathfinding's installed detour
+is entered normally; no live bytes are replaced or unpatched by this fixture.
+Measure the synchronous command call only, then scan ALL requested members.
+Observe six100-tick windows at speed250; report live/moved/arrived/target changes/
+active paths/dead/identity failures. Arrival is within3 tiles of the requested
+center; formation offsets and congestion may keep most units outside this radius.
+Unchanged targets are reported as skippedOrUnchanged, never as confirmed rejection.
+At least one target/path response and later movement are required; deaths or lost
+identities fail. Counts describe actual native admission/results; no forced success.
+
+Limits: tests ordinary routing/group command cost, not formation gesture preview,
+authenticated MP delivery, every unit's successful arrival, or manual visual quality.
+Whole-command duration can include native work and other installed consumers;
+it is not by itself attributed Pathfinding cost. Existing sampler/counter evidence
+and alternating controls are required for optimization claims.
+
+Offline regression (no game):
+  dotnet run --project Testmods/PathfindingLoadTest/tests/Tests.csproj -- <workspace>
+Extracts actual production AllLive/SelectionMatches/Observe methods and checks
+5000 identities including final-member mismatches, recycled IDs, owner/type/life,
+short/unknown tribes and outcomes beyond the old twelve-member sample.
+
+The geometry guide observes the own keep and conservative public build radius under
+the engine monitor, including a positive existing Extender override. The full wall
+column must remain strictly inside that radius in both open and wall controls.
+This is only a selection guide: native terrain/proximity/veto rules remain effective.
+Stone provisioning adds only the missing height+20 budget, verifies actual storage,
+then logs fresh native invalid/query state and actual cells after each wall segment.
+The reason field may be stale and never alone establishes a rejecting cause.

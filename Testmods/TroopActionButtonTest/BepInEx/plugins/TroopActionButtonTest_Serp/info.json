@@ -1,0 +1,11 @@
+{
+  "GUID": "TroopActionButtonTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Troop Action Button Test",
+  "Description": "Six local numbered actions for selections containing a European archer; clicks only log.",
+  "Version": "0.1.0",
+  "Manifest": 1,
+  "NetworkMode": 0,
+  "MinimumScriptExtenderVersion": "2.14.0",
+  "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.31.0" }]
+}

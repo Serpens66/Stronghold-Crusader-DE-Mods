@@ -109,7 +109,7 @@ namespace BugfixesAndQoL.DrawbridgeDestructionFix
                     if (Volatile.Read(ref *(int*)state) != 0 && args.Unknown3 == 1 && GameTileManagerAPI.Instance.IsValidTileId(args.TileId))
                     {
                         int id = GameTileManagerAPI.Instance.GetTileBuildingId(args.TileId);
-                        if (id > 0 && GameBuildingManagerAPI.Instance.IsValidId(id) && GameBuildingManagerAPI.Instance.TryGetBuildingById(id, out GameBuilding* building) &&
+                        if (id > 0 && APIShared.BuildingAccess.TryGetById(id, out GameBuilding* building, out _) &&
                             building->r_AliveState == AliveState.IsAlive &&
                             (building->r_BuildingType == eStructs.STRUCT_GATE_MAIN || building->r_BuildingType == eStructs.STRUCT_GATE_INNER))
                         {
@@ -130,7 +130,7 @@ namespace BugfixesAndQoL.DrawbridgeDestructionFix
                 Probe capture = stack.Pop();
                 // Exactly one native entry excludes ambiguous nested attribution. Counters prove the guard ran.
                 if (capture.Id == 0 || Entered - capture.Entered != 1 || Suppressed - capture.Suppressed != 1) return;
-                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(capture.Id, out GameBuilding* building) ||
+                if (!APIShared.BuildingAccess.TryGetById(capture.Id, out GameBuilding* building, out _) ||
                     building->r_GlobalId != capture.Global || building->r_AliveState != AliveState.IsAlive || building->r_CurrentHealth <= 0) return;
                 if (Interlocked.Exchange(ref confirmed, 1) == 0)
                     Info("DRAWBRIDGE_FIX_CONFIRMED building=" + capture.Id + "/g" + capture.Global + "; xy=" + capture.X + "," + capture.Y +

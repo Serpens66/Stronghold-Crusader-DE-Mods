@@ -20,6 +20,7 @@
     <Compile Include="..\src\TrailModSelectionItem.cs" Link="TrailModSelectionItem.cs" />
     <Compile Include="..\..\Shared\Runtime\Diagnostics\DevDiag.cs" Link="DevDiag.cs" />
     <Compile Include="..\src\TrailSettingsSourceState.cs" Link="TrailSettingsSourceState.cs" />
+    <Compile Include="..\src\MissionSettingsMigration.cs" Link="MissionSettingsMigration.cs" />
     <Compile Include="..\src\CoopSettingsDraftState.cs" Link="CoopSettingsDraftState.cs" />
     <Compile Include="..\src\CoopTrailMenuViewModel.cs" Link="CoopTrailMenuViewModel.cs" />
     <Compile Include="..\src\CoopTrailMenuView.cs" Link="CoopTrailMenuView.cs" />

@@ -24,7 +24,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
-    <Compile Include="..\..\src\WorkshopIdleDelayNative.cs"><Link>WorkshopIdleDelayNative.cs</Link></Compile>
+    <Compile Include="..\..\src\Buildings\WorkshopIdleDelayNative.cs"><Link>WorkshopIdleDelayNative.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

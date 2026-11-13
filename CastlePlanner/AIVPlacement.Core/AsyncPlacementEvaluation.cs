@@ -238,6 +238,25 @@ namespace CastlePlanner.AIVPlacement.Core
             : Selection.Status;
     }
 
+    /// <summary>Immutable source context captured before candidate evaluation can abort.</summary>
+    public sealed class AivPlacementCandidateDiagnostic
+    {
+        internal AivPlacementCandidateDiagnostic(AivPlacementCandidateRequest candidate)
+        {
+            CandidateId = candidate.CandidateId;
+            Name = candidate.Name;
+            SourceKind = candidate.SourceKind;
+            Source = candidate.Source;
+            FailureKind = candidate.FailureKind;
+        }
+
+        public int CandidateId { get; }
+        public string Name { get; }
+        public LobbyCandidateSourceKind SourceKind { get; }
+        public string Source { get; }
+        public LobbyRequestFailureKind FailureKind { get; }
+    }
+
     public sealed class AivPlacementCheckResult
     {
         internal AivPlacementCheckResult(
@@ -250,6 +269,9 @@ namespace CastlePlanner.AIVPlacement.Core
             string failureMessage,
             TimeSpan elapsed)
         {
+            SourceDiagnostics = new ReadOnlyCollection<AivPlacementCandidateDiagnostic>(
+                request.Candidates.Where(candidate => !candidate.IsAvailable)
+                    .Select(candidate => new AivPlacementCandidateDiagnostic(candidate)).ToList());
             Generation = request.Generation;
             PlayerId = request.PlayerId;
             KeepSlotIndex = request.KeepSlotIndex;
@@ -276,6 +298,7 @@ namespace CastlePlanner.AIVPlacement.Core
         public LobbyEvaluationFailureKind FailureKind { get; }
         public string FailureMessage { get; }
         public TimeSpan Elapsed { get; }
+        public IReadOnlyList<AivPlacementCandidateDiagnostic> SourceDiagnostics { get; }
     }
 
     public sealed class AivPlacementBatchResult

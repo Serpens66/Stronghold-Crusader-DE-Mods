@@ -28,6 +28,7 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
     <Reference Include="MessagePack">
       <HintPath>$(ExtenderDir)\MessagePack.dll</HintPath>
       <Private>true</Private>
@@ -56,7 +57,10 @@
       <HintPath>$(ExtenderDir)\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
       <Private>true</Private>
     </Reference>
-    <Compile Include="..\..\APIShared\src\GameModes\MissionModePolicy.cs" />
+    <Compile Include="..\..\APIShared\src\GameModes\GameModeHelper.cs" />
+    <Compile Include="..\..\APIShared\src\GameModes\GameModeKinds.cs" />
+    <Compile Include="..\..\APIShared\src\GameModes\GameModeSnapshot.cs" />
+    <Compile Include="..\..\APIShared\src\GameModes\SavedModeEvidence.cs" />
     <Compile Include="..\..\APIShared\src\GameModes\CustomizedLaunchOrigins.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -80,20 +84,39 @@
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.cs">
       <Link>PresetLobbyModSettingsViewModel.cs</Link>
     </Compile>
-    <Compile Include="..\..\APIShared\src\ModSettings\Lobby\PerPlayerLobbySettings.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.Access.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.Captions.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.ConfigurationBackend.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.PerPlayer.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.MissionContext.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Lobby\PerPlayerLobbySettingsCoordinator.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Lobby\PerPlayerLobbyBroadcastGuard.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Lobby\PerPlayerLobbySettingsBuilder.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Lobby\PerPlayerLobbySnapshot.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Lobby\PerPlayerLobbySettingContracts.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Lobby\HostLobbySettingsPublisher.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Internal\LobbySettingsRestoreScope.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetAtomicFilePublisher.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.Catalog.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.Persistence.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\ModSettingsMigration.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.Mission.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.Snapshots.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\ILobbyPresetHost.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.PresetIntegration.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetStorage.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\PersonalSettingsPaths.cs" />
-    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.Sources.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.PresetDialogs.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.SettingsSearch.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.SettingsSources.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PersonalSettingsWriteQueue.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\UI\ModSettingsSearchMatcher.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\UI\ModSettingsSearchVisibilityConverter.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\UI\ModSettingsSearchStateVisibilityConverter.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\UI\ReferenceEqualityComparer.cs" />
+    <Compile Include="..\..\APIShared\src\Players\PlayerSlots.cs" />
+    <Compile Include="..\..\APIShared\src\Core\Internal\Sha256Hex.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\UI\ModSettingsHorizontalFocusScrollGuard.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyModSettingsPresetRegistration.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\UI\ModSettingsSearch.cs">
@@ -109,6 +132,8 @@
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
     <Compile Include="..\..\APIShared\src\ModSettings\Internal\AtomicFileReplacement.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Internal\PersonalDataFile.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Internal\PersonalDataIO.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Internal\DependencyFreeJson.cs" />
     <Compile Include="..\..\APIShared\src\GameModes\Internal\PlayerIdentityHelper.cs" />
     <Compile Include="..\..\APIShared\src\Missions\Internal\MissionEventRelay.cs" />
@@ -118,13 +143,21 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../src/ExtraFeaturesViewModel.Popularity.cs" />
+    <Compile Include="../src/ExtraFeaturesViewModel.ProductionBonus.cs" />
+    <Compile Include="../src/WorkerProductionBonusRuntime.cs" />
+    <Compile Include="../src/ProductionGoodsMoneyRuntime.cs" />
+    <Compile Include="WorkerProductionBonusTests.cs" />
     <Compile Include="../src/ExtraFeaturesViewModel.PeriodicGold.cs" />
-    <Compile Include="../src/ExtraFeaturesViewModel.KillReward.cs" /><Compile Include="../src/ExtraFeaturesViewModel.EnemyProximity.cs" /><Compile Include="EnemyProximityTests.cs" />
+    <Compile Include="../src/ExtraFeaturesViewModel.TreeRespawn.cs" />
+    <Compile Include="../src/TreeRespawnState.cs" />
+    <Compile Include="TreeRespawnTests.cs" />
+    <Compile Include="../src/ExtraFeaturesViewModel.KillReward.cs" /><Compile Include="../src/ExtraFeaturesViewModel.EnemyProximity.cs" /><Compile Include="EnemyProximityTests.cs" /><Compile Include="HealthMultiplierTests.cs" />
     <Compile Include="../src/NoKillRewardPolicy.cs" />
     <Compile Include="KillRewardTests.cs" />
     <Compile Include="../src/PeriodicGoldRuntime.cs" />
     <Compile Include="../../APIShared/src/Core/Events/OwnedCallbacks.cs" />
-    <Compile Include="../../APIShared/src/Simulation/SimulationTickRegistry.cs" />
+    <Compile Include="../../APIShared/src/Core/Events/OrderedRegistrations.cs" />
+    <Compile Include="../../APIShared/src/Simulation/SimulationTickRegistry.cs" /><Compile Include="../../APIShared/src/Simulation/SimulationMutationScope.cs" />
     <Compile Include="PeriodicGoldTests.cs" />
     <Compile Include="../src/IndependentFeatureRegistration.cs" />
     <Compile Include="PresetIntegration.cs" />
@@ -133,12 +166,14 @@
     <Compile Include="../src/MarketGoodPriceDefinition.cs" />
     <Compile Include="../src/MarketGoodPriceItemViewModel.cs" />
     <Compile Include="../src/EnemyProximityPolicy.cs" />
-    <Compile Include="../src/LordHealthMultiplierPolicy.cs" />
+    <Compile Include="../src/HealthMultiplierPolicy.cs" />
     <Compile Include="../../Shared/Runtime/UI/NumericTextInput.cs" />
     <Compile Include="ViewModelBoundary.cs" />
     <Compile Include="PopularityLifecycleTests.cs" />
     <Compile Include="../../APIShared/src/Economy/FearPopularity.cs" />
     <Compile Include="../../APIShared/src/Economy/PopularityOverrides.cs" />
+    <Compile Include="../../APIShared/src/Economy/PopularityModifiers.cs" />
+    <Compile Include="../../APIShared/src/Modifiers/ValueModifiers.cs" />
     <Compile Include="../../APIShared/tests/PopularityDisplay.Tests/FearRuntimeBoundary.cs" />
     <Compile Include="../src/PopularityRuntime.cs" />
     <Compile Include="../src/PopularityCatalog.cs" />

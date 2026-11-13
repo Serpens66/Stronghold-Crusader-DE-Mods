@@ -30,7 +30,7 @@ using System.Runtime.InteropServices;
 
 namespace ExtraFeatures
 {
-    internal sealed unsafe class AIDefenseRepairRuntime
+    internal sealed unsafe partial class AIDefenseRepairRuntime
     {
         // Dispatcher 0x539B0 uses 0x52270 only for AIV entries whose +0x14 field is zero;
         // otherwise it iterates the finished-castle frames through 0x51790. The 2026-08-24
@@ -127,6 +127,8 @@ namespace ExtraFeatures
             if (initialized)
                 return;
 
+            // Before any subscription: a failure here must not leave duplicate subscriptions on retry.
+            RegisterSaveData();
             subscriptions.Add(AIR3EventHooks.OnAIBuildWall.Observable.Subscribe(OnAIBuildWall));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnBuildingSpawn));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingTileTakeDamage.Observable.Subscribe(OnDefenseDamage));
@@ -270,6 +272,7 @@ namespace ExtraFeatures
                     placementHook,
                     HookTarget.FromAddress(libraryBase + unchecked((ulong)placement.Rva)),
                     ObservePlacement);
+                ExtraFeaturesHookInfrastructure.RootBeforeCommit(this, transaction);
                 CommitResult commitResult = transaction.Commit();
                 if (!commitResult.IsCompleteSuccess || !placementHook.Success)
                     throw new InvalidOperationException("The AI defense placement hook was not installed.");
@@ -301,6 +304,8 @@ namespace ExtraFeatures
 
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
         {
+            // Taken for every start kind so no later session can consume this archive's bytes.
+            byte[] savedRebuildState = TakeArchivedState();
             if (context.IsEditor)
             {
                 ResetMap();
@@ -316,6 +321,7 @@ namespace ExtraFeatures
                 // live buildings before the first finished-castle build step can run.
                 mapPrepared = true;
                 ReconstructLoadedDefenses();
+                RestoreSavedTargets(savedRebuildState);
             }
             BeginMap();
         }
@@ -356,7 +362,7 @@ namespace ExtraFeatures
                     count++;
                 }
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:306", $"AI defense rebuild save-load inventory: intactTargets={count}, tick={SafeCurrentTick()}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/AIDefenseRepairRuntime/ReconstructLoadedDefenses", $"AI defense rebuild save-load inventory: intactTargets={count}, tick={SafeCurrentTick()}.");
             }
             catch (Exception ex)
             {
@@ -383,7 +389,7 @@ namespace ExtraFeatures
                 gameModeKnown = snapshot.Kind != APIShared.GameModes.GameModeKind.Unknown;
                 gameModeFailureLogged = false;
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:333", $"Enemy-proximity runtime captured map mode: {snapshot.ToDiagnosticString()}.");
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/AIDefenseRepairRuntime/CaptureGameMode", $"Enemy-proximity runtime captured map mode: {snapshot.ToDiagnosticString()}.");
             }
             catch (Exception ex)
             {
@@ -458,7 +464,7 @@ namespace ExtraFeatures
 
         private bool IsLiveDefense(DefenseTargetKey target, LiveDefenseIdentity identity)
         {
-            return GameBuildingManagerAPI.Instance.TryGetBuildingById(identity.BuildingId, out GameBuilding* building) &&
+            return global::APIShared.BuildingAccess.TryGetById(identity.BuildingId, out GameBuilding* building, out _) &&
                 building->r_GlobalId == identity.GlobalId &&
                 building->r_PlayerIdOwner == target.PlayerId &&
                 (building->r_AliveState == AliveState.IsAlive ||
@@ -486,132 +492,8 @@ namespace ExtraFeatures
                 return;
             destroyedDefenseTicks[target] = tick;
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:437", $"AI defense rebuild destruction: target={target}, buildingId={identity.BuildingId}, " +
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/AIDefenseRepairRuntime/RecordDestruction", $"AI defense rebuild destruction: target={target}, buildingId={identity.BuildingId}, " +
                     $"globalId={identity.GlobalId}, tick={tick}, source={source}.");
-        }
-
-        private EnemyProximityDecision OnRepairProximity(EnemyProximityContext args)
-        {
-            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !mapActive)
-                return EnemyProximityDecision.None;
-
-            try
-            {
-                bool isAi = IsAI(args.PlayerId);
-                if (!isAi)
-                {
-                    return ApplyHumanPlacementProximity(args);
-                }
-
-                // AI wall repair is not a GameBuilding repair. ExecuteBuildStep calls the
-                // dedicated wall writer at RVA 0x6CB20, whose validator RVA 0x77CF0 asks
-                // this helper with radius 5 immediately before restoring Height/DamageGrid.
-                // Bind only that synchronous, coordinate-identical call. This preserves all
-                // first placements while avoiding the old tower-spawn-history heuristic.
-                bool isWallRepair = pendingWallRepair.Matches(
-                    args.PlayerId, args.TileX, args.TileY, args.OriginalRadius);
-                if (pendingWallRepair.IsSet)
-                    pendingWallRepair = default;
-                if (isWallRepair)
-                {
-                    if (!TryGetConfiguredAIRadii(out int wallCivilian, out int wallMilitary))
-                        return EnemyProximityDecision.None;
-
-                    return CategoryProximityOverride(wallCivilian, wallMilitary);
-                }
-
-                BuildStepContext context = activeContext;
-                if (context != null && context.PlayerId == args.PlayerId && context.DelayBlocked)
-                {
-                    // The measured ExecuteBuildStep path asks this native question after the
-                    // placement helper and before spawning. Returning Vanilla's blocked value
-                    // leaves the frame scheduler intact, so other frame targets still run.
-                    return EnemyProximityDecision.Blocked;
-                }
-
-                // 0xEE640 is a general placement helper, not a standing-building repair API.
-                // Calls outside the explicitly classified wall/rebuild contexts remain Vanilla.
-                if (context == null || context.History == null ||
-                    !context.History.EverSpawnedDefense ||
-                    !TryGetConfiguredAIRadii(out int rebuildCivilian, out int rebuildMilitary))
-                    return EnemyProximityDecision.None;
-
-                // Live AI calls supplied context-specific Vanilla radii 3, 5 and 15. A custom
-                // mode value replaces them only after the call was safely classified as rebuild.
-                return CategoryProximityOverride(rebuildCivilian, rebuildMilitary);
-            }
-            catch (Exception ex)
-            {
-                LogFailure("repair proximity", ex);
-                return EnemyProximityDecision.None;
-            }
-        }
-
-        private void OnAIBuildWall(AIBuildWallEventArgs args)
-        {
-            pendingWallRepair = default;
-            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !mapActive || !TryGetConfiguredAIRadii(out _, out _) ||
-                !IsAI(args.PlayerId))
-            {
-                return;
-            }
-
-            try
-            {
-                GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
-                int tileId = tileApi.GetTileId(args.TileX, args.TileY);
-                if (!tileApi.IsValidTileId(tileId) ||
-                    !tileApi.HasTilePropertyFlag(tileId, TilePropertyFlag.IsWall))
-                {
-                    return;
-                }
-
-                // IsWall is the stable distinction we need: a first placement has no wall bit,
-                // while Vanilla may route several damaged/breached wall states through different
-                // 0x77CF0 branches before they converge on the radius-5 query. Do not duplicate
-                // those evolving health/state rules here. If Vanilla rejects earlier, no matching
-                // proximity callback occurs and this one-shot context cannot change game state.
-                pendingWallRepair = new PendingWallRepair(args.PlayerId, args.TileX, args.TileY);
-            }
-            catch (Exception ex)
-            {
-                pendingWallRepair = default;
-                LogFailure("AI damaged-wall repair classification", ex);
-            }
-        }
-
-        private EnemyProximityDecision ApplyHumanPlacementProximity(EnemyProximityContext args)
-        {
-            if (args.PlayerId < 1 || args.PlayerId > GamePlayerManagerAPI.MAX_PLAYERS || !gameModeKnown)
-                return EnemyProximityDecision.None;
-
-            if (!EnemyProximityPolicy.IsOrdinaryHumanRadius(args.OriginalRadius)) return EnemyProximityDecision.None;
-            return CategoryProximityOverride(
-                EnemyProximityPolicy.SelectConfiguredRadius(realMultiplayer,
-                    settings.HumanCivilianEnemyProximitySingleplayer, settings.HumanCivilianEnemyProximityMultiplayer),
-                EnemyProximityPolicy.SelectConfiguredRadius(realMultiplayer,
-                    settings.HumanMilitaryEnemyProximitySingleplayer, settings.HumanMilitaryEnemyProximityMultiplayer));
-        }
-
-        private bool TryGetConfiguredAIRadii(out int civilian, out int military)
-        {
-            civilian = military = -1;
-            if (!gameModeKnown) return false;
-            civilian = EnemyProximityPolicy.SelectConfiguredRadius(realMultiplayer,
-                settings.AICivilianEnemyProximitySingleplayer, settings.AICivilianEnemyProximityMultiplayer);
-            military = EnemyProximityPolicy.SelectConfiguredRadius(realMultiplayer,
-                settings.AIMilitaryEnemyProximitySingleplayer, settings.AIMilitaryEnemyProximityMultiplayer);
-            return civilian >= 0 || military >= 0;
-        }
-
-        // A Vanilla-mode category contributes nothing (null), as the Override contract requires: only
-        // configured categories are replaced, so earlier participants keep theirs.
-        private static EnemyProximityDecision CategoryProximityOverride(int civilian, int military)
-        {
-            if (civilian < 0 && military < 0) return EnemyProximityDecision.None;
-            return new EnemyProximityDecision(
-                civilianRadius: EnemyProximityPolicy.ConfiguredContribution(civilian),
-                militaryRadius: EnemyProximityPolicy.ConfiguredContribution(military));
         }
 
         private void LogGameModeFailure(string context, Exception ex)
@@ -619,7 +501,7 @@ namespace ExtraFeatures
             if (gameModeFailureLogged)
                 return;
             gameModeFailureLogged = true;
-            Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:604", $"Enemy-proximity game-mode detection failed during {context}; human placement and " +
+            Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/AIDefenseRepairRuntime/LogGameModeFailure", $"Enemy-proximity game-mode detection failed during {context}; human placement and " +
                 $"AI proximity overrides remain Vanilla for this map. Snapshot unavailable: {ex}");
         }
 
@@ -649,7 +531,7 @@ namespace ExtraFeatures
                 if (!invalidFrameWarningLogged)
                 {
                     invalidFrameWarningLogged = true;
-                    Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:636", $"AI defense rebuild received invalid frameIndex={frameIndex}; further invalid-frame " +
+                    Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/AIDefenseRepairRuntime/TryBeginBuildStep", $"AI defense rebuild received invalid frameIndex={frameIndex}; further invalid-frame " +
                         "warnings are suppressed for this map and affected calls remain Vanilla.");
                 }
                 return null;
@@ -738,7 +620,7 @@ namespace ExtraFeatures
                     return;
                 if (context.DelayBlocked)
                 {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:729", $"AI defense spawned despite an active rebuild-delay block: " +
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/AIDefenseRepairRuntime/CompleteBuildStep", $"AI defense spawned despite an active rebuild-delay block: " +
                         $"player={completion.Context.PlayerId}, frameIndex={completion.Context.FrameIndex}. " +
                         "The timer is cleared because the target now exists.");
                 }
@@ -835,7 +717,7 @@ namespace ExtraFeatures
                     if (!IsTowerRuin(args.Building))
                     {
                         int buildingId = checked((int)args.ReturnValue);
-                        if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+                        if (!global::APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) ||
                             building->r_GlobalId == 0 || building->r_PlayerIdOwner != args.PlayerId ||
                             building->r_BuildingType != args.Building ||
                             (building->r_AliveState != AliveState.NeedsInit &&
@@ -851,9 +733,9 @@ namespace ExtraFeatures
                                 $"requiredTicks={(long)settings.AITowerGateRebuildDelaySeconds * TicksPerSecond}, " +
                                 $"source={delay.Source}.";
                             if (elapsed >= 0 && elapsed < (long)settings.AITowerGateRebuildDelaySeconds * TicksPerSecond)
-                                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:841", message);
+                                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/AIDefenseRepairRuntime/OnBuildingSpawn", message);
                             else
-                                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:843", message);
+                                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/AIDefenseRepairRuntime/OnBuildingSpawn-2", message);
                         }
                         liveDefenseTargets[target] = new LiveDefenseIdentity(buildingId, building->r_GlobalId);
                         damagedDefenseWatches.Remove(target);
@@ -890,7 +772,7 @@ namespace ExtraFeatures
                         ? tileApi.GetTileBuildingId(args.TileId)
                         : 0;
                     if (buildingId <= 0 ||
-                        !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+                        !global::APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) ||
                         building->r_GlobalId == 0 || building->r_CurrentHealth <= 0 ||
                         building->r_AliveState != AliveState.IsAlive ||
                         IsTowerRuin(building->r_BuildingType) ||
@@ -1005,18 +887,18 @@ namespace ExtraFeatures
             if (!rebuildDelays.TryGetValue(target, out RebuildDelayState state))
             {
                 int firstTick = context.Tick;
-                string source = "first-missing-attempt";
+                string source = FirstMissingAttemptSource;
                 if (destroyedDefenseTicks.TryGetValue(target, out int destructionTick) &&
-                    unchecked((uint)(context.Tick - destructionTick)) <= int.MaxValue)
+                    IsNotInFuture(destructionTick, context.Tick))
                 {
                     firstTick = destructionTick;
-                    source = "confirmed-destruction";
+                    source = ConfirmedDestructionSource;
                 }
 
                 state = new RebuildDelayState(firstTick, source);
                 rebuildDelays.Add(target, state);
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:1005", $"AI defense rebuild timer started: target={target}, frameIndex={context.FrameIndex}, " +
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/AIDefenseRepairRuntime/PrepareRebuildDelay.started-target-frame-index", $"AI defense rebuild timer started: target={target}, frameIndex={context.FrameIndex}, " +
                         $"tick={context.Tick}, startTick={firstTick}, delaySeconds={delaySeconds}, source={source}.");
             }
 
@@ -1028,7 +910,7 @@ namespace ExtraFeatures
                 {
                     state.ReleaseLogged = true;
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                        Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:1017", $"AI defense rebuild timer released: target={target}, frameIndex={context.FrameIndex}, " +
+                        Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/AIDefenseRepairRuntime/PrepareRebuildDelay.released-target-frame-index", $"AI defense rebuild timer released: target={target}, frameIndex={context.FrameIndex}, " +
                             $"tick={context.Tick}, startTick={state.FirstDetectedTick}, elapsedTicks={elapsed}, " +
                             $"source={state.Source}.");
                 }
@@ -1040,7 +922,7 @@ namespace ExtraFeatures
             {
                 state.BlockLogged = true;
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:1029", $"AI defense rebuild timer blocked: target={target}, frameIndex={context.FrameIndex}, " +
+                    Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures/AIDefenseRepairRuntime/PrepareRebuildDelay.blocked-target-frame-index", $"AI defense rebuild timer blocked: target={target}, frameIndex={context.FrameIndex}, " +
                         $"tick={context.Tick}, startTick={state.FirstDetectedTick}, elapsedTicks={elapsed}, " +
                         $"requiredTicks={requiredTicks}.");
             }
@@ -1097,7 +979,7 @@ namespace ExtraFeatures
                 outcome: -1);
             if (!callbackFailuresLogged.Add(callback ?? string.Empty))
                 return;
-            Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:1087", $"AI defense {callback} callback failed; further errors from this callback are suppressed and Vanilla remains active: {ex}");
+            Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/AIDefenseRepairRuntime/LogFailure", $"AI defense {callback} callback failed; further errors from this callback are suppressed and Vanilla remains active: {ex}");
         }
 
         private void LogClockUnavailable()
@@ -1105,7 +987,7 @@ namespace ExtraFeatures
             if (clockUnavailableLogged)
                 return;
             clockUnavailableLogged = true;
-            Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/src/AIDefenseRepairRuntime.cs:1096", "AI defense rebuild clock was unavailable; affected attempts remain Vanilla until the clock recovers.");
+            Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/AIDefenseRepairRuntime/LogClockUnavailable", "AI defense rebuild clock was unavailable; affected attempts remain Vanilla until the clock recovers.");
         }
 
         private static int CurrentTick() => Shared.MissionEvents.RequireCurrentMapTick();
@@ -1248,9 +1130,9 @@ namespace ExtraFeatures
             internal DefenseTargetKey(int playerId, int x, int y, DefenseFamily family)
             { PlayerId = playerId; X = x; Y = y; Family = family; }
             internal int PlayerId { get; }
-            private int X { get; }
-            private int Y { get; }
-            private DefenseFamily Family { get; }
+            internal int X { get; }
+            internal int Y { get; }
+            internal DefenseFamily Family { get; }
             public override string ToString() => $"player={PlayerId}, family={Family}, anchor=({X},{Y})";
             public bool Equals(DefenseTargetKey other) =>
                 PlayerId == other.PlayerId && X == other.X && Y == other.Y && Family == other.Family;
@@ -1297,25 +1179,6 @@ namespace ExtraFeatures
 
             internal int BuildingId { get; }
             internal uint GlobalId { get; }
-        }
-
-        private readonly struct PendingWallRepair
-        {
-            internal PendingWallRepair(int playerId, int x, int y)
-            {
-                PlayerId = playerId;
-                X = x;
-                Y = y;
-                IsSet = true;
-            }
-
-            internal int PlayerId { get; }
-            internal int X { get; }
-            internal int Y { get; }
-            internal bool IsSet { get; }
-
-            internal bool Matches(int playerId, int x, int y, int vanillaRadius) =>
-                IsSet && PlayerId == playerId && X == x && Y == y && vanillaRadius == 5;
         }
 
     }

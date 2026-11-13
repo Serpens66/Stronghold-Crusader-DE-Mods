@@ -15,7 +15,7 @@ namespace Spectator.LordOverview
 
         private static void RefreshPendingPortraits()
         {
-            if (!portraits.HasPending || panel?.IsVisible != true || !panel.IsLoaded || main?.Show_InGameUI != true) return;
+            if (!portraits.HasPending || panel?.IsVisible != true || !panel.IsLoaded) return;
             // Keep the per-GUI pending check allocation-free; UiActionContext is a class.
             long portraitSession = System.Threading.Interlocked.Read(ref session);
             int portraitGeneration = System.Threading.Volatile.Read(ref generation);

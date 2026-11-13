@@ -57,10 +57,10 @@ namespace ExtendedData
             var selections = new Dictionary<int, FRONT_Multiplayer.MPAIVInfo>(mission.AiInfoByPlayerIndex);
             if (singlePlayer)
             {
-                Shared.CoopAiStartPlanFactory.ValidateLobby(lobby, self.AIVs);
+                Shared.CoopAiStartPlanFactory.ValidateLobby(lobby, self.AIVs, FRONT_Multiplayer.coopGame);
                 foreach (Platform_Multiplayer.MPLobbyMember member in lobby.members)
                 {
-                    if (member == null || !member.SkirmishMember || member.SkirmishHumanMember) continue;
+                    if (!Shared.CoopAiStartPlanFactory.IsAiMember(lobby, member, FRONT_Multiplayer.coopGame)) continue;
                     int id = lobby.getThisPlayerFromSteamID(member.GetSteamID());
                     if (!selections.ContainsKey(id - 1)) selections.Add(id - 1, self.AIVs[id - 1]);
                 }
@@ -69,7 +69,7 @@ namespace ExtendedData
             {
                 int playerId = entry.Key + 1;
                 Platform_Multiplayer.MPLobbyMember member = lobby.GetLobbyMemberFromThis_PlayerID(playerId);
-                if (member == null || !member.SkirmishMember || member.SkirmishHumanMember)
+                if (!Shared.CoopAiStartPlanFactory.IsAiMember(lobby, member, FRONT_Multiplayer.coopGame))
                     throw new InvalidOperationException("Packaged Coop AI player " + playerId + " is no longer an AI.");
                 int lordType = member.GetLordType();
                 FRONT_Multiplayer.MPAIVInfo current = CurrentCoopSelection(self, lobby, playerId, singlePlayer);
@@ -137,12 +137,12 @@ namespace ExtendedData
                 return null;
             try
             {
-                Shared.CoopAiStartPlanFactory.ValidateLobby(self.currentLobby, self.AIVs);
+                Shared.CoopAiStartPlanFactory.ValidateLobby(self.currentLobby, self.AIVs, FRONT_Multiplayer.coopGame);
                 var expected = new List<CoopAiSlotPlan>();
                 var complete = new HashSet<int>();
                 foreach (Platform_Multiplayer.MPLobbyMember member in self.currentLobby.members)
                 {
-                    if (member == null || !member.SkirmishMember || member.SkirmishHumanMember) continue;
+                    if (!Shared.CoopAiStartPlanFactory.IsAiMember(self.currentLobby, member, FRONT_Multiplayer.coopGame)) continue;
                     int id = self.currentLobby.getThisPlayerFromSteamID(member.GetSteamID());
                     FRONT_Multiplayer.MPAIVInfo info = self.AIVs[id - 1];
                     bool requireComplete = self.singlePlayerCoop ||
@@ -171,7 +171,7 @@ namespace ExtendedData
             catch (Shared.CoopAiSelectionException failure)
             {
                 LogError(CoopLaunchDiagnostic(self) + ": " + failure + "; selections=[" +
-                    Shared.CoopAiStartPlanFactory.DescribeLobby(self.currentLobby, self.AIVs) + "]");
+                    Shared.CoopAiStartPlanFactory.DescribeLobby(self.currentLobby, self.AIVs, FRONT_Multiplayer.coopGame) + "]");
                 return LocalizeCoopSelectionFailure(failure);
             }
         }

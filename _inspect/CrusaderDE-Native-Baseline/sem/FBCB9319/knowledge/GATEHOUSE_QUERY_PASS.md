@@ -69,3 +69,31 @@ Measured cost on `test_stresstest4.sav` (8 AI, largest map, speed 300, 2026-10-2
 ~4000 queries per gate pass; before the change the reachability callback took
 0.9 ms per simulation tick (DEVDIAG) and slowed the following native phase `0xF5A40`
 by ~0.3–0.5 ms through cache eviction.
+
+## 2026-11-10: gatehouse footprint origin and closing cadence
+
+The gate handler uses module-relative fields with `buildingId * 0x32C` in RBX.
+The typed record starts at RVA `0x64CCC0C + buildingId * 0x32C`. Thus the DWORD
+at `0x64CCD04` is `GameBuilding.r_OccupyTileGridSize` (+0xF8). The WORDs at
+`0x64CCD0A/C` are access X/Y (+0xFE/+0x100), not footprint endpoints.
+`0xC5300` passes the begin coordinates and this grid size to `0xB9330` for
+perimeter coupling. `0xBB3D0` selects a traversable access tile from the
+`0xC0270` perimeter, writing those same access coordinates. The 7x7 table
+starts with relative point (3, -1), which is outside the square footprint.
+- **Vanilla coordinate evidence:** Editor placement `0x118CA0` scales both tile axes by eight (`0x118D7E`, `0x118D88`) and calls `0x17FEF0` at `0x118DB1`.
+  The spawn adds four (`0x17FF60`, `0x17FF95`) and writes fine world X/Y at `0x17FFDD` / `0x17FFA2`. The gatehouse loop reads those same fields at `0xB7B70` / `0xB7B9F`.
+- **Vanilla closing origin:** The gatehouse loop scales the footprint begin tile by eight on X and Y (`0xB7B78`, `0xB7B8C`).
+  It measures from that corner; neither the footprint size nor the access tile participates in Vanilla's origin calculation.
+- **Deriving the footprint center in the same coordinates:** Tile `t` spans from `t * 8` to `(t + 1) * 8`; its center is `t * 8 + 4`.
+  A square footprint spans from `begin * 8` to `(begin + size) * 8` on each axis, so its midpoint is `begin * 8 + size * 4`.
+  For `begin = 100` and `size = 7`, Vanilla measures from `800`; the footprint center is `828` (tile `103` centered).
+  `begin * 8 + (size - 1) * 4` gives `824`, the boundary of that middle tile, and is half a tile off. No occupied-tile list or access coordinates are needed.
+
+The modulo-10 condition at `0xB7460..0xB74A0` controls the earlier capture
+branch. The enemy scan uses the later `0xB7A71..0xB7AAC` condition
+`tick % 50 == buildingPhase % 20` (signed remainder). The query-pass identity
+and lack of native writes between continuing iterations are unaffected.
+
+[mod integration] APIShared uses the grid-size field for its centered origin
+and publishes a conservative distance check for consumers. The actual native
+decision retains its role-specific threshold and strict comparison.

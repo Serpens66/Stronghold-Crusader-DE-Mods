@@ -98,3 +98,83 @@ its buffer after save registration or the first attempted Enable, and publishes
 readiness only after all installed-span checks. Initialization failures after either
 publication boundary keep the feature logically disabled and retain all resources.
 This changes no Vanilla bytes, native spans or terrain/persistence semantics above.
+
+## Pitch on a planned moat
+
+Static audit, 2026-11-11, for the same canonical hash. The moat plan admission
+at `0x5CA40` and mode 0 of `0x6FE90` accept an otherwise eligible pitch tile.
+`0x59210` creates the dig task and the plan path sets `PlannedMoat` while
+retaining `PitchTrap`. `0x639C0` removes that pitch only when excavation
+reaches progress 4. Immediate completed placement in the editor removes
+pitch in `0x6FE90`.
+
+The pitch branch of `0x77E60` accepts `PlannedMoat`. It rejects `IsMoat` via
+`0x7B060` with the installed pitch structure's zero permission entry. At
+`0x6D8DF`, `0x6D580` tests the two moat bits. The branch calls `0x61ED0` at
+`0x6D902` and clears both bits at `0x6D907` before the normal pitch writer
+`0x59380` sets `PitchTrap`. This removes a live dig task even though the pitch
+admission permitted the tile. The continuation at `0x6D912` writes the display
+grid, separate from the moat task-index grid.
+
+## Pitch and planned moat graphics
+
+On the same native image, `0x683CA` stores the visible pitch tile graphic
+as `0x8C0000 | (variant & 7)`. The tile export at `0x1A2D90` converts the
+zero-based variant to frames 1–8. In the matching managed image (`BC8B6A39…`),
+`SpriteMapping.setGenericBuildingTileGraphic` loads that frame from
+`Enums.GM.GM_PITCH_DITCHES`.
+
+The planned-moat display in `0x41D60` retains the current base terrain graphic
+and passes colour code `0x3F` for faint plan display or `0x39` for the moat
+tool to `0x1A2D90`, subject to Vanilla's visibility checks. The render record
+reaches the managed tile sprite and `floatColour` through `GameMap`.
+`gameTile.setTileColour` maps those codes to `TilemapManager.tileColBlueFaint`
+and `tileColBlue`, respectively.
+
+## Pitch payment and native brush sizes
+
+Static follow-up, 2026-11-11, same native hash. In `0xC8A90`, the pitch
+structure branch returns before generic resource-table debits. Mode 6 returns
+without payment; normal phase 0 removes one raw pitch through `0xB7D80`
+(goods index 7), phases 1/2 advance without removal, and phase 3 wraps to 0.
+The iron, pitch, gold, wood and stone checks in `0xCC420` are admission
+thresholds; configured gold/wood/iron/stone thresholds do not become debits
+for pitch. On the prepaid pitch-shortage branch, later gold/wood/stone
+checks are skipped. Resource changes by other actions still require fresh
+admission before each actual placement.
+
+The ordinary moat brush is width 3 (nine unique cells, offsets -1..1 on
+both axes); Shift uses width 5 (25 unique cells, offsets -2..2). Counts
+13/41 from `0x2D1C38` are attempt counts, not distinct cells: `0x619C0`
+fills only width-squared offsets and clears the rest of the 169-entry block,
+so extra attempts repeat (0,0). The ordinary pitch brush is one cell;
+Shift pitch uses four cells with coordinate offsets 0/+1 in `0x12090`.
+These are Vanilla brush facts, independent of a line-placement overlay.
+## Chore21 terminal call contract (2026-11-13)
+
+Static follow-up on the same canonical native SHA-256. The unnamed database
+symbols remain candidates; these particular parameter flows were confirmed
+against the current image and decompiler export. Chore21 at0x111D0 deserializes
+ordinary X/Y, brush width, operation and variant. Execution passes0x6FE90 the
+native TileManager, executing issuer, **packed tile ID** (X plus native row offset),
+ordinary Y, width, operation, variant and byte0. For operation0x40000000, variant0
+plans and variant2 creates completed moat. After that call,21 invokes0xE3B90 with
+PathContext, max(9,width+3), ordinary X/Y. The helper0x1C0A0 bytes
+3BCA0F4FD18BC2C3 implement max; the width1 radius is9.
+
+The preview predicate0x5CA40 uses local native player0x88E3D70 and local pending
+preview grid0x5DC7D20. It is not an issuer-independent receive predicate. Terminal
+0x6FE90 uses its explicit player for proximity and task ownership. Its allocator
+0x59210 stores type1/progress0 for planned moat and type2/progress4 for immediate
+completed moat, with the same packed tile, ordinary XY and explicit owner.
+
+### Integration consequences [mod integration]
+
+BFQoL's authenticated whole-line106 handler may call the live0x6FE90 entry and
+reproduce21's path invalidation without invoking21 on an incompatible106 body.
+The live entry preserves SE BulkMapEditorDetours and the existing MoatTerrain
+interior hooks. Planned height acceptance must remain with the live terminal gate:
+ExtraFeatures' elevated-human-moat hooks bypass the height gates at0x5CC1E and
+0x704CC. A copied unconditional height<13 gate would reject that supported path.
+Static contracts and an isolated call-ABI fixture do not claim gameplay or real
+multiplayer acceptance.

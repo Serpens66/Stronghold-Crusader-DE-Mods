@@ -1709,8 +1709,8 @@ namespace CanarariWoodTest
         {
             try
             {
-                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId,
-                    out GameBuilding* building) || building == null ||
+                if (!global::APIShared.BuildingAccess.TryGetById(buildingId,
+                    out GameBuilding* building, out _) || building == null ||
                     building->r_BuildingType != eStructs.STRUCT_APPLEFARM)
                 {
                     Log($"AI_BUILD_APPLEFARM_UNRESOLVED: session={sessionId}, stage={stage}, " +
@@ -1940,8 +1940,8 @@ namespace CanarariWoodTest
             string buildingStatus = "unavailable";
             try
             {
-                if (GameBuildingManagerAPI.Instance.TryGetBuildingById(farm.BuildingId,
-                    out GameBuilding* current) && current != null)
+                if (global::APIShared.BuildingAccess.TryGetById(farm.BuildingId,
+                    out GameBuilding* current, out _) && current != null)
                 {
                     if (current->r_BuildingType == eStructs.STRUCT_APPLEFARM &&
                         (current->r_GlobalId == farm.GlobalId || farm.GlobalId == 0))
@@ -2386,7 +2386,7 @@ namespace CanarariWoodTest
             if (!tiles.IsTileInsideMapBounds(x, y)) return -1;
             int tileId = tiles.GetTileId(x, y);
             Span<ushort> pcl = GamePathingManagerAPI.Instance.GetPathComponentGrid();
-            return tileId > 0 && (uint)tileId < (uint)pcl.Length ? pcl[tileId] : -1;
+            return tileId > 0 && global::APIShared.IndexBounds.IsValidIndex(tileId, pcl.Length) ? pcl[tileId] : -1;
         }
 
         internal void Log(string value)

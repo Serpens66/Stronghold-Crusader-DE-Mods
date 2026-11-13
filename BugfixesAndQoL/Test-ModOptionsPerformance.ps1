@@ -2,7 +2,9 @@
 param([switch]$RunTests)
 $ErrorActionPreference = 'Stop'
 $workspace = Split-Path -Parent $PSScriptRoot
-function Read-Source([string]$name) { [IO.File]::ReadAllText((Join-Path $PSScriptRoot "src\$name.cs")) }
+function Read-Source([string]$name) {
+    [IO.File]::ReadAllText((Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'src') -Recurse -File -Filter "$name.cs").FullName)
+}
 $plague = Read-Source 'PlaguePopularityFix'
 if ($plague -match '\bOnTick\b|OnGameTick|Stopwatch|PruneInvalidProjectiles|RemoveProjectileSlot') {
     throw 'Permanent plague tick reconciliation or global deletion search was reintroduced.'

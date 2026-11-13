@@ -1,0 +1,105 @@
+using System;
+using System.Collections.Generic;
+using SHCDESE.EventAPI.Tribes;
+using SHCDESE.Interop;
+using static Pathfinding.UnitCommands.UnitCommandPathRuntime;
+namespace Pathfinding.UnitCommands
+{
+    internal abstract unsafe class UnitCommandTraversalProvider
+    {
+        // Friendly-moat movement (Pathfinding). Pathfinding owns the native hooks and calls these
+        // only while TraversalEnabled; without the provider every hook keeps the Vanilla result.
+        internal abstract void AttackApproachFloodTraversal(
+            IntPtr pathManager, int tribeId, int targetContext, uint targetX, uint targetY,
+            int requestedResults, int sourceRegion, int movementClass);
+        internal abstract void BuildingApproachBuilderTraversal(
+            IntPtr pathManager, int tribeId, int buildingId, int requestedResults,
+            int sourceRegion, int movementClass);
+        internal abstract void BuildingCandidateConsumerTraversal(
+            IntPtr tribeManager, int tribeId, int builderVariant);
+        internal abstract int ResolveAttackScopeRegionPairTraversal(AttackApproachDiagnosticScope scope,
+            int movementClass, int sourceRegion, int targetRegion, int routeKind, int vanillaResult);
+        internal abstract bool ProbeCursorConnectivityTraversal(int player, int start, int target, out RouteProbeSummary summary);
+        internal abstract bool TryQualifySelectedGroupCursorRouteTraversal(
+            AttackCursorPairScope template, int[] ids, string token,
+            ref AttackCursorPairScope boundScope, out CursorGroupRouteSummary group);
+        internal abstract DirectFillCommandScope CreateDirectFillCommandScopeTraversal(TribeIssueOrderWithTargetEventArgs args);
+        internal abstract bool TryAllowDirectFillRegionPairTraversal(
+            DirectFillCommandScope scope, int candidateRegion, int startRegion);
+        internal abstract void LogDirectFillCommandTraversal(DirectFillCommandScope scope, TribeIssueOrderWithTargetEventArgs args);
+        internal abstract bool CanReachPlacementThroughFriendlyMoatTraversal(int unitId, int x, int y);
+        internal abstract void PrepareFriendlyMoatPlacementTraversal(UnitMoveFrame frame, PlacementBatch batch,
+            GameUnit* unit, int player, int sx, int sy);
+        internal abstract PlacementUnit CreateFriendlyMoatUnstackUnitTraversal(IntPtr manager, int id);
+        internal abstract void FindUnstackPlaceTraversal(PlacementUnit scope, IntPtr manager, int x, int y);
+        internal abstract bool TryGetMoatWorkRouteTraversal(
+            MoatWorkSelectionScope scope, int targetX, int targetY,
+            out RouteProbeSummary summary);
+        internal abstract int BuildPathWithCompletedMoatRouteVariantTraversal(
+            IntPtr pathManager, int movementClass, int movementProfile,
+            PlanScope resolvedPlan, bool planResolved, bool reconstruction);
+        internal abstract int SelectOwnerSafeGroupMoatModeTraversal(
+            IntPtr tribeManager, int tribeId, int vanillaResult, MoveCommandScope command);
+        internal abstract bool TryFindRequiredFriendlyRouteTraversal(
+            PlanScope plan,
+            bool exactTarget,
+            bool allowReservedTarget,
+            out RouteProbeSummary summary,
+            bool evaluateMissing);
+        internal abstract int ResolveScopedCompletedMoatModeTraversal(
+            IntPtr unitManager, int unitId, int vanillaResult, UnitMoveFrame moveFrame);
+        // Optional work policy. The command owner always tries the complete native selector first.
+        internal virtual int FindDigWorkTarget(IntPtr tiles, int player, int unit, int vanillaResult) => vanillaResult;
+        internal virtual bool TryAllowDigWorkRegion(MoatWorkSelectionScope scope, int region) => false;
+        internal virtual bool TryGetDigWorkRoute(MoatWorkSelectionScope scope, int x, int y, out RouteProbeSummary summary)
+        { summary = default; return false; }
+        internal virtual PendingDigMoatTarget CreatePendingDigMoatTarget(MoatWorkSelectionScope scope, int moatId) => null;
+        internal abstract void ResetMapState();
+        internal abstract bool TryPrepareGroundReconstruction(PlanScope plan, GameUnit* unit);
+        internal abstract bool HasPendingUnit(int id, uint global);
+        internal abstract bool RequiredOnly { get; }
+        internal abstract bool Enabled { get; }
+        // The shared route core runs although friendly moat traversal (Enabled) may be off.
+        internal virtual bool EngineActive => Enabled;
+        // Builder entry while the core runs without moat traversal; the default keeps Vanilla.
+        internal virtual int BuildEngineRoute(UnitCommandPathRuntime runtime, IntPtr pathManager, int movementClass, int movementProfile,
+            PlanScope resolvedPlan, bool planResolved, bool reconstruction) =>
+            runtime.CallVanillaBuilder(pathManager, movementClass, movementProfile, reconstruction);
+        internal abstract IMoatSearchKernel CreateKernel(int width, int height, MoatSearchEdge edge);
+        internal abstract void InvalidateFastMoatData();
+        // Terrain changed around one tile (native 3x3 tile/moat update): a provider may refresh
+        // only the affected area. The default keeps the global invalidation.
+        internal virtual void InvalidateFastMoatTile(int tile) => InvalidateFastMoatData();
+        // Native mask rebuild (0xDAA50, FBCB9319): every tile's direction byte (0x51890D0) was
+        // recomputed by 0xD86F0, which writes nothing else a traversal predicate reads. A provider
+        // that observes those bytes itself may skip the global invalidation. Default: global.
+        internal virtual void InvalidateFastMoatDirections() => InvalidateFastMoatData();
+        // A formation group move (11B520 Pre) assigned these per-unit target tiles; 196280 later
+        // moves each unit there. Simulation-deterministic, called once per formation command.
+        // Arrays are owned by the caller and must not be kept. The default ignores the plan.
+        internal virtual void ObserveFormationDestinations(int tribeId, int[] unitIds, uint[] globalIds, int[] targetX, int[] targetY) { }
+        internal abstract void LogAndResetFastMoatMetrics();
+        internal abstract bool HasFastFriendlyMoatBridge(int playerId, int startTileId, int targetTileId);
+        internal abstract void RetainFastMoveDistribution(MoveCommandScope command);
+        internal abstract bool HasFastFriendlyMoatBridgeForCells(
+            int playerId, IList<int> starts, IList<int> targets);
+        internal abstract bool TryProbeFastCursorRoute(int playerId, int startTileId, int targetTileId,
+            out RouteProbeSummary summary);
+        internal abstract void RecordFastSearch(
+            WeightedMoatRouteSummary summary, long started, long nodesBefore);
+        internal abstract void RecordFastFieldSearch(MoatCandidateField field, long started);
+        internal abstract bool TryFindFastRequiredRoute(PlanScope plan, bool reserved, bool evaluateMissing, out RouteProbeSummary summary);
+        internal abstract bool TryBuildMovementReachabilityEncoded(int player, int sx, int sy, int tx, int ty, bool reserved,
+            out WeightedMoatRouteSummary summary, out WeightedMoatEncodedRoute route);
+        internal abstract int[] ResolveMovementCandidates(MoatCandidateField precise, IList<int> starts,
+            IList<int> targets, MoatSearchEdge edge, MoatSearchEdge terminal, out int expanded);
+        internal abstract bool TryChooseFastFormation(IntPtr manager, int x, int y, out int tile);
+
+        // Diagnostic readouts for the dedicated DEVDIAG build. Always declared, with neutral defaults, so a
+        // diagnostic Pathfinding and an ordinary provider (or the reverse) stay binary compatible.
+        internal virtual long CursorQueryCount => 0;
+        internal virtual long CursorQueryTicks => 0;
+        internal virtual long CursorTopologyTicks => 0;
+        internal virtual string DescribeRejectedQueueWaypointTraversal(MoveCommandScope command) => "provider-diagnostics-unavailable";
+    }
+}

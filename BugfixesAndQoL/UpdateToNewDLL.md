@@ -1,5 +1,32 @@
 # Native update contract: Bugfixes and QoL damaged health bars
 
+Native contracts of commands, routes, formations, the Shift queue, troop movement, gate routing and Assassin
+routes moved with their code to `Pathfinding/UpdateToNewDLL.md` (2026-11-07).
+
+## Managed local Coop restart validation (2026-11-13)
+
+The AI guards mirror Vanilla `FRONT_Multiplayer.StartSkirmishGame`: a member is human
+when its human flag is set, or when the current Coop context maps it to player 1.
+Vanilla's restart constructor can recreate the Steam host without its human flag;
+it also leaves the new lobby's Coop coordinates and `coopTrailGame` at defaults.
+The shared classifier receives the existing static `FRONT_Multiplayer.coopGame`
+explicitly and never changes roster entries, mappings or flags.
+
+Local AI previews use public static `FrontendMenus.CurrentSelectedTrail` (Vanilla
+frontend pages 21–24 correspond to native Coop trails 1–4) and private instance
+Int32 `FRONT_Multiplayer.selectedCoopMissionID` (already zero-based). The private
+field is read through cached, required reflection with an Int32 check; no publicized
+direct access or reconstructed-lobby fallback is used. Invalid identities block
+the preview. Recheck both member signatures, the page mapping and the Vanilla
+start/restart writer chain on a game update. This adds no native hook or RVA access.
+
+## Pitch and moat lines (2026-11-13)
+
+The local input, whole-line authenticated Chores in all modes, pitch lookup/payment
+model, native moat execution/path refresh and preservation scopes are documented in
+[PitchMoatLines.Native.md](docs/PitchMoatLines.Native.md).
+Keep these contracts independent of the adjacent MoatTerrain restoration hook.
+
 ## Engine presentation bridge (2026-10-23)
 
 The private VanillaPerformance bridge uses managed `EngineInterface.run` and
@@ -161,21 +188,6 @@ All 2,082 raid assertions (2,047 existing plus 35 managed hardening checks) and 
 
 Build and installation succeeded with the known dependency-unification warning and no compiler errors. All 48 package files match the installation by SHA-256; installed assembly is 1.0.174.0 and the compiled EnableAiRaidRetargetFix property retains SyncHostOnly. Installed DLL SHA-256: 0CCF91D597E287CA5512FD7D7EAE59A123113ABAEA920182AC2DE65D6FB6377A. No active standalone RaidRetargetDiagnostic DLL is installed. Active version remains 1.0.174; README is unchanged. Evidence: .inspect/RaidRetargetEvaluation/MainmodHardeningBuild-2026-10-02.log and .release-output/local/BugfixesAndQoL/latest.provenance.json. Actual integrated startup/autonomous raid and real host/client gameplay acceptance remain pending; synthetic tests and standalone testmod logs do not establish that runtime evidence.
 
-## 2026-10-02: read-only Assassin gate diagnosis
-
-See the hash-bound baseline `knowledge/ENEMY_GATE_ASSASSINS.md`. Four pre-change runs had 403/402/207/624 NoRoute results; the first three observed open/open, open/closed and closed/closed configurations. Automatic closure in the open runs led to retargeting; no persistent stuck-unit conclusion follows from the counters.
-
-An optional passive APIShared observer measures the existing D9C40 detour, weighted/cache-route edges and native cache contents; it never changes search results. Existing deferred aggregates retain exact counts and numeric sums with no event cap. Gate edge IDs come from mask construction, overlapping identities remain ambiguous. New Unit fields were checked against installed public SE members, and the complete control WORD is reported. Native singleton reads use +0x84/+0x88/+0x90 and ten positive/negative PCL pairs at +0x416D8C/+0x416DDC with stride 8. No new hooks or executable mutations; original route/search/cache algorithms remain unchanged. Native-only flood fields and cache-hit/fallback measurement gaps are explicitly labeled. Versions and README are unchanged.
-
-Abnahme remains open until paired Assassin runs locate the first different reachability result. No additional Assassin movement correction is included in this diagnostic build.
-# Optional Assassin gate route policy (2026-10-02)
-
-The existing D9C40 owner also filters its own weighted routes when an APIShared gate snapshot provider is active. No new native RVA, hook span or query. A* admission, route-cache validation and pre-publication validation share one immutable player snapshot; route and suffix cache keys separate its identity. Control uses verified public GameUnit low/high fields at 0x92/0x93 for gate contexts. Negative-destination/continuation calls and inactive-policy operation retain existing paths; freshness/identity failures retain the one native result before writing a replacement field. Preserve legitimate unmasked wall-climb transitions. Test mainmods without Testmod on updates.
-
-## 2026-10-03: independent bridge diagnosis and gatehouse boundary
-
-All bridge edge masks (including the old center seam) have been removed from EnemyGatePathfindingTest. Gate identity/axis linkage is retained. EnemyBridgePathTest 0.1.0 is read-only and independently registered through APIShared; mainmod-owned hooks emit existing results only when an observer is registered. No new native hooks or active bridge policy. The 22:46 experimental mask and its 5,712 NoRoute result are historical, not the current gate policy. Native/SE identities remain confirmed. Pure-gate game acceptance remains pending; see Testmods/EnemyGatePathfindingTest/ACCEPTANCE.md and Testmods/EnemyBridgePathTest/HANDOFF.md. Work commands use existing nested MoveHere and synchronous before/after fields; no task-index or return value is interpreted as proof of work execution.
-
 # AI-only Keep build range (integrated from AIKeepRangeLimitTest)
 
 Integrated feature; BugfixesAndQoL version remains unchanged during integration tests. Host-controlled `EnableMod` and
@@ -197,12 +209,10 @@ distance <= range; allied Keeps use integer(range/2). This helper performs no
 terrain, occupation, enemy-distance or resource validation. Its coordinate
 guard returns zero for out-of-map cells; the caller owns other validity checks.
 
-Resolution validates the reference entry against the full 40-byte prologue
-pattern in `AIKeepRangeNativeContract.Pattern`. If that fails, the shared resolver searches
-executable PE sections for a unique match, including when the file hash matches.
-Then require the audited file hash, original RVA and complete function body.
-A new binary remains disabled even with a matching prologue: incoming-edge and
-caller semantics have not been proved for that binary. Error-level timestamped
+Resolution requires the audited file hash, the full 40-byte prologue at the
+reference RVA and the complete function body. A changed hash or entry stops
+validation before any pattern search. Caller and incoming-edge evidence applies
+to the audited binary and entry. Error-level timestamped
 diagnostics identify validation failures; no global override or alternate hook
 is used. Successful resolution reports its method and actual RVA at Info level.
 
@@ -336,86 +346,16 @@ Regression tests execute the whole native predicate, historical faulty byte fixt
 
 Build/installation verification (2026-10-07): the prescribed elevated build.bat /nopause completed successfully, including all preflight/regression checks and the native execution tests above. Installed AssemblyVersion is 1.0.175.0 and info.json Version is 1.0.175; all 48 package DLL/metadata/resource files match their installed SHA-256. Build log: _inspect/WildlifePeaceTime-1.0.175-build.log. MSB3277 dependency-version warnings remain (Mono.Cecil in the runtime/test references; additional dependency warnings in the existing FriendlyMoatMovement test project); there were no build errors. No in-game acceptance was performed.
 
-## 2026-10-07: shared Assassin path hooks
+### Shared wildlife target rules (1.0.218)
 
-APIShared.AssassinPathAPI is the sole owner of builder D9C40 and endpoint guards
-D9F0C, D9F1C, E19D8 and E19F9. BugfixesAndQoL registers its existing weighted
-builder and calls the shared original exactly once; its reconstruction wrapper
-publishes logical state only. The testmod registers the optional gate rule.
-Reference SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
-Complete audit: _inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/ASSASSIN_DIRECT_GATEHOUSE_CLIMB.md.
-
-NativeX64 Indirect-only builder span is 10 bytes; actual scheme, FF25 entry,
-pointer slot and trampoline displacement are verified before publication.
-X64InlineHook spans are 16/15/18/23 bytes. Patterns and full incoming-edge checks
-are in AssassinPathNativeDefinition; unique executable signature fallback cannot
-authorize relocated continuation/layout contracts. Unknown hashes fail closed.
-The installed RedBird 1.5 implementation was checked and exercised directly.
-Pure assembler guards save flags/RAX/R10/R11, replay remaining wall/surface tests
-and accept nonzero IDs only for live gate roof endpoints (types 45/46, IsWall).
-Weighted reconstruction preserves the prior optional broad guard relaxation.
-
-Hash-bound grids: building ID WORD at 4B6AA50, tile flags DWORD at 48F71B0,
-320800 tiles. One-based building IDs 1..3999 use stride 32C, alive WORD base
-64CCCDC and type WORD base 64CCCDE. These bases include the native sentinel.
-Re-audit layout, roof placement/rebuild, cursor, AI gate action, reconstruction,
-physical climb and neighboring-wall contracts on every native update.
-SE's 196870 detour and mainmod selection adapters retain their owners. Fixes
-1.25.1 gate filtering EAD8C/departure EACC3 has no overlap; preserve its targeting.
-Hooks remain rooted until process exit; activation writes aligned policy data
-only. No executable repatching or published teardown is permitted.
-
-Source-linked production tests: _inspect/AssassinGateClimb/tests. Runtime and
-installed-member preflight: _inspect/AssassinGateClimb/verify.ps1. Real in-game
-human/AI acceptance is pending; see Testmods/AssassinGatehouseClimbTest/ACCEPTANCE.md.
-## Exact weighted single-unit route publication (2026-10-07)
-
-Native reference hash: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
-E1640 reconstructs from step distances, with a mutable best distance inside its direction loop.
-For target-first nodes T(1,1,d4),R(2,1,d3),P(2,2,d2),S(1,2,d1), it can accept R at direction 2,
-then S at direction 4 against the already reduced distance 3. This replaces the cheap
-S->P->R->T entrance route with a costly S->T climb. Weighted parents and tick costs
-are not represented by the published unit-step distances. This is a confirmed static
-counterexample, not yet causal proof of the user's particular gameplay run.
-
-APIShared's existing F4930 owner now opens a synchronous, thread-local single-unit
-handoff. Bugfixes stages a copied exact low-nibble-first forward direction sequence;
-F4930 still executes once, then its checked output buffer receives the prepared bytes
-before the 196280 consumer latches length/cursor/state. Successful staging retains the
-original D9C40 field/result until the outer builder publishes. Failure inside a unit
-frame preserves native data. Flood/continuation calls never stage; standalone queries
-retain the checked stamp/distance publication path. Nested builders shadow all outer
-frames, including unqualified/manual-probe frames. Delegates live only in the synchronous
-frame, whose Leave restores its predecessor in finally; native hook roots remain permanent.
-
-Existing hash-bound data contracts (no additional hook, fixed RVA, AOB or executable write):
-- Path manager at module+60AD660: source int32 +8/+C, destination int32 +10/+14;
-  Assassin flag int32 +88, moat flag +84, later alternate-builder flag +94.
-  Exact publication requires Assassin enabled and the other two flags zero.
-- F4930/E1640/E4E90/196280 prove output pointer +155F60, direction-count int32 +155F68.
-- Unit manager module+67E8400: buffer +B4FE78 + one-based unitId*1000, capacity
-  1000 bytes/2000 directions. Buffer arithmetic derives the ID and checks it against
-  UnitAccess, type, true life, Global-ID, control player and native movement start.
-- Existing grid bases: connections 51890D0, direction masks 312620, row table 402FF2C,
-  heights 4DDD350, surfaces 48F71B0, building IDs 4B6AA50. Physical DCE60 accepts
-  source-forward OR destination-reverse before climbing. E1640 tests its own
-  target-to-predecessor connection, so reconstruction capability is checked separately.
-
-All addresses derive from the canonical installed-hash disassembly and the existing
-shared command layout validator. Fixed layouts have no independent semantic fallback;
-search scope is the supported installed module only. Unknown hashes retain the existing
-fail-closed feature initialization. F4930 hook resolution/backend remain unchanged;
-its existing section-bounded function signature fallback and displacement checks apply.
-On native updates re-audit field layout, buffer ownership, nibble reversal, movement-start
-selection, alternate builders and the terminal 196280 consumer before permitting publication.
-No new Assembly-CSharp access. Fixes gate targeting and Script Extender selection ownership
-remain unchanged; the existing soft dependency loads the mainmod after Fixes.
-
-Regression sources compile the productive handoff, encoder, and actual shared builder/
-publication methods. Tests cover the expensive reconstruction shortcut, exact buffer bytes,
-length, ID reuse, changed policy/pointer, nested frames and native exceptions. Physical
-walking/climbing and open owned/captured gate roof acceptance still require an in-game run.
-README files and versions remain unchanged during that acceptance.
+APIShared 0.43.0 owns the target exclusion entry at `0x1867A0`. BugfixesAndQoL
+registers rules that protect players from lions, hyenas and crocodiles while the
+native Peace Time flag is active. The host-synchronized gameplay option controls
+both these rules and the remaining 23 native Peace Time sites in BugfixesAndQoL.
+On a new DLL, re-audit the shared entry in APIShared and the remaining QoL sites
+against the [native Peace Time baseline](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/VANILLA_PEACE_TIME.md).
+The November 2026 single-player runs observed natural predator contact before
+and after expiry, with and without Fixes.
 
 ## Gatehouse living capture integration
 
@@ -446,195 +386,6 @@ Validation completed 2026-10-07:
 Native SHA-256 remains FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2. The complete death/combat/removal chain is documented in the current baseline knowledge/GATEHOUSE_LIVING_CAPTURE.md; transient recruitment states and persistent slot identity in RECRUIT_TRANSFORMATION.md. Managed action guards use APIShared.UnitAccess.IsReallyAlive; snapshot property names and identity checks are preserved.
 
 Existing synchronized movement generators and the poleturner/tanner idle-delay generator additionally test the low WORD at manager-relative unit offset 0x8F8 (record origin 0x65C, GameUnit+0x29C). This follows the existing IsAlive check at manager+0x6E4. No full-DWORD marker test, health substitute or new hook is introduced. Death-marked units follow the existing restore-and-replay path without changing tracking tables, speed or animation. The native upper marker word is deliberately ignored. Existing hook RVAs, patterns, pristine replay instructions, displacement checks, ownership and native-hash fail-closed policy are unchanged; no relocation fallback for this fixed layout is added. Revalidate the origin formula, installed GameUnit.N0000019A layout and full death/combat flow on native/interop updates. Workshop tests execute the actual emitted stubs with dying-worker and upper-word cases; movement parity tests cover exclusion without erasing recruitment tracking.
-
-## Integrated formation command contract (2026-10-08)
-
-FormationTest is absorbed into BugfixesAndQoL; checkbox/presets/host synchronization keep
-their existing key. FormationRuntime in APIShared uses the existing E1D30/E0970/118E00
-dispatchers rather than installing a second native detour. Native 196280 remains owned
-by the Script Extender event. Formation targets run before UnitMovementContext Pre;
-completion runs after its Post. The accepted protocol-5 command carries kind, density,
-direction, width, role placement, unit count and deterministic identity/target hash.
-Consumed left/right release state is never restored. Shift queue transport retains only
-its own marker; no old density encoding or fallback remains.
-
-FBCB9319 native closure: 879A0/86680, 8B7E0/8C5F0, 195E30, chore 10AE0,
-196100/11B520, E1D30/E0970/118E00/119F90/196280, and cursor/overlay
-8F3DA..90088, 1222A0/417A0/41D10/41D60/436DE/1A13C0. Preserve authoritative
-object, Assassin, terrain, region and owner checks. NativeDetour Indirect contracts are
-validated by NativeDetourContracts; marker context displaces 17 bytes to 436EF,
-AfterCallback, with All GPRs and replayed TEST/JE. Installed RedBird is exercised by
-the copied-buffer regression; no published hook is torn down.
-
-The merged marker renderer is process-owned by UnitCommandPathAPI.MoveMarkers.
-Drag preview authorization is memoized per native pass; role dots use the same
-authorization. Overflow and queue rendering share the original overlay/draw callbacks.
-Installed interop is checked by _inspect/FormationIntegration/Verify-Interop.ps1:
-GameUnit 0x490, GameTribe 0x688, cursor view 0x480, including all consumed field
-widths/offsets. UnitAccess.IsReallyAlive uses UInt16 r_IsKilledByProjectile at 0x29C.
-Game APIs are checked without emission against the true Assembly-CSharp.dll.
-Fixes 1.26.0 additions (111C00 and 6A5D0) do not overlap this closure.
-Formation config migration reads FormationTest_Serp.cfg without modifying it; existing
-main keys win, invalid/missing legacy values use Block/2/Off/true.
-Re-audit the complete closure, editor release fields, tile grids and both installed
-hook backends after native/Extender updates. Runtime versions remain unchanged during
-testing. Multiplayer/gameplay acceptance still requires an actual game session.
-# Rally-point terrain slowdown (1.0.180)
-
-The independent default-enabled `EnableRallyTerrainSlowdownFix` captures
-effective movement delay before the type handler and restores it at the
-common cadence hook. Full audit and hook contracts:
-`../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/RALLY_TERRAIN_SLOWDOWN.md`.
-
-For a native update, re-audit the entire recruitment/rally/type-handler/
-dispatcher/movement/arrival/terrain chain for all 26 supported types.
-Validate hash-bound unit layout, dispatch pattern at RVA 0x18410C,
-its 8-byte indirect call plus 6-byte current-ID load, continuation
-0x18411A, incoming edges, and actual installed RedBird inline displacement
-(14 bytes). Also recheck cadence 0x184203 (23 displaced bytes), terrain
-hook 0x19B506, and preservation of elevation and all later terrain/state
-calculations. Never infer a new fixed layout from a signature match.
-
-The capture transaction is optional: validation failure disables only
-the new terrain correction. Settings publish atomic data flags with an
-epoch; published hooks and native tables persist until process exit.
-Keep the terrain setting separate from recruit running, including host
-sync, presets, reset and search. Run the actual production generators in
-`RallyTerrainGeneratorTests` and repeat in-game swamp, ford, uphill,
-downhill and level routes with both running settings and loaded saves.
-
-Formation rows follow-up (2026-10-08): internal protocol 6 adds ushort Rows. Wheel adjusts gesture-local rows; drag only sets the eight-sector facing. Width is validated against maximum rank width. Integer local coordinates precede rotation; exact reachable slots are reserved before obstacle fallback. Existing native selectors, permanent input/renderer hooks and installed SHCDESE 2.14.0 contracts are unchanged. No new public API or game-assembly access.
-
-## Command engine ownership (2026-10-09)
-
-The coherent command engine is owned by BugfixesAndQoL/src/UnitCommands;
-formations remain BugfixesAndQoL/src/Formations. MoatMove provides its optional
-search/traversal implementation through the internal BugfixesAndQoL assembly
-contract. APIShared only owns the public managed route-search preference events.
-This ownership move does not alter native addresses, algorithms, delegates,
-registration order, settings, formats or process lifetime.
-
-Reference native SHA256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
-NativeDetourContracts.cs is the exact128-entry function-prefix catalog; feature
-native-contract files in Runtime/Native/Cursor/Movement/Moat/Attack/Formation
-retain their reference RVAs, patterns, derivations and ABI checks. Initialization
-validates the reference bytes against the Extender-owned scan image and the
-existing bounded resolver. Fixed record/scratch/path layouts remain hash-bound:
-a code signature does not prove a new native layout. Existing feature groups
-fail closed independently; published hooks stay rooted and installed. No new
-fallback is introduced by the move. Reaudit all affected flows, displaced spans,
-incoming edges, actual NativeX64 scheme and layouts on a native/backend update.
-
-Native movement wrapper18E1E0 has four parameters;196280 is its distinct core.
-Unit records are0x490 bytes; movement preview snapshots/restores the record and
-must retain the distinction between preview and actual world notifications.
-The cursor dispatcher8C5F0 has PE unwind range[8C5F0,90500) including19 embedded
-switch tables; the old candidate database end90001 is incomplete. Do not use
-linear decoding of that entire range as proof of executable instructions.
-
-Detailed local review/evidence: _inspect/APISharedOwnership/COMMAND_OWNERSHIP_AUDIT.md,
-cursor-dispatch-targets.log, fixes-dynamic-command-spans.json and preserved
-before-command-ownership sources. They are workspace audit artifacts, not public
-APIShared dependencies. Source equivalence across70 moved files is checked modulo
-namespace/friend ownership and two imports. Game acceptance remains outstanding.
-
-## Formation movement permission correction (2026-10-11)
-
-Owning feature: Formations. Reference native SHA256:
-FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
-The existing 195E30/196100/11B520/118E00/196280 chain and 18E1E0 path probe
-retain their existing signatures, search scopes, resolution and fail-closed rules.
-No new RVA, hook or layout dependency is introduced. Group-member permission is
-owned by Vanilla, not inferred from a positive path query. 11B520 excludes stationary
-Ballista (3D), Trebuchet (28), Mangonel (29) and restricted states; 118E00 has its
-own member predicates. 196280 does not repeat those checks.
-
-The formation post-order retry now requires a matched, unvetoed terminal Post
-with observed return zero. Missing calls, abandoned/vetoed frames and positive
-returns never receive direct MoveToTile retries. Recheck current global identity,
-life and tribe and retain the original extra parameter. Reaudit these event and
-permission boundaries after Native/Extender updates; do not substitute a type list.
-Evidence and pending gameplay acceptance:
-_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/FORMATION_MOVEMENT_PERMISSION.md.
-
-## 2026-10-11: preserve native ground cursor permission
-
-Native SHA-256 remains FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
-The complete cursor CFG [8C5F0,90500), including its embedded dispatch tables,
-shows a separate permission channel from route reachability. At 8F10F R15D
-starts at one. Target veto 198C40 at 8F1E5 and selection predicate 1811A0 at
-8F1F8 can clear both EBX (reachability) and R15D (permission). 1811A0 scans
-selected living, non-killed units controlled by the active native player and
-requires a type other than 28/29/3D. These are the native stationary engines;
-no mod-maintained type list is introduced. 198C40 retains its target/structure
-restrictions. From 8F206 to the call at 8F325 no instruction writes R15.
-Function names remain candidate; these register/data-flow findings are static.
-
-The 196870 call at 8F325 is the native Assassin/special-selection fallback,
-not a fresh movement permission check. Promoting its zero result from a
-positive 18E1E0 path witness previously re-enabled EBX via E2CA0 at 8F350,
-bypassing the prior permission veto. This produced false accepted cursor
-feedback; 195E30 stages Chore17 before its own feedback/type checks. The later
-formation fallback fix protected execution but did not protect this UI path.
-
-The existing six-site adapter now passes its RVA and, only at 8F325, R15D.
-The callback clears pending cursor state and retains a zero result when that
-native ground permission is zero. Nonzero original/Extender results remain
-full-width and authoritative. The other five sites are attack queries and
-never consume their unrelated R15. Existing reachable-member and moat route
-corrections remain after the permission gate. No marker suppression, extra
-order, second 196870 detour, permission probe, or public interface is added.
-
-Producer bytes and the existing complete displaced spans are checked before
-publication. Production emitter tests execute all six Win64 callback paths
-with permission zero/one and zero/nonzero/full-width results. The complete
-production cursor fixture exercises pending-state clearing, provider settings,
-route repair and attack isolation. Rendering still reads final native feedback;
-formations and Shift commands continue through the original group/member
-checks. Visible Vanilla comparison and multiplayer acceptance remain pending.
-
-### TEMP_GATE_ROUTE_ACCEPTANCE: output-mode evidence (2026-10-11)
-
-Owner: existing UnitCommandPathRuntime F4930 detour; no added hook. Reference DLL SHA256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2, RVA 0xF4930. At the existing entry/exit, read already audited manager modes +0x84/+0x88/+0x94 and output length +0x155F68; capture original arguments 2/3 as raw values. F4930 at 0xF4B9C tests +0x94 and argument 3 zero before DB650/DA590 and E1640 mode-1 reconstruction. Entry eligibility is not runtime proof that this branch executed. +0x94 remains excluded from exact staged Assassin publication. Use the existing hash/signature and displaced-span validation of the functional owner; no separate executable patch or address fallback. Unknown/unowned context is not read; diagnosis is inactive without an observer and cannot authorize publication. On future native updates re-audit the whole F4930 search/reconstruction flow rather than removing this guard.
-
-### Drawbridge nonlethal gatehouse damage (2026-10-13)
-
-Owner: src/DrawbridgeDestructionFix/FixRuntime.cs, permanent X64InlineHook.
-Reference native SHA256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
-Audit the complete direct damage function 0x7EB00..0x7F88A, all incoming
-edges, bridge coupling/removal, area damage, demolition and deferred removal
-before adapting this feature. Hook 0x7EE6B displaces exactly 15 bytes (4+6+5),
-continues at 0x7EE7A, and skips early bridge removal at 0x7EF87 only when
-argument 8 is 1, type is 45/46 and the newly stored signed Int16 HP is positive.
-Native manager slot stride 0x32C, type +0x12E, health +0x168; public view +0x5C.
-Original displaced instructions must execute fully when disabled. Preserve
-RAX, flags and all other live state. The installed RedBird backend must again
-assemble/decode the production emitter and confirm its 15-byte displacement.
-
-Test-DrawbridgeDestructionFix.ps1 and tests/DrawbridgeDestructionFix.Tests
-verify hash, original bytes, layout, full-function control flow and 150 native
-execution cases. Live interior bytes must match the reference function;
-Extender entry instrumentation is allowed only in the first audited 64 bytes.
-Unknown hash, conflicting bytes or an unexpected span abort this feature only.
-Installation candidates roll back before publication; published hooks and
-subscriptions remain statically rooted and activation changes only data.
-
-EnableDrawbridgeDestructionFix is SyncHostOnly, defaults true, resets true and
-participates in the existing preset/host/client/trail rules. Effective state
-is EnableMod && EnableDrawbridgeDestructionFix. Existing dependency minima
-and main version remain unchanged during main-mod acceptance. APIShared is
-unchanged: existing public damage/coupling/lifecycle services suffice and no
-second user justifies a new public native service. Diagnose installation and
-state transitions, one identity-checked protected hit, and at most one observer
-error; the observer exits immediately after confirmation. Do not restore test
-snapshots, map summaries, geometry caches or per-hit logging.
-
-Independent testmod revision 2 editor acceptance: 2026-10-13 16:57..16:59,
-668 paired calls, 665 protected native decisions, 64 detailed surviving-hit
-bridge captures and 3 lethal removals (both stone gate sizes), no errors or
-pending follow-ups. This confirms the testmod, not main-mod or multiplayer
-acceptance. Main-mod testing must include two bridges and bridge states,
-option/mod disabled, demolition, projectile/area damage and multiplayer.
 
 ## Improved building preview (local QoL)
 
@@ -686,102 +437,6 @@ BugfixesAndQoL owns the preview detour and the Ground contribution. [PresetLocal
 BuildPreviewStateStore atomically publishes immutable activation, generation, session and snapshot together. Activation/session changes increment the generation and clear actual counts. A captured producer can only compare/exchange against the same generation/session, so a late callback cannot republish into a newer activation. Unchanged snapshot values reuse the state and snapshot; soil and temporary preview buffers are still checked on every eligible native callback. The diagnostic eligible-tile traversal has been removed.
 
 Native regression and full-image incoming-edge checks: tests/BuildPreview.Tests. Real Assembly-CSharp signatures, hash, installed NativeX64 Indirect scheme, six bytes, trampoline, pointer-slot and HookEntryPoint remain covered by Test-BuildPreviewPreflight.ps1 and the machine tests. Acceptance evidence and pending integrated-switch checks live in tests/BuildPreview.Tests/ACCEPTANCE.md. No allocation/FPS claim is made beyond the isolated production state publication path.
-
-## Infinite patrol isolation from the Shift queue (2026-10-17)
-
-Reference SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
-The existing hash-bound Chore-17 hook also reads the signed patrol-mode staging
-field at RVA `0x86C1338` (between Y `0x86C1334` and move type `0x86C133C`).
-Producer `0x195E30` stores argument 5 there; Chore-17 handler `0x10AE0` packs
-one byte and sign-extends it on unpack before `0x196100` / `0x11B520`.
-The field is read only during outgoing Chore packing. No additional hook or
-executable-memory mutation is introduced. No semantic relocation fallback is
-available for these staging globals; the existing fixed-layout hash gate remains
-mandatory. On a native update recheck the complete pack/unpack flow and field
-width/order together with the existing queue marker contract.
-
-`TribePatrolMode.PatrolInfinite` bypasses queue marking and capture. Chore 71
-(`0x176C0` -> `0x11C3A0`) retains its original one-based tribe ID, coordinates,
-waypoint index and signed mode. Only the affected tribe's old queue and dedup
-state are discarded. `PatrolOnce` and ordinary Shift Moves retain queue handling.
-Production-entrypoint regressions: `tests/Issue6.Tests`; actual in-game looping
-and real host/client acceptance are separate from those boundary-double tests.
-
-
-## Formation command speech (2026-10-17, Issue 6)
-
-Reference native SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
-FormationFeature retains the canonical native hash gate. FormationSpeechNative is a
-mod-internal callable adapter, not a hook or a replacement movement command.
-
-- 0x11A1B0: selected dominant voice type. ABI: int(nativeTribeManager, int tribe,
-  int* optionalCount). RCX/RDX are unused in this binary; R8 is the optional output.
-  Despite the decompiler's void declaration, EAX returns the chosen type (verified
-  complete disassembly and 0x195EA7 call). It counts selected, alive, local units of
-  types below 90; ties prefer the lower type. No parallel voice table is maintained.
-- 0x18D460: native selected representative. ABI: int(nativeUnitManager, int firstId).
-  Use manager RVA 0x67E8400 and first Game-ID 1. This scans by native type priority
-  and uses current-unit scratch global 0x9302C4; capture saves/restores that Int32
-  in finally. The representative's current LogicGrid tile must not have bit
-  0x40000000. Engineer (Extender enum) with GameUnit+0x388 != 0 suppresses speech;
-  this field is manager+0x658+gameId*0x490+0x388, matching global 0x67E8DE0.
-- 0xE0E0: int(nativeSoundManager), manager RVA 0x88E72D0. Preserves native
-  busy-channel policy, including its per-player exception. This is checked inside
-  the native frame, after DLL_RunTick has copied current Unity channel states.
-- 0x3BC0: void(dialogueManager, int voiceType, int response, int targetTile).
-  Dialogue manager RVA 0x64C4490. Response 6 is used when both leader/anchor axis
-  differences are <=72; response 10 otherwise. Response 6 receives GetTileId(anchor),
-  response 10 receives zero. Capture leader position before dispatch; never derive
-  the voice from a delayed multiplayer receiver. NoChange (native zero) excludes Archer,
-  Crossbowman and Catapult; Trebuchet, Mangonel and Ballista are always excluded.
-  Archer_debug remains allowed. Native 0x3BC0 owns selection, duplicate suppression
-  and special-type branches; 0x3770/0x38A0 and 0xEDF0 remain untouched.
-
-Each new code target uses its complete-instruction signature, scanned only in PE
-executable sections; duplicate or missing matches fail closed. An invalid reference
-RVA still tries that executable pattern fallback. Data layouts have no semantic
-fallback and remain hash-bound. Resolution logs retain method and resolved RVA.
-Only speech is disabled on resolution/capture/playback failure; formation and
-marker availability are not changed. No hook is added to any of these targets.
-
-Local release capture -> accepted dispatch -> consumed input -> pending speech.
-The existing 0x41D10 draw-list reset detour invokes the internal feedback callback
-after its original. Full flow: DLL_RunTick 0x86680 updates channels, render 0x41D60
-ends at 0x41D10, then dialogue 0x41C0 and sound/export paths run. 0xEDF0 writes
-channel flags/path and emits a sound-volume record; the managed EngineInterface
-reads speechFileName from returned play-state data. Callback exceptions cannot
-repeat the original reset or disable markers. Only a matching thread-local
-EngineInterface.run scope, held engine lock and observed render entry can consume
-pending feedback on the simulation thread. No-buffer runs retain only the latest
-request for at most one monotonic second; stale
-map/player/tribe-global identities and feature disable discard it. Consume before
-checking busy channels or emitting, so suppression/errors never replay a response.
-This feedback remains local and does not change synchronized movement success.
-
-Offline verification: tests/FormationSpeech.Tests executes production engine and
-speech methods with boundary doubles, and checks real installed enum/layout,
-canonical binary signatures, complete instruction spans and ambiguous/fallback
-resolution. Audible output, Mono execution and real Host/Client acceptance still
-require an in-game test; no installation is performed by the Issue 6 build.
-
-Engine synchronization is initialized independently of optional audio through the
-validated private static object EngineInterface.threadLock. Release-side capture
-acquires it before stateSync; UI preview uses only nonblocking acquisition.
-Both the temporary 18D460 scratch write and its restore
-are inside this lock. The render-end emitter also requires Monitor.IsEntered
-on the same object. EngineInterface.run holds it around preDLLCallActions,
-DLL_RunTick and play-state copying; no new native call races the simulation.
-The offline test checks this field against the real Assembly-CSharp metadata,
-not a publicized assembly, and exercises separate input/simulation threads,
-unprotected/protected callbacks, nested scopes, bounded pending feedback and idle
-scope allocations. Native move types are NoChange=0, DefaultInSync=1, Fast=-255.
-
-2026-10-26 integration correction: internal protocol 9 transmits requested rows
-(zero = automatic), full selection count/hash and command intent. Wire fields 11
-and 13 are reserved nil values. Preview width/hash never authorize or reject a
-command; authoritative admitted members determine geometry and the execution hash.
-Both shared destination collections stop after 4001 examined tiles; shortages
-reuse valid slots deterministically, empty ordinary plans preserve previous orders.
 
 ## Modsettings activation dispatches (1.0.196)
 
@@ -876,10 +531,10 @@ before the next game start; retain sources/evidence rather than deleting it.
 Procedure: [AGENTS/native-analysis.md](../AGENTS/native-analysis.md), section â€žPrÃ¼fkostenâ€œ.
 - **Known native hash:** reference bytes only.
 - **Unknown hash:** one section-limited pattern fallback whose result is cached in `BepInEx/cache/BugfixesAndQoL_Serp.native-cache.tsv`. The cache key is the native SHA-256 plus the mod version.
-- The shared cache is `src/BfqolNativeCache.cs` over `Shared/Runtime/Native/NativeResolutionCache.cs`, saved once at the end of LibraryLoaded.
+- The shared cache is `src/Core/Native/BfqolNativeCache.cs` over `Shared/Runtime/Native/NativeResolutionCache.cs`, saved once at the end of LibraryLoaded.
 - The CrusaderDE.dll hash itself is cached across starts by path, size and write time (`Serp.file-hashes.tsv`).
 
-**Notification queue (`src/NotificationQueueNativeContract.cs`)**
+**Notification queue (`src/Notifications/NotificationQueueNativeContract.cs`)**
 
 The eight patterns previously had no reference RVA and were scanned on every start. The references below come from the installed FBCB9319 DLL; each pattern matched exactly once, and the fixed distances in the contract hold:
 
@@ -911,7 +566,7 @@ The SHA-256 gate of `Assembly-CSharp.dll` was removed. The fix is gated by the I
 
 An update that keeps these methods keeps the fix; any IL change fails closed with `FIX_DISABLED`.
 
-**Peace time / native switches (`src/PermanentNativeSwitch.cs`)**
+**Peace time / native switches (`src/Core/Native/PermanentNativeSwitch.cs`)**
 
 Instruction boundaries are proven on the unmodified load image. Live, a foreign hook may already start at the boundary after a span; for example, the Script Extender's wall-targeting context hook starts at `0x8EA60` right after the peace-time span `0x8EA59..0x8EA5F`. Only `jmp rel32` or `jmp [rip+disp32]` is accepted there; any other live change fails closed.
 
@@ -920,28 +575,6 @@ Instruction boundaries are proven on the unmodified load image. Live, a foreign 
 These features depend on the shared command runtime `UnitCommandPathRuntime`. It requires the reference hash and binds about 40 fixed detour prefixes (`src/UnitCommands/Native/NativeDetourContracts.cs`) and about 100 native constants. Deriving their own data addresses cannot keep them working after an update until that runtime gets the same fallback.
 
 The audited anchors, with a second evidence for the Chore staging globals, managers, strides and speech call targets, are recorded in [MOVE_STAGER_DATA_ANCHORS.md](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/MOVE_STAGER_DATA_ANCHORS.md). Formation's `TribeUnitCountOffset 0x5C` and `MovementTargetAvailability 0x3A11EA4` have no confirmed anchor yet.
-
-## Gate attack freeze diagnosis (DEVDIAG only, 2026-10-25)
-
-Reference native SHA256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
-`GateAttackFreezeRuntime.DevDiag.cs` reads the existing UnitCommandPathRuntime-validated
-path manager (reference RVA 0x60AD660), WORD/array contracts already owned by that
-runtime, and DWORD counters +0x78 (E1640 failed reconstruction before repair) and
-+0x74 (E49D0 component rebuilds). The counters are never reset or written. Unsigned
-modular deltas are observations, not proof of repair duration or causality. No
-independent address fallback is introduced: if the hash-bound command owner is
-unavailable, the counter reader is not registered and reports say unknown.
-Builder output buffer/stride/unit identity uses the same validated F4930 publication
-contract; ordinary SDK reads use existing public UnitAccess/GameUnit/Tribe fields.
-
-The managed run diagnosis validates the real EngineInterface.run(bool)->int IL:
-getFreeBuffer -> Monitor.Enter(object,ref bool) -> DLL_RunTick -> returnBuffer ->
-Monitor.Exit inside the original finally. It preserves arguments/results and labels/EH,
-and returns incoming IL unchanged on any mismatch. A managed run without DLL_RunTick
-is not a native tick. Timings of original native delegates include active SE/mod hooks.
-All additions compile only with SERP_DEVDIAG; no new native site, ownership or gameplay
-policy is introduced. Update validation: actual-game IL audit, nested/exception/no-buffer
-fixtures, normal binary exclusion and DEVDIAG release-gate rejection.
 
 ## Moat terrain restoration (2026-10-25)
 
@@ -1066,217 +699,6 @@ occupancy cleanup and paired 800x800 load/event/throughput acceptance separate f
 private-memory fixture results. Full audit and ABI details:
 `_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/TREE_BLIGHT_DECAY.md`.
 
-## 2026-10-25: per-cursor mandatory region rejection reuse
-
-Owner: Improved manual unit commands. Native SHA-256 remains
-FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
-The installed 18E1E0 instruction stream confirms the ordinary branch at
-18E391..18E3C6: with manager modes +84/+88 zero, E2610 is mandatory for unequal
-PCLs and zero immediately returns failure. Its five arguments are manager,
-signed player, signed source PCL, signed destination PCL and signed connection
-mode. 18E39A reads mode at native record +9B8 (GameUnit +35C); player +6EE is
-GameUnit +92, coordinates +71C/+71E are GameUnit +C0/+C2. The structure bias
-is 65C and unit IDs/stride stay one-based/490. 196840 reads the completed-moat
-flag from the unit's current tile ID (+72C, GameUnit +D0); do not substitute
-GetNativeMovementStart's next-tile coordinates for this wrapper's coordinates.
-
-The optional optimization validates that complete ordinary branch and the real
-GameUnit field offsets at startup. It requires the already-published E2610 hook;
-failure disables only reuse, retaining full probes. No native entry, hook span,
-public API or serializer is added. The existing effective E2610 return is learned
-only after one matching zero call and a failed, fully restored native probe.
-Same-PCL/arrived/moat/special/ambiguous cases retain their full checks. Proofs
-live only inside the existing consecutive cursor batch (8 contexts, 128 keys),
-never across ticks, targets or native building calls. All executed probes retain
-the full buffers, copies and repair suppression. Reaudit the complete wrapper,
-mode hook, E2610 filtering and context isolation on native/interop/hook updates;
-there is no signature-only fallback for this branch/layout proof.
-
-## Cursor closed-set negative witnesses (2026-10-25)
-
-Owner: ordinary manual cursor probes only. Native reference SHA-256
-FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
-No new native hook or native query. The existing F4930 wrapper observes its result
-before the unchanged complete probe restoration; E2610 observation remains authoritative
-for mandatory region rejection, including unequal zero/sign-extended PCL values.
-
-The constructor already requires that exact full native hash. The optional ground
-contract additionally checks the original F4930 prefix and DA783 connection/stamp
-load span, never live patched bytes. Its dependent data layout is hash-bound: manager
-+4 generation; +8/+C actual start and +10/+14 actual target; +84 moat and +88 Assassin
-modes. Stamps are the second 9CA40-byte half of the existing 139480-byte probe-grid
-snapshot (RVA 52C2550). Connections are 51890D0, direction bits 312620, row-indexed
-eight-int neighbor deltas 405EDB0; Y is the public SE MapColumnLookupTable, independently
-used by GetTileVectorFromId. The profile is read live via the validated APIShared
-replacement, not SE's incorrectly-strided permission table. Profile Large=0 and
-Default=1 follow F32B0/F3060, DAAC0, DA590 and DB650; all ordinary search edges are
-subsets of the same directed connections. Special moat/Assassin modes are excluded.
-
-A stamp generation in 1..32000 only proposes a vertex set. The set is validated over
-all 320800 slots: actual start present, target absent, every allowed outgoing edge
-ends inside the set, with bounded neighbor/row accesses. This direct closure proof
-does not trust return zero, queue exhaustion, stale generations, search budgets or
-successful reconstruction as evidence. Direction is preserved, never symmetrized.
-Gate filtering is allowed only with the exact immutable snapshot captured inside the
-existing builder scope; reuse enters a fresh existing scope and checks provider,
-snapshot identity and IsCurrent. Missing scope/provider support validates against
-the unfiltered superset instead. No new public API or APIShared source change.
-
-Native 18E1E0 checks target availability (3A11EA4, y*800+x) before arrival, then
-target flags 30, then profile-zero-only flags 10000100. The pure cursor precheck
-preserves that order; these immediates are native bitmask contracts, not unit IDs.
-No real order, building-query batch boundary or executed probe snapshot is changed.
-Eight eager contexts contain four 5013-ulong sets each; capture requires selection
-size >=16 and at most four attempts in one existing contiguous cursor batch.
-
-No semantic fallback is claimed for these data layouts on an unknown hash. On byte,
-field/table or policy failure, retain full probes; new optional acceleration alone
-is disabled. For a native update re-audit both direct-line profiles, all F4930
-fallbacks, edge filtering, stamp/neighbor/row tables and 18E1E0 early-return ordering.
-Regression evidence: FriendlyMoatMovement ManualHarness production paths and closed-set
-oracle, existing GateRouting/Assassin fixtures; real island timing requires replay.
-
-## Dry mixed-group recovery (2026-10-25)
-
-Historical implementation, superseded by pre-mutation admission below.
-Owner: failed human dry-ground Move/queue/patrol commands. Reference native SHA-256
-FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
-No new hook/site/span. The existing E2610 observer supplies an effective rejection;
-tribe Post completes one existing 118E00 fallback only after zero return and zero
-prior unit movement attempts, before frame clearing and queue/formation completion.
-Original patrol/new-order inputs and native member permissions remain authoritative.
-
-The E2610 query-only closure is manager+98/+C0/+C4 (three int32), bound to the full
-native hash and complete 1589-byte body SHA-256
-7F875ED003B5E0A047F394632F0F2F952D4364DCC9DD8C9A62D179441B39A0ED.
-Original-image writer anchors E2660/E2747/E2C29 validate the displacements and
-RIP-derived fallback at manager RVA 60AD660 +98 = RVA 60AD6F8. Independent writes:
-E297E/E2996 for +C0; E298A/E29A5 for +98. The whole-function audit establishes the
-exclusive write set; +C4 is E2660's counter increment. Query-only changes are
-restored in finally; real simulation queries keep their state. No tile/unit buffer
-snapshot is needed. GameUnit.r_PathConnectionMode at +35C uses signed-short native
-semantics. Target availability uses existing 3A11EA4 y*800+x; PCL/flags use existing
-packed tile views. No extra terrain traversal or placement search is authorized.
-
-Unknown hash, writer/field mismatch or ambiguous/mutated command context disables
-only this optional recovery; there is no signature-only fallback for the closure.
-Re-audit 11B520 rejection/exit branches, 117C70, the whole E2610 and all writes,
-118E00 member/waypoint checks, 196280 permission/path flow and Extender Pre/Post
-input/result ordering on update. Baseline knowledge/MANUAL_GROUP_REGION_RECOVERY.md
-and production FriendlyMoatMovement recovery/cost tests hold the evidence; game
-latency and host/client acceptance are distinct from fingerprint/fixture results.
-
-## Mixed-group admission before native order writes (2026-10-26)
-
-Owner: improved manual dry ground commands and their executed queue/patrol steps.
-Reference SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
-This replaces the Post-only repair; it is not an additional retry/fallback layer.
-
-New inline span 118F50..118F5E (14 bytes, 9-byte target store + 5-byte MOV):
-664689BC2934090000BA65000000. Normal resume 118F5E, excluded-member target 118FBE.
-The complete 118E00 body SHA-256 is FE838B2718364376F36321E32940F4418AF6678151501D17A74E0F4B0E897A39.
-No incoming edge into the span or internal jump table was found. Existing common
-entry 118E00 and Fixes' ordinary formation site 11BB38 do not overlap. Validate
-immutable instructions plus unmodified live own span, actual backend displacement,
-member predicates, EAX/RCX/R13/RSI identities and all continuation registers/flags.
-The native stub performs no managed transition; its Windows x64 GS:30 token and
-generation/global identity bind the reusable table to one executing command.
-
-The enclosing runtime is full-hash bound. There is no signature-only update
-fallback for this semantic closure. An unknown DLL inherits the enclosing runtime's
-compatibility gate; within a compatible runtime, span/field mismatch or overlap
-disables only admission. Permanent hooks remain installed and logically dormant.
-The existing 117BC0 and E7C40 hooks choose the native common branch before its
-unnecessary flood, only for the matching supported mixed command.
-
-Additional audited data: GameUnit base65C, GlobalId +94 (native6F0), native mobility
-field +442 (nativeA9E), query mode +35C. Independent mobility writer 19A44C reads
-3226B0[type*4]. Player wrapper 196100 writes tribe+56C before the group event;
-fully rejected invocations restore only that earlier flag through a nested frame.
-Owner: the 196100 detour (reference RVA 0x196100, entry bytes
-`48 83 EC 48 48 63 C2 4C 8D 1D 12 06 B3 07`, NativeX64 Indirect) is published in the
-same transaction as the 118F50 admission gate, so the restore works without a
-traversal provider. Its only caller is Chore-17 consumer 10AE0; without a provider it
-calls the original exactly once. A provider registered later (MoatMove) only becomes
-its logical target; if admission failed, `InstallTraversalCommandHooks` installs the
-detour itself as before. Neither the Extender, Fixes nor APIShared hooks 196100
-(checked 2026-11-03; the Extender hooks 11B520).
-Argument contract: 10AE0 passes the unit manager 67E8400 in rcx (lea at 10C7C, call at
-10CAB); 196100 ignores it and writes tribe manager 7CC6720 + tribe*688 + 56C. The
-restore therefore addresses the runtime's validated tribe manager, never the first
-argument (the earlier `manager == tribe manager` guard never matched Vanilla input).
-118E00 clears native748/74C (GameUnit EC/EE/F0), NOT path flags F2/native74E.
-196305/19630F read flags F2 and substep F4/native750: current only at flags0 AND
-substep8, otherwise next2. Reuse GetNativeMovementStart; preserve unknown native
-position-normalization cases (19B1B0) instead of simulating its writes.
-Existing E2610 closure98/C0/C4 restores in finally; same-region equality is free.
-
-Re-audit the entire input/Chore/player/group/common/unit/path chain, special-route
-exceptions, queue insertion/execution distinction, zero-Post skips, formation
-protocol7/full-selection identity and topology invalidation on update. See native
-knowledge/MANUAL_GROUP_ADMISSION.md and the production/native execution fixtures.
-Real game/editor latency and host/client results remain independent acceptance.
-
-
-## 2026-10-26: separated-group cursor, gesture proof and ordinary destination slots
-
-Owner: Improved Manual Commands / Formation Enhancements. Reference native SHA-256:
-`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
-
-APIShared VisibleMapRenderEvents now owns the permanent demand-gated entry at
-`41D60`; BFQ registers its preparation callback there. The former BFQ context hook
-is removed. The shared Indirect/10 publication displaces the first two 5-byte saves
-(`48895C2410 48896C2418`) and resumes at `41D6A`; see the shared contract below.
-The complete renderer range is `41D60..4580E` (exclusive end), body SHA-256
-`3EF71AC141815F4AAD74E1A20B6991425175728DA09EC4F07E2C813DF8533FFF`.
-`DLL_RunTick` calls cursor selection at `86920 -> 8C5F0`, then renderer at
-`86A68 -> 41D60`. Cursor kind is cleared at `45702` before `4570C -> 41D10`;
-the existing end-of-render speech callback cannot authorize a gesture.
-
-The entry has six Win64 integer/pointer parameters, with no incoming flags or
-XMM parameter contract. The production guard bypasses Mono when no gesture is
-pending. The full executable-section direct-branch superset scan and exception
-function entries contain no interior entry into `[41D60,41D6F)`. The sole direct
-caller is `86A68`; audited switch data does not target the prologue. Inspect the
-whole function and its indirect/switch targets again on any native update.
-
-Resolution intentionally remains hash-bound: the common save prologue alone is
-not a safe unique semantic fallback for the cursor-producer/render/clear timing
-contract or the existing cursor field layout. Validate pristine entry bytes and
-exact live span before enabling; an overlap/layout failure disables local formation
-input while the independent admitted-group/default-slot path remains available.
-The observer and its demand byte remain rooted until process exit; resets only
-clear logical demand. No extra per-unit or per-visible-tile callback is added.
-
-Own-unit repair is bound to ground call-site `8F325`, ordinary mode 1, the native
-nonzero R15D permission, stable own living-unit identity and an ordinary positive
-same-PCL witness. Stationary native types from `1811A0` (Trebuchet, Mangonel,
-Ballista) and Assassins do not provide the shortcut. Digger capability alone does
-not block an ordinary same-PCL witness; actual moat/structure starts retain their
-special checks. Current
-packed tile and native next movement start must both be ordinary and in the target
-PCL. Attacks and special paths keep their existing exact providers. No new full
-cursor path-probe loop is entered for friendly hovers.
-
-`118E00` has no selector; ordinary mixed groups without a prepared formation collect
-one bounded set of default slots, using the audited `11BB33..11BB45 -> E1D30`
-spacing 1. Capture is shared with Vanilla formations, at most 4001 inspected nodes,
-with reused visited/queue buffers and finally cleanup. True slot shortage repeats
-existing cells deterministically; no valid slot rejects before queue/member writes.
-Destinations are consumed through the existing UnitMoveHere Pre event after the
-unchanged native `118F50` admission gate. No extra full path probes or move calls.
-
-Preview admission captures once per gesture under the existing validated private
-engine lock (nonblocking from UI, otherwise deferred into the native run). It never
-activates a native mask or constrains later authoritative admission. Internal formation
-protocol is 8; packet shape, public APIs, SDK and mod version are unchanged.
-
-Evidence: `.work/a/island-targets/001/native-audit.json`, production friendly/moat,
-formation, Shift, Assassin and gate regression suites; `GroundFrameMachineTests`
-executes actual entry bytes/production demand guard with six arguments and stack
-checks. Game latency, actual island replay and matching-build host/client acceptance
-remain separate from these offline proofs.
-
 ## 2026-10-26: editor terrain region publication
 
 The editor-only correction consumes SE Post events for type painting/clearing, all
@@ -1325,46 +747,6 @@ RefreshState, installed member/IL preflight, and unchanged canonical flood/query
 execution in private PE memory. Fixture memset and input graph are explicit
 boundaries; real GUI and continuous-drawing latency need game acceptance.
 
-
-## Formation anchored cancellation and survivors (2026-10-26)
-
-Reference native SHA-256 remains FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
-No native hook or public API is added. Protocol 10 preserves the 16-field wire
-layout and permits one surviving member of a gesture begun with multiple units.
-Current full selection count/hash remain mandatory at synchronized execution.
-
-Ground rejection ownership requires coherent fresh anchor feedback, mode1,
-kind5, fileAC, image41, command17/detail-10 and no hovered unit/building/wall.
-These are the terminal 8F3DA..8F45E ordinary-ground result and cursor kind5;
-other reject sprites, mode5 attacks and interaction details1/3 do not qualify.
-An owned two-tile drag consumes its rejected release without staging any move
-or voice. A confirmed Move keeps its press anchor. Vanilla/unclassified clicks
-retain the native path. Once claimed, dispatch/UI errors cannot restore the edge.
-
-Survivor refresh runs under EngineInterface.threadLock then stateSync, using the
-existing LocalSelectionAPI completed snapshot and UnitAccess.IsReallyAlive.
-The native WORD death marker at GameUnit+29C covers melee as well as projectiles;
-AliveState alone does not prove life during death animation. Per-gesture identity
-maps and marks are reused; the unchanged refresh allocates no buffers. Dead entries
-may remain in the completed selection; filter them from current live metadata.
-Reused selected IDs, live deselections, ownership/type changes and new IDs never
-inherit the original proof. Proven survivors retain shape/facing/row intent.
-Removed original slots or a death-related group change use Vanilla placement at
-the same anchor, density1, no role placement. Empty survivors consume without move.
-
-Cursor count may lag confirmed deaths until the next native export; only an
-engine-validated survivor rebind permits counts between surviving and original
-count, and the current/original group. Cursor output never authorizes a new ID.
-UI preview removes dead members without repeating regional classification.
-
-Unavailable selection defers only an already-owned release: run the original once
-with neutral input, restore its exact snapshot only if the same gesture still
-owns it, then retry after simulation progress. Abort clears that old command edge
-without clearing a new down/opposite button. A native-only deferred release also
-freezes held controls. Released/deferred previews cannot republish markers.
-The original input contract is documented in MOVE_COMMAND_RELEASE.md. Two-thread
-speech, actual gesture/packet/formatter/dispatcher/slot/unit-state fixtures and
-native mask/entry machines remain separate from actual editor/host-client acceptance.
 
 ## Endansicht nach der Zuschauer-Auslagerung (2026-10-27)
 
@@ -1489,234 +871,6 @@ heartbeat, teleport trace, trace allocation or counter, including in /devdiag bu
 The user confirmed the integrated fix works on 2026-10-28. This is user-reported gameplay acceptance;
 no additional editor, save/load or real host/client acceptance is inferred. Historical records remain unchanged.
 
-## Native weighted Assassin search (2026-10-30, `native/AssassinSearch.cpp`, `src/AssassinNativeSearch.cs`)
-
-`BfqolAssassinSearch.dll` (contract `0x01000002`) runs the bucket variant of `TryBuildWeightedRoute` with identical
-results. It adds no RVA of its own: it reads exactly the tables the managed search binds in `InitializeNative`
-(valid coordinates, row lookup, tile flags, building, height, occupancy and direction masks) and calls the special
-tile predicate `0x107160` with context `0x32DE440` through the same addresses. Gate policy masks come from the
-published `RouteTilePolicySnapshot` bytes; masked edges, other policy shapes and direct gatehouse endpoints call back
-into the managed predicates. On a new DLL nothing changes here beyond the managed search's own RVA checks; the
-offline comparison (`tests/AssassinPathfinding.Tests`, `VerifyNative`) must stay identical on every fixture terrain.
-Without the DLL, or on a contract mismatch, a warning is logged and the managed search runs.
-`VerifyNative` also compares the production policy shape (byte mask read by the kernel, tiles beyond
-the mask allowed, masked climb callbacks answering true at a live gate) and a throwing managed callback: callbacks never
-let an exception unwind through the kernel; a failed callback discards the native call, the managed search repeats it
-and fails at the same predicate, and the following searches still agree. `GateRouting.Tests` checks that
-`DirectionMask` and `IsDirectionAllowed` of every captured gate snapshot decide identically.
-
-### Group fields of Assassin group moves (2026-11-03, contract `0x01000002`)
-
-`bfq_assassin_field_create`/`bfq_assassin_field_route` answer the members of one Assassin move command with one
-backward Dijkstra from the move target over exactly `Search::Run`'s edges and costs (`Search::Edge`): each member
-follows the exact descent along it until the box around target and slot (margin 8), then `Run`'s A* to its own slot.
-Near-optimal like MoatMove's anchor routes (user decision 2026-11-03), never cheaper than the per-unit optimum
-(`VerifyNative`); the per-unit `Run` is unchanged. Reference SHA-256
-`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. Managed contract (`TryStageGroupRoute`,
-`UnitCommandPathRuntime.TryPublishAssassinGroupRoute`):
-- Fields are built only inside a move command scope (`TribeIssueOrderMoveHere`, target tile = anchor), for the path manager singleton
-  `0x60AD660` with `+0x88 != 0`, `+0x84 == 0` and `+0x80 == 0` (F4930's Assassin branch, audit `ASSASSIN_RECONSTRUCTION_REPAIR.md`),
-  request start/target from `+0x08..+0x14`, and a qualified single-unit frame (`AssassinPathAPI.TryGetCurrentWeightedRequest`).
-- The staged route is published through the frame without calling F4930 (no `0xD9C40`, `0xE1640`, second `+0x94`
-  pass), the precedent of MoatMove's single routes. The frame's `+0x94` identity test is skipped while Vanilla's
-  builder did not run, because `+0x94` then holds the value of an earlier reconstruction (`E1110`/`E1640` are its only writers).
-- `Complete` follows `Stage` directly, with no game code in between: the group route's validator validates in full at
-  `Stage` and answers `Complete`'s repeat once with that result (`CachedRoute.GetGroupRouteValidator`; the unit identity is
-  still rechecked). Any other outcome, including an exception after staging, replaces the frame, so no group route
-  reaches the builder path.
-- Every other request, a rejected or unpublished route, keeps the unchanged per-unit path (Vanilla builder + weighted search).
-- Recent fields (as many as the native pool keeps) are reused for 400 map ticks by later move commands to the same
-  target with the same profile key, and by single requests outside a command scope whose target is a slot such a field
-  answered (post-combat resumption, `AssassinCombatResumeRuntime`). A single request never builds a field.
-On a new DLL: re-audit F4930's Assassin branch, the writers of `+0x94` and the frame publication fields before enabling it.
-
-## One-pass flood member check (2026-10-30, `src/UnitCommands/Native/TribeFloodMembership.cs`)
-
-Feature owner: BugfixesAndQoL's tribe flood hook (`AllowTribeFloodFillForMoveOrder`). Reference SHA-256
-`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. Instead of calling Vanilla's `0x124740`, the hook
-computes its result in one pass (audit: `MANUAL_GROUP_ADMISSION.md` "Admission flood and member check 0x124740").
-
-| Entry | Reference RVA | Binding |
-|---|---|---|
-| Member check | `0x124740` | Resolved RVA must equal the reference; body `0xAC` bytes, SHA-256 `FFB294BD...C9817C`. |
-| Group member lookup | `0x119F90` | Resolved RVA must equal the reference; body `0x8C` bytes, SHA-256 `CD5DAE0B...BD1544F`. |
-| Data | tribe stride `0x688` (`+0x40`, `+0x5C`, bitset `+0x60`, 625 words); unit stride `0x490` from `0x67E8400` (`+0x6E4`, `+0x8F8`, `+0x72C`); stamps `0x52C2550` | Read exactly as the two bodies read them. |
-
-No pattern fallback: the replica is bound to the two audited bodies. A different RVA or body leaves
-`exactFloodMembership` false and the hook calls Vanilla's original as before. On a new DLL repeat the audit of both
-bodies and of `0x11B520`'s retry loop, update the hashes, and run the replica test in MoatMove's harness
-(`FloodMembershipExactTests`) plus a DEVDIAG run (`uc.flood.exactMismatch` must stay absent).
-
-## Shared command runtime: address inventory and recovery contract (moved from MoatMove, 2026-10-30)
-
-Feature owner: BugfixesAndQoL's shared command runtime (`src/UnitCommands`). MoatMove registers only as its
-traversal provider and owns none of these entries. Reference SHA-256
-`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. Until 2026-10-30 this inventory was kept in
-MoatMove's `UpdateToNewDLL.md` with references to MoatMove's former copy of the runtime; the source locations below
-are the current ones (`NativeDetourContracts.cs` remains the function-prefix catalog, see "Command engine ownership").
-
-### Resolution, signatures and failure contracts
-
-- Named function targets use their `*Pattern` constant and `UnitCommandPathRuntime.Resolve`. On the reference hash the
-  bytes at the reference RVA are used first; otherwise `Shared.NativePatternResolver` searches executable PE sections
-  for one match. `Resolve` additionally requires the resolved RVA to equal the reference.
-- The group movement helper at `0x117C70` has a three-match fallback pattern; a fallback attempt fails closed.
-- Observer entries use inline exact byte strings plus an executable-section uniqueness check; a changed entry fails
-  before installation. Reconstruction at `0xE32B0` validates all 56 bytes including its call to `0xE1640`; its detour
-  target is the function entry, not that call site.
-- Call-site entries validate complete five-byte `E8` instructions and signed relative targets. Cursor gate and consumer
-  entries are validated read contexts, not global patches.
-- Fixed data/table RVAs, manager prefixes and unit/tribe/moat/path-buffer offsets have no semantic relocation fallback;
-  a code pattern does not prove these layouts. Keep the dependent features hash-gated on an update.
-- Initialization failure logs an error and rolls back only an unpublished candidate; optional cursor/attack/work groups
-  fail independently and can leave ordinary movement installed. Inspect every group in a test.
-
-### Pre-builder recovery inline hook (`src/UnitCommands/Movement/NativeMovementRecovery.cs`)
-
-The only inline hook of this group is `[0x19664B, 0x196659)`, exactly 14 bytes: `33 C0 8B D6 48 89 05 8E 70 F1 05 49 8B CF`
-(`xor eax,eax; mov edx,esi; mov [RIP+...],rax; mov rcx,r15`). RedBird's installed implementation decodes at least
-max(requested length, 14) whole bytes; the decode-only installed-assembly test confirms `DisplacedByteCount = 14`.
-
-RSP is aligned at the site. RSI/RDI/RBP/R12-R15 stay live and ABI-preserved; volatile GPRs and flags are dead on both
-audited continuations, and the containing function has no XMM operands. The adapter reserves 0x30 bytes, reads the
-original start coordinates at the adjusted RSP+0xA0/+0xA8 before writing the argument slots at RSP+0x20/+0x28, and
-passes manager R15 and the 1-based unit ID ESI. A positive callback branches to the original buffer initialization at
-`0x196585`; otherwise all displaced instructions are replayed and RedBird returns to `0x196659`. The emitted 73-byte
-body is decoded and checked in MoatMove's harness ("actual recovery emitter assembled and decoded"), including its
-RIP-relative store. Local branches and the hash-matched baseline cross-references show no entry into the span's
-interior. Recheck instruction, branch and ABI contracts on any native or RedBird update.
-
-### Address inventory
-
-Names follow the source constants; they are not an independent proof of native parameter semantics.
-
-| Source symbol / derivation | Reference RVA | Current source |
-| --- | --- | --- |
-| CentralMovementPlanRva | `0x18E1E0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:35 |
-| TribeFloodFillMembershipRva | `0x124740` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:36 |
-| FirstGroupUnitOnCompletedMoatRva | `0x117BC0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:37 |
-| GetGroupUnitIdRva | `0x119F90` | BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:40, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:38 |
-| GetTribeMovementModeRva | `0x117C70` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:39 |
-| OrdinaryMovementGroupModeCallRva | `0x11B736` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:40 |
-| GroupMoatModeCallRva | `0x11B666` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:41 |
-| UnitStandingOnCompletedMoatRva | `0x196840` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:42 |
-| RegionReachabilityRva | `0xE7C40` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:43 |
-| CursorReachabilityRva | `0xE9FF0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:44 |
-| CursorTilePairFallbackSelectionRva | `0x196870` | Entry owned by the Script Extender; its six call sites are adapted in BugfixesAndQoL/src/UnitCommands/Integration/AssassinSelectionAdapters.cs (see "preserve native ground cursor permission") |
-| SelectionCanDigMoatRva | `0x191C00` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:45 |
-| SelectionCanDigMoatCallRva | `0x8D3CE` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:46 |
-| CursorTilePairReachabilityRva | `0xE2CA0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:47 |
-| GetRepresentativeSelectedUnitRva | `0x18D460` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:48 |
-| CursorRegionPrecheckRva | `0xE9D90` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:49 |
-| PathBuilderRva | `0xF4930` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:50 |
-| GroundPathBuilderRva | `0xDA590` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:51 |
-| AlternativePathBuilderRva | `0xDB650` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:52 |
-| GetMoatIdAtTileRva | `0x69560` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:53 |
-| AttackApproachFloodBuilderRva | `0xDBC60` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:54 |
-| BuildingApproachBuilderRva | `0xDA020` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:55 |
-| BuildingCandidateConsumerRva | `0x123090` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:56 |
-| RegionPairReachabilityRva | `0xE2610` | BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs:89, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:57 |
-| AttackApproachFloodCallRva | `0x11EE47` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:58 |
-| AttackApproachFloodAlternativeCallRva | `0x11F46B` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:59 |
-| BuildingApproachCallRva | `0x11FF9A` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:60 |
-| BuildingCandidateConsumerCallRva | `0x11FFA7` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:61 |
-| BuildingCandidateConsumerAlternativeCallRva | `0x1206DF` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:62 |
-| BuildingCandidateConsumerForceCallRva | `0x120CCD` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:63 |
-| AttackFloodRegionPairCallRva | `0xDBF0D` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:64 |
-| AttackFloodTilePairCallRva | `0xDBF33` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:65 |
-| BuildingApproachRegionPairCallRva | `0xDA1F9` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:66 |
-| BuildingApproachTilePairCallRva | `0xDA232` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:67 |
-| BuildingApproachAlternativeRegionPairCallRva | `0xDA47C` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:68 |
-| BuildingApproachAlternativeTilePairCallRva | `0xDA4B1` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:69 |
-| OrdinaryMovementLadderPrecheckCallRva | `0x11B768` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:70 |
-| OrdinaryMovementLadderReachabilityCallRva | `0x11B785` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:71 |
-| BuildingConsumerFallbackBuilderCallRva | `0x123102` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:72 |
-| BuildingConsumerGroundBuilderCallRva | `0x12312C` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:73 |
-| BuildingCursorReachabilityRva | `0xB70C0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:74 |
-| BuildingCursorReachabilityCallRva | `0x8DFF6` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:75 |
-| CombatFinishResumeRva | `0x1853F0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:76 |
-| CombatFinishPostCombatCallRva | `0x18540D` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:77 |
-| PostCombatRepathRva | `0x1976C0` | BugfixesAndQoL/src/AssassinCombatResumeNativeDefinition.cs:27, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:78 |
-| PostCombatMoveHereCallRva | `0x19772B` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:79 |
-| CursorMoveStagerRva | `0x195E30` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:80 |
-| NativeSpecialStructurePredicateRva | `0x107160` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:81 |
-| NativeSpecialStructureContextRva | `0x32DE440` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:82 |
-| NativeBuildingTypeBiasRva | `0x64CCCDE` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:83 |
-| CursorMoveStagerRegionPairCallRva | `0x195F46` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:84 |
-| Inline expression / observer / address array | `0x8F7BA` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:86 |
-| Inline expression / observer / address array | `0x8FD3C` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:86 |
-| Inline expression / observer / address array | `0x8FDC6` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:86 |
-| Inline expression / observer / address array | `0x8FE54` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:86 |
-| Inline expression / observer / address array | `0xE7F60` | BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:76, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:87 |
-| DirectFillApproachRva | `0xE7F60` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:87 |
-| DirectFillApproachRegionPairCallRva | `0xE81EB` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:88 |
-| DirectFillApproachCommandCallRva | `0x120E9D` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:89 |
-| MovementTerrainPhaseRva | `0x19B506` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:90 |
-| MovementCadenceRva | `0x184203` | BugfixesAndQoL/src/TroopMovementFix3SynchronizedMovementCadencePatch.cs:125, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:91 |
-| MovementSubstepRva | `0x1855A0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:92 |
-| MovementAdditionalSubstepsRva | `0x1857AA` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:93 |
-| MoatPathConsumptionReadRva | `0x185934` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:94 |
-| MoatPathConsumptionPersistRva | `0x19670C` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:95 |
-| CursorCurrentTileFlagGateRva | `0x8F388` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:96 |
-| CursorCurrentTileFlagGateJumpRva | `0x8F393` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:97 |
-| AttackUnitPairGateJumpRva | `0x8D72B` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:98 |
-| AttackBuildingPairGateJumpRva | `0x8E2C6` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:99 |
-| AttackAlternativePairGateJumpRva | `0x8E557` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:100 |
-| TileFlagsRva | `0x48F71B0` | BugfixesAndQoL/src/AssassinPathfindingRuntime.cs:36, BugfixesAndQoL/src/Formations/Markers/LargeMoveTargetMarkerRenderer.cs:35, BugfixesAndQoL/src/MountedStockpileMovementPatch.cs:59 |
-| MovementTargetAvailabilityRva | `0x3A11EA4` | BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:43, BugfixesAndQoL/src/MountedStockpileMovementPatch.cs:56, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:102 |
-| NativeMovementMaskRva | `0x51890D0` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:103 |
-| RowLookupRva | `0x402FF2C` | BugfixesAndQoL/src/AssassinPathfindingRuntime.cs:35, BugfixesAndQoL/src/MountedStockpileMovementPatch.cs:58, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:104 |
-| NativeBuildingLayerRva | `0x4B6AA50` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:105 |
-| NativeHeightLayerRva | `0x4DDD350` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:106 |
-| NativeDirectionMaskRva | `0x312620` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:107 |
-| CursorTargetXRva | `0x3A11E2C` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:108 |
-| CursorTargetYRva | `0x3A11E30` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:109 |
-| PathRegionGridRva | `0x50EC690` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:110 |
-| MoatPathModeRva | `0x60AD6E4` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:111 |
-| NativePathManagerRva | `0x60AD660` | BugfixesAndQoL/src/AIBuildingTemporaryAccessClassifier.cs:48, BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:41, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:112 |
-| NativeUnitManagerRva | `0x67E8400` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:113 |
-| NativeTribeManagerRva | `0x7CC6720` | BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:42, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:114 |
-| Inline expression / observer / address array | `0xDB29A` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:117 |
-| Inline expression / observer / address array | `0xDB2EC` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:117 |
-| Inline expression / observer / address array | `0xDB37A` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:117 |
-| Inline expression / observer / address array | `0xE1856` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:119 |
-| Inline expression / observer / address array | `0xE18DF` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:119 |
-| Inline expression / observer / address array | `0xE195B` | BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.State.cs:119 |
-| Module-relative expression | `0xE32B0` | BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:70, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.Initialization.cs:461, BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathRuntime.Initialization.cs:462 |
-| Module-relative expression | `0x51D75F0` | BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:96 |
-| Module-relative expression | `0x9302C4` | BugfixesAndQoL/src/Formations/FormationSpeechNative.cs:18, BugfixesAndQoL/src/GateRouting/DiagnosticCallbackAdapterEmitter.DevDiag.cs:28, BugfixesAndQoL/src/GateRouting/NativeAssassinMovementDiagnostics.DevDiag.cs:77 |
-| Inline expression / observer / address array | `0x118E00` | BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:38, BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:101, BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:120 |
-| Inline expression / observer / address array | `0x181890` | BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:104, BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:120, BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:120 |
-| Inline expression / observer / address array | `0xF03C0` | BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:107, BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:120, BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:80 |
-| FindMoatWorkTargetRva | `0x69D60` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:14 |
-| ResolveMoatWorkTileRva | `0x6AF60` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:15 |
-| HasFillMoatApproachRva | `0x6C490` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:16 |
-| FillApproachCallRva | `0x69EE6` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:17 |
-| DigStandingOnMoatCallRva | `0x69F91` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:18 |
-| DigRegionSearchCallRva | `0x69FE3` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:19 |
-| DigRegionPairCallRva | `0x6A014` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:20 |
-| DigAlternativeRegionPairCallRva | `0x6A0C2` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:21 |
-| MovementPlannerLowFlagGateRva | `0x196464` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:22 |
-| MovementPlannerStructureFlagGateRva | `0x19648D` | BugfixesAndQoL/src/UnitCommands/Moat/UnitCommandPathRuntime.WorkTargetState.cs:23 |
-| Inline expression / observer / address array | `0xE1D30` | BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:36, BugfixesAndQoL/src/UnitCommands/Formation/NativeFormationSlots.cs:41, BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:120 |
-| Inline expression / observer / address array | `0xE0970` | BugfixesAndQoL/src/Formations/FormationRuntime.State.cs:37, BugfixesAndQoL/src/UnitCommands/Formation/NativeFormationSlots.cs:47, BugfixesAndQoL/src/UnitCommands/Moat/MoatPlacement.cs:120 |
-| UnitTypeUpdateDispatchRva | `0x18410C` | BugfixesAndQoL/src/TroopMovementFix3SynchronizedMovementCadencePatch.cs:124, BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementCadenceResolver.cs:18 |
-| Module-relative expression | `0x64CCED2` | BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:52 |
-| Inline expression / observer / address array | `0xD90D0` | BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:55, BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:44 |
-| Inline expression / observer / address array | `0x59210` | BugfixesAndQoL/src/MoatTerrain/NativeDefinition.cs:32, BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:61, BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:24 |
-| Inline expression / observer / address array | `0x61E70` | BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:73, BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:25 |
-| Inline expression / observer / address array | `0xDAA50` | BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:80, BugfixesAndQoL/src/UnitCommands/Movement/TraversalProvider.cs:67, BugfixesAndQoL/src/UnitCommands/Native/NativeDetourContracts.cs:48 |
-| failureRva | `0x19664B` | BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:90 |
-| Module-relative expression | `0x196585` | BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:163, BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementRecovery.cs:93 |
-
-### Preview map-edge handling, 2026-10-31
-
-Reference native SHA-256 remains FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2; no new RVA or hook. FootprintMarker.TryApply returns false with a default result when any XY cell is outside the 800-axis buffer or native validity mask. Full-footprint validation still precedes every construction-grid write; packed-row overflow, invalid packed indices and unsupported scales remain contract errors. The callback clears its captured ground snapshot on a skipped footprint without disabling readiness or activation. The next complete footprint is sampled normally, and Vanilla Original still runs exactly once.
-
-Client evidence: CenterOfPower.map, 2026-10-30 14:11:18.354, BUILD_PREVIEW_CALLBACK_ERROR. The user reproduced with apple farm and quarry below their BuildingLimit caps. Do not attribute this reproduction to an exhausted limit. Vanilla's validator (0x78768..0x7879D -> 0x798D1) writes state 2 for invalid footprint coordinates/mask; 0x5DD70 normally omits that state. The Extender's post-validation overrides can replace it, but the concrete mapper/XY/state transition was not logged, so the reason this particular callback passed admission remains unresolved. Geometry is checked independently of that admission state.
-
-Regression: existing BuildPreview.Tests production memory fixture covers all seven supported mappers, first/last invalid mask cells, both coordinate axes including extremes, valid-edge-valid recovery, unchanged complete-placement sampling, and fatal corrupt-row/scale contracts. Existing snapshot tests cover retirement and generation safety. This is offline evidence, not in-game acceptance; retest apple farm and quarry below and at their building limits.
-
 ## Peace-time civilian building proximity (2026-11-02)
 
 This consumer adds no native site. It registers a civilian-only Limit of3 through
@@ -1761,3 +915,192 @@ BuildStep stride `0x0C` with state/delay/type/payload at `0/1/2/8`, the real
 selected-village mapping, all four yard records, first-yard Fixes policy, and
 new-game/save/replay/multiplayer behavior when updating Native or Extender.
 Source and offline tests do not establish actual game or peer acceptance.
+
+### Pitch/stairs variant B integration
+
+Reference DLL SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+Purpose, log markers, test procedure and dated runs: [docs/PITCHSTAIRS.md](docs/PITCHSTAIRS.md). Vanilla audit: [PITCH_STAIRS_HEIGHT.md](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/PITCH_STAIRS_HEIGHT.md).
+
+Owner: `src/PitchStairs/NativeCode.cs`, `PitchStairsRuntime.cs` and `PitchStairsActivation.cs`. Scope: native corrections only; NetworkMode 1; versions and minimums per [info.json](info.json). Host option `EnablePitchStairsFix` is `[SyncHostOnly]`, default/reset true, under HostSiege / Fixes.
+Installation success requires matching native contracts. No normal multiplayer desync has been demonstrated.
+
+Owning feature: variant B of the pitch/stairs fix. Pitch keeps the ground height in HeightGrid.
+The audited pitch creation, overbuild, load, render and placement compensation paths are adjusted.
+General fire spread and pitch-chain comparisons preserve Vanilla's virtual height, including
+the terminal restoration window; ordinary damage and disease use actual ground height.
+
+### Contract and failure behavior
+
+- **Atomic set:** all fourteen sites are one feature unit. One `HookTransaction` (`RollbackAndThrow`, `OwnsHooks`) and one exclusive `NativeSiteRegistry` claim (`PitchStairsVariantB`) cover them. A partial installation never becomes active.
+- **Validated before commit:**
+  - installed hash equals the reference hash;
+  - `NativePatternResolver` finds each site at its reference RVA;
+  - image and live bytes match the site bytes;
+  - the following bytes are unchanged;
+  - instruction lengths match;
+  - the `X64InlineHook` probe reports `DisplacedByteCount` equal to the span;
+  - every stub assembles and decodes.
+- **Validated after commit:** each site holds `FF 25 00000000 <stub>` followed by NOP padding.
+- **Activation:** installation validates the complete set and early Extender manager crosscheck but leaves the native enabled word zero. The first `BeforeLoad` snapshots `ready && EnableMod && EnablePitchStairsFix` after save/MP settings restoration. Four permanent managed loader wrappers (`loadMap`, `LoadSaveFile`, `LoadMapFile`, `newMapEditor`) publish it inside one continuous validated `EngineInterface.threadLock` scope through the original load. This closes the queued-old-tick gap and supports either APIShared/BFQoL hook order. Duplicate/nested notifications cannot resnapshot. End discards an unpublished snapshot; a published rule stays unchanged after mission end, failed/replaced loads, settings callbacks or diagnostics. Only another session's actual load can apply its new snapshot. Installation failure leaves Vanilla selected. No mid-world disable or executable repatching is permitted.
+- **No fallback for another DLL:** there is deliberately no pattern fallback. The tile-manager offsets, the table offset and the stub spans are proven only for this hash. Another hash leaves the mod inactive and logs `PITCH_STAIRS_UNAVAILABLE`.
+- **Lifetime:** hooks are never restored after publication. The plugin component is destroyed by the startup cleanup; the runtime stays rooted through static fields.
+- **Second evidence for the data layout**, decoded at install time:
+  - tile manager `0x405EDB0` from the `lea rcx` at `0x71956` in `0x71670`;
+  - Structure `+0xB0BCA0` from `0x62F04`;
+  - DefaultHeight `+0xDCCAC0` from `0x62F0F`;
+  - MiscDisplay-to-Structure delta `-0x3FA2A0` from `0x804FA`;
+  - Height `+0xD7E5A0`, Logic `+0x898400`, MiscDisplay `0x4F64CF0` (image RVA), the table offsets `0x7080`/`0x7090` and the call target `0x6B910` from the displaced blocks themselves.
+- **Early cross-check:** before claims, allocation or hook publication, the Extender's `GameGlobalsManager.GameTileManagerVA` must equal image + `0x405EDB0`. A mismatch refuses initialization. Mission start never changes an already published map's height rule.
+- **No instruction inside any span is a branch target** (full `.text` scan). Boundary targets are allowed: `0x6CCFC`, `0x80541` and `0x68EC0` are continuations.
+
+### Sites
+
+| Site | RVA / span / continuation | Original block | Enabled behavior | Flags after the skipped instruction |
+|---|---|---|---|---|
+| pitch-lowering (in `0x59380`) | `0x594C1` / 18 / `0x594D3` | `lea eax,[rdx-4]`; `movzx ecx,al`; `cmovbe ecx,r9d`; `mov [r8+rsi+Height],cl` | Store skipped; height stays as it was. The first three instructions run before the guard, so `cmovbe` consumes Vanilla's `cmp dl,4`. | `mov` sets no flags |
+| aiv-pitch-restore (in `0x6CB20`) | `0x6CCED` / 15 / `0x6CCFC` | `add byte [rdx+rdi+Height],4`; `mov eax,[rdi+rdx*4+Logic]` | `add` skipped. The height was rebuilt just before from DefaultHeight plus the mapper offset. | next consumer is `bt eax,0xC` |
+| manual-pitch-restore (in `0x6F230`) | `0x6F6AD` / 18 / `0x6F6BF` | `test al,8`; `je 0x6F6C1`; `and eax,~8`; `mov [rbx],eax`; `add byte [r12+r13+Height],4` | `add` skipped for stairs and walls; the ground under pitch is never lowered. `je` is re-encoded with its absolute target. | next consumer is `bt eax,0xC` |
+| load-pitch-normalization (in `0x804C0`, called by `0x7D510` in `0x71670`) | `0x80530` / 17 / `0x80541` | `movzx eax,[r9+Default-Height]`; `cmp al,4`; `jb 0x80541`; `sub al,4`; `mov [r9],al` | Default ≥ 4: Height = Default (Vanilla: Default−4). Default 1..3: a pitch tile at height 0 without wall or structure is raised to Default; otherwise unchanged. The loop return value (eax) is unused by `0x7D510`. | next consumer is `add rdx,2` |
+| render-pitch-height (in renderer `0x41D60`) | `0x43357` / 17 / `0x43368` | `movzx eax,[rbx+r9+Height]`; `mov eax,[r9+rax*4+0x7090]` | Reads the ordinary table entry `+0x7080` instead of the +4 compensation `+0x7090`. | identical (`mov`) |
+| placement-pitch-height (in the simulation tile pass `0x65830`, block from `0x676F0`) | `0x68EAD` / 19 / `0x68EC0` | `mov eax,0x2000`; `test word [rbp+r13*2+0x4F64CF0],ax`; `jne 0x68EC0`; `add esi,4` | `add esi,4` (pitch compensation before `cmp esi,0x88`) skipped. | next consumer is `shr edi,3` |
+| fire-source-height (in `0x99420`) | `0x997B4` / 19 / `0x997C7` | `movzx edi,[rcx+r15+Height]`; `cmp ax,4`; `jge 0x99952` | A valid, non-restored PitchTrap source uses max(0,h−4); a terminal restored source keeps h. | entry flags dead; `cmp ax,4` recomputes them |
+| fire-neighbor-west / -east / -row-a / -row-b (in `0x99420`) | `0x997DB`, `0x99824` / 15 / +15 | `lea edx,[rcx∓1]`; `mov rcx,r15`; `call 0x6B910`; `sub edi,eax`; `mov eax,edi` | A valid, non-restored PitchTrap neighbor without structure uses max(0,h−4). A restored neighbor keeps the original query result. | `sub edi,eax` recomputes them |
+| (same, row variants) | `0x9987C`, `0x998D1` / 15 / +15 | `add edx,[rbx+rcx*4+0x402FF38/20]`; `mov rcx,r15`; `call 0x6B910` | as above | same |
+
+Fire-neighbor stub contract:
+
+- The adjust decision runs before the call; the stub then takes one of two call paths. Neither touches the stack, so the callee runs with Vanilla's `rsp` and home area.
+- The plain path (disabled, out of bounds, restored marker, no pitch flag, or a structure on the neighbor) is Vanilla's block, including the flags the callee leaves behind. The row variants end with the call itself.
+- `rax`, `rcx` and the entry flags are dead at these calls (not arguments; clobbered by the callee).
+- `0x6B910` itself is not patched: it has more than 40 callers. The current BFQoL source contains a contract entry but no installed detour; the original call target is preserved.
+
+DEVDIAG builds only: both fire stubs also count their executions (`fireSourceCalls`, `fireNeighborCalls`), and the source stub counts pitch tiles and those with the visibility bit `0x2000` (`fireSourcePitch`, `fireSourcePitchVisible`). The bit is only observed and never changes the decision. The increments sit where the flags are dead. Release stubs contain none of them; StubTests checks both variants.
+
+### Fire spread: why it is adjusted, and the limits of the adjustment
+
+The user decided to keep Vanilla's fire behavior. Vanilla initially stores pitch 4 lower and its spread code reads that raw height. Both stubs therefore subtract 4 for non-restored PitchTrap tiles; the terminal restore window keeps Vanilla's restored height. Overbuild clears the flag: AIV at `0x6CCE3`, manual at `0x6F6B1`.
+
+**Do not test MiscDisplay `0x2000` here.** Measured and audited on 02.11.2026 ([docs/PITCHSTAIRS.md](docs/PITCHSTAIRS.md#dated-evidence-02112026-eleven-site-builds), baseline section "MiscDisplay 0x2000 on pitch"):
+
+- On pitch, `0x2000` means "visible to the local player". The simulation tile pass `0x65830` clears it at `0x682D9` and sets it again at `0x683D8` for burning pitch and for pitch of the local player's team.
+- The bit therefore differs per client. Vanilla uses it only to draw visible pitch as a ditch: the renderer at `0x43347` and the cap at `0x68EB2` skip the +4 compensation for it.
+- Excluding it would leave all own, allied and burning pitch unadjusted, and in multiplayer it would make fire spread depend on the local player.
+
+The terminal restore window is tracked by a native byte map. A restored pitch source or neighbor
+keeps its raw height; only a non-restored pitch field uses max(0,h-4). The pitch-to-pitch comparison
+also saturates both local operands, so low defaults do not change its ignition decision.
+
+### Terminal markers and the three additional sites
+
+State bytes 0..95 keep their existing meanings; byte[320800] starts at +96, total 320896 bytes.
+Marker 1 means the exact native burn-out writer restored the field. Each new pitch creation clears
+its marker. Removal needs no hook because a marker without PitchTrap has no effect.
+
+| Site | RVA / span / continuation | Original block and register contract | Enabled behavior |
+|---|---|---|---|
+| load-marker-bootstrap | `0x804C0` / 18 / `0x804D2` | `mov [rsp+8],rbx`; `lea r9,HeightGrid`; `mov r11d,320800`, lengths 5/7/6. Store at original RSP; emit the decoded LEA target as MOV R9,absolute. Save scratch GPRs and flags. | Clear 40100 qwords; scan occupied native records once to reconstruct low terminal markers. No managed call, SIMD or direction-flag change. |
+| burn-out-height-restore | `0x7D497` / 17 / `0x7D4A8` | Load DefaultHeight into EAX and store AL in HeightGrid, lengths 9/8. The following state=-1 write remains Vanilla. | Replay originals; mark the valid ECX tile as restored, preserving registers/flags. |
+| pitch-chain-height | `0x7D411` / 14 / `0x7D41F` | `movzx ecx,Height[neighbor]`; `mov eax,r12d`; `sub eax,ecx`, lengths 9/3/2. Continuation is CDQ. | Saturate EAX and ECX by subtracting 4, then original SUB. R12 stays unchanged; ECX is dead after SUB and SUB supplies the comparison flags. |
+
+Bootstrap records: `manager +0x2038E44 + id*20`; PackedTileId int32 +0, occupied OwnerId
+int16 +8, signed State +0x10. Iterate IDs 1..<min(signed PitchIdLimit,4000), with no scan for
+limits <=1. PitchIdLimit is manager +0x204C6C4. Mark only state -1, valid tile and Default<4.
+Default>=4 is relowered by Vanilla on every load, including state -1, so its marker remains zero.
+Default<4 terminal height is retained by Vanilla, hence its marker must be reconstructed.
+The ordinary tile normalization does not overwrite these markers. PackedTileId precedes the
+Extender descriptor's GlobalId; its Reserved/IsAlive members are not used as native record contracts.
+
+Every new map access uses an unsigned index bound. Out-of-grid neighbors take the untouched
+native query path: native manager padding does not imply padding in the new marker allocation.
+Known raw record layout remains hash-bound. Independent decoded anchors in 0x695C0/0x65830
+validate the limit, record base, occupancy and terminal-state displacements before installation.
+
+All three spans have no direct interior branch/call targets in the installed .text scan or current
+baseline xrefs. At update time repeat that scan, foreign-owner checks and actual RedBird span probes.
+The current source tests additionally execute complete original native load, pitch chain, terminal
+restore, cleanup and replacement paths with the production generators in a private PE image.
+
+DEVDIAG expectation: terminal pitch remains included in fireSourcePitch, but does not increment
+fireSourceAdjusted. Equality of those counters is therefore not an invariant after this correction.
+
+### Not adjusted (accepted or open)
+
+- **Unit stand height and speed** (`0x19B260`, `0x184FD0`, `0x182B00`): the artificial height step disappears. Accepted by the user; still needs checking in game.
+- **Fire effect height** (`0x7D44B`, `0x9C430` uses the raw height): needs a visual check.
+- **Ranged targeting, projectile hits and disease:** intentionally use actual B ground height. Private native fixtures compare B pitch with ordinary ground at projectile hit-band, ranged correction +/-70 and strict disease height 120 boundaries. Ranged sight/target predicates and presentation sinks are isolated; live LOS, APIShared disease-rule interaction and gameplay remain acceptance checks.
+- **Visible pitch is drawn at ground level** instead of as a ditch 4 lower; hidden enemy pitch looks as in Vanilla. This matches unit and fire-effect heights, which also use the raw height. The user checked this in game on 02.11.2026 and accepted it.
+- **Editor:** loading a map into the editor goes through `DLL_LoadSaveGame` (`bLoadingEditorMap=1`) and therefore reaches `0x804C0`; this was observed on 02.11.2026. Only a new editor map (`0x85E90` → `0x5BC70`/`0x87D10`) bypasses it, and such a map has no pitch yet. No managed editor normalization is needed. Other paths outside `0x71670` are still reported by the DEVDIAG scan `PITCH_STAIRS_SCAN`.
+- **Stairs already raised by +4 in old saves** carry no pitch flag any more and are not repaired.
+
+### Re-audit on a new DLL
+
+- Repeat the full `.text` height-writer and compensation scans of the baseline (sections "Complete pitch-drop writer and compensation inventory", "Pointer-walking grid loops" and "Further height consumers and the pitch-bit scan"): all −4 stores, +4 restores, `PitchTrap && !0x2000` compensations, `0x804C0`-like loops and functions that access Height and test bit 0x8.
+- Then re-check every site's control flow, register and flag liveness, incoming edges, the 0x6B910 callers and foreign hooks: Extender detours, BFQoL/ExtraFeatures/APIShared sites and the Fixes clone.
+- Then rerun the migrated `tests/PitchStairs.Tests` suite (`BugfixesAndQoL.PitchStairs.Tests.exe`), including the activation/lifecycle cases. Historical testmod executable identity: `PitchStairsTest.StubTests.exe`.
+
+### Backend block guard
+
+The generator compares the instructions RedBird displaces with the audited decode of each site: Code, length, displacement, immediate and branch target. A mismatch throws during `Commit` and rolls the transaction back. Both are decodes at the real site address; a backend that decoded elsewhere would therefore fail closed.
+
+
+The complete original testmod documentation was migrated to [docs/PITCHSTAIRS.md](docs/PITCHSTAIRS.md); its dated eleven-site runs and fourteen-site offline result retain their original build/log identities. They do not certify the integrated fourteen-site implementation. There is no new MP start broker: that separately deferred work is preserved under `.work/a/pitch-fix/001/deferred-mp`.
+
+## AI Outpost retarget after defeat
+
+Owner: `AiOutpostRetargetFix`. `EnableAiOutpostRetargetFix` is a default-on synchronized host setting and is combined with the mod master switch. Native installation is gated by the actual shared DLL hash check against `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. See [the Vanilla audit](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/OUTPOST_ATTACK_RETARGET.md).
+
+- Exclusive inline site `0x30675..0x3068B` follows the busy check and precedes the signed target load. Validate bytes, 8+5+9 instruction span and continuation. The only incoming branch to the block is `0x3065A` to its start. The reference resolver can scan for the exact block if the reference bytes differ, but publication still requires the audited RVA and all the hash-bound data and entry contracts. A hook match alone cannot establish the AI-manager and field layout on another hash.
+- Win64 selector `0x2A720` takes AI manager `0x404C950`, owner and tribe ID, and writes the target in place. Lord validity helper `0x187E60` takes unit manager `0x67E8400` and player ID. Validate their live prologues and register them as observed spans to reject overlapping writers. Register the complete inline block before patching. A failed initialization leaves this feature inactive.
+- Tribe manager `0x7CC6720 + 0x2A + tribeId*0x688` yields the Extender record. Target player is signed Int16 at `+0x620`, cached building is Int16 at `+0x622`, and cached global ID is UInt32 at `+0x626`. WinLoss is a UInt32 enum at `0x379D014+playerId*0x583C`. Native Lord lookup tables are `0x3A0F9F0+playerId*2` and `0x3A0FA04+playerId*4`. Unit slot checks use `0x67E8400+unitId*0x490` with alive word `+0x6E4`, identity dword `+0x6F0` and death word `+0x8F8`. Reconfirm all native anchors and the typed Extender offsets on updates.
+- The stub checks demand, slot bounds and the current target directly in native code. Busy, disabled and living-target cases preserve Vanilla. A live Lord in NeedsInit is given the original update while it initializes. For an invalidated target the callback rechecks native Lord validity unless loss is official, then runs the original selector and validates its result before clearing the cached building pair. The displaced instructions read the resulting target once and resume Vanilla. RSP is aligned at the site. The stub restores the original flags, volatile GPRs and XMM0–5 around the slow callback, with the Win64 shadow space reserved.
+- The transaction, delegate and demand byte are rooted by the process-level BugfixesAndQoL runtime. Settings updates change the demand byte only. The same native update runs on each peer, and no independent tick publisher, queue or save data is required. `AiOutpostRetarget.Tests` executes the production emitter with the installed RedBird backend and a native callback stand-in. Gameplay and two-peer acceptance separately require observing the order Vanilla issues after the target changes.
+
+### Temporary Center of Power trace [DEVDIAG]
+
+The observation span `0x30651..0x3065F` follows the call at `0x3064C` to the native busy check `0x2DC30`. On the audited Outpost DLL hash it contains RIP-relative LEA (7), TEST EAX (2), JE (2), and XOR R15D (3). Register R13 carries the AI manager, ESI the one-based tribe ID, and EAX the unmodified busy result. The relocated TEST determines the original branch to `0x30675` when ready. The busy path resumes at `0x3065F`. No native branch or xref enters the span interior. The diagnostic owns only this span. The production retarget hook remains at its independently validated site.
+
+The trace opens on Center of Power and remembers the observed native wave members by slot and global ID. A Lord kill event or native Lord loss opens a 1,600-map-tick observation window for the wave. Successful retarget also starts the window when the loss marker was unavailable. The Extender command event is recorded as a request, since intervening subscribers can change its arguments. The per-member snapshots record actual command, state, path fields and position, and distinguish detached, dead, reused and unreadable members. The native exclusion word at GameUnit `+0x428` is sampled as raw state. `0x11DD10` writes it and `0x11B520` checks it. A snapshot of the word alone cannot prove which branch set it.
+
+Look for `OUTPOST_TRACE_READY`, `START`, `WAVE`, `LORD_KILL` or `LOSS`, `GATE`, `RETARGET`, `ORDER_REQUEST`, `UNIT`, `SAMPLE`, and `DONE`. `ERROR`, `LIMIT` or `TICK_FALLBACK` qualify the evidence. Match the last Lord and melee attacker identities to the same wave, then compare member tiles and path state across samples. A second loss after the first window can still log the target change but does not reopen that wave's member trace. A prepared build or successful hook install is separate from gameplay evidence.
+
+## Siege crew timeout reset
+
+The [standalone test mod investigation](docs/SIEGE_CREW_INVESTIGATION.md) preserves the earlier observations and diagnostic runs.
+
+The supported native image is `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. The patch acts only in the successful full-crew loops of the tent building handlers. A failed spawn or an incomplete crew follows the original branch without entering a stub.
+
+| Tent | Function RVA | Displaced half-open span | Vanilla writes | Unit manager register |
+| --- | --- | --- | --- | --- |
+| Arab ballista | `0xA65A0` | `[0xA68EF, 0xA6900)` | `664689B42918090000 4288B42986090000` | `r13` |
+| Catapult | `0xA8E40` | `[0xA916A, 0xA917B)` | `6646898C2918090000 4288B42986090000` | `r13` |
+| Trebuchet | `0xA93C0` | `[0xA97F6, 0xA9808)` | `6646898C3118090000 42C684318609000000` | `r14` |
+
+In each span, `rcx` is a one-based unit ID multiplied by the native `0x490` stride. Add that displacement to the manager register. Vanilla writes main state 5 at `+0x918` and the low visual byte at `+0x986`. The stub prepends a signed 32-bit timeout reset at `+0x974` on the same record. The dispatcher increments this field for bound engineers at `0x1832C7` and resets it for matching siege crew at `0x1839C0`. The engineer state handler releases the engineer when the counter is greater than 120 at `0x14C3E0`. In the debugger's GameUnit view the counter is at `+0x318`, which overlaps the first crew global ID field used by siege devices.
+
+The spans contain exactly two complete MOV instructions. No direct branch or exported incoming xref targets their interiors. The Tribok comparison immediately preceding the span sets the flags consumed by the following JNE at `0xA9808`. The gate preserves RAX, RFLAGS and RSP before replaying both original MOVs exactly once and returning to the first undisplaced instruction. The other two continuations begin at the following comparison. The native stubs make no calls.
+
+The loader validates the hash, exact pristine span and continuation bytes, and exact live span, then registers all three spans together. This version is hash-bound. The instruction bytes alone do not establish record layout, timeout semantics or placement inside a full-crew branch in another DLL. A mismatch disables the affected patch group. If executable publication has already begun, dormant stubs and their zeroed gate stay alive until process exit. APIShared's engineering provenance detours are at the function entries and do not overlap the three spans.
+
+For a new native image, trace the complete and incomplete crew branches, confirm both counter writers and the timeout reader, verify manager and slot arithmetic, decode the spans and continuation, recheck direct/indirect entries and installed Extender/Fixes/APIShared sites, then run the executable stub fixture and the build/burn/rebuild reproduction.
+
+
+### Fatal fire damage
+
+The same DLL hash also pins the fatal non-Lord branch of the unit fire damage function at `0x192400`. The half-open span `[0x1925DB, 0x1925EE)` is `B804000000 6689BB24090000 668983E4060000`. Its continuation is `418D41F7`. The direct branch at `0x19255A` and the unwind record both point to the span start. The span has no incoming interior target. The Extender fire damage hook is upstream at `0x1924B0` and changes the damage input. The new hook acts after the final health decision. The eight crew-bearing types all select the default conversion to type 2.
+
+At the hook, RBX is the victim record anchor and R9D is its type. The stub uses module base plus `0x67E8400` for the unit manager. Unit IDs must be positive, below the manager's next ID and below the physical 10000-slot limit. Each native record anchor is manager plus ID times `0x490`. The count at `+0xA0C` bounds the 16-bit IDs at `+0x96C` and 32-bit global IDs at `+0x974`. Counts above the audited per-type capacity are rejected. The dismissal marker at `+0xA48` preserves Vanilla's exclusion for dismissed machines. Each engineer must be live, match the global ID and owner and be in state 5 or transitioning to 5 via packed state `0x0005006D`.
+
+The only added write is `AliveState.MarkedForDeletion` at the engineer anchor plus `0x6E4`. Vanilla processes deletion at `0x1869C0`. The stub preserves registers and flags, replays the three original MOV instructions and resumes at the LEA. The fire conversion, effects and sound use the original instructions. The site has its own registry claim, transaction and activation word. Both groups read their own activation word. BugfixesAndQoL sets each word from the global mod switch and the corresponding synchronized host option.
+
+For another DLL, verify the fatal branch, table coverage, dismissal and mounted-state contracts, record layout and native deletion pass. Recheck the span, continuation, unwind entry and all native-site owners. The same byte sequence alone does not establish those contracts.
+
+## Area demolition: native and protocol contracts
+
+The default-on local AreaDemolition feature retains the audited Vanilla eligibility,
+refund, linked-building, wall, pitch, dug-moat and decoration contracts from its
+standalone prototype. Full RVAs, layouts, immutable-body checks, live Fixes refund
+recognition and protocol6 semantics are documented in
+[src/AreaDemolition/UpdateToNewDLL.md](src/AreaDemolition/UpdateToNewDLL.md).
+Packet registration and authenticated execution are independent of local UI settings
+and optional native/presentation initialization. Unknown native contracts disable
+area commands while preserving Vanilla input and deterministic channel identities.

@@ -28,6 +28,7 @@ namespace CastlePlanner
 
         private readonly ManualLogSource log;
         private readonly string filePath;
+        private readonly Shared.PersonalDataFile storage;
         private readonly Dictionary<string, Measurement> measurements =
             new Dictionary<string, Measurement>(StringComparer.Ordinal);
         private float nextSampleTime;
@@ -40,22 +41,27 @@ namespace CastlePlanner
         private int candidateStableSamples;
 
         public BlueprintBuildingSizeCalibration(ManualLogSource log)
+            : this(log, Path.GetDirectoryName(typeof(BlueprintBuildingSizeCalibration).Assembly.Location))
+        {
+        }
+
+        // The explicit source directory lets the runtime storage contract be tested
+        // without writing to an installed plugin or invoking preview measurement.
+        internal BlueprintBuildingSizeCalibration(ManualLogSource log, string assemblyDirectory)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
-            string assemblyDirectory = Path.GetDirectoryName(
-                typeof(BlueprintBuildingSizeCalibration).Assembly.Location);
             if (string.IsNullOrWhiteSpace(assemblyDirectory))
             {
                 throw new InvalidOperationException(
                     "The CastlePlanner plugin directory could not be resolved.");
             }
 
-            // Calibration is runtime data owned by this plugin, not a BepInEx
-            // option. The overlay deployment preserves this directory.
-            filePath = Path.Combine(
-                assemblyDirectory,
-                RuntimeDataDirectoryName,
-                FileName);
+            storage = new Shared.PersonalDataFile(
+                Shared.PersonalDataFile.GetPath("CastlePlanner", FileName),
+                Path.Combine(assemblyDirectory, RuntimeDataDirectoryName, FileName),
+                message => Shared.DebugLogHelper.LogWarningLimited(
+                    log, "CastlePlanner/calibration-storage", message));
+            filePath = storage.Path;
             Load();
         }
 
@@ -404,12 +410,11 @@ namespace CastlePlanner
 
         private void Load()
         {
-            if (!File.Exists(filePath))
-                return;
-
             try
             {
-                foreach (string line in File.ReadAllLines(filePath))
+                string[] lines = storage.ReadAllLines();
+                if (lines == null) return;
+                foreach (string line in lines)
                 {
                     if (string.IsNullOrWhiteSpace(line) ||
                         line.StartsWith("#", StringComparison.Ordinal))
@@ -446,6 +451,7 @@ namespace CastlePlanner
                             out int rotation) ||
                         width <= 0f)
                     {
+                        storage.PreserveOnNextWrite();
                         continue;
                     }
 
@@ -458,6 +464,7 @@ namespace CastlePlanner
                             out revision) ||
                          revision <= 0))
                     {
+                        storage.PreserveOnNextWrite();
                         continue;
                     }
 
@@ -483,6 +490,7 @@ namespace CastlePlanner
                                 CultureInfo.InvariantCulture,
                                 out groundTiles))
                         {
+                            storage.PreserveOnNextWrite();
                             continue;
                         }
 
@@ -495,6 +503,7 @@ namespace CastlePlanner
                     if (parts.Length >= 11 &&
                         !Enum.TryParse(parts[10], false, out skin))
                     {
+                        storage.PreserveOnNextWrite();
                         continue;
                     }
 
@@ -529,6 +538,7 @@ namespace CastlePlanner
             }
             catch (Exception ex)
             {
+                storage.PreserveOnNextWrite();
                 Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/BlueprintBuildingSizeCalibration/Load.blueprint-building-size-calibrations", $"Blueprint building-size calibrations could not be " +
                     $"loaded from {filePath}: {ex.Message}");
             }
@@ -538,7 +548,6 @@ namespace CastlePlanner
         {
             try
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(filePath));
                 var output = new StringBuilder();
                 output.Append(
                     "# mapperValue\tmapperName\tworldWidth\tworldHeight\t" +
@@ -584,10 +593,7 @@ namespace CastlePlanner
                     output.Append("\r\n");
                 }
 
-                File.WriteAllText(
-                    filePath,
-                    output.ToString(),
-                    new UTF8Encoding(false));
+                storage.WriteAllText(output.ToString());
             }
             catch (Exception ex)
             {

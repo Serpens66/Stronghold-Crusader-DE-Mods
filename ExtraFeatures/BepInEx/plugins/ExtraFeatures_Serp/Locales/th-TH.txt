@@ -73,10 +73,10 @@ SomeSettings.VanillaValue50=Vanilla value: 50%.
 SomeSettings.KeepStorageContent=Keep Storage Content
 SomeSettings.KeepStorageContentHelp=When enabled, bulldozing a granary, armory, or stockpile keeps the goods stored inside by adding them back as incoming goods.\nIf Granary was built for free can't credit goods back (happens when building it while no wood is on stock)
 SomeSettings.EconomyBuffsTitle=Economy Bonuses
-SomeSettings.MultiplyGoodsGain=Multiply goods gain
-SomeSettings.MultiplyGoodsGainHelp=Multiplier for gained goods. 1 = unchanged, 2 = double, 3 = triple. Values 1 or lower add nothing.
-SomeSettings.MultiplyGoodsAsMoney=Multiply goods as money
-SomeSettings.MultiplyGoodsAsMoneyHelp=Extra gold payouts based on sell value of gained goods. 0 = unchanged, 1 = one sell-value payout, 2 = two payouts.
+SomeSettings.MultiplyGoodsGain=Base production multiplier
+SomeSettings.MultiplyGoodsGainHelp=Multiplies base output separately for humans and AI: 1 = unchanged, 2 = double, 0 = no output. Includes wheat, flour and bread. Production and fear bonuses are calculated afterwards. Ingredient use stays unchanged.
+SomeSettings.MultiplyGoodsAsMoney=Production income as money
+SomeSettings.MultiplyGoodsAsMoneyHelp=Awards extra gold for goods from real production successfully delivered to player storage. The reward is the current base sell value divided by five, multiplied by the delivered amount and this factor, rounded per receipt. Includes the additional goods from production multipliers and bonuses. Goods are kept. Starting goods, gifts, purchases, refunds and ingredient transfers give no reward. 0 = disabled. Change this setting between missions only.
 SomeSettings.MarketPriceMultipliersTitle=Market Prices
 SomeSettings.MarketGoodPriceMultipliersHelp=The upper slider controls buying and the lower slider selling. Each individual factor is multiplied by its general factor. A combined factor of 1.0 leaves current prices unchanged. Other factors scale Vanilla prices; different direct prices from other mods take precedence and are preserved. Resetting removes only this mod's changes.
 SomeSettings.MarketGoodPriceMultiplierHelp={Good} - {Direction}: {Value}. This individual factor is multiplied by the corresponding general market factor.
@@ -118,7 +118,7 @@ SomeSettings.NewFeaturesTitle=New Gameplay Features
 SomeSettings.VanillaPeaceTime=Vanilla Peace Time (minutes)
 SomeSettings.VanillaPeaceTimeHelp=Starts Vanilla's complete peace-time mechanic for new games. 0 = disabled; allowed range: 0 to 60 minutes. Savegames keep their stored Vanilla timer. Direct Vanilla trails, the map editor, and Freebuild remain unchanged. In custom multiplayer lobbies this value is synchronized with Vanilla's peace-time slider.
 SomeSettings.LordHealthTitle=Lord Health
-SomeSettings.LordHealthHelp=Multiplies the maximum and current health of all Lords when the match starts. Human and AI Lords can be configured separately; individual AI Lord health differences remain intact. 100% is unchanged.
+SomeSettings.LordHealthHelp=Multiplies Lord health when the Lord is initialized or loaded. Human and AI Lords are configured separately; individual AI Lord health differences remain intact. Later capture does not change maximum health. Safe game limits apply. 100% adds no extra multiplier.
 SomeSettings.TilesValueFormat={0} tiles
 SomeSettings.GatehousesTitle=ป้อมประตูและสะพานชัก
 SomeSettings.HumanGateReopenDelay=Human reopen delay
@@ -137,8 +137,14 @@ SomeSettings.HumanEnemyProximitySingleplayer=Human - Singleplayer
 SomeSettings.HumanEnemyProximityMultiplayer=Human - Multiplayer
 SomeSettings.AIEnemyProximitySingleplayer=AI - Singleplayer
 SomeSettings.AIEnemyProximityMultiplayer=AI - Multiplayer
-SomeSettings.HumanEnemyProximityHelp=Distance in tiles from enemy units of the selected category that blocks normal human building, repair and demolition. Civilians include workers, peasants, economic transports and civilian castle residents. Military engineers, tunnelers, fighting monks and slaves use Soldiers. -1 preserves the context-specific Vanilla radius (normally 15 or 30, depending on the native game context); 0 removes this category distance restriction. Special placement checks, enemy buildings/walls, terrain and direct occupancy remain unchanged.
-SomeSettings.AIEnemyProximityHelp=Distance in tiles from enemy units of the selected category that blocks classified AI defense and wall repairs and rebuilding of previously built towers/gatehouses. Civilians include workers, peasants, economic transports and civilian castle residents; military engineers, tunnelers, fighting monks and slaves use Soldiers. -1 preserves the context-specific Vanilla radius; 0 removes this category distance restriction. Initial AI placements, unclassified calls and enemy building/wall checks remain unchanged.
+SomeSettings.HumanCivilianEnemyProximitySingleplayerHelp=Vanilla (−1): 15 or 30 tiles, depending on game context. Distance from enemy civilians when building, repairing and demolishing in Singleplayer. 0 = no distance restriction. At most 3 tiles with the BugfixesAndQoL Peace Time rule.
+SomeSettings.AICivilianEnemyProximitySingleplayerHelp=Vanilla (−1): wall repair 5 tiles; rebuilding 3, 5 or 15, depending on the check. Distance from enemy civilians during AI defense repairs and rebuilding in Singleplayer. 0 = no distance restriction. At most 3 tiles with the BugfixesAndQoL Peace Time rule.
+SomeSettings.HumanMilitaryEnemyProximitySingleplayerHelp=Vanilla (−1): 15 or 30 tiles, depending on game context. Distance from enemy soldiers when building, repairing and demolishing in Singleplayer. 0 = no distance restriction.
+SomeSettings.AIMilitaryEnemyProximitySingleplayerHelp=Vanilla (−1): wall repair 5 tiles; rebuilding 3, 5 or 15, depending on the check. Distance from enemy soldiers during AI defense repairs and rebuilding in Singleplayer. 0 = no distance restriction.
+SomeSettings.HumanCivilianEnemyProximityMultiplayerHelp=Vanilla (−1): 15 or 30 tiles, depending on game context. Distance from enemy civilians when building, repairing and demolishing in Multiplayer. 0 = no distance restriction. At most 3 tiles with the BugfixesAndQoL Peace Time rule.
+SomeSettings.AICivilianEnemyProximityMultiplayerHelp=Vanilla (−1): wall repair 5 tiles; rebuilding 3, 5 or 15, depending on the check. Distance from enemy civilians during AI defense repairs and rebuilding in Multiplayer. 0 = no distance restriction. At most 3 tiles with the BugfixesAndQoL Peace Time rule.
+SomeSettings.HumanMilitaryEnemyProximityMultiplayerHelp=Vanilla (−1): 15 or 30 tiles, depending on game context. Distance from enemy soldiers when building, repairing and demolishing in Multiplayer. 0 = no distance restriction.
+SomeSettings.AIMilitaryEnemyProximityMultiplayerHelp=Vanilla (−1): wall repair 5 tiles; rebuilding 3, 5 or 15, depending on the check. Distance from enemy soldiers during AI defense repairs and rebuilding in Multiplayer. 0 = no distance restriction.
 SomeSettings.AITowerGateRebuildDelay=Tower and gatehouse rebuild delay
 SomeSettings.AITowerGateRebuildDelayHelp=Simulation time after the confirmed destruction of a previously observed tower or gatehouse before the AI may rebuild it. If destruction was not observed, timing starts when the missing target is first detected. Ruin removal and failed or blocked attempts never restart or extend the delay. Initial placement and wall, crenellation, and stair rebuilding stay Vanilla. -1 keeps the complete Vanilla rebuild timing; 0 adds no waiting time.
 Common.ModSettingsSearchLabel=Search
@@ -572,3 +578,44 @@ ExtraFeatures.KillReward.Goods.Help=Goods awarded to the victorious player as a 
 ExtraFeatures.KillReward.Maximum.Help=Maximum gold awarded per defeated Lord. -1 keeps the Vanilla limit of 100,000 gold. Any positive whole number sets the absolute limit, independently of the gold percentage. A limit below 500 also overrides the Vanilla minimum. This setting applies to the victorious player.
 SomeSettings.CivilianEnemyProximity=Civilians
 SomeSettings.MilitaryEnemyProximity=Soldiers
+ExtraFeatures.HealthTitle=Health
+ExtraFeatures.HealthHelp=Health multipliers are applied once when an object is created, changes unit type or is loaded. Capturing an object later does not change its maximum health. Safe game limits can reduce the effective multiplier. The map editor is unchanged. New health categories remain inactive in old saves without shared health data.
+ExtraFeatures.SoldierHealthTitle=Soldier health
+ExtraFeatures.SoldierHealthHelp=Multiplies soldier health, including mobile siege engines, engineers and other military support. Siege towers and their linked structure share one safe multiplier. Lords, animals and decorative people are excluded. 100% adds no extra multiplier.
+ExtraFeatures.CivilianHealthTitle=Civilian health
+ExtraFeatures.CivilianHealthHelp=Multiplies the health of peasants and functional civilian workers. Animals and passive decorative people are excluded. 100% adds no extra multiplier.
+ExtraFeatures.BuildingHealthTitle=Building health
+ExtraFeatures.BuildingHealthHelp=Multiplies ordinary building health, including towers and gatehouses. Walls and objects without health are unchanged. Mobile siege towers use the soldier multiplier. Safe game limits can reduce the effective value. 100% adds no extra multiplier.
+ExtraFeatures.ProductionBonus.Title=Production bonus (default: +50%)
+ExtraFeatures.ProductionBonus.Help=Sets the extra yield added to base output: +50% = 1.5 times base output, 0% = no extra yield. Applies to humans and AI in skirmish and multiplayer, except to wheat, flour and bread. Calculated after the base multiplier; fear bonuses add separately. Ingredient use stays unchanged.
+ExtraFeatures.ProductionBonus.Effective=Bonus after all mod rules: {0} %
+ExtraFeatures.ProductionBonus.EffectiveInvalid=The requested bonus cannot be applied yet.
+ExtraFeatures.ProductionBonus.Details=Production details
+ExtraFeatures.ProductionBonus.DetailsHelp=Show the reason for a production warning on this computer.
+ExtraFeatures.ProductionBonus.DetailsTitle=Production settings
+ExtraFeatures.ProductionBonus.NoIssues=No production problem is currently reported.
+ExtraFeatures.ProductionBonus.Issue.Unknown=A production setting needs attention before the match can start.
+ExtraFeatures.ProductionBonus.Issue.NativeUnavailable=The required production support is unavailable. Check the installed mods.
+ExtraFeatures.ProductionBonus.Issue.UnsupportedWorker=A mod changes a worker type that is not supported.
+ExtraFeatures.ProductionBonus.Issue.NegativeBaseAmount=The combined production rules would produce a negative goods amount.
+ExtraFeatures.ProductionBonus.Issue.BaseAmountOutOfRange=The combined production amount exceeds the supported limit. Reduce a production modifier.
+ExtraFeatures.ProductionBonus.Issue.FixedBonusOutOfRange=The combined additional bonus must stay between -100 and +1000 %.
+ExtraFeatures.ProductionBonus.Issue.PrecisionNotRepresentable=The combined production fractions are too precise to store safely. Use simpler values.
+ExtraFeatures.ProductionBonus.Issue.SavedDenominatorInvalid=The saved production fractions cannot be restored safely.
+ExtraFeatures.ProductionBonus.Issue.ActivationUnknown=Production rules are waiting for the selected game mode to be confirmed.
+ExtraFeatures.ProductionBonus.Issue.PublicationFailed=The production rules could not be activated safely.
+ExtraFeatures.ProductionBonus.Issue.RuntimeFault=Production stopped because a value could not be processed safely. See the details.
+ExtraFeatures.ProductionBonus.Issue.Pending=Waiting for all players to confirm the same production rules.
+ExtraFeatures.ProductionBonus.Issue.Roster=Waiting for the current players to be identified.
+ExtraFeatures.ProductionBonus.Issue.Mismatch=Players have different production rules or support. The match cannot start.
+ExtraFeatures.ProductionBonus.Issue.Protocol=Players use incompatible production support. Update APIShared on every computer.
+ExtraFeatures.ProductionBonus.Issue.InvalidData=The production data in the selected save or map is missing or invalid. It cannot be loaded safely.
+ExtraFeatures.ProductionBonus.Issue.Sidecar=The selected save or map requires production data support that is not available on every computer.
+ExtraFeatures.ProductionBonus.Issue.Unavailable=The required production service is not ready.
+ExtraFeatures.TreeRespawn.Title=Tree Respawn
+ExtraFeatures.TreeRespawn.Help=Sets the delay for original map trees at game speed 40. Suggested delay: 10 minutes. At 0, a completely removed tree returns on the next check if its tile is free. Sites are checked once per game minute. Changes apply when starting or loading a map.
+ExtraFeatures.TreeRespawn.Off=Off
+ExtraFeatures.MatureTreeHarvest.Title=Only cut down mature trees
+ExtraFeatures.MatureTreeHarvest.Help=Human and AI woodcutters wait until healthy young trees reach growth stage 3. They can finish cutting damaged young trees and continue harvesting felled logs. Changes apply when starting or loading a map.
+ExtraFeatures.ElevatedMoatTooltip=Designate an area to dig moat. Command engineers and low-ranking troops to dig it. Hold Shift for a larger area. Also possible on elevated terrain.
+ExtraFeatures.ProductionGoods.Unavailable=The production delivery service needed for the money bonus is unavailable. Check the installed mods before starting.

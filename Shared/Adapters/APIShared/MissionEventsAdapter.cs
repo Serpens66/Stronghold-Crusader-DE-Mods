@@ -38,6 +38,7 @@ namespace Shared
         private static readonly ManualLogSource log = BepInEx.Logging.Logger.CreateLogSource("Mission adapter");
 #endif
         internal static void SetOwner(string owner) { ownerGuid = owner; }
+        internal static MissionContext CurrentContext => System.Threading.Volatile.Read(ref latest)?.Context;
         // No substitute clock before NativeLoaded. Callers must handle that phase explicitly.
         internal static bool TryGetCurrentMapTick(out int tick)
         {
@@ -85,7 +86,7 @@ namespace Shared
 #endif
         private static void Deliver(MissionLifecycleNotification notification)
         {
-            latest = notification.Kind == MissionLifecycleKind.End ? null : notification;
+            System.Threading.Volatile.Write(ref latest, notification.Kind == MissionLifecycleKind.End ? null : notification);
             try { priority?.Invoke(notification); }
             catch (Exception ex) { Report("Mission gate callback failed: ", ex); }
             foreach (var callback in observers.ToArray())

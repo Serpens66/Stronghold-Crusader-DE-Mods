@@ -485,6 +485,7 @@ namespace ExtendedData
                 {
                     return trailSource.Activate(document, source, () =>
                     {
+                        document = MissionSettingsMigration.Migrate(document ?? ModSettingsDefinition.CreateModDefaults());
                         document = ModSettingsJson.NormalizeAndValidate(document, source + ".modSettings");
                         ModSettingsApplication.EnterContext(BuildRestartContext(source, document));
                         ApplyDocument(document, editable, presetLabel);
@@ -521,6 +522,7 @@ namespace ExtendedData
 
             internal ModSettingsDefinition ValidateStrict(ModSettingsDefinition document, string source)
             {
+                document = MissionSettingsMigration.Migrate(document ?? ModSettingsDefinition.CreateModDefaults());
                 document = ModSettingsJson.NormalizeAndValidate(document, source + ".modSettings");
                 ValidateDocumentValues(document);
                 return document;
@@ -542,7 +544,9 @@ namespace ExtendedData
                 coopSettingsDraft.Prepare(source, launchedThroughCustomize, editable, starting,
                     () => Enter(document, editable, source),
                     FreezeWorkingDraft, ReopenWorkingDraft);
-                return GetMissingMentionedMods(document);
+                // Enter owns migration; repeated Ready/lobby callbacks reuse the
+                // effective author document rather than cloning a large source again.
+                return GetMissingMentionedMods(activeCreatorDocument ?? document);
             }
 
             internal bool HasCustomizeDraft => trailContext && launchedThroughCustomize;
@@ -588,7 +592,7 @@ namespace ExtendedData
             internal Dictionary<string, Dictionary<string, TrailCreatorRule>> CaptureCreatorRulesForActiveTrail()
             {
                 var result = new Dictionary<string, Dictionary<string, TrailCreatorRule>>(StringComparer.Ordinal);
-                ModSettingsDefinition document = activeCreatorDocument;
+                ModSettingsDefinition document = CloneDocument(activeCreatorDocument);
                 if (document == null || !trailContext) return result;
                 foreach (var participant in FindCompatibleViewModels())
                 {
@@ -741,7 +745,7 @@ namespace ExtendedData
                 string.Equals(sourceId, ModSettingsWorkingSourceRegistry.MapId, StringComparison.Ordinal) ? "Map" : "Mod defaults";
 
             private static ModSettingsDefinition CloneDocument(ModSettingsDefinition document) =>
-                document == null ? null : ModSettingsJson.ParseObject(ModSettingsJson.Serialize(document));
+                MissionSettingsMigration.Migrate(document);
 
             internal bool IsContextActive(string presetLabel) =>
                 trailContext && string.Equals(activeContextLabel, presetLabel, StringComparison.Ordinal);
@@ -1057,7 +1061,20 @@ namespace ExtendedData
                 IReadOnlyList<TrailLordSlot> savedLordRequirements =
                     CaptureSavedLordRequirements(trailPath, restartInfo, out string lordRequirementsWarning);
 
-                saveCustomTrailMapOriginal(self, mapPath, mapName, trailPath, restartInfo);
+                EngineInterface.MultiplayerSetupData setup = restartInfo.MPsetupData;
+                int speed = setup.starting_gamespeed;
+                int autoSave = setup.autosave;
+                try
+                {
+                    setup.starting_gamespeed = ConfigSettings.Default_GameSpeed;
+                    setup.autosave = TrailAuthoringSetup.AutoSaveOff;
+                    saveCustomTrailMapOriginal(self, mapPath, mapName, trailPath, restartInfo);
+                }
+                finally
+                {
+                    setup.starting_gamespeed = speed;
+                    setup.autosave = autoSave;
+                }
                 string sidecar = MissionLoader.GetTrailModSettingsPath(trailPath);
                 try
                 {
@@ -1928,6 +1945,7 @@ namespace ExtendedData
                         string trailMakerSource = prepared.TrailMakerSourceStaging;
                         Directory.CreateDirectory(trailMakerSource);
                         exportOriginal(self, trailMakerSource);
+                        TrailAuthoringSetup.NeutralizeExportCopies(trailMakerSource, ConfigSettings.Default_GameSpeed);
                         ExportSidecars(trailMakerSource);
                         WriteLordRequirements(trailMakerSource, makerRoot, makerRequirements);
                         TrailLordMediaStore.Stage(makerRequirements.Values.SelectMany(x => x).Select(x => x.Presentation), prepared.LordMediaStaging);
@@ -1940,7 +1958,7 @@ namespace ExtendedData
                     }
                     else
                     {
-                        exportOriginal(self, destination);
+                        ExportPlayableTrailCopies(self, destination);
                         ExportSidecars(destination);
                         WriteLordRequirements(destination, makerRoot, makerRequirements);
                         TrailLordMediaStore.Publish(makerRequirements.Values.SelectMany(x => x).Select(x => x.Presentation), destination);
@@ -1957,6 +1975,27 @@ namespace ExtendedData
                 finally
                 {
                     prepared?.Dispose();
+                }
+            }
+
+            private void ExportPlayableTrailCopies(FRONT_ManageTrail self, string destination)
+            {
+                string staging = IOPath.Combine(destination, ".trail-export-" + Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(staging);
+                try
+                {
+                    exportOriginal(self, staging);
+                    TrailAuthoringSetup.NeutralizeExportCopies(staging, ConfigSettings.Default_GameSpeed);
+                    TrailAuthoringSetup.PublishExportCopies(staging, destination);
+                }
+                finally
+                {
+                    TryFileOperation("remove temporary Trail export files", () =>
+                    {
+                        foreach (string trail in Directory.GetFiles(staging, "*.trail"))
+                            File.Delete(trail);
+                        Directory.Delete(staging);
+                    });
                 }
             }
 
@@ -2077,7 +2116,7 @@ namespace ExtendedData
             }
 
             // Uses the same source-to-output numbering as Vanilla's export and the mod-settings sidecars.
-            // The exported Trail is a byte copy of its Maker source, so the prepared slots bind to it.
+            // Bind the prepared slots to the exported copy after its setup has been neutralized.
             private static void WriteLordRequirements(string destination, string makerRoot,
                 IReadOnlyDictionary<string, IReadOnlyList<TrailLordSlot>> prepared)
             {
@@ -2148,15 +2187,14 @@ namespace ExtendedData
                 if (page == null || coopTrailExportCheckbox != null)
                     return;
                 CheckBox anchor = page.FindName("ExportBackup") as CheckBox;
-                Panel host = anchor == null ? null : VisualTreeHelper.GetParent(anchor) as Panel;
+                Grid host = anchor == null ? null : VisualTreeHelper.GetParent(anchor) as Grid;
                 if (anchor == null || host == null)
                     return;
-                Thickness rowMargin = anchor.Margin;
                 var checkbox = new CheckBox
                 {
                     Name = "ExtendedDataCoopExport",
                     Content = SerpLocalization.Get("ExtendedData.TrailMakerCoop"),
-                    ToolTip = SerpLocalization.Get("ExtendedData.TrailMakerCoopHelp"),
+                    ToolTip = Shared.MenuToolTip.Create(SerpLocalization.Get("ExtendedData.TrailMakerCoopHelp")),
                     Foreground = new SolidColorBrush(Color.FromArgb(byte.MaxValue, 0, 0, 0)),
                     FontSize = 20,
                     Style = anchor.Style,
@@ -2167,7 +2205,7 @@ namespace ExtendedData
                     IsChecked = IsMakerCoopEnabled(),
                     Visibility = EditorEnabled ? Visibility.Visible : Visibility.Collapsed,
                 };
-                ToolTipService.SetShowDuration(checkbox, 60000);
+                ToolTipService.SetShowDuration(checkbox, Shared.MenuToolTip.Duration);
                 checkbox.Click += (_, __) =>
                 {
                     try
@@ -2182,24 +2220,31 @@ namespace ExtendedData
                     }
                 };
 
-                // Keep both export options in one centered row. This remains readable with
-                // localized labels and avoids consuming the vertical space above Backup.
+                var options = new StackPanel
+                {
+                    Orientation = Orientation.Vertical,
+                    MaxWidth = 560,
+                    Margin = anchor.Margin,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                };
+                Grid.SetRow(options, Grid.GetRow(anchor));
                 var optionRow = new StackPanel
                 {
                     Orientation = Orientation.Horizontal,
-                    Margin = rowMargin,
                     HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Bottom,
                 };
+                CheckBox mediaCheckbox = CreateLordMediaCheckbox(checkbox);
                 host.Children.Remove(anchor);
                 anchor.Margin = new Thickness(0);
                 anchor.HorizontalAlignment = HorizontalAlignment.Left;
                 anchor.VerticalAlignment = VerticalAlignment.Center;
                 optionRow.Children.Add(anchor);
                 optionRow.Children.Add(checkbox);
-                host.Children.Add(optionRow);
+                options.Children.Add(optionRow);
+                options.Children.Add(mediaCheckbox);
+                host.Children.Add(options);
                 coopTrailExportCheckbox = checkbox;
-                AddLordMediaCheckbox(host, optionRow);
+                lordMediaExportCheckbox = mediaCheckbox;
             }
 
             private static string GetCoopMarkerPath(string root) => IOPath.Combine(root, "cooptrail.enabled");
@@ -2686,7 +2731,7 @@ namespace ExtendedData
 
             private static void ValidateSinglePlayerCoopAivs(FRONT_Multiplayer self)
             {
-                Shared.CoopAiStartPlanFactory.ValidateLobby(self?.currentLobby, self?.AIVs);
+                Shared.CoopAiStartPlanFactory.ValidateLobby(self?.currentLobby, self?.AIVs, FRONT_Multiplayer.coopGame);
             }
 
             private void FrontendOpenCustomTrailHook(FrontendMenus self, string trailName, int level)
@@ -3332,7 +3377,7 @@ namespace ExtendedData
                     self.CoopMissionChanged(trailId, mission);
                     // Start the editor with the actual partner's defaults, not Vanilla's redundant Rat placeholder.
                     if (self.singlePlayerCoop)
-                        Shared.CoopAiStartPlanFactory.PrepareDirectPartner(self.currentLobby, self.AIVs);
+                        Shared.CoopAiStartPlanFactory.PrepareDirectPartner(self.currentLobby, self.AIVs, FRONT_Multiplayer.coopGame);
                     launchedThroughCustomize = true;
                     if (notifyClients)
                         BroadcastCoopCustomize(trailId, mission);
@@ -3692,7 +3737,7 @@ namespace ExtendedData
             {
                 // Store an independent normalized copy because ApplyDocument removes obsolete
                 // properties from the instance it receives.
-                trailMakerWorkingDocument = ModSettingsJson.ParseObject(ModSettingsJson.Serialize(document));
+                trailMakerWorkingDocument = CloneDocument(document);
                 trailMakerWorkingSnapshots = CaptureCurrentSnapshots(FindCompatibleViewModels());
                 trailMakerTrailPath = string.IsNullOrWhiteSpace(trailPath)
                     ? null
@@ -3741,6 +3786,7 @@ namespace ExtendedData
                     ModSettingsDefinition document = exists
                         ? ModSettingsJson.Read(sidecar)
                         : ModSettingsDefinition.CreateModDefaults();
+                    document = MissionSettingsMigration.Migrate(document);
                     workingSourceContextId = "trail:" + IOPath.GetFullPath(sidecar);
                     return trailSource.Activate(exists ? document : null, workingSourceContextId, () =>
                     {
@@ -3844,6 +3890,15 @@ namespace ExtendedData
                         target.Mods[id].Overrides = entry.Overrides;
                     }
                 }
+                // A registered split can add a new provider before application. Keep
+                // it in the runtime document used for reset sources and author rules.
+                foreach (var item in source.Mods)
+                    if (!target.Mods.ContainsKey(item.Key))
+                        target.Mods[item.Key] = item.Value == null ? null : new ModSettingsEntry
+                        {
+                            PlayerSettings = item.Value.PlayerSettings,
+                            Overrides = item.Value.Overrides
+                        };
             }
 
             private Dictionary<string, Dictionary<string, byte[]>> CaptureCurrentSnapshots(

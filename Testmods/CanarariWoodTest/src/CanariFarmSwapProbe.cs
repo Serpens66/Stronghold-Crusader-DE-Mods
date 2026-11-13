@@ -233,7 +233,7 @@ namespace CanarariWoodTest
 
         private bool OldBuildingGone()
         {
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(oldId, out GameBuilding* b) ||
+            if (!global::APIShared.BuildingAccess.TryGetById(oldId, out GameBuilding* b, out _) ||
                 b == null) return true;
             return b->r_GlobalId != oldGlobal || b->r_AliveState == AliveState.MarkedForDeletion;
         }
@@ -241,8 +241,8 @@ namespace CanarariWoodTest
         private string DescribeDeleteBarrier(int generation)
         {
             string building = "unavailable";
-            if (GameBuildingManagerAPI.Instance.TryGetBuildingById(oldId,
-                out GameBuilding* b) && b != null)
+            if (global::APIShared.BuildingAccess.TryGetById(oldId,
+                out GameBuilding* b, out _) && b != null)
                 building = b->r_GlobalId == oldGlobal ? b->r_AliveState.ToString() :
                     "identity-changed";
             IReadOnlyList<AiPathTileSample> tiles =
@@ -299,8 +299,8 @@ namespace CanarariWoodTest
 
         private bool ReplacementPresent()
         {
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(replacementId,
-                    out GameBuilding* b) || b == null ||
+            if (!global::APIShared.BuildingAccess.TryGetById(replacementId,
+                    out GameBuilding* b, out _) || b == null ||
                 b->r_BuildingType != structure || b->r_PlayerIdOwner != owner ||
                 b->r_TilePositionXBegin != OrchardX ||
                 b->r_TilePositionYBegin != OrchardY ||
@@ -332,8 +332,8 @@ namespace CanarariWoodTest
         private bool ReplacementAlive()
         {
             return replacementId > 0 &&
-                GameBuildingManagerAPI.Instance.TryGetBuildingById(replacementId,
-                    out GameBuilding* building) && building != null &&
+                global::APIShared.BuildingAccess.TryGetById(replacementId,
+                    out GameBuilding* building, out _) && building != null &&
                 building->r_AliveState == AliveState.IsAlive;
         }
 
@@ -353,7 +353,7 @@ namespace CanarariWoodTest
             }
             Span<AivCoarseCell> grid = GameAIVManagerAPI.Instance.GetCoarseGrid();
             int index = 69 * 160 + 97;
-            string coarse = (uint)index < (uint)grid.Length
+            string coarse = global::APIShared.IndexBounds.IsValidIndex(index, grid.Length)
                 ? "foreign=" + grid[index].ForeignPathComponentTileCount +
                   ",reservation=" + grid[index].StructureOrReservationCount +
                   ",treeWeight=" + grid[index].TreeObstructionWeight

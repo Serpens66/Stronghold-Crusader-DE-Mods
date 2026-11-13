@@ -88,6 +88,7 @@ namespace ExtraFeatures
                 pending.AddDetour(listBuilder,
                     HookTarget.FromAddress(imageBase + HealerNativeContract.ListBuilderRva),
                     (BuildPlayerUnitListDelegate)BuildPlayerUnitList);
+                ExtraFeaturesHookInfrastructure.RootBeforeCommit(this, pending);
                 CommitResult result = pending.Commit();
                 if (!result.IsCompleteSuccess || !listBuilder.Success)
                     throw new InvalidOperationException("Healer list-builder detour installation failed: " + result);

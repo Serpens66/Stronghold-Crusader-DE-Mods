@@ -55,6 +55,49 @@ With [BugfixesAndQoL's Peace Time reduction](../BugfixesAndQoL/README.md#reduce-
 
 ## Economy features
 
+### Tree Respawn
+
+Set a regrowth delay in **Economy** from **-1 to 120 minutes** in one-minute
+steps. **-1** is off by default. At **0**, a fully removed tree can regrow on the
+next check, which runs once per game minute. A delay of **10 minutes** is a
+starting point at game speed 40. The timer pauses with the game.
+
+Each original woodland tree on the map has its own timer. Once the tree is
+completely removed, a seedling of the same species can grow on its original tile
+when the delay has passed and the tile is clear. A natural tree growing on that
+tile resets the timer. Trees that spread to other tiles do not add respawn
+locations. Savegames created before Tree Respawn was available keep it off for
+that match.
+
+### Only cut down mature trees
+
+This host checkbox is on by default and works independently of Tree Respawn.
+Human and AI woodcutters wait until healthy young woodland trees reach growth
+stage 3, when they give a full wood yield. Woodcutters can finish cutting damaged
+young trees and continue collecting wood from felled logs.
+
+The host sets both options between matches. Changes apply when starting or
+loading a map.
+
+### Customize the fixed production bonus
+Under **Population and Economy**, the host can set the fixed production bonus from
+**-100% to +1000%** before starting a match. It applies to human and AI production
+in skirmishes, including solo games against AI, and in multiplayer: wood, stone,
+iron, pitch, hunted meat, hops, apples, cheese, beer, weapons and armor. Wheat,
+flour and bread are unchanged by this setting.
+
+The default **50%** is the normal game bonus; **0%** removes it. **-50%** halves
+the base output on average, and **-100%** produces no new output without an
+additional fear-factor productivity bonus. That fear bonus still adds to the
+result. Workers accumulate fractions, so individual deliveries vary and existing
+credits remain after changing the setting. Ingredients are consumed even when
+the resulting output is zero.
+
+The setting is included in host synchronization, presets and saved settings, and
+is locked during a match. The displayed effective bonus includes contributions
+from other mods using APIShared's shared production service. Leaving this setting
+at 50% or disabling ExtraFeatures leaves those other contributions in control.
+
 ### Customize victory loot
 The host can configure gold and goods percentages and an absolute gold limit independently for human and AI winners. The settings apply when the winner defeats an enemy Lord and can be changed between matches.
 
@@ -102,6 +145,6 @@ Set how far an apothecary searches from its assigned building for plague clouds.
 
 ## Compatibility
 
-This mod requires the Script Extender and **APIShared 0.25.0 or newer**. Subscribe to APIShared separately when using the Steam modpack. Mod settings indicate when gameplay changes are inactive for a direct mission or Trail launch. Use **Customize** where available to start with those changes; edits made while inactive are saved for later games.
+This mod requires the Script Extender and **APIShared 0.34.0 or newer**. Subscribe to APIShared separately when using the Steam modpack. Mod settings indicate when gameplay changes are inactive for a direct mission or Trail launch. Use **Customize** where available to start with those changes; edits made while inactive are saved for later games.
 
 All multiplayer participants need matching modpack and APIShared versions.

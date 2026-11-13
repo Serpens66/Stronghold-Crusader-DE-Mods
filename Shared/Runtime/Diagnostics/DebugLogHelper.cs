@@ -81,7 +81,7 @@ namespace Shared
                     if (cells.Length == 4 && string.Equals(cells[0], fullPath, StringComparison.OrdinalIgnoreCase) &&
                         cells[1] == length.ToString(CultureInfo.InvariantCulture) &&
                         cells[2] == written.Ticks.ToString(CultureInfo.InvariantCulture) &&
-                        cells[3].Length == 64)
+                        IsUppercaseSha256(cells[3]))
                     {
                         hash = cells[3];
                         return true;
@@ -90,6 +90,15 @@ namespace Shared
             }
             catch (Exception) { /* A damaged store only costs one hash. */ }
             return false;
+        }
+
+        private static bool IsUppercaseSha256(string value)
+        {
+            if (value.Length != 64) return false;
+            foreach (char character in value)
+                if ((character < '0' || character > '9') && (character < 'A' || character > 'F'))
+                    return false;
+            return true;
         }
 
         private static void WritePersistentHash(string fullPath, long length, DateTime written, string hash)

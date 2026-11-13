@@ -6,9 +6,21 @@ namespace UiAcceptance
         {
             GameSteps.Register();
             SpectatorSteps.Register();
+            SpectatorPowerRegressionSteps.Register();
             InputSteps.Register();
             ProbeSteps.Register();
             LobbySteps.Register();
+            AutoSendSteps.Register();
+            RuntimeAiSteps.Register();
+            RuntimeAiUiSteps.Register();
+            RelaySteps.Register();
+            FireEscapeSteps.Register();
+            HuntSteps.Register();
+            HuntMpSteps.Register();
+            TannerSteps.Register();
+            MissionReadinessSteps.Register();
+            WorkerProductionSteps.Register();
+            LocalAutosaveSteps.Register();
         }
     }
 }

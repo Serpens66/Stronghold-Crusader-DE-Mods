@@ -1,69 +1,59 @@
-// Feature: Multiply global market buy and sell prices.
-using SHCDESE.API;
+// Feature: Register ExtraFeatures factors with APIShared's one market-price owner.
+using APIShared.Economy;
+using APIShared.Modifiers;
 using SHCDESE.Interop;
-using SHCDESE.Interop.Enums;
 using System;
 
 namespace ExtraFeatures
 {
     public sealed partial class ExtraFeaturesRuntime
     {
-        private readonly MarketPriceOverrides marketPriceOverrides = new MarketPriceOverrides(
-            good => GamePlayerManagerAPI.Instance.GetTradeBasePrice(good),
-            (good, value) => GamePlayerManagerAPI.Instance.SetTradeBasePrice(good, value),
-            good => GamePlayerManagerAPI.Instance.GetDefaultTradeBasePrice(good));
-        private readonly System.Collections.Generic.HashSet<string> marketPriceConflicts =
-            new System.Collections.Generic.HashSet<string>();
+        private MarketPriceModifierHandle marketPriceModifier;
+        private sealed class MarketFactors
+        {
+            internal readonly decimal[] Buy, Sell;
+            internal MarketFactors(decimal[] buy, decimal[] sell) { Buy = buy; Sell = sell; }
+        }
+        private MarketFactors marketFactors;
 
         private void ApplyMarketPriceMultipliers()
         {
-            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
-                return;
-            if (APIShared.GameModes.GameModeHelper.IsMapEditor())
-                return; // Trading has no editor behavior; do not acquire price cells there.
-
+            bool enabled = Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
+                !APIShared.GameModes.GameModeHelper.IsMapEditor();
+            if (marketPriceModifier == null)
+            {
+                if (!enabled) return;
+                if (!MarketPriceModifiers.TryRegister(ExtraFeaturesPlugin.PluginGuid, "market-price-factors",
+                    GetMarketPriceContribution, out marketPriceModifier, out string reason))
+                    throw new InvalidOperationException("Shared market-price modifiers unavailable: " + reason);
+            }
+            var buy = new decimal[GoodsCount];
+            var sell = new decimal[GoodsCount];
             for (int i = 0; i < GoodsCount; i++)
             {
-                eGoods good = (eGoods)i;
-                double buyMultiplier = MarketGoodPriceDefinition.CombineMultipliers(
-                    settings.MarketBuyPriceMultiplier,
-                    settings.GetMarketGoodPriceMultiplier(good, true));
-                double sellMultiplier = MarketGoodPriceDefinition.CombineMultipliers(
-                    settings.MarketSellPriceMultiplier,
-                    settings.GetMarketGoodPriceMultiplier(good, false));
-                ApplyMarketPriceCell(good, true, buyMultiplier);
-                ApplyMarketPriceCell(good, false, sellMultiplier);
+                buy[i] = (decimal)MarketGoodPriceDefinition.CombineMultipliers(settings.MarketBuyPriceMultiplier,
+                    settings.GetMarketGoodPriceMultiplier((eGoods)i, true));
+                sell[i] = (decimal)MarketGoodPriceDefinition.CombineMultipliers(settings.MarketSellPriceMultiplier,
+                    settings.GetMarketGoodPriceMultiplier((eGoods)i, false));
             }
+            // Publish complete immutable arrays; queries never read a partly updated settings table.
+            System.Threading.Volatile.Write(ref marketFactors, new MarketFactors(buy, sell));
+            marketPriceModifier.SetEnabled(enabled);
+            MarketPriceModifiers.Refresh();
         }
 
-        private void ApplyMarketPriceCell(eGoods good, bool buying, double multiplier)
+        private ValueModifierContribution GetMarketPriceContribution(MarketPriceModifierContext context)
         {
-            string cell = good + (buying ? "/buy" : "/sell");
-            try
-            {
-                if (marketPriceOverrides.Apply(good, buying, multiplier, out MarketPriceApplication result))
-                    return;
-                if (marketPriceConflicts.Add(cell))
-                    Shared.DebugLogHelper.LogWarning(log,
-                        $"MARKET_PRICE_CONFLICT: good={good}, direction={(buying ? "buy" : "sell")}, " +
-                        $"baseline={result.Baseline}, current={result.Current}, desired={result.Desired}, " +
-                        $"multiplier={multiplier.ToString("R", System.Globalization.CultureInfo.InvariantCulture)}, " +
-                        $"previousValueOwned={result.Owned}, mapActive={mapActive}; action=preserve-current; " +
-                        "writer=not-observed; independent price cells continue.");
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures.market-price-cell." + cell,
-                    $"ExtraFeatures could not reconcile market price {cell}; independent cells continue: {ex}");
-            }
+            if (context.IsAIPlayer && aiMarketVanillaPriceHook != null && aiMarketVanillaPriceHook.UseVanillaAIPricesForSession)
+                return ValueModifierContribution.None;
+            MarketFactors factors = System.Threading.Volatile.Read(ref marketFactors);
+            decimal[] values = factors == null ? null : context.Direction == MarketPriceDirection.Buy ? factors.Buy : factors.Sell;
+            int good = (int)context.Good;
+            if (values == null || good < 0 || good >= values.Length || values[good] == 1m)
+                return ValueModifierContribution.None;
+            return ValueModifierContribution.Factor(values[good], ValueModifierStage.BeforeFixedValue);
         }
 
-        private void RestoreTradeBasePrices(bool endSession = false)
-        {
-            marketPriceOverrides.RestoreAll(ex => Shared.DebugLogHelper.LogErrorLimited(log,
-                "ExtraFeatures.market-price-restoration",
-                $"ExtraFeatures could not restore an owned market price; independent cells continue: {ex}"), endSession);
-            if (endSession) marketPriceConflicts.Clear();
-        }
+        private void RestoreTradeBasePrices(bool endSession = false) => marketPriceModifier?.SetEnabled(false);
     }
 }

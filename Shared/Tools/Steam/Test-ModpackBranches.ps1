@@ -28,6 +28,9 @@ Put 'SerpsModsHost/Locales/en-US.txt' 'new localized host text'
 Put 'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/Locales/en-US.txt' 'old localized host text'
 Put 'ExtendedData/Patches/Assets/GUI/XAML/FrontendMenus.xaml' '<Patch />'
 Put 'Spectator/Override/Assets/GUI/Sprites/SpectatorOverview_CrownNormal.png' 'crown sprite'
+Put 'Pathfinding/Locales/en-US.txt' 'pathfinding locale'
+Put 'Pathfinding/Patches/Assets/GUI/XAMLResources/HUD.xaml' '<Patch />'
+Put 'Pathfinding/Override/ScriptExtenderUI/PathfindingSettings.xaml' '<Grid />'
 Put '.gitignore' ".work/`r`n.release-output/`r`nAPIShared/`r`nSerpsMods/`r`nAPISharedWorkshop/`r`n*.previous-*/`r`n"
 # External SDK/publisher services are inert fixtures; routing, policy, proofs, Git, BAT and PS children are real.
 $apiHelper=Join-Path $root 'Shared/Tools/ApiSharedRepository/MainSource.Common.ps1'
@@ -279,9 +282,16 @@ Check (Test-Path -LiteralPath $releaseFolder) 'Release folder with unpushed comm
 Put 'SerpsModsHost/BepInEx/plugins/SerpsMods_Serp/Locales/en-US.txt' 'new localized host text'
 Put 'ExtendedData/BepInEx/plugins/ExtendedData_Serp/Patches/Assets/GUI/XAML/FrontendMenus.xaml' '<Patch />'
 Put 'Spectator/BepInEx/plugins/Spectator_Serp/Override/Assets/GUI/Sprites/SpectatorOverview_CrownNormal.png' 'crown sprite'
+Put 'Pathfinding/BepInEx/plugins/Pathfinding_Serp/Locales/en-US.txt' 'pathfinding locale'
+Put 'Pathfinding/BepInEx/plugins/Pathfinding_Serp/Patches/Assets/GUI/XAMLResources/HUD.xaml' '<Patch />'
+Put 'Pathfinding/BepInEx/plugins/Pathfinding_Serp/Override/ScriptExtenderUI/PathfindingSettings.xaml' '<Grid />'
 $outputs=@(Get-ModpackDirtyOutputs $root)
-Check (@($outputs|Where-Object {$_.Path -like '*Locales/en-US.txt' -or $_.Path -like '*FrontendMenus.xaml' -or $_.Path -like 'Spectator/BepInEx/plugins/Spectator_Serp/Override/*'}).Count -eq 3) 'Source-identical generated resources were not captured'
+Check (@($outputs|Where-Object {$_.Path -like 'SerpsModsHost/*Locales/en-US.txt' -or $_.Path -like '*FrontendMenus.xaml' -or $_.Path -like 'Spectator/BepInEx/plugins/Spectator_Serp/Override/*'}).Count -eq 3) 'Source-identical generated resources were not captured'
+Check (@($outputs|Where-Object {$_.Path -like 'Pathfinding/BepInEx/plugins/Pathfinding_Serp/*'}).Count -eq 3) 'Pathfinding locale, patch and override build copies were not frozen'
 Assert-ModpackPreparedOutputs $root $outputs
+Put 'Pathfinding/BepInEx/plugins/Pathfinding_Serp/Locales/en-US.txt' 'tampered pathfinding locale'
+Reject {Get-ModpackDirtyOutputs $root}
+Put 'Pathfinding/BepInEx/plugins/Pathfinding_Serp/Locales/en-US.txt' 'pathfinding locale'
 Put 'ExtendedData/BepInEx/plugins/ExtendedData_Serp/Patches/Assets/GUI/XAML/FrontendMenus.xaml' '<Tampered />'
 Reject {Get-ModpackDirtyOutputs $root}
 Put 'ExtendedData/BepInEx/plugins/ExtendedData_Serp/Patches/Assets/GUI/XAML/FrontendMenus.xaml' '<Patch />'

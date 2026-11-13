@@ -8,8 +8,8 @@ using SHCDESE.Interop;
 // no native engine or Noesis rendering is exercised by this harness.
 namespace SHCDESE.Interop
 {
-    public enum GM : ushort { GM_BODY_FIGHTING_MONK = 109, GM_BODY_TEMPLE_GUARD = 229 }
-    public enum eChimps : ushort { CHIMP_TYPE_MONK = 37 }
+    public enum GM : ushort { GM_BODY_LORD = 100, GM_BODY_FIGHTING_MONK = 109, GM_BODY_ARABIC_LORD = 205, GM_BODY_TEMPLE_GUARD = 229 }
+    public enum eChimps : ushort { CHIMP_TYPE_MONK = 37, CHIMP_TYPE_LORD = 55 }
 }
 namespace Noesis
 {
@@ -21,6 +21,22 @@ namespace Noesis
     public struct Rect { public Rect(float x, float y, float w, float h) { } }
     public class RectangleGeometry : Geometry { public RectangleGeometry(Rect rect) { } }
     public class ImageSource { public readonly string Key; public ImageSource(string key) { Key = key; } }
+    public class BitmapSource : ImageSource { public BitmapSource(string key) : base(key) { } }
+    public struct Int32Rect
+    {
+        public readonly int X, Y, Width, Height;
+        public Int32Rect(int x, int y, int width, int height) { X = x; Y = y; Width = width; Height = height; }
+    }
+    public sealed class CroppedBitmap : BitmapSource
+    {
+        public readonly ImageSource Source;
+        public readonly Int32Rect Rect;
+        public CroppedBitmap(BitmapSource source, Int32Rect rect) : base("crop") { Source = source; Rect = rect; }
+    }
+    public sealed class ResourceDictionary : Dictionary<string, object>
+    {
+        public bool Contains(string key) => ContainsKey(key);
+    }
     public class Brush { }
     public struct Color { public static Color FromArgb(byte a, byte r, byte g, byte b) { return new Color(); } }
     public class SolidColorBrush : Brush { public SolidColorBrush(Color color) { } }
@@ -46,9 +62,9 @@ namespace Noesis
     public class TextBlock : FrameworkElement { public string Text; public Brush Foreground; }
     public static class GUI
     {
-        public static Dictionary<string, object> Resources;
+        public static ResourceDictionary Resources;
         public static int Reads;
-        public static Dictionary<string, object> GetApplicationResources() { Reads++; return Resources; }
+        public static ResourceDictionary GetApplicationResources() { Reads++; return Resources; }
     }
 }
 namespace CrusaderDE
@@ -70,12 +86,17 @@ namespace CrusaderDE
         public static void SetSprite4(Button b, ImageSource s) { b.Sprites[3] = s; }
     }
 }
-namespace Shared
+namespace APIShared
 {
-    public static class LordPortraitPalette
+    public enum LordSkin { Unknown, Crusader, Arabic, Bedouin, Scribe, CrusaderFemale, Bessy, ArabicFemale, BedouinFemale }
+    public static class LordSkins
     {
-        public static readonly ImageSource Lord = new ImageSource("Lord");
-        public static ImageSource Get(int color) { return Lord; }
+        public static bool TryGetFromMaterial(GM material, out LordSkin skin)
+        {
+            skin = material == GM.GM_BODY_LORD ? LordSkin.Crusader :
+                material == GM.GM_BODY_ARABIC_LORD ? LordSkin.Arabic : LordSkin.Unknown;
+            return skin != LordSkin.Unknown;
+        }
     }
 }
 namespace BugfixesAndQoL
@@ -190,7 +211,7 @@ public static class ForeignTroopPortraitTests
             {
                 string key = (material == GM.GM_BODY_TEMPLE_GUARD ? "UI-Buttons K011a" : "UI-Buttons K011") + suffixes[color - 1];
                 var expected = new ImageSource(key);
-                GUI.Resources = new Dictionary<string, object> { [key] = expected };
+                GUI.Resources = new ResourceDictionary { [key] = expected };
                 var view = new ForeignTroopHudView();
                 var main = Screen();
                 Show(view, main, new List<ForeignTroopEntry> { Entry(material, color) });
@@ -201,7 +222,7 @@ public static class ForeignTroopPortraitTests
             }
 
         var monk = new ImageSource("monk"); var guard = new ImageSource("guard");
-        GUI.Resources = new Dictionary<string, object> { ["UI-Buttons K011"] = monk, ["UI-Buttons K011a"] = guard };
+        GUI.Resources = new ResourceDictionary { ["UI-Buttons K011"] = monk, ["UI-Buttons K011a"] = guard };
         var changingView = new ForeignTroopHudView(); var changingMain = Screen();
         var entry = Entry(GM.GM_BODY_FIGHTING_MONK);
         var selection = new List<ForeignTroopEntry> { entry };
@@ -238,7 +259,7 @@ public static class ForeignTroopPortraitTests
         var fallbackView = new ForeignTroopHudView(); var fallbackMain = Screen();
         Show(fallbackView, fallbackMain, new List<ForeignTroopEntry> { Entry(GM.GM_BODY_TEMPLE_GUARD, 6) });
         ExpectPortrait(fallbackMain, guard); // Purple is absent: retain the same skin's base artwork.
-        GUI.Resources = new Dictionary<string, object>();
+        GUI.Resources = new ResourceDictionary();
         fallbackView.ResetForMap();
         Show(fallbackView, fallbackMain, new List<ForeignTroopEntry> { Entry(GM.GM_BODY_TEMPLE_GUARD) });
         Check(Portrait(fallbackMain).Visibility == Visibility.Collapsed, "Missing resource hides icon");
@@ -246,9 +267,42 @@ public static class ForeignTroopPortraitTests
         GUI.Resources = null; fallbackView.ResetForMap();
         Show(fallbackView, fallbackMain, new List<ForeignTroopEntry> { Entry(GM.GM_BODY_FIGHTING_MONK) });
         Check(Portrait(fallbackMain).Visibility == Visibility.Collapsed, "Missing dictionary remains safe");
-        entry = Entry(GM.GM_BODY_TEMPLE_GUARD); entry.Type = 55;
-        Show(fallbackView, fallbackMain, new List<ForeignTroopEntry> { entry });
-        ExpectPortrait(fallbackMain, Shared.LordPortraitPalette.Lord);
-        return "PASS: " + checks + " portrait/view checks (16 skin/color combinations, existing types, skin-only redraw, pooling, pagination, camera and fallbacks).";
+        var atlas = new BitmapSource("Lord atlas");
+        var crown = new ImageSource("crown");
+        GUI.Resources = new ResourceDictionary { ["BugfixesAndQoL-LordSource"] = atlas, ["shield_crown"] = crown };
+        for (int row = 0; row < 8; row++)
+            for (int colour = 0; colour <= 8; colour++)
+            {
+                var skin = (LordSkin)(row + 1);
+                var portrait = LordPortraits.Get(skin, colour) as CroppedBitmap;
+                Check(portrait != null && portrait.Source == atlas && portrait.Rect.X == colour * 72 &&
+                    portrait.Rect.Y == row * 123 && portrait.Rect.Width == 72 && portrait.Rect.Height == 123,
+                    "Select the expected atlas cell");
+                Check(ReferenceEquals(portrait, LordPortraits.Get(skin, colour)), "Reuses the atlas crop");
+            }
+        entry = Entry(GM.GM_BODY_LORD, 4);
+        entry.Type = (int)eChimps.CHIMP_TYPE_LORD;
+        entry.Count = 1;
+        selection = new List<ForeignTroopEntry> { entry };
+        Show(fallbackView, fallbackMain, selection);
+        ExpectPortrait(fallbackMain, LordPortraits.Get(LordSkin.Crusader, 4));
+        var countLabel = (TextBlock)fallbackMain.IngameUI.Names["ForeignTroopCount1"];
+        Check(countLabel.Text == string.Empty, "A lone Lord has no count label");
+        entry.Material = GM.GM_BODY_ARABIC_LORD;
+        Show(fallbackView, fallbackMain, selection);
+        ExpectPortrait(fallbackMain, LordPortraits.Get(LordSkin.Arabic, 4));
+        entry.ColorId = 0;
+        Show(fallbackView, fallbackMain, selection);
+        ExpectPortrait(fallbackMain, LordPortraits.Get(LordSkin.Arabic, 0));
+        entry.ColorId = 8;
+        Show(fallbackView, fallbackMain, selection);
+        ExpectPortrait(fallbackMain, LordPortraits.Get(LordSkin.Arabic, 8));
+        entry.Material = GM.GM_BODY_TEMPLE_GUARD;
+        Show(fallbackView, fallbackMain, selection);
+        ExpectPortrait(fallbackMain, crown);
+        entry.Type = (int)eChimps.CHIMP_TYPE_MONK;
+        Show(fallbackView, fallbackMain, selection);
+        Check(countLabel.Text == "1", "An ordinary unit in the same slot retains its count label");
+        return "PASS: " + checks + " portrait/view checks (72 Lord atlas cells, other troop skins, redraw, pooling, pagination, camera and fallbacks).";
     }
 }

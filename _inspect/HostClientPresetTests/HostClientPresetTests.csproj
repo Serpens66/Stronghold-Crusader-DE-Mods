@@ -73,13 +73,18 @@
       <HintPath>$(ExtenderDir)\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
       <Private>true</Private>
     </Reference>
-  <Compile Include="..\..\APIShared\src\GameModes\MissionModePolicy.cs" />
+  <Compile Include="..\..\APIShared\src\GameModes\GameModeHelper.cs" />
+  <Compile Include="..\..\APIShared\src\GameModes\GameModeKinds.cs" />
+  <Compile Include="..\..\APIShared\src\GameModes\GameModeSnapshot.cs" />
+  <Compile Include="..\..\APIShared\src\GameModes\SavedModeEvidence.cs" />
   <Compile Include="..\..\APIShared\src\GameModes\CustomizedLaunchOrigins.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="PeaceTimeProximityPresetTests.cs" />
-    <Compile Include="..\..\BugfixesAndQoL\src\BugfixesAndQoLViewModel.PeaceTime.cs" />
+    <Compile Include="..\..\BugfixesAndQoL\src\Settings\BugfixesAndQoLViewModel.PeaceTime.cs" />
+    <Compile Include="PitchStairsPresetTests.cs" />
+    <Compile Include="..\..\BugfixesAndQoL\src\Settings\BugfixesAndQoLViewModel.PitchStairs.cs" />
     <Compile Include="ExtremePowersPresetTests.cs" />
     <Compile Include="RandomEventsChatPresetTests.cs" />
     <Compile Include="..\..\RandomEvents\src\RandomEventsSettingsViewModel.cs" />
@@ -99,19 +104,38 @@
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.cs">
       <Link>PresetLobbyModSettingsViewModel.cs</Link>
     </Compile>
-    <Compile Include="..\..\APIShared\src\ModSettings\Lobby\PerPlayerLobbySettings.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.Access.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.Captions.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.ConfigurationBackend.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.PerPlayer.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.MissionContext.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Lobby\PerPlayerLobbySettingsCoordinator.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Lobby\PerPlayerLobbyBroadcastGuard.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Lobby\PerPlayerLobbySettingsBuilder.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Lobby\PerPlayerLobbySnapshot.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Lobby\PerPlayerLobbySettingContracts.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Lobby\HostLobbySettingsPublisher.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetAtomicFilePublisher.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.Catalog.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.Persistence.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\ModSettingsMigration.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.Mission.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.Snapshots.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\ILobbyPresetHost.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.PresetIntegration.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetStorage.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\PersonalSettingsPaths.cs" />
-    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.Sources.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.PresetDialogs.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.SettingsSearch.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.SettingsSources.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PersonalSettingsWriteQueue.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\UI\ModSettingsSearchMatcher.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\UI\ModSettingsSearchVisibilityConverter.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\UI\ModSettingsSearchStateVisibilityConverter.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\UI\ReferenceEqualityComparer.cs" />
+    <Compile Include="..\..\APIShared\src\Players\PlayerSlots.cs" />
+    <Compile Include="..\..\APIShared\src\Core\Internal\Sha256Hex.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\UI\ModSettingsHorizontalFocusScrollGuard.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyModSettingsPresetRegistration.cs" />
 
@@ -149,47 +173,47 @@
     <Compile Include="..\..\Shared\Runtime\Gameplay\LobbyLifecycle.cs">
       <Link>LobbyLifecycle.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\LocalPerPlayerSetting.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\Core\Common\LocalPerPlayerSetting.cs">
       <Link>LocalPerPlayerSetting.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\ShiftRepairAllBuildingsPolicy.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\Buildings\ShiftRepairAllBuildingsPolicy.cs">
       <Link>ShiftRepairAllBuildingsPolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\PlaguePopularitySaveState.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\Plague\PlaguePopularitySaveState.cs">
       <Link>PlaguePopularitySaveState.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\AiStoneReserveNativeDefinition.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\AI\Fixes\AiStoneReserveNativeDefinition.cs">
       <Link>AiStoneReserveNativeDefinition.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\AiStoneReservePolicy.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\AI\Fixes\AiStoneReservePolicy.cs">
       <Link>AiStoneReservePolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\MarketGoodsOrderDefinition.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\Market\MarketGoodsOrderDefinition.cs">
       <Link>MarketGoodsOrderDefinition.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\ResyncHostKickPolicy.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\Multiplayer\ResyncHostKickPolicy.cs">
       <Link>ResyncHostKickPolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\AbruptHostMigrationPolicy.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\Multiplayer\AbruptHostMigrationPolicy.cs">
       <Link>AbruptHostMigrationPolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\SelectedUnitHealthSummary.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\Hud\SelectedUnitHealthSummary.cs">
       <Link>SelectedUnitHealthSummary.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\LordUnitControlsPolicy.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\LordAndControlGroups\LordUnitControlsPolicy.cs">
       <Link>LordUnitControlsPolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\SurrenderPackets.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\Multiplayer\SurrenderPackets.cs">
       <Link>SurrenderPackets.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\SurrenderPolicy.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\Multiplayer\SurrenderPolicy.cs">
       <Link>SurrenderPolicy.cs</Link>
     </Compile>
 
-    <Compile Include="..\..\BugfixesAndQoL\src\SiegeAmmoRestockPacket.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\UnitOrders\SiegeAmmoRestockPacket.cs">
       <Link>SiegeAmmoRestockPacket.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\SiegeAmmoRestockPolicy.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\UnitOrders\SiegeAmmoRestockPolicy.cs">
       <Link>SiegeAmmoRestockPolicy.cs</Link>
     </Compile>
     <Compile Include="..\..\ExtraFeatures\src\MarketGoodPriceDefinition.cs">
@@ -202,34 +226,28 @@
       <Link>EnemyProximityPolicy.cs</Link>
     </Compile>
 
-    <Compile Include="..\..\BugfixesAndQoL\src\AssassinClimbCostPolicy.cs">
+    <Compile Include="..\..\Pathfinding\src\Assassins\AssassinClimbCostPolicy.cs">
       <Link>AssassinClimbCostPolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\AssassinCombatResumeNativeDefinition.cs">
+    <Compile Include="..\..\Pathfinding\src\Assassins\AssassinCombatResumeNativeDefinition.cs">
       <Link>AssassinCombatResumeNativeDefinition.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\AssassinCombatResumePolicy.cs">
+    <Compile Include="..\..\Pathfinding\src\Assassins\AssassinCombatResumePolicy.cs">
       <Link>AssassinCombatResumePolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\AssassinClimbCancellationPolicy.cs">
+    <Compile Include="..\..\Pathfinding\src\Assassins\AssassinClimbCancellationPolicy.cs">
       <Link>AssassinClimbCancellationPolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\AssassinClimbTransitionPolicy.cs">
+    <Compile Include="..\..\Pathfinding\src\Assassins\AssassinClimbTransitionPolicy.cs">
       <Link>AssassinClimbTransitionPolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\AssassinPathReconstructionNativeDefinition.cs">
-      <Link>AssassinPathReconstructionNativeDefinition.cs</Link>
-    </Compile>
-    <Compile Include="..\..\ExtraFeatures\src\LordHealthMultiplierPolicy.cs">
-      <Link>LordHealthMultiplierPolicy.cs</Link>
-    </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\QuarryPileTargetSelectionPolicy.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\Buildings\QuarryPileTargetSelectionPolicy.cs">
       <Link>QuarryPileTargetSelectionPolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\QuarryPileVanillaGroupPolicy.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\Buildings\QuarryPileVanillaGroupPolicy.cs">
       <Link>QuarryPileVanillaGroupPolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\TemporaryGateBlockagePolicy.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\AI\Economy\TemporaryGateBlockagePolicy.cs">
       <Link>TemporaryGateBlockagePolicy.cs</Link>
     </Compile>
     <Compile Include="..\..\ExtraFeatures\src\GatehouseAutomationSaveState.cs">
@@ -241,34 +259,41 @@
     <Compile Include="..\..\ExtraFeatures\src\PlagueFlagDiseaseSaveState.cs">
       <Link>PlagueFlagDiseaseSaveState.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\MultiplayerGameSpeedChangePacket.cs">
+    <Compile Include="..\..\ExtraFeatures\src\AIDefenseRebuildSaveState.cs">
+      <Link>AIDefenseRebuildSaveState.cs</Link>
+    </Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\Multiplayer\MultiplayerGameSpeedChangePacket.cs">
       <Link>MultiplayerGameSpeedChangePacket.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\MultiplayerGameSpeedPolicy.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\Multiplayer\MultiplayerGameSpeedPolicy.cs">
       <Link>MultiplayerGameSpeedPolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\MultiplayerTimeControlPermission.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\Multiplayer\MultiplayerTimeControlPermission.cs">
       <Link>MultiplayerTimeControlPermission.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\MultiplayerLobbyReturnPolicy.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\Multiplayer\MultiplayerLobbyReturnPolicy.cs">
       <Link>MultiplayerLobbyReturnPolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\SteamLobbyInvitePolicy.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\Multiplayer\SteamLobbyInvitePolicy.cs">
       <Link>SteamLobbyInvitePolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\SteamInviteBlacklistStore.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\Multiplayer\SteamInviteBlacklistStore.cs">
       <Link>SteamInviteBlacklistStore.cs</Link>
     </Compile>
     <Compile Include="..\..\Shared\Runtime\Persistence\DependencyFreeJson.cs">
       <Link>DependencyFreeJson.cs</Link>
     </Compile>
+    <Compile Include="..\..\Shared\Runtime\Persistence\PersonalDataFile.cs" />
+    <Compile Include="..\..\Shared\Runtime\Persistence\PersonalDataIO.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Internal\PersonalDataFile.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Internal\PersonalDataIO.cs" />
     <Compile Include="..\..\Shared\Runtime\Persistence\AtomicFileReplacement.cs">
       <Link>AtomicFileReplacement.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\MarketTradeIntegration.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\Market\MarketTradeIntegration.cs">
       <Link>MarketTradeIntegration.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\GameSpeedRepeatScheduler.cs">
+    <Compile Include="..\..\BugfixesAndQoL\src\Multiplayer\GameSpeedRepeatScheduler.cs">
       <Link>GameSpeedRepeatScheduler.cs</Link>
     </Compile>
     <Compile Include="..\..\Shared\Runtime\Native\NativePatternResolver.cs">

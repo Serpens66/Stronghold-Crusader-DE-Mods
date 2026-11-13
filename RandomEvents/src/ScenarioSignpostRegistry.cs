@@ -205,7 +205,7 @@ namespace RandomEvents
                     int tileId = tiles.GetTileId(x, y);
                     if (GameBuildingFootprint.ContainsTileId(signpost, tileId) ||
                         !tiles.IsValidTileId(tileId) ||
-                        (uint)tileId >= (uint)pathConnections.Length ||
+                        !global::APIShared.IndexBounds.IsValidIndex(tileId, pathConnections.Length) ||
                         !tiles.IsTileWalkableAndUnoccupied(tileId))
                         continue;
 
@@ -309,7 +309,7 @@ namespace RandomEvents
 
                     int tileId = tiles.GetTileId(x, y);
                     if (!tiles.IsValidTileId(tileId) ||
-                        (uint)tileId >= (uint)pathConnections.Length)
+                        !global::APIShared.IndexBounds.IsValidIndex(tileId, pathConnections.Length))
                         continue;
                     ushort component = pathConnections[tileId];
                     if (component != 0)
@@ -407,7 +407,7 @@ namespace RandomEvents
             }
 
             if (buildingId <= 0 ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+                !global::APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) ||
                 building->r_BuildingType != eStructs.STRUCT_SIGNPOST ||
                 (building->r_AliveState != AliveState.NeedsInit && building->r_AliveState != AliveState.IsAlive))
             {
@@ -498,7 +498,7 @@ namespace RandomEvents
         {
             building = null;
             return buildingId > 0 &&
-                GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out building) &&
+                global::APIShared.BuildingAccess.TryGetById(buildingId, out building, out _) &&
                 building->r_BuildingType == eStructs.STRUCT_SIGNPOST &&
                 (building->r_AliveState == AliveState.NeedsInit || building->r_AliveState == AliveState.IsAlive);
         }
@@ -524,7 +524,7 @@ namespace RandomEvents
             {
                 keepFailure = $"no Keep is registered (keepId={keepId})";
             }
-            else if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(keepId, out GameBuilding* keep) || keep == null)
+            else if (!global::APIShared.BuildingAccess.TryGetById(keepId, out GameBuilding* keep, out _) || keep == null)
             {
                 keepFailure = $"registered Keep {keepId} cannot be resolved";
             }

@@ -278,6 +278,12 @@ try {
     & $publisher --inspect $requestPath $resultPath
     if($LASTEXITCODE -ne 0){throw 'Steam item/prerequisite validation failed; no upload started.'}
     Write-UploadLog "Target=$Target; mode=$($request.Mode); version=$($proof.Version); item=$id; files=$(@($proof.Files).Count); fingerprint=$($request.Fingerprint)"
+    # Steam truncated the 2026-11-04 ASCII change note at its roughly 8000-byte boundary.
+    # Count UTF-8 bytes so non-ASCII notes also warn before that boundary; do not block upload.
+    $changeNoteBytes=[Text.Encoding]::UTF8.GetByteCount([string]$request.ChangeNote)
+    if($changeNoteBytes -ge 8000){
+        Write-UploadLog "WARNUNG: Changelog zu lang ($changeNoteBytes UTF-8-Bytes). Steam kann ab ca. 8000 Bytes abschneiden; Abschnitte am Ende koennen fehlen. Volltext: $run\changelog.txt. Upload bleibt erlaubt." 'WARN'
+    }
     if((Read-Host 'Type HOCHLADEN to submit this reviewed snapshot') -cne 'HOCHLADEN'){throw 'Upload cancelled.'}
     & $publisher --publish $requestPath $resultPath
     $publisherExit=$LASTEXITCODE

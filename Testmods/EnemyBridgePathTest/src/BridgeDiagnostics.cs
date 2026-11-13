@@ -1,4 +1,5 @@
 using APIShared;
+using APIShared.Units.AiMilitary;
 using BepInEx.Logging;
 using EnemyGatePathfindingTest;
 using SHCDESE.API;
@@ -24,6 +25,12 @@ namespace EnemyBridgePathTest
         internal readonly BridgeDecisionTrace Trace;
         private BridgeNativeHooks nativeHooks;
         private int nativeInitializationAttempted;
+        private bool strategicRegistered, globalTaskRegistered;
+        private readonly object strategicGate = new object();
+        private readonly Dictionary<long, BridgeDecisionTrace.Scope> strategicScopes = new Dictionary<long, BridgeDecisionTrace.Scope>();
+        private readonly Dictionary<long, BridgeDecisionTrace.Scope> globalTaskScopes = new Dictionary<long, BridgeDecisionTrace.Scope>();
+        private static readonly BridgeNativeDefinition.Site strategicSite = Array.Find(BridgeNativeDefinition.Sites, site => site.Rva == 0x122B40);
+        private static readonly BridgeNativeDefinition.Site globalTaskSite = Array.Find(BridgeNativeDefinition.Sites, site => site.Rva == 0x10DF60);
         private long boundaryPosts;
         private int unresolvedSamples;
         private readonly AiGateDecisionAggregate totals = new AiGateDecisionAggregate();
@@ -71,7 +78,8 @@ namespace EnemyBridgePathTest
             internal int X, Y;
             internal readonly Dictionary<string, long> Edges = new Dictionary<string, long>();
         }
-        internal BridgeDiagnostics(ManualLogSource log) { this.log = log; Trace = new BridgeDecisionTrace(log); Trace.PromoteCommandChain=PromoteRouteFrames; }
+        internal BridgeDiagnostics(ManualLogSource log) { this.log = log; Trace = new BridgeDecisionTrace(log); Trace.PromoteCommandChain=PromoteRouteFrames;
+            Trace.SharedCommandsReady = () => Volatile.Read(ref strategicRegistered) && Volatile.Read(ref globalTaskRegistered); }
         internal void InitializeNative(SHCDESE.API.LowLevel.CrusaderLibraryLoadContext context)
         {
             if(Interlocked.Exchange(ref nativeInitializationAttempted,1)!=0) return;
@@ -83,10 +91,50 @@ namespace EnemyBridgePathTest
             if(!nativeVerified) return;
             // Passive data coverage remains bounded even when entry-hook preparation fails.
             Trace.SetNative(context.ModuleHandle,context.Memory.Length);
+            ApiShared.ForMod("EnemyBridgePathTest_Serp").WhenReady(_ => {
+                bool strategicReady = AiStrategicOrderEvents.TryRegister("EnemyBridgePathTest_Serp", "consume-task", StrategicBefore, StrategicAfter, out string reason);
+                Volatile.Write(ref strategicRegistered, strategicReady);
+                if (!strategicReady)
+                { Trace.MarkNativeUnavailable("shared-strategic-observer:" + reason); Shared.DebugLogHelper.LogError(log, "Bridge strategic dispatch coverage unavailable: " + reason); }
+                bool globalReady = AiGlobalTaskEvents.TryRegister("EnemyBridgePathTest_Serp", "global-candidates", GlobalTaskBefore, GlobalTaskAfter, out string globalReason);
+                Volatile.Write(ref globalTaskRegistered, globalReady);
+                if (!globalReady)
+                { Trace.MarkNativeUnavailable("shared-global-task-observer:" + globalReason); Shared.DebugLogHelper.LogError(log, "Bridge global task coverage unavailable: " + globalReason); }
+            });
             nativeHooks = new BridgeNativeHooks(Trace);
             try { nativeHooks.Install(context,log); }
             catch(Exception error) { Trace.MarkNativeUnavailable(error.GetType().Name+":"+error.Message);Shared.DebugLogHelper.LogError(log,"Bridge native diagnosis unavailable; existing passive coverage only: "+error); }
             GameTimeManagerAPI.Instance.OnTick += Trace.Tick;
+        }
+        private void StrategicBefore(AiStrategicOrderObservation observation)
+        {
+            var scope = Trace.Enter(strategicSite, observation.NativeManager, observation.TribeId, observation.ActionCode);
+            if (scope != null) lock (strategicGate) strategicScopes.Add(observation.InvocationId, scope);
+        }
+        private void StrategicAfter(AiStrategicOrderObservation observation)
+        {
+            BridgeDecisionTrace.Scope scope;
+            lock (strategicGate)
+            {
+                if (!strategicScopes.TryGetValue(observation.InvocationId, out scope)) return;
+                strategicScopes.Remove(observation.InvocationId);
+            }
+            Trace.Exit(scope, observation.OriginalCompleted, observation.OriginalCompleted ? (long?)observation.NativeResult : null, observation.NativeManager);
+        }
+        private void GlobalTaskBefore(AiGlobalTaskObservation observation)
+        {
+            var scope = Trace.Enter(globalTaskSite, observation.NativeManager, observation.OwnerPlayerId, observation.TargetPlayerId);
+            if (scope != null) lock (strategicGate) globalTaskScopes.Add(observation.InvocationId, scope);
+        }
+        private void GlobalTaskAfter(AiGlobalTaskObservation observation)
+        {
+            BridgeDecisionTrace.Scope scope;
+            lock (strategicGate)
+            {
+                if (!globalTaskScopes.TryGetValue(observation.InvocationId, out scope)) return;
+                globalTaskScopes.Remove(observation.InvocationId);
+            }
+            Trace.Exit(scope, observation.OriginalCompleted, null, observation.NativeManager);
         }
         public object BeginTopology(int force, bool originalWillRun, bool knownPathingContext) => Trace.BeginTopology(IntPtr.Zero, force, originalWillRun,knownPathingContext);
         public void EndTopology(object token, bool completed, bool originalCalled, int? nativeResult, int effectiveResult) => Trace.EndTopology(token, completed, originalCalled, nativeResult, effectiveResult);
@@ -252,7 +300,7 @@ namespace EnemyBridgePathTest
             var api = GameTileManagerAPI.Instance;
             int tile = api.GetTileId(x, y);
             var pcl = GamePathingManagerAPI.Instance.GetPathComponentGrid();
-            return (uint)tile < (uint)pcl.Length ? pcl[tile] : -1;
+            return global::APIShared.IndexBounds.IsValidIndex(tile, pcl.Length) ? pcl[tile] : -1;
         }
         private void Push(Frame frame)
         {

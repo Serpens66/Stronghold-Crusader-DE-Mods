@@ -9,25 +9,13 @@ using System.Text.RegularExpressions;
 
 static class Program
 {
+    private const string CanonicalNativePath = @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll";
     private static int assertions;
 
     private sealed class StubCodeWriter : CodeWriter
     {
         internal readonly List<byte> Bytes = new();
         public override void WriteByte(byte value) => Bytes.Add(value);
-    }
-
-    private sealed class PendingSpawn
-    {
-        public int PlayerId { get; }
-        public int UnitType { get; }
-        public bool Matched { get; set; }
-
-        public PendingSpawn(int playerId, int unitType)
-        {
-            PlayerId = playerId;
-            UnitType = unitType;
-        }
     }
 
     public static void Main(string[] args)
@@ -48,16 +36,12 @@ static class Program
             Console.WriteLine($"ImprovedHunters dispatch hooks passed: assertions={assertions}.");
             return;
         }
-        TestLimits();
-        TestSpawnMatching();
-        TestSlotReuse();
-        TestGranarySelection();
-        TestHunterQueryActorPolicy();
-        TestManualChickenAttackPolicy();
+        TestPopulationClamp();
         TestStatefulImmediateLifecycle();
         TestMigrationContracts();
         TestNativePatterns();
         TestDispatchReaderHooks();
+        NativeStubExecutionTests.Run(MapPeImage(File.ReadAllBytes(CanonicalNativePath), out _));
         Console.WriteLine($"ImprovedHunters chicken policy tests passed: assertions={assertions}.");
     }
 
@@ -109,11 +93,15 @@ static class Program
             !allSource.Contains("HookRef<", StringComparison.Ordinal) &&
             !allSource.Contains(".Unload()", StringComparison.Ordinal),
             "A legacy Zhuqiaomon hook or teardown contract remains.");
-        Assert(Count(allSource, "new HookHandle<X64InlineHook>()") == 17,
-            "ImprovedHunters must own exactly seventeen typed inline-hook handles.");
-        Assert(Count(allSource, "CommitResult commitResult = transaction.Commit()") == 7 &&
-            Count(allSource, "commitResult.IsCompleteSuccess") == 7,
-            "Every one of the seven atomic hook transactions must check aggregate success.");
+        // 1.2.0 removed the two hooks that steered a jump through Rflags (attack gate, State-1 query result)
+        // and added the State-0 MoveHere destination hook for firing positions. Since 1.2.0 APIShared owns
+        // the Hunter query identity (the issue-123 capture hook and its transaction are gone), own-player
+        // chickens and the reservation release (their PermanentNativeGate stubs and eight patterns are gone).
+        Assert(Count(allSource, "new HookHandle<X64InlineHook>()") == 14,
+            "ImprovedHunters must own exactly fourteen typed inline-hook handle declarations.");
+        Assert(Count(allSource, "CommitResult commitResult = transaction.Commit()") == 6 &&
+            Count(allSource, "commitResult.IsCompleteSuccess") == 6,
+            "Every one of the six atomic hook transactions must check aggregate success.");
         Assert(infrastructure.Contains("HookTarget.FromAddress(address)", StringComparison.Ordinal) &&
             infrastructure.Contains("new ContextHookOptions", StringComparison.Ordinal) &&
             infrastructure.Contains("OwnsHooks = true", StringComparison.Ordinal),
@@ -132,7 +120,7 @@ static class Program
 
     private static void TestNativePatterns()
     {
-        const string nativePath = @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll";
+        const string nativePath = CanonicalNativePath;
         const string expectedHash = "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
         byte[] file = File.ReadAllBytes(nativePath);
         Assert(Convert.ToHexString(SHA256.HashData(file)) == expectedHash,
@@ -177,9 +165,11 @@ static class Program
             }
         }
 
-        Assert(definitions.Count == 29, $"Expected 29 native pattern definitions, found {definitions.Count}.");
-        Assert(uniquelyResolvedNames.Count == 19,
-            $"Expected 19 uniquely resolved pattern contracts, found {uniquelyResolvedNames.Count}.");
+        // Since 1.2.0 APIShared's Herds service owns the herd route builder, the deer and goat threat reads and the
+        // herd records, so their four patterns (route, two flight sites, herd manager tick) left this mod.
+        Assert(definitions.Count == 37, $"Expected 37 native pattern definitions, found {definitions.Count}.");
+        Assert(uniquelyResolvedNames.Count == 29,
+            $"Expected 29 uniquely resolved pattern contracts, found {uniquelyResolvedNames.Count}.");
         int uniqueFallbackPatterns = 0;
         int ambiguousReferencePatterns = 0;
         foreach ((string name, byte?[] bytes, int expectedRva) in definitions)
@@ -215,11 +205,10 @@ static class Program
 
     private static void TestDispatchReaderHooks()
     {
-        const string nativePath = @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll";
+        const string nativePath = CanonicalNativePath;
         byte[] image = MapPeImage(File.ReadAllBytes(nativePath), out _);
         foreach ((int rva, int length, int sourceType, byte replacement, bool inR9) in new[]
         {
-            (0x18F2CA, 15, 62, (byte)0, true),
             (0x6BA0C, 17, 7, (byte)3, false)
         })
         {
@@ -364,168 +353,121 @@ static class Program
         throw new InvalidOperationException(message);
     }
 
-    private static void TestLimits()
+    private static void TestPopulationClamp()
     {
-        Assert(!GranaryChickenSpawnPolicy.TryGetNormalizedVanillaTarget(false, 0, 10, out _),
-            "Disabled management must leave Vanilla's target untouched.");
-        AssertTarget(0, 0, 0);
-        AssertTarget(0, 1, int.MaxValue);
-        AssertTarget(9, 10, int.MaxValue);
-        AssertTarget(10, 10, 0);
-        AssertTarget(11, 10, 0);
-        AssertTarget(10, 5, 0);
-        AssertTarget(-5, 10, int.MaxValue);
-        Assert(GranaryChickenSpawnPolicy.ClampMaximum(-1) == 0, "Limit minimum clamp failed.");
-        Assert(GranaryChickenSpawnPolicy.ClampMaximum(101) == 100, "Limit maximum clamp failed.");
+        Assert(GranaryChickenSpawnPolicy.ClampTarget(-1) == 0, "Population minimum clamp failed.");
+        Assert(GranaryChickenSpawnPolicy.ClampTarget(101) == 100, "Population maximum clamp failed.");
+        Assert(GranaryChickenSpawnPolicy.ClampTarget(10) == 10, "Population value changed unexpectedly.");
+        Assert(GranaryChickenSpawnPolicy.DefaultTargetPerPlayer == 10, "The population default changed.");
+        Assert(TannerMeatPolicy.DefaultMeatPerTrip == 5, "The Tanner default changed.");
+        TestTannerRunTable();
+        TestWildlifeRange();
+        TestWildlifeOrigins();
+        TestHerdSettings();
+        Assert(HunterSearchRangePolicy.Clamp(0) == 0 && HunterSearchRangePolicy.Clamp(-3) == 0 && HunterSearchRangePolicy.Clamp(5) == 21 &&
+            HunterSearchRangePolicy.Clamp(40) == 40 && HunterSearchRangePolicy.Clamp(999) == 200, "The search range clamp changed.");
+        Assert(HunterSearchRangePolicy.IsWithin(500, 0) && HunterSearchRangePolicy.IsWithin(30, 30) && !HunterSearchRangePolicy.IsWithin(31, 30),
+            "The search range rule changed.");
+        Assert(TannerMeatPolicy.ClampMeatPerTrip(0) == 1 && TannerMeatPolicy.ClampMeatPerTrip(51) == 50 && TannerMeatPolicy.ClampMeatPerTrip(50) == 50, "The meat per trip clamp failed.");
+        Assert(TannerMeatPolicy.MeatRunsFromSliderValue(3) == 0 && TannerMeatPolicy.MeatRunsFromSliderValue(0) == 3 &&
+            TannerMeatPolicy.SliderValueFromMeatRuns(1) == 2, "The slider must run from only meat on the left to no meat on the right.");
     }
 
-    private static void TestSpawnMatching()
+    private static void TestWildlifeRange()
     {
-        const int Chicken = 62;
-        const int Deer = 44;
-        Stack<PendingSpawn> pending = new();
-        pending.Push(new PendingSpawn(1, Chicken));
-
-        PendingSpawn first = pending.Peek();
-        Assert(!GranaryChickenSpawnPolicy.IsMatchingGranaryUnitCreate(true, first.Matched, first.PlayerId, first.UnitType, 10, 20, 3, 2, Chicken, 160, 80, 3),
-            "Another player's chicken must not match.");
-        Assert(!GranaryChickenSpawnPolicy.IsMatchingGranaryUnitCreate(true, first.Matched, first.PlayerId, first.UnitType, 10, 20, 3, 1, Deer, 160, 80, 3),
-            "Another unit type must not match.");
-        Assert(!GranaryChickenSpawnPolicy.IsMatchingGranaryUnitCreate(true, first.Matched, first.PlayerId, first.UnitType, 10, 20, 3, 1, Chicken, 161, 80, 3),
-            "A chicken at another position must not match.");
-        Assert(!GranaryChickenSpawnPolicy.IsMatchingGranaryUnitCreate(true, first.Matched, first.PlayerId, first.UnitType, 10, 20, 3, 1, Chicken, 160, 80, 4),
-            "A chicken at another elevation must not match.");
-        Assert(GranaryChickenSpawnPolicy.IsMatchingGranaryUnitCreate(true, first.Matched, first.PlayerId, first.UnitType, 10, 20, 3, 1, Chicken, 160, 80, 3),
-            "The immediate matching granary chicken was not recognized.");
-        first.Matched = true;
-        Assert(!GranaryChickenSpawnPolicy.IsMatchingGranaryUnitCreate(true, first.Matched, first.PlayerId, first.UnitType, 10, 20, 3, 1, Chicken, 160, 80, 3),
-            "One granary event must not match twice.");
-
-        pending.Push(new PendingSpawn(2, Chicken));
-        PendingSpawn nested = pending.Peek();
-        Assert(GranaryChickenSpawnPolicy.IsMatchingGranaryUnitCreate(true, nested.Matched, nested.PlayerId, nested.UnitType, 12, 21, 4, 2, Chicken, 168, 96, 4),
-            "Nested top-of-stack spawn was not matched.");
-        nested.Matched = true;
-        pending.Pop();
-        Assert(ReferenceEquals(pending.Peek(), first), "Nested spawn completion did not restore its parent context.");
-
-        long failedReturnValue = 0;
-        Assert(failedReturnValue <= 0, "Failed spawn test fixture is invalid.");
-        Assert(GranaryChickenSpawnPolicy.CanAssignCompletedSpawn(true, 42, true, true, 9001, true, true, true),
-            "A successful neutral chicken spawn must be assignable.");
-        Assert(!GranaryChickenSpawnPolicy.CanAssignCompletedSpawn(true, failedReturnValue, false, false, 0, false, false, false),
-            "A failed spawn must not create an assignment.");
-        Assert(!GranaryChickenSpawnPolicy.CanAssignCompletedSpawn(true, 42, true, true, 9001, false, true, true),
-            "A non-neutral owner must fail post-spawn validation.");
-        Assert(!GranaryChickenSpawnPolicy.IsMatchingGranaryUnitCreate(false, false, 1, Chicken, 10, 20, 3, 1, Chicken, 160, 80, 3),
-            "Inactive safety guards must prevent neutralization.");
+        Assert(WildlifeRangePolicy.IsInside(450, 350, 400, 400, 100) && !WildlifeRangePolicy.IsInside(451, 400, 400, 400, 100) && !WildlifeRangePolicy.IsInside(400, 349, 400, 400, 100),
+            "The area must reach exactly half its size from the start place.");
+        short[] route = { 410, 400, 430, 400, 451, 400, 420, 400 };
+        Assert(WildlifeRangePolicy.CountBeforeLeaving(route, 2, 400, 400, 100) == 2, "A route inside the area must stay whole.");
+        Assert(WildlifeRangePolicy.CountBeforeLeaving(route, 4, 400, 400, 100) == 2, "A route must end before its first waypoint outside, also when a later one is inside again.");
+        Assert(WildlifeRangePolicy.CountBeforeLeaving(new short[] { 460, 400 }, 1, 400, 400, 100) == 0, "A route leaving at once must keep nothing.");
+        Assert(WildlifeRangePolicy.CountBeforeLeaving(route, 0, 400, 400, 100) == 0, "An empty route must stay empty.");
     }
 
-    private static void TestSlotReuse()
+    private static void TestHerdSettings()
     {
-        Assert(GranaryChickenSpawnPolicy.IsTrackedIdentityValid(100, 100, true, true),
-            "Stable slot/global identity should remain assigned.");
-        Assert(!GranaryChickenSpawnPolicy.IsTrackedIdentityValid(100, 101, true, true),
-            "A reused slot with a new global ID must be removed.");
-        Assert(!GranaryChickenSpawnPolicy.IsTrackedIdentityValid(100, 100, false, true),
-            "A reused slot with another type must be removed.");
-        Assert(!GranaryChickenSpawnPolicy.IsTrackedIdentityValid(100, 100, true, false),
-            "A dead chicken must be removed.");
-        Assert(!GranaryChickenSpawnPolicy.IsTrackedIdentityValid(0, 0, true, true),
-            "A zero global ID must never become a stable assignment.");
+        Assert(HerdSettingsPolicy.ClampReturnSeconds(0) == 0 && HerdSettingsPolicy.ClampReturnSeconds(-5) == 0 && HerdSettingsPolicy.ClampReturnSeconds(1) == 30 &&
+            HerdSettingsPolicy.ClampReturnSeconds(600) == 600 && HerdSettingsPolicy.ClampReturnSeconds(9999) == 1800, "The return time must keep 0 as off and stay within its range.");
+        Assert(HerdSettingsPolicy.ClampRangeSize(0) == 0 && HerdSettingsPolicy.ClampRangeSize(10) == 40 && HerdSettingsPolicy.ClampRangeSize(100) == 100 && HerdSettingsPolicy.ClampRangeSize(999) == 400,
+            "The area size must keep 0 as no limit and stay within its range.");
+        Assert(HerdSettingsPolicy.ClampStartHerdMode(-1) == 0 && HerdSettingsPolicy.ClampStartHerdMode(2) == 2 && HerdSettingsPolicy.ClampStartHerdMode(9) == 2, "The start herd mode must be one of its three values.");
+        Assert(!HerdSettingsPolicy.WantsStartHerds(0, false) && !HerdSettingsPolicy.WantsStartHerds(0, true) && HerdSettingsPolicy.WantsStartHerds(1, false) && !HerdSettingsPolicy.WantsStartHerds(1, true) &&
+            HerdSettingsPolicy.WantsStartHerds(2, false) && HerdSettingsPolicy.WantsStartHerds(2, true), "Start herds must follow the mode and whether the map has herds.");
+
+        var places = WildlifeStartPlaces.Around(100, 400, 400, 400).ToList();
+        Assert(places[0] == (155, 400), "The first place must lie towards the middle of the map.");
+        Assert(places.Distinct().Count() == places.Count, "Every place may be tried once.");
+        Assert(places.All(p => Math.Max(Math.Abs(p.X - 100), Math.Abs(p.Y - 400)) >= WildlifeStartPlaces.NearestDistance),
+            "A start herd must stay outside the 100 x 100 tiles of a castle layout.");
+        Assert(places.All(p => Math.Max(Math.Abs(p.X - 100), Math.Abs(p.Y - 400)) <= 70), "A start herd must stay near its keep.");
+        Assert(places.SequenceEqual(WildlifeStartPlaces.Around(100, 400, 400, 400)), "All peers must try the same places.");
     }
 
-    private static void TestGranarySelection()
+    private static void TestWildlifeOrigins()
     {
-        Assert(GranaryChickenSpawnPolicy.ChebyshevDistance(10, 10, 13, 14) == 4,
-            "Chebyshev distance is incorrect.");
-        Assert(GranaryChickenSpawnPolicy.IsBetterGranaryCandidate(3, 9, 2, 4, 1, 1),
-            "A nearer granary must win.");
-        Assert(GranaryChickenSpawnPolicy.IsBetterGranaryCandidate(3, 4, 2, 3, 5, 1),
-            "Building ID must break equal-distance ties.");
-        Assert(GranaryChickenSpawnPolicy.IsBetterGranaryCandidate(3, 4, 1, 3, 4, 2),
-            "Player ID must be the final deterministic tie-break.");
-        Assert(!GranaryChickenSpawnPolicy.IsBetterGranaryCandidate(3, 4, 2, 3, 4, 1),
-            "A worse player-ID tie must not replace the current candidate.");
+        var table = new WildlifeOriginTable();
+        Assert(!table.IsCaptured && !table.TryFind(5, 50, out _), "A new table knows no herd.");
+        var deer = new WildlifeOrigin { IsDeer = true, Respawns = true, X = 400, Y = 300, Herd = 5, HerdSerial = 50, ExtinctSinceTick = WildlifeOrigin.NotExtinct };
+        Assert(table.TryAdd(deer) && table.TryFind(5, 50, out WildlifeOrigin found) && found.X == 400 && found.Y == 300, "An added herd must be found.");
+        Assert(!table.TryFind(5, 51, out _), "A record reused for a new herd must not count as the old one.");
+        Assert(table.TryAdd(new WildlifeOrigin { X = 100, Y = 200, Herd = 5, HerdSerial = 51, ExtinctSinceTick = 1234 }) && table.TryFind(5, 51, out _) && table.Count == 2 && table[0].HerdSerial == 50,
+            "A new herd on a reused record must leave the old start place in the table.");
+        Assert(!table.TryAdd(new WildlifeOrigin { X = 1, Y = 1, Herd = 0 }) && !table.TryAdd(new WildlifeOrigin { X = 800, Y = 1, Herd = 6 }) && !table.TryAdd(new WildlifeOrigin { X = 1, Y = 1, Herd = WildlifeOriginTable.HerdCapacity }),
+            "Entries outside the game's herds or grid must be refused.");
+        Assert(table.TryMarkRespawning(5, 51) && table.TryFind(5, 51, out WildlifeOrigin marked) && marked.Respawns && marked.X == 100 && !table.TryMarkRespawning(5, 49),
+            "A herd known from its first route must count as a herd of the map, with the same place.");
+        WildlifeOrigin unmarked = table[1];
+        unmarked.Respawns = false;
+        table[1] = unmarked;
+        table.MarkCaptured();
+
+        byte[] data = table.Encode();
+        var restored = new WildlifeOriginTable();
+        Assert(restored.TryRestore(data) && restored.IsCaptured && restored.Count == 2, "The save record must restore the table.");
+        Assert(restored[0].IsDeer && restored[0].Respawns && restored[0].ExtinctSinceTick == WildlifeOrigin.NotExtinct && !restored[1].IsDeer && !restored[1].Respawns && restored[1].ExtinctSinceTick == 1234 && restored[1].X == 100,
+            "The save record must keep every field.");
+        Assert(restored.TryFind(5, 51, out _) && restored.TryFind(5, 50, out _) && !restored.TryFind(5, 49, out _), "After a load every entry must be found by its serial, also on a shared record.");
+        WildlifeOrigin stale = restored[0];
+        stale.ExtinctSinceTick = 99;
+        restored[0] = stale;
+        Assert(restored.TryFind(5, 51, out WildlifeOrigin current) && current.X == 100 && restored[0].ExtinctSinceTick == 99, "An extinct entry must not take a shared record from the current herd.");
+        stale.ExtinctSinceTick = WildlifeOrigin.NotExtinct;
+        restored[0] = stale;
+        Assert(data.AsSpan().SequenceEqual(restored.Encode()), "The same table must give the same bytes on every peer.");
+        Assert(!restored.TryRestore(data[..^1]) && !restored.IsCaptured && restored.Count == 0, "A damaged record must leave the table empty, so the herds are read again.");
+        Assert(!restored.TryRestore(null!) && !restored.TryRestore(new byte[] { 9, 0, 0, 0, 0 }), "An unknown record must be refused.");
+        table.Clear();
+        Assert(!table.IsCaptured && table.Count == 0 && !table.TryFind(5, 51, out _), "A cleared table must know nothing.");
     }
 
-    private static void TestHunterQueryActorPolicy()
+    private static unsafe void TestTannerRunTable()
     {
-        const ulong manager = 0x10000000;
-        Assert(HunterQueryActorPolicy.TryReconstructHunterUnitId(
-                manager + 96 * HunterQueryActorPolicy.NativeUnitSlotSize,
-                manager,
-                out int hunterUnitId) && hunterUnitId == 96,
-            "The native Hunter ID reconstruction failed.");
-        Assert(!HunterQueryActorPolicy.TryReconstructHunterUnitId(manager, manager, out _),
-            "Hunter ID zero must be rejected.");
-        Assert(!HunterQueryActorPolicy.TryReconstructHunterUnitId(manager - 1, manager, out _),
-            "A Hunter base below the manager must be rejected.");
-        Assert(!HunterQueryActorPolicy.TryReconstructHunterUnitId(manager + 1, manager, out _),
-            "A non-slot-aligned Hunter base must be rejected.");
-        Assert(HunterQueryActorPolicy.IsMatchingCapture(170, 170, 94),
-            "An identity-matching query capture must be accepted.");
-        Assert(!HunterQueryActorPolicy.IsMatchingCapture(170, 171, 94),
-            "A capture from another candidate must be rejected.");
-        Assert(!HunterQueryActorPolicy.IsMatchingCapture(170, 170, 0),
-            "A capture without a reconstructed Hunter must be rejected.");
-    }
+        var table = new TannerRunTable();
+        Assert(table.GetMeatRuns(7, 100) == 0, "A new Tannery starts without meat.");
+        table.SetMeatRuns(7, 100, 2);
+        table.SetMeatRuns(3, 50, 1);
+        Assert(table.GetMeatRuns(7, 100) == 2, "The table must return the chosen runs.");
+        Assert(table.GetMeatRuns(7, 101) == 0, "Another building on the same slot must not inherit them.");
+        byte* entry = (byte*)table.Address + 7 * TannerRunTable.EntrySize;
+        entry[TannerRunTable.MeatTripOffset] = 1;
+        table.SetMeatRuns(7, 100, 0);
+        Assert(entry[TannerRunTable.MeatTripOffset] == 1, "A Tanner on his way keeps the good he carries.");
+        table.SetMeatRuns(7, 101, 3);
+        Assert(entry[TannerRunTable.MeatTripOffset] == 0, "A new building must not inherit a trip.");
+        table.SetMeatRuns(7, 101, 4);
+        Assert(table.GetMeatRuns(7, 101) == 3, "An invalid value must be ignored.");
+        entry[TannerRunTable.MeatTripOffset] = 1;
 
-    private static void TestManualChickenAttackPolicy()
-    {
-        eChimps[] supportedRangedTypes =
-        {
-            eChimps.CHIMP_TYPE_ARCHER,
-            eChimps.CHIMP_TYPE_XBOWMAN,
-            eChimps.CHIMP_TYPE_ARCHER_debug,
-            eChimps.CHIMP_TYPE_CATAPULT,
-            eChimps.CHIMP_TYPE_TREBUCHET,
-            eChimps.CHIMP_TYPE_MANGONEL,
-            eChimps.CHIMP_TYPE_BALLISTA,
-            eChimps.CHIMP_TYPE_ARAB_BOW,
-            eChimps.CHIMP_TYPE_ARAB_SLINGER,
-            eChimps.CHIMP_TYPE_ARAB_HORSEMAN,
-            eChimps.CHIMP_TYPE_ARAB_GRENADIER,
-            eChimps.CHIMP_TYPE_ARAB_BALLISTA,
-            eChimps.CHIMP_TYPE_BEDOUIN_AMBUSHER,
-            eChimps.CHIMP_TYPE_BEDOUIN_SKIRMISHER,
-            eChimps.CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL,
-        };
-        foreach (eChimps type in supportedRangedTypes)
-        {
-            Assert(ManualChickenAttackPolicy.CanOverrideCompatibilityRejection(type),
-                $"Ranged attacker {type} must be eligible for an explicit chicken order.");
-        }
+        byte[] saved = table.Encode();
+        var restored = new TannerRunTable();
+        Assert(restored.TryRestore(saved) && restored.GetMeatRuns(7, 101) == 3 && restored.GetMeatRuns(3, 50) == 1, "The save record must restore the table.");
+        Assert(((byte*)restored.Address + 7 * TannerRunTable.EntrySize)[TannerRunTable.MeatTripOffset] == 1, "The save record must restore a trip on its way.");
+        Assert(restored.Encode().AsSpan().SequenceEqual(saved), "The same state must give the same bytes on every peer.");
 
-        eChimps[] vanillaRejectedTypes =
-        {
-            eChimps.CHIMP_TYPE_HUNTER,
-            eChimps.CHIMP_TYPE_PEASANT,
-            eChimps.CHIMP_TYPE_SPEARMAN,
-            eChimps.CHIMP_TYPE_PIKEMAN,
-            eChimps.CHIMP_TYPE_MACEMAN,
-            eChimps.CHIMP_TYPE_SWORDSMAN,
-            eChimps.CHIMP_TYPE_KNIGHT,
-            eChimps.CHIMP_TYPE_ENGINEER,
-            eChimps.CHIMP_TYPE_MONK,
-            eChimps.CHIMP_TYPE_BEDOUIN_HEALER,
-            eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH,
-            eChimps.CHIMP_TYPE_BEDOUIN_SAPPER,
-            eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER,
-        };
-        foreach (eChimps type in vanillaRejectedTypes)
-        {
-            Assert(!ManualChickenAttackPolicy.CanOverrideCompatibilityRejection(type),
-                $"Non-projectile attacker {type} must retain Vanilla's chicken rejection.");
-        }
-    }
-
-    private static void AssertTarget(int liveCount, int limit, int expectedTarget)
-    {
-        Assert(GranaryChickenSpawnPolicy.TryGetNormalizedVanillaTarget(true, liveCount, limit, out int actualTarget),
-            "Enabled management did not provide an override.");
-        Assert(actualTarget == expectedTarget,
-            $"Unexpected normalized target for live={liveCount}, limit={limit}: {actualTarget}.");
+        byte[] damaged = (byte[])saved.Clone();
+        damaged[sizeof(int) + 6] = 9;
+        Assert(!restored.TryRestore(damaged) && restored.GetMeatRuns(7, 101) == 0, "A damaged record must leave the table empty.");
+        Assert(!restored.TryRestore(new byte[3]) && !restored.TryRestore(null!), "A truncated record must be refused.");
     }
 
     private static void Assert(bool condition, string message)

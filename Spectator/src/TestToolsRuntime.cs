@@ -48,6 +48,7 @@ namespace Spectator
             if (monitor == null || !monitor.IsPrivate || monitor.FieldType != typeof(object) ||
                 (engineLock = monitor.GetValue(null)) == null)
                 throw new MissingFieldException("EngineInterface", "private static object threadLock");
+            InitializeAiPlacement();
             // Retain subscribers for process lifetime. No global AI acceptance override exists.
             forceAttackSubscription = PlayerR3EventHooks.OnPlayerAIEvaluateAttackOrder.Observable.Subscribe(args => {
                 if (args.Phase != EventHookPhase.Pre || forcedOrder == null ||
@@ -68,13 +69,13 @@ namespace Spectator
         private static bool IsToolsSession()
         {
             // Avoid touching mode services before the managed game view exists.
-            if (settings == null || !IsCurrentSession(CurrentSessionId) ||
+            if (settings == null || !AllowsGameplayActions ||
                 !MainViewModel.viewModelLoaded || GameData.Instance?.lastGameState == null) return false;
             bool enabled = ToolSessionPolicy.Enabled(settings.Activation.TestTools, settings.Activation.SingleplayerTest,
                 GameModeHelper.IsMapEditor(), SpectatorPerspectiveRuntime.IsSpectatorObserver(),
                 PlayerPerspectiveAPI.GetControlledPlayerId() > 0);
             return ToolSessionPolicy.CanMutate(enabled,
-                IsCurrentSession(CurrentSessionId), MainViewModel.viewModelLoaded,
+                AllowsGameplayActions, MainViewModel.viewModelLoaded,
                 GameData.Instance?.lastGameState != null, GameModeHelper.IsRealMultiplayer(),
                 Director.instance != null, Director.instance != null && Director.instance.MultiplayerGame);
         }
@@ -144,7 +145,7 @@ namespace Spectator
             if (!IsToolsSession() || (action.Kind != TestActionKind.PowerToggle && !IsToolsPlayer(action.Actor, action.Kind != TestActionKind.Credit)))
             { ReportTestAction(action, SerpLocalization.Get("Tools.InvalidTarget")); return; }
             action.Session = CurrentSessionId;
-            action.PowerGeneration = powerGeneration;
+            action.PowerGeneration = Interlocked.Read(ref powerGeneration);
             action.Operation = Interlocked.Increment(ref nextTestAction);
             testActions.Enqueue(action);
             RequestRender();

@@ -138,6 +138,7 @@ namespace Spectator
 
         private static void DetachHumanControls()
         {
+            DetachAiPlacementPanel();
             toolbarPortraits.Reset();
             ReleaseActivePlayerBuildMenu();
             observerBuildHud.Reset();
@@ -573,7 +574,7 @@ namespace Spectator
                     GameBuildingManagerAPI buildings = GameBuildingManagerAPI.Instance;
                     if (buildings == null) return;
                     int keepId = players.GetPlayerKeepId(owner);
-                    if (keepId <= 0 || !buildings.TryGetBuildingById(keepId, out GameBuilding* keep) ||
+                    if (keepId <= 0 || !global::APIShared.BuildingAccess.TryGetById(buildings, keepId, out GameBuilding* keep, out _) ||
                         keep == null || keep->r_AliveState != AliveState.IsAlive ||
                         keep->r_PlayerIdOwner != owner || keep->r_GlobalId == 0 ||
                         keep->r_BuildingType < eStructs.STRUCT_KEEP_ONE ||
@@ -691,6 +692,9 @@ namespace Spectator
             if (!MainViewModel.viewModelLoaded) return;
             try
             {
+                // Editor AI placement has its own host and never activates the Spectator toolbar.
+                if (sessionMode?.IsMapEditor == true || aiEditorCanvas != null)
+                    RefreshAiPlacementPanel();
                 // Disabling the last applicable feature must retire the old UI too;
                 // it cannot depend on another feature keeping presentation alive.
                 if (!SessionNeedsPresentation())
@@ -716,6 +720,8 @@ namespace Spectator
                     }
                     return;
                 }
+                if (sessionMode?.IsMapEditor == true)
+                { ObservePresentationView(MainViewModel.Instance); return; }
                 // Identity is an input safety guard, independent of the slower status cadence.
                 ObservePresentedPerspective();
                 if (!presentationRefresh.Ready(System.Diagnostics.Stopwatch.GetTimestamp())) return;
@@ -743,6 +749,7 @@ namespace Spectator
                 bool toolbarEligible = presentedToolbarEligible;
                 if (toolbarEligible && (stateCheck || humanPanel == null)) EnsureHumanControls();
                 if (stateCheck || toolbarDirty) RefreshHumanControls(toolbarEligible);
+                RefreshAiPlacementPanel();
                 if (humanEligible)
                 {
                     if (stateCheck || contentChanged) RefreshPowers();

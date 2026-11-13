@@ -26,7 +26,7 @@
   <ItemGroup>
     <Reference Include="System.Xml" />
     <Reference Include="System.Xml.Linq" />
-    <Compile Include="..\..\src\ArabianIdleSoundRuntime.cs" />
+    <Compile Include="..\..\src\Buildings\ArabianIdleSoundRuntime.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Environment.cs" />
   </ItemGroup>

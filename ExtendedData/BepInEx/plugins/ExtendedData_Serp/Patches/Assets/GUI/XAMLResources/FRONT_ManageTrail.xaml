@@ -1,6 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-       xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
+       xmlns:extendedDataApi="clr-namespace:APIShared.ModSettings;assembly=APIShared">
+  <!-- Let the list give up space when the export options need another line. -->
+  <Operation Type="AddNamespace" AttributeName="extendedDataApi" Value="clr-namespace:APIShared.ModSettings;assembly=APIShared" />
+  <Operation Type="InsertBefore" XPath="//n:Grid[n:CheckBox[@x:Name='ExportBackup']]/*[1]">
+    <Content>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="80" />
+        <RowDefinition Height="*" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="60" />
+      </Grid.RowDefinitions>
+    </Content>
+  </Operation>
+  <Operation Type="SetAttribute"
+             XPath="//n:Grid[n:CheckBox[@x:Name='ExportBackup']]/n:Button[@IsHitTestVisible='False']"
+             AttributeName="Grid.RowSpan" Value="5" />
+  <Operation Type="SetAttribute" XPath="//n:ListView[@Name='ExportList']/parent::n:Grid"
+             AttributeName="Grid.Row" Value="1" />
+  <Operation Type="SetAttribute" XPath="//n:ListView[@Name='ExportList']/parent::n:Grid"
+             AttributeName="Height" Value="Auto" />
+  <Operation Type="SetAttribute" XPath="//n:ListView[@Name='ExportList']/parent::n:Grid"
+             AttributeName="VerticalAlignment" Value="Stretch" />
+  <Operation Type="SetAttribute" XPath="//n:ListView[@Name='ExportList']/parent::n:Grid"
+             AttributeName="Margin" Value="0,0,0,8" />
+  <Operation Type="SetAttribute" XPath="//n:TextBox[@Name='ExportTrailName']/parent::n:Grid"
+             AttributeName="Grid.Row" Value="2" />
+  <Operation Type="SetAttribute" XPath="//n:TextBox[@Name='ExportTrailName']/parent::n:Grid"
+             AttributeName="Margin" Value="0,0,0,8" />
+  <Operation Type="SetAttribute" XPath="//n:CheckBox[@x:Name='ExportBackup']"
+             AttributeName="Grid.Row" Value="3" />
+  <Operation Type="SetAttribute" XPath="//n:CheckBox[@x:Name='ExportBackup']"
+             AttributeName="Margin" Value="0,0,0,4" />
+  <Operation Type="SetAttribute"
+             XPath="//n:Grid[n:CheckBox[@x:Name='ExportBackup']]/n:Button[@CommandParameter='CloseExport' or @CommandParameter='DoExport']"
+             AttributeName="Grid.Row" Value="4" />
   <Operation Type="Add"
              XPath="//n:Grid[n:Button[@Name='Load'] and n:Button[@Name='Save']]">
     <Content>
@@ -11,6 +46,29 @@
             HorizontalAlignment="Center"
             VerticalAlignment="Top"
             Visibility="{Binding TrailOptionVisibility}">
+        <Grid.Resources>
+          <Style x:Key="ModSettingsToolTipStyle" TargetType="{x:Type ToolTip}">
+            <Setter Property="Background" Value="#FF1D1710"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#FFF2D48A"/>
+            <Setter Property="FontSize" Value="{x:Static extendedDataApi:ToolTipPresentation.AutomaticFontSize}"/>
+            <Setter Property="MaxWidth" Value="{x:Static extendedDataApi:ToolTipPresentation.AutomaticMaximumWidth}"/>
+            <Setter Property="Padding" Value="24,18"/>
+            <Setter Property="BorderThickness" Value="4.5"/>
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ToolTip}">
+                  <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2"
+                          Padding="{TemplateBinding Padding}" MaxWidth="{TemplateBinding MaxWidth}">
+                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                               FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap"/>
+                  </Border>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+        </Grid.Resources>
         <CheckBox HorizontalAlignment="Center"
                   VerticalAlignment="Center"
                   Foreground="Black"
@@ -18,28 +76,8 @@
                   IsChecked="{Binding IncludeTrailModSettings, Mode=TwoWay}"
                   ToolTipService.ShowDuration="60000">
           <CheckBox.ToolTip>
-            <ToolTip seui:ToolTipResolutionScale.Enabled="True"
-                     Content="{Binding TrailHelpText}"
-                     Background="#FF1D1710"
-                     Foreground="White"
-                     BorderBrush="#FFF2D48A"
-                     BorderThickness="1">
-              <ToolTip.Template>
-                <ControlTemplate TargetType="{x:Type ToolTip}">
-                  <Border Background="{TemplateBinding Background}"
-                          BorderBrush="{TemplateBinding BorderBrush}"
-                          BorderThickness="1"
-                          CornerRadius="2"
-                          Padding="{TemplateBinding Padding}"
-                          MaxWidth="520">
-                    <TextBlock Text="{TemplateBinding Content}"
-                               Foreground="{TemplateBinding Foreground}"
-                               FontSize="{TemplateBinding FontSize}"
-                               TextWrapping="Wrap" />
-                  </Border>
-                </ControlTemplate>
-              </ToolTip.Template>
-            </ToolTip>
+            <ToolTip Style="{StaticResource ModSettingsToolTipStyle}" extendedDataApi:SharedToolTipSizing.Enabled="True"
+                     Content="{Binding TrailHelpText}"/>
           </CheckBox.ToolTip>
         </CheckBox>
       </Grid>

@@ -91,3 +91,11 @@ namespace SerpsModsHost
         public static string Get(string key, params object[] values) => key;
     }
 }
+namespace APIShared
+{
+    // API logging boundary double (APIShared's single logging entry point); its real logger is tested in APIShared.
+    internal static class NativeApiLog
+    {
+        public static void Warning(BepInEx.Logging.ManualLogSource log, string message) { }
+    }
+}

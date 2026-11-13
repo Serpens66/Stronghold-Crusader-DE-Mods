@@ -215,7 +215,7 @@ namespace PrebuiltWorkshopBothFixTest
                     ? pair.Item2 : pair.Item1;
                 foreach (SpawnObservation item in items)
                 {
-                    if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(item.Id, out GameBuilding* building) ||
+                    if (!global::APIShared.BuildingAccess.TryGetById(item.Id, out GameBuilding* building, out _) ||
                         building->r_AliveState != AliveState.NeedsInit || building->r_PlayerIdOwner != playerId ||
                         building->r_BuildingType != group.Key.Type ||
                         building->r_NextProducedGoodId != vanillaDefault ||
@@ -236,7 +236,8 @@ namespace PrebuiltWorkshopBothFixTest
                 if (changes.Count != items.Length) continue;
                 bool mismatch = changes.Any(change =>
                 {
-                    GameBuildingManagerAPI.Instance.TryGetBuildingById(change.Item1, out GameBuilding* b);
+                    if (!global::APIShared.BuildingAccess.TryGetById(change.Item1, out GameBuilding* b, out _))
+                        throw new InvalidOperationException("Workshop snapshot became unavailable before correction.");
                     return b->r_NextProducedGoodId != change.Item2 || b->r_ProducedGoodId != change.Item2;
                 });
                 if (!mismatch)
@@ -246,7 +247,8 @@ namespace PrebuiltWorkshopBothFixTest
                 }
                 foreach (var change in changes)
                 {
-                    GameBuildingManagerAPI.Instance.TryGetBuildingById(change.Item1, out GameBuilding* building);
+                    if (!global::APIShared.BuildingAccess.TryGetById(change.Item1, out GameBuilding* building, out _))
+                        throw new InvalidOperationException("Workshop snapshot became unavailable before correction.");
                     building->r_NextProducedGoodId = change.Item2;
                     building->r_ProducedGoodId = change.Item2;
                     Shared.DebugLogHelper.LogInfo(log,
@@ -278,7 +280,7 @@ namespace PrebuiltWorkshopBothFixTest
 
         private void LogWorkshop(SpawnObservation item, string phase)
         {
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(item.Id, out GameBuilding* building))
+            if (!global::APIShared.BuildingAccess.TryGetById(item.Id, out GameBuilding* building, out _))
             {
                 Shared.DebugLogHelper.LogWarning(log,
                     $"Workshop snapshot unavailable: phase={phase}, player={item.PlayerId}, id={item.Id}, reason=invalid-id.");

@@ -36,6 +36,7 @@ namespace Spectator
 
         private static bool BeforeObserverStartMapper(int item, ref int __result)
         {
+            if (IsObserverBuildUiThread) RequestRender();
             // Zero is Vanilla's cancellation path. Never block it, even while retiring
             // an invalid Place target. Background/synchronized callers remain untouched.
             if (!IsObserverBuildUiThread || item == 0) return true;
@@ -47,6 +48,10 @@ namespace Spectator
             __result = -1;
             return false;
         }
+
+        // The editor owner can change while the same mapper stays selected (also 0 -> 1).
+        private static void AfterEditorPlacementOwnerChanged()
+        { if (IsObserverBuildUiThread) RequestRender(); }
 
         // True means this HUD belongs to a read-only observer, even when it was
         // already blank. Call before the lease's native-page observer so a rejected

@@ -3,6 +3,15 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 
+namespace BugfixesAndQoL
+{
+    // The isolated fixture needs only the production owner's hook-registration identity.
+    internal static class BugfixesAndQoLPlugin
+    {
+        internal const string PluginGuid = "BugfixesAndQoL_Serp";
+    }
+}
+
 namespace BugfixesAndQoL.SavegameMissingMap
 {
     internal static class StartupTests

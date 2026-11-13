@@ -15,14 +15,14 @@ var gate = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "Share
 // A real omitted-unit regression: execute the entire production activation method
 // and limiter. Only game lookups/orders are simulated; counters expose log-only rereads.
 string fixture = """
-using System;using System.Linq;using System.Collections.Generic;using System.Diagnostics;using System.Runtime.InteropServices;
-enum AliveState{IsAlive=2,Dead=0}enum eStructs{Ordinary,Excluded}enum TribeStance{Aggressive}enum TribeMoveType{DefaultInSync}
+using System;using System.Linq;using System.Collections.Generic;using System.Diagnostics;using System.Runtime.InteropServices;using SHCDESE.API;using SHCDESE.Interop;
+public enum AliveState{IsAlive=2,Dead=0}public enum eStructs{Ordinary,Excluded}enum TribeStance{Aggressive}enum TribeMoveType{DefaultInSync}
 struct GamePlayerResources{public int r_LordUnitId;}
-struct GameBuilding{public uint r_GlobalId;public AliveState r_AliveState;public int r_PlayerIdOwner;public eStructs r_BuildingType;}
+namespace SHCDESE.Interop{public struct GameBuilding{public uint r_GlobalId;public AliveState r_AliveState;public int r_PlayerIdOwner;public eStructs r_BuildingType;}}
 struct GameUnit{public uint r_GlobalId;public int r_ControllableForPlayerId,r_TribeId,r_TribeLeaderUnitId;public bool Alive;}
 struct GameTribe{public uint r_GlobalId;public int r_PlayerIdOwner;public TribeStance r_TribeStance;}
 unsafe class GamePlayerManagerAPI{public static GamePlayerManagerAPI Instance=new();private GamePlayerResources* p=(GamePlayerResources*)Marshal.AllocHGlobal(sizeof(GamePlayerResources));public GamePlayerManagerAPI(){*p=default;}public bool TryGetPlayerResourcesById(int id,out GamePlayerResources* r){r=p;return true;}public int GetPlayerTeam(int id)=>9;public bool IsPlayerAlliedTo(int a,int b)=>false;}
-unsafe class GameBuildingManagerAPI{public static GameBuildingManagerAPI Instance=new();public bool Found=true;public int Reads;public GameBuilding* P=(GameBuilding*)Marshal.AllocHGlobal(sizeof(GameBuilding));public bool TryGetBuildingById(int id,out GameBuilding* p){Reads++;p=P;return Found;}}
+namespace SHCDESE.API{public unsafe class GameBuildingManagerAPI{public static GameBuildingManagerAPI Instance=new();public bool Found=true;public int Reads;public GameBuilding* P=(GameBuilding*)Marshal.AllocHGlobal(sizeof(GameBuilding));public bool IsValidId(int id)=>id>0&&id<=100;public bool TryGetBuildingById(int id,out GameBuilding* p){Reads++;p=P;return Found;}}}
 class GameUnitManagerAPI{public static GameUnitManagerAPI Instance=new();}
 unsafe class GameTribeManagerAPI{public static GameTribeManagerAPI Instance=new();public int Creates,Moves,Assignments;public GameTribe* P=(GameTribe*)Marshal.AllocHGlobal(sizeof(GameTribe));public uint Create(int owner){Creates++;*P=new(){r_GlobalId=99,r_PlayerIdOwner=owner};return 7;}public bool TryGetTribeById(int id,out GameTribe* p){p=P;return true;}public bool AssignUnit(int tribe,int unit){Assignments++;APIShared.UnitAccess.Units[unit].r_TribeId=tribe;return true;}public bool SetStance(int id,TribeStance s){P->r_TribeStance=s;return true;}public bool IssueMoveHereCommand(int id,int x,int y,bool isPatrolPath,int bIsNewOrder,TribeMoveType tribeMoveType){Moves++;return true;}}
 namespace APIShared{enum UnitLookupFailure{None,Unavailable}unsafe static class UnitAccess{public static GameUnit* Units=(GameUnit*)Marshal.AllocHGlobal(sizeof(GameUnit)*32);public static int Reads,LifeReads;public static bool TryGetById(GameUnitManagerAPI manager,int id,out GameUnit* p,out UnitLookupFailure failure){Reads++;p=id==4?null:Units+id;failure=p==null?UnitLookupFailure.Unavailable:UnitLookupFailure.None;return p!=null;}public static bool IsReallyAlive(GameUnit* p){LifeReads++;return p->Alive;}}}
@@ -58,7 +58,7 @@ public unsafe class Fixture{
 """;
 fixture = fixture.Replace("__MEMBERS__", string.Join("\n", members.Select(m => m.ToFullString()))).Replace("__GATE__", gate.ToFullString());
 var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator).Select(p => MetadataReference.CreateFromFile(p));
-var compilation = CSharpCompilation.Create("BanditFixture", new[] { CSharpSyntaxTree.ParseText(fixture) }, references,
+var compilation = CSharpCompilation.Create("BanditFixture", new[] { CSharpSyntaxTree.ParseText(fixture), CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Buildings/BuildingAccess.cs"))) }, references,
     new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
 using var output = new MemoryStream();
 var result = compilation.Emit(output);

@@ -102,11 +102,69 @@ internal static class RuntimeSignatures
         catch (Exception) { rejected = true; }
         Check(rejected, "Binding checker accepted an invalid member: " + xaml);
     }
+    // Compile the production state model against command/notification boundaries only.
+    // This guards the one-button migration against executing the previous mount/dismount mode.
+    private static void CheckKnightActionState(string mod)
+    {
+        string boundary = @"
+using System;
+using System.ComponentModel;
+namespace SHCDESE.NoesisUtil { public sealed class RelayCommand {
+ readonly Action action; public RelayCommand(Action action) { this.action=action; }
+ public void Execute(object parameter)=>action();
+} }
+namespace SHCDESE.ViewModels { public class LobbyModSettingsBaseViewModel : INotifyPropertyChanged {
+ public event PropertyChangedEventHandler PropertyChanged;
+ protected void OnPropertyChanged(string name)=>PropertyChanged?.Invoke(this,new PropertyChangedEventArgs(name));
+} }
+public static class ButtonStateFixture {
+ static void Require(bool condition,string message) { if(!condition)throw new Exception(message); }
+ public static void Run() {
+  int mounts=0,dismounts=0,changes=0;
+  var model=new ExtraFeatures.KnightDismountButtonViewModel(()=>dismounts++,()=>mounts++);
+  model.PropertyChanged+=(sender,args)=> {
+   changes++;
+   Require(!model.Enabled||model.WantsVisibility,""Enabled state published while hidden"");
+  };
+  model.TransformCommand.Execute(null);
+  Require(mounts==0&&dismounts==0,""Initially hidden action executed"");
+  model.ShowMount(true);model.TransformCommand.Execute(null);
+  Require(model.MountSelected&&mounts==1&&dismounts==0,""Mount mode executed the wrong command"");
+  int before=changes;model.ShowMount(true);
+  Require(changes==before,""Equivalent refresh emitted a state change"");
+  model.ShowDismount(false);model.TransformCommand.Execute(null);
+  Require(!model.MountSelected&&mounts==1&&dismounts==0,""Disabled dismount action executed"");
+  model.ShowDismount(true);model.TransformCommand.Execute(null);
+  Require(mounts==1&&dismounts==1,""Mode switch retained mount command"");
+  model.ShowMount(false);model.TransformCommand.Execute(null);
+  Require(model.MountSelected&&mounts==1,""Disabled mount action executed"");
+  model.Hide();model.TransformCommand.Execute(null);
+  Require(!model.WantsVisibility&&!model.Enabled&&mounts==1&&dismounts==1,""Hidden action executed"");
+  model.ShowDismount(true);model.TransformCommand.Execute(null);
+  Require(dismounts==2,""Action did not recover after hiding"");
+ }
+}";
+        var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator)
+            .Select(path => MetadataReference.CreateFromFile(path));
+        var state = CSharpCompilation.Create("KnightActionState", new[] {
+            CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(mod,"src/KnightDismountButtonViewModel.cs"))),
+            CSharpSyntaxTree.ParseText(boundary) }, references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var output = new MemoryStream();
+        var emitted = state.Emit(output);
+        Check(emitted.Success, "Production Knight button state fixture failed: " + string.Join("\n", emitted.Diagnostics));
+        try { System.Reflection.Assembly.Load(output.ToArray()).GetType("ButtonStateFixture").GetMethod("Run").Invoke(null,null); }
+        catch (System.Reflection.TargetInvocationException error) { throw error.InnerException ?? error; }
+        Console.WriteLine("PASS: production Knight action state preserves command mode, disabled/hidden guards and complete notifications.");
+    }
+
     private static int Main(string[] args)
     {
         try
         {
             string mod = Path.GetFullPath(args[0]);
+            CheckKnightActionState(mod);
+            if (args.Contains("--action-button-state")) return 0;
             string game = "E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition";
             string framework = "C:/Program Files (x86)/Reference Assemblies/Microsoft/Framework/.NETFramework/v4.8.1";
             var project = XDocument.Load(Path.Combine(mod, "ExtraFeatures.csproj")); XNamespace ns = project.Root.Name.Namespace;

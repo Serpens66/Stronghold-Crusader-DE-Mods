@@ -1,11 +1,9 @@
-using BepInEx;
 using Iced.Intel;
 using SHCDESE.API.LowLevel;
 using SHCDESE.GameGlobals;
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 
 namespace Spectator
 {
@@ -22,15 +20,10 @@ namespace Spectator
         private const int PowerRva = 0xCD630, GateRva = 0xD5810, BridgeRva = 0xD57B0;
         private const int PowersAroundLordRva = 0x37EF96C;
 
-        private static void InitializeNativeActions(CrusaderLibraryLoadContext context)
+        private static void InitializeNativeActions(CrusaderLibraryLoadContext context, byte[] image)
         {
             try
             {
-                byte[] image = File.ReadAllBytes(Path.Combine(Paths.GameRootPath,
-                    "Stronghold Crusader Definitive Edition_Data", "Plugins", "x86_64", "CrusaderDE.dll"));
-                using (var sha = SHA256.Create())
-                    if (BitConverter.ToString(sha.ComputeHash(image)).Replace("-", "") != NativeSha256)
-                        throw new InvalidDataException("Unknown native image; action/data contracts are hash-bound.");
                 toolsImage = context.ModuleHandle.ToInt64();
                 // Call-only adapters: never overwrite an entry, call site, automation hook or effect function.
                 powerEntry = ReferenceEntry(image, PowerRva, 512);

@@ -10,7 +10,7 @@ namespace Spectator
         private bool enableClientFeatures = true, enableMod = true, enableSpectatorPerspective = true, enableStatistics = true,
             enableEliminatedPlayersBecomeSpectators = true;
         // Test and cheat tools are opt-in.
-        private bool enableTestTools, enableSingleplayerTestMode, enableSpectatorControl;
+        private bool enableTestTools, enableSingleplayerTestMode, enableSpectatorControl, showDateWhenHudHidden;
         public ToolsText Text { get; } = new ToolsText();
         public RelayCommand ResetToDefaultCommand { get; }
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
@@ -37,10 +37,13 @@ namespace Spectator
         [PresetLocal]
         public bool EnableSpectatorPerspective { get => enableSpectatorPerspective; set => Set(ref enableSpectatorPerspective, value, nameof(EnableSpectatorPerspective)); }
         // Original singleplayer spectators control the player chosen in the portrait bar.
+        // Temporarily disabled (too buggy): the setting is hidden and every value, including stored presets, is forced off.
         [PresetLocal]
-        public bool EnableSpectatorControl { get => enableSpectatorControl; set => Set(ref enableSpectatorControl, value, nameof(EnableSpectatorControl)); }
+        public bool EnableSpectatorControl { get => enableSpectatorControl; set => Set(ref enableSpectatorControl, false, nameof(EnableSpectatorControl)); }
         [PresetLocal]
         public bool EnableStatistics { get => enableStatistics; set => Set(ref enableStatistics, value, nameof(EnableStatistics)); }
+        [PresetLocal]
+        public bool ShowDateWhenHudHidden { get => showDateWhenHudHidden; set => Set(ref showDateWhenHudHidden, value, nameof(ShowDateWhenHudHidden)); }
         [SyncHostOnly, MissionIndependent]
         public bool EnableEliminatedPlayersBecomeSpectators { get => enableEliminatedPlayersBecomeSpectators; set => Set(ref enableEliminatedPlayersBecomeSpectators, value, nameof(EnableEliminatedPlayersBecomeSpectators)); }
 

@@ -144,7 +144,7 @@ namespace UnitLimit
         private unsafe bool TryReadSnapshot(int buildingId, out SiegeTentSnapshot snapshot)
         {
             snapshot = default(SiegeTentSnapshot);
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building))
+            if (!global::APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _))
                 return false;
 
             return TryCreateSnapshot(*building, out snapshot);

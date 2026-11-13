@@ -24,6 +24,7 @@ namespace Spectator
         }
         private static PowerSelection pendingPower;
         private static long powerGeneration;
+        private static readonly Action<PowerSelection> cancelNativePowerSelection = CancelNativePowerSelection;
         private static int toolMouseState;
         private static NativePowerContext powerContext;
         [ThreadStatic] private static bool selectingTestPower;
@@ -55,10 +56,12 @@ namespace Spectator
 
         private static void RefreshPowerSelection()
         {
-            if (pendingPower != null && (!IsCurrentSession(pendingPower.Session) || pendingPower.Actor != humanSelectedOwner ||
-                !GamePlayerManagerAPI.Instance.IsLocalPlayerExtremePowersEnabled())) CancelPowerSelection();
-            else if (pendingPower != null && powerContext?.Ready == true && powerContext.Mode != 4 && powerContext.Mode != 5)
-                pendingPower = null; // Native confirmation/cancellation finished; no synthetic key handling.
+            PowerSelection selected = System.Threading.Volatile.Read(ref pendingPower);
+            if (selected == null) return;
+            if (!IsCurrentSession(selected.Session) || selected.Actor != humanSelectedOwner ||
+                !GamePlayerManagerAPI.Instance.IsLocalPlayerExtremePowersEnabled()) CancelPowerSelection();
+            else if (powerContext?.Ready == true && powerContext.Mode != 4 && powerContext.Mode != 5)
+                System.Threading.Interlocked.CompareExchange(ref pendingPower, null, selected); // Native confirmation/cancellation finished.
         }
 
         private static void RefreshPowers()
@@ -92,7 +95,7 @@ namespace Spectator
                 if ((uint)id > (uint)ExtremePower.RockVolley || !IsSelectableAi(humanSelectedOwner)) return;
                 ToolPower power = DescribePower(id);
                 if (!power.Enabled) { toolsModel.Status = SerpLocalization.Get("Tools.PowerUnavailable"); return; }
-                pendingPower = new PowerSelection { Session = CurrentSessionId, Generation = powerGeneration,
+                pendingPower = new PowerSelection { Session = CurrentSessionId, Generation = System.Threading.Interlocked.Read(ref powerGeneration),
                     Actor = humanSelectedOwner, Power = power };
                 RequestRender();
                 selectingTestPower = true;
@@ -120,21 +123,22 @@ namespace Spectator
 
         private static void CancelPowerSelection()
         {
-            if (engineLock == null) { pendingPower = null; powerGeneration++; return; }
-            lock (engineLock)
-            {
-                PowerSelection previous = pendingPower;
-                pendingPower = null; powerGeneration++;
-                if (previous != null && IsCurrentSession(previous.Session) && powerContext?.Ready == true &&
-                    (powerContext.Mode == 4 || powerContext.Mode == 5) && powerContext.SelectedPower == previous.Power.Id)
-                    powerContext.Cancel();
-            }
+            PowerSelectionCancellation.Cancel(ref pendingPower, ref powerGeneration,
+                engineLock, cancelNativePowerSelection);
+        }
+
+        // Called only for an owned selection and with the engine monitor held.
+        private static void CancelNativePowerSelection(PowerSelection previous)
+        {
+            if (IsCurrentSession(previous.Session) && powerContext?.Ready == true &&
+                (powerContext.Mode == 4 || powerContext.Mode == 5) && powerContext.SelectedPower == previous.Power.Id)
+                powerContext.Cancel();
         }
 
         // Called inside Vanilla under its engine monitor. Never read Noesis or change a bound ViewModel here.
         private static int NativePowerQuery(int site)
         {
-            PowerSelection selected = pendingPower;
+            PowerSelection selected = System.Threading.Volatile.Read(ref pendingPower);
             if (powerContext?.Ready != true || selected == null || (site == 0 || site == 3) && !selectingTestPower) return 0;
             try
             {
@@ -144,7 +148,7 @@ namespace Spectator
                     return site >= 2 ? 1 : selected.Actor;
                 }
                 if (!ToolPolicy.PowerContextMatches(selected.Session, CurrentSessionId, selected.Actor, humanSelectedOwner,
-                    selected.Generation, powerGeneration, IsCurrentSession(selected.Session) &&
+                    selected.Generation, System.Threading.Interlocked.Read(ref powerGeneration), IsCurrentSession(selected.Session) &&
                     GamePlayerManagerAPI.Instance.IsLocalPlayerExtremePowersEnabled())) return site >= 2 ? 1 : 0;
                 if (site < 2) return selected.Actor;
                 // Atomically consume the native confirmation, retaining the captured AI/session for the queue.
@@ -191,7 +195,7 @@ namespace Spectator
         private static string ExecutePower(TestAction action)
         {
             if (!ToolPolicy.PowerContextMatches(action.Session, CurrentSessionId, action.Actor, humanSelectedOwner,
-                action.PowerGeneration, powerGeneration, HasPowerTestContext())) return SerpLocalization.Get("Tools.PowerCancelled");
+                action.PowerGeneration, System.Threading.Interlocked.Read(ref powerGeneration), HasPowerTestContext())) return SerpLocalization.Get("Tools.PowerCancelled");
             if (!GamePlayerManagerAPI.Instance.IsLocalPlayerExtremePowersEnabled()) return SerpLocalization.Get("Tools.PowerUnavailable");
             ToolPower current = DescribePower(action.Power.Id);
             if (!action.Power.SameContract(current)) return SerpLocalization.Get("Tools.PowerChanged");

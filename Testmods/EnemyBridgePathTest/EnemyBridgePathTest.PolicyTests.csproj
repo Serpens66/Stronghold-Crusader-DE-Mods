@@ -18,6 +18,7 @@
 <Reference Include="Assembly-CSharp"><HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath><Private>true</Private></Reference>
 </ItemGroup>
   <ItemGroup>
+    <Reference Include="APIShared"><HintPath>$(ApiSharedDir)\APIShared.dll</HintPath><Private>true</Private></Reference>
     <Compile Include="tests\NativeDecisionTests.cs" /><Compile Include="src\BridgeNativeDefinition.cs" /><Compile Include="src\BridgeNativeHooks.cs" />
     <Compile Include="src\BridgeDiagnostics.cs" /><Compile Include="src\BridgeDecisionTrace.cs" /><Compile Include="src\BridgeTraceTransport.cs" /><Compile Include="src\BridgeRouteTrace.cs" /><Compile Include="src\BridgeBuildingIndex.cs" /><Compile Include="src\VirtualBridgeGraph.cs" /><Compile Include="src\VirtualComponentControl.cs" /><Compile Include="src\BridgeInputArtifact.cs" /><Compile Include="src\BridgeVirtualShadow.cs" /><Compile Include="src\BridgeSnapshot.cs" /><Compile Include="tests\LeanTraceTests.cs" /><Compile Include="tests\RouteTraceTests.cs" />
     <Compile Include="tests\Program.cs" /><Compile Include="tests\TraceTransportTests.cs" /><Compile Include="tests\VirtualBridgeTests.cs" /><Compile Include="tests\ShadowControlTests.cs" /><Compile Include="tests\DrawbridgeClosureTests.cs" />
@@ -32,8 +33,8 @@
   <ItemGroup><Compile Include="..\..\Shared\Runtime\Threading\DeferredSnapshotRefreshRequest.cs" /></ItemGroup>
   <ItemGroup><Compile Include="tests\CaptureRefreshTests.cs" /><Compile Include="src\VirtualCandidateBuilder.cs" /></ItemGroup>
   <ItemGroup><Compile Include="..\..\APIShared\src\Buildings\Gatehouse\GatehouseDrawbridgeCoupling.cs"><Link>GatehouseDrawbridgeCoupling.cs</Link></Compile></ItemGroup>
-  <ItemGroup><Compile Include="..\..\APIShared\src\Units\UnitAccess.cs"><Link>UnitAccess.cs</Link></Compile></ItemGroup>
-  <ItemGroup><Compile Include="tests\OwnerFixture.cs" /><Compile Include="..\..\BugfixesAndQoL\src\UnitCommands\Attack\ManualProbeRepairGuards.cs"><Link>ManualProbeRepairGuards.cs</Link></Compile></ItemGroup>
+  <ItemGroup><Compile Include="..\..\APIShared\src\Units\Selection\UnitAccess.cs"><Link>UnitAccess.cs</Link></Compile></ItemGroup>
+  <ItemGroup><Compile Include="tests\OwnerFixture.cs" /><Compile Include="..\..\Pathfinding\src\UnitCommands\Attack\ManualProbeRepairGuards.cs"><Link>ManualProbeRepairGuards.cs</Link></Compile></ItemGroup>
   <ItemGroup>
     <Compile Include="src\CopiedMilitaryEntry.cs" />
   </ItemGroup>

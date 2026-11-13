@@ -1,0 +1,29 @@
+{
+  "enabled": true,
+  "series": "SP-worker-production",
+  "role": "sp",
+  "quitWhenDone": true,
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 90000, "stopOnFail": true, "allowErrors": true },
+    { "id": "profile", "do": "Production.Configure", "stopOnFail": true },
+    { "id": "skirmish", "do": "Skirmish.Open", "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "map", "do": "Lobby.SelectMap", "args": ["4spielerkarte.map"], "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "ai", "do": "Lobby.AddAI", "args": ["1", "1"], "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "peace", "do": "Lobby.PeaceTime", "args": ["60"], "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "play", "do": "Lobby.Play", "timeoutMs": 45000, "stopOnFail": true },
+    { "id": "briefing", "do": "AiMilitary.ResumeBriefing", "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "unpause", "do": "Pause", "args": ["off"], "stopOnFail": true },
+    { "id": "speed", "do": "Speed", "args": ["120"], "stopOnFail": true },
+    { "id": "owner", "do": "AiMilitary.WaitOwner", "timeoutMs": 20000, "stopOnFail": true },
+    { "id": "fixture", "do": "Production.Setup", "args": ["sp"], "timeoutMs": 45000, "stopOnFail": true },
+    { "id": "mill", "do": "Production.MillerDelivery", "timeoutMs": 120000, "stopOnFail": true },
+    { "id": "installed-yield-crc", "do": "Production.QuarterAndCrc", "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "save", "do": "Production.Save", "timeoutMs": 20000, "stopOnFail": true },
+    { "id": "menu-for-load", "do": "QuitToMenu", "timeoutMs": 30000, "stopOnFail": true },
+    { "id": "load", "do": "Production.Reload", "timeoutMs": 45000, "stopOnFail": true },
+    { "id": "restart", "do": "Production.Restart", "timeoutMs": 45000, "stopOnFail": true },
+    { "id": "fresh-credits", "do": "Production.ExpectFresh", "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "menu-end", "do": "QuitToMenu", "timeoutMs": 30000, "stopOnFail": true },
+    { "id": "disable", "do": "Production.Disable", "stopOnFail": true }
+  ]
+}

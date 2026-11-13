@@ -11,7 +11,7 @@ Buildbezogene Abläufe und Prüfungslisten in diesen Anweisungen sind Empfehlung
 - APIShared-interne Grundimplementierungen werden unabhängig gepflegt, nicht automatisch synchronisiert; Fehlerkorrekturen auf Relevanz für beide Seiten prüfen. Modspezifisches in modseitigen Hilfen/Adaptern ergänzen.
 - Ordnerpfade sind keine C#-Namespaces; bei reinen Verschiebungen bleiben Namespaces und XAML-Typidentitäten unverändert. Aktive Pfade in Projekten, Treibern, Tests und Anweisungen gemeinsam migrieren; historische Nachweise nicht umschreiben.
 - Vor jedem Runtime-Build zusätzlich `Shared/Tools/Validation/Test-SharedBoundaries.ps1` (Quelllinks, Runtime-JSON/Lifecycle/Scheduling, XAML-Wurzeln, permanente Hooks).
-- Modgebundene Befehlsruntime: `BugfixesAndQoL/src/UnitCommands` (Namespace `BugfixesAndQoL.UnitCommands`); Formationen: `BugfixesAndQoL/src/Formations`. MoatMove nutzt den internen Anbieterweg und das lokale Paket der BugfixesAndQoL-Assembly, keine Runtime-Quelllinks auf diese Engine. Allgemeine Routensuchereignisse: `APIShared/src/Pathfinding/Routes`. Native Algorithmen, Hooks und Featureeinstellungen gehören nicht allein wegen eines gemeinsamen Addons nach APIShared.
+- Modgebundene Befehlsruntime: `Pathfinding/src/UnitCommands` (Namespace `Pathfinding.UnitCommands`); Routenkern: `Pathfinding/src/Engine`; Formationen: `Pathfinding/src/Formations`. Andere Mods verlinken diese Engine nicht als Quelle. Allgemeine Routensuchereignisse: `APIShared/src/Pathfinding/Routes`. Native Algorithmen, Hooks und Featureeinstellungen gehören nicht allein wegen eines gemeinsamen Addons nach APIShared.
 
 ## APIShared nutzen
 

@@ -486,7 +486,7 @@ namespace AIBuildDiagnoseTest
         }
         private static BuildingEvidenceIdentity Identity(int slot)
         {
-            if (slot <= 0 || !GameBuildingManagerAPI.Instance.TryGetBuildingById(slot, out GameBuilding* b) || b == null) return null;
+            if (slot <= 0 || !global::APIShared.BuildingAccess.TryGetById(slot, out GameBuilding* b, out _) || b == null) return null;
             return new BuildingEvidenceIdentity(slot, b->r_GlobalId, b->r_PlayerIdOwner, (int)b->r_BuildingType,
                 b->r_TilePositionXBegin, b->r_TilePositionYBegin, (int)b->r_AliveState, b->N0000178A);
         }

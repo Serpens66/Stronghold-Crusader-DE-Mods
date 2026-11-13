@@ -18,12 +18,12 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\Shared\Runtime\Gameplay\GatehouseQueryUnitIdPolicy.cs"><Link>GatehouseQueryUnitIdPolicy.cs</Link></Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\MountedStockpileMovementPolicy.cs"><Link>MountedStockpileMovementPolicy.cs</Link></Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\MarketGoldPolicy.cs"><Link>MarketGoldPolicy.cs</Link></Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\HealerAttackCommandFixNativeDefinition.cs"><Link>HealerAttackCommandFixNativeDefinition.cs</Link></Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\ControlGroupDisbandCleanupPolicy.cs"><Link>ControlGroupDisbandCleanupPolicy.cs</Link></Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\ControlGroupNativeDefinition.cs"><Link>ControlGroupNativeDefinition.cs</Link></Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\LordControlGroupNativeDefinition.cs"><Link>LordControlGroupNativeDefinition.cs</Link></Compile>
+    <Compile Include="..\..\Pathfinding\src\TroopMovement\MountedStockpileMovementPolicy.cs"><Link>MountedStockpileMovementPolicy.cs</Link></Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\Market\MarketGoldPolicy.cs"><Link>MarketGoldPolicy.cs</Link></Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\UnitOrders\HealerAttackCommandFixNativeDefinition.cs"><Link>HealerAttackCommandFixNativeDefinition.cs</Link></Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\LordAndControlGroups\ControlGroupDisbandCleanupPolicy.cs"><Link>ControlGroupDisbandCleanupPolicy.cs</Link></Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\LordAndControlGroups\ControlGroupNativeDefinition.cs"><Link>ControlGroupNativeDefinition.cs</Link></Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\LordAndControlGroups\LordControlGroupNativeDefinition.cs"><Link>LordControlGroupNativeDefinition.cs</Link></Compile>
     <Compile Include="Program.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

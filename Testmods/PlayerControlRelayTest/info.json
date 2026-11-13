@@ -1,0 +1,11 @@
+{
+  "GUID": "PlayerControlRelayTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Player Control Relay Test",
+  "Description": "Experimental shared control: exactly the clicked allied units can be selected and ordered with the normal mouse. Owner or host relay with synchronized Move and Stop.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.14.0",
+  "Dependencies": [ { "GUID": "APIShared_Serp", "MinimumVersion": "0.27.0" } ],
+  "Manifest": 1,
+  "NetworkMode": 1
+}

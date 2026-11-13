@@ -2,7 +2,8 @@
 <Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
        xmlns:local="clr-namespace:CrusaderDE"
        xmlns:shared="clr-namespace:Shared;assembly=ExtraFeatures"
-       xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
+       xmlns:extraFeaturesApi="clr-namespace:APIShared.ModSettings;assembly=APIShared">
+  <Operation Type="AddNamespace" AttributeName="extraFeaturesApi" Value="clr-namespace:APIShared.ModSettings;assembly=APIShared" />
   <Operation Type="SetAttribute" XPath="//n:Slider[@Name='Autotrade_Sell_Slider']" AttributeName="Minimum" Value="0" />
   <Operation Type="Add" XPath="//n:Grid[@Name='ShowGate']">
     <Content>
@@ -13,6 +14,29 @@
             HorizontalAlignment="Right"
             VerticalAlignment="Top"
             Visibility="{Binding ButtonVisibility}">
+        <Grid.Resources>
+          <Style x:Key="ModSettingsToolTipStyle" TargetType="{x:Type ToolTip}">
+            <Setter Property="Background" Value="#FF1D1710"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#FFF2D48A"/>
+            <Setter Property="FontSize" Value="{x:Static extraFeaturesApi:ToolTipPresentation.AutomaticFontSize}"/>
+            <Setter Property="MaxWidth" Value="{x:Static extraFeaturesApi:ToolTipPresentation.AutomaticMaximumWidth}"/>
+            <Setter Property="Padding" Value="24,18"/>
+            <Setter Property="BorderThickness" Value="4.5"/>
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ToolTip}">
+                  <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2"
+                          Padding="{TemplateBinding Padding}" MaxWidth="{TemplateBinding MaxWidth}">
+                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                               FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap"/>
+                  </Border>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+        </Grid.Resources>
         <Button x:Name="ExtraFeaturesGatehouseAutomationButton"
                 Width="57"
                 Height="57"
@@ -24,26 +48,8 @@
                 BorderBrush="#FFB08A4A"
                 BorderThickness="2">
           <Button.ToolTip>
-            <ToolTip seui:ToolTipResolutionScale.Enabled="True" Content="{Binding ToolTipText}"
-                     Background="#FF1D1710"
-                     Foreground="White"
-                     BorderBrush="#FFF2D48A"
-                     BorderThickness="1">
-              <ToolTip.Template>
-                <ControlTemplate TargetType="{x:Type ToolTip}">
-                  <Border Background="{TemplateBinding Background}"
-                          BorderBrush="{TemplateBinding BorderBrush}"
-                          BorderThickness="1"
-                          CornerRadius="2"
-                          Padding="{TemplateBinding Padding}"
-                          MaxWidth="{TemplateBinding MaxWidth}">
-                    <TextBlock Text="{TemplateBinding Content}"
-                               Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}"
-                               TextWrapping="Wrap"/>
-                  </Border>
-                </ControlTemplate>
-              </ToolTip.Template>
-            </ToolTip>
+            <ToolTip Style="{StaticResource ModSettingsToolTipStyle}" extraFeaturesApi:SharedToolTipSizing.Enabled="True"
+                     Content="{Binding ToolTipText}"/>
           </Button.ToolTip>
           <Grid Width="53" Height="53">
             <Image Width="49"
@@ -79,6 +85,29 @@
             HorizontalAlignment="Right"
             VerticalAlignment="Top"
             Visibility="{Binding ButtonVisibility}">
+        <Grid.Resources>
+          <Style x:Key="ModSettingsToolTipStyle" TargetType="{x:Type ToolTip}">
+            <Setter Property="Background" Value="#FF1D1710"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#FFF2D48A"/>
+            <Setter Property="FontSize" Value="{x:Static extraFeaturesApi:ToolTipPresentation.AutomaticFontSize}"/>
+            <Setter Property="MaxWidth" Value="{x:Static extraFeaturesApi:ToolTipPresentation.AutomaticMaximumWidth}"/>
+            <Setter Property="Padding" Value="24,18"/>
+            <Setter Property="BorderThickness" Value="4.5"/>
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ToolTip}">
+                  <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2"
+                          Padding="{TemplateBinding Padding}" MaxWidth="{TemplateBinding MaxWidth}">
+                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                               FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap"/>
+                  </Border>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+        </Grid.Resources>
         <Button x:Name="ExtraFeaturesDrawbridgeAutomationButton"
                 Width="57"
                 Height="57"
@@ -90,26 +119,8 @@
                 BorderBrush="#FFB08A4A"
                 BorderThickness="2">
           <Button.ToolTip>
-            <ToolTip seui:ToolTipResolutionScale.Enabled="True" Content="{Binding ToolTipText}"
-                     Background="#FF1D1710"
-                     Foreground="White"
-                     BorderBrush="#FFF2D48A"
-                     BorderThickness="1">
-              <ToolTip.Template>
-                <ControlTemplate TargetType="{x:Type ToolTip}">
-                  <Border Background="{TemplateBinding Background}"
-                          BorderBrush="{TemplateBinding BorderBrush}"
-                          BorderThickness="1"
-                          CornerRadius="2"
-                          Padding="{TemplateBinding Padding}"
-                          MaxWidth="{TemplateBinding MaxWidth}">
-                    <TextBlock Text="{TemplateBinding Content}"
-                               Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}"
-                               TextWrapping="Wrap"/>
-                  </Border>
-                </ControlTemplate>
-              </ToolTip.Template>
-            </ToolTip>
+            <ToolTip Style="{StaticResource ModSettingsToolTipStyle}" extraFeaturesApi:SharedToolTipSizing.Enabled="True"
+                     Content="{Binding ToolTipText}"/>
           </Button.ToolTip>
           <Grid Width="53" Height="53">
             <Image Width="49"

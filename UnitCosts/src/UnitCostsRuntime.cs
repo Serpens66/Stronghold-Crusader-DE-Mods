@@ -1006,7 +1006,7 @@ namespace UnitCosts
             {
                 unsafe
                 {
-                    if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(stableId, out GameBuilding* stable) ||
+                    if (!global::APIShared.BuildingAccess.TryGetById(stableId, out GameBuilding* stable, out _) ||
                         !IsUsableStable(stable, playerId))
                     {
                         continue;
@@ -1034,7 +1034,7 @@ namespace UnitCosts
             {
                 unsafe
                 {
-                    if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(stableId, out GameBuilding* stable) ||
+                    if (!global::APIShared.BuildingAccess.TryGetById(stableId, out GameBuilding* stable, out _) ||
                         !IsUsableStable(stable, playerId) ||
                         GetAvailableStableHorseCount(stable) <= 0)
                     {
@@ -1075,7 +1075,7 @@ namespace UnitCosts
                 return false;
             }
 
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(allocation.StableId, out GameBuilding* stable) ||
+            if (!global::APIShared.BuildingAccess.TryGetById(allocation.StableId, out GameBuilding* stable, out _) ||
                 !IsUsableStable(stable, playerId) ||
                 (int)stable->r_GlobalId != allocation.StableGlobalId ||
                 GetAvailableStableHorseCount(stable) <= 0 ||
@@ -1129,7 +1129,7 @@ namespace UnitCosts
         private unsafe void RollbackStableHorseLink(HorseAllocation allocation, int unitId)
         {
             if (allocation.Slot < 0 || allocation.Slot >= StableHorseSlotCount ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(allocation.StableId, out GameBuilding* stable) ||
+                !global::APIShared.BuildingAccess.TryGetById(allocation.StableId, out GameBuilding* stable, out _) ||
                 (int)stable->r_GlobalId != allocation.StableGlobalId ||
                 GetStableHorseSlotUnitId(stable, allocation.Slot) != unitId)
             {
@@ -1165,7 +1165,7 @@ namespace UnitCosts
             if (stableId <= 0 || stableId > ushort.MaxValue || stableGlobalId == 0)
                 return;
 
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(stableId, out GameBuilding* stable) ||
+            if (!global::APIShared.BuildingAccess.TryGetById(stableId, out GameBuilding* stable, out _) ||
                 !IsUsableStable(stable, playerId) ||
                 stable->r_GlobalId != stableGlobalId)
             {
@@ -1338,7 +1338,7 @@ namespace UnitCosts
             int occupiedSlotsBefore)
         {
             if (slot < 0 || slot >= StableHorseSlotCount ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(stableId, out GameBuilding* stable) ||
+                !global::APIShared.BuildingAccess.TryGetById(stableId, out GameBuilding* stable, out _) ||
                 !IsUsableStable(stable, playerId) ||
                 stable->r_GlobalId != stableGlobalId ||
                 !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||

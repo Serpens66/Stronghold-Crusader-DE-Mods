@@ -71,7 +71,6 @@
   </ItemGroup>
   <ItemGroup><Content Include="Locales\*.txt"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content></ItemGroup>
   <ItemGroup>
-    <Compile Include="..\Shared\Runtime\UI\ToolTipPresentation.cs"><Link>Shared\Runtime\UI\ToolTipPresentation.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\UI\NumericTextInput.cs"><Link>Shared\Runtime\UI\NumericTextInput.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

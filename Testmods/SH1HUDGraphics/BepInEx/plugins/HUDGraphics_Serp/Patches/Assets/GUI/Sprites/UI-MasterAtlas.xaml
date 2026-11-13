@@ -1,0 +1,2233 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Operation Type="InsertAfter" XPath="//*[@x:Key='UI-MasterAtlas']">
+    <Content>
+      <BitmapImage x:Key="HUDGraphics_Serp.Atlas06" UriSource="HUDGraphics_Serp/atlas-06.dds" />
+    </Content>
+  </Operation>
+  <Operation Type="InsertAfter" XPath="//*[@x:Key='UI-MasterAtlas']">
+    <Content>
+      <BitmapImage x:Key="HUDGraphics_Serp.Atlas05" UriSource="HUDGraphics_Serp/atlas-05.dds" />
+    </Content>
+  </Operation>
+  <Operation Type="InsertAfter" XPath="//*[@x:Key='UI-MasterAtlas']">
+    <Content>
+      <BitmapImage x:Key="HUDGraphics_Serp.Atlas04" UriSource="HUDGraphics_Serp/atlas-04.dds" />
+    </Content>
+  </Operation>
+  <Operation Type="InsertAfter" XPath="//*[@x:Key='UI-MasterAtlas']">
+    <Content>
+      <BitmapImage x:Key="HUDGraphics_Serp.Atlas03" UriSource="HUDGraphics_Serp/atlas-03.dds" />
+    </Content>
+  </Operation>
+  <Operation Type="InsertAfter" XPath="//*[@x:Key='UI-MasterAtlas']">
+    <Content>
+      <BitmapImage x:Key="HUDGraphics_Serp.Atlas02" UriSource="HUDGraphics_Serp/atlas-02.dds" />
+    </Content>
+  </Operation>
+  <Operation Type="InsertAfter" XPath="//*[@x:Key='UI-MasterAtlas']">
+    <Content>
+      <BitmapImage x:Key="HUDGraphics_Serp.Atlas01" UriSource="HUDGraphics_Serp/atlas-01.dds" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='Panel_Border_Bottom']">
+    <Content>
+      <CroppedBitmap x:Key="Panel_Border_Bottom" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="2,1590,1000,120" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='Panel_Border_Left']">
+    <Content>
+      <CroppedBitmap x:Key="Panel_Border_Left" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="509,420,120,1000" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='Panel_Border_Right']">
+    <Content>
+      <CroppedBitmap x:Key="Panel_Border_Right" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="633,420,120,1000" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='Panel_Border_Top']">
+    <Content>
+      <CroppedBitmap x:Key="Panel_Border_Top" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1006,1590,1000,120" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='Panel_CelticKnot']">
+    <Content>
+      <CroppedBitmap x:Key="Panel_CelticKnot" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1178,552,78,156" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='Panel_Corner_2_Bottom_Left']">
+    <Content>
+      <CroppedBitmap x:Key="Panel_Corner_2_Bottom_Left" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="380,1304,120,120" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='Panel_Corner_2_Bottom_Right']">
+    <Content>
+      <CroppedBitmap x:Key="Panel_Corner_2_Bottom_Right" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="380,1428,120,120" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='Panel_Corner_2_Top_Left']">
+    <Content>
+      <CroppedBitmap x:Key="Panel_Corner_2_Top_Left" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="396,1552,120,120" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='Panel_Corner_2_Top_Right']">
+    <Content>
+      <CroppedBitmap x:Key="Panel_Corner_2_Top_Right" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="504,1424,120,120" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='Panel_Corner_Bottom_Left']">
+    <Content>
+      <CroppedBitmap x:Key="Panel_Corner_Bottom_Left" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="396,1676,120,120" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='Panel_Corner_Bottom_Right']">
+    <Content>
+      <CroppedBitmap x:Key="Panel_Corner_Bottom_Right" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="520,1548,120,120" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='Panel_Corner_Top_Left']">
+    <Content>
+      <CroppedBitmap x:Key="Panel_Corner_Top_Left" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="628,1424,120,120" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='Panel_Corner_Top_Right']">
+    <Content>
+      <CroppedBitmap x:Key="Panel_Corner_Top_Right" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="520,1672,120,120" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='Panel_Divider']">
+    <Content>
+      <CroppedBitmap x:Key="Panel_Divider" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="2,1556,1070,30" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='ReportsShield']">
+    <Content>
+      <CroppedBitmap x:Key="ReportsShield" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="806,1714,502,282" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='Resources_Disabled']">
+    <Content>
+      <CroppedBitmap x:Key="Resources_Disabled" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1110,1970,68,68" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='Resources_Highlight']">
+    <Content>
+      <CroppedBitmap x:Key="Resources_Highlight" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1206,2,68,68" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='Resources_Normal']">
+    <Content>
+      <CroppedBitmap x:Key="Resources_Normal" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1206,74,68,68" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='Scribe_B_over']">
+    <Content>
+      <CroppedBitmap x:Key="Scribe_B_over" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="640,1674,200,200" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='Scribe_B_selected']">
+    <Content>
+      <CroppedBitmap x:Key="Scribe_B_selected" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="844,1674,200,200" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='Scribe_B_up']">
+    <Content>
+      <CroppedBitmap x:Key="Scribe_B_up" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1048,1674,200,200" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='Scribe_C_over']">
+    <Content>
+      <CroppedBitmap x:Key="Scribe_C_over" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1252,1674,200,200" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='Scribe_C_selected']">
+    <Content>
+      <CroppedBitmap x:Key="Scribe_C_selected" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1456,1674,200,200" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='Scribe_C_up']">
+    <Content>
+      <CroppedBitmap x:Key="Scribe_C_up" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1660,1674,200,200" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='Slider_Thumb']">
+    <Content>
+      <CroppedBitmap x:Key="Slider_Thumb" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1034,1954,80,80" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='Slider_Thumb_bottom']">
+    <Content>
+      <CroppedBitmap x:Key="Slider_Thumb_bottom" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1064,1751,80,60" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='Slider_Thumb_top']">
+    <Content>
+      <CroppedBitmap x:Key="Slider_Thumb_top" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1406,1973,80,60" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings A001']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings A001" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1256,767,68,68" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings A002']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings A002" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1256,839,68,68" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings A003']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings A003" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1201,1807,68,68" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings A004']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings A004" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1201,1879,68,68" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings A005']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings A005" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1180,358,68,68" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings A006']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings A006" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1183,239,68,68" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings A007']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings A007" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1180,430,68,68" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings A008']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings A008" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1260,911,68,68" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings A009']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings A009" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1260,983,68,68" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings A010']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings A010" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1163,1511,68,68" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings A011']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings A011" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1166,1382,68,68" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings A012']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings A012" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1180,1257,68,68" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings A013']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings A013" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1163,1583,68,68" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings A014']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings A014" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1163,1655,68,68" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings A015']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings A015" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1230,1727,68,68" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings A016']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings A016" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1273,1799,68,68" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings A017']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings A017" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1273,1871,68,68" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings A018']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings A018" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1282,1943,68,68" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings A019']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings A019" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1252,311,68,68" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings A020']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings A020" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1255,239,68,68" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings B001']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings B001" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="757,1256,110,95" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings B002']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings B002" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="871,916,110,95" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings B003']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings B003" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="872,790,108,102" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings B004']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings B004" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="877,516,108,102" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings B005']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings B005" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="758,264,113,120" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings B006']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings B006" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="875,264,113,120" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings C001']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings C001" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="989,388,105,132" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings C002']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings C002" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="992,250,105,132" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings C003']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings C003" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1347,1788,132,109" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings C004']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings C004" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1402,1674,132,109" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings C005']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings C005" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1483,1874,131,136" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings C006']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings C006" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1618,1874,131,136" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings C007']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings C007" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1892,2,141,154" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings C008']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings C008" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1892,160,141,154" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings C009']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings C009" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1887,1775,128,128" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings C010']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings C010" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1886,1907,128,128" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings C011']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings C011" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1892,2,147,97" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings C012']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings C012" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1892,103,147,97" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings C013']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings C013" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="872,662,108,124" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings C014']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings C014" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="877,388,108,124" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings D001']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings D001" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1347,1901,132,83" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings D002']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings D002" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1483,1787,132,83" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings D003']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings D003" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1892,1018,151,126" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings D004']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings D004" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1892,1148,151,126" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings D005']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings D005" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1892,2,152,181" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings D006']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings D006" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1892,187,152,181" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings D007']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings D007" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="994,154,88,92" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings D008']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings D008" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1086,154,88,92" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings D009']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings D009" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1892,1122,141,117" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings D010']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings D010" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1892,1243,141,117" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings D011']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings D011" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="2,1893,190,114" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings D012']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings D012" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="196,1893,190,114" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings D013']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings D013" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1084,1674,155,122" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings D014']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings D014" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1188,1800,155,122" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings E001']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings E001" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1560,1882,157,150" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings E002']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings E002" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1721,1882,157,150" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings E003']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings E003" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="748,1882,159,153" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings E004']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings E004" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="911,1882,159,153" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings E005']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings E005" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1080,1878,162,168" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings E006']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings E006" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1246,1878,162,168" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings E007']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings E007" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1892,204,146,157" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings E008']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings E008" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1892,365,146,157" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings E009']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings E009" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1892,684,151,163" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings E010']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings E010" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1892,851,151,163" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings F001']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings F001" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="872,1424,103,114" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings F002']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings F002" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="885,1542,103,114" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings F003']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings F003" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="984,622,106,109" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings F004']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings F004" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="984,735,106,109" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings F005']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings F005" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1412,1905,158,135" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings F006']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings F006" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1574,1905,158,135" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings F007']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings F007" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="216,1674,208,197" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings F008']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings F008" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="428,1674,208,197" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings F009']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings F009" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1892,99,139,132" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings F010']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings F010" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1892,235,139,132" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings F011']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings F011" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1925,1771,112,97" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings F012']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings F012" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="757,561,112,97" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings G001']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings G001" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="716,1884,86,160" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings G002']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings G002" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="888,1660,86,160" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings G003']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings G003" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1236,1882,158,87" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings G004']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings G004" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1398,1882,158,87" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings G005']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings G005" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="266,1810,123,77" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings G006']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings G006" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="964,1965,123,77" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings G007']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings G007" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="2004,2,37,94" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings G008']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings G008" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1327,278,37,94" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings G009']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings G009" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="757,420,116,137" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings G010']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings G010" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="758,2,116,137" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings G011']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings G011" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="184,1882,175,122" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings G012']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings G012" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="363,1905,175,122" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings G013']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings G013" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1892,1278,150,114" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings G014']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings G014" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1892,1396,150,114" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings G015']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings G015" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1094,622,80,153" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings G016']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings G016" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1172,779,80,153" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings G017']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings G017" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1892,850,144,114" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings G018']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings G018" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1892,968,144,114" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings G019']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings G019" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="2,1905,179,127" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings G020']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings G020" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="185,1905,179,127" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings H001']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings H001" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="380,670,125,116" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings H002']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings H002" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="380,790,125,116" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings H003']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings H003" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1480,1911,194,123" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings H004']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings H004" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1678,1911,194,123" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings H005']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings H005" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="757,1355,106,65" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings H006']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings H006" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="867,1355,106,65" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings H007']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings H007" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1619,1775,131,95" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings H008']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings H008" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1538,1674,131,95" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings H009']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings H009" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1188,1926,155,110" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings H010']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings H010" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1243,1674,155,110" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings H011']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings H011" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1087,848,81,97" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings H012']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings H012" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1078,1650,81,97" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings H013']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings H013" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1673,1674,76,81" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings H014']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings H014" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1178,154,76,81" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings H015']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings H015" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1814,1466,201,118" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings H016']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings H016" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1275,1911,201,118" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings H017']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings H017" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="2,1934,204,111" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings H018']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings H018" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1606,1466,204,111" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings I001']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings I001" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="878,2,112,120" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings I002']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings I002" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="878,126,112,120" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings I003']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings I003" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="757,662,111,123" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings I004']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings I004" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="757,789,111,123" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings I005']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings I005" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="769,1670,115,117" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings I006']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings I006" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="758,143,115,117" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings I007']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings I007" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1925,1645,121,122" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings I008']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings I008" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="380,1178,121,122" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings I009']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings I009" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="752,1424,116,119" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings I010']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings I010" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="765,1547,116,119" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings J001']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings J001" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1892,602,141,126" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings J002']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings J002" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1892,732,141,126" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings J003']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings J003" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="524,1796,120,120" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings J004']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings J004" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="524,1920,120,120" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings J005']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings J005" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="644,1548,117,123" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings J006']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings J006" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="648,1675,117,123" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings J007']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings J007" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1892,318,141,138" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings J008']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings J008" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1892,460,141,138" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings J009']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings J009" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1892,372,152,152" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings J010']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings J010" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1892,528,152,152" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings K001']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings K001" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1278,2,65,188" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings K002']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings K002" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1235,1454,65,188" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings K003']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings K003" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1176,1119,81,134" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings K004']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings K004" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1034,1816,81,134" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings K005']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings K005" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="973,1167,98,154" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings K006']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings K006" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="871,1167,98,155" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings K007']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings K007" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="648,1802,116,174" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings K008']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings K008" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="768,1802,116,174" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings K009']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings K009" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="757,916,110,166" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings K010']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings K010" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="757,1086,110,166" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings L003']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings L003" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1075,1138,97,118" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings L004']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings L004" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1079,1260,97,118" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings L005']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings L005" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1754,1674,129,147" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings L006']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings L006" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1753,1874,129,147" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings L007']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings L007" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="380,910,123,130" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings L008']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings L008" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="380,1044,123,130" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings L023']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings L023" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1892,1463,132,152" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings L024']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings L024" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1892,1619,132,152" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings L025']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings L025" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="977,1015,98,119" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings L026']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings L026" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="985,848,98,119" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings M001']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings M001" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="2,1674,128,113" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings M002']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings M002" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="2,1791,128,113" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings M003']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings M003" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1736,1905,158,130" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings M004']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings M004" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1074,1882,158,130" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings M005']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings M005" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1892,526,145,158" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings M006']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings M006" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1892,688,145,158" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings M007']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings M007" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1898,1905,148,127" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings M008']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings M008" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1892,1514,148,127" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings M009']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings M009" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="394,1810,126,116" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings M010']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings M010" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="394,1930,126,116" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings M011']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings M011" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="406,1882,167,159" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings M012']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings M012" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="577,1882,167,159" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N001']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N001" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1118,1981,78,64" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N002']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N002" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1200,1981,78,64" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N003']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N003" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1101,250,78,50" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N004']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N004" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1101,304,78,50" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N005']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N005" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1178,712,78,51" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N006']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N006" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1028,1970,78,51" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N007']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N007" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1347,1988,78,52" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N008']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N008" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1148,1751,78,52" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N009']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N009" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="380,420,125,121" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N010']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N010" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="380,545,125,121" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N011']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N011" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1892,371,138,166" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N012']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N012" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1892,541,138,166" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N013']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N013" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1892,862,141,126" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N014']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N014" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1892,992,141,126" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N015']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N015" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1892,1167,136,144" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N016']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N016" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1892,1315,136,144" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N017']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N017" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="210,1934,139,81" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N018']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N018" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="821,1965,139,81" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N019']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N019" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1892,1566,140,93" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N020']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N020" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1892,2,140,93" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N021']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N021" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1892,1308,142,125" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N022']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N022" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1892,1437,142,125" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N023']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N023" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1892,1364,140,126" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N024']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N024" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1892,1494,140,126" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N025']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N025" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1892,1086,144,107" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N026']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N026" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1892,1197,144,107" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N027']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N027" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="353,1879,230,150" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N028']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N028" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="587,1879,230,150" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N029']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N029" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="244,1884,232,162" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N030']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N030" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="480,1884,232,162" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N031']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N031" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1796,1714,242,175" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N032']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N032" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1758,2,242,175" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N033']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N033" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1796,1893,238,147" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N034']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N034" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="2,1884,238,147" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N037']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N037" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1711,1674,210,202" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N038']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N038" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="2,1674,210,202" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N039']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N039" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="798,1674,188,195" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N040']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N040" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="990,1674,188,195" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N041']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N041" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="406,1674,192,192" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N042']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N042" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="602,1674,192,192" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N043']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N043" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1864,1674,180,227" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N044']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N044" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="382,1674,180,227" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N045']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N045" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1876,1880,168,138" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N046']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N046" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="908,1905,168,138" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N047']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N047" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="948,1824,82,207" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N048']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N048" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="992,1521,82,207" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N049']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N049" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1078,1521,81,125" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N050']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N050" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1081,1382,81,125" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N051']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N051" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1236,1973,81,69" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N052']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N052" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1321,1973,81,69" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N053']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N053" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1482,1990,81,53" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N054']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N054" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1567,1990,81,53" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N055']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N055" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1652,1990,81,51" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N056']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N056" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1942,1820,81,51" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N057']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N057" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1312,1990,81,54" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N058']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N058" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1397,1990,81,54" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N059']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N059" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="566,1674,175,258" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N060']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N060" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="745,1674,175,258" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N061']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N061" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="2,1674,198,215" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N062']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N062" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="204,1674,198,215" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N063']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N063" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1275,1674,214,233" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N064']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N064" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1493,1674,214,233" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N065']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N065" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="833,1674,217,287" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N066']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N066" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1054,1674,217,287" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N067']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N067" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="888,1824,47,80" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N068']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N068" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1327,194,47,80" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N069']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N069" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="353,1674,236,201" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buildings N070']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buildings N070" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="593,1674,236,201" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A001']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A001" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1984,181,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A002']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A002" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1984,255,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A003']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A003" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1984,329,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A004']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A004" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1984,403,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A005']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A005" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1984,477,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A006']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A006" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1984,551,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A007']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A007" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1984,625,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A008']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A008" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1984,699,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A009']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A009" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1984,773,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A010']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A010" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1984,847,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A011']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A011" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1984,921,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A012']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A012" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1984,995,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A013']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A013" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1984,1069,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A014']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A014" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1984,1143,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A015']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A015" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1984,1217,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A016']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A016" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1984,1291,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A017']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A017" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1984,1365,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A018']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A018" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1490,1973,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A019']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A019" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1235,1646,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A020']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A020" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1299,1646,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A021']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A021" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1302,1720,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A022']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A022" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1238,1329,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A023']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A023" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1345,1794,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A024']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A024" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1345,1868,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A025']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A025" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1354,1942,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A026']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A026" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1252,383,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A027']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A027" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1252,457,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A028']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A028" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1260,531,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A029']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A029" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1316,383,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A030']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A030" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1316,457,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A031']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A031" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1260,605,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons A032']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons A032" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1260,679,60,70" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G028']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G028" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1882,1882,156,144" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G029']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G029" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="924,1674,156,144" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G030']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G030" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1028,1822,156,144" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G031']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G031" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="134,1894,126,132" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G032']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G032" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="264,1894,126,132" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G033']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G033" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="266,1674,126,132" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G034']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G034" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="368,1905,176,130" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G035']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G035" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="548,1905,176,130" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G036']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G036" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="728,1905,176,130" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G061']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G061" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="994,2,102,148" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G062']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G062" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1100,2,102,148" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G063']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G063" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="871,1015,102,148" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G064']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G064" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1178,936,78,162" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G065']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G065" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1119,1815,78,162" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G066']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G066" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1098,386,78,162" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G067']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G067" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="542,1936,158,110" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G068']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G068" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="704,1936,158,110" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G069']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G069" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="866,1936,158,110" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G070']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G070" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1892,711,136,148" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G071']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G071" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1892,863,136,148" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G072']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G072" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1892,1015,136,148" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G136']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G136" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="977,1325,98,94" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G137']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G137" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="924,1822,98,94" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G138']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G138" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="979,1423,98,94" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G139']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G139" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="2,1908,128,106" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G140']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G140" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="134,1674,128,106" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G141']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G141" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="134,1784,128,106" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G142']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G142" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1091,1965,82,80" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G143']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G143" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1177,1965,82,80" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G144']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G144" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="978,1732,82,80" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G145']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G145" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="648,1980,96,66" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G146']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G146" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="748,1980,96,66" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G147']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G147" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="848,1980,96,66" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G148']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G148" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1942,1624,104,94" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G149']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G149" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1942,1722,104,94" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons G150']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons G150" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="989,524,104,94" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons H001']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons H001" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1180,502,48,46" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons H002']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons H002" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="806,2000,48,46" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons H003']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons H003" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="858,2000,48,46" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons H004']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons H004" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="910,2000,47,46" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons H005']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons H005" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="961,2000,47,46" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Buttons H006']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Buttons H006" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1012,2000,47,46" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-HUD 000']">
+    <Content>
+      <CroppedBitmap x:Key="UI-HUD 000" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="2,1264,1600,288" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-HUD 001']">
+    <Content>
+      <CroppedBitmap x:Key="UI-HUD 001" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="2,1674,347,256" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-HUD 002']">
+    <Content>
+      <CroppedBitmap x:Key="UI-HUD 002" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="1079,971,95,144" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-HUD 003']">
+    <Content>
+      <CroppedBitmap x:Key="UI-HUD 003" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="2,606,1600,340" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-HUD 004']">
+    <Content>
+      <CroppedBitmap x:Key="UI-HUD 004" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="2,1714,800,166" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-HUD 005']">
+    <Content>
+      <CroppedBitmap x:Key="UI-HUD 005" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="2,212,1600,390" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-HUD 006']">
+    <Content>
+      <CroppedBitmap x:Key="UI-HUD 006" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="2,950,1600,310" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-HUD 007']">
+    <Content>
+      <CroppedBitmap x:Key="UI-HUD 007" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="2,2,1752,206" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-HUD 008']">
+    <Content>
+      <CroppedBitmap x:Key="UI-HUD 008" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1312,1714,480,272" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B001']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B001" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1606,212,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B002']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B002" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1606,630,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B003']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B003" Source="{StaticResource HUDGraphics_Serp.Atlas01}" SourceRect="1606,1048,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B004']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B004" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="2,2,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B005']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B005" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="2,420,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B006']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B006" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="2,838,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B007']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B007" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="2,1256,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B008']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B008" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="380,2,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B009']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B009" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="758,2,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B010']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B010" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1136,2,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B011']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B011" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1514,2,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B012']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B012" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="380,420,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B013']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B013" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="380,838,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B014']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B014" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="380,1256,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B015']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B015" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="758,420,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B016']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B016" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1136,420,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B017']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B017" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1514,420,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B018']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B018" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="758,838,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B019']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B019" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="758,1256,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B020']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B020" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1136,838,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B021']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B021" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1514,838,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B022']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B022" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1136,1256,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B023']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B023" Source="{StaticResource HUDGraphics_Serp.Atlas02}" SourceRect="1514,1256,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B024']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B024" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="2,2,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B025']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B025" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="2,420,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B026']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B026" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="2,838,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B027']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B027" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="2,1256,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B028']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B028" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="380,2,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B029']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B029" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="758,2,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B030']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B030" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1136,2,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B031']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B031" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1514,2,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B032']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B032" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="380,420,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B033']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B033" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="380,838,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B034']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B034" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="380,1256,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B035']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B035" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="758,420,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B036']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B036" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1136,420,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B037']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B037" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1514,420,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B038']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B038" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="758,838,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B039']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B039" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="758,1256,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B040']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B040" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1136,838,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B041']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B041" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1514,838,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B042']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B042" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1136,1256,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B043']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B043" Source="{StaticResource HUDGraphics_Serp.Atlas03}" SourceRect="1514,1256,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B044']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B044" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="2,2,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe B045']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe B045" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="2,1882,178,164" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C001']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C001" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="2,420,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C002']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C002" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="2,838,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C003']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C003" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="2,1256,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C004']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C004" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="380,2,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C005']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C005" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="758,2,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C006']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C006" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1136,2,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C007']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C007" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1514,2,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C008']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C008" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="380,420,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C009']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C009" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="380,838,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C010']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C010" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="380,1256,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C011']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C011" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="758,420,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C012']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C012" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1136,420,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C013']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C013" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1514,420,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C014']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C014" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="758,838,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C015']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C015" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="758,1256,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C016']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C016" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1136,838,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C017']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C017" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1514,838,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C018']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C018" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1136,1256,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C019']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C019" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1514,1256,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C020']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C020" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="2,2,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C021']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C021" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="2,420,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C022']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C022" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="2,838,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C023']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C023" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="2,1256,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C024']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C024" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="380,2,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C025']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C025" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="758,2,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C026']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C026" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1136,2,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C027']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C027" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1514,2,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C028']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C028" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="380,420,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C029']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C029" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="380,838,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C030']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C030" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="380,1256,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C031']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C031" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="758,420,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C032']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C032" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1136,420,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C033']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C033" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1514,420,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C034']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C034" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="758,838,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C035']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C035" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="758,1256,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C036']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C036" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1136,838,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C037']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C037" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1514,838,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C038']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C038" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1136,1256,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C039']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C039" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="1514,1256,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C040']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C040" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="2,2,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C041']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C041" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="2,420,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C042']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C042" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="2,838,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C043']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C043" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="2,1256,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UI-Scribe C044']">
+    <Content>
+      <CroppedBitmap x:Key="UI-Scribe C044" Source="{StaticResource HUDGraphics_Serp.Atlas06}" SourceRect="380,2,374,414" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='UISprites B001']">
+    <Content>
+      <CroppedBitmap x:Key="UISprites B001" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="184,2008,94,38" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='shield_book']">
+    <Content>
+      <CroppedBitmap x:Key="shield_book" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1182,1674,186,204" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='shield_campaign']">
+    <Content>
+      <CroppedBitmap x:Key="shield_campaign" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1372,1674,186,204" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='shield_castle']">
+    <Content>
+      <CroppedBitmap x:Key="shield_castle" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1562,1674,186,204" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='shield_combat_games']">
+    <Content>
+      <CroppedBitmap x:Key="shield_combat_games" Source="{StaticResource HUDGraphics_Serp.Atlas04}" SourceRect="1752,1674,186,204" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='shield_mapeditor']">
+    <Content>
+      <CroppedBitmap x:Key="shield_mapeditor" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="2,1674,186,204" />
+    </Content>
+  </Operation>
+  <Operation Type="Replace" XPath="//*[@x:Key='siege_freebuild']">
+    <Content>
+      <CroppedBitmap x:Key="siege_freebuild" Source="{StaticResource HUDGraphics_Serp.Atlas05}" SourceRect="192,1674,186,204" />
+    </Content>
+  </Operation>
+</Patch>

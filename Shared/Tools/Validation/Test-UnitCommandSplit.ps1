@@ -2,7 +2,7 @@
 param([switch]$SkipCommonChecks, [switch]$SkipCompiler, [string]$ModDirectory, [switch]$SkipPermanentHooks)
 $ErrorActionPreference = 'Stop'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
-$projects = @('APIShared\APIShared.csproj', 'BugfixesAndQoL\BugfixesAndQoL.csproj', 'Testmods\MoatMove\MoatMove.csproj')
+$projects = @('APIShared\APIShared.csproj', 'Pathfinding\Pathfinding.csproj')
 if ($ModDirectory) {
     $modRoot = [IO.Path]::GetFullPath((Join-Path $workspace $ModDirectory)).TrimEnd('\','/')
     $selected = @($projects | Where-Object { [IO.Path]::GetDirectoryName((Join-Path $workspace $_)) -ieq $modRoot })
@@ -30,7 +30,7 @@ foreach ($relative in $projects) {
         $text = [IO.File]::ReadAllText($path)
         if (-not $SkipCommonChecks -and $text -match $jsonPattern) { throw "Forbidden runtime JSON dependency: $path" }
         if ($text -match $callbackPattern) { throw "Runtime component callback or teardown: $path" }
-        if ($path -match '\\UnitCommands\\|\\MoatMove\\src\\|\\BugfixesAndQoL\\src\\Formations\\') {
+        if ($path -match '\\UnitCommands\\|\\Pathfinding\\src\\(?:Engine|Formations)\\') {
             if ($text -match '\b(?:CodePatch\.Write|VirtualProtect|FlushInstructionCache)\s*\(|\.Hook\.(?:Enable|Disable|Undo|Dispose)\s*\(') {
                 throw "Executable hook mutation in shared command runtime: $path"
             }

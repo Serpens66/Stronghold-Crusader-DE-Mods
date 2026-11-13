@@ -1,8 +1,6 @@
-// Feature: Consumer-specific AI policy on APIShared's permanent native market query events.
+// Feature: Session-local selection of ExtraFeatures' AI price factors; no total veto.
 using APIShared.Economy;
 using BepInEx.Logging;
-using SHCDESE.API;
-using SHCDESE.Interop;
 using System;
 
 namespace ExtraFeatures
@@ -10,24 +8,18 @@ namespace ExtraFeatures
     internal sealed class AIMarketVanillaPriceHook : IDisposable
     {
         private volatile bool useVanillaAIPricesForSession;
-        private volatile bool disposed;
+        internal bool UseVanillaAIPricesForSession => useVanillaAIPricesForSession;
         public AIMarketVanillaPriceHook(ManualLogSource log)
         {
-            if (!MarketPriceEvents.TryRegister(ExtraFeaturesPlugin.PluginGuid, "ai-default-market-prices", OnPrice, null, out string reason))
-                throw new InvalidOperationException(reason);
-            Shared.DebugLogHelper.LogInfo(log, "Extra Features AI market policy registered with APIShared; native helpers have one process owner.");
+            Shared.DebugLogHelper.LogInfo(log,
+                "Extra Features AI market selection uses shared base-price contributions; foreign fixed and final factors remain effective.");
         }
-        public void Dispose() { disposed = true; }
-        internal void SetSessionOverride(bool enabled) { useVanillaAIPricesForSession = enabled; }
-        private void OnPrice(MarketPricePreEventArgs args)
+        public void Dispose() => SetSessionOverride(false);
+        internal void SetSessionOverride(bool enabled)
         {
-            if (disposed || args.SkipOriginalFunction || !useVanillaAIPricesForSession || !args.HasNativeManager ||
-                args.PlayerId < 1 || args.PlayerId > GamePlayerManagerAPI.MAX_PLAYERS || args.Good < 0 || args.Good >= (int)eGoods.Count ||
-                !GamePlayerManagerAPI.Instance.IsAIPlayer(args.PlayerId)) return;
-            PackedGoodPrice price = GamePlayerManagerAPI.Instance.GetDefaultTradeBasePrice((eGoods)args.Good);
-            args.ReplacementTotal = MarketPriceEvents.CalculateTradeTotal(
-                args.Direction == MarketPriceDirection.Buy ? price.BuyPrice : price.SellPrice, args.Amount);
-            args.SkipOriginalFunction = true;
+            if (useVanillaAIPricesForSession == enabled) return;
+            useVanillaAIPricesForSession = enabled;
+            MarketPriceModifiers.Refresh();
         }
     }
 }

@@ -121,7 +121,7 @@ namespace Spectator
         {
             building = null;
             return selection != null && IsToolsSession() && IsSelectableAi(selection.Actor) &&
-                GameBuildingManagerAPI.Instance.TryGetBuildingById(selection.Id, out building) && building != null &&
+                global::APIShared.BuildingAccess.TryGetById(selection.Id, out building, out _) && building != null &&
                 ToolPolicy.SameBuilding(selection.Session, CurrentSessionId, selection.Actor, building->r_PlayerIdOwner,
                     selection.Id, selection.Id, selection.Global, building->r_GlobalId, building->r_AliveState == AliveState.IsAlive) &&
                 building->r_BuildingType == selection.Type && IsGateType(selection.Type);
@@ -136,7 +136,7 @@ namespace Spectator
             var tiles = GameTileManagerAPI.Instance;
             if (!tiles.IsTileInsideMapBounds(x, y)) return;
             int id = tiles.GetTileBuildingId(tiles.GetTileId(x, y));
-            if (id <= 0 || !GameBuildingManagerAPI.Instance.TryGetBuildingById(id, out GameBuilding* building) ||
+            if (id <= 0 || !global::APIShared.BuildingAccess.TryGetById(id, out GameBuilding* building, out _) ||
                 building->r_AliveState != AliveState.IsAlive || building->r_PlayerIdOwner != humanSelectedOwner ||
                 !IsGateType(building->r_BuildingType)) return;
             pendingGate = new GateSelection { Session = CurrentSessionId, Actor = humanSelectedOwner,

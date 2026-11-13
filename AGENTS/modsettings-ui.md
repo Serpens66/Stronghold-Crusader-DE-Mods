@@ -37,12 +37,11 @@
 ## Tooltips in Modoptionen
 
 - Jedes interaktive Element (Button, CheckBox, ComboBox, Slider, TextBox, editierbare Tabellenzelle) hat einen passenden, nichtleeren Tooltip mit exakt `ToolTipService.ShowDuration="60000"`.
-- Einheitlicher `ToolTip`-Stil: deckender dunkler Hintergrund, kontrastreicher Rahmen, `FontSize="{x:Static shared:ToolTipPresentation.FontSize}"`, `MaxWidth="{x:Static shared:ToolTipPresentation.MaximumWidth}"`, `TextBlock` mit `TextWrapping="Wrap"`.
-- `Shared/Runtime/UI/ToolTipPresentation.cs`: Referenz 1440p mit Schriftgröße 20, proportional skaliert für höhere Auflösungen (niedrigere behalten mindestens die 1440p-Werte); kurze Texte bleiben schmal. Keine festen Zeilenumbrüche in Locale-Texten.
+- Das vorhandene Modsettings-Template verwenden. APIShared `SharedToolTipSizing.Enabled` ausdrücklich am Popup aktivieren. Das Template bindet Schriftgröße, Maximalbreite, Rahmenstärke und Innenabstände und enthält einen `TextBlock` mit `TextWrapping="Wrap"`. Keine festen Zeilenumbrüche in Locale-Texten.
 
 ## Ingame-Hovertexte und eigene Popup-Tooltips
 
-- Eigene Popup-Tooltips nutzen den Modoptions-Stil: Hintergrund `#FF1D1710`, weiße Schrift, Rahmen `#FFF2D48A`, umbrechender Text, `seui:ToolTipResolutionScale.Enabled="True"`, 60000 ms. Die lokalen Modoptions-Templates sind die Vorlage; keinen neuen Stil erfinden.
+- Eigene Popup-Tooltips verwenden das vorhandene Modsettings-Template und dessen APIShared-Skalierung. Für von APIShared gerenderte Menüs den jeweiligen Renderer nutzen. Für im Mod erzeugte Text-Popups steht `Shared/Adapters/APIShared/MenuToolTip.cs` zur Verfügung. Dauer 60000 ms.
 - Der Vanilla-Popupstil aus `TOOLTIPS.xaml` (Löwen) ist für Mod-Tooltips verboten. Ein bloßes `ToolTip="..."`, `.ToolTip = ...` oder `ToolTipService.SetToolTip(...)` genügt nur, wenn unser Stil im tatsächlichen Ressourcen-/Templatekontext nachweislich gilt; sonst ausdrücklich zuweisen.
 - Bewusste Vanilla-Erweiterungen nutzen die bestehende Vanilla-Hovertextstelle ohne zusätzliches Popup: HUD-Aktionsbuttons (Formation inkl. Überlaufpfeil), Rekrutierungsvarianten-Pfeile, Einheitentooltips, Gebäude-/Einheiten-Kosten und -Limits. Diese nicht auf unseren Stil umstellen.
 - Bei unklarer Zuordnung einer weiteren Oberfläche vorher den Nutzer fragen. Bestehende korrekte Tooltips und unveränderte Vanilla-Oberflächen erhalten.

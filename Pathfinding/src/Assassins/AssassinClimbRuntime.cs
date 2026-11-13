@@ -1,0 +1,625 @@
+using APIShared.GameModes;
+// Feature: Per-player Assassin climbing mode and its troop-HUD command.
+using BepInEx.Logging;
+using CrusaderDE;
+using Noesis;
+using R3;
+using SHCDESE.API;
+using SHCDESE.API.Components.Network;
+using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Network;
+using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
+using SHCDESE.NoesisUtil;
+using SHCDESE.ViewModels;
+using System;
+using System.Globalization;
+using UnityEngine;
+
+namespace Pathfinding
+{
+    internal sealed class AssassinClimbButtonViewModel : LobbyModSettingsBaseViewModel
+    {
+        private bool wantsVisibility;
+        private Visibility forbiddenMarkVisibility = Visibility.Hidden;
+
+        public AssassinClimbButtonViewModel(Action toggle)
+        {
+            ToggleCommand = new RelayCommand(toggle ?? throw new ArgumentNullException(nameof(toggle)));
+        }
+
+        public RelayCommand ToggleCommand { get; }
+        public bool WantsVisibility => wantsVisibility;
+
+        public Visibility ForbiddenMarkVisibility
+        {
+            get => forbiddenMarkVisibility;
+            private set
+            {
+                if (forbiddenMarkVisibility == value)
+                    return;
+                forbiddenMarkVisibility = value;
+                OnPropertyChanged(nameof(ForbiddenMarkVisibility));
+            }
+        }
+
+        public void Show(bool climbingAllowed)
+        {
+            SetWantsVisibility(true);
+            ForbiddenMarkVisibility = climbingAllowed ? Visibility.Hidden : Visibility.Visible;
+        }
+
+        public void Hide()
+        {
+            SetWantsVisibility(false);
+            ForbiddenMarkVisibility = Visibility.Hidden;
+        }
+
+        private void SetWantsVisibility(bool value)
+        {
+            if (wantsVisibility == value)
+                return;
+            wantsVisibility = value;
+            OnPropertyChanged(nameof(WantsVisibility));
+        }
+    }
+
+    internal sealed unsafe class AssassinClimbRuntime : IDisposable
+    {
+        private const int ChoreProtocolVersion = 1;
+        private const string SaveDataIdentifier = "BugfixesAndQoL-AssassinClimb";
+        private readonly ManualLogSource log;
+        private readonly PathfindingViewModel settings;
+        private readonly MultiplayerFeatureGate multiplayerFeatureGate;
+        private readonly AssassinClimbButtonViewModel buttonViewModel;
+        private readonly bool[] climbingAllowed = new bool[GamePlayerManagerAPI.MAX_PLAYERS + 1];
+        private readonly int[] lastOperationIds = new int[GamePlayerManagerAPI.MAX_PLAYERS + 1];
+        private APIShared.Networking.AuthenticatedChoreChannel<AssassinClimbStatePacket> climbChannel;
+        private SessionSaveRecordSlot<AssassinClimbSaveState> saveSlot;
+        private bool initialized;
+        private bool networkInitialized;
+        private bool renderStateKnown;
+        private APIShared.Presentation.IUiFrameWorkRegistration frameWork;
+        private bool presentationSession;
+        private HUD_Troops lastRenderPanel;
+        private bool lastRenderFeatureActive;
+        private int lastRenderPlayerId = -1;
+        private int lastRenderSelectionSignature;
+        private bool lastRenderSelectedOwnAssassin;
+        private bool lastRenderClimbingAllowed;
+        private bool renderFailureLogged;
+        private int lastRenderFrame = -1;
+        private APIShared.LocalSelectionSnapshot lastSelectionSnapshot;
+        private int lastSelectionPlayerId = -1;
+        private int lastSelectionSignature;
+        private bool lastSelectionHasAssassin;
+        private bool lastSelectionHasAssassinType;
+        private int lastSelectionAssassinUnitId;
+        private int nextOperationId;
+        private APIShared.Presentation.ITroopActionButtonRegistration actionRegistration;
+        private bool tooltipVisible;
+
+        public AssassinClimbRuntime(ManualLogSource log, PathfindingViewModel settings, MultiplayerFeatureGate multiplayerFeatureGate)
+        {
+            this.log = log ?? throw new ArgumentNullException(nameof(log));
+            this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            this.multiplayerFeatureGate = multiplayerFeatureGate ?? throw new ArgumentNullException(nameof(multiplayerFeatureGate));
+            buttonViewModel = new AssassinClimbButtonViewModel(OnToggleCommand);
+            buttonViewModel.PropertyChanged += (sender, args) => PublishButtonState();
+            ResetPlayerStates();
+        }
+
+        public void RegisterActionButton()
+        {
+            if (actionRegistration != null) return;
+            var definition = new APIShared.Presentation.TroopActionButtonDefinition(
+                "AssassinClimb", buttonViewModel.ToggleCommand,
+                SerpLocalization.Get(SerpLocalization.AssassinClimbingToggleTooltip), CreateActionButton,
+                priority: 200, hoverChanged: hovered => { if (hovered) ShowTooltip(); else HideTooltip(); });
+            if (!APIShared.Presentation.TroopActionHud.TryRegisterButton(
+                PathfindingPlugin.PluginGuid, definition, out actionRegistration, out string reason))
+                throw new InvalidOperationException(reason);
+            PublishButtonState();
+        }
+
+        private Button CreateActionButton(APIShared.UnitHudActionButtonContext context)
+        {
+            var button = new Button { Width = 36, Height = 37, Padding = new Thickness(0),
+                Style = context.Hud.TryFindResource("PathfindingAssassinActionButtonStyle") as Style,
+                DataContext = buttonViewModel };
+            if (button.Style == null) throw new InvalidOperationException("Assassin action button style is unavailable.");
+            object normal = context.Hud.TryFindResource("UI-Buttons K043");
+            object hover = context.Hud.TryFindResource("UI-Buttons K044");
+            if (normal == null || hover == null) throw new InvalidOperationException("Vanilla Assassin action sprites are unavailable.");
+            PropEx.SetSprite1(button, normal);
+            PropEx.SetSprite2(button, hover);
+            PropEx.SetSprite3(button, hover);
+            PropEx.SetSprite4(button, hover);
+            return button;
+        }
+
+        private void PublishButtonState()
+        {
+            actionRegistration?.SetVisible(buttonViewModel.WantsVisibility);
+            actionRegistration?.SetTooltip(SerpLocalization.Get(SerpLocalization.AssassinClimbingToggleTooltip));
+        }
+
+        public bool IsClimbingAllowed(int playerId)
+        {
+            return playerId <= 0 || playerId >= climbingAllowed.Length || climbingAllowed[playerId];
+        }
+
+        public void InitializeNetwork()
+        {
+            if (networkInitialized)
+                return;
+
+            climbChannel = APIShared.ApiShared.ForMod(PathfindingPlugin.PluginGuid).Network
+                .RegisterAuthenticatedChore<AssassinClimbStatePacket>("assassin-climb-state", OnPacketReceived,
+                    new APIShared.Networking.AuthenticatedChoreChannelOptions<AssassinClimbStatePacket>
+                    {
+                        ValidatePayload = IsValidClimbPacket,
+                        ValidateReceive = IsAuthorizedClimbMessage
+                    });
+            networkInitialized = true;
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug($"Assassin climb-state synchronization registered: protocolVersion={ChoreProtocolVersion}.");
+        }
+
+        public void Initialize()
+        {
+            if (initialized)
+                return;
+            initialized = true;
+            if (frameWork == null)
+            {
+                if (!APIShared.ApiShared.ForMod(PathfindingPlugin.PluginGuid).Ui.TryRegisterBeforeRender(
+                    "assassin-climb-hud", OnBeforeRender, out frameWork, out string reason, 100))
+                    throw new InvalidOperationException("Assassin climb HUD scheduling unavailable: " + reason);
+                settings.SettingChanged += OnPresentationSettingChanged;
+            }
+            InvalidateRenderState();
+            RefreshButtonVisibility();
+        }
+
+        public void Dispose()
+        {
+            initialized = false;
+            frameWork?.SetContinuous(false);
+            frameWork?.CancelPending();
+            InvalidateRenderState();
+            HideTooltip();
+            buttonViewModel.Hide();
+        }
+
+        // The per-player mode steers Assassin pathfinding, so a loaded game must continue with the
+        // saved modes on every peer. Chore operation IDs restart at zero on all peers.
+        public void InitializeSaveData()
+        {
+            if (saveSlot != null)
+                return;
+
+            saveSlot = SessionSaveRecordSlot<AssassinClimbSaveState>.Register(
+                log,
+                SaveDataIdentifier,
+                CaptureSaveState,
+                state => MessagePack.MessagePackSerializer.Serialize(state),
+                bytes => MessagePack.MessagePackSerializer.Deserialize<AssassinClimbSaveState>(bytes));
+        }
+
+        public void BeginMap(Shared.GameplaySessionStartedContext context)
+        {
+            presentationSession = true;
+            UpdatePresentationDemand();
+            ResetPlayerStates();
+            if (saveSlot != null && saveSlot.TryTake(context, out AssassinClimbSaveState state))
+            {
+                foreach (int playerId in state.ForbiddenPlayerIds)
+                    climbingAllowed[playerId] = false;
+                if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                    LogDebug($"Assassin climb modes restored from save: forbiddenPlayers={string.Join(",", state.ForbiddenPlayerIds)}.");
+            }
+            InvalidateRenderState();
+            RefreshButtonVisibility();
+        }
+
+        private AssassinClimbSaveState CaptureSaveState()
+        {
+            var forbidden = new System.Collections.Generic.List<int>();
+            for (int playerId = 1; playerId < climbingAllowed.Length; playerId++)
+            {
+                if (!climbingAllowed[playerId])
+                    forbidden.Add(playerId);
+            }
+            return new AssassinClimbSaveState { ForbiddenPlayerIds = forbidden.ToArray() };
+        }
+
+        public void EndMap()
+        {
+            presentationSession = false;
+            UpdatePresentationDemand();
+            ResetPlayerStates();
+            InvalidateRenderState();
+            HideTooltip();
+            buttonViewModel.Hide();
+        }
+
+        public void RefreshButtonVisibility()
+        {
+            UpdatePresentationDemand();
+            HUD_Troops troopPanel = null;
+            TryGetHudTroopPanel(out troopPanel);
+            RefreshButtonVisibilityCore(troopPanel, force: true);
+            APIShared.Presentation.TroopActionHud.Reflow(troopPanel);
+        }
+
+        internal void RefreshButtonVisibility(HUD_Troops troopPanel)
+        {
+            RefreshButtonVisibilityCore(troopPanel, force: true);
+        }
+
+        private bool RefreshButtonVisibilityCore(HUD_Troops troopPanel, bool force)
+        {
+            try
+            {
+                if (troopPanel == null)
+                    TryGetHudTroopPanel(out troopPanel);
+
+                MainViewModel viewModel = MainViewModel.viewModelLoaded ? MainViewModel.Instance : null;
+                bool featureActive = initialized && troopPanel != null &&
+                    viewModel?.Show_HUD_Troops == true && IsFeatureActive();
+                int playerId = featureActive ? GetControlledPlayerId() : -1;
+                int selectionSignature = 0;
+                bool selectedOwnAssassin = false;
+                if (featureActive)
+                    selectionSignature = CaptureSelectionState(playerId, out selectedOwnAssassin);
+                bool climbingIsAllowed = selectedOwnAssassin && IsClimbingAllowed(playerId);
+                bool changed = !renderStateKnown ||
+                    !ReferenceEquals(lastRenderPanel, troopPanel) ||
+                    lastRenderFeatureActive != featureActive ||
+                    lastRenderPlayerId != playerId ||
+                    lastRenderSelectionSignature != selectionSignature ||
+                    lastRenderSelectedOwnAssassin != selectedOwnAssassin ||
+                    lastRenderClimbingAllowed != climbingIsAllowed;
+                renderFailureLogged = false;
+                if (!force && !changed)
+                    return false;
+
+                renderStateKnown = true;
+                lastRenderPanel = troopPanel;
+                lastRenderFeatureActive = featureActive;
+                lastRenderPlayerId = playerId;
+                lastRenderSelectionSignature = selectionSignature;
+                lastRenderSelectedOwnAssassin = selectedOwnAssassin;
+                lastRenderClimbingAllowed = climbingIsAllowed;
+
+                if (!featureActive || !selectedOwnAssassin)
+                {
+                    HideTooltip();
+                    buttonViewModel.Hide();
+                    return changed;
+                }
+
+                buttonViewModel.Show(climbingIsAllowed);
+                if (tooltipVisible)
+                    ShowTooltip();
+                return changed;
+            }
+            catch (Exception ex)
+            {
+                InvalidateRenderState();
+                HideTooltip();
+                buttonViewModel.Hide();
+                if (!renderFailureLogged)
+                {
+                    renderFailureLogged = true;
+                    LogError($"Assassin climb button visibility refresh failed; repeated errors are suppressed until a successful refresh: {ex}");
+                }
+                return false;
+            }
+        }
+
+        private void OnBeforeRender()
+        {
+            if (!initialized || lastRenderFrame == Time.frameCount)
+                return;
+            lastRenderFrame = Time.frameCount;
+
+            HUD_Troops troopPanel = null;
+            TryGetHudTroopPanel(out troopPanel);
+            if (RefreshButtonVisibilityCore(troopPanel, force: false))
+                APIShared.Presentation.TroopActionHud.Reflow(troopPanel);
+        }
+
+        private void OnPresentationSettingChanged(string propertyName)
+        {
+            if (propertyName == nameof(PathfindingViewModel.EnableMod) ||
+                propertyName == nameof(PathfindingViewModel.EnableImprovedAssassinPathfinding))
+            { UpdatePresentationDemand(); frameWork?.Request(); }
+        }
+
+        private void UpdatePresentationDemand() => frameWork?.SetContinuous(
+            initialized && presentationSession && settings.EnableMod && settings.EnableImprovedAssassinPathfinding);
+
+        private void OnToggleCommand()
+        {
+            try
+            {
+                if (!IsFeatureActive())
+                    return;
+
+                int playerId = GetControlledPlayerId();
+                if (playerId <= 0 || playerId >= climbingAllowed.Length || !HasSelectedOwnAssassin(playerId))
+                    return;
+
+                bool targetState = !climbingAllowed[playerId];
+                int operationId = unchecked(++nextOperationId);
+                if (multiplayerFeatureGate.BlocksLocalStateChanges)
+                {
+                    if (!TrySendChore(playerId, operationId, targetState))
+                        return;
+                }
+                else
+                {
+                    ApplyState(playerId, operationId, targetState, "local-click");
+                }
+
+                RefreshButtonVisibility();
+            }
+            catch (Exception ex)
+            {
+                LogError($"Assassin climb-mode click failed: {ex}");
+            }
+        }
+
+        private bool TrySendChore(int playerId, int operationId, bool targetState)
+        {
+            if (!IsChoreTransportReady())
+            {
+                LogError("Assassin climb-mode change refused in multiplayer because Chore transport is unavailable.");
+                return false;
+            }
+
+            var packet = new AssassinClimbStatePacket
+            {
+                ProtocolVersion = ChoreProtocolVersion,
+                PlayerId = playerId,
+                OperationId = operationId,
+                AllowClimbing = targetState
+            };
+            var result = climbChannel.Send(packet);
+            if (!result.Submitted)
+            {
+                LogError($"Assassin climb-state Chore was not queued; no local change was applied: operationId={operationId}, reason={result.Reason}.");
+                return false;
+            }
+
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug($"Assassin climb-state Chore queued: operationId={operationId}, payloadBytes={sizeof(short) + result.BodyBytes}.");
+            return true;
+        }
+
+        private static bool IsValidClimbPacket(AssassinClimbStatePacket packet) =>
+            packet != null && packet.ProtocolVersion == ChoreProtocolVersion &&
+            packet.PlayerId > 0 && packet.PlayerId <= GamePlayerManagerAPI.MAX_PLAYERS && packet.OperationId > 0;
+
+        private static bool IsAuthorizedClimbMessage(
+            APIShared.Networking.AuthenticatedChoreMessage<AssassinClimbStatePacket> message) =>
+            message != null && IsValidClimbPacket(message.Packet) &&
+            message.SenderPlayerId == message.Packet.PlayerId;
+
+        private void OnPacketReceived(
+            APIShared.Networking.AuthenticatedChoreMessage<AssassinClimbStatePacket> message)
+        {
+            // Defense at the consumer boundary as well as the channel's receive validator.
+            if (!IsAuthorizedClimbMessage(message)) return;
+            AssassinClimbStatePacket packet = message.Packet;
+            ApplyState(packet.PlayerId, packet.OperationId, packet.AllowClimbing, "multiplayer-chore");
+            Shared.UnityMainThreadDispatch.TryEnqueue(RefreshButtonVisibility);
+        }
+
+        private void ApplyState(int playerId, int operationId, bool allowClimbing, string source)
+        {
+            if (operationId <= lastOperationIds[playerId])
+                return;
+
+            lastOperationIds[playerId] = operationId;
+            climbingAllowed[playerId] = allowClimbing;
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug($"Assassin climbing {(allowClimbing ? "enabled" : "disabled")}: source={source}, playerId={playerId}.");
+        }
+
+        private bool IsFeatureActive()
+        {
+            return settings.EnableMod && settings.EnableImprovedAssassinPathfinding &&
+                (!multiplayerFeatureGate.BlocksLocalStateChanges || IsChoreTransportReady());
+        }
+
+        private bool IsChoreTransportReady()
+        {
+            return networkInitialized && climbChannel != null && climbChannel.IsAvailable;
+        }
+
+        private bool HasSelectedOwnAssassin(int playerId)
+        {
+            CaptureSelectionState(playerId, out bool selectedOwnAssassin);
+            return selectedOwnAssassin;
+        }
+
+        private int CaptureSelectionState(int playerId, out bool selectedOwnAssassin)
+        {
+            selectedOwnAssassin = false;
+            if (playerId < 1 || playerId > 8)
+                return 0;
+            bool hasSnapshot = APIShared.LocalSelectionAPI.TryCapture(
+                playerId, out APIShared.LocalSelectionSnapshot selected);
+            GameUnitManagerAPI api = GameUnitManagerAPI.Instance;
+            bool editor = APIShared.GameModes.GameModeHelper.IsMapEditor();
+            if (hasSnapshot && !editor && ReferenceEquals(selected, lastSelectionSnapshot) &&
+                lastSelectionPlayerId == playerId)
+            {
+                if ((!lastSelectionHasAssassin && !lastSelectionHasAssassinType) ||
+                    (lastSelectionAssassinUnitId > 0 &&
+                     APIShared.UnitAccess.TryGetById(api, lastSelectionAssassinUnitId, out GameUnit* cachedUnit, out _) &&
+                     IsOwnAssassin(cachedUnit, playerId)))
+                {
+                    selectedOwnAssassin = lastSelectionHasAssassin;
+                    return lastSelectionSignature;
+                }
+            }
+
+            int signature = unchecked((17 * 31) + (hasSnapshot ? selected.Count : -1));
+            int selectedAssassinUnitId = 0;
+            bool hasAssassinType = false;
+            for (int index = 0; hasSnapshot && index < selected.Count; index++)
+            {
+                int unitId = selected[index].UnitId;
+                signature = unchecked((signature * 31) + unitId);
+                if (selected[index].UnitType != (int)eChimps.CHIMP_TYPE_ARAB_ASSASIN)
+                    continue;
+                hasAssassinType = true;
+                if (unitId > 0 && APIShared.UnitAccess.TryGetById(api, unitId, out GameUnit* unit, out _) && IsOwnAssassin(unit, playerId))
+                {
+                    selectedOwnAssassin = true;
+                    selectedAssassinUnitId = unitId;
+                }
+            }
+
+            // During the first editor click the managed ID list can trail the native selection
+            // flags for one frame. The full native scan is needed only in that editor case.
+            if (!selectedOwnAssassin && editor && (!hasSnapshot || selected.Count > 0))
+            {
+                Span<GameUnit> units = api.GetUnitsAsSpan();
+                for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
+                {
+                    ref GameUnit unit = ref units[spanIndex];
+                    if (unit.r_UnitSelected != 0 &&
+                        APIShared.UnitAccess.IsReallyAlive(in unit) &&
+                        unit.r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN &&
+                        unit.r_ControllableForPlayerId == playerId)
+                    {
+                        selectedOwnAssassin = true;
+                        selectedAssassinUnitId = spanIndex + 1;
+                        signature = unchecked((signature * 31) + spanIndex + 1);
+                        break;
+                    }
+                }
+            }
+            lastSelectionSnapshot = selected;
+            lastSelectionPlayerId = playerId;
+            lastSelectionSignature = signature;
+            lastSelectionHasAssassin = selectedOwnAssassin;
+            lastSelectionHasAssassinType = hasAssassinType;
+            lastSelectionAssassinUnitId = selectedAssassinUnitId;
+            return signature;
+        }
+
+        private static bool IsOwnAssassin(GameUnit* unit, int playerId)
+        {
+            return unit != null && APIShared.UnitAccess.IsReallyAlive(unit) &&
+                unit->r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN && unit->r_ControllableForPlayerId == playerId;
+        }
+
+        private void ShowTooltip()
+        {
+            try
+            {
+                int playerId = GetControlledPlayerId();
+                MainViewModel viewModel = MainViewModel.viewModelLoaded ? MainViewModel.Instance : null;
+                HUD_Troops troopPanel = viewModel?.HUDTroopPanel;
+                if (viewModel == null || troopPanel == null)
+                    return;
+
+                bool allowed = IsClimbingAllowed(playerId);
+                viewModel.TroopsPanelRollover = SerpLocalization.Get(SerpLocalization.AssassinClimbingToggleTooltip);
+                viewModel.TroopsPanelRollover_AmountReq1 = string.Empty;
+                viewModel.TroopsPanelRollover_AmountGot1 = SerpLocalization.Get(
+                    allowed ? SerpLocalization.AssassinClimbingActiveTooltipBody : SerpLocalization.AssassinClimbingForbiddenTooltipBody);
+                viewModel.TroopsPanelRollover_GoodsImage1 = null;
+                SetTooltipVisibility(troopPanel, true);
+                tooltipVisible = true;
+            }
+            catch (Exception ex)
+            {
+                LogError($"Assassin climb tooltip show failed: {ex}");
+            }
+        }
+
+        private void HideTooltip()
+        {
+            if (!tooltipVisible)
+                return;
+
+            tooltipVisible = false;
+            try
+            {
+                HUD_Troops troopPanel = MainViewModel.viewModelLoaded ? MainViewModel.Instance?.HUDTroopPanel : null;
+                if (troopPanel != null)
+                    SetTooltipVisibility(troopPanel, false);
+            }
+            catch (Exception ex)
+            {
+                LogError($"Assassin climb tooltip hide failed: {ex}");
+            }
+        }
+
+        private static void SetTooltipVisibility(HUD_Troops troopPanel, bool visible)
+        {
+            if (troopPanel.RefTroopsPanelRollover != null)
+                troopPanel.RefTroopsPanelRollover.Visibility = Visibility.Hidden;
+            if (troopPanel.RefTroopsPanelRollover2 != null)
+                troopPanel.RefTroopsPanelRollover2.Visibility = visible ? Visibility.Visible : Visibility.Hidden;
+        }
+
+        private static bool TryGetHudTroopPanel(out HUD_Troops troopPanel)
+        {
+            troopPanel = null;
+            if (!MainViewModel.viewModelLoaded)
+                return false;
+            troopPanel = MainViewModel.Instance?.HUDTroopPanel;
+            return troopPanel != null;
+        }
+
+        private static int GetControlledPlayerId()
+        {
+            if (APIShared.GameModes.GameModeHelper.IsMapEditor())
+                return EditorDirector.instance?.ActivePlayerID ?? -1;
+            int playerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+            return playerId > 0 ? playerId : -1;
+        }
+
+        private void ResetPlayerStates()
+        {
+            for (int playerId = 0; playerId < climbingAllowed.Length; playerId++)
+            {
+                climbingAllowed[playerId] = true;
+                lastOperationIds[playerId] = 0;
+            }
+            nextOperationId = 0;
+        }
+
+        private void InvalidateRenderState()
+        {
+            renderStateKnown = false;
+            lastRenderPanel = null;
+            lastRenderFeatureActive = false;
+            lastRenderPlayerId = -1;
+            lastRenderSelectionSignature = 0;
+            lastRenderSelectedOwnAssassin = false;
+            lastRenderClimbingAllowed = false;
+            lastRenderFrame = -1;
+            lastSelectionSnapshot = null;
+            lastSelectionPlayerId = -1;
+            lastSelectionSignature = 0;
+            lastSelectionHasAssassin = false;
+            lastSelectionHasAssassinType = false;
+            lastSelectionAssassinUnitId = 0;
+        }
+
+        private void LogDebug(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+            () => Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message));
+        private void LogError(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+            () => Shared.DebugLogHelper.LogErrorLimited(log, callerFile + ":" + callerLine, message));
+        private static string TimestampNow() => DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
+    }
+}

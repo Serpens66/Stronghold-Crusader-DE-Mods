@@ -1,0 +1,30 @@
+{
+  "enabled": true,
+  "series": "SP-ai-military",
+  "role": "sp",
+  "quitWhenDone": true,
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 60000, "stopOnFail": true, "allowErrors": true },
+    { "id": "skirmish", "do": "Skirmish.Open", "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "map", "do": "Lobby.SelectMap", "args": ["4spielerkarte.map"], "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "ai", "do": "Lobby.AddAI", "args": ["1", "1"], "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "play", "do": "Lobby.Play", "timeoutMs": 45000, "stopOnFail": true },
+    { "id": "briefing", "do": "AiMilitary.ResumeBriefing", "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "warmup-unpause", "do": "Pause", "args": ["off"], "stopOnFail": true },
+    { "id": "warmup", "do": "AiMilitary.WaitOwner", "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "pause", "do": "Pause", "args": ["on"], "stopOnFail": true },
+    { "id": "spawn-paused", "do": "AiMilitary.Arm", "args": ["sp"], "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "unpause", "do": "Pause", "args": ["off"], "stopOnFail": true },
+    { "id": "native-work", "do": "WaitTicks", "args": ["40"], "timeoutMs": 10000, "stopOnFail": true },
+    { "id": "actual-native-admission", "do": "AiMilitary.Complete", "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "save", "do": "AiMilitary.Save", "timeoutMs": 20000, "stopOnFail": true },
+    { "id": "quit-for-load", "do": "QuitToMenu", "timeoutMs": 25000, "stopOnFail": true },
+    { "id": "load", "do": "AiMilitary.Reload", "timeoutMs": 45000, "stopOnFail": true },
+    { "id": "quit-loaded", "do": "QuitToMenu", "timeoutMs": 25000, "stopOnFail": true },
+    { "id": "world-empty", "do": "AiMilitary.Cleared", "stopOnFail": true },
+    { "id": "editor", "do": "Editor.Start", "timeoutMs": 30000, "stopOnFail": true },
+    { "id": "editor-declarations", "do": "AiMilitary.Arm", "args": ["editor"], "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "quit-editor", "do": "QuitToMenu", "timeoutMs": 25000, "stopOnFail": true },
+    { "id": "editor-world-empty", "do": "AiMilitary.Cleared", "stopOnFail": true }
+  ]
+}

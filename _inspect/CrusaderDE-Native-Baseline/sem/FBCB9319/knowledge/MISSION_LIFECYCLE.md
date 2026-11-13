@@ -50,3 +50,44 @@ classifying a new human game from an earlier spectator save's state. The evidenc
 the hash-bound managed export for those three methods and the current installed
 assembly's public member metadata. The consumer readiness/deadline regression is an
 isolated test; current-game rendering and network timing still require game acceptance.
+
+## Delayed first PlayState, 2026-11-06 [Vanilla facts]
+
+Rechecked against the same native and managed hashes recorded above. A successful
+managed Start is not a deadline for the first presented PlayState. In
+`Platform_Multiplayer.monitorHostGameStart`, the host can wait up to 60 seconds for
+human member acknowledgements before `Director.startSimThread` and
+`EngineInterface.StartMultiplayerGameSynced`. Client packet 2 finishes `postLoading`
+and acknowledges; packet 4 starts the simulation later.
+
+`EngineInterface.run` calls confirmed export `DLL_RunTick` (RVA `0x86680`) and then
+copies a newly allocated PlayState. `Director.Update` consumes the render buffer
+only while not locally paused and the simulation is running; `GameMap.processTestMap`
+then calls `GameData.setGameState`, followed by the managed GUI check. Buffer flags
+are reset by `GameMap.createMap`, so a fresh replacement after the earliest load
+checkpoint has current-world provenance. The GUI check alone does not prove that a
+replacement was published. Its veto or exception does not undo a preceding setter.
+
+`EditorDirector.loadSaveGame` calls `postLoading`, which clears `lastGameState` to
+null before starting the simulation. A repeated load can therefore change the old
+reference to null without having published any new state. Readiness must continue
+to require a nonnull replacement; acceptance holds compare against the actual
+post-load reference and permit this explicit reset.
+
+Local skirmish briefing is opened by a post-update callback after the first consumed
+buffer. It can pause further consumption. Capturing the comparison reference only
+in a deferred before-render callback can therefore capture that first new state and
+wait unnecessarily for a later replacement. The actual order in a particular user
+run cannot be inferred from a generic readiness timeout message.
+
+## Shared first-state readiness, 2026-11-06 [mod integration]
+
+APIShared's additive mission PlayState readiness capability captures the earliest
+pre-initialization reference synchronously, preserves it across later checkpoints,
+and publishes only after managed Start and a nonnull replacement. Existing GUI
+checks wake the shared Unity scheduler; elapsed real time never retires the wait.
+Spectator and CastlePlanner consume that session-bound receipt separately from HUD,
+identity, roster and permission checks. Their former 15/30-second startup cutoffs
+are support notices; actual operation/selection deadlines remain independent.
+Production-state tests and game acceptance evidence are retained under
+`.work/a/mission-ready/001`; a source test does not prove real multiplayer timing.

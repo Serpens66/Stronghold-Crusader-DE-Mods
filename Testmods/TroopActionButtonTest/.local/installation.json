@@ -1,0 +1,31 @@
+{
+  "InstalledUtc": "2026-11-05T11:44:17.6197518Z",
+  "Guid": "TroopActionButtonTest_Serp",
+  "Version": "0.1.0",
+  "Target": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\TroopActionButtonTest_Serp",
+  "Package": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\TroopActionButtonTest\\.local\\TroopActionButtonTest.zip",
+  "PackageSha256": "c2833db3dd65697e0176d1eae4ad2abf213b9a7e6a84c4c88d464fa4d2d49849",
+  "InstalledFiles": [
+    {
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\TroopActionButtonTest_Serp\\TroopActionButtonTest.dll",
+      "Sha256": "b337646e74a0297b9a7137e2e978a2604094fa88de26fbd68bd74098b9bcdddf"
+    },
+    {
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\TroopActionButtonTest_Serp\\TroopActionButtonTest.pdb",
+      "Sha256": "393d0bca5bd2184ef4af236c4eb56abb14cbb2eec705fa18e3de8719fe669ff7"
+    },
+    {
+      "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\TroopActionButtonTest_Serp\\info.json",
+      "Sha256": "36cdaf6c5da7a31f208cef93503a571656abf5a9c82f0f3663adf746c5830eef"
+    }
+  ],
+  "ApiSharedVersion": "0.31.0.0",
+  "ApiSharedBuildCommit": "8767dccf0f598ab7dc64f3afae2e1e15363fdc63",
+  "ApiSharedBuildMode": "quick",
+  "ApiSharedBuildEvidence": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\.work\\a\\button-test\\001\\sdk\\.local\\build-proof.json",
+  "ApiSharedInstallLog": ".work/a/button-test/001/api-install.log",
+  "BootstrapFilesVerified": true,
+  "GameWasClosed": true,
+  "GameAcceptance": "Pending; no game was started",
+  "MixedConsumerAcceptance": "Installed ExtraFeatures/BugfixesAndQoL still use legacy host registrations; updated consumer builds required for their participation in overflow"
+}

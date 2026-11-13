@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using APIShared.NativeSites;
+using BepInEx.Logging;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Core.Memory;
@@ -14,6 +17,41 @@ namespace ImprovedHunters
     /// </summary>
     internal static class HunterHookInfrastructure
     {
+        private static readonly List<(ulong Address, HookHandle<X64InlineHook> Handle)> nativeSites =
+            new List<(ulong, HookHandle<X64InlineHook>)>();
+
+        /// <summary>Remembers a hook so its span can be announced in APIShared's native-site registry.</summary>
+        public static void TrackNativeSite(ulong address, HookHandle<X64InlineHook> handle) =>
+            nativeSites.Add((address, handle));
+
+        /// <summary>
+        /// Announces all installed hooks to other mods. The hooks are already live and stay installed
+        /// (they are process-lived); a conflict is reported, not resolved.
+        /// </summary>
+        public static void PublishNativeSites(ulong imageBase, ManualLogSource log)
+        {
+            foreach ((ulong address, HookHandle<X64InlineHook> handle) in nativeSites)
+            {
+                if (!handle.Success || !handle.IsInstalled)
+                    continue;
+
+                int rva = checked((int)(address - imageBase));
+                NativeSiteRegistrationResult result = NativeSiteRegistry.Register(
+                    ImprovedHuntersPlugin.PluginGuid,
+                    $"hunter-hook-0x{rva:X}",
+                    rva,
+                    handle.Hook.DisplacedByteCount,
+                    NativeSiteMode.Exclusive);
+                if (result.Status != NativeSiteRegistrationStatus.Accepted &&
+                    result.Status != NativeSiteRegistrationStatus.AlreadyRegistered)
+                {
+                    Shared.DebugLogHelper.LogWarning(log, $"Improved Hunters native site 0x{rva:X} is not exclusive: {result.Status}.");
+                }
+            }
+
+            nativeSites.Clear();
+        }
+
         public static HookTransaction CreateOwnedTransaction(ScanRegion region) =>
             new HookTransaction(
                 region,
@@ -36,6 +74,7 @@ namespace ImprovedHunters
             CallbackErrorMode errorMode = CallbackErrorMode.LogAndContinue,
             OverwrittenInstructionPlacement placement = OverwrittenInstructionPlacement.AfterCallback)
         {
+            TrackNativeSite(address, handle);
             transaction.AddContextHook(
                 handle,
                 HookTarget.FromAddress(address),

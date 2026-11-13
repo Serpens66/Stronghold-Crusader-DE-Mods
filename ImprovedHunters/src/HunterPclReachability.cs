@@ -4,7 +4,6 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 
 namespace ImprovedHunters
 {
@@ -15,10 +14,10 @@ namespace ImprovedHunters
     internal sealed unsafe partial class HunterPclReachability : IDisposable
     {
         private const int MaxFailureLogs = 20;
-        private static readonly long CacheLifetime = Stopwatch.Frequency;
-        private static readonly long ActiveTargetProbeInterval = Stopwatch.Frequency;
-        private static readonly long ActiveTargetSnapshotLifetime = Stopwatch.Frequency * 2;
-        private static readonly long CacheCleanupInterval = Stopwatch.Frequency * 10;
+        private static readonly long CacheLifetime = HunterSimulationTime.MapTicksPerSecond;
+        private static readonly long ActiveTargetProbeInterval = HunterSimulationTime.MapTicksPerSecond;
+        private static readonly long ActiveTargetSnapshotLifetime = HunterSimulationTime.MapTicksPerSecond * 2;
+        private static readonly long CacheCleanupInterval = HunterSimulationTime.MapTicksPerSecond * 10;
 
         private readonly ManualLogSource log;
         private readonly Func<bool> canRun;
@@ -75,7 +74,8 @@ namespace ImprovedHunters
             uint preyGlobalId,
             eChimps preyType,
             long timestamp,
-            out bool reachable)
+            out bool reachable,
+            bool allowCorpse = false)
         {
             reachable = true;
             if (!IsAvailable)
@@ -92,7 +92,8 @@ namespace ImprovedHunters
                         preyGlobalId,
                         preyType,
                         out ReachabilityInputs inputs,
-                        out string failure))
+                        out string failure,
+                        allowCorpse))
                 {
                     LogFailure(
                         $"Improved Hunters native PCL reachability input rejected: hunter={hunterUnitId}, " +
@@ -234,7 +235,8 @@ namespace ImprovedHunters
             uint preyGlobalId,
             eChimps preyType,
             out ReachabilityInputs inputs,
-            out string failure)
+            out string failure,
+            bool allowCorpse = false)
         {
             inputs = default;
             failure = string.Empty;
@@ -254,8 +256,7 @@ namespace ImprovedHunters
             if (preyUnitId <= 0 ||
                 !APIShared.UnitAccess.TryGetById(unitApi, preyUnitId, out GameUnit* prey, out _) ||
                 prey == null ||
-                !APIShared.UnitAccess.IsReallyAlive(prey) ||
-                prey->r_CurrentHealth == 0 ||
+                (!allowCorpse && (!APIShared.UnitAccess.IsReallyAlive(prey) || prey->r_CurrentHealth == 0)) ||
                 prey->r_GlobalId != preyGlobalId ||
                 prey->r_UnitChimp != preyType)
             {
@@ -284,8 +285,8 @@ namespace ImprovedHunters
             }
 
             Span<ushort> pathConnections = GamePathingManagerAPI.Instance.GetPathComponentGrid();
-            if ((uint)sourceTileId >= (uint)pathConnections.Length ||
-                (uint)targetTileId >= (uint)pathConnections.Length)
+            if (!global::APIShared.IndexBounds.IsValidIndex(sourceTileId, pathConnections.Length) ||
+                !global::APIShared.IndexBounds.IsValidIndex(targetTileId, pathConnections.Length))
             {
                 failure = "path-connection-grid-index-out-of-range";
                 return false;

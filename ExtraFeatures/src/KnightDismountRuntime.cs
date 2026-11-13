@@ -18,180 +18,6 @@ using System.Globalization;
 
 namespace ExtraFeatures
 {
-    internal sealed class KnightDismountButtonViewModel : LobbyModSettingsBaseViewModel
-    {
-        private bool wantsVisibility;
-        private bool layoutAvailable = true;
-        private Visibility dismountButtonVisibility = Visibility.Hidden;
-        private Visibility mountButtonVisibility = Visibility.Hidden;
-        private bool mountButtonEnabled;
-        private bool dismountButtonEnabled;
-        private bool mountDisabledTooltipHitTestVisible;
-        private bool dismountDisabledTooltipHitTestVisible;
-
-        public KnightDismountButtonViewModel(
-            Action dismount,
-            Action mount,
-            Action showDismountTooltip,
-            Action showMountTooltip,
-            Action hideTooltip)
-        {
-            DismountCommand = new RelayCommand(dismount ?? throw new ArgumentNullException(nameof(dismount)));
-            MountCommand = new RelayCommand(mount ?? throw new ArgumentNullException(nameof(mount)));
-            DismountMouseEnterCommand = new RelayCommand(showDismountTooltip ?? throw new ArgumentNullException(nameof(showDismountTooltip)));
-            MountMouseEnterCommand = new RelayCommand(showMountTooltip ?? throw new ArgumentNullException(nameof(showMountTooltip)));
-            MouseLeaveCommand = new RelayCommand(hideTooltip ?? throw new ArgumentNullException(nameof(hideTooltip)));
-        }
-
-        public RelayCommand DismountCommand { get; }
-        public RelayCommand MountCommand { get; }
-        public RelayCommand DismountMouseEnterCommand { get; }
-        public RelayCommand MountMouseEnterCommand { get; }
-        public RelayCommand MouseLeaveCommand { get; }
-
-        public int TroopActionLayoutVersion => 1;
-        public string TroopActionId => "ExtraFeatures_Serp.KnightTransform";
-        public int TroopActionPriority => 100;
-        public bool WantsVisibility => wantsVisibility;
-
-        public bool LayoutAvailable
-        {
-            get => layoutAvailable;
-            set
-            {
-                if (layoutAvailable == value)
-                    return;
-                layoutAvailable = value;
-                OnPropertyChanged(nameof(LayoutAvailable));
-                OnPropertyChanged(nameof(ButtonVisibility));
-            }
-        }
-
-        public Visibility ButtonVisibility => wantsVisibility && layoutAvailable
-            ? Visibility.Visible
-            : Visibility.Hidden;
-
-        public Visibility DismountButtonVisibility
-        {
-            get => dismountButtonVisibility;
-            private set
-            {
-                if (dismountButtonVisibility == value)
-                    return;
-
-                dismountButtonVisibility = value;
-                OnPropertyChanged(nameof(DismountButtonVisibility));
-            }
-        }
-
-        public Visibility MountButtonVisibility
-        {
-            get => mountButtonVisibility;
-            private set
-            {
-                if (mountButtonVisibility == value)
-                    return;
-
-                mountButtonVisibility = value;
-                OnPropertyChanged(nameof(MountButtonVisibility));
-            }
-        }
-
-        public bool MountButtonEnabled
-        {
-            get => mountButtonEnabled;
-            private set
-            {
-                if (mountButtonEnabled == value)
-                    return;
-
-                mountButtonEnabled = value;
-                OnPropertyChanged(nameof(MountButtonEnabled));
-            }
-        }
-
-        public bool DismountButtonEnabled
-        {
-            get => dismountButtonEnabled;
-            private set
-            {
-                if (dismountButtonEnabled == value)
-                    return;
-
-                dismountButtonEnabled = value;
-                OnPropertyChanged(nameof(DismountButtonEnabled));
-            }
-        }
-
-        public bool MountDisabledTooltipHitTestVisible
-        {
-            get => mountDisabledTooltipHitTestVisible;
-            private set
-            {
-                if (mountDisabledTooltipHitTestVisible == value)
-                    return;
-
-                mountDisabledTooltipHitTestVisible = value;
-                OnPropertyChanged(nameof(MountDisabledTooltipHitTestVisible));
-            }
-        }
-
-        public bool DismountDisabledTooltipHitTestVisible
-        {
-            get => dismountDisabledTooltipHitTestVisible;
-            private set
-            {
-                if (dismountDisabledTooltipHitTestVisible == value)
-                    return;
-
-                dismountDisabledTooltipHitTestVisible = value;
-                OnPropertyChanged(nameof(DismountDisabledTooltipHitTestVisible));
-            }
-        }
-
-        public void Hide()
-        {
-            SetWantsVisibility(false);
-            DismountButtonVisibility = Visibility.Hidden;
-            MountButtonVisibility = Visibility.Hidden;
-            MountButtonEnabled = false;
-            DismountButtonEnabled = false;
-            MountDisabledTooltipHitTestVisible = false;
-            DismountDisabledTooltipHitTestVisible = false;
-        }
-
-        public void ShowDismount(bool enabled)
-        {
-            SetWantsVisibility(true);
-            DismountButtonVisibility = Visibility.Visible;
-            MountButtonVisibility = Visibility.Hidden;
-            MountButtonEnabled = false;
-            DismountButtonEnabled = enabled;
-            MountDisabledTooltipHitTestVisible = false;
-            DismountDisabledTooltipHitTestVisible = !enabled;
-        }
-
-        public void ShowMount(bool enabled)
-        {
-            SetWantsVisibility(true);
-            DismountButtonVisibility = Visibility.Hidden;
-            MountButtonVisibility = Visibility.Visible;
-            MountButtonEnabled = enabled;
-            DismountButtonEnabled = false;
-            MountDisabledTooltipHitTestVisible = !enabled;
-            DismountDisabledTooltipHitTestVisible = false;
-        }
-
-        private void SetWantsVisibility(bool value)
-        {
-            if (wantsVisibility == value)
-                return;
-            wantsVisibility = value;
-            OnPropertyChanged(nameof(WantsVisibility));
-            OnPropertyChanged(nameof(ButtonVisibility));
-        }
-    }
-
     internal sealed unsafe partial class KnightDismountRuntime
     {
         private const int StableHorseSlotCount = 4;
@@ -210,8 +36,11 @@ namespace ExtraFeatures
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly UnitLimitBridge unitLimitBridge;
         private readonly KnightDismountButtonViewModel buttonViewModel;
-        private Button hookedDismountButton;
-        private Button hookedMountButton;
+        private APIShared.Presentation.ITroopActionButtonRegistration actionRegistration;
+        private Button actionButton;
+        private object[] actionSprites;
+        private bool? actionButtonMounting;
+        private bool actionHovered;
         private HUD_Troops tooltipMetadataPanel;
         private StackPanel tooltipMetadataHost;
         private Image tooltipGoldIcon;
@@ -237,15 +66,81 @@ namespace ExtraFeatures
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             this.multiplayerFeatureGate = multiplayerFeatureGate ?? throw new ArgumentNullException(nameof(multiplayerFeatureGate));
             this.unitLimitBridge = unitLimitBridge ?? throw new ArgumentNullException(nameof(unitLimitBridge));
+            selectionWorld = new KnightSelectionWorld(this);
             buttonViewModel = new KnightDismountButtonViewModel(
-                OnDismountCommand,
-                OnMountCommand,
-                ShowDismountTooltip,
-                ShowMountTooltip,
-                HideTooltip);
+                () => OnTransformationCommand(DismountAction),
+                () => OnTransformationCommand(MountAction));
+            buttonViewModel.PropertyChanged += (sender, args) => PublishButtonState();
         }
 
-        public KnightDismountButtonViewModel ButtonViewModel => buttonViewModel;
+        public void RegisterActionButton()
+        {
+            if (actionRegistration != null) return;
+            var definition = new APIShared.Presentation.TroopActionButtonDefinition(
+                "KnightTransform", buttonViewModel.TransformCommand,
+                SerpLocalization.Get(SerpLocalization.KnightDismountTooltip), CreateActionButton,
+                priority: 100, hoverChanged: OnActionHoverChanged);
+            if (!APIShared.Presentation.TroopActionHud.TryRegisterButton(
+                ExtraFeaturesPlugin.PluginGuid, definition, out actionRegistration, out string reason))
+                throw new InvalidOperationException(reason);
+            PublishButtonState();
+        }
+
+        private Button CreateActionButton(APIShared.UnitHudActionButtonContext context)
+        {
+            var button = new Button { Width = 36, Height = 37, Padding = new Thickness(0),
+                Style = context.Hud.TryFindResource("BTN_Image") as Style };
+            if (button.Style == null) throw new InvalidOperationException("Vanilla troop button style is unavailable.");
+            var sprites = new object[6];
+            string[] names = { "UI-Buttons O016", "UI-Buttons O017", "UI-Buttons O018",
+                "UI-Buttons O019", "UI-Buttons O020", "UI-Buttons O021" };
+            for (int index = 0; index < sprites.Length; index++)
+            {
+                sprites[index] = context.Hud.TryFindResource(names[index]);
+                if (sprites[index] == null)
+                    throw new InvalidOperationException("Vanilla knight transformation button sprite is unavailable: " + names[index]);
+            }
+            actionButton = button;
+            actionSprites = sprites;
+            actionButtonMounting = null;
+            ApplyActionSprites();
+            return button;
+        }
+
+        private void PublishButtonState()
+        {
+            actionRegistration?.SetVisible(buttonViewModel.WantsVisibility);
+            actionRegistration?.SetEnabled(buttonViewModel.Enabled);
+            actionRegistration?.SetTooltip(SerpLocalization.Get(buttonViewModel.MountSelected
+                ? SerpLocalization.KnightMountTooltip : SerpLocalization.KnightDismountTooltip));
+            ApplyActionSprites();
+            if (!buttonViewModel.WantsVisibility) OnActionHoverChanged(false);
+            else if (actionHovered) ShowCurrentTooltip();
+        }
+
+        private void ApplyActionSprites()
+        {
+            if (actionButton == null || actionSprites == null || actionButtonMounting == buttonViewModel.MountSelected) return;
+            bool mounting = buttonViewModel.MountSelected;
+            int offset = mounting ? 3 : 0;
+            PropEx.SetSprite1(actionButton, actionSprites[offset]);
+            PropEx.SetSprite2(actionButton, actionSprites[offset + 1]);
+            PropEx.SetSprite3(actionButton, actionSprites[offset + 1]);
+            PropEx.SetSprite4(actionButton, actionSprites[offset + 2]);
+            actionButtonMounting = mounting;
+        }
+
+        private void OnActionHoverChanged(bool hovered)
+        {
+            if (actionHovered == hovered) return;
+            actionHovered = hovered;
+            if (hovered) ShowCurrentTooltip(); else HideTooltip();
+        }
+
+        private void ShowCurrentTooltip()
+        {
+            if (buttonViewModel.MountSelected) ShowMountTooltip(); else ShowDismountTooltip();
+        }
 
         public void InitializeNetwork()
         {
@@ -299,24 +194,22 @@ namespace ExtraFeatures
                 lock (engineGate)
                 {
                     CancelAllPending("feature-disabled", refundGold: true, releaseReservedHorse: true);
-                    pendingSelectionRequestIds.Clear();
-                    pendingSelectionTransferIds.Clear();
-                    pendingSelectionTransferTicks = 0;
+                    selectionTransfers.Clear();
                 }
             }
 
             // Settings and mission-end paths are not guaranteed to run on the main thread.
-            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(HideButtonAndUnhook);
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(HideButtonAndTooltip);
         }
 
-        private void HideButtonAndUnhook()
+        private void HideButtonAndTooltip()
         {
             // A later Initialize may already have re-enabled the feature before this ran.
             if (!deactivated)
                 return;
 
             buttonViewModel.Hide();
-            UnhookButtonEvents();
+            OnActionHoverChanged(false);
         }
 
         public void RefreshButtonVisibility()
@@ -346,8 +239,6 @@ namespace ExtraFeatures
                     return;
                 }
 
-                HookButtonEvents(troopPanel);
-
                 int localPlayerId = GetSelectionPlayerId();
                 TryCaptureSelectedUnits(localPlayerId, out APIShared.LocalSelectionSnapshot selection);
                 FindSelectedOwnKnightOrSwordsman(localPlayerId, selection, out bool knight, out bool swordsman);
@@ -372,81 +263,6 @@ namespace ExtraFeatures
             }
         }
 
-        private void HookButtonEvents(HUD_Troops troopPanel)
-        {
-            if (troopPanel == null)
-                return;
-
-            HookDismountButton(troopPanel.FindName("ExtraFeaturesKnightDismountButton") as Button);
-            HookMountButton(troopPanel.FindName("ExtraFeaturesKnightMountButton") as Button);
-        }
-
-        private void HookDismountButton(Button button)
-        {
-            if (button == null || ReferenceEquals(button, hookedDismountButton))
-                return;
-
-            if (hookedDismountButton != null)
-            {
-                hookedDismountButton.MouseEnter -= OnDismountButtonMouseEnter;
-                hookedDismountButton.MouseLeave -= OnButtonMouseLeave;
-            }
-
-            hookedDismountButton = button;
-            hookedDismountButton.MouseEnter += OnDismountButtonMouseEnter;
-            hookedDismountButton.MouseLeave += OnButtonMouseLeave;
-        }
-
-        private void HookMountButton(Button button)
-        {
-            if (button == null || ReferenceEquals(button, hookedMountButton))
-                return;
-
-            if (hookedMountButton != null)
-            {
-                hookedMountButton.MouseEnter -= OnMountButtonMouseEnter;
-                hookedMountButton.MouseLeave -= OnButtonMouseLeave;
-            }
-
-            hookedMountButton = button;
-            hookedMountButton.MouseEnter += OnMountButtonMouseEnter;
-            hookedMountButton.MouseLeave += OnButtonMouseLeave;
-        }
-
-        private void UnhookButtonEvents()
-        {
-            if (hookedDismountButton != null)
-            {
-                hookedDismountButton.MouseEnter -= OnDismountButtonMouseEnter;
-                hookedDismountButton.MouseLeave -= OnButtonMouseLeave;
-                hookedDismountButton = null;
-            }
-
-            if (hookedMountButton != null)
-            {
-                hookedMountButton.MouseEnter -= OnMountButtonMouseEnter;
-                hookedMountButton.MouseLeave -= OnButtonMouseLeave;
-                hookedMountButton = null;
-            }
-
-            ResetTooltipMetadata();
-        }
-
-        private void OnDismountButtonMouseEnter(object sender, MouseEventArgs e)
-        {
-            ShowDismountTooltip();
-        }
-
-        private void OnMountButtonMouseEnter(object sender, MouseEventArgs e)
-        {
-            ShowMountTooltip();
-        }
-
-        private void OnButtonMouseLeave(object sender, MouseEventArgs e)
-        {
-            HideTooltip();
-        }
-
         private void ShowDismountTooltip()
         {
             ShowTooltip(
@@ -469,14 +285,14 @@ namespace ExtraFeatures
         {
             try
             {
-                MainViewModel mainViewModel = MainViewModel.Instance;
+                MainViewModel mainViewModel = MainViewModel.viewModelLoaded ? MainViewModel.Instance : null;
                 HUD_Troops troopPanel = mainViewModel == null ? null : mainViewModel.HUDTroopPanel;
                 if (mainViewModel == null || troopPanel == null)
                     return;
 
                 mainViewModel.TroopsPanelRollover = title;
                 mainViewModel.TroopsPanelRollover_AmountReq1 = string.Empty;
-                int playerId = GetControlledPlayerId();
+                int playerId = ControlledPlayer.GetId();
                 if (unitLimitBridge.TryGetCapacity(playerId, targetUnitType, out int count, out int limit))
                 {
                     body += Environment.NewLine +
@@ -499,7 +315,7 @@ namespace ExtraFeatures
         {
             try
             {
-                HUD_Troops troopPanel = MainViewModel.Instance == null ? null : MainViewModel.Instance.HUDTroopPanel;
+                HUD_Troops troopPanel = MainViewModel.viewModelLoaded ? MainViewModel.Instance?.HUDTroopPanel : null;
                 if (troopPanel != null)
                 {
                     ResetTooltipMetadata();
@@ -701,943 +517,6 @@ namespace ExtraFeatures
             return troopPanel != null;
         }
 
-        private void OnDismountCommand()
-        {
-            try
-            {
-                if (!IsFeatureActive())
-                    return;
-
-                int localPlayerId = GetSelectionPlayerId();
-                List<UnitTransformSnapshot> snapshots = CaptureSelectedUnitSnapshots(localPlayerId, eChimps.CHIMP_TYPE_KNIGHT);
-                if (snapshots.Count == 0)
-                {
-                    RefreshButtonVisibility();
-                    return;
-                }
-
-                int goldCost = KnightTransformationTooltipPolicy.ClampGoldCost(settings.KnightTransformationGoldCost);
-                if (goldCost > 0 && GamePlayerManagerAPI.Instance.GetPlayerGold(localPlayerId) < goldCost)
-                {
-                    PlayMissingGoldSpeech();
-                    RefreshButtonVisibility();
-                    return;
-                }
-
-                IssueInternalStop();
-
-                if (RequiresChoreTransport())
-                {
-                    TrySendTransformationChore(localPlayerId, DismountAction, snapshots);
-                }
-                else
-                {
-                    // Noesis commands run on the main thread; the engine owns this state.
-                    lock (EngineLock.Gate)
-                        StartPendingBatch(localPlayerId, DismountAction, snapshots, localAction: true, "local-click");
-                }
-
-                RefreshButtonVisibility();
-            }
-            catch (Exception ex)
-            {
-                LogError($"Knight dismount click failed: {ex}");
-            }
-        }
-
-        private void OnMountCommand()
-        {
-            try
-            {
-                if (!IsFeatureActive())
-                {
-                    return;
-                }
-
-                int localPlayerId = GetSelectionPlayerId();
-
-                List<UnitTransformSnapshot> snapshots = CaptureSelectedUnitSnapshots(localPlayerId, eChimps.CHIMP_TYPE_SWORDSMAN);
-                if (snapshots.Count == 0)
-                {
-                    RefreshButtonVisibility();
-                    return;
-                }
-
-                int goldCost = KnightTransformationTooltipPolicy.ClampGoldCost(settings.KnightTransformationGoldCost);
-                if (goldCost > 0 && GamePlayerManagerAPI.Instance.GetPlayerGold(localPlayerId) < goldCost)
-                {
-                    PlayMissingGoldSpeech();
-                    RefreshButtonVisibility();
-                    return;
-                }
-
-                if (CountAvailableHorseSlots(localPlayerId) == 0)
-                {
-                    PlayMissingWeaponsSpeech();
-                    RefreshButtonVisibility();
-                    return;
-                }
-
-                IssueInternalStop();
-
-                if (RequiresChoreTransport())
-                {
-                    TrySendTransformationChore(localPlayerId, MountAction, snapshots);
-                }
-                else
-                {
-                    // Noesis commands run on the main thread; the engine owns this state.
-                    lock (EngineLock.Gate)
-                        StartPendingBatch(localPlayerId, MountAction, snapshots, localAction: true, "local-click");
-                }
-
-                RefreshButtonVisibility();
-            }
-            catch (Exception ex)
-            {
-                LogError($"Knight mount click failed: {ex}");
-            }
-        }
-
-        private bool IsFeatureActive()
-        {
-            // Pending transformations need the published tick/save infrastructure (and with it the
-            // engine monitor); without it a click would stop the troops and then fail.
-            return initialized && !deactivated && ReferenceEquals(activeRuntime, this) &&
-                Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
-                settings.EnableKnightDismount &&
-                (!RequiresChoreTransport() || IsChoreTransportReady());
-        }
-
-        private bool RequiresChoreTransport()
-        {
-            return multiplayerFeatureGate.BlocksLocalStateChanges;
-        }
-
-        private bool IsChoreTransportReady()
-        {
-            return APIShared.Networking.ChoreTransport.IsAvailable(
-                networkInitialized && transformationPacketHook != null);
-        }
-
-        private bool TrySendTransformationChore(int playerId, int action, List<UnitTransformSnapshot> snapshots)
-        {
-            if (!IsChoreTransportReady())
-            {
-                LogError("Knight transformation refused in multiplayer because the Chore transport is unavailable.");
-                return false;
-            }
-
-            if (snapshots == null || snapshots.Count < 1 ||
-                snapshots.Count > KnightTransformationPacket.MaximumEncodedTargetCount)
-            {
-                LogError($"Knight transformation refused because the target count cannot fit safely in a Chore packet: count={snapshots?.Count ?? 0}, absoluteMaximum={KnightTransformationPacket.MaximumEncodedTargetCount}.");
-                return false;
-            }
-
-            var globalIds = new List<int>(snapshots.Count);
-            for (int index = 0; index < snapshots.Count; index++)
-            {
-                if (snapshots[index].GlobalId <= 0)
-                {
-                    LogError($"Knight transformation refused because selected unit {snapshots[index].UnitId} has no stable global ID.");
-                    return false;
-                }
-
-                globalIds.Add(snapshots[index].GlobalId);
-            }
-
-            return TrySendTransformationPacket(playerId, action, globalIds.ToArray());
-        }
-
-        private bool TrySendTransformationPacket(int playerId, int action, int[] unitGlobalIds)
-        {
-            int operationId = nextOperationId == int.MaxValue ? 1 : nextOperationId + 1;
-            nextOperationId = operationId;
-            var packet = new KnightTransformationPacket
-            {
-                ProtocolVersion = ChoreProtocolVersion,
-                PlayerId = playerId,
-                OperationId = operationId,
-                Action = action,
-                UnitGlobalIds = unitGlobalIds ?? Array.Empty<int>()
-            };
-
-            if (!KnightTransformationPacketValidation.HasValidMetadataAndTargets(packet, GamePlayerManagerAPI.MAX_PLAYERS))
-            {
-                LogError($"Knight transformation refused because the outgoing packet metadata is invalid: playerId={playerId}, operationId={operationId}.");
-                return false;
-            }
-
-            short packetId = transformationPacketHook?.GetPacketId() ?? (short)0;
-            if (!APIShared.Networking.ChoreTransport.TrySend(
-                    packet,
-                    packetId,
-                    networkInitialized && transformationPacketHook != null,
-                    out byte[] body,
-                    out string rejectionReason))
-            {
-                LogError($"Knight transformation Chore was not queued; no local action was applied: operationId={operationId}, reason={rejectionReason}.");
-                return false;
-            }
-
-            return true;
-        }
-
-        private void OnTransformationPacketReceived(ReceiveCustomPacketEventArgs<KnightTransformationPacket> args)
-        {
-            if (!APIShared.Networking.ChoreTransport.IsChoreDelivery(args))
-                return;
-
-            if (!Shared.GameplayModActivationGate.IsAllowed)
-                return;
-
-            KnightTransformationPacket packet = args?.Packet;
-            if (packet == null || packet.ProtocolVersion != ChoreProtocolVersion ||
-                !KnightTransformationPacketValidation.HasValidMetadataAndTargets(packet, GamePlayerManagerAPI.MAX_PLAYERS))
-            {
-                LogError("Rejected a Knight transformation Chore with an invalid payload.");
-                return;
-            }
-
-            try
-            {
-                bool localAction = packet.PlayerId == GetControlledPlayerId();
-                if (packet.Action == KnightTransformationPacket.CancelAllAction)
-                {
-                    CancelAllPending("multiplayer-cancel-all", refundGold: true, releaseReservedHorse: true);
-                    if (localAction)
-                        ScheduleDeferredSaveCompletion();
-                    return;
-                }
-
-                if (packet.Action == KnightTransformationPacket.CancelSelectedAction)
-                {
-                    CancelPendingByGlobalIds(packet.PlayerId, packet.UnitGlobalIds, "multiplayer-stop");
-                    return;
-                }
-
-                eChimps expectedType = packet.Action == MountAction
-                    ? eChimps.CHIMP_TYPE_SWORDSMAN
-                    : eChimps.CHIMP_TYPE_KNIGHT;
-                List<UnitTransformSnapshot> snapshots = CaptureSnapshotsByGlobalIds(packet.PlayerId, expectedType, packet.UnitGlobalIds);
-                if (snapshots.Count != packet.UnitGlobalIds.Length)
-                {
-                    LogError($"Knight transformation Chore refused because not every unit resolved identically: operationId={packet.OperationId}, requested={packet.UnitGlobalIds.Length}, resolved={snapshots.Count}.");
-                    return;
-                }
-
-                StartPendingBatch(packet.PlayerId, packet.Action, snapshots, localAction, "multiplayer-chore");
-
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogDebug($"Knight transformation started: action={packet.Action}, unitCount={snapshots.Count}.");
-            }
-            catch (Exception ex)
-            {
-                LogError($"Knight transformation Chore execution failed: operationId={packet.OperationId}, exception={ex}");
-            }
-            finally
-            {
-                Shared.UnityMainThreadDispatch.TryEnqueue(RefreshButtonVisibility);
-            }
-        }
-
-        private static List<UnitTransformSnapshot> CaptureSnapshotsByGlobalIds(int playerId, eChimps expectedType, int[] globalIds)
-        {
-            var snapshots = new List<UnitTransformSnapshot>(globalIds.Length);
-            var seen = new HashSet<int>();
-            // One pass resolves every requested global ID (first = lowest game ID, as a per-ID scan would)
-            // instead of one full unit scan per selected unit.
-            var resolvedIds = new Dictionary<int, int>(globalIds.Length);
-            for (int index = 0; index < globalIds.Length; index++)
-                if (globalIds[index] > 0) resolvedIds[globalIds[index]] = -1;
-            Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
-            for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
-            {
-                ref GameUnit candidate = ref units[spanIndex];
-                int candidateGlobalId = (int)candidate.r_GlobalId;
-                if (candidateGlobalId > 0 && resolvedIds.TryGetValue(candidateGlobalId, out int known) && known < 0 &&
-                    APIShared.UnitAccess.IsReallyAlive(in candidate))
-                    resolvedIds[candidateGlobalId] = spanIndex + 1;
-            }
-
-            for (int index = 0; index < globalIds.Length; index++)
-            {
-                int globalId = globalIds[index];
-                if (globalId <= 0 || !seen.Add(globalId))
-                    continue;
-
-                int unitId = resolvedIds[globalId];
-                if (unitId <= 0 || !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
-                    !IsOwnAliveUnit(unit, playerId, expectedType))
-                {
-                    continue;
-                }
-
-                snapshots.Add(CreateSnapshotFromUnit(unitId, unit));
-            }
-
-            return snapshots;
-        }
-
-        private void PlayMissingWeaponsSpeech() =>
-            PlaySpeech(MissingWeaponsSpeechFileName, "mount missing stable horse");
-
-        private void PlayRandomLocalSpeech(string[] fileNames, string label) =>
-            PlaySpeech(GetRandomSpeechFileName(fileNames), label);
-
-        // Unity audio belongs to the main thread. Always queued: Chore batches run on the engine
-        // thread, and single-player batches hold the engine monitor, which clip loading would extend.
-        private void PlaySpeech(string speechFileName, string label)
-        {
-            if (!Shared.UnityMainThreadDispatch.TryEnqueue(() => PlaySpeechNow(speechFileName, label)))
-                LogError($"Could not schedule knight {label} speech on the main thread.");
-        }
-
-        private void PlaySpeechNow(string speechFileName, string label)
-        {
-            try
-            {
-                SFXManager.instance?.playSpeech(VoiceSpeechChannel, speechFileName, 1f);
-            }
-            catch (Exception ex)
-            {
-                LogError($"Could not play knight {label} speech: {ex}");
-            }
-        }
-
-        private static string GetRandomSpeechFileName(string[] speechFileNames)
-        {
-            lock (SpeechRandom)
-            {
-                return speechFileNames[SpeechRandom.Next(speechFileNames.Length)];
-            }
-        }
-
-        private List<UnitTransformSnapshot> CaptureSelectedUnitSnapshots(int localPlayerId, eChimps unitType)
-        {
-            List<UnitTransformSnapshot> snapshots = new List<UnitTransformSnapshot>();
-            if (localPlayerId < 1 || localPlayerId > GamePlayerManagerAPI.MAX_PLAYERS)
-                return snapshots;
-            TryCaptureSelectedUnits(localPlayerId, out APIShared.LocalSelectionSnapshot selection);
-            GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
-            HashSet<int> seenGlobalIds = new HashSet<int>();
-
-            for (int i = 0; selection != null && i < selection.Count; i++)
-            {
-                int unitId = selection[i].UnitId;
-                if (unitId <= 0 || !APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _))
-                    continue;
-
-                if (!IsOwnAliveUnit(unit, localPlayerId, unitType))
-                    continue;
-
-                AddSnapshot(snapshots, seenGlobalIds, unitId, unit);
-            }
-
-            int[] aliveUnits = APIShared.UnitAccess.GetAllReallyAliveUnits();
-            for (int i = 0; i < aliveUnits.Length; i++)
-            {
-                int unitId = aliveUnits[i];
-                if (unitId <= 0 || !APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _))
-                    continue;
-
-                if (!IsSelected(unit) || !IsOwnAliveUnit(unit, localPlayerId, unitType))
-                    continue;
-
-                AddSnapshot(snapshots, seenGlobalIds, unitId, unit);
-            }
-
-            return snapshots;
-        }
-
-        private void AddSnapshot(List<UnitTransformSnapshot> snapshots, HashSet<int> seenGlobalIds, int unitId, GameUnit* unit)
-        {
-            int globalId = (int)unit->r_GlobalId;
-            int snapshotKey = globalId > 0 ? globalId : -unitId;
-            if (!seenGlobalIds.Add(snapshotKey))
-                return;
-
-            snapshots.Add(CreateSnapshotFromUnit(unitId, unit));
-        }
-
-        private static UnitTransformSnapshot CreateSnapshotFromUnit(int unitId, GameUnit* unit)
-        {
-            return new UnitTransformSnapshot
-            {
-                UnitId = unitId,
-                GlobalId = (int)unit->r_GlobalId,
-                OwnerPlayerId = unit->r_ControllableForPlayerId,
-                ColorPlayerId = (int)unit->r_SpritePlayerColorId,
-                TileX = unit->r_CurrentTilePositionX,
-                TileY = unit->r_CurrentTilePositionY,
-                Height = unit->r_HeightElevation,
-                CurrentHealth = (int)unit->r_CurrentHealth,
-                MaxHealth = (int)unit->r_MaxHealth,
-                LinkedProductionBuildingId = unit->r_LinkedProductionBuildingId
-            };
-        }
-
-        private bool ApplyDismount(UnitTransformSnapshot snapshot, string reason, long limitReservationId, out int selectedReplacementUnitId)
-        {
-            selectedReplacementUnitId = 0;
-            if (!TryResolveAliveUnitByGlobalId(snapshot, eChimps.CHIMP_TYPE_KNIGHT, out int currentUnitId))
-                return false;
-
-            if (!APIShared.UnitAccess.TryGetById(currentUnitId, out GameUnit* currentUnit, out _))
-                return false;
-
-            UnitTransformSnapshot currentSnapshot = CreateSnapshotFromUnit(currentUnitId, currentUnit);
-            int swordsmanUnitId = CreateUnitFromSnapshot(
-                currentSnapshot,
-                eChimps.CHIMP_TYPE_SWORDSMAN,
-                "dismount",
-                reason,
-                limitReservationId);
-            if (swordsmanUnitId <= 0)
-                return false;
-
-            if (!TryResolveAliveUnitByGlobalId(currentSnapshot, eChimps.CHIMP_TYPE_KNIGHT, out int currentKnightId) ||
-                !APIShared.UnitAccess.TryGetById(currentKnightId, out GameUnit* currentKnight, out _))
-            {
-                LogError($"Knight dismount could not reacquire the original knight after spawning its replacement: reason={reason}, originalUnitId={currentUnitId}, globalId={currentSnapshot.GlobalId}.");
-                if (APIShared.UnitAccess.TryGetById(swordsmanUnitId, out _, out _)) GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
-                return false;
-            }
-
-            if (!TryConsumeLinkedStableHorse(currentKnightId, currentKnight, reason, out ConsumedStableHorse consumedHorse))
-            {
-                if (APIShared.UnitAccess.TryGetById(swordsmanUnitId, out _, out _)) GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
-                return false;
-            }
-
-            bool transferSelection = ShouldTransferSelection(currentSnapshot.OwnerPlayerId, currentKnight);
-            if (!(APIShared.UnitAccess.TryGetById(currentKnightId, out _, out _) && GameUnitManagerAPI.Instance.DeleteUnitSafe(currentKnightId)))
-            {
-                RollbackConsumedStableHorse(consumedHorse, reason);
-                LogError($"Knight dismount could not mark the original knight for Vanilla deletion: reason={reason}, unitId={currentKnightId}, globalId={currentSnapshot.GlobalId}.");
-                if (APIShared.UnitAccess.TryGetById(swordsmanUnitId, out _, out _)) GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
-                return false;
-            }
-
-            if (transferSelection)
-                selectedReplacementUnitId = swordsmanUnitId;
-
-            if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                LogDebug(
-                    $"Knight dismount completed: reason={reason}, sourceGlobalId={currentSnapshot.GlobalId}, " +
-                    $"swordsmanUnitId={swordsmanUnitId}, linkedHorseConsumed={consumedHorse.IsActive}.");
-            return true;
-        }
-
-        private bool TryResolveAliveUnitByGlobalId(UnitTransformSnapshot snapshot, eChimps expectedType, out int currentUnitId)
-        {
-            currentUnitId = snapshot.GlobalId > 0 ? FindAliveUnitIdByGlobalId(snapshot.GlobalId, snapshot.UnitId) : snapshot.UnitId;
-            return ValidateAliveUnit(snapshot, expectedType, currentUnitId);
-        }
-
-        private bool ValidateAliveUnit(UnitTransformSnapshot snapshot, eChimps expectedType, int currentUnitId)
-        {
-            if (currentUnitId <= 0 || !APIShared.UnitAccess.TryGetById(currentUnitId, out GameUnit* unit, out _))
-                return false;
-
-            if (!APIShared.UnitAccess.IsReallyAlive(unit) ||
-                unit->r_UnitChimp != expectedType ||
-                unit->r_ControllableForPlayerId != snapshot.OwnerPlayerId)
-                return false;
-
-            return true;
-        }
-
-        private int CreateUnitFromSnapshot(
-            UnitTransformSnapshot snapshot,
-            eChimps unitType,
-            string label,
-            string reason,
-            long limitReservationId = 0)
-        {
-            if (!unitLimitBridge.ArmReservation(limitReservationId))
-            {
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogDebug(
-                        $"Knight {label} stopped because its UnitLimit reservation is no longer valid: " +
-                        $"reason={reason}, originalUnitId={snapshot.UnitId}, globalId={snapshot.GlobalId}, " +
-                        $"reservationId={limitReservationId}.");
-                return -1;
-            }
-
-            long createdId;
-            try
-            {
-                createdId = GameUnitManagerAPI.Instance.CreateUnitLocal(
-                    playerOwnerId: snapshot.OwnerPlayerId,
-                    playerColorId: snapshot.ColorPlayerId,
-                    localTileX: snapshot.TileX,
-                    localTileY: snapshot.TileY,
-                    heightElevation: snapshot.Height,
-                    chimp: unitType);
-            }
-            finally
-            {
-                unitLimitBridge.ReleaseReservation(limitReservationId);
-            }
-
-            if (createdId <= 0 || createdId > int.MaxValue)
-            {
-                LogError($"Knight {label} spawned invalid {unitType} id: reason={reason}, originalUnitId={snapshot.UnitId}, globalId={snapshot.GlobalId}, createdId={createdId}.");
-                return -1;
-            }
-
-            if (snapshot.LinkedProductionBuildingId > 0 &&
-                snapshot.LinkedProductionBuildingId <= ushort.MaxValue &&
-                APIShared.UnitAccess.TryGetById((int)createdId, out GameUnit* createdUnit, out _))
-            {
-                // Preserve the barracks/production link; the horse stable has separate hidden fields.
-                createdUnit->r_LinkedProductionBuildingId = (ushort)snapshot.LinkedProductionBuildingId;
-            }
-
-            ApplyHealthRatio((int)createdId, snapshot.CurrentHealth, snapshot.MaxHealth, label);
-            return (int)createdId;
-        }
-
-        private int CountAvailableHorseSlots(int playerId)
-        {
-            return FindHorseAllocations(playerId, int.MaxValue).Count;
-        }
-
-        private List<HorseAllocation> FindHorseAllocations(int playerId, int maxCount)
-        {
-            List<HorseAllocation> allocations = new List<HorseAllocation>();
-            if (maxCount <= 0)
-                return allocations;
-
-            List<int> stableIds = new List<int>();
-            GameBuildingManagerAPI.Instance.GetAllBuildings(stableIds, AliveState.IsAlive, eStructs.STRUCT_STABLES, PlayerRelationship.Self, playerId);
-            stableIds.Sort();
-
-            for (int i = 0; i < stableIds.Count && allocations.Count < maxCount; i++)
-            {
-                int stableId = stableIds[i];
-                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(stableId, out GameBuilding* stable))
-                    continue;
-
-                if (!IsUsableStable(stable, playerId))
-                    continue;
-
-                int availableAtStable = GetAvailableStableHorseCount(stable);
-                for (int slot = 0; slot < StableHorseSlotCount && availableAtStable > 0 && allocations.Count < maxCount; slot++)
-                {
-                    if (!IsStableHorseSlotFree(stable, slot))
-                        continue;
-
-                    HorseAllocation allocation = new HorseAllocation
-                    {
-                        StableId = stableId,
-                        StableGlobalId = (int)stable->r_GlobalId,
-                        OwnerPlayerId = playerId,
-                        Slot = slot
-                    };
-
-                    allocations.Add(allocation);
-                    availableAtStable--;
-                }
-            }
-
-            return allocations;
-        }
-
-        private bool TryConsumeStableHorse(HorseAllocation allocation, int unitId, int unitGlobalId, string reason)
-        {
-            if (unitId <= 0 || unitId > ushort.MaxValue || unitGlobalId <= 0)
-                return false;
-
-            if (allocation.StableId <= 0 || allocation.StableId > ushort.MaxValue)
-                return false;
-
-            if (allocation.Slot < 0 || allocation.Slot >= StableHorseSlotCount)
-                return false;
-
-            if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* mountedUnit, out _))
-                return false;
-
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(allocation.StableId, out GameBuilding* stable))
-                return false;
-
-            if (!IsUsableStable(stable, allocation.OwnerPlayerId))
-                return false;
-
-            if (allocation.StableGlobalId > 0 && (int)stable->r_GlobalId != allocation.StableGlobalId)
-                return false;
-
-            if (GetAvailableStableHorseCount(stable) <= 0 || !IsStableHorseSlotFree(stable, allocation.Slot))
-                return false;
-
-            // Only establish the bidirectional ownership link here. Vanilla's regular stable update
-            // recounts r_UsedHorses from the four valid slot links; r_TotalHorses remains game-owned.
-            // Updating either counter ourselves would duplicate Vanilla accounting.
-            GameBuildingManagerAPI.Instance.SetStablesUnitIdLink(
-                allocation.StableId,
-                allocation.Slot,
-                unitId,
-                unitGlobalId,
-                bidirectional: true);
-
-            bool slotMatches = GetStableHorseSlotUnitId(stable, allocation.Slot) == unitId &&
-                GetStableHorseSlotGlobalId(stable, allocation.Slot) == unitGlobalId;
-            bool backlinkMatches = mountedUnit->r_LinkedStableBuildingId == allocation.StableId &&
-                mountedUnit->r_LinkedStableGlobalId == (uint)allocation.StableGlobalId;
-
-            if (!slotMatches || !backlinkMatches)
-            {
-                // Only the just-written link must be rolled back; no accounting transition should
-                // survive. The full Vanilla release routine would additionally consume a horse.
-                GameBuildingManagerAPI.Instance.UnlinkStablesUnitIdLink(
-                    allocation.StableId,
-                    allocation.Slot,
-                    bidirectional: true);
-                LogError(
-                    $"Knight mount rolled back an incomplete bidirectional stable link: reason={reason}, " +
-                    $"stableId={allocation.StableId}, slot={allocation.Slot}, unitId={unitId}, " +
-                    $"slotMatches={slotMatches}, backlinkMatches={backlinkMatches}.");
-                return false;
-            }
-
-            return true;
-        }
-
-        private static bool IsUsableStable(GameBuilding* stable, int ownerPlayerId)
-        {
-            return stable != null &&
-                stable->r_AliveState == AliveState.IsAlive &&
-                stable->r_BuildingType == eStructs.STRUCT_STABLES &&
-                (ownerPlayerId <= 0 || stable->r_PlayerIdOwner == ownerPlayerId);
-        }
-
-        private static int ClampStableHorseCount(byte value)
-        {
-            return Math.Max(0, Math.Min(StableHorseSlotCount, (int)value));
-        }
-
-        private static int GetAvailableStableHorseCount(GameBuilding* stable)
-        {
-            int total = ClampStableHorseCount(stable->r_TotalHorses);
-            int used = ClampStableHorseCount(stable->r_UsedHorses);
-            int freeSlots = CountFreeStableHorseSlots(stable);
-            return Math.Max(0, Math.Min(freeSlots, total - used));
-        }
-
-        private static int CountFreeStableHorseSlots(GameBuilding* stable)
-        {
-            int count = 0;
-            for (int slot = 0; slot < StableHorseSlotCount; slot++)
-            {
-                if (IsStableHorseSlotFree(stable, slot))
-                    count++;
-            }
-
-            return count;
-        }
-
-        private static bool TryValidateStableHorseSlots(int stableId, GameBuilding* stable, out int occupiedSlotCount)
-        {
-            occupiedSlotCount = 0;
-            if (stable == null || stableId <= 0 || stable->r_GlobalId == 0)
-                return false;
-
-            var seenUnitIds = new HashSet<int>();
-            var seenGlobalIds = new HashSet<int>();
-            int stableGlobalId = (int)stable->r_GlobalId;
-            for (int slot = 0; slot < StableHorseSlotCount; slot++)
-            {
-                int unitId = GetStableHorseSlotUnitId(stable, slot);
-                int unitGlobalId = GetStableHorseSlotGlobalId(stable, slot);
-                if (unitId == 0 && unitGlobalId == 0)
-                    continue;
-
-                if (unitId <= 0 || unitGlobalId <= 0 ||
-                    !seenUnitIds.Add(unitId) || !seenGlobalIds.Add(unitGlobalId) ||
-                    !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* linkedUnit, out _) ||
-                    (int)linkedUnit->r_GlobalId != unitGlobalId ||
-                    linkedUnit->r_LinkedStableBuildingId != stableId ||
-                    linkedUnit->r_LinkedStableGlobalId != (uint)stableGlobalId)
-                {
-                    return false;
-                }
-
-                occupiedSlotCount++;
-            }
-
-            return true;
-        }
-
-        private static bool IsStableHorseSlotFree(GameBuilding* stable, int slot)
-        {
-            return GetStableHorseSlotUnitId(stable, slot) == 0 &&
-                GetStableHorseSlotGlobalId(stable, slot) == 0;
-        }
-
-        private static int GetStableHorseSlotUnitId(GameBuilding* stable, int slot)
-        {
-            switch (slot)
-            {
-                case 0: return stable->r_UsedHorse1UnitId;
-                case 1: return stable->r_UsedHorse2UnitId;
-                case 2: return stable->r_UsedHorse3UnitId;
-                case 3: return stable->r_UsedHorse4UnitId;
-                default: return -1;
-            }
-        }
-
-        private static int GetStableHorseSlotGlobalId(GameBuilding* stable, int slot)
-        {
-            switch (slot)
-            {
-                case 0: return (int)stable->r_UsedHorse1GlobalId;
-                case 1: return (int)stable->r_UsedHorse2GlobalId;
-                case 2: return (int)stable->r_UsedHorse3GlobalId;
-                case 3: return (int)stable->r_UsedHorse4GlobalId;
-                default: return -1;
-            }
-        }
-
-        private static int GetKnightStableBuildingId(GameUnit* unit)
-        {
-            return unit == null ? 0 : unit->r_LinkedStableBuildingId;
-        }
-
-        private static int GetKnightStableBuildingGlobalId(GameUnit* unit)
-        {
-            return unit == null ? 0 : (int)unit->r_LinkedStableGlobalId;
-        }
-
-        private bool TryConsumeLinkedStableHorse(
-            int unitId,
-            GameUnit* unit,
-            string reason,
-            out ConsumedStableHorse consumedHorse)
-        {
-            consumedHorse = default;
-            if (unit == null || unitId <= 0 || unit->r_GlobalId == 0)
-                return false;
-
-            int unitGlobalId = (int)unit->r_GlobalId;
-            int linkedStableId = GetKnightStableBuildingId(unit);
-            int linkedStableGlobalId = GetKnightStableBuildingGlobalId(unit);
-            bool hasSlotLink = TryFindStableHorseLink(unitId, unitGlobalId, out int slotStableId, out int slot);
-
-            // Imported or scripted knights can legitimately have no stable. Dismounting them must
-            // not invent accounting, but any partial or contradictory link is unsafe to consume.
-            if (linkedStableId <= 0 && linkedStableGlobalId <= 0 && !hasSlotLink)
-                return true;
-
-            if (linkedStableId <= 0 || linkedStableGlobalId <= 0 || !hasSlotLink ||
-                slotStableId != linkedStableId || slot < 0 || slot >= StableHorseSlotCount ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(linkedStableId, out GameBuilding* stable) ||
-                stable->r_AliveState != AliveState.IsAlive ||
-                stable->r_BuildingType != eStructs.STRUCT_STABLES ||
-                (int)stable->r_GlobalId != linkedStableGlobalId ||
-                GetStableHorseSlotUnitId(stable, slot) != unitId ||
-                GetStableHorseSlotGlobalId(stable, slot) != unitGlobalId)
-            {
-                LogError(
-                    $"Knight dismount refused an inconsistent stable link: reason={reason}, unitId={unitId}, " +
-                    $"unitGlobalId={unitGlobalId}, linkedStableId={linkedStableId}, " +
-                    $"linkedStableGlobalId={linkedStableGlobalId}, slotStableId={slotStableId}, slot={slot}.");
-                return false;
-            }
-
-            int totalBefore = stable->r_TotalHorses;
-            int usedBefore = stable->r_UsedHorses;
-            int rechargeBefore = stable->r_HorseRechargeTimer;
-            bool slotsStructurallyValid =
-                TryValidateStableHorseSlots(linkedStableId, stable, out int occupiedSlotCount);
-            if (!StableHorseConsumptionPolicy.TryGetTotalAfterConsumption(
-                    totalBefore,
-                    usedBefore,
-                    occupiedSlotCount,
-                    slotsStructurallyValid,
-                    settings.InstantHorse,
-                    out int totalAfter))
-            {
-                LogError(
-                    $"Knight dismount refused invalid stable accounting: reason={reason}, unitId={unitId}, " +
-                    $"unitGlobalId={unitGlobalId}, {FormatStableState(linkedStableId, stable, slot)}.");
-                return false;
-            }
-
-            consumedHorse = new ConsumedStableHorse
-            {
-                IsActive = true,
-                StableId = linkedStableId,
-                StableGlobalId = linkedStableGlobalId,
-                Slot = slot,
-                UnitId = unitId,
-                UnitGlobalId = unitGlobalId,
-                TotalBefore = totalBefore,
-                UsedBefore = usedBefore,
-                RechargeBefore = rechargeBefore
-            };
-
-            // TODO(SHCDE-SE): Replace this managed Vanilla-equivalent accounting block when the
-            // Script Extender exposes a direct "consume linked stable horse" API. Unlink alone
-            // returns the horse immediately. Unless Instant Horse is enabled, decrementing
-            // TotalHorses makes the existing stable recharge it. Vanilla owns UsedHorses and
-            // HorseRechargeTimer, so never write them here.
-            stable->r_TotalHorses = (byte)totalAfter;
-            GameBuildingManagerAPI.Instance.UnlinkStablesUnitIdLink(linkedStableId, slot, bidirectional: true);
-
-            bool transitionMatches = IsStableHorseSlotFree(stable, slot) &&
-                unit->r_LinkedStableBuildingId == 0 && unit->r_LinkedStableGlobalId == 0 &&
-                stable->r_TotalHorses == totalAfter &&
-                stable->r_UsedHorses == usedBefore &&
-                stable->r_HorseRechargeTimer == rechargeBefore;
-            if (transitionMatches)
-                return true;
-
-            LogError(
-                $"Knight dismount stable transition was incomplete and will be rolled back: reason={reason}, " +
-                $"unitId={unitId}, unitGlobalId={unitGlobalId}, {FormatStableState(linkedStableId, stable, slot)}.");
-            RollbackConsumedStableHorse(consumedHorse, reason);
-            consumedHorse = default;
-            return false;
-        }
-
-        private void RollbackConsumedStableHorse(ConsumedStableHorse consumedHorse, string reason)
-        {
-            if (!consumedHorse.IsActive)
-                return;
-
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(consumedHorse.StableId, out GameBuilding* stable) ||
-                stable->r_AliveState != AliveState.IsAlive ||
-                stable->r_BuildingType != eStructs.STRUCT_STABLES ||
-                (int)stable->r_GlobalId != consumedHorse.StableGlobalId ||
-                !APIShared.UnitAccess.TryGetById(consumedHorse.UnitId, out GameUnit* unit, out _) ||
-                (int)unit->r_GlobalId != consumedHorse.UnitGlobalId)
-            {
-                LogError(
-                    $"Knight dismount could not reacquire objects for stable rollback: reason={reason}, " +
-                    $"stableId={consumedHorse.StableId}, unitId={consumedHorse.UnitId}.");
-                return;
-            }
-
-            bool slotIsFree = IsStableHorseSlotFree(stable, consumedHorse.Slot);
-            bool slotAlreadyRestored = GetStableHorseSlotUnitId(stable, consumedHorse.Slot) == consumedHorse.UnitId &&
-                GetStableHorseSlotGlobalId(stable, consumedHorse.Slot) == consumedHorse.UnitGlobalId;
-            bool totalCanRestore = stable->r_TotalHorses == consumedHorse.TotalBefore - 1 ||
-                stable->r_TotalHorses == consumedHorse.TotalBefore;
-            if ((!slotIsFree && !slotAlreadyRestored) || !totalCanRestore)
-            {
-                LogError(
-                    $"Knight dismount skipped an unsafe stable rollback: reason={reason}, unitId={consumedHorse.UnitId}, " +
-                    $"expectedTotal={consumedHorse.TotalBefore - 1}/{consumedHorse.TotalBefore}, " +
-                    $"{FormatStableState(consumedHorse.StableId, stable, consumedHorse.Slot)}.");
-                return;
-            }
-
-            stable->r_TotalHorses = (byte)consumedHorse.TotalBefore;
-            if (slotIsFree)
-            {
-                GameBuildingManagerAPI.Instance.SetStablesUnitIdLink(
-                    consumedHorse.StableId,
-                    consumedHorse.Slot,
-                    consumedHorse.UnitId,
-                    consumedHorse.UnitGlobalId,
-                    bidirectional: true);
-            }
-
-            bool rollbackMatches =
-                GetStableHorseSlotUnitId(stable, consumedHorse.Slot) == consumedHorse.UnitId &&
-                GetStableHorseSlotGlobalId(stable, consumedHorse.Slot) == consumedHorse.UnitGlobalId &&
-                unit->r_LinkedStableBuildingId == consumedHorse.StableId &&
-                unit->r_LinkedStableGlobalId == (uint)consumedHorse.StableGlobalId &&
-                stable->r_TotalHorses == consumedHorse.TotalBefore &&
-                stable->r_UsedHorses == consumedHorse.UsedBefore &&
-                stable->r_HorseRechargeTimer == consumedHorse.RechargeBefore;
-            if (!rollbackMatches)
-            {
-                LogError(
-                    $"Knight dismount stable rollback was incomplete: reason={reason}, unitId={consumedHorse.UnitId}, " +
-                    $"unitGlobalId={consumedHorse.UnitGlobalId}, {FormatStableState(consumedHorse.StableId, stable, consumedHorse.Slot)}.");
-            }
-        }
-
-        private static bool TryFindStableHorseLink(int unitId, int unitGlobalId, out int stableId, out int slot)
-        {
-            stableId = 0;
-            slot = -1;
-            List<int> stableIds = new List<int>();
-            GameBuildingManagerAPI.Instance.GetAllBuildings(stableIds, AliveState.IsAlive, eStructs.STRUCT_STABLES);
-
-            for (int i = 0; i < stableIds.Count; i++)
-            {
-                int candidateStableId = stableIds[i];
-                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(candidateStableId, out GameBuilding* stable))
-                    continue;
-
-                for (int candidateSlot = 0; candidateSlot < StableHorseSlotCount; candidateSlot++)
-                {
-                    int linkedUnitId = GetStableHorseSlotUnitId(stable, candidateSlot);
-                    int linkedGlobalId = GetStableHorseSlotGlobalId(stable, candidateSlot);
-                    if ((unitId > 0 && linkedUnitId == unitId) || (unitGlobalId > 0 && linkedGlobalId == unitGlobalId))
-                    {
-                        stableId = candidateStableId;
-                        slot = candidateSlot;
-                        return true;
-                    }
-                }
-            }
-
-            return false;
-        }
-
-        private static string FormatStableState(int stableId, GameBuilding* stable, int slot)
-        {
-            return $"stableId={stableId}, stableGlobalId={stable->r_GlobalId}, total={stable->r_TotalHorses}, used={stable->r_UsedHorses}, recharge={stable->r_HorseRechargeTimer}, observedSlot={slot}, slots=[{stable->r_UsedHorse1UnitId}/{stable->r_UsedHorse1GlobalId},{stable->r_UsedHorse2UnitId}/{stable->r_UsedHorse2GlobalId},{stable->r_UsedHorse3UnitId}/{stable->r_UsedHorse3GlobalId},{stable->r_UsedHorse4UnitId}/{stable->r_UsedHorse4GlobalId}]";
-        }
-
-        // Finds the really-alive unit carrying this native global ID. A unit keeps its game ID for its
-        // whole life and global IDs are unique per unit, so a still-matching hint is exactly the unit the
-        // scan would find; this path runs per tick for every pending transformation. Otherwise one
-        // allocation-free pass in ascending game-ID order (the order of GetAllReallyAliveUnits).
-        private static int FindAliveUnitIdByGlobalId(int globalId, int hintUnitId = 0)
-        {
-            if (globalId <= 0)
-                return -1;
-
-            GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
-            if (hintUnitId > 0 && APIShared.UnitAccess.TryGetById(unitApi, hintUnitId, out GameUnit* hinted, out _) &&
-                (int)hinted->r_GlobalId == globalId && APIShared.UnitAccess.IsReallyAlive(hinted))
-                return hintUnitId;
-
-            Span<GameUnit> units = unitApi.GetUnitsAsSpan();
-            for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
-            {
-                ref GameUnit candidate = ref units[spanIndex];
-                if ((int)candidate.r_GlobalId == globalId && APIShared.UnitAccess.IsReallyAlive(in candidate))
-                    return spanIndex + 1;
-            }
-
-            return -1;
-        }
-
-        private void ApplyHealthRatio(int targetUnitId, int sourceCurrentHealth, int sourceMaxHealth, string label)
-        {
-            if (!APIShared.UnitAccess.TryGetById(targetUnitId, out GameUnit* unit, out _))
-            {
-                LogError($"Knight {label} could not set target health, unit not found: targetUnitId={targetUnitId}.");
-                return;
-            }
-
-            int targetMaxHealth = Math.Max(1, (int)unit->r_MaxHealth);
-            double ratio = sourceMaxHealth > 0 ? Math.Max(0.0, Math.Min(1.0, sourceCurrentHealth / (double)sourceMaxHealth)) : 1.0;
-            int targetHealth = Math.Max(1, Math.Min(targetMaxHealth, (int)Math.Round(targetMaxHealth * ratio, MidpointRounding.AwayFromZero)));
-            ushort targetPercent = (ushort)Math.Max(0, Math.Min(100, (int)Math.Round(100.0 * targetHealth / targetMaxHealth, MidpointRounding.AwayFromZero)));
-
-            unit->r_CurrentHealth = (uint)targetHealth;
-            unit->r_CurrentHealthPercentage = targetPercent;
-            unit->r_HealthBarBlocks = (uint)(targetPercent / 10);
-        }
-
         private static bool IsOwnAliveUnit(GameUnit* unit, int localPlayerId, eChimps unitType)
         {
             return unit != null &&
@@ -1674,18 +553,6 @@ namespace ExtraFeatures
             }
         }
 
-        private static int GetControlledPlayerId()
-        {
-            if (APIShared.GameModes.GameModeHelper.IsMapEditor())
-            {
-                // Editor actions belong to the player currently selected in the editor toolbar.
-                return EditorDirector.instance?.ActivePlayerID ?? -1;
-            }
-
-            int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
-            return localPlayerId > 0 ? localPlayerId : -1;
-        }
-
         private static int GetSelectionPlayerId()
         {
             if (APIShared.GameModes.GameModeHelper.IsMapEditor())
@@ -1711,41 +578,6 @@ namespace ExtraFeatures
         {
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
                 () => Shared.DebugLogHelper.LogWarningLimited(log, callerFile + ":" + callerLine, message));
-        }
-
-        private struct UnitTransformSnapshot
-        {
-            public int UnitId;
-            public int GlobalId;
-            public int OwnerPlayerId;
-            public int ColorPlayerId;
-            public int TileX;
-            public int TileY;
-            public int Height;
-            public int CurrentHealth;
-            public int MaxHealth;
-            public int LinkedProductionBuildingId;
-        }
-
-        private struct HorseAllocation
-        {
-            public int StableId;
-            public int StableGlobalId;
-            public int OwnerPlayerId;
-            public int Slot;
-        }
-
-        private struct ConsumedStableHorse
-        {
-            public bool IsActive;
-            public int StableId;
-            public int StableGlobalId;
-            public int Slot;
-            public int UnitId;
-            public int UnitGlobalId;
-            public int TotalBefore;
-            public int UsedBefore;
-            public int RechargeBefore;
         }
     }
 }

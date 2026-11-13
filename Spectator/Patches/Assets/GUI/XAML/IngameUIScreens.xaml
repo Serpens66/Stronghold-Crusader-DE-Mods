@@ -1,6 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Patch xmlns:specui="clr-namespace:Spectator;assembly=Spectator" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:CrusaderDE" xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE" xmlns:apiui="clr-namespace:APIShared.ModSettings;assembly=APIShared">
   <Operation Type="Add" XPath="/n:UserControl/n:Grid"><Content>
+    <Canvas x:Name="SpectatorHiddenDateCanvas" Grid.RowSpan="4" Grid.ColumnSpan="4" FlowDirection="LeftToRight" ClipToBounds="True">
+      <TextBlock x:Name="SpectatorHiddenDate" Visibility="Collapsed" Cursor="SizeAll" FontSize="18"
+                 Foreground="#FFEFF3C6" Background="#55000000" TextTrimming="CharacterEllipsis">
+        <TextBlock.Effect>
+          <DropShadowEffect ShadowDepth="2" Direction="315" Color="#CC000000" BlurRadius="0" />
+        </TextBlock.Effect>
+      </TextBlock>
+    </Canvas>
+  </Content></Operation>
+  <Operation Type="Add" XPath="/n:UserControl/n:Grid"><Content>
     <Canvas x:Name="SpectatorEditorHumanCanvas" Grid.Row="0" Grid.RowSpan="4" Grid.Column="0" Grid.ColumnSpan="4" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Panel.ZIndex="10031">
 <Canvas.Style><Style TargetType="{x:Type Canvas}">
 <Setter Property="Visibility" Value="{Binding Show_HUD_Extras, Converter={StaticResource booleanToVisibilityConverter}, FallbackValue=Collapsed}"/>

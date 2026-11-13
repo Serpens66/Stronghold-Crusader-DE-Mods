@@ -2,7 +2,8 @@
 <Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
        xmlns:local="clr-namespace:CrusaderDE"
        xmlns:shared="clr-namespace:Shared;assembly=BugfixesAndQoL"
-       xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
+       xmlns:bugfixesApi="clr-namespace:APIShared.ModSettings;assembly=APIShared">
+  <Operation Type="AddNamespace" AttributeName="bugfixesApi" Value="clr-namespace:APIShared.ModSettings;assembly=APIShared" />
   <Operation Type="SetAttribute"
              XPath="//n:Grid[@Visibility='{Binding Show_MPSettings, Converter={StaticResource booleanToVisibilityConverter}}']"
              AttributeName="Panel.ZIndex"
@@ -92,16 +93,15 @@
             HorizontalAlignment="Right" VerticalAlignment="Bottom"
             Visibility="{Binding EnhancementVisibility}">
         <Grid.Resources>
-          <Style TargetType="{x:Type ToolTip}">
+          <Style x:Key="ModSettingsToolTipStyle" TargetType="{x:Type ToolTip}">
             <Setter Property="Background" Value="#FF1D1710" />
-            <Setter Property="Foreground" Value="White" /><Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True"/>
+            <Setter Property="Foreground" Value="White" /><Setter Property="FontSize" Value="{x:Static bugfixesApi:ToolTipPresentation.AutomaticFontSize}"/><Setter Property="MaxWidth" Value="{x:Static bugfixesApi:ToolTipPresentation.AutomaticMaximumWidth}"/><Setter Property="Padding" Value="24,18"/><Setter Property="BorderThickness" Value="4.5"/>
             <Setter Property="BorderBrush" Value="#FFF2D48A" />
-            <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Template">
               <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ToolTip}">
                   <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                          BorderThickness="1" CornerRadius="2" Padding="{TemplateBinding Padding}"
+                          BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="{TemplateBinding Padding}"
                           MaxWidth="{TemplateBinding MaxWidth}">
                     <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
                   </Border>
@@ -145,8 +145,7 @@
                     local:PropEx.Sprite2="{StaticResource shield_options}"
                     local:PropEx.Sprite3="{StaticResource shield_options}"
                     local:PropEx.Sprite4="{StaticResource shield_options}"
-                    Command="{Binding RandomCustomLordCommand}" Style="{StaticResource BTN_Image}"
-                    ToolTip="{Binding RandomCustomLordHelpText}" ToolTipService.ShowDuration="60000" />
+                    Command="{Binding RandomCustomLordCommand}" Style="{StaticResource BTN_Image}" ToolTipService.ShowDuration="60000"><Button.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" bugfixesApi:SharedToolTipSizing.Enabled="True" Content="{Binding RandomCustomLordHelpText}"/></Button.ToolTip></Button>
           </Grid>
         </Border>
         <TextBox x:Name="CustomLordSearchBox" Width="162" Height="34" MaxLength="64"
@@ -162,8 +161,7 @@
                 HorizontalAlignment="Right" VerticalAlignment="Bottom"
                 local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
                 local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
-                Command="{Binding ClearSearchCommand}" Style="{StaticResource BTN_Building}"
-                ToolTip="{Binding ClearSearchHelpText}" ToolTipService.ShowDuration="60000" />
+                Command="{Binding ClearSearchCommand}" Style="{StaticResource BTN_Building}" ToolTipService.ShowDuration="60000"><Button.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" bugfixesApi:SharedToolTipSizing.Enabled="True" Content="{Binding ClearSearchHelpText}"/></Button.ToolTip></Button>
       </Grid>
     </Content>
   </Operation>
@@ -173,16 +171,15 @@
             Margin="775,105,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"
             Visibility="{Binding RandomLordFiltersVisibility}">
         <Grid.Resources>
-          <Style TargetType="{x:Type ToolTip}">
+          <Style x:Key="ModSettingsToolTipStyle" TargetType="{x:Type ToolTip}">
             <Setter Property="Background" Value="#FF1D1710" />
-            <Setter Property="Foreground" Value="White" /><Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True"/>
+            <Setter Property="Foreground" Value="White" /><Setter Property="FontSize" Value="{x:Static bugfixesApi:ToolTipPresentation.AutomaticFontSize}"/><Setter Property="MaxWidth" Value="{x:Static bugfixesApi:ToolTipPresentation.AutomaticMaximumWidth}"/><Setter Property="Padding" Value="24,18"/><Setter Property="BorderThickness" Value="4.5"/>
             <Setter Property="BorderBrush" Value="#FFF2D48A" />
-            <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Template">
               <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ToolTip}">
                   <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                          BorderThickness="1" CornerRadius="2" Padding="{TemplateBinding Padding}"
+                          BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="{TemplateBinding Padding}"
                           MaxWidth="{TemplateBinding MaxWidth}">
                     <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
                   </Border>
@@ -194,27 +191,24 @@
         <Grid Margin="0,0,0,0" Width="50" Height="30"
               FlowDirection="{Binding GlobalTextFlowAL2R, Source={x:Static local:MainViewModel.Instance}}"
               HorizontalAlignment="Left" VerticalAlignment="Top">
-          <CheckBox IsChecked="{Binding IncludeLocalCustomLords, Mode=TwoWay}"
-                    ToolTip="{Binding LocalCustomLordFilterHelp}" ToolTipService.ShowDuration="60000"
-                    Style="{StaticResource CheckBox_Template}" />
+          <CheckBox IsChecked="{Binding IncludeLocalCustomLords, Mode=TwoWay}" ToolTipService.ShowDuration="60000"
+                    Style="{StaticResource CheckBox_Template}"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" bugfixesApi:SharedToolTipSizing.Enabled="True" Content="{Binding LocalCustomLordFilterHelp}"/></CheckBox.ToolTip></CheckBox>
           <Image Margin="22,0,-2,0" Source="{StaticResource user}" Width="30" Height="30"
                  Stretch="Fill" IsHitTestVisible="False" />
         </Grid>
         <Grid Margin="0,25,0,0" Width="50" Height="30"
               FlowDirection="{Binding GlobalTextFlowAL2R, Source={x:Static local:MainViewModel.Instance}}"
               HorizontalAlignment="Left" VerticalAlignment="Top">
-          <CheckBox IsChecked="{Binding IncludeBuiltInLords, Mode=TwoWay}"
-                    ToolTip="{Binding BuiltInLordFilterHelp}" ToolTipService.ShowDuration="60000"
-                    Style="{StaticResource CheckBox_Template}" />
+          <CheckBox IsChecked="{Binding IncludeBuiltInLords, Mode=TwoWay}" ToolTipService.ShowDuration="60000"
+                    Style="{StaticResource CheckBox_Template}"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" bugfixesApi:SharedToolTipSizing.Enabled="True" Content="{Binding BuiltInLordFilterHelp}"/></CheckBox.ToolTip></CheckBox>
           <Image Margin="22,0,-2,0" Source="{StaticResource ff}" Width="30" Height="30"
                  Stretch="Fill" IsHitTestVisible="False" />
         </Grid>
         <Grid Margin="0,50,0,0" Width="50" Height="30"
               FlowDirection="{Binding GlobalTextFlowAL2R, Source={x:Static local:MainViewModel.Instance}}"
               HorizontalAlignment="Left" VerticalAlignment="Top">
-          <CheckBox IsChecked="{Binding IncludeWorkshopCustomLords, Mode=TwoWay}"
-                    ToolTip="{Binding WorkshopCustomLordFilterHelp}" ToolTipService.ShowDuration="60000"
-                    Style="{StaticResource CheckBox_Template}" />
+          <CheckBox IsChecked="{Binding IncludeWorkshopCustomLords, Mode=TwoWay}" ToolTipService.ShowDuration="60000"
+                    Style="{StaticResource CheckBox_Template}"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" bugfixesApi:SharedToolTipSizing.Enabled="True" Content="{Binding WorkshopCustomLordFilterHelp}"/></CheckBox.ToolTip></CheckBox>
           <Image Margin="22,0,-2,0" Source="{StaticResource steam}" Width="30" Height="30"
                  Stretch="Fill" IsHitTestVisible="False" />
         </Grid>
@@ -227,16 +221,15 @@
             Margin="350,115,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"
             Visibility="{Binding RandomLordFiltersVisibility}">
         <Grid.Resources>
-          <Style TargetType="{x:Type ToolTip}">
+          <Style x:Key="ModSettingsToolTipStyle" TargetType="{x:Type ToolTip}">
             <Setter Property="Background" Value="#FF1D1710" />
-            <Setter Property="Foreground" Value="White" /><Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True"/>
+            <Setter Property="Foreground" Value="White" /><Setter Property="FontSize" Value="{x:Static bugfixesApi:ToolTipPresentation.AutomaticFontSize}"/><Setter Property="MaxWidth" Value="{x:Static bugfixesApi:ToolTipPresentation.AutomaticMaximumWidth}"/><Setter Property="Padding" Value="24,18"/><Setter Property="BorderThickness" Value="4.5"/>
             <Setter Property="BorderBrush" Value="#FFF2D48A" />
-            <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Template">
               <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ToolTip}">
                   <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                          BorderThickness="1" CornerRadius="2" Padding="{TemplateBinding Padding}"
+                          BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="{TemplateBinding Padding}"
                           MaxWidth="{TemplateBinding MaxWidth}">
                     <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
                   </Border>
@@ -248,27 +241,24 @@
         <Grid Margin="0,0,0,0" Width="50" Height="30"
               FlowDirection="{Binding GlobalTextFlowAL2R, Source={x:Static local:MainViewModel.Instance}}"
               HorizontalAlignment="Left" VerticalAlignment="Top">
-          <CheckBox IsChecked="{Binding IncludeLocalCustomLords, Mode=TwoWay}"
-                    ToolTip="{Binding LocalCustomLordFilterHelp}" ToolTipService.ShowDuration="60000"
-                    Style="{StaticResource CheckBox_Template}" />
+          <CheckBox IsChecked="{Binding IncludeLocalCustomLords, Mode=TwoWay}" ToolTipService.ShowDuration="60000"
+                    Style="{StaticResource CheckBox_Template}"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" bugfixesApi:SharedToolTipSizing.Enabled="True" Content="{Binding LocalCustomLordFilterHelp}"/></CheckBox.ToolTip></CheckBox>
           <Image Margin="22,0,-2,0" Source="{StaticResource user}" Width="30" Height="30"
                  Stretch="Fill" IsHitTestVisible="False" />
         </Grid>
         <Grid Margin="0,25,0,0" Width="50" Height="30"
               FlowDirection="{Binding GlobalTextFlowAL2R, Source={x:Static local:MainViewModel.Instance}}"
               HorizontalAlignment="Left" VerticalAlignment="Top">
-          <CheckBox IsChecked="{Binding IncludeBuiltInLords, Mode=TwoWay}"
-                    ToolTip="{Binding BuiltInLordFilterHelp}" ToolTipService.ShowDuration="60000"
-                    Style="{StaticResource CheckBox_Template}" />
+          <CheckBox IsChecked="{Binding IncludeBuiltInLords, Mode=TwoWay}" ToolTipService.ShowDuration="60000"
+                    Style="{StaticResource CheckBox_Template}"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" bugfixesApi:SharedToolTipSizing.Enabled="True" Content="{Binding BuiltInLordFilterHelp}"/></CheckBox.ToolTip></CheckBox>
           <Image Margin="22,0,-2,0" Source="{StaticResource ff}" Width="30" Height="30"
                  Stretch="Fill" IsHitTestVisible="False" />
         </Grid>
         <Grid Margin="0,50,0,0" Width="50" Height="30"
               FlowDirection="{Binding GlobalTextFlowAL2R, Source={x:Static local:MainViewModel.Instance}}"
               HorizontalAlignment="Left" VerticalAlignment="Top">
-          <CheckBox IsChecked="{Binding IncludeWorkshopCustomLords, Mode=TwoWay}"
-                    ToolTip="{Binding WorkshopCustomLordFilterHelp}" ToolTipService.ShowDuration="60000"
-                    Style="{StaticResource CheckBox_Template}" />
+          <CheckBox IsChecked="{Binding IncludeWorkshopCustomLords, Mode=TwoWay}" ToolTipService.ShowDuration="60000"
+                    Style="{StaticResource CheckBox_Template}"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" bugfixesApi:SharedToolTipSizing.Enabled="True" Content="{Binding WorkshopCustomLordFilterHelp}"/></CheckBox.ToolTip></CheckBox>
           <Image Margin="22,0,-2,0" Source="{StaticResource steam}" Width="30" Height="30"
                  Stretch="Fill" IsHitTestVisible="False" />
         </Grid>

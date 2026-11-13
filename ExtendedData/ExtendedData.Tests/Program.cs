@@ -41,6 +41,7 @@ var tests = new (string Name, Action Run)[]
     ("schema 5 embedded Trail references are validated and schema 4 stays readable", CustomTrailFixTests.SchemaFiveEmbeddedReferences),
     ("Coop publication replaces Maker sources together with the missions", CustomTrailFixTests.PublicationReplacesMakerSourcesAtomically),
     ("the original map reference is read from the Trail restart block", CustomTrailFixTests.RestartMapReferenceIsReadWithoutTheOriginalMap),
+    ("Trail export neutralizes player settings while preserving the map and other restart fields", TrailAuthoringSetupTests.Run),
     ("bundled mission loads", TestBundledMission),
     ("Coop mission modsettings use an optional sidecar", TestCoopMissionModSettingsSidecar),
     ("path escape rejected", TestPathEscape),
@@ -66,6 +67,7 @@ var tests = new (string Name, Action Run)[]
     ("Maker metadata preserves replicas, conflicts, legacy sources and refreshes", TestMakerPackageMetadata),
     ("selected package session reuses and invalidates validated data", TestPackageSession),
     ("author re-export diverges from the subscribed package only after publication", TestAuthorExportCompatibility),
+    ("Maker export shares the authored advanced rules across Coop modes", TestCoopExportAdvancedOptions),
     ("lazy mission cache resolves only selected slots and retries failures", TestLazyMissionCache),
     ("mission dependencies detect catalog, map and external file changes", TestMissionDependencies),
     ("mission table restoration protects templates and foreign entries", TestMissionTableRestoration),
@@ -1982,7 +1984,7 @@ static void TestMultiplayerSetupRoundtrip()
     using Fixture fixture = Fixture.Create();
     LoadedMission loaded = new MissionLoader().Load(fixture.JsonPath, 1, 1);
     MultiplayerSetupSettings setup = loaded.Definition.Settings.MultiplayerSetup;
-    Assert(setup.StartingGameSpeed == 40 && setup.PeaceTime == 15 && setup.PreBuild == 1 &&
+    Assert(setup.PeaceTime == 15 && setup.PreBuild == 1 &&
         setup.Eunuchs == 1 && setup.ImprovedSieging2 == 1,
         "multiplayer setup scalar values did not roundtrip");
     Assert(setup.BuildingsAvailable.Length == 13 && setup.GoodsAvailable.Length == 25 &&
@@ -1992,6 +1994,17 @@ static void TestMultiplayerSetupRoundtrip()
     Assert(loaded.Definition.Players[0].Colour == 8, "player colour 8 did not roundtrip");
     Assert(loaded.Definition.Players[2].NativePreferredAiv == 100,
         "native preferred AIV did not roundtrip");
+
+    string currentJson = File.ReadAllText(fixture.JsonPath);
+    string legacyJson = currentJson.Replace("\"multiplayerSetup\": {",
+        "\"multiplayerSetup\": {\"startingGameSpeed\": 90, \"autoSave\": 20,");
+    Assert(!string.Equals(currentJson, legacyJson, StringComparison.Ordinal), "test fixture has no multiplayer setup");
+    File.WriteAllText(fixture.JsonPath, legacyJson, new UTF8Encoding(false));
+    LoadedMission legacy = new MissionLoader().Load(fixture.JsonPath, 1, 1);
+    Assert(MissionDefinitionJson.Serialize(loaded.Definition) == MissionDefinitionJson.Serialize(legacy.Definition),
+        "legacy lobby-owned settings changed the parsed mission or leaked into exported JSON");
+    Assert(!currentJson.Contains("\"startingGameSpeed\"", StringComparison.Ordinal) &&
+        !currentJson.Contains("\"autoSave\"", StringComparison.Ordinal), "new packages must omit lobby-owned settings");
 }
 
 static void TestInvalidMultiplayerSetup()
@@ -2248,6 +2261,39 @@ static void TestAuthorExportCompatibility()
     File.AppendAllText(map, "unverified direct edit");
     ExpectFailure(() => author.GetOrLoad(catalog.Discover(new[] { localRoot }), id, out _),
         "directly changed export was accepted without a matching fingerprint");
+}
+
+static void TestCoopExportAdvancedOptions()
+{
+    using Fixture fixture = Fixture.Create();
+    string packageRoot = CreatePackage(fixture, Path.Combine(fixture.Root, "CustomTrails"), "Author", 2);
+    CoopTrailPackage original = CoopTrailPackageCatalog.Load(packageRoot);
+    var legacy = original.Missions[0].Definition.Settings.MultiplayerSetup;
+    Assert(legacy.AdvancedOptions == 0 && legacy.AdvancedSkirmishOptions == 1,
+        "the reader changed an existing package with separate advanced flags");
+
+    for (int index = 0; index < original.Missions.Count; index++)
+    {
+        LoadedMission mission = original.Missions[index];
+        var setup = mission.Definition.Settings.MultiplayerSetup;
+        setup.SetTrailMakerAdvancedOptions(index == 0 ? 1 : 0);
+        MissionLoader.WriteAtomic(mission.JsonPath, mission.Definition);
+    }
+    RehashTestPackage(packageRoot);
+
+    CoopTrailPackage exported = CoopTrailPackageCatalog.Load(packageRoot);
+    Assert(exported.Manifest.PackageId == original.Manifest.PackageId &&
+        exported.Manifest.ContentFingerprint != original.Manifest.ContentFingerprint,
+        "re-export did not preserve package identity and fingerprint the new mission settings");
+    for (int index = 0; index < exported.Missions.Count; index++)
+    {
+        var setup = exported.Missions[index].Definition.Settings.MultiplayerSetup;
+        int expected = index == 0 ? 1 : 0;
+        Assert(setup.AdvancedOptions == expected && setup.AdvancedSkirmishOptions == expected,
+            "the exported mission did not preserve the author's selection in both flags");
+        Assert(setup.ImprovedSpearmen == 1 && setup.ImprovedLaddermen == 1,
+            "the shared switch changed individual advanced rules");
+    }
 }
 
 static void RehashTestPackage(string root)
@@ -2678,11 +2724,9 @@ sealed class Fixture : IDisposable
                 StartingGoodsLevel = 1,
                 MultiplayerSetup = new MultiplayerSetupSettings
                 {
-                    StartingGameSpeed = 40,
                     WinCondition = 0,
                     AllowAutoTrading = 1,
                     NoKnockdownWalls = 1,
-                    AutoSave = 10,
                     PeaceTime = 15,
                     AdvancedSkirmishOptions = 1,
                     PreBuild = 1,

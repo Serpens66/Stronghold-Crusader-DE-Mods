@@ -6,8 +6,8 @@ $source = Join-Path $PSScriptRoot 'src\GatehouseLivingCapture'
 $game = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
 $extender = Join-Path $game 'BepInEx\plugins\000shcdese'
 $runtime = [IO.File]::ReadAllText((Join-Path $source 'CaptureRuntime.cs'))
-$main = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\BugfixesAndQoLRuntime.cs'))
-$view = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\BugfixesAndQoLViewModel.cs'))
+$main = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\Core\Bootstrap\BugfixesAndQoLRuntime.cs'))
+$view = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\Settings\BugfixesAndQoLViewModel.cs'))
 foreach ($required in @('private readonly CaptureCallback rootedCallback;', 'OwnsHooks = true', 'published = true;', 'if (!published) transaction?.Dispose();', 'Volatile.Write(ref active, published && CaptureDecision.IsEnabled(enableMod, enableFix) ? 1 : 0);', 'GATEHOUSE_LIVING_CAPTURE_CONFIRMED', 'context->R11 = originalBoolean;')) {
     if (-not $runtime.Contains($required)) { throw "Missing capture contract: $required" }
 }
@@ -50,7 +50,7 @@ try {
         if ($field.Count -ne 1 -or -not $field[0].IsPublic) { throw "Private/missing installed GameUnit.$name" }
     }
 } finally { $assembly.Dispose() }
-$files = @('BugfixesAndQoL.csproj','Test-GatehouseLivingCapturePreflight.ps1','build.bat','src\BugfixesAndQoLRuntime.cs','src\BugfixesAndQoLViewModel.cs','Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml') | ForEach-Object { Get-Item (Join-Path $PSScriptRoot $_) }
+$files = @('BugfixesAndQoL.csproj','Test-GatehouseLivingCapturePreflight.ps1','build.bat','src\Core\Bootstrap\BugfixesAndQoLRuntime.cs','src\Settings\BugfixesAndQoLViewModel.cs','Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml') | ForEach-Object { Get-Item (Join-Path $PSScriptRoot $_) }
 $files += @(Get-ChildItem $source -File)
 $files += @(Get-ChildItem (Join-Path $PSScriptRoot 'tests\GatehouseLivingCapture.Tests') -File)
 $files += @(Get-ChildItem (Join-Path $PSScriptRoot 'Locales') -File -Filter '*.txt')

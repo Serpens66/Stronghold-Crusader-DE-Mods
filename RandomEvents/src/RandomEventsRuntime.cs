@@ -2133,7 +2133,7 @@ namespace RandomEvents
 
             BanditMoveTarget target = pending.Target;
             GameBuildingManagerAPI buildings = GameBuildingManagerAPI.Instance;
-            bool targetFound = buildings.TryGetBuildingById(target.BuildingId, out GameBuilding* building) && building != null;
+            bool targetFound = global::APIShared.BuildingAccess.TryGetById(buildings, target.BuildingId, out GameBuilding* building, out _) && building != null;
             uint actualTargetGlobal = targetFound ? building->r_GlobalId : 0;
             bool targetIdentityMatches = targetFound && actualTargetGlobal == target.BuildingGlobalId;
             AliveState? targetLife = targetIdentityMatches ? building->r_AliveState : (AliveState?)null;
@@ -2312,7 +2312,7 @@ namespace RandomEvents
 
                     int tileId = tiles.GetTileId(x, y);
                     if (GameBuildingFootprint.ContainsTileId(building, tileId) ||
-                        (uint)tileId >= (uint)pathConnections.Length ||
+                        !global::APIShared.IndexBounds.IsValidIndex(tileId, pathConnections.Length) ||
                         !tiles.IsTileWalkableAndUnoccupied(tileId) ||
                         pathConnections[tileId] != sourcePathComponent)
                     {
@@ -2353,7 +2353,7 @@ namespace RandomEvents
 
                     int tileId = tiles.GetTileId(x, y);
                     if (!GameBuildingFootprint.ContainsTileId(building, tileId) &&
-                        (uint)tileId < (uint)pathConnections.Length &&
+                        global::APIShared.IndexBounds.IsValidIndex(tileId, pathConnections.Length) &&
                         tiles.IsTileWalkableAndUnoccupied(tileId) &&
                         pathConnections[tileId] == sourcePathComponent)
                     {
@@ -2383,7 +2383,7 @@ namespace RandomEvents
             failure = string.Empty;
 
             if (signpostBuildingId <= 0 ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(signpostBuildingId, out GameBuilding* signpost) ||
+                !global::APIShared.BuildingAccess.TryGetById(signpostBuildingId, out GameBuilding* signpost, out _) ||
                 signpost == null ||
                 signpost->r_GlobalId == 0 ||
                 signpost->r_AliveState != AliveState.IsAlive ||
@@ -2415,7 +2415,7 @@ namespace RandomEvents
                     int candidateTileId = tiles.GetTileId(x, y);
                     if (GameBuildingFootprint.ContainsTileId(signpost, candidateTileId) ||
                         !tiles.IsValidTileId(candidateTileId) ||
-                        (uint)candidateTileId >= (uint)pathConnections.Length ||
+                        !global::APIShared.IndexBounds.IsValidIndex(candidateTileId, pathConnections.Length) ||
                         !tiles.IsTileWalkableAndUnoccupied(candidateTileId))
                     {
                         continue;

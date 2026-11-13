@@ -46,7 +46,7 @@ try {
     }
 } finally { $module.Dispose() }
 
-$policy = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\GatehouseTargetMarkerHeightPolicy.cs'))
+$policy = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\GateRouting\GatehouseTargetMarkerHeightPolicy.cs'))
 $tests = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'tests\GatehouseTargetMarkerHeightTests.cs'))
 Add-Type -TypeDefinition ($tests + [Environment]::NewLine + $policy) -Language CSharp
 $count = [BugfixesAndQoL.GatehouseTargetMarkerHeightTests]::Run()
@@ -57,10 +57,11 @@ $prefixProject = Join-Path $PSScriptRoot 'tests\GatehouseMarkerPrefix.Tests\Test
 if ($LASTEXITCODE -ne 0) { throw 'Production marker prefix regression failed.' }
 & dotnet run --project $prefixProject --configuration Release --no-build -- --unknown-native
 if ($LASTEXITCODE -ne 0) { throw 'Unknown-build marker prefix regression failed.' }
-$runtime = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\GatehouseTargetMarkerHeightHook.cs'))
+$runtime = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\GateRouting\GatehouseTargetMarkerHeightHook.cs'))
 foreach ($required in @('private static readonly Harmony harmony', 'Volatile.Read(ref enabled)',
     'Volatile.Write(ref enabled', 'GATEHOUSE_TARGET_MARKER_POST_STARTUP', 'IsTileInsideMapBounds',
-    'IsValidTileId', 'IsValidId(buildingId)', 'TryGetBuildingById(buildingId', '__instance?.getMapTile(x, y)',
+    # BuildingAccess owns ID/capacity rejection; the production prefix fixture above executes its real implementation.
+    'IsValidTileId', 'BuildingAccess.TryGetById(buildings, buildingId', '__instance?.getMapTile(x, y)',
     'ref tile_y', 'tile.gameMapX, tile.gameMapY', 'CurrentNativeSha256 != GatehouseTargetMarkerHeightPolicy.NativeSha256',
     'GATEHOUSE_TARGET_MARKER_INSTALLED', 'GATEHOUSE_TARGET_MARKER_APPLIED',
     'IsMoveTarget(file, image, tile_x, hiMode)')) {
@@ -69,7 +70,7 @@ foreach ($required in @('private static readonly Harmony harmony', 'Volatile.Rea
 if ($runtime -match '\b(?:OnDestroy|OnDisable|OnApplicationQuit|StartCoroutine|Update|LateUpdate|FixedUpdate|Unpatch|Undo|Dispose|Disable|VirtualProtect|CodePatch)\s*\(') {
     throw 'Marker runtime contains a callback/teardown/executable mutation outside permanent installation.'
 }
-$view = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\BugfixesAndQoLViewModel.cs'))
+$view = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\Settings\BugfixesAndQoLViewModel.cs'))
 if ($view -notmatch '\[APIShared\.ModSettings\.PresetLocal\]\s+public bool EnableGatehouseTargetMarkerHeightFix' -or
     -not $view.Contains('private bool enableGatehouseTargetMarkerHeightFix = true;') -or
     -not $view.Contains('EnableGatehouseTargetMarkerHeightFix = true;')) { throw 'Local marker setting/default/reset missing.' }

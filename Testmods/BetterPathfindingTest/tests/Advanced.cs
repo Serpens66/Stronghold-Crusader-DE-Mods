@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using BetterPathfindingTest.Core;
-using BugfixesAndQoL.UnitCommands;
+using Pathfinding.UnitCommands;
 
 internal static partial class Program
 {

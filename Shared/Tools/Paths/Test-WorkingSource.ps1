@@ -3,8 +3,20 @@ $ErrorActionPreference = 'Stop'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 $adapterInput = 'set "API_SHARED_DIR=old"' + "`r`n" + 'set "LOCAL_API_SHARED_DIR=old"' + "`r`n"
 $adapterOutput = Convert-BranchBatch $adapterInput 'Fixture/build.bat' ''
-if ($adapterOutput -match '(?<!\r)\n|\r(?!\n)' -or [regex]::Matches($adapterOutput,'if defined SHCDE_BRANCH_API_ROOT').Count -ne 2) { throw 'SDK adaptation corrupted CRLF or source selection.' }
+if ($adapterOutput -match '(?<!\r)\n|\r(?!\n)') { throw 'SDK adaptation corrupted CRLF.' }
 $fixture = New-ShortWorkDirectory -Root $workspace -Name working-source
+# The selected package is independent of the SDK inspection source root. Exercise the BAT contract.
+$probe = Join-Path $fixture 'sdk-adapter.cmd'
+$selectedPackage = Join-Path $fixture 'selected-sdk'
+$previousPackage = $env:SHCDE_BRANCH_API_PACKAGE
+try {
+    $env:SHCDE_BRANCH_API_PACKAGE = $selectedPackage
+    Write-BranchText $probe ("@echo off`r`n" + $adapterOutput + "echo %API_SHARED_DIR%`r`necho %LOCAL_API_SHARED_DIR%`r`n")
+    $actual = @(& $env:ComSpec /d /c ('"' + $probe + '"'))
+    if ($LASTEXITCODE -ne 0 -or $actual.Count -ne 2 -or @($actual | Where-Object { $_ -cne $selectedPackage }).Count) {
+        throw 'BAT adapter did not preserve the explicit SDK package selection.'
+    }
+} finally { $env:SHCDE_BRANCH_API_PACKAGE = $previousPackage }
 $repo = Join-Path $fixture 'repo'
 [void][IO.Directory]::CreateDirectory($repo)
 function Git-Test([string[]]$Arguments) { Invoke-BranchGit $repo $Arguments | Out-Null }

@@ -39,3 +39,45 @@ Sources: decompile and disassembly of the installed DLL (`0x11B520`, `0x196100`,
 - An ordinary player move is `0x8C5F0 -> chore 17 -> 0x196100 -> 0x11B520(tribe, x, y, patrol 0, newOrder 1, flags 1)`; `0x196100` additionally sets the tribe's +0x56C "fast" flag from input bit 7 (read by `0x19B260` speed sync). AI and patrol legs pass `(0, 0, 0)`.
 - With `newOrder != 0` `0x11B520` writes the two-point order to the tribe (Extender `r_PatrolPoint1` = leader tile, `r_PatrolPoint2` = commanded tile, index 1, count 2, patrol mode); it never writes Extender `r_ObjectiveTargetTileX/Y`. In a single-member tribe the slot is exactly the commanded tile (`0xDA590` seeds it, `0xE1D30` accepts it).
 - `0x11D370` (assign) and `0x123EA0` (remove) write membership fields only (unit +0x2D2 leader, +0x2D4 tribe, +0x2D6 ordinal, +0x2E0 tribe global id; tribe count, bitset, leader). Removing the last member sets the tribe's AliveState to 3 and `0x1261F0` deletes it in the same tick. `Create` (`0x119C00`) scans slots 1..4499. Player selection (opcode 16) moves the selected units into a new tribe; control groups are stored per unit (HD evidence). Units of an AI player without a valid tribe get a typed AI tribe from `0x118660` (call-site coverage probable); the AI never orders a tribe it did not create.
+
+## Isolated fire lifetime (reported 2026-11-02; preserved 2026-11-13) [Vanilla facts]
+
+Historical experiment evidence: root-repository `PathfindingFinalReport.md`, section 8.4,
+Git blob `fba3f58d2a043ef418a72103da59ee4bcca4158f`. This section preserves that
+reported result; it is not a new execution or a complete game acceptance run. The
+original experiment harness and raw execution trace were not additionally located
+during this documentation move. The installed native SHA-256 was rechecked on
+2026-11-13 and matches the hash at the top of this document.
+
+The experiment created one type-9 fire of strength 3 with original `0x9C450`,
+executed original updates `0x9F960 -> 0x99420` and actual removal through `0x9F2D0`
+in a private image of that DLL. There were no buildings, units or reignition.
+To isolate the single tile, the spread callee `0x9C120` returned immediately in
+the private image, and the separate accompanying smoke was removed. The installed
+DLL and saves were unchanged.
+
+| Effect variant, bit 7 of record `+0xC0` | Marked for deletion after updates | Actually removed after updates | At 40 simulation updates per game second |
+| --- | ---: | ---: | ---: |
+| Set | 877 | 878 | 21.95 game seconds |
+| Clear | 1087 | 1088 | 27.2 game seconds |
+
+These counts include the removal update and apply only to that isolated initial
+state. The seconds are arithmetic conversions of simulation updates, not measured
+wall time; speed and pauses change the elapsed real time.
+
+The pitch descriptor in `0x7D280` advances after 20 updates of its ignition phase
+and another 200 updates of the next phase. Those 220 updates do not end the
+separate fire effect. `0xCDE60` calls the pitch and effect updates once each in
+the same regular simulation block.
+
+Reignition through `0x9C450` or `0x9C120` resets an existing fire's phase/frame.
+While an associated building keeps burning, `0x99420` can retain the main phase
+and reset its cycle counter. Consequently, 1088 updates are not a general maximum
+for a connected pitch area, spreading/reignited fire or building fire. The earlier
+approximately 13-second area observation in `pf-fire-3` is not such a maximum either.
+
+The phase transitions, building extension, reignition reset and shared update block
+were also checked against the current semantic queries during this move. Relevant
+raw body hashes: `0x99420` =
+`95DBB916A57D1F2755C14493B56A003F7AD047FAB544C01EB652B865A49AC6DD`;
+`0x7D280` = `DCFB48D611AD0D90D46C4D162BF95B7892FDDB6574A64AC79F86884759FBB855`.

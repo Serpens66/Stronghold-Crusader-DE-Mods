@@ -5,7 +5,7 @@ using System;
 namespace AIDefenseTest
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.0")]
-    [BepInDependency("APIShared_Serp", "0.23.0")]
+    [BepInDependency("APIShared_Serp", "0.49.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class AIDefenseTestPlugin : BaseUnityPlugin
     {

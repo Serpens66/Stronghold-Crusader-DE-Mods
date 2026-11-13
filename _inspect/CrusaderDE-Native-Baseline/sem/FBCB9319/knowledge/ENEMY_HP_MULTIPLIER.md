@@ -93,3 +93,32 @@ All internal function names above remain candidate labels; the statements
 describe inspected hash-bound control/data flows, not newly published APIs.
 The conclusions concern the vanilla global Enemy HP option. They make no claim
 about arbitrary external HP writers or about runtime acceptance of mods.
+
+## Initialization identity and safety audit (2026-11-04)
+
+The same canonical hash was checked during the shared-HP implementation. The
+three direct callers of type initializer `0x19A240` are allocator `0x17FEF0`,
+same-slot transition `0x195D10` and bulk reset `0x19C760`. Installed machine code
+writes the fresh unit GlobalId at `0x17FF74` and alive state NeedsInit at
+`0x17FF99`, before calling the initializer at `0x180000`. The initializer writes
+the final type at `0x19A27B`. The remaining allocator path does not replace this
+identity. Same-slot transitions retain GlobalId and set IsAlive at `0x195D3D`
+before the call at `0x195DF6`; bulk reset accepts existing states 1/2 before the
+call at `0x19C7B3`. Thus an observer can queue the concrete identity on return,
+but cannot use unchanged slot/GlobalId/type as proof that no reinitialization
+occurred. Completed outer initialization still matters for subsequent Lord
+profile HP and building integration.
+
+Native unit percentage readers use signed Int32 current HP times 100, giving a
+safe coordinated unit maximum of 21,474,836. Building health is signed Int16
+current/unsigned Int16 maximum at record `0x10C/0x10E`; repair `0xD5030` also
+multiplies current HP by positive wood/stone costs. A safe positive building
+maximum is at most 32,767 and Int32.MaxValue divided by each positive repair
+cost. These are arithmetic bounds, not evidence of a Vanilla scaling policy.
+
+Siege tower unit58 and its later building69 are linked by unit ID/global fields
+`0x334/0x364` and building `0x110/0x114`. Deployment `0x15ECE0` can occur later;
+both damage directions (`0x7EB00`, `0x15ECE0`) use a signed Int32 product involving
+the unit maximum and building health. Scaling both independently can overflow
+even while their individual storage bounds are respected. The common coordinated
+bound must additionally satisfy unit maximum times proxy maximum <= Int32.MaxValue.

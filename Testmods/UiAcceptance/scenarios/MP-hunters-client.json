@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "series": "MP-hunters-client",
+  "role": "client",
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 300000, "stopOnFail": true, "allowErrors": true },
+    { "id": "follow-lobby", "do": "Mp.Follow", "args": ["lobby"], "timeoutMs": 1800000, "stopOnFail": true, "allowErrors": true },
+    { "id": "ready", "do": "Mp.Ready", "timeoutMs": 300000, "stopOnFail": true },
+    { "id": "mission", "do": "Mp.Follow", "args": ["mission"], "timeoutMs": 900000, "stopOnFail": true, "allowErrors": true },
+    { "id": "real-mp", "do": "Mp.ExpectRealMultiplayer", "timeoutMs": 30000 },
+    { "id": "describe-start", "do": "Describe" },
+    { "id": "arm", "do": "HuntMp.Arm", "args": ["1200"], "timeoutMs": 10000, "stopOnFail": true },
+    { "id": "run", "do": "WaitMissionTicks", "args": ["16000"], "timeoutMs": 900000 },
+    { "id": "describe-end", "do": "Describe" },
+    { "id": "shot", "do": "Screenshot", "args": ["client-hunt"] },
+    { "id": "end", "do": "WaitMissionEnd", "timeoutMs": 300000, "allowErrors": true }
+  ]
+}

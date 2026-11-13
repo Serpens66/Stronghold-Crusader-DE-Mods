@@ -3,6 +3,7 @@ using APIShared.ModSettings;
 using MessagePack;
 using APIShared;
 using BugfixesAndQoL;
+using Pathfinding;
 using ExtraFeatures;
 using SerpsModsHost;
 using Shared;
@@ -114,10 +115,22 @@ internal static class Program
         };
         try
         {
+            if (args != null && args.Length == 1 && args[0] == "personal-storage")
+            {
+                TestSteamInviteBlacklistStore();
+                Console.WriteLine("PASS: existing blacklist persistence, validation, limits and explicit invalid-data recovery.");
+                return 0;
+            }
             if (args != null && args.Length == 1 && args[0] == "gameplay-gate")
             {
                 TestGameplayGateSourceIntegration();
                 Console.WriteLine("PASS: gameplay gate source integration and direct-editor HUD bootstrap.");
+                return 0;
+            }
+            if (args != null && args.Length == 1 && args[0] == "spectator-modes")
+            {
+                TestGameplayFeatureModePolicy("Spectator_Serp");
+                Console.WriteLine("PASS: Spectator statistics and gameplay-action permissions across mission modes, saves and restarts.");
                 return 0;
             }
             if (args != null && args.Length == 1 && args[0] == "peace-proximity")
@@ -151,6 +164,7 @@ internal static class Program
             }
             if (args != null && args.Length == 1 && args[0] == "ai-sell-threshold") { AiSellThresholdPresetTests.Run(); return 0; }
             if (args != null && args.Length == 1 && args[0] == "lord-teleport") { LordReturnTeleportPresetTests.Run(); return 0; }
+            if (args != null && args.Length == 1 && args[0] == "pitch-stairs") { PitchStairsPresetTests.Run(); return 0; }
             if (args != null && args.Length == 1 && args[0] == "settings-opacity")
             {
                 TestSettingsOpacity();
@@ -232,6 +246,7 @@ internal static class Program
             }
 
             PeaceTimeProximityPresetTests.Run();
+            PitchStairsPresetTests.Run();
             FearFactorPresetTests.Run();
             AssassinCapturedGatePresetTests.Run();
             EnemyGateRoutingPresetTests.Run();
@@ -268,15 +283,15 @@ internal static class Program
             TestAssassinClimbCostPolicy();
             TestAssassinCombatResumePolicy();
             TestAssassinCombatResumeNativeDefinition();
-            TestAssassinPathReconstructionNativeDefinition();
             TestTroopActionButtonLayoutPolicy();
-            TestLordHealthMultiplierPolicy();
             TestQuarryPileTargetSelectionPolicy();
             TestQuarryPileVanillaGroupPolicy();
+            TestQuarryPileRotationReceipt();
             TestTemporaryGateBlockagePolicy();
             TestGatehouseAutomationSaveState();
             TestBoundedSaveStateDeserialization();
             TestPlagueFlagDiseaseRegistry();
+            TestAIDefenseRebuildSaveState();
             TestAIMarketNativeResolution();
             TestAiStoneReserveNativeResolution();
             TestAiStoneReservePolicy();
@@ -947,7 +962,7 @@ internal static class Program
         string root = Path.GetFullPath(Path.Combine(
             AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
         string bugfixes = File.ReadAllText(Path.Combine(
-            root, "BugfixesAndQoL", "src", "BugfixesAndQoLViewModel.cs"));
+            root, "BugfixesAndQoL", "src", "Settings/BugfixesAndQoLViewModel.cs"));
         var personalSettings = System.Text.RegularExpressions.Regex.Matches(
             bugfixes, @"\[SyncPerPlayer(?:\s*,[^\]]+)?\]\s*public\s+[\w<>,.\[\]\s]+?\s+(?<name>\w+)\s*\{");
         Check(personalSettings.Count > 0 && bugfixes.Contains("ConfigurePerPlayerLobbySettings("),
@@ -1107,6 +1122,47 @@ internal static class Program
             rejected = true;
         }
         Check(rejected, "Shared did not reject " + scenario);
+    }
+
+    // Persisted save-game contract: field order and bounds must stay readable by later versions.
+    private static void TestAIDefenseRebuildSaveState()
+    {
+        var saved = new AIDefenseRebuildSaveState
+        {
+            Targets = new[]
+            {
+                new AIDefenseRebuildSaveRecord { PlayerId = 2, TileX = 427, TileY = 119, Family = 1,
+                    Flags = AIDefenseRebuildSaveRecord.DestroyedFlag | AIDefenseRebuildSaveRecord.DelayFlag |
+                        AIDefenseRebuildSaveRecord.DelayFromConfirmedDestructionFlag,
+                    DestroyedTick = int.MaxValue - 5, DelayStartTick = int.MinValue + 7 },
+                new AIDefenseRebuildSaveRecord { PlayerId = 8, TileX = 0, TileY = 799, Family = 2 }
+            }
+        };
+        AIDefenseRebuildSaveState restored = MessagePackSerializer.Deserialize<AIDefenseRebuildSaveState>(
+            MessagePackSerializer.Serialize(saved));
+        Check(restored.Version == AIDefenseRebuildSaveState.CurrentVersion && restored.Targets.Length == 2,
+            "AI defense rebuild state lost its version or records");
+        for (int index = 0; index < 2; index++)
+        {
+            AIDefenseRebuildSaveRecord expected = saved.Targets[index], actual = restored.Targets[index];
+            Check(actual.PlayerId == expected.PlayerId && actual.TileX == expected.TileX &&
+                  actual.TileY == expected.TileY && actual.Family == expected.Family &&
+                  actual.Flags == expected.Flags && actual.DestroyedTick == expected.DestroyedTick &&
+                  actual.DelayStartTick == expected.DelayStartTick,
+                "AI defense rebuild record " + index + " did not round-trip exactly");
+        }
+        ExpectMessagePackFailure(
+            () => MessagePackSerializer.Deserialize<AIDefenseRebuildSaveState>(
+                new byte[] { 0x92, 0x01, 0xDD, 0x7F, 0xFF, 0xFF, 0xFF }),
+            "AI defense rebuild int.MaxValue record header was not rejected before allocation");
+        ExpectMessagePackFailure(
+            () => MessagePackSerializer.Deserialize<AIDefenseRebuildSaveState>(new byte[] { 0x91, 0x01 }),
+            "AI defense rebuild root field count was not validated");
+        ExpectMessagePackFailure(
+            () => MessagePackSerializer.Deserialize<AIDefenseRebuildSaveState>(
+                new byte[] { 0x92, 0x01, 0x91, 0x92, 0x01, 0x02 }),
+            "AI defense rebuild record field count was not validated");
+        Console.WriteLine("PASS: AI defense rebuild save state round-trip and bounded deserialization.");
     }
 
     private static void TestPlagueFlagDiseaseRegistry()
@@ -1617,7 +1673,7 @@ internal static class Program
             editor ? GameModeKind.MapEditor : GameModeKind.CustomGame);
 
 
-    private static void TestGameplayFeatureModePolicy()
+    private static void TestGameplayFeatureModePolicy(string modGuid = null)
     {
         CrusaderDE.MainViewModel.Reset();
         GamePlayerManagerAPI.Instance.MapEditor = false;
@@ -1687,18 +1743,21 @@ internal static class Program
             { GameplayFeatureId.RandomEventsRuntime, "RandomEvents_Serp" },
             { GameplayFeatureId.ImprovedHunterTargetSelection, "ImprovedHunters_Serp" },
             { GameplayFeatureId.ImprovedHunterPathfinding, "ImprovedHunters_Serp" },
+            { GameplayFeatureId.ImprovedHunterWildlifeRange, "ImprovedHunters_Serp" },
             { GameplayFeatureId.CastleSpawning, "CastlePlanner_Serp" },
             { GameplayFeatureId.FreeCastlePreview, "CastlePlanner_Serp" },
-            { GameplayFeatureId.CastleBlueprints, "CastlePlanner_Serp" }
+            { GameplayFeatureId.CastleBlueprints, "CastlePlanner_Serp" },
+            { GameplayFeatureId.SpectatorGameplayActions, "Spectator_Serp" },
+            { GameplayFeatureId.SpectatorStatistics, "Spectator_Serp" }
         };
         var editorAllowed = new HashSet<GameplayFeatureId>
         {
             GameplayFeatureId.CastleBlueprints
         };
+        // Improved Hunters is allowed in real multiplayer, see ImprovedHunters/UpdateToNewDLL.md.
         var multiplayerBlocked = new HashSet<GameplayFeatureId>
         {
-            GameplayFeatureId.ImprovedHunterTargetSelection,
-            GameplayFeatureId.ImprovedHunterPathfinding
+            GameplayFeatureId.SpectatorGameplayActions
         };
 
         GameplayModActivationProfile castlePlannerProfile =
@@ -1709,12 +1768,15 @@ internal static class Program
 
         foreach (KeyValuePair<GameplayFeatureId, string> entry in owners)
         {
+            if (modGuid != null && entry.Value != modGuid) continue;
             GameplayFeatureActivationProfile profile =
                 GameplayFeatureModePolicy.GetProfile(entry.Value, entry.Key);
             Check(GameplayFeatureModePolicy.IsAllowed(profile, customGame, out _) &&
                   customizedModes.All(mode => GameplayFeatureModePolicy.IsAllowed(profile, mode, out _)),
                 $"feature policy rejected a regular gameplay context for {entry.Key}");
-            bool allRecognizedModesAllowed = entry.Key == GameplayFeatureId.CastleBlueprints;
+            bool allRecognizedModesAllowed = entry.Key == GameplayFeatureId.CastleBlueprints ||
+                entry.Key == GameplayFeatureId.SpectatorStatistics ||
+                entry.Key == GameplayFeatureId.ImprovedHunterWildlifeRange;
             Check(recognizedDirectModes.All(mode =>
                       GameplayFeatureModePolicy.IsAllowed(profile, mode, out _) == allRecognizedModesAllowed) &&
                   !GameplayFeatureModePolicy.IsAllowed(profile, default, out _) &&
@@ -1732,6 +1794,28 @@ internal static class Program
                       allRecognizedModesAllowed),
                 $"feature direct-mode multiplayer policy is incorrect for {entry.Key}");
         }
+
+        var spectatorActions = GameplayFeatureModePolicy.GetProfile("Spectator_Serp", GameplayFeatureId.SpectatorGameplayActions);
+        var spectatorStatistics = GameplayFeatureModePolicy.GetProfile("Spectator_Serp", GameplayFeatureId.SpectatorStatistics);
+        foreach (GameModeSnapshot trail in recognizedDirectModes.Where(mode => mode.Kind != GameModeKind.Campaign &&
+                     mode.Kind != GameModeKind.StandaloneMission))
+        {
+            foreach (GameModeLaunchVariant variant in new[] { GameModeLaunchVariant.Standard, GameModeLaunchVariant.RestoredCustomizedSave })
+            {
+                var saved = trail.WithModeEvidenceForTests(trail.Kind, variant, trail.EventTrailType);
+                var restarted = customGame.WithRestartProvenance(saved);
+                bool allowActions = variant == GameModeLaunchVariant.RestoredCustomizedSave;
+                Check(GameplayFeatureModePolicy.IsAllowed(spectatorActions, saved, out _) == allowActions &&
+                      GameplayFeatureModePolicy.IsAllowed(spectatorActions, restarted, out _) == allowActions &&
+                      GameplayFeatureModePolicy.IsAllowed(spectatorStatistics, saved, out _) &&
+                      GameplayFeatureModePolicy.IsAllowed(spectatorStatistics, restarted, out _),
+                    $"Spectator lost save/restart provenance for {trail.Kind} ({variant})");
+            }
+        }
+        var tutorial = customGame.WithModeEvidenceForTests(GameModeKind.Tutorial, GameModeLaunchVariant.Standard, -1);
+        Check(!GameplayFeatureModePolicy.IsAllowed(spectatorActions, tutorial, out _) &&
+              !GameplayFeatureModePolicy.IsAllowed(spectatorStatistics, tutorial, out _),
+            "Spectator gave a gameplay or statistics grant to the tutorial");
 
         bool wrongOwnerRejected = false;
         try
@@ -1924,9 +2008,9 @@ internal static class Program
         string hudCoordinatorSource = File.ReadAllText(
             Path.Combine(workspaceRoot, "APIShared", "src", "Presentation", "TroopActions", "TroopActionHud.cs"));
         string bugfixRuntimeSource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "BugfixesAndQoLRuntime.cs"));
+            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
         string assassinClimbSource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "AssassinClimbRuntime.cs"));
+            Path.Combine(workspaceRoot, "Pathfinding", "src", "Assassins/AssassinClimbRuntime.cs"));
         Check(hudCoordinatorSource.Contains("A direct editor launch can build the HUD") &&
               bugfixRuntimeSource.Contains("BeginGameplaySession") &&
               bugfixRuntimeSource.Contains("Subscribe(_ => EndGameplaySession())") &&
@@ -1979,10 +2063,10 @@ internal static class Program
               !LordUnitControlsPolicy.CanShowDisband(true, false, false) &&
               !LordUnitControlsPolicy.CanShowDisband(true, true, true),
             "Lord disband visibility ignored surrender availability");
-        Check(LordUnitControlsPolicy.ShouldReturnToDefaultHud(true, true, 0) &&
-              !LordUnitControlsPolicy.ShouldReturnToDefaultHud(false, true, 0) &&
-              !LordUnitControlsPolicy.ShouldReturnToDefaultHud(true, false, 0) &&
-              !LordUnitControlsPolicy.ShouldReturnToDefaultHud(true, true, 1),
+        Check(LordUnitControlsPolicy.ShouldReturnToDefaultHud(true, true, false) &&
+              !LordUnitControlsPolicy.ShouldReturnToDefaultHud(false, true, false) &&
+              !LordUnitControlsPolicy.ShouldReturnToDefaultHud(true, false, false) &&
+              !LordUnitControlsPolicy.ShouldReturnToDefaultHud(true, true, true),
             "Lord troop HUD default-HUD transition policy was incorrect");
         Check(LordUnitControlsPolicy.GetDisbandAction(true, true, true, false, true) ==
               LordDisbandAction.RequestSurrender,
@@ -2175,22 +2259,24 @@ internal static class Program
         Check(missingGatehouseSetting.EnableAssassinGatehouseClimbFix, "missing gatehouse preset key did not retain true default");
         string workspaceRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
         string bugfixesViewModelSource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "BugfixesAndQoLViewModel.cs"));
+            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "Settings/BugfixesAndQoLViewModel.cs"));
         Check(!bugfixesViewModelSource.Contains("EnableCustomLordExtendedPackages"),
             "the obsolete Custom Lord package setting remains in the BugfixesAndQoL view model");
         string normalizedBugfixesViewModelSource = bugfixesViewModelSource.Replace(Environment.NewLine, "\n");
-        Check(normalizedBugfixesViewModelSource.Contains("private bool enableAssassinCombatResumeFix = true;") &&
-              normalizedBugfixesViewModelSource.Contains("[SyncHostOnly]\n        public bool EnableAssassinCombatResumeFix") &&
-              bugfixesViewModelSource.Contains("EnableAssassinCombatResumeFix = true;"),
+        string pathfindingViewModelSource = File.ReadAllText(
+            Path.Combine(workspaceRoot, "Pathfinding", "src", "Settings/PathfindingViewModel.cs"));
+        Check(pathfindingViewModelSource.Contains("enableAssassinCombatResumeFix = true") &&
+              pathfindingViewModelSource.Contains("[SyncHostOnly] public bool EnableAssassinCombatResumeFix") &&
+              pathfindingViewModelSource.Contains("EnableAssassinCombatResumeFix = true;"),
             "Assassin combat resume is not a default-enabled, resettable host setting");
-        Check(normalizedBugfixesViewModelSource.Contains("private bool enableMountedStockpileMovementFix = true;") &&
-              normalizedBugfixesViewModelSource.Contains("[SyncHostOnly]\n        public bool EnableMountedStockpileMovementFix") &&
-              bugfixesViewModelSource.Contains("EnableMountedStockpileMovementFix = true;"),
+        Check(pathfindingViewModelSource.Contains("enableMountedStockpileMovementFix = true") &&
+              pathfindingViewModelSource.Contains("[SyncHostOnly] public bool EnableMountedStockpileMovementFix") &&
+              pathfindingViewModelSource.Contains("EnableMountedStockpileMovementFix = true;"),
             "mounted stockpile movement is not a default-enabled, resettable host setting");
-        Check(normalizedBugfixesViewModelSource.Contains("private bool enableImprovedManualUnitCommands = true;") &&
-              normalizedBugfixesViewModelSource.Contains("[SyncHostOnly]\n        public bool EnableImprovedManualUnitCommands") &&
-              bugfixesViewModelSource.Contains("EnableImprovedManualUnitCommands = true;") &&
-              !bugfixesViewModelSource.Contains("public int FriendlyMoatMovementMode"),
+        Check(pathfindingViewModelSource.Contains("enableImprovedManualUnitCommands = true") &&
+              pathfindingViewModelSource.Contains("[SyncHostOnly] public bool EnableImprovedManualUnitCommands") &&
+              pathfindingViewModelSource.Contains("EnableImprovedManualUnitCommands = true;") &&
+              !pathfindingViewModelSource.Contains("public int FriendlyMoatMovementMode"),
             "manual commands are not a default-enabled, resettable host setting");
         Check(normalizedBugfixesViewModelSource.Contains("private bool enableShiftRepairAllBuildings = true;") &&
               normalizedBugfixesViewModelSource.Contains("[SyncHostOnly]\n        public bool EnableShiftRepairAllBuildings") &&
@@ -2206,15 +2292,15 @@ internal static class Program
               bugfixesViewModelSource.Contains("EnableDrawbridgeDestructionFix = true;") &&
               bugfixesViewModelSource.Contains("SetSetting(ref enableDrawbridgeDestructionFix, value, nameof(EnableDrawbridgeDestructionFix))"),
             "drawbridge production setting is not default-enabled, resettable and host-managed");
-        string bugfixesRuntimeSource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "BugfixesAndQoLRuntime.cs"));
-        Check(bugfixesRuntimeSource.Contains(
+        string pathfindingRuntimeSource = File.ReadAllText(
+            Path.Combine(workspaceRoot, "Pathfinding", "src", "PathfindingRuntime.cs"));
+        Check(pathfindingRuntimeSource.Contains(
                   "settings.EnableMod && settings.EnableMountedStockpileMovementFix") &&
-              bugfixesRuntimeSource.Contains("InstallMountedStockpileMovementPatch") &&
-              bugfixesRuntimeSource.Contains("DisableMountedStockpileMovementPatch"),
+              pathfindingRuntimeSource.Contains("mountedStockpileMovementPatch.SetEnabled(wanted)") &&
+              pathfindingRuntimeSource.Contains("new MountedStockpileMovementPatch("),
             "mounted stockpile movement is not reconciled with its host setting and EnableMod");
         string shiftRepairHookSource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "ShiftRepairAllBuildingsHook.cs"));
+            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "Buildings/ShiftRepairAllBuildingsHook.cs"));
         Check(shiftRepairHookSource.Contains("original(self, parameter);") &&
               shiftRepairHookSource.IndexOf("original(self, parameter);", StringComparison.Ordinal) <
               shiftRepairHookSource.IndexOf("QueueAdditionalRepairs(self);", StringComparison.Ordinal),
@@ -2224,7 +2310,7 @@ internal static class Program
               shiftRepairHookSource.Contains("PlayerRelationship.Self"),
             "Shift-repair does not reuse Vanilla repair classification/action for owned buildings");
         string combatResumeRuntimeSource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "AssassinCombatResumeRuntime.cs"));
+            Path.Combine(workspaceRoot, "Pathfinding", "src", "Assassins/AssassinCombatResumeRuntime.cs"));
         Check(combatResumeRuntimeSource.Contains("settings.EnableAssassinCombatResumeFix") &&
               !combatResumeRuntimeSource.Contains("EnableImprovedAssassinPathfinding"),
             "Assassin combat resume is not initialized independently from improved pathfinding");
@@ -2233,9 +2319,6 @@ internal static class Program
         {
             "EnableAiRaidRetargetFix",
             "EnableSingleBuildingPause",
-            "EnableFastRecruitRallyMovement",
-            "EnableRallyTerrainSlowdownFix",
-            "RequireReachableEnemyForAutomaticGateClosing",
             "EnableQuarryPileRelocation",
             "EnableAIQuarryPileTowardsKeep",
             "PreventAIPause",
@@ -2250,6 +2333,21 @@ internal static class Program
             Check(bugfixesViewModelSource.Contains(propertyName + " = true;"),
                 propertyName + " does not reset to its migrated default true value");
         }
+        string[] pathfindingOwnedSettings =
+        {
+            "EnableFastRecruitRallyMovement",
+            "EnableRallyTerrainSlowdownFix",
+            "RequireReachableEnemyForAutomaticGateClosing"
+        };
+        foreach (string propertyName in pathfindingOwnedSettings)
+        {
+            Check(pathfindingViewModelSource.Contains("[SyncHostOnly] public bool " + propertyName),
+                propertyName + " is not classified as a synchronized host setting");
+            Check(pathfindingViewModelSource.Contains(propertyName + " = true;"),
+                propertyName + " does not reset to its migrated default true value");
+            Check(!bugfixesViewModelSource.Contains("public bool " + propertyName),
+                propertyName + " still has an active BugfixesAndQoL setting");
+        }
         Check(normalizedBugfixesViewModelSource.Contains(
                 "[SyncHostOnly]\n        public int InaccessibleAIBuildingDemolitionProtection"),
             "inaccessible AI building protection is not classified as a synchronized host setting");
@@ -2259,7 +2357,7 @@ internal static class Program
 
         string extraFeaturesViewModelSource = File.ReadAllText(
             Path.Combine(workspaceRoot, "ExtraFeatures", "src", "ExtraFeaturesViewModel.cs"));
-        foreach (string propertyName in movedBooleanSettings)
+        foreach (string propertyName in movedBooleanSettings.Concat(pathfindingOwnedSettings))
         {
             Check(!extraFeaturesViewModelSource.Contains("public bool " + propertyName),
                 propertyName + " still has an active ExtraFeatures setting");
@@ -2271,19 +2369,24 @@ internal static class Program
         string[] unrestrictedMovedRuntimeFiles =
         {
             "AIEconomyProtectionHook.cs",
-            "BugfixesAndQoLRuntime.MovedFeatures.cs",
+            "BugfixesAndQoLRuntime.BuildingAndEconomy.cs",
             "QuarryPileRelocationRuntime.cs",
-            "ReachableEnemyGatehouseRuntime.cs",
+            "QuarryPileTargetSearch.cs",
             "SingleBuildingPauseHook.cs"
         };
         foreach (string fileName in unrestrictedMovedRuntimeFiles)
         {
             string source = File.ReadAllText(
-                Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", fileName));
+                Directory.GetFiles(Path.Combine(workspaceRoot, "BugfixesAndQoL", "src"), fileName, SearchOption.AllDirectories).Single());
             Check(!source.Contains("GameplayModActivationGate") &&
                   !source.Contains("GameplayFeatureModePolicy"),
                 fileName + " still restricts a transferred BugfixesAndQoL feature by game mode");
         }
+        string gatehouseSource = File.ReadAllText(
+            Path.Combine(workspaceRoot, "Pathfinding", "src", "GateRouting", "ReachableEnemyGatehouseRuntime.cs"));
+        Check(!gatehouseSource.Contains("GameplayModActivationGate") &&
+              !gatehouseSource.Contains("GameplayFeatureModePolicy"),
+            "ReachableEnemyGatehouseRuntime.cs restricts a transferred feature by game mode");
         GameNetworkAPI.LocalHost = false;
         setting.System_RefreshSettingsAccess();
         byte[] beforeClientMutation = File.ReadAllBytes(settingsPath);
@@ -2577,8 +2680,7 @@ internal static class Program
               page2.SequenceEqual(new[] { 9, 10, 11, 12, 13, 14, 15, 16 }) &&
               page3.SequenceEqual(new[] { 17, 18, 19, 20, 21, 22, 23, 24 }) &&
               page4.SequenceEqual(new[] { 25, 26, 27, 28, 29, 30, 31, 32 }) &&
-              page5.SequenceEqual(new[] { 33, 34, 35, 55, -1, -1, -1, -1 }) &&
-              SelectedUnitHealthPageLayout.GetPageCount(selectedTypes) == 5,
+              page5.SequenceEqual(new[] { 33, 34, 35, 55, -1, -1, -1, -1 }),
             "shared troop/health page slots were not contiguous or omitted the Lord");
 
         var reusablePage = Enumerable.Repeat(999, SelectedUnitHealthPageLayout.SlotCount).ToArray();
@@ -2600,7 +2702,6 @@ internal static class Program
             boundary[55] = 1;
             int expectedPages = (typeCount + 7) / 8;
             Check(SelectedUnitHealthPageLayout.CountVisibleTypes(boundary) == typeCount &&
-                  SelectedUnitHealthPageLayout.GetPageCount(boundary) == expectedPages &&
                   SelectedUnitHealthPageLayout.GetVisibleTypes(
                       boundary,
                       expectedPages - 1).Contains(55),
@@ -2840,56 +2941,6 @@ internal static class Program
             "Assassin stair ascent was not interpolated by height");
         Check(AssassinClimbCostPolicy.GetAdditionalTicks(true, 135, false, true, true) == 600,
             "Assassin high stair ascent did not continue the interpolation slope");
-    }
-
-    private static void TestAssassinPathReconstructionNativeDefinition()
-    {
-        const string dllPath = @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll";
-        byte[] file = File.ReadAllBytes(dllPath);
-        string hash;
-        using (System.Security.Cryptography.SHA256 sha256 = System.Security.Cryptography.SHA256.Create())
-            hash = BitConverter.ToString(sha256.ComputeHash(file)).Replace("-", string.Empty);
-        Check(
-            string.Equals(
-                hash,
-                AssassinPathReconstructionNativeDefinition.ReferenceSha256,
-                StringComparison.OrdinalIgnoreCase),
-            "canonical CrusaderDE.dll hash changed for the Assassin reconstruction contract");
-
-        byte[] image = LoadPeImage(file);
-        NativeResolution reference = NativePatternResolver.ResolveUnique(
-            image,
-            AssassinPathReconstructionNativeDefinition.EndpointBuildingGuardsPattern,
-            AssassinPathReconstructionNativeDefinition.EndpointBuildingGuardsPatternRva,
-            referenceHashMatches: true,
-            "test Assassin reconstruction endpoint guards");
-        Check(
-            reference.Rva == AssassinPathReconstructionNativeDefinition.EndpointBuildingGuardsPatternRva &&
-            reference.Method == "reference-rva",
-            "Assassin reconstruction source signature did not match the canonical DLL at its reference RVA");
-
-        NativeResolution fallback = NativePatternResolver.ResolveUnique(
-            image,
-            AssassinPathReconstructionNativeDefinition.EndpointBuildingGuardsPattern,
-            AssassinPathReconstructionNativeDefinition.EndpointBuildingGuardsPatternRva,
-            referenceHashMatches: false,
-            "test Assassin reconstruction endpoint guards");
-        Check(
-            fallback.Rva == reference.Rva && fallback.Method == "signature-fallback",
-            "Assassin reconstruction source signature was not unique in the canonical DLL");
-
-        int currentJumpRva = reference.Rva +
-            AssassinPathReconstructionNativeDefinition.CurrentTileRejectJumpOffset;
-        int neighborJumpRva = reference.Rva +
-            AssassinPathReconstructionNativeDefinition.NeighborTileRejectJumpOffset;
-        Check(
-            image.Skip(currentJumpRva)
-                .Take(AssassinPathReconstructionNativeDefinition.OriginalCurrentTileRejectJump.Length)
-                .SequenceEqual(AssassinPathReconstructionNativeDefinition.OriginalCurrentTileRejectJump) &&
-            image.Skip(neighborJumpRva)
-                .Take(AssassinPathReconstructionNativeDefinition.OriginalNeighborTileRejectJump.Length)
-                .SequenceEqual(AssassinPathReconstructionNativeDefinition.OriginalNeighborTileRejectJump),
-            "Assassin reconstruction jump offsets no longer select both audited Vanilla guards");
     }
 
     private static void TestAssassinCombatResumePolicy()
@@ -3320,39 +3371,6 @@ internal static class Program
             "portal type policy includes gates and drawbridges but excludes unrelated linkages");
     }
 
-    private static void TestLordHealthMultiplierPolicy()
-    {
-        Check(LordHealthMultiplierPolicy.NormalizePercent(-1) == 10,
-            "Lord health percentage did not clamp to 10%");
-        Check(LordHealthMultiplierPolicy.NormalizePercent(100) == 100,
-            "Lord health percentage changed the 100% default");
-        Check(LordHealthMultiplierPolicy.NormalizePercent(900) == 500,
-            "Lord health percentage did not clamp to 500%");
-
-        // The runtime now captures these values after native initialization. The pure
-        // policy must not reconstruct them from incomplete global option/AI data.
-        uint humanVanilla = 2000;
-        uint weakAI = 1000;
-        uint strongAI = 3600;
-        Check(LordHealthMultiplierPolicy.CalculateMaximum(weakAI, 200) == 2000 &&
-              LordHealthMultiplierPolicy.CalculateMaximum(strongAI, 200) == 7200,
-            "AI Lord multiplier flattened individual Vanilla health values");
-        Check(LordHealthMultiplierPolicy.CalculateMaximum(humanVanilla, 10) == 200 &&
-              LordHealthMultiplierPolicy.CalculateMaximum(humanVanilla, 500) == 10000,
-            "Lord health multiplier produced an incorrect boundary value");
-
-        uint wounded = LordHealthMultiplierPolicy.CalculateCurrent(750, 1500, 3000);
-        Check(wounded == 1500 && LordHealthMultiplierPolicy.CalculateHealthPercent(wounded, 3000) == 50,
-            "Lord health scaling did not preserve the wounded health ratio");
-        uint repeated = LordHealthMultiplierPolicy.CalculateMaximum(humanVanilla, 200);
-        Check(repeated == LordHealthMultiplierPolicy.CalculateMaximum(humanVanilla, 200),
-            "Lord health target calculation was not idempotent");
-        Check(LordHealthMultiplierPolicy.CalculateMaximum(uint.MaxValue, 500) == uint.MaxValue,
-            "Lord health overflow was not clamped");
-        Check(LordHealthMultiplierPolicy.CalculateCurrent(0, 1000, 2000) == 1,
-            "an active Lord was allowed to reach zero health during scaling");
-    }
-
     private static void TestQuarryPileTargetSelectionPolicy()
     {
         var candidates = new List<QuarryPileTargetCandidate>
@@ -3416,6 +3434,20 @@ internal static class Program
                 20,
                 out _),
             "AI quarry-pile selection accepted an empty valid-candidate set");
+    }
+
+    private static void TestQuarryPileRotationReceipt()
+    {
+        var committed = new QuarryPileRotationReceipt(2, 100, 101, 40, 50, 7);
+        Check(committed.Matches(2, 100, 101, 40, 50),
+            "an identical request recognizes the committed replacement");
+        Check(!committed.Matches(2, 100, 101, 41, 50) &&
+            !committed.Matches(2, 100, 102, 40, 50) &&
+            !committed.Matches(1, 100, 101, 40, 50) &&
+            !committed.Matches(2, 99, 101, 40, 50),
+            "a different request or live replacement cannot reuse the receipt");
+        Check(!default(QuarryPileRotationReceipt).Matches(2, 100, 101, 40, 50),
+            "a failed first attempt or a new mission has no matching receipt");
     }
 
     private static void TestQuarryPileVanillaGroupPolicy()
@@ -3549,7 +3581,6 @@ internal static class Program
         string workspaceRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
         string[] senderFiles =
         {
-            "AssassinClimbRuntime.cs",
             "MultiplayerGameSpeedRuntime.cs",
             "QuarryPileRelocationRuntime.cs",
             "SiegeAmmoRestockFeature.cs",
@@ -3558,12 +3589,18 @@ internal static class Program
         };
         foreach (string fileName in senderFiles)
         {
-            string source = File.ReadAllText(Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", fileName));
+            string source = File.ReadAllText(Directory.GetFiles(Path.Combine(workspaceRoot, "BugfixesAndQoL", "src"), fileName, SearchOption.AllDirectories).Single());
             Check(source.Contains("APIShared.Networking.ChoreTransport.TrySend("),
                 fileName + " does not use the fail-closed Chore sender contract");
             Check(!source.Contains("ChoreNetworkTransport") && !source.Contains("SendRawBlob"),
                 fileName + " retains the removed raw Chore transport");
         }
+        string climbSender = File.ReadAllText(Path.Combine(workspaceRoot, "Pathfinding", "src", "Assassins", "AssassinClimbRuntime.cs"));
+        // API boundary guard only; Pathfinding's actual send/receive behavior is covered by its runtime fixtures.
+        Check(climbSender.Contains(".RegisterAuthenticatedChore<AssassinClimbStatePacket>("),
+            "AssassinClimbRuntime.cs does not register the authenticated Chore contract");
+        Check(!climbSender.Contains("ChoreNetworkTransport") && !climbSender.Contains("SendRawBlob"),
+            "AssassinClimbRuntime.cs retains the removed raw Chore transport");
 
     }
 
@@ -3576,16 +3613,18 @@ internal static class Program
             "the same unchanged ExtraFeatures Chore packet did not serialize deterministically twice");
 
         string workspaceRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
-        foreach (string fileName in new[] { "GatehouseAutomationRuntime.cs", "KnightDismountRuntime.cs" })
+        // The knight runtime is one partial class spread over KnightDismountRuntime*.cs.
+        string extraSource = Path.Combine(workspaceRoot, "ExtraFeatures", "src");
+        foreach (string pattern in new[] { "GatehouseAutomationRuntime.cs", "KnightDismountRuntime*.cs" })
         {
-            string source = File.ReadAllText(Path.Combine(workspaceRoot, "ExtraFeatures", "src", fileName));
-            Check(source.Contains("APIShared.Networking.ChoreTransport.TrySend("),
-                fileName + " does not use the fail-closed Chore sender contract");
+            string source = string.Join("\n", Directory.GetFiles(extraSource, pattern).Select(File.ReadAllText));
+            Check(source.Length > 0 && source.Contains("APIShared.Networking.ChoreTransport.TrySend("),
+                pattern + " does not use the fail-closed Chore sender contract");
             Check(!source.Contains("ChoreNetworkTransport") && !source.Contains("SendRawBlob"),
-                fileName + " retains the removed raw Chore transport");
+                pattern + " retains the removed raw Chore transport");
         }
 
-        string knight = File.ReadAllText(Path.Combine(workspaceRoot, "ExtraFeatures", "src", "KnightDismountRuntime.cs"));
+        string knight = string.Join("\n", Directory.GetFiles(extraSource, "KnightDismountRuntime*.cs").Select(File.ReadAllText));
         Check(knight.Contains("APIShared.LocalSelectionSnapshot selection") && knight.Contains("selection[i].UnitId") &&
               knight.Contains("i < selection.Count") &&
               !knight.Contains("return GamePlayerManagerAPI.Instance.GetSelectedChimps();"),
@@ -4522,29 +4561,38 @@ internal static class Program
 
     private static void TestBuildPreviewLocalIntegration()
     {
+        // Production metadata/default/reset checks live in BFQoL's Modsettings.Tests.
+        // This probe exercises the shared local-preset and client authority contract for both controls.
+        foreach (string option in new[] { nameof(BuildPreviewPresetProbe.EnableImprovedBuildPreview), nameof(BuildPreviewPresetProbe.EnablePitchMoatLines) })
+            TestLocalBuildingControlPreset(option);
+    }
+
+    private static void TestLocalBuildingControlPreset(string option)
+    {
         string pluginPath=Path.Combine(PresetFixtureInstallRoot,"BuildPreviewPresetProbe.dll");
         string settingsPath=new PersonalSettingsPaths(Path.Combine(PresetFixtureInstallRoot, "TestPlugin.dll"), "Tests.BuildPreviewPresetProbe").SettingsFile;
         if(File.Exists(settingsPath)) File.Delete(settingsPath);
         GameNetworkAPI.LocalHost=true;GameNetworkAPI.Networked=true;GameNetworkAPI.MultiplayerGame=true;
         var vm=new BuildPreviewPresetProbe();
         vm.PreparePresets(null,pluginPath,"BuildPreviewPresetProbe");vm.ActivatePresets();
-        Check(vm.EnableImprovedBuildPreview,"Build preview defaults to enabled");
+        var property = typeof(BuildPreviewPresetProbe).GetProperty(option);
+        Check((bool)property.GetValue(vm),"Local building control defaults to enabled: " + option);
         var manager=GameXAMLManagerAPI.Instance;manager.ResetRoutingProbe();
         manager.RegisterLobbyModSettings(new BepInEx.BaseUnityPlugin(),"BuildPreviewPresetProbe",vm,"unused.xaml");
-        vm.EnableImprovedBuildPreview=false;
-        Check(manager.BroadcastCount==0 && manager.SaveCount==0,"Build preview bypasses Extender network/host protocol");
-        Check(!vm.System_CreateDisabledMissionPresetSnapshot().ContainsKey(nameof(vm.EnableImprovedBuildPreview)),"Build preview excluded from host mission snapshot");
-        string path=vm.System_SavePersonalPreset("preview-off","Preview off","local probe",new[] { new PresetSaveSelection { PropertyName=nameof(vm.EnableImprovedBuildPreview), Mode=PublishedPresetValueMode.Fixed } },overwrite:true);
-        vm.EnableImprovedBuildPreview=true;
+        property.SetValue(vm, false);
+        Check(manager.BroadcastCount==0 && manager.SaveCount==0,"Local building control bypasses Extender network/host protocol: " + option);
+        Check(!vm.System_CreateDisabledMissionPresetSnapshot().ContainsKey(option),"Local building control is excluded from host mission snapshot: " + option);
+        string path=vm.System_SavePersonalPreset("preview-off","Preview off","local probe",new[] { new PresetSaveSelection { PropertyName=option, Mode=PublishedPresetValueMode.Fixed } },overwrite:true);
+        property.SetValue(vm, true);
         var saved=vm.System_TestPublishedPresets.Single(item=>item.Id=="preview-off");
         vm.System_TestLoadPreset(saved.StableId);
-        Check(!vm.EnableImprovedBuildPreview,"Local build preview follows preset selection");
+        Check(!(bool)property.GetValue(vm),"Local building control follows preset selection: " + option);
         GameNetworkAPI.LocalHost=false;vm.System_RefreshSettingsAccess();
-        vm.EnableImprovedBuildPreview=true;
-        Check(vm.EnableImprovedBuildPreview,"Client can independently enable build preview");
-        vm.EnableImprovedBuildPreview=false;
+        property.SetValue(vm, true);
+        Check((bool)property.GetValue(vm),"Client can independently enable local building control: " + option);
+        property.SetValue(vm, false);
         var restored=new BuildPreviewPresetProbe();restored.PreparePresets(null,pluginPath,"BuildPreviewPresetProbe");restored.ActivatePresets();
-        Check(!restored.EnableImprovedBuildPreview,"Local build preview persists across restart");
+        Check(!(bool)property.GetValue(restored),"Local building control persists across restart: " + option);
         GameNetworkAPI.LocalHost=true;
     }
 
@@ -6933,6 +6981,8 @@ namespace SHCDESE.API
 {
     public sealed class GamePlayerManagerAPI
     {
+        // Same value as the installed Script Extender API (SHCDESE.dll).
+        public const int MAX_PLAYERS = 8;
         public static GamePlayerManagerAPI Instance { get; } = new GamePlayerManagerAPI();
         public bool MapEditor { get; set; }
         public bool IsInMapEditor() => MapEditor;
@@ -7031,9 +7081,22 @@ namespace APIShared.Internal
     }
 }
 
+namespace APIShared
+{
+    // API logging boundary double (APIShared's single logging entry point); its real logger is tested in APIShared.
+    internal static class NativeApiLog
+    {
+        public static void Debug(BepInEx.Logging.ManualLogSource log, string message) { }
+        public static void Info(BepInEx.Logging.ManualLogSource log, string message) { }
+        public static void Warning(BepInEx.Logging.ManualLogSource log, string message) { }
+        public static void Error(BepInEx.Logging.ManualLogSource log, string message) { }
+    }
+}
+
 internal sealed class BuildPreviewPresetProbe : PresetLobbyModSettingsViewModel
 {
     private bool enableImprovedBuildPreview=true;
+    private bool enablePitchMoatLines=true;
     [PresetLocal]
     public bool EnableImprovedBuildPreview
     {
@@ -7043,6 +7106,17 @@ internal sealed class BuildPreviewPresetProbe : PresetLobbyModSettingsViewModel
             if(!CanMutateSetting(nameof(EnableImprovedBuildPreview)) || enableImprovedBuildPreview==value) return;
             enableImprovedBuildPreview=value;
             OnPropertyChanged(nameof(EnableImprovedBuildPreview));
+        }
+    }
+    [PresetLocal]
+    public bool EnablePitchMoatLines
+    {
+        get => enablePitchMoatLines;
+        set
+        {
+            if (!CanMutateSetting(nameof(EnablePitchMoatLines)) || enablePitchMoatLines == value) return;
+            enablePitchMoatLines = value;
+            OnPropertyChanged(nameof(EnablePitchMoatLines));
         }
     }
 }

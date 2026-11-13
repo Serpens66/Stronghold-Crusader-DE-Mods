@@ -1,0 +1,377 @@
+using System.Reflection;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+
+internal static class FormationStartupTests
+{
+    internal static void Validate(string root)
+    {
+        string[] paths = {
+            "Pathfinding/src/Formations/Feature/FormationFeature.cs", "Pathfinding/src/Formations/Feature/FormationMenuViewModel.cs",
+            "Pathfinding/src/Formations/Feature/FormationSelectionMigration.cs", "Pathfinding/src/Formations/FormationModel.cs",
+            "Pathfinding/src/Formations/FormationPresentation.cs"
+        };
+        var gestureUpdate = CSharpSyntaxTree.ParseText(FeatureSourceModel.Read(root, "FormationRuntime", "Pathfinding/src/Formations")).GetRoot().DescendantNodes()
+            .OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.Text == "UpdateGesture").ToFullString();
+        string fixture = """
+using System; using System.Reflection; using System.Collections.Generic; using System.ComponentModel;
+using Pathfinding.UnitCommands; using BepInEx.Configuration; using BepInEx.Logging;
+public static class SerpLocalization { public static string Language="en"; public static string Get(string key)=>key=="Pathfinding.ArrangementTooltip"?(Language=="de"?"Aufstellung":"Lineup"):Language+":"+key; }
+namespace BepInEx { public static class Paths { public static string ConfigPath="__missing_formation_fixture__"; } }
+namespace BepInEx.Logging { public class ManualLogSource {} }
+namespace BepInEx.Configuration {
+    public class ConfigDescription { public ConfigDescription(string s,object range) {} }
+    public class AcceptableValueRange<T> { public AcceptableValueRange(T a,T b) {} }
+    public class ConfigEntry<T> {
+        private T value;
+        public ConfigEntry(T initial) { value=initial; }
+        public T Value {get=>value;set {this.value=value;SettingChanged?.Invoke(this,EventArgs.Empty);} }
+        public event EventHandler SettingChanged;
+    }
+    public class ConfigDefinition { public string Key; public ConfigDefinition(string section,string key){Key=key;} }
+    public class ConfigFile {
+        public string ConfigFilePath {get;set;}="__missing_formation_fixture__.cfg";
+        // The fixture entries do not auto-save, so the production code must save explicitly.
+        public bool SaveOnConfigSet { get; set; }
+        public readonly Dictionary<string,object> Entries=new Dictionary<string,object>();
+        public Dictionary<string,object> Stored=new Dictionary<string,object>();
+        public ConfigEntry<T> Bind<T>(string section,string key,T initial,object description) {
+            var entry=new ConfigEntry<T>(Stored.TryGetValue(key,out var saved)?(T)saved:initial);Entries[key]=entry;return entry;
+        }
+        public bool Remove(ConfigDefinition definition) {Stored.Remove(definition.Key);return Entries.Remove(definition.Key);}
+        public int Saves; public void Save() {
+            Saves++;foreach(var pair in Entries)Stored[pair.Key]=pair.Value.GetType().GetProperty("Value").GetValue(pair.Value);
+        }
+    }
+}
+namespace Noesis {
+    public enum Visibility { Visible,Hidden,Collapsed }
+    public class MouseEventArgs : EventArgs {}
+    public delegate void MouseEventHandler(object sender,MouseEventArgs args);
+    public class TextBlock { public Visibility Visibility=Visibility.Hidden; }
+    public class Button {
+        private MouseEventHandler enter,leave;
+        public int EnterHandlers,LeaveHandlers;
+        public event MouseEventHandler MouseEnter { add {enter+=value;EnterHandlers++;} remove {enter-=value;EnterHandlers--;} }
+        public event MouseEventHandler MouseLeave { add {leave+=value;LeaveHandlers++;} remove {leave-=value;LeaveHandlers--;} }
+        public void Enter()=>enter?.Invoke(this,new MouseEventArgs());
+        public void Leave()=>leave?.Invoke(this,new MouseEventArgs());
+    }
+    public struct Color { public static Color FromArgb(byte a,byte r,byte g,byte b)=>default; }
+    public class SolidColorBrush { public SolidColorBrush(Color color) {} }
+}
+namespace CrusaderDE {
+    public class MainViewModel : INotifyPropertyChanged {
+        public static bool viewModelLoaded=true; public static MainViewModel Instance=new MainViewModel();
+        public bool Show_HUD_Troops=true; public bool Show_HUD_ControlGroups;
+        public string TroopsPanelRollover {get;set;}
+        public HUD_Troops HUDTroopPanel=new HUD_Troops();
+        public string TroopsPanelRollover_AmountReq1,TroopsPanelRollover_AmountGot1;
+        public object TroopsPanelRollover_GoodsImage1;
+        public event PropertyChangedEventHandler PropertyChanged;
+        public void Notify(string name) { PropertyChanged?.Invoke(this,new PropertyChangedEventArgs(name)); }
+    }
+    public class HUD_Troops {
+        public Noesis.Button OpenButton=new Noesis.Button();
+        public Noesis.TextBlock RefTroopsPanelRollover=new Noesis.TextBlock(),RefTroopsPanelRollover2=new Noesis.TextBlock();
+        public object FindName(string name)=>name=="PathfindingFormationOpenButton"?OpenButton:null;
+    }
+    public static class Enums { public enum SceneIDS { ActualMainGame,Other } }
+    public static class FatControler { public static Enums.SceneIDS currentScene=Enums.SceneIDS.ActualMainGame; }
+}
+namespace SHCDESE.API.LowLevel { public class CrusaderLibraryLoadContext {} }
+namespace SHCDESE.API {
+    public class GameXAMLManagerAPI {
+        public static GameXAMLManagerAPI Instance=new GameXAMLManagerAPI();
+        public readonly Dictionary<string,object> Hosts=new Dictionary<string,object>();
+        public readonly List<string> Attempts=new List<string>(); public string ThrowOnHost;
+        public void RegisterBinding(string host,object vm) {
+            Attempts.Add(host);if(host==ThrowOnHost)throw new InvalidOperationException("Host failure");Hosts[host]=vm;
+        }
+    }
+}
+namespace APIShared.Internal {
+    public static class UnityMainThreadDispatch { public static void TryRunInlineOrEnqueue(Action a)=>a(); }
+    public static class DebugLogHelper { public static bool DiagnosticsEnabled => true;
+        public static bool IsCurrentNativeLibraryVersion()=>true;
+        public static void LogDebugLimited(ManualLogSource l, string site, params object[] parts) { LogDebug(l, System.String.Concat(parts)); } public static void LogDebug(ManualLogSource l,string m) {}
+        public static void LogWarningLimited(ManualLogSource l, string site, params object[] parts) { LogWarning(l, System.String.Concat(parts)); } public static void LogWarning(ManualLogSource l,string m) {}
+        public static void LogErrorLimited(ManualLogSource l, string site, params object[] parts) { LogError(l, System.String.Concat(parts)); } public static void LogError(ManualLogSource l,string m) {}
+    }
+}
+namespace Shared {
+    public static class UnityMainThreadDispatch { public static void TryRunInlineOrEnqueue(Action a)=>a(); }
+    public static class DebugLogHelper { public static bool DiagnosticsEnabled => true;
+        internal static bool ReferenceHashMatches=true;
+        public static bool IsCurrentNativeLibraryVersion()=>ReferenceHashMatches;
+        public static void LogDebugLimited(ManualLogSource l, string site, params object[] parts) { LogDebug(l, System.String.Concat(parts)); } public static void LogDebug(ManualLogSource l,string m) {}
+        public static void LogWarningLimited(ManualLogSource l, string site, params object[] parts) { LogWarning(l, System.String.Concat(parts)); } public static void LogWarning(ManualLogSource l,string m) {}
+        public static void LogErrorLimited(ManualLogSource l, string site, params object[] parts) { LogError(l, System.String.Concat(parts)); } public static void LogError(ManualLogSource l,string m) {}
+    }
+}
+namespace Pathfinding { internal static class LargeMoveTargetMarkerRuntime { internal static object Renderer; } }
+namespace Pathfinding.UnitCommands {
+    internal static class UnitCommandPathAPI { internal static object Runtime; }
+    internal sealed class FormationRuntime {
+        internal static FormationRuntime Last; internal static bool ThrowOnInitialize;
+        private readonly Pathfinding.PathfindingViewModel settings; internal bool Failed;
+        internal bool Enabled=>!Failed && settings.EnableMod && settings.EnableMoveFormationEnhancements;
+        internal bool LocalInputEnabled=>Enabled;
+        internal FormationRuntime(ManualLogSource l,SHCDESE.API.LowLevel.CrusaderLibraryLoadContext c,
+            ConfigEntry<FormationKind> k,ConfigEntry<int> d,ConfigEntry<RangedPlacementMode> p,
+            IFormationPresentation m,Pathfinding.PathfindingViewModel s,object commands,object markers) { settings=s;Last=this; }
+        internal void Initialize(bool referenceHashMatches) { if(!referenceHashMatches||ThrowOnInitialize) { Failed=true;throw new InvalidOperationException("Runtime failure"); } }
+        internal void ResetTransientState() {}
+    }
+}
+namespace Pathfinding {
+    internal static class FormationHudButton { internal static void Configure(FormationMenuViewModel m,ManualLogSource l) { m.OwnHudAvailable=()=>true; } }
+    internal class PathfindingViewModel : INotifyPropertyChanged {
+        public bool EnableMod=true,EnableMoveFormationEnhancements=true;
+        public event PropertyChangedEventHandler PropertyChanged;
+        internal void Notify()=>PropertyChanged?.Invoke(this,new PropertyChangedEventArgs(nameof(EnableMoveFormationEnhancements)));
+    }
+    internal static class FormationPreviewOverlay {
+        internal static void Initialize(ManualLogSource l,bool roles) {}
+        internal static void SetNativeAllowed(bool value) {} internal static void Refresh() {} internal static void Clear() {}
+        internal static void Publish(FormationPreviewPoint[] p,FormationDirectionIndicator d) {}
+        internal static void SetRoleMarkersVisible(bool value) {}
+    }
+    public static class StartupFixture {
+        private static void Require(bool condition,string message) { if(!condition)throw new Exception(message); }
+        private static FormationMenuViewModel Configure(ConfigFile config,PathfindingViewModel options) {
+            FormationFeature.Configure(new ManualLogSource(),config,options);
+            return (FormationMenuViewModel)SHCDESE.API.GameXAMLManagerAPI.Instance.Hosts["PathfindingFormationMenuHost"];
+        }
+        private static void Reset() {
+            typeof(FormationFeature).GetField("runtime",BindingFlags.Static|BindingFlags.NonPublic).SetValue(null,null);
+        }
+        public static void Run() {
+            var manager=SHCDESE.API.GameXAMLManagerAPI.Instance;
+            var options=new PathfindingViewModel(); var config=new ConfigFile();
+            manager.ThrowOnHost="PathfindingFormationRolloverHost";
+            var menu=Configure(config,options);
+            Require(manager.Attempts.Count==2 && manager.Hosts.Count==1,"Registration failure prevented other hosts");
+            Require(!menu.FeatureAvailable && !menu.MenuVisible && !menu.RolloverVisible,"Unavailable menu starts visible");
+            FormationFeature.Initialize(new SHCDESE.API.LowLevel.CrusaderLibraryLoadContext());
+            menu.ToggleMenuCommand.Execute(null);menu.ShowRolloverCommand.Execute("Block");
+            Require(!menu.MenuVisible && !menu.RolloverVisible,"Missing shared capability opened menu");
+            manager.ThrowOnHost=null;manager.Hosts.Clear();manager.Attempts.Clear();
+            menu=Configure(config,options);
+            Require(((ConfigEntry<FormationKind>)config.Entries["Kind"]).Value==FormationKind.Vanilla &&
+                ((ConfigEntry<int>)config.Entries["Density"]).Value==2 &&
+                !((ConfigEntry<bool>)config.Entries["ShowRoleMarkers"]).Value &&
+                ((ConfigEntry<bool>)config.Entries["RememberAspectRatio"]).Value,"Fresh installation defaults changed");
+            var savedConfig=new ConfigFile();
+            savedConfig.Stored["Kind"]=FormationKind.Circle;savedConfig.Stored["Density"]=4;
+            savedConfig.Stored["ShowRoleMarkers"]=true;savedConfig.Stored["RememberAspectRatio"]=false;
+            Configure(savedConfig,options);
+            Require(((ConfigEntry<FormationKind>)savedConfig.Entries["Kind"]).Value==FormationKind.Circle &&
+                ((ConfigEntry<int>)savedConfig.Entries["Density"]).Value==4 &&
+                ((ConfigEntry<bool>)savedConfig.Entries["ShowRoleMarkers"]).Value &&
+                !((ConfigEntry<bool>)savedConfig.Entries["RememberAspectRatio"]).Value,"Existing configuration overwritten");
+            manager.Hosts.Clear();manager.Attempts.Clear();
+            menu=Configure(config,options);
+            Require(manager.Hosts.Count==2 && manager.Attempts.Count==2,"Early registration needs successful native initialization");
+            UnitCommandPathAPI.Runtime=new object();Pathfinding.LargeMoveTargetMarkerRuntime.Renderer=new object();
+            Shared.DebugLogHelper.ReferenceHashMatches=false;
+            FormationFeature.Initialize(new SHCDESE.API.LowLevel.CrusaderLibraryLoadContext());
+            Require(FormationRuntime.Last==null && !menu.FeatureAvailable,"Unknown hash reached the formation runtime");
+            Shared.DebugLogHelper.ReferenceHashMatches=true;
+            FormationRuntime.ThrowOnInitialize=true;
+            FormationFeature.Initialize(new SHCDESE.API.LowLevel.CrusaderLibraryLoadContext());
+            Require(!menu.FeatureAvailable && !menu.MenuVisible && !menu.RolloverVisible,"Failed runtime made menu available");
+            Reset();FormationRuntime.ThrowOnInitialize=false;
+            var changed=new List<string>();menu.PropertyChanged+=(_,e)=>changed.Add(e.PropertyName);
+            FormationFeature.Initialize(new SHCDESE.API.LowLevel.CrusaderLibraryLoadContext());
+            Require(menu.FeatureAvailable && changed.Contains("FeatureAvailable"),"Successful initialization did not notify availability");
+            menu.ToggleMenuCommand.Execute(null);Require(menu.MenuVisible,"Open command failed");
+            menu.ToggleMenuCommand.Execute(null);Require(!menu.MenuVisible,"Close command failed");
+            foreach(var kind in Enum.GetValues<FormationKind>()) {
+                menu.SelectFormationCommand.Execute(kind.ToString());
+                Require(((ConfigEntry<FormationKind>)config.Entries["Kind"]).Value==kind,"Selection button failed");
+                bool[] icons={menu.IsVanilla,menu.IsBlock,menu.IsLine,menu.IsColumn,menu.IsWedge,menu.IsCircle};
+                Require(icons[(int)kind] && Array.FindAll(icons,v=>v).Length==1,"Selected icon mismatch");
+                ((ConfigEntry<FormationKind>)config.Entries["Kind"]).Value=kind;
+                Require(changed.Contains("Is"+kind),"Config change did not notify selected icon");
+                changed.Clear();
+            }
+            menu.SelectDensityCommand.Execute("4");menu.SelectPlacementCommand.Execute("Rear");menu.SelectRoleMarkersCommand.Execute("False");
+            Require(((ConfigEntry<int>)config.Entries["Density"]).Value==4 &&
+                ((ConfigEntry<RangedPlacementMode>)config.Entries["RangedPlacement"]).Value==RangedPlacementMode.Rear &&
+                !((ConfigEntry<bool>)config.Entries["ShowRoleMarkers"]).Value,"Window setting commands failed");
+            menu.ToggleMenuCommand.Execute(null);menu.ShowRolloverCommand.Execute("Block");
+            Require(menu.MenuVisible && menu.RolloverVisible,"Healthy menu/rollover did not open");
+            foreach(string language in new[]{"en","de"}) {
+                SerpLocalization.Language=language;
+                Require(menu.LineupText==(language=="de"?"Aufstellung":"Lineup"),"Lineup title was not localized");
+                Require(menu.DensityText==language+":Pathfinding.LineupDensity" &&
+                    menu.RoleMarkersText==language+":Pathfinding.LineupRoleMarkers","Menu labels bypassed localization");
+                foreach(string kind in new[]{"Vanilla","Block","Line","Column","Wedge","Circle"}) {
+                    menu.ShowRolloverCommand.Execute(kind);
+                    Require(menu.RolloverVisible && menu.RolloverText==language+":Pathfinding.Lineup"+kind,
+                        "Rollover displayed a raw selection parameter: "+kind);
+                }
+                menu.HideRolloverCommand.Execute(null);menu.ShowRolloverCommand.Execute("Unknown");
+                Require(!menu.RolloverVisible,"Unknown rollover parameter opened hover text");
+            }
+            SerpLocalization.Language="en";menu.ShowRolloverCommand.Execute("Block");
+            FormationRuntime.Last.Failed=true;menu.RefreshHostState();
+            Require(!menu.FeatureAvailable && !menu.MenuVisible && !menu.RolloverVisible,"Later runtime failure left UI active");
+            menu.SelectFormationCommand.Execute("Block");
+            Require(menu.IsCircle,"Unavailable selection changed config");
+            FormationRuntime.Last.Failed=false;menu.RefreshHostState();menu.ToggleMenuCommand.Execute(null);
+            options.EnableMoveFormationEnhancements=false;options.Notify();
+            Require(!menu.FeatureAvailable && !menu.MenuVisible && !menu.RolloverVisible,"Checkbox did not close unavailable menu");
+            options.EnableMoveFormationEnhancements=true;menu.RefreshHostState();menu.ToggleMenuCommand.Execute(null);
+            CrusaderDE.FatControler.currentScene=CrusaderDE.Enums.SceneIDS.Other;menu.RefreshHostState();
+            Require(!menu.MenuVisible,"Scene change did not close menu");
+            CrusaderDE.FatControler.currentScene=CrusaderDE.Enums.SceneIDS.ActualMainGame;
+            CrusaderDE.MainViewModel.Instance=new CrusaderDE.MainViewModel();menu.RefreshHostState();menu.ToggleMenuCommand.Execute(null);
+            Require(menu.MenuVisible,"Menu did not recover after map/host replacement");
+            CrusaderDE.MainViewModel.Instance.Show_HUD_Troops=false;
+            CrusaderDE.MainViewModel.Instance.Notify("Show_HUD_Troops");
+            Require(!menu.MenuVisible,"Deselection did not close menu");
+            var main=CrusaderDE.MainViewModel.Instance;main.Show_HUD_Troops=true;
+            var panel=main.HUDTroopPanel;
+            menu.RefreshHostState();
+            menu.ToggleMenuCommand.Execute(null);menu.ShowRolloverCommand.Execute("Block");
+            menu.OwnHudAvailable=()=>false;menu.RefreshHostState();
+            Require(!menu.MenuVisible && !menu.RolloverVisible,"Foreign HUD left formation popup/hover active");
+            menu.ToggleMenuCommand.Execute(null);Require(!menu.MenuVisible,"Foreign HUD opened formation");
+            menu.OwnHudAvailable=()=>true;menu.RefreshHostState();menu.ToggleMenuCommand.Execute(null);
+            Require(menu.MenuVisible,"Own HUD did not recover");menu.CloseMenu();
+            RememberedAspectFixture.Run(menu,config,options);
+        }
+    }
+}
+""";
+        fixture += """
+namespace UnityEngine {
+    public static class Time { public static int frameCount; }
+    public static class Input { public static (float x,float y) mouseScrollDelta; }
+}
+namespace Pathfinding.UnitCommands {
+    using UnityEngine;
+    internal sealed class RuntimeGestureFixture {
+        private readonly object stateSync=new object(); private ActiveDrag drag;
+        private int lastWheelFrame=-1;private const int MinimumDragTileDistance=2;
+        private IFormationPresentation menuViewModel;private bool valid=true;
+        private readonly Commands commandRuntime=new Commands();
+        private sealed class Commands {internal long placementRevision;}
+        private struct GroundTarget { internal int NativeX,NativeY; }
+        private sealed class Gate { internal bool CanModify=true; }
+        private sealed class ActiveDrag {
+            internal FormationKind Kind=FormationKind.Block;
+            internal FormationGestureState Geometry;
+            internal Gate ReleaseGate=new Gate();internal int Rows=>Geometry.Rows;
+            internal GroundTarget Target;
+            internal bool PreviewAdmissionCaptured=true;
+            internal long PreviewAdmissionRevision;
+            internal object[] PreviewUnits=new object[31];
+            internal AuthorizationFixture Authorization=new AuthorizationFixture();
+        }
+        private sealed class AuthorizationFixture { internal bool IsConfirmed=true; }
+        private bool ValidateActiveDrag(ActiveDrag state)=>valid;
+        private bool TryCaptureTarget(out GroundTarget target) { target=new GroundTarget {NativeX=10,NativeY=0};return true; }
+        private void PublishPreview(ActiveDrag state,bool force) {}
+        private void AbortDrag(string reason) { drag=null; }
+        private void LogDebugNoThrow(string message) {}
+        __PRODUCTION_UPDATE__
+        internal static void Run(IFormationPresentation menu) {
+            var f=new RuntimeGestureFixture {menuViewModel=menu};
+            f.drag=new ActiveDrag {Geometry=new FormationGestureState(FormationKind.Block,31,0,menu.GetRememberedAspect(FormationKind.Block))};
+            int start=f.drag.Rows;
+            f.drag.PreviewAdmissionCaptured=false;Time.frameCount=99;Input.mouseScrollDelta=(0,-2);f.UpdateGesture(f.drag);
+            if(!menu.GetRememberedAspect(FormationKind.Block).IsAutomatic||f.drag.Rows!=start)throw new Exception("Pending island admission changed stored proportions");
+            f.drag.PreviewAdmissionCaptured=true;
+            Time.frameCount=100;Input.mouseScrollDelta=(0,-0.5f);f.UpdateGesture(f.drag);
+            if(!menu.GetRememberedAspect(FormationKind.Block).IsAutomatic || f.drag.Rows!=start)throw new Exception("Partial wheel saved automatic rows");
+            Time.frameCount=101;f.UpdateGesture(f.drag);
+            if(f.drag.Rows!=start+1 || menu.GetRememberedAspect(FormationKind.Block)!=f.drag.Geometry.Aspect)throw new Exception("Production wheel change was not remembered");
+            int direction=f.drag.Geometry.Direction;
+            Time.frameCount=102;Input.mouseScrollDelta=(0,3);f.UpdateGesture(f.drag);
+            if(f.drag.Rows!=Math.Max(1,start-2) || direction!=f.drag.Geometry.Direction)throw new Exception("Multi-step wheel changed facing or wrong rows");
+            var saved=f.drag.Geometry.Aspect;f.valid=false;Time.frameCount=103;f.UpdateGesture(f.drag);
+            if(f.drag!=null || menu.GetRememberedAspect(FormationKind.Block)!=saved)throw new Exception("Abort lost remembered wheel selection");
+        }
+    }
+}
+namespace Pathfinding {
+    internal static class RememberedAspectFixture {
+        private static void Check(bool value,string message) { if(!value)throw new Exception(message); }
+        private static FormationMenuViewModel Configure(ConfigFile config,PathfindingViewModel options) {
+            FormationFeature.Configure(new ManualLogSource(),config,options);
+            return (FormationMenuViewModel)SHCDESE.API.GameXAMLManagerAPI.Instance.Hosts["PathfindingFormationMenuHost"];
+        }
+        internal static void Run(FormationMenuViewModel menu,ConfigFile config,PathfindingViewModel options) {
+            Check(menu.RememberAspectRatio&&menu.GetRememberedAspect(FormationKind.Block).IsAutomatic,"Remember default or automatic start failed");
+            RuntimeGestureFixture.Run(menu);
+            var desired=FormationAspectRatio.Create(1,1);
+            menu.RememberSelectedAspect(FormationKind.Block,desired);
+            foreach(int count in new[]{1,2,10,100,500,1000,10000}) {
+                var gesture=new FormationGestureState(FormationKind.Block,count,0,menu.GetRememberedAspect(FormationKind.Block));
+                gesture=gesture.WithCount(2).WithCount(count);
+                Check(gesture.Aspect==desired&&menu.GetRememberedAspect(FormationKind.Block)==desired,"Group resize overwrote desired aspect");
+            }
+            foreach(var kind in new[]{FormationKind.Line,FormationKind.Column,FormationKind.Wedge}) {
+                Check(menu.GetRememberedAspect(kind).IsAutomatic,"Another kind inherited block aspect");
+                var chosen=FormationAspectRatio.Create(4+(int)kind,3);
+                menu.RememberSelectedAspect(kind,chosen);
+                Check(menu.GetRememberedAspect(kind)==chosen&&menu.GetRememberedAspect(FormationKind.Block)==desired,"Kinds not independent");
+            }
+            int saves=config.Saves;
+            menu.RememberSelectedAspect(FormationKind.Circle,desired);menu.RememberSelectedAspect(FormationKind.Vanilla,desired);
+            menu.RememberSelectedAspect(FormationKind.Block,default);menu.RememberSelectedAspect(FormationKind.Block,desired);
+            Check(config.Saves==saves,"Fixed shapes, automatic or unchanged aspect were saved");
+            var notifications=new List<string>();menu.PropertyChanged+=(_,e)=>notifications.Add(e.PropertyName);
+            menu.RememberAspectRatio=false;
+            Check(!menu.RememberAspectRatio&&notifications.Contains("RememberAspectRatio"),"Checkbox did not notify/configure");
+            menu.RememberSelectedAspect(FormationKind.Block,FormationAspectRatio.Create(9,1));
+            Check(menu.GetRememberedAspect(FormationKind.Block).IsAutomatic&&((ConfigEntry<string>)config.Entries["RememberedBlockAspectRatio"]).Value=="1:1","Disabled remembering overwrote stored aspect");
+            var reload=new ConfigFile {Stored=new Dictionary<string,object>(config.Stored)};
+            var restored=Configure(reload,options);
+            Check(!restored.RememberAspectRatio,"Checkbox persistence failed");restored.RememberAspectRatio=true;
+            Check(restored.GetRememberedAspect(FormationKind.Block)==desired&&restored.GetRememberedAspect(FormationKind.Wedge)==FormationAspectRatio.Create(8,3),"Aspect persistence or re-enable failed");
+            foreach(int count in new[]{1,2,31,10000})foreach(var kind in Enum.GetValues<FormationKind>()) {
+                var g=new FormationGestureState(kind,count,7,restored.GetRememberedAspect(kind));
+                int rows=g.Rows;g.UpdateDirection(15,4,2);Check(g.Rows==rows,"Facing changed remembered shape");
+                int direction=g.Direction;g.ApplyWheel(10001,1);Check(g.Direction==direction&&g.Rows>=1&&g.Rows<=count,"Wheel limits or facing failed");
+                if(kind==FormationKind.Circle||kind==FormationKind.Vanilla)Check(g.Rows==rows&&g.Aspect.IsAutomatic,"Fixed shape changed");
+            }
+            reload.Stored["RememberedBlockAspectRatio"]="NaN";reload.Stored["RememberedLineAspectRatio"]="1:10001";
+            var invalid=new ConfigFile {Stored=new Dictionary<string,object>(reload.Stored)};
+            var repaired=Configure(invalid,options);
+            Check(repaired.GetRememberedAspect(FormationKind.Block).IsAutomatic&&repaired.GetRememberedAspect(FormationKind.Line).IsAutomatic,"Invalid config did not select automatic proportions");
+            foreach(bool enabled in new[]{false,true})foreach(bool hasNew in new[]{false,true}) {
+                var legacy=new ConfigFile {SaveOnConfigSet=true};
+                legacy.Stored["RememberRows"]=enabled;legacy.Stored["RememberedBlockRows"]=28;legacy.Stored["RememberedLineRows"]=5;
+                legacy.Stored["UnrelatedSetting"]="keep";
+                if(hasNew){legacy.Stored["RememberAspectRatio"]=!enabled;legacy.Stored["RememberedBlockAspectRatio"]="8:6";}
+                legacy.ConfigFilePath=System.IO.Path.Combine("__CONFIG_TEST_ROOT__",enabled+"-"+hasNew+".cfg");
+                System.IO.File.WriteAllText(legacy.ConfigFilePath,"[Formation]\r\n"+string.Join("\r\n",System.Linq.Enumerable.Select(legacy.Stored,p=>p.Key+" = "+p.Value)));
+                var migrated=Configure(legacy,options);
+                Check(legacy.SaveOnConfigSet&&migrated.RememberAspectRatio==(hasNew?!enabled:enabled),"Migration changed the selected switch or autosave mode");
+                Check(!legacy.Stored.ContainsKey("RememberRows")&&!legacy.Stored.ContainsKey("RememberedBlockRows")&&!legacy.Stored.ContainsKey("RememberedLineRows"),"Old row keys remained after migration");
+                Check((string)legacy.Stored["UnrelatedSetting"]=="keep","Migration changed an unrelated setting");
+                Check(((ConfigEntry<string>)legacy.Entries["RememberedBlockAspectRatio"]).Value==(hasNew?"4:3":"auto"),"Migration invented a ratio or discarded the new value");
+            }
+        }
+    }
+
+}
+""".Replace("__PRODUCTION_UPDATE__", gestureUpdate).Replace("__CONFIG_TEST_ROOT__", TestWorkDirectory.New("formation-aspect").Replace("\\", "\\\\"));
+        var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
+            .Select(p => MetadataReference.CreateFromFile(p));
+        var trees = paths.Select(p => CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,p))))
+            .Append(CSharpSyntaxTree.ParseText(fixture));
+        var compilation = CSharpCompilation.Create("ActualFormationStartupFixture",trees,references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var output = new MemoryStream();var result=compilation.Emit(output);
+        if(!result.Success)throw new Exception(string.Join("\n",result.Diagnostics.Where(d=>d.Severity==DiagnosticSeverity.Error)));
+        try { Assembly.Load(output.ToArray()).GetType("Pathfinding.StartupFixture")!.GetMethod("Run")!.Invoke(null,null); }
+        catch(TargetInvocationException e) { throw e.InnerException??e; }
+        Console.WriteLine("PASS: actual Configure/Initialize/menu commands executed: independent early hosts, initialization/runtime failure, checkbox, six icons/config changes, close/open and map/selection recovery; coherent wheel update, remembered proportions, count changes, independent kinds, legacy migration and config reload; own/foreign HUD isolation.");
+    }
+}

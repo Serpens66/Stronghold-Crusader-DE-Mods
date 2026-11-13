@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Start Conditions",
   "Description": "Configures start resources and start troops in Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.34",
+  "Version": "1.0.35",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.35",
+      "Changes": [
+        "Use shared validation for building lookups; require APIShared 0.49.0. Gameplay rules and settings are unchanged."
+      ]
+    },
     {
       "Version": "1.0.34",
       "Changes": [
@@ -204,7 +210,7 @@
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.23.0"
+      "MinimumVersion": "0.49.0"
     }
   ]
 }

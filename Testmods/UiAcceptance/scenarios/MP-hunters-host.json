@@ -1,0 +1,31 @@
+{
+  "enabled": true,
+  "series": "MP-hunters-host",
+  "role": "host",
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 180000, "stopOnFail": true, "allowErrors": true },
+    { "id": "no-random-events", "do": "RandomEvents", "args": ["off"], "timeoutMs": 10000, "stopOnFail": true },
+    { "id": "enable", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "EnableMod", "true"] },
+    { "id": "hunt", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "HuntChicken", "true"] },
+    { "id": "count", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "ChickensPerPlayer", "4"] },
+    { "id": "meat", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "ChickenMeat", "37"] },
+    { "id": "rabbits", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "RabbitsOnlyOnOrder", "true"] },
+    { "id": "host", "do": "Mp.Host", "args": ["DoHost"], "timeoutMs": 60000, "stopOnFail": true },
+    { "id": "map", "do": "Lobby.SelectMap", "args": ["4spielerkarte.map"], "timeoutMs": 30000 },
+    { "id": "members", "do": "Mp.WaitMembers", "args": ["2"], "timeoutMs": 900000, "stopOnFail": true },
+    { "id": "settle-join", "do": "Wait", "args": ["5000"] },
+    { "id": "peace", "do": "Lobby.PeaceTime", "args": ["60"], "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "ready", "do": "Mp.Ready", "timeoutMs": 300000, "stopOnFail": true },
+    { "id": "play", "do": "Lobby.Play", "timeoutMs": 240000, "stopOnFail": true },
+    { "id": "real-mp", "do": "Mp.ExpectRealMultiplayer", "timeoutMs": 30000 },
+    { "id": "describe-start", "do": "Describe" },
+    { "id": "arm", "do": "HuntMp.Arm", "args": ["1200"], "timeoutMs": 10000, "stopOnFail": true },
+    { "id": "run", "do": "WaitMissionTicks", "args": ["16000"], "timeoutMs": 900000 },
+    { "id": "describe-end", "do": "Describe" },
+    { "id": "shot", "do": "Screenshot", "args": ["host-hunt"] },
+    { "id": "exit", "do": "Mp.Exit", "timeoutMs": 30000 },
+    { "id": "restore-count", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "ChickensPerPlayer", "10"] },
+    { "id": "restore-meat", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "ChickenMeat", "1"] },
+    { "id": "restore-random-events", "do": "RandomEvents", "args": ["on"], "timeoutMs": 10000 }
+  ]
+}

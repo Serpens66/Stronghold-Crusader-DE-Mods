@@ -1,0 +1,249 @@
+{
+  "enabled": true,
+  "role": "sp",
+  "steps": [
+    {
+      "stopOnFail": true,
+      "do": "WaitMainMenu",
+      "timeoutMs": 180000,
+      "id": "menu"
+    },
+    {
+      "stopOnFail": true,
+      "args": [
+        "BugfixesAndQoL.BugfixesAndQoLPlugin::skirmishGameOptionsAccess.settings",
+        "EnableClientFeatures",
+        "true"
+      ],
+      "id": "enable-client",
+      "do": "SetModSetting"
+    },
+    {
+      "stopOnFail": true,
+      "args": [
+        "BugfixesAndQoL.BugfixesAndQoLPlugin::skirmishGameOptionsAccess.settings",
+        "EnableLocalAutosave",
+        "true"
+      ],
+      "id": "enable-autosave",
+      "do": "SetModSetting"
+    },
+    {
+      "stopOnFail": true,
+      "args": [
+        "test_gates.sav"
+      ],
+      "do": "LoadSave",
+      "timeoutMs": 120000,
+      "id": "load"
+    },
+    {
+      "stopOnFail": true,
+      "args": [
+        "on"
+      ],
+      "do": "Pause",
+      "id": "pause"
+    },
+    {
+      "stopOnFail": true,
+      "do": "IngameMenuOpen",
+      "id": "open"
+    },
+    {
+      "stopOnFail": true,
+      "args": [
+        "0"
+      ],
+      "do": "Autosave.Layout",
+      "expect": [
+        {
+          "marker": "AUTOSAVE_LAYOUT value=0 ",
+          "max": 1,
+          "min": 1
+        }
+      ],
+      "id": "layout-0"
+    },
+    {
+      "args": [
+        "Autosave-value-0"
+      ],
+      "do": "Screenshot",
+      "id": "shot-0"
+    },
+    {
+      "stopOnFail": true,
+      "args": [
+        "1"
+      ],
+      "do": "Autosave.Layout",
+      "expect": [
+        {
+          "marker": "AUTOSAVE_LAYOUT value=1 ",
+          "max": 1,
+          "min": 1
+        }
+      ],
+      "id": "layout-1"
+    },
+    {
+      "args": [
+        "Autosave-value-1"
+      ],
+      "do": "Screenshot",
+      "id": "shot-1"
+    },
+    {
+      "stopOnFail": true,
+      "args": [
+        "10"
+      ],
+      "do": "Autosave.Layout",
+      "expect": [
+        {
+          "marker": "AUTOSAVE_LAYOUT value=10 ",
+          "max": 1,
+          "min": 1
+        }
+      ],
+      "id": "layout-10"
+    },
+    {
+      "args": [
+        "Autosave-value-10"
+      ],
+      "do": "Screenshot",
+      "id": "shot-10"
+    },
+    {
+      "stopOnFail": true,
+      "args": [
+        "100"
+      ],
+      "do": "Autosave.Layout",
+      "expect": [
+        {
+          "marker": "AUTOSAVE_LAYOUT value=100 ",
+          "max": 1,
+          "min": 1
+        }
+      ],
+      "id": "layout-100"
+    },
+    {
+      "args": [
+        "Autosave-value-100"
+      ],
+      "do": "Screenshot",
+      "id": "shot-100"
+    },
+    {
+      "stopOnFail": true,
+      "args": [
+        "1440"
+      ],
+      "do": "Autosave.Layout",
+      "expect": [
+        {
+          "marker": "AUTOSAVE_LAYOUT value=1440 ",
+          "max": 1,
+          "min": 1
+        }
+      ],
+      "id": "layout-1440"
+    },
+    {
+      "args": [
+        "Autosave-value-1440"
+      ],
+      "do": "Screenshot",
+      "id": "shot-1440"
+    },
+    {
+      "stopOnFail": true,
+      "args": [
+        "normal"
+      ],
+      "do": "Autosave.Surface",
+      "id": "surface-normal-14"
+    },
+    {
+      "args": [
+        "Autosave-surface-normal-15"
+      ],
+      "do": "Screenshot",
+      "id": "shot-normal-15"
+    },
+    {
+      "stopOnFail": true,
+      "args": [
+        "hover"
+      ],
+      "do": "Autosave.Surface",
+      "id": "surface-hover-16"
+    },
+    {
+      "args": [
+        "Autosave-surface-hover"
+      ],
+      "do": "Screenshot",
+      "id": "shot-hover-17"
+    },
+    {
+      "stopOnFail": true,
+      "args": [
+        "disabled"
+      ],
+      "do": "Autosave.Surface",
+      "id": "surface-disabled-18"
+    },
+    {
+      "args": [
+        "Autosave-surface-disabled"
+      ],
+      "do": "Screenshot",
+      "id": "shot-disabled-19"
+    },
+    {
+      "stopOnFail": true,
+      "args": [
+        "normal"
+      ],
+      "do": "Autosave.Surface",
+      "id": "surface-normal-20"
+    },
+    {
+      "args": [
+        "Autosave-surface-normal-21"
+      ],
+      "do": "Screenshot",
+      "id": "shot-normal-21"
+    },
+    {
+      "stopOnFail": true,
+      "expect": [
+        {
+          "marker": "AUTOSAVE_PENDING idle15s=True",
+          "max": 1,
+          "min": 1
+        },
+        {
+          "marker": "AUTOSAVE_INPUT cancel=True closeCommit=True",
+          "max": 1,
+          "min": 1
+        },
+        {
+          "marker": "AUTOSAVE_CLEANUP interval=0 paused=True",
+          "max": 1,
+          "min": 1
+        }
+      ],
+      "do": "Autosave.Input",
+      "timeoutMs": 90000,
+      "id": "input"
+    }
+  ],
+  "quitWhenDone": true,
+  "series": "SP-local-autosave-ui"
+}

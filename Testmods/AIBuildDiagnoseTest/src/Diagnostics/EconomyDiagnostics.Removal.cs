@@ -33,7 +33,7 @@ namespace AIBuildDiagnoseTest
                 lock (sync)
                 {
                     if (!active || !nativeLayout || !removalLayout) return;
-                    if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(slot, out GameBuilding* building) || building == null) return;
+                    if (!global::APIShared.BuildingAccess.TryGetById(slot, out GameBuilding* building, out _) || building == null) return;
                     int player = building->r_PlayerIdOwner;
                     if (!Observe(player)) return;
                     Count(player + ":wood-counter-retirement:entered");
@@ -48,7 +48,7 @@ namespace AIBuildDiagnoseTest
         private short BuildingShort(int slot, int offset)
         {
             if (!nativeLayout || offset < 0 || offset + 2 > Marshal.SizeOf(typeof(GameBuilding)) ||
-                !GameBuildingManagerAPI.Instance.TryGetBuildingById(slot, out GameBuilding* b) || b == null)
+                !global::APIShared.BuildingAccess.TryGetById(slot, out GameBuilding* b, out _) || b == null)
                 throw new InvalidOperationException("Removal building field unavailable: " + slot);
             return *(short*)((byte*)b + offset);
         }

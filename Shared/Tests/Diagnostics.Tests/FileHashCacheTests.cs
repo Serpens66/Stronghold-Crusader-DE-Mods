@@ -57,8 +57,15 @@ public sealed class FileHashCacheTests
             StringAssert.Contains(File.ReadAllText(Path.Combine(directory, "Serp.file-hashes.tsv")), real);
             Assert.IsFalse(File.ReadAllText(Path.Combine(directory, "Serp.file-hashes.tsv")).Contains(marker));
 
-            File.WriteAllText(Path.Combine(directory, "Serp.file-hashes.tsv"), "damaged\tline");
+            string store = Path.Combine(directory, "Serp.file-hashes.tsv");
+            File.WriteAllText(store, "damaged\tline");
             File.SetLastWriteTimeUtc(path, info.LastWriteTimeUtc.AddSeconds(10));
+            Assert.AreEqual(Expected(path), DebugLogHelper.GetFileSha256(path));
+
+            File.SetLastWriteTimeUtc(path, info.LastWriteTimeUtc.AddSeconds(15));
+            info.Refresh();
+            File.WriteAllText(store,
+                path + "\t" + info.Length + "\t" + info.LastWriteTimeUtc.Ticks + "\t" + new string('Z', 64) + "\r\n");
             Assert.AreEqual(Expected(path), DebugLogHelper.GetFileSha256(path));
         }
         finally

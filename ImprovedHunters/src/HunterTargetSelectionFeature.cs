@@ -10,7 +10,6 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using RedBird.Core.Memory;
 using RedBird.X64.Assembly.Stateful;
 
@@ -19,61 +18,74 @@ namespace ImprovedHunters
     internal sealed partial class ImprovedHuntersRuntime
     {
         // Candidate discovery, cost ranking, initial reachability and State-0 selection handoff.
-        private unsafe void OnHunterQueryTarget(UnitHunterQueryTargetEventArgs args)
+        // APIShared target policy: runs inside Vanilla's query with the correct Hunter id (the Script Extender's
+        // own event reports a wrong one). Only simulation queries may change this mod's state; the local
+        // speech query of the selected Hunter gets the type, owner and range rules only.
+        private unsafe APIShared.Wildlife.HunterTargetDecision OnHunterTargetCandidate(in APIShared.Wildlife.HunterTargetCandidate candidate)
         {
-            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
-                return;
+            long measured = 0;
+            Shared.DevDiag.Start(ref measured);
+            var decision = DecideHunterTarget(candidate.CandidateUnitId, candidate.HunterUnitId, candidate.IsSimulationQuery);
+            Shared.DevDiag.Stop(ref measured, "hunters.query");
+            return decision;
+        }
 
-            long timestamp = Stopwatch.GetTimestamp();
-            if (!IsValidUnitId(args.QueryUnitId))
-                return;
+        private unsafe APIShared.Wildlife.HunterTargetDecision DecideHunterTarget(int queryUnitId, int hunterUnitId, bool simulation)
+        {
+            const APIShared.Wildlife.HunterTargetDecision Default = APIShared.Wildlife.HunterTargetDecision.Default;
+            if (!IsValidUnitId(queryUnitId))
+                return Default;
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
+            {
+                // This mod's registrations follow the settings, not the mode; a mode it may not change keeps
+                // its extra animals unhunted, as without the mod.
+                return APIShared.UnitAccess.TryGetById(queryUnitId, out GameUnit* candidate, out _) && IsRegisteredPrey(candidate->r_UnitChimp)
+                    ? APIShared.Wildlife.HunterTargetDecision.Refuse
+                    : Default;
+            }
+
+            long timestamp = HunterSimulationTime.Now;
+
+            // Rankings run only where the mode policy allows them.
+            // Elsewhere every enabled candidate of the query is accepted.
+            bool targetSelectionActive = CanRunHunterTargetSelection();
 
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
-            if (!TryResolveHunterQueryActor(unitApi, args, out int hunterUnitId))
-                return;
+            if (!IsLiveHunter(unitApi, hunterUnitId))
+                return Default;
 
-            eChimps queryType = (APIShared.UnitAccess.TryGetById(unitApi, args.QueryUnitId, out _, out _) ? unitApi.GetType(args.QueryUnitId) : eChimps.CHIMP_TYPE_NULL);
-            int queryGlobalId = (APIShared.UnitAccess.TryGetById(unitApi, args.QueryUnitId, out _, out _) ? unitApi.GetGlobalId(args.QueryUnitId) : -1);
-            if (settings.IsKnownAnimal(queryType) && queryGlobalId > 0)
-            {
-                hunterNativeVisibilityProbe?.RecordQueryCandidate(
-                    hunterUnitId,
-                    args.QueryUnitId,
-                    queryType,
-                    unchecked((uint)queryGlobalId),
-                    timestamp);
-            }
-
-            TrackHunterSearchQuery(hunterUnitId, timestamp);
+            eChimps queryType = (APIShared.UnitAccess.TryGetById(unitApi, queryUnitId, out _, out _) ? unitApi.GetType(queryUnitId) : eChimps.CHIMP_TYPE_NULL);
+            int queryGlobalId = (APIShared.UnitAccess.TryGetById(unitApi, queryUnitId, out _, out _) ? unitApi.GetGlobalId(queryUnitId) : -1);
+            if (simulation)
+                TrackHunterSearchQuery(hunterUnitId, timestamp);
 
             if (!settings.IsKnownAnimal(queryType))
-                return;
+                return Default;
 
+            // Deer and goats are huntable by default, so a switched-off type must be refused explicitly.
             if (!IsRuntimeHuntingEnabled(queryType))
-                return;
+                return APIShared.Wildlife.HunterTargetDecision.Refuse;
 
-            if (!IsOwnerAllowed((APIShared.UnitAccess.TryGetById(unitApi, hunterUnitId, out _, out _) ? unitApi.GetOwner(hunterUnitId) : -1), args.QueryUnitId, queryType))
+            if (!IsOwnerAllowed((APIShared.UnitAccess.TryGetById(unitApi, hunterUnitId, out _, out _) ? unitApi.GetOwner(hunterUnitId) : -1), queryUnitId, queryType))
+                return Default;
+
+            if (settings.HunterSearchRange != HunterSearchRangePolicy.Unlimited &&
+                !IsWithinHunterSearchRange(unitApi, hunterUnitId, queryUnitId))
             {
-                return;
+                return APIShared.Wildlife.HunterTargetDecision.Refuse;
             }
 
-            if (settings.ImprovedTargetSelection && queryGlobalId > 0)
-            {
-                hunterPclReachabilityDiagnostic?.RecordCandidate(
-                    hunterUnitId,
-                    args.QueryUnitId,
-                    unchecked((uint)queryGlobalId),
-                    queryType,
-                    timestamp);
-            }
+            // The rankings below read and fill per-Hunter caches and cooldowns.
+            if (!simulation)
+                return Default;
 
             bool targetPclUnreachable = false;
-            if (settings.ImprovedTargetSelection &&
+            if (targetSelectionActive &&
                 queryGlobalId > 0 &&
                 hunterPclReachability != null &&
                 hunterPclReachability.TryIsReachable(
                     hunterUnitId,
-                    args.QueryUnitId,
+                    queryUnitId,
                     unchecked((uint)queryGlobalId),
                     queryType,
                     timestamp,
@@ -82,14 +94,14 @@ namespace ImprovedHunters
                 targetPclUnreachable = !targetPclReachable;
             }
             bool targetOnCooldown =
-                settings.ImprovedTargetSelection &&
+                targetSelectionActive &&
                 queryGlobalId > 0 &&
                 IsTargetOnCooldown(hunterUnitId, unchecked((uint)queryGlobalId), timestamp);
             bool isValidTarget = !targetPclUnreachable && !targetOnCooldown;
             bool usedFallback = false;
             TargetSelection targetSelection = default;
             BestTarget bestTarget = default;
-            if (!settings.ImprovedTargetSelection)
+            if (!targetSelectionActive)
             {
                 isValidTarget = true;
             }
@@ -106,7 +118,7 @@ namespace ImprovedHunters
             else if (TryGetTargetSelectionForHunter(hunterUnitId, timestamp, out targetSelection))
             {
                 bestTarget = targetSelection.BestTarget;
-                isValidTarget = targetSelection.IsAllowed(args.QueryUnitId);
+                isValidTarget = targetSelection.IsAllowed(queryUnitId);
                 usedFallback = false;
             }
             else
@@ -116,35 +128,24 @@ namespace ImprovedHunters
                 usedFallback = true;
             }
 
-            args.IsValidTarget = isValidTarget;
+            // isValidTarget is the decision for this candidate.
             if (isValidTarget &&
-                settings.ImprovedTargetSelection &&
+                targetSelectionActive &&
                 targetSelection.HasTarget &&
                 queryGlobalId > 0)
             {
-                hunterTargetSearchFallbackDiagnostic?.RecordCandidate(
+                hunterTargetSearchFallback?.RecordCandidate(
                     hunterUnitId,
-                    args.QueryUnitId,
+                    queryUnitId,
                     unchecked((uint)queryGlobalId),
                     queryType,
-                    preferred: args.QueryUnitId == bestTarget.UnitId,
+                    preferred: queryUnitId == bestTarget.UnitId,
                     timestamp: timestamp);
             }
             hunterTargetQueryEvents++;
             if (isValidTarget)
             {
                 hunterTargetAcceptedEvents++;
-                hunterPreyTypes[hunterUnitId] = queryType;
-                if (queryType == eChimps.CHIMP_TYPE_CHICKEN)
-                {
-                    if (queryGlobalId > 0)
-                    {
-                        hunterVisibilityDiagnostic?.RecordAcceptedChickenTarget(
-                            hunterUnitId,
-                            args.QueryUnitId,
-                            unchecked((uint)queryGlobalId));
-                    }
-                }
             }
             else
             {
@@ -156,58 +157,14 @@ namespace ImprovedHunters
 
             LogHunterTargetQueryDiagnostic(
                 hunterUnitId,
-                args.QueryUnitId,
+                queryUnitId,
                 queryType,
                 isValidTarget,
                 usedFallback,
                 targetPclUnreachable,
                 targetOnCooldown,
                 targetSelection);
-            LogHunterTargetQuerySummary();
-        }
-
-        private unsafe bool TryResolveHunterQueryActor(
-            GameUnitManagerAPI unitApi,
-            UnitHunterQueryTargetEventArgs args,
-            out int hunterUnitId)
-        {
-            hunterUnitId = 0;
-            int capturedHunterUnitId = 0;
-            bool captured = hunterQueryActorWorkaround?.TryConsumeHunterUnitId(
-                args.QueryUnitId,
-                out capturedHunterUnitId) == true;
-            hunterVisibilityDiagnostic?.RecordActorResolution(
-                args.HunterUnitId,
-                capturedHunterUnitId,
-                args.QueryUnitId,
-                captured);
-
-            if (captured && IsLiveHunter(unitApi, capturedHunterUnitId))
-            {
-                hunterUnitId = capturedHunterUnitId;
-                if (capturedHunterUnitId != args.HunterUnitId)
-                {
-                    LogHunterQueryActorWorkaround(
-                        $"Improved Hunters corrected Script Extender issue-123 Hunter ID: " +
-                        $"reported={args.HunterUnitId}, reconstructed={capturedHunterUnitId}, " +
-                        $"query={args.QueryUnitId}.");
-                }
-
-                return true;
-            }
-
-            if (IsLiveHunter(unitApi, args.HunterUnitId))
-            {
-                hunterUnitId = args.HunterUnitId;
-                return true;
-            }
-
-            LogHunterQueryActorWorkaround(
-                $"Improved Hunters ignored Hunter target query with unresolved actor: " +
-                $"reported={args.HunterUnitId}, captured={capturedHunterUnitId}, " +
-                $"captureMatched={captured}, query={args.QueryUnitId}, outcome=leave-Vanilla-unchanged.",
-                warning: true);
-            return false;
+            return isValidTarget ? APIShared.Wildlife.HunterTargetDecision.Allow : APIShared.Wildlife.HunterTargetDecision.Refuse;
         }
 
         private static unsafe bool IsLiveHunter(GameUnitManagerAPI unitApi, int unitId)
@@ -217,20 +174,6 @@ namespace ImprovedHunters
                 unit != null &&
                 APIShared.UnitAccess.IsReallyAlive(unit) &&
                 unit->r_UnitChimp == eChimps.CHIMP_TYPE_HUNTER;
-        }
-
-        private void LogHunterQueryActorWorkaround(string message, bool warning = false)
-        {
-            if (hunterQueryActorWorkaroundLogs >= MaxHunterQueryActorWorkaroundLogs)
-                return;
-
-            hunterQueryActorWorkaroundLogs++;
-            string boundedMessage =
-                $"{message} ({hunterQueryActorWorkaroundLogs}/{MaxHunterQueryActorWorkaroundLogs}).";
-            if (warning)
-                Shared.DebugLogHelper.LogWarning(log, boundedMessage);
-            else
-                Shared.DebugLogHelper.LogInfo(log, boundedMessage);
         }
 
         private unsafe bool TryGetTargetSelectionForHunter(int hunterUnitId, long timestamp, out TargetSelection targetSelection)
@@ -268,6 +211,9 @@ namespace ImprovedHunters
                 return false;
             }
 
+            int candidateRadius = settings.HunterSearchRange == HunterSearchRangePolicy.Unlimited
+                ? HunterTargetCandidateRadius
+                : Math.Min(settings.HunterSearchRange, HunterTargetCandidateRadius);
             List<PreyCandidate> candidates = new List<PreyCandidate>();
             for (int i = 0; i < preyCache.Count; i++)
             {
@@ -279,7 +225,7 @@ namespace ImprovedHunters
                     continue;
 
                 int heuristicDistance = GetChebyshevDistance(originTileX, originTileY, prey.TileX, prey.TileY);
-                if (heuristicDistance > HunterTargetCandidateRadius)
+                if (heuristicDistance > candidateRadius)
                     continue;
 
                 if (hunterPclReachability != null &&
@@ -400,6 +346,37 @@ namespace ImprovedHunters
             return true;
         }
 
+        // The range counts from the Hunter's hut, like the ranking: he may stand at the granary when he searches.
+        private unsafe bool IsWithinHunterSearchRange(GameUnitManagerAPI unitApi, int hunterUnitId, int preyUnitId)
+        {
+            if (!APIShared.UnitAccess.TryGetById(unitApi, hunterUnitId, out GameUnit* hunter, out _) || hunter == null ||
+                !APIShared.UnitAccess.TryGetById(unitApi, preyUnitId, out GameUnit* prey, out _) || prey == null)
+            {
+                return true;
+            }
+
+            GetHunterHome(hunter, out int homeTileX, out int homeTileY);
+            int distance = GetChebyshevDistance(homeTileX, homeTileY, prey->r_CurrentTilePositionX, prey->r_CurrentTilePositionY);
+            return HunterSearchRangePolicy.IsWithin(distance, settings.HunterSearchRange);
+        }
+
+        private unsafe void GetHunterHome(GameUnit* hunter, out int tileX, out int tileY)
+        {
+            tileX = hunter->r_CurrentTilePositionX;
+            tileY = hunter->r_CurrentTilePositionY;
+
+            ushort linkedBuildingId = hunter->r_LinkedProductionBuildingId;
+            if (linkedBuildingId != 0 &&
+                global::APIShared.BuildingAccess.TryGetById(linkedBuildingId, out GameBuilding* building, out _) &&
+                building != null &&
+                building->r_AliveState == AliveState.IsAlive &&
+                building->r_BuildingType == eStructs.STRUCT_HUNTERS_HUT)
+            {
+                tileX = building->r_TilePositionXBegin;
+                tileY = building->r_TilePositionYBegin;
+            }
+        }
+
         private unsafe bool TryGetHunterOrigin(
             GameUnit* hunter,
             int hunterOwner,
@@ -407,20 +384,8 @@ namespace ImprovedHunters
             out int originTileY,
             out int granaryRoundTripHeuristicCost)
         {
-            originTileX = hunter->r_CurrentTilePositionX;
-            originTileY = hunter->r_CurrentTilePositionY;
+            GetHunterHome(hunter, out originTileX, out originTileY);
             granaryRoundTripHeuristicCost = 0;
-
-            ushort linkedBuildingId = hunter->r_LinkedProductionBuildingId;
-            if (linkedBuildingId != 0 &&
-                GameBuildingManagerAPI.Instance.TryGetBuildingById(linkedBuildingId, out GameBuilding* building) &&
-                building != null &&
-                building->r_AliveState == AliveState.IsAlive &&
-                building->r_BuildingType == eStructs.STRUCT_HUNTERS_HUT)
-            {
-                originTileX = building->r_TilePositionXBegin;
-                originTileY = building->r_TilePositionYBegin;
-            }
 
             GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
             if (!tileApi.IsTileInsideMapBounds(originTileX, originTileY))
@@ -572,7 +537,7 @@ namespace ImprovedHunters
                     eligibility.Type,
                     eligibility.TileX,
                     eligibility.TileY,
-                    settings.GetExpectedMeatAmount(eligibility.Type)));
+                    settings.GetMeatAmount(eligibility.Type)));
 
                 IncrementAnimalCount(
                     eligibility.Type,
@@ -597,86 +562,8 @@ namespace ImprovedHunters
                 eligibleChicken);
         }
 
-        private unsafe void ReleaseStalePreyReservationsIfNeeded(SimpleNativeArray<GameUnit> units, long timestamp)
-        {
-            if (timestamp < nextStaleReservationCleanupTimestamp)
-                return;
-
-            nextStaleReservationCleanupTimestamp = timestamp + StaleReservationCleanupInterval;
-
-            HashSet<int> activeHunterTargetUnitIds = new HashSet<int>();
-            for (int index = 0; index < units.Length; index++)
-            {
-                GameUnit* unit = units.GetValuePointer(index);
-                if (!APIShared.UnitAccess.IsReallyAlive(unit) ||
-                    unit->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER)
-                {
-                    continue;
-                }
-
-                byte* hunterBytes = (byte*)unit;
-                ushort targetUnitId = *(ushort*)(hunterBytes + 0x39A);
-                if (targetUnitId > 0 && targetUnitId <= units.Length)
-                    activeHunterTargetUnitIds.Add(targetUnitId);
-            }
-
-            int reservedKnownPrey = 0;
-            int retainedReservations = 0;
-            int releasedReservations = 0;
-            int failedReadbacks = 0;
-            for (int index = 0; index < units.Length; index++)
-            {
-                GameUnit* unit = units.GetValuePointer(index);
-                int unitId = index + 1;
-                TryGetPreyEligibility(unitId, unit, out PreyEligibility eligibility);
-                if (!eligibility.KnownAnimal ||
-                    !eligibility.RuntimeHuntingEnabled ||
-                    eligibility.AliveState != (short)AliveState.IsAlive ||
-                    eligibility.CorpseFlag != 0 ||
-                    eligibility.Reservation != 2)
-                {
-                    continue;
-                }
-
-                reservedKnownPrey++;
-                if (activeHunterTargetUnitIds.Contains(unitId))
-                {
-                    retainedReservations++;
-                    continue;
-                }
-
-                byte* preyBytes = (byte*)unit;
-                *(ushort*)(preyBytes + 0x448) = 0;
-                ushort readback = *(ushort*)(preyBytes + 0x448);
-                eligibility.Reservation = readback;
-                if (readback == 0)
-                {
-                    releasedReservations++;
-                    LogReservationDiagnostic(
-                        $"Improved Hunters prey reservation: source=periodic-cleanup, outcome=released, " +
-                        $"target={unitId}/{eligibility.Type}, globalId={eligibility.GlobalId}, previous=2, readback={readback}.");
-                }
-                else
-                {
-                    failedReadbacks++;
-                    LogReservationDiagnostic(
-                        $"Improved Hunters prey reservation: source=periodic-cleanup, outcome=readback-failed, " +
-                        $"target={unitId}/{eligibility.Type}, globalId={eligibility.GlobalId}, previous=2, readback={readback}.",
-                        warning: true);
-                }
-            }
-
-            if (releasedReservations > 0 || failedReadbacks > 0)
-            {
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"Improved Hunters stale prey reservation cleanup: reservedKnownPrey={reservedKnownPrey}, " +
-                    $"retained={retainedReservations}, released={releasedReservations}, failedReadbacks={failedReadbacks}, " +
-                    $"activeHunterTargets={activeHunterTargetUnitIds.Count}, " +
-                    $"invariant={reservedKnownPrey == retainedReservations + releasedReservations + failedReadbacks}.");
-            }
-        }
-
+        // Development samples only: /devdiag builds compile these calls including their message text.
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         private void LogPreyCacheSummary(
             int knownCount,
             int skippedKnownCount,
@@ -701,6 +588,7 @@ namespace ImprovedHunters
                 Shared.DebugLogHelper.LogInfo(log, "Improved Hunters prey cache diagnostic limit reached.");
         }
 
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         private void LogPreyCacheDiagnostic(int unitId, PreyEligibility eligibility, string status)
         {
             if (preyCacheDiagnosticLogs >= MaxPreyCacheDiagnosticLogs)
@@ -850,6 +738,12 @@ namespace ImprovedHunters
                 return;
 
             hunterTargetSearchStarts++;
+            LogTargetSearchStartSample(hunterUnitId);
+        }
+
+        [System.Diagnostics.Conditional("SERP_DEVDIAG")]
+        private void LogTargetSearchStartSample(int hunterUnitId)
+        {
             if (hunterTargetDiagnosticLogs < MaxHunterTargetDiagnosticLogs)
             {
                 Shared.DebugLogHelper.LogInfo(

@@ -12,10 +12,10 @@ using UnityEngine;
 
 namespace EnemyBridgePathTest
 {
-    [BepInPlugin("EnemyBridgePathTest_Serp", "Enemy Bridge Path Test", "0.1.0")]
+    [BepInPlugin("EnemyBridgePathTest_Serp", "Enemy Bridge Path Test", "0.1.1")]
     [BepInDependency("000shcdese", "2.14.0")]
-    [BepInDependency("APIShared_Serp", "0.26.0")]
-    [BepInDependency("BugfixesAndQoL_Serp")]
+    [BepInDependency("APIShared_Serp", "0.49.0")]
+    [BepInDependency("Pathfinding_Serp")]
     public sealed class EnemyBridgePathTestPlugin : BaseUnityPlugin
     {
         // The plugin component is destroyed during startup. These registrations and

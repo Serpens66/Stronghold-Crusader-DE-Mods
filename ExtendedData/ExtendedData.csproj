@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>ExtendedData</RootNamespace>
     <AssemblyName>ExtendedData</AssemblyName>
-    <AssemblyVersion>1.0.24.0</AssemblyVersion>
-    <FileVersion>1.0.24.0</FileVersion>
+    <AssemblyVersion>1.0.26.0</AssemblyVersion>
+    <FileVersion>1.0.26.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <Nullable>annotations</Nullable>
@@ -66,7 +66,6 @@
     <Compile Include="..\Shared\Adapters\APIShared\PlayerIdentityHelper.cs"><Link>Shared\Adapters\APIShared\PlayerIdentityHelper.cs</Link></Compile>
     <Compile Include="..\Shared\Adapters\APIShared\MissionEventsAdapter.cs"><Link>Shared\Adapters\APIShared\MissionEventsAdapter.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Localization\SerpLocalization.cs"><Link>Shared\Runtime\Localization\SerpLocalization.cs</Link></Compile>
-    <Compile Include="..\Shared\Runtime\UI\ToolTipPresentation.cs"><Link>Shared\Runtime\UI\ToolTipPresentation.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\UI\CoopTrailSetupPresentation.cs"><Link>Shared\Runtime\UI\CoopTrailSetupPresentation.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Workshop\WorkshopContentPaths.cs"><Link>Shared\Runtime\Workshop\WorkshopContentPaths.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Workshop\WorkshopUploadStaging.cs"><Link>Shared\Runtime\Workshop\WorkshopUploadStaging.cs</Link></Compile>
@@ -112,8 +111,11 @@
     <Compile Include="src\CoopSettingsDraftState.cs" />
     <Compile Include="src\TrailWorkshopUploadOptionsViewModel.cs" />
     <Compile Include="src\EditorModSettingsSaveOptionsViewModel.cs" />
+    <Compile Include="src\TrailMakerAdvancedHelp.cs" />
+    <Compile Include="..\Shared\Adapters\APIShared\MenuToolTip.cs"><Link>Shared\Adapters\APIShared\MenuToolTip.cs</Link></Compile>
     <Compile Include="src\MissionAssetResolver.cs" />
     <Compile Include="src\MissionAssetException.cs" />
+    <Compile Include="src\MissionSettingsMigration.cs" />
     <Compile Include="src\CoopTrailPackageExporter.cs" />
     <Compile Include="src\ResolvedMission.cs" />
     <Compile Include="src\LordUpload\CustomLordCompatibilityProfile.cs" />
@@ -147,6 +149,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Patches\Assets\GUI\XAMLResources\FRONT_ManageTrail.xaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Patches\Assets\GUI\XAMLResources\FRONT_Multiplayer.xaml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Patches\Assets\GUI\XAML\FrontendMenus.xaml">

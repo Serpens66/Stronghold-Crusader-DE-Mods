@@ -3,19 +3,71 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.129",
+  "Version": "1.0.136",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.25.0"
+      "MinimumVersion": "0.52.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.136",
+      "Changes": [
+        "Multiply genuine production through APIShared instead of adding bonus stockpile goods; prevent unusable raw-log piles and duplicate bonuses.",
+        "Award production money only for goods actually delivered to storage, including production modifiers. Goods factors from zero to one now reduce output, and both features are locked during a mission.",
+        "Clarify base production multipliers and the separate production bonus."
+      ]
+    },
+    {
+      "Version": "1.0.135",
+      "Changes": [
+        "Use shared validation for building lookups; require APIShared 0.49.0. Gameplay rules and settings are unchanged."
+      ]
+    },
+    {
+      "Version": "1.0.134",
+      "Changes": [
+        "Apply gatehouse candidate checks across the configured closing distance, including ranges beyond 25 tiles.",
+        "Reuse gatehouse connection lookups within a simulation run and skip them when checking manual control for automatic gates.",
+        "Require APIShared 0.46.0 or newer."
+      ]
+    },
+    {
+      "Version": "1.0.133",
+      "Changes": [
+        "Fix saves and Trail missions from before the kill-reward percentage settings: they load again and keep their saved kill-reward choice.",
+        "Require APIShared 0.45.0 or newer."
+      ]
+    },
+    {
+      "Version": "1.0.132",
+      "Changes": [
+        "Add Tree Respawn for original woodland trees. Set a delay of 0 to 120 minutes in Economy, or leave it off at -1. Fully removed trees can return as seedlings on their original tiles.",
+        "Add Only cut down mature trees, enabled by default for human and AI woodcutters. Healthy young woodland trees can reach full yield, while damaged trees and felled logs remain harvestable."
+      ]
+    },
+    {
+      "Version": "1.0.131",
+      "Changes": [
+        "Let the host set the fixed production bonus from -100% to +1000% for skirmishes and multiplayer; 50% keeps the normal bonus and fear-factor productivity still adds to the result.",
+        "Show the effective shared bonus and explain invalid combinations or blocked starts alongside the setting, with synchronized settings, presets and localized help.",
+        "Use APIShared 0.34.0 for shared production rules, safe reduced or empty batches and multiplayer compatibility checks. The default setting leaves other mods' contributions in control."
+      ]
+    },
+    {
+      "Version": "1.0.130",
+      "Changes": [
+        "Add separate Human/AI health multipliers for soldiers, civilians and buildings alongside Lords, with shared 10-500% controls, synchronized settings, presets and localized category/safety guidance. All HP controls remain inactive in the map editor.",
+        "Use APIShared's initialization-only health coordination and original-basis saves; preserve Lord legacy imports and leave new categories disabled in legacy saves without original bases.",
+        "Publish normal-stage market lot-price factors through APIShared; the AI vanilla-price exception now excludes only ExtraFeatures factors while preserving other mods' contributions."
+      ]
+    },
     {
       "Version": "1.0.129",
       "Changes": [

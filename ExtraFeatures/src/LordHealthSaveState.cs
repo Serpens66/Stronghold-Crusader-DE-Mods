@@ -24,9 +24,6 @@ namespace ExtraFeatures
         internal const int MaximumPlayerId = 8;
         [IgnoreMember] internal LordHealthBasis[] Records;
 
-        internal static byte[] Encode(LordHealthBasis[] records) =>
-            MessagePackSerializer.Serialize(new LordHealthSaveState { Records = records });
-
         internal static LordHealthSaveState Decode(byte[] bytes)
         {
             // Flat array: version followed by at most eight player/global-ID/maximum triples.
@@ -45,19 +42,7 @@ namespace ExtraFeatures
     {
         public void Serialize(ref MessagePackWriter writer, LordHealthSaveState value, MessagePackSerializerOptions options)
         {
-            LordHealthBasis[] records = value?.Records;
-            if (records == null || records.Length > LordHealthSaveState.MaximumRecords)
-                throw new MessagePackSerializationException("Invalid Lord HP basis count.");
-            int players = 0;
-            writer.WriteArrayHeader(1 + records.Length * 3);
-            writer.Write(LordHealthSaveState.Version);
-            foreach (LordHealthBasis basis in records)
-            {
-                Validate(basis, ref players);
-                writer.Write(basis.PlayerId);
-                writer.Write(basis.GlobalId);
-                writer.Write(basis.VanillaMaximum);
-            }
+            throw new NotSupportedException("Legacy Lord HP data is read-only; APIShared owns new health saves.");
         }
 
         public LordHealthSaveState Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)

@@ -1,0 +1,3 @@
+using System.Reflection;
+[assembly: AssemblyVersion(LordMessageReplacementTest.LordMessageReplacementTestPlugin.PluginVersion)]
+[assembly: AssemblyFileVersion(LordMessageReplacementTest.LordMessageReplacementTestPlugin.PluginVersion)]

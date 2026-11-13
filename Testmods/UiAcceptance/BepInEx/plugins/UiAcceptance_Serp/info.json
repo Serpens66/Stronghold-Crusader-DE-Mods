@@ -5,7 +5,7 @@
   "Description": "Scripted in-game acceptance runs (singleplayer and multiplayer host/client) with logged PASS/FAIL results. Test utility; does nothing without an enabled scenario.",
   "Version": "0.1.0",
   "MinimumScriptExtenderVersion": "2.14.0",
-  "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.26.0" }],
+  "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.34.0" }],
   "Manifest": 1,
   "NetworkMode": 0
 }

@@ -1523,6 +1523,33 @@ internal static class Program
     {
         using Fixture fixture = new();
         var service = new AivPlacementEvaluationService(new CountingWorker(), 16, 1);
+        var missingCustom = fixture.Build(slot: Slot(LobbyAivMode.Custom,
+            [new LobbyAivCandidateInput("missing-one", fixture.CustomDirectory, 0, false, "SK_RAT"),
+             new LobbyAivCandidateInput("missing-two", fixture.CustomDirectory, 0, false, "SK_RAT")]));
+        var missingResult = service.EvaluateAsync(missingCustom).GetAwaiter().GetResult();
+        Equal(2, missingResult.SourceDiagnostics.Count);
+        Equal(0, missingResult.Candidates.Count);
+        foreach (var source in missingResult.SourceDiagnostics)
+        {
+            Equal(LobbyRequestFailureKind.AivFileUnavailable, source.FailureKind);
+            Equal(LobbyCandidateSourceKind.File, source.SourceKind);
+            Equal(Path.Combine(fixture.CustomDirectory, source.Name + ".aivjson"), source.Source);
+        }
+        Assert(missingResult.SourceDiagnostics[0].CandidateId != missingResult.SourceDiagnostics[1].CandidateId,
+            "missing sources must retain distinct candidate IDs");
+        string diagnostic = LobbyEvaluationLogPolicy.FormatSourceDiagnostics(missingResult);
+        Assert(diagnostic.Contains("missing-one") && diagnostic.Contains("missing-two"), "missing candidate names lost");
+        Equal(LobbyEvaluationLogSeverity.Warning, LobbyEvaluationLogPolicy.Classify(missingResult));
+        File.Delete(Path.Combine(fixture.VanillaDirectory, "rat1.aivjson"));
+        var missingBuiltIn = service.EvaluateAsync(fixture.Build()).GetAwaiter().GetResult();
+        Equal(Path.Combine(fixture.VanillaDirectory, "rat1.aivjson"), missingBuiltIn.SourceDiagnostics.Single().Source);
+        var escapedRequest = fixture.Build(slot: Slot(LobbyAivMode.Custom,
+            [new LobbyAivCandidateInput("line\r\nbreak\u2028", fixture.CustomDirectory, 0, false, "SK_RAT")]));
+        string escaped = LobbyEvaluationLogPolicy.FormatSourceDiagnostics(
+            service.EvaluateAsync(escapedRequest).GetAwaiter().GetResult());
+        Assert(!escaped.Contains('\r') && !escaped.Contains('\n') && !escaped.Contains('\u2028'), "diagnostics must stay on one line");
+        Assert(escaped.Contains(@"\r\n") && escaped.Contains(@"\u2028"), "line breaks must remain identifiable");
+        File.WriteAllText(Path.Combine(fixture.VanillaDirectory, "rat1.aivjson"), "{}");
         AivPlacementCheckRequest laterPreBuild = new LobbyRequestBuilder().Build(
             1,
             fixture.Capture(

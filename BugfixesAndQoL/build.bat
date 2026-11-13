@@ -44,22 +44,10 @@ if not "%ERRORLEVEL%"=="0" (
 set /p "BUILD_TEST_MODE="<"%BUILD_OPTIONS_FILE%"
 del /Q "%BUILD_OPTIONS_FILE%"
 echo [%date% %time%] Test mode: %BUILD_TEST_MODE%
-set "COMMAND_COMPILER_OPTION="
-if "%BUILD_TEST_MODE%"=="quick" set "COMMAND_COMPILER_OPTION=-SkipCompiler"
 if "%BUILD_TEST_MODE%"=="none" goto build_setup
 echo [%date% %time%] Workspace source and runtime preflight
 call :step_start "tests" "01-Test-SharedBoundaries.ps1"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1" -ModDirectory BugfixesAndQoL
-call :step_end %ERRORLEVEL%
-if not "%ERRORLEVEL%"=="0" exit /b 1
-echo [%date% %time%] PowerShell checks / build step
-call :step_start "tests" "02-Verify-Interop.ps1"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\_inspect\FormationIntegration\Verify-Interop.ps1"
-call :step_end %ERRORLEVEL%
-if not "%ERRORLEVEL%"=="0" exit /b 1
-echo [%date% %time%] PowerShell checks / build step
-call :step_start "tests" "03-Test-UnitCommandSplit.ps1"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-UnitCommandSplit.ps1" -ModDirectory BugfixesAndQoL -SkipPermanentHooks -SkipCommonChecks %COMMAND_COMPILER_OPTION%
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" exit /b 1
 :build_setup
@@ -98,7 +86,9 @@ set "EXTENDER_DIR="
 set "NO_PAUSE=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 
-rem Never touch build or installation output while the game has plugin DLLs loaded.
+rem An isolated /noinstall build writes only its Git build copy, never loaded DLLs.
+if "%NO_INSTALL%"=="1" if defined SHCDE_BRANCH_SOURCE_ROOT goto game_closed_check_completed
+rem Installing builds still require the game to be closed.
 echo [%date% %time%] Check that the game is closed
 call :step_start "prerequisites" "06-game-closed"
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
@@ -108,6 +98,7 @@ if not "%ERRORLEVEL%"=="0" (
   echo Lokales Paket und installierter Mod wurden nicht veraendert.
   exit /b 1
 )
+:game_closed_check_completed
 
 if not exist "%MSBUILD%" goto build_failed
 rem Prefer the validated release package; the source bin folder may contain a stale Debug build.
@@ -120,26 +111,18 @@ if exist "%LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT%\SHCDESE.dll" (
 ) else goto build_failed
 if not exist "%API_SHARED_DIR%\APIShared.dll" goto build_failed
 
-rem The Assassin tests compare the native search kernel with the managed search, so it is compiled first.
-echo [%date% %time%] Compile native Assassin search
-call :step_start "compile" "05-Build-AssassinSearch.ps1"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%native\Build-AssassinSearch.ps1"
-call :step_end %ERRORLEVEL%
-if not "%ERRORLEVEL%"=="0" goto build_failed
 
 rem /checks:notifications selects the relevant behavior suite for a notification-only change.
 rem Checked builds run the common source and runtime safety checks once.
 set "NOTIFICATION_CHECKS=0"
-set "GATEHOUSE_CHECKS=0"
 set "FOREIGN_HUD_CHECKS=0"
 set "SETTINGS_CHECKS=0"
 set "COOP_CHECKS=0"
 for %%A in (%*) do if /I "%%~A"=="/checks:notifications" set "NOTIFICATION_CHECKS=1"
-for %%A in (%*) do if /I "%%~A"=="/checks:gatehouse" set "GATEHOUSE_CHECKS=1"
 for %%A in (%*) do if /I "%%~A"=="/checks:foreignhud" set "FOREIGN_HUD_CHECKS=1"
 for %%A in (%*) do if /I "%%~A"=="/checks:settings" set "SETTINGS_CHECKS=1"
 for %%A in (%*) do if /I "%%~A"=="/checks:coop" set "COOP_CHECKS=1"
-set /a CHECK_SCOPES=NOTIFICATION_CHECKS+GATEHOUSE_CHECKS+FOREIGN_HUD_CHECKS+SETTINGS_CHECKS+COOP_CHECKS
+set /a CHECK_SCOPES=NOTIFICATION_CHECKS+FOREIGN_HUD_CHECKS+SETTINGS_CHECKS+COOP_CHECKS
 if %CHECK_SCOPES% GTR 1 goto build_failed
 pushd "%PROJECT_DIR%"
 if "%BUILD_TEST_MODE%"=="none" goto foreign_hud_checks_completed
@@ -157,20 +140,21 @@ dotnet build "%PROJECT_DIR%..\Shared\Tests\CoopAiStart.Tests\Shared.CoopAiStart.
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 "%PROJECT_DIR%..\Shared\Tests\CoopAiStart.Tests\bin\Release\net481\Shared.CoopAiStart.Tests.exe"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+rem Exercise remembered and named AI selection repairs before a checked build can publish output.
+call :step_start "tests" "ai-selection-memory"
+"%MSBUILD%" "%PROJECT_DIR%..\_inspect\BugfixesAndQoLAivMemoryTests\BugfixesAndQoLAivMemoryTests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+"%PROJECT_DIR%..\_inspect\BugfixesAndQoLAivMemoryTests\bin\BugfixesAndQoLAivMemoryTests.exe"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 if "%COOP_CHECKS%"=="1" goto coop_checks
 if "%BUILD_TEST_MODE%"=="quick" goto quick_checks
 if "%SETTINGS_CHECKS%"=="1" goto settings_checks
 if "%FOREIGN_HUD_CHECKS%"=="1" goto foreign_hud_checks
-if "%GATEHOUSE_CHECKS%"=="1" goto gatehouse_checks
 if "%NOTIFICATION_CHECKS%"=="1" goto notification_checks
 echo [%date% %time%] Lobby save loading and visibility contracts
 call :step_start "tests" "07-Test-LobbySaveLoading.ps1"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-LobbySaveLoading.ps1" -RunTests
-call :step_end %ERRORLEVEL%
-if not "%ERRORLEVEL%"=="0" goto build_failed_popd
-echo [%date% %time%] Integrated gate routing migration regression
-call :step_start "tests" "08-Test-GateRouting.ps1"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-GateRouting.ps1"
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Gatehouse target-marker height contracts
@@ -222,11 +206,6 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-Minim
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] PowerShell checks / build step
-call :step_start "tests" "17-verify.ps1"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\_inspect\AssassinGateClimb\verify.ps1" -SkipPermanentHooks -SkipCommonChecks
-call :step_end %ERRORLEVEL%
-if not "%ERRORLEVEL%"=="0" goto build_failed_popd
-echo [%date% %time%] PowerShell checks / build step
 call :step_start "tests" "18-Test-AIKeepRangePreflight.ps1"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-AIKeepRangePreflight.ps1" -GameDir "%GAME_DIR%" -ExtenderDir "%EXTENDER_DIR%" -ApiSharedDir "%API_SHARED_DIR%" -SkipPermanentHooks
 call :step_end %ERRORLEVEL%
@@ -251,7 +230,6 @@ call :step_start "tests" "22-Test-NotificationLastFramePreflight.ps1"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-NotificationLastFramePreflight.ps1"
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
-echo [%date% %time%] PowerShell checks / build step
 echo [%date% %time%] PowerShell checks / build step
 call :step_start "tests" "24-Test-DamagedHealthBarsPreflight.ps1"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-DamagedHealthBarsPreflight.ps1"
@@ -288,25 +266,6 @@ call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "Lord return teleport host/client presets"
 "%PROJECT_DIR%..\_inspect\HostClientPresetTests\bin\HostClientPresetTests.exe" lord-teleport
-call :step_end %ERRORLEVEL%
-if not "%ERRORLEVEL%"=="0" goto build_failed_popd
-echo [%date% %time%] Run tests
-call :step_start "tests" "31-Formations.Core.Tests.csproj"
-dotnet test tests\Formations.Core.Tests\Formations.Core.Tests.csproj --configuration Release --logger trx --results-directory tests\Formations.Core.Tests\TestResults
-call :step_end %ERRORLEVEL%
-if not "%ERRORLEVEL%"=="0" goto build_failed_popd
-echo [%date% %time%] Formation speech regression tests
-call :step_start "tests" "32-FormationSpeech.Tests.csproj"
-dotnet run --project tests\FormationSpeech.Tests\FormationSpeech.Tests.csproj --configuration Release -p:ExtenderDir="%EXTENDER_DIR%" -- "%PROJECT_DIR%.."
-call :step_end %ERRORLEVEL%
-if not "%ERRORLEVEL%"=="0" goto build_failed_popd
-echo [%date% %time%] Compile projects
-call :step_start "tests" "33-Formations.Tests.csproj"
-"%MSBUILD%" tests\Formations.Tests\Formations.Tests.csproj /p:Configuration=Release /p:ExtenderDir="%EXTENDER_DIR%"
-call :step_end %ERRORLEVEL%
-if not "%ERRORLEVEL%"=="0" goto build_failed_popd
-call :step_start "tests" "34-Formations.Tests.exe"
-"%PROJECT_DIR%tests\Formations.Tests\bin\Formations.Tests.exe"
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Compile projects
@@ -387,21 +346,6 @@ call :step_start "tests" "49-ImprovedMoatFilling.Tests.exe"
 "%PROJECT_DIR%tests\bin\ImprovedMoatFilling.Tests.exe"
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
-echo [%date% %time%] Run tests
-call :step_start "tests" "50-ExtendedShiftCommandQueue.Tests.csproj"
-dotnet run --project "tests\ExtendedShiftCommandQueue.Tests\ExtendedShiftCommandQueue.Tests.csproj"
-call :step_end %ERRORLEVEL%
-if not "%ERRORLEVEL%"=="0" goto build_failed_popd
-echo [%date% %time%] Issue 6 infinite-patrol regressions
-call :step_start "tests" "51-Issue6.Tests.csproj"
-dotnet run --project "tests\Issue6.Tests\Issue6.Tests.csproj" -- "%PROJECT_DIR%.."
-call :step_end %ERRORLEVEL%
-if not "%ERRORLEVEL%"=="0" goto build_failed_popd
-echo [%date% %time%] Run tests
-call :step_start "tests" "52-AssassinPathfinding.Tests.csproj"
-dotnet run --project "tests\AssassinPathfinding.Tests\AssassinPathfinding.Tests.csproj" -- "%PROJECT_DIR%.."
-call :step_end %ERRORLEVEL%
-if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Captured-gate protection contracts
 call :step_start "tests" "53-verify-integrated.ps1"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\_inspect\AssassinAttackControlAudit\verify-integrated.ps1" -SkipPermanentHooks -SkipCommonChecks
@@ -423,12 +367,6 @@ call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "55c-TribeMemberLookup.Tests.exe"
 "%PROJECT_DIR%tests\TribeMemberLookup.Tests\bin\TribeMemberLookup.Tests.exe" "%GAME_DIR%\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll"
-call :step_end %ERRORLEVEL%
-if not "%ERRORLEVEL%"=="0" goto build_failed_popd
-set "MOAT_TEST_API_SHARED_DLL=%API_SHARED_DIR%\APIShared.dll"
-echo [%date% %time%] Run tests
-call :step_start "tests" "56-FriendlyMoatMovement.Tests.csproj"
-dotnet run --project "tests\FriendlyMoatMovement.Tests\FriendlyMoatMovement.Tests.csproj" -- "%PROJECT_DIR%.."
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 goto checks_completed
@@ -477,23 +415,6 @@ call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 goto foreign_hud_checks_completed
 
-:gatehouse_checks
-echo [%date% %time%] Gatehouse geometry, live topology and diagnostic behavior checks
-call :step_start "tests" "65-Test-RuntimePreflight.ps1"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-RuntimePreflight.ps1"
-call :step_end %ERRORLEVEL%
-if not "%ERRORLEVEL%"=="0" goto build_failed_popd
-call :step_start "tests" "66-Test-GatehouseDiagnostics.ps1"
-pwsh.exe -NoProfile -File "%PROJECT_DIR%tests\GatehouseDiagnostics\Test-GatehouseDiagnostics.ps1"
-call :step_end %ERRORLEVEL%
-if not "%ERRORLEVEL%"=="0" goto build_failed_popd
-call :step_start "tests" "67-Test-GatehouseDiagnostics.ps1"
-pwsh.exe -NoProfile -File "%PROJECT_DIR%tests\GatehouseDiagnostics\Test-GatehouseDiagnostics.ps1" -Diagnostic
-call :step_end %ERRORLEVEL%
-if not "%ERRORLEVEL%"=="0" goto build_failed_popd
-
-goto checks_completed
-
 :foreign_hud_checks
 echo [%date% %time%] Foreign troop HUD runtime, skin and player-color checks
 call :step_start "tests" "68-Test-RuntimePreflight.ps1"
@@ -515,7 +436,7 @@ goto foreign_hud_checks_completed
 
 :checks_completed
 rem Keep foreign HUD regressions in the ordinary suite as well as the scoped build.
-if "%NOTIFICATION_CHECKS%%GATEHOUSE_CHECKS%"=="00" goto foreign_hud_behavior_checks
+if "%NOTIFICATION_CHECKS%"=="0" goto foreign_hud_behavior_checks
 goto foreign_hud_checks_completed
 
 :foreign_hud_behavior_checks
@@ -545,6 +466,26 @@ call :step_start "compile" "72-BugfixesAndQoL.csproj"
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 if "%BUILD_TEST_MODE%"=="none" goto artifact_tests_completed
+call :step_start "tests" "PitchMoatLines.Tests"
+dotnet run --project "%PROJECT_DIR%tests\PitchMoatLines.Tests\PitchMoatLines.Tests.csproj" --configuration Release
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "PitchMoatLines.Native.Tests"
+dotnet run --project "%PROJECT_DIR%tests\PitchMoatLines.Native.Tests\PitchMoatLines.Native.Tests.csproj" --configuration Release -- "%LOCAL_PLUGIN_DIR%\BugfixesAndQoL.dll" "%EXTENDER_DIR%"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "AreaDemolition.Native.Tests"
+dotnet run --project "%PROJECT_DIR%tests\AreaDemolition\Native\Native.Tests.csproj" --configuration Release
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "AreaDemolition.Policy.Tests"
+dotnet run --project "%PROJECT_DIR%tests\AreaDemolition\Policy\Policy.Tests.csproj" --configuration Release
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "AreaDemolition.Protocol.Tests"
+dotnet run --project "%PROJECT_DIR%tests\AreaDemolition\Protocol\Protocol.Tests.csproj" --configuration Release
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 set "MODSETTINGS_NATIVE_OPTION="
 if "%BUILD_TEST_MODE%"=="full" set "MODSETTINGS_NATIVE_OPTION=-RunNative"
 call :step_start "tests" "73-Test-Modsettings.ps1"
@@ -560,25 +501,46 @@ call :step_start "tests" "LordTeleportGuard.Tests execution"
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed
 
+call :step_start "tests" "AiOutpostRetarget.Tests build"
+"%MSBUILD%" "%PROJECT_DIR%tests\AiOutpostRetarget.Tests\AiOutpostRetarget.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed
+call :step_start "tests" "AiOutpostRetarget.Tests execution"
+"%PROJECT_DIR%tests\AiOutpostRetarget.Tests\bin\AiOutpostRetarget.Tests.exe"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed
+
 :artifact_tests_completed
 popd
 
-echo [%date% %time%] Package native Assassin search
-call :step_start "package" "73-Package-AssassinSearch.ps1"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%native\Build-AssassinSearch.ps1" -CopyOnly -OutputDirectory "%LOCAL_PLUGIN_DIR%"
+if "%BUILD_TEST_MODE%"=="none" goto pitch_stairs_checks_completed
+call :step_start "tests" "PitchStairs.Tests build"
+"%MSBUILD%" "%PROJECT_DIR%tests\PitchStairs.Tests\PitchStairs.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal
 call :step_end %ERRORLEVEL%
-if not "%ERRORLEVEL%"=="0" goto package_failed
+if not "%ERRORLEVEL%"=="0" goto build_failed
+call :step_start "tests" "PitchStairs.Tests execution"
+"%PROJECT_DIR%tests\PitchStairs.Tests\bin\BugfixesAndQoL.PitchStairs.Tests.exe" "%GAME_DIR%\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed
+:pitch_stairs_checks_completed
+if "%BUILD_TEST_MODE%"=="none" goto siege_crew_checks_completed
+call :step_start "tests" "SiegeCrew.Tests build"
+"%MSBUILD%" "%PROJECT_DIR%tests\SiegeCrew.Tests\SiegeCrew.Tests.csproj" /p:Configuration=Release /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed
+call :step_start "tests" "SiegeCrew.Tests execution"
+"%PROJECT_DIR%tests\SiegeCrew.Tests\bin\SiegeCrew.Tests.exe" "%GAME_DIR%\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed
+:siege_crew_checks_completed
+
+
 
 rem The project copies every resource and hash-verifies the package, including neutral patches.
 if not exist "%LOCAL_PLUGIN_DIR%\BugfixesAndQoL.dll" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
-if not exist "%LOCAL_PLUGIN_DIR%\BfqolAssassinSearch.dll" goto package_failed
 
 if "%NO_INSTALL%"=="1" goto prepared_no_install
-call :step_start "package" "74-Disable-LegacyGateTest.ps1"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Disable-LegacyGateTest.ps1" -GameDirectory "%GAME_DIR%"
-call :step_end %ERRORLEVEL%
-if not "%ERRORLEVEL%"=="0" goto copy_failed
 if exist "%GAME_PLUGIN_DIR%\" (
   rem Keep player-created lobby settings while replacing all packaged files.
   for /D %%D in ("%GAME_PLUGIN_DIR%\*") do (

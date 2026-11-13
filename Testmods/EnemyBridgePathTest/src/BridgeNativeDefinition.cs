@@ -15,7 +15,8 @@ namespace EnemyBridgePathTest
             { Index=nextIndex++; Rva=rva; Size=size; Name=name; Signature=signature; Bytes=new byte[bytes.Length/2];
               for(int i=0;i<Bytes.Length;i++) Bytes[i]=Convert.ToByte(bytes.Substring(i*2,2),16); }
         }
-        internal static bool OwnsEntry(Site site) => site.Rva != 0xE49D0 && site.Rva != 0x111C00;
+        // APIShared publishes strategic dispatch; retaining the descriptor preserves trace identity.
+        internal static bool OwnsEntry(Site site) => site.Rva != 0xE49D0 && site.Rva != 0x111C00 && site.Rva != 0x122B40 && site.Rva != 0x10DF60;
         internal static readonly int OwnedCount;
         internal static readonly Site TopologySite;
         internal static readonly Site[] Sites = {

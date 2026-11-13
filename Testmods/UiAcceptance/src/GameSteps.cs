@@ -26,7 +26,12 @@ namespace UiAcceptance
             Runner.Register("WaitTicks", WaitTicks);
             Runner.Register("WaitMarker", WaitMarker);
             Runner.Register("Screenshot", Screenshot);
+            Runner.Register("ModSettings.SelectTab", SelectModSettingsTab);
+            Runner.Register("ModSettings.Scroll", ScrollModSettingsPage);
+            Runner.Register("ExpectElement", ExpectElement);
+            Runner.Register("InvokeCommand", InvokeCommand);
             Runner.Register("SetModSetting", SetModSetting);
+            Runner.Register("RandomEvents", RandomEventsSwitch);
             Runner.Register("ExpectModSetting", ExpectModSetting);
             Runner.Register("Log", s => Do(() => AcceptLog.Info("NOTE " + string.Join(" ", s.Args))));
             Runner.Register("Describe", s => Do(Describe));
@@ -181,7 +186,7 @@ namespace UiAcceptance
         }
 
         // Vanilla's FrontendMenus load confirmation sequence (same as AutoLoadSave), repeatable.
-        private static IEnumerable<Wait> LoadSave(Step step)
+        internal static IEnumerable<Wait> LoadSave(Step step)
         {
             yield return new Until("main menu", MenuReady);
             string path = step.Arg(0);
@@ -277,6 +282,73 @@ namespace UiAcceptance
 
         // Mod settings only change outside missions (workspace rule). The setting object is reached
         // through a public static member of the consumer, e.g. Spectator.SpectatorPlugin.Settings.
+        // Selects a tab of the mod settings hub (open it with NoesisClick SE_ModOptionsToggle on a lobby screen).
+        // args: tab name as registered, usually the mod GUID.
+        private static IEnumerable<Wait> SelectModSettingsTab(Step step)
+        {
+            var hub = SHCDESE.BepInEx.Bootstrap.Plugin.ModSettingsHubViewModel;
+            foreach (var tab in hub.ModTabs)
+                if (string.Equals(tab.Name, step.Arg(0), StringComparison.Ordinal)) hub.SelectedTab = tab;
+            Runner.Require(hub.SelectedTab != null && hub.SelectedTab.Name == step.Arg(0), "no settings tab " + step.Arg(0));
+            AcceptLog.Info("SETTINGS_TAB " + hub.SelectedTab.Name);
+            yield break;
+        }
+
+        // Scrolls the open settings page of a mod, for screenshots of its lower part.
+        // args: view model type name (e.g. ImprovedHuntersViewModel), position 0..1 of the scrollable height.
+        private static IEnumerable<Wait> ScrollModSettingsPage(Step step)
+        {
+            double position = double.Parse(step.Arg(1), CultureInfo.InvariantCulture);
+            Noesis.ScrollViewer scroll = null;
+            yield return new Until("settings page of " + step.Arg(0), () => (scroll = FindPageScroll(step.Arg(0))) != null);
+            scroll.ScrollToVerticalOffset((float)(Math.Max(0, Math.Min(1, position)) * scroll.ScrollableHeight));
+            yield return new Delay(300);
+            AcceptLog.Info("SETTINGS_SCROLL " + step.Arg(0) + " offset=" + scroll.VerticalOffset.ToString("0", CultureInfo.InvariantCulture) +
+                "/" + scroll.ScrollableHeight.ToString("0", CultureInfo.InvariantCulture));
+        }
+
+        // The first scroll viewer in a live view whose data context is the mod's settings model.
+        private static Noesis.ScrollViewer FindPageScroll(string modelType)
+        {
+            foreach (NoesisView view in UnityEngine.Object.FindObjectsOfType<NoesisView>())
+            {
+                if (view == null || view.Content == null)
+                    continue;
+                var pending = new Queue<Noesis.DependencyObject>();
+                pending.Enqueue(view.Content);
+                for (int visited = 0; pending.Count > 0 && visited < 20000; visited++)
+                {
+                    Noesis.DependencyObject node = pending.Dequeue();
+                    if (node is Noesis.ScrollViewer scroll && scroll.DataContext?.GetType().Name == modelType && scroll.IsVisible)
+                        return scroll;
+                    for (int i = 0; i < Noesis.VisualTreeHelper.GetChildrenCount(node); i++)
+                        pending.Enqueue(Noesis.VisualTreeHelper.GetChild(node, i));
+                }
+            }
+            return null;
+        }
+
+        // A XAML patch of a mod really reached the live visual tree. args: element name.
+        private static IEnumerable<Wait> ExpectElement(Step step)
+        {
+            object element = null;
+            yield return new Until("element " + step.Arg(0), () => (element = SHCDESE.API.GameXAMLManagerAPI.Instance.FindGlobalElement(step.Arg(0))) != null);
+            AcceptLog.Info("ELEMENT " + step.Arg(0) + " type=" + element.GetType().Name);
+        }
+
+        // Runs a command a view model exposes. args: Type::staticField.CommandProperty, optional parameter.
+        private static IEnumerable<Wait> InvokeCommand(Step step)
+        {
+            string path = step.Arg(0);
+            int dot = path.LastIndexOf('.');
+            object model = ResolveStatic(path.Substring(0, dot));
+            PropertyInfo property = model.GetType().GetProperty(path.Substring(dot + 1)) ?? throw new StepFailure("no command " + path);
+            var command = (System.Windows.Input.ICommand)property.GetValue(model, null);
+            command.Execute(step.Args.Length > 1 ? step.Arg(1) : null);
+            AcceptLog.Info("COMMAND " + path);
+            yield break;
+        }
+
         private static IEnumerable<Wait> SetModSetting(Step step)
         {
             Runner.Require(FatControler.currentScene == Enums.SceneIDS.FrontEnd, "settings change only outside missions");
@@ -284,9 +356,32 @@ namespace UiAcceptance
             PropertyInfo property = model.GetType().GetProperty(step.Arg(1)) ?? throw new StepFailure("no property " + step.Arg(1));
             object value = Convert.ChangeType(step.Arg(2), property.PropertyType, CultureInfo.InvariantCulture);
             property.SetValue(model, value, null);
-            Runner.Require(Equals(property.GetValue(model, null), value), step.Arg(1) + " did not accept " + step.Arg(2));
+            // Optional fourth argument: the value the setting keeps, for limits that clamp the input.
+            object stored = step.Args.Length > 3 ? Convert.ChangeType(step.Arg(3), property.PropertyType, CultureInfo.InvariantCulture) : value;
+            Runner.Require(Equals(property.GetValue(model, null), stored), step.Arg(1) + " did not keep " + stored + " for " + step.Arg(2));
             AcceptLog.Info("SETTING " + step.Arg(0) + "." + step.Arg(1) + "=" + value);
             yield break;
+        }
+
+        // Scripted fixtures must not meet wolves, fires or plague. The mod keeps its settings on the plugin
+        // instance. args: on | off; its absence is fine, there are no events then.
+        private static IEnumerable<Wait> RandomEventsSwitch(Step step)
+        {
+            Runner.Require(FatControler.currentScene == Enums.SceneIDS.FrontEnd, "settings change only outside missions");
+            if (!BepInEx.Bootstrap.Chainloader.PluginInfos.TryGetValue("RandomEvents_Serp", out BepInEx.PluginInfo info))
+            {
+                AcceptLog.Info("RANDOM_EVENTS not installed");
+                yield break;
+            }
+
+            // The object stays usable after BepInEx's manager is destroyed; only its Unity side is gone.
+            object plugin = info.Instance;
+            object settings = plugin.GetType().GetProperty("Settings").GetValue(plugin, null);
+            PropertyInfo enable = settings.GetType().GetProperty("EnableMod");
+            bool value = step.Arg(0) == "on";
+            enable.SetValue(settings, value, null);
+            Runner.Require((bool)enable.GetValue(settings, null) == value, "RandomEvents did not accept " + step.Arg(0));
+            AcceptLog.Info("RANDOM_EVENTS " + step.Arg(0));
         }
 
         private static IEnumerable<Wait> ExpectModSetting(Step step)
@@ -337,11 +432,11 @@ namespace UiAcceptance
         }
 
         // BepInEx flushes LogOutput.log on a timer; flush explicitly, then quit on the Unity thread
-        // two seconds later (PerfProbe pattern).
-        internal static IEnumerable<Wait> QuitSequence()
+        // after the scenario's delay (PerfProbe pattern: two seconds).
+        internal static IEnumerable<Wait> QuitSequence(int delayMs)
         {
             AcceptLog.Info("Quitting after scenario.");
-            yield return new Delay(2000);
+            if (delayMs > 0) yield return new Delay(delayMs);
             try
             {
                 foreach (BepInEx.Logging.ILogListener listener in BepInEx.Logging.Logger.Listeners)

@@ -27,7 +27,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
-    <Compile Include="..\..\src\AssassinCapturedGateProtectionPolicy.cs" />
+    <Compile Include="..\..\src\Assassins\AssassinCapturedGateProtectionPolicy.cs" />
     <Compile Include="..\..\..\APIShared\src\Pathfinding\Assassin\AssassinObstacleCompletion.cs" />
     <Compile Include="..\..\..\APIShared\src\Pathfinding\Assassin\AssassinAttackNativeContract.cs" />
   </ItemGroup>

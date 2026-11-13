@@ -4,11 +4,17 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\..\ImprovedHunters\src\GranaryChickenSpawnPolicy.cs" Link="GranaryChickenSpawnPolicy.cs" />
-    <Compile Include="..\..\ImprovedHunters\src\HunterQueryActorPolicy.cs" Link="HunterQueryActorPolicy.cs" />
-    <Compile Include="..\..\ImprovedHunters\src\ManualChickenAttackPolicy.cs" Link="ManualChickenAttackPolicy.cs" />
+    <Compile Include="..\..\ImprovedHunters\src\TannerMeatPolicy.cs" Link="TannerMeatPolicy.cs" />
+    <Compile Include="..\..\ImprovedHunters\src\TannerRunTable.cs" Link="TannerRunTable.cs" />
+    <Compile Include="..\..\ImprovedHunters\src\HunterSearchRangePolicy.cs" Link="HunterSearchRangePolicy.cs" />
+    <Compile Include="..\..\ImprovedHunters\src\WildlifeRangePolicy.cs" Link="WildlifeRangePolicy.cs" />
+    <Compile Include="..\..\ImprovedHunters\src\HerdSettingsPolicy.cs" Link="HerdSettingsPolicy.cs" />
+    <Compile Include="..\..\ImprovedHunters\src\WildlifeOriginTable.cs" Link="WildlifeOriginTable.cs" />
+    <Compile Include="..\..\ImprovedHunters\src\HunterNativeStubs.cs" Link="HunterNativeStubs.cs" />
     <Compile Include="..\..\ImprovedHunters\src\DispatchIndexStub.cs" Link="DispatchIndexStub.cs" />
   </ItemGroup>
   <ItemGroup>

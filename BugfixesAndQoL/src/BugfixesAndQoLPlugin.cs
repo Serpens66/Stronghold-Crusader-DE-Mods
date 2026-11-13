@@ -11,23 +11,21 @@ using System.Reflection;
 
 namespace BugfixesAndQoL
 {
-    [BepInDependency(ScriptExtenderGuid, "2.14.0")]
-    [BepInDependency(ApiSharedGuid, "0.26.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.14.3")]
+    [BepInDependency(ApiSharedGuid, "0.50.0")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SavegameMissingMapFixTest_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("AIKeepRangeLimitTest_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInIncompatibility(LegacyTroopMovementFixGuid)]
-    [BepInIncompatibility(TroopMovementFix2Guid)]
-    [BepInIncompatibility(TroopMovementFix3Guid)]
-    [BepInIncompatibility(LegacyMoveMoatGuid)]
-    [BepInIncompatibility(LegacyQueueTestGuid)]
     [BepInIncompatibility(PreplacedTestGuid)]
     [BepInIncompatibility("GatehouseLivingCaptureTest_Serp")]
     [BepInIncompatibility("DrawbridgeDestructionFixTest_Serp")]
     [BepInIncompatibility("LordTeleportGuardTest_Serp")]
+    [BepInIncompatibility("PitchStairsTest_Serp")]
+    [BepInIncompatibility("PitchMoatLineTest_Serp")]
+    [BepInIncompatibility("AreaDemolitionTest_Serp")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
 
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
@@ -35,17 +33,12 @@ namespace BugfixesAndQoL
     {
         private const string ScriptExtenderGuid = "000shcdese";
         private const string ApiSharedGuid = "APIShared_Serp";
-        private const string LegacyTroopMovementFixGuid = "TroopMovementFix_Serp";
-        private const string TroopMovementFix2Guid = "TroopMovementFix2_Serp";
-        private const string TroopMovementFix3Guid = "TroopMovementFix3_Serp";
-        private const string LegacyMoveMoatGuid = "MoveMoatTest_Serp";
-        private const string LegacyQueueTestGuid = "QueueTest_Serp";
         private const string LegacySomeSettingsGuid = "SomeSettings_Serp";
         private const string PreplacedTestGuid = "PreplacedTest_Serp";
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.211";
+        public const string PluginVersion = "1.0.226";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;
@@ -72,6 +65,8 @@ namespace BugfixesAndQoL
         public static bool TryGetLobbyAIKeepRangeBypass(out bool bypass) =>
             BugfixesAndQoLRuntime.TryGetLobbyAIKeepRangeBypass(out bypass);
 
+        // The try blocks of the start path stay written out. Several catch blocks have side effects
+        // or return early, so a shared helper would only save about 33 lines.
         private void Awake()
         {
             Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
@@ -95,13 +90,17 @@ namespace BugfixesAndQoL
             }
 
             // Pass the startup result into the view model so the warning occupies no UI space otherwise.
-            steamInviteBlacklist = new SteamInviteBlacklistStore(SteamInviteBlacklistStore.GetDefaultPath());
+            steamInviteBlacklist = new SteamInviteBlacklistStore(
+                SteamInviteBlacklistStore.GetDefaultPath(), SteamInviteBlacklistStore.GetLegacyPath(),
+                message => Shared.DebugLogHelper.LogWarningLimited(Logger, "invite-blacklist-storage", message));
             Settings = new BugfixesAndQoLViewModel(legacySomeSettingsLoaded, steamInviteBlacklist, Logger);
+            if (Chainloader.PluginInfos.TryGetValue("fixes", out PluginInfo fixes) && fixes.Instance != null)
+                FixesSuppressMessagesSync.Initialize(Logger, fixes.Instance.GetType().Assembly);
             LobbySaveLoadingFeature.Initialize(Logger, Settings);
             BuildPreview.BuildPreviewRuntime.Configure(Logger, Settings);
+            PitchMoatLines.PitchMoatLinesFeature.Configure(Logger, Settings);
+            AreaDemolition.AreaDemolitionFeature.Configure(Logger, Settings, Config);
             ArabianIdleSoundRuntime.Configure(Logger, Settings);
-            FormationFeature.Configure(Logger, Config, Settings);
-            GateRouting.GateRoutingFeature.Configure(Logger, Config, Settings);
             skirmishGameOptionsCompatible = !HasLegacyExtraFeaturesPeaceTimeSetting();
             skirmishGameOptionsAccess = new SkirmishGameOptionsAccessViewModel(
                 Settings,
@@ -210,6 +209,8 @@ namespace BugfixesAndQoL
         // Runs inside the initial native installation window; false = stopped fail-closed.
         private bool InitializeLibraryRuntime(CrusaderLibraryLoadContext context)
         {
+            // Register even when local controls or the optional native adapter are unavailable.
+            AreaDemolition.AreaDemolitionFeature.RegisterNetwork();
             // Register packet types immediately after Script Extender and before settings can vary.
             try
             {
@@ -262,6 +263,12 @@ namespace BugfixesAndQoL
             }
             InitializePersistentUiAndMapCallbacks();
 
+            try { LocalAutosaveRuntime.Initialize(Logger, Settings); }
+            catch (Exception error)
+            {
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "local-autosave/init", "Local autosave unavailable: " + error);
+            }
+
             try
             {
                 statisticsTeamBadges = new StatisticsTeamBadges(Logger, Settings);
@@ -281,17 +288,6 @@ namespace BugfixesAndQoL
                 skirmishGameOptionsRuntime = null;
                 skirmishGameOptionsAccess.SetRuntimeAvailable(false);
                 Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.skirmish-game-options-managed", "BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_MANAGED_FAILED: " + ex);
-            }
-
-            try
-            {
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "SerpTroopAction_0200_BugfixesAndQoLAssassinClimb",
-                    runtime.AssassinClimbButton);
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.assassin-climb-button-binding", $"Bugfixes and QoL Assassin climb button binding failed: {ex}");
             }
 
             try
@@ -338,6 +334,8 @@ namespace BugfixesAndQoL
 
             // Keep UI registration independent so one native feature cannot hide the whole mod.
             BuildPreview.BuildPreviewRuntime.Install(context);
+            PitchMoatLines.PitchMoatLinesFeature.Install(context);
+            AreaDemolition.AreaDemolitionFeature.Install(context);
             GatehouseTargetMarkerHeightHook.Install(context, Logger, Settings);
             try
             {
@@ -386,44 +384,43 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(Logger, "PEACE_CIVILIAN_PROXIMITY_UNAVAILABLE: existing building rules remain active; " + ex);
             }
 
-            FormationFeature.Initialize(context);
-
-            if (skirmishGameOptionsCompatible)
+            bool currentNative = Shared.DebugLogHelper.IsCurrentNativeLibraryVersion();
+            try
             {
-                bool currentNative = Shared.DebugLogHelper.IsCurrentNativeLibraryVersion();
-                try
+                var wildlifeRegistration = VanillaPeaceTimeGameplayPatch.RegisterWildlifeRules();
+                if (skirmishGameOptionsCompatible)
                 {
                     vanillaPeaceTimeGameplayPatch = new VanillaPeaceTimeGameplayPatch(
                         Logger,
                         context.ModuleHandle,
                         context.Region,
                         context.Memory,
-                        currentNative, Settings);
+                        currentNative, Settings, wildlifeRegistration);
                     skirmishGameOptionsRuntime?.SetPeaceTimeNativeAvailable(true);
+                }
+            }
+            catch (Exception ex)
+            {
+                skirmishGameOptionsRuntime?.SetPeaceTimeNativeAvailable(false);
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.vanilla-peace-time-patch", "BUGFIXES_AND_QOL_VANILLA_PEACE_TIME_PATCH_FAILED: " + ex);
+            }
+
+            if (skirmishGameOptionsCompatible && skirmishGameOptionsRuntime != null)
+            {
+                try
+                {
+                    noDogsNativePatch = new NoDogsNativePatch(
+                        Logger,
+                        context.ModuleHandle,
+                        context.Region,
+                        context.Memory,
+                        currentNative, Settings);
+                    skirmishGameOptionsRuntime.SetNoDogsNativeAvailable(true);
                 }
                 catch (Exception ex)
                 {
-                    skirmishGameOptionsRuntime?.SetPeaceTimeNativeAvailable(false);
-                    Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.vanilla-peace-time-patch", "BUGFIXES_AND_QOL_VANILLA_PEACE_TIME_PATCH_FAILED: " + ex);
-                }
-
-                if (skirmishGameOptionsRuntime != null)
-                {
-                    try
-                    {
-                        noDogsNativePatch = new NoDogsNativePatch(
-                            Logger,
-                            context.ModuleHandle,
-                            context.Region,
-                            context.Memory,
-                            currentNative, Settings);
-                        skirmishGameOptionsRuntime.SetNoDogsNativeAvailable(true);
-                    }
-                    catch (Exception ex)
-                    {
-                        skirmishGameOptionsRuntime.SetNoDogsNativeAvailable(false);
-                        Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.skirmish-game-options-no", "BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_NO_DOGS_PATCH_FAILED: " + ex);
-                    }
+                    skirmishGameOptionsRuntime.SetNoDogsNativeAvailable(false);
+                    Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.skirmish-game-options-no", "BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_NO_DOGS_PATCH_FAILED: " + ex);
                 }
             }
 

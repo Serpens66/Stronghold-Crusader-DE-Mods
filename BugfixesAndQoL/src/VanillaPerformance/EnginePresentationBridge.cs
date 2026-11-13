@@ -28,7 +28,6 @@ namespace BugfixesAndQoL.VanillaPerformance
         internal static Session Current => Volatile.Read(ref session);
         internal static bool Active => Volatile.Read(ref enabled) != 0 && runValid && saveValid;
         internal static bool IsMainThread => Thread.CurrentThread.ManagedThreadId == mainThread;
-        static partial void DiagInstallFreeze(ManualLogSource logger);
         internal static void Install(ManualLogSource logger)
         {
             if (installed) return; installed = true; log = logger;
@@ -56,7 +55,6 @@ namespace BugfixesAndQoL.VanillaPerformance
                 Shared.DebugLogHelper.LogInfo(log, "VANILLA_PERF_BRIDGE_INSTALLED: managed run/save lock scopes validated; no native hook.");
             }
             catch (Exception error) { runValid = saveValid = false; Report(error); }
-            DiagInstallFreeze(logger);
         }
         internal static void SetEnabled(bool value)
         {
@@ -74,13 +72,10 @@ namespace BugfixesAndQoL.VanillaPerformance
         }
         private static void EnteredRun()
         {
-            // Independent of the option: other features rely on the scope as a pure marker.
-            SimulationRunScope.Enter();
             if (Active) AchievementDataOptimization.Flush(Current);
         }
         private static void BeforePublish()
         {
-            SimulationRunScope.Exit();
             if (Active) MeritDataLockOptimization.RefreshRequested();
         }
         private static void BeforeSave()

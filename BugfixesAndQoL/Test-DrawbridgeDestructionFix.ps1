@@ -3,8 +3,8 @@ param([switch]$RunTests)
 $ErrorActionPreference = 'Stop'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $game = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
-$view = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\BugfixesAndQoLViewModel.cs'))
-$main = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\BugfixesAndQoLRuntime.cs'))
+$view = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\Settings\BugfixesAndQoLViewModel.cs'))
+$main = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\Core\Bootstrap\BugfixesAndQoLRuntime.cs'))
 $runtime = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\DrawbridgeDestructionFix\FixRuntime.cs'))
 foreach ($required in @('private bool enableDrawbridgeDestructionFix = true;', "[SyncHostOnly]`r`n        public bool EnableDrawbridgeDestructionFix", 'EnableDrawbridgeDestructionFix = true;', 'SetSetting(ref enableDrawbridgeDestructionFix, value, nameof(EnableDrawbridgeDestructionFix))')) {
     if (-not $view.Contains($required)) { throw "Missing host/default/reset/preset contract: $required" }
@@ -20,7 +20,8 @@ $plugin = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\BugfixesAndQoLPlu
 if (-not $plugin.Contains('[BepInIncompatibility("DrawbridgeDestructionFixTest_Serp")]')) { throw 'Old testmod overlap guard missing.' }
 [xml]$xaml = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml'))
 $rows = @($xaml.SelectNodes("//*[local-name()='CheckBox']") | Where-Object { $_.IsChecked -eq '{Binding EnableDrawbridgeDestructionFix, Mode=TwoWay}' })
-if ($rows.Count -ne 1 -or $rows[0].GetAttribute('ToolTipService.ShowDuration') -ne '60000' -or -not $rows[0].GetAttribute('ToolTip')) { throw 'Missing/invalid checkbox tooltip.' }
+if ($rows.Count -ne 1 -or $rows[0].GetAttribute('ToolTipService.ShowDuration') -ne '60000' -or
+    $rows[0].SelectSingleNode("./*[local-name()='CheckBox.ToolTip']/*[local-name()='ToolTip']/@Content").Value -ne '{Binding EnableDrawbridgeDestructionFixHelpText}') { throw 'Missing/invalid checkbox tooltip.' }
 # Authority/category are contractual; topic IDs and parent depth are presentation details.
 if ($null -eq $rows[0].SelectSingleNode("ancestor::*[@IsEnabled='{Binding CanEditHostSettings}']") -or
     $null -eq $rows[0].SelectSingleNode("ancestor::*[contains(@Visibility, '.FixesVisibility}') ]")) { throw 'Drawbridge checkbox must remain a host-authorized Fix.' }
@@ -42,7 +43,7 @@ try {
         if (-not @($api.Methods | Where-Object { $_.Name -eq $name -and $_.IsPublic }).Count) { throw "Installed public building API missing: $name" }
     }
 } finally { $assembly.Dispose() }
-$targets = @('src\DrawbridgeDestructionFix\FixRuntime.cs','src\DrawbridgeDestructionFix\NativeContract.cs','src\BugfixesAndQoLRuntime.cs','src\BugfixesAndQoLViewModel.cs','src\BugfixesAndQoLPlugin.cs','BugfixesAndQoL.csproj','Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml','Test-DrawbridgeDestructionFix.ps1')
+$targets = @('src\DrawbridgeDestructionFix\FixRuntime.cs','src\DrawbridgeDestructionFix\NativeContract.cs','src\Core\Bootstrap\BugfixesAndQoLRuntime.cs','src\Settings\BugfixesAndQoLViewModel.cs','src\BugfixesAndQoLPlugin.cs','BugfixesAndQoL.csproj','Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml','Test-DrawbridgeDestructionFix.ps1')
 foreach ($relative in $targets) { if ([IO.File]::ReadAllText((Join-Path $PSScriptRoot $relative)) -match '(?<!\r)\n|\r(?!\n)') { throw "Invalid CRLF: $relative" } }
 & 'D:\CDesktopLink\Portable\Python\WinPy64\python\python.exe' (Join-Path $PSScriptRoot 'tests\DrawbridgeDestructionFix.Tests\audit_native.py') $workspace
 if ($LASTEXITCODE -ne 0) { throw 'Native static audit failed.' }

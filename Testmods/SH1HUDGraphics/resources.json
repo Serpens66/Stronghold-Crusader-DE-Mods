@@ -1,0 +1,3119 @@
+{
+  "schemaVersion": 1,
+  "atlasResourcePath": "Assets/GUI/Sprites/UI-MasterAtlas.xaml",
+  "preserveKeys": [
+    "UI-HUD 009",
+    "UI-HUD 010",
+    "Panel_BG"
+  ],
+  "resources": [
+    {
+      "key": "Panel_Border_Bottom",
+      "file": "Panel_Border_Bottom.png",
+      "width": 1000,
+      "height": 120,
+      "alignment": "center"
+    },
+    {
+      "key": "Panel_Border_Left",
+      "file": "Panel_Border_Left.png",
+      "width": 120,
+      "height": 1000,
+      "alignment": "center"
+    },
+    {
+      "key": "Panel_Border_Right",
+      "file": "Panel_Border_Right.png",
+      "width": 120,
+      "height": 1000,
+      "alignment": "center"
+    },
+    {
+      "key": "Panel_Border_Top",
+      "file": "Panel_Border_Top.png",
+      "width": 1000,
+      "height": 120,
+      "alignment": "center"
+    },
+    {
+      "key": "Panel_CelticKnot",
+      "file": "Panel_CelticKnot.png",
+      "width": 78,
+      "height": 156,
+      "alignment": "center"
+    },
+    {
+      "key": "Panel_Corner_2_Bottom_Left",
+      "file": "Panel_Corner_2_Bottom_Left.png",
+      "width": 120,
+      "height": 120,
+      "alignment": "center"
+    },
+    {
+      "key": "Panel_Corner_2_Bottom_Right",
+      "file": "Panel_Corner_2_Bottom_Right.png",
+      "width": 120,
+      "height": 120,
+      "alignment": "center"
+    },
+    {
+      "key": "Panel_Corner_2_Top_Left",
+      "file": "Panel_Corner_2_Top_Left.png",
+      "width": 120,
+      "height": 120,
+      "alignment": "center"
+    },
+    {
+      "key": "Panel_Corner_2_Top_Right",
+      "file": "Panel_Corner_2_Top_Right.png",
+      "width": 120,
+      "height": 120,
+      "alignment": "center"
+    },
+    {
+      "key": "Panel_Corner_Bottom_Left",
+      "file": "Panel_Corner_Bottom_Left.png",
+      "width": 120,
+      "height": 120,
+      "alignment": "center"
+    },
+    {
+      "key": "Panel_Corner_Bottom_Right",
+      "file": "Panel_Corner_Bottom_Right.png",
+      "width": 120,
+      "height": 120,
+      "alignment": "center"
+    },
+    {
+      "key": "Panel_Corner_Top_Left",
+      "file": "Panel_Corner_Top_Left.png",
+      "width": 120,
+      "height": 120,
+      "alignment": "center"
+    },
+    {
+      "key": "Panel_Corner_Top_Right",
+      "file": "Panel_Corner_Top_Right.png",
+      "width": 120,
+      "height": 120,
+      "alignment": "center"
+    },
+    {
+      "key": "Panel_Divider",
+      "file": "Panel_Divider.png",
+      "width": 1070,
+      "height": 30,
+      "alignment": "center"
+    },
+    {
+      "key": "ReportsShield",
+      "file": "ReportsShield.png",
+      "width": 502,
+      "height": 282,
+      "alignment": "center"
+    },
+    {
+      "key": "Resources_Disabled",
+      "file": "Resources_Disabled.png",
+      "width": 68,
+      "height": 68,
+      "alignment": "center",
+      "normalization": {
+        "sourceCrop": [
+          2,
+          0,
+          70,
+          68
+        ]
+      }
+    },
+    {
+      "key": "Resources_Highlight",
+      "file": "Resources_Highlight.png",
+      "width": 68,
+      "height": 68,
+      "alignment": "center"
+    },
+    {
+      "key": "Resources_Normal",
+      "file": "Resources_Normal.png",
+      "width": 68,
+      "height": 68,
+      "alignment": "center"
+    },
+    {
+      "key": "Scribe_B_over",
+      "file": "Scribe_B_over.png",
+      "width": 200,
+      "height": 200,
+      "alignment": "center"
+    },
+    {
+      "key": "Scribe_B_selected",
+      "file": "Scribe_B_selected.png",
+      "width": 200,
+      "height": 200,
+      "alignment": "center"
+    },
+    {
+      "key": "Scribe_B_up",
+      "file": "Scribe_B_up.png",
+      "width": 200,
+      "height": 200,
+      "alignment": "center"
+    },
+    {
+      "key": "Scribe_C_over",
+      "file": "Scribe_C_over.png",
+      "width": 200,
+      "height": 200,
+      "alignment": "center"
+    },
+    {
+      "key": "Scribe_C_selected",
+      "file": "Scribe_C_selected.png",
+      "width": 200,
+      "height": 200,
+      "alignment": "center"
+    },
+    {
+      "key": "Scribe_C_up",
+      "file": "Scribe_C_up.png",
+      "width": 200,
+      "height": 200,
+      "alignment": "center"
+    },
+    {
+      "key": "Slider_Thumb",
+      "file": "Slider_Thumb.png",
+      "width": 80,
+      "height": 80,
+      "alignment": "center"
+    },
+    {
+      "key": "Slider_Thumb_bottom",
+      "file": "Slider_Thumb_bottom.png",
+      "width": 80,
+      "height": 60,
+      "alignment": "center"
+    },
+    {
+      "key": "Slider_Thumb_top",
+      "file": "Slider_Thumb_top.png",
+      "width": 80,
+      "height": 60,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buildings A001",
+      "file": "UI-Buildings A001.png",
+      "width": 68,
+      "height": 68,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings A002",
+      "file": "UI-Buildings A002.png",
+      "width": 68,
+      "height": 68,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings A003",
+      "file": "UI-Buildings A003.png",
+      "width": 68,
+      "height": 68,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings A004",
+      "file": "UI-Buildings A004.png",
+      "width": 68,
+      "height": 68,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings A005",
+      "file": "UI-Buildings A005.png",
+      "width": 68,
+      "height": 68,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings A006",
+      "file": "UI-Buildings A006.png",
+      "width": 68,
+      "height": 68,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings A007",
+      "file": "UI-Buildings A007.png",
+      "width": 68,
+      "height": 68,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings A008",
+      "file": "UI-Buildings A008.png",
+      "width": 68,
+      "height": 68,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings A009",
+      "file": "UI-Buildings A009.png",
+      "width": 68,
+      "height": 68,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings A010",
+      "file": "UI-Buildings A010.png",
+      "width": 68,
+      "height": 68,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings A011",
+      "file": "UI-Buildings A011.png",
+      "width": 68,
+      "height": 68,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings A012",
+      "file": "UI-Buildings A012.png",
+      "width": 68,
+      "height": 68,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings A013",
+      "file": "UI-Buildings A013.png",
+      "width": 68,
+      "height": 68,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings A014",
+      "file": "UI-Buildings A014.png",
+      "width": 68,
+      "height": 68,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings A015",
+      "file": "UI-Buildings A015.png",
+      "width": 68,
+      "height": 68,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings A016",
+      "file": "UI-Buildings A016.png",
+      "width": 68,
+      "height": 68,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings A017",
+      "file": "UI-Buildings A017.png",
+      "width": 68,
+      "height": 68,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings A018",
+      "file": "UI-Buildings A018.png",
+      "width": 68,
+      "height": 68,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings A019",
+      "file": "UI-Buildings A019.png",
+      "width": 68,
+      "height": 68,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings A020",
+      "file": "UI-Buildings A020.png",
+      "width": 68,
+      "height": 68,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings B001",
+      "file": "UI-Buildings B001.png",
+      "width": 110,
+      "height": 95,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings B002",
+      "file": "UI-Buildings B002.png",
+      "width": 110,
+      "height": 95,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings B003",
+      "file": "UI-Buildings B003.png",
+      "width": 108,
+      "height": 102,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings B004",
+      "file": "UI-Buildings B004.png",
+      "width": 108,
+      "height": 102,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings B005",
+      "file": "UI-Buildings B005.png",
+      "width": 113,
+      "height": 120,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings B006",
+      "file": "UI-Buildings B006.png",
+      "width": 113,
+      "height": 120,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings C001",
+      "file": "UI-Buildings C001.png",
+      "width": 105,
+      "height": 132,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings C002",
+      "file": "UI-Buildings C002.png",
+      "width": 105,
+      "height": 132,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings C003",
+      "file": "UI-Buildings C003.png",
+      "width": 132,
+      "height": 109,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings C004",
+      "file": "UI-Buildings C004.png",
+      "width": 132,
+      "height": 109,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings C005",
+      "file": "UI-Buildings C005.png",
+      "width": 131,
+      "height": 136,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings C006",
+      "file": "UI-Buildings C006.png",
+      "width": 131,
+      "height": 136,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings C007",
+      "file": "UI-Buildings C007.png",
+      "width": 141,
+      "height": 154,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings C008",
+      "file": "UI-Buildings C008.png",
+      "width": 141,
+      "height": 154,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings C009",
+      "file": "UI-Buildings C009.png",
+      "width": 128,
+      "height": 128,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings C010",
+      "file": "UI-Buildings C010.png",
+      "width": 128,
+      "height": 128,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings C011",
+      "file": "UI-Buildings C011.png",
+      "width": 147,
+      "height": 97,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings C012",
+      "file": "UI-Buildings C012.png",
+      "width": 147,
+      "height": 97,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings C013",
+      "file": "UI-Buildings C013.png",
+      "width": 108,
+      "height": 124,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings C014",
+      "file": "UI-Buildings C014.png",
+      "width": 108,
+      "height": 124,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings D001",
+      "file": "UI-Buildings D001.png",
+      "width": 132,
+      "height": 83,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings D002",
+      "file": "UI-Buildings D002.png",
+      "width": 132,
+      "height": 83,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings D003",
+      "file": "UI-Buildings D003.png",
+      "width": 151,
+      "height": 126,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings D004",
+      "file": "UI-Buildings D004.png",
+      "width": 151,
+      "height": 126,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings D005",
+      "file": "UI-Buildings D005.png",
+      "width": 152,
+      "height": 181,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings D006",
+      "file": "UI-Buildings D006.png",
+      "width": 152,
+      "height": 181,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings D007",
+      "file": "UI-Buildings D007.png",
+      "width": 88,
+      "height": 92,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings D008",
+      "file": "UI-Buildings D008.png",
+      "width": 88,
+      "height": 92,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings D009",
+      "file": "UI-Buildings D009.png",
+      "width": 141,
+      "height": 117,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings D010",
+      "file": "UI-Buildings D010.png",
+      "width": 141,
+      "height": 117,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings D011",
+      "file": "UI-Buildings D011.png",
+      "width": 190,
+      "height": 114,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings D012",
+      "file": "UI-Buildings D012.png",
+      "width": 190,
+      "height": 114,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings D013",
+      "file": "UI-Buildings D013.png",
+      "width": 155,
+      "height": 122,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings D014",
+      "file": "UI-Buildings D014.png",
+      "width": 155,
+      "height": 122,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings E001",
+      "file": "UI-Buildings E001.png",
+      "width": 157,
+      "height": 150,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings E002",
+      "file": "UI-Buildings E002.png",
+      "width": 157,
+      "height": 150,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings E003",
+      "file": "UI-Buildings E003.png",
+      "width": 159,
+      "height": 153,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings E004",
+      "file": "UI-Buildings E004.png",
+      "width": 159,
+      "height": 153,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings E005",
+      "file": "UI-Buildings E005.png",
+      "width": 162,
+      "height": 168,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings E006",
+      "file": "UI-Buildings E006.png",
+      "width": 162,
+      "height": 168,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings E007",
+      "file": "UI-Buildings E007.png",
+      "width": 146,
+      "height": 157,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings E008",
+      "file": "UI-Buildings E008.png",
+      "width": 146,
+      "height": 157,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings E009",
+      "file": "UI-Buildings E009.png",
+      "width": 151,
+      "height": 163,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings E010",
+      "file": "UI-Buildings E010.png",
+      "width": 151,
+      "height": 163,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings F001",
+      "file": "UI-Buildings F001.png",
+      "width": 103,
+      "height": 114,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings F002",
+      "file": "UI-Buildings F002.png",
+      "width": 103,
+      "height": 114,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings F003",
+      "file": "UI-Buildings F003.png",
+      "width": 106,
+      "height": 109,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings F004",
+      "file": "UI-Buildings F004.png",
+      "width": 106,
+      "height": 109,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings F005",
+      "file": "UI-Buildings F005.png",
+      "width": 158,
+      "height": 135,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings F006",
+      "file": "UI-Buildings F006.png",
+      "width": 158,
+      "height": 135,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings F007",
+      "file": "UI-Buildings F007.png",
+      "width": 208,
+      "height": 197,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings F008",
+      "file": "UI-Buildings F008.png",
+      "width": 208,
+      "height": 197,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings F009",
+      "file": "UI-Buildings F009.png",
+      "width": 139,
+      "height": 132,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings F010",
+      "file": "UI-Buildings F010.png",
+      "width": 139,
+      "height": 132,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings F011",
+      "file": "UI-Buildings F011.png",
+      "width": 112,
+      "height": 97,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings F012",
+      "file": "UI-Buildings F012.png",
+      "width": 112,
+      "height": 97,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings G001",
+      "file": "UI-Buildings G001.png",
+      "width": 86,
+      "height": 160,
+      "alignment": "bottom-center",
+      "normalization": {
+        "sourceCanvas": [
+          86,
+          166
+        ],
+        "sourceOffset": [
+          0,
+          2
+        ]
+      }
+    },
+    {
+      "key": "UI-Buildings G002",
+      "file": "UI-Buildings G002.png",
+      "width": 86,
+      "height": 160,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings G003",
+      "file": "UI-Buildings G003.png",
+      "width": 158,
+      "height": 87,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings G004",
+      "file": "UI-Buildings G004.png",
+      "width": 158,
+      "height": 87,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings G005",
+      "file": "UI-Buildings G005.png",
+      "width": 123,
+      "height": 77,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings G006",
+      "file": "UI-Buildings G006.png",
+      "width": 123,
+      "height": 77,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings G007",
+      "file": "UI-Buildings G007.png",
+      "width": 37,
+      "height": 94,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings G008",
+      "file": "UI-Buildings G008.png",
+      "width": 37,
+      "height": 94,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings G009",
+      "file": "UI-Buildings G009.png",
+      "width": 116,
+      "height": 137,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings G010",
+      "file": "UI-Buildings G010.png",
+      "width": 116,
+      "height": 137,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings G011",
+      "file": "UI-Buildings G011.png",
+      "width": 175,
+      "height": 122,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings G012",
+      "file": "UI-Buildings G012.png",
+      "width": 175,
+      "height": 122,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings G013",
+      "file": "UI-Buildings G013.png",
+      "width": 150,
+      "height": 114,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings G014",
+      "file": "UI-Buildings G014.png",
+      "width": 150,
+      "height": 114,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings G015",
+      "file": "UI-Buildings G015.png",
+      "width": 80,
+      "height": 153,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings G016",
+      "file": "UI-Buildings G016.png",
+      "width": 80,
+      "height": 153,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings G017",
+      "file": "UI-Buildings G017.png",
+      "width": 144,
+      "height": 114,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings G018",
+      "file": "UI-Buildings G018.png",
+      "width": 144,
+      "height": 114,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings G019",
+      "file": "UI-Buildings G019.png",
+      "width": 179,
+      "height": 127,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings G020",
+      "file": "UI-Buildings G020.png",
+      "width": 179,
+      "height": 127,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings H001",
+      "file": "UI-Buildings H001.png",
+      "width": 125,
+      "height": 116,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings H002",
+      "file": "UI-Buildings H002.png",
+      "width": 125,
+      "height": 116,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings H003",
+      "file": "UI-Buildings H003.png",
+      "width": 194,
+      "height": 123,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings H004",
+      "file": "UI-Buildings H004.png",
+      "width": 194,
+      "height": 123,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings H005",
+      "file": "UI-Buildings H005.png",
+      "width": 106,
+      "height": 65,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings H006",
+      "file": "UI-Buildings H006.png",
+      "width": 106,
+      "height": 65,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings H007",
+      "file": "UI-Buildings H007.png",
+      "width": 131,
+      "height": 95,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings H008",
+      "file": "UI-Buildings H008.png",
+      "width": 131,
+      "height": 95,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings H009",
+      "file": "UI-Buildings H009.png",
+      "width": 155,
+      "height": 110,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings H010",
+      "file": "UI-Buildings H010.png",
+      "width": 155,
+      "height": 110,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings H011",
+      "file": "UI-Buildings H011.png",
+      "width": 81,
+      "height": 97,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings H012",
+      "file": "UI-Buildings H012.png",
+      "width": 81,
+      "height": 97,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings H013",
+      "file": "UI-Buildings H013.png",
+      "width": 76,
+      "height": 81,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings H014",
+      "file": "UI-Buildings H014.png",
+      "width": 76,
+      "height": 81,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings H015",
+      "file": "UI-Buildings H015.png",
+      "width": 201,
+      "height": 118,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings H016",
+      "file": "UI-Buildings H016.png",
+      "width": 201,
+      "height": 118,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings H017",
+      "file": "UI-Buildings H017.png",
+      "width": 204,
+      "height": 111,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings H018",
+      "file": "UI-Buildings H018.png",
+      "width": 204,
+      "height": 111,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings I001",
+      "file": "UI-Buildings I001.png",
+      "width": 112,
+      "height": 120,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings I002",
+      "file": "UI-Buildings I002.png",
+      "width": 112,
+      "height": 120,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings I003",
+      "file": "UI-Buildings I003.png",
+      "width": 111,
+      "height": 123,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings I004",
+      "file": "UI-Buildings I004.png",
+      "width": 111,
+      "height": 123,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings I005",
+      "file": "UI-Buildings I005.png",
+      "width": 115,
+      "height": 117,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings I006",
+      "file": "UI-Buildings I006.png",
+      "width": 115,
+      "height": 117,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings I007",
+      "file": "UI-Buildings I007.png",
+      "width": 121,
+      "height": 122,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings I008",
+      "file": "UI-Buildings I008.png",
+      "width": 121,
+      "height": 122,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings I009",
+      "file": "UI-Buildings I009.png",
+      "width": 116,
+      "height": 119,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings I010",
+      "file": "UI-Buildings I010.png",
+      "width": 116,
+      "height": 119,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings J001",
+      "file": "UI-Buildings J001.png",
+      "width": 141,
+      "height": 126,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings J002",
+      "file": "UI-Buildings J002.png",
+      "width": 141,
+      "height": 126,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings J003",
+      "file": "UI-Buildings J003.png",
+      "width": 120,
+      "height": 120,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings J004",
+      "file": "UI-Buildings J004.png",
+      "width": 120,
+      "height": 120,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings J005",
+      "file": "UI-Buildings J005.png",
+      "width": 117,
+      "height": 123,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings J006",
+      "file": "UI-Buildings J006.png",
+      "width": 117,
+      "height": 123,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings J007",
+      "file": "UI-Buildings J007.png",
+      "width": 141,
+      "height": 138,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings J008",
+      "file": "UI-Buildings J008.png",
+      "width": 141,
+      "height": 138,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings J009",
+      "file": "UI-Buildings J009.png",
+      "width": 152,
+      "height": 152,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings J010",
+      "file": "UI-Buildings J010.png",
+      "width": 152,
+      "height": 152,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings K001",
+      "file": "UI-Buildings K001.png",
+      "width": 65,
+      "height": 188,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings K002",
+      "file": "UI-Buildings K002.png",
+      "width": 65,
+      "height": 188,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings K003",
+      "file": "UI-Buildings K003.png",
+      "width": 81,
+      "height": 134,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings K004",
+      "file": "UI-Buildings K004.png",
+      "width": 81,
+      "height": 134,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings K005",
+      "file": "UI-Buildings K005.png",
+      "width": 98,
+      "height": 154,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings K006",
+      "file": "UI-Buildings K006.png",
+      "width": 98,
+      "height": 155,
+      "alignment": "bottom-center",
+      "normalization": {
+        "fitSize": [
+          98,
+          154
+        ],
+        "targetOffset": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "key": "UI-Buildings K007",
+      "file": "UI-Buildings K007.png",
+      "width": 116,
+      "height": 174,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings K008",
+      "file": "UI-Buildings K008.png",
+      "width": 116,
+      "height": 174,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings K009",
+      "file": "UI-Buildings K009.png",
+      "width": 110,
+      "height": 166,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings K010",
+      "file": "UI-Buildings K010.png",
+      "width": 110,
+      "height": 166,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings L003",
+      "file": "UI-Buildings L003.png",
+      "width": 97,
+      "height": 118,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings L004",
+      "file": "UI-Buildings L004.png",
+      "width": 97,
+      "height": 118,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings L005",
+      "file": "UI-Buildings L005.png",
+      "width": 129,
+      "height": 147,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings L006",
+      "file": "UI-Buildings L006.png",
+      "width": 129,
+      "height": 147,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings L007",
+      "file": "UI-Buildings L007.png",
+      "width": 123,
+      "height": 130,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings L008",
+      "file": "UI-Buildings L008.png",
+      "width": 123,
+      "height": 130,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings L023",
+      "file": "UI-Buildings L023.png",
+      "width": 132,
+      "height": 152,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings L024",
+      "file": "UI-Buildings L024.png",
+      "width": 132,
+      "height": 152,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings L025",
+      "file": "UI-Buildings L025.png",
+      "width": 98,
+      "height": 119,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings L026",
+      "file": "UI-Buildings L026.png",
+      "width": 98,
+      "height": 119,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings M001",
+      "file": "UI-Buildings M001.png",
+      "width": 128,
+      "height": 113,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings M002",
+      "file": "UI-Buildings M002.png",
+      "width": 128,
+      "height": 113,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings M003",
+      "file": "UI-Buildings M003.png",
+      "width": 158,
+      "height": 130,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings M004",
+      "file": "UI-Buildings M004.png",
+      "width": 158,
+      "height": 130,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings M005",
+      "file": "UI-Buildings M005.png",
+      "width": 145,
+      "height": 158,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings M006",
+      "file": "UI-Buildings M006.png",
+      "width": 145,
+      "height": 158,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings M007",
+      "file": "UI-Buildings M007.png",
+      "width": 148,
+      "height": 127,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings M008",
+      "file": "UI-Buildings M008.png",
+      "width": 148,
+      "height": 127,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings M009",
+      "file": "UI-Buildings M009.png",
+      "width": 126,
+      "height": 116,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings M010",
+      "file": "UI-Buildings M010.png",
+      "width": 126,
+      "height": 116,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings M011",
+      "file": "UI-Buildings M011.png",
+      "width": 167,
+      "height": 159,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings M012",
+      "file": "UI-Buildings M012.png",
+      "width": 167,
+      "height": 159,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N001",
+      "file": "UI-Buildings N001.png",
+      "width": 78,
+      "height": 64,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N002",
+      "file": "UI-Buildings N002.png",
+      "width": 78,
+      "height": 64,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N003",
+      "file": "UI-Buildings N003.png",
+      "width": 78,
+      "height": 50,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N004",
+      "file": "UI-Buildings N004.png",
+      "width": 78,
+      "height": 50,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N005",
+      "file": "UI-Buildings N005.png",
+      "width": 78,
+      "height": 51,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N006",
+      "file": "UI-Buildings N006.png",
+      "width": 78,
+      "height": 51,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N007",
+      "file": "UI-Buildings N007.png",
+      "width": 78,
+      "height": 52,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N008",
+      "file": "UI-Buildings N008.png",
+      "width": 78,
+      "height": 52,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N009",
+      "file": "UI-Buildings N009.png",
+      "width": 125,
+      "height": 121,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N010",
+      "file": "UI-Buildings N010.png",
+      "width": 125,
+      "height": 121,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N011",
+      "file": "UI-Buildings N011.png",
+      "width": 138,
+      "height": 166,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N012",
+      "file": "UI-Buildings N012.png",
+      "width": 138,
+      "height": 166,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N013",
+      "file": "UI-Buildings N013.png",
+      "width": 141,
+      "height": 126,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N014",
+      "file": "UI-Buildings N014.png",
+      "width": 141,
+      "height": 126,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N015",
+      "file": "UI-Buildings N015.png",
+      "width": 136,
+      "height": 144,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N016",
+      "file": "UI-Buildings N016.png",
+      "width": 136,
+      "height": 144,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N017",
+      "file": "UI-Buildings N017.png",
+      "width": 139,
+      "height": 81,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N018",
+      "file": "UI-Buildings N018.png",
+      "width": 139,
+      "height": 81,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N019",
+      "file": "UI-Buildings N019.png",
+      "width": 140,
+      "height": 93,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N020",
+      "file": "UI-Buildings N020.png",
+      "width": 140,
+      "height": 93,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N021",
+      "file": "UI-Buildings N021.png",
+      "width": 142,
+      "height": 125,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N022",
+      "file": "UI-Buildings N022.png",
+      "width": 142,
+      "height": 125,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N023",
+      "file": "UI-Buildings N023.png",
+      "width": 140,
+      "height": 126,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N024",
+      "file": "UI-Buildings N024.png",
+      "width": 140,
+      "height": 126,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N025",
+      "file": "UI-Buildings N025.png",
+      "width": 144,
+      "height": 107,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N026",
+      "file": "UI-Buildings N026.png",
+      "width": 144,
+      "height": 107,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N027",
+      "file": "UI-Buildings N027.png",
+      "width": 230,
+      "height": 150,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N028",
+      "file": "UI-Buildings N028.png",
+      "width": 230,
+      "height": 150,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N029",
+      "file": "UI-Buildings N029.png",
+      "width": 232,
+      "height": 162,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N030",
+      "file": "UI-Buildings N030.png",
+      "width": 232,
+      "height": 162,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N031",
+      "file": "UI-Buildings N031.png",
+      "width": 242,
+      "height": 175,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N032",
+      "file": "UI-Buildings N032.png",
+      "width": 242,
+      "height": 175,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N033",
+      "file": "UI-Buildings N033.png",
+      "width": 238,
+      "height": 147,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N034",
+      "file": "UI-Buildings N034.png",
+      "width": 238,
+      "height": 147,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N037",
+      "file": "UI-Buildings N037.png",
+      "width": 210,
+      "height": 202,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N038",
+      "file": "UI-Buildings N038.png",
+      "width": 210,
+      "height": 202,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N039",
+      "file": "UI-Buildings N039.png",
+      "width": 188,
+      "height": 195,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N040",
+      "file": "UI-Buildings N040.png",
+      "width": 188,
+      "height": 195,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N041",
+      "file": "UI-Buildings N041.png",
+      "width": 192,
+      "height": 192,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N042",
+      "file": "UI-Buildings N042.png",
+      "width": 192,
+      "height": 192,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N043",
+      "file": "UI-Buildings N043.png",
+      "width": 180,
+      "height": 227,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N044",
+      "file": "UI-Buildings N044.png",
+      "width": 180,
+      "height": 227,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N045",
+      "file": "UI-Buildings N045.png",
+      "width": 168,
+      "height": 138,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N046",
+      "file": "UI-Buildings N046.png",
+      "width": 168,
+      "height": 138,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N047",
+      "file": "UI-Buildings N047.png",
+      "width": 82,
+      "height": 207,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N048",
+      "file": "UI-Buildings N048.png",
+      "width": 82,
+      "height": 207,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N049",
+      "file": "UI-Buildings N049.png",
+      "width": 81,
+      "height": 125,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N050",
+      "file": "UI-Buildings N050.png",
+      "width": 81,
+      "height": 125,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N051",
+      "file": "UI-Buildings N051.png",
+      "width": 81,
+      "height": 69,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N052",
+      "file": "UI-Buildings N052.png",
+      "width": 81,
+      "height": 69,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N053",
+      "file": "UI-Buildings N053.png",
+      "width": 81,
+      "height": 53,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N054",
+      "file": "UI-Buildings N054.png",
+      "width": 81,
+      "height": 53,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N055",
+      "file": "UI-Buildings N055.png",
+      "width": 81,
+      "height": 51,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N056",
+      "file": "UI-Buildings N056.png",
+      "width": 81,
+      "height": 51,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N057",
+      "file": "UI-Buildings N057.png",
+      "width": 81,
+      "height": 54,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N058",
+      "file": "UI-Buildings N058.png",
+      "width": 81,
+      "height": 54,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N059",
+      "file": "UI-Buildings N059.png",
+      "width": 175,
+      "height": 258,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N060",
+      "file": "UI-Buildings N060.png",
+      "width": 175,
+      "height": 258,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N061",
+      "file": "UI-Buildings N061.png",
+      "width": 198,
+      "height": 215,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N062",
+      "file": "UI-Buildings N062.png",
+      "width": 198,
+      "height": 215,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N063",
+      "file": "UI-Buildings N063.png",
+      "width": 214,
+      "height": 233,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N064",
+      "file": "UI-Buildings N064.png",
+      "width": 214,
+      "height": 233,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N065",
+      "file": "UI-Buildings N065.png",
+      "width": 217,
+      "height": 287,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N066",
+      "file": "UI-Buildings N066.png",
+      "width": 217,
+      "height": 287,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N067",
+      "file": "UI-Buildings N067.png",
+      "width": 47,
+      "height": 80,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N068",
+      "file": "UI-Buildings N068.png",
+      "width": 47,
+      "height": 80,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N069",
+      "file": "UI-Buildings N069.png",
+      "width": 236,
+      "height": 201,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buildings N070",
+      "file": "UI-Buildings N070.png",
+      "width": 236,
+      "height": 201,
+      "alignment": "bottom-center"
+    },
+    {
+      "key": "UI-Buttons A001",
+      "file": "UI-Buttons A001.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A002",
+      "file": "UI-Buttons A002.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A003",
+      "file": "UI-Buttons A003.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A004",
+      "file": "UI-Buttons A004.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A005",
+      "file": "UI-Buttons A005.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A006",
+      "file": "UI-Buttons A006.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A007",
+      "file": "UI-Buttons A007.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A008",
+      "file": "UI-Buttons A008.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A009",
+      "file": "UI-Buttons A009.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A010",
+      "file": "UI-Buttons A010.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A011",
+      "file": "UI-Buttons A011.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A012",
+      "file": "UI-Buttons A012.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A013",
+      "file": "UI-Buttons A013.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A014",
+      "file": "UI-Buttons A014.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A015",
+      "file": "UI-Buttons A015.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A016",
+      "file": "UI-Buttons A016.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A017",
+      "file": "UI-Buttons A017.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A018",
+      "file": "UI-Buttons A018.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A019",
+      "file": "UI-Buttons A019.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A020",
+      "file": "UI-Buttons A020.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A021",
+      "file": "UI-Buttons A021.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A022",
+      "file": "UI-Buttons A022.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A023",
+      "file": "UI-Buttons A023.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A024",
+      "file": "UI-Buttons A024.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A025",
+      "file": "UI-Buttons A025.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A026",
+      "file": "UI-Buttons A026.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A027",
+      "file": "UI-Buttons A027.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A028",
+      "file": "UI-Buttons A028.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A029",
+      "file": "UI-Buttons A029.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A030",
+      "file": "UI-Buttons A030.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A031",
+      "file": "UI-Buttons A031.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons A032",
+      "file": "UI-Buttons A032.png",
+      "width": 60,
+      "height": 70,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G028",
+      "file": "UI-Buttons G028.png",
+      "width": 156,
+      "height": 144,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G029",
+      "file": "UI-Buttons G029.png",
+      "width": 156,
+      "height": 144,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G030",
+      "file": "UI-Buttons G030.png",
+      "width": 156,
+      "height": 144,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G031",
+      "file": "UI-Buttons G031.png",
+      "width": 126,
+      "height": 132,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G032",
+      "file": "UI-Buttons G032.png",
+      "width": 126,
+      "height": 132,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G033",
+      "file": "UI-Buttons G033.png",
+      "width": 126,
+      "height": 132,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G034",
+      "file": "UI-Buttons G034.png",
+      "width": 176,
+      "height": 130,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G035",
+      "file": "UI-Buttons G035.png",
+      "width": 176,
+      "height": 130,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G036",
+      "file": "UI-Buttons G036.png",
+      "width": 176,
+      "height": 130,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G061",
+      "file": "UI-Buttons G061.png",
+      "width": 102,
+      "height": 148,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G062",
+      "file": "UI-Buttons G062.png",
+      "width": 102,
+      "height": 148,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G063",
+      "file": "UI-Buttons G063.png",
+      "width": 102,
+      "height": 148,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G064",
+      "file": "UI-Buttons G064.png",
+      "width": 78,
+      "height": 162,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G065",
+      "file": "UI-Buttons G065.png",
+      "width": 78,
+      "height": 162,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G066",
+      "file": "UI-Buttons G066.png",
+      "width": 78,
+      "height": 162,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G067",
+      "file": "UI-Buttons G067.png",
+      "width": 158,
+      "height": 110,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G068",
+      "file": "UI-Buttons G068.png",
+      "width": 158,
+      "height": 110,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G069",
+      "file": "UI-Buttons G069.png",
+      "width": 158,
+      "height": 110,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G070",
+      "file": "UI-Buttons G070.png",
+      "width": 136,
+      "height": 148,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G071",
+      "file": "UI-Buttons G071.png",
+      "width": 136,
+      "height": 148,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G072",
+      "file": "UI-Buttons G072.png",
+      "width": 136,
+      "height": 148,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G136",
+      "file": "UI-Buttons G136.png",
+      "width": 98,
+      "height": 94,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G137",
+      "file": "UI-Buttons G137.png",
+      "width": 98,
+      "height": 94,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G138",
+      "file": "UI-Buttons G138.png",
+      "width": 98,
+      "height": 94,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G139",
+      "file": "UI-Buttons G139.png",
+      "width": 128,
+      "height": 106,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G140",
+      "file": "UI-Buttons G140.png",
+      "width": 128,
+      "height": 106,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G141",
+      "file": "UI-Buttons G141.png",
+      "width": 128,
+      "height": 106,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G142",
+      "file": "UI-Buttons G142.png",
+      "width": 82,
+      "height": 80,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G143",
+      "file": "UI-Buttons G143.png",
+      "width": 82,
+      "height": 80,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G144",
+      "file": "UI-Buttons G144.png",
+      "width": 82,
+      "height": 80,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G145",
+      "file": "UI-Buttons G145.png",
+      "width": 96,
+      "height": 66,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G146",
+      "file": "UI-Buttons G146.png",
+      "width": 96,
+      "height": 66,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G147",
+      "file": "UI-Buttons G147.png",
+      "width": 96,
+      "height": 66,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G148",
+      "file": "UI-Buttons G148.png",
+      "width": 104,
+      "height": 94,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G149",
+      "file": "UI-Buttons G149.png",
+      "width": 104,
+      "height": 94,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons G150",
+      "file": "UI-Buttons G150.png",
+      "width": 104,
+      "height": 94,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons H001",
+      "file": "UI-Buttons H001.png",
+      "width": 48,
+      "height": 46,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons H002",
+      "file": "UI-Buttons H002.png",
+      "width": 48,
+      "height": 46,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons H003",
+      "file": "UI-Buttons H003.png",
+      "width": 48,
+      "height": 46,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons H004",
+      "file": "UI-Buttons H004.png",
+      "width": 47,
+      "height": 46,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons H005",
+      "file": "UI-Buttons H005.png",
+      "width": 47,
+      "height": 46,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Buttons H006",
+      "file": "UI-Buttons H006.png",
+      "width": 47,
+      "height": 46,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-HUD 000",
+      "file": "UI-HUD 000.png",
+      "width": 1600,
+      "height": 288,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-HUD 001",
+      "file": "UI-HUD 001.png",
+      "width": 347,
+      "height": 256,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-HUD 002",
+      "file": "UI-HUD 002.png",
+      "width": 95,
+      "height": 144,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-HUD 003",
+      "file": "UI-HUD 003.png",
+      "width": 1600,
+      "height": 340,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-HUD 004",
+      "file": "UI-HUD 004.png",
+      "width": 800,
+      "height": 166,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-HUD 005",
+      "file": "UI-HUD 005.png",
+      "width": 1600,
+      "height": 390,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-HUD 006",
+      "file": "UI-HUD 006.png",
+      "width": 1600,
+      "height": 310,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-HUD 007",
+      "file": "UI-HUD 007.png",
+      "width": 1752,
+      "height": 206,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-HUD 008",
+      "file": "UI-HUD 008.png",
+      "width": 480,
+      "height": 272,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B001",
+      "file": "UI-Scribe B001.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B002",
+      "file": "UI-Scribe B002.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B003",
+      "file": "UI-Scribe B003.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B004",
+      "file": "UI-Scribe B004.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B005",
+      "file": "UI-Scribe B005.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B006",
+      "file": "UI-Scribe B006.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B007",
+      "file": "UI-Scribe B007.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B008",
+      "file": "UI-Scribe B008.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B009",
+      "file": "UI-Scribe B009.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B010",
+      "file": "UI-Scribe B010.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B011",
+      "file": "UI-Scribe B011.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B012",
+      "file": "UI-Scribe B012.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B013",
+      "file": "UI-Scribe B013.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B014",
+      "file": "UI-Scribe B014.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B015",
+      "file": "UI-Scribe B015.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B016",
+      "file": "UI-Scribe B016.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B017",
+      "file": "UI-Scribe B017.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B018",
+      "file": "UI-Scribe B018.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B019",
+      "file": "UI-Scribe B019.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B020",
+      "file": "UI-Scribe B020.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B021",
+      "file": "UI-Scribe B021.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B022",
+      "file": "UI-Scribe B022.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B023",
+      "file": "UI-Scribe B023.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B024",
+      "file": "UI-Scribe B024.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B025",
+      "file": "UI-Scribe B025.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B026",
+      "file": "UI-Scribe B026.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B027",
+      "file": "UI-Scribe B027.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B028",
+      "file": "UI-Scribe B028.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B029",
+      "file": "UI-Scribe B029.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B030",
+      "file": "UI-Scribe B030.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B031",
+      "file": "UI-Scribe B031.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B032",
+      "file": "UI-Scribe B032.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B033",
+      "file": "UI-Scribe B033.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B034",
+      "file": "UI-Scribe B034.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B035",
+      "file": "UI-Scribe B035.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B036",
+      "file": "UI-Scribe B036.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B037",
+      "file": "UI-Scribe B037.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B038",
+      "file": "UI-Scribe B038.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B039",
+      "file": "UI-Scribe B039.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B040",
+      "file": "UI-Scribe B040.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B041",
+      "file": "UI-Scribe B041.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B042",
+      "file": "UI-Scribe B042.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B043",
+      "file": "UI-Scribe B043.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B044",
+      "file": "UI-Scribe B044.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe B045",
+      "file": "UI-Scribe B045.png",
+      "width": 178,
+      "height": 164,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C001",
+      "file": "UI-Scribe C001.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C002",
+      "file": "UI-Scribe C002.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C003",
+      "file": "UI-Scribe C003.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C004",
+      "file": "UI-Scribe C004.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C005",
+      "file": "UI-Scribe C005.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C006",
+      "file": "UI-Scribe C006.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C007",
+      "file": "UI-Scribe C007.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C008",
+      "file": "UI-Scribe C008.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C009",
+      "file": "UI-Scribe C009.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C010",
+      "file": "UI-Scribe C010.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C011",
+      "file": "UI-Scribe C011.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C012",
+      "file": "UI-Scribe C012.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C013",
+      "file": "UI-Scribe C013.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C014",
+      "file": "UI-Scribe C014.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C015",
+      "file": "UI-Scribe C015.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C016",
+      "file": "UI-Scribe C016.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C017",
+      "file": "UI-Scribe C017.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C018",
+      "file": "UI-Scribe C018.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C019",
+      "file": "UI-Scribe C019.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C020",
+      "file": "UI-Scribe C020.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C021",
+      "file": "UI-Scribe C021.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C022",
+      "file": "UI-Scribe C022.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C023",
+      "file": "UI-Scribe C023.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C024",
+      "file": "UI-Scribe C024.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C025",
+      "file": "UI-Scribe C025.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C026",
+      "file": "UI-Scribe C026.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C027",
+      "file": "UI-Scribe C027.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C028",
+      "file": "UI-Scribe C028.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C029",
+      "file": "UI-Scribe C029.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C030",
+      "file": "UI-Scribe C030.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C031",
+      "file": "UI-Scribe C031.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C032",
+      "file": "UI-Scribe C032.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C033",
+      "file": "UI-Scribe C033.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C034",
+      "file": "UI-Scribe C034.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C035",
+      "file": "UI-Scribe C035.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C036",
+      "file": "UI-Scribe C036.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C037",
+      "file": "UI-Scribe C037.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C038",
+      "file": "UI-Scribe C038.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C039",
+      "file": "UI-Scribe C039.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C040",
+      "file": "UI-Scribe C040.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C041",
+      "file": "UI-Scribe C041.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C042",
+      "file": "UI-Scribe C042.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C043",
+      "file": "UI-Scribe C043.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UI-Scribe C044",
+      "file": "UI-Scribe C044.png",
+      "width": 374,
+      "height": 414,
+      "alignment": "center"
+    },
+    {
+      "key": "UISprites B001",
+      "file": "UISprites B001.png",
+      "width": 94,
+      "height": 38,
+      "alignment": "center"
+    },
+    {
+      "key": "shield_book",
+      "file": "shield_book.png",
+      "width": 186,
+      "height": 204,
+      "alignment": "center"
+    },
+    {
+      "key": "shield_campaign",
+      "file": "shield_campaign.png",
+      "width": 186,
+      "height": 204,
+      "alignment": "center"
+    },
+    {
+      "key": "shield_castle",
+      "file": "shield_castle.png",
+      "width": 186,
+      "height": 204,
+      "alignment": "center"
+    },
+    {
+      "key": "shield_combat_games",
+      "file": "shield_combat_games.png",
+      "width": 186,
+      "height": 204,
+      "alignment": "center"
+    },
+    {
+      "key": "shield_mapeditor",
+      "file": "shield_mapeditor.png",
+      "width": 186,
+      "height": 204,
+      "alignment": "center"
+    },
+    {
+      "key": "siege_freebuild",
+      "file": "siege_freebuild.png",
+      "width": 186,
+      "height": 204,
+      "alignment": "center"
+    }
+  ]
+}
