@@ -52,3 +52,55 @@ Installationsanweisungen; die alten Dateien bleiben über diesen Git-Stand lesba
 - Weitere alte Provenienzdateien, Quellstände und Buildanweisungen sind im Git-Stand
   oben erhalten. Bestehende `_inspect`-Audits und geschützte Arbeitskopien wurden
   nicht entfernt. Echter Mehrspielertest und manueller Augentest bleiben offen.
+
+## Bewahrte Optimierungslehren
+
+Am 13.11.2026 aus `PathfindingRoadmap.md` vor deren Bereinigung übernommen
+(Root-Git-Stand `e95da5315e2f7567d7ae8c8f6d24f75f3e7804b0`). Dies sind
+historische Modversuche, keine Vanilla-Verträge und keine aktuellen Benchmarks.
+Sie verhindern, dass bereits verworfene Ansätze ohne neue Begründung wiederholt
+werden. Verbleibende Aufgaben stehen in
+[PathfindingFutureImprovements.md](../../PathfindingFutureImprovements.md).
+
+- **Vollständige Zielfelder für unabhängige Einzelbefehle lohnten sich nicht.**
+  `pf-iter-27`: fortsetzbare Felder je Ziel kosteten 17,8 statt 7,2 s mit Vanilla.
+  `pf-rule-2`: ein gemeinsames Feld ab der dritten Anfrage kostete 17,2 statt
+  5,2 s; 1.859 Vollfelder für 4.586 Treffer, nur etwa 2,5 Wiederholungen je
+  Ziel/Maskenstand. Diese Varianten wurden zurückgenommen. Eine neue Variante
+  braucht nachgewiesene Wiederverwendung und muss Aufbau, Invalidierung und
+  ungenutzte Arbeit mitrechnen; dies widerlegt nicht sämtliche Feld-Caches.
+- **Rückwärtsbeweise je Ziel waren in der damaligen Fassung zu teuer.**
+  Der Versuch ab `pf-iter-19` führte in `pf-iter-20/21` zu Spitzen von 307/559 ms
+  und wurde zurückgenommen. Die später eingeführten, qualifizierten
+  `GroundFailureProofs`/`MoatFailureProofs` sind davon zu unterscheiden. Nur
+  erschöpfte Suchen mit weiterhin gültigen Eingaben beweisen Unerreichbarkeit;
+  ein Budgetabbruch ist kein solcher Beweis.
+- **Spekulative KI-Gruppenbatches berechneten überwiegend ungenutzte Wege.**
+  `pf-iter-36`: 185.208 Vorabwege, nur 15.299 genutzt (8 %), Abfragezeit 8,8
+  statt 2,0 s. Ein zusätzlicher Zustands-/Zielvergleich in `pf-iter-37` ließ
+  noch 157.599 Vorabwege für 15.457 Treffer übrig; beide Varianten verworfen.
+  Die tatsächlichen Neuplanentscheidungen liegen tiefer in Vanillas
+  Mitgliederschleife. Das ist kein Gegenargument gegen das heute vorhandene
+  Batchen bekannter Formationsziele; neue KI-Batches benötigen einen Beweis,
+  welche Anfragen tatsächlich gebraucht werden.
+- **Mehr vorgeschaltete A*-Proben waren kein automatischer Gewinn.**
+  `pf-iter-41`: 32 statt 8 Proben je Gruppenbefehl senkten die Felder nur von
+  1.488 auf 1.434; zusätzliche 115 ms Einzelwege gegen 144 ms Feldersparnis
+  wurden als neutral bewertet und auf 8 zurückgestellt. Auch die tiefere
+  Gleichstandsbevorzugung der damaligen Assassinen-A*-Suche (`pf-iter-30`)
+  brachte keinen Gewinn und wurde zurückgenommen. Diese Werte sind keine
+  allgemeingültigen Optima für einen anderen Kern oder eine andere Last.
+- **Gruppenbefehle über Ticks zurückzuhalten ist keine exakte Abkürzung.**
+  `0x11B520` schreibt vor den Mitgliederwegen bereits Tribe-Ziel, Modus und
+  Platzdaten. Den gesamten Befehl zu verschieben lässt nachfolgende KI mit
+  altem Zustand rechnen; nur Mitgliederwege zu verschieben erfordert einen
+  neuen Teilzustandsvertrag. Die damalige Verzögerungsvariante wurde deshalb
+  nicht umgesetzt. Native Aufnahme-/Schreibverträge stehen in der
+  [Baseline](../../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/MANUAL_GROUP_ADMISSION.md).
+
+Die damaligen Iterationen änderten auch das KI-Verhalten und damit die spätere
+Last; rohe FPS-/Tickzahlen verschiedener Iterationen sind nicht durchgehend
+direkt vergleichbar. DEVDIAG, Release, Ladephase und künstlicher Massen-Spawn
+müssen getrennt bleiben. Die vollständige frühere Tabelle ist über den oben
+genannten Git-Stand lesbar; vorhandene Rohprotokolle und Retentionsnachweise
+bleiben erhalten. Sie sind keine neuen Abnahmen des heutigen Codes.

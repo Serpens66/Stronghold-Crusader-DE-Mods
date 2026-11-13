@@ -73,8 +73,8 @@ SomeSettings.VanillaValue50=Vanilla value: 50%.
 SomeSettings.KeepStorageContent=Keep Storage Content
 SomeSettings.KeepStorageContentHelp=When enabled, bulldozing a granary, armory, or stockpile keeps the goods stored inside by adding them back as incoming goods.\nIf Granary was built for free can't credit goods back (happens when building it while no wood is on stock)
 SomeSettings.EconomyBuffsTitle=Economy Bonuses
-SomeSettings.MultiplyGoodsGain=Multiply production output
-SomeSettings.MultiplyGoodsGainHelp=Multiplies actual worker production for humans and AI separately. 1 = unchanged, 2 = double, 0.5 = half, 0 = no output. Includes wheat, flour and bread. Ingredients are still consumed. Production and fear bonuses apply in addition; fractions accumulate per worker. Starting goods, gifts, purchases and storage transfers are not multiplied. Change this setting between missions only.
+SomeSettings.MultiplyGoodsGain=Base production multiplier
+SomeSettings.MultiplyGoodsGainHelp=Multiplies base output separately for humans and AI: 1 = unchanged, 2 = double, 0 = no output. Includes wheat, flour and bread. Production and fear bonuses are calculated afterwards. Ingredient use stays unchanged.
 SomeSettings.MultiplyGoodsAsMoney=Production income as money
 SomeSettings.MultiplyGoodsAsMoneyHelp=Awards extra gold for goods from real production successfully delivered to player storage. The reward is the current base sell value divided by five, multiplied by the delivered amount and this factor, rounded per receipt. Includes the additional goods from production multipliers and bonuses. Goods are kept. Starting goods, gifts, purchases, refunds and ingredient transfers give no reward. 0 = disabled. Change this setting between missions only.
 SomeSettings.MarketPriceMultipliersTitle=Market Prices
@@ -586,8 +586,8 @@ ExtraFeatures.CivilianHealthTitle=Civilian health
 ExtraFeatures.CivilianHealthHelp=Multiplies the health of peasants and functional civilian workers. Animals and passive decorative people are excluded. 100% adds no extra multiplier.
 ExtraFeatures.BuildingHealthTitle=Building health
 ExtraFeatures.BuildingHealthHelp=Multiplies ordinary building health, including towers and gatehouses. Walls and objects without health are unchanged. Mobile siege towers use the soldier multiplier. Safe game limits can reduce the effective value. 100% adds no extra multiplier.
-ExtraFeatures.ProductionBonus.Title=Fixed production bonus / penalty
-ExtraFeatures.ProductionBonus.Help=Changes the additional goods yield in skirmishes, including solo games against AI, and multiplayer. Applies equally to human and AI players producing wood, stone, iron, pitch, hunted meat, hops, apples, cheese, ale, weapons and armour. Wheat, flour and bread are unchanged. Accepts whole percentages from -100% to +1000%. 50% is the normal game bonus; 0% removes it. -50% halves the base yield on average. At -100%, no new yield remains without an additional fear-factor yield bonus. Existing fractional credits are still used. A yield bonus from fear is added separately. Fractions accumulate per worker, so individual outputs can vary. Required ingredients are consumed even when the output is zero. Change this setting between missions only.
+ExtraFeatures.ProductionBonus.Title=Production bonus (default: +50%)
+ExtraFeatures.ProductionBonus.Help=Sets the extra yield added to base output: +50% = 1.5 times base output, 0% = no extra yield. Applies to humans and AI in skirmish and multiplayer, except to wheat, flour and bread. Calculated after the base multiplier; fear bonuses add separately. Ingredient use stays unchanged.
 ExtraFeatures.ProductionBonus.Effective=Bonus after all mod rules: {0} %
 ExtraFeatures.ProductionBonus.EffectiveInvalid=The requested bonus cannot be applied yet.
 ExtraFeatures.ProductionBonus.Details=Production details

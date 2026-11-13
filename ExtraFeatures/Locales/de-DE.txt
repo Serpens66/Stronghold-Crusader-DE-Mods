@@ -65,8 +65,8 @@ SomeSettings.VanillaValue50=Vanilla-Wert: 50%.
 SomeSettings.KeepStorageContent=Lagerinhalt behalten
 SomeSettings.KeepStorageContentHelp=Wenn aktiviert, bleiben beim Abreissen von Kornspeicher, Waffenkammer oder Vorratslager die enthaltenen Gueter erhalten und werden als eingehende Gueter wieder hinzugefuegt. Wurde der Kornspeicher kostenlos gebaut, koennen die Gueter nicht gutgeschrieben werden; dies kann geschehen, wenn beim Bau kein Holz im Lager liegt.
 SomeSettings.EconomyBuffsTitle=Wirtschaftsboni
-SomeSettings.MultiplyGoodsGain=Produktionsmenge multiplizieren
-SomeSettings.MultiplyGoodsGainHelp=Multipliziert die tatsächliche Arbeiterproduktion für Menschen und KI getrennt. 1 = unverändert, 2 = doppelt, 0,5 = halbiert, 0 = keine Ausgabe. Gilt auch für Weizen, Mehl und Brot. Zutaten werden weiterhin verbraucht. Produktions- und Furchtboni wirken zusätzlich; Bruchteile sammeln sich je Arbeiter. Startwaren, Geschenke, Käufe und Lagerumlagerungen werden nicht multipliziert. Nur zwischen Partien ändern.
+SomeSettings.MultiplyGoodsGain=Grundertrag multiplizieren
+SomeSettings.MultiplyGoodsGainHelp=Multipliziert den Grundertrag für Menschen und KI getrennt: 1 = unverändert, 2 = doppelt, 0 = kein Ertrag. Gilt auch für Weizen, Mehl und Brot. Produktions- und Angstbonus werden danach berechnet. Rohstoffverbrauch bleibt gleich.
 SomeSettings.MultiplyGoodsAsMoney=Produktion zusätzlich als Gold vergüten
 SomeSettings.MultiplyGoodsAsMoneyHelp=Gewährt zusätzliches Gold für Waren aus echter Produktion, die erfolgreich im Spielerlager abgeliefert wurden. Vergütung: aktueller Basisverkaufswert geteilt durch fünf, mal abgelieferter Menge und diesem Faktor; je Eingang gerundet. Enthält zusätzliche Waren aus Produktionsfaktoren und Boni. Die Waren bleiben erhalten. Startwaren, Geschenke, Käufe, Rückerstattungen und Zutatenumlagerungen werden nicht vergütet. 0 = deaktiviert. Nur zwischen Partien ändern.
 SomeSettings.MarketPriceMultipliersTitle=Marktpreise
@@ -586,8 +586,8 @@ ExtraFeatures.CivilianHealthTitle=Lebenspunkte der Zivilisten
 ExtraFeatures.CivilianHealthHelp=Multipliziert die Lebenspunkte von Bauern und funktionalen zivilen Arbeitern. Tiere und passive Dekorationsfiguren sind ausgeschlossen. 100% fügt keinen zusätzlichen Multiplikator hinzu.
 ExtraFeatures.BuildingHealthTitle=Lebenspunkte der Gebäude
 ExtraFeatures.BuildingHealthHelp=Multipliziert die Lebenspunkte gewöhnlicher Gebäude einschließlich Türmen und Torhäusern. Mauern und Objekte ohne Lebenspunkte bleiben unverändert. Mobile Belagerungstürme verwenden den Soldaten-Multiplikator. Sichere Spielgrenzen können den wirksamen Wert begrenzen. 100% fügt keinen zusätzlichen Multiplikator hinzu.
-ExtraFeatures.ProductionBonus.Title=Fester Produktionsbonus/-abzug
-ExtraFeatures.ProductionBonus.Help=Ändert den zusätzlichen Warenertrag in Gefechten, auch allein gegen KI, und im Mehrspieler. Gilt für Menschen und KI bei Holz, Stein, Eisen, Pech, Jagdfleisch, Hopfen, Äpfeln, Käse, Bier, Waffen und Rüstungen. Weizen, Mehl und Brot bleiben unverändert. Ganzzahlige Prozentwerte von -100 bis +1000 %. 50 % entspricht dem normalen Spielbonus; 0 % entfernt ihn. -50 % halbiert den Grundertrag im Mittel. Bei -100 % entsteht ohne zusätzlichen Angstbonus kein neuer Ertrag. Vorhandene Bruchgutschriften werden noch berücksichtigt. Ein Ertragsbonus durch Angst kommt weiterhin hinzu. Bruchteile werden pro Arbeiter gesammelt, deshalb schwanken einzelne Ausgaben. Benötigte Rohstoffe werden auch bei null Ertrag verbraucht. Nur zwischen Partien änderbar.
+ExtraFeatures.ProductionBonus.Title=Produktionszuschlag (Standard: +50 %)
+ExtraFeatures.ProductionBonus.Help=Legt den Zuschlag auf den Grundertrag fest: +50 % = 1,5-facher Grundertrag, 0 % = kein Zuschlag. Gilt für Menschen und KI in Gefechten und Mehrspieler, außer für Weizen, Mehl und Brot. Wird nach dem Multiplikator berechnet; Angstbonus kommt hinzu. Rohstoffverbrauch bleibt gleich.
 ExtraFeatures.ProductionBonus.Effective=Zusatzbonus nach allen Mod-Regeln: {0} %
 ExtraFeatures.ProductionBonus.EffectiveInvalid=Der gewünschte Zusatzbonus kann noch nicht angewandt werden.
 ExtraFeatures.ProductionBonus.Details=Produktionsdetails
