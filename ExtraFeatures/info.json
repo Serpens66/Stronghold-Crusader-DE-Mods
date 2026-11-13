@@ -20,7 +20,8 @@
       "Version": "1.0.136",
       "Changes": [
         "Multiply genuine production through APIShared instead of adding bonus stockpile goods; prevent unusable raw-log piles and duplicate bonuses.",
-        "Award production money only for goods actually delivered to storage, including production modifiers. Goods factors from zero to one now reduce output, and both features are locked during a mission."
+        "Award production money only for goods actually delivered to storage, including production modifiers. Goods factors from zero to one now reduce output, and both features are locked during a mission.",
+        "Clarify base production multipliers and the separate production bonus."
       ]
     },
     {

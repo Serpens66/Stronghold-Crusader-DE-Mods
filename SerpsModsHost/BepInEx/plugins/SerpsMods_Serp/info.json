@@ -21,9 +21,9 @@
                             "Changes": [
                               "Include the separate Pathfinding mod with movement, formations, Shift queues, gate routing and Assassin pathfinding. Preserve settings and author rules moved from Bugfixes and QoL in older saves, maps and Trails.",
                               "Bugfixes and QoL: add local area demolition with building filters, Ctrl-drag pitch and moat lines, configurable local autosaves, and fixes for siege crews, pitch stairs, AI outpost targets and Coop Trail restarts.",
-                              "Extra Features: add tree respawn, mature-tree harvesting, separate unit and building health multipliers, and a configurable production bonus; improve automatic gate closing and legacy save compatibility.",
+                              "Extra Features: add tree respawn, mature-tree harvesting, separate unit and building health multipliers, and a configurable production bonus; improve automatic gate closing and legacy save compatibility. Multiply actual base production and award production income only for goods delivered to storage.",
                               "Spectator: add saved AI assignments for placed units and options to retain statistics and the game date while the HUD is hidden. CastlePlanner and Spectator wait for slow mission startup.",
-                              "Extended Data: keep autosave and starting speed player-owned and preserve moved Map/Trail settings. This package requires APIShared 0.51.0 or newer; all multiplayer participants need matching modpack and APIShared versions."
+                              "Extended Data: keep autosave and starting speed player-owned and preserve moved Map/Trail settings. This package requires APIShared 0.52.0 or newer; all multiplayer participants need matching modpack and APIShared versions."
                             ]
                           },
                           {

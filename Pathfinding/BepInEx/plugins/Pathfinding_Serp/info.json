@@ -22,7 +22,8 @@
     {
       "Version": "0.1.5",
       "Changes": [
-        "Preserve the Pathfinding settings and author rules moved from BugfixesAndQoL in older saves, maps and trails. Newly added routing features stay off for migrated missions. Requires APIShared 0.51.0."
+        "Preserve the Pathfinding settings and author rules moved from BugfixesAndQoL in older saves, maps and trails. Newly added routing features stay off for migrated missions. Requires APIShared 0.51.0.",
+        "Clarify which movement settings affect human commands, AI troops and moat traversal."
       ]
     },
     {
