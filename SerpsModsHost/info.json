@@ -3,19 +3,25 @@
     "Author":  "Serpens66",
     "Name":  "Serps Mods - Fully Customizable Collection",
     "Description":  "APIShared must be subscribed separately in the Steam Workshop! / APIShared muss separat im Steam Workshop abonniert werden!\n\nMultiplayer: all players need the same versions of this modpack and APIShared. / Mehrspieler: Alle Spieler brauchen dieselbe Version dieses Modpacks und von APIShared.\n\nAll included mods can be freely configured in the in-game Mod Settings.\n\nIncluded mods:\n- Bugfixes and QoL\n- Pathfinding\n- Building Costs\n- Building Limit\n- Extra Features\n- Random Events\n- CastlePlanner\n- Start Conditions\n- Unit Costs\n- Unit Limit\n- Extended Data\n- Spectator",
-    "Version":  "1.0.36",
+    "Version":  "1.0.37",
     "Website":  "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods",
     "MinimumScriptExtenderVersion":  "2.3.0",
     "MaximumScriptExtenderVersion":  "",
     "Dependencies":  [
                          {
                              "GUID":  "APIShared_Serp",
-                             "MinimumVersion":  "0.52.0"
+                             "MinimumVersion":  "0.53.0"
                          }
                      ],
     "Manifest":  1,
     "NetworkMode":  1,
     "SerpChangelog":  [
+                          {
+                              "Version":  "1.0.37",
+                              "Changes":  [
+                                              "Updated unified Steam Workshop package contents."
+                                          ]
+                          },
                           {
                               "Version":  "1.0.36",
                               "Changes":  [
@@ -50,7 +56,7 @@
                               "Changes":  [
                                               "Include the LineUp Patrol passthrough fix, preserved Map/Trail working settings, the already-satisfied market-price correction and more specific bounded support logs for settings, formations, prices, bandits and AI/AIV/AIC decisions.",
                                               "Add Personal Settings to the shared reset dropdown for all compatible mods while retaining the active Map/Trail context and personal storage.",
-                                              "Clarify the visible shared-reset label as Reset ALL modsettings to: (German: ALLE Modsettings zurÃƒÂ¼cksetzen auf:) while retaining the existing tooltip and confirmation.",
+                                              "Clarify the visible shared-reset label as Reset ALL modsettings to: (German: ALLE Modsettings zurÃƒÆ’Ã‚Â¼cksetzen auf:) while retaining the existing tooltip and confirmation.",
                                               "Bugfixes and QoL: add the human Lord return-teleport fix, remembered formation width/depth proportions and a faster native Assassin route search; move the spectator features into the separate Spectator mod.",
                                               "Extra Features: configurable victory loot (gold, goods, gold maximum) and separate civilian/military enemy-proximity radii.",
                                               "CastlePlanner: multiplayer spectators can view the accepted AI castle plan of the viewed player.",
