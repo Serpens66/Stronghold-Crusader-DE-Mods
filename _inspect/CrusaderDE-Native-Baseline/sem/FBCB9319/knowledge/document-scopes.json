@@ -21,6 +21,11 @@
   },
   "documents": [
     {
+      "file": "SIEGE_AMMUNITION_SIGNEDNESS.md",
+      "scope": "vanilla",
+      "components": ["CrusaderDE.dll"]
+    },
+    {
       "file": "AI_EMERGENCY_DEMOLITION.md",
       "scope": "vanilla+integration",
       "components": ["BugfixesAndQoL"],
@@ -1265,6 +1270,12 @@
       "scope": "vanilla+integration",
       "components": ["APIShared"],
       "integrationSections": ["Shared adapter and hook evidence [mod integration]"]
+    },
+    {
+      "file": "RUNTIME_STATE_ACCESS.md",
+      "scope": "vanilla+integration",
+      "components": ["GameMemReader", "GameStateProbe", "Script Extender"],
+      "integrationSections": ["Tools and usage [mod integration]"]
     }
   ]
 }

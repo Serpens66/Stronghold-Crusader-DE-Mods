@@ -7,6 +7,8 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="APIShared"><HintPath>../../APIShared/BepInEx/plugins/APIShared_Serp/APIShared.dll</HintPath></Reference>
+    <Compile Include="..\..\ImprovedHunters\src\HunterInactivePreyPolicy.cs" Link="HunterInactivePreyPolicy.cs" />
     <Compile Include="..\..\ImprovedHunters\src\GranaryChickenSpawnPolicy.cs" Link="GranaryChickenSpawnPolicy.cs" />
     <Compile Include="..\..\ImprovedHunters\src\TannerMeatPolicy.cs" Link="TannerMeatPolicy.cs" />
     <Compile Include="..\..\ImprovedHunters\src\TannerRunTable.cs" Link="TannerRunTable.cs" />

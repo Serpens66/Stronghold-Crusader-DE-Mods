@@ -2672,26 +2672,40 @@ namespace BugfixesAndQoL
                 "src",
                 "Lobby/WorkshopUploadLordSelectionPolicy.cs"));
             string runtimeSource = File.ReadAllText(Path.Combine("src", "Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
-            Check(hookSource.Contains("FindRequiredMethod(\"UpdateUploadAIVList\")") &&
-                    hookSource.Contains("FindRequiredMethod(\"UpdateUploadLordList\")") &&
-                    hookSource.Contains("selectedLordTypeField.SetValue(self, restoredLordType);") &&
-                    hookSource.Contains("if (!settings.EnableClientFeatures || !settings.EnableWorkshopUploadLordSelectionFix)") &&
-                    policySource.Contains("internal const int MinimumLordType = 2;") &&
-                    policySource.Contains("requestedRefresh == currentMode") &&
-                    hookSource.Contains("if (isDoUpload && FRONT_EditorSetup.canCloseWorkshop)") &&
-                    hookSource.Contains("policy.CancelPending();") &&
-                    hookSource.Contains("delegating to Vanilla") &&
-                    CountOccurrences(hookSource, "buttonOriginal(self, command);") == 3 &&
-                    hookSource.Contains("ValidateReflectionContracts();") &&
-                    hookSource.Contains("uploadModeField.FieldType.IsEnum") &&
-                    hookSource.Contains("selectedLordTypeField.FieldType != typeof(int)") &&
-                    !hookSource.Contains("Platform_Workshop") &&
-                    runtimeSource.Contains(
-                        "private static WorkshopUploadLordSelectionFix processWorkshopUploadLordSelectionFix;") &&
-                    !hookSource.Contains("public void Dispose()"),
-                "the fix validates Vanilla contracts, falls back safely, avoids Steam hooks, and remains process rooted");
+            // Structure guard only: behavioral scope regressions below exercise the production context.
+            Check(hookSource.Contains("WorkshopUploadLordSelectionIl.Patch") &&
+                    hookSource.Contains("SafeIlHook.TryInstall") &&
+                    CountOccurrences(hookSource, "buttonOriginal(self, command);") == 1 &&
+                    runtimeSource.Contains("private static WorkshopUploadLordSelectionFix processWorkshopUploadLordSelectionFix;"),
+                "selection patch preserves a single process-rooted original chain");
+            var context = new WorkshopUploadLordSelectionContext();
+            object first = new object(), other = new object();
+            context.Handle(first, true, "DoUpload", WorkshopUploadLordRefresh.Aiv, 17, out _);
+            Check(context.Handle(other, true, "UploadAIV", WorkshopUploadLordRefresh.Aiv, 1, out _) == WorkshopUploadLordRefresh.None,
+                "another UI instance cannot consume a pending upload");
+            Check(context.Handle(first, true, "UploadAIV", WorkshopUploadLordRefresh.Aiv, 1, out int saved) == WorkshopUploadLordRefresh.Aiv && saved == 17,
+                "the initiating UI retains its pending upload");
+            using (context.Enter(first, WorkshopUploadLordRefresh.Aiv, saved))
+            {
+                Check(context.Resolve(first, WorkshopUploadLordRefresh.Aiv, 1) == 17 && context.Resolve(other, WorkshopUploadLordRefresh.Aiv, 1) == 1,
+                    "restore applies only to the matching owner and branch");
+                using (context.Enter(first, WorkshopUploadLordRefresh.None, 0))
+                    Check(context.Resolve(first, WorkshopUploadLordRefresh.Aiv, 1) == 1, "nested unrelated command shadows the outer restore");
+                int threaded = 0;
+                var thread = new System.Threading.Thread(() => threaded = context.Resolve(first, WorkshopUploadLordRefresh.Aiv, 1));
+                thread.Start(); thread.Join();
+                Check(threaded == 1 && context.Resolve(first, WorkshopUploadLordRefresh.Aiv, 1) == 17, "restore is thread-local and outer scope resumes");
+            }
+            using (context.Enter(first, WorkshopUploadLordRefresh.Aiv, 17))
+            {
+                context.CancelAll();
+                Check(context.Resolve(first, WorkshopUploadLordRefresh.Aiv, 1) == 1, "rebuild/settings invalidation also cancels an active restore scope");
+            }            Check(context.Resolve(first, WorkshopUploadLordRefresh.Aiv, 1) == 1, "completed scope cannot affect later navigation");
+            context.Handle(first, true, "DoUpload", WorkshopUploadLordRefresh.Aiv, 17, out _);
+            context.CancelAll();
+            Check(context.Handle(first, true, "UploadAIV", WorkshopUploadLordRefresh.Aiv, 1, out _) == WorkshopUploadLordRefresh.None,
+                "settings invalidation clears all pending uploads");
         }
-
         private static void TestMultiplayerLobbyReturnIntegration()
         {
             string source = File.ReadAllText(Path.Combine(

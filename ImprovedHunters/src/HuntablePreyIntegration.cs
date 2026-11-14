@@ -60,8 +60,6 @@ namespace ImprovedHunters
             }
         }
 
-        private bool IsRegisteredPrey(eChimps type) => preyRegistrations.ContainsKey(type);
-
         // Whether APIShared admits the type in the running mission (outside one: for the next mission).
         private static bool IsPreyAdmitted(eChimps type) => HuntablePrey.Current.IsHuntable((int)type);
 

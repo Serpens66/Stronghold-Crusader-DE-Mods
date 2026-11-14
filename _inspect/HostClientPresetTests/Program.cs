@@ -3685,11 +3685,23 @@ internal static class Program
             new Dictionary<int, ushort> { [1] = 2 },
             "Tweaker ratio and rounded Ctrl pool");
         AssertRestock(
-            new[] { new SiegeAmmoRestockTarget(2, ushort.MaxValue), new SiegeAmmoRestockTarget(1, ushort.MaxValue - 1) },
+            new[] { new SiegeAmmoRestockTarget(2, (ushort)short.MaxValue), new SiegeAmmoRestockTarget(1, short.MaxValue - 1) },
             10, 20, SiegeAmmoRestockModifier.Normal, 100, 1, 1,
-            new Dictionary<int, ushort> { [1] = ushort.MaxValue, [2] = ushort.MaxValue },
-            "16-bit saturation");
+            new Dictionary<int, ushort> { [1] = (ushort)short.MaxValue, [2] = (ushort)short.MaxValue },
+            "native signed-16 saturation");
 
+        AssertRestock(new[] { new SiegeAmmoRestockTarget(1, 32760) },
+            10, 20, SiegeAmmoRestockModifier.Normal, 100, 4, 7,
+            new Dictionary<int, ushort> { [1] = 32767 }, "positive native ammunition boundary");
+        foreach (ushort invalid in new ushort[] { 32768, 65535 })
+            Check(!SiegeAmmoRestockPolicy.TryCreatePlan(10, 20, SiegeAmmoRestockModifier.Normal, 100,
+                new[] { new SiegeAmmoRestockTarget(1, invalid), new SiegeAmmoRestockTarget(2, 0) }, out _),
+                "invalid native ammunition rejects the whole mixed batch before billing");
+        Check(!SiegeAmmoRestockPolicy.TryCreatePlan(10, 20, SiegeAmmoRestockModifier.Normal, 100,
+            new[] { new SiegeAmmoRestockTarget(1, 32767) }, out _), "full positive native ammunition is a no-op");
+        AssertRestock(new[] { new SiegeAmmoRestockTarget(1, 0), new SiegeAmmoRestockTarget(2, 0) },
+            10, 40000, SiegeAmmoRestockModifier.Normal, 100, 10, 40000,
+            new Dictionary<int, ushort> { [1] = 20000, [2] = 20000 }, "large package remains valid across devices");
         Check(!SiegeAmmoRestockPolicy.TryCreatePlan(10, 20, SiegeAmmoRestockModifier.Normal, 0,
                 new[] { new SiegeAmmoRestockTarget(1, 0) }, out _),
             "zero stone created a plan");
@@ -3701,7 +3713,7 @@ internal static class Program
             "duplicate global IDs were accepted");
         Check(!SiegeAmmoRestockPolicy.TryCreatePlan(int.MaxValue, int.MaxValue, SiegeAmmoRestockModifier.Shift, int.MaxValue,
                 new[] { new SiegeAmmoRestockTarget(1, 0) }, out SiegeAmmoRestockPlan overflowPlan) ||
-              overflowPlan.AmmunitionAdded <= ushort.MaxValue,
+              overflowPlan.AmmunitionAdded <= short.MaxValue,
             "overflow bypassed target capacity");
 
         var packet = new SiegeAmmoRestockPacket

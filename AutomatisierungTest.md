@@ -89,6 +89,13 @@ Stand: 20.10.2026. Untersucht wurden die installierten Spielassemblies, der loka
 
 Für diese Aktionen ist keine Mausautomation erforderlich. Dieses Dokument fügt keine neue Runtime-Funktion hinzu. Insbesondere bleibt AutoLoadSave beim einmaligen Laden des konfigurierten Saves.
 
+## Live-Zustand ohne Spezialcode abfragen
+
+Für Diagnose und Spieltests muss Zustand nicht mehr per eigenem Logging ausgegeben werden. Befehle, Messwerte und Grenzen: [RUNTIME_STATE_ACCESS.md](_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/RUNTIME_STATE_ACCESS.md).
+
+- `Shared\Tools\GameMemReader` (bauen mit `dotnet build -c Release`) liest den laufenden Prozess rein lesend, ohne installierten Mod: `status`, `units`, `unit <id>`, `buildings`, `players`, `grid`, `struct`, `raw`. Darf auch während fremder Spieltests laufen. Aggregatzähler sind von außen mitten im Tick nicht konsistent.
+- `Testmods\GameStateProbe` (nur Entwicklung, nie in Releases) beantwortet auf `127.0.0.1:47811` tick-konsistente Speicherabfragen und Reflection-Abfragen auf verwalteten Zustand. Client: `GameMemReader eval "Typ::Member.GetX()"`, `--source probe --context tick`, `--samples n --every k`. Mit `probe '{"cmd":"quit"}'` endet das Spiel regulär. Installation und Plugin-Wechsel nur in einem mit anderen Chats abgestimmten Zeitfenster; danach das Plugin-Inventar wiederherstellen.
+
 ## Voraussetzungen und Ausführungskontext
 
 - Die folgenden Beispiele gehören **in den Spielprozess**, etwa in einen BepInEx-Testmod, nicht direkt in ein externes PowerShell-Skript.

@@ -319,6 +319,7 @@ internal static partial class Program
             Metadata(workspace);
             SettingsPresentationTests(workspace);
             CompactLobbyChatTests(workspace, game);
+            WorkshopOriginalBranchTests();
             CallerGates();
             SiegeCrewActivationMatrix();
             Console.WriteLine("PASS: built production DLL settings matrices, independent AI-list capacity, callers, classifications/defaults/XAML: "+checks+" checks.");return 0;

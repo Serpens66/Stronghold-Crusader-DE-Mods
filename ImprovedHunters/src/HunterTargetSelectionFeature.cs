@@ -37,9 +37,11 @@ namespace ImprovedHunters
                 return Default;
             if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
             {
-                // This mod's registrations follow the settings, not the mode; a mode it may not change keeps
-                // its extra animals unhunted, as without the mod.
-                return APIShared.UnitAccess.TryGetById(queryUnitId, out GameUnit* candidate, out _) && IsRegisteredPrey(candidate->r_UnitChimp)
+                // A frozen own admission must remain blocked until the next mission, but a
+                // closed gate gives this mod no authority over another owner's admitted prey.
+                return APIShared.UnitAccess.TryGetById(queryUnitId, out GameUnit* candidate, out _) &&
+                    preyRegistrations.TryGetValue(candidate->r_UnitChimp, out var own) &&
+                    HunterInactivePreyPolicy.ShouldRefuse((int)candidate->r_UnitChimp, own, APIShared.Wildlife.HuntablePrey.Current)
                     ? APIShared.Wildlife.HunterTargetDecision.Refuse
                     : Default;
             }

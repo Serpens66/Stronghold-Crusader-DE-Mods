@@ -46,6 +46,8 @@ Semantic reverse-engineering baseline:
 
 ## Vanilla behavior audits
 
+- [Siege ammunition signed consumers](./sem/FBCB9319/knowledge/SIEGE_AMMUNITION_SIGNEDNESS.md): adjacent ammunition bytes form one signed-tested word; Catapult/Trebuchet firing branches and ordinary refill target, with static evidence and explicit AI limits.
+
 - [Side HUD visibility](./sem/FBCB9319/knowledge/SIDE_HUD_VISIBILITY.md) documents the managed HUD toggle and independent side-HUD flag.
 
 - [Enemy HP: offline team reference and real multiplayer gate](./sem/FBCB9319/knowledge/ENEMY_HP_MULTIPLIER.md): spectator reference AI/team exemption, per-owner HP consumers, and the mode-1 network-start bypass; static evidence, no new game/host-client acceptance run.
@@ -212,6 +214,8 @@ Third-party components; not Vanilla evidence by themselves.
 - [Script Extender 2.14.1 engage-range audit](./sem/FBCB9319/knowledge/SE_2_14_1_ENGAGE_RANGE.md): full native feature path, all 35 actual RedBird spans, generated-code checks, consumer compatibility and acceptance limits.
 - [Script Extender 2.14.2 source compatibility review](../../Shared/Tools/ScriptExtenderUpdate/2.14.1-2.14.2.review.md): music-only managed change; source baseline refresh, installed extender remains 2.14.1; runtime acceptance pending.
 - [Script Extender 2.14.3 interop additions](./sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md): additive upstream field names, types and offsets; since 2026-10-27 the generated baseline itself is on 2.14.3.
+- [Live state access: manager globals, record layouts and read consistency](./sem/FBCB9319/knowledge/RUNTIME_STATE_ACCESS.md): runtime-confirmed unit/building/player/tile manager RVAs and record strides, counters rebuilt mid-tick, simulation tick on a non-main thread; usage of `Shared\Tools\GameMemReader` (external, read-only) and `Testmods\GameStateProbe` (tick-consistent in-game queries).
+
 - [UU-ImGUI shutdown audit](./sem/FBCB9319/knowledge/UU_IMGUI_SHUTDOWN.md): dependency context teardown race, normal exit path, binary identities, controlled tests, exact Unity Mono backend checks and four successful game shutdown paths.
 
 ## Queries

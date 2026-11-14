@@ -31,7 +31,7 @@ internal static partial class Program
         var runtime = CSharpSyntaxTree.ParseText(Read("Pathfinding/src/Assassins/AssassinPathfindingRuntime.cs"), parseOptions)
             .GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().First();
         string[] excluded = { "InitializeNative", "Dispose", "BuildWeightedPath", "DescribeNativeAssassinState",
-            "ObservePreparedAssassinRoute", "ObserveMoveCommand", "ObserveTargetCommand", "CloseCommandScope",
+            "ObservePreparedAssassinRoute",
             "CompleteCommand", "ClearTransientState", "ResetMapValidation", "HasAssassinSearchObservers", "ApplySetting", "BeginMap", "EndMap", "LogDebug", "LogInfo", "LogWarning", "LogError", "TimestampNow" };
         var members = runtime.Members.Where(m => m is FieldDeclarationSyntax || m is DelegateDeclarationSyntax ||
             m is MethodDeclarationSyntax method && !excluded.Contains(method.Identifier.Text) ||
@@ -67,6 +67,16 @@ internal static partial class Program
         string fixture = File.ReadAllText(Path.Combine(root, "Pathfinding/tests/AssassinPathfinding.Tests/Fixtures/ProductionFixture.cs.txt"))
             .Replace("RUNTIME_MEMBERS", body).Replace("PUBLICATION_MEMBERS", publishing).Replace("API_BOUNDARY", boundary);
         if (before) fixture = fixture.Replace("out var cached,out _", "out var cached");
+        // Historical comparison snapshots retain their instance scope layout and do
+        // not implement the newer publisher lifetime boundary.
+        if (body.Contains("EnterCommandDispatch(")) fixture = fixture.Replace("r.activeCommand", "activeCommand");
+        else
+        {
+            var lifetime = CSharpSyntaxTree.ParseText(fixture).GetRoot().DescendantNodes()
+                .OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.Text == "VerifyCommandLifetime");
+            fixture = fixture.Remove(lifetime.FullSpan.Start, lifetime.FullSpan.Length);
+        }
+
         // Existence-only answer (group/field requests) must equal the production A* outcome on every
         // terrain, climbing state and gate mask; the A* result above is the reference.
         fixture = fixture.Replace("VERIFY_EXISTENCE", before ? "" : """
@@ -203,6 +213,7 @@ internal static partial class Program
     {
         Type disabled = CompileProductionKernel(root, false), enabled = CompileProductionKernel(root, false, true);
         InvokeKernel(disabled, "Verify");
+        InvokeKernel(disabled, "VerifyCommandLifetime");
         InvokeKernel(enabled, "Verify");
         // The packaged native kernel (build.bat compiles it before the tests) must equal the managed search.
         string nativeDirectory = Environment.GetEnvironmentVariable("BFQOL_ASSASSIN_NATIVE_DIR") ?? Path.Combine(root, "Pathfinding", "obj", "native");

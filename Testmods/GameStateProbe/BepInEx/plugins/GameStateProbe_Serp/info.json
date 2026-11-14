@@ -1,0 +1,11 @@
+{
+  "GUID": "GameStateProbe_Serp",
+  "Author": "Serpens66",
+  "Name": "Game State Probe",
+  "Description": "Development-only, read-only query endpoint on 127.0.0.1 for live game state. Never part of a release.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.14.3",
+  "Dependencies": [],
+  "Manifest": 1,
+  "NetworkMode": 0
+}

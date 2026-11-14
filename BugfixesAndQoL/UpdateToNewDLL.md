@@ -1232,3 +1232,7 @@ production gates active. Its initial duplicate pair was detected; no new alias
 pairs appeared and no observer errors occurred. Existing stationary role22
 workers and the consequences of old assignments were deliberately not repaired.
 Evidence: `.work/a/ai-save/001/happened-on/edf82879dae6/LogOutput.log`.
+
+## Siege ammunition signed-word contract
+
+On native SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2, the two SDK bytes r_StoneAmmoLeft/r_StoneAmmoStacksLeft (unit offsets 0x35E/0x35F) form a signed Int16 at native manager + ID*0x490 +0x9BA. Catapult 0x1520D0 tests AX and takes JLE at 0x15311D; trebuchet 0x1535F0 does so at 0x1541DA and 0x154381. Native refill 0xD55B0 uses MOVSX at 0xD5651. Fair restocking therefore caps each device at 32767, rejects a raw value above that bound for the complete operation before billing, and preserves large shared package amounts for multiple devices. No automatic legacy-state repair is performed.

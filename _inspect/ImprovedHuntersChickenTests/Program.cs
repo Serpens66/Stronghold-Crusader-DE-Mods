@@ -30,6 +30,12 @@ static class Program
 
     private static void Run(string[] args)
     {
+        TestInactivePreyCatalog();
+        Assert(HunterInactivePreyPolicy.IsOwnAdmission("hunters", "rabbit", "hunters", "rabbit"), "frozen own admission stays protected after gate closure");
+        Assert(!HunterInactivePreyPolicy.IsOwnAdmission("hunters", "rabbit", "foreign", "rabbit"), "same-type foreign admission stays outside the closed gate");
+        Assert(!HunterInactivePreyPolicy.IsOwnAdmission("hunters", "rabbit", "hunters", "other"), "another registration is not the frozen own admission");
+        Assert(!HunterInactivePreyPolicy.IsOwnAdmission("hunters", "rabbit", null, null), "no admission grants no veto");
+        Assert(!HunterInactivePreyPolicy.IsOwnAdmission("hunters", "rabbit", "Hunters", "rabbit"), "owner identities remain ordinal");
         if (args.Length == 1 && args[0] == "dispatch")
         {
             TestDispatchReaderHooks();
@@ -43,6 +49,35 @@ static class Program
         TestDispatchReaderHooks();
         NativeStubExecutionTests.Run(MapPeImage(File.ReadAllBytes(CanonicalNativePath), out _));
         Console.WriteLine($"ImprovedHunters chicken policy tests passed: assertions={assertions}.");
+    }
+
+    private static void TestInactivePreyCatalog()
+    {
+        int preyType = (int)eChimps.CHIMP_TYPE_RABBIT;
+        // Exercise the real APIShared catalog arbitration, not a replica of its winner selection.
+        var registrationType = typeof(APIShared.Wildlife.HuntablePreyRegistration);
+        var flags = System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic;
+        var builder = registrationType.Assembly.GetType("APIShared.Wildlife.HuntablePreyCatalogBuilder").GetMethod("Compile", flags);
+        APIShared.Wildlife.HuntablePreyRegistration Register(string owner, string id, int priority) =>
+            (APIShared.Wildlife.HuntablePreyRegistration)Activator.CreateInstance(registrationType,
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic, null,
+                new object[] { owner, id, new APIShared.Wildlife.HuntablePreyDefinition(preyType), priority, "" }, null);
+        APIShared.Wildlife.HuntablePreyCatalog Compile(params APIShared.Wildlife.HuntablePreyRegistration[] entries) =>
+            (APIShared.Wildlife.HuntablePreyCatalog)builder.Invoke(null, new object[] { entries });
+        var own = Register("hunters", "rabbit", 0);
+        var foreign = Register("foreign", "rabbit", 1);
+        var frozen = Compile(own);
+        Assert(HunterInactivePreyPolicy.ShouldRefuse(preyType, own, frozen), "closed gate refuses its own frozen admission");
+        var setEnabled = registrationType.GetMethod("SetEnabledFlag", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        setEnabled.Invoke(own, new object[] { false });
+        Assert(HunterInactivePreyPolicy.ShouldRefuse(preyType, own, frozen), "logical disable does not change an existing frozen admission");
+        var catalog = Compile(own, foreign);
+        Assert(catalog.IsHuntable(preyType), "foreign registration still admits the prey type");
+        Assert(!HunterInactivePreyPolicy.ShouldRefuse(preyType, own, catalog), "inactive owner cannot veto the foreign catalog winner");
+        Assert(!HunterInactivePreyPolicy.ShouldRefuse(preyType, own, Compile(own)), "disabled own registration does not admit prey in the next mission");
+        setEnabled.Invoke(own, new object[] { true });
+        Assert(!HunterInactivePreyPolicy.ShouldRefuse(preyType, own, Compile(own, foreign)), "mode-closed owner also leaves a higher-priority foreign admission alone");
+        Assert(!HunterInactivePreyPolicy.ShouldRefuse(preyType, null, frozen), "unknown own type grants no veto");
     }
 
     private static void TestStatefulImmediateLifecycle()

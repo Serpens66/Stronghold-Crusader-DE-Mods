@@ -166,6 +166,7 @@
     <Compile Include="src\GranaryChickenSpawnPolicy.cs" />
     <Compile Include="src\HunterTargetSelectionFeature.cs" />
     <Compile Include="src\HuntablePreyIntegration.cs" />
+    <Compile Include="src\HunterInactivePreyPolicy.cs" />
     <Compile Include="src\HunterProjectileObservationFeature.cs" />
     <Compile Include="src\HunterAnimalCompatibilityFeature.cs" />
     <Compile Include="src\HunterMovementSnapshot.cs" />

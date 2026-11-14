@@ -24,9 +24,10 @@ namespace Pathfinding.Engine
         private readonly FastCommandQueue fastCommands = new FastCommandQueue();
         private readonly List<Delegate> fastCommandDelegates = new List<Delegate>();
         private HookTransaction fastCommandHooks;
-        private IDisposable fastCancelSubscription, fastLoadSubscription, anchorMoveSubscription, anchorUnitMoveSubscription;
+        private IDisposable fastLoadSubscription, anchorMoveSubscription, anchorUnitMoveSubscription;
         private bool fastSchedulerInitialized, fastDispatching, fastLoadReady, fastSaveLoading;
         private int fastPlayerActionDepth, fastRoundRobin;
+        private bool commandBoundaryFailed;
         private int? fastLastTick;
         private IntPtr fastChoreMode;
         private byte[] fastLoadedCommands;
@@ -61,7 +62,7 @@ namespace Pathfinding.Engine
                 originalFastAppend = originals.Append;
                 fastChoreMode = (IntPtr)(libraryBase + 0x85F8FEC);
                 fastCommands.Removed += ReleaseFastPendingSearch;
-                fastCancelSubscription = TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable.Subscribe(CancelFastPlayerTarget);
+                TribeCommandDispatchBoundary.BindMovement(CancelFastPlayerTarget);
                 // Rooted by the Extender's process-lived event; the handler idles until the core is ready.
                 anchorMoveSubscription = TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable.Subscribe(OnAnchorMoveHere);
                 // Which group members Vanilla re-plans (196280) inside a group move.
@@ -95,7 +96,7 @@ namespace Pathfinding.Engine
                 // Only a failed initialization candidate reaches this rollback.
 
                 if (registered) ModSaveDataAPI.Instance.UnregisterModDataHandler("Pathfinding_Serp");
-                fastCancelSubscription?.Dispose(); fastLoadSubscription?.Dispose(); anchorMoveSubscription?.Dispose(); anchorUnitMoveSubscription?.Dispose();
+                fastLoadSubscription?.Dispose(); anchorMoveSubscription?.Dispose(); anchorUnitMoveSubscription?.Dispose();
                 fastCommands.Removed -= ReleaseFastPendingSearch;
                 // Native hooks belong to APIShared and survive failed provider initialization.
                 throw;
@@ -375,7 +376,7 @@ namespace Pathfinding.Engine
 
         private void CancelFastPlayerTarget(TribeIssueOrderWithTargetEventArgs args)
         {
-            // Any target order (player or AI) replaces the tribe's move order for the replan watch.
+            // Only the final accepted target order replaces the move, never a queued/vetoed Pre.
             if (args.Phase == EventHookPhase.Pre && anchorAvailable && Environment.CurrentManagedThreadId == anchorSimThread)
             {
                 try { ObserveTribeOrder(args.TribeId, false, 0, 0, 0, false, TribeMoveType.NoChange); }
@@ -419,6 +420,19 @@ namespace Pathfinding.Engine
         private void ProcessFastCommands(int tick)
         {
             if (!fastSchedulerInitialized || fastDispatching || fastSaveLoading || tick == fastLastTick) return;
+            if (!TribeCommandDispatchBoundary.IsAvailable)
+            {
+                // A later IL rebuild lost the acceptance boundary. Stop automatic
+                // outputs on the simulation thread; never replay unobserved old orders.
+                if (commandBoundaryFailed) return;
+                commandBoundaryFailed = true;
+                enabled = false;
+                fastCommands.Clear();
+                fastUnitDistributions.Clear();
+                ResetReplanWatch();
+                ResetFireEscapes();
+                return;
+            }
             fastLastTick = tick;
             try
             {

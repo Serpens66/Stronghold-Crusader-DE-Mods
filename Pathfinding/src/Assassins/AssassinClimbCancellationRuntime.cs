@@ -22,7 +22,7 @@ namespace Pathfinding
         private const ushort CompletedClimbFacing = 0x20;
         private readonly ManualLogSource log;
         private readonly PathfindingViewModel settings;
-        private IDisposable selectedUnitCommandSubscription;
+        private bool acceptedTargetRegistered;
         private bool fixedUnitLayoutValidated;
         private bool invalidTribeLogged;
 
@@ -34,13 +34,13 @@ namespace Pathfinding
 
         public void Initialize()
         {
-            if (selectedUnitCommandSubscription != null)
+            if (acceptedTargetRegistered)
                 return;
-            selectedUnitCommandSubscription =
-                TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable.Subscribe(OnSelectedUnitCommand);
+            TribeCommandDispatchBoundary.BindClimb(OnSelectedUnitCommand);
+            acceptedTargetRegistered = true;
             Shared.DebugLogHelper.LogDebug(
                 log,
-                "Pathfinding Assassin climb cancellation subscribed to the Script Extender selected-unit Pre event.");
+                "Pathfinding Assassin climb cancellation registered at the final accepted target boundary.");
         }
 
         public void SetFixedUnitLayoutValidated(bool value)
@@ -50,12 +50,13 @@ namespace Pathfinding
 
         private void OnSelectedUnitCommand(TribeIssueOrderWithTargetEventArgs args)
         {
-            // Vanilla ignores Stop in states 126-129. Complete only that transition during
-            // the Script Extender's Pre phase; its shared hook then runs Vanilla unchanged.
+            if (args.SkipOriginalFunction) return;
+            // All mutable Pre subscribers have returned. Vanilla ignores Stop in
+            // states 126-129; complete only that transition before native dispatch.
             if (AssassinClimbCancellationPolicy.ShouldHandleCommand(
                     settings.EnableMod,
                     settings.EnableImprovedAssassinPathfinding,
-                    selectedUnitCommandSubscription != null,
+                    acceptedTargetRegistered && TribeCommandDispatchBoundary.IsAvailable,
                     fixedUnitLayoutValidated,
                     args.Phase,
                     (uint)args.AICommand))
