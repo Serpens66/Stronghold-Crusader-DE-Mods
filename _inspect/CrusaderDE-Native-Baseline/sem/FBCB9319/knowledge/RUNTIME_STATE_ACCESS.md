@@ -110,6 +110,28 @@ at 1 after loading. The native game tick was about 215,000 at the same moment.
     - A tick-consistent copy of the whole unit array via probe, including base64 transport,
       took about 300 ms end to end. For large reads during measurements, use `--fields` or
       `struct` on single records.
+- Queries confirmed to work in the 2026-11-14 run (Script Extender 2.14.4.0), as starting
+  points:
+  - `eval "GameUnitManagerAPI::Instance.GetAllAliveUnits()" --limit 20`
+  - `eval "GameUnitManagerAPI::Instance.GetUnitManager().*" --depth 1` dereferences the native
+    manager into a managed copy.
+  - `eval "GameTimeManagerAPI::Instance.GetCurrentYear()"`, and `GetCurrentDay()` with
+    `--samples 5 --every 20`.
+  - `eval "GameData::Instance" --depth 1`
+  - `eval "MainViewModel::viewModelLoaded"`
+  - `ptypes SHCDESE.API.Game`
+  - `members GameTimeManagerAPI --instance`
+  - `players 1 --source probe --fields r_CurrentPopularity,r_TotalPeasants,r_ExistingPeasants`
+- Unattended session without mouse or keyboard:
+  - The setup used:
+    - Install `GameStateProbe_Serp` and `AutoLoadSave_Serp` and set `RandomEvents_Serp` aside.
+    - Start through `steam://rungameid/3024040`.
+    - Every 5 s, poll `GameMemReader status` until `unitsTotal > 0` and the tick advances.
+      Loading the save took less than 5 minutes.
+  - Then run the queries, end the game with `probe '{"cmd":"quit"}' --context main`, save
+    `LogOutput.log` and restore the plugin inventory.
+  - The game exited on its own after `quit`, so the script did not need its fallback that
+    stops the process.
 - Open points:
   - Not yet checked against `r_CurrentPositionTileId`: whether `tile index = x +
     MapRowLookupTable[3·y]` holds for every row.
