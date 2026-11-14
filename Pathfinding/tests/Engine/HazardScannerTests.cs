@@ -11,7 +11,16 @@ internal static class HazardScannerTests
 {
     internal static void Run(string root)
     {
-        string Read(string path) => File.ReadAllText(Path.Combine(root, path));
+        string Read(string path)
+        {
+            string source = Path.Combine(root, path);
+            // External Extender sources stay in the coordinator for sparse release builds.
+            string coordinator = Environment.GetEnvironmentVariable("SHCDE_MODPACK_COORDINATOR");
+            if (path.StartsWith("shcde-script-extender/", StringComparison.Ordinal) &&
+                !File.Exists(source) && !string.IsNullOrWhiteSpace(coordinator))
+                source = Path.Combine(coordinator, path);
+            return File.ReadAllText(source);
+        }
         SyntaxNode Source(string path) => CSharpSyntaxTree.ParseText(Read(path)).GetRoot();
         var sources = new List<SyntaxTree>();
         foreach (string name in new[] { "FireRouteRules", "PlagueRouteRules", "PlagueDamageModel" })

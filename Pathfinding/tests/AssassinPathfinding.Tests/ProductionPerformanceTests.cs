@@ -19,7 +19,13 @@ internal static partial class Program
                 if (File.Exists(snapshot)) return File.ReadAllText(snapshot);
             }
             string saved = Path.Combine(root, "Pathfinding/tests/AssassinPathfinding.Tests/Fixtures/before", Path.GetFileName(relative) + ".txt");
-            return File.ReadAllText(before && File.Exists(saved) ? saved : Path.Combine(root, relative));
+            string source = before && File.Exists(saved) ? saved : Path.Combine(root, relative);
+            // The external Extender checkout remains in the coordinator, outside release worktrees.
+            string coordinator = Environment.GetEnvironmentVariable("SHCDE_MODPACK_COORDINATOR");
+            if (relative.StartsWith("shcde-script-extender/", StringComparison.Ordinal) &&
+                !File.Exists(source) && !string.IsNullOrWhiteSpace(coordinator))
+                source = Path.Combine(coordinator, relative);
+            return File.ReadAllText(source);
         }
         var parseOptions = development ? CSharpParseOptions.Default.WithPreprocessorSymbols("SERP_DEVDIAG") : CSharpParseOptions.Default;
         var runtime = CSharpSyntaxTree.ParseText(Read("Pathfinding/src/Assassins/AssassinPathfindingRuntime.cs"), parseOptions)
