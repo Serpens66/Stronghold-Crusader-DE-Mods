@@ -68,7 +68,7 @@ namespace ImprovedHunters
             Clear();
             ulong table = (ulong)entries;
 
-            PermanentNativeGate candidate = new PermanentNativeGate(region, imageBase);
+            PermanentNativeGate candidate = new PermanentNativeGate(region, imageBase, "corpse-choice");
             try
             {
                 ulong flag = candidate.FlagAddress;

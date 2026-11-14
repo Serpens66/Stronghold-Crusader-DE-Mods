@@ -168,12 +168,14 @@ namespace ImprovedHunters
                 return true;
             }
 
+            // Only a validated negative calms the herd; an unanswerable query keeps Vanilla's flight.
+            // The same component (also 0/0) goes straight to the sight check, as before.
             if (components[unitTile] != components[herdTile] &&
-                GamePathingManagerAPI.Instance.FindNextComponentTowardDestination(
+                APIShared.Pathfinding.PathReachability.BetweenComponents(
                     unit->r_ControllableForPlayerId,
+                    (PathConnectionQueryMode)unit->r_PathConnectionMode,
                     components[unitTile],
-                    components[herdTile],
-                    (PathConnectionQueryMode)unit->r_PathConnectionMode) == 0)
+                    components[herdTile]) == APIShared.Pathfinding.PathReachabilityResult.Unreachable)
             {
                 return false;
             }

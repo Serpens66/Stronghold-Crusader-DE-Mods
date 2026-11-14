@@ -20,6 +20,7 @@ namespace ImprovedHunters
     internal sealed class PermanentNativeGate : IDisposable
     {
         private readonly ulong imageBase;
+        private readonly string groupName;
         private readonly IntPtr enabledFlag;
         private readonly List<(HookHandle<X64InlineHook> Handle, int Rva, int Displaced)> sites =
             new List<(HookHandle<X64InlineHook>, int, int)>();
@@ -27,9 +28,11 @@ namespace ImprovedHunters
         private bool published;
         private bool disposed;
 
-        internal PermanentNativeGate(ScanRegion region, ulong imageBase)
+        /// <param name="groupName">Owner-local name of the span group in APIShared's native-site registry.</param>
+        internal PermanentNativeGate(ScanRegion region, ulong imageBase, string groupName)
         {
             this.imageBase = imageBase;
+            this.groupName = groupName ?? throw new ArgumentNullException(nameof(groupName));
             enabledFlag = Marshal.AllocHGlobal(sizeof(int));
             Marshal.WriteInt32(enabledFlag, 0);
             transaction = HunterHookInfrastructure.CreateOwnedTransaction(region);
@@ -57,12 +60,12 @@ namespace ImprovedHunters
                 (assembler, instructions, returnAddress) => body(assembler, instructions),
                 hookSize: 14);
             sites.Add((handle, rva, expectedDisplaced));
-            HunterHookInfrastructure.TrackNativeSite(imageBase + (ulong)rva, handle);
+            HunterHookInfrastructure.TrackNativeSite(transaction, imageBase + (ulong)rva, 14, handle);
         }
 
         internal void Commit()
         {
-            CommitResult commitResult = transaction.Commit();
+            CommitResult commitResult = HunterHookInfrastructure.Commit(transaction, groupName);
             if (!commitResult.IsCompleteSuccess)
                 throw new InvalidOperationException($"Native gate transaction failed: {commitResult}.");
             foreach ((HookHandle<X64InlineHook> handle, int rva, int displaced) in sites)
@@ -97,6 +100,7 @@ namespace ImprovedHunters
             // Published hooks and their flag stay valid until process exit.
             if (!published)
             {
+                HunterHookInfrastructure.Forget(transaction);
                 transaction?.Dispose();
                 Marshal.FreeHGlobal(enabledFlag);
             }

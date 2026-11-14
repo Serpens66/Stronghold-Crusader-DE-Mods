@@ -22,8 +22,6 @@ namespace ImprovedHunters
 {
     internal sealed partial class ImprovedHuntersRuntime : IDisposable
     {
-        private const short RabbitCorpseDespawnTicks = 1800;
-        private const short ExtraCorpseDespawnTicks = 1800;
         private const int HunterSearchRadius = 20;
         private const int HunterTargetCandidateRadius = 54;
         private const int MaxHeuristicCandidatesPerHunter = 24;
@@ -42,15 +40,6 @@ namespace ImprovedHunters
         // expire cleanly after loading; current code never creates 0x6F.
         private const ushort HunterFreshCorpseAiState = 0x6F;
         private const long ExpiredShortLivedCorpsePreserve = long.MinValue;
-
-        // Rabbit despawn is exposed by the Script Extender. Camel and chicken use
-        // the same native logic, but their constants are not exposed, so we patch
-        // the immediate operands found by these byte patterns.
-        private const string CamelDespawnTickTimePattern = "66 83 FE 6E 75 4D FE 84 2B 86 09 00 00 B9 ? ? ? ? 38 8C 2B 86 09 00 00";
-        private const string ChickenDespawnTickTimePattern = "66 83 FF 6E 75 55 FE 84 2B 86 09 00 00 B9 ? ? ? ? 66 FF 84 2B 20 09 00 00";
-        private const int ExtraDespawnPatternImmediateOffset = 13;
-        private const int CamelDespawnTickTimeRva = 0x1584B8;
-        private const int ChickenDespawnTickTimeRva = 0x163465;
 
         // The BepInEx plugin component is short-lived in SHCDE. Repeating work runs on APIShared's
         // process-lived map-tick callback, at the same map ticks on every multiplayer peer.
@@ -87,26 +76,9 @@ namespace ImprovedHunters
         // The value is either the preserve-until map tick or ExpiredShortLivedCorpsePreserve.
         private readonly Dictionary<uint, long> shortLivedCorpsePreserveUntil = new Dictionary<uint, long>();
 
-        private ManagedAssemblyImmediate<short> rabbitDespawnTickTime;
-        private ManagedAssemblyImmediate<short> camelDespawnTickTime;
-        private ManagedAssemblyImmediate<short> chickenDespawnTickTime;
-        private AssemblyValueOverrideScope rabbitDespawnOverride;
         private ScanRegion hookRegion;
-        private short originalRabbitDespawnTicks;
-        private short originalCamelDespawnTicks;
-        private short originalChickenDespawnTicks;
-        private bool rabbitDespawnTicksInitialized;
-        private bool extraDespawnTicksInitialized;
-        private bool rabbitDespawnTicksPatched;
-        private bool camelDespawnTicksPatched;
-        private bool chickenDespawnTicksPatched;
-        private bool despawnPatchStateLogged;
-        private bool camelHealthInitialized;
-        private bool camelHealthPatched;
-        private int originalCamelArrowDamage;
-        private uint originalCamelHealth;
-        private uint desiredCamelHealth;
-        private uint lastLoggedDesiredCamelHealth;
+        private APIShared.Health.HealthModifierHandle camelHealthPolicy;
+        private int camelArrowDamage;
         private bool nativeScanFailureLogged;
         private bool simulationTickRegistered;
         private long nextPreyCacheRefreshTimestamp;
@@ -121,15 +93,15 @@ namespace ImprovedHunters
         private int hunterTargetSearchStarts;
         private int shortLivedCorpsePreserveLogs;
         private int invalidHunterEventLogs;
-        private GranaryChickenLimitPatch granaryChickenLimitPatch;
+        private APIShared.Wildlife.ChickenPopulationModifierHandle chickenTargetModifier;
         private RabbitMeleeOrderPatch rabbitMeleeOrderPatch;
         private TannerMeatPatch tannerMeatPatch;
-        private TannerRatioSync tannerRatioSync;
-        private HunterHutAvailabilityPatch hunterHutAvailabilityPatch;
+        private APIShared.Buildings.BuildMenuAvailabilityRule hunterHutRule;
         private WildlifeRespawnFeature wildlifeRespawn;
         private WildlifeRangeFeature wildlifeRange;
         private HerdFleeSightFeature herdFleeSight;
-        private HunterHutVisibilityPatch hunterHutVisibilityPatch;
+        // APIShared's Hunter's hut sight rule (APIShared.Sight.SightBlockingBuildings); permanent, logically enabled.
+        private APIShared.Sight.SightBlockingBuildingRule hunterHutSightRule;
         private HunterNativeVisibilityProbe hunterNativeVisibilityProbe;
         private HunterActiveTargetVisibilitySnapshot hunterActiveTargetVisibilitySnapshot;
         private HunterFiringPositionSearch hunterFiringPositionSearch;
@@ -160,16 +132,17 @@ namespace ImprovedHunters
             ReadOnlySpan<byte> memory = context.Memory;
             ulong imageBase = unchecked((ulong)context.ModuleHandle.ToInt64());
             hookRegion = context.Region;
+            HunterHookInfrastructure.Bind(context, imageBase);
             if (applied)
                 return;
 
             this.referenceHashMatches = referenceHashMatches;
             TryInitializeFeature("APIShared hunting registrations", RegisterHuntingWithApiShared);
-            InitializeGranaryChickenLimitPatch(memory, imageBase, referenceHashMatches);
+            TryInitializeFeature("chickens per player", RegisterChickenTarget);
             InitializeRabbitMeleeOrderPatch(memory, imageBase, referenceHashMatches);
             InitializeTannerMeatPatch(memory, imageBase, referenceHashMatches);
-            InitializeHunterNativeVisibilityProbe(memory, imageBase, referenceHashMatches);
-            InitializeHunterHutVisibilityPatch(memory, imageBase, referenceHashMatches);
+            InitializeHunterNativeVisibilityProbe();
+            RegisterHunterHutSightRule();
             Shared.DevDiag.Attach(log);
             InitializeWildlifeFeatures(memory, imageBase, referenceHashMatches);
             InitializeHunterCorpseChoicePatch(memory, imageBase, referenceHashMatches);
@@ -193,22 +166,18 @@ namespace ImprovedHunters
             {
                 LogFeatureFailure("settings callback", ex);
             }
-            TryInitializeFeature("rabbit despawn patch", InitializeRabbitDespawnPatch);
-            InitializeExtraDespawnPatches(memory, imageBase);
-            TryInitializeFeature("despawn settings", ApplyDespawnPatches);
-            TryInitializeFeature("camel health", ApplyCamelHealthPatch);
-            TryInitializeFeature("native site registry", () => HunterHookInfrastructure.PublishNativeSites(imageBase, log));
+            TryInitializeFeature("camel health", RegisterCamelHealthPolicy);
 
             applied = true;
             Shared.DebugLogHelper.LogInfo(
                     log,
                     $"Improved Hunters runtime enabled: apiSharedPrey={preyRegistrations.Count}/3, " +
                     $"apiSharedTargetPolicy={targetPolicyRegistered}, apiSharedMeat={meatHandlerRegistered}, " +
-                    $"granaryChickenLimitAvailable={granaryChickenLimitPatch?.IsAvailable == true}, " +
+                    $"chickensPerPlayerRegistered={chickenTargetModifier != null}, " +
                     $"rabbitMeleeOrderAvailable={rabbitMeleeOrderPatch?.IsAvailable == true}, " +
                     $"tannerMeatAvailable={tannerMeatPatch?.IsAvailable == true}, " +
-                    $"hunterHutVisibilityAvailable={hunterHutVisibilityPatch?.IsAvailable == true}, " +
-                    $"hunterHutVisibilityApplied={hunterHutVisibilityPatch?.IsApplied == true}, " +
+                    $"hunterHutVisibilityAvailable={hunterHutSightRule != null}, " +
+                    $"hunterHutVisibilityApplied={hunterHutSightRule?.IsEnabled == true}, " +
                     $"hunterNativeVisibilityProbeAvailable={hunterNativeVisibilityProbe?.IsAvailable == true}, " +
                     $"hunterActiveTargetVisibilityAvailable={hunterActiveTargetVisibilitySnapshot?.IsAvailable == true}, " +
                     $"hunterPclReachabilityAvailable={hunterPclReachability?.IsAvailable == true}, " +
@@ -252,11 +221,6 @@ namespace ImprovedHunters
         {
             try
             {
-                // Re-apply cheap native/default patches here because settings and
-                // some game globals can be recreated around map transitions.
-                ApplyDespawnPatches();
-                ApplyCamelHealthPatch();
-
                 if (!targetSelectionModeAllowed && !pathfindingModeAllowed)
                     return;
 
@@ -268,15 +232,11 @@ namespace ImprovedHunters
                 List<IntPtr> eligiblePrey = scanEligiblePrey;
                 hunters.Clear();
                 eligiblePrey.Clear();
-                int adjustedLiveCamels = 0;
 
                 for (int index = 0; index < units.Length; index++)
                 {
                     GameUnit* unit = units.GetValuePointer(index);
                     int unitId = index + 1;
-
-                    if (TryClampLiveCamelHealth(unitId, unit))
-                        adjustedLiveCamels++;
 
                     if (Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
                         IsRuntimeHuntingEnabled(unit->r_UnitChimp) &&
@@ -297,9 +257,6 @@ namespace ImprovedHunters
                     if (IsEligibleUnreservedPrey(unitId, unit))
                         eligiblePrey.Add((IntPtr)unit);
                 }
-
-                if (adjustedLiveCamels > 0)
-                    LogCamelHealthPatch(adjustedLiveCamels);
 
                 CleanupShortLivedCorpsePreserveCache(units, timestamp);
                 hunterActiveTargetVisibilitySnapshot?.ProcessNativeScan(units, timestamp);
@@ -730,16 +687,13 @@ namespace ImprovedHunters
                 ImprovedHuntersPlugin.PluginGuid,
                 Shared.GameplayFeatureId.ImprovedHunterPathfinding,
                 gameMode);
-            ApplyHunterHutVisibilityPatch();
+            ApplyHunterHutSightRule();
             Shared.DebugLogHelper.LogInfo(
                 log,
                 "Improved Hunters feature mode gates: " +
                 $"targetSelectionAllowed={targetSelectionModeAllowed}, " +
                 $"pathfindingAllowed={pathfindingModeAllowed}, {gameMode.ToDiagnosticString()}.");
             nativeScanFailureLogged = false;
-            // Simulation state is only written from the tick callback, which follows this start.
-            TryInitializeFeature("despawn settings", ApplyDespawnPatches);
-            TryInitializeFeature("camel health", ApplyCamelHealthPatch);
         }
 
         private void OnHunterPickUpMeat(UnitHunterPickUpMeatEventArgs args)
@@ -983,21 +937,19 @@ namespace ImprovedHunters
             if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) ||
                 propertyName == nameof(ImprovedHuntersViewModel.ImprovedPathfinding))
             {
-                ApplyHunterHutVisibilityPatch();
+                ApplyHunterHutSightRule();
             }
 
             if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) ||
-                propertyName == nameof(ImprovedHuntersViewModel.HuntRabbit) ||
-                propertyName == nameof(ImprovedHuntersViewModel.HuntCamel) ||
                 propertyName == nameof(ImprovedHuntersViewModel.HuntChicken))
             {
-                ApplyDespawnPatches();
+                UpdateChickenTargetModifier();
             }
 
             if (propertyName == nameof(ImprovedHuntersViewModel.EnableMod) ||
                 propertyName == nameof(ImprovedHuntersViewModel.HuntCamel))
             {
-                ApplyCamelHealthPatch();
+                UpdateCamelHealthPolicy();
             }
         }
 
@@ -1009,31 +961,37 @@ namespace ImprovedHunters
             OnSettingChanged(nameof(ImprovedHuntersViewModel.EnableMod));
         }
 
-        private void InitializeGranaryChickenLimitPatch(
-            ReadOnlySpan<byte> memory,
-            ulong imageBase,
-            bool referenceHashMatches)
+        // APIShared owns Vanilla's chicken target compare; this mod only supplies its setting. Registered once at
+        // startup, before the first mission (APIShared installs its bridge on the first registration).
+        private void RegisterChickenTarget()
         {
-            try
+            if (chickenTargetModifier != null)
+                return;
+
+            if (!APIShared.Wildlife.ChickenPopulationModifiers.TryRegister(
+                ImprovedHuntersPlugin.PluginGuid,
+                "chickens-per-player",
+                SelectChickenTarget,
+                out APIShared.Wildlife.ChickenPopulationModifierHandle handle,
+                out string reason))
             {
-                granaryChickenLimitPatch = new GranaryChickenLimitPatch(
-                    log,
-                    settings,
-                    hookRegion,
-                    memory,
-                    imageBase,
-                    referenceHashMatches,
-                    canManageChickens: () => IsOwnedChickenHuntingEnabled);
+                throw new InvalidOperationException(
+                    $"The chicken population setting is unavailable; Vanilla's food-based population remains active: {reason}");
             }
-            catch (Exception exception)
-            {
-                granaryChickenLimitPatch?.Dispose();
-                granaryChickenLimitPatch = null;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Improved Hunters chicken population setting is unavailable; Vanilla's food-based population remains active: {exception}");
-            }
+
+            chickenTargetModifier = handle;
+            UpdateChickenTargetModifier();
         }
+
+        // Settings only change between matches; the provider re-checks the mission gate and chicken admission itself.
+        private void UpdateChickenTargetModifier() =>
+            chickenTargetModifier?.SetEnabled(settings.EnableMod && settings.HuntChicken);
+
+        // Simulation thread: deterministic from host settings, the mission mode and the frozen huntable-prey catalog.
+        private APIShared.Modifiers.ValueModifierContribution SelectChickenTarget(APIShared.Wildlife.ChickenPopulationContext context) =>
+            IsOwnedChickenHuntingEnabled
+                ? APIShared.Modifiers.ValueModifierContribution.FixedValue(GranaryChickenSpawnPolicy.ClampTarget(settings.ChickensPerPlayer))
+                : APIShared.Modifiers.ValueModifierContribution.None;
 
         private void InitializeRabbitMeleeOrderPatch(
             ReadOnlySpan<byte> memory,
@@ -1060,16 +1018,13 @@ namespace ImprovedHunters
             ulong imageBase,
             bool referenceHashMatches)
         {
-            try
-            {
-                hunterHutAvailabilityPatch = new HunterHutAvailabilityPatch(log, hookRegion, memory, imageBase, referenceHashMatches);
-            }
-            catch (Exception exception)
-            {
-                hunterHutAvailabilityPatch?.Dispose();
-                hunterHutAvailabilityPatch = null;
-                Shared.DebugLogHelper.LogError(log, $"Improved Hunters leaves the Hunter's hut availability to Vanilla: {exception}");
-            }
+            // APIShared owns Vanilla's build-menu availability query; its wrapper installs on this first rule,
+            // which must come during startup.
+            if (APIShared.Buildings.BuildMenuAvailability.TryRegister(
+                ImprovedHuntersPlugin.PluginGuid, "hunters-hut", out APIShared.Buildings.BuildMenuAvailabilityRule hutRule, out string hutReason))
+                hunterHutRule = hutRule;
+            else
+                Shared.DebugLogHelper.LogError(log, $"Improved Hunters leaves the Hunter's hut availability to Vanilla: {hutReason}");
 
             // Herd records, spawning, routes and flight belong to APIShared's Herds service; its route events and
             // flight gate install on these registrations, which must come during startup.
@@ -1096,7 +1051,11 @@ namespace ImprovedHunters
         {
             bool modEnabled = Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod);
             // A start herd needs its Hunter's hut, and the map's own count at its start does not know that herd.
-            hunterHutAvailabilityPatch?.SetEnabled(modEnabled && (settings.HunterHutAlwaysAvailable || settings.StartHerdMode != HerdSettingsPolicy.StartHerdsOff));
+            bool hutAlwaysAvailable = modEnabled && (settings.HunterHutAlwaysAvailable || settings.StartHerdMode != HerdSettingsPolicy.StartHerdsOff);
+            if (hunterHutRule != null && !hunterHutRule.TrySetDecision((int)eMappers.MAPPER_HUNTER,
+                    hutAlwaysAvailable ? APIShared.Buildings.BuildMenuAvailabilityDecision.Allow : APIShared.Buildings.BuildMenuAvailabilityDecision.Default,
+                    out string hutReason))
+                Shared.DebugLogHelper.LogError(log, $"Improved Hunters could not update the Hunter's hut availability: {hutReason}");
             herdFleeSight?.Configure(modEnabled && settings.DeerFleeOnlyInSight, modEnabled && settings.HerdsIgnoreFleeingHerds);
         }
 
@@ -1105,13 +1064,15 @@ namespace ImprovedHunters
             ulong imageBase,
             bool referenceHashMatches)
         {
-            var table = new TannerRunTable();
             try
             {
-                tannerRatioSync = new TannerRatioSync(log, table, () => tannerMeatPatch?.IsAvailable == true && IsTannerMeatModeEnabled);
-                tannerMeatPatch = new TannerMeatPatch(log, hookRegion, memory, imageBase, referenceHashMatches, table);
+                Func<bool> isEnabled = () => tannerMeatPatch?.IsAvailable == true && IsTannerMeatModeEnabled;
+                // Unconditionally on every peer, also when the patch fails: APIShared registers its request
+                // Chore with the first table, and packet IDs must match on all peers.
+                TannerMeatState state = TannerMeatState.Register(isEnabled);
+                tannerMeatPatch = new TannerMeatPatch(log, hookRegion, memory, imageBase, referenceHashMatches, state.Layout);
                 ApplyTannerMeatRule();
-                TannerModePanel.Install(log, () => tannerMeatPatch?.IsAvailable == true && IsTannerMeatModeEnabled, table, tannerRatioSync);
+                TannerModePanel.Install(log, isEnabled, state);
             }
             catch (Exception exception)
             {
@@ -1123,19 +1084,11 @@ namespace ImprovedHunters
             }
         }
 
-        private void InitializeHunterNativeVisibilityProbe(
-            ReadOnlySpan<byte> memory,
-            ulong imageBase,
-            bool referenceHashMatches)
+        private void InitializeHunterNativeVisibilityProbe()
         {
             try
             {
-                hunterNativeVisibilityProbe = new HunterNativeVisibilityProbe(
-                    log,
-                    settings,
-                    memory,
-                    imageBase,
-                    referenceHashMatches);
+                hunterNativeVisibilityProbe = new HunterNativeVisibilityProbe(log, settings);
             }
             catch (Exception exception)
             {
@@ -1427,38 +1380,29 @@ namespace ImprovedHunters
                 out shouldLog);
         }
 
-        private void InitializeHunterHutVisibilityPatch(
-            ReadOnlySpan<byte> memory,
-            ulong imageBase,
-            bool referenceHashMatches)
+        // The Hunter's hut blocks sight like the Woodcutter's hut while Improved pathfinding runs. APIShared owns the
+        // native dispatch hook; its first registration must happen in this LibraryLoaded handler, before any mission.
+        private void RegisterHunterHutSightRule()
         {
-            try
+            if (!APIShared.Sight.SightBlockingBuildings.TryRegister(
+                    ImprovedHuntersPlugin.PluginGuid,
+                    "hunters-hut-sight",
+                    eStructs.STRUCT_HUNTERS_HUT,
+                    out hunterHutSightRule,
+                    out string reason))
             {
-                hunterHutVisibilityPatch = new HunterHutVisibilityPatch(
-                    log,
-                    hookRegion,
-                    memory,
-                    imageBase,
-                    referenceHashMatches);
-            }
-            catch (Exception exception)
-            {
-                hunterHutVisibilityPatch?.Dispose();
-                hunterHutVisibilityPatch = null;
+                hunterHutSightRule = null;
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Improved Hunters Hunter's Hut visibility patch is unavailable; " +
-                    $"Vanilla's visibility exception remains unchanged: {exception}");
+                    $"Improved Hunters Hunter's Hut visibility rule is unavailable; " +
+                    $"Vanilla's visibility exception remains unchanged: {reason}");
             }
         }
 
-        private void ApplyHunterHutVisibilityPatch()
+        // Called at mission start and on setting changes outside a mission; every peer derives it from synchronized settings.
+        private void ApplyHunterHutSightRule()
         {
-            bool requestedEnabled = CanRunHunterPathfinding();
-            if (hunterHutVisibilityPatch == null)
-                return;
-
-            hunterHutVisibilityPatch.TrySetEnabled(requestedEnabled);
+            hunterHutSightRule?.SetEnabled(CanRunHunterPathfinding());
         }
 
         private void InitializeHunterVanillaPathContinuation(
@@ -1588,19 +1532,6 @@ namespace ImprovedHunters
             return true;
         }
 
-        private static unsafe void UpdateUnitHealthDisplay(GameUnit* unit)
-        {
-            if (unit == null)
-                return;
-
-            uint maxHealth = unit->r_MaxHealth == 0 ? 1u : unit->r_MaxHealth;
-            uint currentHealth = Math.Min(unit->r_CurrentHealth, maxHealth);
-            ushort healthPercent = (ushort)Math.Min(100u, (100u * currentHealth) / maxHealth);
-            unit->r_CurrentHealth = currentHealth;
-            unit->r_CurrentHealthPercentage = healthPercent;
-            unit->r_HealthBarBlocks = (uint)(healthPercent / 10);
-        }
-
         private unsafe bool IsOwnerAllowedForAnyHunter(int unitId, GameUnit* prey)
         {
             return true;
@@ -1656,8 +1587,6 @@ namespace ImprovedHunters
             hunterMeatPickupTimestamps.Clear();
             nextPreyCacheRefreshTimestamp = 0;
             nextShortLivedCorpsePreserveCleanupTimestamp = 0;
-            lastLoggedDesiredCamelHealth = 0;
-            despawnPatchStateLogged = false;
             hunterTargetDiagnosticLogs = 0;
             preyCacheDiagnosticLogs = 0;
             invalidHunterEventLogs = 0;
@@ -1940,41 +1869,15 @@ namespace ImprovedHunters
             hunterRemainingPathSpeedRecovery = null;
             hunterNativeVisibilityProbe?.Dispose();
             hunterNativeVisibilityProbe = null;
-            hunterHutVisibilityPatch?.Dispose();
-            hunterHutVisibilityPatch = null;
-            granaryChickenLimitPatch?.Dispose();
-            granaryChickenLimitPatch = null;
+            hunterHutSightRule?.SetEnabled(false);
+            chickenTargetModifier?.SetEnabled(false);
             rabbitMeleeOrderPatch?.Dispose();
             rabbitMeleeOrderPatch = null;
             tannerMeatPatch?.Dispose();
             tannerMeatPatch = null;
 
-            // RabbitDespawnTickTime belongs to the Script Extender. Release only our
-            // override; never dispose or reset the shared site itself.
-            rabbitDespawnOverride?.Dispose();
-            rabbitDespawnOverride = null;
-
-            // These two sites were constructed by this runtime and therefore own
-            // restoration of their original instructions at true final teardown.
-            camelDespawnTickTime?.Dispose();
-            chickenDespawnTickTime?.Dispose();
-
-            if (camelHealthPatched && camelHealthInitialized)
-                GameUnitManagerAPI.Instance.SetDefaultHealth(eChimps.CHIMP_TYPE_CAMEL, originalCamelHealth);
-
-            rabbitDespawnTicksPatched = false;
-            camelDespawnTicksPatched = false;
-            chickenDespawnTicksPatched = false;
-            camelHealthPatched = false;
-            camelHealthInitialized = false;
-            desiredCamelHealth = 0;
-            lastLoggedDesiredCamelHealth = 0;
-            rabbitDespawnTickTime = null;
-            camelDespawnTickTime = null;
-            chickenDespawnTickTime = null;
+            camelHealthPolicy?.SetEnabled(false);
             hookRegion = null;
-            rabbitDespawnTicksInitialized = false;
-            extraDespawnTicksInitialized = false;
             applied = false;
         }
     }

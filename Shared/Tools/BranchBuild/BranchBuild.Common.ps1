@@ -31,9 +31,40 @@ function Clear-BranchPackageOutput([string]$ProjectRoot) {
     Assert-BranchUnlinkedPath $output
     if (Test-Path -LiteralPath $output) {
         if (@(Get-ChildItem -LiteralPath $output -Recurse -Force | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }).Count) { throw 'Linked package output.' }
-        # This directory is compiler/package output, never source or installed user data.
-        Remove-Item -LiteralPath $output -Recurse -Force
+        # Mod packages keep Git-tracked sources (info.json, settings and patch XAML) beside the
+        # compiler output. Remove untracked files and tracked compiler products only, so stale
+        # and failed output disappears while the package sources survive.
+        $tracked = Get-BranchTrackedFiles $output
+        foreach ($file in @(Get-ChildItem -LiteralPath $output -Recurse -File -Force)) {
+            if ($tracked.Contains($file.FullName) -and $file.Extension -notin @('.dll','.pdb')) { continue }
+            Remove-Item -LiteralPath $file.FullName -Force
+        }
+        foreach ($directory in @(Get-ChildItem -LiteralPath $output -Recurse -Directory -Force | Sort-Object { $_.FullName.Length } -Descending)) {
+            if (-not @(Get-ChildItem -LiteralPath $directory.FullName -Force).Count) { Remove-Item -LiteralPath $directory.FullName -Force }
+        }
+        if (-not @(Get-ChildItem -LiteralPath $output -Force).Count) { Remove-Item -LiteralPath $output -Force }
     }
+}
+# Absolute paths of Git-tracked files below Directory; empty outside a repository.
+function Get-BranchTrackedFiles([string]$Directory) {
+    $set = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    # Git writes UTF-8 paths; Windows PowerShell would decode them with the console code page, and
+    # under ErrorActionPreference Stop its stderr outside a repository would throw.
+    $previousEncoding = [Console]::OutputEncoding
+    $previousPreference = $ErrorActionPreference
+    try {
+        [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+        $ErrorActionPreference = 'Continue'
+        $listing = & git -C $Directory -c core.quotepath=off ls-files -z 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not $listing) { return ,$set }
+    } finally {
+        $ErrorActionPreference = $previousPreference
+        [Console]::OutputEncoding = $previousEncoding
+    }
+    foreach ($relative in (($listing -join '') -split "`0")) {
+        if ($relative) { [void]$set.Add([IO.Path]::GetFullPath((Join-Path $Directory $relative))) }
+    }
+    return ,$set
 }
 function Save-LatestBranchPackage([string]$Repository, [string]$Driver, [string]$Branch, [string]$SourceRoot) {
     $project = $Driver.Replace('\','/') -replace '(^|/)build\.bat$',''

@@ -1,12 +1,9 @@
+using APIShared.Sight;
 using BepInEx.Logging;
 using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
-using System.Collections.Generic;
-using System.Runtime.InteropServices;
-using System.Threading;
-using RedBird.Core.Memory;
 
 namespace ImprovedHunters
 {
@@ -55,100 +52,38 @@ namespace ImprovedHunters
     }
 
     /// <summary>
-    /// Temporary, behavior-neutral runtime validation of Vanilla's native Hunter
-    /// visibility helper. It installs no hook and mutates neither units nor orders.
-    /// Keep this file separate so the complete probe can be removed after sign-off.
+    /// Improved Hunters' own gate around APIShared's <see cref="LineOfSight"/>: settings, Hunter and prey identity
+    /// checks, crash breadcrumbs and bounded diagnostics. The native sight call, its hash-bound validation and its
+    /// private-context guard belong to APIShared (APIShared.Sight). Installs no hook and changes no unit or order.
     /// </summary>
     internal sealed unsafe class HunterNativeVisibilityProbe : IDisposable
     {
-        private const string ReferenceDllSha256 =
-            "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
-        private const int VisibilityWrapperRva = 0xA06F0;
-        private const int VisibilityCoreRva = 0x9E350;
-        private const int HunterQueryCallRva = 0x18B0A2;
-        private const int HunterDirectOrderCallRva = 0x18ED6A;
-        private const int FirstCoreCallDisplacementRva = VisibilityWrapperRva + 0x54;
-        private const int FirstCoreCallNextInstructionRva = VisibilityWrapperRva + 0x58;
-        private const int ReverseCoreCallDisplacementRva = VisibilityWrapperRva + 0x79;
-        private const int ReverseCoreCallNextInstructionRva = VisibilityWrapperRva + 0x7D;
-
-        private const string WrapperEntryPattern =
-            "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 54 41 56 41 57 48 83 EC 40";
-        private const string CoreEntryPattern =
-            "44 89 44 24 18 89 54 24 10 48 89 4C 24 08 53 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 68";
-        private const string FirstCoreCallPattern =
-            "C7 40 E0 00 00 00 00 48 8B E9 44 89 70 D8 44 89 78 D0 44 89 60 C8 E8 ? ? ? ? 85 C0 75 21";
-        private const string ReverseCoreCallPattern =
-            "89 44 24 38 45 8B CE 89 5C 24 30 45 8B C7 89 7C 24 28 41 8B D4 48 8B CD 89 74 24 20 E8 ? ? ? ?";
-        private const string HunterQueryCallPattern =
-            "E8 ? ? ? ? FF C8 3D AF 01 00 00 77 1F";
-        private const string HunterDirectOrderCallPattern =
-            "E8 ? ? ? ? 8B D0 85 C0 0F 8E EB 00 00 00";
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate int NativeVisibilityDelegate(
-            IntPtr context,
-            int startX,
-            int startY,
-            int startHeight,
-            int endX,
-            int endY,
-            int endHeight);
-
-        private const uint VisibleResultLimit = 0x1B0;
-
         private readonly ManualLogSource log;
         private readonly ImprovedHuntersViewModel settings;
-        private NativeVisibilityDelegate visibility;
-        private NativeVisibilityDelegate visibilityCore;
-        private int probeInProgress;
         private bool reentrancyLogged;
-        private bool captureFailureLogged;
-        private bool invocationFailureLogged;
-        private bool disabled;
+        private bool failureLogged;
         private bool disposed;
 
-        public HunterNativeVisibilityProbe(
-            ManualLogSource log,
-            ImprovedHuntersViewModel settings,
-            ReadOnlySpan<byte> memory,
-            ulong imageBase,
-            bool referenceHashMatches)
+        public HunterNativeVisibilityProbe(ManualLogSource log, ImprovedHuntersViewModel settings)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-
-            if (!referenceHashMatches)
+            if (!LineOfSight.IsAvailable)
             {
                 Shared.DebugLogHelper.LogError(
                     log,
-                    "Improved Hunters native visibility probe unavailable: " +
-                    $"DLL hash differs from audited SHA-256 {ReferenceDllSha256}; behavior remains unchanged.");
+                    "Improved Hunters native visibility is unavailable; Hunter behavior remains unchanged: " +
+                    LineOfSight.UnavailableReason);
                 return;
             }
 
-            ValidateNativeCallChain(memory);
-            if (imageBase == 0)
-                throw new InvalidOperationException("native image base is zero.");
-            if (IntPtr.Size != sizeof(long))
-                throw new PlatformNotSupportedException("native visibility probe requires the 64-bit game process.");
-
-            ulong wrapperAddress = checked(imageBase + (ulong)VisibilityWrapperRva);
-            visibility = Marshal.GetDelegateForFunctionPointer<NativeVisibilityDelegate>(
-                new IntPtr(unchecked((long)wrapperAddress)));
-            ulong coreAddress = checked(imageBase + (ulong)VisibilityCoreRva);
-            visibilityCore = Marshal.GetDelegateForFunctionPointer<NativeVisibilityDelegate>(
-                new IntPtr(unchecked((long)coreAddress)));
-
             Shared.DebugLogHelper.LogInfo(
                 log,
-                "Improved Hunters native visibility probe initialized: " +
-                $"mode=reference-rva, wrapperRva=0x{VisibilityWrapperRva:X}, coreRva=0x{VisibilityCoreRva:X}, " +
-                "privateContextBytes=16, contextGuards=True, directionalCoreComparison=True, " +
+                "Improved Hunters native visibility initialized through APIShared.Sight.LineOfSight: " +
                 "nativeHooks=False, behaviorNeutral=True.");
         }
 
-        public bool IsAvailable => visibility != null && visibilityCore != null && !disabled && !disposed;
+        public bool IsAvailable => !disposed && LineOfSight.IsAvailable;
 
         public bool TryEvaluateDirectVisibility(
             int hunterUnitId,
@@ -186,15 +121,15 @@ namespace ImprovedHunters
                 return false;
             }
 
-            return TryInvokeVisibility(hunter, prey, out result, out _);
+            return TryInvokeVisibility(hunter, prey, out result);
         }
 
-        /// <summary>Vanilla's target-query sight rule: a result in 1..0x1B0 means visible (0x18B0A2 in 0x18AF50).</summary>
+        /// <summary>Vanilla's target-query sight rule (<see cref="LineOfSight.IsVisibleForTargetQuery"/>); a failed query counts as seen.</summary>
         public bool SeesFromUnit(GameUnit* viewer, GameUnit* target)
         {
             return !IsAvailable ||
-                !TryInvokeVisibility(viewer, target, out int result, out _) ||
-                (uint)(result - 1) < VisibleResultLimit;
+                !TryInvokeVisibility(viewer, target, out int result) ||
+                LineOfSight.IsVisibleForTargetQuery(result);
         }
 
         public bool TryEvaluateNearVisibility(
@@ -251,160 +186,52 @@ namespace ImprovedHunters
         public void ResetForMap()
         {
             reentrancyLogged = false;
-            captureFailureLogged = false;
-            invocationFailureLogged = false;
-            probeInProgress = 0;
+            failureLogged = false;
         }
 
         public void Dispose()
         {
-            if (disposed)
-                return;
-
             disposed = true;
-            visibility = null;
-            visibilityCore = null;
-        }
-
-        private static void ValidateNativeCallChain(ReadOnlySpan<byte> memory)
-        {
-            RequirePattern(memory, VisibilityWrapperRva, WrapperEntryPattern, "visibility wrapper entry");
-            RequirePattern(memory, VisibilityCoreRva, CoreEntryPattern, "visibility core entry");
-            RequirePattern(
-                memory,
-                VisibilityWrapperRva + 0x3D,
-                FirstCoreCallPattern,
-                "visibility wrapper first core call and private-context write setup");
-            RequirePattern(
-                memory,
-                VisibilityWrapperRva + 0x5C,
-                ReverseCoreCallPattern,
-                "visibility wrapper reverse core call");
-            RequirePattern(memory, HunterQueryCallRva, HunterQueryCallPattern, "Hunter query visibility call");
-            RequirePattern(
-                memory,
-                HunterDirectOrderCallRva,
-                HunterDirectOrderCallPattern,
-                "Hunter direct-order visibility call");
-
-            RequireRelativeTarget(
-                memory,
-                FirstCoreCallDisplacementRva,
-                FirstCoreCallNextInstructionRva,
-                VisibilityCoreRva,
-                "visibility wrapper first core target");
-            RequireRelativeTarget(
-                memory,
-                ReverseCoreCallDisplacementRva,
-                ReverseCoreCallNextInstructionRva,
-                VisibilityCoreRva,
-                "visibility wrapper reverse core target");
-            RequireRelativeTarget(
-                memory,
-                HunterQueryCallRva + 1,
-                HunterQueryCallRva + 5,
-                VisibilityWrapperRva,
-                "Hunter query wrapper target");
-            RequireRelativeTarget(
-                memory,
-                HunterDirectOrderCallRva + 1,
-                HunterDirectOrderCallRva + 5,
-                VisibilityWrapperRva,
-                "Hunter direct-order wrapper target");
-        }
-
-        private static void RequirePattern(
-            ReadOnlySpan<byte> memory,
-            int rva,
-            string pattern,
-            string name)
-        {
-            if (!Shared.NativePatternResolver.MatchesPatternAt(memory, rva, pattern))
-                throw new InvalidOperationException($"{name} failed byte validation at RVA 0x{rva:X}.");
-        }
-
-        private static void RequireRelativeTarget(
-            ReadOnlySpan<byte> memory,
-            int displacementRva,
-            int nextInstructionRva,
-            int expectedTargetRva,
-            string name)
-        {
-            int targetRva = Shared.NativePatternResolver.ResolveRelativeTarget(
-                memory,
-                displacementRva,
-                nextInstructionRva);
-            if (targetRva != expectedTargetRva)
-            {
-                throw new InvalidOperationException(
-                    $"{name} resolved RVA 0x{targetRva:X}, expected 0x{expectedTargetRva:X}.");
-            }
         }
 
         /// <summary>
         /// Sight from a walkable tile to a prey, for choosing a place to shoot from, by the same rule as the
-        /// near-target handoff: the visibility core (0x9E350) must see in both directions, Hunter to prey and back.
-        /// The viewer stands on the tile centre (world = tile * 8 + 4) at the tile's height plus a Hunter's eye height.
+        /// near-target handoff: Vanilla's sight core must see in both directions, Hunter to prey and back.
+        /// The viewer stands on the tile centre at the tile's height plus a Hunter's eye height
+        /// (<see cref="LineOfSight.TryGetTileViewpoint"/>, <see cref="LineOfSight.ViewerEyeHeight"/>).
         /// Returns false when the call itself could not run; <paramref name="visible"/> then stays false.
         /// </summary>
-        public bool TryEvaluateFromTile(int tileX, int tileY, int tileHeight, GameUnit* prey, out bool visible)
+        public bool TryEvaluateFromTile(int tileX, int tileY, GameUnit* prey, out bool visible)
         {
             visible = false;
-            if (!IsAvailable || prey == null || Interlocked.CompareExchange(ref probeInProgress, 1, 0) != 0)
+            if (!IsAvailable || prey == null ||
+                !LineOfSight.TryGetTileViewpoint(tileX, tileY, LineOfSight.ViewerEyeHeight, out SightPoint from) ||
+                !LineOfSight.TryGetUnitPoint(in *prey, LineOfSight.TargetHeight, out SightPoint to))
+            {
+                return false;
+            }
+
+            if (!Evaluate(from, to, LineOfSightRoutine.Directional, "firing-position sight check", out int forward))
                 return false;
 
-            try
-            {
-                int fromX = tileX * 8 + 4, fromY = tileY * 8 + 4, fromHeight = tileHeight + 30;
-                int preyX = prey->r_CurrentWorldPositionX, preyY = prey->r_CurrentWorldPositionY;
-                int preyHeight = prey->r_HeightElevation + prey->N0000006A + 26;
-                if (!TryInvokeGuardedVisibility(visibilityCore, fromX, fromY, fromHeight, preyX, preyY, preyHeight, out int forward, out _))
-                {
-                    DisableForContextGuardChange();
-                    return false;
-                }
-
-                // The second direction only matters when the first one sees.
-                if (forward <= 0)
-                    return true;
-
-                if (!TryInvokeGuardedVisibility(visibilityCore, preyX, preyY, preyHeight, fromX, fromY, fromHeight, out int backward, out _))
-                {
-                    DisableForContextGuardChange();
-                    return false;
-                }
-
-                visible = backward > 0;
+            // The second direction only matters when the first one sees.
+            if (forward <= 0)
                 return true;
-            }
-            catch (Exception exception)
-            {
-                LogFailureOnce("firing-position sight check", exception, disableProbe: true);
+
+            if (!Evaluate(to, from, LineOfSightRoutine.Directional, "firing-position sight check", out int backward))
                 return false;
-            }
-            finally
-            {
-                Volatile.Write(ref probeInProgress, 0);
-            }
+
+            visible = backward > 0;
+            return true;
         }
 
-        private bool TryInvokeVisibility(
-            GameUnit* hunter,
-            GameUnit* prey,
-            out int result,
-            out int contextScratch)
+        private bool TryInvokeVisibility(GameUnit* hunter, GameUnit* prey, out int result)
         {
             result = 0;
-            contextScratch = 0;
-            if (Interlocked.CompareExchange(ref probeInProgress, 1, 0) != 0)
+            if (hunter == null || prey == null ||
+                !LineOfSight.TryGetUnitPoint(in *hunter, LineOfSight.ViewerEyeHeight, out SightPoint from) ||
+                !LineOfSight.TryGetUnitPoint(in *prey, LineOfSight.TargetHeight, out SightPoint to))
             {
-                if (!reentrancyLogged)
-                {
-                    reentrancyLogged = true;
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
-                        "Improved Hunters native visibility probe skipped a reentrant invocation; behavior remains unchanged.");
-                }
                 return false;
             }
 
@@ -416,35 +243,11 @@ namespace ImprovedHunters
                     prey->r_CurrentTilePositionX,
                     prey->r_CurrentTilePositionY))
             {
-                try
-                {
-                    if (TryInvokeGuardedVisibility(
-                        visibility,
-                        hunter->r_CurrentWorldPositionX,
-                        hunter->r_CurrentWorldPositionY,
-                        hunter->r_HeightElevation + hunter->N0000006A + 30,
-                        prey->r_CurrentWorldPositionX,
-                        prey->r_CurrentWorldPositionY,
-                        prey->r_HeightElevation + prey->N0000006A + 26,
-                        out result,
-                        out contextScratch))
-                    {
-                        diagnostic.Complete(result);
-                        return true;
-                    }
+                if (!Evaluate(from, to, LineOfSightRoutine.Bidirectional, "native invocation", out result))
+                    return false;
 
-                    DisableForContextGuardChange();
-                    return false;
-                }
-                catch (Exception exception)
-                {
-                    LogFailureOnce("native invocation", exception, disableProbe: true);
-                    return false;
-                }
-                finally
-                {
-                    Volatile.Write(ref probeInProgress, 0);
-                }
+                diagnostic.Complete(result);
+                return true;
             }
         }
 
@@ -460,16 +263,10 @@ namespace ImprovedHunters
             hunterToPreyResult = -1;
             preyToHunterResult = -1;
             geometry = default;
-            if (Interlocked.CompareExchange(ref probeInProgress, 1, 0) != 0)
+            if (hunter == null || prey == null ||
+                !LineOfSight.TryGetUnitPoint(in *hunter, LineOfSight.ViewerEyeHeight, out SightPoint hunterPoint) ||
+                !LineOfSight.TryGetUnitPoint(in *prey, LineOfSight.TargetHeight, out SightPoint preyPoint))
             {
-                if (!reentrancyLogged)
-                {
-                    reentrancyLogged = true;
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
-                        "Improved Hunters native visibility probe skipped a reentrant near-visibility invocation; " +
-                        "behavior remains unchanged.");
-                }
                 return false;
             }
 
@@ -481,162 +278,78 @@ namespace ImprovedHunters
                     prey->r_CurrentTilePositionX,
                     prey->r_CurrentTilePositionY))
             {
-                try
+                geometry = new HunterNearVisibilityGeometry(
+                    hunter->r_CurrentTilePositionX,
+                    hunter->r_CurrentTilePositionY,
+                    prey->r_CurrentTilePositionX,
+                    prey->r_CurrentTilePositionY,
+                    hunterPoint.X,
+                    hunterPoint.Y,
+                    hunterPoint.Height,
+                    preyPoint.X,
+                    preyPoint.Y,
+                    preyPoint.Height);
+
+                if (!Evaluate(hunterPoint, preyPoint, LineOfSightRoutine.Bidirectional,
+                        "near-visibility native invocation", out wrapperResult))
                 {
-                    int hunterX = hunter->r_CurrentWorldPositionX;
-                    int hunterY = hunter->r_CurrentWorldPositionY;
-                    int hunterHeight = hunter->r_HeightElevation + hunter->N0000006A + 30;
-                    int preyX = prey->r_CurrentWorldPositionX;
-                    int preyY = prey->r_CurrentWorldPositionY;
-                    int preyHeight = prey->r_HeightElevation + prey->N0000006A + 26;
-                    geometry = new HunterNearVisibilityGeometry(
-                        hunter->r_CurrentTilePositionX,
-                        hunter->r_CurrentTilePositionY,
-                        prey->r_CurrentTilePositionX,
-                        prey->r_CurrentTilePositionY,
-                        hunterX,
-                        hunterY,
-                        hunterHeight,
-                        preyX,
-                        preyY,
-                        preyHeight);
-
-                    if (!TryInvokeGuardedVisibility(
-                            visibility,
-                            hunterX,
-                            hunterY,
-                            hunterHeight,
-                            preyX,
-                            preyY,
-                            preyHeight,
-                            out wrapperResult,
-                            out _))
-                    {
-                        DisableForContextGuardChange();
-                        return false;
-                    }
-
-                    // The validated wrapper calls both core directions before it
-                    // can return zero. Preserve those exact results without two
-                    // redundant native calls on the new 250-ms near-target path.
-                    if (wrapperResult == 0)
-                    {
-                        hunterToPreyResult = 0;
-                        preyToHunterResult = 0;
-                        diagnostic.Complete(0);
-                        return true;
-                    }
-
-                    if (!TryInvokeGuardedVisibility(
-                            visibilityCore,
-                            hunterX,
-                            hunterY,
-                            hunterHeight,
-                            preyX,
-                            preyY,
-                            preyHeight,
-                            out hunterToPreyResult,
-                            out _) ||
-                        !TryInvokeGuardedVisibility(
-                            visibilityCore,
-                            preyX,
-                            preyY,
-                            preyHeight,
-                            hunterX,
-                            hunterY,
-                            hunterHeight,
-                            out preyToHunterResult,
-                            out _))
-                    {
-                        DisableForContextGuardChange();
-                        return false;
-                    }
-
-                    diagnostic.Complete(wrapperResult);
-                    return true;
-                }
-                catch (Exception exception)
-                {
-                    LogFailureOnce("near-visibility native invocation", exception, disableProbe: true);
                     return false;
                 }
-                finally
+
+                // The validated wrapper calls both core directions before it
+                // can return zero. Preserve those exact results without two
+                // redundant native calls on the new 250-ms near-target path.
+                if (wrapperResult == 0)
                 {
-                    Volatile.Write(ref probeInProgress, 0);
+                    hunterToPreyResult = 0;
+                    preyToHunterResult = 0;
+                    diagnostic.Complete(0);
+                    return true;
                 }
+
+                if (!Evaluate(hunterPoint, preyPoint, LineOfSightRoutine.Directional,
+                        "near-visibility native invocation", out hunterToPreyResult) ||
+                    !Evaluate(preyPoint, hunterPoint, LineOfSightRoutine.Directional,
+                        "near-visibility native invocation", out preyToHunterResult))
+                {
+                    return false;
+                }
+
+                diagnostic.Complete(wrapperResult);
+                return true;
             }
         }
 
-        private static bool TryInvokeGuardedVisibility(
-            NativeVisibilityDelegate function,
-            int startX,
-            int startY,
-            int startHeight,
-            int endX,
-            int endY,
-            int endHeight,
-            out int result,
-            out int contextScratch)
+        private bool Evaluate(SightPoint from, SightPoint to, LineOfSightRoutine routine, string operation, out int result)
         {
-            int* guardedBuffer = stackalloc int[8];
-            guardedBuffer[0] = unchecked((int)0x13579BDF);
-            guardedBuffer[1] = unchecked((int)0x2468ACE0);
-            guardedBuffer[2] = 0;
-            guardedBuffer[3] = 0;
-            guardedBuffer[4] = 0;
-            guardedBuffer[5] = 0;
-            guardedBuffer[6] = unchecked((int)0x55AA33CC);
-            guardedBuffer[7] = unchecked((int)0xAA55CC33);
+            if (LineOfSight.TryEvaluate(from, to, routine, out result, out LineOfSightFailure failure))
+                return true;
 
-            result = function(
-                (IntPtr)(guardedBuffer + 2),
-                startX,
-                startY,
-                startHeight,
-                endX,
-                endY,
-                endHeight);
-            contextScratch = guardedBuffer[5];
-            return guardedBuffer[0] == unchecked((int)0x13579BDF) &&
-                guardedBuffer[1] == unchecked((int)0x2468ACE0) &&
-                guardedBuffer[2] == 0 &&
-                guardedBuffer[3] == 0 &&
-                guardedBuffer[4] == 0 &&
-                guardedBuffer[6] == unchecked((int)0x55AA33CC) &&
-                guardedBuffer[7] == unchecked((int)0xAA55CC33);
+            LogFailureOnce(operation, failure);
+            return false;
         }
 
-        private void DisableForContextGuardChange()
+        private void LogFailureOnce(string operation, LineOfSightFailure failure)
         {
-            disabled = true;
-            Shared.CrashBreadcrumbDiagnostics.Record("HunterVisibilityGuardChanged", outcome: -1);
+            if (failure == LineOfSightFailure.Reentrant)
+            {
+                if (reentrancyLogged)
+                    return;
+                reentrancyLogged = true;
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"Improved Hunters native visibility skipped a reentrant {operation}; behavior remains unchanged.");
+                return;
+            }
+
+            Shared.CrashBreadcrumbDiagnostics.Record("HunterVisibilityFailure", (int)failure, outcome: -1);
+            if (failureLogged)
+                return;
+            failureLogged = true;
             Shared.DebugLogHelper.LogError(
                 log,
-                "Improved Hunters native visibility probe disabled: the private context guard changed outside context+0xC; " +
-                "no Hunter state or order was modified.");
-        }
-
-        private void LogFailureOnce(string operation, Exception exception, bool disableProbe)
-        {
-            Shared.CrashBreadcrumbDiagnostics.Record("HunterVisibilityFailure", disableProbe ? 1 : 0, outcome: -1);
-            if (disableProbe)
-            {
-                disabled = true;
-                if (invocationFailureLogged)
-                    return;
-                invocationFailureLogged = true;
-            }
-            else
-            {
-                if (captureFailureLogged)
-                    return;
-                captureFailureLogged = true;
-            }
-
-            Shared.DebugLogHelper.LogError(
-                log,
-                $"Improved Hunters native visibility probe {operation} failed; " +
-                $"disabled={disabled}, Hunter behavior remains unchanged: {exception}");
+                $"Improved Hunters native visibility {operation} failed ({failure}); " +
+                $"available={LineOfSight.IsAvailable}, Hunter behavior remains unchanged. {LineOfSight.UnavailableReason}");
         }
     }
 }

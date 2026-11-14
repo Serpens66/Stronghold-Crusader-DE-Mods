@@ -157,7 +157,7 @@ if (-not $probeBlock.Contains('allowProbeReservationOne: true') -or
 }
 
 $nearProbeStart = $nativeProbe.IndexOf('private bool TryInvokeNearVisibility(', [System.StringComparison]::Ordinal)
-$nearProbeEnd = $nativeProbe.IndexOf('private static bool TryInvokeGuardedVisibility(', $nearProbeStart, [System.StringComparison]::Ordinal)
+$nearProbeEnd = $nativeProbe.IndexOf('private bool Evaluate(', $nearProbeStart, [System.StringComparison]::Ordinal)
 if ($nearProbeStart -lt 0 -or $nearProbeEnd -le $nearProbeStart) {
     throw 'Native near-visibility probe block was not found.'
 }
@@ -167,7 +167,7 @@ if ($nearProbeBlock.Contains('if (wrapperResult <= 0)') -or
     -not $nearProbeBlock.Contains('if (wrapperResult == 0)') -or
     -not $nearProbeBlock.Contains('hunterToPreyResult = 0') -or
     -not $nearProbeBlock.Contains('preyToHunterResult = 0') -or
-    -not $nearProbeBlock.Contains('visibilityCore') -or
+    -not $nearProbeBlock.Contains('LineOfSightRoutine.Directional') -or
     -not $nearProbeBlock.Contains('out HunterNearVisibilityGeometry geometry')) {
     throw 'Wrapper-zero probes must retain the authoritative zero result and avoid redundant core calls; positive probes still validate both directions and exact geometry.'
 }

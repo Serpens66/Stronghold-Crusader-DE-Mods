@@ -28,7 +28,6 @@ namespace ImprovedHunters
         // Vanilla's smallest herds, so that every player's start herd has the same size.
         private const int StartDeer = 9;
         private const int StartGoats = 4;
-        private const int MaximumPlayers = 8;
         private const int MapMiddle = 400;
         private const int CorpseFlagOffset = 0x29C;
         private const string SaveEntry = "origins";

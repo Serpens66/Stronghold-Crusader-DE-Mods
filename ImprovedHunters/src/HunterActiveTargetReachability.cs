@@ -58,13 +58,15 @@ namespace ImprovedHunters
                     }
                 }
 
-                int result = GamePathingManagerAPI.Instance
-                    .FindNextComponentTowardDestination(
-                        inputs.PlayerId,
-                        inputs.SourcePcl,
-                        inputs.TargetPcl,
-                        (PathConnectionQueryMode)inputs.Mode);
-                reachable = result != 0;
+                APIShared.Pathfinding.PathReachabilityResult answer = APIShared.Pathfinding.PathReachability.BetweenComponents(
+                    inputs.PlayerId,
+                    (PathConnectionQueryMode)inputs.Mode,
+                    inputs.SourcePcl,
+                    inputs.TargetPcl);
+                if (answer == APIShared.Pathfinding.PathReachabilityResult.Unknown)
+                    return false;
+
+                reachable = answer == APIShared.Pathfinding.PathReachabilityResult.Connected;
                 bool logChangedObservation;
                 lock (cacheLock)
                 {
@@ -103,7 +105,7 @@ namespace ImprovedHunters
                         $"target={preyUnitId}/{preyGlobalId}/{preyType}, " +
                         $"player={inputs.PlayerId}, mode={inputs.Mode}, " +
                         $"sourcePcl={inputs.SourcePcl}, targetPcl={inputs.TargetPcl}, " +
-                        $"resultRaw={result}, reachable={reachable}, " +
+                        $"result={answer}, reachable={reachable}, " +
                         "nextProbeMs=1000, readableMs=2000.");
                 }
 

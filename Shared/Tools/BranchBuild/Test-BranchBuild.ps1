@@ -361,6 +361,31 @@ function Assert-ApiBuildProof([string]$Root) {
     Assert-Case (-not (Test-Path -LiteralPath $workspacePackage)) 'A failed build retained a package that could be mistaken for success'
     $null = Invoke-Fixture @('/branch:main','/noinstall','/nopause','/syncpackage') 1
     Assert-Case (-not (Test-Path -LiteralPath $workspacePackage)) 'A branch build mirrored its package'
+    # Mod packages keep tracked sources (info.json, XAML) beside compiler output. Direct builds
+    # must keep them, also after a failure, while tracked compiler products are still cleared.
+    # A sibling folder: the fixture driver itself recreates Fixture_Serp.
+    $keepPackage = Join-Path $repo 'Fixture/BepInEx/plugins/Fixture_Keep'
+    $trackedSource = Join-Path $keepPackage 'info.json'
+    $trackedBinary = Join-Path $keepPackage 'tracked.dll'
+    Write-BranchText $trackedSource 'TRACKED_SOURCE'
+    Write-BranchText $trackedBinary 'TRACKED_BINARY'
+    Invoke-BranchGit $repo @('add','-f','Fixture/BepInEx/plugins/Fixture_Keep/info.json','Fixture/BepInEx/plugins/Fixture_Keep/tracked.dll') | Out-Null
+    try {
+        Write-BranchText (Join-Path $keepPackage 'stale.txt') 'STALE'
+        $null = Invoke-Fixture @('/source:working','/noinstall','/nopause')
+        Assert-Case ([IO.File]::ReadAllText($trackedSource) -ceq 'TRACKED_SOURCE') 'A direct build deleted a tracked package source'
+        Assert-Case (-not (Test-Path -LiteralPath (Join-Path $keepPackage 'stale.txt'))) 'A direct build kept an untracked stale file beside tracked sources'
+        Assert-Case (-not (Test-Path -LiteralPath $trackedBinary)) 'A direct build kept a tracked compiler product'
+        Write-BranchText (Join-Path $repo 'Fixture/fail.txt') 'fail'
+        $null = Invoke-Fixture @('/source:working','/noinstall','/nopause') 27
+        [IO.File]::Delete((Join-Path $repo 'Fixture/fail.txt'))
+        [IO.File]::Delete($workingRecordPath)
+        Assert-Case ([IO.File]::ReadAllText($trackedSource) -ceq 'TRACKED_SOURCE') 'A failed direct build deleted a tracked package source'
+        Assert-Case (-not (Test-Path -LiteralPath (Join-Path $workspacePackage 'built.txt'))) 'A failed direct build retained untracked output'
+    } finally {
+        Invoke-BranchGit $repo @('rm','-q','--cached','-f','--ignore-unmatch','Fixture/BepInEx/plugins/Fixture_Keep/info.json','Fixture/BepInEx/plugins/Fixture_Keep/tracked.dll') | Out-Null
+        if (Test-Path -LiteralPath $keepPackage) { [IO.Directory]::Delete($keepPackage, $true) }
+    }
     if (Test-Path -LiteralPath (Join-Path $repo 'Fixture/BepInEx')) { [IO.Directory]::Delete((Join-Path $repo 'Fixture/BepInEx'), $true) }
     Write-BranchText (Join-Path $mainDir 'built.txt') 'KEEP_MAIN_NOINSTALL'
     $previousPrepareOnly = $env:SHCDE_PREPARE_ONLY

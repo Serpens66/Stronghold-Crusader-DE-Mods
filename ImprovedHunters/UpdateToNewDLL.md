@@ -15,13 +15,12 @@ fields still require an in-game smoke test after a game update.
 
 Production wiring is separated by feature: initial target selection and PCL
 filtering, active pathfinding/visibility recovery and the
-melee rabbit rule have independent gates. Corpse timers and camel compatibility
-follow their respective animal opt-ins. An update audit must therefore also confirm
+melee rabbit rule have independent gates. Corpse lifetimes (APIShared HuntablePrey) and camel
+compatibility follow their respective animal opt-ins. An update audit must therefore also confirm
 that every switch mutates only its own path and that disabled features leave native
 registers, flags, and patch bytes unchanged.
 
-The temporary `HunterNativeVisibilityProbe`,
-`HunterTargetSearchFallback`, and
+The temporary `HunterTargetSearchFallback` and
 `HunterVanillaPathContinuation` are deliberately stricter: they are
 enabled only on the exact audited hash. Their available entry/sequence patterns
 still serve as RVA fallbacks after a local reference-byte failure, but they do
@@ -34,22 +33,11 @@ only these diagnostic paths.
 
 | Source pattern | Reference RVA | Use / offset |
 | --- | ---: | --- |
-| `CamelDespawnTickTimePattern` | `0x1584B8` | signed immediate at `+13` |
-| `ChickenDespawnTickTimePattern` | `0x163465` | signed immediate at `+13` |
 | `HostilityRabbitChainPattern` | `0x18694C` | melee rabbit rule, hash-bound; span `[0x186952,0x186962)`, results `0x18688E`/`0x1869AD` |
 | `MeleeOrderBlockPattern` | `0x11EE64` | melee rabbit rule, hash-bound; span 19 bytes in the melee branch of tribe order case 4 |
 | `StanceScanFilterPattern` | `0x18C731` | melee rabbit rule, hash-bound; span 14 bytes, accept `0x18C75D` |
 | `RangedFlagReaderPattern` | `0x18F315` | melee rabbit rule, hash-bound; reader of tribe flag `+0x58E`, absolute `0x7CC6CAE` |
-| `ComparisonSequencePattern` | `0xD2AB4` | granary chicken target comparison hook at `+11` (`0xD2ABF`) |
-| Native Hunter visibility wrapper | `0xA06F0` | behavior-neutral direct probe; seven arguments including context |
-| Native Hunter visibility core | `0x9E350` | wrapper calls forward first and returns immediately when positive; reverse is called only after forward returns zero; `1.1.52` validates the entry and may call both directions explicitly; returns `0` when blocked, otherwise its step count along the line (up to `1000`, `100000` for the same point); the direct attack at `0x18ED6A` treats every positive value as visible, the target query at `0x18B0A2` only `1..0x1B0` |
-| Shared obstacle-height helper | `0x6B990` | reads tile flags, building identity/type and effective obstacle height |
-| Building-height type switch | `0x6B9F8` | dispatches building types `7..78` |
-| Building-height dispatch targets | `0x6BAB4` | entries `0..3`; entry `3` is the normal fixed-height case |
-| Building-type dispatch bytes | `0x6BAC4` | type `7`/Hunter's Hut is the first byte; Vanilla `0`, reader-hook override `3` |
-| Building blocker-height table | `0x2E8C60` | type `7` already has normal blocker height `40` |
-| Hunter query visibility call | `0x18B0A2` | must resolve to wrapper `0xA06F0` |
-| Hunter direct-order visibility call | `0x18ED6A` | must resolve to wrapper `0xA06F0` |
+| Sight wrapper/core, obstacle-height dispatch | `0xA06F0`, `0x9E350`, `0x6B990`/`0x6BA0C` | owned by APIShared since this mod uses `APIShared.Sight`; see below |
 | Unit-function table | `0x321CB0` | Hunter entry is index `6` at `+0x30` |
 | Native `HunterUpdate` | `0x12FC70` | state dispatch and Vanilla Hunter movement/order transitions |
 | Hunter distance helper | `0x79C0` | exact state-1 range result retained in `EDI` |
@@ -88,13 +76,14 @@ rabbit, camel and chicken through `HuntablePrey` (chicken with own-player prey, 
 removal when butchering starts), its target selection through `HunterTargetPolicies` and its meat
 settings through `HunterMeatYieldEvents`, and installs none of these native sites itself. A changed DLL
 is therefore audited in APIShared first.
-### Chicken population
+### Corpse lifetimes, chicken population and Hunter's hut availability (in APIShared)
 
-`0xD29E0` compares its food-based target in `eax` with `[rdi+0x2048]` at `0xD2ABF`.
-`GranaryChickenLimitPatch` sets `eax` to `ChickensPerPlayer`. The flags of that one
-comparison decide both branches: `jle` to `0xD2BA7` (no spawn), where `jge` reuses them
-and otherwise removes one chicken of the player. `rbx` is the player (the removal loop
-compares with `ebx`). Spawning needs a bakery, mill or granary of the player (`0xBF510`).
+APIShared owns the native sites of these three features; this mod only supplies its settings:
+rabbit, camel and chicken corpse lifetimes through `HuntablePreyDefinition.WithMinimumCorpseLifetime` (formerly the
+Extender's `RabbitDespawnTickTime` and the immediates at `0x1584C5`/`0x163472`), `ChickensPerPlayer` through
+`ChickenPopulationModifiers` (formerly the context hook at `0xD2ABF`) and `HunterHutAlwaysAvailable` through a
+`BuildMenuAvailability` rule for `MAPPER_HUNTER` (formerly the gate at `0xFFDA6`). Audit them in APIShared's
+`UpdateToNewDLL.md`, sections "Corpse lifetimes", "Chicken population" and "Build-menu availability".
 
 ### Melee rabbit rule
 
@@ -113,49 +102,17 @@ by Vanilla only in the ranged branches (`0x11EC89`, `0x11F2AF`). `RabbitMeleeOrd
 The flag has no second independent code anchor, so this feature stays bound to the
 audited hash and logs an error otherwise.
 
-### Native Hunter visibility call
+### Line of sight and the Hunter's Hut (in APIShared)
 
-`HunterNativeVisibilityProbe.cs` calls, but does not hook or patch, Vanilla's
-visibility wrapper at `0xA06F0`. On the audited hash it validates the wrapper
-entry, both core-call sequences, both relative core targets (`0x9E350`), and the
-query/direct-order callsites plus their relative targets before creating the
-delegate. Any mismatch disables it without changing Hunter behavior.
-
-The validated native signature is
-`int(context, startX, startY, startHeight, endX, endY, endHeight)`. Hunter input
-uses `GameUnit +0xB2/+0xB4` and `+0xB6 + signed(+0xB8) + 30`; prey input uses the
-same fields with height bias `+26`. The wrapper writes only `context +0xC`, so
-a zero-initialized private 16-byte context surrounded by canaries is supplied. Any
-change outside `+0xC` disables the call immediately. The native global context is
-never passed.
-
-### Hunter's Hut visibility dispatch correction
-
-`HunterHutVisibilityPatch.cs` corrects the exception in the shared obstacle-
-height helper rather than implementing a second projectile-line model. When a
-tile has the relevant building flag, helper `0x6B990` resolves the building ID
-and reads its type at native `GameBuilding +0x12E`. The switch at `0x6B9F8`
-maps types `7..78` through the byte table at `0x6BAC4`. Type `7` is
-`STRUCT_HUNTERS_HUT`.
-
-Vanilla byte `0` sends that type to `0x6BA3D`. With the obstacle-aware mode
-used by visibility core `0x9E350`, this case skips the building contribution
-and returns only terrain height. Dispatch byte `3` instead enters the normal
-case at `0x6BA41`, which reads the type-dependent value at `0x2E7C60`; the
-existing type-7 value is `40`, equal to the Woodcutter's Hut blocker height.
-For the other helper mode, the old special case already fell through to this
-normal value, so the effective behavior change is limited to obstacle-aware
-Hunter's Hut queries.
-
-On the audited hash the patch validates helper, switch, both tables, dispatch
-targets, original byte and height value before installing a permanent reader
-hook at `0x6BA0C` (17 displaced bytes). A changed hash requires a unique
-executable-section match for the type-switch pattern and then re-derives and
-validates every table address and target. The stub emits its original index load
-and target load once. A disabled feature or a different source type executes both
-Vanilla loads; a matching source type selects the replacement index and then executes
-the original target load. Only an atomic data flag changes after hook publication. The
-hook remains installed until process exit and stays disabled in the map editor.
+The native sight wrapper `0xA06F0` and core `0x9E350`, their validation, private
+context guard and eye heights, and the building-height dispatch hook at `0x6BA0C`
+that lets the Hunter's Hut block sight belong to APIShared (`APIShared.Sight`, see its
+`UpdateToNewDLL.md` sections "Line of sight" and "Sight-blocking buildings").
+`HunterNativeVisibilityProbe.cs` keeps only this mod's settings, Hunter/prey identity
+checks and diagnostics around `LineOfSight`; `ImprovedHuntersRuntime` registers
+`STRUCT_HUNTERS_HUT` through `SightBlockingBuildings` in its LibraryLoaded handler and
+enables the rule while Improved pathfinding may run. This mod installs and validates
+none of these native sites itself; a changed DLL is audited in APIShared first.
 
 ### Native PCL reachability precheck calibration
 
@@ -183,7 +140,8 @@ to MoveHere's failure path. Therefore zero is suitable as a conservative hard
 pre-filter; a nonzero result must still leave Vanilla's detailed path creation
 authoritative.
 
-Version `1.1.43` adds the separately removable
+Historical (the diagnostic was later removed; since `1.2.2` the production query goes
+through APIShared `PathReachability`): Version `1.1.43` adds the separately removable
 `HunterPclReachabilityDiagnostic.cs`. Before ranking, it records source/target
 PCL and compares mode `0`, mode `2`, and the Hunter's live `+0x35C` value. The
 existing exact state-0 MoveHere result hook correlates its return with the stored
@@ -258,8 +216,8 @@ that describe them as disabled there or as using `Stopwatch` are history. All ho
 
 ## Tanner meat path
 
-Owner: `TannerMeatPatch` with `HunterNativeStubs.EmitTanner*`; state `TannerRunTable`, sync and save
-`TannerRatioSync`, panel `TannerModePanel` and `Patches/Assets/GUI/XAMLResources/HUD_Buildings.xaml`.
+Owner: `TannerMeatPatch` with `HunterNativeStubs.EmitTanner*`; state `TannerMeatState` in APIShared's
+building state table (layout `TannerStateLayout`), panel `TannerModePanel` as an APIShared building panel section.
 Bound to the audited hash: the building fields have no second anchor, so an unknown DLL leaves Tanneries
 on Vanilla's behaviour (error log, no hook). Pattern and offsets are in `TannerMeatPatch.cs`;
 `_inspect/ImprovedHuntersChickenTests` checks the patterns against the DLL and executes all stubs.
@@ -277,15 +235,16 @@ before or around a call; RAX is dead except where the stub replays Vanilla's val
 building manager, R12 the unit manager, R13D is one, RDI zero. At `0x13EBF7` RCX, EDX and R8D already
 hold Vanilla's arguments for `0x18D940`; the stub only replaces EDX on a meat trip.
 
-State: `TannerRunTable` is indexed by building ID and holds the global ID (`+0x134`), the meat runs per cow
-and whether the current trip carries meat. Stubs read it directly and ignore an entry with another
+State: APIShared's building state table (`BuildingStates`, 8-byte entries) is indexed by building ID and
+holds the global ID (`+0x134`) at +0, the meat runs per cow at +4 and whether the current trip carries meat at +5. Stubs read it directly and ignore an entry with another
 global ID. A run carries meat if fewer hides than meat runs remain after it took its own hide.
 Do not store this in the building record: `+0x2EC`/`+0x2EA` are Vanilla's workshop choice and stay free
 for mods that add goods to the Tannery. Non-meat runs replay the displaced Vanilla instructions unchanged.
 
-Sync: a slider change is `RegisterAuthenticatedChore` (`tanner-ratio`), checked on every peer against the
-live building, its type, global ID and owner; never applied locally. Saved as the simulation-relevant
-record `ImprovedHunters.Tanneries`; a load without a record and a mission without an archive load clear it.
+Sync: a slider change is an owner request of APIShared's building state Chore, checked on every peer against
+the live building, its type, global ID and owner; never applied locally. Saved by APIShared as the
+simulation-relevant record `ImprovedHunters.TanneryMeatRuns`; a load without a record and a mission without
+an archive load clear it. The earlier record `ImprovedHunters.Tanneries` (IH 1.2.x) is not read any more.
 
 Bonus: every meat setting is a base amount passed to `0x18D940`; the Hunter through
 `OnCalculateBonusYield` without skipping the original, the Tanner through EDX. See the Vanilla rule in
@@ -299,10 +258,9 @@ Update audit: confirm that `0x13E0B0` still adds three hides, that `+0x134` is s
 
 ## Hunter's hut availability
 
-Owner: `HunterHutAvailabilityPatch` with `HunterNativeStubs.EmitHutAlwaysAvailable`, setting
-`HunterHutAlwaysAvailable`. Site `0xFFDA6` in `0xFFC70` case `0x4E`: outside single player (`0x8574B90` != 0) the
-build button is off when the map started without deer and goats (`0x37EF97C`, written in `0x94350` from `0x1860E0`).
-Only the UI asks this; placing a hut by code was never blocked. Update audit: the case, the mode read and the counter.
+Owner: APIShared `BuildMenuAvailability` (see above), rule `hunters-hut` of `ApplyWildlifeRules`, setting
+`HunterHutAlwaysAvailable`, also on with start herds. Vanilla's `0xFFC70` case `0x4E` hides the button outside single
+player (`0x8574B90` != 0) on maps that started without deer and goats (`0x37EF97C`); only the UI asks it.
 
 ## Search range
 
@@ -326,7 +284,7 @@ that newborn animals join the same herd (`0x118130` to `0x11D370`) and herds do 
 
 Owner: `WildlifeRespawnFeature.PlaceStartHerds`, places from `WildlifeStartPlaces`, setting `StartHerdMode`. New maps only, right after the capture above: one herd per player with a keep,
 through `Herds.TrySpawn`, cut to Vanilla's smallest size. Reads the keeps through `ActivePlayerKeepReadiness`, the door through `GetPlayerKeepDoorPosition`, the path components, and the sector's unit counter
-through `HerdFlightRules.TryGetSectorThreats`. The Hunter's hut button (`0xFFC70`, `0x37EF97C`) does not know these herds, so `HunterHutAvailabilityPatch` stays on with them.
+through `HerdFlightRules.TryGetSectorThreats`. The Hunter's hut button (`0xFFC70`, `0x37EF97C`) does not know these herds, so the `hunters-hut` rule stays on with them.
 Update audit: the same as for the respawn, and that the door position is a tile on the walkable land around the keep.
 
 ## Herd range
@@ -391,8 +349,8 @@ reservation 2 and handles any prey type.
 
 ## Required update audit
 
-1. Require one semantic match for both despawn patterns and verify that operand 1 at
-   pattern offset `13` remains the signed 16-bit despawn duration.
+1. Confirm that the APIShared version in use supports the new DLL for corpse lifetimes, the chicken
+   population and build-menu availability.
 2. Confirm that the APIShared version in use supports the new DLL for huntable prey,
    Hunter native sites and owner gates (owned chickens, reservation release, query identity).
 3. Revalidate the reservation writers in `HunterUpdate` that this mod's own hooks rely on.
@@ -404,22 +362,14 @@ reservation 2 and handles any prey type.
 6. Run `Testmods/UiAcceptance/scenarios/SP-hunters.json`: chickens keep their owner
    and walk, the configured count holds, a Hunter completes the chain from target to
    delivered meat without a warning sound, soldiers ignore rabbits until ordered.
-7. Revalidate the population comparison at `0xD2AB4`, hook `0xD2ABF`, signed `jle`
-   target `0xD2BA7`, its `jge` on the same flags, `rbx` player and `[rdi+0x2048]`.
+7. Run `SP-hunters-matrix-chicken` and `SP-hunters-hut*`: the configured chicken count and the
+   Hunter's hut option still hold through APIShared.
 8. Update all reference RVAs and the dispatch-table map before approving
    the new shared hash. Re-derive the melee rabbit spans and the tribe flag.
 9. Revalidate the Hunter query candidate loop this mod's own query hooks rely on.
-10. Revalidate visibility wrapper `0xA06F0`, core `0x9E350`, query call
-    `0x18B052`, direct-order call `0x18ED1A`, the seven-argument ABI, both core
-    relative targets, context write boundary `+0xC`, world/height field
-    construction, and return thresholds. Keep the diagnostic fail-closed until
-    all control cases have been repeated in game.
-11. Revalidate height helper `0x6B990`, type switch `0x6B9F8`, dispatch target
-    table `0x6BAB4`, type table `0x6BAC4`, the Hunter's Hut mapping `7 -> 0`,
-    special/normal targets `0x6BA3D` and `0x6BA41`, and blocker-height table
-    `0x2E7C60` with type-7 value `40`. Confirm the patch still changes only the
-    first dispatch index to `3` only for Hunter's Hut and otherwise preserves
-    Vanilla through the permanent reader hook at `0x6BA0C`.
+10. Confirm in APIShared that `LineOfSight` and `SightBlockingBuildings` are available
+    for the new hash (their own update checklists).
+11. Repeat the Hunter's Hut sight and firing-position scenarios in game.
 12. Revalidate PCL reachability RVA `0xE2610`, its unique entry signature,
     zero/nonzero return semantics, player-aware gate traversal, and the call at
     MoveHere RVA `0x1964D3`. Confirm the caller still passes public unit fields
@@ -433,12 +383,12 @@ Version 1.1.27 replaced the old one-second `KillUnit` workaround with a guarded
 arrows. Version 1.1.69 removed that compensation completely because improved
 pathfinding and visibility handling are responsible for reaching a valid firing
 position. Projectile spawn and deletion events now remain observation-only for
-the unfinished post-shot path continuation. The removed design, guards and
+the post-shot path continuation (`HunterPostShotContinuation.cs`, in production). The removed design, guards and
 parameters are archived in `Plan/ReliableHunterProjectilesArchived.md`.
 
-Pre-shot visibility recovery is isolated in `HunterLineOfSightRecovery.cs` and
-currently remains fail-closed: it reports unavailable, performs no path search,
-and issues no movement. The former implementation synchronously called the
+Historical: pre-shot visibility recovery was isolated in `HunterLineOfSightRecovery.cs`,
+which stayed fail-closed and has since been removed; firing positions are now found by
+`HunterFiringPositionSearch.cs`. The former implementation synchronously called the
 Script Extender's managed `GameTileManagerAPI.FindPath`. An in-game case with an
 unreachable destination showed that this unbounded managed A* can monopolize the
 game thread. All such calls were therefore removed from both recovery and target
@@ -462,7 +412,7 @@ RVAs, function extents, the `0x65C` base adjustment, return branches and the
 mapped public path fields before enabling native movement diagnostics or
 recovery.
 
-`HunterNativeMoveDiagnostic.cs` was the temporary behavior-changing calibration
+`HunterNativeMoveDiagnostic.cs` (removed) was the temporary behavior-changing calibration
 for these findings. In non-editor singleplayer only, two rapid target aborts
 without a recent Hunter projectile may issue one `MoveToTile` order to the live
 prey's occupied tile. It correlates the synchronous public `OnUnitMoveHere`

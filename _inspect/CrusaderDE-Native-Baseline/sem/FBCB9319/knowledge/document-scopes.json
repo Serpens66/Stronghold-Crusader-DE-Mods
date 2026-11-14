@@ -74,6 +74,12 @@
       "integrationSections": []
     },
     {
+      "file": "LINE_OF_SIGHT.md",
+      "scope": "vanilla",
+      "components": ["CrusaderDE.dll"],
+      "integrationSections": []
+    },
+    {
       "file": "CUSTOM_LORD_AIV_SELECTION.md",
       "scope": "vanilla+integration",
       "components": ["BugfixesAndQoL"],

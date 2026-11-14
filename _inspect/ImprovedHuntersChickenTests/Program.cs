@@ -1,6 +1,5 @@
 using ImprovedHunters;
 using Iced.Intel;
-using RedBird.X64.Assembly.Stateful;
 using RedBird.X64.Hooks;
 using SHCDESE.Interop;
 using System.Runtime.InteropServices;
@@ -11,12 +10,6 @@ static class Program
 {
     private const string CanonicalNativePath = @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll";
     private static int assertions;
-
-    private sealed class StubCodeWriter : CodeWriter
-    {
-        internal readonly List<byte> Bytes = new();
-        public override void WriteByte(byte value) => Bytes.Add(value);
-    }
 
     public static void Main(string[] args)
     {
@@ -36,17 +29,9 @@ static class Program
         Assert(!HunterInactivePreyPolicy.IsOwnAdmission("hunters", "rabbit", "hunters", "other"), "another registration is not the frozen own admission");
         Assert(!HunterInactivePreyPolicy.IsOwnAdmission("hunters", "rabbit", null, null), "no admission grants no veto");
         Assert(!HunterInactivePreyPolicy.IsOwnAdmission("hunters", "rabbit", "Hunters", "rabbit"), "owner identities remain ordinal");
-        if (args.Length == 1 && args[0] == "dispatch")
-        {
-            TestDispatchReaderHooks();
-            Console.WriteLine($"ImprovedHunters dispatch hooks passed: assertions={assertions}.");
-            return;
-        }
         TestPopulationClamp();
-        TestStatefulImmediateLifecycle();
         TestMigrationContracts();
         TestNativePatterns();
-        TestDispatchReaderHooks();
         NativeStubExecutionTests.Run(MapPeImage(File.ReadAllBytes(CanonicalNativePath), out _));
         Console.WriteLine($"ImprovedHunters chicken policy tests passed: assertions={assertions}.");
     }
@@ -80,40 +65,6 @@ static class Program
         Assert(!HunterInactivePreyPolicy.ShouldRefuse(preyType, null, frozen), "unknown own type grants no veto");
     }
 
-    private static void TestStatefulImmediateLifecycle()
-    {
-        IntPtr instruction = Marshal.AllocHGlobal(16);
-        try
-        {
-            Marshal.Copy(new byte[] { 0x66, 0xB8, 0x34, 0x12 }, 0, instruction, 4);
-            var site = new ManagedAssemblyImmediate<short>(instruction, operand: 1);
-            Assert(site.OriginalValue == 0x1234 && site.GetValue() == 0x1234,
-                "RedBird did not decode the original imm16 value.");
-            site.SetValue(1800);
-            Assert(site.GetValue() == 1800 && Marshal.ReadByte(instruction, 2) == 0x08 &&
-                Marshal.ReadByte(instruction, 3) == 0x07,
-                "RedBird did not encode the requested imm16 value.");
-            site.Dispose();
-            Assert(Marshal.ReadByte(instruction, 2) == 0x34 && Marshal.ReadByte(instruction, 3) == 0x12,
-                "Disposing a mod-owned RedBird immediate did not restore its original bytes.");
-
-            Marshal.Copy(new byte[] { 0x66, 0x83, 0xF8, 0x01 }, 0, instruction, 4);
-            using var narrowSite = new ManagedAssemblyImmediate<short>(instruction, operand: 1);
-            narrowSite.SetValue(127);
-            Assert(narrowSite.GetValue() == 127, "Signed imm8 upper boundary was rejected.");
-            AssertThrows<ArgumentOutOfRangeException>(() => narrowSite.SetValue(128),
-                "Signed imm8 upper overflow was not rejected.");
-            narrowSite.SetValue(-128);
-            Assert(narrowSite.GetValue() == -128, "Signed imm8 lower boundary was rejected.");
-            AssertThrows<ArgumentOutOfRangeException>(() => narrowSite.SetValue(-129),
-                "Signed imm8 lower overflow was not rejected.");
-        }
-        finally
-        {
-            Marshal.FreeHGlobal(instruction);
-        }
-    }
-
     private static void TestMigrationContracts()
     {
         string root = FindWorkspaceRoot();
@@ -132,20 +83,23 @@ static class Program
         // and added the State-0 MoveHere destination hook for firing positions. Since 1.2.0 APIShared owns
         // the Hunter query identity (the issue-123 capture hook and its transaction are gone), own-player
         // chickens and the reservation release (their PermanentNativeGate stubs and eight patterns are gone).
-        Assert(Count(allSource, "new HookHandle<X64InlineHook>()") == 14,
-            "ImprovedHunters must own exactly fourteen typed inline-hook handle declarations.");
-        Assert(Count(allSource, "CommitResult commitResult = transaction.Commit()") == 6 &&
-            Count(allSource, "commitResult.IsCompleteSuccess") == 6,
-            "Every one of the six atomic hook transactions must check aggregate success.");
+        // APIShared.Sight now owns the Hunter's hut dispatch reader (PermanentDispatchIndexOverride is gone).
+        // APIShared.Wildlife.ChickenPopulationModifiers now owns the chicken target compare (GranaryChickenLimitPatch is gone).
+        Assert(Count(allSource, "new HookHandle<X64InlineHook>()") == 12,
+            "ImprovedHunters must own exactly twelve typed inline-hook handle declarations.");
+        // Every transaction commits through HunterHookInfrastructure.Commit, which claims its native-site group first.
+        Assert(Count(allSource, "CommitResult commitResult = HunterHookInfrastructure.Commit(transaction, ") == 5 &&
+            Count(allSource, "commitResult.IsCompleteSuccess") == 5,
+            "Every one of the five atomic hook transactions must check aggregate success.");
         Assert(infrastructure.Contains("HookTarget.FromAddress(address)", StringComparison.Ordinal) &&
             infrastructure.Contains("new ContextHookOptions", StringComparison.Ordinal) &&
             infrastructure.Contains("OwnsHooks = true", StringComparison.Ordinal),
             "The common RedBird target/options/feature ownership contract is incomplete.");
-        Assert(!runtime.Contains("rabbitDespawnTickTime?.Dispose()", StringComparison.Ordinal) &&
-            runtime.Contains("rabbitDespawnOverride?.Dispose()", StringComparison.Ordinal) &&
-            runtime.Contains("camelDespawnTickTime?.Dispose()", StringComparison.Ordinal) &&
-            runtime.Contains("chickenDespawnTickTime?.Dispose()", StringComparison.Ordinal),
-            "Rabbit/ camel/ chicken immediate ownership is not separated correctly.");
+        // Corpse lifetimes of rabbits, camels and chickens belong to their APIShared HuntablePrey registrations;
+        // this mod writes no instruction immediate itself.
+        Assert(!allSource.Contains("ManagedAssemblyImmediate", StringComparison.Ordinal) &&
+            Count(allSource, "WithMinimumCorpseLifetime(") == 3,
+            "Rabbit, camel and chicken corpse lifetimes must come only from their HuntablePrey registrations.");
         Assert(project.Contains("RedBird.Abstractions.dll", StringComparison.Ordinal) &&
             project.Contains("RedBird.Core.dll", StringComparison.Ordinal) &&
             project.Contains("RedBird.X64.dll", StringComparison.Ordinal) &&
@@ -164,11 +118,7 @@ static class Program
 
         string sourceRoot = Path.Combine(FindWorkspaceRoot(), "ImprovedHunters", "src");
         var definitions = new List<(string Name, byte?[] Bytes, int ExpectedRva)>();
-        var uniquelyResolvedNames = new HashSet<string>(StringComparer.Ordinal)
-        {
-            "CamelDespawnTickTimePattern",
-            "ChickenDespawnTickTimePattern"
-        };
+        var uniquelyResolvedNames = new HashSet<string>(StringComparer.Ordinal);
         foreach (string path in Directory.GetFiles(sourceRoot, "*.cs"))
         {
             string source = File.ReadAllText(path);
@@ -202,9 +152,13 @@ static class Program
 
         // Since 1.2.0 APIShared's Herds service owns the herd route builder, the deer and goat threat reads and the
         // herd records, so their four patterns (route, two flight sites, herd manager tick) left this mod.
-        Assert(definitions.Count == 37, $"Expected 37 native pattern definitions, found {definitions.Count}.");
-        Assert(uniquelyResolvedNames.Count == 29,
-            $"Expected 29 uniquely resolved pattern contracts, found {uniquelyResolvedNames.Count}.");
+        // APIShared.Sight now owns the sight wrapper/core calls (six patterns) and the Hunter's hut height dispatch
+        // (two patterns, one of them uniquely resolved), so those eight left this mod as well.
+        // APIShared now owns the camel and chicken corpse constants, the chicken target compare and the build-menu
+        // availability query (four uniquely resolved patterns).
+        Assert(definitions.Count == 25, $"Expected 25 native pattern definitions, found {definitions.Count}.");
+        Assert(uniquelyResolvedNames.Count == 24,
+            $"Expected 24 uniquely resolved pattern contracts, found {uniquelyResolvedNames.Count}.");
         int uniqueFallbackPatterns = 0;
         int ambiguousReferencePatterns = 0;
         foreach ((string name, byte?[] bytes, int expectedRva) in definitions)
@@ -236,79 +190,6 @@ static class Program
         Assert(resolver.Contains("FindUniquePattern(memory, bytes, name, searchScope)", StringComparison.Ordinal),
             "Ambiguous non-reference pattern fallbacks are not guarded fail-closed.");
         Console.WriteLine($"ImprovedHunters native patterns verified: definitions={definitions.Count}, uniqueFallback={uniqueFallbackPatterns}, ambiguousReferenceOnly={ambiguousReferencePatterns}.");
-    }
-
-    private static void TestDispatchReaderHooks()
-    {
-        const string nativePath = CanonicalNativePath;
-        byte[] image = MapPeImage(File.ReadAllBytes(nativePath), out _);
-        foreach ((int rva, int length, int sourceType, byte replacement, bool inR9) in new[]
-        {
-            (0x6BA0C, 17, 7, (byte)3, false)
-        })
-        {
-            IntPtr copy = Marshal.AllocHGlobal(64);
-            IntPtr flag = Marshal.AllocHGlobal(sizeof(int));
-            try
-            {
-                Marshal.Copy(image, rva, copy, 64);
-                Marshal.WriteInt32(flag, 0);
-                using var hook = new X64InlineHook(unchecked((ulong)copy.ToInt64()), length);
-                Assert(hook.DisplacedByteCount == length,
-                    $"Dispatch reader 0x{rva:X} displaced {hook.DisplacedByteCount}, expected {length}.");
-                int generated = 0;
-                Assembler? emitted = null;
-                hook.Generate((assembler, instructions, returnAddress) =>
-                {
-                    Assert(instructions.Length == 2 &&
-                           instructions[0].Length + instructions[1].Length == length,
-                        $"Dispatch reader 0x{rva:X} has unexpected original instructions.");
-                    DispatchIndexStub.Generate(assembler, instructions,
-                        unchecked((ulong)flag.ToInt64()), sourceType, replacement, inR9);
-                    emitted = assembler;
-                    generated++;
-                });
-                Assert(generated == 1 && hook.StubAddress != IntPtr.Zero,
-                    $"Dispatch reader 0x{rva:X} did not assemble one complete RedBird stub.");
-                var writer = new StubCodeWriter();
-                string? error = null;
-                Assert(emitted != null && emitted.TryAssemble(writer,
-                    unchecked((ulong)hook.StubAddress.ToInt64()), out error, out _),
-                    $"Dispatch reader 0x{rva:X} did not reassemble: {error}.");
-                byte[] bytes = writer.Bytes.ToArray();
-                var decoder = Decoder.Create(64, new ByteArrayCodeReader(bytes),
-                    unchecked((ulong)hook.StubAddress.ToInt64()));
-                var decoded = new List<Instruction>();
-                while (decoder.IP - unchecked((ulong)hook.StubAddress.ToInt64()) < (ulong)(bytes.Length - 8))
-                {
-                    Instruction instruction = decoder.Decode();
-                    Assert(!instruction.IsInvalid, $"Dispatch reader 0x{rva:X} has invalid stub code.");
-                    decoded.Add(instruction);
-                }
-                Assert(decoder.IP - unchecked((ulong)hook.StubAddress.ToInt64()) == (ulong)(bytes.Length - 8) &&
-                    bytes.AsSpan(bytes.Length - 14, 6).SequenceEqual(new byte[] { 0xFF, 0x25, 0, 0, 0, 0 }) &&
-                    BitConverter.ToUInt64(bytes, bytes.Length - 8) == unchecked((ulong)copy.ToInt64()) + (ulong)length,
-                    $"Dispatch reader 0x{rva:X} did not decode completely.");
-                Assert(decoded.Count(instruction => instruction.Mnemonic == Mnemonic.Movzx &&
-                    instruction.Op0Register == Register.EAX) == 1 &&
-                    decoded.Count(instruction => instruction.Mnemonic == Mnemonic.Mov &&
-                    instruction.Op0Register == Register.ECX) == 1,
-                    $"Dispatch reader 0x{rva:X} duplicated an original table load.");
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(flag);
-                Marshal.FreeHGlobal(copy);
-            }
-        }
-        string stub = File.ReadAllText(Path.Combine(FindWorkspaceRoot(),
-            "ImprovedHunters", "src", "DispatchIndexStub.cs"));
-        Assert(Count(stub, "assembler.AddInstruction(instructions[0])") == 1 &&
-               Count(stub, "assembler.AddInstruction(instructions[1])") == 1 &&
-               stub.Contains("assembler.je(vanilla);") &&
-               stub.Contains("assembler.jne(readOriginalIndex);") &&
-               stub.Contains("assembler.jmp(loadDispatchTarget);"),
-            "Dispatch reader must preserve one vanilla load, one replacement skip and one common target load.");
     }
 
     private static byte[] MapPeImage(byte[] file, out int sizeOfHeaders)
@@ -373,20 +254,6 @@ static class Program
         return count;
     }
 
-    private static void AssertThrows<TException>(Action action, string message)
-        where TException : Exception
-    {
-        try
-        {
-            action();
-        }
-        catch (TException)
-        {
-            assertions++;
-            return;
-        }
-        throw new InvalidOperationException(message);
-    }
 
     private static void TestPopulationClamp()
     {
@@ -395,7 +262,6 @@ static class Program
         Assert(GranaryChickenSpawnPolicy.ClampTarget(10) == 10, "Population value changed unexpectedly.");
         Assert(GranaryChickenSpawnPolicy.DefaultTargetPerPlayer == 10, "The population default changed.");
         Assert(TannerMeatPolicy.DefaultMeatPerTrip == 5, "The Tanner default changed.");
-        TestTannerRunTable();
         TestWildlifeRange();
         TestWildlifeOrigins();
         TestHerdSettings();
@@ -473,36 +339,6 @@ static class Program
         Assert(!restored.TryRestore(null!) && !restored.TryRestore(new byte[] { 9, 0, 0, 0, 0 }), "An unknown record must be refused.");
         table.Clear();
         Assert(!table.IsCaptured && table.Count == 0 && !table.TryFind(5, 51, out _), "A cleared table must know nothing.");
-    }
-
-    private static unsafe void TestTannerRunTable()
-    {
-        var table = new TannerRunTable();
-        Assert(table.GetMeatRuns(7, 100) == 0, "A new Tannery starts without meat.");
-        table.SetMeatRuns(7, 100, 2);
-        table.SetMeatRuns(3, 50, 1);
-        Assert(table.GetMeatRuns(7, 100) == 2, "The table must return the chosen runs.");
-        Assert(table.GetMeatRuns(7, 101) == 0, "Another building on the same slot must not inherit them.");
-        byte* entry = (byte*)table.Address + 7 * TannerRunTable.EntrySize;
-        entry[TannerRunTable.MeatTripOffset] = 1;
-        table.SetMeatRuns(7, 100, 0);
-        Assert(entry[TannerRunTable.MeatTripOffset] == 1, "A Tanner on his way keeps the good he carries.");
-        table.SetMeatRuns(7, 101, 3);
-        Assert(entry[TannerRunTable.MeatTripOffset] == 0, "A new building must not inherit a trip.");
-        table.SetMeatRuns(7, 101, 4);
-        Assert(table.GetMeatRuns(7, 101) == 3, "An invalid value must be ignored.");
-        entry[TannerRunTable.MeatTripOffset] = 1;
-
-        byte[] saved = table.Encode();
-        var restored = new TannerRunTable();
-        Assert(restored.TryRestore(saved) && restored.GetMeatRuns(7, 101) == 3 && restored.GetMeatRuns(3, 50) == 1, "The save record must restore the table.");
-        Assert(((byte*)restored.Address + 7 * TannerRunTable.EntrySize)[TannerRunTable.MeatTripOffset] == 1, "The save record must restore a trip on its way.");
-        Assert(restored.Encode().AsSpan().SequenceEqual(saved), "The same state must give the same bytes on every peer.");
-
-        byte[] damaged = (byte[])saved.Clone();
-        damaged[sizeof(int) + 6] = 9;
-        Assert(!restored.TryRestore(damaged) && restored.GetMeatRuns(7, 101) == 0, "A damaged record must leave the table empty.");
-        Assert(!restored.TryRestore(new byte[3]) && !restored.TryRestore(null!), "A truncated record must be refused.");
     }
 
     private static void Assert(bool condition, string message)

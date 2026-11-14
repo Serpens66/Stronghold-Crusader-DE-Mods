@@ -1,11 +1,8 @@
 # ImprovedHunters: aktueller Entwicklungsplan
 
-Stand: `2026-08-18`
-
-Aktueller Quellstand: `1.1.67`; letzter Ingame-Test: `1.1.66` auf Steam Build
-`24651686`.
+Stand: `2026-11-14`, Quellstand `1.2.2` (nicht veröffentlicht), braucht APIShared `0.54.0`.
 SHA-256 der auditierten `CrusaderDE.dll`:
-`33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`.
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 
 Abgeschlossene Pakete, historische Zwischenstände und verworfene Ansätze stehen
 in [HunterLineOfSightRecoveryCompletedWork.md](HunterLineOfSightRecoveryCompletedWork.md).
@@ -14,26 +11,31 @@ Vollständige RVA-, Byte-, Resolver- und Updateprüfungen stehen in
 
 ## Aktueller Status
 
-Stand `2026-11-06`, DLL `FBCB9319…`. Vorrang vor allen älteren Abschnitten dieser Datei; die
-Abschnitte zu `1.1.64` bis `1.1.66` bleiben als Verlauf erhalten, ihre Deutung ist überholt.
+Stand `2026-11-14`. Vorrang vor allen älteren Abschnitten dieser Datei; die Abschnitte zu `1.1.61`
+bis `1.1.66` und zu den Paketen E, F, D bleiben als Verlauf erhalten.
 
-- **Paket-E-Ursache berichtigt:** State 10 ist der Schuss, nicht eine Sitzpause. State 9 dreht
-  nur zum Ziel; der Pfeil fliegt bei Animationsframe `0x16` in State 10 (`0x12FC70`). Das seit
-  `1.1.64` eingebaute Überspringen von State 10 verhinderte also jeden Schuss. Die sieben
-  „nicht tödlichen Schüsse“ des `1.1.66`-Tests waren nie abgefeuert. Das Überspringen ist entfernt.
-- **Reservierung `1` geklärt:** `+0x448` ist ein Countdown, kein Besitzer. Der Jäger schreibt 2,
-  Reh und Ziege zählen herunter. Hase, Kamel und Huhn zählen jetzt ebenso.
-- **Stand `2026-11-06`, später am Tag:** Geschwindigkeits-Nachprüfung und die Pakete F und D sind im
-  Einzelspieler abgenommen, Paket C bleibt offen. Die Einstellung heißt `CollectFreeCorpses`, weil ältere
-  Versionen ein ungenutztes `AllowDeadTargets` mit dem Wert `false` gespeichert haben; Abschnitte unten mit
-  dem alten Namen meinen sie. Belege und Grenzen: `knowledge/HUNTER_PREY_RULES.md` der Baseline, Abschnitt
-  „Evidence and limits“; Stellen und Registervertrag: `UpdateToNewDLL.md`, Abschnitt „Free corpses“.
-- Echter Multiplayer: Alle Zeitentscheidungen laufen auf dem Map-Tick von APIShared, die Modus-Policy
-  erlaubt die Hunter-Features dort. Noch nicht in einer echten Mehrspieler-Partie geprüft; der Test
-  dafür ist `MP-hunters-*.json`. Ungeprüft bleibt auch ein nativer Resync mit laufender Jagd.
+- Pakete E, F, D und die Geschwindigkeits-Nachprüfung sind im Einzelspieler abgenommen
+  (`2026-11-06`). Paket C ist erledigt (siehe unten).
+- Allgemein nutzbare Teile liegen jetzt in APIShared `0.54.0`: Erreichbarkeit
+  (`PathReachability`), Sichtlinie und Sichtblocker-Gebäude (`LineOfSight`,
+  `SightBlockingBuildings`), Gebäudepanel und Gebäudezustand des Gerbers
+  (`BuildingPanelSections`, `BuildingStates`), Kadaverdauer
+  (`HuntablePreyDefinition.WithMinimumCorpseLifetime`), Baumenü (`BuildMenuAvailability`),
+  Hühnerzahl (`ChickenPopulationModifiers`) und Kamel-HP (`HealthModifiers`). Alle eigenen
+  Hookgruppen werden vor dem Schreiben im `NativeSiteRegistry` angemeldet
+  (`HunterHookInfrastructure.Commit`).
+- Einzelspieler-Abnahme `2026-11-14` (APIShared `0.54.0`): `SP-hunters-core`, `-final-1`, `-final-2`,
+  `-matrix-camel/-chicken/-rabbit`, `-tanner`, `-tanner-load`, `-hut`, `-corpse-kinds`, `-settings-ui`,
+  `-editor` ohne Fehlschritt; Belege unter `.work/a/hunters/098` bis `100`. IH ist in die Modpack-Liste
+  aufgenommen (`Shared/Tools/Steam/WorkshopConfiguration.ps1`).
+- Offen: echter Multiplayer (`MP-hunters-*.json`) und ein nativer Resync mit laufender Jagd; der Code
+  ist für Multiplayer ausgelegt (Map-Tick, deterministische Entscheidungen, Chore für den Gerber-Regler).
+- Der Abschnitt vom `2026-11-06` (State 10 ist der Schuss; `+0x448` ist ein Countdown;
+  Einstellung `CollectFreeCorpses` statt `AllowDeadTargets`) gilt unverändert; Belege in
+  `knowledge/HUNTER_PREY_RULES.md` der Baseline.
 
-Vanilla- und Hook-Details: `knowledge/HUNTER_PREY_RULES.md` der Baseline und `UpdateToNewDLL.md`.
-Spieltest: `Testmods/UiAcceptance/scenarios/SP-hunters*.json`.
+Vanilla- und Hook-Details: `knowledge/HUNTER_PREY_RULES.md` und `knowledge/LINE_OF_SIGHT.md` der
+Baseline und `UpdateToNewDLL.md`. Spieltest: `Testmods/UiAcceptance/scenarios/SP-hunters*.json`.
 
 ## Fachliches Ziel
 
@@ -669,19 +671,10 @@ geprüft:
 
 ## Paket C: Produktionsbereinigung
 
-Erst nach E, F und D:
-
-1. Verhalten aus den `*Diagnostic.cs`-Dateien in passend benannte
-   Produktionsklassen verschieben, soweit es tatsächlich produktives Verhalten
-   und keine untrennbare Hookdiagnose ist. Bestehende Diagnose- und
-   Validierungslogik bleibt in eigenen Diagnosedateien; sie wird nicht allein
-   wegen des Dateinamens in Featureklassen verschoben.
-2. Stillgelegten Managed-A*-Adapter `HunterLineOfSightRecovery.cs` entfernen,
-   ohne einen alten Fallback parallel zu behalten.
-3. Breite alte Diagnose, ungenutzte DTOs, Hooks und Logs entfernen.
-4. Gemeinsame Guards für Slot/Global-ID, Modus, Settings und Beutetypen
-   vereinheitlichen.
-5. `UpdateToNewDLL.md`, Changelog und Version auf den bereinigten Stand bringen.
+Erledigt (`2026-11-14`): keine `*Diagnostic.cs`-Dateien mehr, `HunterLineOfSightRecovery.cs`
+entfernt, Entwicklungsdiagnose nur noch über `Shared.DevDiag` bzw. `#if SERP_DEVDIAG`, gemeinsame
+Infrastruktur in APIShared (siehe „Aktueller Status“), `UpdateToNewDLL.md` und Changelog
+nachgezogen. Die frühere Aufgabenliste steht in der Git-Historie dieser Datei.
 
 ## Optional und Multiplayer
 
@@ -697,25 +690,20 @@ weil der Modzustand dabei nicht mitübertragen wird.
 
 | Datei | Verantwortung |
 | --- | --- |
-| `src/ImprovedHuntersViewModel.cs` und `ImprovedHuntersSettings.xaml` | Gespeicherte Host-Schalter, Ertragswerte, Resetwerte und Modsettings-Bindings |
-| `src/HunterPclReachability.cs` | Gemeinsamer nativer PCL-Aufruf und initialer Kandidaten-PCL-Filter der Zielauswahl |
-| `src/HunterActiveTargetReachability.cs` | Pfadfindungsseitige aktive PCL-Neuprüfung und pfadgebundene Erreichbarkeitssnapshots |
-| `src/HunterTargetSelectionFeature.cs` | Beutecache, Kostenrangfolge, Ertragsbewertung, initiale PCL-Filterung und Zielquery-Ereignisse unter `ImprovedTargetSelection` |
-| `src/HunterProjectileRecoveryFeature.cs` | Optionale korrelierte Vanilla-Fernkampfschadenswiederholung unter `ReliableHunterProjectiles`; kein Paket-F-Kadavertransfer |
-| `src/HunterAnimalCompatibilityFeature.cs` | An den jeweiligen Tierartschalter gebundene Kadaver- und Kamelkompatibilität |
-| `src/HunterChickenCompatibilityFeature.cs` | An `HuntChicken` gebundene Hühnerneutralisierung, Kornspeicherlimit und geladene Hühneridentitäten |
-| `src/HunterNativeVisibilityProbe.cs` | Validierte Wrapper-/Kernsichtprobe |
-| `src/HunterActiveTargetVisibilitySnapshot.cs` | Reservations-1-Proben, 250-ms-Nahbereich, positions- und pfadgebundene Snapshots |
-| `src/HunterRemainingPathSpeedRecovery.cs` | Restwegdekodierung und Auswahl vorhandener Vanilla-Stufen |
-| `src/HunterTargetSearchFallbackDiagnostic.cs` | Verborgener Kandidatenfallback, State-0-Zielquerydiagnose und atomare gemeinsame Hook-Installation |
-| `src/HunterMovingTargetPathfindingDiagnostic.cs` | Unter `ImprovedPathfinding` gegateter State-1-Handoff und Moving-Target-Replan-Diagnose |
-| `src/HunterVanillaPathContinuationDiagnostic.cs` | Distanz-28-Fortsetzung und Zero-Flag-only-Angriffshandoff |
-| `src/HunterHutVisibilityPatch.cs` | Jägerhütte als normaler Sichtblocker |
-| `src/ImprovedHuntersRuntime.cs` | Gemeinsame Initialisierung, Events, Feature-Gates und lebenszyklusübergreifende Koordination; kein erneut zusammengeführtes Featureverhalten |
-| `src/HunterPostShotContinuationDiagnostic.cs` | State-9-/State-10-/Fehlangriffshandoffs, identitäts-/PCL-gesicherte einmalige Übergabe an Vanillas State-0-/`MoveHere`-Kette und Versuchslimit |
-| spätere `src/HunterDeadTargetFeature.cs` | Sämtliche durch `AllowDeadTargets` aktivierten Paket-F-Pfade einschließlich normaler Kadaverwahl und kausalem Fremdkadavertransfer |
-| spätere Paket-F-Trefferdiagnose | Tatsächlichen Damage-Empfänger kausal mit Projektil und Schütze verbinden; Diagnose getrennt vom Paket-F-Verhalten halten |
-| `UpdateToNewDLL.md` | Vollständige Native- und Updatequelle |
+| `src/ImprovedHuntersPlugin.cs`, `src/ImprovedHuntersViewModel.cs`, `BepInEx/plugins/ImprovedHunters_Serp/Override/ScriptExtenderUI/ImprovedHuntersSettings.xaml` | Pluginstart, gespeicherte Host-Einstellungen und Modsettings |
+| `src/ImprovedHuntersRuntime.cs` | Initialisierung, Events, Feature-Gates, Tick-Scan; Kamel-HP-Regel (`HunterAnimalCompatibilityFeature.cs`) |
+| `src/HunterHookInfrastructure.cs`, `src/PermanentNativeGate.cs`, `src/HunterNativeStubs.cs` | Eigene Hookgruppen, Anmeldung im `NativeSiteRegistry`, Maschinencode der dauerhaften Gates |
+| `src/HuntablePreyIntegration.cs`, `src/HunterInactivePreyPolicy.cs`, `src/HunterTargetSelectionFeature.cs`, `src/HunterSearchRangePolicy.cs` | Jagdbare Tiere, Fleisch, Kadaverdauer, Zielwahl und Suchweite über APIShared `HuntablePrey` |
+| `src/HunterPclReachability.cs`, `src/HunterActiveTargetReachability.cs` | Erreichbarkeit mit kurzem Cache über APIShared `PathReachability` |
+| `src/HunterNativeVisibilityProbe.cs`, `src/HunterActiveTargetVisibilitySnapshot.cs` | Sicht über APIShared `LineOfSight`; Jägerhütte als Sichtblocker über `SightBlockingBuildings` |
+| `src/HunterTargetSearchFallback.cs`, `src/HunterMovingTargetPathfinding.cs`, `src/HunterVanillaPathContinuation.cs`, `src/HunterPostShotContinuation.cs`, `src/HunterRemainingPathSpeedRecovery.cs`, `src/HunterFiringPositionSearch.cs`, `src/HunterMovementSnapshot.cs` | Improved Pathfinding: Handoffs, Pfadfortsetzung, Nach-Schuss-Fortsetzung, Geschwindigkeit, Schussposition |
+| `src/HunterCorpseChoiceFeature.cs`, `src/HunterCorpseChoicePatch.cs`, `src/HunterProjectileObservationFeature.cs` | Freie Kadaver und kausaler Fremdtreffer-Transfer |
+| `src/RabbitMeleeOrderPatch.cs` | Hasen nur auf Angriffsbefehl |
+| `src/GranaryChickenSpawnPolicy.cs` | Hühnerzahl je Spieler über APIShared `ChickenPopulationModifiers` |
+| `src/TannerMeatPatch.cs`, `src/TannerMeatPolicy.cs`, `src/TannerMeatState.cs`, `src/TannerStateLayout.cs`, `src/TannerModePanel.cs` | Gerberei-Fleisch; Regler über `BuildingPanelSections`, Zustand über `BuildingStates` |
+| `src/Herd*.cs`, `src/Wildlife*.cs` | Herdenflucht nur bei Sicht, Herdengebiet, Rückkehr und Startherden über APIShared `Herds` |
+| `src/HunterSimulationTime.cs` | Zeitbasis (Map-Tick) |
+| `UpdateToNewDLL.md` | Vollständige Native- und Updatequelle der verbliebenen eigenen Hooks |
 
 ## Sicherheits- und Prüfregeln
 
@@ -737,6 +725,4 @@ weil der Modzustand dabei nicht mitübertragen wird.
 
 ## Arbeitsanweisung für einen neuen Chat
 
-Mit dem Abschnitt „Aktueller Status“ beginnen und zuerst die Szenarien `SP-hunters*.json` laufen
-lassen. Die Punkte aus „Verbindlicher nächster Arbeitsschritt“ zu `1.1.66` sind erledigt oder
-überholt. Danach folgen die bidirektionale Geschwindigkeits-Nachprüfung, Paket F, D und C.
+Mit „Aktueller Status“ beginnen. Offen ist ein echter Multiplayer-Test mit `MP-hunters-*.json`.

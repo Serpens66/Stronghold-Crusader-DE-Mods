@@ -140,13 +140,10 @@
     <Compile Include="..\Shared\Runtime\Gameplay\ActivePlayerHelper.cs"><Link>Shared\Runtime\Gameplay\ActivePlayerHelper.cs</Link></Compile>
     <Compile Include="src\ImprovedHuntersPlugin.cs" />
     <Compile Include="src\HunterHookInfrastructure.cs" />
-    <Compile Include="src\PermanentDispatchIndexOverride.cs" />
-    <Compile Include="src\DispatchIndexStub.cs" />
     <Compile Include="src\HunterNativeStubs.cs" />
     <Compile Include="src\HunterSearchRangePolicy.cs" />
     <Compile Include="src\HunterCorpseChoicePatch.cs" />
     <Compile Include="src\HunterCorpseChoiceFeature.cs" />
-    <Compile Include="src\HunterHutAvailabilityPatch.cs" />
     <Compile Include="src\WildlifeNativeAddresses.cs" />
     <Compile Include="src\WildlifeRespawnFeature.cs" />
     <Compile Include="src\WildlifeRangeFeature.cs" />
@@ -160,9 +157,8 @@
     <Compile Include="src\TannerMeatPatch.cs" />
     <Compile Include="src\TannerMeatPolicy.cs" />
     <Compile Include="src\TannerModePanel.cs" />
-    <Compile Include="src\TannerRatioSync.cs" />
-    <Compile Include="src\TannerRunTable.cs" />
-    <Compile Include="src\GranaryChickenLimitPatch.cs" />
+    <Compile Include="src\TannerMeatState.cs" />
+    <Compile Include="src\TannerStateLayout.cs" />
     <Compile Include="src\GranaryChickenSpawnPolicy.cs" />
     <Compile Include="src\HunterTargetSelectionFeature.cs" />
     <Compile Include="src\HuntablePreyIntegration.cs" />
@@ -170,7 +166,6 @@
     <Compile Include="src\HunterProjectileObservationFeature.cs" />
     <Compile Include="src\HunterAnimalCompatibilityFeature.cs" />
     <Compile Include="src\HunterMovementSnapshot.cs" />
-    <Compile Include="src\HunterHutVisibilityPatch.cs" />
     <Compile Include="src\HunterNativeVisibilityProbe.cs" />
     <Compile Include="src\HunterActiveTargetVisibilitySnapshot.cs" />
     <Compile Include="src\HunterPclReachability.cs" />

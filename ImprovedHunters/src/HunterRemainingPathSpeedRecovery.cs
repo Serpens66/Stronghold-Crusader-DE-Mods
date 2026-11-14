@@ -143,7 +143,7 @@ namespace ImprovedHunters
                         X64SmartCPUContextRegs.RDI,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                CommitResult commitResult = transaction.Commit();
+                CommitResult commitResult = HunterHookInfrastructure.Commit(transaction, "remaining-path-speed");
                 if (!commitResult.IsCompleteSuccess || !distanceCompareHook.Success)
                     throw new InvalidOperationException("The Hunter initial distance-stage hook was not installed.");
 

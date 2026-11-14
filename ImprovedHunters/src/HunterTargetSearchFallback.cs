@@ -38,8 +38,8 @@ namespace ImprovedHunters
         out HunterPostShotContinuationCandidate candidate);
 
     /// <summary>
-    /// Temporary, separately removable validation of the native target-search
-    /// handoff, the state-1 near-target refresh and its direct-attack
+    /// Production handoff around the native target search (part of Improved
+    /// Pathfinding): the state-1 near-target refresh and its direct-attack
     /// continuation. State 0 may receive a validated fallback target. State 1
     /// only selects Vanilla's existing continuation branch for an already
     /// validated path; Vanilla remains responsible for locomotion and orders.
@@ -376,7 +376,7 @@ namespace ImprovedHunters
                     hookSize: StateZeroMoveDestinationHookLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.BeforeCallback);
-                CommitResult commitResult = transaction.Commit();
+                CommitResult commitResult = HunterHookInfrastructure.Commit(transaction, "target-search-fallback");
 
                 if (!commitResult.IsCompleteSuccess ||
                     !stateZeroMoveDestinationHook.Success ||
