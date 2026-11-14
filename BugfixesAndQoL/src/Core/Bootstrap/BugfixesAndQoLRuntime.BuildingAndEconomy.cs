@@ -49,6 +49,7 @@ namespace BugfixesAndQoL
                 }
             }
 
+            AIEmergencyDemolitionHook.Install(log, settings, nativeLibraryHandle, memory, referenceHashMatches);
             InstallAIEconomyProtectionHook(nativeLibraryHandle, memory);
         }
 

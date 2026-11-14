@@ -54,7 +54,6 @@ internal static class Program
             ["AivDefenderPositionContextPattern"] = 0x54710,
             ["SleepStateComparisonPattern"] = 0xC7DCB,
             ["SleepStateSynchronizationFunctionPattern"] = 0xC7D50,
-            ["EmergencyDemolitionComparisonPattern"] = 0x2F454,
             ["AIHovelDemolitionFunctionPattern"] = 0x3B1D0,
             ["InaccessibleBuildingDecisionPattern"] = 0xC8FD7,
             ["SetupBuildingEntrancesOffsetPattern"] = 0xC0270,
@@ -136,6 +135,7 @@ internal static class Program
             Check(ExpectedDllHash == ControlGroupNativeDefinition.ReferenceSha256,
                 "shared control-group contracts use the canonical DLL hash");
             PeImage pe = PeImage.Load(file);
+            assertions += EmergencyDemolitionTests.Run(pe.Image);
             CheckGatehouseQueryUnitIdContract();
             CheckMarketGoldContract();
             CheckSelectedUnitInfoWiring(workspace);

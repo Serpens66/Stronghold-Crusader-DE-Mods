@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.227.0</AssemblyVersion>
-    <FileVersion>1.0.227.0</FileVersion>
+    <AssemblyVersion>1.0.228.0</AssemblyVersion>
+    <FileVersion>1.0.228.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -143,6 +143,9 @@
     <Compile Include="src\AI\Prebuilt\AIPreplacedBuildingFixRuntime.cs" />
     <Compile Include="src\AI\Prebuilt\AiWoodBuildCallScope.cs" />
     <Compile Include="src\AI\Economy\AIEconomyProtectionHook.cs" />
+    <Compile Include="src\AI\Economy\AIEmergencyDemolitionHook.cs" />
+    <Compile Include="src\AI\Economy\AIEmergencyDemolitionNativeContract.cs" />
+    <Compile Include="src\AI\Economy\AIEmergencyDemolitionDispatch.cs" />
     <Compile Include="src\AI\Economy\AIResourceShortageSleepNativeDefinition.cs" />
     <Compile Include="src\AI\Economy\AIResourceShortageSleepPolicy.cs" />
     <Compile Include="src\Multiplayer\AbruptHostMigrationFix.cs" />

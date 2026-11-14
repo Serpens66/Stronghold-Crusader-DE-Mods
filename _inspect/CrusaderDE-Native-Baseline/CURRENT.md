@@ -72,6 +72,8 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 
 ## Vanilla audits with mod integration
 
+- [AI emergency demolition and nervous Lord messages](./sem/FBCB9319/knowledge/AI_EMERGENCY_DEMOLITION.md): the strategy gate also controls timers, stance, resource help and category-9 messages; isolated demolition/refund helper, corrected consumer boundary and six-byte Indirect detour contract; static audit, new runtime acceptance separate.
+
 - [Movement search and physical surface profiles](./sem/FBCB9319/knowledge/MOVEMENT_SURFACE_PROFILES.md): Large-search versus next-tile restrictions, independent native execution, shared surface classes and safe route publication.
 
 - [Unit load, health and ordinary wall placement](./sem/FBCB9319/knowledge/UNIT_LOAD_PLACEMENT_CONTRACTS.md): initialized HP, healthy AI110 deletion alternatives, global allocation versus player quotas, Stone capacity, ordinary wall gates/range and direction-grid producer boundaries; specific run013 deletion cause remains unknown.

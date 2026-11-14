@@ -3,8 +3,8 @@
   "database": {
     "path": "sem/FBCB9319/analysis/g72CA4AA9715C/index-2328d977c2fb.sqlite",
     "schemaVersion": 6,
-    "referenceSize": 1981595648,
-    "referenceSha256": "1B21470BC96EE54C84B494172DF9492D91641EABB7A7963316ABA523DC2A6E3F",
+    "referenceSize": 1981603840,
+    "referenceSha256": "AF90661DFC427AA59259CF08D6E34759E12E176627027EB2FFD43277DC1F5D7F",
     "referenceSqliteVersion": "3.45.3"
   },
   "identities": {
@@ -45,7 +45,7 @@
       "binaries": 3,
       "functions": 8954,
       "function_claims": 29,
-      "claim_evidence": 63,
+      "claim_evidence": 65,
       "hook_spans": 4,
       "api_contracts": 0,
       "chore_opcodes": 43,
@@ -120,8 +120,8 @@
     },
     {
       "path": "sem/FBCB9319/knowledge/function-claims.jsonl",
-      "sha256": "139623F2DC18B97FC104B0DE8F6FB86B5789A6617B3133A72718EEFF4FD70885",
-      "bytes": 49871
+      "sha256": "28C247B17931C1797F1216D479FE797F3B32742D57BD4517A2163AE95D42152B",
+      "bytes": 51220
     },
     {
       "path": "sem/FBCB9319/knowledge/hook-spans.jsonl",

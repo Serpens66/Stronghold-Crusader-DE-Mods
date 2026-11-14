@@ -21,6 +21,12 @@
   },
   "documents": [
     {
+      "file": "AI_EMERGENCY_DEMOLITION.md",
+      "scope": "vanilla+integration",
+      "components": ["BugfixesAndQoL"],
+      "integrationSections": ["Corrected consumer boundary"]
+    },
+    {
       "file": "ASSASSIN_STOCKPILE_CLIMB.md",
       "scope": "vanilla+integration",
       "components": ["Pathfinding", "APIShared", "AssassinKeepTest"],
