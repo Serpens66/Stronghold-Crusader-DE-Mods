@@ -1,0 +1,44 @@
+# RandomEvents release status
+
+**Status:** code newer
+
+- Release: [v1.0.58](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/RandomEvents/v1.0.58)
+- Release commit: [4859419](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/48594190e84aace0f37ab27c883750d9a0bd8552)
+- Current main commit: [b6714c1](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/b6714c1671b63648f9792725d1b9c70682c5ef43)
+
+## Relevant changed files
+
+- `RandomEvents/build.bat`
+
+## Diff
+
+```diff
+diff --git a/RandomEvents/build.bat b/RandomEvents/build.bat
+index 3b9a1705b..136ff1c9d 100644
+--- a/RandomEvents/build.bat
++++ b/RandomEvents/build.bat
+@@ -1,4 +1,5 @@
+ @echo off
++rem SHCDE_BUILD_PARAMETERS: explicit SDK, installation suffix and no-install settings from the dispatcher.
+ setlocal EnableExtensions
+ rem SHCDE_BRANCH_DISPATCH: select committed sources; the selected child owns its build.
+ if defined SHCDE_BRANCH_SOURCE_ROOT goto :shcde_branch_selected
+@@ -54,7 +55,7 @@ set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%GAME_SCRIPT_EXTENDER_DIR%"
+ set "LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT=%GAME_SCRIPT_EXTENDER_DIR%"
+ set "PLUGIN_NAME=RandomEvents_Serp"
+ set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
+-set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
++set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%%SHCDE_BRANCH_INSTALL_SUFFIX%"
+ set "EXTENDER_DIR="
+ set "NO_PAUSE=0"
+ for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
+@@ -76,7 +77,7 @@ if exist "%LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT%\SHCDESE.dll" (
+ if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
+ pushd "%PROJECT_DIR%"
+ echo [%date% %time%] Compile projects
+-"%MSBUILD%" RandomEvents.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
++"%MSBUILD%" RandomEvents.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" %SHCDE_BRANCH_MSBUILD_API%
+ if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+ popd
+ 
+```
