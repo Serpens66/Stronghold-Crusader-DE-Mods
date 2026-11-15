@@ -114,7 +114,7 @@ namespace TrappedUnitRescueTest
             return trapped;
         }
 
-        private static unsafe bool BridgeType(int id) => GameBuildingManagerAPI.Instance.TryGetBuildingById(id, out GameBuilding* bridge) &&
+        private static unsafe bool BridgeType(int id) => BuildingAccess.TryGetById(id, out GameBuilding* bridge, out _) &&
             bridge != null && bridge->r_BuildingType == eStructs.STRUCT_DRAWBRIDGE;
 
         // Independent physical oracle for this bridge fixture: ordinary links, reversed destination links,
@@ -225,7 +225,9 @@ namespace TrappedUnitRescueTest
             foreach (var actor in actors)
             {
                 Resolve(actor);
-                Require(GameUnitManagerAPI.Instance.DeleteUnitSafe(actor.Id), "Actor retirement rejected");
+                bool retired = APIShared.UnitAccess.TryGetById(actor.Id, out GameUnit* checkedUnit, out _) &&
+                    GameUnitManagerAPI.Instance.DeleteUnitSafe(actor.Id);
+                Require(retired, "Actor retirement rejected");
             }
             actors.Clear();
         }

@@ -191,6 +191,8 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 
 ## Mod and testmod work (not Vanilla)
 
+- [Trapped-unit rescue prototype contracts](./sem/FBCB9319/knowledge/TRAPPED_UNIT_RESCUE_AUDIT.md): identity-preserving relocation and occupancy, physical reverse edges, mounted crew and worker production boundaries under `[Vanilla facts]`; external suppression and experimental acceptance limits remain separate.
+
 - [Knight replacement selection and input lifetime](./sem/FBCB9319/knowledge/KNIGHT_SELECTION_TRANSFERS.md): replacement initialization/removal, three-phase input ordering, stale selection repair and the accepted Extender cancellation boundary; original game scenario user-confirmed, extended editor/MP acceptance pending.
 
 Design, diagnosis, acceptance and migration records of our mods and testmods. Use only their `[Vanilla facts]` sections as Vanilla knowledge.

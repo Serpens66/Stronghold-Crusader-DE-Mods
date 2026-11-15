@@ -1,0 +1,4 @@
+Rescue.Enabled=Experimental local unit rescue
+Rescue.Help=Enables local rescue and the matching Fixes suppression only in an explicitly requested disposable test. Defaults off. This is an experimental test mod, not an accepted gameplay fix.
+Rescue.Scope=Automatic rescue runs only inside explicit test scenarios. Installing this mod or enabling this setting does not alter an ordinary loaded save. Scenarios report unsupported states and distinguish synthetic traps from actual construction failures.
+Rescue.Rule=Tests check identity, health, occupancy, group and crew, then actual movement and work. A successful teleport alone is not a PASS. Gatehouse farmer rescue from Fixes remains unchanged.

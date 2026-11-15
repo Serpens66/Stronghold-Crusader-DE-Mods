@@ -60,7 +60,7 @@ namespace TrappedUnitRescueTest
                     int tile = tiles.GetTileId(cx, cy);
                     // The SE parameter named brushSize is actually issuer at native6FE90;
                     // packed tile, ordinaryY,width1,Moat operation,variant2 reproduce completed placement.
-                    BulkMapEditorDetours.c_game_editor_brush_set_tiletype_hook_impl(tiles.GetTileManager(), owner,
+                    EditorBrush.Call(tiles.GetTileManager(), owner,
                         tile, cy, 1, unchecked((int)(uint)TilePropertyFlag.IsMoat), 2, 0);
                     Require((tiles.GetTilePropertyFlag(tile) & TilePropertyFlag.IsMoat) != 0,
                         "Actual native completed-moat writer did not accept the occupied fixture tile");

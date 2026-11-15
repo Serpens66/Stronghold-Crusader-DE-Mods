@@ -37,6 +37,7 @@ namespace TrappedUnitRescueTest
             foreach(var wait in run.SetPause(run.CurrentMission,true))yield return wait;
             Require(mounted,"Two original engineers never became a genuinely mounted native crew");
             Execute(run,()=>{
+                CaptureMountedCrewPositions(device,crew);
                 // Mounted engineers are intentionally absent from occupancy and must not be handled as independent roots.
                 actors.Remove(crew[0]);actors.Remove(crew[1]);
                 VerifyLiveAndRemember();
@@ -55,12 +56,12 @@ namespace TrappedUnitRescueTest
             });
             int targetX=0,targetY=0;bool issued=false;
             Execute(run,()=>{
-                FindMovementTarget(device,out targetX,out targetY);
+                FindDistantSiegeTarget(device,crew,out targetX,out targetY);
                 issued=GameTribeManagerAPI.Instance.IssueMoveHereCommand(device.Tribe,targetX,targetY);
             });
             foreach(var wait in run.SetPause(run.CurrentMission,false))yield return wait;
             bool arrived=false;
-            for(int sample=0;sample<(expectedEnabled?120:8);sample++)
+            for(int sample=0;sample<(expectedEnabled?240:8);sample++)
             {
                 yield return run.WaitForTicks(run.CurrentMission,8);
                 arrived=run.InSimulation(run.CurrentMission,()=>{
@@ -73,6 +74,7 @@ namespace TrappedUnitRescueTest
             if(expectedEnabled)Require(issued && arrived,"Rescued manned machine never completed real native movement");
             else Require(!arrived,"Baseline manned machine escaped; fixture no longer demonstrates trapping");
             Execute(run,()=>{
+                if(expectedEnabled)RequireDeviceFarFromHistoricalCrew(device,crew);
                 Require(GameTribeManagerAPI.Instance.DissolveSiegeEquipmentEx(device.Tribe,device.Id,checked((int)device.Global)),"Native crew dismount rejected");
             });
             foreach(var wait in run.SetPause(run.CurrentMission,false))yield return wait;
@@ -83,6 +85,47 @@ namespace TrappedUnitRescueTest
                 log("siege-result enabled="+expectedEnabled+" syntheticEntrapment=true nativeManning=true nativeDismount=true "+
                     "deviceIdentityPreserved=true originalEngineerIdentitiesPreserved=true realMovementEndpoint="+arrived+" crewCount=2 recreatedUnits=0");
             });
+        }
+        private unsafe void CaptureMountedCrewPositions(Actor device,Actor[] crew)
+        {
+            Require(CrewMatches(device,crew,true),"Crew binding changed before the historical-position snapshot");
+            foreach(var actor in crew)
+            {
+                Require(UnitAccess.TryGetById(actor.Id,out GameUnit* unit,out _) && unit!=null && unit->r_GlobalId==actor.Global,"Mounted crew identity missing");
+                actor.SourceX=unit->r_CurrentTilePositionX;actor.SourceY=unit->r_CurrentTilePositionY;
+                log("siege-mounted-crew-position unit="+actor.Id+"/"+actor.Global+" historical="+actor.SourceX+","+actor.SourceY);
+            }
+        }
+        private void FindDistantSiegeTarget(Actor device,Actor[] crew,out int targetX,out int targetY)
+        {
+            var tiles=GameTileManagerAPI.Instance;
+            for(int radius=32;radius<=48;radius+=4)
+                for(int d=0;d<8;d++)
+                {
+                    int x=device.X+Dx[d]*radius,y=device.Y+Dy[d]*radius;
+                    if(!tiles.IsTileInsideMapBounds(x,y))continue;
+                    int tile=tiles.GetTileId(x,y);
+                    if(tiles.GetTileBuildingId(tile)!=0 || tiles.GetTileUnitId(tile)!=0 || !tiles.IsTileWalkableAndUnoccupied(tile) ||
+                        ((uint)tiles.GetTilePropertyFlag(tile)&0x5A7015B1u)!=0)continue;
+                    bool separated=true;
+                    foreach(var actor in crew)
+                        if(Math.Max(Math.Abs(x-actor.SourceX),Math.Abs(y-actor.SourceY))<=20){separated=false;break;}
+                    if(!separated)continue;
+                    targetX=x;targetY=y;
+                    log("siege-distant-target target="+x+","+y+" requestedRadius="+radius+" minimumHistoricalCrewSeparation=21");
+                    return;
+                }
+            throw new InvalidOperationException("No free ordinary native siege endpoint32..48 tiles away and more than20 tiles from every mounted crew history point");
+        }
+        private unsafe void RequireDeviceFarFromHistoricalCrew(Actor device,Actor[] crew)
+        {
+            GameUnit* machine=Resolve(device);
+            foreach(var actor in crew)
+            {
+                int distance=Math.Max(Math.Abs(machine->r_CurrentTilePositionX-actor.SourceX),Math.Abs(machine->r_CurrentTilePositionY-actor.SourceY));
+                Require(distance>18,"Actual machine movement did not separate dismount from historical crew coordinates");
+                log("siege-pre-dismount-separation crew="+actor.Id+" distanceFromHistorical="+distance);
+            }
         }
         private unsafe bool CrewMatches(Actor device,Actor[] crew,bool mounted)
         {
@@ -96,7 +139,8 @@ namespace TrappedUnitRescueTest
                 Actor engineer=Array.Find(crew,a=>a.Id==id && a.Global==global);if(engineer==null)return false;
                 if(!UnitAccess.TryGetById(id,out GameUnit* unit,out _) || unit==null || !UnitAccess.IsReallyAlive(unit) || unit->r_GlobalId!=global ||
                     unit->r_UnitChimp!=eChimps.CHIMP_TYPE_ENGINEER || unit->r_ControllableForPlayerId!=owner || unit->r_CurrentHealth!=engineer.Health)return false;
-                if(mounted && (unit->r_AIState!=5 || *(ushort*)((byte*)unit+0x9B0-0x65C)==0 || *(int*)((byte*)unit+0x974-0x65C)>120))return false;
+                // Binding proof uses identity, bound state and mounting, not the timeout's current phase.
+                if(mounted && (unit->r_AIState!=5 || *(ushort*)((byte*)unit+0x9B0-0x65C)==0))return false;
                 ids.Add(id);
             }
             return ids.Count==2 && *(ushort*)((byte*)machine+0xA0C-0x65C)==2;

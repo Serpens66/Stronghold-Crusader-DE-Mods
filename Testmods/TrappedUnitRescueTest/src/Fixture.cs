@@ -15,9 +15,12 @@ namespace TrappedUnitRescueTest
     internal sealed partial class Fixture
     {
         private readonly string map, scenario;
+        private readonly int peaceTimeMinutes;
         private readonly Action<string> log;
         private readonly RescueRuntime runtime;
         private readonly Action<bool> enable;
+        private readonly Action<bool> suppression;
+        private readonly Func<bool> workerDeletionInstalled;
         private readonly List<Actor> actors = new List<Actor>();
         private bool stopped;
         private int owner, cx, cy, elevation;
@@ -33,17 +36,24 @@ namespace TrappedUnitRescueTest
             internal eChimps Type;
         }
 
-        internal Fixture(string map, string scenario, Action<string> log, RescueRuntime runtime, Action<bool> enable)
+        internal Fixture(string map, string scenario, Action<string> log, RescueRuntime runtime, Action<bool> enable, Action<bool> suppression, Func<bool> workerDeletionInstalled, int peaceTimeMinutes)
         {
-            this.map = map; this.scenario = scenario; this.log = log;
+            this.map = map; this.scenario = scenario;
+            if (peaceTimeMinutes < 0) throw new ArgumentOutOfRangeException(nameof(peaceTimeMinutes));
+            this.peaceTimeMinutes = peaceTimeMinutes; this.log = log;
             this.runtime = runtime; this.enable = enable;
+            this.suppression = suppression ?? throw new ArgumentNullException(nameof(suppression));
+            this.workerDeletionInstalled = workerDeletionInstalled ?? throw new ArgumentNullException(nameof(workerDeletionInstalled));
             expectedEnabled = scenario.EndsWith("-on", StringComparison.Ordinal);
         }
 
         internal static bool Owns(string value) => value == "rescue-on" || value == "rescue-off" ||
+            value == "rescue-group-on" || value == "rescue-group-off" ||
             value == "rescue-aiwall-on" || value == "rescue-aiwall-off" ||
             value == "rescue-moat-on" || value == "rescue-moat-off" ||
+            value == "rescue-moatworker-on" || value == "rescue-moatworker-off" ||
             value == "rescue-worker-on" || value == "rescue-worker-off" ||
+            value == "rescue-ox-on" || value == "rescue-ox-off" ||
             value == "rescue-siege-on" || value == "rescue-siege-off";
         internal void Stop() { stopped = true; }
 
@@ -51,6 +61,11 @@ namespace TrappedUnitRescueTest
         {
             yield return new AutomationStep("skirmish", TimeSpan.FromSeconds(240), Start);
             yield return new AutomationStep("prepare", TimeSpan.FromSeconds(90), Prepare, true);
+            if (scenario.Contains("-group-"))
+            {
+                yield return new AutomationStep("shared-group-leader-and-member", TimeSpan.FromSeconds(240), EntryGroup, true);
+                yield break;
+            }
             if (scenario.Contains("-aiwall-"))
             {
                 yield return new AutomationStep("controlled-native-ai-wall", TimeSpan.FromSeconds(90), AiWall, true);
@@ -61,9 +76,19 @@ namespace TrappedUnitRescueTest
                 yield return new AutomationStep("native-moat-egress-control", TimeSpan.FromSeconds(150), MoatControl, true);
                 yield break;
             }
+            if (scenario.Contains("-moatworker-"))
+            {
+                yield return new AutomationStep("native-moat-worker-fixes-guard", TimeSpan.FromSeconds(300), MoatWorker, true);
+                yield break;
+            }
             if (scenario.Contains("-worker-"))
             {
                 yield return new AutomationStep("working-apple-farmer", TimeSpan.FromSeconds(300), Worker, true);
+                yield break;
+            }
+            if (scenario.Contains("-ox-"))
+            {
+                yield return new AutomationStep("naturally-loaded-ox", TimeSpan.FromSeconds(480), Ox, true);
                 yield break;
             }
             if (scenario.Contains("-siege-"))
@@ -84,7 +109,7 @@ namespace TrappedUnitRescueTest
         {
             Require(Owns(scenario), "Unowned scenario");
             enable(expectedEnabled); // Only before the mission, never a mid-game setting mutation.
-            foreach (var wait in run.StartSkirmish(map, new[] { AILords.SK_RAT }, peaceTimeMinutes: 60)) yield return wait;
+            foreach (var wait in run.StartSkirmish(map, new[] { AILords.SK_RAT }, peaceTimeMinutes > 0 ? (int?)peaceTimeMinutes : null)) yield return wait;
         }
 
         private IEnumerable<AutomationWait> Prepare(AutomationRun run)
@@ -100,7 +125,8 @@ namespace TrappedUnitRescueTest
             owner = run.InSimulation(run.CurrentMission, () => GamePlayerManagerAPI.Instance.GetLocalPlayerId());
             Require(owner > 0 && owner <= 8, "No local fixture owner");
             log("fixture-ready scenario=" + scenario + " enabled=" + expectedEnabled + " session=" + session +
-                " map=" + map + " owner=" + owner + " disposable=true source=controlled-native-construction");
+                " map=" + map + " owner=" + owner + " disposable=true source=controlled-native-construction" +
+                " fixesSuppression=owned-synchronous-actions-only");
         }
 
         private IEnumerable<AutomationWait> Bridge(AutomationRun run, eChimps type)
@@ -202,8 +228,8 @@ namespace TrappedUnitRescueTest
         private IEnumerable<AutomationWait> Coverage(AutomationRun run)
         {
             Require(!stopped && run.CurrentMission.SessionId == session, "Test mission replaced");
-            log("coverage executed=controlled-native-bridge-spearman,controlled-native-bridge-assassin,real-native-movement,identity,hp,tribe,occupancy,no-op,synthetic-enclosure " +
-                "not-executed=autonomous-AI,real-moat-completion,working-apple-farmer-cargo,manned-siege,real-multiplayer,save-load,active-climb " +
+            log("coverage scenario=" + scenario + " executed=controlled-native-bridge-spearman,controlled-native-bridge-assassin,real-native-movement,identity,hp,tribe,occupancy,no-op,synthetic-enclosure " +
+                "not-executed-in-this-scenario=autonomous-AI,real-moat-completion,working-apple-farmer-cargo,manned-siege,real-multiplayer,save-load,active-climb " +
                 "baseline=" + !expectedEnabled + " overallCoverageComplete=false");
             yield return AutomationWait.NextFrame;
         }
@@ -211,7 +237,17 @@ namespace TrappedUnitRescueTest
         private void Execute(AutomationRun run, Action action)
         {
             Require(!stopped && run.CurrentMission.SessionId == session, "Expected fixture mission is no longer active");
-            run.InSimulation(run.CurrentMission, () => { action(); return 0; });
+            run.InSimulation(run.CurrentMission, () => {
+                // The public automation boundary holds EngineInterface's existing monitor.
+                // No natural simulation tick can enter between this gate and its finally.
+                try
+                {
+                    suppression(expectedEnabled);
+                    action();
+                    return 0;
+                }
+                finally { suppression(false); }
+            });
         }
         private static void Require(bool value, string message) { if (!value) throw new InvalidOperationException(message); }
     }

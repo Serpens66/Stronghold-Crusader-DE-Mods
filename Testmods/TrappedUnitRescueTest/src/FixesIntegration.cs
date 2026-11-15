@@ -35,18 +35,20 @@ namespace TrappedUnitRescueTest
     {
         private const string OwnerGuid = "TrappedUnitRescueTest_Serp";
         private const string SiteName = "TrappedUnitRescue.FixesWorkerDeletionGuard";
-        private const string NativeHash = "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
         private const string FixesHash = "BE7D8E42AEE2C8FEF400A701472F5481A0A6F864E4DDAB54182302465DAE19C0";
         private const string MoveFunctionHash = "D81EEBC55A1FB0CFEEB25D0B0D1CCEDE5C9F545E3CCCCAC5119A556C7B43E9E1";
         private const int MoveFunctionRva = 0x196280, MoveFunctionLength = 1293;
         internal const int WorkerGuardRva = 0x196342;
         internal const int WorkerGuardLength = 16;
         internal const int WorkerGuardResumeRva = WorkerGuardRva + WorkerGuardLength;
-        private const int FixesWorkerLength = 18, UnitManagerRva = 0x67E8400;
+        // Fixes requests fourteen bytes: MOV ECX (6) + TEST EAX (2) + MOV R11D (6)
+        // end exactly at 196360. The following four-byte MOVSX remains live Vanilla.
+        private const int FixesWorkerLength = 14, UnitManagerRva = 0x67E8400;
         internal static readonly byte[] WorkerGuardBytes = {
             0x49,0x8B,0xCF,0x41,0x0F,0xBF,0xC4,0x89,0x44,0x24,0x70,0xE8,0xEE,0x04,0,0 };
 
         private readonly ManualLogSource log;
+        private readonly NativeRelocation native;
         // Every published callback, generated buffer and activation cell survives until exit.
         private static FixesIntegration processOwner;
         private SafeIlHook wallHook;
@@ -54,9 +56,17 @@ namespace TrappedUnitRescueTest
         private IntPtr activation;
         private bool attempted;
         private bool ready;
+        private bool workerDeletionInstalled;
 
-        internal FixesIntegration(ManualLogSource logger) => log = logger ?? throw new ArgumentNullException(nameof(logger));
+        internal FixesIntegration(ManualLogSource logger, NativeRelocation auditedNative)
+        {
+            log = logger ?? throw new ArgumentNullException(nameof(logger));
+            native = auditedNative ?? throw new ArgumentNullException(nameof(auditedNative));
+        }
         internal bool Ready => ready;
+        // Installation is immutable after startup; config may be changed later by other mods.
+        internal bool WorkerDeletionInstalled => ready ? workerDeletionInstalled :
+            throw new InvalidOperationException("Fixes worker installation has not been validated.");
         internal bool Active => activation != IntPtr.Zero && Volatile.Read(ref *(int*)activation) != 0;
 
         internal void SetEnabled(bool enabled)
@@ -76,6 +86,8 @@ namespace TrappedUnitRescueTest
             }
             try
             {
+                if (context.ModuleHandle != native.ImageBase)
+                    throw new InvalidOperationException("Fixes compatibility context differs from the already audited native image.");
                 if (!Chainloader.PluginInfos.TryGetValue("fixes", out PluginInfo info))
                 {
                     ready = true;
@@ -100,6 +112,7 @@ namespace TrappedUnitRescueTest
                     PatchWall, log, out wallHook, out string failure))
                     throw new InvalidOperationException("Fixes wall guard: " + failure);
                 if (needsWorker) InstallWorkerGuard(context, image);
+                workerDeletionInstalled = needsWorker;
                 ready = true;
                 Log("Fixes compatibility ready; wall Pre and installed moat-worker deletion are logically gated. Gatehouse-farmer fix retained.");
             }
@@ -180,10 +193,8 @@ namespace TrappedUnitRescueTest
 
         private static void ValidateNativeAndFixesWorker(CrusaderLibraryLoadContext context, HookHandle<X64InlineHook> handle, ulong image)
         {
-            string nativePath = Path.Combine(Paths.GameRootPath,
-                "Stronghold Crusader Definitive Edition_Data", "Plugins", "x86_64", "CrusaderDE.dll");
-            if (Hash(File.ReadAllBytes(nativePath)) != NativeHash)
-                throw new InvalidOperationException("Native DLL hash is not audited for this test.");
+            // NativeRelocation already validated the canonical full-file hash; Initialize
+            // binds this pristine snapshot to that immutable module identity before use.
             if (context.Memory.Length < MoveFunctionRva + MoveFunctionLength ||
                 Hash(context.Memory.Slice(MoveFunctionRva, MoveFunctionLength).ToArray()) != MoveFunctionHash)
                 throw new InvalidOperationException("Pristine full unit-move body differs from the audited control-flow closure.");
@@ -193,7 +204,10 @@ namespace TrappedUnitRescueTest
             if (!handle.IsInstalled || !hook.IsInstalled || hook.DisplacedByteCount != FixesWorkerLength ||
                 handle.ResolvedAddress != image + WorkerGuardResumeRva || hook.TargetAddress != image + WorkerGuardResumeRva ||
                 hook.StubAddress == IntPtr.Zero)
-                throw new InvalidOperationException("Fixes worker hook target/span/publication differs.");
+                throw new InvalidOperationException("Fixes worker hook target/span/publication differs: handleInstalled=" + handle.IsInstalled +
+                    "; hookInstalled=" + hook.IsInstalled + "; displaced=" + hook.DisplacedByteCount +
+                    "; resolved=0x" + handle.ResolvedAddress.ToString("X") + "; target=0x" + hook.TargetAddress.ToString("X") +
+                    "; expectedTarget=0x" + (image + WorkerGuardResumeRva).ToString("X") + "; stub=0x" + Address(hook.StubAddress).ToString("X"));
             var original = Decode(context.Memory.Slice(WorkerGuardResumeRva, FixesWorkerLength).ToArray(), image + WorkerGuardResumeRva);
             ulong stub = Address(hook.StubAddress);
             var assembler = new Assembler(64);

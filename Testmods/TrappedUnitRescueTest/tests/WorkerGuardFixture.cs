@@ -28,13 +28,12 @@ namespace TrappedUnitRescueTest
             if (IntPtr.Size != 8) throw new InvalidOperationException("Worker guard fixture requires Windows x64.");
             IntPtr memory = VirtualAlloc(IntPtr.Zero, (UIntPtr)0x10000, 0x3000, 0x40);
             if (memory == IntPtr.Zero) throw new InvalidOperationException("Worker guard private allocation failed.");
-            X64InlineHook hook = null;
+            X64InlineHook hook = null, foreignHook = null;
             int checks = 0;
             try
             {
                 ulong page = unchecked((ulong)memory.ToInt64());
-                ulong entry = page + 0x200, probe = page + 0x400, inspect = page + 0x600;
-                ulong fixes = page + 0x800, tail = page + 0x1000;
+                ulong entry = page + 0x200, probe = page + 0x400, tail = page + 0x1000;
                 ulong active = page + 0x3100, probeResult = page + 0x3104, moatMode = page + 0x3108;
                 ulong observed = page + 0x3200, units = page + 0x4000;
                 ulong resume = entry + FixesIntegration.WorkerGuardLength;
@@ -52,29 +51,19 @@ namespace TrappedUnitRescueTest
                 byte[] displaced = FixesIntegration.Assemble(original, entry);
                 Check(displaced.Length == 16, "Private source block must displace exactly 16 bytes.", ref checks);
                 Write(entry, displaced);
-                var next = new Assembler(64); next.jmp(inspect); Write(resume, FixesIntegration.Assemble(next, resume));
 
                 var helper = new Assembler(64);
                 helper.mov(rax, probeResult); helper.mov(eax, __dword_ptr[rax]); helper.test(eax, eax); helper.ret();
                 Write(probe, FixesIntegration.Assemble(helper, probe));
 
-                // Observe the guard's continuation without changing any register or flag.
-                var capture = new Assembler(64);
-                capture.push(rdx); capture.mov(rdx, observed);
-                capture.pushfq(); capture.pop(__qword_ptr[rdx + 48]);
-                capture.mov(__dword_ptr[rdx + 56], eax);
-                capture.mov(__qword_ptr[rdx + 64], rsp);
-                capture.pop(rdx); capture.jmp(fixes);
-                Write(inspect, FixesIntegration.Assemble(capture, inspect));
-
                 // Exact original 196352..196364 replay with its RIP load retargeted
-                // to this fixture's private global. The final CMOV remains in the tail.
+                // to this fixture's private global. A real Fixes-style backend hook below
+                // displaces only its first fourteen bytes; MOVSX and CMOV stay live.
                 byte[] replay = { 0x8B,0x0D,0,0,0,0,0x85,0xC0,0x41,0xBB,1,0,0,0,0x45,0x0F,0xBF,0xC4 };
                 Array.Copy(BitConverter.GetBytes(checked((int)((long)moatMode - (long)(resume + 6)))), 0, replay, 2, 4);
-                var foreign = new Assembler(64);
-                FixesIntegration.EmitExpectedFixesWorker(foreign, FixesIntegration.Decode(replay, resume), units);
-                foreign.AddUnrestrictedJmp(tail);
-                Write(fixes, FixesIntegration.Assemble(foreign, fixes));
+                Write(resume, replay);
+                var next = new Assembler(64); next.jmp(tail); Write(resume + (uint)replay.Length,
+                    FixesIntegration.Assemble(next, resume + (uint)replay.Length));
 
                 var finish = new Assembler(64);
                 finish.cmovne(ecx, r11d); finish.pushfq(); finish.pop(r10);
@@ -84,6 +73,19 @@ namespace TrappedUnitRescueTest
                 finish.mov(eax, __dword_ptr[rsp + 0x70]); finish.mov(__dword_ptr[rdx + 40], eax);
                 finish.add(rsp, 0x80); finish.pop(rsi); finish.pop(r12); finish.pop(r15); finish.ret();
                 Write(tail, FixesIntegration.Assemble(finish, tail));
+
+                foreignHook = new X64InlineHook(resume, 14, name: "TrappedUnitRescue.ForeignWorkerFixture");
+                Check(foreignHook.DisplacedByteCount == 14 && !foreignHook.IsInstalled,
+                    "Fixes backend stops after 6+2+6 bytes, before the live MOVSX.", ref checks);
+                foreignHook.Generate((a, instructions, returnAddress) => {
+                    EmitObservation(a, observed);
+                    FixesIntegration.EmitExpectedFixesWorker(a, instructions, units);
+                });
+                foreignHook.Enable();
+                byte[] untouched = new byte[4]; Marshal.Copy(new IntPtr((long)(resume + 14)), untouched, 0, 4);
+                Check(untouched.SequenceEqual(replay.Skip(14)), "Foreign hook leaves the live four-byte MOVSX intact.", ref checks);
+                Check(foreignHook.IsInstalled && foreignHook.DisplacedByteCount == 14,
+                    "Actual adjacent Fixes-style fourteen-byte hook installed.", ref checks);
 
                 hook = new X64InlineHook(entry, 14, name: "TrappedUnitRescue.WorkerFixture");
                 Check(hook.DisplacedByteCount == 16 && !hook.IsInstalled, "Exact production backend displacement.", ref checks);
@@ -145,9 +147,20 @@ namespace TrappedUnitRescueTest
                 // Private synchronous fixture only: no other thread has the pointer, no
                 // invocation is pending and the delegate is no longer used after this point.
                 hook?.Dispose();
+                foreignHook?.Dispose();
                 VirtualFree(memory, UIntPtr.Zero, 0x8000);
             }
             return checks;
+        }
+
+        private static void EmitObservation(Assembler a, ulong observed)
+        {
+            // These observations precede the production foreign JZ without changing
+            // flags/registers. There is no callback or arithmetic in the observation.
+            a.push(rdx); a.mov(rdx, observed);
+            a.pushfq(); a.pop(__qword_ptr[rdx + 48]);
+            a.mov(__dword_ptr[rdx + 56], eax); a.mov(__qword_ptr[rdx + 64], rsp);
+            a.pop(rdx);
         }
 
         private static void Write(ulong address, byte[] bytes) => Marshal.Copy(bytes, 0, new IntPtr((long)address), bytes.Length);

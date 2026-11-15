@@ -18,6 +18,8 @@ namespace TrappedUnitRescueTest
         internal const string NativeHash = "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
         internal const int MaximumUnitId = 9999, TileCapacity = 320800;
         private readonly byte* image;
+        // Instances can only be created after the canonical file/layout/entry audit.
+        internal IntPtr ImageBase => (IntPtr)image;
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void RelocateDelegate(IntPtr manager, int id, uint x, uint y, ushort height);
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate long MoveDelegate(IntPtr manager, int id, int x, int y, int mode);
         private readonly RelocateDelegate relocate;
@@ -45,6 +47,7 @@ namespace TrappedUnitRescueTest
             Offset(nameof(GameUnit.r_CurrentPositionTileId), 0xD0); Offset(nameof(GameUnit.r_PathPlanStateBitFlags), 0xF2);
             Offset(nameof(GameUnit.r_MovementSubstep), 0xF4); Offset(nameof(GameUnit.r_AssignedEngineer1), 0x310);
             Offset(nameof(GameUnit.r_AIState), 0x2BC); Offset(nameof(GameUnit.r_CurrentHealth), 0x3C4);
+            Offset(nameof(GameUnit.N00000573),0x90);Offset(nameof(GameUnit.N000000DB),0x442);
             // Validate pristine file bytes; live entry may legitimately be LordTeleportGuard's permanent hook.
             byte[] expected = { 0x48,0x89,0x6C,0x24,0x18,0x56,0x57,0x41,0x56,0x48,0x83,0xEC,0x20,0x49,0x63,0xF0 };
             byte[] actual = ReadRva(selected.FileName, 0x19BA40, expected.Length);

@@ -418,6 +418,73 @@ Eine weitere Such- oder Glättungsmaßnahme nur mit belegtem Nutzen und gesonder
 Entscheidung über gemessene Mehrkosten erwägen; keine zusätzliche Suche oder
 Speicherhaltung allein zur optischen Verbesserung voraussetzen.
 
+### G11: Grabenquerung für weitere Einheitentypen (optional, großer Umfang)
+
+- [ ] **Optionale Erweiterung, keine aktuelle Umsetzungsfreigabe.** Vor einem
+  eigenen Auftrag Umfang und Risiken ausdrücklich abwägen: Die vollständige
+  Erweiterung ist insgesamt **mittel bis hoch riskant** und kein kleiner
+  Modsettings-Zusatz. Statischer Audit und Risikobewertung vom 15.11.2026 sind
+  abgeschlossen; Implementierung, Spielabnahme und konkrete Hookauswahl sind offen.
+
+Gewünschter Umfang: Die bestehende Option bleibt für grabenfähige Einheiten.
+Zwei zusätzliche, standardmäßig ausgeschaltete Hostoptionen geben unabhängig
+davon Zivilisten beziehungsweise übriges Militär frei. Zusammen sollen die drei
+Schalter alle einem Spieler zugeordneten, ansonsten bewegungsfähigen Einheiten
+abdecken: eigene/verbündete fertige Gräben, zivile Transporttiere, Reiter und mobile
+Belagerungsgeräte eingeschlossen. Zivilisten benötigen vollständige automatische
+Arbeitszielsuche, Hinwege, Ablieferung und Rückwege. Die reine Durchquerung verleiht
+keine Grabenarbeitsfähigkeit; stationäre Objekte erhalten keinen neuen Bewegungsbefehl.
+
+| Teilbereich | Implementierungsrisiko | Konfliktrisiko mit anderen Mods |
+| --- | --- | --- |
+| Modsettings und bestehende Synchronisierung | Niedrig | Niedrig |
+| Weitere normale Soldaten einschließlich Reiter | Mittel | Niedrig bis mittel |
+| Katapulte und Feuerballisten | Hoch | Mittel |
+| Vollständige zivile Arbeitswege | Hoch | Mittel bis hoch |
+| Spaziergänge und tierische Sonderbewegungen | Mittel bis hoch | Mittel |
+
+Dies sind technische Einschätzungen aus dem Audit, keine gemessenen
+Fehlerwahrscheinlichkeiten und kein Nachweis unvermeidlicher Inkompatibilität.
+Das genaue Konfliktrisiko hängt von den später gewählten Eingriffsstellen ab.
+
+Wesentliche Grenzen für eine spätere Entscheidung:
+
+- Bewegung, Cursor, Gruppen-/Angriffsbefehle, Platzierung und Veröffentlichung
+  müssen dieselbe einheiten- und spielerbezogene Freigabe verwenden. `CanDigMoat`
+  nicht pauschal erweitern: Es wird auch für echte Grabenarbeit benutzt.
+- Zivile Zielprüfungen sind unterschiedlich; einige vergleichen Regionen direkt.
+  Gebäudezugangsprüfungen verändern gemeinsam verwendete Zugangskacheln und
+  Zustände, die auch die KI auswertet. Keine globale positive Erreichbarkeit
+  oder pauschale Typ-/Oberflächenfreigabe als Abkürzung voraussetzen.
+- Katapulte und Feuerballisten besitzen außerhalb der Wegsuche eine Vanilla-Regel,
+  die sie auf fertigem Graben über Zustand 110 schließlich entfernt. Diese Regel,
+  sonstige Entfernungsgründe und Besatzungsbedingungen getrennt berücksichtigen.
+- Spaziergänge haben einen eigenen Routenpublisher. Herdenziele und manche
+  Tier-/Arbeitszustände benötigen zusätzliche Prüfungen; vorhandene
+  Soldaten-Kostenmodelle belegen nicht die Kosten aller Zivilistenwege.
+- Zusätzliche Suchen für viele Arbeitszielkandidaten können teuer werden. CPU-Zeit,
+  Sucharbeit, wiederholte Fehlerpfade und tatsächliche Bewegung messen; Mehrkosten
+  sind derzeit nicht quantifiziert.
+- Script Extender/APIShared besitzen bereits Oberflächen-, Assassinen-, Tor- und
+  Jäger-Eingriffe. Fixes verändert Regionsdaten/Grabenhilfen; BugfixesAndQoL nutzt
+  Gebäudezugänglichkeit für KI-Schutz und verändert Heilerziele; ImprovedHunters
+  erweitert Jägerzielsuche. Diese Verträge erhalten und konkrete Hookspannen vor
+  Implementierung prüfen. Eine spätere Ladereihenfolge allein beweist keine
+  Verträglichkeit bei überlappenden oder semantisch widersprüchlichen Eingriffen.
+- Gespeicherte und bereits laufende Wege, Abschalten der Optionen zwischen Partien,
+  Besitzer-/Bündnis-/Terrainwechsel, Karteneditor und echter Host-/Clientbetrieb
+  benötigen gesonderte Abnahme. Kein neues Saveformat ist aus dem Audit als nötig
+  belegt; native Wege und Grabenmarker werden bereits gespeichert/übertragen.
+
+Empfohlene Reihenfolge **nur bei späterer gesonderter Freigabe**: zusätzliches
+normales Militär zuerst bewerten, mobile Belagerungsgeräte separat behandeln und
+vollständige Zivilistenwege als eigenen größeren Entwicklungsschritt planen.
+Keine konkrete Hookarchitektur oder universelle Kompatibilität ist damit zugesagt.
+
+Wiederverwendbare Vanilla-Verträge, vollständige Rollenmatrix, Maschinenbelege und
+getrennte Integrationsgrenzen:
+[Audit zur Grabenquerung aller Einheitentypen](../../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/MOAT_TRAVERSAL_ALL_UNITS.md).
+
 ### Weiterführende Quellen und Abgrenzung
 
 Der größere Suchkern-/Architekturprototyp hat eine eigene Entwicklungsgeschichte und offene Abnahmen in [BetterPathfinding.md](../../BetterPathfinding.md). Er ist keine bereits freigegebene Lösung der oben genannten Restprobleme. Hier werden seine alten Entwurfsvarianten nicht nochmals als neue Aufgaben eingereiht.

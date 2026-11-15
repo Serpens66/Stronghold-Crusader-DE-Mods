@@ -499,6 +499,54 @@ patch. Source hashes and repository identities are recorded in the evidence JSON
   extended PCL arrays are enabled. These sources were inspected; this is not a
   live hook-overlap or multiplayer acceptance certificate.
 
+### Optional extension: scope and risk assessment, 2026-11-15 [mod integration]
+
+**Optional future work, not an implementation authorization.** Before accepting
+this extension, explicitly account for its size and risks. The complete requested
+behavior is assessed as **medium to high implementation risk**. This is an
+engineering judgment from the static audit, not a measured failure probability.
+The consumer backlog is [Pathfinding/src/TODO.md, G11](../../../../../Pathfinding/src/TODO.md#g11-grabenquerung-für-weitere-einheitentypen-optional-großer-umfang).
+
+| Optional part | Implementation risk | Mod-conflict risk |
+| --- | --- | --- |
+| Settings through the existing synchronization system | Low | Low |
+| Additional ordinary soldiers, including mounted types | Medium | Low to medium |
+| Mobile Catapult and Arab Ballista | High | Medium |
+| Complete civilian work journeys | High | Medium to high |
+| Wander and special animal movement | Medium to high | Medium |
+
+The native reasons are documented above: target rejection before route building,
+direct PCL comparisons, shared mutable building access, separate random route
+publication, the siege removal chain and persistent unit modes/routes. These are
+confirmed static Vanilla contracts. Potential regressions of a future extension
+are not existing reproduced mod defects. In particular, shared building access
+must not be treated as a pure worker-local Boolean; route permission must not
+become a global surface, enemy-moat or true dig/fill capability.
+
+Source inspection additionally identifies coordination points, not inevitable
+incompatibilities: the Extender owns type-surface/Assassin detours; APIShared owns
+gate-routing sites and Hunter query entry `18AF50`; Fixes adjusts component data
+and `E7C40` visit storage. BugfixesAndQoL's AI-economy protection consumes `C90E0`
+results at the accessibility sweep (this is not a competing C90E0 entry hook),
+and its plague reservation feature detours healer target selector `9F700`.
+ImprovedHunters extends Hunter target/continuation behavior. Existing ownership,
+reservation, target and route contracts must be preserved; later load order alone
+does not prove compatibility. Concrete new patch spans and cooperation paths have
+not been selected or checked in a live installation for this extension.
+
+Extra per-candidate civilian searches could add substantial work, but that added
+cost has not been measured. Multiplayer consequences have high potential impact
+because routes and mode words are synchronized/checksummed; no new desync has been
+observed. Existing save/transfer blocks contain the native state already, so this
+audit does not establish a need for a new save format. Loaded/in-progress routes,
+option changes between missions, ownership/alliance/terrain changes, the editor
+and genuine host/client operation require separate acceptance.
+
+If separately authorized later, assess ordinary additional military movement
+first, mobile siege independently and complete civilian journeys as a larger
+workstream. This is a suggested order for risk containment, not a chosen hook
+design, a gameplay acceptance result or a promise of universal mod compatibility.
+
 ## Audit boundaries and evidence interpretation
 
 This document records static contracts, including all dispatch slots and the

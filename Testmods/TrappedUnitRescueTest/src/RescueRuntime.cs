@@ -28,6 +28,7 @@ namespace TrappedUnitRescueTest
     internal sealed unsafe class RescueRuntime
     {
         private readonly NativeRelocation native;
+        internal NativeRelocation Native => native;
         private readonly Func<bool> enabled;
         private readonly Action<string> report;
         private static readonly int[] Dx = { 0,1,1,1,0,-1,-1,-1 }, Dy = { -1,-1,0,1,1,1,0,-1 };
@@ -41,27 +42,49 @@ namespace TrappedUnitRescueTest
                 TileId=(int)unit->r_CurrentPositionTileId, AIState=unit->r_AIState, Flags=unit->r_PathPlanStateBitFlags, Substep=unit->r_MovementSubstep,
                 RequestedX=unit->r_TargetTilePositionX2, RequestedY=unit->r_TargetTilePositionY2, CrewIdentity=CaptureCrew(unit),
                 CrewCount=IsSiege((int)unit->r_UnitChimp)?native.Word(unit,0xA0C):0 };
-            value.Unsupported = Unsupported(unit);
+            value.Unsupported = ClassifyState(unit);
             if (native.Tile(value.X,value.Y) != value.TileId) value.Unsupported="incoherent-position";
             if (value.TileId < 0 || value.TileId >= NativeRelocation.TileCapacity) { value.Unsupported="invalid-tile"; return value; }
             value.Connections=native.Connections(value.TileId);
             if (value.Unsupported == null && native.OrdinaryGround(value.TileId)) CaptureCandidates(value);
             return value;
         }
-        private string Unsupported(GameUnit* unit)
+        internal static string ClassifyState(GameUnit* unit)
         {
-            if (native.Word(unit,0x9B0)!=0) return "mounted-or-hidden";
-            if (native.Word(unit,0x8EC)!=0 || native.Word(unit,0x8F6)!=0) return "portal-or-transport";
+            if(unit==null)return "missing-unit";
+            // DCE60 receives native+6EC as its movement-class argument. Mode1 bypasses ordinary
+            // connection checks (tunnel movement); other nonzero modes also need their own proof.
+            if(ReadStateWord(unit,0x6EC)!=0)return "nonordinary-movement-class";
+            // The seventh DCE60 argument is the stored per-path moat permission, not
+            // the current tile flag. It permits entering a moat without ordinary links.
+            if(ReadStateWord(unit,0x9C8)!=0)return "stored-moat-route-needs-mode-aware-exit-proof";
+            if (ReadStateWord(unit,0x9B0)!=0) return "mounted-or-hidden";
+            if (ReadStateWord(unit,0x8EC)!=0 || ReadStateWord(unit,0x8F6)!=0) return "portal-or-transport";
             if (unit->r_MovementSubstep!=8) return "step-in-progress";
             if (unit->r_AIState>=126 && unit->r_AIState<=129) return "assassin-transition";
             if (unit->r_IsKilledByProjectile!=0 || unit->r_CurrentHealth==0) return "dying";
             if (unit->r_PathPlanStateBitFlags!=0 && unit->r_PathPlanStateBitFlags!=2 && unit->r_PathPlanStateBitFlags!=4) return "special-path-state";
             if (unit->r_AIState>=108) return "special-ai-state";
-            // A type with no locomotion cannot be inferred safe from a writable position record.
-            if (unit->N000000DB==0) return "no-native-locomotion";
-            if (IsSiege((int)unit->r_UnitChimp) && unit->r_AIState!=0 && unit->r_AIState!=1 && unit->r_AIState!=101) return "siege-special-state";
+            bool activeRoute=unit->r_PathPlanStateBitFlags==2 || unit->r_PathPlanStateBitFlags==4;
+            // Preserve only separately audited travel segments. In particular,135E30's
+            // apple state3 continues picking after relocation without a new distance check.
+            if(unit->r_UnitChimp==eChimps.CHIMP_TYPE_FARMER_APPLE)
+                return activeRoute && (unit->r_AIState==2 || unit->r_AIState==5 || unit->r_AIState==7 || unit->r_AIState==8)
+                    ? null : "apple-worker-needs-audited-active-travel";
+            if(unit->r_UnitChimp==eChimps.CHIMP_TYPE_QUARRY_OX)
+                return activeRoute && unit->r_AIState==1 ? null : "ox-needs-audited-active-travel";
+            // A9E is a type-derived group-order gate, not civilian locomotion ability.
+            if(unit->N000000DB==0)return "unclassified-zero-group-order-field";
+            //143400 state0 selects2 when no idle travel target is found. State2
+            //only animates idle, returns to0 and asks181890 for fresh positional recovery.
+            bool stationarySpearmanIdle=unit->r_UnitChimp==eChimps.CHIMP_TYPE_SPEARMAN && unit->r_AIState==2 && unit->r_PathPlanStateBitFlags==0;
+            if(!stationarySpearmanIdle && unit->r_AIState!=0 && unit->r_AIState!=1 && unit->r_AIState!=101)
+                return IsSiege((int)unit->r_UnitChimp)?"siege-special-state":"unproven-order-state";
             return null;
         }
+        private static ushort ReadStateWord(GameUnit* unit,int nativeOffset)=>*(ushort*)((byte*)unit+nativeOffset-0x65C);
+        internal static bool NeedsExplicitCivilianResume(int type,int flags,bool resume) => !resume && (flags==2 || flags==4) &&
+            (type==(int)eChimps.CHIMP_TYPE_FARMER_APPLE || type==(int)eChimps.CHIMP_TYPE_QUARRY_OX);
         private static bool IsSiege(int type) => type==(int)eChimps.CHIMP_TYPE_CATAPULT || type==(int)eChimps.CHIMP_TYPE_TREBUCHET ||
             type==(int)eChimps.CHIMP_TYPE_SIEGE_TOWER || type==(int)eChimps.CHIMP_TYPE_BATTERING_RAM || type==(int)eChimps.CHIMP_TYPE_PORTABLE_SHIELD || type==(int)eChimps.CHIMP_TYPE_ARAB_BALLISTA;
         private uint[] CaptureCrew(GameUnit* unit)
@@ -73,7 +96,7 @@ namespace TrappedUnitRescueTest
         }
         private bool ValidCrew(UnitSnapshot before)
         {
-            if(before.CrewCount<0 || before.CrewCount>4)return false;
+            if(!HasCoherentCrewShape(before.CrewIdentity,before.CrewCount))return false;
             var seen=new HashSet<int>();
             for(int i=0;i<before.CrewIdentity.Length;i+=2)
             {
@@ -86,6 +109,17 @@ namespace TrappedUnitRescueTest
                         for(int slot=0;slot<4;slot++)
                             if(native.Word(engine,0x96C+slot*2)==id && *(uint*)((byte*)engine+0x974-0x65C+slot*4)==crew->r_GlobalId)return false;
             }
+            return true;
+        }
+        // Native 182B00's refresh pass visits the first Count slots, not every
+        // nonzero slot. Trailing global IDs can be stale after an ID slot is cleared.
+        internal static bool HasCoherentCrewShape(uint[] identity,int count)
+        {
+            if(identity==null || count<0 || count>4)return false;
+            if(identity.Length==0)return count==0; // A non-siege snapshot has no crew view.
+            if(identity.Length!=8)return false;
+            for(int slot=0;slot<4;slot++)
+                if((identity[slot*2]!=0)!=(slot<count))return false;
             return true;
         }
         private bool Edge(int source,int x,int y,int direction)
@@ -132,13 +166,24 @@ namespace TrappedUnitRescueTest
             if(!enabled()) { result.Status=RescueStatus.Inactive; return false; }
             if(before==null || !native.TryUnit(before.Id,out GameUnit* unit) || unit->r_GlobalId!=before.GlobalId) return Finish(result,RescueStatus.Unsupported,"identity-disappeared");
             result.IdentityPreserved=true;
-            if(before.Unsupported!=null || Unsupported(unit)!=null || !ValidCrew(before)) return Finish(result,RescueStatus.Unsupported,before.Unsupported??Unsupported(unit)??"crew-inconsistent");
+            if(before.Unsupported!=null || ClassifyState(unit)!=null || !ValidCrew(before))
+                return Finish(result,RescueStatus.Unsupported,(before.Unsupported??ClassifyState(unit)??"crew-inconsistent")+
+                    "; ai="+unit->r_AIState+" flags="+unit->r_PathPlanStateBitFlags+" substep="+unit->r_MovementSubstep);
+            if(NeedsExplicitCivilianResume(before.Type,before.Flags,resume))
+                return Finish(result,RescueStatus.Unsupported,"civilian-active-route-requires-explicit-reissue");
             if(unit->r_CurrentPositionTileId!=(uint)before.TileId || unit->r_CurrentTilePositionX!=before.X || unit->r_CurrentTilePositionY!=before.Y ||
                 unit->r_CurrentHealth!=before.Health || unit->r_TribeId!=before.Tribe || unit->r_AIState!=before.AIState ||
                 (int)unit->r_UnitChimp!=before.Type || unit->r_ControllableForPlayerId!=before.Owner || !Same(CaptureCrew(unit),before.CrewIdentity) ||
                 (IsSiege(before.Type) && native.Word(unit,0xA0C)!=before.CrewCount))
                 return Finish(result,RescueStatus.Unsupported,"unit-changed-during-mutation");
-            if(before.Candidates.Count==0 || HasExit(before) || native.OrdinaryGround(before.TileId)) return Finish(result,RescueStatus.NotTrapped,"no-new-complete-ground-exit-loss");
+            if(before.Candidates.Count==0 || native.OrdinaryGround(before.TileId)) return Finish(result,RescueStatus.NotTrapped,"no-new-complete-ground-exit-loss");
+            for(int d=0;d<8;d++)
+            {
+                int neighborTile=native.Tile(before.X+Dx[d],before.Y+Dy[d]);
+                if(neighborTile>=0 && (native.Flags(neighborTile)&0x10000100u)!=0 && Edge(before.TileId,before.X,before.Y,d))
+                    return Finish(result,RescueStatus.Unsupported,"raised-exit-needs-unit-surface-proof");
+            }
+            if(HasExit(before))return Finish(result,RescueStatus.NotTrapped,"ordinary-physical-exit-remains");
             if((native.Flags(before.TileId)&0x40000000u)!=0)
                 return Finish(result,RescueStatus.Unsupported,"completed-moat-needs-mode-aware-escape-proof");
             if(!native.HasOccupancyExactlyOnce(before.TileId,before.Id)) return Finish(result,RescueStatus.Unsupported,"source-occupancy-invalid");

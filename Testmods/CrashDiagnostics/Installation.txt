@@ -1,92 +1,32 @@
-CrashDiagnostics 0.1.1 - TEMPORAERES DIAGNOSEPAKET
-
-Dieses Paket ist ein ausdruecklicher Entwicklungsdiagnose-Build.
-Es gehoert NICHT in ein normales Workshop-Modpack.
-Windows-gepruefter Proton-Pilot: Eine erfolgreiche Windows-Pruefung beweist
-keine Proton-Kompatibilitaet. Der konkrete Pruefstand steht im Buildnachweis.
-
-Voraussetzungen
-  BepInEx, Script Extender ab 2.14.3 und APIShared ab 0.53.0.
-  Zielstand: aktuelles Serps-Mods-Release 1.0.37 mit APIShared 0.53.0.
-  Bestehende Mods, Spielstaende und Einstellungen werden nicht ersetzt.
-  Der Diagnosemod kann auf nur einem Multiplayer-Client installiert sein;
-  die echte Multiplayer-Abnahme muss separat nachgewiesen werden.
+CrashDiagnostics 0.1.1 - Kurzanleitung
 
 Installation
-  1. Das Spiel vollstaendig schliessen.
-  2. Den BepInEx-Ordner aus dem ZIP ins Spielverzeichnis entpacken.
-  3. Spiel normal starten und den bisherigen Fehler zu reproduzieren versuchen.
-  4. Im BepInEx-Log nach CrashDiagnostics und READY suchen.
-     Fehlende Komponenten werden als eingeschraenkte Erfassung oder Fehler gemeldet.
-  Das Paket startet einen kleinen, unsichtbaren Collector-Prozess. Er beendet
-  sich nach dem Spiel und schreibt ausschliesslich lokale Diagnosedateien.
+1. Spiel schliessen.
+2. Den BepInEx-Ordner aus dem ZIP ins Spielverzeichnis entpacken.
+3. Spiel wie gewohnt starten, Save laden und normal weiterspielen.
+   Unter Linux weiterhin ueber Steam/Proton starten.
 
-Windows-Host und Linux-Client: normales gemeinsames Weiterspielen
-  Beide installieren DIESELBE ZIP zusaetzlich zum unveraenderten Releasepaket.
-  Kein neuer APIShared-Build, keine Testdatei und kein besonderer Spielstart
-  sind erforderlich. Vorhandenen Save wie gewohnt laden und normal spielen.
-  Der Mod startet keine Tests, laedt keinen Save und beendet das Spiel nicht
-  automatisch. Der Windows-Host und der Linux-Client sammeln getrennte Daten.
-  Unter Linux das Spiel weiterhin normal ueber Steam mit dem bisherigen Proton
-  starten. Den Collector NICHT separat mit einem anderen Wine/Proton starten;
-  das Plugin startet ihn automatisch in der geerbten Spielumgebung.
+Die Installation beim abstuerzenden Client reicht; beim Host ist sie optional.
+Gedacht fuer Serps Mods 1.0.37 mit APIShared 0.53.0 und Script Extender 2.14.3.
 
-Einmaliger Bereitschaftscheck, besonders auf dem Linux-Client
-  In BepInEx/LogOutput.log muss fuer diesen Spielstart eine Zeile mit
-  [Crash Diagnostics] und READY status=7 oder READY status=15 vorhanden sein.
-  READY status=3 bedeutet: native Rohdaten und Collector aktiv, optionale
-  Mono-Methodennamen nicht verfuegbar. Auch das liefert zusaetzliche Crashdaten.
-  Danach muss POST_STARTUP_RENDER und nach dem Laden MISSION_TICK erscheinen.
-  Bei inactive, fehlendem READY oder spaeterem CAPABILITY_STATUS mit Wert1/5/13
-  ist die Erfassung unvollstaendig: LogOutput.log schicken, bevor auf einen
-  laengeren Diagnoselauf vertraut wird. Das Spiel wird deshalb nicht beendet.
-  Eine neue Sitzung liegt unter BepInEx/CrashDiagnostics; waehrend des Spiels
-  existieren emergency.bin, code-maps.bin, trail.bin und der Unterordner logs.
-  Nach Spielende ergaenzt der Collector report.txt und collector-status.txt.
+Einmal pruefen, ob die Diagnose laeuft
+In BepInEx/LogOutput.log nach READY status=7 oder READY status=15 suchen.
+READY status=3 ist ebenfalls nutzbar, erfasst aber weniger Details.
+Nach dem Laden sollen auch POST_STARTUP_RENDER und MISSION_TICK vorhanden sein.
+Fehlt etwas, bitte die LogOutput.log schicken. Linux/Proton ist noch ungetestet.
 
-Bei einem Crash
-  Beide das Spiel beenden bzw. warten, bis der abgestuerzte Prozess beendet ist.
-  Ein paar Sekunden auf den Collector warten. Auf BEIDEN Rechnern den passenden
-  Sitzungsordner vollstaendig zippen und mit Windows-Host/Linux-Client markieren.
-  Dazu kurz sagen, wer abgestuerzt ist, ob der andere weiterspielen konnte und
-  welche Aktion zuletzt ausgefuehrt wurde. Auch ohne report.txt den vorhandenen
-  Ordner sichern; die Rohdaten koennen trotzdem hilfreich sein.
+Nach einem Crash
+1. Warten, bis das Spiel beendet ist, dann noch ein paar Sekunden warten.
+2. Unter BepInEx/CrashDiagnostics den neuesten Sitzungsordner komplett zippen
+   und schicken, auch wenn darin keine report.txt liegt.
+3. Kurz dazuschreiben: Windows-Host oder Linux-Client, letzte Aktion vor dem Crash.
+   Player.log vor dem naechsten Spielstart ebenfalls sichern, falls vorhanden.
 
-Bei mehreren Spielstarts
-  Das Gesamtbudget reserviert Platz fuer hoechstens vier Sitzungen. Wenn alte
-  Sitzungsordner nach dem Sichern entfernt werden, bleibt Platz fuer neue Laeufe.
-  Vor dem fuenften Spielstart deshalb alte Diagnosesitzungen sichern und die
-  gesicherten alten Ordner unter BepInEx/CrashDiagnostics entfernen. Bei vollem
-  Budget spielt das Spiel weiter, aber es startet keine neue Crasherfassung.
+Wichtig
+- Vor dem fuenften Spielstart alte Sitzungsordner sichern und danach entfernen.
+  Sonst ist der Speicherplatz fuer neue Diagnosesitzungen belegt.
+- Die Daten koennen Spielernamen, Chat, Dateipfade und Speicherfragmente enthalten.
+  Es wird nichts automatisch hochgeladen.
 
-Nach dem Fehler
-  Die Sitzungen stehen unter BepInEx/CrashDiagnostics.
-  Den vollstaendigen passenden Sitzungsordner sichern, bevor Dateien geloescht
-  oder weitere Installationsaenderungen vorgenommen werden.
-  Zum Erstellen eines ZIP kann CrashDiagnostics.Collector.exe mit --export und
-  dem vollstaendigen Sitzungsordner aufgerufen werden; der Export verweigert
-  noch aktive Sitzungen. Alternativ den Ordner nach Spielende selbst zippen.
-  Auch eine bereits vorhandene Player.log oder der betroffene Save kann
-  zusaetzlich hilfreich sein. Saves werden nicht automatisch kopiert.
-
-Datenschutz und Grenzen
-  Es erfolgt kein Upload. Das Paket kann Speicherfragmente, Dateipfade,
-  Modlisten, Spielernamen und Chat aus Spielprotokollen enthalten.
-  Die Speicherung ist auf 128 MiB pro Sitzung und 512 MiB insgesamt begrenzt.
-  Ein vollstaendiger Prozess-/Heapdump wird nicht erstellt. Bei vollem Budget
-  werden Begrenzungen gemeldet. Alte Fehlernachweise werden nicht automatisch
-  geloescht: zuerst sichern, dann benoetigte alte Sitzungsordner selbst entfernen.
-  Eine beobachtete native Exception ist nicht automatisch ein Absturz.
-  report.txt dokumentiert Fortschritt, Prozessende und fehlende Informationen.
-  Eine zugeordnete Funktion oder ein beteiligter Mod beweist noch keine Ursache.
-  Hartes Beenden, Stromausfall, Stack-/Heap-Korruption oder ein Collectorfehler
-  koennen die Erfassung begrenzen. Vollstaendige Timingneutralitaet ist nicht
-  garantiert; das Paket deshalb nur fuer gezielte Diagnoselaeufe einsetzen.
-
-Deinstallation
-  Spiel schliessen und ausschliesslich den Ordner
-  BepInEx/plugins/CrashDiagnostics_Serp entfernen.
-  Die gesicherten Diagnosesitzungen bleiben getrennt davon erhalten.
-
-Es werden keine Fehler absichtlich im laufenden Spiel ausgeloest, keine
-Spielaktionen automatisiert und keine fremden Diagnoseschalter aktiviert.
+Entfernen
+Spiel schliessen und BepInEx/plugins/CrashDiagnostics_Serp loeschen.
