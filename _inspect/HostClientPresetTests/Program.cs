@@ -115,6 +115,11 @@ internal static class Program
         };
         try
         {
+            if (args != null && args.Length == 1 && args[0] == "ai-hunter-prey")
+            {
+                AIHunterPreyPresetTests.Run();
+                return 0;
+            }
             if (args != null && args.Length == 1 && args[0] == "personal-storage")
             {
                 TestSteamInviteBlacklistStore();

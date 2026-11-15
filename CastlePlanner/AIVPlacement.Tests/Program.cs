@@ -37,6 +37,7 @@ internal static class Program
 
         var tests = new (string Name, Action Run)[]
         {
+            ("reads actual Keep direction independently of sprite variation", KeepDirectionTests.Run),
             ("checks supplemental terrain and synchronous spawn identity", SupplementalSpawnTests.Run),
             ("waits for current mission and final castle-preview identity", FreeCastleIdentityReadinessTests.Run),
             ("keep range boundaries, allies, prepared raster and settings", KeepRangeTests.Run),

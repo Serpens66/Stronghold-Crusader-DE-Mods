@@ -65,7 +65,7 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 - [Health-bar rendering audit](./sem/FBCB9319/knowledge/HEALTH_BAR_RENDERING.md): visible-map render paths, selection gates, HP storage and candidate hook spans.
 - [Keep and campground ground: verified records](./sem/FBCB9319/knowledge/KEEP_CAMPGROUND_GROUND.md)
 - [Unit line of sight and building sight heights](./sem/FBCB9319/knowledge/LINE_OF_SIGHT.md): sight wrapper/core results, context write, eye heights of the Hunter search and ranged order, obstacle-height helper dispatch and the Hunter's-hut sight exemption.
-- [Keep main-flag rotation audit](./sem/FBCB9319/knowledge/KEEP_FLAG_ROTATION.md): view-dependent Vanilla micro-anchors, Keep-relative rotation, and projectile coordinate contracts.
+- [Keep main-flag rotation audit](./sem/FBCB9319/knowledge/KEEP_FLAG_ROTATION.md): view-dependent Vanilla micro-anchors, Keep-relative rotation, projectile coordinate contracts and corrected stored-direction attribution.
 - [Long simulation ticks from AI group movement (FBCB9319)](./sem/FBCB9319/knowledge/SIM_TICK_SPIKE_PATHING.md): AI group-order stalls, `0x119F90` member lookup, Assassin per-member `0xD9C40` and the `+0x94` route output; mod contracts and mod measurements are only linked.
 - [Minimap (radar) pass 0xF5A40 (FBCB9319)](./sem/FBCB9319/knowledge/RADAR_PASS_F5A40.md)
 - [Outpost attack targets after a defeat](./sem/FBCB9319/knowledge/OUTPOST_ATTACK_RETARGET.md): completion queue, persistent target, native order branches and mid-match Lord validity.
@@ -74,6 +74,8 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 - [Weapon workshop production fields](./sem/FBCB9319/knowledge/WEAPON_WORKSHOP_FIELDS.md): current and next goods IDs, interop pointer origin, and verified Vanilla workshop scope.
 
 ## Vanilla audits with mod integration
+
+- [Keep direction versus sprite variation](./sem/FBCB9319/knowledge/KEEP_DIRECTION.md): actual Keep direction at record +0x92, separate sprite variation at +0x102, constructor/reader instruction proof and CastlePlanner regression history.
 
 - [AI emergency demolition and nervous Lord messages](./sem/FBCB9319/knowledge/AI_EMERGENCY_DEMOLITION.md): the strategy gate also controls timers, stance, resource help and category-9 messages; isolated demolition/refund helper, corrected consumer boundary and six-byte Indirect detour contract; static audit, new runtime acceptance separate.
 
@@ -88,7 +90,7 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 - [Worker production bonus and reduced output](./sem/FBCB9319/knowledge/WORKER_PRODUCTION_BONUS.md): signed fixed contribution, complete producer/completion chains, reduced Ox loads, display and raw save/transfer/checksum contracts; static and isolated execution evidence, game acceptance separate.
 
 - [Siege engineer crew timeout](./sem/FBCB9319/knowledge/SIEGE_ENGINEER_CREW_TIMEOUT.md): crew refresh and release at121; pending recruitment, normal101/105 waiting, serialized user-save evidence and the state6 automatic-crew duplication cause.
-- [Hunter prey ownership, reservation and shot states](./sem/FBCB9319/knowledge/HUNTER_PREY_RULES.md): three owner barriers, state 10 as the shot, reservation countdown, chicken population, melee rabbit contact and cow facts; single-player acceptance, multiplayer pending. Includes the complete access list of the reservation word (`+0x448`/`+0xAA4`), its war-dog and Engineer meanings, and corpse dead-time thresholds; herd kinds, spawn arts and route readers; the three filters for units attacking animals by themselves.
+- [Hunter prey ownership, reservation and shot states](./sem/FBCB9319/knowledge/HUNTER_PREY_RULES.md): three owner barriers, state 10 as the shot, reservation countdown, chicken population, melee rabbit contact and cow facts; single-player acceptance, multiplayer pending. Includes the complete access list of the reservation word (`+0x448`/`+0xAA4`), its war-dog and Engineer meanings, and corpse dead-time thresholds; herd kinds, spawn arts and route readers; the three filters for units attacking animals by themselves. Static extension of 2026-11-15 records hut/worker identity and meat inventories, deferred delivery, complete AI retirement calls/refund nuances and their native scheduling boundary.
 
 - [Ally goods gifts and transfer boundaries](./sem/FBCB9319/knowledge/ALLY_GOODS_TRANSFERS.md): complete send/Chore/storage/Gold path and actual-transfer boundary; corrective 2026-11-05 audit reuses the existing Extender owner; game acceptance pending.
 

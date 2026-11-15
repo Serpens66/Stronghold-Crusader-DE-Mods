@@ -40,7 +40,12 @@ internal static class Program
                     return path == null ? null : Assembly.LoadFrom(path);
                 };
                 AppDomain.CurrentDomain.AssemblyResolve += resolve;
-                try { Calibration(Assembly.LoadFrom(assemblyPath)); }
+                try
+                {
+                    Assembly assembly = Assembly.LoadFrom(assemblyPath);
+                    Calibration(assembly);
+                    PreviewDeadlineTests.Run(assembly, Check);
+                }
                 finally { AppDomain.CurrentDomain.AssemblyResolve -= resolve; }
             }
             else if (args.Length != 0) throw new ArgumentException("Use --assembly <fresh CastlePlanner.dll> to include production calibration tests.");

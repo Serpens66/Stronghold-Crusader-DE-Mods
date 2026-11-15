@@ -23,7 +23,7 @@ namespace CastlePlanner
 
         public const string PluginGuid = "CastlePlanner_Serp";
         public const string PluginName = "CastlePlanner";
-        public const string PluginVersion = "0.8.52";
+        public const string PluginVersion = "0.8.53";
 
         // The BepInEx component is destroyed during startup, so runtime state remains static.
         private static CastlePlannerRuntime runtime;
@@ -113,6 +113,13 @@ namespace CastlePlanner
             {
                 Shared.DebugLogHelper.LogErrorLimited(Logger, "CastlePlanner/CastlePlannerPlugin/OnCrusaderLibraryLoaded.native-version-check-failed", $"CastlePlanner native version check failed; native Spawn mode remains inactive: {ex}");
             }
+
+            if (!KeepDirectionReader.Configure(currentNativeLayout))
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "CastlePlanner/KeepDirectionReader/layout",
+                    "Keep direction reads are disabled: native hash or GameBuilding field layout is not verified (direction=0x92, sprite=0x102, stride=0x32C).");
+            else
+                Shared.DebugLogHelper.LogInfo(Logger,
+                    "Keep direction layout verified: N00012042_2=0x92; independent sprite variation=0x102; stride=0x32C; reference native hash matched.");
 
             try
             {

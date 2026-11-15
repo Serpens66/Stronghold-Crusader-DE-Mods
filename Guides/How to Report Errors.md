@@ -13,6 +13,8 @@ For most reports, start with **`LogOutput.log` and a description of the problem*
 3. Open the **BepInEx** folder.
 4. Copy **`LogOutput.log`** somewhere safe and attach that copy to your report.
 
+If `LogOutput.log` is missing, say so and describe how you installed the mods. A screenshot of the game folder can help with startup problems. Continue with the report even if you cannot find every file.
+
 The path inside the **game install** folder is:
 
     BepInEx\LogOutput.log
@@ -27,13 +29,13 @@ The path inside the **game install** folder is:
 - **Your game and mod versions**, including the Script Extender and Fixes mod if installed. Mention any other active mods. If you cannot find a version, send the report anyway.
 - A **screenshot or short video** if it helps show the problem.
 
-If the issue depends on a particular match, attach a **save made before the problem** if available. Include the custom map or custom AI lord files if they are needed to reproduce it. Mention any relevant mod settings or attach your settings preset.
+If the issue depends on a particular match, attach a **save made before the problem** if available. Include the custom map or custom AI lord files if they are needed to reproduce it. Mention any relevant mod settings or attach a [saved settings preset](ExtendedData/ModSettings%20Presets.md#english).
 
-For multiplayer problems, say whether you were the host or a client and which players were affected.
+For multiplayer problems, say whether you were the host or a client and which players were affected. Ask the host and affected players to save their logs from the same session. Include the exact text of any mod mismatch, disconnect, or synchronization message.
 
 ## 2. Crashes to desktop
 
-A crash means the game unexpectedly closes and returns you to the desktop. In addition to the report details above, please collect the following files **before launching the game again**.
+A crash means the game unexpectedly closes and returns you to the desktop. In addition to the report details above, please collect the following files **before launching the game again**. Older crash files can be removed automatically at startup.
 
 ### A. BepInEx log
 
@@ -71,7 +73,7 @@ Send **`Player.log`**. If you have already restarted the game, also send **`Play
 From the game folder, also include:
 
 - **`BepInEx\SerpsModsDiagnostics\`**: send the whole folder if it exists. These extra diagnostic files are only created when the relevant recording option was enabled beforehand.
-- **`BepInEx\config\`**: send the configuration folder as a ZIP so I can check the mod and loader settings. Include a mod settings preset if you use one.
+- **`BepInEx\config\`**: send the configuration folder as a ZIP so I can check the mod and loader settings. For an issue involving mod options, also attach an exported settings preset from the affected mod if available; the configuration folder alone does not contain all lobby settings.
 - A **save from shortly before the crash**, plus any custom map or AI lord files needed to load it.
 
 ### E. Describe the crash

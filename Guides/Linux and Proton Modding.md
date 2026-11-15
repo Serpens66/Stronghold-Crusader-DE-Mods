@@ -1,99 +1,119 @@
 # SHCDE modding on Linux and Proton
 
-Stronghold Crusader: Definitive Edition runs its Windows executable through Proton. Install the Windows SHCDE BepInEx loader and the official SHCDE Script Extender in the game directory. Our optional [LinuxModding helpers](../Helpers/LinuxModding/) check that installation and set the Wine override that loads BepInEx; they do not install mods or replace the Extender's updater.
+This guide explains how to install and troubleshoot mods for **Stronghold Crusader: Definitive Edition** on Linux using Steam and Proton. You need the Windows SHCDE BepInEx loader, the Script Extender, and any dependencies named by your mods.
 
-This guide was checked against the locally installed Script Extender 2.14.1 and its release packaging. Use a current stable Proton version and a 64-bit Linux Steam installation. Install code mods only from authors you trust: they run with your user account's permissions.
+Use a current stable Proton version with 64-bit Steam. Linux/Proton support has not been fully verified in live Steam gameplay, so successful installation alone does not guarantee that every mod works. Install code mods only from authors you trust: they run with your user account's permissions.
 
 ## Install the loader and Script Extender
 
-1. In Steam, open the game's **Properties > Compatibility**, select a current stable Proton version, and use **Manage > Browse local files** to open the game directory.
-2. Download the Windows SHCDE BepInEx package from the [official releases](https://gitlab.com/rawra-stronghold-crusader/shcde-bepinex/-/releases). Copy the contents of its `Loader` directory into the game directory. Confirm that `winhttp.dll` and `BepInEx/core/BepInEx.dll` exist there.
-3. Download the latest `SHCDESE_X.X.X.zip` from the [official Script Extender releases](https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/releases). Extract it into the game directory and merge its folders. The release includes `BepInEx/plugins/000shcdese/SHCDESE.dll`, `info.json`, `data/mod-updater.sh`, `libredbird_thread_patch.so`, `msvcp140.dll` in the game root, and `shcde-vanilla.sh` in the game root.
-4. Copy [install-linux.sh](../Helpers/LinuxModding/install-linux.sh) and [shcde-linux-launcher.sh](../Helpers/LinuxModding/shcde-linux-launcher.sh) from this repository into the game's `BepInEx/tools/LinuxModding/` directory.
-5. Open a terminal in the game directory and run:
+Close the game before copying or replacing files.
+
+1. In Steam, open the game's **Properties > Compatibility** and select a current stable Proton version.
+2. Use **Manage > Browse local files** to open the game directory. All paths below start in this directory.
+3. Download the Windows SHCDE BepInEx package from the [official loader releases](https://gitlab.com/rawra-stronghold-crusader/shcde-bepinex/-/releases). Copy the contents of its `Loader` directory into the game directory. You should now have `winhttp.dll` and `BepInEx/core/BepInEx.dll`.
+4. Download `SHCDESE_X.X.X.zip` from the [official Script Extender releases](https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/releases). Extract the complete package into the game directory and merge its folders. Keep all bundled files, including `msvcp140.dll` in the game directory and `libredbird_thread_patch.so` beside `BepInEx/plugins/000shcdese/SHCDESE.dll`.
+5. In Steam's **Properties > General > Launch Options**, enter:
+
+   ```text
+   WINEDLLOVERRIDES="winhttp=n,b" %command%
+   ```
+
+   This tells Proton to load BepInEx through `winhttp.dll`. If you already use launch options or DLL overrides, combine them carefully and keep exactly one `%command%`. The optional launcher below preserves existing DLL overrides for you.
+6. Start the game through Steam. Look for the Script Extender logo in the main menu. If it does not appear, check `BepInEx/LogOutput.log` for startup errors.
+
+## Optional: check the installation with our helpers
+
+The [LinuxModding helpers](../Helpers/LinuxModding/) check for required files and provide a launcher that preserves existing DLL overrides. They do not download or install mods.
+
+1. Download the actual script files [install-linux.sh](../Helpers/LinuxModding/install-linux.sh) and [shcde-linux-launcher.sh](../Helpers/LinuxModding/shcde-linux-launcher.sh), rather than saving their GitHub HTML pages.
+2. Create `BepInEx/tools/LinuxModding/` in the game directory and place both scripts there.
+3. Open a terminal in the game directory and run:
 
    ```sh
    bash "./BepInEx/tools/LinuxModding/install-linux.sh"
    ```
 
-6. Resolve any missing-file reports. Then set this Steam launch option:
+4. Resolve any `[MISSING]` reports. Replace the Steam launch option from the installation steps with:
 
    ```text
    bash "./BepInEx/tools/LinuxModding/shcde-linux-launcher.sh" %command%
    ```
 
-The launcher prepends `winhttp=n,b` to `WINEDLLOVERRIDES`, preserves any other overrides, and executes Steam's game command once. You can set the equivalent Wine override yourself instead of installing the optional helpers. Keep exactly one `%command%` in the Steam launch option.
-
-Start the game through Steam. The Script Extender logo should appear in the main menu. Check `BepInEx/LogOutput.log` for BepInEx and Script Extender startup messages and the loaded Extender version. The setup checker confirms file presence, not that Proton can run every mod.
+The checker confirms file presence; it cannot prove that Proton or an individual mod will run correctly.
 
 ## Install and update mods
 
-For a manual install, extract the mod author's package into the game directory so that the mod's own files land under `BepInEx/plugins/<ModName>/` (or the path specified by its author). Manual installs are updated and removed manually; keep all files supplied by the mod author together, including `info.json` when present. Check the mod's required Script Extender and game versions.
+### Steam Workshop
 
-For an Extender-compatible Workshop mod, subscribe in Steam and start the game. The Extender compares subscribed map archives and their versions with manifests under `_SE/`. It stages installs, updates, and removals under `_SE/.staging`, starts `BepInEx/plugins/000shcdese/data/mod-updater.sh` through the host shell, and exits the game. The shell updater waits for the game process, applies the changes, and requests a restart through Steam. If `xdg-open` and `steam` are both unavailable, restart the game manually after the files have been applied.
+Subscribe to the mod and all required dependencies, then start the game through Steam. For Script Extender packages, accept the installation prompt. The game closes while the updater applies the files, then requests a Steam restart. If it does not reopen after the update finishes, start it through Steam manually.
 
-The Extender rebuilds staging from Workshop content on the next start after an interrupted attempt. Do not move files out of `_SE/.staging` yourself. After three consecutive deployments that were not confirmed on a subsequent start, it stops retrying and logs the location of `_SE/.deploy_attempts`. Diagnose the cause first; removing that counter permits another attempt.
+APIShared also provides **Mod Options > APIShared > Workshop** for packages it manages. Follow its update or recovery prompts. If an interrupted update needs recovery, keep its backups and diagnostic files until recovery is complete. Packages managed by an external mod manager should be updated through that manager.
 
-### Repair APIShared's first Workshop installation
+Do not move files out of `_SE/.staging` yourself. This is the Script Extender's temporary installation folder.
 
-If Script Extender cannot complete APIShared's first Workshop installation under Proton,
-use the separate [Proton Workshop Fix ZIP (0.27.0)](https://github.com/SHCDE-APIShared/APIShared/releases/download/APIShared/v0.27.0/APIShared-ProtonWorkshopFix-v0.27.0.zip).
-This independent patcher works before the APIShared runtime is installed. It is a
-manual download, separate from the normal APIShared ZIP, Workshop package and modpack.
+### Manual downloads
 
-1. Close the game and open the downloaded ZIP.
-2. Copy `BepInEx/patchers/APIShared.ProtonWorkshopFix.dll` into the same path inside
-   your SHCDE game directory. Keep exactly one copy of this patcher.
-3. Keep [APIShared subscribed in Steam Workshop](https://steamcommunity.com/workshop/filedetails/?id=3818609220),
-   start the game through Steam and accept the normal Script Extender installation prompt.
+Follow the mod author's installation instructions and extract the package into the game directory. A typical mod ends up under `BepInEx/plugins/<ModName>/`. Keep its supplied files together, including `info.json` when present, and check its required game, Script Extender and dependency versions.
 
-The patcher requires the Windows SHCDE BepInEx loader and Script Extender described
-above, Linux/Proton, host Bash, `flock` and GNU coreutils. It contains no APIShared
-runtime, and installing its DLL does not overwrite game or Script Extender files.
-It stays inactive on native Windows and under externally managed launches.
-Close the game before replacing or removing it.
+For APIShared, copy **both** the `BepInEx/plugins` and `BepInEx/patchers` contents from the same package. Do not place a second complete APIShared package inside another plugin folder. Manually installed mods must also be updated or removed manually.
 
-Normally no path configuration is needed. If automatic discovery fails, copy
-`APIShared.ProtonPaths.cfg.example` from the ZIP to
-`BepInEx/config/APIShared.ProtonPaths.cfg`. In its `[ProtonPaths]` section, set
-`HostGameDirectory` to the absolute Linux path of this exact game installation and/or
-`WineBashPath` to the absolute Windows/Wine path of the host Bash, as needed.
-Restart the game after editing. APIShared's own updater uses the same optional configuration.
+## Repair APIShared's first Workshop installation
 
-If the Extender's deployment counter is already exhausted, successful preflight allows
-one additional confirmed attempt. Declining does not consume it; a failed retry does
-not repeat automatically. Inspect `BepInEx/LogOutput.log` and the attempt's `journal.log`
-under `BepInEx/cache/APIShared.ProtonWorkshopFix/`. Leave `_SE/.staging` in place.
+Use this section if the Script Extender cannot finish installing APIShared under Proton. The repair is a separate download and can run before APIShared itself is installed.
 
-Automated path, IL, retry, package and native Bash checks do not establish live
-Proton/Steam compatibility. First installation, path mappings and overrides, failed
-retries, Steam restart and subsequent APIShared updates/recovery still require live
-acceptance. See APIShared's [installation contracts](https://github.com/SHCDE-APIShared/APIShared/blob/main/docs/WORKSHOP.md#linux-paths-and-first-install-repair)
-and [platform acceptance limits](https://github.com/SHCDE-APIShared/APIShared/blob/main/docs/WORKSHOP.md#platform-acceptance-limits).
+1. Close the game.
+2. Open the [APIShared releases](https://github.com/SHCDE-APIShared/APIShared/releases) and download the separate **`APIShared-ProtonWorkshopFix-v<version>.zip`** asset. Use a release that offers this asset; the normal APIShared ZIP is a different package.
+3. Copy `BepInEx/patchers/APIShared.ProtonWorkshopFix.dll` from that ZIP into the same path inside the game directory. Keep exactly one copy of this DLL.
+4. Keep [APIShared subscribed in Steam Workshop](https://steamcommunity.com/workshop/filedetails/?id=3818609220), start the game through Steam, and accept the normal Script Extender installation prompt.
 
-## What the bundled Linux files do
+The repair requires Linux/Proton, host Bash, `flock` and GNU coreutils, in addition to the loader and Extender above. It contains no APIShared runtime. It stays inactive on native Windows and when an external mod manager controls the launch. Close the game before replacing or removing it.
 
-- `BepInEx/plugins/000shcdese/libredbird_thread_patch.so` is the native RedBird Proton thread companion shipped with the Extender. Keep it beside `SHCDESE.dll`.
-- `msvcp140.dll` is shipped in the game root for PolyHook2 compatibility under Wine/Proton. If PolyHook2 initialization still crashes, check that this bundled file is present before troubleshooting its version.
-- `shcde-vanilla.sh` is the Extender's separate game-root helper for toggling mods by renaming `winhttp.dll`. Run it from a terminal with `bash "./shcde-vanilla.sh" --disable` for a vanilla launch or `--enable` to restore mods; it also launches the game through Steam. Do not run it while the game is active.
+If previous failures have blocked further installation attempts, the repair permits one additional confirmed attempt after its checks succeed. If that attempt also fails, inspect `BepInEx/LogOutput.log` and the attempt's `journal.log` under `BepInEx/cache/APIShared.ProtonWorkshopFix/` before trying again. Leave `_SE/.staging` in place.
+
+### Only if automatic path detection fails
+
+Normally no path configuration is needed. If the log reports that the game directory or Bash cannot be found:
+
+1. Copy `APIShared.ProtonPaths.cfg.example` from the repair ZIP to `BepInEx/config/APIShared.ProtonPaths.cfg`.
+2. Under `[ProtonPaths]`, fill in only the override you need:
+   - `HostGameDirectory`: the absolute **Linux path** to this exact game installation.
+   - `WineBashPath`: the absolute **Windows/Wine path** to the Linux Bash executable, such as `Z:\bin\bash` when Z: maps to the Linux root.
+3. Restart the game after editing.
+
+APIShared's own updater uses the same optional configuration. Further details are in the [APIShared Linux installation guide](https://github.com/SHCDE-APIShared/APIShared/blob/main/docs/WORKSHOP.md#linux-paths-and-first-install-repair).
 
 ## Troubleshooting
 
-### BepInEx or the Extender does not load
+### BepInEx or Script Extender does not load
 
-- Run `install-linux.sh` again and inspect missing `winhttp.dll`, `BepInEx/core/BepInEx.dll`, Extender files, or RedBird companion reports. Re-extract the complete official package when an Extender file is missing.
-- Confirm that the Steam launch option contains exactly one `%command%` and loads `winhttp=n,b`. Use the Windows SHCDE BepInEx loader, not a native Unix BepInEx build.
-- Read `BepInEx/LogOutput.log`. The setup checker does not diagnose runtime initialization failures.
+- Check that you installed the **Windows SHCDE** BepInEx loader and extracted both packages into the game directory.
+- Check the Steam launch option: it must enable `winhttp=n,b` and contain exactly one `%command%`.
+- If you use our helpers, run the checker again and resolve missing-file reports.
+- Re-extract the complete Extender package if its bundled files are missing. Keep `libredbird_thread_patch.so` beside `SHCDESE.dll` and `msvcp140.dll` in the game directory.
+- Read `BepInEx/LogOutput.log`. For a report, follow [How to Report Errors](How%20to%20Report%20Errors.md).
 
-### Workshop deployment does not finish
+### Workshop installation does not finish
 
-- Read the latest Extender messages in `BepInEx/LogOutput.log` and check whether `_SE/.deploy_attempts` exists. Correct the logged problem before resetting the retry counter.
-- If APIShared's first Workshop installation is blocked, follow the [manual repair steps](#repair-apishareds-first-workshop-installation) above. With the patcher installed, inspect its `journal.log` as well as `BepInEx/LogOutput.log` before attempting another deployment.
-- Without the patcher, the Extender's Wine backend needs a host `sh` at `Z:\bin\sh` or `Z:\usr\bin\sh`, and updater/game paths reachable through that mapping. The patcher and APIShared's own updater instead translate active Wine drive mappings and use host Bash; use the optional path configuration above if discovery fails.
-- A translated uninstall manifest is also needed to remove unsubscribed mods. If its path cannot be translated, the Extender warns that removals will be skipped.
-- Steam Flatpak must have access to the Steam library containing the game. Grant access to that library if the updater reports path or permission failures.
-- If the files were applied but the game did not reopen, start it through Steam manually. Leave `_SE/.staging` to the Extender.
+- Read the latest errors in `BepInEx/LogOutput.log`. If APIShared's first installation is blocked, use the repair steps above.
+- The Script Extender stops retrying after three unsuccessful deployments. Its log names `_SE/.deploy_attempts`; correct the logged cause before removing that counter to permit another attempt.
+- Without the repair, the Extender needs Linux `sh` reachable as `Z:\bin\sh` or `Z:\usr\bin\sh`. APIShared and the repair use Wine's active drive mappings and host Bash. Use the optional configuration above if their automatic detection fails.
+- If the log reports path or permission errors under Steam Flatpak, check that Steam has access to the library containing the game.
+- Wait for an updater to finish before restarting the game. If installation completed but automatic restart failed, launch the game through Steam manually.
+
+## Temporarily start without mods
+
+Close the game, open a terminal in the game directory, and run the Extender's bundled helper:
+
+```sh
+bash "./shcde-vanilla.sh" --disable
+```
+
+It disables the BepInEx loader and starts the game through Steam. To restore mods, close the game and run:
+
+```sh
+bash "./shcde-vanilla.sh" --enable
+```
 
 ## Remove the optional helpers
 
-Remove their Steam launch option and the installed `BepInEx/tools/LinuxModding/` directory. If you still want BepInEx mods, supply the equivalent `winhttp=n,b` override yourself. The Extender's Workshop updater is independent of these helpers.
+Remove their Steam launch option and the installed `BepInEx/tools/LinuxModding/` directory. If you still want to use BepInEx mods, restore the direct launch option from the installation section. The helpers are separate from the Extender's Workshop updater and the APIShared repair DLL.

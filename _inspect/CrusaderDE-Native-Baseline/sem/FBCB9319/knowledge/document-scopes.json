@@ -724,6 +724,12 @@
       "integrationSections": []
     },
     {
+      "file": "KEEP_DIRECTION.md",
+      "scope": "vanilla+integration",
+      "components": ["CastlePlanner", "BugfixesAndQoL"],
+      "integrationSections": ["Consumer correction and regression history [mod integration]"]
+    },
+    {
       "file": "KEEP_FLAG_ROTATION.md",
       "scope": "vanilla",
       "components": [],

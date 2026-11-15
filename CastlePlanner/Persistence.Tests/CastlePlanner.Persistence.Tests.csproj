@@ -27,6 +27,7 @@
     <Compile Include="..\..\Shared\Runtime\Persistence\PersonalDataIO.cs" Link="Runtime\PersonalDataIO.cs" />
     <Compile Include="..\..\Shared\Runtime\Persistence\DependencyFreeJson.cs" Link="Runtime\DependencyFreeJson.cs" />
     <Compile Include="Program.cs" />
+    <Compile Include="PreviewDeadlineTests.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

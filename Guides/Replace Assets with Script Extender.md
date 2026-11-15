@@ -2,368 +2,85 @@
 
 [English](#english) | [Deutsch](#deutsch)
 
-Other Tools and Guides:  
-https://github.com/Ensrick/llm-art-pipeline
-
 ## English
 
-### Result
+This guide is for modders who want to replace unit, building or terrain graphics in SHCDE with their own artwork or graphics extracted from SH1DE. You can replace a few animation frames or a complete graphics group without writing a C# plugin.
 
-The Script Extender atlas system can replace complete or partial unit and building groups. Main and alternate frames left out of an atlas retain their vanilla Sprites, materials and masks.
+A **Sprite** is one image or animation frame. An **atlas** is a texture containing many such images. A **GM group**, such as `body_archer` or `tile_buildings1`, identifies the SHCDE graphics you want to replace. Frames omitted from your atlas keep their original SHCDE graphics, materials and masks.
 
-Individual AssetRipper metadata files must still be combined into one `atlas.json` per group. Partial atlases also work with named groups in shared GM arrays. Target indices beyond the vanilla range extend the array without discarding its existing entries.
+### What you need
 
-Verified atlas requirements:
+- SHCDE with BepInEx and [Script Extender](https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/releases). PNG atlases require Script Extender **2.4.0 or newer**; BC7-DDS atlases require **2.8.0 or newer**.
+- [AssetRipper](https://github.com/AssetRipper/AssetRipper/releases/latest) to export source images and Sprite metadata. Choose the Windows x64 package for Windows.
+- Optionally, [SHCDE Sprite Previewer](https://gitlab.com/rawra-stronghold-crusader/shcde-sprite-previewer/-/releases) to inspect SHCDE images and masks.
+- **Atlas Builder** to arrange the images, assign SHCDE names and write the required files. The [portable Windows package, release 1.0.5](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/AtlasBuilder_1.0.5) needs no installed Python. The [source directory](../Helpers/AtlasBuilder/) and [detailed instructions](../Helpers/AtlasBuilder/USAGE.md#english) describe the current source implementation.
 
-- Script Extender `2.4.0` or newer for PNG; `2.8.0` or newer for BC7-DDS.
-- The DDS loading path has been checked against the locally installed Script Extender `2.14.1`.
+The advanced frame filter, mixed source-metadata fallback and filling of empty target slots described below refer to the current source implementation; do not assume they are included in the portable package. To use that implementation, obtain this repository's current source, install `Helpers/AtlasBuilder/requirements.txt` in a Python environment and run `Helpers/AtlasBuilder/run_atlas_builder.py`. For DDS output, also run `Helpers/AtlasBuilder/fetch_texconv.py` to obtain its encoder.
 
----
+### 1. Prepare a small set of images
 
-### Required tools
+Start with a few frames from one group, for example `body_archer`, rather than a complete conversion.
 
-#### AssetRipper
+1. Open the relevant game's `...Definitive Edition_Data` folder in AssetRipper. For SH1DE artwork, export its Sprite images, Sprite JSON metadata and any team-colour masks.
+2. Inspect the corresponding SHCDE group to find the exact target names and animation frames. The Atlas Builder also reads target metadata directly from your installed SHCDE data folder.
+3. Put the replacement images in a separate source folder as individual PNG files. Preserve transparent borders. If masks are needed, prepare one matching mask per image.
+4. Compare directions, poses and animation phases. Identical indices in the two games do not guarantee matching artwork. Leave uncertain frames out until you have checked them.
 
-Use AssetRipper to extract Unity atlases, Sprite images and metadata from both games.
+Typical filenames are `body_archer-0.png`, `body_archer-1.png` and `body_archer-1x.png`. A lowercase final `x` identifies an alternate frame. Building and terrain names often use a space and leading zeroes, such as `tile_buildings1 012`.
 
-- [Latest AssetRipper release](https://github.com/AssetRipper/AssetRipper/releases/latest)
-- [Direct Windows x64 download](https://github.com/AssetRipper/AssetRipper/releases/latest/download/AssetRipper_win_x64.zip)
+A building may need more than one group: its base can use `tile_*` images while moving or upper parts use `anim_*`. Replacing only one group leaves the other parts unchanged. Do not copy complete SH1DE AssetBundles into SHCDE.
 
-#### SHCDE Sprite Previewer
+#### Avoid damaged exports
 
-Useful for viewing and exporting SHCDE Sprites and masks.
+Check the exported PNGs before packing them. A simple rectangular cut from an atlas can include fragments of neighbouring images when the Sprite uses a **Tight Mesh**, an irregular shape stored inside the atlas. Use an exporter that reconstructs that shape correctly. Atlas Builder packs the images you give it; it cannot remove contamination already present in them.
 
-- [Release v1.1.5](https://gitlab.com/rawra-stronghold-crusader/shcde-sprite-previewer/-/releases/v1.1.5)
-- [Direct Windows x64 download](https://gitlab.com/api/v4/projects/77768698/packages/generic/shcde-sprite-previewer/1.1.5/shcde-sprite-viewer-win-x64.zip)
+For a custom extractor, follow the texture reference in `m_RD.m_Texture` within `m_Collection`, rather than guessing from the group name. Check the source texture and a known reference frame. Keep the original atlas identity, for example its SHA-256, with your extraction notes. If cropping changes the image canvas, update its pivot metadata too. Masks can come from a differently sized source texture, but each finished colour/mask PNG pair must have identical dimensions and alignment. The [extraction reference](../Helpers/AtlasBuilder/USAGE.md#english) covers mesh reconstruction and anchor correction.
 
-The Previewer was developed for SHCDE. AssetRipper is the safer starting point for SH1DE files.
+### 2. Configure Atlas Builder
 
-#### SHCDE Atlas Builder
+1. Start `AtlasBuilder.exe`, or the source script described above.
+2. Select your installed `Stronghold Crusader Definitive Edition_Data` folder.
+3. Choose a new empty output mod folder, for example `SH1DEVisuals`, and fill in the mod information for `info.json`.
+4. Add the target GM group and select your source PNG folder. Use a group from the builder's list; arbitrary group names are not supported for a code-free atlas mod.
+5. Select the source filename prefix. `auto` detects names such as `Tree_Oak-12.png`, `tile_ruins 012.png` or `012.png`. A different source prefix does not change the SHCDE target group or remap its indices.
+6. Select the mask mode and pivot source as explained below.
+7. Keep **PNG** for your first test. Save the project as `*.atlas-project.json`, validate it and build the atlas.
 
-The builder packs, names and validates the finished atlases. Its portable Windows package does not require an installed Python runtime.
+The builder does not trim or rotate your images. It obtains target names and pixels per unit from SHCDE. Existing `info.json` files are preserved; existing atlas groups are replaced only after confirmation.
 
-The linked release `1.0.5` can output PNG or BC7-DDS atlases. Colour and mask formats can be selected independently; PNG is the default. DDS requires Script Extender `2.8.0` or newer.
+A partial atlas needs only the replacement frames. Do not add blank images or copy original SHCDE frames merely to fill gaps. In the source implementation, **Show advanced options → Source frame filter** can select indices such as `0-127, 416-447, 0x-127x` from a larger directory. An empty filter includes all frames; it does not create or remap frames.
 
-- [Current AtlasBuilder release (1.0.5)](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/AtlasBuilder_1.0.5)
-- [Direct portable Windows x64 download](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/download/AtlasBuilder_1.0.5/AtlasBuilder-portable-win64.zip)
-- [Detailed AtlasBuilder usage](../Helpers/AtlasBuilder/USAGE.md#english)
+### 3. Choose masks and alignment
 
----
+#### Masks
 
-### 1. Extract both games
+A mask controls effects such as player colours or foliage shading. Follow the target group's mask mode in the builder:
 
-Open these folders with AssetRipper:
+- **Plain** groups, such as `tile_ruins` and `tile_buildings1`, use no mask.
+- **TeamColour** and **Foliage** groups need a mask for every replacement frame.
+- If masks share the colour directory, name them `body_archer-0_m.png`, for example. In a separate mask directory, the `_m` suffix is optional.
 
-1. `Stronghold Crusader Definitive Edition_Data`
-2. The corresponding `Stronghold Definitive Edition_Data` folder
+Every finished mask must match its colour image exactly in dimensions and placement. The builder packs them with the same layout. Inspect original SHCDE masks in Sprite Previewer when creating your own.
 
-Export from both games:
+#### Pivot: the point that holds an image in place
 
-- Atlas textures
-- `Sprite` objects and their JSON metadata
-- Sprite names
-- Rectangles
-- Pivots
-- `pixelsPerUnit`
-- Existing team-colour masks
+The **pivot** determines how an image lines up with the game world. A wrong pivot can produce floating feet, shifted building parts or gaps between ground tiles.
 
-SHCDE defines the authoritative target groups, names and indices. SH1DE supplies the new image pixels, optional masks and, when you want to reproduce the source alignment, source pivots. Do not blindly copy a normalized SHCDE pivot onto a SH1DE image with a different canvas size.
+| Builder setting | Use it when |
+|---|---|
+| **Preserve SHCDE pixel anchor** | Making normal replacements that should stay aligned with the SHCDE target. This is the default. |
+| **Pivot from source metadata** | Reproducing the source game's alignment. Also select the matching AssetRipper Sprite JSON directory. The metadata must describe the actual PNG canvas. |
+| **Copy normalized SHCDE pivot (legacy)** | Source and target canvases deliberately use the same relative alignment. Avoid it for differently sized images unless this is intentional. |
 
-Determine the actual source texture from `m_RD.m_Texture` within the specified `m_Collection`, not from the Sprite or GM name. Before exporting, check the source atlas SHA-256 and at least one known reference frame. In SH1DE, for example, `anim_castle` references `alltiles/AllTileSprites.png`, although its target name could suggest a different texture.
+Do not trim images after exporting without adjusting their metadata. A normalized pivot copied from a small image onto a taller image can move the anchor by many pixels. `pixelsPerUnit` controls image scale; use the SHCDE target value rather than assuming every group uses 64.
 
-Do not crop Tight Mesh Sprites as plain rectangles from `m_Rect`: pixels outside the triangles can belong to neighbouring Sprites, and the mesh may extend beyond `m_Rect`. Rasterize validated vertex, index and UV data, or use a demonstrably correct Sprite export. The [Sprite Suite](https://gitlab.com/strongholdoriginsmod/sh1de-shcde-sprite-suite/-/blob/main/src/stronghold_europe_de/pixel_identity.py) uses UnityPy's `Sprite.image` for this; still check the result against a reference frame, canvas dimensions and anchor. A PNG cropped differently later needs corrected pivot metadata. See the [AtlasBuilder usage guide](../Helpers/AtlasBuilder/USAGE.md#english) for details.
+In the source implementation, **Missing source metadata → Use SHCDE pixel anchor** permits a mixed group: existing source JSON takes precedence, and frames without it use their SHCDE target anchor. At least one matching source JSON and valid SHCDE target metadata for every fallback frame are required. Leave rejection enabled unless you intend this mix.
 
-Masks can reside in a separate source texture at a lower resolution. In that case, map source coordinates to the mask texture, resize it to the colour frame with the appropriate filter and clear mask pixels outside the visible colour or mesh area. Only the finished pairs of individual PNGs must have pixel-identical dimensions; the original shared source atlases need not.
+A genuinely missing SHCDE target Sprite is a separate case. **Target slots absent from SHCDE → Fill from validated source metadata** requires source-metadata pivot mode and complete valid source JSON. It only fills slots within the range declared by the SHCDE loader. Use it only after verifying the frame mapping; it does not guess missing animation frames.
 
----
+### 4. Install and test
 
-### 2. Choose a supported GM group
-
-For an initial test, use for example:
-
-    body_archer
-
-Other supported groups include:
-
-    body_spearman
-    body_swordsman
-    body_knight
-    tile_buildings1
-    tile_buildings2
-    tile_workshops
-    tile_churches
-    tile_castle
-    anim_buildings2
-    anim_castle
-    anim_windmill
-
-The folder name must match a group registered in Script Extender. A code-free asset mod cannot use an arbitrary group name.
-
-Not every unit or building consists of just one group. A building can use base graphics from a `tile_*` atlas and moving parts from an `anim_*` atlas. Determine which indices belong together from the extracted SHCDE assets and tests.
-
----
-
-### 3. Map target and source frames
-
-Find the matching SH1DE frame for each SHCDE target frame.
-
-| SHCDE target | SH1DE source | verified |
-|---|---|---|
-| `body_archer-0` | corresponding SH1DE frame | yes/no |
-| `body_archer-1` | corresponding SH1DE frame | yes/no |
-| `body_archer-1x` | corresponding alternate frame | yes/no |
-
-Matching names or indices do not prove that direction and animation phase match. Script Extender does not check this.
-
-Do not accept ambiguous mappings automatically. Use the original SHCDE image until you have verified them.
-
-#### Special case: a declared but empty SHCDE target slot
-
-A missing SHCDE Sprite is normally an error that Atlas Builder rejects. There are, however, confirmed gaps within arrays explicitly declared by the game. For `body_swordsman`, `spriteLoader.addGMFile(1087, ...)` declares slots `0–1087`, but the installed assets have no normal Sprites at `416–447`. SH1DE has these exact 32 frames. The alternate range `0x–127x` is complete in both games.
-
-For a confirmed case, select **Target slots absent from SHCDE → Fill from validated source metadata** for that group in the builder. This requires **Pivot from source metadata** and complete AssetRipper JSON files. The builder accepts only frames within the range declared by the SHCDE loader. It validates source filename, `m_Name`, prefix, index and alternate suffix, and never overwrites existing SHCDE target metadata.
-
-The atlas name is deliberately derived from the target group and index, for example `body_swordsman-416`. The source `m_Name` is used for validation; it must not become the target name automatically because source prefixes may intentionally differ. Without this explicit option, the safe default is rejection.
-
----
-
-### 4. Build a complete or partial GM group
-
-A partial atlas contains only the frames you actually want to replace. Script Extender retains every omitted SHCDE main and alternate frame, including trailing indices, as a vanilla Sprite with its existing material. Do not add empty Sprites for missing frames or copy vanilla images merely to fill an index range. For a complete graphic replacement, identify all relevant groups and frames: a building can use multiple `tile_*` and `anim_*` groups.
-
-Alternatively, replace a few individual Sprites under `Override/Sprites/`. Atlases are more convenient for large frame sets.
-
----
-
-### 5. Pack the colour and mask atlases
-
-Produce one set per GM group:
-
-    atlas.png or atlas.dds
-    atlas_m.png or atlas_m.dds (masked groups only)
-    atlas.json
-
-When packing:
-
-- Disable rotation.
-- Avoid automatic trimming where possible.
-- Arrange colour and mask frames identically.
-- Preserve transparent borders.
-- Keep every rectangle fully inside the atlas.
-- Do not overlap rectangles.
-- Do not interpolate pixel artwork when scaling it.
-
-For `atlas.png`, Script Extender uses:
-
-- `FilterMode.Point`
-- `TextureWrapMode.Clamp`
-- No mipmaps
-- `SpriteMeshType.FullRect`
-
-For BC7-DDS, the Extender reads compressed blocks without decompressing them. Store the DDS vertically flipped relative to the upright PNG; JSON rectangles still use Unity's bottom-left origin. Width and height should be multiples of four, frames must not share a BC7 block, and this atlas needs no mipmaps. BC7 uses less GPU texture memory than RGBA32 but slightly changes pixel and mask values. PNG is therefore the lossless default; colour and mask may use different output formats. Never output both `.png` and `.dds` for the same texture: the Extender prefers PNG. AtlasBuilder 1.0.5 handles the required BC7 layout and vertical flip when DDS is selected.
-
-One global atlas for the whole game is unsupported. Each GM group needs its own folder and is loaded as a separate texture.
-
----
-
-### 6. Team-colour mask
-
-`atlas_m.png` or `atlas_m.dds` is technically optional, but the correct choice depends on the target group and `material` mode. Atlas Builder uses a table of all 195 groups checked against Script Extender and the SHCDE loader:
-
-- Plain groups such as `tile_ruins`, `tile_buildings1` and `tree_cactii` must not include a mask.
-- TeamColour and Foliage groups require a complete mask.
-- The builder rejects a wrong selection before building.
-
-The mask must:
-
-- Have the same overall dimensions as the finished colour atlas.
-- Use the same packing layout.
-- Match each colour frame pixel for pixel.
-
-The optional root-level `"material"` field accepts `Auto`, `Plain`, `TeamColour`/`TeamColor` or `Foliage`. With a mask, `Auto` uses the GM group's vanilla material type. Without a mask, it uses `Plain` for compatibility. Explicit `TeamColour` or `Foliage` requires a usable `atlas_m.png` or `atlas_m.dds`. Invalid values or unavailable shaders cause the override to fail closed.
-
-Script Extender does not document the meaning of individual mask channels. Inspect the original SHCDE masks with Sprite Previewer.
-
----
-
-### 7. Create a shared `atlas.json`
-
-Complete and partial groups use the same multi-frame format:
-
-    {
-      "pixelsPerUnit": 64,
-      "material": "Auto",
-      "frames": [
-        {
-          "name": "body_archer-0",
-          "rect": {
-            "x": 0,
-            "y": 0,
-            "w": 44,
-            "h": 97
-          },
-          "pivot": {
-            "x": 0.386,
-            "y": 0.196
-          }
-        },
-        {
-          "name": "body_archer-1",
-          "rect": {
-            "x": 46,
-            "y": 0,
-            "w": 45,
-            "h": 97
-          },
-          "pivot": {
-            "x": 0.378,
-            "y": 0.196
-          }
-        },
-        {
-          "name": "body_archer-1x",
-          "rect": {
-            "x": 93,
-            "y": 0,
-            "w": 45,
-            "h": 97
-          },
-          "pivot": {
-            "x": 0.378,
-            "y": 0.196
-          }
-        }
-      ]
-    }
-
-Write these property names exactly as shown:
-
-    pixelsPerUnit
-    frames
-    name
-    rect
-    x
-    y
-    w
-    h
-    pivot
-
-The schema-discriminating fields and ordinary frame fields are effectively case-sensitive in the parser.
-
----
-
-### 8. Sprite names
-
-#### Hyphen format
-
-Typical for units:
-
-    body_archer-0
-    body_archer-169
-    body_archer-169x
-
-The lowercase final `x` marks an alternate frame. Uppercase `X` does not work.
-
-#### Space format
-
-Typical for building and terrain tiles:
-
-    tile_buildings1 000
-    tile_buildings1 001
-    tile_buildings1 002x
-
-Always use the complete original SHCDE names, including spaces, hyphens, underscores and leading zeroes.
-
----
-
-### 9. Coordinates
-
-JSON rectangles use a bottom-left origin.
-
-If the atlas tool outputs coordinates from the top left:
-
-    unityY = atlasHeight - topY - frameHeight
-
-Script Extender does not perform this conversion.
-
----
-
-### 10. Pivot and scale
-
-Script Extender uses the pivot and `pixelsPerUnit` values from the JSON without conversion.
-
-A pivot is normalized. The same value therefore points to a different pixel on canvases of different sizes. Copying the normalized SHCDE pivot unchanged is correct only when source and target canvases match or have intentionally identical relative alignment.
-
-Two special cases matter:
-
-- A pivot coordinate of exactly `1.0` denotes an edge. It must remain `1.0` on a differently sized canvas; the ordinary distance-from-bottom/left calculation would otherwise shift parts of `anim_castle`, for example.
-- Pivots outside `0..1` are valid. The current game assets include negative Y pivots for `body_horse_archer_top`. Rejecting values outside `0..1` would be wrong; validate the resulting pixel anchor instead.
-
-For ordinary replacement images, preserve the spatial SHCDE pixel anchor:
-
-    anchorX = targetPivotX * targetWidth
-    anchorY = targetPivotY * targetHeight
-    outputPivotX = anchorX / replacementWidth
-    outputPivotY = anchorY / replacementHeight
-
-To reproduce the original alignment of a Sprite exported from another Unity game, you can instead use its `m_Pivot` from AssetRipper metadata. This is reliable only if the replacement image has the same canvas or was scaled proportionally to the documented `m_Rect`. Trimming or a changed transparent border must be compensated explicitly.
-
-With proportional scaling, the normalized source pivot stays the same. If only the canvas size changes, recalculate the absolute source anchor for the new size. When the aspect ratio changes, the builder can warn about possible trimming but cannot prove the correct visual position without more information.
-
-For the verified SH1DE groups `tile_land8`, `tile_buildings1`, `tile_churches` and `tile_ruins`, the pixel anchor is consistently `(32, 16.5)` at 64 PPU:
-
-    64x41:  pivot (0.5, 0.40243897) -> anchor (32, 16.5)
-    64x196: pivot (0.5, 0.08418399) -> anchor (32, 16.5)
-
-Copying the first normalized Y pivot unchanged onto the 196-pixel image would place the anchor at about 78.88 rather than 16.5 pixels. Ground tiles, building bases and animated parts would shift relative to each other. Black diagonal gaps between tiles are a typical symptom.
-
-If changed transparent borders move the visible foot point:
-
-    pivotX = anchorPositionX / frameWidth
-    pivotY = anchorPositionY / frameHeight
-
-`pixelsPerUnit` need not be 64. The parser uses 64 only as a default when the field is absent. Use the value of the corresponding SHCDE target Sprite.
-
-Replacement images do not technically need the original dimensions. With different dimensions, adjust the pivot and, when needed, PPU deliberately.
-
-Atlas Builder offers three modes per group:
-
-- `target-pixel-anchor`: preserves the SHCDE pixel anchor and is the default.
-- `source-metadata`: reads each source pivot from AssetRipper JSON files.
-- `target-normalized`: preserves the normalized target pivot for deliberately identical canvases.
-
-The workspace builder accepts project schemas 1–6 and saves schema 6. Schema-1 projects use `target-normalized` and display a warning. PNG is the default unless a different format is selected explicitly. The portable download linked above is release `1.0.5`; use the workspace builder for the source features documented below.
-
-The optional **Source frame filter**, for example `0-127, 416-447, 0x-127x`, selects which source frames are read, checked and built; an empty filter includes all frames. In `source-metadata` mode, missing matching JSON is rejected by default. **Missing source metadata → Use SHCDE pixel anchor** explicitly permits a pixel-anchor fallback only for frames with existing SHCDE target metadata. At least one matching source JSON must exist, and the builder reports every fallback index. Missing SHCDE target slots still require validated source metadata. See the [AtlasBuilder usage guide](../Helpers/AtlasBuilder/USAGE.md#english).
-
----
-
-### 11. Combine AssetRipper JSON files
-
-An individual raw JSON file may look like this:
-
-    {
-      "m_Name": "body_archer-86",
-      "m_Rect": {
-        "m_X": 5183,
-        "m_Y": 7212,
-        "m_Width": 43.9,
-        "m_Height": 96.9
-      },
-      "m_Pivot": {
-        "m_X": 0.386,
-        "m_Y": 0.196
-      },
-      "m_PixelsToUnits": 64
-    }
-
-AssetRipper JSON files are input metadata, not a finished `atlas.json`. When the source-metadata pivot option is selected, Atlas Builder matches them to PNG frames and writes one shared Extender-format `frames` list per GM group. A manually created atlas needs the same conversion.
-
----
-
-### 12. Output directory
-
-For example, the finished mod can have this layout:
+The output should have this structure:
 
     SH1DEVisuals/
       info.json
@@ -373,477 +90,143 @@ For example, the finished mod can have this layout:
             atlas.png
             atlas_m.png
             atlas.json
-          body_swordsman/
-            atlas.png
-            atlas_m.png
-            atlas.json
           tile_buildings1/
             atlas.png
             atlas.json
-          tile_workshops/
-            atlas.png
-            atlas.json
-          anim_windmill/
-            atlas.png
-            atlas_m.png
-            atlas.json
 
-Install under:
+Close the game and copy `SH1DEVisuals` into:
 
-    <SHCDE game directory>/BepInEx/plugins/SH1DEVisuals/
+    <SHCDE game directory>/BepInEx/plugins/
 
-A packaged `.semod` file also works. A loose mod folder is more convenient for development and troubleshooting.
+For a purely visual mod, the generated `info.json` uses `NetworkMode: 0`. Keep the manifest and all generated files together when sharing the mod. A loose mod folder is convenient for development; Script Extender also supports `.semod` packages.
 
----
+Avoid enabling two atlas mods for the same GM group at once: only one registered atlas per group is applied, so their partial atlases are not automatically merged.
 
-### 13. Validate before launching the game
+Restart the game after changing atlas files. In `BepInEx/LogOutput.log`, look for `Auto-registered atlas override`, `Applying ... atlas override(s)` and `Applied [body_archer]`. Registration alone does not confirm successful application.
 
-The converter should check each group for:
+Test every direction and animation, alternate frames, all player colours and zoom levels. For buildings, also check construction stages, orientations, damage, fire and moving parts. Check both replaced and omitted frames. Expand to more groups only after the small test works.
 
-- A group name supported by Script Extender 2.4.0 or newer.
-- A `material` value of `Auto`, `Plain`, `TeamColour`/`TeamColor` or `Foliage`, with `atlas_m.png` or `atlas_m.dds` for explicitly masked modes.
-- The correct group prefix on every frame.
-- A valid numeric index in every name.
-- Lowercase `x` only for alternate frames.
-- No duplicate main or alternate indices.
-- No duplicate names.
-- Rectangles fully inside the atlas.
-- Positive width and height.
-- No rotated frames.
-- Identical dimensions for colour and mask atlases.
-- Identical packing layouts for both atlases.
-- A pivot and PPU value.
-- Intentional omission of target indices in partial groups; only included indices need valid target names and geometry.
-- A valid DX10/BC7 header, suitable dimensions and upright runtime display for BC7-DDS, without an unintended PNG version of the same texture.
+| Problem | What to check |
+|---|---|
+| Nothing changes | Correct mod folder, `info.json`, supported group name, `atlas.json` and texture; read the log for application errors. |
+| Only part of a building changes | Other `tile_*` or `anim_*` groups may supply the remaining parts. |
+| Coloured fragments surround a Sprite | Inspect the source PNG. Re-export Tight Mesh images correctly. |
+| Feet or building parts shift; gaps appear | Pivot choice, transparent borders, source metadata and PPU. |
+| Team colours or foliage look wrong | Correct material mode, complete masks, matching image/mask layout. |
+| DDS changes do not appear | Remove an unintended PNG of the same texture; PNG takes precedence. |
 
-Script Extender does not perform most of these checks itself.
+### Reference for manually created atlases
 
----
+Skip this section when Atlas Builder already produces the files you need.
 
-### 14. Check the log
+Each group needs one `Override/Atlas/<group>/` folder. Use `atlas.png` or `atlas.dds`, an optional corresponding `atlas_m` mask and one `atlas.json`. Colour and mask may use different formats. Do not supply both PNG and DDS for the same texture.
 
-Successful registration and application can produce:
+A minimal multi-frame JSON example is:
 
-    Registered atlas override for [body_archer] (...)
-    Auto-registered atlas override for [body_archer] from [...]
-    Applying 1 atlas override(s)...
-    Applied [body_archer]: ... frames sliced, material=..., shader=[...], mask=yes, arraySize=..., vanillaMain=..., vanillaAlt=..., offset=...
+    {
+      "pixelsPerUnit": 64,
+      "material": "TeamColour",
+      "frames": [
+        {
+          "name": "body_archer-0",
+          "rect": { "x": 0, "y": 0, "w": 44, "h": 97 },
+          "pivot": { "x": 0.386, "y": 0.196 }
+        }
+      ]
+    }
 
-For failures, these short messages are especially relevant:
+The numbers illustrate the format; use the actual dimensions and alignment of your images. Keep field names and complete SHCDE Sprite names exactly as required, including spaces, leading zeroes and the lowercase alternate suffix. AssetRipper's individual raw JSON files are input metadata, not a ready multi-frame `atlas.json` for a repacked texture.
 
-    Unknown GM file name [...]
-    Found atlas.json for [...] but no atlas.png/atlas.dds
-    No frames parsed [...]
-    No parseable frame indices [...]
-    Failed to apply atlas [...]
+- Rectangles use a **bottom-left** origin: `unityY = atlasHeight - topY - frameHeight` converts top-left coordinates. Keep rectangles inside the texture, with positive dimensions and no overlaps or rotation.
+- Pack colour and masks identically, preserving transparent borders. PNG textures use point filtering and no mipmaps.
+- `material` accepts `Auto`, `Plain`, `TeamColour` (also `TeamColor`) or `Foliage`. Explicit TeamColour/Foliage requires a usable mask. `Auto` uses the group's original material type with a mask and Plain without one; specify the intended mode to avoid an unintended unmasked result. Invalid material settings leave the original atlas unchanged.
+- A pivot is measured relative to image dimensions. For a normal pixel anchor, `outputPivot = targetPivot × targetSize / replacementSize` per axis. The builder treats an exact `1.0` as the opposite edge and keeps it at `1.0`; pivots outside `0..1` can be valid. See the detailed guide before manually changing these cases.
+- BC7-DDS is lossy and reduces texture memory. PNG is the lossless default and is often preferable for masks. DDS needs a DX10/BC7 header, dimensions aligned to four pixels, isolated 4×4 compression blocks per frame and vertically flipped storage for the Extender. JSON coordinates remain bottom-left. Atlas Builder performs this packing and flipping for you.
+- Omitted original main and alternate frames remain intact. This also applies to named groups sharing an internal array; do not pad a partial atlas with empty replacements.
 
----
-
-### 15. Test in game
-
-For a unit, check:
-
-- Every direction.
-- Idle frames.
-- Movement.
-- Attack.
-- Death.
-- Alternate frames.
-- All player colours.
-- Rendering at different elevations and near walls.
-- Clipped feet.
-- Zoom levels.
-
-For buildings, also check:
-
-- Construction stages.
-- Variants and orientations.
-- Damage and fire.
-- Animated building parts.
-- Flags.
-- Workers.
-- Goods and effects.
-
-Start with a few unambiguously mapped frames from one group, then expand to other groups. For BC7, also check transparent borders, team colours and masks in game.
-
----
-
-### Conclusion
-
-This workflow is reliable when you follow these rules:
-
-1. Do not copy entire SH1DE AssetBundles.
-2. Use SHCDE as the authoritative target structure.
-3. Build one complete or deliberately partial atlas per affected GM group.
-4. Pack colour and mask atlases identically.
-5. Convert raw AssetRipper JSON files into one shared `frames` list.
-6. Leave omitted SHCDE frames as vanilla fallback.
-7. Preserve the SHCDE pixel anchor across different canvas sizes or use validated source metadata.
-8. Validate names, indices, rectangles, pivots and masks before installation.
-
-Atlas Builder handles packing, target naming and validation. Verify correct extraction and semantic matching of the source images beforehand.
+For detailed extraction and builder options, use the [Atlas Builder instructions](../Helpers/AtlasBuilder/USAGE.md#english). Other graphics tools include [llm-art-pipeline](https://github.com/Ensrick/llm-art-pipeline).
 
 ---
 
 ## Deutsch
 
-### Ergebnis
+Diese Anleitung richtet sich an Modder, die Einheiten-, Gebäude- oder Geländegrafiken in SHCDE durch eigene Bilder oder aus SH1DE exportierte Grafiken ersetzen möchten. Du kannst einzelne Animationsbilder oder eine vollständige Grafikgruppe austauschen, ohne ein C#-Plugin zu schreiben.
 
-Das Atlas-System des Script Extenders 2.4.0 kann vollständige und partielle Einheiten- und Gebäudegruppen ersetzen. Nicht ersetzte Main- und Alt-Frames behalten ihre Vanilla-Sprites, -Materialien und Masken.
+Ein **Sprite** ist ein einzelnes Bild oder Animationsbild. Ein **Atlas** ist eine Textur mit vielen solchen Bildern. Eine **GM-Gruppe**, etwa `body_archer` oder `tile_buildings1`, bezeichnet die zu ersetzenden SHCDE-Grafiken. Nicht im Atlas enthaltene Frames behalten ihre ursprünglichen SHCDE-Grafiken, Materialien und Masken.
 
-Die einzelnen AssetRipper-Metadaten müssen weiterhin zu einer gemeinsamen `atlas.json` zusammengeführt werden. Partielle Atlanten sind ab 2.4.0 auch bei benannten Gruppen in gemeinsam genutzten GM-Arrays sicher; Zielindizes oberhalb des Vanilla-Bestands erweitern das Array gezielt.
+### Was du benötigst
 
-Geprüfter Atlasvertrag:
+- SHCDE mit BepInEx und [Script Extender](https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/releases). PNG-Atlanten benötigen Script Extender **2.4.0 oder neuer**, BC7-DDS-Atlanten **2.8.0 oder neuer**.
+- [AssetRipper](https://github.com/AssetRipper/AssetRipper/releases/latest) zum Exportieren der Quellbilder und Sprite-Metadaten. Wähle unter Windows das Windows-x64-Paket.
+- Optional den [SHCDE Sprite Previewer](https://gitlab.com/rawra-stronghold-crusader/shcde-sprite-previewer/-/releases), um SHCDE-Bilder und Masken anzusehen.
+- Den **Atlas Builder**, der Bilder anordnet, SHCDE-Namen zuweist und die benötigten Dateien schreibt. Das [portable Windows-Paket, Release 1.0.5](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/AtlasBuilder_1.0.5) benötigt kein installiertes Python. Der [Quellordner](../Helpers/AtlasBuilder/) und die [ausführliche Anleitung](../Helpers/AtlasBuilder/USAGE.md#deutsch) beschreiben die aktuelle Quellimplementierung.
 
-- Script Extender `2.4.0` oder neuer für PNG; `2.8.0` oder neuer für BC7-DDS
-- DDS-Ladepfad auch im lokal installierten Script Extender `2.14.1` geprüft
+Der nachfolgend beschriebene erweiterte Frame-Filter, der gemischte Quellmetadaten-Fallback und das Ergänzen leerer Zielslots beziehen sich auf die aktuelle Quellimplementierung; setze sie im portablen Paket nicht voraus. Dafür benötigst du den aktuellen Quellstand dieses Repositorys: Installiere `Helpers/AtlasBuilder/requirements.txt` in einer Python-Umgebung und starte `Helpers/AtlasBuilder/run_atlas_builder.py`. Für DDS-Ausgabe rufst du außerdem `Helpers/AtlasBuilder/fetch_texconv.py` auf, um den Encoder zu beziehen.
 
----
+### 1. Wenige Bilder vorbereiten
 
-### Benötigte Werkzeuge
+Beginne mit einigen Frames einer Gruppe, beispielsweise `body_archer`, statt direkt mit einer vollständigen Konvertierung.
 
-#### AssetRipper
+1. Öffne den `...Definitive Edition_Data`-Ordner des jeweiligen Spiels in AssetRipper. Für SH1DE-Grafiken exportierst du dessen Spritebilder, Sprite-JSON-Metadaten und vorhandene Teamfarbenmasken.
+2. Sieh dir die entsprechende SHCDE-Gruppe an, um die genauen Zielnamen und Animationsbilder zu bestimmen. Der Atlas Builder liest Zielmetadaten außerdem direkt aus deinem installierten SHCDE-Datenordner.
+3. Lege die Ersatzbilder als einzelne PNG-Dateien in einen eigenen Quellordner. Erhalte transparente Ränder. Wenn Masken benötigt werden, bereite für jedes Bild eine passende Maske vor.
+4. Vergleiche Richtungen, Posen und Animationsphasen. Gleiche Indizes in beiden Spielen garantieren keine passenden Bilder. Lasse unklare Frames zunächst aus.
 
-Damit werden die Unity-Atlanten, Spritebilder und Metadaten beider Spiele extrahiert.
+Typische Dateinamen sind `body_archer-0.png`, `body_archer-1.png` und `body_archer-1x.png`. Ein kleines abschließendes `x` kennzeichnet ein alternatives Frame. Gebäude- und Geländenamen verwenden häufig ein Leerzeichen und führende Nullen, etwa `tile_buildings1 012`.
 
-- [Aktuelle AssetRipper-Version](https://github.com/AssetRipper/AssetRipper/releases/latest)
-- [Direkter Download für Windows x64](https://github.com/AssetRipper/AssetRipper/releases/latest/download/AssetRipper_win_x64.zip)
+Ein Gebäude kann mehrere Gruppen benötigen: Grundgrafiken können aus `tile_*`, bewegte oder obere Teile aus `anim_*` stammen. Wenn du nur eine Gruppe ersetzt, bleiben die anderen Teile unverändert. Kopiere keine vollständigen SH1DE-AssetBundles nach SHCDE.
 
-#### SHCDE Sprite Previewer
+#### Fehlerhafte Exporte vermeiden
 
-Hilfreich zum Anzeigen und Exportieren der SHCDE-Sprites und Masken.
+Kontrolliere die PNGs vor dem Packen. Ein einfacher rechteckiger Ausschnitt aus einem Atlas kann Teile benachbarter Bilder enthalten, wenn das Sprite ein **Tight Mesh** verwendet, also eine unregelmäßige Form innerhalb des Atlas. Verwende einen Exporter, der diese Form korrekt rekonstruiert. Der Atlas Builder packt deine Eingabebilder; bereits darin enthaltene fremde Pixel kann er nicht entfernen.
 
-- [Release v1.1.5](https://gitlab.com/rawra-stronghold-crusader/shcde-sprite-previewer/-/releases/v1.1.5)
-- [Direkter Download für Windows x64](https://gitlab.com/api/v4/projects/77768698/packages/generic/shcde-sprite-previewer/1.1.5/shcde-sprite-viewer-win-x64.zip)
+Bei einem eigenen Extraktor folgt die Quelltextur aus `m_RD.m_Texture` innerhalb von `m_Collection`, nicht aus dem vermuteten Gruppennamen. Prüfe die Quelltextur und einen bekannten Referenzframe. Halte die Identität des Quellatlas, etwa seinen SHA-256, in deinen Exportnotizen fest. Ändert ein Zuschnitt die Bildleinwand, müssen auch die Pivot-Metadaten angepasst werden. Masken können aus einer anders großen Quelltextur stammen; jedes fertige Farb-/Masken-PNG-Paar muss aber identische Maße und Ausrichtung besitzen. Die [Extraktionsreferenz](../Helpers/AtlasBuilder/USAGE.md#deutsch) erklärt Mesh-Rekonstruktion und Ankerkorrektur.
 
-Der Previewer ist für SHCDE entwickelt worden. Für die SH1DE-Dateien ist AssetRipper der sicherere Ausgangspunkt.
+### 2. Atlas Builder einrichten
 
-#### SHCDE Atlas Builder
+1. Starte `AtlasBuilder.exe` oder das oben beschriebene Quellskript.
+2. Wähle den installierten Ordner `Stronghold Crusader Definitive Edition_Data`.
+3. Wähle einen neuen, leeren Mod-Ausgabeordner, beispielsweise `SH1DEVisuals`, und trage die Modinformationen für `info.json` ein.
+4. Füge die Ziel-GM-Gruppe hinzu und wähle deinen PNG-Quellordner. Verwende eine Gruppe aus der Liste des Builders; beliebige Gruppennamen funktionieren bei einem codefreien Atlas-Mod nicht.
+5. Wähle das Quellpräfix. `auto` erkennt Namen wie `Tree_Oak-12.png`, `tile_ruins 012.png` oder `012.png`. Ein anderes Quellpräfix ändert weder die SHCDE-Zielgruppe noch die Zuordnung der Indizes.
+6. Wähle Maskenmodus und Pivotquelle wie unten beschrieben.
+7. Behalte für den ersten Test **PNG** bei. Speichere das Projekt als `*.atlas-project.json`, prüfe es und erzeuge anschließend den Atlas.
 
-Der Builder packt, benennt und validiert die fertigen Atlanten. Die portable Windows-Ausgabe benötigt kein installiertes Python.
+Der Builder trimmt und rotiert deine Bilder nicht. Zielnamen und Pixels-per-Unit übernimmt er aus SHCDE. Eine vorhandene `info.json` bleibt erhalten; bestehende Atlasgruppen werden nur nach Bestätigung ersetzt.
 
-Das verlinkte Release `1.0.5` kann PNG- oder BC7-DDS-Atlanten ausgeben. Farb- und Maskenformat lassen sich unabhängig wählen; PNG ist der Standard. DDS setzt Script Extender `2.8.0` oder neuer voraus.
+Ein partieller Atlas benötigt nur die Ersatzframes. Füge keine leeren Bilder ein und kopiere keine originalen SHCDE-Frames, nur um Lücken aufzufüllen. In der Quellimplementierung kannst du unter **Erweiterte Optionen anzeigen → Quellframe-Filter** Indizes wie `0-127, 416-447, 0x-127x` aus einem größeren Ordner auswählen. Ein leerer Filter berücksichtigt alle Frames; er erzeugt keine Frames und ordnet keine Indizes um.
 
-- [Aktuelles AtlasBuilder-Release (1.0.5)](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/AtlasBuilder_1.0.5)
-- [Direkter Download für Windows x64 (portabel)](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/download/AtlasBuilder_1.0.5/AtlasBuilder-portable-win64.zip)
-- [Ausführliche AtlasBuilder-Anleitung](../Helpers/AtlasBuilder/USAGE.md#deutsch)
+### 3. Masken und Ausrichtung wählen
 
----
+#### Masken
 
-### 1. Beide Spiele extrahieren
+Eine Maske steuert Effekte wie Spielerfarben oder Laubdarstellung. Richte dich nach dem Maskenmodus der Zielgruppe im Builder:
 
-Öffne mit AssetRipper:
+- **Plain**-Gruppen wie `tile_ruins` und `tile_buildings1` verwenden keine Maske.
+- **TeamColour**- und **Foliage**-Gruppen benötigen für jeden Ersatzframe eine Maske.
+- Liegen Masken im Farbordner, benenne sie beispielsweise `body_archer-0_m.png`. In einem eigenen Maskenordner ist die Endung `_m` optional.
 
-1. `Stronghold Crusader Definitive Edition_Data`
-2. den entsprechenden `Stronghold Definitive Edition_Data`-Ordner
+Jede fertige Maske muss in Größe und Position genau zum Farbbild passen. Der Builder packt beide mit demselben Layout. Zum Erstellen eigener Masken kannst du die Originalmasken von SHCDE im Sprite Previewer ansehen.
 
-Exportiere aus beiden Spielen:
+#### Pivot: der Punkt, der ein Bild festhält
 
-- Atlastexturen
-- `Sprite`-Objekte beziehungsweise deren JSON-Metadaten
-- Spritenamen
-- Rechtecke
-- Pivots
-- `pixelsPerUnit`
-- vorhandene Teamfarbenmasken
+Der **Pivot** bestimmt, wie ein Bild in der Spielwelt ausgerichtet wird. Ein falscher Pivot kann schwebende Füße, verschobene Gebäudeteile oder Lücken zwischen Bodentiles verursachen.
 
-SHCDE bildet die verbindliche Zielgruppe, Zielnamen und Indices. SH1DE liefert die neuen Bildpixel, gegebenenfalls Masken und – wenn die ursprüngliche Ausrichtung reproduziert werden soll – die Quellpivots. Ein normalisierter SHCDE-Pivot darf nicht ungeprüft auf eine anders große SH1DE-Leinwand kopiert werden.
+| Builder-Einstellung | Geeignet für |
+|---|---|
+| **SHCDE-Pixelanker erhalten** | Normale Ersatzbilder, die wie das SHCDE-Ziel ausgerichtet bleiben sollen. Dies ist der Standard. |
+| **Pivot aus Quellmetadaten** | Die Ausrichtung des Quellspiels übernehmen. Wähle auch den Ordner mit den passenden AssetRipper-Sprite-JSONs. Die Metadaten müssen die tatsächliche PNG-Leinwand beschreiben. |
+| **Normalisierten SHCDE-Pivot übernehmen (Legacy)** | Quell- und Zielbilder sollen bewusst dieselbe relative Ausrichtung verwenden. Bei unterschiedlich großen Bildern nur absichtlich einsetzen. |
 
-Die tatsächliche Quelltextur folgt aus `m_RD.m_Texture` innerhalb der angegebenen `m_Collection`, nicht aus Sprite- oder GM-Namen. Vor dem Export Quellatlas-SHA-256 und mindestens einen bekannten Referenzframe abgleichen. `anim_castle` in SH1DE verweist beispielsweise auf `alltiles/AllTileSprites.png`, obwohl der Zielname eine andere Textur vermuten lassen könnte.
+Schneide exportierte Bilder nicht nachträglich zu, ohne ihre Metadaten anzupassen. Ein normalisierter Pivot, der von einem kleinen auf ein höheres Bild kopiert wird, kann den Anker um viele Pixel verschieben. `pixelsPerUnit` bestimmt die Bildskalierung; verwende den Wert des SHCDE-Ziels, statt für jede Gruppe 64 anzunehmen.
 
-Tight-Mesh-Sprites dürfen nicht blind als Rechteck aus `m_Rect` geschnitten werden: außerhalb der Dreiecksfläche können Pixel benachbarter Sprites liegen, und das Mesh kann über `m_Rect` hinausreichen. Die Pixel anhand validierter Vertex-, Index- und UV-Daten rasterisieren oder einen nachweislich korrekt rekonstruierten Sprite-Export verwenden. Die [Sprite Suite](https://gitlab.com/strongholdoriginsmod/sh1de-shcde-sprite-suite/-/blob/main/src/stronghold_europe_de/pixel_identity.py) nutzt hierfür UnityPys `Sprite.image`; das Ergebnis trotzdem gegen Referenzframe, Leinwandgröße und Anker prüfen. Ein nachträglich anders zugeschnittenes PNG benötigt korrigierte Pivot-Metadaten. Einzelheiten stehen in der [AtlasBuilder-Anleitung](../Helpers/AtlasBuilder/USAGE.md#deutsch).
+In der Quellimplementierung erlaubt **Fehlende Quellmetadaten → SHCDE-Pixelanker verwenden** eine gemischte Gruppe: Vorhandene Quell-JSONs haben Vorrang; Frames ohne sie verwenden ihren SHCDE-Zielanker. Mindestens ein passendes Quell-JSON und gültige SHCDE-Zielmetadaten für jeden Fallback-Frame sind erforderlich. Behalte die Ablehnung bei, wenn du diese Mischung nicht beabsichtigst.
 
-Masken können in einer eigenen, niedriger aufgelösten Quelltextur liegen. In diesem Fall Quellkoordinaten auf die Maskentextur abbilden, mit der passenden Filtermethode auf die Farbframegröße bringen und die Maske außerhalb der sichtbaren Farb-/Meshfläche transparent setzen. Erst die fertigen Einzel-PNG-Paare müssen für den Builder pixelgenau gleich groß sein; die ursprünglichen gemeinsamen Quellatlanten müssen es nicht sein.
+Ein tatsächlich fehlendes SHCDE-Zielsprite ist ein anderer Fall. **In SHCDE fehlende Zielslots → Aus validierten Quellmetadaten ergänzen** benötigt den Quellmetadaten-Pivotmodus und vollständige gültige Quell-JSONs. Es ergänzt nur Slots innerhalb des vom SHCDE-Loader deklarierten Bereichs. Verwende es nur nach Prüfung der Frame-Zuordnung; fehlende Animationsbilder werden nicht erraten.
 
----
+### 4. Installieren und testen
 
-### 2. Eine unterstützte GM-Gruppe auswählen
-
-Für den ersten Test eignet sich beispielsweise:
-
-    body_archer
-
-Weitere unterstützte Gruppen sind unter anderem:
-
-    body_spearman
-    body_swordsman
-    body_knight
-    tile_buildings1
-    tile_buildings2
-    tile_workshops
-    tile_churches
-    tile_castle
-    anim_buildings2
-    anim_castle
-    anim_windmill
-
-Der Ordnername muss einer fest im Script Extender hinterlegten Gruppe entsprechen. Beliebige Namen werden bei einem codefreien Asset-Mod nicht akzeptiert.
-
-Nicht jede Einheit oder jedes Gebäude besteht nur aus einer Gruppe. Gebäude können beispielsweise Grundgrafiken aus einem `tile_*`-Atlas und bewegte Teile aus einem `anim_*`-Atlas verwenden. Welche konkreten Indices zusammengehören, muss anhand der extrahierten SHCDE-Assets und durch Tests bestimmt werden.
-
----
-
-### 3. Ziel- und Quellframes zuordnen
-
-Für jeden SHCDE-Zielframe muss das inhaltlich passende SH1DE-Frame ermittelt werden.
-
-| SHCDE-Ziel | SH1DE-Quelle | geprüft |
-|---|---|---|
-| `body_archer-0` | passendes SH1DE-Frame | ja/nein |
-| `body_archer-1` | passendes SH1DE-Frame | ja/nein |
-| `body_archer-1x` | passendes alternatives Frame | ja/nein |
-
-Gleiche Namen oder Indices beweisen nicht, dass Richtung und Animationsphase identisch sind. Der Script Extender kontrolliert das nicht.
-
-Mehrdeutige Zuordnungen sollten nicht automatisch übernommen werden. Verwende in solchen Fällen zunächst das originale SHCDE-Bild.
-
-#### Sonderfall: deklarierter, aber leerer SHCDE-Zielslot
-
-Ein fehlendes SHCDE-Sprite ist normalerweise ein Fehler und wird vom Atlas Builder abgewiesen. Es gibt jedoch belegte Lücken innerhalb eines vom Spiel ausdrücklich angelegten Arrays. Bei `body_swordsman` deklariert `spriteLoader.addGMFile(1087, ...)` die Slots `0–1087`; die installierten Ressourcen enthalten trotzdem keine normalen Sprites `416–447`. SH1DE enthält genau diese 32 Frames. Die Alt-Reihe `0x–127x` ist in beiden Spielen vollständig.
-
-Für einen solchen belegten Fall kann im Builder pro Gruppe **In SHCDE fehlende Zielslots → Aus validierten Quellmetadaten ergänzen** gewählt werden. Das setzt **Pivot aus Quellmetadaten** und vollständige AssetRipper-JSONs voraus. Der Builder akzeptiert nur Frames innerhalb des vom SHCDE-Loader deklarierten Bereichs, validiert Quelldateiname, `m_Name`, Präfix, Index und Alt-Suffix und überschreibt niemals vorhandene SHCDE-Zieldaten.
-
-Der Atlasname wird dabei bewusst aus der Zielgruppe und dem Index erzeugt, beispielsweise `body_swordsman-416`. `m_Name` der Quelle dient zur Validierung, darf aber wegen möglicher absichtlicher Präfixzuordnungen nicht ungeprüft zum Zielnamen werden. Ohne dieses ausdrückliche Opt-in bleibt die sichere Standardreaktion ein Abbruch.
-
----
-
-### 4. Vollständige oder partielle GM-Gruppe erzeugen
-
-Ein partieller Atlas enthält nur die tatsächlich gewünschten Ersatzframes. Der Extender erhält alle ausgelassenen SHCDE-Main- und Alt-Frames einschließlich nachfolgender Indizes als Vanilla-Sprites mit ihrem bisherigen Material. Fehlende Frames weder als leere Sprites eintragen noch nur zum Auffüllen eines Indexbereichs aus Vanilla kopieren. Für einen vollständigen Grafiktausch müssen dagegen tatsächlich alle relevanten Gruppen und Frames identifiziert werden; ein Gebäude kann mehrere `tile_*`- und `anim_*`-Gruppen nutzen.
-
-Alternativ lassen sich wenige einzelne Sprites über `Override/Sprites/` ersetzen. Für größere Framebestände sind Atlanten zweckmäßiger.
-
----
-
-### 5. Neuen Farbatlas und Maskenatlas packen
-
-Erzeuge pro GM-Gruppe:
-
-    atlas.png oder atlas.dds
-    atlas_m.png oder atlas_m.dds (nur bei maskierten Gruppen)
-    atlas.json
-
-Beim Packen:
-
-- Rotation deaktivieren
-- automatisches Trimmen möglichst deaktivieren
-- Farb- und Maskenframes identisch anordnen
-- transparente Ränder erhalten
-- jedes Rechteck vollständig innerhalb des Atlas halten
-- keine Rechtecke überlappen lassen
-- Pixelgrafiken nicht interpoliert skalieren
-
-Der Script Extender verwendet für `atlas.png`:
-
-- `FilterMode.Point`
-- `TextureWrapMode.Clamp`
-- keine Mipmaps
-- `SpriteMeshType.FullRect`
-
-Bei BC7-DDS liest der Extender die komprimierten Blöcke ohne Dekompression ein. Die DDS muss dafür gegenüber dem aufrechten PNG vertikal gedreht gespeichert sein; die JSON-Rechtecke bleiben dennoch im Unity-Koordinatensystem mit Ursprung unten links. Breite und Höhe sollten Vielfache von vier sein, Frames dürfen keinen BC7-Block teilen, und Mipmaps werden für diesen Atlas nicht benötigt. BC7 benötigt weniger GPU-Texturspeicher als RGBA32, verändert aber Pixel und Maskenwerte geringfügig. Deshalb ist PNG der verlustfreie Standard; Farbe und Maske dürfen unterschiedliche Ausgabeformate haben. Nie zugleich `.png` und `.dds` für dieselbe Textur ausgeben: der Extender bevorzugt PNG. AtlasBuilder 1.0.5 übernimmt beim DDS-Build die nötige BC7-Anordnung und vertikale Drehung.
-
-Ein einzelner globaler Atlas für das ganze Spiel wird nicht unterstützt. Jede GM-Gruppe benötigt einen eigenen Ordner und wird als eigene Textur geladen.
-
----
-
-### 6. Teamfarbenmaske
-
-`atlas_m.png` beziehungsweise `atlas_m.dds` ist technisch optional, fachlich aber von der Zielgruppe und dem `material`-Modus abhängig. Der aktuelle Atlas Builder liest diesen Vertrag aus der gegen den Script Extender und den SHCDE-Loader geprüften Tabelle aller 195 Gruppen:
-
-- Plain-Gruppen wie `tile_ruins`, `tile_buildings1` oder `tree_cactii` dürfen keine Maske enthalten.
-- TeamColour- und Foliage-Gruppen benötigen eine vollständige Maske.
-- Eine falsche Auswahl wird vor dem Build abgewiesen.
-
-Sie muss:
-
-- dieselbe Gesamtgröße wie der fertige Farbatlas haben
-- dasselbe Packlayout verwenden
-- mit jedem Farbframe pixelgenau übereinstimmen
-
-Das optionale root-level Feld `"material"` akzeptiert `Auto`, `Plain`, `TeamColour`/`TeamColor` oder `Foliage`. `Auto` übernimmt mit Maske den Vanilla-Materialtyp der GM-Gruppe und verwendet ohne Maske aus Kompatibilitätsgründen `Plain`. Explizites `TeamColour` oder `Foliage` erfordert eine verwendbare `atlas_m.png` oder `atlas_m.dds`; ungültige Werte oder fehlende Shader lassen das Override fail-closed aus.
-
-Die Bedeutung der Maskenkanäle ist im Script Extender nicht dokumentiert. Dafür sollten die originalen SHCDE-Masken im Sprite Previewer untersucht werden.
-
----
-
-### 7. Gemeinsame `atlas.json` erzeugen
-
-Für vollständige und partielle Gruppen wird dasselbe Mehrframeformat verwendet:
-
-    {
-      "pixelsPerUnit": 64,
-      "material": "Auto",
-      "frames": [
-        {
-          "name": "body_archer-0",
-          "rect": {
-            "x": 0,
-            "y": 0,
-            "w": 44,
-            "h": 97
-          },
-          "pivot": {
-            "x": 0.386,
-            "y": 0.196
-          }
-        },
-        {
-          "name": "body_archer-1",
-          "rect": {
-            "x": 46,
-            "y": 0,
-            "w": 45,
-            "h": 97
-          },
-          "pivot": {
-            "x": 0.378,
-            "y": 0.196
-          }
-        },
-        {
-          "name": "body_archer-1x",
-          "rect": {
-            "x": 93,
-            "y": 0,
-            "w": 45,
-            "h": 97
-          },
-          "pivot": {
-            "x": 0.378,
-            "y": 0.196
-          }
-        }
-      ]
-    }
-
-Die Propertynamen müssen genau so geschrieben werden:
-
-    pixelsPerUnit
-    frames
-    name
-    rect
-    x
-    y
-    w
-    h
-    pivot
-
-Die schemaerkennenden Felder und gewöhnlichen Frame-Felder behandelt der Parser effektiv case-sensitive.
-
----
-
-### 8. Spritenamen
-
-#### Bindestrichformat
-
-Typisch für Einheiten:
-
-    body_archer-0
-    body_archer-169
-    body_archer-169x
-
-Das kleine `x` am Ende kennzeichnet ein Alt-Frame. Ein großes `X` funktioniert nicht.
-
-#### Leerzeichenformat
-
-Typisch für Gebäude- und Geländetiles:
-
-    tile_buildings1 000
-    tile_buildings1 001
-    tile_buildings1 002x
-
-Verwende immer die vollständigen Originalnamen aus SHCDE einschließlich Leerzeichen, Bindestrichen, Unterstrichen und führenden Nullen.
-
----
-
-### 9. Koordinaten
-
-Die JSON-Rechtecke verwenden einen Ursprung unten links.
-
-Wenn das Atlasprogramm Koordinaten ab oben links ausgibt:
-
-    unityY = atlasHeight - topY - frameHeight
-
-Diese Umrechnung übernimmt der Script Extender nicht.
-
----
-
-### 10. Pivot und Skalierung
-
-Der Script Extender übernimmt Pivot und `pixelsPerUnit` unverändert aus der JSON.
-
-Ein Pivot ist normalisiert. Derselbe Pivotwert zeigt deshalb auf unterschiedlichen Bildgrößen nicht auf denselben Pixel. Das unveränderte Kopieren des normalisierten SHCDE-Pivots ist nur korrekt, wenn Quell- und Zielbild dieselbe Leinwand besitzen oder bewusst relativ gleich ausgerichtet wurden.
-
-Zwei Sonderfälle sind dabei wichtig:
-
-- Ein Pivot von exakt `1,0` bezeichnet die obere beziehungsweise rechte Kante. Bei einer anderen Leinwandgröße muss er `1,0` bleiben; die normale Abstand-von-unten-/links-Formel würde beispielsweise Teile von `anim_castle` verschieben.
-- Pivots außerhalb von `0..1` sind gültig. Die aktuellen Spieldaten enthalten unter anderem negative Y-Pivots bei `body_horse_archer_top`. Eine Bereichsprüfung auf `0..1` wäre daher falsch; geprüft werden muss der resultierende Pixelanker.
-
-Für gewöhnliche Ersatzbilder sollte der räumliche SHCDE-Pixelanker bewahrt werden:
-
-    ankerX = zielPivotX * zielBreite
-    ankerY = zielPivotY * zielHöhe
-    ausgabePivotX = ankerX / ersatzBreite
-    ausgabePivotY = ankerY / ersatzHöhe
-
-Soll dagegen die ursprüngliche Ausrichtung eines aus einem anderen Unity-Spiel exportierten Sprites reproduziert werden, kann dessen `m_Pivot` aus den AssetRipper-Metadaten übernommen werden. Das ist nur zuverlässig, wenn das Ersatzbild dieselbe Leinwand besitzt oder proportional zur dokumentierten `m_Rect` skaliert wurde. Trimming oder ein geänderter transparenter Rand muss ausdrücklich ausgeglichen werden.
-
-Bei proportionaler Skalierung bleibt der normalisierte Quellpivot erhalten. Wurde nur die Leinwand vergrößert oder verkleinert, wird der absolute Quellanker auf die neue Größe umgerechnet. Ändert sich das Seitenverhältnis, kann der Builder vor möglichem Trimming warnen, aber die inhaltlich richtige Position nicht ohne weitere Angaben beweisen.
-
-Bei den geprüften SH1DE-Gruppen `tile_land8`, `tile_buildings1`, `tile_churches` und `tile_ruins` beträgt der Pixelanker durchgehend `(32, 16,5)` bei 64 PPU:
-
-    64x41:  Pivot (0,5; 0,40243897) -> Anker (32; 16,5)
-    64x196: Pivot (0,5; 0,08418399) -> Anker (32; 16,5)
-
-Würde der erste normalisierte Y-Pivot unverändert auf das 196 Pixel hohe Bild angewendet, läge der Anker bei ungefähr 78,88 statt 16,5 Pixeln. Bodenplatten, Gebäudegrundbilder und animierte Teile werden dadurch gegeneinander verschoben. Schwarze diagonale Spalten zwischen Tiles sind ein typisches Symptom.
-
-Wenn sich durch andere transparente Ränder die Position des sichtbaren Fußpunkts ändert:
-
-    pivotX = AnkerpositionX / Framebreite
-    pivotY = AnkerpositionY / Framehöhe
-
-`pixelsPerUnit` ist nicht zwingend 64. Der Parser verwendet 64 nur als Standard, wenn kein Wert angegeben wurde. Verwende den Wert des entsprechenden SHCDE-Zielsprites.
-
-Die Ersatzbilder müssen technisch nicht dieselben Abmessungen wie die Originale besitzen. Bei abweichenden Größen müssen Pivot und gegebenenfalls PPU aber bewusst angepasst werden.
-
-Der Atlas Builder bietet dafür pro Gruppe drei Modi:
-
-- `target-pixel-anchor`: bewahrt den SHCDE-Pixelanker und ist der Standard
-- `source-metadata`: liest den individuellen Quellpivot aus AssetRipper-JSONs
-- `target-normalized`: erhält den normalisierten Zielpivot für absichtlich identische Leinwände
-
-Der Workspace-Builder akzeptiert Projektschemata 1–6 und speichert Schema 6. Schema-1-Projekte verwenden `target-normalized` und zeigen eine Warnung. Ohne ausdrückliche Formatwahl bleibt PNG der Standard. Der oben verlinkte portable Download ist Release `1.0.5`; für die nachfolgend beschriebenen Quellstand-Funktionen verwende den Workspace-Builder.
-
-Der optionale **Quellframe-Filter**, beispielsweise `0-127, 416-447, 0x-127x`, bestimmt, welche Quellframes eingelesen, geprüft und gebaut werden; ein leerer Filter berücksichtigt alle Frames. Im Modus `source-metadata` wird fehlendes passendes JSON standardmäßig abgelehnt. **Fehlende Quellmetadaten → SHCDE-Pixelanker verwenden** erlaubt ausdrücklich einen Pixelanker-Fallback ausschließlich für Frames mit vorhandenen SHCDE-Zielmetadaten. Mindestens ein passendes Quell-JSON muss vorhanden sein; der Builder meldet jeden Fallback-Index. Für fehlende SHCDE-Zielslots sind weiterhin validierte Quellmetadaten nötig. Siehe die [AtlasBuilder-Anleitung](../Helpers/AtlasBuilder/USAGE.md#deutsch).
-
----
-
-### 11. AssetRipper-JSONs zusammenführen
-
-Ein einzelnes Raw-JSON kann so aussehen:
-
-    {
-      "m_Name": "body_archer-86",
-      "m_Rect": {
-        "m_X": 5183,
-        "m_Y": 7212,
-        "m_Width": 43.9,
-        "m_Height": 96.9
-      },
-      "m_Pivot": {
-        "m_X": 0.386,
-        "m_Y": 0.196
-      },
-      "m_PixelsToUnits": 64
-    }
-
-AssetRipper-JSONs sind Eingabemetadaten, keine fertige `atlas.json`. Der Atlas Builder ordnet sie bei gewählter Quellmetadaten-Pivotquelle den PNG-Frames zu und schreibt pro GM-Gruppe eine gemeinsame `frames`-Liste im Extender-Format. Ein selbst erstellter Atlas muss dieselbe Umwandlung leisten.
-
----
-
-### 12. Ausgabeordner
-
-Der fertige Mod sieht beispielsweise so aus:
+Die Ausgabe sollte so aufgebaut sein:
 
     SH1DEVisuals/
       info.json
@@ -853,116 +236,58 @@ Der fertige Mod sieht beispielsweise so aus:
             atlas.png
             atlas_m.png
             atlas.json
-          body_swordsman/
-            atlas.png
-            atlas_m.png
-            atlas.json
           tile_buildings1/
             atlas.png
             atlas.json
-          tile_workshops/
-            atlas.png
-            atlas.json
-          anim_windmill/
-            atlas.png
-            atlas_m.png
-            atlas.json
 
-Installation:
+Schließe das Spiel und kopiere `SH1DEVisuals` nach:
 
-    E:\ProgrammeE\Steam\steamapps\common\
-      Stronghold Crusader Definitive Edition\
-        BepInEx\
-          plugins\
-            SH1DEVisuals\
+    <SHCDE-Spielordner>/BepInEx/plugins/
 
-Eine gepackte `.semod`-Datei funktioniert ebenfalls. Für Entwicklung und Fehlersuche ist ein loser Modordner praktischer.
+Für einen reinen Grafikmod verwendet die erzeugte `info.json` den Wert `NetworkMode: 0`. Gib das Manifest und alle erzeugten Dateien gemeinsam weiter. Ein loser Modordner ist für die Entwicklung praktisch; der Script Extender unterstützt auch `.semod`-Pakete.
 
----
+Aktiviere möglichst nicht zwei Atlas-Mods für dieselbe GM-Gruppe gleichzeitig: Pro Gruppe wird nur ein registrierter Atlas angewendet; ihre partiellen Atlanten werden nicht automatisch zusammengeführt.
 
-### 13. Validierung vor dem Spielstart
+Starte das Spiel nach Änderungen an Atlasdateien neu. Suche in `BepInEx/LogOutput.log` nach `Auto-registered atlas override`, `Applying ... atlas override(s)` und `Applied [body_archer]`. Eine Registrierung allein bestätigt noch keine erfolgreiche Anwendung.
 
-Der Konverter sollte je Gruppe prüfen:
+Teste alle Richtungen und Animationen, alternative Frames, sämtliche Spielerfarben und Zoomstufen. Prüfe bei Gebäuden zusätzlich Bauphasen, Ausrichtungen, Schäden, Feuer und bewegte Teile. Kontrolliere sowohl ersetzte als auch ausgelassene Frames. Erweitere den Mod erst nach einem erfolgreichen kleinen Test auf weitere Gruppen.
 
-- Gruppenname wird von Script Extender 2.4.0 unterstützt
-- `material` ist `Auto`, `Plain`, `TeamColour`/`TeamColor` oder `Foliage`, und explizit maskierte Modi besitzen `atlas_m.png` oder `atlas_m.dds`
-- jedes Frame beginnt mit dem richtigen Gruppenpräfix
-- jeder Name enthält einen gültigen numerischen Index
-- Alt-Frames enden ausschließlich auf kleinem `x`
-- keine doppelten Main- oder Alt-Indices
-- keine doppelten Namen
-- alle Rechtecke liegen innerhalb des Atlas
-- Breite und Höhe sind positiv
-- keine Frames wurden rotiert
-- Farb- und Maskenatlas haben dieselbe Größe
-- beide Atlanten verwenden dasselbe Layout
-- Pivot und PPU sind vorhanden
-- partielle Gruppen lassen fehlende Zielindices absichtlich aus; nur aufgenommene Indices brauchen gültige Zielnamen und Geometrie
-- BC7-DDS hat einen gültigen DX10/BC7-Header, passende Maße, aufrechte Laufzeitdarstellung und keine versehentlich zusätzlich vorhandene PNG-Version derselben Textur
+| Problem | Was du prüfen solltest |
+|---|---|
+| Nichts verändert sich | Richtiger Modordner, `info.json`, unterstützter Gruppenname, `atlas.json` und Textur; Anwendungsmeldungen im Log lesen. |
+| Nur ein Gebäudeteil verändert sich | Die übrigen Teile können aus weiteren `tile_*`- oder `anim_*`-Gruppen stammen. |
+| Farbige Fragmente umgeben ein Sprite | Quell-PNG ansehen. Tight-Mesh-Bilder korrekt neu exportieren. |
+| Füße oder Gebäudeteile verschieben sich; Lücken erscheinen | Pivotwahl, transparente Ränder, Quellmetadaten und PPU. |
+| Spielerfarben oder Laub sehen falsch aus | Richtiger Materialmodus, vollständige Masken und identisches Bild-/Maskenlayout. |
+| DDS-Änderungen erscheinen nicht | Eine versehentlich vorhandene PNG derselben Textur entfernen; PNG hat Vorrang. |
 
-Der Script Extender führt diese Prüfungen größtenteils nicht selbst durch.
+### Referenz für selbst erstellte Atlanten
 
----
+Diesen Abschnitt kannst du überspringen, wenn Atlas Builder die benötigten Dateien bereits erzeugt.
 
-### 14. Prüfung im Log
+Jede Gruppe benötigt einen Ordner `Override/Atlas/<Gruppe>/`. Darin liegen `atlas.png` oder `atlas.dds`, gegebenenfalls eine passende `atlas_m`-Maske und eine `atlas.json`. Farbe und Maske dürfen unterschiedliche Formate verwenden. Gib für dieselbe Textur nicht zugleich PNG und DDS aus.
 
-Erfolgreiche Registrierung:
+Ein minimales Mehrframe-JSON sieht so aus:
 
-    Registered atlas override for [body_archer] (...)
-    Auto-registered atlas override for [body_archer] from [...]
-    Applying 1 atlas override(s)...
-    Applied [body_archer]: ... frames sliced, material=..., shader=[...], mask=yes, arraySize=..., vanillaMain=..., vanillaAlt=..., offset=...
+    {
+      "pixelsPerUnit": 64,
+      "material": "TeamColour",
+      "frames": [
+        {
+          "name": "body_archer-0",
+          "rect": { "x": 0, "y": 0, "w": 44, "h": 97 },
+          "pivot": { "x": 0.386, "y": 0.196 }
+        }
+      ]
+    }
 
-Bei einem Fehler sind vor allem diese kurzen Meldungen relevant:
+Die Zahlen zeigen das Format; verwende die tatsächlichen Maße und die Ausrichtung deiner Bilder. Behalte Feldnamen und vollständige SHCDE-Spritenamen exakt bei, einschließlich Leerzeichen, führender Nullen und kleinem Alt-Suffix. Einzelne AssetRipper-Raw-JSONs sind Eingabemetadaten, keine fertige Mehrframe-`atlas.json` für eine neu gepackte Textur.
 
-    Unknown GM file name [...]
-    Found atlas.json for [...] but no atlas.png/atlas.dds
-    No frames parsed [...]
-    No parseable frame indices [...]
-    Failed to apply atlas [...]
+- Rechtecke haben ihren Ursprung **unten links**: `unityY = atlasHeight - topY - frameHeight` rechnet Koordinaten von oben links um. Alle Rechtecke müssen mit positiven Maßen vollständig innerhalb der Textur liegen, ohne Überlappung oder Rotation.
+- Packe Farbe und Masken identisch und erhalte transparente Ränder. PNG-Texturen verwenden Punktfilterung und keine Mipmaps.
+- `material` akzeptiert `Auto`, `Plain`, `TeamColour` (auch `TeamColor`) oder `Foliage`. Explizites TeamColour/Foliage benötigt eine verwendbare Maske. `Auto` verwendet mit Maske den ursprünglichen Materialtyp der Gruppe, ohne Maske Plain; gib den gewünschten Modus an, um ein unbeabsichtigt unmaskiertes Ergebnis zu vermeiden. Bei ungültigen Materialeinstellungen bleibt der ursprüngliche Atlas erhalten.
+- Ein Pivot bezieht sich auf die Bildmaße. Für einen normalen Pixelanker gilt je Achse `ausgabePivot = zielPivot × zielGröße / ersatzGröße`. Der Builder behandelt genau `1.0` als gegenüberliegende Kante und behält `1.0` bei; Pivots außerhalb von `0..1` können gültig sein. Lies vor manuellen Änderungen solcher Fälle die ausführliche Anleitung.
+- BC7-DDS ist verlustbehaftet und reduziert den Texturspeicher. PNG ist der verlustfreie Standard und für Masken oft vorzuziehen. DDS benötigt einen DX10/BC7-Header, auf vier Pixel ausgerichtete Maße, getrennte 4×4-Kompressionsblöcke je Frame und für den Extender vertikal gedrehte Speicherung. JSON-Koordinaten bleiben bei Ursprung unten links. Atlas Builder übernimmt dieses Packen und Drehen.
+- Ausgelassene originale Main- und Alt-Frames bleiben erhalten. Das gilt auch für benannte Gruppen in einem gemeinsam verwendeten internen Array; fülle partielle Atlanten nicht mit leeren Ersatzbildern auf.
 
----
-
-### 15. Laufzeittest
-
-Für eine Einheit prüfen:
-
-- alle Richtungen
-- Stillstand
-- Bewegung
-- Angriff
-- Tod
-- Alt-Frames
-- sämtliche Spielerfarben
-- Darstellung an Höhenstufen und Mauern
-- abgeschnittene Füße
-- Zoomstufen
-
-Für Gebäude zusätzlich:
-
-- Bauphasen
-- verschiedene Varianten und Ausrichtungen
-- Schäden und Feuer
-- animierte Gebäudeteile
-- Flaggen
-- Arbeiter
-- Waren und Effekte
-
-Zuerst wenige eindeutig zugeordnete Frames einer Gruppe testen und danach auf weitere Gruppen erweitern. Bei BC7 zusätzlich transparente Ränder, Teamfarben und Masken im Spiel kontrollieren.
-
----
-
-### Schlussfolgerung
-
-Der Guide funktioniert zuverlässig, wenn folgende Regeln eingehalten werden:
-
-1. Nicht ganze SH1DE-AssetBundles kopieren.
-2. SHCDE als verbindliche Zielstruktur verwenden.
-3. Pro betroffener GM-Gruppe einen vollständigen oder gezielt partiellen Atlas erzeugen.
-4. Farb- und Maskenatlas identisch packen.
-5. AssetRipper-Raw-JSONs zu einer gemeinsamen `frames`-Liste konvertieren.
-6. Nicht ersetzte SHCDE-Frames als Vanilla-Fallback belassen.
-7. Bei unterschiedlichen Leinwandgrößen den SHCDE-Pixelanker bewahren oder belegte Quellmetadaten verwenden.
-8. Vor der Installation sämtliche Namen, Indices, Rechtecke, Pivots und Masken validieren.
-
-Der Atlas Builder übernimmt Packen, Namenszuordnung und Validierung. Die korrekte Extraktion und inhaltliche Zuordnung der Quellbilder muss vorher geprüft werden.
+Einzelheiten zum Export und zu Builder-Optionen stehen in der [Atlas-Builder-Anleitung](../Helpers/AtlasBuilder/USAGE.md#deutsch). Weitere Grafikwerkzeuge bietet [llm-art-pipeline](https://github.com/Ensrick/llm-art-pipeline).

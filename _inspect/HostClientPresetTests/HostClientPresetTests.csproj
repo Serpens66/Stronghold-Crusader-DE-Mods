@@ -81,6 +81,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="AIHunterPreyPresetTests.cs" />
+    <Compile Include="..\..\Testmods\AIHunterPreyTest\src\AIHunterSettings.cs" />
     <Compile Include="PeaceTimeProximityPresetTests.cs" />
     <Compile Include="..\..\BugfixesAndQoL\src\Settings\BugfixesAndQoLViewModel.PeaceTime.cs" />
     <Compile Include="PitchStairsPresetTests.cs" />

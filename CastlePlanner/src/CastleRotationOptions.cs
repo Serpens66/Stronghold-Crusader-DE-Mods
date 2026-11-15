@@ -148,11 +148,11 @@ namespace CastlePlanner
 
     internal static class KeepRotationPolicy
     {
-        // Native Keep constructors retain 15 in the sprite-variation field but
-        // use the same orientation as 0. Never forward 15 to AIV placement.
-        public static bool TryNormalize(int variation, out int rotation)
+        // The actual Keep direction (+0x92, not SpriteVariationIndex) may retain
+        // Vanilla's default sentinel 15. Never forward that sentinel to AIV placement.
+        public static bool TryNormalize(int direction, out int rotation)
         {
-            rotation = variation == 15 ? 0 : variation;
+            rotation = direction == 15 ? 0 : direction;
             return rotation == 0 || rotation == 2 || rotation == 4 || rotation == 6;
         }
 
