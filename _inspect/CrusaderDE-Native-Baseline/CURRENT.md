@@ -75,6 +75,10 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 
 ## Vanilla audits with mod integration
 
+- [Construction cost tables](./sem/FBCB9319/knowledge/CONSTRUCTION_COST_TABLES.md): native110-row and managed109-row bounds, aliases and Undo parameter contracts; tagged Extender integration and dated game probes.
+
+- [Friendly moat traversal for all unit types](./sem/FBCB9319/knowledge/MOAT_TRAVERSAL_ALL_UNITS.md): all 89 dispatch slots, 20 economic roles, civilian target and building-access gates, independent wander publication, mobile-siege removal, stored modes and save/transfer contracts; 183 indexed functions and five leaf entries checked against the installed PE, static audit with no feature implementation or gameplay acceptance.
+
 - [Keep direction versus sprite variation](./sem/FBCB9319/knowledge/KEEP_DIRECTION.md): actual Keep direction at record +0x92, separate sprite variation at +0x102, constructor/reader instruction proof and CastlePlanner regression history.
 
 - [AI emergency demolition and nervous Lord messages](./sem/FBCB9319/knowledge/AI_EMERGENCY_DEMOLITION.md): the strategy gate also controls timers, stance, resource help and category-9 messages; isolated demolition/refund helper, corrected consumer boundary and six-byte Indirect detour contract; static audit, new runtime acceptance separate.
@@ -112,6 +116,7 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 - [Enemy-unit proximity during building actions](./sem/FBCB9319/knowledge/ENEMY_BUILD_PROXIMITY.md): separate civilian/military radii, unchanged building/wall restrictions, native predicate and migration contracts.
 - [Building repair contract (CrusaderDE.dll FBCB9319…F2831E2)](./sem/FBCB9319/knowledge/BUILDING_REPAIR.md)
 - [Building sleep and local selection audit](./sem/FBCB9319/knowledge/BUILDING_SLEEP_SELECTION.md): Chore 43's building-type payload, local selection use and runtime-confirmed resource divergence.
+- [Building pause UI coverage](./sem/FBCB9319/knowledge/BUILDING_PAUSE_UI.md): complete pauseable-type/menu comparison, Water Pot and cathedral omissions, authoritative type table and managed presentation correction.
 - [Civilian worker pause audit](./sem/FBCB9319/knowledge/WORKER_PAUSES.md): shared fear-building visit logic, worker comparisons, and the baker/miller post-delivery branches.
 - [Coop Trail Customize presentation](./sem/FBCB9319/knowledge/COOP_TRAIL_CUSTOMIZE_PRESENTATION.md): managed team-shield/radar refresh, setup metadata and input-callback suppression; static/member checks and pending visual acceptance.
 - [Crenelated wall construction](./sem/FBCB9319/knowledge/CRENELATED_WALLS.md): complete human/AI placement and redraw flow, sticky high pieces, read-only native availability, ownership decoding and corrected current Chore-25 field contract.

@@ -20,6 +20,14 @@
     "untaggedReason": "Their exact bytes are pinned by validators that do not resolve Git history; their scope is recorded only here and in CURRENT.md."
   },
   "documents": [
+    {"file":"CONSTRUCTION_COST_TABLES.md","scope":"vanilla+integration","components":["CrusaderDE.dll","Assembly-CSharp.dll","Script Extender","APIShared"],"note":"Hash-bound construction table, alias and Undo parameter audits; tagged integration sections record Extender compatibility and dated game probes."},
+    {
+      "file": "MOAT_TRAVERSAL_ALL_UNITS.md",
+      "scope": "vanilla+integration",
+      "components": ["CrusaderDE.dll", "Pathfinding", "Script Extender", "APIShared", "Fixes"],
+      "integrationSections": ["Existing Pathfinding integration snapshot"],
+      "note": "Static hash-bound all-unit movement and civilian work audit; compact machine evidence is MOAT_TRAVERSAL_ALL_UNITS.json. No feature implementation or new gameplay acceptance."
+    },
     {
       "file": "SIEGE_AMMUNITION_SIGNEDNESS.md",
       "scope": "vanilla",
@@ -324,6 +332,17 @@
       ],
       "integrationSections": [],
       "note": "Mod references inline."
+    },
+    {
+      "file": "BUILDING_PAUSE_UI.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [
+        "BugfixesAndQoL correction"
+      ],
+      "note": "Hash-bound Vanilla menu/table audit and consumer correction; gameplay acceptance separate."
     },
     {
       "file": "BUILDING_SLEEP_SELECTION.md",
