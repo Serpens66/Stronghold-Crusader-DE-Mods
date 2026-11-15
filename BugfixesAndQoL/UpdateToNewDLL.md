@@ -3,6 +3,23 @@
 Native contracts of commands, routes, formations, the Shift queue, troop movement, gate routing and Assassin
 routes moved with their code to `Pathfinding/UpdateToNewDLL.md` (2026-11-07).
 
+## Building pause state and presentation (2026-11-15)
+
+The normal-click decision reads `GamePlayerResources.r_BuildingSleep` through the
+public Extender player-resource API, using the selected building's validated owner
+and type. Its fixed byte[91] layout is independent of `STRUCT_MAX`. No new raw RVA
+or native hook is introduced. On an Extender update verify the installed fixed
+buffer's length/layout against the owner/type table consumed by the native toggle
+and periodic synchronizer; see the hash-bound [menu/table audit](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/BUILDING_PAUSE_UI.md).
+
+The managed UI contract validates the original instance bool `addChimpActions`
+signature `(EngineInterface.PlayState, ref string, ref string, bool)` and exactly
+one Int16 `PlayState.building_type_sleeping` read. A permanent `SafeIlHook` wraps
+that read with the effective selected-building state, preserving the source
+snapshot and Vanilla's text/button branches. Missing/ambiguous reads reject
+installation; disabled or unresolved callbacks return the original value.
+SP/MP command selection must never depend on this incomplete UI field.
+
 ## AI emergency demolition boundary (2026-11-14)
 
 - Owner: `src/AI/Economy/AIEmergencyDemolitionHook.cs`, its native contract and dispatch; existing `EnableMod` / `PreventEmergencyDemolition` setting. The enclosing `0x2F454` strategy comparison is not a valid demolition-only target: it also gates emergency flags/countdowns, stance, resource help and category-9 nervous messages. Remove that old consumer hook rather than preserving it alongside the new owner.

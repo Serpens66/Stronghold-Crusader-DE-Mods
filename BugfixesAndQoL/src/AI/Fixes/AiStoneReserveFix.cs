@@ -255,7 +255,9 @@ namespace BugfixesAndQoL
                 (int)building >= (int)eStructs.STRUCT_MAX)
                 throw new InvalidOperationException($"AIV command {mapper} mapped outside the building table: {building}.");
 
-            int stoneCost = GameBuildingManagerAPI.Instance.GetStoneCost(building);
+            if (!APIShared.Buildings.ConstructionCosts.TryGetCurrent(APIShared.Buildings.ConstructionCostTarget.FromMapper(mapper), out var costs, out string costReason))
+                throw new InvalidOperationException("AIV cost safety unavailable: " + costReason);
+            int stoneCost = costs.Stone;
             if (stoneCost < 0)
             {
                 throw new InvalidOperationException(

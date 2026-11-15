@@ -111,8 +111,9 @@ namespace BugfixesAndQoL.PitchMoatLines
             var quote = preview.Quote;
             if (pitch1 || pitch2)
             {
-                int wood = 0, stone = 0, iron = 0, pitch = 0, gold = 0;
-                GameData.getStructureCosts(PitchStructure, ref wood, ref stone, ref iron, ref pitch, ref gold);
+                if (!APIShared.Buildings.ConstructionCosts.TryGetDisplayCosts(APIShared.Buildings.ConstructionCostTarget.FromStructure(eStructs.STRUCT_PITCH_DITCH), out var cost, out _))
+                    return;
+                int pitch = cost.Pitch;
                 if (pitch <= 0)
                     return;
                 int vanillaStock = state.resources[(int)eGoods.STORED_PITCH_RAW];
