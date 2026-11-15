@@ -13,6 +13,14 @@
     {
       "Version": "0.8.53",
       "Changes": [
+        "Fix castles failing to spawn when a different rotation is selected at the start of a game.",
+        "Correctly preserve the Keep's existing direction when choosing Unchanged and align Blueprints with rotated Keeps, including after loading a save and in the map editor.",
+        "Prevent multiplayer castle selection from repeatedly sending the castle data again after the selection timer expires, which could leave players waiting for the game to start."
+      ]
+    },
+    {
+      "Version": "0.8.52",
+      "Changes": [
         "Use shared validation for building lookups; require APIShared 0.49.0. Gameplay rules and settings are unchanged."
       ]
     },
