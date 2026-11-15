@@ -161,7 +161,7 @@
             <ControlTemplate TargetType="{x:Type Button}">
               <Grid Margin="-6">
                 <!-- The opaque repair badge covers the help glyph; retain the original Vanilla box. -->
-                <Image Source="{StaticResource UI-Buttons L011}" Stretch="Fill" />
+                <Image x:Name="RepairButtonBox" Source="{StaticResource UI-Buttons L011}" Stretch="Fill" />
                 <Grid Margin="6">
                   <Ellipse Fill="#FF654627" Stroke="#FFE3C685" StrokeThickness="2" />
                   <Image Source="/Assets/GUI/Sprites/ExtraFeatures_RepairHammer.png"
@@ -169,6 +169,17 @@
                          HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Grid>
               </Grid>
+              <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                  <Setter TargetName="RepairButtonBox" Property="Source" Value="{StaticResource UI-Buttons L013}" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                  <Setter TargetName="RepairButtonBox" Property="Source" Value="{StaticResource UI-Buttons L013}" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                  <Setter TargetName="RepairButtonBox" Property="Source" Value="{StaticResource UI-Buttons L011}" />
+                </Trigger>
+              </ControlTemplate.Triggers>
             </ControlTemplate>
           </Button.Template>
         </Button>

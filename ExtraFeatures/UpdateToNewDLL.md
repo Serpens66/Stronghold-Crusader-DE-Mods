@@ -580,3 +580,37 @@ trees can be cleared. Confirm that the Script Extender, Fixes and APIShared
 wood-production sites are disjoint before updating the pinned hash and running
 `_inspect/ExtraFeaturesNativeTests`.
 See the [native baseline](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/WOODCUTTER_TREE_MATURITY.md).
+
+## Repair HUD damage eligibility (2026-11-15)
+
+The optional repair HUD reads the live signed Int32 type table at RVA `0x2E6710`
+for `STRUCT_NULL` through `STRUCT_GARDEN_LARGE` (indices 0..120). The sole
+reference hash is `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The existing full-image hash gate and mapped-image bounds must validate before
+publishing the table pointer. A zero entry means no building damage: direct
+building-tile damage `0x7EB00`, area damage `0x7DF60`, and target eligibility
+`0xC2190`/`0xC2280` check this table. Damage rejects zero entries before HP
+subtraction; target helpers additionally special-case towers and gatehouses.
+For example `STRUCT_GOODS_YARD` has 500 default HP but a zero damage entry.
+
+No table writes, new hooks, executable spans, pattern fallback or on-disk
+native pointer caches are introduced. Unknown hashes or insufficient mapped
+bounds hide only this optional HUD button. A pattern alone cannot establish the
+meaning or complete type-index layout of this table, so there is no fallback.
+Read each selected type's current entry to respect live overrides from other
+mods. On DLL updates re-audit both damage paths, type/index bounds and the
+stockpile/market entries, then run the production visibility tests against the
+new mapped image. Keep the public enum identities verified against installed SE.
+
+Market presentation is a separate UI rule: `MainViewModel.setUpInbuilding`
+shows `RefTradepostPanel` for `INSIDE_TRADEPOST`; prices, food, bulk, arms and
+manual/automatic trade use other panels. The selected market's repair button
+is visible only in that overview. Shared trading subpanels are also suppressed
+when opened through another building (for example the granary or armoury).
+Hiding uses the existing disabled/EndHover
+path, leaving native repair execution and APIShared costs unchanged.
+
+Use the effective managed UI mode (GameData.app_sub_mode) for this visibility
+rule. EditorDirector.directSetAppSubMode changes it immediately before switching
+the panel; the immutable native repair quote can still describe the previous
+panel, particularly while paused. Snapshot identity checks remain separate.

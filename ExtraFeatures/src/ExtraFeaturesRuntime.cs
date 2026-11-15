@@ -55,6 +55,7 @@ namespace ExtraFeatures
         private readonly NoKillRewardHook noKillRewardHook;
         private HealerTargetsRuntime healerTargetsRuntime;
         private static BuildingRepairHudRuntime buildingRepairHudRuntime;
+        private readonly BuildingRepairHudVisibilityPolicy buildingRepairHudVisibility = new BuildingRepairHudVisibilityPolicy();
         private bool buildingRepairReadinessRegistered;
 
         private PendingStockpileRefund pendingStockpileRefund;
@@ -207,6 +208,11 @@ namespace ExtraFeatures
             libraryHandle = newLibraryHandle;
             nativeRegion = context.Region;
             fixedLayoutHashValidated = isFixedLayoutHashValidated;
+            if (buildingRepairHudVisibility.InitializeNative(newLibraryHandle, memory.Length, fixedLayoutHashValidated))
+                Shared.DebugLogHelper.LogInfo(log, "Building repair HUD damage eligibility: reference-rva 0x2E6710.");
+            else
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/BuildingRepairHudVisibility/unavailable",
+                    "Building repair HUD hidden: native damage eligibility table could not be validated.");
             nativeLibraryAvailable = true;
             elevatedMoatRuntime.InitializeNative(context, fixedLayoutHashValidated);
             TryRunFeature("No Kill Reward native hooks", () => noKillRewardHook.Install(context));
@@ -441,7 +447,7 @@ namespace ExtraFeatures
                 }
 
                 candidate.SetActive(false);
-                BuildingRepairHudRuntime installed = BuildingRepairHudRuntime.Install(log, candidate);
+                BuildingRepairHudRuntime installed = BuildingRepairHudRuntime.Install(log, candidate, buildingRepairHudVisibility);
                 buildingRepairHudRuntime = installed;
                 ReconcileBuildingRepairHud();
             }

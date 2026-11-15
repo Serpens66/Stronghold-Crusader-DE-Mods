@@ -3,19 +3,28 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.136",
+  "Version": "1.0.137",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.52.0"
+      "MinimumVersion": "0.55.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.137",
+      "Changes": [
+        "Use your chosen demolition refund percentages for extra construction costs paid by human players as well. Requires APIShared 0.55.0.",
+        "Give the repair button the same framed appearance and hover feedback as the game's other buttons.",
+        "Hide the repair button for buildings that cannot be damaged, such as the stockpile.",
+        "Show the market's repair button only on its main screen so trading controls and information stay visible."
+      ]
+    },
     {
       "Version": "1.0.136",
       "Changes": [

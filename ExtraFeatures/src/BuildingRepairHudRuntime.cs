@@ -21,6 +21,7 @@ namespace ExtraFeatures
 
         private readonly ManualLogSource log;
         private readonly IBuildingRepairCapability repair;
+        private readonly BuildingRepairHudVisibilityPolicy visibility;
         private readonly Hook classifierHook;
 
         private readonly ShowRepairDelegate originalShowRepair;
@@ -33,10 +34,11 @@ namespace ExtraFeatures
         private bool hudFailureLogged;
         private int active;
 
-        private BuildingRepairHudRuntime(ManualLogSource log, IBuildingRepairCapability repair)
+        private BuildingRepairHudRuntime(ManualLogSource log, IBuildingRepairCapability repair, BuildingRepairHudVisibilityPolicy visibility)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.repair = repair ?? throw new ArgumentNullException(nameof(repair));
+            this.visibility = visibility ?? throw new ArgumentNullException(nameof(visibility));
             Hook candidateClassifier = null;
 
             try
@@ -67,12 +69,13 @@ namespace ExtraFeatures
                     if (args.OriginalCompleted) HudUpdateHook(args.Controller);
                 }, out string reason)) throw new InvalidOperationException(reason);
         }
-        internal static BuildingRepairHudRuntime Install(ManualLogSource log, IBuildingRepairCapability repair) =>
-            Create(log, repair);
+        internal static BuildingRepairHudRuntime Install(ManualLogSource log, IBuildingRepairCapability repair,
+            BuildingRepairHudVisibilityPolicy visibility) => Create(log, repair, visibility);
 
-        private static BuildingRepairHudRuntime Create(ManualLogSource log, IBuildingRepairCapability repair)
+        private static BuildingRepairHudRuntime Create(ManualLogSource log, IBuildingRepairCapability repair,
+            BuildingRepairHudVisibilityPolicy visibility)
         {
-            var runtime = new BuildingRepairHudRuntime(log, repair);
+            var runtime = new BuildingRepairHudRuntime(log, repair, visibility);
             try { runtime.RegisterHudEvents(); }
             catch
             {
@@ -169,7 +172,12 @@ namespace ExtraFeatures
                 hoverHost.MouseLeave += OnButtonLeave;
                 lastHoverHost = hoverHost;
             }
-            if (!IsActive || !repair.TryGetSelectedQuote(out BuildingRepairQuote quote))
+            bool isActive = IsActive;
+            GameData gameData = isActive ? GameData.Instance : null;
+            EngineInterface.PlayState state = gameData?.lastGameState;
+            if (!isActive || !repair.TryGetSelectedQuote(out BuildingRepairQuote quote) ||
+                state == null || state.in_structure != quote.BuildingId || state.app_sub_mode != quote.Panel ||
+                !visibility.ShouldShow(state.in_structure_type, gameData.app_sub_mode))
             {
                 if (hoverHost.Visibility != Visibility.Hidden)
                     hoverHost.Visibility = Visibility.Hidden;
