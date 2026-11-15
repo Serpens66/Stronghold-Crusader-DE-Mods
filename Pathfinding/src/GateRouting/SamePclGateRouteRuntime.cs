@@ -498,7 +498,7 @@ namespace Pathfinding.GateRouting
             CountSharedSearch(kind, localKind);
             long measured = 0;
             Shared.DevDiag.Start(ref measured);
-            QueryScope scope = Enter(playerId, diagnosticKind: localKind);
+            QueryScope scope = Enter(playerId, localKind);
             Shared.DevDiag.StopSpike(ref measured, "gate.search.enter", 10000);
             DiagBeginSharedSearch(playerId, kind);
             return ScopeBox.Rent(scope);
@@ -783,7 +783,7 @@ namespace Pathfinding.GateRouting
                 long touched = 0;
                 IntPtr manager = new IntPtr(unchecked((long)(libraryBase +
                     (ulong)GateRoutingNativeLayout.NativePathManagerRva)));
-                QueryScope referenceScope = Enter(player, true);
+                QueryScope referenceScope = Enter(player, QueryKind.CursorPreview, true);
                 if (referenceScope.Slot == null ||
                     !ReferenceEquals(referenceScope.Snapshot, snapshot))
                 {
@@ -812,7 +812,7 @@ namespace Pathfinding.GateRouting
                 else
                 {
                     CaptureScopeSample(QueryKind.CursorPreview, player, player, -1, player);
-                    QueryScope filteredScope = Enter(player);
+                    QueryScope filteredScope = Enter(player, QueryKind.CursorPreview);
                     if (filteredScope.Slot == null ||
                         !ReferenceEquals(filteredScope.Snapshot, snapshot))
                     {
@@ -1025,7 +1025,7 @@ namespace Pathfinding.GateRouting
             Interlocked.Increment(ref alternateBuildingConsumerQueries);
             int player = ResolveTribePlayer(tribe);
             CaptureScopeSample(QueryKind.AlternateBuildingApproach, tribe, -1, player, player);
-            QueryScope scope = Enter(player);
+            QueryScope scope = Enter(player, QueryKind.AlternateBuildingApproach);
             bool completed = false;
             // TEMP_GATE_ROUTE_ACCEPTANCE: mirror shared diagnostic scopes without another native call.
             DiagBeginAlternateConsumer(player);
@@ -1046,7 +1046,7 @@ namespace Pathfinding.GateRouting
             if (!GateRoutingFeature.IsActive) { originalCandidateSearch(manager,startTileId,count,targetPcl,player,mode,candidateClass);return; }
             Interlocked.Increment(ref candidateQueries);
             CaptureScopeSample(QueryKind.CandidateSearch, player, player, -1, player);
-            QueryScope scope = Enter(player);
+            QueryScope scope = Enter(player, QueryKind.CandidateSearch);
             bool completed = false;
             try { originalCandidateSearch(manager, startTileId, count,
                     targetPcl, player, mode, candidateClass); completed = true; }
@@ -1093,7 +1093,7 @@ namespace Pathfinding.GateRouting
                 (ulong)GateRoutingNativeLayout.ActivePlayerIdRva);
             CaptureScopeSample(QueryKind.DirectCursor, player, player, -1, player);
             Interlocked.Increment(ref directCursorQueries);
-            QueryScope scope = Enter(player); int result = 0; bool completed = false;
+            QueryScope scope = Enter(player, QueryKind.DirectCursor); int result = 0; bool completed = false;
             try
             {
                 result = originalDirectTileSearch(manager, x, y, argument4, argument5, argument6);
@@ -1189,8 +1189,7 @@ namespace Pathfinding.GateRouting
             return text.Length == 0 ? "none" : text.ToString();
         }
 
-        private QueryScope Enter(int player, bool unmasked = false,
-            QueryKind diagnosticKind = QueryKind.HumanBuilder)
+        private QueryScope Enter(int player, QueryKind diagnosticKind, bool unmasked = false)
         {
             Interlocked.Increment(ref queries);
             NativeMaskSnapshot snapshot;

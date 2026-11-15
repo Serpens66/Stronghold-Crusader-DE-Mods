@@ -15,7 +15,7 @@ internal static class FormationCommandPipelineTests
             "BuildManagedDestinations", "BuildDirectionIndicator", "BuildVanillaSlotMetadata", "SnapSlots",
             "CaptureVanillaDestinations", "CaptureGroundSlots", "RentVisited", "ReturnVisited", "TryEnqueueVanillaCandidate",
             "CaptureReachableCandidates", "TryEnqueueCandidate", "IsAssassinOnly", "ComputeSelectionHash",
-            "ComputePlanHash", "CombineAdmissionPlanHash" };
+            "ComputePlanHash", "CombineAdmissionPlanHash", "RecordFormationSelectionMismatch", "RecordFormationExecution" };
         string[] types = { "ActiveDrag", "GroundTarget", "SelectionIdentity", "PendingFormationCommand",
             "ActiveFormationCommand", "UnitAssignmentFrame", "NativeDestination", "UnitFallbackAttempt",
             "UnitFallbackRequest", "UnitFallbackSummary", "VanillaSearchNode" };

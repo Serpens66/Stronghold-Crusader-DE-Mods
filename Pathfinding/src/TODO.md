@@ -401,6 +401,23 @@ Für freundliche Grabenquerung und menschliche Assassinenwege fehlt weiterhin ei
 
 Messmethodik und vorhandene Werkzeuge: [AGENTS/performance.md](../../AGENTS/performance.md), [Ingame-Testverfahren](../../AutomatisierungTest.md). Die am 13.11.2026 geprüften Release-Fixes und ihre Ergebnisse bleiben separat in [.work/a/perf-release/001/Ergebnis.txt](../../.work/a/perf-release/001/Ergebnis.txt); sie sind keine Umsetzung der hier aufgeführten Maßnahmen.
 
+### G10: Wegform bei größeren Hindernissen untersuchen (optional)
+
+- [ ] **Optionaler Folgeauftrag, keine aktuelle Umsetzungsfreigabe:** Nach der
+  Korrektur der Richtungswahl auf freien Flächen prüfen, ob Wege um größere
+  Hindernisse noch unnötige sichtbare Knicke oder räumliche Umwege enthalten.
+  Gleich teure Wege im diskreten Kostenmodell von tatsächlich teureren Wegen
+  unterscheiden; Kartenprojektion und echte Bewegung berücksichtigen.
+
+Zuerst den aktuellen Produktionskern als Vergleichsstand festhalten und mit
+identischen Anfragen messen: Wegqualität, gesamte CPU-Zeit, langsame Einzelanfragen
+(p95/p99 und Maximum), Suchknoten, Speicher und Vanilla-/Budget-Rückfälle.
+Freie Flächen, Mauerringe, Engstellen, gerichtete Kanten und große Gruppen einbeziehen.
+Flüssiges Spielen und kurze Suchzeiten behalten Vorrang vor schöneren Wegen.
+Eine weitere Such- oder Glättungsmaßnahme nur mit belegtem Nutzen und gesonderter
+Entscheidung über gemessene Mehrkosten erwägen; keine zusätzliche Suche oder
+Speicherhaltung allein zur optischen Verbesserung voraussetzen.
+
 ### Weiterführende Quellen und Abgrenzung
 
 Der größere Suchkern-/Architekturprototyp hat eine eigene Entwicklungsgeschichte und offene Abnahmen in [BetterPathfinding.md](../../BetterPathfinding.md). Er ist keine bereits freigegebene Lösung der oben genannten Restprobleme. Hier werden seine alten Entwurfsvarianten nicht nochmals als neue Aufgaben eingereiht.

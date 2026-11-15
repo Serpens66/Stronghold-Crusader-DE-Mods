@@ -15,7 +15,8 @@ internal static class FormationMovementEligibilityTests
         string[] methods = { "OnUnitMoveHere", "PruneUnitAssignmentFrames",
             "ClearUnitAssignmentFrames", "TryGetMatchingUnit", "FinishUnitAssignmentFrame",
             "RunUnitFallbacks", "LogFormationOrderResult", "OnTribeIssueOrderMoveHere",
-            "ComputeSelectionHash", "CombineAdmissionPlanHash", "ComputePlanHash", "PublishFormationDestinations" };
+            "ComputeSelectionHash", "CombineAdmissionPlanHash", "ComputePlanHash", "PublishFormationDestinations",
+            "RecordFormationSelectionMismatch", "RecordFormationExecution" };
         string[] types = { "ActiveFormationCommand", "UnitAssignmentFrame", "NativeDestination",
             "UnitFallbackAttempt", "UnitFallbackRequest", "UnitFallbackSummary", "SelectionIdentity" };
         string members = string.Join("\n", syntax.DescendantNodes()
@@ -26,7 +27,7 @@ internal static class FormationMovementEligibilityTests
 using System;using System.Linq;using System.Collections.Generic;
 using SHCDESE.Interop;using SHCDESE.API;using SHCDESE.EventAPI;using SHCDESE.EventAPI.Units;
 namespace SHCDESE.EventAPI {public enum EventHookPhase {Pre,Post}}
-namespace SHCDESE.EventAPI.Tribes {public class TribeIssueOrderMoveHereEventArgs {public EventHookPhase Phase;public bool SkipOriginalFunction;public long ReturnValue;}}
+namespace SHCDESE.EventAPI.Tribes {public class TribeIssueOrderMoveHereEventArgs {public int TribeId,TileX,TileY;public EventHookPhase Phase;public bool SkipOriginalFunction;public long ReturnValue;}}
 namespace SHCDESE.EventAPI.Units {
     public class UnitMoveHereEventArgs {
         public EventHookPhase Phase;public int UnitId,TileX,TileY,Unknown;
@@ -139,6 +140,14 @@ namespace Pathfinding.UnitCommands {
                 Check(command.SkippedTerminalCount==4&&command.ObservedTerminalCount==2,"Native skipped accounting");
                 Check(summary.Succeeded==1&&summary.TechnicalErrors==0,"Allowed fallback failed");
                 current.LogFormationOrderResult(command,1,summary);
+                var support=new FormationMoveSupport(415,562,360);
+                FormationMoveSupport.Current=support;
+                current.RecordFormationExecution(new TribeIssueOrderMoveHereEventArgs{TribeId=415,TileX=562,TileY=360},command,1,summary);
+                FormationMoveSupport.Current=null;
+                Check(support.ExecutionSummaryObserved&&support.ExpectedMembers==6&&support.TerminalNotAttempted==4&&
+                    support.TerminalAttempts==2&&support.TerminalObserved==2&&support.FormationSucceeded==1&&
+                    support.FallbackSucceeded==1&&support.FallbackFailed==0&&support.FallbackTechnicalErrors==0,
+                    "Support snapshot must distinguish skipped members and successful fallback");
                 Check(current.Logs.Count==1&&current.Logs[0].Contains("FORMATION_FALLBACK_SUMMARY")&&
                     current.Logs[0].Contains("succeeded=1")&&current.Logs[0].Contains("rejected=0"),
                     "Expected one compact group summary without per-unit/skipped chatter");
@@ -166,6 +175,13 @@ namespace Pathfinding.UnitCommands {
             Check(calls.Count==0,"Ambiguous same-unit parent acquired fallback permission");
             current=new EligibilityFixture();calls.Clear();var empty=current.CreateCommand(0x3d,0x28,0x29);
             current.Finish(empty);Check(calls.Count==0&&empty.SkippedTerminalCount==3,"Stationary-only group moved");
+            var skipped=new FormationMoveSupport(415,562,360){PostReturn=1,Assigned=0};
+            FormationMoveSupport.Current=skipped;
+            current.RecordFormationExecution(new TribeIssueOrderMoveHereEventArgs{TribeId=415,TileX=562,TileY=360},empty,0,new UnitFallbackSummary(0,0,0));
+            FormationMoveSupport.Current=null;
+            Check(skipped.ShouldWarn&&skipped.TerminalAttempts==0&&skipped.TerminalObserved==0&&
+                skipped.TerminalNotAttempted==3&&skipped.Describe().Contains("terminalNotAttempted=3")&&
+                !skipped.Describe().Contains("vanillaSkipped"),"No observed targets must not invent failed terminal calls or native causes");
             foreach(int blocked in new[]{0,3,5}) {
                 current=new EligibilityFixture();
                 current.ordered=Enumerable.Range(1,6).Select(id=>new FormationUnit(id,(uint)(id+100),22,FormationRole.Neutral)).ToArray();
@@ -207,7 +223,7 @@ namespace Pathfinding.UnitCommands {
 }
 """;
         fixture = fixture.Replace("__MEMBERS__", members);
-        var trees = new[] { "FormationModel.cs", "FormationPresentation.cs" }
+        var trees = new[] { "FormationModel.cs", "FormationPresentation.cs", "FormationMoveSupport.cs" }
             .Select(p => CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
                 "Pathfinding/src/Formations", p))))
             .Append(CSharpSyntaxTree.ParseText(fixture));

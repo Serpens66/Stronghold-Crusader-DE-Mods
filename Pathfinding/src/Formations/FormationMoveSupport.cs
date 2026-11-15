@@ -35,6 +35,12 @@ namespace Pathfinding.UnitCommands
         internal long? PostReturn;
         internal string Veto;
         internal int? Assigned;
+        internal int? ExpectedSelectionCount, ActualSelectionCount;
+        internal ulong? ExpectedSelectionHash, ActualSelectionHash;
+        internal bool ExecutionSummaryObserved;
+        internal string AssignmentPath;
+        internal int ExpectedMembers, SelectorAssigned, TerminalAttempts, TerminalObserved,
+            TerminalNotAttempted, FormationSucceeded, FallbackSucceeded, FallbackFailed, FallbackTechnicalErrors;
         internal bool ShouldWarn => PostReturn != 1 || Assigned == 0 || Veto != null;
         internal bool Matches(TribeIssueOrderMoveHereEventArgs args) =>
             args.TribeId == Tribe && args.TileX == X && args.TileY == Y;
@@ -42,6 +48,17 @@ namespace Pathfinding.UnitCommands
         internal string Describe() =>
             $"preSkip={PreSkip?.ToString() ?? "unobserved"}, veto={Veto ?? "unobserved"}, " +
             $"execution={(PostReturn.HasValue ? "observed" : "unobserved")}, " +
-            $"postReturn={PostReturn?.ToString() ?? "unobserved"}, assignedTargets={Assigned?.ToString() ?? "unknown"}";
+            $"postReturn={PostReturn?.ToString() ?? "unobserved"}, assignedTargets={Assigned?.ToString() ?? "unknown"}" +
+            (ExpectedSelectionCount.HasValue
+                ? $", expectedSelectionCount={ExpectedSelectionCount}, actualSelectionCount={ActualSelectionCount}, " +
+                    $"expectedSelectionHash={ExpectedSelectionHash:X16}, actualSelectionHash={ActualSelectionHash:X16}"
+                : "") +
+            (ExecutionSummaryObserved
+                ? $", path={AssignmentPath}, expected={ExpectedMembers}, selectorAssigned={SelectorAssigned}, " +
+                    $"terminalAttempts={TerminalAttempts}, terminalObserved={TerminalObserved}, " +
+                    $"terminalNotAttempted={TerminalNotAttempted}, terminalUnobserved={TerminalAttempts - TerminalObserved}, " +
+                    $"formationSucceeded={FormationSucceeded}, fallbackSucceeded={FallbackSucceeded}, " +
+                    $"fallbackFailed={FallbackFailed}, fallbackTechnicalErrors={FallbackTechnicalErrors}"
+                : "");
     }
 }

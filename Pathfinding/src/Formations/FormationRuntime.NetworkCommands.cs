@@ -279,11 +279,15 @@ namespace Pathfinding.UnitCommands
                 lastSupportResult = evidence;
             }
             if (!evidence.ShouldWarn) return;
-            LogFormationSupport("move-" + (evidence.Veto ?? (evidence.PostReturn.HasValue ? "native-result" : "no-post")),
+            // Reserve by stable category before formatting a detailed support record.
+            string category = "move-" + (evidence.Veto ?? (evidence.PostReturn.HasValue ? "native-result" : "no-post"));
+            string site = $"{Shared.MissionEvents.CurrentContext?.SessionId}/{category}";
+            if (!formationSupportLogGate.TryReserve(site, 30, out long suppressed)) return;
+            LogWarningNoThrow(
                 $"FORMATION_MOVE_RESULT {FormationMission(Shared.MissionEvents.CurrentContext)} player={identity.Player} " +
                 $"operation={packet.OperationId} tribe={packet.TribeId}/{identity.GlobalId} " +
                 $"target={packet.TargetX},{packet.TargetY} release={(source == "singleplayer" ? "claimed" : "remote-or-local-chore")} " +
-                $"tick={tick?.ToString() ?? "unknown"} source={source} {evidence.Describe()}");
+                $"tick={tick?.ToString() ?? "unknown"} source={source} {evidence.Describe()} suppressed={suppressed}");
         }
 
         private static bool ValidatePacket(FormationOrderPacket packet, out string rejection)

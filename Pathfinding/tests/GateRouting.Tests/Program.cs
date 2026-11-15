@@ -135,7 +135,27 @@ namespace Pathfinding.GateRouting
                     runtime.IndexOf("private void CountSharedSearch", StringComparison.Ordinal)).Contains("ref " + counter),
                     "shared per-kind count includes " + counter);
             Assert(runtime.Contains("CountSharedSearch(kind, localKind);") &&
-                runtime.Contains("Enter(playerId, diagnosticKind: localKind)"), "shared counters and scope use one classification");
+                runtime.Contains("Enter(playerId, localKind)"), "shared counters and scope use one classification");
+            // The full runtime needs native game services. These bounded source guardrails
+            // check entry attribution only; the existing behavior tests cover scope/route semantics.
+            foreach (var entry in new[]
+            {
+                (Method: "FilterAlternateConsumer", Kind: QueryKind.AlternateBuildingApproach),
+                (Method: "FilterCandidateSearch", Kind: QueryKind.CandidateSearch),
+                (Method: "FilterDirectCursorSearch", Kind: QueryKind.DirectCursor)
+            })
+            {
+                string body = ExtractMethodBody(runtime, entry.Method);
+                Assert(System.Text.RegularExpressions.Regex.IsMatch(body,
+                    @"\bEnter\s*\(\s*player\s*,\s*QueryKind\s*\.\s*" + entry.Kind + @"\s*\)"),
+                    entry.Method + " preserves its actual search kind at entry");
+            }
+            string preview = ExtractMethodBody(runtime, "TryValidateCursorPreview");
+            Assert(System.Text.RegularExpressions.Regex.IsMatch(preview,
+                @"\bEnter\s*\(\s*player\s*,\s*QueryKind\s*\.\s*CursorPreview\s*,\s*true\s*\)") &&
+                System.Text.RegularExpressions.Regex.IsMatch(preview,
+                @"\bEnter\s*\(\s*player\s*,\s*QueryKind\s*\.\s*CursorPreview\s*\)"),
+                "both reference and filtered preview scopes retain preview attribution");
         }
 
         private static void GateStateDefinitionsReconstructEveryObservation()
@@ -1931,7 +1951,7 @@ namespace Pathfinding.GateRouting
             string runtime = MigrationSources.Read(Path.Combine("src", "SamePclGateRouteRuntime.cs"));
             string wrapperBody = ExtractMethodBody(runtime, "FilterDirectCursorSearch");
             Assert(wrapperBody.IndexOf("originalDirectTileSearch", StringComparison.Ordinal) >= 0 &&
-                    wrapperBody.IndexOf("Enter(player)", StringComparison.Ordinal) >= 0 &&
+                    wrapperBody.IndexOf("Enter(player, QueryKind.DirectCursor)", StringComparison.Ordinal) >= 0 &&
                     wrapperBody.IndexOf("Complete(scope", StringComparison.Ordinal) >= 0,
                 "direct cursor wrapper scopes exactly the original DB650 call");
             Assert(wrapperBody.IndexOf("new ", StringComparison.Ordinal) < 0 &&
@@ -2056,8 +2076,8 @@ namespace Pathfinding.GateRouting
                     "cursor callback hot path excludes " + forbidden);
             Assert(CountOccurrences(deferred, "UnitAccess.TryGetById") == 1 &&
                     CountOccurrences(deferred, "originalDirectTileSearch") == 2 &&
-                    deferred.IndexOf("Enter(player, true)", StringComparison.Ordinal) <
-                        deferred.IndexOf("Enter(player);", StringComparison.Ordinal) &&
+                    deferred.IndexOf("Enter(player, QueryKind.CursorPreview, true)", StringComparison.Ordinal) <
+                        deferred.IndexOf("Enter(player, QueryKind.CursorPreview);", StringComparison.Ordinal) &&
                     deferred.IndexOf("GetSelectedChimps", StringComparison.Ordinal) < 0 &&
                     deferred.IndexOf("for (", StringComparison.Ordinal) < 0 &&
                     deferred.IndexOf("foreach", StringComparison.Ordinal) < 0,

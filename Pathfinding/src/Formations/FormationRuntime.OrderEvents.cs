@@ -51,8 +51,10 @@ namespace Pathfinding.UnitCommands
                     FormationKind kind = FormationModel.NormalizeKind(packet.Formation);
                     int density = FormationModel.NormalizeDensity(packet.Density);
                     FormationUnit[] units = CaptureOrderedGroupUnits(packet.TribeId);
-                    if (units.Length != packet.UnitCount || ComputeSelectionHash(units) != packet.SelectionHash)
+                    ulong actualSelectionHash = ComputeSelectionHash(units);
+                    if (units.Length != packet.UnitCount || actualSelectionHash != packet.SelectionHash)
                     {
+                        RecordFormationSelectionMismatch(args, packet, units.Length, actualSelectionHash);
                         RecordFormationVeto(args, "selection-mismatch");
                         commandRuntime.RejectPreparedMove(args);
                         lock (stateSync) if (ReferenceEquals(pendingCommand, pending)) pendingCommand = null;
@@ -155,6 +157,7 @@ namespace Pathfinding.UnitCommands
             int successfulFormationTargets = completed.SuccessfulTerminalCount;
             UnitFallbackSummary fallbackSummary = RunUnitFallbacks(completed);
             RecordFormationTargets(args, successfulFormationTargets + fallbackSummary.Succeeded);
+            RecordFormationExecution(args, completed, successfulFormationTargets, fallbackSummary);
             LogFormationOrderResult(completed, successfulFormationTargets, fallbackSummary);
         }
 
@@ -180,7 +183,7 @@ namespace Pathfinding.UnitCommands
                 $"selectorAssigned={completed.AssignedCount}, " +
                 $"terminalAttempts={completed.TerminalAttemptCount}, " +
                 $"terminalObserved={completed.ObservedTerminalCount}, " +
-                $"vanillaSkipped={completed.SkippedTerminalCount}, " +
+                $"terminalNotAttempted={completed.SkippedTerminalCount}, " +
                 $"terminalUnobserved={completed.TerminalAttemptCount - completed.ObservedTerminalCount}, " +
                 $"formationSucceeded={successfulFormationTargets}, " +
                 $"fallbackSucceeded={fallbackSummary.Succeeded}, " +

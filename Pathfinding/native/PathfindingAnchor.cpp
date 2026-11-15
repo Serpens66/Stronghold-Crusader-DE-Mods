@@ -441,6 +441,75 @@ struct Context {
 
 static bool ValidNode(const Context& c, int node) { return node >= 0 && node < c.map.n; }
 
+// A monotone raster ray has the minimum possible number of eight-neighbour steps.
+// Accept only dry, surcharge-free ground edges: its cost then attains the global
+// lower bound ground * Chebyshev(start,target), independently of any partial field.
+// Validate before emitting into the caller's one-byte-per-direction ABI buffer.
+// Replaying this immutable mask avoids another buffer and leaves failure sentinels
+// untouched. Both passes have linear work and at most two local bridge candidates.
+static bool TryDirectGroundRoute(const Map& map, const TraversalView& mask, int start, int target,
+    int ground, int moat, uint8_t* bytes, int capacity, QueryResult& result) {
+    if (moat != 0) return false;
+    const int sx = start % map.width, sy = start / map.width;
+    const int tx = target % map.width, ty = target / map.width;
+    const int ax = std::abs(tx - sx), ay = std::abs(ty - sy), length = std::max(ax, ay);
+    if (length == 0 || length > MaxSteps || length > capacity) return false;
+    const int signX = (tx > sx) - (tx < sx), signY = (ty > sy) - (ty < sy);
+    const bool majorX = ax >= ay;
+    const int minor = majorX ? ay : ax;
+    auto advance = [&](int& rx, int& ry, int& err) {
+        if (majorX) rx += signX; else ry += signY;
+        err += minor;
+        if (err >= length) { err -= length; if (majorX) ry += signY; else rx += signX; }
+    };
+    auto direction = [](int ox, int oy) {
+        // Clockwise native directions, no lookup outside the eight-neighbour range.
+        return oy < 0 ? (ox < 0 ? 7 : ox > 0 ? 1 : 0) :
+            oy > 0 ? (ox < 0 ? 5 : ox > 0 ? 3 : 4) : ox < 0 ? 6 : 2;
+    };
+    auto allowed = [&](int from, int to, int d) {
+        return (mask.outgoing(from, 0) & (1u << d)) != 0 &&
+            !(mask.outWet[from] & (1u << d)) && mask.base.penalty[to] == 0 &&
+            mask.cost(to, false, ground, 0) == u32(ground);
+    };
+    for (int pass = 0; pass < 2; ++pass) {
+        int x = sx, y = sy, error = length / 2, written = 0;
+        while (written < length) {
+            int nx = x, ny = y, nextError = error;
+            advance(nx, ny, nextError);
+            const int node = y * map.width + x, next = ny * map.width + nx;
+            const int d = direction(nx - x, ny - y);
+            if (allowed(node, next, d)) {
+                if (pass) bytes[written] = uint8_t(d);
+                ++written; x = nx; y = ny; error = nextError;
+                continue;
+            }
+            if (written + 2 > length) return false;
+            int ex = nx, ey = ny, endError = nextError;
+            advance(ex, ey, endError);
+            const int end = ey * map.width + ex;
+            bool bridged = false;
+            // Two reference steps advance the major axis twice. Their endpoints have
+            // at most three common neighbours, leaving at most two alternatives to
+            // the failed reference midpoint. No frontier, recursion or field expansion.
+            for (int first = 0; first < 8; ++first) {
+                const int mx = x + dx[first], my = y + dy[first];
+                if ((mx == nx && my == ny) || (unsigned)mx >= unsigned(map.width) || (unsigned)my >= unsigned(map.height) ||
+                    std::abs(ex - mx) > 1 || std::abs(ey - my) > 1) continue;
+                const int mid = my * map.width + mx, second = direction(ex - mx, ey - my);
+                if (!allowed(node, mid, first) || !allowed(mid, end, second)) continue;
+                if (pass) { bytes[written] = uint8_t(first); bytes[written + 1] = uint8_t(second); }
+                written += 2;
+                x = ex; y = ey; error = endError; bridged = true; break;
+            }
+            if (!bridged) return false;
+        }
+    }
+    result = QueryResult{};
+    result.status = Found; result.ground = result.length = length; result.cost = i64(ground) * length;
+    return true;
+}
+
 // Exact enclosure proof before a single route: the start's forward component over the same edges
 // (outgoing, as the backward A* reads them incoming) is exhausted within SingleFloodBudget nodes
 // without the target, so no route exists. The backward A* would instead settle the target's whole
@@ -506,10 +575,25 @@ static int Query(Context& c, Task& t, Scratch& sc, int start, int slot, int marg
     // does (directed graph). Answer that exactly instead of building a full-map sub-anchor per
     // query (AI units behind walls, 29.10.2026). Sub-anchors count too: the slots of a group whose
     // starts lie in another component then cost one exhausted sub-anchor, not one each (pf-iter-3).
+    bool directPossible = t.moat == 0;
+    const i64 directCost = i64(t.ground) * map.chebyshev(start, slot);
     for (size_t a = 0; a <= t.subs.size(); ++a) {
         const Stored& s = a == 0 ? *t.main : *t.subs[a - 1];
-        if (s.exhausted && s.at(start) == Unset && s.at(slot) != Unset) { r.status = Unreachable; r.flags = 0; return Ok; }
+        if (!s.exhausted && !directPossible) continue;
+        const u32 from = s.at(start);
+        if (from == Unset) {
+            if (s.exhausted && s.at(slot) != Unset) { r.status = Unreachable; r.flags = 0; return Ok; }
+            continue;
+        }
+        // Directed triangle inequality: any start->slot ray of cost C followed
+        // by slot->anchor would cost C + to. A larger exact start->anchor
+        // distance proves that ray impossible, before walking a long blocked ray.
+        if (directPossible) {
+            const u32 to = s.at(slot);
+            if (to != Unset && i64(from) > directCost + to) directPossible = false;
+        }
     }
+    if (directPossible && TryDirectGroundRoute(map, mask, start, slot, t.ground, t.moat, bytes, capacity, r)) return Ok;
     for (size_t a = 0; a <= t.subs.size(); ++a) {
         const Stored& s = a == 0 ? *t.main : *t.subs[a - 1];
         const u32 startDistance = s.at(start);
@@ -802,6 +886,12 @@ static int SingleRoute(Context* c, int player, int target, int ground, int moat,
     return Guard([&] {
         Scratch& sc = *c->scratch; int g = 0, w = 0; i64 cost = 0; const i64 before = sc.stats[SingleSettles];
         const TraversalView view(c->map, *mask, *c->surfaces, surfaceClass);
+        if (moat == 0) {
+            auto directStarted = Clock::now();
+            const bool direct = TryDirectGroundRoute(c->map, view, start, target, ground, moat, bytes, capacity, *result);
+            sc.stats[SingleNs] += Ns(directStarted);
+            if (direct) { ++sc.stats[SingleQueries]; MergeScratch(*c, sc); return Ok; }
+        }
         const int status = SingleSearch(c->map, view, sc, start, target, ground, moat, budget, capacity, g, w, cost);
         result->reserved = int(std::min<i64>(sc.stats[SingleSettles] - before, 0x7FFFFFFF));
         MergeScratch(*c, sc);

@@ -133,6 +133,182 @@ static void AppendResult(std::vector<i64>& snapshot, const QueryResult& r) {
     snapshot.insert(snapshot.end(), {r.status, r.ground, r.moat, r.length, r.flags, r.reserved, r.cost});
 }
 
+static void OpenGround(Fixture& f) {
+    std::fill(f.words.begin(), f.words.end(), 0xFFFFu);
+}
+
+static void BlockGroundTile(Fixture& f, int x, int y) {
+    f.words[f.node(x,y)] = 0;
+    for (int d = 0; d < 8; ++d) {
+        const int px = x - dx[d], py = y - dy[d];
+        if (px < 0 || px >= f.width || py < 0 || py >= f.height) continue;
+        f.words[f.node(px,py)] &= ~((1u << d) | (1u << (8+d)) | (1u << (16+d)));
+    }
+}
+
+// A minimum step count alone accepts the reported large L. The cross product also
+// bounds the actual emitted route to one raster cell from the reference segment.
+static void VerifyStraightRay(const Fixture& f, int start, int target,
+    const QueryResult& result, const std::vector<uint8_t>& path) {
+    f.verify(start,target,2,result,path,true);
+    const int sx = start % f.width, sy = start / f.width;
+    const int tx = target % f.width, ty = target / f.width;
+    const int vx = tx-sx, vy = ty-sy, length = std::max(std::abs(vx),std::abs(vy));
+    Check(result.length == length && result.ground == length && result.moat == 0,
+        "direct ray changes minimum length or ground classification");
+    Check(result.flags == 0 && result.reserved == 0, "direct ray reports anchor flags or A* settles");
+    int x = sx, y = sy;
+    for (size_t i = 0; i < path.size(); ++i) {
+        x += dx[path[i]]; y += dy[path[i]];
+        Check(std::abs((x-sx)*vy - (y-sy)*vx) <= length,
+            "minimum-cost route still makes a large L instead of following the segment");
+        Check(std::max(std::abs(tx-x),std::abs(ty-y)) == length-int(i)-1,
+            "direct ray does not advance along its major axis");
+    }
+}
+
+static void DirectGroundRayTests() {
+    Fixture f(65,65); OpenGround(f); f.publish();
+    const int start = f.node(32,32);
+    const int offsets[][2] = {{0,20},{0,-20},{20,0},{-20,0},{20,20},{20,-20},{-20,20},{-20,-20},
+        {3,20},{-3,20},{3,-20},{-3,-20},{20,3},{20,-3},{-20,3},{-20,-3},
+        {11,20},{-11,20},{11,-20},{-11,-20},{20,11},{20,-11},{-20,11},{-20,-11}};
+    std::vector<int> starts, targets;
+    std::vector<std::vector<uint8_t>> expected;
+    uint8_t bytes[MaxSteps+1];
+    for (const auto& offset : offsets) {
+        const int target = f.node(32+offset[0],32+offset[1]);
+        std::fill(std::begin(bytes),std::end(bytes),uint8_t(0xA5)); QueryResult result{};
+        // One settle cannot discover this route. Success must therefore avoid A*,
+        // rather than merely change the old search's direction order.
+        Check(mma_single_route_limited(f.context,1,target,1,0,2,start,1,bytes,MaxSteps,&result) == Ok,
+            "direct limited single ABI");
+        std::vector<uint8_t> path(bytes,bytes+result.length);
+        VerifyStraightRay(f,start,target,result,path);
+        Check(bytes[result.length] == 0xA5, "direct single writes past active route");
+        starts.push_back(start); targets.push_back(target); expected.push_back(path);
+    }
+    const int task = f.task(start,2,starts);
+    std::vector<uint8_t> pending;
+    auto result = f.query(task,start,targets[0],pending);
+    Check(result.status == Pending && result.length == 0, "direct ray bypasses task readiness");
+    f.step(4);
+    for (size_t i = 0; i < targets.size(); ++i) {
+        std::vector<uint8_t> path; result = f.query(task,start,targets[i],path);
+        VerifyStraightRay(f,start,targets[i],result,path);
+        Check(path == expected[i], "single and group direct rays disagree");
+    }
+    for (int workers : {1,2,4,8}) {
+        std::vector<uint8_t> batch(starts.size()*MaxSteps,0xA5);
+        std::vector<QueryResult> results(starts.size());
+        Check(mma_query_batch(f.context,task,starts.data(),targets.data(),int(starts.size()),8,workers,
+            batch.data(),MaxSteps,results.data()) == Ok, "direct batch ABI");
+        for (size_t i = 0; i < starts.size(); ++i) {
+            const auto& r = results[i];
+            std::vector<uint8_t> path(batch.begin()+i*MaxSteps,batch.begin()+i*MaxSteps+r.length);
+            VerifyStraightRay(f,start,targets[i],r,path);
+            Check(path == expected[i] && batch[i*MaxSteps+r.length] == 0xA5,
+                "direct batch changes bytes across workers or writes past active route");
+        }
+    }
+    f.surface(targets[0],0x80);
+    result = f.query(task,start,targets[1],pending);
+    Check(result.status == Stale && result.length == 0, "direct ray bypasses stale surface generation");
+    std::vector<QueryResult> stale(starts.size()); std::vector<uint8_t> staleBytes(starts.size()*MaxSteps,0xA5);
+    Check(mma_query_batch(f.context,task,starts.data(),targets.data(),int(starts.size()),8,8,
+        staleBytes.data(),MaxSteps,stale.data()) == Ok, "stale direct batch ABI");
+    for (const auto& r : stale) Check(r.status == Stale && r.length == 0, "direct batch bypasses stale task");
+}
+
+static void DirectGroundObstaclesAndGuards() {
+    {
+        Fixture f(50,50); OpenGround(f); BlockGroundTile(f,10,20); f.publish();
+        const int start = f.node(10,10), target = f.node(10,30);
+        uint8_t bytes[MaxSteps]; QueryResult result{};
+        Check(mma_single_route_limited(f.context,1,target,1,0,2,start,1,bytes,MaxSteps,&result) == Ok,
+            "bridged direct single ABI");
+        std::vector<uint8_t> path(bytes,bytes+result.length);
+        VerifyStraightRay(f,start,target,result,path);
+        const int task = f.task(target,2,{start}); f.step(1);
+        auto group = f.query(task,start,target,path); VerifyStraightRay(f,start,target,group,path);
+        // Entering surface restrictions are identical to edge restrictions; leaving a
+        // forbidden start remains legal and must not disable the direct certificate.
+        f.surface(start,0x80);
+        result = f.single(start,target,2,path); VerifyStraightRay(f,start,target,result,path);
+        f.surface(target,0x80);
+        result = f.single(start,target,2,path);
+        Check(result.status == Unreachable && result.length == 0, "direct ray enters a forbidden endpoint");
+    }
+    {
+        Fixture f(45,45); OpenGround(f);
+        for (int y = 0; y < 44; ++y) BlockGroundTile(f,22,y);
+        f.publish(); const int start = f.node(5,22), target = f.node(39,22);
+        std::vector<uint8_t> path; auto result = f.single(start,target,2,path);
+        f.verify(start,target,2,result,path,true);
+        Check(result.reserved > 0 && result.length > 34, "wide wall fails to retain the exact-search fallback");
+        BlockGroundTile(f,22,44); f.publish();
+        uint8_t bytes[MaxSteps]; std::fill(std::begin(bytes),std::end(bytes),uint8_t(0xA5));
+        Check(mma_single_route(f.context,1,target,1,0,2,start,bytes,MaxSteps,&result) == Ok,
+            "unreachable direct fallback ABI");
+        Check(result.status == Unreachable && result.length == 0 && bytes[0] == 0xA5,
+            "failed partial ray publishes bytes for an unreachable query");
+    }
+    {
+        Fixture f(35,35);
+        for (int y = 5; y < 29; ++y) f.edge(10,y,4);
+        f.publish(); const int start = f.node(10,5), target = f.node(10,29);
+        std::vector<uint8_t> path; auto result = f.single(start,target,2,path);
+        VerifyStraightRay(f,start,target,result,path);
+        result = f.single(target,start,2,path);
+        Check(result.status == Unreachable, "direct ray reverses a one-way edge");
+    }
+    {
+        Fixture f(35,35);
+        for (int y = 5; y < 29; ++y) if (y != 16 && y != 17) f.edge(10,y,4);
+        f.edge(10,16,3); f.edge(10,18,1); // Only the reverse of the bridge's second edge exists.
+        f.publish(); const int start = f.node(10,5), target = f.node(10,29);
+        uint8_t bytes[MaxSteps]; std::fill(std::begin(bytes),std::end(bytes),uint8_t(0xA5)); QueryResult result{};
+        Check(mma_single_route(f.context,1,target,1,0,2,start,bytes,MaxSteps,&result) == Ok &&
+            result.status == Unreachable && result.length == 0 && bytes[0] == 0xA5,
+            "bridge invents its second forward edge or leaks a failed partial ray");
+        const int task = f.task(target,2,{start}); f.step(1);
+        std::vector<uint8_t> path; result = f.query(task,start,target,path);
+        Check(result.status == Unreachable, "group bridge reverses its second one-way edge");
+        f.edge(11,17,5); f.publish();
+        result = f.single(start,target,2,path); VerifyStraightRay(f,start,target,result,path);
+    }
+    {
+        Fixture f(35,35); OpenGround(f); f.publish();
+        const int start = f.node(10,5), target = f.node(10,29);
+        uint8_t bytes[MaxSteps]; std::fill(std::begin(bytes),std::end(bytes),uint8_t(0xA5)); QueryResult result{};
+        Check(mma_single_route(f.context,1,target,1,0,2,start,bytes,0,&result) == Ok &&
+            result.status == OverLimit && result.length == 0 && bytes[0] == 0xA5,
+            "zero-capacity direct query writes or returns an overlong result");
+        Check(mma_single_route(f.context,1,target,1,0,2,start,bytes,23,&result) == Ok &&
+            result.status == OverLimit && result.length == 0 && bytes[23] == 0xA5,
+            "direct query ignores a short capacity");
+        Check(mma_single_route(f.context,1,start,1,0,2,start,bytes,0,&result) == Ok &&
+            result.status == Found && result.length == 0 && result.cost == 0,
+            "zero-length route changed its existing result");
+        Check(mma_single_route_limited(f.context,1,target,1,1,2,start,1,bytes,MaxSteps,&result) == Ok &&
+            result.status == OverLimit && result.reserved == 1,
+            "ground direct shortcut changes a moat-profile search budget");
+        std::vector<int> nodes(f.words.size()); std::vector<uint8_t> penalty(f.words.size(),1);
+        for (size_t i = 0; i < nodes.size(); ++i) nodes[i] = int(i);
+        int changed = 0;
+        Check(mma_penalty_update(f.context,1,nodes.data(),penalty.data(),int(nodes.size()),&changed) == Ok,
+            "direct penalty fixture ABI");
+        std::vector<uint8_t> path; result = f.single(start,target,2,path);
+        f.verify(start,target,2,result,path,false);
+        Check(result.cost == 48 && result.reserved > 0, "direct certificate ignores entering penalties");
+        // MaxCost saturation makes cost(to)==ground true despite a positive penalty.
+        // The certificate still promises surcharge-free edges, not accidental equality.
+        Check(mma_single_route_limited(f.context,1,target,255,0,2,start,1,bytes,MaxSteps,&result) == Ok &&
+            result.status == OverLimit && result.reserved == 1,
+            "saturated entering penalty incorrectly qualifies as a surcharge-free direct ray");
+    }
+}
+
 static void SubanchorAndBatchTests() {
     for (int shape = 0; shape < 2; ++shape) {
     std::vector<i64> baseline;
@@ -318,7 +494,8 @@ static void RandomDirectedTests() {
 
 int main(int argc, char** argv) {
     try { if (argc == 2 && std::string(argv[1]) == "--memory-probe") { MemoryWorkerProbe(); ProductionMemoryWorkerProbe(); return 0; }
-        Check(mma_contract() == 0x04000011, "private ABI"); CorridorTests(); SubanchorAndBatchTests(); RandomDirectedTests();
+        Check(mma_contract() == 0x04000011, "private ABI"); CorridorTests(); DirectGroundRayTests(); DirectGroundObstaclesAndGuards();
+        SubanchorAndBatchTests(); RandomDirectedTests();
         MemoryWorkerProbe(); ProductionMemoryWorkerProbe(); AllocationFailureReentryTests();
         std::cout << "PASS: " << assertions << " production native surface/core assertions.\n"; return 0; }
     catch (const std::exception& error) { std::cerr << "FAIL: " << error.what() << " after " << assertions << " assertions.\n"; return 1; }
