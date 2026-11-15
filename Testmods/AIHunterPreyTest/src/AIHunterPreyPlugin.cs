@@ -14,7 +14,7 @@ namespace AIHunterPreyTest
 {
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     [BepInDependency("000shcdese", "2.14.0")]
-    [BepInDependency("APIShared_Serp", "0.54.0")]
+    [BepInDependency("APIShared_Serp", "0.55.0")]
     [BepInDependency("ImprovedHunters_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class AIHunterPreyPlugin : BaseUnityPlugin

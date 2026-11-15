@@ -190,11 +190,12 @@ namespace AIHunterPreyTest
         private static bool CanAfford(GamePlayerManagerAPI players, GameBuildingManagerAPI api, int playerId)
         {
             eStructs type = eStructs.STRUCT_HUNTERS_HUT;
-            return Has(players, playerId, eGoods.STORED_WOOD_PLANKS, api.GetWoodCost(type)) &&
-                Has(players, playerId, eGoods.STORED_STONE_BLOCKS, api.GetStoneCost(type)) &&
-                Has(players, playerId, eGoods.STORED_IRON_INGOTS, api.GetIronIngotCost(type)) &&
-                Has(players, playerId, eGoods.STORED_PITCH_RAW, api.GetRawPitchCost(type)) &&
-                Has(players, playerId, eGoods.STORED_GOLD, api.GetGoldCost(type));
+            if (!APIShared.Buildings.ConstructionCosts.TryGetCurrent(APIShared.Buildings.ConstructionCostTarget.FromStructure(type), out var cost, out _)) return false;
+            return Has(players, playerId, eGoods.STORED_WOOD_PLANKS, cost.Wood) &&
+                Has(players, playerId, eGoods.STORED_STONE_BLOCKS, cost.Stone) &&
+                Has(players, playerId, eGoods.STORED_IRON_INGOTS, cost.Iron) &&
+                Has(players, playerId, eGoods.STORED_PITCH_RAW, cost.Pitch) &&
+                Has(players, playerId, eGoods.STORED_GOLD, cost.Gold);
         }
 
         private static bool Has(GamePlayerManagerAPI players, int playerId, eGoods good, int required) =>

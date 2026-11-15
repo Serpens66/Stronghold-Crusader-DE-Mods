@@ -1,0 +1,11 @@
+{
+  "GUID": "CrashDiagnostics_Serp",
+  "Author": "Serpens66",
+  "Name": "Crash Diagnostics (diagnostic test build)",
+  "Description": "Temporary, local crash evidence collection. Diagnostic build only; does not change gameplay or saves. Windows-tested Proton pilot requires separate Proton validation.",
+  "Version": "0.1.1",
+  "MinimumScriptExtenderVersion": "2.14.3",
+  "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.53.0" }],
+  "Manifest": 1,
+  "NetworkMode": 0
+}
