@@ -114,5 +114,7 @@ namespace Pathfinding.UnitCommands
     internal static class GatePolicyNeutrality
     {
         internal static System.Func<int, bool> Current;
+        // The published snapshot's direction masks (identity changes on every publication).
+        internal static System.Func<byte[][]> CurrentMasks;
     }
 }

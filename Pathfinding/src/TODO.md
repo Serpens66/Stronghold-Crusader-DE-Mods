@@ -401,22 +401,46 @@ Für freundliche Grabenquerung und menschliche Assassinenwege fehlt weiterhin ei
 
 Messmethodik und vorhandene Werkzeuge: [AGENTS/performance.md](../../AGENTS/performance.md), [Ingame-Testverfahren](../../AutomatisierungTest.md). Die am 13.11.2026 geprüften Release-Fixes und ihre Ergebnisse bleiben separat in [.work/a/perf-release/001/Ergebnis.txt](../../.work/a/perf-release/001/Ergebnis.txt); sie sind keine Umsetzung der hier aufgeführten Maßnahmen.
 
-### G10: Wegform bei größeren Hindernissen untersuchen (optional)
+### G10: Wegform bei größeren Hindernissen
 
-- [ ] **Optionaler Folgeauftrag, keine aktuelle Umsetzungsfreigabe:** Nach der
-  Korrektur der Richtungswahl auf freien Flächen prüfen, ob Wege um größere
-  Hindernisse noch unnötige sichtbare Knicke oder räumliche Umwege enthalten.
-  Gleich teure Wege im diskreten Kostenmodell von tatsächlich teureren Wegen
-  unterscheiden; Kartenprojektion und echte Bewegung berücksichtigen.
+- [ ] **Umgesetzt in 0.1.9 (16.11.2026); Host/Client-Abnahme offen.**
+  Ursache: Gleich teure gerade/diagonale Schritte plus die Richtungswahl
+  „niedrigster Index zuerst“ in `Descend` erzeugten große L-Formen. Der
+  Direktstrahl aus 0.1.8 half nur bei vollständig freier Strecke. Neu begradigt
+  `StraightenRoute` im nativen Kern jede gefundene Boden- oder Grabenroute
+  kostenneutral (Rasterstrahl nur bei erlaubten Kanten und Kosten ≤ Abschnitt).
+  Das ist ohne eigene Option fest in „Gruppenwege gemeinsam berechnen“ und die
+  schnelle Einzelwegsuche eingebaut (Nutzerentscheidung vom 16.11.2026).
 
-Zuerst den aktuellen Produktionskern als Vergleichsstand festhalten und mit
-identischen Anfragen messen: Wegqualität, gesamte CPU-Zeit, langsame Einzelanfragen
-(p95/p99 und Maximum), Suchknoten, Speicher und Vanilla-/Budget-Rückfälle.
-Freie Flächen, Mauerringe, Engstellen, gerichtete Kanten und große Gruppen einbeziehen.
-Flüssiges Spielen und kurze Suchzeiten behalten Vorrang vor schöneren Wegen.
-Eine weitere Such- oder Glättungsmaßnahme nur mit belegtem Nutzen und gesonderter
-Entscheidung über gemessene Mehrkosten erwägen; keine zusätzliche Suche oder
-Speicherhaltung allein zur optischen Verbesserung voraussetzen.
+Offline-Ergebnis siehe [Findings/RouteShape.md](../Findings/RouteShape.md):
+
+- **Kosten:** Keine Route wird teurer, kein Statuswechsel. Etwa 15 % der Routen
+  werden billiger, weil Anker-Umwege wegfallen.
+- **Wegform:** Im echten Capture halbieren sich die geraden Teilstücke pro Route
+  ungefähr.
+- **Laufzeit:** Einzelwege bleiben unverändert. Gruppenbefehle kosten je Einheit
+  etwa 2–10 µs mehr, gemessen +13–73 % bzw. +6–26 ms je 10.000 Einheiten.
+
+Die Gruppenmehrkosten hat der Nutzer am 16.11.2026 akzeptiert, solange FPS und
+Ticks nicht spürbar leiden. Der Einzelspieler-Spieltest vom selben Tag ist bestanden:
+gültige Routen, gleiche Ankunft und gleiche Befehlskosten bei 5000 Einheiten. Details
+stehen in Findings/RouteShape.md. Tooltips und Version 0.1.9 sind angepasst.
+
+Offen:
+
+- Host/Client-Abnahme (die Routenbytes ändern sich; die Version muss übereinstimmen).
+- Im Spieltest war die Begradigung nicht sichtbar: Bei Spieler-Gruppenbefehlen liefen
+  nur 18–19 Mitglieder über den Pathfinding-Routenbau, und deren Wege waren bereits
+  gerade. Ein Spielszenario mit großer, weit verteilter Gruppe steht noch aus.
+- Eigener Punkt, nicht durch G10 verursacht: Eine Erreichbarkeits-Neuberechnung nach
+  `accessChanges`/`portals` belegte mit 5000 laufenden Einheiten 7–9 s lang die
+  Simulation.
+
+Das Werkzeug [tools/RouteShape](../tools/RouteShape/Run-RouteShape.ps1) vergleicht
+Basis und Arbeitsstand auf identischen Anfragen. Freie Flächen, Mauerringe,
+Engstellen, gerichtete Kanten, Gräben, Strafkacheln und große Gruppen sind
+enthalten. Flüssiges Spielen und kurze Suchzeiten behalten Vorrang vor schöneren
+Wegen.
 
 ### G11: Grabenquerung für weitere Einheitentypen (optional, großer Umfang)
 

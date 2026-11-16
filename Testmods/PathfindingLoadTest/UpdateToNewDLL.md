@@ -49,3 +49,23 @@ Their full current-hash gate, write, resource and caller proofs are retained in
 from unproven population-limit explanations. The fixture reads these fields only.
 Creation/selection/deletion observations preserve actual IDs and full health/life
 snapshots; a healthy native dissolve is not attributed to Pathfinding without its entry path.
+
+Route shape read (Fixture.Shape.cs, shape-* scenarios): after the hash-gated command the
+fixture reads each member's published direction buffer read-only at the same unit-manager
+base (RVA 0x67E8400) + 0xB4FE78 + one-based unitId * 1000 bytes, two 4-bit directions per
+byte (low nibble first), r_PathPlanLength directions. This is the existing hash-bound
+publication contract documented in Pathfinding/UpdateToNewDLL.md (unit manager buffer,
+capacity 1000 bytes / 2000 directions). Identity, Global-ID and length are checked first;
+directions above 7 count as invalid. No write, call or hook; unknown hash fails before.
+
+## wall-5000-gate: portal table read (Fixture.Gate.cs)
+
+Read-only, hash-bound to the same SHA256 as the move delegate (BindMove runs first; no
+fallback). Path manager / portal table base RVA `0x60AD660`: int `[0]` is the highest
+used id + 1 (written only by `0xF4540` each tick, plus `0x71895` at load); entry `id`
+(1..199) at int index `id*0x81`, state `+0x809` (0 = free), building `+0x80C`. Entries are
+created by `0xD8510` (gatehouses via placement `0x6D580`, ladders via `0x1950B0`).
+Evidence: `portal-table-audit.md` of the 16.11.2026 resweep analysis (F4540 pseudocode
+checked against the semantic baseline). Used only for log output, never for PASS/FAIL.
+Update: re-derive the base from `0xF4540`/`0xE2610` RIP operands and the field indices
+from `0xD8510`.

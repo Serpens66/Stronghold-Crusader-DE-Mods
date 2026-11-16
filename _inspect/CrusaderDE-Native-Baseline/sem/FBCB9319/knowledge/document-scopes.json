@@ -1304,6 +1304,12 @@
       "integrationSections": ["Shared adapter and hook evidence [mod integration]"]
     },
     {
+      "file": "PORTAL_TABLE.md",
+      "scope": "vanilla",
+      "components": [],
+      "integrationSections": []
+    },
+    {
       "file": "RUNTIME_STATE_ACCESS.md",
       "scope": "vanilla+integration",
       "components": ["GameMemReader", "GameStateProbe", "Script Extender"],

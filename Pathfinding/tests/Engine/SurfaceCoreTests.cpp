@@ -492,10 +492,140 @@ static void RandomDirectedTests() {
     }
 }
 
+// Maximal digital straight pieces of a route (at most two adjacent directions, the minor one only
+// in single steps, interior major runs differing by at most one). A raster ray is one piece; the
+// large L of a lowest-direction-first descent is two or more.
+static int StraightPieces(const std::vector<uint8_t>& path) {
+    int pieces = 0; size_t i = 0;
+    while (i < path.size()) {
+        ++pieces; const int a = path[i]; int b = -1; size_t j = i + 1;
+        std::vector<std::pair<int,int>> runs{{a,1}};
+        for (; j < path.size(); ++j) {
+            const int d = path[j];
+            if (d != a && b < 0) { if (((d-a)&7) != 1 && ((a-d)&7) != 1) break; b = d; }
+            if (d != a && d != b) break;
+            auto next = runs; if (next.back().first == d) ++next.back().second; else next.push_back({d,1});
+            int longA = 0, longB = 0, countA = 0, countB = 0;
+            for (auto& r : next) { if (r.first == a) { countA += r.second; longA = std::max(longA,r.second); } else { countB += r.second; longB = std::max(longB,r.second); } }
+            bool ok = !(longA > 1 && longB > 1);
+            const int major = longB > 1 || (longA <= 1 && countB > countA) ? b : a;
+            int lo = INT32_MAX, hi = 0;
+            for (size_t k = 1; k + 1 < next.size(); ++k) if (next[k].first == major) { lo = std::min(lo,next[k].second); hi = std::max(hi,next[k].second); }
+            if (lo != INT32_MAX && (hi - lo > 1 || (next.front().first == major && next.front().second > hi + 1) || (next.back().first == major && next.back().second > hi + 1))) ok = false;
+            if (!ok) break;
+            runs.swap(next);
+        }
+        i = j;
+    }
+    return pieces;
+}
+
+// Routes around larger obstacles stay optimal but consist of few straight pieces (TODO G10):
+// before the obstacle, around its corner and after it, instead of long L-shaped sections.
+static void StraightenedObstacleTests() {
+    for (int shape = 0; shape < 2; ++shape) {
+        Fixture f(80,80); OpenGround(f);
+        if (shape == 0) for (int y = 0; y < 50; ++y) BlockGroundTile(f,40,y);          // long wall, open south end
+        else for (int y = 25; y < 55; ++y) for (int x = 30; x < 50; ++x) BlockGroundTile(f,x,y); // large block
+        f.publish();
+        // Every pair's raster ray crosses the obstacle, so the direct ray cannot answer it.
+        const int pairs[2][4][4] = {{{8,10,72,12},{8,30,70,35},{10,45,75,20},{5,20,70,44}},
+                                    {{8,30,72,48},{10,40,70,30},{5,50,75,35},{12,28,68,52}}};
+        std::vector<int> s, t;
+        for (int i = 0; i < 4; ++i) { const int* p = pairs[shape][i]; s.push_back(f.node(p[0],p[1])); t.push_back(f.node(p[2],p[3])); }
+        for (int i = 0; i < 4; ++i) {
+            std::vector<uint8_t> path; auto r = f.single(s[i],t[i],0,path);
+            f.verify(s[i],t[i],0,r,path,true);
+            Check(r.reserved > 0, "obstacle fixture must need the exact search, not the direct ray");
+            Check(StraightPieces(path) <= 3, "single route around a large obstacle keeps L-shaped sections");
+        }
+        for (int i = 0; i < 4; ++i) {
+            const int task = f.task(t[i],0,{s[i]}); f.step(2);
+            std::vector<uint8_t> path; auto r = f.query(task,s[i],t[i],path);
+            f.verify(s[i],t[i],0,r,path,false);
+            Check(r.cost == f.distance(s[i],t[i],0), "group route around an obstacle is not optimal");
+            Check(StraightPieces(path) <= 3, "group route around a large obstacle keeps L-shaped sections");
+        }
+        i64 stats[StatCount] = {}; Check(mma_stats(f.context,stats,StatCount,0) == Ok, "stats");
+        Check(stats[StraightenRoutes] > 0 && stats[StraightenSegments] > 0 && stats[StraightenCapped] == 0, "straightening counters");
+    }
+}
+
+// Independent weighted reference: entering cost (wet ? moat : ground) + penalty * ground, capped
+// at MaxCost, over the same directed edges as the core (ground-only: dry ground edges).
+static i64 WeightedDistance(const Fixture& f, const std::vector<uint8_t>& penalty, int start, int target, int ground, int moat) {
+    std::vector<i64> best(f.words.size(), -1);
+    std::priority_queue<std::pair<i64,int>, std::vector<std::pair<i64,int>>, std::greater<>> queue;
+    best[start] = 0; queue.push({0,start});
+    while (!queue.empty()) {
+        auto [d, v] = queue.top(); queue.pop();
+        if (d != best[v]) continue; if (v == target) return d;
+        for (int k = 0; k < 8; ++k) {
+            const int x = v % f.width + dx[k], y = v / f.width + dy[k];
+            if (x < 0 || y < 0 || x >= f.width || y >= f.height) continue;
+            const bool wet = (f.words[v] & (1u << (16 + k))) != 0;
+            const bool ok = moat ? (f.words[v] & (1u << k)) != 0 : ((f.words[v] & (1u << (8 + k))) != 0 && !wet);
+            if (!ok) continue;
+            const int u = f.node(x,y);
+            const i64 step = std::min<i64>(MaxCost, (moat && wet ? moat : ground) + i64(penalty[u]) * ground);
+            if (best[u] < 0 || d + step < best[u]) { best[u] = d + step; queue.push({best[u],u}); }
+        }
+    }
+    return -1;
+}
+
+// Straightening compares the exact cost of each replaced section, so moat costs, entering penalties
+// and directed edges never make a route more expensive than the weighted optimum.
+static void RandomWeightedTests() {
+    std::mt19937 random(0x51A1647);
+    for (int seed = 0; seed < 30; ++seed) {
+        Fixture f(24, 20);
+        std::vector<uint8_t> penalty(f.words.size(), 0);
+        for (int y = 0; y < f.height; ++y) for (int x = 0; x < f.width; ++x) {
+            const bool wetTile = random() % 6 == 0;
+            for (int d = 0; d < 8; ++d) {
+                const int nx = x + dx[d], ny = y + dy[d];
+                if (nx < 0 || ny < 0 || nx >= f.width || ny >= f.height || random() % 10 < 2) continue;
+                f.edge(x,y,d,wetTile && random() % 2 == 0);
+            }
+            if (random() % 5 == 0) penalty[f.node(x,y)] = uint8_t(1 + random() % 3);
+        }
+        f.publish();
+        std::vector<int> nodes(f.words.size()); for (size_t i = 0; i < nodes.size(); ++i) nodes[i] = int(i);
+        // Phase 0: random penalties; 1: half of them cleared again; 2: none left. The flat-cost
+        // shortcut of the straightening applies only when no penalized node remains (phase 2).
+        for (int phase = 0; phase < 3; ++phase) {
+        if (phase == 1) for (auto& p : penalty) if (random() % 2 == 0) p = 0;
+        if (phase == 2) std::fill(penalty.begin(), penalty.end(), uint8_t(0));
+        int changed = 0; Check(mma_penalty_update(f.context,1,nodes.data(),penalty.data(),int(nodes.size()),&changed) == Ok, "weighted penalty ABI");
+        Check((f.context->mask(1)->penalized == 0) == (phase == 2 || std::all_of(penalty.begin(), penalty.end(), [](uint8_t p) { return p == 0; })),
+            "penalized node count disagrees with the written penalties");
+        for (int i = 0; i < 16; ++i) {
+            const int start = int(random() % f.words.size()), target = int(random() % f.words.size());
+            const int ground = 1 + int(random() % 3), moat = (i & 1) ? ground + 1 + int(random() % 5) : 0;
+            uint8_t bytes[MaxSteps]; QueryResult r{};
+            Check(mma_single_route(f.context,1,target,ground,moat,0,start,bytes,MaxSteps,&r) == Ok, "weighted single ABI");
+            const i64 expected = WeightedDistance(f,penalty,start,target,ground,moat);
+            Check((r.status == Found) == (expected >= 0), "weighted reachability");
+            if (r.status != Found) continue;
+            i64 cost = 0; int v = start;
+            for (int k = 0; k < r.length; ++k) {
+                const int d = bytes[k]; const bool wet = (f.words[v] & (1u << (16 + d))) != 0;
+                Check(moat ? (f.words[v] & (1u << d)) != 0 : ((f.words[v] & (1u << (8 + d))) != 0 && !wet), "weighted route edge");
+                v += dy[d] * f.width + dx[d];
+                cost += std::min<i64>(MaxCost, (moat && wet ? moat : ground) + i64(penalty[v]) * ground);
+            }
+            Check(v == target, "weighted route endpoint");
+            Check(cost == expected && r.cost == expected, "straightened weighted route is not optimal");
+        }
+        }
+    }
+}
+
 int main(int argc, char** argv) {
     try { if (argc == 2 && std::string(argv[1]) == "--memory-probe") { MemoryWorkerProbe(); ProductionMemoryWorkerProbe(); return 0; }
-        Check(mma_contract() == 0x04000011, "private ABI"); CorridorTests(); DirectGroundRayTests(); DirectGroundObstaclesAndGuards();
-        SubanchorAndBatchTests(); RandomDirectedTests();
+        Check(mma_contract() == 0x04000012, "private ABI"); CorridorTests(); DirectGroundRayTests(); DirectGroundObstaclesAndGuards();
+        SubanchorAndBatchTests(); RandomDirectedTests(); StraightenedObstacleTests(); RandomWeightedTests();
         MemoryWorkerProbe(); ProductionMemoryWorkerProbe(); AllocationFailureReentryTests();
         std::cout << "PASS: " << assertions << " production native surface/core assertions.\n"; return 0; }
     catch (const std::exception& error) { std::cerr << "FAIL: " << error.what() << " after " << assertions << " assertions.\n"; return 1; }

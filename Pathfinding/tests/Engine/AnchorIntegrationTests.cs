@@ -1740,14 +1740,18 @@ namespace EngineHarness
 
                 // Gate changes: an unchanged access snapshot requests nothing; a changed portal entry
                 // without a building marks nothing and needs no resweep; one whose building footprint
-                // is unknown falls back to a resweep, as does a changed portal table size.
+                // is unknown falls back to a resweep. The table's [0] is the highest used id + 1
+                // (F4540, FBCB9319) and entries keep their ids, so a moved bound is diffed per entry:
+                // a bound that only takes in a slot without a building (free, or a ladder entry: type 1
+                // stores a unit, D8510) changes no mask word and needs no resweep.
                 int* portal = (int*)nativePathManager;
                 int savedCount = portal[0], gate = 0x81, savedState = portal[gate + 0x809], savedBuilding = portal[gate + 0x80C], savedOpen = portal[gate + 0x80F];
-                AnchorTick(++ticks); long gateSweeps = anchorResweeps;
+                Check(savedCount != 2 && savedBuilding == 0, "fixture portal slot 1 has a building or lies below the test bound");
+                AnchorTick(++ticks); long gateSweeps = anchorResweeps, gateBounds = anchorPortalBoundChanges;
                 AnchorTick(++ticks);
                 Check(anchorResweeps == gateSweeps, "an unchanged access snapshot requests a resweep");
                 portal[0] = 2; AnchorTick(++ticks);
-                Check(anchorResweeps == gateSweeps + (savedCount == 2 ? 0 : 1), "a changed portal table size does not resweep");
+                Check(anchorResweeps == gateSweeps && anchorPortalBoundChanges == gateBounds + 1, "a moved portal id bound over a slot without a building resweeps or is not counted");
                 gateSweeps = anchorResweeps;
                 portal[gate + 0x80F] = savedOpen == 0 ? 1 : 0; portal[gate + 0x80C] = 0; AnchorTick(++ticks);
                 Check(anchorResweeps == gateSweeps, "a changed portal without building forces a resweep");
@@ -1756,6 +1760,42 @@ namespace EngineHarness
                 portal[0] = savedCount; portal[gate + 0x809] = savedState; portal[gate + 0x80C] = savedBuilding; portal[gate + 0x80F] = savedOpen;
                 AnchorTick(++ticks);
                 for (int i = 0; i < (total + AnchorResweepNodesPerTick - 1) / AnchorResweepNodesPerTick * 2; i++) AnchorTick(++ticks);
+
+                // A newly published gate route policy marks exactly the nodes whose from-tile byte
+                // changed for some player (null array or a tile past its end: all directions allowed).
+                {
+                    int policyNode = -1, policyTile = -1;
+                    for (int node = 0; node < total && policyNode < 0; node++)
+                    {
+                        int tile = GameTileManagerAPI.Instance.GetTileId(node % MapWidth, node / MapWidth);
+                        if (IsValidTileId(tile)) { policyNode = node; policyTile = tile; }
+                    }
+                    Check(policyNode >= 0, "policy fixture has no valid tile");
+                    int aliases = 0;
+                    for (int node = 0; node < total; node++)
+                        if (GameTileManagerAPI.Instance.GetTileId(node % MapWidth, node / MapWidth) == policyTile) aliases++;
+                    byte[][] published = new byte[9][];
+                    GatePolicyNeutrality.CurrentMasks = () => published;
+                    AnchorTick(++ticks);
+                    long policyChanges = anchorPolicyChanges, policyNodes = anchorPolicyNodes;
+                    byte[] changed = new byte[policyTile + 1];
+                    for (int i = 0; i < changed.Length; i++) changed[i] = 0xFF;
+                    changed[policyTile] = 0xFE;
+                    published = new byte[9][]; published[1] = changed;
+                    AnchorTick(++ticks);
+                    Check(anchorPolicyChanges == policyChanges + 1 && anchorPolicyNodes == policyNodes + aliases,
+                        $"a changed policy byte marked {anchorPolicyNodes - policyNodes} nodes, expected {aliases} (node {policyNode})");
+                    byte[] same = (byte[])changed.Clone();
+                    published = new byte[9][]; published[1] = same;
+                    AnchorTick(++ticks);
+                    Check(anchorPolicyChanges == policyChanges + 2 && anchorPolicyNodes == policyNodes + aliases,
+                        "a republished identical policy marks nodes");
+                    AnchorTick(++ticks);
+                    Check(anchorPolicyChanges == policyChanges + 2, "an unchanged policy publication is counted again");
+                    GatePolicyNeutrality.CurrentMasks = null;
+                    AnchorTick(++ticks);
+                    for (int i = 0; i < (total + AnchorResweepNodesPerTick - 1) / AnchorResweepNodesPerTick * 2; i++) AnchorTick(++ticks);
+                }
 
                 // Steady state: no terrain change, no task work, not a player-request tick.
                 AnchorTick(++ticks);

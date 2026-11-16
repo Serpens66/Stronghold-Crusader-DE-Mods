@@ -22,6 +22,12 @@ namespace PathfindingLoadTest
         private readonly bool startupProbe;
         private readonly bool watchBenchmark;
         private readonly bool wall;
+        // "-gate" scenarios place one own gatehouse before the topology wait (Fixture.Gate.cs).
+        private readonly bool gate;
+        // "-long" scenarios observe 30 instead of 6 samples (route maintenance after the command).
+        private readonly int samples;
+        // "gap" or "end" for the route shape scenarios (Fixture.Shape.cs), otherwise null.
+        private readonly string shape;
         private readonly int count, width, height;
         private readonly Action<string> log;
         private readonly List<Identity> units = new List<Identity>();
@@ -50,12 +56,16 @@ namespace PathfindingLoadTest
             this.map = map; this.log = log;
             startupProbe = scenario == "startup-probe";
             watchBenchmark = scenario == "watch-bench";
-            wall = scenario.StartsWith("wall-", StringComparison.Ordinal);
-            count = scenario.EndsWith("5000", StringComparison.Ordinal) ? 5000 : 1000;
+            shape = scenario == "shape-gap" ? "gap" : scenario == "shape-end" ? "end" : scenario == "shape-far" ? "far" : null;
+            wall = scenario.StartsWith("wall-", StringComparison.Ordinal) || shape != null;
+            count = shape != null ? 100 : scenario.Contains("5000") ? 5000 : 1000;
+            samples = scenario.EndsWith("-long", StringComparison.Ordinal) ? 30 : 6;
+            gate = scenario.EndsWith("-gate", StringComparison.Ordinal);
             width = count == 5000 ? 100 : 40; height = count == 5000 ? 60 : 30;
         }
         internal static bool Owns(string scenario) => scenario == "wall-1000" || scenario == "wall-5000" ||
-            scenario == "open-1000" || scenario == "open-5000" || scenario == "watch-bench" || scenario == "startup-probe";
+            scenario == "open-1000" || scenario == "open-5000" || scenario == "watch-bench" || scenario == "startup-probe" ||
+            scenario == "shape-gap" || scenario == "shape-end" || scenario == "shape-far" || scenario == "wall-5000-long" || scenario == "wall-5000-gate";
         internal IEnumerable<AutomationStep> Steps()
         {
             if (startupProbe)
@@ -75,7 +85,8 @@ namespace PathfindingLoadTest
             yield return new AutomationStep("prepare-region", TimeSpan.FromSeconds(120), Region, true);
             yield return new AutomationStep("spawn", TimeSpan.FromSeconds(120), Spawn, true);
             yield return new AutomationStep("initialize-select", TimeSpan.FromSeconds(120), Select, true);
-            yield return new AutomationStep("move-observe", TimeSpan.FromSeconds(180), Move, true);
+            if (shape != null) yield return new AutomationStep("move-shape", TimeSpan.FromSeconds(240), MoveShape, true);
+            else yield return new AutomationStep("move-observe", TimeSpan.FromSeconds(180), Move, true);
         }
         private IEnumerable<AutomationWait> ObserveStartup(AutomationRun run)
         {
@@ -151,10 +162,13 @@ namespace PathfindingLoadTest
             Require(found, "No legal flat terrain region with sufficient vacant spawn sites; required=" + count +
                 " maxFreeCandidate=" + maxFreeCandidate + " rejected=[" + rejectionSummary + "]");
             targetX = originX + width + 24; targetY = originY + height / 2;
+            if (shape != null) ShapeTarget(originX, originY, out targetX, out targetY);
             run.InSimulation(run.CurrentMission, () => { PrepareWall(); return 0; });
+            if (gate) foreach (var wait in PlaceGate(run)) yield return wait;
             foreach (var wait in run.SetPause(run.CurrentMission, false)) yield return wait;
             yield return run.WaitForTicks(run.CurrentMission, 48);
             foreach (var wait in run.SetPause(run.CurrentMission, true)) yield return wait;
+            if (gate) log("gate portals after topology wait [" + run.InSimulation(run.CurrentMission, DescribePortals) + "]");
             run.InSimulation(run.CurrentMission, () => { VerifyWall(); RequireTargetFree(); return 0; });
             log("region x=" + originX + " y=" + originY + " w=" + width + " h=" + height + " elevation=" + elevation +
                 " target=" + targetX + "," + targetY + " wallVerified=" + wall);
@@ -213,6 +227,7 @@ namespace PathfindingLoadTest
             for (int yy = top; yy <= bottom; yy++)
                 if (!Free(x + width + 10, yy, out h2)) return RejectRegion("occupied-wall-column");
             if (!Free(x + width + 24, y + height / 2, out h2)) return RejectRegion("occupied-target");
+            if (shape != null) { ShapeTarget(x, y, out int sx, out int sy); if (!Free(sx, sy, out h2)) return RejectRegion("occupied-shape-target"); }
             elevation = h;
             return true;
         }
@@ -263,6 +278,7 @@ namespace PathfindingLoadTest
                 " requestedAdd=" + missingStone + " accepted=" + added);
             Require(afterStone >= requiredStone, "Insufficient actual native stone storage for walls");
             int wx = originX + width + 10, middle = originY + height / 2;
+            if (shape != null) { PrepareShapeWall(wx, middle); return; }
             var api = GameBuildingManagerAPI.Instance;
             api.CreateWall(owner, wx, originY - 12, wx, middle - 3, eMappers.MAPPER_WALL);
             LogWallOutcome("upper", wx, originY - 12, middle - 3);
@@ -277,7 +293,7 @@ namespace PathfindingLoadTest
                 for (int x = originX; x <= originX + width + 28; x++)
                 {
                     int tile = api.GetTileId(x, y);
-                    bool expected = wall && x == wx && (y <= middle - 3 || y >= middle + 3);
+                    bool expected = shape != null ? ShapeWallExpected(x, y, wx, middle) : wall && x == wx && (y <= middle - 3 || y >= middle + 3);
                     bool actual = (api.GetTilePropertyFlag(tile) & TilePropertyFlag.IsWall) != 0;
                     Require(actual == expected, "Wall topology differs at " + x + "," + y);
                     if (expected)
@@ -396,7 +412,7 @@ namespace PathfindingLoadTest
             });
             Require(acceptedTargets > 0, "No retained member changed target after the command");
             foreach (var wait in run.SetPause(run.CurrentMission, false)) yield return wait;
-            for (int sample = 1; sample <= 6; sample++)
+            for (int sample = 1; sample <= samples; sample++)
             {
                 yield return run.WaitForTicks(run.CurrentMission, 100);
                 var state = run.InSimulation(run.CurrentMission, Observe);
@@ -406,7 +422,7 @@ namespace PathfindingLoadTest
                     " ownerMismatch=" + state.OwnerMismatch + " typeMismatch=" + state.TypeMismatch +
                     " details=[" + state.Details + "]");
                 Require(state.Invalid == 0 && state.Dead == 0 && state.Live == count, "Fixture units died or identities changed");
-                if (sample == 6) Require(state.Moved > 0, "No retained unit progressed after 600 observed ticks");
+                if (sample == samples) Require(state.Moved > 0, "No retained unit progressed after 600 observed ticks");
             }
             foreach (var wait in run.SetPause(run.CurrentMission, true)) yield return wait;
             log("complete count=" + count + " wall=" + wall + " commandStopwatchTicks=" + commandTicks);

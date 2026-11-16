@@ -1232,7 +1232,8 @@ Regression: existing BuildPreview.Tests production memory fixture covers all sev
 - Update audit: F4930 profile argument/branch; F32B0 versus F3060; DAAC0/DA590;
   E1640 surface count; DB650 and its native unsafe fallback; 196280 publication;
   1855A0/DCE60/DCD60 consumers; SE surface bypass; building/Goodsyard exceptions.
-- Native route-core ABI `0x04000011` and managed adapter must ship together.
+- Native route-core ABI (currently `0x04000012`, see "Route straightening" below)
+  and managed adapter must ship together.
   New surface write/update exports carry one metadata byte per map node; task
   and single-route functions carry the class explicitly after moat cost.
 - Classes are private ABI integers: `0=Any`, `1=LargeSearch`,
@@ -1289,3 +1290,24 @@ exception/reentry paths, and failed subanchor publication/retry. Under the teste
 with identical route outputs and counted peak 598,563,448 bytes. Evidence:
 `.work/a/pf-surface/001/native-abi11-tests.log`. This proves the tested internal
 budget contract; actual multiplayer acceptance is a separate requirement.
+
+### Route straightening (private ABI `0x04000012`, TODO G10)
+
+`StraightenRoute` post-processes every route the core finds (field descents,
+local box and via-anchor answers, sub-anchors, sub-single and single routes). It
+replaces route sections by the same raster ray as `TryDirectGroundRoute` when
+every ray edge exists in the task's traversal view (directed edges, ground-only
+dry edges, surface class) and the ray's summed entering costs are at most the
+replaced section's exact cost. Routes therefore never become more expensive or
+longer; via-anchor and box-margin detours can become cheaper. It reads only the
+core's own masks, no game memory, and is a pure function of route and mask, so
+batch and thread-count determinism is unchanged. A deterministic work cap of
+`16*steps+64` walked cells keeps the remaining route unchanged when exceeded.
+
+The ABI change is only the counter block: `StatCount` grew from 26 to 32
+(`StraightenRoutes`, `StraightenRays`, `StraightenSegments`, `StraightenSaved`,
+`StraightenCapped`, `StraightenNs`). `mma_stats` rejects shorter buffers, so
+`AnchorRouting.AnchorNative.StatCount`, the contract constant and the native
+regression check move together. No game RVA, hook or saved data is involved.
+Offline evidence and costs: `Findings/RouteShape.md`; benchmark tool:
+`tools/RouteShape/Run-RouteShape.ps1`.

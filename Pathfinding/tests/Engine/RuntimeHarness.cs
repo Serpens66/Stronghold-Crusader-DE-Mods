@@ -42,7 +42,7 @@ namespace EngineHarness
     internal struct SelectedUnitInfo { public int UnitId, UnitType; }
     internal enum AttackPipelineStage { Mode, Builder }
     // Pathfinding RouteTilePolicySnapshot.cs contract (not compiled into this harness).
-    internal static class GatePolicyNeutrality { internal static System.Func<int, bool> Current; }
+    internal static class GatePolicyNeutrality { internal static System.Func<int, bool> Current; internal static System.Func<byte[][]> CurrentMasks; }
     [StructLayout(LayoutKind.Sequential, Size = 0x490)]
     internal unsafe struct GameUnit
     {

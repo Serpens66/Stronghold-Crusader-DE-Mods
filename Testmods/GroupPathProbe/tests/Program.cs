@@ -26,6 +26,8 @@ internal static class Program
             // Moat decision study (cost minimization vs Fast/Precise) on synthetic moat maps.
             if (args.Length == 1 && args[0] == "--cost-min") return CostMinGate.Run();
             if (args.Length == 2 && args[0] == "--anchor-core") return AnchorCoreGate.Run(Path.GetFullPath(args[1]));
+            // Plain binary loads for Pathfinding/tools/RouteShape (no native core needed).
+            if (args.Length == 3 && args[0] == "--export-anchor-loads") return AnchorLoadExport.Run(Path.GetFullPath(args[1]), Path.GetFullPath(args[2]));
             if (args.Length == 0 || args.Length == 1 && args[0] == "--contracts") { GroupGate.Contracts(); return 0; }
             Console.WriteLine("Usage: [--contracts] | --capture <snapshot.raw.gz> [--with-exact] [--only name,name]"); return 64;
         }

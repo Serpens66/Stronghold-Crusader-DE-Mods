@@ -325,6 +325,7 @@ namespace Pathfinding.GateRouting
             registeredProvider = DetailedDiagnostics ? (IEnemyGatePathPolicy)this : new FunctionalGatePolicyAdapter(this, this);
             // Traversal providers share player-neutral tiles of the currently published policy.
             Pathfinding.UnitCommands.GatePolicyNeutrality.Current = tileId => publishedPolicy.IsPlayerNeutral(tileId);
+            Pathfinding.UnitCommands.GatePolicyNeutrality.CurrentMasks = () => publishedPolicy.DirectionMasks;
             ownerConflict = existingHookOwner;
             maskPool = new NativeMaskSnapshot[NativeSnapshotPoolSize];
             for (int index = 0; index < maskPool.Length; index++)

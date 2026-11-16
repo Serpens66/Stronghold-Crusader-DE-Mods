@@ -103,3 +103,19 @@ This is only a selection guide: native terrain/proximity/veto rules remain effec
 Stone provisioning adds only the missing height+20 budget, verifies actual storage,
 then logs fresh native invalid/query state and actual cells after each wall segment.
 The reason field may be stale and never alone establishes a rejecting cause.
+
+Route shape scenarios (Pathfinding TODO G10): shape-gap, shape-end, shape-far.
+100 spearmen, one ordinary player move to a diagonal target behind a wall: shape-gap
+passes a middle gap, shape-end rounds the wall's upper end, shape-far uses the same
+wall with a distant target (long routes). Right after the command the fixture reads
+each member's published native route once (pieces of maximal digital straight lines,
+steps, turns, euclidean length; every 25th route as run-length text) and then samples
+real movement every 50 ticks until every member settled. Compare old/new Pathfinding
+with -PluginLayout copies that differ only in Pathfinding_Serp.
+wall-5000-long: wall-5000 with 30 instead of 6 outcome samples, to observe route and
+mask maintenance after the command (sample gaps show a saturated simulation thread).
+wall-5000-gate: wall-5000 plus one ordinary own small gatehouse east of the own keep,
+placed before the 48-tick topology wait. It adds a Vanilla portal-table entry and moves
+its id bound (pathManager+0), the access change that made Pathfinding <= 0.1.9 resweep
+every anchor mask. The log lines "gate placed" and "gate portals after topology wait"
+show bound/used/top before and after; compare Pathfinding variants with -PluginLayout.

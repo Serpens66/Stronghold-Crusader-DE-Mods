@@ -69,6 +69,7 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 - [Long simulation ticks from AI group movement (FBCB9319)](./sem/FBCB9319/knowledge/SIM_TICK_SPIKE_PATHING.md): AI group-order stalls, `0x119F90` member lookup, Assassin per-member `0xD9C40` and the `+0x94` route output; mod contracts and mod measurements are only linked.
 - [Minimap (radar) pass 0xF5A40 (FBCB9319)](./sem/FBCB9319/knowledge/RADAR_PASS_F5A40.md)
 - [Outpost attack targets after a defeat](./sem/FBCB9319/knowledge/OUTPOST_ATTACK_RETARGET.md): completion queue, persistent target, native order branches and mid-match Lord validity.
+- [Portal table in the path manager](./sem/FBCB9319/knowledge/PORTAL_TABLE.md): `[0]` is the highest used id + 1 (`0xF4540` each tick), first-free allocation by `0xD8510` for gatehouses and ladders, per-tick handler refresh and no renumbering; confirmed by disassembly.
 - [Surrender selection and multiplayer checksum audit](./sem/FBCB9319/knowledge/SURRENDER_SELECTION.md): selected Lord field, checksum buckets, deselection and trace evidence.
 
 - [Weapon workshop production fields](./sem/FBCB9319/knowledge/WEAPON_WORKSHOP_FIELDS.md): current and next goods IDs, interop pointer origin, and verified Vanilla workshop scope.

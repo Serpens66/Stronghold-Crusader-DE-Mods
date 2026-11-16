@@ -78,7 +78,9 @@ enum Flags { ViaAnchor = 1, SubAnchor = 2, NewSubAnchor = 4, Uncached = 8 };
 enum Code { Ok = 0, NoMemory = 2, BadArgument = 3, Internal = 4 };
 // AnchorNoStart..AnchorTooFar: why an anchor (main or sub) could not answer a query.
 enum StatIndex { TasksComputed, TasksFailed, SettleEvents, Entries, Queries, ViaChosen, SubAnchors, SubCapped, StepNs, QueryNs, SubNs, MaskWrites, MaskChanges, PeakBytes, Allocations, Workers,
-    AnchorNoStart, AnchorNoEntry, AnchorUnreached, AnchorTooFar, FieldReuses, SingleQueries, SingleSettles, SingleNs, SubSingles, StartsEnclosed, StatCount };
+    AnchorNoStart, AnchorNoEntry, AnchorUnreached, AnchorTooFar, FieldReuses, SingleQueries, SingleSettles, SingleNs, SubSingles, StartsEnclosed,
+    // StraightenRoute: routes processed, raster rays tested, segments replaced, cost saved, work caps hit, time.
+    StraightenRoutes, StraightenRays, StraightenSegments, StraightenSaved, StraightenCapped, StraightenNs, StatCount };
 
 struct Box { int x0 = 0, y0 = 0, x1 = -1, y1 = -1; };
 static int Ctz(u32 m) { unsigned long i; _BitScanForward(&i, m); return int(i); }
@@ -99,6 +101,8 @@ struct Map {
 struct Mask {
     // penalty: extra cost (in ground steps of the task) for entering a node (APIShared route tile rules).
     Vec<uint8_t> out, outWet, outDry, in, inWet, inDry, written, penalty; i64 writtenCount = 0; u64 revision = 1;
+    // Nodes with a nonzero penalty (maintained by mma_penalty_update); 0 enables StraightenRoute's flat-cost path.
+    i64 penalized = 0;
     explicit Mask(Memory* m, int n) : out(size_t(n), 0, Alloc<uint8_t>(m)), outWet(size_t(n), 0, Alloc<uint8_t>(m)), outDry(size_t(n), 0, Alloc<uint8_t>(m)),
         in(size_t(n), 0, Alloc<uint8_t>(m)), inWet(size_t(n), 0, Alloc<uint8_t>(m)), inDry(size_t(n), 0, Alloc<uint8_t>(m)), written(size_t(n), 0, Alloc<uint8_t>(m)),
         penalty(size_t(n), 0, Alloc<uint8_t>(m)) {}
@@ -398,6 +402,8 @@ struct Pool {
 // Per-thread query workspace: the local A* field (doubled ring) and path buffers.
 struct Scratch {
     std::unique_ptr<Field> local; std::vector<uint8_t> path, rest; std::vector<int> targets; i64 stats[StatCount] = {};
+    // StraightenRoute buffers: route nodes, prefix costs and the rewritten directions.
+    std::vector<int> nodes; std::vector<i64> prefix; std::vector<uint8_t> straight;
     // Forward flood of mma_single_route's enclosure proof (stamped per call, sized on first use).
     std::vector<u32> seen; std::vector<int> flood; u32 seenGen = 0;
     Scratch(Memory* m, int n) : local(std::make_unique<Field>(m, n, 2 * MaxCost + 2)) {}
@@ -441,6 +447,29 @@ struct Context {
 
 static bool ValidNode(const Context& c, int node) { return node >= 0 && node < c.map.n; }
 
+// Monotone raster ray between two cells (Bresenham, error starts at length/2). It takes exactly
+// Chebyshev(a, b) eight-neighbour steps, the minimum for any route between them. Shared by the
+// direct ground route and StraightenRoute so both draw the same line.
+struct RasterRay {
+    int signX = 0, signY = 0, length = 0, minor = 0; bool majorX = true;
+    RasterRay(int sx, int sy, int tx, int ty) {
+        const int ax = std::abs(tx - sx), ay = std::abs(ty - sy);
+        length = std::max(ax, ay); signX = (tx > sx) - (tx < sx); signY = (ty > sy) - (ty < sy);
+        majorX = ax >= ay; minor = majorX ? ay : ax;
+    }
+    int start() const { return length / 2; }
+    void advance(int& rx, int& ry, int& err) const {
+        if (majorX) rx += signX; else ry += signY;
+        err += minor;
+        if (err >= length) { err -= length; if (majorX) ry += signY; else rx += signX; }
+    }
+};
+// Clockwise native directions, no lookup outside the eight-neighbour range.
+static int RasterDirection(int ox, int oy) {
+    return oy < 0 ? (ox < 0 ? 7 : ox > 0 ? 1 : 0) :
+        oy > 0 ? (ox < 0 ? 5 : ox > 0 ? 3 : 4) : ox < 0 ? 6 : 2;
+}
+
 // A monotone raster ray has the minimum possible number of eight-neighbour steps.
 // Accept only dry, surcharge-free ground edges: its cost then attains the global
 // lower bound ground * Chebyshev(start,target), independently of any partial field.
@@ -452,28 +481,17 @@ static bool TryDirectGroundRoute(const Map& map, const TraversalView& mask, int 
     if (moat != 0) return false;
     const int sx = start % map.width, sy = start / map.width;
     const int tx = target % map.width, ty = target / map.width;
-    const int ax = std::abs(tx - sx), ay = std::abs(ty - sy), length = std::max(ax, ay);
+    const RasterRay ray(sx, sy, tx, ty); const int length = ray.length;
     if (length == 0 || length > MaxSteps || length > capacity) return false;
-    const int signX = (tx > sx) - (tx < sx), signY = (ty > sy) - (ty < sy);
-    const bool majorX = ax >= ay;
-    const int minor = majorX ? ay : ax;
-    auto advance = [&](int& rx, int& ry, int& err) {
-        if (majorX) rx += signX; else ry += signY;
-        err += minor;
-        if (err >= length) { err -= length; if (majorX) ry += signY; else rx += signX; }
-    };
-    auto direction = [](int ox, int oy) {
-        // Clockwise native directions, no lookup outside the eight-neighbour range.
-        return oy < 0 ? (ox < 0 ? 7 : ox > 0 ? 1 : 0) :
-            oy > 0 ? (ox < 0 ? 5 : ox > 0 ? 3 : 4) : ox < 0 ? 6 : 2;
-    };
+    auto advance = [&](int& rx, int& ry, int& err) { ray.advance(rx, ry, err); };
+    auto direction = [](int ox, int oy) { return RasterDirection(ox, oy); };
     auto allowed = [&](int from, int to, int d) {
         return (mask.outgoing(from, 0) & (1u << d)) != 0 &&
             !(mask.outWet[from] & (1u << d)) && mask.base.penalty[to] == 0 &&
             mask.cost(to, false, ground, 0) == u32(ground);
     };
     for (int pass = 0; pass < 2; ++pass) {
-        int x = sx, y = sy, error = length / 2, written = 0;
+        int x = sx, y = sy, error = ray.start(), written = 0;
         while (written < length) {
             int nx = x, ny = y, nextError = error;
             advance(nx, ny, nextError);
@@ -508,6 +526,95 @@ static bool TryDirectGroundRoute(const Map& map, const TraversalView& mask, int 
     result = QueryResult{};
     result.status = Found; result.ground = result.length = length; result.cost = i64(ground) * length;
     return true;
+}
+
+// Cost of the raster ray from node a to node b over the same directed edges, costs and surface
+// rules as every search (ground-only profiles: dry edges only), or -1 when an edge is missing or
+// the cost exceeds limit. Writes the directions to out when it is not null. work counts cells.
+static i64 RayCost(const Map& map, const TraversalView& mask, int a, int b, int ground, int moat, i64 limit, i64& work, std::vector<uint8_t>* out) {
+    const RasterRay ray(a % map.width, a / map.width, b % map.width, b / map.width);
+    // Each raster step is either the major axis step or the diagonal that also moves the minor
+    // axis (RasterRay::advance); both directions are fixed per ray, so no coordinates are tracked.
+    const int straight = ray.majorX ? RasterDirection(ray.signX, 0) : RasterDirection(0, ray.signY);
+    const int diagonal = RasterDirection(ray.signX, ray.signY);
+    int error = ray.start(), node = a;
+    work += ray.length;
+    // Ground-only profile without any entering penalty: every edge costs exactly ground, so the
+    // ray (Chebyshev length, never longer than the section) can only fail on a missing edge.
+    if (moat == 0 && mask.base.penalized == 0) {
+        for (int k = 0; k < ray.length; ++k) {
+            error += ray.minor;
+            int d = straight;
+            if (error >= ray.length) { error -= ray.length; d = diagonal; }
+            if (!(mask.outgoing(node, 0) & (1u << d))) return -1;
+            if (out) out->push_back(uint8_t(d));
+            node += map.off[d];
+        }
+        const i64 cost = i64(ground) * ray.length;
+        return cost > limit ? -1 : cost;
+    }
+    i64 cost = 0;
+    for (int k = 0; k < ray.length; ++k) {
+        error += ray.minor;
+        int d = straight;
+        if (error >= ray.length) { error -= ray.length; d = diagonal; }
+        if (!(mask.outgoing(node, moat) & (1u << d))) return -1;
+        const int next = node + map.off[d];
+        cost += mask.cost(next, ((mask.outWet[node] >> d) & 1) != 0, ground, moat);
+        if (cost > limit) return -1;
+        if (out) out->push_back(uint8_t(d));
+        node = next;
+    }
+    return cost;
+}
+
+// Cost-preserving string pulling of a found route (TODO G10). Every step costs the same time
+// straight or diagonal, so many routes are equally cheap; the descents pick the lowest direction
+// index and draw large L shapes, which players read as detours. Greedily from each kept node the
+// farthest later route node is searched whose raster ray is legal and costs at most the route
+// section it replaces (galloping, then bisection; ray legality is not monotone, so the chosen node
+// is a legal one, not necessarily the farthest). The route therefore never gets more expensive or
+// longer, and becomes cheaper where an anchor detour (via anchor, box margin) cost extra. A pure
+// function of route and mask: results stay independent of threads and batch order. A
+// deterministic work cap (cells walked) bounds unusual routes; the rest then stays as found.
+// Returns the cost saved; g/w are recounted for the new route.
+static i64 StraightenRoute(const Map& map, const TraversalView& mask, Scratch& s, int start, std::vector<uint8_t>& path, int ground, int moat, int& g, int& w) {
+    const int n = int(path.size());
+    if (n < 3) return 0;
+    auto t0 = Clock::now(); i64* stats = s.stats; ++stats[StraightenRoutes];
+    std::vector<int>& nodes = s.nodes; std::vector<i64>& prefix = s.prefix; std::vector<uint8_t>& out = s.straight;
+    nodes.resize(size_t(n) + 1); prefix.resize(size_t(n) + 1); nodes[0] = start; prefix[0] = 0;
+    for (int k = 0; k < n; ++k) {
+        const int d = path[k], v = nodes[k], u = v + map.off[d];
+        nodes[k + 1] = u; prefix[k + 1] = prefix[k] + mask.cost(u, ((mask.outWet[v] >> d) & 1) != 0, ground, moat);
+    }
+    const i64 cap = 16LL * n + 64; i64 work = 0, rays = 0, segments = 0; bool capped = false;
+    auto legal = [&](int i, int j) { ++rays; return RayCost(map, mask, nodes[i], nodes[j], ground, moat, prefix[j] - prefix[i], work, nullptr) >= 0; };
+    out.clear();
+    int i = 0;
+    while (i < n) {
+        if (work > cap) { capped = true; break; }
+        // The original next step is always legal: lo is a known legal end, hi a known illegal one.
+        int lo = i + 1, hi = -1;
+        for (int step = 2; lo < n && work <= cap; step *= 2) {
+            const int j = std::min(n, i + step);
+            if (legal(i, j)) lo = j; else { hi = j; break; }
+        }
+        while (hi > lo + 1 && work <= cap) { const int mid = lo + (hi - lo) / 2; if (legal(i, mid)) lo = mid; else hi = mid; }
+        if (lo == i + 1) out.push_back(path[i]);
+        else { RayCost(map, mask, nodes[i], nodes[lo], ground, moat, prefix[lo] - prefix[i], work, &out); ++segments; }
+        i = lo;
+    }
+    if (capped) { out.insert(out.end(), path.begin() + i, path.end()); ++stats[StraightenCapped]; }
+    // Recount the classification and cost of the new route.
+    i64 cost = 0; g = 0; w = 0;
+    for (int k = 0, v = start; k < int(out.size()); ++k) {
+        const int d = out[k], u = v + map.off[d]; const bool wet = ((mask.outWet[v] >> d) & 1) != 0;
+        cost += mask.cost(u, wet, ground, moat); if (wet) ++w; else ++g; v = u;
+    }
+    path.swap(out);
+    stats[StraightenRays] += rays; stats[StraightenSegments] += segments; stats[StraightenSaved] += prefix[n] - cost; stats[StraightenNs] += Ns(t0);
+    return prefix[n] - cost;
 }
 
 // Exact enclosure proof before a single route: the start's forward component over the same edges
@@ -550,9 +657,10 @@ static int SingleSearch(const Map& map, const TraversalView& mask, Scratch& s, i
     if (!local.reached(start)) return done(Unreachable);
     s.path.clear(); g = 0; w = 0;
     auto touched = [&](int v) { return local.touched(v) ? local.dist[v] : Unset; };
-    if (Descend(map, mask, touched, start, ground, moat, s.path, g, w, [&](int v, int, int) { return v == target; }) < 0 ||
-        int(s.path.size()) > MaxSteps || int(s.path.size()) > capacity) return done(OverLimit);
-    cost = i64(local.dist[start]);
+    if (Descend(map, mask, touched, start, ground, moat, s.path, g, w, [&](int v, int, int) { return v == target; }) < 0) return done(OverLimit);
+    const i64 saved = StraightenRoute(map, mask, s, start, s.path, ground, moat, g, w);
+    if (int(s.path.size()) > MaxSteps || int(s.path.size()) > capacity) return done(OverLimit);
+    cost = i64(local.dist[start]) - saved;
     return done(Found);
 }
 
@@ -566,6 +674,7 @@ static int Query(Context& c, Task& t, Scratch& sc, int start, int slot, int marg
     const Map& map = c.map; const TraversalView mask(map, *c.mask(t.player), *c.surfaces, t.surfaceClass); Field& local = *sc.local; i64* stats = sc.stats;
     std::vector<uint8_t>& path = sc.path; std::vector<uint8_t>& rest = sc.rest;
     auto finish = [&](int g, int w, int flags) {
+        StraightenRoute(map, mask, sc, start, path, t.ground, t.moat, g, w);
         r.flags = flags; r.ground = g; r.moat = w; r.cost = i64(g) * t.ground + i64(w) * t.moat; r.length = int(path.size());
         if (int(path.size()) > MaxSteps || int(path.size()) > capacity) { r.status = OverLimit; r.length = 0; return; }
         std::copy(path.begin(), path.end(), bytes); r.status = Found;
@@ -679,7 +788,7 @@ template<class F> static int Guard(F body) {
 
 using namespace mma;
 extern "C" {
-__declspec(dllexport) int mma_contract() { return 0x04000011; }
+__declspec(dllexport) int mma_contract() { return 0x04000012; }
 // Physical cores minus two (Unity main thread plus simulation/render), within 1..8.
 __declspec(dllexport) int mma_recommended_threads() {
     DWORD length = 0; GetLogicalProcessorInformationEx(RelationProcessorCore, nullptr, &length);
@@ -740,7 +849,10 @@ __declspec(dllexport) int mma_penalty_update(Context* c, int player, const int* 
     if (!c || !nodes || !values || !c->mask(player) || count < 0) return BadArgument;
     Mask& m = *c->mask(player); bool ready = m.ready(c->map.n); int n = 0;
     for (int i = 0; i < count; ++i) { if (!ValidNode(*c, nodes[i])) return BadArgument; }
-    for (int i = 0; i < count; ++i) if (m.penalty[nodes[i]] != values[i]) { m.penalty[nodes[i]] = values[i]; ++n; }
+    for (int i = 0; i < count; ++i) if (m.penalty[nodes[i]] != values[i]) {
+        m.penalized += (values[i] != 0) - (m.penalty[nodes[i]] != 0);
+        m.penalty[nodes[i]] = values[i]; ++n;
+    }
     if (ready && n) ++m.revision;
     if (changed) *changed = n;
     return Ok;
