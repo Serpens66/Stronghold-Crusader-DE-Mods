@@ -15,6 +15,7 @@ Ergänzungen zur Root-[`AGENTS.md`](../AGENTS.md). Diese Dateien werden nicht au
 | [apishared.md](apishared.md) | Shared-/APIShared-Zuständigkeit, Nutzung und Erweiterung, Breaking Changes, Repo-Workflow, Doku, Mod-Abhängigkeiten |
 | [external-components.md](external-components.md) | Umgang mit Fehlern in Script Extender und Fixes-Mod, Fixes-Kompatibilität |
 | [build-release.md](build-release.md) | Build-Ablauf, CRLF, Hashprüfungen, Versionierung, Steam-Modpack |
+| [steam-release.md](steam-release.md) | Ablauf eines Steam-Releases (Merges, Vorab-Builds, Treibertests, getrennte Aufrufe mit Bestätigung), Testinstallation der Release-Pakete im Spiel und bekannte Stolpersteine |
 | [shell-windows.md](shell-windows.md) | PowerShell-/CMD-Fallen, Treiberaufrufe, Prüfpfad-Tests, Sandbox |
 | [code-review.md](code-review.md) | Zweiphasige Code-Prüfung, Verifikation und Widerlegungsversuch je Befund, Einstufung, typische Fehlalarme, gleich strenge Prüfung von Korrekturen |
 | [performance.md](performance.md) | Mess- und Profiling-Werkzeuge, Messverfahren, Sampler-Auswertung, typische Kostenfallen in heißen Pfaden, Fallen der Messwerkzeuge |

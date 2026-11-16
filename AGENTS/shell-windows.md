@@ -11,6 +11,7 @@
 ## Treiber starten
 
 - `build.bat` mit Leerzeichen im Pfad direkt über den Aufrufoperator: `& 'D:\Pfad mit Leerzeichen\build.bat' /nopause; exit $LASTEXITCODE`. Weder `cmd.exe /c` noch `Start-Process` dazwischen (zusätzliche Quote-Ebene kann `/nopause` verschlucken und den Build am `pause` festhalten).
+- Windows-PowerShell-Treiber (`powershell.exe`, damit alle BAT-Treiber) nicht mit dem von PowerShell 7 geerbten `PSModulePath` starten. Beobachtet: Windows PowerShell 5.1 lud dann pwshs `Microsoft.PowerShell.Archive` 1.2.x. Dessen `Expand-Archive` ruft die nur unter .NET Core vorhandene Überladung `ZipFileExtensions.ExtractToDirectory(archive, dir, overwrite)` auf und scheitert mit „Für "ExtractToDirectory" … Argumenteanzahl … "3"“. Im pwsh-Aufruf vor dem Treiberstart setzen: `$env:PSModulePath="$env:USERPROFILE\Documents\WindowsPowerShell\Modules;C:\Program Files\WindowsPowerShell\Modules;$env:SystemRoot\system32\WindowsPowerShell\v1.0\Modules"`. Bei Start per Doppelklick oder aus Git Bash tritt das nicht auf.
 - Muss ein `.cmd`-Treiber ausdrücklich über `Start-Process` und `cmd.exe` laufen, die äußere Argumentfolge als eine Zeichenfolge `/d /s /c ""<absoluter Treiberpfad>""` übergeben; `-ArgumentList @('/d', '/c', $driver)` verliert die nötige Quote. Nicht für `build.bat` verwenden.
 
 ## Prüfpfade testen

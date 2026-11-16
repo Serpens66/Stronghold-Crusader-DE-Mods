@@ -21,6 +21,7 @@ Sobald ein Auslöser zutrifft, die genannte Datei **vor** dem ersten fachlichen 
 | APIShared nutzen/erweitern/installieren/aktualisieren/veröffentlichen, Dateien unter `Shared/`, Mod-Abhängigkeiten | [AGENTS/apishared.md](AGENTS/apishared.md) |
 | Fehler in Script Extender oder Fixes-Mod; Fixes-bezogene Präferenzen, Presets, Belagerung | [AGENTS/external-components.md](AGENTS/external-components.md) |
 | Build, CRLF-Konvertierung, Versionsänderung, Release, Steam-Modpack | [AGENTS/build-release.md](AGENTS/build-release.md) |
+| Release tatsächlich durchführen (`CreateSteamModPack.bat`, Merge `develop` → `main` für einen Release) oder Release-Pakete zum Test im Spiel installieren | [AGENTS/steam-release.md](AGENTS/steam-release.md) **und** build-release.md |
 | PowerShell-/CMD-/BAT-Befehle oder -Skripte, Sandbox-/Berechtigungsfehler | [AGENTS/shell-windows.md](AGENTS/shell-windows.md) |
 | Code, Mod, Diff oder Konzept auf Fehler, Probleme oder Risiken prüfen (Review, Audit); Korrekturen dafür vorschlagen | [AGENTS/code-review.md](AGENTS/code-review.md) |
 | FPS-/Lag-/Startzeit-/Effizienz-Untersuchung, Performance-Messung, neue Hooks/Callbacks/Suchen in heißen Pfaden (pro Tick, Frame, Einheit, Kachel) | [AGENTS/performance.md](AGENTS/performance.md) |
