@@ -99,7 +99,12 @@ namespace EnemyBridgePathTest
         }
 
         internal bool Installed => installed;
-        internal bool Enabled { get => enabled; set => enabled = value; }
+        internal bool Enabled { get => enabled; set { enabled = value; PublishClosureState(); } }
+
+        // WIP coupling for the Pathfinding work copy (branch wip/bridge-deck-mask): its per-player
+        // deck entry mask is only consistent while this region closure is active.
+        private const string ClosureStateKey = "SerpEnemyBridgeDeckClosureActive";
+        private void PublishClosureState() => AppDomain.CurrentDomain.SetData(ClosureStateKey, enabled && installed);
         internal bool DetailLog { get; set; } = true;
 
         internal void Install(SHCDESE.API.LowLevel.CrusaderLibraryLoadContext context)
@@ -140,6 +145,7 @@ namespace EnemyBridgePathTest
             Validate(closureHook, RvaGateClosure, GateClosurePrefix.Length / 2, true);
             Validate(refreshHook, RvaPortalRefresh, PortalRefreshPrefix.Length / 2, true);
             installed = true;
+            PublishClosureState();
             Shared.DebugLogHelper.LogInfo(log, "Drawbridge deck closure hooks installed: gateClosure=0xC4BF0, portalRefresh=0xF4540, scheme=Indirect, nativeSha256=" + NativeHash);
         }
 
@@ -454,7 +460,7 @@ namespace EnemyBridgePathTest
 
         internal sealed class DeckReport
         {
-            internal int Gate, GateOwner, GateCaptured, Bridge, Portal, PortalSide, FrontTile, GateTile, LandingTile;
+            internal int Gate, GateOwner, GateCaptured, Bridge, Portal, PortalSide, FrontTile, GateTile, LandingTile, InnerTile = -1;
             internal int DeckRegion, FrontRegion, GateRegion, LandingRegion, EndpointField, OtherField, CenterField;
             internal bool Raised;
             internal readonly List<int> DeckTiles = new List<int>();
@@ -490,6 +496,7 @@ namespace EnemyBridgePathTest
                         Raised = raised, CenterField = *(int*)(portal + PCompC)
                     };
                     report.DeckTiles.AddRange(deckCells);
+                    if (TryAperture(record, 1 - side, out int innerOutside, out _)) report.InnerTile = innerOutside;
                     report.LandingRegion = DeckClosureCore.FindLanding(this, outside, inside, isOnBridge, componentOf, out report.LandingTile);
                     if (*(int*)(portal + PEntryTile) == outside) { report.PortalSide = 0; report.EndpointField = *(int*)(portal + PCompA); report.OtherField = *(int*)(portal + PCompB); }
                     else if (*(int*)(portal + PExitTile) == outside) { report.PortalSide = 1; report.EndpointField = *(int*)(portal + PCompB); report.OtherField = *(int*)(portal + PCompA); }

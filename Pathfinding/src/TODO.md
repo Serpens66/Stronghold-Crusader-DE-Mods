@@ -415,6 +415,61 @@ Wiederverwendbare Vanilla-Verträge, vollständige Rollenmatrix, Maschinenbelege
 getrennte Integrationsgrenzen:
 [Audit zur Grabenquerung aller Einheitentypen](../../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/MOAT_TRAVERSAL_ALL_UNITS.md).
 
+### G12: Abgesenkte Zugbrücke bei geschlossenem Tor für den Besitzer (optional)
+
+- [ ] **Optional, Nutzerentscheidung vom 17.11.2026: vorerst so belassen.** Die neue
+  Einstellung für das Zugbrückenverhalten soll diese Grenze kurz und verständlich nennen.
+
+Ausgangslage: Die Zugbrückensperre für Feinde ist noch nicht in Pathfinding integriert.
+Ihr Stand liegt im Testmod `Testmods/EnemyBridgePathTest` und in der Arbeitskopie
+`.work/a/bridge-mask/001`, Branch `wip/bridge-deck-mask`.
+- Sie behandelt eine abgesenkte Zugbrücke vor einem Torhaus im Regionsaufbau wie
+  hochgezogen.
+- Zugelassene Spieler gelangen nur über das Torportal auf und über das Deck. Das Portal
+  ist nur bei offenem Tor aktiv (`enabled = Torzustand != 2`).
+- Folge: Ist das Tor geschlossen, die Brücke aber noch unten (Einheiten auf dem Deck,
+  laufende Animation, Handsteuerung), dann gelten Deck, Brückenkopf und nur seitlich
+  über das Deck erreichbares Land auch für Besitzer und Verbündete als unerreichbar.
+- Das betrifft nur Ziele, die ausschließlich über das Deck erreichbar sind. Bei einem
+  anderen Weg (eine Region) nutzen Besitzer und Verbündete das Deck weiter, weil die
+  Kantenmaske nur nicht zugelassene Spieler sperrt.
+- Sichtbar wird das bei einer Mauerlücke direkt neben dem Torhaus
+  (`test_gates_bridge2.sav`, Tor 600). Eigene Einheiten aus dem Graben erreichen den
+  Keep dann nicht über das Deck, während Vanilla diesen Seitenweg zulässt.
+
+Erste Ansätze (vor Umsetzung jeweils nativ auditieren und messen):
+
+1. **Eigener Portaleintrag je Zugbrücke** statt Umleitung des Torportals.
+   - Ein Eintrag mit Endpunkten Landestelle ↔ Deckregion (dritter Endpunkt z. B. seitliche
+     Landregion), Besitzer und Eroberer des Tors, `enabled` = Brücke abgesenkt statt
+     Torzustand.
+   - Vorab klären:
+     - Allokation über `0xD8510`.
+     - Typ mit `ret`-Handler (Tabelle `0x3125D0`), damit `0xF4540` den Eintrag nicht überschreibt.
+     - Pflege der Regionsfelder nach jedem `0xE49D0`.
+     - Freigabe beim Zerstören/Neuladen.
+     - Ob die Portaltabelle in Spielständen gespeichert wird. Verwaiste Einträge nach dem
+       Entfernen des Mods wären ein Spielstandrisiko.
+2. **Seitliche Deckkanten zur Innenseite behalten.**
+   - Seitliches Land, das ohne Deck die Region des Burginneren (Torendpunkt B) hätte,
+     gehört zur Burg.
+   - Braucht eine Klassifizierung vor dem Fluten, z. B. aus dem letzten Aufbau oder einer
+     begrenzten lokalen Flut.
+   - Risiko: Ohne Kantenmaske würden Feinde über diese Kanten wieder hineinplanen. Die
+     Pro-Spieler-Maske muss sie daher weiter sperren, und Region und Kachelsuche müssen für
+     Feinde konsistent bleiben (sonst teure Fehlsuchen).
+3. **Portal bei „Tor zu, Brücke unten“ für Zugelassene aktiv lassen** (`enabled` in der
+   `0xF4540`-Nachbearbeitung setzen).
+   - Billig, aber Besitzersuchen durch das physisch geschlossene Tor scheitern dann
+     kachelweise.
+   - Folgen für das automatische Öffnen eigener Tore, die Cursorvorschau und die
+     Gebäudesperre der schnellen Suche (liest `+0x203C`) prüfen.
+
+Abnahme: Testmod-Szenarien `bridge-<save>` und `bridge-ai-on|off-<save>` mit
+`test_gates_bridge2.sav` (Tor zu, seitliche Lücke) und `test_gates_bridge3.sav` (zweiter
+Weg). Hinzu kommt ein neuer Befehl „eigene Einheiten Graben → Keep“, der mit der
+Erweiterung gelingen und für Feinde weiterhin ohne Deckpfad bleiben muss.
+
 ### Weiterführende Quellen und Abgrenzung
 
 Der größere Suchkern-/Architekturprototyp hat eine eigene Entwicklungsgeschichte und offene Abnahmen in [BetterPathfinding.md](../../BetterPathfinding.md). Er ist keine bereits freigegebene Lösung der oben genannten Restprobleme. Hier werden seine alten Entwurfsvarianten nicht nochmals als neue Aufgaben eingereiht.

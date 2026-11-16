@@ -100,3 +100,37 @@ Native Adressen und Updateprüfung: [UpdateToNewDLL.md](UpdateToNewDLL.md).
   eine lokale BepInEx-Einstellung; im Multiplayer müssen alle denselben Wert haben.
 - Optional: Deckkanten auch in Pathfindings Kantenmasken pro Spieler sperren (siehe Grenzen).
 - Optional: Gate-Liste je Regionsaufbau cachen. Das ist nicht nötig, die Kosten sind gemessen gering.
+
+## Zweiter Weg zum Keep – Kantenmaske (16./17.11.2026)
+
+- Nutzerbefund: Gab es zusätzlich einen anderen Weg zur Burg, nutzten Gegner die abgesenkte Brücke
+  trotzdem. Dann liegen Außenwelt und Burg in einer Region, und nur Kachelsuchen entscheiden.
+- Lösung wie bei feindlichen Torhäusern: Die Pathfinding-Arbeitskopie `.work/a/bridge-mask/001`
+  (Branch `wip/bridge-deck-mask`, Nutzerwunsch: kein unfertiger Code im Haupt-Pathfinding) sperrt
+  in `RouteTilePolicySnapshot` für jeden vom Tor nicht zugelassenen Spieler alle Kanten in die
+  Deckzellen.
+  - Die Maske ist nur aktiv, solange dieser Testmod `SerpEnemyBridgeDeckClosureActive` meldet.
+- `test_gates_bridge3.sav` (zweiter Weg vorhanden): 54/54 Prüfungen.
+  - Befehle ins Burginnere ohne Funktion: 6/6 über das Deck (13 Kacheln).
+  - Mit Funktion: 6/6 über den anderen Weg (~380 Kacheln), 0 über das Deck.
+  - KI-Beobachtung: 42 feindliche Einheiten auf dem Deck ohne Funktion, 0 mit Funktion.
+- Testlauf: `run-wip`-Ablauf. Die Arbeitskopie wird gegen das Workspace-APIShared gebaut und
+  vorübergehend über die installierte `Pathfinding.dll` kopiert; danach wird die gesicherte Haupt-DLL
+  zurückgespielt (Sicherung in `.work/a/bridge-mask/001.installed-pathfinding`).
+
+## Geschlossenes Tor bei abgesenkter Brücke (Nutzerentscheidung 17.11.2026: vorerst so belassen)
+
+- Ist ein Tor geschlossen, die Brücke aber unten (z. B. Einheiten auf dem Deck oder Handsteuerung),
+  dann ist das Torportal deaktiviert.
+  - Deck, Brückenkopf und nur seitlich erreichbares Land sind dann regionsmäßig auch für den Besitzer
+    vom Burginneren getrennt.
+  - Kachelweise kann der seitliche Weg offen sein.
+  - Wirkung nur, wenn das Deck die einzige Verbindung ist. Gibt es einen anderen Weg, liegen
+    Start und Ziel in derselben Region. Eigene und verbündete Einheiten laufen dann weiter über
+    das Deck, weil die Kantenmaske nur nicht zugelassene Spieler sperrt (Nutzertest 17.11.2026
+    bestätigt).
+- In der künftigen Modsetting kurz und verständlich erwähnen; mögliche Ansätze als optionales TODO G12 in `Pathfinding/src/TODO.md`.
+- Ein Spiel-Freeze beim Befehl „eigene Einheiten aus dem Graben zum Keep“ (`Log_369.log`, Zustand wie
+  in `test_gates_bridge2.sav`) wurde in einer eigenen Sitzung untersucht: Der Testmod ist nicht als Ursache belegt;
+  zwei Reproduktionsläufe froren nicht ein, der Befehl wurde sauber abgelehnt. Die Ursache bleibt
+  offen, weil kein Speicherabbild existiert.

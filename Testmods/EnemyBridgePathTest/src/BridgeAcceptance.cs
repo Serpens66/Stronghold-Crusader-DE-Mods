@@ -90,9 +90,11 @@ namespace EnemyBridgePathTest
             yield return new AutomationStep("inventory", TimeSpan.FromSeconds(20), Inventory, missionBound: true);
             yield return new AutomationStep("on-regions", TimeSpan.FromSeconds(20), run => Regions(run, true), missionBound: true);
             yield return new AutomationStep("on-orders", TimeSpan.FromSeconds(240), run => Orders(run, true), missionBound: true);
+            yield return new AutomationStep("on-inside-orders", TimeSpan.FromSeconds(60), run => InsideOrders(run, true), missionBound: true);
             yield return new AutomationStep("off-rebuild", TimeSpan.FromSeconds(120), run => Rebuild(run, false), missionBound: true);
             yield return new AutomationStep("off-regions", TimeSpan.FromSeconds(20), run => Regions(run, false), missionBound: true);
             yield return new AutomationStep("off-orders", TimeSpan.FromSeconds(240), run => Orders(run, false), missionBound: true);
+            yield return new AutomationStep("off-inside-orders", TimeSpan.FromSeconds(60), run => InsideOrders(run, false), missionBound: true);
             yield return new AutomationStep("on-rebuild", TimeSpan.FromSeconds(120), run => Rebuild(run, true), missionBound: true);
             yield return new AutomationStep("on-regions-again", TimeSpan.FromSeconds(20), run => Regions(run, true), missionBound: true);
             yield return new AutomationStep("verdict", TimeSpan.FromSeconds(10), Verdict, missionBound: true);
@@ -208,6 +210,38 @@ namespace EnemyBridgePathTest
             if (enabled) Check(onDeckVisits == 0, phase + "-orders", "hostile soldiers never enter the lowered deck");
             // Leave the deck free for the next phase: soldiers that got onto it are removed.
             run.InSimulation(run.CurrentMission, () => { RemoveSoldiersOnDeck(d); return 0; });
+        }
+
+        // The reported failure case: the castle interior is also reachable another way, so the
+        // whole route lies in one region and only the per-player tile mask can keep hostile
+        // routes off the deck. Orders target the tile just inside the gate.
+        private static IEnumerable<AutomationWait> InsideOrders(AutomationRun run, bool enabled)
+        {
+            string phase = enabled ? "on" : "off";
+            var d = decks[0];
+            int target = d.InnerTile;
+            var setup = run.InSimulation(run.CurrentMission, () =>
+            {
+                HoldGatesOpen();
+                soldiers.Clear(); Spawn(d);
+                int inside = DrawbridgeDeckRuntime.RegionOf(target);
+                bool alternate = enemy > 0 && inside > 0 && GamePathingManagerAPI.Instance.ArePathComponentsConnected(enemy, d.LandingRegion, inside);
+                if (alternate) foreach (int unit in soldiers) MoveTo(unit, target);
+                return Tuple.Create(alternate, inside);
+            });
+            Stamp("INSIDE " + phase + " gate=" + d.Gate + " target=" + Tile(target) + " insideRegion=" + setup.Item2 + " landingRegion=" + d.LandingRegion +
+                  " alternateRoute=" + setup.Item1 + " soldiers=" + soldiers.Count);
+            if (!setup.Item1 || soldiers.Count == 0) yield break; // no second way into this castle: nothing to compare
+            var plans = run.InSimulation(run.CurrentMission, () => soldiers.Select(u => DescribePlan(u, d, target)).ToList());
+            int planned = plans.Count(p => p.Length > 0), crossing = plans.Count(p => p.CrossesDeck);
+            Stamp("INSIDE " + phase + " withPlan=" + planned + " crossingDeck=" + crossing + " plans=" + string.Join(" ", plans.Select(p => p.Text)));
+            if (enabled) Check(crossing == 0, phase + "-inside-orders", "routes into the castle use the other way, never the lowered deck");
+            run.InSimulation(run.CurrentMission, () => { foreach (int unit in soldiers) if (Alive(unit, out _)) Kill(unit); soldiers.Clear(); return 0; });
+        }
+
+        private static unsafe void Kill(int unit)
+        {
+            if (APIShared.UnitAccess.TryGetById(unit, out GameUnit* _, out _)) GameUnitManagerAPI.Instance.KillUnit(unit);
         }
 
         private static IEnumerable<AutomationWait> Verdict(AutomationRun run)
