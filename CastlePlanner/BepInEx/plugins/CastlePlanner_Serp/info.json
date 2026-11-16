@@ -3,13 +3,21 @@
   "Author": "Serpens66",
   "Name": "CastlePlanner",
   "Description": "Displays AIVJSON blueprints, spawns personal human castles, and contains the gated AI lobby placement workflow.",
-  "Version": "0.8.52",
+  "Version": "0.8.53",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.10.4",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.8.53",
+      "Changes": [
+        "Fix castles failing to spawn when a different rotation is selected at the start of a game.",
+        "Correctly preserve the Keep's existing direction when choosing Unchanged and align Blueprints with rotated Keeps, including after loading a save and in the map editor.",
+        "Prevent multiplayer castle selection from repeatedly sending the castle data again after the selection timer expires, which could leave players waiting for the game to start."
+      ]
+    },
     {
       "Version": "0.8.52",
       "Changes": [

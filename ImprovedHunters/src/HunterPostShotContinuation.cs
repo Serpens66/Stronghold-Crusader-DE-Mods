@@ -261,7 +261,7 @@ namespace ImprovedHunters
                     hookSize: RecoveryWriterHookLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.BeforeCallback);
-                CommitResult commitResult = transaction.Commit();
+                CommitResult commitResult = HunterHookInfrastructure.Commit(transaction, "post-shot-continuation");
 
                 if (!commitResult.IsCompleteSuccess ||
                     !primaryQueryResultHook.Success ||

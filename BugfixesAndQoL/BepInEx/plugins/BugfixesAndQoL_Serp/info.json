@@ -3,19 +3,33 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.227",
+  "Version": "1.0.229",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.3",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.50.0"
+      "MinimumVersion": "0.55.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.229",
+      "Changes": [
+        "Use typed construction-cost access and preserve paid Human extras when using authenticated area demolition; require APIShared 0.55.0.",
+        "Fix Water Pots and Cathedrals staying paused when clicking the pause button again. Normal clicks resume all buildings of that type, while Ctrl-click still changes only the selected building.",
+        "Keep the building pause button and paused message in sync with the selected building, including individually paused or resumed buildings."
+      ]
+    },
+    {
+      "Version": "1.0.228",
+      "Changes": [
+        "Limit Prevent AI panic demolition to building demolition and its refund, preserving nervous Lord messages, emergency strategy and allied gold support."
+      ]
+    },
     {
       "Version": "1.0.227",
       "Changes": [

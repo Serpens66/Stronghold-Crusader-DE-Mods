@@ -41,6 +41,8 @@ namespace BugfixesAndQoL
     internal static class SiegeAmmoRestockPolicy
     {
         internal const int MaximumTargetCount = 128;
+        // Native catapult/trebuchet firing tests the packed ammunition word as signed Int16.
+        internal const int MaximumAmmunition = short.MaxValue;
 
         internal static bool TryCalculateRequestedPackage(
             int baseStoneCost,
@@ -113,11 +115,11 @@ namespace BugfixesAndQoL
             for (int index = 0; index < targets.Count; index++)
             {
                 SiegeAmmoRestockTarget target = targets[index];
-                if (target.GlobalUnitId <= 0 || !ids.Add(target.GlobalUnitId))
+                if (target.GlobalUnitId <= 0 || target.Ammunition > MaximumAmmunition || !ids.Add(target.GlobalUnitId))
                     return false;
 
                 ordered.Add(new MutableTarget(target.GlobalUnitId, target.Ammunition));
-                totalCapacity += ushort.MaxValue - target.Ammunition;
+                totalCapacity += MaximumAmmunition - target.Ammunition;
             }
 
             if (!TryCalculateRequestedPackage(
@@ -221,14 +223,14 @@ namespace BugfixesAndQoL
                 while (groupSize < targets.Count && targets[groupSize].Ammunition == currentLevel)
                     groupSize++;
 
-                int nextLevel = groupSize < targets.Count ? targets[groupSize].Ammunition : ushort.MaxValue;
+                int nextLevel = groupSize < targets.Count ? targets[groupSize].Ammunition : MaximumAmmunition;
                 long required = (long)(nextLevel - currentLevel) * groupSize;
                 if (required > 0 && ammunition >= required)
                 {
                     for (int index = 0; index < groupSize; index++)
                         targets[index].Ammunition = nextLevel;
                     ammunition -= required;
-                    if (nextLevel == ushort.MaxValue)
+                    if (nextLevel == MaximumAmmunition)
                         return;
                     continue;
                 }

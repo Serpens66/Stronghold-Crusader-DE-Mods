@@ -37,18 +37,21 @@ Accept only the four native micro-coordinate pairs on the north-east footprint t
 
 Projectile IDs are direct indices into `GameProjectileManagerAPI.GetProjectilesAsSpan()` with slot `0` reserved. `SourceWorldTileX/Y` and `TargetWorldTileX/Y` use micro-coordinates; `CurrentTileX/Y` use ordinary tile coordinates.
 
-## Stored Keep direction (2026-10-27, static Vanilla evidence)
+## Stored Keep direction (2026-10-27; corrected 2026-11-15, static Vanilla evidence)
 
 The unchanged canonical hash above was verified again. In the human branch of
 94350, orientation 15 is passed to BuildStructure (6D580), whose Keep switch
 reaches constructor 74DA0. The constructor writes its effective seventh argument
 to `DAT_1864ccc9e + buildingId * 0x32c`, exposed by the installed Extender as
-`GameBuilding.r_SpriteVariationIndex`. It uses 0 for geometry when that argument
+`GameBuilding.N00012042_2` (UInt16, record +0x92). It uses 0 for geometry when that argument
 is 15; otherwise it uses the supplied cardinal direction. D0630 reads the same
 stored value for the Keep's access coordinates, treating values other than
 2/4/6 as the South branch. Reading a live root Keep therefore observes the
 constructor's effective direction; camera rotation is a different input.
 
-This confirms the stored-field and 15-to-0 geometry contract from the native
-decompiler exports. It does not establish that arbitrary unknown variation
-values are supported rotations or prove a mod's runtime integration.
+The original 2026-10-27 attribution to `r_SpriteVariationIndex` was incorrect;
+that separate field is at record +0x102 and can remain 15 for every Keep direction.
+See [Keep direction versus sprite variation](KEEP_DIRECTION.md) for the hash-bound
+instruction evidence and independent record-origin calculation. This confirms
+the stored-field and 15-to-0 geometry contract. It does not establish support
+for arbitrary unknown direction values or prove a mod's runtime integration.

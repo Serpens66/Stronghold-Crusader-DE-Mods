@@ -13,7 +13,16 @@
     {
       "Version": "1.2.2",
       "Changes": [
-        "Report both Tanner meat and armour deliveries through APIShared's confirmed production receipt adapter while retaining ordinary production if optional receipt capture is unavailable."
+        "Report both Tanner meat and armour deliveries through APIShared's confirmed production receipt adapter while retaining ordinary production if optional receipt capture is unavailable.",
+        "Require APIShared 0.54.0.",
+        "With the mod switched off for the current game mode, Hunters only refuse the animals this mod itself made huntable; animals another mod makes huntable stay huntable.",
+        "Camel health, line of sight, reachability checks, the Hunter's hut sight and build-menu rules, longer corpses of rabbits, camels and chickens, chickens per player and the Tannery slider now use APIShared's shared services instead of the mod's own patches.",
+        "Changed: in games saved with an earlier version, camels that appear after loading keep their full health; new games are not affected.",
+        "Changed: longer corpses of rabbits, camels and chickens follow whether these animals are huntable in the current game.",
+        "Fixed: the Tannery meat slider was unavailable together with APIShared 0.52 or newer.",
+        "Every native patch of the mod is now claimed in APIShared's native-site registry before it is written; a conflict with another mod keeps the base game's behaviour for that feature.",
+        "Fixed: when choosing a firing position, the sight check could ignore obstacles because one argument of the game's sight test was not set.",
+        "Changed: Tannery slider positions of earlier test versions are not carried over into saved games."
       ]
     },
     {
@@ -678,7 +687,7 @@
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.52.0"
+      "MinimumVersion": "0.54.0"
     }
   ]
 }

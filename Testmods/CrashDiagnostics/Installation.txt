@@ -1,0 +1,32 @@
+CrashDiagnostics 0.1.1 - Kurzanleitung
+
+Installation
+1. Spiel schliessen.
+2. Den BepInEx-Ordner aus dem ZIP ins Spielverzeichnis entpacken.
+3. Spiel wie gewohnt starten, Save laden und normal weiterspielen.
+   Unter Linux weiterhin ueber Steam/Proton starten.
+
+Die Installation beim abstuerzenden Client reicht; beim Host ist sie optional.
+Gedacht fuer Serps Mods 1.0.37 mit APIShared 0.53.0 und Script Extender 2.14.3.
+
+Einmal pruefen, ob die Diagnose laeuft
+In BepInEx/LogOutput.log nach READY status=7 oder READY status=15 suchen.
+READY status=3 ist ebenfalls nutzbar, erfasst aber weniger Details.
+Nach dem Laden sollen auch POST_STARTUP_RENDER und MISSION_TICK vorhanden sein.
+Fehlt etwas, bitte die LogOutput.log schicken. Linux/Proton ist noch ungetestet.
+
+Nach einem Crash
+1. Warten, bis das Spiel beendet ist, dann noch ein paar Sekunden warten.
+2. Unter BepInEx/CrashDiagnostics den neuesten Sitzungsordner komplett zippen
+   und schicken, auch wenn darin keine report.txt liegt.
+3. Kurz dazuschreiben: Windows-Host oder Linux-Client, letzte Aktion vor dem Crash.
+   Player.log vor dem naechsten Spielstart ebenfalls sichern, falls vorhanden.
+
+Wichtig
+- Vor dem fuenften Spielstart alte Sitzungsordner sichern und danach entfernen.
+  Sonst ist der Speicherplatz fuer neue Diagnosesitzungen belegt.
+- Die Daten koennen Spielernamen, Chat, Dateipfade und Speicherfragmente enthalten.
+  Es wird nichts automatisch hochgeladen.
+
+Entfernen
+Spiel schliessen und BepInEx/plugins/CrashDiagnostics_Serp loeschen.

@@ -105,3 +105,13 @@ Source: pseudocode of `0x11B520`, `0x124740`, `0x119F90` in the semantic export 
 
 - Installed native SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`, checked 2026-11-03 from the DLL bytes: the Chore-17 handler `0x10AE0` loads `rcx` with `lea rcx,[rip]` at RVA `0x10C7C` -> `0x67E8400` (unit manager) and calls `0x196100` at RVA `0x10CAB`.
 - `0x196100` never reads `rcx`: it writes `0x7CC6720 + tribe*0x688 + 0x56C` (tribe manager) directly from the tribe argument and bit 7 of the sixth argument, then calls `0x11B520`. A hook must not identify the tribe record through the first argument.
+
+## Native A9E is not general locomotion ability (2026-11-15) [Vanilla facts]
+
+Installed canonical SHA-256 was rechecked as `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. The following is a static type-table and control/data-flow audit, with natural worker-position observations supplied by the current test log; it is not a complete admission contract for all civilian states.
+
+- The native unit field `+0xA9E` (typed `GameUnit+0x442`, `N000000DB`) is initialized at `0x19A44C` in `0x19A240` from the low word of `0x3226B0 + unitType*4`. Reset `0x19C130` writes the same type-derived value at `0x19C26D`. This does not establish an idle/travelling phase flag.
+- Reading the table in the installed PE gives zero for Peasant, Woodcutter, Hunter, Quarry Ox, Wheat/Hops/Apple/Cattle Farmers, and the stationary Trebuchet/Mangonel/Ballista types. Archer, Spearman, Engineer, Catapult, mobile Siege Tower/Ram/Shield, Assassin and Arab Ballista entries are one. Equal zero values therefore cannot prove equal locomotion ability.
+- Audited direct admission readers are `0x118E00` (`0x118F38`), `0x11B520` (`0x11BD63`) and group action dispatch `0x122B40` (`0x122C36`). Their nonzero requirement is a group-command predicate; copying it into generic civilian movement or rescue excludes real working units.
+- Apple Farmer handler `0x135E30` issues `0x196280` for its ordinary work/return states without testing this field. The common publisher `0x196280` and movement consumer `0x1855A0` likewise do not require it. The observed naturally working Apple Farmer moved between different fields while retaining zero. Detailed civilian producer/consumer branches remain in `MOAT_TRAVERSAL_ALL_UNITS.md`.
+- The superficially similar store at `0x1A0C49` in `0x19D960` writes `DLL_RunTick`'s output packet (RBX derives from the `retData` argument), not the unit-array field. Its equal displacement is not a second gameplay-state writer.

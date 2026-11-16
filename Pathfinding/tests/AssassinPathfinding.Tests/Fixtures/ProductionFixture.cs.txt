@@ -8,6 +8,16 @@ using APIShared.UnitCommands;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using BepInEx.Logging;
+using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Tribes;
+namespace SHCDESE.EventAPI { enum EventHookPhase {Pre,Post} class EventHookBase { public bool SkipOriginalFunction; public EventHookPhase Phase; } }
+namespace SHCDESE.EventAPI.Tribes {
+ class TribeIssueOrderMoveHereEventArgs : EventHookBase {public int TribeId=1,TileX=5,TileY=5,MoveType,IsPatrolPath;public bool IsNewOrder=true;}
+ class TribeIssueOrderWithTargetEventArgs : EventHookBase {public int TribeId=1,TargetValue1=6,TargetValue2=6,AICommand;}
+}
+static class GameTimeManagerAPI {public static Clock Instance=new();internal class Clock {public int GetElapsedMapTicks()=>7;}}
+
+namespace Pathfinding { static class TribeCommandDispatchBoundary { internal static bool IsAvailable=true;internal static bool IsDispatching=true; } }
 enum eChimps { CHIMP_TYPE_ARAB_ASSASIN=73 }
 enum AliveState { None,IsAlive,MarkedForDeletion }
 struct GameUnit {
@@ -225,6 +235,7 @@ internal ITemporaryAssassinGateObserver DetailedObserver;internal Dictionary<int
   void ObservePreparedAssassinRoute(int player,int length){}
   void LogDebug(string message){}
   void LogWarning(string message){}
+  void CompleteCommand(AssassinCommandScope command){}
   void LogError(string message){throw new Exception(message);}
   readonly List<IntPtr> allocations=new();
   long fixturePops,fixtureHeapOperations;
@@ -333,6 +344,44 @@ internal ITemporaryAssassinGateObserver DetailedObserver;internal Dictionary<int
       maskedFound&&maskedExistence==RouteExistence.Undecided,"castle existence search applies the same gate mask");
     }
    }finally{r.Release();}
+  }
+  public static void VerifyCommandLifetime(){
+   var r=new AssassinPathfindingRuntime("open");
+   try {
+    activeCommand=null;
+    object root=r.EnterCommandDispatch(out int rootEpoch);
+    var outerArgs=new TribeIssueOrderMoveHereEventArgs();
+    r.ObserveMoveCommand(outerArgs);var outer=activeCommand;
+    Assert(ReferenceEquals(r.CurrentCommand(),outer),"accepted outer cache available");
+    outerArgs.SkipOriginalFunction=true;
+    Assert(r.CurrentCommand()==null,"late veto masks current cache without deleting scope");
+    object parent=r.EnterCommandDispatch(out int childEpoch);
+    Assert(r.CurrentCommand()==null,"nested dispatch shadows parent before Pre");
+    var innerArgs=new TribeIssueOrderWithTargetEventArgs();
+    r.ObserveTargetCommand(innerArgs);
+    innerArgs.SkipOriginalFunction=true;
+    Assert(r.CurrentCommand()==null,"late veto masks inner cache in the same tick");
+    r.LeaveCommandDispatch(parent,childEpoch);
+    Assert(r.CurrentCommand()==null&&ReferenceEquals(activeCommand,outer),"canceled inner restores temporarily vetoed outer without pruning");
+    outerArgs.SkipOriginalFunction=false;
+    Assert(ReferenceEquals(r.CurrentCommand(),outer),"later subscriber may restore outer acceptance");
+    parent=r.EnterCommandDispatch(out childEpoch);var accepted=new TribeIssueOrderWithTargetEventArgs();r.ObserveTargetCommand(accepted);
+    Assert(r.CurrentCommand()!=null,"actual target Pre creates current scope");accepted.Phase=EventHookPhase.Post;r.ObserveTargetCommand(accepted);
+    Assert(activeCommand==null,"actual target Post closes child scope");r.LeaveCommandDispatch(parent,childEpoch);
+    Assert(ReferenceEquals(r.CurrentCommand(),outer),"wrapper restores parent after normal child Post");
+    for(int i=0;i<10000;i++){
+     parent=r.EnterCommandDispatch(out childEpoch);
+     try {r.ObserveTargetCommand(new TribeIssueOrderWithTargetEventArgs{SkipOriginalFunction=true});Assert(r.CurrentCommand()==null,"vetoed actual Pre is neutral");}
+     finally {r.LeaveCommandDispatch(parent,childEpoch);}
+     Assert(ReferenceEquals(activeCommand,outer)&&activeCommand.Previous==null,"no-Post veto cannot retain a scope chain");
+    }
+    outerArgs.Phase=EventHookPhase.Post;r.ObserveMoveCommand(outerArgs);Assert(activeCommand==null,"actual move Post closes outer");
+    r.LeaveCommandDispatch(root,rootEpoch);
+    Assert(r.CurrentCommand()==null,"outside command search has no stale cache");
+    parent=r.EnterCommandDispatch(out childEpoch);activeCommand=outer;r.mapEpoch++;activeCommand=null;
+    r.LeaveCommandDispatch(parent,childEpoch);
+    Assert(activeCommand==null,"old mission parent is never restored");
+   }finally{activeCommand=null;r.Release();}
   }
   AssassinCommandScope NewCommand()=>new(null,1,0,0,1,1,0,0,"fixture",true);
   static void Assert(bool value,string message){if(!value)throw new Exception(message);}

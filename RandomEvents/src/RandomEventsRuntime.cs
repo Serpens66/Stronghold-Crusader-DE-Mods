@@ -1372,7 +1372,7 @@ namespace RandomEvents
                     SerpLocalization.Get("RandomEvents.ChatPlayerFormat"), announcement.TargetPlayerId);
             string eventName = SerpLocalization.Get("RandomEvents.Event." + announcement.Kind);
             viewModel.HUDMPChatMessages.recieveIngameChat(
-                playerName + ": ", announcement.TargetPlayerId, eventName);
+                playerName + ": ", announcement.TargetPlayerId, "Event: " + eventName);
             return true;
         }
 

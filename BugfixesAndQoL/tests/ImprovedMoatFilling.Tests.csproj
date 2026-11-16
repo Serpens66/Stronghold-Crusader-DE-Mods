@@ -67,6 +67,8 @@
     <Compile Include="..\src\Lobby\CoopCustomLordSelectionPolicy.cs"><Link>CoopCustomLordSelectionPolicy.cs</Link></Compile>
     <Compile Include="..\src\Multiplayer\MultiplayerAivSyncPolicy.cs"><Link>MultiplayerAivSyncPolicy.cs</Link></Compile>
     <Compile Include="..\src\Buildings\SingleBuildingPauseOverrideStore.cs"><Link>SingleBuildingPauseOverrideStore.cs</Link></Compile>
+    <Compile Include="..\src\Buildings\SingleBuildingPausePolicy.cs"><Link>SingleBuildingPausePolicy.cs</Link></Compile>
+    <Compile Include="..\src\Buildings\SingleBuildingPauseUiIlContract.cs"><Link>SingleBuildingPauseUiIlContract.cs</Link></Compile>
     <Compile Include="..\src\AI\Economy\TemporaryGateBlockagePolicy.cs"><Link>TemporaryGateBlockagePolicy.cs</Link></Compile>
     <Compile Include="..\src\Lobby\TrailCustomizationProviderHostApi.cs"><Link>TrailCustomizationProviderHostApi.cs</Link></Compile>
     <Compile Include="..\src\Buildings\TunnelPlacementDistancePolicy.cs"><Link>TunnelPlacementDistancePolicy.cs</Link></Compile>

@@ -367,3 +367,73 @@ attacks an animal by itself:
   only with the attacker's tribe flag `+0x58E` and never for Hunters, lions and hyenas only when their herd attacks (`+0x606`,
   `+0x608`, or AI state `0xCF` on a non-animal), war dogs of another team; the other types pass this switch and depend on
   `0x1867A0`. The tribe flag is cleared by every order (`0x11E9CA`) and set only in the ranged branches of orders 4 and `0x20/0x21`.
+
+## Hunter meat inventory, worker identity and retirement boundary (2026-11-15) [Scope: Vanilla]
+
+Confirmed static extension, installed native SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`, independently
+rehash-checked on 2026-11-15 against CURRENT.json. Same-hash function pseudocode was
+checked against direct installed PE instruction decoding. These are native facts;
+they do not establish in-game acceptance of a new retirement policy.
+
+Public building records start at `0x64CCBB0 + buildingId*0x32C + 0x5C`, public unit
+records at `0x67E8400 + unitId*0x490 + 0x65C`. Game IDs are one-based. In hunter-hut
+update `0xAE570`, the first worker ID at public building `+0x19E` is validated
+against the unit global ID and the stored worker global at building `+0x1A8`
+(Extender name `N0000176A`). The second pair `+0x1A0/+0x1AC` is the hound; its
+respawn path creates type `0x34`. The Hunter's linked-building global at public
+unit `+0x364` is written from the hut global in that spawn/assignment path.
+
+The inventories are hut meat at public building `+0x150` (manager-relative field
+`+0x1AC`) and carried goods at public unit `+0x384`. They must not be confused with
+the second worker's global ID at public building `+0x1AC`. Hunter update `0x12FC70`:
+
+- States 1/9/10/11 concern hunting and corpse approach; state 2 returns with a
+  carcass; states 3/109 run hut processing. None proves an empty production chain.
+- State 0, on finding nonzero hut meat, first enters state 4 and removes six meat
+  through `0xB6100(manager, hutId, hutGlobal, 0xC, -6, 0, 1)`. State 4 owns a deferred
+  yield even if hut meat and unit carry are both zero.
+- A successful state-4 granary route changes to state 5, then calls
+  `0x18D940(hunterId, 6, 1)` at `0x1309FE` and stores its return at unit `+0x384`.
+  Granary lookup, path failure, acceptance and deposit remain within states 4/5;
+  an empty carry check alone cannot certify completion. Return state 6 is separate.
+- Idle states 0/7/8 have no deferred delivery of this kind. They still require
+  separate inventory and hut-production checks before a consumer concludes drain.
+- `0xB6240(...,2)` clears public building progress `+0x2C` and animation stage
+  `+0x118`, but sets cycle mode `+0x26` to 2. Hut update `0xAE570` later recomputes
+  cycle mode from its worker-interaction data. The fractional productivity rest at
+  public unit `+0x300` is not a carried-meat field.
+
+The existing AI retirement branch in `0x3B270`, after its failure-counter/control
+guards, executes these three calls in order at `0x3B31E`, `0x3B331`, `0x3B33B`:
+
+1. `0x55E10(0x34A9F70, originTileX, originTileY)` records coarse-cell avoidance.
+2. `0xC4480(0x64CCBB0, buildingId, ownerPlayerId, 50)` applies ordinary native refunds.
+3. `0xC4290(0x64CCBB0, buildingId)` marks removal, including propagation to buildings
+   with the same nonzero public `+0x2A8` demolition group.
+
+Refund 50 is the call argument. `0xC4480` gives no refund in native mode 1, overrides
+the percentage to 100 in mode 6, and otherwise uses integer construction-cost
+percentages. Marked state 3 is a request: `0xC60F0` later dispatches `0xB8310`, which
+clears the record and releases worker links. Existing detailed cell/retry behavior
+is documented in [AI woodcutter retirement](AI_WOODCUTTER_RETIREMENT.md).
+
+Directly verified full original function lengths/hashes:
+
+| RVA | Length | SHA-256 |
+|---|---:|---|
+| `0x3B270` | 229 | `EFF1F3C1FB0BB922746F17F266D62EAA252E6FF7C64610EF50856EA2833AAD9D` |
+| `0x55E10` | 109 | `84F5ED0A91B52B6FD62CB4B56F35A5EB320BAB9B4A1F18E9603B89C2208DB828` |
+| `0xC4480` | 1320 | `C1E4DC936740B9D35117AC1539BC0A07D48EF212F61CE57778DC2A82AA8445D7` |
+| `0xC4290` | 257 | `713BF8FC70A1320F9EA7BB8B1CEBC82F0E52211C78A41D1DA3286EA5E24B0E56` |
+
+No PE base-relocation entry lies within those ranges. RIP-relative manager anchors
+at `0x3B27F` and `0x3B30E` resolve to `0x64CCBB0` and `0x34A9F70`, both in readable/
+writable `.data`; the following direct CALLs resolve to the three callees above.
+
+Native scheduling evidence: `0xD1D4F` is the counter-increment/XOR boundary inside
+`0xD1AD0`, whose only caller is `0xCDE60`. The caller increments the map tick before
+it, then later performs ordinary building update `0xC60F0`, AIV update `0x57330`
+and unit passes `0x182B00`/`0x187B30`. Earlier helpers called by `0xD1AD0` return
+before this boundary; no HunterUpdate is suspended at it. This native ordering
+does not by itself prove where a future external tick publisher will execute.

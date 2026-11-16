@@ -856,7 +856,9 @@ namespace CanarariWoodTest
             string nativeReason = FormatNativePlacementReason();
             try
             {
-                int cost = GameBuildingManagerAPI.Instance.GetWoodCost(eStructs.STRUCT_WOODCUTTERS_HUT);
+                if (!APIShared.Buildings.ConstructionCosts.TryGetCurrent(APIShared.Buildings.ConstructionCostTarget.FromStructure(eStructs.STRUCT_WOODCUTTERS_HUT), out var constructionCost, out string costReason))
+                    throw new InvalidOperationException(costReason);
+                int cost = constructionCost.Wood;
                 Log($"AI_BUILD_STRUCTURE: session={sessionId}, tick={lastTick}, player={owner}, attempt={id}, " +
                     $"phase={args.Phase}, tile=({args.TileX},{args.TileY}), mapper={args.Mappers}, " +
                     $"scale={args.BuildingScaleUnknown}, free={args.IsFree}, woodCost={cost}, " +

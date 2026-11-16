@@ -118,13 +118,20 @@ namespace ImprovedHunters
                     }
                 }
 
-                int result = GamePathingManagerAPI.Instance
-                    .FindNextComponentTowardDestination(
-                        inputs.PlayerId,
-                        inputs.SourcePcl,
-                        inputs.TargetPcl,
-                        (PathConnectionQueryMode)inputs.Mode);
-                reachable = result != 0;
+                APIShared.Pathfinding.PathReachabilityResult answer = APIShared.Pathfinding.PathReachability.BetweenComponents(
+                    inputs.PlayerId,
+                    (PathConnectionQueryMode)inputs.Mode,
+                    inputs.SourcePcl,
+                    inputs.TargetPcl);
+                if (answer == APIShared.Pathfinding.PathReachabilityResult.Unknown)
+                {
+                    LogFailure(
+                        $"Improved Hunters native PCL reachability has no answer: hunter={hunterUnitId}, " +
+                        $"target={preyUnitId}/{preyGlobalId}/{preyType}, mode={inputs.Mode}.");
+                    return false;
+                }
+
+                reachable = answer == APIShared.Pathfinding.PathReachabilityResult.Connected;
                 lock (cacheLock)
                 {
                     nativeQueries++;
@@ -284,9 +291,8 @@ namespace ImprovedHunters
                 return false;
             }
 
-            Span<ushort> pathConnections = GamePathingManagerAPI.Instance.GetPathComponentGrid();
-            if (!global::APIShared.IndexBounds.IsValidIndex(sourceTileId, pathConnections.Length) ||
-                !global::APIShared.IndexBounds.IsValidIndex(targetTileId, pathConnections.Length))
+            if (!APIShared.Pathfinding.PathReachability.TryGetComponent(sourceTileX, sourceTileY, out int sourcePcl) ||
+                !APIShared.Pathfinding.PathReachability.TryGetComponent(targetTileX, targetTileY, out int targetPcl))
             {
                 failure = "path-connection-grid-index-out-of-range";
                 return false;
@@ -298,8 +304,8 @@ namespace ImprovedHunters
                 preyType,
                 hunter->r_ControllableForPlayerId,
                 hunter->r_PathConnectionMode,
-                pathConnections[sourceTileId],
-                pathConnections[targetTileId]);
+                sourcePcl,
+                targetPcl);
             return true;
         }
 

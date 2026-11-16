@@ -1,0 +1,4 @@
+Rescue.Enabled=Experimentelle lokale Einheitenrettung
+Rescue.Help=Aktiviert lokale Rettung und die entsprechende Fixes-Unterdrückung nur in einem ausdrücklich angeforderten, verwerfbaren Test. Standardmäßig aus. Dies ist ein experimenteller Testmod, kein abgenommener Spielfix.
+Rescue.Scope=Automatische Rettung läuft ausschließlich in ausdrücklich gestarteten Testszenarien. Installation und Aktivierung ändern keinen normalen geladenen Spielstand. Szenarien weisen nicht unterstützte Zustände aus und trennen künstlichen Einschluss von echten Baufehlern.
+Rescue.Rule=Die Tests prüfen Identität, Lebenspunkte, Kachelbelegung, Gruppe und Besatzung sowie anschließende Bewegung und Arbeit. Ein erfolgreicher Teleport allein ist kein PASS. Die Torhaus-Arbeiterrettung von Fixes bleibt unverändert.

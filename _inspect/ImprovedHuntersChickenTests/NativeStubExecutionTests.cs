@@ -160,7 +160,6 @@ internal static unsafe class NativeStubExecutionTests
         TestMeleeOrder(image);
         TestStance(image);
         TestTanner(image);
-        TestHutAvailability(image);
         TestCorpseChoice(image);
         Console.WriteLine($"ImprovedHunters native stubs executed: assertions={assertions}.");
     }
@@ -326,9 +325,11 @@ internal static unsafe class NativeStubExecutionTests
         public int* MeatStat;
         public Recorder Armoury = null!, Granary = null!, Warning = null!, Accept = null!, Deposit = null!, Stats = null!, Sound = null!;
         public HunterNativeStubs.TannerMeatAddresses Addresses = null!;
-        public TannerRunTable Table = null!;
+        public TannerStateLayout Table = null!;
 
-        public byte* Entry(int id) => (byte*)Table.Address + id * TannerRunTable.EntrySize;
+        public byte* Entry(int id) => (byte*)Table.Address + id * Table.EntrySize;
+
+        public void ClearTable() => new Span<byte>((byte*)Table.Address, Table.Capacity * Table.EntrySize).Clear();
 
         public byte* Building(int id) => Buildings + id * BuildingStride;
 
@@ -353,6 +354,14 @@ internal static unsafe class NativeStubExecutionTests
         }
     }
 
+    // The layout APIShared's building state table gives the Tannery's two values (see BuildingStateTable):
+    // 0x2000 entries of 8 bytes, the global ID at +0, meat runs at +4 and the current trip at +5.
+    private static TannerStateLayout NewTannerTable()
+    {
+        const int capacity = 0x2000, entrySize = 8;
+        return new TannerStateLayout(Address(Alloc(capacity * entrySize)), capacity, entrySize, 0, 4, 5);
+    }
+
     private static TannerFixture NewTannerFixture()
     {
         var f = new TannerFixture
@@ -368,7 +377,7 @@ internal static unsafe class NativeStubExecutionTests
             Deposit = NewRecorder(1),
             Stats = NewRecorder(0),
             Sound = NewRecorder(0),
-            Table = new TannerRunTable()
+            Table = NewTannerTable()
         };
         *(uint*)(f.Building(Tannery) + 0x134) = TanneryGlobalId;
         *f.CurrentUnit = TannerUnit;
@@ -392,7 +401,7 @@ internal static unsafe class NativeStubExecutionTests
             AfterFindWarning = ExitBlock(ResultContinue),
             AcceptFail = ExitBlock(ResultReject),
             DepositDone = ExitBlock(ResultContinue),
-            RunTable = f.Table.Address
+            RunTable = f.Table
         };
         return f;
     }
@@ -400,9 +409,9 @@ internal static unsafe class NativeStubExecutionTests
     private static void SetRun(TannerFixture f, bool enabled, int latched, uint entryGlobalId = TanneryGlobalId)
     {
         SetFlag(enabled);
-        f.Table.Clear();
-        *(uint*)(f.Entry(Tannery) + TannerRunTable.GlobalIdOffset) = entryGlobalId;
-        f.Entry(Tannery)[TannerRunTable.MeatTripOffset] = (byte)(latched == Meat ? 1 : 0);
+        f.ClearTable();
+        *(uint*)(f.Entry(Tannery) + f.Table.GlobalIdOffset) = entryGlobalId;
+        f.Entry(Tannery)[f.Table.MeatTripOffset] = (byte)(latched == Meat ? 1 : 0);
         f.Reset();
     }
 
@@ -412,17 +421,17 @@ internal static unsafe class NativeStubExecutionTests
         *amount = 5;
         Recorder helper = NewRecorder(9);
         ulong stub = BuildStub(image, 0x13EBF7, 14, ReturnPlain,
-            (a, i) => HunterNativeStubs.EmitTannerYield(a, i, Address(flag), f.Table.Address, Address((byte*)amount), helper.Address));
+            (a, i) => HunterNativeStubs.EmitTannerYield(a, i, Address(flag), f.Table, Address((byte*)amount), helper.Address));
         byte* unit = units + TannerUnit * UnitStride;
         byte* entry = f.Entry(Tannery);
 
         (int Base, int Trip) Yield(bool enabled, int meatRuns, int hides, uint entryGlobalId = TanneryGlobalId, int weaponBase = 1)
         {
             SetFlag(enabled);
-            f.Table.Clear();
-            *(uint*)(entry + TannerRunTable.GlobalIdOffset) = entryGlobalId;
-            entry[TannerRunTable.MeatRunsOffset] = (byte)meatRuns;
-            entry[TannerRunTable.MeatTripOffset] = 0x7F;
+            f.ClearTable();
+            *(uint*)(entry + f.Table.GlobalIdOffset) = entryGlobalId;
+            entry[f.Table.MeatRunsOffset] = (byte)meatRuns;
+            entry[f.Table.MeatTripOffset] = 0x7F;
             *(short*)(f.Building(Tannery) + 0x2EC) = 0x51;
             *(short*)(f.Building(Tannery) + 0x2EA) = 0x52;
             *(int*)(f.Building(Tannery) + 0x190) = hides;
@@ -432,7 +441,7 @@ internal static unsafe class NativeStubExecutionTests
             Check(*(short*)(unit + ManagerCarried) == 9, "the helper's result is carried, so its bonus stays.");
             Check(*(short*)(f.Building(Tannery) + 0x2EC) == 0x51 && *(short*)(f.Building(Tannery) + 0x2EA) == 0x52,
                 "the workshop's produced-good fields stay free for Vanilla and other mods.");
-            return ((int)helper.Rdx, entry[TannerRunTable.MeatTripOffset]);
+            return ((int)helper.Rdx, entry[f.Table.MeatTripOffset]);
         }
 
         Check(Yield(false, 3, 0) == (1, 0x7F), "a disabled patch keeps Vanilla's yield and the table.");
@@ -449,7 +458,7 @@ internal static unsafe class NativeStubExecutionTests
             }
         }
 
-        *(short*)(unit + ManagerWorkplace) = (short)TannerRunTable.Capacity;
+        *(short*)(unit + ManagerWorkplace) = (short)f.Table.Capacity;
         Check(Yield(true, 3, 0) == (1, 0x7F), "a building above the table keeps the workshop's own good.");
         *(short*)(unit + ManagerWorkplace) = Tannery;
     }
@@ -567,26 +576,6 @@ internal static unsafe class NativeStubExecutionTests
         TestTannerAccept(image, fixture);
         TestTannerDeposit(image, fixture);
         TestTannerRefind(image, fixture);
-    }
-
-    private static void TestHutAvailability(byte[] image)
-    {
-        int* hasPrey = (int*)Alloc(16);
-        ulong available = ExitBlock(ResultContinue);
-        ulong stub = BuildStub(image, 0xFFDAB, 14, new byte[] { 0x33, 0xC0, 0xC3 },
-            (a, i) => HunterNativeStubs.EmitHutAlwaysAvailable(a, i, Address(flag), Address((byte*)hasPrey), available));
-
-        int Check_(bool enabled, ulong mode, int prey)
-        {
-            SetFlag(enabled);
-            *hasPrey = prey;
-            return Run(stub, new Registers { Rax = 7, R10 = mode, Rdx = 0x4E }).Result;
-        }
-
-        Check(Check_(false, 99, 0) == 0, "without the setting Vanilla hides the hut on a map without prey.");
-        Check(Check_(false, 99, 5) == ResultContinue, "a map with prey keeps the hut.");
-        Check(Check_(false, 0, 0) == ResultContinue, "single player keeps the hut.");
-        Check(Check_(true, 99, 0) == ResultContinue, "the setting keeps the hut on a map without prey.");
     }
 
     private static void TestCorpseChoice(byte[] image)

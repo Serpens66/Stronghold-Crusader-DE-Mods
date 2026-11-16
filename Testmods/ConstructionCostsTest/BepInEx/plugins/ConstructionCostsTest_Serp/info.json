@@ -1,0 +1,14 @@
+{
+  "GUID": "ConstructionCostsTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Construction Costs Test",
+  "Description": "Explicit-request-only local construction, refund and owned-save acceptance through public automation.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.14.3",
+  "Dependencies": [
+    { "GUID": "APIShared_Serp", "MinimumVersion": "0.55.0" },
+    { "GUID": "BuildingCosts_Serp" }
+  ],
+  "Manifest": 1,
+  "NetworkMode": 1
+}

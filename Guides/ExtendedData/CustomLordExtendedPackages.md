@@ -70,44 +70,7 @@ Use a globally unique ASCII GUID and local asset mode in `info.json`:
 
 `Manifest: 0` identifies an asset/Lua package. `AssetMode: "Local"` keeps the Lord's `Override/` files private to its GUID, so several Lords can safely reuse names such as `face.png` or `attack.ogg`. If `AssetMode` is absent, the Script Extender uses `Global`, where files with the same path can replace one another. ExtendedData warns about generic Override filenames in global mode, including when `AssetMode` is absent or invalid. Use `NetworkMode: 1` instead of `0` when Lua or another package feature changes simulation state.
 
-A useful `lordmeta.json` can provide all detail-panel text at once:
-
-```json
-{
-  "LocalizedDisplayName": {
-    "en-US": "The Gatekeeper",
-    "de-DE": "Der Torwächter"
-  },
-  "LocalizedTitles": {
-    "en-US": [", Keeper of the Gate", ", The Resolute"],
-    "de-DE": [", Hüter des Tores", ", der Entschlossene"]
-  },
-  "LocalizedDescription": {
-    "en-US": "A patient defensive lord.",
-    "de-DE": "Ein geduldiger defensiver Burgherr."
-  },
-  "LocalizedDifficultyRating": {
-    "en-US": "Difficult",
-    "de-DE": "Schwierig"
-  },
-  "LocalizedFavouriteTroops": {
-    "en-US": "Archers and swordsmen",
-    "de-DE": "Bogenschützen und Schwertkämpfer"
-  },
-  "LocalizedCastles": {
-    "en-US": "Compact stone castles",
-    "de-DE": "Kompakte Steinburgen"
-  },
-  "LocalizedPlayStyle": {
-    "en-US": "Defensive",
-    "de-DE": "Defensiv"
-  },
-  "LocalizedFavouriteSaying": {
-    "en-US": "Patience wins wars.",
-    "de-DE": "Geduld gewinnt Kriege."
-  }
-}
-```
+Add only the text and media fields your Lord uses; the complete example below shows their exact spelling.
 
 The lookup order is the exact current game-language key, then `en-US`. Optional detail fields become empty if neither contains usable text. Always provide `en-US` as the general fallback. Locale keys are not normalized from forms such as `de` to `de-DE`.
 
@@ -211,7 +174,7 @@ The direct root `init.lua` is the Lord AI entry point. Do not add a path field f
 | Field | JSON type | Behavior |
 |---|---|---|
 | `LocalizedDisplayName` | `{ locale: string }` | Localized display name; the base name remains when no usable value exists. |
-| `LocalizedTitles` | `{ locale: string[] }` | Title suffixes selected by zero-based player-slot index and wrapped with modulo. |
+| `LocalizedTitles` | `{ locale: string[] }` | Title suffixes assigned by player slot; the list repeats when there are more slots than titles. |
 | `LocalizedDescription` | `{ locale: string }` | Description in the Custom Lord detail panel. |
 | `LocalizedDifficultyRating` | `{ locale: string }` | Text displayed with the numeric Lord power. |
 | `LocalizedFavouriteTroops` | `{ locale: string }` | Favourite-troops text. |
@@ -227,7 +190,7 @@ Titles are suffixes, so include their punctuation and leading space. The six opt
 
 Common game-language keys are `ar`, `cs-CZ`, `de-DE`, `el-GR`, `en-US`, `es-ES`, `fr-FR`, `hu-HU`, `it-IT`, `ja-JP`, `ko-KR`, `nl-NL`, `pl-PL`, `pt-BR`, `ru-RU`, `sv-SE`, `th-TH`, `tr-TR`, `uk-UA`, `zh-CN`, and `zh-HK`.
 
-#### Assets and provider-local paths
+#### Media files and paths
 
 Paths in `lordmeta.json` are relative to `Override/`. With `AssetMode: "Local"`, the Script Extender automatically qualifies face, join/leave audio, and message video/audio paths with the owning GUID. Other local packages can use the same relative names without collisions.
 
@@ -338,7 +301,7 @@ The game handles direct root `.lordjson`, `.aivjson`, and optional `avatar.png`.
 | `Locales/<locale>/` | exactly `crusader.txt` |
 | `Override/**` | `.png`, `.jpg`, `.tga`, `.ogg`, `.wav`, `.webm`, `.mp4` |
 
-Direct root `.data` and `.ldata` files are local uploader controls and are not uploaded. Other files are inventoried but excluded. The confirmation warning reports the count and examples; the complete sorted list is written to `BepInEx/LogOutput.log`. If an allowed file cannot be staged safely, the upload is cancelled instead of publishing an incomplete package.
+Direct root `.data` and `.ldata` files are local uploader controls and are not uploaded. Other files are listed but excluded. The upload warning shows examples; `BepInEx/LogOutput.log` contains the full list. Excluded gameplay files block this upload path, because publishing without them would produce an incomplete Lord. File-copy errors also cancel the upload.
 
 Packages requiring DDS, XAML patches, AssetBundles, or other files outside this allowlist need a separate complete Steam UGC publishing workflow. JSON resources are supported in subdirectories too, including under `Override/`.
 
@@ -430,44 +393,7 @@ Verwende in `info.json` eine weltweit eindeutige ASCII-GUID und den lokalen Asse
 
 `Manifest: 0` kennzeichnet ein Asset-/Lua-Paket. `AssetMode: "Local"` hält die Dateien unter `Override/` im privaten GUID-Namensraum des Lords, sodass mehrere Lords Namen wie `face.png` oder `attack.ogg` sicher wiederverwenden können. Fehlt `AssetMode`, verwendet der Script Extender `Global`; Dateien mit demselben Pfad können sich dann gegenseitig ersetzen. ExtendedData warnt im globalen Modus vor generischen Override-Dateinamen, auch bei fehlendem oder ungültigem `AssetMode`. Verwende `NetworkMode: 1` statt `0`, wenn Lua oder ein anderes Paketfeature den Simulationszustand verändert.
 
-Eine nützliche `lordmeta.json` kann alle Texte des Detailfensters gemeinsam bereitstellen:
-
-```json
-{
-  "LocalizedDisplayName": {
-    "en-US": "The Gatekeeper",
-    "de-DE": "Der Torwächter"
-  },
-  "LocalizedTitles": {
-    "en-US": [", Keeper of the Gate", ", The Resolute"],
-    "de-DE": [", Hüter des Tores", ", der Entschlossene"]
-  },
-  "LocalizedDescription": {
-    "en-US": "A patient defensive lord.",
-    "de-DE": "Ein geduldiger defensiver Burgherr."
-  },
-  "LocalizedDifficultyRating": {
-    "en-US": "Difficult",
-    "de-DE": "Schwierig"
-  },
-  "LocalizedFavouriteTroops": {
-    "en-US": "Archers and swordsmen",
-    "de-DE": "Bogenschützen und Schwertkämpfer"
-  },
-  "LocalizedCastles": {
-    "en-US": "Compact stone castles",
-    "de-DE": "Kompakte Steinburgen"
-  },
-  "LocalizedPlayStyle": {
-    "en-US": "Defensive",
-    "de-DE": "Defensiv"
-  },
-  "LocalizedFavouriteSaying": {
-    "en-US": "Patience wins wars.",
-    "de-DE": "Geduld gewinnt Kriege."
-  }
-}
-```
+Ergänze nur die Text- und Medienfelder, die dein Lord verwendet. Das vollständige Beispiel unten zeigt die genaue Schreibweise.
 
 Die Suchreihenfolge ist der exakte aktuelle Spielsprachenschlüssel und danach `en-US`. Optionale Detailfelder bleiben leer, wenn keiner davon nutzbaren Text enthält. Stelle `en-US` immer als allgemeinen Fallback bereit. Locale-Schlüssel wie `de` werden nicht zu `de-DE` normalisiert.
 
@@ -571,7 +497,7 @@ Die direkte `init.lua` an der Wurzel ist der Lord-KI-Einstiegspunkt. Füge dafü
 | Feld | JSON-Typ | Verhalten |
 |---|---|---|
 | `LocalizedDisplayName` | `{ locale: string }` | Lokalisierter Anzeigename; ohne nutzbaren Wert bleibt der Basisname erhalten. |
-| `LocalizedTitles` | `{ locale: string[] }` | Titelsuffixe, ausgewählt über den nullbasierten Spielerslot und mit Modulo umgebrochen. |
+| `LocalizedTitles` | `{ locale: string[] }` | Titelzusätze je Spielerplatz; bei mehr Plätzen als Titeln beginnt die Liste wieder von vorn. |
 | `LocalizedDescription` | `{ locale: string }` | Beschreibung im Custom-Lord-Detailfenster. |
 | `LocalizedDifficultyRating` | `{ locale: string }` | Text zusammen mit der numerischen Lord-Stärke. |
 | `LocalizedFavouriteTroops` | `{ locale: string }` | Text für bevorzugte Truppen. |
@@ -587,7 +513,7 @@ Titel sind Suffixe; füge daher Satzzeichen und führendes Leerzeichen hinzu. Di
 
 Übliche Spielsprachenschlüssel sind `ar`, `cs-CZ`, `de-DE`, `el-GR`, `en-US`, `es-ES`, `fr-FR`, `hu-HU`, `it-IT`, `ja-JP`, `ko-KR`, `nl-NL`, `pl-PL`, `pt-BR`, `ru-RU`, `sv-SE`, `th-TH`, `tr-TR`, `uk-UA`, `zh-CN` und `zh-HK`.
 
-#### Assets und providerlokale Pfade
+#### Mediendateien und Pfade
 
 Pfade in `lordmeta.json` sind relativ zu `Override/`. Mit `AssetMode: "Local"` versieht der Script Extender Pfade für Gesicht, Beitritts-/Verlassensaudio sowie Nachrichtenvideo/-audio automatisch mit der Besitzer-GUID. Andere lokale Pakete können dieselben relativen Namen ohne Kollision verwenden.
 
@@ -698,7 +624,7 @@ Das Spiel verarbeitet direkte `.lordjson`, `.aivjson` und eine optionale `avatar
 | `Locales/<locale>/` | exakt `crusader.txt` |
 | `Override/**` | `.png`, `.jpg`, `.tga`, `.ogg`, `.wav`, `.webm`, `.mp4` |
 
-Direkte `.data`- und `.ldata`-Dateien an der Wurzel sind lokale Uploader-Steuerdateien und werden nicht hochgeladen. Andere Dateien werden inventarisiert, aber ausgeschlossen. Die Bestätigungswarnung nennt Anzahl und Beispiele; die vollständige sortierte Liste wird in `BepInEx/LogOutput.log` geschrieben. Kann eine erlaubte Datei nicht sicher bereitgestellt werden, wird der Upload abgebrochen, statt ein unvollständiges Paket zu veröffentlichen.
+Direkte `.data`- und `.ldata`-Dateien an der Wurzel sind lokale Uploader-Steuerdateien und werden nicht hochgeladen. Andere Dateien werden aufgelistet, aber ausgeschlossen. Die Upload-Warnung zeigt Beispiele; die vollständige Liste steht in `BepInEx/LogOutput.log`. Ausgeschlossene Gameplay-Dateien blockieren diesen Uploadweg, weil ohne sie ein unvollständiger Lord veröffentlicht würde. Auch Kopierfehler brechen den Upload ab.
 
 Pakete, die DDS, XAML-Patches, AssetBundles oder andere Dateien außerhalb dieser Allowlist benötigen, brauchen einen separaten vollständigen Steam-UGC-Veröffentlichungsablauf. JSON-Ressourcen werden auch in Unterordnern unterstützt, einschließlich unter `Override/`.
 

@@ -11,7 +11,8 @@ namespace ImprovedHunters
     /// Lets a Tannery send its Tanner to a granary with meat for the share of hides its slider
     /// chooses. The Tanner keeps Vanilla's states 7 and 8; only the good, its storage and its
     /// delivery follow the Hunter's meat path. All other runs stay exactly as they are, so the
-    /// workshop's produced-good fields stay free for other mods. AI Tanneries have no table entry.
+    /// workshop's produced-good fields stay free for other mods. AI Tanneries have no table entry: only
+    /// the owner can set one, and only through a synchronized request.
     /// Bound to the audited DLL (see UpdateToNewDLL.md).
     /// </summary>
     internal sealed class TannerMeatPatch : IDisposable
@@ -95,7 +96,7 @@ namespace ImprovedHunters
             ReadOnlySpan<byte> memory,
             ulong imageBase,
             bool referenceHashMatches,
-            TannerRunTable table)
+            TannerStateLayout table)
         {
             if (log == null)
                 throw new ArgumentNullException(nameof(log));
@@ -139,7 +140,7 @@ namespace ImprovedHunters
                 AfterFindWarning = imageBase + (ulong)(find + FindAfterWarning),
                 AcceptFail = Relative(memory, imageBase, accept + AcceptFailOperand),
                 DepositDone = Relative(memory, imageBase, deposit + DepositDoneOperand),
-                RunTable = table.Address
+                RunTable = table
             };
 
             // Both the meat and logical-disabled Vanilla branch enter the shared
@@ -156,12 +157,12 @@ namespace ImprovedHunters
             Marshal.WriteInt32(candidateAmount, TannerMeatPolicy.DefaultMeatPerTrip);
             ulong amountAddress = unchecked((ulong)candidateAmount.ToInt64());
 
-            PermanentNativeGate candidate = new PermanentNativeGate(region, imageBase);
+            PermanentNativeGate candidate = new PermanentNativeGate(region, imageBase, "tanner-meat");
             try
             {
                 ulong flag = candidate.FlagAddress;
                 candidate.AddSite(memory, yield + YieldSiteOffset, YieldDisplaced,
-                    (a, i) => HunterNativeStubs.EmitTannerYield(a, i, flag, table.Address, amountAddress, yieldHelper));
+                    (a, i) => HunterNativeStubs.EmitTannerYield(a, i, flag, table, amountAddress, yieldHelper));
                 candidate.AddSite(memory, find + FindSiteOffset, FindDisplaced,
                     (a, i) => HunterNativeStubs.EmitTannerFind(a, i, flag, addresses, meat));
                 candidate.AddSite(memory, accept + AcceptSiteOffset, AcceptDisplaced,

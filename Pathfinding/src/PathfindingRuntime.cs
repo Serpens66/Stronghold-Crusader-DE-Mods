@@ -111,10 +111,15 @@ namespace Pathfinding
             fixedLayoutHashValidated = isFixedLayoutHashValidated;
             nativeLibraryAvailable = true;
             assassinClimbCancellationRuntime.SetFixedUnitLayoutValidated(isFixedLayoutHashValidated);
+            try { TribeCommandDispatchBoundary.Initialize(log); }
+            catch (Exception ex) { Shared.DebugLogHelper.LogError(log, "PATHFINDING_COMMAND_BOUNDARY_INACTIVE: " + ex); }
             if (isFixedLayoutHashValidated)
             {
-                try { assassinPathfindingRuntime.InitializeNative(newLibraryHandle, nativeRegion, memory, fixedLayoutHashValidated: true); }
-                catch (Exception ex) { Shared.DebugLogHelper.LogError(log, "PATHFINDING_ASSASSIN_SEARCH_INACTIVE: " + ex); }
+                if (TribeCommandDispatchBoundary.IsAvailable)
+                {
+                    try { assassinPathfindingRuntime.InitializeNative(newLibraryHandle, nativeRegion, memory, fixedLayoutHashValidated: true); }
+                    catch (Exception ex) { Shared.DebugLogHelper.LogError(log, "PATHFINDING_ASSASSIN_SEARCH_INACTIVE: " + ex); }
+                }
                 try
                 {
                     // Independent of the weighted builder: with that option off, Vanilla's own
@@ -140,7 +145,12 @@ namespace Pathfinding
         }
 
         // Runs last, as the separate provider mod did: its hooks build on the command and queue owners.
-        public void InstallEngine(CrusaderLibraryLoadContext context) => EngineHost.Install(context, log, settings, pluginDirectory);
+        public void InstallEngine(CrusaderLibraryLoadContext context)
+        {
+            if (!TribeCommandDispatchBoundary.IsAvailable)
+                throw new InvalidOperationException("The final accepted command boundary is unavailable; movement engine remains inactive.");
+            EngineHost.Install(context, log, settings, pluginDirectory);
+        }
 
         private void ApplyAssassinGatehouseClimbFix()
         {

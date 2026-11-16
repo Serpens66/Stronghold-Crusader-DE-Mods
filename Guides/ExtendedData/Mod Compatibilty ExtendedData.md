@@ -14,14 +14,14 @@ ExtendedData can store a compatible mod's persistent host settings in Maps, Cust
 
 #### Requirements
 
-The integration examples use APIShared 0.12.2. Install the complete APIShared package; the [compiled third-party example](../../APIShared/examples/ThirdPartyMod/ExamplePlugin.cs) declares its dependencies in the plugin and in [info.json](../../APIShared/examples/ThirdPartyMod/info.json).
+Install the complete current APIShared package. Do not include APIShared DLLs in your own mod package; the [compiled third-party example](https://github.com/SHCDE-APIShared/APIShared/blob/main/examples/ThirdPartyMod/ExamplePlugin.cs) declares its dependencies in the plugin and in [info.json](https://github.com/SHCDE-APIShared/APIShared/blob/main/examples/ThirdPartyMod/info.json).
 
-1. Add a hard BepInEx dependency on `APIShared_Serp` version `0.12.2` or newer for these examples.
-2. Reference the installed `APIShared.dll` with `Private=false`. Declare the same minimum APIShared version in `info.json` under `Dependencies`; see [dependency metadata](../../APIShared/docs/DEPENDENCIES.md).
+1. Add a hard BepInEx dependency on `APIShared_Serp` using the minimum version required by your APIs. When copying the complete linked example, use its declared minimum dependencies.
+2. Reference the installed `APIShared.dll` with `Private=false`. Declare the same minimum APIShared version in `info.json` under `Dependencies`; see [dependency metadata](https://github.com/SHCDE-APIShared/APIShared/blob/main/docs/DEPENDENCIES.md).
 3. Derive the registered lobby-settings ViewModel from `APIShared.ModSettings.PresetLobbyModSettingsViewModel`.
 4. Every persistent setter calls `CanMutateSetting()` before changing state and `OnPropertyChanged()` afterwards.
 5. Register exactly one lobby-settings ViewModel for the plugin GUID through `LobbyModSettingsPresetRegistration.Register`.
-6. Expose at least one public readable/writable persistent `[SyncHostOnly]` property without `[DoNotPersist]`. Its current value must be non-null and MessagePack-serializable.
+6. Expose at least one mission-dependent public readable/writable `[SyncHostOnly]` property without `[DoNotPersist]`. Classify personal properties as `[SyncPerPlayer]` or `[PresetLocal]`. Settings values must be serializable by the shared settings system.
 
 APIShared checks that the disabled mission snapshot contains a deserializable value for every eligible property. If `EnableMod` is among those properties, it must be Boolean; APIShared sets it to `false` in that snapshot. Deriving from `PresetLobbyModSettingsViewModel` supplies the typed endpoint and snapshot implementation. ExtendedData uses APIShared's participant diagnostics for its compatible-mod list.
 
@@ -39,7 +39,7 @@ No Shared source links, compile symbols, or ExtendedData reference are required.
 </ItemGroup>
 ```
 
-Create the ViewModel once in the plugin, then register it from the plugin's existing `CrusaderLibrary.LibraryLoaded` callback after the library is ready. This is the registration call, not a complete plugin class:
+Create the ViewModel once and keep it in a static field. Register it once on the Unity thread, as shown in the complete plugin example. This is the registration call, not a complete plugin class:
 
 ```csharp
 LobbyModSettingsPresetRegistration.Register(
@@ -47,7 +47,7 @@ LobbyModSettingsPresetRegistration.Register(
     "ScriptExtenderUI/ExampleSettings.xaml");
 ```
 
-The plugin declares `[BepInDependency("APIShared_Serp", "0.12.2")]`. Its `Settings` instance can use this minimal ViewModel shape:
+Declare the APIShared dependency in both the plugin and `info.json`. The `Settings` instance can use this minimal ViewModel shape:
 
 ```csharp
 using SHCDESE.API.Components.Network;
@@ -90,17 +90,19 @@ Use the public settings namespace in the settings XAML:
 xmlns:shared="clr-namespace:APIShared.ModSettings;assembly=APIShared"
 ```
 
-The minimal preset row binds `System_PresetLoadText`, `System_OpenPresetLoadCommand`, `System_PresetSaveText`, and `System_OpenPresetSaveCommand`. Copy the complete standard Load/Save and settings-source block from [Extensible ModSettings Presets](ModSettings%20Presets.md#target-mod-integration). APIShared supplies **Mod defaults** by itself; an optional typed provider such as ExtendedData adds Trail and Map sources.
+The minimal preset row binds `System_PresetLoadText`, `System_OpenPresetLoadCommand`, `System_PresetSaveText`, and `System_OpenPresetSaveCommand`. Use the complete [public XAML example](https://github.com/SHCDE-APIShared/APIShared/blob/main/examples/ThirdPartyMod/Override/ScriptExtenderUI/APISharedExample.xaml) for the Load/Save panels and settings-source controls. The short row alone does not provide the dialogs. APIShared supplies **Mod defaults** by itself; an optional typed provider such as ExtendedData adds Trail and Map sources.
 
 #### ExtendedData contract
 
 `PresetLobbyModSettingsViewModel` implements the public typed `IModSettingsPresetEndpoint` and its working-copy extension `IModSettingsWorkingCopyEndpoint`. ExtendedData accepts this typed contract. Mods deriving from the public base class need no additional implementation.
 
-APIShared owns participant diagnostics, schema-3 documents/codecs, snapshot preparation, author-rule evaluation and temporary mission-settings application/cleanup. ExtendedData supplies the selected content, source documents, authoring UI and mission lifecycle decisions. Runtime consumers using the document types also reference `APIShared.Content.dll` with `Private=false`; the central APIShared package supplies that assembly. See [mission settings integration](../../APIShared/docs/MOD_SETTINGS.md#mission-settings-preparation) for the public preparation and session contracts.
+APIShared owns participant diagnostics, schema-3 documents/codecs, snapshot preparation, author-rule evaluation and temporary mission-settings application/cleanup. ExtendedData supplies the selected content, source documents, authoring UI and mission lifecycle decisions. Runtime consumers using the document types also reference `APIShared.Content.dll` with `Private=false`; the central APIShared package supplies that assembly. See [mission settings integration](https://github.com/SHCDE-APIShared/APIShared/blob/main/docs/MOD_SETTINGS.md#mission-settings-preparation) for the public preparation and session contracts.
 
-Only public readable/writable `[SyncHostOnly]` properties without `[DoNotPersist]` enter Map/Trail documents. `[SyncPerPlayer]`, `[PresetLocal]`, `[PersistLocal]`, and transient values remain player-owned. A Boolean host property named `EnableMod` is set to `false` in the safe disabled mission snapshot.
+Only mission-dependent public readable/writable `[SyncHostOnly]` properties without `[DoNotPersist]` enter Map/Trail documents. `[MissionIndependent]` Host settings remain personal to the host and are omitted. `[SyncPerPlayer]`, `[PresetLocal]`, `[PersistLocal]`, and transient values remain player-owned. A Boolean host property named `EnableMod` is set to `false` in the safe disabled mission snapshot.
 
-Map and Trail settings remain in schema-3 documents, including optional settings sidecars in Coop packages. Selecting a Custom Trail first opens a read-only preview; mods absent from its sidecar retain their normal values during selection. Starting it directly applies the Trail rules in a read-only mission context, including the safe baseline for unmentioned mods and settings. Customize and Trail Maker use an editable temporary working copy; normal presets and available **Mod defaults**, **Trail settings**, and **Map settings** sources can be loaded without changing source files, and the previous normal working state is restored on exit. A Trail initially uses only its Trail document even when its Map also contains settings.
+Map and Trail settings remain in schema-3 documents, including optional settings sidecars in Coop packages. Selecting a Custom Trail first opens a read-only preview; mods absent from its sidecar retain their normal values during selection. Starting it directly applies the Trail rules in a read-only mission context, including the safe baseline for unmentioned mods and settings. Customize and Trail Maker use an editable temporary working copy; normal presets and available **Mod defaults**, **Trail settings**, and **Map settings** sources can be loaded without changing source files, and only previous mission-dependent Host settings are restored on exit. Personal edits remain saved. A Trail initially uses only its Trail document even when its Map also contains settings.
+
+A savegame-only exclusion (`[ExcludeFromSavegameModSettings]`) does not exclude a mod from Map/Trail authoring. ExtendedData queries APIShared’s `MissionAuthoring` participant diagnostics and separately applies its own opt-out below.
 
 #### Explicit opt-out
 
@@ -135,18 +137,18 @@ ExtendedData kann die persistenten Host-Einstellungen eines kompatiblen Mods in 
 
 #### Voraussetzungen
 
-Die Integrationsbeispiele verwenden APIShared 0.12.2. Installiere das vollständige APIShared-Paket; das [kompilierte Fremdmod-Beispiel](../../APIShared/examples/ThirdPartyMod/ExamplePlugin.cs) deklariert seine Abhängigkeiten im Plugin und in der [info.json](../../APIShared/examples/ThirdPartyMod/info.json).
+Installiere das vollständige aktuelle APIShared-Paket. Liefere keine APIShared-DLLs in deinem eigenen Mod-Paket mit; das [kompilierte Fremdmod-Beispiel](https://github.com/SHCDE-APIShared/APIShared/blob/main/examples/ThirdPartyMod/ExamplePlugin.cs) deklariert seine Abhängigkeiten im Plugin und in der [info.json](https://github.com/SHCDE-APIShared/APIShared/blob/main/examples/ThirdPartyMod/info.json).
 
-1. Füge für diese Beispiele eine harte BepInEx-Abhängigkeit auf `APIShared_Serp` ab Version `0.12.2` hinzu.
-2. Referenziere die installierte `APIShared.dll` mit `Private=false`. Deklariere dieselbe APIShared-Mindestversion in `info.json` unter `Dependencies`; siehe [Abhängigkeitsmetadaten](../../APIShared/docs/DEPENDENCIES.md).
+1. Füge eine harte BepInEx-Abhängigkeit auf `APIShared_Serp` mit der für deine APIs nötigen Mindestversion hinzu. Beim Übernehmen des vollständigen verlinkten Beispiels dessen Mindestabhängigkeiten verwenden.
+2. Referenziere die installierte `APIShared.dll` mit `Private=false`. Deklariere dieselbe APIShared-Mindestversion in `info.json` unter `Dependencies`; siehe [Abhängigkeitsmetadaten](https://github.com/SHCDE-APIShared/APIShared/blob/main/docs/DEPENDENCIES.md).
 3. Leite das registrierte Lobby-Settings-ViewModel von `APIShared.ModSettings.PresetLobbyModSettingsViewModel` ab.
 4. Jeder persistente Setter ruft vor der Änderung `CanMutateSetting()` und danach `OnPropertyChanged()` auf.
 5. Registriere über `LobbyModSettingsPresetRegistration.Register` genau ein Lobby-Settings-ViewModel für die Plugin-GUID.
-6. Stelle mindestens eine öffentliche les- und schreibbare persistente `[SyncHostOnly]`-Property ohne `[DoNotPersist]` bereit. Ihr aktueller Wert darf nicht null sein und muss sich mit MessagePack serialisieren lassen.
+6. Stelle mindestens eine missionsabhängige öffentliche les- und schreibbare `[SyncHostOnly]`-Property ohne `[DoNotPersist]` bereit. Kennzeichne persönliche Properties mit `[SyncPerPlayer]` oder `[PresetLocal]`. Die Werte müssen durch das gemeinsame Einstellungssystem serialisierbar sein.
 
 APIShared prüft, ob der deaktivierte Missionssnapshot für jede geeignete Property einen deserialisierbaren Wert enthält. Falls `EnableMod` zu diesen Properties gehört, muss die Property boolesch sein; APIShared setzt sie in diesem Snapshot auf `false`. Die Ableitung von `PresetLobbyModSettingsViewModel` stellt den typisierten Endpunkt und die Snapshot-Implementierung bereit. ExtendedData verwendet APIShareds Teilnehmerdiagnose für seine Liste kompatibler Mods.
 
-Shared-Quelllinks, Compile-Symbole und eine ExtendedData-Referenz sind nicht erforderlich. Verwurzle das Settings-Modell und Runtime-Callbacks statisch oder über einen langlebigen Publisher; SHCDE zerstört Startup-Plugin-Komponenten. Registriere auf dem Unity-Thread und verwende logische Aktivierung statt Lifecycle-Teardown. Das Projektbeispiel im englischen Abschnitt gilt unverändert. Lege das ViewModel im Plugin einmalig an und registriere es im bestehenden `CrusaderLibrary.LibraryLoaded`-Callback nach dem Laden der Bibliothek. Der englische C#-Ausschnitt zeigt den Registrierungsaufruf und die minimale ViewModel-Form; er ist keine vollständige Plugin-Klasse.
+Shared-Quelllinks, Compile-Symbole und eine ExtendedData-Referenz sind nicht erforderlich. Verwurzle das Settings-Modell und Runtime-Callbacks statisch oder über einen langlebigen Publisher; SHCDE zerstört Startup-Plugin-Komponenten. Registriere auf dem Unity-Thread und verwende logische Aktivierung statt Lifecycle-Teardown. Das Projektbeispiel im englischen Abschnitt gilt unverändert. Lege das ViewModel einmalig in einem statischen Feld an und registriere es einmal auf dem Unity-Thread, wie im vollständigen Plugin-Beispiel gezeigt. Der englische C#-Ausschnitt zeigt den Registrierungsaufruf und die minimale ViewModel-Form; er ist keine vollständige Plugin-Klasse.
 
 Im XAML muss der gemeinsame Namespace auf APIShared zeigen:
 
@@ -154,17 +156,19 @@ Im XAML muss der gemeinsame Namespace auf APIShared zeigen:
 xmlns:shared="clr-namespace:APIShared.ModSettings;assembly=APIShared"
 ```
 
-Die minimale Preset-Zeile bindet `System_PresetLoadText`, `System_OpenPresetLoadCommand`, `System_PresetSaveText` und `System_OpenPresetSaveCommand`. Den vollständigen Standardblock für Laden/Speichern sowie **Einstellungen zurücksetzen auf** findest du in [Erweiterbare ModSettings-Presets](ModSettings%20Presets.md#integration-des-ziel-mods). APIShared stellt **Mod-Standards** selbst bereit; ein optionaler typisierter Provider wie ExtendedData ergänzt Trail- und Map-Quellen.
+Die minimale Preset-Zeile bindet `System_PresetLoadText`, `System_OpenPresetLoadCommand`, `System_PresetSaveText` und `System_OpenPresetSaveCommand`. Die vollständigen Laden-/Speichern-Panels und den Quellenwähler findest du im [öffentlichen XAML-Beispiel](https://github.com/SHCDE-APIShared/APIShared/blob/main/examples/ThirdPartyMod/Override/ScriptExtenderUI/APISharedExample.xaml). Die kurze Buttonzeile allein stellt noch keine Dialoge bereit. APIShared stellt **Mod-Standards** selbst bereit; ein optionaler typisierter Provider wie ExtendedData ergänzt Trail- und Map-Quellen.
 
 #### ExtendedData-Vertrag
 
 `PresetLobbyModSettingsViewModel` implementiert die öffentliche typisierte Schnittstelle `IModSettingsPresetEndpoint` sowie deren Arbeitskopie-Erweiterung `IModSettingsWorkingCopyEndpoint`. ExtendedData akzeptiert diesen typisierten Vertrag. Von der öffentlichen Basisklasse abgeleitete Mods benötigen keine zusätzliche Implementierung.
 
-APIShared besitzt Teilnehmerdiagnose, Schema-3-Dokumente und -Codecs, Snapshot-Vorbereitung, Autorenregelauswertung sowie Anwendung und Bereinigung temporärer Missionseinstellungen. ExtendedData liefert die ausgewählten Inhalte, Quelldokumente, Autorenoberfläche und Entscheidungen zum Missionslifecycle. Runtime-Verbraucher, die die Dokumenttypen nutzen, referenzieren zusätzlich `APIShared.Content.dll` mit `Private=false`; diese Assembly wird vom zentralen APIShared-Paket bereitgestellt. Die [Missionssettings-Integration](../../APIShared/docs/MOD_SETTINGS.md#mission-settings-preparation) beschreibt die öffentlichen Vorbereitungs- und Sitzungsverträge.
+APIShared besitzt Teilnehmerdiagnose, Schema-3-Dokumente und -Codecs, Snapshot-Vorbereitung, Autorenregelauswertung sowie Anwendung und Bereinigung temporärer Missionseinstellungen. ExtendedData liefert die ausgewählten Inhalte, Quelldokumente, Autorenoberfläche und Entscheidungen zum Missionslifecycle. Runtime-Verbraucher, die die Dokumenttypen nutzen, referenzieren zusätzlich `APIShared.Content.dll` mit `Private=false`; diese Assembly wird vom zentralen APIShared-Paket bereitgestellt. Die [Missionssettings-Integration](https://github.com/SHCDE-APIShared/APIShared/blob/main/docs/MOD_SETTINGS.md#mission-settings-preparation) beschreibt die öffentlichen Vorbereitungs- und Sitzungsverträge.
 
-Nur öffentliche les- und schreibbare `[SyncHostOnly]`-Properties ohne `[DoNotPersist]` gelangen in Map-/Trail-Dokumente. `[SyncPerPlayer]`, `[PresetLocal]`, `[PersistLocal]` und transiente Werte bleiben im Besitz des Spielers. Eine boolesche Host-Property namens `EnableMod` wird im sicheren deaktivierten Missionssnapshot auf `false` gesetzt.
+Nur missionsabhängige öffentliche les- und schreibbare `[SyncHostOnly]`-Properties ohne `[DoNotPersist]` gelangen in Map-/Trail-Dokumente. Mit `[MissionIndependent]` markierte Hostwerte bleiben persönlich beim Host und werden ausgelassen. `[SyncPerPlayer]`, `[PresetLocal]`, `[PersistLocal]` und transiente Werte bleiben im Besitz des Spielers. Eine boolesche Host-Property namens `EnableMod` wird im sicheren deaktivierten Missionssnapshot auf `false` gesetzt.
 
-Map- und Trail-Einstellungen bleiben in Schema-3-Dokumenten gespeichert, einschließlich optionaler Settings-Sidecars in Koop-Paketen. Die Auswahl eines Custom Trails öffnet zunächst eine schreibgeschützte Vorschau; Mods ohne Eintrag in dessen Sidecar behalten während der Auswahl ihre normalen Werte. Beim direkten Start gelten die Trail-Regeln in einem schreibgeschützten Missionskontext, einschließlich der sicheren Ausgangslage für nicht genannte Mods und Einstellungen. Customize und Trail Maker verwenden eine bearbeitbare temporäre Arbeitskopie; normale Presets sowie verfügbare Quellen **Mod-Standards**, **Trail-Einstellungen** und **Map-Einstellungen** können geladen werden, ohne ihre Quelldateien zu verändern. Beim Verlassen wird der vorherige normale Arbeitsstand wiederhergestellt. Ein Trail verwendet anfangs ausschließlich sein Trail-Dokument, auch wenn seine Map ebenfalls Einstellungen enthält.
+Map- und Trail-Einstellungen bleiben in Schema-3-Dokumenten gespeichert, einschließlich optionaler Settings-Sidecars in Koop-Paketen. Die Auswahl eines Custom Trails öffnet zunächst eine schreibgeschützte Vorschau; Mods ohne Eintrag in dessen Sidecar behalten während der Auswahl ihre normalen Werte. Beim direkten Start gelten die Trail-Regeln in einem schreibgeschützten Missionskontext, einschließlich der sicheren Ausgangslage für nicht genannte Mods und Einstellungen. Customize und Trail Maker verwenden eine bearbeitbare temporäre Arbeitskopie; normale Presets sowie verfügbare Quellen **Mod-Standards**, **Trail-Einstellungen** und **Map-Einstellungen** können geladen werden, ohne ihre Quelldateien zu verändern. Beim Verlassen werden nur die vorherigen missionsabhängigen Hostwerte wiederhergestellt; persönliche Änderungen bleiben gespeichert. Ein Trail verwendet anfangs ausschließlich sein Trail-Dokument, auch wenn seine Map ebenfalls Einstellungen enthält.
+
+Ein Ausschluss nur für Spielstände (`[ExcludeFromSavegameModSettings]`) schließt einen Mod nicht von der Map-/Trail-Bearbeitung aus. ExtendedData verwendet APIShareds Teilnehmerdiagnose für `MissionAuthoring` und berücksichtigt zusätzlich das folgende eigene Opt-out.
 
 #### Explizites Opt-out
 

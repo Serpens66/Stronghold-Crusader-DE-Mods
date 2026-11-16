@@ -14,6 +14,8 @@ if (args.Contains("--settings-only")) return;
 HazardScannerTests.Run(root);
 if (args.Contains("--hazards-only")) return;
 AnchorMoveVetoTests.Run(root);
+TargetQueueVetoTests.Run(root);
+TargetAcceptedActionsTests.Run(root);
 OutsideBuilderDiagnosticsTests.Run(root);
 DirectionWatchTests.Run(root);
 if (args.Contains("--direction-watch-only")) return;

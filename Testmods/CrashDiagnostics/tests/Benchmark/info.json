@@ -1,0 +1,11 @@
+{
+  "GUID": "CrashDiagnosticsBenchmark_Serp",
+  "Author": "Serpens66",
+  "Name": "Crash Diagnostics Benchmark (not shipped)",
+  "Description": "Developer-only 20-second alternating baseline/diagnostic performance fixture. Never include in the user package.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.14.3",
+  "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.53.0" }],
+  "Manifest": 1,
+  "NetworkMode": 0
+}

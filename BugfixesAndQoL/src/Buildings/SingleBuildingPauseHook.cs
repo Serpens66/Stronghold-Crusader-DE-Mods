@@ -24,12 +24,6 @@ namespace BugfixesAndQoL
     internal sealed class SingleBuildingPauseHook
     {
         private delegate void ButtonToggleZzzModeDelegate(MainViewModel self, object parameter);
-        private delegate bool AddChimpActionsDelegate(
-            FatControler self,
-            EngineInterface.PlayState state,
-            ref string line1,
-            ref string line2,
-            bool islamic);
 
         private const long DuplicateToggleSuppressMilliseconds = 750;
         private const int ChoreProtocolVersion = 2;
@@ -42,9 +36,8 @@ namespace BugfixesAndQoL
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly SingleBuildingPauseOverrideStore overrides = new SingleBuildingPauseOverrideStore();
         private Hook buttonHook;
-        private Hook addChimpActionsHook;
+        private APIShared.Patching.SafeIlHook addChimpActionsHook;
         private ButtonToggleZzzModeDelegate buttonTrampoline;
-        private AddChimpActionsDelegate addChimpActionsTrampoline;
         private int lastManualToggleBuildingId;
         private long lastManualToggleTimestamp;
         private Action synchronizeSleepStates;
@@ -85,28 +78,30 @@ namespace BugfixesAndQoL
 
             MethodInfo buttonMethod = FindButtonToggleZzzModeMethod();
             MethodInfo addChimpActionsMethod = FindAddChimpActionsMethod();
+            SingleBuildingPauseUiIlContract.Validate(addChimpActionsMethod);
+            if (addChimpActionsHook == null)
+            {
+                if (!APIShared.Patching.SafeIlHook.TryInstall(
+                        BugfixesAndQoLPlugin.PluginGuid, "BugfixesAndQoL.SingleBuildingPauseUi",
+                        addChimpActionsMethod,
+                        il => SingleBuildingPauseUiIlContract.ApplyPatch(il, ResolveDisplayedSleeping),
+                        log, out APIShared.Patching.SafeIlHook installedUiHook, out string failure))
+                    throw new InvalidOperationException("Building pause UI correction unavailable: " + failure);
+                // Published IL hooks stay rooted even if installing the separate button hook fails.
+                addChimpActionsHook = installedUiHook;
+            }
             Hook installedButtonHook = null;
-            Hook installedAddChimpActionsHook = null;
             try
             {
                 installedButtonHook = new Hook(buttonMethod, (ButtonToggleZzzModeDelegate)ButtonToggleZzzModeHook);
                 ButtonToggleZzzModeDelegate installedButtonTrampoline = installedButtonHook.GenerateTrampoline<ButtonToggleZzzModeDelegate>();
 
-                installedAddChimpActionsHook = new Hook(
-                    addChimpActionsMethod,
-                    (AddChimpActionsDelegate)AddChimpActionsHook);
-                AddChimpActionsDelegate installedAddChimpActionsTrampoline =
-                    installedAddChimpActionsHook.GenerateTrampoline<AddChimpActionsDelegate>();
-
                 buttonHook = installedButtonHook;
                 buttonTrampoline = installedButtonTrampoline;
-                addChimpActionsHook = installedAddChimpActionsHook;
-                addChimpActionsTrampoline = installedAddChimpActionsTrampoline;
                 localHooksInstalled = true;
             }
             catch
             {
-                installedAddChimpActionsHook?.Dispose();
                 installedButtonHook?.Dispose();
                 throw;
             }
@@ -361,25 +356,23 @@ namespace BugfixesAndQoL
             }
         }
 
-        private bool AddChimpActionsHook(
-            FatControler self,
-            EngineInterface.PlayState state,
-            ref string line1,
-            ref string line2,
-            bool islamic)
+        private unsafe short ResolveDisplayedSleeping(EngineInterface.PlayState state, short vanilla)
         {
-            bool result = addChimpActionsTrampoline(self, state, ref line1, ref line2, islamic);
-
             if (!localHooksInstalled || !IsFeatureActive())
-                return result;
+                return vanilla;
 
             try
             {
                 if (state != null &&
                     state.in_structure > 0 &&
-                    overrides.TryGet(state.in_structure, out SingleBuildingPauseOverride entry))
+                    APIShared.BuildingAccess.TryGetById(state.in_structure, out GameBuilding* building, out _) &&
+                    building->r_AliveState == AliveState.IsAlive &&
+                    (int)building->r_BuildingType == state.in_structure_type)
                 {
-                    UpdateSleepButtonVisibility(MainViewModel.Instance, entry.IsSleeping);
+                    bool hasOverride = TryGetManualSleepOverride(state.in_structure, out bool sleeping);
+                    return SingleBuildingPausePolicy.ResolveDisplayedSleeping(
+                        vanilla, true, true, building->r_IsSleeping == 1,
+                        hasOverride ? (bool?)sleeping : null);
                 }
             }
             catch (Exception ex)
@@ -387,11 +380,11 @@ namespace BugfixesAndQoL
                 if (!uiRefreshFailureLogged)
                 {
                     uiRefreshFailureLogged = true;
-                    LogError($"single-building pause UI correction failed; Vanilla visibility remains active: {ex}");
+                    LogError($"single-building pause UI correction failed; Vanilla presentation remains active: {ex}");
                 }
             }
 
-            return result;
+            return vanilla;
         }
 
         private bool IsFeatureActive()
@@ -466,9 +459,10 @@ namespace BugfixesAndQoL
                 return;
 
             bool selectedHasOverride = TryGetManualSleepOverride(selectedBuildingId, out bool overrideSleeping);
-            bool selectedWasSleeping = selectedHasOverride ? overrideSleeping : selectedBuilding->r_IsSleeping == 1;
-            bool targetSleeping = !selectedWasSleeping;
-            bool buildingTypeWasSleeping = GameData.Instance.lastGameState.building_type_sleeping != 0;
+            bool targetSleeping = SingleBuildingPausePolicy.TargetSleeping(
+                selectedBuilding->r_IsSleeping == 1, selectedHasOverride ? (bool?)overrideSleeping : null);
+            if (!TryReadBuildingTypeSleeping(selectedBuilding, out bool buildingTypeWasSleeping))
+                return;
             int playerId = GetControlledPlayerId();
             int globalId = (int)selectedBuilding->r_GlobalId;
             if (globalId <= 0 || selectedBuilding->r_PlayerIdOwner != playerId)
@@ -479,7 +473,7 @@ namespace BugfixesAndQoL
 
             // Queue the override reset first. If Vanilla's type state must also change, its native
             // GameAction is queued second so every peer observes the same two-step order.
-            bool needsVanillaTypeToggle = buildingTypeWasSleeping != targetSleeping;
+            bool needsVanillaTypeToggle = SingleBuildingPausePolicy.NeedsTypeToggle(buildingTypeWasSleeping, targetSleeping);
             if (!TrySendPauseChore(
                     playerId,
                     globalId,
@@ -671,9 +665,10 @@ namespace BugfixesAndQoL
             }
 
             bool selectedHasOverride = TryGetManualSleepOverride(selectedBuildingId, out bool overrideSleeping);
-            bool selectedWasSleeping = selectedHasOverride ? overrideSleeping : selectedBuilding->r_IsSleeping == 1;
-            bool targetSleeping = !selectedWasSleeping;
-            bool buildingTypeWasSleeping = GameData.Instance.lastGameState.building_type_sleeping != 0;
+            bool targetSleeping = SingleBuildingPausePolicy.TargetSleeping(
+                selectedBuilding->r_IsSleeping == 1, selectedHasOverride ? (bool?)overrideSleeping : null);
+            if (!TryReadBuildingTypeSleeping(selectedBuilding, out bool buildingTypeWasSleeping))
+                return;
 
             BuildingGoodsSnapshot[] goods = CaptureOverrideGoods(
                 selectedBuilding->r_PlayerIdOwner, selectedBuilding->r_BuildingType);
@@ -684,12 +679,26 @@ namespace BugfixesAndQoL
             // type-wide state, clearing that override already produces the desired
             // result. Otherwise let the vanilla GameAction toggle the whole type so
             // every affected building runs the native worker bookkeeping.
-            if (buildingTypeWasSleeping != targetSleeping)
+            if (SingleBuildingPausePolicy.NeedsTypeToggle(buildingTypeWasSleeping, targetSleeping))
                 buttonTrampoline(self, parameter);
             else
                 SynchronizePreservingGoods(goods);
 
             UpdateSleepButtonVisibility(self, targetSleeping);
+        }
+
+        private unsafe bool TryReadBuildingTypeSleeping(GameBuilding* building, out bool sleeping)
+        {
+            sleeping = false;
+            if (building != null && building->r_AliveState == AliveState.IsAlive &&
+                building->r_PlayerIdOwner >= 1 && building->r_PlayerIdOwner <= GamePlayerManagerAPI.MAX_PLAYERS &&
+                GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(
+                    building->r_PlayerIdOwner, out GamePlayerResources* resources) &&
+                SingleBuildingPausePolicy.TryReadTypeSleeping(resources, (int)building->r_BuildingType, out sleeping))
+                return true;
+
+            LogError("building-type sleep toggle refused because the selected building's native type-sleep state could not be resolved; overrides remain unchanged.");
+            return false;
         }
 
         private static bool IsControlPressed()

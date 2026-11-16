@@ -373,9 +373,10 @@ namespace AIBuildDiagnoseTest
         private string Costs(int player, eMappers mapper)
         {
             eStructs type = mapper.ConvertToEStructs();
-            var api = GameBuildingManagerAPI.Instance;
-            return $"mapper={mapper}, structure={type}, requiredWood={api.GetWoodCost(type)}, requiredStone={api.GetStoneCost(type)}, " +
-                $"requiredIron={api.GetIronIngotCost(type)}, requiredPitch={api.GetRawPitchCost(type)}, requiredGold={api.GetGoldCost(type)}, " +
+            if (!APIShared.Buildings.ConstructionCosts.TryGetCurrent(APIShared.Buildings.ConstructionCostTarget.FromMapper(mapper), out var cost, out string reason))
+                return $"mapper={mapper}, structure={type}, costsUnavailable={reason}";
+            return $"mapper={mapper}, structure={type}, requiredWood={cost.Wood}, requiredStone={cost.Stone}, " +
+                $"requiredIron={cost.Iron}, requiredPitch={cost.Pitch}, requiredGold={cost.Gold}, " +
                 $"availableWood={Stock(player, (int)eGoods.STORED_WOOD_PLANKS)}, availableStone={Stock(player, (int)eGoods.STORED_STONE_BLOCKS)}, " +
                 $"availableIron={Stock(player, (int)eGoods.STORED_IRON_INGOTS)}, availablePitch={Stock(player, (int)eGoods.STORED_PITCH_RAW)}, availableGold={Gold(player)}, " +
                 "costsAreEvidenceNotEligibilityResult=true";

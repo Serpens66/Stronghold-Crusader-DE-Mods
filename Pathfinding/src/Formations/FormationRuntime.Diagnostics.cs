@@ -128,6 +128,44 @@ namespace Pathfinding.UnitCommands
             if (evidence?.Matches(args) == true) evidence.Assigned = count;
         }
 
+        private void RecordFormationSelectionMismatch(TribeIssueOrderMoveHereEventArgs args,
+            FormationOrderPacket packet, int actualCount, ulong actualHash)
+        {
+            // Support data must never change admission or require another native read.
+            try
+            {
+                var evidence = FormationMoveSupport.Current;
+                if (evidence?.Matches(args) != true) return;
+                evidence.ExpectedSelectionCount = packet.UnitCount;
+                evidence.ActualSelectionCount = actualCount;
+                evidence.ExpectedSelectionHash = packet.SelectionHash;
+                evidence.ActualSelectionHash = actualHash;
+            }
+            catch { }
+        }
+
+        private void RecordFormationExecution(TribeIssueOrderMoveHereEventArgs args,
+            ActiveFormationCommand command, int succeeded, UnitFallbackSummary fallback)
+        {
+            try
+            {
+                var evidence = FormationMoveSupport.Current;
+                if (evidence?.Matches(args) != true) return;
+                evidence.AssignmentPath = command.AssignmentPath;
+                evidence.ExpectedMembers = command.ExpectedCount;
+                evidence.SelectorAssigned = command.AssignedCount;
+                evidence.TerminalAttempts = command.TerminalAttemptCount;
+                evidence.TerminalObserved = command.ObservedTerminalCount;
+                evidence.TerminalNotAttempted = command.SkippedTerminalCount;
+                evidence.FormationSucceeded = succeeded;
+                evidence.FallbackSucceeded = fallback.Succeeded;
+                evidence.FallbackFailed = fallback.Failed;
+                evidence.FallbackTechnicalErrors = fallback.TechnicalErrors;
+                evidence.ExecutionSummaryObserved = true;
+            }
+            catch { }
+        }
+
         private void LogFormationSupport(string category, string message)
         {
             try

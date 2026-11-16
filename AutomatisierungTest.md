@@ -21,6 +21,21 @@ Nur wenn ein Test nachweislich nicht außerhalb des Mods möglich ist, darf er
 temporär als `*.DevDiag.cs` im Mod liegen, eingebunden nur über
 `build.bat /devdiag`. Ihn samt Einstiegspunkt im selben Auftrag wieder entfernen.
 
+Bevor du für eine Frage eigenes Logging oder eigene Zustandsausgaben schreibst,
+prüfe, ob [Live-Zustand ohne Spezialcode abfragen](#live-zustand-ohne-spezialcode-abfragen)
+reicht. Der Reader `GameMemReader` liest Einheiten, Gebäude, Spieler, Kacheln
+und beliebige Extender-Structs aus dem laufenden Spiel.
+
+- Der Reader braucht keinen installierten Mod und kann neben jedem laufenden
+  Test mitlesen, auch neben einem Lauf von `Invoke-InGameTest.ps1`.
+- `Testmods\GameStateProbe` muss zusätzlich installiert sein. Er liefert
+  tickgenaue Werte und den Zustand von C#-Objekten, auch aus anderen Mods.
+  Ein Weg, ihn über `Invoke-InGameTest.ps1` mitzuinstallieren, wurde noch nicht
+  erprobt.
+
+Eigene Prüfschritte im Testmod bleiben nötig, wenn der Test PASS oder FAIL
+selbst entscheiden oder Spielzustand verändern muss.
+
 Der Einstiegspunkt liest die Anforderung aus
 `BepInEx/config/SerpAutomation/<ModGuid>.run` (Lauf-GUID im N-Format und
 Szenarioname, je eine Zeile). Er löscht sie nur, wenn der Szenarioname ihm
@@ -83,11 +98,19 @@ Stand: 20.10.2026. Untersucht wurden die installierten Spielassemblies, der loka
 | Einzelspieler-Save laden | Vorhandener Testmod `AutoLoadSave`, konfigurierbar über `SavePath` | Am 19.10.2026 mit `test_dustynoattack.sav` im Spiel erfolgreich geprüft, einschließlich erstem Simulationstick. |
 | Spielpause im Einzelspieler setzen/lösen | `EngineInterface.GameAction(Enums.GameActionCommand.Game_Paused, state, state)` | Öffentliche Spielmethode; Vanilla-Pausetaste und BugfixesAndQoL verwenden diesen Weg. |
 | Multiplayer pausieren/entpausieren | Bestehende Paketwege in `MultiplayerGameSpeedRuntime` | Implementierung vorhanden, aber die Request-Methoden sind privat; ein unabhängiger Testmod braucht noch einen expliziten Zugriff über eine kleine öffentliche Brücke. |
+| Spielzustand im laufenden Spiel abfragen (Einheiten, Gebäude, Spieler, Kacheln, C#-Objekte) | `Shared\Tools\GameMemReader`; tickgenau und für C#-Objekte zusammen mit `Testmods\GameStateProbe` | Am 14.11.2026 im Spiel geprüft. Siehe [Live-Zustand ohne Spezialcode abfragen](#live-zustand-ohne-spezialcode-abfragen). Rein lesend; nur `quit` verändert etwas. |
 | Kamera hinein-/herauszoomen | `PerfectPixelWithZoom.instance.adjustZoom(...)` | Öffentliche Spielmethode; positive Schritte zoomen hinein, negative heraus. |
 | Kameraskalierung unmittelbar setzen | `PerfectPixelWithZoom.instance.SetZoomImmediate(scale)` | Öffentlich, aber mit Grenzen und internem Zoomzustand zu beachten; siehe unten. |
 | Geskriptete Ereignisse im Messlauf (DEVDIAG-PerfProbe) | `Automation.Actions`, Einträge durch `\|` getrennt, Sekunden nach Beginn der Laufphase: `20:Attack:6:2:force` (KI 6 greift Spieler 2 an, über `0xD7580`), `15:IgnitePitch` (alle ruhenden Pechgräben zünden), `10:Spawn:3:600:CHIMP_TYPE_SPEARMAN` (600 Einheiten eines `eChimps`-Typs an der Keep-Tür von Spieler 3) | `Testmods/PerfProbe/src/PerfProbeAutomationActions.DevDiag.cs`; Angriff und Zündung am 29.10.2026 im Stress-Save geprüft, `Spawn` neu und noch ungeprüft. Ergebnisse stehen als `AUTOMATION action ...` im Log. |
 
 Für diese Aktionen ist keine Mausautomation erforderlich. Dieses Dokument fügt keine neue Runtime-Funktion hinzu. Insbesondere bleibt AutoLoadSave beim einmaligen Laden des konfigurierten Saves.
+
+## Live-Zustand ohne Spezialcode abfragen
+
+Für Diagnose und Spieltests muss Zustand nicht mehr per eigenem Logging ausgegeben werden. Befehle, Messwerte und Grenzen: [RUNTIME_STATE_ACCESS.md](_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/RUNTIME_STATE_ACCESS.md).
+
+- `Shared\Tools\GameMemReader` (bauen mit `dotnet build -c Release`) liest den laufenden Prozess rein lesend, ohne installierten Mod: `status`, `units`, `unit <id>`, `buildings`, `players`, `grid`, `struct`, `raw`. Darf auch während fremder Spieltests laufen. Aggregatzähler sind von außen mitten im Tick nicht konsistent.
+- `Testmods\GameStateProbe` (nur Entwicklung, nie in Releases) beantwortet auf `127.0.0.1:47811` tick-konsistente Speicherabfragen und Reflection-Abfragen auf verwalteten Zustand. Client: `GameMemReader eval "Typ::Member.GetX()"`, `--source probe --context tick`, `--samples n --every k`. Mit `probe '{"cmd":"quit"}'` endet das Spiel regulär. Installation und Plugin-Wechsel nur in einem mit anderen Chats abgestimmten Zeitfenster; danach das Plugin-Inventar wiederherstellen.
 
 ## Voraussetzungen und Ausführungskontext
 
@@ -233,6 +256,7 @@ Der Pausehelfer verweigert vorsichtshalber jeden `Director.MultiplayerGame`-Kont
 
 - Ingame-Tests nach Möglichkeit mit Spielgeschwindigkeit `250` ausführen, um die Laufzeit zu verkürzen. Erfordert der Test eine bestimmte Geschwindigkeit, diese verwenden.
 - Mehrere Testfälle im selben Spielprozess ausführen, wenn sich für jeden Fall ein verlässlicher Ausgangszustand herstellen lässt. So sind weniger Spielneustarts nötig.
+- Zustand während oder nach einem Lauf mit `GameMemReader` prüfen, statt dafür Logging nachzurüsten und das Spiel neu zu starten. Siehe [Live-Zustand ohne Spezialcode abfragen](#live-zustand-ohne-spezialcode-abfragen).
 
 1. Spiel über Steam starten; `-skipvid` bzw. die bereits gesetzte Spieleinstellung `SkipIntro:True` überspringt das Intro. AutoLoadSave lädt den in `BepInEx/config/AutoLoadSave_Serp.cfg` angegebenen Spielstand einmal pro Prozess.
 2. Der separate Testcontroller wartet auf die passende APIShared-Sitzung, ihre vollständige Initialisierung und mindestens einen relevanten Simulationstick. Eine eindeutige Lauf- und Sitzungskennung verwenden.

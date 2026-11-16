@@ -106,5 +106,58 @@ namespace Pathfinding.UnitCommands {
         try{Assembly.Load(output.ToArray()).GetType("Pathfinding.UnitCommands.OutcomeFixture")!.GetMethod("Run")!.Invoke(null,null);}
         catch(TargetInvocationException e){throw e.InnerException??e;}
         Console.WriteLine("PASS: production formation dispatch consumes observed rejection/partial application once; no whole-group replay.");
+        ValidateSupportFormatting(root);
+    }
+
+    private static void ValidateSupportFormatting(string root)
+    {
+        var runtime=CSharpSyntaxTree.ParseText(FeatureSourceModel.Read(root,"FormationRuntime","Pathfinding/src/Formations")).GetRoot();
+        string method=runtime.DescendantNodes().OfType<MethodDeclarationSyntax>()
+            .Single(m=>m.Identifier.Text=="CompleteFormationSupport").ToFullString();
+        string fixture="""
+using System;
+namespace SHCDESE.EventAPI.Tribes { internal class TribeIssueOrderMoveHereEventArgs { internal int TribeId,TileX,TileY; } }
+namespace Shared { internal static class MissionEvents { internal static Mission CurrentContext=new(); } internal class Mission { internal int SessionId=1; } }
+namespace Pathfinding.UnitCommands {
+ internal class FormationOrderPacket { internal int OperationId=1,TribeId=2,TargetX=3,TargetY=4; }
+ public class SupportFixture {
+  private readonly object stateSync=new();private int lastSupportOperation,lastSupportEpoch,lastSupportTribe,lastSupportPlayer,lastSupportX,lastSupportY;
+  private int? lastSupportTick;private string lastSupportSource;private FormationMoveSupport lastSupportResult;
+  private class Runtime { internal int mapEpoch=1; } private Runtime commandRuntime=new();
+  private class Gate { internal bool Allowed;internal string LastKey;internal int Calls; internal bool TryReserve(string key,int seconds,out long suppressed){if(seconds!=30)throw new Exception("Wrong interval");LastKey=key;Calls++;suppressed=5;return Allowed;} }
+  private Gate formationSupportLogGate=new();private int formats,logs;private string line;
+  private static (int Player,uint GlobalId) ReadFormationTribe(int id)=>(1,99);
+  private static int? ReadFormationTick()=>15;
+  private string FormationMission(object mission){formats++;return "session=1";}
+  private void LogWarningNoThrow(string text){logs++;line=text;}
+  __METHOD__
+  public static void Run(){
+   var f=new SupportFixture();var p=new FormationOrderPacket();
+   var evidence=new FormationMoveSupport(2,3,4){PostReturn=1,Assigned=0};
+   f.CompleteFormationSupport(p,"fixture",evidence);
+   if(f.formats!=0||f.logs!=0||f.formationSupportLogGate.Calls!=1||f.lastSupportResult!=evidence)throw new Exception("Throttled details formatted or correlation lost");
+   string key=f.formationSupportLogGate.LastKey;p.OperationId++;p.TribeId++;
+   f.formationSupportLogGate.Allowed=true;f.CompleteFormationSupport(p,"fixture",evidence);
+   if(f.formats!=1||f.logs!=1||f.formationSupportLogGate.LastKey!=key||!f.line.Contains("suppressed=5")||!f.line.Contains("assignedTargets=0"))throw new Exception("Unstable key or missing support record");
+   evidence.Assigned=2;f.CompleteFormationSupport(p,"fixture",evidence);
+   if(f.logs!=1||f.formats!=1||f.formationSupportLogGate.Calls!=2)throw new Exception("Successful orders gained support work");
+   evidence.Assigned=null;evidence.PostReturn=null;evidence.Veto="selection-mismatch";
+   evidence.ExpectedSelectionCount=2;evidence.ActualSelectionCount=1;evidence.ExpectedSelectionHash=17;evidence.ActualSelectionHash=18;
+   f.CompleteFormationSupport(p,"fixture",evidence);
+   if(!f.line.Contains("execution=unobserved")||!f.line.Contains("expectedSelectionCount=2")||!f.line.Contains("actualSelectionCount=1")||
+      !f.line.Contains("expectedSelectionHash=0000000000000011")||!f.line.Contains("actualSelectionHash=0000000000000012")||f.line.Contains("terminalAttempts="))throw new Exception("Selection details invented execution or lost hashes");
+  }
+ }
+}
+""";
+        fixture=fixture.Replace("__METHOD__",method);
+        var refs=((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator).Select(p=>MetadataReference.CreateFromFile(p));
+        var trees=new[]{CSharpSyntaxTree.ParseText(fixture),CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Pathfinding/src/Formations/FormationMoveSupport.cs")))};
+        var compilation=CSharpCompilation.Create("ProductionFormationSupport",trees,refs,new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var output=new MemoryStream();var result=compilation.Emit(output);
+        if(!result.Success)throw new Exception(string.Join("\n",result.Diagnostics.Where(d=>d.Severity==DiagnosticSeverity.Error)));
+        try{Assembly.Load(output.ToArray()).GetType("Pathfinding.UnitCommands.SupportFixture")!.GetMethod("Run")!.Invoke(null,null);}
+        catch(TargetInvocationException e){throw e.InnerException??e;}
+        Console.WriteLine("PASS: production formation support reserves stable categories before formatting; selection counts/hashes and unobserved execution stay distinct.");
     }
 }

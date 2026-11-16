@@ -555,9 +555,12 @@ namespace CastlePlanner
             try
             {
                 LogVanillaStartState(castle, "KeepPostBeforeAiv");
-                if (!FreeCastlePreviewRuntime.TryReadKeepRotation(args.PlayerId, out int actualRotation) ||
-                    actualRotation != castle.Orientation)
-                    throw new InvalidOperationException("The created Keep direction differs from the prepared AIV layout.");
+                bool directionRead = FreeCastlePreviewRuntime.TryReadKeepRotation(args.PlayerId, out int actualRotation);
+                if (!directionRead || actualRotation != castle.Orientation)
+                    throw new InvalidOperationException(
+                        $"The created Keep direction differs from the prepared AIV layout: playerId={args.PlayerId}, " +
+                        $"expectedDirection={castle.Orientation}, actualDirection={(directionRead ? actualRotation.ToString() : "unavailable")}, " +
+                        $"directionRead={directionRead}.");
                 ExecutePreparedCastle(castle);
                 executedAivCastles[args.PlayerId] = castle;
                 LogVanillaStartState(castle, "KeepPostAfterAiv");

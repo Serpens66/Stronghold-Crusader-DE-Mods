@@ -8,19 +8,26 @@ namespace ImprovedHunters
     internal sealed partial class ImprovedHuntersRuntime
     {
         // APIShared owns the native parts of hunting: admission of non-Vanilla prey, the release of the
-        // Hunter's reservation, own-player chickens, corpse removal when butchering starts, the base meat per
+        // Hunter's reservation, own-player chickens, corpse lifetimes, corpse removal when butchering starts, the base meat per
         // butchered animal and the correct Hunter id of target queries. This mod registers its animals, its
         // target selection and its meat settings there once at startup; registrations are process-lived and
         // follow the settings logically (APIShared freezes them per mission and agrees on them in multiplayer).
         private readonly Dictionary<eChimps, HuntablePreyRegistration> preyRegistrations = new Dictionary<eChimps, HuntablePreyRegistration>();
+        // Vanilla lets these corpses fade within 32 map ticks (chickens 16), too short for a Hunter's walk. This is
+        // Vanilla's fading counter threshold 1800 the mod has always used; chickens count it twice per tick.
+        private const int ShortLivedCorpseLifetimeTicks = 1800;
+        private const int ChickenCorpseLifetimeTicks = 900;
         private bool targetPolicyRegistered, meatHandlerRegistered;
 
         private void RegisterHuntingWithApiShared()
         {
-            RegisterPrey(eChimps.CHIMP_TYPE_RABBIT, definition => definition.WithCorpseRemovedWhenButchered());
-            RegisterPrey(eChimps.CHIMP_TYPE_CAMEL, definition => definition.WithCorpseRemovedWhenButchered());
+            RegisterPrey(eChimps.CHIMP_TYPE_RABBIT, definition => definition.WithCorpseRemovedWhenButchered()
+                .WithMinimumCorpseLifetime(ShortLivedCorpseLifetimeTicks));
+            RegisterPrey(eChimps.CHIMP_TYPE_CAMEL, definition => definition.WithCorpseRemovedWhenButchered()
+                .WithMinimumCorpseLifetime(ShortLivedCorpseLifetimeTicks));
             // Chickens keep their owner, so Hunters may take those of their own player only.
-            RegisterPrey(eChimps.CHIMP_TYPE_CHICKEN, definition => definition.WithOwnPlayerPrey().WithCorpseRemovedWhenButchered());
+            RegisterPrey(eChimps.CHIMP_TYPE_CHICKEN, definition => definition.WithOwnPlayerPrey().WithCorpseRemovedWhenButchered()
+                .WithMinimumCorpseLifetime(ChickenCorpseLifetimeTicks));
             targetPolicyRegistered = HunterTargetPolicies.TryRegister(ImprovedHuntersPlugin.PluginGuid, "target-selection",
                 OnHunterTargetCandidate, out string policyReason);
             if (!targetPolicyRegistered)
@@ -59,8 +66,6 @@ namespace ImprovedHunters
                     Shared.DebugLogHelper.LogError(log, $"Improved Hunters could not update {pair.Key} hunting: {reason}");
             }
         }
-
-        private bool IsRegisteredPrey(eChimps type) => preyRegistrations.ContainsKey(type);
 
         // Whether APIShared admits the type in the running mission (outside one: for the next mission).
         private static bool IsPreyAdmitted(eChimps type) => HuntablePrey.Current.IsHuntable((int)type);

@@ -11,10 +11,20 @@
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <OutputPath>bin\</OutputPath>
+    <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(GameDir)' == ''"><GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir></PropertyGroup>
+  <PropertyGroup Condition="'$(ExtenderDir)' == ''"><ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir></PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath></Reference>
+    <Reference Include="Iced"><HintPath>$(ExtenderDir)\Iced.dll</HintPath></Reference>
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions"><HintPath>$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath></Reference>
+    <Reference Include="RedBird.Abstractions"><HintPath>$(ExtenderDir)\RedBird.Abstractions.dll</HintPath></Reference>
+    <Reference Include="RedBird.Backends.NativeX64"><HintPath>$(ExtenderDir)\RedBird.Backends.NativeX64.dll</HintPath></Reference>
+    <Reference Include="RedBird.Core"><HintPath>$(ExtenderDir)\RedBird.Core.dll</HintPath></Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\Shared\Runtime\Gameplay\GatehouseQueryUnitIdPolicy.cs"><Link>GatehouseQueryUnitIdPolicy.cs</Link></Compile>
@@ -25,6 +35,9 @@
     <Compile Include="..\..\BugfixesAndQoL\src\LordAndControlGroups\ControlGroupNativeDefinition.cs"><Link>ControlGroupNativeDefinition.cs</Link></Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\LordAndControlGroups\LordControlGroupNativeDefinition.cs"><Link>LordControlGroupNativeDefinition.cs</Link></Compile>
     <Compile Include="Program.cs" />
+    <Compile Include="EmergencyDemolitionTests.cs" />
+    <Compile Include="..\..\BugfixesAndQoL\src\AI\Economy\AIEmergencyDemolitionDispatch.cs"><Link>AIEmergencyDemolitionDispatch.cs</Link></Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\AI\Economy\AIEmergencyDemolitionNativeContract.cs"><Link>AIEmergencyDemolitionNativeContract.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

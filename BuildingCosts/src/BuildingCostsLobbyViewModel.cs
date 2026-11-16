@@ -13,7 +13,7 @@ using System.Text;
 
 namespace BuildingCosts
 {
-    public sealed class BuildingCostsLobbyViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel
+    public sealed partial class BuildingCostsLobbyViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel
     {
         public event Action<string> SettingChanged;
 
@@ -99,6 +99,7 @@ namespace BuildingCosts
         public BuildingCostsLobbyViewModel()
         {
             CostEntries = CreateCostEntriesWithCallback(buildingCosts);
+            InitializeHumanCostEntries();
             RefreshCostEntryToolTips();
             ResetToDefaultCommand = new RelayCommand(ResetToDefault);
         }
@@ -144,6 +145,7 @@ namespace BuildingCosts
 
                 buildingCosts = value;
                 ApplySerializedCostsToEntries(value);
+                RefreshHumanCostEntries();
                 SettingChanged?.Invoke(nameof(BuildingCosts));
                 OnPropertyChanged(nameof(BuildingCosts));
             }
@@ -155,6 +157,7 @@ namespace BuildingCosts
                 return;
 
             EnableMod = true;
+            HumanExtraBuildingCosts = CreateDefaultHumanExtraBuildingCosts();
             BuildingCosts = CreateDefaultBuildingCosts();
         }
 
@@ -184,6 +187,7 @@ namespace BuildingCosts
                 }
             }
 
+            RefreshHumanCostNames();
             RefreshCostEntryToolTips();
         }
 
@@ -382,7 +386,7 @@ namespace BuildingCosts
             Dictionary<string, BuildingCostValues> parsed = ParseSerializedCosts(buildingCosts);
             foreach (KeyValuePair<string, BuildingCostValues> entry in parsed)
             {
-                if (Enum.TryParse(entry.Key, true, out eMappers mapper))
+                if (Enum.TryParse(entry.Key, true, out eMappers mapper) && mapper != eMappers.MAPPER_BRAZIER)
                     result[mapper] = entry.Value;
             }
 
@@ -394,6 +398,7 @@ namespace BuildingCosts
             StringBuilder builder = new StringBuilder("# -1 = unchanged; order is wood,stone,iron,pitch,gold");
             foreach (string key in DefaultCostKeys)
             {
+                if (key == "MAPPER_BRAZIER") continue;
                 builder.AppendLine();
                 builder.Append(key);
                 builder.Append("=-1,-1,-1,-1,-1");
@@ -408,6 +413,7 @@ namespace BuildingCosts
             List<CostEntryViewModel> entries = new List<CostEntryViewModel>();
             foreach (string key in DefaultCostKeys)
             {
+                if (key == "MAPPER_BRAZIER") continue;
                 if (!values.TryGetValue(key, out BuildingCostValues value))
                     value = new BuildingCostValues(-1, -1, -1, -1, -1);
 

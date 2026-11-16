@@ -17,6 +17,8 @@ namespace EngineHarness
             bool oldActive = fireEscapeActive, oldPlague = plagueEscapeActive, oldSingle = settings.AnchorSingleMoves;
             bool oldInfinite = settings.FireWaitIndefinitely;
             var oldPolicy = fireEscapePolicy; var oldAbort = fireAbortPolicy;
+            APIShared.Pathfinding.RouteTileRuleSet pressureRules = null;
+            const int pressureX = 160, pressureY = 10;
             int now = ticks;
             int Next() { now += 8 - (now & 7); return now; }
             try
@@ -57,6 +59,20 @@ namespace EngineHarness
                 // a full-map 250000-settle game workload is made.
                 settings.AnchorSingleMoves = true; settings.FireWaitIndefinitely = true;
                 fireAbortPolicy = fireEscapePolicy;
+                // An unobstructed, surcharge-free route now needs zero A* settles and
+                // may correctly resume even with only one settle left. A real entering
+                // penalty keeps this fixture about budget pressure; it does not make
+                // the destination unreachable or introduce another hazard policy.
+                Check(APIShared.Pathfinding.RouteTileRules.TryRegister("tests.moatmove", "wait-pressure", out pressureRules, out _),
+                    "wait pressure rule registration failed");
+                Check(pressureRules.Set(pressureX, pressureY, APIShared.Pathfinding.RouteTileEffect.Penalty, 1, 1U << 1) &&
+                    WriteAnchorPenalties(1, pressureY * MapWidth + pressureX, 1), "wait pressure penalty was not published");
+                replanProbeLeft = ReplanProbeTickSettles;
+                Check(CoreRouteProbe(1, 150, 10, 170, 10, fireAbortPolicy, 20) == ProbeClear && replanProbeLeft < ReplanProbeTickSettles,
+                    "wait pressure fixture must retain a clear route requiring actual search work");
+                replanProbeLeft = 1;
+                Check(CoreRouteProbe(1, 150, 10, 170, 10, fireAbortPolicy, 20) == ProbeNoRoute && replanProbeLeft == 0,
+                    "wait pressure fixture does not exhaust the one-settle probe budget");
                 for (int id = 1; id <= 32; id++)
                 {
                     units.Units[id] = new GameUnit { r_GlobalId = (uint)(800000 + id), r_AliveState = AliveState.IsAlive,
@@ -90,6 +106,11 @@ namespace EngineHarness
             }
             finally
             {
+                if (pressureRules != null)
+                {
+                    pressureRules.ClearAll();
+                    Check(WriteAnchorPenalties(1, pressureY * MapWidth + pressureX, 1), "wait pressure penalty cleanup failed");
+                }
                 for (int id = 0; id < saved.Length; id++) units.Units[id] = saved[id];
                 ResetFireEscapes(); ResetReplanWatch(); fireTiles.Clear(); plagueTiles.Clear();
                 fireEscapeActive = oldActive; plagueEscapeActive = oldPlague; fireEscapePolicy = oldPolicy; fireAbortPolicy = oldAbort;

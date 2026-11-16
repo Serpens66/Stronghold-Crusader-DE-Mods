@@ -1,11 +1,11 @@
 # Updating CastlePlanner for a new CrusaderDE.dll
 
-## Preserve existing Keep rotation (2026-10-27)
+## Preserve existing Keep rotation (2026-10-27; field correction 2026-11-15)
 
 For native SHA256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2,
 the human branch in 94350 passes orientation 15 through 6D580 to 74DA0.
-74DA0 stores its effective seventh argument in the root Keep's sprite-variation
-field and uses 0 for geometry when that argument is 15. D0630 consumes the
+74DA0 stores its effective seventh argument in the root Keep's direction field
+at GameBuilding +0x92 and uses 0 for geometry when that argument is 15. D0630 consumes the
 stored direction for Keep access coordinates. Fixes may replace the constructor
 argument; observe the resulting root Keep, not merely BuildStructure's argument.
 
@@ -15,12 +15,18 @@ the AIV anchor but leaves [RSP+30] untouched for these selections. Fixes' per-pl
 rotation array is overridden only for explicit rotations. Pre validates the raw
 argument captured at the existing hook; Post validates the actual root Keep's
 normalized direction before executing the prepared AIV. No new native site or
-layout is introduced. On DLL/Extender updates, recheck the stored variation and
+layout is introduced. On DLL/Extender updates, recheck the stored direction and
 sentinel interpretation as well as the existing hook and AIV placement contract.
 
-Native field reads use the installed Extender's public GameBuilding field
-r_SpriteVariationIndex. Unknown values fail closed; 15 is normalized to 0 only
+Native direction reads use the installed Extender's public GameBuilding field
+N00012042_2 (UInt16, +0x92), not r_SpriteVariationIndex (UInt16, +0x102). Unknown values fail closed; 15 is normalized to 0 only
 for cardinal layout calculations, never supplied as an explicit AIV rotation.
+
+The 2026-10-27 statement identifying the stored direction as sprite variation was
+wrong. See the indexed [Keep direction and sprite variation audit](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/KEEP_DIRECTION.md)
+for the independent constructor/consumer proof, record-origin arithmetic and
+regression history. In particular, a correctly rotated Keep can retain sprite
+variation 15. Never use that variation to validate, inherit or display Keep direction.
 
 ## Type-zero AIV frames (2026-10-05)
 

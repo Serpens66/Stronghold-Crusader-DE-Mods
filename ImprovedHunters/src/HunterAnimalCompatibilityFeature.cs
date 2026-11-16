@@ -1,251 +1,61 @@
-using BepInEx.Logging;
-using R3;
 using SHCDESE.API;
-using SHCDESE.EventAPI;
-using SHCDESE.EventAPI.Buildings;
-using SHCDESE.EventAPI.Projectiles;
-using SHCDESE.EventAPI.Units;
-using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
-using SHCDESE.Interop.Enums;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using RedBird.Core.Memory;
-using RedBird.X64.Assembly.Stateful;
 
 namespace ImprovedHunters
 {
     internal sealed partial class ImprovedHuntersRuntime
     {
-        // Per-animal compatibility required by the corresponding Hunt setting.
-        private void InitializeRabbitDespawnPatch()
+        // Per-animal compatibility required by the corresponding Hunt setting. Corpse lifetimes of rabbits,
+        // camels and chickens are part of their HuntablePrey registrations (HuntablePreyIntegration).
+
+        // APIShared applies the maximum once per camel at mission start, spawn and save load, and keeps
+        // the original basis in the save; this mod neither writes HP nor clamps live camels.
+        private void RegisterCamelHealthPolicy()
         {
-            if (rabbitDespawnTicksInitialized)
+            if (camelHealthPolicy != null)
                 return;
 
-            rabbitDespawnTickTime = GameGlobalsManager.Instance.RabbitDespawnTickTime;
-            originalRabbitDespawnTicks = rabbitDespawnTickTime.GetValue();
-            rabbitDespawnTicksInitialized = true;
-        }
-
-        private void InitializeExtraDespawnPatches(ReadOnlySpan<byte> memory, ulong imageBase)
-        {
-            if (extraDespawnTicksInitialized)
-                return;
-
-            camelDespawnTickTime = FindExtraDespawnImmediate(
-                memory,
-                imageBase,
-                "camel despawn immediate",
-                CamelDespawnTickTimePattern,
-                CamelDespawnTickTimeRva);
-            chickenDespawnTickTime = FindExtraDespawnImmediate(
-                memory,
-                imageBase,
-                "chicken despawn immediate",
-                ChickenDespawnTickTimePattern,
-                ChickenDespawnTickTimeRva);
-
-            if (camelDespawnTickTime != null)
-                originalCamelDespawnTicks = camelDespawnTickTime.GetValue();
-
-            if (chickenDespawnTickTime != null)
-                originalChickenDespawnTicks = chickenDespawnTickTime.GetValue();
-
-            extraDespawnTicksInitialized = true;
-        }
-
-        private ManagedAssemblyImmediate<short> FindExtraDespawnImmediate(
-            ReadOnlySpan<byte> memory,
-            ulong imageBase,
-            string name,
-            string pattern,
-            int referenceRva)
-        {
-            try
+            camelArrowDamage = GameUnitManagerAPI.Instance.GetRangedArrowDamageTo(eChimps.CHIMP_TYPE_CAMEL);
+            if (!APIShared.Health.HealthModifiers.TryRegister(
+                ImprovedHuntersPlugin.PluginGuid,
+                "camel-one-arrow",
+                SelectCamelMaximumHealth,
+                out APIShared.Health.HealthModifierHandle handle,
+                out string reason))
             {
-                int offset = Shared.NativePatternResolver.ResolveUnique(
-                    memory,
-                    pattern,
-                    referenceRva,
-                    referenceHashMatches,
-                    name,
-                    log).Rva;
-
-                return new ManagedAssemblyImmediate<short>(
-                    new IntPtr(unchecked((long)(imageBase + (ulong)offset + ExtraDespawnPatternImmediateOffset))),
-                    // The matched instruction has more than one operand; operand 1
-                    // is the immediate despawn threshold.
-                    operand: 1);
+                throw new InvalidOperationException(reason);
             }
-            catch (Exception exception)
-            {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Improved Hunters failed to initialize {name}; this native patch remains inactive: {exception}");
-                return null;
-            }
-        }
 
-        private void ApplyDespawnPatches()
-        {
-            try
-            {
-                if (rabbitDespawnTickTime != null)
-                {
-                    short desired = Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.HuntRabbit
-                        ? RabbitCorpseDespawnTicks
-                        : originalRabbitDespawnTicks;
-
-                    bool shouldPatch = desired != originalRabbitDespawnTicks;
-                    if (rabbitDespawnTicksPatched != shouldPatch)
-                    {
-                        rabbitDespawnOverride?.Dispose();
-                        rabbitDespawnOverride = shouldPatch
-                            ? rabbitDespawnTickTime.SetOverride(
-                                this,
-                                desired,
-                                reason: "Improved Hunters rabbit corpse lifetime")
-                            : null;
-                        rabbitDespawnTicksPatched = shouldPatch;
-                    }
-                }
-
-                ApplyExtraDespawnPatch(camelDespawnTickTime, originalCamelDespawnTicks, Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.HuntCamel, ref camelDespawnTicksPatched);
-                ApplyExtraDespawnPatch(chickenDespawnTickTime, originalChickenDespawnTicks, Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.HuntChicken, ref chickenDespawnTicksPatched);
-                LogDespawnPatchState();
-            }
-            catch (Exception exception)
-            {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Improved Hunters failed to apply an animal despawn patch; the affected patch remains inactive: {exception}");
-            }
-        }
-
-        private void LogDespawnPatchState()
-        {
-            if (despawnPatchStateLogged)
-                return;
-
-            despawnPatchStateLogged = true;
+            camelHealthPolicy = handle;
+            UpdateCamelHealthPolicy();
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"Improved Hunters despawn patch state: " +
-                $"rabbit={FormatDespawnPatchState(rabbitDespawnTickTime, originalRabbitDespawnTicks, Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.HuntRabbit ? RabbitCorpseDespawnTicks : originalRabbitDespawnTicks, rabbitDespawnTicksPatched)}, " +
-                $"camel={FormatDespawnPatchState(camelDespawnTickTime, originalCamelDespawnTicks, Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.HuntCamel ? ExtraCorpseDespawnTicks : originalCamelDespawnTicks, camelDespawnTicksPatched)}, " +
-                $"chicken={FormatDespawnPatchState(chickenDespawnTickTime, originalChickenDespawnTicks, Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.HuntChicken ? ExtraCorpseDespawnTicks : originalChickenDespawnTicks, chickenDespawnTicksPatched)}.");
+                $"Improved Hunters camel health policy registered: arrowDamage={camelArrowDamage}, " +
+                $"enabled={handle.IsEnabled}.");
         }
 
-        private static string FormatDespawnPatchState(
-            ManagedAssemblyImmediate<short> immediate,
-            short originalTicks,
-            short desiredTicks,
-            bool patched)
+        // Settings only change between matches; the provider re-checks the mission gate itself.
+        // Enabled with the mod, not only with camel hunting: APIShared then keeps a health archive in every
+        // save, so camels are adjusted after a later load that has camel hunting on. The provider decides.
+        private void UpdateCamelHealthPolicy() =>
+            camelHealthPolicy?.SetEnabled(settings.EnableMod);
+
+        // Simulation thread: one arrow kills a camel. Deterministic from host settings and mission mode.
+        private APIShared.Modifiers.ValueModifierContribution SelectCamelMaximumHealth(APIShared.Health.HealthModifierContext context)
         {
-            if (immediate == null)
-                return "missing";
-
-            return $"original={originalTicks}/desired={desiredTicks}/current={immediate.GetValue()}/patched={patched}";
-        }
-
-        private static void ApplyExtraDespawnPatch(
-            ManagedAssemblyImmediate<short> immediate,
-            short originalTicks,
-            bool enabled,
-            ref bool patched)
-        {
-            if (immediate == null)
-                return;
-
-            short desired = enabled ? ExtraCorpseDespawnTicks : originalTicks;
-            if (immediate.GetValue() != desired)
-                immediate.SetValue(desired);
-
-            patched = desired != originalTicks;
-        }
-
-        private void ApplyCamelHealthPatch()
-        {
-            try
+            if (context.Kind != APIShared.Health.HealthObjectKind.Unit ||
+                context.UnitType != eChimps.CHIMP_TYPE_CAMEL ||
+                !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) ||
+                !settings.HuntCamel)
             {
-                GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
-                if (!camelHealthInitialized)
-                {
-                    originalCamelArrowDamage = unitApi.GetRangedArrowDamageTo(eChimps.CHIMP_TYPE_CAMEL);
-                    originalCamelHealth = unitApi.GetDefaultHealth(eChimps.CHIMP_TYPE_CAMEL);
-                    camelHealthInitialized = true;
-                }
-
-                uint desired = originalCamelHealth;
-                if (Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.HuntCamel)
-                {
-                    uint oneShotHealth = (uint)Math.Max(1, originalCamelArrowDamage - 1);
-                    desired = Math.Min(originalCamelHealth, oneShotHealth);
-                }
-
-                if (unitApi.GetDefaultHealth(eChimps.CHIMP_TYPE_CAMEL) != desired)
-                    unitApi.SetDefaultHealth(eChimps.CHIMP_TYPE_CAMEL, desired);
-
-                desiredCamelHealth = desired;
-                camelHealthPatched = desired != originalCamelHealth;
-                LogCamelHealthPatch(0);
-            }
-            catch (Exception exception)
-            {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Improved Hunters failed to apply the camel health patch; that patch remains inactive: {exception}");
-            }
-        }
-
-        private unsafe bool TryClampLiveCamelHealth(int unitId, GameUnit* unit)
-        {
-            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) ||
-                !settings.HuntCamel ||
-                !camelHealthInitialized ||
-                desiredCamelHealth == 0 ||
-                unit == null ||
-                unit->r_UnitChimp != eChimps.CHIMP_TYPE_CAMEL ||
-                !APIShared.UnitAccess.IsReallyAlive(unit))
-            {
-                return false;
+                return APIShared.Modifiers.ValueModifierContribution.None;
             }
 
-            bool changed = false;
-            if (unit->r_MaxHealth > desiredCamelHealth)
-            {
-                unit->r_MaxHealth = desiredCamelHealth;
-                changed = true;
-            }
-
-            if (unit->r_CurrentHealth > desiredCamelHealth)
-            {
-                unit->r_CurrentHealth = desiredCamelHealth;
-                changed = true;
-            }
-
-            if (changed)
-                UpdateUnitHealthDisplay(unit);
-
-            return changed;
-        }
-
-        private unsafe void LogCamelHealthPatch(int adjustedLiveCamels)
-        {
-            if (!camelHealthInitialized)
-                return;
-
-            if (adjustedLiveCamels <= 0 && lastLoggedDesiredCamelHealth == desiredCamelHealth)
-                return;
-
-            lastLoggedDesiredCamelHealth = desiredCamelHealth;
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"Improved Hunters camel health patch: originalHealth={originalCamelHealth}, desiredHealth={desiredCamelHealth}, " +
-                $"originalArrowDamage={originalCamelArrowDamage}, enabled={Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.HuntCamel}, " +
-                $"adjustedLiveCamels={adjustedLiveCamels}.");
+            uint oneShotHealth = (uint)Math.Max(1, camelArrowDamage - 1);
+            return context.OriginalMaximumHealth <= oneShotHealth
+                ? APIShared.Modifiers.ValueModifierContribution.None
+                : APIShared.Modifiers.ValueModifierContribution.FixedValue(oneShotHealth);
         }
 
     }

@@ -20,6 +20,26 @@
     "untaggedReason": "Their exact bytes are pinned by validators that do not resolve Git history; their scope is recorded only here and in CURRENT.md."
   },
   "documents": [
+    {"file":"TRAPPED_UNIT_RESCUE_AUDIT.md","scope":"mod","components":["TrappedUnitRescueTest","BugfixesAndQoL","Fixes","Script Extender"],"vanillaSections":["Relocation, occupancy and identity","Search and physical exits differ","Mounted siege crew and dismount","Apple-worker arrival and production boundaries","Native caller bytes"],"note":"Static hash-bound native contracts are explicitly tagged [Vanilla facts]; external suppression and unfinished runtime acceptance remain mod work."},
+    {"file":"CONSTRUCTION_COST_TABLES.md","scope":"vanilla+integration","components":["CrusaderDE.dll","Assembly-CSharp.dll","Script Extender","APIShared"],"note":"Hash-bound construction table, alias and Undo parameter audits; tagged integration sections record Extender compatibility and dated game probes."},
+    {
+      "file": "MOAT_TRAVERSAL_ALL_UNITS.md",
+      "scope": "vanilla+integration",
+      "components": ["CrusaderDE.dll", "Pathfinding", "Script Extender", "APIShared", "Fixes"],
+      "integrationSections": ["Existing Pathfinding integration snapshot"],
+      "note": "Static hash-bound all-unit movement and civilian work audit; compact machine evidence is MOAT_TRAVERSAL_ALL_UNITS.json. No feature implementation or new gameplay acceptance."
+    },
+    {
+      "file": "SIEGE_AMMUNITION_SIGNEDNESS.md",
+      "scope": "vanilla",
+      "components": ["CrusaderDE.dll"]
+    },
+    {
+      "file": "AI_EMERGENCY_DEMOLITION.md",
+      "scope": "vanilla+integration",
+      "components": ["BugfixesAndQoL"],
+      "integrationSections": ["Corrected consumer boundary"]
+    },
     {
       "file": "ASSASSIN_STOCKPILE_CLIMB.md",
       "scope": "vanilla+integration",
@@ -60,6 +80,12 @@
       "file": "SIDE_HUD_VISIBILITY.md",
       "scope": "vanilla",
       "components": [],
+      "integrationSections": []
+    },
+    {
+      "file": "LINE_OF_SIGHT.md",
+      "scope": "vanilla",
+      "components": ["CrusaderDE.dll"],
       "integrationSections": []
     },
     {
@@ -307,6 +333,17 @@
       ],
       "integrationSections": [],
       "note": "Mod references inline."
+    },
+    {
+      "file": "BUILDING_PAUSE_UI.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "BugfixesAndQoL"
+      ],
+      "integrationSections": [
+        "BugfixesAndQoL correction"
+      ],
+      "note": "Hash-bound Vanilla menu/table audit and consumer correction; gameplay acceptance separate."
     },
     {
       "file": "BUILDING_SLEEP_SELECTION.md",
@@ -705,6 +742,12 @@
       "scope": "vanilla",
       "components": [],
       "integrationSections": []
+    },
+    {
+      "file": "KEEP_DIRECTION.md",
+      "scope": "vanilla+integration",
+      "components": ["CastlePlanner", "BugfixesAndQoL"],
+      "integrationSections": ["Consumer correction and regression history [mod integration]"]
     },
     {
       "file": "KEEP_FLAG_ROTATION.md",
@@ -1259,6 +1302,12 @@
       "scope": "vanilla+integration",
       "components": ["APIShared"],
       "integrationSections": ["Shared adapter and hook evidence [mod integration]"]
+    },
+    {
+      "file": "RUNTIME_STATE_ACCESS.md",
+      "scope": "vanilla+integration",
+      "components": ["GameMemReader", "GameStateProbe", "Script Extender"],
+      "integrationSections": ["Tools and usage [mod integration]"]
     }
   ]
 }

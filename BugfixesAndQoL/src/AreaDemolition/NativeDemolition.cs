@@ -1146,7 +1146,7 @@ namespace BugfixesAndQoL.AreaDemolition
                     if (!GuardMutation(target,actor,closure,approved,executed)) return;
                     attempt.BeforeMutation();native.Wall(native.Tiles,actor,target.TileId);break;
                 case TargetKind.DugMoat:attempt.BeforeMutation();native.RemoveDugMoat(target.TaskIndex,target.TileId);break;
-                case TargetKind.Decoration:attempt.BeforeMutation();native.RemoveDecorationTile(target.TileId);break;
+                case TargetKind.Decoration:attempt.BeforeMutation();global::APIShared.Buildings.ConstructionDemolition.RunSelfDemolition(actor, () => native.RemoveDecorationTile(target.TileId));break;
             }
             RecordApplied(closure,executed);
         }
@@ -1174,6 +1174,11 @@ namespace BugfixesAndQoL.AreaDemolition
         internal static int WallRefundPercent(int policy,int heightDifference) => policy==1 || heightDifference>60 ? 50 : 25;
 
         private void ExecuteBuilding(DemolitionTarget target,int actor,List<DemolitionTarget> closure,IDictionary<string,DemolitionTarget> approved,HashSet<string> executed,MutationAttempt attempt)
+        {
+            global::APIShared.Buildings.ConstructionDemolition.RunSelfDemolition(actor, () => ExecuteBuildingWithRefunds(target, actor, closure, approved, executed, attempt));
+        }
+
+        private void ExecuteBuildingWithRefunds(DemolitionTarget target,int actor,List<DemolitionTarget> closure,IDictionary<string,DemolitionTarget> approved,HashSet<string> executed,MutationAttempt attempt)
         {
             int oldContext=*(int*)(native.ModulePointer+NativeBindings.DemolitionContextRva);
             try

@@ -4,7 +4,7 @@ Momentaufnahme vom 07.11.2026, zusammengeführt aus den `UpdateToNewDLL.md` von 
 
 ## Eigentümer in diesem Mod
 
-Alle Befehls-Hooks gehören `UnitCommands`; der Engine-Provider (`src/Engine`) installiert selbst keinen Hook. Nativer Fehlschlag schaltet das betroffene Teilfeature ab, Vanilla übernimmt. Neu seit der Zusammenführung: Ohne Grabenquerung veröffentlicht der Kern Bodenwege nur bei `+0x84 == 0` (`0xF4930`-Grabenmodus bleibt Vanilla, `GROUND_ROUTE_BUILDERS.md`), siehe `BuildEngineRoute`.
+Die nativen Befehls-Hooks gehören `UnitCommands`; die verwalteten Publisher-Grenzen gehören `Core/TribeCommandDispatchBoundary`. Der Engine-Provider (`src/Engine`) installiert selbst keinen Hook. Nativer Fehlschlag schaltet das betroffene Teilfeature ab, Vanilla übernimmt. Neu seit der Zusammenführung: Ohne Grabenquerung veröffentlicht der Kern Bodenwege nur bei `+0x84 == 0` (`0xF4930`-Grabenmodus bleibt Vanilla, `GROUND_ROUTE_BUILDERS.md`), siehe `BuildEngineRoute`.
 
 ## Nachtrag 13.11.2026: Aufnahme-, Warte- und Ablehnungsverträge
 
@@ -952,6 +952,52 @@ the productive managed/native search, group field, reachability and cache checks
 on both directions of this edge, with real-wall and ordinary-connection controls.
 On a native/SDK update, re-audit the flag semantics and the existing search,
 reconstruction and physical transition chain; a matching C ABI alone is insufficient.
+
+#### Managed command acceptance and Assassin scope lifetime (2026-11-14)
+
+`TribeCommandDispatchBoundary` permanently wraps the two public static Script
+Extender publishers `BulkTribeDetours.c_game_tribe_issueorder_movehere_hook_impl`
+and `c_game_tribe_issueorder_withtarget_hook_impl`. These are managed boundaries;
+no overlapping native detour or new native RVA is installed. Each wrapper calls
+its original exactly once and restores the captured thread-local Assassin parent
+in `finally`, including vetoes (which emit no Post) and exceptions. A mission epoch
+change prevents restoration of an old mission parent. Normal Pre/Post scopes still
+capture and complete their existing diagnostics. Current-cache readers inspect
+the original mutable Pre arguments: a current veto yields no command cache and
+does not prune a temporarily vetoed parent or borrow an outer cache.
+
+A `SafeIlHook` on the target publisher inserts the final accepted-action callback
+immediately after the Pre `Raise`, before the unchanged Skip branch. Validate the
+actual typed constructor's Pre constant and five original argument pushes, its
+single local assignment, the two typed Raise calls, and the branch over Original
+and Post. MonoMod exposes branch destinations as `ILLabel` during manipulation.
+Queue reconciliation, Assassin Stop cancellation and Engine target replacement
+run in that order only when all mutable R3 observers have returned with Skip=false.
+A later observer can therefore restore execution after an earlier veto; this must
+still perform the accepted actions, preserving the player's synchronous Chore depth.
+The callback does not modify arguments, Skip, ReturnValue, native call count or R3
+publication. APIShared's `AiMilitaryOrderBroker.TransformTarget` may replace the
+Original delegate invocation; validate composition in either IL-transform order.
+Combat resumption has no dependency on this command boundary and retains its
+independent validated-layout installation.
+
+The queue subscriber leaves an earlier veto's cohorts and observed attack intact,
+while still stripping private MP marker bit 0x80. Weak metadata on those exact Pre
+arguments allows the final accepted callback to retire the preceding queue and
+record the immediate order if a later observer restores execution. It never
+resamples Shift, re-enqueues, replays, or emits an event; AI, selection, SP settings
+and MP readiness admission gates remain in force. Map resets discard the metadata.
+
+Publish all three managed hooks before activating their dependent consumers.
+A failed later SafeIlHook rebuild permanently latches the boundary unavailable;
+the rebuild handler performs no game/native/UI writes. Assassin builders preserve
+their one Vanilla result, and the Engine/queue clear their owned automatic work on
+the next simulation callback. Published hooks remain installed and dormant.
+Offline regression checks compile actual installed SE IL with the API broker,
+execute production Pre/Post scope and queue methods, and compare Stop unit bytes.
+The standalone command-boundary runner also probes a held-before-hook native thunk
+when executed by the installed game Mono; CLR cannot marshal `NativePointer<T>`.
+These isolated checks do not replace an in-game host/client acceptance test.
 
 #### Group fields of Assassin group moves (2026-11-03, initially contract `0x01000002`)
 

@@ -15,7 +15,7 @@ using RedBird.X64.Hooks.Transaction;
 namespace ImprovedHunters
 {
     /// <summary>
-    /// Temporary, separately removable singleplayer calibration. When Vanilla
+    /// Production path continuation (part of Improved Pathfinding). When Vanilla
     /// already owns a live Hunter path but its near-range visibility is blocked,
     /// this lets the original distance-29 branch continue that same path.
     /// </summary>
@@ -137,7 +137,7 @@ namespace ImprovedHunters
                     hookSize: distanceHookLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                CommitResult commitResult = transaction.Commit();
+                CommitResult commitResult = HunterHookInfrastructure.Commit(transaction, "vanilla-path-continuation");
                 if (!commitResult.IsCompleteSuccess ||
                     !distanceCompareHook.Success)
                 {

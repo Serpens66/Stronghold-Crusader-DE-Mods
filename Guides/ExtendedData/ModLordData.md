@@ -41,6 +41,8 @@ The sidecar is optional. Its absence must never prevent the underlying AIC from 
 
 #### JSON structure
 
+The example fields belong to imaginary mods. Replace them with the fields required by the mod you actually use.
+
 The root is an object whose case-insensitive keys are mod GUIDs. Every value is an object owned and validated by that mod:
 
 ```json
@@ -66,7 +68,7 @@ There is no global schema version. Keys that differ only by casing conflict and 
 
 #### Reading a namespace
 
-Use the complete APIShared 0.12.2 package. Declare `APIShared_Serp` version `0.12.2` as the hard minimum dependency in BepInEx and `info.json`, and reference `APIShared.dll` and `APIShared.Content.dll` with `Private=false`. No ExtendedData assembly reference is required. During a selected Lord session, read the Lord assigned to a one-based player slot:
+Install the complete current APIShared package. Declare the same supported minimum version of `APIShared_Serp` in BepInEx and `info.json`, and reference `APIShared.dll` and `APIShared.Content.dll` with `Private=false`. No ExtendedData assembly reference is required. During a selected Lord session, read the Lord assigned to a one-based player slot:
 
 ```csharp
 using APIShared.ModData;
@@ -89,7 +91,7 @@ ModDataReadResult result = ModDataAccess.ReadLocalLordNamespace(
 
 This reads the adjacent sidecar regardless of a selected session and carries no host-authority claim. It replaces only the final `.lordjson` suffix with `.modlord.json`. Both local and selected readers enforce 64 KiB per UTF-8 document and 16 KiB per compact JSON namespace. ExtendedData's network snapshot has a separate 256 KiB total limit.
 
-Call on the Unity thread after Extender initialization, with the matching confirmed mission/selection context. Reads are on demand. Keep returned data with that context and discard it on end, replacement or selection change. See the [shared API](../../APIShared/docs/MOD_DATA.md) for provider and lifecycle contracts.
+Call on the Unity thread after Extender initialization, with the matching confirmed mission/selection context. Reads are on demand. Keep returned data with that context and discard it on end, replacement or selection change. See the [shared API](https://github.com/SHCDE-APIShared/APIShared/blob/main/docs/MOD_DATA.md) for provider and lifecycle contracts.
 
 #### ExtendedData facade
 
@@ -103,7 +105,7 @@ ExtendedDataModDataReadResult result = ExtendedDataModDataApi.ReadLordNamespace(
     "author.example-mod");
 ```
 
-Outside a selected session, the facade builds `Path.Combine(config.path, config.name + ".lordjson")` and delegates to the local reader. During a selected session, its path/config overloads check the verified selection; a host-snapshot lookup also checks the supplied config checksum. Unselected or ambiguous host configurations do not fall back to local files. The facade returns ExtendedData's public result type.
+Outside a selected session, the facade reads the sidecar beside the supplied configuration. During a selected session, it checks that the configuration belongs to the confirmed selection. Unselected or ambiguous host configurations do not fall back to local files. Prefer the player-ID API for the Lord currently assigned to a player.
 
 On success, `Data` is a deeply read-only object tree and `Json` contains only the requested namespace. Nested objects implement `IReadOnlyDictionary<string, object>` and arrays implement `IReadOnlyList<object>`. APIShared validates the shared container; the consuming mod validates its own fields and `schemaVersion`.
 
@@ -161,6 +163,8 @@ Das Sidecar ist optional. Sein Fehlen darf das Laden der zugrunde liegenden AIC 
 
 #### JSON-Struktur
 
+Die Beispielfelder gehören zu erfundenen Mods. Ersetze sie durch die Felder, die der tatsächlich verwendete Mod verlangt.
+
 Die Wurzel ist ein Objekt, dessen Schlüssel ohne Beachtung der Groß-/Kleinschreibung Mod-GUIDs darstellen. Jeder Wert ist ein Objekt, das dem jeweiligen Mod gehört und von ihm validiert wird:
 
 ```json
@@ -186,7 +190,7 @@ Es gibt keine globale Schemaversion. Schlüssel, die sich nur durch Groß-/Klein
 
 #### Einen Namensraum lesen
 
-Verwende das vollständige APIShared-Paket 0.12.2. Deklariere `APIShared_Serp` ab Version `0.12.2` als harte Mindestabhängigkeit in BepInEx und `info.json` und referenziere `APIShared.dll` sowie `APIShared.Content.dll` mit `Private=false`. Eine ExtendedData-Assemblyreferenz ist nicht erforderlich. Lies während einer ausgewählten Lord-Sitzung den Lord eines einsbasierten Spielerplatzes:
+Installiere das vollständige aktuelle APIShared-Paket. Deklariere dieselbe unterstützte Mindestversion von `APIShared_Serp` in BepInEx und `info.json` und referenziere `APIShared.dll` sowie `APIShared.Content.dll` mit `Private=false`. Eine ExtendedData-Assemblyreferenz ist nicht erforderlich. Lies während einer ausgewählten Lord-Sitzung den Lord eines einsbasierten Spielerplatzes:
 
 ```csharp
 using APIShared.ModData;
@@ -209,7 +213,7 @@ ModDataReadResult result = ModDataAccess.ReadLocalLordNamespace(
 
 Damit wird das benachbarte Sidecar unabhängig von einer ausgewählten Sitzung gelesen; der Zugriff bestätigt keine Hostautorität. Ausschließlich das letzte `.lordjson`-Suffix wird durch `.modlord.json` ersetzt. Lokale und ausgewählte Leser prüfen 64 KiB je UTF-8-Dokument und 16 KiB je kompaktem JSON-Namensraum. Für ExtendedDatas Netzwerksnapshot gilt ein separates Gesamtlimit von 256 KiB.
 
-Rufe die API nach der Extender-Initialisierung auf dem Unity-Thread mit dem passenden bestätigten Missions-/Auswahlkontext auf. Die Leser arbeiten bei Bedarf. Ordne zurückgegebene Daten diesem Kontext zu und verwerfe sie bei Ende, Ersetzung oder Auswahlwechsel. Die [gemeinsame API](../../APIShared/docs/MOD_DATA.md) beschreibt Anbieter- und Lifecycle-Verträge.
+Rufe die API nach der Extender-Initialisierung auf dem Unity-Thread mit dem passenden bestätigten Missions-/Auswahlkontext auf. Die Leser arbeiten bei Bedarf. Ordne zurückgegebene Daten diesem Kontext zu und verwerfe sie bei Ende, Ersetzung oder Auswahlwechsel. Die [gemeinsame API](https://github.com/SHCDE-APIShared/APIShared/blob/main/docs/MOD_DATA.md) beschreibt Anbieter- und Lifecycle-Verträge.
 
 #### ExtendedData-Fassade
 
@@ -223,7 +227,7 @@ ExtendedDataModDataReadResult result = ExtendedDataModDataApi.ReadLordNamespace(
     "author.example-mod");
 ```
 
-Außerhalb einer ausgewählten Sitzung bildet die Fassade `Path.Combine(config.path, config.name + ".lordjson")` und delegiert an den lokalen Leser. Während einer ausgewählten Sitzung prüfen ihre Pfad-/Config-Overloads die bestätigte Auswahl; beim Zugriff auf den Host-Snapshot wird zusätzlich die übergebene Config-Checksumme geprüft. Nicht ausgewählte oder mehrdeutige Hostkonfigurationen werden nicht durch lokale Dateien ersetzt. Die Fassade liefert ExtendedDatas öffentlichen Ergebnistyp.
+Außerhalb einer ausgewählten Sitzung liest die Fassade die Zusatzdatei neben der übergebenen Konfiguration. Während einer ausgewählten Sitzung prüft sie, ob die Konfiguration zur bestätigten Auswahl gehört. Nicht ausgewählte oder mehrdeutige Hostkonfigurationen werden nicht durch lokale Dateien ersetzt. Verwende für den aktuell einem Spieler zugewiesenen Lord bevorzugt die Spieler-ID-API.
 
 Bei Erfolg enthält `Data` einen tief schreibgeschützten Objektbaum und `Json` ausschließlich den angeforderten Namensraum. Verschachtelte Objekte implementieren `IReadOnlyDictionary<string, object>`, Arrays implementieren `IReadOnlyList<object>`. APIShared validiert den gemeinsamen Container; der konsumierende Mod validiert seine eigenen Felder und `schemaVersion`.
 

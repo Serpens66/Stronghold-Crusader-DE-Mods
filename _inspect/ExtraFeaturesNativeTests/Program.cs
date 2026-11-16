@@ -32,6 +32,7 @@ namespace ExtraFeatures
                 FearFactorStubTests.Run(image, Check);
                 MatureTreeHarvestStubTests.Run(image, Check);
                 KnightSelectionTransferTests.Run(Check);
+                BuildingRepairHudVisibilityTests.Run(image, Check);
                 Console.WriteLine($"PASS: ExtraFeatures native tests ({assertions} assertions).");
                 return 0;
             }

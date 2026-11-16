@@ -7,8 +7,18 @@ namespace ExtraFeatures
 {
     public sealed partial class ExtraFeaturesRuntime
     {
+        private bool constructionRefundPolicyRegistered;
+
         private void ApplyRefundSettings()
         {
+            if (!constructionRefundPolicyRegistered)
+            {
+                if (!APIShared.Buildings.ConstructionRefundPolicies.TryRegister(ExtraFeaturesPlugin.PluginGuid,
+                    "HumanConstructionRefunds", _ => Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && HasCustomRefundPercent()
+                        ? (int?)100 : null, out string reason))
+                    throw new System.InvalidOperationException(reason);
+                constructionRefundPolicyRegistered = true;
+            }
             GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
             ApplyRefundPercent(buildingApi.WoodRefundMultiplier, settings.WoodRefundPercent);
             ApplyRefundPercent(buildingApi.StoneRefundMultiplier, settings.StoneRefundPercent);

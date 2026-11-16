@@ -59,8 +59,8 @@ namespace UnitCosts
         private readonly UnitCostOverrides costOverrides = new UnitCostOverrides(
             unit => GameUnitManagerAPI.Instance.GetUnitGoldCost(unit),
             (unit, value) => GameUnitManagerAPI.Instance.SetUnitGoldCost(unit, value),
-            tent => GameBuildingManagerAPI.Instance.GetGoldCost(tent),
-            (tent, value) => GameBuildingManagerAPI.Instance.SetGoldCost(tent, value),
+            ReadTentGold,
+            WriteTentGold,
             unit => GameUnitManagerAPI.Instance.GetUnitGoodCosts(unit),
             (unit, value) => GameUnitManagerAPI.Instance.SetUnitGoodCosts(unit, value));
 
@@ -1757,11 +1757,31 @@ namespace UnitCosts
             yield return eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER;
         }
 
+        private static int ReadTentGold(eStructs structure)
+        {
+            if (!APIShared.Buildings.ConstructionCosts.TryGetCurrent(APIShared.Buildings.ConstructionCostTarget.FromStructure(structure), out var cost, out string reason))
+                throw new InvalidOperationException(reason);
+            return cost.Gold;
+        }
+
+        private static void WriteTentGold(eStructs structure, int amount)
+        {
+            if (!APIShared.Buildings.ConstructionCosts.TrySetCurrent(APIShared.Buildings.ConstructionCostTarget.FromStructure(structure), eGoods.STORED_GOLD, amount, out string reason))
+                throw new InvalidOperationException(reason);
+        }
+
+        private static int ReadDefaultTentGold(eStructs structure)
+        {
+            if (!APIShared.Buildings.ConstructionCosts.TryGetDefault(APIShared.Buildings.ConstructionCostTarget.FromStructure(structure), out var cost, out string reason))
+                throw new InvalidOperationException(reason);
+            return cost.Gold;
+        }
+
         private static int ReadVanillaUnitGoldCost(eChimps unitType)
         {
             if (TryGetSiegeTentStructure(unitType, out eStructs siegeTentStructure))
             {
-                int defaultSiegeTentCost = GameBuildingManagerAPI.Instance.GetDefaultCost(siegeTentStructure).Gold;
+                int defaultSiegeTentCost = ReadDefaultTentGold(siegeTentStructure);
                 return UnitGoldCostSnapshotPolicy.SelectVanillaCost(true, 0, defaultSiegeTentCost);
             }
 
@@ -1853,7 +1873,7 @@ namespace UnitCosts
         {
             try
             {
-                return Math.Max(0, GameBuildingManagerAPI.Instance.GetDefaultCost(siegeTentStructure).Gold);
+                return Math.Max(0, ReadDefaultTentGold(siegeTentStructure));
             }
             catch
             {

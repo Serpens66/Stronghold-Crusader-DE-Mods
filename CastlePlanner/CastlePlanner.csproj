@@ -242,6 +242,7 @@
     <Compile Include="src\BlueprintRuntimeController.Role.cs" />
     <Compile Include="src\CastlePlannerPlugin.cs" />
     <Compile Include="src\CastleRotationOptions.cs" />
+    <Compile Include="src\KeepDirectionReader.cs" />
     <Compile Include="src\CastleSpawnContentPolicy.cs" />
     <Compile Include="src\CoalescedSynchronizationContextQueue.cs" />
     <Compile Include="src\SupplementalPrefabSpawner.cs" />

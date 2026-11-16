@@ -251,7 +251,7 @@ namespace ImprovedHunters
                             return false;
 
                         checks++;
-                        if (visibility.TryEvaluateFromTile(x, y, tiles.GetTileHeight(tile), prey, out bool visible) && visible)
+                        if (visibility.TryEvaluateFromTile(x, y, prey, out bool visible) && visible)
                         {
                             foundX = x;
                             foundY = y;
@@ -271,8 +271,9 @@ namespace ImprovedHunters
 
             if (!reachableLand.TryGetValue(land, out bool reachable))
             {
-                reachable = GamePathingManagerAPI.Instance.FindNextComponentTowardDestination(
-                    player, hunterLand, land, (PathConnectionQueryMode)mode) != 0;
+                // A firing position needs a confirmed connection; an unanswerable query does not offer one.
+                reachable = APIShared.Pathfinding.PathReachability.BetweenComponents(
+                    player, (PathConnectionQueryMode)mode, hunterLand, land) == APIShared.Pathfinding.PathReachabilityResult.Connected;
                 reachableLand[land] = reachable;
             }
 

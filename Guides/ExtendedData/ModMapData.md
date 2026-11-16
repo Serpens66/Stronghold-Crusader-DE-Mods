@@ -42,6 +42,8 @@ Map loading uses the Script Extender. APIShared reads the supplemental namespace
 
 #### JSON structure
 
+The example fields belong to imaginary mods. Replace them with the fields required by the mod you actually use.
+
 The root is an object whose case-insensitive keys are mod GUIDs. Every value is an object owned by that mod:
 
 ```json
@@ -73,7 +75,7 @@ There is no global schema version. Prefer a stable BepInEx plugin GUID in lowerc
 
 #### Reading a namespace
 
-Use the complete APIShared 0.12.2 package. Declare `APIShared_Serp` version `0.12.2` as the hard minimum dependency in both BepInEx and `info.json`, and reference `APIShared.dll` and `APIShared.Content.dll` with `Private=false`. The consuming mod does not need ExtendedData. See the [shared mod-data API](../../APIShared/docs/MOD_DATA.md) for source, authority and lifecycle contracts.
+Install the complete current APIShared package. Declare the same supported minimum version of `APIShared_Serp` in BepInEx and `info.json`, and reference `APIShared.dll` and `APIShared.Content.dll` with `Private=false`. The consuming mod does not need ExtendedData. See the [shared mod-data API](https://github.com/SHCDE-APIShared/APIShared/blob/main/docs/MOD_DATA.md) for source, authority and lifecycle contracts.
 
 ```csharp
 using System.Collections.Generic;
@@ -104,7 +106,7 @@ Possible status values are:
 
 Missing files and namespaces mean normal default behavior. For other failures, log `Diagnostic` and disable only the dependent feature.
 
-Call the API on the Unity thread from a successful APIShared mission-start notification, after the Script Extender has loaded the matching Map archive. The reader includes pending edits in the current in-memory archive, has no document byte limit, and does not cache or poll. Retain a validated model only for the lifetime of the corresponding Map; discard it on mission end or replacement.
+Call the API on the Unity thread from a successful APIShared mission-start notification, after the Script Extender has loaded the matching Map archive. The reader uses the currently loaded archive, including pending edits. Read once when needed rather than repeatedly each frame. Retain a validated model only for the lifetime of the corresponding Map; discard it on mission end or replacement.
 
 #### Authoring and validation
 
@@ -159,6 +161,8 @@ Das Laden der Map erfolgt über den Script Extender. APIShared liest die zusätz
 
 #### JSON-Struktur
 
+Die Beispielfelder gehören zu erfundenen Mods. Ersetze sie durch die Felder, die der tatsächlich verwendete Mod verlangt.
+
 Die Wurzel ist ein Objekt, dessen Schlüssel ohne Beachtung der Groß-/Kleinschreibung Mod-GUIDs darstellen. Jeder Wert ist ein Objekt im Besitz des jeweiligen Mods:
 
 ```json
@@ -190,7 +194,7 @@ Es gibt keine globale Schemaversion. Bevorzuge eine stabile BepInEx-Plugin-GUID 
 
 #### Einen Namensraum lesen
 
-Verwende das vollständige APIShared-Paket 0.12.2. Deklariere `APIShared_Serp` ab Version `0.12.2` als harte Mindestabhängigkeit in BepInEx und `info.json` und referenziere `APIShared.dll` sowie `APIShared.Content.dll` mit `Private=false`. Der konsumierende Mod benötigt kein ExtendedData. Die [gemeinsame Moddaten-API](../../APIShared/docs/MOD_DATA.md) beschreibt Quelle, Autorität und Lifecycle.
+Installiere das vollständige aktuelle APIShared-Paket. Deklariere dieselbe unterstützte Mindestversion von `APIShared_Serp` in BepInEx und `info.json` und referenziere `APIShared.dll` sowie `APIShared.Content.dll` mit `Private=false`. Der konsumierende Mod benötigt kein ExtendedData. Die [gemeinsame Moddaten-API](https://github.com/SHCDE-APIShared/APIShared/blob/main/docs/MOD_DATA.md) beschreibt Quelle, Autorität und Lifecycle.
 
 ```csharp
 using System.Collections.Generic;
@@ -221,7 +225,7 @@ Mögliche Statuswerte sind:
 
 Fehlende Dateien und Namensräume bedeuten normales Standardverhalten. Protokolliere bei anderen Fehlern `Diagnostic` und deaktiviere ausschließlich das abhängige Feature.
 
-Rufe die API auf dem Unity-Thread aus einer erfolgreichen APIShared-Missionsstartmeldung auf, nachdem der Script Extender das passende Map-Archiv geladen hat. Der Leser berücksichtigt ausstehende Änderungen im aktuellen Speicherarchiv, besitzt kein Byte-Limit für das Dokument und verwendet weder Cache noch Polling. Bewahre ein validiertes Modell nur für die Lebensdauer der zugehörigen Map auf und verwerfe es bei Missionsende oder Ersetzung.
+Rufe die API auf dem Unity-Thread aus einer erfolgreichen APIShared-Missionsstartmeldung auf, nachdem der Script Extender das passende Map-Archiv geladen hat. Der Leser verwendet das aktuell geladene Archiv einschließlich noch nicht gespeicherter Änderungen. Lies die Daten bei Bedarf, statt sie in jedem Frame erneut abzufragen. Bewahre ein validiertes Modell nur für die Lebensdauer der zugehörigen Map auf und verwerfe es bei Missionsende oder Ersetzung.
 
 #### Erstellung und Validierung
 

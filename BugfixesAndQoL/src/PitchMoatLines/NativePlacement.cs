@@ -194,18 +194,19 @@ namespace BugfixesAndQoL.PitchMoatLines
         private PitchBudget GetPitchBudget(int player)
         {
             var goods = GamePlayerManagerAPI.Instance;
-            var costs = GameBuildingManagerAPI.Instance;
             const eStructs pitch = eStructs.STRUCT_PITCH_DITCH;
+            if (!APIShared.Buildings.ConstructionCosts.TryGetCurrent(APIShared.Buildings.ConstructionCostTarget.FromStructure(pitch), out var costs, out string costReason))
+                throw new InvalidOperationException("Pitch cost safety unavailable: " + costReason);
             int stock = goods.GetGoodAmount(player, eGoods.STORED_PITCH_RAW);
             bool free = Mode == eGameTypeModes.GAMETYPE_BUILDER || Read(NativeFreeConstructionRva) != 0;
             if (free)
                 return new PitchBudget(stock, 0, 0, PitchPayment.Free);
             int phase = Marshal.ReadInt16(Address(PitchChargePhaseRva + player * PlayerStride));
-            int rawMinimum = costs.GetRawPitchCost(pitch);
-            bool ironAllowed = goods.GetGoodAmount(player, eGoods.STORED_IRON_INGOTS) >= costs.GetIronIngotCost(pitch);
-            bool laterResourcesAllowed = goods.GetGoodAmount(player, eGoods.STORED_WOOD_PLANKS) >= costs.GetWoodCost(pitch) &&
-                goods.GetGoodAmount(player, eGoods.STORED_STONE_BLOCKS) >= costs.GetStoneCost(pitch) &&
-                goods.GetGoodAmount(player, eGoods.STORED_GOLD) >= costs.GetGoldCost(pitch);
+            int rawMinimum = costs.Pitch;
+            bool ironAllowed = goods.GetGoodAmount(player, eGoods.STORED_IRON_INGOTS) >= costs.Iron;
+            bool laterResourcesAllowed = goods.GetGoodAmount(player, eGoods.STORED_WOOD_PLANKS) >= costs.Wood &&
+                goods.GetGoodAmount(player, eGoods.STORED_STONE_BLOCKS) >= costs.Stone &&
+                goods.GetGoodAmount(player, eGoods.STORED_GOLD) >= costs.Gold;
             return new PitchBudget(stock, phase, rawMinimum,
                 Mode == eGameTypeModes.GAMETYPE_SIEGE_THAT_BUILDER ? PitchPayment.CheckStockOnly : PitchPayment.Standard,
                 ironAllowed, laterResourcesAllowed);

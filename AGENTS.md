@@ -51,7 +51,7 @@ Vor jedem Tool- oder Shellaufruf die einschlägigen Punkte prüfen; bereits doku
 - Für Fragen kein Zeitlimit; bleibt eine notwendige Antwort aus, sauber ohne Fortschrittsverlust anhalten und erst nach der Antwort weiterarbeiten.
 - Vom Nutzer übergebene Pfade/URLs können durch Markdown verfälscht sein (`\_` statt `_`). Existiert der Literalpfad mit `\_` nicht, die Variante mit `_` prüfen und die korrigierte Interpretation ausdrücklich nennen; nicht ungeprüft korrigieren, wenn beide existieren oder plausibel sind.
 - Ist eine vollständig in Markdown formatierte Antwort verlangt: genau ein äußerer Codeblock ab ` ```markdown ` bis ganz zum Ende, darin keine weiteren dreifachen Backticks (Code mit vier Leerzeichen einrücken).
-- Lange Prozesse: Fortschritt beobachtbar machen (getrennte Logs, Zeitstempel, CPU, Loggröße, Zwischenstände); nicht wegen eines kurzen Shell-Timeouts als hängend behandeln. Prüfe alle ~30 sekunden, ob der Prozess noch läuft, um zu verhindern, dass auf einen hängen gebliebenden Prozess gewartet wird.
+- Lange Prozesse: Fortschritt beobachtbar machen (getrennte Logs, Zeitstempel, CPU, Loggröße, Zwischenstände); nicht wegen eines kurzen Shell-Timeouts als hängend behandeln. Prüfe alle ~60 sekunden, ob der Prozess noch läuft, um zu verhindern, dass auf einen hängen gebliebenden Prozess gewartet wird.
 
 ### Unteragenten und Aufgabenverteilung
 

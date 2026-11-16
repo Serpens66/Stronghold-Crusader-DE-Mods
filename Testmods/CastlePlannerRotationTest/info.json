@@ -1,0 +1,14 @@
+{
+  "GUID": "CastlePlannerRotationTest_Serp",
+  "Author": "Serpens66",
+  "Name": "CastlePlanner Rotation Test",
+  "Description": "Explicit-request-only CastlePlanner rotation and actual castle-start acceptance. No OS input.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.14.3",
+  "Dependencies": [
+    { "GUID": "APIShared_Serp", "MinimumVersion": "0.51.0" },
+    { "GUID": "CastlePlanner_Serp", "MinimumVersion": "0.8.52" }
+  ],
+  "Manifest": 1,
+  "NetworkMode": 1
+}

@@ -16,6 +16,7 @@
   <PropertyGroup Condition="'$(ExtenderDir)' == ''"><ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir></PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
+    <Reference Include="Assembly-CSharp"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath></Reference>
     <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath></Reference>
     <Reference Include="R3"><HintPath>$(ExtenderDir)\R3.dll</HintPath></Reference>
     <Reference Include="System.Core" />
@@ -30,6 +31,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="../../ExtraFeatures/src/BuildingRepairHudVisibilityPolicy.cs" />
+    <Compile Include="../../ExtraFeatures/tests/BuildingRepairHudVisibilityTests.cs" />
     <Compile Include="NoKillRewardContractTests.cs" />
     <Compile Include="..\..\ExtraFeatures\src\NoKillRewardHook.cs" />
     <Compile Include="..\..\ExtraFeatures\src\ExtraFeaturesHookInfrastructure.cs"><Link>ExtraFeaturesHookInfrastructure.cs</Link></Compile>

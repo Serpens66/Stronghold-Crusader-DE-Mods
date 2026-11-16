@@ -105,7 +105,7 @@ namespace Pathfinding
         private int mapEpoch;
         private IDisposable moveCommandSubscription;
         private IDisposable targetCommandSubscription;
-        private AssassinCommandScope activeCommand;
+        [ThreadStatic] private static AssassinCommandScope activeCommand;
         private int commandSequence;
         private bool commandScopeMismatchLogged;
 
@@ -185,6 +185,9 @@ namespace Pathfinding
                     memory,
                     referenceHashMatches: true);
                 reconstructionPatch = pendingReconstructionPatch;
+                if (!TribeCommandDispatchBoundary.IsAvailable)
+                    throw new InvalidOperationException("The command publisher lifetime boundary is unavailable.");
+                TribeCommandDispatchBoundary.BindAssassin(this);
                 moveCommandSubscription = TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable
                     .Subscribe(ObserveMoveCommand);
                 targetCommandSubscription = TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable
@@ -469,7 +472,7 @@ namespace Pathfinding
             if (!IsInstalled)
                 return 0;
 
-            AssassinCommandScope command = activeCommand;
+            AssassinCommandScope command = CurrentCommand();
             long requestStarted = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0);
             long nativeStarted = requestStarted;
             // DEVDIAG request mix (all callers, also outside command scopes): counts and stage times.
@@ -494,6 +497,7 @@ namespace Pathfinding
                 SetOutcome(!enabled ? "weighted-disabled" : "continuation");
                 return vanillaResult;
             }
+            if (!TribeCommandDispatchBoundary.IsAvailable) return vanillaResult;
             if (targetX < 0 || targetY < 0)
             {
                 SetOutcome("native-flood-field");
@@ -1197,11 +1201,11 @@ namespace Pathfinding
         // Vanilla's builder and the per-unit search). Simulation thread, inside UnitCommandPathRuntime's frame.
         internal bool TryStageGroupRoute(IntPtr context)
         {
-            AssassinCommandScope command = activeCommand;
+            AssassinCommandScope command = CurrentCommand();
             // Outside a command scope (e.g. an Assassin resuming its move after a fight) only a recent field that
             // answered the same slot is reused; other commands (targets) keep the per-unit path.
             Func<int> tickSource = MapTickSource;
-            if (!IsInstalled || !nativeSearchBound || (command == null ? tickSource == null : command.EventKind != MoveCommandKind) ||
+            if (!TribeCommandDispatchBoundary.IsAvailable || !IsInstalled || !nativeSearchBound || (command == null ? tickSource == null : command.EventKind != MoveCommandKind) ||
                 context != IntPtr.Add(libraryHandle, 0x60AD660))
                 return false;
             byte* manager = (byte*)context.ToPointer();
@@ -2050,8 +2054,26 @@ private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key
             }
         }
 
+        internal object EnterCommandDispatch(out int epoch)
+        {
+            epoch = mapEpoch;
+            object parent = activeCommand;
+            activeCommand = null; // A nested publisher never borrows the parent's cache before its Pre.
+            return parent;
+        }
+
+        internal void LeaveCommandDispatch(object parent, int epoch)
+        {
+            if (epoch == mapEpoch) activeCommand = (AssassinCommandScope)parent;
+        }
+
+        private AssassinCommandScope CurrentCommand() =>
+            activeCommand != null && activeCommand.MapEpoch == mapEpoch &&
+            activeCommand.PreEvent?.SkipOriginalFunction != true ? activeCommand : null;
+
         private void ObserveMoveCommand(TribeIssueOrderMoveHereEventArgs args)
         {
+            if (!TribeCommandDispatchBoundary.IsDispatching) return;
             if (args.Phase == EventHookPhase.Pre)
             {
                 activeCommand = new AssassinCommandScope(
@@ -2065,7 +2087,7 @@ private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key
                     args.TileY,
                     $"move/{args.MoveType}/patrol={args.IsPatrolPath}/new={args.IsNewOrder}",
                     IsWeightedEnabledFor(aiPlayer: false),
-                    IsWeightedEnabledFor(aiPlayer: true));
+                    IsWeightedEnabledFor(aiPlayer: true), args);
                 return;
             }
 
@@ -2074,6 +2096,7 @@ private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key
 
         private void ObserveTargetCommand(TribeIssueOrderWithTargetEventArgs args)
         {
+            if (!TribeCommandDispatchBoundary.IsDispatching) return;
             if (args.Phase == EventHookPhase.Pre)
             {
                 activeCommand = new AssassinCommandScope(
@@ -2087,7 +2110,7 @@ private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key
                     args.TargetValue2,
                     $"target/{args.AICommand}",
                     IsWeightedEnabledFor(aiPlayer: false),
-                    IsWeightedEnabledFor(aiPlayer: true));
+                    IsWeightedEnabledFor(aiPlayer: true), args);
                 return;
             }
 
@@ -2521,8 +2544,10 @@ private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key
                 int targetValue2,
                 string kind,
                 bool enabledForHumans,
-                bool? enabledForAI = null)
+                bool? enabledForAI = null,
+                EventHookBase preEvent = null)
             {
+                PreEvent = preEvent;
                 Previous = previous;
                 Sequence = sequence;
                 MapEpoch = mapEpoch;
@@ -2537,6 +2562,7 @@ private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key
                 StartedTimestamp = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0);
             }
 
+            public EventHookBase PreEvent { get; }
             public AssassinCommandScope Previous { get; }
             public int Sequence { get; }
             public int MapEpoch { get; }

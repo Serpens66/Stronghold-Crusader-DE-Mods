@@ -110,6 +110,7 @@
     <Compile Include="src\BuildingCostTooltipEntry.cs" />
     <Compile Include="src\BuildingCostValues.cs" />
     <Compile Include="src\BuildingCostsLobbyViewModel.cs" />
+    <Compile Include="src\BuildingCostsLobbyViewModel.HumanCosts.cs" />
     <Compile Include="src\BuildingCostsPlugin.cs" />
     <Compile Include="src\BuildingCostsRuntime.cs" />
   </ItemGroup>

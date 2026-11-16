@@ -1,0 +1,11 @@
+{
+  "GUID": "MultiplayerRestartTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Multiplayer Restart Test",
+  "Description": "Experimental host-only same-mission multiplayer restart through an automatically restored private lobby. New games only; identical testmod required on every peer.",
+  "Version": "0.1.1",
+  "MinimumScriptExtenderVersion": "2.14.0",
+  "Dependencies": [ { "GUID": "APIShared_Serp", "MinimumVersion": "0.50.0" } ],
+  "Manifest": 1,
+  "NetworkMode": 1
+}

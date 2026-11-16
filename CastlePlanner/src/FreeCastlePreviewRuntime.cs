@@ -736,7 +736,9 @@ namespace CastlePlanner
 
         private void TryFinalizeAsHost()
         {
-            if (decisions.Count + noneDecisions.Count != roster.Count)
+            // Distribution owns its existing manifest and acknowledgements until commit.
+            if (state != PreviewState.Selecting ||
+                decisions.Count + noneDecisions.Count != roster.Count)
                 return;
             if (decisions.Count == 0)
             {
@@ -1110,7 +1112,8 @@ namespace CastlePlanner
             {
                 TrySendPreviewReady();
             }
-            if (countdownStarted == 0 ||
+            // The deadline closes selection, not the readiness-driven distribution phase.
+            if (state != PreviewState.Selecting || countdownStarted == 0 ||
                 Stopwatch.GetTimestamp() - countdownStarted <
                     (long)activeTimeoutSeconds * Stopwatch.Frequency)
                 return;
@@ -1740,7 +1743,7 @@ namespace CastlePlanner
                 if (type == eStructs.STRUCT_KEEP_ONE || type == eStructs.STRUCT_KEEP_TWO ||
                     type == eStructs.STRUCT_KEEP_THREE || type == eStructs.STRUCT_KEEP_FOUR ||
                     type == eStructs.STRUCT_KEEP_FIVE)
-                    return KeepRotationPolicy.TryNormalize(building.r_SpriteVariationIndex, out rotation);
+                    return KeepDirectionReader.TryRead(in building, out rotation);
             }
             return false;
         }

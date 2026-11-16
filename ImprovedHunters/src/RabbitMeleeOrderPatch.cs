@@ -79,7 +79,7 @@ namespace ImprovedHunters
 
             int hunter = (int)eChimps.CHIMP_TYPE_HUNTER;
             int rabbit = (int)eChimps.CHIMP_TYPE_RABBIT;
-            PermanentNativeGate candidate = new PermanentNativeGate(region, imageBase);
+            PermanentNativeGate candidate = new PermanentNativeGate(region, imageBase, "rabbit-melee-order");
             try
             {
                 ulong flag = candidate.FlagAddress;

@@ -16,12 +16,16 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Runtime.CompilerServices;
 
 namespace Pathfinding
 {
     internal sealed unsafe class ExtendedShiftCommandQueueRuntime
     {
         private bool simulationTickRegistered;
+        private bool commandBoundaryFailed;
+        private ConditionalWeakTable<TribeIssueOrderWithTargetEventArgs, object> previouslyVetoedTargets =
+            new ConditionalWeakTable<TribeIssueOrderWithTargetEventArgs, object>();
         private const int ReferenceWaypointAppendRva = 0x11C3A0;
         private const int ReferenceMovementCompleteRva = 0x1178D0;
         private const int ReferenceTribeOverlayRenderRva = 0x1222A0;
@@ -134,7 +138,7 @@ namespace Pathfinding
         }
 
         private bool FeatureEnabled =>
-            settings.EnableMod && settings.EnableExtendedShiftCommandQueue;
+            settings.EnableMod && settings.EnableExtendedShiftCommandQueue && TribeCommandDispatchBoundary.IsAvailable;
 
         public void Install(
             CrusaderLibraryLoadContext context,
@@ -149,6 +153,8 @@ namespace Pathfinding
 
             if (installed)
                 return;
+            if (!TribeCommandDispatchBoundary.IsAvailable)
+                throw new InvalidOperationException("The final accepted command boundary is unavailable; Shift queue remains inactive.");
             if (context == null)
                 throw new ArgumentNullException(nameof(context));
             if (!referenceHashMatches)
@@ -280,6 +286,7 @@ namespace Pathfinding
                 context,
                 referenceHashMatches);
             sharedCommands.queueTargetEvent = OnTargetOrder;
+            TribeCommandDispatchBoundary.BindQueue(OnFinalAcceptedTarget);
             sharedCommands.queueMoveEvent = OnMoveOrder;
             sharedCommands.queueDefersMove = DefersMoveOrder;
             subscriptions.Add(TribeR3EventHooks.OnTribeAssignUnit.Observable
@@ -604,7 +611,7 @@ namespace Pathfinding
 
         private void OnMapStart()
         {
-
+            previouslyVetoedTargets = new ConditionalWeakTable<TribeIssueOrderWithTargetEventArgs, object>();
             largeMoveTargets.Reset();
             cohorts.Clear();
             unitToCohort.Clear();
@@ -626,7 +633,7 @@ namespace Pathfinding
 
         private void ResetMapState()
         {
-
+            previouslyVetoedTargets = new ConditionalWeakTable<TribeIssueOrderWithTargetEventArgs, object>();
             largeMoveTargets.Reset();
             cohorts.Clear();
             unitToCohort.Clear();
@@ -651,6 +658,17 @@ namespace Pathfinding
         {
             if (!installed || internalDispatch)
                 return;
+            if (args.SkipOriginalFunction)
+            {
+                previouslyVetoedTargets.Remove(args);
+                previouslyVetoedTargets.Add(args, new object());
+                // Protocol normalization is independent of queue admission. A later
+                // subscriber may restore execution; never expose our private MP bit.
+                if (IsRealMultiplayer() && QueueNativeContract.TryDecodeQueuedTargetCommand(
+                        (int)args.AICommand, out int decoded))
+                    args.AICommand = (TribeAICommand)decoded;
+                return;
+            }
 
             int commandValue = (int)args.AICommand;
             bool realMultiplayer = IsRealMultiplayer();
@@ -769,6 +787,25 @@ namespace Pathfinding
 
             args.SkipOriginalFunction = true;
             args.ReturnValue = 1;
+        }
+
+        private void OnFinalAcceptedTarget(TribeIssueOrderWithTargetEventArgs args)
+        {
+            if (!previouslyVetoedTargets.Remove(args) || !installed || internalDispatch ||
+                args.SkipOriginalFunction || args.Phase != EventHookPhase.Pre) return;
+            // The queue subscriber saw a veto, but a later subscriber restored native
+            // execution. This is now an immediate order: retire preceding queue work,
+            // without sampling Shift again or turning this dispatch into an enqueue.
+            bool multiplayer = IsRealMultiplayer();
+            if (IsAiOwnedAliveTribe(args.TribeId) || (multiplayer && !multiplayerSynchronizationReady)) return;
+            GameTribe* tribe;
+            if (!multiplayer && (!FeatureEnabled || !IsLocalSelectedTribe(args.TribeId, out tribe))) return;
+            CancelQueuesForTribeUnits(args.TribeId);
+            if (TryGetAliveTribe(args.TribeId, out tribe) &&
+                QueueCommandClassifier.TryClassifyTarget((int)args.AICommand, out QueueCommandKind kind))
+                observedAttacks[args.TribeId] = new ObservedAttack(tribe->r_GlobalId,
+                    new QueueCommand(kind, args.TargetValue1, args.TargetValue2, args.a6));
+            else observedAttacks.Remove(args.TribeId);
         }
 
         private void OnMoveOrder(TribeIssueOrderMoveHereEventArgs args)
@@ -1294,12 +1331,20 @@ namespace Pathfinding
             }
         }
 
+        private bool MaintainCommandBoundary()
+        {
+            if (TribeCommandDispatchBoundary.IsAvailable) return true;
+            if (!commandBoundaryFailed) { commandBoundaryFailed = true; ResetMapState(); }
+            return false;
+        }
+
         private void OnTickCore(int tick)
         {
             if (!installed)
                 return;
 
             currentTick = tick;
+            if (!MaintainCommandBoundary()) return;
             if (!FeatureEnabled)
                 return;
             if (!runtimeTickLogged)

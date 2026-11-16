@@ -46,6 +46,8 @@ Semantic reverse-engineering baseline:
 
 ## Vanilla behavior audits
 
+- [Siege ammunition signed consumers](./sem/FBCB9319/knowledge/SIEGE_AMMUNITION_SIGNEDNESS.md): adjacent ammunition bytes form one signed-tested word; Catapult/Trebuchet firing branches and ordinary refill target, with static evidence and explicit AI limits.
+
 - [Side HUD visibility](./sem/FBCB9319/knowledge/SIDE_HUD_VISIBILITY.md) documents the managed HUD toggle and independent side-HUD flag.
 
 - [Enemy HP: offline team reference and real multiplayer gate](./sem/FBCB9319/knowledge/ENEMY_HP_MULTIPLIER.md): spectator reference AI/team exemption, per-owner HP consumers, and the mode-1 network-start bypass; static evidence, no new game/host-client acceptance run.
@@ -62,7 +64,8 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 - [Gatehouse query pass](./sem/FBCB9319/knowledge/GATEHOUSE_QUERY_PASS.md): DLL_RunTick → game tick → building dispatcher → gatehouse handler chain, one query pass per gate and engine run without native writes between queries, conditional Extender tick; confirmed by disassembly. See [gatehouse footprint origin](./sem/FBCB9319/knowledge/GATEHOUSE_QUERY_PASS.md#2026-11-10-gatehouse-footprint-origin-and-closing-cadence) for Vanilla's corner origin, the editor's unit coordinates and the derivation of the footprint center.
 - [Health-bar rendering audit](./sem/FBCB9319/knowledge/HEALTH_BAR_RENDERING.md): visible-map render paths, selection gates, HP storage and candidate hook spans.
 - [Keep and campground ground: verified records](./sem/FBCB9319/knowledge/KEEP_CAMPGROUND_GROUND.md)
-- [Keep main-flag rotation audit](./sem/FBCB9319/knowledge/KEEP_FLAG_ROTATION.md): view-dependent Vanilla micro-anchors, Keep-relative rotation, and projectile coordinate contracts.
+- [Unit line of sight and building sight heights](./sem/FBCB9319/knowledge/LINE_OF_SIGHT.md): sight wrapper/core results, context write, eye heights of the Hunter search and ranged order, obstacle-height helper dispatch and the Hunter's-hut sight exemption.
+- [Keep main-flag rotation audit](./sem/FBCB9319/knowledge/KEEP_FLAG_ROTATION.md): view-dependent Vanilla micro-anchors, Keep-relative rotation, projectile coordinate contracts and corrected stored-direction attribution.
 - [Long simulation ticks from AI group movement (FBCB9319)](./sem/FBCB9319/knowledge/SIM_TICK_SPIKE_PATHING.md): AI group-order stalls, `0x119F90` member lookup, Assassin per-member `0xD9C40` and the `+0x94` route output; mod contracts and mod measurements are only linked.
 - [Minimap (radar) pass 0xF5A40 (FBCB9319)](./sem/FBCB9319/knowledge/RADAR_PASS_F5A40.md)
 - [Outpost attack targets after a defeat](./sem/FBCB9319/knowledge/OUTPOST_ATTACK_RETARGET.md): completion queue, persistent target, native order branches and mid-match Lord validity.
@@ -71,6 +74,14 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 - [Weapon workshop production fields](./sem/FBCB9319/knowledge/WEAPON_WORKSHOP_FIELDS.md): current and next goods IDs, interop pointer origin, and verified Vanilla workshop scope.
 
 ## Vanilla audits with mod integration
+
+- [Construction cost tables](./sem/FBCB9319/knowledge/CONSTRUCTION_COST_TABLES.md): native110-row and managed109-row bounds, aliases and Undo parameter contracts; tagged Extender integration and dated game probes.
+
+- [Friendly moat traversal for all unit types](./sem/FBCB9319/knowledge/MOAT_TRAVERSAL_ALL_UNITS.md): all 89 dispatch slots, 20 economic roles, civilian target and building-access gates, independent wander publication, mobile-siege removal, stored modes and save/transfer contracts; 183 indexed functions and five leaf entries checked against the installed PE, static audit with no feature implementation or gameplay acceptance.
+
+- [Keep direction versus sprite variation](./sem/FBCB9319/knowledge/KEEP_DIRECTION.md): actual Keep direction at record +0x92, separate sprite variation at +0x102, constructor/reader instruction proof and CastlePlanner regression history.
+
+- [AI emergency demolition and nervous Lord messages](./sem/FBCB9319/knowledge/AI_EMERGENCY_DEMOLITION.md): the strategy gate also controls timers, stance, resource help and category-9 messages; isolated demolition/refund helper, corrected consumer boundary and six-byte Indirect detour contract; static audit, new runtime acceptance separate.
 
 - [Movement search and physical surface profiles](./sem/FBCB9319/knowledge/MOVEMENT_SURFACE_PROFILES.md): Large-search versus next-tile restrictions, independent native execution, shared surface classes and safe route publication.
 
@@ -83,7 +94,7 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 - [Worker production bonus and reduced output](./sem/FBCB9319/knowledge/WORKER_PRODUCTION_BONUS.md): signed fixed contribution, complete producer/completion chains, reduced Ox loads, display and raw save/transfer/checksum contracts; static and isolated execution evidence, game acceptance separate.
 
 - [Siege engineer crew timeout](./sem/FBCB9319/knowledge/SIEGE_ENGINEER_CREW_TIMEOUT.md): crew refresh and release at121; pending recruitment, normal101/105 waiting, serialized user-save evidence and the state6 automatic-crew duplication cause.
-- [Hunter prey ownership, reservation and shot states](./sem/FBCB9319/knowledge/HUNTER_PREY_RULES.md): three owner barriers, state 10 as the shot, reservation countdown, chicken population, melee rabbit contact and cow facts; single-player acceptance, multiplayer pending. Includes the complete access list of the reservation word (`+0x448`/`+0xAA4`), its war-dog and Engineer meanings, and corpse dead-time thresholds; herd kinds, spawn arts and route readers; the three filters for units attacking animals by themselves.
+- [Hunter prey ownership, reservation and shot states](./sem/FBCB9319/knowledge/HUNTER_PREY_RULES.md): three owner barriers, state 10 as the shot, reservation countdown, chicken population, melee rabbit contact and cow facts; single-player acceptance, multiplayer pending. Includes the complete access list of the reservation word (`+0x448`/`+0xAA4`), its war-dog and Engineer meanings, and corpse dead-time thresholds; herd kinds, spawn arts and route readers; the three filters for units attacking animals by themselves. Static extension of 2026-11-15 records hut/worker identity and meat inventories, deferred delivery, complete AI retirement calls/refund nuances and their native scheduling boundary.
 
 - [Ally goods gifts and transfer boundaries](./sem/FBCB9319/knowledge/ALLY_GOODS_TRANSFERS.md): complete send/Chore/storage/Gold path and actual-transfer boundary; corrective 2026-11-05 audit reuses the existing Extender owner; game acceptance pending.
 
@@ -105,6 +116,7 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 - [Enemy-unit proximity during building actions](./sem/FBCB9319/knowledge/ENEMY_BUILD_PROXIMITY.md): separate civilian/military radii, unchanged building/wall restrictions, native predicate and migration contracts.
 - [Building repair contract (CrusaderDE.dll FBCB9319…F2831E2)](./sem/FBCB9319/knowledge/BUILDING_REPAIR.md)
 - [Building sleep and local selection audit](./sem/FBCB9319/knowledge/BUILDING_SLEEP_SELECTION.md): Chore 43's building-type payload, local selection use and runtime-confirmed resource divergence.
+- [Building pause UI coverage](./sem/FBCB9319/knowledge/BUILDING_PAUSE_UI.md): complete pauseable-type/menu comparison, Water Pot and cathedral omissions, authoritative type table and managed presentation correction.
 - [Civilian worker pause audit](./sem/FBCB9319/knowledge/WORKER_PAUSES.md): shared fear-building visit logic, worker comparisons, and the baker/miller post-delivery branches.
 - [Coop Trail Customize presentation](./sem/FBCB9319/knowledge/COOP_TRAIL_CUSTOMIZE_PRESENTATION.md): managed team-shield/radar refresh, setup metadata and input-callback suppression; static/member checks and pending visual acceptance.
 - [Crenelated wall construction](./sem/FBCB9319/knowledge/CRENELATED_WALLS.md): complete human/AI placement and redraw flow, sticky high pieces, read-only native availability, ownership decoding and corrected current Chore-25 field contract.
@@ -179,6 +191,8 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 
 ## Mod and testmod work (not Vanilla)
 
+- [Trapped-unit rescue prototype contracts](./sem/FBCB9319/knowledge/TRAPPED_UNIT_RESCUE_AUDIT.md): identity-preserving relocation and occupancy, physical reverse edges, mounted crew and worker production boundaries under `[Vanilla facts]`; external suppression and experimental acceptance limits remain separate.
+
 - [Knight replacement selection and input lifetime](./sem/FBCB9319/knowledge/KNIGHT_SELECTION_TRANSFERS.md): replacement initialization/removal, three-phase input ordering, stale selection repair and the accepted Extender cancellation boundary; original game scenario user-confirmed, extended editor/MP acceptance pending.
 
 Design, diagnosis, acceptance and migration records of our mods and testmods. Use only their `[Vanilla facts]` sections as Vanilla knowledge.
@@ -210,6 +224,8 @@ Third-party components; not Vanilla evidence by themselves.
 - [Script Extender 2.14.1 engage-range audit](./sem/FBCB9319/knowledge/SE_2_14_1_ENGAGE_RANGE.md): full native feature path, all 35 actual RedBird spans, generated-code checks, consumer compatibility and acceptance limits.
 - [Script Extender 2.14.2 source compatibility review](../../Shared/Tools/ScriptExtenderUpdate/2.14.1-2.14.2.review.md): music-only managed change; source baseline refresh, installed extender remains 2.14.1; runtime acceptance pending.
 - [Script Extender 2.14.3 interop additions](./sem/FBCB9319/knowledge/SE_2_14_3_INTEROP_ADDITIONS.md): additive upstream field names, types and offsets; since 2026-10-27 the generated baseline itself is on 2.14.3.
+- [Live state access: manager globals, record layouts and read consistency](./sem/FBCB9319/knowledge/RUNTIME_STATE_ACCESS.md): runtime-confirmed unit/building/player/tile manager RVAs and record strides, counters rebuilt mid-tick, simulation tick on a non-main thread; usage of `Shared\Tools\GameMemReader` (external, read-only) and `Testmods\GameStateProbe` (tick-consistent in-game queries).
+
 - [UU-ImGUI shutdown audit](./sem/FBCB9319/knowledge/UU_IMGUI_SHUTDOWN.md): dependency context teardown race, normal exit path, binary identities, controlled tests, exact Unity Mono backend checks and four successful game shutdown paths.
 
 ## Queries

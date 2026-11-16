@@ -28,13 +28,6 @@ namespace BugfixesAndQoL
         private const string SleepStateSynchronizationFunctionPattern =
             "40 53 41 BA 01 00 00 00 48 8B D9 44 39 51 50 0F 8E ?? ?? ?? ?? 48 89 74 24 10 4C 8D 81 1E 06 00 00";
 
-        // c_game_ai_strategy_update:
-        // cmp emergencyDemolitionRequested, 0; je afterEmergencyDemolition
-        // The skipped block selectively bulldozes the AI's buildings to recover
-        // resources while it is under pressure. Other demolition paths stay intact.
-        private const string EmergencyDemolitionComparisonPattern =
-            "80 BC 24 80 00 00 00 00 0F 84 ?? ?? ?? ?? 4C 8D BD ?? ?? ?? ?? 8B D6 4D 03 FE";
-
         // AI hovel-demolition routine:
         // After checking the AI economy thresholds, it requests structure type 1
         // (STRUCT_HOVEL), grants the demolition refund, and deletes that building.
@@ -50,7 +43,6 @@ namespace BugfixesAndQoL
         private const int SleepStateComparisonRva = 0xC7DCB;
         private const int SleepStateComparisonDisplacedLength = 20;
         private const int SleepStateSynchronizationFunctionRva = 0xC7D50;
-        private const int EmergencyDemolitionComparisonRva = 0x2F454;
         private const int AIHovelDemolitionFunctionRva = 0x3B1D0;
         private const int InaccessibleBuildingSweepRva = 0xC8F50;
         private const int BuildingAccessibilityFunctionRva = 0xC90E0;
@@ -73,7 +65,6 @@ namespace BugfixesAndQoL
         private readonly bool inaccessibleBuildingProtectionSupported;
         private readonly HookTransaction transaction;
         private readonly HookHandle<X64InlineHook> sleepStateHook = new HookHandle<X64InlineHook>();
-        private readonly HookHandle<X64InlineHook> emergencyDemolitionHook = new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> inaccessibleBuildingDemolitionHook = new HookHandle<X64InlineHook>();
         private readonly DetourHandle<AIHovelDemolitionDelegate> aiHovelDemolitionHook = new DetourHandle<AIHovelDemolitionDelegate>();
         private readonly DetourHandle<AIResourceShortageSleepDelegate> aiResourceShortageSleepHook =
@@ -83,7 +74,6 @@ namespace BugfixesAndQoL
         private SingleBuildingPauseHook singleBuildingPauseHook;
         private bool resourceShortageSleepCallbackFailureLogged;
         private bool singleBuildingOverrideCallbackFailureLogged;
-        private bool emergencyCallbackFailureLogged;
         private bool hovelDemolitionCallbackFailureLogged;
         private bool inaccessibleDemolitionCallbackFailureLogged;
         private const int MaximumInaccessibleDiagnosticSamplesPerMap = 8;
@@ -121,9 +111,6 @@ namespace BugfixesAndQoL
                     true,
                     "AI resource-shortage sleep planner")
                 : -1;
-            int emergencyRva = Resolve(
-                memory, EmergencyDemolitionComparisonPattern, EmergencyDemolitionComparisonRva,
-                referenceHashMatches, "AI emergency-demolition comparison");
             int aiHovelDemolitionRva = Resolve(
                 memory, AIHovelDemolitionFunctionPattern, AIHovelDemolitionFunctionRva,
                 referenceHashMatches, "AI hovel-demolition function");
@@ -172,13 +159,6 @@ namespace BugfixesAndQoL
                 errorMode: CallbackErrorMode.LogAndContinue,
                 placement: OverwrittenInstructionPlacement.AfterCallback);
 
-            BugfixesHookInfrastructure.AddContextHook(transaction, emergencyDemolitionHook,
-                libraryBase + unchecked((ulong)emergencyRva),
-                PreventEmergencyDemolition,
-                registers: X64SmartCPUContextRegs.Volatile,
-                errorMode: CallbackErrorMode.LogAndContinue,
-                placement: OverwrittenInstructionPlacement.AfterCallback);
-
             if (inaccessibleBuildingProtectionSupported)
             {
                 BugfixesHookInfrastructure.AddContextHook(transaction, inaccessibleBuildingDemolitionHook,
@@ -215,8 +195,6 @@ namespace BugfixesAndQoL
                 throw new InvalidOperationException(
                     "Unexpected actual building sleep-state overwrite length; hook transaction rolled back.");
             }
-            if (!emergencyDemolitionHook.Success)
-                throw new InvalidOperationException("The AI emergency-demolition AOB signature was not found.");
             if (!aiHovelDemolitionHook.Success)
                 throw new InvalidOperationException("The AI hovel-demolition AOB signature was not found.");
             if (aiResourceShortageSleepProtectionSupported && !aiResourceShortageSleepHook.Success)
@@ -432,30 +410,6 @@ namespace BugfixesAndQoL
                 }
 
                 return false;
-            }
-        }
-
-        private void PreventEmergencyDemolition(NativePointer<X64SmartCPUContext> context)
-        {
-            try
-            {
-                if (!settings.EnableMod || !settings.PreventEmergencyDemolition)
-                    return;
-
-                X64SmartCPUContext* registers = context.Pointer;
-                byte* emergencyDemolitionRequested = (byte*)(registers->RSP + 0x80);
-                if (*emergencyDemolitionRequested == 0)
-                    return;
-
-                *emergencyDemolitionRequested = 0;
-            }
-            catch (Exception ex)
-            {
-                if (!emergencyCallbackFailureLogged)
-                {
-                    emergencyCallbackFailureLogged = true;
-                    LogError($"AI emergency-demolition prevention callback failed; this check uses vanilla behavior: {ex}");
-                }
             }
         }
 

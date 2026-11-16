@@ -11,6 +11,12 @@ Evidence:
 
 Confidence is confirmed-static. Runtime acceptance of a derivation does not exist yet.
 
+2026-11-14, separate evidence: the Script Extender's own AOB patterns resolve the unit manager to
+the same RVA `0x67E8400`, and at runtime module base + RVA held decodable unit records
+([RUNTIME_STATE_ACCESS.md](RUNTIME_STATE_ACCESS.md)). The tribe manager `0x7CC6720` matches
+statically but was not read at runtime. Neither result is a runtime acceptance of the derivation
+above.
+
 Purpose: the update fallback in [AGENTS/native-analysis.md](../../../../../AGENTS/native-analysis.md) (section „Prüfkosten“) needs a validated anchor plus a second independent evidence per value. The table lists both for every value.
 
 ## Cursor move stager `0x195E30`

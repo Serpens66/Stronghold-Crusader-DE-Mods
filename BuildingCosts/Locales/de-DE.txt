@@ -72,3 +72,7 @@ Common.ModSettingsSearchClearHelp=Leert den Einstellungsfilter.
 Common.ModSettingsSearchNoResults=Keine passenden Einstellungen gefunden.
 Common.SettingsSourceHelp=Setzt die Einstellungen dieser Mod auf die gewÃ¤hlte Quelle zurÃ¼ck. Eigene Presets bleiben unverÃ¤ndert. Im Mehrspieler kann nur der Host die Host-Einstellungen zurÃ¼cksetzen.
 Common.PresetLoadFailedTitle=Preset konnte nicht geladen werden
+BuildingCosts.BaseTitle=Grundkosten (Human + AI)
+BuildingCosts.HumanTitle=Zusatzkosten (Human)
+BuildingCosts.HumanHelp=Zusatzkosten gelten nur für menschliche Spieler. 0 = keine Zusatzkosten. Waren werden nur bei erfolgreichem Bau abgezogen. Bezahlte Zusatzkosten folgen der aktuellen Abriss-Erstattungsregel. Negatives Gold gewährt eine Bauvergütung.
+BuildingCosts.HumanCellHelp=0 = keine Zusatzkosten; Waren: 0 bis 100; Gold: -10000 bis 10000. Negatives Gold wird nach erfolgreichem Bau gutgeschrieben.

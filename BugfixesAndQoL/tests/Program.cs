@@ -36,6 +36,16 @@ namespace BugfixesAndQoL
 
         private static int Main(string[] args)
         {
+            if (args.Length == 1 && args[0] == "--single-building-pause")
+            {
+                TestSingleBuildingPausePolicy();
+                TestSingleBuildingPauseUiIlContract();
+                TestSingleBuildingPauseOverrideStore();
+                TestSingleBuildingPauseGoodsPreservation();
+                TestAIResourceShortageSleepIntegration();
+                Console.WriteLine("Single-building pause checks: failures=" + failures);
+                return failures == 0 ? 0 : 1;
+            }
             if (args.Length == 1 && args[0] == "--personal-storage")
             {
                 TestLobbyMapSelectionMemory();
@@ -125,6 +135,8 @@ namespace BugfixesAndQoL
             TestNativeBuildingCompoundGroup();
             TestAiWallTargetingIntegration();
             TestSingleBuildingPauseOverrideStore();
+            TestSingleBuildingPausePolicy();
+            TestSingleBuildingPauseUiIlContract();
             TestSingleBuildingPauseGoodsPreservation();
             TestAIResourceShortageSleepPolicy();
             TestAIResourceShortageSleepIntegration();
@@ -2672,26 +2684,40 @@ namespace BugfixesAndQoL
                 "src",
                 "Lobby/WorkshopUploadLordSelectionPolicy.cs"));
             string runtimeSource = File.ReadAllText(Path.Combine("src", "Core/Bootstrap/BugfixesAndQoLRuntime.cs"));
-            Check(hookSource.Contains("FindRequiredMethod(\"UpdateUploadAIVList\")") &&
-                    hookSource.Contains("FindRequiredMethod(\"UpdateUploadLordList\")") &&
-                    hookSource.Contains("selectedLordTypeField.SetValue(self, restoredLordType);") &&
-                    hookSource.Contains("if (!settings.EnableClientFeatures || !settings.EnableWorkshopUploadLordSelectionFix)") &&
-                    policySource.Contains("internal const int MinimumLordType = 2;") &&
-                    policySource.Contains("requestedRefresh == currentMode") &&
-                    hookSource.Contains("if (isDoUpload && FRONT_EditorSetup.canCloseWorkshop)") &&
-                    hookSource.Contains("policy.CancelPending();") &&
-                    hookSource.Contains("delegating to Vanilla") &&
-                    CountOccurrences(hookSource, "buttonOriginal(self, command);") == 3 &&
-                    hookSource.Contains("ValidateReflectionContracts();") &&
-                    hookSource.Contains("uploadModeField.FieldType.IsEnum") &&
-                    hookSource.Contains("selectedLordTypeField.FieldType != typeof(int)") &&
-                    !hookSource.Contains("Platform_Workshop") &&
-                    runtimeSource.Contains(
-                        "private static WorkshopUploadLordSelectionFix processWorkshopUploadLordSelectionFix;") &&
-                    !hookSource.Contains("public void Dispose()"),
-                "the fix validates Vanilla contracts, falls back safely, avoids Steam hooks, and remains process rooted");
+            // Structure guard only: behavioral scope regressions below exercise the production context.
+            Check(hookSource.Contains("WorkshopUploadLordSelectionIl.Patch") &&
+                    hookSource.Contains("SafeIlHook.TryInstall") &&
+                    CountOccurrences(hookSource, "buttonOriginal(self, command);") == 1 &&
+                    runtimeSource.Contains("private static WorkshopUploadLordSelectionFix processWorkshopUploadLordSelectionFix;"),
+                "selection patch preserves a single process-rooted original chain");
+            var context = new WorkshopUploadLordSelectionContext();
+            object first = new object(), other = new object();
+            context.Handle(first, true, "DoUpload", WorkshopUploadLordRefresh.Aiv, 17, out _);
+            Check(context.Handle(other, true, "UploadAIV", WorkshopUploadLordRefresh.Aiv, 1, out _) == WorkshopUploadLordRefresh.None,
+                "another UI instance cannot consume a pending upload");
+            Check(context.Handle(first, true, "UploadAIV", WorkshopUploadLordRefresh.Aiv, 1, out int saved) == WorkshopUploadLordRefresh.Aiv && saved == 17,
+                "the initiating UI retains its pending upload");
+            using (context.Enter(first, WorkshopUploadLordRefresh.Aiv, saved))
+            {
+                Check(context.Resolve(first, WorkshopUploadLordRefresh.Aiv, 1) == 17 && context.Resolve(other, WorkshopUploadLordRefresh.Aiv, 1) == 1,
+                    "restore applies only to the matching owner and branch");
+                using (context.Enter(first, WorkshopUploadLordRefresh.None, 0))
+                    Check(context.Resolve(first, WorkshopUploadLordRefresh.Aiv, 1) == 1, "nested unrelated command shadows the outer restore");
+                int threaded = 0;
+                var thread = new System.Threading.Thread(() => threaded = context.Resolve(first, WorkshopUploadLordRefresh.Aiv, 1));
+                thread.Start(); thread.Join();
+                Check(threaded == 1 && context.Resolve(first, WorkshopUploadLordRefresh.Aiv, 1) == 17, "restore is thread-local and outer scope resumes");
+            }
+            using (context.Enter(first, WorkshopUploadLordRefresh.Aiv, 17))
+            {
+                context.CancelAll();
+                Check(context.Resolve(first, WorkshopUploadLordRefresh.Aiv, 1) == 1, "rebuild/settings invalidation also cancels an active restore scope");
+            }            Check(context.Resolve(first, WorkshopUploadLordRefresh.Aiv, 1) == 1, "completed scope cannot affect later navigation");
+            context.Handle(first, true, "DoUpload", WorkshopUploadLordRefresh.Aiv, 17, out _);
+            context.CancelAll();
+            Check(context.Handle(first, true, "UploadAIV", WorkshopUploadLordRefresh.Aiv, 1, out _) == WorkshopUploadLordRefresh.None,
+                "settings invalidation clears all pending uploads");
         }
-
         private static void TestMultiplayerLobbyReturnIntegration()
         {
             string source = File.ReadAllText(Path.Combine(
@@ -4688,6 +4714,7 @@ namespace BugfixesAndQoL
                 "general sleep synchronization is limited to single-building overrides");
             Check(!singlePause.Contains("NoesisGUIUpdateChecksInGame") &&
                     singlePause.Contains("addChimpActions") &&
+                    singlePause.Contains("APIShared.Patching.SafeIlHook.TryInstall(") &&
                     !singlePause.Contains("addChimpActionsHook.Apply()") &&
                     !singlePause.Contains("addChimpActionsHook.Undo()") &&
                     singlePause.Contains("!localHooksInstalled || !IsFeatureActive()"),
@@ -4723,6 +4750,158 @@ namespace BugfixesAndQoL
                     !german.Contains("Andere Ursachen bleiben unveraendert"),
                 "AI sleep title and help text describe the intended resource-shortage fix directly");
         }
+
+        private static unsafe void TestSingleBuildingPausePolicy()
+        {
+            GamePlayerResources* players = stackalloc GamePlayerResources[2];
+            players[0] = default;
+            players[1] = default;
+            // The native per-owner table has 91 entries. Its boundary and adjacent owner
+            // are the regression contract; the HUD's narrower sleep_allowed list is not.
+            for (int type = 0; type < 91; type++)
+            {
+                players[0].r_BuildingSleep[type] = 0;
+                players[1].r_BuildingSleep[type] = 1;
+                bool firstRead = SingleBuildingPausePolicy.TryReadTypeSleeping(players, type, out bool first);
+                bool secondRead = SingleBuildingPausePolicy.TryReadTypeSleeping(players + 1, type, out bool second);
+                Check(firstRead && secondRead && !first && second,
+                    $"building pause reads the requested owner's type table at {type}");
+            }
+            foreach (eStructs type in new[] { eStructs.STRUCT_WATERPOT, eStructs.STRUCT_CHURCH3, eStructs.STRUCT_WELL })
+            {
+                players[0].r_BuildingSleep[(int)type] = 1;
+                Check(SingleBuildingPausePolicy.TryReadTypeSleeping(players, (int)type, out bool sleeping) && sleeping &&
+                        SingleBuildingPausePolicy.NeedsTypeToggle(sleeping,
+                            SingleBuildingPausePolicy.TargetSleeping(true, null)),
+                    $"normal resume queues a type toggle for {type} even when the HUD reports zero");
+            }
+            players[0].r_BuildingSleep[0] = 2;
+            Check(SingleBuildingPausePolicy.TryReadTypeSleeping(players, 0, out bool nonzero) && nonzero,
+                "native type sleep uses nonzero rather than the individual byte's exact-one comparison");
+            Check(!SingleBuildingPausePolicy.TryReadTypeSleeping(null, 0, out _) &&
+                    !SingleBuildingPausePolicy.TryReadTypeSleeping(players, -1, out _) &&
+                    !SingleBuildingPausePolicy.TryReadTypeSleeping(players, 91, out _) &&
+                    !SingleBuildingPausePolicy.TryReadTypeSleeping(players, int.MaxValue, out _),
+                "type sleep reader rejects missing resources and both table boundaries");
+
+            foreach (bool buildingSleeping in new[] { false, true })
+            foreach (bool? manualOverride in new bool?[] { null, false, true })
+            {
+                bool effectiveSleeping = manualOverride ?? buildingSleeping;
+                bool targetSleeping = SingleBuildingPausePolicy.TargetSleeping(buildingSleeping, manualOverride);
+                Check(targetSleeping == !effectiveSleeping,
+                    $"pause target inverts the selected effective state: building={buildingSleeping}, override={manualOverride}");
+                foreach (bool typeSleeping in new[] { false, true })
+                    Check(SingleBuildingPausePolicy.NeedsTypeToggle(typeSleeping, targetSleeping) ==
+                            (typeSleeping != !effectiveSleeping),
+                        $"type toggle decision respects selected override and current type state: {typeSleeping}/{effectiveSleeping}");
+                foreach (short vanilla in new short[] { 0, 1, 7 })
+                foreach (bool active in new[] { false, true })
+                foreach (bool resolved in new[] { false, true })
+                {
+                    short expected = active && resolved ? (short)(effectiveSleeping ? 1 : 0) : vanilla;
+                    Check(SingleBuildingPausePolicy.ResolveDisplayedSleeping(
+                            vanilla, active, resolved, buildingSleeping, manualOverride) == expected,
+                        $"pause HUD state preserves inactive/unresolved Vanilla values: {vanilla}/{active}/{resolved}/{effectiveSleeping}");
+                }
+            }
+        }
+
+        private static void TestSingleBuildingPauseUiIlContract()
+        {
+            MethodInfo method = typeof(FatControler).GetMethod("addChimpActions",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            Check(method != null, "installed building action method is available for the pause UI contract");
+            if (method == null)
+                return;
+
+            SingleBuildingPauseUiIlContract.Validate(method);
+            using (var definition = new MonoMod.Utils.DynamicMethodDefinition(
+                "PauseUiReadFixture", typeof(short), new[] { typeof(EngineInterface.PlayState) }))
+            {
+                var processor = definition.Definition.Body.GetILProcessor();
+                FieldInfo sleepField = typeof(EngineInterface.PlayState).GetField(
+                    nameof(EngineInterface.PlayState.building_type_sleeping));
+                processor.Emit(Mono.Cecil.Cil.OpCodes.Ldarg_0);
+                processor.Emit(Mono.Cecil.Cil.OpCodes.Ldfld,
+                    definition.Definition.Module.ImportReference(sleepField));
+                processor.Emit(Mono.Cecil.Cil.OpCodes.Ret);
+                using (var context = new MonoMod.Cil.ILContext(definition.Definition))
+                {
+                    context.Invoke(il => SingleBuildingPauseUiIlContract.ApplyPatch(il,
+                        ResolvePauseUiFixture));
+                }
+                var read = (Func<EngineInterface.PlayState, short>)definition.Generate().CreateDelegate(
+                    typeof(Func<EngineInterface.PlayState, short>));
+                var state = (EngineInterface.PlayState)FormatterServices.GetUninitializedObject(
+                    typeof(EngineInterface.PlayState));
+                state.in_structure = 17;
+                state.building_type_sleeping = 0;
+                Check(read(state) == 1 && state.building_type_sleeping == 0,
+                    "generated pause UI IL receives the original state and replaces the read without mutating the shared snapshot");
+                state.in_structure = 18;
+                state.building_type_sleeping = 7;
+                Check(read(state) == 7 && state.building_type_sleeping == 7,
+                    "generated pause UI IL preserves the original field value when the resolver delegates to Vanilla");
+            }
+            using (var definition = new MonoMod.Utils.DynamicMethodDefinition(method))
+            using (var context = new MonoMod.Cil.ILContext(definition.Definition))
+            {
+                context.Invoke(il =>
+                {
+                    Mono.Cecil.Cil.Instruction[] original = il.Body.Instructions.ToArray();
+                    SingleBuildingPauseUiIlContract.ApplyPatch(il, PreservePauseUiFixture);
+                    Check(il.Body.Instructions.Count > original.Length &&
+                            original.All(instruction => il.Body.Instructions.Contains(instruction)),
+                        "pause UI patch retains the complete Vanilla action method and adds only state resolution");
+                });
+            }
+
+            foreach (bool duplicate in new[] { false, true })
+            {
+                using (var definition = new MonoMod.Utils.DynamicMethodDefinition(method))
+                using (var context = new MonoMod.Cil.ILContext(definition.Definition))
+                {
+                    context.Invoke(il =>
+                    {
+                        Mono.Cecil.Cil.Instruction load = il.Body.Instructions.Single(instruction =>
+                            instruction.OpCode == Mono.Cecil.Cil.OpCodes.Ldfld &&
+                            instruction.Operand is Mono.Cecil.FieldReference field &&
+                            field.Name == nameof(EngineInterface.PlayState.building_type_sleeping));
+                        if (duplicate)
+                        {
+                            // Duplicate a real operand; the production matcher must reject ambiguity
+                            // before making any changes, independently of control-flow validity.
+                            il.Body.Instructions.Insert(il.Body.Instructions.IndexOf(load),
+                                Mono.Cecil.Cil.Instruction.Create(Mono.Cecil.Cil.OpCodes.Ldfld,
+                                    (Mono.Cecil.FieldReference)load.Operand));
+                        }
+                        else
+                        {
+                            load.OpCode = Mono.Cecil.Cil.OpCodes.Nop;
+                            load.Operand = null;
+                        }
+                        Mono.Cecil.Cil.Instruction[] before = il.Body.Instructions.ToArray();
+                        bool rejected = false;
+                        try
+                        {
+                            SingleBuildingPauseUiIlContract.ApplyPatch(il, PreservePauseUiFixture);
+                        }
+                        catch (InvalidOperationException)
+                        {
+                            rejected = true;
+                        }
+                        Check(rejected && il.Body.Instructions.SequenceEqual(before),
+                            $"pause UI contract rejects {(duplicate ? "ambiguous" : "missing")} state reads without mutation");
+                    });
+                }
+            }
+        }
+
+        private static short ResolvePauseUiFixture(EngineInterface.PlayState state, short vanilla) =>
+            state.in_structure == 17 ? (short)1 : vanilla;
+
+        private static short PreservePauseUiFixture(EngineInterface.PlayState state, short vanilla) => vanilla;
 
         private static void TestSingleBuildingPauseOverrideStore()
         {

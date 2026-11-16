@@ -153,17 +153,36 @@
             Width="24" Height="24" Margin="0,0,262,44"
             HorizontalAlignment="Right" VerticalAlignment="Bottom"
             Visibility="Hidden" Background="Transparent">
+        <Border x:Name="ExtraFeaturesBuildingRepairHoverPadding" Margin="-6" Background="Transparent" />
         <Button x:Name="ExtraFeaturesBuildingRepairButton"
                 IsEnabled="False"
                 Command="{Binding ButtonRepairCommand}" CommandParameter="1">
           <Button.Template>
             <ControlTemplate TargetType="{x:Type Button}">
-              <Grid>
-                <Ellipse Fill="#FF654627" Stroke="#FFE3C685" StrokeThickness="2" />
-                <Image Source="/Assets/GUI/Sprites/ExtraFeatures_RepairHammer.png"
-                       Width="20" Height="20" Stretch="Uniform"
-                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+              <Grid Margin="-6">
+                <!-- The opaque repair badge covers the help glyph; retain the original Vanilla box. -->
+                <Image x:Name="RepairButtonBox" Source="{StaticResource UI-Buttons L011}" Stretch="Fill" />
+                <Grid Margin="6">
+                  <Ellipse Fill="#FF654627" Stroke="#FFE3C685" StrokeThickness="2" />
+                  <Image Source="/Assets/GUI/Sprites/ExtraFeatures_RepairHammer.png"
+                         Width="20" Height="20" Stretch="Uniform"
+                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Grid>
               </Grid>
+              <ControlTemplate.Triggers>
+                <Trigger Property="Tag" Value="Unframed">
+                  <Setter TargetName="RepairButtonBox" Property="Visibility" Value="Hidden" />
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                  <Setter TargetName="RepairButtonBox" Property="Source" Value="{StaticResource UI-Buttons L013}" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                  <Setter TargetName="RepairButtonBox" Property="Source" Value="{StaticResource UI-Buttons L013}" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                  <Setter TargetName="RepairButtonBox" Property="Source" Value="{StaticResource UI-Buttons L011}" />
+                </Trigger>
+              </ControlTemplate.Triggers>
             </ControlTemplate>
           </Button.Template>
         </Button>

@@ -21,15 +21,15 @@ The reference below explains mod integration, preset files and modes, and how mi
 
 #### Target-mod integration
 
-1. These examples use APIShared 0.12.2. Reference `APIShared.dll` with `Private=false` and declare `APIShared_Serp` version `0.12.2` as the matching hard minimum dependency in BepInEx and `info.json`. Install the complete central APIShared package.
-2. Derive the settings ViewModel from `APIShared.ModSettings.PresetLobbyModSettingsViewModel`.
+1. Install the complete current APIShared package. Reference `APIShared.dll` with `Private=false` and declare a matching supported minimum version of `APIShared_Serp` in BepInEx and `info.json`. Use the linked example’s dependency declarations when using that complete example; do not ship your own APIShared DLLs.
+2. Derive the settings ViewModel from `APIShared.ModSettings.PresetLobbyModSettingsViewModel`. Mark each saved property as `[SyncHostOnly]` (shared gameplay), `[SyncPerPlayer]` (personal and synchronized), or `[PresetLocal]` (local only).
 3. In every persistent setter, call `CanMutateSetting()` before changing state and `OnPropertyChanged()` afterwards.
 4. Register through `LobbyModSettingsPresetRegistration.Register`.
-5. Import `clr-namespace:APIShared.ModSettings;assembly=APIShared` in XAML. Use the [plugin registration example](../../APIShared/examples/ThirdPartyMod/ExamplePlugin.cs), [settings example](../../APIShared/examples/ThirdPartyMod/ExampleSettings.cs) and [XAML example](../../APIShared/examples/ThirdPartyMod/Override/ScriptExtenderUI/APISharedExample.xaml). Retain the model for the process lifetime; registration and UI operations run on Unity.
+5. Import `clr-namespace:APIShared.ModSettings;assembly=APIShared` in XAML. Use the [plugin registration example](https://github.com/SHCDE-APIShared/APIShared/blob/main/examples/ThirdPartyMod/ExamplePlugin.cs), [settings example](https://github.com/SHCDE-APIShared/APIShared/blob/main/examples/ThirdPartyMod/ExampleSettings.cs) and [XAML example](https://github.com/SHCDE-APIShared/APIShared/blob/main/examples/ThirdPartyMod/Override/ScriptExtenderUI/APISharedExample.xaml). Retain the model for the process lifetime; registration and UI operations run on Unity.
 
 No Shared source links, preset compile symbols, or ExtendedData reference are required.
 
-APIShared provides preset storage, settings roles, participant diagnostics and temporary mission-settings application. ExtendedData provides Map/Trail content and their optional working sources. Consumers that read or create schema-3 mission documents also reference `APIShared.Content.dll` with `Private=false`; see [mission settings integration](../../APIShared/docs/MOD_SETTINGS.md#mission-settings-preparation). Personal presets use schema 1 and remain distinct from schema-3 mission documents.
+APIShared provides preset storage, settings roles, participant diagnostics and temporary mission-settings application. ExtendedData provides Map/Trail content and their optional working sources. Consumers that read or create schema-3 mission documents also reference `APIShared.Content.dll` with `Private=false`; see [mission settings integration](https://github.com/SHCDE-APIShared/APIShared/blob/main/docs/MOD_SETTINGS.md#mission-settings-preparation). Personal presets use schema 1 and remain distinct from schema-3 mission documents.
 
 If a persisted property's code default can only be known after dynamic discovery, the derived ViewModel may call `SetModDefaultValue(propertyName, value)` after registration. This updates only APIShared's typed default snapshot; it does not modify the current working value. Optional working-source providers mark the source for their current context with `ModSettingsWorkingSource.IsPreferred`; clients then select it when the context changes without applying it automatically.
 
@@ -52,11 +52,13 @@ The complete block also binds `System_PresetLoadEntries`, `System_SelectedPreset
 
 The load list visibly distinguishes:
 
-- **Personal presets**, stored at `LobbyModSettings/Presets/Override/<target GUID>/preset_<id>.json`;
+- **Personal presets**, normally stored at `Documents/SHCDE/APIShared/<target GUID>/Presets/preset_<id>.json`;
 - **Bundled with this mod**, stored below the target mod at `Override/<target GUID>/preset_<id>.json`;
 - **External presets**, stored in the same `Override/<target GUID>/` structure of another registered loose asset mod, with its provider name shown.
 
-Display names need not be unique. Identity is based on source kind, provider GUID, target GUID, and preset ID. Only personal entries can be overwritten or deleted. Deletion is permanent after explicit confirmation and leaves the materialized working settings unchanged. Saving an external or bundled preset therefore creates an independent personal file, even when the display name is identical.
+APIShared uses your system’s Documents folder, which may be redirected, for example to OneDrive. Under Proton this is the folder inside the game’s Wine prefix; if unavailable, APIShared uses another per-user folder. Current working settings are stored beside `Presets/` in `settings.msgpack`. Older plugin-folder presets remain readable; newly saved presets go into the personal folder.
+
+Display names need not be unique. Identity is based on source kind, provider GUID, target GUID, and preset ID. Only personal entries can be overwritten or deleted. Deletion is permanent after explicit confirmation and leaves the currently applied settings unchanged. Saving an external or bundled preset therefore creates an independent personal file, even when the display name is identical.
 
 Loose asset mods may serve several targets:
 
@@ -73,6 +75,8 @@ MyPresetPack/
 Preset providers must be loose registered asset folders. `.semod` providers are skipped with a log message.
 
 #### JSON schema
+
+This is a format example, not a ready-to-use Building Costs preset: property names, values and version limits must match your target mod. Export a preset in the game to obtain valid settings for an installed mod.
 
 ```json
 {
@@ -98,11 +102,11 @@ Preset providers must be loose registered asset folders. `.semod` providers are 
 
 Only listed properties are changed. All resulting settings remain editable according to their normal Host, Player, or Local ownership. Primitive values, strings, enums, and one-dimensional arrays use readable JSON; other MessagePack-compatible values may use `messagepack-base64:<data>`.
 
-Unknown members, properties or modes, invalid values, incompatible target versions, unsafe paths, duplicate IDs within one provider/target, oversized files, and overly deep documents fail closed.
+Unknown members, properties or modes, invalid values, incompatible target versions, unsafe paths, duplicate IDs within one provider/target, oversized files, and overly deep documents are rejected without applying partial settings.
 
 #### Loading and saving
 
-Selecting a row does nothing until **Load** is pressed. The status then shows the preset name and source; later edits add “modified”. If the source disappears, the materialized working values stay intact and only the source association is cleared.
+Selecting a row does nothing until **Load** is pressed. The status then shows the preset name and source; later edits add “modified”. If the source disappears, the currently applied values stay intact and only the source association is cleared.
 
 The standard save dialog always writes every persistent property. A new personal preset starts in `Host Fixed`: Host properties use `Fixed`, while Player/Local properties use `Player`. Each row can then be changed to `Default`, `Player`, or `Fixed`. Partial presets remain supported through the public save API and hand-authored JSON. Existing partial presets initialize omitted rows as `Player` when edited, so overwriting them does not unexpectedly fix previously omitted values. A new personal preset starts with an empty name, while selecting an existing personal preset fills its name and description for deliberate replacement. A nonempty name is required before Save becomes available.
 
@@ -113,6 +117,14 @@ Descriptions support line breaks and up to 8192 characters. The standard editor 
 Every compatible mod has one **Reset settings to** selector. **Mod defaults** is always available; **Trail settings** and **Map settings** appear only when a valid source exists. On entering a context, the selector prefers Trail, then Map, then Mod defaults. A manual selection remains selected while that context stays unchanged. Selecting an entry changes nothing until **Reset** is pressed. Resetting replaces only the working copy: it never writes a Trail sidecar or Map archive, and it never changes personal presets.
 
 Direct Map/Trail starts are read-only. Customize and Trail Maker use a freely editable temporary working copy, just like a normal Custom Game. For a Trail, Trail settings have initial precedence and embedded Map settings are ignored until the author explicitly loads **Map settings**. Only the visible **Include modsettings** options on the normal Trail Maker and Map Editor save paths may write or remove a sidecar or the ExtendedData archive entry. Saving a personal preset never modifies these mission sources. Leaving Customize restores the previous mission-dependent Host values; personal changes remain saved.
+
+### Personal values and mission rules
+
+Maps, Trails and saves prescribe only mission-dependent Host settings. Player and Local settings remain personal, editable where their normal permissions allow, and saved across mission start, restart and exit. Loading a normal preset or explicitly resetting to Mod defaults can change personal values too.
+
+A mod author can mark a Host setting `[MissionIndependent]`. It remains controlled and synchronized by the host, but Map, Trail and savegame settings cannot prescribe or restore it. Such settings do not appear in ExtendedData’s mission-setting selectors. On leaving Customize, only the previous mission-dependent Host values are restored; personal edits remain saved.
+
+For integration details, see [personal values and mission-independent Host settings](https://github.com/SHCDE-APIShared/APIShared/blob/main/docs/MOD_SETTINGS.md#personal-values-and-mission-independent-host-settings).
 
 ---
 
@@ -135,13 +147,13 @@ Die Referenz unten erklärt die Mod-Integration, Preset-Dateien und Modi sowie d
 
 #### Integration des Ziel-Mods
 
-1. Diese Beispiele verwenden APIShared 0.12.2. `APIShared.dll` mit `Private=false` referenzieren und `APIShared_Serp` ab Version `0.12.2` als übereinstimmende harte Mindestabhängigkeit in BepInEx und `info.json` angeben. Das vollständige zentrale APIShared-Paket installieren.
-2. Das Settings-ViewModel von `APIShared.ModSettings.PresetLobbyModSettingsViewModel` ableiten.
+1. Das vollständige aktuelle APIShared-Paket installieren. `APIShared.dll` mit `Private=false` referenzieren und dieselbe unterstützte Mindestversion von `APIShared_Serp` in BepInEx und `info.json` angeben. Beim Übernehmen des vollständigen verlinkten Beispiels dessen Abhängigkeitsangaben verwenden; keine eigenen APIShared-DLLs mitliefern.
+2. Das Settings-ViewModel von `APIShared.ModSettings.PresetLobbyModSettingsViewModel` ableiten. Jede gespeicherte Property kennzeichnen: `[SyncHostOnly]` für gemeinsames Gameplay, `[SyncPerPlayer]` für persönliche synchronisierte Werte oder `[PresetLocal]` für rein lokale Werte.
 3. In jedem persistenten Setter vor der Änderung `CanMutateSetting()` und danach `OnPropertyChanged()` aufrufen.
 4. Mit `LobbyModSettingsPresetRegistration.Register` registrieren.
-5. Im XAML `clr-namespace:APIShared.ModSettings;assembly=APIShared` importieren. Das [Plugin-Beispiel](../../APIShared/examples/ThirdPartyMod/ExamplePlugin.cs), [Settings-Beispiel](../../APIShared/examples/ThirdPartyMod/ExampleSettings.cs) und [XAML-Beispiel](../../APIShared/examples/ThirdPartyMod/Override/ScriptExtenderUI/APISharedExample.xaml) zeigen Registrierung und Bindings. Das Modell für die Prozesslebensdauer verwurzeln; Registrierung und UI-Operationen laufen auf Unity.
+5. Im XAML `clr-namespace:APIShared.ModSettings;assembly=APIShared` importieren. Das [Plugin-Beispiel](https://github.com/SHCDE-APIShared/APIShared/blob/main/examples/ThirdPartyMod/ExamplePlugin.cs), [Settings-Beispiel](https://github.com/SHCDE-APIShared/APIShared/blob/main/examples/ThirdPartyMod/ExampleSettings.cs) und [XAML-Beispiel](https://github.com/SHCDE-APIShared/APIShared/blob/main/examples/ThirdPartyMod/Override/ScriptExtenderUI/APISharedExample.xaml) zeigen Registrierung und Bindings. Das Modell für die Prozesslebensdauer verwurzeln; Registrierung und UI-Operationen laufen auf Unity.
 
-APIShared stellt Presetspeicher, Einstellungsrollen, Teilnehmerdiagnose sowie die Anwendung temporärer Missionseinstellungen bereit. ExtendedData liefert Map-/Trail-Inhalte und deren optionale Arbeitsquellen. Verbraucher, die Schema-3-Missionsdokumente lesen oder erstellen, referenzieren zusätzlich `APIShared.Content.dll` mit `Private=false`; siehe [Missionssettings-Integration](../../APIShared/docs/MOD_SETTINGS.md#mission-settings-preparation). Persönliche Presets verwenden Schema 1 und sind von Schema-3-Missionsdokumenten getrennt.
+APIShared stellt Presetspeicher, Einstellungsrollen, Teilnehmerdiagnose sowie die Anwendung temporärer Missionseinstellungen bereit. ExtendedData liefert Map-/Trail-Inhalte und deren optionale Arbeitsquellen. Verbraucher, die Schema-3-Missionsdokumente lesen oder erstellen, referenzieren zusätzlich `APIShared.Content.dll` mit `Private=false`; siehe [Missionssettings-Integration](https://github.com/SHCDE-APIShared/APIShared/blob/main/docs/MOD_SETTINGS.md#mission-settings-preparation). Persönliche Presets verwenden Schema 1 und sind von Schema-3-Missionsdokumenten getrennt.
 
 Kann der Code-Standard einer persistenten Property erst nach einer dynamischen Erkennung bestimmt werden, darf das abgeleitete ViewModel anschließend `SetModDefaultValue(propertyName, value)` aufrufen. Dadurch wird nur der typisierte APIShared-Default-Snapshot aktualisiert, nicht der aktuelle Arbeitswert. Optionale Quellenprovider kennzeichnen die Quelle ihres aktuellen Kontexts mit `ModSettingsWorkingSource.IsPreferred`; beim Kontextwechsel wird sie vorausgewählt, aber nicht automatisch angewendet.
 
@@ -151,17 +163,19 @@ Shared-Quelllinks, Preset-Compile-Symbole und eine ExtendedData-Referenz sind ni
 
 Der Ladedialog unterscheidet sichtbar:
 
-- **Eigene Presets** unter `LobbyModSettings/Presets/Override/<Ziel-GUID>/preset_<id>.json`;
+- **Eigene Presets**, normalerweise unter `Dokumente/SHCDE/APIShared/<Ziel-GUID>/Presets/preset_<id>.json`;
 - **Mit diesem Mod geliefert** unter `Override/<Ziel-GUID>/preset_<id>.json` des Ziel-Mods;
 - **Externe Presets** in derselben Override-Struktur eines anderen registrierten losen Asset-Mods, einschließlich Providername.
 
-Anzeigenamen müssen nicht eindeutig sein. Die Identität besteht aus Quellentyp, Provider-GUID, Ziel-GUID und Preset-ID. Nur eigene Presets dürfen überschrieben oder gelöscht werden. Das Löschen ist nach ausdrücklicher Bestätigung endgültig und verändert die bereits materialisierten Arbeitswerte nicht. Aus einem mitgelieferten oder externen Preset entsteht beim Speichern daher immer eine unabhängige persönliche Datei – ausdrücklich auch mit demselben Anzeigenamen.
+APIShared verwendet den Dokumente-Ordner deines Systems; er kann beispielsweise nach OneDrive umgeleitet sein. Unter Proton liegt er im Wine-Präfix des Spiels. Ist er nicht verfügbar, verwendet APIShared einen anderen Benutzerordner. Der aktuelle Einstellungsstand liegt neben `Presets/` in `settings.msgpack`. Ältere Presets im Plugin-Ordner bleiben lesbar; neu gespeicherte Presets landen im persönlichen Ordner.
+
+Anzeigenamen müssen nicht eindeutig sein. Die Identität besteht aus Quellentyp, Provider-GUID, Ziel-GUID und Preset-ID. Nur eigene Presets dürfen überschrieben oder gelöscht werden. Das Löschen ist nach ausdrücklicher Bestätigung endgültig und verändert die bereits angewendeten Werte nicht. Aus einem mitgelieferten oder externen Preset entsteht beim Speichern daher immer eine unabhängige persönliche Datei – ausdrücklich auch mit demselben Anzeigenamen.
 
 Ein loser Asset-Mod kann Presets für mehrere Ziele enthalten; das Verzeichnisbeispiel steht im englischen Abschnitt. Preset-Provider müssen registrierte lose Asset-Ordner sein; `.semod`-Provider werden mit einem Loghinweis übersprungen.
 
 #### JSON-Schema und Modi
 
-Das vollständige JSON-Beispiel im englischen Abschnitt gilt unverändert.
+Das JSON-Beispiel im englischen Abschnitt zeigt das Format, kein fertiges Building-Costs-Preset: Propertynamen, Werte und Versionsgrenzen müssen zum Ziel-Mod passen. Exportiere im Spiel ein Preset, um gültige Einstellungen für einen installierten Mod zu erhalten.
 
 - `fixed` übernimmt den JSON-Wert.
 - `player` behält den aktuellen normalen Arbeitswert; im Map-/Trail-Kontext ist das der vor Eintritt gesicherte normale Wert.
@@ -169,11 +183,11 @@ Das vollständige JSON-Beispiel im englischen Abschnitt gilt unverändert.
 
 Nur aufgeführte Properties werden geändert. Danach bleiben alle Werte gemäß ihrer normalen Host-, Player- oder Local-Besitzregeln editierbar. Primitive Werte, Strings, Enums und eindimensionale Arrays bleiben lesbares JSON; andere MessagePack-kompatible Typen dürfen `messagepack-base64:<daten>` verwenden.
 
-Unbekannte Member, Properties oder Modi, ungültige Werte, unpassende Zielversionen, unsichere Pfade, doppelte IDs desselben Providers/Ziels, zu große Dateien und zu tiefe Dokumente werden fail-closed abgelehnt.
+Unbekannte Member, Properties oder Modi, ungültige Werte, unpassende Zielversionen, unsichere Pfade, doppelte IDs desselben Providers/Ziels, zu große Dateien und zu tiefe Dokumente werden ohne teilweise Anwendung abgelehnt.
 
 #### Laden und Speichern
 
-Die Auswahl eines Eintrags ändert noch nichts; erst **Laden** übernimmt ihn. Die Statuszeile zeigt danach Name und Quelle und kennzeichnet spätere Änderungen mit „geändert“. Verschwindet die Quelle, bleiben die materialisierten Arbeitswerte erhalten; nur die Quellenverknüpfung wird entfernt.
+Die Auswahl eines Eintrags ändert noch nichts; erst **Laden** übernimmt ihn. Die Statuszeile zeigt danach Name und Quelle und kennzeichnet spätere Änderungen mit „geändert“. Verschwindet die Quelle, bleiben die angewendeten Werte erhalten; nur die Quellenverknüpfung wird entfernt.
 
 Der Standardspeicherdialog schreibt immer alle persistenten Properties. Ein neues eigenes Preset startet mit `Host fest`: Host-Properties stehen auf `Fest`, Player-/Local-Properties auf `Spieler`. Danach kann jede Zeile einzeln auf `Standard`, `Spieler` oder `Fest` geändert werden. Teil-Presets bleiben über die öffentliche Speicher-API und handgeschriebenes JSON möglich. Beim Bearbeiten eines vorhandenen Teil-Presets werden fehlende Properties als `Spieler` vorbelegt, damit das Überschreiben zuvor ausgelassene Werte nicht unerwartet fixiert. Ein neues eigenes Preset beginnt mit leerem Namen; erst die Auswahl eines vorhandenen eigenen Presets übernimmt dessen Namen und Beschreibung zum bewussten Ersetzen. Speichern wird erst mit einem nicht leeren Namen aktiviert.
 
@@ -197,4 +211,4 @@ Host. Sie werden weiterhin synchronisiert, aber weder durch Map, Trail noch Save
 vorgegeben oder wiederhergestellt und erscheinen nicht in ExtendedDatas Einstufung oder
 Missionsdateien. Welche Hostwerte so gekennzeichnet sind, legt der jeweilige Mod fest.
 Die normale Host-/Client-Autorität, bestehende Preset-Ladesperren und `RequiresRestart`
-bleiben bestehen. Für Modentwickler: [Personal values and mission-independent Host settings](../../APIShared/docs/MOD_SETTINGS.md#personal-values-and-mission-independent-host-settings).
+bleiben bestehen. Für Modentwickler: [Personal values and mission-independent Host settings](https://github.com/SHCDE-APIShared/APIShared/blob/main/docs/MOD_SETTINGS.md#personal-values-and-mission-independent-host-settings).

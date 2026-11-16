@@ -1,0 +1,5 @@
+obj/
+bin/
+BepInEx/
+*.zip
+__pycache__/

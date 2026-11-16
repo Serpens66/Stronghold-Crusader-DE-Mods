@@ -146,29 +146,6 @@ namespace ImprovedHunters
             a.AddInstruction(instructions[2]);
         }
 
-        /// <summary>
-        /// Availability check of the Hunter's hut. Vanilla answers "not available" in skirmish and
-        /// multiplayer (R10D not zero) on a map without deer and goats; with the flag set it goes on as usual.
-        /// </summary>
-        internal static void EmitHutAlwaysAvailable(Assembler a, ReadOnlySpan<Instruction> instructions, ulong flag, ulong hasPrey, ulong available)
-        {
-            Require(instructions, 4, "Hunter's hut availability");
-            Label proceed = a.CreateLabel("hutAvailable");
-            Label unavailable = a.CreateLabel("hutUnavailable");
-            a.AddInstruction(instructions[0]);
-            a.je(proceed);
-            a.mov(rax, flag);
-            a.cmp(__dword_ptr[rax], 0);
-            a.jne(proceed);
-            a.mov(rax, hasPrey);
-            a.cmp(__dword_ptr[rax], 0);
-            a.je(unavailable);
-            a.Label(ref proceed);
-            JumpAbsolute(a, available);
-            a.Label(ref unavailable);
-            a.nop();
-        }
-
         internal const int CorpseEntrySize = 8;
         internal const int CorpseEntryGlobalId = 0;
         internal const int CorpseEntryUnitId = 4;
@@ -255,7 +232,8 @@ namespace ImprovedHunters
         {
             public ulong CurrentUnit, LocalPlayer, ArmouryFind, GranaryFind, GranaryMissingWarning,
                 GranaryAccept, Deposit, StatsManager, StatsAdd, SoundManager, SoundPlay,
-                FoodDeliveredStat, AfterFindWarning, AcceptFail, DepositDone, RunTable;
+                FoodDeliveredStat, AfterFindWarning, AcceptFail, DepositDone;
+            public TannerStateLayout RunTable;
         }
 
         private const int BuildingStride = 0x32C;
@@ -273,21 +251,21 @@ namespace ImprovedHunters
         private const int StatsFoodCategory = 2;
 
         /// <summary>Jumps to the label unless this Tanner's current run carries meat. Only R10 and R11 are touched.</summary>
-        private static void BranchUnlessMeatRun(Assembler a, AssemblerRegister64 unitOffset, ulong flag, ulong table, Label vanilla)
+        private static void BranchUnlessMeatRun(Assembler a, AssemblerRegister64 unitOffset, ulong flag, TannerStateLayout table, Label vanilla)
         {
             a.mov(r10, flag);
             a.cmp(__dword_ptr[r10], 0);
             a.je(vanilla);
             a.movsx(r10, __word_ptr[unitOffset + r12 + TannerWorkplace]);
-            a.cmp(r10, TannerRunTable.Capacity);
+            a.cmp(r10, table.Capacity);
             a.jae(vanilla);
-            a.mov(r11, table);
-            a.lea(r11, __[r11 + r10 * TannerRunTable.EntrySize]);
-            a.cmp(__byte_ptr[r11 + TannerRunTable.MeatTripOffset], 0);
+            a.mov(r11, table.Address);
+            a.lea(r11, __[r11 + r10 * table.EntrySize]);
+            a.cmp(__byte_ptr[r11 + table.MeatTripOffset], 0);
             a.je(vanilla);
             a.imul(r10, r10, BuildingStride);
             a.mov(r10d, __dword_ptr[r10 + rsi + BuildingGlobalId]);
-            a.cmp(r10d, __dword_ptr[r11 + TannerRunTable.GlobalIdOffset]);
+            a.cmp(r10d, __dword_ptr[r11 + table.GlobalIdOffset]);
             a.jne(vanilla);
         }
 
@@ -303,7 +281,7 @@ namespace ImprovedHunters
         /// amount on a meat trip, so meat gets the same Vanilla bonus as every other product.
         /// Vanilla's arguments are still in RCX, RDX and R8; RAX, R10 and R11 are free here.
         /// </summary>
-        internal static void EmitTannerYield(Assembler a, ReadOnlySpan<Instruction> instructions, ulong flag, ulong table, ulong meatAmount, ulong yieldHelper)
+        internal static void EmitTannerYield(Assembler a, ReadOnlySpan<Instruction> instructions, ulong flag, TannerStateLayout table, ulong meatAmount, ulong yieldHelper)
         {
             Require(instructions, 2, "Tanner run yield");
             Label call = a.CreateLabel("tannerYieldCall");
@@ -311,20 +289,20 @@ namespace ImprovedHunters
             a.cmp(__dword_ptr[r10], 0);
             a.je(call);
             a.movsx(r11, __word_ptr[rbx + r12 + TannerWorkplace]);
-            a.cmp(r11, TannerRunTable.Capacity);
+            a.cmp(r11, table.Capacity);
             a.jae(call);
-            a.mov(r10, table);
-            a.lea(r10, __[r10 + r11 * TannerRunTable.EntrySize]);
+            a.mov(r10, table.Address);
+            a.lea(r10, __[r10 + r11 * table.EntrySize]);
             a.imul(r11, r11, BuildingStride);
             a.add(r11, rsi);
             a.mov(eax, __dword_ptr[r11 + BuildingGlobalId]);
-            a.cmp(eax, __dword_ptr[r10 + TannerRunTable.GlobalIdOffset]);
+            a.cmp(eax, __dword_ptr[r10 + table.GlobalIdOffset]);
             a.jne(call);
-            a.mov(__byte_ptr[r10 + TannerRunTable.MeatTripOffset], 0);
-            a.movzx(eax, __byte_ptr[r10 + TannerRunTable.MeatRunsOffset]);
+            a.mov(__byte_ptr[r10 + table.MeatTripOffset], 0);
+            a.movzx(eax, __byte_ptr[r10 + table.MeatRunsOffset]);
             a.cmp(__dword_ptr[r11 + BuildingHides], eax);
             a.jge(call);
-            a.mov(__byte_ptr[r10 + TannerRunTable.MeatTripOffset], 1);
+            a.mov(__byte_ptr[r10 + table.MeatTripOffset], 1);
             a.mov(r10, meatAmount);
             a.mov(edx, __dword_ptr[r10]);
             a.Label(ref call);

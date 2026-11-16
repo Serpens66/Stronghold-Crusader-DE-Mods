@@ -72,7 +72,8 @@ namespace Pathfinding.UnitCommands {
   private void DetectUnexpectedSecondOrder(TribeIssueOrderMoveHereEventArgs a,PendingFormationCommand p){}
   private void RecordFormationVeto(TribeIssueOrderMoveHereEventArgs a,string reason){}
   private void RecordFormationTargets(TribeIssueOrderMoveHereEventArgs a,int count){}
-  private void CompleteFormationSupport(FormationOrderPacket packet,string source,FormationMoveSupport evidence){}
+  private FormationMoveSupport lastEvidence;
+  private void CompleteFormationSupport(FormationOrderPacket packet,string source,FormationMoveSupport evidence){lastEvidence=evidence;}
   private void LogErrorNoThrow(string m){}private void LogWarningNoThrow(string m){}private void LogDebugNoThrow(string m){}
   private void DisableAfterNativeFailure(string c,Exception e)=>throw e;
   __MEMBERS__
@@ -84,7 +85,9 @@ namespace Pathfinding.UnitCommands {
     if(commandRuntime.Batch.IsExcluded(u.UnitId,u.GlobalId))continue; // Native mask boundary, separately machine-tested.
     var e=new UnitMoveHereEventArgs{Phase=EventHookPhase.Pre,UnitId=u.UnitId,TileX=x,TileY=y};OnUnitMoveHere(e);
     if(!e.SkipOriginalFunction){var unit=APIShared.UnitAccess.Units+u.UnitId-1;unit->r_TargetTilePositionX=(ushort)e.TileX;unit->r_TargetTilePositionY=(ushort)e.TileY;
-     unit->PackedPath=0;unit->Progress=0;unit->State=2;e.Phase=EventHookPhase.Post;e.ReturnValue=1;OnUnitMoveHere(e);}
+     unit->PackedPath=0;unit->Progress=0;unit->State=2;
+     // SE Post carries original call arguments, not the destinations mutated in Pre.
+     OnUnitMoveHere(new UnitMoveHereEventArgs{Phase=EventHookPhase.Post,UnitId=u.UnitId,TileX=x,TileY=y,ReturnValue=1});}
    }
    a.Phase=EventHookPhase.Post;OnTribeIssueOrderMoveHere(a);return !a.SkipOriginalFunction;
   }
@@ -121,6 +124,10 @@ namespace Pathfinding.UnitCommands {
         u.PackedPath==0x123456789ABCDEF0&&u.Progress==17&&u.State==9,"excluded moving order changed");
       }
       Check(f.pendingCommand==null&&f.activeCommand==null&&f.dispatchDepth==0,"context leaked");
+      if(admitted>0)Check(f.lastEvidence.ExecutionSummaryObserved&&f.lastEvidence.ExpectedMembers==admitted&&
+       f.lastEvidence.TerminalAttempts==admitted&&f.lastEvidence.TerminalObserved==admitted&&
+       f.lastEvidence.FormationSucceeded==admitted&&f.lastEvidence.TerminalNotAttempted==0&&
+       f.lastEvidence.FallbackSucceeded==0&&f.lastEvidence.FallbackFailed==0,$"execution snapshot lost after cleanup kind={kind} count={count} admitted={admitted}: {f.lastEvidence.Describe()}");
       if(admitted>1)Check(Enumerable.Range(count-admitted,admitted).Select(i=>(APIShared.UnitAccess.Units[i].r_TargetTilePositionX,
        APIShared.UnitAccess.Units[i].r_TargetTilePositionY)).Distinct().Count()>1,"one-point collapse");
      }
@@ -145,10 +152,15 @@ namespace Pathfinding.UnitCommands {
     GameTribeManagerAPI.Instance.Move=f.Issue;
     // Malformed/stale packets are consumed without a native move or release replay.
     var good=new ActiveDrag(1,415,new GroundTarget(400,400),f.ordered.Select(u=>new SelectionIdentity(u.UnitId,u.GlobalId,u.UnitType,1,1)).ToArray(),FormationKind.Line,1,RangedPlacementMode.Off,FormationAspectRatio.Create(3,2));
-    foreach(string fault in new[]{"protocol","aspect","identity"}) {
+    foreach(string fault in new[]{"protocol","aspect","identity","count"}) {
      f.TryCreatePacket(good,out var p);if(fault=="protocol")p.ProtocolVersion--;if(fault=="aspect")p.AspectWidth=ushort.MaxValue;if(fault=="identity")p.SelectionHash++;
+     if(fault=="count")p.UnitCount++;
      GameTribeManagerAPI.Instance.Calls=0;var before=APIShared.UnitAccess.Units[0];Check(f.ApplyPacket(Wire(p),"invalid"),"rejection must consume gesture");
-     Check(GameTribeManagerAPI.Instance.Calls==(fault=="identity"?1:0)&&APIShared.UnitAccess.Units[0].State==before.State,"invalid command mutated units");
+     bool mismatch=fault=="identity"||fault=="count";
+     Check(GameTribeManagerAPI.Instance.Calls==(mismatch?1:0)&&APIShared.UnitAccess.Units[0].State==before.State,"invalid command mutated units");
+     if(mismatch)Check(f.lastEvidence.ExpectedSelectionCount==p.UnitCount&&f.lastEvidence.ActualSelectionCount==f.ordered.Length&&
+      f.lastEvidence.ExpectedSelectionHash==p.SelectionHash&&f.lastEvidence.ActualSelectionHash==ComputeSelectionHash(f.ordered)&&
+      !f.lastEvidence.ExecutionSummaryObserved,"mismatch snapshot must preserve both identities without inventing execution");
     }
     foreach(FormationKind kind in Enum.GetValues<FormationKind>()) foreach(bool noSpace in new[]{false,true}) {
      new Span<byte>(f.movementTargetAvailability,800*800).Clear();

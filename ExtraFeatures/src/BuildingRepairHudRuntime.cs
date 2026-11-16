@@ -15,12 +15,14 @@ namespace ExtraFeatures
     {
         private const string ButtonName = "ExtraFeaturesBuildingRepairButton";
         private const string HoverHostName = "ExtraFeaturesBuildingRepairHoverHost";
+        private const string HoverPaddingName = "ExtraFeaturesBuildingRepairHoverPadding";
         private const string HoverId = "ExtraFeatures.BuildingRepair.SmallButton";
         private delegate bool ShowRepairDelegate(HUD_Buildings self, int type, int panel);
 
 
         private readonly ManualLogSource log;
         private readonly IBuildingRepairCapability repair;
+        private readonly BuildingRepairHudVisibilityPolicy visibility;
         private readonly Hook classifierHook;
 
         private readonly ShowRepairDelegate originalShowRepair;
@@ -28,15 +30,17 @@ namespace ExtraFeatures
         private Grid lastHoverHost;
         private HUD_Buildings lastHudPanel;
         private Button lastRepairButton;
+        private Border lastHoverPadding;
         private bool hovered;
         private bool? lastSpecialLayout;
         private bool hudFailureLogged;
         private int active;
 
-        private BuildingRepairHudRuntime(ManualLogSource log, IBuildingRepairCapability repair)
+        private BuildingRepairHudRuntime(ManualLogSource log, IBuildingRepairCapability repair, BuildingRepairHudVisibilityPolicy visibility)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.repair = repair ?? throw new ArgumentNullException(nameof(repair));
+            this.visibility = visibility ?? throw new ArgumentNullException(nameof(visibility));
             Hook candidateClassifier = null;
 
             try
@@ -67,12 +71,13 @@ namespace ExtraFeatures
                     if (args.OriginalCompleted) HudUpdateHook(args.Controller);
                 }, out string reason)) throw new InvalidOperationException(reason);
         }
-        internal static BuildingRepairHudRuntime Install(ManualLogSource log, IBuildingRepairCapability repair) =>
-            Create(log, repair);
+        internal static BuildingRepairHudRuntime Install(ManualLogSource log, IBuildingRepairCapability repair,
+            BuildingRepairHudVisibilityPolicy visibility) => Create(log, repair, visibility);
 
-        private static BuildingRepairHudRuntime Create(ManualLogSource log, IBuildingRepairCapability repair)
+        private static BuildingRepairHudRuntime Create(ManualLogSource log, IBuildingRepairCapability repair,
+            BuildingRepairHudVisibilityPolicy visibility)
         {
-            var runtime = new BuildingRepairHudRuntime(log, repair);
+            var runtime = new BuildingRepairHudRuntime(log, repair, visibility);
             try { runtime.RegisterHudEvents(); }
             catch
             {
@@ -144,6 +149,7 @@ namespace ExtraFeatures
                 lastHudPanel = hud;
                 lastHoverHost = null;
                 lastRepairButton = null;
+                lastHoverPadding = null;
                 hovered = false;
                 lastSpecialLayout = null;
             }
@@ -160,16 +166,23 @@ namespace ExtraFeatures
             }
             if (lastRepairButton == null)
                 lastRepairButton = hud.FindName(ButtonName) as Button;
+            if (lastHoverPadding == null)
+                lastHoverPadding = hud.FindName(HoverPaddingName) as Border;
             Grid hoverHost = lastHoverHost ?? hud.FindName(HoverHostName) as Grid;
             Button button = lastRepairButton;
-            if (button == null || hoverHost == null) return;
+            if (button == null || hoverHost == null || lastHoverPadding == null) return;
             if (!ReferenceEquals(hoverHost, lastHoverHost))
             {
                 hoverHost.MouseEnter += OnButtonEnter;
                 hoverHost.MouseLeave += OnButtonLeave;
                 lastHoverHost = hoverHost;
             }
-            if (!IsActive || !repair.TryGetSelectedQuote(out BuildingRepairQuote quote))
+            bool isActive = IsActive;
+            GameData gameData = isActive ? GameData.Instance : null;
+            EngineInterface.PlayState state = gameData?.lastGameState;
+            if (!isActive || !repair.TryGetSelectedQuote(out BuildingRepairQuote quote) ||
+                state == null || state.in_structure != quote.BuildingId || state.app_sub_mode != quote.Panel ||
+                !visibility.ShouldShow(state.in_structure_type, gameData.app_sub_mode))
             {
                 if (hoverHost.Visibility != Visibility.Hidden)
                     hoverHost.Visibility = Visibility.Hidden;
@@ -188,6 +201,9 @@ namespace ExtraFeatures
                 hud.RefBedouinStockadePanel.Visibility == Visibility.Visible;
             if (lastSpecialLayout != special)
             {
+                // Recruitment help buttons have no box, so match their circular footprint.
+                button.Tag = special ? "Unframed" : "Framed";
+                lastHoverPadding.Visibility = special ? Visibility.Hidden : Visibility.Visible;
                 hoverHost.Width = special ? 20 : 24;
                 hoverHost.Height = special ? 20 : 24;
                 hoverHost.Margin = special
