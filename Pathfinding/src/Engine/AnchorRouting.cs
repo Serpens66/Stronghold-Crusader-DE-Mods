@@ -678,7 +678,7 @@ namespace Pathfinding.Engine
                     int building = k == 0 ? anchorPortals[at + 4] : anchorPortalsNext[at + 4];
                     if (building <= 0 || k == 1 && building == anchorPortals[at + 4]) continue;
                     bool found = APIShared.BuildingAccess.TryGetById(building, out GameBuilding* record, out _) && record != null;
-                    if (!found || !Shared.GameBuildingFootprint.TryGetBounds(record, out Shared.GameBuildingFootprintBounds bounds))
+                    if (!found || !TryGetGateFootprint(record, out Shared.GameBuildingFootprintBounds bounds))
                     {
                         // DEVDIAG resweep-source audit (16.11.2026): which entry changes have no resolvable footprint.
                         Shared.DevDiag.Log(() => $"pf-footprint unknown id={id} side={(k == 0 ? "old" : "new")} building={building} found={found} " +
@@ -693,6 +693,40 @@ namespace Pathfinding.Engine
                 }
             }
             return true;
+        }
+
+        // Gate footprint for MarkChangedGates. The occupied-tile list holds at most 6x6 tiles, so a
+        // large gatehouse (7x7) never resolved and every change of its portal entry (enabled 1<->0
+        // under siege, release) fell back to a whole-map resweep (stress save, 16.11.2026). Vanilla's
+        // gate footprint is the square of r_OccupyTileGridSize tiles from r_TilePositionX/YBegin
+        // (GATEHOUSE_QUERY_PASS.md, FBCB9319); the tile list stays preferred where it exists.
+        internal const int MaximumGateGridSize = 16;
+        internal static bool TryGetGateFootprint(GameBuilding* record, out Shared.GameBuildingFootprintBounds bounds)
+        {
+            if (Shared.GameBuildingFootprint.TryGetBounds(record, out bounds))
+            {
+                // DEVDIAG footprint audit: the square from the begin tile must equal the tile-list bounds.
+                Shared.DevDiag.Log(() => SquareFootprintMismatch(record));
+                return true;
+            }
+            return TryGetSquareFootprint(record, out bounds);
+        }
+        private static bool TryGetSquareFootprint(GameBuilding* record, out Shared.GameBuildingFootprintBounds bounds)
+        {
+            bounds = default(Shared.GameBuildingFootprintBounds);
+            if (record == null) return false;
+            uint size = record->r_OccupyTileGridSize;
+            int x = record->r_TilePositionXBegin, y = record->r_TilePositionYBegin;
+            if (size == 0 || size > MaximumGateGridSize || x + size > MapWidth || y + size > MapWidth) return false;
+            bounds = new Shared.GameBuildingFootprintBounds(x, y, x + (int)size - 1, y + (int)size - 1);
+            return true;
+        }
+        private static string SquareFootprintMismatch(GameBuilding* record)
+        {
+            Shared.GameBuildingFootprint.TryGetBounds(record, out Shared.GameBuildingFootprintBounds list);
+            bool square = TryGetSquareFootprint(record, out Shared.GameBuildingFootprintBounds begin);
+            bool same = square && list.MinX == begin.MinX && list.MinY == begin.MinY && list.MaxX == begin.MaxX && list.MaxY == begin.MaxY;
+            return $"pf-footprint compare same={same} list=[{list.MinX},{list.MinY},{list.MaxX},{list.MaxY}] square=[{begin.MinX},{begin.MinY},{begin.MaxX},{begin.MaxY}] size={record->r_OccupyTileGridSize}";
         }
 
         // The published gate route policy's leaving-direction bytes are read by every anchor and

@@ -1240,7 +1240,7 @@ namespace EngineHarness
 
 public static class EngineInterface { private static int[] selectedChimps = Array.Empty<int>(); public static int[] Selection { get=>selectedChimps; set=>selectedChimps=value; } }
 namespace EngineHarness {
-    internal struct GameBuilding { public uint r_GlobalId; public AliveState r_AliveState; public int r_PlayerIdOwner, r_BuildingType; public uint r_OccupyTileGridSize, r_OccupiedTileIdsArrayBegin; }
+    internal struct GameBuilding { public uint r_GlobalId; public AliveState r_AliveState; public int r_PlayerIdOwner, r_BuildingType; public ushort r_TilePositionXBegin, r_TilePositionYBegin; public uint r_OccupyTileGridSize, r_OccupiedTileIdsArrayBegin; }
     internal unsafe class GameBuildingManagerAPI {
         public static GameBuildingManagerAPI Instance = new GameBuildingManagerAPI();
         public GameBuilding* Building;

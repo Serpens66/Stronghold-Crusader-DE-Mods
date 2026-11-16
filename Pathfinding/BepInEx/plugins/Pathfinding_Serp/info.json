@@ -24,7 +24,7 @@
       "Changes": [
         "With fast group or individual routing enabled, troops now also walk straight lines around larger obstacles, walls and moats instead of angular L-shaped detours. A straightened route is never longer or slower than before, and some group routes become slightly shorter.",
         "Updated the tooltips of the shared group routing and fast individual search options accordingly.",
-        "Building a gatehouse or raising siege ladders no longer slows the game down for several seconds when many units are on the map."
+        "Building, besieging or destroying a gatehouse and raising siege ladders no longer slow the game down for several seconds when many units are on the map."
       ]
     },
     {

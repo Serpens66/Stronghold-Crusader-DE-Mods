@@ -1761,6 +1761,20 @@ namespace EngineHarness
                 AnchorTick(++ticks);
                 for (int i = 0; i < (total + AnchorResweepNodesPerTick - 1) / AnchorResweepNodesPerTick * 2; i++) AnchorTick(++ticks);
 
+                // Gate footprints: a 7x7 gatehouse has no complete occupied-tile list (at most 6x6);
+                // its footprint is the square of r_OccupyTileGridSize tiles from the begin tile.
+                {
+                    GameBuilding large = default(GameBuilding);
+                    large.r_TilePositionXBegin = 100; large.r_TilePositionYBegin = 200; large.r_OccupyTileGridSize = 7;
+                    Check(TryGetGateFootprint(&large, out Shared.GameBuildingFootprintBounds square) &&
+                        square.MinX == 100 && square.MinY == 200 && square.MaxX == 106 && square.MaxY == 206,
+                        $"7x7 gate footprint [{square.MinX},{square.MinY},{square.MaxX},{square.MaxY}] is not the square from its begin tile");
+                    large.r_OccupyTileGridSize = 0;
+                    Check(!TryGetGateFootprint(&large, out _), "a gate without grid size resolves a footprint");
+                    large.r_OccupyTileGridSize = 7; large.r_TilePositionXBegin = (ushort)(MapWidth - 3);
+                    Check(!TryGetGateFootprint(&large, out _), "a gate footprint past the map edge resolves");
+                }
+
                 // A newly published gate route policy marks exactly the nodes whose from-tile byte
                 // changed for some player (null array or a tile past its end: all directions allowed).
                 {

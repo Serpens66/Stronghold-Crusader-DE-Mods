@@ -30,10 +30,11 @@ namespace PathfindingLoadTest
                     if (found) { x = px; y = py; }
                 }
             Require(found, "No vacant flat gatehouse site east of the own keep");
-            Require(run.TrySpawnBuilding(run.CurrentMission, owner, x, y, eMappers.MAPPER_GATE_INNER, 0, out int gateId, out uint gateGlobal),
+            eMappers mapper = gateLarge ? eMappers.MAPPER_GATE_MAIN : eMappers.MAPPER_GATE_INNER;
+            Require(run.TrySpawnBuilding(run.CurrentMission, owner, x, y, mapper, 0, out int gateId, out uint gateGlobal),
                 "Gatehouse placement failed at " + x + "," + y);
             string placed = run.InSimulation(run.CurrentMission, DescribePortals);
-            log("gate placed id=" + gateId + " global=" + gateGlobal + " at=" + x + "," + y + " portalsBefore=[" + before + "] portalsAfterPlace=[" + placed + "]");
+            log("gate placed mapper=" + mapper + " id=" + gateId + " global=" + gateGlobal + " at=" + x + "," + y + " portalsBefore=[" + before + "] portalsAfterPlace=[" + placed + "]");
             yield break;
         }
         // Bound = pathManager+0; top = highest slot with a non-zero state and its building.

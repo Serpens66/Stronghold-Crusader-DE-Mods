@@ -105,8 +105,8 @@ der installierten Mods (inklusive RandomEvents) und unterscheiden sich nur in `P
 - **A:** veröffentlichtes 0.1.8.
 - **B:** Arbeitsstand mit `StraightenRoute`.
 
-Der Runner stellte nach jedem Lauf Plugins und Einstellungen geprüft wieder her. Rohlogs
-liegen unter `.work/t/pf-shape/001/runs/`.
+Der Runner stellte nach jedem Lauf Plugins und Einstellungen geprüft wieder her. Die Rohlogs
+wurden nach der Auswertung entfernt; die Zahlen stehen hier.
 
 **Wegform, 100 Spearmen:**
 
@@ -181,6 +181,20 @@ Die verbleibenden Sekunden entsprechen der Grundlast von 5000 Einheiten bei Spee
 auch Kontrollläufe ohne Torhaus erreichen sie. Kompakte Daten liegen unter
 `.work/t/pf-resweep/001/results.txt`.
 
-**Offen:** Mehrspielerprüfung, ob die Policy auf allen Peers im selben Tick veröffentlicht
-wird. Außerdem die Quelle der zusätzlichen globalen Resweeps (`global=216`) aus zwei
-früheren Läufen.
+**Mehrspieler und Policy-Zeitpunkt (Einzelspieler-Prüfung):** Die Policy wird über
+`ProcessGatePolicies(tick)` im Simulationstick veröffentlicht. In 9 Diagnoseläufen geschah
+das immer auf dem Sim-Thread und nie verschoben. Eine Verschiebung ist nur möglich, wenn alle
+Masken-Slots noch Leser haben; dieselbe Lücke betrifft die Live-Policy schon ohne Fix 0b.
+
+**Große Torhäuser (Fix 3):** Im Stress-Save `test_stresstest5.sav` lösten Belagerungen weiterhin
+4–6 kartenweite Resweeps je ~10 Minuten aus (3,3–4,7 s Sim-CPU). Ursache:
+`GameBuildingFootprint.TryGetBounds` akzeptiert höchstens 6×6 Kacheln, weil die
+Extender-Struktur nur 36 belegte Kacheln speichert. Ein großes Torhaus (7×7) scheiterte deshalb
+bei jeder Änderung seines Portaleintrags. `TryGetGateFootprint` nimmt dann das Quadrat ab
+`r_TilePositionX/YBegin` mit `r_OccupyTileGridSize` (Baseline `GATEHOUSE_QUERY_PASS.md`). Bei
+5×5-Torhäusern stimmt dieses Quadrat im Spiel mit der Kachelliste überein. Mit großem
+Test-Torhaus (`wall-5000-gatelarge`) wurde die Fläche lokal markiert, ohne Sweep.
+
+**Offen:** Die Quelle der zusätzlichen globalen Resweeps (`global=216`) aus zwei früheren
+Läufen trat in 9 Diagnoseläufen nicht wieder auf. Die DevDiag-Messpunkte (`pf-global`,
+`pf-resweep`) zeigen sie beim nächsten Auftreten.

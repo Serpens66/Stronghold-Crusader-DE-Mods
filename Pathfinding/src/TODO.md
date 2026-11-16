@@ -64,38 +64,7 @@ bleiben trotz bestandener Teilprüfungen offen. Zusammenführung und Nachweise:
   konkrete Feld-/Branchverträge stammen aus den dortigen vollständigen Audits und
   dem Abgleich mit aktuellen Funktionsabfragen. Keine neue Vollanalyse der gesamten DLL.
 
-## Bestätigte Fehler – offline korrigiert
-
-- [x] **B1 / P2: Offline abgeschlossen – überlappenden Solo-/Fluchtbesitz erhalten.**
-  [MovementCaseSave](Engine/MovementCaseSave.cs) stellt beide Schichten wieder her;
-  `ProcessReplanSolos` wartet wie im ununterbrochenen Lauf auf das Fluchtende.
-  Ist `AnchorSingleMoves` beim Laden aus, übernimmt die passende geborgte Flucht
-  den Solo-Gruppenbesitz statt ihn vorzeitig zurückzugeben. Unit-/Tribe-Global-ID,
-  Eigentümer und Split-Vertrag sichern den Übergang; Save-Identitäten bleiben erhalten.
-  Regressionen mit tatsächlichem Restore-/Verarbeitungs-/Gruppencode für Feuer/Pest,
-  Hinweg, sicheres Warten und Rückkehr vergleichen ununterbrochenen Lauf mit Save/Load;
-  abgeschaltete Gefahren beziehungsweise Soloüberwachung werden einbezogen.
-  Fehlende Wiederherstellung sowie der deaktivierte Solo-Wächter scheiterten vor
-  ihren Korrekturen (Nachweise `b1-before.log`, `b1-watch-disabled-before.log`,
-  `b1-after.log` unter `.work/a/pf-offline/001`). Abnahmekriterium offline erfüllt;
-  echter Save-Lauf mit Spielanimation bleibt T6/T10.
-
 ## Ungeklärte Fragen (keine bestätigten Fehler)
-
-- [x] **Q1: Verhalten entschieden und offline umgesetzt.**
-  Kosten 254 bleiben ein weiches Routing-Signal für alle Einheiten. Aktives
-  Warten/Flüchten gilt ausschließlich für geeignete menschliche Soldaten;
-  Zivilisten, Belagerungsgeräte und bestehende Immunitäten bleiben ausgeschlossen.
-  KI erhält sichere Routen innerhalb ihrer vorhandenen Befehle, keine neuen
-  automatischen Stop-/Fluchtbefehle vor separatem Zustandsaudit und Spielabnahme.
-  `FireWaitIndefinitely` und `PlagueWaitIndefinitely` sind host-synchronisiert,
-  standardmäßig aus, mit Preset-/Settings-/Locale-/versteckter UI-Anbindung.
-  Begrenztes Warten bricht nach Frist ab; unbegrenztes wartet bis zum zulässigen
-  sicheren Umweg. Eigene Wartefälle laufen nach Ablauf nie absichtlich durch Gefahr.
-  Rückkehrfristen bleiben getrennt; APIShareds `MaximumWaitTicks=0` bleibt unverändert.
-  Neue Befehle, Tod, Eigentums-/Identitätswechsel und Mission ersetzen alte Fälle.
-  Nachweis: 30 Produktions-Warteprüfungen und 546 Settings-/UI-Prüfungen.
-  Laufende Spielabnahme und die Schutzgrenzen ohne Einzelrouten bleiben T2–T6.
 
 - [ ] **Q2: Pestmodell an echten Höhenübergängen abgleichen.**
   **Offline geprüft, dynamisch offen:** alle Kategorien-/Policykombinationen und
@@ -109,18 +78,6 @@ bleiben trotz bestandener Teilprüfungen offen. Zusammenführung und Nachweise:
   **Fertig wenn:** Vorhersage und echter Schadenspfad für Boden, Treppen, Mauern,
   Tore, Türme, Burgfried, zerstörte Varianten und Übergänge verglichen sind, mit
   Vanilla sowie einzelnen/vereinigten APIShared-Höhenpolicies und Toleranzgrenzen.
-
-- [x] **Q3: Offline abgeschlossen – falschen Erfolg bei altem Zustand 101/122 korrigiert.**
-  [SoldierTribeMoves.TryMoveSoldier](Engine/SoldierTribeMoves.cs) prüft vor dem
-  Gruppenbefehl die vollständig auditierten Aufnahmebedingungen von `0x11B520`;
-  der bestehende KI-Ausschlussmarkenhelfer läuft zuvor. Ein alter Walking-/Exit-
-  Zustand eines abgewiesenen Mitglieds gilt damit nicht als Erfolg des neuen Befehls.
-  Die Regression mit tatsächlichem Produktionscode scheiterte vorher und besteht
-  nun für alte Zustände 101/122 und Aufnahmeausschlüsse; echte Spielmember und
-  Offsets wurden gegen die installierte Assembly reflektiert.
-  Nachweise `q3-before.log`/`q3-after.log` in `.work/a/pf-offline/001`,
-  Feldverträge in [UpdateToNewDLL](../UpdateToNewDLL.md).
-  Tatsächliches Ankommen und Animation bleiben T4/T10.
 
 - [ ] **Q4: Gefahrenerkennung und tatsächlich ausgeführte Route zeitlich abgleichen.**
   **Offline geprüft, Spielmessung vorbereitet:** Produktionsscanner und echter
@@ -154,15 +111,6 @@ Alle folgenden Kästchen bezeichnen fehlende zusätzliche Nachweise, nicht die
 Abwesenheit der oben genannten Offline-Tests. Neue Ingame-Szenarien gehören in
 einen Testmod unter `Testmods/` über die öffentliche Test-API, nicht in den Hauptmod.
 
-- [x] **T1: Offline abgeschlossen – tatsächliche Scanquellen geprüft.**
-  [HazardScannerTests](../tests/Engine/HazardScannerTests.cs) kompiliert vollständige
-  `FireRouteRules`, `PlagueRouteRules`, `PlagueDamageModel` und `HazardTileSet`;
-  kontrollierte Spielgrenzen statt nachgeschriebener Scannerlogik. 1273 Assertions
-  prüfen Zustände, Slots/Wiederverwendung, Überlappung, Entfernung, Drift/Richtungen,
-  Subkachelgrenzen, Kartenränder, Reset, echte APIShared-Policies und Journal.
-  Die erwarteten Mengen und deren Entfernung/Reset stimmen. Native Bindung und
-  echte Callbackausführung bleiben ausdrücklich Teil der Spielabnahme.
-
 - [ ] **T2: Feuer-Ingame-Matrix abschließen.** Pech, Feuerpfeile/-töpfe und
   Gebäudebrand; stehende/laufende/wartende Soldaten, Feuer entsteht auf Restweg,
   erlaubter/zu langer/fehlender Umweg, gefährliches Ziel und eingekreiste Einheit.
@@ -188,9 +136,11 @@ einen Testmod unter `Testmods/` über die öffentliche Test-API, nicht in den Ha
   Auswahl/Neugruppierung, Shift-Folgebefehle, Zielfeldverschiebung, KI-Kampfverhalten,
   Gruppenverlust/-erschöpfung. Fertig: neuere Befehle haben Vorrang, Formation und
   Warteschlange behalten ihre Bedeutung; kein versehentlicher Wiederholungsbefehl
-  löscht die Queue. Q3 einschließen.
+  löscht die Queue. Abgewiesene Mitglieder mit altem Zustand 101/122 gelten nicht als
+  Erfolg des neuen Befehls (offline behoben); tatsächliches Ankommen hier mitprüfen.
 - [ ] **T6: Save-/Lifecycle-Matrix ergänzen.**
-  **Offline erweitert, echte Saves/Editor offen:** B1 abgeschlossen; v1-Fallbytes,
+  **Offline erweitert, echte Saves/Editor offen:** überlappender Solo-/Fluchtbesitz,
+  v1-Fallbytes,
   deaktivierte Optionen, Unit-/Tribe-Identitätswechsel und Tick-basierte
   Warteverteilung sind in Produktionsmethoden geprüft.
   Feuer/Pest jeweils während Flucht, sicherem Warten, Rückkehr, Routenwarten und Solo-Fortsetzung
@@ -246,7 +196,7 @@ einen Testmod unter `Testmods/` über die öffentliche Test-API, nicht in den Ha
   Testweg mit explizit aktivierten EngineOptions festlegen; kein Lauf, der weiterhin
   `AvoidFire=false`/`AvoidPlague=false` nutzt, darf als Gefahrentest zählen.
   Fertig: Testprotokoll weist effektive Optionen und echte Scan-/Fluchtcallbacks nach.
-- [ ] **R2: Nach B1 und vollständiger Abnahme die Funktionen bewusst freigeben.**
+- [ ] **R2: Nach vollständiger Abnahme die Funktionen bewusst freigeben.**
   `EngineOptions.Capture`, beide ausgeblendeten XAML-Bereiche und
   `SettingsDependencyTests` gemeinsam umstellen; unabhängige Core-/Einzelrouten-
   Abhängigkeiten und Hostsettings erhalten. Alte Presets/Saves dürfen vor Freigabe
@@ -263,15 +213,17 @@ einen Testmod unter `Testmods/` über die öffentliche Test-API, nicht in den Ha
 Übernommen am 13.11.2026 aus der bisherigen Verbesserungsdatei, deren Prüfstand
 Modpack `e95da5315e2f7567d7ae8c8f6d24f75f3e7804b0` und APIShared
 `d91fd86a6fbecd9d400062b5f44f534e52bbb00f` war. Implementierungs- und
-Abnahmestand vor einer Fortsetzung erneut prüfen. Die Kandidaten G1–G9 sind
+Abnahmestand vor einer Fortsetzung erneut prüfen. Die Kandidaten G3–G9 sind
 Untersuchungsaufträge, keine bestätigten Fehler und keine automatische
 Umsetzungsfreigabe für den Release vom 13.11.2026. Erledigte oder unverändert
 verworfene Versuche sind keine neuen Aufgaben. Historische Gegenbeispiele stehen
 in den [Optimierungslehren](../migration/moatmove-notes.md#bewahrte-optimierungslehren).
 Native RVAs gelten ausschließlich für den oben genannten DLL-Hash; neue
 Vanilla-Erkenntnisse in der [aktuellen Baseline](../../_inspect/CrusaderDE-Native-Baseline/CURRENT.md) sichern.
-Die frühere Feuer-/Pestaufgabe 4.1 ist mit B1, Q1–Q4, T1–T10 und R1–R3
-zusammengeführt und wird hier nicht als zweite Aufgabenliste geführt.
+Die frühere Feuer-/Pestaufgabe 4.1 ist in Q2, Q4, T2–T10 und R1–R3 aufgegangen und
+wird hier nicht als zweite Aufgabenliste geführt. Offline erledigte Punkte (überlappender
+Solo-/Fluchtbesitz, Gefahrenverhalten, Zustand 101/122, Scannerquellen, Ziel auf
+verbotener Kachel) sind entfernt; ihre Spielabnahme steht in T2–T10.
 
 ### Native Feindsuche beschleunigen
 
@@ -283,39 +235,6 @@ Die **historischen Profile vor dem Spectator-Fix** zeigen 32,260 % eigene Simula
 
 Quellen: [Native Ablauf-, Cadence- und Arithmetikverträge](../../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/SIM_TICK_SPIKE_PATHING.md#enemy-scan-cadence-and-integer-contracts-2026-11-13-vanilla-facts), [Profilaggregation](../../.work/a/stress90/001/profile-summary.json) und zugehörige Originalprotokolle unter `.work/a/stress90/001/results/`. Der Sampler ordnet native Blattadressen Funktionen zu; einzelne Instruktionskosten sind daraus nicht bestimmbar.
 
-#### G1: Zielscore – festen Divisor spezialisieren
-
-- [x] **Offline-Untersuchung abgeschlossen, Kandidat nicht integriert:** tatsächlicher
-  Assembler und installierter RedBird-Backend geprüft; mit Einbaukosten langsamer
-  (Score +7,3 bis +29,0%). Original bleibt aktiv. Vollständige signed-/Maschinen-
-  Nachweise und reproduzierbarer Benchmark in [OfflineOptimization](../Findings/OfflineOptimization.md).
-  Eine andere Einbauform benötigt einen neuen Gleichheits- und Nettogewinnnachweis.
-
-Der originale aktuelle Tabellenzugriff muss erhalten bleiben. Keine fest einprogrammierte Jittertabelle und keine ungeprüfte Annahme über negative Indizes: normale Erzeugung liefert nichtnegative Seeds, der vollständige Save-/Transfervertrag ist jedoch noch offen, und die Tabellenregion ist schreibbar. Signed Addition, Modulo, Rundung gegen null, Listencount und Reihenfolge dürfen sich nicht ändern.
-
-**Vertrag für jeden späteren Versuch:** Gleichheit auch an signed Grenzen,
-unveränderte Ziel-/Minimum-/Folgezustände und vollständige Register-/Flag-/Stack-
-Verträge. Die jetzigen Kandidaten bestehen 7.095.335 gemeinsame G1/G2-Prüfungen,
-erbringen jedoch keinen Nettogewinn. Keine produktiven Zusatzhooks angelegt.
-
-#### G2: Distanz – nicht benötigte Divisionen erkennen
-
-Die exakte Formel lautet für `M=max(|dx|,|dy|)>0`, `m=min(...)`:
-
-    P = floor(2*m/5)*m
-    D = M + floor(P/M)
-
-Der Nullfall bleibt separat. Bei den eingelesenen signed-short Koordinaten ist `P` höchstens 1.717.934.490; `D>=M` ist damit auch unter der tatsächlichen Ganzzahlarithmetik gesichert. Falls `P<M`, ist der Quotient exakt null. Der konstante `/5`-Teil ist im Original bereits durch Multiplikation optimiert; die verbleibende Division durch `M` ist der Untersuchungskandidat.
-
-- [x] **Offline-Untersuchung abgeschlossen, Kandidat nicht integriert:** der exakte
-  `P<M`-Pfad erhält Quotient/Rest und beide Major-Zweige, ist einschließlich tatsächlicher
-  Hooksprünge und Logikschalter +13,9 bis +16,3% langsamer. Original bleibt aktiv.
-  Keine weitergehende Minimum-/Zielabschneidung ohne eigenen vollständigen Nachweis.
-
-Zu erhalten sind insbesondere die inklusive Reichweite, der separate Heimursprungs-Zweig,
-alte Listeneinträge vor dem Global-ID-Test und die einmal eingelesene Actor-Position.
-Eine reine Reichweitenprüfung vom aktuellen Standort ist kein ausreichender Ersatz.
-
 #### G3: Räumlicher Index erst nach zusätzlichem Audit
 
 **Offline eingegrenzt, weiter offen:** konkrete Writer-/Reihenfolge-Gegenbeispiele
@@ -324,7 +243,7 @@ Kein produktiver Index ohne vollständigen Aktualisierungs- und Kostenvertrag.
 
 - [ ] **Weitergehende Untersuchung, keine abgesicherte Lösung:** Ein Index könnte Kandidatenarbeit reduzieren, benötigt aber einen vollständigen Zustands- und Aktualisierungsvertrag. Vorher müssen Bewegung, Spawn, Teleport, Slotwiederverwendung, Laden, Transfer sowie der Zustand zum jeweiligen Scanzeitpunkt innerhalb des Ticks geschlossen sein. Ein Snapshot vom Tickanfang reicht bei aufsteigenden Unitupdates nicht automatisch aus.
 
-Originale Listenzugehörigkeit, Count und Gleichstandsreihenfolge müssen erhalten bleiben. Entfernungsminimum, Auxminimum und gewichtete Zielwahl sind getrennte Verbraucher. Vanillas Distanzapproximation besitzt keine allgemeine Dreiecksungleichung; Euclid-Radien und gewöhnliche metrische Baumabschneidungen sind deshalb kein Gleichheitsbeweis. Die detaillierten Gegenbeispiele stehen in der Baseline. Diesen größeren Umbau erst bewerten, wenn die kleineren Arithmetikmaßnahmen nicht ausreichen und die Indexpflege mitgemessen werden kann.
+Originale Listenzugehörigkeit, Count und Gleichstandsreihenfolge müssen erhalten bleiben. Entfernungsminimum, Auxminimum und gewichtete Zielwahl sind getrennte Verbraucher. Vanillas Distanzapproximation besitzt keine allgemeine Dreiecksungleichung; Euclid-Radien und gewöhnliche metrische Baumabschneidungen sind deshalb kein Gleichheitsbeweis. Die detaillierten Gegenbeispiele stehen in der Baseline. Diesen größeren Umbau erst bewerten, wenn die Indexpflege mitgemessen werden kann. Die kleineren Arithmetikkandidaten (fester Divisor im Zielscore, Division in der Distanz) wurden offline untersucht und mangels Nettogewinn nicht integriert; Nachweise und Verträge in [OfflineOptimization](../Findings/OfflineOptimization.md).
 
 ### Verbleibende Such- und Aktualisierungskosten
 
@@ -373,21 +292,6 @@ Vor weiteren Änderungen Feldaufbau, tatsächlich abgefragte Mitglieder, abgesch
 
 Einstieg: [Gruppen-/Startfilter im nativen Kern](../../Pathfinding/native/PathfindingAnchor.cpp) und [AnchorRouting](../../Pathfinding/src/Engine/AnchorRouting.cs). Die vorhandenen Batch-, Einzelabfrage- und Determinismusgarantien bleiben maßgeblich.
 
-### G8: Ziel auf einer verbotenen Kachel
-
-- [x] **G8: Offline abgeschlossen – betroffenen Bewegungsbefehl vor Änderung ablehnen.**
-  [ForbiddenMoveTargets](UnitCommands/Runtime/ForbiddenMoveTargets.cs) prüft
-  ausschließlich aktive Pathfinding-Regeln und den echten lebenden Gruppeneigentümer.
-  [PermanentCommandHooks](UnitCommands/Native/PermanentCommandHooks.cs) lehnt direkte
-  Bewegungen und neue Queue-Wegpunkte vor Auftrags-/Queueänderungen ab; der
-  Spielerwrapper erhält seinen vorherigen `+0x56C`-Wert. Verschachtelte Ablehnungen
-  verändern keinen akzeptierten Elternauftrag. Die spätere Anchor-Subscription
-  ignoriert übersprungene Pre-Ereignisse, für die der Extender kein Post sendet.
-  Start-im-Verbot darf weiter verlassen werden. Keine Ersatzzielsuche und keine
-  globale Änderung fremder Vanilla-Befehle oder APIShared-Verträge.
-  Nachweis: 18 Friendly-Movement- und 9 integrierte tatsächliche Subscriberprüfungen.
-  Sichtbares Auftrags-/Marker-/Queueverhalten und Host/Client bleiben T5/T9/T10.
-
 ### G9: Vergleichslücken schließen
 
 **Vorbereitet:** [Prepare-ComparisonMatrix](../tools/Prepare-ComparisonMatrix.ps1)
@@ -432,9 +336,11 @@ Offen:
 - Im Spieltest war die Begradigung nicht sichtbar: Bei Spieler-Gruppenbefehlen liefen
   nur 18–19 Mitglieder über den Pathfinding-Routenbau, und deren Wege waren bereits
   gerade. Ein Spielszenario mit großer, weit verteilter Gruppe steht noch aus.
-- Eigener Punkt, nicht durch G10 verursacht: Eine Erreichbarkeits-Neuberechnung nach
-  `accessChanges`/`portals` belegte mit 5000 laufenden Einheiten 7–9 s lang die
-  Simulation.
+- Eigener Punkt, nicht durch G10 verursacht: In zwei Läufen vom 16.11.2026 lösten
+  204 zusätzliche globale Invalidierungen (`global=216`) eine kartenweite Neuberechnung
+  aus; die Quelle ist offen. Die DEVDIAG-Messpunkte `pf-global`/`pf-resweep` (nur
+  `/devdiag`) zeigen sie beim nächsten Auftreten. Die übrigen Auslöser sind behoben,
+  siehe Findings/RouteShape.md.
 
 Das Werkzeug [tools/RouteShape](../tools/RouteShape/Run-RouteShape.ps1) vergleicht
 Basis und Arbeitsstand auf identischen Anfragen. Freie Flächen, Mauerringe,

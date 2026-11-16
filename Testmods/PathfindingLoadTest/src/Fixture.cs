@@ -24,6 +24,8 @@ namespace PathfindingLoadTest
         private readonly bool wall;
         // "-gate" scenarios place one own gatehouse before the topology wait (Fixture.Gate.cs).
         private readonly bool gate;
+        // "-gatelarge" places the large (7x7) gatehouse instead of the small one.
+        private readonly bool gateLarge;
         // "stress-observe" only loads the -SaveFixture and runs ticks (Fixture.Stress.cs).
         private readonly bool stress;
         // "-long" scenarios observe 30 instead of 6 samples (route maintenance after the command).
@@ -62,13 +64,14 @@ namespace PathfindingLoadTest
             wall = scenario.StartsWith("wall-", StringComparison.Ordinal) || shape != null;
             count = shape != null ? 100 : scenario.Contains("5000") ? 5000 : 1000;
             samples = scenario.EndsWith("-long", StringComparison.Ordinal) ? 30 : 6;
-            gate = scenario.EndsWith("-gate", StringComparison.Ordinal);
+            gateLarge = scenario.EndsWith("-gatelarge", StringComparison.Ordinal);
+            gate = scenario.EndsWith("-gate", StringComparison.Ordinal) || gateLarge;
             stress = scenario == "stress-observe";
             width = count == 5000 ? 100 : 40; height = count == 5000 ? 60 : 30;
         }
         internal static bool Owns(string scenario) => scenario == "wall-1000" || scenario == "wall-5000" ||
             scenario == "open-1000" || scenario == "open-5000" || scenario == "watch-bench" || scenario == "startup-probe" ||
-            scenario == "shape-gap" || scenario == "shape-end" || scenario == "shape-far" || scenario == "wall-5000-long" || scenario == "wall-5000-gate" || scenario == "stress-observe";
+            scenario == "shape-gap" || scenario == "shape-end" || scenario == "shape-far" || scenario == "wall-5000-long" || scenario == "wall-5000-gate" || scenario == "wall-5000-gatelarge" || scenario == "stress-observe";
         internal IEnumerable<AutomationStep> Steps()
         {
             if (startupProbe)
@@ -363,9 +366,12 @@ namespace PathfindingLoadTest
             foreach (var wait in run.SetPause(run.CurrentMission, false)) yield return wait;
             yield return AutomationWait.Until("all created units initialized", () => run.InSimulation(run.CurrentMission, AllLive));
             int[] requested = units.Select(u => u.Id).ToArray();
+            // Fresh targets after initialization: the selection guard treats any later change as a foreign move.
+            run.InSimulation(run.CurrentMission, () => { for (int i = 0; i < units.Count; i++) units[i] = Capture(units[i].Id); return 0; });
             run.InSimulation(run.CurrentMission, () => GamePlayerManagerAPI.Instance.SetSelectedChimps(requested.ToList()));
             yield return run.WaitForTicks(run.CurrentMission, 4);
-            yield return AutomationWait.Until("exact native selection and tribe", () => run.InSimulation(run.CurrentMission, SelectionMatches));
+            selectionFirstTick = null;
+            yield return AutomationWait.Until("exact native selection and tribe", () => run.InSimulation(run.CurrentMission, () => SelectionReady(run)));
             foreach (var wait in run.SetPause(run.CurrentMission, true)) yield return wait;
             log("selection/group verified count=" + count + " tribe=" + tribe);
         }
@@ -382,24 +388,28 @@ namespace PathfindingLoadTest
         }
         private unsafe bool SelectionMatches()
         {
+            selectionMismatch = "units not all alive";
             if (!AllLive()) return false;
             var expected = new HashSet<int>(units.Select(u => u.Id));
             // Completed local PlayState, not the Extender's Steam-roster-based getter:
             // an ordinary local Skirmish need not have a Steam participant slot.
-            if (!LocalSelectionAPI.TryCapture(owner, out LocalSelectionSnapshot selected) || selected.Count != count) return false;
+            if (!LocalSelectionAPI.TryCapture(owner, out LocalSelectionSnapshot selected) || selected.Count != count)
+            { selectionMismatch = "selection count " + (selected.Count) + " != " + count; return false; }
             var selectedIds = new HashSet<int>();
             for (int index = 0; index < selected.Count; index++) selectedIds.Add(selected[index].UnitId);
-            if (!expected.SetEquals(selectedIds)) return false;
-            if (!UnitAccess.TryGetById(units[0].Id, out GameUnit* first, out _)) return false;
+            if (!expected.SetEquals(selectedIds)) { selectionMismatch = "selected ids differ from the spawned units"; return false; }
+            if (!UnitAccess.TryGetById(units[0].Id, out GameUnit* first, out _)) { selectionMismatch = "first unit lookup failed"; return false; }
             int candidate = first->r_TribeId;
             if (candidate <= 0 || !GameTribeManagerAPI.Instance.TryGetTribeById(candidate, out GameTribe* record) ||
-                record->r_AliveState != AliveState.IsAlive || record->r_PlayerIdOwner != owner || record->r_UnitsInGroup != count) return false;
+                record->r_AliveState != AliveState.IsAlive || record->r_PlayerIdOwner != owner || record->r_UnitsInGroup != count)
+            { selectionMismatch = "tribe " + candidate + " not one live group of " + count; return false; }
             var members = new List<int>();
-            if (!GameTribeManagerAPI.Instance.GetUnits(candidate, members) || members.Count != count || !expected.SetEquals(members)) return false;
+            if (!GameTribeManagerAPI.Instance.GetUnits(candidate, members) || members.Count != count || !expected.SetEquals(members))
+            { selectionMismatch = "tribe " + candidate + " members " + members.Count + " differ from the spawned units"; return false; }
             foreach (var identity in units)
             {
                 if (!UnitAccess.TryGetById(identity.Id, out GameUnit* u, out _)) return false;
-                if (u->r_TribeId != candidate) return false;
+                if (u->r_TribeId != candidate) { selectionMismatch = "unit " + identity.Id + " in tribe " + u->r_TribeId + " instead of " + candidate; return false; }
             }
             tribe = candidate; return true;
         }

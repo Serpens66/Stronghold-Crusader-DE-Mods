@@ -121,3 +121,9 @@ every anchor mask. The log lines "gate placed" and "gate portals after topology 
 show bound/used/top before and after; compare Pathfinding variants with -PluginLayout.
 stress-observe: loads the runner -SaveFixture (an AI-heavy save), unpauses at speed 250 and
 runs 8 x 500 native ticks without world changes; the tested mods' own diagnostics are the evidence.
+wall-5000-gatelarge: same as wall-5000-gate with the large (7x7) gatehouse, whose occupied-tile list
+is incomplete (at most 6x6); Pathfinding must still mark its footprint without a whole-map resweep.
+Selection guard (all scenarios with initialize-select): targets are re-captured after initialization; any target
+change of the selected units before the test command fails as "Unexpected move order ... during selection"
+(player input or another mod), and the exact selection must match within 50 native ticks or the step fails
+with the failing condition.
