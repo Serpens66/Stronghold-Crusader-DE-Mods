@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization;
@@ -16,6 +17,7 @@ internal static class LaunchSnapshotTests
 {
     private const BindingFlags Any = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
     private static int checks;
+    private static object fixtureSetup;
     private static void Check(bool value, string reason)
     {
         checks++;
@@ -50,6 +52,7 @@ internal static class LaunchSnapshotTests
         Set(snapshot, "mapHash", "original-hash");
         Set(snapshot, "<MapFileName>k__BackingField", "original.map");
         Set(snapshot, "<SetupText>k__BackingField", "original-settings");
+        Set(snapshot, "<LobbyCoopTrailId>k__BackingField", -1);
         return snapshot;
     }
     public static int Main()
@@ -63,7 +66,7 @@ internal static class LaunchSnapshotTests
     }
     internal static void Run()
     {
-        RosterChecks(); SourceChecks(); DigestChecks(); CodecChecks();
+        RosterChecks(); SourceChecks(); DigestChecks(); CodecChecks(); MapIdentityChecks();
         Console.WriteLine("PASS: " + checks + " production snapshot checks; no Unity/Steam calls.");
     }
     private static void RosterChecks()
@@ -103,6 +106,8 @@ internal static class LaunchSnapshotTests
             File.WriteAllText(path, "changed map bytes");
             Check(snapshot.ValidateSource() != null, "Changed map bytes were accepted with the old CRC.");
             File.WriteAllText(path, "original map bytes");
+            map.fileName = "ORIGINAL.map";
+            Check(snapshot.ValidateSource() != null, "Logical map-case tolerance weakened the exact local header check.");
             map.fileName = "other.map";
             Check(snapshot.ValidateSource() != null, "Changed source header identity was accepted.");
             map.fileName = "original.map"; map.crc++;
@@ -168,4 +173,96 @@ internal static class LaunchSnapshotTests
     }
     private static string[] PortableSplit(string value, string separator, StringSplitOptions options) =>
         value.Split(new[] { separator }, options);
+
+    private static object FixtureSetup(object unusedView, string name)
+    {
+        if (unusedView != null || name != "MPsetupData") throw new Exception("Unexpected frontend fixture boundary.");
+        return fixtureSetup;
+    }
+    private static void MapIdentityChecks()
+    {
+        CultureInfo originalCulture = CultureInfo.CurrentCulture, originalUi = CultureInfo.CurrentUICulture;
+        try
+        {
+            // Only the external UI lookup is isolated. FRONT_Multiplayer's Noesis type
+            // initializer invokes the native GUI library even for an uninitialized object.
+            // The clone executes every actual
+            // roster, filename, CRC, settings, AI and frontend-setup validation unchanged.
+            using (var validation = new DynamicMethodDefinition(typeof(LaunchSnapshot).GetMethod("ValidateLobby", Any)))
+            using (var il = new ILContext(validation.Definition))
+            {
+                int replaced = 0;
+                foreach (var instruction in il.Body.Instructions)
+                {
+                    if (!(instruction.Operand is MethodReference method) ||
+                        method.DeclaringType.FullName != typeof(LaunchSnapshot).FullName) continue;
+                    if (method.Name == "Front")
+                    {
+                        instruction.OpCode = OpCodes.Ldnull;
+                        instruction.Operand = null;
+                        replaced++;
+                    }
+                    else if (method.Name == "GetFront")
+                    {
+                        instruction.OpCode = OpCodes.Call;
+                        instruction.Operand = il.Import(typeof(LaunchSnapshotTests).GetMethod(nameof(FixtureSetup), Any));
+                        replaced++;
+                    }
+                }
+                Check(replaced == 2, "Expected external frontend boundary did not match the actual lobby validator.");
+                var validate = (Func<LaunchSnapshot, Platform_Multiplayer.MPLobby, bool, string>)validation.Generate()
+                    .CreateDelegate(typeof(Func<LaunchSnapshot, Platform_Multiplayer.MPLobby, bool, string>));
+                string invariantDigest = null;
+                foreach (string culture in new[] { "en-US", "de-DE", "tr-TR" })
+                {
+                    CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(culture);
+                    CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(culture);
+                    LaunchSnapshot first = Seed(), second = Seed();
+                    Set(first, "<MapFileName>k__BackingField", "IslandArena");
+                    Set(second, "<MapFileName>k__BackingField", "islandarena");
+                    string hash = (string)Call(first, "ComputeDigest");
+                    Check(hash == (string)Call(second, "ComputeDigest"), "Map spelling broke digest equality under " + culture);
+                    if (invariantDigest == null) invariantDigest = hash;
+                    Check(hash == invariantDigest, "The map digest depends on current culture " + culture);
+                    Check(first.MapFileName == "IslandArena" && second.MapFileName == "islandarena", "Digest canonicalization changed stored source spelling.");
+                    Set(second, "<Crc>k__BackingField", 99);
+                    Check(hash != (string)Call(second, "ComputeDigest"), "Different CRC retained a normalized map digest.");
+                    Set(second, "<Crc>k__BackingField", 0);
+                    Set(second, "mapHash", "changed-content");
+                    Check(hash != (string)Call(second, "ComputeDigest"), "Different content retained a normalized map digest.");
+                    var lordFirst = Seed(); var lordSecond = Seed();
+                    Array firstMembers = (Array)typeof(LaunchSnapshot).GetField("members", Any).GetValue(lordFirst);
+                    Array secondMembers = (Array)typeof(LaunchSnapshot).GetField("members", Any).GetValue(lordSecond);
+                    Set(firstMembers.GetValue(2), "CustomName", "Mansur");
+                    Set(secondMembers.GetValue(2), "CustomName", "mansur");
+                    Check((string)Call(lordFirst, "ComputeDigest") != (string)Call(lordSecond, "ComputeDigest"),
+                        "Map-case tolerance leaked into a custom Lord's exact identity.");
+
+                    var setup = new EngineInterface.MultiplayerSetupData();
+                    Set(first, "<SetupText>k__BackingField", setup.ToString());
+                    Set(first, "<Crc>k__BackingField", 42);
+                    fixtureSetup = setup;
+                    var lobby = new Platform_Multiplayer.MPLobby { isHost = true,
+                        mapFileName = "islandarena", crc = "42", settings = setup.ToString() };
+                    Set(lobby, "this_player_to_SteamID_mapping", new ulong[] { 10001, 10002, 9, 0, 0, 0, 0, 0 });
+                    lobby.members.Add(Human(10001)); lobby.members.Add(Human(10002));
+                    var ai = new Platform_Multiplayer.MPLobbyMember(); ai.SetSkirmishPlayer(9UL); lobby.members.Add(ai);
+                    for (int i = 0; i < lobby.members.Count; i++)
+                    { lobby.members[i].colourID = i + 1; lobby.setTeam(lobby.members[i], i == 2 ? 2 : 1); }
+                    Check(validate(first, lobby, true) == null, "Actual lobby validation rejected logical map case under " + culture);
+                    lobby.crc = "43";
+                    Check(validate(first, lobby, true) != null, "Actual lobby validation accepted changed map CRC.");
+                    lobby.crc = "42"; lobby.mapFileName = "differentarena";
+                    Check(validate(first, lobby, true) != null, "Actual lobby validation accepted another map name.");
+                    lobby.mapFileName = "\u0131slandarena";
+                    Check(validate(first, lobby, true) != null, "Turkish dotless I was folded into a different logical map identity.");
+                }
+            }
+        }
+        finally
+        {
+            fixtureSetup = null;
+            CultureInfo.CurrentCulture = originalCulture; CultureInfo.CurrentUICulture = originalUi;
+        }
+    }
 }

@@ -9,6 +9,7 @@ namespace MultiplayerRestartTest
     [MessagePackFormatter(typeof(RestartWireFormatter))]
     internal sealed class RestartWire
     {
+        internal const int WireVersion = 2;
         internal int Control; // 0=protocol, 1=capability hello, 2=hello acknowledgement.
         internal short PacketId;
         internal RestartPacket Packet;
@@ -21,7 +22,7 @@ namespace MultiplayerRestartTest
         public void Serialize(ref MessagePackWriter writer, RestartWire value, MessagePackSerializerOptions options)
         {
             Validate(value); var p = value.Packet;
-            writer.WriteArrayHeader(8); writer.Write(1); writer.Write(value.Control); writer.Write(value.PacketId);
+            writer.WriteArrayHeader(8); writer.Write(RestartWire.WireVersion); writer.Write(value.Control); writer.Write(value.PacketId);
             writer.Write((int)p.Kind); writer.Write(p.Session); writer.Write(p.Operation); writer.Write(p.Digest); writer.Write(p.LobbyId);
         }
         public RestartWire Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
@@ -29,7 +30,7 @@ namespace MultiplayerRestartTest
             options.Security.DepthStep(ref reader);
             try
             {
-                if (reader.ReadArrayHeader() != 8 || reader.ReadInt32() != 1) throw new MessagePackSerializationException("Restart wire version/schema mismatch.");
+                if (reader.ReadArrayHeader() != 8 || reader.ReadInt32() != RestartWire.WireVersion) throw new MessagePackSerializationException("Restart wire version/schema mismatch.");
                 var value = new RestartWire { Control = reader.ReadInt32(), PacketId = reader.ReadInt16(),
                     Packet = new RestartPacket { Kind = (RestartMessageKind)reader.ReadInt32(), Session = Text(ref reader, 160),
                         Operation = Text(ref reader, 32), Digest = Text(ref reader, 64), LobbyId = reader.ReadUInt64() } };

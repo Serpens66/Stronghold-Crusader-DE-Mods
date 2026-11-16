@@ -8,7 +8,7 @@ namespace ConstructionCostsTest
 {
     [BepInPlugin(Guid, "Construction Costs Test", "0.1.0")]
     [BepInDependency("000shcdese", "2.14.3")]
-    [BepInDependency("APIShared_Serp", "0.55.0")]
+    [BepInDependency("APIShared_Serp", "0.56.0")]
     [BepInDependency("BuildingCosts_Serp")]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class Plugin : BaseUnityPlugin

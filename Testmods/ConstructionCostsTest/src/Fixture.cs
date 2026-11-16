@@ -33,7 +33,7 @@ namespace ConstructionCostsTest
         private ConstructionCostTarget tower = ConstructionCostTarget.FromMapper(eMappers.MAPPER_TOWER4);
         private static readonly eGoods[] NativeGoods = { eGoods.STORED_WOOD_PLANKS, eGoods.STORED_STONE_BLOCKS, eGoods.STORED_IRON_INGOTS, eGoods.STORED_PITCH_RAW, eGoods.STORED_GOLD };
         internal Fixture(string map, string scenario, Guid runId, Action<string> log) { this.map = map; this.scenario = scenario; this.runId = runId; this.log = log; }
-        internal static bool Owns(string value) => value == "costs" || value == "costs-extra-refund" || value == "costs-tooltip" || value == "costs-freebuild-undo" || value == "costs-refund70";
+        internal static bool Owns(string value) => value == "costs" || value == "costs-extra-refund" || value == "costs-tooltip" || value == "costs-freebuild-undo" || value == "costs-refund70" || value == "costs-callbacks";
         internal IEnumerable<AutomationStep> Steps()
         {
             yield return new AutomationStep("typed-contract-and-registration", TimeSpan.FromSeconds(30), Register);
@@ -52,6 +52,19 @@ namespace ConstructionCostsTest
             }
             yield return new AutomationStep("natural-first-free", TimeSpan.FromSeconds(60), FirstFree, true);
             yield return new AutomationStep("ordinary-paid-free-ai-failed", TimeSpan.FromSeconds(90), Ordinary, true);
+            if (scenario == "costs-callbacks")
+            {
+                yield return new AutomationStep("clear-original-paid-well", TimeSpan.FromSeconds(45), Refund, true);
+                foreach (var source in new[] { BonusSource.GoldPre, BonusSource.GoldPost, BonusSource.WoodPre })
+                {
+                    var selected = source;
+                    yield return new AutomationStep("independent-bonus-" + selected, TimeSpan.FromSeconds(60), run => BonusRefund(run, selected), true);
+                }
+                yield return new AutomationStep("brazier-callback-and-later-raw-spawns", TimeSpan.FromSeconds(60), BrazierCallbackSpawns, true);
+                yield return new AutomationStep("only-paid-brazier-refund", TimeSpan.FromSeconds(60), BrazierRefund, true);
+                yield return new AutomationStep("restore-native-costs", TimeSpan.FromSeconds(20), Restore, true);
+                yield break;
+            }
             if (scenario == "costs-tooltip")
             {
                 yield return new AutomationStep("actual-rollover-presentation", TimeSpan.FromSeconds(60), run => TooltipAcceptance.Check(run, log, extras), true);

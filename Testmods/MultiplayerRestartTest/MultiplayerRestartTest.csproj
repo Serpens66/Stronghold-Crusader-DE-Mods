@@ -42,6 +42,10 @@
     <Compile Include="tests\RuntimeTests.cs" />
     <Compile Include="tests\LaunchSnapshotTests.cs" />
     <Compile Include="tests\RuntimeFailureTests.cs" />
+    <Compile Include="tests\TransportTests.cs" />
+    <Compile Include="tests\TargetReadinessTests.cs" />
+    <Compile Include="tests\RuntimeParkingTests.cs" />
+    <Compile Include="tests\RuntimeContextTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="src\**\*.cs" />

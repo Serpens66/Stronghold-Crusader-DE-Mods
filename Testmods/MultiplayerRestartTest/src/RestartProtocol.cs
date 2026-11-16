@@ -7,10 +7,10 @@ namespace MultiplayerRestartTest
     // The caller owns Unity dispatch, actual transport, native stopping and lobby validation.
     // Each instance owns exactly one attempt. Session IDs and retired operation IDs must also
     // be checked by the caller before it admits a new instance from a received Prepare.
-    internal enum RestartMessageKind { Prepare = 1, Ready, Stop, Stopped, Lobby, Joined, Start, Abort, StartAcknowledged }
-    internal enum RestartPhase { Idle, Preparing, Stopping, WaitingLobby, Joining, Starting, Completed, Aborted, Failed }
+    internal enum RestartMessageKind { Prepare = 1, Ready, Stop, Stopped, Lobby, Joined, Start, Abort, StartAcknowledged, StreamsDrained, SimulationReady, Complete, CompleteAck }
+    internal enum RestartPhase { Idle, Preparing, Stopping, Draining, WaitingLobby, Joining, Starting, Completing, Completed, Aborted, Failed }
     [Flags]
-    internal enum RestartEffect { None = 0, PrepareLocal = 1, StopLocal = 2, CreateLobby = 4, JoinLobby = 8, StartLocal = 16, Cancelled = 32 }
+    internal enum RestartEffect { None = 0, PrepareLocal = 1, StopLocal = 2, CreateLobby = 4, JoinLobby = 8, StartLocal = 16, Cancelled = 32, CompletedLocal = 64 }
 
     internal sealed class RestartPacket
     {
@@ -35,10 +35,11 @@ namespace MultiplayerRestartTest
         private readonly ulong self, host;
         private readonly HashSet<ulong> peers, ready = new HashSet<ulong>(), stopped = new HashSet<ulong>(), verified = new HashSet<ulong>();
         private readonly HashSet<ulong> startAcknowledged = new HashSet<ulong>();
+        private readonly HashSet<ulong> drained = new HashSet<ulong>(), simulationReady = new HashSet<ulong>(), completionAcknowledged = new HashSet<ulong>();
         private readonly string session, digest;
         private readonly long timeout;
         private long phaseStarted, lastClock;
-        private bool localPrepared, localStopped, localVerified;
+        private bool localPrepared, localStopped, localVerified, localDrained, localSimulationReady;
         private bool hostLaunchRequested;
 
         internal RestartProtocol(ulong selfSteamId, ulong hostSteamId, IEnumerable<ulong> humanPeers,
@@ -57,6 +58,8 @@ namespace MultiplayerRestartTest
         }
 
         internal RestartPhase Phase { get; private set; }
+        internal string Session => session;
+        internal string Digest => digest;
         internal string Operation { get; private set; }
         internal ulong LobbyId { get; private set; }
         internal bool Committed { get; private set; }
@@ -84,7 +87,8 @@ namespace MultiplayerRestartTest
 
         internal RestartStep Receive(ulong senderSteamId, RestartPacket packet, long now)
         {
-            if (packet == null || !peers.Contains(senderSteamId) || senderSteamId == self || IsTerminal)
+            if (packet == null || !peers.Contains(senderSteamId) || senderSteamId == self ||
+                Phase == RestartPhase.Aborted || Phase == RestartPhase.Failed)
                 return RestartStep.Reject("Unknown sender, self-delivery, missing packet or retired attempt.");
             if (packet.Session != session || packet.Digest != digest || !ValidOperation(packet.Operation))
                 return RestartStep.Reject("Session, operation or start configuration does not match.");
@@ -97,11 +101,23 @@ namespace MultiplayerRestartTest
                 return new RestartStep { Effects = RestartEffect.PrepareLocal };
             }
             if (packet.Operation != Operation) return RestartStep.Reject("Stale or different operation.");
-            RestartStep clockFailure = CheckClock(now);
-            if (clockFailure != null) return clockFailure;
             // Lobby is the only packet carrying a target lobby. Reject accidental reuse of IDs.
             if (packet.Kind != RestartMessageKind.Lobby && packet.LobbyId != 0)
                 return RestartStep.Reject("Unexpected target lobby.");
+            if (Phase == RestartPhase.Completed)
+            {
+                // Retain this immutable receipt until the caller admits a new operation or
+                // retires the target mission. Partial Complete delivery can still be aborted.
+                if (packet.Kind == RestartMessageKind.Complete && !IsHost && senderSteamId == host)
+                    return Send(RestartMessageKind.CompleteAck);
+                if (packet.Kind == RestartMessageKind.CompleteAck && IsHost)
+                    return new RestartStep();
+                if (packet.Kind == RestartMessageKind.Abort && (IsHost || senderSteamId == host))
+                    return AbortCore("A participant cancelled the completed target transition.", IsHost);
+                return RestartStep.Reject("Message does not match the retained completion receipt.");
+            }
+            RestartStep clockFailure = CheckClock(now);
+            if (clockFailure != null) return clockFailure;
             switch (packet.Kind)
             {
                 case RestartMessageKind.Prepare:
@@ -117,9 +133,17 @@ namespace MultiplayerRestartTest
                     Enter(RestartPhase.Stopping, now);
                     return new RestartStep { Effects = RestartEffect.StopLocal };
                 case RestartMessageKind.Stopped:
-                    if (!IsHost || Phase != RestartPhase.Stopping || !stopped.Add(senderSteamId))
+                    // Different Steam senders have independent streams: another client's
+                    // marker can arrive before this node receives the host's Stop. Keep it
+                    // without granting stop authority or changing the local commitment.
+                    if ((Phase != RestartPhase.Stopping && Phase != RestartPhase.Draining &&
+                        !(Phase == RestartPhase.Preparing && localPrepared)) || !stopped.Add(senderSteamId))
                         return RestartStep.Reject("Unexpected or duplicate Stopped.");
                     return AdvanceStopped(now);
+                case RestartMessageKind.StreamsDrained:
+                    if (!IsHost || (Phase != RestartPhase.Stopping && Phase != RestartPhase.Draining) || !drained.Add(senderSteamId))
+                        return RestartStep.Reject("Unexpected or duplicate all-streams-drained receipt.");
+                    return AdvanceDrained(now);
                 case RestartMessageKind.Lobby:
                     if (IsHost || senderSteamId != host || Phase != RestartPhase.WaitingLobby || !localStopped || packet.LobbyId == 0)
                         return RestartStep.Reject("Unexpected lobby handoff or simulation is not stopped.");
@@ -145,6 +169,26 @@ namespace MultiplayerRestartTest
                     if (startAcknowledged.Count != peers.Count) return new RestartStep();
                     hostLaunchRequested = true;
                     return new RestartStep { Effects = RestartEffect.StartLocal };
+                case RestartMessageKind.SimulationReady:
+                    if (!IsHost || Phase != RestartPhase.Starting || !hostLaunchRequested || !simulationReady.Add(senderSteamId))
+                        return RestartStep.Reject("Unexpected or duplicate target simulation readiness.");
+                    return AdvanceSimulationReady(now);
+                case RestartMessageKind.Complete:
+                    if (IsHost || senderSteamId != host || Phase != RestartPhase.Starting || !localSimulationReady)
+                        return RestartStep.Reject("Unexpected completion or local target simulation is not ready.");
+                    Phase = RestartPhase.Completed;
+                    var complete = Send(RestartMessageKind.CompleteAck);
+                    // The runtime must retain this receipt and apply CompletedLocal before
+                    // submitting CompleteAck, so an acknowledgement failure can still abort it.
+                    complete.Effects = RestartEffect.CompletedLocal;
+                    return complete;
+                case RestartMessageKind.CompleteAck:
+                    if (!IsHost || Phase != RestartPhase.Completing)
+                        return RestartStep.Reject("Unexpected completion acknowledgement.");
+                    if (!completionAcknowledged.Add(senderSteamId)) return new RestartStep();
+                    if (completionAcknowledged.Count != peers.Count) return new RestartStep();
+                    Phase = RestartPhase.Completed;
+                    return new RestartStep { Effects = RestartEffect.CompletedLocal };
                 case RestartMessageKind.Abort:
                     // Any expected participant can veto its own unsafe transition. Clients only
                     // follow the host's broadcast; an unrelated client's message is not authority.
@@ -170,15 +214,18 @@ namespace MultiplayerRestartTest
             if (Phase != RestartPhase.Stopping || localStopped) return RestartStep.Reject("Local stop is not pending.");
             RestartStep failure = CheckClock(now); if (failure != null) return failure;
             localStopped = true; stopped.Add(self);
-            if (IsHost) return AdvanceStopped(now);
-            Enter(RestartPhase.WaitingLobby, now);
-            return Send(RestartMessageKind.Stopped);
+            Enter(RestartPhase.Draining, now);
+            var result = Send(RestartMessageKind.Stopped);
+            RestartStep progress = AdvanceStopped(now);
+            result.Effects |= progress.Effects;
+            result.Outbound.AddRange(progress.Outbound);
+            return result;
         }
 
         internal RestartStep PublishLobby(ulong lobbyId, long now)
         {
-            if (!IsHost || Phase != RestartPhase.WaitingLobby || stopped.Count != peers.Count || lobbyId == 0)
-                return RestartStep.Reject("Host lobby publication requires all stopped receipts.");
+            if (!IsHost || Phase != RestartPhase.WaitingLobby || !localDrained || drained.Count != peers.Count || lobbyId == 0)
+                return RestartStep.Reject("Host lobby publication requires all peers to drain every old stream.");
             RestartStep failure = CheckClock(now); if (failure != null) return failure;
             LobbyId = lobbyId;
             Enter(RestartPhase.Joining, now);
@@ -198,12 +245,23 @@ namespace MultiplayerRestartTest
             return Send(RestartMessageKind.Joined);
         }
 
-        internal RestartStep Complete()
+        // Caller supplies a session-bound receipt combining managed completion, fresh
+        // target PlayState and the verified native multiplayer start handoff.
+        internal RestartStep LocalSimulationReady(long now)
         {
-            if (Phase != RestartPhase.Starting || (IsHost && !hostLaunchRequested))
-                return RestartStep.Reject("Normal game startup is not pending or the start barrier is incomplete.");
-            Phase = RestartPhase.Completed;
-            return new RestartStep();
+            if (Phase != RestartPhase.Starting || localSimulationReady || (IsHost && !hostLaunchRequested))
+                return RestartStep.Reject("Target readiness is not pending or host launch is not authorized.");
+            RestartStep failure = CheckClock(now); if (failure != null) return failure;
+            localSimulationReady = true; simulationReady.Add(self);
+            return IsHost ? AdvanceSimulationReady(now) : Send(RestartMessageKind.SimulationReady);
+        }
+
+        // The runtime chooses its retry interval. A retry never renews the phase deadline.
+        internal RestartStep RetryCompletion(long now)
+        {
+            if (!IsHost || Phase != RestartPhase.Completing) return RestartStep.Reject("No host completion broadcast is pending.");
+            RestartStep failure = CheckClock(now); if (failure != null) return failure;
+            return Send(RestartMessageKind.Complete);
         }
 
         internal RestartStep Tick(long now)
@@ -214,7 +272,8 @@ namespace MultiplayerRestartTest
 
         internal RestartStep Abort(string reason)
         {
-            if (Phase == RestartPhase.Idle || IsTerminal) return RestartStep.Reject("No live attempt to abort.");
+            if (Phase == RestartPhase.Idle || Phase == RestartPhase.Aborted || Phase == RestartPhase.Failed)
+                return RestartStep.Reject("No live or completed target attempt to abort.");
             return AbortCore(string.IsNullOrWhiteSpace(reason) ? "Local transition failed." : reason, true);
         }
 
@@ -230,9 +289,30 @@ namespace MultiplayerRestartTest
 
         private RestartStep AdvanceStopped(long now)
         {
-            if (stopped.Count != peers.Count) return new RestartStep();
+            if (!localStopped || localDrained || stopped.Count != peers.Count) return new RestartStep();
+            localDrained = true;
+            drained.Add(self);
+            if (!IsHost)
+            {
+                Enter(RestartPhase.WaitingLobby, now);
+                return Send(RestartMessageKind.StreamsDrained);
+            }
+            return AdvanceDrained(now);
+        }
+
+        private RestartStep AdvanceDrained(long now)
+        {
+            if (!localDrained || drained.Count != peers.Count) return new RestartStep();
             Enter(RestartPhase.WaitingLobby, now);
             return new RestartStep { Effects = RestartEffect.CreateLobby };
+        }
+
+        private RestartStep AdvanceSimulationReady(long now)
+        {
+            if (simulationReady.Count != peers.Count) return new RestartStep();
+            Enter(RestartPhase.Completing, now);
+            completionAcknowledged.Add(self);
+            return Send(RestartMessageKind.Complete);
         }
 
         private RestartStep AdvanceVerified(long now)

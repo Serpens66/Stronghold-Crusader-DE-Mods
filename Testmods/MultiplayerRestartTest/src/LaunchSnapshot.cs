@@ -235,7 +235,7 @@ namespace MultiplayerRestartTest
             if (lobby.isHost != host) return "Replacement lobby role differs.";
             if (lobby.members.Count != members.Length || !mapping.SequenceEqual(lobby.this_player_to_SteamID_mapping))
                 return "Player-slot mapping differs from the original launch.";
-            if (lobby.mapFileName != MapFileName ||
+            if (!string.Equals(lobby.mapFileName, MapFileName, StringComparison.OrdinalIgnoreCase) ||
                 !int.TryParse(lobby.crc, NumberStyles.Integer, CultureInfo.InvariantCulture, out int crc) || crc != Crc ||
                 lobby.settings != SetupText || !GetAivs(lobby).SequenceEqual(aivs))
                 return "Map, settings or AI configuration differs from the original launch.";
@@ -262,7 +262,9 @@ namespace MultiplayerRestartTest
             using (var bytes = new MemoryStream())
             using (var writer = new BinaryWriter(bytes, Encoding.UTF8, true))
             {
-                writer.Write(1); writer.Write(mapHash); writer.Write(MapFileName); writer.Write(Crc);
+                // Logical map names are case-insensitive across peers. Keep the captured
+                // spelling and local source checks intact; canonicalize only these hash bytes.
+                writer.Write(1); writer.Write(mapHash); writer.Write(MapFileName.ToUpperInvariant()); writer.Write(Crc);
                 writer.Write(SetupText); writer.Write(CoopTrailId); writer.Write(CoopMissionId);
                 writer.Write(LobbyCoopTrailId); writer.Write(coopSelected); writer.Write(coopSwapped);
                 writer.Write(coopProgress);

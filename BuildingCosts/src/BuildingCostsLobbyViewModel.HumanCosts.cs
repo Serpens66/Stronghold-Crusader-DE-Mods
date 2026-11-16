@@ -1,4 +1,5 @@
 using APIShared.ModSettings;
+using MessagePack;
 using Noesis;
 using SHCDESE.Interop;
 using SHCDESE.API.Components.Network;
@@ -11,11 +12,9 @@ using System.Text;
 
 namespace BuildingCosts
 {
-    public sealed partial class BuildingCostsLobbyViewModel
+    public sealed partial class BuildingCostsLobbyViewModel : IModSettingsStoredSnapshotMigration
     {
-        // Null means this property was absent in an older preset/save. An explicitly empty
-        // new property must win over the old, previously unsafe Brazier cost row.
-        private string humanExtraBuildingCosts;
+        private string humanExtraBuildingCosts = CreateDefaultHumanExtraBuildingCosts();
         private bool updatingHumanEntries;
         internal static readonly eGoods[] HumanCostGoods = {
             eGoods.STORED_GOLD, eGoods.STORED_BOWS, eGoods.STORED_CROSSBOWS,
@@ -35,7 +34,7 @@ namespace BuildingCosts
         [SyncHostOnly]
         public string HumanExtraBuildingCosts
         {
-            get => humanExtraBuildingCosts ?? SerializeHumanCosts(GetLegacyHumanCosts());
+            get => humanExtraBuildingCosts;
             set
             {
                 if (!CanMutateSetting(nameof(HumanExtraBuildingCosts))) return;
@@ -74,10 +73,32 @@ namespace BuildingCosts
             RefreshHumanCostNames();
         }
 
-        private Dictionary<string, Dictionary<eGoods, int>> GetLegacyHumanCosts()
+        /// <summary>Transfers an old Brazier row only while the selected source lacks the new property.</summary>
+        public Dictionary<string, byte[]> System_MigrateStoredSnapshot(Dictionary<string, byte[]> snapshot)
+        {
+            if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
+            var result = new Dictionary<string, byte[]>(snapshot, snapshot.Comparer);
+            // Presence wins even for an explicitly empty/null new value. Do not inspect live
+            // settings: personal, preset and mission snapshots have independent source values.
+            if (snapshot.TryGetValue(nameof(HumanExtraBuildingCosts), out byte[] explicitHuman))
+            {
+                // Match the setter's canonical form before save verification. Explicit null/empty
+                // selects zero extras instead of leaving a preliminary legacy value in memory.
+                string value = explicitHuman == null ? null : MessagePackSerializer.Deserialize<string>(explicitHuman);
+                result[nameof(HumanExtraBuildingCosts)] = MessagePackSerializer.Serialize(SerializeHumanCosts(ParseHumanCosts(value)));
+                return result;
+            }
+            if (!snapshot.TryGetValue(nameof(BuildingCosts), out byte[] bytes) || bytes == null) return result;
+            var legacy = GetLegacyHumanCosts(MessagePackSerializer.Deserialize<string>(bytes));
+            if (legacy.Count != 0)
+                result[nameof(HumanExtraBuildingCosts)] = MessagePackSerializer.Serialize(SerializeHumanCosts(legacy));
+            return result;
+        }
+
+        private static Dictionary<string, Dictionary<eGoods, int>> GetLegacyHumanCosts(string serialized)
         {
             var result = new Dictionary<string, Dictionary<eGoods, int>>(StringComparer.OrdinalIgnoreCase);
-            if (ParseSerializedCosts(buildingCosts).TryGetValue("MAPPER_BRAZIER", out BuildingCostValues old))
+            if (ParseSerializedCosts(serialized).TryGetValue("MAPPER_BRAZIER", out BuildingCostValues old))
             {
                 result["MAPPER_BRAZIER"] = new Dictionary<eGoods, int> {
                     { eGoods.STORED_WOOD_PLANKS, Math.Max(0, old.Wood) },

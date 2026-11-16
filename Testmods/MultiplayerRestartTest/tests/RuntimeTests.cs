@@ -24,11 +24,13 @@ internal static class RestartTestBootstrap
     {
         int result = BarrierTests.Main(new[] { Path.Combine(game,"Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll") });
         if (result != 0) return result;
-        WireTests.Run(); LaunchSnapshotTests.Run(); VanillaBridge.Validate();
+        WireTests.Run(); LaunchSnapshotTests.Run(); TransportTests.Run(); TargetReadinessTests.Run(); VanillaBridge.Validate();
         Console.WriteLine("Actual runtime private-member contracts passed.");
         StopBarrier.InstallEarly(null);
         if (!StopBarrier.Installed) throw new Exception("Actual early loop/Director hooks failed to publish.");
         Console.WriteLine("Actual early hook installation passed in desktop fixture (no game thread executed).");
+        RuntimeContextTests.Run();
+        RuntimeParkingTests.Run();
         RuntimeFailureTests.Run();
         return 0;
     }
@@ -45,6 +47,12 @@ internal static class WireTests
                 Session = "123:" + new string('A',64), Operation = Guid.NewGuid().ToString("N"), Digest = new string('B',64),
                 LobbyId = kind == RestartMessageKind.Lobby ? 12345UL : 0 } };
             var bytes = MessagePackSerializer.Serialize(packet);
+            Check(bytes[0] == 0x98 && bytes[1] == RestartWire.WireVersion, "Unexpected wire version framing.");
+            var oldVersion = (byte[])bytes.Clone(); oldVersion[1] = 1;
+            bool oldRejected = false;
+            try { MessagePackSerializer.Deserialize<RestartWire>(oldVersion); }
+            catch (MessagePackSerializationException) { oldRejected = true; }
+            Check(oldRejected, "Protocol v1 accepted by v2 formatter.");
             var copy = MessagePackSerializer.Deserialize<RestartWire>(bytes);
             Check(copy.Packet.Kind == kind && copy.Packet.Session == packet.Packet.Session && copy.Packet.Operation == packet.Packet.Operation &&
                 copy.Packet.Digest == packet.Packet.Digest && copy.Packet.LobbyId == packet.Packet.LobbyId && copy.PacketId == packet.PacketId,

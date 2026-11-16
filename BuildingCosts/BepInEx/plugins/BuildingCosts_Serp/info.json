@@ -3,13 +3,20 @@
   "Author": "Serpens66",
   "Name": "Building Costs",
   "Description": "Lets you change construction costs for buildings in Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.119",
+  "Version": "1.0.120",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.3.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.120",
+      "Changes": [
+        "Preserve old Brazier costs as Human extras when loading presets, missions and saved games; explicit Human settings take precedence.",
+        "Require APIShared 0.56.0."
+      ]
+    },
     {
       "Version": "1.0.119",
       "Changes": [
@@ -237,7 +244,7 @@
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.55.0"
+      "MinimumVersion": "0.56.0"
     }
   ]
 }

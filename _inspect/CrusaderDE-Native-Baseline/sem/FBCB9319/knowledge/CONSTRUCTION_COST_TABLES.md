@@ -102,3 +102,39 @@ through actual Chore42, then real Chore75 returned62 and consumed the receipt.
 The official runner confirmed plugin/settings restoration at17:33:01. APIShared
 runtime SHA-256319482C5A3CA48C29AF69186FF424EA8F15E240E0EA26DA453EC9CF7DBAD6205.
 This is local game acceptance; actual host/client multiplayer remains untested.
+
+### Active command attribution [Vanilla facts]
+
+Rechecked on2026-11-15 against canonical FBCB9319. Chore execution1F7E0 sets the
+current slot/issuer, mode0 and cursor0, invokes the opcode handler, then marks the
+slot state byte+9 as10 without clearing the other attribution fields. Pending
+selection21EE0 accepts a signed nonzero state below10. Local23990/received23F10
+start at state1; immediate completion uses1DDB0 to clear the whole slot. Local
+mode0/99 paths in1CD20 and23620 do not supply a later automatic context reset.
+Thus an unchanged current slot/issuer/mode is insufficient after due completion.
+The state must participate in both attribution reads; a universal cursor0 check
+would reject valid effect/Post consumers after field transfer.
+
+### Gold refund origin boundaries [Vanilla facts]
+
+C4480 (length0x528, SHA256
+C1E4DC936740B9D35117AC1539BC0A07D48EF212F61CE57778DC2A82AA8445D7)
+has gold calls C4793:E8 18 11 FF FF and C496C:E8 3F 0F FF FF, both toB58B0,
+returning atC4798/C4971. The former serves stationary-unit sentinels, the latter
+regular buildings. C45AB adds only stone/wood. Whole-function instruction/CFG
+inspection shows no entries inside either five-byte CALL. SE's C487A material
+interceptor is separate. Earlier material-add failures can callD05B0, whose
+space_warning5.wav speech path is outside the resource wrapper; counting nested
+resource calls alone does not establish the origin of all possible gold gifts.
+
+### Refund callback isolation [mod integration]
+
+The2026-11-15 correction preserves payment receipts and native arithmetic. Two
+startup-only CALL retargets use nearby fourteen-byte FF25 relays and the existing
+live B58B0 entry, including SE Pre/Skip/Original/Post. A refund-frame token and
+complete managed resource-wrapper scope distinguish that native gold call from
+nested independent gifts. Complete spawn-wrapper scopes similarly keep callback
+raw spawns from acquiring a paid primary object's receipt. Published relays and
+callbacks remain process-rooted even on partial publication failure.
+Executable ABI and actual SE-wrapper fixtures are required before installation;
+these static contracts are not a new game or host/client acceptance claim.

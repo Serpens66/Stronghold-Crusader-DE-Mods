@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -16,6 +17,11 @@ namespace MultiplayerRestartTest
         private static MethodInfo raw;
         internal static void Validate()
         {
+            var members = typeof(Platform_Multiplayer).GetField("gameMembers", BindingFlags.Public | BindingFlags.Instance);
+            var active = typeof(Platform_Multiplayer).GetProperty("MPGameActive", BindingFlags.Public | BindingFlags.Static);
+            if (members == null || members.FieldType != typeof(List<Platform_Multiplayer.MPGameMember>) ||
+                active?.PropertyType != typeof(bool) || active.GetSetMethod() == null || !active.GetSetMethod().IsStatic)
+                throw new MissingMemberException("Public multiplayer transport-detachment contract changed.");
             chat = Field(typeof(Platform_Multiplayer), "LobbyChatDelegate", typeof(Action<string,string,int>));
             saving = Field(typeof(Platform_Multiplayer), "resyncingOrSaving", typeof(bool));
             resync = Field(typeof(Platform_Multiplayer), "resyncing", typeof(bool));
@@ -47,6 +53,45 @@ namespace MultiplayerRestartTest
             // No ExitMP coroutine may have been scheduled: EndMultiplayer preceded stopGameSim.
             if ((bool)pendingExit.GetValue(EditorDirector.instance)) throw new InvalidOperationException("Unexpected delayed multiplayer exit.");
         }
+        internal static void DetachTransport()
+        {
+            if (!StopBarrier.Quiescent) throw new InvalidOperationException("Transport detachment requires the drained stop barrier.");
+            DetachTransport(Platform_Multiplayer.Instance);
+        }
+        internal static void DetachTransport(Platform_Multiplayer multiplayer)
+        {
+            if (multiplayer == null) throw new ArgumentNullException(nameof(multiplayer));
+            // initFastFollowOn also closes every old Steam session. Keep those sessions:
+            // submitted reliable handoff messages still need them on both sides.
+            // The caller retains peer identities and owns terminal-failure cleanup.
+            Platform_Multiplayer.MPGameActive = false;
+            multiplayer.gameMembers = null;
+        }
+        internal static void ClearOldManagedMessages()
+        {
+            if (!StopBarrier.Quiescent) throw new InvalidOperationException("Old message cleanup requires the drained stop barrier.");
+            ClearOldManagedMessages(Platform_Multiplayer.Instance);
+        }
+        internal static void ClearOldManagedMessages(Platform_Multiplayer multiplayer)
+        {
+            if (multiplayer == null) throw new ArgumentNullException(nameof(multiplayer));
+            // Call only after the protocol has validated every old-stream stop fence.
+            // Detaching alone is deliberately not permission to erase queued messages.
+            multiplayer.clearMPMessages();
+        }
+        internal static void CleanupRetainedPeers(ulong[] peers) => CleanupRetainedPeers(peers, peer => {
+            var identity = default(SteamNetworkingIdentity);
+            identity.SetSteamID(new CSteamID(peer));
+            SteamNetworkingMessages.CloseSessionWithUser(ref identity);
+        });
+        internal static void CleanupRetainedPeers(ulong[] peers, Action<ulong> close)
+        {
+            if (peers == null) throw new ArgumentNullException(nameof(peers));
+            if (close == null) throw new ArgumentNullException(nameof(close));
+            // Terminal abandonment only, after the caller has finished its Abort sends.
+            // A successful restart transfers these sessions to the new gameMembers instead.
+            foreach (ulong peer in peers.Where(value => value > 1000UL).Distinct()) close(peer);
+        }
         internal static void RestoreMode(LaunchSnapshot snapshot)
         {
             bool coop = snapshot.CoopTrailId > 0;
@@ -66,9 +111,9 @@ namespace MultiplayerRestartTest
             front.currentLobby = lobby; mp.SetActiveLobby(lobby);
             front.doOpen(false, false, null, snapshot.CoopTrailId > 0);
             front.currentLobby = lobby; mp.SetActiveLobby(lobby);
-            // All peers already know targetLobby through our acknowledged protocol; old game
-            // transports can now close, and SE's regular lobby receiver becomes the sole consumer.
-            mp.initFastFollowOn(); RestoreMode(snapshot);
+            // Keep the peer transport through both sides' lobby initialization. SE's regular
+            // lobby receiver becomes the sole consumer without dropping submitted handoffs.
+            DetachTransport(); RestoreMode(snapshot);
             Invoke(front, "updateSteamIDMappings", Type.EmptyTypes);
             Invoke(front, "UpdateRadarShieldPositions", Type.EmptyTypes);
             Invoke(front, "UpdateHostInfo", new[] { typeof(bool) }, false);
@@ -89,7 +134,7 @@ namespace MultiplayerRestartTest
         {
             // This narrow bridge runs only after all old readers drained and before any active
             // lobby exists. It never forwards old gameplay/seed/start packets to a new world.
-            if (!StopBarrier.Requested || Platform_Multiplayer.Instance.activeLobby != null) return;
+            if (!StopBarrier.Quiescent || Platform_Multiplayer.Instance.activeLobby != null) return;
             var pointers = new IntPtr[64];
             int count = SteamNetworkingMessages.ReceiveMessagesOnChannel(2, pointers, pointers.Length);
             try

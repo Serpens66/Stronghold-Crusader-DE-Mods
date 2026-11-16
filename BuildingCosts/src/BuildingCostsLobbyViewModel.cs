@@ -616,8 +616,6 @@ namespace BuildingCosts
             if (updatingEntries)
                 return;
 
-            // Freeze legacy migration before removing its old global row.
-            if (humanExtraBuildingCosts == null) humanExtraBuildingCosts = HumanExtraBuildingCosts;
             buildingCosts = BuildSerializedCosts();
             SettingChanged?.Invoke(nameof(BuildingCosts));
             OnPropertyChanged(nameof(BuildingCosts));
