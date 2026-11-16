@@ -677,8 +677,15 @@ namespace Pathfinding.Engine
                 {
                     int building = k == 0 ? anchorPortals[at + 4] : anchorPortalsNext[at + 4];
                     if (building <= 0 || k == 1 && building == anchorPortals[at + 4]) continue;
-                    if (!APIShared.BuildingAccess.TryGetById(building, out GameBuilding* record, out _) || record == null ||
-                        !Shared.GameBuildingFootprint.TryGetBounds(record, out Shared.GameBuildingFootprintBounds bounds)) return false;
+                    bool found = APIShared.BuildingAccess.TryGetById(building, out GameBuilding* record, out _) && record != null;
+                    if (!found || !Shared.GameBuildingFootprint.TryGetBounds(record, out Shared.GameBuildingFootprintBounds bounds))
+                    {
+                        // DEVDIAG resweep-source audit (16.11.2026): which entry changes have no resolvable footprint.
+                        Shared.DevDiag.Log(() => $"pf-footprint unknown id={id} side={(k == 0 ? "old" : "new")} building={building} found={found} " +
+                            $"old=[{anchorPortals[at]},{anchorPortals[at + 1]},{anchorPortals[at + 2]},{anchorPortals[at + 3]},{anchorPortals[at + 4]},{anchorPortals[at + 5]}] " +
+                            $"new=[{anchorPortalsNext[at]},{anchorPortalsNext[at + 1]},{anchorPortalsNext[at + 2]},{anchorPortalsNext[at + 3]},{anchorPortalsNext[at + 4]},{anchorPortalsNext[at + 5]}]");
+                        return false;
+                    }
                     for (int y = Math.Max(0, bounds.MinY - 2); y <= Math.Min(MapWidth - 1, bounds.MaxY + 2); y++)
                         for (int x = Math.Max(0, bounds.MinX - 2); x <= Math.Min(MapWidth - 1, bounds.MaxX + 2); x++)
                         { foreach (var map in anchorMaps) map?.Mark(y * MapWidth + x); foreach (var map in reachWords) map?.Mark(y * MapWidth + x); }
@@ -742,7 +749,9 @@ namespace Pathfinding.Engine
                     }
                 }
             }
-            anchorPolicyTicks += System.Diagnostics.Stopwatch.GetTimestamp() - started;
+            long policyElapsed = System.Diagnostics.Stopwatch.GetTimestamp() - started;
+            anchorPolicyTicks += policyElapsed;
+            Shared.DevDiag.Log(() => $"pf-policy published tick={CaptureCurrentGameTick()} nodesTotal={anchorPolicyNodes} ms={AnchorMs(policyElapsed)}");
         }
 
         // Vanilla's direction bytes (0x51890D0, FBCB9319) also change without a tile report: next
@@ -773,7 +782,7 @@ namespace Pathfinding.Engine
             if (routeTileRuleCursor < 0) { routeTileRuleCursor = APIShared.Pathfinding.RouteTileRules.Version; RebuildReplanTiles(); return; }
             if (routeTileRuleCursor == APIShared.Pathfinding.RouteTileRules.Version) return;
             int count = APIShared.Pathfinding.RouteTileRules.ReadChanges(ref routeTileRuleCursor, routeTileRuleBuffer);
-            if (count < 0) { MarkFastTopologyAll(); RebuildReplanTiles(); return; }
+            if (count < 0) { Shared.DevDiag.Log(() => $"pf-global source=rules-overflow tick={CaptureCurrentGameTick()}"); MarkFastTopologyAll(); RebuildReplanTiles(); return; }
             for (int i = 0; i < count; i++)
             {
                 int x = routeTileRuleBuffer[i] % APIShared.Pathfinding.RouteTileRules.MapSize, y = routeTileRuleBuffer[i] / APIShared.Pathfinding.RouteTileRules.MapSize;
@@ -900,7 +909,7 @@ namespace Pathfinding.Engine
                 {
                     Shared.DebugLogHelper.LogInfo(log, $"Pathfinding anchor mask ready; player={p}.");
                     // Its earlier chunks predate a running round's request: extend the round.
-                    if (anchorSweepCursor >= 0) ResweepAnchorMasks();
+                    if (anchorSweepCursor >= 0) { Shared.DevDiag.Log(() => $"pf-resweep source=mask-ready player={p} tick={CaptureCurrentGameTick()}"); ResweepAnchorMasks(); }
                 }
             }
             return budget;
@@ -927,15 +936,15 @@ namespace Pathfinding.Engine
                     anchorAccessChanges++;
                     for (int p = 1; p <= 8; p++) if (anchorMaps[p] != null) RefreshAnchorBlocked(p);
                     // Alliances changed: every mask may differ (completed enemy moats, friendly gates).
-                    if (diplomacy != anchorDiplomacy) { anchorResweepDiplomacy++; ResweepAnchorMasks(); }
+                    if (diplomacy != anchorDiplomacy) { Shared.DevDiag.Log(() => $"pf-resweep source=diplomacy tick={tick}"); anchorResweepDiplomacy++; ResweepAnchorMasks(); }
                     else
                     {
                         // count is the native table's highest used id + 1 (F4540, FBCB9319), not an entry
                         // count. Live entries keep their ids (D8510 takes the first free slot, nothing
                         // renumbers), so a moved bound is diffed per id like any other entry change:
                         // ids past the old or new bound compare against cleared fields.
-                        if (count != anchorPortalCount) anchorPortalBoundChanges++;
-                        if (!MarkChangedGates(Math.Max(count, anchorPortalCount))) { anchorResweepFootprint++; ResweepAnchorMasks(); }
+                        if (count != anchorPortalCount) { anchorPortalBoundChanges++; Shared.DevDiag.Log(() => $"pf-access portal-bound {anchorPortalCount}->{count} tick={tick}"); }
+                        if (!MarkChangedGates(Math.Max(count, anchorPortalCount))) { Shared.DevDiag.Log(() => $"pf-resweep source=footprint tick={tick}"); anchorResweepFootprint++; ResweepAnchorMasks(); }
                     }
                 }
                 Array.Copy(anchorPortalsNext, anchorPortals, anchorPortals.Length);

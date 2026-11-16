@@ -24,6 +24,8 @@ namespace PathfindingLoadTest
         private readonly bool wall;
         // "-gate" scenarios place one own gatehouse before the topology wait (Fixture.Gate.cs).
         private readonly bool gate;
+        // "stress-observe" only loads the -SaveFixture and runs ticks (Fixture.Stress.cs).
+        private readonly bool stress;
         // "-long" scenarios observe 30 instead of 6 samples (route maintenance after the command).
         private readonly int samples;
         // "gap" or "end" for the route shape scenarios (Fixture.Shape.cs), otherwise null.
@@ -61,11 +63,12 @@ namespace PathfindingLoadTest
             count = shape != null ? 100 : scenario.Contains("5000") ? 5000 : 1000;
             samples = scenario.EndsWith("-long", StringComparison.Ordinal) ? 30 : 6;
             gate = scenario.EndsWith("-gate", StringComparison.Ordinal);
+            stress = scenario == "stress-observe";
             width = count == 5000 ? 100 : 40; height = count == 5000 ? 60 : 30;
         }
         internal static bool Owns(string scenario) => scenario == "wall-1000" || scenario == "wall-5000" ||
             scenario == "open-1000" || scenario == "open-5000" || scenario == "watch-bench" || scenario == "startup-probe" ||
-            scenario == "shape-gap" || scenario == "shape-end" || scenario == "shape-far" || scenario == "wall-5000-long" || scenario == "wall-5000-gate";
+            scenario == "shape-gap" || scenario == "shape-end" || scenario == "shape-far" || scenario == "wall-5000-long" || scenario == "wall-5000-gate" || scenario == "stress-observe";
         internal IEnumerable<AutomationStep> Steps()
         {
             if (startupProbe)
@@ -73,6 +76,11 @@ namespace PathfindingLoadTest
                 yield return new AutomationStep("ordinary-skirmish-start", TimeSpan.FromSeconds(180),
                     run => run.StartSkirmish(map, new[] { AILords.SK_RAT }));
                 yield return new AutomationStep("observe-start", TimeSpan.FromSeconds(30), ObserveStartup, true);
+                yield break;
+            }
+            if (stress)
+            {
+                foreach (var step in StressSteps()) yield return step;
                 yield break;
             }
             if (watchBenchmark)

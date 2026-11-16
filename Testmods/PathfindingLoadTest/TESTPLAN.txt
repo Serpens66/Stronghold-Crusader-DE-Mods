@@ -119,3 +119,5 @@ placed before the 48-tick topology wait. It adds a Vanilla portal-table entry an
 its id bound (pathManager+0), the access change that made Pathfinding <= 0.1.9 resweep
 every anchor mask. The log lines "gate placed" and "gate portals after topology wait"
 show bound/used/top before and after; compare Pathfinding variants with -PluginLayout.
+stress-observe: loads the runner -SaveFixture (an AI-heavy save), unpauses at speed 250 and
+runs 8 x 500 native ticks without world changes; the tested mods' own diagnostics are the evidence.

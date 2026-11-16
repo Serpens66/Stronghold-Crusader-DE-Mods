@@ -920,6 +920,7 @@ namespace Pathfinding.GateRouting
             {
                 if (Interlocked.Exchange(ref lastPoolExhaustionGeneration, generation) != generation)
                     CountIntegrityError(ref poolExhaustions);
+                Shared.DevDiag.Log(() => $"gate-policy publish deferred generation={generation} thread={Thread.CurrentThread.ManagedThreadId}");
                 return;
             }
             try
@@ -932,6 +933,7 @@ namespace Pathfinding.GateRouting
                     (!ReferenceEquals(policy, RouteTilePolicySnapshot.Empty) && policy.RulesVersion != APIShared.GateAccessRules.Version)) return;
                     currentMasks = slot;
                     publishedPolicy = policy;
+                    Shared.DevDiag.Log(() => $"gate-policy published generation={generation} masks={policy.NonEmptyPlayerMaskCount} thread={Thread.CurrentThread.ManagedThreadId}");
                     routePolicySource.Publish(policy);
                     pendingPolicy = null;
 #if SERP_DEVDIAG
