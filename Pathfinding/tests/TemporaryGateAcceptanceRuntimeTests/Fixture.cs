@@ -112,7 +112,7 @@ namespace Pathfinding.GateRouting {
         private int ResolveTribePlayer(int t)=>5;
         private int ResolveBuildingMovementPlayer(int p,int t)=>5;
         private void CaptureScopeSample(QueryKind k,int a,int b,int c,int d){}
-        private QueryScope Enter(int p){LastPlayer=p;return default;}
+        private QueryScope Enter(int p,QueryKind k,bool unmasked=false){LastPlayer=p;return default;}
         private long Complete(QueryScope s,QueryKind k,bool contract,bool success,bool completed=true){Releases++;return 0;}
         private void originalBuilding(IntPtr m,int t,int b,int n,int pcl,int p){Calls++;if(p!=2||t!=37||b!=578)throw new Exception("arguments");if(ThrowNative)throw new InvalidOperationException("original");}
         private void originalConsumer(IntPtr m,int t,int v){Calls++;if(ThrowNative)throw new InvalidOperationException("original");}
