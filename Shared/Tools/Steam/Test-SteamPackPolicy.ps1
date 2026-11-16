@@ -129,21 +129,40 @@ function Get-TestMapPaths([string]$MapPath) {
     finally { $archive.Dispose(); $stream.Dispose() }
 }
 
-foreach ($upload in $seed.Uploads) {
-    $mapPath = Join-Path $workspace ".release-output\SerpsMods\v$($upload.PackVersion)\SerpsMods.map"
-    Assert-True (Test-Path -LiteralPath $mapPath -PathType Leaf) "confirmed map v$($upload.PackVersion) must be locally available for the archive regression test"
-    Assert-True ((Get-TestFileSha256 $mapPath) -ceq [string]$upload.MapSha256) "confirmed map v$($upload.PackVersion) hash must match history"
+# Local release folders are retained only temporarily. Like the pack driver's historical audit
+# (Get-HistoryMapPath), use a local or cached map only when its hash matches the confirmed
+# upload, otherwise download that exact release asset and verify it before use.
+function Get-TestHistoryMap($Upload) {
+    $version = [string]$Upload.PackVersion
+    $expected = [string]$Upload.MapSha256
+    $cache = Join-Path $workspace ".release-output\SerpsMods\cache\history\v$version"
+    foreach ($candidate in @((Join-Path $workspace ".release-output\SerpsMods\v$version\SerpsMods.map"), (Join-Path $cache 'SerpsMods.map'))) {
+        if ([IO.File]::Exists($candidate) -and (Get-TestFileSha256 $candidate) -ceq $expected) { return $candidate }
+    }
+    $stage = Join-Path $cache ('.download-' + [guid]::NewGuid().ToString('N'))
+    [void][IO.Directory]::CreateDirectory($stage)
+    try {
+        & gh release download "SerpsMods/v$version" --repo 'Serpens66/Stronghold-Crusader-DE-Mods' --pattern 'SerpsMods.map' --dir $stage | Out-Null
+        $downloaded = Join-Path $stage 'SerpsMods.map'
+        Assert-True ($LASTEXITCODE -eq 0 -and [IO.File]::Exists($downloaded)) "confirmed map v$version must be downloadable from its GitHub release"
+        Assert-True ((Get-TestFileSha256 $downloaded) -ceq $expected) "confirmed map v$version hash must match history"
+        $target = Join-Path $cache 'SerpsMods.map'
+        if ([IO.File]::Exists($target)) { [IO.File]::Delete($target) }
+        [IO.File]::Move($downloaded, $target)
+        return $target
+    } finally { if ([IO.Directory]::Exists($stage)) { [IO.Directory]::Delete($stage, $true) } }
 }
+$historyMaps = @{}
+foreach ($upload in $seed.Uploads) { $historyMaps[[string]$upload.PackVersion] = Get-TestHistoryMap $upload }
 $allPublishedPaths = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
 foreach ($upload in $seed.Uploads) {
-    $publishedMap = Join-Path $workspace ".release-output\SerpsMods\v$($upload.PackVersion)\SerpsMods.map"
-    foreach ($publishedPath in @(Get-TestMapPaths $publishedMap)) { [void]$allPublishedPaths.Add($publishedPath) }
+    foreach ($publishedPath in @(Get-TestMapPaths $historyMaps[[string]$upload.PackVersion])) { [void]$allPublishedPaths.Add($publishedPath) }
 }
-$paths109 = @(Get-TestMapPaths (Join-Path $workspace '.release-output\SerpsMods\v1.0.9\SerpsMods.map'))
-$paths1010 = @(Get-TestMapPaths (Join-Path $workspace '.release-output\SerpsMods\v1.0.10\SerpsMods.map'))
+$paths109 = @(Get-TestMapPaths $historyMaps['1.0.9'])
+$paths1010 = @(Get-TestMapPaths $historyMaps['1.0.10'])
 $removed109To1010 = @(Get-MissingSteamPackPaths -PreviousPaths $paths109 -CurrentPaths $paths1010)
 Assert-True ($removed109To1010.Count -eq 1 -and $removed109To1010[0] -ceq $patchPath) '1.0.9 -> 1.0.10 must contain exactly the HUD_ControlGroups.xaml removal'
-$paths1012 = @(Get-TestMapPaths (Join-Path $workspace '.release-output\SerpsMods\v1.0.12\SerpsMods.map'))
+$paths1012 = @(Get-TestMapPaths $historyMaps['1.0.12'])
 $missingFromLatest = @(Get-MissingSteamPackPaths -PreviousPaths @($allPublishedPaths) -CurrentPaths $paths1012)
 Assert-True ($missingFromLatest.Count -eq 1 -and $missingFromLatest[0] -ceq $patchPath) 'the complete confirmed Steam history must have exactly one path missing from 1.0.12'
 

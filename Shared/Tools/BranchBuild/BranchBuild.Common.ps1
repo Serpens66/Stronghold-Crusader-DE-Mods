@@ -315,6 +315,19 @@ function Get-CachedApiSdk([string]$Repository, [string]$ApiRepository, [string]$
         throw
     }
 }
+# Disposable test outputs exactly as APIShared's own tools/BranchBuild/BranchRun.ps1 declares them.
+function Test-ApiDeclaredTestOutput([string]$Relative) {
+    return $Relative -match '^\.local/(test-results|test-temp|bootstrap-package-tests|coordination-tests|readiness-tests|recovery-tests|maintenance-tests)/'
+}
+function Get-UnchangedTrackedHashes([string]$Root, [Collections.Generic.HashSet[string]]$Changed) {
+    $hashes = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach ($relative in @(Invoke-BranchGit $Root @('-c','core.quotepath=false','ls-files'))) {
+        if ($Changed.Contains($relative)) { continue }
+        $file = Join-Path $Root $relative
+        if ([IO.File]::Exists($file)) { [void]$hashes.Add((Get-BranchHash $file)) }
+    }
+    return ,$hashes
+}
 function Remove-CachedApiSdk([string]$ApiRepository, [string]$Cache) {
     $Cache = [IO.Path]::GetFullPath($Cache).TrimEnd('\','/')
     if ($Cache -notmatch '[\\/]\.work[\\/]c[\\/]apishared-(main|develop)$') { throw 'Refusing to retire an unknown SDK cache path.' }
@@ -331,8 +344,10 @@ function Remove-CachedApiSdk([string]$ApiRepository, [string]$Cache) {
             $record = [IO.File]::ReadAllText($Cache+'.build.json') | ConvertFrom-Json
             if ($record.SourceRoot -ieq $Cache) { foreach ($item in @($record.BuildToolOverrides)) { if ($item) { $overrides[[string]$item.Path] = [string]$item.Sha256 } } }
         }
+        $changedTracked = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
         foreach ($difference in @(Get-BranchSourceDifferences $Cache)) {
             $relative = [string]$difference.Path
+            [void]$changedTracked.Add($relative)
             if ($relative -match '^BepInEx/') { continue }
             $survivor = Join-Path $ApiRepository $relative
             Assert-BranchUnlinkedPath $survivor
@@ -347,6 +362,7 @@ function Remove-CachedApiSdk([string]$ApiRepository, [string]$Cache) {
             $proof = [IO.File]::ReadAllText($publisherProof) | ConvertFrom-Json
             foreach ($output in @($proof.Outputs)) { $publisherOutputs['.local/WorkshopUploader/'+$output.Name] = [string]$output.Sha256 }
         }
+        $trackedHashes = $null
         foreach ($relative in @(Invoke-BranchGit $Cache @('-c','core.quotepath=false','ls-files','--others','--ignored','--exclude-standard'))) {
             $relative = $relative.Replace('\','/')
             if ($relative -notmatch '\.(cs|cpp|c|h|ps1|py|bat|cmd|sh|csproj|props|targets)$') { continue }
@@ -358,6 +374,11 @@ function Remove-CachedApiSdk([string]$ApiRepository, [string]$Cache) {
             $hash = Get-BranchHash $file
             if ($publisherOutputs.ContainsKey($relative) -and $publisherOutputs[$relative] -ceq $hash) { continue }
             if ([IO.File]::Exists($survivor) -and (Get-BranchHash $survivor) -ceq $hash) { continue }
+            if (Test-ApiDeclaredTestOutput $relative) { continue }
+            # Release packages and test proofs copy tracked sources byte for byte. Such a copy
+            # holds nothing unique while the identical tracked file is unchanged in this cache.
+            if ($null -eq $trackedHashes) { $trackedHashes = Get-UnchangedTrackedHashes $Cache $changedTracked }
+            if ($trackedHashes.Contains($hash)) { continue }
             throw "Cached SDK contains unique ignored source: $relative. Preserve it before rebuilding."
         }
         Invoke-BranchGit $ApiRepository @('worktree','remove','--force',$Cache) | Out-Null

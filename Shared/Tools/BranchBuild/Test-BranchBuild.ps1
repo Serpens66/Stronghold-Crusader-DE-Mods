@@ -285,6 +285,25 @@ function Assert-ApiBuildProof([string]$Root) {
     try { Remove-CachedApiSdk $apiRepo (Join-Path $cacheRoot 'apishared-main') } catch { $rejected = $_.Exception.Message -match 'unique ignored source' }
     Assert-Case ($rejected -and [IO.File]::Exists($cachedIgnoredSource)) 'SDK cache replacement discarded ignored authored source'
     [IO.File]::Delete($cachedIgnoredSource)
+    # Release packages copy tracked sources byte for byte, and APIShared declares some test
+    # outputs disposable. Neither may block a rebuild; unique ignored data still must.
+    # Git lists ignored files sorted, so naming the later unique file proves both passed.
+    $cacheLocal = Join-Path $cacheRoot 'apishared-main/.local'
+    $trackedCopy = Join-Path $cacheLocal 'release/v1/package/copy.ps1'
+    [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($trackedCopy)); [IO.File]::WriteAllBytes($trackedCopy,$cachedSourceBytes)
+    Write-BranchText (Join-Path $cacheLocal 'bootstrap-package-tests/0123/package/UploadMod.bat') 'publisher fixture'
+    $laterUnique = Join-Path $cacheLocal 'zz-private.cs'
+    Write-BranchText $laterUnique 'UNIQUE_IGNORED_SOURCE'
+    $message = ''
+    try { Remove-CachedApiSdk $apiRepo (Join-Path $cacheRoot 'apishared-main') } catch { $message = $_.Exception.Message }
+    Assert-Case ($message -match 'unique ignored source: \.local/zz-private\.cs') "tracked copy or declared test output blocked SDK cache replacement: $message"
+    [IO.File]::Delete($laterUnique)
+    $releaseUnique = Join-Path $cacheLocal 'release/v1/package/unique.ps1'
+    Write-BranchText $releaseUnique 'UNIQUE_RELEASE_SOURCE'
+    $message = ''
+    try { Remove-CachedApiSdk $apiRepo (Join-Path $cacheRoot 'apishared-main') } catch { $message = $_.Exception.Message }
+    Assert-Case ($message -match 'unique ignored source: \.local/release/v1/package/unique\.ps1' -and [IO.File]::Exists($releaseUnique)) 'release folder exempted unique ignored source'
+    foreach ($folder in @('release','bootstrap-package-tests')) { [IO.Directory]::Delete((Join-Path $cacheLocal $folder),$true) }
     # A changed SDK input invalidates the cache and rebuilds it exactly once.
     Write-BranchText (Join-Path $apiRepo 'source.txt') 'API_DEVELOP_CHANGED'
     Invoke-BranchGit $apiRepo @('commit','-am','API develop change') | Out-Null
