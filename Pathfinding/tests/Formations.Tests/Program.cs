@@ -1025,8 +1025,10 @@ internal static class Program
         IntPtr memory = Marshal.AllocHGlobal(128);
         try
         {
+            // int3 padding: NativeX64 scans up to FunctionScanLimit (16 KiB) until a function end;
+            // NOP padding let it read past this 128-byte block into foreign heap memory.
             for (int index = 0; index < 128; index++)
-                Marshal.WriteByte(memory, index, 0x90);
+                Marshal.WriteByte(memory, index, 0xCC);
             Marshal.Copy(bytes, 0, memory, bytes.Length);
 
             Type backendType = nativeAssembly.GetType(

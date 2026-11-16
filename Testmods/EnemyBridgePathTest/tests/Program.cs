@@ -1,221 +1,243 @@
-using APIShared;
 using System;
-using System.IO;
-using EnemyGatePathfindingTest;
+using System.Collections.Generic;
+using System.Linq;
 
-namespace EnemyBridgePathTest
+namespace EnemyBridgePathTest.Tests
 {
+    // Behaviour tests for the production deck closure core on a synthetic rectangular grid.
+    // Regression classes: a window that does not restore the native direction grid exactly,
+    // a deck that still connects its surroundings, a gate link in the wrong direction and a
+    // wrong landing region for the portal endpoint.
     internal static class Program
     {
-        private static int count;
-        private static void Check(bool value, string text) { count++; if (!value) throw new Exception(text); }
-        private static int Invoke(int result)
+        private static int failures, checks;
+
+        private static int Main()
         {
-            object token = EnemyBridgeDiagnosticBridge.BeginSearch("test", 5);
-            try { calls++; return EnemyBridgeDiagnosticBridge.NativeResult(result); }
-            finally { EnemyBridgeDiagnosticBridge.EndSearch(token, true, result); }
-        }
-        private static int calls;
-        private static void EffectiveCountInputs()
-        {
-            var bundle=new BridgePlanningCapture.Bundle{Dirty=1,Attacker=2,Target=5,Session=1,Root=77};
-            byte[] Raw(int[] a){var b=new byte[a.Length*4];Buffer.BlockCopy(a,0,b,0,b.Length);return b;}
-            bundle.Sections.Add("target/91/values8",Raw(new[]{2,5,1,0,1,9,3,0}));
-            var grid=new ushort[20];for(int i=0;i<10;i++)grid[i]=1;
-            Check(!CopiedPlanningReplay.TryEffectiveCounts(bundle,grid,out _,out var reason)&&reason.Contains("observed=9,histogram=10"),"Dirty histogram never replaces missing Fixes input");
-            var identity=new long[]{1,91,0,77,0};var identityBytes=new byte[40];Buffer.BlockCopy(identity,0,identityBytes,0,40);bundle.Sections.Add("target/91/identity5",identityBytes);
-            var counts=new int[4000];counts[1]=9;
-            bundle.Sections.Add("target/91/effectiveCountsPre",Raw(counts));bundle.Sections.Add("target/91/effectiveCountsPost",Raw(counts));
-            Check(CopiedPlanningReplay.TryEffectiveCounts(bundle,grid,out var effective,out reason)&&effective.Length==1000&&effective[1]==9,"actual extended Pre input drives baseline even when histogram differs");
-            bundle.Sections["target/91/effectiveCountsPost"][4]=10;
-            Check(!CopiedPlanningReplay.TryEffectiveCounts(bundle,grid,out _,out reason)&&reason.Contains("input-changed"),"changed count table is Unknown");
-            bundle.Sections["target/91/effectiveCountsPost"]=Raw(counts);counts[1]=8;bundle.Sections["target/91/effectiveCountsPre"]=Raw(counts);bundle.Sections["target/91/effectiveCountsPost"]=Raw(counts);
-            Check(!CopiedPlanningReplay.TryEffectiveCounts(bundle,grid,out _,out reason)&&reason.Contains("output-mismatch"),"Post output never fills missing or inconsistent input");
-            counts[1]=9;bundle.Sections["target/91/effectiveCountsPre"]=Raw(counts);bundle.Sections["target/91/effectiveCountsPost"]=Raw(counts);
-            bool failed=false;try{BridgePlanningCapture.ValidateEffectiveCounts(new int[1001]);}catch(InvalidOperationException){failed=true;}Check(failed,"unknown relocated capacity rejected");
-            counts[2]=-1;failed=false;try{BridgePlanningCapture.ValidateEffectiveCounts(counts);}catch(InvalidOperationException){failed=true;}Check(failed,"negative counts rejected");
+            CutSeparatesDeckAndRestoresExactly();
+            LinkJoinsDeckWithGateCorridorOnly();
+            JournalKeepsFirstOriginalAcrossRepeatedWrites();
+            LandingUsesCentreThenSides();
+            AbutmentRowJoinsDeckAndGate();
+            Console.WriteLine(failures == 0 ? "EnemyBridgePathTest tests passed: " + checks + " checks." : "EnemyBridgePathTest tests FAILED: " + failures + " of " + checks);
+            return failures == 0 ? 0 : 1;
         }
 
-        private static int Main(string[] args)
+        private static void Check(bool condition, string name)
         {
-            try
-            {
-                if(args.Length==2&&args[0]=="--transport-replay")return TraceTransportTests.Replay(args[1]);
-                if(args.Length==2&&args[0]=="--structure-input")
-                {BridgePlanningImporter.Artifact artifact;string reason;VirtualCandidateBuilder builder;if(!BridgePlanningImporter.TryRead(args[1],out artifact,out reason)){Console.WriteLine(reason);return 2;}bool known=CopiedStructureInput.TryCreate(artifact,out builder,out reason);Console.WriteLine(reason);return known?0:2;}
-                if(args.Length==2&&args[0]=="--structure-command-closure")
-                {if(!BridgePlanningImporter.TryRead(args[1],out var artifact,out string reason)){Console.WriteLine(reason);return 2;}bool known=CopiedStructureInput.TryCommandClosure(artifact,out reason);Console.WriteLine(reason);return known?0:2;}
-                if(args.Length==2&&args[0]=="--replay")return ShadowControlTests.Replay(args[1]);
-                if(args.Length==2&&args[0]=="--replay-alternate-mode")return ShadowControlTests.Replay(args[1],true);
-                if(args.Length==2&&args[0]=="--planning-replay")
-                {
-                    BridgePlanningImporter.Artifact artifact;string reason;
-                    if(!BridgePlanningImporter.TryRead(args[1],out artifact,out reason)){Console.WriteLine(reason);return 2;}
-                    bool matched=CopiedPlanningReplay.TryBaseline(artifact,out reason);Console.WriteLine("planningBaselineMatched="+matched+",reason="+reason+",artifactSHA256="+artifact.Hash+",behaviorFix=disabled");return matched?0:2;
-                }
-                if(args.Length==2&&args[0]=="--consumer-closure")
-                {
-                    BridgePlanningImporter.Artifact artifact;string reason;if(!BridgePlanningImporter.TryRead(args[1],out artifact,out reason)){Console.WriteLine(reason);return 2;}bool known=CopiedPlanningReplay.TryConsumerInputClosure(artifact,out reason);Console.WriteLine(reason);return known?0:2;
-                }
-                if(args.Length==2&&(args[0]=="--consumer-replay"||args[0]=="--consumer-replay-strict"))
-                {
-                    BridgePlanningImporter.Artifact artifact;string report;
-                    if(!BridgePlanningImporter.TryRead(args[1],out artifact,out report)){Console.WriteLine(report);return 2;}
-                    bool passed=CopiedPlanningReplay.TryConsumerStages(artifact,out report);if(args[0]=="--consumer-replay-strict") {string marker="fullCandidateBuildAndWeightReplay=Matched-computed-caller-candidates-weight-availability-work";int matches=report.Split(new[]{marker},StringSplitOptions.None).Length-1;passed&=matches==CopiedConsumerSequence.Count(artifact.Planning);Console.WriteLine("completeOwnConsumerComparisons="+matches+",required="+CopiedConsumerSequence.Count(artifact.Planning));}Console.WriteLine(report);return passed?0:2;
-                }
-                if(args.Length==3&&args[0]=="--planning-bridge")
-                {
-                    string[] id=args[2].Split('/');int building;uint global;
-                    if(id.Length!=2||!int.TryParse(id[0],out building)||building<=0||!uint.TryParse(id[1],out global)||global==0){Console.WriteLine("Unknown:explicit-building/global-required");return 2;}
-                    BridgePlanningImporter.Artifact artifact;string report;
-                    if(!BridgePlanningImporter.TryRead(args[1],out artifact,out report)){Console.WriteLine(report);return 2;}
-                    bool passed=CopiedPlanningReplay.TryVariants(artifact,out report,building,global);Console.WriteLine(report);return passed?0:2;
-                }
-                if(args.Length==2&&args[0]=="--planning-variants")
-                {
-                    BridgePlanningImporter.Artifact artifact;string report;
-                    if(!BridgePlanningImporter.TryRead(args[1],out artifact,out report)){Console.WriteLine(report);return 2;}
-                    bool passed=CopiedPlanningReplay.TryVariants(artifact,out report);Console.WriteLine(report);return passed?0:2;
-                }
-                if(args.Length==3&&args[0]=="--planning-group-check")
-                {
-                    BridgePlanningImporter.Artifact planning,group;string reason;
-                    if(!BridgePlanningImporter.TryRead(args[1],out planning,out reason)||!BridgePlanningImporter.TryRead(args[2],out group,out reason)){Console.WriteLine(reason);return 2;}
-                    bool linked=BridgePlanningImporter.TryLinkGroup(planning,group,out reason);Console.WriteLine("planningGroupLinked="+linked+",reason="+reason+",behaviorFix=disabled");return linked?0:2;
-                }
-                EffectiveCountInputs();
-                count += TraceTransportTests.Run();
-                count += ShadowControlTests.Run();
-                count += Tests.StructureCaptureTests.Run();
-                count += Tests.BridgeLossTests.Run();
-                count += VirtualBridgeTests.Run();
-                count += SharedTests.CaptureRefreshTests.Run();
-                count += RouteTraceTests.Run();
-                count += DrawbridgeClosureTests.Run();
-                count += NativeDecisionTests.Run();
-                ConsumerOwnerTests();
-                count += LeanTraceTests.Run();
-                Check(EnemyGatePathPolicyBridge.Current == null, "separate provider starts empty");
-                Check(Invoke(3) == 3 && calls == 1, "without observer native once");
-                var observer = new Observer();
-                Check(EnemyBridgeDiagnosticBridge.TryRegister(observer), "passive registration");
-                Check(EnemyGatePathPolicyBridge.Current == null, "observer cannot claim gate policy");
-                Check(BridgeNativeDefinition.OwnedCount==28&&Array.FindAll(BridgeNativeDefinition.Sites,BridgeNativeDefinition.OwnsEntry).Length==28,"exact twenty-eight own detours");
-                Check(!BridgeNativeDefinition.OwnsEntry(Array.Find(BridgeNativeDefinition.Sites,x=>x.Rva==0xE49D0))&&!BridgeNativeDefinition.OwnsEntry(Array.Find(BridgeNativeDefinition.Sites,x=>x.Rva==0x111C00))&&!BridgeNativeDefinition.OwnsEntry(Array.Find(BridgeNativeDefinition.Sites,x=>x.Rva==0x122B40))&&!BridgeNativeDefinition.OwnsEntry(Array.Find(BridgeNativeDefinition.Sites,x=>x.Rva==0x10DF60)),"external owners excluded unconditionally");
-                var owner=new Pathfinding.UnitCommands.UnitCommandPathRuntime();
-                foreach(int value in new[]{0,1}) {owner.ReturnValue=value;Check(owner.Invoke(false)==value,"production topology owner preserves result");Check(observer.TopologyCalled&&observer.TopologyNative==value,"native topology result observed");}
-                int ownerCalls=owner.Calls;Check(owner.Invoke(true)==0&&owner.Calls==ownerCalls&&!observer.TopologyCalled&&observer.TopologyNative==null,"suppressed production repair does not call original");
-                observer.TopologyThrow=true;long topologyFailures=EnemyBridgeDiagnosticBridge.FailureCount;owner.ReturnValue=1;
-                Check(owner.Invoke(false)==1&&owner.Calls==ownerCalls+1,"both observer exceptions cannot alter production original");
-                Check(EnemyBridgeDiagnosticBridge.FailureCount==topologyFailures+2,"both topology observer errors counted");observer.TopologyThrow=false;
-                owner.ThrowOriginal=true;bool originalFailed=false;try{owner.Invoke(false);}catch(InvalidOperationException){originalFailed=true;}
-                Check(originalFailed&&!observer.TopologyCompleted&&observer.TopologyCalled&&observer.TopologyNative==null,"original exception preserved with incomplete observation");
-                object outerTopology=EnemyBridgeDiagnosticBridge.BeginTopology(1,true,true),innerTopology=EnemyBridgeDiagnosticBridge.BeginTopology(0,true,true);
-                EnemyBridgeDiagnosticBridge.EndTopology(innerTopology,true,true,0,0);EnemyBridgeDiagnosticBridge.EndTopology(outerTopology,true,true,1,1);
-                Check(observer.TopologyNative==1,"nested topology tokens remain independent");
-                var before=new BridgeDecisionTrace.TableImage {Rva=0x2EAAF90,Slot=8,Count=2,Rows=new[]{10,11,0,0,20,21,0,0}};
-                var after=new BridgeDecisionTrace.TableImage {Rva=0x2EAAF90,Slot=8,Count=2,Rows=new[]{10,11,0,5,20,21,0,0}};
-                var changes=BridgeDecisionTrace.LadderChanges(before,after);Check(changes.Count==1&&changes[0].Unit==5&&changes[0].Task==10&&changes[0].Unique,"effective assignment from consumer pre/post");
-                after.Rows[7]=5;changes=BridgeDecisionTrace.LadderChanges(before,after);Check(changes.Count==2&&!changes[0].Unique&&!changes[1].Unique,"ambiguous reservations never claim unique choice");
-                before.Rows[7]=5;changes=BridgeDecisionTrace.LadderChanges(before,after);Check(changes.Count==1&&!changes[0].Unique,"old competing reservation remains ambiguous");before.Rows[7]=0;
-                Check(BridgeDecisionTrace.LadderChanges(before,before).Count==0,"no effective selection or native fallback without mutation");
+            checks++;
+            if (!condition) { failures++; Console.WriteLine("FAIL: " + name); }
+        }
 
-                for (int i = 0; i < 80; i++) Check(Invoke(i) == i, "observations cannot alter returns");
-                Check(calls == 81 && observer.Begins == 80 && observer.Ends == 80, "all calls exactly paired beyond 32");
-                object parent = EnemyBridgeDiagnosticBridge.BeginSearch("parent", 5);
-                EnemyBridgeDiagnosticBridge.NativeResult(12);
-                Invoke(8);
-                EnemyBridgeDiagnosticBridge.EndSearch(parent, true, 12);
-                Check(observer.LastNative == 12, "nested call cannot replace parent native result");
-                observer.Throw = true;
-                long failures = EnemyBridgeDiagnosticBridge.FailureCount;
-                Check(Invoke(9) == 9, "begin/end exceptions preserve native return");
-                EnemyBridgeDiagnosticBridge.ObserveRegion(5, 1, 2, 0, 0, 1);
-                Check(EnemyBridgeDiagnosticBridge.FailureCount == failures + 3, "each observer exception counted");
-                observer.Throw = false;
-                Check(Invoke(7) == 7 && observer.LastNative == 7, "exception restores nesting");
-                var policy = new Policy();
-                Check(EnemyGatePathPolicyBridge.TryRegister(policy), "independent gate provider co-loads");
-                Check(Invoke(11) == 11 && ReferenceEquals(EnemyGatePathPolicyBridge.Current, policy), "observer preserves independent policy");
-                var aggregate = new AiGateDecisionAggregate(); aggregate.Reset();
-                for (int i=0; i<80; i++) for (int repeat=0; repeat<3; repeat++)
-                    aggregate.RecordGateState(5,i,"state","owner=1,captured="+i,7,i,i,i,"bridge="+i);
-                var rows = aggregate.Drain(out var definitions);
-                long sum=0; foreach (var row in rows) sum += row.Count;
-                Check(sum == 240 && definitions.Length == 80 && rows.Length == 80, "lossless compact states");
-                aggregate.Reset(); aggregate.RecordGateState(5,1,"state","new-map",7,0,0,0,"new");
-                rows = aggregate.Drain(out definitions);
-                Check(definitions.Length == 1 && definitions[0].Epoch == 2 && rows[0].Count == 1, "map state reset");
-                string runtime = File.ReadAllText("src/BridgeDiagnostics.cs");
-                Check(runtime.Contains("AiStrategicOrderEvents.TryRegister") && runtime.Contains("strategicScopes.Remove(observation.InvocationId)") && runtime.Contains("observation.OriginalCompleted ? (long?)observation.NativeResult : null"), "shared strategic invocation pairing retains actual completion and result");
-                Check(runtime.Contains("AiGlobalTaskEvents.TryRegister") && runtime.Contains("globalTaskScopes.Remove(observation.InvocationId)"), "shared global task invocation pairing keeps its own identity domain");
-                string snapshot = File.ReadAllText("src/BridgeSnapshot.cs");
-                Check(runtime.Contains("same-pcl-with-no-region-call") && runtime.Contains("region-query-executed"), "same PCL bypass is explicit");
-                Check(runtime.Contains("WorkBefore") && runtime.Contains("command-or-context-changed") && runtime.Contains("execution=not-proven"), "work call lifetime evidence");
-                Check(snapshot.Contains("moat[tile] == 0") && snapshot.Contains("mask=hypothetical-only"), "record prerequisite and passive mask");
-                Check(snapshot.Contains("grid > 6") && !snapshot.Contains("grid > 10"), "native occupied array bound is 36 cells");
-                string plugin = File.ReadAllText("src/EnemyBridgePathTestPlugin.cs");
-                Check(!plugin.Contains("EnemyGatePathfindingTest_Serp") && plugin.Contains("Pathfinding_Serp"), "standalone mainmod dependency");
-                Console.WriteLine("PASS: " + count + " bridge geometry/observer/aggregate assertions");
-                return 0;
-            }
-            catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
-        }
-        private static unsafe void ConsumerOwnerTests()
+        // 20x20 grid. Row 10 is a moat except the deck columns 9..11 (rows 8..12 form the
+        // 5x3 deck). Gate corridor tile at (10,13), a closed gate with walls beside it.
+        // Interior (rows 14+) is additionally reachable laterally from deck row 12 via (8,12)
+        // and (12,12), reproducing the sideways crossing.
+        private sealed class Grid : IDeckGrid
         {
-            var before=new BridgeDecisionTrace.TableImage {Rva=0x2EAAF90,Slot=8,Count=1,Rows=new[]{10,11,0,0}};
-            int table=0x2EAAF90+8*0x177bc;
-            var unit=default(SHCDESE.Interop.GameUnit);unit.r_GlobalId=77;unit.r_ControllableForPlayerId=8;unit.r_AIState=0x65;unit.r_AI_ContextTargetBuildingTileId=10;
-            IntPtr storage=System.Runtime.InteropServices.Marshal.AllocHGlobal(0x490);
-            try
+            internal const int W = 20, H = 20;
+            internal readonly byte[] Directions = new byte[W * H];
+            internal readonly bool[] Walkable = new bool[W * H];
+            public byte GetDirections(int tile) => Directions[tile];
+            public void SetDirections(int tile, byte value) => Directions[tile] = value;
+            public bool TryGetCoordinates(int tile, out int x, out int y) { x = tile % W; y = tile / W; return tile >= 0 && tile < W * H; }
+            public bool TryGetTile(int x, int y, out int tile) { tile = y * W + x; return x >= 0 && y >= 0 && x < W && y < H; }
+            internal int T(int x, int y) => y * W + x;
+
+            internal void Build(Func<int, int, bool> walkable)
             {
-                var trace=new BridgeDecisionTrace(null,_=>default,()=>1,r=>r==table?1:r==table+8?10:r==table+12?11:r==table+20?5:0,id=>storage);trace.StartSession(77);trace.SetNative(new IntPtr(1),0x9000000);
-                var scope=new BridgeDecisionTrace.Scope {Id=700,LadderBefore=before};
-                var complete=typeof(BridgeDecisionTrace).GetMethod("CompleteLadderAssignments",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic);
-                Action apply=()=>{scope.Selections.Clear();System.Runtime.InteropServices.Marshal.StructureToPtr(unit,storage,false);complete.Invoke(trace,new object[]{scope});};
-                scope.LadderCommands.Add(new BridgeDecisionTrace.SelectionEvidence {Unit=5,Global=77,Player=8,Movement=701});apply();
-                Check(scope.Selections.Count==1&&scope.Selections[0].Movement==701,"actual consumer completes same-identity effective assignment");
-                unit.r_GlobalId=78;apply();Check(scope.Selections.Count==0,"reused unit cannot inherit command identity");
-                unit.r_GlobalId=77;unit.r_ControllableForPlayerId=5;apply();Check(scope.Selections.Count==0,"role change cannot inherit prior player binding");unit.r_ControllableForPlayerId=8;
-                unit.r_GlobalId=77;unit.r_AI_ContextTargetBuildingTileId=20;apply();Check(scope.Selections.Count==0,"replaced task cannot inherit reservation link");
-                unit.r_AI_ContextTargetBuildingTileId=10;scope.LadderCommands.Clear();apply();Check(scope.Selections.Count==0,"missing movement is explicit without guessed linkage");
-                scope.LadderCommands.Add(new BridgeDecisionTrace.SelectionEvidence {Unit=5,Global=77,Player=8,Movement=701});scope.LadderCommands.Add(new BridgeDecisionTrace.SelectionEvidence {Unit=5,Global=77,Player=8,Movement=702});apply();Check(scope.Selections.Count==0,"multiple commands cannot claim unique consumer binding");
-                var topo=new BridgeDecisionTrace(null,_=>default,()=>1,_=>0);topo.StartSession(1);topo.SetNative(new IntPtr(1),100);
-                Check(topo.BeginTopology(IntPtr.Zero,0,false)==null&&topo.Entered==0,"suppressed repair is not a native call");
-                var frame=topo.BeginTopology(IntPtr.Zero,1,true);topo.EndTopology(frame,true,true,1,1);
-                Check(topo.Entered==1&&topo.Exited==1&&topo.Summary().Contains("topologyGeneration=1"),"shared original return1 triggers exactly one observed rebuild");
-                frame=topo.BeginTopology(IntPtr.Zero,1,true);topo.StartSession(2);topo.EndTopology(frame,true,true,1,1);
-                Check(topo.Entered==2&&topo.Exited==2,"map switch inside owner balances original frames");
+                for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) Walkable[T(x, y)] = walkable(x, y);
+                for (int t = 0; t < W * H; t++)
+                {
+                    byte bits = 0;
+                    if (Walkable[t])
+                        for (int d = 0; d < 8; d++)
+                        {
+                            TryGetCoordinates(t, out int x, out int y);
+                            int dx = DirectionBits.Dx[d], dy = DirectionBits.Dy[d];
+                            if (!TryGetTile(x + dx, y + dy, out int n) || !Walkable[n]) continue;
+                            // Diagonals need both orthogonal corners walkable.
+                            if (dx != 0 && dy != 0 && (!TryGetTile(x + dx, y, out int c1) || !Walkable[c1] || !TryGetTile(x, y + dy, out int c2) || !Walkable[c2])) continue;
+                            bits |= DirectionBits.Bit[d];
+                        }
+                    Directions[t] = bits;
+                }
             }
-            finally{System.Runtime.InteropServices.Marshal.FreeHGlobal(storage);}
+
+            // Directed flood over outgoing bits, seeded in scan order like 0xE49D0.
+            internal int[] Components()
+            {
+                var label = new int[W * H];
+                int next = 1;
+                for (int seed = 0; seed < W * H; seed++)
+                {
+                    if (!Walkable[seed] || label[seed] != 0) continue;
+                    var queue = new Queue<int>(); queue.Enqueue(seed); label[seed] = next;
+                    while (queue.Count > 0)
+                    {
+                        int t = queue.Dequeue(); TryGetCoordinates(t, out int x, out int y);
+                        for (int d = 0; d < 8; d++)
+                            if ((Directions[t] & DirectionBits.Bit[d]) != 0 && TryGetTile(x + DirectionBits.Dx[d], y + DirectionBits.Dy[d], out int n) && label[n] == 0)
+                            { label[n] = next; queue.Enqueue(n); }
+                    }
+                    next++;
+                }
+                return label;
+            }
         }
-        private sealed class Observer : IEnemyBridgePathObserver,IEnemyBridgeTopologyObserver
+
+        // Rows 8..12: moat, bridged by the deck columns 9..11; lateral land (8,12)/(12,12).
+        // Row 13: wall line with the gate corridor tile (10,13) and lateral land columns 8/12.
+        private static Grid Layout(out List<int> deck, out int front, out int gate)
         {
-            internal bool TopologyThrow,TopologyCalled,TopologyCompleted;
-            internal int? TopologyNative;
-            public object BeginTopology(int force,bool run,bool knownPathingContext){if(TopologyThrow)throw new Exception("topology-pre");return force;}
-            public void EndTopology(object token,bool completed,bool called,int? native,int effective){TopologyCalled=called;TopologyCompleted=completed;TopologyNative=native;if(TopologyThrow)throw new Exception("topology-post");}
-            internal long Begins, Ends;
-            internal int? LastNative;
-            internal bool Throw;
-            public object BeginSearch(string source, int player) { Begins++; if (Throw) throw new Exception("begin"); return source; }
-            public void EndSearch(object token, bool completed, int? native, int effective, long nativeCalls) { Ends++; LastNative=native; Check(nativeCalls == 1, "native call counter exact"); if (Throw) throw new Exception("end"); }
-            public void ObserveRegion(int player, int source, int target, int mode, int native, int effective) { if (Throw) throw new Exception("region"); }
-            public object BeginAssassinSearch(int a,int b,int c,int d,int e,int f,string state) => null;
-            public void ObserveAssassinEdge(object token,int p,int a,int b,int d,bool c) { }
-            public void ObserveAssassinPolicyFiltering(object token,int p,long g,long c) { }
-            public void ObserveAssassinBuildingSearch(int t,int b,int s,int p) { }
-            public void EndAssassinSearch(object token,int p,int n,int e,string o,bool c,int l) { }
+            var g = new Grid();
+            g.Build((x, y) =>
+            {
+                if (y >= 8 && y <= 12) return (x >= 9 && x <= 11) || ((x == 8 || x == 12) && y == 12);
+                if (y == 13) return x == 8 || x == 10 || x == 12;
+                return true;
+            });
+            front = g.T(10, 12); gate = g.T(10, 13);
+            // Closed gate (as inside a 0xC4BF0(1) window): both corridor apertures are cut.
+            Cut(g, front, gate);
+            for (int x = 9; x <= 11; x++) Cut(g, gate, g.T(x, 14));
+            deck = new List<int>();
+            for (int y = 8; y <= 12; y++) for (int x = 9; x <= 11; x++) deck.Add(g.T(x, y));
+            return g;
         }
-        private sealed class Policy : IEnemyGatePathPolicy
+
+        private static void Cut(Grid g, int a, int b)
         {
-            public bool HasPublishedMask => true;
-            public bool IsDirectionAllowed(int p,int t,int d) => false;
-            public int ResolveTribePlayer(int t) => 5;
-            public int ResolveBuildingPlayer(int p,int t) => 5;
-            public int ResolveCursorPlayer(int t) => 5;
-            public object EnterNativeSearch(int p,EnemyGateSearchKind kind) => null;
-            public void ExitNativeSearch(object scope,EnemyGateSearchKind kind,bool completed,bool success) { }
+            g.TryGetCoordinates(a, out int ax, out int ay); g.TryGetCoordinates(b, out int bx, out int by);
+            int d = DirectionBits.FromDelta(bx - ax, by - ay);
+            g.Directions[a] = (byte)(g.Directions[a] & ~DirectionBits.Bit[d]);
+            g.Directions[b] = (byte)(g.Directions[b] & ~DirectionBits.Bit[DirectionBits.Opposite(d)]);
+        }
+
+        private static void CutSeparatesDeckAndRestoresExactly()
+        {
+            var g = Layout(out var deck, out int front, out int gate);
+            var deckSet = new HashSet<int>(deck);
+            byte[] original = (byte[])g.Directions.Clone();
+            var before = g.Components();
+            int outside = g.T(10, 2), inside = g.T(10, 18), lateral = g.T(8, 13);
+            Check(before[outside] == before[inside], "lateral deck crossing connects outside and inside before the cut");
+
+            var journal = new DirectionJournal(Grid.W * Grid.H);
+            int removed = DeckClosureCore.CutDeck(g, deck, deckSet.Contains, journal);
+            Check(removed > 0, "cut removes edges");
+            for (int i = 0; i < g.Directions.Length; i++)
+            {
+                if (deckSet.Contains(i)) continue;
+                g.TryGetCoordinates(i, out int x, out int y);
+                for (int d = 0; d < 8; d++)
+                    if (g.TryGetTile(x + DirectionBits.Dx[d], y + DirectionBits.Dy[d], out int n) && deckSet.Contains(n))
+                        Check((g.Directions[i] & DirectionBits.Bit[d]) == 0, "no edge into the deck from " + x + "/" + y);
+            }
+            foreach (int cell in deck)
+            {
+                g.TryGetCoordinates(cell, out int x, out int y);
+                for (int d = 0; d < 8; d++)
+                    if (g.TryGetTile(x + DirectionBits.Dx[d], y + DirectionBits.Dy[d], out int n))
+                        Check(deckSet.Contains(n) ? (g.Directions[cell] & DirectionBits.Bit[d]) == (original[cell] & DirectionBits.Bit[d])
+                                                  : (g.Directions[cell] & DirectionBits.Bit[d]) == 0, "deck edge rule at " + x + "/" + y + " dir " + d);
+            }
+            var after = g.Components();
+            Check(after[outside] != after[inside], "cut separates outside from inside");
+            Check(after[deck[0]] != after[outside] && after[deck[0]] != after[inside] && after[deck[0]] != 0, "deck forms its own island");
+            Check(after[lateral] == after[inside], "lateral land stays with the interior");
+
+            journal.Restore(g);
+            Check(g.Directions.SequenceEqual(original), "restore returns every direction byte exactly");
+            Check(journal.Count == 0, "journal empty after restore");
+        }
+
+        private static void LinkJoinsDeckWithGateCorridorOnly()
+        {
+            var g = Layout(out var deck, out int front, out int gate);
+            var deckSet = new HashSet<int>(deck);
+            byte[] original = (byte[])g.Directions.Clone();
+            var journal = new DirectionJournal(Grid.W * Grid.H);
+            DeckClosureCore.CutDeck(g, deck, deckSet.Contains, journal);
+            int added = DeckClosureCore.Link(g, front, gate, true, true, journal);
+            Check(added == 2, "both aperture directions linked");
+            Check((g.Directions[front] & DirectionBits.Bit[4]) != 0 && (g.Directions[gate] & DirectionBits.Bit[0]) != 0, "link uses the front->gate (south) and gate->front (north) bits");
+            var c = g.Components();
+            Check(c[front] == c[gate], "deck joins the gate corridor component");
+            Check(c[front] != c[g.T(10, 2)], "deck stays separated from the outside");
+            Check(DeckClosureCore.Link(g, front, gate, false, false, journal) == 0, "closed aperture adds nothing");
+            journal.Restore(g);
+            Check(g.Directions.SequenceEqual(original), "link is restored exactly");
+        }
+
+        private static void JournalKeepsFirstOriginalAcrossRepeatedWrites()
+        {
+            var g = new Grid();
+            g.Directions[5] = 0xAA;
+            var journal = new DirectionJournal(Grid.W * Grid.H);
+            journal.Write(g, 5, 0x0F); journal.Write(g, 5, 0x00); journal.Write(g, 5, 0xFF);
+            Check(journal.Count == 1, "one tile recorded once");
+            journal.Restore(g);
+            Check(g.Directions[5] == 0xAA, "first original value restored");
+            journal.Write(g, 5, 0x11);
+            journal.Restore(g);
+            Check(g.Directions[5] == 0xAA, "second window records afresh");
+        }
+
+        // Game layout seen in test_gates_bridge.sav: the 5x5 bridge footprint has an abutment row
+        // (land) between gate and the 3-row moat deck. Footprint rows 8..12 at columns 8..12,
+        // deck rows 9..11, abutment row 12 (in front of the gate) and row 8 (far end).
+        private static void AbutmentRowJoinsDeckAndGate()
+        {
+            var g = new Grid();
+            g.Build((x, y) =>
+            {
+                if (y >= 9 && y <= 11) return x >= 8 && x <= 12;     // deck over the moat
+                if (y == 12) return x >= 6 && x <= 14;                // abutment row plus a short berm
+                if (y == 13) return x == 10;                          // gate corridor in the wall line
+                return y < 9 || y > 13;
+            });
+            int front = g.T(10, 12), gate = g.T(10, 13);
+            Cut(g, front, gate);
+            for (int x = 9; x <= 11; x++) Cut(g, gate, g.T(x, 14));
+            var deck = new List<int>();
+            for (int y = 9; y <= 11; y++) for (int x = 8; x <= 12; x++) deck.Add(g.T(x, y));
+            var deckSet = new HashSet<int>(deck);
+            Func<int, bool> onBridge = t => { g.TryGetCoordinates(t, out int x, out int y); return x >= 8 && x <= 12 && y >= 8 && y <= 12; };
+            byte[] original = (byte[])g.Directions.Clone();
+
+            Check(DeckClosureCore.FindNearDeck(g, front, gate, deckSet.Contains, onBridge, out int abutment, out int near), "near deck found across the abutment row");
+            Check(abutment == front && near == g.T(10, 11), "abutment is the front tile, near deck the next axis tile");
+            Check(!DeckClosureCore.FindNearDeck(g, g.T(10, 2), gate, deckSet.Contains, onBridge, out _, out _), "no deck from an unrelated tile");
+            g.TryGetCoordinates(near, out int nx, out int ny);
+            int d = DirectionBits.FromDelta(0, 1);
+            bool nearToAb = (g.Directions[near] & DirectionBits.Bit[d]) != 0, abToNear = (g.Directions[abutment] & DirectionBits.Bit[DirectionBits.Opposite(d)]) != 0;
+
+            var journal = new DirectionJournal(Grid.W * Grid.H);
+            DeckClosureCore.CutDeck(g, deck, deckSet.Contains, journal);
+            DeckClosureCore.Link(g, front, gate, true, true, journal);
+            DeckClosureCore.Link(g, near, abutment, nearToAb, abToNear, journal);
+            var c = g.Components();
+            Check(c[near] == c[front] && c[front] == c[gate], "deck, abutment and gate corridor form one region");
+            Check(c[g.T(10, 7)] != c[near], "far landing is separated from the deck");
+            Check(c[g.T(6, 12)] == c[front], "berm beside the abutment stays with the abutment");
+            Check(DeckClosureCore.FindLanding(g, front, gate, onBridge, t => c[t]) == c[g.T(10, 7)], "landing lies beyond the whole footprint");
+            journal.Restore(g);
+            Check(g.Directions.SequenceEqual(original), "abutment layout restored exactly");
+        }
+
+        private static void LandingUsesCentreThenSides()
+        {
+            var g = Layout(out var deck, out int front, out int gate);
+            var deckSet = new HashSet<int>(deck);
+            var comps = new int[Grid.W * Grid.H];
+            comps[g.T(10, 7)] = 42;
+            Check(DeckClosureCore.FindLanding(g, front, gate, deckSet.Contains, t => comps[t]) == 42, "landing is the centre tile beyond the far deck end");
+            comps[g.T(10, 7)] = 0; comps[g.T(11, 7)] = 43;
+            Check(DeckClosureCore.FindLanding(g, front, gate, deckSet.Contains, t => comps[t]) == 43, "side landing used when the centre is not walkable");
+            comps[g.T(11, 7)] = 0;
+            Check(DeckClosureCore.FindLanding(g, front, gate, deckSet.Contains, t => comps[t]) == 0, "no walkable landing keeps the endpoint");
+            Check(DeckClosureCore.FindLanding(g, front, g.T(11, 13), deckSet.Contains, t => comps[t]) == 0, "diagonal gate offset is rejected");
         }
     }
 }

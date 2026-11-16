@@ -1,0 +1,387 @@
+# Drawbridge decision diagnosis: game acceptance
+
+## Next capture and acceptance boundary - 2026-11-16
+
+Use [HANDOFF.md](HANDOFF.md) for the current source snapshot and evidence dates.
+The older down/up/down protocol below belongs to earlier milestones. The next
+recommended run is a targeted input capture, not an active behavior-fix test.
+The existing raised comparison does not need another general repetition.
+
+### Preparation and coverage
+
+- First validate/build the selected current source and SDK in a separately
+  authorized implementation/test task. The source now requires Pathfinding_Serp
+  and APIShared >= 0.49.0; BugfixesAndQoL/Gate-Testmod references below are historical.
+- Confirm the loaded package identity and the post-startup runtime marker.
+  Require ownNativeReady, sharedCommandsReady, topologyAvailable and nativeReady
+  in the readiness report, plus actual later callbacks. Compare installedEntries
+  with the source-derived expectedEntries; do not require the historical 30-hook
+  literal. The 2026-11-16 source has 28 owned entries and four delegated sites.
+- Record the effective Pathfinding/Fixes and applicable manual-bridge/destruction
+  protection settings. A successful native DLL hash check alone proves none of
+  these publishers or policies is active. No test was run for this MD update.
+
+### One targeted recording
+
+1. Use the prepared gate-only-access layout before a fresh AI decision, with the
+   drawbridge continuously lowered and the gatehouse closed. Avoid own moat work
+   and repeated bridge toggling. Gate destruction is optional.
+2. Observe fresh military planning and a relevant own unit-command Pre/Post in
+   the same session/player/military root. A stored route, ongoing-state fallback,
+   old retained target or suppressed command does not replace that fresh pair.
+3. Require planning-command-pair-selected, both input-artifact-complete records
+   and, after map end, session-delivered. Verify process/session identity, hashes,
+   complete references and no unexplained capture/adapter/queue/lifecycle gaps.
+4. Inspect the actual payload: military entryContinuationVersion=1,
+   entryLineMode4, entryBlockGrid and entryFormationCounter4; the matching
+   consumer/consumer2 Pre/Post mode/grid inputs where present; military exit
+   mode/grid/counter. Do not accept a filename, marker or version alone as coverage.
+   Preserve the existing two-attempt/one-pair limits and distinguish incomplete
+   delivery from incomplete capture.
+
+The new recording is sufficient input only if timing, identities, stability and
+complete extents pass import/continuation validation. Boundary equality does not
+prove that no intermediate modification occurred. Missing/changed input stays
+Unknown; do not borrow later command bytes to make the replay pass.
+
+### Subsequent behavior acceptance
+
+First reproduce the uncut full military/formation/command chain from calculated
+intermediate states. Then compare virtual cuts, alternative routes, legal melee
+approaches, owner/ally/eligible-capturer roles, ID reuse and session changes.
+Dirty or incomplete topology cannot authorize NoRoute. Measure live capture,
+publisher and calculation costs separately; offline test durations are not FPS
+or tick-time acceptance. Details and remaining gates: [DECISION_FIX_DESIGN.md](DECISION_FIX_DESIGN.md).
+
+## Historical acceptance protocols and observations
+
+
+This milestone is passive. Keep bridge 0.1.0, README and path policy unchanged. No completed in-game comparison is claimed by the offline tests.
+
+1. Start a fresh game process. Confirm `bridge decision hooks installed` with 30 entries and `bridge runtime confirmed after startup cleanup`. Any unavailable-hook, capture-error, adapter failure or overflow makes the affected run incomplete.
+2. Load the prepared pre-attack save without active own moat work. Keep Gate-Testmod and Fixes enabled for the principal comparison. Capture lowered-bridge fresh planning, not just existing orders.
+3. Reload the same starting save in the SAME process; repeat with the bridge fully raised. Wait for cell flags, dirty/revision and completed topology rebuild to agree before the new AI decision. An old order sticking after raising is a separate test, not fresh-order evidence.
+4. Reload the starting save once more for lowered state (down/up/down); then repeat for lateral crossing and ordinary gate approach; alternate reachable route and completely separated regions; enemy, owner, ally and rightful capturer; multiple bridges and demolition/rebuild reusing an ID.
+5. Compare bridge + required APIShared/BugfixesAndQoL/SE, then bridge + Gate-Testmod + Fixes. Preserve settings and identify feature enablement in the log. Gate policy must continue working.
+
+For each run retain the full BepInEx process section and describe the visible behavior. Compare `planner`, seed/distance field, target region, candidate tables, weights/filter, group-assignment, dispatch/ordinary-attack or consume-task/select-* and the linked command/search records. `op`/`parent` identify nesting; session/thread/scopeSession identify boundaries. `live-state` definitions are synchronous; deferred aggregate states cannot prove the earlier state or selected route.
+
+Native region/search results are separate from effective mod results. Other native probe returns are the effective outputs of that function with the active internal patches. Table pre/post membership is observed; an internal per-tile rejection branch is not yet traced individually. `regions=0` alone does not identify the same-PCL shortcut. Cached ordinary-attack targets and unknown bridge association must remain explicit uncertainties.
+
+Success: the earliest divergent observed decision has an audited concrete Vanilla location and is followed by a different fresh command or its absence. Later NoRoute and blocked movement alone do not satisfy this. If list deltas cannot explain the exact rejection branch, use the retained full-function evidence to add only the required branch observation in the next iteration.
+
+Review `bridge summary`: errors/missingPost/adapterFailures/captureFailures/overflow must be zero; pendingCalls/active must be explainable by nesting; entered = exited + active. Boundary Posts are excluded from current-map pairs and explicitly logged. A skipped original has no Post under the SE contract and is counted separately. Diagnostic overhead and log volume also need observation in the first run.
+
+## Lean-diagnosis performance comparison
+
+After a fresh process start, compare the same loaded save with the prior17:51:26 run. The zero-ID error flood must disappear; unchanged ordinary-attack calls must increase siteCalls/coalesced without proportional fullCaptures/indexBuilds/outputRecords. bridge summary reports queue, overflow, outputBytes, captureMs and drainMs. Check visible responsiveness as well as counters. Target:95% less diagnosis volume, steady unchanged play below1MB/minute; offline counters do not establish achieved in-game FPS.
+
+Log transport drains64 records with a2ms target per rendered frame, including after map end; pending records retain original session metadata. Wait for the queue to drain before closing the game when collecting a complete comparison. A dropped queue record invalidates completeness. Native entry capturePhase=promoted-later denotes an entry reconstructed from saved scalar inputs with a later bridge capture; it must not be interpreted as an original-entry cell snapshot. region-repeat counts include individual region records inside detailed scopes.
+
+## Focused player-planning coverage
+
+Expect attack-phases -> attack-field -> seed-field/distance-field -> attack-candidates -> attack-target-region -> candidates/weights, with player-groups and headerPlus4Raw availability. Existing dispatch/consume-task/select-* and command/search/region records provide the consequences. Parent0 means nesting is not established; priorPlayerPlan is only chronological association. Promoted-later capture is NOT an earlier field snapshot.
+
+comparison-marker marks physical call completion, topology-rebuilt and fresh-candidates-completed. comparison-status reports missingPlanning, freshPlanAtCurrentPhysical/Topology, pending and coverage. A fresh candidate build is not yet proof of changed AI choice. planning-outcome describes following commands or their absence only within that call. Existing retained orders without new candidate planning are separately interpretable and cannot complete A/B acceptance.
+
+Both overflow and backgroundOverflow/captureFailures must be zero; deliveryPending means output has not yet been written. Wait for queue0 before closing. Logs explicitly count ordinary unscoped unit movement rather than snapshotting it; relevant group changes/bridge-near movement/native decisions retain detail. Unresolved raw examples are capped8 per ten-second interval. terrain-work-command plus cell snapshots identify own work as a comparison confound; no automatic cancellation or game mutation is performed.
+
+Offline mixed population:834632 ordinary checks,18835 commands,5082 topology calls/47 rebuilds must preserve counters with96 full captures (initial attack pair+actual rebuild pairs), zero queue loss and less700KB trace for the observed42-second population. Actual diagnostic Push/Pop is also exercised18835 times. In-game FPS and first differing decision remain pending game evidence.
+
+## Validation and installation result (2026-10-04 19:32)
+
+All24241 assertions passed:30 copied entry contracts using the installed NativeX64 Absolute backend; real production R2/V2/V3 wrappers preserving arguments/returns and one original call under capture failure;75117 quiet attacks;834632 ordinary checks plus5082 topology calls/47 rebuilds and18835 counted commands;18835 actual diagnostic Push/Pop pairs; priority reservation, full64-bit command counters, detailed region deduplication, session replacement and unavailable native pointer guards.
+
+Mixed trace emitted61062 bytes with96 full captures and zero queue drops (offline population, not an in-game measurement). Installed member/signature, JSON/lifecycle, XAML, permanent-runtime and CRLF checks passed. The prescribed elevated build.bat ran once, built/installed successfully with0 warnings/0 errors. Local and installed DLL SHA256 both9A5781B7F4950792E096BEE275264E50AEC6D1631C2F379ED1B445530B866E58. AssemblyVersion0.1.0.0 and mod Version0.1.0 remain unchanged; README untouched. Retained build output:_inspect/EnemyGateBuildingContextAudit/bridge-focused-build.log.
+
+Game acceptance remains pending: compare down/up/down from the same prepared pre-attack save, without own moat work, within one process. Verify30 installed entries, post-cleanup runtime marker, fresh planning markers, zero failures/drops and drained output before closing. No final bridge decision fix or achieved in-game FPS/log budget is claimed by the offline tests.
+
+## Keep-access and task-chain comparison
+
+Use the SAME prepared pre-attack save within one process: raised -> lowered -> raised, reloading before each arm. Keep Gate/Fixes active; stop own moat work. Observe the relevant attacker with comparable phase and target. Expect32 installed entries, balanced calls, zero drops/failures and the post-cleanup marker. Initial lowered saved orders alone do not establish a fresh plan.
+
+keep-access-decision reports actual manager inputs, reconstructed entry-data branch, observed region callbacks and effective return. Its followingPhaseRaw is BEFORE the caller consumes the return; use the enclosing attack-phases exit for the actual subsequent phase. Global target-player keep values can be stale before2C5A0; use its exit or the explicit keep inputs.
+
+bridge-physical and bridge-planning-fields are separate definitions. live-state references both with original definition captureClock; each referring decision still synchronously checks current values. Per-bridge comparison statuses use relevant physical definition identity, not equality to every unrelated global topology revision. candidateSelection/assignment/movement flags concern rows touching the observed footprint/ring, NOT a route through the bridge.
+
+Candidate encoding full is four columns per row; row-delta is index:four columns. Start from baseDefinition, replace listed rows, truncate to countRaw; headerPlus4Raw is updated even with no row changes. Definitions share pre/post phases; references carry current parent/phase/plan. Candidate Plan IDs identify a completed2C480 rebuild, not chronological guessing. task-selection requires a UNIQUE reservation transition for this unit/task; ambiguous or already-reserved selections remain unresolved. task-assignment and task-following-command retain GlobalID and same-consumer link, with missing movement explicit.
+
+Counter batches preserve all six-field tuples plus64-bit count. kinds1/2/3 use command schema; kind4 uses search schema; kind5 is attacker/target/mode/returnLow32/returnHigh32. Counts include detailed observations; do not sum them twice. Output remains64 records/2ms target; no unlimited end flush. Steady target remains below1MB/minute; details during actual changes may exceed it.
+
+## Verification and installation (2026-10-04 20:31)
+
+The prescribed elevated build.bat ran once and installed successfully with0 warnings/0 errors. All24300 Bridge assertions passed, including32 copied Absolute contracts, actual production L3 argument/full-return/one-original execution under capture failures, latest1661352 attacks+10518 topology calls(95 actual builds)+35588 command pairs, reservation ambiguity, shared table versions/deltas, bridge identity reuse and unrelated topology revision. Existing3830 Gate assertions and actual RedBird adapters also passed. Installed member, JSON/lifecycle/permanent hook, XAML/CRLF checks passed. Local/installed DLL SHA256: 34114A4CBAF78C710616C05A003208CB44FE56135AD84DBBF5E45B223F304494. Version0.1.0 remains unchanged. No README modification.
+
+Offline previous mixed fixture:839714 native calls,96 captures,58109 trace bytes; this is not a game log-volume measurement. The32-entry game run and controlled raised/down/raised decision/command comparison remain pending. Retained build log: _inspect/EnemyGateBuildingContextAudit/bridge-access-build.log.
+
+## Numeric-capture comparison protocol (2026-10-04)
+
+The20:35..20:37 run proves player8 access-driven phase5->6 and6->5, but assignment capture failed and104 records remained undelivered. The repaired build must show zero captureFailures/overflow/invalidIds;32 installed entries; post-startup runtime marker. Inspect task-assignment aiState separately from command and nativeAssignedTaskRaw. Missing movement and reused GlobalID remain explicit gaps.26 older selected tasks do not touch a observed bridge; do not treat them as bridge execution.
+
+Physical cells now use tile/pcl/moat/flags/direction: first grid*grid rows footprint, remaining rows ring; bounds preserve the observed rectangle. Unchanged references retain original definition captureClock while the decision has its current Clock. Candidate-table-reference-batch rows are parent/rva/slot/definition/plan/phase/count (RVA decimal). Table definitions/deltas are unchanged. interval-capture-cost separates numeric reads, compares, formatting and counts; interval outputBytes excludes logger prefixes, so measure actual log bytes for1MB/min acceptance.
+
+Within one game process, reload the SAME prepared pre-attack save for raised -> lowered -> raised. Gate/Fixes stay enabled; no own ongoing moat work. For each arm wait for settled topology, fresh attacker planning, observed access and actual consumed phase, then reservation/assignment/movement or an explicit missing evidence marker. Check both lateral deck crossing and gatehouse passage. Old retained tasks and geometric proximity do not prove a new bridge route. Before leaving the map, wait for pending=0 where possible. Immediate session-end always reports captureComplete,deliveryComplete and pending priority counts; a pending tail at process exit remains incomplete. No unbounded drain is introduced.
+
+Offline regressions exercise the real public task getter/AIState test, per-unit exception isolation, reused identities, numeric repeated captures, exact table repeats, current hot-load subset and the observed player8 unequal-PCL mode/phase sequence. In-game performance and complete bridge-relevant following decision still need a new run; no behavior fix, version change or README update is part of this milestone.
+## Final verification and installation (2026-10-04 21:14)
+
+Final prescribed elevated build.bat completed with0 warnings/0 errors and24316 Bridge assertions. Existing3830 Gate assertions passed separately. Runtime/project JSON/lifecycle/XAML/permanent-patch checks, real installed members/signatures, CRLF and C# semantic analysis passed. No Script Extender fork changes, public API additions, new native hooks, version changes or README edits.
+
+The exact current native-call population1559559 (1548253 ordinary attacks,9704 topology calls including84 actual rebuilds,1602 less frequent calls) and32410 command pairs is replayed with balanced counters and zero capture failures/overflows. Its offline trace is283157 bytes including a conservative95-byte-per-line logger-prefix allowance. This is a synthetic trace-population regression with fixture field reads, not an in-game volume or latency claim.10000 unchanged numeric fragment publications take2.840ms and emit no extra definitions; this measures comparison/publication, not installed tile reads. The real public assignment getter/state check, per-unit capture exception/reused identity handling, logger failure at immediate session-end and ended-session deactivation are tested.32 copied entry contracts and real production wrapper forwarding preserve the installed Absolute backend's original-once contract.
+
+Final local and installed DLL SHA256 both9FFD2DC85155E2A60DBDD6754BAF9348B6F4B7802E10FD49E3B3734CE0E92045; AssemblyVersion0.1.0.0 and mod0.1.0 unchanged. First successful build log bridge-numeric-build.log is retained; final log bridge-numeric-isolation-build.log covers the later bounded-summary exception guard and complete population replay. In-game budget below1MB/minute, actual capture latency and a complete bridge-relevant following decision remain pending the controlled raised/lowered/raised save comparison.
+## Stored path / movement milestone (2026-10-04)
+
+The21:25:54.972..21:27:08.690 run contains1583587 balanced native calls,32784 command pairs,38 exact assignment/movement links, zero capture failures/overflows/ID0 lookups; all38 task/approach pairs are outside indexed bridge neighborhoods. Player8 again consumes positive mode0 access at keep PCL108/1 into phase5->6; later modes0/1 at110/31 fail and phase6->5. Phase6 groups4364/4340 move from around562/493 to588/384 with same PCL1 and no region callback; endpoints outside bridge proximity do not prove their routes avoid bridges. One map session; no controlled reload comparison. Capture54.845ms, trace3529353bytes including the torn last line in73.718s (~2.87MB/min). End124 pending minus64 attempted leaves60 records not printed plus one torn record. Capture/delivery/file completeness are separate.
+
+Next run: in one process load the identical prepared save raised -> lowered -> raised, Gate and Fixes active, no ongoing own moat work. Wait for bridge physical change + completed topology + fresh actual military planning and consumed access/phase. Observe stored-route and bridge-movement; route-command return and before/after path comparison distinguish retained routes from fresh ones. Lateral deck intersection and observed parent-gate footprint are separate, with candidate parent links still uncertain. Old tasks are not fresh comparison evidence. After map end wait for session-delivered (deliveryComplete=True) before reload/exit; a sudden exit remains explicitly incomplete. Analyze with _inspect/EnemyGateBuildingContextAudit/bridge-log-analysis.py; it validates definitions and separately reports captureComplete/deliveryComplete/fileComplete. It never repairs or hides a torn tail.
+
+Synthetic regressions use production public path views and header getter,38 unit chains, unchanged/replaced paths, reused IDs, nested-command boundaries, exception isolation, deck entry/exit, inactive odd nibble and invalid capacity/directions. The full1583587-call/32784-command population is a fixture-read replay, not an in-game latency or log-growth measurement. Unchanged operation is tested with a95-byte logger-prefix allowance against1MB/min; changed decision bursts are reported separately. Actual game budget/playability and the bridge-relevant causal chain remain the next runtime acceptance. Version0.1.0/README/public APIs remain unchanged.
+
+## Final stored-route verification and installation (2026-10-04 22:27)
+
+Prescribed elevated build.bat completed successfully: 24356 Bridge assertions, runtime and test compilation both 0 warnings/0 errors. Existing 3830 Gate assertions passed separately. Installed public path-view/movement publisher contracts, full-hash native audit, JSON/lifecycle/permanent hooks, XAML, CRLF and semantic compilation checks passed. First driver stopped before runtime installation on an invalid-path marker regression: changed invalid headers now report once. Second stopped on an outdated two-record expectation: shared contexts require four constant records. Final driver passed and installed. All transcripts retained: _inspect/EnemyGateBuildingContextAudit/bridge-stored-route-build*.log.
+
+Latest offline fixture: 1583587 balanced native calls, 32784 command pairs, 313263 bytes including a 95-byte-per-line prefix allowance. Quiet 75117-call fixture: four records / 1324 bytes. Older mixed fixture: 839714 calls, 18835 commands, 47 rebuilds, 96 captures / 75547 bytes. Production public-view tests cover 38 chains, retained/replaced paths, nested return boundaries, reused identities, per-unit exceptions and unchanged native data. Bounded delivery, reconstructible definitions and torn-file analyzer tests pass. Actual game performance and a complete bridge-relevant causal comparison remain pending.
+
+Local/installed DLL SHA256: A0421099028871915F5D48ABA2DC6C70700AE4C3B4805AB02571DE96D919A5CB. AssemblyVersion 0.1.0.0 / mod 0.1.0; README, public APIs and SE fork unchanged. Next: identical-save raised -> lowered -> raised comparison, waiting for session-delivered after leaving each map.
+
+## Consumed decision / compact route milestone (2026-10-04)
+
+The archived Log_243 baseline is complete:1351340 native calls,30018 commands,19 assignments,67 decoded deck route observations. New decision-state records link completed access/phase state to later phase6 root/command bindings, separately from chronological candidatePlan. Bridge-relevant routes promote quiet native roots and frozen group/unit Pre frames; later captures say promotion rather than entry. RouteBound distinguishes27 previous false-looking command-boundary markers from actual nested replacements. Per-command age and global last-position-change duration are separate; cursor-past deck is not executed movement.
+
+Read stored-route as reusable content. route-bindings columns: binding/unit/global/player/controlRaw/tribe/commandOp/parentEvent/consumer/planningRoot/entryPhase/candidatePlan/decisionState/commandClock. route-observations columns: binding/pathDefinition/observationClock/x/y/cursor/flags/substep/returnKnown/commandReturn/pathChangedSinceCommandPre/state/progressClass/issuedCommand/contextX/contextY. Path-changed -1 is unobserved;0 preserved;1 changed. Progress0 has no deck;1 before cursor;2 current position on a deck;3 boundary uncertain;4 cursor past without execution proof. route-repeat-batch is first/last numeric cursor and exact observation-attempt count, never inferred motion. Definition and observation clocks differ deliberately. New decisions expire on plan/session changes; candidate IDs remain chronological unless a reservation proves them.
+
+Next game comparison: load the SAME prepared save raised -> lowered -> raised, Gate/Fixes active, no ongoing own moat work. Each arm needs settled bridge topology, completed access decision/consumed phase, matching later native root and frozen group/unit command, stored future/current deck route or explicit missing evidence. Current position transitions are additional proof. Leave the map, wait for session-delivered with deliveryComplete=True, then reload/exit. Do not force new game orders or searches through diagnosis. Existing jobs do not substitute for a fresh controlled decision.
+
+Static/production-field/JSON/lifecycle/permanent hook/XAML/CRLF checks and offline regressions are required before build. Actual game volume below1MB/min, playability and the controlled decision contrast remain pending; changed bursts are measured separately. Version0.1.0 and README unchanged.
+
+## Final consumed-state verification and installation
+
+Prescribed elevated build.bat completed and installed the mod with0 warnings/0 errors and37726 Bridge assertions;3830 existing Gate assertions passed separately. First driver stopped before runtime build/install because the promoted group return lacked its equality/no-region branch in the direct command record. That branch is now explicit; the second driver passed. Transcripts: _inspect/EnemyGateBuildingContextAudit/bridge-consumed-state-build.log and bridge-consumed-state-build-2.log.
+
+Frozen Log_243 replay:1351340 balanced native calls,30018 command pairs,67 exact decoded bridge-route observations,19 production public task getter/state/command checks. Relevant path transport65137 bytes including95-byte-per-line prefix allowance; native population225898 bytes with the same allowance. These are separate offline transport fixtures, not the entire measured game trace. Quiet75117-call fixture remains4 records/1324 bytes. Existing1583587-call population regression, nesting, exception isolation, permanent32 native entry contracts and actual original-once wrapper tests pass. New tests cover persisted access state5->6, target/reload invalidation, late promotion of frozen unit/group Pre and actual group Post equality, delayed per-command stall, cursor-past without movement proof, bounded delivery and independent67 packed-byte reconstructions. Analyzer self-tests validate nested fields, path references, consumed decision/parent-command links, target mismatch and torn files. Installed signatures, JSON/lifecycle, XAML, workspace published-hook mutation checks, CRLF and semantic compilation passed.
+
+Local/installed DLL SHA256 both53EBB3B867136225FF0D5FC4F8C8D1F2428E933E03EA18784516C21D4F679E87, AssemblyVersion0.1.0.0/mod0.1.0 unchanged. README/public APIs/SE fork unchanged. No new game run was performed by this work. Actual game volume<1MB/min and controlled raised/lowered/raised causal contrast remain runtime acceptance, not offline claims. A changed relevant path after an unbound identical command emits route-unbound-update and promotes its actual retained command/native frames, but explicitly lacks that command's own Pre bytes; it cannot silently inherit old return provenance or become a proved before/after cause.
+
+## 2026-10-04 23:22 decision-chain completion and compact background transport
+
+Frozen evidence: _inspect/EnemyGateBuildingContextAudit/bridge-232200.log, SHA256 5AEF0B8E216C0E42E2E5AE63EB26A34AEC440E7762DFE221E7F0CC37CDCAF9D8. 1695766 balanced native calls;34661 command pairs;zero capture/ID/overflow/reference/reconstruction errors. Bridge capture and delivery are complete; the whole file ends in an unrelated partial UU-ImGUI line. Analyzer now separates bridgeFileComplete/bridgeComplete from fileComplete/complete.
+
+Player8 decision28 consumes CF360 positive103/1, native=effective103, phase5->6. Later root1336380 has the identical retained plan and four group orders/25 unit orders/25 units/52 route observations. Path523, unit1143/g2425970, command1336382/group1336381, crosses703/g2432893 at steps64..66,603/477->605/473, without the candidate parent footprint. Group PCL1/1 bypasses regions. Decision31 after raising consumes negative mode0/1,107/31, phase6->5. Total105 observations have matching decisions and recorded root/group/unit commands;10 are unresolved. No executed deck movement and only one map session. Retained-state linkage is established; save-identical counterfactual causality remains pending.
+
+The renewed full122-function/32-entry Absolute audit matches CURRENT.json and the installed complete Native/NativeX64 hashes; existing27-function stored-path audit remains applicable. JSON/lifecycle/project preflight passes. Lifetime remains static subscriptions/native hooks/Application.onBeforeRender; no plugin teardown, new native hooks, public API, game-member access, Vanilla search, behavior write, version or README change. Native originals remain exactly once. No new assembly members require validation; all existing installed public field/view/publisher contracts remain machine-checked.
+
+Complete no-deck path definitions now use stored-route-background-batch rows: definition/captureClock/originX/originY/length/cursor/flags/substep/decodedX/decodedY/segmentX/segmentY. These paths previously had no packed bytes either; relevant or undecodable paths still retain full original definitions and bytes. Envelope metadata belongs to batch flush; physicalAtCapture is explicitly not recorded for background rows. Decoder reconstructs original numeric fields and does not assign flush physical/topology to their capture. Repeated no-deck observations are exact player totals, not per-binding details or movement evidence. Relevant repetitions retain binding/path IDs and cursor/time ranges. Replacements use unit/global/oldCommand/newCommand/observationClock rows. All batches flush across session boundaries. Critical definitions and route evidence retain priority; background repetition totals use the bounded background queue.
+
+Per-bridge decision-comparison and final comparison-coverage markers identify access observation, target, consumed phase, physical definition and settled topology; route-comparison identifies stored-route state. Expired decisions and old-physical routes cannot satisfy the current-physical coverage marker. Missing controlled reload comparison is explicit. 64-record/2ms drain and session-delivered remain unchanged.
+
+Frozen transport replay:4243980->3396576 bytes including prefixes (847404 saved), preserving all definitions and105 linked observations. This is a serialization regression, not proof of runtime volume or performance. Updated load fixture reproduces1695766 calls/34661 command pairs/93 rebuilds; separate unchanged/background-volume fixture includes prefixes. New graph design in Testmods/EnemyBridgePathTest/DECISION_FIX_DESIGN.md specifies virtual split-components with remapped macro endpoints and Gate authorization. It is not installed; native parent0, physical-closed boundary equivalence, special unit/mode semantics and same-save raised->lowered->raised remain prerequisites.
+
+Verification/install: the single prescribed elevated build.bat completed successfully with37731 Bridge assertions and0 warnings/0 errors. Existing3830 Gate assertions passed. Latest1695766-call/34661-command fixture emitted337855 bytes with per-record prefix allowance;75117 unchanged attacks emitted1324 bytes/four records. These are offline workload/serialization bounds, not measured in-game MB/min. Installed and local DLL SHA256 both AB5298051F3303584CE4819A38A316F81065AECFD757D742EDE7752F2CF3305F. Build transcript: _inspect/EnemyGateBuildingContextAudit/bridge-virtual-design-build.log. Runtime behavior remains passive; version0.1.0 and README unchanged. Controlled same-save raised->lowered->raised game validation remains pending; wait for session-delivered after each session.
+
+
+## Gate-front approach and sequential consumers (2026-10-12)
+
+Scope: passive diagnostics only. Behavior policy remains disabled. No new hook,
+public API, search, physical write, version change or external-mod modification.
+
+Latest frozen process: full.log SHA256
+DC30CEC51F99B5850069A17C5B6140AF5EDFA74AD594E22EFE94DCEC44C580DE.
+See historical-20261012-2316/provenance.json for exact process/session wire hashes.
+Session1 is delivered; session2 has neither end nor delivery marker. File lines
+are intact. Two session1 missing command Posts correspond to two suppressed
+originals in the same epoch's event summary; missingPost=0. The installed
+SkipOriginalFunction contract emits no Post for a suppressed original. New traces
+count commandSuppressed separately. Capture, event lifecycle and delivery are
+separate evidence.
+
+The two real consumer operations 644400 -> 644472 (root644375) and
+3743313 -> 3743381 (root3743288) were sequential, not nested. Recording now
+retains first consumer/* and second consumer2/* plus additive sequence version1
+and completed count. Each keeps its own Pre/Post operation, root, arguments and
+clock. Children inherit their own consumer parent. Identity, ordering and both
+consumer capacities are validated on import. A third consumer or real nesting
+rejects the bundle with an explicit coverage reason. Two attempts and one planning
+plus one group artifact remain the maximum. Legacy schemas remain readable.
+
+Private-memory native execution now runs two consumers consecutively with actual
+computed memory flowing between them. Capture/write/import and local handoff
+checks cover both. Productive local-stage reports explicitly do NOT claim full
+intervening military branch replay. Recorded outputs are comparison values, not
+substitutes for that missing computation. Policy remains Unknown.
+
+Structure audit: bridge-melee-audit.py checks 22 complete installed function bodies
+against the complete current hash, supplementing the 122-function decision audit.
+2C620/2C710 choose building IDs; 30E90 preserves/sets the target and GlobalId at
+native Tribe manager+tribe*688+64C/+650. 199C00 queues the contextual tribe order.
+This target is distinct from the unit-target field. The existing route publisher
+now observes the stored building target, validates alive/GlobalId twice and
+connects it to unit/global, binding, decision, path, endpoint, AIState and task
+field. No lookup is made for ID0; no pointer or span is retained. It only runs on
+existing bounded full-route observation scans, not every movement callback.
+
+Path classification is gate-footprint-observed, deck-endpoint-approach,
+deck-passage-without-parent-footprint, unknown-parent or incomplete. Ending on the
+deck is not lateral passage. None proves attack execution. Context/segment tiles
+are NOT claimed to be validated melee fields. New records explicitly retain
+attackEvidence=not-observed and permissionEvidence=requires-effective-gate-policy.
+The copied-only melee aggregate allows any proven reachable attack field,
+returns Unknown for missing fields/unknown routes and permits NoRoute only when
+the complete candidate set has no reachable alternative. It is not live policy.
+
+Resource errors: 178 occurrences of732351152 and10 of732350560. Installed
+BulkAIDetours and FixesAIDetours/Preferences were decompiled and retained. Known
+resource paths include hovel event player, siege callback player/target and
+preference lookup player. The Bridge source has no resource API call. Its audited
+V2/V3/R2/L3 wrappers forward original parameters/results unchanged; copied native
+fixtures include both invalid values and original-once exception isolation.
+There is no runtime caller stack in this log, so neither Bridge nor an external
+owner is causally identified. No resource values are replaced and no error is
+suppressed. External files remain unchanged.
+
+Realistic codec replay: all24697 original decoded trace envelopes/fields retained;
+24090 records packed. Warmed offline encode145.7ms, decode118.7ms total;
+max encode0.922ms, max decode0.963ms; GC0/1/2=67/4/2. This does not explain or
+exclude live 33ms publisher spikes; game scheduling, logger/I/O and GC remain
+unattributed. Existing render/64record/64KiB budgets and maxima remain. Current
+live volume0.44/0.37MB/min already satisfies the unchanged-background target.
+
+
+Next: see _inspect/BridgePlanningTests/MELEE_CAPTURE_20261012.md. The gate-front behavior fix is still disabled; the next run records the repaired sequence, not a behavior test.
+
+
+Validation and installation status (2026-10-13): 38130 policy assertions and
+150 private native cases/12257 checks pass. Actual installed assembly source
+compilation, fresh Windows PowerShell verify.ps1, workspace permanent-hook /
+UnitAccess / JSON / lifecycle / XAML preflight and explicit CRLF checks pass.
+Two prior original planning artifacts retain matching baseline and local handoffs.
+The prescribed elevated build.bat was invoked once. Its shared-boundary and
+APIShared-package gates passed; it aborted because the game is still running,
+before replacing the local package or installed Bridge DLL. Installation is
+pending game closure. Transcript: _inspect/BridgePlanningTests/melee-final-build.log.
+Versions, README, APIShared, Fixes and Script Extender remain unchanged.
+
+
+2026-10-13 general diagnosis preparation: all native AI players are eligible;
+bridge variants derive from immutable building/global identities, with precise
+selection cache keys and explicit capture/group coverage limits. See
+_inspect/BridgePlanningTests/GENERAL_DIAGNOSIS_20261013.md for hash-bound evidence.
+Both latest own consumers fully match native and production candidate/weight/
+availability/work replay. Intervening military branches, full building updater
+replay and actual melee target/attack proof remain Unknown. No behavior patch.
+
+Final offline validation (2026-10-13):38162 policy assertions;150 private native
+cases/12292 checks. Both latest own-consumer native comparisons and the strict
+production2/2 comparisons pass. Frozen982868-call geometry and1837071-call real
+planning/hash regressions pass with dynamic identity selections. Fresh
+powershell.exe preflight passes: workspace boundaries, UnitAccess, JSON,
+lifecycle/static publisher, permanent hooks, installed member contracts and
+CRLF. Canonical Fixes source remains v1.26.4; excluded owners unchanged.
+
+Installation BLOCKED before build: prescribed elevated Test-ConsumerPackage
+reports "APIShared package is stale. Run APIShared/build.bat /nopause first."
+Concurrent APIShared source is under modification and was not edited here.
+The Bridge-only memory compilation passes against installed APIShared and true
+Assembly-CSharp. The full source-API compilation fails in the concurrent audio
+work; it is not declared successful. No package-gate bypass or manual install.
+Bridge build remains pending the other chat's validated APIShared installation.
+Old installed Bridge DLL still contains its previous diagnostic selection.
+Versions and README remain unchanged; behavior fix remains disabled.
+
+Installation completed2026-10-13 01:36:05 after the other chat finished APIShared.
+The package-stale blocker above is resolved. APIShared source and installed
+assembly contract compilation passes again; package and installed APIShared
+hashes match. Prescribed elevated build.bat completed exit0 with0 errors and
+one existing CS0649 warning.38162 policy assertions and150 native cases pass.
+Local/installed Bridge DLL SHA256:
+79C36FD75D393CD37E676922E933B81D0849860B3AC08A51D52091E4003CEE5E.
+info.json hashes also match; Bridge version0.1.0 unchanged. Transcript:
+_inspect/BridgePlanningTests/general-diagnosis-build.log.
+General automatic diagnostic selection is now installed. Behavior fix remains
+disabled; military continuation, formation and Dirty negative-proof gaps above
+remain open. No further unchanged game start is needed for those offline gaps.
+
+
+2026-10-13 offline continuation: see
+_inspect/BridgePlanningTests/OFFLINE_CONTINUATION_20261013.md. Deferred weak
+selection, remaining-deck promotion and reused writer buffer implemented.
+Native/managed EAB80 choice gate134/g6658 at404/491 matches group artifact;
+virtual135/149 cuts do not change this gate choice. Physical edge separation
+alone is insufficient for melee target selection. Player5 negative inter-consumer
+planning suffix matches native; active-role order/formation remains Unknown.
+Resource errors remain unattributed and are not claimed fixed. No behavior patch.
+
+Final validation/install2026-10-13 13:41:08:38294 policy assertions,150 private native differential cases; all four new own consumer comparisons and player5 computed negative inter-consumer planning suffix match. Frozen positive/stable regressions pass. Fresh PowerShell5.1 workspace/runtime/UnitAccess/package checks, real Assembly-CSharp compilation and hook/JSON/lifecycle/CRLF checks pass. Prescribed elevated build.bat exit0, one existing CS0649 warning, installed successfully. Local/installed DLL SHA256:6B828480278A6913C80D4750DB952619BD322D673BEFE61BC8E4D0773E91B44B. Transcript:_inspect/BridgePlanningTests/offline-continuation-build.log. Version0.1.0 and README unchanged. Resource faults remain unattributed/unfixed; active-role order/formation, effective Fixes selector policy and legal melee approach validation remain open. Behavior patch disabled.
+
+2026-10-13 structure access: see _inspect/BridgePlanningTests/STRUCTURE_ACCESS_20261013.md. Copied EDF30/DA020, bounded own command input and shared SDK building-damage observation added; policy remains disabled. Own real command-entry/formation/effective Fixes still require proof. No version/README/public API/external changes.
+
+Final validation/install2026-10-13 15:22:57:38333 policy/capture/transport assertions and166 synthetic native differential cases pass. Existing real positive and stable path regressions pass. Fresh PowerShell5.1 runtime/workspace/UnitAccess/package/hook/lifecycle/JSON/XAML/CRLF gates pass; installed SDK damage-event signatures and true Assembly-CSharp compile references validated. Prescribed elevated build.bat exit0, one existing CS0649 warning, zero errors. Installed/local DLL SHA256 D846052B8D090797DB0FFCD7F9792575C855156CB695BF80505822AEEF0D180E; info.json hashes match. Transcript:_inspect/BridgePlanningTests/structure-access-build.log. Version0.1.0 and README unchanged. Original real command entry/complete formation/effective Fixes policy are not yet replayed; behavior fix remains disabled. New own-entry capture and independent shared damage observation are installed. Next step is the specified one lowered-bridge/closed-gate fresh-decision capture, not a behavior acceptance run or another broad raised comparison. Resource fault origin remains unproven/unfixed.
+
+## 2026-10-13: gate damage and retained bridge-loss evidence
+
+Complete hash-bound decision audit122 plus63 full damage/deletion/attack bodies,
+including installed instruction bodies, are retained in
+_inspect/EnemyGateBuildingContextAudit/bridge-loss-full-evidence.txt and
+bridge-loss-contracts.json. Native SHA256 remains
+FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+Fixes canonical local source is v1.26.4; existing owners remain unchanged.
+
+7EB00 can mark up to two coupled class49 bridges via B9330/C4290 when its
+parameter8 is1, before checking whether a class45/46 gatehouse has died. C4290
+marks alive state3; C60F0 later consumes state3 through B8310. B8310 calls61FC0,
+which dispatches class49 to622D0. Native class49 removal-table value at2E7190
+is1. The resulting keep-moat word120 is1:622D0 keeps the moat flag instead of
+calling61E70 to clear the moat record. This is a damage/deletion distinction,
+not evidence that a separate bridge attack was ordered. Damage SDK arguments
+do not expose every native branch flag or the actual return value.
+
+The full log snapshot contains a later separate short process as well. The
+explicitly selected historical process (7312 paired commands,359190 completed
+native calls) is frozen under historical-20261013-152715. Original full-file
+SHA25647F1F1CF57FBA9F72C5AB2A5A0FC325AD9AA7BAC8E865E2790FC876A1ED7D46C;
+selected UTF8 process-section SHA256
+7FE42449AF3164AA0FE835BB9CDB96C92FBCECB8454BCAA98BF5FC79CDF0C463.
+Gate163 lost6HP; bridge494 left the active index; the next completed rebuild
+followed. Old logs did not retain the removed footprint, so persistent moat
+state is native/user evidence rather than a complete old-log field proof.
+
+Runtime now allows relevant own military entry phases4/5, still two attempts.
+Existing unit-command events can copy own unit identity and context target tile;
+existing movement Post can supply an explicitly ongoing-state snapshot. These
+are not selector results, fresh decisions, or proof of melee execution. Missing
+native context targets can use only a remaining, identity-matched deck path as
+a geometrical coupling candidate. Consumed path sections never qualify.
+Unit/tribe GlobalIds are distinct. Native copied slot window has header65C:
+unit Global offset65C+94=6F0; context building tile65C+3A4=A00.
+Own unit event inputs, Unknown stack parameter and suppression are preserved.
+
+BridgeLossHistory holds at most128 historical bridge/gate/footprint identities
+per session, separate from live topology and permissions. Reuse/coupling changes
+do not overwrite old evidence. Fields and state are recorded at relevant index,
+damage and completed-rebuild observations. Unchanged field definitions are
+referenced; generation/dirty changes alone do not generate duplicate state.
+PCL50EC690, flags48F71B0, directions51890D0 and moat-task layer5F011A0 are read
+within320800 entries. Moat-task5F011A0 derives from tile root405EDB0+1EA23F0;
+it is not the organism layer485A770 used by69560. Historic evidence is never
+used to grant or deny live reachability. Scalar snapshots are non-atomic and
+cannot authorize negative decisions. Capacity overflow explicitly loses
+coverage. Later gate damage remains relevant after its last bridge disappears.
+
+Importer retains legacy artifacts and validates optional unitIdentity4/own
+observation origin. Zero roots never constitute an exact causal link. Weak
+ongoing-path snapshots are deferred, with one bounded final fallback; stronger
+own input can consume the remaining attempt. Two delivered artifact limits,
+64 records/64KiB blocks and the durable session-delivered marker remain.
+
+Behavior fix remains disabled. Copied DA020/EDF30 and conservative melee-access
+alternatives remain offline-only; full real own unit-command/formations and
+effective permission integration still require actual input replay. The resource
+errors have no proven Bridge caller and are not suppressed or replaced.
+
+Next targeted capture: same gate-only-access layout; permanently lowered bridge,
+closed gatehouse, Gate/Fixes/manual feature active, no own moat work. Observe a
+fresh military decision and allow gate hit/bridge loss. Require planning artifact,
+own unit-command or explicitly ongoing-state follow input, bridge-loss field/state
+records, later gate damage if it occurs, completed topology and both artifact/
+session delivery markers. It is a capture run, not behavior-fix acceptance.

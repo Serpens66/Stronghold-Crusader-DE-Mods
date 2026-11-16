@@ -440,7 +440,10 @@ namespace BugfixesAndQoL
                 throwOnError: true).MakeGenericType(typeof(TargetSearchProbeDelegate));
             byte[] file = File.ReadAllBytes(DllPath);
             PeImage image = PeImage.Load(file);
-            byte[] prefix = image.ReadBytes(WaterboyNativeDefinition.FindNearestBurningBuildingRva, 32);
+            // 33 bytes end on an instruction boundary (lea r13,[rip+disp32] spans +0x1A..+0x20), so the
+            // appended C3 decodes as RET and ends NativeX64's scan inside this 128-byte block. With 32
+            // bytes the C3 became the lea displacement and the scan read past the block.
+            byte[] prefix = image.ReadBytes(WaterboyNativeDefinition.FindNearestBurningBuildingRva, 33);
             IntPtr fixture = Marshal.AllocHGlobal(128);
             try
             {

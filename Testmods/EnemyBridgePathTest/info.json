@@ -2,7 +2,7 @@
   "GUID": "EnemyBridgePathTest_Serp",
   "Author": "Serpens66",
   "Name": "Enemy Bridge Path Test",
-  "Description": "Read-only diagnosis of independent drawbridge crossings, AI work access and shared military task observations.",
+  "Description": "Lowered drawbridges in front of gatehouses count as raised for route planning of every player the gate does not admit (AI and human).",
   "Version": "0.1.1",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -10,13 +10,10 @@
     {
       "GUID": "APIShared_Serp",
       "MinimumVersion": "0.49.0"
-    },
-    {
-      "GUID": "Pathfinding_Serp"
     }
   ],
   "Manifest": 1,
-  "NetworkMode": 0,
+  "NetworkMode": 1,
   "SupportedGameVersions": [
     "2.8.0.1"
   ],

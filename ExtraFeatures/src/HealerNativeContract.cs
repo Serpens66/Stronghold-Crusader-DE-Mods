@@ -101,7 +101,11 @@ namespace ExtraFeatures
 
         internal static void ProbeBackend<T>(ulong entryAddress, T callback) where T : Delegate
         {
-            byte[] entry = Capture(entryAddress, 64);
+            // Same options as the real installation; no thread can execute this private copy.
+            var backend = ExtraFeaturesHookInfrastructure.DetourBackend(NativeDetourBackend.Instance)
+                as NativeDetourBackend ?? throw new InvalidOperationException("Healer probe backend is not NativeX64.");
+            // The image spans the backend's whole scan window (see Shared.CopiedProbeImage).
+            byte[] entry = Shared.CopiedProbeImage.Create(entryAddress, backend.Options);
             IntPtr copy = Marshal.AllocHGlobal(entry.Length);
             // If RedBird could not release the probe it may still reference the copy: leak it then.
             bool copyReleasable = true;
@@ -117,9 +121,7 @@ namespace ExtraFeatures
                         TargetAddress = unchecked((ulong)copy.ToInt64()),
                         Callback = callback
                     };
-                    // Same options as the real installation; no thread can execute this private copy.
-                    probe = ExtraFeaturesHookInfrastructure.DetourBackend(NativeDetourBackend.Instance)
-                        .CreateDetour(in request) as NativeDetour<T>;
+                    probe = backend.CreateDetour(in request) as NativeDetour<T>;
                     if (probe == null || probe.Scheme.ToString() != "Indirect" ||
                         probe.DisplacedByteCount != ExpectedDisplacedBytes || probe.IsInstalled ||
                         probe.TargetAddress != unchecked((ulong)copy.ToInt64()) ||

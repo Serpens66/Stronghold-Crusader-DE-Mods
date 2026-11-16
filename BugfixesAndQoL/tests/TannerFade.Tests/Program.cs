@@ -182,8 +182,10 @@ internal static class Program
             IntPtr memory = Marshal.AllocHGlobal(128);
             try
             {
+                // int3 padding: NativeX64 scans up to FunctionScanLimit (16 KiB) until a function end;
+                // NOP padding let it read past this 128-byte block into foreign heap memory.
                 for (int i = 0; i < 128; i++)
-                    Marshal.WriteByte(memory, i, 0x90);
+                    Marshal.WriteByte(memory, i, 0xCC);
                 Marshal.Copy(entry, 0, memory, entry.Length);
                 object request = Activator.CreateInstance(requestType);
                 TanneryProbeDelegate callback = TanneryProbe;

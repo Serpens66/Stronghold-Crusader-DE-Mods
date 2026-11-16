@@ -132,9 +132,8 @@ namespace Spectator
 
         private static void ProbeAvailabilityBackend(ulong entry)
         {
-            IntPtr copy = Marshal.AllocHGlobal(64);
-            var bytes = new byte[64];
-            Marshal.Copy(unchecked((IntPtr)(long)entry), bytes, 0, bytes.Length);
+            byte[] bytes = Shared.CopiedProbeImage.Create(entry, NativeDetourBackend.Instance.Options);
+            IntPtr copy = Marshal.AllocHGlobal(bytes.Length);
             NativeDetour<BuildAvailabilityDelegate> probe = null;
             try
             {
@@ -335,9 +334,8 @@ namespace Spectator
         private static void ProbeVisualBackend<T>(ulong entry, byte[] expected,
             T callback) where T : Delegate
         {
-            IntPtr copy = Marshal.AllocHGlobal(64);
-            var bytes = new byte[64];
-            Marshal.Copy(unchecked((IntPtr)(long)entry), bytes, 0, bytes.Length);
+            byte[] bytes = Shared.CopiedProbeImage.Create(entry, NativeDetourBackend.Instance.Options);
+            IntPtr copy = Marshal.AllocHGlobal(bytes.Length);
             NativeDetour<T> probe = null;
             try
             {

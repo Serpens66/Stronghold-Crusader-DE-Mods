@@ -80,18 +80,11 @@ if exist "%GAME_SCRIPT_EXTENDER_DIR%\SHCDESE.dll" (
   set "EXTENDER_DIR=%GAME_SCRIPT_EXTENDER_DIR%"
 ) else goto build_failed
 
-rem Editor lifecycle is a hard runtime dependency. Validate it before replacing
+rem APIShared (mission lifecycle) is a hard runtime dependency. Validate it before replacing
 rem either the local package or the installed test mod.
 echo [%date% %time%] PowerShell checks / build step
-powershell.exe -NoProfile -Command "$p='%API_SHARED_DIR%\APIShared.dll'; $m='%API_SHARED_DIR%\info.json'; if (-not (Test-Path -LiteralPath $p -PathType Leaf) -or -not (Test-Path -LiteralPath $m -PathType Leaf)) { exit 2 }; try { $v=[Version]((Get-Content -Raw -LiteralPath $m | ConvertFrom-Json).Version) } catch { exit 3 }; if ($v -lt [Version]'0.4.12') { exit 4 }; Write-Host ('Using APIShared ' + $v + ' from ' + $p); exit 0"
+powershell.exe -NoProfile -Command "$p='%API_SHARED_DIR%\APIShared.dll'; $m='%API_SHARED_DIR%\info.json'; if (-not (Test-Path -LiteralPath $p -PathType Leaf) -or -not (Test-Path -LiteralPath $m -PathType Leaf)) { exit 2 }; try { $v=[Version]((Get-Content -Raw -LiteralPath $m | ConvertFrom-Json).Version) } catch { exit 3 }; if ($v -lt [Version]'0.49.0') { exit 4 }; Write-Host ('Using APIShared ' + $v + ' from ' + $p); exit 0"
 if not "%ERRORLEVEL%"=="0" goto api_shared_failed
-
-rem Hash-bound native reference runs only in a separate x64 process/private image.
-echo [%date% %time%] Compile projects
-"%MSBUILD%" "%PROJECT_DIR%..\..\_inspect\BridgePlanningTests\BridgePlanningTests.csproj" /p:Configuration=Debug %SHCDE_BRANCH_MSBUILD_API%
-if not "%ERRORLEVEL%"=="0" goto build_failed
-"%PROJECT_DIR%..\..\_inspect\BridgePlanningTests\bin\BridgePlanningTests.exe"
-if not "%ERRORLEVEL%"=="0" goto build_failed
 
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
 pushd "%PROJECT_DIR%"
@@ -99,7 +92,7 @@ echo [%date% %time%] Compile projects
 "%MSBUILD%" EnemyBridgePathTest.PolicyTests.csproj /p:Configuration=Debug %SHCDE_BRANCH_MSBUILD_API%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 echo [%date% %time%] Run tests
-"%PROJECT_DIR%tests\bin\EnemyBridgePathTest.PolicyTests.exe"
+"%PROJECT_DIR%tests\bin\EnemyBridgePathTest.Tests.exe"
 if not "%ERRORLEVEL%"=="0" goto test_failed_popd
 echo [%date% %time%] Compile projects
 "%MSBUILD%" EnemyBridgePathTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
@@ -130,16 +123,16 @@ echo [%date% %time%] Copy package files
 xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
 if not "%ERRORLEVEL%"=="0" goto copy_failed
 
-echo Enemy Bridge Path Test policy tests passed, mod built and installed successfully.
+echo Enemy Bridge Path Test tests passed, mod built and installed successfully.
 exit /b 0
 
 :built_without_install
-echo Enemy Bridge Path Test policy tests passed and local package built. Installation skipped.
+echo Enemy Bridge Path Test tests passed and local package built. Installation skipped.
 exit /b 0
 
 :test_failed_popd
 popd
-echo Policy tests failed. The mod was not built or installed.
+echo Tests failed. The mod was not built or installed.
 exit /b 1
 
 :build_failed_popd
@@ -149,7 +142,7 @@ echo Build failed.
 exit /b 1
 
 :api_shared_failed
-echo Build and installation aborted: APIShared.dll version 0.3.6 or newer was not found in "%API_SHARED_DIR%".
+echo Build and installation aborted: APIShared.dll version 0.49.0 or newer was not found in "%API_SHARED_DIR%".
 echo Build and install APIShared_Serp first. The local package and installed test mod were not changed.
 exit /b 1
 

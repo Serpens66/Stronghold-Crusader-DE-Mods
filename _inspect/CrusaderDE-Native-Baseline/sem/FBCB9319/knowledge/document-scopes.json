@@ -426,6 +426,16 @@
       ]
     },
     {
+      "file": "DRAWBRIDGE_REGION_CLOSURE.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "testmod"
+      ],
+      "integrationSections": [
+        "Planning closure in EnemyBridgePathTest"
+      ]
+    },
+    {
       "file": "DRAWBRIDGE_AI_DECISIONS.md",
       "scope": "vanilla+integration",
       "components": [

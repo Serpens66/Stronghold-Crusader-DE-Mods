@@ -1,5 +1,58 @@
 # Virtual closed drawbridge decision design
 
+## Current design boundary and next milestone - 2026-11-16
+
+This is still a passive diagnostic design, not an activated bridge policy.
+Use [HANDOFF.md](HANDOFF.md) for the dated source/evidence snapshot and
+[ACCEPTANCE.md](ACCEPTANCE.md) for the next targeted capture. Historical claims
+of installation and old owner/dependency names below are not current guarantees.
+
+The copied topology/planning approach remains the basis of the experiment.
+The latest real pair demonstrates useful local stages and one complete
+same-region/mode-0 unit-command branch. It does not establish full military
+entry/consumer/formation composition or a valid negative attack-access policy.
+The current phase-5 suffix tool explicitly prints fullEntry=False,
+managedSuffix=not-yet-replayed and policy=Unknown. Its successful return is
+diagnostic completion, not the missing acceptance gate.
+
+### Close the specific evidence gap first
+
+The current collector includes the entryContinuationVersion=1 bundle containing
+the entry-time line mode, block grid and formation counter, plus observed
+consumer and military-exit counterparts. The last frozen real planning pair
+predates that bundle. One new complete targeted pair is therefore justified
+after current integration/build preparation; later-input sensitivity is not
+an accepted historical baseline. Do not expand collection again without first
+identifying a concrete input read that the new pair still cannot satisfy.
+
+### Required proof before an active implementation
+
+- Replay the actual uncut military entry and relevant branches in order; carry
+  calculated memory into later consumers, formation and command issuance.
+  Compare all relevant player/unit/tribe/path/counter side effects. Neither
+  captured Post state nor PE-default mutable data may supply a missing input.
+- Re-run single and combined virtual cuts through that proven chain. Explain
+  the earliest decision difference and preserve any legal alternative route
+  or melee approach. Isolated selector output or a late failed movement search
+  does not prove the intended early behavior.
+- Establish coherent/current topology and effective gate/role authorization
+  before a negative policy answer. The known Dirty=1 seven-field difference
+  remains a limit; even matching native/managed physical controls do not turn
+  old publication into an authoritative decision snapshot.
+- Reuse the current Pathfinding/APIShared owners and observers, including shared
+  strategic/global-task coverage. Old standalone Gate/BugfixesAndQoL integration
+  descriptions are historical. No competing native detour or new public API is
+  specified by this documentation update.
+- Measure live calculation/capture/publisher costs before activation. Historical
+  resource-player errors and frame peaks are not resolved by the copied proofs.
+
+These are completion criteria for future work, not implemented behavior.
+The 2026-11-16 task changes Markdown only and adds no policy, runtime, test or
+installation result.
+
+## Historical design and proof milestones
+
+
 Status: passive virtual shadow installed; no behavior policy is published.
 
 ## Stable execution evidence (2026-10-06)
