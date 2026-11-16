@@ -534,6 +534,8 @@ function Assert-ApiBuildProof([string]$Root) {
     $null=Invoke-Fixture @('/source:working','/apishared:dev','/noinstall','/nopause','/tests:quick') 27 $bfDriver
 
     # Adapt every currently maintained driver and both committed branch variants.
+    # Drivers marked with SHCDE_BUILD_PARAMETERS are not rewritten; they append the branch
+    # suffix at run time through %SHCDE_BRANCH_INSTALL_SUFFIX% (see the fixture driver above).
     $drivers = @(Invoke-BranchGit $Workspace @('ls-files','*build.bat') | Where-Object { $_ -notmatch '^(_inspect|shcde-script-extender)/' })
     foreach ($branch in @('main','develop')) {
         $available = @(Invoke-BranchGit $Workspace @('ls-tree','-r','--name-only',$branch))
@@ -541,7 +543,7 @@ function Assert-ApiBuildProof([string]$Root) {
             $original = @(Invoke-BranchGit $Workspace @('show',"${branch}:$relative"))
             $text = ($original -join "`r`n") + "`r`n"
             $adapted = Convert-BranchBatch $text $relative '_dev'
-            Assert-Case ($adapted -notmatch '%GAME_DIR%\\BepInEx\\plugins\\(?!000shcdese|APIShared_Serp)([^\\"\r\n]+)(?<!_dev)(?:"|\\)') "Unsuffixed target: $branch/$relative"
+            Assert-Case ($adapted -notmatch '%GAME_DIR%\\BepInEx\\plugins\\(?!000shcdese|APIShared_Serp)([^\\"\r\n]+)(?<!_dev|%SHCDE_BRANCH_INSTALL_SUFFIX%)(?:"|\\)') "Unsuffixed target: $branch/$relative"
         }
     }
     Write-Host "PASS: $cases branch, source, BAT, no-install, installation isolation and driver adaptation checks."
