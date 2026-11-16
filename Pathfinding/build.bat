@@ -88,7 +88,7 @@ dotnet run --project "%PROJECT_DIR%tests\Engine\Pathfinding.Engine.Tests.csproj"
 if not "%ERRORLEVEL%"=="0" goto failed
 "%MSBUILD%" "%PROJECT_DIR%tests\CommandDispatch.Tests\CommandDispatch.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%" /nologo /v:minimal
 if not "%ERRORLEVEL%"=="0" goto failed
-"%PROJECT_DIR%tests\CommandDispatch.Tests\bin\Pathfinding.CommandDispatch.Tests.exe" "%PROJECT_DIR%.." "%GAME_DIR%"
+"%PROJECT_DIR%tests\CommandDispatch.Tests\bin\Pathfinding.CommandDispatch.Tests.exe" "%PROJECT_DIR%.." "%GAME_DIR%" "%API_SHARED_DIR%"
 if not "%ERRORLEVEL%"=="0" goto failed
 dotnet test "%PROJECT_DIR%tests\Formations.Core.Tests\Formations.Core.Tests.csproj" --configuration Release
 if not "%ERRORLEVEL%"=="0" goto failed

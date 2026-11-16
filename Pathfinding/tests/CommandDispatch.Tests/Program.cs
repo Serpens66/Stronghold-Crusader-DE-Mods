@@ -44,7 +44,9 @@ internal static class Program {
  static void Field(string name,object value)=>typeof(Pathfinding.TribeCommandDispatchBoundary).GetField(name,BindingFlags.Static|BindingFlags.NonPublic).SetValue(null,value);
  static void Main(string[] args){
   string root=Path.GetFullPath(args[0]);string game=args.Length>1?args[1]:@"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition";
-  AppDomain.CurrentDomain.AssemblyResolve+=(sender,e)=>{string name=new AssemblyName(e.Name).Name+".dll";foreach(string dir in new[]{Path.Combine(root,"APIShared/BepInEx/plugins/APIShared_Serp"),Path.Combine(game,"BepInEx/core"),Path.Combine(game,"BepInEx/plugins/000shcdese"),Path.Combine(game,"Stronghold Crusader Definitive Edition_Data/Managed")}){string f=Path.Combine(dir,name);if(File.Exists(f))return Assembly.LoadFrom(f);}return null;};
+  // Release builds compile against the selected published SDK, not the development checkout.
+  string api=args.Length>2?args[2]:Path.Combine(root,"APIShared/BepInEx/plugins/APIShared_Serp");
+  AppDomain.CurrentDomain.AssemblyResolve+=(sender,e)=>{string name=new AssemblyName(e.Name).Name+".dll";foreach(string dir in new[]{api,Path.Combine(game,"BepInEx/core"),Path.Combine(game,"BepInEx/plugins/000shcdese"),Path.Combine(game,"Stronghold Crusader Definitive Edition_Data/Managed")}){string f=Path.Combine(dir,name);if(File.Exists(f))return Assembly.LoadFrom(f);}return null;};
   Run();Console.WriteLine("PASS: "+checks+" actual final-Pre IL, composition, veto/unveto and publisher lifetime checks.");
  }
  [MethodImpl(MethodImplOptions.NoInlining)] static void Run(){
