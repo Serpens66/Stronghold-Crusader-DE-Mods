@@ -15,6 +15,7 @@ namespace ExtraFeatures
     {
         private const string ButtonName = "ExtraFeaturesBuildingRepairButton";
         private const string HoverHostName = "ExtraFeaturesBuildingRepairHoverHost";
+        private const string HoverPaddingName = "ExtraFeaturesBuildingRepairHoverPadding";
         private const string HoverId = "ExtraFeatures.BuildingRepair.SmallButton";
         private delegate bool ShowRepairDelegate(HUD_Buildings self, int type, int panel);
 
@@ -29,6 +30,7 @@ namespace ExtraFeatures
         private Grid lastHoverHost;
         private HUD_Buildings lastHudPanel;
         private Button lastRepairButton;
+        private Border lastHoverPadding;
         private bool hovered;
         private bool? lastSpecialLayout;
         private bool hudFailureLogged;
@@ -147,6 +149,7 @@ namespace ExtraFeatures
                 lastHudPanel = hud;
                 lastHoverHost = null;
                 lastRepairButton = null;
+                lastHoverPadding = null;
                 hovered = false;
                 lastSpecialLayout = null;
             }
@@ -163,9 +166,11 @@ namespace ExtraFeatures
             }
             if (lastRepairButton == null)
                 lastRepairButton = hud.FindName(ButtonName) as Button;
+            if (lastHoverPadding == null)
+                lastHoverPadding = hud.FindName(HoverPaddingName) as Border;
             Grid hoverHost = lastHoverHost ?? hud.FindName(HoverHostName) as Grid;
             Button button = lastRepairButton;
-            if (button == null || hoverHost == null) return;
+            if (button == null || hoverHost == null || lastHoverPadding == null) return;
             if (!ReferenceEquals(hoverHost, lastHoverHost))
             {
                 hoverHost.MouseEnter += OnButtonEnter;
@@ -196,6 +201,9 @@ namespace ExtraFeatures
                 hud.RefBedouinStockadePanel.Visibility == Visibility.Visible;
             if (lastSpecialLayout != special)
             {
+                // Recruitment help buttons have no box, so match their circular footprint.
+                button.Tag = special ? "Unframed" : "Framed";
+                lastHoverPadding.Visibility = special ? Visibility.Hidden : Visibility.Visible;
                 hoverHost.Width = special ? 20 : 24;
                 hoverHost.Height = special ? 20 : 24;
                 hoverHost.Margin = special

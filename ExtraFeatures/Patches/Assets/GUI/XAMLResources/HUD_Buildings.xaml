@@ -153,7 +153,7 @@
             Width="24" Height="24" Margin="0,0,262,44"
             HorizontalAlignment="Right" VerticalAlignment="Bottom"
             Visibility="Hidden" Background="Transparent">
-        <Border Margin="-6" Background="Transparent" />
+        <Border x:Name="ExtraFeaturesBuildingRepairHoverPadding" Margin="-6" Background="Transparent" />
         <Button x:Name="ExtraFeaturesBuildingRepairButton"
                 IsEnabled="False"
                 Command="{Binding ButtonRepairCommand}" CommandParameter="1">
@@ -170,6 +170,9 @@
                 </Grid>
               </Grid>
               <ControlTemplate.Triggers>
+                <Trigger Property="Tag" Value="Unframed">
+                  <Setter TargetName="RepairButtonBox" Property="Visibility" Value="Hidden" />
+                </Trigger>
                 <Trigger Property="IsMouseOver" Value="True">
                   <Setter TargetName="RepairButtonBox" Property="Source" Value="{StaticResource UI-Buttons L013}" />
                 </Trigger>
