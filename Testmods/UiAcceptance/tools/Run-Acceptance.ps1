@@ -6,6 +6,8 @@ param(
     [string]$Label = '',
     # Optional fullscreen resolution "WIDTHxHEIGHT"; settings.cfg is restored byte-exact afterwards.
     [string]$Resolution = '',
+    # Explicit SerpLocalization language source; the SE config is restored byte-exact afterwards.
+    [ValidateSet('', 'de-DE', 'en-US')] [string]$Locale = '',
     # Prepare the client share for an MP run instead of starting the local game.
     [switch]$PrepareClient,
     [string]$ClientRoot = '\\LENOVO_SERP\Stronghold Crusader Definitive Edition',
@@ -57,6 +59,7 @@ function Write-RunConfig([string]$root) {
 }
 
 if ($PrepareClient) {
+    if ($Locale) { throw '-Locale is only supported for local runs with automatic rollback.' }
     Write-RunConfig $ClientRoot
     "client prepared: $ClientRoot scenario=$Scenario label=$Label"
     return
@@ -73,6 +76,8 @@ $playerDir = Join-Path $env:USERPROFILE 'AppData\LocalLow\Firefly Studios\Strong
 $shots = Join-Path $game 'BepInEx\UiAcceptance_shots'
 $settings = Join-Path $playerDir 'settings.cfg'
 $settingsOriginal = [IO.File]::ReadAllBytes($settings)
+$extenderConfig = Join-Path $game 'BepInEx/config/000shcdese.cfg'
+$extenderOriginal = if ($Locale) { [IO.File]::ReadAllBytes($extenderConfig) } else { $null }
 if ($Resolution) {
     if ($Resolution -notmatch '^(\d+)x(\d+)$') { throw 'Resolution must be WIDTHxHEIGHT.' }
     $width = $Matches[1]; $height = $Matches[2]
@@ -95,6 +100,11 @@ if (Test-Path -LiteralPath $log) { [IO.File]::Delete($log) }
 $started = Get-Date
 $stalled = $false
 try {
+    if ($Locale) {
+        $extenderText = [Text.Encoding]::UTF8.GetString($extenderOriginal)
+        $extenderText = Set-CfgValue $extenderText 'Visual' 'LanguageProvider' $Locale
+        [IO.File]::WriteAllText($extenderConfig, $extenderText, (New-Object Text.UTF8Encoding($false)))
+    }
     Start-Process 'steam://rungameid/3024040'
     $deadline = $started.AddSeconds($TimeoutSeconds)
     $retryAt = (Get-Date).AddSeconds(45)
@@ -137,6 +147,7 @@ try {
     Start-Sleep -Seconds 3
 }
 finally {
+    if ($Locale) { [IO.File]::WriteAllBytes($extenderConfig, $extenderOriginal) }
     # The game may rewrite settings.cfg on exit; restore the original bytes exactly in every case.
     [IO.File]::WriteAllBytes($settings, $settingsOriginal)
     if (Test-Path -LiteralPath $modSettings) {
@@ -158,12 +169,13 @@ Copy-Item -LiteralPath $log -Destination $savedLog
 Copy-Item -LiteralPath (Join-Path $playerDir 'Player.log') -Destination (Join-Path $OutputDirectory ($Label + '_Player.log'))
 if (Test-Path -LiteralPath $shots) { Get-ChildItem -LiteralPath $shots -Filter ($Label + '_*.png') | Copy-Item -Destination $OutputDirectory }
 $restored = [Linq.Enumerable]::SequenceEqual([byte[]]$settingsOriginal, [byte[]][IO.File]::ReadAllBytes($settings))
-"run=$Label duration=" + [int]((Get-Date) - $started).TotalSeconds + "s settingsRestored=$restored modSettingsRestored=$modSettingsRestored files=$($settingsBackup.Count)" + $(if ($stalled) { ' STALLED/TIMEOUT: game stopped' } else { '' })
+$localeRestored = -not $Locale -or [Linq.Enumerable]::SequenceEqual([byte[]]$extenderOriginal, [byte[]][IO.File]::ReadAllBytes($extenderConfig))
+"run=$Label duration=" + [int]((Get-Date) - $started).TotalSeconds + "s settingsRestored=$restored modSettingsRestored=$modSettingsRestored localeRestored=$localeRestored locale=$Locale files=$($settingsBackup.Count)" + $(if ($stalled) { ' STALLED/TIMEOUT: game stopped' } else { '' })
 Select-String -LiteralPath $savedLog -Pattern 'ACCEPT run=' | ForEach-Object { $_.Line }
 # Process exit alone also occurs after a startup crash. Only this run's complete
 # successful scenario plus verified settings restoration can qualify as acceptance.
 $summaryPattern = 'ACCEPT run=' + [regex]::Escape($Label) + ' step=SUMMARY PASS .* failed=0 skipped=0(?:\s|$)'
 $completeSummary = @(Select-String -LiteralPath $savedLog -Pattern $summaryPattern)
-if ($stalled -or -not $restored -or -not $modSettingsRestored -or $completeSummary.Count -ne 1) {
+if ($stalled -or -not $restored -or -not $modSettingsRestored -or -not $localeRestored -or $completeSummary.Count -ne 1) {
     throw "Acceptance did not complete successfully: $Label. Evidence: $OutputDirectory"
 }

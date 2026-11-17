@@ -16,13 +16,77 @@ These prototype contracts were inspected on 2026-11-15. Resolve future baselines
 - Native `0xA9E` (typed `N000000DB`, `0x442`) is copied from the per-type table `0x3226B0` by `0x19A240`/`0x19C130` and read by group-order admission. It is not a generic locomotion flag: actual Apple Farmer and Quarry Ox entries are zero, while their own type handlers issue ordinary moves. The prototype admits those two independently audited civilian types despite zero; other zero-table types remain unclassified rather than assumed immobile or movable. Production classifier cases retain the stationary-engine exclusions and cover the civilian zero-field cases.
 - State preservation is limited to audited ordinary roots: nonzero group-order-field units (including admitted mobile siege roots) require AI state0/1/101. Apple farmers require state2/5/7/8 AND active route flags2/4; Quarry Ox requires state1 AND flags2/4. Other work/combat/animation states are unsupported. In particular, `0x135E30` state3 advances the picking cycle after animation without a new tree-distance test; `0x19BA40` does not normalize that job state. Preserving a stationary picker while moving it from distance2 to3 could therefore manufacture remote picking. The classifier rejects that concrete unsafe case instead of inferring safety from its small state number. Offline production-classifier tests cover the complete0..107 civilian state range and explicit unproven military work/combat states. This restriction is a prototype admission policy, not a claim that unsupported Vanilla states are immobile.
 - Even an admitted active Apple/Ox segment is rejected BEFORE native relocation unless the explicit caller requests reissue (`Complete(true)` / `TryRescue(..., resume:true)`). Clearing that route with `0x19BA40` while leaving its travel AI state intact must not be reported as safe stationary relocation. The caller's explicit continuation request does not guarantee success: a failed native reissue remains `ResumeFailed`, with no invented idle/work fallback.
+- A failed `0x196280` publication does not preserve an old valid route: before its builder call it clears the unit's1000-byte path slot; failure can retain previous flags, length and `0x9C8` while route bytes are cleared or partially rewritten. Synchronous survival under the Fixes worker guard therefore proves only that guard. It does not establish moat escape or natural worker continuation; those require subsequent actual movement and original-identity checks. Native selector1 is not a fresh-search fallback (`0xE32B0` reconstructs existing search state only).
 - Spearman has one additional type-specific stationary idle: AI2 with flags0. The full creation path is public `CreateUnitLocal` -> `CreateUnitWorld` -> native `0x17FEF0` -> type setup `0x19A240`; the regular `0x182B00` dispatcher selects handler `0x143400` through table `0x321CB0` entry24. That handler's state0 selects2 when no `0x18E760` idle travel target is found. State2 reads idle animation tables `0x32EEE8/0x32EF20`, returns to0 at completion, and calls `0x181890`, which derives any unstack/terrain recovery from the current position. It has no harvesting or attack-effect continuation. The exception is NOT generalized to other types or active route flags. Assassin's handler `0x16CD70` instead selects idle1 from0. Neither handler's state107 (`0x6B`) is a general idle: those branches orient to stored target coordinates and run attack/interact animation paths. Unsupported-result diagnostics include actual AI state, flags and substep so an unfamiliar state remains evidence rather than a guessed admission.
+
+## Dedicated causal Apple moat receipt (2026-11-17)
+
+`CaptureAppleMoatMutation` is a fixture-only, synchronous receipt. The caller
+captures it before the real completed-moat brush, attempts the actual live
+`196280` publication to the original job destination, and consumes it inside
+the same simulation-monitored `Fixture.Execute` action. There is no yield,
+tick or mission transition between those operations. This is not an automatic
+moat-completion observer or a general delayed-recovery API.
+
+Admission is restricted to Apple travel states5/7, route flags2/4, substep8,
+movement class0 and stored moat permission0, with matching current/next tiles
+and a distinct recorded job destination. The source must be ordinary before
+the writer, newly completed moat afterward, and have no outgoing/reverse
+physical edge afterward. Employee identity, health, owner, tribe, workplace,
+home/store identities, cargo, selected tree and job counters must still match.
+A successful original publication never invokes fallback. The generic
+`TryRescue` completed-moat rejection remains unchanged.
+
+For this specific non-Assassin/class0/marker0 combination, `DCE60` has no
+special moat/climb escape after all eight ordinary edges fail. The receipt
+can therefore choose only a free ordinary bank from its pre-writer reachable
+field, call the validated live `19BA40` helper and immediately republish the
+ORIGINAL requested job destination through live `196280`. It does not write
+AI state, path bytes or moat permission manually, and never substitutes the
+local bank as the job destination. The short existing Fixes gate covers only
+this explicit synchronous fixture action; it ends before simulation resumes.
+
+Native `19BA40` normalizes movement and occupancy without changing the Apple
+employee/cargo fields. Apple handler `135E30` states5/7 defer their job
+transitions through `188340`; a positive native route publication therefore
+remains necessary before any subsequent tick. The receipt rechecks job and
+original-goal preservation after reissue. It is single-use and does not promise
+rollback: relocation failure, identity mismatch or rejected destination reissue
+is an explicit failed fixture (`ResumeFailed` where applicable), including when
+the local relocation already occurred. Subsequent actual original-goal arrival
+with the original employee identity is still a mandatory game assertion.
+
+Run068 observed an unchanged path before/after the brush, then1000 zero path
+bytes after rejected native publication while AI5, flags2, length9, substep8
+and marker0 remained. That run contained external mods; it verifies the unsafe
+fixture assumption about retaining a valid old route, not the cause of the
+builder's failure or Vanilla-only gameplay. No success is claimed here for the
+new receipt, future natural moat completion, saves/editor coverage or MP.
 
 ## Apple observer: native index versus public vegetation ID
 
 The unit field at native `0x9A0` (typed `r_TargetVegetationId`, `0x344`) stores the native vegetation ARRAY INDEX returned unchanged by `0x108040`; its name alone does not establish the public SDK ID domain. In the canonical image, `0x1080EE` multiplies that index by `0x9C`, `0x1080F5` reads X at manager `+0x86`, and `0x108103` reads Y at `+0x88`. The array begins at manager `+0x18`; the record's typed X/Y are `+0x6E/+0x70`. `0x135E30` separately reads selected-tree growth at manager `+0xA4 + index*0x9C` and copies the selector result unchanged to unit `+0x9A0`.
 
 The inspected public `TryGetVegetationById` resolves `VegetationArray[id-1]`; its RedBird array constructor preserves the supplied base. The fixture must therefore translate its native index to SDK ID `index+1`, with native zero meaning no selected tree and the index bounded strictly below the public span length. Both capture and later identity validation use this same adapter. This corrects the fixture's domain mix; it does not declare the public getter's one-based contract erroneous. Recheck the native selector, caller, manager layout and installed public implementation together after updates. The remote-picking guard still requires distance at most2 from the actual previously selected tree.
+
+## General AI drawbridge pilot
+
+The existing default-off experimental setting additionally admits a narrowly bounded
+observer for actual AI-AIV drawbridge construction in known local missions (editor
+missions are allowed; real multiplayer and conflicting customized origins are not).
+It validates AIV manager/player/village/frame ownership and the single packed map
+anchor, captures bounded current occupancy before the original call, then consumes
+a single-use context/session-bound completion only after Vanilla completed. No
+native pointer is retained in the snapshot. The original AIV/Fixes actions are not
+suppressed. Only the pilot's own synchronous relocation/reissue opens the existing
+logical guard, which closes in finally.
+
+Admission currently excludes civilian jobs and siege/crew roots, and requires the
+existing audited controllable-soldier/cavalry policy and before/after identity proof.
+The observer does not claim human/editor placement, moat completion, arbitrary
+construction, old-save trap discovery or multiplayer support. Existing fixture
+scenarios keep this observer disabled; only its explicit AIV scenario opts in.
+Offline receipt tests and source review are not an in-game acceptance result.
 
 ## Optional Fixes suppression
 
@@ -39,5 +103,40 @@ Audited Fixes source: 1.30.0, commit `0870146` (2026-11-17 observation); install
 ## Mounted keep regression contract
 
 `rescue-mountedkeep-off/on` tests the installed Fixes recovery with our own setting off/on, without changing foreign settings. The scenario requires actual installed mounted recovery hooks. Its matrix covers four rider types, three keep types, four campground rotations, and stationary versus committed movement. It checks identity, health, tribe, destination and occupancy; a blocked campground exit must not cause an invalid relocation. Local rescue and the following natural Fixes update are checked separately to detect a second teleport. Missing prerequisites or unestablished movement are failures, not accepted coverage. Existing bridge, group and manned-siege scenarios remain separate controls. Moat-worker physical egress and loaded-Ox delivery remain open.
+
+The mounted approach is staged by the audited native relocation only after a real
+idle boundary, before the tested build, with unchanged identity/health/tribe/AI.
+Captured pre-midpoint cases require Current occupancy1 and Next occupancy0. A
+separate natural-approach handoff observation checks old occupancy0/new1. A distinct
+occupied native6B8 auxiliary entry is checked if observed, but is not an established
+ordinary-riding state; zero observed positive cases are logged `not-executed`, not
+claimed as cleanup coverage. See the dated ordinary occupancy audit in the baseline.
+
+Canonical keep construction `0x6D580 -> 0xC77C0 -> 0x74DA0` passes argument7 as direction0/2/4/6 to both the root and campground (`GameBuilding` typed+0x92); the sprite variant is a separate allocator argument. Fresh KEEP1 footprint receives IsBuilding0x400, whereas KEEP2/3 receive IsElevated0x10000000. Door children lie outside those footprints. Allocator `0xB47E0`, player registration `0xD0630`, initialization `0xC60F0`, rendering, keep handlers and path/dirty helpers do not promote that fresh KEEP1 footprint to an elevated roof. Thus KEEP1 is a no-roof negative case, not a claimed positive Fixes recovery. Blocked-exit recovery uses KEEP2. Compound campground offsets reach -12..+18 relative to the root origin, so fixture selection verifies a free radius20 square. The actual campground reference, rotation, flags and identities are checked after each native prefab creation; no roof or unit state is fabricated.
+
+Fixes also owns an intermediate detour at `0x74DA0`: when custom player rotations are installed it replaces the incoming direction for human players with `PlayerKeepRotationData[playerId]`. The matrix therefore selects an actual AI owner, for which the same live wrapper preserves its input. No detour is bypassed and no foreign setting is changed. The initial human-owner direction assertion exposed this transform; it was a fixture prerequisite failure, not a proved native layout or rider-recovery failure.
+
+## Confirmed Fixes 1.30 emitter defect (2026-11-17)
+
+**Historical decision (2026-11-17): initially deferred pending an upstream correction. A subsequent explicit user instruction authorizes the isolated temporary correction of disposable test-layout copies described below. Mounted recovery remains enabled. This supersedes the earlier no-workaround decision without changing the historical failure evidence. A version bump or changelog alone still does not prove an upstream correction.**
+
+Actual published mounted recovery stubs call `0xE2610`, not `0x187110`, with the installed Fixes configuration. `DataScanner.Scan` mutates and returns the same scanner. `InstallMountedKeepRecovery` captures that object; its deferred generator reads `CurrentAddress` only during Commit, after the shared scanner has been changed by the later Pathing scan. `0x187110` has no standing/terrain refusal: with prepared native738/73A it unconditionally updates71C/71E and72C. The observed correct Next coordinates with unchanged Current coordinates are therefore not a valid recovery. Runs046/047 reproduce the failure with own rescue off/on;047 records the published CALL target. These historical runs used the unmodified foreign feature; it remains active in subsequent testing.
+
+The correction captures the numeric address immediately after the scan and stores that UInt64 in the deferred generator closure. The authorized implementation is an offline Cecil CLI under `TemporaryFixes`, not a runtime detour: `Run-Tests.ps1` first copies installed dependencies into its allocated workspace `.work` layout, invokes `--patch-copy` on that copied `fixes.dll`, then passes the layout to the official transactional runner. The original installed package and external source clone remain unchanged. The runner temporarily installs the corrected copy and restores the original after each scenario. No published native code is repatched.
+
+The CLI pins normalized complete `InstallMountedKeepRecovery` and deferred-generator IL, including relevant operands and exception regions. It changes only the captured field from DataScanner to UInt64, inserts the immediate CurrentAddress read and removes the deferred read semantically. The recovery emitter and MVID remain unchanged. The serialized candidate is revalidated before atomic fixture-file replacement; paths outside workspace `.work` and reparse points are refused. No whole-assembly hash/version gate is used. A matching known corrected capture is an explicit skip (also accepting no inert NOP and the name `relocateAddress`); no installer is explicitly not applicable. Unknown relevant IL, including an unreviewed different future fix, is rejected before changing the fixture.
+
+The separately authorized temporary package correction applies to both experimental-off and experimental-on controls. Existing experimental settings still gate only our rescue and its narrow suppression scope. No foreign setting or additional modsetting is introduced. Current offline tests cover correction/idempotence/serialization, unchanged native emitter, unrelated updates, unknown-contract rejection without mutation, and original-file preservation. They do not establish that the in-game matrix passes. Corrected-layout evidence must be identified separately from unmodified upstream evidence.
+
+Removal is confined to the `TemporaryFixes` directory, its build/self-test calls in `Build.ps1`, and its copied-layout invocation in `Run-Tests.ps1`. There is no persistent preloader or runtime companion to uninstall. See `TemporaryFixes/INTEGRATION.md`.
+
+### Follow-up after a Fixes update
+
+1. Test the original updated package independently of this temporary correction (or prove the CLI reported `already-fixed`/not applicable). Record the newly installed Fixes version/binary identity and inspect the relevant source or IL: the deferred generator must receive the intended immutable function address, unaffected by later scans.
+2. With default Fixes settings (including `EnableStuckOxGruntsFix`), inspect the actual published mounted hook calls. On the audited native image the intended target is `0x187110`, not `0xE2610`; if the native image changes, resolve and audit the target again rather than reusing these RVAs.
+3. Repeat the mounted keep scenarios with our rescue off/on. Verify actual current position at the valid campground exit, identity, health, tribe and occupancy. Correct Next/target coordinates alone do not establish recovery. Include all four rider types, rotations, committed steps and the blocked-exit control; inspect actual built directions when CastlePlanner participates.
+4. Mark this issue resolved only after both the emitted call and gameplay behavior are verified. Unreached cases or fixture preparation failures remain open; they are not evidence that the upstream defect persists or has been fixed. Record the tested version and evidence here.
+
+CastlePlanner is another direction producer: its human-start preparation changes the native argument at its own start-call site and `FixesKeepRotationCompatibility` temporarily aligns/restores Fixes' rotation data. `KeepDirectionReader` verifies and reads typed92. These sites do not overlap our worker span; tests must inspect actual built directions. The `Planner` test layout includes the installed CastlePlanner package without editing its source or settings.
 
 Required update checks: full DLL/layout identity; decode caller and both branches; external and local incoming edges; Script Extender, Fixes, APIShared and Pathfinding site ownership; live adjacency and stub equality; execute tests/WorkerGuardFixture on the real backend before game tests. Native fixture success is not gameplay or multiplayer acceptance.

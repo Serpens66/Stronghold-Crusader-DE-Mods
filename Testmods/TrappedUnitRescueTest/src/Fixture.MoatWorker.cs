@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using APIShared;
 using APIShared.Automation;
 using CrusaderDE;
@@ -58,6 +60,9 @@ namespace TrappedUnitRescueTest
                 var tiles = GameTileManagerAPI.Instance;
                 int tile = tiles.GetTileId(before.X, before.Y);
                 Require(MoatWorkerSourceEligible(tile),"Natural delivery/return source changed before native moat placement");
+                var moatReceipt=expectedEnabled?runtime.CaptureAppleMoatMutation(worker.Id):null;
+                if(expectedEnabled)Require(moatReceipt!=null,"No supported causal Apple5/7 moat receipt before native brush");
+                LogMoatObservation(worker,"before-brush");
                 log("moat-worker-before-brush unit="+worker.Id+"/"+worker.Global+" ai="+before.AIState+" tile="+tile+
                     " xy="+before.X+","+before.Y+" flags="+((uint)tiles.GetTilePropertyFlag(tile)).ToString("X8")+
                     " building="+tiles.GetTileBuildingId(tile)+" vegetation="+tiles.GetTileVegetationId(tile)+" height="+tiles.GetTileHeight(tile));
@@ -67,9 +72,18 @@ namespace TrappedUnitRescueTest
                     "Real completed-moat writer rejected the actual occupied delivery/return tile; source="+before.X+","+before.Y+
                     " flagsAfter="+((uint)tiles.GetTilePropertyFlag(tile)).ToString("X8")+" building="+tiles.GetTileBuildingId(tile)+
                     " vegetation="+tiles.GetTileVegetationId(tile)+" height="+tiles.GetTileHeight(tile));
+                LogMoatObservation(worker,"after-brush-before-reissue");
                 // One synchronous native call, then inspect the original slot before any cleanup tick.
                 InvokeMoatWorkerMove(worker, targetX, targetY, out accepted, out lifeAfter, out string moveState);
                 log("moat-worker-native-result unit=" + worker.Id + "/" + worker.Global + " " + moveState);
+                if(expectedEnabled && !accepted)
+                {
+                    bool recovered=moatReceipt.TryRecoverRejectedPublication(accepted,out var recovery);
+                    log("moat-worker-causal-fallback "+recovery);
+                    Require(recovered && recovery.IdentityPreserved && recovery.ResumeAttempted && recovery.ResumeSucceeded,
+                        "Causal Apple moat fallback did not relocate and publish the ORIGINAL job target: "+recovery);
+                    LogMoatObservation(worker,"after-causal-original-goal-reissue");
+                }
                 if (!expectedEnabled && fixesDeletionInstalled)
                 {
                     Require(lifeAfter == (int)AliveState.MarkedForDeletion,
@@ -80,8 +94,9 @@ namespace TrappedUnitRescueTest
                 }
                 else
                 {
-                    // A rejected fresh publication preserves the old native route. Physical
-                    // exit and arrival below remain mandatory, independently of this return value.
+                    // A rejected fresh publication can clear/partially rewrite route bytes while
+                    // retaining old flags/length and moat permission. Alive here proves only the
+                    // synchronous deletion guard; physical exit and arrival remain mandatory below.
                     Require(lifeAfter == (int)AliveState.IsAlive,
                         "Native worker move deleted the original worker; " + moveState);
                     CheckActor(worker, true);
@@ -184,6 +199,7 @@ namespace TrappedUnitRescueTest
             // It does not run the unit-dispatch cleanup tick. Verify the original allocation identity before reading life.
             Require(original->r_GlobalId == global && global == actor.Global && original->r_UnitChimp == actor.Type,
                 "Original worker slot identity changed inside one synchronous move call");
+            LogMoatObservation(actor,original,"after-reissue");
             lifeAfter = (int)original->r_AliveState;
             moveState = "lifeAfter=" + lifeAfter + " accepted=" + accepted +
                 " pathFlags=" + original->r_PathPlanStateBitFlags + " pathLength=" + original->r_PathPlanLength +
@@ -196,6 +212,49 @@ namespace TrappedUnitRescueTest
                 " targetPcl=" + GamePathingManagerAPI.Instance.GetPathComponentId(targetX,targetY) +
                 " componentDirty=" + GamePathingManagerAPI.Instance.GetPathfindingContextView().ComponentGridDirty +
                 " componentGeneration=" + GamePathingManagerAPI.Instance.GetComponentGeneration();
+        }
+
+        private unsafe void LogMoatObservation(Actor actor,string phase) => LogMoatObservation(actor,Resolve(actor),phase);
+        private unsafe void LogMoatObservation(Actor actor,GameUnit* unit,string phase)
+        {
+            var native=runtime.Native;
+            // 196280 clears manager+B4FE78+id*1000; 1855A0 consumes the same
+            // 1000-byte packed-nibble slot at image+7338278+id*1000. Read only.
+            var bytes=new byte[1000];
+            Marshal.Copy(native.ImageBase+0x7338278+actor.Id*1000,bytes,0,bytes.Length);
+            string hash;
+            using(var sha=SHA256.Create())hash=BitConverter.ToString(sha.ComputeHash(bytes)).Replace("-","");
+            int cursor=native.Word(unit,0x752),nonzero=0;
+            foreach(byte value in bytes)if(value!=0)nonzero++;
+            int nextDirection=cursor<2000?((cursor&1)==0?bytes[cursor/2]&15:bytes[cursor/2]>>4):-1;
+            log("moat-worker-path phase="+phase+" unit="+actor.Id+"/"+unit->r_GlobalId+" life="+unit->r_AliveState+
+                " ai="+unit->r_AIState+" flags="+unit->r_PathPlanStateBitFlags+" length="+unit->r_PathPlanLength+
+                " cursor="+cursor+" nextNibble="+nextDirection+" substep="+unit->r_MovementSubstep+
+                " stored9C8="+native.Word(unit,0x9C8)+" movementClass="+native.Word(unit,0x6EC)+
+                " requested="+unit->r_TargetTilePositionX2+","+unit->r_TargetTilePositionY2+
+                " endpoint="+native.Word(unit,0x720)+","+native.Word(unit,0x722)+
+                " bytesNonzero="+nonzero+" sha256="+hash+" first16="+BitConverter.ToString(bytes,0,16));
+            int sx=unit->r_CurrentTilePositionX,sy=unit->r_CurrentTilePositionY;
+            var tiles=GameTileManagerAPI.Instance;
+            for(int k=-1;k<8;k++)
+            {
+                int x=sx+(k<0?0:Dx[k]),y=sy+(k<0?0:Dy[k]);
+                int tile=native.Tile(x,y);
+                if(tile<0){log("moat-worker-geometry phase="+phase+" direction="+k+" outside=true");continue;}
+                int building=tiles.GetTileBuildingId(tile);
+                string structure="none";
+                if(building>0 && BuildingAccess.TryGetById(building,out var record,out _) && record!=null)
+                    structure=record->r_BuildingType.ToString();
+                byte connections=native.Connections(tile);
+                int source=native.Tile(sx,sy);
+                bool forward=k>=0 && (native.Connections(source)&(1<<k))!=0;
+                bool reverse=k>=0 && (connections&(1<<(k^4)))!=0;
+                log("moat-worker-geometry phase="+phase+" direction="+k+" xy="+x+","+y+" tile="+tile+
+                    " flags="+native.Flags(tile).ToString("X8")+" height="+tiles.GetTileHeight(tile)+
+                    " connections="+connections.ToString("X2")+" forward="+forward+" reverse="+reverse+
+                    " building="+building+" structure="+structure+" vegetation="+tiles.GetTileVegetationId(tile)+
+                    " pcl="+GamePathingManagerAPI.Instance.GetPathComponentIdByTileId(tile));
+            }
         }
 
         private unsafe uint WorkerWorkplaceGlobal(Actor actor) => Resolve(actor)->r_LinkedProductionBuildingGlobalId;

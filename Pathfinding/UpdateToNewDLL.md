@@ -1365,12 +1365,15 @@ fallback: several data tables below have no independent second anchor.
 - Entry bytes are checked in the unmodified load image and live (another hook owner = fail-closed);
   each published hook is validated (scheme, displaced length, `FF 25` patch, pointer slot).
 - Vanilla facts: `_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/DRAWBRIDGE_REGION_CLOSURE.md`,
-  `PORTAL_TABLE.md`, `DRAWBRIDGES.md`. Earlier test-mod history: `Testmods/EnemyBridgePathTest/history/`.
+  `PORTAL_TABLE.md`, `DRAWBRIDGES.md`. The former acceptance testmod `Testmods/EnemyBridgePathTest`
+  (including its `history/`) was removed on 2026-11-17; restore it when needed with
+  `git checkout 582d6e57f -- Testmods/EnemyBridgePathTest`.
 - Update check (new DLL hash):
   - re-audit 0xC4BF0, 0xD8CE0, 0xE49D0, 0xF4540, the gatehouse portal handlers (table `0x3125D0`),
     0xE2610/0xE2F60 and 0x645C0/0x739C0 against the layout above, including all callers of
     0xC4BF0 (0x57330, 0xD95E0, 0x113BC0, 0x113E00, 0x113F60, 0xE49D0) and that nothing writes
     the direction grid inside a closure window;
   - confirm that the native direction filters still apply the mask on the departure tile;
-  - update RVAs, entry bytes and the reference hash together; run `build.bat /nopause` and the
-    in-game acceptance of `Testmods/EnemyBridgePathTest` (`bridge-<save>` scenarios).
+  - update RVAs, entry bytes and the reference hash together and run `build.bat /nopause`;
+  - for the in-game acceptance restore the former testmod (see above), adapt its read-only inspector
+    to the new layout and run its `bridge-<save>` scenarios (saves `test_gates_bridge*.sav`).

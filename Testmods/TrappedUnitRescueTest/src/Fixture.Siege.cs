@@ -76,12 +76,15 @@ namespace TrappedUnitRescueTest
             Execute(run,()=>{
                 if(expectedEnabled)RequireDeviceFarFromHistoricalCrew(device,crew);
                 Require(GameTribeManagerAPI.Instance.DissolveSiegeEquipmentEx(device.Tribe,device.Id,checked((int)device.Global)),"Native crew dismount rejected");
+                // Action17 performs placement synchronously. Inspect it before the regular
+                // engineer109->0 continuation can move the same surviving units again.
+                CheckDismountedCrew(device,crew,true);
             });
             foreach(var wait in run.SetPause(run.CurrentMission,false))yield return wait;
             yield return run.WaitForTicks(run.CurrentMission,48);
             foreach(var wait in run.SetPause(run.CurrentMission,true))yield return wait;
             Execute(run,()=>{
-                CheckDismountedCrew(device,crew);
+                CheckDismountedCrew(device,crew,false);
                 log("siege-result enabled="+expectedEnabled+" syntheticEntrapment=true nativeManning=true nativeDismount=true "+
                     "deviceIdentityPreserved=true originalEngineerIdentitiesPreserved=true realMovementEndpoint="+arrived+" crewCount=2 recreatedUnits=0");
             });
@@ -145,7 +148,7 @@ namespace TrappedUnitRescueTest
             }
             return ids.Count==2 && *(ushort*)((byte*)machine+0xA0C-0x65C)==2;
         }
-        private unsafe void CheckDismountedCrew(Actor device,Actor[] crew)
+        private unsafe void CheckDismountedCrew(Actor device,Actor[] crew,bool immediatePlacement)
         {
             GameUnit* machine=Resolve(device);
             Require(*(ushort*)((byte*)machine+0xA0C-0x65C)==0,"Native dismount left crew count nonzero");
@@ -156,8 +159,15 @@ namespace TrappedUnitRescueTest
                     "Dismount replaced/lost an original engineer");
                 Require(*(ushort*)((byte*)unit+0x9B0-0x65C)==0,"Original engineer remained mounted after dismount");
                 Require(CountInTileChain((int)unit->r_CurrentPositionTileId,actor.Id)==1,"Dismounted original engineer occupancy invalid");
-                Require(Math.Max(Math.Abs(unit->r_CurrentTilePositionX-machine->r_CurrentTilePositionX),Math.Abs(unit->r_CurrentTilePositionY-machine->r_CurrentTilePositionY))<=16,
-                    "Dismount used historical crew coordinates instead of the moved device");
+                int distance=Math.Max(Math.Abs(unit->r_CurrentTilePositionX-machine->r_CurrentTilePositionX),Math.Abs(unit->r_CurrentTilePositionY-machine->r_CurrentTilePositionY));
+                log("siege-dismount-observation immediate="+immediatePlacement+" enabled="+expectedEnabled+" crew="+actor.Id+"/"+actor.Global+
+                    " crewXY="+unit->r_CurrentTilePositionX+","+unit->r_CurrentTilePositionY+" deviceXY="+machine->r_CurrentTilePositionX+","+machine->r_CurrentTilePositionY+
+                    " historicalCrew="+actor.SourceX+","+actor.SourceY+" distance="+distance+" ai="+unit->r_AIState+" flags="+unit->r_PathPlanStateBitFlags);
+                // F0030 searches the component without a16-tile radius bound;0x10 is its
+                // height tolerance. The controlled moved-device case retains its immediate
+                // proximity proof. An unmoved trapped baseline and later AI motion do not.
+                if(immediatePlacement && expectedEnabled)Require(distance<=16,
+                    "Immediate native dismount did not place crew near the actually moved device");
             }
         }
     }

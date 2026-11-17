@@ -422,7 +422,9 @@ getrennte Integrationsgrenzen:
 
 Ausgangslage: Die Zugbrückensperre für Feinde ist seit 0.1.10 in Pathfinding integriert
 (Einstellung `EnableEnemyDrawbridgeClosure`, `src/GateRouting/DrawbridgeDeckClosure.cs` und die
-Deck-Kantenmaske in `GateTopologySnapshotProvider.cs`). Spielabnahme: `Testmods/EnemyBridgePathTest`.
+Deck-Kantenmaske in `GateTopologySnapshotProvider.cs`). Spielabnahme: früherer Testmod
+`Testmods/EnemyBridgePathTest`, am 17.11.2026 entfernt; bei Bedarf mit
+`git checkout 582d6e57f -- Testmods/EnemyBridgePathTest` wiederherstellen.
 - Sie behandelt eine abgesenkte Zugbrücke vor einem Torhaus im Regionsaufbau wie
   hochgezogen.
 - Zugelassene Spieler gelangen nur über das Torportal auf und über das Deck. Das Portal

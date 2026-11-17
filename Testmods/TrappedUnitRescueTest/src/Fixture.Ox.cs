@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using APIShared;
 using APIShared.Automation;
+using CrusaderDE;
 using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
@@ -42,17 +43,42 @@ namespace TrappedUnitRescueTest
                 log("ox-setup quarry=" + quarry + " tether=" + tether +
                     " naturalStone=true manualCargo=false manualAIState=false syntheticPart=occupied-source-wall-only");
             });
-            Actor ox = null;
-            for (int sample = 0; sample < 600 && ox == null; sample++)
+            Actor ox = null;bool batchReady=false;string lastStage=null;
+            // The quarry can be far from the keep. Let its real employees arrive and
+            // produce first; elapsed ticks alone never qualify a loaded test actor.
+            for(int sample=0;sample<512 && ox==null && !batchReady;sample++)
             {
-                foreach (var wait in run.SetPause(run.CurrentMission, false)) yield return wait;
-                yield return run.WaitForTicks(run.CurrentMission, sample < 160 ? 32 : 1);
-                foreach (var wait in run.SetPause(run.CurrentMission, true)) yield return wait;
-                Execute(run, () => {
-                    ValidateOxSites();
-                    ox = FindLoadedOx(tether);
-                    if(sample==0 || sample==7 || sample==31 || sample==63 || sample==127 || sample==159 || sample==319 || sample==599)LogOxAcquisition(sample);
+                foreach(var wait in run.SetPause(run.CurrentMission,false))yield return wait;
+                yield return run.WaitForTicks(run.CurrentMission,32);
+                foreach(var wait in run.SetPause(run.CurrentMission,true))yield return wait;
+                Execute(run,()=>{
+                    ValidateOxSites();ox=FindLoadedOx(tether);
+                    string stage=OxProductionReadiness(out batchReady);
+                    if(stage!=lastStage || sample==0 || sample==31 || sample==127 || sample==255 || sample==511)
+                    {lastStage=stage;log("ox-natural-stage phase=bulk sample="+sample+" "+stage);LogOxAcquisition(sample);}
                 });
+            }
+            if(ox==null)
+            {
+                // Slow fine sampling so every actual step boundary can be observed.
+                // This only changes test pacing; no worker/job/cargo state is injected.
+                Director.instance.SetEngineFrameRate(50);
+                try
+                {
+                    for(int sample=0;sample<4096 && ox==null;sample++)
+                    {
+                        foreach(var wait in run.SetPause(run.CurrentMission,false))yield return wait;
+                        yield return run.WaitForTicks(run.CurrentMission,1);
+                        foreach(var wait in run.SetPause(run.CurrentMission,true))yield return wait;
+                        Execute(run,()=>{
+                            ValidateOxSites();ox=FindLoadedOx(tether);
+                            string stage=OxProductionReadiness(out batchReady);
+                            if(stage!=lastStage || sample==0 || sample%512==0 || sample==4095 || ox!=null)
+                            {lastStage=stage;log("ox-natural-stage phase=fine sample="+sample+" "+stage);LogOxAcquisition(512+sample);}
+                        });
+                    }
+                }
+                finally{Director.instance.SetEngineFrameRate(250);}
             }
             Require(ox != null, "No naturally loaded Ox acquired an ordinary outbound route; no cargo/AI state was fabricated");
             Execute(run, () => {
@@ -170,6 +196,22 @@ namespace TrappedUnitRescueTest
             Require(BuildingAccess.TryGetById(oxQuarryPile,out GameBuilding* pile,out _) && pile!=null && pile->r_GlobalId==oxQuarryPileGlobal &&
                 pile->r_PlayerIdOwner==owner && pile->r_BuildingType==eStructs.STRUCT_QUARRYPILE && pile->r_AliveState==AliveState.IsAlive,
                 "Natural quarry loading pile disappeared or its slot was reused during Ox acquisition");
+        }
+        private unsafe string OxProductionReadiness(out bool batchReady)
+        {
+            GameBuilding* quarry=null;GameBuilding* tether=null;GameBuilding* pile=null;
+            Require(BuildingAccess.TryGetById(oxQuarry,out quarry,out _) && quarry!=null &&
+                BuildingAccess.TryGetById(oxTether,out tether,out _) && tether!=null &&
+                BuildingAccess.TryGetById(oxQuarryPile,out pile,out _) && pile!=null,
+                "Original natural Ox production sites unavailable during readiness observation");
+            bool registered=*(ushort*)((byte*)quarry+0x1B8)!=0 && *(ushort*)((byte*)quarry+0x1BA)!=0 && *(ushort*)((byte*)quarry+0x1BC)!=0;
+            // Hash-bound132910 state4 waits for the real8-stone tether batch.
+            batchReady=tether->r_StoneBlocksAmount>=8;
+            return "quarryStaff="+quarry->r_TotalCurrentWorkers+"/"+quarry->r_TotalWorkersRequired+
+                " tetherStaff="+tether->r_TotalCurrentWorkers+"/"+tether->r_TotalWorkersRequired+
+                " allMasonsRegistered="+registered+" pileStone="+pile->r_StoneBlocksAmount+
+                " tetherStone="+tether->r_StoneBlocksAmount+" realBatchReady="+batchReady+
+                " workerIds="+quarry->r_WorkerId_1+","+quarry->r_WorkerId_2+","+quarry->r_WorkerId_3+","+tether->r_WorkerId_1;
         }
         private unsafe void LogOxAcquisition(int sample)
         {

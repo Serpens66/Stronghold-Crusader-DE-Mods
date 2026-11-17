@@ -144,6 +144,9 @@ Gatehouses can be captured while dead units are still visible on top. Dead attac
 ### Gate distance from center
 Gatehouses measure the distance to enemies from their center instead of from one of the gates, so the closing distance is the same from every side.
 
+### Voice for nervous Custom Lord messages
+In Vanilla, the two nervous messages of Custom Lords without their own voice files ("before a siege" and "when weak") show their video without any voice. With this fix they play the Servant's matching recordings that ship with the game. This is a local client fix that is active while the mod and its client features are enabled.
+
 ## Quality-of-life features
 
 ### Show ground requirements when building

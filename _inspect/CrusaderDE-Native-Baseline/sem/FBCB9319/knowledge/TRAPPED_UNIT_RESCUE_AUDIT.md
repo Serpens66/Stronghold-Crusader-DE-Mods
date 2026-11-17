@@ -150,3 +150,159 @@ Its causal snapshots and synthetic/native fixture distinctions are test policy.
 This note does not claim PASS for worker full-cycle continuation, siege crew,
 autonomous AI, save/load or multiplayer; ongoing test results belong to their
 dated run records. No old native exports, projects or historical audits changed.
+
+## AI AIV drawbridge producer, 2026-11-17 [Vanilla facts]
+
+The canonical DLL SHA-256 was rechecked as
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The reproducible evidence is the CURRENT semantic function records for RVAs
+`51790`, `7A170`, `5CD90`, `C3BF0`, `6D580`, `C77C0`, `77E60`, `739C0`,
+`69850`, `B47E0`, `59210`, `725A0`, `6CDD0`, `725E0`, `E3B90` and `D95A0`.
+Read them using `tools/semantic/query.ps1 function <RVA>`; no exports changed.
+
+`51790` obtains the player's village slot from player resources+`22FC`.
+The AIV state has a four-byte initial word and village stride`6D98`; each
+build-step record has size`C`. Its state, mapper and packed single-building
+anchor resolve at system+`38`, +`3A` and +`40`, plus the village/frame terms.
+Drawbridge mapper105 follows the ordinary single-building branch, with
+`7A170` preflight/orientation, `5CD90` preparation, `C3BF0` collision validation
+and then `6D580` placement. Restricted mode exits early for this mapper;
+several other native conditions can also leave placement unchanged.
+
+`6D580` explicitly skips its unit deletion/relocation loop for structure49
+(drawbridge). `739C0` allocates through `B47E0`, enumerates the5x5 footprint
+using `69850`, stores the building ID and sets the bridge table's solid support
+cells to `IsBuilding` (`400` hexadecimal). It clears completed-moat markers
+and updates decoration through `59210`/`725A0`. `6CDD0` updates access data;
+`725E0` performs footprint neighbor/path updates. Final placement performs
+`E3B90`/`D95A0` path invalidation/update before returning. This selected
+drawbridge branch does not call `6CB20`. These facts explain how a surviving
+unit identity can have its current terrain changed underneath it.
+
+## AIV observation boundary [mod integration]
+
+The public APIShared AIV broker, activation, bounded occupancy snapshots,
+conservative eligibility and scoped post-original recovery are testmod policy,
+not Vanilla behavior. Their exact integration and remaining evidence limits
+are in `Testmods/TrappedUnitRescueTest/AIV-Observer-Audit.md` in the workspace.
+This addition claims neither game-test success nor coverage for human/editor
+placement, completed moat digging, retrospective save repair or multiplayer.
+
+## Dismount placement versus later engineer motion (2026-11-17) [Vanilla facts]
+
+For the current canonical native hash, the synchronous targeted tribe command
+`11E960`, action17 (`0x11`), validates each recorded crew global identity and
+searches around the machine's current71C/71E using `F0030`. It writes the selected
+engineer current/next/fine coordinates and tile IDs, calls `18BE50` and `196FD0`,
+then clears the machine crew count. The engineer starts state109 (`0x6D`).
+
+`F0030` is a component-constrained breadth-first search, not a search with a
+16-tile distance cap. Its comparison `<0x10` tests the absolute difference between
+queried machine standing-height inputs (native712+714 of the device ID passed
+to `F0030`) and the candidate's `6B910` height result. The
+queue can traverse the reachable component; the dismount caller also retries
+candidate offsets and has a machine-current-tile fallback. A fixed horizontal
+radius16 is therefore not a general native placement guarantee.
+
+In `14AED0`, state109 advances its animation counter and, once the state timer
+exceeds32 updates, selects the stored successor state (zero in the inspected
+explicit dismount path). Ordinary engineer behavior can then continue. A position
+observed48 simulation ticks after the command is not necessarily the position
+chosen synchronously by dismount. Placement evidence must be captured at command
+return; later identity, unmounted state and occupancy are separate observations.
+
+### Historical fixture observation [mod integration]
+
+The failed test assertion in run052 measured proximity only after48 ticks and
+called any distance above16 a historical-coordinate error. That message alone
+does not establish either historical-coordinate placement or a CastlePlanner
+regression; the relevant original positions were not logged in that run. This
+clarification does not claim that a subsequently changed fixture or game run
+passes.
+
+## Ordinary riding occupancy and unproved auxiliary coverage (2026-11-17) [Vanilla facts]
+
+In the audited ordinary `1855A0` locomotion chain, each substep unlinks the old
+current occupancy through `186AD0` and registers one current/next occupancy through
+`180230`/`1802A0`. Direction-specific midpoint thresholds come from `335C98`;
+the transient dword at native740 selects the next coordinates/tile for that
+registration and is cleared again before the ordinary call returns. This is not
+evidence of two simultaneous occupied tile chains.
+
+Native6B8 (typed GameUnit5C, currently `N0000010A`) is read and cleared by `187110`
+when it attempts an additional unlink. The ordinary movement chain does not write
+a nonzero value there. The checked `1988F0` connection dispatch does not establish
+a nonzero producer either. Searches of the current semantic baseline for direct
+6B8/absolute1867E8AB8 and indexed1AE/35C access, cross-checked against executable
+instruction displacements, did not identify a nonzero unit-record producer. Other
+matching direct writes inspected at F80E0/103370/1036EE use0xE4-stride records and
+zero values, and19D960 writes a return/UI buffer; they do not establish a mounted
+unit auxiliary tile. This bounded audit does not prove that arbitrary saved,
+foreign-modified or other unclassified states can never contain such a value.
+
+### Consequences for fixture coverage [mod integration]
+
+Waiting for a later ordinary riding substep is therefore not an established way
+to obtain a distinct occupied6B8 tile. A fixture must retain and check any real
+observed auxiliary occupancy, but report that coverage as not executed when none
+was observed; it must not fabricate the field or require it as a prerequisite for
+the independently observable current/next recovery cases. Natural approach
+snapshots can separately verify a before-midpoint Current1/Next0 occupancy and a
+later Current reaching the previously observed Next with old occupancy0/new1.
+
+## Rejected publication and a mode0 Apple on new moat, 2026-11-17 [Vanilla facts]
+
+Identity remains CURRENT native SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+Complete relevant function bodies are reproducible through
+`tools/semantic/query.ps1 function` for `196280`, `196840`, `F4930`, `E32B0`,
+`199CD0`, `1855A0`, `DCE60`, `DCD60`, `135E30`, `188340`, `19BA40`,
+`186AD0`, `186AF0`, `180230`, `1802A0` and `18BE50`.
+
+Before its actual builder call, `196280` clears the unit-owned1000-byte path
+slot at manager+`B4FE78`+unitId*1000 (image RVA`7338278`+unitId*1000).
+The builder-failure branch does not restore those bytes or clear every previous
+route flag/length. The stored moat word at native`9C8` is written on successful
+publication, not on this failure. An old positive length and flags2/4 therefore
+do not establish that old route bytes remain valid after a rejected rebuild.
+Selector1 is not an independent fallback search: `E32B0` only reconstructs
+existing search state through `E1640(mode0)`.
+
+For class0, marker0, non-Assassin Apple movement, `DCE60` admits only the
+ordinary source-outgoing or destination-reverse edge. The Assassin fallback
+is type73-only; the moat fallback requires the stored marker. Consequently,
+if all eight forward/reverse pairs are absent, this precise Apple boundary
+has no physical escape merely because a completed-moat flag now exists.
+`1855A0` consumes a packed nibble under the retained route state and, on a
+rejected physical step, can call `196280` again toward the stored route endpoint.
+That retry happens in the common movement consumer; it need not wait for an
+Apple-specific job retry.
+
+`19BA40` resets movement state, unlinks old tile occupancy, changes tile/fine
+position and height, relinks occupancy and refreshes render offsets. Its
+enumerated helper closure does not write Apple AI state918, employee/home
+fields990/992/994/99C, cargo9E0 or picking counter9EC. Apple handler135E30
+states5/7 use `188340` before their arrival/job transitions. Preserving these
+states while relocating therefore still requires a valid native publication
+to the intended job destination before subsequent native updates.
+
+### Run068 observation and receipt boundary [mod integration]
+
+Evidence: `.work/a/rescue-game/068/rescue-moatworker-on/33dada44cfa6/LogOutput.log`,
+own timestamps14:42:10.698--14:42:10.700. Unit1/global432, AI5, flags2,
+length9, cursor0, substep8 and stored marker0 remained unchanged. The complete
+path SHA-256 before and after the real brush was
+`20D5C2B4FE77BA4D586BB34E47B92DF39A3E594E4F2A88FBB78A05442AD1D555`;
+after rejected native reissue it was the1000-zero-byte hash
+`541B3E9DAA09B20BF85FA273E5CBD3E80185AA4EC298E765DB87742B70138A53`.
+Source199,413 became flags40008000/height0 and had no forward/reverse edge
+to any of eight neighbors; ordinary neighboring banks had height8, while
+three neighbors belonged to the granary. This modded run confirms the invalid
+old-route-preservation assumption; it does not isolate why the builder failed
+and is not presented as Vanilla-only gameplay.
+
+The dedicated testmod receipt, old reachable bank choice, short Fixes gate,
+original-goal reissue and physical-arrival assertions are mod/test policy.
+The generic completed-moat path remains unsupported; future automatic moat
+completion and the newly added receipt have no gameplay-success claim in this
+audit. See `Testmods/TrappedUnitRescueTest/UpdateToNewDLL.md` for exact scope.

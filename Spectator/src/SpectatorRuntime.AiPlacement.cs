@@ -24,12 +24,17 @@ namespace Spectator
         private static readonly List<ComboBoxItem> aiRoleRows = new List<ComboBoxItem>();
         private static CheckBox aiAdditional, aiEditorApply;
         private static TextBlock aiPlacementTitle, aiPlacementStatus;
+        private static Border aiPlacementGrip;
+        private static StackPanel aiPlacementRow;
+        private static UIElement aiInputRoot;
+        private static readonly AiPlacementPosition aiPanelPosition = new AiPlacementPosition();
+        private static ToolbarRect aiPanelDock, aiPanelBounds;
+        private static bool aiPositioning;
         private static bool aiUpdating;
         private static int aiShownMapper = -1, aiShownOwner = -1;
         private static string aiShownLocale;
         private static float aiPlacementScale = -1;
         private static readonly List<ToolbarRect> aiPlacementObstacles = new List<ToolbarRect>();
-        private static readonly ToolbarRect[] aiPlacementSolid = new ToolbarRect[1];
         private static AiPlacementIntent aiIntent = new AiPlacementIntent(default, false);
         static partial void DiagAiPlacementResult(long session, int owner, AiMilitaryAssignmentResult result);
         static partial void DiagAiPlacementReset();
@@ -81,30 +86,34 @@ namespace Spectator
             aiPlacementHost = editor ? aiEditorCanvas : humanCanvas;
             if (aiPlacementPanel != null || aiPlacementHost == null) return;
             var body = new StackPanel();
-            aiPlacementTitle = new TextBlock { FontSize = 13, Margin = new Thickness(0, 0, 0, 4) };
-            body.Children.Add(aiPlacementTitle);
-            var row = new StackPanel { Orientation = Orientation.Horizontal };
-            aiRolePicker = new ComboBox { Name = "SpectatorAiRolePicker", Width = 290, Height = 26 };
+            aiPlacementTitle = new TextBlock { FontSize = 13, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 460 };
+            aiPlacementGrip = new Border { Name = "SpectatorAiPlacementGrip", Background = Brushes.Transparent,
+                Padding = new Thickness(0, 0, 0, 4), Child = aiPlacementTitle };
+            body.Children.Add(aiPlacementGrip);
+            aiPlacementRow = new StackPanel { Orientation = Orientation.Horizontal };
+            aiRolePicker = new ComboBox { Name = "SpectatorAiRolePicker", MinWidth = 260, MaxWidth = 300,
+                MinHeight = 26, Padding = new Thickness(6, 3, 6, 3) };
             aiRolePicker.SelectionChanged += AiRoleChanged;
             aiRolePicker.PreviewMouseDown += AiRoleOpening;
             aiRolePicker.Loaded += AiRolePickerLoaded; aiRolePicker.Reloaded += AiRolePickerLoaded;
             aiAdditional = new CheckBox { Name = "SpectatorAiAdditional", Margin = new Thickness(10, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
             aiAdditional.Checked += AiAdditionalChanged; aiAdditional.Unchecked += AiAdditionalChanged;
-            row.Children.Add(aiRolePicker); row.Children.Add(aiAdditional); body.Children.Add(row);
+            aiPlacementRow.Children.Add(aiRolePicker); aiPlacementRow.Children.Add(aiAdditional); body.Children.Add(aiPlacementRow);
             aiEditorApply = new CheckBox { Name = "SpectatorAiEditorApply", Margin = new Thickness(0, 4, 0, 0) };
             aiEditorApply.Checked += AiEditorApplyChanged; aiEditorApply.Unchecked += AiEditorApplyChanged;
             body.Children.Add(aiEditorApply);
             aiPlacementStatus = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0) };
             body.Children.Add(aiPlacementStatus);
-            aiPlacementPanel = new Border { Name = "SpectatorAiPlacementPanel", DataContext = aiPlacement, Width = 550, Padding = new Thickness(8), BorderThickness = new Thickness(1),
+            aiPlacementPanel = new Border { Name = "SpectatorAiPlacementPanel", DataContext = aiPlacement, MaxWidth = 500, Padding = new Thickness(6), BorderThickness = new Thickness(1),
                 Child = body, Visibility = Visibility.Collapsed };
             Panel.SetZIndex(aiPlacementPanel, 3);
             aiPlacementHost.Children.Add(aiPlacementPanel);
+            AttachAiPanelInteraction();
             if (!editor && humanPanel != null) humanPanel.IsVisibleChanged += AiHostVisibilityChanged;
         }
 
         private static void AiHostVisibilityChanged(object sender, DependencyPropertyChangedEventArgs args)
-        { if (!IsEditorAiPlacementSession() && humanPanel?.IsVisible != true && aiPlacementPanel != null) aiPlacementPanel.Visibility = Visibility.Collapsed; }
+        { if (!IsEditorAiPlacementSession() && humanPanel?.IsVisible != true) HideAiPlacementPanel(); }
 
         private static void AiRoleChanged(object sender, SelectionChangedEventArgs args)
         { if (!aiUpdating && aiRolePicker.SelectedItem is ComboBoxItem row && row.DataContext is AiPlacementChoice choice && choice.Available) aiPlacement.Selected = choice; }
@@ -181,7 +190,7 @@ namespace Spectator
                         // Real Noesis leaves Setter.Value Binding objects unapplied on generated
                         // rows. Own the small option set explicitly, including disabled reason tips.
                         var row = new ComboBoxItem { Content = choice.Name, DataContext = choice, IsEnabled = choice.Available };
-                        AiTip(row, string.IsNullOrEmpty(choice.Help) ? AiText("RoleHelp") : choice.Help);
+                        AiTip(row, string.IsNullOrEmpty(choice.Help) ? AiText(choice.Role == "None" ? "NoneHelp" : "RoleHelp") : choice.Help);
                         aiRoleRows.Add(row);
                     }
                     aiRolePicker.ItemsSource = aiRoleRows.ToArray();
@@ -199,14 +208,18 @@ namespace Spectator
                 aiPlacementTitle.Text = AiText("Title") + " · " + PlayerLabel(aiShownOwner);
                 aiPlacementStatus.Text = !string.IsNullOrEmpty(aiPlacement.Feedback) ? aiPlacement.Feedback :
                     aiPlacement.Selected?.Help ?? AiText("Unavailable");
+                aiPlacementStatus.Visibility = string.IsNullOrWhiteSpace(aiPlacementStatus.Text) ? Visibility.Collapsed : Visibility.Visible;
                 aiPlacementPanel.Background = humanPanel?.TryFindResource("SpectatorPaper") as Brush ?? ToolbarPalette.Paper.Input;
                 aiPlacementPanel.BorderBrush = ToolbarPalette.Paper.Border;
                 aiPlacementTitle.Foreground = aiPlacementStatus.Foreground = ToolbarPalette.Paper.Ink;
                 aiAdditional.Foreground = aiEditorApply.Foreground = ToolbarPalette.Paper.Ink;
                 SetAiRoleForeground(aiRolePicker.IsDropDownOpen);
                 aiRolePicker.Background = ToolbarPalette.Paper.Input;
-                AiTip(aiRolePicker, AiText("RoleHelp")); AiTip(aiAdditional, AiText("AdditionalHelp"));
+                AiTip(aiRolePicker, AiText("RoleHelp") + (aiPlacement.Role == "None" ? " " + AiText("NoneHelp") : ""));
+                AiTip(aiAdditional, AiText("AdditionalHelp"));
                 AiTip(aiEditorApply, AiText("EditorHelp"));
+                AiTip(aiPlacementGrip, PlayerLabel(aiShownOwner) + ". " + AiText("DragHelp"));
+                RequestRender();
             }
             finally { aiUpdating = false; }
         }
@@ -233,21 +246,20 @@ namespace Spectator
             aiRoleRows.Clear(); aiRenderedChoices = null;
         }
 
-        // The existing render publisher observes cursor changes. Native option queries run only on
-        // owner/mapper/locale changes, opening the picker, and atomic placement admission.
+        // Use the existing active presentation publisher; option queries are event/change driven.
         private static void RefreshAiPlacementPanel()
         {
             bool editor = IsEditorAiPlacementSession();
             if (!editor && !IsPlacementSession())
-            { if (aiEditorCanvas != null) DetachAiPlacementPanel(); else if (aiPlacementPanel != null) aiPlacementPanel.Visibility = Visibility.Collapsed; return; }
+            { if (aiEditorCanvas != null) DetachAiPlacementPanel(); else HideAiPlacementPanel(); return; }
             EnsureAiPlacementPanel();
             if (aiPlacementPanel == null) return;
             int mapper = MainControls.instance?.CurrentSubAction ?? -1;
             bool visible = (editor || IsPlacementSession() && humanPanel?.Visibility == Visibility.Visible && humanPanel.Opacity > 0) &&
                 MainViewModel.Instance.Show_HUD_Main && !MainViewModel.Instance.Show_HUD_IngameMenu &&
                 AiMapperTypes.IsUnitPlacement(MainControls.instance?.CurrentAction ?? -1, (eMappers)mapper);
-            aiPlacementPanel.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
-            if (!visible) return;
+            if (!visible) { HideAiPlacementPanel(); return; }
+            aiPlacementPanel.Visibility = Visibility.Visible;
             string locale = ActiveLocale();
             int owner = editor ? EditorDirector.instance.ActivePlayerID : humanSelectedOwner;
             if (mapper != aiShownMapper || owner != aiShownOwner || locale != aiShownLocale)
@@ -255,26 +267,50 @@ namespace Spectator
                 aiShownMapper = mapper; aiShownOwner = owner; aiShownLocale = locale;
                 aiPlacement.Feedback = ""; RefreshAiPlacementOptions();
             }
+            PositionAiPlacementPanel();
+        }
+
+        private static void PositionAiPlacementPanel()
+        {
+            if (aiPositioning || aiPlacementPanel?.Visibility != Visibility.Visible || aiPlacementHost == null) return;
+            aiPositioning = true;
+            try
+            {
+            bool editor = IsEditorAiPlacementSession();
             float vw = aiPlacementHost.ActualWidth, vh = aiPlacementHost.ActualHeight;
+            if (vw <= 0 || vh <= 0) return;
             FrameworkElement nativeFrame = editor ? MainViewModel.Instance.HUDmain?.FindName("MainFrameBuildings") as FrameworkElement : frameAnchor;
             var frame = AiHostBounds(nativeFrame);
             if (frame.Empty) frame = new ToolbarRect(Math.Max(0, vw - 800), vh - 150, 800, 150);
-            float height = editor ? 138 : 114;
-            float scale = Math.Min(1, Math.Min(vw / 550, vh / height));
-            aiPlacementPanel.Height = height;
+            float nativeScale = nativeFrame?.ActualWidth > 0 ? frame.Width / nativeFrame.ActualWidth : 1;
+            float scale = Math.Max(.01f, Math.Min(nativeScale, Math.Min(vw / 280, vh / Math.Max(1, aiPlacementPanel.ActualHeight))));
+            float available = Math.Min(500, vw / scale);
+            if (aiPlacementPanel.MaxWidth != available) aiPlacementPanel.MaxWidth = available;
+            float contentWidth = Math.Max(1, available - 14);
+            // A horizontal StackPanel measures without a width limit; stack its controls on
+            // narrow viewports before it could clip a translated checkbox or selected caption.
+            float rowWidth = aiRolePicker.DesiredSize.Width + aiAdditional.DesiredSize.Width -
+                aiAdditional.Margin.Left - aiAdditional.Margin.Right + 10;
+            var orientation = rowWidth > contentWidth ? Orientation.Vertical : Orientation.Horizontal;
+            if (aiPlacementRow.Orientation != orientation) aiPlacementRow.Orientation = orientation;
+            var margin = orientation == Orientation.Horizontal ? new Thickness(10, 0, 0, 0) : new Thickness(0, 4, 0, 0);
+            if (!aiAdditional.Margin.Equals(margin)) aiAdditional.Margin = margin;
+            aiRolePicker.MaxWidth = Math.Min(300, contentWidth);
+            aiRolePicker.MinWidth = Math.Min(260, contentWidth);
+            aiPlacementTitle.MaxWidth = aiPlacementStatus.MaxWidth = contentWidth;
+            float width = aiPlacementPanel.ActualWidth * scale, height = aiPlacementPanel.ActualHeight * scale;
+            if (width <= 0 || height <= 0) { RequestRender(); return; }
             if (aiPlacementScale != scale)
             { aiPlacementScale = scale; aiPlacementPanel.RenderTransform = new ScaleTransform(scale, scale); }
-            var pose = ToolbarLayout.Clamp(frame.X + (frame.Width - 550 * scale) / 2,
-                frame.Y - height * scale - 5, 550 * scale, height * scale, vw, vh);
-            // The separate strip must also avoid a manually moved toolbar and native controls.
             aiPlacementObstacles.Clear();
             if (!editor) { aiPlacementObstacles.AddRange(controlsBounds); aiPlacementObstacles.Add(AiHostBounds(humanPanel)); }
-            aiPlacementObstacles.Add(frame);
-            aiPlacementSolid[0] = new ToolbarRect(0, 0, pose.Width, pose.Height);
-            if (!ToolbarLayout.TryAvoidControls(pose.X, pose.Y, pose.Width, pose.Height, vw, vh,
-                aiPlacementSolid, aiPlacementObstacles, ToolbarLayout.Gap * scale, out pose))
-            { aiPlacementPanel.Visibility = Visibility.Collapsed; return; }
+            bool dockAvailable = AiPlacementLayout.TryDock(frame, width, height, vw, vh, aiPlacementObstacles, out aiPanelDock);
+            if (!dockAvailable && !aiPanelPosition.Floating && !aiPanelPosition.Dragging) { HideAiPlacementPanel(); return; }
+            var pose = aiPanelPosition.Arrange(aiPanelDock, width, height, vw, vh);
+            aiPanelBounds = pose;
             Canvas.SetLeft(aiPlacementPanel, pose.X); Canvas.SetTop(aiPlacementPanel, pose.Y);
+            }
+            finally { aiPositioning = false; }
         }
 
         private static ToolbarRect AiHostBounds(FrameworkElement element)
@@ -296,8 +332,9 @@ namespace Spectator
         {
             if (aiPlacementPanel != null)
             {
+                DetachAiPanelInteraction();
                 if (humanPanel != null) humanPanel.IsVisibleChanged -= AiHostVisibilityChanged;
-                foreach (var owner in new FrameworkElement[] { aiRolePicker, aiAdditional, aiEditorApply })
+                foreach (var owner in new FrameworkElement[] { aiRolePicker, aiAdditional, aiEditorApply, aiPlacementGrip })
                     if (ToolTipService.GetToolTip(owner) is ToolTip tip) MenuToolTipSizing.SetEnabled(tip, false);
                 aiRolePicker.SelectionChanged -= AiRoleChanged; aiRolePicker.PreviewMouseDown -= AiRoleOpening;
                 aiRolePicker.Loaded -= AiRolePickerLoaded; aiRolePicker.Reloaded -= AiRolePickerLoaded;
@@ -309,6 +346,7 @@ namespace Spectator
             }
             aiPlacementPanel = null; aiRolePicker = null; aiAdditional = aiEditorApply = null;
             aiPlacementTitle = aiPlacementStatus = null; aiShownMapper = aiShownOwner = -1; aiShownLocale = null;
+            aiPlacementGrip = null; aiPlacementRow = null;
             aiPlacementScale = -1; aiPlacementObstacles.Clear();
             if (aiEditorCanvas?.Parent is Panel editorParent) editorParent.Children.Remove(aiEditorCanvas);
             aiPlacementHost = aiEditorCanvas = null; aiEditorScreen = null;

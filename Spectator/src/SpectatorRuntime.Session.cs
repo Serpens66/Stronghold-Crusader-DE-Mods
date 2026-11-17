@@ -73,6 +73,7 @@ namespace Spectator
         {
             DiagAiPlacementReset();
             aiPlacement.Reset();
+            aiPanelPosition.Reset();
             ResetPresentationScheduling();
             ResetTestActions(0);
             ResetSpriteColourLease();

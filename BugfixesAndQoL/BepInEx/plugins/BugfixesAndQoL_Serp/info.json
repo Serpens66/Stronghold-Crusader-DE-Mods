@@ -20,7 +20,8 @@
       "Version": "1.0.230",
       "Changes": [
         "Conflicts with other mods that change the same spot in the game's code are now detected: the affected feature stays off instead of overwriting the other mod's change, and the log names the conflict. Spots that a mod loaded later overwrites are reported in the log at each game start.",
-        "The option to not limit the AI keep build range now checks its game hook directly at startup instead of running an extra self-test first."
+        "The option to not limit the AI keep build range now checks its game hook directly at startup instead of running an extra self-test first.",
+        "Fix the two nervous Custom Lord messages (before a siege, when weak) playing without voice: they now use the Servant's matching recordings that ship with the game."
       ]
     },
     {
