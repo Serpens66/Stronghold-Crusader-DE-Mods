@@ -2,22 +2,32 @@
   "GUID": "EnemyBridgePathTest_Serp",
   "Author": "Serpens66",
   "Name": "Enemy Bridge Path Test",
-  "Description": "Lowered drawbridges in front of gatehouses count as raised for route planning of every player the gate does not admit (AI and human).",
-  "Version": "0.1.1",
+  "Description": "In-game acceptance scenarios for Pathfinding's enemy drawbridge closure (automation only; no effect in normal games).",
+  "Version": "0.2.0",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
       "MinimumVersion": "0.49.0"
+    },
+    {
+      "GUID": "Pathfinding_Serp",
+      "MinimumVersion": "0.1.10"
     }
   ],
   "Manifest": 1,
-  "NetworkMode": 1,
+  "NetworkMode": 0,
   "SupportedGameVersions": [
     "2.8.0.1"
   ],
   "SerpChangelog": [
+    {
+      "Version": "0.2.0",
+      "Changes": [
+        "The drawbridge closure moved into Pathfinding (setting \"Keep enemies off lowered drawbridges at gatehouses\"). This mod now only contains its automated acceptance scenarios and requires Pathfinding 0.1.10 or newer."
+      ]
+    },
     {
       "Version": "0.1.1",
       "Changes": [

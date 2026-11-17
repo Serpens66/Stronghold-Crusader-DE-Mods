@@ -108,6 +108,14 @@ assembly version. Tests cover allocation failure, initialized scan padding,
 private rollback and actual trampoline execution. A corrected in-game startup
 and Baibars 400x400 acceptance are still pending.
 
+**2026-11-17: live probe removed.** The copied-entry probe ran at every start and
+added no protection beyond the exact RedBird 1.5.0.0 pin in `ValidateFunction`,
+`ValidateDetour` on the candidate before `Enable()` (Indirect/10, trampoline and
+continuation) and on the patch after it. The same probe pattern disabled Spectator
+and ExtraFeatures hooks on unlucky starts. `tests/AIKeepRange.Tests` keeps the
+offline backend contract on the real prologue with actual trampoline execution;
+`Test-AIKeepRangePreflight.ps1` rejects a reintroduced live probe.
+
 Reference: `CrusaderDE.dll` SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. This health-bar feature is bound to the hash because it reads fixed native unit/building layouts and depends on render control flow. An unknown DLL must fail closed before any hook is installed.
 
 | Feature target | Reference RVA / image-base offset | Signature or derivation | Validation and failure |

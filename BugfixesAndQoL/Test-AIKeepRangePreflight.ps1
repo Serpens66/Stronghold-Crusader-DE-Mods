@@ -6,21 +6,22 @@ $runtime = [IO.File]::ReadAllText($runtimePath)
 $contract = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\AI\Fixes\AIKeepRangeNativeContract.cs'))
 $decision = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\AI\Fixes\AIKeepRangeDecision.cs'))
 $source = $runtime + $contract + $decision
-if ($contract -match 'AllocHGlobal|FreeHGlobal|VirtualFree|NativeMemoryManager.Free' -or
-    $contract -notmatch 'ProbeBackend\(target, NativeMemoryManager.AllocateStub\)' -or
+# No live copied-entry probe (it disabled the fix on starts without near memory around its copy):
+# the RedBird pin, ValidateDetour before/after Enable and the offline backend tests cover it.
+if ($source -match 'ProbeBackend|AllocHGlobal|FreeHGlobal|VirtualFree|NativeMemoryManager' -or
+    $contract -notmatch 'GetName\(\)\.Version != new Version\(1, 5, 0, 0\)' -or
     $contract -notmatch 'AllowedSchemes = DetourScheme.Indirect' -or
-    $contract -notmatch 'NativeMemoryManager.WriteStub\(copy, buffer\)' -or
     # The install-phase wrapper keeps the same Indirect-only options (HookInstallPhase.Backend).
     $runtime -notmatch 'AIKeepRangeNativeContract\.Backend\)?\.CreateDetour') {
-    throw 'Probe storage must use target-relative RedBird slabs and the same Indirect-only backend as the real hook.'
+    throw 'The real hook must use the pinned Indirect-only backend without a live copied-entry probe.'
 }
 $vm = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\Settings\BugfixesAndQoLViewModel.cs'))
 $parent = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\Core\Bootstrap\BugfixesAndQoLRuntime.cs'))
 if ($source -match 'System\.Web\.Extensions|JavaScriptSerializer|System\.Text\.Json|Newtonsoft|DataContractJsonSerializer|JsonUtility|threadLock|KeepProximityOverride|SetKeepProximityRange|CodePatch\.Write|Marshal\.Write|VirtualProtect|\.Undo\s*\(|\.Disable\s*\(') { throw 'Forbidden serializer/engine access/global override/executable mutation.' }
 if ($source -match '\b(OnDestroy|OnDisable|OnApplicationQuit|OnApplicationPause|Update|LateUpdate|FixedUpdate|StartCoroutine)\s*\(') { throw 'Unexpected Unity lifecycle or polling.' }
 if ($source -match '\bhook\??\.(Enable|Dispose)\s*\(' -or
-    [regex]::Matches($source,'candidate\.Enable\(\)').Count -ne 2 -or
-    [regex]::Matches($source,'candidate\?\.Dispose\(\)').Count -ne 2 -or
+    [regex]::Matches($source,'candidate\.Enable\(\)').Count -ne 1 -or
+    [regex]::Matches($source,'candidate\?\.Dispose\(\)').Count -ne 1 -or
     $runtime -notmatch '(?s)catch\s*\{\s*candidate\?\.Dispose\(\);[^}]+throw;' -or
     $parent -notmatch 'private static AIKeepRangeRuntime processAIKeepRangeRuntime;' -or
     $parent -match 'processAIKeepRangeRuntime\??\.Dispose' -or

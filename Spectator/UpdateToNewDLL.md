@@ -49,11 +49,13 @@ owns 0xCC420 (10 displaced bytes, NativeX64 Indirect). The mod owns visual hooks
 and installed backend are validated in `SpectatorRuntime.Native.cs`. The 0x41D60
 frame boundary is owned exclusively by APIShared VisibleMapRenderEvents. Published hooks remain
 installed until process exit. RedBird's audited assembly version is 1.5.0.0.
-Before each of these three detours, a copied-entry probe runs the installed backend on a private
-image (`Shared/Runtime/Native/CopiedProbeImage.cs`): the complete instructions of the first 64 entry bytes, padded with int3 to
-RedBird's `NativeDetourOptions.FunctionScanLimit` (16 KiB in 1.5.0.0). NativeX64 decodes up to that
-window until a function end, so a shorter copy reads neighbouring heap memory. On a RedBird update recheck
-`PrologueAnalyzer.Disassemble` and run `tests/Test-CopiedProbe.ps1` (guard-paged installed-backend probe).
+There is no live copied-entry probe (removed 2026-11-17): it ran the backend on a private copy at every
+start and twice disabled these features on unlucky starts (reads past a short heap copy; no reservable
+near memory around the copy, VirtualAlloc2 error 8). The backend contract is the exact RedBird pin above,
+the candidate checks (Indirect, displaced bytes, target, not installed) before Enable() and the patch,
+pointer-slot and hook-entry checks after it. 	ests/Test-CopiedProbe.ps1 runs the installed backend
+offline on the real entry bytes for the whole FunctionScanLimit window in front of a guard page; run it
+on every RedBird update.
 
 The visual spectator flag is at RVA 0x3666080. Placement also reads the Chore kind
 and phase at 0x85F8FF4/0x85F8FEC and its argument buffer at

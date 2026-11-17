@@ -40,8 +40,8 @@ no entry is used.
 - `0xD8510` (confirmed): allocates the **first free** slot 1..199 (returns 0 when full).
   It writes state 1, type, serial, building or unit, enabled 0 and the identity/owner
   snapshot. It writes neither `[0]` nor the region fields.
-  - `0x74080` and `0x74240` call it for gatehouses (types 4 and 3; which one is the large
-    or small gatehouse is inferred from the endpoint offsets, probable). Both are reached
+  - `0x74080` and `0x74240` call it for gatehouses (types 4 and 3; confirmed 2026-11-17: type 3
+    is the large 7x7 gatehouse, type 4 the small 5x5 one, see the endpoint section). Both are reached
     from building placement `0x6D580`, synchronously at placement time.
   - `0x1950B0` (from `0x14A3F0`) calls it with type 1, building 0 and a unit id. This is
     the unit-based entry; it is almost certainly the siege ladder (probable).
@@ -77,10 +77,34 @@ no entry is used.
 
 ## Open points
 
-- Exact meaning of the building identity field at `0x64CCCE4` and when demolition changes
-  it; the destruction path itself was not traced.
+- Answered 2026-11-17: `0x64CCCE4` is building `+0x134` (GlobalId); `0xD8040` compares it with
+  portal `+0x2038` and clears the state on mismatch. Still open: when demolition changes it.
 - Whether the table is serialized in saves (load forces `[0] = 200` and then normalizes it,
   which suggests the entries survive loading).
 - Whether a player chore placing a gatehouse runs before or after `0xF4540` in the same
   tick (probable before; chore dispatch inside `0xCDE60` was not confirmed).
 - Creators of types 5 and 7 were not found in this image (their handlers exist).
+
+## Gatehouse endpoints and the hooked refresh entry (2026-11-17)
+
+Static evidence on the installed DLL (capstone), runtime use in the drawbridge acceptance runs
+under `.work/t/bridge-accept/` (dated observations).
+
+- Field offsets below are absolute from the path manager `0x60AD660`; "relative" is from the
+  record base `+0x2024 + id*0x204`.
+  - Entry tile `+0x2048` (relative `+0x24`), exit tile `+0x2054` (relative `+0x30`): confirmed
+    (`0xD8040` at `0xD8153`/`0xD8177`/`0xD8190`/`0xD81B2`, used by every accepted closure run).
+  - Region A `+0x2058` is the PCL of the entry tile, region B `+0x205C` the PCL of the exit tile:
+    confirmed.
+  - Entry X/Y `+0x2040`/`+0x2044`, exit X/Y `+0x204C`/`+0x2050`, axis selector `+0x21F4`
+    (2 or 0: row or column layout) and region C `+0x220C` = PCL of tile (X+1, Y+1) for type 4:
+    probable (single static reading of `0xD8040`).
+- Type 4 handler `0xD8040` places the endpoints at X+5/X-1 or Y+5/Y-1 around the footprint
+  centre +2, i.e. the small 5x5 gatehouse; type 3 `0xD7E90` is the large 7x7 one (confirmed;
+  the Extender names them `PathConnectionClass.GatehouseSmall = 4` / `GatehouseBig = 3`).
+- The endpoints lie exactly on the outside tiles of the gate aperture edges written by
+  `0xD8CE0` (see DRAWBRIDGE_REGION_CLOSURE.md).
+- Hook contract of the per-tick refresh `0xF4540(pathManager)`: entry bytes
+  `48 89 5C 24 08 57` (NativeX64 Indirect displaces 6 bytes); no branch of the full function
+  body targets the displaced span (capstone, 2026-11-16). Mod hook owners are recorded in
+  DRAWBRIDGE_REGION_CLOSURE.md (integration section), not here.

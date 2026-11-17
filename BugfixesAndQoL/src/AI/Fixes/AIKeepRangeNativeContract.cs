@@ -7,7 +7,6 @@ using BepInEx.Logging;
 using Iced.Intel;
 using RedBird.Abstractions.Hooks;
 using RedBird.Backends.NativeX64;
-using RedBird.Core.Memory;
 using SHCDESE.API.LowLevel;
 
 namespace BugfixesAndQoL
@@ -92,55 +91,6 @@ namespace BugfixesAndQoL
                 throw new InvalidOperationException("Entry jump/pointer slot/hook entry mismatch.");
             for (int i = 6; i < Displaced; i++)
                 if (patch[i] != 0x90) throw new InvalidOperationException("Unexpected displacement padding.");
-        }
-
-        internal static void ProbeBackend(ulong target)
-        {
-            ProbeBackend(target, NativeMemoryManager.AllocateStub);
-        }
-
-        // The allocator parameter permits deterministic allocation-failure tests without
-        // changing the process-wide RedBird allocator or the production backend.
-        internal static void ProbeBackend(ulong target, Func<ulong, int, IntPtr> allocate)
-        {
-            // The backend scans to the function end (default limit 16 KiB). A 64-byte
-            // prefix would let it read unowned memory before this predicate's RET.
-            byte[] entry = Capture(target, FunctionSize);
-            int capacity = Math.Max(FunctionSize, Backend.Options.FunctionScanLimit);
-            IntPtr copy = allocate(target, capacity);
-            if (copy == IntPtr.Zero)
-                throw new InvalidOperationException("AI distance probe allocation failed near native target 0x" +
-                    target.ToString("X") + ": RedBird returned no target-relative stub storage.");
-            NativeDetour<AIKeepDistanceCheck> candidate = null;
-            AIKeepDistanceCheck callback = (_, __, ___, ____, _____) => 0;
-            bool initialized = false;
-            try
-            {
-                var buffer = new byte[capacity];
-                Array.Copy(entry, buffer, entry.Length);
-                if (!NativeMemoryManager.WriteStub(copy, buffer))
-                    throw new InvalidOperationException("AI distance probe buffer could not be initialized.");
-                initialized = true;
-                ulong address = unchecked((ulong)copy.ToInt64());
-                var request = new DetourRequest<AIKeepDistanceCheck> { Name = "AI distance copied-entry probe", TargetAddress = address, Callback = callback };
-                candidate = HookInstallPhase.Backend(Backend).CreateDetour(in request) as NativeDetour<AIKeepDistanceCheck>;
-                ValidateDetour(candidate, address, false);
-                candidate.Enable();
-                ValidateDetour(candidate, address, true);
-            }
-            finally
-            {
-                candidate?.Dispose(); // Private nonexecuted probe, never published to the game.
-                // Slab storage belongs to RedBird and remains allocated until process exit.
-                // Only this private, never-executed detour is rolled back.
-                GC.KeepAlive(callback);
-                if (initialized)
-                {
-                    byte[] restored = Capture(unchecked((ulong)copy.ToInt64()), entry.Length);
-                    for (int i = 0; i < entry.Length; i++)
-                        if (restored[i] != entry[i]) throw new InvalidOperationException("Probe rollback changed original bytes.");
-                }
-            }
         }
 
         internal static byte[] Capture(ulong address, int length)

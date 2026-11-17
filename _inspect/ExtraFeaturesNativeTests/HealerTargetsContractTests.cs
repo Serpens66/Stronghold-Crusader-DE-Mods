@@ -32,14 +32,14 @@ namespace ExtraFeatures
                   source.Contains("HealerListBounds.IsUsableListCount(currentCount)"),
                 "Vanilla forwarding, callback fail-open and transient bounds guards remain.");
 
-            byte[] entrySource = new byte[Shared.CopiedProbeImage.SourceLength];
-            Array.Copy(image, 0x181340, entrySource, 0, entrySource.Length);
+            // Offline backend contract (the runtime has no live probe): RedBird may decode the whole
+            // FunctionScanLimit window (+16 for a last instruction). The real bytes end directly in
+            // front of a PAGE_NOACCESS page, so any read beyond them faults here.
+            byte[] entry = new byte[NativeDetourBackend.Instance.Options.FunctionScanLimit + 16];
+            Array.Copy(image, 0x181340, entry, 0, entry.Length);
             byte[] expected = { 0x48, 0x89, 0x5C, 0x24, 0x10,
                                 0x48, 0x89, 0x6C, 0x24, 0x20 };
-            Check(entrySource.Take(expected.Length).SequenceEqual(expected), "Audited healer entry bytes.");
-            // Production probe image: RedBird may decode the whole FunctionScanLimit window. The image
-            // ends directly in front of a PAGE_NOACCESS page, so any read beyond it faults here.
-            byte[] entry = Shared.CopiedProbeImage.Build(entrySource, NativeDetourBackend.Instance.Options.FunctionScanLimit);
+            Check(entry.Take(expected.Length).SequenceEqual(expected), "Audited healer entry bytes.");
             const int pageSize = 4096;
             int pages = (entry.Length + pageSize - 1) / pageSize;
             IntPtr region = VirtualAlloc(IntPtr.Zero, (UIntPtr)((pages + 1) * pageSize), 0x3000, 0x04);
@@ -76,7 +76,7 @@ namespace ExtraFeatures
                 probe?.Dispose();
                 byte[] restored = new byte[entry.Length];
                 Marshal.Copy(copy, restored, 0, restored.Length);
-                Check(restored.SequenceEqual(entry), "Copied backend probe restores all original bytes.");
+                Check(restored.SequenceEqual(entry), "Offline backend detour restores all original bytes.");
                 VirtualFree(region, UIntPtr.Zero, 0x8000);
                 GC.KeepAlive(callback);
             }

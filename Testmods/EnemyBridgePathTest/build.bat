@@ -89,12 +89,6 @@ if not "%ERRORLEVEL%"=="0" goto api_shared_failed
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
 pushd "%PROJECT_DIR%"
 echo [%date% %time%] Compile projects
-"%MSBUILD%" EnemyBridgePathTest.PolicyTests.csproj /p:Configuration=Debug %SHCDE_BRANCH_MSBUILD_API%
-if not "%ERRORLEVEL%"=="0" goto build_failed_popd
-echo [%date% %time%] Run tests
-"%PROJECT_DIR%tests\bin\EnemyBridgePathTest.Tests.exe"
-if not "%ERRORLEVEL%"=="0" goto test_failed_popd
-echo [%date% %time%] Compile projects
 "%MSBUILD%" EnemyBridgePathTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 popd

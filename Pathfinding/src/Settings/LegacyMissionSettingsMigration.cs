@@ -22,7 +22,8 @@ namespace Pathfinding
                         { nameof(PathfindingViewModel.EnablePathfindingCore), false },
                         { nameof(PathfindingViewModel.EnableFriendlyMoatTraversal), false },
                         { nameof(PathfindingViewModel.AvoidFire), false },
-                        { nameof(PathfindingViewModel.AvoidPlague), false }
+                        { nameof(PathfindingViewModel.AvoidPlague), false },
+                        { nameof(PathfindingViewModel.EnableEnemyDrawbridgeClosure), false }
                     }));
         }
     }

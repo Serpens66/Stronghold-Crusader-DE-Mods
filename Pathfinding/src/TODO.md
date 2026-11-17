@@ -420,9 +420,9 @@ getrennte Integrationsgrenzen:
 - [ ] **Optional, Nutzerentscheidung vom 17.11.2026: vorerst so belassen.** Die neue
   Einstellung für das Zugbrückenverhalten soll diese Grenze kurz und verständlich nennen.
 
-Ausgangslage: Die Zugbrückensperre für Feinde ist noch nicht in Pathfinding integriert.
-Ihr Stand liegt im Testmod `Testmods/EnemyBridgePathTest` und in der Arbeitskopie
-`.work/a/bridge-mask/001`, Branch `wip/bridge-deck-mask`.
+Ausgangslage: Die Zugbrückensperre für Feinde ist seit 0.1.10 in Pathfinding integriert
+(Einstellung `EnableEnemyDrawbridgeClosure`, `src/GateRouting/DrawbridgeDeckClosure.cs` und die
+Deck-Kantenmaske in `GateTopologySnapshotProvider.cs`). Spielabnahme: `Testmods/EnemyBridgePathTest`.
 - Sie behandelt eine abgesenkte Zugbrücke vor einem Torhaus im Regionsaufbau wie
   hochgezogen.
 - Zugelassene Spieler gelangen nur über das Torportal auf und über das Deck. Das Portal

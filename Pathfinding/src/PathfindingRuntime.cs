@@ -139,6 +139,7 @@ namespace Pathfinding
                 GateRouting.AssassinGatehouseDescentFeature.Initialize(context, log, settings, isFixedLayoutHashValidated));
             TryPersistent("Assassin gatehouse climb", ApplyAssassinGatehouseClimbFix);
             TryPersistent("enemy gate routing", () => GateRouting.GateRoutingFeature.Initialize(context, isFixedLayoutHashValidated));
+            TryPersistent("enemy drawbridge closure", () => GateRouting.DrawbridgeDeckClosure.Initialize(context, log, settings, isFixedLayoutHashValidated));
             TryInitialize("Extended Shift command queue", () => InitializeExtendedShiftCommandQueue(context, isFixedLayoutHashValidated));
             TryInitialize("assembly-point placement fix", ApplyAssemblyPointPlacementPatchSetting);
             TryInitialize("mounted-stockpile movement fix", ApplyMountedStockpileMovementPatchSetting);

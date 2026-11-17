@@ -30,7 +30,7 @@ namespace Pathfinding
             {
                 EnableMod = true; EnablePathfindingCore = true; AnchorSingleMoves = true; EnableFriendlyMoatTraversal = false;
                 EnableImprovedManualUnitCommands = true; EnableImprovedMoatFilling = true; EnableLadderAttackPathfindingFix = true;
-                EnableEnemyGatePathfindingFix = true; RequireReachableEnemyForAutomaticGateClosing = true;
+                EnableEnemyGatePathfindingFix = true; EnableEnemyDrawbridgeClosure = true; RequireReachableEnemyForAutomaticGateClosing = true;
                 EnableImprovedAssassinPathfinding = true; EnableImprovedAssassinPathfindingAI = true;
                 EnableAssassinGatehouseClimbFix = true; EnableAssassinCombatResumeFix = true;
                 EnableMoveFormationEnhancements = true; EnableExtendedShiftCommandQueue = true;
@@ -57,7 +57,7 @@ namespace Pathfinding
         private bool enableMod = true;
         private bool enablePathfindingCore = true, anchorSingleMoves = true, enableFriendlyMoatTraversal;
         private bool enableImprovedManualUnitCommands = true, enableImprovedMoatFilling = true, enableLadderAttackPathfindingFix = true;
-        private bool enableEnemyGatePathfindingFix = true, requireReachableEnemyForAutomaticGateClosing = true;
+        private bool enableEnemyGatePathfindingFix = true, enableEnemyDrawbridgeClosure = true, requireReachableEnemyForAutomaticGateClosing = true;
         private bool enableImprovedAssassinPathfinding = true, enableImprovedAssassinPathfindingAI = true;
         private bool enableAssassinGatehouseClimbFix = true, enableAssassinCombatResumeFix = true;
         private bool enableMoveFormationEnhancements = true, enableExtendedShiftCommandQueue = true;
@@ -78,6 +78,8 @@ namespace Pathfinding
         [SyncHostOnly] public bool EnableImprovedMoatFilling { get => enableImprovedMoatFilling; set => Set(ref enableImprovedMoatFilling, value, nameof(EnableImprovedMoatFilling)); }
         [SyncHostOnly] public bool EnableLadderAttackPathfindingFix { get => enableLadderAttackPathfindingFix; set => Set(ref enableLadderAttackPathfindingFix, value, nameof(EnableLadderAttackPathfindingFix)); }
         [SyncHostOnly] public bool EnableEnemyGatePathfindingFix { get => enableEnemyGatePathfindingFix; set => Set(ref enableEnemyGatePathfindingFix, value, nameof(EnableEnemyGatePathfindingFix)); }
+        // Child of EnableEnemyGatePathfindingFix: the deck entry mask lives in the gate route policy.
+        [SyncHostOnly] public bool EnableEnemyDrawbridgeClosure { get => enableEnemyDrawbridgeClosure; set => Set(ref enableEnemyDrawbridgeClosure, value, nameof(EnableEnemyDrawbridgeClosure)); }
         [SyncHostOnly] public bool RequireReachableEnemyForAutomaticGateClosing { get => requireReachableEnemyForAutomaticGateClosing; set => Set(ref requireReachableEnemyForAutomaticGateClosing, value, nameof(RequireReachableEnemyForAutomaticGateClosing)); }
         [SyncHostOnly] public bool EnableImprovedAssassinPathfinding { get => enableImprovedAssassinPathfinding; set => Set(ref enableImprovedAssassinPathfinding, value, nameof(EnableImprovedAssassinPathfinding)); }
         [SyncHostOnly] public bool EnableImprovedAssassinPathfindingAI { get => enableImprovedAssassinPathfindingAI; set => Set(ref enableImprovedAssassinPathfindingAI, value, nameof(EnableImprovedAssassinPathfindingAI)); }

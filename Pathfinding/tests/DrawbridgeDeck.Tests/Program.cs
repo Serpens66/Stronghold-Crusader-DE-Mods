@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Pathfinding.GateRouting;
 
-namespace EnemyBridgePathTest.Tests
+namespace Pathfinding.DrawbridgeDeck.Tests
 {
     // Behaviour tests for the production deck closure core on a synthetic rectangular grid.
     // Regression classes: a window that does not restore the native direction grid exactly,
@@ -19,7 +20,7 @@ namespace EnemyBridgePathTest.Tests
             JournalKeepsFirstOriginalAcrossRepeatedWrites();
             LandingUsesCentreThenSides();
             AbutmentRowJoinsDeckAndGate();
-            Console.WriteLine(failures == 0 ? "EnemyBridgePathTest tests passed: " + checks + " checks." : "EnemyBridgePathTest tests FAILED: " + failures + " of " + checks);
+            Console.WriteLine(failures == 0 ? "Drawbridge deck closure tests passed: " + checks + " checks." : "Drawbridge deck closure tests FAILED: " + failures + " of " + checks);
             return failures == 0 ? 0 : 1;
         }
 

@@ -51,7 +51,7 @@ DLL. Runtime evidence: automated runs of `Testmods/EnemyBridgePathTest` with
   - AI melee units walk onto lowered enemy bridges (observed: 11 distinct units in 7 500 ticks
     with gates held open).
 
-## Planning closure in EnemyBridgePathTest [mod integration]
+## Planning closure (EnemyBridgePathTest, since 2026-11-17 Pathfinding) [mod integration]
 
 - Detour on `0xC4BF0`: after every mode-1 call, lowered decks in front of a gatehouse portal are
   cut from all non-deck neighbours.
@@ -68,4 +68,23 @@ DLL. Runtime evidence: automated runs of `Testmods/EnemyBridgePathTest` with
   - On the 800-map with about 10 000 units this was roughly 0.1 % of run time.
   - The ticks per second difference between modes followed the number of surviving units, not
     Vanilla planning time; the closure windows and region query counts were comparable.
-- Contracts and update checks: `Testmods/EnemyBridgePathTest/UpdateToNewDLL.md`.
+- Contracts and update checks: `Pathfinding/UpdateToNewDLL.md` (closure and deck entry mask).
+
+## Additional Vanilla facts (2026-11-17) [Vanilla facts]
+
+- Entry contracts (installed DLL, capstone 2026-11-16, re-read 2026-11-17):
+  - `0xC4BF0` entry `48 89 6C 24 18 48 89 74 24 20` (10 bytes up to the instruction boundary
+    for a 6-byte Indirect patch); no branch of the full body targets this span.
+  - `0xD8CE0(pathManager, buildingId)` entry `48 89 5C 24 08 48 89 6C 24 18`.
+  - `0xF4540`: see PORTAL_TABLE.md.
+- `0xD8CE0` recomputes the aperture edge bytes from the current gate state: with `+0x2FE`
+  temporarily 0 it writes the open-gate bits, and with the closed value 2 restored a second call
+  writes exactly the previous closed bytes (observed: no mismatch in 18 acceptance runs with
+  77 logged deck closures, 2026-11-16/17; the closure verifies every byte at runtime).
+- Second route into the castle (`test_gates_bridge3.sav`, run without the closure, 2026-11-16/17):
+  outside and castle interior are one region, so only tile searches decide. 6 of 6 hostile
+  orders to the castle interior were planned over the lowered deck (13 tiles) instead of the
+  ~380-tile alternative; with gates held open, 42 distinct hostile units stepped onto the deck.
+- Land that is reachable only sideways over a deck is unreachable at region level for everyone
+  while that bridge is raised (the raised flag removes the only connection; probable, not tested
+  in isolation).

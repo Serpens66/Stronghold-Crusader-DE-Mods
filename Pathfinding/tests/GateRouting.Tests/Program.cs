@@ -2198,7 +2198,18 @@ namespace Pathfinding.GateRouting
                 "logged 401/372 to 401/366 gate coordinates validate against 367..371 bounds");
             Assert(!topology.Contains("ClearDrawbridgePassageDirections") &&
                 !topology.Contains("ClosedBridgeCell") && topology.Contains("if (!isGate)"),
-                "gate policy cannot mask any bridge edges, including the old center seam");
+                "standalone bridge entries never mask edges, including the old center seam");
+            // Guardrail (source text, not a behaviour proof): the drawbridge deck mask exists only
+            // behind the region-closure flag, only blocks edges INTO the deck (units on it can
+            // leave) and is counted apart from the gatehouse barrier coverage.
+            string deckEntries = ExtractMethodBody(topology, "ClearDeckEntriesAt");
+            Assert(topology.Contains("int deckEdges = deckClosure ? ClearDrawbridgeDeckEntries(") &&
+                    deckEntries.Contains("int inward = (direction + 4) & 7;") &&
+                    deckEntries.Contains("masks[neighbour] = unchecked((byte)(before & ~(1 << inward)));") &&
+                    !deckEntries.Contains("masks[deck[i]]"),
+                "deck mask only blocks entries into the deck, only while the region closure is active");
+            Assert(topology.Contains("bridge->r_PlayerIdOwner != gateOwner"),
+                "only the gate owner's own drawbridge is masked by that gate");
             Assert(topology.IndexOf("entry-exit-outer", StringComparison.Ordinal) >= 0,
                 "snapshot diagnostics identify the gatehouse barrier contract");
         }

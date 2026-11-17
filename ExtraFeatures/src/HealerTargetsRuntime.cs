@@ -64,9 +64,6 @@ namespace ExtraFeatures
 
             imageBase = unchecked((ulong)context.ModuleHandle.ToInt64());
             HealerNativeContract.VerifyInstalledBinary(imageBase);
-            HealerNativeContract.ProbeBackend(
-                imageBase + HealerNativeContract.ListBuilderRva,
-                (BuildPlayerUnitListDelegate)((_, __) => { }));
             timeManager = GameTimeManagerAPI.Instance ??
                 throw new InvalidOperationException("Persistent game-time publisher unavailable.");
 

@@ -20,12 +20,12 @@ foreach ($path in @($projectPath) + $sources) {
         throw "Runtime executable mutation or published hook teardown requires audit: $path"
     }
 }
-# The only hook release is the unpublished candidate inside Prepare (catch path before Enable).
-$runtimeText = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\DrawbridgeDeckRuntime.cs'))
-if ([regex]::Matches($runtimeText, '\.Dispose\(\)').Count -ne 1 -or $runtimeText -notmatch 'catch \{ \(\(IDisposable\)hook\)\.Dispose\(\); throw; \}') {
-    throw 'Hook release outside the unpublished-candidate path requires audit.'
+# This acceptance mod installs no hooks and never writes game memory (read-only inspector).
+foreach ($path in $sources) {
+    $text = [IO.File]::ReadAllText($path)
+    if ($text -match 'NativeDetour|DetourRequest|HookTransaction|SetDirections') { throw "Unexpected hook or grid write in the acceptance mod: $path" }
 }
-foreach ($path in @($projectPath, (Join-Path $PSScriptRoot 'EnemyBridgePathTest.PolicyTests.csproj'), (Join-Path $PSScriptRoot 'tests\Program.cs')) + $sources) {
+foreach ($path in @($projectPath) + $sources) {
     $bytes = [IO.File]::ReadAllBytes($path)
     for ($i = 0; $i -lt $bytes.Length; $i++) {
         if ($bytes[$i] -eq 10 -and ($i -eq 0 -or $bytes[$i - 1] -ne 13)) { throw "Bare LF line ending: $path" }

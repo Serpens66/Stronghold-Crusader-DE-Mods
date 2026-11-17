@@ -1,9 +1,15 @@
 # EnemyBridgePathTest – Übergabe
 
-Stand: 16.11.2026. Der Testmod wurde komplett neu geschrieben. Die frühere passive
-Diagnose (Aufzeichnung, Offline-Nachrechnung, Schattengraph) liegt nur noch in der
-Git-Historie (bis Commit `4b15f1aa7`) und in `history/` (Dokumente, unverändert
-einschließlich der Codex-Ergänzungen vom 16.11.2026).
+Stand: 17.11.2026. **Das Feature gehört seit Pathfinding 0.1.10 zu Pathfinding**
+(Einstellung `EnableEnemyDrawbridgeClosure`, „Feinde von abgesenkten Zugbrücken vor Torhäusern
+fernhalten“; Code `Pathfinding/src/GateRouting/DrawbridgeDeckClosure.cs` und die
+Deck-Kantenmaske in `GateTopologySnapshotProvider.cs`; native Verträge in
+`Pathfinding/UpdateToNewDLL.md`). Dieser Testmod enthält nur noch die automatischen
+Spielabnahmen und einen rein lesenden Deck-Inspektor (`src/DeckInspector.cs`, eigene
+unabhängige Geometrie in `src/DeckClosureCore.cs`). Er installiert keine Hooks und ändert
+keinen Spielspeicher. Die Geometrie-Unit-Tests liegen in `Pathfinding/tests/DrawbridgeDeck.Tests`.
+Die frühere passive Diagnose liegt in der Git-Historie (bis Commit `4b15f1aa7`) und in `history/`.
+Die Abschnitte unten ab „Ursache in Vanilla“ beschreiben die Entwicklung (Momentaufnahmen).
 
 ## Ziel
 
@@ -58,17 +64,23 @@ Kosten: keine zusätzlichen Suchen.
 
 ## Prüfen
 
-- `build.bat /nopause` führt Quellprüfungen und Kerntests aus, baut und installiert.
+- `build.bat /nopause` führt die Quellprüfungen aus, baut und installiert. Pathfinding muss
+  installiert sein (harte Abhängigkeit, mindestens 0.1.10).
 - Spielabnahme (automatisch, ohne Maus/Tastatur):
   `Shared/Tools/Automation/Invoke-InGameTest.ps1 -ModGuid EnemyBridgePathTest_Serp -Scenario bridge-<save.sav> …`.
-  Der Ablauf, jeweils innerhalb eines Spielprozesses:
-  1. Inventar.
-  2. Regionen je Spieler.
-  3. Echte Bewegungsbefehle feindlicher Testsoldaten aufs Deck.
-  4. Gegenprobe mit abgeschalteter Funktion (`off-*`), danach wieder an.
-  - Ergebniszeilen: `BRIDGE_TEST ACCEPT PASS|FAIL`, am Ende `BRIDGE_TEST SUMMARY`.
+  Ein Modus pro Spielprozess, weil die Automatisierung Spielstände nur aus dem Hauptmenü lädt:
+  - `bridge-<save>`: mit Zugbrückensperre; `bridge-off-<save>`: Vanilla-Gegenprobe.
+  - `bridge-ai-on|off-<save>`: KI-Beobachtung; `bridge-perf-on|off-<save>`: Leistung.
+  - Der Modus wird vor dem Laden über Pathfindings eigene Einstellung gesetzt (dazu auch
+    `EnableMod` und `EnableEnemyGatePathfindingFix`); das Laden nutzt die aktuellen statt der
+    im Spielstand gespeicherten Einstellungen. Am Laufende werden die geänderten Werte
+    wiederhergestellt. Schritt `mode` prüft, dass die Sperre wirklich im verlangten Zustand ist.
+  - Ablauf der Abnahme: Inventar, Regionen je Spieler, echte Bewegungsbefehle feindlicher
+    Testsoldaten aufs Deck und ins Burginnere.
+  - Ergebniszeilen: `BRIDGE_TEST ACCEPT PASS|FAIL`, am Ende `BRIDGE_TEST SUMMARY` mit
+    Pathfindings Zählern.
 
-Native Adressen und Updateprüfung: [UpdateToNewDLL.md](UpdateToNewDLL.md).
+Native Adressen und Updateprüfung: `Pathfinding/UpdateToNewDLL.md` (Abschnitt „Enemy drawbridge closure“).
 
 ## Ergebnisse 16.11.2026 (Momentaufnahme, Belege unter `.work/t/bridge-accept/`)
 
@@ -96,27 +108,30 @@ Native Adressen und Updateprüfung: [UpdateToNewDLL.md](UpdateToNewDLL.md).
 
 ## Offene Punkte
 
-- Integration in den Pathfinding-Mod mit einer hostgesteuerten Einstellung. Im Testmod ist `Enabled`
-  eine lokale BepInEx-Einstellung; im Multiplayer müssen alle denselben Wert haben.
-- Optional: Deckkanten auch in Pathfindings Kantenmasken pro Spieler sperren (siehe Grenzen).
+- Erledigt 17.11.2026: Integration in Pathfinding mit hostgesteuerter Einstellung und die
+  Deck-Kantenmaske pro Spieler.
 - Optional: Gate-Liste je Regionsaufbau cachen. Das ist nicht nötig, die Kosten sind gemessen gering.
+- Optional: TODO G12 in `Pathfinding/src/TODO.md` (geschlossenes Tor bei abgesenkter Brücke).
 
 ## Zweiter Weg zum Keep – Kantenmaske (16./17.11.2026)
 
 - Nutzerbefund: Gab es zusätzlich einen anderen Weg zur Burg, nutzten Gegner die abgesenkte Brücke
   trotzdem. Dann liegen Außenwelt und Burg in einer Region, und nur Kachelsuchen entscheiden.
-- Lösung wie bei feindlichen Torhäusern: Die Pathfinding-Arbeitskopie `.work/a/bridge-mask/001`
-  (Branch `wip/bridge-deck-mask`, Nutzerwunsch: kein unfertiger Code im Haupt-Pathfinding) sperrt
-  in `RouteTilePolicySnapshot` für jeden vom Tor nicht zugelassenen Spieler alle Kanten in die
-  Deckzellen.
-  - Die Maske ist nur aktiv, solange dieser Testmod `SerpEnemyBridgeDeckClosureActive` meldet.
+- Lösung wie bei feindlichen Torhäusern: Pathfinding (ab 0.1.10,
+  `GateTopologySnapshotProvider`) sperrt in `RouteTilePolicySnapshot` für jeden vom Tor nicht
+  zugelassenen Spieler alle Kanten in die Deckzellen. Nur Kanten ins Deck, nie aus dem Deck heraus;
+  nur Brücken desselben Besitzers wie das Tor.
+  - Die Maske ist nur aktiv, solange dieser Testmod `SerpEnemyBridgeDeckClosureActive` meldet und
+    die native DLL die geprüfte Version hat.
+  - Entwickelt in einer Arbeitskopie (Branch `wip/bridge-deck-mask`); nach Review am 17.11.2026 ins
+    Original übernommen, Arbeitskopie und Branch gelöscht.
 - `test_gates_bridge3.sav` (zweiter Weg vorhanden): 54/54 Prüfungen.
   - Befehle ins Burginnere ohne Funktion: 6/6 über das Deck (13 Kacheln).
   - Mit Funktion: 6/6 über den anderen Weg (~380 Kacheln), 0 über das Deck.
   - KI-Beobachtung: 42 feindliche Einheiten auf dem Deck ohne Funktion, 0 mit Funktion.
-- Testlauf: `run-wip`-Ablauf. Die Arbeitskopie wird gegen das Workspace-APIShared gebaut und
-  vorübergehend über die installierte `Pathfinding.dll` kopiert; danach wird die gesicherte Haupt-DLL
-  zurückgespielt (Sicherung in `.work/a/bridge-mask/001.installed-pathfinding`).
+- Abnahme mit dem installierten Pathfinding 0.1.10 (17.11.2026, Belege `.work/t/bridge-accept/`
+  `42495ed22f84`, `b123aaf04687`, `6d98f35f6576`): `test_gates_bridge3.sav` 58/58,
+  KI-Beobachtung 0 feindliche Deckbesucher, `test_gates_bridge.sav` 57/57.
 
 ## Geschlossenes Tor bei abgesenkter Brücke (Nutzerentscheidung 17.11.2026: vorerst so belassen)
 

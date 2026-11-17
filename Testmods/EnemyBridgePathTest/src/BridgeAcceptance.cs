@@ -11,42 +11,41 @@ using System.Linq;
 
 namespace EnemyBridgePathTest
 {
-    // Opt-in in-game acceptance, started only by an owned SerpAutomation request
-    // ("bridge-<save file>"). It loads the save, then compares feature ON / OFF / ON within
-    // one process: closed decks and portal endpoints, per-player region answers of the
-    // native query 0xE2610, and real MoveHere orders of spawned hostile soldiers.
+    // Opt-in in-game acceptance of Pathfinding's drawbridge closure, started only by an owned
+    // SerpAutomation request ("bridge-<save file>"). One mode per game process (the automation
+    // loads saves only from the main menu): "bridge-<save>" with the closure, "bridge-off-<save>"
+    // as Vanilla control. Checks closed decks and portal endpoints, per-player region answers of
+    // the native query 0xE2610, and real MoveHere orders of spawned hostile soldiers.
     internal static class BridgeAcceptance
     {
         private const string Guid = "EnemyBridgePathTest_Serp", Prefix = "bridge-";
         private const int SampleChunks = 18, TicksPerChunk = 40, SoldierCount = 6;
         private static ManualLogSource log;
-        private static DrawbridgeDeckRuntime runtime;
+        private static DeckInspector runtime;
         private static int passed, failed;
-        private static List<DrawbridgeDeckRuntime.DeckReport> decks = new List<DrawbridgeDeckRuntime.DeckReport>();
+        private static List<DeckInspector.DeckReport> decks = new List<DeckInspector.DeckReport>();
         private static readonly List<int> soldiers = new List<int>();
         private static int enemy, onDeckVisits, samples;
-        // Set by an owned "ai-off"/"perf-off" request before loading, so that the map's first
-        // component rebuild already runs in the requested mode.
-        internal static bool? ForcedEnabled { get; private set; }
 
-        internal static void TryStart(ManualLogSource logger, DrawbridgeDeckRuntime deckRuntime)
+        internal static void TryStart(ManualLogSource logger, DeckInspector inspector)
         {
             string request = Path.Combine(Paths.ConfigPath, "SerpAutomation", Guid + ".run");
             if (!File.Exists(request)) return;
             string[] lines = File.ReadAllLines(request);
             if (lines.Length < 2 || !lines[1].Trim().StartsWith(Prefix, StringComparison.Ordinal)) return;
-            log = logger; runtime = deckRuntime;
+            log = logger; runtime = inspector;
             if (!System.Guid.TryParseExact(lines[0].Trim(), "N", out var run) || run == System.Guid.Empty) { Stamp("Invalid owned request; no run."); return; }
             string save = lines[1].Trim().Substring(Prefix.Length);
-            if (save.StartsWith("ai-off-", StringComparison.Ordinal) || save.StartsWith("perf-off-", StringComparison.Ordinal)) ForcedEnabled = false;
-            else if (save.StartsWith("ai-on-", StringComparison.Ordinal) || save.StartsWith("perf-on-", StringComparison.Ordinal)) ForcedEnabled = true;
-            if (ForcedEnabled.HasValue) runtime.Enabled = ForcedEnabled.Value;
             File.Delete(request); // only our own scenario is consumed
             var api = ApiShared.ForMod(Guid);
             api.WhenReady(_ =>
             {
                 if (!api.Ui.TryPost(() => api.Automation.Start(run, Steps(save), log,
-                    result => Stamp("SUMMARY status=" + result.Status + " passed=" + passed + " failed=" + failed + " detail=" + result.Detail + " :: " + runtime.Summary()),
+                    result =>
+                    {
+                        Stamp("SUMMARY status=" + result.Status + " passed=" + passed + " failed=" + failed + " detail=" + result.Detail + " :: " + PathfindingControl.Summary());
+                        PathfindingControl.RestoreSettings(Stamp);
+                    },
                     quitWhenDone: true)))
                     Stamp("Unable to dispatch the run to Unity.");
             });
@@ -56,6 +55,7 @@ namespace EnemyBridgePathTest
         {
             // "ai-on-<save>"/"ai-off-<save>": watch real AI decisions with gates held open.
             // "perf-on-<save>"/"perf-off-<save>": tick rate and hook cost under load.
+            // "off-<save>": acceptance control without the closure; "<save>": acceptance.
             foreach (string kind in new[] { "ai", "perf" })
                 foreach (bool on in new[] { true, false })
                 {
@@ -63,40 +63,58 @@ namespace EnemyBridgePathTest
                     if (scenario.StartsWith(prefix, StringComparison.Ordinal))
                         return kind == "ai" ? AiSteps(scenario.Substring(prefix.Length), on) : PerfSteps(scenario.Substring(prefix.Length), on);
                 }
-            return AcceptanceSteps(scenario);
+            if (scenario.StartsWith("off-", StringComparison.Ordinal)) return AcceptanceSteps(scenario.Substring(4), false);
+            return AcceptanceSteps(scenario, true);
+        }
+
+        // The mode is chosen through Pathfinding's own setting before loading, and the load uses
+        // these current settings instead of the save's stored mod settings.
+        private static IEnumerable<AutomationWait> Load(AutomationRun run, string save, bool on)
+        {
+            string path = Path.Combine(ConfigSettings.GetSavesPath(), save);
+            PathfindingControl.Configure(on, Stamp);
+            SavegameModSettings.PrepareLoad(path, true);
+            foreach (var wait in run.LoadSave(path)) yield return wait;
+        }
+
+        private static IEnumerable<AutomationWait> Mode(AutomationRun run, bool on)
+        {
+            bool active = PathfindingControl.IsActive();
+            Stamp("MODE requested=" + on + " pathfindingClosureActive=" + active + " " + PathfindingControl.Describe());
+            Check(active == on, "mode", "Pathfinding drawbridge closure state matches the scenario (" + active + ")");
+            if (active != on) throw new InvalidOperationException("Pathfinding drawbridge closure is not in the requested state.");
+            yield break;
         }
 
         private static IEnumerable<AutomationStep> AiSteps(string save, bool on)
         {
-            yield return new AutomationStep("load", TimeSpan.FromSeconds(180), run => run.LoadSave(save));
+            yield return new AutomationStep("load", TimeSpan.FromSeconds(180), run => Load(run, save, on));
             yield return new AutomationStep("settle", TimeSpan.FromSeconds(120), Settle, missionBound: true);
+            yield return new AutomationStep("mode", TimeSpan.FromSeconds(10), run => Mode(run, on), missionBound: true);
             yield return new AutomationStep("inventory", TimeSpan.FromSeconds(20), Inventory, missionBound: true);
-            yield return new AutomationStep("mode", TimeSpan.FromSeconds(120), run => Rebuild(run, on), missionBound: true);
+            yield return new AutomationStep("rebuild", TimeSpan.FromSeconds(120), run => Rebuild(run, on), missionBound: true);
             yield return new AutomationStep("watch", TimeSpan.FromSeconds(900), run => WatchAi(run, on), missionBound: true);
             yield return new AutomationStep("verdict", TimeSpan.FromSeconds(10), Verdict, missionBound: true);
         }
 
         private static IEnumerable<AutomationStep> PerfSteps(string save, bool on)
         {
-            yield return new AutomationStep("load", TimeSpan.FromSeconds(240), run => run.LoadSave(save));
+            yield return new AutomationStep("load", TimeSpan.FromSeconds(240), run => Load(run, save, on));
             yield return new AutomationStep("settle", TimeSpan.FromSeconds(180), Settle, missionBound: true);
+            yield return new AutomationStep("mode", TimeSpan.FromSeconds(10), run => Mode(run, on), missionBound: true);
             yield return new AutomationStep("measure", TimeSpan.FromSeconds(900), run => MeasurePerf(run, on), missionBound: true);
         }
 
-        private static IEnumerable<AutomationStep> AcceptanceSteps(string save)
+        private static IEnumerable<AutomationStep> AcceptanceSteps(string save, bool on)
         {
-            yield return new AutomationStep("load", TimeSpan.FromSeconds(180), run => run.LoadSave(save));
+            string phase = on ? "on" : "off";
+            yield return new AutomationStep("load", TimeSpan.FromSeconds(180), run => Load(run, save, on));
             yield return new AutomationStep("settle", TimeSpan.FromSeconds(120), Settle, missionBound: true);
+            yield return new AutomationStep("mode", TimeSpan.FromSeconds(10), run => Mode(run, on), missionBound: true);
             yield return new AutomationStep("inventory", TimeSpan.FromSeconds(20), Inventory, missionBound: true);
-            yield return new AutomationStep("on-regions", TimeSpan.FromSeconds(20), run => Regions(run, true), missionBound: true);
-            yield return new AutomationStep("on-orders", TimeSpan.FromSeconds(240), run => Orders(run, true), missionBound: true);
-            yield return new AutomationStep("on-inside-orders", TimeSpan.FromSeconds(60), run => InsideOrders(run, true), missionBound: true);
-            yield return new AutomationStep("off-rebuild", TimeSpan.FromSeconds(120), run => Rebuild(run, false), missionBound: true);
-            yield return new AutomationStep("off-regions", TimeSpan.FromSeconds(20), run => Regions(run, false), missionBound: true);
-            yield return new AutomationStep("off-orders", TimeSpan.FromSeconds(240), run => Orders(run, false), missionBound: true);
-            yield return new AutomationStep("off-inside-orders", TimeSpan.FromSeconds(60), run => InsideOrders(run, false), missionBound: true);
-            yield return new AutomationStep("on-rebuild", TimeSpan.FromSeconds(120), run => Rebuild(run, true), missionBound: true);
-            yield return new AutomationStep("on-regions-again", TimeSpan.FromSeconds(20), run => Regions(run, true), missionBound: true);
+            yield return new AutomationStep(phase + "-regions", TimeSpan.FromSeconds(20), run => Regions(run, on), missionBound: true);
+            yield return new AutomationStep(phase + "-orders", TimeSpan.FromSeconds(240), run => Orders(run, on), missionBound: true);
+            yield return new AutomationStep(phase + "-inside-orders", TimeSpan.FromSeconds(60), run => InsideOrders(run, on), missionBound: true);
             yield return new AutomationStep("verdict", TimeSpan.FromSeconds(10), Verdict, missionBound: true);
         }
 
@@ -116,15 +134,18 @@ namespace EnemyBridgePathTest
             foreach (string line in run.InSimulation(run.CurrentMission, () => runtime.DescribeStructures())) Stamp("STRUCTURE " + line);
             var all = run.InSimulation(run.CurrentMission, () => runtime.DescribeDecks());
             foreach (var d in all) Stamp("DECK " + Describe(d) + " raised=" + d.Raised);
+            foreach (int gate in all.Select(d => d.Gate).Distinct())
+                foreach (string line in run.InSimulation(run.CurrentMission, () => runtime.DescribeGateSurroundings(gate))) Stamp("GATEAREA " + line);
             decks = all.Where(d => !d.Raised && d.LandingTile >= 0).ToList();
             Check(decks.Count > 0, "inventory", "lowered gate drawbridge with walkable landing present (found " + all.Count + " gate decks)");
-            if (decks.Count == 0) throw new InvalidOperationException("The save has no lowered drawbridge in front of a gatehouse.");
+            if (decks.Count == 0) throw new InvalidOperationException(runtime.Ready
+                ? "The save has no lowered drawbridge in front of a gatehouse."
+                : "The deck inspector is unavailable: " + runtime.Error);
             yield break;
         }
 
         private static IEnumerable<AutomationWait> Rebuild(AutomationRun run, bool enabled)
         {
-            runtime.Enabled = enabled;
             run.InSimulation(run.CurrentMission, () => { HoldGatesOpen(); GamePathingManagerAPI.Instance.RequestComponentRebuild(); return 0; });
             foreach (var wait in run.SetPause(run.CurrentMission, false)) yield return wait;
             yield return run.WaitForTicks(run.CurrentMission, 260); // 0xE49D0 countdown is 200 calls
@@ -173,6 +194,8 @@ namespace EnemyBridgePathTest
         private static IEnumerable<AutomationWait> Orders(AutomationRun run, bool enabled)
         {
             string phase = enabled ? "on" : "off";
+            Check(decks.Count > 0, phase + "-orders", "a lowered gate drawbridge is still present");
+            if (decks.Count == 0) yield break;
             var d = decks[0];
             onDeckVisits = 0; samples = 0;
             int target = d.DeckTiles[d.DeckTiles.Count / 2];
@@ -218,13 +241,15 @@ namespace EnemyBridgePathTest
         private static IEnumerable<AutomationWait> InsideOrders(AutomationRun run, bool enabled)
         {
             string phase = enabled ? "on" : "off";
+            Check(decks.Count > 0, phase + "-inside-orders", "a lowered gate drawbridge is still present");
+            if (decks.Count == 0) yield break;
             var d = decks[0];
             int target = d.InnerTile;
             var setup = run.InSimulation(run.CurrentMission, () =>
             {
                 HoldGatesOpen();
                 soldiers.Clear(); Spawn(d);
-                int inside = DrawbridgeDeckRuntime.RegionOf(target);
+                int inside = DeckInspector.RegionOf(target);
                 bool alternate = enemy > 0 && inside > 0 && GamePathingManagerAPI.Instance.ArePathComponentsConnected(enemy, d.LandingRegion, inside);
                 if (alternate) foreach (int unit in soldiers) MoveTo(unit, target);
                 return Tuple.Create(alternate, inside);
@@ -253,7 +278,7 @@ namespace EnemyBridgePathTest
 
         // ---- world helpers (engine monitor held by InSimulation) --------------------------
 
-        private static void Spawn(DrawbridgeDeckRuntime.DeckReport d)
+        private static void Spawn(DeckInspector.DeckReport d)
         {
             var players = GamePlayerManagerAPI.Instance;
             enemy = 0;
@@ -273,7 +298,7 @@ namespace EnemyBridgePathTest
                         int x = landing.X + dx, y = landing.Y + dy;
                         if (!tiles.IsTileInsideMapBounds(x, y)) continue;
                         int tile = tiles.GetTileId(x, y);
-                        if (deck.Contains(tile) || structures[tile] != 0 || DrawbridgeDeckRuntime.RegionOf(tile) != d.LandingRegion) continue;
+                        if (deck.Contains(tile) || structures[tile] != 0 || DeckInspector.RegionOf(tile) != d.LandingRegion) continue;
                         long id = GameUnitManagerAPI.Instance.CreateUnitLocal(enemy, enemy, x, y, heights[tile], eChimps.CHIMP_TYPE_MACEMAN);
                         if (id > 0 && id <= int.MaxValue && Alive((int)id, out int at) && at == tile) soldiers.Add((int)id);
                         else Stamp("SPAWN rejected id=" + id + " tile=" + x + "/" + y + " actual=" + (id > 0 && id <= int.MaxValue ? Position((int)id) : "invalid"));
@@ -307,7 +332,7 @@ namespace EnemyBridgePathTest
                 deckSamples += counts.Item1;
                 if (chunk % 15 == 14)
                     Stamp("AIWATCH " + (on ? "on" : "off") + " ticks=" + (chunk + 1) * WatchTicksPerChunk + " hostileDeckSamples=" + deckSamples +
-                          " distinctHostileVisitors=" + visitors.Count + " hostileUnits=" + counts.Item2 + " decksLowered=" + LoweredDeckCount(run) + " :: " + runtime.Summary());
+                          " distinctHostileVisitors=" + visitors.Count + " hostileUnits=" + counts.Item2 + " decksLowered=" + LoweredDeckCount(run) + " :: " + PathfindingControl.Summary());
             }
             Stamp("AIWATCH result mode=" + (on ? "on" : "off") + " hostileDeckSamples=" + deckSamples + " distinctHostileVisitors=" + visitors.Count);
             if (on) Check(deckSamples == 0, "ai-on", "no hostile AI unit stands on a lowered gate drawbridge");
@@ -350,7 +375,7 @@ namespace EnemyBridgePathTest
                   " mapSize=" + GameTileManagerAPI.Instance.GetCurrentMapSize() + " gateDecks=" + run.InSimulation(run.CurrentMission, () => runtime.DescribeDecks().Count));
             foreach (var wait in run.SetPause(run.CurrentMission, false)) yield return wait;
             yield return run.WaitForTicks(run.CurrentMission, 300); // warm up after spawning
-            string before = runtime.Summary();
+            string before = PathfindingControl.Summary();
             var clock = System.Diagnostics.Stopwatch.StartNew();
             yield return run.WaitForTicks(run.CurrentMission, PerfTicks);
             clock.Stop();
@@ -358,7 +383,7 @@ namespace EnemyBridgePathTest
             var inv = System.Globalization.CultureInfo.InvariantCulture;
             Stamp("PERF result mode=" + (on ? "on" : "off") + " ticks=" + PerfTicks + " seconds=" + clock.Elapsed.TotalSeconds.ToString("F2", inv) +
                   " ticksPerSecond=" + (PerfTicks / clock.Elapsed.TotalSeconds).ToString("F2", inv) +
-                  " liveUnits=" + run.InSimulation(run.CurrentMission, () => CountUnits()) + " before=[" + before + "] after=[" + runtime.Summary() + "]");
+                  " liveUnits=" + run.InSimulation(run.CurrentMission, () => CountUnits()) + " before=[" + before + "] after=[" + PathfindingControl.Summary() + "]");
         }
 
         private static int SpawnLoad()
@@ -395,7 +420,7 @@ namespace EnemyBridgePathTest
         private struct PlanInfo { internal int Length; internal bool CrossesDeck, EndsAtTarget; internal string Text; }
 
         // Packed plan directions use the direction-grid order (N, NE, E, SE, S, SW, W, NW; 15 = same tile).
-        private static PlanInfo DescribePlan(int unit, DrawbridgeDeckRuntime.DeckReport d, int target)
+        private static PlanInfo DescribePlan(int unit, DeckInspector.DeckReport d, int target)
         {
             var info = new PlanInfo { Text = unit + ":none" };
             var paths = GamePathingManagerAPI.Instance;
@@ -421,7 +446,7 @@ namespace EnemyBridgePathTest
             return info;
         }
 
-        private static void Sample(DrawbridgeDeckRuntime.DeckReport d)
+        private static void Sample(DeckInspector.DeckReport d)
         {
             samples++;
             var deck = new HashSet<int>(d.DeckTiles);
@@ -429,7 +454,7 @@ namespace EnemyBridgePathTest
                 if (Alive(unit, out int tile) && deck.Contains(tile)) onDeckVisits++;
         }
 
-        private static unsafe void RemoveSoldiersOnDeck(DrawbridgeDeckRuntime.DeckReport d)
+        private static unsafe void RemoveSoldiersOnDeck(DeckInspector.DeckReport d)
         {
             var deck = new HashSet<int>(d.DeckTiles);
             for (int i = soldiers.Count - 1; i >= 0; i--)
@@ -467,12 +492,12 @@ namespace EnemyBridgePathTest
 
         private static string Tile(int tile)
         {
-            if ((uint)tile >= DrawbridgeDeckRuntime.TileCount) return "none";
+            if ((uint)tile >= DeckInspector.TileCount) return "none";
             var v = GameTileManagerAPI.Instance.GetTileVectorFromId(tile);
             return v.X + "/" + v.Y;
         }
 
-        private static string Describe(DrawbridgeDeckRuntime.DeckReport d) =>
+        private static string Describe(DeckInspector.DeckReport d) =>
             "gate=" + d.Gate + " owner=" + d.GateOwner + " captured=" + d.GateCaptured + " bridge=" + d.Bridge + " portal=" + d.Portal +
             " side=" + d.PortalSide + " front=" + Tile(d.FrontTile) + " gateTile=" + Tile(d.GateTile) + " landing=" + Tile(d.LandingTile) +
             " deckRegion=" + d.DeckRegion + " frontRegion=" + d.FrontRegion + " gateRegion=" + d.GateRegion + " landingRegion=" + d.LandingRegion +

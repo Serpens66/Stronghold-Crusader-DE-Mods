@@ -48,7 +48,8 @@
     <Compile Include="src\AssemblyInfo.cs" />
     <Compile Include="src\EnemyBridgePathTestPlugin.cs" />
     <Compile Include="src\DeckClosureCore.cs" />
-    <Compile Include="src\DrawbridgeDeckRuntime.cs" />
+    <Compile Include="src\DeckInspector.cs" />
+    <Compile Include="src\PathfindingControl.cs" />
     <Compile Include="src\BridgeAcceptance.cs" />
     <Compile Include="..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\..\Shared\Adapters\APIShared\MissionEventsAdapter.cs"><Link>Shared\Adapters\APIShared\MissionEventsAdapter.cs</Link></Compile>

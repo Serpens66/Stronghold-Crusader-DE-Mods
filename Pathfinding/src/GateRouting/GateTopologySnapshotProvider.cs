@@ -884,9 +884,14 @@ namespace Pathfinding.GateRouting
                             rejectionSamples[index]);
             }
             GateBridgeInfo[] combinationArray = combinations.ToArray();
+            // Deck state (alive transition, moat cells) is not part of MixRoutePolicy, so the
+            // computed deck cells themselves decide whether a stored policy may be reused.
+            bool deckClosure = DeckClosureActive;
+            fingerprint = MixSignature(fingerprint, deckClosure ? DeckClosureMarker : 0u);
+            if (deckClosure) fingerprint = MixGateDecks(tileApi, fingerprint, combinationArray);
             RouteTilePolicySnapshot routePolicy = previous.Fingerprint == fingerprint
                 ? previous.RoutePolicy
-                : BuildRoutePolicySnapshot(tileApi, fingerprint, combinationArray);
+                : BuildRoutePolicySnapshot(tileApi, fingerprint, combinationArray, deckClosure);
             return new TopologySnapshot(
                 fingerprint, combinationArray, detail?.ToString(), rejections, routePolicy);
         }
@@ -1009,7 +1014,7 @@ namespace Pathfinding.GateRouting
 
         private static ulong ComputeTopologySignature(ulong accessFingerprint)
         {
-            ulong signature = accessFingerprint;
+            ulong signature = MixSignature(accessFingerprint, DeckClosureActive ? DeckClosureMarker : 0u);
             GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
             Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
             for (int index = 0; index < buildings.Length; index++)
@@ -1078,8 +1083,10 @@ namespace Pathfinding.GateRouting
         private RouteTilePolicySnapshot BuildRoutePolicySnapshot(
             GameTileManagerAPI tiles,
             ulong fingerprint,
-            GateBridgeInfo[] combinations)
+            GateBridgeInfo[] combinations,
+            bool deckClosure)
         {
+            int maskedDeckEdges = 0;
             byte[][] directionMasks = new byte[9][];
             var edgeOwners = new GateEdgeOwnership[9];
             // TEMP_GATE_ROUTE_ACCEPTANCE: geometry before player permissions, detail mode only.
@@ -1144,7 +1151,9 @@ namespace Pathfinding.GateRouting
                                 tiles, info, horizontalPassage, masks, ownership, info.GateId,
                                 out sampleFrom, out sampleTo, out sampleDirection,
                                 out sampleFrom2, out sampleTo2, out sampleDirection2);
-                        if (changedEdges == 0 && created)
+                        int deckEdges = deckClosure ? ClearDrawbridgeDeckEntries(tiles, info, masks, ownership) : 0;
+                        maskedDeckEdges += deckEdges;
+                        if (changedEdges == 0 && deckEdges == 0 && created)
                             directionMasks[player] = null;
                         else if (changedEdges > 0)
                         {
@@ -1186,6 +1195,8 @@ namespace Pathfinding.GateRouting
                         -1, -1, -1, "ambiguous");
                 }
             }
+            if (axisDiagnostics != null && maskedDeckEdges > 0)
+                axisDiagnostics.Append(" deckEntryEdges=").Append(maskedDeckEdges);
             return new RouteTilePolicySnapshot(
                 directionMasks, fingerprint, maskedDirectedEdges, ambiguousPassages,
                 axisDiagnostics == null || axisDiagnostics.Length == 0 ? "none" : axisDiagnostics.ToString(), edgeOwners, gateIdentities, diagnosticGateEdges, missingRequiredMasks.ToArray(), maskedGates);
@@ -1269,6 +1280,98 @@ namespace Pathfinding.GateRouting
                 .Append("/secondEdge=").Append(secondFrom).Append("->").Append(secondTo)
                 .Append("/dir=").Append(secondDirection < 0 ? "none" :
                     "0x" + (1 << secondDirection).ToString("X2"));
+        }
+
+        // Drawbridge deck entry mask. Only consistent together with the region closure of
+        // DrawbridgeDeckClosure (same setting): without it a masked deck inside an accepted
+        // region would cause failing searches, so the mask follows its IsActive state.
+        private const uint DeckClosureMarker = 0xB41D6E5u;
+        private static bool DeckClosureActive => DrawbridgeDeckClosure.IsActive;
+
+        // Deck = mapper cell with a moat task index, exactly the cells Vanilla blocks when
+        // raising (0x645C0). The mapper pointer comes from the installed, hash-bound closure.
+        private const int DrawbridgeFootprintCells = DrawbridgeDeckClosure.FootprintCells;
+        private static readonly int[] DeckDx = DirectionBits.Dx;
+        private static readonly int[] DeckDy = DirectionBits.Dy;
+
+        // Deck cells of the live drawbridge of the gate owner whose footprint holds the endpoint.
+        private static int CollectGateDeck(GameTileManagerAPI tiles, int endpointTile, int gateOwner, Span<int> deck)
+        {
+            Span<UInt16> structures = tiles.GetStructureLayer();
+            if ((uint)endpointTile >= (uint)structures.Length) return 0;
+            int bridgeId = structures[endpointTile];
+            if (bridgeId <= 0 || !APIShared.BuildingAccess.TryGetById(bridgeId, out GameBuilding* bridge, out _) || bridge == null ||
+                bridge->r_BuildingType != eStructs.STRUCT_DRAWBRIDGE || bridge->r_AliveState != AliveState.IsAlive ||
+                bridge->r_PlayerIdOwner != gateOwner)
+                return 0;
+            int orientation = bridge->r_SpriteVariationIndex;
+            if (orientation < 0 || orientation > 6 || (orientation & 1) != 0) return 0;
+            int* mapper = DrawbridgeDeckClosure.DeckMapper(orientation);
+            if (mapper == null) return 0;
+            uint* occupied = &bridge->r_OccupiedTileIdsArrayBegin;
+            Span<UInt16> moatTasks = GamePathingManagerAPI.Instance.GetMoatWorkTaskIndexGrid();
+            int count = 0;
+            for (int cell = 0; cell < DrawbridgeFootprintCells && count < deck.Length; cell++)
+            {
+                uint tile = occupied[cell];
+                if (mapper[cell] == 0 || tile >= (uint)moatTasks.Length || moatTasks[(int)tile] == 0) continue;
+                deck[count++] = (int)tile;
+            }
+            return count;
+        }
+
+        private static ulong MixGateDecks(GameTileManagerAPI tiles, ulong hash, GateBridgeInfo[] combinations)
+        {
+            Span<int> deck = stackalloc int[DrawbridgeFootprintCells];
+            for (int index = 0; index < combinations.Length; index++)
+            {
+                GateBridgeInfo info = combinations[index];
+                if (info.GateId <= 0 || info.BridgeId != 0) continue;
+                for (int side = 0; side < 2; side++)
+                {
+                    int endpoint = side == 0 ? info.EntryTile : info.ExitTile;
+                    if (side == 1 && endpoint == info.EntryTile) break;
+                    int count = CollectGateDeck(tiles, endpoint, info.Owner, deck);
+                    hash = MixSignature(hash, (uint)count);
+                    for (int cell = 0; cell < count; cell++) hash = MixSignature(hash, (uint)deck[cell]);
+                }
+            }
+            return hash;
+        }
+
+        // Blocks every edge INTO the deck for a player the gate does not admit. Leaving the deck
+        // stays possible, so a unit that is already on it is never trapped by the mask.
+        private static int ClearDrawbridgeDeckEntries(GameTileManagerAPI tiles, GateBridgeInfo info, byte[] masks, GateEdgeOwnership ownership)
+        {
+            if (masks == null) return 0;
+            int changed = ClearDeckEntriesAt(tiles, info.EntryTile, info, masks, ownership);
+            if (info.ExitTile != info.EntryTile)
+                changed += ClearDeckEntriesAt(tiles, info.ExitTile, info, masks, ownership);
+            return changed;
+        }
+
+        private static int ClearDeckEntriesAt(GameTileManagerAPI tiles, int endpointTile, GateBridgeInfo info, byte[] masks, GateEdgeOwnership ownership)
+        {
+            Span<int> deck = stackalloc int[DrawbridgeFootprintCells];
+            int deckCount = CollectGateDeck(tiles, endpointTile, info.Owner, deck);
+            int changed = 0;
+            for (int i = 0; i < deckCount; i++)
+            {
+                if ((uint)deck[i] >= (uint)masks.Length) continue;
+                var at = tiles.GetTileVectorFromId(deck[i]);
+                for (int direction = 0; direction < 8; direction++)
+                {
+                    int x = at.X + DeckDx[direction], y = at.Y + DeckDy[direction];
+                    if (!tiles.IsTileInsideMapBounds(x, y)) continue;
+                    int neighbour = tiles.GetTileId(x, y);
+                    if ((uint)neighbour >= (uint)masks.Length || deck.Slice(0, deckCount).IndexOf(neighbour) >= 0) continue;
+                    int inward = (direction + 4) & 7; // from the neighbour into the deck cell
+                    byte before = masks[neighbour];
+                    masks[neighbour] = unchecked((byte)(before & ~(1 << inward)));
+                    if (masks[neighbour] != before) { changed++; ownership.Record(neighbour, inward, info.GateId); }
+                }
+            }
+            return changed;
         }
 
         private static int ClearGatehouseOuterDirections(

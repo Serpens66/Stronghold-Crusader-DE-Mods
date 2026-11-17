@@ -1,7 +1,11 @@
+// Feature: lowered drawbridges in front of gatehouses count as raised for the route planning of
+// every player the gate does not admit (setting EnableEnemyDrawbridgeClosure).
 using BepInEx.Logging;
+using R3;
 using RedBird.Abstractions.Hooks;
 using RedBird.Backends.NativeX64;
 using SHCDESE.API;
+using SHCDESE.API.LowLevel;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
@@ -9,11 +13,11 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
 
-namespace EnemyBridgePathTest
+namespace Pathfinding.GateRouting
 {
     // Makes a lowered drawbridge that is coupled to a gatehouse behave like a raised one in
-    // Vanilla's own topology, while the gate's portal record keeps it usable for everyone the
-    // gate admits. Two permanent native detours, rooted by the static plugin runtime:
+    // Vanilla's own region topology, while the gate's portal record keeps it usable for everyone
+    // the gate admits. Two permanent native detours, rooted by the static instance:
     //  * 0xC4BF0 (temporarily close/open/restore all gates). Inside every "close all" window
     //    (component rebuild 0xE49D0, AI siege field 0xD95E0, AI tactical 0x113BC0/E00/F60)
     //    the deck is cut from its surroundings and linked to the gate corridor. The window is
@@ -21,33 +25,56 @@ namespace EnemyBridgePathTest
     //  * 0xF4540 (per-tick portal refresh). Afterwards the region field of the gate endpoint
     //    that lies on such a deck is pointed at the region beyond the far deck end.
     // Effect: the deck and everything behind it is only reachable through the gate portal,
-    // i.e. with the gate's owner/alliance/capture rules (0xE2610/0xE2F60).
-    internal sealed unsafe class DrawbridgeDeckRuntime : IDeckGrid
+    // i.e. with the gate's owner/alliance/capture rules (0xE2610/0xE2F60). Routes that stay
+    // inside one region (second way into the castle) are covered by the per-player deck entry
+    // mask in GateTopologySnapshotProvider, which follows IsActive.
+    // Vanilla facts: _inspect/.../knowledge/DRAWBRIDGE_REGION_CLOSURE.md; contracts: UpdateToNewDLL.md.
+    internal sealed unsafe class DrawbridgeDeckClosure : IDeckGrid
     {
-        // FBCB9319 hash-bound native layout; derivations in UpdateToNewDLL.md.
-        internal const string NativeHash = "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
+        // FBCB9319 hash-bound native layout (no second anchor for the data tables yet).
+        private const string NativeHash = "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
         private const int RvaGateClosure = 0xC4BF0, RvaPortalRefresh = 0xF4540, RvaAperture = 0xD8CE0;
         private const string GateClosurePrefix = "48896C24184889742420", PortalRefreshPrefix = "48895C240857", AperturePrefix = "48895C240848896C2418";
         private const int RvaBuildings = 0x64CCBB0, BuildingStride = 0x32C, BuildingCountOffset = 0x50;
         private const int RvaPathManager = 0x60AD660, PortalBase = 0x2024, PortalStride = 0x204, PortalLimit = 200;
         private const int RvaDirections = 0x51890D0, RvaComponents = 0x50EC690, RvaTileFlags = 0x48F71B0;
         private const int RvaStructures = 0x4B6AA50, RvaMoatTasks = 0x5F011A0, RvaDeckMapper = 0x2D1A30, RvaRowTable = 0x402FF2C;
-        internal const int TileCount = 320800;
+        private const int TileCount = 320800;
+        // Machine contract: tile flag 0x645C0 sets on the 15 deck cells of a raised bridge.
         private const uint RaisedDeckFlag = 0x40000000;
         // Native building record offsets (sentinel-relative id * stride).
         private const int OffAlive = 0x12C, OffType = 0x12E, OffX = 0x14A, OffY = 0x14C, OffSize = 0x154;
-        private const int OffOwner = 0x132, OffCapturer = 0x322, OffVariation = 0x15E, OffOccupied = 0x224, OffGateState = 0x2FE, OffPortalId = 0x32E;
+        private const int OffOwner = 0x132, OffVariation = 0x15E, OffOccupied = 0x224, OffGateState = 0x2FE, OffPortalId = 0x32E;
         private const short ApertureAxisVariation = 0x50;
         // Portal record offsets relative to entry base +0x2024.
-        private const int PState = 0, PClass = 4, PBuilding = 0xC, PEntryTile = 0x24, PExitTile = 0x30, PCompA = 0x34, PCompB = 0x38, PCompC = 0x1E8;
-        // The hooked 0xC4BF0 selects gates by (type - 0x2D) < 3: STRUCT_GATE_MAIN..STRUCT_GATE_WOOD.
+        private const int PState = 0, PClass = 4, PBuilding = 0xC, PEntryTile = 0x24, PExitTile = 0x30, PCompA = 0x34, PCompB = 0x38;
+        // Drawbridge footprint: 25 mapper cells (5x5), one 25-int mapper per orientation/2.
+        internal const int FootprintCells = 25;
+        private const int MapperStride = FootprintCells * sizeof(int);
+        // The hooked 0xC4BF0 selects gates by (type - 0x2D) < 3; checked against the Extender
+        // symbols STRUCT_GATE_MAIN..STRUCT_GATE_WOOD and STRUCT_DRAWBRIDGE at installation.
         private const int NativeFirstGateType = 0x2D, NativeGateTypeCount = 3, NativeDrawbridgeType = 0x31;
 
-        [UnmanagedFunctionPointer(CallingConvention.Winapi)] internal delegate void GateClosureDelegate(IntPtr buildings, int mode);
-        [UnmanagedFunctionPointer(CallingConvention.Winapi)] internal delegate void PortalRefreshDelegate(IntPtr pathManager);
-        [UnmanagedFunctionPointer(CallingConvention.Winapi)] internal delegate void ApertureDelegate(IntPtr pathManager, int buildingId);
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void GateClosureDelegate(IntPtr buildings, int mode);
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void PortalRefreshDelegate(IntPtr pathManager);
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void ApertureDelegate(IntPtr pathManager, int buildingId);
 
-        private readonly ManualLogSource log;
+        // Process root: the plugin component is destroyed by the SHCDE startup cleanup; the
+        // hooks, delegates and this instance stay alive until process end (never unpatched).
+        private static DrawbridgeDeckClosure instance;
+        // Roots an installation candidate before its first Enable(): a failure after one hook
+        // was published must never leave a live detour whose delegate can be collected.
+        private static DrawbridgeDeckClosure candidateRoot;
+        private static PathfindingViewModel settings;
+        private static ManualLogSource log;
+        private static CrusaderLibraryLoadContext library;
+        private static bool compatible, installAttempted;
+        private static IDisposable started, ended;
+        private static volatile bool wanted;
+
+        /// <summary>Hooks installed and the setting active: the region closure runs.</summary>
+        internal static bool IsActive => wanted && instance != null && instance.installed;
+
         private readonly List<IHook> permanent = new List<IHook>();
         private readonly List<Delegate> rooted = new List<Delegate>();
         private NativeDetour<GateClosureDelegate> closureHook;
@@ -70,47 +97,67 @@ namespace EnemyBridgePathTest
         private readonly Func<int, int> componentOf;
         private bool cutActive;
         private int cutThread;
-        private volatile bool enabled = true;
         private volatile bool installed;
 
-        // Counters are written on the simulation thread and only read for summaries.
+        // Counters are written on the simulation thread and only read for the map-end summary.
         private long windows, cutWindows, bridgesCut, edgesRemoved, linksAdded, refreshes, portalWrites, failures;
-        private long cutTicks, cutMaxTicks, patchTicks, patchMaxTicks, windowTicks, windowMaxTicks, windowOpenedAt;
-        private static void Measure(long started, ref long total, ref long max)
-        {
-            long elapsed = System.Diagnostics.Stopwatch.GetTimestamp() - started;
-            total += elapsed;
-            if (elapsed > max) max = elapsed;
-        }
-        private static string Ms(long ticks) => (ticks * 1000.0 / System.Diagnostics.Stopwatch.Frequency).ToString("F3", System.Globalization.CultureInfo.InvariantCulture);
+        private long cutTicks, cutMaxTicks, patchTicks, patchMaxTicks;
         private int windowsSinceStart = -1, refreshesSinceStart = -1;
+        private long failuresAtSessionStart;
         private readonly object detailLock = new object();
         private readonly HashSet<long> loggedCuts = new HashSet<long>();
         private readonly HashSet<long> loggedPatches = new HashSet<long>();
 
         private struct Candidate { internal int Gate, Outside, Inside, Bridge, Abutment, NearDeck; internal bool NearToAbutment, AbutmentToNear; }
 
-        internal DrawbridgeDeckRuntime(ManualLogSource log)
+        private DrawbridgeDeckClosure()
         {
-            this.log = log;
             isDeck = IsDeckCell;
             isOnBridge = tile => (uint)tile < TileCount && currentBridge > 0 && structures[tile] == currentBridge;
             componentOf = tile => (uint)tile < TileCount ? components[tile] : 0;
         }
 
-        internal bool Installed => installed;
-        internal bool Enabled { get => enabled; set { enabled = value; PublishClosureState(); } }
+        // ---- lifecycle -----------------------------------------------------------------------
 
-        // WIP coupling for the Pathfinding work copy (branch wip/bridge-deck-mask): its per-player
-        // deck entry mask is only consistent while this region closure is active.
-        private const string ClosureStateKey = "SerpEnemyBridgeDeckClosureActive";
-        private void PublishClosureState() => AppDomain.CurrentDomain.SetData(ClosureStateKey, enabled && installed);
-        internal bool DetailLog { get; set; } = true;
-
-        internal void Install(SHCDESE.API.LowLevel.CrusaderLibraryLoadContext context)
+        // Called once from PathfindingRuntime.InitializeNative (initial native installation window).
+        internal static void Initialize(CrusaderLibraryLoadContext context, ManualLogSource logger, PathfindingViewModel options, bool fixedLayoutValidated)
         {
-            if (!string.Equals(Shared.DebugLogHelper.InstalledNativeSha256(), NativeHash, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException("CrusaderDE.dll is not the audited build " + NativeHash + "; drawbridge closure stays inactive.");
+            if (settings != null) return;
+            log = logger; settings = options; library = context; compatible = fixedLayoutValidated;
+            settings.SettingChanged += _ => Apply();
+            ended = Shared.MissionEvents.Ended.Subscribe(_ => instance?.LogSummary());
+            started = Shared.GameplaySessionLifecycle.SubscribeStarted(log, _ => instance?.BeginSession());
+            Apply();
+        }
+
+        private static bool SettingWanted() => settings != null && settings.EnableMod && settings.EnableEnemyGatePathfindingFix && settings.EnableEnemyDrawbridgeClosure;
+
+        // Hooks are installed when the setting is first wanted: during the initial library load
+        // (no thread suspension) or later on a settings change between games. Once published
+        // they stay installed; the setting only changes the logical state.
+        private static void Apply()
+        {
+            bool next = SettingWanted();
+            if (next && instance == null && !installAttempted)
+            {
+                installAttempted = true;
+                if (!compatible)
+                    Shared.DebugLogHelper.LogError(log, "PATHFINDING_DRAWBRIDGE_CLOSURE_INACTIVE: the native layout is not validated for this CrusaderDE.dll; lowered drawbridges keep Vanilla planning.");
+                else
+                {
+                    var candidate = new DrawbridgeDeckClosure();
+                    candidateRoot = candidate;
+                    try { candidate.Install(library); instance = candidate; }
+                    catch (Exception error) { Shared.DebugLogHelper.LogError(log, "PATHFINDING_DRAWBRIDGE_CLOSURE_INACTIVE: " + error); }
+                }
+            }
+            wanted = next;
+        }
+
+        private void Install(CrusaderLibraryLoadContext context)
+        {
+            if (!string.Equals(Shared.DebugLogHelper.CurrentNativeSha256, NativeHash, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("The validated native hash is not the audited build " + NativeHash + ".");
             if ((int)eStructs.STRUCT_GATE_MAIN != NativeFirstGateType || (int)eStructs.STRUCT_GATE_WOOD != NativeFirstGateType + NativeGateTypeCount - 1 ||
                 (int)eStructs.STRUCT_DRAWBRIDGE != NativeDrawbridgeType || (int)AliveState.IsAlive != 2)
                 throw new InvalidOperationException("Extender gate/drawbridge enum values differ from the audited native contract.");
@@ -119,9 +166,14 @@ namespace EnemyBridgePathTest
             foreach (int rva in new[] { RvaGateClosure, RvaPortalRefresh, RvaAperture, RvaBuildings, RvaPathManager, RvaDirections,
                 RvaComponents, RvaTileFlags, RvaStructures, RvaMoatTasks, RvaDeckMapper, RvaRowTable })
                 if (rva <= 0 || rva >= length) throw new InvalidOperationException("Native address outside module: 0x" + rva.ToString("X"));
-            RequirePrefix(RvaGateClosure, GateClosurePrefix);
-            RequirePrefix(RvaPortalRefresh, PortalRefreshPrefix);
-            RequirePrefix(RvaAperture, AperturePrefix);
+            // Entry bytes are checked against the unmodified load image; the live check below
+            // detects another hook owner on the same entry (fail-closed).
+            RequirePrefix(context.Memory, RvaGateClosure, GateClosurePrefix);
+            RequirePrefix(context.Memory, RvaPortalRefresh, PortalRefreshPrefix);
+            RequirePrefix(context.Memory, RvaAperture, AperturePrefix);
+            RequireLivePrefix(RvaGateClosure, GateClosurePrefix);
+            RequireLivePrefix(RvaPortalRefresh, PortalRefreshPrefix);
+            RequireLivePrefix(RvaAperture, AperturePrefix);
             buildings = module + RvaBuildings; pathManager = module + RvaPathManager;
             directions = module + RvaDirections; tileFlags = module + RvaTileFlags; deckMapper = module + RvaDeckMapper;
             components = (ushort*)(module + RvaComponents); moatTasks = (ushort*)(module + RvaMoatTasks);
@@ -132,37 +184,45 @@ namespace EnemyBridgePathTest
             for (int y = 1; y < 800; y += 37)
                 if (tiles.GetTileId(0, y) != *(int*)(module + RvaRowTable + 12L * y))
                     throw new InvalidOperationException("Extender tile ids differ from the native row table at y=" + y + ".");
-            aperture =Marshal.GetDelegateForFunctionPointer<ApertureDelegate>((IntPtr)(module + RvaAperture));
+            aperture = Marshal.GetDelegateForFunctionPointer<ApertureDelegate>((IntPtr)(module + RvaAperture));
             rooted.Add(aperture);
 
             GateClosureDelegate closure = OnGateClosure;
             PortalRefreshDelegate refresh = OnPortalRefresh;
             rooted.Add(closure); rooted.Add(refresh);
-            closureHook = Prepare(RvaGateClosure, GateClosurePrefix.Length / 2, closure, "gate-closure");
-            refreshHook = Prepare(RvaPortalRefresh, PortalRefreshPrefix.Length / 2, refresh, "portal-refresh");
+            // Default options (thread suspension) with the audited scheme; HookInstallPhase drops
+            // the suspension only inside the initial library-load window.
+            var backend = HookInstallPhase.Backend(new NativeDetourBackend(NativeDetourBackend.Instance.Options with
+            {
+                AllowedSchemes = DetourScheme.Indirect, FollowCalls = false, FollowJumps = false, Chaining = HookChainingPolicy.Refuse
+            })) as NativeDetourBackend ?? throw new InvalidOperationException("NativeX64 backend unavailable.");
+            closureHook = Prepare(backend, RvaGateClosure, GateClosurePrefix.Length / 2, closure, "gate-closure");
+            refreshHook = Prepare(backend, RvaPortalRefresh, PortalRefreshPrefix.Length / 2, refresh, "portal-refresh");
             // Published hooks are permanent; settings only change the logical state.
             foreach (IHook hook in permanent) hook.Enable();
             Validate(closureHook, RvaGateClosure, GateClosurePrefix.Length / 2, true);
             Validate(refreshHook, RvaPortalRefresh, PortalRefreshPrefix.Length / 2, true);
             installed = true;
-            PublishClosureState();
-            Shared.DebugLogHelper.LogInfo(log, "Drawbridge deck closure hooks installed: gateClosure=0xC4BF0, portalRefresh=0xF4540, scheme=Indirect, nativeSha256=" + NativeHash);
+            Shared.DebugLogHelper.LogInfo(log, "Drawbridge deck closure hooks installed: gateClosure=0xC4BF0, portalRefresh=0xF4540, scheme=Indirect, method=reference-rva, nativeSha256=" + NativeHash);
         }
 
-        private void RequirePrefix(int rva, string hex)
+        private static void RequirePrefix(ReadOnlySpan<byte> image, int rva, string hex)
+        {
+            for (int i = 0; i < hex.Length / 2; i++)
+                if (image[rva + i] != Convert.ToByte(hex.Substring(i * 2, 2), 16))
+                    throw new InvalidOperationException("Native entry 0x" + rva.ToString("X") + " differs from the audited bytes in the load image.");
+        }
+
+        private void RequireLivePrefix(int rva, string hex)
         {
             for (int i = 0; i < hex.Length / 2; i++)
                 if (module[rva + i] != Convert.ToByte(hex.Substring(i * 2, 2), 16))
-                    throw new InvalidOperationException("Native entry 0x" + rva.ToString("X") + " differs from the audited bytes (another hook owner?).");
+                    throw new InvalidOperationException("Native entry 0x" + rva.ToString("X") + " is already patched (another hook owner).");
         }
 
-        private NativeDetour<T> Prepare<T>(int rva, int displaced, T callback, string name) where T : Delegate
+        private NativeDetour<T> Prepare<T>(NativeDetourBackend backend, int rva, int displaced, T callback, string name) where T : Delegate
         {
-            var backend = new NativeDetourBackend(new NativeDetourOptions
-            {
-                AllowedSchemes = DetourScheme.Indirect, FollowCalls = false, FollowJumps = false, Chaining = HookChainingPolicy.Refuse
-            });
-            var request = new DetourRequest<T> { Name = "EnemyBridgePathTest " + name, TargetAddress = (ulong)(module + rva), Callback = callback };
+            var request = new DetourRequest<T> { Name = "Pathfinding drawbridge " + name, TargetAddress = (ulong)(module + rva), Callback = callback };
             var hook = backend.CreateDetour(in request) as NativeDetour<T>;
             if (hook == null) throw new InvalidOperationException("NativeX64 backend unavailable for " + name);
             try { Validate(hook, rva, displaced, false); }
@@ -190,25 +250,21 @@ namespace EnemyBridgePathTest
 
         private void OnGateClosure(IntPtr manager, int mode)
         {
-            // Any further gate transition first ends our window, so Vanilla always reopens
-            // the gates on the unmodified grid (mode 0 is the only observed successor).
+            // Any further gate transition first ends our window, so Vanilla always reopens the
+            // gates on the unmodified grid (mode 0 is the only audited successor of mode 1).
+            // Runs regardless of the setting: a window opened before a change is still closed.
             if (cutActive) RestoreCut();
-            // Diagnostic: total time Vanilla spends inside "all gates closed" windows (its AI
-            // planning floods and the component rebuild), to separate behaviour from hook cost.
-            long now = System.Diagnostics.Stopwatch.GetTimestamp();
-            if (mode != 1 && windowOpenedAt != 0) { long span = now - windowOpenedAt; windowTicks += span; if (span > windowMaxTicks) windowMaxTicks = span; }
-            windowOpenedAt = mode == 1 ? now : 0;
             closureHook.Original(manager, mode);
             windows++;
             if (windowsSinceStart == 0) { windowsSinceStart = 1; Shared.DebugLogHelper.LogInfo(log, "Drawbridge deck closure: first gate-closure window after map start (runtime confirmed)."); }
-            if (mode != 1 || !enabled || !installed || (byte*)manager != buildings) return; // inert unless fully installed and validated
+            if (mode != 1 || !wanted || !installed || (byte*)manager != buildings) return; // inert unless fully published
             long started = System.Diagnostics.Stopwatch.GetTimestamp();
             try { ApplyCut(); }
             catch (Exception error)
             {
                 failures++;
                 try { if (cutActive) RestoreCut(); } catch { }
-                Shared.DebugLogHelper.LogErrorLimited(log, "deck-cut", "Drawbridge deck cut failed; window restored: " + error);
+                Shared.DebugLogHelper.LogErrorLimited(log, "drawbridge-deck-cut", "Drawbridge deck cut failed; window restored: " + error);
             }
             Measure(started, ref cutTicks, ref cutMaxTicks);
         }
@@ -216,7 +272,7 @@ namespace EnemyBridgePathTest
         private void RestoreCut()
         {
             if (cutThread != Thread.CurrentThread.ManagedThreadId)
-                Shared.DebugLogHelper.LogErrorLimited(log, "deck-thread", "Drawbridge deck window restored on another thread than it was opened.");
+                Shared.DebugLogHelper.LogErrorLimited(log, "drawbridge-deck-thread", "Drawbridge deck window restored on another thread than it was opened.");
             journal.Restore(this);
             cutActive = false;
         }
@@ -230,7 +286,7 @@ namespace EnemyBridgePathTest
                 byte* record = buildings + (long)gate * BuildingStride;
                 if (*(short*)(record + OffAlive) == 0 || !IsGateType(*(ushort*)(record + OffType)) || !HasOwnPortal(gate, record)) continue;
                 for (int side = 0; side < 2; side++)
-                    if (TryAperture(record, side, out int outside, out int inside) && TryLoweredBridge(outside, out int bridge) &&
+                    if (TryAperture(record, side, out int outside, out int inside) && TryLoweredBridge(outside, *(short*)(record + OffOwner), out int bridge) &&
                         DeckClosureCore.FindNearDeck(this, outside, inside, isDeck, isOnBridge, out int abutment, out int nearDeck))
                     {
                         var c = new Candidate { Gate = gate, Outside = outside, Inside = inside, Bridge = bridge, Abutment = abutment, NearDeck = nearDeck };
@@ -265,7 +321,7 @@ namespace EnemyBridgePathTest
                 int linked = DeckClosureCore.Link(this, c.Outside, c.Inside, open[i * 2], open[i * 2 + 1], journal);
                 if (c.Abutment >= 0) linked += DeckClosureCore.Link(this, c.NearDeck, c.Abutment, c.NearToAbutment, c.AbutmentToNear, journal);
                 linksAdded += linked;
-                if (DetailLog) LogCut(c, removed, linked, open[i * 2], open[i * 2 + 1]);
+                if (Shared.DebugLogHelper.DiagnosticsEnabled) LogCut(c, removed, linked, open[i * 2], open[i * 2 + 1]);
             }
         }
 
@@ -296,7 +352,7 @@ namespace EnemyBridgePathTest
                 if (directions[apertureTiles[i]] != before[i])
                 {
                     directions[apertureTiles[i]] = before[i];
-                    Shared.DebugLogHelper.LogErrorLimited(log, "aperture-restore", "Gate " + gate + " aperture byte did not return to its closed value; restored explicitly.");
+                    Shared.DebugLogHelper.LogErrorLimited(log, "drawbridge-aperture-restore", "Gate " + gate + " aperture byte did not return to its closed value; restored explicitly.");
                 }
         }
 
@@ -317,10 +373,10 @@ namespace EnemyBridgePathTest
             refreshHook.Original(manager);
             refreshes++;
             if (refreshesSinceStart == 0) { refreshesSinceStart = 1; Shared.DebugLogHelper.LogInfo(log, "Drawbridge deck closure: first portal refresh after map start (runtime confirmed)."); }
-            if (!enabled || !installed || (byte*)manager != pathManager) return;
+            if (!wanted || !installed || (byte*)manager != pathManager) return;
             long started = System.Diagnostics.Stopwatch.GetTimestamp();
             try { PatchPortals(); }
-            catch (Exception error) { failures++; Shared.DebugLogHelper.LogErrorLimited(log, "portal-patch", "Drawbridge portal patch failed: " + error); }
+            catch (Exception error) { failures++; Shared.DebugLogHelper.LogErrorLimited(log, "drawbridge-portal-patch", "Drawbridge portal patch failed: " + error); }
             Measure(started, ref patchTicks, ref patchMaxTicks);
         }
 
@@ -352,7 +408,7 @@ namespace EnemyBridgePathTest
             if (inside < 0) return;
             // Only our closure window can put the deck tile into the gate corridor component.
             int deckComponent = components[outside];
-            if (deckComponent == 0 || deckComponent != components[inside] || !TryLoweredBridge(outside, out int bridge)) return;
+            if (deckComponent == 0 || deckComponent != components[inside] || !TryLoweredBridge(outside, *(short*)(record + OffOwner), out int bridge)) return;
             int landing = DeckClosureCore.FindLanding(this, outside, inside, isOnBridge, componentOf);
             if (landing <= 0) return;
             int* field = (int*)(portal + componentOffset);
@@ -360,7 +416,7 @@ namespace EnemyBridgePathTest
             int old = *field;
             *field = landing;
             portalWrites++;
-            if (DetailLog) LogPatch(id, gate, bridge, outside, inside, old, landing, *(int*)(portal + PCompC));
+            if (Shared.DebugLogHelper.DiagnosticsEnabled) LogPatch(id, gate, bridge, outside, inside, old, landing);
         }
 
         // ---- geometry ------------------------------------------------------------------------
@@ -399,14 +455,16 @@ namespace EnemyBridgePathTest
             return TryGetTile(ox, oy, out outside) && TryGetTile(ix, iy, out inside);
         }
 
-        // A live drawbridge whose footprint contains the tile and whose moat deck is not raised.
+        // A live drawbridge of the gate owner whose footprint contains the tile and whose moat
+        // deck is not raised. A foreign bridge touching the gate is never closed by this gate.
         // Loads that bridge's deck as the current one.
-        private bool TryLoweredBridge(int tile, out int bridge)
+        private bool TryLoweredBridge(int tile, int gateOwner, out int bridge)
         {
             bridge = structures[tile];
             if (bridge <= 0 || bridge >= *(int*)(buildings + BuildingCountOffset)) return false;
             byte* record = buildings + (long)bridge * BuildingStride;
-            if (*(short*)(record + OffAlive) != (short)AliveState.IsAlive || *(ushort*)(record + OffType) != NativeDrawbridgeType) return false;
+            if (*(short*)(record + OffAlive) != (short)AliveState.IsAlive || *(ushort*)(record + OffType) != NativeDrawbridgeType ||
+                *(short*)(record + OffOwner) != gateOwner) return false;
             LoadDeck(bridge);
             if (deckCells.Count == 0) return false;
             foreach (int cell in deckCells)
@@ -421,17 +479,27 @@ namespace EnemyBridgePathTest
             deckCells.Clear();
             currentBridge = bridge;
             byte* record = buildings + (long)bridge * BuildingStride;
-            int orientation = *(short*)(record + OffVariation);
-            if (orientation < 0 || orientation > 6 || (orientation & 1) != 0) return;
-            int* mapper = (int*)(deckMapper + (orientation / 2) * 100);
+            int* mapper = MapperFor(*(short*)(record + OffVariation));
+            if (mapper == null) return;
             uint* occupied = (uint*)(record + OffOccupied);
-            for (int i = 0; i < 25; i++)
+            for (int i = 0; i < FootprintCells; i++)
             {
                 uint tile = occupied[i];
                 if (mapper[i] == 0 || tile >= TileCount || moatTasks[tile] == 0) continue;
                 deckStamp[tile] = deckGeneration;
                 deckCells.Add((int)tile);
             }
+        }
+
+        private int* MapperFor(int orientation) =>
+            orientation < 0 || orientation > 6 || (orientation & 1) != 0 ? null : (int*)(deckMapper + (orientation / 2) * MapperStride);
+
+        /// <summary>The validated drawbridge mapper (25 ints) for a bridge orientation, or null
+        /// while the closure is not installed. Shared with the per-player deck entry mask.</summary>
+        internal static int* DeckMapper(int orientation)
+        {
+            DrawbridgeDeckClosure current = instance;
+            return current != null && current.installed ? current.MapperFor(orientation) : null;
         }
 
         private bool IsDeckCell(int tile) => (uint)tile < TileCount && deckStamp[tile] == deckGeneration;
@@ -456,117 +524,33 @@ namespace EnemyBridgePathTest
             return (uint)tile < TileCount;
         }
 
-        // ---- acceptance views (call under the engine monitor) -------------------------------
-
-        internal sealed class DeckReport
-        {
-            internal int Gate, GateOwner, GateCaptured, Bridge, Portal, PortalSide, FrontTile, GateTile, LandingTile, InnerTile = -1;
-            internal int DeckRegion, FrontRegion, GateRegion, LandingRegion, EndpointField, OtherField, CenterField;
-            internal bool Raised;
-            internal readonly List<int> DeckTiles = new List<int>();
-        }
-
-        // Every gate aperture that opens onto a drawbridge deck, lowered or raised.
-        internal List<DeckReport> DescribeDecks()
-        {
-            var result = new List<DeckReport>();
-            if (!installed) return result;
-            int count = *(int*)(buildings + BuildingCountOffset);
-            for (int gate = 1; gate < count; gate++)
-            {
-                byte* record = buildings + (long)gate * BuildingStride;
-                if (*(short*)(record + OffAlive) == 0 || !IsGateType(*(ushort*)(record + OffType)) || !HasOwnPortal(gate, record)) continue;
-                int portalId = *(short*)(record + OffPortalId);
-                byte* portal = pathManager + PortalBase + (long)portalId * PortalStride;
-                for (int side = 0; side < 2; side++)
-                {
-                    if (!TryAperture(record, side, out int outside, out int inside)) continue;
-                    int bridge = structures[outside];
-                    if (bridge <= 0 || bridge >= count) continue;
-                    byte* bridgeRecord = buildings + (long)bridge * BuildingStride;
-                    if (*(ushort*)(bridgeRecord + OffType) != NativeDrawbridgeType || *(short*)(bridgeRecord + OffAlive) != (short)AliveState.IsAlive) continue;
-                    LoadDeck(bridge);
-                    if (deckCells.Count == 0 || !DeckClosureCore.FindNearDeck(this, outside, inside, isDeck, isOnBridge, out _, out _)) continue;
-                    bool raised = false;
-                    foreach (int cell in deckCells) raised |= (*(uint*)(tileFlags + (long)cell * 4) & RaisedDeckFlag) != 0;
-                    var report = new DeckReport
-                    {
-                        Gate = gate, GateOwner = *(short*)(record + OffOwner), GateCaptured = *(short*)(record + OffCapturer), Bridge = bridge, Portal = portalId,
-                        FrontTile = outside, GateTile = inside, DeckRegion = components[deckCells[deckCells.Count / 2]], FrontRegion = components[outside], GateRegion = components[inside],
-                        Raised = raised, CenterField = *(int*)(portal + PCompC)
-                    };
-                    report.DeckTiles.AddRange(deckCells);
-                    if (TryAperture(record, 1 - side, out int innerOutside, out _)) report.InnerTile = innerOutside;
-                    report.LandingRegion = DeckClosureCore.FindLanding(this, outside, inside, isOnBridge, componentOf, out report.LandingTile);
-                    if (*(int*)(portal + PEntryTile) == outside) { report.PortalSide = 0; report.EndpointField = *(int*)(portal + PCompA); report.OtherField = *(int*)(portal + PCompB); }
-                    else if (*(int*)(portal + PExitTile) == outside) { report.PortalSide = 1; report.EndpointField = *(int*)(portal + PCompB); report.OtherField = *(int*)(portal + PCompA); }
-                    else report.PortalSide = -1;
-                    result.Add(report);
-                }
-            }
-            return result;
-        }
-
-        // Raw inventory of every gate and drawbridge for acceptance diagnostics.
-        internal List<string> DescribeStructures()
-        {
-            var lines = new List<string>();
-            if (!installed) return lines;
-            int count = *(int*)(buildings + BuildingCountOffset);
-            lines.Add("buildingCount=" + count);
-            for (int id = 1; id < count; id++)
-            {
-                byte* record = buildings + (long)id * BuildingStride;
-                ushort type = *(ushort*)(record + OffType);
-                if (!IsGateType(type) && type != NativeDrawbridgeType) continue;
-                string text = (type == NativeDrawbridgeType ? "bridge" : "gate") + " id=" + id + " type=" + type + " alive=" + *(short*)(record + OffAlive) +
-                    " owner=" + *(short*)(record + OffOwner) + " xy=" + *(short*)(record + OffX) + "/" + *(short*)(record + OffY) +
-                    " size=" + *(int*)(record + OffSize) + " variation=" + *(short*)(record + OffVariation) + " state=" + record[OffGateState];
-                if (type == NativeDrawbridgeType)
-                {
-                    LoadDeck(id);
-                    var cells = new List<string>();
-                    uint* occupied = (uint*)(record + OffOccupied);
-                    for (int i = 0; i < 25; i++)
-                    {
-                        uint tile = occupied[i];
-                        TryGetCoordinates((int)tile, out int x, out int y);
-                        cells.Add(i + ":" + x + "/" + y + (tile < TileCount ? "m" + moatTasks[tile] + (((*(uint*)(tileFlags + (long)tile * 4)) & RaisedDeckFlag) != 0 ? "R" : "-") : "?"));
-                    }
-                    text += " deckCells=" + deckCells.Count + " occupied=[" + string.Join(" ", cells) + "]";
-                }
-                else
-                {
-                    int portalId = *(short*)(record + OffPortalId);
-                    text += " portal=" + portalId + " ownPortal=" + HasOwnPortal(id, record);
-                    for (int side = 0; side < 2; side++)
-                        if (TryAperture(record, side, out int outside, out int inside))
-                        {
-                            TryGetCoordinates(outside, out int ox, out int oy); TryGetCoordinates(inside, out int ix, out int iy);
-                            text += " aperture" + side + "=" + ox + "/" + oy + "->" + ix + "/" + iy + " structureAtFront=" + structures[outside] +
-                                " region=" + components[outside] + "/" + components[inside];
-                        }
-                        else text += " aperture" + side + "=invalid";
-                }
-                lines.Add(text);
-            }
-            return lines;
-        }
-
-        internal static int RegionOf(int tile) => (uint)tile < TileCount ? GamePathingManagerAPI.Instance.GetPathComponentGrid()[tile] : 0;
-
         // ---- diagnostics ---------------------------------------------------------------------
 
-        internal void BeginSession() { windowsSinceStart = 0; refreshesSinceStart = 0; lock (detailLock) { loggedCuts.Clear(); loggedPatches.Clear(); } }
+        private static void Measure(long started, ref long total, ref long max)
+        {
+            long elapsed = System.Diagnostics.Stopwatch.GetTimestamp() - started;
+            total += elapsed;
+            if (elapsed > max) max = elapsed;
+        }
+        private static string Ms(long ticks) => (ticks * 1000.0 / System.Diagnostics.Stopwatch.Frequency).ToString("F3", System.Globalization.CultureInfo.InvariantCulture);
 
+        private void BeginSession()
+        {
+            windowsSinceStart = 0; refreshesSinceStart = 0; failuresAtSessionStart = failures;
+            lock (detailLock) { loggedCuts.Clear(); loggedPatches.Clear(); }
+        }
+
+        // Cumulative process counters; also read by the acceptance test mod (reflection).
         internal string Summary() => "windows=" + windows + ",cutWindows=" + cutWindows + ",bridgeCuts=" + bridgesCut + ",edgesRemoved=" + edgesRemoved +
-            ",linksAdded=" + linksAdded + ",portalRefreshes=" + refreshes + ",portalWrites=" + portalWrites + ",failures=" + failures + ",enabled=" + enabled +
-            ",cutMs=" + Ms(cutTicks) + ",cutMaxMs=" + Ms(cutMaxTicks) + ",patchMs=" + Ms(patchTicks) + ",patchMaxMs=" + Ms(patchMaxTicks) +
-            ",closedWindowMs=" + Ms(windowTicks) + ",closedWindowMaxMs=" + Ms(windowMaxTicks) + NativeCounters();
+            ",linksAdded=" + linksAdded + ",portalRefreshes=" + refreshes + ",portalWrites=" + portalWrites + ",failures=" + failures + ",enabled=" + wanted +
+            ",cutMs=" + Ms(cutTicks) + ",cutMaxMs=" + Ms(cutMaxTicks) + ",patchMs=" + Ms(patchTicks) + ",patchMaxMs=" + Ms(patchMaxTicks);
 
-        // Vanilla's own counters: region queries 0xE2610 (+0xC4) and 0xE2F60 (+0xC8), rebuild generation (+0x74).
-        private string NativeCounters() => pathManager == null ? "" :
-            ",regionQueries=" + *(int*)(pathManager + 0xC4) + ",regionQueriesNoLadder=" + *(int*)(pathManager + 0xC8) + ",rebuilds=" + *(int*)(pathManager + 0x74);
+        private void LogSummary()
+        {
+            // Counters are cumulative for the process; only failures of this map raise an error.
+            if (failures != failuresAtSessionStart) Shared.DebugLogHelper.LogError(log, "Drawbridge deck closure map end with failures: " + Summary());
+            else if (Shared.DebugLogHelper.DiagnosticsEnabled) Shared.DebugLogHelper.LogInfo(log, "Drawbridge deck closure map end: " + Summary());
+        }
 
         private void LogCut(Candidate c, int removed, int linked, bool outsideToInside, bool insideToOutside)
         {
@@ -578,12 +562,12 @@ namespace EnemyBridgePathTest
                 ",openEdges=" + outsideToInside + "/" + insideToOutside);
         }
 
-        private void LogPatch(int portal, int gate, int bridge, int outside, int inside, int old, int landing, int corridor)
+        private void LogPatch(int portal, int gate, int bridge, int outside, int inside, int old, int landing)
         {
             long key = ((long)portal << 32) | (uint)outside;
             lock (detailLock) if (!loggedPatches.Add(key)) return;
             Shared.DebugLogHelper.LogInfo(log, "Drawbridge portal endpoint redirected: portal=" + portal + ",gate=" + gate + ",bridge=" + bridge +
-                ",deckRegion=" + components[outside] + ",gateTileRegion=" + components[inside] + ",portalC=" + corridor + ",oldEndpoint=" + old + ",landingRegion=" + landing);
+                ",deckRegion=" + components[outside] + ",gateTileRegion=" + components[inside] + ",oldEndpoint=" + old + ",landingRegion=" + landing);
         }
     }
 }

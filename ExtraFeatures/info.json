@@ -19,7 +19,8 @@
     {
       "Version": "1.0.139",
       "Changes": [
-        "Fix a rare startup error that could turn off the option for Bedouin healers to heal civilians and siege engines until the game was restarted."
+        "Fix a rare startup error that could turn off the option for Bedouin healers to heal civilians and siege engines until the game was restarted.",
+        "Fix a rare startup error that could turn off the gold and goods reward settings for defeating a lord until the game was restarted."
       ]
     },
     {

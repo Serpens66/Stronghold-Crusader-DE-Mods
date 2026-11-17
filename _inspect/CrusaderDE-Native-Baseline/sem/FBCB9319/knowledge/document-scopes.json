@@ -429,10 +429,10 @@
       "file": "DRAWBRIDGE_REGION_CLOSURE.md",
       "scope": "vanilla+integration",
       "components": [
-        "testmod"
+        "Pathfinding", "testmod"
       ],
       "integrationSections": [
-        "Planning closure in EnemyBridgePathTest"
+        "Planning closure (EnemyBridgePathTest, since 2026-11-17 Pathfinding)"
       ]
     },
     {

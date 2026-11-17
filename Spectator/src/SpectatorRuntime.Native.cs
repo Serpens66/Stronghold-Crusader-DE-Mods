@@ -69,8 +69,9 @@ namespace Spectator
                     new Version(1, 5, 0, 0))
                     throw new InvalidOperationException("Installed RedBird NativeX64 differs from 1.5.0.0.");
                 ulong entry = unchecked((ulong)context.ModuleHandle.ToInt64()) + AvailabilityRva;
-                VerifyAvailabilityEntry(entry);
-                ProbeAvailabilityBackend(entry);
+                // No live copied-entry probe: the exact RedBird pin above, the candidate checks
+                // before Enable and VerifyAvailabilityPatch after it cover the backend contract;
+                // tests/Test-CopiedProbe.ps1 runs the installed backend on the real entry offline.
                 VerifyAvailabilityEntry(entry);
                 var request = new DetourRequest<BuildAvailabilityDelegate>
                 {
@@ -128,40 +129,6 @@ namespace Spectator
             }
             if (displaced != AvailabilityEntry.Length)
                 throw new InvalidOperationException("Availability entry crosses the audited 10-byte boundary.");
-        }
-
-        private static void ProbeAvailabilityBackend(ulong entry)
-        {
-            byte[] bytes = Shared.CopiedProbeImage.Create(entry, NativeDetourBackend.Instance.Options);
-            IntPtr copy = Marshal.AllocHGlobal(bytes.Length);
-            NativeDetour<BuildAvailabilityDelegate> probe = null;
-            try
-            {
-                Marshal.Copy(bytes, 0, copy, bytes.Length);
-                var request = new DetourRequest<BuildAvailabilityDelegate>
-                {
-                    Name = "Spectator copied-entry probe",
-                    TargetAddress = unchecked((ulong)copy.ToInt64()),
-                    Callback = CheckBuildingAvailability
-                };
-                probe = NativeDetourBackend.Instance.CreateDetour(in request)
-                    as NativeDetour<BuildAvailabilityDelegate>;
-                if (probe == null || probe.Scheme.ToString() != "Indirect" ||
-                    probe.DisplacedByteCount != AvailabilityEntry.Length || probe.IsInstalled)
-                    throw new InvalidOperationException("Copied RedBird availability probe failed.");
-                probe.Enable();
-                VerifyAvailabilityPatch(probe, unchecked((ulong)copy.ToInt64()));
-            }
-            finally
-            {
-                probe?.Dispose();
-                var restored = new byte[bytes.Length];
-                Marshal.Copy(copy, restored, 0, restored.Length);
-                for (int index = 0; index < bytes.Length; index++)
-                    if (restored[index] != bytes[index])
-                        throw new InvalidOperationException("Copied RedBird probe was not restored.");
-                Marshal.FreeHGlobal(copy);
-            }
         }
 
         private static void VerifyAvailabilityPatch(NativeDetour<BuildAvailabilityDelegate> detour,
@@ -293,8 +260,6 @@ namespace Spectator
             byte[] expected, T callback) where T : Delegate
         {
             VerifyVisualEntry(entry, expected);
-            ProbeVisualBackend(entry, expected, callback);
-            VerifyVisualEntry(entry, expected);
             var request = new DetourRequest<T> {
                 Name = "Spectator visual " + name,
                 TargetAddress = entry, Callback = callback
@@ -329,45 +294,6 @@ namespace Spectator
             }
             if (displaced != expected.Length)
                 throw new InvalidOperationException("Visual entry crosses audited instructions.");
-        }
-
-        private static void ProbeVisualBackend<T>(ulong entry, byte[] expected,
-            T callback) where T : Delegate
-        {
-            byte[] bytes = Shared.CopiedProbeImage.Create(entry, NativeDetourBackend.Instance.Options);
-            IntPtr copy = Marshal.AllocHGlobal(bytes.Length);
-            NativeDetour<T> probe = null;
-            try
-            {
-                Marshal.Copy(bytes, 0, copy, bytes.Length);
-                ulong target = unchecked((ulong)copy.ToInt64());
-                var request = new DetourRequest<T> {
-                    Name = "Spectator copied visual probe",
-                    TargetAddress = target, Callback = callback
-                };
-                probe = NativeDetourBackend.Instance.CreateDetour(in request) as NativeDetour<T>;
-                if (probe == null || probe.Scheme.ToString() != "Indirect" ||
-                    probe.DisplacedByteCount != expected.Length || probe.IsInstalled)
-                    throw new InvalidOperationException("Visual copied backend probe differs.");
-                probe.Enable();
-                VerifyVisualPatch(probe, target, expected.Length);
-            }
-            finally
-            {
-                probe?.Dispose();
-                var restored = new byte[bytes.Length];
-                Marshal.Copy(copy, restored, 0, restored.Length);
-                if (!EqualBytes(bytes, restored))
-                    throw new InvalidOperationException("Visual probe was not restored.");
-                Marshal.FreeHGlobal(copy);
-            }
-        }
-
-        private static bool EqualBytes(byte[] left, byte[] right)
-        {
-            if (left.Length != right.Length) return false;
-            for (int i = 0; i < left.Length; i++) if (left[i] != right[i]) return false;
-            return true;
         }
 
         private static void VerifyVisualPatch<T>(NativeDetour<T> detour, ulong entry,

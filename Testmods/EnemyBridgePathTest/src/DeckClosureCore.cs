@@ -18,80 +18,18 @@ namespace EnemyBridgePathTest
         }
     }
 
-    // Abstraction over the packed tile grids, so the closure is testable without the game.
+    // Read-only view of the packed tile grids (independent copy of the geometry Pathfinding's
+    // drawbridge closure uses; the acceptance compares the game against this oracle).
     internal interface IDeckGrid
     {
         byte GetDirections(int tile);
-        void SetDirections(int tile, byte value);
         bool TryGetCoordinates(int tile, out int x, out int y);
         bool TryGetTile(int x, int y, out int tile);
-    }
-
-    // Remembers the first original value of every edited direction byte and restores
-    // exactly those bytes. Nothing else may write the grid inside a closure window
-    // (audited callers of 0xC4BF0 only read directions between closing and restoring).
-    internal sealed class DirectionJournal
-    {
-        private readonly int[] stamp;
-        private readonly byte[] original;
-        private readonly List<int> touched = new List<int>(256);
-        private int generation = 1;
-        internal DirectionJournal(int capacity) { stamp = new int[capacity]; original = new byte[capacity]; }
-        internal int Count => touched.Count;
-        internal void Write(IDeckGrid grid, int tile, byte value)
-        {
-            if ((uint)tile >= (uint)stamp.Length) throw new ArgumentOutOfRangeException(nameof(tile));
-            if (stamp[tile] != generation) { stamp[tile] = generation; original[tile] = grid.GetDirections(tile); touched.Add(tile); }
-            grid.SetDirections(tile, value);
-        }
-        internal void Restore(IDeckGrid grid)
-        {
-            for (int i = touched.Count - 1; i >= 0; i--) grid.SetDirections(touched[i], original[touched[i]]);
-            touched.Clear();
-            if (++generation == int.MaxValue) { Array.Clear(stamp, 0, stamp.Length); generation = 1; }
-        }
     }
 
     internal static class DeckClosureCore
     {
         private static readonly int[] SideOffsets = { 0, 1, -1 };
-
-        // Emulates the connectivity of a raised deck: every edge between a deck cell and a
-        // non-deck neighbour is removed in both directions. Edges between deck cells stay,
-        // so the deck forms its own island instead of component zero.
-        internal static int CutDeck(IDeckGrid grid, IReadOnlyList<int> deck, Func<int, bool> isDeck, DirectionJournal journal)
-        {
-            int removed = 0;
-            for (int i = 0; i < deck.Count; i++)
-            {
-                int cell = deck[i];
-                if (!grid.TryGetCoordinates(cell, out int x, out int y)) continue;
-                for (int d = 0; d < 8; d++)
-                {
-                    if (!grid.TryGetTile(x + DirectionBits.Dx[d], y + DirectionBits.Dy[d], out int neighbour) || isDeck(neighbour)) continue;
-                    byte own = grid.GetDirections(cell);
-                    if ((own & DirectionBits.Bit[d]) != 0) { journal.Write(grid, cell, (byte)(own & ~DirectionBits.Bit[d])); removed++; }
-                    int back = DirectionBits.Opposite(d);
-                    byte other = grid.GetDirections(neighbour);
-                    if ((other & DirectionBits.Bit[back]) != 0) { journal.Write(grid, neighbour, (byte)(other & ~DirectionBits.Bit[back])); removed++; }
-                }
-            }
-            return removed;
-        }
-
-        // Re-adds the gate aperture edge between the deck tile in front of the gate and the
-        // gate's own edge tile, with the values Vanilla computes for an open gate. The deck
-        // island thereby joins the gate corridor component.
-        internal static int Link(IDeckGrid grid, int outside, int inside, bool outsideToInside, bool insideToOutside, DirectionJournal journal)
-        {
-            if (!grid.TryGetCoordinates(outside, out int ox, out int oy) || !grid.TryGetCoordinates(inside, out int ix, out int iy)) return 0;
-            int d = DirectionBits.FromDelta(ix - ox, iy - oy);
-            if (d < 0) return 0;
-            int added = 0;
-            if (outsideToInside) { journal.Write(grid, outside, (byte)(grid.GetDirections(outside) | DirectionBits.Bit[d])); added++; }
-            if (insideToOutside) { journal.Write(grid, inside, (byte)(grid.GetDirections(inside) | DirectionBits.Bit[DirectionBits.Opposite(d)])); added++; }
-            return added;
-        }
 
         // From the tile in front of the gate, follow the passage axis away from the gate to the
         // first deck cell. A 5x5 drawbridge usually has an abutment row (footprint, no deck)

@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Pathfinding",
   "Description": "Faster and smarter unit movement: shared group routes, better commands, gate routing, Assassin climbing, formations, command queue and synchronized troop movement.",
-  "Version": "0.1.9",
+  "Version": "0.1.10",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.3",
   "MaximumScriptExtenderVersion": "",
@@ -19,6 +19,12 @@
     "2.8.0.2"
   ],
   "SerpChangelog": [
+    {
+      "Version": "0.1.10",
+      "Changes": [
+        "New option \"Keep enemies off lowered drawbridges at gatehouses\" (on by default): enemy soldiers and AI lords no longer plan routes onto a lowered drawbridge in front of your gatehouse or through it into your castle, even when another way into the castle exists. You, your allies and anyone who captured the gate keep using the bridge through the open gate. While the gate is closed but its bridge is still down, your own units cannot cross that bridge either if it is their only way."
+      ]
+    },
     {
       "Version": "0.1.9",
       "Changes": [

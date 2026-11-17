@@ -9,10 +9,12 @@ namespace Pathfinding
         public bool PlagueOptionsEnabled => CoreOptionsEnabled && AvoidPlague;
         public bool PlagueRaisedOptionsEnabled => PlagueOptionsEnabled && EscapePlague;
         public bool DetourSettingsEnabled => CoreOptionsEnabled && (AvoidFire || AvoidPlague);
+        public bool DrawbridgeClosureOptionEnabled => EnableEnemyGatePathfindingFix;
 
         private void NotifyDependentSettingsChanged(string name)
         {
             if (name == nameof(EnablePathfindingCore)) OnPropertyChanged(nameof(CoreOptionsEnabled));
+            if (name == nameof(EnableEnemyGatePathfindingFix)) OnPropertyChanged(nameof(DrawbridgeClosureOptionEnabled));
             if (name == nameof(EnablePathfindingCore) || name == nameof(AvoidFire)) OnPropertyChanged(nameof(FireOptionsEnabled));
             if (name == nameof(EnablePathfindingCore) || name == nameof(AvoidPlague)) OnPropertyChanged(nameof(PlagueOptionsEnabled));
             if (name == nameof(EnablePathfindingCore) || name == nameof(AvoidPlague) || name == nameof(EscapePlague))
