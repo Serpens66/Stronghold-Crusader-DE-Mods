@@ -29,13 +29,12 @@ using FlowControl = Iced.Intel.FlowControl;
 
 namespace TrappedUnitRescueTest
 {
-    // Optional compatibility owner for the exact Fixes implementation audited for this test.
-    // Gatehouse-farmer recovery is deliberately outside this replacement and remains untouched.
+    // Optional compatibility owner for the relevant audited Fixes contracts.
+    // Gatehouse-farmer and mounted-keep recovery remain outside this replacement.
     internal sealed unsafe class FixesIntegration
     {
         private const string OwnerGuid = "TrappedUnitRescueTest_Serp";
         private const string SiteName = "TrappedUnitRescue.FixesWorkerDeletionGuard";
-        private const string FixesHash = "BE7D8E42AEE2C8FEF400A701472F5481A0A6F864E4DDAB54182302465DAE19C0";
         private const string MoveFunctionHash = "D81EEBC55A1FB0CFEEB25D0B0D1CCEDE5C9F545E3CCCCAC5119A556C7B43E9E1";
         private const int MoveFunctionRva = 0x196280, MoveFunctionLength = 1293;
         internal const int WorkerGuardRva = 0x196342;
@@ -74,6 +73,15 @@ namespace TrappedUnitRescueTest
             if (activation != IntPtr.Zero) Volatile.Write(ref *(int*)activation, ready && enabled ? 1 : 0);
         }
 
+        internal void RecheckPublishedHooks()
+        {
+            // Includes editor starts. Never repair a published span; keep the replacement
+            // dormant permanently if a later writer invalidates its native contract.
+            if (Shared.NativePatchGuard.Recheck() == 0) return;
+            ready = false;
+            SetEnabled(false);
+        }
+
         internal void Initialize(CrusaderLibraryLoadContext context)
         {
             if (attempted) return;
@@ -96,7 +104,7 @@ namespace TrappedUnitRescueTest
                 }
                 if (info.Instance == null) throw new InvalidOperationException("Fixes startup has not completed.");
                 Assembly assembly = info.Instance.GetType().Assembly;
-                VerifyFixesAssembly(assembly);
+                FixesManagedContract.Validate(assembly);
                 MethodInfo wall = RequireWallMethod(assembly);
                 ProbeWallPatch(wall);
                 HookHandle<X64InlineHook> worker = ReadWorkerHandle(assembly);
@@ -114,7 +122,7 @@ namespace TrappedUnitRescueTest
                 if (needsWorker) InstallWorkerGuard(context, image);
                 workerDeletionInstalled = needsWorker;
                 ready = true;
-                Log("Fixes compatibility ready; wall Pre and installed moat-worker deletion are logically gated. Gatehouse-farmer fix retained.");
+                Log("Fixes compatibility ready; wall Pre and installed moat-worker deletion are logically gated. Gatehouse-farmer and mounted-keep recovery retained.");
             }
             catch (Exception error)
             {
@@ -123,18 +131,8 @@ namespace TrappedUnitRescueTest
                 // A published IL hook or attempted native Enable is never removed on failure.
                 // Its common activation cell remains zero and is retained with this owner.
                 processOwner = this;
-                Log("FIXES_INTEGRATION_INACTIVE: " + error);
+                log.LogError("[" + DateTime.Now.ToString("HH:mm:ss.fff") + "] FIXES_INTEGRATION_INACTIVE: " + error);
             }
-        }
-
-        private static void VerifyFixesAssembly(Assembly assembly)
-        {
-            string path = assembly.Location;
-            if (string.IsNullOrEmpty(path) || Hash(File.ReadAllBytes(path)) != FixesHash)
-                throw new InvalidOperationException("The installed Fixes binary is outside the audited test contract.");
-            using (ModuleDefinition disk = ModuleDefinition.ReadModule(path))
-                if (disk.Mvid != assembly.ManifestModule.ModuleVersionId)
-                    throw new InvalidOperationException("Loaded/disk Fixes module identity differs.");
         }
 
         private static MethodInfo RequireWallMethod(Assembly assembly)
@@ -199,7 +197,8 @@ namespace TrappedUnitRescueTest
                 Hash(context.Memory.Slice(MoveFunctionRva, MoveFunctionLength).ToArray()) != MoveFunctionHash)
                 throw new InvalidOperationException("Pristine full unit-move body differs from the audited control-flow closure.");
             ValidateNoInteriorEdges(context.Memory.Slice(MoveFunctionRva, MoveFunctionLength).ToArray(), image);
-            CheckLive(image + WorkerGuardRva, WorkerGuardBytes);
+            Shared.NativePatchGuard.RequireUnpatched(image + WorkerGuardRva, WorkerGuardLength,
+                "TrappedUnitRescue.FixesWorkerGuard", SiteName);
             X64InlineHook hook = handle.Hook;
             if (!handle.IsInstalled || !hook.IsInstalled || hook.DisplacedByteCount != FixesWorkerLength ||
                 handle.ResolvedAddress != image + WorkerGuardResumeRva || hook.TargetAddress != image + WorkerGuardResumeRva ||
@@ -237,6 +236,8 @@ namespace TrappedUnitRescueTest
             X64InlineHook candidate = null;
             try
             {
+                Shared.NativePatchGuard.RequireUnpatched(image + WorkerGuardRva, WorkerGuardLength,
+                    "TrappedUnitRescue.FixesWorkerGuard", SiteName);
                 candidate = new X64InlineHook(image + WorkerGuardRva, 14, name: "TrappedUnitRescue.FixesWorkerGuard");
                 if (candidate.DisplacedByteCount != WorkerGuardLength || candidate.IsInstalled)
                     throw new InvalidOperationException("Worker guard backend span differs from 16 bytes.");
@@ -252,10 +253,12 @@ namespace TrappedUnitRescueTest
                 claimed = true;
                 CheckLive(image + WorkerGuardRva, WorkerGuardBytes);
                 workerHook = candidate; // Root before any attempt to publish executable code.
+                Shared.NativePatchGuard.RequireUnpatched(candidate, SiteName);
                 enableAttempted = true;
                 candidate.Enable();
                 CheckInlineEntry(image + WorkerGuardRva, Address(candidate.StubAddress), WorkerGuardLength);
                 if (!candidate.IsInstalled) throw new InvalidOperationException("Worker guard was not published.");
+                Shared.NativePatchGuard.Watch(candidate, SiteName);
                 Log("Worker guard installed at RVA 0x196342, displaced 16 bytes, resumes at the validated adjacent Fixes hook.");
             }
             catch

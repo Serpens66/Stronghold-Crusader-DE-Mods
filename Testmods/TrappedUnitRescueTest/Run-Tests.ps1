@@ -22,7 +22,7 @@ if (@(Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction Si
     throw 'Close the game before starting this test series.'
 }
 if ($Map -match '[\r\n]') { throw 'Map must be a single map filename.' }
-$allowed=@('rescue-off','rescue-on','rescue-group-off','rescue-group-on','rescue-aiwall-off','rescue-aiwall-on','rescue-moat-off','rescue-moat-on','rescue-moatworker-off','rescue-moatworker-on','rescue-worker-off','rescue-worker-on','rescue-ox-off','rescue-ox-on','rescue-siege-off','rescue-siege-on')
+$allowed=@('rescue-off','rescue-on','rescue-group-off','rescue-group-on','rescue-aiwall-off','rescue-aiwall-on','rescue-moat-off','rescue-moat-on','rescue-moatworker-off','rescue-moatworker-on','rescue-worker-off','rescue-worker-on','rescue-ox-off','rescue-ox-on','rescue-siege-off','rescue-siege-on','rescue-mountedkeep-off','rescue-mountedkeep-on')
 foreach($scenario in $Scenarios){if($scenario -notin $allowed){throw "Unknown scenario: $scenario"}}
 if (!$SkipBuild) { & (Join-Path $PSScriptRoot 'Build.ps1') -nopause -noinstall }
 $work=New-ShortWorkDirectory -Root $workspace -Kind t -Name rescue-layout -Identity ("TrappedUnitRescueTest/$Layout")

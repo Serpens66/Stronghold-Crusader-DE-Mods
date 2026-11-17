@@ -54,13 +54,19 @@ namespace TrappedUnitRescueTest
             value == "rescue-moatworker-on" || value == "rescue-moatworker-off" ||
             value == "rescue-worker-on" || value == "rescue-worker-off" ||
             value == "rescue-ox-on" || value == "rescue-ox-off" ||
-            value == "rescue-siege-on" || value == "rescue-siege-off";
+            value == "rescue-siege-on" || value == "rescue-siege-off" ||
+            value == "rescue-mountedkeep-on" || value == "rescue-mountedkeep-off";
         internal void Stop() { stopped = true; }
 
         internal IEnumerable<AutomationStep> Steps()
         {
             yield return new AutomationStep("skirmish", TimeSpan.FromSeconds(240), Start);
             yield return new AutomationStep("prepare", TimeSpan.FromSeconds(90), Prepare, true);
+            if (scenario.Contains("-mountedkeep-"))
+            {
+                foreach (var step in MountedKeepSteps()) yield return step;
+                yield break;
+            }
             if (scenario.Contains("-group-"))
             {
                 yield return new AutomationStep("shared-group-leader-and-member", TimeSpan.FromSeconds(240), EntryGroup, true);

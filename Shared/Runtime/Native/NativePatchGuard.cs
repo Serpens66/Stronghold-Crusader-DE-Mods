@@ -99,7 +99,19 @@ namespace Shared
             if (hook == null) throw new ArgumentNullException(nameof(hook));
             if (hook.IsInstalled)
                 throw new InvalidOperationException(feature + ": " + hook.Name + " is already enabled; check it before Enable.");
-            HookSpan span = SpanOf(hook, feature);
+            RequireSpanUnpatched(SpanOf(hook, feature), hook.Name, feature);
+        }
+
+        // For a span whose length is known before the hook exists (e.g. an audited detour entry): lets a
+        // hook framework that decodes live bytes never see a foreign patch. Same Error as above.
+        internal static void RequireUnpatched(ulong address, int length, string name, string feature)
+        {
+            if (address == 0 || length <= 0) throw new ArgumentOutOfRangeException(nameof(length));
+            RequireSpanUnpatched(new HookSpan(address, length), name, feature);
+        }
+
+        private static void RequireSpanUnpatched(HookSpan span, string name, string feature)
+        {
             ScanRegion reference = RequireImage(feature);
             int offset = OffsetOf(reference, span, feature);
             byte[] expected = reference.Span.Slice(offset, span.Length).ToArray();
@@ -107,7 +119,7 @@ namespace Shared
             int difference = FirstDifference(expected, live);
             if (difference >= 0)
             {
-                string message = "NATIVE_FOREIGN_PATCH: " + feature + " stays Vanilla; " + hook.Name +
+                string message = "NATIVE_FOREIGN_PATCH: " + feature + " stays Vanilla; " + name +
                     " would overwrite a foreign patch at RVA 0x" + offset.ToString("X", CultureInfo.InvariantCulture) +
                     " (" + span.Length.ToString(CultureInfo.InvariantCulture) + " bytes, first difference at +" +
                     difference.ToString(CultureInfo.InvariantCulture) + "): expected " + Hex(expected) + ", live " + Hex(live) +

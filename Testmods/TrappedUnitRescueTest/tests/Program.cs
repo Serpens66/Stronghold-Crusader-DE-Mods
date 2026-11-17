@@ -8,6 +8,7 @@ internal static class Program
     {
         try
         {
+            FixesManagedContractFixture.Run();
             int native = WorkerGuardFixture.Run();
             RescuePolicyFixture.Run();
             Console.WriteLine("PASS: worker native guard assertions=" + native + "; production local rescue policy checked. No game hook installed.");

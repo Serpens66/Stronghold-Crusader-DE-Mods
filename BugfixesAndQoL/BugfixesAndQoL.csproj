@@ -261,6 +261,7 @@
     <Compile Include="src\Notifications\NotificationLastFrameFeature.cs" />
     <Compile Include="src\Notifications\NotificationSpeechPlayback.cs" />
     <Compile Include="src\Notifications\NotificationSkipPolicy.cs" />
+    <Compile Include="src\Notifications\CustomLordNervousSpeechFix.cs" />
     <Compile Include="src\Buildings\EnemyProximityBulldozeCursorHook.cs" />
     
     

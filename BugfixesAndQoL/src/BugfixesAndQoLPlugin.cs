@@ -365,6 +365,7 @@ namespace BugfixesAndQoL
             PitchMoatLines.PitchMoatLinesFeature.Install(context);
             AreaDemolition.AreaDemolitionFeature.Install(context);
             GatehouseTargetMarkerHeightHook.Install(context, Logger, Settings);
+            CustomLordNervousSpeechFix.Install(Logger, Settings);
             try
             {
                 EditorRegions.EditorRegionRefreshRuntime.Install(context, Logger, Settings);

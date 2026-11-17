@@ -32,6 +32,18 @@ Der Runner erzeugt verwerfbare Gefechte, sichert Logs und stellt Plugins, Einste
 
 `PASS` gilt ausschließlich für die aufgeführten Szenarioassertionen. Abdeckungsmarker weisen ausgelassene Fälle aus; insbesondere sind aktive Sonderzustände, alte Saves und echter Host/Client-Multiplayer nicht durch einen erfolgreichen lokalen Lauf abgenommen. Unbekannte Native-/Fixes-Verträge sperren die Ersatzfunktion, statt fremde Hooks blind zu beeinflussen.
 
+## Fixes-Updates und Bergfried-Reiterrettung
+
+Geprüfter Ausgangsstand ist Fixes 1.30.0. Die Kompatibilitätsprüfung bindet sich an die tatsächlich beeinflussten Methoden samt relevanten Helfern und den vollständig geprüften installierten Worker-Stub. Eine neue Fixes-Version mit unveränderten relevanten Verträgen bleibt zulässig. Ändert sich ein solcher Vertrag, bleibt unsere Ersatzfunktion aus; ein Update wird dadurch nicht pauschal als sicher erklärt.
+
+Die Fixes-Reiterrettung von Bergfrieden und die Bauernrettung an Torhäusern bleiben aktiv. Der Testmod verändert dafür keine fremden Einstellungen und führt keinen weiteren Schalter ein. Den eigenen nativen Hook prüft er vor Veröffentlichung und bei jedem Missions-/Editorstart auf überlappende Fremdpatches.
+
+    .\Run-Tests.ps1 -Layout Fixes -Scenarios rescue-mountedkeep-off,rescue-mountedkeep-on
+
+Die Bergfriedmatrix prüft Ritter, berittene Bogenschützen und beide Kameltypen, drei Bergfriedtypen, vier Lagerfeuerausrichtungen sowie stehende Einheiten und begonnene Bewegungsschritte. Identität, Gesundheit, Verband, Ziel und Kachelbelegung werden kontrolliert; hinzu kommen ein blockierter Lagerfeuerausgang und die Kontrolle gegen einen zweiten Teleport nach eigener lokaler Rettung. Die tatsächliche Installation der Fixes-Reiterhooks ist Voraussetzung. Die Szenarien verändern den Fixes-Schalter nicht.
+
+Die spielunabhängigen Vertragstests verändern gezielt relevante IL-Verträge und prüfen deren Ablehnung. Unabhängige Änderungen müssen akzeptiert werden. Diese Prüfung ersetzt weder die Bergfriedmatrix im Spiel noch die bestehenden Brücken-, Gruppen- und Besatzungsläufe.
+
 ## Prüfstand vom 15.11.2026
 
 Die Hauptfälle für Brücke, KI-Mauerbau, gemeinsamen Verband, Gerät/Besatzung und den vollständigen Apfelzyklus wurden positiv geprüft. Der Verbandstest unterscheidet einen blockierten tatsächlichen Anführer von einem blockierten anderen Mitglied. Das beweist keine universelle Blockade durch jedes einzelne Mitglied.

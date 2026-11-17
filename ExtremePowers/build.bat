@@ -66,6 +66,14 @@ echo [%date% %time%] Compile projects
 set "BUILD_EXIT_CODE=%ERRORLEVEL%"
 popd
 if not "%BUILD_EXIT_CODE%"=="0" goto done
+rem Audited RedBird entry detours on the real entries with the installed backend (the runtime has no live probe).
+echo [%date% %time%] Native entry detour tests
+dotnet build "%PROJECT_DIR%..\Shared\Tests\AuditedEntryDetour.Tests\Shared.AuditedEntryDetour.Tests.csproj" -c Release "-p:GameDir=%GAME_DIR%" "-p:ExtenderDir=%EXTENDER_DIR%"
+if not "%ERRORLEVEL%"=="0" set "BUILD_EXIT_CODE=1"
+if not "%BUILD_EXIT_CODE%"=="0" goto done
+"%PROJECT_DIR%..\Shared\Tests\AuditedEntryDetour.Tests\bin\Release\net481\Shared.AuditedEntryDetour.Tests.exe"
+if not "%ERRORLEVEL%"=="0" set "BUILD_EXIT_CODE=1"
+if not "%BUILD_EXIT_CODE%"=="0" goto done
 set "LOCAL_BUILD_DIR=%PROJECT_DIR%bin\Debug"
 set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\ExtremePowers_Serp"
 set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\ExtremePowers_Serp%SHCDE_BRANCH_INSTALL_SUFFIX%"

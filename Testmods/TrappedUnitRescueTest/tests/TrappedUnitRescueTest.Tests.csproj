@@ -130,6 +130,10 @@
   <ItemGroup>
     <Compile Include="*.cs" />
     <Compile Include="../src/FixesIntegration.cs" />
+    <Compile Include="../src/FixesManagedContract.cs" />
+    <Compile Include="../../../Shared/Runtime/Native/NativePatchGuard.cs" />
+    <Compile Include="../../../Shared/Runtime/Native/CommittedMemory.cs" />
+    <Compile Include="../../../Shared/Runtime/Diagnostics/DebugLogHelper.cs" />
     <Compile Include="../src/NativeRelocation.cs" />
     <Compile Include="../src/RescueRuntime.cs" />
   </ItemGroup>

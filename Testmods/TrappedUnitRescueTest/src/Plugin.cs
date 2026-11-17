@@ -54,6 +54,7 @@ namespace TrappedUnitRescueTest
             if (libraryReady) return;
             try
             {
+                Shared.NativePatchGuard.Bind(context, log);
                 var native = NativeRelocation.Create();
                 fixes = new FixesIntegration(log, native);
                 fixes.Initialize(context);
@@ -74,6 +75,7 @@ namespace TrappedUnitRescueTest
                 if (!ApiShared.ForMod(Guid).TryGetMissionLifecycle(out missions, out var diagnostic))
                     throw new InvalidOperationException(diagnostic.Reason);
                 if (!missions.TryRegisterObserver("rescue-session", n => {
+                    fixes?.RecheckPublishedHooks();
                     // Automatic mutation is currently confined to explicit disposable fixtures.
                     // Merely loading this test plugin never turns a user save into an experiment.
                     SetActive(Volatile.Read(ref fixtureActive) != 0 && settings.EnableMod && settings.EnableExperimentalRescue);

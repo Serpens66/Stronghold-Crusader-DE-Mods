@@ -13,7 +13,15 @@ Referenz ist ausschließlich Steam-Build `24816905`, SHA-256 `FBCB93195FC7EFCA9B
 | Pfeil-/Steinsalve | `0xDD6C0` | 16-Byte-Prolog und beide Dispatcher-Zweige bestätigt | wie oben |
 | Gold-Zyklusfortschaltung | `0x7530` | 16-Byte-Signatur und Goldzweig bestätigt | wie oben |
 
-Für den verwendeten x64-Detour wurden am Einstieg vollständige Instruktionen bis mindestens 14 Byte geprüft: Dispatcher `15` Byte (`5+5+5`), Auswahl `14` Byte (`2+4+6+2`) und Ressourcenupdate `15` Byte (`5+5+5`). Bekannte direkte Aufrufer zielen jeweils auf den Funktionseinstieg, nicht in diese Spannen. Diese Prüfung ist bei jeder neuen Hookimplementierung oder DLL erneut durchzuführen.
+Die drei Hooks sind dauerhafte RedBird-Detours (`Shared/Runtime/Native/AuditedEntryDetour.cs`, Backend NativeX64, Schema `Indirect`). Verdrängte Einstiege, geprüft auf dem Referenzhash mit RedBird 1.5:
+
+| Hook | Verdrängter Einstieg | Konstante |
+|---|---|---|
+| Dispatcher `0xCD630` | `48 89 5C 24 10 48 89 6C 24 18` (10 Byte, `5+5`) | `DispatcherDetourEntry` |
+| Auswahl `0x105510` | `40 53 48 83 EC 20` (6 Byte, `2+4`; RedBird kodiert `40 53` im Trampolin als `53`) | `SelectionDetourEntry` |
+| Ressourcenupdate `0xCDB20` | `48 89 5C 24 08 48 89 6C 24 10` (10 Byte, `5+5`) | `ResourceUpdateDetourEntry` |
+
+Geprüft: vollständige Instruktionen ohne RIP-relativen Operanden oder Sprung, kein direkter Sprung aus den ausführbaren Sektionen ins Innere einer Spanne, keine der drei Funktionen ruft sich selbst auf. Spectator hookt in der Auswahlfunktion erst ab `0x105593`, außerhalb der Spanne. Jeder Einstieg wird vor dem Schreiben gegen das Ladeabbild und live geprüft (Fremdpatch → `NativePatchGuard`-Error, Vanilla bleibt aktiv); `Shared/Tests/AuditedEntryDetour.Tests` lässt das installierte Backend im Build auf Kopien der echten Einstiege laufen. Diese Prüfung ist bei jeder neuen Hookimplementierung oder DLL erneut durchzuführen.
 
 Der Regenerationsblock ist 69 Byte lang und greift über die verschobene Schleifenbasis auf `+0x3950` zu, entsprechend `GamePlayerResources.r_ExtremePowersMana + 0x39D4`. Er vergleicht gegen `7000`, prüft die Modulo-3-Kadenz und schreibt höchstens `+1`.
 
@@ -34,7 +42,7 @@ Diese Ziele besitzen keinen belastbaren eigenständigen Pattern-Fallback. Bei ei
 
 1. Neue installierte DLL hashen und Steam-Build dokumentieren.
 2. Referenz-RVAs nur als Startpunkte verwenden; Prologe, vollständige Instruktionen, Funktionsgrenzen, Calls, Switchzweige und Feldoffsets neu herleiten.
-3. Für jeden Detour die tatsächliche von `NativeDetour` überschriebene Instruktionsspanne sowie alle eingehenden Kontrollflussziele prüfen.
+3. Für jeden Detour die tatsächlich von RedBird verdrängte Instruktionsspanne (`AuditedEntryDetour`, Schema `Indirect`) sowie alle eingehenden Kontrollflussziele prüfen; Einstiegskonstanten und `Shared/Tests/AuditedEntryDetour.Tests` gemeinsam anpassen.
 4. Ressourcenupdate: Callsite-Anzahl, Prolog, vollständigen Regenerationsblock, Feldzuordnung, Grenze `7000`, Delta `+1` und Funktionstail erneut bestätigen.
 5. `ExtremePowersBuildCompatibility.HasExpectedNativeSignatures` und die Runtime-Guards gemeinsam aktualisieren; Tests einmal mit der kanonischen und einmal mit absichtlich veränderten Bytes ausführen.
 6. Erst danach den unterstützten Hash ändern. Jede Unsicherheit bleibt fail-closed auf Vanilla.

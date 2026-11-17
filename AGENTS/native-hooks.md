@@ -40,6 +40,8 @@ Der Native-Hash belegt nur die Datei auf der Platte. Script Extender, Fixes-Mod,
   - Transaktionen mit `InstallOnCommit = false` anlegen und mit `NativePatchGuard.Commit(transaction, feature)` statt `Commit()` veröffentlichen. Die Hooks werden erst vorbereitet, dann wird jede tatsächlich verdrängte Spanne geprüft, erst danach wird geschrieben.
   - Selbst aktivierte Hooks (einzelne Detours, vorbereitete Transaktionen mit eigener Veröffentlichung): `RequireUnpatched(hook, feature)` direkt vor `Enable()` im selben Codepfad, `Watch(hook, feature)` nach `Enable()` und den eigenen Nachprüfungen.
   - APIShared hat dafür eine eigene interne Umsetzung (keine Workspace-Quelllinks) in seinem Veröffentlichungspfad.
+  - Einzelne Detours auf einem geprüften Funktionseinstieg: `Shared/Runtime/Native/AuditedEntryDetour.cs` (`Prepare`, dann Originaldelegat setzen und verwurzeln, dann `Publish`; Offline-Test mit dem installierten Backend auf den echten Einstiegen: `Shared/Tests/AuditedEntryDetour.Tests`).
+- **Kein MonoMod-`NativeDetour` für nativen Spielcode.** Grund: Sein Trampolin schreibt den Einstieg vor und nach jedem Aufruf des Originals zurück. Das kostet zwei Codeschreibvorgänge pro Aufruf und überschreibt still jeden Patch, den ein anderer Mod später an derselben Stelle setzt.
 
 ## In-place-Patches, Trampoline, Ersatzblöcke
 

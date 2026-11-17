@@ -35,6 +35,10 @@ namespace ExtremePowers.API
             try
             {
                 ExtremePowerNetworkRuntime pendingNetwork = new ExtremePowerNetworkRuntime(this);
+                if (options?.NativeLoadContext == null || options.NativeLog == null)
+                    throw new InvalidOperationException("the native load context and log are required for the native hooks.");
+                // Load snapshot for the foreign-patch check of the native hooks (AGENTS/native-hooks.md).
+                Shared.NativePatchGuard.Bind(options.NativeLoadContext, options.NativeLog);
                 NativeExtremePowersRuntime pendingNative = new NativeExtremePowersRuntime(this, libraryHandle, libraryMemory);
                 networkRuntime = pendingNetwork;
                 nativeRuntime = pendingNative;
@@ -43,6 +47,7 @@ namespace ExtremePowers.API
             catch (Exception ex)
             {
                 NativeBackendStatus = "Native hook validation failed; Vanilla fallback is active: " + ex.Message;
+                if (options?.NativeLog != null) Shared.DebugLogHelper.LogError(options.NativeLog, "Extreme Powers: " + NativeBackendStatus);
             }
         }
         public string ProtocolVersion => "3";

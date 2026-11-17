@@ -19,7 +19,8 @@ $files = foreach ($relativeRoot in $roots) {
     if (-not (Test-Path -LiteralPath $root)) { continue }
     Get-ChildItem -LiteralPath $root -Recurse -File -Filter '*.cs' -ErrorAction SilentlyContinue | Where-Object {
         $path = '\' + $_.FullName.Substring($workspace.Length).TrimStart('\')
-        (-not ($excludedSegments | Where-Object { $path.Contains($_) })) -and
+        # Case-insensitive: offline test projects live in both 'tests' and 'Shared\Tests'.
+        (-not ($excludedSegments | Where-Object { $path.IndexOf($_, [StringComparison]::OrdinalIgnoreCase) -ge 0 })) -and
         (-not $path.Contains('\Testmods\'))
     }
 }
@@ -95,10 +96,15 @@ function Get-SourceBlock([string[]]$Lines, [string]$Signature) {
 # publication contract holds; anything else stays a normal finding.
 function Get-FreshPageAllowance([string]$Path, [string[]]$Lines) {
     $text = [string]::Join("`n", $Lines)
-    if ($Path -eq (Join-Path $workspace 'APIShared\src\Projectiles\PlagueNativeCode.cs')) {
+    # Both helpers share one contract; APIShared's SourceModel guardrail lists the same two owners.
+    $preparedHelpers = @{
+        (Join-Path $workspace 'APIShared\src\Projectiles\PlagueNativeCode.cs') = 'PlagueNativeCode'
+        (Join-Path $workspace 'APIShared\src\Economy\ProductionGoodsReceivedNativeCode.cs') = 'ProductionGoodsReceivedNativeCode'
+    }
+    if ($preparedHelpers.ContainsKey($Path)) {
         # Mirrors APIShared's own audited SourceModel guardrail (tools/SourceContracts): changes
         # only in the constructor, VirtualFree only for an unpublished helper.
-        $constructor = Get-SourceBlock $Lines 'internal PlagueNativeCode(Action<Assembler> generate)'
+        $constructor = Get-SourceBlock $Lines ('internal ' + $preparedHelpers[$Path] + '(Action<Assembler> generate)')
         $rollback = Get-SourceBlock $Lines 'internal void RollbackUnpublished()'
         if (-not $constructor -or -not $rollback) { return $null }
         $rollbackText = [string]::Join("`n", $Lines[$rollback.Start..$rollback.End])
