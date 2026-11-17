@@ -49,11 +49,18 @@ namespace PathfindingSurfaceTest
             internal bool Mounted, Arrived, Moved;
         }
         internal Fixture(string map, string scenario, Action<string> log) { this.map = map; this.scenario = scenario; this.log = log; }
-        internal static bool Owns(string value) => value == "surface-matrix" || value == "surface-groups-no-singles";
+        internal static bool Owns(string value) => value == "surface-matrix" || value == "surface-groups-no-singles" || value == "ground-route-shape";
         internal void Stop() { stopped = true; capture = false; queuedCommand = null; }
         internal IEnumerable<AutomationStep> Steps()
         {
             yield return new AutomationStep("skirmish", TimeSpan.FromSeconds(240), Start);
+            if (scenario == "ground-route-shape")
+            {
+                yield return new AutomationStep("empty-ground-region", TimeSpan.FromSeconds(120), PrepareShape, true);
+                yield return new AutomationStep("new-individual-45-22", TimeSpan.FromSeconds(120), run => ExerciseShape(run, false), true);
+                yield return new AutomationStep("new-group-45-22", TimeSpan.FromSeconds(120), run => ExerciseShape(run, true), true);
+                yield break;
+            }
             yield return new AutomationStep("real-wall-and-stairs", TimeSpan.FromSeconds(150), Prepare, true);
             if (scenario == "surface-matrix")
                 foreach (var type in Mounted.Concat(new[] { eChimps.CHIMP_TYPE_SPEARMAN }))
@@ -77,7 +84,7 @@ namespace PathfindingSurfaceTest
             var plugin = BepInEx.Bootstrap.Chainloader.PluginInfos["Pathfinding_Serp"].Instance;
             object settings = plugin.GetType().GetProperty("Settings").GetValue(plugin);
             Set(settings, "EnableMod", true); Set(settings, "EnablePathfindingCore", true);
-            Set(settings, "AnchorSingleMoves", scenario == "surface-matrix");
+            Set(settings, "AnchorSingleMoves", scenario == "surface-matrix" || scenario == "ground-route-shape");
             Set(settings, "EnableFriendlyMoatTraversal", false);
             Set(settings, "AvoidFire", false); Set(settings, "AvoidPlague", false);
             Set(settings, "EnableMoveFormationEnhancements", false);

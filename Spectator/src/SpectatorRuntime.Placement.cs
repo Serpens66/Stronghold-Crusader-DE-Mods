@@ -563,7 +563,7 @@ namespace Spectator
         private static void AfterPlaceMapperItem(MapperPlacementScope __state)
         {
             try { EndAiPlacement(__state, true); }
-            catch (Exception error) { LogOnce("SPECTATOR_AI_COMPLETION_FAILED: " + error); RejectAiPlacement(AiText("Unavailable")); }
+            catch (Exception error) { RejectAiPlacement(AiText("Unavailable"), __state?.Mapper ?? -1, __state?.Owner ?? -1, "Completion failed: " + error); }
             DiagPlacementInputEnd();
             DiagPlacingUnit(0);
             pitchClickScope = null;

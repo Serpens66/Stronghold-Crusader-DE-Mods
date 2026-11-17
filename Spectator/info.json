@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Spectator",
   "Description": "Spectator perspectives, live statistics and local AI testing tools.",
-  "Version": "0.2.7",
+  "Version": "0.2.8",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -19,6 +19,12 @@
     "2.8.0.2"
   ],
   "SerpChangelog": [
+    {
+      "Version": "0.2.8",
+      "Changes": [
+        "Log failed AI troop placements with the owner, unit type, chosen task and available internal failure reason, including failures after spawning. These support messages are available in normal builds."
+      ]
+    },
     {
       "Version": "0.2.7",
       "Changes": [

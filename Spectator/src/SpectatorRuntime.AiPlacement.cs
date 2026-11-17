@@ -354,47 +354,58 @@ namespace Spectator
 
         private static bool BeginAiPlacement(int mapper, int owner, out MapperPlacementScope scope)
         {
-            scope = new MapperPlacementScope();
+            scope = new MapperPlacementScope { Mapper = mapper, Owner = owner };
             bool started = false;
             try
             {
-                if (engineLock == null || aiMilitary == null) return RejectAiPlacement(AiText("Unavailable"));
+                if (engineLock == null || aiMilitary == null) return RejectAiPlacement(AiText("Unavailable"), mapper, owner, "Engine monitor or AI capability unavailable.");
                 Monitor.Enter(engineLock); scope.HoldsEngineMonitor = true;
                 bool editor = IsEditorAiPlacementSession();
                 if (editor ? owner != EditorDirector.instance.ActivePlayerID : !IsPlacementSession() || owner != CurrentAiOwner())
-                    return RejectAiPlacement(AiText("Unavailable"));
+                    return RejectAiPlacement(AiText("Unavailable"), mapper, owner, "Placement session or selected owner changed.");
                 eChimps type;
-                if (!TryAiMapperType(mapper, out type)) return RejectAiPlacement(AiText("Unavailable"));
+                if (!TryAiMapperType(mapper, out type)) return RejectAiPlacement(AiText("Unavailable"), mapper, owner, "Unsupported unit mapper.");
                 var intent = Volatile.Read(ref aiIntent);
                 if (AiMapperTypes.NeedsCrew(type) && intent.Assignment.Role != AiMilitaryRole.None)
-                    return RejectAiPlacement(AiReason(AiMilitaryReason.IncompleteCrew));
+                    return RejectAiPlacement(AiReason(AiMilitaryReason.IncompleteCrew), mapper, owner, "IncompleteCrew");
                 if ((eMappers)mapper == eMappers.MAPPER_PEOPLE_ENGINEERS_POTS && intent.Assignment.Role != AiMilitaryRole.None)
-                    return RejectAiPlacement(AiText("OilBound"));
+                    return RejectAiPlacement(AiText("OilBound"), mapper, owner, "Oil carrier is bound to its building job.");
                 bool found = false;
                 foreach (var option in aiMilitary.GetOptions(owner, type, editor))
                     if (option.Role == intent.Assignment.Role)
                     {
-                        if (!option.IsAvailable) return RejectAiPlacement(AiReason(option.Reason));
+                        if (!option.IsAvailable) return RejectAiPlacement(AiReason(option.Reason), mapper, owner, option.Reason + ": " + option.Detail);
                         found = true; break;
                     }
-                if (!found) return RejectAiPlacement(AiText("Incompatible"));
+                if (!found) return RejectAiPlacement(AiText("Incompatible"), mapper, owner, "Selected role is absent from current options.");
                 long session = CurrentSessionId;
-                scope.Session = session; scope.Owner = owner;
+                scope.Session = session; scope.Owner = owner; scope.Type = type;
                 if (!aiMilitary.TryBeginSpawnScope(owner, type, intent.Assignment, editor,
                     editor && intent.ApplyInEditor,
-                    result => AiPlacementCompleted(session, owner, result), out scope.AiCapture, out string reason))
-                { log.LogWarning("SPECTATOR_AI_CAPTURE_REJECTED: " + reason); return RejectAiPlacement(AiText("Unavailable")); }
+                    result => AiPlacementCompleted(session, owner, type, result), out scope.AiCapture, out string reason))
+                { return RejectAiPlacement(AiText("Unavailable"), mapper, owner, reason); }
                 started = true; return true;
             }
-            catch (Exception error) { LogOnce("SPECTATOR_AI_CAPTURE_FAILED: " + error); return RejectAiPlacement(AiText("Unavailable")); }
+            catch (Exception error) { return RejectAiPlacement(AiText("Unavailable"), mapper, owner, error.ToString()); }
             finally { if (!started) EndAiPlacement(scope, false); }
         }
 
-        private static bool RejectAiPlacement(string reason)
-        { PostPresentation(() => aiPlacement.Feedback = reason); return false; }
-
-        private static void AiPlacementCompleted(long session, int owner, AiMilitaryAssignmentResult result)
+        // Permanent support logging: one record per failed action, never render polling.
+        private static bool RejectAiPlacement(string reason, int mapper, int owner, string detail)
         {
+            var intent = Volatile.Read(ref aiIntent);
+            log.LogWarning("SPECTATOR_AI_PLACEMENT_REJECTED session=" + CurrentSessionId + " owner=" + owner +
+                " mapper=" + (eMappers)mapper + " role=" + intent.Assignment.Role + " mode=" + intent.Assignment.RecruitmentMode +
+                " detail=" + detail + " message=" + reason);
+            PostPresentation(() => aiPlacement.Feedback = reason); return false;
+        }
+
+        private static void AiPlacementCompleted(long session, int owner, eChimps type, AiMilitaryAssignmentResult result)
+        {
+            if (result.Status == AiMilitaryAssignmentStatus.Rejected)
+                log.LogWarning("SPECTATOR_AI_ASSIGNMENT_REJECTED session=" + session + " owner=" + owner +
+                    " unit=" + result.Unit + " type=" + type + " role=" + result.Assignment.Role +
+                    " mode=" + result.Assignment.RecruitmentMode + " reason=" + result.Reason + " detail=" + result.Detail);
             DiagAiPlacementResult(session, owner, result);
             PostPresentation(() => {
                 if (!IsCurrentSession(session) || (IsEditorAiPlacementSession() ? EditorDirector.instance.ActivePlayerID : humanSelectedOwner) != owner) return;
@@ -408,8 +419,14 @@ namespace Spectator
             try
             {
                 if (complete && scope.AiCapture != null)
-                    foreach (var result in scope.AiCapture.Complete())
-                        if (result.Status == AiMilitaryAssignmentStatus.Queued) AiPlacementCompleted(scope.Session, scope.Owner, result);
+                {
+                    var results = scope.AiCapture.Complete();
+                    if (results.Count == 0)
+                        log.LogWarning("SPECTATOR_AI_PLACEMENT_EMPTY session=" + scope.Session + " owner=" + scope.Owner +
+                            " type=" + scope.Type + " detail=Native placement created no captured primary unit; no native rejection reason is available.");
+                    foreach (var result in results)
+                        if (result.Status == AiMilitaryAssignmentStatus.Queued) AiPlacementCompleted(scope.Session, scope.Owner, scope.Type, result);
+                }
             }
             finally
             {
@@ -429,6 +446,8 @@ namespace Spectator
             internal bool HoldsEngineMonitor;
             internal long Session;
             internal int Owner;
+            internal int Mapper;
+            internal eChimps Type;
         }
     }
 }

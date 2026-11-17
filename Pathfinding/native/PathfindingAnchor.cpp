@@ -170,6 +170,12 @@ struct TraversalView {
         }
         return result;
     }
+    // Single-edge consumers need only this bit's entered surface, not a filtered
+    // copy of all eight directions. Mask::set has already removed boundary edges.
+    bool allowsEdge(int v, int direction, int moat) const {
+        return (base.outgoing(v,moat) & (1u << direction)) != 0 &&
+            (surfaceClass == 0 || Surfaces::allowed(surfaces.values[v+map.off[direction]],surfaceClass));
+    }
     uint8_t incoming(int v, int moat) const {
         return Surfaces::allowed(surfaces.values[v], surfaceClass) ? base.incoming(v, moat) : 0;
     }
@@ -447,9 +453,9 @@ struct Context {
 
 static bool ValidNode(const Context& c, int node) { return node >= 0 && node < c.map.n; }
 
-// Monotone raster ray between two cells (Bresenham, error starts at length/2). It takes exactly
-// Chebyshev(a, b) eight-neighbour steps, the minimum for any route between them. Shared by the
-// direct ground route and StraightenRoute so both draw the same line.
+// Both raster styles take exactly Chebyshev(a,b) steps with the same direction counts.
+// Quiet keeps a heading while staying within the existing one-cell cross-product bound;
+// Bresenham remains the closer-to-line alternative when that quieter corridor is blocked.
 struct RasterRay {
     int signX = 0, signY = 0, length = 0, minor = 0; bool majorX = true;
     RasterRay(int sx, int sy, int tx, int ty) {
@@ -463,11 +469,96 @@ struct RasterRay {
         err += minor;
         if (err >= length) { err -= length; if (majorX) ry += signY; else rx += signX; }
     }
+    bool sameStyles() const { return length <= 2 || minor == 0 || minor == length; }
 };
 // Clockwise native directions, no lookup outside the eight-neighbour range.
 static int RasterDirection(int ox, int oy) {
     return oy < 0 ? (ox < 0 ? 7 : ox > 0 ? 1 : 0) :
         oy > 0 ? (ox < 0 ? 5 : ox > 0 ? 3 : 4) : ox < 0 ? 6 : 2;
+}
+
+enum class RasterStyle { Quiet, Bresenham };
+template<RasterStyle Style, bool Emit> struct DirectMode {
+    static constexpr RasterStyle style = Style; static constexpr bool emit = Emit;
+};
+template<RasterStyle Style>
+struct RasterCursor {
+    int length, minor, straight, diagonal, straightLeft, diagonalLeft, error, cross = 0;
+    int runLeft = 0, runDirection = 0; bool previousDiagonal;
+    u64 straightReciprocal = 0, diagonalReciprocal = 0;
+    RasterCursor(const RasterRay& ray) : length(ray.length), minor(ray.minor),
+        straight(ray.majorX ? RasterDirection(ray.signX,0) : RasterDirection(0,ray.signY)),
+        diagonal(RasterDirection(ray.signX,ray.signY)), straightLeft(ray.length-ray.minor),
+        diagonalLeft(ray.minor), error(ray.start()), previousDiagonal(ray.start()+ray.minor>=ray.length) {
+        if constexpr (int(Style) == int(RasterStyle::Quiet)) {
+            if (minor > 0 && minor < length) {
+                straightReciprocal = (u64(1)<<32)/u32(minor);
+                diagonalReciprocal = (u64(1)<<32)/u32(length-minor);
+            }
+        }
+    }
+    static __forceinline int runQuotient(int numerator, int denominator, u64 reciprocal) {
+        // reciprocal=floor(2^32/denominator). For 0<=numerator<2^32,
+        // multiply/shift underestimates floor(numerator/denominator) by at most
+        // one. The exact remainder corrects that one step, using integers only.
+        // Here numerator<=2*length<=1,280,000, so the 64-bit product is safe.
+        const u32 quotient = u32((u64(u32(numerator))*reciprocal)>>32);
+        return int(quotient + (u32(numerator)-quotient*u32(denominator) >= u32(denominator)));
+    }
+    __forceinline int next() {
+        if (minor == 0) return straight;
+        if (minor == length) return diagonal;
+        if constexpr (int(Style) == int(RasterStyle::Bresenham)) {
+            error += minor; const bool takeDiagonal = error >= length;
+            if (takeDiagonal) error -= length;
+            return takeDiagonal ? diagonal : straight;
+        } else {
+            if (runLeft > 0) { --runLeft; return runDirection; }
+            bool takeDiagonal = previousDiagonal;
+            const int nextCross = cross + (takeDiagonal ? -(length-minor) : minor);
+            if ((takeDiagonal ? diagonalLeft : straightLeft) == 0 || std::abs(nextCross) > length)
+                takeDiagonal = !takeDiagonal;
+            // Opposite increments have magnitudes minor and length-minor. At least
+            // one stays in [-length,length]; exhausted counts force progress to zero.
+            // Compute a whole run once; each following cell only decrements runLeft.
+            const int available = takeDiagonal ? diagonalLeft : straightLeft;
+            const int crossSteps = takeDiagonal ? runQuotient(cross+length,length-minor,diagonalReciprocal) :
+                runQuotient(length-cross,minor,straightReciprocal);
+            const int count = std::min(available,crossSteps);
+            if (takeDiagonal) diagonalLeft -= count; else straightLeft -= count;
+            cross += count * (takeDiagonal ? -(length-minor) : minor);
+            previousDiagonal = takeDiagonal; runLeft = count-1;
+            runDirection = takeDiagonal ? diagonal : straight;
+            return runDirection;
+        }
+    }
+};
+
+// Two diagonals straddling a cardinal direction can be replaced by two cardinal
+// steps through their endpoint midpoint. This removes repeated bridge rejoins when
+// the side corridor is clear, without inventing an edge or changing the endpoint.
+static bool IsStraddlingPair(uint8_t first, uint8_t second) {
+    const int difference = (int(first) + 8 - int(second)) & 7;
+    return (first & 1) && (second & 1) && (difference == 2 || difference == 6);
+}
+static bool NormalizePair(const Map& map, const TraversalView& mask, int from, uint8_t& first, uint8_t& second,
+    int ground, int moat, bool strictGround, i64* work = nullptr, i64 cap = INT64_MAX) {
+    if (!IsStraddlingPair(first,second)) return false;
+    const i64 charge = strictGround ? 2 : 4;
+    if (work) { if (*work > cap-charge) return false; *work += charge; }
+    const int direction = RasterDirection((dx[first]+dx[second])/2,(dy[first]+dy[second])/2);
+    const int middle = from + map.off[direction], end = middle + map.off[direction];
+    if (!mask.allowsEdge(from,direction,moat) || !mask.allowsEdge(middle,direction,moat)) return false;
+    const bool firstWet = ((mask.outWet[from] >> direction) & 1) != 0;
+    const bool secondWet = ((mask.outWet[middle] >> direction) & 1) != 0;
+    if (strictGround && (firstWet || secondWet || mask.base.penalty[middle] || mask.base.penalty[end])) return false;
+    const i64 replacement = i64(mask.cost(middle,firstWet,ground,moat)) + mask.cost(end,secondWet,ground,moat);
+    const int oldMiddle = from + map.off[first];
+    const i64 original = strictGround ? i64(ground)*2 :
+        i64(mask.cost(oldMiddle,((mask.outWet[from] >> first)&1)!=0,ground,moat)) +
+        mask.cost(end,((mask.outWet[oldMiddle] >> second)&1)!=0,ground,moat);
+    if (replacement > original) return false;
+    first = second = uint8_t(direction); return true;
 }
 
 // A monotone raster ray has the minimum possible number of eight-neighbour steps.
@@ -483,46 +574,63 @@ static bool TryDirectGroundRoute(const Map& map, const TraversalView& mask, int 
     const int tx = target % map.width, ty = target / map.width;
     const RasterRay ray(sx, sy, tx, ty); const int length = ray.length;
     if (length == 0 || length > MaxSteps || length > capacity) return false;
-    auto advance = [&](int& rx, int& ry, int& err) { ray.advance(rx, ry, err); };
-    auto direction = [](int ox, int oy) { return RasterDirection(ox, oy); };
     auto allowed = [&](int from, int to, int d) {
-        return (mask.outgoing(from, 0) & (1u << d)) != 0 &&
+        return mask.allowsEdge(from,d,0) &&
             !(mask.outWet[from] & (1u << d)) && mask.base.penalty[to] == 0 &&
             mask.cost(to, false, ground, 0) == u32(ground);
     };
-    for (int pass = 0; pass < 2; ++pass) {
-        int x = sx, y = sy, error = ray.start(), written = 0;
+    auto walk = [&](auto mode) {
+        using Mode = decltype(mode);
+        RasterCursor<Mode::style> cursor(ray); int node = start, written = 0;
+        auto append = [&](int d, int end) {
+            if constexpr (Mode::emit) {
+                bytes[written] = uint8_t(d);
+                if (written > 0 && IsStraddlingPair(bytes[written-1],bytes[written])) {
+                    const int from = end-map.off[bytes[written-1]]-map.off[d];
+                    NormalizePair(map,mask,from,bytes[written-1],bytes[written],ground,0,true);
+                }
+            }
+            ++written;
+        };
         while (written < length) {
-            int nx = x, ny = y, nextError = error;
-            advance(nx, ny, nextError);
-            const int node = y * map.width + x, next = ny * map.width + nx;
-            const int d = direction(nx - x, ny - y);
+            const int d = cursor.next(), next = node+map.off[d];
             if (allowed(node, next, d)) {
-                if (pass) bytes[written] = uint8_t(d);
-                ++written; x = nx; y = ny; error = nextError;
+                append(d,next); node = next;
                 continue;
             }
             if (written + 2 > length) return false;
-            int ex = nx, ey = ny, endError = nextError;
-            advance(ex, ey, endError);
-            const int end = ey * map.width + ex;
+            const int end = next+map.off[cursor.next()];
+            const int x = node%map.width, y = node/map.width, ex = end%map.width, ey = end/map.width;
             bool bridged = false;
             // Two reference steps advance the major axis twice. Their endpoints have
             // at most three common neighbours, leaving at most two alternatives to
             // the failed reference midpoint. No frontier, recursion or field expansion.
             for (int first = 0; first < 8; ++first) {
                 const int mx = x + dx[first], my = y + dy[first];
-                if ((mx == nx && my == ny) || (unsigned)mx >= unsigned(map.width) || (unsigned)my >= unsigned(map.height) ||
+                if ((unsigned)mx >= unsigned(map.width) || (unsigned)my >= unsigned(map.height) ||
                     std::abs(ex - mx) > 1 || std::abs(ey - my) > 1) continue;
-                const int mid = my * map.width + mx, second = direction(ex - mx, ey - my);
+                if constexpr (int(Mode::style) == int(RasterStyle::Quiet)) {
+                    if (std::abs(i64(mx-sx)*(ty-sy)-i64(my-sy)*(tx-sx)) > length) continue;
+                }
+                const int mid = my * map.width + mx, second = RasterDirection(ex-mx,ey-my);
+                if (mid == next) continue;
                 if (!allowed(node, mid, first) || !allowed(mid, end, second)) continue;
-                if (pass) { bytes[written] = uint8_t(first); bytes[written + 1] = uint8_t(second); }
-                written += 2;
-                x = ex; y = ey; error = endError; bridged = true; break;
+                append(first,mid); append(second,end);
+                node = end; bridged = true; break;
             }
             if (!bridged) return false;
         }
+        return true;
+    };
+    RasterStyle selected = RasterStyle::Quiet;
+    if (!walk(DirectMode<RasterStyle::Quiet,false>{})) {
+        if (ray.sameStyles()) return false;
+        selected = RasterStyle::Bresenham;
+        if (!walk(DirectMode<RasterStyle::Bresenham,false>{})) return false;
     }
+    // Immutable mask: compile-time-specialized replay of only the validated style.
+    if (selected == RasterStyle::Quiet) walk(DirectMode<RasterStyle::Quiet,true>{});
+    else walk(DirectMode<RasterStyle::Bresenham,true>{});
     result = QueryResult{};
     result.status = Found; result.ground = result.length = length; result.cost = i64(ground) * length;
     return true;
@@ -531,22 +639,50 @@ static bool TryDirectGroundRoute(const Map& map, const TraversalView& mask, int 
 // Cost of the raster ray from node a to node b over the same directed edges, costs and surface
 // rules as every search (ground-only profiles: dry edges only), or -1 when an edge is missing or
 // the cost exceeds limit. Writes the directions to out when it is not null. work counts cells.
-static i64 RayCost(const Map& map, const TraversalView& mask, int a, int b, int ground, int moat, i64 limit, i64& work, std::vector<uint8_t>* out) {
+template<RasterStyle Style>
+static i64 RayCostStyle(const Map& map, const TraversalView& mask, int a, int b, int ground, int moat,
+    i64 limit, i64& work, std::vector<uint8_t>* out) {
     const RasterRay ray(a % map.width, a / map.width, b % map.width, b / map.width);
-    // Each raster step is either the major axis step or the diagonal that also moves the minor
-    // axis (RasterRay::advance); both directions are fixed per ray, so no coordinates are tracked.
-    const int straight = ray.majorX ? RasterDirection(ray.signX, 0) : RasterDirection(0, ray.signY);
-    const int diagonal = RasterDirection(ray.signX, ray.signY);
-    int error = ray.start(), node = a;
+    // As before, reserve the whole ray's work up front. An early failure may use
+    // less, never more; failed Quiet trials and their fallback are both charged.
     work += ray.length;
+    if constexpr (int(Style) == int(RasterStyle::Bresenham)) {
+        // Keep the established validation/fallback loop unchanged: no quiet
+        // cursor state or per-cell mode/pure-direction branches in this hot path.
+        const int straight = ray.majorX ? RasterDirection(ray.signX,0) : RasterDirection(0,ray.signY);
+        const int diagonal = RasterDirection(ray.signX,ray.signY);
+        int error = ray.start(), node = a;
+        if (moat == 0 && mask.base.penalized == 0) {
+            for (int k = 0; k < ray.length; ++k) {
+                error += ray.minor; int d = straight;
+                if (error >= ray.length) { error -= ray.length; d = diagonal; }
+                if (!mask.allowsEdge(node,d,0)) return -1;
+                if (out) out->push_back(uint8_t(d));
+                node += map.off[d];
+            }
+            const i64 cost = i64(ground)*ray.length;
+            return cost > limit ? -1 : cost;
+        }
+        i64 cost = 0;
+        for (int k = 0; k < ray.length; ++k) {
+            error += ray.minor; int d = straight;
+            if (error >= ray.length) { error -= ray.length; d = diagonal; }
+            if (!mask.allowsEdge(node,d,moat)) return -1;
+            const int next = node+map.off[d];
+            cost += mask.cost(next,((mask.outWet[node] >> d)&1)!=0,ground,moat);
+            if (cost > limit) return -1;
+            if (out) out->push_back(uint8_t(d));
+            node = next;
+        }
+        return cost;
+    }
+    RasterCursor<RasterStyle::Quiet> cursor(ray); int node = a;
     // Ground-only profile without any entering penalty: every edge costs exactly ground, so the
     // ray (Chebyshev length, never longer than the section) can only fail on a missing edge.
     if (moat == 0 && mask.base.penalized == 0) {
         for (int k = 0; k < ray.length; ++k) {
-            error += ray.minor;
-            int d = straight;
-            if (error >= ray.length) { error -= ray.length; d = diagonal; }
-            if (!(mask.outgoing(node, 0) & (1u << d))) return -1;
+            const int d = cursor.next();
+            if (!mask.allowsEdge(node,d,0)) return -1;
             if (out) out->push_back(uint8_t(d));
             node += map.off[d];
         }
@@ -555,10 +691,8 @@ static i64 RayCost(const Map& map, const TraversalView& mask, int a, int b, int 
     }
     i64 cost = 0;
     for (int k = 0; k < ray.length; ++k) {
-        error += ray.minor;
-        int d = straight;
-        if (error >= ray.length) { error -= ray.length; d = diagonal; }
-        if (!(mask.outgoing(node, moat) & (1u << d))) return -1;
+        const int d = cursor.next();
+        if (!mask.allowsEdge(node,d,moat)) return -1;
         const int next = node + map.off[d];
         cost += mask.cost(next, ((mask.outWet[node] >> d) & 1) != 0, ground, moat);
         if (cost > limit) return -1;
@@ -566,6 +700,25 @@ static i64 RayCost(const Map& map, const TraversalView& mask, int a, int b, int 
         node = next;
     }
     return cost;
+}
+
+// Keep the previous Bresenham-based segment selection. Only the committed private
+// output tries Quiet, at no greater cost than that validated segment. A failed Quiet
+// prefix is rolled back before the known-legal Bresenham emission; it is not retried.
+static i64 RayCost(const Map& map, const TraversalView& mask, int a, int b, int ground, int moat,
+    i64 limit, i64& work, std::vector<uint8_t>* out) {
+    if (!out) {
+        const i64 cost = RayCostStyle<RasterStyle::Bresenham>(map,mask,a,b,ground,moat,limit,work,nullptr);
+        return cost;
+    }
+    const RasterRay ray(a%map.width,a/map.width,b%map.width,b/map.width);
+    if (!ray.sameStyles()) {
+        const size_t before = out->size();
+        const i64 cost = RayCostStyle<RasterStyle::Quiet>(map,mask,a,b,ground,moat,limit,work,out);
+        if (cost >= 0) return cost;
+        out->resize(before);
+    }
+    return RayCostStyle<RasterStyle::Bresenham>(map,mask,a,b,ground,moat,limit,work,out);
 }
 
 // Cost-preserving string pulling of a found route (TODO G10). Every step costs the same time
@@ -589,28 +742,45 @@ static i64 StraightenRoute(const Map& map, const TraversalView& mask, Scratch& s
         nodes[k + 1] = u; prefix[k + 1] = prefix[k] + mask.cost(u, ((mask.outWet[v] >> d) & 1) != 0, ground, moat);
     }
     const i64 cap = 16LL * n + 64; i64 work = 0, rays = 0, segments = 0; bool capped = false;
-    auto legal = [&](int i, int j) { ++rays; return RayCost(map, mask, nodes[i], nodes[j], ground, moat, prefix[j] - prefix[i], work, nullptr) >= 0; };
+    auto legal = [&](int i, int j) { ++rays; return RayCost(map, mask, nodes[i], nodes[j], ground, moat, prefix[j] - prefix[i], work, nullptr); };
     out.clear();
     int i = 0;
     while (i < n) {
         if (work > cap) { capped = true; break; }
         // The original next step is always legal: lo is a known legal end, hi a known illegal one.
         int lo = i + 1, hi = -1;
+        i64 loCost = prefix[lo]-prefix[i];
         for (int step = 2; lo < n && work <= cap; step *= 2) {
             const int j = std::min(n, i + step);
-            if (legal(i, j)) lo = j; else { hi = j; break; }
+            const i64 candidate = legal(i,j);
+            if (candidate >= 0) { lo = j; loCost = candidate; } else { hi = j; break; }
         }
-        while (hi > lo + 1 && work <= cap) { const int mid = lo + (hi - lo) / 2; if (legal(i, mid)) lo = mid; else hi = mid; }
+        while (hi > lo + 1 && work <= cap) { const int mid = lo + (hi - lo) / 2; const i64 candidate = legal(i,mid); if (candidate >= 0) { lo = mid; loCost = candidate; } else hi = mid; }
         if (lo == i + 1) out.push_back(path[i]);
-        else { RayCost(map, mask, nodes[i], nodes[lo], ground, moat, prefix[lo] - prefix[i], work, &out); ++segments; }
+        else { RayCost(map, mask, nodes[i], nodes[lo], ground, moat, loCost, work, &out); ++segments; }
         i = lo;
     }
     if (capped) { out.insert(out.end(), path.begin() + i, path.end()); ++stats[StraightenCapped]; }
-    // Recount the classification and cost of the new route.
+    // Normalize repeated a,b,a bridge oscillation only. An isolated macro corner
+    // belongs to two different straight segments; rounding it can move their join
+    // outside either segment's one-cell corridor.
     i64 cost = 0; g = 0; w = 0;
-    for (int k = 0, v = start; k < int(out.size()); ++k) {
-        const int d = out[k], u = v + map.off[d]; const bool wet = ((mask.outWet[v] >> d) & 1) != 0;
-        cost += mask.cost(u, wet, ground, moat); if (wet) ++w; else ++g; v = u;
+    if (moat == 0 && mask.base.penalized == 0) {
+        // Ground masks exclude wet edges and the maintained penalty count proves
+        // every entering cost is ground. Do not reload those per-cell properties.
+        g = int(out.size()); cost = i64(g)*ground;
+        for (int k = 0, v = start; k < int(out.size()); ++k) {
+            if (k+2 < int(out.size()) && out[k] == out[k+2] && IsStraddlingPair(out[k],out[k+1]))
+                NormalizePair(map,mask,v,out[k],out[k+1],ground,0,true,&work,cap);
+            v += map.off[out[k]];
+        }
+    } else {
+        for (int k = 0, v = start; k < int(out.size()); ++k) {
+            if (k+2 < int(out.size()) && out[k] == out[k+2] && IsStraddlingPair(out[k],out[k+1]))
+                NormalizePair(map,mask,v,out[k],out[k+1],ground,moat,false,&work,cap);
+            const int d = out[k], u = v + map.off[d]; const bool wet = ((mask.outWet[v] >> d) & 1) != 0;
+            cost += mask.cost(u,wet,ground,moat); if (wet) ++w; else ++g; v = u;
+        }
     }
     path.swap(out);
     stats[StraightenRays] += rays; stats[StraightenSegments] += segments; stats[StraightenSaved] += prefix[n] - cost; stats[StraightenNs] += Ns(t0);

@@ -198,3 +198,75 @@ Test-Torhaus (`wall-5000-gatelarge`) wurde die Fläche lokal markiert, ohne Swee
 **Offen:** Die Quelle der zusätzlichen globalen Resweeps (`global=216`) aus zwei früheren
 Läufen trat in 9 Diagnoseläufen nicht wieder auf. Die DevDiag-Messpunkte (`pf-global`,
 `pf-resweep`) zeigen sie beim nächsten Auftreten.
+## Ruhigere Rasterwege in 0.1.11 (17.11.2026)
+
+Der im laufenden Spiel gelesene Steinbruchweg enthielt einen Abschnitt von
+(316,364) nach (361,342): 45 Schritte und 44 Richtungswechsel. Das bisherige
+Bresenham-Raster verteilte die beiden benachbarten Laufrichtungen fast abwechselnd.
+Diagonale Bewegung war vorhanden. Bei beliebigen Zielwinkeln bleiben Korrekturen
+auf dem Acht-Richtungs-Raster erforderlich; exakt passende Diagonalen brauchen sie nicht.
+
+Der gemeinsame Quiet-Rasterlauf behält eine Richtung innerhalb des bisherigen
+Kreuzproduktbands `abs(cross) <= Chebyshev(Start,Ziel)` länger bei. Schrittzahl,
+Richtungsanzahlen und Endpunkt bleiben erhalten. Die Lauflängen werden ganzzahlig
+berechnet; die exakte Reziprokenrechnung ist gegen normale Division geprüft.
+Der öffentliche Direktpuffer wird erst nach vollständiger Prüfung beschrieben.
+Scheitert die ruhigere Linie, bleibt das bisherige Raster verfügbar.
+
+Für die Glättung bleibt die bisherige Bresenham-Auswahl der Abschnittsenden erhalten.
+Nur die Ausgabe in den vorhandenen privaten Puffer versucht die ruhigere Linie,
+höchstens zu den tatsächlich validierten Bresenham-Kosten. Ein Fehlversuch wird
+zurückgesetzt, bevor der gültige bisherige Abschnitt ausgegeben wird. Das vermeidet
+zusätzliche Validierungsdurchläufe und die im ersten Kandidaten nachgewiesenen
+Mehrwege von ein bis zwei Feldern bei einigen Gruppenabfragen.
+
+Wiederholte seitliche Zickzacks werden nur mit erlaubten, nicht teureren Ersatzkanten
+vereinfacht. Bei geglätteten Wegen erfordert dies ein wiederholtes `a,b,a`-Muster.
+Eine isolierte große Hindernisecke bleibt erhalten: Eine ursprünglich breitere
+Paarregel hatte im vorhandenen Blocktest drei geometrische Abschnitte in vier
+verwandelt. Der Fehler wurde reproduziert und ohne Lockerung des Tests behoben.
+
+Einzelkantenprüfungen filtern nur noch die tatsächlich betretene Oberfläche statt
+aller acht Ausgänge. Der vollständige Richtungsgraph der Suche bleibt unverändert.
+Reiner Boden ohne Zuschläge erlaubt eine gleichwertige konstante Kostenzählung.
+Alle Rasterversuche und lokalen Zusatzprüfungen bleiben im bisherigen deterministischen
+Arbeitsrahmen; begonnene Raster können die Schwelle wie bisher linear überschreiten.
+Es gibt keine zusätzlichen Suchfelder, Caches, Ausgabepuffer oder Laufzeithooks.
+
+**Absicherung:** Der reguläre native Build besteht 3.343.566 Assertions. Dazu gehören
+alle Richtungen und Steigungen, 45/22 mit höchstens 15 statt 44 Richtungswechseln,
+wiederholte Brücken mit höchstens zwei statt 19 Wechseln, alter Raster-Fallback,
+gewichtete Referenzkosten, Oberflächen- und Randrechte, kurze Puffer, alte Masken,
+Arbeitsbudget und gleiche Ergebnisse mit 1/2/4/8 Workern. Die vorhandenen Hindernistests
+behalten ihre Drei-Abschnitt-Grenze. Der vollständige Modbuild einschließlich
+Managed-Integration, Veröffentlichungs-/Fallbackprüfungen, Tooltip- und Lifecycleprüfungen
+ist erfolgreich. Öffentliche API, nativer Vertrag `0x04000012` und 32 Statistikfelder
+bleiben unverändert. Die erneute eigene und unabhängige Abschlussprüfung fand keine
+bestätigten verbleibenden Fehler.
+
+**Spieltest:** `PathfindingSurfaceTest/ground-route-shape`, Lauf `fa19402099c6`,
+besteht mit den installierten Begleitmods: neu erteilter Einzel- und Gruppenbefehl
+(je eine Einheit), jeweils 45 tatsächlich veröffentlichte Schritte, 15 Richtungswechsel,
+maximaler Kreuzproduktbetrag 44 und anschließende Ankunft am angeforderten Ziel.
+Die erste Wiederholung scheiterte vor dem Gruppenbefehl an einer inzwischen belegten
+Testfläche; deshalb wird nun vor jedem Fall eine frische freie Fläche gesucht.
+Leerflächenprüfung und Ankunftsanforderung wurden nicht gelockert. Keine OS-Eingaben;
+Pakete, Einstellungen und Extender-Cache wurden nach dem Test geprüft zurückgesetzt.
+
+**Leistung:** Gegen 0.1.10 wurden identische Anfragen abwechselnd über die echten DLLs
+verglichen: acht vollständige A/B-Paare und 32 Wiederholungspaare der sechs näher
+untersuchten Gruppenfälle, einschließlich dynamischer Maskenänderungen. 1.216
+unabhängige Dijkstra-Prüfungen, keine höheren tatsächlichen Wegkosten oder
+Statusabweichungen, identische Worker-Ergebnisse und gezählte Spitzenspeicherstände.
+Die kritischen Standardfälle bleiben etwa auf dem bisherigen Niveau; eingeschränkte
+Oberflächenprofile benötigen ungefähr 55 % weniger CPU. Brückenfolgen und dichtes
+Hindernisfeld kosten zusätzlich etwa 0,04 beziehungsweise 0,18 Mikrosekunden je Route.
+Diese kleine Mehrarbeit wurde vom Nutzer am 17.11.2026 ausdrücklich akzeptiert.
+Messwerte und Grenzen: [kompakte Auswertung](../../.work/a/pf-quiet/001/performance.md).
+Das ist keine universelle Kostenfreiheits-, FPS- oder echte Host/Client-Abnahme.
+
+Version 0.1.11 wurde regulär gebaut und mit 29 einzeln hashgeprüften Paketdateien
+installiert. Das vorhandene APIShared-SDK und der Bootstrap bleiben hashgleich.
+Die native Paket-DLL hat denselben Maschinencode wie die gemessene Variante.
+Tooltips und Changelog erklären Nutzen und Grenzen für Spieler. Bereits laufende
+oder geladene Wege werden erst durch eine neue Wegberechnung geändert.

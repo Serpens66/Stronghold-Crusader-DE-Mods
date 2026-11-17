@@ -4,7 +4,7 @@ param(
     [Parameter(Mandatory)][string]$OutputDirectory,
     [string]$PathfindingPackage,
     [switch]$KeepInstalledPlugins,
-    [ValidateSet('surface-matrix','surface-groups-no-singles')][string]$Scenario='surface-matrix',
+    [ValidateSet('surface-matrix','surface-groups-no-singles','ground-route-shape')][string]$Scenario='surface-matrix',
     [string]$GameDir='E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
 )
 $ErrorActionPreference='Stop'

@@ -8,6 +8,8 @@ The default local map is `test AI.map`; override `[Fixture] Map` in `BepInEx/con
 
 Scenarios:
 
+- `ground-route-shape`: starts a disposable Skirmish, verifies an empty flat 50x27 region, and issues newly created 45/22 move orders individually and through a one-member group. Reads the actual published route through the public Extender path-plan API before consumption: 45 steps, existing directed edges, exact requested/unit-owned endpoint, cross-product distance at most 45 from the direct line and at most 15 direction changes (the former raster had 44). Requires actual accelerated-publication counters and subsequent arrival. It does not repair old saved routes, use OS input or create a wall.
+
 - `surface-matrix`: fast individual searches enabled; four mounted types and a spearman exercise regular replans while walking; a mixed group follows; a closed ring then checks mounted rejection and successful foot travel.
 - `surface-groups-no-singles`: same mixed-group and closed-ring checks with individual acceleration disabled before mission start.
 

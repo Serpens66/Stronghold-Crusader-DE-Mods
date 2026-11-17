@@ -146,20 +146,53 @@ static void BlockGroundTile(Fixture& f, int x, int y) {
     }
 }
 
+static int DirectionChanges(const std::vector<uint8_t>& path) {
+    int changes = 0;
+    for (size_t i = 1; i < path.size(); ++i) if (path[i] != path[i-1]) ++changes;
+    return changes;
+}
+
+// Previous public direct-route behaviour, retained only as a regression reference:
+// it is the fallback that must remain available when the quieter corridor is blocked.
+static std::vector<uint8_t> PreviousRaster(int sx, int sy, int tx, int ty) {
+    const int ax = std::abs(tx-sx), ay = std::abs(ty-sy), length = std::max(ax,ay);
+    const int signX = (tx > sx)-(tx < sx), signY = (ty > sy)-(ty < sy);
+    const bool majorX = ax >= ay; const int minor = majorX ? ay : ax;
+    int x = sx, y = sy, error = length/2;
+    std::vector<uint8_t> path;
+    for (int i = 0; i < length; ++i) {
+        int nx = x, ny = y;
+        if (majorX) nx += signX; else ny += signY;
+        error += minor;
+        if (error >= length) { error -= length; if (majorX) ny += signY; else nx += signX; }
+        int direction = 0;
+        while (direction < 8 && (dx[direction] != nx-x || dy[direction] != ny-y)) ++direction;
+        Check(direction < 8, "previous raster reference is not an eight-neighbour step");
+        path.push_back(uint8_t(direction)); x = nx; y = ny;
+    }
+    return path;
+}
+
 // A minimum step count alone accepts the reported large L. The cross product also
 // bounds the actual emitted route to one raster cell from the reference segment.
 static void VerifyStraightRay(const Fixture& f, int start, int target,
-    const QueryResult& result, const std::vector<uint8_t>& path) {
-    f.verify(start,target,2,result,path,true);
+    const QueryResult& result, const std::vector<uint8_t>& path, bool bfsOracle = true) {
+    if (bfsOracle) f.verify(start,target,2,result,path,true);
+    else Check(result.status == Found, "free minimum-cost ray not found");
     const int sx = start % f.width, sy = start / f.width;
     const int tx = target % f.width, ty = target / f.width;
     const int vx = tx-sx, vy = ty-sy, length = std::max(std::abs(vx),std::abs(vy));
     Check(result.length == length && result.ground == length && result.moat == 0,
         "direct ray changes minimum length or ground classification");
+    Check(result.cost == length && path.size() == size_t(length), "free ray cost or byte count differs from its length");
     Check(result.flags == 0 && result.reserved == 0, "direct ray reports anchor flags or A* settles");
     int x = sx, y = sy;
     for (size_t i = 0; i < path.size(); ++i) {
+        Check(path[i] < 8 && (f.words[f.node(x,y)] & (1u << (8+path[i]))) != 0,
+            "direct ray invented an outgoing ground edge");
         x += dx[path[i]]; y += dy[path[i]];
+        Check(x >= 0 && x < f.width && y >= 0 && y < f.height && f.allowed(f.node(x,y),2),
+            "direct ray leaves the map or enters a forbidden surface");
         Check(std::abs((x-sx)*vy - (y-sy)*vx) <= length,
             "minimum-cost route still makes a large L instead of following the segment");
         Check(std::max(std::abs(tx-x),std::abs(ty-y)) == length-int(i)-1,
@@ -168,16 +201,17 @@ static void VerifyStraightRay(const Fixture& f, int start, int target,
 }
 
 static void DirectGroundRayTests() {
-    Fixture f(65,65); OpenGround(f); f.publish();
-    const int start = f.node(32,32);
+    Fixture f(129,129); OpenGround(f); f.publish();
+    const int start = f.node(64,64);
     const int offsets[][2] = {{0,20},{0,-20},{20,0},{-20,0},{20,20},{20,-20},{-20,20},{-20,-20},
         {3,20},{-3,20},{3,-20},{-3,-20},{20,3},{20,-3},{-20,3},{-20,-3},
-        {11,20},{-11,20},{11,-20},{-11,-20},{20,11},{20,-11},{-20,11},{-20,-11}};
+        {11,20},{-11,20},{11,-20},{-11,-20},{20,11},{20,-11},{-20,11},{-20,-11},
+        {45,22},{45,-22},{-45,22},{-45,-22},{22,45},{22,-45},{-22,45},{-22,-45}};
     std::vector<int> starts, targets;
     std::vector<std::vector<uint8_t>> expected;
     uint8_t bytes[MaxSteps+1];
     for (const auto& offset : offsets) {
-        const int target = f.node(32+offset[0],32+offset[1]);
+        const int target = f.node(64+offset[0],64+offset[1]);
         std::fill(std::begin(bytes),std::end(bytes),uint8_t(0xA5)); QueryResult result{};
         // One settle cannot discover this route. Success must therefore avoid A*,
         // rather than merely change the old search's direction order.
@@ -185,6 +219,11 @@ static void DirectGroundRayTests() {
             "direct limited single ABI");
         std::vector<uint8_t> path(bytes,bytes+result.length);
         VerifyStraightRay(f,start,target,result,path);
+        const int turns = DirectionChanges(path);
+        if (std::abs(offset[0]) == std::abs(offset[1]) || offset[0] == 0 || offset[1] == 0)
+            Check(turns == 0, "a supported eight-direction ray needlessly changes heading");
+        if (result.length == 45)
+            Check(turns <= 15, "reported 45/22 route retains per-tile heading changes");
         Check(bytes[result.length] == 0xA5, "direct single writes past active route");
         starts.push_back(start); targets.push_back(target); expected.push_back(path);
     }
@@ -218,6 +257,228 @@ static void DirectGroundRayTests() {
     Check(mma_query_batch(f.context,task,starts.data(),targets.data(),int(starts.size()),8,8,
         staleBytes.data(),MaxSteps,stale.data()) == Ok, "stale direct batch ABI");
     for (const auto& r : stale) Check(r.status == Stale && r.length == 0, "direct batch bypasses stale task");
+}
+
+static void QuietGroundSlopeTests() {
+    Fixture f(129,129); OpenGround(f); f.publish();
+    const int sx = 64, sy = 64, start = f.node(sx,sy);
+    uint8_t bytes[MaxSteps+1];
+    // All rational slopes through the reported 45-step range, reflected and rotated.
+    // The open map makes Chebyshev an independent exact-cost oracle without another BFS.
+    for (int length = 1; length <= 45; ++length) for (int minor = 0; minor <= length; ++minor)
+        for (int orientation = 0; orientation < 8; ++orientation) {
+            int vx = (orientation & 1) ? minor : length, vy = (orientation & 1) ? length : minor;
+            if (orientation & 2) vx = -vx; if (orientation & 4) vy = -vy;
+            const int tx = sx+vx, ty = sy+vy, target = f.node(tx,ty);
+            std::fill(std::begin(bytes),std::end(bytes),uint8_t(0xA5)); QueryResult result{};
+            Check(mma_single_route_limited(f.context,1,target,1,0,2,start,1,bytes,MaxSteps,&result) == Ok,
+                "quiet slope single ABI");
+            std::vector<uint8_t> path(bytes,bytes+result.length);
+            VerifyStraightRay(f,start,target,result,path,false);
+            Check(DirectionChanges(path) <= DirectionChanges(PreviousRaster(sx,sy,tx,ty)),
+                "quiet free ray adds heading changes compared with the previous raster");
+            if (minor == 0 || minor == length) Check(DirectionChanges(path) == 0,
+                "pure native direction acquired turns in a rotated slope case");
+            Check(bytes[result.length] == 0xA5, "quiet slope overwrites the output sentinel");
+        }
+    // The actual coordinates are translated by (-300,-320); only the map origin
+    // changes, preserving the exact reported (316,364)->(361,342) delta and parity.
+    const int from = f.node(16,44), to = f.node(61,22);
+    QueryResult actual{};
+    Check(mma_single_route_limited(f.context,1,to,1,0,2,from,1,bytes,MaxSteps,&actual) == Ok,
+        "reported route single ABI");
+    std::vector<uint8_t> path(bytes,bytes+actual.length);
+    VerifyStraightRay(f,from,to,actual,path);
+    Check(DirectionChanges(PreviousRaster(16,44,61,22)) == 44 && DirectionChanges(path) <= 15,
+        "reported 44-turn raster has not become a quieter 45-step route");
+}
+
+static void QuietRunQuotientTests() {
+    // This rectangle covers every actual (numerator, divisor) pair for D<=800
+    // without repeating the same pair for every slope: numerator<=2D, divisor<=D.
+    // The ordinary division is the independent oracle for the optimized helper.
+    for (int denominator = 1; denominator <= 800; ++denominator) {
+        const u64 reciprocal = (u64(1)<<32)/u32(denominator);
+        for (int numerator = 0; numerator <= 1600; ++numerator)
+            Check(RasterCursor<RasterStyle::Quiet>::runQuotient(numerator,denominator,reciprocal) == numerator/denominator,
+                "quiet run quotient differs from exact division in the map-sized range");
+    }
+    std::mt19937 random(0x673C5A19);
+    for (int i = 0; i < 10000; ++i) {
+        const int length = 1+int(random()%640000), denominator = 1+int(random()%u32(length));
+        const u64 reciprocal = (u64(1)<<32)/u32(denominator);
+        const int multiple = (2*length/denominator)*denominator;
+        const int cases[] = {0,2*length,int(random()%u32(2*length+1)),multiple,
+            std::max(0,multiple-1),std::min(2*length,multiple+1)};
+        for (int numerator : cases)
+            Check(RasterCursor<RasterStyle::Quiet>::runQuotient(numerator,denominator,reciprocal) == numerator/denominator,
+                "quiet run quotient loses an exact-multiple boundary in the full supported node range");
+    }
+}
+
+static void SelectedEdgePermissionTests() {
+    std::mt19937 random(0x14BE6731);
+    Fixture f(13,11);
+    for (int phase = 0; phase < 12; ++phase) {
+        for (size_t i = 0; i < f.words.size(); ++i) {
+            // The first phase includes every border bit before Mask clamps it;
+            // later phases vary ordinary, ground-only and wet direction bits.
+            f.words[i] = phase == 0 ? 0xFFFFFFu : random() & 0xFFFFFFu;
+            f.surfaces[i] = uint8_t(random()%4 | (random()%5 ? 0x80 : 0));
+        }
+        f.publish();
+        for (int kind = 0; kind <= 2; ++kind) {
+            TraversalView view(f.context->map,*f.context->mask(1),*f.context->surfaces,kind);
+            for (int moat : {0,7}) for (int node = 0; node < int(f.words.size()); ++node) {
+                const uint8_t expected = view.outgoing(node,moat);
+                for (int d = 0; d < 8; ++d)
+                    Check(view.allowsEdge(node,d,moat) == ((expected & (1u<<d)) != 0),
+                        "selected-edge permission differs from the full directed/surface mask");
+            }
+        }
+    }
+}
+
+static void QuietGroundFallbackAndBridgeTests() {
+    {
+        Fixture f(80,80);
+        const int sx = 10, sy = 40, tx = 55, ty = 18;
+        const auto previous = PreviousRaster(sx,sy,tx,ty);
+        int x = sx, y = sy;
+        for (uint8_t d : previous) { f.edge(x,y,d); x += dx[d]; y += dy[d]; }
+        f.publish(); const int start = f.node(sx,sy), target = f.node(tx,ty);
+        uint8_t bytes[MaxSteps+1]; std::fill(std::begin(bytes),std::end(bytes),uint8_t(0xA5)); QueryResult result{};
+        Check(mma_single_route_limited(f.context,1,target,1,0,2,start,1,bytes,MaxSteps,&result) == Ok,
+            "blocked quiet corridor fallback ABI");
+        std::vector<uint8_t> path(bytes,bytes+result.length);
+        VerifyStraightRay(f,start,target,result,path);
+        Check(path == previous && bytes[result.length] == 0xA5,
+            "blocked quiet corridor loses the legal previous raster or adds search work");
+    }
+    {
+        Fixture f(50,50); OpenGround(f);
+        for (int y = 11; y < 30; y += 2) BlockGroundTile(f,10,y);
+        f.publish(); const int start = f.node(10,10), target = f.node(10,30);
+        std::vector<uint8_t> repeated;
+        for (int i = 0; i < 10; ++i) { repeated.push_back(3); repeated.push_back(5); }
+        Check(DirectionChanges(repeated) == 19, "repeated-bridge regression no longer has the reported winding input");
+        auto& scratch = *f.context->scratch;
+        TraversalView view(f.context->map,*f.context->mask(1),*f.context->surfaces,2);
+        int ground = 20, moat = 0;
+        const i64 saved = StraightenRoute(f.context->map,view,scratch,start,repeated,1,0,ground,moat);
+        QueryResult normalized{}; normalized.status = Found; normalized.length = int(repeated.size());
+        normalized.ground = ground; normalized.moat = moat; normalized.cost = 20-saved;
+        VerifyStraightRay(f,start,target,normalized,repeated);
+        Check(saved == 0 && DirectionChanges(repeated) <= 2,
+            "repeated valid bridges were not consolidated into a straight side strip");
+        uint8_t bytes[MaxSteps]; QueryResult result{};
+        Check(mma_single_route_limited(f.context,1,target,1,0,2,start,1,bytes,MaxSteps,&result) == Ok,
+            "repeated-bridge public route ABI");
+        std::vector<uint8_t> path(bytes,bytes+result.length);
+        VerifyStraightRay(f,start,target,result,path);
+        Check(DirectionChanges(path) <= 2, "public direct route still emits repeated opposing bridge diagonals");
+        // The production pair normalizer consumes an explicit part of the shared
+        // cap. Exercise its real remaining-budget boundary without a new test knob.
+        const i64 cap = 16LL*20+64;
+        i64 work = cap-3; uint8_t first = 3, second = 5;
+        const int side = f.node(11,11);
+        Check(!NormalizePair(f.context->map,view,side,first,second,1,0,false,&work,cap) &&
+            work == cap-3 && first == 3 && second == 5,
+            "pair normalization exceeds its remaining work allowance or changes a rejected pair");
+        work = cap-4;
+        Check(NormalizePair(f.context->map,view,side,first,second,1,0,false,&work,cap) &&
+            work == cap && first == 4 && second == 4,
+            "pair normalization fails at an exactly sufficient work allowance");
+    }
+}
+
+// Independently sum emitted edges, including the native per-edge saturation. A
+// geometric step count or g*ground+w*moat is not an oracle when surcharges exist.
+static i64 EmittedWeightedCost(const Fixture& f, int start, int target,
+    const std::vector<uint8_t>& path, int ground, int moat, const std::vector<uint8_t>& penalties) {
+    int node = start; i64 cost = 0;
+    for (uint8_t d : path) {
+        Check(d < 8, "weighted ray emits an invalid direction");
+        const bool wet = (f.words[node] & (1u << (16+d))) != 0;
+        const bool allowed = moat ? (f.words[node] & (1u << d)) != 0 :
+            (f.words[node] & (1u << (8+d))) != 0 && !wet;
+        Check(allowed, "weighted ray invents a forbidden directed edge");
+        const int next = node + dy[d]*f.width + dx[d];
+        Check(next >= 0 && next < int(f.words.size()) && f.allowed(next,2),
+            "weighted ray leaves its permitted surface");
+        const int fullCost = (moat && wet ? moat : ground) + int(penalties[next])*ground;
+        cost += std::min(255,fullCost); node = next;
+    }
+    Check(node == target, "weighted ray lost its exact endpoint");
+    return cost;
+}
+
+static void QuietWeightedRayTests() {
+    Fixture f(80,80); OpenGround(f); f.publish();
+    std::vector<int> nodes(f.words.size()); std::vector<uint8_t> penalties(f.words.size());
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        nodes[i] = int(i);
+        penalties[i] = i % 5 == 0 ? uint8_t(254) : i % 3 == 0 ? uint8_t(2) : uint8_t(0);
+    }
+    int changed = 0;
+    Check(mma_penalty_update(f.context,1,nodes.data(),penalties.data(),int(nodes.size()),&changed) == Ok,
+        "quiet weighted penalty fixture ABI");
+    const int start = f.node(10,45), target = f.node(55,23);
+    for (int phase = 0; phase < 2; ++phase) {
+        if (phase) {
+            for (int y = 0; y < f.height; ++y) for (int x = 0; x < f.width; ++x)
+                if ((x+y)%7 == 0) f.words[f.node(x,y)] |= 0xFF0000u;
+            f.publish();
+            Check(mma_penalty_update(f.context,1,nodes.data(),penalties.data(),int(nodes.size()),&changed) == Ok,
+                "quiet wet penalty fixture ABI");
+        }
+        TraversalView view(f.context->map,*f.context->mask(1),*f.context->surfaces,2);
+        for (int ground : {1,17,255}) {
+            const int moat = phase ? 7 : 0;
+            std::vector<uint8_t> path; i64 work = 0;
+            const i64 cost = RayCost(f.context->map,view,start,target,ground,moat,1000000,work,&path);
+            Check(cost >= 0 && path.size() == 45 && work >= 45,
+                "quiet weighted ray failed on an open permitted graph");
+            Check(cost == EmittedWeightedCost(f,start,target,path,ground,moat,penalties),
+                "quiet ray cost differs from emitted surcharge/cap/wet edges");
+            work = 0;
+            std::vector<uint8_t> rejected{0xEE};
+            // The cap deliberately reserves a whole ray per attempted style, as in
+            // the previous scheduler, even when its first entered edge rejects it.
+            Check(RayCost(f.context->map,view,start,target,ground,moat,0,work,&rejected) < 0 && work == 2*45 &&
+                rejected == std::vector<uint8_t>{0xEE},
+                "failed quiet and previous weighted emissions are not both charged or roll back incorrectly");
+        }
+    }
+}
+
+static void QuietLongRouteAccountingTests() {
+    for (int shape = 0; shape < 2; ++shape) {
+        Fixture f(shape ? 2002 : 702,shape ? 205 : 354);
+        // A wide prefix and thin tail make Quiet fail late while the previous
+        // raster stays usable. These 700/2000-step cases do not necessarily exhaust
+        // the cap after restoring the old segment selection; no forced-hit claim.
+        const int prefixWidth = shape ? 1500 : 530;
+        for (int y = 0; y < f.height; ++y) for (int x = 0; x < prefixWidth; ++x)
+            f.words[f.node(x,y)] = 0xFFFFu;
+        const int start = f.node(1,1); int x = 1, y = 1;
+        std::vector<uint8_t> path;
+        if (shape) path = PreviousRaster(1,1,1999,201);
+        else for (int i = 0; i < 349; ++i) { path.push_back(3); path.push_back(2); }
+        path.push_back(3); path.push_back(4);
+        Check(path.size() == size_t(shape ? MaxSteps : 700), "long accounting fixture has the wrong publication boundary");
+        for (uint8_t d : path) { f.edge(x,y,d); x += dx[d]; y += dy[d]; }
+        const int target = f.node(x,y); f.publish();
+        auto& scratch = *f.context->scratch;
+        TraversalView view(f.context->map,*f.context->mask(1),*f.context->surfaces,2);
+        int ground = int(path.size()), moat = 0;
+        const i64 oldCost = ground;
+        const i64 saved = StraightenRoute(f.context->map,view,scratch,start,path,1,0,ground,moat);
+        const std::vector<uint8_t> penalties(f.words.size(),0);
+        const i64 cost = EmittedWeightedCost(f,start,target,path,1,0,penalties);
+        Check(cost == oldCost-saved && cost <= oldCost && ground == int(path.size()) && moat == 0,
+            "long straightening loses route cost, endpoint or ground accounting");
+    }
 }
 
 static void DirectGroundObstaclesAndGuards() {
@@ -492,32 +753,32 @@ static void RandomDirectedTests() {
     }
 }
 
-// Maximal digital straight pieces of a route (at most two adjacent directions, the minor one only
-// in single steps, interior major runs differing by at most one). A raster ray is one piece; the
-// large L of a lowest-direction-first descent is two or more.
+// Minimum straight pieces under the player's geometric contract: adjacent native
+// headings and every node within one raster cell of that piece's endpoint segment.
+// Unlike the former run-length test this accepts quieter runs of both headings,
+// while still rejecting the large L of a lowest-direction-first descent.
 static int StraightPieces(const std::vector<uint8_t>& path) {
-    int pieces = 0; size_t i = 0;
-    while (i < path.size()) {
-        ++pieces; const int a = path[i]; int b = -1; size_t j = i + 1;
-        std::vector<std::pair<int,int>> runs{{a,1}};
-        for (; j < path.size(); ++j) {
+    const int n = int(path.size());
+    std::vector<int> x(size_t(n)+1,0), y(size_t(n)+1,0), pieces(size_t(n)+1,n+1);
+    for (int i = 0; i < n; ++i) { x[i+1] = x[i]+dx[path[i]]; y[i+1] = y[i]+dy[path[i]]; }
+    pieces[n] = 0;
+    for (int i = n-1; i >= 0; --i) {
+        const int first = path[i]; int second = -1;
+        for (int j = i; j < n; ++j) {
             const int d = path[j];
-            if (d != a && b < 0) { if (((d-a)&7) != 1 && ((a-d)&7) != 1) break; b = d; }
-            if (d != a && d != b) break;
-            auto next = runs; if (next.back().first == d) ++next.back().second; else next.push_back({d,1});
-            int longA = 0, longB = 0, countA = 0, countB = 0;
-            for (auto& r : next) { if (r.first == a) { countA += r.second; longA = std::max(longA,r.second); } else { countB += r.second; longB = std::max(longB,r.second); } }
-            bool ok = !(longA > 1 && longB > 1);
-            const int major = longB > 1 || (longA <= 1 && countB > countA) ? b : a;
-            int lo = INT32_MAX, hi = 0;
-            for (size_t k = 1; k + 1 < next.size(); ++k) if (next[k].first == major) { lo = std::min(lo,next[k].second); hi = std::max(hi,next[k].second); }
-            if (lo != INT32_MAX && (hi - lo > 1 || (next.front().first == major && next.front().second > hi + 1) || (next.back().first == major && next.back().second > hi + 1))) ok = false;
-            if (!ok) break;
-            runs.swap(next);
+            if (d != first && second < 0) {
+                if (((d-first)&7) != 1 && ((first-d)&7) != 1) break;
+                second = d;
+            }
+            if (d != first && d != second) break;
+            const int vx = x[j+1]-x[i], vy = y[j+1]-y[i], length = std::max(std::abs(vx),std::abs(vy));
+            bool straight = length == j+1-i;
+            for (int k = i+1; straight && k <= j; ++k)
+                if (std::abs((x[k]-x[i])*vy-(y[k]-y[i])*vx) > length) straight = false;
+            if (straight) pieces[i] = std::min(pieces[i],1+pieces[j+1]);
         }
-        i = j;
     }
-    return pieces;
+    return pieces[0];
 }
 
 // Routes around larger obstacles stay optimal but consist of few straight pieces (TODO G10):
@@ -624,7 +885,8 @@ static void RandomWeightedTests() {
 
 int main(int argc, char** argv) {
     try { if (argc == 2 && std::string(argv[1]) == "--memory-probe") { MemoryWorkerProbe(); ProductionMemoryWorkerProbe(); return 0; }
-        Check(mma_contract() == 0x04000012, "private ABI"); CorridorTests(); DirectGroundRayTests(); DirectGroundObstaclesAndGuards();
+        Check(mma_contract() == 0x04000012, "private ABI"); CorridorTests(); DirectGroundRayTests(); QuietGroundSlopeTests(); QuietRunQuotientTests(); SelectedEdgePermissionTests();
+        QuietGroundFallbackAndBridgeTests(); QuietWeightedRayTests(); QuietLongRouteAccountingTests(); DirectGroundObstaclesAndGuards();
         SubanchorAndBatchTests(); RandomDirectedTests(); StraightenedObstacleTests(); RandomWeightedTests();
         MemoryWorkerProbe(); ProductionMemoryWorkerProbe(); AllocationFailureReentryTests();
         std::cout << "PASS: " << assertions << " production native surface/core assertions.\n"; return 0; }
