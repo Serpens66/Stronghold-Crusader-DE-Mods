@@ -128,6 +128,7 @@
     <Compile Include="..\Shared\Runtime\Native\NativeBuildingCompoundGroup.cs"><Link>Shared\Runtime\Native\NativeBuildingCompoundGroup.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Threading\UnityMainThreadDispatch.cs"><Link>Shared\Runtime\Threading\UnityMainThreadDispatch.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\NativePatternResolver.cs"><Link>Shared\Runtime\Native\NativePatternResolver.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Native\CommittedMemory.cs"><Link>Shared\Runtime\Native\CommittedMemory.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\NativeResolutionCache.cs"><Link>Shared\Runtime\Native\NativeResolutionCache.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\NativeInstructionOperands.cs"><Link>Shared\Runtime\Native\NativeInstructionOperands.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Localization\SerpLocalization.cs"><Link>Shared\Runtime\Localization\SerpLocalization.cs</Link></Compile>

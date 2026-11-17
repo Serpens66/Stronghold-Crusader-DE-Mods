@@ -149,3 +149,18 @@ Native Adressen und Updateprüfung: `Pathfinding/UpdateToNewDLL.md` (Abschnitt �
   in `test_gates_bridge2.sav`) wurde in einer eigenen Sitzung untersucht: Der Testmod ist nicht als Ursache belegt;
   zwei Reproduktionsläufe froren nicht ein, der Befehl wurde sauber abgelehnt. Die Ursache bleibt
   offen, weil kein Speicherabbild existiert.
+
+## Abnahme der Pathfinding-Integration (17.11.2026, Momentaufnahme)
+
+Nur Pathfinding 0.1.10 mit Einstellung `EnableEnemyDrawbridgeClosure`, dieser Testmod 0.2.0 als
+reine Abnahme. Belege unter `.work/t/bridge-accept/` (`398db8405139`, `cead1e6c5d2e`,
+`5020605048b4`, `cc796af66467`, `9c894816e11c`).
+- `test_gates_bridge3.sav` an: 30/30. Feindliche Befehle aufs Deck: kein Weg. Befehle ins
+  Burginnere: 6/6 über den anderen Weg (~380 Kacheln), 0 über das Deck.
+- `test_gates_bridge3.sav` aus (Gegenprobe): 6/6 Wege über das Deck, 100 Deckbesuche.
+- KI-Beobachtung an: 0 feindliche Einheiten auf dem Deck.
+- `test_gates_bridge.sav` 29/29, `test_gates_bridge2.sav` 28/28.
+- Lauf `277e23e6bcd3` scheiterte einmal an einem veralteten Portal-Mittelfeld (C = 91 statt 92):
+  Ein Regionsneuaufbau nach `0xF4540` im selben Tick lässt die Portalfelder bis zum nächsten
+  Tick veraltet (Vanilla, siehe Baseline `PORTAL_TABLE.md`). Die Abnahme liest Portale seitdem
+  erst bei aktuellem Stand (`PORTAL stale snapshot` im Log, sonst zwei Ticks weiter).

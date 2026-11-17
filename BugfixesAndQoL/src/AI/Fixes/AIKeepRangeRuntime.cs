@@ -35,8 +35,9 @@ namespace BugfixesAndQoL
             if (installed) return;
             if (Chainloader.PluginInfos.ContainsKey("AIKeepRangeLimitTest_Serp"))
                 throw new InvalidOperationException("AI_KEEP_RANGE_INACTIVE: remove AIKeepRangeLimitTest_Serp and restart; no competing detour installed.");
-            // No live copied-entry probe: Resolve pins RedBird 1.5.0.0, ValidateDetour checks the
-            // candidate before Enable and the patch after it; tests/AIKeepRange.Tests runs the backend offline.
+            // No live copied-entry probe and no runtime RedBird pin (the preflight gates the audited version
+            // at build): ValidateDetour checks the candidate and its trampoline before Enable and the patch
+            // after it; tests/AIKeepRange.Tests runs the backend offline.
             ulong target = AIKeepRangeNativeContract.Resolve(context, out string resolution);
             SubscribeLifecycle();
             NativeDetour<AIKeepDistanceCheck> candidate = null;

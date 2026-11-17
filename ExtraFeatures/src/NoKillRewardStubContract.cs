@@ -182,16 +182,9 @@ namespace ExtraFeatures
             if (probe.StubAddress == IntPtr.Zero)
                 throw new InvalidOperationException("RedBird did not generate a stub.");
             ulong address = unchecked((ulong)probe.StubAddress.ToInt64());
-            // RedBird exposes no stub size and packs stubs into 64-KiB slabs: never read past the
-            // stub's committed region (a stub at a slab end would otherwise fault).
-            if (VirtualQuery(probe.StubAddress, out MemoryBasicInformation region,
-                    (UIntPtr)Marshal.SizeOf<MemoryBasicInformation>()) == UIntPtr.Zero ||
-                region.State != MemCommit)
-                throw new InvalidOperationException("RedBird stub memory is not committed.");
-            ulong regionEnd = unchecked((ulong)region.BaseAddress.ToInt64() + (ulong)region.RegionSize.ToInt64());
-            int scanBytes = (int)Math.Min(1024UL, regionEnd - address);
-            byte[] bytes = new byte[scanBytes];
-            Marshal.Copy(probe.StubAddress, bytes, 0, scanBytes);
+            // RedBird publishes no stub size; never read past the stub's committed region.
+            byte[] bytes = Shared.CommittedMemory.ReadUpTo(probe.StubAddress, 1024);
+            int scanBytes = bytes.Length;
             Decoder decoder = Decoder.Create(64, new ByteArrayCodeReader(bytes), address);
             var instructions = new List<Instruction>();
             while (decoder.IP + 32 < address + (ulong)scanBytes)
@@ -203,23 +196,5 @@ namespace ExtraFeatures
             }
             return instructions.ToArray();
         }
-
-        private const uint MemCommit = 0x1000;
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct MemoryBasicInformation
-        {
-            internal IntPtr BaseAddress;
-            internal IntPtr AllocationBase;
-            internal uint AllocationProtect;
-            internal ushort PartitionId;
-            internal IntPtr RegionSize;
-            internal uint State;
-            internal uint Protect;
-            internal uint Type;
-        }
-
-        [DllImport("kernel32.dll", SetLastError = true)]
-        private static extern UIntPtr VirtualQuery(IntPtr address, out MemoryBasicInformation info, UIntPtr length);
     }
 }

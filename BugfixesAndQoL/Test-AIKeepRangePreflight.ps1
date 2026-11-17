@@ -6,14 +6,19 @@ $runtime = [IO.File]::ReadAllText($runtimePath)
 $contract = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\AI\Fixes\AIKeepRangeNativeContract.cs'))
 $decision = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\AI\Fixes\AIKeepRangeDecision.cs'))
 $source = $runtime + $contract + $decision
-# No live copied-entry probe (it disabled the fix on starts without near memory around its copy):
-# the RedBird pin, ValidateDetour before/after Enable and the offline backend tests cover it.
+# No live copied-entry probe (it disabled the fix on starts without near memory around its copy) and no
+# runtime RedBird pin: ValidateDetour before/after Enable and the offline backend tests cover the contract;
+# the audited RedBird version is gated here at build time instead, so players are never locked out.
+$redBirdDir = if ($ExtenderDir) { $ExtenderDir } else { 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese' }
+if ([Reflection.AssemblyName]::GetAssemblyName((Join-Path $redBirdDir 'RedBird.Backends.NativeX64.dll')).Version -ne [version]'1.5.0.0') {
+    throw 'Unreviewed RedBird NativeX64 backend: re-audit AI keep range (Indirect/10, trampoline, continuation) and update this gate.'
+}
 if ($source -match 'ProbeBackend|AllocHGlobal|FreeHGlobal|VirtualFree|NativeMemoryManager' -or
-    $contract -notmatch 'GetName\(\)\.Version != new Version\(1, 5, 0, 0\)' -or
+    $source -match 'GetName\(\)\.Version' -or
     $contract -notmatch 'AllowedSchemes = DetourScheme.Indirect' -or
     # The install-phase wrapper keeps the same Indirect-only options (HookInstallPhase.Backend).
     $runtime -notmatch 'AIKeepRangeNativeContract\.Backend\)?\.CreateDetour') {
-    throw 'The real hook must use the pinned Indirect-only backend without a live copied-entry probe.'
+    throw 'The real hook must use the Indirect-only backend without a runtime version pin or live copied-entry probe.'
 }
 $vm = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\Settings\BugfixesAndQoLViewModel.cs'))
 $parent = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\Core\Bootstrap\BugfixesAndQoLRuntime.cs'))

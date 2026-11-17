@@ -129,10 +129,28 @@ namespace EnemyBridgePathTest
             foreach (var wait in run.SetPause(run.CurrentMission, true)) yield return wait;
         }
 
+        // Reads the decks at a pause where every gate portal reflects the current regions.
+        private static List<DeckInspector.DeckReport> freshDecks;
+        private static IEnumerable<AutomationWait> ReadFreshDecks(AutomationRun run)
+        {
+            for (int attempt = 0; ; attempt++)
+            {
+                freshDecks = run.InSimulation(run.CurrentMission, () => runtime.DescribeDecks());
+                var stale = freshDecks.Where(d => !d.PortalFresh).ToList();
+                if (stale.Count == 0) yield break;
+                Stamp("PORTAL stale snapshot attempt=" + attempt + " gates=" + string.Join(",", stale.Select(d => d.Gate + ":C=" + d.CenterField + "/now=" + d.CenterRegionNow)));
+                if (attempt >= 5) throw new InvalidOperationException("Gate portals stayed stale after repeated ticks.");
+                foreach (var wait in run.SetPause(run.CurrentMission, false)) yield return wait;
+                yield return run.WaitForTicks(run.CurrentMission, 2);
+                foreach (var wait in run.SetPause(run.CurrentMission, true)) yield return wait;
+            }
+        }
+
         private static IEnumerable<AutomationWait> Inventory(AutomationRun run)
         {
             foreach (string line in run.InSimulation(run.CurrentMission, () => runtime.DescribeStructures())) Stamp("STRUCTURE " + line);
-            var all = run.InSimulation(run.CurrentMission, () => runtime.DescribeDecks());
+            foreach (var wait in ReadFreshDecks(run)) yield return wait;
+            var all = freshDecks;
             foreach (var d in all) Stamp("DECK " + Describe(d) + " raised=" + d.Raised);
             foreach (int gate in all.Select(d => d.Gate).Distinct())
                 foreach (string line in run.InSimulation(run.CurrentMission, () => runtime.DescribeGateSurroundings(gate))) Stamp("GATEAREA " + line);
@@ -150,7 +168,8 @@ namespace EnemyBridgePathTest
             foreach (var wait in run.SetPause(run.CurrentMission, false)) yield return wait;
             yield return run.WaitForTicks(run.CurrentMission, 260); // 0xE49D0 countdown is 200 calls
             foreach (var wait in run.SetPause(run.CurrentMission, true)) yield return wait;
-            var all = run.InSimulation(run.CurrentMission, () => runtime.DescribeDecks());
+            foreach (var wait in ReadFreshDecks(run)) yield return wait;
+            var all = freshDecks;
             decks = all.Where(d => !d.Raised && d.LandingTile >= 0).ToList();
             foreach (var d in decks) Stamp("DECK " + (enabled ? "on " : "off ") + Describe(d));
         }

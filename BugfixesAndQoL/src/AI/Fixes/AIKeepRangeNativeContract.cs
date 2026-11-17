@@ -40,8 +40,6 @@ namespace BugfixesAndQoL
         {
             if (bytes.Length != FunctionSize || Hash(bytes) != FunctionHash)
                 throw new InvalidOperationException("Distance predicate body changed or is already patched.");
-            if (typeof(NativeDetour<>).Assembly.GetName().Version != new Version(1, 5, 0, 0))
-                throw new InvalidOperationException("Re-audit the installed NativeX64 backend version.");
             var decoder = Decoder.Create(64, new ByteArrayCodeReader(bytes));
             decoder.IP = target;
             while (decoder.IP < target + FunctionSize)

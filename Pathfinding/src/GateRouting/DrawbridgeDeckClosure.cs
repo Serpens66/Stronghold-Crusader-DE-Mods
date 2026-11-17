@@ -409,6 +409,9 @@ namespace Pathfinding.GateRouting
             // Only our closure window can put the deck tile into the gate corridor component.
             int deckComponent = components[outside];
             if (deckComponent == 0 || deckComponent != components[inside] || !TryLoweredBridge(outside, *(short*)(record + OffOwner), out int bridge)) return;
+            // The deck/corridor region stays in the portal through field C (PCL of footprint tile
+            // X+1/Y+1, the gatehouse floor), which Vanilla itself relies on for units inside the
+            // corridor; observed equal to the corridor region on all accepted gates.
             int landing = DeckClosureCore.FindLanding(this, outside, inside, isOnBridge, componentOf);
             if (landing <= 0) return;
             int* field = (int*)(portal + componentOffset);

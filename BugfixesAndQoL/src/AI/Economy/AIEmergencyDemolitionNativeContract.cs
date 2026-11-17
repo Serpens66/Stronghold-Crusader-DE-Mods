@@ -155,7 +155,8 @@ namespace BugfixesAndQoL
                 hook.PointerSlot != IntPtr.Zero && hook.TrampolineAddress != IntPtr.Zero &&
                 hook.HookEntryPointAddress != IntPtr.Zero && hook.OriginalEntryPointAddress != IntPtr.Zero,
                 "Emergency-demolition detour backend contract differs.");
-            var bytes = new byte[32];
+            // Never read past the trampoline (RedBird packs stubs into slabs).
+            var bytes = new byte[Math.Min(32, hook.TrampolineSize)];
             Marshal.Copy(hook.TrampolineAddress, bytes, 0, bytes.Length);
             var decoder = Decoder.Create(64, new ByteArrayCodeReader(bytes));
             decoder.IP = unchecked((ulong)hook.TrampolineAddress.ToInt64());

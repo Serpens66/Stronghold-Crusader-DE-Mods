@@ -1,3 +1,4 @@
+using Iced.Intel;
 using RedBird.Abstractions.Hooks;
 using RedBird.Backends.NativeX64;
 using System;
@@ -32,7 +33,7 @@ internal static class CopiedProbeTests
             ProbeInstalledEntry(dll, "availability", 0xCC420, "48895C24204489442418", 10);
             ProbeInstalledEntry(dll, "visual map", 0x65830, "4C8BDC53554881EC88000000", 12);
             ProbeInstalledEntry(dll, "visual resource", 0x6E620, "48895C241855", 6);
-            Console.WriteLine("PASS: installed RedBird backend produces the audited Indirect detours on the real entries (availability 10, map 12, resource 6 bytes).");
+            Console.WriteLine("PASS: installed RedBird backend produces the audited Indirect detours and trampolines on the real entries (availability 10, map 12, resource 6 bytes).");
             return 0;
         }
         catch (Exception error)
@@ -69,6 +70,7 @@ internal static class CopiedProbeTests
                 if (probe == null || probe.Scheme.ToString() != "Indirect" ||
                     probe.DisplacedByteCount != displaced || probe.TargetAddress != target || probe.IsInstalled)
                     throw new Exception(name + " backend detour differs from the audited Indirect/" + displaced + " contract.");
+                CheckTrampoline(probe, image, target, displaced, name);
                 probe.Enable();
                 var patch = new byte[6];
                 Marshal.Copy(copy, patch, 0, patch.Length);
@@ -83,6 +85,27 @@ internal static class CopiedProbeTests
                 if (restored[index] != image[index]) throw new Exception(name + " copied probe was not restored.");
         }
         finally { VirtualFree(region, UIntPtr.Zero, 0x8000); }
+    }
+
+    // Mirrors SpectatorRuntime.VerifyTrampoline, which replaced the runtime RedBird version pin:
+    // the relocated prologue replays the entry bytes exactly and continues at entry + displaced.
+    private static void CheckTrampoline(NativeDetour<ProbeCallback> probe, byte[] image, ulong target, int displaced, string name)
+    {
+        if (probe.TrampolineAddress == IntPtr.Zero || probe.TrampolineSize < displaced + 5)
+            throw new Exception(name + " trampoline is missing or too short.");
+        var bytes = new byte[Math.Min(probe.TrampolineSize, displaced + 16)];
+        Marshal.Copy(probe.TrampolineAddress, bytes, 0, bytes.Length);
+        for (int i = 0; i < displaced; i++)
+            if (bytes[i] != image[i]) throw new Exception(name + " trampoline does not replay the entry bytes.");
+        ulong start = unchecked((ulong)probe.TrampolineAddress.ToInt64());
+        Decoder decoder = Decoder.Create(64, new ByteArrayCodeReader(bytes, displaced, bytes.Length - displaced), start + (ulong)displaced);
+        Instruction jump = decoder.Decode();
+        ulong continuation;
+        if (jump.FlowControl == FlowControl.UnconditionalBranch && jump.Op0Kind == OpKind.NearBranch64) continuation = jump.NearBranchTarget;
+        else if (jump.FlowControl == FlowControl.IndirectBranch && jump.IsIPRelativeMemoryOperand)
+            continuation = unchecked((ulong)Marshal.ReadInt64((IntPtr)(long)jump.IPRelativeMemoryAddress));
+        else throw new Exception(name + " trampoline has no continuation jump.");
+        if (continuation != target + (ulong)displaced) throw new Exception(name + " trampoline continues at the wrong address.");
     }
 
     private static int FileOffset(byte[] pe, int rva, int length)

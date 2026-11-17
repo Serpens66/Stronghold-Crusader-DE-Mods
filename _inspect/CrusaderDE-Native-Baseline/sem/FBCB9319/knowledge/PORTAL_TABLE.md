@@ -96,9 +96,12 @@ under `.work/t/bridge-accept/` (dated observations).
     (`0xD8040` at `0xD8153`/`0xD8177`/`0xD8190`/`0xD81B2`, used by every accepted closure run).
   - Region A `+0x2058` is the PCL of the entry tile, region B `+0x205C` the PCL of the exit tile:
     confirmed.
-  - Entry X/Y `+0x2040`/`+0x2044`, exit X/Y `+0x204C`/`+0x2050`, axis selector `+0x21F4`
-    (2 or 0: row or column layout) and region C `+0x220C` = PCL of tile (X+1, Y+1) for type 4:
-    probable (single static reading of `0xD8040`).
+  - Entry X/Y `+0x2040`/`+0x2044`, exit X/Y `+0x204C`/`+0x2050` and axis selector `+0x21F4`
+    (2 or 0: row or column layout): probable (single static reading of `0xD8040`).
+  - Region C `+0x220C` = PCL of footprint tile (X+1, Y+1) for both gatehouse types: confirmed
+    (2026-11-17, the last stores of `0xD7E90` at `0xD802C` and `0xD8040` at `0xD81DC` read
+    `[rowTable(Y+1) + X] * 2 + 0x50EC692`). In `test_gates_bridge3.sav` the whole 5x5 gatehouse
+    floor of gate 600 was one region, so C equals the corridor region there.
 - Type 4 handler `0xD8040` places the endpoints at X+5/X-1 or Y+5/Y-1 around the footprint
   centre +2, i.e. the small 5x5 gatehouse; type 3 `0xD7E90` is the large 7x7 one (confirmed;
   the Extender names them `PathConnectionClass.GatehouseSmall = 4` / `GatehouseBig = 3`).
@@ -108,3 +111,16 @@ under `.work/t/bridge-accept/` (dated observations).
   `48 89 5C 24 08 57` (NativeX64 Indirect displaces 6 bytes); no branch of the full function
   body targets the displaced span (capstone, 2026-11-16). Mod hook owners are recorded in
   DRAWBRIDGE_REGION_CLOSURE.md (integration section), not here.
+
+## Region rebuild outside the tick position (2026-11-17)
+
+- `0xE49D0` is called from `0x15200`, `0x5BC70`, `0x71670` (load normalization), `0x76780`,
+  `0x87460`, `0x87D10`, `0xCDE60` (the simulation tick, at `0xCE0BD`, before `0xF4540` at
+  `0xCE1A8`), `0xE1110` and `0xE1640` (path reconstruction repair) (baseline callers query).
+  Its countdown/force logic (`DAT_1837ed4cc`, 200 calls; force flag `+0x6C`) decides whether a
+  call really rebuilds; the flood stops at region id 999.
+- Consequence (probable, observed once): a rebuild that runs after `0xF4540` in the same tick
+  renumbers regions while the portal region fields keep the old numbers until the next
+  `0xF4540`. During that window region queries through the portals use stale ids (all
+  portals, Vanilla). Observed 2026-11-17 in an acceptance pause: gate 600 portal C = 91 while
+  the footprint tile and the corridor were region 92; the next runs showed C = 92.

@@ -65,13 +65,10 @@ namespace Spectator
             bool published = false;
             try
             {
-                if (typeof(NativeDetour<>).Assembly.GetName().Version !=
-                    new Version(1, 5, 0, 0))
-                    throw new InvalidOperationException("Installed RedBird NativeX64 differs from 1.5.0.0.");
                 ulong entry = unchecked((ulong)context.ModuleHandle.ToInt64()) + AvailabilityRva;
-                // No live copied-entry probe: the exact RedBird pin above, the candidate checks
-                // before Enable and VerifyAvailabilityPatch after it cover the backend contract;
-                // tests/Test-CopiedProbe.ps1 runs the installed backend on the real entry offline.
+                // No live copied-entry probe and no runtime RedBird pin: the candidate and its trampoline
+                // are checked before Enable and the patch after it; tests/Test-CopiedProbe.ps1 runs the
+                // installed backend on the real entries offline and gates the audited RedBird version.
                 VerifyAvailabilityEntry(entry);
                 var request = new DetourRequest<BuildAvailabilityDelegate>
                 {
@@ -85,6 +82,7 @@ namespace Spectator
                     candidate.DisplacedByteCount != AvailabilityEntry.Length ||
                     candidate.TargetAddress != entry || candidate.IsInstalled)
                     throw new InvalidOperationException("Availability detour candidate differs from audited entry.");
+                VerifyTrampoline(candidate.TrampolineAddress, candidate.TrampolineSize, entry, AvailabilityEntry);
                 nativeImageBase = unchecked((ulong)context.ModuleHandle.ToInt64());
                 availabilityDetour = candidate;
                 published = true; // Enable may publish before throwing; retain its root.
@@ -265,12 +263,18 @@ namespace Spectator
                 TargetAddress = entry, Callback = callback
             };
             var candidate = NativeDetourBackend.Instance.CreateDetour(in request) as NativeDetour<T>;
-            if (candidate == null || candidate.Scheme.ToString() != "Indirect" ||
-                candidate.DisplacedByteCount != expected.Length ||
-                candidate.TargetAddress != entry || candidate.IsInstalled)
+            try
             {
-                candidate?.Dispose();
-                throw new InvalidOperationException("Visual detour candidate differs: " + name);
+                if (candidate == null || candidate.Scheme.ToString() != "Indirect" ||
+                    candidate.DisplacedByteCount != expected.Length ||
+                    candidate.TargetAddress != entry || candidate.IsInstalled)
+                    throw new InvalidOperationException("Visual detour candidate differs: " + name);
+                VerifyTrampoline(candidate.TrampolineAddress, candidate.TrampolineSize, entry, expected);
+            }
+            catch
+            {
+                candidate?.Dispose(); // Unpublished candidate only.
+                throw;
             }
             return candidate;
         }
@@ -294,6 +298,31 @@ namespace Spectator
             }
             if (displaced != expected.Length)
                 throw new InvalidOperationException("Visual entry crosses audited instructions.");
+        }
+
+        // The relocated prologue must replay the audited entry bytes and continue at entry + displaced
+        // (checked on the unpublished candidate, so no RedBird version pin is needed at runtime).
+        private static void VerifyTrampoline(IntPtr trampoline, int size, ulong entry, byte[] expected)
+        {
+            if (trampoline == IntPtr.Zero || size < expected.Length + 5)
+                throw new InvalidOperationException("Detour trampoline is missing or too short.");
+            var bytes = new byte[Math.Min(size, expected.Length + 16)]; // Never past the trampoline.
+            Marshal.Copy(trampoline, bytes, 0, bytes.Length);
+            for (int i = 0; i < expected.Length; i++)
+                if (bytes[i] != expected[i])
+                    throw new InvalidOperationException("Detour trampoline does not replay the audited entry.");
+            ulong start = unchecked((ulong)trampoline.ToInt64());
+            Decoder decoder = Decoder.Create(64, new ByteArrayCodeReader(bytes, expected.Length,
+                bytes.Length - expected.Length), start + (ulong)expected.Length);
+            Instruction jump = decoder.Decode();
+            ulong continuation;
+            if (jump.FlowControl == FlowControl.UnconditionalBranch && jump.Op0Kind == OpKind.NearBranch64)
+                continuation = jump.NearBranchTarget;
+            else if (jump.FlowControl == FlowControl.IndirectBranch && jump.IsIPRelativeMemoryOperand)
+                continuation = unchecked((ulong)Marshal.ReadInt64((IntPtr)(long)jump.IPRelativeMemoryAddress));
+            else throw new InvalidOperationException("Detour trampoline has no continuation jump.");
+            if (continuation != entry + (ulong)expected.Length)
+                throw new InvalidOperationException("Detour trampoline continues at the wrong address.");
         }
 
         private static void VerifyVisualPatch<T>(NativeDetour<T> detour, ulong entry,

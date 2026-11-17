@@ -55,8 +55,8 @@ namespace BugfixesAndQoL
         {
             if (context.ModuleHandle == IntPtr.Zero || context.Region == null || context.Memory.Length == 0)
                 throw new InvalidOperationException("Incomplete native library load context.");
-            if (typeof(X64InlineHook).Assembly.GetName().Version != new Version(1, 5, 0, 0))
-                throw new InvalidOperationException("The installed RedBird.X64 version differs from the audited backend.");
+            // No runtime RedBird version pin (Test-DamagedHealthBarsPreflight.ps1 gates the audited version at build):
+            // the generated stubs and displaced spans are checked against the real targets below.
             VerifyNativeHash();
             ValidateInteropLayout();
             HealthBarNativeContract.ValidateBytes(context.Memory);
@@ -237,15 +237,15 @@ namespace BugfixesAndQoL
         {
             if (probe.StubAddress == IntPtr.Zero)
                 throw new InvalidOperationException("RedBird did not assemble an inline stub.");
-            const int maxBytes = 512;
-            byte[] bytes = new byte[maxBytes];
-            Marshal.Copy(probe.StubAddress, bytes, 0, bytes.Length);
+            // RedBird publishes no stub size; never read past the stub's committed region.
+            byte[] bytes = Shared.CommittedMemory.ReadUpTo(probe.StubAddress, 512);
+            int maxBytes = bytes.Length;
             ulong start = unchecked((ulong)probe.StubAddress.ToInt64());
             var reader = new ByteArrayCodeReader(bytes);
             Decoder decoder = Decoder.Create(64, reader, start);
             bool foundHealth = false;
             bool foundReturn = false;
-            for (int i = 0; i < 100 && decoder.IP < start + maxBytes - 16; i++)
+            for (int i = 0; i < 100 && decoder.IP + 16 < start + (ulong)maxBytes; i++)
             {
                 Instruction instruction = decoder.Decode();
                 if (instruction.IsInvalid)

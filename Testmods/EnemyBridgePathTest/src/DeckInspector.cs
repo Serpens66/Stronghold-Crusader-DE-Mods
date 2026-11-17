@@ -62,8 +62,12 @@ namespace EnemyBridgePathTest
         internal sealed class DeckReport
         {
             internal int Gate, GateOwner, GateCaptured, Bridge, Portal, PortalSide, FrontTile, GateTile, LandingTile, InnerTile = -1;
-            internal int DeckRegion, FrontRegion, GateRegion, LandingRegion, EndpointField, OtherField, CenterField;
+            internal int DeckRegion, FrontRegion, GateRegion, LandingRegion, EndpointField, OtherField, CenterField, CenterRegionNow;
             internal bool Raised;
+            // Portal fields are rewritten by 0xF4540 once per tick, after the tick's rebuild. A
+            // forced rebuild later in the same tick (e.g. 0xE1640 repair) renumbers regions, so
+            // until the next tick the fields can be stale (Vanilla, all portals).
+            internal bool PortalFresh => CenterField == CenterRegionNow;
             internal readonly List<int> DeckTiles = new List<int>();
         }
 
@@ -96,6 +100,8 @@ namespace EnemyBridgePathTest
                         FrontTile = outside, GateTile = inside, DeckRegion = components[deckCells[deckCells.Count / 2]], FrontRegion = components[outside], GateRegion = components[inside],
                         Raised = raised, CenterField = *(int*)(portal + PCompC)
                     };
+                    // 0xD8040: field C = PCL of tile (X+1, Y+1) of the gate footprint.
+                    if (TryGetTile(*(short*)(record + OffX) + 1, *(short*)(record + OffY) + 1, out int centreTile)) report.CenterRegionNow = components[centreTile];
                     report.DeckTiles.AddRange(deckCells);
                     if (TryAperture(record, 1 - side, out int innerOutside, out _)) report.InnerTile = innerOutside;
                     report.LandingRegion = DeckClosureCore.FindLanding(this, outside, inside, isOnBridge, componentOf, out report.LandingTile);
