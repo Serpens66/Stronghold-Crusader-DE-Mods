@@ -107,6 +107,8 @@ namespace Pathfinding.UnitCommands
                     FailureMode = TransactionFailureMode.RollbackAndThrow,
                     // Published hooks remain process-owned permanently.
                     OwnsHooks = true,
+                    // Published through CommitPermanentHooks (NativePatchGuard) after the span check.
+                    InstallOnCommit = false,
                     Backend = HookInstallPhase.Backend(CommandDetourBackend)
                 });
         }

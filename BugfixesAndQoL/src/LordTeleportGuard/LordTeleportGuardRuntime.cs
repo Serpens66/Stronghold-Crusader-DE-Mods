@@ -70,6 +70,7 @@ namespace BugfixesAndQoL.LordTeleportGuard
                 if (!result.Succeeded) throw new InvalidOperationException("Native-site refusal: " + result.Reason);
                 claimed = true;
                 CheckLive(entry, LordTeleportNative.EntryBytes);
+                Shared.NativePatchGuard.RequireUnpatched(candidate, "Lord teleport guard");
                 candidate.Enable();
                 byte[] expectedPatch = new byte[16]; expectedPatch[0] = 0xFF; expectedPatch[1] = 0x25;
                 Array.Copy(BitConverter.GetBytes(Address(candidate.StubAddress)), 0, expectedPatch, 6, 8);
@@ -77,6 +78,7 @@ namespace BugfixesAndQoL.LordTeleportGuard
                 CheckLive(entry, expectedPatch);
                 if (!candidate.IsInstalled || candidate.DisplacedByteCount != 16)
                     throw new InvalidOperationException("Published backend contract mismatch.");
+                Shared.NativePatchGuard.Watch(candidate, "Lord teleport guard");
                 hook = candidate;
                 // Publication is the last operation that can affect the hook. Never dispose it afterwards.
                 ready = true;

@@ -47,6 +47,7 @@ namespace BugfixesAndQoL
         private static SteamLobbyInvitePrompt steamLobbyInvitePrompt;
         private static SteamInviteBlacklistStore steamInviteBlacklist;
         private static IDisposable gameplaySessionSubscription;
+        private static IDisposable nativePatchRecheckSubscription;
         private static SkirmishGameOptionsRuntime skirmishGameOptionsRuntime;
         private static SkirmishGameOptionsAccessViewModel skirmishGameOptionsAccess;
         private static VanillaPeaceTimeGameplayPatch vanillaPeaceTimeGameplayPatch;
@@ -195,6 +196,9 @@ namespace BugfixesAndQoL
             using (Shared.CrashBreadcrumbScope diagnostic =
                 Shared.CrashBreadcrumbDiagnostics.Enter("LibraryLoaded"))
             {
+            // Load snapshot for the foreign-patch check of every hook (AGENTS/native-hooks.md#fremde-patches-erkennen).
+            Shared.NativePatchGuard.Bind(context, Logger);
+            SubscribeNativePatchRecheck();
             // Initial native installation window (see BugfixesHookInfrastructure.DetourBackend).
             HookInstallPhase.InitialLibraryLoad = true;
             bool completed;
@@ -203,6 +207,30 @@ namespace BugfixesAndQoL
             // A fail-closed stop inside the runtime initialization leaves the breadcrumb incomplete, as before.
             if (!completed) return;
             diagnostic.Complete();
+            }
+        }
+
+        // Mods loaded after us can overwrite a published span; compare them again at every mission and
+        // editor start. The adapter publisher roots this subscription for the process lifetime.
+        private void SubscribeNativePatchRecheck()
+        {
+            if (nativePatchRecheckSubscription != null) return;
+            var log = Logger; // The callback outlives this destroyed plugin component.
+            try
+            {
+                Shared.MissionEvents.SetOwner(PluginGuid);
+                nativePatchRecheckSubscription = Shared.MissionEvents.Started.Subscribe(_ =>
+                {
+                    try { Shared.NativePatchGuard.Recheck(); }
+                    catch (Exception ex)
+                    {
+                        Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLPlugin/NativePatchRecheck.failed", "Bugfixes and QoL native foreign-patch recheck failed: " + ex);
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/NativePatchRecheck.subscribe", "Bugfixes and QoL native foreign-patch recheck is unavailable; later foreign patches stay unreported: " + ex);
             }
         }
 

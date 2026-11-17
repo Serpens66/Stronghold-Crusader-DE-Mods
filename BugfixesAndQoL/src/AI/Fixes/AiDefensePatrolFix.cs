@@ -69,7 +69,7 @@ namespace BugfixesAndQoL
                     hookSize: AiDefensePatrolNativeDefinition.DecisionHookLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.BeforeCallback);
-                CommitResult commitResult = transaction.Commit();
+                CommitResult commitResult = Shared.NativePatchGuard.Commit(transaction, "AI defense patrol fix");
                 if (!commitResult.IsCompleteSuccess || !assignmentDecisionHook.Success)
                 {
                     throw new InvalidOperationException(

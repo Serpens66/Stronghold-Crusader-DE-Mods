@@ -171,7 +171,7 @@ namespace ImprovedHunters
                     (a, i) => HunterNativeStubs.EmitTannerDeposit(a, i, flag, addresses, meat));
                 candidate.AddSite(memory, refind + RefindSiteOffset, RefindDisplaced,
                     (a, i) => HunterNativeStubs.EmitTannerRefind(a, i, flag, addresses, meat));
-                candidate.Commit();
+                candidate.Publish();
                 gate = candidate;
                 meatAmount = candidateAmount;
                 if (hasReceiptAdapter) APIShared.Economy.ProductionGoodsReceived.ConfirmExternalTannerAdapter();

@@ -419,6 +419,44 @@ if (-not (Test-OutsideScopedMod $workshopPath)) {
         $errors.Add("$workshopPath`: workshop hook must remain published and use only its data gate")
     }
 }
+# Foreign-patch guard (AGENTS/native-hooks.md#fremde-patches-erkennen): in every mod that links
+# Shared NativePatchGuard, a hook must not be written past it. An installing Commit() would write
+# before the span check, and an unbound guard would refuse every hook at runtime. Source guardrail
+# only; Shared/Tests/NativePatchGuard.Tests checks the guard's behavior.
+$guardProjects = foreach ($relativeRoot in $roots) {
+    Get-ChildItem -LiteralPath (Join-Path $workspace $relativeRoot) -Recurse -File -Filter '*.csproj' -ErrorAction SilentlyContinue | Where-Object {
+        $path = '\' + $_.FullName.Substring($workspace.Length).TrimStart('\')
+        -not ($excludedSegments | Where-Object { $path.Contains($_) }) -and -not $path.Contains('\Testmods\') -and -not $path.Contains('\APIShared\') -and
+        [IO.File]::ReadAllText($_.FullName).Contains('Shared\Runtime\Native\NativePatchGuard.cs')
+    }
+}
+foreach ($project in @($guardProjects)) {
+    $projectRoot = $project.Directory.FullName + '\'
+    $sources = @($files | Where-Object {
+        $_.FullName.StartsWith($projectRoot, [StringComparison]::OrdinalIgnoreCase) -and $_.Name -notlike '*.DevDiag.cs'
+    })
+    $texts = @{}
+    foreach ($source in $sources) { $texts[$source.FullName] = [IO.File]::ReadAllText($source.FullName) }
+    if (-not ($texts.Values | Where-Object { $_.Contains('NativePatchGuard.Bind(') })) {
+        $errors.Add("$($project.FullName): links NativePatchGuard but never binds it to the load snapshot")
+    }
+    if (-not ($texts.Values | Where-Object { $_.Contains('NativePatchGuard.Recheck(') })) {
+        $errors.Add("$($project.FullName): links NativePatchGuard but never rechecks published spans")
+    }
+    foreach ($path in $texts.Keys) {
+        $text = $texts[$path]
+        $selfEnabled = $text.Contains('NativePatchGuard.RequireUnpatched(') -and $text.Contains('NativePatchGuard.Watch(')
+        # A raw Commit() is allowed only for a prepared transaction whose hooks this file enables itself.
+        if ($text -match '(?<!NativePatchGuard)\.Commit\(\)' -and -not $selfEnabled) {
+            $errors.Add("${path}: HookTransaction.Commit() without NativePatchGuard (use NativePatchGuard.Commit or RequireUnpatched/Watch)")
+        }
+        if ($text -match '\.CreateDetour\(|new X64InlineHook\(|DemandGatedContextHook\.Create\(|CreateDemandGatedContextHook\(' -and
+            $text -match '\b(?!publication\b)\w+\??\.Enable\(\)' -and -not $selfEnabled) {
+            $errors.Add("${path}: individually enabled hook without NativePatchGuard.RequireUnpatched/Watch")
+        }
+    }
+}
+
 if ($errors.Count -ne 0) {
     $errors | ForEach-Object { Write-Error $_ }
     throw "Permanent native runtime regression check failed with $($errors.Count) finding(s)."

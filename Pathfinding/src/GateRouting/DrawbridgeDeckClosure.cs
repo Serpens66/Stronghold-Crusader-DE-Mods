@@ -76,6 +76,7 @@ namespace Pathfinding.GateRouting
         internal static bool IsActive => wanted && instance != null && instance.installed;
 
         private readonly List<IHook> permanent = new List<IHook>();
+        private const string DrawbridgeFeature = "Drawbridge deck closure";
         private readonly List<Delegate> rooted = new List<Delegate>();
         private NativeDetour<GateClosureDelegate> closureHook;
         private NativeDetour<PortalRefreshDelegate> refreshHook;
@@ -198,10 +199,13 @@ namespace Pathfinding.GateRouting
             })) as NativeDetourBackend ?? throw new InvalidOperationException("NativeX64 backend unavailable.");
             closureHook = Prepare(backend, RvaGateClosure, GateClosurePrefix.Length / 2, closure, "gate-closure");
             refreshHook = Prepare(backend, RvaPortalRefresh, PortalRefreshPrefix.Length / 2, refresh, "portal-refresh");
+            // Both spans are compared with the load snapshot before the first write (foreign patch -> Error, Vanilla).
+            foreach (IHook hook in permanent) Shared.NativePatchGuard.RequireUnpatched(hook, DrawbridgeFeature);
             // Published hooks are permanent; settings only change the logical state.
             foreach (IHook hook in permanent) hook.Enable();
             Validate(closureHook, RvaGateClosure, GateClosurePrefix.Length / 2, true);
             Validate(refreshHook, RvaPortalRefresh, PortalRefreshPrefix.Length / 2, true);
+            foreach (IHook hook in permanent) Shared.NativePatchGuard.Watch(hook, DrawbridgeFeature);
             installed = true;
             Shared.DebugLogHelper.LogInfo(log, "Drawbridge deck closure hooks installed: gateClosure=0xC4BF0, portalRefresh=0xF4540, scheme=Indirect, method=reference-rva, nativeSha256=" + NativeHash);
         }

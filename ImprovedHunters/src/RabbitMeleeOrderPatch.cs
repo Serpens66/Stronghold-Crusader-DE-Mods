@@ -95,7 +95,7 @@ namespace ImprovedHunters
                     (a, i) => HunterNativeStubs.EmitRabbitMeleeOrder(a, i, flag, rabbit, TribeRabbitHuntFlagOffset));
                 candidate.AddSite(memory, stance, StanceDisplaced,
                     (a, i) => HunterNativeStubs.EmitRabbitStanceScan(a, i, flag, flagBase, acceptAddress, rabbit));
-                candidate.Commit();
+                candidate.Publish();
                 gate = candidate;
             }
             catch

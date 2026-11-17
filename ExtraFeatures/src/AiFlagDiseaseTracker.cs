@@ -93,7 +93,7 @@ namespace ExtraFeatures
                     HookTarget.FromAddress(libraryBase + unchecked((ulong)routineRva)),
                     RunAiFlagRoutine);
                 ExtraFeaturesHookInfrastructure.RootBeforeCommit(this, candidate);
-                CommitResult commitResult = candidate.Commit();
+                CommitResult commitResult = Shared.NativePatchGuard.Commit(candidate, "AI flag disease tracking");
                 if (!commitResult.IsCompleteSuccess || !aiFlagRoutineHook.Success)
                     throw new InvalidOperationException("The AI flag projectile hook was not installed.");
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)

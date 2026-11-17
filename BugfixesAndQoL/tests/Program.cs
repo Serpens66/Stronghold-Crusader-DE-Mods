@@ -4719,7 +4719,7 @@ namespace BugfixesAndQoL
                     !singlePause.Contains("addChimpActionsHook.Undo()") &&
                     singlePause.Contains("!localHooksInstalled || !IsFeatureActive()"),
                 "single-building pause keeps its published UI hook permanent and logically gated");
-            int nativeCommit = runtime.IndexOf("CommitResult commitResult = transaction.Commit()", StringComparison.Ordinal);
+            int nativeCommit = runtime.IndexOf("CommitResult commitResult = Shared.NativePatchGuard.Commit(transaction,", StringComparison.Ordinal);
             int initialLogicalDisable = runtime.IndexOf(
                 "singleBuildingOverrideInterceptionEnabled = false", nativeCommit, StringComparison.Ordinal);
             int activationBeforeStore = singlePause.IndexOf(

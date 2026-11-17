@@ -19,7 +19,7 @@ namespace ExtraFeatures
         private static readonly object CommitAttemptRootsSync = new object();
         private static readonly List<object> CommitAttemptRoots = new List<object>();
 
-        // Call directly before HookTransaction.Commit(). RedBird logs and swallows every rollback
+        // Call directly before Shared.NativePatchGuard.Commit(...). RedBird logs and swallows every rollback
         // failure (HookCommitPipeline.Rollback, HookTransaction.Dispose), so after a commit attempt
         // no caller can prove that the candidate's patches are gone. The owner (its callbacks and
         // the native memory its stubs read) and the transaction therefore stay reachable until
@@ -66,7 +66,9 @@ namespace ExtraFeatures
                 {
                     Backend = DetourBackend(),
                     FailureMode = TransactionFailureMode.RollbackAndThrow,
-                    OwnsHooks = true
+                    OwnsHooks = true,
+                    // Shared.NativePatchGuard.Commit checks the spans for foreign patches, then enables.
+                    InstallOnCommit = false
                 });
 
         internal static void AddContextHook(

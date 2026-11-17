@@ -94,7 +94,9 @@ namespace BugfixesAndQoL
                         hookSize: site.MinimumHookSize);
                 }
 
-                CommitResult result = transaction.Commit();
+                var labels = new string[sites.Length];
+                for (int index = 0; index < sites.Length; index++) labels[index] = sites[index].Label;
+                CommitResult result = Shared.NativePatchGuard.Commit(transaction, string.Join(" + ", labels));
                 if (!result.IsCompleteSuccess)
                     throw new InvalidOperationException($"Permanent native skip hooks were not installed: {result}.");
 

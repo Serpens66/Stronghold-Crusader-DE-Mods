@@ -185,7 +185,7 @@ namespace BugfixesAndQoL
                     PreventAIResourceShortageSleep);
             }
 
-            CommitResult commitResult = transaction.Commit();
+            CommitResult commitResult = Shared.NativePatchGuard.Commit(transaction, "AI economy protection");
 
             if (!commitResult.IsCompleteSuccess || !sleepStateHook.Success)
                 throw new InvalidOperationException("The AI building sleep-state AOB signature was not found.");

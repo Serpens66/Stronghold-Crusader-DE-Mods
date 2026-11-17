@@ -60,6 +60,8 @@ namespace ImprovedHunters
         private readonly ManualLogSource log;
         private readonly ImprovedHuntersViewModel settings;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
+        // Process-lived late foreign-patch check; never part of the toggled subscriptions above.
+        private static IDisposable nativePatchRecheckSubscription;
         private readonly Dictionary<int, long> nextBetterPreyChecks = new Dictionary<int, long>();
         private readonly Dictionary<int, long> nextIdleHunterRequeryTimestamps = new Dictionary<int, long>();
         private readonly List<PreySnapshot> preyCache = new List<PreySnapshot>();
@@ -133,8 +135,12 @@ namespace ImprovedHunters
             ulong imageBase = unchecked((ulong)context.ModuleHandle.ToInt64());
             hookRegion = context.Region;
             HunterHookInfrastructure.Bind(context, imageBase);
+            // Load snapshot for the foreign-patch checks of every later hook commit.
+            Shared.NativePatchGuard.Bind(context, log);
             if (applied)
                 return;
+
+            TryInitializeFeature("native foreign-patch recheck", SubscribeNativePatchRecheck);
 
             this.referenceHashMatches = referenceHashMatches;
             TryInitializeFeature("APIShared hunting registrations", RegisterHuntingWithApiShared);
@@ -186,6 +192,20 @@ namespace ImprovedHunters
                     $"hunterTargetSearchFallbackAvailable={hunterTargetSearchFallback?.IsAvailable == true}, " +
                     $"hunterVanillaPathContinuationAvailable={hunterVanillaPathContinuation?.IsAvailable == true}, " +
                     $"referenceHashMatches={referenceHashMatches}.");
+        }
+
+        // Mods loaded after us may overwrite a published hook span; check once per mission or
+        // editor start (AGENTS/native-hooks.md#fremde-patches-erkennen).
+        private void SubscribeNativePatchRecheck()
+        {
+            if (nativePatchRecheckSubscription != null)
+                return;
+            Shared.MissionEvents.SetOwner(ImprovedHuntersPlugin.PluginGuid);
+            nativePatchRecheckSubscription = Shared.MissionEvents.Started.Subscribe(_ =>
+            {
+                try { Shared.NativePatchGuard.Recheck(); }
+                catch (Exception ex) { Shared.DebugLogHelper.LogError(log, "Improved Hunters native foreign-patch recheck failed: " + ex); }
+            });
         }
 
         private void RegisterSimulationTick()

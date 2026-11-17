@@ -58,7 +58,7 @@ namespace Pathfinding
         private bool published;
         private bool disposed;
 
-        internal PermanentInstructionSkipPatch(ScanRegion region, params Site[] sites)
+        internal PermanentInstructionSkipPatch(ScanRegion region, string feature, params Site[] sites)
         {
             if (sites == null || sites.Length == 0)
                 throw new ArgumentException("At least one native skip site is required.", nameof(sites));
@@ -94,7 +94,7 @@ namespace Pathfinding
                         hookSize: site.MinimumHookSize);
                 }
 
-                CommitResult result = transaction.Commit();
+                CommitResult result = Shared.NativePatchGuard.Commit(transaction, feature);
                 if (!result.IsCompleteSuccess)
                     throw new InvalidOperationException($"Permanent native skip hooks were not installed: {result}.");
 

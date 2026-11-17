@@ -141,7 +141,7 @@ namespace BugfixesAndQoL.PitchStairs
                 state = Marshal.AllocHGlobal(NativeCode.StateSize);
                 Marshal.Copy(new byte[NativeCode.StateSize], 0, state, NativeCode.StateSize);
                 transaction = new HookTransaction(context.Region, SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
-                    new HookTransactionOptions { FailureMode = TransactionFailureMode.RollbackAndThrow, OwnsHooks = true });
+                    new HookTransactionOptions { FailureMode = TransactionFailureMode.RollbackAndThrow, OwnsHooks = true, InstallOnCommit = false });
                 ulong stateAddress = unchecked((ulong)state.ToInt64());
                 bool diagCounters = false;
                 DiagFireCounters(ref diagCounters);
@@ -161,7 +161,7 @@ namespace BugfixesAndQoL.PitchStairs
                         NativeCode.Emit(assembler, site, original, stateAddress, continuation, diagCounters);
                     }, hookSize: site.Length, name: "PitchStairs_" + site.Name);
                 }
-                CommitResult result = transaction.Commit();
+                CommitResult result = Shared.NativePatchGuard.Commit(transaction, "Pitch stairs");
                 if (!result.IsCompleteSuccess) throw new InvalidOperationException("Pitch-stairs transaction failed: " + result);
                 published = true;
                 for (int i = 0; i < NativeCode.Sites.Length; i++) ValidateCommitted(NativeCode.Sites[i], handles[i]);

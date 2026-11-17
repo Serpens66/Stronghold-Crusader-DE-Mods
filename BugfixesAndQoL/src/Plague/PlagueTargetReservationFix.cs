@@ -111,7 +111,7 @@ namespace BugfixesAndQoL
                     registers: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RBP,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                CommitResult commitResult = transaction.Commit();
+                CommitResult commitResult = Shared.NativePatchGuard.Commit(transaction, "Plague target reservation fix");
 
                 if (!commitResult.IsCompleteSuccess || !diseaseSearchHook.Success || !healerExitHook.Success)
                     throw new InvalidOperationException("The plague target-reservation hooks were not installed.");

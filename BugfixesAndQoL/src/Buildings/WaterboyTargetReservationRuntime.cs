@@ -70,13 +70,14 @@ namespace BugfixesAndQoL
                     {
                         Backend = HookInstallPhase.Backend(),
                         FailureMode = TransactionFailureMode.RollbackAndThrow,
-                        OwnsHooks = true
+                        OwnsHooks = true,
+                        InstallOnCommit = false
                     });
                 ulong expectedTargetAddress = unchecked((ulong)context.ModuleHandle.ToInt64()) +
                     unchecked((ulong)resolution.Rva);
                 pendingTransaction.AddDetour(targetSearchHook,
                     HookTarget.FromAddress(expectedTargetAddress), FindNearestEligibleFire);
-                CommitResult result = pendingTransaction.Commit();
+                CommitResult result = Shared.NativePatchGuard.Commit(pendingTransaction, "Waterboy target reservation");
                 NativeDetour<FindNearestBurningBuildingDelegate> committedDetour =
                     targetSearchHook.Hook as NativeDetour<FindNearestBurningBuildingDelegate>;
                 if (!result.IsCompleteSuccess || !targetSearchHook.Success)

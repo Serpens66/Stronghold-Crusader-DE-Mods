@@ -106,7 +106,7 @@ namespace ExtraFeatures
                     hookSize: HookDisplacedBytes);
                 ExtraFeaturesHookInfrastructure.RootBeforeCommit(this, pendingTransaction);
                 commitAttempted = true;
-                CommitResult commitResult = pendingTransaction.Commit();
+                CommitResult commitResult = Shared.NativePatchGuard.Commit(pendingTransaction, "apothecary plague search range");
                 if (!commitResult.IsCompleteSuccess ||
                     !distanceComparisonHook.Success ||
                     !distanceComparisonHook.IsInstalled ||

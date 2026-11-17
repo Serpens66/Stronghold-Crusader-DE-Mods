@@ -81,6 +81,7 @@ namespace BugfixesAndQoL.PitchMoatLines
                 pitchMoatHook.Generate((a, _, __) => EmitPitchMoatStub(a, token, chores, tiles, occupied, vanilla, preserve));
                 VerifyEmittedPitchMoatStub(token, chores, tiles, occupied, vanilla, preserve);
 
+                Shared.NativePatchGuard.RequireUnpatched(pitchMoatHook, "Pitch and moat lines");
                 // Once published, the hook and token remain rooted through NativePlacement.rooted.
                 publishing = true;
                 pitchMoatHook.Enable();
@@ -91,6 +92,7 @@ namespace BugfixesAndQoL.PitchMoatLines
                 for (int i = 14; i < PitchMoatLength; i++)
                     if (Marshal.ReadByte(Address(PitchMoatRva), i) != 0x90)
                         throw new InvalidOperationException("Unexpected published pitch/moat padding.");
+                Shared.NativePatchGuard.Watch(pitchMoatHook, "Pitch and moat lines");
                 PitchMoatReady = true;
             }
             catch

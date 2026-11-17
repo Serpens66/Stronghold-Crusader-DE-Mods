@@ -143,6 +143,11 @@ dotnet build "%PROJECT_DIR%..\Shared\Tests\CoopAiStart.Tests\Shared.CoopAiStart.
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 "%PROJECT_DIR%..\Shared\Tests\CoopAiStart.Tests\bin\Release\net481\Shared.CoopAiStart.Tests.exe"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+rem Shared foreign-patch guard used by every native hook of this mod, on the installed RedBird.
+dotnet build "%PROJECT_DIR%..\Shared\Tests\NativePatchGuard.Tests\Shared.NativePatchGuard.Tests.csproj" -c Release "-p:GameDir=%GAME_DIR%" "-p:ExtenderDir=%EXTENDER_DIR%"
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+"%PROJECT_DIR%..\Shared\Tests\NativePatchGuard.Tests\bin\Release\net481\Shared.NativePatchGuard.Tests.exe"
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 rem Exercise remembered and named AI selection repairs before a checked build can publish output.
 call :step_start "tests" "ai-selection-memory"
 "%MSBUILD%" "%PROJECT_DIR%..\_inspect\BugfixesAndQoLAivMemoryTests\BugfixesAndQoLAivMemoryTests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal %SHCDE_BRANCH_MSBUILD_API%

@@ -61,7 +61,7 @@ namespace Pathfinding
                     BedouinPlacementRejectRva, referenceHashMatches, 2,
                     new byte[] { 0x0F, 0x84 }, 6, 17, "Bedouin troop placement rejection", log)
             };
-            patch = new PermanentInstructionSkipPatch(region, sites.ToArray());
+            patch = new PermanentInstructionSkipPatch(region, "Assembly point placement", sites.ToArray());
             patch.SetEnabled(true);
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
                 Shared.DebugLogHelper.LogDebug(log, $"Assembly-point permanent hooks installed; sites={sites.Count}.");

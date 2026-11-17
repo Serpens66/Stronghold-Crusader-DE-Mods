@@ -105,7 +105,9 @@ namespace ExtraFeatures
                     new HookTransactionOptions
                     {
                         FailureMode = TransactionFailureMode.RollbackAndThrow,
-                        OwnsHooks = true
+                        OwnsHooks = true,
+                        // Shared.NativePatchGuard.Commit checks the spans for foreign patches, then enables.
+                        InstallOnCommit = false
                     });
                 // Native stubs only: both sites are hot, so neither the enabled nor the
                 // default disabled path pays a managed transition.
@@ -124,7 +126,7 @@ namespace ExtraFeatures
 
                 ExtraFeaturesHookInfrastructure.RootBeforeCommit(this, pending);
                 commitAttempted = true;
-                CommitResult result = pending.Commit();
+                CommitResult result = Shared.NativePatchGuard.Commit(pending, "fear factor neutralization");
                 if (!result.IsCompleteSuccess || !damageHook.Success || !unitOverlayHook.Success)
                 {
                     throw new InvalidOperationException(

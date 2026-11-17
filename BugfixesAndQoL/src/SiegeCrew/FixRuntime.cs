@@ -126,6 +126,9 @@ namespace BugfixesAndQoL.SiegeCrew
 
                 Publish(activation, () =>
                 {
+                    // Foreign-patch check before publication starts; nothing is written if it throws.
+                    foreach (IHook hook in result.Installed)
+                        Shared.NativePatchGuard.RequireUnpatched(hook, name);
                     // Enable can write code before throwing. Root the transaction and
                     // leave the zeroed gate allocated after publication starts.
                     published.Add(transaction);
@@ -134,6 +137,8 @@ namespace BugfixesAndQoL.SiegeCrew
                         hook.Enable();
                     for (int index = 0; index < sites.Length; index++)
                         VerifyInstalled(context.ModuleHandle, sites[index], handles[index].Hook);
+                    foreach (IHook hook in result.Installed)
+                        Shared.NativePatchGuard.Watch(hook, name);
                 }, enabled);
             }
             catch (Exception error)

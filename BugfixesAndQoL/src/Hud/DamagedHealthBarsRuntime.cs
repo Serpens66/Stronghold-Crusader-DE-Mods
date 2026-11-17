@@ -82,7 +82,8 @@ namespace BugfixesAndQoL
                     new HookTransactionOptions
                     {
                         FailureMode = TransactionFailureMode.RollbackAndThrow,
-                        OwnsHooks = true
+                        OwnsHooks = true,
+                        InstallOnCommit = false
                     });
                 pending.AddInline(buildingNorth,
                     HookTarget.FromAddress(imageBase + HealthBarNativeContract.BuildingNorthRva),
@@ -100,7 +101,7 @@ namespace BugfixesAndQoL
                         assembler, instructions, returnAddress, imageBase, flagAddress),
                     hookSize: HealthBarNativeContract.UnitLength);
 
-                CommitResult result = pending.Commit();
+                CommitResult result = Shared.NativePatchGuard.Commit(pending, "Damaged health bars");
                 if (!result.IsCompleteSuccess || !buildingNorth.Success ||
                     !buildingSouth.Success || !unit.Success ||
                     buildingNorth.Hook.DisplacedByteCount != HealthBarNativeContract.BuildingLength ||

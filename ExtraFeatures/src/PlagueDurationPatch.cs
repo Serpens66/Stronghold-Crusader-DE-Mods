@@ -149,7 +149,7 @@ namespace ExtraFeatures
                     placement: OverwrittenInstructionPlacement.AfterCallback);
                 // RedBird pins the callback delegate only inside the hook instance.
                 ExtraFeaturesHookInfrastructure.RootBeforeCommit(this, candidate);
-                CommitResult commitResult = candidate.Commit();
+                CommitResult commitResult = Shared.NativePatchGuard.Commit(candidate, "plague duration");
                 if (!commitResult.IsCompleteSuccess || !lifetimeComparisonHook.Success)
                     throw new InvalidOperationException("The conditional plague-lifetime hook was not installed.");
                 if (!lifetimeComparisonHook.IsInstalled)

@@ -269,7 +269,7 @@ namespace Pathfinding
                             returnAddress),
                     hookSize: MovementCadencePattern.Split(' ').Length);
 
-                CommitResult commitResult = transaction.Commit();
+                CommitResult commitResult = Shared.NativePatchGuard.Commit(transaction, "Synchronized movement cadence");
 
                 if (!commitResult.IsCompleteSuccess ||
                     !movementSpeedAdjustmentHook.Success ||
@@ -301,7 +301,7 @@ namespace Pathfinding
                 terrainTransaction.AddInline(terrainCaptureHook,
                     HookTarget.FromAddress(libraryBase + (uint)dispatchRva),
                     GenerateTerrainCaptureFastPath, hookSize: 14);
-                CommitResult result = terrainTransaction.Commit();
+                CommitResult result = Shared.NativePatchGuard.Commit(terrainTransaction, "Rally terrain capture");
                 if (!result.IsCompleteSuccess || !terrainCaptureHook.Success ||
                     terrainCaptureHook.Hook.DisplacedByteCount != 14)
                     throw new InvalidOperationException("Unexpected rally terrain capture displacement.");

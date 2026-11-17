@@ -273,7 +273,7 @@ namespace Pathfinding
                 overlayRenderer.TribeOverlayRenderHook,
                 HookTarget.FromAddress(libraryBase + ReferenceTribeOverlayRenderRva),
                 RenderTribeOverlay);
-            CommitResult nativeCommitResult = nativeTransaction.Commit();
+            CommitResult nativeCommitResult = Shared.NativePatchGuard.Commit(nativeTransaction, "Command queue overlay");
             if (!nativeCommitResult.IsCompleteSuccess ||
                 !overlayRenderer.TribeOverlayRenderHook.Success)
                 throw new InvalidOperationException(
@@ -388,7 +388,7 @@ namespace Pathfinding
                     HookTarget.FromAddress(libraryBase + QueueNativeContract.MoveChoreHandlerRva),
                     HandleMoveChore);
 
-                CommitResult multiplayerCommitResult = multiplayerTransaction.Commit();
+                CommitResult multiplayerCommitResult = Shared.NativePatchGuard.Commit(multiplayerTransaction, "Command queue multiplayer sync");
                 multiplayerSynchronizationReady =
                     multiplayerCommitResult.IsCompleteSuccess &&
                     moveChoreHandlerHook.Success;
@@ -596,7 +596,7 @@ namespace Pathfinding
                     overlayRenderer.DrawSubmissionHook,
                     HookTarget.FromAddress(libraryBase + ReferenceDrawSubmissionRva),
                     overlayRenderer.SubmitOverlayMarker);
-                CommitResult drawCommitResult = drawFilterTransaction.Commit();
+                CommitResult drawCommitResult = Shared.NativePatchGuard.Commit(drawFilterTransaction, "Command queue draw filter");
                 overlayRenderer.DrawFilterInstalled = drawCommitResult.IsCompleteSuccess && overlayRenderer.DrawSubmissionHook.Success;
                 if (!overlayRenderer.DrawFilterInstalled)
                     throw new InvalidOperationException("Draw-submission hook reported no success.");
@@ -2274,7 +2274,9 @@ namespace Pathfinding
                 Backend = HookInstallPhase.Backend(),
                 FailureMode = TransactionFailureMode.RollbackAndThrow,
                 // This runtime is process-rooted; startup never tears these hooks down.
-                OwnsHooks = false
+                OwnsHooks = false,
+                // Published through Shared.NativePatchGuard.Commit after the span check.
+                InstallOnCommit = false
             };
 
         private static bool TryGetAliveTribe(int tribeId, out GameTribe* tribe)

@@ -9,9 +9,11 @@ namespace Pathfinding.UnitCommands
     internal sealed unsafe partial class UnitCommandPathRuntime
     {
         private readonly HashSet<HookTransaction> publishedCommandTransactions = new HashSet<HookTransaction>();
-        private CommitResult CommitPermanentHooks(HookTransaction candidate)
+        private CommitResult CommitPermanentHooks(HookTransaction candidate, string feature)
         {
-            CommitResult result = candidate.Commit();
+            // Throws before any byte is written if a foreign patch lies inside a span; the caller's
+            // catch then releases the unpublished candidate as before.
+            CommitResult result = Shared.NativePatchGuard.Commit(candidate, feature);
             // RollbackAndThrow handles failed, unpublished transactions inside RedBird.
             // Every returned committed transaction is retained before further validation.
             publishedCommandTransactions.Add(candidate);
@@ -258,7 +260,7 @@ namespace Pathfinding.UnitCommands
                     "40 53 48 83 EC 30 8B 05 F0 63 5E 08 C7 05 EE 63 5E 08 0F 00 00 00", (FastChoreDelegate)DispatchTarget);
                 var appendHook = InstallConnectivityObserver(candidate, memory, libraryBase, 0x11C3A0,
                     "4C 63 5C 24 28 4C 63 D2 49 69 C2 88 06 00 00 49 69 D2 A2 01 00 00", (FastAppendDelegate)DispatchAppend);
-                CommitResult result = CommitPermanentHooks(candidate);
+                CommitResult result = CommitPermanentHooks(candidate, "Command queue hooks");
                 nativeTarget = CountTarget(targetHook.Original);
                 nativeAppend = CountAppend(appendHook.Original);
                 ValidatePublishedCommandHooks(candidate);
@@ -292,7 +294,7 @@ namespace Pathfinding.UnitCommands
             {
                 var moveHook = InstallConnectivityObserver(candidate, memory, libraryBase, PlayerMoveRva,
                     PlayerMoveEntryBytes, (FastPlayerMoveDelegate)DispatchPlayerMove);
-                CommitResult result = CommitPermanentHooks(candidate);
+                CommitResult result = CommitPermanentHooks(candidate, "Traversal command hook");
                 nativePlayerMove = CountPlayerMove(moveHook.Original);
                 var originals = new TraversalCommandHooks {
                     Move = nativePlayerMove, Target = ContinueTraversalTarget, Append = nativeAppend };

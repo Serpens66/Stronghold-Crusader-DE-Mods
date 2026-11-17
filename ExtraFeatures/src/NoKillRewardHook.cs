@@ -91,7 +91,9 @@ namespace ExtraFeatures
                 new HookTransactionOptions
                 {
                     FailureMode = TransactionFailureMode.RollbackAndThrow,
-                    OwnsHooks = true
+                    OwnsHooks = true,
+                    // Shared.NativePatchGuard.Commit checks the spans for foreign patches, then enables.
+                    InstallOnCommit = false
                 });
             try
             {
@@ -110,7 +112,7 @@ namespace ExtraFeatures
                 // retry may hook these spans a second time.
                 rootedPublishedInstance = this;
                 ExtraFeaturesHookInfrastructure.RootBeforeCommit(this, transaction);
-                CommitResult result = transaction.Commit();
+                CommitResult result = Shared.NativePatchGuard.Commit(transaction, "no kill reward");
                 if (!result.IsCompleteSuccess ||
                     !rewardHandle.Success || !goldMessageHandle.Success ||
                     !rewardHandle.IsInstalled || !goldMessageHandle.IsInstalled ||

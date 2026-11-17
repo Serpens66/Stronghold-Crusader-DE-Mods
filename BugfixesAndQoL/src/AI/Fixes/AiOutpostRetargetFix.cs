@@ -105,7 +105,7 @@ namespace BugfixesAndQoL
                             callbackAddress);
                     }, hookSize: Original.Length);
                 VerifyCode(context, HookRva, Original);
-                var result = transaction.Commit();
+                var result = Shared.NativePatchGuard.Commit(transaction, "AI outpost retarget fix");
                 if (!result.IsCompleteSuccess || !handle.Success || !handle.IsInstalled ||
                     handle.ResolvedAddress != target || handle.Require().DisplacedByteCount != Original.Length)
                     throw new InvalidOperationException("Outpost retarget hook commit failed: " + result);

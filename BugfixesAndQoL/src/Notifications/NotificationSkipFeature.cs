@@ -77,7 +77,7 @@ namespace BugfixesAndQoL
                     notificationUpdateHook,
                     HookTarget.FromAddress(moduleBase + (ulong)nativeContract.UpdateRva),
                     UpdateNotificationQueue);
-                CommitResult commitResult = pendingNativeTransaction.Commit();
+                CommitResult commitResult = Shared.NativePatchGuard.Commit(pendingNativeTransaction, "Notification skip");
                 if (!commitResult.IsCompleteSuccess || !notificationUpdateHook.Success)
                     throw new InvalidOperationException("The native notification-update detour was not installed.");
 

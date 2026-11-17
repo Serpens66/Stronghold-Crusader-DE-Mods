@@ -67,7 +67,7 @@ namespace BugfixesAndQoL
                     areaTreatmentHook,
                     HookTarget.FromAddress(libraryBase + unchecked((ulong)areaTreatmentRva)),
                     TreatNearHealer);
-                CommitResult commitResult = transaction.Commit();
+                CommitResult commitResult = Shared.NativePatchGuard.Commit(transaction, "Plague treatment fade fix");
 
                 if (!commitResult.IsCompleteSuccess || !areaTreatmentHook.Success)
                     throw new InvalidOperationException("The plague area-treatment hook was not installed.");

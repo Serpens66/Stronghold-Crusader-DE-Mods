@@ -18,7 +18,7 @@ namespace BugfixesAndQoL
                 throw new ArgumentException("The Crusader native library is unavailable.");
             ulong imageBase=unchecked((ulong)libraryHandle.ToInt64());
             NoDogsNativeContract.Validate(memory,imageBase,referenceHashMatches);
-            native=new PermanentNativeSwitch(log,imageBase,NativeSwitchCatalog.CreatePlans(memory,imageBase,true),NoDogsNativeContract.ReferenceSha256);
+            native=new PermanentNativeSwitch(log,imageBase,NativeSwitchCatalog.CreatePlans(memory,imageBase,true),NoDogsNativeContract.ReferenceSha256,"No dogs");
             settings.SettingChanged+=Refresh;
             Refresh(null);
         }

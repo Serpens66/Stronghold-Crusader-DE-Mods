@@ -68,9 +68,9 @@ namespace BugfixesAndQoL.VanillaPerformance
                 {
                     pending = new HookTransaction(context.Region,
                         SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
-                        new HookTransactionOptions { Backend = HookInstallPhase.Backend(), FailureMode = TransactionFailureMode.RollbackAndThrow, OwnsHooks = true });
+                        new HookTransactionOptions { Backend = HookInstallPhase.Backend(), FailureMode = TransactionFailureMode.RollbackAndThrow, OwnsHooks = true, InstallOnCommit = false });
                     pending.AddDetour(hook, HookTarget.FromAddress(target), RadarPass);
-                    CommitResult result = pending.Commit();
+                    CommitResult result = Shared.NativePatchGuard.Commit(pending, "Minimap refresh throttle");
                     if (!result.IsCompleteSuccess || !hook.Success)
                         throw new InvalidOperationException("the 0xF5A40 detour did not install completely: " + result);
                     ValidateInstalledHook(target);

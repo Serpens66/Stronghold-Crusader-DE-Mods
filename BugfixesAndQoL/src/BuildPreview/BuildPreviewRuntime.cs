@@ -64,8 +64,10 @@ namespace BugfixesAndQoL.BuildPreview
                 PreviewNativeContract.Validate(candidate, target, false);
                 // The inactive wrapper can safely call Original even during installation.
                 permanentHook = candidate;
+                Shared.NativePatchGuard.RequireUnpatched(candidate, "Improved build preview");
                 candidate.Enable();
                 PreviewNativeContract.Validate(candidate, target, true);
+                Shared.NativePatchGuard.Watch(candidate, "Improved build preview");
                 published = true;
                 Volatile.Write(ref ready, 1);
                 GroundTooltipRuntime.SetNativeReady(true);

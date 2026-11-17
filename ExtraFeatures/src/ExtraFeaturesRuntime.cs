@@ -192,6 +192,27 @@ namespace ExtraFeatures
             {
                 LogFeatureFailure("mission lifecycle subscriptions", ex);
             }
+
+            // Mods loaded after us may overwrite a published hook span; check once per mission or
+            // editor start (AGENTS/native-hooks.md#fremde-patches-erkennen). Process-lived, never removed.
+            try
+            {
+                lifecycleSubscriptions.Add(Shared.MissionEvents.Started.Subscribe(_ => RecheckNativePatches()));
+            }
+            catch (Exception ex)
+            {
+                LogFeatureFailure("native foreign-patch recheck subscription", ex);
+            }
+        }
+
+        private void RecheckNativePatches()
+        {
+            try { Shared.NativePatchGuard.Recheck(); }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtraFeatures/NativePatchGuard/Recheck",
+                    "Extra Features native foreign-patch recheck failed: " + ex);
+            }
         }
 
         public void InitializeNative(CrusaderLibraryLoadContext context, bool isFixedLayoutHashValidated)

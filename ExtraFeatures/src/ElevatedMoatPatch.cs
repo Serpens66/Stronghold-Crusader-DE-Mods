@@ -283,7 +283,9 @@ namespace ExtraFeatures
                     new HookTransactionOptions
                     {
                         FailureMode = TransactionFailureMode.RollbackAndThrow,
-                        OwnsHooks = true
+                        OwnsHooks = true,
+                        // Shared.NativePatchGuard.Commit checks the spans for foreign patches, then enables.
+                        InstallOnCommit = false
                     });
                 pending.AddContextHook(
                     drawbridgeHeightFailureWriterHook,
@@ -455,7 +457,7 @@ namespace ExtraFeatures
 
                 ExtraFeaturesHookInfrastructure.RootBeforeCommit(this, pending);
                 commitAttempted = true;
-                CommitResult result = pending.Commit();
+                CommitResult result = Shared.NativePatchGuard.Commit(pending, "elevated moat");
                 var installedHooks = new (HookHandle<X64InlineHook> Handle, int Length, string Description)[]
                 {
                     (drawbridgeHeightFailureWriterHook, ElevatedMoatNativeContract.DrawbridgeHeightFailureWriterLength,

@@ -1,6 +1,7 @@
 using APIShared.ModSettings;
 using BepInEx;
 using MonoMod.RuntimeDetour;
+using R3;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using System;
@@ -23,7 +24,7 @@ namespace CastlePlanner
 
         public const string PluginGuid = "CastlePlanner_Serp";
         public const string PluginName = "CastlePlanner";
-        public const string PluginVersion = "0.8.53";
+        public const string PluginVersion = "0.8.54";
 
         // The BepInEx component is destroyed during startup, so runtime state remains static.
         private static CastlePlannerRuntime runtime;
@@ -34,6 +35,8 @@ namespace CastlePlanner
         private static Hook steamAwakeHook;
         private static SteamAwakeDelegate steamAwakeOriginal;
         private static CastlePlannerSettingsViewModel processSettings;
+        // Process-lived late foreign-patch check of the published native hooks; never removed.
+        private static IDisposable nativePatchRecheckSubscription;
 
         public CastlePlannerSettingsViewModel Settings { get; private set; }
 
@@ -100,6 +103,9 @@ namespace CastlePlanner
             libraryLoadedHandled = true;
 
             var failedOptionalStages = new List<string>();
+            // Load snapshot for the foreign-patch checks of every later hook commit.
+            Shared.NativePatchGuard.Bind(context, Logger);
+            TryInitializeStage("native foreign-patch recheck", SubscribeNativePatchRecheck, failedOptionalStages);
 
             bool currentNativeLayout = false;
             try
@@ -212,6 +218,25 @@ namespace CastlePlanner
                 Shared.DebugLogHelper.LogWarningLimited(Logger, "CastlePlanner/CastlePlannerPlugin/OnCrusaderLibraryLoaded.crusader-library-initialization-completed", $"Crusader library initialization completed with {failedOptionalStages.Count} failed optional " +
                     $"stage(s) [{string.Join(", ", failedOptionalStages)}]; independent CastlePlanner features continue.");
             }
+        }
+
+        // Mods loaded after us may overwrite a published hook span; check once per mission or
+        // editor start (AGENTS/native-hooks.md#fremde-patches-erkennen).
+        private void SubscribeNativePatchRecheck()
+        {
+            if (nativePatchRecheckSubscription != null)
+                return;
+            var log = Logger;
+            Shared.MissionEvents.SetOwner(PluginGuid);
+            nativePatchRecheckSubscription = Shared.MissionEvents.Started.Subscribe(_ =>
+            {
+                try { Shared.NativePatchGuard.Recheck(); }
+                catch (Exception ex)
+                {
+                    Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/NativePatchGuard/Recheck",
+                        "CastlePlanner native foreign-patch recheck failed: " + ex);
+                }
+            });
         }
 
         private void TryInitializeStage(

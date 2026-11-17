@@ -24,6 +24,7 @@ namespace BugfixesAndQoL.MoatTerrain
         internal const string SaveIdentifier = "BugfixesAndQoL.MoatTerrain";
         private const string SiteName = "MoatTerrainRestoration";
         private const string Entry = "terrain";
+        private const string FeatureName = "Moat terrain restoration";
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
@@ -102,8 +103,14 @@ namespace BugfixesAndQoL.MoatTerrain
                 subscriptions.Add(Shared.MissionEvents.Started.Subscribe(OnStart));
                 publication.Enable(() =>
                 {
+                    // Foreign-patch check directly before the first write (nothing is written if it throws).
+                    foreach (var hook in result.Installed) Shared.NativePatchGuard.RequireUnpatched(hook, FeatureName);
                     foreach (var hook in result.Installed) hook.Enable();
-                }, () => ValidateInstalledHooks(image));
+                }, () =>
+                {
+                    ValidateInstalledHooks(image);
+                    foreach (var hook in result.Installed) Shared.NativePatchGuard.Watch(hook, FeatureName);
+                });
                 Info("MOAT_TERRAIN_READY: 14 permanent native sites; native-only tile work; save schema 1; awaiting mission.");
             }
             catch

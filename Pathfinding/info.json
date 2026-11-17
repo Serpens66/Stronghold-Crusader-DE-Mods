@@ -22,6 +22,7 @@
     {
       "Version": "0.1.10",
       "Changes": [
+        "Conflicts with other mods that change the same spot in the game's code are now detected: the affected feature stays off instead of overwriting the other mod's change, and the log names the conflict. Spots that a mod loaded later overwrites are reported in the log at each game start.",
         "New option \"Keep enemies off lowered drawbridges at gatehouses\" (on by default): enemy soldiers and AI lords no longer plan routes onto a lowered drawbridge in front of your gatehouse or through it into your castle, even when another way into the castle exists. You, your allies and anyone who captured the gate keep using the bridge through the open gate. While the gate is closed but its bridge is still down, your own units cannot cross that bridge either if it is their only way."
       ]
     },

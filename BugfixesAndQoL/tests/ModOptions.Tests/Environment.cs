@@ -124,6 +124,11 @@ namespace Shared
         public static readonly R3.TestObservable<MissionInitializationArgs> Initialization = new R3.TestObservable<MissionInitializationArgs>();
         public static readonly R3.TestObservable<object> Ended = new R3.TestObservable<object>();
     }
+    // The production guard needs a real RedBird transaction; this fake environment only commits it.
+    public static class NativePatchGuard
+    {
+        public static RedBird.Abstractions.Hooks.Transaction.CommitResult Commit(RedBird.X64.Hooks.Transaction.HookTransaction transaction, string feature) => transaction.Commit();
+    }
     public static class GameplaySessionLifecycle
     {
         public static Action<GameplaySessionStartedContext> Started;

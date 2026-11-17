@@ -55,7 +55,7 @@ namespace Pathfinding.UnitCommands
                 pendingBuildingCursor = AddDetour(pendingTransaction,
                     libraryBase + unchecked((ulong)buildingCursorResolution.Rva),
                     rootedBuildingCursorReachability);
-                CommitResult commitResult = CommitPermanentHooks(pendingTransaction);
+                CommitResult commitResult = CommitPermanentHooks(pendingTransaction, "Building cursor reachability");
                 originalBuildingCursorReachability = pendingBuildingCursor.Original;
                 ValidatePublishedCommandHooks(pendingTransaction);
 
@@ -133,7 +133,7 @@ namespace Pathfinding.UnitCommands
                 pendingRegionPair = AddDetour(pendingTransaction,
                     libraryBase + unchecked((ulong)regionPairResolution.Rva),
                     rootedRegionPairReachability);
-                CommitResult commitResult = CommitPermanentHooks(pendingTransaction);
+                CommitResult commitResult = CommitPermanentHooks(pendingTransaction, "Attack approach hooks");
                 originalAttackApproachFloodBuilder = pendingUnitFlood.Original;
                 originalBuildingApproachBuilder = pendingBuildingApproach.Original;
                 originalBuildingCandidateConsumer = pendingBuildingConsumer.Original;

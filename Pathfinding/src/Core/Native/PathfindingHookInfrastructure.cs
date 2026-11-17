@@ -12,7 +12,9 @@ namespace Pathfinding
 {
     internal static class PathfindingHookInfrastructure
     {
-        internal static HookTransaction CreateOwnedTransaction(ScanRegion region, bool installOnCommit = true) =>
+        // Prepares without writing: callers publish through Shared.NativePatchGuard.Commit, which
+        // checks every displaced span against the load snapshot before enabling the hooks.
+        internal static HookTransaction CreateOwnedTransaction(ScanRegion region, bool installOnCommit = false) =>
             new HookTransaction(
                 region,
                 SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,

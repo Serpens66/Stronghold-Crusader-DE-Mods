@@ -102,7 +102,7 @@ namespace Pathfinding.UnitCommands
                     hookSize: 14);
                 InstallPlacementAdapters(pendingTransaction, memory, libraryBase);
 
-                CommitResult commitResult = CommitPermanentHooks(pendingTransaction);
+                CommitResult commitResult = CommitPermanentHooks(pendingTransaction, "Connectivity and movement recovery");
                 originalTileUpdate = tileUpdateDetour.Original;
                 originalMoatWrite = moatWriteDetour.Original;
                 originalMoatDelete = moatDeleteDetour.Original;

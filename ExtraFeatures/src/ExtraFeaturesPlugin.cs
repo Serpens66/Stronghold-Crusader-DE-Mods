@@ -63,6 +63,8 @@ namespace ExtraFeatures
 
         private void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)
         {
+            // Load snapshot for the foreign-patch checks of every later hook commit.
+            Shared.NativePatchGuard.Bind(context, Logger);
             // Initial native installation window (see ExtraFeaturesHookInfrastructure.DetourBackend).
             ExtraFeaturesHookInfrastructure.InitialLibraryLoad = true;
             try { InitializeLibraryRuntime(context); }

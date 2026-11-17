@@ -530,7 +530,7 @@ namespace Pathfinding.UnitCommands
                     libraryBase + unchecked((ulong)cursorRegionResolution.Rva),
                     rootedCursorRegionPrecheck);
 
-                CommitResult commitResult = CommitPermanentHooks(pendingTransaction);
+                CommitResult commitResult = CommitPermanentHooks(pendingTransaction, "Unit command movement core");
                 originalCentralMovementPlan = pendingPlanDetour.Original;
                 originalCombatFinishResume = pendingCombatFinishResume.Original;
                 originalCursorMoveStager = pendingCursorMoveStager.Original;

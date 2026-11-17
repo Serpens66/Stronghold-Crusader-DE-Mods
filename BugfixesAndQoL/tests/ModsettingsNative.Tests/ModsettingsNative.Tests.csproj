@@ -43,6 +43,8 @@
     <Compile Include="..\..\src\Core\Native\NativeSwitchCatalog.cs" />
     <Compile Include="..\..\src\PeaceTime\VanillaPeaceTimeNativeContract.cs" />
     <Compile Include="..\..\src\PeaceTime\NoDogsNativeContract.cs" />
+    <Compile Include="..\..\..\Shared\Runtime\Native\NativePatchGuard.cs" />
+    <Compile Include="..\..\..\Shared\Runtime\Native\CommittedMemory.cs" />
     <Reference Include="BepInEx">
       <HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\BepInEx.dll</HintPath>
     </Reference>

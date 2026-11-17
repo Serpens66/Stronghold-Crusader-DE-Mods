@@ -76,7 +76,7 @@ namespace ImprovedHunters
                     (a, i) => HunterNativeStubs.EmitCorpseChoiceInSearch(a, i, flag, table, currentHunter, noPrey, walkToCorpse));
                 candidate.AddSite(memory, afterShot, AfterShotDisplaced,
                     (a, i) => HunterNativeStubs.EmitCorpseChoiceAfterShot(a, i, flag, table, corpseSearch, noCorpse));
-                candidate.Commit();
+                candidate.Publish();
                 gate = candidate;
             }
             catch

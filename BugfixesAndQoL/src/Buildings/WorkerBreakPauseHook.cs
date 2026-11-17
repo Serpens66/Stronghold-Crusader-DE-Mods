@@ -63,7 +63,7 @@ namespace BugfixesAndQoL
                     (assembler, instructions, _) => EmitConditionalBranch(
                         assembler, instructions, flagAddress, imageBase + BakerTargetRva),
                     hookSize: 14);
-                CommitResult result = candidate.Commit();
+                CommitResult result = Shared.NativePatchGuard.Commit(candidate, "Worker break pause");
                 if (!result.IsCompleteSuccess || !miller.Success || !baker.Success ||
                     !miller.IsInstalled || !baker.IsInstalled ||
                     miller.Hook.DisplacedByteCount != DisplacedLength ||

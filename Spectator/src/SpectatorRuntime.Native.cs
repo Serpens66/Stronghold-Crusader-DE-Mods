@@ -58,6 +58,8 @@ namespace Spectator
                 return;
             }
 
+            // Every Spectator hook checks its span against this load snapshot (foreign patches).
+            Shared.NativePatchGuard.Bind(context, RawLog);
             InitializeNativeOrders(context, image);
             InitializeNativeActions(context, image);
             if (availabilityDetour != null) return;
@@ -83,11 +85,13 @@ namespace Spectator
                     candidate.TargetAddress != entry || candidate.IsInstalled)
                     throw new InvalidOperationException("Availability detour candidate differs from audited entry.");
                 VerifyTrampoline(candidate.TrampolineAddress, candidate.TrampolineSize, entry, AvailabilityEntry);
+                Shared.NativePatchGuard.RequireUnpatched(candidate, "Spectator building availability");
                 nativeImageBase = unchecked((ulong)context.ModuleHandle.ToInt64());
                 availabilityDetour = candidate;
                 published = true; // Enable may publish before throwing; retain its root.
                 candidate.Enable();
                 VerifyAvailabilityPatch(candidate, entry);
+                Shared.NativePatchGuard.Watch(candidate, "Spectator building availability");
                 availabilityReady = true;
                 candidate = null;
                 published = true;
@@ -228,6 +232,8 @@ namespace Spectator
                     throw new InvalidOperationException(reason);
                 resource = CreateVisualDetour("resource", image + VisualResourceRva,
                     VisualResourceEntry, (VisualResourceDelegate)UpdateVisualResource);
+                Shared.NativePatchGuard.RequireUnpatched(map, "Spectator visual map");
+                Shared.NativePatchGuard.RequireUnpatched(resource, "Spectator visual resource");
                 visualMapDetour = map;
                 visualResourceDetour = resource;
                 published = true; // Retain all roots once any live publication is attempted.
@@ -235,6 +241,8 @@ namespace Spectator
                 resource.Enable();
                 VerifyVisualPatch(map, image + VisualMapRva, VisualMapEntry.Length);
                 VerifyVisualPatch(resource, image + VisualResourceRva, VisualResourceEntry.Length);
+                Shared.NativePatchGuard.Watch(map, "Spectator visual map");
+                Shared.NativePatchGuard.Watch(resource, "Spectator visual resource");
                 visualsReady = true;
                 log.LogInfo("SPECTATOR_EDITOR_VISUAL_READY map=0x65830 frame=0x41D60 resource=0x6E620");
             }

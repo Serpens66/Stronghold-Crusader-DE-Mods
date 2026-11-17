@@ -180,7 +180,7 @@ namespace BugfixesAndQoL
                 marketValidatorHook,
                 HookTarget.FromAddress(validator),
                 MarketValidatorHook);
-            CommitResult commitResult = nativeTransaction.Commit();
+            CommitResult commitResult = Shared.NativePatchGuard.Commit(nativeTransaction, "Ctrl market trade");
 
             if (!commitResult.IsCompleteSuccess || !marketValidatorHook.Success)
                 throw new InvalidOperationException("The Vanilla market validator signature was not found.");

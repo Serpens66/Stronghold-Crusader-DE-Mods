@@ -50,8 +50,10 @@ namespace BugfixesAndQoL
                 candidate = HookInstallPhase.Backend(AIKeepRangeNativeContract.Backend).CreateDetour(in request) as NativeDetour<AIKeepDistanceCheck>;
                 AIKeepRangeNativeContract.ValidateDetour(candidate, target, false);
                 original = candidate.Original;
+                Shared.NativePatchGuard.RequireUnpatched(candidate, "AI keep range");
                 candidate.Enable();
                 AIKeepRangeNativeContract.ValidateDetour(candidate, target, true);
+                Shared.NativePatchGuard.Watch(candidate, "AI keep range");
                 hook = candidate;
                 installed = true; // Published permanently; only logical activation changes from here.
             }

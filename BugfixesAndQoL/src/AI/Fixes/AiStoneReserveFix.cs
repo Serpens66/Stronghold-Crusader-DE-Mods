@@ -79,7 +79,7 @@ namespace BugfixesAndQoL
                     hookSize: AiStoneReserveNativeDefinition.SellerReserveOverwriteLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                CommitResult commitResult = transaction.Commit();
+                CommitResult commitResult = Shared.NativePatchGuard.Commit(transaction, "AI stone reserve fix");
 
                 if (!commitResult.IsCompleteSuccess || !reserveHook.Success)
                     throw new InvalidOperationException("The AI seller stone-reserve hook was not installed.");

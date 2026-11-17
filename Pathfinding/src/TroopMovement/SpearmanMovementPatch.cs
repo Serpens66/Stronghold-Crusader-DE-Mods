@@ -95,7 +95,7 @@ namespace Pathfinding
                             unchecked((ulong)enabledFlag.ToInt64())),
                     hookSize: HookSize);
 
-                CommitResult commitResult = transaction.Commit();
+                CommitResult commitResult = Shared.NativePatchGuard.Commit(transaction, "Spearman movement");
 
                 if (!commitResult.IsCompleteSuccess ||
                     !movementDecisionHook.Success)

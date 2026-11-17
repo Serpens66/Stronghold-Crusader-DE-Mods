@@ -46,13 +46,13 @@ namespace BugfixesAndQoL
                 receiver = callback;
                 ulong callbackAddress = unchecked((ulong)Marshal.GetFunctionPointerForDelegate(observer).ToInt64());
                 pending = new HookTransaction(context.Region, options: new HookTransactionOptions {
-                    OwnsHooks = true, FailureMode = TransactionFailureMode.RollbackAndThrow });
+                    OwnsHooks = true, FailureMode = TransactionFailureMode.RollbackAndThrow, InstallOnCommit = false });
                 pending.AddInline(handle, HookTarget.FromAddress(module + SiteRva),
                     (asm, original, continuation) => {
                         ValidateOriginal(original, module, continuation);
                         Emit(asm, original, callbackAddress, module + ContextRva);
                     }, hookSize: 14);
-                var result = pending.Commit();
+                var result = Shared.NativePatchGuard.Commit(pending, "AI raid retarget observer");
                 if (!result.IsCompleteSuccess || !handle.Success || !handle.IsInstalled ||
                     handle.Failure != null || handle.ResolvedAddress != module + SiteRva ||
                     handle.Require().DisplacedByteCount != SpanLength)

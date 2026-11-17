@@ -58,7 +58,7 @@ namespace Spectator
             select = (SelectCall)Marshal.GetDelegateForFunctionPointer(gateway, typeof(SelectCall));
             cancel = (CancelCall)Marshal.GetDelegateForFunctionPointer(new IntPtr(module.ToInt64() + 0x897F0), typeof(CancelCall));
             transaction = new HookTransaction(context.Region, SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
-                new HookTransactionOptions { FailureMode = TransactionFailureMode.RollbackAndThrow, OwnsHooks = true });
+                new HookTransactionOptions { FailureMode = TransactionFailureMode.RollbackAndThrow, OwnsHooks = true, InstallOnCommit = false });
             for (int i = 0; i < hooks.Length; i++)
             {
                 int site = i; hooks[i] = new HookHandle<X64InlineHook>();
@@ -68,7 +68,7 @@ namespace Spectator
                     hookSize: NativePowerAssembly.Bytes(i).Length);
             }
             // Retain even a failed/partial candidate: callbacks remain inert until Ready. Never undo published code.
-            if (!transaction.Commit().IsCompleteSuccess) throw new InvalidOperationException("Power transaction failed.");
+            if (!Shared.NativePatchGuard.Commit(transaction, "Spectator power selection").IsCompleteSuccess) throw new InvalidOperationException("Power transaction failed.");
             for (int i = 0; i < hooks.Length; i++)
                 if (!hooks[i].Success || hooks[i].Hook.DisplacedByteCount != NativePowerAssembly.Bytes(i).Length)
                     throw new InvalidOperationException("Power installed span changed.");
