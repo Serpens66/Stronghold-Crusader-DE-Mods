@@ -186,8 +186,9 @@ namespace AiGroupAdmissionTest
             {
                 for (int index = 0; index < count; index++)
                 {
-                    int x = lordX + index % 3 - 1, y = lordY + index / 3;
-                    int id = checked((int)GameUnitManagerAPI.Instance.CreateUnitLocal(owner, owner, x, y, lordHeight, type));
+                    if (!TrySpawnTile(out int x, out int y, out int height))
+                    { Fail(round + " no walkable spawn tile type=" + type + " role=" + wanted.Role); continue; }
+                    int id = checked((int)GameUnitManagerAPI.Instance.CreateUnitLocal(owner, owner, x, y, height, type));
                     GameUnit* unit = null;
                     if (id <= 0 || !UnitAccess.TryGetById(id, out unit, out _) || unit->r_GlobalId == 0)
                     { Fail(round + " create failed type=" + type + " role=" + wanted.Role); continue; }
@@ -206,6 +207,23 @@ namespace AiGroupAdmissionTest
                     if (probe.Initial == null) Fail(round + " no initial result unit=" + probe.Unit + " type=" + type + " role=" + wanted.Role);
             }
             finally { scope.Dispose(); }
+        }
+
+        // The lord can stand on a keep tile from which no route exists (run 17.11.2026 23:03: every
+        // recruit stuck, routes raw=0). Spawn on the nearest walkable free tile of a grid around the
+        // keep door instead, like PerfProbe's spawn action.
+        private int spawnIndex;
+        private bool TrySpawnTile(out int x, out int y, out int height)
+        {
+            var tiles = GameTileManagerAPI.Instance;
+            var door = GamePlayerManagerAPI.Instance.GetPlayerKeepDoorPosition(owner);
+            int index = spawnIndex++;
+            var position = tiles.GetNearestUnoccupiedTile(door.X + index % 15 - 7, door.Y + index / 15 % 15 - 7, 12);
+            int tile = tiles.GetTileId(position.X, position.Y);
+            x = position.X; y = position.Y; height = 0;
+            if (!tiles.IsValidTileId(tile) || !tiles.IsTileWalkableAndUnoccupied(tile)) return false;
+            height = tiles.GetTileHeight(tile);
+            return true;
         }
 
         // Called synchronously under the engine monitor at the completed engine-run safe point.

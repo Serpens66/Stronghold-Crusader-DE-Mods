@@ -355,6 +355,8 @@ BugfixesAndQoL.EnableAssassinCapturedGateProtectionFixHelp=Prevents AI Assassins
 
 BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFix=修正城門樓上的目標標記
 BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFixHelp=修正城門樓上綠色移動目標標記的高度，包括陣型預覽。不改變塔樓和主堡。此設定只在本機生效，不會同步。
+BugfixesAndQoL.EnableTroopPanelPageCountFix=Hide unneeded page arrows in the troop panel
+BugfixesAndQoL.EnableTroopPanelPageCountFixHelp=In Vanilla, the page arrows of the troop panel stay visible after you once selected more than eight unit types, even when the current selection fits on one page, and they can lead to empty pages. With this fix, the arrows only appear when the selection really needs more pages. This setting is local and is not synchronized.
 BugfixesAndQoL.EnableVanillaPerformanceOptimizations=原版效能最佳化
 BugfixesAndQoL.EnableVanillaPerformanceOptimizationsHelp=略過每個刻都對未變化的小地圖重新綁定，並避免在漫長的模擬刻運行時同盟和排名顯示令畫面凍結。遊戲邏輯保持不變。此設定只在本機生效，不會同步。
 BugfixesAndQoL.EnableMinimapRefreshThrottle=降低小地圖重繪頻率
@@ -427,6 +429,7 @@ BugfixesAndQoL.SettingsRework.MaximumGameSpeed=Maximum game speed
 
 BugfixesAndQoL.SettingsRework.Reason.PreserveDisplayResolution=Protects the borderless fullscreen resolution loaded from settings.cfg against automatic changes during startup and focus changes.
 BugfixesAndQoL.SettingsRework.Reason.EnableGatehouseTargetMarkerHeightFix=Corrects the height of green movement target markers on gatehouses, including formation previews.
+BugfixesAndQoL.SettingsRework.Reason.EnableTroopPanelPageCountFix=Shows the troop panel page arrows only when the selection really needs more pages.
 BugfixesAndQoL.SettingsRework.Reason.EnableVanillaPerformanceOptimizations=Skips re-binding the unchanged minimap on every tick and keeps the alliance and rank displays from freezing the picture while a long simulation tick runs.
 BugfixesAndQoL.SettingsRework.Reason.EnableMinimapRefreshThrottle=Clearly more game speed on large maps; the minimap lags behind by at most 0.1 seconds.
 BugfixesAndQoL.SettingsRework.Reason.SpriteSheetMergeModeIndex=A rendering optimization with additional memory requirements and a restart notice; the appropriate choice depends on the system.

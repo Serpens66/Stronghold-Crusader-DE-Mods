@@ -360,6 +360,8 @@ BugfixesAndQoL.DeleteTrailErrorTitle=Trail konnte nicht gelöscht werden
 BugfixesAndQoL.DeleteTrailErrorMessage=Der Trail „{TrailName}“ konnte nicht gelöscht werden. Sein Ordner ist möglicherweise nicht verfügbar, geschützt oder in Verwendung. Weitere Details stehen im Log.
 BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFix=Zielmarker auf Torhäusern korrigieren
 BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFixHelp=Korrigiert die Höhe grüner Bewegungszielmarker auf Torhäusern, einschließlich Formationsvorschau. Türme und Bergfriede bleiben unverändert. Diese Einstellung ist lokal und wird nicht synchronisiert.
+BugfixesAndQoL.EnableTroopPanelPageCountFix=Unnötige Seitenpfeile im Truppenmenü ausblenden
+BugfixesAndQoL.EnableTroopPanelPageCountFixHelp=In Vanilla bleiben die Seitenpfeile des Truppenmenüs sichtbar, nachdem einmal mehr als acht Einheitentypen ausgewählt waren, auch wenn die aktuelle Auswahl auf eine Seite passt, und sie können zu leeren Seiten führen. Mit diesem Fix erscheinen die Pfeile nur, wenn die Auswahl wirklich weitere Seiten braucht. Diese Einstellung ist lokal und wird nicht synchronisiert.
 BugfixesAndQoL.EnableVanillaPerformanceOptimizations=Vanilla-Leistungsoptimierungen
 BugfixesAndQoL.EnableVanillaPerformanceOptimizationsHelp=Überspringt das unveränderte Neubinden der Minikarte bei jedem Tick und verhindert, dass die Bündnis- und Ranganzeige das Bild einfriert, während ein langer Simulationstick läuft. Die Spiellogik bleibt unverändert. Diese Einstellung ist lokal und wird nicht synchronisiert.
 BugfixesAndQoL.EnableMinimapRefreshThrottle=Minikarte seltener neu zeichnen
@@ -427,6 +429,7 @@ BugfixesAndQoL.SettingsRework.MaximumGameSpeed=Maximales Spieltempo
 
 BugfixesAndQoL.SettingsRework.Reason.PreserveDisplayResolution=Schützt die aus settings.cfg geladene randlose Vollbildauflösung vor automatischen Änderungen während des Starts und bei Fokuswechseln.
 BugfixesAndQoL.SettingsRework.Reason.EnableGatehouseTargetMarkerHeightFix=Korrigiert die Höhe grüner Bewegungszielmarker auf Torhäusern, einschließlich Formationsvorschau.
+BugfixesAndQoL.SettingsRework.Reason.EnableTroopPanelPageCountFix=Zeigt die Seitenpfeile des Truppenmenüs nur, wenn die Auswahl wirklich weitere Seiten braucht.
 BugfixesAndQoL.SettingsRework.Reason.EnableVanillaPerformanceOptimizations=Gezielte lokale Leistungsoptimierungen; unabhängig von den zusätzlichen Suchen im Hostbereich beurteilen.
 BugfixesAndQoL.SettingsRework.Reason.EnableMinimapRefreshThrottle=Deutlich mehr Spielgeschwindigkeit auf großen Karten; die Minikarte hinkt höchstens 0,1 Sekunden hinterher.
 BugfixesAndQoL.SettingsRework.Reason.SpriteSheetMergeModeIndex=Rendering-Optimierung mit eigenem Speicherbedarf und Neustarthinweis; die passende Wahl hängt vom System ab.

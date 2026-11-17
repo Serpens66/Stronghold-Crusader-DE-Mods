@@ -176,3 +176,52 @@ labels remain `candidate`, data flow confirmed-static, not yet real-game measure
   existing group has no observed order with membership and role only, like a Vanilla
   recruit. Harassment (`3E200`: cached building target, combat/interval gates) and siege
   roles were not shown to recommand joined members and keep requiring an observed order.
+
+## Castle-defense recruit allocation (role 1)
+
+Static audit 2026-11-17 on the same native hash (Capstone disassembly of the installed DLL plus
+Ghidra pseudocode; data flow confirmed-static, function labels `candidate`, not real-game measured).
+
+- `29520` (unclassified AI military pass) and `40740` (recruitment) call `291F0(AIC base, unit)`.
+  `291F0` computes the class with `2D760(AIC base, unit, flag)`; flag = player `+0x3864 == 1` and
+  signed word `+0x386E > 0`. `2D760` returns 13 if the flag is set, the AIC identity is not 7,
+  the class-13 position count (`379EC90`) is positive and the type is in {22,23,70,72,76,81,82};
+  otherwise the index of the type in `2CEE00` (30 entries), else 0. Spearman 24 is class 8, maceman
+  26 class 10, Arabian horse archer 74 class 17, Arabian slinger 72 class 14.
+- Position count `379EC5C[player*0x160F + class] > 0` selects `2BC40(AIC base, player, class)`;
+  otherwise `2BF10(AIC base, player, 2DB60(unit) == 0)`. `2DB60` returns 1 for types in `2CEF40`
+  {22,23,25,27,70,76,75,82,84,81,80,79,85}, so those use storage slot 0 and all other types slot 1.
+  `2BF10` returns the tribe ID in EAX on both paths (stored slot ID or the `119D60` result), although
+  Ghidra types it `void`. `291F0` then calls `11D370(tribe manager, unit, returned ID)` with no check.
+- `2BC40` returns 0 if the AIC identity is 0, if the effective window is not positive, or if every
+  window slot is current with at least 1000 members. The window is the position count, replaced by
+  AIC `max_mobile_groups` (`+0x118`) only for classes 8, 10 and 17 and only when the count exceeds it
+  (signed compare). The first empty or stale (ID 0 or global mismatch) slot is allocated through
+  `119D60`; otherwise the slot with the fewest members wins. Stale means only an ID/global mismatch:
+  a record with matching global but state 3 is returned unchanged.
+- `11D370` does not test the tribe state. `123EA0` sets state 3 when the last member leaves;
+  `1261F0` (called in `CDE60` after the AI passes `57330`) clears every state-3 record with `118C70`
+  regardless of members, and also clears empty live records unless `+0x2A` is non-zero and at least
+  `DAT_183665F58`. A recruit assigned to a state-3 tribe is therefore orphaned at the next `1261F0`.
+- Position counts and tiles (`379E7AC`, 10 per class) are rebuilt in `53D00` from the AIV misc items
+  (misc item type = defensive class). Classes 9, 11 and 18 (mask `0x40A00`) stay zero unless the
+  per-player flag `8D403C` is set.
+- Controller (`2FE20`, every AIC pass): storage slot 0 -> `3E6C0` -> `3E940` (keep origin +3/+4);
+  storage slot 1 -> `3EA10` -> `3E9A0` (stored position `+0x1D8/+0x1DC` when `+0x1D4 > 0`, sets tribe
+  `+0x634 = 2`). Class windows: wall `3D9E0` (`2CF020`: 6,7,14,16,19,26,25), castle `3DEE0` (`2CF060`:
+  9,11,12,15,18,13,23,24,27), mobile `3DB30` (`2CF0A8`: 8,10,17,22,28,29; window clamped to
+  `max_mobile_groups`, position ordinal `(+0x2B54 + i*step) % count`, threat branch `3E9A0`).
+  `3E850` resolves the populated ordinal, tests leader-tile to target reachability with `3E650`
+  (`E2610`), and uses `11DD10` or, if unreachable, `3E940`.
+- `196280` returns 0 for an off-map/invalid target, a target with tile flags `0x30`, a wall/tower
+  target (`0x10000100`) for a type whose `322540` entry is 0, unreachable components and failed path
+  construction. Result 1 includes "already there".
+
+### Admission consequences [mod integration]
+
+- APIShared `ResolveDefense` mirrors `291F0` except that it rejects a returned ID whose record is not
+  live/owned (`TryGetGroup`); Vanilla would assign into it. With `max_mobile_groups <= 0` and a positive
+  class-8/10/17 count, `2BC40` returns 0 deterministically.
+- The empty-group initial order sends every non-window group to keep +3/+4, which matches slot 0 but
+  not slot 1 (`3E9A0` position). In the 2026-11-17 run, slot-1 members later stood near 229,431 while
+  slot-0 members stayed near keep +3/+4 (238,430). It also omits the `3E650` reachability fallback.
