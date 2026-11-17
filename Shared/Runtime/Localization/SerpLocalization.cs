@@ -915,7 +915,9 @@ public static class SerpLocalization
         try
         {
             SHCDESE.BepInEx.Bootstrap.Plugin plugin = SHCDESE.BepInEx.Bootstrap.Plugin.Instance;
-            if (plugin != null && plugin.LanguageProvider != null)
+            // Startup destroys the Unity component, but its managed configuration remains
+            // process-rooted. Unity's overloaded null check would discard an explicit override.
+            if (!ReferenceEquals(plugin, null) && plugin.LanguageProvider != null)
                 return plugin.LanguageProvider.Value;
         }
         catch

@@ -1,5 +1,7 @@
 # Einheitenrettung testen
 
+Fortlaufender Arbeits- und Integrationsplan: [Allgemeine Rettung und spätere Integration in Pathfinding](RESCUE-PLAN.md).
+
 Dieser Testmod ist ein isolierter Versuchsstand. Die experimentelle Einstellung ist standardmäßig ausgeschaltet. Aktiviert sie der Nutzer vor einer bekannten lokalen Mission, beobachtet ein begrenzter Pilot den echten KI-AIV-Zugbrückenbau und versucht neu eingeschlossene eigene Soldaten und Reiter lokal zu retten. Bestehende feststeckende Einheiten werden nicht rückwirkend gesucht oder repariert. Das ist noch kein fertiger allgemeiner Spielfix.
 
 Die Fixes-Unterdrückung ist auf eigene synchrone Rettungsaktionen begrenzt und wird in `finally` wieder ausgeschaltet. Der neue Pilot erfasst den Zustand vor dem regulären KI-Bau, lässt sämtliche Vanilla-/Fixes-Bauaktionen unverändert laufen und prüft danach dieselben Einheiten. Erst seine eigene Versetzung beziehungsweise Auftragsfortsetzung öffnet das enge Unterdrückungsfenster. Die bisherigen Testvorrichtungen behalten ihren gesonderten Simulationsmonitor; der Pilot bleibt dort ausgeschaltet, außer im eigens dafür angeforderten AIV-Szenario.

@@ -71,6 +71,15 @@ while ((Get-Process -Name 'UnityCrashHandler64' -ErrorAction SilentlyContinue) -
 Start-Sleep -Seconds 10
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 Write-RunConfig $game
+if ($Locale) {
+    # Expected language is part of each box assertion, independent of the label or requested cfg.
+    $scenarioTarget = Join-Path $game "BepInEx/config/UiAcceptance/$Scenario"
+    $scenarioData = [IO.File]::ReadAllText($scenarioTarget) | ConvertFrom-Json
+    foreach ($item in $scenarioData.steps) {
+        if ($item.do -eq 'AiUi.Box') { $item.args = @($item.args[0], $Locale) }
+    }
+    [IO.File]::WriteAllText($scenarioTarget, ($scenarioData | ConvertTo-Json -Depth 10), [Text.UTF8Encoding]::new($false))
+}
 $log = Join-Path $game 'BepInEx\LogOutput.log'
 $playerDir = Join-Path $env:USERPROFILE 'AppData\LocalLow\Firefly Studios\Stronghold Crusader Definitive Edition'
 $shots = Join-Path $game 'BepInEx\UiAcceptance_shots'

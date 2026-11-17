@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Spectator",
   "Description": "Spectator perspectives, live statistics and local AI testing tools.",
-  "Version": "0.2.6",
+  "Version": "0.2.7",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -19,6 +19,14 @@
     "2.8.0.2"
   ],
   "SerpChangelog": [
+    {
+      "Version": "0.2.7",
+      "Changes": [
+        "Make the AI assignment box fit its contents and dock beside the build menu. Drag its title to move it for the current session, or return it to the build menu to dock again.",
+        "Explain AI tasks, additional troops and editor placement in clearer tooltips, and keep the selected task fully visible.",
+        "Respect an explicitly selected mod language after the game's startup cleanup."
+      ]
+    },
     {
       "Version": "0.2.6",
       "Changes": [

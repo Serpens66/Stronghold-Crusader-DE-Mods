@@ -18,7 +18,7 @@ namespace Spectator
     public sealed partial class SpectatorPlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "Spectator_Serp";
-        public const string PluginVersion = "0.2.6";
+        public const string PluginVersion = "0.2.7";
         private static SpectatorPlugin processRoot;
         private static SpectatorStatistics statistics;
         private static SpectatorDefeat spectatorDefeat;

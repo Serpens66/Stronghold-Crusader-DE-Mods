@@ -276,40 +276,40 @@ namespace Spectator
             aiPositioning = true;
             try
             {
-            bool editor = IsEditorAiPlacementSession();
-            float vw = aiPlacementHost.ActualWidth, vh = aiPlacementHost.ActualHeight;
-            if (vw <= 0 || vh <= 0) return;
-            FrameworkElement nativeFrame = editor ? MainViewModel.Instance.HUDmain?.FindName("MainFrameBuildings") as FrameworkElement : frameAnchor;
-            var frame = AiHostBounds(nativeFrame);
-            if (frame.Empty) frame = new ToolbarRect(Math.Max(0, vw - 800), vh - 150, 800, 150);
-            float nativeScale = nativeFrame?.ActualWidth > 0 ? frame.Width / nativeFrame.ActualWidth : 1;
-            float scale = Math.Max(.01f, Math.Min(nativeScale, Math.Min(vw / 280, vh / Math.Max(1, aiPlacementPanel.ActualHeight))));
-            float available = Math.Min(500, vw / scale);
-            if (aiPlacementPanel.MaxWidth != available) aiPlacementPanel.MaxWidth = available;
-            float contentWidth = Math.Max(1, available - 14);
-            // A horizontal StackPanel measures without a width limit; stack its controls on
-            // narrow viewports before it could clip a translated checkbox or selected caption.
-            float rowWidth = aiRolePicker.DesiredSize.Width + aiAdditional.DesiredSize.Width -
-                aiAdditional.Margin.Left - aiAdditional.Margin.Right + 10;
-            var orientation = rowWidth > contentWidth ? Orientation.Vertical : Orientation.Horizontal;
-            if (aiPlacementRow.Orientation != orientation) aiPlacementRow.Orientation = orientation;
-            var margin = orientation == Orientation.Horizontal ? new Thickness(10, 0, 0, 0) : new Thickness(0, 4, 0, 0);
-            if (!aiAdditional.Margin.Equals(margin)) aiAdditional.Margin = margin;
-            aiRolePicker.MaxWidth = Math.Min(300, contentWidth);
-            aiRolePicker.MinWidth = Math.Min(260, contentWidth);
-            aiPlacementTitle.MaxWidth = aiPlacementStatus.MaxWidth = contentWidth;
-            float width = aiPlacementPanel.ActualWidth * scale, height = aiPlacementPanel.ActualHeight * scale;
-            if (width <= 0 || height <= 0) { RequestRender(); return; }
-            if (aiPlacementScale != scale)
-            { aiPlacementScale = scale; aiPlacementPanel.RenderTransform = new ScaleTransform(scale, scale); }
-            aiPlacementObstacles.Clear();
-            if (!editor) { aiPlacementObstacles.AddRange(controlsBounds); aiPlacementObstacles.Add(AiHostBounds(humanPanel)); }
-            bool dockAvailable = AiPlacementLayout.TryDock(frame, width, height, vw, vh, aiPlacementObstacles, out aiPanelDock);
-            if (!dockAvailable && !aiPanelPosition.Floating && !aiPanelPosition.Dragging) { HideAiPlacementPanel(); return; }
-            var pose = aiPanelPosition.Arrange(aiPanelDock, width, height, vw, vh);
-            aiPanelBounds = pose;
-            Canvas.SetLeft(aiPlacementPanel, pose.X); Canvas.SetTop(aiPlacementPanel, pose.Y);
-            }
+                bool editor = IsEditorAiPlacementSession();
+                float vw = aiPlacementHost.ActualWidth, vh = aiPlacementHost.ActualHeight;
+                if (vw <= 0 || vh <= 0) return;
+                FrameworkElement nativeFrame = editor ? MainViewModel.Instance.HUDmain?.FindName("MainFrameBuildings") as FrameworkElement : frameAnchor;
+                var frame = AiHostBounds(nativeFrame);
+                if (frame.Empty) frame = new ToolbarRect(Math.Max(0, vw - 800), vh - 150, 800, 150);
+                float nativeScale = nativeFrame?.ActualWidth > 0 ? frame.Width / nativeFrame.ActualWidth : 1;
+                float scale = Math.Max(.01f, Math.Min(nativeScale, Math.Min(vw / 280, vh / Math.Max(1, aiPlacementPanel.ActualHeight))));
+                float available = Math.Min(500, vw / scale);
+                if (aiPlacementPanel.MaxWidth != available) aiPlacementPanel.MaxWidth = available;
+                float contentWidth = Math.Max(1, available - 14);
+                // A horizontal StackPanel measures without a width limit; stack its controls on
+                // narrow viewports before it could clip a translated checkbox or selected caption.
+                float rowWidth = aiRolePicker.DesiredSize.Width + aiAdditional.DesiredSize.Width -
+                    aiAdditional.Margin.Left - aiAdditional.Margin.Right + 10;
+                var orientation = rowWidth > contentWidth ? Orientation.Vertical : Orientation.Horizontal;
+                if (aiPlacementRow.Orientation != orientation) aiPlacementRow.Orientation = orientation;
+                var margin = orientation == Orientation.Horizontal ? new Thickness(10, 0, 0, 0) : new Thickness(0, 4, 0, 0);
+                if (!aiAdditional.Margin.Equals(margin)) aiAdditional.Margin = margin;
+                aiRolePicker.MaxWidth = Math.Min(300, contentWidth);
+                aiRolePicker.MinWidth = Math.Min(260, contentWidth);
+                aiPlacementTitle.MaxWidth = aiPlacementStatus.MaxWidth = contentWidth;
+                float width = aiPlacementPanel.ActualWidth * scale, height = aiPlacementPanel.ActualHeight * scale;
+                if (width <= 0 || height <= 0) { RequestRender(); return; }
+                if (aiPlacementScale != scale)
+                { aiPlacementScale = scale; aiPlacementPanel.RenderTransform = new ScaleTransform(scale, scale); }
+                aiPlacementObstacles.Clear();
+                if (!editor) { aiPlacementObstacles.AddRange(controlsBounds); aiPlacementObstacles.Add(AiHostBounds(humanPanel)); }
+                bool dockAvailable = AiPlacementLayout.TryDock(frame, width, height, vw, vh, aiPlacementObstacles, out aiPanelDock);
+                if (!dockAvailable && !aiPanelPosition.Floating && !aiPanelPosition.Dragging) { HideAiPlacementPanel(); return; }
+                var pose = aiPanelPosition.Arrange(aiPanelDock, width, height, vw, vh);
+                aiPanelBounds = pose;
+                Canvas.SetLeft(aiPlacementPanel, pose.X); Canvas.SetTop(aiPlacementPanel, pose.Y);
+                }
             finally { aiPositioning = false; }
         }
 

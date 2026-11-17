@@ -394,7 +394,7 @@ namespace UiAcceptance
             });
         }
 
-        private static IEnumerable<Wait> TakeUiScreenshot(string label)
+        internal static IEnumerable<Wait> TakeUiScreenshot(string label)
         {
             var screenshot = typeof(GameSteps).GetMethod("Screenshot", BindingFlags.NonPublic | BindingFlags.Static);
             Runner.Require(screenshot != null && screenshot.ReturnType == typeof(IEnumerable<Wait>), "existing Screenshot step changed");
