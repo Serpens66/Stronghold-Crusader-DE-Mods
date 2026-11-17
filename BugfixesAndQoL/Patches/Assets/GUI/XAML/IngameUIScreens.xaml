@@ -228,16 +228,15 @@
             </TextBlock>
           </Viewbox>
         </Canvas>
-        <TextBlock x:Name="ForeignTroopPageText" Width="44" Canvas.Left="354" Canvas.Top="119"
-                   TextAlignment="Center" Foreground="#FFDDDDDD" FontSize="12" IsHitTestVisible="False"/>
+        <!-- Frameless arrows; NoFade has no Opacity storyboard that could fight the view's Visibility. -->
         <Button x:Name="ForeignTroopPrevious" Width="21" Height="21" Canvas.Left="371" Canvas.Top="145"
-                local:PropEx.Sprite1="{StaticResource UI-Buttons L003}"
-                local:PropEx.Sprite2="{StaticResource UI-Buttons L004}"
-                Style="{StaticResource BTN_Building}" Visibility="Collapsed"/>
+                local:PropEx.Sprite1="{StaticResource Button_Arrow_Left}"
+                local:PropEx.Sprite2="{StaticResource Button_Arrow_Left_Over}"
+                Style="{StaticResource BTN_BuildingNoFade}" Visibility="Collapsed"/>
         <Button x:Name="ForeignTroopNext" Width="21" Height="21" Canvas.Left="392" Canvas.Top="145"
-                local:PropEx.Sprite1="{StaticResource UI-Buttons L001}"
-                local:PropEx.Sprite2="{StaticResource UI-Buttons L002}"
-                Style="{StaticResource BTN_Building}" Visibility="Collapsed"/>
+                local:PropEx.Sprite1="{StaticResource Button_Arrow}"
+                local:PropEx.Sprite2="{StaticResource Button_Arrow_Over}"
+                Style="{StaticResource BTN_BuildingNoFade}" Visibility="Collapsed"/>
       </Canvas>
     </Content>
   </Operation>

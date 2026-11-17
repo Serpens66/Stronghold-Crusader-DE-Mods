@@ -18,8 +18,12 @@ namespace Noesis
     public class RoutedEventArgs : EventArgs { public bool Handled; }
     public class MouseButtonEventArgs : RoutedEventArgs { public MouseButton ChangedButton; public int ClickCount; }
     public class Geometry { }
-    public struct Rect { public Rect(float x, float y, float w, float h) { } }
-    public class RectangleGeometry : Geometry { public RectangleGeometry(Rect rect) { } }
+    public struct Rect
+    {
+        public readonly float Width, Height;
+        public Rect(float x, float y, float w, float h) { Width = w; Height = h; }
+    }
+    public class RectangleGeometry : Geometry { public readonly Rect Rect; public RectangleGeometry(Rect rect) { Rect = rect; } }
     public class ImageSource { public readonly string Key; public ImageSource(string key) { Key = key; } }
     public class BitmapSource : ImageSource { public BitmapSource(string key) : base(key) { } }
     public struct Int32Rect
@@ -164,7 +168,6 @@ public static class ForeignTroopPortraitTests
         var main = new MainViewModel();
         var names = main.IngameUI.Names;
         names["ForeignTroopHudPanel"] = new Canvas();
-        names["ForeignTroopPageText"] = new TextBlock();
         names["ForeignTroopPrevious"] = new Button();
         names["ForeignTroopNext"] = new Button();
         for (int i = 1; i <= 8; i++)
@@ -188,6 +191,61 @@ public static class ForeignTroopPortraitTests
         Check(view.Show(main, entries, true, out failure), "View resolves: " + failure);
     }
     private static Button Portrait(MainViewModel main) { return (Button)main.IngameUI.Names["ForeignTroopImage1"]; }
+    private static void ExpectArrows(MainViewModel main, bool previous, bool next, string name)
+    {
+        var names = main.IngameUI.Names;
+        Check(((Button)names["ForeignTroopPrevious"]).Visibility == (previous ? Visibility.Visible : Visibility.Collapsed), name + ": previous arrow");
+        Check(((Button)names["ForeignTroopNext"]).Visibility == (next ? Visibility.Visible : Visibility.Collapsed), name + ": next arrow");
+    }
+    private static List<ForeignTroopEntry> Groups(int count)
+    {
+        var groups = new List<ForeignTroopEntry>();
+        for (int i = 0; i < count; i++) { var item = Entry(GM.GM_BODY_FIGHTING_MONK); item.Owner = i; groups.Add(item); }
+        return groups;
+    }
+    private static void RunArrowsAndVanillaPageButtons()
+    {
+        GUI.Resources = new ResourceDictionary();
+        var view = new ForeignTroopHudView(); var main = Screen();
+        Show(view, main, Groups(1));
+        ExpectArrows(main, false, false, "One page");
+        Show(view, main, Groups(8));
+        ExpectArrows(main, false, false, "Exactly eight groups");
+        Show(view, main, Groups(17));
+        ExpectArrows(main, false, true, "First of three pages");
+        ((Button)main.IngameUI.Names["ForeignTroopNext"]).Press();
+        ExpectArrows(main, true, true, "Middle page");
+        ((Button)main.IngameUI.Names["ForeignTroopNext"]).Press();
+        ExpectArrows(main, true, false, "Last page");
+        ((Button)main.IngameUI.Names["ForeignTroopPrevious"]).Press();
+        ((Button)main.IngameUI.Names["ForeignTroopPrevious"]).Press();
+        ExpectArrows(main, false, true, "Back on first page");
+
+        // Vanilla's page buttons are hidden by an empty clip, because their style animation overrides Opacity.
+        main.HUDmain = new HUD_Main();
+        main.HUDmain.Names["LayoutRoot"] = new Grid();
+        main.HUDTroopPanel = new HUD_Troops();
+        main.HUDTroopPanel.Names["LayoutRoot"] = new Grid();
+        var originalClip = new Geometry();
+        foreach (string name in new[] { "TroopSelectionControls", "TroopSelectionNumbers", "ToggleControlGroups",
+            "ButtonTroopPanelPage1", "ButtonTroopPanelPage2", "Leftpadding",
+            "TroopsPanelRollover", "TroopsPanelRollover2", "StanceTabs", "UnitControls" })
+            main.HUDTroopPanel.Names[name] = new Button { Clip = originalClip };
+        string failure;
+        Check(view.ActivateVanilla(main, out failure), "Vanilla HUD activates: " + failure);
+        foreach (string page in new[] { "ButtonTroopPanelPage1", "ButtonTroopPanelPage2" })
+        {
+            var button = (Button)main.HUDTroopPanel.Names[page];
+            var clip = button.Clip as RectangleGeometry;
+            Check(clip != null && clip.Rect.Width == 0 && clip.Rect.Height == 0, page + " is clipped away");
+        }
+        var stance = (Button)main.HUDTroopPanel.Names["StanceTabs"];
+        Check(ReferenceEquals(stance.Clip, originalClip) && stance.Opacity == 0, "Other controls keep their clip and are faded");
+        view.Hide();
+        foreach (string page in new[] { "ButtonTroopPanelPage1", "ButtonTroopPanelPage2" })
+            Check(ReferenceEquals(((Button)main.HUDTroopPanel.Names[page]).Clip, originalClip), page + " clip restored");
+        Check(stance.Opacity == 1, "Other controls restore their opacity");
+    }
     private static void ExpectPortrait(MainViewModel main, ImageSource expected)
     {
         foreach (ImageSource sprite in Portrait(main).Sprites) Check(ReferenceEquals(sprite, expected), "All button states use expected skin");
@@ -254,7 +312,7 @@ public static class ForeignTroopPortraitTests
         ((Button)changingMain.IngameUI.Names["ForeignTroopNext"]).Press();
         selection[8].Material = GM.GM_BODY_TEMPLE_GUARD;
         Show(changingView, changingMain, selection); ExpectPortrait(changingMain, guard);
-        Check(((TextBlock)changingMain.IngameUI.Names["ForeignTroopPageText"]).Text == "2/2", "Skin update preserves page");
+        ExpectArrows(changingMain, true, false, "Skin update preserves page");
 
         var fallbackView = new ForeignTroopHudView(); var fallbackMain = Screen();
         Show(fallbackView, fallbackMain, new List<ForeignTroopEntry> { Entry(GM.GM_BODY_TEMPLE_GUARD, 6) });
@@ -303,6 +361,7 @@ public static class ForeignTroopPortraitTests
         entry.Type = (int)eChimps.CHIMP_TYPE_MONK;
         Show(fallbackView, fallbackMain, selection);
         Check(countLabel.Text == "1", "An ordinary unit in the same slot retains its count label");
+        RunArrowsAndVanillaPageButtons();
         return "PASS: " + checks + " portrait/view checks (72 Lord atlas cells, other troop skins, redraw, pooling, pagination, camera and fallbacks).";
     }
 }

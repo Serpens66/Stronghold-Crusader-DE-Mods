@@ -146,3 +146,33 @@ live entry, padding, scheme, pointer-slot and gate checks. The native fixture us
 the same production validator and rejects deliberately corrupted original bytes,
 prologue and resume jump. This observation validates the encoding contract; the
 subsequent successful game acceptance must be recorded separately.
+
+## Controller handoff of joined recruits
+
+Static audit 2026-11-17 on the same native hash (Ghidra pseudocode and Xrefs; function
+labels remain `candidate`, data flow confirmed-static, not yet real-game measured).
+
+- Every Vanilla recruit classifier writes only the unit role (`GameUnit+0x426`) and the
+  membership through `11D370`: `291F0` (role 1, group via `2BC40` or fallback `2DB60/2BF10`),
+  `292F0` (2), `29360` (5), `29430` (4), `294B0` (generic role argument, callers `304B0`,
+  `30550`, `40740`, `118B30`), and the role-6/7 regrouping `303E0/30310` (`123EA0` + `11D370`).
+  None of them issues a member or group order.
+- `57330 -> 2AE40` runs the owner AI passes (rotating counters `+2D078/+2D07C/+2D080`; exact
+  per-player frequency not derived statically). `2FE20` (every pass of an AIC player) calls
+  `3D9E0/3DEE0/3DB30/3DD60` for every populated castle-defense storage group, which reach
+  `3E850` (AIV tile, reachability `3E650`), `3E940` (keep +3/+4) or `3E9A0` (stored fallback)
+  and thus `11DD10`. `3EA50` re-targets each patrol group every `defense_patrol_delay` passes
+  (AIC `+0x180`), gated by the group counters `+0x614/+0x61A/+0x616 < 11`. `3E700` (home moat)
+  issues command 6 through `11E960` when `1245B0` marks no member, else `3E940`.
+  `3E070`/`3D840` (economy protection/intervention, every pass) clear all marks (`126020`) and
+  send `11B520` to the threat target, else `3E940`; below the AIC strength (`+0x150`, resp.
+  the `+0x158` field) they issue nothing.
+- `11DD10` marks members within 5 tiles, with a live unit/building target, in AI state `0x6A`,
+  of types 39/58/59/60/77 (when its fifth argument is 0) or with `+0x42A` set; `+0x42A` is
+  written only by `2EAC0`. It calls `11B520(...,0,0,0)` only if a member stays unmarked, and
+  `11B520` skips marked members. A far joined recruit is therefore moved on the next pass
+  while members at their post receive no write.
+- Consequence [mod integration]: APIShared admits a recruit of roles 1/4/5/6/7 whose
+  existing group has no observed order with membership and role only, like a Vanilla
+  recruit. Harassment (`3E200`: cached building target, combat/interval gates) and siege
+  roles were not shown to recommand joined members and keep requiring an observed order.

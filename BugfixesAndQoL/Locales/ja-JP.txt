@@ -355,6 +355,8 @@ BugfixesAndQoL.EnableAssassinCapturedGateProtectionFixHelp=Prevents AI Assassins
 
 BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFix=城門上の目標マーカーを修正
 BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFixHelp=陣形プレビューを含め、城門上の緑色の移動目標マーカーの高さを修正します。塔や天守は変更しません。この設定はローカルで、同期されません。
+BugfixesAndQoL.EnableTroopPanelPageCountFix=Hide unneeded page arrows in the troop panel
+BugfixesAndQoL.EnableTroopPanelPageCountFixHelp=In Vanilla, the page arrows of the troop panel stay visible after you once selected more than eight unit types, even when the current selection fits on one page, and they can lead to empty pages. With this fix, the arrows only appear when the selection really needs more pages. This setting is local and is not synchronized.
 BugfixesAndQoL.EnableVanillaPerformanceOptimizations=バニラのパフォーマンス最適化
 BugfixesAndQoL.EnableVanillaPerformanceOptimizationsHelp=変化していないミニマップをティックごとに再バインドする処理を省き、長いシミュレーションティックの間に同盟・順位表示が画面を固めることを防ぎます。ゲームロジックは変わりません。この設定はローカルで、同期されません。
 BugfixesAndQoL.EnableMinimapRefreshThrottle=ミニマップの再描画頻度を下げる
@@ -427,6 +429,7 @@ BugfixesAndQoL.SettingsRework.MaximumGameSpeed=Maximum game speed
 
 BugfixesAndQoL.SettingsRework.Reason.PreserveDisplayResolution=Protects the borderless fullscreen resolution loaded from settings.cfg against automatic changes during startup and focus changes.
 BugfixesAndQoL.SettingsRework.Reason.EnableGatehouseTargetMarkerHeightFix=Corrects the height of green movement target markers on gatehouses, including formation previews.
+BugfixesAndQoL.SettingsRework.Reason.EnableTroopPanelPageCountFix=Shows the troop panel page arrows only when the selection really needs more pages.
 BugfixesAndQoL.SettingsRework.Reason.EnableVanillaPerformanceOptimizations=Skips re-binding the unchanged minimap on every tick and keeps the alliance and rank displays from freezing the picture while a long simulation tick runs.
 BugfixesAndQoL.SettingsRework.Reason.EnableMinimapRefreshThrottle=Clearly more game speed on large maps; the minimap lags behind by at most 0.1 seconds.
 BugfixesAndQoL.SettingsRework.Reason.SpriteSheetMergeModeIndex=A rendering optimization with additional memory requirements and a restart notice; the appropriate choice depends on the system.

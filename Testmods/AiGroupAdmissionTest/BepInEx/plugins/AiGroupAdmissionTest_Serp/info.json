@@ -1,0 +1,13 @@
+{
+  "GUID": "AiGroupAdmissionTest_Serp",
+  "Author": "Serpens66",
+  "Name": "AI Group Admission Test",
+  "Description": "Explicit-request-only acceptance: every unit type into every offered AI group role, fresh and after save/load.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.14.3",
+  "Dependencies": [
+    { "GUID": "APIShared_Serp", "MinimumVersion": "0.56.1" }
+  ],
+  "Manifest": 1,
+  "NetworkMode": 1
+}

@@ -323,6 +323,7 @@
     <Compile Include="src\Hud\ForeignTroopHudView.cs" />
     <Compile Include="src\Hud\ForeignTroopPortraits.cs" />
     <Compile Include="src\Hud\ForeignTroopPlayerColors.cs" />
+    <Compile Include="src\Hud\TroopPanelPageCountFix.cs" />
     <Compile Include="src\BuildPreview\*.cs" />
     <Compile Include="src\Hud\DamagedHealthBarsRuntime.cs" />
     <Compile Include="src\Hud\HealthBarNativeContract.cs" />

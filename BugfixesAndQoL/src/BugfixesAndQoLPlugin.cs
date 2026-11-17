@@ -366,6 +366,7 @@ namespace BugfixesAndQoL
             AreaDemolition.AreaDemolitionFeature.Install(context);
             GatehouseTargetMarkerHeightHook.Install(context, Logger, Settings);
             CustomLordNervousSpeechFix.Install(Logger, Settings);
+            TroopPanelPageCountFix.Install(Logger, Settings);
             try
             {
                 EditorRegions.EditorRegionRefreshRuntime.Install(context, Logger, Settings);

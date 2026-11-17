@@ -270,3 +270,128 @@ installiert. Das vorhandene APIShared-SDK und der Bootstrap bleiben hashgleich.
 Die native Paket-DLL hat denselben Maschinencode wie die gemessene Variante.
 Tooltips und Changelog erklären Nutzen und Grenzen für Spieler. Bereits laufende
 oder geladene Wege werden erst durch eine neue Wegberechnung geändert.
+
+## Engere Bodenwege in 0.1.12 (17.11.2026)
+
+Im Spielstand `test_diagonal.sav` waren Diagonalen vorhanden. Gleich teure
+Rasterwege und die bisherige Glättung konnten um die Steinbruchgebäude jedoch
+weit von der direkten Verbindung abweichen. Das kann Einheiten unerwartet näher
+an feindliche Burgen führen. Eine eigene Gefahrenbewertung ist weiterhin nicht
+Bestandteil der Wegkosten; sie steht als optionale Untersuchung G13 in der TODO.
+
+Nach der bisherigen Glättung werden höchstens zwei nicht überlappende Kandidaten
+von jeweils höchstens 128 Schritten in ihrer Qualitätsrangfolge versucht. Nur
+gleichmäßig bepreiste Bodenprofile ohne Grabenprofil und ohne aktive Kachelzuschläge
+sind zugelassen. Die Suche bleibt in Bändern von 4/8/12 Kacheln um die Verbindung.
+Gerichtete Kanten, Oberflächenrechte und die bestehende Live-Publikation bleiben
+maßgeblich. Bodenprofil bedeutet trocken, nicht pauschal ohne erhöhte Flächen:
+Fußgänger behalten ihre erlaubten Keep-, Lagerplatz- und Treppenwege.
+
+Die eingefrorene gesamte Ausgangsroute erlaubt höchstens abgerundet 5 % mehr
+Schritte und Kosten, zusätzlich begrenzt durch den echten Ausgabepuffer und
+2.000 Schritte. Das ersetzte Fenster muss geometrisch mindestens 5 % kürzer sein,
+bei zusätzlichen Schritten mindestens 10 %. Maximale und mittlere lokale
+Linienabweichung müssen um mindestens 25 % sinken; die globale maximale Abweichung
+darf nicht steigen. Pro Berechnung wird höchstens eine Ersetzung übernommen.
+Präfix und Suffix stammen unverändert aus der Ausgangsroute. Erst die vollständige
+Validierung der zusammengesetzten Route erlaubt die Übernahme; danach endet die
+optionale Suche. Bei Budget- oder Speicherabbruch davor bleibt die Ausgangsroute.
+
+Die vollständigen Farmerwege deckten einen Fehler der ersten Variante auf:
+Nach der Auswahl wurden Fenster wieder nach Wegposition sortiert. Ein kleiner,
+früher 39-Schritt-Bogen verbrauchte 6.881 von 8.192 Arbeitseinheiten ohne brauchbare
+Verbesserung. Das wichtige spätere 128-Schritt-L kam nicht mehr zum Zug. Allein
+findet es bereits mit dem schmalsten Band nach 3.051 Einheiten eine Verbesserung.
+Die echte Rangfolge und die Rückkehr nach dem ersten vollständig geprüften Erfolg
+verhindern diesen Budgetverlust, ohne das Arbeitslimit oder den Speicher zu erhöhen.
+
+Zusätzliche Vorprüfungen vermeiden aussichtslose Suchen: eine Octile-Untergrenze
+für das geometrische Verbesserungsziel und eine vollständig gesperrte gerichtete
+Schnittspalte im größten Band. Eine einzelne erlaubte Lücke widerlegt die zweite
+Prüfung bereits. Heapoperationen werden budgetiert; ihre interne Arbeit ist durch
+die feste Zustandsgrenze ebenfalls beschränkt. Der temporäre Speicher wird sofort
+freigegeben; es entsteht kein weiterer dauerhafter Suchcache.
+
+**Absicherung:** 3.402.505 native Assertions einschließlich des eingefrorenen
+Spielgraphs, tatsächlicher alter API-Ergebnisse und der vollständigen 269-/273-
+Schritt-Anfragen. Geprüft sind Rangfolge, lokale Qualitätsgrenzen, unveränderte
+Präfixe/Suffixe, globale Grenzen, Kostenmetadaten bei erlaubten Zusatzschritten,
+kurze Puffer, Speicherabbrüche, gerichtete Schnittbeweise, Oberflächen und
+Worker-Gleichheit. Die eigene und unabhängige erneute Abschlussprüfung des
+Kerns und seiner Publikationskette fand keine bestätigten verbleibenden Fehler.
+Der reguläre Modbuild einschließlich Managed-Integration besteht ebenfalls.
+API, ABI `0x04000012`, 32 Statistikfelder, Suchgewichte und Gruppenanker bleiben
+unverändert. `StraightenSaved` bezeichnet die vorzeichenbehaftete Nettokosteneinsparung
+und darf bei einer erlaubten Qualitätskorrektur negativ sein.
+
+**Leistung:** Acht vollständige abwechselnde A/B-Paare und 32 zusätzliche ruhige
+Vergleichspaare der kritischen Fälle vergleichen die echten DLLs mit 0.1.11.
+4.147.712 Anfragen bestehen die Status-, Kosten-, Schritt-, Grenzen- und
+Workerprüfungen. In diesem Messdatensatz gibt es keine zusätzlichen Wegschritte.
+Der 89-Schritt-Weg sinkt von 27,99 auf 2,46 Kacheln maximaler Linienabweichung,
+der 201-Schritt-Weg von 54,75 auf 7,52. Die vollständigen Farmerwege behalten
+269/273 Schritte und werden geometrisch um 12,55 % beziehungsweise 12,32 % kürzer.
+Ihre globale Maximalabweichung bleibt wegen des Burgausgangs unverändert; sie ist
+nicht mit dem verbesserten lokalen Abschnitt nach dem Ausgang zu verwechseln.
+
+Warme verbesserte Gruppenwege benötigen mit einem Worker zusätzlich etwa 21–32 µs
+je Route. Vollständige Einzelwegsuchen liegen in den beiden Fällen bei etwa
+714→735 µs und 698→744 µs. Erfolglose breite Blockaden kosten etwa 4,2 µs zusätzlich,
+ohne Allokation oder Budgeterschöpfung. Der zusätzlich gezählte Spitzenspeicher
+beträgt 64.148 Byte je aktiver Workerbank, bei vier Workern 256.592 Byte.
+
+Die Mehrarbeit bleibt bei großen gleichzeitigen Gruppen sichtbar: 768 erfolgreich
+verbesserte vollständige Wege ergeben im Stressfall rund 34 ms mit einem Worker
+beziehungsweise 12–13 ms mit vier Workern (gemittelte Maxima von jeweils acht
+Batchproben). Höchste beobachtete Einzelbatches: rund 41 ms beziehungsweise 15 ms.
+Das ist keine globale p95- oder FPS-Zusage. Verfahren, Streuung und Rohbelege:
+[abschließende Auswertung](../../.work/a/pf-corridor/001/performance-v5.txt).
+Die gemessene Kandidaten-DLL ist bytegenau gleich der regulären Paket-DLL.
+
+Tooltips und Changelog erklären Nutzen, Grenzen und höchstens 5 % zusätzliche
+Schritte. Bereits geladene oder laufende Wege ändern sich erst bei einer neuen
+Berechnung. Das vorhandene SDK wurde als hashgleicher, geprüfter Stand getrennt
+bereitgestellt, weil parallel bearbeitete Workspace-Ausgaben dessen alte
+Paketnachweise nicht mehr erfüllten; keine APIShared-Abhängigkeit wurde aktualisiert.
+
+**Spielabnahme:** `PathfindingSurfaceTest/natural-route-corridor`, Lauf
+`f37c6846567b`, besteht mit den installierten Begleitmods. Eine normal platzierte
+Milchfarm erhielt ohne manuelle Job-, Zustands- oder Bewegungszuweisung einen
+neu eingestellten Farmer. Seine frische, beschleunigt veröffentlichte Route
+(307,324)→(521,363) hat 273 Schritte; der vollständige monotone Abschnitt nach
+dem Burgausgang (298,362)→(521,363) erreicht maximal 11,206 Kacheln Abweichung.
+Pre-/Post-Identität, vollständige gerichtete Kanten, tatsächliches Default/Any-
+Profil, gültige trockene Kacheln und der angeforderte/eigene Endpunkt sind geprüft.
+Die Einheit hatte bereits eine globale ID als anderer Beruf; `birthNewGlobal=False`
+wird ausdrücklich nicht als neue Geburt ausgegeben.
+
+Die anschließenden neuen Einzel-/Gruppenbefehle liefern 89/201 Schritte mit
+maximaler Abweichung 2,461/7,498 und erreichen exakt (444,368)/(500,367).
+Die 201er Startkachel wird bei vorübergehendem Verkehr freigegeben abgewartet.
+Der natürliche Farmerfall läuft unter den ursprünglichen Armeen mit einem
+temporären öffentlichen Spielerpaar-Waffenstillstand aus `AttackTargetRules`.
+Erst danach werden für störungsfreie Ankunftstests militärische Einheiten und
+Kriegsmaschinen über `DeleteUnitSafe` entfernt; acht Lords und Zivilisten bleiben
+erhalten, eigene Testakteure sind ausgenommen. Es gibt keine HP-Erhöhung,
+Schadensabbruch-Hooks oder manuellen Farmerbefehle. Das beweist Wegpublikation
+und -ausführung, keine allgemeine Kampfsicherheit oder Multiplayer-Abnahme.
+
+Frühe Testläufe deckten zwei falsche Testannahmen auf: gespeicherte Previous-
+Koordinaten sind während eines Schrittes nicht der neue Weganfang (siehe nativen
+Vertrag in FIRE_EFFECTS.md und MOAT_TRAVERSAL_ALL_UNITS.md), und Fußgänger dürfen
+zulässige erhöhte Flächen benutzen. Beides wurde ohne Lockerung von Kanten,
+Kartenrändern, gültigen Kacheln oder Endpunkten korrigiert. Die verbleibende
+Budgetverdrängung der großen Biegung war dagegen ein echter Fehler der neuen
+Korrektur und wurde zusätzlich im nativen Regressionstest abgesichert.
+
+Der Freiflächen-Spieltest `a4d984a22d65` besteht für Einzel- und Gruppenbefehl
+mit je 45 Schritten, 15 Richtungswechseln und exakter Ankunft. V5 verändert diesen
+Direktstrahlpfad nicht; die native Suite prüft ihn erneut in allen Richtungen.
+Kein Test verwendet OS-Eingaben oder schreibt den Spielstand. Der Runner bestätigt
+die Wiederherstellung von Paketen, Einstellungen und Extender-Cache.
+
+**Installation:** Version 0.1.12 ist mit 29 einzeln hashgeprüften Paketdateien
+installiert. Die native DLL stimmt bytegenau mit der gemessenen und im letzten
+Spieltest verwendeten Variante überein. APIShared und Bootstrap bleiben hashgleich.
+Nachweise: `.work/a/pf-corridor/001/installation.json`, `build-v5.log`,
+`delivery-code-comparison-v5.json` und der oben genannte Ingame-Lauf.

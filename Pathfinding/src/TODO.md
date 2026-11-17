@@ -330,6 +330,12 @@ Ticks nicht spürbar leiden. Der Einzelspieler-Spieltest vom selben Tag ist best
 gültige Routen, gleiche Ankunft und gleiche Befehlskosten bei 5000 Einheiten. Details
 stehen in Findings/RouteShape.md. Tooltips und Version 0.1.9 sind angepasst.
 
+Nachtrag 17.11.2026, 0.1.12: Eine begrenzte Korridorkorrektur ergänzt die bisherige
+kostenneutrale Glättung für gleichmäßig bepreisten Boden. Mit ausdrücklicher
+Nutzerfreigabe darf sie für deutlich engere Wege höchstens 5 % zusätzliche Schritte
+und Kosten der gesamten Ausgangsroute verwenden. Die obigen Messwerte beschreiben
+0.1.9; aktuelle Qualitäts-, Laufzeit- und Spielnachweise stehen in Findings/RouteShape.md.
+
 Offen:
 
 - Host/Client-Abnahme (die Routenbytes ändern sich; die Version muss übereinstimmen).
@@ -477,6 +483,15 @@ Erweiterung gelingen und für Feinde weiterhin ohne Deckpfad bleiben muss.
 Der größere Suchkern-/Architekturprototyp hat eine eigene Entwicklungsgeschichte und offene Abnahmen in [BetterPathfinding.md](../../BetterPathfinding.md). Er ist keine bereits freigegebene Lösung der oben genannten Restprobleme. Hier werden seine alten Entwurfsvarianten nicht nochmals als neue Aufgaben eingereiht.
 
 Wiederverwendbare Vanilla-Verträge: [Ground-Builder](../../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/GROUND_ROUTE_BUILDERS.md), [Gruppenaufnahme](../../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/MANUAL_GROUP_ADMISSION.md), [Tor-Abfragepass](../../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/GATEHOUSE_QUERY_PASS.md), [Feuer und Bewegung](../../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/FIRE_EFFECTS.md), [Feindsuche](../../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/SIM_TICK_SPIKE_PATHING.md). Aktuelle Mod- und Hookverträge stehen in [Pathfinding/UpdateToNewDLL.md](../../Pathfinding/UpdateToNewDLL.md).
+
+### G13: Gefahrenvermeidung bei feindlichen Burgen (optional)
+
+- [ ] Gesondert untersuchen, ob Arbeiter und Einheiten bei normalen Bewegungen
+  feindliche Burgen und gefährliche Bereiche optional umgehen sollen. Gewollte
+  Angriffsbewegungen müssen weiterhin möglich bleiben. Nutzen, zusätzliche Umwege,
+  CPU-Zeit, Speicher und Mehrspieler-Determinismus getrennt messen und prüfen.
+  Keine automatische Aktivierung durch die geometrische Wegkorrektur; diese Aufgabe
+  ist keine Freigabe zur Umsetzung oder zur Aktivierung der getrennten Feuer-/Pestregeln.
 
 ## Herkunft und Abgrenzung
 

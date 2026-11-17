@@ -31,6 +31,7 @@ var tests = new (string Name, Action Run)[]
     ("deferred settings remain complete at 4233, 12000 and 16384 options", DeferredSettingsTests.Run),
     ("Custom Coop Trail preview names follow the selected lobby slot", TestCoopTrailPreviewNames),
     ("Custom Coop Trail preview separates displayed teams", TestCoopTrailPreviewTeams),
+    ("custom Lord AI types follow the mission slot, not Vanilla's stale add-time slot", TestCustomLordRuntimeType),
     ("Coop publication preserves old data across failures", TrailRuntimeRegressionTests.Publication),
     ("portable Lord resolution keeps installations optional", TrailRuntimeRegressionTests.PortableLords),
     ("Coop capture resolves only remaining AI sources", TrailRuntimeRegressionTests.CaptureSelection),
@@ -207,6 +208,26 @@ static void TestCoopTrailPreviewTeams()
     Check(new[] { 1, -1, 1, -1, 2, -1, -1, -1 }, 4);
     Check(new[] { 1, 1, -1, -1, -1, -1, -1, -1 });
     Assert(8 * 28 - 3 + 7 * 8 <= 310, "eight rows and seven compact dividers exceed the list height");
+}
+
+// Regression: a custom Lord moved in Vanilla's lobby keeps its add-time slot in MPAIVInfo.lordType. Two such
+// Lords shared one AI ID, so the second showed the first one's portrait. The rule is parametric; the first
+// custom type (AILords.SK_X1 - 1 in the runtime) is passed in.
+static void TestCustomLordRuntimeType()
+{
+    const int firstCustom = 29;
+    // "Trail of the antler" mission 2: Bessy (index 4) and Nox (index 6) were both saved with 33.
+    Assert(MissionProjection.RuntimeLordType(33, 4, firstCustom) == 33, "Bessy must keep her mission slot type");
+    Assert(MissionProjection.RuntimeLordType(33, 6, firstCustom) == 35, "Nox must follow his mission slot");
+    Assert(MissionProjection.RuntimeLordType(34, 5, firstCustom) == 34, "Shajar must keep her mission slot type");
+    // A compacted package: original slot 5 becomes mission index 4.
+    Assert(MissionProjection.RuntimeLordType(firstCustom + 5, 4, firstCustom) == firstCustom + 4,
+        "a compacted custom Lord must follow its mission index");
+    // Built-in Lord identities, including a built-in face with a custom AIC, stay unchanged.
+    Assert(MissionProjection.RuntimeLordType(28, 6, firstCustom) == 28, "a built-in Lord type must stay unchanged");
+    Assert(MissionProjection.RuntimeLordType(0, 2, firstCustom) == 0, "Lord type 0 must stay unchanged");
+    AssertThrows<ArgumentOutOfRangeException>(() => MissionProjection.RuntimeLordType(33, 8, firstCustom),
+        "a custom Lord outside the eight mission slots must be rejected");
 }
 
 static void TestModDataAdapter()

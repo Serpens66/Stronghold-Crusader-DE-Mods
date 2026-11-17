@@ -88,6 +88,7 @@ namespace BugfixesAndQoL
                 TestPlacementCancelMoveSuppressionIntegration();
                 TestNotificationSkipIntegration();
                 TestResolutionAwareZoomIntegration();
+                TestTroopPanelPageCountFixIntegration();
                 TestMultiplayerSafetyPolicy();
                 TestBriefingNoStartingGoldFix();
                 TestLobbyYellowContrast();
@@ -145,6 +146,7 @@ namespace BugfixesAndQoL
             TestStartupUiReadinessGuard();
             TestResolutionAwareZoomPolicy();
             TestResolutionAwareZoomIntegration();
+            TestTroopPanelPageCountFixIntegration();
             TestNotificationSkipPolicy();
             TestNotificationManagedContracts();
             TestNotificationQueueNearCallResolver();
@@ -2094,6 +2096,28 @@ namespace BugfixesAndQoL
                   typeof(FatControler).GetField("radarClickDelayTime", members)?.FieldType == typeof(DateTime) &&
                   typeof(FatControler).GetField("radarScrollTrigged", members)?.FieldType == typeof(bool),
                 "installed Vanilla minimap delay and drag fields retain their managed contracts");
+        }
+
+        private static void TestTroopPanelPageCountFixIntegration()
+        {
+            string fix = File.ReadAllText(Path.Combine("src", "Hud", "TroopPanelPageCountFix.cs"));
+            string plugin = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLPlugin.cs"));
+            Check(plugin.Contains("TroopPanelPageCountFix.Install(Logger, Settings);"),
+                "troop panel page count fix is installed with the library runtime");
+            Check(fix.Contains("harmony.Patch(setup, prefix:") &&
+                    fix.Contains("pagesField(__instance) = 1;") &&
+                    fix.Contains("settings.EnableTroopPanelPageCountFix") &&
+                    fix.Contains("settings.EnableClientFeatures") &&
+                    fix.Contains("if (Volatile.Read(ref enabled) == 0) return;"),
+                "troop panel page count prefix only resets the count while the setting is active");
+            // The prefix relies on this exact Vanilla contract: a private instance int that the
+            // parameterless original only raises (2/3/4) and the Vanilla initial value of 1.
+            const BindingFlags members = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+            FieldInfo pages = typeof(HUD_Troops).GetField("pages", members);
+            MethodInfo setup = typeof(HUD_Troops).GetMethod("SetupSelectedTroops", members, null, Type.EmptyTypes, null);
+            Check(pages != null && !pages.IsStatic && pages.FieldType == typeof(int) &&
+                    setup != null && !setup.IsStatic && setup.ReturnType == typeof(void),
+                "installed HUD_Troops page count field and setup method retain the audited contract");
         }
 
         private static void TestResolutionAwareZoomIntegration()

@@ -154,6 +154,7 @@ namespace BugfixesAndQoL
         private bool showVanillaMapsInEditor = true;
         private bool preserveDisplayResolution = true;
         private bool enableGatehouseTargetMarkerHeightFix = true;
+        private bool enableTroopPanelPageCountFix = true;
         private bool enableVanillaPerformanceOptimizations = true;
         private bool enableMinimapRefreshThrottle = true;
         private SpriteSheetMergeMode spriteSheetMergeMode = SpriteSheetMergeMode.Automatic;
@@ -605,6 +606,8 @@ namespace BugfixesAndQoL
         public string PreserveDisplayResolutionHelpText => SerpLocalization.Get("BugfixesAndQoL.PreserveDisplayResolutionHelp");
         public string EnableGatehouseTargetMarkerHeightFixText => SerpLocalization.Get("BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFix");
         public string EnableGatehouseTargetMarkerHeightFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFixHelp");
+        public string EnableTroopPanelPageCountFixText => SerpLocalization.Get("BugfixesAndQoL.EnableTroopPanelPageCountFix");
+        public string EnableTroopPanelPageCountFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableTroopPanelPageCountFixHelp");
         public string EnableVanillaPerformanceOptimizationsText => SerpLocalization.Get("BugfixesAndQoL.EnableVanillaPerformanceOptimizations");
         public string EnableVanillaPerformanceOptimizationsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableVanillaPerformanceOptimizationsHelp");
         public string EnableMinimapRefreshThrottleText => SerpLocalization.Get("BugfixesAndQoL.EnableMinimapRefreshThrottle");
@@ -990,6 +993,13 @@ namespace BugfixesAndQoL
         {
             get => enableGatehouseTargetMarkerHeightFix;
             set => SetSetting(ref enableGatehouseTargetMarkerHeightFix, value, nameof(EnableGatehouseTargetMarkerHeightFix));
+        }
+
+        [APIShared.ModSettings.PresetLocal]
+        public bool EnableTroopPanelPageCountFix
+        {
+            get => enableTroopPanelPageCountFix;
+            set => SetSetting(ref enableTroopPanelPageCountFix, value, nameof(EnableTroopPanelPageCountFix));
         }
 
         // Local presentation optimizations (V1/V5) and result-identical replacements of Vanilla simulation
@@ -1712,6 +1722,7 @@ namespace BugfixesAndQoL
             ShowVanillaMapsInEditor = true;
             PreserveDisplayResolution = true;
             EnableGatehouseTargetMarkerHeightFix = true;
+            EnableTroopPanelPageCountFix = true;
             EnableVanillaPerformanceOptimizations = true;
             SpriteSheetMergeMode = SpriteSheetMergeMode.Automatic;
             EnableWorkshopUploadLordSelectionFix = true;

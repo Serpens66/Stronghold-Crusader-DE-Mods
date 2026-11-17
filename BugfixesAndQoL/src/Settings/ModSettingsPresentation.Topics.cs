@@ -15,6 +15,7 @@ namespace BugfixesAndQoL
 
         public SettingsOptionPresentation PreserveDisplayResolution => options["PreserveDisplayResolution"];
         public SettingsOptionPresentation EnableGatehouseTargetMarkerHeightFix => options["EnableGatehouseTargetMarkerHeightFix"];
+        public SettingsOptionPresentation EnableTroopPanelPageCountFix => options["EnableTroopPanelPageCountFix"];
         public SettingsOptionPresentation EnableVanillaPerformanceOptimizations => options["EnableVanillaPerformanceOptimizations"];
         public SettingsOptionPresentation EnableMinimapRefreshThrottle => options["EnableMinimapRefreshThrottle"];
         public SettingsOptionPresentation SpriteSheetMergeModeIndex => options["SpriteSheetMergeModeIndex"];
@@ -122,6 +123,7 @@ namespace BugfixesAndQoL
             ClientDisplay = AddTopic("ClientDisplay", "bugfixes.topic.client-display", false);
             AddOption("PreserveDisplayResolution", "bugfixes.preserve-display-resolution", SettingsCategory.Fixes, ClientDisplay);
             AddOption("EnableGatehouseTargetMarkerHeightFix", "bugfixes.gatehouse-target-marker-height", SettingsCategory.Fixes, ClientDisplay);
+            AddOption("EnableTroopPanelPageCountFix", "bugfixes.troop-panel-page-count", SettingsCategory.Fixes, ClientDisplay);
             AddOption("EnableVanillaPerformanceOptimizations", "bugfixes.vanilla-performance-optimizations", SettingsCategory.Fixes, ClientDisplay);
             AddOption("SpriteSheetMergeModeIndex", "bugfixes.sprite-sheet-merge", SettingsCategory.Fixes, ClientDisplay);
             AddOption("EnableCompleteNotificationSkipOnClick", "bugfixes.enable-complete-notification-skip-on-click", SettingsCategory.Fixes, ClientDisplay);

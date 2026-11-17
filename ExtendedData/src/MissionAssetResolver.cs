@@ -41,8 +41,11 @@ namespace ExtendedData
                         MissionLoader.EmbeddedTrailSource, StringComparison.Ordinal)
                     ? ResolveEmbedded(loaded, player, decodedTrails)
                     : ResolveAi(loaded, player);
+                // info is an independent copy; the AI ID must follow this mission's slot (see RuntimeLordType).
+                info.lordType = MissionProjection.RuntimeLordType(info.lordType, index,
+                    Shared.CoopAiSelectionRules.FirstCustomLordType);
                 resolved.AiInfoByPlayerIndex[index] = info;
-                aiIds.Add(MissionProjection.GetBaseLordId(player) + 1);
+                aiIds.Add(info.lordType + 1);
                 int preferredAiv = player.NativePreferredAiv.Value;
                 preferredAivs.Add(preferredAiv);
                 resolved.PreferredAivByPlayerIndex[index] = preferredAiv;
@@ -163,7 +166,14 @@ namespace ExtendedData
             if (saved == null || slot >= restart.lordTypes.Count || restart.lordTypes[slot] < 0)
                 throw new MissionAssetException(MissionAssetException.EmbeddedSlotInvalid, path,
                     "Bundled Trail [" + path + "] has no saved AI in player slot " + lord.SourcePlayerId + ".");
-            if (saved.lordType != lord.BaseLordId || restart.MPsetupData.preferredAIVs[slot] != player.NativePreferredAiv)
+            // A custom Lord's saved type is Vanilla's possibly stale add-time slot, and packages store either
+            // that value (older exports) or the mission slot (current exports). Only the kind must match;
+            // built-in Lords keep their exact identity.
+            int firstCustom = Shared.CoopAiSelectionRules.FirstCustomLordType;
+            bool sameLordKind = saved.lordType >= firstCustom
+                ? lord.BaseLordId >= firstCustom
+                : saved.lordType == lord.BaseLordId;
+            if (!sameLordKind || restart.MPsetupData.preferredAIVs[slot] != player.NativePreferredAiv)
                 throw new MissionAssetException(MissionAssetException.EmbeddedSlotInvalid, path,
                     "Player slot " + lord.SourcePlayerId + " of [" + path + "] no longer matches its mission entry.");
             if (!saved.builtInLord && saved.lordConfig == null)

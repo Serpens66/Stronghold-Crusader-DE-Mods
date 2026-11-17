@@ -36,6 +36,15 @@ namespace PathfindingSurfaceTest
                 throw new InvalidOperationException(diagnostic.Reason);
             Director.instance.SetEngineFrameRate(250);
             owner = run.InSimulation(run.CurrentMission, () => GamePlayerManagerAPI.Instance.GetLocalPlayerId());
+            if (scenario == "natural-route-corridor" && owner <= 0)
+            {
+                Require(PlayerPerspectiveAPI.TrySetSpectatorControl(NaturalOwner), "Original spectator save: public control of the test player was rejected");
+                naturalControlOwned = true;
+                Require(PlayerPerspectiveAPI.GetInputControlledPlayerId() == NaturalOwner, "Spectator input control was not confirmed");
+                owner = run.InSimulation(run.CurrentMission, () => GamePlayerManagerAPI.Instance.GetLocalPlayerId());
+                Require(owner == NaturalOwner, "Spectator input control and public local-player identity disagree");
+                log("corridor-spectator-control owner=" + owner + " publicApi=true");
+            }
             Require(owner >= 1 && owner <= 8, "No controlled player");
             provider = pluginProvider();
             maskProgress = provider.GetType().GetField("anchorMaskNext", BindingFlags.Instance | BindingFlags.NonPublic) ??

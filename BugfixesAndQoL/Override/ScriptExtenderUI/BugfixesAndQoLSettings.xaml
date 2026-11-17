@@ -324,6 +324,18 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
                 </CheckBox>
               </Grid>
             </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.troop-panel-page-count" shared:ModSettingsSearch.Title="{Binding EnableTroopPanelPageCountFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableTroopPanelPageCountFixHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="28"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableTroopPanelPageCountFix}"><ContentControl.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ToolTip}"/></ContentControl.ToolTip></ContentControl>
+              <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
+                <CheckBox IsChecked="{Binding EnableTroopPanelPageCountFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" Margin="0,0,14,8"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding EnableTroopPanelPageCountFixHelpText}"/></CheckBox.ToolTip>
+                  <TextBlock Text="{Binding EnableTroopPanelPageCountFixText}" Foreground="White" TextWrapping="Wrap"/>
+                </CheckBox>
+              </Grid>
+            </Grid>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.vanilla-performance-optimizations" shared:ModSettingsSearch.Title="{Binding EnableVanillaPerformanceOptimizationsText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableVanillaPerformanceOptimizationsHelpText}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="28"/>

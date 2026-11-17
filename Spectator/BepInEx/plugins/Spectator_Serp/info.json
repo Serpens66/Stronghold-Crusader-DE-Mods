@@ -10,7 +10,7 @@
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.49.0"
+      "MinimumVersion": "0.56.1"
     }
   ],
   "Manifest": 1,
@@ -22,7 +22,8 @@
     {
       "Version": "0.2.8",
       "Changes": [
-        "Log failed AI troop placements with the owner, unit type, chosen task and available internal failure reason, including failures after spawning. These support messages are available in normal builds."
+        "Log failed AI troop placements with the owner, unit type, chosen task and available internal failure reason, including failures after spawning. These support messages are available in normal builds.",
+        "Placing troops into an AI's existing defense groups (castle defense, patrol, home moat, economy protection, intervention) now also works after loading a save and when placing several units at once; the AI gives the new troops their orders on its next turn. Requires APIShared 0.56.1."
       ]
     },
     {

@@ -6,7 +6,7 @@
   "Version": "0.1.0",
   "MinimumScriptExtenderVersion": "2.14.3",
   "Dependencies": [
-    { "GUID": "APIShared_Serp", "MinimumVersion": "0.55.0" },
+    { "GUID": "APIShared_Serp", "MinimumVersion": "0.56.0" },
     { "GUID": "BuildingCosts_Serp" }
   ],
   "Manifest": 1,

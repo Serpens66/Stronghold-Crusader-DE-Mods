@@ -13,11 +13,16 @@ $source = Join-Path $PSScriptRoot 'PathfindingAnchor.cpp'
 $dll = Join-Path $work 'PathfindingAnchor.dll'
 $proof = Join-Path $work 'build.json'
 $testSource = Join-Path $mod 'tests/Engine/SurfaceCoreTests.cpp'
+$fixture = Join-Path $mod 'tests/Engine/NaturalRouteFixture.bin'
+$fixtureMetadata = Join-Path $mod 'tests/Engine/NaturalRouteFixture.json'
 if ($CopyOnly) {
     if (-not $OutputDirectory) { throw '-CopyOnly requires -OutputDirectory.' }
     if (-not (Test-Path -LiteralPath $dll -PathType Leaf) -or -not (Test-Path -LiteralPath $proof -PathType Leaf)) { throw 'No anchor core build to copy.' }
     $recorded = Get-Content -LiteralPath $proof -Raw | ConvertFrom-Json
     if ($recorded.sourceSha256 -cne (Get-ApiFileHash $source) -or $recorded.dllSha256 -cne (Get-ApiFileHash $dll)) { throw 'anchor core build does not match the current source.' }
+    if ($recorded.tests.sourceSha256 -cne (Get-ApiFileHash $testSource) -or
+        $recorded.tests.fixtureSha256 -cne (Get-ApiFileHash $fixture) -or
+        $recorded.tests.fixtureMetadataSha256 -cne (Get-ApiFileHash $fixtureMetadata)) { throw 'anchor regression inputs changed after the build.' }
 } else {
     . (Join-Path $mod '../Shared/Tools/BuildCache/MsvcToolchain.ps1')
     $toolchain = Get-MsvcToolchain
@@ -30,6 +35,8 @@ if ($CopyOnly) {
     if (Test-Path -LiteralPath $proof) { Remove-Item -LiteralPath $proof -Force }
     $hash = Get-ApiFileHash $source
     $testHash = Get-ApiFileHash $testSource
+    $fixtureHash = Get-ApiFileHash $fixture
+    $fixtureMetadataHash = Get-ApiFileHash $fixtureMetadata
     $testStatus = 'skipped'
     & (Join-Path $compilerRoot 'bin/Hostx64/x64/cl.exe') /nologo /std:c++17 /O2 /Ob2 /EHsc /MT /W4 /LD $source "/Fo$work/PathfindingAnchor.obj" /link "/OUT:$dll" "/IMPLIB:$work/PathfindingAnchor.lib"
     if ($LASTEXITCODE) { throw 'anchor core compilation failed.' }
@@ -42,8 +49,9 @@ if ($CopyOnly) {
         if ($LASTEXITCODE) { throw 'anchor core regression tests failed.' }
         $testStatus = 'passed'
     }
-    if ((Get-ApiFileHash $source) -cne $hash -or (Get-ApiFileHash $testSource) -cne $testHash) { throw 'anchor core or regression source changed during compilation/tests.' }
-    @{timestampUtc=[DateTime]::UtcNow.ToString('o');sourceSha256=$hash;dllSha256=(Get-ApiFileHash $dll);dll=$dll;compiler=$compilerRoot;windowsSdk=$sdk.Name;scope='Pathfinding native anchor core';tests=@{status=$testStatus;sourceSha256=$testHash}} | ConvertTo-Json | Set-Content -LiteralPath $proof -Encoding UTF8
+    if ((Get-ApiFileHash $source) -cne $hash -or (Get-ApiFileHash $testSource) -cne $testHash -or
+        (Get-ApiFileHash $fixture) -cne $fixtureHash -or (Get-ApiFileHash $fixtureMetadata) -cne $fixtureMetadataHash) { throw 'anchor core or regression inputs changed during compilation/tests.' }
+    @{timestampUtc=[DateTime]::UtcNow.ToString('o');sourceSha256=$hash;dllSha256=(Get-ApiFileHash $dll);dll=$dll;compiler=$compilerRoot;windowsSdk=$sdk.Name;scope='Pathfinding native anchor core';tests=@{status=$testStatus;sourceSha256=$testHash;fixtureSha256=$fixtureHash;fixtureMetadataSha256=$fixtureMetadataHash}} | ConvertTo-Json | Set-Content -LiteralPath $proof -Encoding UTF8
     Write-Host "PASS: anchor core built: $dll"
 }
 if ($OutputDirectory) {
