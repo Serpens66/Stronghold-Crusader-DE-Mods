@@ -358,3 +358,16 @@ lord group, a dead cached target or a far leader yields an order; d = nothing un
   2 -> 3, engineers from 2-4 at 5, tunnelers from 3-5 only at the retreat (state 9), state-9 recruits with the
   restart move at 0 -> 2. Groups with a recorded ledger order give the recruit its own order at admission
   (`Detail` empty), which explains immediate movement in non-prompt cells.
+
+### In-game siege state 7 and routeless recruits 2026-11-18 [mod integration]
+
+- Scenario `ai-siege-lord` (`Testmods/AiGroupAdmissionTest`) reached states 2/3/4/6/7/9. Run `4f26ea728141`:
+  a siege-diversion horseman admitted in state 7 into a group with the recorded move (266,421) was rejected,
+  because its own `196280` route returned 0. Its spawn tile was elevated (height 8, wall/tower ring around the keep
+  door in run `a2d53f070c8f`, same tile sequence). APIShared now lets every role whose controller commands joined
+  members (castle defense and `AiControllerHandoffPolicy`) join such a recruit idle like a Vanilla recruit, as it
+  already did for castle defense. Run `a2d53f070c8f`: 66/66 state probes ordered by the end of the cycle,
+  including that horseman; no rejection. Regression `ai-groups` run `ce61cbd887bc`: fresh 190/190, loaded 46/46.
+- `GameUnit+0xAC` (recruit rally field, `11DD10`/`1245B0` mark trigger) was 0 on all 236 admitted probes at 600 and
+  3000 ticks and on all live siege probes; marks `+0x428` appeared only after arrival (137 moved and marked,
+  3 unmoved and marked). A placed recruit is not excluded by `+0xAC`.

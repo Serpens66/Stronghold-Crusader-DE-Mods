@@ -245,7 +245,8 @@
       "integrationSections": [
         "Admission consequences [mod integration]",
         "Admission consequences of the siege audit [mod integration]",
-        "In-game siege acceptance 2026-11-18 [mod integration]"
+        "In-game siege acceptance 2026-11-18 [mod integration]",
+        "In-game siege state 7 and routeless recruits 2026-11-18 [mod integration]"
       ]
     },
     {
@@ -820,11 +821,13 @@
       "file": "GROUP_MOVE_EXCLUSION_MARK.md",
       "scope": "vanilla+integration",
       "components": [
-        "PlayerControlRelayTest"
+        "PlayerControlRelayTest",
+        "AiGroupAdmissionTest"
       ],
       "integrationSections": [
         "Runtime evidence",
-        "PlayerControlRelayTest"
+        "PlayerControlRelayTest",
+        "In-game check of `+0xAC` for API-admitted recruits [mod integration]"
       ]
     },
     {

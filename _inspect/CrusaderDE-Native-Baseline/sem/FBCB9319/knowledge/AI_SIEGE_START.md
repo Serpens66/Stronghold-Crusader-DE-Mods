@@ -126,3 +126,8 @@ skirmish without peace time, human P1 idle, speed 250; evidence `.work/t/aigroup
   (soften delay 0) -> 9 after ~15300 ticks (target lord alive) -> 0 after ~1350 -> 2 (mode 1 still set).
 - Run 2 (soften delay 4): 0 -> 2 -> 3 -> 4 -> 5 -> 6, then 6 -> 5 -> 6 -> 5 -> 6 (the 6 -> 5 fallback of
   `3B450`) -> 9 -> 0 -> 2. State 7 was not reached because the target lord survived.
+
+- State 7 (scenario `ai-siege-lord`, runs `.work/t/aigroups/001/4f26ea728141` and `a2d53f070c8f`, 2026-11-18):
+  the test killed the target lord (Extender `KillUnit`) 600 ticks after state 6. The next pass set 6 -> 7 and
+  `+0x384C` to 0 (request consumed); after ~175 ticks (AIC `-0x3D4`) 7 -> 9, after ~925-1700 ticks 9 -> 0, then
+  0 -> 2 against the next player (`+0x2BD8` moved to player 1). Matches the lord check in the preamble of `3C2E0`.

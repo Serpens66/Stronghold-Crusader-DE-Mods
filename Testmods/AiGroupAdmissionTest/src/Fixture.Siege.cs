@@ -22,6 +22,14 @@ namespace AiGroupAdmissionTest
     internal sealed partial class Fixture
     {
         internal const string SiegeScenario = "ai-siege";
+        // Variant for siege state 7: the target lord is killed during states 5/6; the lord check
+        // in 3C2E0 then turns 4-6 into 7 (wait, no orders) and later 9 (retreat move).
+        internal const string SiegeLordScenario = "ai-siege-lord";
+        private const int KillAfterState6Ticks = 600;
+        private const int KillAfterState5Ticks = 2500;
+        internal bool KillTargetLord;
+        private int firstState5Tick = -1, firstState6Tick = -1;
+        private bool lordKilled;
         private const int SampleTicks = 25;
         private const int ArmyBatch = 4;
         private const int ArmyLimit = 80;
@@ -68,7 +76,6 @@ namespace AiGroupAdmissionTest
         private IEnumerable<AutomationWait> WaitSiegePlayers(AutomationRun run)
         {
             Require(ApiShared.ForMod(Plugin.Guid).TryGetAiMilitary(out api, out var diagnostic), "AI military unavailable: " + diagnostic.Reason);
-            InstallLedgerTrace();
             foreach (var wait in run.SetPause(run.CurrentMission, false)) yield return wait;
             yield return AutomationWait.Until("attacking AI with siege roles and a second live AI", () =>
             {
@@ -199,6 +206,22 @@ namespace AiGroupAdmissionTest
                 " " + run.InSimulation(run.CurrentMission, SiegeContext));
             Require(besieged, "No real siege state (>= 2) was reached");
             Require(cycleEnd >= 0, "The siege cycle did not return to state 0 within " + MaxSiegeTicks + " ticks");
+            if (KillTargetLord) Require(lordKilled && probedStates.Contains(7), "Siege state 7 was not reached after the target lord died");
+        }
+
+        private unsafe void KillTargetLordWhenDue(int state)
+        {
+            if (state == 5 && firstState5Tick < 0) firstState5Tick = simTicks;
+            if (state == 6 && firstState6Tick < 0) firstState6Tick = simTicks;
+            if (!KillTargetLord || lordKilled) return;
+            bool due = state == 6 && simTicks - firstState6Tick >= KillAfterState6Ticks ||
+                state == 5 && simTicks - firstState5Tick >= KillAfterState5Ticks;
+            if (!due) return;
+            lordKilled = true;
+            int lordId = GamePlayerManagerAPI.Instance.GetLordUnitId(siegeTarget);
+            GameUnitManagerAPI.Instance.KillUnit(lordId);
+            log("SIEGE-LORD-KILLED target=" + siegeTarget + " lord=" + lordId + " state=" + state + " simTicks=" + simTicks +
+                " aliveAfter=" + LordAlive(siegeTarget));
         }
 
         // Under the engine monitor: siege-state transition, probes for a newly reached state and
@@ -212,6 +235,7 @@ namespace AiGroupAdmissionTest
                 lastSiegeState = state;
             }
             if (state >= 1 && probedStates.Add(state)) SpawnStateProbes(state);
+            KillTargetLordWhenDue(state);
             foreach (var pair in siegeTracks)
             {
                 var track = pair.Value;
@@ -295,11 +319,13 @@ namespace AiGroupAdmissionTest
                     " alive=" + alive + " member=" + member + " aiState=" + (alive ? unit->r_AIState : -1);
                 if (track.OrderedTick >= 0) { ordered++; log("SIEGE-PROBE " + line); }
                 else if (!alive || !member) { gone++; log("SIEGE-PROBE-GONE " + line); }
+                // Joined without a route (APIShared Detail): like a Vanilla member without a route it
+                // may never move; evidence only.
+                else if (probe.Final.Detail.Contains("no route")) { gone++; log("SIEGE-PROBE-NO-ROUTE " + line); }
                 else { waiting++; Fail("SIEGE-NEVER-ORDERED " + line); }
             }
             log("SIEGE-SUMMARY ordered=" + ordered + " neverOrdered=" + waiting + " goneBeforeOrder=" + gone + " states=" +
                 string.Join(",", probedStates.OrderBy(state => state)));
-            LogLedger("siege-end");
         }
 
         // Mirror of APIShared AiControllerHandoffPolicy.SiegeControllerReachesIdleMember (evidence only).

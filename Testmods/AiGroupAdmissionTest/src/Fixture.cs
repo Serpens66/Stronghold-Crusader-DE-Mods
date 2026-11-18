@@ -35,7 +35,7 @@ namespace AiGroupAdmissionTest
         internal Fixture(string map, int speed, Guid runId, Action<string> log)
         { this.map = map; this.speed = speed; this.runId = runId; this.log = log; }
 
-        internal static bool Owns(string value) => value == Scenario || value == SiegeScenario;
+        internal static bool Owns(string value) => value == Scenario || value == SiegeScenario || value == SiegeLordScenario;
 
         private sealed class Probe
         {
@@ -44,7 +44,7 @@ namespace AiGroupAdmissionTest
             internal AiMilitaryAssignment Wanted;
             internal AiUnitRef Unit;
             internal AiMilitaryAssignmentResult Initial, Final;
-            internal int Callbacks, StartX, StartY, StartTargetX, StartTargetY;
+            internal int Callbacks, StartX, StartY, StartTargetX, StartTargetY, SpawnX, SpawnY, SpawnHeight;
             internal bool Checked, EverMoved;
         }
 
@@ -106,7 +106,6 @@ namespace AiGroupAdmissionTest
         private IEnumerable<AutomationWait> WaitOwner(AutomationRun run)
         {
             Require(ApiShared.ForMod(Plugin.Guid).TryGetAiMilitary(out api, out var diagnostic), "AI military unavailable: " + diagnostic.Reason);
-            InstallLedgerTrace();
             foreach (var wait in run.SetPause(run.CurrentMission, false)) yield return wait;
             // AIC/AIV readiness grows with the first AI passes; wait until castle defense is offered.
             yield return AutomationWait.Until("AI owner with castle defense offered", () =>
@@ -147,8 +146,6 @@ namespace AiGroupAdmissionTest
         {
             Require(GamePlayerManagerAPI.Instance.IsAIPlayer(owner), "AI owner changed");
             int before = probes.Count;
-            log("DEFENSE-CLASS " + round + " " + DefenseClassContext(8));
-            log("DEFENSE-CLASS " + round + " " + DefenseClassContext(6));
             var additionalDone = new HashSet<AiMilitaryRole>();
             var roleDone = new HashSet<AiMilitaryRole>();
             foreach (eChimps type in Enum.GetValues(typeof(eChimps)))
@@ -195,7 +192,8 @@ namespace AiGroupAdmissionTest
                     GameUnit* unit = null;
                     if (id <= 0 || !UnitAccess.TryGetById(id, out unit, out _) || unit->r_GlobalId == 0)
                     { Fail(round + " create failed type=" + type + " role=" + wanted.Role); continue; }
-                    var probe = new Probe { Round = round, Batch = batch, Type = type, Wanted = wanted, Unit = new AiUnitRef(id, unit->r_GlobalId) };
+                    var probe = new Probe { Round = round, Batch = batch, Type = type, Wanted = wanted, Unit = new AiUnitRef(id, unit->r_GlobalId),
+                        SpawnX = x, SpawnY = y, SpawnHeight = height };
                     lock (probes) { batchProbes.Add(probe); probes.Add(probe); }
                 }
                 var initial = scope.Complete();
@@ -270,12 +268,12 @@ namespace AiGroupAdmissionTest
                     string line = head + " status=" + result.Status + " reason=" + result.Reason + " detail=" + result.Detail;
                     if (documented) log("EXPECTED-REJECT " + line);
                     else Fail("REJECTED " + line);
-                    if (probe.Wanted.Role == AiMilitaryRole.CastleDefense)
-                        log("DEFENSE-CONTEXT " + DefenseContext(probe) + " " + DefenseClassContext(8));
+                    log("SPAWN-CONTEXT " + head + " " + SpawnContext(probe));
                     continue;
                 }
                 applied++;
                 if (result.Detail.Length != 0) handoff++;
+                if (result.Detail.Contains("no route")) log("NO-ROUTE-JOIN " + head + " " + SpawnContext(probe) + " detail=" + result.Detail);
                 bool ok = UnitAccess.TryGetById(probe.Unit.UnitId, out GameUnit* unit, out _) && unit->r_GlobalId == probe.Unit.GlobalId &&
                     UnitAccess.IsReallyAlive(unit) && unit->r_ControllableForPlayerId == owner;
                 int role = ok ? unit->r_AITribeRole : -1, group = ok ? unit->r_TribeId : -1;
@@ -296,34 +294,23 @@ namespace AiGroupAdmissionTest
                 else Fail("POSTCONDITION " + evidence + " alive=" + ok);
             }
             log(round + " admissions applied=" + applied + " rejected=" + rejected + " handoff=" + handoff);
-            WatchProbeGroups(round);
-            LogLedger(round + "-admitted");
         }
 
-        // Test-only evidence for castle-defense rejections (kept out of APIShared): recruit tile and
-        // path component, keep door and whether it is reachable from the recruit, and the state of
-        // the reported group record if the result names one.
-        private unsafe string DefenseContext(Probe probe)
+        // Evidence for a rejected or routeless admission: the spawn tile (the unit itself may already
+        // be removed), its path component and height, and whether the keep door is reachable from it.
+        private string SpawnContext(Probe probe)
         {
             var tiles = GameTileManagerAPI.Instance;
             Span<ushort> layer = tiles.GetPathConnectionLayer();
-            string text = "unit=" + probe.Unit + " type=" + probe.Type;
-            if (UnitAccess.TryGetById(probe.Unit.UnitId, out GameUnit* unit, out _) && unit->r_GlobalId == probe.Unit.GlobalId)
-            {
-                int ux = unit->r_CurrentTilePositionX, uy = unit->r_CurrentTilePositionY, tile = tiles.GetTileId(ux, uy);
-                int from = tile > 0 && tile < layer.Length ? (short)layer[tile] : 0;
-                var door = GamePlayerManagerAPI.Instance.GetPlayerKeepDoorPosition(owner);
-                int doorTile = tiles.GetTileId(door.X, door.Y);
-                int to = doorTile > 0 && doorTile < layer.Length ? (short)layer[doorTile] : 0;
-                bool reachable = from > 0 && to > 0 && (from == to || GamePathingManagerAPI.Instance.FindNextComponentTowardDestination(owner, from, to,
-                    PathConnectionQueryMode.ExcludeLadderClimb) != 0);
-                text += " tile=" + ux + "," + uy + " component=" + from + " keepDoor=" + door.X + "," + door.Y + " doorComponent=" + to +
-                    " doorReachable=" + reachable;
-            }
-            int group = probe.Final.Group.TribeId;
-            if (group > 0 && GameTribeManagerAPI.Instance.TryGetTribeById(group, out GameTribe* tribe) && tribe != null)
-                text += " group=" + group + " state=" + tribe->r_AliveState + " owner=" + tribe->r_PlayerIdOwner + " global=" + tribe->r_GlobalId;
-            return text;
+            int tile = tiles.GetTileId(probe.SpawnX, probe.SpawnY);
+            int from = tile > 0 && tile < layer.Length ? (short)layer[tile] : 0;
+            var door = GamePlayerManagerAPI.Instance.GetPlayerKeepDoorPosition(owner);
+            int doorTile = tiles.GetTileId(door.X, door.Y);
+            int to = doorTile > 0 && doorTile < layer.Length ? (short)layer[doorTile] : 0;
+            bool reachable = from > 0 && to > 0 && (from == to || GamePathingManagerAPI.Instance.FindNextComponentTowardDestination(owner, from, to,
+                PathConnectionQueryMode.ExcludeLadderClimb) != 0);
+            return "spawn=" + probe.SpawnX + "," + probe.SpawnY + " spawnHeight=" + probe.SpawnHeight + " component=" + from +
+                " keepDoor=" + door.X + "," + door.Y + " doorComponent=" + to + " doorReachable=" + reachable;
         }
 
         private IEnumerable<AutomationWait> Observe(AutomationRun run, string round, int ticks, int total, bool last)
@@ -359,11 +346,12 @@ namespace AiGroupAdmissionTest
                         " target=" + probe.StartTargetX + "," + probe.StartTargetY + "->" + tx + "," + ty + " moved=" + probe.EverMoved +
                         " aiState=" + (alive ? unit->r_AIState : -1) + " handoff=" + (probe.Final.Detail.Length != 0));
             }
-            LogLedger(round + "-observe-" + total);
             foreach (var row in summary)
                 log("OBSERVE-SUMMARY " + round + " ticks=" + total + " role=" + row.Key + " probes=" + row.Value[0] + " alive=" + row.Value[1] +
                     " sameGroup=" + row.Value[2] + " roleKept=" + row.Value[3] + " moved=" + row.Value[4]);
         }
+
+        private static string Tick() => APIShared.Simulation.SimulationTickEvents.TryGetCurrentTick(out int tick) ? tick.ToString() : "?";
 
         private IEnumerable<AutomationWait> Verdict(AutomationRun run)
         {
