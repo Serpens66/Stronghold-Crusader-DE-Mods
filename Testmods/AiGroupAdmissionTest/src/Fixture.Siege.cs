@@ -316,8 +316,19 @@ namespace AiGroupAdmissionTest
                 string line = "unit=" + probe.Unit + " type=" + probe.Type + " role=" + probe.Wanted.Role + " spawnState=" + track.SpawnState +
                     " prompt=" + track.Prompt + " detail=" + (probe.Final.Detail.Length != 0 ? "'" + probe.Final.Detail + "'" : "none") +
                     " orderedState=" + track.OrderedState + " afterTicks=" + (track.OrderedTick < 0 ? -1 : track.OrderedTick - track.SpawnTick) +
-                    " alive=" + alive + " member=" + member + " aiState=" + (alive ? unit->r_AIState : -1);
+                    " alive=" + alive + " member=" + member + " aiState=" + (alive ? unit->r_AIState : -1) +
+                    " spawn=" + track.SpawnX + "," + track.SpawnY + " admissionTarget=" + track.SpawnTargetX + "," + track.SpawnTargetY +
+                    " now=" + (alive ? unit->r_CurrentTilePositionX + "," + unit->r_CurrentTilePositionY : "-") +
+                    " mark=" + (alive ? unit->N000000D8 : -1) + " keepDoor=" + GamePlayerManagerAPI.Instance.GetPlayerKeepDoorPosition(owner).X + "," +
+                    GamePlayerManagerAPI.Instance.GetPlayerKeepDoorPosition(owner).Y;
+                // GameUnit+0x428 is written only by the AI order routines of the unit's current group
+                // (GROUP_MOVE_EXCLUSION_MARK.md); 1 means the AI's group order (11DD10) reached this
+                // member and deliberately skipped it, e.g. when it already stands within 5 tiles of the
+                // home destination after the retreat (runs 1815ca850d09 and 46859cc8aaf6, state 9 probes
+                // spawned at the keep door). The AI controls the member like its own.
+                bool skippedByAi = alive && unit->N000000D8 != 0;
                 if (track.OrderedTick >= 0) { ordered++; log("SIEGE-PROBE " + line); }
+                else if (alive && member && skippedByAi) { ordered++; log("SIEGE-PROBE-SKIPPED-AT-TARGET " + line); }
                 else if (!alive || !member) { gone++; log("SIEGE-PROBE-GONE " + line); }
                 // Joined without a route (APIShared Detail): like a Vanilla member without a route it
                 // may never move; evidence only.
