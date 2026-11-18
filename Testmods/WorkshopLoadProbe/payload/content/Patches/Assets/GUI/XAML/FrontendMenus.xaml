@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- Invisible marker; the extender logs the patch count for this file when it loads. -->
+  <Operation Type="Add" XPath="//n:Grid[n:StackPanel/n:StackPanel/n:Grid/n:Button[@Name='CoopMenu_Button']]">
+    <Content>
+      <Grid x:Name="WorkshopLoadProbeMarker" Visibility="Collapsed" />
+    </Content>
+  </Operation>
+</Patch>

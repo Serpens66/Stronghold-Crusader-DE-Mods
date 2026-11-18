@@ -1,0 +1,3 @@
+>>TEXTSTART
+>>99901-----
+WorkshopLoadProbe locale marker (unused text index, no visible change)

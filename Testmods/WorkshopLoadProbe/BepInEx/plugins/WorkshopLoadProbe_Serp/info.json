@@ -1,0 +1,11 @@
+{
+  "GUID": "WorkshopLoadProbe_Serp",
+  "Author": "Serpens66",
+  "Name": "Workshop Load Probe",
+  "Description": "Development-only probe for loading Workshop mods in place (WorkshopLoad.md, phase 0). Never part of a release.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.14.0",
+  "Dependencies": [],
+  "Manifest": 1,
+  "NetworkMode": 0
+}

@@ -1,0 +1,11 @@
+{
+  "GUID": "WorkshopLoadProbePayload_Serp",
+  "Author": "Serpens66",
+  "Name": "Workshop Load Probe Payload",
+  "Description": "Test payload loaded from a Workshop folder by WorkshopLoadProbe. Never part of a release.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.14.0",
+  "Dependencies": [],
+  "Manifest": 1,
+  "NetworkMode": 0
+}

@@ -49,6 +49,7 @@ namespace AiGroupAdmissionTest
             foreach (var wait in run.LoadSave(path)) yield return wait;
             foreach (var wait in EnterMission(run)) yield return wait;
             Require(run.InSimulation(run.CurrentMission, FindOwner), "AI owner not available after load");
+            run.InSimulation(run.CurrentMission, () => { LogLedger("loaded-start"); return true; });
             int restored = run.InSimulation(run.CurrentMission, () =>
             {
                 int count = 0;

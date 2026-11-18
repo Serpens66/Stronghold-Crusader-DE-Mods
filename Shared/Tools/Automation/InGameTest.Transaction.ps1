@@ -274,6 +274,23 @@ function Assert-InGameTestApiPair([string]$Plugin, [string]$Patcher) {
     }
 }
 
+function Select-InGameTestProcess($Processes, [string]$Expected) {
+    # A freshly started process can briefly report no image path; that state is Pending, not a foreign game.
+    $list = @($Processes | Where-Object { $_ })
+    if ($list.Count -eq 0) { return [pscustomobject]@{ State = 'None'; Process = $null; Detail = '' } }
+    $paths = @(foreach ($candidate in $list) { try { [string]$candidate.Path } catch { '' } })
+    $detail = (@(for ($i = 0; $i -lt $list.Count; $i++) {
+        'PID {0}: {1}' -f $list[$i].Id, $(if ($paths[$i]) { $paths[$i] } else { '<path not readable>' })
+    }) -join '; ')
+    if ($list.Count -eq 1 -and $paths[0] -and $paths[0] -ieq $Expected) {
+        return [pscustomobject]@{ State = 'Identified'; Process = $list[0]; Detail = $detail }
+    }
+    if (@($paths | Where-Object { -not $_ }).Count) {
+        return [pscustomobject]@{ State = 'Pending'; Process = $null; Detail = $detail }
+    }
+    throw "A game process could not be identified as the selected installation ($detail)."
+}
+
 function Get-InGameTestResult([string]$Log, [string]$Run) {
     if (-not [IO.File]::Exists($Log)) { throw "NO_RESULT: no BepInEx log for run=$Run." }
     $pattern = '\bINGAME_TEST run=' + [regex]::Escape($Run) + ' result=(\S+)'

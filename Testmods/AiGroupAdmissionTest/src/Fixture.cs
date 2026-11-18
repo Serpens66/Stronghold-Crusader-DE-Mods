@@ -106,6 +106,7 @@ namespace AiGroupAdmissionTest
         private IEnumerable<AutomationWait> WaitOwner(AutomationRun run)
         {
             Require(ApiShared.ForMod(Plugin.Guid).TryGetAiMilitary(out api, out var diagnostic), "AI military unavailable: " + diagnostic.Reason);
+            InstallLedgerTrace();
             foreach (var wait in run.SetPause(run.CurrentMission, false)) yield return wait;
             // AIC/AIV readiness grows with the first AI passes; wait until castle defense is offered.
             yield return AutomationWait.Until("AI owner with castle defense offered", () =>
@@ -146,6 +147,8 @@ namespace AiGroupAdmissionTest
         {
             Require(GamePlayerManagerAPI.Instance.IsAIPlayer(owner), "AI owner changed");
             int before = probes.Count;
+            log("DEFENSE-CLASS " + round + " " + DefenseClassContext(8));
+            log("DEFENSE-CLASS " + round + " " + DefenseClassContext(6));
             var additionalDone = new HashSet<AiMilitaryRole>();
             var roleDone = new HashSet<AiMilitaryRole>();
             foreach (eChimps type in Enum.GetValues(typeof(eChimps)))
@@ -260,11 +263,15 @@ namespace AiGroupAdmissionTest
                 if (result.Status != AiMilitaryAssignmentStatus.Applied)
                 {
                     rejected++;
+                    // Only roles whose controller is not proven to command joined members may stay
+                    // explicit after a load (APIShared AiControllerHandoffPolicy, audit 18.11.2026).
                     bool documented = round == "loaded" && result.Reason == AiMilitaryReason.CurrentOrderUnknown &&
-                        !DefensiveHandoffRole(probe.Wanted.Role);
+                        !HandoffRole(probe.Wanted.Role, SiegeState());
                     string line = head + " status=" + result.Status + " reason=" + result.Reason + " detail=" + result.Detail;
                     if (documented) log("EXPECTED-REJECT " + line);
                     else Fail("REJECTED " + line);
+                    if (probe.Wanted.Role == AiMilitaryRole.CastleDefense)
+                        log("DEFENSE-CONTEXT " + DefenseContext(probe) + " " + DefenseClassContext(8));
                     continue;
                 }
                 applied++;
@@ -289,6 +296,34 @@ namespace AiGroupAdmissionTest
                 else Fail("POSTCONDITION " + evidence + " alive=" + ok);
             }
             log(round + " admissions applied=" + applied + " rejected=" + rejected + " handoff=" + handoff);
+            WatchProbeGroups(round);
+            LogLedger(round + "-admitted");
+        }
+
+        // Test-only evidence for castle-defense rejections (kept out of APIShared): recruit tile and
+        // path component, keep door and whether it is reachable from the recruit, and the state of
+        // the reported group record if the result names one.
+        private unsafe string DefenseContext(Probe probe)
+        {
+            var tiles = GameTileManagerAPI.Instance;
+            Span<ushort> layer = tiles.GetPathConnectionLayer();
+            string text = "unit=" + probe.Unit + " type=" + probe.Type;
+            if (UnitAccess.TryGetById(probe.Unit.UnitId, out GameUnit* unit, out _) && unit->r_GlobalId == probe.Unit.GlobalId)
+            {
+                int ux = unit->r_CurrentTilePositionX, uy = unit->r_CurrentTilePositionY, tile = tiles.GetTileId(ux, uy);
+                int from = tile > 0 && tile < layer.Length ? (short)layer[tile] : 0;
+                var door = GamePlayerManagerAPI.Instance.GetPlayerKeepDoorPosition(owner);
+                int doorTile = tiles.GetTileId(door.X, door.Y);
+                int to = doorTile > 0 && doorTile < layer.Length ? (short)layer[doorTile] : 0;
+                bool reachable = from > 0 && to > 0 && (from == to || GamePathingManagerAPI.Instance.FindNextComponentTowardDestination(owner, from, to,
+                    PathConnectionQueryMode.ExcludeLadderClimb) != 0);
+                text += " tile=" + ux + "," + uy + " component=" + from + " keepDoor=" + door.X + "," + door.Y + " doorComponent=" + to +
+                    " doorReachable=" + reachable;
+            }
+            int group = probe.Final.Group.TribeId;
+            if (group > 0 && GameTribeManagerAPI.Instance.TryGetTribeById(group, out GameTribe* tribe) && tribe != null)
+                text += " group=" + group + " state=" + tribe->r_AliveState + " owner=" + tribe->r_PlayerIdOwner + " global=" + tribe->r_GlobalId;
+            return text;
         }
 
         private IEnumerable<AutomationWait> Observe(AutomationRun run, string round, int ticks, int total, bool last)
@@ -324,6 +359,7 @@ namespace AiGroupAdmissionTest
                         " target=" + probe.StartTargetX + "," + probe.StartTargetY + "->" + tx + "," + ty + " moved=" + probe.EverMoved +
                         " aiState=" + (alive ? unit->r_AIState : -1) + " handoff=" + (probe.Final.Detail.Length != 0));
             }
+            LogLedger(round + "-observe-" + total);
             foreach (var row in summary)
                 log("OBSERVE-SUMMARY " + round + " ticks=" + total + " role=" + row.Key + " probes=" + row.Value[0] + " alive=" + row.Value[1] +
                     " sameGroup=" + row.Value[2] + " roleKept=" + row.Value[3] + " moved=" + row.Value[4]);
@@ -344,9 +380,27 @@ namespace AiGroupAdmissionTest
 
         private void Fail(string text) { lock (probes) failures.Add(text); log("FAIL " + text); }
 
-        private static bool DefensiveHandoffRole(AiMilitaryRole role) =>
-            role == AiMilitaryRole.CastleDefense || role == AiMilitaryRole.DefensePatrol || role == AiMilitaryRole.HomeMoat ||
-            role == AiMilitaryRole.EconomyProtection || role == AiMilitaryRole.Intervention;
+        // Expected handoff roles: defensive roles and harassment always, siege roles while the owner's
+        // AI siege state is 0 (3C2E0 then commands every siege group as a whole on each pass).
+        private static bool HandoffRole(AiMilitaryRole role, int siegeState)
+        {
+            switch (role)
+            {
+                case AiMilitaryRole.CastleDefense: case AiMilitaryRole.DefensePatrol: case AiMilitaryRole.HomeMoat:
+                case AiMilitaryRole.EconomyProtection: case AiMilitaryRole.Intervention: case AiMilitaryRole.Harassment:
+                    return true;
+                case AiMilitaryRole.HarassmentEngineers: case AiMilitaryRole.None:
+                    return false;
+                // Mirrors APIShared AiControllerHandoffPolicy: siege roles join in every known siege
+                // state (0-9), waiting for the next phase where the controller does not reach them sooner.
+                default:
+                    return siegeState >= 0 && siegeState <= 9;
+            }
+        }
+
+        private unsafe int SiegeState() =>
+            GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(owner, out GamePlayerResources* resources) && resources != null
+                ? (int)resources->r_AISiegeState : -1;
 
         // FBCB9319 native GameTribe member bitset ABI (+0x36); same contract as UiAcceptance/Spectator.
         private static unsafe bool IsMember(int group, uint groupGlobal, int unitId)

@@ -121,8 +121,25 @@ Complete-InGameTestSaves $saveSnapshot $run $root
 if ([IO.File]::Exists($testSave) -or [IO.File]::ReadAllText((Join-Path $root $testSaveName)) -cne 'test result') {
     throw 'The named test save was not archived and removed.'
 }
+$gameExe = Join-Path $install 'Game.exe'
+if ((Select-InGameTestProcess @() $gameExe).State -cne 'None') { throw 'No game process was not reported as None.' }
+$starting = [pscustomobject]@{ Id = 1; Path = $null }
+if ((Select-InGameTestProcess @($starting) $gameExe).State -cne 'Pending') {
+    throw 'A starting game process without a readable path was not reported as Pending.'
+}
+$ready = [pscustomobject]@{ Id = 1; Path = $gameExe.ToUpperInvariant() }
+$selection = Select-InGameTestProcess @($ready) $gameExe
+if ($selection.State -cne 'Identified' -or -not [object]::ReferenceEquals($selection.Process, $ready)) {
+    throw 'The selected game process was not identified.'
+}
+foreach ($case in @(@([pscustomobject]@{ Id = 2; Path = (Join-Path $root 'Other.exe') }), @($ready, $ready))) {
+    $rejected = $false
+    try { $null = Select-InGameTestProcess $case $gameExe }
+    catch { if ($_.Exception.Message -notlike 'A game process could not be identified*') { throw }; $rejected = $true }
+    if (-not $rejected) { throw 'A foreign or ambiguous game process was accepted.' }
+}
 Remove-InGameTestTree $backup $root
-Write-Host "PASS: package swap, APIShared pair, settings restoration, save preservation and terminal marker isolation. Fixture: $root"
+Write-Host "PASS: package swap, APIShared pair, settings restoration, save preservation, game process identification and terminal marker isolation. Fixture: $root"
 
 } finally {
     if (Get-Command Complete-TransientWorkDirectories -ErrorAction SilentlyContinue) { Complete-TransientWorkDirectories -Owner $PSCommandPath }
