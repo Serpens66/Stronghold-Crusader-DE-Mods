@@ -1,0 +1,23 @@
+[Info   :   BepInEx] Loaded 1 patcher method from [WorkshopLoadProbe.Patcher 0.0.0.0]
+[Info   :APIShared.WorkshopInstall] 2026-11-18 17:36:53.283 RECOVERED 3841874432 rolled-forward
+[Info   :APIShared.WorkshopInstall] 2026-11-18 17:36:53.284 INSTALL_PASS_DONE ms=16
+[Info   :WorkshopLoadProbe] 2026-11-18 17:36:53.285 WLP CONFIG quitAfter=20
+[Info   :  SHCDE-SE] [T1-17:36:55.001] [GameAssetModManager] [RegisterAll] Loading Asset Mod: [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\WorkshopLoadProbePayload_Serp]
+[Info   :  SHCDE-SE] [T1-17:36:55.003] [GameAssetManagerAPI] [RegisterModProvider] Indexed 9 files for [WorkshopLoadProbePayload_Serp] in [Global] asset mode from [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\WorkshopLoadProbePayload_Serp] in 0 ms.
+[Warning:  SHCDE-SE] [T1-17:36:55.003] [GameAssetModManager] [RegisterAssetModCore] Mod has no sprite logo at [Override/Assets/GUI/Sprites/WorkshopLoadProbePayload_Serp.png] in [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\WorkshopLoadProbePayload_Serp] - This may be ignored.
+[Info   :  SHCDE-SE] [T1-17:36:55.415] [GameTranslateAPI] [LoadLocalizationFile] Merged 0 translations for locale en-US from E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\WorkshopLoadProbePayload_Serp\Locales\en-US\crusader.txt (total for locale: 0)
+[Info   :  SHCDE-SE] [T1-17:36:55.415] [GameTranslateAPI] [LoadModLocalizations] Loaded 1 localization files from E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\WorkshopLoadProbePayload_Serp
+[Info   :  SHCDE-SE] [T1-17:36:55.422] [LuaManager] [RegisterAssetMod] Registered Asset Mod Lua script: GUID=WorkshopLoadProbePayload_Serp -> Scripts/init.lua
+[Info   :  SHCDE-SE] [T1-17:36:55.422] [GameAssetModManager] [RegisterAll] Loading Asset Mod: [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\WorkshopLoadProbe_Serp]
+[Info   :  SHCDE-SE] [T1-17:36:55.422] [GameAssetManagerAPI] [RegisterModProvider] Indexed 2 files for [WorkshopLoadProbe_Serp] in [Global] asset mode from [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\WorkshopLoadProbe_Serp] in 0 ms.
+[Warning:  SHCDE-SE] [T1-17:36:55.422] [GameAssetModManager] [RegisterAssetModCore] Mod has no sprite logo at [Override/Assets/GUI/Sprites/WorkshopLoadProbe_Serp.png] in [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\WorkshopLoadProbe_Serp] - This may be ignored.
+[Info   :  SHCDE-SE] [T1-17:36:55.422] [GameTranslateAPI] [LoadModLocalizations] Loaded 0 localization files from E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\WorkshopLoadProbe_Serp
+[Info   : APIShared] [2026-11-18 17:37:02.526] Workshop preloader installation: RECOVERED 3841874432 rolled-forward
+[Info   : APIShared] [2026-11-18 17:37:02.758] Workshop step=local installation; item=3841874432; package=WorkshopLoadProbePayload_Serp; installed=0.1.3; available=0.1.3; steamSource=E:\ProgrammeE\Steam\steamapps\workshop\content\3024040\3841874432; receiptVersion=0.1.3; bootstrapReceiptVersion=not-declared; localState=Verified; startupOffers=True
+[Info   : APIShared] [2026-11-18 17:37:03.440] Workshop startup result=current; blocked=False; technicalErrors=0.
+[Info   :Workshop Load Probe] 2026-11-18 17:37:07.524 WLP QUIT_SCHEDULED after=20s
+[Info   :Workshop Load Probe Payload] 2026-11-18 17:37:07.528 WLP PAYLOAD_AWAKE info=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\WorkshopLoadProbePayload_Serp\WorkshopLoadProbe.Payload.dll assembly=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\WorkshopLoadProbePayload_Serp\WorkshopLoadProbe.Payload.dll pluginPath=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins
+[Info   :Workshop Load Probe Payload] 2026-11-18 17:37:07.532 WLP PAYLOAD_HELPER helper=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\WorkshopLoadProbePayload_Serp\WorkshopLoadProbe.Helper.dll
+[Message:   BepInEx] Chainloader startup complete
+[Info   :  SHCDE-SE] [T1-17:37:09.866] [GameXAMLManagerAPI] [GetPatchesForPath] Found patch for [Assets/GUI/XAML/FrontendMenus.xaml] in mod [WorkshopLoadProbePayload_Serp]
+[Info   :Workshop Load Probe] 2026-11-18 17:37:41.432 WLP QUIT flushing log

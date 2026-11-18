@@ -4,8 +4,8 @@ using Mono.Cecil;
 
 namespace WorkshopLoadProbe
 {
-    // Preloader entry. Finish runs before the chainloader has opened or loaded anything from
-    // BepInEx/plugins, which is the moment the safe installation needs.
+    // Preloader entry for unattended game tests of APIShared's Workshop installation: it only hands
+    // quitafter to the observer plugin. The installation itself is APIShared's own preloader.
     public static class ProbePatcher
     {
         public static IEnumerable<string> TargetDLLs => new string[0];
@@ -22,7 +22,6 @@ namespace WorkshopLoadProbe
                 ProbeLog.Info("CONFIG", config.ToString());
                 // Read by the observer plugin for unattended test runs.
                 if (config.QuitAfter > 0) AppDomain.CurrentDomain.SetData("WorkshopLoadProbe.QuitAfter", config.QuitAfter);
-                if (config.Install) InstallRunner.Run();
             }
             catch (Exception ex) { ProbeLog.Error("ERROR", "Finish " + ex); }
         }

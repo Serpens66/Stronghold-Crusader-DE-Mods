@@ -68,6 +68,14 @@ presets.json 2       # Reset-Nummer: erhöhen = einmalig auf die mitgelieferte V
     mit, entfällt die Datei bzw. der Ordner.
   - Übersprungene Versionen bekommen den Reset trotzdem genau einmal.
   - Fehlt der Merkstand, gilt 0.
+- **Deinstallation (`persist`):** Ein Eintrag mit dem Wort `persist` (`config/ persist`) bleibt
+  auch erhalten, wenn das Paket deinstalliert wird (Nutzerentscheidung 2026-11-18: der Mod legt
+  das selbst fest). Ohne `persist` wird der Eintrag bei der Deinstallation mit dem Mod-Ordner
+  gelöscht.
+  - Der Mod-Ordner verschwindet bei der Deinstallation immer ganz aus `plugins`.
+  - `persist`-Einträge werden vorher in eine APIShared-Ablage außerhalb von `plugins` gerettet.
+  - Bei einer späteren Neuinstallation desselben Pakets werden sie wie Spielerdateien
+    übernommen; danach wird die Ablage gelöscht.
 - **Ungültige Einträge** weist das Staging zurück, bevor etwas umgeschaltet wird:
   - absolute Pfade, `..`, Laufwerksangaben,
   - Platzhalter (`*`, `?`),
@@ -147,7 +155,38 @@ Steam-Verhalten (privates Test-Item 3841874432):
 - **E3 Ohne Bootstrap:** Fehlt der Bootstrap oder ist er abgeschaltet, gibt es nur einen
   Hinweis. Kein Rückfall auf den alten externen Updater.
 
+## Integration in APIShared (Entwurf vom 2026-11-18)
+
+- **Geltungsbereich:** nur lose Pakete mit Wurzeln unter `BepInEx/plugins` (z. B. SerpsMods).
+  APIShared selbst kommt als Extender-`.map` und wird vom Script Extender aktualisiert. Ein
+  Selbstaustausch des Preloaders ist daher nicht nötig, und die Paarbindung bleibt unberührt.
+- **Kern** `src/Workshop/Install/`, kompiliert in `APIShared.dll` und in den Preloader:
+  - Staging, Keep-Liste, Tausch und Wiederherstellung, **für mehrere Wurzeln pro Paket in einer
+    Transaktion**.
+  - Die Quittung `_APIShared/Workshop/Receipts/<id>.json` wird am Ende derselben Transaktion
+    geschrieben, abgesichert über das Journal.
+  - Arbeitsordner (gleiches Laufwerk wie `plugins`): `_APIShared/I/` mit `s` (Staging), `b`
+    (Sicherungen), `j` (Journale), `r` (Anforderungen), `k` (`persist`-Ablage).
+- **Preloader:** Wiederherstellung und Anforderungen in `Finish` des DependencyBootstrap, vor dem
+  Chainloader.
+- **Plugin:**
+  - Zustimmungsdialog beim Start bzw. „beim nächsten Start installieren“ in den Mod-Optionen.
+  - Danach Staging im Hintergrund und eine Anforderung. Angewendet wird beim nächsten Start.
+  - Kein Beenden und kein Neustart des Spiels.
+- **Öffentliche API:** Die Signaturen von `PrepareInstallAsync`/`ApplyAsync` bleiben. `ApplyAsync`
+  stagt und legt die Anforderung ab, `AwaitingRestart` bedeutet „wird beim nächsten Start
+  angewendet“, und das Spiel wird nicht mehr beendet. Das wird im Changelog und im Katalog
+  dokumentiert.
+- **Altlasten:** Reste abgebrochener Transaktionen des alten Updaters werden erkannt. Für die
+  betroffenen Pakete wird die Neuinstallation über den neuen Weg angeboten, danach werden die
+  Reste gelöscht.
+
 ## Phasen für APIShared
+
+Stand 2026-11-18: Phasen 1–6 umgesetzt (APIShared 0.57.0, SerpsModsHost 1.0.39 mit
+`SerpsModsHost/apishared-keep.txt`); der Prototyp-Kern wurde danach aus dem Testmod entfernt,
+dieser steuert nur noch Spieltests (`Testmods/WorkshopLoadProbe/TESTPLAN.md`). Offen: Proton-Test
+und Release.
 
 1. **Kern übernehmen:** Staging, Keep-Liste, Umschalten und Wiederherstellung aus
    `install/SafeInstall.cs` als APIShared-interne Bibliothek für Bootstrap und Plugin. Dazu die
@@ -167,7 +206,16 @@ Steam-Verhalten (privates Test-Item 3841874432):
    Readiness-Übergabe und Wiederherstellungsdialoge. Die Kompatibilität für veröffentlichte
    Pakete prüfen (APIShared ist kompatibilitätspflichtig).
 6. **Tests:**
-   - Spieltests G1–G7 mit dem echten APIShared und SerpsMods.
+   - Spieltests mit dem echten APIShared-Preloader (Stand 2026-11-18, Item 3841874432 über
+     `Testmods/WorkshopLoadProbe/tools/Stage-ApiSharedInstall.ps1`): Erstinstallation,
+     Neuinstallation mit Fremddateien, echter Prozessabbruch bei `old-moved` mit Reparatur beim
+     nächsten Start und Deinstallation bestanden. Der alte `_APIShared/T`-Ordner wurde beim
+     ersten Start entfernt. Manuell geprüft (gleicher Tag): Zustimmungsdialog beim Start (SerpsMods
+     gelöscht bzw. eine Datei fehlte → Neuinstallation angeboten, „Ja“, beim nächsten Start
+     installiert) und Mod-Optionen (vorbereiten, verwerfen, erneut vorbereiten, installiert). Dabei
+     gefunden und behoben: Das Popup lag hinter dem Spiel, ohne sichtbaren und mit eingesperrtem
+     Mauszeiger. Es gehört jetzt dem Spielfenster, Zeiger und Mausbereich werden währenddessen
+     freigegeben. Offen: Keep-Liste mit einem echten Workshop-Item.
    - **Proton-Test** (Umbenennungen unter Wine) steht noch aus.
    - Doku (`APIShared/docs/WORKSHOP.md`).
 7. **Release** über den normalen Ablauf.

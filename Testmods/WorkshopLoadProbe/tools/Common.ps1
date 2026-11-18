@@ -3,6 +3,7 @@ $ProbePayloadGuid = 'WorkshopLoadProbePayload_Serp'
 
 function Get-ProbeWorkspace { [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..')) }
 function Get-ProbeGame { 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition' }
+function Get-ProbeLibrary { [IO.Path]::GetFullPath((Join-Path (Get-ProbeGame) '..\..')) }
 function Get-ProbeEvidence([string]$Kind) {
     $path = Join-Path (Get-ProbeWorkspace) ('_inspect\WorkshopLoadProbe\' + $Kind)
     [void][IO.Directory]::CreateDirectory($path)

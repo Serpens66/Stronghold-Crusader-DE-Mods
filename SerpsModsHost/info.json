@@ -3,7 +3,7 @@
     "Author":  "Serpens66",
     "Name":  "Serps Mods - Fully Customizable Collection",
     "Description":  "APIShared must be subscribed separately in the Steam Workshop! / APIShared muss separat im Steam Workshop abonniert werden!\n\nMultiplayer: all players need the same versions of this modpack and APIShared. / Mehrspieler: Alle Spieler brauchen dieselbe Version dieses Modpacks und von APIShared.\n\nAll included mods can be freely configured in the in-game Mod Settings.\n\nIncluded mods:\n- Bugfixes and QoL\n- Pathfinding\n- Building Costs\n- Building Limit\n- Extra Features\n- Random Events\n- CastlePlanner\n- Start Conditions\n- Unit Costs\n- Unit Limit\n- Extended Data\n- Spectator\n- Improved Hunters",
-    "Version":  "1.0.38",
+    "Version":  "1.0.39",
     "Website":  "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods",
     "MinimumScriptExtenderVersion":  "2.3.0",
     "MaximumScriptExtenderVersion":  "",
@@ -16,6 +16,12 @@
     "Manifest":  1,
     "NetworkMode":  1,
     "SerpChangelog":  [
+                          {
+                              "Version":  "1.0.39",
+                              "Changes":  [
+                                              "Workshop updates through APIShared 0.57.0 or newer keep the older mod settings files that are still stored in the modpack folder until the mods have moved them to the Documents folder."
+                                          ]
+                          },
                           {
                               "Version":  "1.0.38",
                               "Changes":  [

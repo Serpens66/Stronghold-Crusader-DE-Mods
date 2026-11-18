@@ -9,7 +9,6 @@ namespace WorkshopLoadProbe
     internal sealed class ProbeConfig
     {
         internal const string FileName = "WorkshopLoadProbe.txt";
-        internal bool Install;
         internal int QuitAfter;
         internal string Error;
 
@@ -25,13 +24,12 @@ namespace WorkshopLoadProbe
                 int split = line.IndexOf('=');
                 string key = split > 0 ? line.Substring(0, split).Trim().ToLowerInvariant() : "";
                 string value = split > 0 ? line.Substring(split + 1).Trim() : "";
-                if (key == "install" && (value == "on" || value == "off")) config.Install = value == "on";
-                else if (key == "quitafter" && int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out int seconds) && seconds <= 3600) config.QuitAfter = seconds;
+                if (key == "quitafter" && int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out int seconds) && seconds <= 3600) config.QuitAfter = seconds;
                 else return new ProbeConfig { Error = "invalid line: " + line };
             }
             return config;
         }
 
-        public override string ToString() => "install=" + Install + " quitAfter=" + QuitAfter;
+        public override string ToString() => "quitAfter=" + QuitAfter;
     }
 }

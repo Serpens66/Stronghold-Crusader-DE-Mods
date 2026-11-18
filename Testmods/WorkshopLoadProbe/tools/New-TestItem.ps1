@@ -24,7 +24,7 @@ Write-ProbeText (Join-Path $plugin 'apishared-keep.txt') @('# Player files kept 
 $files = @(Get-ChildItem -LiteralPath (Join-Path $simulated 'Payload') -Recurse -File | Sort-Object FullName | ForEach-Object {
     [ordered]@{ Path = $_.FullName.Substring((Join-Path $simulated 'Payload').Length + 1).Replace('\', '/'); Size = $_.Length; Sha256 = Get-ProbeSha256 $_.FullName }
 })
-$manifest = [ordered]@{ SchemaVersion = 1; PackageId = $ProbePayloadGuid; Version = "0.2.$Variant"; MinimumAPISharedVersion = '0.56.0';
+$manifest = [ordered]@{ SchemaVersion = 1; PackageId = $ProbePayloadGuid; Version = "0.2.$Variant"; MinimumAPISharedVersion = '0.57.0';
     MinimumScriptExtenderVersion = '2.14.0'; MaximumScriptExtenderVersion = ''; Roots = @("BepInEx/plugins/$ProbePayloadGuid"); Files = $files }
 Write-ProbeText (Join-Path $simulated 'apishared-workshop.json') @($manifest | ConvertTo-Json -Depth 5)
 Write-Output "Simulated item: $simulated"

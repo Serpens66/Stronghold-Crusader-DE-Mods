@@ -3,28 +3,46 @@
     "Author":  "Serpens66",
     "Name":  "Serps Mods - Fully Customizable Collection",
     "Description":  "APIShared must be subscribed separately in the Steam Workshop! / APIShared muss separat im Steam Workshop abonniert werden!\n\nMultiplayer: all players need the same versions of this modpack and APIShared. / Mehrspieler: Alle Spieler brauchen dieselbe Version dieses Modpacks und von APIShared.\n\nAll included mods can be freely configured in the in-game Mod Settings.\n\nIncluded mods:\n- Bugfixes and QoL\n- Pathfinding\n- Building Costs\n- Building Limit\n- Extra Features\n- Random Events\n- CastlePlanner\n- Start Conditions\n- Unit Costs\n- Unit Limit\n- Extended Data\n- Spectator\n- Improved Hunters",
-    "Version":  "1.0.36",
+    "Version":  "1.0.39",
     "Website":  "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods",
     "MinimumScriptExtenderVersion":  "2.3.0",
     "MaximumScriptExtenderVersion":  "",
     "Dependencies":  [
                          {
                              "GUID":  "APIShared_Serp",
-                             "MinimumVersion":  "0.27.0"
+                             "MinimumVersion":  "0.56.0"
                          }
                      ],
     "Manifest":  1,
     "NetworkMode":  1,
     "SerpChangelog":  [
                           {
-                            "Version": "1.0.36",
-                            "Changes": [
-                              "Include the separate Pathfinding mod with movement, formations, Shift queues, gate routing and Assassin pathfinding. Preserve settings and author rules moved from Bugfixes and QoL in older saves, maps and Trails.",
-                              "Bugfixes and QoL: add local area demolition with building filters, Ctrl-drag pitch and moat lines, configurable local autosaves, and fixes for siege crews, pitch stairs, AI outpost targets and Coop Trail restarts.",
-                              "Extra Features: add tree respawn, mature-tree harvesting, separate unit and building health multipliers, and a configurable production bonus; improve automatic gate closing and legacy save compatibility. Multiply actual base production and award production income only for goods delivered to storage.",
-                              "Spectator: add saved AI assignments for placed units and options to retain statistics and the game date while the HUD is hidden. CastlePlanner and Spectator wait for slow mission startup.",
-                              "Extended Data: keep autosave and starting speed player-owned and preserve moved Map/Trail settings. This package requires APIShared 0.52.0 or newer; all multiplayer participants need matching modpack and APIShared versions."
-                            ]
+                              "Version":  "1.0.39",
+                              "Changes":  [
+                                              "Workshop updates through APIShared 0.57.0 or newer keep the older mod settings files that are still stored in the modpack folder until the mods have moved them to the Documents folder."
+                                          ]
+                          },
+                          {
+                              "Version":  "1.0.38",
+                              "Changes":  [
+                                              "Updated unified Steam Workshop package contents."
+                                          ]
+                          },
+                          {
+                              "Version":  "1.0.37",
+                              "Changes":  [
+                                              "Updated unified Steam Workshop package contents."
+                                          ]
+                          },
+                          {
+                              "Version":  "1.0.36",
+                              "Changes":  [
+                                              "Include the separate Pathfinding mod with movement, formations, Shift queues, gate routing and Assassin pathfinding. Preserve settings and author rules moved from Bugfixes and QoL in older saves, maps and Trails.",
+                                              "Bugfixes and QoL: add local area demolition with building filters, Ctrl-drag pitch and moat lines, configurable local autosaves, and fixes for siege crews, pitch stairs, AI outpost targets and Coop Trail restarts.",
+                                              "Extra Features: add tree respawn, mature-tree harvesting, separate unit and building health multipliers, and a configurable production bonus; improve automatic gate closing and legacy save compatibility. Multiply actual base production and award production income only for goods delivered to storage.",
+                                              "Spectator: add saved AI assignments for placed units and options to retain statistics and the game date while the HUD is hidden. CastlePlanner and Spectator wait for slow mission startup.",
+                                              "Extended Data: keep autosave and starting speed player-owned and preserve moved Map/Trail settings. This package requires APIShared 0.52.0 or newer; all multiplayer participants need matching modpack and APIShared versions."
+                                          ]
                           },
                           {
                               "Version":  "1.0.35",
@@ -50,7 +68,7 @@
                               "Changes":  [
                                               "Include the LineUp Patrol passthrough fix, preserved Map/Trail working settings, the already-satisfied market-price correction and more specific bounded support logs for settings, formations, prices, bandits and AI/AIV/AIC decisions.",
                                               "Add Personal Settings to the shared reset dropdown for all compatible mods while retaining the active Map/Trail context and personal storage.",
-                                              "Clarify the visible shared-reset label as Reset ALL modsettings to: (German: ALLE Modsettings zurÃ¼cksetzen auf:) while retaining the existing tooltip and confirmation.",
+                                              "Clarify the visible shared-reset label as Reset ALL modsettings to: (German: ALLE Modsettings zurÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼cksetzen auf:) while retaining the existing tooltip and confirmation.",
                                               "Bugfixes and QoL: add the human Lord return-teleport fix, remembered formation width/depth proportions and a faster native Assassin route search; move the spectator features into the separate Spectator mod.",
                                               "Extra Features: configurable victory loot (gold, goods, gold maximum) and separate civilian/military enemy-proximity radii.",
                                               "CastlePlanner: multiplayer spectators can view the accepted AI castle plan of the viewed player.",

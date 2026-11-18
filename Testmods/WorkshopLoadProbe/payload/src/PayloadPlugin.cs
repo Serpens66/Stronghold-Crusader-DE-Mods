@@ -5,8 +5,8 @@ using BepInEx;
 
 namespace WorkshopLoadProbe.Payload
 {
-    // Test package for the safe installation. Never placed by hand: tools/Stage-Install.ps1
-    // stages it and the probe patcher swaps it into BepInEx/plugins. It reports which variant
+    // Test package for APIShared's safe Workshop installation. Never placed by hand: APIShared's
+    // preloader swaps it into BepInEx/plugins (see TESTPLAN.md). It reports which variant
     // BepInEx loaded and which player files survived the update.
     [BepInPlugin(Guid, "Workshop Load Probe Payload", "0.2.0")]
     public sealed class PayloadPlugin : BaseUnityPlugin
