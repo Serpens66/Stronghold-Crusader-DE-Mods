@@ -13,13 +13,12 @@ foreach ($project in @('patcher\WorkshopLoadProbe.Patcher.csproj', 'observer\Wor
     if ($LASTEXITCODE -ne 0) { throw "Compilation failed: $project" }
 }
 
-# Payload package: content plus both DLLs. Never installed into BepInEx/plugins by this build.
+# Payload package (info.json + DLL); test items add variant files and the keep list.
+# Never installed into BepInEx/plugins by this build: only the probe's safe swap installs it.
 $package = Join-Path $PSScriptRoot ('payload\package\' + $ProbePayloadGuid)
 if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'payload\package')) { Remove-Item -LiteralPath (Join-Path $PSScriptRoot 'payload\package') -Recurse -Force }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'payload\content') -Destination $package -Recurse
-foreach ($dll in @('WorkshopLoadProbe.Payload.dll', 'WorkshopLoadProbe.Helper.dll')) {
-    Copy-Item -LiteralPath (Join-Path $PSScriptRoot ('payload\out\' + $dll)) -Destination $package
-}
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'payload\out\WorkshopLoadProbe.Payload.dll') -Destination $package
 
 $installed = @(
     @{ Source = 'BepInEx\patchers\WorkshopLoadProbe.Patcher.dll'; Target = 'BepInEx\patchers\WorkshopLoadProbe.Patcher.dll' },

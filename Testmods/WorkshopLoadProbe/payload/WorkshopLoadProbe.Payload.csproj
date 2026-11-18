@@ -5,7 +5,7 @@
     <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
     <OutputType>Library</OutputType><TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <AssemblyName>WorkshopLoadProbe.Payload</AssemblyName><LangVersion>latest</LangVersion>
-    <OutputPath>out\</OutputPath><IntermediateOutputPath>obj\Payload\</IntermediateOutputPath>
+    <OutputPath>out\</OutputPath><IntermediateOutputPath>obj\</IntermediateOutputPath>
     <Optimize>true</Optimize><DebugType>none</DebugType><WarningLevel>4</WarningLevel><TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <GameDir Condition="'$(GameDir)' == ''">E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
     <GameManaged>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed</GameManaged>
@@ -16,7 +16,6 @@
     <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine"><HintPath>$(GameManaged)\UnityEngine.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameManaged)\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
-    <ProjectReference Include="WorkshopLoadProbe.Helper.csproj"><Private>true</Private></ProjectReference>
     <Compile Include="src\PayloadPlugin.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

@@ -3,15 +3,16 @@
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
   <PropertyGroup>
     <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
-    <OutputType>Library</OutputType><TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
-    <AssemblyName>WorkshopLoadProbe.Helper</AssemblyName><LangVersion>latest</LangVersion>
-    <OutputPath>out\</OutputPath><IntermediateOutputPath>obj\Helper\</IntermediateOutputPath>
+    <OutputType>Exe</OutputType><TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
+    <AssemblyName>InstallHarness</AssemblyName><LangVersion>latest</LangVersion>
+    <OutputPath>bin\</OutputPath><IntermediateOutputPath>obj\</IntermediateOutputPath>
     <Optimize>true</Optimize><DebugType>none</DebugType><WarningLevel>4</WarningLevel><TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <ImportDirectoryBuildTargets>false</ImportDirectoryBuildTargets>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="System" />
-    <Compile Include="src\ProbeHelper.cs" />
+    <Reference Include="System" /><Reference Include="System.Core" /><Reference Include="System.Web.Extensions" />
+    <Compile Include="Program.cs" />
+    <Compile Include="..\..\install\SafeInstall.cs"><Link>install\SafeInstall.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

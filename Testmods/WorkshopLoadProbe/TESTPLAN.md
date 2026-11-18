@@ -1,96 +1,68 @@
-# WorkshopLoadProbe – Testplan (Phase 0 aus `WorkshopLoad.md`)
+# WorkshopLoadProbe – Prototyp der sicheren Workshop-Installation
 
-Reiner Entwicklungs-Testmod. Er klärt, ob Workshop-Mods direkt aus
-`steamapps/workshop/content/3024040` geladen werden können. APIShared und die Mods
-bleiben unverändert. Nie Teil eines Releases.
+Reiner Entwicklungs-Testmod für den Plan in `WorkshopLoad.md`. APIShared und die Mods bleiben
+unverändert. Nie Teil eines Releases.
 
 ## Bestandteile
 
-| Teil | Ort im Spiel | Aufgabe |
-|---|---|---|
-| `patcher/` → `WorkshopLoadProbe.Patcher.dll` | `BepInEx/patchers` | Leitet beim Ereignis „Chainloader ready“ die Plugin-Suche in `Chainloader.Start` um (IL-Hook, nie zurückgenommen). Liest die `.acf` (T3), prüft das Inventar jedes APIShared-Items mit Hash-Cache (T5), wendet die Regel „lokal gewinnt“ an (P3) und lädt nur freigegebene Items (T1). Löst Hilfs-DLLs aus Workshop-Wurzeln auf (P2). |
-| `observer/` → `WorkshopLoadProbe_Serp` | `BepInEx/plugins` | Weiche Abhängigkeit auf den Payload (Ladereihenfolge). Registriert geladene Workshop-Wurzeln nachträglich beim Script Extender (`RegisterAssetMod`) und misst die Wirkung (T4). |
-| `payload/` → `WorkshopLoadProbePayload_Serp` | nur außerhalb von `plugins` | Test-Plugin mit Hilfs-DLL, `info.json`, Übersetzung, unsichtbarem XAML-Patch auf `FrontendMenus.xaml` und `Scripts/init.lua`. |
+| Teil | Aufgabe |
+|---|---|
+| `install/SafeInstall.cs` | Kern: Staging mit Hash-Prüfung, Keep-Liste mit Reset-Nummer, Umschalten per Ordner-Umbenennung mit Journal, Wiederherstellung. Ohne BepInEx-/Unity-Typen, damit Testprogramm und Patcher dieselbe Datei nutzen. |
+| `patcher/` → `BepInEx/patchers/WorkshopLoadProbe.Patcher.dll` | Führt in `Finish` (vor dem Chainloader) Wiederherstellung, Anforderungen und den Selbstaustausch der eigenen DLL aus (`InstallRunner.cs`). |
+| `observer/` → `BepInEx/plugins/WorkshopLoadProbe_Serp` | Nur für unbeaufsichtigte Läufe: schreibt das Log weg und beendet das Spiel nach `quitafter` Sekunden. |
+| `payload/` → Test-Paket `WorkshopLoadProbePayload_Serp` | Wird nie von Hand installiert, nur über den Tausch. Meldet Variante, `settings.json`, `config/user.cfg` und ob `junk.log` noch existiert. |
+| `tests/InstallHarness`, `tests/Run-InstallTests.ps1` | Offline-Tests: Szenarien, zufällige Prozessabbrüche, Zeitmessung mit dem echten SerpsMods-Item. |
 
-Ohne `BepInEx/config/WorkshopLoadProbe.txt` ist alles inaktiv (Logzeile `WLP INACTIVE`).
-In Workshop-Ordner schreibt der Testmod nie. Er schreibt nur
-`BepInEx/cache/WorkshopLoadProbe.hashes.tsv` und `BepInEx/cache/wlp_*_typeloader.dat`.
+Konfiguration `BepInEx/config/WorkshopLoadProbe.txt` (fehlt sie, ist alles inaktiv):
+`install=on|off`, `quitafter=<Sekunden>`. Cache im Spiel: `BepInEx/cache/WLPI`
+(`s` Staging, `b` Sicherung, `j` Journal, `r` Anforderungen, `p` Patcher).
 
 ## Werkzeuge (`tools/`)
 
-Alle mit `powershell.exe -NoProfile -ExecutionPolicy Bypass -File <Skript>` aufrufen. Alle
-außer den Schnappschüssen verweigern die Arbeit bei laufendem Spiel.
+Alle mit `powershell.exe -NoProfile -ExecutionPolicy Bypass -File <Skript>` aufrufen. Sie
+verweigern die Arbeit bei laufendem Spiel.
 
-- `Set-ProbeConfig.ps1 -Mode off|observe|load [-Item <Ordner>] [-Load <Schlüssel>] [-Duplicates skip|bepinex] [-Resolver on|off] [-TypeCache on|off] [-HashCache on|off] [-ClearCaches]`
-- `New-TestItem.ps1 [-Variant 1|2]` legt `.work/a/workshopload-item/<n>/` an. Darin liegen
-  `source/` für den Upload und `simulated/` im veröffentlichten Aufbau (Ladeschlüssel `simulated`).
-- `Check-Run.ps1 -Label <Name>` direkt nach jedem Spielstart ausführen. Das BepInEx-Log wird
-  beim nächsten Start überschrieben. Die Ausgabe landet in `_inspect/WorkshopLoadProbe/runs/`.
-- `Snapshot-Workshop.ps1 -ItemId <ID> -Label <Name>` und `Compare-WorkshopSnapshots.ps1 -Before <json> -After <json>`
-  halten den Steam-Zustand fest (`.acf`, `content`, `downloads`, `temp`). Ablage:
-  `_inspect/WorkshopLoadProbe/snapshots/`.
-- `Set-LocalPayloadCopy.ps1 -State Present|Absent` legt den Payload zusätzlich in `plugins`
-  bzw. entfernt nur genau diese Kopie wieder.
-- `Remove-Probe.ps1` entfernt Patcher, Beobachter, Konfiguration und Caches aus dem Spiel.
+- `Set-ProbeConfig.ps1 [-Install] [-QuitAfter <s>]`
+- `New-TestItem.ps1 -Variant 1|2 [-KeepRevision <n>]` erzeugt ein simuliertes Workshop-Item in
+  `.work/a/workshopload-item/<n>/simulated`.
+- `Stage-Install.ps1` bereitet einen Spieltest vor:
+  - `-Variant 1|2 [-KeepRevision <n>]` stagt und fordert die Installation an.
+  - `-AddPlayerFiles` verändert den installierten Ordner wie ein Spieler.
+  - `-InterruptAt <Schritt>` tauscht sofort und bricht an diesem Schritt ab.
+  - `-Patcher` stagt die frisch gebaute Patcher-DLL.
+- `Invoke-ProbeRun.ps1 -Label <Name>` startet über Steam, wartet auf das selbstständige Beenden
+  und ruft danach `Check-Run.ps1` auf, das die Logzeilen nach
+  `_inspect/WorkshopLoadProbe/runs/` sichert.
+- `Remove-Probe.ps1` entfernt Patcher, Beobachter, Konfiguration, Cache und den installierten
+  Test-Payload.
 
-## Vorbereitung
+## Ablauf der Tests
 
-1. `build.bat /nopause` baut und installiert Patcher und Beobachter. Ohne Konfiguration sind
-   beide inaktiv.
-2. `tools/New-TestItem.ps1 -Variant 1`, den ausgegebenen `simulated`-Pfad merken.
-3. Ruhige Testwelt: RandomEvents-Mod nicht aktiv. Spielzeitfenster mit anderen Sitzungen
-   abstimmen. Für die Läufe A bis E genügt das Hauptmenü, Maus und Tastatur werden nicht gebraucht.
+1. `tests/Run-InstallTests.ps1`, offline. Fixtures liegen in `.work/t/installtest` und werden
+   bei Erfolg gelöscht.
+2. `build.bat /nopause` installiert Patcher und Beobachter.
+3. `Set-ProbeConfig.ps1 -Install -QuitAfter 20`
+4. Spieltests, jeweils `Stage-Install.ps1 …`, dann `Invoke-ProbeRun.ps1 -Label …`:
 
-## Lokale Läufe (T1, T3, T4, T5)
-
-| Lauf | Konfiguration | Erwartung / Frage |
+| Test | Vorbereitung | Erwartung |
 |---|---|---|
-| A kalt | `-Mode observe -Item <simulated> -ClearCaches` | `HOOK_INSTALLED`; `DECISION 3788821961 skip-local [...]` (lokale SerpsMods gewinnen); `DECISION simulated observe-only`; `INVENTORY ... hashed=<alle>`; `SCAN ... ms`; `ACF_ITEM`-Zeilen (T3). Zusätzlich die Patch-Anzahl von `FrontendMenus.xaml` als Vergleichswert notieren. |
-| B warm | wie A ohne `-ClearCaches` | `INVENTORY ... hashed=0 cacheHits=<alle>`; `SCAN`-Zeit mit Typ-Cache. Für einen wirklich kalten Lauf A direkt nach einem Neustart von Windows wiederholen (T5). |
-| C laden | `-Mode load -Item <simulated> -Load simulated` | `PAYLOAD_AWAKE info=...simulated...`; `RESOLVE resolved WorkshopLoadProbe.Helper`; `PAYLOAD_HELPER helper=...simulated...`; `ORDER payload loaded before observer=True`; `T4_REGISTER ... registered=True`; `T4_MODHASH` vorher ≠ nachher; `T4_PATCHES indexedAfter = indexedBefore+1`; `T4_LOCALES` en-US +1; `T4_LUA` enthält die Payload-GUID; Patch-Anzahl `FrontendMenus.xaml` = Wert aus A + 1 (wirkt die späte Registrierung noch?). Prüfen, ob `APIShared.DependencyBootstrap` Warnungen zum externen Plugin-Pfad meldet. Optional eine Partie starten: `MAP_START` und `LUA_INIT`. |
-| D ohne Resolver | wie C mit `-Resolver off` | `RESOLVE would resolve ...` und `PAYLOAD_HELPER_FAILED` belegen, dass BepInEx Hilfs-DLLs außerhalb von `plugins` nicht selbst findet (P2). |
-| E doppelt | `Set-LocalPayloadCopy -State Present`, dann wie C (`-Duplicates skip`), danach mit `-Duplicates bepinex` | skip: `DECISION simulated skip-local [WorkshopLoadProbePayload_Serp]`, der Payload kommt aus `plugins`. bepinex: Welche Kopie wählt BepInEx (Zeile `Skipping [...]`), welche das Extender-Asset-System, und woher wird die Hilfs-DLL aufgelöst? Danach `Set-LocalPayloadCopy -State Absent`. |
+| G1 Erstinstallation | `-Variant 1` | `SWAPPED`; `PAYLOAD_VARIANT 'variant=1'`, `settings='default-1'` |
+| G2 Update | `-Variant 2 -AddPlayerFiles` | `kept=2`; `variant=2`, `userFile='player config'`, `settings='player settings'`, `junk=False`; `only-in-variant-1.txt` fehlt |
+| G3 Wiederherstellung | `-Variant 1 -InterruptAt old-moved` | `RECOVERED … rolled-forward`; `variant=1` mit Spielerdateien |
+| G6 Reset | `-Variant 2 -KeepRevision 1` | `reset=1`; `settings='default-2'`, `config/` bleibt |
+| G7 gleiche Nummer | Spieler ändert `settings.json`, `-Variant 1 -KeepRevision 1` | `reset=0`; Spielerversion bleibt |
+| G4 Selbstaustausch | Patcher neu bauen (ohne Installation), `-Patcher` | `INSTALL_PATCHER_REPLACED`; nächster Start: neue `PATCHER_IDENTITY`, `.old` entfernt |
 
-T4, Kompatibilitätsprüfung: Laut Quelle (`GameAssetModManager.PrepareAllAndCheckCompatibility`)
-kennt die Startprüfung des Extenders nur Mods unter `plugins`. Eine lokale Abhängigkeit auf
-einen reinen Workshop-Mod würde daher als fehlend gemeldet, mit Dialog. Ein Lauf dazu ist
-nur bei Zweifel nötig, weil er einen Klick im Dialog verlangt.
+5. `Remove-Probe.ps1` und die Ordner `.work/a/workshopload-item/<n>` löschen.
 
-## Steam-Läufe (T2, T3) – braucht den Nutzer
+## Ergebnisse (2026-11-18)
 
-Ein Workshop-Upload ist eine Veröffentlichung und wird nur vom Nutzer ausgelöst.
-
-1. Mit `APIShared/.local/WorkshopUploader/UploadMod.bat` den Ordner `source` von
-   Variante 1 als **privates** neues Item hochladen und abonnieren.
-2. Beim nächsten Spielstart bietet APIShared die Installation an. **Ablehnen**, sonst liegt
-   der Payload in `plugins`.
-3. `Snapshot-Workshop.ps1 -ItemId <ID> -Label t2-v1` aufnehmen.
-4. Fremde Datei: `foreign.txt` in `content/3024040/<ID>/` anlegen (nur bei diesem Test-Item),
-   dann Snapshot.
-5. `New-TestItem.ps1 -Variant 2` erzeugen und deren `source` als Update auf dieselbe ID
-   hochladen. Bei geschlossenem Spiel warten, bis Steam aktualisiert hat, dann Snapshot.
-   Mit `Compare-WorkshopSnapshots` klären: Ist `only-in-variant-1.txt` gelöscht? Bleibt
-   `foreign.txt` erhalten? Wie ändern sich `timeupdated`, `manifest` und `latest_*`?
-6. Gesperrte DLL: `Set-ProbeConfig -Mode load -Load <ID>` und Spiel starten. Der Payload wird
-   jetzt aus dem Workshop-Ordner geladen und ist gesperrt. Variante 1 erneut als Update
-   hochladen. Snapshots während das Spiel läuft (`downloads`, `temp`, `NeedsUpdate`) und nach
-   dem Beenden. Danach Spiel neu starten und `INVENTORY` prüfen.
-7. Deabonnieren. Mehrere Snapshots (sofort, nach Steam-Neustart, später) zeigen, wann der
-   Ordner und die `.acf`-Einträge verschwinden.
-
-## Aufräumen
-
-`tools/Remove-Probe.ps1`. Die Ordner `.work/a/workshopload-item/<n>` nach Abschluss
-entfernen. Die Nachweise in `_inspect/WorkshopLoadProbe` bleiben erhalten. Das private
-Test-Item löscht der Nutzer auf Steam.
-
-## Stand (2026-11-18)
-
-- Build und Quellprüfungen bestanden.
-- Offline mit den gebauten Klassen geprüft:
-  - Das Inventar des simulierten Items und des echten Items 3788821961 ist ok. Das echte Item
-    hat 936 Dateien und 64 MB, warm in 94 ms gehasht.
-  - Die `.acf` wird korrekt gelesen. Felder pro Item: `size`, `timeupdated` und `manifest`
-    (installiert) sowie `subscribedby`, `timetouched`, `latest_timeupdated` und
-    `latest_manifest` (Details).
-- Kein Spielstart bisher.
+- **Offline:** 27/27 Prüfpunkte, 300 Abbrüche beim Umschalten und 40 beim Staging ohne
+  Fehlschlag.
+- **Zeit:** SerpsMods-Staging 1,4–4 s, Umschalten 8–430 ms.
+- **Spiel:** G1, G2, G3, G6, G7 und G4 bestanden (Läufe `K-*` in
+  `_inspect/WorkshopLoadProbe/runs/`).
+- **Fehler, die die Tests im Prototyp gefunden haben** (behoben und mit Test abgesichert):
+  - Der Elternordner der Sicherung fehlte (Spieltest).
+  - Spielerdateien aus einem gescheiterten Versuch konnten veraltet übernommen werden.
+- **Nicht geprüft:** Proton/Wine, mehrere Wurzeln pro Paket, Deinstallation.

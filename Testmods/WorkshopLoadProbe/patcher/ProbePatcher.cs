@@ -1,19 +1,14 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
-using System.Threading;
-using BepInEx.Logging;
 using Mono.Cecil;
 
 namespace WorkshopLoadProbe
 {
-    // Preloader entry. Like APIShared.DependencyBootstrap, Finish only reads the switch and
-    // attaches a static log listener; the IL hook is prepared at "Chainloader ready".
+    // Preloader entry. Finish runs before the chainloader has opened or loaded anything from
+    // BepInEx/plugins, which is the moment the safe installation needs.
     public static class ProbePatcher
     {
         public static IEnumerable<string> TargetDLLs => new string[0];
-        private static ILogListener listener;
-        internal static ProbeConfig Config;
 
         public static void Patch(AssemblyDefinition assembly) { }
 
@@ -21,41 +16,15 @@ namespace WorkshopLoadProbe
         {
             try
             {
-                if (listener != null) return;
                 ProbeLog.Initialize();
-                Config = ProbeConfig.Read(BepInEx.Paths.ConfigPath);
-                if (Config.Mode == ProbeMode.Off)
-                {
-                    ProbeLog.Info("INACTIVE", Config.Error ?? "mode=off");
-                    return;
-                }
-                ProbeLog.Info("CONFIG", Config.ToString());
-                listener = new ReadyListener();
-                Logger.Listeners.Add(listener);
+                var config = ProbeConfig.Read(BepInEx.Paths.ConfigPath);
+                if (config.Error != null) { ProbeLog.Info("INACTIVE", config.Error); return; }
+                ProbeLog.Info("CONFIG", config.ToString());
+                // Read by the observer plugin for unattended test runs.
+                if (config.QuitAfter > 0) AppDomain.CurrentDomain.SetData("WorkshopLoadProbe.QuitAfter", config.QuitAfter);
+                if (config.Install) InstallRunner.Run();
             }
             catch (Exception ex) { ProbeLog.Error("ERROR", "Finish " + ex); }
-        }
-
-        // String dispatch keeps MonoMod types off the early Finish path.
-        private static void OnReady()
-        {
-            var type = typeof(ProbePatcher).Assembly.GetType("WorkshopLoadProbe.ChainHook", true);
-            type.GetMethod("Install", BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, null);
-        }
-
-        private sealed class ReadyListener : ILogListener
-        {
-            private int seen;
-            public void LogEvent(object sender, LogEventArgs args)
-            {
-                try
-                {
-                    if (args?.Source?.SourceName != "BepInEx" || !(args.Data is string message)) return;
-                    if (message == "Chainloader ready" && Interlocked.Exchange(ref seen, 1) == 0) OnReady();
-                }
-                catch (Exception ex) { ProbeLog.Error("ERROR", "ready listener " + ex); }
-            }
-            public void Dispose() { /* Process lifetime; the hook is never undone. */ }
         }
     }
 }

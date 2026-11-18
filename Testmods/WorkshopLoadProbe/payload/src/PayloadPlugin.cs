@@ -1,28 +1,35 @@
 using System;
 using System.Globalization;
-using System.Runtime.CompilerServices;
+using System.IO;
 using BepInEx;
 
 namespace WorkshopLoadProbe.Payload
 {
-    // Placed only outside BepInEx/plugins (simulated or real Workshop item). Hard-depends on
-    // the extender and references a helper DLL from its own folder (P2).
-    [BepInPlugin(Guid, "Workshop Load Probe Payload", "0.1.0")]
-    [BepInDependency("000shcdese", "2.14.0")]
+    // Test package for the safe installation. Never placed by hand: tools/Stage-Install.ps1
+    // stages it and the probe patcher swaps it into BepInEx/plugins. It reports which variant
+    // BepInEx loaded and which player files survived the update.
+    [BepInPlugin(Guid, "Workshop Load Probe Payload", "0.2.0")]
     public sealed class PayloadPlugin : BaseUnityPlugin
     {
         public const string Guid = "WorkshopLoadProbePayload_Serp";
 
         private void Awake()
         {
-            Mark("PAYLOAD_AWAKE", "info=" + Info.Location + " assembly=" + typeof(PayloadPlugin).Assembly.Location + " pluginPath=" + Paths.PluginPath);
-            try { Mark("PAYLOAD_HELPER", Helper()); }
-            catch (Exception ex) { Logger.LogError(Stamp() + " WLP PAYLOAD_HELPER_FAILED " + ex.GetType().Name + ": " + ex.Message); }
+            try
+            {
+                string folder = Path.GetDirectoryName(Info.Location);
+                Mark("PAYLOAD_VARIANT", Text(folder, "variant.txt") + " location=" + folder +
+                    " userFile=" + Text(folder, Path.Combine("config", "user.cfg")) +
+                    " settings=" + Text(folder, "settings.json") + " junk=" + File.Exists(Path.Combine(folder, "junk.log")));
+            }
+            catch (Exception ex) { Logger.LogError(Stamp() + " WLP PAYLOAD_VARIANT_FAILED " + ex.Message); }
         }
 
-        // Separate method: the helper type is resolved when this is JIT-compiled, inside the try above.
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private static string Helper() => WorkshopLoadProbe.Helper.ProbeHelper.Describe();
+        private static string Text(string folder, string relative)
+        {
+            string path = Path.Combine(folder, relative);
+            return File.Exists(path) ? "'" + File.ReadAllText(path).Trim() + "'" : "missing";
+        }
 
         private void Mark(string marker, string detail) => Logger.LogInfo(Stamp() + " WLP " + marker + " " + detail);
 

@@ -1,15 +1,23 @@
-# Removes everything the probe put into the game folder: patcher, observer plugin,
-# configuration and caches. A local payload copy is removed via Set-LocalPayloadCopy.ps1.
+# Removes everything the probe put into the game folder: patcher (and its .old), observer
+# plugin, configuration, the install cache and the test payload the swap installed.
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Common.ps1')
 Assert-ProbeGameClosed
-& (Join-Path $PSScriptRoot 'Set-LocalPayloadCopy.ps1') -State Absent
 $game = Get-ProbeGame
-$targets = @('BepInEx\patchers\WorkshopLoadProbe.Patcher.dll', 'BepInEx\config\WorkshopLoadProbe.txt', 'BepInEx\cache\WorkshopLoadProbe.hashes.tsv') +
-    @(Get-ChildItem -LiteralPath (Join-Path $game 'BepInEx\cache') -Filter 'wlp_*_typeloader.dat' -File | ForEach-Object { 'BepInEx\cache\' + $_.Name })
-foreach ($relative in $targets) {
+foreach ($relative in @('BepInEx\patchers\WorkshopLoadProbe.Patcher.dll', 'BepInEx\patchers\WorkshopLoadProbe.Patcher.dll.old', 'BepInEx\config\WorkshopLoadProbe.txt')) {
     $path = Join-Path $game $relative
     if (Test-Path -LiteralPath $path -PathType Leaf) { Remove-Item -LiteralPath $path; Write-Output "Removed $relative" }
+}
+$cache = Join-Path $game 'BepInEx\cache\WLPI'
+if (Test-Path -LiteralPath $cache) { Remove-Item -LiteralPath $cache -Recurse -Force; Write-Output 'Removed BepInEx\cache\WLPI' }
+# Only a folder installed by the swap (completion marker, payload GUID) is removed.
+$installed = Join-Path $game ('BepInEx\plugins\' + $ProbePayloadGuid)
+if (Test-Path -LiteralPath $installed) {
+    $info = Join-Path $installed 'info.json'
+    if (-not (Test-Path -LiteralPath (Join-Path $installed '.wlp-complete')) -or -not (Test-Path -LiteralPath $info) -or
+        (Get-Content -LiteralPath $info -Raw | ConvertFrom-Json).GUID -cne $ProbePayloadGuid) { throw "Not a probe-installed payload, left untouched: $installed" }
+    Remove-Item -LiteralPath $installed -Recurse -Force
+    Write-Output "Removed installed test payload"
 }
 $observer = Join-Path $game 'BepInEx\plugins\WorkshopLoadProbe_Serp'
 if (Test-Path -LiteralPath $observer) {
