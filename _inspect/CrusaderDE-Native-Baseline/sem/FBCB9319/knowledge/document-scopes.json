@@ -230,6 +230,25 @@
       "note": "Mod references inline."
     },
     {
+      "file": "AI_SIEGE_START.md",
+      "scope": "vanilla",
+      "components": [],
+      "integrationSections": []
+    },
+    {
+      "file": "AI_MILITARY_ADMISSION.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "APIShared",
+        "AiGroupAdmissionTest"
+      ],
+      "integrationSections": [
+        "Admission consequences [mod integration]",
+        "Admission consequences of the siege audit [mod integration]",
+        "In-game siege acceptance 2026-11-18 [mod integration]"
+      ]
+    },
+    {
       "file": "AI_RESOURCE_RESERVE.md",
       "scope": "vanilla",
       "components": [],

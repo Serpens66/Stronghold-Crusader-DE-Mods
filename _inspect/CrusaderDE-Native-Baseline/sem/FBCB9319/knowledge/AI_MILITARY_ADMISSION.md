@@ -345,3 +345,16 @@ lord group, a dead cached target or a far leader yields an order; d = nothing un
   item are reported as prompt, all others with a waiting `Detail`. An unreadable state stays rejected.
 - The many `196280` member routes of `122B40`/`11B520` may be the "foreign" routes that invalidate
   group-ledger entries during a siege (candidate, not traced in game).
+
+### In-game siege acceptance 2026-11-18 [mod integration]
+
+- Scenario `ai-siege` of `Testmods/AiGroupAdmissionTest` (runs `ea0a7eb63b2d`, `7505b2c67f2c`, both PASS): in every
+  observed siege state (2, 3, 4, 5, 6, 9) one probe per offered siege role was admitted (run 2 attacker: all 11 roles;
+  run 1 attacker: storm and shock not offered by its AIC). All 77 resp. 74 admissions were `Applied` with role, group and marker
+  postconditions; every probe still alive in its group received an order before the cycle returned to state 0
+  (run 1: 44/44, one diversion probe died before its order; run 2: 66/66).
+- Prompt cases (storm 3-5, shock 4-5, the `122B40` roles and cover in 5) moved within 25-750 ticks. Waiting cases
+  moved at the next transition, as the table predicts: e.g. moat/assassins/ladders/tunnelers from state 2 at
+  2 -> 3, engineers from 2-4 at 5, tunnelers from 3-5 only at the retreat (state 9), state-9 recruits with the
+  restart move at 0 -> 2. Groups with a recorded ledger order give the recruit its own order at admission
+  (`Detail` empty), which explains immediate movement in non-prompt cells.

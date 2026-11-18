@@ -29,14 +29,17 @@ namespace AiGroupAdmissionTest
             if (lines.Length < 2 || !Fixture.Owns(lines[1])) return;
             if (!System.Guid.TryParseExact(lines[0], "N", out var runId) || runId == System.Guid.Empty)
             { Stamp("invalid owned request; not consumed"); return; }
-            string map = Config.Bind("Fixture", "Map", "test AI.map", "Existing local Skirmish map with one AI start.").Value;
+            bool siege = lines[1] == Fixture.SiegeScenario;
+            string map = siege
+                ? Config.Bind("Fixture", "SiegeMap", "test AI overbuild eachother.map", "Existing local Skirmish map with at least two AI starts (ai-siege).").Value
+                : Config.Bind("Fixture", "Map", "test AI.map", "Existing local Skirmish map with one AI start.").Value;
             int speed = Config.Bind("Fixture", "GameSpeed", 250, "Engine frame rate used during the run.").Value;
             var api = ApiShared.ForMod(Guid);
             api.WhenReady(_ => {
                 if (!api.Ui.TryPost(() => {
                     active = new Fixture(map, speed, runId, Stamp);
                     File.Delete(request);
-                    api.Automation.Start(runId, active.Steps(), log,
+                    api.Automation.Start(runId, siege ? active.SiegeSteps() : active.Steps(), log,
                         result => Stamp("finished status=" + result.Status + " step=" + result.Step + " detail=" + result.Detail), quitWhenDone: true);
                 })) Stamp("Unity dispatch unavailable; request not consumed");
             });

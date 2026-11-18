@@ -59,6 +59,7 @@ Semantic reverse-engineering baseline:
 Only Vanilla behavior; Script Extender names appear only as vocabulary.
 
 - [AI resource reserve audit](./sem/FBCB9319/knowledge/AI_RESOURCE_RESERVE.md)
+- [AI siege start and ally attack request](./sem/FBCB9319/knowledge/AI_SIEGE_START.md): siege start 2FEF0, ally attack request Chore 113/41500 and its acceptance threshold, state progression; static audit plus in-game observation 2026-11-18.
 - [Bedouin healer target-selection audit](./sem/FBCB9319/knowledge/BEDOUIN_HEALER_TARGETS.md): candidate-list exclusions, selection, movement and healing flow.
 - [Cursor dispatcher: verified boundary and embedded tables](./sem/FBCB9319/knowledge/UNIT_COMMAND_CURSOR_BOUNDARY.md)
 - [Gatehouse query pass](./sem/FBCB9319/knowledge/GATEHOUSE_QUERY_PASS.md): DLL_RunTick → game tick → building dispatcher → gatehouse handler chain, one query pass per gate and engine run without native writes between queries, conditional Extender tick; confirmed by disassembly. See [gatehouse footprint origin](./sem/FBCB9319/knowledge/GATEHOUSE_QUERY_PASS.md#2026-11-10-gatehouse-footprint-origin-and-closing-cadence) for Vanilla's corner origin, the editor's unit coordinates and the derivation of the footprint center.
@@ -108,6 +109,7 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 - [Lord home relocation](./sem/FBCB9319/knowledge/LORD_HOME_TELEPORT.md): failed return paths, building-attack target-loss trigger and deliberately preserved invalid-component rescue, now integrated into BugfixesAndQoL with a default-enabled host option; human return-path suppression confirmed by four real blocked calls in singleplayer, other gameplay/MP cases pending.
 - [AI economy observation boundaries](./sem/FBCB9319/knowledge/AI_ECONOMY_OBSERVATION.md): tax settlement ABI, Pre-only tax notifications, separate AI trade execution and accessibility-group/removal evidence; static audit, runtime acceptance pending.
 - [AI negative sell thresholds](./sem/FBCB9319/knowledge/AI_SELL_THRESHOLDS.md): phantom-credit cause, all eight categories, native decision/transaction guards and original-function execution evidence; in-game acceptance pending.
+- [AI military admission and recruitment accounting](./sem/FBCB9319/knowledge/AI_MILITARY_ADMISSION.md): group selection, controller handoff of joined recruits in every siege state, APIShared admission consequences; in-game acceptance with AiGroupAdmissionTest (ai-groups, ai-siege).
 - [AI woodcutter construction gate](./sem/FBCB9319/knowledge/AI_WOODCUTTER_BUILD.md)
 - [AIV defensive build range](./sem/FBCB9319/knowledge/AIV_BUILD_RANGE.md): map-size limits, Keep reference, full-footprint range, Baibars reproduction, ExtraFeatures API ownership, integrated BugfixesAndQoL AI-only EEF90 detour, target-relative probe allocation, and type-zero AIV cell-clear import semantics.
 - [AIV lobby selection audit](./sem/FBCB9319/knowledge/AIV_LOBBY_SELECTION.md): candidate order, rotation branches, thresholds, and completed-castle state boundary.

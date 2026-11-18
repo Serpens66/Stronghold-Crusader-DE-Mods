@@ -35,7 +35,7 @@ namespace AiGroupAdmissionTest
         internal Fixture(string map, int speed, Guid runId, Action<string> log)
         { this.map = map; this.speed = speed; this.runId = runId; this.log = log; }
 
-        internal static bool Owns(string value) => value == Scenario;
+        internal static bool Owns(string value) => value == Scenario || value == SiegeScenario;
 
         private sealed class Probe
         {

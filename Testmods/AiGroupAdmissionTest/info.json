@@ -2,7 +2,7 @@
   "GUID": "AiGroupAdmissionTest_Serp",
   "Author": "Serpens66",
   "Name": "AI Group Admission Test",
-  "Description": "Explicit-request-only acceptance: every unit type into every offered AI group role, fresh and after save/load.",
+  "Description": "Explicit-request-only acceptance: every unit type into every offered AI group role, fresh and after save/load (ai-groups), and every siege role in each phase of a real AI siege (ai-siege).",
   "Version": "0.1.0",
   "MinimumScriptExtenderVersion": "2.14.3",
   "Dependencies": [
