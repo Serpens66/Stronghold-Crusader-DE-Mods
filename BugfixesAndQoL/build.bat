@@ -474,6 +474,14 @@ call :step_start "compile" "72-BugfixesAndQoL.csproj"
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 if "%BUILD_TEST_MODE%"=="none" goto artifact_tests_completed
+call :step_start "tests" "TroopPanelPaging.Tests build"
+"%MSBUILD%" "%PROJECT_DIR%tests\TroopPanelPaging.Tests\TroopPanelPaging.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%" /nologo /verbosity:minimal
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "TroopPanelPaging.Tests execution"
+"%PROJECT_DIR%tests\TroopPanelPaging.Tests\bin\TroopPanelPaging.Tests.exe"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "PitchMoatLines.Tests"
 dotnet run --project "%PROJECT_DIR%tests\PitchMoatLines.Tests\PitchMoatLines.Tests.csproj" --configuration Release
 call :step_end %ERRORLEVEL%

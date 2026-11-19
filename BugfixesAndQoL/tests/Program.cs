@@ -2104,14 +2104,15 @@ namespace BugfixesAndQoL
             string plugin = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLPlugin.cs"));
             Check(plugin.Contains("TroopPanelPageCountFix.Install(Logger, Settings);"),
                 "troop panel page count fix is installed with the library runtime");
-            Check(fix.Contains("harmony.Patch(setup, prefix:") &&
+            Check(fix.Contains("nameof(BeforeSetupSelectedTroops)") &&
+                    fix.Contains("nameof(TranspilePageMarkers)") &&
                     fix.Contains("pagesField(__instance) = 1;") &&
                     fix.Contains("settings.EnableTroopPanelPageCountFix") &&
                     fix.Contains("settings.EnableClientFeatures") &&
                     fix.Contains("if (Volatile.Read(ref enabled) == 0) return;"),
                 "troop panel page count prefix only resets the count while the setting is active");
-            // The prefix relies on this exact Vanilla contract: a private instance int that the
-            // parameterless original only raises (2/3/4) and the Vanilla initial value of 1.
+            // Startup member guard only; TroopPanelPaging.Tests executes the production transpiler
+            // against the real method IL and checks enable/disable and foreign-patch rebuilds.
             const BindingFlags members = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
             FieldInfo pages = typeof(HUD_Troops).GetField("pages", members);
             MethodInfo setup = typeof(HUD_Troops).GetMethod("SetupSelectedTroops", members, null, Type.EmptyTypes, null);

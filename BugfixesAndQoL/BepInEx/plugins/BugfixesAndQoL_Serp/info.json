@@ -3,25 +3,34 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.230",
+  "Version": "1.0.231",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.3",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.55.0"
+      "MinimumVersion": "0.58.1"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
     {
+      "Version": "1.0.231",
+      "Changes": [
+        "Fix the troop panel returning to its first page when selecting eight unit types together with your lord, so entries on later pages remain reachable. Requires APIShared 0.58.1.",
+        "Fix missing unit types on later troop-panel pages: pages now consistently contain eight entries, including when the lord display is disabled."
+      ]
+    },
+    {
       "Version": "1.0.230",
       "Changes": [
         "Conflicts with other mods that change the same spot in the game's code are now detected: the affected feature stays off instead of overwriting the other mod's change, and the log names the conflict. Spots that a mod loaded later overwrites are reported in the log at each game start.",
         "The option to not limit the AI keep build range now checks its game hook directly at startup instead of running an extra self-test first.",
-        "Fix the two nervous Custom Lord messages (before a siege, when weak) playing without voice: they now use the Servant's matching recordings that ship with the game."
+        "Fix the two nervous Custom Lord messages (before a siege, when weak) playing without voice: they now use the Servant's matching recordings that ship with the game.",
+        "Show each page arrow of the foreign troop HUD only when that direction has more troops, as Vanilla's round arrows without their box in the bottom-right corner; Vanilla's own page arrows no longer show through underneath, and the page counter was removed.",
+        "Fix the troop panel's page arrows staying visible after once selecting more than eight unit types, even when the selection fits on one page, and leading to empty pages (new default-enabled local option)."
       ]
     },
     {
