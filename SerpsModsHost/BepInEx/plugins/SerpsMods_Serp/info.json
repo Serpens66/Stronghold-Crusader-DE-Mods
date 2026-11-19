@@ -19,7 +19,8 @@
                           {
                               "Version":  "1.0.39",
                               "Changes":  [
-                                              "Workshop updates through APIShared 0.57.0 or newer keep the older mod settings files that are still stored in the modpack folder until the mods have moved them to the Documents folder."
+                                              "Workshop updates through APIShared 0.57.0 or newer keep the older mod settings files that are still stored in the modpack folder until the mods have moved them to the Documents folder.",
+                                              "The notice shown when APIShared is missing or too old now appears in front of the game and no longer blocks the mouse; other programs stay reachable while it is open."
                                           ]
                           },
                           {

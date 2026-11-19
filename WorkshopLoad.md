@@ -1,6 +1,6 @@
 # Sichere Workshop-Installation (Plan)
 
-Stand 2026-11-18. Prototyp und Tests: `Testmods/WorkshopLoadProbe` (`TESTPLAN.md`),
+Stand 2026-11-18. Umgesetzt in APIShared (`src/Workshop/Install`); Spieltests: `Testmods/WorkshopLoadProbe` (`TESTPLAN.md`),
 Logauszüge in `_inspect/WorkshopLoadProbe/`.
 
 ## Ziel
@@ -23,7 +23,7 @@ Logauszüge in `_inspect/WorkshopLoadProbe/`.
    wird beim nächsten normalen Spielstart, ohne erzwungenen Neustart (E1).
 3. **Staging** durch das Plugin, im Hintergrund, auch während einer Partie, ohne `plugins` zu
    berühren:
-   - Das Paket wird aus dem Steam-Ordner nach `BepInEx/cache/<APIShared>/s/<Paket>/<Version>.tmp`
+   - Das Paket wird aus dem Steam-Ordner nach `<Spiel>/_APIShared/I/s/<WorkshopId>.tmp`
      kopiert.
    - Geprüft werden die **Kopien** gegen das Manifest (Größe und SHA-256). Was Steam
      währenddessen im Workshop-Ordner tut, ist damit egal.
@@ -227,5 +227,5 @@ und Release.
   kommen dann nie an. Nach mehreren Fehlversuchen einen Hinweis zeigen.
 - **Speicherplatz:** Staging und Sicherung brauchen kurzzeitig den Platz einer weiteren Kopie pro
   Paket.
-- **Noch nicht gebaut:** mehrere Wurzeln pro Paket, Deinstallation und die Paarbindung des
-  Bootstraps. Der Prototyp behandelt einen Ordner pro Paket.
+- **Umfang:** mehrere Wurzeln pro Paket, wegfallende Wurzeln und Deinstallation sind in APIShared
+  umgesetzt.

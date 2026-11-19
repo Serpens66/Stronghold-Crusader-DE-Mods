@@ -14,7 +14,7 @@ foreach ($project in @('patcher\WorkshopLoadProbe.Patcher.csproj', 'observer\Wor
 }
 
 # Payload package (info.json + DLL); test items add variant files and the keep list.
-# Never installed into BepInEx/plugins by this build: only the probe's safe swap installs it.
+# Never installed into BepInEx/plugins by this build: APIShared's preloader installs it from the Workshop item.
 $package = Join-Path $PSScriptRoot ('payload\package\' + $ProbePayloadGuid)
 if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'payload\package')) { Remove-Item -LiteralPath (Join-Path $PSScriptRoot 'payload\package') -Recurse -Force }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'payload\content') -Destination $package -Recurse

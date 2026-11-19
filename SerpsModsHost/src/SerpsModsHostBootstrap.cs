@@ -11,7 +11,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Windows.Input;
 
 [assembly: AssemblyVersion(SerpsModsHost.SerpsModsHostPlugin.PluginVersion)]
@@ -83,7 +82,7 @@ namespace SerpsModsHost
                     Logger.LogError(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + " H009: " + message);
                     failure = new MissingApiViewModel(message);
                     CrusaderLibrary.Instance.LibraryLoaded += RegisterFailurePage;
-                    if (MessageBoxW(IntPtr.Zero, message, "Serps Mods — APIShared required", 0x34) == 6) OpenWorkshop();
+                    if (HostMessageBox.Show(message, "Serps Mods — APIShared required", 0x34) == 6) OpenWorkshop();
                     return;
                 }
                 // Reflection prevents the JIT from resolving any dependent implementation
@@ -115,9 +114,6 @@ namespace SerpsModsHost
             }
             Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
         }
-
-        [DllImport("user32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
-        private static extern int MessageBoxW(IntPtr owner, string message, string title, uint type);
     }
 
     public sealed class MissingApiViewModel : LobbyModSettingsBaseViewModel

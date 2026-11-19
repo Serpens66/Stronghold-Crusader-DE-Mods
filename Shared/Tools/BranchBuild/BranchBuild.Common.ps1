@@ -316,6 +316,8 @@ function Get-CachedApiSdk([string]$Repository, [string]$ApiRepository, [string]$
     }
 }
 # Disposable test outputs exactly as APIShared's own tools/BranchBuild/BranchRun.ps1 declares them.
+# The union over all cached branches: APIShared before 0.57.0 (main/develop caches) still writes
+# coordination/readiness/recovery/maintenance-tests, although 0.57.0 removed those suites.
 function Test-ApiDeclaredTestOutput([string]$Relative) {
     return $Relative -match '^\.local/(test-results|test-temp|bootstrap-package-tests|coordination-tests|readiness-tests|recovery-tests|maintenance-tests)/'
 }

@@ -47,7 +47,7 @@ function Get-TestFileSha256([string]$Path) {
 
 $toolOnly = @('tools/Validation/Test-WorkshopPackaging.ps1','tools/WorkshopPackage.ps1','tools/BuildProof.ps1','tools/Build.ps1','tests/Core.Tests/Core.Tests.csproj','Directory.Packages.props','CONTRIBUTING.md')
 Assert-True (@(Get-SteamApiReleaseRelevantChanges $toolOnly).Count -eq 0) 'tests and maintainer tooling must not force a new APIShared package version'
-$delivered = @('src/Workshop/WorkshopInstallation.cs','Properties/AssemblyInfo.cs','Override/example.xaml','Patches/example.xaml','Workshop/workshop-updater.ps1','Workshop/Bootstrap/Plugin.cs.template','tools/WorkshopUploader/Program.cs','tools/WorkshopUploader/UploadMod.bat','tools/WorkshopUploader/UploadMod-linux.sh','APIShared.csproj','info.json','Directory.Build.props')
+$delivered = @('src/Workshop/WorkshopInstallation.cs','Properties/AssemblyInfo.cs','Override/example.xaml','Patches/example.xaml','Workshop/Bootstrap/Plugin.cs.template','tools/WorkshopUploader/Program.cs','tools/WorkshopUploader/UploadMod.bat','tools/WorkshopUploader/UploadMod-linux.sh','APIShared.csproj','info.json','Directory.Build.props')
 Assert-True (@(Get-SteamApiReleaseRelevantChanges $delivered).Count -eq $delivered.Count) 'runtime, resources and shipped publisher changes must invalidate APIShared reuse'
 
 $packagePath = 'ExtraFeatures/BepInEx/plugins/ExtraFeatures_Serp'
