@@ -236,3 +236,61 @@ crew search selecting already bound role22 engineers; see the Vanilla
 `SIEGE_ENGINEER_CREW_TIMEOUT.md` audit. Do not attribute that confirmed failure
 solely to a zero GID in the delayed order. No Fixes patch or replacement was
 introduced for this separate ABI observation in the engineer correction.
+
+## Fixes 1.31.0 compatibility review, 2026-11-19
+
+Canonical clean Fixes clone and public upstream main/v1.31.0 resolve to
+`fca8dcf6e392837b1b192841d05c943b4375e026` (verified with `git ls-remote
+upstream refs/heads/main refs/tags/v1.31.0`). Complete diff from 1.30.0
+`0870146` adds only the default-enabled configuration
+`FixTradePostsRequiringAccessPointForAssignment`, its building inline hook,
+and release documentation. Preference schemas, XAML, dependencies and existing
+features are unchanged. This review concerns that update delta, not a new
+acceptance of all historical Fixes features.
+
+### Native assignment path [Vanilla facts]
+
+Canonical installed native SHA256 still matches CURRENT.json:
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+All 186 exported instructions of 0xD0630..0xD097B matched the installed PE.
+The audited path is building construction 0xB47E0 (plus gate assembly 0x74DA0)
+into special-building registration 0xD0630, with replacement/removal 0xC4290.
+The four arguments are player-manager base, one-based building ID, player ID,
+and special-building category. R15 preserves the building ID, R12 the player
+and RBP the category. Registration retains the category-specific duplicate/
+replacement branches, computes coordinates, checks unsigned coordinates <=799,
+and tests the active tile byte at 0x3A11EA4. Success writes building ID,
+coordinates, packed tile ID and region value; failure keeps its failure flag.
+The constructor writes type at manager+ID*0x32C+0x12E; the API record starts
+at manager+0x5C, so its type field +0xD2 addresses the same word.
+
+### Update integration and limits [mod integration]
+
+The new pattern uniquely matches 0xD08E8 in the installed executable section.
+Installed RedBird.X64 SHA256 is
+`E085B83B2B87B5D2142C980090D8D9EC616A90A443BD125C17B41E0BB47A44EB`.
+Its AddInline default minimum is14: CMP9+JZ2+IMUL7 displaces18 bytes,
+[0xD08E8,0xD08FA), with automatic return at0xD08FA. The source comment's
+0xD0902 is not the actual return with this backend. No exported direct target
+enters that span's interior. The generator preserves RCX/RDX and stack balance,
+checks the current building type and bypasses only the active-tile test for a
+tradepost; other types retain the original comparison and branch0xD095F.
+Coordinate bounds and all registration writes remain outside the changed test.
+
+No new ownership overlap was found in current production mods, APIShared's
+site registry or Extender detours. APIShared prices0xCEB10/0xCEB90,
+AI sells0x3F1F3/0x29723, BFQoL market validator0xD7080,
+packet tail0xD7324, storage call0xD7119 and statistic0xD0484 are separate.
+Our market UI/trading guards use selection/type/owner and trade state, not
+an accessible entrance. Spectator's MapperCamera reads r_TradePostId and
+validates building identity, type, owner and position, consistent with the fix.
+ExtendedData preferences and SerpPresets require no update for this delta.
+
+Reviewed sources: mod develop HEAD75170c27e (pre-existing Spectator working
+changes included), APIShared dev/Serpens66 HEAD2466ddc8f, Extender HEAD7c3a25279.
+No runtime source, external tree, installed package or setting was changed.
+Installed Fixes remains1.30.0.0, SHA256
+`5CB9272C9D06E2784B15208DD0BE85BFEE381D8C7C7E9D9D2D389115E389C388`.
+No confirmed incompatibility introduced by1.31.0 was found. Static source,
+PE-byte and backend checks do not establish joint in-game/editor/save/MP
+acceptance of1.31.0; no game test or installation was performed.

@@ -8,6 +8,8 @@ The selected [baseline](../../_inspect/CrusaderDE-Native-Baseline/CURRENT.md) an
 
 ## Feature and ownership
 
+2026-11-19 policy addition: chicken-only food permits one baseline hut; other prey permits additional AIV huts. No native call or layout changed. Renewal uses IH's captured positive `ChickensPerPlayer`, active chicken hunting, its registered public `ChickenPopulationModifierHandle.IsEnabled`, own-player catalog admission and an alive own bakery/mill/granary, outside the editor. The existing hash-bound APIShared chicken-population contract (`APIShared/docs/CHICKENS.md`, `UpdateToNewDLL.md` chicken-population audit) supplies this potential-spawn criterion. This does not prove immediate spawn success or override other population providers. Missing/unavailable IH integration never invents a supply. Existing meat-drain checks still apply to every removed hut.
+
 `src/HunterRetirementNative.cs` reproduces the three calls in Vanilla's existing AI
 retirement branch. It installs no hook, writes no executable bytes and never forges
 the native failure counter to enter that branch. Its caller must hold the ordinary

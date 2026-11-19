@@ -16,10 +16,13 @@ namespace AIHunterPreyTest
     {
         private readonly bool enabled, deer, goat, rabbit, camel, chicken;
         private readonly ImprovedHuntersCorpsePredicate corpsePredicate;
+        private readonly bool chickenSupplyConfigured;
+        private readonly Func<bool> renewalReady;
         internal ImprovedHuntersSettingsSnapshot(ImprovedHuntersSettingsStatus status, string diagnostic,
             bool enabled = false, bool deer = true, bool goat = true, bool rabbit = true,
             bool camel = true, bool chicken = true, bool collectsCorpses = false,
-            ImprovedHuntersCorpsePredicate corpsePredicate = null)
+            ImprovedHuntersCorpsePredicate corpsePredicate = null,
+            bool chickenSupplyConfigured = false, Func<bool> renewalReady = null)
         {
             Status = status;
             Diagnostic = diagnostic ?? "";
@@ -27,12 +30,20 @@ namespace AIHunterPreyTest
             this.deer = deer; this.goat = goat; this.rabbit = rabbit; this.camel = camel; this.chicken = chicken;
             CollectsCorpses = collectsCorpses;
             this.corpsePredicate = corpsePredicate;
+            this.chickenSupplyConfigured = chickenSupplyConfigured;
+            this.renewalReady = renewalReady;
         }
 
         internal ImprovedHuntersSettingsStatus Status { get; }
         internal string Diagnostic { get; }
         internal bool CollectsCorpses { get; }
         internal bool IsKnownAnimal(int type) => IsKnownAnimalType(type);
+
+        // Only settings are frozen. Read the public handle's volatile enabled flag at the
+        // simulation decision so a provider disabled after capture never promises new chickens.
+        // The caller additionally checks the catalog, owner, mode and a live spawn building.
+        internal bool CanRenewChickens => Status == ImprovedHuntersSettingsStatus.Ready && enabled && chicken &&
+            chickenSupplyConfigured && renewalReady != null && renewalReady();
 
         // Simulation thread, immediate unit pointer only. Reuse IH's exact free-corpse decision:
         // reservation, species-specific fading states and expired keep-alive records stay its contract.
@@ -90,12 +101,16 @@ namespace AIHunterPreyTest
         internal const string PluginGuid = "ImprovedHunters_Serp";
         private object endpoint;
         private Func<bool> enableMod, collectFreeCorpses, actualModeAllowed;
+        private Func<int> chickensPerPlayer;
         private Func<eChimps, bool> isKnownAnimal, isHuntingEnabled;
         private FieldInfo runtimeField, targetPolicyField, targetSelectionModeField, corpsePatchField;
+        private FieldInfo chickenTargetModifierField;
         private PropertyInfo corpsePatchAvailable;
         private MethodInfo corpsePredicateMethod;
         private object corpsePredicateRuntime;
         private ImprovedHuntersCorpsePredicate corpsePredicate;
+        private ChickenPopulationModifierHandle chickenTargetModifier;
+        private Func<bool> chickenRenewalReady;
 
         // Call after synchronized settings application (BeforeNativeStart), then again at NativeLoaded
         // and OnStart. APIShared's endpoint dictionary is Unity-owned; never capture in a sim callback.
@@ -120,6 +135,14 @@ namespace AIHunterPreyTest
                 bool knownChicken = ReadKnown(eChimps.CHIMP_TYPE_CHICKEN);
                 if (!knownDeer || !knownGoat || !knownRabbit || !knownCamel || !knownChicken)
                     return Unknown("Its known-animal contract has changed.");
+                bool chickenEnabled = isHuntingEnabled(eChimps.CHIMP_TYPE_CHICKEN);
+                bool chickenSupply = active && chickenEnabled && chickensPerPlayer() > 0;
+                var chickenModifier = (ChickenPopulationModifierHandle)chickenTargetModifierField.GetValue(runtime);
+                if (!ReferenceEquals(chickenTargetModifier, chickenModifier))
+                {
+                    chickenTargetModifier = chickenModifier;
+                    chickenRenewalReady = chickenModifier == null ? null : CreateRenewalReader(chickenModifier);
+                }
                 object patch = corpsePatchField.GetValue(runtime);
                 bool corpses = active && collectFreeCorpses() && (bool)targetSelectionModeField.GetValue(runtime) &&
                     patch != null && (bool)corpsePatchAvailable.GetValue(patch, null);
@@ -132,7 +155,7 @@ namespace AIHunterPreyTest
                 return new ImprovedHuntersSettingsSnapshot(ImprovedHuntersSettingsStatus.Ready, "",
                     active, isHuntingEnabled(eChimps.CHIMP_TYPE_DEER), isHuntingEnabled(eChimps.CHIMP_TYPE_GOAT),
                     isHuntingEnabled(eChimps.CHIMP_TYPE_RABBIT), isHuntingEnabled(eChimps.CHIMP_TYPE_CAMEL),
-                    isHuntingEnabled(eChimps.CHIMP_TYPE_CHICKEN), corpses, corpsePredicate);
+                    chickenEnabled, corpses, corpsePredicate, chickenSupply, chickenRenewalReady);
             }
             catch (Exception error)
             {
@@ -141,6 +164,7 @@ namespace AIHunterPreyTest
         }
 
         private bool ReadKnown(eChimps type) => isKnownAnimal(type);
+        private static Func<bool> CreateRenewalReader(ChickenPopulationModifierHandle handle) => () => handle.IsEnabled;
         private static ImprovedHuntersSettingsSnapshot Unknown(string reason) =>
             new ImprovedHuntersSettingsSnapshot(ImprovedHuntersSettingsStatus.Unavailable, reason);
 
@@ -150,6 +174,7 @@ namespace AIHunterPreyTest
             Assembly assembly = type.Assembly;
             var nextEnable = BindBool(published, type, "EnableMod");
             var nextCorpses = BindBool(published, type, "CollectFreeCorpses");
+            var nextChickenTarget = BindInt(published, type, "ChickensPerPlayer");
             var nextKnown = BindAnimal(published, type, "IsKnownAnimal");
             var nextHunting = BindAnimal(published, type, "IsHuntingEnabled");
             Type gate = RequireType(assembly, "Shared.GameplayModActivationGate");
@@ -161,6 +186,9 @@ namespace AIHunterPreyTest
             Type runtimeType = nextRuntime.FieldType;
             var nextPolicy = RequireBoolField(runtimeType, "targetPolicyRegistered");
             var nextSelection = RequireBoolField(runtimeType, "targetSelectionModeAllowed");
+            var nextChickenModifier = RequireField(runtimeType, "chickenTargetModifier", false);
+            if (nextChickenModifier.FieldType != typeof(ChickenPopulationModifierHandle))
+                throw new MissingMemberException("Improved Hunters chicken target handle has changed.");
             var nextPatch = RequireField(runtimeType, "hunterCorpseChoicePatch", false);
             var nextAvailable = nextPatch.FieldType.GetProperty("IsAvailable", BindingFlags.Instance | BindingFlags.Public);
             if (nextAvailable == null || nextAvailable.PropertyType != typeof(bool) || !nextAvailable.CanRead)
@@ -170,6 +198,8 @@ namespace AIHunterPreyTest
             if (nextCorpsePredicate == null || nextCorpsePredicate.ReturnType != typeof(bool))
                 throw new MissingMemberException("Improved Hunters free-corpse predicate is unavailable.");
             enableMod = nextEnable; collectFreeCorpses = nextCorpses; isKnownAnimal = nextKnown; isHuntingEnabled = nextHunting;
+            chickensPerPlayer = nextChickenTarget; chickenTargetModifierField = nextChickenModifier;
+            chickenTargetModifier = null; chickenRenewalReady = null;
             actualModeAllowed = nextMode; runtimeField = nextRuntime; targetPolicyField = nextPolicy;
             targetSelectionModeField = nextSelection; corpsePatchField = nextPatch; corpsePatchAvailable = nextAvailable;
             corpsePredicateMethod = nextCorpsePredicate; corpsePredicateRuntime = null; corpsePredicate = null;
@@ -201,6 +231,13 @@ namespace AIHunterPreyTest
             var method = type.GetMethod(name, BindingFlags.Public | BindingFlags.Instance, null, new[] { typeof(eChimps) }, null);
             if (method == null || method.ReturnType != typeof(bool)) throw new MissingMemberException(type.FullName, name);
             return (Func<eChimps, bool>)Delegate.CreateDelegate(typeof(Func<eChimps, bool>), target, method);
+        }
+        private static Func<int> BindInt(object target, Type type, string name)
+        {
+            var getter = type.GetProperty(name, BindingFlags.Public | BindingFlags.Instance)?.GetGetMethod();
+            if (getter == null || getter.ReturnType != typeof(int) || getter.GetParameters().Length != 0)
+                throw new MissingMemberException(type.FullName, name);
+            return (Func<int>)Delegate.CreateDelegate(typeof(Func<int>), target, getter);
         }
     }
 }

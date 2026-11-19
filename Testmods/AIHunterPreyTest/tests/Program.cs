@@ -29,6 +29,36 @@ internal static unsafe class Program
             Check(!PreyPresencePolicy.ShouldBlock(true, false, false, true, true, false), "separate aiv option");
             Check(PreyPresencePolicy.ShouldBlock(true, false, true, true, true, false), "auto call still gated");
 
+            Check(HunterHutPolicy.AllowsBuild(false, true, 0), "chickens permit first AIV hut");
+            Check(!HunterHutPolicy.AllowsBuild(false, true, 1), "chickens do not permit second AIV hut");
+            Check(HunterHutPolicy.AllowsBuild(true, true, 4), "wildlife permits more AIV huts");
+            Check(!HunterHutPolicy.AllowsBuild(false, false, 0), "no food no first hut");
+            Check(HunterHutPolicy.Keep(false, true, 44, 44), "chicken baseline retained");
+            Check(!HunterHutPolicy.Keep(false, true, 45, 44), "extra hut retired despite chickens");
+            Check(!HunterHutPolicy.Keep(false, false, 44, 44), "baseline retired when all food gone");
+            Check(HunterHutPolicy.Keep(true, false, 45, 44), "wildlife retains every hut");
+            var huts = new GameBuilding[] {
+                new GameBuilding { r_PlayerIdOwner=2, r_AliveState=AliveState.IsAlive, r_BuildingType=eStructs.STRUCT_GRANARY, r_TilePositionXBegin=20, r_TilePositionYBegin=20 },
+                new GameBuilding { r_PlayerIdOwner=2, r_AliveState=AliveState.IsAlive, r_BuildingType=eStructs.STRUCT_HUNTERS_HUT, r_GlobalId=44, r_TilePositionXBegin=30, r_TilePositionYBegin=20 },
+                new GameBuilding { r_PlayerIdOwner=2, r_AliveState=AliveState.NeedsInit, r_BuildingType=eStructs.STRUCT_HUNTERS_HUT, r_GlobalId=45, r_TilePositionXBegin=21, r_TilePositionYBegin=20 }
+            };
+            Check(HunterHutPolicy.Count(huts, 2) == 2, "AIV and initializing huts count together");
+            Check(HunterHutPolicy.Count(huts, 1) == 0, "foreign huts ignored");
+            Check(HunterHutPolicy.SelectBaseline(huts, 2, 1) == 45, "nearest granary hut wins");
+            Check(HunterHutPolicy.SelectBaseline(huts, 2, 0) == 44, "no granary stable global identity");
+            huts[2].r_TilePositionXBegin=10;
+            Check(HunterHutPolicy.SelectBaseline(huts, 2, 1) == 44, "equal distance uses lower global identity");
+            Check(HunterHutPolicy.HasSpawnSite(huts, 2), "own living granary permits chicken renewal");
+            Check(!HunterHutPolicy.HasSpawnSite(huts, 1), "foreign granary not a renewal site");
+            huts[0].r_AliveState=AliveState.NeedsInit;
+            Check(!HunterHutPolicy.HasSpawnSite(huts, 2), "uninitialized spawn site not ready");
+            huts[0].r_AliveState=AliveState.IsAlive; huts[0].r_BuildingType=eStructs.STRUCT_MILL;
+            Check(HunterHutPolicy.HasSpawnSite(huts, 2), "mill permits renewal");
+            huts[0].r_BuildingType=eStructs.STRUCT_BAKERS_WORKSHOP;
+            Check(HunterHutPolicy.HasSpawnSite(huts, 2), "bakery permits renewal");
+            huts[0].r_BuildingType=eStructs.STRUCT_GOODS_YARD;
+            Check(!HunterHutPolicy.HasSpawnSite(huts, 2), "unrelated building cannot promise renewal");
+
             var units = new GameUnit[2];
             var hut = new GameBuilding { r_GlobalId = 22 };
             fixed (GameUnit* first = units)
@@ -70,6 +100,24 @@ internal static unsafe class Program
             Check(inactive.AllowsType(rabbit, Entry(rabbit, "ThirdParty", "rabbit")), "foreign catalog winner preserved");
             Check(absent.AllowsType(500, Entry(500, "ThirdParty", "new-animal")), "custom raw type outside enum");
             Check(absent.AllowsType(65535, Entry(65535, "ThirdParty", "high-animal")), "full raw ushort domain");
+            bool supplyReady = false;
+            var renewing = new ImprovedHuntersSettingsSnapshot(ImprovedHuntersSettingsStatus.Ready, "", enabled: true,
+                chickenSupplyConfigured: true, renewalReady: () => supplyReady);
+            Check(!renewing.CanRenewChickens, "failed population registration not renewable");
+            supplyReady = true;
+            Check(renewing.CanRenewChickens, "zero living chickens can retain baseline with active supply");
+            supplyReady = false;
+            Check(!renewing.CanRenewChickens, "disabled population handle takes effect without recapture");
+            Check(!new ImprovedHuntersSettingsSnapshot(ImprovedHuntersSettingsStatus.Ready, "", enabled:true,
+                chickenSupplyConfigured:false, renewalReady: () => throw new Exception()).CanRenewChickens, "zero population avoids readiness query");
+            Check(!new ImprovedHuntersSettingsSnapshot(ImprovedHuntersSettingsStatus.Ready, "", enabled:true, chicken:false,
+                chickenSupplyConfigured:true, renewalReady: () => true).CanRenewChickens, "disabled chicken hunting no renewal");
+            Check(!new ImprovedHuntersSettingsSnapshot(ImprovedHuntersSettingsStatus.Ready, "", enabled:false,
+                chickenSupplyConfigured:true, renewalReady: () => true).CanRenewChickens, "disabled IH no renewal");
+            Check(!new ImprovedHuntersSettingsSnapshot(ImprovedHuntersSettingsStatus.Absent, "", enabled:true,
+                chickenSupplyConfigured:true, renewalReady: () => true).CanRenewChickens, "absent IH no assumed renewal");
+            Check(!new ImprovedHuntersSettingsSnapshot(ImprovedHuntersSettingsStatus.Unavailable, "", enabled:true,
+                chickenSupplyConfigured:true, renewalReady: () => true).CanRenewChickens, "unknown IH no assumed renewal");
             int corpseCalls = 0;
             GameUnit corpse = default;
             GameUnit* expectedCorpse = &corpse;

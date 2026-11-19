@@ -21,7 +21,7 @@ namespace AIHunterPreyTest
         private ImprovedHuntersSettingsSnapshot hunting;
         private MissionContext mission;
         private bool enabled, controlAiv, automatic, retire, started, known, scanned, automaticCall, faulted, initializationDisabled;
-        private int lastScan, presentMask, blocked;
+        private int lastScan, presentMask, otherPreyMask, blocked;
         internal Action OutputQueued;
 
         internal AIHunterRuntime(AIHunterSettings settings, HunterRetirementNative retirement)
@@ -70,7 +70,7 @@ namespace AIHunterPreyTest
         private void Reset()
         {
             mission = null; started = enabled = known = scanned = automaticCall = faulted = false;
-            presentMask = blocked = 0; hunting = null;
+            presentMask = otherPreyMask = blocked = 0; hunting = null;
             Array.Clear(preyCounts, 0, preyCounts.Length);
         }
 
@@ -82,15 +82,25 @@ namespace AIHunterPreyTest
                 RefreshPrey(tick);
                 if (!known) return;
                 int removed = 0, deferred = 0, built = 0;
+                var baselineFood = new bool[GamePlayerManagerAPI.MAX_PLAYERS + 1];
+                for (int player = 1; player < baselineFood.Length; player++)
+                    if (IsAI(player)) baselineFood[player] = HasBaselineFood(player);
                 if (retire && retirement.Supported)
                 {
                     var buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+                    var baselines = new uint[GamePlayerManagerAPI.MAX_PLAYERS + 1];
+                    for (int player = 1; player < baselines.Length; player++)
+                    {
+                        int granaryId = GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(player, out var resources)
+                            ? checked((int)resources->r_FirstGranaryId) : 0;
+                        baselines[player] = HunterHutPolicy.SelectBaseline(buildings, player, granaryId);
+                    }
                     for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
                     {
                         ref readonly GameBuilding building = ref buildings[spanIndex];
                         int owner = building.r_PlayerIdOwner;
                         if (building.r_AliveState != AliveState.IsAlive || building.r_BuildingType != eStructs.STRUCT_HUNTERS_HUT ||
-                            !IsAI(owner) || HasPrey(owner)) continue;
+                            !IsAI(owner) || HunterHutPolicy.Keep(HasOtherPrey(owner), baselineFood[owner], building.r_GlobalId, baselines[owner])) continue;
                         if (retirement.TryRetire(spanIndex + 1, building.r_GlobalId, owner, out string reason))
                         { removed++; Queue("RETIRED id=" + (spanIndex + 1) + "; player=" + owner + "; " + reason); }
                         else
@@ -103,7 +113,7 @@ namespace AIHunterPreyTest
                 if (automatic)
                     for (int player = 1; player <= GamePlayerManagerAPI.MAX_PLAYERS; player++)
                     {
-                        if (!IsAI(player) || !HasPrey(player)) continue;
+                        if (!IsAI(player) || !baselineFood[player]) continue;
                         automaticCall = true;
                         try
                         {
@@ -113,7 +123,7 @@ namespace AIHunterPreyTest
                         }
                         finally { automaticCall = false; }
                     }
-                Queue("SCAN tick=" + tick + "; preyMask=" + presentMask + "; playerCounts=" + string.Join(",", preyCounts) +
+                Queue("SCAN tick=" + tick + "; preyMask=" + presentMask + "; otherPreyMask=" + otherPreyMask + "; playerCounts=" + string.Join(",", preyCounts) +
                     "; retired=" + removed + "; deferred=" + deferred + "; built=" + built + "; aivBlocked=" + blocked +
                     "; catalog=" + HuntablePrey.Current.Digest);
                 blocked = 0;
@@ -135,7 +145,11 @@ namespace AIHunterPreyTest
                     SimulationClock.TryGetCurrentTick(mission, out tick);
                     RefreshPrey(tick);
                 }
-                if (!PreyPresencePolicy.ShouldBlock(enabled, controlAiv, automaticCall, true, known, HasPrey(args.PlayerId))) return;
+                if (!known) return;
+                // Fresh hut count for every synchronous constructor attempt, including AIV prebuild.
+                bool allowed = HunterHutPolicy.AllowsBuild(HasOtherPrey(args.PlayerId), HasBaselineFood(args.PlayerId),
+                    HunterHutPolicy.Count(GameBuildingManagerAPI.Instance.GetBuildingsAsSpan(), args.PlayerId));
+                if (!PreyPresencePolicy.ShouldBlock(enabled, controlAiv, automaticCall, true, known, allowed)) return;
                 // The SE wrapper ignores Post args overrides. Its global override has already
                 // run; only add a rejection to the result the constructor reads next.
                 GameTileManagerAPI.Instance.TileManager.IsPlacementBlocked = true;
@@ -146,7 +160,7 @@ namespace AIHunterPreyTest
 
         private void RefreshPrey(int tick)
         {
-            scanned = true; lastScan = tick; known = false; presentMask = 0;
+            scanned = true; lastScan = tick; known = false; presentMask = otherPreyMask = 0;
             Array.Clear(preyCounts, 0, preyCounts.Length);
             if (!HuntablePrey.IsAvailable || hunting == null || hunting.Status == ImprovedHuntersSettingsStatus.Unavailable) return;
             HuntablePreyCatalog catalog = HuntablePrey.Current;
@@ -164,6 +178,7 @@ namespace AIHunterPreyTest
                 bool corpse = !live && hunting.IsCollectibleCorpse(first + spanIndex);
                 int mask = PreyPresencePolicy.OwnerMask(true, live, corpse, unit.r_ControllableForPlayerId, entry.AllowsOwnPlayerPrey);
                 presentMask |= mask;
+                if (type != (int)eChimps.CHIMP_TYPE_CHICKEN) otherPreyMask |= mask;
                 for (int player = 1; player <= GamePlayerManagerAPI.MAX_PLAYERS; player++)
                     if ((mask & (1 << player)) != 0) preyCounts[player]++;
             }
@@ -171,6 +186,12 @@ namespace AIHunterPreyTest
         }
 
         private bool HasPrey(int player) => player >= 1 && player <= GamePlayerManagerAPI.MAX_PLAYERS && (presentMask & (1 << player)) != 0;
+        private bool HasOtherPrey(int player) => player >= 1 && player <= GamePlayerManagerAPI.MAX_PLAYERS && (otherPreyMask & (1 << player)) != 0;
+        private bool HasBaselineFood(int player) => HasPrey(player) ||
+            (!mission.IsEditor && hunting.CanRenewChickens &&
+             HuntablePrey.Current.TryGet((int)eChimps.CHIMP_TYPE_CHICKEN, out var chicken) && chicken.AllowsOwnPlayerPrey &&
+             hunting.AllowsType((int)eChimps.CHIMP_TYPE_CHICKEN, chicken) &&
+             HunterHutPolicy.HasSpawnSite(GameBuildingManagerAPI.Instance.GetBuildingsAsSpan(), player));
         private static bool IsAI(int player) => player >= 1 && player <= GamePlayerManagerAPI.MAX_PLAYERS && GamePlayerManagerAPI.Instance.IsAIPlayer(player);
         private void Fault(Exception error)
         { faulted = true; known = false; Queue("FAILED feature suspended for this mission: " + error); }

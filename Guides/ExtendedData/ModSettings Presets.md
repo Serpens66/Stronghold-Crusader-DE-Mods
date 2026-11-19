@@ -60,7 +60,15 @@ APIShared uses your system’s Documents folder, which may be redirected, for ex
 
 Display names need not be unique. Identity is based on source kind, provider GUID, target GUID, and preset ID. Only personal entries can be overwritten or deleted. Deletion is permanent after explicit confirmation and leaves the currently applied settings unchanged. Saving an external or bundled preset therefore creates an independent personal file, even when the display name is identical.
 
-Loose asset mods may serve several targets:
+#### Distribute presets as a mod
+
+1. Save a preset in the target mod and use **Open folder** to find the resulting `preset_<id>.json`. Copy the JSON into your package at `Override/<target GUID>/preset_<id>.json`. Use the preset's `targetGuid` value as the directory name. Repeat for each preset you want to share.
+2. Create an `info.json` at the package root with your own unique provider `GUID`, a `Name`, an `Author`, and a `Version`. Set `"Manifest": 0` to declare an asset mod, `"AssetMode": "Local"` to keep its assets private to the provider, and `"NetworkMode": 0` for a client-side preset pack. A complete example is in [SerpPresets](../../SerpPresets), including its [manifest](../../SerpPresets/info.json).
+3. Share the whole folder. With the game closed, copy it directly into the game's `BepInEx/plugins` directory so the manifest is at `BepInEx/plugins/MyPresetPack/info.json`. After restarting the game, open **Load preset** in a compatible installed target mod. With Script Extender and APIShared installed, the presets appear under the external provider's name.
+
+A single pack can serve multiple target mods. The package only needs its manifest and preset JSON files.
+
+For example:
 
 ```text
 MyPresetPack/
@@ -72,7 +80,7 @@ MyPresetPack/
       preset_large-armies.json
 ```
 
-Preset providers must be loose registered asset folders. `.semod` providers are skipped with a log message.
+Distribute the folder in a form users can extract. APIShared skips `.semod` preset providers and logs a message.
 
 #### JSON schema
 
@@ -171,7 +179,13 @@ APIShared verwendet den Dokumente-Ordner deines Systems; er kann beispielsweise 
 
 Anzeigenamen müssen nicht eindeutig sein. Die Identität besteht aus Quellentyp, Provider-GUID, Ziel-GUID und Preset-ID. Nur eigene Presets dürfen überschrieben oder gelöscht werden. Das Löschen ist nach ausdrücklicher Bestätigung endgültig und verändert die bereits angewendeten Werte nicht. Aus einem mitgelieferten oder externen Preset entsteht beim Speichern daher immer eine unabhängige persönliche Datei – ausdrücklich auch mit demselben Anzeigenamen.
 
-Ein loser Asset-Mod kann Presets für mehrere Ziele enthalten; das Verzeichnisbeispiel steht im englischen Abschnitt. Preset-Provider müssen registrierte lose Asset-Ordner sein; `.semod`-Provider werden mit einem Loghinweis übersprungen.
+#### Presets als Mod verteilen
+
+1. Speichere im Zielmod ein Preset und nutze **Ordner öffnen**, um die Datei `preset_<id>.json` zu finden. Kopiere sie im Paket nach `Override/<Ziel-GUID>/preset_<id>.json`. Verwende den Wert von `targetGuid` aus der Datei als Ordnernamen. Wiederhole das für alle Presets, die du teilen möchtest.
+2. Lege im Hauptordner des Pakets eine `info.json` mit einer eigenen eindeutigen Anbieter-`GUID`, `Name`, `Author` und `Version` an. Setze `"Manifest": 0` für einen Asset-Mod, `"AssetMode": "Local"` für anbietereigene Assets und `"NetworkMode": 0` für ein clientseitiges Preset-Paket. [SerpPresets](../../SerpPresets) ist ein vollständiges Beispiel mit [Manifest](../../SerpPresets/info.json).
+3. Teile den ganzen Ordner. Kopiere ihn bei geschlossenem Spiel direkt nach `BepInEx/plugins`, sodass etwa `BepInEx/plugins/MyPresetPack/info.json` entsteht. Öffne nach dem Spielstart **Preset laden** im installierten kompatiblen Zielmod. Mit installiertem Script Extender und APIShared erscheinen die Vorlagen unter dem Namen des externen Anbieters.
+
+Ein Paket kann Presets für mehrere Zielmods enthalten. Es braucht nur das Manifest und die JSON-Dateien. Die [Ordnerstruktur](#distribute-presets-as-a-mod) steht im englischen Abschnitt. Verteile das Paket als entpackbaren Ordner. APIShared überspringt Anbieter im `.semod`-Format mit einem Loghinweis.
 
 #### JSON-Schema und Modi
 
