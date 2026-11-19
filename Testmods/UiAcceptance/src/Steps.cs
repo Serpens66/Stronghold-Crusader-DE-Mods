@@ -16,6 +16,8 @@ namespace UiAcceptance
             RelaySteps.Register();
             FireEscapeSteps.Register();
             HuntSteps.Register();
+            ArcherStartSteps.Register();
+            HuntAiCastleSteps.Register();
             HuntMpSteps.Register();
             TannerSteps.Register();
             MissionReadinessSteps.Register();

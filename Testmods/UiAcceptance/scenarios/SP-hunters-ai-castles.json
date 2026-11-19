@@ -1,0 +1,27 @@
+{
+  "enabled": true,
+  "series": "SP-hunters-ai-castles",
+  "role": "sp",
+  "quitWhenDone": true,
+  "steps": [
+    {"id": "menu", "do": "WaitMainMenu", "timeoutMs": 90000, "stopOnFail": true, "allowErrors": true},
+    {"id": "no-random-events", "do": "RandomEvents", "args": ["off"], "timeoutMs": 10000, "stopOnFail": true},
+    {"id": "disable-castle-planner", "do": "SetModSetting", "args": ["CastlePlanner.CastlePlannerPlugin::processSettings", "EnableMod", "false"], "stopOnFail": true},
+    {"id": "skirmish", "do": "Skirmish.Open", "timeoutMs": 15000, "stopOnFail": true},
+    {"id": "map", "do": "Lobby.SelectMap", "args": ["Distant Encounters.map"], "timeoutMs": 15000, "stopOnFail": true},
+    {"id": "add-seven-pigs", "do": "Lobby.AddAI", "args": ["2", "7"], "timeoutMs": 15000, "stopOnFail": true},
+    {"id": "start-positions", "do": "Lobby.StartPositions", "args": ["0", "1", "2", "3", "4", "5", "6", "7"], "stopOnFail": true},
+    {"id": "starting-goods", "do": "Lobby.Button", "args": ["GameType3"], "stopOnFail": true},
+    {"id": "prebuilt-castles", "do": "Lobby.Prebuild", "stopOnFail": true},
+    {"id": "peace", "do": "Lobby.PeaceTime", "args": ["60"], "timeoutMs": 15000, "stopOnFail": true},
+    {"id": "play", "do": "Lobby.Play", "timeoutMs": 90000, "stopOnFail": true},
+    {"id": "begin", "do": "HuntAiCastles.Begin", "stopOnFail": true},
+    {"id": "briefing", "do": "AiMilitary.ResumeBriefing", "timeoutMs": 15000},
+    {"id": "unpause", "do": "Pause", "args": ["off"], "timeoutMs": 15000, "stopOnFail": true},
+    {"id": "speed", "do": "Speed", "args": ["120"], "stopOnFail": true},
+    {"id": "observe-natural-start", "do": "WaitTicks", "args": ["4500"], "timeoutMs": 150000, "stopOnFail": true},
+    {"id": "supply-retry", "do": "HuntAiCastles.SupplyHutCosts", "stopOnFail": true},
+    {"id": "observe-hunting", "do": "WaitTicks", "args": ["2200"], "timeoutMs": 120000, "stopOnFail": true},
+    {"id": "end", "do": "HuntAiCastles.End", "stopOnFail": true}
+  ]
+}

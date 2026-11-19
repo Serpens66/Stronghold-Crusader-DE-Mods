@@ -8,6 +8,25 @@ The selected [baseline](../../_inspect/CrusaderDE-Native-Baseline/CURRENT.md) an
 
 ## Feature and ownership
 
+### Active AIV reservation, 2026-11-19
+
+Automatic hunter placement now snapshots the owning village's loaded plan through public `GameAIVManagerAPI` pointer/span accessors. It never reads/decode-writes `.aivjson` or the shared working rasters. `0x55320` imports, `0x56670` rotates, `0x53D00` materializes the map positions, `0x539B0` schedules and `0x51790` executes them. `MaximumBuildStep` is inclusive; reserve all nonempty records through it, independent of unlocked/progress state, including rebuilt/abandoned sites. Only Usable/Perfect selection and cardinal rotations are admitted. Missing/malformed plans stop that automatic build, not AIV construction or retirement.
+
+Single anchors already denote the minimum world corner. Ordinary square scales are from installed SE `BuildingScales`, independently compared against all 440 enum entries in native `0x6A190` (selector `0x6A250`, RVA table `0x6A214`). Known special commands such as stairs clamp to one tile; unknown mapper values stop capture. Grouped walls/crenels/woodwalls/pitch/moat use absolute individual tiles, each 1x1 (moat's ordinary scale 2 does not apply). Ordered buffers are read through the relocation-aware SE API, so Fixes-expanded buffers remain supported. Full payload bounds are checked before conversion to X/Y; packed IDs must fit the public path-component grid capacity.
+
+`0x51790` and `0x53D00` consume extra-component tables at `0x2D2E90`/`0x2D2EF0`; `0x72E10` independently confirms actual four-record barracks placement. Relative to the base 5x5 minimum corner, stockade/wooden barracks/stone barracks have three extra 5x5 squares:
+
+| Rotation | First | Second | Third |
+|---|---|---|---|
+| South | (5,0) | (0,5) | (5,5) |
+| East | (0,-5) | (5,0) | (5,-5) |
+| North | (-5,0) | (0,-5) | (-5,-5) |
+| West | (0,5) | (-5,0) | (-5,5) |
+
+Engineers'/tunnelers' guilds use only the second extra. Oil smelters add a 4x4 square at (0,4)/(4,0)/(0,-4)/(-4,0) for South/East/North/West. These are copied semantic geometry contracts, not new native calls. Automatic construction requires the same audited native file identity already computed by the retirement adapter, separately from retirement hook/site readiness; no second hash pass. Unknown hashes disable this geometry-dependent automatic build without a pattern fallback, because matching one function would not establish all layouts/tables. No new live probes or hooks.
+
+The transient mask is clipped to the 67x67 search window (radius32 plus hut width3), rebuilt once per eligible construction search. Candidate checks then read at most nine mask cells. No new tick subscription, per-frame scan, disk decode or cross-session cache. Update the public record/selection/coordinate/buffer contracts and all geometry tables together after another native/SDK revision; the pure reservation tests cover ordinary overlap, boundaries, all rotations and compound components. In-game active-plan capture remains separately testable.
+
 2026-11-19 policy addition: chicken-only food permits one baseline hut; other prey permits additional AIV huts. No native call or layout changed. Renewal uses IH's captured positive `ChickensPerPlayer`, active chicken hunting, its registered public `ChickenPopulationModifierHandle.IsEnabled`, own-player catalog admission and an alive own bakery/mill/granary, outside the editor. The existing hash-bound APIShared chicken-population contract (`APIShared/docs/CHICKENS.md`, `UpdateToNewDLL.md` chicken-population audit) supplies this potential-spawn criterion. This does not prove immediate spawn success or override other population providers. Missing/unavailable IH integration never invents a supply. Existing meat-drain checks still apply to every removed hut.
 
 `src/HunterRetirementNative.cs` reproduces the three calls in Vanilla's existing AI

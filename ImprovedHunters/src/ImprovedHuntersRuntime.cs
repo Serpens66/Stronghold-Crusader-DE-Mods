@@ -1150,7 +1150,7 @@ namespace ImprovedHunters
                     RegisterRejectedHunterStateZeroMove,
                     RecordHunterPclMoveHereResult,
                     TryTakeHunterFiringPosition,
-                    (hunterUnitId, preyGlobalId) => hunterFiringPositionSearch?.OnAttackFailedTooClose(hunterUnitId, preyGlobalId));
+                    (hunterUnitId, preyGlobalId) => hunterFiringPositionSearch?.StageTooCloseRetry(hunterUnitId, preyGlobalId));
             }
             catch (Exception exception)
             {
@@ -1320,6 +1320,7 @@ namespace ImprovedHunters
             HunterPostShotContinuationCandidate candidate,
             int vanillaTargetUnitId)
         {
+            hunterFiringPositionSearch?.StageTooCloseRetry(candidate.HunterUnitId, candidate.PreyGlobalId);
             hunterPostShotContinuation?.RecordStateZeroHandoff(
                 candidate,
                 vanillaTargetUnitId);

@@ -16,7 +16,7 @@ namespace UiAcceptance
     // Observes ImprovedHunters in a real skirmish through native state only: chickens must keep their
     // owner and wander, a Hunter must take its own player's chicken through Vanilla's whole chain, and
     // melee units must ignore rabbits until ordered. Nothing here steers the Hunter.
-    internal static unsafe class HuntSteps
+    internal static unsafe partial class HuntSteps
     {
         private const int HunterTargetIdOffset = 0x39A, HunterTargetGlobalOffset = 0x39C, CorpseOffset = 0x29C;
         // Vanilla's automatic sprites, as its AIV builder requests them; 0 selects camera-relative sheets.
@@ -109,6 +109,7 @@ namespace UiAcceptance
             Runner.Register("Hunt.ExpectLeaseReleased", ExpectLeaseReleased);
             Runner.Register("Hunt.SightWall", s => GameSteps.Do(() => { lock (Engine()) SightWall(s.Int(0), s.Int(1)); }));
             Runner.Register("Hunt.SightBuilding", s => GameSteps.Do(() => { lock (Engine()) SightBuilding(s.Int(0), s.Int(1)); }));
+            RegisterCorridorSteps();
             Runner.Register("Hunt.Ring", Ring);
             Runner.Register("Hunt.CloseRing", CloseRing);
             Runner.Register("Hunt.OpenRing", OpenRing);

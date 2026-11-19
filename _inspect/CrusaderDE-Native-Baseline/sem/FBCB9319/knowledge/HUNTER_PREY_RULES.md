@@ -54,7 +54,7 @@ A value of 1 means one prey update has passed since the last refresh.
 ## Rabbits and melee
 
 - Tribe flag `+0x58E` (absolute `0x7CC6CAE`): cleared by every order at `0x11E9CA`, set by
-  Vanilla only in the ranged branches of orders 4 and `0x20/0x21`, read only at `0x18F31C`.
+  Vanilla's ranged branches of orders 4 and `0x20` when the target is a rabbit, read only at `0x18F31C`.
 - Melee contact: `0x182B00` -> `0x195170` -> `0x188A20` -> `0x1867A0` with `r9b == 0`; a
   rabbit target returns "attackable" at `0x186952`. The stance scan `0x18C160` rejects
   rabbits at `0x18C731`.
@@ -365,8 +365,8 @@ attacks an animal by itself:
   mask `0x40000400001` from type `0x2D`).
 - Ranged target search inside `0x18E9A0`, type switch at `0x18F2B2` (types `0x2C`-`0x57`): deer and goats only for Hunters, rabbits
   only with the attacker's tribe flag `+0x58E` and never for Hunters, lions and hyenas only when their herd attacks (`+0x606`,
-  `+0x608`, or AI state `0xCF` on a non-animal), war dogs of another team; the other types pass this switch and depend on
-  `0x1867A0`. The tribe flag is cleared by every order (`0x11E9CA`) and set only in the ranged branches of orders 4 and `0x20/0x21`.
+  `+0x608`, or AI state `0xCF` on a non-animal), war dogs of another team. Crocodiles pass this switch and are ordinary
+  hostile candidates. The separate explicit-order branch calls `0x1867A0` for non-Hunters before preparing the target.
 
 ## Hunter meat inventory, worker identity and retirement boundary (2026-11-15) [Scope: Vanilla]
 
@@ -437,3 +437,117 @@ it, then later performs ordinary building update `0xC60F0`, AIV update `0x57330`
 and unit passes `0x182B00`/`0x187B30`. Earlier helpers called by `0xD1AD0` return
 before this boundary; no HunterUpdate is suspended at it. This native ordering
 does not by itself prove where a future external tick publisher will execute.
+
+## Startup archers and rabbit permission (2026-11-19) [Scope: Vanilla]
+
+The installed DLL and semantic manifest matched SHA-256 `FBCB9319…31E2`. The map's
+starting-troop dispatcher `0x119050` can call `0x117D20`, which places each group's
+members at a common position and assigns them to the tribe. Archer update `0x13F540`
+can fill the aim field while in formation-move state 101. This state can propagate
+automatic targeting through group order `0x21`; the ordinary shooting states
+4/5/6 are distinct. The formation movement ends through `0x188340`, which requires
+path flags zero and either a zero selected connection record or resolved destination
+coordinates equal to the current tile. Archer state 6 releases the arrow at frame 6
+after rechecking line of sight, target global ID, life, corpse state, applicable type
+and range. A failed release re-runs target selection and can re-enter state 5 on a
+valid alternative. State 5 can also abandon a target killed during state 4.
+
+The ordinary ranged query's rabbit branch at `0x18F31C` uses the same tribe flag for
+human and AI owners. Order `0x20` and automatic group order `0x21` enter the same
+dispatcher block at `0x11F156`. The ranged branch at `0x11F230` sends `0x21` past
+the explicit target writes and the rabbit flag store at `0x11F2AF`; automatic
+propagation cannot grant permission there. The other writer at `0x11EC89` is the
+ranged branch of order 4. All orders first clear the flag at `0x11E9CA`.
+
+## Startup archer and rabbit observations [mod integration]
+
+On `testanimals.map` in skirmish with ImprovedHunters 1.2.3 and the installed
+Script Extender and Fixes (2026-11-19, runs
+`.work/a/hunter-start-sight/006` and `007`):
+
+- All five human starting archers aimed at crocodile 268/global 358 while following
+  formation routes of 3–5 tiles at tick 204. The target stood on land, about 50 tiles
+  away, with equal effective and native ArcherArrow ranges of 54 and positive sight.
+  Without a player command, all five finished forming and fired at crocodiles in
+  ticks 355–376. The first intended-target damage was logged at tick 455.
+- Twelve actual arrows targeted crocodiles before the group's first move at tick 728,
+  which left rabbit permission at zero. A genuine aborted release was traced on
+  archer 2262/global 2744: wind-up at tick 439, target crocodile 189/global 249
+  killed by another archer at 464, wind-up on crocodile 269/global 360 at 487 and
+  an actual arrow on it at 531. The same pattern occurred when the second crocodile
+  was killed. A persistent no-release loop was not reproduced.
+- Six AI starting archers never aimed at a rabbit in either run. One selected a
+  crocodile at tick 911 with rabbit permission zero, and the test ended while it
+  had reached the release state. This observation concerns the tested start rather
+  than every AI command path.
+- In the separate control, neither of two nearby rabbits was aimed at or shot before
+  the explicit order. The group then fired on the ordered rabbit at tick 373 and on
+  the second rabbit at 486. Both targets died from actual arrows. A move at tick 848
+  cleared the group's permission from 1 to 0.
+
+## Final movement step and Hunter near refresh (2026-11-19) [Scope: Vanilla]
+
+On the same hash, movement at `0x1855A0` resets the substep (public unit `+0xF4`)
+to zero while queuing the next path step and increments the path index (`+0xF6`).
+The index can then equal the path length (`+0xF8`) while path state `+0xF2` is
+still 2 and the unit is finishing its step. The ordinary completion check takes
+place when the movement substep reaches 8. Treating index equality alone as
+arrival drops the first update of the final step, including its substep-zero
+opening for the attack gate in Hunter state 1.
+
+Hunter state 1 renews the target's reservation before its near-world-distance
+branch at `0x130069`. At distance at most 20 world units it calls the ordinary
+query. That query rejects reserved units and checks minimum tile distances of
+20 and 5, so it can return zero while the current prey is live and visible.
+The return leads to state 6. The alternate branch at distance greater than 20
+can call the ordinary attack routine through its existing locomotion gate.
+
+## Corridor reproduction [mod integration]
+
+Real skirmish, two complete 12-tile wall lines separated by one walkable tile,
+`.work/a/hunter-start-sight/013`. At tick 1864 the live prey was visible in both
+directions at the last tile before its position. The positive snapshot was
+accepted at path state/substep/index/length `2/7/17/18`, while Vanilla waited
+for the locomotion gate. At `2/0/18/18` the old mod discarded its continuation
+with `path-unavailable-or-complete-2-18-18`. The native near query ran and the
+Hunter entered state 6 at tick 1874 with sight 6 in each direction. No arrow
+was created on that approach. A separately staged firing tile was used on the
+next approach. This failure is independent of the bidirectional sight rule.
+
+The first comparison that kept the final step in the continuation (`014`)
+accepted Vanilla's attack at path `2/0/18/18`. The Hunter still finished that
+step during state 9 and reached the prey's exact world position. The state-10
+sight check returned its identical-position sentinel, and Vanilla did create
+an arrow. The arrow was deleted with the prey still at 2500 HP. The ordinary
+post-shot continuation then sent the Hunter back toward the prey and repeated
+the approach. The final change stages an existing bounded firing-position
+search when the prey survives and is at most one Manhattan tile away, before
+the same-target State-0 MoveHere. A Hunter starting that retry on the prey's
+tile continues moving even when the sight routine reports the co-located
+points as visible.
+
+The release configuration in run `020` entered state 9 at tick 1874 in the
+same corridor geometry. Its first arrow at 2022 missed from the prey's tile.
+At 2099 the same prey received a new four-step approach, and the Hunter left
+the prey's tile. The next arrow at 2337 reduced the deer's HP to zero by tick
+2341. The Hunter carried nine meat and the delivery event fired. No return to
+the hut interrupted the two attempts.
+
+Run `020` also confirmed initially blocked sight at a crosswall and an
+offset corner. In both cases the Hunter changed position before firing,
+killed the deer and delivered meat. The existing separate building-obstacle
+scenario reached the meat carrying state. The combined run passed all 127
+steps. The open control (`017`) logged a real arrow, meat delivery and
+31 successful steps; the outer runner reported a transient log-sharing error
+after exit, with a verified restore. The disabled-pathfinding control
+(`018`) still failed to obtain meat in the one-tile corridor.
+
+In the eight-player `Distant Encounters` skirmish (`012` and `019`), the
+native prebuild option was enabled and all seven AI slots were The Pig.
+The test supplied only missing hut materials before the test mod's scheduled
+retry. Its own placement logic produced three Hunter huts in each run.
+The baseline Hunter killed a camel. The final build's Hunter killed an
+own-player chicken with a real arrow and entered the meat return path.
+The logs distinguish an intentional switch to nearer prey from the corridor
+abort. Neither eight-player run reproduced a population-wide exclusion of all
+reachable prey.

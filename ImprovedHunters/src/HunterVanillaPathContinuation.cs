@@ -270,7 +270,7 @@ namespace ImprovedHunters
             if (pathState != ActivePathState ||
                 pathLength <= 1 ||
                 pathLength > MaximumPathSteps ||
-                pathProgress >= pathLength)
+                !HunterMovementSnapshot.HasUnfinishedPathStep(pathProgress, pathLength, pathFieldF4))
             {
                 string reason = $"path-unavailable-or-complete-{pathState}-{pathProgress}-{pathLength}";
                 StopAttempt(identity, reason, nativeWorldDistance, pathFieldF4);
@@ -425,7 +425,7 @@ namespace ImprovedHunters
             if (pathState != ActivePathState ||
                 pathLength <= 1 ||
                 pathLength > MaximumPathSteps ||
-                pathProgress >= pathLength)
+                !HunterMovementSnapshot.HasUnfinishedPathStep(pathProgress, pathLength, pathFieldF4))
             {
                 // A finished path is a normal end of the approach and stays with Vanilla; only an unexpected
                 // path state is worth a warning.

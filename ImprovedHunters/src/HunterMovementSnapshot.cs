@@ -8,6 +8,7 @@ namespace ImprovedHunters
     /// </summary>
     internal static unsafe class HunterMovementSnapshot
     {
+        private const ushort CompletedMovementSubstep = 8;
         private const int LocomotionControlOffset = 0x4;
         private const int HunterPathStateOffset = 0xF2;
         private const int HunterPathFieldF4Offset = 0xF4;
@@ -17,6 +18,13 @@ namespace ImprovedHunters
         private const int HunterTargetUnitIdOffset = 0x39A;
         private const int HunterTargetGlobalIdOffset = 0x39C;
         private const int HunterPathAdvanceControlOffset = 0x3F0;
+
+        internal static bool HasUnfinishedPathStep(ushort progress, uint length, ushort substep)
+        {
+            // Native movement increments the path index when it queues a step.
+            // The final step can still be in flight when the index reaches length.
+            return progress < length || (progress == length && substep < CompletedMovementSubstep);
+        }
 
         public static string TryFormat(GameUnit* hunter)
         {

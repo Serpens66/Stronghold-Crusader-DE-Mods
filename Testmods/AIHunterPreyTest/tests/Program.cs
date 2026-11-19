@@ -29,6 +29,53 @@ internal static unsafe class Program
             Check(!PreyPresencePolicy.ShouldBlock(true, false, false, true, true, false), "separate aiv option");
             Check(PreyPresencePolicy.ShouldBlock(true, false, true, true, true, false), "auto call still gated");
 
+            var reservation = new AivPlanReservation(100, 100, 32, 3);
+            Check(reservation.ReservePlacement(eMappers.MAPPER_HUNTER, 100, 100, AivRotation.South, false), "known AIV footprint");
+            Check(reservation.Overlaps(98, 98, 3), "hunter edge overlaps future footprint");
+            Check(!reservation.Overlaps(97, 97, 3), "touching corners without overlap allowed");
+            Check(!reservation.Overlaps(103, 100, 3), "adjacent nonoverlapping placement allowed");
+            Check(reservation.Overlaps(67, 100, 3), "outside captured search bounds fails closed");
+            Check(!reservation.ReservePlacement((eMappers)30000, 100, 100, AivRotation.South, false), "unknown mapper refuses capture");
+            Check(!reservation.ReservePlacement(eMappers.MAPPER_HUNTER, 100, 100, AivRotation.Default, false), "unknown AIV rotation refuses capture");
+            var clipped = new AivPlanReservation(100, 100, 32, 3);
+            clipped.ReservePlacement(eMappers.MAPPER_HUNTER, 66, 68, AivRotation.South, false);
+            Check(clipped.Overlaps(68, 68, 1), "reservation clipped at search edge still protects boundary");
+            foreach (var mapper in new[] { eMappers.MAPPER_WALL, eMappers.MAPPER_CRENAL, eMappers.MAPPER_CRENAL2,
+                eMappers.MAPPER_WOODWALL, eMappers.MAPPER_MOAT, eMappers.MAPPER_PITCH_DITCH })
+            {
+                var grouped = new AivPlanReservation(100, 100, 32, 3);
+                grouped.ReservePlacement(mapper, 100, 100, AivRotation.East, true);
+                Check(grouped.Overlaps(100,100,1) && !grouped.Overlaps(101,100,1), "grouped AIV tile is exactly one cell: " + mapper);
+            }
+            // Independent coordinates from the audited native component tables, not the production rotation calculation.
+            var rotations = new[] { AivRotation.South, AivRotation.East, AivRotation.North, AivRotation.West };
+            int[] guildX = {100,105,100,95}, guildY = {105,100,95,100};
+            int[] outsideGuildX = {105,100,95,100}, outsideGuildY = {100,95,100,105};
+            int[] oilX = {100,104,100,96}, oilY = {104,100,96,100};
+            int[] barracksMinX = {100,100,95,95}, barracksMinY = {100,95,95,100};
+            for (int direction = 0; direction < rotations.Length; direction++)
+            {
+                foreach (var mapper in new[] { eMappers.MAPPER_BEDOUIN_STOCKADE, eMappers.MAPPER_BARRACKS_WOOD, eMappers.MAPPER_BARRACKS_STONE })
+                {
+                    var compound = new AivPlanReservation(100,100,32,3);
+                    compound.ReservePlacement(mapper,100,100,rotations[direction],false);
+                    for (int x = barracksMinX[direction]; x < barracksMinX[direction]+10; x++)
+                        for (int y = barracksMinY[direction]; y < barracksMinY[direction]+10; y++)
+                            Check(compound.Overlaps(x,y,1), "complete barracks/stockade protected");
+                    Check(!compound.Overlaps(barracksMinX[direction]-1,barracksMinY[direction],1), "compound does not reserve extra outside column");
+                }
+                foreach (var mapper in new[] { eMappers.MAPPER_ENGINEERS_GUILD, eMappers.MAPPER_TUNNELERS_GUILD })
+                {
+                    var guild = new AivPlanReservation(100,100,32,3);
+                    guild.ReservePlacement(mapper,100,100,rotations[direction],false);
+                    Check(guild.Overlaps(guildX[direction],guildY[direction],1), "rotated guild extra component");
+                    Check(!guild.Overlaps(outsideGuildX[direction],outsideGuildY[direction],1), "guild does not reserve full barracks square");
+                }
+                var oil = new AivPlanReservation(100,100,32,3);
+                oil.ReservePlacement(eMappers.MAPPER_OIL_SMELTER,100,100,rotations[direction],false);
+                Check(oil.Overlaps(oilX[direction],oilY[direction],1), "rotated oil smelter extra component");
+            }
+
             Check(HunterHutPolicy.AllowsBuild(false, true, 0), "chickens permit first AIV hut");
             Check(!HunterHutPolicy.AllowsBuild(false, true, 1), "chickens do not permit second AIV hut");
             Check(HunterHutPolicy.AllowsBuild(true, true, 4), "wildlife permits more AIV huts");

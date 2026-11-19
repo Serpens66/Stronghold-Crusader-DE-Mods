@@ -452,6 +452,7 @@ namespace ImprovedHunters
                         wrapperResult,
                         hunterToPreyResult,
                         preyToHunterResult,
+                        geometry.TileManhattanDistance == 0,
                         out HunterActiveVisibilityState state,
                         out string classification,
                         out resultFailure))
@@ -773,7 +774,7 @@ namespace ImprovedHunters
                 return false;
             }
 
-            if (pathProgress >= pathLength)
+            if (!HunterMovementSnapshot.HasUnfinishedPathStep(pathProgress, pathLength, pathFieldF4))
             {
                 failure = $"path-complete-{pathProgress}-{pathLength}";
                 return false;
@@ -856,6 +857,7 @@ namespace ImprovedHunters
             int wrapperResult,
             int hunterToPreyResult,
             int preyToHunterResult,
+            bool sameTile,
             out HunterActiveVisibilityState state,
             out string classification,
             out string failure)
@@ -885,7 +887,14 @@ namespace ImprovedHunters
                 return false;
             }
 
-            if (hunterToPreyResult > 0 && preyToHunterResult > 0)
+            if (sameTile)
+            {
+                // Coincident sight is positive in Vanilla. Let a staged retry leave the prey's tile
+                // before the Hunter can commit to the same point-blank shot again.
+                state = HunterActiveVisibilityState.Blocked;
+                classification = "blocked-same-tile";
+            }
+            else if (hunterToPreyResult > 0 && preyToHunterResult > 0)
             {
                 state = HunterActiveVisibilityState.Visible;
                 classification = "visible-attack-handoff";

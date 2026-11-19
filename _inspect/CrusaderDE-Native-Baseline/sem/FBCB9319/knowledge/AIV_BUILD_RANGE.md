@@ -236,3 +236,70 @@ Automated tests cover all four rotations, exact/over-limit boundaries, complete
 footprint rejection, overwritten anchors, odd allied half-range, duplicate deductions,
 policy fingerprints and all three Baibars Nimrod variants (70 blocked, 80 clear).
 Live lobby host/client refresh and visual acceptance remain game smoke tests.
+
+## Prepared village plans and compound footprints (2026-11-19) [Vanilla facts]
+
+Reference native SHA-256, rechecked against the installed canonical DLL:
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+Confirmed-static evidence: `0x53D00` preparation, `0x539B0` scheduling,
+`0x51790` execution, `0x59730` individual moat work, `0x72E10` compound
+barracks construction, and direct PE reads of the component tables below.
+This is a geometry/state contract, not new in-game acceptance evidence.
+
+Each live village has its own prepared step buffer. `0x53D00` first imports
+and rotates the shared 100x100 working raster, then writes per-village
+world map-tile IDs using the village layout origin. Ordinary step payloads
+are the final constructor origins: each square extends in positive X/Y
+from that origin. Do not rotate or translate these coordinates again.
+The shared building/step raster is temporary and does not identify all
+players' simultaneously loaded plans.
+
+The village's maximum build-step index is inclusive. Future reservation
+must not stop at the currently unlocked step. `0x51790` skips states 0
+and 4, retries state 5, and can rebuild a state-3 placement after its
+building disappears. Retaining every populated step conservatively also
+retains abandoned or inactive sites. In `0x539B0`, selection state zero
+uses procedural construction; a nonzero selection uses the prepared plan.
+
+Grouped wall, crenel, second crenel, wooden-wall, pitch-ditch and moat
+steps store an ordered-buffer index plus tile count, rather than an
+ordinary building anchor. Each resolved position reserves one map tile.
+In particular, moat mapper 106 uses individual `0x59730` calls; its general
+mapper scale of two must not expand each prepared AIV position to 2x2.
+Pitch-ditch mapper 99 is grouped; killing-pit mapper 98 is not.
+
+An ordinary mapper's square scale is insufficient for these six compound
+mappers. Add the component squares at the following offsets from the
+prepared base origin. Table `0x2D2E90` contains three (X,Y) pairs per native
+rotation, at stride 24 bytes; `0x2D2EF0` contains the oil-smelter pair at
+stride eight. `0x51790` uses the same offsets for cleanup, and `0x72E10`
+creates the actual additional 5x5 barracks/stockade records.
+
+| Native rotation | Three barracks/stockade offsets | Guild offset | Oil-smelter offset |
+| --- | --- | --- | --- |
+| 0 / South | (5,0), (0,5), (5,5) | (0,5) | (0,4) |
+| 2 / East | (0,-5), (5,0), (5,-5) | (5,0) | (4,0) |
+| 4 / North | (-5,0), (0,-5), (-5,-5) | (0,-5) | (0,-4) |
+| 6 / West | (0,5), (-5,0), (-5,5) | (-5,0) | (-4,0) |
+
+Mappers 79 (Bedouin stockade), 86 (wooden barracks), and 87 (stone barracks)
+use a base 5x5 square and all three additional 5x5 squares. Mappers 88
+(engineers' guild) and 89 (tunnelers' guild) use the base 5x5 plus only the
+second table pair. Mapper 180 (oil smelter) uses a base 4x4 plus the listed
+additional 4x4. These directions are native 0/2/4/6, not degrees.
+
+### Public live-plan projection [mod integration]
+
+Source snapshot verified on 2026-11-19: Script Extender
+`API/GameAIVManagerAPI.cs` and `Interop/AivSystem.cs`. Village slots 1..8
+are live; slot zero is reserved. Resolve the player's current village
+through `TryGetVillageSlotByPlayerId` / `TryGetVillageBySlot`, rather than
+assuming player ID equals village slot. `GetBuildSteps` exposes the full
+1,000-step capacity; bound reads by `MaximumBuildStep + 1`. Use the village
+pointer or a ref/span, never copy the complete `AivSystem` by value.
+`GetBuildStepMapTiles` resolves ordinary and grouped payloads;
+`GetOrderedMapTileBuffer` also follows optional relocated Fixes storage.
+Validate grouped ranges against the populated `GetOrderedMapTiles` count.
+The public selection enum names states 1/2 `Usable`/`Perfect` and zero
+`None`. `BuildingScales` describes the base square; callers reserving
+future AIV footprints must also account for the compound offsets above.

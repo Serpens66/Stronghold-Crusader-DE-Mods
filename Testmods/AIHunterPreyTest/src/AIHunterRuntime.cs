@@ -14,7 +14,7 @@ namespace AIHunterPreyTest
     {
         private readonly AIHunterSettings settings;
         private readonly HunterRetirementNative retirement;
-        private readonly AutomaticHunterBuilder builder = new AutomaticHunterBuilder();
+        private readonly AutomaticHunterBuilder builder;
         private readonly ImprovedHuntersSettingsBridge bridge = new ImprovedHuntersSettingsBridge();
         private readonly ConcurrentQueue<string> output = new ConcurrentQueue<string>();
         private readonly int[] preyCounts = new int[GamePlayerManagerAPI.MAX_PLAYERS + 1];
@@ -25,7 +25,7 @@ namespace AIHunterPreyTest
         internal Action OutputQueued;
 
         internal AIHunterRuntime(AIHunterSettings settings, HunterRetirementNative retirement)
-        { this.settings = settings; this.retirement = retirement; }
+        { this.settings = settings; this.retirement = retirement; builder = new AutomaticHunterBuilder(retirement.AuditedImage); }
 
         internal void InitializeMission(MissionLifecycleNotification notification)
         {

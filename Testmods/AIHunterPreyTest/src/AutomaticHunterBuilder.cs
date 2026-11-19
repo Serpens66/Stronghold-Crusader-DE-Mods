@@ -19,12 +19,14 @@ namespace AIHunterPreyTest
         // Vanilla's ordinary-building call uses 15 for automatic orientation.
         private const int AutomaticOrientation = 15;
         private readonly IDisposable spawnSubscription;
+        private readonly bool auditedAivGeometry;
         private bool placing;
         private int capturePlayer, captureX, captureY, spawnedId;
         private uint spawnedGlobalId;
 
-        internal AutomaticHunterBuilder()
+        internal AutomaticHunterBuilder(bool auditedAivGeometry)
         {
+            this.auditedAivGeometry = auditedAivGeometry;
             // Kept with the statically rooted runtime for the entire process; never unhook
             // on the destruction of BepInEx's short-lived startup component.
             spawnSubscription = BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(ObserveSpawn);
@@ -33,6 +35,7 @@ namespace AIHunterPreyTest
         internal bool TryBuild(int playerId, int maximumHuts, out string reason)
         {
             reason = "not-eligible";
+            if (!auditedAivGeometry) { reason = "aiv-plan-native-unavailable"; return false; }
             if (placing || maximumHuts < 1 || playerId < 1 || playerId > GamePlayerManagerAPI.MAX_PLAYERS)
                 return false;
             var players = GamePlayerManagerAPI.Instance;
@@ -88,6 +91,8 @@ namespace AIHunterPreyTest
             int scale = BuildingScales.GetScale(eMappers.MAPPER_HUNTER);
             if (scale != 3)
                 throw new InvalidOperationException("Hunter footprint differs from the audited three-tile square.");
+            if (!AivPlanReservation.TryCapture(playerId, centerX, centerY, SearchRadius, scale, out var reservations, out reason))
+                return false;
 
             int candidates = 0, attempts = 0;
             // Fixed order and bounded work, independent of wall clock, frame rate or selected player.
@@ -95,19 +100,19 @@ namespace AIHunterPreyTest
             {
                 for (int offset = -radius; offset <= radius; offset += SearchStep)
                 {
-                    if (TryCandidate(playerId, centerX + offset, centerY - radius, scale, keepComponent,
+                    if (TryCandidate(playerId, centerX + offset, centerY - radius, scale, keepComponent, reservations,
                         ref candidates, ref attempts, out reason)) return true;
                     if (Finished(candidates, attempts, reason)) return false;
-                    if (TryCandidate(playerId, centerX + offset, centerY + radius, scale, keepComponent,
+                    if (TryCandidate(playerId, centerX + offset, centerY + radius, scale, keepComponent, reservations,
                         ref candidates, ref attempts, out reason)) return true;
                     if (Finished(candidates, attempts, reason)) return false;
                 }
                 for (int offset = -radius + SearchStep; offset < radius; offset += SearchStep)
                 {
-                    if (TryCandidate(playerId, centerX - radius, centerY + offset, scale, keepComponent,
+                    if (TryCandidate(playerId, centerX - radius, centerY + offset, scale, keepComponent, reservations,
                         ref candidates, ref attempts, out reason)) return true;
                     if (Finished(candidates, attempts, reason)) return false;
-                    if (TryCandidate(playerId, centerX + radius, centerY + offset, scale, keepComponent,
+                    if (TryCandidate(playerId, centerX + radius, centerY + offset, scale, keepComponent, reservations,
                         ref candidates, ref attempts, out reason)) return true;
                     if (Finished(candidates, attempts, reason)) return false;
                 }
@@ -119,11 +124,12 @@ namespace AIHunterPreyTest
         private static bool Finished(int candidates, int attempts, string reason) =>
             candidates >= MaximumCandidates || attempts >= MaximumPlacementAttempts || reason == "unconfirmed-native-creation";
 
-        private bool TryCandidate(int playerId, int x, int y, int scale, ushort component,
+        private bool TryCandidate(int playerId, int x, int y, int scale, ushort component, AivPlanReservation reservations,
             ref int candidates, ref int attempts, out string reason)
         {
             reason = "no-site";
             candidates++;
+            if (reservations.Overlaps(x, y, scale)) return false;
             var tiles = GameTileManagerAPI.Instance;
             var pathing = GamePathingManagerAPI.Instance;
             for (int dx = 0; dx < scale; dx++)

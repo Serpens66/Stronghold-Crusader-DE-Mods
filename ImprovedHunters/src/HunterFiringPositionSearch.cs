@@ -112,11 +112,11 @@ namespace ImprovedHunters
         }
 
         /// <summary>
-        /// Called from the direct-attack result hook when Vanilla's attack failed at tile distance 0 or 1 (the prey
-        /// walked onto or beside the Hunter). The failed-attack recovery that follows would send him onto the prey's
-        /// tile again; a staged firing position makes that MoveHere go to a tile he can shoot from instead.
+        /// When a still-live target is on or next to the Hunter's tile, route the native retry
+        /// to a firing position. An accepted attack can also end up here if the final movement
+        /// step put the Hunter on the prey's tile during aiming.
         /// </summary>
-        public void OnAttackFailedTooClose(int hunterUnitId, uint preyGlobalId)
+        public void StageTooCloseRetry(int hunterUnitId, uint preyGlobalId)
         {
             try
             {
@@ -126,6 +126,11 @@ namespace ImprovedHunters
                 {
                     return;
                 }
+
+                int tileDistance = Math.Abs(hunter->r_CurrentTilePositionX - prey->r_CurrentTilePositionX) +
+                    Math.Abs(hunter->r_CurrentTilePositionY - prey->r_CurrentTilePositionY);
+                if (tileDistance > 1)
+                    return;
 
                 lock (stateLock)
                 {

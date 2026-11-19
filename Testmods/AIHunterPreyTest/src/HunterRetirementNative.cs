@@ -25,6 +25,8 @@ namespace AIHunterPreyTest
         private readonly MarkForRemoval markForRemoval;
         private readonly bool supported;
         private bool faulted, invoking;
+        // Shared image identity only; later retirement-site failures do not invalidate AIV geometry.
+        internal bool AuditedImage { get; private set; }
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate void AvoidCell(IntPtr state, int x, int y);
@@ -50,6 +52,7 @@ namespace AIHunterPreyTest
                 using (var sha = SHA256.Create())
                     if (!string.Equals(Hex(sha.ComputeHash(stream)), AuditedHash, StringComparison.OrdinalIgnoreCase))
                         throw new InvalidOperationException("Native image is outside the audited retirement contract.");
+                AuditedImage = true;
 
                 // Validate the original load snapshot, then call live entries so SE's refund hooks run.
                 var memory = context.Memory;
