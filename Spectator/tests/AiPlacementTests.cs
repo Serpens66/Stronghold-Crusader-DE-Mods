@@ -35,25 +35,37 @@ internal static class AiPlacementTests
             bedouin == eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER, "Bedouin unit placement must retain its native type.");
         var none = new AiPlacementChoice("None", "None", true, false, "");
         var defense = new AiPlacementChoice("CastleDefense", "Defense", true, false, "");
-        model.SetChoices(new[] { none, defense }, "Unavailable", "Changed unit");
+        // Choice keys are unit types (mapper IDs as text in the runtime).
+        model.SetChoices("archer", new[] { none, defense });
         Check(model.Role == "None" && model.CanPlace && !model.CanCount, "Default must be No AI.");
         Check(model.CanApplyInEditor, "No AI may explicitly preview its editor assignment.");
-        model.Additional = true; Check(!model.Additional, "No AI has no recruitment mode.");
-        model.Selected = defense; model.Additional = true;
-        model.SetChoices(new[] { none }, "Unavailable", "Changed unit");
-        Check(model.Role == "CastleDefense" && !model.CanPlace && model.Additional, "Type changes must preserve and reject incompatible intent.");
-        model.SetChoices(new[] { none, new AiPlacementChoice("CastleDefense", "Deferred", true, true, "At map start") }, "Unavailable", "");
+        model.Additional = false; Check(!model.Additional, "No AI has no recruitment mode.");
+        model.Selected = defense;
+        Check(model.Role == "CastleDefense" && model.Additional, "Placed troops are additional to the AI's planned army by default.");
+        model.Additional = false;
+        model.SetChoices("pikeman", new[] { none });
+        Check(model.Role == "None" && model.CanPlace && !model.Additional, "A unit type without the selected role falls back to No AI.");
+        model.SetChoices("archer", new[] { none, defense });
+        Check(model.Role == "CastleDefense" && !model.Additional, "Each unit type remembers its last role and recruitment mode.");
+        model.SetChoices("pikeman", new[] { none, defense });
+        Check(model.Role == "None", "The fallback is not remembered as a choice of the other unit type.");
+        model.SetChoices("archer", new[] { none, new AiPlacementChoice("CastleDefense", "Deferred", true, true, "At map start") });
         Check(model.CanPlace && model.Selected.Deferred, "Editor declarations do not require a running AI.");
         Check(model.CanApplyInEditor, "Authored AIC deferral does not disable explicit current-editor preview.");
         var unavailable = new AiPlacementChoice("CastleDefense", "Defense", false, false, "AIC changed");
-        model.SetChoices(new[] { none, unavailable }, "Unavailable", "Changed unit");
-        Check(ReferenceEquals(model.Selected, unavailable) && !model.Selected.Available && !model.CanPlace && !model.CanApplyInEditor &&
-            model.Role == "CastleDefense" && model.Additional,
-            "A disabled current row retains exact semantic intent and reason while blocking placement/preview.");
-        model.Selected = none; Check(!model.Additional, "Returning to No AI clears quota mode.");
-        model.Selected = defense; model.ApplyInEditor = true; model.Reset();
+        model.SetChoices("archer", new[] { none, unavailable });
+        Check(model.Role == "None" && model.CanPlace, "A remembered role that is not selectable now shows No AI.");
+        model.SetChoices("archer", new[] { none, defense });
+        Check(model.Role == "CastleDefense", "The remembered role returns once it is selectable again.");
+        var blocked = new AiPlacementChoice("None", "None", false, false, "Unavailable");
+        model.SetChoices("archer", new[] { blocked });
+        Check(model.Role == "None" && !model.CanPlace, "Without the AI service the unavailable None row blocks placement.");
+        model.SetChoices("archer", new[] { none, defense });
+        model.ApplyInEditor = true; model.Reset();
         Check(model.Role == "None" && !model.ApplyInEditor && !model.Additional, "New missions reset local placement intent.");
-        Console.WriteLine("PASS: AI placement defaults, incompatible intent, editor declarations and mission reset.");
+        model.SetChoices("archer", new[] { none, defense });
+        Check(model.Role == "None", "New missions forget remembered roles.");
+        Console.WriteLine("PASS: AI placement defaults, per-type memory, No AI fallback, editor declarations and mission reset.");
         return 0;
     }
 

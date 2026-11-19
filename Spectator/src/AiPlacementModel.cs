@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 
 namespace Spectator
@@ -22,22 +23,32 @@ namespace Spectator
         { Role = role; Name = name; Available = available; Deferred = deferred; Help = help ?? ""; }
     }
 
+    // The selection is remembered per unit type (choice key) for the current mission. A type whose
+    // remembered role is absent or not selectable for the current owner shows No AI instead
+    // (user decision 2026-11-19); the remembered role returns once it is selectable again.
+    // Placed troops count as additional to the AI's planned army by default (user decision 2026-11-19).
     public sealed class AiPlacementModel : INotifyPropertyChanged
     {
+        private sealed class Remembered { internal string Role = "None"; internal bool Additional = true; }
+        private readonly Dictionary<string, Remembered> remembered = new Dictionary<string, Remembered>(StringComparer.Ordinal);
         private AiPlacementChoice[] choices = Array.Empty<AiPlacementChoice>();
-        private string role = "None", feedback = "";
-        private bool additional, applyInEditor;
+        private string role = "None", feedback = "", key = "";
+        private bool additionalPreference = true, applyInEditor;
         public event PropertyChangedEventHandler PropertyChanged;
         public AiPlacementChoice[] Choices => choices;
         public AiPlacementChoice Selected
         {
             get { foreach (var choice in choices) if (choice.Role == role) return choice; return null; }
-            set { if (value == null || value.Role == role) return; role = value.Role;
-                if (role == "None") additional = false;
+            set { if (value == null || value.Role == role) return; role = value.Role; Current().Role = role;
                 feedback = ""; Changed(nameof(Selected)); Changed(nameof(Additional)); Changed(nameof(CanCount)); Changed(nameof(CanPlace)); Changed(nameof(CanApplyInEditor)); Changed(nameof(Feedback)); }
         }
         public string Role => role;
-        public bool Additional { get => additional; set { bool next = CanCount && value; if (additional == next) return; additional = next; Changed(nameof(Additional)); } }
+        // No AI has no recruitment mode; the preference is kept for the next AI role of this unit type.
+        public bool Additional
+        {
+            get => CanCount && additionalPreference;
+            set { if (!CanCount || additionalPreference == value) return; additionalPreference = value; Current().Additional = value; Changed(nameof(Additional)); }
+        }
         public bool ApplyInEditor { get => applyInEditor; set { if (applyInEditor == value) return; applyInEditor = value; Changed(nameof(ApplyInEditor)); } }
         public bool CanCount => role != "None";
         public bool CanPlace => Selected?.Available == true;
@@ -45,20 +56,29 @@ namespace Spectator
         // APIShared validates the editor's current AI/AIC independently at application.
         public bool CanApplyInEditor => Selected?.Available == true;
         public string Feedback { get => feedback; internal set { if (feedback == value) return; feedback = value ?? ""; Changed(nameof(Feedback)); } }
-        internal void SetChoices(AiPlacementChoice[] next, string unavailableLabel, string unavailableHelp)
+        // choiceKey identifies the unit type; the owner and locale may change without a new key.
+        internal void SetChoices(string choiceKey, AiPlacementChoice[] next)
         {
             next = next ?? Array.Empty<AiPlacementChoice>();
-            bool found = false; foreach (var choice in next) if (choice.Role == role) found = true;
-            // Changing a unit/owner must never silently replace an explicitly selected AI assignment.
-            if (!found)
-            {
-                var retained = new AiPlacementChoice[next.Length + 1]; Array.Copy(next, retained, next.Length);
-                retained[next.Length] = new AiPlacementChoice(role, unavailableLabel, false, false, unavailableHelp); next = retained;
-            }
-            choices = next; Changed(nameof(Choices)); Changed(nameof(Selected)); Changed(nameof(CanPlace)); Changed(nameof(CanApplyInEditor));
+            key = choiceKey ?? "";
+            var wanted = Current();
+            role = "None";
+            foreach (var choice in next) if (choice.Role == wanted.Role && choice.Available) role = wanted.Role;
+            additionalPreference = wanted.Additional;
+            // Without a selectable None row (no AI service) the unavailable None row still blocks placement.
+            choices = next; Changed(nameof(Choices)); Changed(nameof(Selected)); Changed(nameof(Additional)); Changed(nameof(CanCount));
+            Changed(nameof(CanPlace)); Changed(nameof(CanApplyInEditor));
         }
         internal void Reset()
-        { role = "None"; additional = applyInEditor = false; feedback = ""; choices = Array.Empty<AiPlacementChoice>(); Changed(""); }
+        {
+            role = "None"; additionalPreference = true; applyInEditor = false; feedback = ""; key = "";
+            remembered.Clear(); choices = Array.Empty<AiPlacementChoice>(); Changed("");
+        }
+        private Remembered Current()
+        {
+            if (!remembered.TryGetValue(key, out var entry)) remembered[key] = entry = new Remembered();
+            return entry;
+        }
         private void Changed(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }

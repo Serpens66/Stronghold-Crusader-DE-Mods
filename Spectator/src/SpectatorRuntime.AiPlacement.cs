@@ -165,13 +165,18 @@ namespace Spectator
             if (choices.Count == 0)
                 choices.Add(new AiPlacementChoice("None", AiRoleLabel("None"), false, false, AiText("Unavailable")));
             aiUpdating = true;
-            try { aiPlacement.SetChoices(choices.ToArray(), AiRoleLabel(aiPlacement.Role), AiText("Incompatible")); }
+            try { aiPlacement.SetChoices(aiShownMapper.ToString(), choices.ToArray()); }
             finally { aiUpdating = false; }
             UpdateAiPlacementControls();
         }
 
         private static string AiText(string key) => SerpLocalization.Get("Tools.Ai." + key);
         private static string AiRoleLabel(string role) => SerpLocalization.Get("Tools.AiRole." + role);
+        // What the AI uses the group for (keys Tools.AiRoleHelp.<AiMilitaryRole>); siege roles add that
+        // the AI only commands them during a siege.
+        private static string AiRoleHelp(string role) => role == "None" ? AiText("NoneHelp") :
+            SerpLocalization.Get("Tools.AiRoleHelp." + role) +
+            (role.StartsWith("Siege", StringComparison.Ordinal) ? " " + AiText("SiegeHint") : "");
         private static string AiReason(AiMilitaryReason reason) => reason == AiMilitaryReason.None ? "" :
             SerpLocalization.Get("Tools.AiReason." + reason);
 
@@ -190,7 +195,7 @@ namespace Spectator
                         // Real Noesis leaves Setter.Value Binding objects unapplied on generated
                         // rows. Own the small option set explicitly, including disabled reason tips.
                         var row = new ComboBoxItem { Content = choice.Name, DataContext = choice, IsEnabled = choice.Available };
-                        AiTip(row, string.IsNullOrEmpty(choice.Help) ? AiText(choice.Role == "None" ? "NoneHelp" : "RoleHelp") : choice.Help);
+                        AiTip(row, AiRoleHelp(choice.Role) + (string.IsNullOrEmpty(choice.Help) ? "" : " " + choice.Help));
                         aiRoleRows.Add(row);
                     }
                     aiRolePicker.ItemsSource = aiRoleRows.ToArray();
@@ -215,7 +220,7 @@ namespace Spectator
                 aiAdditional.Foreground = aiEditorApply.Foreground = ToolbarPalette.Paper.Ink;
                 SetAiRoleForeground(aiRolePicker.IsDropDownOpen);
                 aiRolePicker.Background = ToolbarPalette.Paper.Input;
-                AiTip(aiRolePicker, AiText("RoleHelp") + (aiPlacement.Role == "None" ? " " + AiText("NoneHelp") : ""));
+                AiTip(aiRolePicker, AiText("RoleHelp") + " " + AiRoleHelp(aiPlacement.Role));
                 AiTip(aiAdditional, AiText("AdditionalHelp"));
                 AiTip(aiEditorApply, AiText("EditorHelp"));
                 AiTip(aiPlacementGrip, PlayerLabel(aiShownOwner) + ". " + AiText("DragHelp"));
