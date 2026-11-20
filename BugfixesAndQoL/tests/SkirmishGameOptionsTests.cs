@@ -75,6 +75,13 @@ namespace BugfixesAndQoL
                   SkirmishGameOptionsPolicy.IsPresetLoadCommand("UsePresets1") &&
                   SkirmishGameOptionsPolicy.IsPresetSaveCommand("SavePresets2"),
                 "shared Previous and persistent preset commands use the working copy");
+            check(new[] { "Settings_Autosave", "Settings_ExtremePowers", "Settings_ExtremePowerLord",
+                          "UsePrevious", "UseDefault", "UsePresets1", "UsePresets2" }
+                    .All(SkirmishGameOptionsPolicy.IsCoopLiveDraftCommand) &&
+                  !SkirmishGameOptionsPolicy.IsCoopLiveDraftCommand("Settings_AllowOutposts") &&
+                  !SkirmishGameOptionsPolicy.IsCoopLiveDraftCommand("ApplySettings") &&
+                  !SkirmishGameOptionsPolicy.IsCoopLiveDraftCommand("CancelSettings"),
+                "online Coop aliases only commands that would otherwise write to the live setup");
         }
 
         private static void TestNoDogsContract(Action<bool, string> check)

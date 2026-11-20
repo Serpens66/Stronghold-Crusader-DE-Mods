@@ -3,8 +3,28 @@
   "Author": "Serpens66",
   "Name": "DesyncTest",
   "Description": "Passive Light/Deep desync capture; runtime acceptance pending.",
-  "Version": "0.1.2",
+  "Version": "0.1.7",
   "SerpChangelog": [
+    {
+      "Version": "0.1.7",
+      "Changes": ["Write rolling native checkpoints during normal play, pin the last checkpoints at each resync, and limit and rotate stored diagnostic packages."]
+    },
+    {
+      "Version": "0.1.6",
+      "Changes": ["Compare native worker selection and access results, and the executed fields of synchronized mod commands in Light mode."]
+    },
+    {
+      "Version": "0.1.5",
+      "Changes": ["Record per-building checksums and bounded building details, including temporary differences which disappear before a resync repairs anything."]
+    },
+    {
+      "Version": "0.1.4",
+      "Changes": ["Trace worker assignments across all player slots and include units identified by checksum differences even when detailed repair records are missing."]
+    },
+    {
+      "Version": "0.1.3",
+      "Changes": ["Optionally trace peasant and miller assignment changes for one player in Light or Deep and correlate them with confirmed resync windows."]
+    },
     {
       "Version": "0.1.2",
       "Changes": ["Keep compact per-unit checksum history in Light mode and after Deep expires. The host/client report narrows repaired unit slots to the last matching and first differing checks and shows the bytes changed by repair."]

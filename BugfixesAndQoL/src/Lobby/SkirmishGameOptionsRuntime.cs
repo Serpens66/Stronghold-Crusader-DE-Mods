@@ -37,18 +37,31 @@ namespace BugfixesAndQoL
 
         internal static int GetLocalAutosaveMinutes(MissionContext context)
         {
-            if (context == null || context.IsSave || context.Mode.IsRealMultiplayer ||
-                !MainViewModel.viewModelLoaded)
+            if (context == null || !MainViewModel.viewModelLoaded ||
+                !CanUseLobbyAutosave(context.Mode.Kind, context.Mode.LaunchVariant,
+                    context.IsSave, context.Mode.IsRealMultiplayer))
                 return 0;
 
-            switch (context.Mode.Kind)
+            return GetConfirmedAutosave(MainViewModel.Instance.HUDIngameMenu?.restartSkirmishMapInfo?.MPsetupData);
+        }
+
+        private static bool CanUseLobbyAutosave(
+            GameModeKind kind, GameModeLaunchVariant variant, bool isSave, bool isRealMultiplayer)
+        {
+            if (isSave || isRealMultiplayer)
+                return false;
+
+            switch (kind)
             {
                 case GameModeKind.CustomGame:
                 case GameModeKind.CustomTrail:
                 case GameModeKind.CoopTrail:
-                    return GetConfirmedAutosave(MainViewModel.Instance.HUDIngameMenu?.restartSkirmishMapInfo?.MPsetupData);
+                    return true;
+                case GameModeKind.VanillaTrail:
+                case GameModeKind.SandsOfTime:
+                    return variant == GameModeLaunchVariant.Customized;
                 default:
-                    return 0;
+                    return false;
             }
         }
 

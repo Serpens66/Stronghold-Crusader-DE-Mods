@@ -51,10 +51,18 @@ def audit(workspace,game,source_root=None):
         return i.address+i.size+i.operands[1].mem.disp-base
     hash_start=rip_target(0x220c2);mask=rip_target(0x2209a);wire=rip_target(0x157ae)
     if (hash_start-(wire+0x490),mask-(wire+0x490))!=(0x8c,0x41c):raise ValueError('wire/hash layout changed')
+    building_base=rip_target(0x221b0)-0x10-0x32c
+    if building_base!=0x64ccc0c or rip_target(0x221be)-building_base-0x32c!=0xd0:
+        raise ValueError('building record base changed')
+    for rva,instruction in ((0x221ca,'41bf9f0f0000'),(0x221f0,'0fb7beec020000'),
+                            (0x22209,'ba5c020000'),(0x22217,'4981c62c030000'),
+                            (0x22246,'4869c8a00f0000'),(0x22256,'89948b0c6f1a00'),(0x22282,'4489a4190cd11400')):
+        if image[rva:rva+len(bytes.fromhex(instruction))]!=bytes.fromhex(instruction):
+            raise ValueError(f'building checksum anchor changed at {rva:#x}')
     return dict(nativeHash=actual,backendHash=hashlib.sha256(backend.read_bytes()).hexdigest().upper(),inlineBackendHash=re.search(r'InlineBackendHash="([A-F0-9]+)"',source)[1],assemblerHash=re.search(r'AssemblerHash="([A-F0-9]+)"',source)[1],sites=sites,incomingInteriorReferences=failures,
                 checksumHelper=raw.hex(),wireRecordBase=wire,hashStartRelativeWire=0x8c,maskRelativeWire=0x41c,
                 limits='Static evidence. Full source audit and runtime host/client acceptance remain separate.')
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--workspace',type=Path,required=True);p.add_argument('--source-root',type=Path);p.add_argument('--game',type=Path,required=True);p.add_argument('--output',type=Path,required=True)
-    a=p.parse_args();result=audit(a.workspace,a.game,a.source_root);a.output.write_text(json.dumps(result,indent=2)+'\n',encoding='utf-8');print('PASS: native identity, backend, 10 complete spans, incoming edges and wire-prefix anchors')
+    a=p.parse_args();result=audit(a.workspace,a.game,a.source_root);a.output.write_text(json.dumps(result,indent=2)+'\n',encoding='utf-8');print(f"PASS: native identity, backend, {len(result['sites'])} complete spans, incoming edges and wire-prefix anchors")

@@ -14,6 +14,116 @@ spec=importlib.util.spec_from_file_location('analyzer',Path(__file__).parents[1]
 analyzer=importlib.util.module_from_spec(spec);spec.loader.exec_module(analyzer)
 
 class AnalyzerTests(unittest.TestCase):
+    def test_pinned_checkpoint_deduplicates_rotating_copy_in_event_order(self):
+        with fixture() as tmp:
+            folder=self.packet(Path(tmp),'rolling')
+            def frame(kind,seq,tick,phase,op,stage,p=b''):
+                return analyzer.HEADER.pack(80+len(p),2,kind,seq,1,seq,1,tick,phase,op,1,40,tick,0,0,stage,len(p))+p
+            early=frame(5,5,200,10,-1,0,bytes(56))
+            (folder/'checkpoints.previous.bin').write_bytes(early)
+            (folder/'checkpoints.bin').write_bytes(frame(5,8,400,13,-1,1,bytes(56)))
+            (folder/'evidence.bin').write_bytes(early)
+            (folder/'markers.bin').write_bytes(frame(4,6,399,0,54,0)+frame(4,9,400,0,67,1))
+            tape=analyzer.load(folder)
+            self.assertEqual(tape['errors'],[])
+            self.assertEqual(len(tape['checksums']),2)
+            self.assertEqual(tape['incidents'][0]['state'],'finished')
+            (folder/'checkpoints.previous.bin').unlink()
+            self.assertEqual(len(analyzer.load(folder)['checksums']),2)
+
+    def test_compares_native_worker_decisions_and_executed_chore_fields(self):
+        with fixture() as tmp:
+            tapes=[]
+            for name,worker_result,entrance_result,chore in (('host',0,0,b'abc'),('client',1559,1,b'abd')):
+                folder=self.packet(Path(tmp),name)
+                def frame(kind,seq,tick,phase,op,command,planned,slot,identity,stage,p=b''):
+                    return analyzer.HEADER.pack(80+len(p),2,kind,seq,1,1,1,tick,phase,op,6,command,planned,slot,identity,stage,len(p))+p
+                events=frame(19,1,297,11,-1,15,2,271,1761573,1,analyzer.WORKER_DECISION.pack(entrance_result,3,0,0,0,0))
+                events+=frame(18,2,297,11,-1,15,2,271,1761573,1,analyzer.WORKER_DECISION.pack(worker_result,0,0,0,0,0))
+                events+=frame(4,4,312,0,54,0,312,0,0,0)
+                # A later decision for the same building in the repair tick is outside the window.
+                events+=frame(18,5,312,11,-1,15,2,271,1761573,0,analyzer.WORKER_DECISION.pack(0,0,0,0,0,0))
+                (folder/'events.bin').write_bytes(events)
+                (folder/'snapshots.bin').write_bytes(frame(7,3,304,0,106,2001,304,0,1,4,chore))
+                tape=analyzer.load(folder)
+                self.assertEqual(tape['errors'],[])
+                tapes.append(tape)
+            report=analyzer.compare(*tapes)
+            self.assertEqual(report['customChoreFields']['compared'],1)
+            self.assertEqual(report['mismatches'][0]['type'],'executed-custom-chore-field')
+            difference,=report['unitChecksumWindows'][0]['nativeWorkerDecisionDifferences']
+            self.assertEqual(difference['buildingGlobalId'],1761573)
+            self.assertEqual([v['result'] for v in difference['host']],[0,0])
+            self.assertEqual([v['result'] for v in difference['client']],[1,1559])
+            self.assertFalse(difference['missingObservation'])
+
+    def test_transient_building_difference_identifies_slot_without_repair(self):
+        with fixture() as tmp:
+            tapes=[]
+            for name,checksum in (('host',10),('client',20)):
+                folder=self.packet(Path(tmp),name)
+                def frame(kind,seq,tick,phase,stage,payload,slot=0,identity=0,tag=0):
+                    return analyzer.HEADER.pack(80+len(payload),2,kind,seq,1,1,1,tick,phase,-1,1,tag,tick,slot,identity,stage,len(payload))+payload
+                def table(seq,tick,phase,value):
+                    payload=bytearray(analyzer.BUILDING_CHECKSUMS.size)
+                    struct.pack_into('<I',payload,36*4,value)
+                    return frame(16,seq,tick,phase,int(phase==13),payload)
+                row=bytearray(analyzer.BUILDING_SIZE)
+                struct.pack_into('<I',row,0xd8,1881290)
+                row[0x192]=checksum
+                row[0x2fc]=checksum # Native checksum masks this word.
+                (folder/'events.bin').write_bytes(table(1,7800,10,7)+table(2,8000,10,checksum)+table(4,8012,13,33))
+                (folder/'snapshots.bin').write_bytes(frame(17,3,8000,10,0,row,37,1881290,checksum))
+                tapes.append(analyzer.load(folder))
+            report=analyzer.compare(*tapes)
+            self.assertEqual(report['comparedNativeBuildingTables'],3)
+            different=[v for v in report['mismatches'] if v['type']=='native-building-checksum-table']
+            self.assertEqual([v['tick'] for v in different],[8000])
+            building=different[0]['buildings'][0]
+            self.assertEqual((building['slot'],building['host']['globalId']),(37,1881290))
+            self.assertEqual(building['byteChanges'],[dict(offset='0x192',host=10,client=20)])
+
+    def test_checksum_finds_different_player_and_slot_when_unit_repair_is_missing(self):
+        with fixture() as tmp:
+            tapes=[]
+            for name,checksum in (('host',10),('client',20)):
+                folder=self.packet(Path(tmp),name)
+                def frame(kind,seq,tick,phase,op,p=b'',slot=0,identity=0):
+                    return analyzer.HEADER.pack(80+len(p),2,kind,seq,1,1,1,tick,phase,op,3,42,tick,slot,identity,0,len(p))+p
+                def table(seq,tick,value):
+                    p=bytearray(analyzer.UNIT_CHECKSUMS.size)
+                    struct.pack_into('<I',p,771*4,value)
+                    return frame(14,seq,tick,10,-1,p)
+                mark=analyzer.WORKER.pack(83060,21093,1,15,33,8,0,2,12,31,13,33)
+                events=table(1,560,7)+frame(15,2,673,11,-1,mark,772,83060)+table(3,760,checksum)+frame(4,4,771,0,54)
+                (folder/'events.bin').write_bytes(events)
+                (folder/'snapshots.bin').write_bytes(b'')
+                tapes.append(analyzer.load(folder))
+            window=analyzer.compare(*tapes)['unitChecksumWindows'][0]
+            self.assertEqual(window['repairedSlots'],[])
+            self.assertEqual(window['checksumOnlySlots'],[dict(slot=772,lastMatchingTick=560,firstDifferentTick=760)])
+            self.assertEqual(window['workerTrace']['host']['transitions'][0]['player'],3)
+            self.assertEqual(window['workerTrace']['workplaceGlobalIds'],[21093])
+
+    def test_worker_trace_links_repaired_slot_and_other_worker_by_workplace_global_id(self):
+        with fixture() as tmp:
+            tapes=[]
+            for name,slot in (('host',12),('client',13)):
+                folder=self.packet(Path(tmp),name)
+                def frame(kind,seq,tick,phase,op,stage,p=b'',unit=0,identity=0):
+                    return analyzer.HEADER.pack(80+len(p),2,kind,seq,1,1,1,tick,phase,op,6,42,tick,unit,identity,stage,len(p))+p
+                def worker(seq,tick,slot,workplace):
+                    identity=80+slot
+                    mark=analyzer.WORKER.pack(identity,workplace,1,15 if workplace else 0,7,8,0,2,42,23,41,22)
+                    return frame(15,seq,tick,11,-1,1,mark,slot,identity)
+                (folder/'events.bin').write_bytes(worker(1,160,12,0)+worker(2,185,slot,901)+frame(4,3,200,0,54,0)+worker(5,200,12,902))
+                (folder/'snapshots.bin').write_bytes(frame(8,4,200,0,56,0,bytes(1168),12))
+                tapes.append(analyzer.load(folder))
+            worker=analyzer.compare(*tapes)['unitChecksumWindows'][0]['workerTrace']
+            self.assertEqual(worker['workplaceGlobalIds'],[901])
+            self.assertEqual([(r['slot'],r['tick'],r['pendingType']) for r in worker['host']['transitions']],[(12,160,0),(12,185,15)])
+            self.assertEqual([(r['slot'],r['tick'],r['pendingType']) for r in worker['client']['transitions']],[(12,160,0),(13,185,15)])
+
     def test_light_incident_uses_matching_then_divergent_native_checkpoints(self):
         with fixture() as tmp:
             traces=[]

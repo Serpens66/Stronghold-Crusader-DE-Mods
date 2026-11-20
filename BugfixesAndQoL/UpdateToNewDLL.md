@@ -1280,3 +1280,23 @@ The terrain pass writes the logic layer only at 0x7C1FF and 0x7C320. The relevan
 New maps and existing saves enter 0x71670 at 0x95721 and 0x95561 from 0x94350. The helper marks all terrain dirty via 0x59A30 at 0x718E6 and invokes 0xCDE60 at 0x71C76. Its terrain pass runs at 0xCE0C9, before the corresponding 0x22020 checksum at 0x96E91 or 0x955D0. DLL_LoadSaveGame also enters 0x71670 at 0x85533. The regular tick follows the same update helper via 0x869EF. No extra scan is required on those paths.
 
 The executable moat terrain fixture runs the installed RedBird trampoline against exact displaced bytes. It checks both activation paths, register/flag/stack and SIMD preservation, all four local indices, Antler shore geometry, low and raised moats, river and bridge edges, walls, and clean, border and out-of-range tiles. This fixture establishes the machine contract; the Steam multiplayer comparison of rendering and checksum cycles is a separate acceptance test.
+
+## Multiplayer autosave during pause
+
+Native reference SHA-256:
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The permanent native-only hook covers `[0x1F76D,0x1F780)` (6 + 7 + 6 bytes)
+in the autosave scheduler, after the wall-clock test and before either
+timestamp write. The containing function has one caller and no branch to
+the interior of this span. The normal path replays both timestamp stores
+and the RIP-relative network-state address before resuming at `0x1F780`.
+The early path uses the original epilogue at `0x1F7D0`.
+
+The pause DWORD is at `0x366A0F8`. Pending save commands use opcode 39,
+the status convention and 500-slot layout read by the dispatcher at
+`0x21EE0`, and the queue origin at network-state offset `0x370BF0`.
+Revalidate the layout, queue status, register liveness, RIP-relative replay
+and all branch targets before enabling on another game image. Paused frames
+change no timestamps. When active, an existing pending save covers any
+newly expired interval and only the wall-clock timer restarts.
+An unknown image or foreign bytes leave Vanilla behavior active.

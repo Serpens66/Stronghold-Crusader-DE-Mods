@@ -206,6 +206,7 @@ internal static partial class Program
             }
             LocalAutosaveFileTests();
             LocalAutosaveSchedulingTests();
+            LocalAutosaveLobbyChoiceTests();
             if (args.Length > 3 && args[3] == "--local-autosave-only")
             {
                 Console.WriteLine("PASS: local autosave file checks: " + checks);

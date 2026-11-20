@@ -196,6 +196,7 @@
     <Compile Include="src\Multiplayer\MultiplayerGameSpeedChangePacket.cs" />
     <Compile Include="src\Multiplayer\MultiplayerGameSpeedPolicy.cs" />
     <Compile Include="src\Multiplayer\MultiplayerGameSpeedRuntime.cs" />
+    <Compile Include="src\Multiplayer\MultiplayerAutosavePausePatch.cs" />
     <Compile Include="src\Multiplayer\MultiplayerSafetyPolicy.cs" />
     <Compile Include="src\Multiplayer\MultiplayerTimeControlPermission.cs" />
     <Compile Include="src\Multiplayer\MultiplayerTimeControlRosterPolicy.cs" />

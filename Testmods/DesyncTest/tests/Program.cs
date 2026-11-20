@@ -6,6 +6,8 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using DesyncTest;
 using Iced.Intel;
+using RedBird.Abstractions.Hooks;
+using RedBird.Backends.NativeX64;
 using static Iced.Intel.AssemblerRegisters;
 
 namespace DesyncTest { public static class DesyncTestPlugin { public const string Guid="DesyncTest_Serp"; } }
@@ -16,18 +18,21 @@ internal static unsafe class Program
     static void Check(bool value,string message){assertions++;if(!value)throw new Exception(message);}
     [DllImport("kernel32.dll",SetLastError=true)]static extern IntPtr VirtualAlloc(IntPtr address,UIntPtr size,uint type,uint protect);
     [DllImport("kernel32.dll")]static extern bool VirtualFree(IntPtr address,UIntPtr size,uint type);
+    [DllImport("kernel32.dll",SetLastError=true)]static extern bool VirtualProtect(IntPtr address,UIntPtr size,uint protection,out uint previous);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)]delegate uint Crc(IntPtr unused,int size,IntPtr bytes);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)]delegate void Thunk(IntPtr target);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]delegate void FixtureHandler();
     [UnmanagedFunctionPointer(CallingConvention.Winapi)]delegate void Forced(IntPtr text,int tick,int expected,int started,int now);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]delegate int WorkerEntry(IntPtr manager,ushort role,int building,int player,int ordinal);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]delegate int EntranceEntry(IntPtr manager,int building,int ordinal,int expansion);
     private sealed class Bytes:CodeWriter{internal readonly List<byte> Data=new List<byte>();public override void WriteByte(byte value)=>Data.Add(value);}
     static IntPtr Code(byte[] bytes){var p=VirtualAlloc(IntPtr.Zero,(UIntPtr)Math.Max(4096,bytes.Length),0x3000,0x40);if(p==IntPtr.Zero)throw new Exception("allocation failed");Marshal.Copy(bytes,0,p,bytes.Length);return p;}
     static byte[] Assemble(Assembler a,ulong address){var w=new Bytes();a.Assemble(w,address);return w.Data.ToArray();}
     public static int Main(string[] args)
     {
         if(args.Length!=2)throw new ArgumentException("fixture directory and native-audit.json required");
-        Directory.CreateDirectory(args[0]);Ring();Window();NativeHash(args[1]);InlineMachines();RepairCapture();ConcurrentSessions();Packages(args[0]);BudgetRecovery(Path.Combine(args[0],"budget"));
-        Console.WriteLine("PASS: "+assertions+" assertions; native signed checksum and six production inline generators executed.");return 0;
+        Directory.CreateDirectory(args[0]);Ring();Window();NativeHash(args[1]);InlineMachines();WorkerEntryMachines();RepairCapture();WorkerCapture(6);WorkerCapture(-1);ConcurrentSessions(Path.Combine(args[0],"concurrent"));Packages(Path.Combine(args[0],"packages"));BudgetRecovery(Path.Combine(args[0],"budget"));RollingCheckpoints(Path.Combine(args[0],"rotation"));Retention(Path.Combine(args[0],"retention"));
+        Console.WriteLine("PASS: "+assertions+" assertions; native checksum, six inline generators and two worker entry detours executed.");return 0;
     }
     static void Ring()
     {
@@ -56,9 +61,9 @@ internal static unsafe class Program
         var disabled=new Recorder(new CaptureOptions{Mode=CaptureMode.Off},"unused",_=>{});disabled.Start(1,new{});
         Check(!disabled.Active&&disabled.Ring.Capacity==256,"Off does not reserve capture budgets or activate a session");
     }
-    static void ConcurrentSessions()
+    static void ConcurrentSessions(string root)
     {
-        var recorder=new Recorder(new CaptureOptions{LightMiB=1,DeepMiB=2,QueueMiB=1},"unused",_=>{});
+        var recorder=new Recorder(new CaptureOptions{LightMiB=1,DeepMiB=2,QueueMiB=1},root,_=>{});
         var barrier=new Barrier(3);Exception failure=null;const int rounds=64;
         ThreadStart produce=()=>{
             for(int round=0;round<rounds;round++)
@@ -87,19 +92,37 @@ internal static unsafe class Program
         var options=new CaptureOptions{LightMiB=4,DeepMiB=4,QueueMiB=1,IncidentMiB=1,SessionBytes=8*1048576};
         var r=new Recorder(options,root,_=>{});r.Start(1,new{fixture=true});
         r.Record(new CaptureEvent{Kind=RecordKind.Dispatch,Phase=0,Opcode=54},IntPtr.Zero,0);
-        byte[] fill=new byte[1048576-160];
+        byte[] fill=new byte[1048576-80];
         fixed(byte* p=fill)r.Record(new CaptureEvent{Kind=RecordKind.Fault},(IntPtr)p,fill.Length);
+        Check(!r.Record(new CaptureEvent{Kind=RecordKind.Fault},IntPtr.Zero,0),"incident quota rejects excess repair detail");
         r.Record(new CaptureEvent{Kind=RecordKind.Dispatch,Phase=0,Opcode=67,Stage=1},IntPtr.Zero,0);
         r.Record(new CaptureEvent{Kind=RecordKind.ForcedRun},IntPtr.Zero,0);r.End();r.Pump();
         string folder=Directory.GetDirectories(root).Single();byte[] data=File.ReadAllBytes(Path.Combine(folder,"events.bin"));bool forced=false;
         for(int at=0;at<data.Length;at+=BitConverter.ToInt32(data,at))forced|=(RecordKind)BitConverter.ToUInt16(data,at+6)==RecordKind.ForcedRun;
-        Check(forced&&r.DiskDroppedBytes==80,"a capped finish record cannot keep later Light events in the exhausted incident");
+        Check(forced&&new FileInfo(Path.Combine(folder,"markers.bin")).Length==240,"start and finish survive an exhausted incident budget and later Light events resume");
         var deepOptions=new CaptureOptions{Mode=CaptureMode.Deep,LightMiB=4,DeepMiB=4,QueueMiB=1,IncidentMiB=1,SessionBytes=8*1048576};
         var d=new Recorder(deepOptions,Path.Combine(root,"deep"),_=>{});d.Start(1,new{fixture=true});
         d.Current.Window=new DeepWindow(CaptureMode.Light,0,0); // Deliberately absent DeepEnded frame.
         d.Record(new CaptureEvent{Kind=RecordKind.Dispatch,Phase=0,Opcode=54},IntPtr.Zero,0);byte[] payload=new byte[400000];
         fixed(byte* p=payload)for(int i=0;i<3;i++)d.Record(new CaptureEvent{Kind=RecordKind.Fault},(IntPtr)p,payload.Length);
-        d.End();d.Pump();Check(d.DiskDroppedBytes>0,"Light incident limit survives a lost DeepEnded marker");
+        var downgraded=d.Current;
+        d.End();d.Pump();Check(downgraded.IncidentBudgetDropped>0,"Light incident limit survives a lost DeepEnded marker");
+        var reserve=new Recorder(options,Path.Combine(root,"reserved"),_=>{});
+        reserve.Start(1,new{fixture=true});
+        byte[] ordinary=new byte[512*1024],repair=new byte[512*1024];
+        fixed(byte* p=ordinary)for(int i=0;i<12;i++)
+        {
+            reserve.Record(new CaptureEvent{Kind=RecordKind.Fault},(IntPtr)p,ordinary.Length);
+            reserve.Pump();
+        }
+        Check(reserve.DiskDroppedBytes>0,"ordinary detail reaches its own disk limit");
+        reserve.Record(new CaptureEvent{Kind=RecordKind.Dispatch,Phase=0,Opcode=54},IntPtr.Zero,0);
+        fixed(byte* p=repair)reserve.Record(new CaptureEvent{Kind=RecordKind.Field},(IntPtr)p,repair.Length);
+        reserve.Record(new CaptureEvent{Kind=RecordKind.Dispatch,Phase=0,Opcode=67,Stage=1},IntPtr.Zero,0);
+        reserve.End();reserve.Pump();
+        byte[] saved=File.ReadAllBytes(Path.Combine(Directory.GetDirectories(Path.Combine(root,"reserved")).Single(),"snapshots.bin"));
+        Check(saved.Length==80+repair.Length&&BitConverter.ToUInt16(saved,6)==(ushort)RecordKind.Field,
+            "repair detail uses reserved disk space and exports an ordinary format-2 frame");
     }
     static void NativeHash(string auditPath)
     {
@@ -128,6 +151,52 @@ internal static unsafe class Program
         }
         finally{VirtualFree(memory,UIntPtr.Zero,0x8000);}
     }
+    static void RollingCheckpoints(string root)
+    {
+        var r=new Recorder(new CaptureOptions{LightMiB=1,DeepMiB=2,QueueMiB=1,SessionBytes=2*1048576},root,_=>{});
+        var row=new byte[39996];
+        r.Start(1,new{fixture=true});
+        fixed(byte* p=row)
+        {
+            for(int i=1;i<=16;i++)
+            {
+                r.Record(new CaptureEvent{Kind=RecordKind.UnitChecksumTable,Tick=i*200},(IntPtr)p,row.Length);
+                if(i==2)
+                {
+                    r.Record(new CaptureEvent{Kind=RecordKind.Dispatch,Tick=401,Opcode=54},IntPtr.Zero,0);
+                    r.Record(new CaptureEvent{Kind=RecordKind.Dispatch,Tick=402,Opcode=67,Stage=1},IntPtr.Zero,0);
+                }
+                r.Pump();
+            }
+        }
+        string path=Directory.GetDirectories(root).Single();
+        Check(File.Exists(Path.Combine(path,"checkpoints.previous.bin")),"rolling storage is written while the game is active");
+        r.End();r.Pump();
+        byte[] evidence=File.ReadAllBytes(Path.Combine(path,"evidence.bin"));
+        Check(evidence.Length==2*(80+row.Length)&&BitConverter.ToInt32(evidence,40)==200,
+            "early incident pins the before-state despite later checkpoint rotations");
+        Check(Directory.GetFiles(path).Sum(f=>new FileInfo(f).Length)<=2*1048576,"complete package stays below the session budget");
+    }
+    static void Retention(string root)
+    {
+        Directory.CreateDirectory(root);
+        var now=new DateTime(2026,11,20,14,0,0,DateTimeKind.Utc);
+        string Make(int minute,bool ended,int incidents)
+        {
+            string path=Path.Combine(root,$"20261120-1300{minute:D2}-001-p123-s1");
+            Directory.CreateDirectory(path);
+            string manifest=Path.Combine(path,"manifest.json");
+            File.WriteAllText(manifest,Shared.DependencyFreeJson.Serialize(new{plugin="DesyncTest_Serp",retentionSchema=1,session=1,incidents,ended}));
+            File.SetLastWriteTimeUtc(manifest,now.AddHours(-1));
+            return path;
+        }
+        string oldest=Make(1,true,0),control=Make(2,true,0),latest=Make(3,true,0);
+        string incident=Make(4,true,1),active=Make(5,false,0),foreign=Make(6,true,0);
+        File.WriteAllText(Path.Combine(foreign,"personal.txt"),"untouched");
+        CaptureRetention.Prune(root,now,_=>{});
+        Check(!Directory.Exists(oldest)&&Directory.Exists(control)&&Directory.Exists(latest),"only two closed controls survive");
+        Check(Directory.Exists(incident)&&Directory.Exists(active)&&Directory.Exists(foreign),"incident, active and unrecognized packages are preserved");
+    }
     static void InlineMachines()
     {
         // Real production emitter and real displaced instructions. Only external/native callees
@@ -143,7 +212,7 @@ internal static unsafe class Program
         Forced forced=(text,tick,expected,started,now)=>{calls++;forcedCorrect=tick==20&&expected==30&&started==40&&now==50;};
         try
         {
-            foreach(var site in NativeHooks.Sites.Skip(4))
+            foreach(var site in NativeHooks.Sites.Skip(NativeHooks.EntrySiteCount))
             {
                 var decoder=Decoder.Create(64,new ByteArrayCodeReader(site.Bytes));decoder.IP=0x180000000UL+(uint)site.Rva;
                 var instructions=new List<Instruction>();while(decoder.IP<0x180000000UL+(uint)site.Rva+(uint)site.Bytes.Length){decoder.Decode(out var i);instructions.Add(i);}
@@ -170,6 +239,39 @@ internal static unsafe class Program
             GC.KeepAlive(callback);GC.KeepAlive(forced);
         }
         finally{VirtualFree(original,UIntPtr.Zero,0x8000);Marshal.FreeHGlobal(counter);Marshal.FreeHGlobal(state);}
+    }
+    static void WorkerEntryMachines()
+    {
+        RunWorkerEntry<WorkerEntry>(NativeHooks.Sites[4],
+            "0fb7c24103c04103c103442428c3",
+            (callback, expected)=>callback(IntPtr.Zero,15,271,6,2)==expected,294);
+        RunWorkerEntry<EntranceEntry>(NativeHooks.Sites[5],
+            "8bc24103c04103c1c3",
+            (callback, expected)=>callback(IntPtr.Zero,271,3,0)==expected,274);
+    }
+
+    // Copy the audited source spans into guarded executable pages. The synthetic tail
+    // returns the sum of the actual ABI arguments without touching a game object.
+    static void RunWorkerEntry<T>(NativeHooks.Site site,string tail,Func<T,int,bool> call,int expected) where T:Delegate
+    {
+        const int page=4096, lookahead=16;
+        IntPtr region=VirtualAlloc(IntPtr.Zero,(UIntPtr)(2*page),0x3000,0x40);
+        if(region==IntPtr.Zero)throw new InvalidOperationException("entry fixture allocation failed");
+        Check(VirtualProtect(region+page,(UIntPtr)page,0x01,out _),"worker entry has a guard page");
+        byte[] code=site.Bytes.Concat(Convert.FromHexString(tail)).ToArray();
+        IntPtr entry=region+page-site.Bytes.Length-lookahead;
+        Marshal.Copy(code,0,entry,code.Length);
+        var backend=new NativeDetourBackend(new NativeDetourOptions{AllowedSchemes=DetourScheme.Absolute,FollowCalls=false,FollowJumps=false,
+            Chaining=HookChainingPolicy.Refuse,FunctionScanLimit=site.Bytes.Length,SuspendThreadsDuringPatch=false});
+        T direct=Marshal.GetDelegateForFunctionPointer<T>(entry);
+        var request=new DetourRequest<T>{Name=site.Name,TargetAddress=(ulong)entry.ToInt64(),Callback=direct};
+        var hook=(NativeDetour<T>)backend.CreateDetour(in request);
+        Check(hook.Scheme==DetourScheme.Absolute&&hook.DisplacedByteCount==site.Bytes.Length&&
+              hook.TrampolineAddress!=IntPtr.Zero&&!hook.IsInstalled,"worker entry span prepared with installed backend");
+        Check(call(direct,expected)&&call(hook.Original,expected),"worker trampoline preserves register and stack arguments and return");
+        hook.Dispose();
+        GC.KeepAlive(direct);
+        VirtualFree(region,UIntPtr.Zero,0x8000);
     }
     static void Packages(string root)
     {
@@ -203,10 +305,65 @@ internal static unsafe class Program
         deep.Start(1,new{fixture=true});deep.Current.Window=new DeepWindow(CaptureMode.Deep,0,0);deep.Pump();
         Check(!deep.IsDeep&&deep.Active,"Deep expires while simulation is idle, Light remains active");
         deep.Record(new CaptureEvent{Kind=RecordKind.Dispatch,Tick=123,Phase=0,Opcode=54},IntPtr.Zero,0);deep.End();deep.Pump();
-        string deepFolder=Directory.GetDirectories(Path.Combine(root,"deep")).Single();byte[] frames=File.ReadAllBytes(Path.Combine(deepFolder,"events.bin"));int endings=0;bool continuation=false;
+        string deepFolder=Directory.GetDirectories(Path.Combine(root,"deep")).Single();
+        byte[] frames=File.ReadAllBytes(Path.Combine(deepFolder,"events.bin")).Concat(File.ReadAllBytes(Path.Combine(deepFolder,"markers.bin"))).ToArray();int endings=0;bool continuation=false;
         for(int at=0;at<frames.Length;at+=BitConverter.ToInt32(frames,at))
         {if((RecordKind)BitConverter.ToUInt16(frames,at+6)==RecordKind.DeepEnded)endings++;if(BitConverter.ToInt32(frames,at+40)==123)continuation=true;}
         Check(endings==1&&continuation,"one Deep-end block and later Light evidence survive finalization");
+    }
+    static void WorkerCapture(int workerPlayer)
+    {
+        const int size=0x88E5000;
+        IntPtr image=VirtualAlloc(IntPtr.Zero,(UIntPtr)size,0x3000,0x04);
+        if(image==IntPtr.Zero)throw new Exception("fixture image allocation");
+        try
+        {
+            var recorder=new Recorder(new CaptureOptions{LightMiB=1,DeepMiB=2,QueueMiB=1,WorkerPlayer=workerPlayer},"unused",_=>{});
+            recorder.Start(1,new{fixture=true});
+            var capture=new NativeCapture(recorder,image,size);
+            byte* b=(byte*)image;
+            *(uint*)(b+0x67E8400)=3;
+            var unit=(SHCDESE.Interop.GameUnit*)(b+NativeCapture.WireUnits+4+UnitChecksum.RecordSize);
+            unit->r_GlobalId=70;
+            unit->r_ControllableForPlayerId=6;
+            unit->r_AliveState=SHCDESE.Interop.Enums.AliveState.IsAlive;
+            unit->r_UnitChimp=SHCDESE.Interop.eChimps.CHIMP_TYPE_PEASANT;
+            unit[1]=*unit;
+            unit[1].r_ControllableForPlayerId=5;
+            unit[1].r_GlobalId=90;
+            capture.Sample();
+            unit->r_CurrentTilePositionX=21;
+            *(int*)(b+NativeCapture.TickRva)=1;
+            capture.Sample(); // Movement alone must not emit an assignment event.
+            unit->r_TransformIntoUnitOfType=SHCDESE.Interop.eChimps.CHIMP_TYPE_MILLER;
+            unit->r_LinkedProductionBuildingGlobalId=111;
+            *(int*)(b+NativeCapture.TickRva)=2;
+            capture.Sample();capture.Sample();
+            unit->r_GlobalId=71;
+            unit->r_UnitChimp=SHCDESE.Interop.eChimps.CHIMP_TYPE_MILLER;
+            *(int*)(b+NativeCapture.TickRva)=3;
+            capture.Sample();recorder.End();
+            var buffer=new byte[1048576];int sizeRead=recorder.Ring.Drain(buffer);
+            var records=new List<(int Tick,int Stage,int Global,int Target,long Tile)>();
+            int otherPlayerRecords=0;
+            for(int at=0;at<sizeRead;at+=BitConverter.ToInt32(buffer,at))
+            {
+                if((RecordKind)BitConverter.ToUInt16(buffer,at+6)!=RecordKind.WorkerAssignment)continue;
+                if(BitConverter.ToInt32(buffer,at+64)==2)
+                {
+                    Check(workerPlayer==-1&&BitConverter.ToInt32(buffer,at+52)==5,"all-player trace preserves the actual player ID");
+                    otherPlayerRecords++;
+                    continue;
+                }
+                Check(BitConverter.ToInt32(buffer,at+64)==1&&BitConverter.ToInt32(buffer,at+76)==28,"worker player filter and record size");
+                records.Add((BitConverter.ToInt32(buffer,at+40),BitConverter.ToInt32(buffer,at+72),
+                    BitConverter.ToInt32(buffer,at+80),BitConverter.ToInt32(buffer,at+84),BitConverter.ToUInt16(buffer,at+100)));
+            }
+            Check(records.SequenceEqual(new (int,int,int,int,long)[]{(0,0,70,0,0),(2,1,70,111,21),(3,2,70,111,21),(3,0,71,111,21)}),
+                "Light traces assignment changes and slot reuse without emitting movement or repeated tick events");
+            Check(otherPlayerRecords==(workerPlayer==-1?1:0),"optional coverage is not tied to player 6");
+        }
+        finally{VirtualFree(image,UIntPtr.Zero,0x8000);}
     }
     static void RepairCapture()
     {
@@ -247,14 +404,21 @@ internal static unsafe class Program
             capture.Arrival(2,(IntPtr)arrival,8);
             capture.Dispatch((IntPtr)(*(long*)(b+0x2C7A30+106*8)));
             uint* checksums=(uint*)(m+0x14F0CC)+10000;
+            uint* buildingChecks=(uint*)(m+NativeCapture.BuildingChecksumsOffset)+4000;
+            buildingChecks[0]=7;buildingChecks[2]=553;
+            byte* building=b+NativeCapture.BuildingRecords+2*NativeCapture.BuildingRecordSize;
+            *(uint*)(building+0xD8)=666;
             checksums[0]=99;checksums[1]=21;checksums[13]=42;checksums[9999]=84;
             capture.Checksum(true,0);capture.Checksum(true,1);capture.Checksum(false,0);
             checksums[13]=0; // The retained copy must survive Vanilla overwriting its table.
             Check(calls==1,"native handler invoked once during repair capture");Check(*(int*)(unit+0x98)==1002&&*(ushort*)(unit+0x34)==77,"original replacement and preserved local field");
             packing=true;*(int*)(m+0x84CCC)=1;*(int*)(m+0xB0BFC)=2;*(int*)(m+0x36FA4C)=7;
             capture.Dispatch((IntPtr)(*(long*)(b+0x2C7A30+106*8)));Check(calls==2,"pack original also runs exactly once");
-            recorder.End();var data=new byte[1048576];int count=recorder.Ring.Drain(data);bool old=false,final=false,replacement=false,received=false,regularChecksum=false,resyncChecksum=false,packed=false;
-            int tables=0;
+            recorder.End();var data=new byte[1048576];var priority=new byte[1048576];
+            int count=recorder.Ring.Drain(data),priorityCount=recorder.Checkpoints.Drain(priority);
+            Buffer.BlockCopy(priority,0,data,count,priorityCount);count+=priorityCount;
+            bool old=false,final=false,replacement=false,received=false,regularChecksum=false,resyncChecksum=false,packed=false;
+            int tables=0,buildingTables=0,buildingRows=0;
             for(int at=0;at<count;at+=BitConverter.ToInt32(data,at))
             {
                 if((RecordKind)BitConverter.ToUInt16(data,at+6)==RecordKind.Checksum)
@@ -265,6 +429,18 @@ internal static unsafe class Program
                     Check(BitConverter.ToInt32(data,at+76)==39996&&BitConverter.ToUInt32(data,at+80)==21&&
                         BitConverter.ToUInt32(data,at+80+12*4)==42&&BitConverter.ToUInt32(data,at+80+9998*4)==84,
                         "Light copies exactly the local table, excluding slot zero, without retaining a native pointer");
+                }
+                if((RecordKind)BitConverter.ToUInt16(data,at+6)==RecordKind.BuildingChecksumTable)
+                {
+                    buildingTables++;
+                    Check(BitConverter.ToInt32(data,at+76)==15996&&BitConverter.ToUInt32(data,at+80)==0&&
+                        BitConverter.ToUInt32(data,at+84)==553,"building tables retain the slot 2 checksum without the reserved slot");
+                }
+                if((RecordKind)BitConverter.ToUInt16(data,at+6)==RecordKind.BuildingState)
+                {
+                    buildingRows++;
+                    Check(BitConverter.ToInt32(data,at+64)==2&&BitConverter.ToInt32(data,at+56)==553&&
+                        BitConverter.ToUInt32(data,at+80+0xD8)==666,"building raw data is tagged with the same checkpoint, slot and checksum");
                 }
                 if((RecordKind)BitConverter.ToUInt16(data,at+6)==RecordKind.Arrival)
                 {received=true;Check(BitConverter.ToInt32(data,at+40)==-1&&BitConverter.ToInt32(data,at+56)==991&&BitConverter.ToInt32(data,at+60)==0x20123,"arrival uses normal wire identity and uint24 planned tick, without simulation access");}
@@ -280,6 +456,7 @@ internal static unsafe class Program
             Check(old&&final&&replacement&&received,"old, incoming and final repair endpoints plus arrival present");Check(recorder.CallbackFailures==0,"valid fixture produces no callback failure");GC.KeepAlive(original);
             Check(regularChecksum&&resyncChecksum,"regular and resync checksums use distinct phases even at the same tick");
             Check(tables==2,"Light records both actual checksum calls and skips the guarded call");
+            Check(buildingTables==2&&buildingRows==1,"Light stores building detail only at the regular checkpoint");
             Check(packed,"pack fields are not misreported as received execution fields");
         }
         finally{VirtualFree(image,UIntPtr.Zero,0x8000);}

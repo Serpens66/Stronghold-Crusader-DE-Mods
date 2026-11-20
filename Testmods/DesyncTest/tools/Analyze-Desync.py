@@ -3,12 +3,17 @@ import argparse
 import collections
 import json
 import hashlib
+import heapq
 from pathlib import Path
 import struct
 
 HEADER = struct.Struct('<IHHqqqq10i')
-NAMES = dict(enumerate(('Start','End','Arrival','Dispatch','Checksum','CategoryFlags','Field','Unit','UnitHash','WorldUnit','ForcedRun','DeepEnded','Fault','UnitChecksumTable'),1))
+NAMES = dict(enumerate(('Start','End','Arrival','Dispatch','Checksum','CategoryFlags','Field','Unit','UnitHash','WorldUnit','ForcedRun','DeepEnded','Fault','UnitChecksumTable','WorkerAssignment','BuildingChecksumTable','BuildingState','WorkerDecision','WorkerEntrance'),1))
 UNIT_CHECKSUMS = struct.Struct('<9999I')
+BUILDING_CHECKSUMS = struct.Struct('<3999I')
+BUILDING_SIZE = 0x32c
+WORKER = struct.Struct('<II10H')
+WORKER_DECISION = struct.Struct('<6i')
 
 def records(path, errors):
     if not path.exists():
@@ -64,70 +69,114 @@ def load(folder):
     validate_manifest(manifest)
     errors=[];counts=collections.Counter();hashes={};snapshots={};checksums={};commands={};flags=[]
     last_seq={};duplicate=0;repair_groups=[];pending_repairs={};series={};incidents=[];active_incident=None;arrivals={};execution_clocks={}
-    ambiguous_hashes=set();ambiguous_checksums=set();ambiguous_snapshots=set();ambiguous_tables=set();tables={}
-    for filename in ('events.bin','snapshots.bin'):
-        for r in records(folder/filename,errors):
-            counts[r['kind']]+=1
-            if r['session']!=manifest['session']:errors.append('record session differs from manifest');continue
-            if r['seq']<=last_seq.get(filename,0):errors.append(f'{filename}: non-monotonic sequence');continue
-            last_seq[filename]=r['seq']
-            key=(r['tick'],r['phase'],r['unit'],r['global_id'])
-            if r['kind']=='Arrival' and r['command']!=-1:
-                arrivals.setdefault((r['player'],r['command'],r['opcode']),[]).append((r['clock'],r['planned'],r['seq']))
-            elif r['kind']=='UnitHash':
-                if len(r['payload'])!=12:errors.append('invalid unit hash length');continue
-                if key in hashes:ambiguous_hashes.add(key)
-                hashes[key]=r['payload']
-            elif r['kind']=='Checksum':
-                key=(r['tick'],r['phase'],r['planned'])
-                if len(r['payload'])!=56:errors.append('invalid aggregate length');continue
-                if key in checksums:ambiguous_checksums.add(key)
-                checksums[key]=r['payload']
-            elif r['kind']=='UnitChecksumTable':
-                key=(r['tick'],r['phase'],r['planned'])
-                if len(r['payload'])!=UNIT_CHECKSUMS.size or (r['phase'],r['stage']) not in ((10,0),(13,1)):
-                    errors.append('invalid unit checksum table');continue
-                if key in tables:ambiguous_tables.add(key)
-                tables[key]=(r['seq'],r['payload'])
-            elif r['kind'] in ('WorldUnit','Unit'):
-                key=(r['kind'],)+key+(r['stage'],)
-                if key in snapshots:duplicate+=1;ambiguous_snapshots.add(key)
-                if r['stage'] not in ((0,1) if r['kind']=='WorldUnit' else (0,1,4,5)):
-                    errors.append('invalid unit snapshot stage');continue
-                expected=1168 if r['stage']%2==0 else 1000
-                if len(r['payload'])!=expected:errors.append('invalid unit snapshot length');continue
-                if expected==1168 and struct.unpack_from('<i',r['payload'],0x98)[0]!=r['global_id']:
-                    errors.append('unit identity differs between header and copied record');continue
-                value=normalize_record(r['payload']) if expected==1168 else r['payload']
-                reference=(hashlib.sha256(value).digest(),r['filename'],r['offset'],len(r['payload']))
-                snapshots[key]=reference
-                if r['kind']=='Unit':
-                    repair_key=(r['tick'],r['phase'],r['unit'],r['player'],r['command'])
-                    if r['stage']==0 or repair_key not in pending_repairs:
-                        group=dict(tick=r['tick'],unit=r['unit'],command=r['command'],startSequence=r['seq'],oldGlobal=r['global_id'] if r['stage']==0 else None,parts={})
-                        pending_repairs[repair_key]=group;repair_groups.append(group)
-                    group=pending_repairs.get(repair_key)
-                    if group is not None:
-                        group['parts'][r['stage']]=reference
-                        if r['stage']==4:group['finalGlobal']=r['global_id']
-                        if r['stage']==5:pending_repairs.pop(repair_key,None)
-                else:series.setdefault(('WorldUnit',r['tick'],r['phase']),{}).setdefault(r['unit'],set()).add(r['stage'])
-            elif r['kind']=='Dispatch' and r['phase']==0 and r['stage']==0:
-                key=(r['player'],r['command'],r['opcode'])
-                commands.setdefault(key,[]).append((r['tick'],r['planned']))
-                execution_clocks.setdefault(key,[]).append(r['clock'])
-                if r['opcode']==54:
-                    active_incident=dict(attempt=len(incidents)+1,startSequence=r['seq'],startTick=r['tick'],state='no-observed-end',units=[])
-                    incidents.append(active_incident)
-            elif r['kind']=='Dispatch' and r['phase']==0 and r['stage']==1 and r['opcode'] in (67,89):
-                if active_incident is not None:
-                    active_incident.update(endSequence=r['seq'],endTick=r['tick'],state='finished' if r['opcode']==67 else 'aborted')
-                    active_incident=None
-            elif r['kind'] in ('ForcedRun','Fault','CategoryFlags'):
-                flag={k:v for k,v in r.items() if k not in ('payload','filename','offset')}
-                if r['kind']=='CategoryFlags':flag['categoryFlags']=list(r['payload'])
-                flags.append(flag)
-            if r['kind']=='UnitHash':series.setdefault(('UnitHash',r['tick'],r['phase']),{}).setdefault(r['unit'],set()).add(0)
+    ambiguous_hashes=set();ambiguous_checksums=set();ambiguous_snapshots=set();ambiguous_tables=set();tables={};workers=[]
+    building_tables={};ambiguous_building_tables=set();building_states={};decisions=[];custom_fields={}
+    filenames=['events.bin','snapshots.bin']
+    for name in ('checkpoints.bin','checkpoints.previous.bin','markers.bin','evidence.bin'):
+        if name in manifest.get('files',[]) or (folder/name).exists():
+            filenames.append(name)
+    streams=[records(folder/name,errors) for name in filenames]
+    previous=None
+    for r in heapq.merge(*streams,key=lambda row:row['seq']):
+        filename=Path(r['filename']).name
+        if previous is not None and r['seq']==previous['seq'] and filename=='evidence.bin':
+            if any(r[k]!=previous[k] for k in r if k not in ('filename','offset')):
+                errors.append('conflicting pinned checkpoint frame')
+            continue
+        previous=r
+        counts[r['kind']]+=1
+        if r['session']!=manifest['session']:errors.append('record session differs from manifest');continue
+        if r['seq']<=last_seq.get(filename,0):errors.append(f'{filename}: non-monotonic sequence');continue
+        last_seq[filename]=r['seq']
+        key=(r['tick'],r['phase'],r['unit'],r['global_id'])
+        if r['kind']=='Arrival' and r['command']!=-1:
+            arrivals.setdefault((r['player'],r['command'],r['opcode']),[]).append((r['clock'],r['planned'],r['seq']))
+        elif r['kind']=='Field' and (r['opcode'],r['phase'],r['global_id'])==(106,0,1):
+            key=(r['tick'],r['player'],r['command'],r['planned'],r['stage'])
+            custom_fields.setdefault(key,[]).append(hashlib.sha256(r['payload']).hexdigest())
+        elif r['kind']=='UnitHash':
+            if len(r['payload'])!=12:errors.append('invalid unit hash length');continue
+            if key in hashes:ambiguous_hashes.add(key)
+            hashes[key]=r['payload']
+        elif r['kind']=='Checksum':
+            key=(r['tick'],r['phase'],r['planned'])
+            if len(r['payload'])!=56:errors.append('invalid aggregate length');continue
+            if key in checksums:ambiguous_checksums.add(key)
+            checksums[key]=r['payload']
+        elif r['kind']=='UnitChecksumTable':
+            key=(r['tick'],r['phase'],r['planned'])
+            if len(r['payload'])!=UNIT_CHECKSUMS.size or (r['phase'],r['stage']) not in ((10,0),(13,1)):
+                errors.append('invalid unit checksum table');continue
+            if key in tables:ambiguous_tables.add(key)
+            tables[key]=(r['seq'],r['payload'])
+        elif r['kind']=='BuildingChecksumTable':
+            key=(r['tick'],r['phase'],r['planned'])
+            if len(r['payload'])!=BUILDING_CHECKSUMS.size or (r['phase'],r['stage']) not in ((10,0),(13,1)):
+                errors.append('invalid building checksum table');continue
+            if key in building_tables:ambiguous_building_tables.add(key)
+            building_tables[key]=r['payload']
+        elif r['kind']=='BuildingState':
+            key=(r['tick'],r['phase'],r['planned'])
+            if len(r['payload'])!=BUILDING_SIZE or r['phase']!=10 or r['stage']!=0 or not 1<=r['unit']<=3999:
+                errors.append('invalid building state');continue
+            if struct.unpack_from('<I',r['payload'],0xd8)[0]!=(r['global_id']&0xffffffff):
+                errors.append('building header and record identities differ');continue
+            building_states.setdefault(r['unit'],[]).append((key,r['command']&0xffffffff,r['payload']))
+        elif r['kind']=='WorkerAssignment':
+            if len(r['payload'])!=WORKER.size or r['phase']!=11 or r['stage'] not in (0,1,2) or not 1<=r['player']<=8:
+                errors.append('invalid worker assignment frame');continue
+            global_id,work_global,kind,pending,workplace,state,work_mode,alive,x,y,tx,ty=WORKER.unpack(r['payload'])
+            if not global_id or global_id!=(r['global_id']&0xffffffff) or not 1<=r['unit']<=9999:
+                errors.append('invalid worker assignment identity');continue
+            workers.append(dict(sequence=r['seq'],tick=r['tick'],player=r['player'],slot=r['unit'],globalId=global_id,
+                transition=('enter','change','exit')[r['stage']],unitType=kind,pendingType=pending,workplace=workplace,
+                workplaceGlobalId=work_global,state=state,workMode=work_mode,alive=alive,tile=[x,y],target=[tx,ty]))
+        elif r['kind'] in ('WorkerDecision','WorkerEntrance'):
+            if len(r['payload'])!=WORKER_DECISION.size or r['phase']!=11 or not 1<=r['unit']<=3999:
+                errors.append('invalid native worker decision');continue
+            result,requested,expansion,cursor,x,y=WORKER_DECISION.unpack(r['payload'])
+            decisions.append(dict(sequence=r['seq'],tick=r['tick'],kind=r['kind'],player=r['player'],building=r['unit'],
+                buildingGlobalId=r['global_id']&0xffffffff,role=r['command'],ordinal=r['planned'],calls=r['stage'],
+                result=result,requested=requested,expansion=expansion,cursor=cursor,entrance=[x,y]))
+        elif r['kind'] in ('WorldUnit','Unit'):
+            key=(r['kind'],)+key+(r['stage'],)
+            if key in snapshots:duplicate+=1;ambiguous_snapshots.add(key)
+            if r['stage'] not in ((0,1) if r['kind']=='WorldUnit' else (0,1,4,5)):
+                errors.append('invalid unit snapshot stage');continue
+            expected=1168 if r['stage']%2==0 else 1000
+            if len(r['payload'])!=expected:errors.append('invalid unit snapshot length');continue
+            if expected==1168 and struct.unpack_from('<i',r['payload'],0x98)[0]!=r['global_id']:
+                errors.append('unit identity differs between header and copied record');continue
+            value=normalize_record(r['payload']) if expected==1168 else r['payload']
+            reference=(hashlib.sha256(value).digest(),r['filename'],r['offset'],len(r['payload']))
+            snapshots[key]=reference
+            if r['kind']=='Unit':
+                repair_key=(r['tick'],r['phase'],r['unit'],r['player'],r['command'])
+                if r['stage']==0 or repair_key not in pending_repairs:
+                    group=dict(tick=r['tick'],unit=r['unit'],command=r['command'],startSequence=r['seq'],oldGlobal=r['global_id'] if r['stage']==0 else None,parts={})
+                    pending_repairs[repair_key]=group;repair_groups.append(group)
+                group=pending_repairs.get(repair_key)
+                if group is not None:
+                    group['parts'][r['stage']]=reference
+                    if r['stage']==4:group['finalGlobal']=r['global_id']
+                    if r['stage']==5:pending_repairs.pop(repair_key,None)
+            else:series.setdefault(('WorldUnit',r['tick'],r['phase']),{}).setdefault(r['unit'],set()).add(r['stage'])
+        elif r['kind']=='Dispatch' and r['phase']==0 and r['stage']==0:
+            key=(r['player'],r['command'],r['opcode'])
+            commands.setdefault(key,[]).append((r['tick'],r['planned']))
+            execution_clocks.setdefault(key,[]).append(r['clock'])
+            if r['opcode']==54:
+                active_incident=dict(attempt=len(incidents)+1,startSequence=r['seq'],startTick=r['tick'],state='no-observed-end',units=[])
+                incidents.append(active_incident)
+        elif r['kind']=='Dispatch' and r['phase']==0 and r['stage']==1 and r['opcode'] in (67,89):
+            if active_incident is not None:
+                active_incident.update(endSequence=r['seq'],endTick=r['tick'],state='finished' if r['opcode']==67 else 'aborted')
+                active_incident=None
+        elif r['kind'] in ('ForcedRun','Fault','CategoryFlags'):
+            flag={k:v for k,v in r.items() if k not in ('payload','filename','offset')}
+            if r['kind']=='CategoryFlags':flag['categoryFlags']=list(r['payload'])
+            flags.append(flag)
+        if r['kind']=='UnitHash':series.setdefault(('UnitHash',r['tick'],r['phase']),{}).setdefault(r['unit'],set()).add(0)
     expected=manifest.get('coverage',{}).get('requestedUnitSlots',9999)
     coverage=[]
     for key,slots in sorted(series.items()):
@@ -162,8 +211,9 @@ def load(folder):
                           executionWithoutObservedArrival=len(commands.keys()-arrivals.keys()),samples=receipt_samples,
                           limits='Only ordinary inner headers. Local sender normally has no wire receipt. Times are local capture points, not network latency; compression/special packets remain raw.')
     return dict(folder=str(folder),manifest=manifest,errors=errors,counts=dict(counts),hashes=hashes,snapshots=snapshots,
-                checksums=checksums,tables=tables,commands=commands,flags=flags,duplicateSnapshots=duplicate,repairs=repairs,snapshotCoverage=coverage,incidents=incidents,arrivalCoverage=arrival_coverage,
-                ambiguous=dict(hashes=ambiguous_hashes,checksums=ambiguous_checksums,snapshots=ambiguous_snapshots,tables=ambiguous_tables))
+                checksums=checksums,tables=tables,workers=workers,commands=commands,flags=flags,duplicateSnapshots=duplicate,repairs=repairs,snapshotCoverage=coverage,incidents=incidents,arrivalCoverage=arrival_coverage,
+                buildingTables=building_tables,buildingStates=building_states,workerDecisions=decisions,customFields=custom_fields,
+                ambiguous=dict(hashes=ambiguous_hashes,checksums=ambiguous_checksums,snapshots=ambiguous_snapshots,tables=ambiguous_tables,buildingTables=ambiguous_building_tables))
 
 def read_snapshot(reference):
     with Path(reference[1]).open('rb') as f:
@@ -174,6 +224,40 @@ def read_snapshot(reference):
 def gameplay_offsets(x,y):
     return ([i for i in range(0x8c,1168) if not 0x41c<=i<0x424 and x[i]!=y[i]]+
             [i for i in range(0x3c,0x48) if x[i]!=y[i]])
+
+def compare_buildings(a,b):
+    shared=sorted((a['buildingTables'].keys()&b['buildingTables'].keys())-a['ambiguous']['buildingTables']-b['ambiguous']['buildingTables'])
+    details=[]
+    def state(data,slot,key,checksum):
+        candidates=[(tick,tag,value) for tick,tag,value in data['buildingStates'].get(slot,()) if tick<=key and
+                    tick not in data['ambiguous']['buildingTables'] and tick in data['buildingTables']]
+        if not candidates:return None,None
+        tick,tag,value=candidates[-1]
+        if tag!=checksum or any(struct.unpack_from('<I',table,(slot-1)*4)[0]!=tag
+                               for point,table in data['buildingTables'].items() if tick<=point<=key):
+            return None,None
+        return tick,value
+    def describe(key,row):
+        if row is None:return None
+        u16=lambda offset:struct.unpack_from('<H',row,offset)[0]
+        return dict(sampleTick=key[0],globalId=struct.unpack_from('<I',row,0xd8)[0],buildingType=u16(0xd2),
+                    owner=u16(0xd6),tile=[u16(0xee),u16(0xf0)],raw0192=u16(0x192))
+    for key in shared:
+        left,right=a['buildingTables'][key],b['buildingTables'][key]
+        if left==right:continue
+        differences=[(slot,x,y) for slot,(x,y) in enumerate(zip(BUILDING_CHECKSUMS.unpack(left),BUILDING_CHECKSUMS.unpack(right)),1) if x!=y]
+        slots=[]
+        for slot,x,y in differences[:64]:
+            tk_a,row_a=state(a,slot,key,x);tk_b,row_b=state(b,slot,key,y)
+            evidence=dict(slot=slot,hostChecksum=x,clientChecksum=y,host=describe(tk_a,row_a),client=describe(tk_b,row_b))
+            if row_a is not None and row_b is not None:
+                offsets=[i for i in (*range(0x10,0x14),*range(0x20,0x22),*range(0x48,0x5c),*range(0xd0,0x32c))
+                         if not 0x2fc<=i<0x2fe and row_a[i]!=row_b[i]]
+                evidence['changedChecksumBytes']=len(offsets)
+                evidence['byteChanges']=[dict(offset=hex(i),host=row_a[i],client=row_b[i]) for i in offsets[:64]]
+            slots.append(evidence)
+        details.append(dict(type='native-building-checksum-table',identity=key,tick=key[0],differingSlotCount=len(differences),buildings=slots))
+    return len(shared),details
 
 def checksum_windows(a,b,shared):
     attempts_a=collections.Counter(v['startTick'] for v in a['incidents'])
@@ -195,8 +279,16 @@ def checksum_windows(a,b,shared):
         lower_a=bounds_a[left['startSequence']];lower_b=bounds_b[right['startSequence']]
         checkpoints=[key for key in shared if key[1]==10 and
                      lower_a<a['tables'][key][0]<left['startSequence'] and lower_b<b['tables'][key][0]<right['startSequence']]
+        repaired=set(left['units'])|set(right['units'])
+        checksum_only=set()
+        if checkpoints:
+            key=checkpoints[-1]
+            host=UNIT_CHECKSUMS.unpack(a['tables'][key][1])
+            client=UNIT_CHECKSUMS.unpack(b['tables'][key][1])
+            checksum_only={slot for slot,(x,y) in enumerate(zip(host,client),1) if x!=y and slot not in repaired}
         units=[]
-        for slot in sorted(set(left['units'])|set(right['units']))[:128]:
+        checksum_slots=[]
+        for slot in (sorted(repaired)+sorted(checksum_only))[:128]:
             if not 1<=slot<=UNIT_CHECKSUMS.size//4:continue
             last_equal=first_different=None
             offset=(slot-1)*4
@@ -206,9 +298,63 @@ def checksum_windows(a,b,shared):
                 if av!=bv:
                     first_different=key[0];break
                 last_equal=key[0]
-            units.append(dict(slot=slot,lastMatchingTick=last_equal,firstDifferentTick=first_different))
-        windows.append(dict(resyncTick=tick,comparedRegularCheckpoints=len(checkpoints),repairedSlots=units))
+            entry=dict(slot=slot,lastMatchingTick=last_equal,firstDifferentTick=first_different)
+            (units if slot in repaired else checksum_slots).append(entry)
+        window=dict(resyncTick=tick,comparedRegularCheckpoints=len(checkpoints),repairedSlots=units)
+        if checksum_only:
+            window.update(checksumOnlySlots=checksum_slots,checksumOnlySlotCount=len(checksum_only))
+        if a.get('workers') or b.get('workers'):
+            window['workerTrace']=worker_trace(a,b,left,right,units+checksum_slots)
+        decisions=compare_worker_decisions(a,b,left,right,window.get('workerTrace'))
+        if decisions:
+            window['nativeWorkerDecisionDifferences']=decisions
+        windows.append(window)
     return windows
+
+def compare_worker_decisions(a,b,left,right,trace):
+    start=trace['fromTick'] if trace else left['startTick']-200
+    def collect(data,incident):
+        groups={}
+        for row in data.get('workerDecisions',[]):
+            if not (start<=row['tick']<=incident['startTick'] and row['sequence']<incident['startSequence']):
+                continue
+            key=tuple(row[name] for name in ('tick','player','buildingGlobalId','building','role','ordinal'))
+            groups.setdefault(key,[]).append({k:row[k] for k in ('kind','calls','result','requested','expansion','cursor','entrance')})
+        return groups
+    host,client=collect(a,left),collect(b,right)
+    focused=set(trace['workplaceGlobalIds']) if trace else set()
+    keys=sorted(host.keys()|client.keys(), key=lambda k:(k[2] not in focused,k))
+    return [dict(tick=k[0],player=k[1],buildingGlobalId=k[2],building=k[3],role=k[4],ordinal=k[5],
+                 host=host.get(k,[]),client=client.get(k,[]),missingObservation=k not in host or k not in client)
+            for k in keys if host.get(k)!=client.get(k)][:128]
+
+def worker_trace(a,b,left,right,units):
+    candidates={v['slot'] for v in units}
+    previous=[v['lastMatchingTick'] for v in units if v['lastMatchingTick'] is not None]
+    start=min(previous) if previous else left['startTick']-200
+    def nearby(data,incident):
+        return [v for v in data['workers'] if v['sequence']<incident['startSequence'] and v['tick']<=incident['startTick']]
+    history_a,history_b=nearby(a,left),nearby(b,right)
+    # Include the other candidates linked to a repaired unit's workplace.
+    def linked_workplaces(history):
+        before={};during=set()
+        for row in history:
+            if row['slot'] not in candidates:continue
+            if row['tick']<start:before[row['slot']]=row
+            elif row['workplaceGlobalId']:during.add((row['player'],row['workplaceGlobalId']))
+        return during|{(v['player'],v['workplaceGlobalId']) for v in before.values() if
+                       v['transition']!='exit' and v['workplaceGlobalId']}
+    workplaces=linked_workplaces(history_a)|linked_workplaces(history_b)
+    def entries(history):
+        prior={};recent=[]
+        for row in history:
+            if row['slot'] not in candidates and (row['player'],row['workplaceGlobalId']) not in workplaces:
+                continue
+            if row['tick']<start:prior[row['slot']]=row
+            else:recent.append(row)
+        return dict(beforeWindow=list(prior.values())[-128:],transitions=recent[:256],omittedTransitions=max(0,len(recent)-256))
+    return dict(fromTick=start,workplaceGlobalIds=sorted({workplace for _,workplace in workplaces}),
+                host=entries(history_a),client=entries(history_b))
 
 def compare(a,b):
     identity_a=a['manifest']['identity'];identity_b=b['manifest']['identity']
@@ -235,6 +381,9 @@ def compare(a,b):
                     limits='No state comparison across different or unresolved native/layout contracts.')
     mismatches=[]
     compared=0
+    compared_buildings,building_differences=compare_buildings(a,b)
+    compared+=compared_buildings
+    mismatches.extend(building_differences)
     shared_tables=sorted((a['tables'].keys()&b['tables'].keys())-a['ambiguous']['tables']-b['ambiguous']['tables'])
     compared+=len(shared_tables)
     for key in shared_tables:
@@ -263,6 +412,11 @@ def compare(a,b):
                 tick=min(v[0] for values in (a[field][k],b[field][k]) for v in values) if field=='commands' else k[0]
                 mismatches.append(dict(type=label,identity=k,tick=tick))
     missing={field:dict(onlyA=len(a[field].keys()-b[field].keys()),onlyB=len(b[field].keys()-a[field].keys())) for field in ('hashes','checksums','commands')}
+    fields_a,fields_b=a.get('customFields',{}),b.get('customFields',{})
+    shared_fields=fields_a.keys()&fields_b.keys()
+    comparable_fields=[k for k in sorted(shared_fields) if len(fields_a[k])==len(fields_b[k])==1]
+    compared+=len(comparable_fields)
+    mismatches.extend(dict(type='executed-custom-chore-field',identity=k,tick=k[0]) for k in comparable_fields if fields_a[k]!=fields_b[k])
     # Different Global-IDs in the same comparable slot are evidence themselves. Including
     # Global-ID in the primary key must not hide the divergence as merely absent coverage.
     for key in sorted(ids_a.keys()&ids_b.keys()):
@@ -293,16 +447,22 @@ def compare(a,b):
         if value['type'] in ('unit-hash','unit-identity'):focus.add(value['identity'][2])
         elif value['type'] in ('unit-record','stored-path'):focus.add(value['identity'][3])
         elif value['type']=='native-unit-checksum-table':focus.update(value['slots'])
+    earliest_state=min((v['tick'] for v in mismatches if v['type'] not in ('command-execution','executed-custom-chore-field')),default=None)
     return dict(verdict='observed-difference' if mismatches else ('no-difference-in-comparable-captured-data' if compared else 'insufficient-comparable-data'),
                 earliestObservedTick=earliest,warnings=warnings,coverageDifferences=missing,
-                comparedNativeUnitTables=len(shared_tables),unitChecksumWindows=checksum_windows(a,b,shared_tables),
+                earliestObservedWorldStateTick=earliest_state,
+                comparedNativeUnitTables=len(shared_tables),comparedNativeBuildingTables=compared_buildings,unitChecksumWindows=checksum_windows(a,b,shared_tables),
                 mismatches=mismatches,focusUnitIds=sorted(focus),comparedObservations=compared,
+                customChoreFields=dict(compared=len(comparable_fields),onlyHost=len(fields_a.keys()-fields_b.keys()),
+                                      onlyClient=len(fields_b.keys()-fields_a.keys()),ambiguous=len(shared_fields)-len(comparable_fields)),
                 limits='No automatic root-cause proof. Explicit folder choice does not prove same mission. Host is the repair source, not necessarily correct.')
 
 def summary(a):
     result={k:a[k] for k in ('folder','manifest','errors','counts','flags','duplicateSnapshots','repairs','snapshotCoverage','incidents','arrivalCoverage')}
     result['repairInterpretation']='Observed correction, not proof of the original faulty write. Raw wire offsets use a four-byte prefix before GameUnit.'
     result['nativeUnitTables']=len(a['tables'])
+    result['workerTransitions']=len(a['workers'])
+    result['nativeBuildingTables']=len(a['buildingTables'])
     return result
 
 def main():

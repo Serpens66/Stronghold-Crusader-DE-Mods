@@ -316,6 +316,9 @@ namespace BugfixesAndQoL
                 "multiplayer moat terrain rotation fix",
                 () => Multiplayer.MoatLandRotationPatch.Install(context, isFixedLayoutHashValidated, log));
             TryInitializePersistentFeature(
+                "multiplayer autosave deferral",
+                () => Multiplayer.MultiplayerAutosavePausePatch.Install(context, isFixedLayoutHashValidated, log));
+            TryInitializePersistentFeature(
                 "tannery animation fade fix",
                 () => EnsureNativeTannerFade(context));
             TryInitializePersistentFeature(

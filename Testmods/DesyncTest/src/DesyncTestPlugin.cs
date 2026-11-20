@@ -12,7 +12,7 @@ using SHCDESE.Interop;
 
 namespace DesyncTest
 {
-    [BepInPlugin(Guid,"DesyncTest","0.1.2")]
+    [BepInPlugin(Guid,"DesyncTest","0.1.7")]
     [BepInDependency("000shcdese","2.14.3")]
     [BepInDependency("APIShared_Serp","0.16.3")]
     [BepInDependency("fixes",BepInDependency.DependencyFlags.SoftDependency)]
@@ -41,6 +41,7 @@ namespace DesyncTest
                 options.SessionBytes=Config.Bind("Limits","SessionBytes",4L*1024*1024*1024).Value;
                 options.DeepSeconds=Config.Bind("Deep","DurationSeconds",300,"Maximum 300 monotonic real seconds including pauses, starting at completed mission initialization.").Value;
                 options.Interval=Config.Bind("Deep","IntervalTicks",10).Value;
+                options.WorkerPlayer=Config.Bind("WorkerTrace","PlayerId",0,"-1 traces all players, 0 disables the trace, 1..8 traces one player. Use the same setting on each peer.").Value;
                 string focus=Config.Bind("Deep","FocusUnitIds","","Comma separated native game IDs; empty means broad hashes without extra focused snapshots.").Value;
                 if(!string.IsNullOrWhiteSpace(focus))options.Focus=Array.ConvertAll(focus.Split(','),v=>int.Parse(v.Trim(),System.Globalization.CultureInfo.InvariantCulture));
                 options.Validate();
@@ -68,12 +69,13 @@ namespace DesyncTest
                 recorder.StartWriter();
                 ReportInfo("DESYNC_CORE_READY native="+NativeHooks.NativeHash+"; lifecycle=APIShared; unitWirePrefix=4; otherRepairLayouts=raw-only; runtimeAcceptance=pending.");
             }
-            catch(Exception ex){ReportInfo("DESYNC_CORE_UNAVAILABLE "+ex);}
+            catch(Exception ex){ReportError("DESYNC_CORE_UNAVAILABLE "+ex);}
         }
         private static void Started(Shared.GameplaySessionStartedContext context)
         {
             // Registration may replay an existing mission during initialization, before ready is set.
             if(recorder==null||capture==null)return;
+            hooks.RecheckWorkerSites(ReportError);
             capture.ResetSession();
             var plugins=new List<object>();
             var participants=new List<object>();
@@ -94,5 +96,6 @@ namespace DesyncTest
         }
         private static void PostInfo(string text) { main.Post(_=>ReportInfo(text),null); }
         private static void ReportInfo(string text) { Shared.DebugLogHelper.LogInfo(log,text); }
+        private static void ReportError(string text) { log.LogError(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff")+" "+text); }
     }
 }

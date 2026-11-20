@@ -17,6 +17,7 @@ Sobald ein Auslöser zutrifft, die genannte Datei **vor** dem ersten fachlichen 
 | Unit-/Building-/Tribe-IDs, Arrayindizes, Enums und Domänenkonstanten | [AGENTS/ids-enums.md](AGENTS/ids-enums.md) |
 | Modsettings, Presets, Modsettings-XAML, Tooltips, Locales | [AGENTS/modsettings-ui.md](AGENTS/modsettings-ui.md) |
 | Custom-Pakete, Chores, `[SyncPerPlayer]`, Netzwerkautorität, Spielmodus-Freigaben, MP-Tests | [AGENTS/multiplayer-network.md](AGENTS/multiplayer-network.md) |
+| Desync, Resync oder divergierende Simulationszustände eingrenzen | [AGENTS/desync-diagnosis.md](AGENTS/desync-diagnosis.md) |
 | Kartenstart, Save-Laden, Editor-Start, Missionsende, verzögerte Aktionen, Timeline | [AGENTS/mission-lifecycle.md](AGENTS/mission-lifecycle.md) |
 | APIShared nutzen/erweitern/installieren/aktualisieren/veröffentlichen, Dateien unter `Shared/`, Mod-Abhängigkeiten | [AGENTS/apishared.md](AGENTS/apishared.md) |
 | Fehler in Script Extender oder Fixes-Mod; Fixes-bezogene Präferenzen, Presets, Belagerung | [AGENTS/external-components.md](AGENTS/external-components.md) |

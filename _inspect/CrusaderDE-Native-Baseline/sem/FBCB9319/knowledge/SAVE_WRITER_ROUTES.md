@@ -73,3 +73,64 @@ configuration's `lordType` identifies that Extended Lord; the lobby slot's
 `LordNames` and `LordType`, but the inspected MP writer only updates names;
 the type array is not a reliable AIC configuration identity. Optional media
 names do not independently prove configuration identity.
+
+## Multiplayer autosave interval and save preamble
+
+Rechecked 2026-11-20 against the same native and managed hashes. The managed
+multiplayer start applies the live setup after initialization.
+`DLL_ApplyMultiplayerSetupData` (`0x81050`) calls `0x26370`, which copies
+transfer DWORD 6 (`autosave`, minutes) to network-state offset `+0x279F98`.
+For the network-state instance at RVA `0x8574320`, that is RVA `0x87EE2B8`.
+
+`DLL_RunTick` (`0x86680`) calls the autosave scheduler at `0x1F6E0`.
+After its mode, host and state gates pass, the scheduler compares the
+unsigned elapsed `timeGetTime()` milliseconds with the stored interval
+times 60,000. It updates the timer and queues synchronized Chore 39 when
+elapsed time exceeds the threshold. The Chore dispatch and the eventual
+file write are separate events.
+
+The writer at `0x52B0` stores the same interval DWORD at payload offset 8
+of the sixth length-prefixed preamble block, following the initial magic.
+The loader reads that DWORD back into the same native global. This records
+the active value at save time, without recording the history of lobby edits.
+
+### Multiplayer lobby draft and save notification
+
+The Vanilla multiplayer Setup dialog initializes `MPTEMPsetupData` from
+`MPsetupData.ToString()`. With `coopGame` true and `singlePlayerCoop` false,
+`Settings_Autosave` cycles the value on `MPsetupData` and displays that value.
+`ApplySettings` then imports `MPTEMPsetupData.ToString()` into `MPsetupData`,
+including its original interval. The dedicated Coop options panel instead
+uses `CloseCoopOptions`, which publishes the live setup with `UpdateHostInfo`.
+
+`Platform_Multiplayer` displays the localized saving message when processing
+Chore 39 for outgoing or incoming transport. That notification precedes
+the scheduled phase-0 save. Timed autosave and manual `DLL_TriggerMPSave`
+(`0x87940`) enqueue the same opcode via `0x23990` with flags 1 and 0
+respectively. The autosave directory comes from `GetMpAutoSavePath` through
+`DLL_SetPath` (`0x876F0`) and `0x26BE0`. The handler at `0x13030` selects
+that directory and the autosave basename for flag 1. For flag 0 it selects
+the normal save directory and the supplied filename. Both paths converge
+at writer `0x52B0`. The Chore handler discards the writer's return value
+and advances the native save handshake even when the write returned failure.
+
+### Native pause and the pending autosave
+
+Rechecked 2026-11-20 against the same native and managed hashes. The
+managed `EngineInterface.run` passes `Director.Paused` to `DLL_RunTick`.
+This argument is separate from the native pause DWORD at RVA `0x366A0F8`,
+which `DLL_GameAction` (`0x81870`) writes for `Game_Paused`.
+`DLL_RunTick` calls the autosave scheduler `0x1F6E0` before the managed
+pause branch. The scheduler does not check the native pause DWORD.
+It stamps its deadline and submits Chore 39 to `0x23990` on expiry.
+
+In the normal live network path, `0x23990` assigns a future simulation
+tick and serializes the command for transport. The pending-slot selector
+`0x21EE0` compares the scheduled tick to the current simulation tick,
+and `0x1F7E0` invokes eligible Chores in phase 0. The simulation updater
+`0xCDE60` increments the current tick only when the native pause DWORD is
+zero and its other update gates pass. Consequently pause can leave an
+already announced save queued until the simulation reaches the target
+tick after unpause. The announcement does not imply phase-0 execution.
+This is a static path audit. It does not establish a successful post-pause
+write in any particular session.

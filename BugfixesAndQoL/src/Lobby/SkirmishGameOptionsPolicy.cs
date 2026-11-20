@@ -50,6 +50,10 @@ namespace BugfixesAndQoL
             string.Equals(command, "UsePresets1", StringComparison.Ordinal) ||
             string.Equals(command, "UsePresets2", StringComparison.Ordinal);
 
+        internal static bool IsCoopLiveDraftCommand(string command) =>
+            command == "Settings_Autosave" || command == "Settings_ExtremePowers" ||
+            command == "Settings_ExtremePowerLord" || IsPresetLoadCommand(command);
+
         internal static bool IsPresetSaveCommand(string command) =>
             string.Equals(command, "SavePresets1", StringComparison.Ordinal) ||
             string.Equals(command, "SavePresets2", StringComparison.Ordinal);
