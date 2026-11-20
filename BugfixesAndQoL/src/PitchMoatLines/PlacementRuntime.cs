@@ -1,3 +1,4 @@
+using APIShared.Input;
 using System;
 using System.Diagnostics;
 using System.Threading;
@@ -250,7 +251,7 @@ namespace BugfixesAndQoL.PitchMoatLines
                         runtime.ClearPlacement();
                     if (runtime.stage == Stage.Dragging && director.overUI())
                         runtime.HideEndpoint();
-                    if (runtime.ownsButton && !Input.GetMouseButton(0))
+                    if (runtime.ownsButton && !InputState.IsMouseHeld(0))
                     {
                         // A release that never reached the game edge (for example
                         // after focus loss) cannot confirm any placement.
@@ -270,7 +271,7 @@ namespace BugfixesAndQoL.PitchMoatLines
         {
             var context = Volatile.Read(ref mission);
             var previous = Volatile.Read(ref hover);
-            if (!enabled || context == null || !director.ctrlPressed || ShiftHeld() || Input.GetMouseButton(0) || IsCancelPressed() ||
+            if (!enabled || context == null || !director.ctrlPressed || InputState.PhysicalShiftHeld || InputState.IsMouseHeld(0) || IsCancelPressed() ||
                 !TryManagedTarget(director, context, out var current) || !TryPointerTile(director, out var tile))
             {
                 if (previous != null) Volatile.Write(ref hover, null);
@@ -349,18 +350,13 @@ namespace BugfixesAndQoL.PitchMoatLines
 
         private static bool ValidModifiers()
         {
-            return Application.isFocused && !ShiftHeld() &&
-                (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl));
+            return Application.isFocused && !InputState.PhysicalShiftHeld && InputState.PhysicalControlHeld;
         }
 
-        private static bool ShiftHeld()
-        {
-            return Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-        }
 
         private static bool IsCancelPressed()
         {
-            return Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape);
+            return InputState.IsMousePressed(1) || InputState.IsPressed(KeyCode.Escape);
         }
 
         private static bool IsLineMapper(int mapper) =>

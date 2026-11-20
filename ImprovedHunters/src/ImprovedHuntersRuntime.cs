@@ -96,6 +96,7 @@ namespace ImprovedHunters
         private int shortLivedCorpsePreserveLogs;
         private int invalidHunterEventLogs;
         private APIShared.Wildlife.ChickenPopulationModifierHandle chickenTargetModifier;
+        private readonly GranaryChickenSpawnPolicy chickenSpawnPolicy = new GranaryChickenSpawnPolicy(GamePlayerManagerAPI.MAX_PLAYERS);
         private RabbitMeleeOrderPatch rabbitMeleeOrderPatch;
         private TannerMeatPatch tannerMeatPatch;
         private APIShared.Buildings.BuildMenuAvailabilityRule hunterHutRule;
@@ -682,8 +683,9 @@ namespace ImprovedHunters
             return eligibility.KnownAnimal;
         }
 
-        private void OnMapStarted()
+        private void OnMapStarted(bool fromSave)
         {
+            chickenSpawnPolicy.Reset(fromSave);
             ResetCorpseChoices();
             nextBetterPreyChecks.Clear();
             nextIdleHunterRequeryTimestamps.Clear();
@@ -1008,10 +1010,22 @@ namespace ImprovedHunters
             chickenTargetModifier?.SetEnabled(settings.EnableMod && settings.HuntChicken);
 
         // Simulation thread: deterministic from host settings, the mission mode and the frozen huntable-prey catalog.
-        private APIShared.Modifiers.ValueModifierContribution SelectChickenTarget(APIShared.Wildlife.ChickenPopulationContext context) =>
-            IsOwnedChickenHuntingEnabled
-                ? APIShared.Modifiers.ValueModifierContribution.FixedValue(GranaryChickenSpawnPolicy.ClampTarget(settings.ChickensPerPlayer))
-                : APIShared.Modifiers.ValueModifierContribution.None;
+        private APIShared.Modifiers.ValueModifierContribution SelectChickenTarget(APIShared.Wildlife.ChickenPopulationContext context)
+        {
+            if (!IsOwnedChickenHuntingEnabled)
+                return APIShared.Modifiers.ValueModifierContribution.None;
+
+            int target = GranaryChickenSpawnPolicy.ClampTarget(settings.ChickensPerPlayer);
+            int interval = settings.ChickenRespawnSeconds * HunterSimulationTime.MapTicksPerSecond;
+            if (interval != 0)
+            {
+                target = SimulationTickEvents.TryGetCurrentTick(out int mapTick)
+                    ? chickenSpawnPolicy.TargetForDecision(context.PlayerId, target, context.CurrentChickens,
+                        unchecked((uint)mapTick), interval)
+                    : Math.Min(target, Math.Max(0, context.CurrentChickens));
+            }
+            return APIShared.Modifiers.ValueModifierContribution.FixedValue(target);
+        }
 
         private void InitializeRabbitMeleeOrderPatch(
             ReadOnlySpan<byte> memory,
@@ -1818,7 +1832,7 @@ namespace ImprovedHunters
             TrySubscribeFeature("projectile deletion", () => ProjectileR3EventHooks.OnProjectileDelete.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre).Subscribe(OnProjectileDelete));
             TrySubscribeFeature("gameplay session start", () =>
-                Shared.GameplaySessionLifecycle.SubscribeStarted(log, _ => OnMapStarted(), () =>
+                Shared.GameplaySessionLifecycle.SubscribeStarted(log, context => OnMapStarted(context.IsLoadedSave), () =>
                 {
                     targetSelectionModeAllowed = false;
                     pathfindingModeAllowed = false;

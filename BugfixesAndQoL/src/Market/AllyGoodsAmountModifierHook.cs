@@ -1,3 +1,4 @@
+using APIShared.Input;
 // Feature: Local Shift/Ctrl amount modifiers in the allies goods-transfer panel.
 using APIShared.Presentation;
 using BepInEx.Logging;
@@ -132,8 +133,8 @@ namespace BugfixesAndQoL
             if (!TryGetKnownAmountButton(args.Button, out int buttonAmount, out bool subtract))
                 return;
 
-            bool shift = IsHeld(KeyCode.LeftShift, KeyCode.RightShift);
-            bool control = IsHeld(KeyCode.LeftControl, KeyCode.RightControl);
+            bool shift = InputState.PhysicalShiftHeld;
+            bool control = InputState.PhysicalControlHeld;
             if (shift || control)
                 args.TryClaim(click => ApplyAmountModifier(click, buttonAmount, subtract, shift, control));
         }
@@ -246,8 +247,6 @@ namespace BugfixesAndQoL
             }
         }
 
-        private static bool IsHeld(KeyCode left, KeyCode right) => Input.GetKey(left) || Input.GetKey(right);
-
         private void OnModifierKeyChanged(UnityInputEventArgs args)
         {
             if (args == null || args.Phase != EventHookPhase.Post || !IsModifierKey(args.Key))
@@ -267,8 +266,8 @@ namespace BugfixesAndQoL
             DisplayMode newMode = DisplayMode.Normal;
             if (settings.EnableClientFeatures && settings.EnableAllyGoodsAmountModifiers)
             {
-                bool shift = IsHeld(KeyCode.LeftShift, KeyCode.RightShift);
-                bool control = IsHeld(KeyCode.LeftControl, KeyCode.RightControl);
+                bool shift = InputState.PhysicalShiftHeld;
+                bool control = InputState.PhysicalControlHeld;
                 if (shift && !control)
                     newMode = DisplayMode.Shift;
                 else if (control && !shift)

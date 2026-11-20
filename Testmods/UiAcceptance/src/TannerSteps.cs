@@ -332,10 +332,16 @@ namespace UiAcceptance
             foreach (Wait wait in InputPause()) yield return wait;
             input.MouseButtonDown((int)from.X, (int)from.Y, MouseButton.Left);
             Key? shift = step.Arg(1, "") == "left" ? Key.LeftShift : step.Arg(1, "") == "right" ? Key.RightShift : (Key?)null;
+            bool hadKeyboard = FatControler.instance.NoesisHasKeyboard;
             try
             {
                 foreach (Wait wait in InputPause()) yield return wait;
-                if (shift.HasValue) input.KeyDown(shift.Value);
+                if (shift.HasValue)
+                {
+                    // This runner injects into Noesis. Physical Shift enters through Unity during normal play.
+                    FatControler.instance.SetNoesisKeyboardState(true);
+                    input.KeyDown(shift.Value);
+                }
                 AcceptLog.Info("TANNER_DRAG down from=" + (int)from.X + " to=" + (int)to.X + " " + SliderState(slider));
                 for (int part = 1; part <= 4; part++)
                 {
@@ -347,7 +353,11 @@ namespace UiAcceptance
             finally
             {
                 input.MouseButtonUp((int)to.X, (int)to.Y, MouseButton.Left);
-                if (shift.HasValue) input.KeyUp(shift.Value);
+                if (shift.HasValue)
+                {
+                    input.KeyUp(shift.Value);
+                    FatControler.instance.SetNoesisKeyboardState(hadKeyboard);
+                }
             }
             yield return new Until("slider dragged to " + value, () => (int)Math.Round(FindSlider().Value) == value);
             AcceptLog.Info("TANNER_SLIDER drag value=" + value + " noesisHasKeyboard=" + GamePlayerManagerAPI.Instance.GetNoesisHasKeyboard());

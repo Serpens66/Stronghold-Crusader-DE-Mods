@@ -68,6 +68,9 @@ ImprovedHunters.ChickenPopulationTitle=Chickens
 ImprovedHunters.ChickensPerPlayer=Chickens per player
 ImprovedHunters.ChickensPerPlayerHelp=Number of chickens each player keeps, independent of food, as long as the player owns a granary, bakery or mill. Surplus chickens are removed, also at zero. Only applies while chicken hunting is enabled.
 ImprovedHunters.ChickensPerPlayerValueFormat={0} chickens
+ImprovedHunters.ChickenRespawnSeconds=Chicken respawn interval
+ImprovedHunters.ChickenRespawnSecondsHelp=Minimum time between automatic chicken spawns for each player at normal game speed. 0 uses the original spawn rate. Only applies while chicken hunting is enabled.
+ImprovedHunters.ChickenRespawnSecondsValueFormat={0} s
 
 Common.HostOptions=HOST OPTIONS
 Common.ClientOptions=LOCAL CLIENT OPTIONS

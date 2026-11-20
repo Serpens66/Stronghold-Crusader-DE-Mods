@@ -1,3 +1,4 @@
+using APIShared.Input;
 using APIShared;
 using APIShared.NativeSites;
 using BepInEx.Logging;
@@ -128,7 +129,7 @@ namespace BugfixesAndQoL.EditorRegions
                 // SE key events use a separate, UI-filtered state machine. Read
                 // physical input only on Vanilla's main-thread input path and
                 // only while an actual edit is waiting, never on the engine thread.
-                bool held = UnityEngine.Application.isFocused && UnityEngine.Input.GetMouseButton(0);
+                bool held = UnityEngine.Application.isFocused && InputState.IsMouseHeld(0);
                 runtime.state.ObservePlacementButton(ticket, held);
                 Shared.DevDiag.Count("editor.regions.inputSamples");
             }

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Concurrent;
 using APIShared;
-using APIShared.Simulation;
 using APIShared.Wildlife;
 using SHCDESE.API;
 using SHCDESE.EventAPI.Buildings;
@@ -21,7 +20,8 @@ namespace AIHunterPreyTest
         private ImprovedHuntersSettingsSnapshot hunting;
         private MissionContext mission;
         private bool enabled, controlAiv, automatic, retire, started, known, scanned, automaticCall, faulted, initializationDisabled;
-        private int lastScan, presentMask, otherPreyMask, blocked;
+        private int presentMask, otherPreyMask, blocked;
+        private HunterCheckSchedule checkSchedule;
         internal Action OutputQueued;
 
         internal AIHunterRuntime(AIHunterSettings settings, HunterRetirementNative retirement)
@@ -49,9 +49,10 @@ namespace AIHunterPreyTest
             mission = notification.Context;
             CaptureSettings();
             started = true; scanned = known = false;
+            checkSchedule = default;
             Queue("SESSION id=" + mission.SessionId + "; enabled=" + enabled + "; aiv=" + controlAiv +
                 "; automatic=" + automatic + "; retire=" + retire + "; IH=" + hunting.Status +
-                "; mode=" + mission.Mode.ToDiagnosticString());
+                "; firstCheckDelayTicks=" + PreyPresencePolicy.InitialDelay + "; mode=" + mission.Mode.ToDiagnosticString());
         }
 
         private void CaptureSettings()
@@ -71,15 +72,16 @@ namespace AIHunterPreyTest
         {
             mission = null; started = enabled = known = scanned = automaticCall = faulted = false;
             presentMask = otherPreyMask = blocked = 0; hunting = null;
+            checkSchedule = default;
             Array.Clear(preyCounts, 0, preyCounts.Length);
         }
 
         internal void Tick(int tick)
         {
-            if (initializationDisabled || !enabled || !started || faulted || mission == null || !PreyPresencePolicy.Due(scanned, lastScan, tick)) return;
+            if (initializationDisabled || !enabled || !started || faulted || mission == null || !checkSchedule.TryBeginCheck(tick)) return;
             try
             {
-                RefreshPrey(tick);
+                RefreshPrey();
                 if (!known) return;
                 int removed = 0, deferred = 0, built = 0;
                 var baselineFood = new bool[GamePlayerManagerAPI.MAX_PLAYERS + 1];
@@ -141,9 +143,7 @@ namespace AIHunterPreyTest
                 // map snapshot is reused; OnStart forces a new scan after all start features.
                 if (!scanned)
                 {
-                    int tick = 0;
-                    SimulationClock.TryGetCurrentTick(mission, out tick);
-                    RefreshPrey(tick);
+                    RefreshPrey();
                 }
                 if (!known) return;
                 // Fresh hut count for every synchronous constructor attempt, including AIV prebuild.
@@ -158,9 +158,9 @@ namespace AIHunterPreyTest
             catch (Exception error) { Fault(error); }
         }
 
-        private void RefreshPrey(int tick)
+        private void RefreshPrey()
         {
-            scanned = true; lastScan = tick; known = false; presentMask = otherPreyMask = 0;
+            scanned = true; known = false; presentMask = otherPreyMask = 0;
             Array.Clear(preyCounts, 0, preyCounts.Length);
             if (!HuntablePrey.IsAvailable || hunting == null || hunting.Status == ImprovedHuntersSettingsStatus.Unavailable) return;
             HuntablePreyCatalog catalog = HuntablePrey.Current;

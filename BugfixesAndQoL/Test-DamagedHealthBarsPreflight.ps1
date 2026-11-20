@@ -27,15 +27,14 @@ $contract = [IO.File]::ReadAllText((Join-Path $root 'src\Hud\HealthBarNativeCont
 $settings = [IO.File]::ReadAllText((Join-Path $root 'src\Settings\BugfixesAndQoLViewModel.cs'))
 $plugin = [IO.File]::ReadAllText((Join-Path $root 'src\BugfixesAndQoLPlugin.cs'))
 $xaml = [IO.File]::ReadAllText((Join-Path $root 'Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml'))
-if ($runtime -notmatch 'InputR3EventHooks\.OnKeyDown' -or
+if ($runtime -notmatch 'CanToggleFromHotkey\(' -or
     $runtime -notmatch 'HEALTH_BARS_POST_STARTUP' -or
     $runtime -notmatch 'DisplacedByteCount' -or
     $runtime -notmatch 'controller\.NoesisHasKeyboard' -or
     $runtime -notmatch 'APIShared\.GameModes\.GameModeHelper\.IsMapEditor\(\)' -or
     $runtime -match 'MainViewModel\.Instance|\.IsMapEditorMode' -or
     $runtime -notmatch 'settings\.EnableDamagedHealthBars' -or
-    $runtime -notmatch 'settings\.CaptureHealthBarHotkeyFromInput\(args\.Key\)' -or
-    $runtime -notmatch 'ReferenceEquals\(hub\.SelectedTab\?\.ViewModel, settings\)' -or
+    $runtime -match 'InputR3EventHooks\.OnKeyDown' -or
     $runtime -match 'HEALTH_BARS_HOTKEY_REJECTED|args\.Result\s*=|transaction\.Dispose\s*\(') {
     throw 'Health-bar runtime lifecycle, input or logging contract failed.'
 }
@@ -53,12 +52,14 @@ if ($settings -notmatch '\[APIShared\.ModSettings\.PresetLocal\]\s+public bool E
     $settings -notmatch '\[APIShared\.ModSettings\.PresetLocal\]\s+public int HealthBarHotkey' -or
     $settings -notmatch 'DefaultHealthBarHotkey = \(int\)KeyCode\.H \| HealthBarAltMask' -or
     $settings -notmatch 'modifiers & \(modifiers - 1\)' -or
-    $settings -notmatch 'CaptureHealthBarHotkeyFromInput\(KeyCode key\)' -or
+    $settings -notmatch 'ModKeybinds\.TryCapture\(args\)' -or
     $settings -match 'HealthBarHotkeyKeyIndex|private bool healthBarHotkeyAlt') {
     throw 'Health-bar local setting or default hotkey contract failed.'
 }
-if ($plugin -notmatch 'Settings\.CancelHealthBarCapture\(\)' -or
-    $plugin -notmatch 'hub\.WindowVisibility != Noesis\.Visibility\.Visible') {
+if ($plugin -notmatch 'Settings\.RegisterHealthBarKeybind\(' -or
+    $settings -notmatch 'ModKeybinds\.BeginCapture\(healthBarKeybind, IsHealthBarEditorOpen' -or
+    $settings -notmatch 'hub\.WindowVisibility == Noesis\.Visibility\.Visible' -or
+    $settings -notmatch 'ReferenceEquals\(hub\.SelectedTab\?\.ViewModel, this\)') {
     throw 'Health-bar capture must be canceled when the settings window or tab closes.'
 }
 if ($xaml -notmatch 'IsChecked="\{Binding EnableDamagedHealthBars, Mode=TwoWay\}"' -or

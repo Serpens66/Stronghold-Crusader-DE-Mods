@@ -8,6 +8,7 @@ namespace UiAcceptance
             SpectatorSteps.Register();
             SpectatorPowerRegressionSteps.Register();
             InputSteps.Register();
+            ModKeybindSteps.Register();
             ProbeSteps.Register();
             LobbySteps.Register();
             AutoSendSteps.Register();

@@ -1,3 +1,4 @@
+using APIShared.Input;
 using System;
 using System.Diagnostics;
 using System.Threading;
@@ -122,8 +123,8 @@ namespace BugfixesAndQoL.AreaDemolition
             {
                 if(!LocalEnabled)CancelSelection();
                 if(state==2) UpdatePointer(director);
-                if((state==3 || state==0) && Input.GetMouseButtonUp(0)) CompletePrimary(director,true);
-                else if((state==3 || state==0) && !Input.GetMouseButton(0)) CompletePrimary(director,false);
+                if((state==3 || state==0) && InputState.IsMouseReleased(0)) CompletePrimary(director,true);
+                else if((state==3 || state==0) && !InputState.IsMouseHeld(0)) CompletePrimary(director,false);
                 return true;
             }
             if(view.IsInputShieldActive) return true;
@@ -132,7 +133,7 @@ namespace BugfixesAndQoL.AreaDemolition
             if(state==1 && (pendingCommit!=null || finalCaptureRequested))CancelSelection();
             if(state!=1 || !CanCapture(director,out int owner) || !TryPointerTile(director,out int x,out int y,true)) return false;
             actor=owner;capturedSession=mission.SessionId;
-            bool shift=Input.GetKey(KeyCode.LeftShift)||Input.GetKey(KeyCode.RightShift);
+            bool shift=InputState.PhysicalShiftHeld;
             DemolitionTarget start=native.AtTile(x,y,actor);
             var mouse=Input.mousePosition;
             primaryReleaseFrame=-1;
@@ -161,7 +162,7 @@ namespace BugfixesAndQoL.AreaDemolition
             var mouse=Input.mousePosition;
             // An owned drag uses screen geometry, including the map behind the HUD.
             gesture.MoveOnScreen(mouse.x,mouse.y,Screen.width,Screen.height,Math.Max(.5f,Screen.height/1080f));
-            if(gesture.SetSameType(Input.GetKey(KeyCode.LeftShift)||Input.GetKey(KeyCode.RightShift)))
+            if(gesture.SetSameType(InputState.PhysicalShiftHeld))
             {ClearPreviewWork();rootSelection.Clear();completedStamp=null;targets=Array.Empty<DemolitionTarget>();renderer.Clear();}
             return true;
         }
@@ -183,16 +184,16 @@ namespace BugfixesAndQoL.AreaDemolition
             if(!presentationReady)return;
             view.AfterInputFrame();
             if(!LocalEnabled && gesture.Owned)CancelSelection();
-            if(Input.GetMouseButtonDown(1) && (gesture.Owned || pendingCommit!=null || finalCaptureRequested)){CancelSelection();return;}
+            if(InputState.IsMousePressed(1) && (gesture.Owned || pendingCommit!=null || finalCaptureRequested)){CancelSelection();return;}
             // Vanilla may suppress the setter entirely on our raw visual hit. Recover only an
             // otherwise unobserved physical down, never a down already passed to Vanilla.
-            if(LocalEnabled && !gesture.Owned && Input.GetMouseButtonDown(0) && primaryDownObservedFrame!=Time.frameCount &&
+            if(LocalEnabled && !gesture.Owned && InputState.IsMousePressed(0) && primaryDownObservedFrame!=Time.frameCount &&
                 MainControls.instance!=null && MainControls.instance.CurrentAction==BulldozerAction && director.overUI() && !IsPointerOverUi())
                 HandlePrimary(director,1);
             if(!gesture.Owned) return;
             if(gesture.Stage!=GestureStage.Cancelled) UpdatePointer(director);
-            if(Input.GetMouseButtonUp(0)) CompletePrimary(director,true);
-            else if(!Input.GetMouseButton(0)) CompletePrimary(director,false);
+            if(InputState.IsMouseReleased(0)) CompletePrimary(director,true);
+            else if(!InputState.IsMouseHeld(0)) CompletePrimary(director,false);
         }
         private bool TryPointerTile(EditorDirector director,out int x,out int y,bool fresh=false)
             => TryPointerTile(director,out x,out y,out _,fresh);

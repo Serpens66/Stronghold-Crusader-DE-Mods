@@ -14,11 +14,18 @@ internal static unsafe class Program
     {
         try
         {
-            Check(PreyPresencePolicy.Due(false, 0, 0), "initial scan");
-            Check(!PreyPresencePolicy.Due(true, 100, 4899), "not early");
-            Check(PreyPresencePolicy.Due(true, 100, 4900), "interval due");
-            Check(PreyPresencePolicy.Due(true, int.MaxValue - 100, unchecked(int.MaxValue - 100 + 4800)), "clock wrap");
-            Check(!PreyPresencePolicy.Due(true, 100, 100), "paused clock");
+            var schedule = new HunterCheckSchedule();
+            Check(!schedule.TryBeginCheck(80000), "loaded save anchors at its own restored tick");
+            Check(!schedule.TryBeginCheck(80000), "paused start cannot consume delay");
+            Check(!schedule.TryBeginCheck(80199), "no early automatic attempt");
+            Check(schedule.TryBeginCheck(80200), "first attempt after five simulation seconds");
+            Check(!schedule.TryBeginCheck(80200), "same tick cannot repeat attempt");
+            Check(!schedule.TryBeginCheck(84999), "ordinary retry remains two minutes");
+            Check(schedule.TryBeginCheck(85000), "retry two minutes after first attempt");
+            schedule = default;
+            Check(!schedule.TryBeginCheck(12) && !schedule.TryBeginCheck(211) && schedule.TryBeginCheck(212), "new map resets first delay");
+            schedule = default;
+            Check(!schedule.TryBeginCheck(int.MaxValue-100) && schedule.TryBeginCheck(unchecked(int.MaxValue-100+200)), "first delay tolerates native tick wrap");
             Check(PreyPresencePolicy.OwnerMask(true, true, false, 0, false) == 0x1FE, "neutral prey all players");
             Check(PreyPresencePolicy.OwnerMask(true, true, false, 2, false) == 0, "owned prey excluded");
             Check(PreyPresencePolicy.OwnerMask(true, true, false, 2, true) == 4, "own prey correct player");

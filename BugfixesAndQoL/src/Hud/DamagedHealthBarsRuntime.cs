@@ -3,7 +3,6 @@ using BepInEx;
 using BepInEx.Logging;
 using CrusaderDE;
 using Iced.Intel;
-using R3;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Core.Memory;
@@ -11,8 +10,6 @@ using RedBird.X64.Hooks;
 using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
-using SHCDESE.EventAPI;
-using SHCDESE.EventAPI.Input;
 using SHCDESE.Interop;
 using System;
 using System.IO;
@@ -30,7 +27,6 @@ namespace BugfixesAndQoL
         private readonly HookHandle<X64InlineHook> buildingSouth = new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> unit = new HookHandle<X64InlineHook>();
         private HookTransaction transaction;
-        private IDisposable keyDownSubscription;
         private IntPtr activeFlag;
         private int installed;
         private int postStartupLogged;
@@ -72,8 +68,6 @@ namespace BugfixesAndQoL
                 ulong flagAddress = unchecked((ulong)activeFlag.ToInt64());
                 ProbeGeneratedStubs(imageBase, flagAddress);
 
-                // InputR3EventHooks is a publisher that survives startup cleanup.
-                keyDownSubscription = InputR3EventHooks.OnKeyDown.Observable.Subscribe(OnKeyDown);
                 settings.SettingChanged += OnSettingChanged;
 
                 pending = new HookTransaction(
@@ -117,7 +111,6 @@ namespace BugfixesAndQoL
             {
                 // Roll back only this unpublished initialization candidate.
                 pending?.Dispose();
-                keyDownSubscription?.Dispose();
                 settings.SettingChanged -= OnSettingChanged;
                 if (activeFlag != IntPtr.Zero) Marshal.FreeHGlobal(activeFlag);
                 throw;
@@ -318,46 +311,25 @@ namespace BugfixesAndQoL
             Interlocked.Exchange(ref *flag, 0);
         }
 
-        private void OnKeyDown(UnityInputEventArgs args)
+        internal bool CanToggleFromHotkey()
         {
-            if (args == null || args.Phase != EventHookPhase.Pre)
-                return;
+            if (!FeatureEnabled || Volatile.Read(ref installed) == 0)
+                return false;
+            GameData gameData = GameData.Instance;
+            if (GameMap.instance == null || gameData?.lastGameState == null)
+                return false;
+            if (gameData.app_mode != 14 && gameData.app_mode != 16)
+                return false;
+            if (APIShared.GameModes.GameModeHelper.IsMapEditor())
+                return false;
+            FatControler controller = FatControler.instance;
+            return controller != null && !controller.NoesisHasKeyboard;
+        }
+
+        internal void ToggleFromHotkey()
+        {
             try
             {
-                if (settings.IsCapturingHealthBarHotkey)
-                {
-                    var hub = SHCDESE.BepInEx.Bootstrap.Plugin.ModSettingsHubViewModel;
-                    if (hub != null && hub.WindowVisibility == Noesis.Visibility.Visible &&
-                        ReferenceEquals(hub.SelectedTab?.ViewModel, settings))
-                        settings.CaptureHealthBarHotkeyFromInput(args.Key);
-                    else
-                        settings.CancelHealthBarCapture();
-                    return;
-                }
-                if (args.Key != settings.HealthBarHotkeyKeyCode || args.Key == KeyCode.None)
-                    return;
-                bool alt = Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
-                bool control = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
-                bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-                if (alt != settings.HealthBarHotkeyAlt ||
-                    control != settings.HealthBarHotkeyControl ||
-                    shift != settings.HealthBarHotkeyShift ||
-                    !FeatureEnabled)
-                    return;
-                if (Volatile.Read(ref installed) == 0)
-                    return;
-                if (!args.Result)
-                    return;
-                GameData gameData = GameData.Instance;
-                if (GameMap.instance == null || gameData?.lastGameState == null)
-                    return;
-                if (gameData.app_mode != 14 && gameData.app_mode != 16)
-                    return;
-                if (APIShared.GameModes.GameModeHelper.IsMapEditor())
-                    return;
-                FatControler controller = FatControler.instance;
-                if (controller == null || controller.NoesisHasKeyboard)
-                    return;
                 if (!EnsurePostStartupReady())
                     return;
 

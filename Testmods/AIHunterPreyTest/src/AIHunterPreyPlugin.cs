@@ -73,7 +73,7 @@ namespace AIHunterPreyTest
                     throw new InvalidOperationException(reason);
                 initialized = true;
                 outputWork.Request();
-                Info("READY publisher=APIShared.MissionLifecycle/SimulationTickEvents; processRooted=true; interval=4800 map ticks");
+                Info("READY publisher=APIShared.MissionLifecycle/SimulationTickEvents; processRooted=true; firstCheckDelay=200; interval=4800 map ticks");
             }
             catch (Exception error) { runtime?.Disable(); Error("INIT_FAILED " + error); }
         }

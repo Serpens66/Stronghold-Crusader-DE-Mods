@@ -45,6 +45,7 @@ namespace ImprovedHunters
         private int herdRangeSize = DefaultHerdRangeSize;
         private int startHerdMode = HerdSettingsPolicy.StartHerdsOnEmptyMaps;
         private int chickensPerPlayer = GranaryChickenSpawnPolicy.DefaultTargetPerPlayer;
+        private int chickenRespawnSeconds = GranaryChickenSpawnPolicy.DefaultRespawnSeconds;
 
         public event Action<string> SettingChanged;
 
@@ -138,6 +139,13 @@ namespace ImprovedHunters
         public string ChickenPopulationTitleText => SerpLocalization.Get("ImprovedHunters.ChickenPopulationTitle");
         public string ChickensPerPlayerText => SerpLocalization.Get("ImprovedHunters.ChickensPerPlayer");
         public string ChickensPerPlayerHelpText => SerpLocalization.Get("ImprovedHunters.ChickensPerPlayerHelp");
+        public string ChickenRespawnSecondsText => SerpLocalization.Get("ImprovedHunters.ChickenRespawnSeconds");
+        public string ChickenRespawnSecondsHelpText => SerpLocalization.Get("ImprovedHunters.ChickenRespawnSecondsHelp");
+        public string ChickenRespawnSecondsValueText
+        {
+            get => string.Format(CultureInfo.CurrentCulture, SerpLocalization.Get("ImprovedHunters.ChickenRespawnSecondsValueFormat"), ChickenRespawnSeconds);
+            set => SetBoundedIntText(value, parsed => ChickenRespawnSeconds = parsed, nameof(ChickenRespawnSecondsValueText));
+        }
         public string ChickensPerPlayerValueText
         {
             get => string.Format(
@@ -210,6 +218,13 @@ namespace ImprovedHunters
                 GranaryChickenSpawnPolicy.MaximumTargetPerPlayer,
                 nameof(ChickensPerPlayer),
                 nameof(ChickensPerPlayerValueText));
+        }
+
+        [SyncHostOnly] public int ChickenRespawnSeconds
+        {
+            get => chickenRespawnSeconds;
+            set => SetBoundedIntSetting(ref chickenRespawnSeconds, value, 0, GranaryChickenSpawnPolicy.MaximumRespawnSeconds,
+                nameof(ChickenRespawnSeconds), nameof(ChickenRespawnSecondsValueText));
         }
 
         [SyncHostOnly] public int DeerMeat { get => deerMeat; set => SetMeatSetting(ref deerMeat, value, DefaultDeerMeat, nameof(DeerMeat), nameof(DeerMeatText)); }
@@ -289,6 +304,7 @@ namespace ImprovedHunters
             HuntCamel = true;
             HuntChicken = true;
             ChickensPerPlayer = GranaryChickenSpawnPolicy.DefaultTargetPerPlayer;
+            ChickenRespawnSeconds = GranaryChickenSpawnPolicy.DefaultRespawnSeconds;
             DeerMeat = DefaultDeerMeat;
             GoatMeat = DefaultGoatMeat;
             RabbitMeat = DefaultRabbitMeat;

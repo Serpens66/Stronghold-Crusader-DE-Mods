@@ -11,7 +11,7 @@ using System.Reflection;
 namespace CastlePlanner
 {
     [BepInDependency(ScriptExtenderGuid, "2.10.4")]
-    [BepInDependency("APIShared_Serp", "0.49.0")]
+    [BepInDependency("APIShared_Serp", "0.60.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]

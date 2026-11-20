@@ -3,7 +3,7 @@ namespace AIHunterPreyTest
     internal static class PreyPresencePolicy
     {
         internal const int ScanInterval = 4800;
-        internal static bool Due(bool hasScan, int previous, int current) => !hasScan || unchecked((uint)(current - previous)) >= ScanInterval;
+        internal const int InitialDelay = 200; // Five simulation seconds at speed 40.
         // Reservations and hunter-local rankings are deliberately excluded: they do not exhaust prey.
         internal static int OwnerMask(bool active, bool live, bool corpseCollectible, int owner, bool ownPlayerAllowed)
         {
@@ -13,5 +13,20 @@ namespace AIHunterPreyTest
         }
         internal static bool ShouldBlock(bool enabled, bool controlAiv, bool autoCall, bool ai, bool known, bool prey) =>
             enabled && (controlAiv || autoCall) && ai && known && !prey;
+    }
+
+    // Default/reset starts a fresh mission-relative delay, even when a save restores a large map tick.
+    internal struct HunterCheckSchedule
+    {
+        private bool anchored, checkedOnce;
+        private int anchor;
+        internal bool TryBeginCheck(int tick)
+        {
+            if (!anchored) { anchored = true; anchor = tick; return false; }
+            uint interval = (uint)(checkedOnce ? PreyPresencePolicy.ScanInterval : PreyPresencePolicy.InitialDelay);
+            if (unchecked((uint)(tick - anchor)) < interval) return false;
+            anchor = tick; checkedOnce = true;
+            return true;
+        }
     }
 }

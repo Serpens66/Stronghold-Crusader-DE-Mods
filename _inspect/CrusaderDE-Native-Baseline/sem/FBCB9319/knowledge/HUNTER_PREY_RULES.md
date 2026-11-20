@@ -41,7 +41,7 @@ After the hit nothing depends on the victim's owner except the local warning at
   `0x11`, `0x22`, `0x13`). With owner 0 no building is found, so a neutral chicken loses this.
 - `0xD29E0`: target 0 without food, then by food up to 10. Below target it spawns at a
   random bakery, mill or granary (`0xBF510`). Above target it sets state `0x6E` on the
-  first chicken of **that owner**. The flags of `cmp eax,[rdi+0x2048]` at `0xD2ABF` decide
+  first chicken of **that owner**. `0xD1AD0` invokes this path at step `0xB4` of its 200-step cycle, so each active player can gain one chicken every 200 simulation ticks. The flags of `cmp eax,[rdi+0x2048]` at `0xD2ABF` decide
   both branches.
 
 ## Reservation

@@ -1,3 +1,4 @@
+using APIShared.Input;
 using APIShared.ModSettings;
 using BepInEx.Logging;
 using SHCDESE.API;
@@ -73,6 +74,7 @@ namespace CastlePlanner
         private double blueprintIconScale;
         private double blueprintIconAlpha;
         private bool isCapturingHotkey;
+        private ModKeybindRegistration blueprintKeybind;
         private readonly BulkObservableCollection<string> castleOptions =
             new BulkObservableCollection<string>();
 
@@ -133,7 +135,6 @@ namespace CastlePlanner
         internal event Action SettingsChanged;
         internal event Action BlueprintVisualSettingsChanged;
         internal event Action BlueprintContentSettingsChanged;
-        internal event Action HotkeyCaptureRequested;
 
         public ObservableCollection<string> CastleOptions => castleOptions;
 
@@ -620,12 +621,9 @@ namespace CastlePlanner
             BlueprintIconAlpha.ToString("0.00");
 
         public string HotkeyDisplayText =>
-            BlueprintHotkeyCode == KeyCode.None
+            BlueprintHotkey == 0
                 ? SerpLocalization.Get("CastlePlanner.NotAssigned")
-                : (BlueprintHotkeyControl ? "Ctrl+" : string.Empty) +
-                  (BlueprintHotkeyAlt ? "Alt+" : string.Empty) +
-                  (BlueprintHotkeyShift ? "Shift+" : string.Empty) +
-                  GetKeyDisplayName(BlueprintHotkeyCode);
+                : ModKeybinds.Format(ReadBlueprintKeybind());
 
         public string HotkeyCaptureButtonText =>
             isCapturingHotkey
@@ -638,10 +636,6 @@ namespace CastlePlanner
         internal bool HasSpawnContent => CastleSpawnContentPolicy.HasAnyEnabled(
             spawnFortifications, spawnBuildings, spawnDefensiveGroundFeatures,
             spawnFearFactorBuildings, spawnSiegeEngines, spawnBraziersAndFlags);
-        internal KeyCode BlueprintHotkeyCode => (KeyCode)(blueprintHotkey & HotkeyKeyMask);
-        internal bool BlueprintHotkeyAlt => (blueprintHotkey & HotkeyAltMask) != 0;
-        internal bool BlueprintHotkeyControl => (blueprintHotkey & HotkeyControlMask) != 0;
-        internal bool BlueprintHotkeyShift => (blueprintHotkey & HotkeyShiftMask) != 0;
         internal float BlueprintIconScaleValue => (float)blueprintIconScale;
         internal float BlueprintIconAlphaValue => (float)blueprintIconAlpha;
 
@@ -856,220 +850,72 @@ namespace CastlePlanner
             }
         }
 
-        internal bool CompleteHotkeyCapture(KeyCode key, bool alt, bool control, bool shift)
+        internal bool TryRegisterBlueprintKeybind(Func<bool> canExecute, Action execute, out string reason)
         {
-            if (!isCapturingHotkey)
-                return false;
-            if (key == KeyCode.Escape)
-            {
-                SetCaptureState(false);
-                return true;
-            }
-            if (!IsMainHotkey(key))
-                return false;
-            int modifiers = (alt ? HotkeyAltMask : 0) |
-                            (control ? HotkeyControlMask : 0) |
-                            (shift ? HotkeyShiftMask : 0);
-            if ((modifiers & (modifiers - 1)) != 0)
+            var registration = new ModKeybindRegistration(
+                CastlePlannerPlugin.PluginGuid, "blueprint-toggle", CastlePlannerPlugin.PluginName, () => HotkeyText,
+                new KeybindChord(KeyCode.None), ReadBlueprintKeybind, chord => BlueprintHotkey = EncodeHotkey(chord),
+                IsValidKeybind, CanEditBlueprintKeybind, canExecute, execute);
+            if (!ModKeybinds.TryRegister(registration, out reason))
                 return false;
 
-            SetCaptureState(false);
-            SetHotkey((int)key | modifiers);
+            blueprintKeybind = registration;
             return true;
         }
 
+        private bool CanEditBlueprintKeybind() =>
+            CanEditClientSettings && Shared.MissionEvents.CurrentContext == null;
+
+        private KeybindChord ReadBlueprintKeybind()
+        {
+            KeybindModifiers modifiers = KeybindModifiers.None;
+            if ((BlueprintHotkey & HotkeyAltMask) != 0) modifiers |= KeybindModifiers.Alt;
+            if ((BlueprintHotkey & HotkeyControlMask) != 0) modifiers |= KeybindModifiers.Control;
+            if ((BlueprintHotkey & HotkeyShiftMask) != 0) modifiers |= KeybindModifiers.Shift;
+            return new KeybindChord((KeyCode)(BlueprintHotkey & HotkeyKeyMask), modifiers);
+        }
+
+        private static int EncodeHotkey(KeybindChord chord) =>
+            (int)chord.Key |
+            ((chord.Modifiers & KeybindModifiers.Alt) != 0 ? HotkeyAltMask : 0) |
+            ((chord.Modifiers & KeybindModifiers.Control) != 0 ? HotkeyControlMask : 0) |
+            ((chord.Modifiers & KeybindModifiers.Shift) != 0 ? HotkeyShiftMask : 0);
+
+        private static bool IsValidKeybind(KeybindChord chord) =>
+            chord.Key == KeyCode.None
+                ? chord.Modifiers == KeybindModifiers.None
+                : (chord.Modifiers == KeybindModifiers.None || chord.Modifiers == KeybindModifiers.Alt ||
+                   chord.Modifiers == KeybindModifiers.Control || chord.Modifiers == KeybindModifiers.Shift) &&
+                   IsMainHotkey(chord.Key);
+
         private void CaptureNoesisHotkeyInput(object parameter)
         {
-            if (!isCapturingHotkey)
-                return;
+            if (isCapturingHotkey && parameter is Noesis.RoutedEventArgs args)
+                ModKeybinds.TryCapture(args);
+        }
 
-            KeyCode key;
-            Noesis.RoutedEventArgs routedArgs;
-            if (parameter is Noesis.KeyEventArgs keyArgs &&
-                TryMapNoesisKey(keyArgs.Key, out key))
-            {
-                routedArgs = keyArgs;
-            }
-            else if (parameter is Noesis.MouseButtonEventArgs mouseArgs &&
-                     TryMapNoesisMouseButton(
-                         mouseArgs.ChangedButton,
-                         out key))
-            {
-                routedArgs = mouseArgs;
-            }
-            else
-            {
-                return;
-            }
-
-            routedArgs.Handled = true;
-            bool alt = Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
-            bool control = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
-            bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-            if (routedArgs.Source is Noesis.UIElement source && source.Keyboard != null)
-            {
-                Noesis.ModifierKeys held = source.Keyboard.Modifiers;
-                alt = (held & Noesis.ModifierKeys.Alt) != 0;
-                control = (held & Noesis.ModifierKeys.Control) != 0;
-                shift = (held & Noesis.ModifierKeys.Shift) != 0;
-            }
-            CompleteHotkeyCapture(key, alt, control, shift);
+        private bool IsHotkeyEditorActive()
+        {
+            var hub = SHCDESE.BepInEx.Bootstrap.Plugin.ModSettingsHubViewModel;
+            return hub != null &&
+                   hub.WindowVisibility == Noesis.Visibility.Visible &&
+                   ReferenceEquals(hub.SelectedTab?.ViewModel, this);
         }
 
         private void BeginHotkeyCapture()
         {
-            SetCaptureState(true);
-            HotkeyCaptureRequested?.Invoke();
+            if (blueprintKeybind != null &&
+                ModKeybinds.BeginCapture(blueprintKeybind, IsHotkeyEditorActive, () => SetCaptureState(false)))
+                SetCaptureState(true);
         }
-
-        internal void CancelHotkeyCapture() => SetCaptureState(false);
 
         private void ClearHotkey()
         {
-            SetCaptureState(false);
-            SetHotkey((int)KeyCode.None);
-        }
+            if (blueprintKeybind == null)
+                return;
 
-        private static bool TryMapNoesisMouseButton(
-            Noesis.MouseButton button,
-            out KeyCode key)
-        {
-            switch (button)
-            {
-                case Noesis.MouseButton.Left:
-                    key = KeyCode.Mouse0;
-                    return true;
-                case Noesis.MouseButton.Right:
-                    key = KeyCode.Mouse1;
-                    return true;
-                case Noesis.MouseButton.Middle:
-                    key = KeyCode.Mouse2;
-                    return true;
-                case Noesis.MouseButton.XButton1:
-                    key = KeyCode.Mouse3;
-                    return true;
-                case Noesis.MouseButton.XButton2:
-                    key = KeyCode.Mouse4;
-                    return true;
-                default:
-                    key = KeyCode.None;
-                    return false;
-            }
-        }
-
-        private static bool TryMapNoesisKey(
-            Noesis.Key source,
-            out KeyCode key)
-        {
-            if (source >= Noesis.Key.A && source <= Noesis.Key.Z)
-            {
-                key = (KeyCode)((int)KeyCode.A +
-                    ((int)source - (int)Noesis.Key.A));
-                return true;
-            }
-            if (source >= Noesis.Key.D0 && source <= Noesis.Key.D9)
-            {
-                key = (KeyCode)((int)KeyCode.Alpha0 +
-                    ((int)source - (int)Noesis.Key.D0));
-                return true;
-            }
-            if (source >= Noesis.Key.NumPad0 &&
-                source <= Noesis.Key.NumPad9)
-            {
-                key = (KeyCode)((int)KeyCode.Keypad0 +
-                    ((int)source - (int)Noesis.Key.NumPad0));
-                return true;
-            }
-            if (source >= Noesis.Key.F1 && source <= Noesis.Key.F15)
-            {
-                key = (KeyCode)((int)KeyCode.F1 +
-                    ((int)source - (int)Noesis.Key.F1));
-                return true;
-            }
-
-            switch (source)
-            {
-                case Noesis.Key.Back: key = KeyCode.Backspace; return true;
-                case Noesis.Key.Tab: key = KeyCode.Tab; return true;
-                case Noesis.Key.Clear: key = KeyCode.Clear; return true;
-                case Noesis.Key.Return: key = KeyCode.Return; return true;
-                case Noesis.Key.Pause: key = KeyCode.Pause; return true;
-                case Noesis.Key.Escape: key = KeyCode.Escape; return true;
-                case Noesis.Key.Space: key = KeyCode.Space; return true;
-                case Noesis.Key.PageUp: key = KeyCode.PageUp; return true;
-                case Noesis.Key.PageDown: key = KeyCode.PageDown; return true;
-                case Noesis.Key.End: key = KeyCode.End; return true;
-                case Noesis.Key.Home: key = KeyCode.Home; return true;
-                case Noesis.Key.Left: key = KeyCode.LeftArrow; return true;
-                case Noesis.Key.Up: key = KeyCode.UpArrow; return true;
-                case Noesis.Key.Right: key = KeyCode.RightArrow; return true;
-                case Noesis.Key.Down: key = KeyCode.DownArrow; return true;
-                case Noesis.Key.Print:
-                    key = KeyCode.Print;
-                    return true;
-                case Noesis.Key.Insert: key = KeyCode.Insert; return true;
-                case Noesis.Key.Delete: key = KeyCode.Delete; return true;
-                case Noesis.Key.Help: key = KeyCode.Help; return true;
-                case Noesis.Key.Multiply: key = KeyCode.KeypadMultiply; return true;
-                case Noesis.Key.Add: key = KeyCode.KeypadPlus; return true;
-                case Noesis.Key.Subtract: key = KeyCode.KeypadMinus; return true;
-                case Noesis.Key.Decimal: key = KeyCode.KeypadPeriod; return true;
-                case Noesis.Key.Divide: key = KeyCode.KeypadDivide; return true;
-                case Noesis.Key.NumLock: key = KeyCode.Numlock; return true;
-                case Noesis.Key.Scroll: key = KeyCode.ScrollLock; return true;
-                case Noesis.Key.CapsLock: key = KeyCode.CapsLock; return true;
-                case Noesis.Key.LeftShift: key = KeyCode.LeftShift; return true;
-                case Noesis.Key.RightShift: key = KeyCode.RightShift; return true;
-                case Noesis.Key.LeftCtrl: key = KeyCode.LeftControl; return true;
-                case Noesis.Key.RightCtrl: key = KeyCode.RightControl; return true;
-                case Noesis.Key.LeftAlt: key = KeyCode.LeftAlt; return true;
-                case Noesis.Key.RightAlt: key = KeyCode.RightAlt; return true;
-                case Noesis.Key.LWin: key = KeyCode.LeftWindows; return true;
-                case Noesis.Key.RWin: key = KeyCode.RightWindows; return true;
-                case Noesis.Key.Apps: key = KeyCode.Menu; return true;
-                case Noesis.Key.OemSemicolon: key = KeyCode.Semicolon; return true;
-                case Noesis.Key.OemPlus: key = KeyCode.Equals; return true;
-                case Noesis.Key.OemComma: key = KeyCode.Comma; return true;
-                case Noesis.Key.OemMinus: key = KeyCode.Minus; return true;
-                case Noesis.Key.OemPeriod: key = KeyCode.Period; return true;
-                case Noesis.Key.OemQuestion: key = KeyCode.Slash; return true;
-                case Noesis.Key.OemTilde: key = KeyCode.BackQuote; return true;
-                case Noesis.Key.OemOpenBrackets:
-                    key = KeyCode.LeftBracket;
-                    return true;
-                case Noesis.Key.OemPipe: key = KeyCode.Backslash; return true;
-                case Noesis.Key.OemCloseBrackets:
-                    key = KeyCode.RightBracket;
-                    return true;
-                case Noesis.Key.OemQuotes: key = KeyCode.Quote; return true;
-                case Noesis.Key.GamepadAccept:
-                    key = KeyCode.JoystickButton0;
-                    return true;
-                case Noesis.Key.GamepadCancel:
-                    key = KeyCode.JoystickButton1;
-                    return true;
-                case Noesis.Key.GamepadContext1:
-                    key = KeyCode.JoystickButton2;
-                    return true;
-                case Noesis.Key.GamepadContext2:
-                    key = KeyCode.JoystickButton3;
-                    return true;
-                case Noesis.Key.GamepadPageLeft:
-                    key = KeyCode.JoystickButton4;
-                    return true;
-                case Noesis.Key.GamepadPageRight:
-                    key = KeyCode.JoystickButton5;
-                    return true;
-                case Noesis.Key.GamepadView:
-                    key = KeyCode.JoystickButton6;
-                    return true;
-                case Noesis.Key.GamepadMenu:
-                    key = KeyCode.JoystickButton7;
-                    return true;
-                default:
-                    key = KeyCode.None;
-                    return false;
-            }
+            ModKeybinds.CancelCapture(blueprintKeybind);
+            blueprintKeybind.TrySet(new KeybindChord(KeyCode.None));
         }
 
         private void SetCaptureState(bool value)
@@ -1090,6 +936,8 @@ namespace CastlePlanner
             blueprintHotkey = key;
             OnPropertyChanged(nameof(BlueprintHotkey));
             OnPropertyChanged(nameof(HotkeyDisplayText));
+            if (blueprintKeybind != null)
+                ModKeybinds.NotifyBindingChanged();
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
                 Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/CastlePlannerSettingsViewModel/SetHotkey", $"Blueprint toggle hotkey changed to '{HotkeyDisplayText}' ({blueprintHotkey}).");
         }
@@ -1201,19 +1049,6 @@ namespace CastlePlanner
                 runtimeState.BlueprintHudPositionX);
             runtimeState.BlueprintHudPositionY = NormalizeUnitValue(
                 runtimeState.BlueprintHudPositionY);
-        }
-
-        private static string GetKeyDisplayName(KeyCode key)
-        {
-            try
-            {
-                string display = CrusaderDE.HUD_Options.GetKeyCodeString(key);
-                return string.IsNullOrWhiteSpace(display) ? key.ToString() : display;
-            }
-            catch
-            {
-                return key.ToString();
-            }
         }
 
         private sealed class ParameterRelayCommand : ICommand

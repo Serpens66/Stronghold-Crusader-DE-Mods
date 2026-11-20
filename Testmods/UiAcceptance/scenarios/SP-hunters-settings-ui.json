@@ -10,7 +10,7 @@
     {"id": "tanner-high", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "TannerMeatPerTrip", "80", "50"]},
     {"id": "tanner-capped", "do": "ExpectModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "TannerMeatPerTrip", "50"]},
     {"id": "chicken-default", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "ChickenMeat", "1"]},
-    {"id": "tanner-default", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "TannerMeatPerTrip", "5"]},
+    {"id": "tanner-default", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "TannerMeatPerTrip", "2"]},
     {"id": "skirmish", "do": "Skirmish.Open", "timeoutMs": 30000, "stopOnFail": true},
     {"id": "hub", "do": "InvokeCommand", "args": ["SHCDESE.BepInEx.Bootstrap.Plugin::ModSettingsHubViewModel.ToggleWindowCommand"], "stopOnFail": true},
     {"id": "tab", "do": "ModSettings.SelectTab", "args": ["ImprovedHunters_Serp"], "stopOnFail": true},

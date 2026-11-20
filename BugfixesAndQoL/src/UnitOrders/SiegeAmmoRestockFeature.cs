@@ -1,3 +1,4 @@
+using APIShared.Input;
 using APIShared.Presentation;
 using APIShared.GameModes;
 // Feature: Fair single- and multi-selection catapult/trebuchet ammunition restocking.
@@ -403,8 +404,8 @@ namespace BugfixesAndQoL
 
         private static SiegeAmmoRestockModifier CaptureModifier()
         {
-            bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-            bool control = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+            bool shift = InputState.PhysicalShiftHeld;
+            bool control = InputState.PhysicalControlHeld;
             return shift && control ? SiegeAmmoRestockModifier.ShiftAndControl :
                 shift ? SiegeAmmoRestockModifier.Shift :
                 control ? SiegeAmmoRestockModifier.Control : SiegeAmmoRestockModifier.Normal;

@@ -1,4 +1,5 @@
 using APIShared.ModSettings;
+using APIShared.Input;
 // Feature: Lobby settings model for the Bugfixes and QoL features.
 using SHCDESE.API.Components.Network;
 using SHCDESE.NoesisUtil;
@@ -172,7 +173,8 @@ namespace BugfixesAndQoL
         private bool enableAreaDemolition = true;
         private bool enableDamagedHealthBars = true;
         private int healthBarHotkey = DefaultHealthBarHotkey;
-        private bool isCapturingHealthBarHotkey;
+        private ModKeybindRegistration healthBarKeybind;
+        private bool editingHealthBarHotkey;
         private readonly LocalPerPlayerSetting<bool> enableClientFeatures = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableMinimapCursorFollowFix = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableCompleteNotificationSkipOnClick = new LocalPerPlayerSetting<bool>(true);
@@ -288,10 +290,10 @@ namespace BugfixesAndQoL
             ClearSteamInviteBlacklistCommand = new RelayCommand(
                 ConfirmClearSteamInviteBlacklist,
                 CanClearSteamInviteBlacklist);
-            AssignHealthBarHotkeyCommand = new RelayCommand(() => SetHealthBarCapture(true));
+            AssignHealthBarHotkeyCommand = new RelayCommand(BeginHealthBarCapture);
             ClearHealthBarHotkeyCommand = new RelayCommand(() =>
             {
-                SetHealthBarCapture(false);
+                CancelHealthBarCapture();
                 HealthBarHotkey = 0;
             });
             HealthBarHotkeyInputCommand = new ParameterRelayCommand(CaptureHealthBarHotkey);
@@ -830,37 +832,24 @@ namespace BugfixesAndQoL
                     return;
                 SetSetting(ref healthBarHotkey, normalized, nameof(HealthBarHotkey));
                 if (healthBarHotkey == normalized)
+                {
                     OnPropertyChanged(nameof(HealthBarHotkeyDisplayText));
+                    if (healthBarKeybind != null)
+                        ModKeybinds.NotifyBindingChanged();
+                }
             }
         }
 
         internal KeyCode HealthBarHotkeyKeyCode => (KeyCode)(healthBarHotkey & HealthBarKeyMask);
-        internal bool HealthBarHotkeyAlt => (healthBarHotkey & HealthBarAltMask) != 0;
-        internal bool HealthBarHotkeyControl => (healthBarHotkey & HealthBarControlMask) != 0;
-        internal bool HealthBarHotkeyShift => (healthBarHotkey & HealthBarShiftMask) != 0;
-        internal bool IsCapturingHealthBarHotkey => isCapturingHealthBarHotkey;
         public string HealthBarHotkeyDisplayText
         {
             get
             {
-                if (isCapturingHealthBarHotkey)
+                if (editingHealthBarHotkey)
                     return DamagedHealthBarsCapturePromptText;
                 if (HealthBarHotkeyKeyCode == KeyCode.None)
                     return DamagedHealthBarsOffText;
-                string keyName;
-                try
-                {
-                    keyName = HUD_Options.GetKeyCodeString(HealthBarHotkeyKeyCode);
-                }
-                catch
-                {
-                    keyName = null;
-                }
-                if (string.IsNullOrWhiteSpace(keyName))
-                    keyName = HealthBarHotkeyKeyCode.ToString();
-                return (HealthBarHotkeyControl ? "Ctrl+" : string.Empty) +
-                    (HealthBarHotkeyAlt ? "Alt+" : string.Empty) +
-                    (HealthBarHotkeyShift ? "Shift+" : string.Empty) + keyName;
+                return ModKeybinds.Format(DecodeHealthBarHotkey(healthBarHotkey));
             }
         }
 
@@ -1748,80 +1737,85 @@ namespace BugfixesAndQoL
             (key >= KeyCode.Alpha0 && key <= KeyCode.Alpha9) ||
             (key >= KeyCode.F1 && key <= KeyCode.F12);
 
-        private void SetHealthBarCapture(bool capture)
+        internal void RegisterHealthBarKeybind(Func<bool> canExecute, Action execute)
         {
-            if (isCapturingHealthBarHotkey == capture)
+            if (healthBarKeybind != null)
                 return;
-            isCapturingHealthBarHotkey = capture;
-            OnPropertyChanged(nameof(HealthBarHotkeyDisplayText));
+            var registration = new ModKeybindRegistration(
+                BugfixesAndQoLPlugin.PluginGuid,
+                "damaged-health-bars",
+                BugfixesAndQoLPlugin.PluginName,
+                () => DamagedHealthBarsHotkeyText,
+                DecodeHealthBarHotkey(DefaultHealthBarHotkey),
+                () => DecodeHealthBarHotkey(HealthBarHotkey),
+                chord => HealthBarHotkey = EncodeHealthBarHotkey(chord),
+                IsSupportedHealthBarHotkey,
+                () => CanMutateSetting(nameof(HealthBarHotkey)),
+                canExecute,
+                execute);
+            if (!ModKeybinds.TryRegister(registration, out string reason))
+                throw new InvalidOperationException(reason);
+            healthBarKeybind = registration;
         }
 
-        internal void CancelHealthBarCapture() => SetHealthBarCapture(false);
-
-        internal void CaptureHealthBarHotkeyFromInput(KeyCode key)
+        // Preserve the existing preset integer rather than storing or syncing a second binding.
+        private static KeybindChord DecodeHealthBarHotkey(int value)
         {
-            if (!isCapturingHealthBarHotkey)
-                return;
-            if (key == KeyCode.Escape)
+            var modifiers = KeybindModifiers.None;
+            if ((value & HealthBarAltMask) != 0) modifiers |= KeybindModifiers.Alt;
+            if ((value & HealthBarControlMask) != 0) modifiers |= KeybindModifiers.Control;
+            if ((value & HealthBarShiftMask) != 0) modifiers |= KeybindModifiers.Shift;
+            return new KeybindChord((KeyCode)(value & HealthBarKeyMask), modifiers);
+        }
+
+        private static int EncodeHealthBarHotkey(KeybindChord chord)
+        {
+            int value = (int)chord.Key;
+            if ((chord.Modifiers & KeybindModifiers.Alt) != 0) value |= HealthBarAltMask;
+            if ((chord.Modifiers & KeybindModifiers.Control) != 0) value |= HealthBarControlMask;
+            if ((chord.Modifiers & KeybindModifiers.Shift) != 0) value |= HealthBarShiftMask;
+            return value;
+        }
+
+        private static bool IsSupportedHealthBarHotkey(KeybindChord chord)
+        {
+            int value = EncodeHealthBarHotkey(chord);
+            return NormalizeHealthBarHotkey(value) == value;
+        }
+
+        private bool IsHealthBarEditorOpen()
+        {
+            var hub = SHCDESE.BepInEx.Bootstrap.Plugin.ModSettingsHubViewModel;
+            return hub != null && hub.WindowVisibility == Noesis.Visibility.Visible &&
+                ReferenceEquals(hub.SelectedTab?.ViewModel, this);
+        }
+
+        private void BeginHealthBarCapture()
+        {
+            if (healthBarKeybind != null &&
+                ModKeybinds.BeginCapture(healthBarKeybind, IsHealthBarEditorOpen, FinishHealthBarCapture))
             {
-                SetHealthBarCapture(false);
-                return;
+                editingHealthBarHotkey = true;
+                OnPropertyChanged(nameof(HealthBarHotkeyDisplayText));
             }
-            if (!IsSupportedHealthBarKey(key))
-                return;
-
-            int modifiers =
-                (Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt) ? HealthBarAltMask : 0) |
-                (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl) ? HealthBarControlMask : 0) |
-                (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) ? HealthBarShiftMask : 0);
-            CompleteHealthBarCapture(key, modifiers);
         }
 
-        private void CompleteHealthBarCapture(KeyCode key, int modifiers)
+        private void CancelHealthBarCapture()
         {
-            int binding = (int)key | modifiers;
-            if (NormalizeHealthBarHotkey(binding) != binding)
-                return;
-            HealthBarHotkey = binding;
-            SetHealthBarCapture(false);
+            if (editingHealthBarHotkey)
+                ModKeybinds.CancelCapture(healthBarKeybind);
+        }
+
+        private void FinishHealthBarCapture()
+        {
+            editingHealthBarHotkey = false;
+            OnPropertyChanged(nameof(HealthBarHotkeyDisplayText));
         }
 
         private void CaptureHealthBarHotkey(object parameter)
         {
-            if (!isCapturingHealthBarHotkey || !(parameter is Noesis.KeyEventArgs args))
-                return;
-            if (args.Key == Noesis.Key.Escape)
-            {
-                args.Handled = true;
-                SetHealthBarCapture(false);
-                return;
-            }
-            KeyCode key;
-            if (args.Key >= Noesis.Key.A && args.Key <= Noesis.Key.Z)
-                key = (KeyCode)((int)KeyCode.A + (int)args.Key - (int)Noesis.Key.A);
-            else if (args.Key >= Noesis.Key.D0 && args.Key <= Noesis.Key.D9)
-                key = (KeyCode)((int)KeyCode.Alpha0 + (int)args.Key - (int)Noesis.Key.D0);
-            else if (args.Key >= Noesis.Key.F1 && args.Key <= Noesis.Key.F12)
-                key = (KeyCode)((int)KeyCode.F1 + (int)args.Key - (int)Noesis.Key.F1);
-            else
-                return;
-
-            args.Handled = true;
-            bool alt = Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
-            bool control = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
-            bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-            if (args.Source is Noesis.UIElement source && source.Keyboard != null)
-            {
-                Noesis.ModifierKeys noesisModifiers = source.Keyboard.Modifiers;
-                alt = (noesisModifiers & Noesis.ModifierKeys.Alt) != 0;
-                control = (noesisModifiers & Noesis.ModifierKeys.Control) != 0;
-                shift = (noesisModifiers & Noesis.ModifierKeys.Shift) != 0;
-            }
-            int modifiers =
-                (alt ? HealthBarAltMask : 0) |
-                (control ? HealthBarControlMask : 0) |
-                (shift ? HealthBarShiftMask : 0);
-            CompleteHealthBarCapture(key, modifiers);
+            if (editingHealthBarHotkey && IsHealthBarEditorOpen() && parameter is Noesis.KeyEventArgs args)
+                ModKeybinds.TryCapture(args);
         }
 
         private sealed class ParameterRelayCommand : ICommand

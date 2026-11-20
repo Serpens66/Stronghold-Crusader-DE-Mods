@@ -1,3 +1,4 @@
+using APIShared.Input;
 using System;
 using System.Collections.Generic;
 using BepInEx.Logging;
@@ -282,7 +283,7 @@ namespace BugfixesAndQoL.AreaDemolition
         {
             // Called after EditorDirector.Update consumed this frame's physical input. The closing
             // mouse-up stays shielded for that whole call, including Native before/after input work.
-            if (closingClick && !Input.GetMouseButton(0) && !Input.GetMouseButton(1) && !Input.GetMouseButton(2))
+            if (closingClick && !InputState.IsMouseHeld(0) && !InputState.IsMouseHeld(1) && !InputState.IsMouseHeld(2))
             { closingClick = false; if (!menuOpen && backdrop != null) backdrop.Visibility = Visibility.Collapsed; }
         }
 

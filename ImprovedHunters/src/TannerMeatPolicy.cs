@@ -10,7 +10,7 @@ namespace ImprovedHunters
     {
         // Vanilla's slaughter step in 0x13E0B0 adds exactly this many hides.
         public const int HidesPerCow = 3;
-        public const int DefaultMeatPerTrip = 5;
+        public const int DefaultMeatPerTrip = 2;
         public const int MinimumMeatPerTrip = 1;
         public const int MaximumMeatPerTrip = 50;
 

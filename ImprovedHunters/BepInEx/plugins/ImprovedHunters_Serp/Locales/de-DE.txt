@@ -68,6 +68,9 @@ ImprovedHunters.ChickenPopulationTitle=Hühner
 ImprovedHunters.ChickensPerPlayer=Hühner pro Spieler
 ImprovedHunters.ChickensPerPlayerHelp=Anzahl Hühner, die jeder Spieler unabhängig vom Essen hält, solange er einen Kornspeicher, eine Bäckerei oder eine Mühle besitzt. Überzählige Hühner werden entfernt, auch bei null. Gilt nur, solange die Hühnerjagd aktiv ist.
 ImprovedHunters.ChickensPerPlayerValueFormat={0} Hühner
+ImprovedHunters.ChickenRespawnSeconds=Hühner-Nachwuchsintervall
+ImprovedHunters.ChickenRespawnSecondsHelp=Mindestabstand zwischen automatisch neu erscheinenden Hühnern pro Spieler bei normalem Spieltempo. 0 nutzt das ursprüngliche Tempo. Gilt nur, solange die Hühnerjagd aktiv ist.
+ImprovedHunters.ChickenRespawnSecondsValueFormat={0} s
 
 Common.HostOptions=HOST-OPTIONEN
 Common.ClientOptions=LOKALE CLIENT-OPTIONEN

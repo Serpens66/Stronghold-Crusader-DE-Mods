@@ -1,3 +1,4 @@
+using APIShared.Input;
 using APIShared.GameModes;
 // Feature: Ctrl-click to pause only the selected production building.
 using BepInEx.Logging;
@@ -704,9 +705,8 @@ namespace BugfixesAndQoL
         private static bool IsControlPressed()
         {
             bool editorCtrl = EditorDirector.instance != null && EditorDirector.instance.ctrlPressed;
-            bool keyManagerCtrl = KeyManager.instance != null &&
-                (KeyManager.instance.IsKeyHeldDown(KeyCode.LeftControl, true) ||
-                 KeyManager.instance.IsKeyHeldDown(KeyCode.RightControl, true));
+            bool keyManagerCtrl = InputState.IsGameKeyHeld(KeyCode.LeftControl, ignoreModifiers: true) ||
+                InputState.IsGameKeyHeld(KeyCode.RightControl, ignoreModifiers: true);
             return editorCtrl || keyManagerCtrl;
         }
 

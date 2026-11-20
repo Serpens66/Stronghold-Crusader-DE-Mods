@@ -261,7 +261,8 @@ static class Program
         Assert(GranaryChickenSpawnPolicy.ClampTarget(101) == 100, "Population maximum clamp failed.");
         Assert(GranaryChickenSpawnPolicy.ClampTarget(10) == 10, "Population value changed unexpectedly.");
         Assert(GranaryChickenSpawnPolicy.DefaultTargetPerPlayer == 10, "The population default changed.");
-        Assert(TannerMeatPolicy.DefaultMeatPerTrip == 5, "The Tanner default changed.");
+        Assert(TannerMeatPolicy.DefaultMeatPerTrip == 2, "The Tanner default must be two meat per trip.");
+        TestChickenRespawnInterval();
         TestWildlifeRange();
         TestWildlifeOrigins();
         TestHerdSettings();
@@ -272,6 +273,26 @@ static class Program
         Assert(TannerMeatPolicy.ClampMeatPerTrip(0) == 1 && TannerMeatPolicy.ClampMeatPerTrip(51) == 50 && TannerMeatPolicy.ClampMeatPerTrip(50) == 50, "The meat per trip clamp failed.");
         Assert(TannerMeatPolicy.MeatRunsFromSliderValue(3) == 0 && TannerMeatPolicy.MeatRunsFromSliderValue(0) == 3 &&
             TannerMeatPolicy.SliderValueFromMeatRuns(1) == 2, "The slider must run from only meat on the left to no meat on the right.");
+    }
+
+    private static void TestChickenRespawnInterval()
+    {
+        var policy = new GranaryChickenSpawnPolicy(8);
+        const int interval = 30 * 40;
+        Assert(GranaryChickenSpawnPolicy.DefaultRespawnSeconds == 30, "The default chicken interval must be thirty seconds.");
+        Assert(policy.TargetForDecision(1, 10, 2, 180, interval) == 10, "First spawn attempt must be available.");
+        Assert(policy.TargetForDecision(1, 10, 3, 380, interval) == 3, "Cooldown must suppress spawn without removing chickens.");
+        Assert(policy.TargetForDecision(2, 10, 0, 380, interval) == 10, "Players must have independent cooldowns.");
+        Assert(policy.TargetForDecision(1, 10, 1, 1379, interval) == 1, "Losing chickens must not reset the cooldown.");
+        Assert(policy.TargetForDecision(1, 10, 1, 1380, interval) == 10, "A spawn is allowed at the deadline.");
+        Assert(policy.TargetForDecision(1, 0, 4, 1381, interval) == 0, "A zero target must still remove surplus.");
+        Assert(policy.TargetForDecision(1, 10, 1, 1381, 0) == 10, "Zero seconds must use Vanilla's cadence.");
+        policy.Reset(fromSave: true);
+        Assert(policy.TargetForDecision(1, 10, 10, 2000, interval) == 10, "Loading must preserve a full population.");
+        Assert(policy.TargetForDecision(1, 10, 9, 3199, interval) == 9, "Reloading cannot bypass the interval.");
+        Assert(policy.TargetForDecision(1, 10, 9, 3200, interval) == 10, "Spawn must resume after the load delay.");
+        policy.Reset(fromSave: false);
+        Assert(policy.TargetForDecision(1, 10, 0, 1, interval) == 10, "A fresh match must clear the prior cooldown.");
     }
 
     private static void TestWildlifeRange()

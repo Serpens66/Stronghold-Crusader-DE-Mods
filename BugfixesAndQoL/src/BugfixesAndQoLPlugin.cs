@@ -12,7 +12,7 @@ using System.Reflection;
 namespace BugfixesAndQoL
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.3")]
-    [BepInDependency(ApiSharedGuid, "0.58.2")]
+    [BepInDependency(ApiSharedGuid, "0.60.0")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
@@ -156,11 +156,6 @@ namespace BugfixesAndQoL
                         // A hub change, including opening the settings, is the safe point to retry visuals.
                         try
                         {
-                            var hub = SHCDESE.BepInEx.Bootstrap.Plugin.ModSettingsHubViewModel;
-                            if (Settings.IsCapturingHealthBarHotkey &&
-                                (hub.WindowVisibility != Noesis.Visibility.Visible ||
-                                 !ReferenceEquals(hub.SelectedTab?.ViewModel, Settings)))
-                                Settings.CancelHealthBarCapture();
                             Settings.RefreshStatisticsTeamBadgePreviewVisual();
                             Settings.RefreshMarketGoodsOrderVisuals();
                         }
@@ -395,6 +390,17 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.damaged-health-bars-disabled", "BUGFIXES_AND_QOL_DAMAGED_HEALTH_BARS_DISABLED: " + ex);
+            }
+
+            try
+            {
+                Settings.RegisterHealthBarKeybind(
+                    () => damagedHealthBarsRuntime?.CanToggleFromHotkey() == true,
+                    () => damagedHealthBarsRuntime?.ToggleFromHotkey());
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "health-bars/keybind", "Could not register the damaged health-bars keybind: " + ex);
             }
 
             try
