@@ -18,7 +18,7 @@ namespace ImprovedHunters
         private const int DefaultCamelMeat = 8;
         private const int DefaultChickenMeat = 1;
         private const int MaximumMeat = 50;
-        private const int DefaultHerdRangeSize = 200;
+        private const int DefaultHerdRangeSize = 150;
 
         private bool enableMod = true;
         private bool improvedTargetSelection = true;

@@ -3,13 +3,21 @@
   "Author": "Serpens66",
   "Name": "Improved Hunters",
   "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels and chickens.",
-  "Version": "1.2.3",
+  "Version": "1.2.4",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.2.4",
+      "Changes": [
+        "Hold Shift while adjusting the Tannery slider to apply the ratio to all your Tanneries. The slider tooltip shows this shortcut.",
+        "Deer and goat herds roam within 150 x 150 tiles by default.",
+        "Require APIShared 0.59.0."
+      ]
+    },
     {
       "Version": "1.2.3",
       "Changes": [
@@ -693,7 +701,7 @@
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.54.0"
+      "MinimumVersion": "0.59.0"
     }
   ]
 }

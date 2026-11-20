@@ -134,7 +134,8 @@ namespace ImprovedHunters
                 return;
 
             ShowRuns();
-            NetworkSendResult result = state.RequestMeatRuns(shownBuilding, shownGlobalId, CurrentMeatRuns);
+            bool allOfSameType = (slider.Keyboard.Modifiers & ModifierKeys.Shift) != 0;
+            NetworkSendResult result = state.RequestMeatRuns(shownBuilding, shownGlobalId, CurrentMeatRuns, allOfSameType);
             if (result?.Submitted == true)
                 return;
 
