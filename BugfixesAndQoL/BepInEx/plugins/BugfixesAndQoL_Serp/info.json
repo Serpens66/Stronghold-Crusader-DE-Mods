@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.233",
+  "Version": "1.0.234",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.3",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,13 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.234",
+      "Changes": [
+        "Fix area demolition in flattened view so only objects whose visible tiles overlap the selection rectangle are marked for removal.",
+        "Add a saved, default-on switch in the right-click demolition menu to switch between area demolition and the normal bulldozer. Turning area demolition off dims the filters and preserves their selections. A thin line under All separates it from the individual filters."
+      ]
+    },
     {
       "Version": "1.0.233",
       "Changes": [
