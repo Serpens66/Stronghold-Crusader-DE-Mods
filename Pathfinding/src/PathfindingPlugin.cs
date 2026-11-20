@@ -1,4 +1,5 @@
 // Feature: Plugin bootstrap of the Pathfinding mod.
+using APIShared.Multiplayer;
 using BepInEx;
 using R3;
 using SHCDESE.API.LowLevel;
@@ -7,7 +8,7 @@ using System;
 namespace Pathfinding
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.3")]
-    [BepInDependency(ApiSharedGuid, "0.53.0")]
+    [BepInDependency(ApiSharedGuid, "0.58.2")]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -28,7 +29,7 @@ namespace Pathfinding
 
         public const string PluginGuid = "Pathfinding_Serp";
         public const string PluginName = "Pathfinding";
-        public const string PluginVersion = "0.1.12";
+        public const string PluginVersion = "0.1.13";
 
         // Static roots: the plugin component itself is destroyed by the SHCDE startup cleanup.
         private static PathfindingPlugin processRoot;
@@ -53,6 +54,8 @@ namespace Pathfinding
             FormationFeature.Configure(Logger, Config, Settings);
             GateRouting.GateRoutingFeature.Configure(Logger, Config, Settings);
             runtime = new PathfindingRuntime(Logger, Settings, System.IO.Path.GetDirectoryName(Info.Location));
+            SimulationAgreement.Register(PluginGuid, ExtendedShiftCommandQueueRuntime.AdmissionId, false,
+                () => runtime.IsShiftQueueReady, ExtendedShiftCommandQueueRuntime.ApplyMultiplayerAdmission);
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
             Shared.DebugLogHelper.LogInfo(Logger, $"{PluginName} {PluginVersion} loaded; awaiting native library.");
             ReportOutdatedBugfixesAndQoL();

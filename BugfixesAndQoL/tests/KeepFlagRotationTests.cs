@@ -98,6 +98,90 @@ namespace BugfixesAndQoL
             check(!KeepFlagRotationPolicy.TryResolveUniqueProjectileId(2, 365, out projectileId) &&
                   projectileId == 0, "keep flag rejects ambiguous projectile matches");
             outerCheck(checks == 169, $"keep-flag regression suite retains all 169 checks (actual {checks})");
+            CheckMultiplayerPositions(outerCheck);
+            KeepFlagRotationTrampolineTests.Run(outerCheck);
+        }
+
+        private static void CheckMultiplayerPositions(Action<bool, string> check)
+        {
+            const int originX = 384;
+            const int originY = 384;
+            var anchor = new KeepFlagPosition(3127, 3072);
+            var viewDependentAnchors = new[]
+            {
+                anchor, new KeepFlagPosition(3127, 3079), new KeepFlagPosition(3120, 3079),
+                new KeepFlagPosition(3120, 3072)
+            };
+            check(ProjectileChecksum(viewDependentAnchors[0]) != ProjectileChecksum(viewDependentAnchors[1]),
+                "the camera-dependent Vanilla Flag3 coordinates affect the native checksum contribution");
+
+            foreach (int scale in new[] { 7, 9, 11, 13 })
+            {
+                int far = originX * 8 + scale * 8 - 1;
+                var positions = new[]
+                {
+                    new KeepFlagPosition(far, originY * 8),
+                    new KeepFlagPosition(originX * 8, originY * 8),
+                    new KeepFlagPosition(originX * 8, far),
+                    new KeepFlagPosition(far, far),
+                    new KeepFlagPosition(far, originY * 8)
+                };
+                int[] orientations = { 0, 2, 4, 6, 15 };
+                for (int i = 0; i < orientations.Length; i++)
+                {
+                    foreach (bool rotate in new[] { false, true })
+                    {
+                        KeepFlagPosition expected = rotate ? positions[i] : anchor;
+                        bool accepted = KeepFlagRotationPolicy.TryGetMultiplayerPosition(
+                            originX, originY, scale, orientations[i], rotate, anchor, out KeepFlagPosition desired);
+                        KeepFlagPosition tile = KeepFlagRotationPolicy.ToTilePosition(desired);
+                        check(accepted &&
+                            KeepFlagRotationPolicy.MatchesVanillaPosition(desired.X, desired.Y, desired.X, desired.Y, expected) &&
+                            tile.X == expected.X / 8 && tile.Y == expected.Y / 8 &&
+                            ProjectileChecksum(desired) == ProjectileChecksum(expected),
+                            $"MP flag source, target, tile and checksum agree for scale={scale}, orientation={orientations[i]}, rotate={rotate}");
+                    }
+                }
+            }
+
+            foreach (KeepFlagPosition position in viewDependentAnchors.AsSpan(1))
+                check(!KeepFlagRotationPolicy.TryGetMultiplayerPosition(
+                    originX, originY, 7, 2, true, position, out _),
+                    "MP optional rotation requires the canonical native caller position");
+            check(!KeepFlagRotationPolicy.TryGetMultiplayerPosition(originX, originY, 7, 1, true, anchor, out _),
+                "MP optional rotation rejects an invalid stored direction");
+            check(KeepFlagRotationPolicy.TryGetMultiplayerPosition(originX, originY, 7, 1, false, anchor, out _),
+                "canonical source and target are independent of stored direction when optional rotation is disabled");
+        }
+
+        private static uint ProjectileChecksum(KeepFlagPosition position)
+        {
+            // The FBCB9319 helper at 0x78E0 walks 0xE8 bytes from record+0x14.
+            // Use a synthetic Flag3, with its coordinates in the four hashed UInt16 fields.
+            var bytes = new byte[0xE8];
+            bytes[0x3E - 0x14] = 11;
+            WriteCoordinate(bytes, 0x4C - 0x14, position.X);
+            WriteCoordinate(bytes, 0x4E - 0x14, position.Y);
+            WriteCoordinate(bytes, 0x52 - 0x14, position.X);
+            WriteCoordinate(bytes, 0x54 - 0x14, position.Y);
+            uint total = 0, word = 0;
+            for (int i = 0; i < bytes.Length; i++)
+            {
+                if (i != 0 && i % 4 == 0)
+                {
+                    total = unchecked(total + word);
+                    total = (total << 1) | (total >> 31);
+                    word = 0;
+                }
+                word = (word << 8) | unchecked((uint)(sbyte)bytes[i]);
+            }
+            return unchecked(total + word);
+        }
+
+        private static void WriteCoordinate(byte[] bytes, int index, int coordinate)
+        {
+            bytes[index] = unchecked((byte)coordinate);
+            bytes[index + 1] = unchecked((byte)(coordinate >> 8));
         }
 
         private static bool IsMainFlag(

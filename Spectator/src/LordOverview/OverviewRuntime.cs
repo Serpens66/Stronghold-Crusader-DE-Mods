@@ -52,7 +52,7 @@ namespace Spectator.LordOverview {
     var definition=new HudExtrasButtonDefinition("overview/crown",new Command(Toggle),CrownTooltip,context=>{
      Attach(context.Hud);
      var button=OverviewAppearance.CreateButton(context.Hud);BindCrownButton(button);return button;
-    },tooltipFactory:context=>CreateTip(CrownTooltip,context.Hud));
+    });
     if(!buttons.TryRegisterButton(definition,out registration,out reason)){Error(new Exception(reason.Reason));return;}
     registration.SetVisible(Interlocked.Read(ref session)>0 && settings.EnableMod);
     GameTimeManagerAPI.Instance.OnTick+=OnTick;

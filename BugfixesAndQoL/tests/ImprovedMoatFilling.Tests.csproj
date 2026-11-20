@@ -8,6 +8,7 @@
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>ImprovedMoatFilling.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
+    <PlatformTarget>x64</PlatformTarget>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <OutputPath>bin\</OutputPath>
@@ -47,6 +48,7 @@
     <Compile Include="..\..\APIShared\src\Buildings\Gatehouse\GatehouseDrawbridgeCoupling.cs"><Link>GatehouseDrawbridgeCoupling.cs</Link></Compile>
     <Compile Include="..\src\Core\Native\NativeInstructionReplayEmitter.cs"><Link>NativeInstructionReplayEmitter.cs</Link></Compile>
     <Compile Include="KeepFlagRotationTests.cs" />
+    <Compile Include="KeepFlagRotationTrampolineTests.cs" />
     <Compile Include="CorruptLordDataSpawnTests.cs" />
     <Compile Include="SpectatorInputControlTests.cs" />
     <Compile Include="AIPreplacedBuildingFixTests.cs" />
@@ -86,6 +88,7 @@
     <Compile Include="..\src\Notifications\NotificationSkipPolicy.cs"><Link>NotificationSkipPolicy.cs</Link></Compile>
     <Compile Include="..\src\Buildings\QuarryKeepCenterPolicy.cs"><Link>QuarryKeepCenterPolicy.cs</Link></Compile>
     <Compile Include="..\src\AI\Fixes\KeepFlagRotationPolicy.cs"><Link>KeepFlagRotationPolicy.cs</Link></Compile>
+    <Compile Include="..\src\AI\Fixes\KeepFlagRotationTrampoline.cs"><Link>KeepFlagRotationTrampoline.cs</Link></Compile>
     <Compile Include="..\src\AI\Fixes\CorruptLordDataSpawnPolicy.cs"><Link>CorruptLordDataSpawnPolicy.cs</Link></Compile>
     <Compile Include="..\src\Market\AllyGoodsTransferPolicy.cs"><Link>AllyGoodsTransferPolicy.cs</Link></Compile>
     <Compile Include="..\src\Buildings\PlacementCancelRightClickPolicy.cs"><Link>PlacementCancelRightClickPolicy.cs</Link></Compile>

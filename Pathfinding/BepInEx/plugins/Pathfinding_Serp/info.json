@@ -3,14 +3,14 @@
   "Author": "Serpens66",
   "Name": "Pathfinding",
   "Description": "Faster and smarter unit movement: shared group routes, better commands, gate routing, Assassin climbing, formations, command queue and synchronized troop movement.",
-  "Version": "0.1.12",
+  "Version": "0.1.13",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.3",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.53.0"
+      "MinimumVersion": "0.58.2"
     }
   ],
   "Manifest": 1,
@@ -19,6 +19,12 @@
     "2.8.0.2"
   ],
   "SerpChangelog": [
+    {
+      "Version": "0.1.13",
+      "Changes": [
+        "Keep Shift orders synchronized in multiplayer. If a player cannot run the extended command queue, everyone uses the game's standard orders for that match. Requires APIShared 0.58.2."
+      ]
+    },
     {
       "Version": "0.1.12",
       "Changes": [

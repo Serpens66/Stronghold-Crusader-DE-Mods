@@ -580,6 +580,7 @@ BugfixesAndQoL.LocalAutosaveUnit=min
 BugfixesAndQoL.EnableAreaDemolition=Area demolition
 BugfixesAndQoL.EnableAreaDemolitionHelp=Adds area demolition to the normal bulldozer. Right-click its button to choose filters, then drag to mark matching objects red. Hold Shift to select the starting type or positive/negative fear-factor group. Single clicks remain unchanged. This local option controls your input; in multiplayer all players need Bugfixes and QoL. Already submitted orders still execute.
 BugfixesAndQoL.SettingsRework.Reason.EnableAreaDemolition=Chooses whether dragging with the bulldozer marks and removes several objects at once.
+BugfixesAndQoL.AreaDemolition.AllFilters=Todo
 BugfixesAndQoL.AreaDemolition.MenuTitle=Area demolition filters
 BugfixesAndQoL.AreaDemolition.RightClickSettings=Right-click: settings
 BugfixesAndQoL.AreaDemolition.DragHelp=Drag: enabled filters

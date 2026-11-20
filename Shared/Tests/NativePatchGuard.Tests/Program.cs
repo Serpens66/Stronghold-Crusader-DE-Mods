@@ -62,6 +62,8 @@ internal static class Program
             Check(Marshal.ReadByte(page) == 0xFF && Marshal.ReadByte(page + 1) == 0x25, "clean inline hook wrote its jump");
             Check(NativePatchGuard.WatchedCount == 1, "clean inline hook is watched");
             Check(NativePatchGuard.Recheck() == 0 && Errors.Count == 0, "an untouched published span is not reported");
+            Func<bool> cleanIntact = NativePatchGuard.CaptureIntegrity(result.Installed, "clean inline");
+            Check(cleanIntact(), "the published snapshot passes the readiness probe");
 
             // 2. A later overwrite is reported once per change; restoring it clears the report.
             byte[] published = Read(page, 15);
@@ -69,8 +71,10 @@ internal static class Program
             Check(NativePatchGuard.Recheck() == 1 && Errors.Count == 1 && Errors[0].Contains("NATIVE_FOREIGN_PATCH_LATE"),
                 "a later overwrite is reported as an Error");
             Check(NativePatchGuard.Recheck() == 0 && Errors.Count == 1, "the same overwrite is reported only once");
+            Check(!cleanIntact() && !cleanIntact(), "an overwrite fails every readiness probe even after the one-time report");
             Marshal.Copy(published, 0, page, published.Length);
             Check(NativePatchGuard.Recheck() == 0, "a restored span is no longer reported");
+            Check(cleanIntact(), "readiness detects that the published bytes were restored");
             Marshal.WriteByte(page, 0xE9);
             // RuntimeHealth folds an identical Error within its window; Recheck still counts the new deviation.
             Check(NativePatchGuard.Recheck() == 1, "a new overwrite after a restore is reported again");
@@ -125,10 +129,12 @@ internal static class Program
             //    bytes; that span is dropped, not reported as overwritten.
             var rolledBack = new HookHandle<X64InlineHook>();
             HookTransaction rollbackTransaction = Inline(region, image + 0x400, rolledBack);
-            NativePatchGuard.Commit(rollbackTransaction, "rolled back inline");
+            result = NativePatchGuard.Commit(rollbackTransaction, "rolled back inline");
+            Func<bool> rollbackIntact = NativePatchGuard.CaptureIntegrity(result.Installed, "rolled back inline");
             int watchedBeforeRollback = NativePatchGuard.WatchedCount, errorsBeforeRollback = Errors.Count;
             rollbackTransaction.Dispose();
             Check(Marshal.ReadByte(page + 0x400) == 0x48, "the rolled back candidate restored its original bytes");
+            Check(!rollbackIntact(), "a disposed hook always fails the readiness probe");
             Check(NativePatchGuard.Recheck() == 0 && Errors.Count == errorsBeforeRollback &&
                 NativePatchGuard.WatchedCount == watchedBeforeRollback - 1, "a rolled back candidate is dropped, not reported");
 

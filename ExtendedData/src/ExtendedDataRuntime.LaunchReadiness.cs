@@ -274,14 +274,14 @@ namespace ExtendedData
                 ", hostCRC=" + self.currentLobby?.crc + ", localCRC=" + selected?.Header.crc);
         }
 
-        private bool PrepareLordSaveWithDiagnostics(FRONT_Multiplayer self, FileHeader header)
+        private string PrepareLordSaveWithDiagnostics(FRONT_Multiplayer self, FileHeader header)
         {
-            bool ready = lordDataCoordinator.PrepareSave(self, header);
-            if (!ready)
-                // The shared requester already displays its rejection dialog.
-                ReportLaunchFailure("Play", string.IsNullOrEmpty(lordDataCoordinator.LastSaveBlockReason)
-                    ? lordDataCoordinator.CurrentBlockReason : lordDataCoordinator.LastSaveBlockReason, null, showPopup: false);
-            return ready;
+            if (lordDataCoordinator.PrepareSave(self, header)) return null;
+            string reason = lordDataCoordinator.LastSaveBlockReason;
+            if (string.IsNullOrWhiteSpace(reason)) reason = lordDataCoordinator.CurrentBlockReason;
+            if (string.IsNullOrWhiteSpace(reason)) reason = SerpLocalization.Get("ExtendedData.LordSavePreparationFailed");
+            ReportLaunchFailure("Play", reason, null, showPopup: false);
+            return reason;
         }
     }
 }

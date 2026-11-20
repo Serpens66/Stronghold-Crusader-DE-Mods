@@ -186,3 +186,23 @@ Both record a visible/enabled package control on the Skirmish screen, a local
 Coop session, a new linked restart session and PASS after fresh PlayState/ticks.
 These runs validate the managed local route; they do not establish multiplayer
 acceptance or new native layout facts.
+
+## Online Customize after the initial refresh, 2026-11-19 [Vanilla facts]
+
+The installed native and managed hashes match the identities above. The host
+and client can reach `ShowSetupScreen` without the regular map-selection code
+assigning `Show_MPPeacetime`. `Setup` leaves that flag as-is. `ApplySettings`
+reads the slider in minutes, forces zero if the flag is false, and publishes
+the resulting setup through `UpdateHostInfo`. The confirmed native setup export
+at RVA `0x81050` forwards the 32-bit minutes at transfer index 7 to its helper
+at `0x26370`. The network start uses mode 1 through `0x86270`.
+
+`CoopMissionChanged` forces existing members to the co-op team before the host
+recreates its AIs. The client receives the host's team and roster data in
+`RefreshLobbyList`. In `FRONT_Multiplayer.Update`, `CreateTeamShields` skips
+Coop and the normal team-panel refresh requires the panel to be open.
+The same network refresh imports settings into the client setup, retains its
+three local Coop building restrictions, and only reports a settings change for
+keep-order differences. A non-keep option change can leave an open options
+dialog stale. A later successful map lookup calls `PopulateMapDetailsPanel`,
+which writes the map briefing into `StandaloneMissionText`.

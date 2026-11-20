@@ -2,6 +2,7 @@ using APIShared;
 using BepInEx.Logging;
 using R3;
 using SHCDESE.API;
+using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.Projectiles;
@@ -20,6 +21,8 @@ namespace BugfixesAndQoL
         private readonly BugfixesAndQoLViewModel settings;
         private readonly Dictionary<int, KeepSpawn> pendingKeeps = new Dictionary<int, KeepSpawn>();
         private readonly Dictionary<int, KeepSpawn> capturedKeeps = new Dictionary<int, KeepSpawn>();
+        private readonly Dictionary<int, KeepFlagPosition> multiplayerFlags = new Dictionary<int, KeepFlagPosition>();
+        private readonly KeepFlagRotationNative multiplayerNative = new KeepFlagRotationNative();
         private List<IDisposable> subscriptions;
         private int remainingScanTicks = -1;
         private int sessionNumber;
@@ -29,6 +32,8 @@ namespace BugfixesAndQoL
         private int rejectedCount;
         private bool warningLogged;
         private bool newMapActive;
+        private bool multiplayerSession;
+        private bool rotateMultiplayerFlags;
 
         internal KeepFlagRotationRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings)
         {
@@ -79,7 +84,19 @@ namespace BugfixesAndQoL
                     $"Keep-flag rotation fix installed; scanDelayTicks={NewMapScanDelayTicks}, modeFilter=new-map-only.");
         }
 
-        private bool Enabled => newMapActive && settings.EnableMod && settings.EnableKeepFlagRotationFix;
+        internal bool IsMultiplayerCanonicalizationReady => subscriptions != null && multiplayerNative.IsReady;
+
+        internal void InstallMultiplayerCanonicalization(CrusaderLibraryLoadContext context, bool referenceHashMatches) =>
+            multiplayerNative.Install(context, referenceHashMatches, log);
+
+        internal void SetMultiplayerCanonicalizationActive(bool active)
+        {
+            rotateMultiplayerFlags = active && settings.EnableMod && settings.EnableKeepFlagRotationFix;
+            multiplayerNative.SetActive(active);
+        }
+
+        private bool Enabled => !multiplayerSession && !multiplayerNative.IsActive &&
+            newMapActive && settings.EnableMod && settings.EnableKeepFlagRotationFix;
 
         private void OnBuildStructurePre(BuildStructureEventArgs args)
         {
@@ -132,6 +149,13 @@ namespace BugfixesAndQoL
 
         private void OnProjectileSpawnPre(ProjectileSpawnEventArgs args)
         {
+            if (multiplayerNative.IsActive)
+            {
+                if (KeepFlagRotationNative.ConsumeMainFlagSpawn(args.UnitPlayerSourceId))
+                    OnMultiplayerMainFlagSpawn(args);
+                return;
+            }
+
             if (!Enabled || args.ProjectileType != ProjectileType.Flag3)
                 return;
 
@@ -186,14 +210,60 @@ namespace BugfixesAndQoL
                 correctedBeforeSpawnCount++;
         }
 
+        private void OnMultiplayerMainFlagSpawn(ProjectileSpawnEventArgs args)
+        {
+            int playerId = args.UnitPlayerSourceId;
+            if (args.ProjectileType != ProjectileType.Flag3 ||
+                !KeepFlagRotationPolicy.IsStationaryMainFlag(
+                    args.SourceUnitId, args.PlayerSourceId, playerId,
+                    args.SourceWorldTileX, args.SourceWorldTileY, args.SourceElevation,
+                    args.TargetWorldTileX, args.TargetWorldTileY, args.TargetElevation, args.AttackedUnitId))
+                return;
+
+            int keepId = GamePlayerManagerAPI.Instance.GetPlayerKeepId(playerId);
+            if (keepId <= 0 ||
+                !APIShared.BuildingAccess.TryGetById(keepId, out GameBuilding* keep, out _) ||
+                keep == null || keep->r_AliveState == AliveState.None || keep->r_PlayerIdOwner != playerId ||
+                !IsKeep(keep->r_BuildingType))
+            {
+                WarnOnce($"Multiplayer main flag has no live keep: player={playerId}, keepId={keepId}.");
+                return;
+            }
+
+            var actual = new KeepFlagPosition(args.SourceWorldTileX, args.SourceWorldTileY);
+            if (!KeepFlagRotationPolicy.TryGetMultiplayerPosition(
+                keep->r_TilePositionXBegin,
+                keep->r_TilePositionYBegin,
+                checked((int)keep->r_OccupyTileGridSize),
+                keep->N00012042_2,
+                rotateMultiplayerFlags,
+                actual, out KeepFlagPosition desired))
+            {
+                WarnOnce($"Multiplayer main flag position could not be verified: player={playerId}, keepId={keepId}, source={actual}.");
+                return;
+            }
+
+            args.SourceWorldTileX = desired.X;
+            args.SourceWorldTileY = desired.Y;
+            args.TargetWorldTileX = desired.X;
+            args.TargetWorldTileY = desired.Y;
+            multiplayerFlags[playerId] = desired;
+            remainingScanTicks = NewMapScanDelayTicks;
+        }
+
         private void OnBeforeMapLoad(MissionLifecycleNotification args)
         {
             ResetMapState();
+            multiplayerSession = args.Context.Mode.IsRealMultiplayer;
             newMapActive = args.Context.StartKind == MissionStartKind.NewGame;
         }
 
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
         {
+            multiplayerSession |= context.Mode.IsRealMultiplayer;
+            if (multiplayerSession || multiplayerNative.IsActive)
+                return;
+
             if (context.Kind != Shared.GameplaySessionStartKind.NewMap || context.IsReplay)
             {
                 ResetMapState();
@@ -208,8 +278,10 @@ namespace BugfixesAndQoL
         private void ResetMapState()
         {
             newMapActive = false;
+            multiplayerSession = false;
             pendingKeeps.Clear();
             capturedKeeps.Clear();
+            multiplayerFlags.Clear();
             remainingScanTicks = -1;
             capturedCount = 0;
             correctedBeforeSpawnCount = 0;
@@ -226,16 +298,48 @@ namespace BugfixesAndQoL
                 return;
 
             remainingScanTicks = -1;
-            if (!Enabled)
-                return;
             try
             {
-                ScanAndCorrectStartedFlags(tick);
+                if (multiplayerNative.IsActive)
+                    VerifyMultiplayerFlags();
+                else if (Enabled)
+                    ScanAndCorrectStartedFlags(tick);
             }
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/KeepFlagRotationRuntime/OnGameTick", $"Keep-flag post-start scan failed: session={sessionNumber}, tick={tick}, error={ex}");
             }
+        }
+
+        private void VerifyMultiplayerFlags()
+        {
+            Span<GameProjectile> projectiles = GameProjectileManagerAPI.Instance.GetProjectilesAsSpan();
+            foreach (KeyValuePair<int, KeepFlagPosition> expected in multiplayerFlags)
+            {
+                int matches = 0;
+                KeepFlagPosition tile = KeepFlagRotationPolicy.ToTilePosition(expected.Value);
+                int tileId = GameTileManagerAPI.Instance.GetTileId(tile.X, tile.Y);
+                foreach (ref readonly GameProjectile flag in projectiles)
+                {
+                    if ((flag.r_AliveState == AliveState.NeedsInit || flag.r_AliveState == AliveState.IsAlive) &&
+                        flag.r_ProjectileType == ProjectileType.Flag3 &&
+                        flag.r_UnitPlayerSourceId == expected.Key &&
+                        KeepFlagRotationPolicy.IsStationaryMainFlag(
+                            flag.r_SourceUnitId, unchecked((int)flag.r_PlayerSourceId), expected.Key,
+                            flag.r_SourceWorldTileX, flag.r_SourceWorldTileY, flag.r_SourceElevation,
+                            flag.r_TargetWorldTileX, flag.r_TargetWorldTileY, flag.r_TargetElevation,
+                            flag.r_TargetUnidId) &&
+                        KeepFlagRotationPolicy.MatchesVanillaPosition(
+                            flag.r_SourceWorldTileX, flag.r_SourceWorldTileY,
+                            flag.r_TargetWorldTileX, flag.r_TargetWorldTileY, expected.Value) &&
+                        flag.r_CurrentTileX == tile.X && flag.r_CurrentTileY == tile.Y &&
+                        flag.r_CurrentTileId == tileId)
+                        matches++;
+                }
+                if (matches != 1)
+                    WarnOnce($"Multiplayer main flag verification failed: player={expected.Key}, expected={expected.Value}, matches={matches}.");
+            }
+            multiplayerFlags.Clear();
         }
 
         private void ScanAndCorrectStartedFlags(int tick)
@@ -457,6 +561,9 @@ namespace BugfixesAndQoL
             type == eStructs.STRUCT_KEEP_ONE ? 1 :
             type == eStructs.STRUCT_KEEP_TWO ? 2 :
             type == eStructs.STRUCT_KEEP_THREE ? 3 : 0;
+
+        private static bool IsKeep(eStructs type) =>
+            StructKeepKind(type) != 0 || type == eStructs.STRUCT_KEEP_FOUR || type == eStructs.STRUCT_KEEP_FIVE;
 
         private readonly struct KeepSpawn
         {

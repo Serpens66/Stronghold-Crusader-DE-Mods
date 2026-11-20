@@ -3,7 +3,13 @@
   "Author": "Serpens66",
   "Name": "DesyncTest",
   "Description": "Passive Light/Deep desync capture; runtime acceptance pending.",
-  "Version": "0.1.0",
+  "Version": "0.1.2",
+  "SerpChangelog": [
+    {
+      "Version": "0.1.2",
+      "Changes": ["Keep compact per-unit checksum history in Light mode and after Deep expires. The host/client report narrows repaired unit slots to the last matching and first differing checks and shows the bytes changed by repair."]
+    }
+  ],
   "MinimumScriptExtenderVersion": "2.14.3",
   "Dependencies": [
     {

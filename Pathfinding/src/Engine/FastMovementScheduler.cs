@@ -270,6 +270,7 @@ namespace Pathfinding.Engine
         {
             var status = load.Status;
             StageMovementCases(status == APIShared.Savegames.VersionedSaveLoadStatus.Restored ? load.Entries : null);
+            DiagMovementCaseLoad(load.RecordVersion, loadedCases);
             if (status != APIShared.Savegames.VersionedSaveLoadStatus.Restored && status != APIShared.Savegames.VersionedSaveLoadStatus.NoRecord &&
                 status != APIShared.Savegames.VersionedSaveLoadStatus.OutOfScope)
                 Shared.DebugLogHelper.LogWarning(log, $"Pathfinding saved movement cases not used ({status}): {load.Detail}");

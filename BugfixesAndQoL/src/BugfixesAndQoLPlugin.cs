@@ -12,7 +12,7 @@ using System.Reflection;
 namespace BugfixesAndQoL
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.3")]
-    [BepInDependency(ApiSharedGuid, "0.58.1")]
+    [BepInDependency(ApiSharedGuid, "0.58.2")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
@@ -38,7 +38,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.231";
+        public const string PluginVersion = "1.0.233";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;
@@ -72,6 +72,10 @@ namespace BugfixesAndQoL
         {
             Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
             Shared.UnityMainThreadDispatch.InitializeForCurrentThread();
+            APIShared.Multiplayer.SimulationAgreement.Register(PluginGuid, "moat-land-rotation", true,
+                () => Multiplayer.MoatLandRotationPatch.IsReady, Multiplayer.MoatLandRotationPatch.SetEnabled);
+            APIShared.Multiplayer.SimulationAgreement.Register(PluginGuid, "keep-flag-rotation", true,
+                BugfixesAndQoLRuntime.IsKeepFlagCanonicalizationReady, BugfixesAndQoLRuntime.SetKeepFlagCanonicalizationActive);
             TrailCustomizationLaunchOriginApi.RegisterModeProvider();
             Shared.CrashBreadcrumbDiagnostics.Initialize(Logger, PluginGuid, PluginName, PluginVersion);
             try

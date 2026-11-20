@@ -18,6 +18,10 @@ namespace ExtendedData
         private static bool selectedLordIntegrationEnabled = true;
         internal static void SetSelectedLordIntegrationEnabled(bool value) => selectedLordIntegrationEnabled = value;
 
+#if SERP_DEVDIAG
+        internal static string DiagnosticPublishedLordDigest => activeSnapshot?.Digest;
+#endif
+
         public static int ApiVersion => 1;
         public static bool SupportsSinglePlayerSelections => true;
 

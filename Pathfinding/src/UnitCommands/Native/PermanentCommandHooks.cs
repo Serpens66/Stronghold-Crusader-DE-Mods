@@ -249,7 +249,7 @@ namespace Pathfinding.UnitCommands
             if (queueTargetProvider != null) queueTargetProvider();
             else nativeTarget();
         }
-        internal void InstallQueueCommandHooks(ReadOnlySpan<byte> memory, ulong libraryBase,
+        internal Func<bool> InstallQueueCommandHooks(ReadOnlySpan<byte> memory, ulong libraryBase,
             FastAppendDelegate append, FastChoreDelegate target)
         {
             if (nativeAppend != null) throw new InvalidOperationException("Queue command hooks already installed.");
@@ -268,6 +268,7 @@ namespace Pathfinding.UnitCommands
                     throw new InvalidOperationException("Shared queue hooks failed their publication contract.");
                 queueAppendProvider = append;
                 queueTargetProvider = target;
+                return Shared.NativePatchGuard.CaptureIntegrity(result.Installed, "Command queue hooks");
             }
             catch { RollbackUnpublishedTransaction(candidate); throw; }
         }

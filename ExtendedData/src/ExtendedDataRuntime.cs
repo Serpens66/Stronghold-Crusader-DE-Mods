@@ -24,6 +24,7 @@ namespace ExtendedData
         private delegate void ButtonClickedDelegate(FRONT_Multiplayer self, string command);
         private delegate void UpdateHostInfoDelegate(FRONT_Multiplayer self, bool delayed);
         private delegate void UpdateCustomLordNamesDelegate(FRONT_Multiplayer self);
+        private delegate void LobbyUpdateDelegate(FRONT_Multiplayer self);
         private delegate string CombinedNameDelegate(Platform_Multiplayer.MPLobbyMember self);
         private delegate void CoopTrail1RowDelegate(FRONT_CoopTrail1.PlayerRow self, FRONT_Multiplayer parent, Platform_Multiplayer.MPLobbyMember member, int row, int player);
         private delegate void CoopTrail2RowDelegate(FRONT_CoopTrail2.PlayerRow self, FRONT_Multiplayer parent, Platform_Multiplayer.MPLobbyMember member, int row, int player);
@@ -182,6 +183,9 @@ namespace ExtendedData
         private Hook buttonHook;
         private Hook updateHostInfoHook;
         private Hook updateCustomLordNamesHook;
+        private Hook lobbyUpdateHook;
+        private LobbyUpdateDelegate lobbyUpdateTrampoline;
+        private CoopClientLobbyPresentation clientLobbyPresentation;
         private Hook combinedNameHook;
         private Hook coopTrail1RowHook;
         private Hook coopTrail2RowHook;
@@ -302,6 +306,9 @@ namespace ExtendedData
             MethodInfo buttonMethod = RequireMethod("ButtonClicked", typeof(string));
             buttonHook = new Hook(buttonMethod, (ButtonClickedDelegate)ButtonClickedHook);
             buttonTrampoline = buttonHook.GenerateTrampoline<ButtonClickedDelegate>();
+            lobbyUpdateHook = new Hook(RequireMethod(nameof(FRONT_Multiplayer.Update)),
+                (LobbyUpdateDelegate)LobbyUpdateHook);
+            lobbyUpdateTrampoline = lobbyUpdateHook.GenerateTrampoline<LobbyUpdateDelegate>();
             updateHostInfoHook = new Hook(UpdateHostInfoMethod, (UpdateHostInfoDelegate)UpdateHostInfoHook);
             updateHostInfoTrampoline = updateHostInfoHook.GenerateTrampoline<UpdateHostInfoDelegate>();
             MethodInfo updateNamesMethod = RequireMethod("UpdateCustomLordNamesFromMP");
@@ -397,6 +404,7 @@ namespace ExtendedData
         public void Dispose()
         {
             StopLaunchReadiness();
+            clientLobbyPresentation = null;
             coopTrailMenu.Disable();
             activation = ExtendedDataFeatureActivation.Disabled;
             ExtendedDataModDataApi.UnregisterSource();
@@ -851,22 +859,52 @@ namespace ExtendedData
 
         private void OnCoopSetupOpened()
         {
+            clientLobbyPresentation = null;
             if (!activation.CoopPackages || selected == null)
                 return;
             try
             {
+                MainViewModel view = MainViewModel.Instance;
+                FRONT_Multiplayer lobby = view.FRONTMultiplayer;
                 ActivateSelectedMissionSettingsUnlessMap(
-                    GetExistingMainViewModel()?.FRONTMultiplayer,
+                    lobby,
                     editable: true,
                     source: "custom Coop mission setup");
-                MainViewModel.Instance.StandaloneMissionText = BuildMissionDescription();
-                {
-                    Shared.DevDiag.Log(() => "Refreshed custom Coop mission mod-settings context after opening the setup screen.");
-                }
+                string missionText = BuildMissionDescription();
+                view.StandaloneMissionText = missionText;
+                if (lobby?.currentLobby?.isHost == false && !lobby.singlePlayerCoop)
+                    clientLobbyPresentation = new CoopClientLobbyPresentation(lobby.currentLobby, selected.Header, missionText);
+                Shared.DevDiag.Log(() => "Refreshed custom Coop mission mod-settings context after opening the setup screen.");
             }
             catch (Exception exception)
             {
                 LogError("Could not reactivate custom Coop mission mod settings after opening setup: " + exception);
+            }
+        }
+
+        private void LobbyUpdateHook(FRONT_Multiplayer self)
+        {
+            CoopClientLobbyPresentation presentation = clientLobbyPresentation;
+            lobbyUpdateTrampoline(self);
+            // A transition may open the setup during the network processing above.
+            // Let the next complete Vanilla update supply its first roster and settings.
+            if (presentation == null || !ReferenceEquals(presentation, clientLobbyPresentation))
+                return;
+
+            MainViewModel view = MainViewModel.Instance;
+            if (!activation.CoopPackages || selected == null || !FRONT_Multiplayer.coopGame ||
+                !missionSettingsCoordinator.WasLaunchedThroughCustomize() ||
+                !presentation.IsCurrent(self, view, selected.Header))
+            {
+                clientLobbyPresentation = null;
+                return;
+            }
+
+            try { presentation.Refresh(self, view); }
+            catch (Exception exception)
+            {
+                clientLobbyPresentation = null;
+                LogError("Could not refresh the client Coop setup: " + exception);
             }
         }
 

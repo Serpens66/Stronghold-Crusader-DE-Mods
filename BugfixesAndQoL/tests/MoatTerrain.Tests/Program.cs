@@ -5,6 +5,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using BugfixesAndQoL.MoatTerrain;
+using BugfixesAndQoL.Multiplayer;
 using Iced.Intel;
 using RedBird.X64.Extensions;
 using RedBird.X64.Hooks;
@@ -12,7 +13,7 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using static Iced.Intel.AssemblerRegisters;
 
-internal static unsafe class Program
+internal static unsafe partial class Program
 {
     private static int checks;
     private const int Tile = 117, OtherTile = 118, ManagerSize = 0x2050000;
@@ -48,6 +49,7 @@ internal static unsafe class Program
             Operations();
             Console.WriteLine("PASS: native operations, register/flags/stack and bounds.");
             FullEmitterAndBackend();
+            RunMoatLandRotationRegression();
             Timing();
             Console.WriteLine("PASS: " + checks + " moat terrain codec/lifecycle/native-machine checks.");
             return 0;
@@ -111,7 +113,11 @@ internal static unsafe class Program
     {
         File.WriteAllLines(path, NativeDefinition.Sites.Select(s => s.Rva.ToString("X") + "\t" + s.Length + "\t" +
             s.FunctionRva.ToString("X") + "\t" + s.FunctionLength + "\t" + s.FunctionHash + "\t" +
-            BitConverter.ToString(s.Bytes).Replace("-", "")));
+            BitConverter.ToString(s.Bytes).Replace("-", ""))
+            .Concat(new[] { MoatLandRotationNative.Rva.ToString("X") + "\t" + MoatLandRotationNative.Length + "\t" +
+                MoatLandRotationNative.FunctionRva.ToString("X") + "\t" + MoatLandRotationNative.FunctionLength + "\t" +
+                MoatLandRotationNative.FunctionSha256 + "\t" +
+                BitConverter.ToString(MoatLandRotationNative.Entry).Replace("-", "") }));
     }
 
     private static void CodecAndLifecycle()

@@ -3,19 +3,32 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.231",
+  "Version": "1.0.233",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.3",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.58.1"
+      "MinimumVersion": "0.58.2"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.233",
+      "Changes": [
+        "Fix repeated multiplayer resyncs when players view raised moat tiles from different directions, including in Trail of the Antler mission 3.",
+        "Give each keep's main flag the same starting position for all players regardless of camera rotation. With the keep flag fix enabled, the flag follows the keep's facing. Requires APIShared 0.58.2."
+      ]
+    },
+    {
+      "Version": "1.0.232",
+      "Changes": [
+        "Add an All checkbox to the right-click demolition menu to enable or disable every area demolition filter at once."
+      ]
+    },
     {
       "Version": "1.0.231",
       "Changes": [

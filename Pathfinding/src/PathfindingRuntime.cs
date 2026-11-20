@@ -36,6 +36,7 @@ namespace Pathfinding
         private bool assemblyPointPlacementPatchUnavailable, mountedStockpileMovementPatchUnavailable, fastRecruitInitializationAttempted;
         private ulong LibraryBase => unchecked((ulong)libraryHandle.ToInt64());
         internal static bool HasMission { get; private set; }
+        internal bool IsShiftQueueReady => processExtendedShiftCommandQueueRuntime?.IsMultiplayerReady == true;
 
         public PathfindingRuntime(ManualLogSource log, PathfindingViewModel settings, string pluginDirectory)
         {

@@ -654,7 +654,7 @@ namespace EngineHarness
             // A load: the map reset drops every case (ResetAnchorMap), the record arrives, the first tick applies it.
             void Load(System.Collections.Generic.Dictionary<string, byte[]> entries)
             {
-                ResetReplanWatch(); ResetFireEscapes(); tribeOrderSequence = 0;
+                ResetReplanWatch(); ResetFireEscapes();
                 StageMovementCases(entries);
                 Check(Same(Save(), entries), "a save before the first tick did not keep the loaded cases");
                 ApplyLoadedMovementCases();
@@ -666,6 +666,22 @@ namespace EngineHarness
                 walker->r_IsKilledByProjectile = 0; walker->r_MovementSubstep = 0; walker->r_SelectionAllowed = 1; walker->r_UnitChimp = 0;
                 fireEscapeActive = true; fireEscapePolicy = fireAbortPolicy = new APIShared.Pathfinding.RouteReplanPolicy(3, 50, 10, 400); fireReturnTicks = 800;
                 ResetFireEscapes();
+                // The peers can arrive from maps with different numbers of observed commands.
+                // Replaying the same command on the new map must yield the same save bytes.
+                void ObserveGroupOrder()
+                {
+                    playerMoveTribe = 3;
+                    ObserveTribeOrder(3, true, 160, 10, 0, true, TribeMoveType.DefaultInSync);
+                    playerMoveTribe = 0;
+                }
+                ResetReplanWatch();
+                ObserveGroupOrder();
+                var freshMap = Save();
+                ObserveGroupOrder();
+                ObserveGroupOrder();
+                ResetReplanWatch();
+                ObserveGroupOrder();
+                Check(Same(Save(), freshMap), "previous-map orders changed the bytes of the same new-map order");
                 TribeOrder groupOrder = tribeOrders[3];
 
                 // An escaped soldier waiting for its return in its own tribe (slot 1), plus a retry tick.
@@ -731,6 +747,7 @@ namespace EngineHarness
                 replanSettled[9] = new ReplanSettled { Global = 9009, TargetX = 141, TargetY = 10 };
                 int sequence = tribeOrderSequence;
                 record = Save();
+                ObserveGroupOrder();
                 Load(record);
                 Check(replanSolos.TryGetValue(7, out ReplanSolo solo) && solo.MoveX == soloX && solo.Tribe.Own == soloTribe.Own && solo.Tribe.Original == 3 &&
                     replanWaits.TryGetValue(9, out ReplanWait wait) && ReferenceEquals(wait.Policy, fireAbortPolicy) && wait.Order.Sequence == order.Sequence &&

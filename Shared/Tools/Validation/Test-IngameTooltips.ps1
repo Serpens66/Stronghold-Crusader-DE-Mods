@@ -251,7 +251,14 @@ $extrasPatch = Join-Path $Workspace 'APIShared\Patches\Assets\GUI\XAML\IngameUIS
 [xml]$extrasDocument = [IO.File]::ReadAllText($extrasPatch)
 $extrasStyle = $extrasDocument.SelectSingleNode("//*[local-name()='Style'][@*[local-name()='Key']='APISharedHudExtrasTooltipStyle']")
 if (-not $extrasStyle) { $failures.Add('Missing side-HUD default tooltip style.') }
-else { Assert-OwnStyle $extrasStyle $extrasPatch; $checked++ }
+else {
+    # The side-HUD renderer sets the owner reference in code. Every scaled layout
+    # value still has to reach the visual template.
+    $apiOwned = $false
+    Assert-OwnStyle $extrasStyle $extrasPatch -SharedSizingInCode
+    $apiOwned = $true
+    $checked++
+}
 $escPatch = Join-Path $apiRoot 'Patches/Assets/GUI/XAMLResources/HUD_IngameMenu.xaml'
 [xml]$escDocument = [IO.File]::ReadAllText($escPatch)
 $escStyle = $escDocument.SelectSingleNode("//*[local-name()='Style'][@*[local-name()='Key']='APISharedMenuTooltipStyle']")

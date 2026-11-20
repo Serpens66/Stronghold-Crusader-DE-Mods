@@ -311,7 +311,10 @@ namespace BugfixesAndQoL
             nativeLibraryAvailable = true;
             TryInitializePersistentFeature(
                 "Keep-flag rotation fix",
-                EnsureKeepFlagRotationRuntime);
+                () => EnsureKeepFlagRotationRuntime(context, isFixedLayoutHashValidated));
+            TryInitializePersistentFeature(
+                "multiplayer moat terrain rotation fix",
+                () => Multiplayer.MoatLandRotationPatch.Install(context, isFixedLayoutHashValidated, log));
             TryInitializePersistentFeature(
                 "tannery animation fade fix",
                 () => EnsureNativeTannerFade(context));
@@ -561,7 +564,13 @@ namespace BugfixesAndQoL
             processPlacementCancelMoveSuppressionFeature = candidate;
         }
 
-        private void EnsureKeepFlagRotationRuntime()
+        internal static bool IsKeepFlagCanonicalizationReady() =>
+            processKeepFlagRotationRuntime?.IsMultiplayerCanonicalizationReady == true;
+
+        internal static void SetKeepFlagCanonicalizationActive(bool active) =>
+            processKeepFlagRotationRuntime?.SetMultiplayerCanonicalizationActive(active);
+
+        private void EnsureKeepFlagRotationRuntime(CrusaderLibraryLoadContext context, bool referenceHashMatches)
         {
             if (processKeepFlagRotationRuntime != null)
                 return;
@@ -569,6 +578,7 @@ namespace BugfixesAndQoL
             var candidate = new KeepFlagRotationRuntime(log, settings);
             candidate.Install();
             processKeepFlagRotationRuntime = candidate;
+            candidate.InstallMultiplayerCanonicalization(context, referenceHashMatches);
         }
 
         private void EnsureNativeTannerFade(CrusaderLibraryLoadContext context)

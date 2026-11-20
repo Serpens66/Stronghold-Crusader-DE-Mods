@@ -10,7 +10,7 @@ using UnityEngine;
 namespace ExtendedData
 {
     [BepInDependency("000shcdese", "2.4.0")]
-    [BepInDependency("APIShared_Serp", "0.51.0")]
+    [BepInDependency("APIShared_Serp", "0.58.3")]
     [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]

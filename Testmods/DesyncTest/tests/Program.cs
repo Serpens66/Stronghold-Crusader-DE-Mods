@@ -18,6 +18,7 @@ internal static unsafe class Program
     [DllImport("kernel32.dll")]static extern bool VirtualFree(IntPtr address,UIntPtr size,uint type);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)]delegate uint Crc(IntPtr unused,int size,IntPtr bytes);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)]delegate void Thunk(IntPtr target);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]delegate void FixtureHandler();
     [UnmanagedFunctionPointer(CallingConvention.Winapi)]delegate void Forced(IntPtr text,int tick,int expected,int started,int now);
     private sealed class Bytes:CodeWriter{internal readonly List<byte> Data=new List<byte>();public override void WriteByte(byte value)=>Data.Add(value);}
     static IntPtr Code(byte[] bytes){var p=VirtualAlloc(IntPtr.Zero,(UIntPtr)Math.Max(4096,bytes.Length),0x3000,0x40);if(p==IntPtr.Zero)throw new Exception("allocation failed");Marshal.Copy(bytes,0,p,bytes.Length);return p;}
@@ -137,7 +138,8 @@ internal static unsafe class Program
         IntPtr original=Code(new byte[4096]);byte[] leafBytes=Assemble(leaf,(ulong)original.ToInt64());Marshal.Copy(leafBytes,0,original,leafBytes.Length);
         Marshal.WriteIntPtr(state,original);
         int calls=0;bool forcedCorrect=false;
-        Thunk callback=p=>{Check(p==original,"original handler address preserved");calls++;Marshal.GetDelegateForFunctionPointer<NativeHooks.Handler>(p)();};
+        var capture=new NativeCapture(new Recorder(new CaptureOptions{Mode=CaptureMode.Off},"unused",_=>{}),IntPtr.Zero,0x88E5000);
+        Thunk callback=p=>{Check(p==original,"original handler address preserved");calls++;capture.Dispatch(p);};
         Forced forced=(text,tick,expected,started,now)=>{calls++;forcedCorrect=tick==20&&expected==30&&started==40&&now==50;};
         try
         {
@@ -160,7 +162,7 @@ internal static unsafe class Program
                 NativeHooks.EmitInline(a,instructions.ToArray(),site,(ulong)Marshal.GetFunctionPointerForDelegate(callback).ToInt64(),(ulong)Marshal.GetFunctionPointerForDelegate(forced).ToInt64());
                 a.add(rsp,0x28);a.pop(r15);a.pop(r14);a.pop(r13);a.pop(r12);a.pop(rdi);a.pop(rsi);a.pop(rbp);a.pop(rbx);a.ret();
                 IntPtr fixture=Code(new byte[4096]);byte[] bytes=Assemble(a,(ulong)fixture.ToInt64());Marshal.Copy(bytes,0,fixture,bytes.Length);
-                int before=calls,old=Marshal.ReadInt32(counter);Marshal.GetDelegateForFunctionPointer<NativeHooks.Handler>(fixture)();
+                int before=calls,old=Marshal.ReadInt32(counter);Marshal.GetDelegateForFunctionPointer<FixtureHandler>(fixture)();
                 Check(calls==before+1,"one callback per displaced dispatch");
                 Check(site.Rva==0x1BFAD?forcedCorrect:Marshal.ReadInt32(counter)>old,"original handler / subsequent callee executed");
                 VirtualFree(fixture,UIntPtr.Zero,0x8000);
@@ -221,7 +223,7 @@ internal static unsafe class Program
             *(ushort*)(m+0x84CD8+4+0x34)=5;
             for(int i=0;i<1000;i++)m[0x84CD8+4+1168+i]=9;
             NativeCapture capture=null;int calls=0;bool packing=false;
-            NativeHooks.Handler original=()=>{
+            FixtureHandler original=()=>{
                 calls++;*(int*)(m+0x370BF8)=0;
                 if(packing)
                 {
@@ -237,21 +239,33 @@ internal static unsafe class Program
                 Buffer.MemoryCopy(m+0x84CD8+1172,path,1000,1000);
                 *(ushort*)(unit+0x34)=hover;
             };
-            *(long*)(b+0x2C7A30+56*8)=Marshal.GetFunctionPointerForDelegate(original).ToInt64();
+            // Match the Extender's use of an independently typed managed thunk in the live table.
+            *(long*)(b+0x2C7A30+106*8)=Marshal.GetFunctionPointerForDelegate(original).ToInt64();
             var recorder=new Recorder(new CaptureOptions{LightMiB=1,DeepMiB=2,QueueMiB=1},"unused",_=>{});
             recorder.Start(1,new{fixture=true});capture=new NativeCapture(recorder,image,size);
             byte* arrival=stackalloc byte[8];arrival[0]=36;arrival[1]=0x23;arrival[2]=1;arrival[3]=2;*(int*)(arrival+4)=991;
             capture.Arrival(2,(IntPtr)arrival,8);
-            capture.Dispatch((IntPtr)(*(long*)(b+0x2C7A30+56*8)));
-            capture.Checksum(true,0);capture.Checksum(true,1);
+            capture.Dispatch((IntPtr)(*(long*)(b+0x2C7A30+106*8)));
+            uint* checksums=(uint*)(m+0x14F0CC)+10000;
+            checksums[0]=99;checksums[1]=21;checksums[13]=42;checksums[9999]=84;
+            capture.Checksum(true,0);capture.Checksum(true,1);capture.Checksum(false,0);
+            checksums[13]=0; // The retained copy must survive Vanilla overwriting its table.
             Check(calls==1,"native handler invoked once during repair capture");Check(*(int*)(unit+0x98)==1002&&*(ushort*)(unit+0x34)==77,"original replacement and preserved local field");
             packing=true;*(int*)(m+0x84CCC)=1;*(int*)(m+0xB0BFC)=2;*(int*)(m+0x36FA4C)=7;
-            capture.Dispatch((IntPtr)(*(long*)(b+0x2C7A30+56*8)));Check(calls==2,"pack original also runs exactly once");
+            capture.Dispatch((IntPtr)(*(long*)(b+0x2C7A30+106*8)));Check(calls==2,"pack original also runs exactly once");
             recorder.End();var data=new byte[1048576];int count=recorder.Ring.Drain(data);bool old=false,final=false,replacement=false,received=false,regularChecksum=false,resyncChecksum=false,packed=false;
+            int tables=0;
             for(int at=0;at<count;at+=BitConverter.ToInt32(data,at))
             {
                 if((RecordKind)BitConverter.ToUInt16(data,at+6)==RecordKind.Checksum)
                 {regularChecksum|=BitConverter.ToInt32(data,at+44)==10;resyncChecksum|=BitConverter.ToInt32(data,at+44)==13;}
+                if((RecordKind)BitConverter.ToUInt16(data,at+6)==RecordKind.UnitChecksumTable)
+                {
+                    tables++;
+                    Check(BitConverter.ToInt32(data,at+76)==39996&&BitConverter.ToUInt32(data,at+80)==21&&
+                        BitConverter.ToUInt32(data,at+80+12*4)==42&&BitConverter.ToUInt32(data,at+80+9998*4)==84,
+                        "Light copies exactly the local table, excluding slot zero, without retaining a native pointer");
+                }
                 if((RecordKind)BitConverter.ToUInt16(data,at+6)==RecordKind.Arrival)
                 {received=true;Check(BitConverter.ToInt32(data,at+40)==-1&&BitConverter.ToInt32(data,at+56)==991&&BitConverter.ToInt32(data,at+60)==0x20123,"arrival uses normal wire identity and uint24 planned tick, without simulation access");}
                 if((RecordKind)BitConverter.ToUInt16(data,at+6)==RecordKind.Field&&BitConverter.ToInt32(data,at+72)==4)
@@ -265,6 +279,7 @@ internal static unsafe class Program
             }
             Check(old&&final&&replacement&&received,"old, incoming and final repair endpoints plus arrival present");Check(recorder.CallbackFailures==0,"valid fixture produces no callback failure");GC.KeepAlive(original);
             Check(regularChecksum&&resyncChecksum,"regular and resync checksums use distinct phases even at the same tick");
+            Check(tables==2,"Light records both actual checksum calls and skips the guarded call");
             Check(packed,"pack fields are not misreported as received execution fields");
         }
         finally{VirtualFree(image,UIntPtr.Zero,0x8000);}

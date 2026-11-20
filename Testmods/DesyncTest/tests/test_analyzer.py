@@ -14,6 +14,30 @@ spec=importlib.util.spec_from_file_location('analyzer',Path(__file__).parents[1]
 analyzer=importlib.util.module_from_spec(spec);spec.loader.exec_module(analyzer)
 
 class AnalyzerTests(unittest.TestCase):
+    def test_light_incident_uses_matching_then_divergent_native_checkpoints(self):
+        with fixture() as tmp:
+            traces=[]
+            for name,value in (('host',10),('client',20)):
+                folder=self.packet(Path(tmp),name)
+                def frame(kind,seq,tick,phase,opcode,payload=b'',unit=0):
+                    return analyzer.HEADER.pack(80+len(payload),2,kind,seq,1,1,1,tick,phase,opcode,1,42,tick,unit,0,0,len(payload))+payload
+                def table(seq,tick,phase,hash_value):
+                    payload=bytearray(analyzer.UNIT_CHECKSUMS.size)
+                    struct.pack_into('<I',payload,11*4,hash_value)
+                    block=bytearray(frame(14,seq,tick,phase,-1,payload))
+                    if phase==13:struct.pack_into('<i',block,72,1)
+                    return block
+                events=table(1,170,10,7)+table(2,180,10,value)+frame(4,3,200,0,54)+table(4,200,13,value)
+                (folder/'events.bin').write_bytes(events+table(6,200,10,value))
+                (folder/'snapshots.bin').write_bytes(frame(8,5,200,0,56,bytes(1168),12))
+                traces.append(analyzer.load(folder))
+            report=analyzer.compare(*traces)
+            self.assertEqual(report['comparedNativeUnitTables'],4)
+            self.assertEqual(report['focusUnitIds'],[12])
+            self.assertEqual(report['earliestObservedTick'],180)
+            self.assertEqual(report['unitChecksumWindows'],[dict(resyncTick=200,comparedRegularCheckpoints=2,
+                repairedSlots=[dict(slot=12,lastMatchingTick=170,firstDifferentTick=180)])])
+
     def packet(self,root,name,hash_value=1,record_value=0,global_id=100):
         folder=root/name;folder.mkdir()
         (folder/'manifest.json').write_text(json.dumps(dict(format=2,session=1,identity=dict(nativeHash='same',managedHash='same',startKind='test',file='same',plugins=[]))))

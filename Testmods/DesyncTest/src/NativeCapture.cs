@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
 
@@ -10,7 +9,6 @@ namespace DesyncTest
         internal readonly Recorder Recorder;
         internal readonly byte* Base;
         private readonly int imageSize;
-        private readonly Dictionary<long,NativeHooks.Handler> handlers=new Dictionary<long,NativeHooks.Handler>();
         [ThreadStatic] private static NativeCapture dispatchOwner;
         [ThreadStatic] private static CaptureEvent dispatchContext;
         [ThreadStatic] private static bool dispatchContextValid;
@@ -19,15 +17,11 @@ namespace DesyncTest
         internal bool UnitContract=true;
         // All offsets are pinned to the audited DLL, not inferred from mutable struct comments.
         internal const int Manager=0x8574320, TickRva=0x3665F58, WireUnits=0x67E8A58, Paths=0x7338278;
+        internal const int UnitChecksumSlots = 9999;
         internal NativeCapture(Recorder recorder,IntPtr module,int size)
         {
             Recorder=recorder;Base=(byte*)module;imageSize=size;
             if(size<Manager+0x370BFC)throw new InvalidOperationException("Native image lacks audited data ranges.");
-            for(int i=0;i<=120;i++)
-            {
-                long address=*(long*)(Base+0x2C7A30+i*8);
-                if(address!=0&&!handlers.ContainsKey(address))handlers.Add(address,Marshal.GetDelegateForFunctionPointer<NativeHooks.Handler>((IntPtr)address));
-            }
         }
         internal int Tick => *(int*)(Base+TickRva);
         internal byte* M => Base+Manager;
@@ -43,9 +37,9 @@ namespace DesyncTest
         }
         internal void Dispatch(IntPtr target)
         {
-            // The audited table dispatch ABI has no arguments and no consumed result.
-            if(!handlers.TryGetValue(target.ToInt64(),out var original))
-            { original=Marshal.GetDelegateForFunctionPointer<NativeHooks.Handler>(target);handlers[target.ToInt64()]=original; }
+            // The live table can contain a managed thunk (SE's Chore 106). Invoke
+            // its audited native ABI directly so Mono never casts its original delegate.
+            var original = (delegate* unmanaged[Cdecl]<void>)(void*)target;
             CaptureEvent e=default;bool valid=false;
             if(Active)try {e=Context(RecordKind.Dispatch);valid=true;Recorder.Record(e,IntPtr.Zero,0);}catch{Interlocked.Increment(ref Recorder.CallbackFailures);}
             var previousOwner=dispatchOwner;var previousContext=dispatchContext;bool previousValid=dispatchContextValid;
@@ -101,13 +95,21 @@ namespace DesyncTest
             var e=Context(RecordKind.Checksum);e.Phase=mode==0?10:13;e.Stage=mode;e.Player=player;
             e.Planned=*(int*)(M+0x14D0E4+player*4);
             Recorder.Record(e,(IntPtr)(M+0x14D108+player*56),56);
+            // Copy the freshly generated local slot table before the native caller resumes.
+            // This is also available in Light and requires no Unit/Path traversal.
+            uint* checksums = (uint*)(M + 0x14F0CC) + player * (UnitChecksumSlots + 1);
+            if (mode == 0 || mode == 1)
+            {
+                e.Kind = RecordKind.UnitChecksumTable;
+                Recorder.Record(e, (IntPtr)(checksums + 1), UnitChecksumSlots * sizeof(uint));
+            }
             if(!Recorder.IsDeep||!UnitContract||(lastCheckpoint==Tick&&lastCheckpointMode==mode&&lastCheckpointCommand==e.Command))return;
             lastCheckpoint=Tick;lastCheckpointMode=mode;lastCheckpointCommand=e.Command;
-            for(int id=1;id<10000;id++)
+            for(int id=1;id<=UnitChecksumSlots;id++)
             {
                 if(!Recorder.IsDeep)break;
                 byte* record=Base+WireUnits+id*UnitChecksum.RecordSize;byte* path=Base+Paths+id*UnitChecksum.PathSize;
-                uint actual=*(uint*)(M+0x14F0CC+(player*10000+id)*4);
+                uint actual=checksums[id];
                 if(UnitChecksum.Compute(record,path)!=actual)
                 {
                     UnitContract=false;Interlocked.Increment(ref Recorder.HashMismatches);

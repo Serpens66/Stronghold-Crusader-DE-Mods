@@ -29,8 +29,11 @@ namespace EngineHarness
             }
             void Begin(bool plague, bool unlimited)
             {
-                replanWaits.Clear(); replanSettled.Clear(); tribeOrders[3] = plain;
+                replanWaits.Clear(); replanSettled.Clear();
                 table[3].r_GlobalId = plain.Global; table[3].r_PlayerIdOwner = 1;
+                playerMoveTribe = 3;
+                ObserveTribeOrder(3, true, plain.X, plain.Y, 0, true, plain.MoveType);
+                playerMoveTribe = 0;
                 walker->r_GlobalId = 9007; walker->r_ControllableForPlayerId = 1; walker->r_TribeId = 3;
                 walker->r_AliveState = AliveState.IsAlive; walker->r_IsKilledByProjectile = 0;
                 walker->r_SelectionAllowed = 1; walker->r_UnitChimp = 0;

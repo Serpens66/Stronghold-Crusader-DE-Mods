@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.231.0</AssemblyVersion>
-    <FileVersion>1.0.231.0</FileVersion>
+    <AssemblyVersion>1.0.233.0</AssemblyVersion>
+    <FileVersion>1.0.233.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -246,6 +246,10 @@
     <Compile Include="src\Settings\ModSettingsPresentation.Recommendations.cs" />
     <Compile Include="src\AI\Fixes\KeepFlagRotationPolicy.cs" />
     <Compile Include="src\AI\Fixes\KeepFlagRotationRuntime.cs" />
+    <Compile Include="src\AI\Fixes\KeepFlagRotationNative.cs" />
+    <Compile Include="src\AI\Fixes\KeepFlagRotationTrampoline.cs" />
+    <Compile Include="src\Multiplayer\MoatLandRotationPatch.cs" />
+    <Compile Include="src\Multiplayer\MoatLandRotationNative.cs" />
     <Compile Include="src\AI\Fixes\CorruptLordDataSpawnPolicy.cs" />
     <Compile Include="src\AI\Fixes\CorruptLordDataSpawnRuntime.cs" />
     <Compile Include="src\AI\Prebuilt\PrebuiltAiWorkshopBothFixRuntime.cs" />

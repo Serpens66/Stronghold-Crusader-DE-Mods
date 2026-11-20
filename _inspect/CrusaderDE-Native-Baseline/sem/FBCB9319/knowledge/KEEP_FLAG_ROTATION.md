@@ -55,3 +55,23 @@ See [Keep direction versus sprite variation](KEEP_DIRECTION.md) for the hash-bou
 instruction evidence and independent record-origin calculation. This confirms
 the stored-field and 15-to-0 geometry contract. It does not establish support
 for arbitrary unknown direction values or prove a mod's runtime integration.
+
+## Multiplayer checksum boundary, 2026-11-19 [Vanilla facts]
+
+The canonical FBCB9319 PE confirms the projectile checksum starts at slot 25.
+The manager is `0x2F7A680`, the slot stride is `0xE8`, and the first input
+pointer at `0x22D9A` is `0x2F7BD3C` (slot 25 plus `0x14`). The type check at
+`0x22DD0` reads record `+0x3E`. The extra coordinate mask at `0x22EA9`
+branches on type `0x0E`, so it does not clear source coordinates for
+`Flag3` (type `0x0B`). Its source and target micro-coordinates at `+0x4C`
+and `+0x52` remain in the bytes hashed at `0x22EBE`. The main flag spawn
+uses the ordinary projectile allocator at `0x9B366`; the separate reserved
+allocation at `0x9B336` is for types `0x28..0x2F`. The ordinary allocator
+can issue slots in the checksum range. The flag update at `0x9C730`
+derives tile coordinates from the stored source micro-coordinates.
+
+For an otherwise identical scale-7 southern Keep at (384,384), views 0
+and 2 can supply source and target coordinates (3127,3072) and (3127,3079).
+Applying the decoded checksum helper to synthetic Flag3 records in the
+first checked slot yields distinct contributions for this pair. This is
+a static checksum path, not a reproduced multiplayer Flag3 incident.

@@ -29,6 +29,7 @@ namespace BugfixesAndQoL.AreaDemolition
         private readonly Brush foreground = new SolidColorBrush(Color.FromArgb(255, 244, 232, 196));
         private HUD_Main hud;
         private Button button;
+        private CheckBox allFilters;
         private Grid host;
         private Canvas overlay;
         private Border backdrop, menu, selectionBox;
@@ -137,6 +138,11 @@ namespace BugfixesAndQoL.AreaDemolition
             var contents = new StackPanel();
             contents.Children.Add(new TextBlock { Text = Text.Get("MenuTitle"), Foreground = foreground,
                 FontWeight = FontWeights.Bold, Margin = new Thickness(0, 0, 0, 6), FontSize = 17 });
+            allFilters = new CheckBox { Content = Text.Get("AllFilters"), Foreground = foreground,
+                FontSize = 15, Margin = new Thickness(0, 2, 0, 4) };
+            allFilters.Checked += (_, __) => ChangeAllFilters(true);
+            allFilters.Unchecked += (_, __) => ChangeAllFilters(false);
+            contents.Children.Add(allFilters);
             foreach (TargetGroup group in FilterOrder)
             {
                 TargetGroup captured = group;
@@ -167,13 +173,27 @@ namespace BugfixesAndQoL.AreaDemolition
         private void ChangeFilter(TargetGroup group, bool value)
         {
             if (syncing || settings.Get(group) == value) return;
-            settings.Set(group, value); MenuChanged?.Invoke();
+            settings.Set(group, value);
+            SyncFilters();
+            MenuChanged?.Invoke();
+        }
+
+        private void ChangeAllFilters(bool value)
+        {
+            if (syncing) return;
+            settings.SetAll(value);
+            SyncFilters();
+            MenuChanged?.Invoke();
         }
 
         private void SyncFilters()
         {
             syncing = true;
-            try { foreach (CheckBox check in filters) check.IsChecked = settings.Get((TargetGroup)check.Tag); }
+            try
+            {
+                foreach (CheckBox check in filters) check.IsChecked = settings.Get((TargetGroup)check.Tag);
+                allFilters.IsChecked = settings.AreAllEnabled;
+            }
             finally { syncing = false; }
         }
 
@@ -301,7 +321,7 @@ namespace BugfixesAndQoL.AreaDemolition
                 button.PreviewMouseUp -= OnButtonMouseUp;
             }
             if(host!=null){host.PreviewMouseUp-=OnHostMouseUp;host.PreviewMouseDown-=OnHostMouseDown;if(overlay!=null)host.Children.Remove(overlay);}
-            filters.Clear(); hud = null; button = null; host = null; overlay = null;
+            filters.Clear(); allFilters = null; hud = null; button = null; host = null; overlay = null;
             backdrop = menu = selectionBox = null;selectionFrame=null;
             if (changed) MenuChanged?.Invoke();
         }

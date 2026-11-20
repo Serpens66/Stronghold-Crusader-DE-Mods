@@ -23,7 +23,6 @@ namespace DesyncTest
         internal const string BackendHash="0843DD4C381A3E77DD6D8B51D5CCF95465B3FB49BFDF2980F39A212D774AADB0";
         internal const string InlineBackendHash="E085B83B2B87B5D2142C980090D8D9EC616A90A443BD125C17B41E0BB47A44EB";
         internal const string AssemblerHash="CC915D1C2E7BE60933C5B129842CA3D08D1FE3CDA6C6D6ADE8824DCDDE16191F";
-        [UnmanagedFunctionPointer(CallingConvention.Winapi)] internal delegate void Handler();
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void Dispatch(IntPtr target);
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void V1(IntPtr p);
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void V2(IntPtr p,int mode);

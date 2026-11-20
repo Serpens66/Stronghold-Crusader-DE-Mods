@@ -12,7 +12,7 @@ using SHCDESE.Interop;
 
 namespace DesyncTest
 {
-    [BepInPlugin(Guid,"DesyncTest","0.1.0")]
+    [BepInPlugin(Guid,"DesyncTest","0.1.2")]
     [BepInDependency("000shcdese","2.14.3")]
     [BepInDependency("APIShared_Serp","0.16.3")]
     [BepInDependency("fixes",BepInDependency.DependencyFlags.SoftDependency)]

@@ -178,3 +178,53 @@ ExtraFeatures' elevated-human-moat hooks bypass the height gates at0x5CC1E and
 0x704CC. A copied unconditional height<13 gate would reject that supported path.
 Static contracts and an isolated call-ABI fixture do not claim gameplay or real
 multiplayer acceptance.
+
+## View rotation and the land flag on completed moats, 2026-11-19 [Vanilla facts]
+
+Canonical native SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The local `DLL_SetMapRotation` export at `0x876D0` queues the requested view
+rotation in `0x60AD410`. The update path `0xCDE60 -> 0x7A370 -> 0x6C780`
+consumes it and sets the rotated neighbour index at TileManager `+0x204E66C`
+to 3, 5, 7 or 1 for rotations 0, 2, 4 or 6. It also dirties the whole map
+through `0x5D8A0 -> 0x59A30` before the terrain pass runs.
+
+In the terrain pass `0x7C0A0`, the first flag store at `0x7C1FF` recomputes
+`IsLand` (`0x8000`) using height, soil, and moat state. For a completed moat,
+the neighbour scan is reached only if the neighbour selected by the rotated
+index is also a completed moat. The guard reads that index at `0x7C211` and
+tests the neighbour's `IsMoat` at `0x7C224`. In the scan, the height and surface
+test at `0x7C30E` can lead to the second flag store at `0x7C320`, clearing
+`IsLand`. This is a static native path from local view rotation to a
+checksummed map flag. `0x22020` hashes the logic grid and Chore 65 transfers
+repairs for that grid.
+
+### Multiplayer capture [mod integration]
+
+In the 23:26 local session of Trail of the Antler, mission 3, the two peers
+agreed before and after both wood wall commands, including the immediate
+direction masks. At ticks 3012, 3412 and 3812, all 281 differing tiles had
+`IsMoat` on both peers and differed exclusively in `IsLand`. The client
+readbacks after each repair matched the host payload. The affected tile set,
+old values and new values recurred in all three repairs. This matches the
+native writer's field and surface. The capture did not record either peer's
+rotation at the writing pass or the call that dirtied these tiles again.
+
+### Runtime confirmation in the 23:41 multiplayer session [mod integration]
+
+Both peers initially had view 2 and executed the same wood wall at tick 528.
+Host kept view 2. At tick 1356 the client changed to view 0. Inside the original
+`0x7C0A0` call, tile 136166 changed from `0x40000000` to `0x40008000`.
+The selected neighbour changed from the moat at tile 136904 to the wall at
+tile 136906. The sampled moat retained height 72, default height 80, soil
+`0x40`, and task 233 owned by AI player 4. This row separates the local-view
+selection from any change in wall or moat data at the sampled tile.
+
+The four resyncs at 1412, 1812, 2212 and 3412 flagged only category 6. The
+client recorded 281, 256, 299 and 281 changed words, each with XOR `0x8000`.
+The first and fourth runs had the same full set of client-before and host
+replacement values for the affected words. At tick 1413 and again at 3413,
+the next native terrain pass reintroduced the repaired bit on all twelve
+observed tiles. With the client back on view 2 at tick 2219, no additional
+resync was recorded until it returned to view 0 at tick 3343. Neither of
+the original mission archives has planned or completed moat tile flags.
+The twelve sampled runtime tasks already belonged to player 4 by tick 2.

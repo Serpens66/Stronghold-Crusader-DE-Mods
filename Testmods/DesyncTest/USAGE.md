@@ -1,4 +1,4 @@
-# DesyncTest 0.1.0
+# DesyncTest 0.1.2
 
 Passiver Testmod für SHCDE. Noch keine reale Host-/Client-, Editor- oder Performance-Abnahme. Nicht als bereits im Spiel validiert behandeln. Keine Netzwerkpakete, Gameplay-Mutationen oder absichtlichen Desyncs.
 
@@ -14,7 +14,7 @@ Eine spätere manuelle Installation erfolgt nur bei geschlossenem Spiel durch Ü
 
 Die erste Ausführung erzeugt `BepInEx/config/DesyncTest_Serp.cfg`. `DesyncTest_Serp.cfg.example` im Paket zeigt alle Ausgangswerte. Änderungen gelten nach Spielneustart.
 
-- `Mode=Light`: Standard. Begrenzte Vorgeschichte im RAM; Vorfälle, Forced Runs und Sitzungsende lösen Ausgabe aus. Nach einem Resync bleibt dessen Paket erhalten. Keine zusätzlichen regulären Welt-Scans.
+- `Mode=Light`: Standard für sporadische Resyncs. Die begrenzte Vorgeschichte im RAM enthält jetzt auch Vanillas bereits berechnete Einzelprüfsummen aller 9.999 Einheitenslots (knapp 40 KB pro Prüfsummenaufruf). Vorfälle, Forced Runs und Sitzungsende lösen die Ausgabe aus. Es gibt keine zusätzlichen Welt-Scans. Nach dem Ablauf von Deep bleiben diese Prüfsummen in Light verfügbar.
 - `Mode=Deep`: Für einen reproduzierbaren Desync vor dem Spielstart einschalten. Höchstens `DurationSeconds=300` monotone Echtzeitsekunden ab abgeschlossenem Missionsstart, einschließlich Pausen. Danach endet die intensive Erfassung automatisch und Light läuft weiter. Kein Spielabbruch, keine Pause und kein Hookabbau. Der vorab reservierte Speicher bleibt bis Prozessende vorhanden.
 - `Mode=Off`: keine Aufzeichnung. Installierte Hooks bleiben als Weiterleitung aktiv; deshalb für Kostenmessungen zusätzlich eine Variante ganz ohne Hilfsmod verwenden.
 - `IntervalTicks=10`: zusätzliche Deep-Hashes im Scheduler-Nachlauf alle zehn tatsächlich weitergeschalteten Simulationsticks. Nicht aus Renderframes abgeleitet.
@@ -29,6 +29,8 @@ Grenzen: Light-Ring 32 MiB, Deep-Ring 256 MiB, Writer-Kopierpuffer 64 MiB, Light
 Unter dem Spielordner `BepInEx/DesyncLogs/<Datum-Prozess-Sitzung>` entstehen `manifest.json`, `events.bin`, `snapshots.bin` und `summary.txt`. Noch laufende oder abgebrochene Aufnahmen besitzen `complete=false`; ausschließlich vollständige Blöcke sind lesbar. Ein Absturz kann den noch nicht geschriebenen Light-Ring verlieren. Die begrenzte Textübersicht nennt Versuch, Zeit, Tick und Einheitenidentität; ausgelassene Übersichtseinträge werden gezählt. Wiederholte Resyncs stehen gemeinsam im Sitzungspaket und erhalten im Bericht die Identität ihres Start-Sequenzwerts. Sie überschreiben keine früheren Dateiblöcke.
 
 Aktuell gilt **Aufnahmeformat 2**. Die Auswertung weist alte Testaufnahmen aus Format 1 zurück: Dort fehlen die jetzt getrennten Bedeutungen für reguläre und Resync-Prüfpunkte sowie eindeutige Richtungsdaten für Rohfelder. Unterschiedliche native Verträge werden nicht miteinander als Spielzustände verglichen. Mehrdeutige wiederholte Prüfpunkte werden übersprungen und ausgewiesen. Eine vollständige Einheitenserie benötigt Records und Pfade; vorhandene Slotnummern allein reichen nicht.
+
+Der mit 0.1.2 gebündelte Analyzer liest auch ältere Format-2-Aufnahmen. Für neue Aufnahmen zeigt `unitChecksumWindows` pro auf beiden Seiten eindeutig zugeordnetem Resync den letzten gleichen und den ersten abweichenden regulären Prüfpunkt reparierter Slots. Slotnummern können wiederverwendet werden. Die Global-ID und geänderten Bytewerte in `repairs` stammen aus dem unmittelbaren Reparaturzeitpunkt. Fehlt eine gemeinsame Vorgeschichte, bleiben die Intervallfelder leer.
 
 Die Erfassung unterscheidet Eingang, Verpackung, Größenmessung und tatsächliche Handler-Ausführung. Rohpakete aus Transportcallbacks haben bewusst keinen angeblichen Simulationstick. Interne Mod-Warteschlangen und effektive, tatsächlich angewandte Fremdmod-Einstellungen sind ohne Anbieter nicht erfasst; das Manifest weist diese Grenze aus. Komponenten und menschliche/AI-Spielerzuordnung werden beim Missionsstart aufgenommen. Native Dispatch-Ereignisse liefern spätere Quellspieler; nicht beobachtbare Metadatenänderungen sind kein sicherer Hostwechselnachweis.
 

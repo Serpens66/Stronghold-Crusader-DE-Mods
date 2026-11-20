@@ -143,6 +143,38 @@ namespace Shared
             lock (Sync) Watched.Add(site);
         }
 
+        // Integrity probes for a feature which negotiated use of these exact entry spans.
+        // Keep the published snapshots so a previously reported overwrite still fails the probe.
+        internal static Func<bool> CaptureIntegrity(IEnumerable<IHook> hooks, string feature)
+        {
+            var sites = new List<WatchedSite>();
+            lock (Sync)
+            {
+                foreach (IHook hook in hooks)
+                {
+                    WatchedSite site = Watched.Find(candidate => ReferenceEquals(candidate.Hook, hook));
+                    if (site == null)
+                        throw new InvalidOperationException(feature + ": published hook is not watched: " + hook.Name);
+                    sites.Add(site);
+                }
+            }
+
+            if (sites.Count == 0)
+                throw new InvalidOperationException(feature + ": no published hooks to verify.");
+
+            return () =>
+            {
+                foreach (WatchedSite site in sites)
+                {
+                    if (!site.Hook.IsInstalled) return false;
+                    var address = new IntPtr(unchecked((long)site.Address));
+                    for (int index = 0; index < site.Published.Length; index++)
+                        if (Marshal.ReadByte(address, index) != site.Published[index]) return false;
+                }
+                return true;
+            };
+        }
+
         // Compares every published span with its recorded bytes. Logs each new deviation once as an Error
         // and returns how many were new. Call on the main thread at mission and editor start.
         internal static int Recheck()

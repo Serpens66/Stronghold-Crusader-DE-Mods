@@ -24,5 +24,19 @@ namespace BugfixesAndQoL.AreaDemolition
         internal bool Get(TargetGroup group) => entries[(int)group].Value;
         internal void Set(TargetGroup group,bool value)
         { if (entries[(int)group].Value==value) return; entries[(int)group].Value=value; Changed?.Invoke(); }
+
+        internal bool AreAllEnabled => Array.TrueForAll(entries, entry => entry.Value);
+
+        internal void SetAll(bool value)
+        {
+            bool changed = false;
+            foreach (ConfigEntry<bool> entry in entries)
+            {
+                if (entry.Value == value) continue;
+                entry.Value = value;
+                changed = true;
+            }
+            if (changed) Changed?.Invoke();
+        }
     }
 }

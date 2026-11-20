@@ -5,7 +5,7 @@ using System.Threading;
 namespace DesyncTest
 {
     internal enum CaptureMode { Off, Light, Deep }
-    internal enum RecordKind : ushort { Start=1, End, Arrival, Dispatch, Checksum, CategoryFlags, Field, Unit, UnitHash, WorldUnit, ForcedRun, DeepEnded, Fault }
+    internal enum RecordKind : ushort { Start=1, End, Arrival, Dispatch, Checksum, CategoryFlags, Field, Unit, UnitHash, WorldUnit, ForcedRun, DeepEnded, Fault, UnitChecksumTable }
     internal struct CaptureEvent
     {
         internal RecordKind Kind;

@@ -39,6 +39,9 @@ namespace Pathfinding.Engine
         private void CaptureMovementCases(Action<string, byte[]> write)
         {
             IReadOnlyDictionary<string, byte[]> pending = loadedCases;
+#if SERP_DEVDIAG
+            write = TraceMovementCaseCapture(write, pending != null ? "capture-pending" : "capture");
+#endif
             if (pending != null)
             {
                 foreach (string name in CaseEntries)
@@ -101,8 +104,12 @@ namespace Pathfinding.Engine
         {
             IReadOnlyDictionary<string, byte[]> entries = loadedCases;
             loadedCases = null;
-            if (entries != null) RestoreMovementCases(entries);
+            if (entries == null) return;
+            RestoreMovementCases(entries);
+            Shared.DevDiag.Log(() => $"PATHFINDING_MOVEMENT_CASES phase=applied orderSequence={tribeOrderSequence} orders={tribeOrders.Count}");
         }
+
+        partial void DiagMovementCaseLoad(int version, IReadOnlyDictionary<string, byte[]> entries);
 
         // Orders first: restored waits compare their order with the tribe's last one. A solo case may
         // own the temporary tribe that a nested escape borrows (Split=false). Restore both layers:

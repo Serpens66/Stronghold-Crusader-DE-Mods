@@ -166,6 +166,24 @@ internal static class Program
         Check((bool)legacy.Values["Area filters/Walls"],"editing migrated preference never mutates legacy entries");
         legacy.Values["Area filters/Buildings"]=true;
         Check(!new DemolitionSettings(destination,legacy).Get(TargetGroup.Buildings),"later legacy changes cannot overwrite migrated destination");
+
+        var bulk = new DemolitionSettings(new BepInEx.Configuration.ConfigFile());
+        int bulkChanges = 0;
+        bulk.Changed += () => bulkChanges++;
+        Check(!bulk.AreAllEnabled, "mixed defaults leave the master checkbox unchecked");
+        bulk.SetAll(true);
+        ushort allGroups = 0;
+        foreach (TargetGroup group in Enum.GetValues(typeof(TargetGroup)))
+            allGroups |= (ushort)(1 << (int)group);
+        Check(bulk.AreAllEnabled && bulk.Mask == allGroups && bulkChanges == 1, "select all enables every group and publishes once");
+        bulk.SetAll(true);
+        Check(bulkChanges == 1, "selecting all again does not republish");
+        bulk.Set(TargetGroup.Walls, false);
+        Check(!bulk.AreAllEnabled, "disabling one group clears the master checkbox");
+        bulk.Set(TargetGroup.Walls, true);
+        Check(bulk.AreAllEnabled, "restoring the last group checks the master checkbox");
+        bulk.SetAll(false);
+        Check(!bulk.AreAllEnabled && bulk.Mask == 0 && bulkChanges == 4, "clear all disables every group and publishes once");
     }
     private static void ColumnRanges()
     {

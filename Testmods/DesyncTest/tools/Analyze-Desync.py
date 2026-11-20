@@ -7,7 +7,8 @@ from pathlib import Path
 import struct
 
 HEADER = struct.Struct('<IHHqqqq10i')
-NAMES = dict(enumerate(('Start','End','Arrival','Dispatch','Checksum','CategoryFlags','Field','Unit','UnitHash','WorldUnit','ForcedRun','DeepEnded','Fault'),1))
+NAMES = dict(enumerate(('Start','End','Arrival','Dispatch','Checksum','CategoryFlags','Field','Unit','UnitHash','WorldUnit','ForcedRun','DeepEnded','Fault','UnitChecksumTable'),1))
+UNIT_CHECKSUMS = struct.Struct('<9999I')
 
 def records(path, errors):
     if not path.exists():
@@ -63,7 +64,7 @@ def load(folder):
     validate_manifest(manifest)
     errors=[];counts=collections.Counter();hashes={};snapshots={};checksums={};commands={};flags=[]
     last_seq={};duplicate=0;repair_groups=[];pending_repairs={};series={};incidents=[];active_incident=None;arrivals={};execution_clocks={}
-    ambiguous_hashes=set();ambiguous_checksums=set();ambiguous_snapshots=set()
+    ambiguous_hashes=set();ambiguous_checksums=set();ambiguous_snapshots=set();ambiguous_tables=set();tables={}
     for filename in ('events.bin','snapshots.bin'):
         for r in records(folder/filename,errors):
             counts[r['kind']]+=1
@@ -82,6 +83,12 @@ def load(folder):
                 if len(r['payload'])!=56:errors.append('invalid aggregate length');continue
                 if key in checksums:ambiguous_checksums.add(key)
                 checksums[key]=r['payload']
+            elif r['kind']=='UnitChecksumTable':
+                key=(r['tick'],r['phase'],r['planned'])
+                if len(r['payload'])!=UNIT_CHECKSUMS.size or (r['phase'],r['stage']) not in ((10,0),(13,1)):
+                    errors.append('invalid unit checksum table');continue
+                if key in tables:ambiguous_tables.add(key)
+                tables[key]=(r['seq'],r['payload'])
             elif r['kind'] in ('WorldUnit','Unit'):
                 key=(r['kind'],)+key+(r['stage'],)
                 if key in snapshots:duplicate+=1;ambiguous_snapshots.add(key)
@@ -136,6 +143,7 @@ def load(folder):
             x,y=read_snapshot(parts[0]),read_snapshot(parts[4])
             offsets=gameplay_offsets(x,y)
             group.update(changedGameplayBytes=len(offsets),wireOffsets=[hex(i) for i in offsets[:64]],
+                         byteChanges=[dict(wireOffset=hex(i),before=f'{x[i]:02x}',after=f'{y[i]:02x}') for i in offsets[:64]],
                          identityChanged=group['oldGlobal']!=group.get('finalGlobal'))
         if group['pathEndpointsPresent']:group['storedPathChanged']=parts[1][0]!=parts[5][0]
         for incident in reversed(incidents):
@@ -154,8 +162,8 @@ def load(folder):
                           executionWithoutObservedArrival=len(commands.keys()-arrivals.keys()),samples=receipt_samples,
                           limits='Only ordinary inner headers. Local sender normally has no wire receipt. Times are local capture points, not network latency; compression/special packets remain raw.')
     return dict(folder=str(folder),manifest=manifest,errors=errors,counts=dict(counts),hashes=hashes,snapshots=snapshots,
-                checksums=checksums,commands=commands,flags=flags,duplicateSnapshots=duplicate,repairs=repairs,snapshotCoverage=coverage,incidents=incidents,arrivalCoverage=arrival_coverage,
-                ambiguous=dict(hashes=ambiguous_hashes,checksums=ambiguous_checksums,snapshots=ambiguous_snapshots))
+                checksums=checksums,tables=tables,commands=commands,flags=flags,duplicateSnapshots=duplicate,repairs=repairs,snapshotCoverage=coverage,incidents=incidents,arrivalCoverage=arrival_coverage,
+                ambiguous=dict(hashes=ambiguous_hashes,checksums=ambiguous_checksums,snapshots=ambiguous_snapshots,tables=ambiguous_tables))
 
 def read_snapshot(reference):
     with Path(reference[1]).open('rb') as f:
@@ -166,6 +174,41 @@ def read_snapshot(reference):
 def gameplay_offsets(x,y):
     return ([i for i in range(0x8c,1168) if not 0x41c<=i<0x424 and x[i]!=y[i]]+
             [i for i in range(0x3c,0x48) if x[i]!=y[i]])
+
+def checksum_windows(a,b,shared):
+    attempts_a=collections.Counter(v['startTick'] for v in a['incidents'])
+    attempts_b=collections.Counter(v['startTick'] for v in b['incidents'])
+    unique_b={v['startTick']:v for v in b['incidents'] if attempts_b[v['startTick']]==1}
+    def lower_bounds(incidents):
+        boundary=0;result={}
+        for incident in incidents:
+            result[incident['startSequence']]=boundary
+            boundary=incident.get('endSequence',incident['startSequence'])
+        return result
+    bounds_a,bounds_b=lower_bounds(a['incidents']),lower_bounds(b['incidents'])
+    windows=[]
+    for left in a['incidents']:
+        tick=left['startTick'];right=unique_b.get(tick)
+        if right is None or attempts_a[tick]!=1:
+            continue
+        # Never reuse a checkpoint from before an intervening repair on either peer.
+        lower_a=bounds_a[left['startSequence']];lower_b=bounds_b[right['startSequence']]
+        checkpoints=[key for key in shared if key[1]==10 and
+                     lower_a<a['tables'][key][0]<left['startSequence'] and lower_b<b['tables'][key][0]<right['startSequence']]
+        units=[]
+        for slot in sorted(set(left['units'])|set(right['units']))[:128]:
+            if not 1<=slot<=UNIT_CHECKSUMS.size//4:continue
+            last_equal=first_different=None
+            offset=(slot-1)*4
+            for key in checkpoints:
+                av=struct.unpack_from('<I',a['tables'][key][1],offset)[0]
+                bv=struct.unpack_from('<I',b['tables'][key][1],offset)[0]
+                if av!=bv:
+                    first_different=key[0];break
+                last_equal=key[0]
+            units.append(dict(slot=slot,lastMatchingTick=last_equal,firstDifferentTick=first_different))
+        windows.append(dict(resyncTick=tick,comparedRegularCheckpoints=len(checkpoints),repairedSlots=units))
+    return windows
 
 def compare(a,b):
     identity_a=a['manifest']['identity'];identity_b=b['manifest']['identity']
@@ -192,6 +235,13 @@ def compare(a,b):
                     limits='No state comparison across different or unresolved native/layout contracts.')
     mismatches=[]
     compared=0
+    shared_tables=sorted((a['tables'].keys()&b['tables'].keys())-a['ambiguous']['tables']-b['ambiguous']['tables'])
+    compared+=len(shared_tables)
+    for key in shared_tables:
+        av,bv=a['tables'][key][1],b['tables'][key][1]
+        if av==bv:continue
+        slots=[i for i,(x,y) in enumerate(zip(UNIT_CHECKSUMS.unpack(av),UNIT_CHECKSUMS.unpack(bv)),1) if x!=y]
+        mismatches.append(dict(type='native-unit-checksum-table',identity=key,tick=key[0],differingSlotCount=len(slots),slots=slots[:128]))
     def unit_identities(data):
         result={}
         for key in data['hashes']:
@@ -242,14 +292,17 @@ def compare(a,b):
     for value in mismatches:
         if value['type'] in ('unit-hash','unit-identity'):focus.add(value['identity'][2])
         elif value['type'] in ('unit-record','stored-path'):focus.add(value['identity'][3])
+        elif value['type']=='native-unit-checksum-table':focus.update(value['slots'])
     return dict(verdict='observed-difference' if mismatches else ('no-difference-in-comparable-captured-data' if compared else 'insufficient-comparable-data'),
                 earliestObservedTick=earliest,warnings=warnings,coverageDifferences=missing,
+                comparedNativeUnitTables=len(shared_tables),unitChecksumWindows=checksum_windows(a,b,shared_tables),
                 mismatches=mismatches,focusUnitIds=sorted(focus),comparedObservations=compared,
                 limits='No automatic root-cause proof. Explicit folder choice does not prove same mission. Host is the repair source, not necessarily correct.')
 
 def summary(a):
     result={k:a[k] for k in ('folder','manifest','errors','counts','flags','duplicateSnapshots','repairs','snapshotCoverage','incidents','arrivalCoverage')}
     result['repairInterpretation']='Observed correction, not proof of the original faulty write. Raw wire offsets use a four-byte prefix before GameUnit.'
+    result['nativeUnitTables']=len(a['tables'])
     return result
 
 def main():

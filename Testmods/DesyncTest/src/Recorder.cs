@@ -250,11 +250,11 @@ namespace DesyncTest
             }
             private void Manifest(Recorder r,bool ended)
             {
-                string json=Shared.DependencyFreeJson.Serialize(new { format=2,plugin="DesyncTest_Serp",version="0.1.0",session=owner.Id,identity=owner.Identity,clockFrequency=Stopwatch.Frequency,
+                string json=Shared.DependencyFreeJson.Serialize(new { format=2,plugin="DesyncTest_Serp",version="0.1.2",session=owner.Id,identity=owner.Identity,clockFrequency=Stopwatch.Frequency,
                     config=options.Diagnostic(), ended,complete=ended&&!owner.OutputFailed&&!truncated&&r.Ring.DroppedRecords==0&&r.Ring.ContentionDrops==0&&r.CallbackFailures==0&&r.WriterFailures==0&&r.DiskDroppedBytes==0&&r.HashMismatches==0,
                     bytes,incidents=owner.Incident,finalMode=owner.Window.Mode.ToString(),endRequested=owner.EndRequested,
                     losses=new {scope="process-wide",r.Ring.DroppedRecords,r.Ring.DroppedBytes,r.Ring.ContentionDrops,r.Ring.HistoryOverwrites,r.CallbackFailures,r.WriterFailures,r.DiskDroppedBytes,r.RejectedSessions,r.HashMismatches},
-                    coverage=new {unitWirePrefix=4,unitRecord=1168,pathBytes=1000,requestedUnitSlots=9999,snapshotSeriesCanBePartial=true,normalArrivalHeaders=true,fifoAcceptance=false,hostChanges=false,modInternalProviders=false,otherRepairLayouts=false},
+                    coverage=new {unitWirePrefix=4,unitRecord=1168,pathBytes=1000,requestedUnitSlots=9999,nativeUnitChecksumTables=true,snapshotSeriesCanBePartial=true,normalArrivalHeaders=true,fifoAcceptance=false,hostChanges=false,modInternalProviders=false,otherRepairLayouts=false},
                     files=new[]{"events.bin","snapshots.bin","summary.txt"} });
                 // Participant/component metadata is bounded as well; never exceed the reserved budget.
                 if(System.Text.Encoding.UTF8.GetByteCount(json)>30000)throw new InvalidDataException("Manifest exceeds metadata budget.");

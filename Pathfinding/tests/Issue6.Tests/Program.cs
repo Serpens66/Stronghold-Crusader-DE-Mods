@@ -12,7 +12,8 @@ string Read(string path)
     if (!baseline || path != "Pathfinding/src/CommandQueue/ExtendedShiftCommandQueueRuntime.cs")
         return File.ReadAllText(Path.Combine(root, path));
     var start = new System.Diagnostics.ProcessStartInfo("git") { WorkingDirectory=root, RedirectStandardOutput=true, UseShellExecute=false };
-    start.ArgumentList.Add("show"); start.ArgumentList.Add("SerpsMods/v1.0.28:"+path);
+    // In this release the historical implementation still belonged to BugfixesAndQoL.
+    start.ArgumentList.Add("show"); start.ArgumentList.Add("SerpsMods/v1.0.28:BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs");
     using var process=System.Diagnostics.Process.Start(start);
     string source=process.StandardOutput.ReadToEnd();process.WaitForExit();
     if(process.ExitCode!=0)throw new Exception("Cannot load release baseline");return source;
@@ -31,8 +32,8 @@ string EnumSource(string name)
 string enums = "using System; namespace SHCDESE.Interop {" + EnumSource("eGoods") + EnumSource("eChimps") + "}"
     + "namespace SHCDESE.Interop.Enums {" + EnumSource("TribePatrolMode") + EnumSource("TribeMoveType") + "}";
 var queueTree = Parse(Read("Pathfinding/src/CommandQueue/ExtendedShiftCommandQueueRuntime.cs"));
-string[] names = { "HandleMoveChore", "ShouldMarkOutgoingMultiplayerOrder", "OnMoveOrderCore",
-    "AppendMovementWaypointCore", "TryEnqueueSynchronizedCommand", "CancelQueueForPatrol" };
+string[] names = { "HandleMoveChore", "HandleTargetOrderChore", "ShouldMarkOutgoingMultiplayerOrder", "OnMoveOrderCore",
+    "AppendMovementWaypointCore", "TryEnqueueSynchronizedCommand", "CancelQueueForPatrol", "MaintainMultiplayerQueue" };
 string members = string.Join("\n", queueTree.DescendantNodes().OfType<MethodDeclarationSyntax>()
     .Where(m => names.Contains(m.Identifier.Text)).Select(m => m.ToFullString()));
 string queueDoubles = """
@@ -51,17 +52,21 @@ namespace Shared { internal static class MissionEvents { internal static bool Cl
  public static class DebugLogHelper { public static bool DiagnosticsEnabled => true;  public static void LogErrorLimited(object l,string p,string m){} } }
 namespace Pathfinding.UnitCommands {
  static class UnitCommandPathAPI { public static bool FormationDispatchActive; }
+ static class SimulationAgreement {public static int Faults;public static void ReportFault(string reason)=>Faults++;}
  enum QueueCommandKind { Move }
  class QueueCommand { public QueueCommand(QueueCommandKind k,int x,int y,int mode){} }
  class RuntimeExpectedMove { public int TribeId;public RuntimeExpectedMove(int t,QueueCommand c,int expires){TribeId=t;} }
  unsafe class QueueFixture {
   __MEMBERS__
   bool installed=true,internalDispatch=false,multiplayerSynchronizationReady=true,multiplayerMarkerFailureLogged;
+  bool MultiplayerQueueAdmitted=true;
+  bool IsMultiplayerReady=>multiplayerSynchronizationReady;
   bool FeatureEnabled=true,Multiplayer,Shift=true,Ai,Selected=true;int currentTick,ExpectedMoveChoreLifetimeTicks=2;
   object log;IntPtr choreModePointer,choreTribeIdPointer,choreCommandOrTileXPointer,choreMoveTypePointer,chorePatrolModePointer;
   List<RuntimeExpectedMove> expectedMoveChores=new(),expectedMoveEvents=new();HashSet<int> observedAttacks=new();
   Dictionary<int,int> queued=new(); int OriginalCalls,LastMarker,AppendCalls; (int,int,ushort,ushort,int,short) Appended;
   Action<IntPtr,int,ushort,ushort,int,short> originalSharedAppend;
+  Action originalSharedTarget;
   bool IsRealMultiplayer()=>Multiplayer;bool IsShiftPressed()=>Shift;bool IsAiOwnedAliveTribe(int id)=>Ai;
   bool IsLocalSelectedTribe(int id,out SHCDESE.Interop.GameTribe* tribe){tribe=null;return Selected;}
   bool TryGetAliveTribe(int id,out SHCDESE.Interop.GameTribe* tribe){tribe=null;return true;}
@@ -110,6 +115,45 @@ namespace Pathfinding.UnitCommands {
     }
    }finally{Marshal.FreeHGlobal(mem);}
   }
+  public static void RunAgreement(){
+   IntPtr mem=Marshal.AllocHGlobal(24);
+   try {
+    foreach(bool agreed in new[]{false,true}) {
+     // The second peer fails its local installation when there is no agreement.
+     var first=new QueueFixture{Multiplayer=true,MultiplayerQueueAdmitted=agreed};
+     var second=new QueueFixture{Multiplayer=true,MultiplayerQueueAdmitted=agreed,multiplayerSynchronizationReady=agreed};
+     foreach(var peer in new[]{first,second}) {
+      peer.choreModePointer=mem;peer.choreTribeIdPointer=mem+4;peer.choreCommandOrTileXPointer=mem+8;
+      peer.choreMoveTypePointer=mem+12;peer.chorePatrolModePointer=mem+16;
+      peer.originalSharedTarget=()=>peer.LastMarker=Marshal.ReadInt32(mem+8);
+      peer.originalSharedAppend=(m,t,x,y,i,mode)=>peer.AppendCalls++;
+      Marshal.WriteInt32(mem,QueueNativeContract.ChorePackMode);Marshal.WriteInt32(mem+4,7);
+      Marshal.WriteInt32(mem+12,1);Marshal.WriteInt32(mem+16,0);
+      peer.HandleMoveChore();
+      Check(peer.LastMarker==(agreed?0x41:1)&&peer.OriginalCalls==1,"Peers must serialize the same movement protocol");
+      var move=new SHCDESE.EventAPI.Tribes.TribeIssueOrderMoveHereEventArgs{MoveType=(TribeMoveType)peer.LastMarker};
+      peer.OnMoveOrderCore(move);
+      Check(move.SkipOriginalFunction==agreed&&peer.queued.GetValueOrDefault(7)==(agreed?1:0),"Each peer must consume an agreed movement once, or run Vanilla");
+
+      Marshal.WriteInt32(mem+8,4);
+      peer.HandleTargetOrderChore();
+      Check(peer.LastMarker==(agreed?132:4)&&Marshal.ReadInt32(mem+8)==4,"Peers must serialize the same target protocol and restore payload");
+      peer.AppendMovementWaypointCore((IntPtr)123,7,14,24,4,(short)TribePatrolMode.PatrolOnce);
+      Check(peer.AppendCalls==(agreed?0:1)&&peer.queued.GetValueOrDefault(7)==(agreed?2:0),"Native waypoint behavior follows the same agreement");
+     }
+    }
+    SimulationAgreement.Faults=0;
+    var lateLoss=new QueueFixture{Multiplayer=true,multiplayerSynchronizationReady=false};
+    var marked=new SHCDESE.EventAPI.Tribes.TribeIssueOrderMoveHereEventArgs{MoveType=(TribeMoveType)0x41};
+    lateLoss.OnMoveOrderCore(marked);
+    Check(marked.SkipOriginalFunction&&lateLoss.queued.Count==0&&SimulationAgreement.Faults==1,"A marked order may not fall through after loss of a required hook");
+    var settingDisabled=new QueueFixture{Multiplayer=true,FeatureEnabled=false};
+    marked=new SHCDESE.EventAPI.Tribes.TribeIssueOrderMoveHereEventArgs{MoveType=(TribeMoveType)0x41};
+    settingDisabled.OnMoveOrderCore(marked);
+    Check(marked.SkipOriginalFunction&&settingDisabled.queued.GetValueOrDefault(7)==1,"An already marked order must follow the agreed receive path");
+   }finally{Marshal.FreeHGlobal(mem);}
+   Console.WriteLine("PASS: Shift movement and target packet admission, waypoint fallback, and late-loss veto.");
+  }
  }
 }
 """;
@@ -117,13 +161,17 @@ string queueUsings = "using SHCDESE.Interop;using SHCDESE.EventAPI;using SHCDESE
 Run("Patrol", new[] { enums, Read("Pathfinding/src/UnitCommands/Movement/QueueNativeContract.cs"),
     queueUsings + queueDoubles.Replace("__MEMBERS__", members) }, "Pathfinding.UnitCommands.QueueFixture");
 
+if (!baseline)
+    Run("MultiplayerQueue", new[] { enums, Read("Pathfinding/src/UnitCommands/Movement/QueueNativeContract.cs"),
+        queueUsings + queueDoubles.Replace("__MEMBERS__", members) }, "Pathfinding.UnitCommands.QueueFixture", "RunAgreement");
+
 
 if (!baseline)
 {
     // The Waterboy initialization fixture stays with BugfixesAndQoL.
 }
 
-void Run(string name, IEnumerable<string> sources, string typeName)
+void Run(string name, IEnumerable<string> sources, string typeName, string methodName = "Run")
 {
     var refs = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator)
         .Select(p => MetadataReference.CreateFromFile(p));
@@ -132,7 +180,7 @@ void Run(string name, IEnumerable<string> sources, string typeName)
         new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe:true));
     using var stream = new MemoryStream();var result=compilation.Emit(stream);
     if(!result.Success)throw new Exception(string.Join("\n",result.Diagnostics.Where(d=>d.Severity==DiagnosticSeverity.Error)));
-    try { Assembly.Load(stream.ToArray()).GetType(typeName).GetMethod("Run").Invoke(null,null); }
+    try { Assembly.Load(stream.ToArray()).GetType(typeName).GetMethod(methodName).Invoke(null,null); }
     catch(TargetInvocationException e){
         const string expected="Patrol first order was consumed or marked";
         if(baseline && e.InnerException?.Message==expected) {Console.WriteLine("REPRODUCED release defect: "+expected);return;}

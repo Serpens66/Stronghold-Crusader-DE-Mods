@@ -1,12 +1,11 @@
 using System;
 using System.Reflection;
 using CrusaderDE;
+using SHCDESE.API;
 
 namespace Shared
 {
-    // Called once on the Unity thread when a Coop Trail becomes an editable setup.
-    // Vanilla's CreateTeamShields skips coopGame; PopulateTeamsPanel also initializes
-    // the teamShield values consumed by lobby rows and radar without opening the panel.
+    // Projects the Coop setup on the Unity thread. Vanilla's CreateTeamShields skips Coop.
     internal static class CoopTrailSetupPresentation
     {
         private const BindingFlags PrivateInstance = BindingFlags.Instance | BindingFlags.NonPublic;
@@ -38,8 +37,54 @@ namespace Shared
             view.Show_SkirmishAdvancedEnabled = setup.advanced_skirmish_options > 0 && setup.advancedSkirmishOptionsEnabled();
             try { Invoke(PopulateMap, lobby, "PopulateMapDetailsPanel", header); }
             finally { if (preserveMissionText) view.StandaloneMissionText = missionText; }
-            Invoke(PopulateTeams, lobby, "PopulateTeamsPanel");
+            if (lobby.currentLobby.isHost || FRONT_Multiplayer.skirmishGame)
+                Invoke(PopulateTeams, lobby, "PopulateTeamsPanel");
+            else
+                UpdateClientTeamShields(lobby);
             Invoke(UpdateRadar, lobby, "UpdateRadarShieldPositions");
+            view.Show_MPPeacetime = !FRONT_Multiplayer.skirmishGame;
+        }
+
+        // PopulateTeamsPanel would also sort and normalize the client lobby's teams.
+        // Project only the shield fields consumed by the rows and radar.
+        internal static bool UpdateClientTeamShields(FRONT_Multiplayer lobby)
+        {
+            var room = lobby.currentLobby;
+            var members = room.members;
+            if (members.Count == 0 || members.Count > GamePlayerManagerAPI.MAX_PLAYERS)
+                return false;
+
+            Span<int> teams = stackalloc int[members.Count];
+            Span<int> teamCounts = stackalloc int[GamePlayerManagerAPI.MAX_PLAYERS + 1];
+            teamCounts.Clear();
+            int playerSlots = 0;
+            for (int index = 0; index < members.Count; index++)
+            {
+                var member = members[index];
+                if (member == null || member.dummyToBeKicked)
+                    return false;
+                int slot = room.getThisPlayerFromSteamID(member.id.m_SteamID);
+                int team = room.getTeam(member);
+                if (slot < 1 || slot > GamePlayerManagerAPI.MAX_PLAYERS || (playerSlots & (1 << slot)) != 0 ||
+                    team < 0 || team > GamePlayerManagerAPI.MAX_PLAYERS)
+                    return false;
+                playerSlots |= 1 << slot;
+                teams[index] = team;
+                teamCounts[team]++;
+            }
+
+            bool changed = false;
+            for (int index = 0; index < members.Count; index++)
+            {
+                int team = teams[index];
+                int shield = team > 0 && teamCounts[team] > 1 ? team : -1;
+                if (members[index].teamShield == shield)
+                    continue;
+                members[index].teamShield = shield;
+                changed = true;
+            }
+
+            return changed;
         }
 
         private static MethodInfo Find(string name, params Type[] parameters) =>
