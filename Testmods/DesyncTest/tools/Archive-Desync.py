@@ -72,7 +72,7 @@ def archive(source, target):
                 if kind == 3 and op == 106 and any(center-1200 <= planned <= center+200 for center in incident_ticks):
                     keep = True
                 if near:
-                    keep |= kind in (5, 6, 8, 14, 15, 16, 17, 18, 19)
+                    keep |= kind in (5, 6, 8, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24)
                     keep |= kind in (9, 10) and focused
                     keep |= kind in (4, 7) and op != 120
                 if keep:

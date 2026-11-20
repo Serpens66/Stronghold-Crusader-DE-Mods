@@ -8,12 +8,20 @@ from pathlib import Path
 import struct
 
 HEADER = struct.Struct('<IHHqqqq10i')
-NAMES = dict(enumerate(('Start','End','Arrival','Dispatch','Checksum','CategoryFlags','Field','Unit','UnitHash','WorldUnit','ForcedRun','DeepEnded','Fault','UnitChecksumTable','WorkerAssignment','BuildingChecksumTable','BuildingState','WorkerDecision','WorkerEntrance'),1))
+NAMES = dict(enumerate(('Start','End','Arrival','Dispatch','Checksum','CategoryFlags','Field','Unit','UnitHash','WorldUnit','ForcedRun','DeepEnded','Fault','UnitChecksumTable','WorkerAssignment','BuildingChecksumTable','BuildingState','WorkerDecision','WorkerEntrance','WorkerInputs','TerrainDelta','TerrainCoverage','CommandBuildingDelta','CommandCoverage'),1))
 UNIT_CHECKSUMS = struct.Struct('<9999I')
 BUILDING_CHECKSUMS = struct.Struct('<3999I')
 BUILDING_SIZE = 0x32c
 WORKER = struct.Struct('<II10H')
 WORKER_DECISION = struct.Struct('<6i')
+WRITE_FIELDS = {
+    'WorkerInputs': ('candidate','selected','accessCalls','firstAccessResult','firstX','firstY','view','beforeUnitGlobal',
+                     'beforeState','afterUnitGlobal','afterState','pendingRole','linkedBuilding','linkedBuildingGlobal'),
+    'TerrainDelta': ('beforeFlags','afterFlags','beforeHeight','afterHeight','beforeSoil','afterSoil','beforeBuilding','afterBuilding','beforeView','afterView'),
+    'TerrainCoverage': ('visited','sampled','limit'),
+    'CommandCoverage': ('changedBuildings','savedBuildings','changedVegetation','savedVegetation'),
+}
+BUILDING_FIELDS=('global','stateAndType','owner','packedXY','tile','entranceXY','workerCounts','health','quarryPileSlot','stoneBlocks')
 
 def records(path, errors):
     if not path.exists():
@@ -70,7 +78,7 @@ def load(folder):
     errors=[];counts=collections.Counter();hashes={};snapshots={};checksums={};commands={};flags=[]
     last_seq={};duplicate=0;repair_groups=[];pending_repairs={};series={};incidents=[];active_incident=None;arrivals={};execution_clocks={}
     ambiguous_hashes=set();ambiguous_checksums=set();ambiguous_snapshots=set();ambiguous_tables=set();tables={};workers=[]
-    building_tables={};ambiguous_building_tables=set();building_states={};decisions=[];custom_fields={}
+    building_tables={};ambiguous_building_tables=set();building_states={};decisions=[];custom_fields={};writes=[]
     filenames=['events.bin','snapshots.bin']
     for name in ('checkpoints.bin','checkpoints.previous.bin','markers.bin','evidence.bin'):
         if name in manifest.get('files',[]) or (folder/name).exists():
@@ -138,6 +146,11 @@ def load(folder):
             decisions.append(dict(sequence=r['seq'],tick=r['tick'],kind=r['kind'],player=r['player'],building=r['unit'],
                 buildingGlobalId=r['global_id']&0xffffffff,role=r['command'],ordinal=r['planned'],calls=r['stage'],
                 result=result,requested=requested,expansion=expansion,cursor=cursor,entrance=[x,y]))
+        elif r['kind'] in WRITE_FIELDS or r['kind']=='CommandBuildingDelta':
+            write=parse_write(r)
+            if write is None:
+                errors.append('invalid write observation');continue
+            writes.append(write)
         elif r['kind'] in ('WorldUnit','Unit'):
             key=(r['kind'],)+key+(r['stage'],)
             if key in snapshots:duplicate+=1;ambiguous_snapshots.add(key)
@@ -212,7 +225,7 @@ def load(folder):
                           limits='Only ordinary inner headers. Local sender normally has no wire receipt. Times are local capture points, not network latency; compression/special packets remain raw.')
     return dict(folder=str(folder),manifest=manifest,errors=errors,counts=dict(counts),hashes=hashes,snapshots=snapshots,
                 checksums=checksums,tables=tables,workers=workers,commands=commands,flags=flags,duplicateSnapshots=duplicate,repairs=repairs,snapshotCoverage=coverage,incidents=incidents,arrivalCoverage=arrival_coverage,
-                buildingTables=building_tables,buildingStates=building_states,workerDecisions=decisions,customFields=custom_fields,
+                buildingTables=building_tables,buildingStates=building_states,workerDecisions=decisions,customFields=custom_fields,writes=writes,
                 ambiguous=dict(hashes=ambiguous_hashes,checksums=ambiguous_checksums,snapshots=ambiguous_snapshots,tables=ambiguous_tables,buildingTables=ambiguous_building_tables))
 
 def read_snapshot(reference):
@@ -220,6 +233,29 @@ def read_snapshot(reference):
         f.seek(reference[2]);data=f.read(reference[3])
         if len(data)!=reference[3]:raise ValueError('snapshot changed since indexing')
         return data
+
+def parse_write(r):
+    kind=r['kind']; stage=r['stage']; payload=r['payload']
+    if kind in ('CommandCoverage','CommandBuildingDelta'):
+        if (r['phase'],r['opcode'])!=(0,106):return None
+    elif r['phase']!=11:return None
+    if kind=='CommandBuildingDelta':
+        if stage==0 and 1<=r['unit']<=3999:
+            fields=tuple(prefix+name for prefix in ('before_','after_') for name in BUILDING_FIELDS)
+        elif stage==1 and 0<=r['unit']<4000:
+            fields=('beforeState','beforeProgress','afterState','afterProgress')
+        else:return None
+    else:fields=WRITE_FIELDS[kind]
+    if len(payload)!=4*len(fields):return None
+    values=dict(zip(fields,struct.unpack(f'<{len(fields)}i',payload)))
+    if kind=='WorkerInputs':
+        if values['selected']>0:outcome='assigned'
+        elif values['accessCalls']==0:outcome='no-eligible-worker'
+        elif values['firstX']==values['firstY']==0:outcome='no-valid-entrance'
+        else:outcome='unclassified'
+        values['outcome']=outcome
+    return dict(sequence=r['seq'],kind=kind,tick=r['tick'],player=r['player'],command=r['command'],planned=r['planned'],
+                slot=r['unit'],globalId=r['global_id']&0xffffffff,stage=stage,values=values)
 
 def gameplay_offsets(x,y):
     return ([i for i in range(0x8c,1168) if not 0x41c<=i<0x424 and x[i]!=y[i]]+
@@ -308,8 +344,36 @@ def checksum_windows(a,b,shared):
         decisions=compare_worker_decisions(a,b,left,right,window.get('workerTrace'))
         if decisions:
             window['nativeWorkerDecisionDifferences']=decisions
+        writes=compare_writes(a,b,left,right)
+        if writes:
+            window['writeObservations']=writes
         windows.append(window)
     return windows
+
+def compare_writes(a,b,left,right):
+    def collect(data,incident):
+        start=incident['startTick']-1200
+        groups={}
+        for row in data.get('writes',[]):
+            if not (start<=row['tick']<=incident['startTick'] and row['sequence']<incident['startSequence']):continue
+            key=tuple(row[k] for k in ('tick','kind','player','command','planned','slot','stage'))
+            groups.setdefault(key,[]).append(dict(row['values'],globalId=row['globalId']))
+        return groups
+    host,client=collect(a,left),collect(b,right)
+    def comparable(values):
+        return [{k:v for k,v in row.items() if k not in ('view','beforeView','afterView')} for row in values]
+    output=collections.defaultdict(list)
+    for key in sorted(host.keys()|client.keys()):
+        x,y=host.get(key,[]),client.get(key,[])
+        limited=(key[1]=='TerrainCoverage' and any(v['limit']!=0 for v in x+y)) or (
+            key[1]=='CommandCoverage' and any(v['changedBuildings']!=v['savedBuildings'] or
+                                                v['changedVegetation']!=v['savedVegetation'] for v in x+y))
+        if not limited and comparable(x)==comparable(y):
+            continue
+        if len(output[key[1]])>=64:continue
+        output[key[1]].append(dict(tick=key[0],player=key[2],command=key[3],planned=key[4],slot=key[5],
+                                   stage=key[6],host=x,client=y,missingObservation=not x or not y))
+    return dict(output)
 
 def compare_worker_decisions(a,b,left,right,trace):
     start=trace['fromTick'] if trace else left['startTick']-200
@@ -448,9 +512,14 @@ def compare(a,b):
         elif value['type'] in ('unit-record','stored-path'):focus.add(value['identity'][3])
         elif value['type']=='native-unit-checksum-table':focus.update(value['slots'])
     earliest_state=min((v['tick'] for v in mismatches if v['type'] not in ('command-execution','executed-custom-chore-field')),default=None)
+    first_state_writes={}
+    if earliest_state is not None and (a.get('writes') or b.get('writes')):
+        boundary=dict(startTick=earliest_state,startSequence=float('inf'))
+        first_state_writes=compare_writes(a,b,boundary,boundary)
     return dict(verdict='observed-difference' if mismatches else ('no-difference-in-comparable-captured-data' if compared else 'insufficient-comparable-data'),
                 earliestObservedTick=earliest,warnings=warnings,coverageDifferences=missing,
                 earliestObservedWorldStateTick=earliest_state,
+                firstWorldDifferenceEvidence=first_state_writes,
                 comparedNativeUnitTables=len(shared_tables),comparedNativeBuildingTables=compared_buildings,unitChecksumWindows=checksum_windows(a,b,shared_tables),
                 mismatches=mismatches,focusUnitIds=sorted(focus),comparedObservations=compared,
                 customChoreFields=dict(compared=len(comparable_fields),onlyHost=len(fields_a.keys()-fields_b.keys()),

@@ -25,14 +25,15 @@ internal static unsafe class Program
     [UnmanagedFunctionPointer(CallingConvention.Winapi)]delegate void Forced(IntPtr text,int tick,int expected,int started,int now);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)]delegate int WorkerEntry(IntPtr manager,ushort role,int building,int player,int ordinal);
     [UnmanagedFunctionPointer(CallingConvention.Winapi)]delegate int EntranceEntry(IntPtr manager,int building,int ordinal,int expansion);
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]delegate int TerrainEntry(IntPtr manager);
     private sealed class Bytes:CodeWriter{internal readonly List<byte> Data=new List<byte>();public override void WriteByte(byte value)=>Data.Add(value);}
     static IntPtr Code(byte[] bytes){var p=VirtualAlloc(IntPtr.Zero,(UIntPtr)Math.Max(4096,bytes.Length),0x3000,0x40);if(p==IntPtr.Zero)throw new Exception("allocation failed");Marshal.Copy(bytes,0,p,bytes.Length);return p;}
     static byte[] Assemble(Assembler a,ulong address){var w=new Bytes();a.Assemble(w,address);return w.Data.ToArray();}
     public static int Main(string[] args)
     {
         if(args.Length!=2)throw new ArgumentException("fixture directory and native-audit.json required");
-        Directory.CreateDirectory(args[0]);Ring();Window();NativeHash(args[1]);InlineMachines();WorkerEntryMachines();RepairCapture();WorkerCapture(6);WorkerCapture(-1);ConcurrentSessions(Path.Combine(args[0],"concurrent"));Packages(Path.Combine(args[0],"packages"));BudgetRecovery(Path.Combine(args[0],"budget"));RollingCheckpoints(Path.Combine(args[0],"rotation"));Retention(Path.Combine(args[0],"retention"));
-        Console.WriteLine("PASS: "+assertions+" assertions; native checksum, six inline generators and two worker entry detours executed.");return 0;
+        Directory.CreateDirectory(args[0]);Ring();Window();NativeHash(args[1]);InlineMachines();WorkerEntryMachines();RepairCapture();WorkerCapture(6);WorkerCapture(-1);ConcurrentSessions(Path.Combine(args[0],"concurrent"));Packages(Path.Combine(args[0],"packages"));BudgetRecovery(Path.Combine(args[0],"budget"));RollingCheckpoints(Path.Combine(args[0],"rotation"));Retention(Path.Combine(args[0],"retention"));WriteObservations();
+        Console.WriteLine("PASS: "+assertions+" assertions; native checksum, six inline generators and worker and terrain entry detours executed.");return 0;
     }
     static void Ring()
     {
@@ -248,6 +249,14 @@ internal static unsafe class Program
         RunWorkerEntry<EntranceEntry>(NativeHooks.Sites[5],
             "8bc24103c04103c1c3",
             (callback, expected)=>callback(IntPtr.Zero,271,3,0)==expected,274);
+        IntPtr tiles=VirtualAlloc(IntPtr.Zero,(UIntPtr)(NativeCapture.TerrainPending+sizeof(int)),0x3000,0x04);
+        if(tiles==IntPtr.Zero)throw new InvalidOperationException("terrain entry fixture allocation failed");
+        try
+        {
+            RunWorkerEntry<TerrainEntry>(NativeHooks.Sites[6],"b87b0000004881c4b00000005bc3",
+                (callback,expected)=>callback(tiles)==expected,123);
+        }
+        finally{VirtualFree(tiles,UIntPtr.Zero,0x8000);}
     }
 
     // Copy the audited source spans into guarded executable pages. The synthetic tail
@@ -273,6 +282,62 @@ internal static unsafe class Program
         GC.KeepAlive(direct);
         VirtualFree(region,UIntPtr.Zero,0x8000);
     }
+    static void WriteObservations()
+    {
+        const int size=0x88E5000;
+        IntPtr image=VirtualAlloc(IntPtr.Zero,(UIntPtr)size,0x3000,0x04);
+        if(image==IntPtr.Zero)throw new InvalidOperationException("observation fixture allocation");
+        try
+        {
+            var r=new Recorder(new CaptureOptions{LightMiB=1,DeepMiB=2,QueueMiB=1,WorkerPlayer=-1},"unused",_=>{});
+            var capture=new NativeCapture(r,image,size);
+            var b=(byte*)image;var tile=b+NativeCapture.TileManagerRva;
+            var network=b+NativeCapture.Manager;
+            var building=b+NativeCapture.BuildingRecords+11*NativeCapture.BuildingRecordSize;
+            var units=b+0x67E8400;
+            var unit=(byte*)capture.ReadWorker(1);
+            *(int*)units=3;*(short*)(unit+0x88)=2;*(short*)(unit+0x8A)=1;*(short*)(unit+0x92)=6;
+            Check(capture.FindWorkerCandidate((IntPtr)units,6)==1,"first eligible worker is found");
+            *(short*)(unit+0x29C)=1;
+            Check(capture.FindWorkerCandidate((IntPtr)units,6)==0,"killed unit is excluded");
+            r.Start(1,new{fixture=true});
+            *(int*)(tile+NativeCapture.TerrainPending)=1;
+            *(int*)(tile+0x6400)=2;
+            *(int*)(b+0x402FF28)=30;
+            tile[0xA20D40+31]=1;
+            Check(capture.BeginTerrain((IntPtr)tile),"native dirty terrain at entry captured");
+            *(int*)(tile+0x898400+31*4)=0x8000;
+            capture.EndTerrain((IntPtr)tile,true);
+            *(ushort*)(building+0xD0)=2;*(int*)(building+0xD8)=1001;
+            network[0xB0C00]=106;
+            FixtureHandler command=()=>{*(ushort*)(building+0x192)=55;*(int*)(b+0x32DE440+0xA4)=4;};
+            capture.Dispatch(Marshal.GetFunctionPointerForDelegate(command));
+            GC.KeepAlive(command);
+            r.End();
+            var bytes=new byte[1048576];
+            int sizeRead=r.Ring.Drain(bytes),deltas=0;
+            for(int at=0;at<sizeRead;at+=BitConverter.ToInt32(bytes,at))
+            {
+                var kind=(RecordKind)BitConverter.ToUInt16(bytes,at+6);
+                if(kind==RecordKind.TerrainDelta)
+                {
+                    Check(BitConverter.ToInt32(bytes,at+64)==31&&BitConverter.ToInt32(bytes,at+80)==0&&
+                        BitConverter.ToInt32(bytes,at+84)==0x8000,"only the marked tile contains the observed transition");
+                    deltas++;
+                }
+                if(kind==RecordKind.CommandBuildingDelta)
+                {
+                    int field=BitConverter.ToInt32(bytes,at+72);
+                    Check(field==0?BitConverter.ToInt32(bytes,at+80+18*4)==55:
+                        BitConverter.ToInt32(bytes,at+88)==4,"executed handler observed before and after with matching command context");
+                    deltas++;
+                }
+            }
+            Check(deltas==3,"terrain, building and vegetation deltas survive in Light before any resync");
+        }
+        finally{VirtualFree(image,UIntPtr.Zero,0x8000);}
+    }
+
     static void Packages(string root)
     {
         var options=new CaptureOptions{LightMiB=1,DeepMiB=2,QueueMiB=1,SessionBytes=1048576};

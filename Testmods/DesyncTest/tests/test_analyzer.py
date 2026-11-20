@@ -14,6 +14,21 @@ spec=importlib.util.spec_from_file_location('analyzer',Path(__file__).parents[1]
 analyzer=importlib.util.module_from_spec(spec);spec.loader.exec_module(analyzer)
 
 class AnalyzerTests(unittest.TestCase):
+    def test_observations_show_distinct_worker_branch_and_ignore_camera_alone(self):
+        def worker(selected,calls,x,view):
+            values=(17,selected,calls,0,x,0,view,1234,1,1234,1,15,9,123)
+            row=dict(kind='WorkerInputs',seq=1,tick=100,player=6,command=15,planned=0,unit=9,global_id=123,
+                     stage=0,phase=11,opcode=-1,payload=struct.pack('<14i',*values))
+            return analyzer.parse_write(row)
+        incident=dict(startTick=200,startSequence=2)
+        left=dict(writes=[worker(0,1,0,0)])
+        right=dict(writes=[worker(17,1,34,2)])
+        difference=analyzer.compare_writes(left,right,incident,incident)['WorkerInputs'][0]
+        self.assertEqual(difference['host'][0]['outcome'],'no-valid-entrance')
+        self.assertEqual(difference['client'][0]['outcome'],'assigned')
+        self.assertFalse(difference['missingObservation'])
+        self.assertEqual(analyzer.compare_writes(right,dict(writes=[worker(17,1,34,0)]),incident,incident),{})
+
     def test_pinned_checkpoint_deduplicates_rotating_copy_in_event_order(self):
         with fixture() as tmp:
             folder=self.packet(Path(tmp),'rolling')

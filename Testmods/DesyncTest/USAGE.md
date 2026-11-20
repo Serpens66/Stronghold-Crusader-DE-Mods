@@ -1,4 +1,6 @@
-# DesyncTest 0.1.7
+# DesyncTest 0.1.8
+
+Der Analyzer meldet unter `writeObservations` Eingaben und Ergebnisse vor einem Vorfall. Bei Arbeitern zeigt er den Kandidaten, die erste Zugangsentscheidung und den endgültigen Link. Terrain erfasst bis zu zwei markierte Durchläufe pro Tick mit jeweils bis zu 16.384 geprüften und 256 gelesenen Kacheln. Bei tatsächlicher Chore-106-Ausführung vergleicht er ausgewählte Gebäude- und Vegetationsfelder vor und nach dem Handler (höchstens vier Befehle je Tick und 96 Änderungen je Bereich und Befehl). Fehlende Beobachtungen und abgeschnittene Proben erscheinen gesondert. Die lokale Ansicht bleibt Kontext bei der Ursachenforschung.
 
 Der optionale WorkerTrace erfasst in Light und Deep zusätzlich die Rückgabe der nativen Bauernsuche und ihrer Gebäudezugangsprüfung. Der Bericht vergleicht Gebäudegeneration, Rollentyp, Arbeitsplatz und Tick beider Peers. Eine fehlende Beobachtung bleibt als solche markiert. Auch bei Light werden die bei der Ausführung entpackten Felder synchronisierter Mod-Befehle (Chore 106) verglichen. Aufnahmen aus 0.1.5 sind weiterhin lesbar.
 

@@ -365,7 +365,7 @@ namespace DesyncTest
             }
             private void Manifest(Recorder r,bool ended)
             {
-                string json=Shared.DependencyFreeJson.Serialize(new { format=2,retentionSchema=1,plugin="DesyncTest_Serp",version="0.1.7",session=owner.Id,identity=owner.Identity,clockFrequency=Stopwatch.Frequency,
+                string json=Shared.DependencyFreeJson.Serialize(new { format=2,retentionSchema=1,plugin="DesyncTest_Serp",version="0.1.8",session=owner.Id,identity=owner.Identity,clockFrequency=Stopwatch.Frequency,
                     config=options.Diagnostic(), ended,complete=ended&&!owner.OutputFailed&&!truncated&&checkpointRotations<2&&r.Ring.DroppedRecords==0&&r.Ring.ContentionDrops==0&&r.Checkpoints.DroppedRecords==0&&r.Checkpoints.ContentionDrops==0&&owner.IncidentBudgetDropped==0&&r.CallbackFailures==0&&r.WriterFailures==0&&r.DiskDroppedBytes==0&&r.HashMismatches==0,
                     bytes,checkpointBytes,previousCheckpointBytes,checkpointRotations,evidenceBytes,detailBytes,lastObservedTick=Volatile.Read(ref owner.LastTick),incidents=owner.Incident,finalMode=owner.Window.Mode.ToString(),endRequested=owner.EndRequested,
                     losses=new {scope="process-wide",r.Ring.DroppedRecords,r.Ring.DroppedBytes,r.Ring.ContentionDrops,r.Ring.HistoryOverwrites,r.CallbackFailures,r.WriterFailures,r.DiskDroppedBytes,r.RejectedSessions,r.HashMismatches},

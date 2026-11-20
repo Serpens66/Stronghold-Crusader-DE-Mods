@@ -92,6 +92,7 @@ namespace DesyncTest
             lastSample=-1;lastCheckpoint=-1;lastCheckpointMode=-1;lastCheckpointCommand=-1;
             lastWorkerTick=-1;workerHighWater=0;
             terrainTick=-1;terrainPass=0;
+            commandTick=-1;commandsThisTick=0;
             if(workerMarks!=null)Array.Clear(workerMarks,0,workerMarks.Length);
             Array.Clear(recordedBuildings,0,recordedBuildings.Length);
         }
@@ -136,7 +137,7 @@ namespace DesyncTest
             {
               if(valid&&e.Phase==0&&e.Opcode==106)
               {
-                  try{commandObserved=BeginCommand();}
+                  try{commandObserved=BeginCommand(e);}
                   catch{Interlocked.Increment(ref Recorder.CallbackFailures);}
               }
               original(); // Always exactly once; capture failures never suppress Vanilla.

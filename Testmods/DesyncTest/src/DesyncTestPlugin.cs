@@ -12,7 +12,7 @@ using SHCDESE.Interop;
 
 namespace DesyncTest
 {
-    [BepInPlugin(Guid,"DesyncTest","0.1.7")]
+    [BepInPlugin(Guid,"DesyncTest","0.1.8")]
     [BepInDependency("000shcdese","2.14.3")]
     [BepInDependency("APIShared_Serp","0.16.3")]
     [BepInDependency("fixes",BepInDependency.DependencyFlags.SoftDependency)]
@@ -75,7 +75,7 @@ namespace DesyncTest
         {
             // Registration may replay an existing mission during initialization, before ready is set.
             if(recorder==null||capture==null)return;
-            hooks.RecheckWorkerSites(ReportError);
+            hooks.RecheckObservationSites(ReportError);
             capture.ResetSession();
             var plugins=new List<object>();
             var participants=new List<object>();
