@@ -25,6 +25,19 @@ Moat eligibility admits teammates; exact ownership is a separate consumer rule.
 The ordinary cursor builder 459D0 can emit a hover event through 109EF0 and is
 not a side-effect-free replacement for explicit permission input preparation.
 
+## Flattened landscape and the rendered footprint
+
+On the same native hash and managed assembly `BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`,
+bulldozer action 6 uses the usual height-aware `GameMap.CalcMapTileFromMousePos`
+in either view. The mode arrives at `DLL_RunTick` (`0x86680`); `0x72720`
+updates the native selector and requests a render refresh on change. The
+flattened tile branch in `0x41D60` chooses the flat art and sets the base height
+to 8 with zero height effect. `0x1A2D90` exports base height minus effect in
+row 5 of the ground record. `GameMap.processTestMap` divides this signed value
+by 32 and `gameTile.GetTileData` uses it as the ground tile's world-Y translation.
+The mouse resolver can still use other sprite and height fields; its probe hull
+is a point-targeting envelope rather than the drawn ground footprint.
+
 ## Ordinary typed execution
 
 Chore 29 at 12400 reads signed 16-bit building/pitch slot, refund byte and global

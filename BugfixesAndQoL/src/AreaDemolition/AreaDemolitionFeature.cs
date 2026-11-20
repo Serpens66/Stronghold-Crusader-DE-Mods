@@ -21,7 +21,7 @@ namespace BugfixesAndQoL.AreaDemolition
         private static Runtime runtime;
         private static bool registered, installed;
         internal static Runtime Runtime => runtime;
-        internal static bool LocalEnabled => model!=null && model.EnableClientFeatures && model.EnableAreaDemolition;
+        internal static bool MenuEnabled => model!=null && model.EnableClientFeatures && model.EnableAreaDemolition;
 
         internal static void Configure(ManualLogSource logger,BugfixesAndQoLViewModel viewModel,ConfigFile config)
         {
@@ -35,6 +35,7 @@ namespace BugfixesAndQoL.AreaDemolition
                 catch(Exception error){log.LogWarning(Stamp("Area demolition filter import skipped: "+error.Message));}
             }
             settings=new DemolitionSettings(config,legacy);
+            settings.RectangleSelectionChanged+=ApplyActivation;
             model.SettingChanged+=SettingChanged;
         }
         internal static void RegisterNetwork()
@@ -67,7 +68,7 @@ namespace BugfixesAndQoL.AreaDemolition
                 // Backend failures must remain observable even if the optional local UI fails.
                 native.DiagnosticProduced+=message=>api.Ui.TryPost(()=>log.LogError(message));
                 network.SetNative(native);
-                runtime=new Runtime(api,native,settings,network,()=>LocalEnabled,log);
+                runtime=new Runtime(api,native,settings,network,()=>MenuEnabled,log);
                 runtime.Register();
                 ManagedInput.Install(runtime,log);
             }
@@ -77,9 +78,13 @@ namespace BugfixesAndQoL.AreaDemolition
         private static void SettingChanged(string property)
         {
             if(property!=nameof(BugfixesAndQoLViewModel.EnableClientFeatures) && property!=nameof(BugfixesAndQoLViewModel.EnableAreaDemolition))return;
+            ApplyActivation();
+        }
+        private static void ApplyActivation()
+        {
             // Publisher-thread safe: CancelPending touches only the locked local protocol
             // queue. No Noesis access occurs until the requested presentation callback.
-            LocalDemolitionGate.ApplyChange(LocalEnabled,CancelUnsent,RequestPresentation);
+            LocalDemolitionGate.ApplyChange(MenuEnabled && settings.EnableRectangleSelection,CancelUnsent,RequestPresentation);
         }
         private static void CancelUnsent()=>network?.CancelPending();
         private static void RequestPresentation()=>runtime?.RequestRefresh();

@@ -122,6 +122,7 @@
     <Compile Include="..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Diagnostics\DevDiag.cs"><Link>Shared\Runtime\Diagnostics\DevDiag.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Persistence\DependencyFreeJson.cs"><Link>Shared\Runtime\Persistence\DependencyFreeJson.cs</Link></Compile>
+    <Compile Include="..\Shared\Adapters\APIShared\MenuToolTip.cs"><Link>Shared\Adapters\APIShared\MenuToolTip.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Persistence\PersonalDataFile.cs"><Link>Shared\Runtime\Persistence\PersonalDataFile.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Persistence\PersonalDataIO.cs"><Link>Shared\Runtime\Persistence\PersonalDataIO.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\UI\CoopTrailSetupPresentation.cs"><Link>Shared\Runtime\UI\CoopTrailSetupPresentation.cs</Link></Compile>

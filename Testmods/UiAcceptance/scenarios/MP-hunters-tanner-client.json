@@ -1,0 +1,14 @@
+{"enabled":true,"quitWhenDone":true,"series":"MP-hunters-tanner-client","role":"client","steps":[
+  {"id":"menu","do":"WaitMainMenu","timeoutMs":300000,"stopOnFail":true,"allowErrors":true},
+  {"id":"follow-lobby","do":"Mp.Follow","args":["lobby"],"timeoutMs":1800000,"stopOnFail":true,"allowErrors":true},
+  {"id":"ready","do":"Mp.Ready","timeoutMs":300000,"stopOnFail":true},
+  {"id":"mission","do":"Mp.Follow","args":["mission"],"timeoutMs":900000,"stopOnFail":true,"allowErrors":true},
+  {"id":"real-mp","do":"Mp.ExpectRealMultiplayer","timeoutMs":30000},
+  {"id":"arm","do":"Tanner.ArmMp","args":["1200"],"timeoutMs":45000,"stopOnFail":true},
+  {"id":"fixture","do":"Tanner.ExpectMpRatios","args":["3","3"],"timeoutMs":45000,"stopOnFail":true},
+  {"id":"observe-host","do":"Tanner.ExpectMpRatios","args":["2","3"],"timeoutMs":45000,"stopOnFail":true},
+  {"id":"open","do":"Tanner.Open","args":[],"timeoutMs":45000,"stopOnFail":true},
+  {"id":"drag","do":"Tanner.DragSlider","args":["1","right"],"timeoutMs":45000,"stopOnFail":true},
+  {"id":"observe-client","do":"Tanner.ExpectMpRatios","args":["2","1"],"timeoutMs":45000,"stopOnFail":true},
+  {"id":"finish-sync","do":"Wait","args":["4000"],"timeoutMs":45000,"stopOnFail":true}
+]}

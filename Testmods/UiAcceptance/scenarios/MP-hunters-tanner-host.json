@@ -1,0 +1,20 @@
+{"enabled":true,"quitWhenDone":true,"series":"MP-hunters-tanner-host","role":"host","steps":[
+  {"id":"menu","do":"WaitMainMenu","timeoutMs":180000,"stopOnFail":true,"allowErrors":true},
+  {"id":"enable","do":"SetModSetting","args":["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings","EnableMod","true"],"timeoutMs":45000,"stopOnFail":true},
+  {"id":"tanner-mode","do":"SetModSetting","args":["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings","TannerMeatMode","true"],"timeoutMs":45000,"stopOnFail":true},
+  {"id":"host","do":"Mp.Host","args":["DoHost"],"timeoutMs":60000,"stopOnFail":true},
+  {"id":"map","do":"Lobby.SelectMap","args":["4spielerkarte.map"],"timeoutMs":30000},
+  {"id":"members","do":"Mp.WaitMembers","args":["2"],"timeoutMs":900000,"stopOnFail":true},
+  {"id":"settle-join","do":"Wait","args":["5000"]},
+  {"id":"peace","do":"Lobby.PeaceTime","args":["60"],"timeoutMs":15000,"stopOnFail":true},
+  {"id":"ready","do":"Mp.Ready","timeoutMs":300000,"stopOnFail":true},
+  {"id":"play","do":"Lobby.Play","timeoutMs":240000,"stopOnFail":true},
+  {"id":"real-mp","do":"Mp.ExpectRealMultiplayer","timeoutMs":30000},
+  {"id":"arm","do":"Tanner.ArmMp","args":["1200"],"timeoutMs":45000,"stopOnFail":true},
+  {"id":"fixture","do":"Tanner.ExpectMpRatios","args":["3","3"],"timeoutMs":45000,"stopOnFail":true},
+  {"id":"open","do":"Tanner.Open","args":[],"timeoutMs":45000,"stopOnFail":true},
+  {"id":"drag","do":"Tanner.DragSlider","args":["2","left"],"timeoutMs":45000,"stopOnFail":true},
+  {"id":"observe-host","do":"Tanner.ExpectMpRatios","args":["2","3"],"timeoutMs":45000,"stopOnFail":true},
+  {"id":"observe-client","do":"Tanner.ExpectMpRatios","args":["2","1"],"timeoutMs":45000,"stopOnFail":true},
+  {"id":"finish-sync","do":"Wait","args":["4000"],"timeoutMs":45000,"stopOnFail":true}
+]}

@@ -15,6 +15,8 @@ namespace BugfixesAndQoL.AreaDemolition
     {
         internal DemolitionTarget Root;
         internal int[] RequestTiles=Array.Empty<int>();
+
+        internal int[] RequestBodyTiles(bool flattened) => flattened ? Array.Empty<int>() : RequestTiles ?? Array.Empty<int>();
     }
     internal sealed class PreviewRootResult
     {
