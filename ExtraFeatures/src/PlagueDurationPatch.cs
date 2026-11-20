@@ -171,8 +171,7 @@ namespace ExtraFeatures
                     }
                     catch (Exception ex)
                     {
-                        Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/PlagueDurationPatch/TryInstallLifetimeComparisonHook.initialize-ai-flag-disease", "Extra Features could not initialize AI flag Disease tracking; " +
-                            $"the permanent lifetime hook remains active without that exception: {ex}");
+                        Shared.DebugLogHelper.LogHookInstallFailure(log, "Plague duration", "AI flag disease tracking", ex.ToString());
                     }
                 }
 
@@ -190,8 +189,7 @@ namespace ExtraFeatures
                 RollbackUnpublishedLifetimeComparisonHook(candidate, hookPublished);
                 aiFlagDiseaseTracker?.Dispose();
                 aiFlagDiseaseTracker = null;
-                Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/PlagueDurationPatch/TryInstallLifetimeComparisonHook.install-plague-lifetime-hook", "Extra Features could not install the plague-lifetime hook; " +
-                    $"the plague duration multiplier is unavailable and Vanilla duration applies for this process: {ex}");
+                Shared.DebugLogHelper.LogHookInstallFailure(log, "Plague duration", "plague lifetime comparison", ex.ToString());
             }
         }
 

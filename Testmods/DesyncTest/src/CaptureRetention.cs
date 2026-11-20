@@ -33,29 +33,37 @@ namespace DesyncTest
                 { report("DESYNC_RETENTION_SKIPPED "+Path.GetFileName(path)+": "+ex.Message); }
             }
             long bytes=0;
-            int incidents=0,controls=0;
+            int incidents=0;
             foreach(var item in packages.OrderByDescending(p=>p.Incident).ThenByDescending(p=>p.Stamp))
             {
-                bool withinCount=item.Incident?++incidents<=6:++controls<=2;
-                if(withinCount&&bytes+item.Size<=ClosedBudget){bytes+=item.Size;continue;}
-                try
-                {
-                    // Recheck immediately before deletion. Unknown entries and links are never traversed.
-                    var current=Inspect(item.Path,now);
-                    if(current==null||current.Incident!=item.Incident||current.Size!=item.Size)continue;
-                    foreach(string file in current.Files.Where(f=>Path.GetFileName(f)!="manifest.json"))File.Delete(file);
-                    File.Delete(Path.Combine(item.Path,"manifest.json"));
-                    Directory.Delete(item.Path,false);
-                    report("DESYNC_RETENTION_REMOVED "+Path.GetFileName(item.Path));
-                }
-                catch(Exception ex) when(ex is IOException||ex is UnauthorizedAccessException)
-                { report("DESYNC_RETENTION_SKIPPED "+Path.GetFileName(item.Path)+": "+ex.Message); }
+                if(item.Incident&&++incidents<=6&&bytes+item.Size<=ClosedBudget){bytes+=item.Size;continue;}
+                TryRemove(item.Path,now,false,item.Incident,item.Size,report);
             }
+        }
+
+        internal static void DiscardClosedControl(string path,DateTime now,Action<string> report) =>
+            TryRemove(path,now,true,false,null,report);
+
+        private static void TryRemove(string path,DateTime now,bool justClosed,bool incident,long? size,Action<string> report)
+        {
+            try
+            {
+                if(IsLink(Path.GetDirectoryName(path)))return;
+                // Unknown entries and links are never traversed. Recheck immediately before deletion.
+                var current=Inspect(path,now,justClosed);
+                if(current==null||current.Incident!=incident||(size.HasValue&&current.Size!=size.Value))return;
+                foreach(string file in current.Files.Where(f=>Path.GetFileName(f)!="manifest.json"))File.Delete(file);
+                File.Delete(Path.Combine(path,"manifest.json"));
+                Directory.Delete(path,false);
+                report("DESYNC_RETENTION_REMOVED "+Path.GetFileName(path));
+            }
+            catch(Exception ex) when(ex is IOException||ex is UnauthorizedAccessException||ex is FormatException)
+            { report("DESYNC_RETENTION_SKIPPED "+Path.GetFileName(path)+": "+ex.Message); }
         }
 
         private static bool IsLink(string path) => (File.GetAttributes(path)&FileAttributes.ReparsePoint)!=0;
 
-        private static Package Inspect(string path,DateTime now)
+        private static Package Inspect(string path,DateTime now,bool justClosed=false)
         {
             var match=SessionName.Match(Path.GetFileName(path));
             if(!match.Success||IsLink(path)||!DateTime.TryParseExact(match.Groups["stamp"].Value,"yyyyMMdd-HHmmss-fff",
@@ -73,7 +81,7 @@ namespace DesyncTest
                 !data.TryGetValue("incidents",out var incidents)||!int.TryParse(Convert.ToString(incidents,CultureInfo.InvariantCulture),out int count)||count<0||
                 !data.TryGetValue("ended",out var ended)||!(ended is bool closed))return null;
             // The grace interval also lets the writer close all streams after publishing its manifest.
-            if(now-info.LastWriteTimeUtc<TimeSpan.FromMinutes(10))return null;
+            if(justClosed?!closed:now-info.LastWriteTimeUtc<TimeSpan.FromMinutes(10))return null;
             if(!closed)
             {
                 if(now-info.LastWriteTimeUtc<TimeSpan.FromDays(1)||!int.TryParse(match.Groups["pid"].Value,out int pid))return null;

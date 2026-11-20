@@ -34,6 +34,8 @@ namespace DesyncTest
         internal object Identity;
         internal DeepWindow Window;
         internal volatile bool EndRequested;
+        internal volatile bool ObservedResync;
+        internal int RetainedIncidents => Math.Max(Volatile.Read(ref Incident),ObservedResync?1:0);
         internal bool DeepEndReported;
         internal int LastTick=-1,Incident;
         internal bool InIncident;
@@ -113,6 +115,10 @@ namespace DesyncTest
         }
         internal bool Record(CaptureEvent e,IntPtr source,int length)
         {
+          bool start=e.Kind==RecordKind.Dispatch&&e.Phase==0&&e.Opcode==54&&e.Stage==0;
+          var observed=start?Current:null;
+          // A contested queue can lose the detailed marker. Keep the package nonetheless.
+          if(observed!=null)observed.ObservedResync=true;
           // Lifecycle/expiry and publication are ordered together. Late transport callbacks
           // cannot publish data for a retired session after its terminal End record.
           if(!Monitor.TryEnter(captureGate)){Interlocked.Increment(ref Ring.ContentionDrops);return false;}
@@ -122,9 +128,12 @@ namespace DesyncTest
             ExpireDeepLocked(s);
             if((e.Kind==RecordKind.WorldUnit||e.Kind==RecordKind.UnitHash)&&s.Window.Mode!=CaptureMode.Deep)return false;
             e.Session=s.Id;if(e.Tick>=0)s.LastTick=e.Tick;
-            bool start=e.Kind==RecordKind.Dispatch&&e.Phase==0&&e.Opcode==54&&e.Stage==0;
             bool finish=e.Kind==RecordKind.Dispatch&&e.Phase==0&&e.Stage==1&&(e.Opcode==67||e.Opcode==89);
-            if(start){s.InIncident=true;s.IncidentHistoryBytes=0;Interlocked.Increment(ref s.Incident);}
+            if(start)
+            {
+                if(!ReferenceEquals(s,observed))return false;
+                s.InIncident=true;s.IncidentHistoryBytes=0;Interlocked.Increment(ref s.Incident);
+            }
             bool flush=s.InIncident||s.Window.Mode==CaptureMode.Deep||e.Kind==RecordKind.ForcedRun||e.Kind==RecordKind.Fault;
             bool essential=start||finish||e.Kind==RecordKind.Start||e.Kind==RecordKind.Checksum||
                 e.Kind==RecordKind.UnitChecksumTable||e.Kind==RecordKind.BuildingChecksumTable;
@@ -181,7 +190,14 @@ namespace DesyncTest
                 var owner=pair.Value;
                 if(!owner.EndRequested&&!(owner.HistoryEnded&&owner.CheckpointsEnded))continue;
                 if(!drained&&!(owner.HistoryEnded&&owner.CheckpointsEnded))continue;
-                try{if(outputs.TryGetValue(pair.Key,out var output))output.Close(this,true);}
+                try
+                {
+                    if(outputs.TryGetValue(pair.Key,out var output))
+                    {
+                        output.Close(this,true);
+                        if(owner.RetainedIncidents==0)CaptureRetention.DiscardClosedControl(owner.Folder,DateTime.UtcNow,SafeReport);
+                    }
+                }
                 catch(Exception ex){Interlocked.Increment(ref WriterFailures);SafeReport("DESYNC_FINALIZE_FAILED session="+pair.Key+" "+ex.Message);}
                 finally{outputs.Remove(pair.Key);sessions.TryRemove(pair.Key,out _);}
             }
@@ -210,7 +226,8 @@ namespace DesyncTest
                         Output output=null;
                         try
                         {
-                            if(owner.OutputFailed)Interlocked.Add(ref DiskDroppedBytes,size);
+                            if(owner.EndRequested&&owner.RetainedIncidents==0) { } // Discard queued data for a closed control.
+                            else if(owner.OutputFailed)Interlocked.Add(ref DiskDroppedBytes,size);
                             else
                             {
                                 if(!outputs.TryGetValue(id,out output)){output=new Output(owner,Options);outputs.Add(id,output);}
@@ -365,9 +382,9 @@ namespace DesyncTest
             }
             private void Manifest(Recorder r,bool ended)
             {
-                string json=Shared.DependencyFreeJson.Serialize(new { format=2,retentionSchema=1,plugin="DesyncTest_Serp",version="0.1.8",session=owner.Id,identity=owner.Identity,clockFrequency=Stopwatch.Frequency,
+                string json=Shared.DependencyFreeJson.Serialize(new { format=2,retentionSchema=1,plugin="DesyncTest_Serp",version="0.1.9",session=owner.Id,identity=owner.Identity,clockFrequency=Stopwatch.Frequency,
                     config=options.Diagnostic(), ended,complete=ended&&!owner.OutputFailed&&!truncated&&checkpointRotations<2&&r.Ring.DroppedRecords==0&&r.Ring.ContentionDrops==0&&r.Checkpoints.DroppedRecords==0&&r.Checkpoints.ContentionDrops==0&&owner.IncidentBudgetDropped==0&&r.CallbackFailures==0&&r.WriterFailures==0&&r.DiskDroppedBytes==0&&r.HashMismatches==0,
-                    bytes,checkpointBytes,previousCheckpointBytes,checkpointRotations,evidenceBytes,detailBytes,lastObservedTick=Volatile.Read(ref owner.LastTick),incidents=owner.Incident,finalMode=owner.Window.Mode.ToString(),endRequested=owner.EndRequested,
+                    bytes,checkpointBytes,previousCheckpointBytes,checkpointRotations,evidenceBytes,detailBytes,lastObservedTick=Volatile.Read(ref owner.LastTick),incidents=owner.RetainedIncidents,finalMode=owner.Window.Mode.ToString(),endRequested=owner.EndRequested,
                     losses=new {scope="process-wide",r.Ring.DroppedRecords,r.Ring.DroppedBytes,r.Ring.ContentionDrops,r.Ring.HistoryOverwrites,r.CallbackFailures,r.WriterFailures,r.DiskDroppedBytes,r.RejectedSessions,r.HashMismatches},
                     checkpointLosses=new {r.Checkpoints.DroppedRecords,r.Checkpoints.DroppedBytes,r.Checkpoints.ContentionDrops,incidentBudgetDropped=Interlocked.Read(ref owner.IncidentBudgetDropped)},
                     coverage=new {unitWirePrefix=4,unitRecord=1168,pathBytes=1000,requestedUnitSlots=9999,nativeUnitChecksumTables=true,nativeBuildingChecksumTables=true,buildingRowsDeferred=r.BuildingRowsDeferred,snapshotSeriesCanBePartial=true,normalArrivalHeaders=true,executedCustomChoreFields=true,fifoAcceptance=false,hostChanges=false,modInternalProviders=false,otherRepairLayouts=false},
@@ -383,7 +400,7 @@ namespace DesyncTest
             private void Summary(bool ended)
             {
                 File.WriteAllText(Path.Combine(owner.Folder,"summary.txt"),
-                    "DesyncTest format 2; session="+owner.Id+" ended="+ended+" bytes="+bytes+" attempts="+owner.Incident+"\r\n"+
+                    "DesyncTest format 2; session="+owner.Id+" ended="+ended+" bytes="+bytes+" attempts="+owner.RetainedIncidents+"\r\n"+
                     "54=start, 67=finish, 89=abort; Unit stage 0=old, 4=final. ForcedRun is a separate wait-path event.\r\n"+
                     "Completeness/losses: manifest.json. Timeline is bounded; omitted lines="+omittedSummaryLines+".\r\n"+
                     "Other repair layouts: raw only. Mod internals/effective settings: unavailable. No root-cause proof.\r\n"+

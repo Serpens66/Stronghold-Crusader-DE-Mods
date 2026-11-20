@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Lord Servant Voices",
   "Description": "The Rat, the Snake, the Pig and the Wolf get their own Servant voices for diplomacy messages instead of the shared generic Servant.",
-  "Version": "1.0.0",
+  "Version": "1.1.0",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.3",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,12 @@
   "Manifest": 1,
   "NetworkMode": 0,
   "SerpChangelog": [
+    {
+      "Version": "1.1.0",
+      "Changes": [
+        "The Rat, the Snake, the Pig and the Wolf now show their own waving flags while their new Servant voices play."
+      ]
+    },
     {
       "Version": "1.0.0",
       "Changes": [

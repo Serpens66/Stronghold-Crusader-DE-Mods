@@ -9,8 +9,7 @@ using System.Threading;
 namespace LordServantVoices
 {
     // Replaces only the generic Servant voice ("all_*.wav") that Vanilla plays for Rat, Snake,
-    // Pig and Wolf with lord-specific Servant recordings, plus the matching message text.
-    // The video stays untouched.
+    // Pig and Wolf with lord-specific Servant recordings, matching text and flag videos.
     internal static class LordServantVoicesRuntime
     {
         private const string RegistrationId = "lord-servant-voices";
@@ -22,13 +21,18 @@ namespace LordServantVoices
         private sealed class Target
         {
             internal readonly string VanillaFileName;
+            internal readonly string VanillaVideoPath;
+            internal readonly LordMessageVideo Video;
             internal readonly LordMessageAudio EnglishAudio;
             internal readonly LordMessageAudio GermanAudio;
             internal readonly LordMessageText EnglishText;
             internal readonly LordMessageText GermanText;
-            internal Target(string vanillaFileName, LordMessageAudio englishAudio, LordMessageAudio germanAudio,
+            internal Target(string vanillaFileName, string vanillaVideoPath, LordMessageVideo video,
+                LordMessageAudio englishAudio, LordMessageAudio germanAudio,
                 LordMessageText englishText, LordMessageText germanText)
             {
+                VanillaVideoPath = vanillaVideoPath;
+                Video = video;
                 VanillaFileName = vanillaFileName; EnglishAudio = englishAudio; GermanAudio = germanAudio;
                 EnglishText = englishText; GermanText = germanText;
             }
@@ -57,6 +61,13 @@ namespace LordServantVoices
                     return;
                 }
 
+                var videos = new Dictionary<AILords, LordMessageVideo>
+                {
+                    [AILords.SK_WOLF] = PrepareVideo("wolf"),
+                    [AILords.SK_PIG] = PrepareVideo("pig"),
+                    [AILords.SK_RAT] = PrepareVideo("rat"),
+                    [AILords.SK_SNAKE] = PrepareVideo("snake"),
+                };
                 var prepared = new Dictionary<(AILords, AILordMessageType), Target>();
                 foreach (VoiceEntry entry in LordServantVoicesCatalog.Entries)
                 {
@@ -75,7 +86,8 @@ namespace LordServantVoices
                     LordMessageAudio english = Prepare(entry.File, English);
                     LordMessageAudio german = Prepare(entry.File, German);
                     if (english == null && german == null) continue;
-                    prepared[(entry.Lord, entry.Type)] = new Target(vanillaFile, english, german,
+                    videos.TryGetValue(entry.Lord, out LordMessageVideo video);
+                    prepared[(entry.Lord, entry.Type)] = new Target(vanillaFile, vanilla.VideoPath, video, english, german,
                         LordMessageText.FromText(entry.EnglishText), LordMessageText.FromText(entry.GermanText));
                 }
 
@@ -92,6 +104,15 @@ namespace LordServantVoices
             {
                 Shared.DebugLogHelper.LogError(Log, "LORD_SERVANT_VOICES_DISABLED: " + error);
             }
+        }
+
+        private static LordMessageVideo PrepareVideo(string lord)
+        {
+            string path = "Videos/" + lord + ".webm";
+            LordMessageVideo video = LordMessageVideo.FromModAsset(LordServantVoicesPlugin.PluginGuid, path);
+            if (video.IsReady) return video;
+            Shared.DebugLogHelper.LogError(Log, "LORD_SERVANT_VOICES_RESOURCE_MISSING: " + path);
+            return null;
         }
 
         private static LordMessageAudio Prepare(string file, string language)
@@ -118,6 +139,11 @@ namespace LordServantVoices
             };
             if (audio == null || !args.TryReplaceAudio(audio)) return;
 
+            // Compare the full reference so an Extender override with the same filename is kept.
+            bool videoReplaced = target.Video != null && args.Video.Kind == LordMessageSourceKind.Original
+                && string.Equals(context.OriginalVideoPath, target.VanillaVideoPath, StringComparison.OrdinalIgnoreCase)
+                && args.TryReplaceVideo(target.Video);
+
             // The Vanilla subtitle is the spoken Servant line, so it is swapped together with the voice.
             // Like Vanilla, the subtitle follows the game's text language; for other text languages
             // the translated Vanilla line stays. A text already replaced by another mod is kept.
@@ -130,7 +156,7 @@ namespace LordServantVoices
             if (text != null && args.Text.Kind == LordMessageSourceKind.Original) args.TryReplaceText(text);
 
             if (Interlocked.Exchange(ref firstReplacementLogged, 1) == 0)
-                Shared.DebugLogHelper.LogInfo(Log, $"LORD_SERVANT_VOICES_FIRST_REPLACEMENT: {context.VanillaLord}/{context.MessageType} -> {audio.Path}, text={(text != null)}");
+                Shared.DebugLogHelper.LogInfo(Log, $"LORD_SERVANT_VOICES_FIRST_REPLACEMENT: {context.VanillaLord}/{context.MessageType} -> {audio.Path}, text={(text != null)}, video={videoReplaced}");
         }
 
         // Mirrors the game's speech folder choice (MyAudioManager): English speech, or the localized

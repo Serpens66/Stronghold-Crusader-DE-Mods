@@ -65,27 +65,48 @@ namespace Shared
             if (transaction.Options.InstallOnCommit)
                 throw new InvalidOperationException(feature + ": NativePatchGuard.Commit needs a transaction with " +
                     "InstallOnCommit = false; it enables the hooks itself after the span check.");
-            CommitResult result = transaction.Commit();
-            if (!result.IsCompleteSuccess) return result;
+            CommitResult result;
+            try { result = transaction.Commit(); }
+            catch (Exception error)
+            {
+                ReportInstallFailure(feature, "hook transaction", error.ToString());
+                throw;
+            }
+            if (!result.IsCompleteSuccess)
+            {
+                foreach (HookFailure failure in result.Failures)
+                {
+                    string reason = failure.ToString();
+                    if (failure.Exception != null)
+                        reason += " " + failure.Exception.GetBaseException().Message;
+                    ReportInstallFailure(feature, failure.Name, reason);
+                }
+                if (result.Failures.Count == 0)
+                    ReportInstallFailure(feature, "hook transaction", result.ToString());
+                return result;
+            }
             foreach (IHook hook in result.Installed) RequireUnpatched(hook, feature);
             var enabled = new List<IHook>(result.Installed.Count);
+            IHook enabling = null;
             try
             {
                 foreach (IHook hook in result.Installed)
                 {
+                    enabling = hook;
                     hook.Enable();
                     enabled.Add(hook);
                 }
             }
-            catch
+            catch (Exception error)
             {
                 // Same rollback as RedBird's RollbackAndThrow: only this unpublished candidate, restoring
                 // the original bytes that were just verified against the snapshot.
                 for (int index = enabled.Count - 1; index >= 0; index--)
                 {
                     try { enabled[index].Disable(); }
-                    catch (Exception error) { Error(feature + ": rollback of " + enabled[index].Name + " failed: " + error.Message); }
+                    catch (Exception rollbackError) { Error(feature + ": rollback of " + enabled[index].Name + " failed: " + rollbackError.Message); }
                 }
+                ReportInstallFailure(feature, enabling?.Name ?? "hook transaction", error.ToString());
                 throw;
             }
             foreach (IHook hook in enabled) Watch(hook, feature);
@@ -124,7 +145,7 @@ namespace Shared
                     " (" + span.Length.ToString(CultureInfo.InvariantCulture) + " bytes, first difference at +" +
                     difference.ToString(CultureInfo.InvariantCulture) + "): expected " + Hex(expected) + ", live " + Hex(live) +
                     ". " + DescribeJump(live, difference, span.Address);
-                Error(message);
+                ReportInstallFailure(feature, name, message);
                 throw new InvalidOperationException(message);
             }
         }
@@ -330,6 +351,13 @@ namespace Shared
             ManualLogSource target;
             lock (Sync) target = log;
             try { DebugLogHelper.LogError(target, message); } catch { }
+        }
+
+        private static void ReportInstallFailure(string feature, string hook, string reason)
+        {
+            ManualLogSource target;
+            lock (Sync) target = log;
+            try { DebugLogHelper.LogHookInstallFailure(target, feature, hook, reason); } catch { }
         }
 
 

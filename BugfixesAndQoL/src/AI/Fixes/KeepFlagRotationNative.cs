@@ -132,7 +132,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception error)
             {
-                Shared.DebugLogHelper.LogError(log, "MP_MAIN_FLAG_UNAVAILABLE " + error.Message);
+                Shared.DebugLogHelper.LogHookInstallFailure(log, Feature, "main flag creation", "MP_MAIN_FLAG_UNAVAILABLE " + error.Message);
                 // Keep any potentially published code and its gate alive, even after partial publication.
                 if (!publicationStarted)
                 {

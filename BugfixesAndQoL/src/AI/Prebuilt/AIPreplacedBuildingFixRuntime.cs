@@ -223,7 +223,7 @@ namespace BugfixesAndQoL
         {
             if (!hashMatches)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/AIPreplacedBuildingFixRuntime/TryInstallNativeFixes.preplaced-native-incomplete-native", "PREPLACED_NATIVE_INCOMPLETE: native hash differs; all native fixes remain atomically disabled.");
+                Shared.DebugLogHelper.LogHookInstallFailure(log, "AI preplaced building fixes", "native hook set", "Unsupported CrusaderDE.dll hash for the required native layout.");
                 return;
             }
             try
@@ -294,7 +294,7 @@ namespace BugfixesAndQoL
                 nativeReady = false;
                 initializeEconomyAvailabilityNative = null;
                 lastAivState = 0;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/AIPreplacedBuildingFixRuntime/TryInstallNativeFixes.ai-preplaced-building-fix", $"AI_PREPLACED_BUILDING_FIX_NATIVE_INCOMPLETE: signature/ABI/address validation failed; native hook set rolled back. {ex}");
+                Shared.DebugLogHelper.LogHookInstallFailure(log, "AI preplaced building fixes", "native hook set", ex.ToString());
             }
         }
 

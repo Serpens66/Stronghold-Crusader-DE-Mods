@@ -18,6 +18,7 @@ namespace ImprovedHunters
         private const int DefaultCamelMeat = 8;
         private const int DefaultChickenMeat = 1;
         private const int MaximumMeat = 50;
+        private const int DefaultHerdRangeSize = 200;
 
         private bool enableMod = true;
         private bool improvedTargetSelection = true;
@@ -41,8 +42,8 @@ namespace ImprovedHunters
         private bool deerFleeOnlyInSight = true;
         private bool herdsIgnoreFleeingHerds = true;
         private int herdReturnSeconds = HerdSettingsPolicy.Off;
-        private int herdRangeSize = HerdSettingsPolicy.Off;
-        private int startHerdMode = HerdSettingsPolicy.StartHerdsOff;
+        private int herdRangeSize = DefaultHerdRangeSize;
+        private int startHerdMode = HerdSettingsPolicy.StartHerdsOnEmptyMaps;
         private int chickensPerPlayer = GranaryChickenSpawnPolicy.DefaultTargetPerPlayer;
 
         public event Action<string> SettingChanged;
@@ -301,8 +302,8 @@ namespace ImprovedHunters
             DeerFleeOnlyInSight = true;
             HerdsIgnoreFleeingHerds = true;
             HerdReturnSeconds = HerdSettingsPolicy.Off;
-            HerdRangeSize = HerdSettingsPolicy.Off;
-            StartHerdMode = HerdSettingsPolicy.StartHerdsOff;
+            HerdRangeSize = DefaultHerdRangeSize;
+            StartHerdMode = HerdSettingsPolicy.StartHerdsOnEmptyMaps;
         }
 
         private void SetSetting<T>(ref T field, T value, string propertyName)

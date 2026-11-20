@@ -1,4 +1,4 @@
-# DesyncTest 0.1.8
+# DesyncTest 0.1.9
 
 Der Analyzer meldet unter `writeObservations` Eingaben und Ergebnisse vor einem Vorfall. Bei Arbeitern zeigt er den Kandidaten, die erste Zugangsentscheidung und den endgültigen Link. Terrain erfasst bis zu zwei markierte Durchläufe pro Tick mit jeweils bis zu 16.384 geprüften und 256 gelesenen Kacheln. Bei tatsächlicher Chore-106-Ausführung vergleicht er ausgewählte Gebäude- und Vegetationsfelder vor und nach dem Handler (höchstens vier Befehle je Tick und 96 Änderungen je Bereich und Befehl). Fehlende Beobachtungen und abgeschnittene Proben erscheinen gesondert. Die lokale Ansicht bleibt Kontext bei der Ursachenforschung.
 
@@ -30,7 +30,7 @@ Deep prüft alle 9999 vom nativen Prüfsummenpfad erfassten Slots, einschließli
 
 Standard: Light-Ring 32 MiB, Deep-Ring 256 MiB, Prüfsummenwarteschlange 4 MiB, Writer-Kopierpuffer 64 MiB und Light-Resync-Details höchstens 128 MiB pro Versuch. Zwei Drittel des Detailbudgets sind für Daten innerhalb eines Resyncs reserviert. Die wirksame Sitzungsgrenze beträgt höchstens 256 MiB in Light bzw. 512 MiB im Deep-Startmodus; ein niedrigerer konfigurierter Wert gilt weiterhin. Priorisierte Resync-Marker und die zuletzt berechneten, bei einem Vorfall separat gesicherten Prüfpunkte teilen sich ein eigenes Budget neben den rotierenden Prüfsummen und den Details. Verluste, Schreibstand und Rotationen stehen im Manifest.
 
-Der Hintergrundschreiber begrenzt abgeschlossene, eindeutig eigene Pakete auf bis zu sechs Vorfallpakete und zwei Kontrollpartien, zusammen maximal 512 MiB nach der Schonfrist. Vorfälle haben Vorrang. Abgebrochene Pakete sind frühestens nach 24 Stunden und nach Prozessprüfung bereinigbar. Unbekannte Verzeichnisse, Dateien und Verknüpfungen werden übersprungen. Historische Rohpakete ohne Aufbewahrungsvertrag sind separat zu sichten. Auswertungsbelege außerhalb des Spielordners unterliegen keiner automatischen Bereinigung.
+Während der Partie sind die Aufnahmen für Live-Vergleiche verfügbar. Bei regulärem Ende ohne beobachteten nativen Resync (Chore 54) löscht der Hintergrundschreiber sie. Auch Prüfsummenabweichungen ohne Resync lassen sich dann nur während der laufenden Partie vergleichen. Der Hintergrundschreiber behält bis zu sechs Vorfallpakete und begrenzt ältere abgeschlossene Aufnahmen nach der Schonfrist auf zusammen 512 MiB. Abgebrochene Pakete sind frühestens nach 24 Stunden und nach Prozessprüfung bereinigbar. Unbekannte Verzeichnisse, Dateien und Verknüpfungen werden übersprungen. Historische Rohpakete ohne Aufbewahrungsvertrag sind separat zu sichten. Auswertungsbelege außerhalb des Spielordners unterliegen keiner automatischen Bereinigung.
 
 ## Ausgabe und Auswertung
 

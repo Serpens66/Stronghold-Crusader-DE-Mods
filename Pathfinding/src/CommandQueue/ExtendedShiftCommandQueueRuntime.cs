@@ -156,7 +156,7 @@ namespace Pathfinding
             UnitCommandPathRuntime sharedCommands = UnitCommandPathAPI.Runtime;
             if (sharedCommands == null)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "Pathfinding/ExtendedShiftCommandQueueRuntime/Install.shift-queue-unavailable-shared", "SHIFT_QUEUE_UNAVAILABLE: shared command runtime is unavailable; Vanilla remains active.");
+                Shared.DebugLogHelper.LogHookInstallFailure(log, "Extended Shift command queue", "shared command runtime", "The shared command runtime is unavailable.");
                 return;
             }
 
@@ -412,7 +412,7 @@ namespace Pathfinding
             {
                 moveChoreHooksIntact = null;
 
-                Shared.DebugLogHelper.LogWarningLimited(log, "Pathfinding/ExtendedShiftCommandQueueRuntime/InstallMultiplayerSynchronization", $"MULTIPLAYER_QUEUE_DISABLED: Vanilla multiplayer orders remain unchanged; {exception.Message}");
+                Shared.DebugLogHelper.LogHookInstallFailure(log, "Extended Shift command queue", "multiplayer Chore marker", exception.ToString());
             }
         }
 
@@ -621,8 +621,7 @@ namespace Pathfinding
             catch (Exception exception)
             {
                 overlayRenderer.DrawFilterInstalled = false;
-                Shared.DebugLogHelper.LogWarningLimited(log, "Pathfinding/ExtendedShiftCommandQueueRuntime/InstallOptionalDrawFilter", $"VISUAL_FLAG_FILTER_FALLBACK: command queues and all destination flags remain enabled, " +
-                    $"but hidden markers and future-page numbers may remain visible; {exception.Message}");
+                Shared.DebugLogHelper.LogHookInstallFailure(log, "Extended Shift command queue", "overlay draw-submission filter", exception.ToString());
             }
         }
 

@@ -301,7 +301,7 @@ namespace RandomEvents
             }
             catch (Exception ex)
             {
-                LogWarning($"Native handler unavailable: component={name}, reason={ex.Message}");
+                Shared.DebugLogHelper.LogHookInstallFailure(log, "Vanilla random events", name, ex.Message);
                 return null;
             }
         }
@@ -346,7 +346,7 @@ namespace RandomEvents
             {
                 presentationHandler = null;
                 presentationManager = IntPtr.Zero;
-                LogWarning($"Native handler unavailable: component=event presentation, reason={ex.Message}");
+                Shared.DebugLogHelper.LogHookInstallFailure(log, "Vanilla random events", "event presentation", ex.Message);
             }
         }
 
@@ -424,7 +424,7 @@ namespace RandomEvents
             catch (Exception ex)
             {
                 soundEffectHandler = null;
-                LogWarning($"Native handler unavailable: component=event sound filter, reason={ex.Message}");
+                Shared.DebugLogHelper.LogHookInstallFailure(log, "Vanilla random events", "event sound filter", ex.Message);
             }
         }
 
@@ -567,7 +567,6 @@ namespace RandomEvents
         private static IntPtr AtRva(IntPtr libraryHandle, int rva) =>
             new IntPtr(checked(libraryHandle.ToInt64() + rva));
 
-        private void LogWarning(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.DebugLogHelper.LogWarningLimited(log, callerFile + ":" + callerLine, message);
         private void LogDebug(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]

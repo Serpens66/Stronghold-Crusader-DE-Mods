@@ -33,7 +33,6 @@ namespace SerpsModsHost
         private static SerpsModsHostRuntime instance;
         private readonly SerpsModsHostPlugin owner;
         private ManualLogSource Logger => owner.HostLogger;
-        private static PackLogListener packLogListener;
         private static IDisposable lobbyJoinSubscription;
         private static LobbyModHashWarning lobbyModHashWarning;
         private static int settingsSortQueued;
@@ -51,7 +50,7 @@ namespace SerpsModsHost
             APIShared.SavegameModSettings.ExcludePluginFromAutomaticSettings(owner.GetType());
             this.owner = owner;
             instance = this;
-            diagnostics = new SerpsModsDiagnosticsViewModel();
+            diagnostics = new SerpsModsDiagnosticsViewModel(expectedLogSources);
             diagnostics.SetRefreshAction(() => AuditLoadedPlugins(true));
             modSettingsSearch = new ModSettingsSearchViewModel(Logger);
             diagnostics.SetSearch(modSettingsSearch);
@@ -65,8 +64,7 @@ namespace SerpsModsHost
                 ReportError("H000", $"Host initialization failed: {ex}");
             }
 
-            packLogListener = new PackLogListener(expectedLogSources, diagnostics);
-            BepInEx.Logging.Logger.Listeners.Add(packLogListener);
+            BepInEx.Logging.Logger.Listeners.Add(diagnostics.ErrorLog);
 
             try
             {
@@ -669,30 +667,5 @@ namespace SerpsModsHost
                 return BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", string.Empty).ToLowerInvariant();
         }
 
-        private sealed class PackLogListener : ILogListener
-        {
-            private readonly HashSet<string> sources;
-            private readonly SerpsModsDiagnosticsViewModel viewModel;
-
-            public PackLogListener(HashSet<string> sources, SerpsModsDiagnosticsViewModel viewModel)
-            {
-                this.sources = sources;
-                this.viewModel = viewModel;
-            }
-
-            public void LogEvent(object sender, LogEventArgs eventArgs)
-            {
-                if ((eventArgs.Level & (LogLevel.Error | LogLevel.Fatal)) == 0)
-                    return;
-                string source = eventArgs.Source?.SourceName ?? string.Empty;
-                if (!sources.Contains(source))
-                    return;
-                viewModel.RecordError($"[{source}] {eventArgs.Level}: {eventArgs.Data}");
-            }
-
-            public void Dispose()
-            {
-            }
-        }
     }
 }

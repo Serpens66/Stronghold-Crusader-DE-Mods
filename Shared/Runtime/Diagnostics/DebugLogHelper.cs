@@ -220,6 +220,12 @@ namespace Shared
         public static void LogErrorLimited(ManualLogSource log, string site, params object[] parts) =>
             LogFailureLimited(log, site, true, parts);
 
+        internal const string HookInstallFailureTag = "HOOK_INSTALL_FAILED:";
+
+        internal static void LogHookInstallFailure(ManualLogSource log, string feature, string hook, string reason) =>
+            LogErrorLimited(log, $"HookInstallation/{feature}/{hook}",
+                $"{HookInstallFailureTag} feature={feature}; hook={hook}; reason={reason}");
+
         private static void LogFailureLimited(ManualLogSource log, string site, bool error, object[] parts)
         {
             if (log == null) return;

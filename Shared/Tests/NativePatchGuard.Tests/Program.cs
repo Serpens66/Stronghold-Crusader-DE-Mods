@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using BepInEx.Logging;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
@@ -48,6 +51,12 @@ internal static class Program
             Marshal.Copy(page, snapshot, 0, PageSize);
             ScanRegion region = ScanRegion.FromMemory(snapshot, image, "test snapshot");
             var log = new ManualLogSource("NativePatchGuardTests");
+            var uiUpdates = new Queue<Action>();
+            int notified = 0;
+            using var packErrors = new SerpsModsHost.PackErrorLog(
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase) { log.SourceName },
+                update => { uiUpdates.Enqueue(update); return true; }, () => notified++);
+            log.LogEvent += packErrors.LogEvent;
             log.LogEvent += (sender, args) =>
             {
                 Console.WriteLine("  log " + args.Level + ": " + args.Data);
@@ -62,6 +71,12 @@ internal static class Program
             Check(Marshal.ReadByte(page) == 0xFF && Marshal.ReadByte(page + 1) == 0x25, "clean inline hook wrote its jump");
             Check(NativePatchGuard.WatchedCount == 1, "clean inline hook is watched");
             Check(NativePatchGuard.Recheck() == 0 && Errors.Count == 0, "an untouched published span is not reported");
+            log.LogWarning("HOOK_INSTALL_FAILED: deliberately emitted at Warning for the filter test");
+            var unrelatedLog = new ManualLogSource("AnotherMod");
+            unrelatedLog.LogEvent += packErrors.LogEvent;
+            unrelatedLog.LogError("HOOK_INSTALL_FAILED: deliberately emitted by a source outside the pack");
+            Check(packErrors.LatestHookFailure == null && !packErrors.HasErrors && uiUpdates.Count == 0,
+                "a healthy start and ordinary warning do not show a hook failure in modsettings");
             Func<bool> cleanIntact = NativePatchGuard.CaptureIntegrity(result.Installed, "clean inline");
             Check(cleanIntact(), "the published snapshot passes the readiness probe");
 
@@ -87,11 +102,51 @@ internal static class Program
             byte[] before = Read(occupied, 15);
             var blocked = new HookHandle<X64InlineHook>();
             HookTransaction blockedTransaction = Inline(region, image + 0x100, blocked);
-            ExpectThrow(() => NativePatchGuard.Commit(blockedTransaction, "occupied inline"), "NATIVE_FOREIGN_PATCH:",
-                "a foreign jump inside the span blocks the install");
+            while (uiUpdates.Count > 0) uiUpdates.Dequeue()();
+            int notifiedBefore = notified;
+            string diskLogText;
+            string diskLogPath = Path.GetTempFileName();
+            try
+            {
+                typeof(BepInEx.Paths).GetMethod("SetExecutablePath", BindingFlags.NonPublic | BindingFlags.Static)
+                    .Invoke(null, new object[] { typeof(Program).Assembly.Location, Path.GetTempPath(), null, null });
+                using (var diskLog = new DiskLogListener(diskLogPath, LogLevel.Error))
+                {
+                    // This BepInEx listener's finalizer would dispose its already closed writer a second time.
+                    GC.SuppressFinalize(diskLog);
+                    log.LogEvent += diskLog.LogEvent;
+                    try
+                    {
+                        Task.Run(() => ExpectThrow(() => NativePatchGuard.Commit(blockedTransaction, "occupied inline"),
+                            "NATIVE_FOREIGN_PATCH:", "a foreign jump inside the span blocks the install")).GetAwaiter().GetResult();
+                    }
+                    finally { log.LogEvent -= diskLog.LogEvent; }
+                }
+                diskLogText = File.ReadAllText(diskLogPath);
+            }
+            finally { File.Delete(diskLogPath); }
             Check(Same(before, Read(occupied, 15)) && !blocked.IsInstalled, "the occupied span stays untouched");
             Check(Errors.Count > errorsBefore && Errors[Errors.Count - 1].Contains("Jump at +5"), "the blocked install logs an Error with the jump");
+            string installError = Errors[Errors.Count - 1];
+            Check(installError.Contains("HOOK_INSTALL_FAILED: feature=occupied inline; hook=") &&
+                installError.Contains("RVA 0x100") && installError.Contains("expected") && installError.Contains("live"),
+                "the Error identifies the failing hook and live-byte difference");
+            Check(diskLogText.Contains(installError) && packErrors.LatestHookFailure.Contains(installError) &&
+                packErrors.Text.Contains(installError),
+                "BepInEx writes the same startup Error that modsettings retains for its banner and error list");
+            Check(uiUpdates.Count == 1 && notified == notifiedBefore, "worker-thread errors defer the UI notification");
+            uiUpdates.Dequeue()();
+            Check(notified == notifiedBefore + 1, "the UI is notified by the dispatcher");
             blockedTransaction.Dispose();
+
+            int beforeRepeat = Errors.Count;
+            for (int attempt = 0; attempt < 3; attempt++)
+                Shared.DebugLogHelper.LogHookInstallFailure(log, "queue", "movement hook", "unsupported test DLL hash");
+            Check(Errors.Count == beforeRepeat + 1 && uiUpdates.Count == 1, "identical hook errors are rate-limited");
+            Check(packErrors.LatestHookFailure.Contains("unsupported test DLL hash"), "the hash failure appears in the banner");
+            packErrors.Clear();
+            Check(!packErrors.HasErrors && packErrors.LatestHookFailure.Contains("unsupported test DLL hash"),
+                "clearing history does not hide an unresolved hook failure");
 
             // 4. A foreign jump directly behind the span is allowed.
             int errorsAfterBlock = Errors.Count;
@@ -145,6 +200,18 @@ internal static class Program
             BitConverter.GetBytes(kernel.ToInt64()).CopyTo(indirect, 6);
             string hint = NativePatchGuard.DescribeJump(indirect, 2, image + 0x500);
             Check(hint.IndexOf("kernel32", StringComparison.OrdinalIgnoreCase) >= 0, "the jump hint names the target module: " + hint);
+
+            // 9. A backend preparation failure names the hook even if RedBird returns a partial result.
+            using var failedBackend = new HookTransaction(region, null, Options(TransactionFailureMode.ContinueOnError));
+            failedBackend.AddInline(new HookHandle<X64InlineHook>(), HookTarget.FromAddress(image + 0x500),
+                (assembler, original, back) => throw new InvalidOperationException("deliberate stub generation failure"),
+                14, name: "test backend hook");
+            result = NativePatchGuard.Commit(failedBackend, "backend preparation test");
+            Check(!result.IsCompleteSuccess && Marshal.ReadByte(page + 0x500) == 0x48,
+                "backend preparation failure leaves the native bytes intact");
+            Check(packErrors.LatestHookFailure.Contains("hook=test backend hook") &&
+                packErrors.LatestHookFailure.Contains("deliberate stub generation failure"),
+                "a failed RedBird preparation reports its actual hook and reason");
         }
         catch (Exception error)
         {
@@ -161,11 +228,11 @@ internal static class Program
         return 0;
     }
 
-    private static HookTransactionOptions Options() => new HookTransactionOptions
+    private static HookTransactionOptions Options(TransactionFailureMode failureMode = TransactionFailureMode.RollbackAndThrow) => new HookTransactionOptions
     {
         InstallOnCommit = false,
         Backend = NativeDetourBackend.Instance,
-        FailureMode = TransactionFailureMode.RollbackAndThrow,
+        FailureMode = failureMode,
         OwnsHooks = true
     };
 

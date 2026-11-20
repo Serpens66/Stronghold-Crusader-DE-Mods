@@ -15,7 +15,7 @@ namespace LordServantVoices
 
         public const string PluginGuid = "LordServantVoices_Serp";
         public const string PluginName = "Lord Servant Voices";
-        public const string PluginVersion = "1.0.0";
+        public const string PluginVersion = "1.1.0";
 
         // Static roots: the plugin component is destroyed by the SHCDE startup cleanup,
         // while the readiness callback, Unity context and runtime must stay alive.

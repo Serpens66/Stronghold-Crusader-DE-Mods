@@ -53,7 +53,7 @@ namespace Pathfinding
             }
             catch (Exception exception)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "Pathfinding/LargeMoveTargetMarkerRuntime/Install", $"MOVE_TARGET_MARKER_HOOK_FAIL_OPEN: Vanilla markers retained; {exception.Message}");
+                Shared.DebugLogHelper.LogHookInstallFailure(log, "Formation move target markers", "marker rendering", exception.ToString());
             }
         }
 

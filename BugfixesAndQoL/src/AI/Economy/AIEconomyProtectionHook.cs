@@ -5,7 +5,6 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Runtime.InteropServices;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
@@ -126,10 +125,9 @@ namespace BugfixesAndQoL
                     AIBuildingTemporaryAccessClassifier.NativePathManagerRva)));
             if (!referenceHashMatches)
             {
-                log.LogWarning(
-                    $"[{TimestampNow()}] Bugfixes and QoL layout-dependent AI resource-shortage sleep and inaccessible " +
-                    "building-demolition protection are disabled for this unknown CrusaderDE.dll; " +
-                    "Vanilla behavior is retained for those settings.");
+                const string reason = "Unsupported CrusaderDE.dll hash for the required native layout.";
+                Shared.DebugLogHelper.LogHookInstallFailure(log, "AI economy protection", "AI resource-shortage sleep planner", reason);
+                Shared.DebugLogHelper.LogHookInstallFailure(log, "AI economy protection", "AI inaccessible-building demolition decision", reason);
             }
 
             synchronizeSleepStates = Marshal.GetDelegateForFunctionPointer<SynchronizeSleepStatesDelegate>(
@@ -583,11 +581,6 @@ namespace BugfixesAndQoL
         private void LogError(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0)
         {
             Shared.DebugLogHelper.LogErrorLimited(log, callerFile + ":" + callerLine, message);
-        }
-
-        private static string TimestampNow()
-        {
-            return DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
         }
 
         private readonly struct InaccessibleDiagnosticKey : IEquatable<InaccessibleDiagnosticKey>

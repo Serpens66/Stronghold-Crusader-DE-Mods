@@ -82,7 +82,7 @@ namespace BugfixesAndQoL.Multiplayer
             }
             catch (Exception error)
             {
-                Shared.DebugLogHelper.LogError(log, "MP_MOAT_LAND_UNAVAILABLE " + error.Message);
+                Shared.DebugLogHelper.LogHookInstallFailure(log, Feature, "tile update", "MP_MOAT_LAND_UNAVAILABLE " + error.Message);
                 if (!publicationStarted)
                 {
                     candidate?.Dispose();

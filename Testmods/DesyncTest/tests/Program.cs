@@ -195,7 +195,7 @@ internal static unsafe class Program
         string incident=Make(4,true,1),active=Make(5,false,0),foreign=Make(6,true,0);
         File.WriteAllText(Path.Combine(foreign,"personal.txt"),"untouched");
         CaptureRetention.Prune(root,now,_=>{});
-        Check(!Directory.Exists(oldest)&&Directory.Exists(control)&&Directory.Exists(latest),"only two closed controls survive");
+        Check(!Directory.Exists(oldest)&&!Directory.Exists(control)&&!Directory.Exists(latest),"all closed controls are removed");
         Check(Directory.Exists(incident)&&Directory.Exists(active)&&Directory.Exists(foreign),"incident, active and unrecognized packages are preserved");
     }
     static void InlineMachines()
@@ -349,10 +349,31 @@ internal static unsafe class Program
         Check((bool)m["ended"]&&(bool)m["complete"],"session completion after successful flush");
         Check(Convert.ToInt32(m["format"])==2,"manifest declares the same format as the binary frames");
         Check(File.ReadAllText(Path.Combine(folder,"summary.txt")).Contains("opcode=54"),"readable summary contains observed resync start, not just static instructions");
-        r.Start(2,new{nativeHash="fixture"});r.Record(new CaptureEvent{Kind=RecordKind.Fault},IntPtr.Zero,0);r.End();r.Pump();
-        Check(Directory.GetDirectories(root).Length==2,"new session does not overwrite previous packet");
+        r.Start(2,new{nativeHash="fixture"});
+        r.Record(new CaptureEvent{Kind=RecordKind.Checksum,Tick=200},IntPtr.Zero,0);r.Pump();
+        string control=r.Current.Folder;
+        Check(File.Exists(Path.Combine(control,"manifest.json")),"a running control exposes live checkpoints");
+        r.End();r.Pump();
+        Check(!Directory.Exists(control)&&Directory.Exists(folder),"closing a control removes its files and keeps the incident");
+        r.Start(4,new{nativeHash="fixture"});
+        string shortControl=r.Current.Folder;
+        r.End();r.Pump();
+        Check(!Directory.Exists(shortControl),"a control ending before the first writer pass creates no files");
+        var missed=new Recorder(options,Path.Combine(root,"missed-marker"),_=>{});
+        missed.Start(1,new{nativeHash="fixture"});
+        string missedPath=missed.Current.Folder;
+        var gate=typeof(Recorder).GetField("captureGate",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance).GetValue(missed);
+        bool markerWritten=true;
+        lock(gate)
+        {
+            var producer=new Thread(()=>markerWritten=missed.Record(new CaptureEvent{Kind=RecordKind.Dispatch,Phase=0,Opcode=54},IntPtr.Zero,0));
+            producer.Start();producer.Join();
+        }
+        missed.End();missed.Pump();
+        Check(!markerWritten&&Directory.Exists(missedPath),"a detected resync retains evidence even if its marker was dropped by contention");
         // Disk exhaustion stays bounded and produces an incomplete package, without retrying gameplay.
         r.Start(3,new{nativeHash="fixture"});byte[] payload=new byte[400000];
+        r.Record(new CaptureEvent{Kind=RecordKind.Dispatch,Tick=20,Phase=0,Opcode=54},IntPtr.Zero,0);
         fixed(byte* p=payload)
         {
             for(int i=0;i<4;i++){r.Record(new CaptureEvent{Kind=RecordKind.Fault},(IntPtr)p,payload.Length);r.Pump();}
@@ -364,7 +385,7 @@ internal static unsafe class Program
         Check(new FileInfo(Path.Combine(last,"events.bin")).Length+new FileInfo(Path.Combine(last,"snapshots.bin")).Length<=options.SessionBytes,"data bytes remain bounded");
         string blocked=Path.Combine(root,"not-a-directory");File.WriteAllText(blocked,"fixture");
         var bad=new Recorder(options,blocked,_=>{});
-        for(int id=1;id<=10;id++){bad.Start(id,new{});bad.End();bad.Pump();}
+        for(int id=1;id<=10;id++){bad.Start(id,new{});bad.Pump();bad.End();bad.Pump();}
         Check(bad.WriterFailures==10&&bad.RejectedSessions==0&&bad.DiskDroppedBytes>0,"unwritable output cannot strand sessions or suppress later draining");
         var deep=new Recorder(new CaptureOptions{Mode=CaptureMode.Deep,LightMiB=1,DeepMiB=2,QueueMiB=1},Path.Combine(root,"deep"),_=>{});
         deep.Start(1,new{fixture=true});deep.Current.Window=new DeepWindow(CaptureMode.Deep,0,0);deep.Pump();

@@ -436,7 +436,7 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 skirmishGameOptionsRuntime?.SetPeaceTimeNativeAvailable(false);
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.vanilla-peace-time-patch", "BUGFIXES_AND_QOL_VANILLA_PEACE_TIME_PATCH_FAILED: " + ex);
+                Shared.DebugLogHelper.LogHookInstallFailure(Logger, "Skirmish game options", "Vanilla Peace Time patch", ex.ToString());
             }
 
             if (skirmishGameOptionsCompatible && skirmishGameOptionsRuntime != null)
@@ -454,7 +454,7 @@ namespace BugfixesAndQoL
                 catch (Exception ex)
                 {
                     skirmishGameOptionsRuntime.SetNoDogsNativeAvailable(false);
-                    Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.skirmish-game-options-no", "BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_NO_DOGS_PATCH_FAILED: " + ex);
+                    Shared.DebugLogHelper.LogHookInstallFailure(Logger, "Skirmish game options", "No Dogs patch", ex.ToString());
                 }
             }
 

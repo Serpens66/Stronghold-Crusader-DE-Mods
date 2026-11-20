@@ -437,9 +437,7 @@ namespace RandomEvents
             {
                 actionPointHandler = null;
                 actionPointManager = IntPtr.Zero;
-                LogError(
-                    "Rabbit and lion minimap action points are disabled while wildlife spawning remains active: " +
-                    $"native compatibility validation failed: {ex.Message}");
+                Shared.DebugLogHelper.LogHookInstallFailure(log, "Rabbit and lion events", "minimap action-point filter", ex.Message);
             }
         }
 

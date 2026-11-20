@@ -14,6 +14,7 @@ SerpsModsHost.SearchAllMods=Alle Mods
 SerpsModsHost.SearchOpenResultHelp=Öffnet diese Einstellung in ihrer Mod.
 SerpsModsHost.SummaryTitle=PAKETSTATUS
 SerpsModsHost.ErrorsTitle=FEHLER
+SerpsModsHost.HookFailureNotice=Auf diesem PC ist ein Mod-Hook fehlgeschlagen. Starte keine Partie oder beende die laufende Partie. Melde den Fehler zusammen mit der BepInEx-Datei LogOutput.log dieses PCs.
 SerpsModsHost.Refresh=Aktualisieren
 SerpsModsHost.RefreshHelp=Prüft, ob alle erwarteten Child-Plugins in den verpackten Versionen geladen sind.
 SerpsModsHost.ClearErrors=Angezeigte Fehler leeren
