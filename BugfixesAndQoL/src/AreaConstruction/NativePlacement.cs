@@ -12,7 +12,7 @@ using SHCDESE.Extensions;
 using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
 
-namespace AreaConstructionTest
+namespace BugfixesAndQoL.AreaConstruction
 {
     internal sealed unsafe partial class NativePlacement
     {
@@ -55,12 +55,11 @@ namespace AreaConstructionTest
         private readonly byte[] mouseScratch = new byte[9];
         private int allowance, storageAllowance, freeSlots, outboundSlots, freeWoodcutters, freeGranaries;
 
-        internal NativePlacement(CrusaderLibraryLoadContext context, ManualLogSource log)
+        internal static void RequireSupportedImage(CrusaderLibraryLoadContext context)
         {
-            image = context.ModuleHandle;
-            if (image == IntPtr.Zero || context.Memory.Length <= Queue + 0x370C00)
+            if (context == null || context.ModuleHandle == IntPtr.Zero || context.Memory.Length <= Queue + 0x370C00)
                 throw new InvalidOperationException("Invalid native image range.");
-            string dll = FindDll(image);
+            string dll = FindDll(context.ModuleHandle);
             using (var hash = SHA256.Create())
             using (var stream = File.OpenRead(dll))
             {
@@ -68,15 +67,16 @@ namespace AreaConstructionTest
                 if (!StringComparer.OrdinalIgnoreCase.Equals(actual, NativeHash))
                     throw new InvalidOperationException("Unsupported CrusaderDE.dll SHA-256 " + actual);
             }
-            storageNeighbor = StorageNeighborProbe.TryInstall(context, log);
-            storageLimitPatch = StorageEmptyLimitPatch.TryInstall(context, log);
         }
 
-        internal void ValidateStorage()
+        internal NativePlacement(CrusaderLibraryLoadContext context, ManualLogSource log, StorageEmptyLimitPatch storageLimit)
         {
-            storageNeighbor?.Recheck();
-            storageLimitPatch?.Recheck();
+            image = context.ModuleHandle;
+            storageNeighbor = StorageNeighborProbe.TryInstall(context, log);
+            storageLimitPatch = storageLimit;
         }
+
+        internal void ValidateStorage() => storageNeighbor?.Recheck();
 
         internal static bool Supports(eMappers tool) =>
             IsStorage(tool) || tool == eMappers.MAPPER_WOODSMAN || tool == eMappers.MAPPER_HOVEL ||
@@ -182,7 +182,7 @@ namespace AreaConstructionTest
             freeGranaries = free ? 0 : FreeGranaryQuota(actor);
             if (!Quote(tool, actor, free, cost))
                 return false;
-            storageAllowance = IsStorage(tool) && storageLimitPatch?.IsIntact != true
+            storageAllowance = IsStorage(tool) && storageLimitPatch?.IsActive != true
                 ? StorageAllowance(tool, actor) : int.MaxValue;
 
             int ownPending = 0;

@@ -1,6 +1,6 @@
 using SHCDESE.Interop;
 
-namespace AreaConstructionTest
+namespace BugfixesAndQoL.AreaConstruction
 {
     internal sealed unsafe partial class NativePlacement
     {

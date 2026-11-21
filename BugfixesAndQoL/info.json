@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.235",
+  "Version": "1.0.236",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.3",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,13 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.236",
+      "Changes": [
+        "Hold the left mouse button and drag to preview and place several buildings at once. The default-on Area construction option sits next to Area demolition under Client Options, Camera, building and controls. In multiplayer each player can choose whether to use area construction.",
+        "The default-on Remove empty storage limit host option allows more empty stockpile, granary and armoury sections. In multiplayer the host sets the rule for everyone."
+      ]
+    },
     {
       "Version": "1.0.235",
       "Changes": [

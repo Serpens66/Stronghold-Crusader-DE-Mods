@@ -490,6 +490,10 @@ call :step_start "tests" "PitchMoatLines.Native.Tests"
 dotnet run --project "%PROJECT_DIR%tests\PitchMoatLines.Native.Tests\PitchMoatLines.Native.Tests.csproj" --configuration Release -- "%LOCAL_PLUGIN_DIR%\BugfixesAndQoL.dll" "%EXTENDER_DIR%"
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "AreaConstruction.AreaGrid.Tests"
+dotnet run --project "%PROJECT_DIR%tests\AreaConstruction\AreaGrid.Tests.csproj" --configuration Release
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed
 call :step_start "tests" "AreaDemolition.Native.Tests"
 dotnet run --project "%PROJECT_DIR%tests\AreaDemolition\Native\Native.Tests.csproj" --configuration Release
 call :step_end %ERRORLEVEL%

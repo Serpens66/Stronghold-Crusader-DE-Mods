@@ -3,7 +3,7 @@ using System.Buffers;
 using MessagePack;
 using MessagePack.Formatters;
 
-namespace AreaConstructionTest
+namespace BugfixesAndQoL.AreaConstruction
 {
     internal enum QuarryControlKind : byte { Hello, HelloEcho, ProofAck }
     internal enum QuarrySimulationKind : byte { ReadyProof, Build }

@@ -26,6 +26,7 @@ namespace BugfixesAndQoL
     [BepInIncompatibility("PitchStairsTest_Serp")]
     [BepInIncompatibility("PitchMoatLineTest_Serp")]
     [BepInIncompatibility("AreaDemolitionTest_Serp")]
+    [BepInIncompatibility("AreaConstructionTest_Serp")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
 
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
@@ -38,7 +39,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.235";
+        public const string PluginVersion = "1.0.236";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;
@@ -77,6 +78,7 @@ namespace BugfixesAndQoL
             APIShared.Multiplayer.SimulationAgreement.Register(PluginGuid, "keep-flag-rotation", true,
                 BugfixesAndQoLRuntime.IsKeepFlagCanonicalizationReady, BugfixesAndQoLRuntime.SetKeepFlagCanonicalizationActive);
             AreaDemolition.OccupiedWallDemolition.RegisterAgreement();
+            AreaConstruction.AreaConstructionFeature.RegisterAgreement();
             TrailCustomizationLaunchOriginApi.RegisterModeProvider();
             Shared.CrashBreadcrumbDiagnostics.Initialize(Logger, PluginGuid, PluginName, PluginVersion);
             try
@@ -106,6 +108,7 @@ namespace BugfixesAndQoL
             BuildPreview.BuildPreviewRuntime.Configure(Logger, Settings);
             PitchMoatLines.PitchMoatLinesFeature.Configure(Logger, Settings);
             AreaDemolition.AreaDemolitionFeature.Configure(Logger, Settings, Config);
+            AreaConstruction.AreaConstructionFeature.Configure(Logger, Settings);
             ArabianIdleSoundRuntime.Configure(Logger, Settings);
             skirmishGameOptionsCompatible = !HasLegacyExtraFeaturesPeaceTimeSetting();
             skirmishGameOptionsAccess = new SkirmishGameOptionsAccessViewModel(
@@ -242,6 +245,7 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL.MapLoadPolicy", mapPolicyReason);
             // Register even when local controls or the optional native adapter are unavailable.
             AreaDemolition.AreaDemolitionFeature.RegisterNetwork();
+            AreaConstruction.AreaConstructionFeature.RegisterNetwork();
             // Register packet types immediately after Script Extender and before settings can vary.
             try
             {
@@ -368,6 +372,7 @@ namespace BugfixesAndQoL
             PitchMoatLines.PitchMoatLinesFeature.Install(context);
             AreaDemolition.OccupiedWallDemolition.Install(context, Logger, Settings);
             AreaDemolition.AreaDemolitionFeature.Install(context);
+            AreaConstruction.AreaConstructionFeature.Install(context);
             GatehouseTargetMarkerHeightHook.Install(context, Logger, Settings);
             CustomLordNervousSpeechFix.Install(Logger, Settings);
             TroopPanelPageCountFix.Install(Logger, Settings);

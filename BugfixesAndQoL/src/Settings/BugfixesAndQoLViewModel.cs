@@ -92,6 +92,7 @@ namespace BugfixesAndQoL
         private bool enableAiRaidRetargetFix = true;
         private bool enableMoatTerrainRestoration = true;
         private bool enableOccupiedWallDemolition = true;
+        private bool removeEmptyStorageLimit = true;
         private bool enableDrawbridgeDestructionFix = true;
         private bool enableSiegeCrewDuplicationFix = true;
         private bool enableSiegeCrewFireLossFix = true;
@@ -172,6 +173,7 @@ namespace BugfixesAndQoL
         private bool enableImprovedBuildPreview = true;
         private bool enablePitchMoatLines = true;
         private bool enableAreaDemolition = true;
+        private bool enableAreaConstruction = true;
         private bool enableDamagedHealthBars = true;
         private int healthBarHotkey = DefaultHealthBarHotkey;
         private ModKeybindRegistration healthBarKeybind;
@@ -385,6 +387,8 @@ namespace BugfixesAndQoL
         public string EnableMoatTerrainRestorationHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMoatTerrainRestorationHelp");
         public string EnableOccupiedWallDemolitionText => SerpLocalization.Get("BugfixesAndQoL.EnableOccupiedWallDemolition");
         public string EnableOccupiedWallDemolitionHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableOccupiedWallDemolitionHelp");
+        public string RemoveEmptyStorageLimitText => SerpLocalization.Get("BugfixesAndQoL.RemoveEmptyStorageLimit");
+        public string RemoveEmptyStorageLimitHelpText => SerpLocalization.Get("BugfixesAndQoL.RemoveEmptyStorageLimitHelp");
         public string EnableTreeBlightDecayFixText => SerpLocalization.Get("BugfixesAndQoL.EnableTreeBlightDecayFix");
         public string EnableTreeBlightDecayFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableTreeBlightDecayFixHelp");
 
@@ -522,6 +526,8 @@ namespace BugfixesAndQoL
         public string PitchMoatLinesHelpText => SerpLocalization.Get("BugfixesAndQoL.PitchMoatLinesHelp");
         public string EnableAreaDemolitionText => SerpLocalization.Get("BugfixesAndQoL.EnableAreaDemolition");
         public string EnableAreaDemolitionHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAreaDemolitionHelp");
+        public string EnableAreaConstructionText => SerpLocalization.Get("BugfixesAndQoL.EnableAreaConstruction");
+        public string EnableAreaConstructionHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAreaConstructionHelp");
         public string DamagedHealthBarsHotkeyText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsHotkey");
         public string DamagedHealthBarsHotkeyHelpText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsHotkeyHelp");
         public string DamagedHealthBarsCaptureText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsCapture");
@@ -815,6 +821,13 @@ namespace BugfixesAndQoL
         {
             get => enableAreaDemolition;
             set => SetSetting(ref enableAreaDemolition, value, nameof(EnableAreaDemolition));
+        }
+
+        [APIShared.ModSettings.PresetLocal]
+        public bool EnableAreaConstruction
+        {
+            get => enableAreaConstruction;
+            set => SetSetting(ref enableAreaConstruction, value, nameof(EnableAreaConstruction));
         }
 
         [APIShared.ModSettings.PresetLocal]
@@ -1181,6 +1194,13 @@ namespace BugfixesAndQoL
         {
             get => enableOccupiedWallDemolition;
             set => SetSetting(ref enableOccupiedWallDemolition, value, nameof(EnableOccupiedWallDemolition));
+        }
+
+        [SyncHostOnly]
+        public bool RemoveEmptyStorageLimit
+        {
+            get => removeEmptyStorageLimit;
+            set => SetSetting(ref removeEmptyStorageLimit, value, nameof(RemoveEmptyStorageLimit));
         }
 
         [SyncHostOnly]
@@ -1626,6 +1646,7 @@ namespace BugfixesAndQoL
                 EnableAiRaidRetargetFix = true;
                 EnableMoatTerrainRestoration = true;
                 EnableOccupiedWallDemolition = true;
+                RemoveEmptyStorageLimit = true;
                 EnablePitchStairsFix = true;
                 EnableDrawbridgeDestructionFix = true;
                 EnableSiegeCrewDuplicationFix = true;
@@ -1706,6 +1727,7 @@ namespace BugfixesAndQoL
             EnableImprovedBuildPreview = true;
             EnablePitchMoatLines = true;
             EnableAreaDemolition = true;
+            EnableAreaConstruction = true;
             ArabianIdleSoundVolumePercent = DefaultArabianIdleSoundVolumePercent;
             EnableDamagedHealthBars = true;
             HealthBarHotkey = DefaultHealthBarHotkey;

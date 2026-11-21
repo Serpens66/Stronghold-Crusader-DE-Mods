@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.235.0</AssemblyVersion>
-    <FileVersion>1.0.235.0</FileVersion>
+    <AssemblyVersion>1.0.236.0</AssemblyVersion>
+    <FileVersion>1.0.236.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -30,6 +30,7 @@
   <PropertyGroup Condition="'$(ExtenderDir)' == '' and Exists('$(LocalScriptExtenderModOutput)\SHCDESE.dll')"><ExtenderDir>$(LocalScriptExtenderModOutput)</ExtenderDir></PropertyGroup>
   <ItemGroup>
     <Compile Include="src\AreaDemolition\*.cs" />
+    <Compile Include="src\AreaConstruction\*.cs" />
     <Compile Include="src\PitchMoatLines\*.cs" />
     <Compile Include="src\Lobby\LocalAutosaveRuntime.cs" />
     <Compile Include="src\Lobby\LongMapFileNames.cs" />
@@ -131,6 +132,7 @@
     <Compile Include="..\Shared\Runtime\Threading\UnityMainThreadDispatch.cs"><Link>Shared\Runtime\Threading\UnityMainThreadDispatch.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\NativePatternResolver.cs"><Link>Shared\Runtime\Native\NativePatternResolver.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\CommittedMemory.cs"><Link>Shared\Runtime\Native\CommittedMemory.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Native\AuditedEntryDetour.cs"><Link>Shared\Runtime\Native\AuditedEntryDetour.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\NativePatchGuard.cs"><Link>Shared\Runtime\Native\NativePatchGuard.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\NativeResolutionCache.cs"><Link>Shared\Runtime\Native\NativeResolutionCache.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\NativeInstructionOperands.cs"><Link>Shared\Runtime\Native\NativeInstructionOperands.cs</Link></Compile>

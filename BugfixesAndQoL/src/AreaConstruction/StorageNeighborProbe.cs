@@ -9,13 +9,13 @@ using SHCDESE.EventAPI.Buildings;
 using SHCDESE.Extensions;
 using SHCDESE.Interop;
 
-namespace AreaConstructionTest
+namespace BugfixesAndQoL.AreaConstruction
 {
     // The Extender already owns the native perimeter function. Its synchronous
     // Post event can augment a failed lookup for the one matching draft hover.
     internal sealed class StorageNeighborProbe
     {
-        private const string Feature = "AreaConstructionTest storage neighbor preview";
+        private const string Feature = "area-construction storage neighbor preview";
         private const int NativeMouseStateRva = 0x8EBA98;
         private static readonly int[] CallSites = { 0x789D9, 0x78A59, 0x78AD9 };
         private static readonly byte[][] Calls =

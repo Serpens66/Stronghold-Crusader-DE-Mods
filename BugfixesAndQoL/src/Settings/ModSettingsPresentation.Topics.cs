@@ -34,6 +34,7 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableImprovedBuildPreview => options["EnableImprovedBuildPreview"];
         public SettingsOptionPresentation EnablePitchMoatLines => options["EnablePitchMoatLines"];
         public SettingsOptionPresentation EnableAreaDemolition => options["EnableAreaDemolition"];
+        public SettingsOptionPresentation EnableAreaConstruction => options["EnableAreaConstruction"];
         public SettingsOptionPresentation EnableTroopHudMiddleClickCameraJump => options["EnableTroopHudMiddleClickCameraJump"];
         public SettingsOptionPresentation AllowMinimapWhilePlacingBuilding => options["AllowMinimapWhilePlacingBuilding"];
         public SettingsOptionPresentation PreventMoveOrderOnPlacementCancel => options["PreventMoveOrderOnPlacementCancel"];
@@ -110,6 +111,7 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableGatehouseLivingCaptureFix => options["EnableGatehouseLivingCaptureFix"];
         public SettingsOptionPresentation EnableMoatTerrainRestoration => options["EnableMoatTerrainRestoration"];
         public SettingsOptionPresentation EnableOccupiedWallDemolition => options["EnableOccupiedWallDemolition"];
+        public SettingsOptionPresentation RemoveEmptyStorageLimit => options["RemoveEmptyStorageLimit"];
         public SettingsOptionPresentation EnablePitchStairsFix => options["EnablePitchStairsFix"];
         public SettingsOptionPresentation EnableDrawbridgeDestructionFix => options["EnableDrawbridgeDestructionFix"];
         public SettingsOptionPresentation EnableSiegeCrewDuplicationFix => options["EnableSiegeCrewDuplicationFix"];
@@ -143,6 +145,7 @@ namespace BugfixesAndQoL
             AddOption("EnableImprovedBuildPreview", "bugfixes.improved-build-preview", SettingsCategory.Qol, ClientControls);
             AddOption("EnablePitchMoatLines", "bugfixes.pitch-moat-lines", SettingsCategory.Qol, ClientControls);
             AddOption("EnableAreaDemolition", "bugfixes.area-demolition", SettingsCategory.Qol, ClientControls);
+            AddOption("EnableAreaConstruction", "bugfixes.area-construction", SettingsCategory.Qol, ClientControls);
             AddOption("EnableTroopHudMiddleClickCameraJump", "bugfixes.troop-hud-middle-click-camera-jump", SettingsCategory.Qol, ClientControls);
             AddOption("AllowMinimapWhilePlacingBuilding", "bugfixes.allow-minimap-while-placing-building", SettingsCategory.Qol, ClientControls);
             AddOption("PreventMoveOrderOnPlacementCancel", "bugfixes.prevent-move-order-on-placement-cancel", SettingsCategory.Qol, ClientControls);
@@ -225,6 +228,7 @@ namespace BugfixesAndQoL
             AddOption("EnableWorkshopIdleDelayFix", "bugfixes.enable-workshop-idle-delay-fix", SettingsCategory.Possible, HostEconomy);
             HostControls = AddTopic("ClientControls", "bugfixes.topic.host-controls", true);
             AddOption("EnableOccupiedWallDemolition", "bugfixes.occupied-wall-demolition", SettingsCategory.Qol, HostControls);
+            AddOption("RemoveEmptyStorageLimit", "bugfixes.remove-empty-storage-limit", SettingsCategory.Qol, HostControls);
             HostSiege = AddTopic("HostSiege", "bugfixes.topic.host-siege", true);
             AddOption("EnableGatehouseLivingCaptureFix", "bugfixes.enable-gatehouse-living-capture-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableDrawbridgeDestructionFix", "bugfixes.enable-drawbridge-destruction-fix", SettingsCategory.Fixes, HostSiege);

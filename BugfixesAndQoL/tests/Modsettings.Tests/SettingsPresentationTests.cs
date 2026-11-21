@@ -309,6 +309,17 @@ internal static partial class Program
         object hostControls = Get(presentation, "HostControls");
         Check(Equals(Get(hostControls, "Title"), Get(controls, "Title")) && (bool)Get(hostControls, "IsHost"),
             "occupied-wall demolition shares the controls theme title and keeps its host section");
+        var areaConstruction = Get(presentation, "EnableAreaConstruction");
+        var storageLimit = Get(presentation, "RemoveEmptyStorageLimit");
+        XmlNode constructionRow = nodes.Single(n => SearchAttribute(n, "Key") == (string)Get(areaConstruction, "Key"));
+        XmlNode storageLimitRow = nodes.Single(n => SearchAttribute(n, "Key") == (string)Get(storageLimit, "Key"));
+        Check(SearchAttribute(constructionRow.PreviousSibling, "Key") == "bugfixes.area-demolition" &&
+            SearchAttribute(constructionRow.ParentNode, "SectionKey") == (string)Get(controls, "Key") &&
+            Get(areaConstruction, "Category").ToString() == "Qol",
+            "area construction appears immediately after area demolition in client controls QoL");
+        Check(SearchAttribute(storageLimitRow.ParentNode, "SectionKey") == (string)Get(hostControls, "Key") &&
+            Get(storageLimit, "Category").ToString() == "Qol",
+            "empty storage limit appears in host controls QoL");
         int notifications = 0;
         var headingChanges = new HashSet<string>();
         ((INotifyPropertyChanged)display).PropertyChanged += (_, e) => { notifications++; headingChanges.Add(e.PropertyName); };

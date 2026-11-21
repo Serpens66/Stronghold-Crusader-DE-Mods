@@ -5,7 +5,7 @@ using SHCDESE.Extensions;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 
-namespace AreaConstructionTest
+namespace BugfixesAndQoL.AreaConstruction
 {
     internal sealed unsafe partial class NativePlacement
     {

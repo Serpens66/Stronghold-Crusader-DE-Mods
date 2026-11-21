@@ -13,7 +13,7 @@ using SHCDESE.GameGlobals;
 using SHCDESE.ImMenu.MapEditor;
 using SHCDESE.Interop;
 
-namespace AreaConstructionTest
+namespace BugfixesAndQoL.AreaConstruction
 {
     internal sealed unsafe class NativeQuarryPlacement
     {

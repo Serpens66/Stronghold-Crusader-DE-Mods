@@ -45,7 +45,7 @@ internal static class Program
         new Site("RandomEvents presentation", 0x1031B0, @"RandomEvents\src\NativeVanillaEventDispatcher.cs", new byte[] { 0x83, 0x39, 0x00, 0x0F, 0x84, 0xB0, 0x00, 0x00, 0x00 }),
         new Site("RandomEvents sound", 0x2940, @"RandomEvents\src\NativeVanillaEventDispatcher.cs", new byte[] { 0x41, 0xB9, 0x40, 0x00, 0x00, 0x00 }),
         new Site("RandomEvents action point", 0xF4D40, @"RandomEvents\src\NativeWildlifeEventDispatcher.cs", new byte[] { 0x40, 0x53, 0x48, 0x83, 0xEC, 0x20 }),
-        new Site("AreaConstructionTest empty storage cap", 0xB8140, @"Testmods\AreaConstructionTest\src\StorageEmptyLimitPatch.cs", new byte[] { 0x4C, 0x63, 0x51, 0x50, 0x45, 0x33, 0xC9 }),
+        new Site("BugfixesAndQoL empty storage cap", 0xB8140, @"BugfixesAndQoL\src\AreaConstruction\StorageEmptyLimitPatch.cs", new byte[] { 0x4C, 0x63, 0x51, 0x50, 0x45, 0x33, 0xC9 }),
     };
 
     private static int Main()

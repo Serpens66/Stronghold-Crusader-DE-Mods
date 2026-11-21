@@ -10,7 +10,7 @@ using APIShared.Networking;
 using BepInEx.Logging;
 using SHCDESE.API;
 
-namespace AreaConstructionTest
+namespace BugfixesAndQoL.AreaConstruction
 {
     internal sealed class QuarryNetwork
     {
@@ -29,6 +29,8 @@ namespace AreaConstructionTest
         private readonly ManualLogSource log;
         private readonly Func<bool> nativeAvailable;
         private readonly Action<int, Tile[], Tile[]> execute;
+        private readonly Action<bool> setFrameDemand;
+        private readonly Action requestFrame;
         private readonly IMissionPlayStateReadinessCapability readiness;
         private readonly MessageChannel<QuarryControlPacket> control;
         private readonly AuthenticatedChoreChannel<QuarrySimulationPacket> simulation;
@@ -59,11 +61,13 @@ namespace AreaConstructionTest
         }
 
         internal QuarryNetwork(ModApiClient api, ManualLogSource log, Func<bool> nativeAvailable,
-            Action<int, Tile[], Tile[]> execute)
+            Action<int, Tile[], Tile[]> execute, Action<bool> setFrameDemand, Action requestFrame)
         {
             this.log = log;
             this.nativeAvailable = nativeAvailable;
             this.execute = execute;
+            this.setFrameDemand = setFrameDemand;
+            this.requestFrame = requestFrame;
             if (!api.TryGetMissionPlayStateReadiness(out readiness, out var diagnostic) ||
                 !api.TryGetMissionLifecycle(out var lifecycle, out diagnostic))
                 throw new InvalidOperationException(diagnostic.Reason);
@@ -106,6 +110,7 @@ namespace AreaConstructionTest
                 ResetWorld();
                 mission = context;
                 nonce = NewNonce();
+                setFrameDemand(true);
             }
         }
 
@@ -117,6 +122,7 @@ namespace AreaConstructionTest
                     return;
                 mission = null;
                 ResetWorld();
+                setFrameDemand(false);
             }
         }
 
@@ -140,6 +146,11 @@ namespace AreaConstructionTest
             sendingToken = "";
             nextProof = 0;
             acknowledgements.Clear();
+        }
+
+        internal void SuspendSending()
+        {
+            lock (sync) InvalidateSending();
         }
 
         private void ResetRoster()
@@ -438,6 +449,7 @@ namespace AreaConstructionTest
             lock (sync)
                 if (diagnostics.Count < MaximumPeers)
                     diagnostics.Enqueue(message);
+            requestFrame();
         }
 
         private void DrainDiagnostics()

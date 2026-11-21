@@ -8,6 +8,7 @@ namespace BugfixesAndQoL
         {
             options["EnableMoatTerrainRestoration"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableMoatTerrainRestoration");
             options["EnableOccupiedWallDemolition"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableOccupiedWallDemolition");
+            options["RemoveEmptyStorageLimit"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.RemoveEmptyStorageLimit");
             options["EnablePitchStairsFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnablePitchStairsFix");
             options["PreserveDisplayResolution"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.PreserveDisplayResolution");
             options["EnableGatehouseTargetMarkerHeightFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableGatehouseTargetMarkerHeightFix");
@@ -30,6 +31,7 @@ namespace BugfixesAndQoL
             options["EnableImprovedBuildPreview"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableImprovedBuildPreview");
             options["EnablePitchMoatLines"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnablePitchMoatLines");
             options["EnableAreaDemolition"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableAreaDemolition");
+            options["EnableAreaConstruction"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableAreaConstruction");
             options["EnableTroopHudMiddleClickCameraJump"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableTroopHudMiddleClickCameraJump");
             options["AllowMinimapWhilePlacingBuilding"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.AllowMinimapWhilePlacingBuilding");
             options["PreventMoveOrderOnPlacementCancel"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.PreventMoveOrderOnPlacementCancel");

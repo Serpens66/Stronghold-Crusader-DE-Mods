@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace AreaConstructionTest
+namespace BugfixesAndQoL.AreaConstruction
 {
     internal sealed unsafe partial class NativePlacement
     {

@@ -1,18 +1,20 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
+using APIShared.NativeSites;
 using BepInEx.Logging;
 using RedBird.Backends.NativeX64;
 using SHCDESE.API.LowLevel;
 using SHCDESE.Interop;
+using Shared;
 
-namespace AreaConstructionTest
+namespace BugfixesAndQoL.AreaConstruction
 {
     // The three audited call sites use the count only for a stockpile, granary,
     // or armoury placement limit. The native neighbor check remains downstream.
     internal sealed class StorageEmptyLimitPatch
     {
-        private const string Feature = "AreaConstructionTest empty storage cap";
+        internal const string Feature = "remove-empty-storage-limit";
         private const int CountRva = 0xB8140;
         private const int BuildingManagerRva = 0x64CCBB0;
         private static readonly byte[] Entry = { 0x4C, 0x63, 0x51, 0x50, 0x45, 0x33, 0xC9 };
@@ -32,7 +34,8 @@ namespace AreaConstructionTest
         private readonly IntPtr buildingManager;
         private readonly ManualLogSource log;
         private Count original;
-        private bool intact;
+        private Func<bool> integrity;
+        private bool active;
 
         private StorageEmptyLimitPatch(IntPtr image, ManualLogSource log)
         {
@@ -41,13 +44,16 @@ namespace AreaConstructionTest
             buildingManager = IntPtr.Add(image, BuildingManagerRva);
         }
 
-        internal bool IsIntact => Volatile.Read(ref intact);
+        internal bool IsActive => Volatile.Read(ref active);
+
+        internal void SetActive(bool value) => Volatile.Write(ref active, value);
 
         // The caller has verified the exact native hash before installation.
         internal static StorageEmptyLimitPatch TryInstall(CrusaderLibraryLoadContext context, ManualLogSource log)
         {
             var patch = new StorageEmptyLimitPatch(context.ModuleHandle, log);
             NativeDetour<Count> candidate = null;
+            bool claimed = false;
             try
             {
                 Shared.NativePatchGuard.Bind(context, log);
@@ -55,45 +61,63 @@ namespace AreaConstructionTest
                 for (int i = 0; i < CallSites.Length; i++)
                     RequireReference(context.Memory, CallSites[i], CallChecks[i]);
                 patch.RequireLiveContract();
+                ulong module = unchecked((ulong)context.ModuleHandle.ToInt64());
+                NativePatchGuard.RequireUnpatched(module + CountRva, Entry.Length, "empty storage count", Feature);
+
+                var registration = NativeSiteRegistry.Register(BugfixesAndQoLPlugin.PluginGuid, Feature, new[]
+                {
+                    new NativeSiteSpan(CountRva, Entry.Length, NativeSiteMode.Exclusive)
+                });
+                if (!registration.Succeeded) throw new InvalidOperationException(registration.Reason);
+                claimed = true;
 
                 Count callback = patch.CountForValidator;
                 candidate = Shared.AuditedEntryDetour.Prepare(context.Memory,
-                    unchecked((ulong)context.ModuleHandle.ToInt64()), CountRva, Entry, callback, Feature);
+                    module, CountRva, Entry, callback, Feature);
                 patch.original = candidate.Original;
                 Shared.AuditedEntryDetour.Publish(candidate, callback, Feature);
-                Volatile.Write(ref patch.intact, true);
+                var entryIntact = NativePatchGuard.CaptureIntegrity(new[] { candidate }, Feature);
+                patch.integrity = () =>
+                {
+                    if (!entryIntact()) return false;
+                    if (Marshal.ReadInt64(candidate.PointerSlot) != candidate.HookEntryPointAddress.ToInt64())
+                        throw new InvalidOperationException("Published native entry pointer changed at RVA 0xB8140.");
+                    return true;
+                };
                 log.LogInfo(Stamp(Feature + ": reference RVA 0xB8140, Indirect x64, 7 bytes (4+3), continuation 0xB8147."));
                 return patch;
             }
             catch (Exception exception)
             {
-                if (candidate != null && !Shared.AuditedEntryDetour.WasPublished(candidate))
-                    candidate.Dispose();
+                if (!AuditedEntryDetour.WasPublished(candidate))
+                {
+                    candidate?.Dispose();
+                    if (claimed) NativeSiteRegistry.Unregister(BugfixesAndQoLPlugin.PluginGuid, Feature);
+                }
                 log.LogError(Stamp(Feature + ": " + exception.Message));
                 return null;
             }
         }
 
-        internal void Recheck()
+        internal bool CheckIntegrity()
         {
-            if (!IsIntact) return;
             try
             {
-                if (Shared.NativePatchGuard.Recheck() != 0)
-                    throw new InvalidOperationException("Published native entry changed.");
+                if (!integrity()) return false;
                 RequireLiveContract();
+                return true;
             }
             catch (Exception exception)
             {
-                Volatile.Write(ref intact, false);
                 log.LogError(Stamp(Feature + ": " + exception.Message));
+                return false;
             }
         }
 
         private int CountForValidator(IntPtr manager, int actor, int structure)
         {
             var type = (eStructs)structure;
-            if (IsIntact && manager == buildingManager && (uint)(actor - 1) < 8 &&
+            if (IsActive && manager == buildingManager && (uint)(actor - 1) < 8 &&
                 (type == eStructs.STRUCT_GOODS_YARD || type == eStructs.STRUCT_GRANARY || type == eStructs.STRUCT_ARMOURY))
                 return 0;
 

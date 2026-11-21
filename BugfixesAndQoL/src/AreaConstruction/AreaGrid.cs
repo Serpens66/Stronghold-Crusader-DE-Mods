@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace AreaConstructionTest
+namespace BugfixesAndQoL.AreaConstruction
 {
     internal readonly struct Tile : IEquatable<Tile>
     {

@@ -149,6 +149,14 @@ In Vanilla, the two nervous messages of Custom Lords without their own voice fil
 
 ## Quality-of-life features
 
+### Place buildings by dragging
+
+Select a building, hold the left mouse button on the map and drag to preview several buildings. Release to build the valid, affordable placements. Red previews are skipped. Most buildings are laid out in rows two buildings wide with room for walking. Farms and killing pits fill the area without gaps. Storage sections must connect to each other, and a drag places up to four quarries with room around the block for walking.
+
+**Area construction** is on by default under **Client Options → Camera, building and controls → QoL**, next to **Area demolition**. The option controls your own input. In multiplayer, everyone needs the same Bugfixes and QoL version, and each player can choose whether to drag. If you installed the earlier AreaConstructionTest, remove it before loading this version.
+
+The separate **Remove empty storage limit** option is on by default under **Host Options → Camera, building and controls → QoL**. It lets players add more empty stockpile, granary and armoury sections, including with single clicks. The host's choice applies to everyone in multiplayer. The original limits apply if the host switches this off or the game cannot enable the rule for everyone.
+
 ### Demolish occupied walls
 You can demolish your own walls while units are standing on them, using either a single click or area demolition. Nearby enemies can still block demolition. This host option is enabled by default and appears under **Host Options → Camera, building and controls → QoL**.
 

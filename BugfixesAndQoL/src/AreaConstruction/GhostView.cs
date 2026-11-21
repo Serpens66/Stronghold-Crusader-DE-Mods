@@ -4,7 +4,7 @@ using SHCDESE.Interop;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
-namespace AreaConstructionTest
+namespace BugfixesAndQoL.AreaConstruction
 {
     internal sealed class GhostView
     {

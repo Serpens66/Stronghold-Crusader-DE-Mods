@@ -5,8 +5,8 @@ using System.Reflection;
 using System.Threading;
 using APIShared;
 using APIShared.Input;
+using APIShared.Presentation;
 using APIShared.Simulation;
-using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
 using SHCDESE.API;
@@ -14,20 +14,8 @@ using SHCDESE.API.LowLevel;
 using SHCDESE.Interop;
 using UnityEngine;
 
-namespace AreaConstructionTest
+namespace BugfixesAndQoL.AreaConstruction
 {
-    [BepInPlugin(Guid, Name, Version)]
-    [BepInDependency("000shcdese", "2.14.3")]
-    [BepInDependency("APIShared_Serp", "0.61.0")]
-    [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
-    public sealed class Plugin : BaseUnityPlugin
-    {
-        public const string Guid = "AreaConstructionTest_Serp", Name = "AreaConstructionTest", Version = "0.3.1";
-
-        private void Awake() => PlacementInput.Install(Logger);
-    }
-
     internal sealed class PlacementInput
     {
         private const int BuildAction = 5;
@@ -52,6 +40,7 @@ namespace AreaConstructionTest
         private NativePlacement native;
         private NativeQuarryPlacement quarry;
         private QuarryNetwork quarryNetwork;
+        private IUiFrameWorkRegistration networkWork;
         private QuarryOrder quarryOrder;
         private bool quarryTickReady;
         private GameMap map;
@@ -60,6 +49,7 @@ namespace AreaConstructionTest
         private int actor, scale;
         private bool editor, captured, dragging, faulted, quarryBlock;
         private long nextQuote;
+        private int cancellation, appliedCancellation;
 
         private PlacementInput(object engine, ManualLogSource log)
         {
@@ -67,46 +57,33 @@ namespace AreaConstructionTest
             this.log = log;
         }
 
-        internal static void Install(ManualLogSource log)
+        internal static PlacementInput Create(ManualLogSource log) => new PlacementInput(EngineThreadLock.Gate, log);
+
+        internal void Install(CrusaderLibraryLoadContext context, StorageEmptyLimitPatch storageLimit)
         {
             try
             {
-                var flags = BindingFlags.NonPublic | BindingFlags.Static;
-                FieldInfo monitor = typeof(EngineInterface).GetField("threadLock", flags);
-                var gate = monitor?.FieldType == typeof(object) ? monitor.GetValue(null) : null;
+                Volatile.Write(ref quarry, NativeQuarryPlacement.TryInstall(context, log));
+                Volatile.Write(ref native, new NativePlacement(context, log, storageLimit));
                 MethodInfo update = typeof(EditorDirector).GetMethod("Update", BindingFlags.NonPublic | BindingFlags.Instance);
                 MethodInfo button = typeof(EditorDirector).GetMethod(nameof(EditorDirector.updateLeftMouseStateForEngine), new[] { typeof(int) });
                 MethodInfo place = typeof(EngineInterface).GetMethod(nameof(EngineInterface.PlaceMapperItem),
                     new[] { typeof(int), typeof(int), typeof(int), typeof(int), typeof(int), typeof(bool), typeof(bool), typeof(int) });
-                if (gate == null || update == null || button == null || place == null)
+                if (update == null || button == null || place == null)
                     throw new MissingMethodException("Vanilla construction/input boundary");
 
-                var runtime = new PlacementInput(gate, log);
-                var harmony = new Harmony(Plugin.Guid);
+                var harmony = new Harmony(BugfixesAndQoLPlugin.PluginGuid + ".AreaConstruction.Input");
                 harmony.Patch(button, prefix: new HarmonyMethod(typeof(PlacementInput), nameof(Primary)));
                 harmony.Patch(update, postfix: new HarmonyMethod(typeof(PlacementInput), nameof(AfterInput)));
                 harmony.Patch(place, prefix: new HarmonyMethod(typeof(PlacementInput), nameof(AllowCursor)));
-                CrusaderLibrary.Instance.LibraryLoaded += runtime.LibraryLoaded;
-                var api = ApiShared.ForMod(Plugin.Guid);
-                api.WhenReady(runtime.RegisterLifecycle);
-                Application.focusChanged += runtime.FocusChanged;
-                Volatile.Write(ref instance, runtime);
-            }
-            catch (Exception error) { log.LogError(Stamp(error.Message)); }
-        }
-
-        private void LibraryLoaded(CrusaderLibraryLoadContext context)
-        {
-            try
-            {
-                Volatile.Write(ref native, new NativePlacement(context, log));
-                Volatile.Write(ref quarry, NativeQuarryPlacement.TryInstall(context, log));
+                Application.focusChanged += FocusChanged;
+                Volatile.Write(ref instance, this);
                 log.LogInfo(Stamp("Native placement bindings ready."));
             }
             catch (Exception error) { Fail(error); }
         }
 
-        private void RegisterLifecycle(ModApiClient api)
+        internal void RegisterLifecycle(ModApiClient api)
         {
             if (!api.TryGetMissionPlayStateReadiness(out readiness, out var diagnostic) ||
                 !api.TryGetMissionLifecycle(out var lifecycle, out diagnostic) ||
@@ -115,24 +92,36 @@ namespace AreaConstructionTest
                 Fail(new InvalidOperationException(diagnostic.Reason));
                 return;
             }
-            quarryTickReady = SimulationTickEvents.TryRegister(Plugin.Guid, "area-construction.quarry", QuarryTick, out string reason);
+            quarryTickReady = SimulationTickEvents.TryRegister(BugfixesAndQoLPlugin.PluginGuid, "area-construction.quarry", QuarryTick, out string reason);
             if (!quarryTickReady)
                 log.LogError(Stamp("Offline quarry coordination unavailable: " + reason));
             try
             {
-                quarryNetwork = new QuarryNetwork(api, log, () => Volatile.Read(ref quarry)?.IsIntact == true, ReceiveQuarries);
+                if (!api.Ui.TryRegisterBeforeRender("area-construction.network-pump", PumpNetwork, out networkWork, out reason))
+                    throw new InvalidOperationException(reason);
+                quarryNetwork = new QuarryNetwork(api, log, () => Volatile.Read(ref quarry)?.IsIntact == true,
+                    ReceiveQuarries, active => networkWork.SetContinuous(active), () => networkWork.Request());
             }
             catch (Exception error) { log.LogError(Stamp("Quarry coordination unavailable: " + error.Message)); }
+        }
+
+        private void PumpNetwork()
+        {
+            try { quarryNetwork?.Pump(); }
+            catch (Exception error)
+            {
+                networkWork.SetContinuous(false);
+                quarryNetwork?.SuspendSending();
+                log.LogError(Stamp("Quarry coordination pump stopped: " + error));
+            }
         }
 
         private void OnStarted(MissionLifecycleNotification notification)
         {
             lock (engine)
             {
-                dragging = false;
-                toBuild.Clear();
-                storageAwaiting = null;
-                quarryOrder = null;
+                captured = false;
+                ClearLocalWork();
                 native?.ValidateStorage();
                 quarry?.Recheck();
                 mission = notification.Context;
@@ -147,10 +136,8 @@ namespace AreaConstructionTest
                 if (mission?.SessionId != notification.Context.SessionId)
                     return;
                 mission = null;
-                dragging = false;
-                toBuild.Clear();
-                storageAwaiting = null;
-                quarryOrder = null;
+                captured = false;
+                ClearLocalWork();
             }
         }
 
@@ -161,6 +148,30 @@ namespace AreaConstructionTest
             view.Hide();
         }
 
+        // Setting notifications can arrive off the Unity thread. Consume the cancellation under
+        // the engine monitor before any local input, even after a rapid disable and re-enable.
+        internal void CancelLocalWork() => Interlocked.Increment(ref cancellation);
+
+        private bool ApplyLocalActivation()
+        {
+            int generation = Volatile.Read(ref cancellation);
+            bool enabled = AreaConstructionFeature.LocalEnabled;
+            if (generation != appliedCancellation || !enabled)
+            {
+                ClearLocalWork();
+                appliedCancellation = generation;
+            }
+            return enabled;
+        }
+
+        private void ClearLocalWork()
+        {
+            dragging = false;
+            toBuild.Clear();
+            storageAwaiting = null;
+            quarryOrder = null;
+        }
+
         private static bool Primary(EditorDirector __instance, int __0)
         {
             var runtime = Volatile.Read(ref instance);
@@ -168,7 +179,15 @@ namespace AreaConstructionTest
                 return true;
             lock (runtime.engine)
             {
-                try { return !runtime.HandleButton(__instance, __0); }
+                try
+                {
+                    if (!runtime.ApplyLocalActivation())
+                    {
+                        if (__0 == 1) runtime.captured = false;
+                        return !runtime.captured;
+                    }
+                    return !runtime.HandleButton(__instance, __0);
+                }
                 catch (Exception error)
                 {
                     runtime.Fail(error);
@@ -222,7 +241,8 @@ namespace AreaConstructionTest
             if (runtime == null || !__6)
                 return true;
             lock (runtime.engine)
-                return !runtime.dragging || !PlacementVariants.SameSelection(runtime.tool, (eMappers)__0) || runtime.actor != __4;
+                return !runtime.ApplyLocalActivation() || !runtime.dragging ||
+                    !PlacementVariants.SameSelection(runtime.tool, (eMappers)__0) || runtime.actor != __4;
         }
 
         private static void AfterInput(EditorDirector __instance)
@@ -233,9 +253,9 @@ namespace AreaConstructionTest
 
             try
             {
-                runtime.quarryNetwork?.Pump();
                 bool draw;
                 QuarryOrder outbound = null;
+                int generation = 0;
                 lock (runtime.engine)
                 {
                     draw = runtime.OnDirectorFrame(__instance);
@@ -243,15 +263,16 @@ namespace AreaConstructionTest
                     {
                         outbound = runtime.quarryOrder;
                         runtime.quarryOrder = null;
+                        generation = runtime.appliedCancellation;
                     }
                 }
-                if (outbound != null &&
+                if (outbound != null && AreaConstructionFeature.LocalEnabled && generation == Volatile.Read(ref runtime.cancellation) &&
                     !runtime.quarryNetwork.TrySubmit(outbound.SessionId, outbound.Actor, outbound.Block, outbound.BuildSites, out string reason))
                     runtime.log.LogWarning(Stamp("Quarry block was not submitted: " + reason));
 
                 // Rendering and visibility tests are Unity work. Do not hold
                 // the simulation monitor while walking visible scene objects.
-                if (draw)
+                if (draw && AreaConstructionFeature.LocalEnabled)
                 {
                     if (!runtime.view.Show(__instance, runtime.map, runtime.tool, runtime.scale, runtime.shown))
                     {
@@ -270,6 +291,12 @@ namespace AreaConstructionTest
 
         private bool OnDirectorFrame(EditorDirector director)
         {
+            if (!ApplyLocalActivation())
+            {
+                if (captured && (InputState.IsMouseReleased(0) || !InputState.IsMouseHeld(0)))
+                    captured = false;
+                return false;
+            }
             if (captured)
             {
                 bool released = InputState.IsMouseReleased(0);
@@ -417,6 +444,8 @@ namespace AreaConstructionTest
             int attempted = 0, submitted = 0;
             while (toBuild.Count != 0 && attempted < CommitPerUpdate)
             {
+                if (!ApplyLocalActivation() || toBuild.Count == 0)
+                    break;
                 if (!native.HasQueueSpace)
                     break;
                 var (tile, mapper) = toBuild.Dequeue();
@@ -445,7 +474,7 @@ namespace AreaConstructionTest
                 return;
             lock (engine)
             {
-                if (mission == null || mission.IsEditor || mission.Mode.IsRealMultiplayer || quarryOrder == null)
+                if (!ApplyLocalActivation() || mission == null || mission.IsEditor || mission.Mode.IsRealMultiplayer || quarryOrder == null)
                     return;
                 var order = quarryOrder;
                 quarryOrder = null;
@@ -549,9 +578,7 @@ namespace AreaConstructionTest
             lock (engine)
             {
                 faulted = true;
-                dragging = false;
-                toBuild.Clear();
-                quarryOrder = null;
+                ClearLocalWork();
             }
             log.LogError(Stamp(error.ToString()));
         }
