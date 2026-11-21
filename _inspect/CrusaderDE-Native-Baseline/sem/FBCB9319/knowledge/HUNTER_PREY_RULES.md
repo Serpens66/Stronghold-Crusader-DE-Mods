@@ -551,3 +551,65 @@ own-player chicken with a real arrow and entered the meat return path.
 The logs distinguish an intentional switch to nearer prey from the corridor
 abort. Neither eight-player run reproduced a population-wide exclusion of all
 reachable prey.
+
+## Hunter hut work cadence and multiplayer repair (2026-11-21) [Scope: Vanilla]
+
+Static audit of the installed DLL, SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The relevant PE instructions and table entries were checked against the semantic export.
+
+- Building dispatcher `0xC60F0` advances the production frame before calling the
+  type handler. With cycle mode nonzero, `0xC633C` increments the current tick
+  counter (public `GameBuilding +0x18`). The signed 32-bit comparison at
+  `0xC6355/0xC6359` tests current minus last-step counter (public `+0x14`)
+  against the configured interval (public `+0x10`). At the threshold it copies
+  current to last-step and adds the production increment (public `+0x2E`) to the
+  frame (public `+0x20`). The type-7 constructor default is 4 ticks per step
+  (`0xB4B8B`, table `0x2E8AA0 + 7*4`).
+- Handler `0xAE570` derives cycle mode from the worker interaction in the
+  building record. Its phase word (public `+0x118`) runs through phase 0
+  (16 frame advances), phases 1–6 (32 each), and phase 7 (16).
+  The animation data at `0x2DF558/0x2DF570/0x2DF598` and the endpoint branches
+  confirm those boundaries. The six middle phases each call `0xB6100` at
+  `0xAE928` with meat +1 and cap 6. The handler resets the frame at each phase
+  transition and signals completion at `0xAEA8C` (public `+0x2C`).
+  A regular uninterrupted cycle takes 224 frame advances, nominally 896
+  simulation ticks at the default interval. This count covers the hut phases.
+  The initial counter alignment, the worker's entry and exit, and transport
+  to the granary are separate from that count.
+- The host's repair loop `0x251F0` selects units and buildings by their
+  per-slot checksums. Chore 56 (`0x15710`) transfers unit ID, the native unit
+  record and its path. Chore 57 (`0x158B0`) transfers the building ID and all
+  `0x32C` bytes starting at the public building record. The building frame,
+  phase, interval and both cadence counters are therefore present when that
+  building is sent.
+- On the receiving peer, repair completion Chore 55 (`0x15200`) calls
+  `0xCA110(999)` at `0x15459` before the final checksum. The normalization
+  pass loads the type default at `0xCA371` and writes it to public building
+  `+0x10` at `0xCA379`. Hunter huts take this path and return to interval 4
+  even when a different interval was present in the Chore 57 payload.
+- The ordinary building checksum in `0x22020` includes public `+0x10`
+  (`0x2222D`) and the frame word at `+0x20` (`0x22213`), but neither
+  cadence counter at `+0x14/+0x18`. The hashed byte block starts at public
+  `+0xD0` and includes the phase word. A difference confined to the two
+  cadence counters therefore does not select a building for native repair.
+
+## APIShared Hunter state and repair transport (2026-11-21) [mod integration]
+
+In APIShared source at `13f7b1c98951`, the Hunter capture at `0x1306AE`
+keeps the Hunter Global ID, corpse Global ID and prey type in a private row
+keyed by Hunter slot. This row is saved separately and is absent from the
+native unit checksum and Chore 56 payload. The live unit's target Global ID
+can validate the row after the corpse disappears, but it does not supply the
+prey's type.
+
+APIShared already owns the receive validation, checksum contribution, and
+measurement, packing and unpacking of extended Chore 56 production records
+(`WorkerProductionStateNativeRuntime`). Its optional
+`WeaponProductionTransferNativeRuntime` also owns the Chore 57 extension
+and building checksum span. These paths currently carry production and
+weapon-workshop state. The Hunter record is outside those paths. The frozen
+huntable-prey catalogue already participates in the production peer agreement.
+
+The findings above are static. No modified Hunter work cadence or Hunter-specific
+repair payload was exercised in a host-client game.
