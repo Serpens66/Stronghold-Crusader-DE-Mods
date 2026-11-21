@@ -10,7 +10,7 @@
     "Dependencies":  [
                          {
                              "GUID":  "APIShared_Serp",
-                             "MinimumVersion":  "0.56.0"
+                             "MinimumVersion":  "0.60.1"
                          }
                      ],
     "Manifest":  1,
@@ -69,7 +69,7 @@
                               "Changes":  [
                                               "Include the LineUp Patrol passthrough fix, preserved Map/Trail working settings, the already-satisfied market-price correction and more specific bounded support logs for settings, formations, prices, bandits and AI/AIV/AIC decisions.",
                                               "Add Personal Settings to the shared reset dropdown for all compatible mods while retaining the active Map/Trail context and personal storage.",
-                                              "Clarify the visible shared-reset label as Reset ALL modsettings to: (German: ALLE Modsettings zurÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼cksetzen auf:) while retaining the existing tooltip and confirmation.",
+                                              "Clarify the visible shared-reset label as Reset ALL modsettings to: (German: ALLE Modsettings zurÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼cksetzen auf:) while retaining the existing tooltip and confirmation.",
                                               "Bugfixes and QoL: add the human Lord return-teleport fix, remembered formation width/depth proportions and a faster native Assassin route search; move the spectator features into the separate Spectator mod.",
                                               "Extra Features: configurable victory loot (gold, goods, gold maximum) and separate civilian/military enemy-proximity radii.",
                                               "CastlePlanner: multiplayer spectators can view the accepted AI castle plan of the viewed player.",
