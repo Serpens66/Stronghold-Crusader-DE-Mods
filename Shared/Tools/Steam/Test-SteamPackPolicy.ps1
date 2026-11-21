@@ -343,8 +343,6 @@ try {
     if (Test-Path -LiteralPath $testRoot) { Remove-Item -LiteralPath $testRoot -Recurse -Force }
 }
 
-Write-Host 'Steam pack policy tests succeeded.' -ForegroundColor Green
-
 Assert-True ($createScriptText.Contains("State = 'External'; RelativePath = ''")) 'APIShared must be recorded as an external prerequisite'
 Assert-True ($createScriptText.Contains('EXTERNAL-V1|')) 'old bundled content signatures must not be reused'
 Assert-True ($createScriptText.Contains('Get-LegacyApiSharedFiles -History $uploadHistory')) 'migration evidence must cover confirmed historical deliveries'
@@ -353,7 +351,11 @@ Assert-True ($createScriptText.Contains("-Arguments @('/nopause','/noinstall','/
 Assert-True ($createScriptText.IndexOf("Fail-Pack 2 'Prepare APIShared first") -lt $createScriptText.IndexOf('foreach ($mod in @($mods | Where-Object NeedsSourceEdit)) { Set-ModCompatibility')) 'missing APIShared releases must fail before consumer source changes'
 foreach ($modName in $configuredMods) {
     $driver = [IO.File]::ReadAllText((Join-Path $workspace "$modName/build.bat"))
-    # Limited source guard for the declared no-install branch; game/install behavior is tested separately.
-    $noInstallBranch=[regex]::Match($driver,'(?im)^if "%NO_INSTALL%"=="1" goto ([A-Za-z0-9_]+)\s*$')
-    Assert-True ($noInstallBranch.Success -and $driver.Contains(':'+$noInstallBranch.Groups[1].Value)) "$modName must support preparation without touching installed files"
+    # Limited source guard for the declared no-install exit; build behavior is checked separately.
+    $noInstallBranch = [regex]::Match($driver, '(?im)^if "%NO_INSTALL%"=="1" goto ([A-Za-z0-9_]+)\s*$')
+    $hasNoInstallLabel = $noInstallBranch.Success -and $driver.Contains(':' + $noInstallBranch.Groups[1].Value)
+    $hasNoInstallExit = $driver -match '(?im)^if "%NO_INSTALL%"=="1" \([ \t]*\r?\n(?:[ \t]+echo[^\r\n]*\r?\n)*[ \t]+exit /b(?: [^\r\n]+)?\r?\n\)'
+    Assert-True ($hasNoInstallLabel -or $hasNoInstallExit) "$modName must support preparation without touching installed files"
 }
+
+Write-Host 'Steam pack policy tests succeeded.' -ForegroundColor Green
