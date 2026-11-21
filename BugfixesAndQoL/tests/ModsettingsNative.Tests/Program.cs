@@ -221,5 +221,7 @@ namespace Shared
         internal static void LogInfo(BepInEx.Logging.ManualLogSource log,string message) { }
         // NativePatchGuard reports foreign patches here; a test must see them.
         internal static void LogError(BepInEx.Logging.ManualLogSource log,string message) => Console.Error.WriteLine(message);
+        internal static void LogHookInstallFailure(BepInEx.Logging.ManualLogSource log, string feature, string hook, string reason) =>
+            LogError(log, $"{feature}: {hook}: {reason}");
     }
 }
