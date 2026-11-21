@@ -12,7 +12,7 @@ using System.Reflection;
 namespace BugfixesAndQoL
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.3")]
-    [BepInDependency(ApiSharedGuid, "0.60.0")]
+    [BepInDependency(ApiSharedGuid, "0.60.1")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
@@ -38,7 +38,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.234";
+        public const string PluginVersion = "1.0.235";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;
@@ -236,6 +236,9 @@ namespace BugfixesAndQoL
         // Runs inside the initial native installation window; false = stopped fail-closed.
         private bool InitializeLibraryRuntime(CrusaderLibraryLoadContext context)
         {
+            if (!APIShared.Maps.MapLoadPolicy.TryRegister(PluginGuid, LongMapFileNames.Decide, out string mapPolicyReason) ||
+                !string.IsNullOrEmpty(mapPolicyReason))
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL.MapLoadPolicy", mapPolicyReason);
             // Register even when local controls or the optional native adapter are unavailable.
             AreaDemolition.AreaDemolitionFeature.RegisterNetwork();
             // Register packet types immediately after Script Extender and before settings can vary.

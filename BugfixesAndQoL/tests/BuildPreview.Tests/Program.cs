@@ -153,6 +153,7 @@ namespace BugfixesAndQoL.BuildPreview
                     preview[count-1]=55;preview[count-2]=0x340010;
                     changed=FarmPreviewPolicy.Mark(mapper,true,logic,terrain,preview,out c);
                     Assert(preview[count-1]==55 && preview[count-2]==0x340010 && changed==(delta<0 ? count-(need+delta)-2 : 0), "Resource preserves obstacle/building tokens");
+                    Assert(preview[need] == (delta < 0 ? 60 : 62), "Resource warning uses the brown palette entry only below the threshold");
                 }
             }
             TooltipTests();
@@ -203,9 +204,21 @@ namespace BugfixesAndQoL.BuildPreview
                         }
                     }
                     view.Logic2Grid[0] = (byte)TileType.NoneOrDirt;
+                    bool farm = FarmPreviewPolicy.IsFarm(mapper);
+                    if (farm)
+                    {
+                        // A second dirt tile is blocked by an obstacle. Its Vanilla red takes precedence.
+                        view.Logic2Grid[1] = (byte)TileType.NoneOrDirt;
+                        view.ConstructionGrid[1] = 55;
+                    }
                     Assert(FootprintMarker.TryApply(image, manager, 0, 0, scale, out MarkResult result, mapper), "Complete footprint sampled: " + mapper);
-                    int expected = FarmPreviewPolicy.IsFarm(mapper) ? 1 : count;
-                    Assert(result.Changed == expected && result.Coverage == count-1 && view.ConstructionGrid[0] == FarmPreviewPolicy.RedPreview, "Production marking includes packed index zero: " + mapper);
+                    int expected = farm ? 1 : count;
+                    Assert(result.Changed == expected && result.Coverage == count - (farm ? 2 : 1) && view.ConstructionGrid[0] == 60, "Ground warning uses the brown palette entry at packed index zero: " + mapper);
+                    if (farm)
+                    {
+                        Assert(view.ConstructionGrid[1] == 55 && view.ConstructionGrid[2] == 62, "Mixed footprint preserves red obstacles and suitable dark tiles: " + mapper);
+                        view.Logic2Grid[1] = (byte)TileType.OasisGrass;
+                    }
                     for (int i = 0; i < count; i++) view.ConstructionGrid[i] = FarmPreviewPolicy.DarkPreview;
                     foreach (int missingCell in new[] { 0, count-1 })
                     {

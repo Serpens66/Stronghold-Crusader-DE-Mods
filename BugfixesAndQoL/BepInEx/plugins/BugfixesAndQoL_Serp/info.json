@@ -3,19 +3,25 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.234",
+  "Version": "1.0.235",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.3",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.60.0"
+      "MinimumVersion": "0.60.1"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.235",
+      "Changes": [
+        "Load Skirmish and multiplayer maps with long filenames without requiring a rename. Report overlong file paths before starting the match."
+      ]
+    },
     {
       "Version": "1.0.234",
       "Changes": [

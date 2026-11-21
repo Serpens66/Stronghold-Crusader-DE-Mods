@@ -24,6 +24,7 @@ namespace UiAcceptance
             MissionReadinessSteps.Register();
             WorkerProductionSteps.Register();
             LocalAutosaveSteps.Register();
+            LongMapSteps.Register();
         }
     }
 }

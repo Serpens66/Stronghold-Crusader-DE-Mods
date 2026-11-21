@@ -15,6 +15,7 @@
     <Reference Include="System.Buffers"><HintPath>$(ExtenderDir)\System.Buffers.dll</HintPath></Reference>
     <Reference Include="System.Runtime.CompilerServices.Unsafe"><HintPath>$(ExtenderDir)\System.Runtime.CompilerServices.Unsafe.dll</HintPath></Reference>
     <Compile Include="../../../APIShared/src/Buildings/BuildingAccess.cs" />
+    <Compile Include="../../../APIShared/src/Maps/MapLoadPolicy.cs" />
     <Compile Include="Program.cs" /><Compile Include="Environment.cs" />
     <Compile Include="..\..\..\_inspect\UiWorkBoundaryDouble.cs" />
     <Compile Include="..\..\..\APIShared\src\Presentation\UiWork\UiWorkContracts.cs" />
@@ -31,6 +32,8 @@
     <Compile Include="..\..\src\VanillaPerformance\SpriteSheetMergeMode.cs" />
     <Compile Include="..\..\src\VanillaPerformance\RadarThrottlePolicy.cs" />
     <Compile Include="RadarThrottleTests.cs" />
+    <Compile Include="..\..\src\Lobby\LongMapFileNames.cs" />
+    <Compile Include="LongMapFileNamesTests.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

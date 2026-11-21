@@ -13,7 +13,7 @@ namespace BugfixesAndQoL.BuildPreview
     internal static class FarmPreviewPolicy
     {
         // Native construction palette protocol tokens, not terrain/building IDs.
-        internal const int RedPreview = 55, DarkPreview = 62;
+        internal const int GroundWarningPreview = 60, DarkPreview = 62;
         internal static int Scale(eMappers mapper)
         {
             switch (mapper)
@@ -60,7 +60,7 @@ namespace BugfixesAndQoL.BuildPreview
             if (!blocked) return 0;
             int changed=0;
             for (int i=0;i<preview.Length;i++)
-                if (preview[i] == DarkPreview && Missing(mapper,counts,logic[i],terrain[i])) { preview[i]=RedPreview; changed++; }
+                if (preview[i] == DarkPreview && Missing(mapper,counts,logic[i],terrain[i])) { preview[i]=GroundWarningPreview; changed++; }
             return changed;
         }
     }
