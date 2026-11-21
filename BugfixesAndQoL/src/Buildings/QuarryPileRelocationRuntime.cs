@@ -130,13 +130,7 @@ namespace BugfixesAndQoL
             networkInitialized = true;
         }
 
-        public void InstallNativeFunctions(
-            IntPtr libraryHandle,
-            ReadOnlySpan<byte> memory,
-            bool referenceHashMatches)
-        {
-            targetSearch.InstallNativeFunctions(libraryHandle, memory, referenceHashMatches);
-        }
+        public void InitializePileLayout() => targetSearch.InitializeLayout();
 
         public void Initialize()
         {

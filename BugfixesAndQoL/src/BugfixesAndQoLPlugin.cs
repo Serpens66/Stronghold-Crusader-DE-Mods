@@ -12,7 +12,7 @@ using System.Reflection;
 namespace BugfixesAndQoL
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.3")]
-    [BepInDependency(ApiSharedGuid, "0.60.1")]
+    [BepInDependency(ApiSharedGuid, "0.61.0")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
@@ -373,7 +373,7 @@ namespace BugfixesAndQoL
             TroopPanelPageCountFix.Install(Logger, Settings);
             try
             {
-                EditorRegions.EditorRegionRefreshRuntime.Install(context, Logger, Settings);
+                EditorRegions.EditorRegionRefreshRuntime.Install(Logger, Settings);
             }
             catch (Exception ex)
             {

@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using APIShared.Networking;
 
 namespace BugfixesAndQoL.AreaDemolition
 {
@@ -14,24 +16,18 @@ namespace BugfixesAndQoL.AreaDemolition
         }
     }
 
-    internal enum ReadinessAckState { Pending, Ready, Mismatch }
-
-    // Called under the network owner's lock, including for native local replies.
-    // A world token can recur after a roster change; only this outgoing attempt admits ACKs.
+    // Validates the remaining demolition wire fields before the shared proof accepts a receipt.
     internal sealed class ReadinessAckLedger
     {
-        private readonly Dictionary<ulong,string> expected=new Dictionary<ulong,string>();
-        private readonly Dictionary<ulong,Receipt> receipts=new Dictionary<ulong,Receipt>();
-        private ulong localSteam;
-        private string localNonce="",token="";
-        private long attempt;
-        private readonly struct Receipt
-        {
-            internal Receipt(int command,int tick){Command=command;Tick=tick;}
-            internal readonly int Command,Tick;
-        }
+        private readonly NativeReadinessProof proof = new NativeReadinessProof();
+        private string localNonce = "";
+
         internal void Clear()
-        {expected.Clear();receipts.Clear();localSteam=0;localNonce=token="";attempt=0;}
+        {
+            proof.Clear();
+            localNonce = "";
+        }
+
         internal void Begin(ulong ownSteam,string ownNonce,string worldToken,long proofAttempt,ProtocolPeer[] vector)
         {
             Clear();
@@ -40,24 +36,17 @@ namespace BugfixesAndQoL.AreaDemolition
             var copy=ProtocolPolicy.CanonicalPeers(vector);
             ProtocolPolicy.EncodePeers(copy,true);
             if(!ProtocolPolicy.OwnFreshNonce(copy,ownSteam,ownNonce))throw new ArgumentException("The readiness vector omits the local world.");
-            foreach(var peer in copy)expected.Add(peer.SteamId,peer.Nonce);
-            localSteam=ownSteam;localNonce=ownNonce;token=worldToken;attempt=proofAttempt;
+            proof.Begin(ownSteam, worldToken, proofAttempt,
+                copy.Select(peer => new KeyValuePair<ulong, string>(peer.SteamId, peer.Nonce)));
+            localNonce = ownNonce;
         }
-        internal bool TryAccept(ulong sender,DemolitionControlPacket ack)
-        {
-            if(attempt<=0 || ack==null || ack.Protocol!=ProtocolPolicy.Version || ack.Kind!=(byte)ControlPacketKind.ProofAck ||
-                ack.Operation!=attempt || ack.Token!=token || ack.ProbeNonce!=localNonce || ack.Batch!=0 ||
-                !expected.TryGetValue(sender,out string peerNonce) || ack.PeerNonce!=peerNonce)return false;
-            receipts[sender]=new Receipt(ack.Command,ack.Tick);
-            return true;
-        }
-        internal ReadinessAckState Evaluate()
-        {
-            if(attempt<=0 || receipts.Count!=expected.Count || !receipts.TryGetValue(localSteam,out var own))return ReadinessAckState.Pending;
-            foreach(var receipt in receipts.Values)
-                if(receipt.Command!=own.Command || receipt.Tick!=own.Tick)return ReadinessAckState.Mismatch;
-            return ReadinessAckState.Ready;
-        }
+
+        internal bool TryAccept(ulong sender,DemolitionControlPacket ack) =>
+            ack != null && ack.Protocol == ProtocolPolicy.Version && ack.Kind == (byte)ControlPacketKind.ProofAck &&
+            ack.ProbeNonce == localNonce && ack.Batch == 0 &&
+            proof.TryAccept(sender, ack.PeerNonce, ack.Token, ack.Operation, ack.Command, ack.Tick);
+
+        internal NativeReadinessState Evaluate() => proof.Evaluate();
     }
 
     internal enum GameplayDispatchPhase { Queued, Submitting, Submitted, Cancelled }

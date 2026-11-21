@@ -160,7 +160,7 @@ namespace AreaConstructionTest
                 (IsStorage(tool) && storageNeighbor?.IsIntact != true) ||
                 Read(PreviewOverride) != 0 ||
                 unchecked((long)GameGlobalsManager.Instance.ChoreManagerVA) != image.ToInt64() + Queue ||
-                !GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(actor, out GamePlayerResources* player))
+                !ConstructionCosts.TryGetPlayerMaterialStock(actor, out var stock, out _))
                 return false;
             if (tool == eMappers.MAPPER_OIL_SMELTER)
             {
@@ -171,15 +171,13 @@ namespace AreaConstructionTest
                     return false;
             }
 
-            resources[0] = player->r_TotalGoodsWoodPlanks;
-            resources[1] = player->r_TotalGoodsStoneBlocks;
-            resources[2] = player->r_TotalGoodsIronIngots;
-            resources[3] = player->r_TotalGoodsPitchRaw;
-            resources[4] = player->r_TotalGoodsGold;
+            for (int i = 0; i < GoodsCount; i++)
+                resources[i] = stock.GetAmount(Goods[i]);
             bool free = editor || Read(FreeBuild) != 0;
             freeWoodcutters = free ? 0 : FreeWoodcutterQuota(actor);
             freeGranaries = free ? 0 : FreeGranaryQuota(actor);
-            Quote(tool, actor, free, cost);
+            if (!Quote(tool, actor, free, cost))
+                return false;
             storageAllowance = IsStorage(tool) && storageLimitPatch?.IsIntact != true
                 ? StorageAllowance(tool, actor) : int.MaxValue;
 
@@ -225,8 +223,8 @@ namespace AreaConstructionTest
                     freeGranaries--;
                 else if (pendingTool == tool)
                     Spend(cost);
-                else if (Supports(pendingTool))
-                    Spend(OtherQuote(pendingTool, actor));
+                else if (Supports(pendingTool) && Quote(pendingTool, actor, false, otherCost))
+                    Spend(otherCost);
                 else
                 {
                     // Specialized construction can charge or occupy a different
@@ -259,29 +257,24 @@ namespace AreaConstructionTest
             return true;
         }
 
-        private int[] OtherQuote(eMappers tool, int actor)
+        private static bool Quote(eMappers tool, int actor, bool free, int[] result)
         {
-            Quote(tool, actor, false, otherCost);
-            return otherCost;
-        }
-
-        private static void Quote(eMappers tool, int actor, bool free, int[] result)
-        {
-            Array.Clear(result, 0, result.Length);
             if (free)
-                return;
+            {
+                Array.Clear(result, 0, result.Length);
+                return true;
+            }
 
-            var buildings = GameBuildingManagerAPI.Instance;
-            eStructs type = tool.ConvertToEStructs();
-            result[0] = buildings.GetWoodCost(type);
-            result[1] = buildings.GetStoneCost(type);
-            result[2] = buildings.GetIronIngotCost(type);
-            result[3] = buildings.GetRawPitchCost(type);
-            result[4] = buildings.GetGoldCost(type);
-            if (HumanConstructionCosts.TryGetEffectiveCosts(ConstructionCostTarget.FromMapper(tool), actor, out var additional))
+            var target = ConstructionCostTarget.FromMapper(tool);
+            if (!ConstructionCosts.TryGetCurrent(target, out var baseCosts, out _))
+                return false;
+            for (int i = 0; i < GoodsCount; i++)
+                result[i] = baseCosts.GetAmount(Goods[i]);
+            if (HumanConstructionCosts.TryGetEffectiveCosts(target, actor, out var additional))
                 for (int i = 0; i < GoodsCount; i++)
                     if (additional.TryGetValue(Goods[i], out int amount) && amount > 0)
                         result[i] = checked(result[i] + amount);
+            return true;
         }
 
         internal bool HasQueueSpace => freeSlots > 0 && outboundSlots > 0;

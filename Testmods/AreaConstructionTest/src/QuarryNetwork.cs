@@ -35,7 +35,7 @@ namespace AreaConstructionTest
         private readonly Dictionary<ulong, string> nonces = new Dictionary<ulong, string>();
         private readonly Dictionary<ulong, string> advertised = new Dictionary<ulong, string>();
         private readonly Dictionary<ulong, string> challenges = new Dictionary<ulong, string>();
-        private readonly Dictionary<ulong, ProofReceipt> acknowledgements = new Dictionary<ulong, ProofReceipt>();
+        private readonly NativeReadinessProof acknowledgements = new NativeReadinessProof();
         private readonly Dictionary<string, Peer[]> proven = new Dictionary<string, Peer[]>(StringComparer.Ordinal);
         private readonly Dictionary<(ulong Steam, string Nonce), long> lastOperations =
             new Dictionary<(ulong, string), long>();
@@ -56,13 +56,6 @@ namespace AreaConstructionTest
             internal readonly ulong Steam;
             internal readonly int Player;
             internal readonly string Nonce;
-        }
-
-        private readonly struct ProofReceipt
-        {
-            internal ProofReceipt(int command, int tick) { Command = command; Tick = tick; }
-            internal readonly int Command;
-            internal readonly int Tick;
         }
 
         internal QuarryNetwork(ModApiClient api, ManualLogSource log, Func<bool> nativeAvailable,
@@ -187,14 +180,16 @@ namespace AreaConstructionTest
                 }
                 if (!ready && localPlayer != 0 && now >= nextProof && roster.All(peer => nonces.ContainsKey(peer.Steam)))
                 {
-                    byte[] vector = PackPeers(roster.Select(peer => new Peer(peer.Steam, peer.Player, nonces[peer.Steam])).ToArray(), true);
+                    var peers = roster.Select(peer => new Peer(peer.Steam, peer.Player, nonces[peer.Steam])).ToArray();
+                    byte[] vector = PackPeers(peers, true);
                     sendingToken = WorldToken(vector);
-                    acknowledgements.Clear();
+                    acknowledgements.Begin(self, sendingToken, ++proofAttempt,
+                        peers.Select(peer => new KeyValuePair<ulong, string>(peer.Steam, peer.Nonce)));
                     nextProof = now + 3 * Stopwatch.Frequency;
                     proof = new QuarrySimulationPacket
                     {
                         Kind = (byte)QuarrySimulationKind.ReadyProof,
-                        Sequence = ++proofAttempt,
+                        Sequence = proofAttempt,
                         Token = sendingToken,
                         Body = vector
                     };
@@ -364,19 +359,14 @@ namespace AreaConstructionTest
                     }
                     return;
                 }
-                if (packet.Token == sendingToken && packet.Attempt == proofAttempt &&
-                    nonces.TryGetValue(message.SenderSteamId, out string known) && known == packet.Nonce)
-                    AcceptReceipt(message.SenderSteamId, new ProofReceipt(packet.Command, packet.Tick));
+                AcceptReceipt(message.SenderSteamId, packet.Nonce, packet.Token, packet.Attempt, packet.Command, packet.Tick);
             }
         }
 
-        private void AcceptReceipt(ulong sender, ProofReceipt receipt)
+        private void AcceptReceipt(ulong sender, string senderNonce, string token, long attempt, int commandId, int tick)
         {
-            acknowledgements[sender] = receipt;
-            if (!acknowledgements.TryGetValue(self, out ProofReceipt own))
-                return;
-            ready = roster.All(peer => acknowledgements.TryGetValue(peer.Steam, out ProofReceipt remote) &&
-                remote.Command == own.Command && remote.Tick == own.Tick);
+            if (acknowledgements.TryAccept(sender, senderNonce, token, attempt, commandId, tick))
+                ready = acknowledgements.Evaluate() == NativeReadinessState.Ready;
         }
 
         private void ReceiveSimulation(AuthenticatedChoreMessage<QuarrySimulationPacket> message)
@@ -426,8 +416,7 @@ namespace AreaConstructionTest
                 }
                 if (sender.Steam == self)
                 {
-                    if (packet.Token == sendingToken && packet.Sequence == proofAttempt)
-                        AcceptReceipt(self, new ProofReceipt(message.CommandId, message.ScheduledTick));
+                    AcceptReceipt(self, nonce, packet.Token, packet.Sequence, message.CommandId, message.ScheduledTick);
                     return;
                 }
                 QueueControl(sender.Steam, new QuarryControlPacket

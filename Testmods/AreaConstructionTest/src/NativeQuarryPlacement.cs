@@ -4,14 +4,11 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using APIShared;
 using APIShared.Buildings;
-using APIShared.NativeSites;
+using APIShared.Pathfinding;
 using BepInEx.Logging;
-using R3;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using SHCDESE.DebugMenu;
-using SHCDESE.EventAPI;
-using SHCDESE.EventAPI.Buildings;
 using SHCDESE.GameGlobals;
 using SHCDESE.ImMenu.MapEditor;
 using SHCDESE.Interop;
@@ -21,17 +18,9 @@ namespace AreaConstructionTest
     internal sealed unsafe class NativeQuarryPlacement
     {
         internal const int QuarrySize = 6;
-        internal const int PileSize = 2;
-
-        private const int FinderRva = 0xBD7A0;
-        private const int ComponentRebuildRva = 0xE49D0;
-        private const int PathContextRva = 0x60AD660;
         private const int BuildingManagerRva = 0x64CCBB0;
         private const int TileManagerRva = 0x405EDB0;
-        private const int SearchOffsetsRva = BuildingManagerRva + 0x31B7D0;
-        private const int PlacementScratchRva = 0x60AD458;
         private const int SkipValidationRva = 0x60AD4A8;
-        private const int PlacementStateRva = 0x60AD4AC;
         private const int WorldKindRva = 0x3665F28;
         private const int FreeBuildRva = 0x3665FC8;
         private const int PlacementDisabledRva = 0x366A0F8;
@@ -42,43 +31,13 @@ namespace AreaConstructionTest
         private const int ParticipantFlagsRva = 0x8574C44;
         private const int PlacementExtraRva = 0x67E83D0;
 
-        private static readonly (int Rva, byte[] Bytes)[] NativeSpans =
-        {
-            (FinderRva, new byte[] { 0x48, 0x89, 0x5C, 0x24, 0x18, 0x48, 0x89, 0x6C, 0x24, 0x20, 0x89, 0x54, 0x24, 0x10, 0x56 }),
-            (0x76968, new byte[] { 0xE8, 0x33, 0x6E, 0x04, 0x00, 0x83, 0xBB, 0xFC, 0xE6, 0x04, 0x02, 0x00, 0x74, 0x1C }),
-            (0x767C1, new byte[] { 0xE8, 0x0A, 0xE2, 0x06, 0x00 }),
-            (0xBD817, new byte[] { 0xE8, 0x54, 0x2A, 0x00, 0x00 }),
-            (0xBD851, new byte[] { 0xE8, 0x0A, 0xA6, 0xFB, 0xFF, 0x83, 0x3D, 0x4F, 0xFC, 0xFE, 0x05, 0x00, 0x75, 0x4A })
-        };
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate void FindPile(IntPtr manager, int actor, int x, int y, int size, int pileSize,
-            int outwardOffset, short mapper, int pathComponent);
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate int RebuildComponents(IntPtr context, int force);
-
-        private sealed class PileScope
-        {
-            internal PileScope(int actor, Predicate<Tile> allows)
-            {
-                Actor = actor;
-                Allows = allows;
-            }
-
-            internal readonly int Actor;
-            internal readonly Predicate<Tile> Allows;
-            internal bool Observed;
-        }
-
-        [ThreadStatic] private static PileScope active;
+        private const int BuildFinderCallRva = 0x76968;
+        private static readonly byte[] BuildFinderCall =
+            { 0xE8, 0x33, 0x6E, 0x04, 0x00, 0x83, 0xBB, 0xFC, 0xE6, 0x04, 0x02, 0x00, 0x74, 0x1C };
 
         private readonly IntPtr image, tileManager, buildingManager;
         private readonly ManualLogSource log;
-        private readonly FindPile findPile;
-        private readonly RebuildComponents rebuildComponents;
         private readonly FieldInfo mirrorField;
-        private readonly byte[] savedPlacement = new byte[0x150];
         private bool intact;
 
         private NativeQuarryPlacement(IntPtr image, ManualLogSource log)
@@ -87,8 +46,6 @@ namespace AreaConstructionTest
             this.log = log;
             tileManager = IntPtr.Add(image, TileManagerRva);
             buildingManager = IntPtr.Add(image, BuildingManagerRva);
-            findPile = Marshal.GetDelegateForFunctionPointer<FindPile>(IntPtr.Add(image, FinderRva));
-            rebuildComponents = Marshal.GetDelegateForFunctionPointer<RebuildComponents>(IntPtr.Add(image, ComponentRebuildRva));
             mirrorField = typeof(DebugMenuManager).GetField("_mirrorTool", BindingFlags.Instance | BindingFlags.NonPublic);
             if (mirrorField?.FieldType != typeof(MirrorTool))
                 throw new InvalidOperationException("Script Extender building-mirror contract differs.");
@@ -100,21 +57,11 @@ namespace AreaConstructionTest
             try
             {
                 var adapter = new NativeQuarryPlacement(context.ModuleHandle, log);
-                foreach (var span in NativeSpans)
-                {
-                    if (span.Rva > context.Memory.Length - span.Bytes.Length ||
-                        !context.Memory.Slice(span.Rva, span.Bytes.Length).SequenceEqual(span.Bytes))
-                        throw new InvalidOperationException("Load-image bytes differ at RVA 0x" + span.Rva.ToString("X") + ".");
-                }
+                if (BuildFinderCallRva > context.Memory.Length - BuildFinderCall.Length ||
+                    !context.Memory.Slice(BuildFinderCallRva, BuildFinderCall.Length).SequenceEqual(BuildFinderCall))
+                    throw new InvalidOperationException("Load-image bytes differ at quarry construction's finder call.");
                 adapter.RequireLiveSpans();
-                const string operation = "AreaConstructionTest quarry component refresh";
-                var claim = NativeSiteRegistry.Register(Plugin.Guid, operation, ComponentRebuildRva, 1, NativeSiteMode.CallOnly);
-                if (!claim.Succeeded)
-                    throw new InvalidOperationException(claim.Reason);
-                // The Extender owns the validator detour and roots the subscriber for the process.
-                BuildingR3EventHooks.OnPlacementValidation.Observable.Subscribe(adapter.ObservePlacement);
                 Volatile.Write(ref adapter.intact, true);
-                log.LogInfo(Stamp("Quarry pile finder bound at reference RVA 0xBD7A0."));
                 return adapter;
             }
             catch (Exception exception)
@@ -124,22 +71,12 @@ namespace AreaConstructionTest
             }
         }
 
-        internal bool IsIntact => Volatile.Read(ref intact);
+        internal bool IsIntact => Volatile.Read(ref intact) && QuarryPilePlacement.InitialSearchAvailable;
 
         // Invoke only under the engine monitor while executing a released block.
         // Pathfinding's registered entry detour forwards normal simulation calls.
-        internal bool RefreshBeforeBuild()
-        {
-            if (!IsIntact || active != null || !ManagersMatch())
-                return false;
-            var context = GamePathingManagerAPI.Instance.GetPathfindingContextView();
-            if (context.Address != IntPtr.Add(image, PathContextRva))
-                return false;
-            if (context.ComponentGridDirty == 0)
-                return true;
-            uint previous = context.ComponentGeneration;
-            return rebuildComponents(context.Address, 1) == 1 && context.ComponentGeneration != previous;
-        }
+        internal bool RefreshBeforeBuild() => IsIntact && ManagersMatch() &&
+            PathComponentRefresh.TryRefresh(force: false, out _, out _);
 
         internal void Recheck()
         {
@@ -156,56 +93,21 @@ namespace AreaConstructionTest
         internal bool TryChoose(int actor, Tile cursor, Predicate<Tile> acceptsPileCorner, out Tile pileCorner)
         {
             pileCorner = default;
-            if (!IsIntact || active != null || (uint)(actor - 1) >= 8 || !ManagersMatch())
+            if (!IsIntact)
                 return false;
 
             var quarry = Corner(cursor);
-            var tiles = GameTileManagerAPI.Instance;
-            if (!ValidSquare(tiles, quarry, QuarrySize))
+            if (!QuarryPilePlacement.TryFindInitialCandidate(actor, quarry.X, quarry.Y,
+                (x, y) => acceptsPileCorner(new Tile(x, y)), out int pileX, out int pileY))
                 return false;
-            int quarryTileId = tiles.GetTileId(quarry.X, quarry.Y);
-            Span<ushort> components = tiles.GetPathConnectionLayer();
-            if ((uint)quarryTileId >= (uint)components.Length)
-                return false;
-
-            var scope = new PileScope(actor, p => ValidSquare(tiles, p, PileSize) && acceptsPileCorner(p));
-            int component = components[quarryTileId];
-            long oldOffsets = Marshal.ReadInt64(image, SearchOffsetsRva);
-            var placement = IntPtr.Add(image, PlacementScratchRva);
-            Marshal.Copy(placement, savedPlacement, 0, savedPlacement.Length);
-            active = scope;
-            try
-            {
-                // Vanilla grows the search square three times, then extends the same perimeter.
-                for (int round = 1; round <= 11; round++)
-                {
-                    int radius = Math.Min(round, 3);
-                    Write(PlacementStateRva, 1);
-                    findPile(buildingManager, actor, quarry.X - radius, quarry.Y - radius,
-                        QuarrySize + radius * 2, PileSize, Math.Max(0, round - 3), (short)eMappers.MAPPER_QUARRYPILE, component);
-                    if (!scope.Observed || Read(PlacementStateRva) != 0)
-                        continue;
-                    var found = new Tile(quarry.X - radius + Read(SearchOffsetsRva),
-                        quarry.Y - radius + Read(SearchOffsetsRva + sizeof(int)));
-                    if (!scope.Allows(found))
-                        return false;
-                    pileCorner = found;
-                    return true;
-                }
-                return false;
-            }
-            finally
-            {
-                active = null;
-                Marshal.Copy(savedPlacement, 0, placement, savedPlacement.Length);
-                Marshal.WriteInt64(image, SearchOffsetsRva, oldOffsets);
-            }
+            pileCorner = new Tile(pileX, pileY);
+            return true;
         }
 
         internal bool TryBuild(int actor, Tile cursor, Tile pileCorner, bool editor)
         {
             int world = Read(WorldKindRva);
-            if (!IsIntact || active != null || Read(PlacementDisabledRva) != 0 ||
+            if (!IsIntact || Read(PlacementDisabledRva) != 0 ||
                 (editor ? world != 1 : world == 1 || world == 4 || world == 6) ||
                 (uint)(actor - 1) >= 8 || !ManagersMatch() || !HasTwoBuildingSlots(actor))
                 return false;
@@ -221,11 +123,9 @@ namespace AreaConstructionTest
                 return false;
 
             var quarry = Corner(cursor);
-            var scope = new PileScope(actor, candidate => candidate.Equals(pileCorner));
             int previousExtra = Read(PlacementExtraRva);
             int previousSkipValidation = Read(SkipValidationRva);
             bool previousMirror = mirror.BuildingMirrorEnabled;
-            active = scope;
             try
             {
                 // Use the Extender wrapper so other mods see the normal build and spawn events.
@@ -233,28 +133,18 @@ namespace AreaConstructionTest
                 mirror.BuildingMirrorEnabled = false;
                 Write(PlacementExtraRva, 0);
                 Write(SkipValidationRva, 0);
-                GameBuildingManagerAPI.Instance.CreatePrefab(actor, quarry.X, quarry.Y, mapper, QuarrySize, editor ? 15 : 0, false);
-                return scope.Observed && HasLinkedPile(actor, quarry, pileCorner);
+                return QuarryPilePlacement.TryWithInitialCandidateFilter(actor, pileCorner.X, pileCorner.Y, () =>
+                {
+                    GameBuildingManagerAPI.Instance.CreatePrefab(actor, quarry.X, quarry.Y, mapper, QuarrySize, editor ? 15 : 0, false);
+                    return HasLinkedPile(actor, quarry, pileCorner);
+                });
             }
             finally
             {
-                active = null;
                 mirror.BuildingMirrorEnabled = previousMirror;
                 Write(PlacementExtraRva, previousExtra);
                 Write(SkipValidationRva, previousSkipValidation);
             }
-        }
-
-        private void ObservePlacement(BuildingPlacementValidationEventArgs args)
-        {
-            var scope = active;
-            if (scope == null || args.Phase != EventHookPhase.Post || args.PlayerId != scope.Actor ||
-                args.Mappers != eMappers.MAPPER_QUARRYPILE || args.Unknown1 != PileSize || args.Unknown2 != 0)
-                return;
-
-            scope.Observed = true;
-            if (Read(PlacementStateRva) == 0 && !scope.Allows(new Tile(args.TileX, args.TileY)))
-                Write(PlacementStateRva, 1);
         }
 
         private bool HasTwoBuildingSlots(int actor)
@@ -277,14 +167,11 @@ namespace AreaConstructionTest
         {
             if (Read(FreeBuildRva) != 0)
                 return true;
-            if (!GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(actor, out GamePlayerResources* player) ||
+            if (!ConstructionCosts.TryGetPlayerMaterialStock(actor, out var stock, out _) ||
                 !ConstructionCosts.TryGetCurrent(ConstructionCostTarget.FromMapper(eMappers.MAPPER_QUARRY), out var cost, out _))
                 return false;
-            return player->r_TotalGoodsWoodPlanks >= cost.Wood &&
-                player->r_TotalGoodsStoneBlocks >= cost.Stone &&
-                player->r_TotalGoodsIronIngots >= cost.Iron &&
-                player->r_TotalGoodsPitchRaw >= cost.Pitch &&
-                player->r_TotalGoodsGold >= cost.Gold;
+            return stock.Wood >= cost.Wood && stock.Stone >= cost.Stone && stock.Iron >= cost.Iron &&
+                stock.Pitch >= cost.Pitch && stock.Gold >= cost.Gold;
         }
 
         private static bool HasLinkedPile(int actor, Tile quarry, Tile pile)
@@ -306,23 +193,11 @@ namespace AreaConstructionTest
             GameGlobalsManager.Instance.GameTileManagerVA == unchecked((ulong)tileManager.ToInt64()) &&
             GameGlobalsManager.Instance.GameBuildingManagerVA == unchecked((ulong)buildingManager.ToInt64());
 
-        private static bool ValidSquare(GameTileManagerAPI tiles, Tile corner, int size)
-        {
-            for (int y = 0; y < size; y++)
-                for (int x = 0; x < size; x++)
-                    if (!tiles.IsTileInsideMapBounds(corner.X + x, corner.Y + y))
-                        return false;
-            return true;
-        }
-
         private void RequireLiveSpans()
         {
-            foreach (var span in NativeSpans)
-            {
-                var live = new ReadOnlySpan<byte>((void*)IntPtr.Add(image, span.Rva), span.Bytes.Length);
-                if (!live.SequenceEqual(span.Bytes))
-                    throw new InvalidOperationException("Live foreign patch at RVA 0x" + span.Rva.ToString("X") + ".");
-            }
+            var live = new ReadOnlySpan<byte>((void*)IntPtr.Add(image, BuildFinderCallRva), BuildFinderCall.Length);
+            if (!live.SequenceEqual(BuildFinderCall))
+                throw new InvalidOperationException("Live foreign patch at quarry construction's finder call.");
         }
 
         private static Tile Corner(Tile cursor) => new Tile(cursor.X - QuarrySize / 2, cursor.Y - QuarrySize / 2);

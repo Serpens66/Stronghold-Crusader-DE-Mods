@@ -7,6 +7,5 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="../../src/EditorRegions/RefreshState.cs" />
-    <Compile Include="../../src/EditorRegions/NativeContract.cs" />
   </ItemGroup>
 </Project>

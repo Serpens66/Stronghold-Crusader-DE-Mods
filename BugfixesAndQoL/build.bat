@@ -180,7 +180,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-MoatT
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "10c-Test-EditorRegions.ps1"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-EditorRegions.ps1" -RunTests
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-EditorRegions.ps1" -RunTests -ApiSharedDir "%API_SHARED_DIR%"
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "11-Test-GatehouseLivingCapturePreflight.ps1"
@@ -499,7 +499,7 @@ dotnet run --project "%PROJECT_DIR%tests\AreaDemolition\Policy\Policy.Tests.cspr
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "AreaDemolition.Protocol.Tests"
-dotnet run --project "%PROJECT_DIR%tests\AreaDemolition\Protocol\Protocol.Tests.csproj" --configuration Release
+dotnet run --project "%PROJECT_DIR%tests\AreaDemolition\Protocol\Protocol.Tests.csproj" --configuration Release "/p:ApiSharedDir=%API_SHARED_DIR%" "/p:GameDir=%GAME_DIR%" "/p:ExtenderDir=%EXTENDER_DIR%"
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 set "MODSETTINGS_NATIVE_OPTION="

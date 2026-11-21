@@ -747,10 +747,9 @@ No map-start flood, per-tile managed hook or competing native detour is installe
 
 Reference native SHA256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
 Call-only target: region rebuild RVA 0xE49D0, Win64 int(context*, int force). The
-production semantic signature checks force -> dirty+6C, countdown gating, generation
-+74 and dirty clearing. Known hash uses reference bytes; failed reference validation
-still reaches executable-section unique-pattern fallback. Unknown images use the
-existing native-hash/mod-version resolution cache, confirming the signature again.
+production binding now belongs to APIShared `PathComponentRefresh`. Its audited
+load image checks force -> dirty+6C, countdown gating, generation +74 and dirty clearing.
+The shared binding requires the reference hash and validates the SE context address.
 Context and generation/dirty access use the public installed SE view, whose two
 field offsets are independently fixed by those decoded native instructions.
 No stock component-buffer pointer/capacity is cached; foreign relocated buffers and

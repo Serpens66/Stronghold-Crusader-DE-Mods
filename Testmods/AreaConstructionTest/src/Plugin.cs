@@ -18,7 +18,7 @@ namespace AreaConstructionTest
 {
     [BepInPlugin(Guid, Name, Version)]
     [BepInDependency("000shcdese", "2.14.3")]
-    [BepInDependency("APIShared_Serp", "0.60.0")]
+    [BepInDependency("APIShared_Serp", "0.61.0")]
     [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class Plugin : BaseUnityPlugin

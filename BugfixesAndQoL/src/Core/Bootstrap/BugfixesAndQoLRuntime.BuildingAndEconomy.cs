@@ -38,10 +38,7 @@ namespace BugfixesAndQoL
             {
                 try
                 {
-                    quarryPileRelocationRuntime.InstallNativeFunctions(
-                        nativeLibraryHandle,
-                        memory,
-                        referenceHashMatches: true);
+                    quarryPileRelocationRuntime.InitializePileLayout();
                 }
                 catch (Exception ex)
                 {

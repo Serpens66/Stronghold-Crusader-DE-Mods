@@ -86,6 +86,6 @@ try:
         corridor()
         assert rebuild(manager, 1) == 1 and pcl(1) == pcl(5) != 0
         print('PASS: actual native stale/forced/removal reachability:', kind)
-    print('PASS: compiled semantic fallback; real full-capacity PCL rebuild ms:', ', '.join(f'{v:.3f}' for v in timings), '(sparse private fixture; not gameplay performance)')
+    print('PASS: compiled native pattern; real full-capacity PCL rebuild ms:', ', '.join(f'{v:.3f}' for v in timings), '(sparse private fixture; not gameplay performance)')
 finally:
     k.VirtualFree(base, 0, 0x8000)

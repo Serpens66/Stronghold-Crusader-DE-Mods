@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([switch]$RunTests)
+param([switch]$RunTests, [string]$ApiSharedDir)
 $ErrorActionPreference = 'Stop'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $game = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
@@ -69,7 +69,17 @@ $project = Join-Path $PSScriptRoot 'tests/EditorRegions.Tests/EditorRegions.Test
 & dotnet run --project $project --configuration Release
 if ($LASTEXITCODE -ne 0) { throw 'Editor region production scheduling tests failed.' }
 $contract = Join-Path $fixture 'native-contract.json'
-& dotnet run --project $project --configuration Release --no-build -- --native-contract $contract
-if ($LASTEXITCODE -ne 0) { throw 'Compiled editor native contract export failed.' }
+if (-not $ApiSharedDir) { $ApiSharedDir = Join-Path $game 'BepInEx/plugins/APIShared_Serp' }
+$assembly = [Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $ApiSharedDir 'APIShared.dll'))
+try {
+    $pathContract = $assembly.MainModule.GetType('APIShared.Pathfinding.PathComponentRefreshContract')
+    if (-not $pathContract) { throw 'The selected APIShared SDK does not contain the path-component native contract.' }
+    $constants = @{}
+    foreach ($field in $pathContract.Fields) {
+        if ($field.IsLiteral) { $constants[$field.Name] = $field.Constant }
+    }
+    @{hash=$constants.ReferenceHash; rva=$constants.RebuildRva; pattern=$constants.RebuildPattern} |
+        ConvertTo-Json | Set-Content -LiteralPath $contract -Encoding ASCII
+} finally { $assembly.Dispose() }
 & 'D:\CDesktopLink\Portable\Python\WinPy64\python\python.exe' (Join-Path $PSScriptRoot 'tests/EditorRegions.Tests/native_fixture.py') $game $contract
 if ($LASTEXITCODE -ne 0) { throw 'Private canonical editor region fixture failed.' }

@@ -1,96 +1,35 @@
 // Feature: Search Vanilla's quarry-pile candidate positions for a target the game accepts.
+using APIShared.Buildings;
 using BepInEx.Logging;
-using CrusaderDE;
 using SHCDESE.API;
 using SHCDESE.Detours;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
-using RedBird.Core.Memory;
 
 namespace BugfixesAndQoL
 {
     internal sealed unsafe class QuarryPileTargetSearch
     {
-        // Vanilla placeQuarry uses size 6 for the quarry, size 2 for its pile and tries 1..9.
-        // setupBuildingEntrancesOffset exposes 4 * buildingSize clockwise perimeter candidates.
+        // Vanilla relocation uses size 6 for the quarry, size 2 for its pile and tries 1..9.
         private const int VanillaQuarryScale = 6;
         private const int VanillaPileScale = 2;
         private const int VanillaCandidateCount = VanillaQuarryScale * 4;
         private const int VanillaMinimumPlacementTry = 1;
         private const int VanillaMaximumPlacementTry = 9;
-        private const int VanillaCandidateOffsetX = 0x31B7D0;
-        private const int VanillaCandidateOffsetY = 0x31B7D4;
-
-        // CrusaderDE setupBuildingEntrancesOffset. This is the native helper used by
-        // findQuarryPileLocation to turn (buildingSize, pileSize, perimeterIndex, try)
-        // into the exact relative candidate coordinates used by Vanilla.
-        private const string SetupBuildingEntrancesOffsetPattern =
-            "48 89 5C 24 08 8D 42 FF 41 8B D8 44 8B DA 4C 8B D1 83 F8 0C 0F 87 ?? ?? ?? ?? " +
-            "48 98 48 8D 15 ?? ?? ?? ?? 8B 84 82 ?? ?? ?? ?? 48 03 C2 FF E0 49 63 C1 " +
-            "8B 8C C2 ?? ?? ?? ?? 41 89 8A D0 B7 31 00";
-        private const int SetupBuildingEntrancesOffsetRva = 0xC0270;
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate void SetupBuildingEntrancesOffsetDelegate(
-            NativePointer<GameBuildingManager> buildingManager,
-            int buildingSize,
-            int pileSize,
-            int perimeterIndex,
-            int placementTry);
-
         private readonly ManualLogSource log;
         private readonly Dictionary<int, FailedRotationTargets> failedRotationTargetsByQuarry = new Dictionary<int, FailedRotationTargets>();
-        private SetupBuildingEntrancesOffsetDelegate setupBuildingEntrancesOffset;
+        private bool layoutValidated;
 
         internal QuarryPileTargetSearch(ManualLogSource log)
         {
             this.log = log;
         }
 
-        internal bool NativeHelperAvailable => setupBuildingEntrancesOffset != null;
+        internal bool NativeHelperAvailable => layoutValidated && QuarryPilePlacement.RelocationAvailable;
 
-        internal void InstallNativeFunctions(
-            IntPtr libraryHandle,
-            ReadOnlySpan<byte> memory,
-            bool referenceHashMatches)
-        {
-            try
-            {
-                if (!referenceHashMatches)
-                {
-                    setupBuildingEntrancesOffset = null;
-                    {
-                        if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                            LogInfo("quarry-pile relocation disabled because the native DLL hash is not audited.");
-                    }
-                    return;
-                }
-
-                if (!ValidateVanillaBuildingLayout())
-                {
-                    setupBuildingEntrancesOffset = null;
-                    return;
-                }
-
-                int rva = Shared.NativePatternResolver.ResolveUnique(
-                    memory,
-                    SetupBuildingEntrancesOffsetPattern,
-                    SetupBuildingEntrancesOffsetRva,
-                    referenceHashMatches,
-                    "quarry-pile Vanilla candidate helper",
-                    log).Rva;
-                setupBuildingEntrancesOffset = System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer<SetupBuildingEntrancesOffsetDelegate>(
-                    IntPtr.Add(libraryHandle, rva));
-            }
-            catch (Exception ex)
-            {
-                setupBuildingEntrancesOffset = null;
-                Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/QuarryPileRelocationRuntime/InstallNativeFunctions", $"Bugfixes and QoL quarry-pile Vanilla candidate helper was not resolved; relocation remains disabled: {ex}");
-            }
-        }
+        internal void InitializeLayout() => layoutValidated = ValidateVanillaBuildingLayout();
 
         private bool ValidateVanillaBuildingLayout()
         {
@@ -115,7 +54,7 @@ namespace BugfixesAndQoL
             out PlacementPosition target)
         {
             target = default;
-            if (setupBuildingEntrancesOffset == null)
+            if (!NativeHelperAvailable)
                 return false;
 
             int quarryScale = GetBuildingScale(quarry);
@@ -185,7 +124,7 @@ namespace BugfixesAndQoL
         {
             target = default;
             currentPositionIsBest = false;
-            if (setupBuildingEntrancesOffset == null || quarry == null || oldPile == null)
+            if (!NativeHelperAvailable || quarry == null || oldPile == null)
                 return false;
 
             int quarryScale = GetBuildingScale(quarry);
@@ -274,7 +213,7 @@ namespace BugfixesAndQoL
             PlacementPosition target,
             int operationId)
         {
-            if (setupBuildingEntrancesOffset == null)
+            if (!NativeHelperAvailable)
                 return false;
 
             int quarryScale = GetBuildingScale(quarry);
@@ -361,39 +300,14 @@ namespace BugfixesAndQoL
             out PlacementPosition candidate)
         {
             candidate = default;
-            if (quarry == null ||
-                setupBuildingEntrancesOffset == null ||
-                candidateIndex < 0 ||
-                candidateIndex >= VanillaCandidateCount ||
-                placementTry < VanillaMinimumPlacementTry ||
-                placementTry > VanillaMaximumPlacementTry)
-            {
+            if (quarry == null)
                 return false;
-            }
-
-            NativePointer<GameBuildingManager> buildingManager = GameBuildingManagerAPI.Instance.GetBuildingManager();
-            GameBuildingManager* buildingManagerPointer = buildingManager;
-            if (buildingManagerPointer == null)
-                return false;
-
-            int* relativeXPointer = (int*)((byte*)buildingManagerPointer + VanillaCandidateOffsetX);
-            int* relativeYPointer = (int*)((byte*)buildingManagerPointer + VanillaCandidateOffsetY);
-            int previousRelativeX = *relativeXPointer;
-            int previousRelativeY = *relativeYPointer;
             try
             {
-                setupBuildingEntrancesOffset(
-                    buildingManager,
-                    VanillaQuarryScale,
-                    VanillaPileScale,
-                    candidateIndex,
-                    placementTry);
-
-                int relativeX = *relativeXPointer;
-                int relativeY = *relativeYPointer;
-                candidate = new PlacementPosition(
-                    quarry->r_TilePositionXBegin + relativeX,
-                    quarry->r_TilePositionYBegin + relativeY);
+                if (!QuarryPilePlacement.TryGetRelocationCandidate(quarry->r_TilePositionXBegin, quarry->r_TilePositionYBegin,
+                    candidateIndex, placementTry, out int x, out int y))
+                    return false;
+                candidate = new PlacementPosition(x, y);
                 return true;
             }
             catch (Exception ex)
@@ -402,11 +316,6 @@ namespace BugfixesAndQoL
                     $"Bugfixes and QoL quarry-pile Vanilla candidate generation failed: candidateIndex={candidateIndex}, " +
                     $"placementTry={placementTry}: {ex}");
                 return false;
-            }
-            finally
-            {
-                *relativeXPointer = previousRelativeX;
-                *relativeYPointer = previousRelativeY;
             }
         }
 
