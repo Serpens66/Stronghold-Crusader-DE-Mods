@@ -42,7 +42,7 @@ namespace ExtremePowers
             string dll = Path.Combine(Paths.GameRootPath, "Stronghold Crusader Definitive Edition_Data", "Plugins", "x86_64", "CrusaderDE.dll");
             rootedLogger = Logger;
             Settings = rootedSettings = new Settings.ExtremePowersSettings();
-            client = LocalExtremePowersApiClient.Create(dll, context.ModuleHandle, context.Memory, GetProtocolReadiness, message => Shared.DebugLogHelper.LogDebug(rootedLogger, message));
+            client = LocalExtremePowersApiClient.Create(dll, context, rootedLogger, GetProtocolReadiness, message => Shared.DebugLogHelper.LogDebug(rootedLogger, message));
             Settings.ApiProtocolReport = client.CompatibilityToken;
             // SaveLifecycle: NewMapOnly - protocol state must be captured before native map startup.
             newMapSubscription = Shared.MissionEvents.NativeStart

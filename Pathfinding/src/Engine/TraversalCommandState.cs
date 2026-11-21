@@ -9,7 +9,12 @@ namespace Pathfinding.Engine
 {
     internal sealed unsafe partial class FriendlyMoatTraversalProvider
     {
-        internal override void InvalidateFastMoatData() { ResetGroundFailureProofs(); MarkFastTopologyAll(); }
+        internal override void InvalidateFastMoatData()
+        {
+            // DEVDIAG resweep-source audit (16.11.2026): which callers request whole-map anchor resweeps.
+            Shared.DevDiag.Log(() => $"pf-global source=data tick={CaptureCurrentGameTick()}");
+            ResetGroundFailureProofs(); MarkFastTopologyAll();
+        }
         // Native 3x3 tile or moat update: only that area (+-2 tiles, the edges it can change) is
         // re-read, so AI building activity no longer forces full anchor mask resweeps.
         internal override void ObserveFormationDestinations(int tribeId, int[] unitIds, uint[] globalIds, int[] targetX, int[] targetY) =>
@@ -17,7 +22,8 @@ namespace Pathfinding.Engine
         internal override void InvalidateFastMoatTile(int tile)
         {
             ResetGroundFailureProofs();
-            if (IsValidTileId(tile)) MarkFastTopologyTile(tile); else MarkFastTopologyAll();
+            if (IsValidTileId(tile)) MarkFastTopologyTile(tile);
+            else { Shared.DevDiag.Log(() => $"pf-global source=tile-invalid tile={tile} tick={CaptureCurrentGameTick()}"); MarkFastTopologyAll(); }
         }
         // A native mask rebuild changes only direction bytes: the anchor byte watch marks every
         // changed tile within one round (16 ticks), so no global resweep is needed once it has
@@ -26,6 +32,7 @@ namespace Pathfinding.Engine
         {
             ResetGroundFailureProofs();
             if (AnchorNodeTiles() != null) { anchorRebuildsWatched++; return; }
+            Shared.DevDiag.Log(() => $"pf-global source=rebuild-unprimed primed={anchorWatchPrimed} tick={CaptureCurrentGameTick()}");
             MarkFastTopologyAll();
         }
         internal override void ResetMapState() => ResetFastCommandMap();

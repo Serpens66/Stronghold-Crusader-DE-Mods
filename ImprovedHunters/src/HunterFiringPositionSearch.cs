@@ -8,47 +8,128 @@ using System.Collections.Generic;
 
 namespace ImprovedHunters
 {
-    /// <summary>
-    /// A Hunter whose approach ended without sight of his prey (Vanilla gives up: State 1 to State 6 with the
-    /// same live target and nothing carried) gets one other place to shoot from: a walkable tile he can reach as
-    /// his player, from which Vanilla's own sight check sees the prey. Vanilla's next State-0 MoveHere for this
-    /// Hunter and prey goes there instead of to the prey; Vanilla paths and attacks as usual. Without such a tile,
-    /// or when that approach fails as well, the pair waits a cooldown. Everything runs on the simulation tick from
-    /// simulation data, so all peers decide alike. The search is rare: once per failed approach, with a fixed budget.
-    /// </summary>
+    // Shared by the scan and the existing State-0 MoveHere callback. The scan leaves
+    // a small reserve for hunters that need a position before the next scan.
+    internal sealed class HunterFiringPositionBudget
+    {
+        public const int WindowTicks = HunterSimulationTime.MapTicksPerSecond / 10;
+        private long window = -1;
+        private int tiles, sight, connections, inlineTiles, inlineSight, urgentSight;
+
+        public void Reset() => window = -1;
+
+        private void Begin(long tick)
+        {
+            long current = tick / WindowTicks;
+            if (window == current)
+                return;
+
+            window = current;
+            tiles = sight = connections = inlineTiles = inlineSight = urgentSight = 0;
+        }
+
+        public bool TryTakeTile(long tick, bool inline)
+        {
+            Begin(tick);
+            if (tiles >= 96 || (inline ? inlineTiles >= 24 : tiles - inlineTiles >= 72))
+                return false;
+
+            tiles++;
+            if (inline)
+                inlineTiles++;
+            Shared.DevDiag.Count("hunters.firing.tiles");
+            return true;
+        }
+
+        public bool CanTakeSight(long tick, bool inline)
+        {
+            Begin(tick);
+            return sight < 32 && (inline ? inlineSight < 12 : sight - inlineSight < 20);
+        }
+
+        public bool TryTakeSight(long tick, bool inline, bool urgent = false)
+        {
+            const int Rays = 2;
+            if (!CanTakeSight(tick, inline) || (urgent && urgentSight >= 8))
+            {
+                return false;
+            }
+
+            sight += Rays;
+            if (inline)
+                inlineSight += Rays;
+            if (urgent)
+                urgentSight += Rays;
+            Shared.DevDiag.Count("hunters.firing.raysReserved", Rays);
+            return true;
+        }
+
+        public bool TryTakeConnection(long tick)
+        {
+            Begin(tick);
+            if (connections >= 4)
+                return false;
+
+            connections++;
+            Shared.DevDiag.Count("hunters.firing.connections");
+            return true;
+        }
+    }
+
+    /// <summary>Finds an alternate State-0 destination without ordering movement or changing prey.</summary>
     internal sealed unsafe class HunterFiringPositionSearch
     {
         private const int HunterAiStateOffset = 0x2BC;
         private const int HunterTargetUnitIdOffset = 0x39A;
         private const int HunterTargetGlobalIdOffset = 0x39C;
         private const int PreyCorpseFlagOffset = 0x29C;
+        private const int PreyReservationOffset = 0x448;
         private const ushort StateFollowingTarget = 1;
         private const ushort StateGaveUp = 6;
-        // Within 20 world units (2.5 tiles) Vanilla's State-1 near refresh (0x130069) sends the Hunter onto the prey's
-        // tile, where the direct attack fails; ring 4 (32 units) stays outside it. 12 stays well inside the attack
-        // distance of 28 tiles.
-        private const int NearestRing = 4;
-        private const int FarthestRing = 12;
-        private const int MaximumSightChecks = 64;
+        private const ushort StateAiming = 9;
+        private const ushort StateShooting = 10;
+        private const int MaximumAttackDistance = 28;
+        private const int MaximumSightCandidates = 64;
+        private const int MaximumTilesPerSlice = 12;
+        private const int SearchAnchorDisplacement = 3;
+        private const int MaximumAcceptedPositions = 2;
+        private const int WorldUnitsPerTile = 8;
+        private const int NativeNearRefreshDistance = 20;
 
-        private static readonly long StagedLifetime = HunterSimulationTime.MapTicksPerSecond * 30;
-        private static readonly long GiveUpCooldown = HunterSimulationTime.MapTicksPerSecond * 120;
+        private const long WorkLifetime = HunterSimulationTime.MapTicksPerSecond * 30;
+        private const long GiveUpCooldown = HunterSimulationTime.MapTicksPerSecond * 120;
+        private const long RejectedPositionPause = HunterSimulationTime.MapTicksPerSecond * 2;
+
+        private static readonly (int X, int Y)[][] OffsetsByBearing;
+
+        static HunterFiringPositionSearch()
+        {
+            OffsetsByBearing = BuildOffsets();
+        }
 
         private readonly ManualLogSource log;
+        private readonly ImprovedHuntersViewModel settings;
         private readonly HunterNativeVisibilityProbe visibility;
+        private readonly HunterFiringPositionBudget budget;
         private readonly Action<int, uint, long> setCooldownUntil;
         private readonly object stateLock = new object();
         private readonly Dictionary<int, HunterSample> lastSamples = new Dictionary<int, HunterSample>();
-        private readonly Dictionary<int, FiringPosition> staged = new Dictionary<int, FiringPosition>();
-        private readonly HashSet<int> seenHunters = new HashSet<int>();
-        private readonly List<int> goneHunters = new List<int>();
-        private readonly Dictionary<ushort, bool> reachableLand = new Dictionary<ushort, bool>();
+        private readonly Dictionary<int, Search> searches = new Dictionary<int, Search>();
+        private readonly List<int> expired = new List<int>();
+        private int lastServedHunterId;
         private bool failureLogged;
 
-        public HunterFiringPositionSearch(ManualLogSource log, HunterNativeVisibilityProbe visibility, Action<int, uint, long> setCooldownUntil)
+        public HunterFiringPositionSearch(
+            ManualLogSource log,
+            ImprovedHuntersViewModel settings,
+            HunterNativeVisibilityProbe visibility,
+            HunterFiringPositionBudget budget,
+            Action<int, uint, long> setCooldownUntil)
         {
             this.log = log;
+            this.settings = settings;
             this.visibility = visibility;
+            this.budget = budget;
             this.setCooldownUntil = setCooldownUntil;
         }
 
@@ -57,274 +138,630 @@ namespace ImprovedHunters
             lock (stateLock)
             {
                 lastSamples.Clear();
-                staged.Clear();
+                searches.Clear();
+                lastServedHunterId = 0;
             }
         }
 
-        /// <summary>Called from the native scan with this tick's Hunters; cost grows with Hunters, not with animals.</summary>
-        public void Observe(SimpleNativeArray<GameUnit> units, List<IntPtr> hunters, long timestamp)
+        public void Observe(
+            SimpleNativeArray<GameUnit> units,
+            List<IntPtr> hunters,
+            HunterActiveTargetVisibilitySnapshot activeVisibility,
+            long tick)
         {
             try
             {
                 lock (stateLock)
                 {
-                    seenHunters.Clear();
-                    foreach (IntPtr address in hunters)
+                    int first = 0;
+                    for (int index = 0; index < hunters.Count; index++)
                     {
-                        GameUnit* hunter = (GameUnit*)address;
-                        int hunterId = checked((int)(hunter - units._array) + 1);
+                        GameUnit* hunter = (GameUnit*)hunters[index];
+                        int id = (int)(hunter - units._array) + 1;
+                        if (id <= lastServedHunterId)
+                            first = index + 1;
+
                         byte* bytes = (byte*)hunter;
-                        var now = new HunterSample(*(ushort*)(bytes + HunterAiStateOffset), *(uint*)(bytes + HunterTargetGlobalIdOffset));
-                        seenHunters.Add(hunterId);
-                        if (lastSamples.TryGetValue(hunterId, out HunterSample before) &&
-                            before.State == StateFollowingTarget && now.State == StateGaveUp &&
-                            now.TargetGlobalId != 0 && now.TargetGlobalId == before.TargetGlobalId &&
-                            hunter->r_CarryGoodAmount == 0 &&
-                            TryGetLiveTarget(units, bytes, now.TargetGlobalId, out GameUnit* prey))
+                        ushort state = *(ushort*)(bytes + HunterAiStateOffset);
+                        uint target = *(uint*)(bytes + HunterTargetGlobalIdOffset);
+                        bool gaveUp = lastSamples.TryGetValue(id, out HunterSample before) &&
+                            before.GlobalId == hunter->r_GlobalId && before.Target == target &&
+                            before.State == StateFollowingTarget && state == StateGaveUp;
+                        lastSamples[id] = new HunterSample(hunter->r_GlobalId, target, state, tick);
+
+                        if ((!gaveUp && state != StateFollowingTarget && state != StateAiming && state != StateShooting) ||
+                            hunter->r_CarryGoodAmount != 0 ||
+                            !TryGetLiveTarget(units, hunter, target, out GameUnit* prey))
                         {
-                            OnApproachGivenUp(hunterId, hunter, prey, now.TargetGlobalId, timestamp);
+                            continue;
                         }
 
-                        lastSamples[hunterId] = now;
+                        if (gaveUp)
+                        {
+                            RequestRecovery(id, hunter, prey, tick, gaveUp: true);
+                        }
+                        else
+                        {
+                            int distance = TileDistance(hunter, prey);
+                            if (distance <= 1)
+                            {
+                                RequestRecovery(id, hunter, prey, tick, gaveUp: false);
+                            }
+                            else if (state == StateFollowingTarget && distance <= MaximumAttackDistance &&
+                                prey->r_UnitChimp == eChimps.CHIMP_TYPE_CHICKEN &&
+                                FindSearch(id, hunter, prey, tick) == null &&
+                                activeVisibility != null &&
+                                activeVisibility.TryGetObservation(id, *(ushort*)(bytes + HunterTargetUnitIdOffset),
+                                    target, prey->r_UnitChimp, tick, out HunterActiveVisibilityObservation observation) &&
+                                observation.PositionsMatch && observation.State == HunterActiveVisibilityState.Blocked)
+                            {
+                                StartSearch(id, hunter, prey, tick, 0);
+                            }
+                        }
                     }
 
-                    // Hunters that left the scan (died, became something else) leave no state behind.
-                    goneHunters.Clear();
-                    foreach (int hunterId in lastSamples.Keys)
+                    // Across scans, start after the last hunter that spent budget. A single blocked pair
+                    // cannot hold the queue while hundreds of other hunters need a first slice.
+                    for (int count = 0; count < hunters.Count && budget.CanTakeSight(tick, inline: false); count++)
                     {
-                        if (!seenHunters.Contains(hunterId))
-                            goneHunters.Add(hunterId);
+                        GameUnit* hunter = (GameUnit*)hunters[(first + count) % hunters.Count];
+                        int id = (int)(hunter - units._array) + 1;
+                        if (!searches.TryGetValue(id, out Search search) || search.ExpiresAt <= tick ||
+                            search.Issued || search.Accepted || search.Exhausted ||
+                            search.HunterGlobalId != hunter->r_GlobalId ||
+                            !TryGetLiveTarget(units, hunter, search.PreyGlobalId, out GameUnit* prey))
+                        {
+                            continue;
+                        }
+
+                        if (search.Ready)
+                        {
+                            ushort state = *(ushort*)((byte*)hunter + HunterAiStateOffset);
+                            if ((state != StateFollowingTarget || TileDistance(hunter, prey) <= 1) &&
+                                RefreshReadyConnection(search, hunter, prey, tick))
+                            {
+                                lastServedHunterId = id;
+                            }
+                            continue;
+                        }
+
+                        if (Advance(search, hunter, prey, tick, inline: false))
+                            lastServedHunterId = id;
+                        if (search.Exhausted && search.AfterGiveUp)
+                            CoolDown(id, search, tick);
                     }
-                    foreach (int hunterId in goneHunters)
+
+                    expired.Clear();
+                    foreach (var entry in searches)
                     {
-                        lastSamples.Remove(hunterId);
-                        staged.Remove(hunterId);
+                        if (entry.Value.ExpiresAt <= tick ||
+                            !lastSamples.TryGetValue(entry.Key, out HunterSample sample) || sample.Tick != tick ||
+                            sample.GlobalId != entry.Value.HunterGlobalId ||
+                            (sample.Target != entry.Value.PreyGlobalId && entry.Value.RejectedUntil <= tick))
+                        {
+                            expired.Add(entry.Key);
+                        }
                     }
+                    foreach (int id in expired)
+                        searches.Remove(id);
+
+                    expired.Clear();
+                    foreach (var entry in lastSamples)
+                    {
+                        if (entry.Value.Tick != tick)
+                            expired.Add(entry.Key);
+                    }
+                    foreach (int id in expired)
+                        lastSamples.Remove(id);
                 }
             }
             catch (Exception exception)
             {
-                if (failureLogged)
-                    return;
-                failureLogged = true;
-                Shared.DebugLogHelper.LogError(log, $"Improved Hunters firing-position search failed: {exception}");
+                ReportFailure(exception);
             }
         }
 
-        /// <summary>
-        /// Called from the direct-attack result hook when Vanilla's attack failed at tile distance 0 or 1 (the prey
-        /// walked onto or beside the Hunter). The failed-attack recovery that follows would send him onto the prey's
-        /// tile again; a staged firing position makes that MoveHere go to a tile he can shoot from instead.
-        /// </summary>
-        public void OnAttackFailedTooClose(int hunterUnitId, uint preyGlobalId)
+        public void StageTooCloseRetry(int hunterUnitId, uint preyGlobalId)
         {
             try
             {
                 SimpleNativeArray<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitArray();
-                if (!APIShared.UnitAccess.TryGetById(hunterUnitId, out GameUnit* hunter, out _) || hunter == null ||
-                    !TryGetLiveTarget(units, (byte*)hunter, preyGlobalId, out GameUnit* prey))
+                if (!APIShared.UnitAccess.TryGetById(hunterUnitId, out GameUnit* hunter, out _) ||
+                    !TryGetLiveTarget(units, hunter, preyGlobalId, out GameUnit* prey) ||
+                    TileDistance(hunter, prey) > 1)
                 {
                     return;
                 }
 
                 lock (stateLock)
+                    RequestRecovery(hunterUnitId, hunter, prey, HunterSimulationTime.Now, gaveUp: false);
+            }
+            catch (Exception exception)
+            {
+                ReportFailure(exception);
+            }
+        }
+
+        // Called after Vanilla has latched the selected target and its lease, immediately before MoveHere.
+        public bool TryTakeDestination(
+            int hunterUnitId,
+            uint preyGlobalId,
+            eChimps preyType,
+            long tick,
+            out int tileX,
+            out int tileY)
+        {
+            tileX = tileY = 0;
+            try
+            {
+                lock (stateLock)
                 {
-                    // An unused firing position stays; a used one may be replaced once, because the prey can walk up
-                    // to the Hunter there. After that the give-up path sets the cooldown.
-                    int restages = 0;
-                    if (staged.TryGetValue(hunterUnitId, out FiringPosition earlier) && earlier.PreyGlobalId == preyGlobalId)
+                    if (preyType != eChimps.CHIMP_TYPE_CHICKEN && !searches.ContainsKey(hunterUnitId))
+                        return false;
+
+                    SimpleNativeArray<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitArray();
+                    if (!APIShared.UnitAccess.TryGetById(hunterUnitId, out GameUnit* hunter, out _) ||
+                        !TryGetLiveTarget(units, hunter, preyGlobalId, out GameUnit* prey) ||
+                        prey->r_UnitChimp != preyType ||
+                        *(ushort*)((byte*)prey + PreyReservationOffset) != 2)
                     {
-                        if (!earlier.Handed || earlier.Restages >= 1)
-                            return;
-                        restages = earlier.Restages + 1;
+                        return false;
                     }
 
-                    long timestamp = HunterSimulationTime.Now;
-                    if (TrySearch(hunter, prey, out int tileX, out int tileY, out int checks))
+                    Search search = FindSearch(hunterUnitId, hunter, prey, tick);
+                    if (search == null)
                     {
-                        staged[hunterUnitId] = new FiringPosition(preyGlobalId, tileX, tileY, timestamp + StagedLifetime) { Restages = restages };
-                        LogSample($"Improved Hunters firing position staged after a too-close attack: hunter={hunterUnitId}, prey={preyGlobalId}, " +
-                            $"tile={tileX},{tileY}, sightChecks={checks}.");
+                        int distance = TileDistance(hunter, prey);
+                        if (prey->r_UnitChimp != eChimps.CHIMP_TYPE_CHICKEN || distance > MaximumAttackDistance)
+                            return false;
+
+                        if (distance > 1)
+                        {
+                            if (!budget.TryTakeSight(tick, inline: true) ||
+                                !visibility.TryEvaluateNearVisibility(hunterUnitId, hunter->r_GlobalId,
+                                    *(ushort*)((byte*)hunter + HunterTargetUnitIdOffset), preyGlobalId, preyType,
+                                    out _, out int forward, out int backward, out _) ||
+                                (forward > 0 && backward > 0))
+                            {
+                                return false;
+                            }
+                        }
+
+                        search = StartSearch(hunterUnitId, hunter, prey, tick, 0);
                     }
+
+                    if (search.Issued || search.Accepted || search.Exhausted || tick < search.RejectedUntil)
+                        return false;
+
+                    if (search.Ready)
+                    {
+                        if (TryValidatePosition(search, hunter, prey, tick))
+                        {
+                            return Issue(search, out tileX, out tileY);
+                        }
+
+                        // The same site may become useful again after an animal moves.
+                        // Leave the pending choice for the scan if this callback ran out of budget.
+                        if (search.Ready)
+                            return false;
+                    }
+
+                    // A position just evaluated here needs no second ray pair in the same callback.
+                    Advance(search, hunter, prey, tick, inline: true);
+                    return search.Ready && Issue(search, out tileX, out tileY);
                 }
             }
             catch (Exception exception)
             {
-                if (failureLogged)
-                    return;
-                failureLogged = true;
-                Shared.DebugLogHelper.LogError(log, $"Improved Hunters firing-position search failed: {exception}");
+                ReportFailure(exception);
+                return false;
             }
         }
 
-        /// <summary>
-        /// Called from the hook right before Vanilla's State-0 MoveHere. Hands out the staged tile once, and only
-        /// while the Hunter still aims at the same prey; otherwise Vanilla's own destination stays.
-        /// </summary>
-        public bool TryTakeDestination(int hunterUnitId, long timestamp, out int tileX, out int tileY)
+        public bool RecordMoveResult(int hunterUnitId, uint preyGlobalId, int moveResult, long tick)
         {
-            tileX = 0;
-            tileY = 0;
-            if (!APIShared.UnitAccess.TryGetById(hunterUnitId, out GameUnit* hunter, out _) || hunter == null)
-                return false;
-
-            uint targetGlobalId = *(uint*)((byte*)hunter + HunterTargetGlobalIdOffset);
             lock (stateLock)
             {
-                if (!staged.TryGetValue(hunterUnitId, out FiringPosition position) ||
-                    position.Handed || position.PreyGlobalId != targetGlobalId || timestamp >= position.ExpiresAt)
+                if (!searches.TryGetValue(hunterUnitId, out Search search) ||
+                    !search.Issued || search.PreyGlobalId != preyGlobalId)
                 {
                     return false;
                 }
 
-                position.Handed = true;
-                staged[hunterUnitId] = position;
-                tileX = position.TileX;
-                tileY = position.TileY;
+                search.Issued = false;
+                search.Ready = false;
+                search.Accepted = moveResult != 0;
+                if (search.Accepted)
+                {
+                    search.AcceptedPositions++;
+                    search.AcceptedAt = tick;
+                    search.ExpiresAt = tick + WorkLifetime;
+                }
+                else
+                {
+                    search.RejectedUntil = tick + RejectedPositionPause;
+                }
+
+                LogSample($"Improved Hunters firing position MoveHere: hunter={hunterUnitId}, prey={preyGlobalId}, " +
+                    $"tile={search.TileX},{search.TileY}, accepted={search.Accepted}, attempts={search.AcceptedPositions}.");
                 return true;
             }
         }
 
-        private void OnApproachGivenUp(int hunterId, GameUnit* hunter, GameUnit* prey, uint preyGlobalId, long timestamp)
+        private static bool Issue(Search search, out int tileX, out int tileY)
         {
-            // The approach to the firing position failed as well: give up on this prey for a while.
-            if (staged.TryGetValue(hunterId, out FiringPosition earlier) && earlier.PreyGlobalId == preyGlobalId && earlier.Handed)
-            {
-                staged.Remove(hunterId);
-                setCooldownUntil(hunterId, preyGlobalId, timestamp + GiveUpCooldown);
-                LogSample($"Improved Hunters firing position did not help: hunter={hunterId}, prey={preyGlobalId}, cooldownSeconds=120.");
-                return;
-            }
-
-            if (TrySearch(hunter, prey, out int tileX, out int tileY, out int checks))
-            {
-                staged[hunterId] = new FiringPosition(preyGlobalId, tileX, tileY, timestamp + StagedLifetime);
-                LogSample($"Improved Hunters firing position staged: hunter={hunterId}, prey={preyGlobalId}, " +
-                    $"preyTile={prey->r_CurrentTilePositionX},{prey->r_CurrentTilePositionY}, tile={tileX},{tileY}, sightChecks={checks}.");
-                return;
-            }
-
-            staged.Remove(hunterId);
-            setCooldownUntil(hunterId, preyGlobalId, timestamp + GiveUpCooldown);
-            LogSample($"Improved Hunters found no firing position: hunter={hunterId}, prey={preyGlobalId}, sightChecks={checks}, cooldownSeconds=120.");
+            search.Issued = true;
+            tileX = search.TileX;
+            tileY = search.TileY;
+            return true;
         }
 
-        // Rings around the prey, nearest first; a tile counts when it is walkable, reachable for the Hunter's
-        // player (enemy gates and walls included) and Vanilla's sight check from it sees the prey.
-        private bool TrySearch(GameUnit* hunter, GameUnit* prey, out int foundX, out int foundY, out int checks)
+        private void RequestRecovery(int id, GameUnit* hunter, GameUnit* prey, long tick, bool gaveUp)
         {
-            foundX = 0;
-            foundY = 0;
-            checks = 0;
-            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
-            Span<ushort> components = GamePathingManagerAPI.Instance.GetPathComponentGrid();
-            int hunterTile = tiles.GetTileId(hunter->r_CurrentTilePositionX, hunter->r_CurrentTilePositionY);
-            if (!tiles.IsValidTileId(hunterTile) || !global::APIShared.IndexBounds.IsValidIndex(hunterTile, components.Length) || components[hunterTile] == 0)
+            Search search = FindSearch(id, hunter, prey, tick);
+            if (search == null)
+                search = StartSearch(id, hunter, prey, tick, 0);
+            else if (search.Accepted && (gaveUp || !search.RetriedAtCloseRange))
+            {
+                if (search.AcceptedPositions >= MaximumAcceptedPositions)
+                {
+                    if (gaveUp)
+                        CoolDown(id, search, tick);
+                    return;
+                }
+
+                // While walking away from an overlapping animal, do not replace
+                // the newly accepted path before it has had time to move.
+                if (!gaveUp && tick < search.AcceptedAt + RejectedPositionPause)
+                    return;
+
+                search = StartSearch(id, hunter, prey, tick, search.AcceptedPositions);
+                search.RetriedAtCloseRange = !gaveUp;
+            }
+
+            search.AfterGiveUp |= gaveUp;
+            if (gaveUp && search.Exhausted)
+                CoolDown(id, search, tick);
+        }
+
+        private void CoolDown(int id, Search search, long tick)
+        {
+            searches.Remove(id);
+            setCooldownUntil(id, search.PreyGlobalId, tick + GiveUpCooldown);
+        }
+
+        private Search FindSearch(int id, GameUnit* hunter, GameUnit* prey, long tick)
+        {
+            if (searches.TryGetValue(id, out Search search) &&
+                search.HunterGlobalId == hunter->r_GlobalId &&
+                search.PreyGlobalId == prey->r_GlobalId &&
+                search.ExpiresAt > tick)
+            {
+                return search;
+            }
+
+            return null;
+        }
+
+        private Search StartSearch(int id, GameUnit* hunter, GameUnit* prey, long tick, int previousAttempts)
+        {
+            var search = new Search(hunter->r_GlobalId, prey->r_GlobalId, tick + WorkLifetime)
+            {
+                AcceptedPositions = previousAttempts
+            };
+            searches[id] = search;
+            return search;
+        }
+
+        private bool TryValidatePosition(Search search, GameUnit* hunter, GameUnit* prey, long tick)
+        {
+            if (!budget.TryTakeTile(tick, inline: true))
                 return false;
 
-            ushort hunterLand = components[hunterTile];
-            int player = hunter->r_ControllableForPlayerId;
-            int mode = hunter->r_PathConnectionMode;
-            int preyX = prey->r_CurrentTilePositionX, preyY = prey->r_CurrentTilePositionY;
-            reachableLand.Clear();
-            for (int ring = NearestRing; ring <= FarthestRing; ring++)
+            if (!TryGetComponent(hunter->r_CurrentTilePositionX, hunter->r_CurrentTilePositionY, out int source) ||
+                !TryGetPositionComponent(hunter, prey, search.TileX, search.TileY, out int destination))
             {
-                for (int dx = -ring; dx <= ring; dx++)
+                search.Ready = false;
+                return false;
+            }
+
+            if ((source != destination && !HasFreshConnection(search, hunter, source, destination, tick)) ||
+                !budget.TryTakeSight(tick, inline: true))
+            {
+                return false;
+            }
+
+            search.Ready = visibility.TryEvaluateFromTile(search.TileX, search.TileY, prey, out bool visible) && visible;
+            return search.Ready;
+        }
+
+        private bool RefreshReadyConnection(Search search, GameUnit* hunter, GameUnit* prey, long tick)
+        {
+            if (!TryGetComponent(hunter->r_CurrentTilePositionX, hunter->r_CurrentTilePositionY, out int source) ||
+                source == search.Destination ||
+                !budget.TryTakeTile(tick, inline: false))
+            {
+                return false;
+            }
+
+            if (!TryGetPositionComponent(hunter, prey, search.TileX, search.TileY, out int destination))
+            {
+                search.Ready = false;
+                return true;
+            }
+
+            if (source == destination || HasFreshConnection(search, hunter, source, destination, tick) ||
+                !budget.TryTakeConnection(tick))
+            {
+                return true;
+            }
+
+            search.Ready = HasConnection(hunter, source, destination);
+            if (search.Ready)
+                RecordConnection(search, hunter, source, destination, tick);
+            return true;
+        }
+
+        private static bool HasFreshConnection(Search search, GameUnit* hunter, int source, int destination, long tick) =>
+            tick - search.ValidatedAt < HunterFiringPositionBudget.WindowTicks &&
+            source == search.ValidatedSource && destination == search.Destination &&
+            search.Player == hunter->r_ControllableForPlayerId && search.Mode == hunter->r_PathConnectionMode;
+
+        private static bool HasConnection(GameUnit* hunter, int source, int destination) =>
+            APIShared.Pathfinding.PathReachability.BetweenComponents(
+                hunter->r_ControllableForPlayerId, (PathConnectionQueryMode)hunter->r_PathConnectionMode,
+                source, destination) == APIShared.Pathfinding.PathReachabilityResult.Connected;
+
+        private static void RecordConnection(Search search, GameUnit* hunter, int source, int destination, long tick)
+        {
+            search.ValidatedSource = source;
+            search.Destination = destination;
+            search.Player = hunter->r_ControllableForPlayerId;
+            search.Mode = hunter->r_PathConnectionMode;
+            search.ValidatedAt = tick;
+        }
+
+        private bool Advance(Search search, GameUnit* hunter, GameUnit* prey, long tick, bool inline)
+        {
+            if (!TryGetComponent(hunter->r_CurrentTilePositionX, hunter->r_CurrentTilePositionY, out int source))
+                return false;
+
+            int preyX = prey->r_CurrentTilePositionX;
+            int preyY = prey->r_CurrentTilePositionY;
+            // Offsets are always evaluated around the current prey. Small moves should not
+            // make a walking animal restart at the first direction every scan.
+            if (search.Source != source ||
+                Math.Max(Math.Abs(search.OriginX - preyX), Math.Abs(search.OriginY - preyY)) >= SearchAnchorDisplacement)
+            {
+                search.OriginX = preyX;
+                search.OriginY = preyY;
+                search.Source = source;
+                search.Bearing = GetBearing(hunter->r_CurrentTilePositionX - preyX, hunter->r_CurrentTilePositionY - preyY);
+                search.Cursor = 0;
+            }
+
+            var offsets = OffsetsByBearing[search.Bearing];
+            bool spent = false;
+            int deferredCursor = -1;
+            int sightAtStart = search.CheckedSight;
+            if (!inline && tick < search.RejectedUntil)
+                return false;
+
+            for (int visited = 0; visited < MaximumTilesPerSlice && search.Cursor < offsets.Length &&
+                (inline || search.CheckedSight - sightAtStart < 2) && budget.CanTakeSight(tick, inline); visited++)
+            {
+                if (!budget.TryTakeTile(tick, inline))
+                    break;
+
+                spent = true;
+                var offset = offsets[search.Cursor];
+                int x = preyX + offset.X;
+                int y = preyY + offset.Y;
+                if (!TryGetPositionComponent(hunter, prey, x, y, out int destination))
                 {
-                    // Only the ring's border: full rows at the top and bottom, the two ends in between.
-                    int step = dx == -ring || dx == ring ? 1 : 2 * ring;
-                    for (int dy = -ring; dy <= ring; dy += step)
+                    search.Cursor++;
+                    continue;
+                }
+
+                if (source != destination)
+                {
+                    if (inline)
                     {
-                        int x = preyX + dx, y = preyY + dy;
-                        if (!tiles.IsTileInsideMapBounds(x, y))
-                            continue;
-
-                        int tile = tiles.GetTileId(x, y);
-                        if (!tiles.IsValidTileId(tile) || !global::APIShared.IndexBounds.IsValidIndex(tile, components.Length) || !tiles.IsTileWalkableAndUnoccupied(tile))
-                            continue;
-
-                        ushort land = components[tile];
-                        if (land == 0 || !IsReachable(player, hunterLand, land, mode))
-                            continue;
-
-                        if (checks >= MaximumSightChecks)
-                            return false;
-
-                        checks++;
-                        if (visibility.TryEvaluateFromTile(x, y, prey, out bool visible) && visible)
-                        {
-                            foundX = x;
-                            foundY = y;
-                            return true;
-                        }
+                        // Keep the first skipped offset for the player-aware scan.
+                        if (deferredCursor < 0)
+                            deferredCursor = search.Cursor;
+                        search.Cursor++;
+                        continue;
+                    }
+                    if (!budget.TryTakeConnection(tick))
+                        break;
+                    if (!HasConnection(hunter, source, destination))
+                    {
+                        search.Cursor++;
+                        continue;
                     }
                 }
+
+                if (!budget.TryTakeSight(tick, inline))
+                    break;
+
+                search.Cursor++;
+                search.CheckedSight++;
+                if (visibility.TryEvaluateFromTile(x, y, prey, out bool visible) && visible)
+                {
+                    search.TileX = x;
+                    search.TileY = y;
+                    RecordConnection(search, hunter, source, destination, tick);
+                    search.Ready = true;
+                    LogSample($"Improved Hunters firing position staged: hunter={search.HunterGlobalId}, " +
+                        $"prey={search.PreyGlobalId}, tile={x},{y}, inline={inline}, sightChecks={search.CheckedSight}.");
+                    return true;
+                }
+
+                if (search.CheckedSight >= MaximumSightCandidates)
+                    break;
             }
 
-            return false;
+            if (deferredCursor >= 0)
+                search.Cursor = deferredCursor;
+            search.Exhausted = search.Cursor >= offsets.Length || search.CheckedSight >= MaximumSightCandidates;
+            return spent;
         }
 
-        private bool IsReachable(int player, ushort hunterLand, ushort land, int mode)
+        private static bool TryGetComponent(int x, int y, out int component) =>
+            APIShared.Pathfinding.PathReachability.TryGetComponent(x, y, out component) && component != 0;
+
+        private static bool TryGetPositionComponent(GameUnit* hunter, GameUnit* prey, int x, int y, out int component)
         {
-            if (land == hunterLand)
-                return true;
-
-            if (!reachableLand.TryGetValue(land, out bool reachable))
+            component = 0;
+            int dx = Math.Abs(x - prey->r_CurrentTilePositionX);
+            int dy = Math.Abs(y - prey->r_CurrentTilePositionY);
+            if (dx + dy > MaximumAttackDistance || Math.Max(
+                    Math.Abs(x * WorldUnitsPerTile + WorldUnitsPerTile / 2 - prey->r_CurrentWorldPositionX),
+                    Math.Abs(y * WorldUnitsPerTile + WorldUnitsPerTile / 2 - prey->r_CurrentWorldPositionY)) <= NativeNearRefreshDistance ||
+                (x == hunter->r_CurrentTilePositionX && y == hunter->r_CurrentTilePositionY) ||
+                !TryGetComponent(x, y, out component))
             {
-                // A firing position needs a confirmed connection; an unanswerable query does not offer one.
-                reachable = APIShared.Pathfinding.PathReachability.BetweenComponents(
-                    player, (PathConnectionQueryMode)mode, hunterLand, land) == APIShared.Pathfinding.PathReachabilityResult.Connected;
-                reachableLand[land] = reachable;
+                return false;
             }
 
-            return reachable;
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            return tiles.IsTileWalkableAndUnoccupied(tiles.GetTileId(x, y));
         }
 
-        private static bool TryGetLiveTarget(SimpleNativeArray<GameUnit> units, byte* hunterBytes, uint globalId, out GameUnit* prey)
+        private bool TryGetLiveTarget(SimpleNativeArray<GameUnit> units, GameUnit* hunter, uint globalId, out GameUnit* prey)
         {
             prey = null;
-            int preyId = *(ushort*)(hunterBytes + HunterTargetUnitIdOffset);
-            if (preyId <= 0 || preyId > units.Length)
+            if (hunter == null || hunter->r_GlobalId == 0 || hunter->r_CurrentHealth == 0 ||
+                hunter->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER || !APIShared.UnitAccess.IsReallyAlive(hunter) ||
+                units._array == null || globalId == 0)
+            {
+                return false;
+            }
+
+            byte* bytes = (byte*)hunter;
+            int id = *(ushort*)(bytes + HunterTargetUnitIdOffset);
+            if (*(uint*)(bytes + HunterTargetGlobalIdOffset) != globalId || id <= 0 || id > units.Length)
                 return false;
 
-            prey = units.GetValuePointer(preyId - 1);
+            prey = units.GetValuePointer(id - 1);
             return prey->r_GlobalId == globalId && APIShared.UnitAccess.IsReallyAlive(prey) &&
-                prey->r_CurrentHealth > 0 && *(ushort*)((byte*)prey + PreyCorpseFlagOffset) == 0;
+                prey->r_CurrentHealth > 0 && *(ushort*)((byte*)prey + PreyCorpseFlagOffset) == 0 &&
+                settings.IsKnownAnimal(prey->r_UnitChimp) && settings.IsHuntingEnabled(prey->r_UnitChimp) &&
+                (prey->r_UnitChimp != eChimps.CHIMP_TYPE_CHICKEN ||
+                    prey->r_ControllableForPlayerId == hunter->r_ControllableForPlayerId);
         }
 
-        // Development samples only: /devdiag builds compile these calls including their message text.
+        private static int TileDistance(GameUnit* hunter, GameUnit* prey) =>
+            Math.Abs(hunter->r_CurrentTilePositionX - prey->r_CurrentTilePositionX) +
+            Math.Abs(hunter->r_CurrentTilePositionY - prey->r_CurrentTilePositionY);
+
+        private static int GetBearing(int dx, int dy)
+        {
+            if (Math.Abs(dx) > 2 * Math.Abs(dy))
+                return dx < 0 ? 4 : 0;
+            if (Math.Abs(dy) > 2 * Math.Abs(dx))
+                return dy < 0 ? 6 : 2;
+            return dy < 0 ? (dx < 0 ? 5 : 7) : (dx < 0 ? 3 : 1);
+        }
+
+        private static (int X, int Y)[][] BuildOffsets()
+        {
+            var directions = new (int X, int Y)[]
+            {
+                (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)
+            };
+            int[] rings = { 4, 7, 10, 14 };
+            // Probe the approach side and then the opposite side before filling the intervening sectors.
+            int[] order = { 0, 4, 1, 7, 2, 6, 3, 5 };
+            var result = new (int X, int Y)[directions.Length][];
+            for (int bearing = 0; bearing < directions.Length; bearing++)
+            {
+                var offsets = new List<(int, int)>();
+                var seen = new HashSet<(int, int)>();
+                foreach (int ring in rings)
+                {
+                    foreach (int direction in order)
+                    {
+                        var offset = directions[(bearing + direction) % directions.Length];
+                        var point = (offset.X * ring, offset.Y * ring);
+                        offsets.Add(point);
+                        seen.Add(point);
+                    }
+                }
+
+                for (int ring = 4; ring <= 14; ring++)
+                {
+                    var refinement = new List<(int X, int Y)>();
+                    for (int x = -ring; x <= ring; x++)
+                    {
+                        int step = Math.Abs(x) == ring ? 1 : 2 * ring;
+                        for (int y = -ring; y <= ring; y += step)
+                        {
+                            if (seen.Add((x, y)))
+                                refinement.Add((x, y));
+                        }
+                    }
+                    var heading = directions[bearing];
+                    refinement.Sort((left, right) =>
+                    {
+                        int leftGain = left.X * heading.X + left.Y * heading.Y;
+                        int rightGain = right.X * heading.X + right.Y * heading.Y;
+                        int resultOrder = rightGain.CompareTo(leftGain);
+                        if (resultOrder == 0)
+                            resultOrder = left.X.CompareTo(right.X);
+                        return resultOrder != 0 ? resultOrder : left.Y.CompareTo(right.Y);
+                    });
+                    offsets.AddRange(refinement);
+                }
+                result[bearing] = offsets.ToArray();
+            }
+
+            return result;
+        }
+
+        private void ReportFailure(Exception exception)
+        {
+            if (failureLogged)
+                return;
+            failureLogged = true;
+            Shared.DebugLogHelper.LogError(log, $"Improved Hunters firing-position search failed: {exception}");
+        }
+
         [System.Diagnostics.Conditional("SERP_DEVDIAG")]
         private void LogSample(string message) => Shared.DebugLogHelper.LogInfo(log, message);
 
         private readonly struct HunterSample
         {
+            public readonly uint GlobalId;
+            public readonly uint Target;
             public readonly ushort State;
-            public readonly uint TargetGlobalId;
+            public readonly long Tick;
 
-            public HunterSample(ushort state, uint targetGlobalId)
+            public HunterSample(uint globalId, uint target, ushort state, long tick)
             {
+                GlobalId = globalId;
+                Target = target;
                 State = state;
-                TargetGlobalId = targetGlobalId;
+                Tick = tick;
             }
         }
 
-        private struct FiringPosition
+        private sealed class Search
         {
+            public readonly uint HunterGlobalId;
             public readonly uint PreyGlobalId;
-            public readonly int TileX;
-            public readonly int TileY;
-            public readonly long ExpiresAt;
-            public bool Handed;
-            public int Restages;
+            public long ExpiresAt;
+            public int OriginX, OriginY, Source, ValidatedSource, Destination, Bearing, Cursor, CheckedSight;
+            public int TileX, TileY, AcceptedPositions, Player, Mode;
+            public long ValidatedAt, RejectedUntil, AcceptedAt;
+            public bool Ready, Issued, Accepted, Exhausted, AfterGiveUp, RetriedAtCloseRange;
 
-            public FiringPosition(uint preyGlobalId, int tileX, int tileY, long expiresAt)
+            public Search(uint hunterGlobalId, uint preyGlobalId, long expiresAt)
             {
+                HunterGlobalId = hunterGlobalId;
                 PreyGlobalId = preyGlobalId;
-                TileX = tileX;
-                TileY = tileY;
                 ExpiresAt = expiresAt;
-                Handed = false;
-                Restages = 0;
             }
         }
     }

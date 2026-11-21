@@ -19,7 +19,8 @@ $files = foreach ($relativeRoot in $roots) {
     if (-not (Test-Path -LiteralPath $root)) { continue }
     Get-ChildItem -LiteralPath $root -Recurse -File -Filter '*.cs' -ErrorAction SilentlyContinue | Where-Object {
         $path = '\' + $_.FullName.Substring($workspace.Length).TrimStart('\')
-        (-not ($excludedSegments | Where-Object { $path.Contains($_) })) -and
+        # Case-insensitive: offline test projects live in both 'tests' and 'Shared\Tests'.
+        (-not ($excludedSegments | Where-Object { $path.IndexOf($_, [StringComparison]::OrdinalIgnoreCase) -ge 0 })) -and
         (-not $path.Contains('\Testmods\'))
     }
 }
@@ -95,10 +96,15 @@ function Get-SourceBlock([string[]]$Lines, [string]$Signature) {
 # publication contract holds; anything else stays a normal finding.
 function Get-FreshPageAllowance([string]$Path, [string[]]$Lines) {
     $text = [string]::Join("`n", $Lines)
-    if ($Path -eq (Join-Path $workspace 'APIShared\src\Projectiles\PlagueNativeCode.cs')) {
+    # Both helpers share one contract; APIShared's SourceModel guardrail lists the same two owners.
+    $preparedHelpers = @{
+        (Join-Path $workspace 'APIShared\src\Projectiles\PlagueNativeCode.cs') = 'PlagueNativeCode'
+        (Join-Path $workspace 'APIShared\src\Economy\ProductionGoodsReceivedNativeCode.cs') = 'ProductionGoodsReceivedNativeCode'
+    }
+    if ($preparedHelpers.ContainsKey($Path)) {
         # Mirrors APIShared's own audited SourceModel guardrail (tools/SourceContracts): changes
         # only in the constructor, VirtualFree only for an unpublished helper.
-        $constructor = Get-SourceBlock $Lines 'internal PlagueNativeCode(Action<Assembler> generate)'
+        $constructor = Get-SourceBlock $Lines ('internal ' + $preparedHelpers[$Path] + '(Action<Assembler> generate)')
         $rollback = Get-SourceBlock $Lines 'internal void RollbackUnpublished()'
         if (-not $constructor -or -not $rollback) { return $null }
         $rollbackText = [string]::Join("`n", $Lines[$rollback.Start..$rollback.End])
@@ -419,6 +425,44 @@ if (-not (Test-OutsideScopedMod $workshopPath)) {
         $errors.Add("$workshopPath`: workshop hook must remain published and use only its data gate")
     }
 }
+# Foreign-patch guard (AGENTS/native-hooks.md#fremde-patches-erkennen): in every mod that links
+# Shared NativePatchGuard, a hook must not be written past it. An installing Commit() would write
+# before the span check, and an unbound guard would refuse every hook at runtime. Source guardrail
+# only; Shared/Tests/NativePatchGuard.Tests checks the guard's behavior.
+$guardProjects = foreach ($relativeRoot in $roots) {
+    Get-ChildItem -LiteralPath (Join-Path $workspace $relativeRoot) -Recurse -File -Filter '*.csproj' -ErrorAction SilentlyContinue | Where-Object {
+        $path = '\' + $_.FullName.Substring($workspace.Length).TrimStart('\')
+        -not ($excludedSegments | Where-Object { $path.Contains($_) }) -and -not $path.Contains('\Testmods\') -and -not $path.Contains('\APIShared\') -and
+        [IO.File]::ReadAllText($_.FullName).Contains('Shared\Runtime\Native\NativePatchGuard.cs')
+    }
+}
+foreach ($project in @($guardProjects)) {
+    $projectRoot = $project.Directory.FullName + '\'
+    $sources = @($files | Where-Object {
+        $_.FullName.StartsWith($projectRoot, [StringComparison]::OrdinalIgnoreCase) -and $_.Name -notlike '*.DevDiag.cs'
+    })
+    $texts = @{}
+    foreach ($source in $sources) { $texts[$source.FullName] = [IO.File]::ReadAllText($source.FullName) }
+    if (-not ($texts.Values | Where-Object { $_.Contains('NativePatchGuard.Bind(') })) {
+        $errors.Add("$($project.FullName): links NativePatchGuard but never binds it to the load snapshot")
+    }
+    if (-not ($texts.Values | Where-Object { $_.Contains('NativePatchGuard.Recheck(') })) {
+        $errors.Add("$($project.FullName): links NativePatchGuard but never rechecks published spans")
+    }
+    foreach ($path in $texts.Keys) {
+        $text = $texts[$path]
+        $selfEnabled = $text.Contains('NativePatchGuard.RequireUnpatched(') -and $text.Contains('NativePatchGuard.Watch(')
+        # A raw Commit() is allowed only for a prepared transaction whose hooks this file enables itself.
+        if ($text -match '(?<!NativePatchGuard)\.Commit\(\)' -and -not $selfEnabled) {
+            $errors.Add("${path}: HookTransaction.Commit() without NativePatchGuard (use NativePatchGuard.Commit or RequireUnpatched/Watch)")
+        }
+        if ($text -match '\.CreateDetour\(|new X64InlineHook\(|DemandGatedContextHook\.Create\(|CreateDemandGatedContextHook\(' -and
+            $text -match '\b(?!publication\b)\w+\??\.Enable\(\)' -and -not $selfEnabled) {
+            $errors.Add("${path}: individually enabled hook without NativePatchGuard.RequireUnpatched/Watch")
+        }
+    }
+}
+
 if ($errors.Count -ne 0) {
     $errors | ForEach-Object { Write-Error $_ }
     throw "Permanent native runtime regression check failed with $($errors.Count) finding(s)."

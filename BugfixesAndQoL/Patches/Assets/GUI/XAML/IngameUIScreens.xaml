@@ -19,6 +19,25 @@
               </Trigger>
             </Style.Triggers>
           </Style>
+          <!-- Vanilla page arrows without their box: the 70x70 sprites hold the outlined circle at (35,35)
+               with radius ~20 and, in the hover sprite, a light ring up to ~23 before the box begins.
+               At Vanilla's 21px (scale 0.3) that is radius 6 (idle) and 6.75 (hover, keeps the ring). The clip also limits the hit
+               area; the ring only appears once the pointer is inside the idle circle, so it cannot flicker.
+               NoFade has no Opacity storyboard that could fight the view's Visibility. -->
+          <Style x:Key="BugfixesAndQoL-ForeignTroopPageArrow" TargetType="Button" BasedOn="{StaticResource BTN_BuildingNoFade}">
+            <Setter Property="Width" Value="21" />
+            <Setter Property="Height" Value="21" />
+            <Setter Property="Clip">
+              <Setter.Value><EllipseGeometry Center="10.5,10.5" RadiusX="6" RadiusY="6" /></Setter.Value>
+            </Setter>
+            <Style.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Clip">
+                  <Setter.Value><EllipseGeometry Center="10.5,10.5" RadiusX="6.75" RadiusY="6.75" /></Setter.Value>
+                </Setter>
+              </Trigger>
+            </Style.Triggers>
+          </Style>
         </Canvas.Resources>
         <Canvas x:Name="ForeignTroopSlot1" Width="52" Height="170" Canvas.Left="0" Visibility="Collapsed" IsHitTestVisible="True">
           <Viewbox Width="52" Height="20" Canvas.Left="0" Canvas.Top="42" Stretch="Uniform" StretchDirection="DownOnly">
@@ -228,16 +247,16 @@
             </TextBlock>
           </Viewbox>
         </Canvas>
-        <TextBlock x:Name="ForeignTroopPageText" Width="44" Canvas.Left="354" Canvas.Top="119"
-                   TextAlignment="Center" Foreground="#FFDDDDDD" FontSize="12" IsHitTestVisible="False"/>
-        <Button x:Name="ForeignTroopPrevious" Width="21" Height="21" Canvas.Left="371" Canvas.Top="145"
+        <!-- The hover rings (radius 6.75) touch the panel's bottom/right edge, so the arrows cover as
+             little of slot 8 as possible. Centers: previous (394.25,163.25), next (409.25,163.25). -->
+        <Button x:Name="ForeignTroopPrevious" Canvas.Left="383.75" Canvas.Top="152.75"
                 local:PropEx.Sprite1="{StaticResource UI-Buttons L003}"
                 local:PropEx.Sprite2="{StaticResource UI-Buttons L004}"
-                Style="{StaticResource BTN_Building}" Visibility="Collapsed"/>
-        <Button x:Name="ForeignTroopNext" Width="21" Height="21" Canvas.Left="392" Canvas.Top="145"
+                Style="{StaticResource BugfixesAndQoL-ForeignTroopPageArrow}" Visibility="Collapsed"/>
+        <Button x:Name="ForeignTroopNext" Canvas.Left="398.75" Canvas.Top="152.75"
                 local:PropEx.Sprite1="{StaticResource UI-Buttons L001}"
                 local:PropEx.Sprite2="{StaticResource UI-Buttons L002}"
-                Style="{StaticResource BTN_Building}" Visibility="Collapsed"/>
+                Style="{StaticResource BugfixesAndQoL-ForeignTroopPageArrow}" Visibility="Collapsed"/>
       </Canvas>
     </Content>
   </Operation>

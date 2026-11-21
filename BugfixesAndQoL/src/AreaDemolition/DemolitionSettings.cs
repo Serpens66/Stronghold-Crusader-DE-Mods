@@ -6,9 +6,13 @@ namespace BugfixesAndQoL.AreaDemolition
     internal sealed class DemolitionSettings
     {
         private readonly ConfigEntry<bool>[] entries = new ConfigEntry<bool>[Enum.GetValues(typeof(TargetGroup)).Length];
+        private readonly ConfigEntry<bool> rectangleSelection;
         internal event Action Changed;
+        internal event Action RectangleSelectionChanged;
         internal DemolitionSettings(ConfigFile config, ConfigFile legacy=null)
         {
+            rectangleSelection = config.Bind("Area demolition", "EnableRectangleSelection", true,
+                "Enable rectangle selection for the local bulldozer. The right-click menu remains available.");
             // Appended categories get independent default-off keys; existing preferences keep their names.
             for (int i=0;i<entries.Length;i++)
             {
@@ -20,9 +24,33 @@ namespace BugfixesAndQoL.AreaDemolition
                     "Local area selection preference; Shift selection and ordinary single clicks ignore it.");
             }
         }
+        internal bool EnableRectangleSelection
+        {
+            get => rectangleSelection.Value;
+            set
+            {
+                if (rectangleSelection.Value == value) return;
+                rectangleSelection.Value = value;
+                RectangleSelectionChanged?.Invoke();
+            }
+        }
         internal ushort Mask { get { ushort result=0; for (int i=0;i<entries.Length;i++) if(entries[i].Value) result|=(ushort)(1<<i); return result; } }
         internal bool Get(TargetGroup group) => entries[(int)group].Value;
         internal void Set(TargetGroup group,bool value)
         { if (entries[(int)group].Value==value) return; entries[(int)group].Value=value; Changed?.Invoke(); }
+
+        internal bool AreAllEnabled => Array.TrueForAll(entries, entry => entry.Value);
+
+        internal void SetAll(bool value)
+        {
+            bool changed = false;
+            foreach (ConfigEntry<bool> entry in entries)
+            {
+                if (entry.Value == value) continue;
+                entry.Value = value;
+                changed = true;
+            }
+            if (changed) Changed?.Invoke();
+        }
     }
 }

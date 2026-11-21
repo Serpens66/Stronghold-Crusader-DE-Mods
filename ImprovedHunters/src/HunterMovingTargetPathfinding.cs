@@ -189,7 +189,7 @@ namespace ImprovedHunters
                         candidate.Source);
                 try
                 {
-                    // Vanilla cannot shoot from the prey's own or the next tile; the recovery should not go back there.
+                    // Repeating a failed attack from the same close tile risks the same failure.
                     if (attackResult == 0 && nativeDistance <= TooCloseAttackDistance)
                         onAttackFailedTooClose(candidate.HunterUnitId, candidate.PreyGlobalId);
                     if (attackResult != 0)

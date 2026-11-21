@@ -47,8 +47,10 @@ namespace BugfixesAndQoL
                         if (Interlocked.Exchange(ref callbackError, 1) == 0)
                             Shared.DebugLogHelper.LogError(log, "AI_EMERGENCY_DEMOLITION_CALLBACK_DISABLED: " + error);
                     });
+                Shared.NativePatchGuard.RequireUnpatched(candidate, "AI emergency demolition");
                 candidate.Enable();
                 AIEmergencyDemolitionNativeContract.Validate(candidate, target, true);
+                Shared.NativePatchGuard.Watch(candidate, "AI emergency demolition");
                 published = true;
                 Volatile.Write(ref ready, 1);
                 Shared.DebugLogHelper.LogInfo(log,

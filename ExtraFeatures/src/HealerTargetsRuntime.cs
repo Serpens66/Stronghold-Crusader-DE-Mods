@@ -64,9 +64,6 @@ namespace ExtraFeatures
 
             imageBase = unchecked((ulong)context.ModuleHandle.ToInt64());
             HealerNativeContract.VerifyInstalledBinary(imageBase);
-            HealerNativeContract.ProbeBackend(
-                imageBase + HealerNativeContract.ListBuilderRva,
-                (BuildPlayerUnitListDelegate)((_, __) => { }));
             timeManager = GameTimeManagerAPI.Instance ??
                 throw new InvalidOperationException("Persistent game-time publisher unavailable.");
 
@@ -83,13 +80,15 @@ namespace ExtraFeatures
                     {
                         Backend = ExtraFeaturesHookInfrastructure.DetourBackend(),
                         FailureMode = TransactionFailureMode.RollbackAndThrow,
-                        OwnsHooks = true
+                        OwnsHooks = true,
+                        // Shared.NativePatchGuard.Commit checks the span for foreign patches, then enables.
+                        InstallOnCommit = false
                     });
                 pending.AddDetour(listBuilder,
                     HookTarget.FromAddress(imageBase + HealerNativeContract.ListBuilderRva),
                     (BuildPlayerUnitListDelegate)BuildPlayerUnitList);
                 ExtraFeaturesHookInfrastructure.RootBeforeCommit(this, pending);
-                CommitResult result = pending.Commit();
+                CommitResult result = Shared.NativePatchGuard.Commit(pending, "healer targets");
                 if (!result.IsCompleteSuccess || !listBuilder.Success)
                     throw new InvalidOperationException("Healer list-builder detour installation failed: " + result);
                 HealerNativeContract.ValidateInstalledDetour(

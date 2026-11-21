@@ -1,3 +1,4 @@
+using APIShared.Input;
 using System;
 using System.Reflection;
 using BepInEx.Logging;
@@ -42,9 +43,9 @@ namespace BugfixesAndQoL.AreaDemolition
         private static void KeyPrefix(KeyManager __instance)
         {
             if(runtime==null) return;
-            bool held=Input.GetKey(KeyCode.Escape);
+            bool held=InputState.IsHeld(KeyCode.Escape);
             if(!held) {escapeOwned=false; return;}
-            if(Input.GetKeyDown(KeyCode.Escape) && runtime.CancelWithEscape()) escapeOwned=true;
+            if(InputState.IsPressed(KeyCode.Escape) && runtime.CancelWithEscape()) escapeOwned=true;
             // Uses Vanilla's short suppression window and leaves original key-state processing running.
             if(escapeOwned) __instance.ignoreEscape();
         }

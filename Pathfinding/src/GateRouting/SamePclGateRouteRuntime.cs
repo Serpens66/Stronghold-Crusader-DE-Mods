@@ -325,6 +325,7 @@ namespace Pathfinding.GateRouting
             registeredProvider = DetailedDiagnostics ? (IEnemyGatePathPolicy)this : new FunctionalGatePolicyAdapter(this, this);
             // Traversal providers share player-neutral tiles of the currently published policy.
             Pathfinding.UnitCommands.GatePolicyNeutrality.Current = tileId => publishedPolicy.IsPlayerNeutral(tileId);
+            Pathfinding.UnitCommands.GatePolicyNeutrality.CurrentMasks = () => publishedPolicy.DirectionMasks;
             ownerConflict = existingHookOwner;
             maskPool = new NativeMaskSnapshot[NativeSnapshotPoolSize];
             for (int index = 0; index < maskPool.Length; index++)
@@ -919,6 +920,7 @@ namespace Pathfinding.GateRouting
             {
                 if (Interlocked.Exchange(ref lastPoolExhaustionGeneration, generation) != generation)
                     CountIntegrityError(ref poolExhaustions);
+                Shared.DevDiag.Log(() => $"gate-policy publish deferred generation={generation} thread={Thread.CurrentThread.ManagedThreadId}");
                 return;
             }
             try
@@ -931,6 +933,7 @@ namespace Pathfinding.GateRouting
                     (!ReferenceEquals(policy, RouteTilePolicySnapshot.Empty) && policy.RulesVersion != APIShared.GateAccessRules.Version)) return;
                     currentMasks = slot;
                     publishedPolicy = policy;
+                    Shared.DevDiag.Log(() => $"gate-policy published generation={generation} masks={policy.NonEmptyPlayerMaskCount} thread={Thread.CurrentThread.ManagedThreadId}");
                     routePolicySource.Publish(policy);
                     pendingPolicy = null;
 #if SERP_DEVDIAG

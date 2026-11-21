@@ -133,6 +133,12 @@
     <Compile Include="..\Shared\Runtime\Native\NativePatternResolver.cs">
       <Link>Shared\Runtime\Native\NativePatternResolver.cs</Link>
     </Compile>
+    <Compile Include="..\Shared\Runtime\Native\CommittedMemory.cs">
+      <Link>Shared\Runtime\Native\CommittedMemory.cs</Link>
+    </Compile>
+    <Compile Include="..\Shared\Runtime\Native\NativePatchGuard.cs">
+      <Link>Shared\Runtime\Native\NativePatchGuard.cs</Link>
+    </Compile>
     <Compile Include="..\Shared\Runtime\Localization\SerpLocalization.cs">
       <Link>Shared\Runtime\Localization\SerpLocalization.cs</Link>
     </Compile>
@@ -177,6 +183,8 @@
     <Compile Include="src\HunterMovingTargetPathfinding.cs" />
     <Compile Include="src\HunterVanillaPathContinuation.cs" />
     <Compile Include="src\ImprovedHuntersRuntime.cs" />
+    <Compile Include="src\AIHunterEconomyFeature.cs" />
+    <Compile Include="src\AIHunters\*.cs" />
     <Compile Include="src\ImprovedHuntersViewModel.cs" />
   </ItemGroup>
 

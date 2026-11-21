@@ -1540,7 +1540,9 @@ namespace CastlePlanner
                         FailureMode = TransactionFailureMode.RollbackAndThrow,
                         // The published transaction stays rooted for the process lifetime.
                         // Ownership permits rollback only while this candidate is unpublished.
-                        OwnsHooks = true
+                        OwnsHooks = true,
+                        // Shared.NativePatchGuard.Commit checks the span for foreign patches, then enables.
+                        InstallOnCommit = false
                     });
                 pending.AddContextHook(
                     humanKeepCoordinateLoadHook,
@@ -1553,7 +1555,7 @@ namespace CastlePlanner
                         ErrorMode = CallbackErrorMode.LogAndContinue,
                         Placement = OverwrittenInstructionPlacement.AfterCallback
                     });
-                CommitResult commitResult = pending.Commit();
+                CommitResult commitResult = Shared.NativePatchGuard.Commit(pending, "human start Keep preparation");
                 if (!commitResult.IsCompleteSuccess ||
                     !humanKeepCoordinateLoadHook.Success ||
                     humanKeepCoordinateLoadHook.Hook.DisplacedByteCount !=

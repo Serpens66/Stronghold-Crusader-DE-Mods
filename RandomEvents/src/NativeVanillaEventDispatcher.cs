@@ -1,5 +1,4 @@
 using BepInEx.Logging;
-using MonoMod.RuntimeDetour;
 using SHCDESE.API;
 using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
@@ -50,6 +49,14 @@ namespace RandomEvents
             "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48 89 7C 24 20 41 56 48 83 EC 30 48 63 F2 4C 8D 35 ?? ?? ?? ?? 41 8B C8 B8 1F 85 EB 51";
         private const string PresentationCallsitePattern =
             "48 89 44 24 20 BA C9 00 00 00 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 41 0F B6 8C 24 7E 06 00 00";
+        private const string PresentationFeature = "Random Events presentation filter";
+        private const string SoundFeature = "Random Events sound filter";
+        // Entries displaced by the RedBird Indirect detours (audited on the reference hash with RedBird 1.5:
+        // whole instructions, no direct branch into the span, no self-recursion). The presentation entry
+        // holds a je whose displacement is build-specific, so that filter stays bound to the audited bytes.
+        private static readonly byte[] PresentationDetourEntry = { 0x83, 0x39, 0x00, 0x0F, 0x84, 0xB0, 0x00, 0x00, 0x00 };
+        private static readonly byte[] SoundDetourEntry = { 0x41, 0xB9, 0x40, 0x00, 0x00, 0x00 };
+
         private const string PresentationHandlerPattern =
             "83 39 00 0F 84 ?? ?? ?? ?? 48 63 81 4C 09 00 00 83 F8 0A 0F 84 ?? ?? ?? ?? 45 33 D2 44 89 94 81 2C 01 00 00";
 
@@ -65,12 +72,12 @@ namespace RandomEvents
         private PresentationDelegate presentationHandler;
         private PresentationDelegate presentationOriginal;
         private PresentationDelegate rootedPresentationDetour;
-        private NativeDetour presentationDetour;
+        private RedBird.Backends.NativeX64.NativeDetour<PresentationDelegate> presentationDetour;
         private IntPtr presentationHandlerAddress;
         private SoundEffectDelegate soundEffectHandler;
         private SoundEffectDelegate soundEffectOriginal;
         private SoundEffectDelegate rootedSoundEffectDetour;
-        private NativeDetour soundEffectDetour;
+        private RedBird.Backends.NativeX64.NativeDetour<SoundEffectDelegate> soundEffectDetour;
         private IntPtr soundEffectHandlerAddress;
 
         public NativeVanillaEventDispatcher(ManualLogSource log)
@@ -294,7 +301,7 @@ namespace RandomEvents
             }
             catch (Exception ex)
             {
-                LogWarning($"Native handler unavailable: component={name}, reason={ex.Message}");
+                Shared.DebugLogHelper.LogHookInstallFailure(log, "Vanilla random events", name, ex.Message);
                 return null;
             }
         }
@@ -332,26 +339,26 @@ namespace RandomEvents
                         $"reference presentation targets differ: manager=0x{managerRva:X}, handler=0x{handlerRva:X}.");
                 }
 
-                IntPtr resolvedHandlerAddress = AtRva(libraryHandle, handlerRva);
-                InstallPresentationFilter(resolvedHandlerAddress);
+                InstallPresentationFilter(libraryHandle, memory, handlerRva);
                 presentationManager = AtRva(libraryHandle, managerRva);
             }
             catch (Exception ex)
             {
                 presentationHandler = null;
                 presentationManager = IntPtr.Zero;
-                LogWarning($"Native handler unavailable: component=event presentation, reason={ex.Message}");
+                Shared.DebugLogHelper.LogHookInstallFailure(log, "Vanilla random events", "event presentation", ex.Message);
             }
         }
 
-        private void InstallPresentationFilter(IntPtr resolvedHandlerAddress)
+        private void InstallPresentationFilter(IntPtr libraryHandle, ReadOnlySpan<byte> memory, int handlerRva)
         {
+            IntPtr resolvedHandlerAddress = AtRva(libraryHandle, handlerRva);
             if (presentationDetour != null)
             {
                 if (resolvedHandlerAddress != presentationHandlerAddress)
                 {
                     throw new InvalidOperationException(
-                        $"presentation handler changed after detour installation: " +
+                        $"event-presentation handler changed after detour installation: " +
                         $"installed=0x{presentationHandlerAddress.ToInt64():X}, resolved=0x{resolvedHandlerAddress.ToInt64():X}.");
                 }
 
@@ -360,30 +367,41 @@ namespace RandomEvents
             }
 
             rootedPresentationDetour = FilterPresentation;
-            IntPtr detourAddress = Marshal.GetFunctionPointerForDelegate(rootedPresentationDetour);
-            NativeDetour installedDetour = null;
+            // Nothing is written before the entry, the trampoline and the live span (foreign patches) are checked.
+            RedBird.Backends.NativeX64.NativeDetour<PresentationDelegate> candidate;
             try
             {
-                var config = new NativeDetourConfig { ManualApply = true };
-                installedDetour = new NativeDetour(resolvedHandlerAddress, detourAddress, config);
-                PresentationDelegate installedOriginal = installedDetour.GenerateTrampoline<PresentationDelegate>();
-                presentationHandlerAddress = resolvedHandlerAddress;
-                presentationOriginal = installedOriginal;
-                presentationHandler = FilterPresentation;
-                installedDetour.Apply();
-                presentationDetour = installedDetour;
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogDebug($"Native event-presentation target filter installed: address=0x{resolvedHandlerAddress.ToInt64():X}.");
+                candidate = Shared.AuditedEntryDetour.Prepare(memory, unchecked((ulong)libraryHandle.ToInt64()),
+                    handlerRva, PresentationDetourEntry, rootedPresentationDetour, PresentationFeature);
             }
             catch
             {
-                installedDetour?.Dispose();
-                presentationHandlerAddress = IntPtr.Zero;
-                presentationOriginal = null;
-                presentationHandler = null;
                 rootedPresentationDetour = null;
                 throw;
             }
+
+            // Rooted with its original before publication. A published detour is never rolled back; while
+            // presentationHandler is unset its callback only passes through to Vanilla.
+            presentationHandlerAddress = resolvedHandlerAddress;
+            presentationOriginal = candidate.Original;
+            presentationDetour = candidate;
+            try { Shared.AuditedEntryDetour.Publish(candidate, rootedPresentationDetour, PresentationFeature); }
+            catch
+            {
+                if (!Shared.AuditedEntryDetour.WasPublished(candidate))
+                {
+                    // Never enabled, nothing written: release the candidate.
+                    candidate.Dispose();
+                    presentationDetour = null;
+                    presentationHandlerAddress = IntPtr.Zero;
+                    presentationOriginal = null;
+                    rootedPresentationDetour = null;
+                }
+                throw;
+            }
+            presentationHandler = FilterPresentation;
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug($"Native event-presentation target filter installed: address=0x{resolvedHandlerAddress.ToInt64():X}.");
         }
 
         private void ResolveEventSoundFilter(
@@ -396,7 +414,7 @@ namespace RandomEvents
                 RandomEventSoundNativeResolution resolution = RandomEventSoundNativeLayout.Resolve(
                     memory,
                     referenceHashMatches);
-                InstallEventSoundFilter(AtRva(libraryHandle, resolution.SoundHandlerRva));
+                InstallEventSoundFilter(libraryHandle, memory, resolution.SoundHandlerRva);
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
                     LogDebug(
                         $"Native event-sound target resolved: method={resolution.Method}, " +
@@ -406,18 +424,19 @@ namespace RandomEvents
             catch (Exception ex)
             {
                 soundEffectHandler = null;
-                LogWarning($"Native handler unavailable: component=event sound filter, reason={ex.Message}");
+                Shared.DebugLogHelper.LogHookInstallFailure(log, "Vanilla random events", "event sound filter", ex.Message);
             }
         }
 
-        private void InstallEventSoundFilter(IntPtr resolvedHandlerAddress)
+        private void InstallEventSoundFilter(IntPtr libraryHandle, ReadOnlySpan<byte> memory, int handlerRva)
         {
+            IntPtr resolvedHandlerAddress = AtRva(libraryHandle, handlerRva);
             if (soundEffectDetour != null)
             {
                 if (resolvedHandlerAddress != soundEffectHandlerAddress)
                 {
                     throw new InvalidOperationException(
-                        $"event sound handler changed after detour installation: " +
+                        $"event-sound handler changed after detour installation: " +
                         $"installed=0x{soundEffectHandlerAddress.ToInt64():X}, resolved=0x{resolvedHandlerAddress.ToInt64():X}.");
                 }
 
@@ -426,30 +445,41 @@ namespace RandomEvents
             }
 
             rootedSoundEffectDetour = FilterSoundEffect;
-            IntPtr detourAddress = Marshal.GetFunctionPointerForDelegate(rootedSoundEffectDetour);
-            NativeDetour installedDetour = null;
+            // Nothing is written before the entry, the trampoline and the live span (foreign patches) are checked.
+            RedBird.Backends.NativeX64.NativeDetour<SoundEffectDelegate> candidate;
             try
             {
-                var config = new NativeDetourConfig { ManualApply = true };
-                installedDetour = new NativeDetour(resolvedHandlerAddress, detourAddress, config);
-                SoundEffectDelegate installedOriginal = installedDetour.GenerateTrampoline<SoundEffectDelegate>();
-                soundEffectHandlerAddress = resolvedHandlerAddress;
-                soundEffectOriginal = installedOriginal;
-                soundEffectHandler = FilterSoundEffect;
-                installedDetour.Apply();
-                soundEffectDetour = installedDetour;
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogDebug($"Native event-sound target filter installed: address=0x{resolvedHandlerAddress.ToInt64():X}.");
+                candidate = Shared.AuditedEntryDetour.Prepare(memory, unchecked((ulong)libraryHandle.ToInt64()),
+                    handlerRva, SoundDetourEntry, rootedSoundEffectDetour, SoundFeature);
             }
             catch
             {
-                installedDetour?.Dispose();
-                soundEffectHandlerAddress = IntPtr.Zero;
-                soundEffectOriginal = null;
-                soundEffectHandler = null;
                 rootedSoundEffectDetour = null;
                 throw;
             }
+
+            // Rooted with its original before publication. A published detour is never rolled back; while
+            // soundEffectHandler is unset its callback only passes through to Vanilla.
+            soundEffectHandlerAddress = resolvedHandlerAddress;
+            soundEffectOriginal = candidate.Original;
+            soundEffectDetour = candidate;
+            try { Shared.AuditedEntryDetour.Publish(candidate, rootedSoundEffectDetour, SoundFeature); }
+            catch
+            {
+                if (!Shared.AuditedEntryDetour.WasPublished(candidate))
+                {
+                    // Never enabled, nothing written: release the candidate.
+                    candidate.Dispose();
+                    soundEffectDetour = null;
+                    soundEffectHandlerAddress = IntPtr.Zero;
+                    soundEffectOriginal = null;
+                    rootedSoundEffectDetour = null;
+                }
+                throw;
+            }
+            soundEffectHandler = FilterSoundEffect;
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug($"Native event-sound target filter installed: address=0x{resolvedHandlerAddress.ToInt64():X}.");
         }
 
         private void FilterPresentation(
@@ -537,7 +567,6 @@ namespace RandomEvents
         private static IntPtr AtRva(IntPtr libraryHandle, int rva) =>
             new IntPtr(checked(libraryHandle.ToInt64() + rva));
 
-        private void LogWarning(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.DebugLogHelper.LogWarningLimited(log, callerFile + ":" + callerLine, message);
         private void LogDebug(string message, [System.Runtime.CompilerServices.CallerFilePath] string callerFile = "", [System.Runtime.CompilerServices.CallerLineNumber] int callerLine = 0) => Shared.DebugLogHelper.LogDebugLimited(log, callerFile + ":" + callerLine, message);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]

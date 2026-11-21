@@ -23,7 +23,7 @@ namespace BugfixesAndQoL
         private readonly IntPtr demand = Marshal.AllocHGlobal(1);
         private bool ready;
 
-        internal PermanentNativeSwitch(ManualLogSource log, ulong imageBase, NativeSwitchPlan[] plans, string contractSha256)
+        internal PermanentNativeSwitch(ManualLogSource log, ulong imageBase, NativeSwitchPlan[] plans, string contractSha256, string feature)
         {
             Volatile.Write(ref *(byte*)demand, 0);
             // Root before the first executable entry is published, even if Enable fails later.
@@ -41,12 +41,17 @@ namespace BugfixesAndQoL
                     "..0x" + (plan.Rva + plan.PhysicalLength).ToString("X") + "; instruction lengths=" +
                     string.Join(",", lengths) + "; following=" + BitConverter.ToString(plan.Following) + ".");
             }
+            // Foreign-patch check of every span before the first one is written.
+            foreach (X64AssemblyPatch patch in patches)
+                Shared.NativePatchGuard.RequireUnpatched(patch, feature);
             foreach (X64AssemblyPatch patch in patches)
             {
                 patch.Enable();
                 if (!patch.IsInstalled)
                     throw new InvalidOperationException("Native logical switch was not installed: " + patch.Name);
             }
+            foreach (X64AssemblyPatch patch in patches)
+                Shared.NativePatchGuard.Watch(patch, feature);
             ready = true;
             Shared.DebugLogHelper.LogInfo(log, "Native logical switch installed with gate off; spans=" +
                 plans.Length + "; contract sha256=" + contractSha256 + ".");

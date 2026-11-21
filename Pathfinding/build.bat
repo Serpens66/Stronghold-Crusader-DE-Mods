@@ -106,6 +106,8 @@ dotnet run --project "%PROJECT_DIR%tests\AssassinPathfinding.Tests\AssassinPathf
 if not "%ERRORLEVEL%"=="0" goto failed
 dotnet run --project "%PROJECT_DIR%tests\FriendlyMoatMovement.Tests\FriendlyMoatMovement.Tests.csproj" -- "%PROJECT_DIR%.."
 if not "%ERRORLEVEL%"=="0" goto failed
+dotnet run --project "%PROJECT_DIR%tests\DrawbridgeDeck.Tests\DrawbridgeDeck.Tests.csproj"
+if not "%ERRORLEVEL%"=="0" goto failed
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\_inspect\FormationIntegration\Verify-Interop.ps1"
 if not "%ERRORLEVEL%"=="0" goto failed
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-UnitCommandSplit.ps1" -ModDirectory Pathfinding -SkipPermanentHooks -SkipCommonChecks

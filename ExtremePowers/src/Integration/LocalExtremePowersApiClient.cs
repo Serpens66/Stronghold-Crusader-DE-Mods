@@ -8,7 +8,7 @@ namespace ExtremePowers.Integration
         private readonly IExtremePowersApi api;
         private readonly Action<string> diagnostic;
         internal LocalExtremePowersApiClient(IExtremePowersApi api, Action<string> diagnostic) { this.api = api ?? throw new ArgumentNullException(nameof(api)); this.diagnostic = diagnostic; }
-        internal static IExtremePowersApiClient Create(string dllPath, IntPtr libraryHandle, ReadOnlySpan<byte> libraryMemory, Func<string, ApiReadiness> getSessionReadiness, Action<string> diagnostic)
+        internal static IExtremePowersApiClient Create(string dllPath, SHCDESE.API.LowLevel.CrusaderLibraryLoadContext context, BepInEx.Logging.ManualLogSource log, Func<string, ApiReadiness> getSessionReadiness, Action<string> diagnostic)
         {
             var options = new ExtremePowersBootstrapOptions
             {
@@ -17,9 +17,11 @@ namespace ExtremePowers.Integration
                     ApiReadiness readiness = getSessionReadiness == null ? ApiReadiness.Available : getSessionReadiness(token);
                     return new ExtremePowersReadiness(readiness.Ready, readiness.Reason);
                 },
-                Diagnostic = diagnostic
+                Diagnostic = diagnostic,
+                NativeLoadContext = context,
+                NativeLog = log
             };
-            return new LocalExtremePowersApiClient(ExtremePowersBootstrap.Initialize(dllPath, libraryHandle, libraryMemory, options), diagnostic);
+            return new LocalExtremePowersApiClient(ExtremePowersBootstrap.Initialize(dllPath, context.ModuleHandle, context.Memory, options), diagnostic);
         }
         public string Status => api.NativeBackendStatus;
         public string CompatibilityToken => api.CompatibilityToken;

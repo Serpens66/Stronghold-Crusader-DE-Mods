@@ -130,15 +130,18 @@ internal static class TrailSetupTests
             var header = new FileHeader { Title = "Current map", Briefing = "Map briefing", Size = 400 };
             var lobby = new FRONT_Multiplayer(setup, header, host, shields);
             lobby.panelActive = panelActive;
+            FRONT_Multiplayer.skirmishGame = false;
             MainViewModel.Instance = new MainViewModel { StandaloneMissionText = "Custom mission description", Show_SkirmishTeamsPanel = false };
             CoopTrailSetupPresentation.Refresh(lobby, preserveMissionText: true);
-            Check(lobby.Members.Select(member => member.TeamShield).SequenceEqual(shields), "lobby shields stayed stale");
+            Check(lobby.Members.Select(member => member.teamShield).SequenceEqual(shields), "lobby shields stayed stale");
             Check(lobby.RadarShields.SequenceEqual(shields), "radar was refreshed before team shields");
+            Check(MainViewModel.Instance.Show_MPPeacetime, "online Customize did not reveal Peace Time");
             Check(MainViewModel.Instance.StartingGold == 777 && MainViewModel.Instance.Show_SkirmishAdvancedEnabled,
                 "setup indicators stayed stale on host or client");
             Check(MainViewModel.Instance.StandaloneMissionTitle == header.Title && MainViewModel.Instance.MapSize == 400 &&
                 MainViewModel.Instance.StandaloneMissionText == "Custom mission description", "map details or custom text lost");
-            Check(!MainViewModel.Instance.Show_SkirmishTeamsPanel && lobby.TeamRefreshes == 1, "refresh opened the team panel");
+            Check(!MainViewModel.Instance.Show_SkirmishTeamsPanel && lobby.TeamRefreshes == (host ? 1 : 0),
+                "refresh opened the team panel or normalized client teams");
             Check(lobby.MappingsUpdated == host, "client remapped host-owned players");
             Check(setup.StartingSpeed == 47 && lobby.panelActive == panelActive, "presentation changed game speed or input activation");
             CoopTrailSetupPresentation.Refresh(lobby, preserveMissionText: true);
@@ -148,6 +151,14 @@ internal static class TrailSetupTests
             Check(!MainViewModel.Instance.Show_SkirmishAdvancedEnabled && MainViewModel.Instance.StandaloneMissionText == "Map briefing",
                 "inactive advanced options or ordinary map briefing stayed stale");
         }
+        FRONT_Multiplayer.skirmishGame = true;
+        var local = new FRONT_Multiplayer(new EngineInterface.MultiplayerSetupData(), new FileHeader(), true, new[] { 1, 1 });
+        CoopTrailSetupPresentation.Refresh(local);
+        Check(!MainViewModel.Instance.Show_MPPeacetime, "online visibility leaked into local Coop");
+        FRONT_Multiplayer.skirmishGame = false;
+
+        ClientPresentationAfterVanillaUpdate();
+
         var missingMap = new FRONT_Multiplayer(new EngineInterface.MultiplayerSetupData(), null, true, Array.Empty<int>());
         try { CoopTrailSetupPresentation.Refresh(missingMap); throw new Exception("missing map accepted"); }
         catch (InvalidOperationException) { Check(missingMap.TeamRefreshes == 0, "invalid setup partially refreshed"); }
@@ -157,6 +168,52 @@ internal static class TrailSetupTests
         catch (System.Reflection.TargetInvocationException) { Check(failing.panelActive, "refresh failure left input disabled"); }
     }
 
+    private static void ClientPresentationAfterVanillaUpdate()
+    {
+        var setup = new EngineInterface.MultiplayerSetupData { PeaceTime = 15, LocalBarracks = 0 };
+        var map = new FileHeader { fileName = "trail-map", crc = 0xF0000001, Briefing = "Map briefing" };
+        var lobby = new FRONT_Multiplayer(setup, map, false, new[] { 1, 1, 1, 1 });
+        var room = lobby.currentLobby;
+        var view = new MainViewModel
+        {
+            Show_MultiplayerSetup = true, Show_MPGameCreation = true, Show_MPSettings = true,
+            StandaloneMissionText = map.Briefing
+        };
+        var presentation = new CoopClientLobbyPresentation(room, map, "Trail description");
+        Check(presentation.IsCurrent(lobby, view, map), "active client setup was not recognized");
+        room.settings = "15,1";
+        room.mapFileName = map.fileName;
+        room.crc = "1";
+        lobby.Members[1].Slot = 0;
+        presentation.Refresh(lobby, view);
+        Check(lobby.RadarRefreshes == 0, "incomplete client slots generated team shields");
+        Check(lobby.ImportedSettings == "15,0" && !lobby.ImportedAsHost,
+            "client dialog did not use Vanilla's locally filtered restrictions");
+        Check(view.StandaloneMissionText == map.Briefing, "description overwrote a different map revision");
+
+        lobby.Members[1].Slot = 2;
+        lobby.Members[2].Team = lobby.Members[3].Team = 2;
+        setup.PeaceTime = 20;
+        room.settings = "20,1";
+        room.crc = unchecked((int)map.crc).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        view.Show_MPRetrieveMapPanel = true;
+        presentation.Refresh(lobby, view);
+        Check(lobby.RadarShields.SequenceEqual(new[] { 1, 1, 2, 2 }) && lobby.RadarRefreshes == 1,
+            "late host team metadata did not update lobby and radar shields");
+        Check(lobby.Members.Select(member => member.Team).SequenceEqual(new[] { 1, 1, 2, 2 }) &&
+            lobby.TeamRefreshes == 0, "client changed host-owned team assignments");
+        Check(lobby.ImportedSettings == "20,0" && lobby.SettingsImports == 2, "open dialog missed a Peace Time-only update");
+        Check(view.StandaloneMissionText == map.Briefing, "description replaced the map retrieval state");
+
+        view.Show_MPRetrieveMapPanel = false;
+        presentation.Refresh(lobby, view);
+        Check(view.StandaloneMissionText == "Trail description", "map confirmation lost the trail description");
+        Check(lobby.RadarRefreshes == 1 && lobby.SettingsImports == 2, "unchanged state re-imported settings or redrew radar");
+        Check(!presentation.IsCurrent(lobby, view, new FileHeader()), "replacement mission inherited the previous presentation");
+        lobby.currentLobby = new Platform_Multiplayer.MPLobby();
+        Check(!presentation.IsCurrent(lobby, view, map), "replacement lobby inherited the previous presentation");
+    }
+
     private static void Check(bool condition, string message)
     {
         if (!condition) throw new Exception(message);
@@ -164,15 +221,37 @@ internal static class TrailSetupTests
 }
 
 // Names and signatures model the reflection boundary inspected in the installed game.
-public sealed class FileHeader { public string Title, Briefing; public int Size; }
+public sealed class FileHeader { public string Title, Briefing, fileName; public int Size; public uint crc; }
+public static class Platform_Multiplayer
+{
+    public readonly record struct SteamId(ulong m_SteamID);
+
+    public sealed class MPLobby
+    {
+        public bool isHost;
+        public string settings, crc, mapFileName;
+        public readonly List<MPLobbyMember> members = new();
+        public int getThisPlayerFromSteamID(ulong id) => members.Single(member => member.id.m_SteamID == id).Slot;
+        public int getTeam(MPLobbyMember member) => member.Team;
+    }
+
+    public sealed class MPLobbyMember
+    {
+        public SteamId id;
+        public int teamShield = -1, Team, Slot, ExpectedShield;
+        public bool dummyToBeKicked;
+    }
+}
 public static class EngineInterface
 {
     public struct AILordConfigTransferData { public int opponent_type; }
     public sealed class MultiplayerSetupData
     {
         public int advanced_skirmish_options, StartingGold, StartingSpeed;
+        public int PeaceTime, LocalBarracks;
         public bool HasAdvancedOption;
         public bool advancedSkirmishOptionsEnabled() => HasAdvancedOption;
+        public override string ToString() => $"{PeaceTime},{LocalBarracks}";
     }
 }
 namespace CrusaderDE
@@ -182,6 +261,7 @@ namespace CrusaderDE
         public static MainViewModel Instance = new();
         public string StandaloneMissionText, StandaloneMissionTitle;
         public bool Show_SkirmishAdvancedEnabled, Show_SkirmishTeamsPanel;
+        public bool Show_MPPeacetime, Show_MultiplayerSetup, Show_MPGameCreation, Show_MPSettings, Show_MPRetrieveMapPanel;
         public int StartingGold, MapSize;
     }
     public sealed partial class FRONT_Multiplayer
@@ -189,19 +269,27 @@ namespace CrusaderDE
         private readonly EngineInterface.MultiplayerSetupData MPsetupData;
         private readonly FileHeader selectedMPHeader;
         private readonly bool isHost;
-        public object currentLobby = new();
-        public readonly Member[] Members;
+        public static bool skirmishGame;
+        public Platform_Multiplayer.MPLobby currentLobby;
+        public readonly Platform_Multiplayer.MPLobbyMember[] Members;
         public int[] RadarShields;
-        public int TeamRefreshes;
+        public int TeamRefreshes, RadarRefreshes, SettingsImports;
+        public string ImportedSettings;
+        public bool ImportedAsHost;
         public bool MappingsUpdated;
         public bool panelActive = true, ThrowOnSetupSettings;
-        public sealed class Member { public int TeamShield = -1, ExpectedShield; }
         public FRONT_Multiplayer(EngineInterface.MultiplayerSetupData setup, FileHeader header, bool host, int[] shields)
         {
             MPsetupData = setup;
             selectedMPHeader = header;
             isHost = host;
-            Members = shields.Select(shield => new Member { ExpectedShield = shield }).ToArray();
+            Members = shields.Select((shield, index) => new Platform_Multiplayer.MPLobbyMember
+            {
+                ExpectedShield = shield, Team = shield < 0 ? 8 : shield, Slot = index + 1,
+                id = new Platform_Multiplayer.SteamId((ulong)index + 1)
+            }).ToArray();
+            currentLobby = new Platform_Multiplayer.MPLobby { isHost = host };
+            currentLobby.members.AddRange(Members);
         }
         private bool updateSteamIDMappings() { MappingsUpdated = isHost; return isHost; }
         private void SetupSkirmishModeSettings()
@@ -220,8 +308,18 @@ namespace CrusaderDE
         private void PopulateTeamsPanel()
         {
             TeamRefreshes++;
-            foreach (var member in Members) member.TeamShield = member.ExpectedShield;
+            foreach (var member in Members) member.teamShield = member.ExpectedShield;
         }
-        private void UpdateRadarShieldPositions() => RadarShields = Members.Select(member => member.TeamShield).ToArray();
+        private void UpdateRadarShieldPositions()
+        {
+            RadarRefreshes++;
+            RadarShields = Members.Select(member => member.teamShield).ToArray();
+        }
+        private void ImportSettings(string settings, bool isHost)
+        {
+            SettingsImports++;
+            ImportedSettings = settings;
+            ImportedAsHost = isHost;
+        }
     }
 }

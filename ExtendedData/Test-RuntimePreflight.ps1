@@ -144,9 +144,14 @@ try {
     Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FRONT_Multiplayer' 'PopulateTeamsPanel' @() 'Private'
     Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FRONT_Multiplayer' 'SetupSkirmishModeSettings' @() 'Private'
     Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FRONT_Multiplayer' 'PopulateMapDetailsPanel' @('FileHeader') 'Private'
+    Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FRONT_Multiplayer' 'Update' @() 'Public'
+    Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FRONT_Multiplayer' 'ImportSettings' @('System.String', 'System.Boolean') 'Private'
     # Shared.CoopTrailSetupPresentation uses these private members by checked reflection,
     # and only the following public game members by direct access.
     $front = $managedAssembly.MainModule.Types | Where-Object FullName -CEQ 'CrusaderDE.FRONT_Multiplayer'
+    $skirmishGame = @($front.Fields | Where-Object Name -CEQ 'skirmishGame')
+    if ($skirmishGame.Count -ne 1 -or -not $skirmishGame[0].IsPublic -or -not $skirmishGame[0].IsStatic -or
+        $skirmishGame[0].FieldType.FullName -cne 'System.Boolean') { throw 'Coop presentation game mode contract changed.' }
     $panelActive = @($front.Fields | Where-Object Name -CEQ 'panelActive')
     if ($panelActive.Count -ne 1 -or -not $panelActive[0].IsPublic -or $panelActive[0].IsStatic -or
         $panelActive[0].FieldType.FullName -cne 'System.Boolean') { throw 'Coop presentation input gate contract changed.' }
@@ -173,7 +178,9 @@ try {
         throw 'Coop presentation advanced settings contract changed.'
     }
     $mainView = $managedAssembly.MainModule.Types | Where-Object FullName -CEQ 'CrusaderDE.MainViewModel'
-    foreach ($contract in @(@('StandaloneMissionText', 'System.String'), @('Show_SkirmishAdvancedEnabled', 'System.Boolean'))) {
+    foreach ($contract in @(@('StandaloneMissionText', 'System.String'), @('Show_SkirmishAdvancedEnabled', 'System.Boolean'),
+        @('Show_MPPeacetime', 'System.Boolean'), @('Show_MultiplayerSetup', 'System.Boolean'),
+        @('Show_MPGameCreation', 'System.Boolean'), @('Show_MPSettings', 'System.Boolean'), @('Show_MPRetrieveMapPanel', 'System.Boolean'))) {
         $property = @($mainView.Properties | Where-Object Name -CEQ $contract[0])
         if ($property.Count -ne 1 -or $property[0].PropertyType.FullName -cne $contract[1] -or
             -not $property[0].GetMethod.IsPublic -or -not $property[0].SetMethod.IsPublic) {

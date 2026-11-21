@@ -73,7 +73,7 @@ namespace Pathfinding.UnitCommands
                     ? InstallConnectivityObserver(candidate, memory, libraryBase, PlayerMoveRva, PlayerMoveEntryBytes,
                         (FastPlayerMoveDelegate)DispatchPlayerMove)
                     : null;
-                CommitResult result = CommitPermanentHooks(candidate);
+                CommitResult result = CommitPermanentHooks(candidate, "Manual group admission");
                 if (playerMoveHook != null) nativePlayerMove = CountPlayerMove(playerMoveHook.Original);
                 ValidatePublishedCommandHooks(candidate);
                 if (!result.IsCompleteSuccess || !manualAdmissionGate.Success || !manualAdmissionGate.IsInstalled ||

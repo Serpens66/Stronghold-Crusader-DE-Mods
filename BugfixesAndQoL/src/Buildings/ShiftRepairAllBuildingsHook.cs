@@ -1,3 +1,4 @@
+using APIShared.Input;
 // Feature: Shift-click the Vanilla Repair button to repair all eligible owned buildings.
 using BepInEx.Logging;
 using CrusaderDE;
@@ -62,11 +63,9 @@ namespace BugfixesAndQoL
             ButtonRepairDelegate original = trampoline;
             original(self, parameter);
 
-            KeyManager keys = KeyManager.instance;
             if (!settings.EnableMod ||
                 !settings.EnableShiftRepairAllBuildings ||
-                keys == null ||
-                !keys.isShiftDown())
+                (InputState.GameModifiers & KeybindModifiers.Shift) == 0)
             {
                 return;
             }

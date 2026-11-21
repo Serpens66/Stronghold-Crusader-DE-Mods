@@ -78,7 +78,9 @@ enum Flags { ViaAnchor = 1, SubAnchor = 2, NewSubAnchor = 4, Uncached = 8 };
 enum Code { Ok = 0, NoMemory = 2, BadArgument = 3, Internal = 4 };
 // AnchorNoStart..AnchorTooFar: why an anchor (main or sub) could not answer a query.
 enum StatIndex { TasksComputed, TasksFailed, SettleEvents, Entries, Queries, ViaChosen, SubAnchors, SubCapped, StepNs, QueryNs, SubNs, MaskWrites, MaskChanges, PeakBytes, Allocations, Workers,
-    AnchorNoStart, AnchorNoEntry, AnchorUnreached, AnchorTooFar, FieldReuses, SingleQueries, SingleSettles, SingleNs, SubSingles, StartsEnclosed, StatCount };
+    AnchorNoStart, AnchorNoEntry, AnchorUnreached, AnchorTooFar, FieldReuses, SingleQueries, SingleSettles, SingleNs, SubSingles, StartsEnclosed,
+    // StraightenRoute: routes processed, raster rays tested, segments replaced, signed net cost saved, work caps hit, time.
+    StraightenRoutes, StraightenRays, StraightenSegments, StraightenSaved, StraightenCapped, StraightenNs, StatCount };
 
 struct Box { int x0 = 0, y0 = 0, x1 = -1, y1 = -1; };
 static int Ctz(u32 m) { unsigned long i; _BitScanForward(&i, m); return int(i); }
@@ -99,6 +101,8 @@ struct Map {
 struct Mask {
     // penalty: extra cost (in ground steps of the task) for entering a node (APIShared route tile rules).
     Vec<uint8_t> out, outWet, outDry, in, inWet, inDry, written, penalty; i64 writtenCount = 0; u64 revision = 1;
+    // Nodes with a nonzero penalty (maintained by mma_penalty_update); 0 enables StraightenRoute's flat-cost path.
+    i64 penalized = 0;
     explicit Mask(Memory* m, int n) : out(size_t(n), 0, Alloc<uint8_t>(m)), outWet(size_t(n), 0, Alloc<uint8_t>(m)), outDry(size_t(n), 0, Alloc<uint8_t>(m)),
         in(size_t(n), 0, Alloc<uint8_t>(m)), inWet(size_t(n), 0, Alloc<uint8_t>(m)), inDry(size_t(n), 0, Alloc<uint8_t>(m)), written(size_t(n), 0, Alloc<uint8_t>(m)),
         penalty(size_t(n), 0, Alloc<uint8_t>(m)) {}
@@ -165,6 +169,12 @@ struct TraversalView {
             if (!Surfaces::allowed(surfaces.values[target], surfaceClass)) result &= uint8_t(~(1u << d));
         }
         return result;
+    }
+    // Single-edge consumers need only this bit's entered surface, not a filtered
+    // copy of all eight directions. Mask::set has already removed boundary edges.
+    bool allowsEdge(int v, int direction, int moat) const {
+        return (base.outgoing(v,moat) & (1u << direction)) != 0 &&
+            (surfaceClass == 0 || Surfaces::allowed(surfaces.values[v+map.off[direction]],surfaceClass));
     }
     uint8_t incoming(int v, int moat) const {
         return Surfaces::allowed(surfaces.values[v], surfaceClass) ? base.incoming(v, moat) : 0;
@@ -397,10 +407,13 @@ struct Pool {
 
 // Per-thread query workspace: the local A* field (doubled ring) and path buffers.
 struct Scratch {
+    Memory* memory;
     std::unique_ptr<Field> local; std::vector<uint8_t> path, rest; std::vector<int> targets; i64 stats[StatCount] = {};
+    // StraightenRoute buffers: route nodes, prefix costs and the rewritten directions.
+    std::vector<int> nodes; std::vector<i64> prefix; std::vector<uint8_t> straight;
     // Forward flood of mma_single_route's enclosure proof (stamped per call, sized on first use).
     std::vector<u32> seen; std::vector<int> flood; u32 seenGen = 0;
-    Scratch(Memory* m, int n) : local(std::make_unique<Field>(m, n, 2 * MaxCost + 2)) {}
+    Scratch(Memory* m, int n) : memory(m), local(std::make_unique<Field>(m, n, 2 * MaxCost + 2)) {}
 };
 
 struct Context {
@@ -441,6 +454,114 @@ struct Context {
 
 static bool ValidNode(const Context& c, int node) { return node >= 0 && node < c.map.n; }
 
+// Both raster styles take exactly Chebyshev(a,b) steps with the same direction counts.
+// Quiet keeps a heading while staying within the existing one-cell cross-product bound;
+// Bresenham remains the closer-to-line alternative when that quieter corridor is blocked.
+struct RasterRay {
+    int signX = 0, signY = 0, length = 0, minor = 0; bool majorX = true;
+    RasterRay(int sx, int sy, int tx, int ty) {
+        const int ax = std::abs(tx - sx), ay = std::abs(ty - sy);
+        length = std::max(ax, ay); signX = (tx > sx) - (tx < sx); signY = (ty > sy) - (ty < sy);
+        majorX = ax >= ay; minor = majorX ? ay : ax;
+    }
+    int start() const { return length / 2; }
+    void advance(int& rx, int& ry, int& err) const {
+        if (majorX) rx += signX; else ry += signY;
+        err += minor;
+        if (err >= length) { err -= length; if (majorX) ry += signY; else rx += signX; }
+    }
+    bool sameStyles() const { return length <= 2 || minor == 0 || minor == length; }
+};
+// Clockwise native directions, no lookup outside the eight-neighbour range.
+static int RasterDirection(int ox, int oy) {
+    return oy < 0 ? (ox < 0 ? 7 : ox > 0 ? 1 : 0) :
+        oy > 0 ? (ox < 0 ? 5 : ox > 0 ? 3 : 4) : ox < 0 ? 6 : 2;
+}
+
+enum class RasterStyle { Quiet, Bresenham };
+template<RasterStyle Style, bool Emit> struct DirectMode {
+    static constexpr RasterStyle style = Style; static constexpr bool emit = Emit;
+};
+template<RasterStyle Style>
+struct RasterCursor {
+    int length, minor, straight, diagonal, straightLeft, diagonalLeft, error, cross = 0;
+    int runLeft = 0, runDirection = 0; bool previousDiagonal;
+    u64 straightReciprocal = 0, diagonalReciprocal = 0;
+    RasterCursor(const RasterRay& ray) : length(ray.length), minor(ray.minor),
+        straight(ray.majorX ? RasterDirection(ray.signX,0) : RasterDirection(0,ray.signY)),
+        diagonal(RasterDirection(ray.signX,ray.signY)), straightLeft(ray.length-ray.minor),
+        diagonalLeft(ray.minor), error(ray.start()), previousDiagonal(ray.start()+ray.minor>=ray.length) {
+        if constexpr (int(Style) == int(RasterStyle::Quiet)) {
+            if (minor > 0 && minor < length) {
+                straightReciprocal = (u64(1)<<32)/u32(minor);
+                diagonalReciprocal = (u64(1)<<32)/u32(length-minor);
+            }
+        }
+    }
+    static __forceinline int runQuotient(int numerator, int denominator, u64 reciprocal) {
+        // reciprocal=floor(2^32/denominator). For 0<=numerator<2^32,
+        // multiply/shift underestimates floor(numerator/denominator) by at most
+        // one. The exact remainder corrects that one step, using integers only.
+        // Here numerator<=2*length<=1,280,000, so the 64-bit product is safe.
+        const u32 quotient = u32((u64(u32(numerator))*reciprocal)>>32);
+        return int(quotient + (u32(numerator)-quotient*u32(denominator) >= u32(denominator)));
+    }
+    __forceinline int next() {
+        if (minor == 0) return straight;
+        if (minor == length) return diagonal;
+        if constexpr (int(Style) == int(RasterStyle::Bresenham)) {
+            error += minor; const bool takeDiagonal = error >= length;
+            if (takeDiagonal) error -= length;
+            return takeDiagonal ? diagonal : straight;
+        } else {
+            if (runLeft > 0) { --runLeft; return runDirection; }
+            bool takeDiagonal = previousDiagonal;
+            const int nextCross = cross + (takeDiagonal ? -(length-minor) : minor);
+            if ((takeDiagonal ? diagonalLeft : straightLeft) == 0 || std::abs(nextCross) > length)
+                takeDiagonal = !takeDiagonal;
+            // Opposite increments have magnitudes minor and length-minor. At least
+            // one stays in [-length,length]; exhausted counts force progress to zero.
+            // Compute a whole run once; each following cell only decrements runLeft.
+            const int available = takeDiagonal ? diagonalLeft : straightLeft;
+            const int crossSteps = takeDiagonal ? runQuotient(cross+length,length-minor,diagonalReciprocal) :
+                runQuotient(length-cross,minor,straightReciprocal);
+            const int count = std::min(available,crossSteps);
+            if (takeDiagonal) diagonalLeft -= count; else straightLeft -= count;
+            cross += count * (takeDiagonal ? -(length-minor) : minor);
+            previousDiagonal = takeDiagonal; runLeft = count-1;
+            runDirection = takeDiagonal ? diagonal : straight;
+            return runDirection;
+        }
+    }
+};
+
+// Two diagonals straddling a cardinal direction can be replaced by two cardinal
+// steps through their endpoint midpoint. This removes repeated bridge rejoins when
+// the side corridor is clear, without inventing an edge or changing the endpoint.
+static bool IsStraddlingPair(uint8_t first, uint8_t second) {
+    const int difference = (int(first) + 8 - int(second)) & 7;
+    return (first & 1) && (second & 1) && (difference == 2 || difference == 6);
+}
+static bool NormalizePair(const Map& map, const TraversalView& mask, int from, uint8_t& first, uint8_t& second,
+    int ground, int moat, bool strictGround, i64* work = nullptr, i64 cap = INT64_MAX) {
+    if (!IsStraddlingPair(first,second)) return false;
+    const i64 charge = strictGround ? 2 : 4;
+    if (work) { if (*work > cap-charge) return false; *work += charge; }
+    const int direction = RasterDirection((dx[first]+dx[second])/2,(dy[first]+dy[second])/2);
+    const int middle = from + map.off[direction], end = middle + map.off[direction];
+    if (!mask.allowsEdge(from,direction,moat) || !mask.allowsEdge(middle,direction,moat)) return false;
+    const bool firstWet = ((mask.outWet[from] >> direction) & 1) != 0;
+    const bool secondWet = ((mask.outWet[middle] >> direction) & 1) != 0;
+    if (strictGround && (firstWet || secondWet || mask.base.penalty[middle] || mask.base.penalty[end])) return false;
+    const i64 replacement = i64(mask.cost(middle,firstWet,ground,moat)) + mask.cost(end,secondWet,ground,moat);
+    const int oldMiddle = from + map.off[first];
+    const i64 original = strictGround ? i64(ground)*2 :
+        i64(mask.cost(oldMiddle,((mask.outWet[from] >> first)&1)!=0,ground,moat)) +
+        mask.cost(end,((mask.outWet[oldMiddle] >> second)&1)!=0,ground,moat);
+    if (replacement > original) return false;
+    first = second = uint8_t(direction); return true;
+}
+
 // A monotone raster ray has the minimum possible number of eight-neighbour steps.
 // Accept only dry, surcharge-free ground edges: its cost then attains the global
 // lower bound ground * Chebyshev(start,target), independently of any partial field.
@@ -452,62 +573,556 @@ static bool TryDirectGroundRoute(const Map& map, const TraversalView& mask, int 
     if (moat != 0) return false;
     const int sx = start % map.width, sy = start / map.width;
     const int tx = target % map.width, ty = target / map.width;
-    const int ax = std::abs(tx - sx), ay = std::abs(ty - sy), length = std::max(ax, ay);
+    const RasterRay ray(sx, sy, tx, ty); const int length = ray.length;
     if (length == 0 || length > MaxSteps || length > capacity) return false;
-    const int signX = (tx > sx) - (tx < sx), signY = (ty > sy) - (ty < sy);
-    const bool majorX = ax >= ay;
-    const int minor = majorX ? ay : ax;
-    auto advance = [&](int& rx, int& ry, int& err) {
-        if (majorX) rx += signX; else ry += signY;
-        err += minor;
-        if (err >= length) { err -= length; if (majorX) ry += signY; else rx += signX; }
-    };
-    auto direction = [](int ox, int oy) {
-        // Clockwise native directions, no lookup outside the eight-neighbour range.
-        return oy < 0 ? (ox < 0 ? 7 : ox > 0 ? 1 : 0) :
-            oy > 0 ? (ox < 0 ? 5 : ox > 0 ? 3 : 4) : ox < 0 ? 6 : 2;
-    };
     auto allowed = [&](int from, int to, int d) {
-        return (mask.outgoing(from, 0) & (1u << d)) != 0 &&
+        return mask.allowsEdge(from,d,0) &&
             !(mask.outWet[from] & (1u << d)) && mask.base.penalty[to] == 0 &&
             mask.cost(to, false, ground, 0) == u32(ground);
     };
-    for (int pass = 0; pass < 2; ++pass) {
-        int x = sx, y = sy, error = length / 2, written = 0;
+    auto walk = [&](auto mode) {
+        using Mode = decltype(mode);
+        RasterCursor<Mode::style> cursor(ray); int node = start, written = 0;
+        auto append = [&](int d, int end) {
+            if constexpr (Mode::emit) {
+                bytes[written] = uint8_t(d);
+                if (written > 0 && IsStraddlingPair(bytes[written-1],bytes[written])) {
+                    const int from = end-map.off[bytes[written-1]]-map.off[d];
+                    NormalizePair(map,mask,from,bytes[written-1],bytes[written],ground,0,true);
+                }
+            }
+            ++written;
+        };
         while (written < length) {
-            int nx = x, ny = y, nextError = error;
-            advance(nx, ny, nextError);
-            const int node = y * map.width + x, next = ny * map.width + nx;
-            const int d = direction(nx - x, ny - y);
+            const int d = cursor.next(), next = node+map.off[d];
             if (allowed(node, next, d)) {
-                if (pass) bytes[written] = uint8_t(d);
-                ++written; x = nx; y = ny; error = nextError;
+                append(d,next); node = next;
                 continue;
             }
             if (written + 2 > length) return false;
-            int ex = nx, ey = ny, endError = nextError;
-            advance(ex, ey, endError);
-            const int end = ey * map.width + ex;
+            const int end = next+map.off[cursor.next()];
+            const int x = node%map.width, y = node/map.width, ex = end%map.width, ey = end/map.width;
             bool bridged = false;
             // Two reference steps advance the major axis twice. Their endpoints have
             // at most three common neighbours, leaving at most two alternatives to
             // the failed reference midpoint. No frontier, recursion or field expansion.
             for (int first = 0; first < 8; ++first) {
                 const int mx = x + dx[first], my = y + dy[first];
-                if ((mx == nx && my == ny) || (unsigned)mx >= unsigned(map.width) || (unsigned)my >= unsigned(map.height) ||
+                if ((unsigned)mx >= unsigned(map.width) || (unsigned)my >= unsigned(map.height) ||
                     std::abs(ex - mx) > 1 || std::abs(ey - my) > 1) continue;
-                const int mid = my * map.width + mx, second = direction(ex - mx, ey - my);
+                if constexpr (int(Mode::style) == int(RasterStyle::Quiet)) {
+                    if (std::abs(i64(mx-sx)*(ty-sy)-i64(my-sy)*(tx-sx)) > length) continue;
+                }
+                const int mid = my * map.width + mx, second = RasterDirection(ex-mx,ey-my);
+                if (mid == next) continue;
                 if (!allowed(node, mid, first) || !allowed(mid, end, second)) continue;
-                if (pass) { bytes[written] = uint8_t(first); bytes[written + 1] = uint8_t(second); }
-                written += 2;
-                x = ex; y = ey; error = endError; bridged = true; break;
+                append(first,mid); append(second,end);
+                node = end; bridged = true; break;
             }
             if (!bridged) return false;
         }
+        return true;
+    };
+    RasterStyle selected = RasterStyle::Quiet;
+    if (!walk(DirectMode<RasterStyle::Quiet,false>{})) {
+        if (ray.sameStyles()) return false;
+        selected = RasterStyle::Bresenham;
+        if (!walk(DirectMode<RasterStyle::Bresenham,false>{})) return false;
     }
+    // Immutable mask: compile-time-specialized replay of only the validated style.
+    if (selected == RasterStyle::Quiet) walk(DirectMode<RasterStyle::Quiet,true>{});
+    else walk(DirectMode<RasterStyle::Bresenham,true>{});
     result = QueryResult{};
     result.status = Found; result.ground = result.length = length; result.cost = i64(ground) * length;
     return true;
+}
+
+// Cost of the raster ray from node a to node b over the same directed edges, costs and surface
+// rules as every search (ground-only profiles: dry edges only), or -1 when an edge is missing or
+// the cost exceeds limit. Writes the directions to out when it is not null. work counts cells.
+template<RasterStyle Style>
+static i64 RayCostStyle(const Map& map, const TraversalView& mask, int a, int b, int ground, int moat,
+    i64 limit, i64& work, std::vector<uint8_t>* out) {
+    const RasterRay ray(a % map.width, a / map.width, b % map.width, b / map.width);
+    // As before, reserve the whole ray's work up front. An early failure may use
+    // less, never more; failed Quiet trials and their fallback are both charged.
+    work += ray.length;
+    if constexpr (int(Style) == int(RasterStyle::Bresenham)) {
+        // Keep the established validation/fallback loop unchanged: no quiet
+        // cursor state or per-cell mode/pure-direction branches in this hot path.
+        const int straight = ray.majorX ? RasterDirection(ray.signX,0) : RasterDirection(0,ray.signY);
+        const int diagonal = RasterDirection(ray.signX,ray.signY);
+        int error = ray.start(), node = a;
+        if (moat == 0 && mask.base.penalized == 0) {
+            for (int k = 0; k < ray.length; ++k) {
+                error += ray.minor; int d = straight;
+                if (error >= ray.length) { error -= ray.length; d = diagonal; }
+                if (!mask.allowsEdge(node,d,0)) return -1;
+                if (out) out->push_back(uint8_t(d));
+                node += map.off[d];
+            }
+            const i64 cost = i64(ground)*ray.length;
+            return cost > limit ? -1 : cost;
+        }
+        i64 cost = 0;
+        for (int k = 0; k < ray.length; ++k) {
+            error += ray.minor; int d = straight;
+            if (error >= ray.length) { error -= ray.length; d = diagonal; }
+            if (!mask.allowsEdge(node,d,moat)) return -1;
+            const int next = node+map.off[d];
+            cost += mask.cost(next,((mask.outWet[node] >> d)&1)!=0,ground,moat);
+            if (cost > limit) return -1;
+            if (out) out->push_back(uint8_t(d));
+            node = next;
+        }
+        return cost;
+    }
+    RasterCursor<RasterStyle::Quiet> cursor(ray); int node = a;
+    // Ground-only profile without any entering penalty: every edge costs exactly ground, so the
+    // ray (Chebyshev length, never longer than the section) can only fail on a missing edge.
+    if (moat == 0 && mask.base.penalized == 0) {
+        for (int k = 0; k < ray.length; ++k) {
+            const int d = cursor.next();
+            if (!mask.allowsEdge(node,d,0)) return -1;
+            if (out) out->push_back(uint8_t(d));
+            node += map.off[d];
+        }
+        const i64 cost = i64(ground) * ray.length;
+        return cost > limit ? -1 : cost;
+    }
+    i64 cost = 0;
+    for (int k = 0; k < ray.length; ++k) {
+        const int d = cursor.next();
+        if (!mask.allowsEdge(node,d,moat)) return -1;
+        const int next = node + map.off[d];
+        cost += mask.cost(next, ((mask.outWet[node] >> d) & 1) != 0, ground, moat);
+        if (cost > limit) return -1;
+        if (out) out->push_back(uint8_t(d));
+        node = next;
+    }
+    return cost;
+}
+
+// Keep the previous Bresenham-based segment selection. Only the committed private
+// output tries Quiet, at no greater cost than that validated segment. A failed Quiet
+// prefix is rolled back before the known-legal Bresenham emission; it is not retried.
+static i64 RayCost(const Map& map, const TraversalView& mask, int a, int b, int ground, int moat,
+    i64 limit, i64& work, std::vector<uint8_t>* out) {
+    if (!out) {
+        const i64 cost = RayCostStyle<RasterStyle::Bresenham>(map,mask,a,b,ground,moat,limit,work,nullptr);
+        return cost;
+    }
+    const RasterRay ray(a%map.width,a/map.width,b%map.width,b/map.width);
+    if (!ray.sameStyles()) {
+        const size_t before = out->size();
+        const i64 cost = RayCostStyle<RasterStyle::Quiet>(map,mask,a,b,ground,moat,limit,work,out);
+        if (cost >= 0) return cost;
+        out->resize(before);
+    }
+    return RayCostStyle<RasterStyle::Bresenham>(map,mask,a,b,ground,moat,limit,work,out);
+}
+
+// Optional, bounded improvement of conspicuous monotone bends. This workspace is
+// separate from Scratch::local: SingleSearch still reads its exact distance later.
+struct CorridorStop {};
+struct CorridorBudget {
+    i64 work = 0, cap;
+    explicit CorridorBudget(int n) : cap(std::min<i64>(8192,64LL*n+64)) {}
+    void take(i64 count = 1) { if (count > cap-work) throw CorridorStop(); work += count; }
+    void reserveRay(int length, int attempts = 1) const { if (i64(length)*attempts > cap-work) throw CorridorStop(); }
+};
+constexpr int CorridorStates = 3825, CorridorSteps = 228;
+struct CorridorState {
+    u32 geo; uint16_t steps, parent; int16_t heap; uint8_t direction, closed;
+};
+struct CorridorWorkspace {
+    CorridorState states[CorridorStates]; uint16_t heap[CorridorStates];
+    uint8_t heuristicCheb[CorridorStates], heuristicMinor[CorridorStates];
+    uint8_t whole[MaxSteps]; int nodes[CorridorSteps+1];
+};
+static_assert(sizeof(CorridorWorkspace)+32 <= 64*1024,"bounded corridor bank charge");
+struct CorridorMemory {
+    Alloc<CorridorWorkspace> allocator; CorridorWorkspace* value;
+    explicit CorridorMemory(Memory* memory) : allocator(memory), value(allocator.allocate(1)) { new (value) CorridorWorkspace; }
+    ~CorridorMemory() { value->~CorridorWorkspace(); allocator.deallocate(value,1); }
+};
+struct CorridorWindow {
+    int a = -1, b = -1, axis = 0, length = 0; i64 cross = 0, excess = 0;
+};
+static i64 RouteCross(const Map& map, int a, int b, int v) {
+    return std::abs(i64(v%map.width-a%map.width)*(b/map.width-a/map.width)-
+        i64(v/map.width-a/map.width)*(b%map.width-a%map.width));
+}
+static int Octile(const Map& map, int a, int b) {
+    const int x = std::abs(a%map.width-b%map.width), y = std::abs(a/map.width-b/map.width);
+    return 1000*std::max(x,y)+414*std::min(x,y);
+}
+static bool BetterWindow(const CorridorWindow& a, const CorridorWindow& b) {
+    if (b.a < 0) return true;
+    const i64 left = a.cross*b.length, right = b.cross*a.length;
+    if (left != right) return left > right;
+    if (a.excess != b.excess) return a.excess > b.excess;
+    if (a.a != b.a) return a.a < b.a;
+    return a.axis < b.axis;
+}
+static CorridorWindow FindCorridorWindow(const Map& map, const std::vector<uint8_t>& path,
+    const std::vector<int>& nodes, const CorridorWindow* excluded) {
+    CorridorWindow best; const int n = int(path.size());
+    for (int axis = 0; axis < 4; ++axis) {
+        const bool xAxis = axis < 2; const int sign = (axis&1) ? -1 : 1;
+        auto along = [&](int d) { return (xAxis ? dx[d] : dy[d]) == sign; };
+        for (int a = 0; a < n;) {
+            if (!along(path[a])) { ++a; continue; }
+            int b = a; i64 geo = 0;
+            while (b < n && along(path[b])) { geo += (path[b]&1) ? 1414 : 1000; ++b; }
+            if (b-a >= 16) {
+                i64 cross = 0; int pivot = a;
+                for (int k = a+1; k < b; ++k) {
+                    const i64 value = RouteCross(map,nodes[a],nodes[b],nodes[k]);
+                    if (value > cross) { cross = value; pivot = k; }
+                }
+                if (cross > 4LL*(b-a)) {
+                    CorridorWindow candidate; candidate.length = b-a; candidate.cross = cross;
+                    candidate.axis = axis; candidate.excess = geo-Octile(map,nodes[a],nodes[b]);
+                    const int length = std::min(128,b-a);
+                    candidate.a = std::max(a,std::min(b-length,pivot-length/2)); candidate.b = candidate.a+length;
+                    if ((!excluded || candidate.b <= excluded->a || candidate.a >= excluded->b) && BetterWindow(candidate,best)) best = candidate;
+                }
+            }
+            a = b;
+        }
+    }
+    return best;
+}
+
+static int CorridorCenter(int start, int delta, int distance, int t) {
+    return start+(delta < 0 ? -1 : 1)*((std::abs(delta)*std::max(0,std::min(distance,t))+distance/2)/distance);
+}
+// A complete directed cut in the largest corridor also excludes every narrower
+// stage, even for paths that backtrack: one of these forward edges must cross it.
+static bool CorridorCut(const Map& map, const TraversalView& mask, CorridorBudget& budget, int a, int b) {
+    const int ax = a%map.width, ay = a/map.width, bx = b%map.width, by = b/map.width;
+    const RasterRay ray(ax,ay,bx,by); if (ray.length == 0) return false;
+    RasterCursor<RasterStyle::Bresenham> cursor(ray); int node = a;
+    for (int t = 0; t < ray.length; ++t) {
+        budget.take(); const int reference = cursor.next();
+        if (mask.allowsEdge(node,reference,0)) { node += map.off[reference]; continue; }
+        constexpr int radius = 12;
+        const int sign = ray.majorX ? ray.signX : ray.signY;
+        const int major = (ray.majorX ? ax : ay)+sign*t;
+        const int minorStart = ray.majorX ? ay : ax, delta = ray.majorX ? by-ay : bx-ax;
+        const int center = CorridorCenter(minorStart,delta,ray.length,t);
+        const int nextCenter = CorridorCenter(minorStart,delta,ray.length,t+1);
+        for (int offset = -radius; offset <= radius; ++offset) {
+            const int minor = center+offset, x = ray.majorX ? major : minor, y = ray.majorX ? minor : major;
+            for (int d = 0; d < 8; ++d) {
+                if ((ray.majorX ? dx[d] : dy[d]) != sign) continue;
+                budget.take();
+                if (unsigned(x) >= unsigned(map.width) || unsigned(y) >= unsigned(map.height) ||
+                    std::abs(minor+(ray.majorX ? dy[d] : dx[d])-nextCenter) > radius) continue;
+                if (mask.allowsEdge(y*map.width+x,d,0)) return false;
+            }
+        }
+        return true; // Only the first blocked reference column is inspected.
+    }
+    return false;
+}
+
+// Indexed binary heap: one live entry per corridor node, with exact labels ordered
+// by (primary cost, geometric cost). Geometry only breaks equal primary costs.
+static bool SearchCorridor(const Map& map, const TraversalView& mask, CorridorWorkspace& space,
+    CorridorBudget& budget, int a, int b, int radius, int ground, int stepLimit, std::vector<uint8_t>& path) {
+    const int ax = a%map.width, ay = a/map.width, bx = b%map.width, by = b/map.width;
+    const int vx = bx-ax, vy = by-ay; const bool majorX = std::abs(vx) >= std::abs(vy);
+    const int distance = std::max(std::abs(vx),std::abs(vy));
+    if (distance == 0 || distance > 128 || stepLimit > CorridorSteps) return false;
+    const int majorSign = (majorX ? vx : vy) < 0 ? -1 : 1;
+    const int minorDelta = majorX ? vy : vx, minorStart = majorX ? ay : ax;
+    const int width = 2*radius+1, count = (distance+2*radius+1)*width;
+    budget.take(count);
+    auto center = [&](int t) {
+        return CorridorCenter(minorStart,minorDelta,distance,t);
+    };
+    auto point = [&](int index, int& x, int& y) {
+        const int t = index/width-radius, minor = center(t)+index%width-radius;
+        const int major = (majorX ? ax : ay)+majorSign*t;
+        x = majorX ? major : minor; y = majorX ? minor : major;
+    };
+    for (int k = 0; k < count; ++k) {
+        CorridorState& state = space.states[k]; state.steps = 0xFFFF; state.geo = Unset; state.heap = -1; state.closed = 0;
+        int x,y; point(k,x,y); const int hx = std::abs(bx-x), hy = std::abs(by-y);
+        // Window length <= 128 and radius <= 12 bound either component by 140,
+        // including initialized off-map cells (which can never enter the heap).
+        space.heuristicCheb[k] = uint8_t(std::max(hx,hy)); space.heuristicMinor[k] = uint8_t(std::min(hx,hy));
+    }
+    auto indexOf = [&](int x, int y) {
+        if (unsigned(x) >= unsigned(map.width) || unsigned(y) >= unsigned(map.height)) return -1;
+        const int t = ((majorX ? x : y)-(majorX ? ax : ay))*majorSign;
+        if (t < -radius || t > distance+radius) return -1;
+        const int offset = (majorX ? y : x)-center(t);
+        if (offset < -radius || offset > radius) return -1;
+        return (t+radius)*width+offset+radius;
+    };
+    auto less = [&](int left, int right) {
+        const CorridorState& l = space.states[left]; const CorridorState& r = space.states[right];
+        const int lp = ground*(int(l.steps)+space.heuristicCheb[left]), rp = ground*(int(r.steps)+space.heuristicCheb[right]);
+        if (lp != rp) return lp < rp;
+        const u32 lg = l.geo+u32(1000*space.heuristicCheb[left]+414*space.heuristicMinor[left]);
+        const u32 rg = r.geo+u32(1000*space.heuristicCheb[right]+414*space.heuristicMinor[right]);
+        if (lg != rg) return lg < rg;
+        if (l.steps != r.steps) return l.steps > r.steps;
+        int lx,ly,rx,ry; point(left,lx,ly); point(right,rx,ry);
+        const i64 lc = std::abs(i64(lx-ax)*vy-i64(ly-ay)*vx), rc = std::abs(i64(rx-ax)*vy-i64(ry-ay)*vx);
+        return lc != rc ? lc < rc : ly*map.width+lx < ry*map.width+rx;
+    };
+    int size = 0;
+    auto swap = [&](int i, int j) {
+        std::swap(space.heap[i],space.heap[j]);
+        space.states[space.heap[i]].heap = int16_t(i); space.states[space.heap[j]].heap = int16_t(j);
+    };
+    auto up = [&](int position) {
+        while (position > 0) { const int parent = (position-1)/2; if (!less(space.heap[position],space.heap[parent])) break; swap(position,parent); position = parent; }
+    };
+    const int source = indexOf(ax,ay), target = indexOf(bx,by);
+    CorridorState& initial = space.states[source]; initial.steps = 0; initial.geo = 0; initial.parent = uint16_t(source); initial.heap = 0;
+    budget.take(); space.heap[size++] = uint16_t(source);
+    while (size) {
+        budget.take(); const int index = space.heap[0]; space.states[index].heap = -1;
+        if (--size) {
+            space.heap[0] = space.heap[size]; space.states[space.heap[0]].heap = 0;
+            for (int position = 0;;) {
+                int child = 2*position+1; if (child >= size) break;
+                if (child+1 < size && less(space.heap[child+1],space.heap[child])) ++child;
+                if (!less(space.heap[child],space.heap[position])) break;
+                swap(position,child); position = child;
+            }
+        }
+        CorridorState& current = space.states[index]; current.closed = 1;
+        if (index == target) {
+            path.clear(); int cursor = target;
+            while (cursor != source) {
+                budget.take(); if (path.size() >= size_t(stepLimit)) return false;
+                path.push_back(space.states[cursor].direction); cursor = space.states[cursor].parent;
+            }
+            budget.take(i64(path.size())); std::reverse(path.begin(),path.end()); return true;
+        }
+        int x,y; point(index,x,y); const int node = y*map.width+x;
+        for (int d = 0; d < 8; ++d) {
+            budget.take(); const int nx = x+dx[d], ny = y+dy[d], next = indexOf(nx,ny);
+            if (next < 0 || !mask.allowsEdge(node,d,0)) continue;
+            CorridorState& state = space.states[next]; if (state.closed) continue;
+            const int steps = int(current.steps)+1;
+            if (steps+std::max(std::abs(bx-nx),std::abs(by-ny)) > stepLimit) continue;
+            const u32 geo = current.geo+u32((d&1) ? 1414 : 1000);
+            if (steps > state.steps || (steps == state.steps && geo >= state.geo)) continue;
+            // One heap operation (insert/decrease/pop) is one budget unit.
+            // Its internal comparisons/swaps are bounded by log2(3825).
+            budget.take();
+            state.steps = uint16_t(steps); state.geo = geo; state.parent = uint16_t(index); state.direction = uint8_t(d);
+            if (state.heap < 0) { state.heap = int16_t(size); space.heap[size++] = uint16_t(next); }
+            up(state.heap);
+        }
+    }
+    return false;
+}
+
+// The same Bresenham endpoint selection and Quiet emission as the production
+// string-puller, but using the additional shared budget and bounded window nodes.
+static void SmoothCorridor(const Map& map, const TraversalView& mask, CorridorWorkspace& space, CorridorBudget& budget,
+    int start, const std::vector<uint8_t>& path, std::vector<uint8_t>& out, int ground, i64& rays, i64& segments) {
+    const int n = int(path.size()); if (n > CorridorSteps) throw CorridorStop();
+    budget.take(n+1); space.nodes[0] = start;
+    for (int k = 0; k < n; ++k) space.nodes[k+1] = space.nodes[k]+map.off[path[k]];
+    auto legal = [&](int i, int j) {
+        budget.reserveRay(map.chebyshev(space.nodes[i],space.nodes[j])); ++rays;
+        return RayCost(map,mask,space.nodes[i],space.nodes[j],ground,0,i64(j-i)*ground,budget.work,nullptr);
+    };
+    out.clear();
+    for (int i = 0; i < n;) {
+        int lo = i+1, hi = -1; i64 loCost = ground;
+        for (int step = 2; lo < n; step *= 2) {
+            const int j = std::min(n,i+step); const i64 candidate = legal(i,j);
+            if (candidate >= 0) { lo = j; loCost = candidate; } else { hi = j; break; }
+        }
+        while (hi > lo+1) {
+            const int mid = lo+(hi-lo)/2; const i64 candidate = legal(i,mid);
+            if (candidate >= 0) { lo = mid; loCost = candidate; } else hi = mid;
+        }
+        if (lo == i+1) { budget.take(); out.push_back(path[i]); }
+        else {
+            budget.reserveRay(map.chebyshev(space.nodes[i],space.nodes[lo]),2);
+            if (RayCost(map,mask,space.nodes[i],space.nodes[lo],ground,0,loCost,budget.work,&out) < 0) throw CorridorStop();
+            ++segments;
+        }
+        i = lo;
+    }
+    for (int k = 0, v = start; k < int(out.size()); ++k) {
+        budget.take();
+        if (k+2 < int(out.size()) && out[k] == out[k+2] && IsStraddlingPair(out[k],out[k+1]))
+            NormalizePair(map,mask,v,out[k],out[k+1],ground,0,true,&budget.work,budget.cap);
+        v += map.off[out[k]];
+    }
+}
+struct CorridorQuality { i64 geo = 0, maximum = 0, sum = 0; };
+static CorridorQuality WindowQuality(const Map& map, int a, int b, const uint8_t* directions, int length) {
+    CorridorQuality quality; int node = a;
+    for (int k = 0; k < length; ++k) {
+        quality.geo += (directions[k]&1) ? 1414 : 1000; node += map.off[directions[k]];
+        const i64 cross = RouteCross(map,a,b,node); quality.maximum = std::max(quality.maximum,cross); quality.sum += cross;
+    }
+    return quality;
+}
+
+static void ImproveCorridors(const Map& map, const TraversalView& mask, Scratch& s, int start,
+    std::vector<uint8_t>& path, int ground, int capacity, i64& rays, i64& segments, bool& capped) {
+    const int n = int(path.size());
+    if (n < 16 || n > MaxSteps || n > capacity) return;
+    std::vector<int>& nodes = s.nodes; nodes.resize(size_t(n)+1); nodes[0] = start;
+    for (int k = 0; k < n; ++k) nodes[k+1] = nodes[k]+map.off[path[k]];
+    CorridorWindow windows[2]; windows[0] = FindCorridorWindow(map,path,nodes,nullptr);
+    if (windows[0].a < 0) return;
+    windows[1] = FindCorridorWindow(map,path,nodes,&windows[0]);
+    const int target = nodes[n], maximumSteps = std::min({MaxSteps,capacity,n*105/100});
+    i64 globalMaximum = 0;
+    for (int node : nodes) globalMaximum = std::max(globalMaximum,RouteCross(map,start,target,node));
+    CorridorBudget budget(n);
+    try {
+        bool skipWindows[2] = {false,false}, needsSearch = false; CorridorQuality oldQuality[2];
+        for (int k = 0; k < 2; ++k) if (windows[k].a >= 0) {
+            const CorridorWindow& window = windows[k]; const int a = nodes[window.a], b = nodes[window.b], length = window.b-window.a;
+            budget.take(length+1); oldQuality[k] = WindowQuality(map,a,b,path.data()+window.a,length);
+            // Octile is a global lower bound for 1000/1414 geometry, including
+            // backtracking and post-search smoothing. Equality remains eligible.
+            if (i64(Octile(map,a,b))*100 > oldQuality[k].geo*95) { skipWindows[k] = true; continue; }
+            ++rays; skipWindows[k] = CorridorCut(map,mask,budget,a,b);
+            if (!skipWindows[k]) needsSearch = true;
+        }
+        if (!needsSearch) return; // Proven exclusions need neither search state nor its allocation.
+        CorridorMemory allocation(s.memory); CorridorWorkspace& space = *allocation.value;
+        // Try the most conspicuous window first, regardless of its route index.
+        // At most one replacement is accepted: later optional work must never
+        // exhaust the budget and discard an already qualified improvement.
+        for (int windowIndex = 0; windowIndex < 2; ++windowIndex) {
+            const CorridorWindow& window = windows[windowIndex];
+            if (window.a < 0 || skipWindows[windowIndex]) continue;
+            const int oldLength = window.b-window.a, a = nodes[window.a], b = nodes[window.b];
+            const CorridorQuality& old = oldQuality[windowIndex];
+            for (int radius : {4,8,12}) {
+                const int limit = std::min(CorridorSteps,oldLength+maximumSteps-n);
+                if (!SearchCorridor(map,mask,space,budget,a,b,radius,ground,limit,s.rest)) continue;
+                i64 candidateSegments = 0;
+                SmoothCorridor(map,mask,space,budget,a,s.rest,s.straight,ground,rays,candidateSegments);
+                const int newLength = int(s.straight.size()), newWholeLength = n-oldLength+newLength;
+                if (newWholeLength > maximumSteps) continue;
+                budget.take(newLength+1);
+                const CorridorQuality candidate = WindowQuality(map,a,b,s.straight.data(),newLength);
+                const int geoPercent = newWholeLength > n ? 90 : 95;
+                if (candidate.geo*100 > old.geo*geoPercent || candidate.maximum*100 > old.maximum*75 ||
+                    candidate.sum*100*(oldLength+1) > old.sum*75*(newLength+1)) continue;
+                bool valid = true; int node = a;
+                for (uint8_t d : s.straight) {
+                    budget.take();
+                    if (!mask.allowsEdge(node,d,0)) { valid = false; break; }
+                    node += map.off[d];
+                    if (RouteCross(map,start,target,node) > globalMaximum) { valid = false; break; }
+                }
+                if (!valid || node != b) continue;
+                // Assemble absolute baseline prefix/replacement/suffix only after
+                // this window qualifies. No route-order cursor or partial publish.
+                budget.take(newWholeLength);
+                std::copy(path.begin(),path.begin()+window.a,space.whole);
+                std::copy(s.straight.begin(),s.straight.end(),space.whole+window.a);
+                std::copy(path.begin()+window.b,path.end(),space.whole+window.a+newLength);
+                budget.take(newWholeLength+1); node = start;
+                for (int k = 0; k < newWholeLength; ++k) {
+                    const int d = space.whole[k]; if (d >= 8 || !mask.allowsEdge(node,d,0)) return;
+                    node += map.off[d]; if (RouteCross(map,start,target,node) > globalMaximum) return;
+                }
+                if (node != target || newWholeLength > maximumSteps) return;
+                // Only this final assignment publishes a fully checked route.
+                path.assign(space.whole,space.whole+newWholeLength);
+                segments += candidateSegments;
+                return;
+            }
+        }
+    } catch (const CorridorStop&) { capped = true; }
+      catch (const Exhausted&) { /* Optional work never consumes a baseline route. */ }
+      catch (const std::bad_alloc&) { /* Keep the fully valid baseline. */ }
+}
+
+// String pulling and bounded geometric improvement of a found route (TODO G10).
+// Every step costs the same time
+// straight or diagonal, so many routes are equally cheap; the descents pick the lowest direction
+// index and draw large L shapes, which players read as detours. Greedily from each kept node the
+// farthest later route node is searched whose raster ray is legal and costs at most the route
+// section it replaces (galloping, then bisection; ray legality is not monotone, so the chosen node
+// is a legal one, not necessarily the farthest). This first pass never increases cost or length.
+// The optional uniform-ground corridor pass may then spend at most 5% of that baseline's steps
+// for a verified geometric improvement. The first pass also removes anchor detours. A pure
+// function of route and mask: results stay independent of threads and batch order. A
+// deterministic work cap (cells walked) bounds unusual routes; the rest then stays as found.
+// Returns the signed net cost saved (negative when quality spends steps);
+// g/w are recounted for the final route.
+static i64 StraightenRoute(const Map& map, const TraversalView& mask, Scratch& s, int start, std::vector<uint8_t>& path, int ground, int moat, int& g, int& w, int capacity = MaxSteps) {
+    const int n = int(path.size());
+    if (n < 3) return 0;
+    auto t0 = Clock::now(); i64* stats = s.stats; ++stats[StraightenRoutes];
+    std::vector<int>& nodes = s.nodes; std::vector<i64>& prefix = s.prefix; std::vector<uint8_t>& out = s.straight;
+    nodes.resize(size_t(n) + 1); prefix.resize(size_t(n) + 1); nodes[0] = start; prefix[0] = 0;
+    for (int k = 0; k < n; ++k) {
+        const int d = path[k], v = nodes[k], u = v + map.off[d];
+        nodes[k + 1] = u; prefix[k + 1] = prefix[k] + mask.cost(u, ((mask.outWet[v] >> d) & 1) != 0, ground, moat);
+    }
+    const i64 cap = 16LL * n + 64; i64 work = 0, rays = 0, segments = 0; bool capped = false;
+    auto legal = [&](int i, int j) { ++rays; return RayCost(map, mask, nodes[i], nodes[j], ground, moat, prefix[j] - prefix[i], work, nullptr); };
+    out.clear();
+    int i = 0;
+    while (i < n) {
+        if (work > cap) { capped = true; break; }
+        // The original next step is always legal: lo is a known legal end, hi a known illegal one.
+        int lo = i + 1, hi = -1;
+        i64 loCost = prefix[lo]-prefix[i];
+        for (int step = 2; lo < n && work <= cap; step *= 2) {
+            const int j = std::min(n, i + step);
+            const i64 candidate = legal(i,j);
+            if (candidate >= 0) { lo = j; loCost = candidate; } else { hi = j; break; }
+        }
+        while (hi > lo + 1 && work <= cap) { const int mid = lo + (hi - lo) / 2; const i64 candidate = legal(i,mid); if (candidate >= 0) { lo = mid; loCost = candidate; } else hi = mid; }
+        if (lo == i + 1) out.push_back(path[i]);
+        else { RayCost(map, mask, nodes[i], nodes[lo], ground, moat, loCost, work, &out); ++segments; }
+        i = lo;
+    }
+    if (capped) { out.insert(out.end(), path.begin() + i, path.end()); ++stats[StraightenCapped]; }
+    // Normalize repeated a,b,a bridge oscillation only. An isolated macro corner
+    // belongs to two different straight segments; rounding it can move their join
+    // outside either segment's one-cell corridor.
+    i64 cost = 0; g = 0; w = 0;
+    if (moat == 0 && mask.base.penalized == 0) {
+        // Ground masks exclude wet edges and the maintained penalty count proves
+        // every entering cost is ground. Do not reload those per-cell properties.
+        g = int(out.size()); cost = i64(g)*ground;
+        for (int k = 0, v = start; k < int(out.size()); ++k) {
+            if (k+2 < int(out.size()) && out[k] == out[k+2] && IsStraddlingPair(out[k],out[k+1]))
+                NormalizePair(map,mask,v,out[k],out[k+1],ground,0,true,&work,cap);
+            v += map.off[out[k]];
+        }
+    } else {
+        for (int k = 0, v = start; k < int(out.size()); ++k) {
+            if (k+2 < int(out.size()) && out[k] == out[k+2] && IsStraddlingPair(out[k],out[k+1]))
+                NormalizePair(map,mask,v,out[k],out[k+1],ground,moat,false,&work,cap);
+            const int d = out[k], u = v + map.off[d]; const bool wet = ((mask.outWet[v] >> d) & 1) != 0;
+            cost += mask.cost(u,wet,ground,moat); if (wet) ++w; else ++g; v = u;
+        }
+    }
+    path.swap(out);
+    if (moat == 0 && mask.base.penalized == 0) {
+        bool corridorCapped = false;
+        ImproveCorridors(map,mask,s,start,path,ground,capacity,rays,segments,corridorCapped);
+        if (corridorCapped && !capped) ++stats[StraightenCapped];
+        g = int(path.size()); w = 0; cost = i64(g)*ground;
+    }
+    stats[StraightenRays] += rays; stats[StraightenSegments] += segments; stats[StraightenSaved] += prefix[n] - cost; stats[StraightenNs] += Ns(t0);
+    return prefix[n] - cost;
 }
 
 // Exact enclosure proof before a single route: the start's forward component over the same edges
@@ -550,9 +1165,10 @@ static int SingleSearch(const Map& map, const TraversalView& mask, Scratch& s, i
     if (!local.reached(start)) return done(Unreachable);
     s.path.clear(); g = 0; w = 0;
     auto touched = [&](int v) { return local.touched(v) ? local.dist[v] : Unset; };
-    if (Descend(map, mask, touched, start, ground, moat, s.path, g, w, [&](int v, int, int) { return v == target; }) < 0 ||
-        int(s.path.size()) > MaxSteps || int(s.path.size()) > capacity) return done(OverLimit);
-    cost = i64(local.dist[start]);
+    if (Descend(map, mask, touched, start, ground, moat, s.path, g, w, [&](int v, int, int) { return v == target; }) < 0) return done(OverLimit);
+    const i64 saved = StraightenRoute(map, mask, s, start, s.path, ground, moat, g, w, capacity);
+    if (int(s.path.size()) > MaxSteps || int(s.path.size()) > capacity) return done(OverLimit);
+    cost = i64(local.dist[start]) - saved;
     return done(Found);
 }
 
@@ -566,6 +1182,7 @@ static int Query(Context& c, Task& t, Scratch& sc, int start, int slot, int marg
     const Map& map = c.map; const TraversalView mask(map, *c.mask(t.player), *c.surfaces, t.surfaceClass); Field& local = *sc.local; i64* stats = sc.stats;
     std::vector<uint8_t>& path = sc.path; std::vector<uint8_t>& rest = sc.rest;
     auto finish = [&](int g, int w, int flags) {
+        StraightenRoute(map, mask, sc, start, path, t.ground, t.moat, g, w, capacity);
         r.flags = flags; r.ground = g; r.moat = w; r.cost = i64(g) * t.ground + i64(w) * t.moat; r.length = int(path.size());
         if (int(path.size()) > MaxSteps || int(path.size()) > capacity) { r.status = OverLimit; r.length = 0; return; }
         std::copy(path.begin(), path.end(), bytes); r.status = Found;
@@ -679,7 +1296,7 @@ template<class F> static int Guard(F body) {
 
 using namespace mma;
 extern "C" {
-__declspec(dllexport) int mma_contract() { return 0x04000011; }
+__declspec(dllexport) int mma_contract() { return 0x04000012; }
 // Physical cores minus two (Unity main thread plus simulation/render), within 1..8.
 __declspec(dllexport) int mma_recommended_threads() {
     DWORD length = 0; GetLogicalProcessorInformationEx(RelationProcessorCore, nullptr, &length);
@@ -740,7 +1357,10 @@ __declspec(dllexport) int mma_penalty_update(Context* c, int player, const int* 
     if (!c || !nodes || !values || !c->mask(player) || count < 0) return BadArgument;
     Mask& m = *c->mask(player); bool ready = m.ready(c->map.n); int n = 0;
     for (int i = 0; i < count; ++i) { if (!ValidNode(*c, nodes[i])) return BadArgument; }
-    for (int i = 0; i < count; ++i) if (m.penalty[nodes[i]] != values[i]) { m.penalty[nodes[i]] = values[i]; ++n; }
+    for (int i = 0; i < count; ++i) if (m.penalty[nodes[i]] != values[i]) {
+        m.penalized += (values[i] != 0) - (m.penalty[nodes[i]] != 0);
+        m.penalty[nodes[i]] = values[i]; ++n;
+    }
     if (ready && n) ++m.revision;
     if (changed) *changed = n;
     return Ok;
@@ -873,7 +1493,9 @@ __declspec(dllexport) int mma_step(Context* c, int maxTasks, int threads, int* c
 // target towards the start over the whole map (solveTowards; Chebyshev heuristic), so a trip
 // explores a corridor instead of the disc of a full field. Found: packed directions as for
 // mma_query; Unreachable when the target's backward component was settled without the start.
-// Exact optimal cost; deterministic for equal inputs.
+// The primary search has exact optimal cost. The bounded ground-route quality pass
+// may trade at most 5% additional steps/cost against a verified geometric improvement.
+// Deterministic for equal inputs.
 // budget > 0 (mma_single_route_limited): at most that many A* settles; a longer search answers
 // OverLimit (never Unreachable), so the caller can fall back to another exact source.
 // result->reserved: settles of this call (any status), for callers that share a settle budget.

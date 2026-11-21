@@ -1,0 +1,14 @@
+[Info   :   BepInEx] Loaded 1 patcher method from [WorkshopLoadProbe.Patcher 0.0.0.0]
+[Info   :APIShared.WorkshopInstall] 2026-11-18 17:38:03.116 REMOVED 3841874432 roots=1 ms=21
+[Info   :APIShared.WorkshopInstall] 2026-11-18 17:38:03.116 INSTALL_PASS_DONE ms=23
+[Info   :WorkshopLoadProbe] 2026-11-18 17:38:03.116 WLP CONFIG quitAfter=20
+[Info   :  SHCDE-SE] [T1-17:38:04.802] [GameAssetModManager] [RegisterAll] Loading Asset Mod: [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\WorkshopLoadProbe_Serp]
+[Info   :  SHCDE-SE] [T1-17:38:04.803] [GameAssetManagerAPI] [RegisterModProvider] Indexed 2 files for [WorkshopLoadProbe_Serp] in [Global] asset mode from [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\WorkshopLoadProbe_Serp] in 0 ms.
+[Warning:  SHCDE-SE] [T1-17:38:04.803] [GameAssetModManager] [RegisterAssetModCore] Mod has no sprite logo at [Override/Assets/GUI/Sprites/WorkshopLoadProbe_Serp.png] in [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\WorkshopLoadProbe_Serp] - This may be ignored.
+[Info   :  SHCDE-SE] [T1-17:38:04.803] [GameTranslateAPI] [LoadModLocalizations] Loaded 0 localization files from E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\WorkshopLoadProbe_Serp
+[Info   : APIShared] [2026-11-18 17:38:12.386] Workshop preloader installation: REMOVED 3841874432 roots=1 ms=21
+[Info   : APIShared] [2026-11-18 17:38:12.609] Workshop step=local installation; item=3841874432; package=WorkshopLoadProbePayload_Serp; installed=none; available=0.1.3; steamSource=E:\ProgrammeE\Steam\steamapps\workshop\content\3024040\3841874432; receiptVersion=none; bootstrapReceiptVersion=not-declared; localState=Missing; startupOffers=True
+[Info   : APIShared] [2026-11-18 17:38:13.291] Workshop startup result=current; blocked=False; technicalErrors=0.
+[Info   :Workshop Load Probe] 2026-11-18 17:38:17.646 WLP QUIT_SCHEDULED after=20s
+[Message:   BepInEx] Chainloader startup complete
+[Info   :Workshop Load Probe] 2026-11-18 17:38:51.843 WLP QUIT flushing log

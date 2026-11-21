@@ -198,7 +198,8 @@ namespace Pathfinding
 
             HookTransaction candidate = new HookTransaction(context.Region,
                 SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
-                new HookTransactionOptions { Backend = HookInstallPhase.Backend(), FailureMode = TransactionFailureMode.RollbackAndThrow, OwnsHooks = true });
+                new HookTransactionOptions { Backend = HookInstallPhase.Backend(), FailureMode = TransactionFailureMode.RollbackAndThrow, OwnsHooks = true,
+                    InstallOnCommit = false });
             X64InlineHook visible = null;
             try
             {
@@ -223,7 +224,10 @@ namespace Pathfinding
                     resetDrawListHook,
                     HookTarget.FromAddress(unchecked((ulong)(libraryHandle + ResetDrawListRva).ToInt64())),
                     ResetDrawList);
-                CommitResult result = candidate.Commit();
+                // Both spans are checked before the first write: a foreign patch at either site keeps
+                // the whole renderer Vanilla instead of publishing only the reset detour.
+                Shared.NativePatchGuard.RequireUnpatched(visible, "Large move markers");
+                CommitResult result = Shared.NativePatchGuard.Commit(candidate, "Large move markers");
                 transaction = candidate;
                 if (!result.IsCompleteSuccess || !resetDrawListHook.Success)
                 {
@@ -239,6 +243,7 @@ namespace Pathfinding
                 visible.Enable();
                 if (!visible.IsInstalled)
                     throw new InvalidOperationException("Large Move marker visible-tile hook was not installed.");
+                Shared.NativePatchGuard.Watch(visible, "Large move markers");
                 visibleTileHook = visible;
 
                 Shared.DebugLogHelper.LogDebug(

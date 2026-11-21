@@ -12,3 +12,7 @@ SessionBytes = 4294967296
 DurationSeconds = 300
 IntervalTicks = 10
 FocusUnitIds =
+
+[WorkerTrace]
+# -1 traces all players, 0 disables the trace, 1..8 traces a single player.
+PlayerId = 0

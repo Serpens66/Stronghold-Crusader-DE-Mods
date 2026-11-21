@@ -1,3 +1,4 @@
+using APIShared.Input;
 using System;
 using System.Collections.Generic;
 using BepInEx.Logging;
@@ -29,6 +30,8 @@ namespace BugfixesAndQoL.AreaDemolition
         private readonly Brush foreground = new SolidColorBrush(Color.FromArgb(255, 244, 232, 196));
         private HUD_Main hud;
         private Button button;
+        private CheckBox rectangleSelection, allFilters;
+        private StackPanel filterPanel;
         private Grid host;
         private Canvas overlay;
         private Border backdrop, menu, selectionBox;
@@ -135,8 +138,29 @@ namespace BugfixesAndQoL.AreaDemolition
                 Background=new SolidColorBrush(Color.FromArgb(25,130,25,25)) };
             overlay.Children.Add(selectionBox);
             var contents = new StackPanel();
-            contents.Children.Add(new TextBlock { Text = Text.Get("MenuTitle"), Foreground = foreground,
-                FontWeight = FontWeights.Bold, Margin = new Thickness(0, 0, 0, 6), FontSize = 17 });
+            var heading = new Grid { Margin = new Thickness(0, 0, 0, 6) };
+            heading.ColumnDefinitions.Add(new ColumnDefinition());
+            heading.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            heading.Children.Add(new TextBlock { Text = Text.Get("MenuTitle"), Foreground = foreground,
+                FontWeight = FontWeights.Bold, FontSize = 17, VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis });
+            rectangleSelection = new CheckBox { Name = "EnableRectangleSelection", Foreground = foreground,
+                FontSize = 15, MaxHeight = 19, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center,
+                ToolTip = Shared.MenuToolTip.Create(global::SerpLocalization.Get("BugfixesAndQoL.EnableAreaDemolitionHelp")) };
+            ToolTipService.SetShowDuration(rectangleSelection, Shared.MenuToolTip.Duration);
+            Grid.SetColumn(rectangleSelection, 1);
+            heading.Children.Add(rectangleSelection);
+            contents.Children.Add(heading);
+            rectangleSelection.Checked += (_, __) => ChangeRectangleSelection(true);
+            rectangleSelection.Unchecked += (_, __) => ChangeRectangleSelection(false);
+
+            filterPanel = new StackPanel();
+            allFilters = new CheckBox { Content = Text.Get("AllFilters"), Foreground = foreground,
+                FontSize = 15, Margin = new Thickness(0, 2, 0, 1) };
+            allFilters.Checked += (_, __) => ChangeAllFilters(true);
+            allFilters.Unchecked += (_, __) => ChangeAllFilters(false);
+            filterPanel.Children.Add(new Border { Child = allFilters, Margin = new Thickness(0, 0, 0, 2),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(110, 200, 164, 95)), BorderThickness = new Thickness(0, 0, 0, 1) });
             foreach (TargetGroup group in FilterOrder)
             {
                 TargetGroup captured = group;
@@ -145,8 +169,9 @@ namespace BugfixesAndQoL.AreaDemolition
                     FontSize = 15, Margin = new Thickness(0, 2, 0, 2), Tag = group };
                 check.Checked += (_, __) => ChangeFilter(captured, true);
                 check.Unchecked += (_, __) => ChangeFilter(captured, false);
-                filters.Add(check); contents.Children.Add(check);
+                filters.Add(check); filterPanel.Children.Add(check);
             }
+            contents.Children.Add(filterPanel);
             contents.Children.Add(new TextBlock { Text = Text.Get("DragHelp"), TextWrapping = TextWrapping.Wrap,
                 Foreground = foreground, FontSize = 13, Margin = new Thickness(0, 7, 0, 0) });
             contents.Children.Add(new TextBlock { Text = Text.Get("ShiftHelp"), TextWrapping = TextWrapping.Wrap,
@@ -164,16 +189,41 @@ namespace BugfixesAndQoL.AreaDemolition
             SyncFilters();
         }
 
+        private void ChangeRectangleSelection(bool value)
+        {
+            if (syncing || !enabled()) return;
+            settings.EnableRectangleSelection = value;
+            SyncFilters();
+        }
+
         private void ChangeFilter(TargetGroup group, bool value)
         {
-            if (syncing || settings.Get(group) == value) return;
-            settings.Set(group, value); MenuChanged?.Invoke();
+            if (syncing || !settings.EnableRectangleSelection || settings.Get(group) == value) return;
+            settings.Set(group, value);
+            SyncFilters();
+            MenuChanged?.Invoke();
+        }
+
+        private void ChangeAllFilters(bool value)
+        {
+            if (syncing || !settings.EnableRectangleSelection) return;
+            settings.SetAll(value);
+            SyncFilters();
+            MenuChanged?.Invoke();
         }
 
         private void SyncFilters()
         {
             syncing = true;
-            try { foreach (CheckBox check in filters) check.IsChecked = settings.Get((TargetGroup)check.Tag); }
+            try
+            {
+                bool active = settings.EnableRectangleSelection;
+                rectangleSelection.IsChecked = active;
+                filterPanel.IsEnabled = active;
+                filterPanel.Opacity = active ? 1 : 0.65f;
+                foreach (CheckBox check in filters) check.IsChecked = settings.Get((TargetGroup)check.Tag);
+                allFilters.IsChecked = settings.AreAllEnabled;
+            }
             finally { syncing = false; }
         }
 
@@ -233,7 +283,7 @@ namespace BugfixesAndQoL.AreaDemolition
         {
             // Called after EditorDirector.Update consumed this frame's physical input. The closing
             // mouse-up stays shielded for that whole call, including Native before/after input work.
-            if (closingClick && !Input.GetMouseButton(0) && !Input.GetMouseButton(1) && !Input.GetMouseButton(2))
+            if (closingClick && !InputState.IsMouseHeld(0) && !InputState.IsMouseHeld(1) && !InputState.IsMouseHeld(2))
             { closingClick = false; if (!menuOpen && backdrop != null) backdrop.Visibility = Visibility.Collapsed; }
         }
 
@@ -301,7 +351,8 @@ namespace BugfixesAndQoL.AreaDemolition
                 button.PreviewMouseUp -= OnButtonMouseUp;
             }
             if(host!=null){host.PreviewMouseUp-=OnHostMouseUp;host.PreviewMouseDown-=OnHostMouseDown;if(overlay!=null)host.Children.Remove(overlay);}
-            filters.Clear(); hud = null; button = null; host = null; overlay = null;
+            filters.Clear(); rectangleSelection = allFilters = null; filterPanel = null;
+            hud = null; button = null; host = null; overlay = null;
             backdrop = menu = selectionBox = null;selectionFrame=null;
             if (changed) MenuChanged?.Invoke();
         }

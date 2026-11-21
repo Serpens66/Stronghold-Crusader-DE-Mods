@@ -219,7 +219,8 @@ internal static class Program
         int refreshEnd = refreshStart < 0 ? -1 : allyGoods.IndexOf("\n        private ", refreshStart + 1, StringComparison.Ordinal);
         string refreshBody = refreshStart < 0 ? "MainViewModel"
             : allyGoods.Substring(refreshStart, (refreshEnd < 0 ? allyGoods.Length : refreshEnd) - refreshStart);
-        Check(allyGoods.Contains("Input.GetKey(left) || Input.GetKey(right)") &&
+        Check(allyGoods.Contains("InputState.PhysicalShiftHeld") &&
+              allyGoods.Contains("InputState.PhysicalControlHeld") &&
               allyGoods.Contains("internal void RefreshSetting()") &&
               allyGoods.Contains("RefreshDisplayedAmounts();") &&
               !refreshBody.Contains("MainViewModel") &&

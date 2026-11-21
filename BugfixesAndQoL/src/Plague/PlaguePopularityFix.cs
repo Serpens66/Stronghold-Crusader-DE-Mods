@@ -105,7 +105,7 @@ namespace BugfixesAndQoL
                         X64SmartCPUContextRegs.R12 | X64SmartCPUContextRegs.R14,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                CommitResult commitResult = transaction.Commit();
+                CommitResult commitResult = Shared.NativePatchGuard.Commit(transaction, "Plague popularity fix");
 
                 if (!commitResult.IsCompleteSuccess || !createHerdHook.Success || !popularityExitHook.Success)
                     throw new InvalidOperationException("The plague herd or popularity hook was not installed.");

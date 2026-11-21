@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 
@@ -48,6 +49,65 @@ namespace TrappedUnitRescueTest
             value.Connections=native.Connections(value.TileId);
             if (value.Unsupported == null && native.OrdinaryGround(value.TileId)) CaptureCandidates(value);
             return value;
+        }
+        internal bool TryCaptureCurrentOccupants(int x,int y,int width,int height,out List<UnitSnapshot> before,out string reason)
+        {
+            before=new List<UnitSnapshot>();reason=null;
+            if(width<1 || height<1 || width>32 || height>32){reason="invalid-footprint";return false;}
+            var tiles=new List<int>();
+            for(int dy=0;dy<height;dy++)for(int dx=0;dx<width;dx++)
+            {
+                long tx=(long)x+dx,ty=(long)y+dy;
+                if(tx<0 || tx>=SHCDESE.API.GameTileManagerAPI.MAX_WIDTH || ty<0 || ty>=SHCDESE.API.GameTileManagerAPI.MAX_HEIGHT){reason="footprint-outside-map";return false;}
+                int tile=native.Tile((int)tx,(int)ty);
+                if(tile<0){reason="footprint-outside-map";return false;}
+                tiles.Add(tile);
+            }
+            if(!TryCollectCurrentOccupants(tiles,native.Head,ReadOccupantRecord,out List<int> ids,out reason))return false;
+            // Validate ALL chains before any potentially expensive reachable-field capture.
+            foreach(int id in ids)
+            {
+                UnitSnapshot snapshot=SnapshotUnit(id);
+                if(snapshot==null || !tiles.Contains(snapshot.TileId))
+                {before.Clear();reason="occupant-changed-during-capture";return false;}
+                before.Add(snapshot);
+            }
+            return true;
+        }
+        private bool ReadOccupantRecord(int id,out int current,out int next)
+        {
+            current=next=0;
+            if(!native.TryUnit(id,out GameUnit* unit))return false;
+            current=(int)unit->r_CurrentPositionTileId;next=native.Next(unit);return true;
+        }
+        internal delegate bool OccupantRecordReader(int id,out int current,out int next);
+        internal static bool TryCollectCurrentOccupants(IEnumerable<int> tiles,Func<int,int> head,OccupantRecordReader record,
+            out List<int> ids,out string reason)
+        {
+            ids=new List<int>();reason=null;var found=new HashSet<int>();int visits=0,cellCount=0;
+            foreach(int tile in tiles)
+            {
+                if(++cellCount>1024){reason="occupancy-cell-budget";ids.Clear();return false;}
+                if(tile<0 || tile>=NativeRelocation.TileCapacity){reason="invalid-occupancy-tile";ids.Clear();return false;}
+                var chain=new HashSet<int>();int id=head(tile);
+                while(id!=0)
+                {
+                    if(++visits>4096){reason="occupancy-walk-budget";ids.Clear();return false;}
+                    if(id<1 || id>NativeRelocation.MaximumUnitId || !chain.Add(id))
+                    {reason="invalid-or-cyclic-occupancy-chain";ids.Clear();return false;}
+                    if(!record(id,out int current,out int next) || current<0 || current>=NativeRelocation.TileCapacity)
+                    {reason="invalid-occupant-record";ids.Clear();return false;}
+                    // Native traversal can also link the actor through an auxiliary tile.
+                    // Only the actual current tile identifies an actor affected by this mutation.
+                    if(current==tile && found.Add(id))
+                    {
+                        if(found.Count>512){reason="occupant-snapshot-budget";ids.Clear();return false;}
+                        ids.Add(id);
+                    }
+                    id=next;
+                }
+            }
+            ids.Sort();return true;
         }
         internal static string ClassifyState(GameUnit* unit)
         {
@@ -160,6 +220,79 @@ namespace TrappedUnitRescueTest
         { foreach(var candidate in oldReachable)if(freeNow(candidate))return candidate;return null; }
         // PURE_LOCAL_SEARCH_END
         internal MutationScope BeginMutation(string label,int centerX,int centerY,int radius) => new MutationScope(this,label,centerX,centerY,radius);
+        // Dedicated fixture transaction: generic completed-moat admission remains unsupported.
+        // Capture BEFORE the real writer; only this single-use receipt can nominate its old banks.
+        internal AppleMoatReceipt CaptureAppleMoatMutation(int id)
+        {
+            var before=SnapshotUnit(id);
+            if(before==null || !native.TryUnit(id,out GameUnit* unit) || !AppleMoatBoundary(before,unit) ||
+                !native.OrdinaryGround(before.TileId) || before.Candidates.Count==0)return null;
+            return new AppleMoatReceipt(this,before,CaptureAppleJob(unit));
+        }
+        internal static bool AppleMoatBoundary(UnitSnapshot before,GameUnit* unit)
+        {
+            return before!=null && unit!=null && before.Unsupported==null &&
+                before.Type==(int)eChimps.CHIMP_TYPE_FARMER_APPLE && (before.AIState==5 || before.AIState==7) &&
+                (before.Flags==2 || before.Flags==4) && before.Substep==8 && ClassifyState(unit)==null &&
+                unit->r_GlobalId==before.GlobalId && (int)unit->r_UnitChimp==before.Type &&
+                unit->r_AIState==before.AIState && unit->r_PathPlanStateBitFlags==before.Flags &&
+                unit->r_CurrentHealth==before.Health && unit->r_TribeId==before.Tribe && unit->r_ControllableForPlayerId==before.Owner &&
+                unit->r_CurrentPositionTileId==(uint)before.TileId && unit->r_CurrentTilePositionX==before.X && unit->r_CurrentTilePositionY==before.Y &&
+                unit->r_NextTilePositionX2==before.X && unit->r_NextTilePositionY2==before.Y &&
+                unit->r_TargetTilePositionX2==before.RequestedX && unit->r_TargetTilePositionY2==before.RequestedY &&
+                (before.X!=before.RequestedX || before.Y!=before.RequestedY);
+        }
+        // These are 135E30's employee/home/store identities, cargo and job counters. Neither
+        //19BA40 nor failed196280 is authorized to change them in this synchronous transaction.
+        internal static uint[] CaptureAppleJob(GameUnit* unit)
+        {
+            return new uint[] { unit->r_LinkedProductionBuildingId,unit->r_LinkedProductionBuildingGlobalId,
+                unit->r_LinkedProductionBuildingTileEndX,unit->r_LinkedProductionBuildingTileEndY,
+                unit->r_CarryGoodAmount,ReadStateWord(unit,0x98E),*(uint*)((byte*)unit+0x6F8-0x65C),
+                ReadStateWord(unit,0x9A0),ReadStateWord(unit,0x9CA),ReadStateWord(unit,0x9CC),
+                ReadStateWord(unit,0x9D0),ReadStateWord(unit,0x9EC),ReadStateWord(unit,0x9EE) };
+        }
+        internal static bool NewlyTrappedAppleMoat(uint oldFlags,uint newFlags,bool ordinaryExit) =>
+            (oldFlags&(uint)TilePropertyFlag.IsMoat)==0 && (newFlags&(uint)TilePropertyFlag.IsMoat)!=0 && !ordinaryExit;
+
+        // Synchronous fixture-only receipt: capture, brush, actual rejected native publication
+        // and consumption are one Fixture.Execute action under the simulation monitor, without
+        // yielding, ticks or mission transitions. This is not a general delayed recovery API.
+        internal sealed class AppleMoatReceipt
+        {
+            private readonly RescueRuntime owner;
+            private readonly UnitSnapshot before;
+            private readonly uint[] job;
+            private readonly uint oldFlags;
+            private int consumed;
+            internal AppleMoatReceipt(RescueRuntime owner,UnitSnapshot before,uint[] job)
+            { this.owner=owner;this.before=before;this.job=job;oldFlags=owner.native.Flags(before.TileId); }
+            internal bool TryRecoverRejectedPublication(bool publicationAccepted,out RescueResult result)
+            {
+                result=new RescueResult { UnitId=before.Id,GlobalId=before.GlobalId,BeforeX=before.X,BeforeY=before.Y,
+                    AfterX=before.X,AfterY=before.Y,Detail="causal-apple-new-moat-after-rejected-original-goal" };
+                if(Interlocked.Exchange(ref consumed,1)!=0)return owner.Finish(result,RescueStatus.Unsupported,"receipt-already-consumed");
+                if(!owner.enabled()){result.Status=RescueStatus.Inactive;return false;}
+                if(publicationAccepted)return owner.Finish(result,RescueStatus.NotTrapped,"original-goal-publication-succeeded");
+                var native=owner.native;
+                if(!native.TryUnit(before.Id,out GameUnit* unit) || !AppleMoatBoundary(before,unit) || !Same(job,CaptureAppleJob(unit)))
+                    return owner.Finish(result,RescueStatus.Unsupported,"employee-job-identity-or-mode-changed");
+                // Apple/class0 with marker0 has no Assassin/tunnel/moat fallback in DCE60.
+                if(!NewlyTrappedAppleMoat(oldFlags,native.Flags(before.TileId),owner.HasExit(before)))
+                    return owner.Finish(result,RescueStatus.NotTrapped,"not-a-new-zero-exit-mode0-moat");
+                if(native.Building(before.TileId)!=0 || !native.HasOccupancyExactlyOnce(before.TileId,before.Id))
+                    return owner.Finish(result,RescueStatus.Unsupported,"source-building-or-occupancy-changed");
+                result.IdentityPreserved=true;
+                bool recovered=owner.RelocateAndResume(before,true,result);
+                if(!native.TryUnit(before.Id,out unit) || !Same(job,CaptureAppleJob(unit)) ||
+                    unit->r_AIState!=before.AIState || unit->r_GlobalId!=before.GlobalId || unit->r_CurrentHealth!=before.Health ||
+                    unit->r_ControllableForPlayerId!=before.Owner || unit->r_TribeId!=before.Tribe ||
+                    unit->r_TargetTilePositionX2!=before.RequestedX || unit->r_TargetTilePositionY2!=before.RequestedY)
+                {result.IdentityPreserved=false;return owner.Finish(result,RescueStatus.IdentityFailed,"employee-or-original-job-goal-not-preserved");}
+                if(recovered)owner.report?.Invoke(result.ToString());
+                return recovered;
+            }
+        }
         internal bool TryRescue(UnitSnapshot before,string cause,bool resume,out RescueResult result)
         {
             result=new RescueResult { UnitId=before?.Id??0, GlobalId=before?.GlobalId??0, BeforeX=before?.X??0,BeforeY=before?.Y??0,AfterX=before?.X??0,AfterY=before?.Y??0,Detail=cause };
@@ -197,12 +330,18 @@ namespace TrappedUnitRescueTest
                     if(((native.Flags(before.TileId)|flags)&0x100)!=0 && ((flags&0x4A5014B1)==0 || (flags&0x1000)!=0))
                         return Finish(result,RescueStatus.Unsupported,"possible-native-assassin-climb-exit");
                 }
+            bool recovered=RelocateAndResume(before,resume,result);
+            if(recovered)report?.Invoke(result.ToString());
+            return recovered;
+        }
+        private bool RelocateAndResume(UnitSnapshot before,bool resume,RescueResult result)
+        {
             RescueCandidate? chosen=ChooseCandidate(before.Candidates,candidate=>native.OrdinaryGround(candidate.Tile) && native.Head(candidate.Tile)==0 && native.Connections(candidate.Tile)!=0);
             if(!chosen.HasValue) return Finish(result,RescueStatus.NoCandidate,"no-old-reachable-free-local-ground");
             var target=chosen.Value;
             if(!native.Relocate(before.Id,target.X,target.Y)) return Finish(result,RescueStatus.RelocationFailed,"live-relocation-veto-or-postcondition");
             result.AfterX=target.X;result.AfterY=target.Y;
-            if(!native.TryUnit(before.Id,out unit)) return Finish(result,RescueStatus.IdentityFailed,"lost-after-relocation");
+            if(!native.TryUnit(before.Id,out GameUnit* unit)) return Finish(result,RescueStatus.IdentityFailed,"lost-after-relocation");
             result.IdentityPreserved=unit->r_GlobalId==before.GlobalId && (int)unit->r_UnitChimp==before.Type && unit->r_CurrentHealth==before.Health &&
                 unit->r_ControllableForPlayerId==before.Owner && unit->r_TribeId==before.Tribe && unit->r_AIState==before.AIState && Same(CaptureCrew(unit),before.CrewIdentity) &&
                 (!IsSiege(before.Type) || native.Word(unit,0xA0C)==before.CrewCount);
@@ -212,7 +351,8 @@ namespace TrappedUnitRescueTest
                 result.ResumeAttempted=true;result.ResumeSucceeded=native.Reissue(before.Id,before.RequestedX,before.RequestedY);
                 if(!result.ResumeSucceeded) return Finish(result,RescueStatus.ResumeFailed,"experimental-reissue-failed; worker continuation NOT established");
             }
-            return Finish(result,RescueStatus.Rescued,"local-relocation-confirmed; order continuation not implied");
+            result.Status=RescueStatus.Rescued;result.Detail+="; local-relocation-confirmed; order continuation not implied";
+            return true;
         }
         private static bool Same(uint[] a,uint[] b) { if(a.Length!=b.Length)return false;for(int i=0;i<a.Length;i++)if(a[i]!=b[i])return false;return true; }
         private bool Finish(RescueResult result,RescueStatus status,string detail)

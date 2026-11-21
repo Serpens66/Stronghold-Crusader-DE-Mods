@@ -1,5 +1,6 @@
 using APIShared.ModSettings;
 using BepInEx;
+using R3;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using System;
@@ -15,9 +16,11 @@ namespace RandomEvents
         private const string ScriptExtenderGuid = "000shcdese";
         public const string PluginGuid = "RandomEvents_Serp";
         public const string PluginName = "Random Events";
-        public const string PluginVersion = "1.0.59";
+        public const string PluginVersion = "1.0.60";
 
         private RandomEventsRuntime runtime;
+        // Process-lived late foreign-patch check of the native detours; rooted by the mission publisher.
+        private static IDisposable foreignPatchRecheck;
 
         public RandomEventsSettingsViewModel Settings { get; private set; }
 
@@ -74,11 +77,32 @@ namespace RandomEvents
 
             try
             {
+                // Load snapshot for the foreign-patch check of every native detour (AGENTS/native-hooks.md).
+                Shared.NativePatchGuard.Bind(context, Logger);
                 runtime.InitializeNative(context.ModuleHandle, context.Memory, referenceHashMatches);
             }
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogErrorLimited(Logger, "RandomEvents/RandomEventsPlugin/OnCrusaderLibraryLoaded.native-initialization-stage-failed", $"Random Events native initialization stage failed; lifecycle initialization continues: {ex}");
+            }
+
+            try
+            {
+                // Mods loaded after us can overwrite a published entry; compare again at every mission and editor start.
+                var recheckLog = Logger; // The callback outlives this destroyed plugin component.
+                if (foreignPatchRecheck == null)
+                    foreignPatchRecheck = Shared.MissionEvents.Started.Subscribe(_ =>
+                    {
+                        try { Shared.NativePatchGuard.Recheck(); }
+                        catch (Exception ex)
+                        {
+                            Shared.DebugLogHelper.LogErrorLimited(recheckLog, "RandomEvents/NativePatchGuard/Recheck", $"Random Events foreign-patch recheck failed: {ex}");
+                        }
+                    });
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "RandomEvents/RandomEventsPlugin/OnCrusaderLibraryLoaded.foreign-patch-recheck", $"Random Events foreign-patch recheck subscription failed: {ex}");
             }
 
             try

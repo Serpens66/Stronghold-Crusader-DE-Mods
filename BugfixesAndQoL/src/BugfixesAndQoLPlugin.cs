@@ -12,7 +12,7 @@ using System.Reflection;
 namespace BugfixesAndQoL
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.3")]
-    [BepInDependency(ApiSharedGuid, "0.55.0")]
+    [BepInDependency(ApiSharedGuid, "0.60.1")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
@@ -38,7 +38,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.229";
+        public const string PluginVersion = "1.0.235";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;
@@ -47,6 +47,7 @@ namespace BugfixesAndQoL
         private static SteamLobbyInvitePrompt steamLobbyInvitePrompt;
         private static SteamInviteBlacklistStore steamInviteBlacklist;
         private static IDisposable gameplaySessionSubscription;
+        private static IDisposable nativePatchRecheckSubscription;
         private static SkirmishGameOptionsRuntime skirmishGameOptionsRuntime;
         private static SkirmishGameOptionsAccessViewModel skirmishGameOptionsAccess;
         private static VanillaPeaceTimeGameplayPatch vanillaPeaceTimeGameplayPatch;
@@ -71,6 +72,10 @@ namespace BugfixesAndQoL
         {
             Shared.DebugLogHelper.InitializeDiagnostics(Config, Logger);
             Shared.UnityMainThreadDispatch.InitializeForCurrentThread();
+            APIShared.Multiplayer.SimulationAgreement.Register(PluginGuid, "moat-land-rotation", true,
+                () => Multiplayer.MoatLandRotationPatch.IsReady, Multiplayer.MoatLandRotationPatch.SetEnabled);
+            APIShared.Multiplayer.SimulationAgreement.Register(PluginGuid, "keep-flag-rotation", true,
+                BugfixesAndQoLRuntime.IsKeepFlagCanonicalizationReady, BugfixesAndQoLRuntime.SetKeepFlagCanonicalizationActive);
             TrailCustomizationLaunchOriginApi.RegisterModeProvider();
             Shared.CrashBreadcrumbDiagnostics.Initialize(Logger, PluginGuid, PluginName, PluginVersion);
             try
@@ -151,11 +156,6 @@ namespace BugfixesAndQoL
                         // A hub change, including opening the settings, is the safe point to retry visuals.
                         try
                         {
-                            var hub = SHCDESE.BepInEx.Bootstrap.Plugin.ModSettingsHubViewModel;
-                            if (Settings.IsCapturingHealthBarHotkey &&
-                                (hub.WindowVisibility != Noesis.Visibility.Visible ||
-                                 !ReferenceEquals(hub.SelectedTab?.ViewModel, Settings)))
-                                Settings.CancelHealthBarCapture();
                             Settings.RefreshStatisticsTeamBadgePreviewVisual();
                             Settings.RefreshMarketGoodsOrderVisuals();
                         }
@@ -195,6 +195,9 @@ namespace BugfixesAndQoL
             using (Shared.CrashBreadcrumbScope diagnostic =
                 Shared.CrashBreadcrumbDiagnostics.Enter("LibraryLoaded"))
             {
+            // Load snapshot for the foreign-patch check of every hook (AGENTS/native-hooks.md#fremde-patches-erkennen).
+            Shared.NativePatchGuard.Bind(context, Logger);
+            SubscribeNativePatchRecheck();
             // Initial native installation window (see BugfixesHookInfrastructure.DetourBackend).
             HookInstallPhase.InitialLibraryLoad = true;
             bool completed;
@@ -206,9 +209,36 @@ namespace BugfixesAndQoL
             }
         }
 
+        // Mods loaded after us can overwrite a published span; compare them again at every mission and
+        // editor start. The adapter publisher roots this subscription for the process lifetime.
+        private void SubscribeNativePatchRecheck()
+        {
+            if (nativePatchRecheckSubscription != null) return;
+            var log = Logger; // The callback outlives this destroyed plugin component.
+            try
+            {
+                Shared.MissionEvents.SetOwner(PluginGuid);
+                nativePatchRecheckSubscription = Shared.MissionEvents.Started.Subscribe(_ =>
+                {
+                    try { Shared.NativePatchGuard.Recheck(); }
+                    catch (Exception ex)
+                    {
+                        Shared.DebugLogHelper.LogErrorLimited(log, "BugfixesAndQoL/BugfixesAndQoLPlugin/NativePatchRecheck.failed", "Bugfixes and QoL native foreign-patch recheck failed: " + ex);
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/NativePatchRecheck.subscribe", "Bugfixes and QoL native foreign-patch recheck is unavailable; later foreign patches stay unreported: " + ex);
+            }
+        }
+
         // Runs inside the initial native installation window; false = stopped fail-closed.
         private bool InitializeLibraryRuntime(CrusaderLibraryLoadContext context)
         {
+            if (!APIShared.Maps.MapLoadPolicy.TryRegister(PluginGuid, LongMapFileNames.Decide, out string mapPolicyReason) ||
+                !string.IsNullOrEmpty(mapPolicyReason))
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL.MapLoadPolicy", mapPolicyReason);
             // Register even when local controls or the optional native adapter are unavailable.
             AreaDemolition.AreaDemolitionFeature.RegisterNetwork();
             // Register packet types immediately after Script Extender and before settings can vary.
@@ -337,6 +367,8 @@ namespace BugfixesAndQoL
             PitchMoatLines.PitchMoatLinesFeature.Install(context);
             AreaDemolition.AreaDemolitionFeature.Install(context);
             GatehouseTargetMarkerHeightHook.Install(context, Logger, Settings);
+            CustomLordNervousSpeechFix.Install(Logger, Settings);
+            TroopPanelPageCountFix.Install(Logger, Settings);
             try
             {
                 EditorRegions.EditorRegionRefreshRuntime.Install(context, Logger, Settings);
@@ -361,6 +393,17 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.damaged-health-bars-disabled", "BUGFIXES_AND_QOL_DAMAGED_HEALTH_BARS_DISABLED: " + ex);
+            }
+
+            try
+            {
+                Settings.RegisterHealthBarKeybind(
+                    () => damagedHealthBarsRuntime?.CanToggleFromHotkey() == true,
+                    () => damagedHealthBarsRuntime?.ToggleFromHotkey());
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "health-bars/keybind", "Could not register the damaged health-bars keybind: " + ex);
             }
 
             try
@@ -402,7 +445,7 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 skirmishGameOptionsRuntime?.SetPeaceTimeNativeAvailable(false);
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.vanilla-peace-time-patch", "BUGFIXES_AND_QOL_VANILLA_PEACE_TIME_PATCH_FAILED: " + ex);
+                Shared.DebugLogHelper.LogHookInstallFailure(Logger, "Skirmish game options", "Vanilla Peace Time patch", ex.ToString());
             }
 
             if (skirmishGameOptionsCompatible && skirmishGameOptionsRuntime != null)
@@ -420,7 +463,7 @@ namespace BugfixesAndQoL
                 catch (Exception ex)
                 {
                     skirmishGameOptionsRuntime.SetNoDogsNativeAvailable(false);
-                    Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.skirmish-game-options-no", "BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_NO_DOGS_PATCH_FAILED: " + ex);
+                    Shared.DebugLogHelper.LogHookInstallFailure(Logger, "Skirmish game options", "No Dogs patch", ex.ToString());
                 }
             }
 

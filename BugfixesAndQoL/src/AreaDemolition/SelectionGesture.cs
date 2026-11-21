@@ -10,8 +10,14 @@ namespace BugfixesAndQoL.AreaDemolition
         internal SelectionSpec Selection { get; private set; }
         internal ScreenRect Area => new ScreenRect(startX, startY, endX, endY);
         private float startX, startY, endX, endY;
-        internal void Begin(float sx, float sy, SelectionSpec selection)
-        { startX=endX=sx; startY=endY=sy; Selection=selection; Stage=GestureStage.Pressed; }
+        private bool flattened;
+        internal void Begin(float sx, float sy, SelectionSpec selection, bool flattened)
+        {
+            startX=endX=sx; startY=endY=sy; Selection=selection; Stage=GestureStage.Pressed;
+            this.flattened = flattened;
+        }
+        // The view is also needed after release, until the final preview has rendered.
+        internal bool IsViewCurrent(bool flattened) => this.flattened == flattened;
         internal void MoveOnScreen(float sx,float sy,float width,float height,float scale)
         {
             bool valid=ScreenRect.Finite(sx) && ScreenRect.Finite(sy) &&

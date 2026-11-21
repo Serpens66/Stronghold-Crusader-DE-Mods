@@ -17,11 +17,14 @@ Sobald ein Auslöser zutrifft, die genannte Datei **vor** dem ersten fachlichen 
 | Unit-/Building-/Tribe-IDs, Arrayindizes, Enums und Domänenkonstanten | [AGENTS/ids-enums.md](AGENTS/ids-enums.md) |
 | Modsettings, Presets, Modsettings-XAML, Tooltips, Locales | [AGENTS/modsettings-ui.md](AGENTS/modsettings-ui.md) |
 | Custom-Pakete, Chores, `[SyncPerPlayer]`, Netzwerkautorität, Spielmodus-Freigaben, MP-Tests | [AGENTS/multiplayer-network.md](AGENTS/multiplayer-network.md) |
+| Desync, Resync oder divergierende Simulationszustände eingrenzen | [AGENTS/desync-diagnosis.md](AGENTS/desync-diagnosis.md) |
 | Kartenstart, Save-Laden, Editor-Start, Missionsende, verzögerte Aktionen, Timeline | [AGENTS/mission-lifecycle.md](AGENTS/mission-lifecycle.md) |
 | APIShared nutzen/erweitern/installieren/aktualisieren/veröffentlichen, Dateien unter `Shared/`, Mod-Abhängigkeiten | [AGENTS/apishared.md](AGENTS/apishared.md) |
 | Fehler in Script Extender oder Fixes-Mod; Fixes-bezogene Präferenzen, Presets, Belagerung | [AGENTS/external-components.md](AGENTS/external-components.md) |
 | Build, CRLF-Konvertierung, Versionsänderung, Release, Steam-Modpack | [AGENTS/build-release.md](AGENTS/build-release.md) |
+| Release tatsächlich durchführen (`CreateSteamModPack.bat`, Merge `develop` → `main` für einen Release) oder Release-Pakete zum Test im Spiel installieren | [AGENTS/steam-release.md](AGENTS/steam-release.md) **und** build-release.md |
 | PowerShell-/CMD-/BAT-Befehle oder -Skripte, Sandbox-/Berechtigungsfehler | [AGENTS/shell-windows.md](AGENTS/shell-windows.md) |
+| Automatisierte Ingame-Tests planen oder ausführen; Hintergrundstart, Fensterfokus oder Eingabeautomation | [AGENTS/shell-windows.md](AGENTS/shell-windows.md#spieltests-im-hintergrund-ohne-störung-des-nutzers) und [AutomatisierungTest.md](AutomatisierungTest.md) |
 | Code, Mod, Diff oder Konzept auf Fehler, Probleme oder Risiken prüfen (Review, Audit); Korrekturen dafür vorschlagen | [AGENTS/code-review.md](AGENTS/code-review.md) |
 | FPS-/Lag-/Startzeit-/Effizienz-Untersuchung, Performance-Messung, neue Hooks/Callbacks/Suchen in heißen Pfaden (pro Tick, Frame, Einheit, Kachel) | [AGENTS/performance.md](AGENTS/performance.md) |
 
@@ -32,12 +35,14 @@ Verschachtelte `AGENTS.md` (z. B. `APIShared/`, `Shared/Tools/ScriptExtenderUpda
 Vor jedem Tool- oder Shellaufruf die einschlägigen Punkte prüfen; bereits dokumentierte Fehler nicht erst nach ihrem Auftreten erkennen. Details in den verlinkten Dateien.
 
 - **Maus und Tastatur bei Tests:** Die Maus oder Tastatur des Nutzers nur nach vorheriger Nachfrage und ausdrücklicher Freigabe steuern. Wenn das nötig ist, vor Testbeginn den Zeitpunkt und die Wahl zwischen Freigabe für den gesamten Testauftrag oder Nachfrage vor jeder Übernahme klären → [Maus und Tastatur bei Tests](AutomatisierungTest.md#maus-und-tastatur-bei-tests).
+- **Hintergrundtests:** Spieltests möglichst ohne sichtbare Fenster, Hervorholen des Spiels oder globale Eingaben durchführen. Den geprüften Win32-Desktop-Weg und seine Grenzen vor dem Start beachten; ein versteckter Starthelfer allein genügt nicht → [Hintergrundtests](AGENTS/shell-windows.md#spieltests-im-hintergrund-ohne-störung-des-nutzers).
 - **Vanilla-Audit:** Hängt etwas von Vanillas nativem Verhalten ab, vor dem ersten Lösungsvorschlag einen vollständigen featurebezogenen Audit abschließen und als Zwischenmeldung zusammenfassen; Stichproben genügen nicht → [native-analysis.md](AGENTS/native-analysis.md).
 - **Runtime-Precheck:** Vor der ersten Änderung an einem Runtime-Mod JSON-Abhängigkeiten, Teardownpfade und den langlebigen Aufrufweg nach dem SHCDE-Startup-Cleanup prüfen und melden; früh erzeugte Plugin-Komponenten werden beim Start zerstört → [runtime-lifecycle.md](AGENTS/runtime-lifecycle.md).
 - **JSON:** in Runtime-Mods ausschließlich `Shared.DependencyFreeJson` per Quelllink; alle anderen Serializer verboten.
 - **Publicized Assembly:** neue Spielmember vor dem Build gegen die echte `Assembly-CSharp.dll` auf Sichtbarkeit prüfen; ein erfolgreicher Build beweist nichts.
 - **Code-Prüfungen:** Befunde und Korrekturen erst nach Einzelverifikation mit konkretem Fehlerfall und gescheitertem Widerlegungsversuch melden; Unbestätigtes verwerfen oder getrennt kennzeichnen → [code-review.md](AGENTS/code-review.md).
 - **Hooks:** veröffentlichte Hooks standardmäßig nicht zurück- oder umpatchen, sondern logisch aktivieren (verhindert Abstürze und Konflikte); Zurückpatchen nur, wenn für den konkreten Fall nachgewiesen ist, dass kein Problem entstehen kann → [native-hooks.md](AGENTS/native-hooks.md).
+- **Native Hash-Bindung und Fremdpatches:** native Features dürfen fest an den auditierten Hash der Spiel-DLL gebunden sein; auf ihm nur Bytevergleiche, ein Pattern-Fallback für einen geänderten Hash nur, wenn risikofrei umsetzbar. Jeder Hook prüft seine Live-Spanne und loggt fremde Patches an derselben Stelle als Error. Keine Live-Proben an kopierten Puffern beim Spielstart → [native-analysis.md](AGENTS/native-analysis.md#rva-signaturen-und-layouts), [native-hooks.md](AGENTS/native-hooks.md#fremde-patches-erkennen).
 - **XAML-Patches:** `<Content>` mit genau einem Wurzelelement.
 - **Entwicklungsdiagnose:** neue, vor dem Release zu entfernende Diagnose nur über `Shared.DevDiag` und `build.bat /devdiag`; nie über Laufzeitschalter oder Release-Builds → [build-release.md](AGENTS/build-release.md#entwicklungsdiagnose-devdiag).
 - **Events statt Polling:** immer prüfen, ob ein passendes Event existiert (z. B. `OnKeyDown` statt `onBeforeRender`).

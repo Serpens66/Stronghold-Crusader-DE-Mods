@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)/$(MSBuildToolsVersion)/Microsoft.Common.props" />
   <PropertyGroup>
@@ -130,8 +130,13 @@
   <ItemGroup>
     <Compile Include="*.cs" />
     <Compile Include="../src/FixesIntegration.cs" />
+    <Compile Include="../src/FixesManagedContract.cs" />
+    <Compile Include="../../../Shared/Runtime/Native/NativePatchGuard.cs" />
+    <Compile Include="../../../Shared/Runtime/Native/CommittedMemory.cs" />
+    <Compile Include="../../../Shared/Runtime/Diagnostics/DebugLogHelper.cs" />
     <Compile Include="../src/NativeRelocation.cs" />
     <Compile Include="../src/RescueRuntime.cs" />
+    <Compile Include="../src/GeneralRescueObserver.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)/Microsoft.CSharp.targets" />
 </Project>

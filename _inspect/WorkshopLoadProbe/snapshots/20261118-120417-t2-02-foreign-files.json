@@ -1,0 +1,105 @@
+{
+    "TimeLocal":  "2026-11-18 12:04:17.543",
+    "Label":  "t2-02-foreign-files",
+    "ItemId":  "3841874432",
+    "SteamRunning":  true,
+    "GameRunning":  false,
+    "Acf":  {
+                "LastWriteUtc":  "2026-11-18T11:03:36.0875298Z",
+                "App":  {
+                            "appid":  "3024040",
+                            "SizeOnDisk":  "1020296992",
+                            "NeedsUpdate":  "0",
+                            "NeedsDownload":  "0",
+                            "TimeLastUpdated":  "1794979215",
+                            "TimeLastFullCheck":  "1794999258",
+                            "TimeLastAppRan":  "1794999729",
+                            "LastBuildID":  "24816905"
+                        },
+                "Item":  {
+                             "WorkshopItemsInstalled":  {
+                                                            "size":  "12424",
+                                                            "timeupdated":  "1794999725",
+                                                            "manifest":  "9171880682689468964"
+                                                        },
+                             "WorkshopItemDetails":  {
+                                                         "manifest":  "9171880682689468964",
+                                                         "timeupdated":  "1794999725",
+                                                         "timetouched":  "0",
+                                                         "subscribedby":  "142045814",
+                                                         "latest_timeupdated":  "1794999725",
+                                                         "latest_manifest":  "9171880682689468964"
+                                                     }
+                         }
+            },
+    "Content":  [
+                    {
+                        "Path":  "apishared-workshop.json",
+                        "Size":  2039,
+                        "LastWriteUtc":  "2026-11-18T11:03:35.7414189Z",
+                        "Sha256":  "ac11b0f58dc87b9a89a3c40ae70861be2c912926735a419c1dcf8666c20ad2c4"
+                    },
+                    {
+                        "Path":  "foreign.txt",
+                        "Size":  70,
+                        "LastWriteUtc":  "2026-11-18T11:04:17.2675247Z",
+                        "Sha256":  "b5a9c40eb611289cd9c2578d916d187fd5695f0a88dfb96e637b91a80a993f49"
+                    },
+                    {
+                        "Path":  "Payload\\BepInEx\\plugins\\WorkshopLoadProbePayload_Serp\\foreign-in-payload.txt",
+                        "Size":  29,
+                        "LastWriteUtc":  "2026-11-18T11:04:17.2675247Z",
+                        "Sha256":  "2944e04affe3a4b34badd4e0256a852522b575a8a4a814b2a7029a381874b693"
+                    },
+                    {
+                        "Path":  "Payload\\BepInEx\\plugins\\WorkshopLoadProbePayload_Serp\\info.json",
+                        "Size":  358,
+                        "LastWriteUtc":  "2026-11-18T11:03:35.7414189Z",
+                        "Sha256":  "d7f5ef76889099d53207b9429d535fc0d73721f5c241058adbe5efa18cc563dc"
+                    },
+                    {
+                        "Path":  "Payload\\BepInEx\\plugins\\WorkshopLoadProbePayload_Serp\\Locales\\en-US\\crusader.txt",
+                        "Size":  99,
+                        "LastWriteUtc":  "2026-11-18T11:03:35.6859459Z",
+                        "Sha256":  "a0b4d4be241849abb4a143c730353f1944cb336e313cf8f9caa497cf6e981014"
+                    },
+                    {
+                        "Path":  "Payload\\BepInEx\\plugins\\WorkshopLoadProbePayload_Serp\\only-in-variant-1.txt",
+                        "Size":  22,
+                        "LastWriteUtc":  "2026-11-18T11:03:35.9413410Z",
+                        "Sha256":  "381ff34a8f3700dd6ae253a09f032851cf5d15a11da4c9f0487059f44371c403"
+                    },
+                    {
+                        "Path":  "Payload\\BepInEx\\plugins\\WorkshopLoadProbePayload_Serp\\Patches\\Assets\\GUI\\XAML\\FrontendMenus.xaml",
+                        "Size":  437,
+                        "LastWriteUtc":  "2026-11-18T11:03:35.7414189Z",
+                        "Sha256":  "551ffe2194320adaa21b62a64ebfa2b0fcbe3330ed5dc5028827127909fcd9f3"
+                    },
+                    {
+                        "Path":  "Payload\\BepInEx\\plugins\\WorkshopLoadProbePayload_Serp\\Scripts\\init.lua",
+                        "Size":  242,
+                        "LastWriteUtc":  "2026-11-18T11:03:35.6869524Z",
+                        "Sha256":  "85707995a3b01547e1e956da51097122462bbd7feb30c36703650da8a33f0d24"
+                    },
+                    {
+                        "Path":  "Payload\\BepInEx\\plugins\\WorkshopLoadProbePayload_Serp\\variant.txt",
+                        "Size":  11,
+                        "LastWriteUtc":  "2026-11-18T11:03:35.7414189Z",
+                        "Sha256":  "6b8dad833fd5ae3adf1ec6d1e5423360c4df5c1c5ffd1aa2c3f60f50958c4272"
+                    },
+                    {
+                        "Path":  "Payload\\BepInEx\\plugins\\WorkshopLoadProbePayload_Serp\\WorkshopLoadProbe.Helper.dll",
+                        "Size":  4096,
+                        "LastWriteUtc":  "2026-11-18T11:03:35.9413410Z",
+                        "Sha256":  "ec19c8fda83954ffd6aa668a75541d6053a8f6347a23fe2546e04e0663d15dca"
+                    },
+                    {
+                        "Path":  "Payload\\BepInEx\\plugins\\WorkshopLoadProbePayload_Serp\\WorkshopLoadProbe.Payload.dll",
+                        "Size":  5120,
+                        "LastWriteUtc":  "2026-11-18T11:03:35.7912882Z",
+                        "Sha256":  "74a659665f5f06427147d1257ac986f22931467a15ea27476d3866147d7325ab"
+                    }
+                ],
+    "Downloads":  null,
+    "Temp":  null
+}

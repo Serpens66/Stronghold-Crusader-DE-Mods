@@ -84,7 +84,7 @@ namespace ExtraFeatures
 
                 ExtraFeaturesHookInfrastructure.RootBeforeCommit(runtime, transaction);
                 commitAttempted = true;
-                var result = transaction.Commit();
+                var result = Shared.NativePatchGuard.Commit(transaction, "mature tree harvest");
                 if (!result.IsCompleteSuccess)
                     throw new InvalidOperationException("Mature tree hook transaction failed: " + result);
 

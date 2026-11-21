@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('Minimal','Fixes','Integrated')][string]$Layout='Fixes',
+    [ValidateSet('Minimal','Fixes','Integrated','Planner')][string]$Layout='Fixes',
     [string[]]$Scenarios=@('rescue-off','rescue-on'),
     [string]$Map='test AI.map',
     [ValidateRange(0,180)][int]$PeaceTimeMinutes=0,
@@ -22,7 +22,7 @@ if (@(Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction Si
     throw 'Close the game before starting this test series.'
 }
 if ($Map -match '[\r\n]') { throw 'Map must be a single map filename.' }
-$allowed=@('rescue-off','rescue-on','rescue-group-off','rescue-group-on','rescue-aiwall-off','rescue-aiwall-on','rescue-moat-off','rescue-moat-on','rescue-moatworker-off','rescue-moatworker-on','rescue-worker-off','rescue-worker-on','rescue-ox-off','rescue-ox-on','rescue-siege-off','rescue-siege-on')
+$allowed=@('rescue-off','rescue-on','rescue-group-off','rescue-group-on','rescue-aiwall-off','rescue-aiwall-on','rescue-moat-off','rescue-moat-on','rescue-moatworker-off','rescue-moatworker-on','rescue-worker-off','rescue-worker-on','rescue-ox-off','rescue-ox-on','rescue-siege-off','rescue-siege-on','rescue-mountedkeep-off','rescue-mountedkeep-on','rescue-aivbridge-off','rescue-aivbridge-on')
 foreach($scenario in $Scenarios){if($scenario -notin $allowed){throw "Unknown scenario: $scenario"}}
 if (!$SkipBuild) { & (Join-Path $PSScriptRoot 'Build.ps1') -nopause -noinstall }
 $work=New-ShortWorkDirectory -Root $workspace -Kind t -Name rescue-layout -Identity ("TrappedUnitRescueTest/$Layout")
@@ -45,11 +45,20 @@ try {
     [void][IO.Directory]::CreateDirectory($patcher)
     $packages=@('000shcdese')
     if($Layout -ne 'Minimal'){$packages+='fixes'}
-    if($Layout -eq 'Integrated'){$packages+=@('BugfixesAndQoL_Serp','Pathfinding_Serp')}
+    if($Layout -in @('Integrated','Planner')){$packages+=@('BugfixesAndQoL_Serp','Pathfinding_Serp')}
+    if($Layout -eq 'Planner'){$packages+='CastlePlanner_Serp'}
     foreach($package in $packages){
         $source=Join-Path $plugins $package
         if(![IO.Directory]::Exists($source)){throw "Required installed comparison package absent: $package"}
         Copy-Item -LiteralPath $source -Destination (Join-Path $layoutPath $package) -Recurse
+    }
+    # Temporary upstream correction operates only on this disposable dependency copy.
+    # Removing this invocation and TemporaryFixes retires it; the runner restores the
+    # original installed Fixes package after every scenario.
+    if($Layout -ne 'Minimal'){
+        & (Join-Path $PSScriptRoot 'TemporaryFixes/bin/TrappedUnitRescueTest.Fixes130.exe') `
+            --patch-copy (Join-Path $layoutPath 'fixes/fixes.dll') *> (Join-Path $evidence 'temporary-fixes.log')
+        if($LASTEXITCODE -ne 0){throw 'Temporary Fixes correction rejected this dependency copy; no game was started.'}
     }
     Copy-Item -LiteralPath (Join-Path $plugins 'APIShared_Serp') -Destination $api -Recurse
     Copy-Item -LiteralPath (Join-Path $GameDir 'BepInEx/patchers/APIShared.DependencyBootstrap.dll') -Destination $patcher

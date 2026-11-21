@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Behaviour tests of the production drawbridge deck closure geometry on synthetic grids. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/GateRouting/DrawbridgeDeckGeometry.cs" Link="DrawbridgeDeckGeometry.cs" />
+  </ItemGroup>
+</Project>

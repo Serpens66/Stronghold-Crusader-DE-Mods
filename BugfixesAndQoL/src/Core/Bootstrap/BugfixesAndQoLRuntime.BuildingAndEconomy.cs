@@ -125,7 +125,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                LogBuildingFeatureFailure("AI economy protection hook", ex);
+                Shared.DebugLogHelper.LogHookInstallFailure(log, "AI economy protection", "building sleep and demolition hooks", ex.ToString());
             }
         }
 

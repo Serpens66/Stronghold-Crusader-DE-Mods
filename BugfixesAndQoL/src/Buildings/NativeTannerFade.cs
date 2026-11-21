@@ -73,12 +73,13 @@ namespace BugfixesAndQoL
                     {
                         Backend = HookInstallPhase.Backend(),
                         FailureMode = TransactionFailureMode.RollbackAndThrow,
-                        OwnsHooks = true
+                        OwnsHooks = true,
+                        InstallOnCommit = false
                     });
                 candidate.AddDetour(handle,
                     HookTarget.FromAddress(moduleBase + TannerUpdaterRva),
                     (TannerUpdateDelegate)UpdateTanner);
-                CommitResult result = candidate.Commit();
+                CommitResult result = Shared.NativePatchGuard.Commit(candidate, "Tanner fade fix");
                 NativeDetour<TannerUpdateDelegate> detour =
                     handle.Hook as NativeDetour<TannerUpdateDelegate>;
                 ValidateDetour(result, detour);

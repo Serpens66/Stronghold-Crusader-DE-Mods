@@ -31,6 +31,7 @@ namespace UiAcceptance
 
         internal static void Register()
         {
+            AiPlacementBoxSteps.Register();
             Runner.Register("AiUi.Prepare", Prepare);
             Runner.Register("AiUi.Select", Select);
             Runner.Register("AiUi.Place", Place);
@@ -51,7 +52,7 @@ namespace UiAcceptance
             return api;
         }
 
-        private static FrameworkElement Find(string name)
+        internal static FrameworkElement Find(string name)
         {
             var pending = new Stack<DependencyObject>();
             if (MainViewModel.Instance?.IngameUI is DependencyObject root) pending.Push(root);
@@ -393,7 +394,7 @@ namespace UiAcceptance
             });
         }
 
-        private static IEnumerable<Wait> TakeUiScreenshot(string label)
+        internal static IEnumerable<Wait> TakeUiScreenshot(string label)
         {
             var screenshot = typeof(GameSteps).GetMethod("Screenshot", BindingFlags.NonPublic | BindingFlags.Static);
             Runner.Require(screenshot != null && screenshot.ReturnType == typeof(IEnumerable<Wait>), "existing Screenshot step changed");
@@ -607,7 +608,7 @@ namespace UiAcceptance
             AcceptLog.Info("AI_UI_RETIRED editor=" + editor);
         }
 
-        private static IEnumerable<Wait> SelectTroopButton(eMappers selectedMapper)
+        internal static IEnumerable<Wait> SelectTroopButton(eMappers selectedMapper)
         {
             if (editor)
             {

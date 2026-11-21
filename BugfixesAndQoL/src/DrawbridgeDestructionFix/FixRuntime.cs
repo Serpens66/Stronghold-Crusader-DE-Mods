@@ -60,7 +60,7 @@ namespace BugfixesAndQoL.DrawbridgeDestructionFix
                     (asm, original, continuation) => NativeContract.Emit(asm, original, continuation,
                         imageBase + NativeContract.SkipRva, unchecked((ulong)state.ToInt64())),
                     hookSize: NativeContract.SpanLength, name: "BugfixesAndQoL_DrawbridgeNonlethalGateHit");
-                CommitResult result = transaction.Commit();
+                CommitResult result = Shared.NativePatchGuard.Commit(transaction, "Drawbridge destruction fix");
                 if (!result.IsCompleteSuccess || !handle.Success || handle.Hook.DisplacedByteCount != NativeContract.SpanLength || handle.Hook.TargetAddress != target)
                     throw new InvalidOperationException("Drawbridge hook commit/span failed: " + result);
                 byte[] installed = new byte[NativeContract.SpanLength];

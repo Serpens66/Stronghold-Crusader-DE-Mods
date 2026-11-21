@@ -19,7 +19,8 @@
     {
       "Version": "0.1.7",
       "Changes": [
-        "Avoid unnecessary host-only writes after settings restoration on clients and in read-only mission presets."
+        "Avoid unnecessary host-only writes after settings restoration on clients and in read-only mission presets.",
+        "Power selection, power use and mana regeneration hook into the game without rewriting its code on every call, which saves performance. Conflicts with other mods that change the same spot in the game's code are now detected: Extreme Powers then keeps the Vanilla behavior instead of overwriting the other mod's change, and the log names the conflict."
       ]
     },
     {

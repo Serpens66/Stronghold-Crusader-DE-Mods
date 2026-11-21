@@ -31,6 +31,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="MoatLandRotationTests.cs" />
+    <Compile Include="..\..\src\Multiplayer\MoatLandRotationNative.cs" />
     <Compile Include="..\..\src\MoatTerrain\TerrainState.cs" />
     <Compile Include="..\..\src\MoatTerrain\TerrainHistory.cs" />
     <Compile Include="..\..\src\MoatTerrain\TerrainPublication.cs" />

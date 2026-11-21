@@ -3,7 +3,6 @@ using BepInEx;
 using BepInEx.Logging;
 using CrusaderDE;
 using Iced.Intel;
-using R3;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Core.Memory;
@@ -11,8 +10,6 @@ using RedBird.X64.Hooks;
 using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
-using SHCDESE.EventAPI;
-using SHCDESE.EventAPI.Input;
 using SHCDESE.Interop;
 using System;
 using System.IO;
@@ -30,7 +27,6 @@ namespace BugfixesAndQoL
         private readonly HookHandle<X64InlineHook> buildingSouth = new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> unit = new HookHandle<X64InlineHook>();
         private HookTransaction transaction;
-        private IDisposable keyDownSubscription;
         private IntPtr activeFlag;
         private int installed;
         private int postStartupLogged;
@@ -55,8 +51,8 @@ namespace BugfixesAndQoL
         {
             if (context.ModuleHandle == IntPtr.Zero || context.Region == null || context.Memory.Length == 0)
                 throw new InvalidOperationException("Incomplete native library load context.");
-            if (typeof(X64InlineHook).Assembly.GetName().Version != new Version(1, 5, 0, 0))
-                throw new InvalidOperationException("The installed RedBird.X64 version differs from the audited backend.");
+            // No runtime RedBird version pin (Test-DamagedHealthBarsPreflight.ps1 gates the audited version at build):
+            // the generated stubs and displaced spans are checked against the real targets below.
             VerifyNativeHash();
             ValidateInteropLayout();
             HealthBarNativeContract.ValidateBytes(context.Memory);
@@ -72,8 +68,6 @@ namespace BugfixesAndQoL
                 ulong flagAddress = unchecked((ulong)activeFlag.ToInt64());
                 ProbeGeneratedStubs(imageBase, flagAddress);
 
-                // InputR3EventHooks is a publisher that survives startup cleanup.
-                keyDownSubscription = InputR3EventHooks.OnKeyDown.Observable.Subscribe(OnKeyDown);
                 settings.SettingChanged += OnSettingChanged;
 
                 pending = new HookTransaction(
@@ -82,7 +76,8 @@ namespace BugfixesAndQoL
                     new HookTransactionOptions
                     {
                         FailureMode = TransactionFailureMode.RollbackAndThrow,
-                        OwnsHooks = true
+                        OwnsHooks = true,
+                        InstallOnCommit = false
                     });
                 pending.AddInline(buildingNorth,
                     HookTarget.FromAddress(imageBase + HealthBarNativeContract.BuildingNorthRva),
@@ -100,7 +95,7 @@ namespace BugfixesAndQoL
                         assembler, instructions, returnAddress, imageBase, flagAddress),
                     hookSize: HealthBarNativeContract.UnitLength);
 
-                CommitResult result = pending.Commit();
+                CommitResult result = Shared.NativePatchGuard.Commit(pending, "Damaged health bars");
                 if (!result.IsCompleteSuccess || !buildingNorth.Success ||
                     !buildingSouth.Success || !unit.Success ||
                     buildingNorth.Hook.DisplacedByteCount != HealthBarNativeContract.BuildingLength ||
@@ -116,7 +111,6 @@ namespace BugfixesAndQoL
             {
                 // Roll back only this unpublished initialization candidate.
                 pending?.Dispose();
-                keyDownSubscription?.Dispose();
                 settings.SettingChanged -= OnSettingChanged;
                 if (activeFlag != IntPtr.Zero) Marshal.FreeHGlobal(activeFlag);
                 throw;
@@ -237,15 +231,15 @@ namespace BugfixesAndQoL
         {
             if (probe.StubAddress == IntPtr.Zero)
                 throw new InvalidOperationException("RedBird did not assemble an inline stub.");
-            const int maxBytes = 512;
-            byte[] bytes = new byte[maxBytes];
-            Marshal.Copy(probe.StubAddress, bytes, 0, bytes.Length);
+            // RedBird publishes no stub size; never read past the stub's committed region.
+            byte[] bytes = Shared.CommittedMemory.ReadUpTo(probe.StubAddress, 512);
+            int maxBytes = bytes.Length;
             ulong start = unchecked((ulong)probe.StubAddress.ToInt64());
             var reader = new ByteArrayCodeReader(bytes);
             Decoder decoder = Decoder.Create(64, reader, start);
             bool foundHealth = false;
             bool foundReturn = false;
-            for (int i = 0; i < 100 && decoder.IP < start + maxBytes - 16; i++)
+            for (int i = 0; i < 100 && decoder.IP + 16 < start + (ulong)maxBytes; i++)
             {
                 Instruction instruction = decoder.Decode();
                 if (instruction.IsInvalid)
@@ -317,46 +311,25 @@ namespace BugfixesAndQoL
             Interlocked.Exchange(ref *flag, 0);
         }
 
-        private void OnKeyDown(UnityInputEventArgs args)
+        internal bool CanToggleFromHotkey()
         {
-            if (args == null || args.Phase != EventHookPhase.Pre)
-                return;
+            if (!FeatureEnabled || Volatile.Read(ref installed) == 0)
+                return false;
+            GameData gameData = GameData.Instance;
+            if (GameMap.instance == null || gameData?.lastGameState == null)
+                return false;
+            if (gameData.app_mode != 14 && gameData.app_mode != 16)
+                return false;
+            if (APIShared.GameModes.GameModeHelper.IsMapEditor())
+                return false;
+            FatControler controller = FatControler.instance;
+            return controller != null && !controller.NoesisHasKeyboard;
+        }
+
+        internal void ToggleFromHotkey()
+        {
             try
             {
-                if (settings.IsCapturingHealthBarHotkey)
-                {
-                    var hub = SHCDESE.BepInEx.Bootstrap.Plugin.ModSettingsHubViewModel;
-                    if (hub != null && hub.WindowVisibility == Noesis.Visibility.Visible &&
-                        ReferenceEquals(hub.SelectedTab?.ViewModel, settings))
-                        settings.CaptureHealthBarHotkeyFromInput(args.Key);
-                    else
-                        settings.CancelHealthBarCapture();
-                    return;
-                }
-                if (args.Key != settings.HealthBarHotkeyKeyCode || args.Key == KeyCode.None)
-                    return;
-                bool alt = Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
-                bool control = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
-                bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-                if (alt != settings.HealthBarHotkeyAlt ||
-                    control != settings.HealthBarHotkeyControl ||
-                    shift != settings.HealthBarHotkeyShift ||
-                    !FeatureEnabled)
-                    return;
-                if (Volatile.Read(ref installed) == 0)
-                    return;
-                if (!args.Result)
-                    return;
-                GameData gameData = GameData.Instance;
-                if (GameMap.instance == null || gameData?.lastGameState == null)
-                    return;
-                if (gameData.app_mode != 14 && gameData.app_mode != 16)
-                    return;
-                if (APIShared.GameModes.GameModeHelper.IsMapEditor())
-                    return;
-                FatControler controller = FatControler.instance;
-                if (controller == null || controller.NoesisHasKeyboard)
-                    return;
                 if (!EnsurePostStartupReady())
                     return;
 

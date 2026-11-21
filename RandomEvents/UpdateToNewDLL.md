@@ -50,6 +50,29 @@ There is no pattern fallback for this writable global: on a different hash,
 missing module handle, out-of-range image, or read failure, only the three
 Peace-Time-sensitive events stay suppressed. Other events continue.
 
+## Native entry detours
+
+The presentation, sound and action-point filters are permanent RedBird detours
+(`Shared/Runtime/Native/AuditedEntryDetour.cs`, NativeX64 backend, `Indirect`
+scheme) on the handler entries. Each entry is compared byte for byte with the
+load image and the live code before anything is written; a mismatch keeps only
+that filter off (Error log; a foreign patch is named by `NativePatchGuard`).
+`Shared/Tests/AuditedEntryDetour.Tests` runs the installed backend on copies of
+the real entries during the build.
+
+| Filter | Reference RVA | Displaced entry | Notes |
+| --- | ---: | --- | --- |
+| presentation | `0x1031B0` | `83 39 00 0F 84 B0 00 00 00` (9 bytes) | the `je` is relocated to its original target `0x103269`; its displacement is build-specific, so this filter stays bound to the audited bytes (no fallback: incoming edges and the branch target are only proven for this hash) |
+| sound | `0x2940` | `41 B9 40 00 00 00` (6 bytes) | part of `SoundHandlerPattern`, identical on any matching build |
+| action point | `0xF4D40` | `40 53 48 83 EC 20` (6 bytes) | part of `ActionPointHandlerPattern`; RedBird re-encodes `40 53` as `53` in the trampoline |
+
+Audited on the reference hash: whole instructions, no RIP-relative operand in
+the plain instructions, no direct branch from anywhere in the executable
+sections into the interior of a span, and none of the three functions calls
+itself. On a new DLL repeat this per entry before changing the constants in
+`NativeVanillaEventDispatcher.cs` / `NativeWildlifeEventDispatcher.cs` and the
+test.
+
 ## Required update audit
 
 1. Require one match for each entry and revalidate every delegate ABI,

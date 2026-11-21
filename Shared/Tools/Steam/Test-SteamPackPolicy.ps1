@@ -47,7 +47,7 @@ function Get-TestFileSha256([string]$Path) {
 
 $toolOnly = @('tools/Validation/Test-WorkshopPackaging.ps1','tools/WorkshopPackage.ps1','tools/BuildProof.ps1','tools/Build.ps1','tests/Core.Tests/Core.Tests.csproj','Directory.Packages.props','CONTRIBUTING.md')
 Assert-True (@(Get-SteamApiReleaseRelevantChanges $toolOnly).Count -eq 0) 'tests and maintainer tooling must not force a new APIShared package version'
-$delivered = @('src/Workshop/WorkshopInstallation.cs','Properties/AssemblyInfo.cs','Override/example.xaml','Patches/example.xaml','Workshop/workshop-updater.ps1','Workshop/Bootstrap/Plugin.cs.template','tools/WorkshopUploader/Program.cs','tools/WorkshopUploader/UploadMod.bat','tools/WorkshopUploader/UploadMod-linux.sh','APIShared.csproj','info.json','Directory.Build.props')
+$delivered = @('src/Workshop/WorkshopInstallation.cs','Properties/AssemblyInfo.cs','Override/example.xaml','Patches/example.xaml','Workshop/Bootstrap/Plugin.cs.template','tools/WorkshopUploader/Program.cs','tools/WorkshopUploader/UploadMod.bat','tools/WorkshopUploader/UploadMod-linux.sh','APIShared.csproj','info.json','Directory.Build.props')
 Assert-True (@(Get-SteamApiReleaseRelevantChanges $delivered).Count -eq $delivered.Count) 'runtime, resources and shipped publisher changes must invalidate APIShared reuse'
 
 $packagePath = 'ExtraFeatures/BepInEx/plugins/ExtraFeatures_Serp'
@@ -129,21 +129,40 @@ function Get-TestMapPaths([string]$MapPath) {
     finally { $archive.Dispose(); $stream.Dispose() }
 }
 
-foreach ($upload in $seed.Uploads) {
-    $mapPath = Join-Path $workspace ".release-output\SerpsMods\v$($upload.PackVersion)\SerpsMods.map"
-    Assert-True (Test-Path -LiteralPath $mapPath -PathType Leaf) "confirmed map v$($upload.PackVersion) must be locally available for the archive regression test"
-    Assert-True ((Get-TestFileSha256 $mapPath) -ceq [string]$upload.MapSha256) "confirmed map v$($upload.PackVersion) hash must match history"
+# Local release folders are retained only temporarily. Like the pack driver's historical audit
+# (Get-HistoryMapPath), use a local or cached map only when its hash matches the confirmed
+# upload, otherwise download that exact release asset and verify it before use.
+function Get-TestHistoryMap($Upload) {
+    $version = [string]$Upload.PackVersion
+    $expected = [string]$Upload.MapSha256
+    $cache = Join-Path $workspace ".release-output\SerpsMods\cache\history\v$version"
+    foreach ($candidate in @((Join-Path $workspace ".release-output\SerpsMods\v$version\SerpsMods.map"), (Join-Path $cache 'SerpsMods.map'))) {
+        if ([IO.File]::Exists($candidate) -and (Get-TestFileSha256 $candidate) -ceq $expected) { return $candidate }
+    }
+    $stage = Join-Path $cache ('.download-' + [guid]::NewGuid().ToString('N'))
+    [void][IO.Directory]::CreateDirectory($stage)
+    try {
+        & gh release download "SerpsMods/v$version" --repo 'Serpens66/Stronghold-Crusader-DE-Mods' --pattern 'SerpsMods.map' --dir $stage | Out-Null
+        $downloaded = Join-Path $stage 'SerpsMods.map'
+        Assert-True ($LASTEXITCODE -eq 0 -and [IO.File]::Exists($downloaded)) "confirmed map v$version must be downloadable from its GitHub release"
+        Assert-True ((Get-TestFileSha256 $downloaded) -ceq $expected) "confirmed map v$version hash must match history"
+        $target = Join-Path $cache 'SerpsMods.map'
+        if ([IO.File]::Exists($target)) { [IO.File]::Delete($target) }
+        [IO.File]::Move($downloaded, $target)
+        return $target
+    } finally { if ([IO.Directory]::Exists($stage)) { [IO.Directory]::Delete($stage, $true) } }
 }
+$historyMaps = @{}
+foreach ($upload in $seed.Uploads) { $historyMaps[[string]$upload.PackVersion] = Get-TestHistoryMap $upload }
 $allPublishedPaths = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
 foreach ($upload in $seed.Uploads) {
-    $publishedMap = Join-Path $workspace ".release-output\SerpsMods\v$($upload.PackVersion)\SerpsMods.map"
-    foreach ($publishedPath in @(Get-TestMapPaths $publishedMap)) { [void]$allPublishedPaths.Add($publishedPath) }
+    foreach ($publishedPath in @(Get-TestMapPaths $historyMaps[[string]$upload.PackVersion])) { [void]$allPublishedPaths.Add($publishedPath) }
 }
-$paths109 = @(Get-TestMapPaths (Join-Path $workspace '.release-output\SerpsMods\v1.0.9\SerpsMods.map'))
-$paths1010 = @(Get-TestMapPaths (Join-Path $workspace '.release-output\SerpsMods\v1.0.10\SerpsMods.map'))
+$paths109 = @(Get-TestMapPaths $historyMaps['1.0.9'])
+$paths1010 = @(Get-TestMapPaths $historyMaps['1.0.10'])
 $removed109To1010 = @(Get-MissingSteamPackPaths -PreviousPaths $paths109 -CurrentPaths $paths1010)
 Assert-True ($removed109To1010.Count -eq 1 -and $removed109To1010[0] -ceq $patchPath) '1.0.9 -> 1.0.10 must contain exactly the HUD_ControlGroups.xaml removal'
-$paths1012 = @(Get-TestMapPaths (Join-Path $workspace '.release-output\SerpsMods\v1.0.12\SerpsMods.map'))
+$paths1012 = @(Get-TestMapPaths $historyMaps['1.0.12'])
 $missingFromLatest = @(Get-MissingSteamPackPaths -PreviousPaths @($allPublishedPaths) -CurrentPaths $paths1012)
 Assert-True ($missingFromLatest.Count -eq 1 -and $missingFromLatest[0] -ceq $patchPath) 'the complete confirmed Steam history must have exactly one path missing from 1.0.12'
 
@@ -324,8 +343,6 @@ try {
     if (Test-Path -LiteralPath $testRoot) { Remove-Item -LiteralPath $testRoot -Recurse -Force }
 }
 
-Write-Host 'Steam pack policy tests succeeded.' -ForegroundColor Green
-
 Assert-True ($createScriptText.Contains("State = 'External'; RelativePath = ''")) 'APIShared must be recorded as an external prerequisite'
 Assert-True ($createScriptText.Contains('EXTERNAL-V1|')) 'old bundled content signatures must not be reused'
 Assert-True ($createScriptText.Contains('Get-LegacyApiSharedFiles -History $uploadHistory')) 'migration evidence must cover confirmed historical deliveries'
@@ -334,7 +351,11 @@ Assert-True ($createScriptText.Contains("-Arguments @('/nopause','/noinstall','/
 Assert-True ($createScriptText.IndexOf("Fail-Pack 2 'Prepare APIShared first") -lt $createScriptText.IndexOf('foreach ($mod in @($mods | Where-Object NeedsSourceEdit)) { Set-ModCompatibility')) 'missing APIShared releases must fail before consumer source changes'
 foreach ($modName in $configuredMods) {
     $driver = [IO.File]::ReadAllText((Join-Path $workspace "$modName/build.bat"))
-    # Limited source guard for the declared no-install branch; game/install behavior is tested separately.
-    $noInstallBranch=[regex]::Match($driver,'(?im)^if "%NO_INSTALL%"=="1" goto ([A-Za-z0-9_]+)\s*$')
-    Assert-True ($noInstallBranch.Success -and $driver.Contains(':'+$noInstallBranch.Groups[1].Value)) "$modName must support preparation without touching installed files"
+    # Limited source guard for the declared no-install exit; build behavior is checked separately.
+    $noInstallBranch = [regex]::Match($driver, '(?im)^if "%NO_INSTALL%"=="1" goto ([A-Za-z0-9_]+)\s*$')
+    $hasNoInstallLabel = $noInstallBranch.Success -and $driver.Contains(':' + $noInstallBranch.Groups[1].Value)
+    $hasNoInstallExit = $driver -match '(?im)^if "%NO_INSTALL%"=="1" \([ \t]*\r?\n(?:[ \t]+echo[^\r\n]*\r?\n)*[ \t]+exit /b(?: [^\r\n]+)?\r?\n\)'
+    Assert-True ($hasNoInstallLabel -or $hasNoInstallExit) "$modName must support preparation without touching installed files"
 }
+
+Write-Host 'Steam pack policy tests succeeded.' -ForegroundColor Green

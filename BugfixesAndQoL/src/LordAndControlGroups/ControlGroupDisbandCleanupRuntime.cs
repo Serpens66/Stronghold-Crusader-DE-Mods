@@ -59,7 +59,7 @@ namespace BugfixesAndQoL
                     detour,
                     HookTarget.FromAddress(libraryBase + unchecked((ulong)disbandFunctionRva)),
                     DisbandUnit);
-                CommitResult commitResult = transaction.Commit();
+                CommitResult commitResult = Shared.NativePatchGuard.Commit(transaction, "Control group disband cleanup");
                 if (!commitResult.IsCompleteSuccess || !detour.Success)
                     throw new InvalidOperationException("The disband cleanup detour was not installed.");
             }

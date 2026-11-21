@@ -36,6 +36,7 @@ namespace Pathfinding
         private bool assemblyPointPlacementPatchUnavailable, mountedStockpileMovementPatchUnavailable, fastRecruitInitializationAttempted;
         private ulong LibraryBase => unchecked((ulong)libraryHandle.ToInt64());
         internal static bool HasMission { get; private set; }
+        internal bool IsShiftQueueReady => processExtendedShiftCommandQueueRuntime?.IsMultiplayerReady == true;
 
         public PathfindingRuntime(ManualLogSource log, PathfindingViewModel settings, string pluginDirectory)
         {
@@ -139,7 +140,10 @@ namespace Pathfinding
                 GateRouting.AssassinGatehouseDescentFeature.Initialize(context, log, settings, isFixedLayoutHashValidated));
             TryPersistent("Assassin gatehouse climb", ApplyAssassinGatehouseClimbFix);
             TryPersistent("enemy gate routing", () => GateRouting.GateRoutingFeature.Initialize(context, isFixedLayoutHashValidated));
-            TryInitialize("Extended Shift command queue", () => InitializeExtendedShiftCommandQueue(context, isFixedLayoutHashValidated));
+            TryPersistent("enemy drawbridge closure", () => GateRouting.DrawbridgeDeckClosure.Initialize(context, log, settings, isFixedLayoutHashValidated));
+            RunIsolated("FeatureInitialize", "Extended Shift command queue",
+                () => InitializeExtendedShiftCommandQueue(context, isFixedLayoutHashValidated),
+                "The Extended Shift command queue could not be initialized", installationTarget: "command dispatch");
             TryInitialize("assembly-point placement fix", ApplyAssemblyPointPlacementPatchSetting);
             TryInitialize("mounted-stockpile movement fix", ApplyMountedStockpileMovementPatchSetting);
         }
@@ -256,13 +260,20 @@ namespace Pathfinding
             $"Pathfinding feature '{name}' could not apply its setting; independent features continue");
 
         // One feature's failure must never stop the features after it.
-        private void RunIsolated(string category, string name, Action action, string failure)
+        private void RunIsolated(string category, string name, Action action, string failure, string installationTarget = null)
         {
             using (Shared.CrashBreadcrumbScope diagnostic = Shared.CrashBreadcrumbDiagnostics.IsEnabled
                 ? Shared.CrashBreadcrumbDiagnostics.Enter(category, name.GetHashCode()) : default(Shared.CrashBreadcrumbScope))
             {
                 try { action(); diagnostic.Complete(); }
-                catch (Exception ex) { diagnostic.Complete(-1); Shared.RuntimeHealth.Failure(log, name, true, $"{failure}: {ex}"); }
+                catch (Exception ex)
+                {
+                    diagnostic.Complete(-1);
+                    if (installationTarget != null)
+                        Shared.DebugLogHelper.LogHookInstallFailure(log, name, installationTarget, ex.ToString());
+                    else
+                        Shared.RuntimeHealth.Failure(log, name, true, $"{failure}: {ex}");
+                }
             }
         }
     }

@@ -163,13 +163,13 @@ if ($nearProbeStart -lt 0 -or $nearProbeEnd -le $nearProbeStart) {
 }
 
 $nearProbeBlock = $nativeProbe.Substring($nearProbeStart, $nearProbeEnd - $nearProbeStart)
-if ($nearProbeBlock.Contains('if (wrapperResult <= 0)') -or
-    -not $nearProbeBlock.Contains('if (wrapperResult == 0)') -or
-    -not $nearProbeBlock.Contains('hunterToPreyResult = 0') -or
-    -not $nearProbeBlock.Contains('preyToHunterResult = 0') -or
-    -not $nearProbeBlock.Contains('LineOfSightRoutine.Directional') -or
+# Source guardrail for the two-ray urgent probe reservation. The APIShared sight
+# dispatch tests cover the underlying native result and are independent of this check.
+if ($nearProbeBlock.Contains('LineOfSightRoutine.Bidirectional') -or
+    ([regex]::Matches($nearProbeBlock, 'LineOfSightRoutine\.Directional')).Count -ne 2 -or
+    -not $nearProbeBlock.Contains('wrapperResult = hunterToPreyResult != 0 ? hunterToPreyResult : preyToHunterResult') -or
     -not $nearProbeBlock.Contains('out HunterNearVisibilityGeometry geometry')) {
-    throw 'Wrapper-zero probes must retain the authoritative zero result and avoid redundant core calls; positive probes still validate both directions and exact geometry.'
+    throw 'Active visibility probes must derive the Vanilla wrapper result from the two native directions and keep the exact geometry.'
 }
 
 $recordStart = $runtime.IndexOf('private void RecordHunterPclMoveHereResult(', [System.StringComparison]::Ordinal)

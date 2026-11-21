@@ -39,6 +39,13 @@ namespace BugfixesAndQoL
             "ShowSetupScreen", BindingFlags.Instance | BindingFlags.NonPublic);
         private static readonly FieldInfo MpSetupDataField = typeof(FRONT_Multiplayer).GetField(
             "MPsetupData", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly FieldInfo MpTemporarySetupDataField = RequirePrivateField("MPTEMPsetupData");
+        private static readonly FieldInfo ExtremeWarningShownField = RequirePrivateField("skirmishExtremeTroopsWarningShown");
+        private static readonly FieldInfo ExtremeWarningSourceField = RequirePrivateField("ExtremeWarningSource");
+
+        private static FieldInfo RequirePrivateField(string name) =>
+            typeof(FRONT_Multiplayer).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new MissingFieldException(typeof(FRONT_Multiplayer).FullName, name);
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
@@ -211,6 +218,9 @@ namespace BugfixesAndQoL
 
         private void MultiplayerButtonHook(FRONT_Multiplayer self, string command)
         {
+            if (TryEditOnlineCoopDraft(self, command))
+                return;
+
             if (IsStartCommand(command) &&
                 TrailCustomizationLaunchOriginApi.Origin == TrailCustomizationLaunchOriginKind.CustomizedCoopTrail &&
                 !self.singlePlayerCoop && self.currentLobby != null && self.currentLobby.isHost)
@@ -249,6 +259,55 @@ namespace BugfixesAndQoL
                 }
             }
             multiplayerButtonOriginal(self, command);
+        }
+
+        private bool TryEditOnlineCoopDraft(FRONT_Multiplayer self, string command)
+        {
+            if (!FRONT_Multiplayer.coopGame || FRONT_Multiplayer.skirmishGame ||
+                self?.currentLobby?.isHost != true || self.singlePlayerCoop ||
+                TrailCustomizationLaunchOriginApi.Origin != TrailCustomizationLaunchOriginKind.CustomizedCoopTrail)
+                return false;
+
+            var view = MainViewModel.Instance;
+            if (command == "Setup")
+            {
+                multiplayerButtonOriginal(self, command);
+                if (view.Show_MPSettings)
+                    view.MPSettings_ExTroops_Opacity = 1f;
+                return true;
+            }
+
+            if (!view.Show_MPSettings ||
+                !(MpTemporarySetupDataField.GetValue(self) is EngineInterface.MultiplayerSetupData draft))
+                return false;
+
+            if (command == "Settings_ExtremeTroops")
+            {
+                draft.extreme_troops = draft.extreme_troops == 0 ? 1 : 0;
+                view.MP_Settings_ExTroops = view.GameSprites[draft.extreme_troops != 0 ? 640 : 641];
+                if (draft.extreme_troops != 0 && ConfigSettings.Settings_Show_Extreme_Warning &&
+                    !(bool)ExtremeWarningShownField.GetValue(self))
+                {
+                    // Vanilla warning source 2 returns to the settings dialog.
+                    ExtremeWarningSourceField.SetValue(self, 2);
+                    ExtremeWarningShownField.SetValue(self, true);
+                    view.Show_MP_ExtremeWarning = true;
+                }
+                return true;
+            }
+
+            if (!SkirmishGameOptionsPolicy.IsCoopLiveDraftCommand(command))
+                return false;
+
+            // These Vanilla commands explicitly use MPsetupData, even from the
+            // transactional dialog. Keep their existing UI updates on the draft.
+            object committed = MpSetupDataField.GetValue(self);
+            MpSetupDataField.SetValue(self, draft);
+            try { multiplayerButtonOriginal(self, command); }
+            finally { MpSetupDataField.SetValue(self, committed); }
+            if (SkirmishGameOptionsPolicy.IsPresetLoadCommand(command))
+                view.MPSettings_ExTroops_Opacity = 1f;
+            return true;
         }
 
         private void MultiplayerOpenHook(

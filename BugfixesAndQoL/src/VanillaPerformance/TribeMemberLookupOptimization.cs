@@ -63,7 +63,7 @@ namespace BugfixesAndQoL.VanillaPerformance
                     pending.AddInline(hook, HookTarget.FromAddress(target),
                         (a, original, ret) => TribeMemberLookupCode.Emit(a, flag, original),
                         hookSize: TribeMemberLookupCode.DisplacedLength, name: "TribeMemberLookup");
-                    CommitResult result = pending.Commit();
+                    CommitResult result = Shared.NativePatchGuard.Commit(pending, "Tribe member lookup optimization");
                     if (!result.IsCompleteSuccess || !hook.Success || !hook.Hook.IsInstalled ||
                         hook.Hook.TargetAddress != target || hook.Hook.DisplacedByteCount != TribeMemberLookupCode.DisplacedLength)
                         throw new InvalidOperationException("the 0x119F90 hook did not install as audited: " + result);

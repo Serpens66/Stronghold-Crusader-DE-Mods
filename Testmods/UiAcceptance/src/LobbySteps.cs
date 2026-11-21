@@ -22,6 +22,7 @@ namespace UiAcceptance
             Runner.Register("Lobby.Play", Play);
             Runner.Register("Lobby.PeaceTime", PeaceTime);
             Runner.Register("Lobby.StartPositions", StartPositions);
+            Runner.Register("Lobby.Prebuild", Prebuild);
             Runner.Register("Editor.Start", EditorStart);
             Runner.Register("Mp.Host", Host);
             Runner.Register("Mp.WaitMembers", WaitMembers);
@@ -124,6 +125,18 @@ namespace UiAcceptance
             yield return new Delay(250);
             Lobby.ButtonClicked("ApplySettings");
             yield return new Delay(250);
+        }
+
+        private static IEnumerable<Wait> Prebuild(Step step)
+        {
+            yield return new Until("skirmish lobby ready", () => LobbyReady() && FRONT_Multiplayer.skirmishGame);
+            var setup = (EngineInterface.MultiplayerSetupData)typeof(FRONT_Multiplayer)
+                .GetField("MPsetupData", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(Lobby);
+            Runner.Require(setup != null, "no lobby setup data");
+            if (setup.advopt_pre_build == 0)
+                Lobby.ButtonClicked("Settings_PreBuild");
+            Runner.Require(setup.advopt_pre_build == 1, "Vanilla prebuilt castle setting did not enable");
+            AcceptLog.Info("LOBBY_PREBUILD enabled=True");
         }
 
         private static IEnumerable<Wait> SkirmishOpen(Step step)

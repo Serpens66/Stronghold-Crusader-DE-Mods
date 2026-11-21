@@ -97,7 +97,11 @@ internal static class Program
             {
                 // Both preceding variants used an unpublished private fixture. Publication starts here.
                 Copy(arena,NoDogsNativeContract.PatchRva,NoDogsNativeContract.ExpectedBytes);
-                installed=new PermanentNativeSwitch(null,b,NativeSwitchCatalog.CreatePlans(image,b,true),NoDogsNativeContract.ReferenceSha256);Roots.Add(installed);
+                // The unmodified mapped image stands in for the Script Extender's load snapshot.
+                Shared.NativePatchGuard.Bind(RedBird.Core.Memory.ScanRegion.FromMemory((byte[])image.Clone(),b,"NoDogs fixture"),null);
+                var noDogsPlans=NativeSwitchCatalog.CreatePlans(image,b,true);int watched=Shared.NativePatchGuard.WatchedCount;
+                installed=new PermanentNativeSwitch(null,b,noDogsPlans,NoDogsNativeContract.ReferenceSha256,"No dogs");Roots.Add(installed);
+                Check(Shared.NativePatchGuard.WatchedCount==watched+noDogsPlans.Length,"every published NoDogs span is watched for later foreign patches");
                 published=Read(arena,0xffd94,6);
             }
             if(pass>=2)installed.SetEnabled(pass==3);
@@ -111,7 +115,7 @@ internal static class Program
                 if(pass==0)original[i]=value;else if(pass==1)active[i]=value;
                 else Check(value==(pass==3?active[i]:original[i]),"complete production NoDogs function equivalence: pass="+pass+",input="+i);
             }
-            if(pass>=2)Check(Read(arena,0xffd94,6).SequenceEqual(published),"settings transitions never repatch native code");
+            if(pass>=2)Check(Read(arena,0xffd94,6).SequenceEqual(published) && Shared.NativePatchGuard.Recheck()==0,"settings transitions never repatch native code");
         }
         Check(original.Where((v,i)=>v!=active[i]).Count()==40,"reference reaches intended mode99 differences");
         Console.WriteLine("PASS: full NoDogs function, "+inputs.Count+" inputs, original/old active/production off/on/off; executable bytes unchanged after publication.");
@@ -136,13 +140,16 @@ internal static class Program
         // 0x8EA60 after the peace-time span; a foreign jump there is accepted, any other live change is not.
         IntPtr foreign=Image(image);
         Copy(foreign,0x8EA60,new byte[]{0xCC,0xCC,0xCC});
-        bool overlap=false;try {Roots.Add(new PermanentNativeSwitch(null,(ulong)foreign.ToInt64(),NativeSwitchCatalog.CreatePlans(image,(ulong)foreign.ToInt64(),false),VanillaPeaceTimeNativeContract.ReferenceSha256));}catch(InvalidOperationException){overlap=true;}
+        bool overlap=false;try {Roots.Add(new PermanentNativeSwitch(null,(ulong)foreign.ToInt64(),NativeSwitchCatalog.CreatePlans(image,(ulong)foreign.ToInt64(),false),VanillaPeaceTimeNativeContract.ReferenceSha256,"Peace time wildlife rules"));}catch(InvalidOperationException){overlap=true;}
         Check(overlap,"non-jump live change at a continuation rejected");
         Copy(arena,0x8EA60,new byte[]{0xFF,0x25,0,0,0,0});
         int sharedEntry=VanillaPeaceTimeNativeContract.HostilityFunctionRva;
         byte[] sharedOwner=new byte[]{0xFF,0x25,0,0,0,0,0x90,0x90};
         Copy(arena,sharedEntry,sharedOwner);
-        var installed=new PermanentNativeSwitch(null,b,plans,VanillaPeaceTimeNativeContract.ReferenceSha256);Roots.Add(installed);
+        Shared.NativePatchGuard.Bind(RedBird.Core.Memory.ScanRegion.FromMemory((byte[])image.Clone(),b,"peace fixture"),null);
+        int watched=Shared.NativePatchGuard.WatchedCount;
+        var installed=new PermanentNativeSwitch(null,b,plans,VanillaPeaceTimeNativeContract.ReferenceSha256,"Peace time wildlife rules");Roots.Add(installed);
+        Check(Shared.NativePatchGuard.WatchedCount==watched+plans.Length,"every published peace span is watched for later foreign patches");
         byte[][] before=plans.Select(p=>Read(arena,p.Rva,p.PhysicalLength)).ToArray();
         foreach(bool value in new[]{false,true,false,true})
         {
@@ -212,5 +219,9 @@ namespace Shared
     {
         // External logging boundary; production switch emission/installation is source-linked.
         internal static void LogInfo(BepInEx.Logging.ManualLogSource log,string message) { }
+        // NativePatchGuard reports foreign patches here; a test must see them.
+        internal static void LogError(BepInEx.Logging.ManualLogSource log,string message) => Console.Error.WriteLine(message);
+        internal static void LogHookInstallFailure(BepInEx.Logging.ManualLogSource log, string feature, string hook, string reason) =>
+            LogError(log, $"{feature}: {hook}: {reason}");
     }
 }

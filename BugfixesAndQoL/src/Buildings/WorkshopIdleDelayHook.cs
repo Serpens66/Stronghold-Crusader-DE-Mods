@@ -49,7 +49,7 @@ namespace BugfixesAndQoL
                 var tanner = new HookHandle<X64InlineHook>();
                 Add(candidate, pole, imageBase, false);
                 Add(candidate, tanner, imageBase, true);
-                CommitResult result = candidate.Commit();
+                CommitResult result = Shared.NativePatchGuard.Commit(candidate, "Workshop idle delay");
                 if (!result.IsCompleteSuccess || !pole.Success || !tanner.Success ||
                     !pole.IsInstalled || !tanner.IsInstalled ||
                     pole.Hook.DisplacedByteCount != WorkshopIdleDelayNative.DisplacedLength ||

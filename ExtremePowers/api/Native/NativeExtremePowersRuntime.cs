@@ -31,9 +31,16 @@ namespace ExtremePowers.API
 
         private readonly ExtremePowersApi owner;
         private readonly ulong moduleBase;
-        private readonly NativeDetour dispatcherDetour;
-        private readonly NativeDetour selectionDetour;
-        private readonly NativeDetour resourceUpdateDetour;
+        private const string DispatcherFeature = "Extreme Powers dispatcher";
+        private const string SelectionFeature = "Extreme Powers selection";
+        private const string ResourceUpdateFeature = "Extreme Powers resource update";
+        // Kept for the process lifetime (also rooted by AuditedEntryDetour); never disabled or disposed.
+        private readonly RedBird.Backends.NativeX64.NativeDetour<DispatcherDelegate> dispatcherDetour;
+        private readonly RedBird.Backends.NativeX64.NativeDetour<SelectionDelegate> selectionDetour;
+        private readonly RedBird.Backends.NativeX64.NativeDetour<ResourceUpdateDelegate> resourceUpdateDetour;
+        // False until every hook and subscription is in place; the native callbacks are pure Vanilla until then.
+        private volatile bool nativeActive;
+        private IDisposable foreignPatchRecheck;
         private readonly DispatcherDelegate rootedDispatcher;
         private readonly SelectionDelegate rootedSelection;
         private readonly DispatcherDelegate originalDispatcher;
@@ -75,17 +82,48 @@ namespace ExtremePowers.API
             rootedSelection = Select;
             rootedResourceUpdate = UpdateResources;
 
-            dispatcherDetour = new NativeDetour((IntPtr)(moduleBase + DispatcherRva), InteropMarshal.GetFunctionPointerForDelegate(rootedDispatcher), new NativeDetourConfig { ManualApply = true });
-            selectionDetour = new NativeDetour((IntPtr)(moduleBase + SelectionRva), InteropMarshal.GetFunctionPointerForDelegate(rootedSelection), new NativeDetourConfig { ManualApply = true });
-            resourceUpdateDetour = new NativeDetour((IntPtr)(moduleBase + ResourceUpdateRva), InteropMarshal.GetFunctionPointerForDelegate(rootedResourceUpdate), new NativeDetourConfig { ManualApply = true });
-            originalDispatcher = dispatcherDetour.GenerateTrampoline<DispatcherDelegate>();
-            originalSelection = selectionDetour.GenerateTrampoline<SelectionDelegate>();
-            originalResourceUpdate = resourceUpdateDetour.GenerateTrampoline<ResourceUpdateDelegate>();
-            dispatcherDetour.Apply();
+            // RedBird detours run the displaced entry in a trampoline, so calling Vanilla never rewrites the
+            // game code (MonoMod's NativeDetour restored and reapplied the entry around every call).
+            RedBird.Backends.NativeX64.NativeDetour<DispatcherDelegate> dispatcher = null;
+            RedBird.Backends.NativeX64.NativeDetour<SelectionDelegate> selection = null;
+            RedBird.Backends.NativeX64.NativeDetour<ResourceUpdateDelegate> resourceUpdate = null;
             try
             {
-                selectionDetour.Apply();
-                resourceUpdateDetour.Apply();
+                // Prepare also checks each live entry for foreign patches, so all three are validated
+                // before the first one is written.
+                dispatcher = Shared.AuditedEntryDetour.Prepare(memory, moduleBase, DispatcherRva, DispatcherDetourEntry, rootedDispatcher, DispatcherFeature);
+                selection = Shared.AuditedEntryDetour.Prepare(memory, moduleBase, SelectionRva, SelectionDetourEntry, rootedSelection, SelectionFeature);
+                resourceUpdate = Shared.AuditedEntryDetour.Prepare(memory, moduleBase, ResourceUpdateRva, ResourceUpdateDetourEntry, rootedResourceUpdate, ResourceUpdateFeature);
+            }
+            catch
+            {
+                resourceUpdate?.Dispose(); selection?.Dispose(); dispatcher?.Dispose(); // Unpublished candidates only.
+                throw;
+            }
+            originalDispatcher = dispatcher.Original;
+            originalSelection = selection.Original;
+            originalResourceUpdate = resourceUpdate.Original;
+            dispatcherDetour = dispatcher;
+            selectionDetour = selection;
+            resourceUpdateDetour = resourceUpdate;
+            // Published detours are never rolled back. Until nativeActive is set at the end, every callback
+            // passes straight through to Vanilla, also if a later step fails.
+            try
+            {
+                Shared.AuditedEntryDetour.Publish(dispatcher, rootedDispatcher, DispatcherFeature);
+                Shared.AuditedEntryDetour.Publish(selection, rootedSelection, SelectionFeature);
+                Shared.AuditedEntryDetour.Publish(resourceUpdate, rootedResourceUpdate, ResourceUpdateFeature);
+            }
+            catch
+            {
+                // Only candidates that were never enabled are released; nothing was written for them.
+                if (!Shared.AuditedEntryDetour.WasPublished(resourceUpdate)) resourceUpdate.Dispose();
+                if (!Shared.AuditedEntryDetour.WasPublished(selection)) selection.Dispose();
+                if (!Shared.AuditedEntryDetour.WasPublished(dispatcher)) dispatcher.Dispose();
+                throw;
+            }
+            try
+            {
                 MethodInfo setGameState = typeof(GameData).GetMethod("setGameState", BindingFlags.Instance | BindingFlags.Public, null, new[] { typeof(EngineInterface.PlayState) }, null)
                     ?? throw new MissingMethodException(typeof(GameData).FullName, "setGameState");
                 hudHook = new Hook(setGameState, (SetGameStateDelegate)SetGameState);
@@ -101,17 +139,18 @@ namespace ExtremePowers.API
 
                 Shared.MissionEvents.SetOwner("ExtremePowers_Serp");
                 mapUnloadSubscription = Shared.MissionEvents.Ended.Subscribe(OnUnloadMap);
+                // Mods loaded after us can overwrite a published entry; compare again at every mission and
+                // editor start. Rooted by the process-lived publisher.
+                foreignPatchRecheck = Shared.MissionEvents.Started.Subscribe(_ => RecheckForeignPatches());
             }
             catch
             {
                 extremeHudConstructorHook?.Undo(); extremeHudConstructorHook?.Dispose();
                 hoverHook?.Undo(); hoverHook?.Dispose();
                 hudHook?.Undo(); hudHook?.Dispose();
-                resourceUpdateDetour.Undo(); resourceUpdateDetour.Dispose();
-                selectionDetour.Undo(); selectionDetour.Dispose();
-                dispatcherDetour.Undo(); dispatcherDetour.Dispose();
-                throw;
+                throw; // The native detours stay published and inactive (Vanilla pass-through).
             }
+            nativeActive = true;
         }
 
         private void ConstructExtremeHud(HUD_ExtremePowers self)
@@ -178,6 +217,7 @@ namespace ExtremePowers.API
 
         private void Select(int powerId)
         {
+            if (!nativeActive) { originalSelection(powerId); return; }
             ExtremePowersReadiness readiness = owner.GetSessionReadiness();
             if (!readiness.Ready) { owner.LogState("selection-fallback-" + powerId, "Selection Vanilla fallback power=" + powerId + ": " + readiness.Reason); originalSelection(powerId); return; }
             if ((uint)powerId > 7) { originalSelection(powerId); return; }
@@ -211,6 +251,7 @@ namespace ExtremePowers.API
 
         private void Dispatch(IntPtr self, int playerId, int powerId, int targetTileId)
         {
+            if (!nativeActive) { originalDispatcher(self, playerId, powerId, targetTileId); return; }
             ExtremePowersReadiness readiness = owner.GetSessionReadiness();
             if (!readiness.Ready) { owner.LogState("dispatcher-fallback-" + playerId + "-" + powerId, "Dispatcher Vanilla fallback power=" + powerId + " player=" + playerId + ": " + readiness.Reason); originalDispatcher(self, playerId, powerId, targetTileId); return; }
             if ((uint)powerId > 7) { originalDispatcher(self, playerId, powerId, targetTileId); return; }
@@ -254,6 +295,7 @@ namespace ExtremePowers.API
 
         private void UpdateResources(IntPtr self)
         {
+            if (!nativeActive) { originalResourceUpdate(self); return; }
             for (int player = 1; player <= 8; player++) resourceManaBefore[player] = *PlayerMana(player);
             originalResourceUpdate(self);
             if (!owner.GetSessionReadiness().Ready) return;
@@ -272,6 +314,12 @@ namespace ExtremePowers.API
                 }
                 *mana = adjusted;
             }
+        }
+
+        private void RecheckForeignPatches()
+        {
+            try { Shared.NativePatchGuard.Recheck(); }
+            catch (Exception ex) { owner.Log("Foreign-patch recheck failed: " + ex.Message); }
         }
 
         private void OnUnloadMap(APIShared.MissionLifecycleNotification args)

@@ -1,0 +1,18 @@
+[Info   :   BepInEx] Loaded 1 patcher method from [WorkshopLoadProbe.Patcher 0.0.0.0]
+[Info   :WorkshopLoadProbe] 2026-11-18 14:05:29.412 WLP CONFIG install=True quitAfter=20
+[Info   :WorkshopLoadProbe] 2026-11-18 14:05:29.417 WLP PATCHER_IDENTITY mvid=a5478e1f-69e9-4229-82cc-a28c38264ab6 file=aac2b1af3abc9874 root=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\cache\WLPI
+[Info   :WorkshopLoadProbe] 2026-11-18 14:05:29.423 WLP INSTALL RECOVERED E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\WorkshopLoadProbePayload_Serp rolled-forward
+[Info   :WorkshopLoadProbe] 2026-11-18 14:05:29.423 WLP INSTALL_DONE ms=8
+[Info   :  SHCDE-SE] [T1-14:05:31.057] [GameAssetModManager] [RegisterAll] Loading Asset Mod: [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\WorkshopLoadProbePayload_Serp]
+[Info   :  SHCDE-SE] [T1-14:05:31.057] [GameAssetManagerAPI] [RegisterModProvider] Indexed 9 files for [WorkshopLoadProbePayload_Serp] in [Global] asset mode from [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\WorkshopLoadProbePayload_Serp] in 0 ms.
+[Warning:  SHCDE-SE] [T1-14:05:31.057] [GameAssetModManager] [RegisterAssetModCore] Mod has no sprite logo at [Override/Assets/GUI/Sprites/WorkshopLoadProbePayload_Serp.png] in [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\WorkshopLoadProbePayload_Serp] - This may be ignored.
+[Info   :  SHCDE-SE] [T1-14:05:31.057] [GameTranslateAPI] [LoadModLocalizations] Loaded 0 localization files from E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\WorkshopLoadProbePayload_Serp
+[Info   :  SHCDE-SE] [T1-14:05:31.057] [GameAssetModManager] [RegisterAll] Loading Asset Mod: [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\WorkshopLoadProbe_Serp]
+[Info   :  SHCDE-SE] [T1-14:05:31.057] [GameAssetManagerAPI] [RegisterModProvider] Indexed 2 files for [WorkshopLoadProbe_Serp] in [Global] asset mode from [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\WorkshopLoadProbe_Serp] in 0 ms.
+[Warning:  SHCDE-SE] [T1-14:05:31.057] [GameAssetModManager] [RegisterAssetModCore] Mod has no sprite logo at [Override/Assets/GUI/Sprites/WorkshopLoadProbe_Serp.png] in [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\WorkshopLoadProbe_Serp] - This may be ignored.
+[Info   :  SHCDE-SE] [T1-14:05:31.057] [GameTranslateAPI] [LoadModLocalizations] Loaded 0 localization files from E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\WorkshopLoadProbe_Serp
+[Info   : APIShared] [2026-11-18 14:05:37.748] Workshop step=local installation; item=3841874432; package=WorkshopLoadProbePayload_Serp; installed=none; available=0.1.3; steamSource=E:\ProgrammeE\Steam\steamapps\workshop\content\3024040\3841874432; receiptVersion=none; bootstrapReceiptVersion=not-declared; localState=Modified; startupOffers=True; installationRequested=False; local selection kept; choose installation in APIShared Mod Options
+[Info   :Workshop Load Probe] 2026-11-18 14:05:41.692 WLP QUIT_SCHEDULED after=20s
+[Info   :Workshop Load Probe Payload] 2026-11-18 14:05:41.696 WLP PAYLOAD_VARIANT 'variant=1' location=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\WorkshopLoadProbePayload_Serp userFile='player config' settings='player settings' junk=False
+[Message:   BepInEx] Chainloader startup complete
+[Info   :Workshop Load Probe] 2026-11-18 14:06:13.632 WLP QUIT flushing log

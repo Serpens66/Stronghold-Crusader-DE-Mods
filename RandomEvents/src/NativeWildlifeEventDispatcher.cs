@@ -1,5 +1,4 @@
 using BepInEx.Logging;
-using MonoMod.RuntimeDetour;
 using SHCDESE.GameGlobals;
 using Shared;
 using System;
@@ -20,6 +19,10 @@ namespace RandomEvents
         private const int LionActivationRva = 0x104C64;
         private const int LionActionPointWrapperRva = 0x104C46;
         private const int ActionPointHandlerRva = 0xF4D40;
+        private const string ActionPointFeature = "Random Events minimap action-point filter";
+        // Entry displaced by the RedBird Indirect detour (push rbx; sub rsp,20h; audited with RedBird 1.5:
+        // no direct branch into the span, no self-recursion). Part of ActionPointHandlerPattern.
+        private static readonly byte[] ActionPointDetourEntry = { 0x40, 0x53, 0x48, 0x83, 0xEC, 0x20 };
         private const int LionAction = 221;
         private const int RabbitAction = 222;
         private const int VanillaRabbitLimit = 160;
@@ -70,7 +73,7 @@ namespace RandomEvents
         private ActionPointHandlerDelegate actionPointHandler;
         private ActionPointHandlerDelegate actionPointOriginal;
         private ActionPointHandlerDelegate rootedActionPointDetour;
-        private NativeDetour actionPointDetour;
+        private RedBird.Backends.NativeX64.NativeDetour<ActionPointHandlerDelegate> actionPointDetour;
         private IntPtr actionPointHandlerAddress;
         private IntPtr actionPointManager;
         private string rabbitUnavailableReason = "native wildlife resolution has not run.";
@@ -428,20 +431,19 @@ namespace RandomEvents
                     throw new InvalidOperationException("lion wrapper does not call the validated action-point handler.");
                 actionPointManager = ResolveRipRelativeAddress(
                     libraryHandle, memory, wrapper.Rva + 8, 3, 7);
-                InstallActionPointFilter(AtRva(libraryHandle, handler.Rva));
+                InstallActionPointFilter(libraryHandle, memory, handler.Rva);
             }
             catch (Exception ex)
             {
                 actionPointHandler = null;
                 actionPointManager = IntPtr.Zero;
-                LogError(
-                    "Rabbit and lion minimap action points are disabled while wildlife spawning remains active: " +
-                    $"native compatibility validation failed: {ex.Message}");
+                Shared.DebugLogHelper.LogHookInstallFailure(log, "Rabbit and lion events", "minimap action-point filter", ex.Message);
             }
         }
 
-        private void InstallActionPointFilter(IntPtr resolvedHandlerAddress)
+        private void InstallActionPointFilter(IntPtr libraryHandle, ReadOnlySpan<byte> memory, int handlerRva)
         {
+            IntPtr resolvedHandlerAddress = AtRva(libraryHandle, handlerRva);
             if (actionPointDetour != null)
             {
                 if (resolvedHandlerAddress != actionPointHandlerAddress)
@@ -456,30 +458,41 @@ namespace RandomEvents
             }
 
             rootedActionPointDetour = FilterActionPoint;
-            IntPtr detourAddress = Marshal.GetFunctionPointerForDelegate(rootedActionPointDetour);
-            NativeDetour installedDetour = null;
+            // Nothing is written before the entry, the trampoline and the live span (foreign patches) are checked.
+            RedBird.Backends.NativeX64.NativeDetour<ActionPointHandlerDelegate> candidate;
             try
             {
-                var config = new NativeDetourConfig { ManualApply = true };
-                installedDetour = new NativeDetour(resolvedHandlerAddress, detourAddress, config);
-                ActionPointHandlerDelegate installedOriginal = installedDetour.GenerateTrampoline<ActionPointHandlerDelegate>();
-                actionPointHandlerAddress = resolvedHandlerAddress;
-                actionPointOriginal = installedOriginal;
-                actionPointHandler = FilterActionPoint;
-                installedDetour.Apply();
-                actionPointDetour = installedDetour;
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogDebug($"Native minimap action-point target filter installed: address=0x{resolvedHandlerAddress.ToInt64():X}.");
+                candidate = Shared.AuditedEntryDetour.Prepare(memory, unchecked((ulong)libraryHandle.ToInt64()),
+                    handlerRva, ActionPointDetourEntry, rootedActionPointDetour, ActionPointFeature);
             }
             catch
             {
-                installedDetour?.Dispose();
-                actionPointHandlerAddress = IntPtr.Zero;
-                actionPointOriginal = null;
-                actionPointHandler = null;
                 rootedActionPointDetour = null;
                 throw;
             }
+
+            // Rooted with its original before publication. A published detour is never rolled back; while
+            // actionPointHandler is unset its callback only passes through to Vanilla.
+            actionPointHandlerAddress = resolvedHandlerAddress;
+            actionPointOriginal = candidate.Original;
+            actionPointDetour = candidate;
+            try { Shared.AuditedEntryDetour.Publish(candidate, rootedActionPointDetour, ActionPointFeature); }
+            catch
+            {
+                if (!Shared.AuditedEntryDetour.WasPublished(candidate))
+                {
+                    // Never enabled, nothing written: release the candidate.
+                    candidate.Dispose();
+                    actionPointDetour = null;
+                    actionPointHandlerAddress = IntPtr.Zero;
+                    actionPointOriginal = null;
+                    rootedActionPointDetour = null;
+                }
+                throw;
+            }
+            actionPointHandler = FilterActionPoint;
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogDebug($"Native minimap action-point target filter installed: address=0x{resolvedHandlerAddress.ToInt64():X}.");
         }
 
         private void FilterActionPoint(IntPtr manager, int tileX, int tileY)

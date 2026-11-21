@@ -1,0 +1,11 @@
+{
+  "GUID": "WorkshopLoadProbe_Serp",
+  "Author": "Serpens66",
+  "Name": "Workshop Load Probe",
+  "Description": "Development-only test helper for the safe Workshop installation prototype (WorkshopLoad.md). Never part of a release.",
+  "Version": "0.2.0",
+  "MinimumScriptExtenderVersion": "2.14.0",
+  "Dependencies": [],
+  "Manifest": 1,
+  "NetworkMode": 0
+}

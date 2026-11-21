@@ -46,7 +46,9 @@ namespace ImprovedHunters
                     FailureMode = TransactionFailureMode.RollbackAndThrow,
                     // Committed hooks are process-lifetime objects. Dispose paths only
                     // deactivate logical feature state; this ownership is never released.
-                    OwnsHooks = true
+                    OwnsHooks = true,
+                    // Commit below lets Shared.NativePatchGuard check the spans for foreign patches, then enable.
+                    InstallOnCommit = false
                 });
 
         /// <summary>Records an inline hook of <paramref name="transaction"/> for registration at commit.</summary>
@@ -91,8 +93,9 @@ namespace ImprovedHunters
         }
 
         /// <summary>
-        /// Claims all tracked spans as one exclusive group, then commits. A refusal throws before any
-        /// byte is written, so the caller's feature stays Vanilla. A failed commit releases the claim;
+        /// Claims all tracked spans as one exclusive group, then commits through Shared.NativePatchGuard
+        /// (live spans checked against the load snapshot before Enable). A refusal or a foreign patch
+        /// throws before any byte is written, so the caller's feature stays Vanilla. A failed commit releases the claim;
         /// a published group stays registered, also when a later post-commit check disables the feature.
         /// </summary>
         public static CommitResult Commit(HookTransaction transaction, string groupName)
@@ -126,7 +129,7 @@ namespace ImprovedHunters
             CommitResult result;
             try
             {
-                result = transaction.Commit();
+                result = Shared.NativePatchGuard.Commit(transaction, groupName);
             }
             catch
             {

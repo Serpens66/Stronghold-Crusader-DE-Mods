@@ -3,14 +3,14 @@
   "Author": "Serpens66",
   "Name": "Pathfinding",
   "Description": "Faster and smarter unit movement: shared group routes, better commands, gate routing, Assassin climbing, formations, command queue and synchronized troop movement.",
-  "Version": "0.1.8",
+  "Version": "0.1.13",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.3",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.53.0"
+      "MinimumVersion": "0.60.0"
     }
   ],
   "Manifest": 1,
@@ -19,6 +19,41 @@
     "2.8.0.2"
   ],
   "SerpChangelog": [
+    {
+      "Version": "0.1.13",
+      "Changes": [
+        "Keep Shift orders synchronized in multiplayer. If a player cannot run the extended command queue, everyone uses the game's standard orders for that match. Requires APIShared 0.58.2."
+      ]
+    },
+    {
+      "Version": "0.1.12",
+      "Changes": [
+        "With fast group or individual routing enabled, newly calculated ground routes can take a closer line around obstacles instead of making wide, angular detours. This also applies to workers walking to their jobs. A route may use up to 5% more steps when that noticeably reduces the detour across the map.",
+        "The extra route check has a fixed work limit and keeps the previous valid route when no worthwhile improvement is found. Moat routes and routes with avoidance costs retain their existing behaviour. Updated setting tooltips explain the benefit and limits; enemy castles are not automatically avoided. Existing saved routes change only when a new route is calculated."
+      ]
+    },
+    {
+      "Version": "0.1.11",
+      "Changes": [
+        "With fast group or individual routing enabled, newly calculated routes keep their direction for longer instead of zigzagging on almost every tile. Exact diagonals remain straight, and repeated sidesteps around small obstacles are reduced. Existing routes, including routes loaded from a save, change only when a new route is calculated.",
+        "Route checks do less unnecessary work, especially for units restricted to ground routes. Updated setting tooltips explain the benefits of shared group routes and fast individual searches, along with their limits."
+      ]
+    },
+    {
+      "Version": "0.1.10",
+      "Changes": [
+        "Conflicts with other mods that change the same spot in the game's code are now detected: the affected feature stays off instead of overwriting the other mod's change, and the log names the conflict. Spots that a mod loaded later overwrites are reported in the log at each game start.",
+        "New option \"Keep enemies off lowered drawbridges at gatehouses\" (on by default): enemy soldiers and AI lords no longer plan routes onto a lowered drawbridge in front of your gatehouse or through it into your castle, even when another way into the castle exists. You, your allies and anyone who captured the gate keep using the bridge through the open gate. While the gate is closed but its bridge is still down, your own units cannot cross that bridge either if it is their only way."
+      ]
+    },
+    {
+      "Version": "0.1.9",
+      "Changes": [
+        "With fast group or individual routing enabled, troops now also walk straight lines around larger obstacles, walls and moats instead of angular L-shaped detours. A straightened route is never longer or slower than before, and some group routes become slightly shorter.",
+        "Updated the tooltips of the shared group routing and fast individual search options accordingly.",
+        "Building, besieging or destroying a gatehouse and raising siege ladders no longer slow the game down for several seconds when many units are on the map."
+      ]
+    },
     {
       "Version": "0.1.8",
       "Changes": [

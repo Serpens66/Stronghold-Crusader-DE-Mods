@@ -198,6 +198,7 @@ public static class SerpLocalization
     public const string SerpsModsGameModeNotice = "SerpsModsHost.GameModeNotice";
     public const string SerpsModsSummaryTitle = "SerpsModsHost.SummaryTitle";
     public const string SerpsModsErrorsTitle = "SerpsModsHost.ErrorsTitle";
+    public const string SerpsModsHookFailureNotice = "SerpsModsHost.HookFailureNotice";
     public const string SerpsModsRefresh = "SerpsModsHost.Refresh";
     public const string SerpsModsRefreshHelp = "SerpsModsHost.RefreshHelp";
     public const string SerpsModsClearErrors = "SerpsModsHost.ClearErrors";
@@ -321,6 +322,7 @@ public static class SerpLocalization
         { SerpsModsGameModeNotice, "Most mods are disabled in trails/sand of time/campaigns, use the 'customize' button to still use mods for most of them." },
         { SerpsModsSummaryTitle, "PACK STATUS" },
         { SerpsModsErrorsTitle, "ERRORS" },
+        { SerpsModsHookFailureNotice, "A mod hook failed on this PC. Do not start a match, or stop the current match. Report the error with this PC's BepInEx LogOutput.log." },
         { SerpsModsRefresh, "Refresh" },
         { SerpsModsRefreshHelp, "Checks whether all expected child plugins are loaded with the packaged versions." },
         { SerpsModsClearErrors, "Clear displayed errors" },
@@ -915,7 +917,9 @@ public static class SerpLocalization
         try
         {
             SHCDESE.BepInEx.Bootstrap.Plugin plugin = SHCDESE.BepInEx.Bootstrap.Plugin.Instance;
-            if (plugin != null && plugin.LanguageProvider != null)
+            // Startup destroys the Unity component, but its managed configuration remains
+            // process-rooted. Unity's overloaded null check would discard an explicit override.
+            if (!ReferenceEquals(plugin, null) && plugin.LanguageProvider != null)
                 return plugin.LanguageProvider.Value;
         }
         catch

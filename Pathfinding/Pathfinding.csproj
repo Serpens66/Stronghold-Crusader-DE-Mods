@@ -60,6 +60,8 @@
     <Compile Include="..\Shared\Runtime\Threading\UnityMainThreadDispatch.cs"><Link>Shared\UnityMainThreadDispatch.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Threading\DeferredSnapshotRefreshRequest.cs"><Link>Shared\DeferredSnapshotRefreshRequest.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\NativePatternResolver.cs"><Link>Shared\NativePatternResolver.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Native\NativePatchGuard.cs"><Link>Shared\NativePatchGuard.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Native\CommittedMemory.cs"><Link>Shared\CommittedMemory.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\NativeResolutionCache.cs"><Link>Shared\NativeResolutionCache.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\NativeInstructionOperands.cs"><Link>Shared\NativeInstructionOperands.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\GameBuildingFootprint.cs"><Link>Shared\GameBuildingFootprint.cs</Link></Compile>

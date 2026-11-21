@@ -103,3 +103,11 @@ RandomEvents bandits keep no group between spawn and activation: `ActivatePendin
 unit with a tribe or tribe leader before it creates their group and orders it. OutpostTest orders its
 own group right after adding freshly spawned units; the AI never orders a tribe it did not create
 (`FIRE_EFFECTS.md`). With mark 0 at spawn, neither path meets a stale mark; no clearing was added.
+
+## In-game check of `+0xAC` for API-admitted recruits [mod integration]
+
+`Testmods/AiGroupAdmissionTest` (2026-11-18, runs `.work/t/aigroups/001/ce61cbd887bc` and `a2d53f070c8f`):
+all 236 units spawned with `CreateUnitLocal` and admitted through APIShared into AI groups had `+0xAC == 0` at
+600 and 3000 ticks. The `+0x428` marks they carried were set after they had reached their post (proximity rule
+of `11DD10`), not before their first order. This confirms the spawn audit above for this path; barracks recruits
+were not sampled (peace time, two own AI units).

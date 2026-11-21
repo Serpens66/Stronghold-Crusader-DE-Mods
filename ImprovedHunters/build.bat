@@ -114,8 +114,16 @@ echo.
 
 pushd "%PROJECT_DIR%"
 echo [%date% %time%] Compile projects
-"%MSBUILD%" ImprovedHunters.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" %SHCDE_BRANCH_MSBUILD_API%
+"%MSBUILD%" ImprovedHunters.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" %SHCDE_BRANCH_MSBUILD_API%
 set "BUILD_EXIT_CODE=%ERRORLEVEL%"
+if "!BUILD_EXIT_CODE!"=="0" (
+  "%MSBUILD%" tests\AIHunters\ImprovedHunters.AIHunters.Tests.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" %SHCDE_BRANCH_MSBUILD_API%
+  set "BUILD_EXIT_CODE=!ERRORLEVEL!"
+)
+if "!BUILD_EXIT_CODE!"=="0" (
+  tests\AIHunters\bin\ImprovedHunters.AIHunters.Tests.exe
+  set "BUILD_EXIT_CODE=!ERRORLEVEL!"
+)
 popd
 
 echo.

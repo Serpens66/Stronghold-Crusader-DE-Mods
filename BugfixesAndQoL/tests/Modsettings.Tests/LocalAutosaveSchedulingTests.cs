@@ -3,6 +3,40 @@ using BugfixesAndQoL;
 
 internal static partial class Program
 {
+    private static void LocalAutosaveLobbyChoiceTests()
+    {
+        var options = mod.GetType("BugfixesAndQoL.SkirmishGameOptionsRuntime", true);
+        var canUse = options.GetMethod("CanUseLobbyAutosave", All);
+        var parameters = canUse.GetParameters();
+        bool CanUse(string kind, string variant, bool isSave = false, bool online = false) =>
+            (bool)canUse.Invoke(null, new[] {
+                Enum.Parse(parameters[0].ParameterType, kind),
+                Enum.Parse(parameters[1].ParameterType, variant), (object)isSave, online
+            });
+
+        foreach (string kind in new[] { "VanillaTrail", "SandsOfTime" })
+        {
+            Check(CanUse(kind, "Customized"), $"{kind} Customize accepts the lobby autosave choice");
+            Check(!CanUse(kind, "Standard"), $"{kind} direct launch ignores the lobby autosave choice");
+            Check(!CanUse(kind, "RestoredCustomizedSave", isSave: true), $"{kind} loaded save starts without a lobby choice");
+            Check(!CanUse(kind, "Customized", online: true), $"{kind} online has no local lobby autosave");
+        }
+
+        foreach (string kind in new[] { "CustomGame", "CustomTrail", "CoopTrail" })
+            Check(CanUse(kind, "Standard") && !CanUse(kind, "Standard", isSave: true) &&
+                !CanUse(kind, "Customized", online: true), $"{kind} preserves local lobby autosave rules");
+
+        var confirmed = options.GetMethod("GetConfirmedAutosave", All);
+        var setup = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(
+            confirmed.GetParameters()[0].ParameterType);
+        setup.GetType().GetField("autosave").SetValue(setup, 5);
+        Check((int)confirmed.Invoke(null, new[] { setup }) == 0, "a raw lobby interval starts off until confirmed");
+        options.GetMethod("ConfirmAutosave", All).Invoke(null, new[] { setup });
+        Check((int)confirmed.Invoke(null, new[] { setup }) == 5, "the confirmed five-minute interval is retained");
+        options.GetMethod("ResetAutosave", All).Invoke(null, new[] { setup });
+        Check((int)confirmed.Invoke(null, new[] { setup }) == 0, "a reset clears the confirmed lobby interval");
+    }
+
     // The production scheduler receives a deterministic monotonic clock. No sleeps,
     // simulated Unity components or duplicate scheduling implementation are needed.
     private static void LocalAutosaveSchedulingTests()

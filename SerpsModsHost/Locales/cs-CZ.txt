@@ -15,6 +15,7 @@ SerpsModsHost.SearchAllMods=All mods
 SerpsModsHost.SearchOpenResultHelp=Open this setting in its mod.
 SerpsModsHost.SummaryTitle=PACK STATUS
 SerpsModsHost.ErrorsTitle=ERRORS
+SerpsModsHost.HookFailureNotice=A mod hook failed on this PC. Do not start a match, or stop the current match. Report the error with this PC's BepInEx LogOutput.log.
 SerpsModsHost.Refresh=Refresh
 SerpsModsHost.RefreshHelp=Checks whether all expected child plugins are loaded with the packaged versions.
 SerpsModsHost.ClearErrors=Clear displayed errors

@@ -1,4 +1,5 @@
 using APIShared.GameModes;
+using APIShared.Multiplayer;
 using BepInEx.Logging;
 using Pathfinding.UnitCommands;
 using R3;
@@ -22,6 +23,11 @@ namespace Pathfinding
 {
     internal sealed unsafe class ExtendedShiftCommandQueueRuntime
     {
+        internal const string AdmissionId = "shift-command-queue";
+        private static volatile bool MultiplayerQueueAdmitted;
+        private static readonly object VetoedSynchronizedTarget = new object();
+        internal static void ApplyMultiplayerAdmission(bool admitted) => MultiplayerQueueAdmitted = admitted;
+
         private bool simulationTickRegistered;
         private bool commandBoundaryFailed;
         private ConditionalWeakTable<TribeIssueOrderWithTargetEventArgs, object> previouslyVetoedTargets =
@@ -115,9 +121,9 @@ namespace Pathfinding
         private IntPtr choreMoveTypePointer;
         private IntPtr chorePatrolModePointer;
         private bool installed;
-        private bool multiplayerSynchronizationReady;
+        private Func<bool> queueCommandHooksIntact;
+        private Func<bool> moveChoreHooksIntact;
         private bool multiplayerMarkerFailureLogged;
-        private bool? cachedRealMultiplayerMode;
         private bool? lastRealMultiplayerMode;
         private bool internalDispatch;
         private bool runtimeTickLogged;
@@ -140,6 +146,9 @@ namespace Pathfinding
         private bool FeatureEnabled =>
             settings.EnableMod && settings.EnableExtendedShiftCommandQueue && TribeCommandDispatchBoundary.IsAvailable;
 
+        internal bool IsMultiplayerReady => installed && TribeCommandDispatchBoundary.QueueHooksApplied &&
+            queueCommandHooksIntact?.Invoke() == true && moveChoreHooksIntact?.Invoke() == true;
+
         public void Install(
             CrusaderLibraryLoadContext context,
             bool referenceHashMatches)
@@ -147,7 +156,7 @@ namespace Pathfinding
             UnitCommandPathRuntime sharedCommands = UnitCommandPathAPI.Runtime;
             if (sharedCommands == null)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "Pathfinding/ExtendedShiftCommandQueueRuntime/Install.shift-queue-unavailable-shared", "SHIFT_QUEUE_UNAVAILABLE: shared command runtime is unavailable; Vanilla remains active.");
+                Shared.DebugLogHelper.LogHookInstallFailure(log, "Extended Shift command queue", "shared command runtime", "The shared command runtime is unavailable.");
                 return;
             }
 
@@ -267,13 +276,13 @@ namespace Pathfinding
                 CreateTransactionOptions());
             originalSharedAppend = sharedCommands.ContinueQueueAppend;
             originalSharedTarget = sharedCommands.ContinueQueueTarget;
-            sharedCommands.InstallQueueCommandHooks(memory, libraryBase,
+            queueCommandHooksIntact = sharedCommands.InstallQueueCommandHooks(memory, libraryBase,
                 AppendMovementWaypoint, HandleTargetOrderChore);
             nativeTransaction.AddDetour(
                 overlayRenderer.TribeOverlayRenderHook,
                 HookTarget.FromAddress(libraryBase + ReferenceTribeOverlayRenderRva),
                 RenderTribeOverlay);
-            CommitResult nativeCommitResult = nativeTransaction.Commit();
+            CommitResult nativeCommitResult = Shared.NativePatchGuard.Commit(nativeTransaction, "Command queue overlay");
             if (!nativeCommitResult.IsCompleteSuccess ||
                 !overlayRenderer.TribeOverlayRenderHook.Success)
                 throw new InvalidOperationException(
@@ -294,7 +303,7 @@ namespace Pathfinding
             subscriptions.Add(TribeR3EventHooks.OnTribeCreate.Observable
                 .Subscribe(OnTribeCreate));
             subscriptions.Add(Shared.MissionEvents.Started
-                .Subscribe(args => { if (args.Context.IsSave) RefreshMapContext(); else OnMapStart(); }));
+                .Subscribe(args => { if (!args.Context.IsSave) OnMapStart(); }));
             subscriptions.Add(Shared.MissionEvents.SaveLoading
                 .Where(args => args.IsBeforeInitialization)
                 .Subscribe(args => ResetMapState()));
@@ -319,7 +328,7 @@ namespace Pathfinding
                     $"drawFilterInstalled={overlayRenderer.DrawFilterInstalled}, " +
                     $"targetMarkerProjectionAvailable={overlayRenderer.TargetMarkerProjectionAvailable}, " +
                     $"largeMoveMarkerOverflowAvailable={largeMoveTargets.MarkerReplacementAvailable}, " +
-                    $"multiplayerSynchronizationReady={multiplayerSynchronizationReady}, " +
+                    $"multiplayerHooksReady={IsMultiplayerReady}, " +
                     $"GameTribeSize=0x{actualTribeSize:X}, " +
                     $"queueLimit={MaximumPendingCommands}, " +
                     $"featureEnabled={FeatureEnabled}. Command capture no longer depends on an OnStartMap event.");
@@ -333,7 +342,7 @@ namespace Pathfinding
                 return;
 
             lastFeatureEnabled = enabled;
-            if (!enabled)
+            if (!enabled && !MultiplayerQueueAdmitted)
                 ResetMapState();
 
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
@@ -388,18 +397,22 @@ namespace Pathfinding
                     HookTarget.FromAddress(libraryBase + QueueNativeContract.MoveChoreHandlerRva),
                     HandleMoveChore);
 
-                CommitResult multiplayerCommitResult = multiplayerTransaction.Commit();
-                multiplayerSynchronizationReady =
-                    multiplayerCommitResult.IsCompleteSuccess &&
-                    moveChoreHandlerHook.Success;
-                if (!multiplayerSynchronizationReady)
+                CommitResult multiplayerCommitResult = Shared.NativePatchGuard.Commit(multiplayerTransaction, "Command queue multiplayer sync");
+                if (!multiplayerCommitResult.IsCompleteSuccess || !moveChoreHandlerHook.Success)
                     throw new InvalidOperationException("A multiplayer Chore marker hook reported no success.");
+
+                Func<bool> moveSpanIntact = Shared.NativePatchGuard.CaptureIntegrity(
+                    multiplayerCommitResult.Installed, "Command queue multiplayer sync");
+                moveChoreHooksIntact = () => moveSpanIntact() &&
+                    ChoreHandlerTableEntryMatches(libraryHandle, QueueNativeContract.MoveChoreOpcode, QueueNativeContract.MoveChoreHandlerRva) &&
+                    ChoreHandlerTableEntryMatches(libraryHandle, QueueNativeContract.TargetOrderChoreOpcode, QueueNativeContract.TargetOrderChoreHandlerRva) &&
+                    ChoreHandlerTableEntryMatches(libraryHandle, QueueNativeContract.WaypointAppendChoreOpcode, QueueNativeContract.WaypointAppendChoreHandlerRva);
             }
             catch (Exception exception)
             {
-                multiplayerSynchronizationReady = false;
+                moveChoreHooksIntact = null;
 
-                Shared.DebugLogHelper.LogWarningLimited(log, "Pathfinding/ExtendedShiftCommandQueueRuntime/InstallMultiplayerSynchronization", $"MULTIPLAYER_QUEUE_DISABLED: Vanilla multiplayer orders remain unchanged; {exception.Message}");
+                Shared.DebugLogHelper.LogHookInstallFailure(log, "Extended Shift command queue", "multiplayer Chore marker", exception.ToString());
             }
         }
 
@@ -418,6 +431,10 @@ namespace Pathfinding
                     $"expected=0x{expected:X}, actual=0x{actual:X}.");
             }
         }
+
+        private static bool ChoreHandlerTableEntryMatches(IntPtr libraryHandle, int opcode, int expectedHandlerRva) =>
+            Marshal.ReadInt64(libraryHandle + QueueNativeContract.ChoreHandlerTableRva + opcode * sizeof(long)) ==
+                (libraryHandle + expectedHandlerRva).ToInt64();
 
         private void HandleMoveChore()
         {
@@ -553,8 +570,8 @@ namespace Pathfinding
 
         private bool ShouldMarkOutgoingMultiplayerOrder() =>
             installed &&
+            MultiplayerQueueAdmitted &&
             FeatureEnabled &&
-            multiplayerSynchronizationReady &&
             !internalDispatch &&
             Marshal.ReadInt32(choreModePointer) == QueueNativeContract.ChorePackMode &&
             IsRealMultiplayer() &&
@@ -596,7 +613,7 @@ namespace Pathfinding
                     overlayRenderer.DrawSubmissionHook,
                     HookTarget.FromAddress(libraryBase + ReferenceDrawSubmissionRva),
                     overlayRenderer.SubmitOverlayMarker);
-                CommitResult drawCommitResult = drawFilterTransaction.Commit();
+                CommitResult drawCommitResult = Shared.NativePatchGuard.Commit(drawFilterTransaction, "Command queue draw filter");
                 overlayRenderer.DrawFilterInstalled = drawCommitResult.IsCompleteSuccess && overlayRenderer.DrawSubmissionHook.Success;
                 if (!overlayRenderer.DrawFilterInstalled)
                     throw new InvalidOperationException("Draw-submission hook reported no success.");
@@ -604,8 +621,7 @@ namespace Pathfinding
             catch (Exception exception)
             {
                 overlayRenderer.DrawFilterInstalled = false;
-                Shared.DebugLogHelper.LogWarningLimited(log, "Pathfinding/ExtendedShiftCommandQueueRuntime/InstallOptionalDrawFilter", $"VISUAL_FLAG_FILTER_FALLBACK: command queues and all destination flags remain enabled, " +
-                    $"but hidden markers and future-page numbers may remain visible; {exception.Message}");
+                Shared.DebugLogHelper.LogHookInstallFailure(log, "Extended Shift command queue", "overlay draw-submission filter", exception.ToString());
             }
         }
 
@@ -622,13 +638,6 @@ namespace Pathfinding
             pendingTribeSourcesByTargetId.Clear();
             loggedPredecessorRedispatchFailures.Clear();
             loggedIsolationFailures.Clear();
-            RefreshMapContext();
-        }
-
-        private void RefreshMapContext()
-        {
-            cachedRealMultiplayerMode = null;
-            _ = IsRealMultiplayer();
         }
 
         private void ResetMapState()
@@ -644,7 +653,6 @@ namespace Pathfinding
             pendingTribeSourcesByTargetId.Clear();
             loggedPredecessorRedispatchFailures.Clear();
             loggedIsolationFailures.Clear();
-            cachedRealMultiplayerMode = null;
         }
 
         private void OnTargetOrder(TribeIssueOrderWithTargetEventArgs args)
@@ -658,49 +666,36 @@ namespace Pathfinding
         {
             if (!installed || internalDispatch)
                 return;
-            if (args.SkipOriginalFunction)
-            {
-                previouslyVetoedTargets.Remove(args);
-                previouslyVetoedTargets.Add(args, new object());
-                // Protocol normalization is independent of queue admission. A later
-                // subscriber may restore execution; never expose our private MP bit.
-                if (IsRealMultiplayer() && QueueNativeContract.TryDecodeQueuedTargetCommand(
-                        (int)args.AICommand, out int decoded))
-                    args.AICommand = (TribeAICommand)decoded;
-                return;
-            }
 
             int commandValue = (int)args.AICommand;
             bool realMultiplayer = IsRealMultiplayer();
-            // AI orders can never originate from Shift input and must not touch queue state.
-            bool aiOwned = IsAiOwnedAliveTribe(args.TribeId);
-            // A peer that cannot queue this order (tribe AI-owned here, or the local Chore
-            // hook unavailable) still strips another peer's private marker, so Vanilla
-            // never executes a target command carrying the queue bit.
-            if (realMultiplayer && (aiOwned || !multiplayerSynchronizationReady))
+            if (args.SkipOriginalFunction)
             {
-                if (QueueNativeContract.TryDecodeQueuedTargetCommand(commandValue, out int strippedCommand))
-                    args.AICommand = (TribeAICommand)strippedCommand;
+                previouslyVetoedTargets.Remove(args);
+                // Protocol normalization is independent of queue admission. A later
+                // subscriber may restore execution; never expose our private MP bit.
+                if (realMultiplayer && QueueNativeContract.TryDecodeQueuedTargetCommand(commandValue, out int decoded))
+                {
+                    args.AICommand = (TribeAICommand)decoded;
+                    previouslyVetoedTargets.Add(args, VetoedSynchronizedTarget);
+                }
+                else previouslyVetoedTargets.Add(args, new object());
                 return;
             }
-            if (aiOwned)
-                return;
 
+            // AI orders can never originate from Shift input and must not touch queue state.
+            bool aiOwned = IsAiOwnedAliveTribe(args.TribeId);
             if (realMultiplayer)
             {
-
                 if (QueueNativeContract.TryDecodeQueuedTargetCommand(
                         commandValue,
                         out int decodedCommand))
                 {
                     args.AICommand = (TribeAICommand)decodedCommand;
-                    if (!FeatureEnabled)
-                    {
-                        // A synchronized setting change can cross an already serialized Chore.
-                        // Remove the private marker but let Vanilla execute the decoded command.
-                        CancelQueuesForTribeUnits(args.TribeId);
-                        return;
-                    }
+                    // A late hook failure must never turn a marked Chore into an immediate order.
+                    args.SkipOriginalFunction = true;
+                    args.ReturnValue = 1;
+                    if (!MaintainMultiplayerQueue() || aiOwned) return;
 
                     if (TryGetAliveTribe(args.TribeId, out GameTribe* synchronizedTribe) &&
                         QueueCommandClassifier.TryClassifyTarget(
@@ -715,12 +710,10 @@ namespace Pathfinding
                         TryEnqueueSynchronizedCommand(args.TribeId, synchronizedTribe, synchronizedCommand);
                     }
 
-                    // A queued Chore is consumed even if its tribe disappeared before this tick.
-                    // Letting the marked command reach Vanilla would turn bit 0x80 into an invalid AI command.
-                    args.SkipOriginalFunction = true;
-                    args.ReturnValue = 1;
                     return;
                 }
+
+                if (!MultiplayerQueueAdmitted || aiOwned) return;
 
                 // Every unmarked synchronized target order retains Vanilla behavior and
                 // deterministically replaces any managed queue work on all peers.
@@ -739,7 +732,7 @@ namespace Pathfinding
                 return;
             }
 
-            if (!FeatureEnabled)
+            if (!FeatureEnabled || aiOwned)
                 return;
 
             if (!IsLocalSelectedTribe(args.TribeId, out GameTribe* tribe))
@@ -791,13 +784,21 @@ namespace Pathfinding
 
         private void OnFinalAcceptedTarget(TribeIssueOrderWithTargetEventArgs args)
         {
-            if (!previouslyVetoedTargets.Remove(args) || !installed || internalDispatch ||
+            if (!previouslyVetoedTargets.TryGetValue(args, out object veto)) return;
+            previouslyVetoedTargets.Remove(args);
+            if (!installed || internalDispatch ||
                 args.SkipOriginalFunction || args.Phase != EventHookPhase.Pre) return;
             // The queue subscriber saw a veto, but a later subscriber restored native
             // execution. This is now an immediate order: retire preceding queue work,
             // without sampling Shift again or turning this dispatch into an enqueue.
             bool multiplayer = IsRealMultiplayer();
-            if (IsAiOwnedAliveTribe(args.TribeId) || (multiplayer && !multiplayerSynchronizationReady)) return;
+            if (multiplayer && ReferenceEquals(veto, VetoedSynchronizedTarget) && !MaintainMultiplayerQueue())
+            {
+                args.SkipOriginalFunction = true;
+                args.ReturnValue = 1;
+                return;
+            }
+            if (IsAiOwnedAliveTribe(args.TribeId) || (multiplayer && !MultiplayerQueueAdmitted)) return;
             GameTribe* tribe;
             if (!multiplayer && (!FeatureEnabled || !IsLocalSelectedTribe(args.TribeId, out tribe))) return;
             CancelQueuesForTribeUnits(args.TribeId);
@@ -819,12 +820,11 @@ namespace Pathfinding
         // waypoint is checked when executed, not against its insertion-time start.
         private bool DefersMoveOrder(TribeIssueOrderMoveHereEventArgs args)
         {
-            if (!installed || !FeatureEnabled || internalDispatch || args.IsPatrolPath != 0 ||
+            if (!installed || internalDispatch || args.IsPatrolPath != 0 ||
                 IsAiOwnedAliveTribe(args.TribeId)) return false;
             if (IsRealMultiplayer())
-                return multiplayerSynchronizationReady &&
-                    QueueNativeContract.TryDecodeQueuedMoveType((int)args.MoveType, out _);
-            return IsShiftPressed() && !UnitCommandPathAPI.FormationDispatchActive &&
+                return QueueNativeContract.TryDecodeQueuedMoveType((int)args.MoveType, out _);
+            return FeatureEnabled && IsShiftPressed() && !UnitCommandPathAPI.FormationDispatchActive &&
                 IsLocalSelectedTribe(args.TribeId, out _);
         }
 
@@ -1006,56 +1006,38 @@ namespace Pathfinding
             if (args.Phase != EventHookPhase.Pre)
                 return;
 
-            // A local click is not reliably nested inside Chore 17 (notably in the editor).
-            // Identify it from the MoveHere contract and current local selection instead.
-            bool aiOwned = !internalDispatch && IsAiOwnedAliveTribe(args.TribeId);
-            bool directPlayerMove = !internalDispatch && !aiOwned &&
-                args.IsPatrolPath == 0 &&
-                args.IsNewOrder &&
-                IsLocalSelectedTribe(args.TribeId, out _);
             if (internalDispatch)
                 return;
 
             bool realMultiplayer = IsRealMultiplayer();
-            // A peer that cannot queue this order (tribe AI-owned here, or the local Chore
-            // hook unavailable) still strips another peer's private marker, so Vanilla
-            // never executes a move type carrying the queue bit.
-            if (realMultiplayer && (aiOwned || !multiplayerSynchronizationReady))
+            int decodedMoveType = 0;
+            bool marked = realMultiplayer && QueueNativeContract.TryDecodeQueuedMoveType(
+                (int)args.MoveType, out decodedMoveType);
+            if (marked) args.MoveType = (TribeMoveType)decodedMoveType;
+            if (marked && !MaintainMultiplayerQueue())
             {
-                if (QueueNativeContract.TryDecodeQueuedMoveType((int)args.MoveType, out int strippedMoveType))
-                    args.MoveType = (TribeMoveType)strippedMoveType;
+                args.SkipOriginalFunction = true;
+                args.ReturnValue = 1;
                 return;
             }
-            if (aiOwned)
+            if (realMultiplayer && !MultiplayerQueueAdmitted) return;
+            if (IsAiOwnedAliveTribe(args.TribeId))
                 return;
 
             // The queue cannot represent an infinite patrol. Keep its native mode and points,
             // and retire old queue work before it can redispatch over the new patrol.
             if (args.IsPatrolPath == (short)TribePatrolMode.PatrolInfinite)
             {
-                if (realMultiplayer && QueueNativeContract.TryDecodeQueuedMoveType(
-                        (int)args.MoveType, out int patrolMoveType))
-                    args.MoveType = (TribeMoveType)patrolMoveType;
-                if (FeatureEnabled) CancelQueueForPatrol(args.TribeId);
+                if (realMultiplayer || FeatureEnabled) CancelQueueForPatrol(args.TribeId);
                 return;
             }
 
             if (realMultiplayer)
             {
-
-                int serializedMoveType = (int)args.MoveType;
-                if (QueueNativeContract.TryDecodeQueuedMoveType(
-                        serializedMoveType,
-                        out int decodedMoveType))
+                if (marked)
                 {
-                    args.MoveType = (TribeMoveType)decodedMoveType;
-                    if (!FeatureEnabled)
-                    {
-                        // Never expose the private marker to Vanilla after a setting transition.
-                        observedAttacks.Remove(args.TribeId);
-                        CancelQueuesForTribeUnits(args.TribeId);
-                        return;
-                    }
+                    args.SkipOriginalFunction = true;
+                    args.ReturnValue = 1;
 
                     if (TryGetAliveTribe(args.TribeId, out GameTribe* synchronizedTribe))
                     {
@@ -1063,13 +1045,10 @@ namespace Pathfinding
                             QueueCommandKind.Move,
                             args.TileX,
                             args.TileY,
-                            decodedMoveType);
+                            (int)args.MoveType);
                         TryEnqueueSynchronizedCommand(args.TribeId, synchronizedTribe, synchronizedCommand);
                     }
 
-                    // Always consume the queue marker while enabled; 0x40/0x41 are not Vanilla move types.
-                    args.SkipOriginalFunction = true;
-                    args.ReturnValue = 1;
                     return;
                 }
 
@@ -1159,15 +1138,20 @@ namespace Pathfinding
             int waypointIndex,
             short moveMode)
         {
+            bool multiplayer = installed && !internalDispatch && IsRealMultiplayer();
             try
             {
                 int tribeId = QueueNativeContract.WaypointChoreValueToTribeId(serializedTribeId);
                 // Chore 71 serializes the same one-based game ID used by the manager APIs.
                 // Treating it as a span index misses the real queue and lets Vanilla append
                 // the Move a second time, which breaks mixed-command ordering.
+                if (multiplayer)
+                {
+                    if (!MultiplayerQueueAdmitted) goto Vanilla;
+                    if (!MaintainMultiplayerQueue()) return;
+                }
                 if (installed && FeatureEnabled && !internalDispatch)
                 {
-                    if (!Shared.MissionEvents.TryGetCurrentMapTick(out currentTick)) goto Vanilla;
                     // Chore 71 is also emitted for AI movement. It has no Shift semantics.
                     if (IsAiOwnedAliveTribe(tribeId))
                         goto Vanilla;
@@ -1178,10 +1162,16 @@ namespace Pathfinding
                         goto Vanilla;
                     }
 
-                    if (IsRealMultiplayer())
+                    if (!Shared.MissionEvents.TryGetCurrentMapTick(out currentTick))
                     {
-                        if (multiplayerSynchronizationReady &&
-                            TryGetAliveTribe(tribeId, out GameTribe* synchronizedTribe))
+                        if (!multiplayer) goto Vanilla;
+                        SimulationAgreement.ReportFault("Pathfinding Shift queue could not read the simulation tick for an admitted waypoint.");
+                        return;
+                    }
+
+                    if (multiplayer)
+                    {
+                        if (TryGetAliveTribe(tribeId, out GameTribe* synchronizedTribe))
                         {
                             TryEnqueueSynchronizedCommand(
                                 tribeId,
@@ -1190,8 +1180,6 @@ namespace Pathfinding
                             return;
                         }
 
-                        // Without the complete marker-hook set, every multiplayer command
-                        // remains on its untouched Vanilla path.
                         goto Vanilla;
                     }
 
@@ -1220,6 +1208,11 @@ namespace Pathfinding
             }
             catch (Exception exception)
             {
+                if (multiplayer && MultiplayerQueueAdmitted)
+                {
+                    SimulationAgreement.ReportFault("Pathfinding Shift queue waypoint failed: " + exception.Message);
+                    return;
+                }
                 Shared.CrashBreadcrumbDiagnostics.Record("ShiftQueueWaypointFailure", outcome: -1);
                 if (ShouldLogUnexpectedOnce(
                     "ShiftQueueWaypoint:" + exception.GetType().FullName))
@@ -1326,6 +1319,8 @@ namespace Pathfinding
             try { OnTickCore(tick); }
             catch (Exception exception)
             {
+                if (MultiplayerQueueAdmitted && IsRealMultiplayer())
+                    SimulationAgreement.ReportFault("Pathfinding Shift queue simulation tick failed: " + exception.Message);
                 try { Shared.DebugLogHelper.LogErrorLimited(log, "Pathfinding/ExtendedShiftCommandQueueRuntime/OnTick", $"Extended Shift command queue tick failed: tick={tick}, error={exception}"); }
                 catch { }
             }
@@ -1333,8 +1328,18 @@ namespace Pathfinding
 
         private bool MaintainCommandBoundary()
         {
+            if (MultiplayerQueueAdmitted && IsRealMultiplayer()) return MaintainMultiplayerQueue();
             if (TribeCommandDispatchBoundary.IsAvailable) return true;
             if (!commandBoundaryFailed) { commandBoundaryFailed = true; ResetMapState(); }
+            return false;
+        }
+
+        private bool MaintainMultiplayerQueue()
+        {
+            if (MultiplayerQueueAdmitted && IsMultiplayerReady) return true;
+            SimulationAgreement.ReportFault(MultiplayerQueueAdmitted
+                ? "Pathfinding Shift queue lost a required command hook during the multiplayer session."
+                : "Pathfinding received a marked Shift order without a multiplayer agreement.");
             return false;
         }
 
@@ -1344,8 +1349,10 @@ namespace Pathfinding
                 return;
 
             currentTick = tick;
+            bool multiplayer = IsRealMultiplayer();
+            if (multiplayer && !MultiplayerQueueAdmitted) return;
             if (!MaintainCommandBoundary()) return;
-            if (!FeatureEnabled)
+            if (!multiplayer && !FeatureEnabled)
                 return;
             if (!runtimeTickLogged)
             {
@@ -2274,7 +2281,9 @@ namespace Pathfinding
                 Backend = HookInstallPhase.Backend(),
                 FailureMode = TransactionFailureMode.RollbackAndThrow,
                 // This runtime is process-rooted; startup never tears these hooks down.
-                OwnsHooks = false
+                OwnsHooks = false,
+                // Published through Shared.NativePatchGuard.Commit after the span check.
+                InstallOnCommit = false
             };
 
         private static bool TryGetAliveTribe(int tribeId, out GameTribe* tribe)
@@ -2347,10 +2356,7 @@ namespace Pathfinding
 
         private bool IsRealMultiplayer()
         {
-            if (!cachedRealMultiplayerMode.HasValue)
-                cachedRealMultiplayerMode = APIShared.GameModes.GameModeHelper.Capture().IsRealMultiplayer;
-
-            bool realMultiplayer = cachedRealMultiplayerMode.Value;
+            bool realMultiplayer = GameModeHelper.Capture().IsRealMultiplayer;
             if (lastRealMultiplayerMode != realMultiplayer)
             {
                 lastRealMultiplayerMode = realMultiplayer;
@@ -2359,7 +2365,7 @@ namespace Pathfinding
                     // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
                     var diagnosticRealMultiplayer = @realMultiplayer;
                     Shared.DebugLogHelper.LogDebugLimited(log, "Pathfinding/ExtendedShiftCommandQueueRuntime/IsRealMultiplayer", () => $"Extended Shift queue mode: realMultiplayer={diagnosticRealMultiplayer}, " +
-                            $"synchronizedQueueing={(diagnosticRealMultiplayer && multiplayerSynchronizationReady)}.");
+                            $"synchronizedQueueing={(diagnosticRealMultiplayer && MultiplayerQueueAdmitted)}.");
                 }
             }
             return realMultiplayer;

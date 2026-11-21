@@ -1,3 +1,4 @@
+using APIShared.Input;
 using APIShared.GameModes;
 // Feature: Pressing the market key again returns an open tradepost to its main panel.
 using BepInEx.Logging;
@@ -46,8 +47,7 @@ namespace BugfixesAndQoL
                     args.Phase != EventHookPhase.Post)
                     return;
 
-                KeyManager keyManager = KeyManager.instance;
-                if (keyManager == null || !keyManager.IsActionPressed(Enums.KeyFunctions.Market))
+                if (!InputState.IsGameActionPressed(Enums.KeyFunctions.Market))
                     return;
 
                 if (GameData.Instance?.lastGameState == null || GameData.Instance.app_mode != BuildingAppMode)

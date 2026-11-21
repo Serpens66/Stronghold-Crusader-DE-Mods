@@ -36,6 +36,12 @@ namespace BugfixesAndQoL
 
         private static int Main(string[] args)
         {
+            if (args.Length == 1 && args[0] == "--keep-flag")
+            {
+                TestKeepFlagRotationIntegration();
+                KeepFlagRotationTests.Run(Check);
+                return failures == 0 ? 0 : 1;
+            }
             if (args.Length == 1 && args[0] == "--single-building-pause")
             {
                 TestSingleBuildingPausePolicy();
@@ -88,6 +94,7 @@ namespace BugfixesAndQoL
                 TestPlacementCancelMoveSuppressionIntegration();
                 TestNotificationSkipIntegration();
                 TestResolutionAwareZoomIntegration();
+                TestTroopPanelPageCountFixIntegration();
                 TestMultiplayerSafetyPolicy();
                 TestBriefingNoStartingGoldFix();
                 TestLobbyYellowContrast();
@@ -145,6 +152,7 @@ namespace BugfixesAndQoL
             TestStartupUiReadinessGuard();
             TestResolutionAwareZoomPolicy();
             TestResolutionAwareZoomIntegration();
+            TestTroopPanelPageCountFixIntegration();
             TestNotificationSkipPolicy();
             TestNotificationManagedContracts();
             TestNotificationQueueNearCallResolver();
@@ -509,8 +517,8 @@ namespace BugfixesAndQoL
                     "        public bool EnableKeepFlagRotationFix") &&
                   viewModel.Contains("EnableKeepFlagRotationFix = true;"),
                 "keep-flag rotation option is host-synchronized and enabled by default/reset");
-            Check(runtime.Contains(
-                    "private bool Enabled => newMapActive && settings.EnableMod && settings.EnableKeepFlagRotationFix;") &&
+            Check(runtime.Contains("private bool Enabled => !multiplayerSession && !multiplayerNative.IsActive &&") &&
+                  runtime.Contains("newMapActive && settings.EnableMod && settings.EnableKeepFlagRotationFix;") &&
                   runtime.Contains("NewMapScanDelayTicks = 3") &&
                   runtime.Contains("for (int spanIndex = 1; spanIndex < projectiles.Length; spanIndex++)"),
                 "keep-flag runtime obeys both settings, delays scanning, and uses bounded direct projectile IDs");
@@ -523,7 +531,17 @@ namespace BugfixesAndQoL
                   runtime.Contains("Shared.MissionEvents.Ended") &&
                   !runtime.Contains("MapLoaderR3EventHooks.OnStartMap") &&
                   !runtime.Contains("MapLoaderR3EventHooks.OnUnloadMap"),
-                "keep-flag runtime uses the shared lifecycle and excludes saves, editors, and replayed sessions");
+                "single-player keep-flag runtime uses the shared lifecycle and excludes saves, editors, and replayed sessions");
+            string multiplayerVerification = runtime.Substring(
+                runtime.IndexOf("private void VerifyMultiplayerFlags()", StringComparison.Ordinal),
+                runtime.IndexOf("private void ScanAndCorrectStartedFlags", StringComparison.Ordinal) -
+                runtime.IndexOf("private void VerifyMultiplayerFlags()", StringComparison.Ordinal));
+            Check(runtime.Contains("if (multiplayerNative.IsActive)" + Environment.NewLine +
+                       "                    VerifyMultiplayerFlags();" + Environment.NewLine +
+                       "                else if (Enabled)") &&
+                  multiplayerVerification.Contains("ref readonly GameProjectile") &&
+                  multiplayerVerification.Contains("flag.r_CurrentTileId == tileId"),
+                "MP main flags are only verified after spawn, including their native tile linkage");
             Check(orchestrator.Contains("private static KeepFlagRotationRuntime processKeepFlagRotationRuntime;") &&
                   orchestrator.Contains("candidate.Install();" + Environment.NewLine +
                     "            processKeepFlagRotationRuntime = candidate;"),
@@ -2094,6 +2112,29 @@ namespace BugfixesAndQoL
                   typeof(FatControler).GetField("radarClickDelayTime", members)?.FieldType == typeof(DateTime) &&
                   typeof(FatControler).GetField("radarScrollTrigged", members)?.FieldType == typeof(bool),
                 "installed Vanilla minimap delay and drag fields retain their managed contracts");
+        }
+
+        private static void TestTroopPanelPageCountFixIntegration()
+        {
+            string fix = File.ReadAllText(Path.Combine("src", "Hud", "TroopPanelPageCountFix.cs"));
+            string plugin = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLPlugin.cs"));
+            Check(plugin.Contains("TroopPanelPageCountFix.Install(Logger, Settings);"),
+                "troop panel page count fix is installed with the library runtime");
+            Check(fix.Contains("nameof(BeforeSetupSelectedTroops)") &&
+                    fix.Contains("nameof(TranspilePageMarkers)") &&
+                    fix.Contains("pagesField(__instance) = 1;") &&
+                    fix.Contains("settings.EnableTroopPanelPageCountFix") &&
+                    fix.Contains("settings.EnableClientFeatures") &&
+                    fix.Contains("if (Volatile.Read(ref enabled) == 0) return;"),
+                "troop panel page count prefix only resets the count while the setting is active");
+            // Startup member guard only; TroopPanelPaging.Tests executes the production transpiler
+            // against the real method IL and checks enable/disable and foreign-patch rebuilds.
+            const BindingFlags members = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+            FieldInfo pages = typeof(HUD_Troops).GetField("pages", members);
+            MethodInfo setup = typeof(HUD_Troops).GetMethod("SetupSelectedTroops", members, null, Type.EmptyTypes, null);
+            Check(pages != null && !pages.IsStatic && pages.FieldType == typeof(int) &&
+                    setup != null && !setup.IsStatic && setup.ReturnType == typeof(void),
+                "installed HUD_Troops page count field and setup method retain the audited contract");
         }
 
         private static void TestResolutionAwareZoomIntegration()
@@ -4719,7 +4760,7 @@ namespace BugfixesAndQoL
                     !singlePause.Contains("addChimpActionsHook.Undo()") &&
                     singlePause.Contains("!localHooksInstalled || !IsFeatureActive()"),
                 "single-building pause keeps its published UI hook permanent and logically gated");
-            int nativeCommit = runtime.IndexOf("CommitResult commitResult = transaction.Commit()", StringComparison.Ordinal);
+            int nativeCommit = runtime.IndexOf("CommitResult commitResult = Shared.NativePatchGuard.Commit(transaction,", StringComparison.Ordinal);
             int initialLogicalDisable = runtime.IndexOf(
                 "singleBuildingOverrideInterceptionEnabled = false", nativeCommit, StringComparison.Ordinal);
             int activationBeforeStore = singlePause.IndexOf(

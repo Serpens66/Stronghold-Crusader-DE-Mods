@@ -273,7 +273,7 @@ namespace ExtraFeatures
                     HookTarget.FromAddress(libraryBase + unchecked((ulong)placement.Rva)),
                     ObservePlacement);
                 ExtraFeaturesHookInfrastructure.RootBeforeCommit(this, transaction);
-                CommitResult commitResult = transaction.Commit();
+                CommitResult commitResult = Shared.NativePatchGuard.Commit(transaction, "AI defense rebuild timing");
                 if (!commitResult.IsCompleteSuccess || !placementHook.Success)
                     throw new InvalidOperationException("The AI defense placement hook was not installed.");
             }

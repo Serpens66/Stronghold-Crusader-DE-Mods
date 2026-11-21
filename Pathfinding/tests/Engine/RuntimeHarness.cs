@@ -42,7 +42,7 @@ namespace EngineHarness
     internal struct SelectedUnitInfo { public int UnitId, UnitType; }
     internal enum AttackPipelineStage { Mode, Builder }
     // Pathfinding RouteTilePolicySnapshot.cs contract (not compiled into this harness).
-    internal static class GatePolicyNeutrality { internal static System.Func<int, bool> Current; }
+    internal static class GatePolicyNeutrality { internal static System.Func<int, bool> Current; internal static System.Func<byte[][]> CurrentMasks; }
     [StructLayout(LayoutKind.Sequential, Size = 0x490)]
     internal unsafe struct GameUnit
     {
@@ -1240,7 +1240,7 @@ namespace EngineHarness
 
 public static class EngineInterface { private static int[] selectedChimps = Array.Empty<int>(); public static int[] Selection { get=>selectedChimps; set=>selectedChimps=value; } }
 namespace EngineHarness {
-    internal struct GameBuilding { public uint r_GlobalId; public AliveState r_AliveState; public int r_PlayerIdOwner, r_BuildingType; public uint r_OccupyTileGridSize, r_OccupiedTileIdsArrayBegin; }
+    internal struct GameBuilding { public uint r_GlobalId; public AliveState r_AliveState; public int r_PlayerIdOwner, r_BuildingType; public ushort r_TilePositionXBegin, r_TilePositionYBegin; public uint r_OccupyTileGridSize, r_OccupiedTileIdsArrayBegin; }
     internal unsafe class GameBuildingManagerAPI {
         public static GameBuildingManagerAPI Instance = new GameBuildingManagerAPI();
         public GameBuilding* Building;

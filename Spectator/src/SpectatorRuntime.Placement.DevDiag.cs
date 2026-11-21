@@ -359,6 +359,7 @@ namespace Spectator
         {
             // The existing simulation callback supplies a throughput counter alongside render time.
             Shared.DevDiag.Count("spectator.sim.tick");
+            DiagAiFollowUps(tick);
             lock (visualSamplesLock)
             {
                 for (int index = visualSamples.Count - 1; index >= 0; index--)

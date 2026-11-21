@@ -117,6 +117,9 @@ copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
 echo [%date% %time%] Copy package files
 copy /Y "%PROJECT_DIR%serps-modpack.json" "%LOCAL_PLUGIN_DIR%\serps-modpack.json" >nul
 echo [%date% %time%] Copy package files
+copy /Y "%PROJECT_DIR%apishared-keep.txt" "%LOCAL_PLUGIN_DIR%\apishared-keep.txt" >nul
+if not "%ERRORLEVEL%"=="0" goto copy_failed
+echo [%date% %time%] Copy package files
 xcopy "%PROJECT_DIR%Override" "%LOCAL_PLUGIN_DIR%\Override\" /E /I /Q /Y >nul
 echo [%date% %time%] Copy package files
 xcopy "%PROJECT_DIR%Locales" "%LOCAL_PLUGIN_DIR%\Locales\" /E /I /Q /Y >nul

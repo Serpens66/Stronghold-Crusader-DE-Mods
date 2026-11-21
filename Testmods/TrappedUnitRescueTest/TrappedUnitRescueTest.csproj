@@ -42,6 +42,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="src/*.cs"/>
+    <Compile Include="../../Shared/Runtime/Native/NativePatchGuard.cs"><Link>Shared/NativePatchGuard.cs</Link></Compile>
+    <Compile Include="../../Shared/Runtime/Native/CommittedMemory.cs"><Link>Shared/CommittedMemory.cs</Link></Compile>
     <Compile Include="../../Shared/Runtime/Localization/SerpLocalization.cs"><Link>Shared/SerpLocalization.cs</Link></Compile>
     <Compile Include="../../Shared/Runtime/Diagnostics/DebugLogHelper.cs"><Link>Shared/DebugLogHelper.cs</Link></Compile>
     <Content Include="info.json"><CopyToOutputDirectory>Always</CopyToOutputDirectory></Content>

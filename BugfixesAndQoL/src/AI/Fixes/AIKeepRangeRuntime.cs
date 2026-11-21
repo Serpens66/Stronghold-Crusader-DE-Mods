@@ -35,8 +35,10 @@ namespace BugfixesAndQoL
             if (installed) return;
             if (Chainloader.PluginInfos.ContainsKey("AIKeepRangeLimitTest_Serp"))
                 throw new InvalidOperationException("AI_KEEP_RANGE_INACTIVE: remove AIKeepRangeLimitTest_Serp and restart; no competing detour installed.");
+            // No live copied-entry probe and no runtime RedBird pin (the preflight gates the audited version
+            // at build): ValidateDetour checks the candidate and its trampoline before Enable and the patch
+            // after it; tests/AIKeepRange.Tests runs the backend offline.
             ulong target = AIKeepRangeNativeContract.Resolve(context, out string resolution);
-            AIKeepRangeNativeContract.ProbeBackend(target);
             SubscribeLifecycle();
             NativeDetour<AIKeepDistanceCheck> candidate = null;
             try
@@ -48,8 +50,10 @@ namespace BugfixesAndQoL
                 candidate = HookInstallPhase.Backend(AIKeepRangeNativeContract.Backend).CreateDetour(in request) as NativeDetour<AIKeepDistanceCheck>;
                 AIKeepRangeNativeContract.ValidateDetour(candidate, target, false);
                 original = candidate.Original;
+                Shared.NativePatchGuard.RequireUnpatched(candidate, "AI keep range");
                 candidate.Enable();
                 AIKeepRangeNativeContract.ValidateDetour(candidate, target, true);
+                Shared.NativePatchGuard.Watch(candidate, "AI keep range");
                 hook = candidate;
                 installed = true; // Published permanently; only logical activation changes from here.
             }

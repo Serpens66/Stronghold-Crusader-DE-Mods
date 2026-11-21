@@ -24,6 +24,7 @@ namespace Pathfinding.Settings.Tests
                     public bool EnableMod = true, EnablePathfindingCore, AvoidFire, AvoidPlague, EscapePlague;
                     public bool EnableFriendlyMoatTraversal = true, AnchorSingleMoves = true, EscapeFire = true, EscapePlagueRaised = true;
                     public bool FireWaitIndefinitely, PlagueWaitIndefinitely;
+                    public bool EnableEnemyGatePathfindingFix = true, EnableEnemyDrawbridgeClosure = true;
                     public int FireWaitSeconds = 37, FireReturnSeconds = 119, FireDetourPercent = 75, FireDetourMinTiles = 14;
                     public int PlagueWaitSeconds = 83, PlagueReturnSeconds = 173;
                     public bool HostSettingsEnabled = true, CanEditHostSettings = true;
@@ -69,7 +70,8 @@ namespace Pathfinding.Settings.Tests
                     { "AvoidFire", "CoreOptionsEnabled" }, { "AvoidPlague", "CoreOptionsEnabled" },
                     { "EscapeFire", "FireOptionsEnabled" }, { "EscapePlague", "PlagueOptionsEnabled" },
                     { "EscapePlagueRaised", "PlagueRaisedOptionsEnabled" },
-                    { "FireWaitIndefinitely", "FireOptionsEnabled" }, { "PlagueWaitIndefinitely", "PlagueOptionsEnabled" }
+                    { "FireWaitIndefinitely", "FireOptionsEnabled" }, { "PlagueWaitIndefinitely", "PlagueOptionsEnabled" },
+                    { "EnableEnemyDrawbridgeClosure", "DrawbridgeClosureOptionEnabled" }
                 };
                 foreach (var pair in dependentControls)
                 {
@@ -121,16 +123,26 @@ namespace Pathfinding.Settings.Tests
                     check(Read("AvoidFire") == fire && Read("AvoidPlague") == plague && Read("EscapePlague") == escape,
                         "disabled parents preserve stored child values " + flags);
                 }
+                // The drawbridge closure is a child of the gate fix (its deck mask lives in the gate route policy).
+                foreach (bool gateFix in new[] { true, false })
+                {
+                    Set("EnableEnemyGatePathfindingFix", gateFix);
+                    check(Read("DrawbridgeClosureOptionEnabled") == gateFix && EffectiveEnabled(Control("EnableEnemyDrawbridgeClosure")) == gateFix,
+                        "drawbridge option follows the gate fix " + gateFix);
+                    check(Read("EnableEnemyDrawbridgeClosure"), "a disabled gate fix preserves the stored drawbridge value");
+                }
+                Set("EnableEnemyGatePathfindingFix", true);
                 Set("EnableMod", false);
                 check(!(bool)Captured("EnablePathfindingCore"), "release capture respects disabled mod");
                 Set("EnableMod", true);
-                foreach (string parent in new[] { "EnablePathfindingCore", "AvoidFire", "AvoidPlague", "EscapePlague" })
+                foreach (string parent in new[] { "EnablePathfindingCore", "AvoidFire", "AvoidPlague", "EscapePlague", "EnableEnemyGatePathfindingFix" })
                 {
                     var changes = (List<string>)type.GetField("Changes").GetValue(model); changes.Clear();
                     type.GetMethod("Changed").Invoke(model, new object[] { parent });
                     string[] expected = parent == "EnablePathfindingCore" ? new[] { "CoreOptionsEnabled", "FireOptionsEnabled", "PlagueOptionsEnabled", "PlagueRaisedOptionsEnabled", "DetourSettingsEnabled" }
                         : parent == "AvoidFire" ? new[] { "FireOptionsEnabled", "DetourSettingsEnabled" }
                         : parent == "AvoidPlague" ? new[] { "PlagueOptionsEnabled", "PlagueRaisedOptionsEnabled", "DetourSettingsEnabled" }
+                        : parent == "EnableEnemyGatePathfindingFix" ? new[] { "DrawbridgeClosureOptionEnabled" }
                         : new[] { "PlagueRaisedOptionsEnabled" };
                     check(changes.OrderBy(n => n).SequenceEqual(expected.OrderBy(n => n)), "dependent binding notifications: " + parent);
                 }

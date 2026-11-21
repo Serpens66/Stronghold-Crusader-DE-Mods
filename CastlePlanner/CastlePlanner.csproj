@@ -181,6 +181,12 @@
     <Compile Include="..\Shared\Runtime\Native\NativePatternResolver.cs">
       <Link>Shared\Runtime\Native\NativePatternResolver.cs</Link>
     </Compile>
+    <Compile Include="..\Shared\Runtime\Native\CommittedMemory.cs">
+      <Link>Shared\Runtime\Native\CommittedMemory.cs</Link>
+    </Compile>
+    <Compile Include="..\Shared\Runtime\Native\NativePatchGuard.cs">
+      <Link>Shared\Runtime\Native\NativePatchGuard.cs</Link>
+    </Compile>
     <Compile Include="..\Shared\Adapters\APIShared\PlayerIdentityHelper.cs">
       <Link>Shared\Adapters\APIShared\PlayerIdentityHelper.cs</Link>
     </Compile>

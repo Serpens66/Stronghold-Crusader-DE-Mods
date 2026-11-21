@@ -64,38 +64,7 @@ bleiben trotz bestandener Teilprüfungen offen. Zusammenführung und Nachweise:
   konkrete Feld-/Branchverträge stammen aus den dortigen vollständigen Audits und
   dem Abgleich mit aktuellen Funktionsabfragen. Keine neue Vollanalyse der gesamten DLL.
 
-## Bestätigte Fehler – offline korrigiert
-
-- [x] **B1 / P2: Offline abgeschlossen – überlappenden Solo-/Fluchtbesitz erhalten.**
-  [MovementCaseSave](Engine/MovementCaseSave.cs) stellt beide Schichten wieder her;
-  `ProcessReplanSolos` wartet wie im ununterbrochenen Lauf auf das Fluchtende.
-  Ist `AnchorSingleMoves` beim Laden aus, übernimmt die passende geborgte Flucht
-  den Solo-Gruppenbesitz statt ihn vorzeitig zurückzugeben. Unit-/Tribe-Global-ID,
-  Eigentümer und Split-Vertrag sichern den Übergang; Save-Identitäten bleiben erhalten.
-  Regressionen mit tatsächlichem Restore-/Verarbeitungs-/Gruppencode für Feuer/Pest,
-  Hinweg, sicheres Warten und Rückkehr vergleichen ununterbrochenen Lauf mit Save/Load;
-  abgeschaltete Gefahren beziehungsweise Soloüberwachung werden einbezogen.
-  Fehlende Wiederherstellung sowie der deaktivierte Solo-Wächter scheiterten vor
-  ihren Korrekturen (Nachweise `b1-before.log`, `b1-watch-disabled-before.log`,
-  `b1-after.log` unter `.work/a/pf-offline/001`). Abnahmekriterium offline erfüllt;
-  echter Save-Lauf mit Spielanimation bleibt T6/T10.
-
 ## Ungeklärte Fragen (keine bestätigten Fehler)
-
-- [x] **Q1: Verhalten entschieden und offline umgesetzt.**
-  Kosten 254 bleiben ein weiches Routing-Signal für alle Einheiten. Aktives
-  Warten/Flüchten gilt ausschließlich für geeignete menschliche Soldaten;
-  Zivilisten, Belagerungsgeräte und bestehende Immunitäten bleiben ausgeschlossen.
-  KI erhält sichere Routen innerhalb ihrer vorhandenen Befehle, keine neuen
-  automatischen Stop-/Fluchtbefehle vor separatem Zustandsaudit und Spielabnahme.
-  `FireWaitIndefinitely` und `PlagueWaitIndefinitely` sind host-synchronisiert,
-  standardmäßig aus, mit Preset-/Settings-/Locale-/versteckter UI-Anbindung.
-  Begrenztes Warten bricht nach Frist ab; unbegrenztes wartet bis zum zulässigen
-  sicheren Umweg. Eigene Wartefälle laufen nach Ablauf nie absichtlich durch Gefahr.
-  Rückkehrfristen bleiben getrennt; APIShareds `MaximumWaitTicks=0` bleibt unverändert.
-  Neue Befehle, Tod, Eigentums-/Identitätswechsel und Mission ersetzen alte Fälle.
-  Nachweis: 30 Produktions-Warteprüfungen und 546 Settings-/UI-Prüfungen.
-  Laufende Spielabnahme und die Schutzgrenzen ohne Einzelrouten bleiben T2–T6.
 
 - [ ] **Q2: Pestmodell an echten Höhenübergängen abgleichen.**
   **Offline geprüft, dynamisch offen:** alle Kategorien-/Policykombinationen und
@@ -109,18 +78,6 @@ bleiben trotz bestandener Teilprüfungen offen. Zusammenführung und Nachweise:
   **Fertig wenn:** Vorhersage und echter Schadenspfad für Boden, Treppen, Mauern,
   Tore, Türme, Burgfried, zerstörte Varianten und Übergänge verglichen sind, mit
   Vanilla sowie einzelnen/vereinigten APIShared-Höhenpolicies und Toleranzgrenzen.
-
-- [x] **Q3: Offline abgeschlossen – falschen Erfolg bei altem Zustand 101/122 korrigiert.**
-  [SoldierTribeMoves.TryMoveSoldier](Engine/SoldierTribeMoves.cs) prüft vor dem
-  Gruppenbefehl die vollständig auditierten Aufnahmebedingungen von `0x11B520`;
-  der bestehende KI-Ausschlussmarkenhelfer läuft zuvor. Ein alter Walking-/Exit-
-  Zustand eines abgewiesenen Mitglieds gilt damit nicht als Erfolg des neuen Befehls.
-  Die Regression mit tatsächlichem Produktionscode scheiterte vorher und besteht
-  nun für alte Zustände 101/122 und Aufnahmeausschlüsse; echte Spielmember und
-  Offsets wurden gegen die installierte Assembly reflektiert.
-  Nachweise `q3-before.log`/`q3-after.log` in `.work/a/pf-offline/001`,
-  Feldverträge in [UpdateToNewDLL](../UpdateToNewDLL.md).
-  Tatsächliches Ankommen und Animation bleiben T4/T10.
 
 - [ ] **Q4: Gefahrenerkennung und tatsächlich ausgeführte Route zeitlich abgleichen.**
   **Offline geprüft, Spielmessung vorbereitet:** Produktionsscanner und echter
@@ -154,15 +111,6 @@ Alle folgenden Kästchen bezeichnen fehlende zusätzliche Nachweise, nicht die
 Abwesenheit der oben genannten Offline-Tests. Neue Ingame-Szenarien gehören in
 einen Testmod unter `Testmods/` über die öffentliche Test-API, nicht in den Hauptmod.
 
-- [x] **T1: Offline abgeschlossen – tatsächliche Scanquellen geprüft.**
-  [HazardScannerTests](../tests/Engine/HazardScannerTests.cs) kompiliert vollständige
-  `FireRouteRules`, `PlagueRouteRules`, `PlagueDamageModel` und `HazardTileSet`;
-  kontrollierte Spielgrenzen statt nachgeschriebener Scannerlogik. 1273 Assertions
-  prüfen Zustände, Slots/Wiederverwendung, Überlappung, Entfernung, Drift/Richtungen,
-  Subkachelgrenzen, Kartenränder, Reset, echte APIShared-Policies und Journal.
-  Die erwarteten Mengen und deren Entfernung/Reset stimmen. Native Bindung und
-  echte Callbackausführung bleiben ausdrücklich Teil der Spielabnahme.
-
 - [ ] **T2: Feuer-Ingame-Matrix abschließen.** Pech, Feuerpfeile/-töpfe und
   Gebäudebrand; stehende/laufende/wartende Soldaten, Feuer entsteht auf Restweg,
   erlaubter/zu langer/fehlender Umweg, gefährliches Ziel und eingekreiste Einheit.
@@ -188,9 +136,11 @@ einen Testmod unter `Testmods/` über die öffentliche Test-API, nicht in den Ha
   Auswahl/Neugruppierung, Shift-Folgebefehle, Zielfeldverschiebung, KI-Kampfverhalten,
   Gruppenverlust/-erschöpfung. Fertig: neuere Befehle haben Vorrang, Formation und
   Warteschlange behalten ihre Bedeutung; kein versehentlicher Wiederholungsbefehl
-  löscht die Queue. Q3 einschließen.
+  löscht die Queue. Abgewiesene Mitglieder mit altem Zustand 101/122 gelten nicht als
+  Erfolg des neuen Befehls (offline behoben); tatsächliches Ankommen hier mitprüfen.
 - [ ] **T6: Save-/Lifecycle-Matrix ergänzen.**
-  **Offline erweitert, echte Saves/Editor offen:** B1 abgeschlossen; v1-Fallbytes,
+  **Offline erweitert, echte Saves/Editor offen:** überlappender Solo-/Fluchtbesitz,
+  v1-Fallbytes,
   deaktivierte Optionen, Unit-/Tribe-Identitätswechsel und Tick-basierte
   Warteverteilung sind in Produktionsmethoden geprüft.
   Feuer/Pest jeweils während Flucht, sicherem Warten, Rückkehr, Routenwarten und Solo-Fortsetzung
@@ -246,7 +196,7 @@ einen Testmod unter `Testmods/` über die öffentliche Test-API, nicht in den Ha
   Testweg mit explizit aktivierten EngineOptions festlegen; kein Lauf, der weiterhin
   `AvoidFire=false`/`AvoidPlague=false` nutzt, darf als Gefahrentest zählen.
   Fertig: Testprotokoll weist effektive Optionen und echte Scan-/Fluchtcallbacks nach.
-- [ ] **R2: Nach B1 und vollständiger Abnahme die Funktionen bewusst freigeben.**
+- [ ] **R2: Nach vollständiger Abnahme die Funktionen bewusst freigeben.**
   `EngineOptions.Capture`, beide ausgeblendeten XAML-Bereiche und
   `SettingsDependencyTests` gemeinsam umstellen; unabhängige Core-/Einzelrouten-
   Abhängigkeiten und Hostsettings erhalten. Alte Presets/Saves dürfen vor Freigabe
@@ -263,15 +213,17 @@ einen Testmod unter `Testmods/` über die öffentliche Test-API, nicht in den Ha
 Übernommen am 13.11.2026 aus der bisherigen Verbesserungsdatei, deren Prüfstand
 Modpack `e95da5315e2f7567d7ae8c8f6d24f75f3e7804b0` und APIShared
 `d91fd86a6fbecd9d400062b5f44f534e52bbb00f` war. Implementierungs- und
-Abnahmestand vor einer Fortsetzung erneut prüfen. Die Kandidaten G1–G9 sind
+Abnahmestand vor einer Fortsetzung erneut prüfen. Die Kandidaten G3–G9 sind
 Untersuchungsaufträge, keine bestätigten Fehler und keine automatische
 Umsetzungsfreigabe für den Release vom 13.11.2026. Erledigte oder unverändert
 verworfene Versuche sind keine neuen Aufgaben. Historische Gegenbeispiele stehen
 in den [Optimierungslehren](../migration/moatmove-notes.md#bewahrte-optimierungslehren).
 Native RVAs gelten ausschließlich für den oben genannten DLL-Hash; neue
 Vanilla-Erkenntnisse in der [aktuellen Baseline](../../_inspect/CrusaderDE-Native-Baseline/CURRENT.md) sichern.
-Die frühere Feuer-/Pestaufgabe 4.1 ist mit B1, Q1–Q4, T1–T10 und R1–R3
-zusammengeführt und wird hier nicht als zweite Aufgabenliste geführt.
+Die frühere Feuer-/Pestaufgabe 4.1 ist in Q2, Q4, T2–T10 und R1–R3 aufgegangen und
+wird hier nicht als zweite Aufgabenliste geführt. Offline erledigte Punkte (überlappender
+Solo-/Fluchtbesitz, Gefahrenverhalten, Zustand 101/122, Scannerquellen, Ziel auf
+verbotener Kachel) sind entfernt; ihre Spielabnahme steht in T2–T10.
 
 ### Native Feindsuche beschleunigen
 
@@ -283,39 +235,6 @@ Die **historischen Profile vor dem Spectator-Fix** zeigen 32,260 % eigene Simula
 
 Quellen: [Native Ablauf-, Cadence- und Arithmetikverträge](../../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/SIM_TICK_SPIKE_PATHING.md#enemy-scan-cadence-and-integer-contracts-2026-11-13-vanilla-facts), [Profilaggregation](../../.work/a/stress90/001/profile-summary.json) und zugehörige Originalprotokolle unter `.work/a/stress90/001/results/`. Der Sampler ordnet native Blattadressen Funktionen zu; einzelne Instruktionskosten sind daraus nicht bestimmbar.
 
-#### G1: Zielscore – festen Divisor spezialisieren
-
-- [x] **Offline-Untersuchung abgeschlossen, Kandidat nicht integriert:** tatsächlicher
-  Assembler und installierter RedBird-Backend geprüft; mit Einbaukosten langsamer
-  (Score +7,3 bis +29,0%). Original bleibt aktiv. Vollständige signed-/Maschinen-
-  Nachweise und reproduzierbarer Benchmark in [OfflineOptimization](../Findings/OfflineOptimization.md).
-  Eine andere Einbauform benötigt einen neuen Gleichheits- und Nettogewinnnachweis.
-
-Der originale aktuelle Tabellenzugriff muss erhalten bleiben. Keine fest einprogrammierte Jittertabelle und keine ungeprüfte Annahme über negative Indizes: normale Erzeugung liefert nichtnegative Seeds, der vollständige Save-/Transfervertrag ist jedoch noch offen, und die Tabellenregion ist schreibbar. Signed Addition, Modulo, Rundung gegen null, Listencount und Reihenfolge dürfen sich nicht ändern.
-
-**Vertrag für jeden späteren Versuch:** Gleichheit auch an signed Grenzen,
-unveränderte Ziel-/Minimum-/Folgezustände und vollständige Register-/Flag-/Stack-
-Verträge. Die jetzigen Kandidaten bestehen 7.095.335 gemeinsame G1/G2-Prüfungen,
-erbringen jedoch keinen Nettogewinn. Keine produktiven Zusatzhooks angelegt.
-
-#### G2: Distanz – nicht benötigte Divisionen erkennen
-
-Die exakte Formel lautet für `M=max(|dx|,|dy|)>0`, `m=min(...)`:
-
-    P = floor(2*m/5)*m
-    D = M + floor(P/M)
-
-Der Nullfall bleibt separat. Bei den eingelesenen signed-short Koordinaten ist `P` höchstens 1.717.934.490; `D>=M` ist damit auch unter der tatsächlichen Ganzzahlarithmetik gesichert. Falls `P<M`, ist der Quotient exakt null. Der konstante `/5`-Teil ist im Original bereits durch Multiplikation optimiert; die verbleibende Division durch `M` ist der Untersuchungskandidat.
-
-- [x] **Offline-Untersuchung abgeschlossen, Kandidat nicht integriert:** der exakte
-  `P<M`-Pfad erhält Quotient/Rest und beide Major-Zweige, ist einschließlich tatsächlicher
-  Hooksprünge und Logikschalter +13,9 bis +16,3% langsamer. Original bleibt aktiv.
-  Keine weitergehende Minimum-/Zielabschneidung ohne eigenen vollständigen Nachweis.
-
-Zu erhalten sind insbesondere die inklusive Reichweite, der separate Heimursprungs-Zweig,
-alte Listeneinträge vor dem Global-ID-Test und die einmal eingelesene Actor-Position.
-Eine reine Reichweitenprüfung vom aktuellen Standort ist kein ausreichender Ersatz.
-
 #### G3: Räumlicher Index erst nach zusätzlichem Audit
 
 **Offline eingegrenzt, weiter offen:** konkrete Writer-/Reihenfolge-Gegenbeispiele
@@ -324,7 +243,7 @@ Kein produktiver Index ohne vollständigen Aktualisierungs- und Kostenvertrag.
 
 - [ ] **Weitergehende Untersuchung, keine abgesicherte Lösung:** Ein Index könnte Kandidatenarbeit reduzieren, benötigt aber einen vollständigen Zustands- und Aktualisierungsvertrag. Vorher müssen Bewegung, Spawn, Teleport, Slotwiederverwendung, Laden, Transfer sowie der Zustand zum jeweiligen Scanzeitpunkt innerhalb des Ticks geschlossen sein. Ein Snapshot vom Tickanfang reicht bei aufsteigenden Unitupdates nicht automatisch aus.
 
-Originale Listenzugehörigkeit, Count und Gleichstandsreihenfolge müssen erhalten bleiben. Entfernungsminimum, Auxminimum und gewichtete Zielwahl sind getrennte Verbraucher. Vanillas Distanzapproximation besitzt keine allgemeine Dreiecksungleichung; Euclid-Radien und gewöhnliche metrische Baumabschneidungen sind deshalb kein Gleichheitsbeweis. Die detaillierten Gegenbeispiele stehen in der Baseline. Diesen größeren Umbau erst bewerten, wenn die kleineren Arithmetikmaßnahmen nicht ausreichen und die Indexpflege mitgemessen werden kann.
+Originale Listenzugehörigkeit, Count und Gleichstandsreihenfolge müssen erhalten bleiben. Entfernungsminimum, Auxminimum und gewichtete Zielwahl sind getrennte Verbraucher. Vanillas Distanzapproximation besitzt keine allgemeine Dreiecksungleichung; Euclid-Radien und gewöhnliche metrische Baumabschneidungen sind deshalb kein Gleichheitsbeweis. Die detaillierten Gegenbeispiele stehen in der Baseline. Diesen größeren Umbau erst bewerten, wenn die Indexpflege mitgemessen werden kann. Die kleineren Arithmetikkandidaten (fester Divisor im Zielscore, Division in der Distanz) wurden offline untersucht und mangels Nettogewinn nicht integriert; Nachweise und Verträge in [OfflineOptimization](../Findings/OfflineOptimization.md).
 
 ### Verbleibende Such- und Aktualisierungskosten
 
@@ -373,21 +292,6 @@ Vor weiteren Änderungen Feldaufbau, tatsächlich abgefragte Mitglieder, abgesch
 
 Einstieg: [Gruppen-/Startfilter im nativen Kern](../../Pathfinding/native/PathfindingAnchor.cpp) und [AnchorRouting](../../Pathfinding/src/Engine/AnchorRouting.cs). Die vorhandenen Batch-, Einzelabfrage- und Determinismusgarantien bleiben maßgeblich.
 
-### G8: Ziel auf einer verbotenen Kachel
-
-- [x] **G8: Offline abgeschlossen – betroffenen Bewegungsbefehl vor Änderung ablehnen.**
-  [ForbiddenMoveTargets](UnitCommands/Runtime/ForbiddenMoveTargets.cs) prüft
-  ausschließlich aktive Pathfinding-Regeln und den echten lebenden Gruppeneigentümer.
-  [PermanentCommandHooks](UnitCommands/Native/PermanentCommandHooks.cs) lehnt direkte
-  Bewegungen und neue Queue-Wegpunkte vor Auftrags-/Queueänderungen ab; der
-  Spielerwrapper erhält seinen vorherigen `+0x56C`-Wert. Verschachtelte Ablehnungen
-  verändern keinen akzeptierten Elternauftrag. Die spätere Anchor-Subscription
-  ignoriert übersprungene Pre-Ereignisse, für die der Extender kein Post sendet.
-  Start-im-Verbot darf weiter verlassen werden. Keine Ersatzzielsuche und keine
-  globale Änderung fremder Vanilla-Befehle oder APIShared-Verträge.
-  Nachweis: 18 Friendly-Movement- und 9 integrierte tatsächliche Subscriberprüfungen.
-  Sichtbares Auftrags-/Marker-/Queueverhalten und Host/Client bleiben T5/T9/T10.
-
 ### G9: Vergleichslücken schließen
 
 **Vorbereitet:** [Prepare-ComparisonMatrix](../tools/Prepare-ComparisonMatrix.ps1)
@@ -401,22 +305,54 @@ Für freundliche Grabenquerung und menschliche Assassinenwege fehlt weiterhin ei
 
 Messmethodik und vorhandene Werkzeuge: [AGENTS/performance.md](../../AGENTS/performance.md), [Ingame-Testverfahren](../../AutomatisierungTest.md). Die am 13.11.2026 geprüften Release-Fixes und ihre Ergebnisse bleiben separat in [.work/a/perf-release/001/Ergebnis.txt](../../.work/a/perf-release/001/Ergebnis.txt); sie sind keine Umsetzung der hier aufgeführten Maßnahmen.
 
-### G10: Wegform bei größeren Hindernissen untersuchen (optional)
+### G10: Wegform bei größeren Hindernissen
 
-- [ ] **Optionaler Folgeauftrag, keine aktuelle Umsetzungsfreigabe:** Nach der
-  Korrektur der Richtungswahl auf freien Flächen prüfen, ob Wege um größere
-  Hindernisse noch unnötige sichtbare Knicke oder räumliche Umwege enthalten.
-  Gleich teure Wege im diskreten Kostenmodell von tatsächlich teureren Wegen
-  unterscheiden; Kartenprojektion und echte Bewegung berücksichtigen.
+- [ ] **Umgesetzt in 0.1.9 (16.11.2026); Host/Client-Abnahme offen.**
+  Ursache: Gleich teure gerade/diagonale Schritte plus die Richtungswahl
+  „niedrigster Index zuerst“ in `Descend` erzeugten große L-Formen. Der
+  Direktstrahl aus 0.1.8 half nur bei vollständig freier Strecke. Neu begradigt
+  `StraightenRoute` im nativen Kern jede gefundene Boden- oder Grabenroute
+  kostenneutral (Rasterstrahl nur bei erlaubten Kanten und Kosten ≤ Abschnitt).
+  Das ist ohne eigene Option fest in „Gruppenwege gemeinsam berechnen“ und die
+  schnelle Einzelwegsuche eingebaut (Nutzerentscheidung vom 16.11.2026).
 
-Zuerst den aktuellen Produktionskern als Vergleichsstand festhalten und mit
-identischen Anfragen messen: Wegqualität, gesamte CPU-Zeit, langsame Einzelanfragen
-(p95/p99 und Maximum), Suchknoten, Speicher und Vanilla-/Budget-Rückfälle.
-Freie Flächen, Mauerringe, Engstellen, gerichtete Kanten und große Gruppen einbeziehen.
-Flüssiges Spielen und kurze Suchzeiten behalten Vorrang vor schöneren Wegen.
-Eine weitere Such- oder Glättungsmaßnahme nur mit belegtem Nutzen und gesonderter
-Entscheidung über gemessene Mehrkosten erwägen; keine zusätzliche Suche oder
-Speicherhaltung allein zur optischen Verbesserung voraussetzen.
+Offline-Ergebnis siehe [Findings/RouteShape.md](../Findings/RouteShape.md):
+
+- **Kosten:** Keine Route wird teurer, kein Statuswechsel. Etwa 15 % der Routen
+  werden billiger, weil Anker-Umwege wegfallen.
+- **Wegform:** Im echten Capture halbieren sich die geraden Teilstücke pro Route
+  ungefähr.
+- **Laufzeit:** Einzelwege bleiben unverändert. Gruppenbefehle kosten je Einheit
+  etwa 2–10 µs mehr, gemessen +13–73 % bzw. +6–26 ms je 10.000 Einheiten.
+
+Die Gruppenmehrkosten hat der Nutzer am 16.11.2026 akzeptiert, solange FPS und
+Ticks nicht spürbar leiden. Der Einzelspieler-Spieltest vom selben Tag ist bestanden:
+gültige Routen, gleiche Ankunft und gleiche Befehlskosten bei 5000 Einheiten. Details
+stehen in Findings/RouteShape.md. Tooltips und Version 0.1.9 sind angepasst.
+
+Nachtrag 17.11.2026, 0.1.12: Eine begrenzte Korridorkorrektur ergänzt die bisherige
+kostenneutrale Glättung für gleichmäßig bepreisten Boden. Mit ausdrücklicher
+Nutzerfreigabe darf sie für deutlich engere Wege höchstens 5 % zusätzliche Schritte
+und Kosten der gesamten Ausgangsroute verwenden. Die obigen Messwerte beschreiben
+0.1.9; aktuelle Qualitäts-, Laufzeit- und Spielnachweise stehen in Findings/RouteShape.md.
+
+Offen:
+
+- Host/Client-Abnahme (die Routenbytes ändern sich; die Version muss übereinstimmen).
+- Im Spieltest war die Begradigung nicht sichtbar: Bei Spieler-Gruppenbefehlen liefen
+  nur 18–19 Mitglieder über den Pathfinding-Routenbau, und deren Wege waren bereits
+  gerade. Ein Spielszenario mit großer, weit verteilter Gruppe steht noch aus.
+- Eigener Punkt, nicht durch G10 verursacht: In zwei Läufen vom 16.11.2026 lösten
+  204 zusätzliche globale Invalidierungen (`global=216`) eine kartenweite Neuberechnung
+  aus; die Quelle ist offen. Die DEVDIAG-Messpunkte `pf-global`/`pf-resweep` (nur
+  `/devdiag`) zeigen sie beim nächsten Auftreten. Die übrigen Auslöser sind behoben,
+  siehe Findings/RouteShape.md.
+
+Das Werkzeug [tools/RouteShape](../tools/RouteShape/Run-RouteShape.ps1) vergleicht
+Basis und Arbeitsstand auf identischen Anfragen. Freie Flächen, Mauerringe,
+Engstellen, gerichtete Kanten, Gräben, Strafkacheln und große Gruppen sind
+enthalten. Flüssiges Spielen und kurze Suchzeiten behalten Vorrang vor schöneren
+Wegen.
 
 ### G11: Grabenquerung für weitere Einheitentypen (optional, großer Umfang)
 
@@ -485,11 +421,77 @@ Wiederverwendbare Vanilla-Verträge, vollständige Rollenmatrix, Maschinenbelege
 getrennte Integrationsgrenzen:
 [Audit zur Grabenquerung aller Einheitentypen](../../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/MOAT_TRAVERSAL_ALL_UNITS.md).
 
+### G12: Abgesenkte Zugbrücke bei geschlossenem Tor für den Besitzer (optional)
+
+- [ ] **Optional, Nutzerentscheidung vom 17.11.2026: vorerst so belassen.** Die neue
+  Einstellung für das Zugbrückenverhalten soll diese Grenze kurz und verständlich nennen.
+
+Ausgangslage: Die Zugbrückensperre für Feinde ist seit 0.1.10 in Pathfinding integriert
+(Einstellung `EnableEnemyDrawbridgeClosure`, `src/GateRouting/DrawbridgeDeckClosure.cs` und die
+Deck-Kantenmaske in `GateTopologySnapshotProvider.cs`). Spielabnahme: früherer Testmod
+`Testmods/EnemyBridgePathTest`, am 17.11.2026 entfernt; bei Bedarf mit
+`git checkout 582d6e57f -- Testmods/EnemyBridgePathTest` wiederherstellen.
+- Sie behandelt eine abgesenkte Zugbrücke vor einem Torhaus im Regionsaufbau wie
+  hochgezogen.
+- Zugelassene Spieler gelangen nur über das Torportal auf und über das Deck. Das Portal
+  ist nur bei offenem Tor aktiv (`enabled = Torzustand != 2`).
+- Folge: Ist das Tor geschlossen, die Brücke aber noch unten (Einheiten auf dem Deck,
+  laufende Animation, Handsteuerung), dann gelten Deck, Brückenkopf und nur seitlich
+  über das Deck erreichbares Land auch für Besitzer und Verbündete als unerreichbar.
+- Das betrifft nur Ziele, die ausschließlich über das Deck erreichbar sind. Bei einem
+  anderen Weg (eine Region) nutzen Besitzer und Verbündete das Deck weiter, weil die
+  Kantenmaske nur nicht zugelassene Spieler sperrt.
+- Sichtbar wird das bei einer Mauerlücke direkt neben dem Torhaus
+  (`test_gates_bridge2.sav`, Tor 600). Eigene Einheiten aus dem Graben erreichen den
+  Keep dann nicht über das Deck, während Vanilla diesen Seitenweg zulässt.
+
+Erste Ansätze (vor Umsetzung jeweils nativ auditieren und messen):
+
+1. **Eigener Portaleintrag je Zugbrücke** statt Umleitung des Torportals.
+   - Ein Eintrag mit Endpunkten Landestelle ↔ Deckregion (dritter Endpunkt z. B. seitliche
+     Landregion), Besitzer und Eroberer des Tors, `enabled` = Brücke abgesenkt statt
+     Torzustand.
+   - Vorab klären:
+     - Allokation über `0xD8510`.
+     - Typ mit `ret`-Handler (Tabelle `0x3125D0`), damit `0xF4540` den Eintrag nicht überschreibt.
+     - Pflege der Regionsfelder nach jedem `0xE49D0`.
+     - Freigabe beim Zerstören/Neuladen.
+     - Ob die Portaltabelle in Spielständen gespeichert wird. Verwaiste Einträge nach dem
+       Entfernen des Mods wären ein Spielstandrisiko.
+2. **Seitliche Deckkanten zur Innenseite behalten.**
+   - Seitliches Land, das ohne Deck die Region des Burginneren (Torendpunkt B) hätte,
+     gehört zur Burg.
+   - Braucht eine Klassifizierung vor dem Fluten, z. B. aus dem letzten Aufbau oder einer
+     begrenzten lokalen Flut.
+   - Risiko: Ohne Kantenmaske würden Feinde über diese Kanten wieder hineinplanen. Die
+     Pro-Spieler-Maske muss sie daher weiter sperren, und Region und Kachelsuche müssen für
+     Feinde konsistent bleiben (sonst teure Fehlsuchen).
+3. **Portal bei „Tor zu, Brücke unten“ für Zugelassene aktiv lassen** (`enabled` in der
+   `0xF4540`-Nachbearbeitung setzen).
+   - Billig, aber Besitzersuchen durch das physisch geschlossene Tor scheitern dann
+     kachelweise.
+   - Folgen für das automatische Öffnen eigener Tore, die Cursorvorschau und die
+     Gebäudesperre der schnellen Suche (liest `+0x203C`) prüfen.
+
+Abnahme: Testmod-Szenarien `bridge-<save>` und `bridge-ai-on|off-<save>` mit
+`test_gates_bridge2.sav` (Tor zu, seitliche Lücke) und `test_gates_bridge3.sav` (zweiter
+Weg). Hinzu kommt ein neuer Befehl „eigene Einheiten Graben → Keep“, der mit der
+Erweiterung gelingen und für Feinde weiterhin ohne Deckpfad bleiben muss.
+
 ### Weiterführende Quellen und Abgrenzung
 
 Der größere Suchkern-/Architekturprototyp hat eine eigene Entwicklungsgeschichte und offene Abnahmen in [BetterPathfinding.md](../../BetterPathfinding.md). Er ist keine bereits freigegebene Lösung der oben genannten Restprobleme. Hier werden seine alten Entwurfsvarianten nicht nochmals als neue Aufgaben eingereiht.
 
 Wiederverwendbare Vanilla-Verträge: [Ground-Builder](../../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/GROUND_ROUTE_BUILDERS.md), [Gruppenaufnahme](../../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/MANUAL_GROUP_ADMISSION.md), [Tor-Abfragepass](../../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/GATEHOUSE_QUERY_PASS.md), [Feuer und Bewegung](../../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/FIRE_EFFECTS.md), [Feindsuche](../../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/SIM_TICK_SPIKE_PATHING.md). Aktuelle Mod- und Hookverträge stehen in [Pathfinding/UpdateToNewDLL.md](../../Pathfinding/UpdateToNewDLL.md).
+
+### G13: Gefahrenvermeidung bei feindlichen Burgen (optional)
+
+- [ ] Gesondert untersuchen, ob Arbeiter und Einheiten bei normalen Bewegungen
+  feindliche Burgen und gefährliche Bereiche optional umgehen sollen. Gewollte
+  Angriffsbewegungen müssen weiterhin möglich bleiben. Nutzen, zusätzliche Umwege,
+  CPU-Zeit, Speicher und Mehrspieler-Determinismus getrennt messen und prüfen.
+  Keine automatische Aktivierung durch die geometrische Wegkorrektur; diese Aufgabe
+  ist keine Freigabe zur Umsetzung oder zur Aktivierung der getrennten Feuer-/Pestregeln.
 
 ## Herkunft und Abgrenzung
 

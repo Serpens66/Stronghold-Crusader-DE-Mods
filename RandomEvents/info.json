@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in skirmishes, Trail missions, and multiplayer games.",
-  "Version": "1.0.59",
+  "Version": "1.0.60",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,12 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.60",
+      "Changes": [
+        "Event announcements, event sounds and minimap markers hook into the game without rewriting its code on every call, which saves performance. Conflicts with other mods that change the same spot in the game's code are now detected: the affected part stays off instead of overwriting the other mod's change, and the log names the conflict."
+      ]
+    },
     {
       "Version": "1.0.59",
       "Changes": [

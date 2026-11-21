@@ -98,5 +98,7 @@
     <Compile Include="..\..\src\Core\Native\HookInstallPhase.cs"><Link>HookInstallPhase.cs</Link></Compile>
     <Compile Include="..\..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs" />
     <Compile Include="..\..\..\Shared\Runtime\Native\NativePatternResolver.cs" />
+    <Compile Include="..\..\..\Shared\Runtime\Native\NativePatchGuard.cs" />
+    <Compile Include="..\..\..\Shared\Runtime\Native\CommittedMemory.cs" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,9 @@
+{
+  "enabled": true,
+  "series": "SP-mod-keybind-options",
+  "role": "sp",
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 180000, "stopOnFail": true, "allowErrors": true },
+    { "id": "mod-keybind-options", "do": "ModKeybinds.Options", "timeoutMs": 45000, "stopOnFail": true }
+  ]
+}

@@ -273,11 +273,16 @@ namespace UiAcceptance
 
         private static IEnumerable<Wait> Screenshot(Step step)
         {
+            CaptureScreenshot(step.Arg(0));
+            yield return new Delay(500); // Written asynchronously at the end of a frame.
+        }
+
+        internal static void CaptureScreenshot(string label)
+        {
             Directory.CreateDirectory(ScreenshotDirectory);
-            string file = Path.Combine(ScreenshotDirectory, AcceptLog.RunId + "_" + step.Arg(0) + "_" + Screen.width + "x" + Screen.height + ".png");
+            string file = Path.Combine(ScreenshotDirectory, AcceptLog.RunId + "_" + label + "_" + Screen.width + "x" + Screen.height + ".png");
             ScreenCapture.CaptureScreenshot(file);
             AcceptLog.Info("SCREENSHOT " + file);
-            yield return new Delay(500); // Written asynchronously at the end of a frame.
         }
 
         // Mod settings only change outside missions (workspace rule). The setting object is reached

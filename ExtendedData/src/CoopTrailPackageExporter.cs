@@ -247,7 +247,9 @@ namespace ExtendedData
                 Source = MissionLoader.EmbeddedTrailSource,
                 File = trailReference,
                 SourcePlayerId = slot + 1,
-                BaseLordId = Math.Max(0, info.lordType),
+                // Custom Lords: the mission slot, not Vanilla's possibly stale add-time slot (RuntimeLordType).
+                BaseLordId = MissionProjection.RuntimeLordType(Math.Max(0, info.lordType), playerNumber - 1,
+                    Shared.CoopAiSelectionRules.FirstCustomLordType),
                 // Display and diagnostics only; the slot itself is the source.
                 Name = info.builtInLord || string.IsNullOrWhiteSpace(info.lordName) ? null : info.lordName,
             };

@@ -26,6 +26,7 @@
     <Compile Include="..\src\CoopTrailMenuView.cs" Link="CoopTrailMenuView.cs" />
     <Compile Include="..\src\CoopMissionDataCopies.cs" Link="CoopMissionDataCopies.cs" />
     <Compile Include="..\..\Shared\Runtime\UI\CoopTrailSetupPresentation.cs" Link="CoopTrailSetupPresentation.cs" />
+    <Compile Include="..\src\CoopClientLobbyPresentation.cs" Link="CoopClientLobbyPresentation.cs" />
     <Compile Include="..\src\ExtendedDataLaunchOriginApi.cs" Link="ExtendedDataLaunchOriginApi.cs" />
     <Compile Include="..\src\ExtendedDataModDataApi.cs" Link="ExtendedDataModDataApi.cs" />
     <!-- Production reader with the same local SDK boundary doubles as the legacy facade tests. -->

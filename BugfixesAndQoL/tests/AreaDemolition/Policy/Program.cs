@@ -9,17 +9,23 @@ internal static class Program
     private static void Main()
     {
         var g=new SelectionGesture();var plain=new SelectionSpec(1,false,null);
-        g.Begin(10,10,plain);g.Move(13,10,true,1);Check(g.Release(false)==GestureRelease.Single,"small movement remains single");
-        g.Begin(10,10,plain);g.Move(14,10,true,1);Check(g.Stage==GestureStage.Dragging,"four pixel drag");
+        g.Begin(10,10,plain,false);g.Move(13,10,true,1);Check(g.Release(false)==GestureRelease.Single,"small movement remains single");
+        g.Begin(10,10,plain,false);g.Move(14,10,true,1);Check(g.Stage==GestureStage.Dragging,"four pixel drag");
         g.Move(10,10,true,1);Check(g.Stage==GestureStage.Dragging,"return does not become a single deletion");
         Check(g.Release(false)==GestureRelease.Area,"release area");
-        g.Begin(0,0,plain);g.Cancel();Check(g.Owned,"cancel owns remaining input");Check(g.Release(false)==GestureRelease.Cancelled,"cancel has no deletion");
-        g.Begin(0,0,plain);Check(g.Release(true)==GestureRelease.Cancelled,"single release over UI cancels");
-        g.Begin(10,10,plain);g.Move(25,40,true,1);var lastValid=g.Area;g.Move(400,400,false,1);
+        g.Begin(0,0,plain,false);g.Cancel();Check(g.Owned,"cancel owns remaining input");Check(g.Release(false)==GestureRelease.Cancelled,"cancel has no deletion");
+        g.Begin(0,0,plain,false);Check(g.Release(true)==GestureRelease.Cancelled,"single release over UI cancels");
+        g.Begin(10,10,plain,false);g.Move(25,40,true,1);var lastValid=g.Area;g.Move(400,400,false,1);
         Check(g.Area==lastValid && g.Stage==GestureStage.Dragging,"invalid endpoint retains last valid position and gesture");
         Check(g.Release(true)==GestureRelease.Area,"owned area release over HUD commits");
         Check(g.Release(true)==GestureRelease.None,"the same release cannot commit twice");
-        g.Begin(10,10,plain);g.Move(100,100,false,1);
+        g.Begin(10,10,plain,true);g.Move(25,40,true,1);
+        Check(g.IsViewCurrent(true) && !g.IsViewCurrent(false),"a drag identifies a change away from its starting view");
+        g.Cancel();
+        Check(g.Release(false)==GestureRelease.Cancelled,"a view change during the drag cancels removal on release");
+        g.Begin(10,10,plain,true);g.Move(25,40,true,1);
+        Check(g.Release(false)==GestureRelease.Area && !g.IsViewCurrent(false),"a released selection retains its view until presentation");
+        g.Begin(10,10,plain,false);g.Move(100,100,false,1);
         Check(g.Stage==GestureStage.Dragging && g.Area==new ScreenRect(10,10,10,10),"fast window exit still meets screen movement threshold");
         g.Move(50,60,true,1);Check(g.Area==new ScreenRect(10,10,50,60),"return to window resumes endpoint tracking");g.Reset();
         ScreenEndpointGestures();
@@ -31,14 +37,14 @@ internal static class Program
         Check(!new SelectionSpec(0,true,Target(TargetGroup.Buildings,2)).Matches(Target(TargetGroup.Buildings,3)),"normal types stay distinct");
         Check(plain.Matches(Target(TargetGroup.Buildings))&&!plain.Matches(Target(TargetGroup.Fortifications)),"local category filter");
         var start=Target(TargetGroup.Buildings,2,12);
-        g.Begin(1,2,new SelectionSpec(1,false,start));g.Move(20,30,true,1);
+        g.Begin(1,2,new SelectionSpec(1,false,start),false);g.Move(20,30,true,1);
         Check(g.SetSameType(true) && g.Selection.SameType && g.Selection.Start.GlobalId==12,"late Shift uses original down object");
         Check(g.Selection.Matches(Target(TargetGroup.Buildings,2))&&!g.Selection.Matches(Target(TargetGroup.Buildings,3)),"late Shift narrows to start type");
         Check(!g.SetSameType(true),"unchanged modifier does not invalidate the quote");
         Check(g.SetSameType(false) && !g.Selection.SameType && g.Selection.Filters==1,"releasing Shift restores original menu mask");
         g.Cancel();Check(!g.SetSameType(true) && g.Stage==GestureStage.Cancelled,"Shift cannot revive cancelled gesture");g.Release(false);
         Check(!g.SetSameType(true),"Shift cannot alter a completed gesture");
-        g.Begin(0,0,new SelectionSpec(ushort.MaxValue,false,null));g.SetSameType(true);
+        g.Begin(0,0,new SelectionSpec(ushort.MaxValue,false,null),false);g.SetSameType(true);
         Check(!g.Selection.Matches(Target(TargetGroup.Buildings)),"late Shift on empty original start never picks a later object");g.Reset();
         var decoration=new DemolitionTarget {Kind=TargetKind.Decoration,Group=TargetGroup.Decorations,Type=9};
         Check(new SelectionSpec((ushort)(1<<(int)TargetGroup.Decorations),false,null).Matches(decoration),"ninth category bit is selectable");
@@ -134,6 +140,18 @@ internal static class Program
         var file=new BepInEx.Configuration.ConfigFile();
         file.Values["Area demolition filters/Buildings"]=false;file.Values["Area demolition filters/Fortifications"]=true;file.Values["Area demolition filters/Pitch"]=true;
         var settings=new DemolitionSettings(file);
+        Check(settings.EnableRectangleSelection,"rectangle selection defaults on even with existing filter preferences");
+        ushort savedFilters=settings.Mask;
+        int activationChanges=0;
+        settings.RectangleSelectionChanged+=()=>activationChanges++;
+        settings.EnableRectangleSelection=false;
+        settings.EnableRectangleSelection=false;
+        var disabled=new DemolitionSettings(file);
+        Check(!disabled.EnableRectangleSelection && disabled.Mask==savedFilters && activationChanges==1,
+            "disabling rectangle selection persists, keeps filters and emits one event");
+        settings.EnableRectangleSelection=true;
+        Check(new DemolitionSettings(file).EnableRectangleSelection && settings.Mask==savedFilters && activationChanges==2,
+            "re-enabling rectangle selection restores access to the same filters");
         Check(!settings.Get(TargetGroup.Buildings) && settings.Get(TargetGroup.Fortifications) && settings.Get(TargetGroup.Pitch),"old preference keys retain their values");
         Check(!settings.Get(TargetGroup.Decorations),"new decoration preference defaults off");
         Check(!settings.Get(TargetGroup.Stockpiles),"new stockpile preference defaults off");
@@ -166,6 +184,24 @@ internal static class Program
         Check((bool)legacy.Values["Area filters/Walls"],"editing migrated preference never mutates legacy entries");
         legacy.Values["Area filters/Buildings"]=true;
         Check(!new DemolitionSettings(destination,legacy).Get(TargetGroup.Buildings),"later legacy changes cannot overwrite migrated destination");
+
+        var bulk = new DemolitionSettings(new BepInEx.Configuration.ConfigFile());
+        int bulkChanges = 0;
+        bulk.Changed += () => bulkChanges++;
+        Check(!bulk.AreAllEnabled, "mixed defaults leave the master checkbox unchecked");
+        bulk.SetAll(true);
+        ushort allGroups = 0;
+        foreach (TargetGroup group in Enum.GetValues(typeof(TargetGroup)))
+            allGroups |= (ushort)(1 << (int)group);
+        Check(bulk.AreAllEnabled && bulk.Mask == allGroups && bulkChanges == 1, "select all enables every group and publishes once");
+        bulk.SetAll(true);
+        Check(bulkChanges == 1, "selecting all again does not republish");
+        bulk.Set(TargetGroup.Walls, false);
+        Check(!bulk.AreAllEnabled, "disabling one group clears the master checkbox");
+        bulk.Set(TargetGroup.Walls, true);
+        Check(bulk.AreAllEnabled, "restoring the last group checks the master checkbox");
+        bulk.SetAll(false);
+        Check(!bulk.AreAllEnabled && bulk.Mask == 0 && bulkChanges == 4, "clear all disables every group and publishes once");
     }
     private static void ColumnRanges()
     {
@@ -259,7 +295,7 @@ internal static class Program
         var g=new SelectionGesture();var selection=new SelectionSpec(1,false,null);
         foreach(int dx in new[]{-1,1}) foreach(int dy in new[]{-1,1})
         {
-            g.Begin(500,400,selection);
+            g.Begin(500,400,selection,false);
             g.MoveOnScreen(500+dx*200,400+dy*150,1000,800,1);
             Check(g.Area==new ScreenRect(500,400,500+dx*200,400+dy*150),"owned drag follows screen endpoint over HUD in each direction");
             g.MoveOnScreen(500+dx*20,400+dy*15,1000,800,1);
@@ -269,7 +305,7 @@ internal static class Program
             Check(g.Release(true)==GestureRelease.Area,"HUD release commits owned screen selection");
             Check(g.Release(true)==GestureRelease.None,"HUD release remains single-use");
         }
-        g.Begin(500,400,selection);g.MoveOnScreen(750,600,1000,800,1);var last=g.Area;
+        g.Begin(500,400,selection,false);g.MoveOnScreen(750,600,1000,800,1);var last=g.Area;
         foreach(var point in new[]{new[]{-1f,400f},new[]{500f,-1f},new[]{1000f,400f},new[]{500f,800f},new[]{float.NaN,400f},new[]{500f,float.PositiveInfinity}})
         {
             g.MoveOnScreen(point[0],point[1],1000,800,1);
@@ -277,9 +313,9 @@ internal static class Program
         }
         g.MoveOnScreen(0,0,1000,800,1);Check(g.Area==new ScreenRect(500,400,0,0),"lower screen boundary remains selectable");
         g.MoveOnScreen(999,799,1000,800,1);Check(g.Area==new ScreenRect(500,400,999,799),"return to screen resumes tracking");g.Reset();
-        g.Begin(500,400,selection);g.MoveOnScreen(502,401,1000,800,1);
+        g.Begin(500,400,selection,false);g.MoveOnScreen(502,401,1000,800,1);
         Check(g.Release(true)==GestureRelease.Cancelled,"single click released over HUD never demolishes");
-        g.Begin(500,400,selection);g.Cancel();g.MoveOnScreen(750,600,1000,800,1);
+        g.Begin(500,400,selection,false);g.Cancel();g.MoveOnScreen(750,600,1000,800,1);
         Check(g.Release(true)==GestureRelease.Cancelled,"screen movement cannot revive cancelled gesture");
         g.MoveOnScreen(750,600,1000,800,1);Check(!g.Owned,"screen movement cannot start a gesture on HUD");
     }
@@ -302,7 +338,7 @@ internal static class Program
         var g=new SelectionGesture();var selection=new SelectionSpec(1,false,null);
         foreach(int dx in new[]{-1,1})foreach(int dy in new[]{-1,1})
         {
-            g.Begin(100,100,selection);g.Move(100+80*dx,100+60*dy,true,1);
+            g.Begin(100,100,selection,false);g.Move(100+80*dx,100+60*dy,true,1);
             var large=g.Area;
             g.Move(100+20*dx,100+15*dy,true,1);
             Check(g.Area.Width==20 && g.Area.Height==15 && g.Area.Width<large.Width && g.Area.Height<large.Height,"all four drag directions shrink while held toward their start");

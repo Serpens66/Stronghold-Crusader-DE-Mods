@@ -8,6 +8,7 @@ namespace UiAcceptance
             SpectatorSteps.Register();
             SpectatorPowerRegressionSteps.Register();
             InputSteps.Register();
+            ModKeybindSteps.Register();
             ProbeSteps.Register();
             LobbySteps.Register();
             AutoSendSteps.Register();
@@ -16,11 +17,14 @@ namespace UiAcceptance
             RelaySteps.Register();
             FireEscapeSteps.Register();
             HuntSteps.Register();
+            ArcherStartSteps.Register();
+            HuntAiCastleSteps.Register();
             HuntMpSteps.Register();
             TannerSteps.Register();
             MissionReadinessSteps.Register();
             WorkerProductionSteps.Register();
             LocalAutosaveSteps.Register();
+            LongMapSteps.Register();
         }
     }
 }

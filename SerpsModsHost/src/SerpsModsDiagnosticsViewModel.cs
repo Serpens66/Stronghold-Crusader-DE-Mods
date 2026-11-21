@@ -15,8 +15,7 @@ namespace SerpsModsHost
 {
     public sealed partial class SerpsModsDiagnosticsViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel
     {
-        private readonly object sync = new object();
-        private readonly List<string> errors = new List<string>();
+        internal PackErrorLog ErrorLog { get; }
         private Action refreshAction;
         private string packVersion = "unknown";
         private int expectedCount;
@@ -32,8 +31,10 @@ namespace SerpsModsHost
         private string globalResetStatus = string.Empty;
         private bool globalResetStatusIsError;
 
-        public SerpsModsDiagnosticsViewModel()
+        internal SerpsModsDiagnosticsViewModel(HashSet<string> expectedLogSources)
         {
+            ErrorLog = new PackErrorLog(expectedLogSources,
+                APIShared.ApiShared.ForMod(SerpsModsHostRuntime.PluginGuid).Ui.TryPost, RefreshErrorProperties);
             RefreshCommand = new RelayCommand(() => { RefreshRestartPreparation(); refreshAction?.Invoke(); });
             InitializeRestartPreparation();
             ClearErrorsCommand = new RelayCommand(ClearErrors);
@@ -121,6 +122,9 @@ namespace SerpsModsHost
         public string GameModeNoticeText => SerpLocalization.Get(SerpLocalization.SerpsModsGameModeNotice);
         public string SummaryTitleText => SerpLocalization.Get(SerpLocalization.SerpsModsSummaryTitle);
         public string ErrorsTitleText => SerpLocalization.Get(SerpLocalization.SerpsModsErrorsTitle);
+        public string HookFailureNoticeText => SerpLocalization.Get(SerpLocalization.SerpsModsHookFailureNotice);
+        public string LatestHookFailure => ErrorLog.LatestHookFailure;
+        public Visibility HookFailureVisibility => LatestHookFailure == null ? Visibility.Collapsed : Visibility.Visible;
         public string RefreshText => SerpLocalization.Get(SerpLocalization.SerpsModsRefresh);
         public string RefreshHelpText => SerpLocalization.Get(SerpLocalization.SerpsModsRefreshHelp);
         public string ClearErrorsText => SerpLocalization.Get(SerpLocalization.SerpsModsClearErrors);
@@ -137,22 +141,8 @@ namespace SerpsModsHost
             "Expected", expectedCount,
             "Validated", validatedCount,
             "Registered", registeredCount);
-        public string ErrorsText
-        {
-            get
-            {
-                lock (sync)
-                    return errors.Count == 0 ? NoErrorsText : string.Join(Environment.NewLine, errors.ToArray());
-            }
-        }
-        public Visibility ErrorVisibility
-        {
-            get
-            {
-                lock (sync)
-                    return errors.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
-            }
-        }
+        public string ErrorsText => ErrorLog.HasErrors ? ErrorLog.Text : NoErrorsText;
+        public Visibility ErrorVisibility => ErrorLog.HasErrors ? Visibility.Visible : Visibility.Collapsed;
 
         public void SetRefreshAction(Action action) => refreshAction = action;
 
@@ -332,28 +322,16 @@ namespace SerpsModsHost
             OnPropertyChanged(nameof(ScriptExtenderCompatibilityWarningVisibility));
         }
 
-        public void RecordError(string text)
-        {
-            if (string.IsNullOrWhiteSpace(text))
-                return;
+        public void RecordError(string text) => ErrorLog.Record(text);
 
-            string line = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {text.Trim()}";
-            lock (sync)
-            {
-                if (errors.Count > 199)
-                    errors.RemoveAt(0);
-                errors.Add(line);
-            }
+        private void ClearErrors() => ErrorLog.Clear();
+
+        private void RefreshErrorProperties()
+        {
             OnPropertyChanged(nameof(ErrorsText));
             OnPropertyChanged(nameof(ErrorVisibility));
-        }
-
-        private void ClearErrors()
-        {
-            lock (sync)
-                errors.Clear();
-            OnPropertyChanged(nameof(ErrorsText));
-            OnPropertyChanged(nameof(ErrorVisibility));
+            OnPropertyChanged(nameof(LatestHookFailure));
+            OnPropertyChanged(nameof(HookFailureVisibility));
         }
     }
 }

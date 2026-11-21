@@ -1,0 +1,328 @@
+{
+  "enabled": true,
+  "quitDelayMs": 1800,
+  "series": "SP-trail-autosave-customize",
+  "steps": [
+    {
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "menu",
+      "do": "WaitMainMenu",
+      "args": [],
+      "timeoutMs": 120000
+    },
+    {
+      "id": "fixture-no-castle-preview",
+      "stopOnFail": true,
+      "do": "SetModSetting",
+      "allowErrors": true,
+      "timeoutMs": 15000,
+      "args": [
+        "CastlePlanner.CastlePlannerPlugin::processSettings",
+        "EnableMod",
+        "false"
+      ]
+    },
+    {
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "VanillaTrail-menu",
+      "do": "ViewCommand",
+      "args": [
+        "ButtonMainMenuCommand",
+        "Trail"
+      ],
+      "timeoutMs": 15000
+    },
+    {
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "VanillaTrail-customize",
+      "do": "ViewCommand",
+      "args": [
+        "ButtonMainMenuCommand",
+        "Customize"
+      ],
+      "timeoutMs": 15000
+    },
+    {
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "VanillaTrail-open",
+      "do": "Lobby.Button",
+      "args": [
+        "Setup"
+      ],
+      "timeoutMs": 15000
+    },
+    {
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "VanillaTrail-interval",
+      "do": "Lobby.Button",
+      "args": [
+        "Settings_Autosave"
+      ],
+      "timeoutMs": 15000
+    },
+    {
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "VanillaTrail-apply",
+      "do": "Lobby.Button",
+      "args": [
+        "ApplySettings"
+      ],
+      "timeoutMs": 15000
+    },
+    {
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "VanillaTrail-play",
+      "do": "Lobby.Play",
+      "args": [],
+      "timeoutMs": 90000
+    },
+    {
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "VanillaTrail-briefing",
+      "do": "ViewCommand",
+      "args": [
+        "ButtonBriefingResumeCommand",
+        ""
+      ],
+      "timeoutMs": 15000
+    },
+    {
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "VanillaTrail-ticks",
+      "do": "Wait",
+      "args": [
+        "1000"
+      ],
+      "timeoutMs": 15000
+    },
+    {
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "VanillaTrail-active",
+      "do": "Autosave.ExpectInterval",
+      "args": [
+        "5",
+        "VanillaTrail",
+        "Customized"
+      ],
+      "timeoutMs": 15000
+    },
+    {
+      "timeoutMs": 15000,
+      "do": "IngameMenuOpen",
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "restart-menu"
+    },
+    {
+      "do": "ViewCommand",
+      "timeoutMs": 15000,
+      "args": [
+        "ButtonIngameMenuCommand",
+        "5"
+      ],
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "restart-action"
+    },
+    {
+      "do": "ViewCommand",
+      "timeoutMs": 15000,
+      "args": [
+        "ButtonConfirmationCommand",
+        "1"
+      ],
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "restart-confirm"
+    },
+    {
+      "do": "WaitMission",
+      "timeoutMs": 75000,
+      "args": [
+        "any"
+      ],
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "restart-load"
+    },
+    {
+      "do": "ViewCommand",
+      "timeoutMs": 15000,
+      "args": [
+        "ButtonBriefingResumeCommand",
+        ""
+      ],
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "restart-briefing"
+    },
+    {
+      "do": "Wait",
+      "timeoutMs": 15000,
+      "args": [
+        "1000"
+      ],
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "restart-ticks"
+    },
+    {
+      "do": "Autosave.ExpectInterval",
+      "timeoutMs": 15000,
+      "args": [
+        "5",
+        "VanillaTrail",
+        "Customized",
+        "restart"
+      ],
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "restart-interval"
+    },
+    {
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "next-menu",
+      "do": "QuitToMenu",
+      "args": [
+        "menu"
+      ],
+      "timeoutMs": 30000
+    },
+    {
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "SandsOfTime-menu",
+      "do": "ViewCommand",
+      "args": [
+        "ButtonMainMenuCommand",
+        "Sands1"
+      ],
+      "timeoutMs": 15000
+    },
+    {
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "SandsOfTime-customize",
+      "do": "ViewCommand",
+      "args": [
+        "ButtonMainMenuCommand",
+        "Customize"
+      ],
+      "timeoutMs": 15000
+    },
+    {
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "cancel-open",
+      "do": "Lobby.Button",
+      "args": [
+        "Setup"
+      ],
+      "timeoutMs": 15000
+    },
+    {
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "cancel-draft",
+      "do": "Lobby.Button",
+      "args": [
+        "Settings_Autosave"
+      ],
+      "timeoutMs": 15000
+    },
+    {
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "cancel",
+      "do": "Lobby.Button",
+      "args": [
+        "CancelSettings"
+      ],
+      "timeoutMs": 15000
+    },
+    {
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "SandsOfTime-open",
+      "do": "Lobby.Button",
+      "args": [
+        "Setup"
+      ],
+      "timeoutMs": 15000
+    },
+    {
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "SandsOfTime-interval",
+      "do": "Lobby.Button",
+      "args": [
+        "Settings_Autosave"
+      ],
+      "timeoutMs": 15000
+    },
+    {
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "SandsOfTime-apply",
+      "do": "Lobby.Button",
+      "args": [
+        "ApplySettings"
+      ],
+      "timeoutMs": 15000
+    },
+    {
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "SandsOfTime-play",
+      "do": "Lobby.Play",
+      "args": [],
+      "timeoutMs": 90000
+    },
+    {
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "SandsOfTime-briefing",
+      "do": "ViewCommand",
+      "args": [
+        "ButtonBriefingResumeCommand",
+        ""
+      ],
+      "timeoutMs": 15000
+    },
+    {
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "SandsOfTime-ticks",
+      "do": "Wait",
+      "args": [
+        "1000"
+      ],
+      "timeoutMs": 15000
+    },
+    {
+      "stopOnFail": true,
+      "allowErrors": true,
+      "id": "SandsOfTime-active",
+      "do": "Autosave.ExpectInterval",
+      "args": [
+        "5",
+        "SandsOfTime",
+        "Customized"
+      ],
+      "timeoutMs": 15000
+    }
+  ],
+  "quitWhenDone": true,
+  "role": "sp"
+}

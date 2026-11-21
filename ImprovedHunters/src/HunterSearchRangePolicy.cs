@@ -8,7 +8,8 @@ namespace ImprovedHunters
     {
         public const int Unlimited = 0;
         public const int MinimumRange = 21;
-        public const int MaximumRange = 200;
+        public const int DefaultRange = 200;
+        public const int MaximumRange = 400;
 
         public static int Clamp(int value)
         {

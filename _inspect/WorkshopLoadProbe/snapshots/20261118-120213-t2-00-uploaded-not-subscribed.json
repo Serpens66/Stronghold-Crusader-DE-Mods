@@ -1,0 +1,26 @@
+{
+    "TimeLocal":  "2026-11-18 12:02:13.797",
+    "Label":  "t2-00-uploaded-not-subscribed",
+    "ItemId":  "3841874432",
+    "SteamRunning":  true,
+    "GameRunning":  false,
+    "Acf":  {
+                "LastWriteUtc":  "2026-11-18T10:54:18.5426939Z",
+                "App":  {
+                            "appid":  "3024040",
+                            "SizeOnDisk":  "1020284568",
+                            "NeedsUpdate":  "0",
+                            "NeedsDownload":  "0",
+                            "TimeLastUpdated":  "1794979215",
+                            "TimeLastFullCheck":  "1794999258",
+                            "TimeLastAppRan":  "1794999247",
+                            "LastBuildID":  "24816905"
+                        },
+                "Item":  {
+
+                         }
+            },
+    "Content":  null,
+    "Downloads":  null,
+    "Temp":  null
+}

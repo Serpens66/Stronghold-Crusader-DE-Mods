@@ -7,7 +7,6 @@ using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Buildings;
-using SHCDESE.EventAPI.Input;
 using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
@@ -27,15 +26,8 @@ namespace CastlePlanner
         private delegate void EditorPlayerActionDelegate(EditorDirector self, int playerId);
 
         private const float ViewSettleDelaySeconds = 0.5f;
-        private static readonly KeyCode[] CaptureMouseButtons =
-        {
-            KeyCode.Mouse0, KeyCode.Mouse1, KeyCode.Mouse2,
-            KeyCode.Mouse3, KeyCode.Mouse4, KeyCode.Mouse5, KeyCode.Mouse6
-        };
         private readonly List<IDisposable> subscriptions =
             new List<IDisposable>();
-        private readonly HashSet<KeyCode> hotkeyCaptureIgnoredKeys =
-            new HashSet<KeyCode>();
         private ManualLogSource log;
         private CastlePlannerSettingsViewModel settings;
         private FreeCastlePreviewRuntime preview;
@@ -53,8 +45,6 @@ namespace CastlePlanner
         private bool showAfterPrepare;
         private bool blueprintVisible;
         private bool controlledKeepAvailable;
-        private bool hotkeyCapturePending;
-        private int hotkeyCaptureStartFrame;
         private int lastRotation = int.MinValue;
         private bool lastFlattenedLandscape;
         private float pendingViewSettleTime = -1f;
@@ -118,8 +108,6 @@ namespace CastlePlanner
                 OnBlueprintVisualSettingsChanged;
             settings.BlueprintContentSettingsChanged +=
                 OnBlueprintContentSettingsChanged;
-            settings.HotkeyCaptureRequested += OnHotkeyCaptureRequested;
-            subscriptions.Add(InputR3EventHooks.OnKeyDown.Observable.Subscribe(OnKeyDown));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnBuildingSpawned));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingDelete.Observable.Subscribe(OnBuildingDeleted));
             preview.SelectionVisualChanged += OnPreviewSelectionChanged;
@@ -141,6 +129,10 @@ namespace CastlePlanner
                     .Subscribe(OnUnloadMap));
 
             initialized = true;
+            if (!settings.TryRegisterBlueprintKeybind(
+                () => layout != null && EffectiveBlueprintMode && mapActive && CanUseGameplayHotkeys(),
+                ToggleBlueprint, out string keybindReason))
+                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/BlueprintKeybind", "Blueprint keybind registration failed: " + keybindReason);
             RefreshHud();
             // Blueprint input, camera, and overlay work must follow rendered frames even while
             // simulation ticks are paused. This verified static callback survives startup, and
@@ -232,7 +224,7 @@ namespace CastlePlanner
 
         private void RequestFrame() => frameWork?.Request();
 
-        private bool NeedsFrames() => blueprintVisible || hotkeyCapturePending || depthLoadReady ||
+        private bool NeedsFrames() => blueprintVisible || depthLoadReady ||
             mapActive && buildingImageLibrary.HasCompletedDepthRead || (Hud?.RequiresFrameInput ?? false) ||
             hudObserverPending || editorSessionActive && editorControlledPlayerId < 1;
 
@@ -269,7 +261,7 @@ namespace CastlePlanner
             spectatorSampling = HasSpectatorIdentity && EffectiveBlueprintMode && (spectatorRequested || Hud.SettingsPanelVisible);
             if (HasSpectatorIdentity && System.Threading.Volatile.Read(ref spectatorDirty) != 0) UpdateSpectatorBlueprint();
             // A hidden projection has no frame-dependent work after its one-time preparation.
-            if (!blueprintVisible && !hotkeyCapturePending && !depthLoadReady &&
+            if (!blueprintVisible && !depthLoadReady &&
                 !(mapActive && buildingImageLibrary.HasCompletedDepthRead) &&
                 !(Hud?.RequiresFrameInput ?? false) &&
                 !hudObserverPending &&
@@ -320,7 +312,6 @@ namespace CastlePlanner
             Hud?.EnsureInteractiveElementsAttached();
             Hud?.CompleteCastleSearchOpeningClick();
             Hud?.ProcessOpenDropDownWheel();
-            UpdateHotkeyCapture();
             if (editorSessionActive && editorControlledPlayerId < 1)
                 RefreshEditorPlayer();
 
@@ -550,147 +541,6 @@ namespace CastlePlanner
                 return;
 
             OnSettingsChanged();
-        }
-
-        private void OnHotkeyCaptureRequested()
-        {
-            hotkeyCapturePending = true;
-            RequestFrame();
-            hotkeyCaptureStartFrame = Time.frameCount;
-            hotkeyCaptureIgnoredKeys.Clear();
-
-            // Ignore mouse buttons already held by the click that opened capture.
-            foreach (KeyCode key in CaptureMouseButtons)
-            {
-                if (TryGetKey(key, out bool pressed) && pressed)
-                    hotkeyCaptureIgnoredKeys.Add(key);
-            }
-
-            if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/BlueprintRuntimeController/OnHotkeyCaptureRequested", () => $"Blueprint hotkey capture armed; ignoredHeldMouseButtons=" +
-                    $"{hotkeyCaptureIgnoredKeys.Count}.");
-        }
-
-        private void OnKeyDown(UnityInputEventArgs args)
-        {
-            if (args == null || args.Phase != EventHookPhase.Pre)
-                return;
-            if (!hotkeyCapturePending)
-            {
-                if (args.Key == settings.BlueprintHotkeyCode &&
-                    args.Key != KeyCode.None && layout != null &&
-                    EffectiveBlueprintMode && mapActive && CanUseGameplayHotkeys() &&
-                    (Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt)) == settings.BlueprintHotkeyAlt &&
-                    (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) == settings.BlueprintHotkeyControl &&
-                    (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)) == settings.BlueprintHotkeyShift)
-                    ToggleBlueprint();
-                return;
-            }
-            if (Time.frameCount <= hotkeyCaptureStartFrame)
-                return;
-            try
-            {
-                if (IsCaptureWindowActive())
-                {
-                    CompleteHotkeyCapture(args.Key, "Script Extender OnKeyDown");
-                    return;
-                }
-                settings.CancelHotkeyCapture();
-                StopHotkeyCapture();
-            }
-            catch (Exception ex)
-            {
-                settings.CancelHotkeyCapture();
-                StopHotkeyCapture();
-                Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/BlueprintRuntimeController/OnKeyDown", $"Blueprint hotkey capture failed: {ex}");
-            }
-        }
-
-        private bool IsCaptureWindowActive()
-        {
-            var hub = SHCDESE.BepInEx.Bootstrap.Plugin.ModSettingsHubViewModel;
-            return hub != null &&
-                   hub.WindowVisibility == Noesis.Visibility.Visible &&
-                   ReferenceEquals(hub.SelectedTab?.ViewModel, settings);
-        }
-
-        private void UpdateHotkeyCapture()
-        {
-            if (hotkeyCapturePending && !IsCaptureWindowActive())
-                settings.CancelHotkeyCapture();
-            if (hotkeyCapturePending && !settings.IsCapturingHotkey)
-            {
-                StopHotkeyCapture();
-                return;
-            }
-
-            if (!hotkeyCapturePending ||
-                Time.frameCount <= hotkeyCaptureStartFrame)
-            {
-                return;
-            }
-
-            foreach (KeyCode key in CaptureMouseButtons)
-            {
-                if (!TryGetKey(key, out bool pressed))
-                    continue;
-
-                if (hotkeyCaptureIgnoredKeys.Contains(key))
-                {
-                    if (!pressed)
-                        hotkeyCaptureIgnoredKeys.Remove(key);
-                    continue;
-                }
-
-                if (!pressed)
-                    continue;
-
-                if (CompleteHotkeyCapture(key, "Unity mouse held-state scan"))
-                    return;
-                hotkeyCaptureIgnoredKeys.Add(key);
-            }
-        }
-
-        private bool CompleteHotkeyCapture(KeyCode key, string source)
-        {
-            if (key != KeyCode.Escape &&
-                !CastlePlannerSettingsViewModel.IsMainHotkey(key))
-                return false;
-            bool alt = Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
-            bool control = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
-            bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-            if (!settings.CompleteHotkeyCapture(key, alt, control, shift))
-                return false;
-            StopHotkeyCapture();
-            if (Shared.DebugLogHelper.DiagnosticsEnabled)
-            {
-                // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
-                var diagnosticKey = @key;
-                var diagnosticSource = @source;
-                Shared.DebugLogHelper.LogDebugLimited(log, "CastlePlanner/BlueprintRuntimeController/CompleteHotkeyCapture", () => $"Blueprint hotkey capture finished: key={diagnosticKey}, " +
-                    $"value={(int)diagnosticKey}, source={diagnosticSource}.");
-            }
-            return true;
-        }
-
-        private void StopHotkeyCapture()
-        {
-            hotkeyCapturePending = false;
-            hotkeyCaptureIgnoredKeys.Clear();
-        }
-
-        private static bool TryGetKey(KeyCode key, out bool pressed)
-        {
-            try
-            {
-                pressed = Input.GetKey(key);
-                return true;
-            }
-            catch
-            {
-                pressed = false;
-                return false;
-            }
         }
 
         private void SchedulePrepare(bool restoreVisibility)

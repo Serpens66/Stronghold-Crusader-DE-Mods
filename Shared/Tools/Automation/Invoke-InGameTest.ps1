@@ -100,13 +100,49 @@ function Read-TestUnityLog {
     finally { $sha256.Dispose(); $buffer.Dispose(); $inputLog.Dispose() }
 }
 
-function Get-TestGame {
-    $gameProcesses = @(Get-Process -Name $processName -ErrorAction SilentlyContinue)
-    if ($gameProcesses.Count -eq 0) { return }
-    if ($gameProcesses.Count -ne 1 -or $gameProcesses[0].Path -ine $gameExe) {
-        throw 'A game process could not be identified as the selected installation.'
+function Get-TestGame([int]$PathWaitSeconds = 0) {
+    # Directly after a Steam start the image path can be unreadable for a moment (run c8731202 on 18.11.2026).
+    $clock = [Diagnostics.Stopwatch]::StartNew()
+    $reported = $false
+    while ($true) {
+        $gameProcesses = @(Get-Process -Name $processName -ErrorAction SilentlyContinue)
+        $selection = $null
+        try { $selection = Select-InGameTestProcess $gameProcesses $gameExe }
+        finally {
+            foreach ($candidate in $gameProcesses) {
+                if (-not [object]::ReferenceEquals($candidate, $selection.Process)) { $candidate.Dispose() }
+            }
+        }
+        if ($selection.State -ne 'Pending') {
+            if ($reported) { Write-TestProgress ('Game process identified after {0:N1} s.' -f $clock.Elapsed.TotalSeconds) }
+            return $selection.Process
+        }
+        if ($clock.Elapsed.TotalSeconds -ge $PathWaitSeconds) {
+            throw "A game process could not be identified as the selected installation within $PathWaitSeconds s ($($selection.Detail))."
+        }
+        if (-not $reported) {
+            $reported = $true
+            Write-TestProgress "Game process path is not readable yet ($($selection.Detail)); retrying for up to $PathWaitSeconds s."
+        }
+        Start-Sleep -Milliseconds 250
     }
-    return $gameProcesses[0]
+}
+
+function Wait-TestGameExit([int]$Seconds) {
+    # Restoration must not touch files while any game process may still own them.
+    $clock = [Diagnostics.Stopwatch]::StartNew()
+    $nextReport = 0
+    while ($true) {
+        $gameProcesses = @(Get-Process -Name $processName -ErrorAction SilentlyContinue)
+        foreach ($candidate in $gameProcesses) { $candidate.Dispose() }
+        if ($gameProcesses.Count -eq 0) { return $true }
+        if ($clock.Elapsed.TotalSeconds -ge $Seconds) { return $false }
+        if ($clock.Elapsed.TotalSeconds -ge $nextReport) {
+            Write-TestProgress ('Waiting for the unmonitored game process to exit before restoring ({0:N0}/{1} s).' -f $clock.Elapsed.TotalSeconds, $Seconds)
+            $nextReport += 60
+        }
+        Start-Sleep -Seconds 1
+    }
 }
 
 function Wait-TestCrashHandler {
@@ -128,6 +164,7 @@ $mutex = [Threading.Mutex]::new($false, 'Local\SHCDE.InGameTest.3024040')
 $locked = $false
 $instance = $null
 $recovery = $false
+$steamStarted = $false
 $runLogIsolated = $false
 $previousPlayerLog = $null
 $saveSnapshot = $null
@@ -184,9 +221,10 @@ try {
 
     $watch = [Diagnostics.Stopwatch]::StartNew()
     Write-TestProgress 'Starting the game through Steam.'
+    $steamStarted = $true
     Start-Process -FilePath 'steam://rungameid/3024040' -WindowStyle Hidden
     $retried = $false
-    while (-not ($instance = Get-TestGame)) {
+    while (-not ($instance = Get-TestGame -PathWaitSeconds 30)) {
         if ([IO.File]::Exists($log)) { throw 'GAME_CRASH: the game wrote its startup log and exited before its process could be observed.' }
         if ($watch.Elapsed.TotalSeconds -ge 90) { throw 'START_FAILED: Steam did not start the game within 90 seconds.' }
         if (-not $retried -and $watch.Elapsed.TotalSeconds -ge 45) {
@@ -206,6 +244,13 @@ try {
 catch { $failure = $_.Exception.Message }
 finally {
     try {
+        if ($recovery -and $steamStarted -and -not $instance) {
+            # Start or identification failed while the game may still run the armed test; restore after it exits.
+            if (-not (Wait-TestGameExit $TimeoutSeconds)) {
+                Write-TestProgress 'The unmonitored game process is still running after the timeout.'
+                $instance = Get-TestGame -PathWaitSeconds 30
+            }
+        }
         if ($instance -and -not $instance.HasExited) {
             $instance.Kill()
             if (-not $instance.WaitForExit(15000)) { throw 'The test process did not exit after termination.' }

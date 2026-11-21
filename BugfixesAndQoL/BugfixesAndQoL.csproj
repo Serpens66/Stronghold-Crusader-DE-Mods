@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.229.0</AssemblyVersion>
-    <FileVersion>1.0.229.0</FileVersion>
+    <AssemblyVersion>1.0.235.0</AssemblyVersion>
+    <FileVersion>1.0.235.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -32,6 +32,7 @@
     <Compile Include="src\AreaDemolition\*.cs" />
     <Compile Include="src\PitchMoatLines\*.cs" />
     <Compile Include="src\Lobby\LocalAutosaveRuntime.cs" />
+    <Compile Include="src\Lobby\LongMapFileNames.cs" />
     <Compile Include="src\Lobby\LocalAutosavePendingChoice.cs" />
     <Compile Include="src\Lobby\LocalAutosaveMenuControl.cs" />
     <Compile Include="src\Lobby\LocalAutosaveInputPolicy.cs" />
@@ -122,12 +123,15 @@
     <Compile Include="..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Diagnostics\DevDiag.cs"><Link>Shared\Runtime\Diagnostics\DevDiag.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Persistence\DependencyFreeJson.cs"><Link>Shared\Runtime\Persistence\DependencyFreeJson.cs</Link></Compile>
+    <Compile Include="..\Shared\Adapters\APIShared\MenuToolTip.cs"><Link>Shared\Adapters\APIShared\MenuToolTip.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Persistence\PersonalDataFile.cs"><Link>Shared\Runtime\Persistence\PersonalDataFile.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Persistence\PersonalDataIO.cs"><Link>Shared\Runtime\Persistence\PersonalDataIO.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\UI\CoopTrailSetupPresentation.cs"><Link>Shared\Runtime\UI\CoopTrailSetupPresentation.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\NativeBuildingCompoundGroup.cs"><Link>Shared\Runtime\Native\NativeBuildingCompoundGroup.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Threading\UnityMainThreadDispatch.cs"><Link>Shared\Runtime\Threading\UnityMainThreadDispatch.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\NativePatternResolver.cs"><Link>Shared\Runtime\Native\NativePatternResolver.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Native\CommittedMemory.cs"><Link>Shared\Runtime\Native\CommittedMemory.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Native\NativePatchGuard.cs"><Link>Shared\Runtime\Native\NativePatchGuard.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\NativeResolutionCache.cs"><Link>Shared\Runtime\Native\NativeResolutionCache.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\NativeInstructionOperands.cs"><Link>Shared\Runtime\Native\NativeInstructionOperands.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Localization\SerpLocalization.cs"><Link>Shared\Runtime\Localization\SerpLocalization.cs</Link></Compile>
@@ -194,6 +198,7 @@
     <Compile Include="src\Multiplayer\MultiplayerGameSpeedChangePacket.cs" />
     <Compile Include="src\Multiplayer\MultiplayerGameSpeedPolicy.cs" />
     <Compile Include="src\Multiplayer\MultiplayerGameSpeedRuntime.cs" />
+    <Compile Include="src\Multiplayer\MultiplayerAutosavePausePatch.cs" />
     <Compile Include="src\Multiplayer\MultiplayerSafetyPolicy.cs" />
     <Compile Include="src\Multiplayer\MultiplayerTimeControlPermission.cs" />
     <Compile Include="src\Multiplayer\MultiplayerTimeControlRosterPolicy.cs" />
@@ -244,6 +249,10 @@
     <Compile Include="src\Settings\ModSettingsPresentation.Recommendations.cs" />
     <Compile Include="src\AI\Fixes\KeepFlagRotationPolicy.cs" />
     <Compile Include="src\AI\Fixes\KeepFlagRotationRuntime.cs" />
+    <Compile Include="src\AI\Fixes\KeepFlagRotationNative.cs" />
+    <Compile Include="src\AI\Fixes\KeepFlagRotationTrampoline.cs" />
+    <Compile Include="src\Multiplayer\MoatLandRotationPatch.cs" />
+    <Compile Include="src\Multiplayer\MoatLandRotationNative.cs" />
     <Compile Include="src\AI\Fixes\CorruptLordDataSpawnPolicy.cs" />
     <Compile Include="src\AI\Fixes\CorruptLordDataSpawnRuntime.cs" />
     <Compile Include="src\AI\Prebuilt\PrebuiltAiWorkshopBothFixRuntime.cs" />
@@ -259,6 +268,7 @@
     <Compile Include="src\Notifications\NotificationLastFrameFeature.cs" />
     <Compile Include="src\Notifications\NotificationSpeechPlayback.cs" />
     <Compile Include="src\Notifications\NotificationSkipPolicy.cs" />
+    <Compile Include="src\Notifications\CustomLordNervousSpeechFix.cs" />
     <Compile Include="src\Buildings\EnemyProximityBulldozeCursorHook.cs" />
     
     
@@ -320,6 +330,7 @@
     <Compile Include="src\Hud\ForeignTroopHudView.cs" />
     <Compile Include="src\Hud\ForeignTroopPortraits.cs" />
     <Compile Include="src\Hud\ForeignTroopPlayerColors.cs" />
+    <Compile Include="src\Hud\TroopPanelPageCountFix.cs" />
     <Compile Include="src\BuildPreview\*.cs" />
     <Compile Include="src\Hud\DamagedHealthBarsRuntime.cs" />
     <Compile Include="src\Hud\HealthBarNativeContract.cs" />

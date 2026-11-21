@@ -41,7 +41,7 @@ After the hit nothing depends on the victim's owner except the local warning at
   `0x11`, `0x22`, `0x13`). With owner 0 no building is found, so a neutral chicken loses this.
 - `0xD29E0`: target 0 without food, then by food up to 10. Below target it spawns at a
   random bakery, mill or granary (`0xBF510`). Above target it sets state `0x6E` on the
-  first chicken of **that owner**. The flags of `cmp eax,[rdi+0x2048]` at `0xD2ABF` decide
+  first chicken of **that owner**. `0xD1AD0` invokes this path at step `0xB4` of its 200-step cycle, so each active player can gain one chicken every 200 simulation ticks. The flags of `cmp eax,[rdi+0x2048]` at `0xD2ABF` decide
   both branches.
 
 ## Reservation
@@ -54,7 +54,7 @@ A value of 1 means one prey update has passed since the last refresh.
 ## Rabbits and melee
 
 - Tribe flag `+0x58E` (absolute `0x7CC6CAE`): cleared by every order at `0x11E9CA`, set by
-  Vanilla only in the ranged branches of orders 4 and `0x20/0x21`, read only at `0x18F31C`.
+  Vanilla's ranged branches of orders 4 and `0x20` when the target is a rabbit, read only at `0x18F31C`.
 - Melee contact: `0x182B00` -> `0x195170` -> `0x188A20` -> `0x1867A0` with `r9b == 0`; a
   rabbit target returns "attackable" at `0x186952`. The stance scan `0x18C160` rejects
   rabbits at `0x18C731`.
@@ -115,7 +115,7 @@ from `+0x2EC` again (`0x89F40`, `0x97380`) and only those panels read it (`0x19D
 
 State 1 (`0x12FF38`) decides the stage (`+0x348`, read at manager `+0x9A4`) anew on every update from the Manhattan
 distance EDI to the target: over 40 stage 1, over 36 stage 2, over 34 stage 3, over 32 stage 4, over 30 stage 6, over 28
-stage 8, otherwise 10. Nothing in Vanilla holds a stage once chosen. Chebyshev 20 or less on the tile fields triggers the new search.
+stage 8, otherwise 10. Nothing in Vanilla holds a stage once chosen. The separate near refresh uses Chebyshev distance at most 20 on the world coordinates (8 world units per tile), as detailed below.
 
 ## Herd flight and respawn [Scope: Vanilla]
 
@@ -365,8 +365,8 @@ attacks an animal by itself:
   mask `0x40000400001` from type `0x2D`).
 - Ranged target search inside `0x18E9A0`, type switch at `0x18F2B2` (types `0x2C`-`0x57`): deer and goats only for Hunters, rabbits
   only with the attacker's tribe flag `+0x58E` and never for Hunters, lions and hyenas only when their herd attacks (`+0x606`,
-  `+0x608`, or AI state `0xCF` on a non-animal), war dogs of another team; the other types pass this switch and depend on
-  `0x1867A0`. The tribe flag is cleared by every order (`0x11E9CA`) and set only in the ranged branches of orders 4 and `0x20/0x21`.
+  `+0x608`, or AI state `0xCF` on a non-animal), war dogs of another team. Crocodiles pass this switch and are ordinary
+  hostile candidates. The separate explicit-order branch calls `0x1867A0` for non-Hunters before preparing the target.
 
 ## Hunter meat inventory, worker identity and retirement boundary (2026-11-15) [Scope: Vanilla]
 
@@ -437,3 +437,179 @@ it, then later performs ordinary building update `0xC60F0`, AIV update `0x57330`
 and unit passes `0x182B00`/`0x187B30`. Earlier helpers called by `0xD1AD0` return
 before this boundary; no HunterUpdate is suspended at it. This native ordering
 does not by itself prove where a future external tick publisher will execute.
+
+## Startup archers and rabbit permission (2026-11-19) [Scope: Vanilla]
+
+The installed DLL and semantic manifest matched SHA-256 `FBCB9319…31E2`. The map's
+starting-troop dispatcher `0x119050` can call `0x117D20`, which places each group's
+members at a common position and assigns them to the tribe. Archer update `0x13F540`
+can fill the aim field while in formation-move state 101. This state can propagate
+automatic targeting through group order `0x21`; the ordinary shooting states
+4/5/6 are distinct. The formation movement ends through `0x188340`, which requires
+path flags zero and either a zero selected connection record or resolved destination
+coordinates equal to the current tile. Archer state 6 releases the arrow at frame 6
+after rechecking line of sight, target global ID, life, corpse state, applicable type
+and range. A failed release re-runs target selection and can re-enter state 5 on a
+valid alternative. State 5 can also abandon a target killed during state 4.
+
+The ordinary ranged query's rabbit branch at `0x18F31C` uses the same tribe flag for
+human and AI owners. Order `0x20` and automatic group order `0x21` enter the same
+dispatcher block at `0x11F156`. The ranged branch at `0x11F230` sends `0x21` past
+the explicit target writes and the rabbit flag store at `0x11F2AF`; automatic
+propagation cannot grant permission there. The other writer at `0x11EC89` is the
+ranged branch of order 4. All orders first clear the flag at `0x11E9CA`.
+
+## Startup archer and rabbit observations [mod integration]
+
+On `testanimals.map` in skirmish with ImprovedHunters 1.2.3 and the installed
+Script Extender and Fixes (2026-11-19, runs
+`.work/a/hunter-start-sight/006` and `007`):
+
+- All five human starting archers aimed at crocodile 268/global 358 while following
+  formation routes of 3–5 tiles at tick 204. The target stood on land, about 50 tiles
+  away, with equal effective and native ArcherArrow ranges of 54 and positive sight.
+  Without a player command, all five finished forming and fired at crocodiles in
+  ticks 355–376. The first intended-target damage was logged at tick 455.
+- Twelve actual arrows targeted crocodiles before the group's first move at tick 728,
+  which left rabbit permission at zero. A genuine aborted release was traced on
+  archer 2262/global 2744: wind-up at tick 439, target crocodile 189/global 249
+  killed by another archer at 464, wind-up on crocodile 269/global 360 at 487 and
+  an actual arrow on it at 531. The same pattern occurred when the second crocodile
+  was killed. A persistent no-release loop was not reproduced.
+- Six AI starting archers never aimed at a rabbit in either run. One selected a
+  crocodile at tick 911 with rabbit permission zero, and the test ended while it
+  had reached the release state. This observation concerns the tested start rather
+  than every AI command path.
+- In the separate control, neither of two nearby rabbits was aimed at or shot before
+  the explicit order. The group then fired on the ordered rabbit at tick 373 and on
+  the second rabbit at 486. Both targets died from actual arrows. A move at tick 848
+  cleared the group's permission from 1 to 0.
+
+## Final movement step and Hunter near refresh (2026-11-19) [Scope: Vanilla]
+
+On the same hash, movement at `0x1855A0` resets the substep (public unit `+0xF4`)
+to zero while queuing the next path step and increments the path index (`+0xF6`).
+The index can then equal the path length (`+0xF8`) while path state `+0xF2` is
+still 2 and the unit is finishing its step. The ordinary completion check takes
+place when the movement substep reaches 8. Treating index equality alone as
+arrival drops the first update of the final step, including its substep-zero
+opening for the attack gate in Hunter state 1.
+
+Hunter state 1 renews the target's reservation before its near-world-distance
+branch at `0x130069`. The distance helper `0x79C0` returns Manhattan distance for the tile-based speed and attack checks and writes the maximum axis difference at scratch `+0xC`. The near branch compares that scratch after calling the helper with world X/Y. At Chebyshev distance at most 20 world units it calls the ordinary
+query. That query rejects reserved units and checks minimum tile distances of
+20 and 5, so it can return zero while the current prey is live and visible.
+The return leads to state 6. The alternate branch at distance greater than 20
+can call the ordinary attack routine through its existing locomotion gate.
+
+## Corridor reproduction [mod integration]
+
+Real skirmish, two complete 12-tile wall lines separated by one walkable tile,
+`.work/a/hunter-start-sight/013`. At tick 1864 the live prey was visible in both
+directions at the last tile before its position. The positive snapshot was
+accepted at path state/substep/index/length `2/7/17/18`, while Vanilla waited
+for the locomotion gate. At `2/0/18/18` the old mod discarded its continuation
+with `path-unavailable-or-complete-2-18-18`. The native near query ran and the
+Hunter entered state 6 at tick 1874 with sight 6 in each direction. No arrow
+was created on that approach. A separately staged firing tile was used on the
+next approach. This failure is independent of the bidirectional sight rule.
+
+The first comparison that kept the final step in the continuation (`014`)
+accepted Vanilla's attack at path `2/0/18/18`. The Hunter still finished that
+step during state 9 and reached the prey's exact world position. The state-10
+sight check returned its identical-position sentinel, and Vanilla did create
+an arrow. The arrow was deleted with the prey still at 2500 HP. The ordinary
+post-shot continuation then sent the Hunter back toward the prey and repeated
+the approach. The final change stages an existing bounded firing-position
+search when the prey survives and is at most one Manhattan tile away, before
+the same-target State-0 MoveHere. A Hunter starting that retry on the prey's
+tile continues moving even when the sight routine reports the co-located
+points as visible.
+
+The release configuration in run `020` entered state 9 at tick 1874 in the
+same corridor geometry. Its first arrow at 2022 missed from the prey's tile.
+At 2099 the same prey received a new four-step approach, and the Hunter left
+the prey's tile. The next arrow at 2337 reduced the deer's HP to zero by tick
+2341. The Hunter carried nine meat and the delivery event fired. No return to
+the hut interrupted the two attempts.
+
+Run `020` also confirmed initially blocked sight at a crosswall and an
+offset corner. In both cases the Hunter changed position before firing,
+killed the deer and delivered meat. The existing separate building-obstacle
+scenario reached the meat carrying state. The combined run passed all 127
+steps. The open control (`017`) logged a real arrow, meat delivery and
+31 successful steps; the outer runner reported a transient log-sharing error
+after exit, with a verified restore. The disabled-pathfinding control
+(`018`) still failed to obtain meat in the one-tile corridor.
+
+In the eight-player `Distant Encounters` skirmish (`012` and `019`), the
+native prebuild option was enabled and all seven AI slots were The Pig.
+The test supplied only missing hut materials before the test mod's scheduled
+retry. Its own placement logic produced three Hunter huts in each run.
+The baseline Hunter killed a camel. The final build's Hunter killed an
+own-player chicken with a real arrow and entered the meat return path.
+The logs distinguish an intentional switch to nearer prey from the corridor
+abort. Neither eight-player run reproduced a population-wide exclusion of all
+reachable prey.
+
+## Hunter hut work cadence and multiplayer repair (2026-11-21) [Scope: Vanilla]
+
+Static audit of the installed DLL, SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The relevant PE instructions and table entries were checked against the semantic export.
+
+- Building dispatcher `0xC60F0` advances the production frame before calling the
+  type handler. With cycle mode nonzero, `0xC633C` increments the current tick
+  counter (public `GameBuilding +0x18`). The signed 32-bit comparison at
+  `0xC6355/0xC6359` tests current minus last-step counter (public `+0x14`)
+  against the configured interval (public `+0x10`). At the threshold it copies
+  current to last-step and adds the production increment (public `+0x2E`) to the
+  frame (public `+0x20`). The type-7 constructor default is 4 ticks per step
+  (`0xB4B8B`, table `0x2E8AA0 + 7*4`).
+- Handler `0xAE570` derives cycle mode from the worker interaction in the
+  building record. Its phase word (public `+0x118`) runs through phase 0
+  (16 frame advances), phases 1–6 (32 each), and phase 7 (16).
+  The animation data at `0x2DF558/0x2DF570/0x2DF598` and the endpoint branches
+  confirm those boundaries. The six middle phases each call `0xB6100` at
+  `0xAE928` with meat +1 and cap 6. The handler resets the frame at each phase
+  transition and signals completion at `0xAEA8C` (public `+0x2C`).
+  A regular uninterrupted cycle takes 224 frame advances, nominally 896
+  simulation ticks at the default interval. This count covers the hut phases.
+  The initial counter alignment, the worker's entry and exit, and transport
+  to the granary are separate from that count.
+- The host's repair loop `0x251F0` selects units and buildings by their
+  per-slot checksums. Chore 56 (`0x15710`) transfers unit ID, the native unit
+  record and its path. Chore 57 (`0x158B0`) transfers the building ID and all
+  `0x32C` bytes starting at the public building record. The building frame,
+  phase, interval and both cadence counters are therefore present when that
+  building is sent.
+- On the receiving peer, repair completion Chore 55 (`0x15200`) calls
+  `0xCA110(999)` at `0x15459` before the final checksum. The normalization
+  pass loads the type default at `0xCA371` and writes it to public building
+  `+0x10` at `0xCA379`. Hunter huts take this path and return to interval 4
+  even when a different interval was present in the Chore 57 payload.
+- The ordinary building checksum in `0x22020` includes public `+0x10`
+  (`0x2222D`) and the frame word at `+0x20` (`0x22213`), but neither
+  cadence counter at `+0x14/+0x18`. The hashed byte block starts at public
+  `+0xD0` and includes the phase word. A difference confined to the two
+  cadence counters therefore does not select a building for native repair.
+
+## APIShared Hunter state and repair transport (2026-11-21) [mod integration]
+
+In APIShared source at `13f7b1c98951`, the Hunter capture at `0x1306AE`
+keeps the Hunter Global ID, corpse Global ID and prey type in a private row
+keyed by Hunter slot. This row is saved separately and is absent from the
+native unit checksum and Chore 56 payload. The live unit's target Global ID
+can validate the row after the corpse disappears, but it does not supply the
+prey's type.
+
+APIShared already owns the receive validation, checksum contribution, and
+measurement, packing and unpacking of extended Chore 56 production records
+(`WorkerProductionStateNativeRuntime`). Its optional
+`WeaponProductionTransferNativeRuntime` also owns the Chore 57 extension
+and building checksum span. These paths currently carry production and
+weapon-workshop state. The Hunter record is outside those paths. The frozen
+huntable-prey catalogue already participates in the production peer agreement.
+
+The findings above are static. No modified Hunter work cadence or Hunter-specific
+repair payload was exercised in a host-client game.

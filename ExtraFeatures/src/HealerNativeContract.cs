@@ -45,8 +45,10 @@ namespace ExtraFeatures
             if (!string.Equals(actual, NativeSha256, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("Installed CrusaderDE.dll differs from the audited native build: " + actual);
 
-            // No RedBird version pin: ProbeBackend and ValidateInstalledDetour check the detour
-            // contract (scheme, displaced bytes, patch shape, pointer slot) on the installed backend.
+            // No RedBird version pin and no live copied-entry probe: ValidateInstalledDetour checks the
+            // real detour (scheme, displaced bytes, patch shape, pointer slot) after commit and a mismatch
+            // rolls back the unpublished candidate; _inspect/ExtraFeaturesNativeTests runs the installed
+            // backend on the real entry offline.
             byte[] live = Capture(imageBase + ListBuilderRva, EntryBytes.Length);
             for (int index = 0; index < EntryBytes.Length; index++)
                 if (live[index] != EntryBytes[index])
@@ -97,58 +99,6 @@ namespace ExtraFeatures
             if (slotAddress != detour.PointerSlot.ToInt64() ||
                 Marshal.ReadInt64(detour.PointerSlot) != detour.HookEntryPointAddress.ToInt64())
                 throw new InvalidOperationException("Healer-list detour pointer slot does not lead to its hook entry.");
-        }
-
-        internal static void ProbeBackend<T>(ulong entryAddress, T callback) where T : Delegate
-        {
-            byte[] entry = Capture(entryAddress, 64);
-            IntPtr copy = Marshal.AllocHGlobal(entry.Length);
-            // If RedBird could not release the probe it may still reference the copy: leak it then.
-            bool copyReleasable = true;
-            try
-            {
-                Marshal.Copy(entry, 0, copy, entry.Length);
-                NativeDetour<T> probe = null;
-                try
-                {
-                    var request = new DetourRequest<T>
-                    {
-                        Name = "ExtraFeatures healer copied-entry probe",
-                        TargetAddress = unchecked((ulong)copy.ToInt64()),
-                        Callback = callback
-                    };
-                    // Same options as the real installation; no thread can execute this private copy.
-                    probe = ExtraFeaturesHookInfrastructure.DetourBackend(NativeDetourBackend.Instance)
-                        .CreateDetour(in request) as NativeDetour<T>;
-                    if (probe == null || probe.Scheme.ToString() != "Indirect" ||
-                        probe.DisplacedByteCount != ExpectedDisplacedBytes || probe.IsInstalled ||
-                        probe.TargetAddress != unchecked((ulong)copy.ToInt64()) ||
-                        probe.PointerSlot == IntPtr.Zero || probe.HookEntryPointAddress == IntPtr.Zero)
-                        throw new InvalidOperationException("Installed RedBird backend rejects the copied healer entry contract.");
-                    probe.Enable();
-                    ValidateInstalledDetour(probe, unchecked((ulong)copy.ToInt64()));
-                }
-                catch
-                {
-                    // Keep the probe failure; a secondary cleanup failure must not replace it.
-                    try { probe?.Dispose(); } catch { copyReleasable = false; }
-                    throw;
-                }
-
-                try { probe.Dispose(); }
-                catch { copyReleasable = false; throw; }
-                byte[] restored = new byte[entry.Length];
-                Marshal.Copy(copy, restored, 0, restored.Length);
-                for (int index = 0; index < entry.Length; index++)
-                    if (restored[index] != entry[index])
-                        throw new InvalidOperationException("Copied RedBird backend probe did not restore its entry.");
-            }
-            finally
-            {
-                if (copyReleasable)
-                    Marshal.FreeHGlobal(copy);
-                GC.KeepAlive(callback);
-            }
         }
 
         internal static byte[] Capture(ulong address, int length)

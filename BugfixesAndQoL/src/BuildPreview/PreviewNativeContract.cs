@@ -26,8 +26,8 @@ namespace BugfixesAndQoL.BuildPreview
 
         internal static NativeDetourBackend Backend()
         {
-            if (typeof(NativeDetour<>).Assembly.GetName().Version != new Version(1, 5, 0, 0))
-                throw new InvalidOperationException("Unreviewed RedBird NativeX64 version.");
+            // No runtime RedBird version pin (Test-BuildPreviewPreflight.ps1 gates the audited version at build):
+            // Validate checks the real candidate's trampoline before Enable and the patch after it.
             return new NativeDetourBackend(new NativeDetourOptions
             {
                 AllowedSchemes = DetourScheme.Indirect,
@@ -53,7 +53,8 @@ namespace BugfixesAndQoL.BuildPreview
                 hook.HookEntryPointAddress == IntPtr.Zero || hook.OriginalEntryPointAddress == IntPtr.Zero)
                 throw new InvalidOperationException("Preview detour backend contract differs.");
             ValidateEntry((ulong)hook.TrampolineAddress.ToInt64());
-            var bytes = new byte[32];
+            // Never read past the trampoline (RedBird packs stubs into slabs).
+            var bytes = new byte[Math.Min(32, hook.TrampolineSize)];
             Marshal.Copy(hook.TrampolineAddress, bytes, 0, bytes.Length);
             var decoder = Decoder.Create(64, new ByteArrayCodeReader(bytes));
             decoder.IP = (ulong)hook.TrampolineAddress.ToInt64();

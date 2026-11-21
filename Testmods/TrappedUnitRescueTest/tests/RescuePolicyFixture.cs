@@ -41,13 +41,80 @@ namespace TrappedUnitRescueTest.Tests
             Require(directed.Count==8,"one-way corridor limited to eight steps");
             foreach(var candidate in directed)Require(candidate.Y==4 && candidate.X>4,"directed field has no invented exits");
             Require(!RescueRuntime.ChooseCandidate(new List<RescueCandidate>(),c=>true).HasValue,"empty old field cannot authorize movement");
+            OccupancyCapture();
             StateClassification();
             CivilianResumePolicy();
+            AppleMoatBoundaryPolicy();
             CrewShape();
             Console.WriteLine("PASS RescuePolicyFixture "+checks+" checks");
         }
+        private static void OccupancyCapture()
+        {
+            var current=new Dictionary<int,int>{{3,10},{1,10},{2,11}};
+            var next=new Dictionary<int,int>{{3,1},{1,2},{2,0}};
+            RescueRuntime.OccupantRecordReader read=(int id,out int cell,out int following)=>
+            {cell=following=0;return current.TryGetValue(id,out cell) && next.TryGetValue(id,out following);};
+            Require(RescueRuntime.TryCollectCurrentOccupants(new[]{10,11},t=>t==10?3:2,read,out var ids,out var reason),"valid current/aux chain accepted");
+            Require(ids.Count==3 && ids[0]==1 && ids[1]==2 && ids[2]==3,"only current membership selected once and sorted deterministically");
+            Require(RescueRuntime.TryCollectCurrentOccupants(new[]{10},t=>2,read,out ids,out reason) && ids.Count==0,"auxiliary-only linked actor excluded");
+            next[1]=3;
+            Require(!RescueRuntime.TryCollectCurrentOccupants(new[]{10},t=>3,read,out ids,out reason) && ids.Count==0,"cycle rejects complete capture without partial actors");
+            next[1]=2;next[2]=NativeRelocation.MaximumUnitId+1;
+            Require(!RescueRuntime.TryCollectCurrentOccupants(new[]{10},t=>3,read,out ids,out reason) && ids.Count==0,"invalid next ID rejects complete capture");
+            next[2]=0;current.Remove(2);
+            Require(!RescueRuntime.TryCollectCurrentOccupants(new[]{10},t=>3,read,out ids,out reason) && ids.Count==0,"unreadable occupant rejects complete capture");
+            RescueRuntime.OccupantRecordReader many=(int id,out int cell,out int following)=>{cell=10;following=id<513?id+1:0;return true;};
+            Require(!RescueRuntime.TryCollectCurrentOccupants(new[]{10},t=>1,many,out ids,out reason) && ids.Count==0 && reason=="occupant-snapshot-budget","large crowd fails closed at snapshot budget");
+            RescueRuntime.OccupantRecordReader longAux=(int id,out int cell,out int following)=>{cell=11;following=id<4097?id+1:0;return true;};
+            Require(!RescueRuntime.TryCollectCurrentOccupants(new[]{10},t=>1,longAux,out ids,out reason) && ids.Count==0 && reason=="occupancy-walk-budget","aux-only chains still obey total work budget");
+            var cells=new List<int>();for(int i=0;i<1025;i++)cells.Add(10);
+            Require(!RescueRuntime.TryCollectCurrentOccupants(cells,t=>0,read,out ids,out reason) && ids.Count==0 && reason=="occupancy-cell-budget","empty heads still obey footprint budget");
+            RescueRuntime.OccupantRecordReader single=(int id,out int cell,out int following)=>{cell=10;following=0;return true;};
+            Require(!RescueRuntime.TryCollectCurrentOccupants(new[]{10,-1},t=>t==10?1:0,single,out ids,out reason) && ids.Count==0 && reason=="invalid-occupancy-tile","invalid later cell never exposes partial capture");
+        }
         private static GameUnit OrdinaryUnit()=>new GameUnit { r_UnitChimp=eChimps.CHIMP_TYPE_SPEARMAN,
             r_CurrentHealth=100,r_MovementSubstep=8,N000000DB=1,r_AliveState=AliveState.IsAlive };
+        private static unsafe void AppleMoatBoundaryPolicy()
+        {
+            foreach(ushort state in new ushort[]{5,7})foreach(ushort flags in new ushort[]{2,4})
+            {
+                GameUnit unit=OrdinaryUnit();unit.r_UnitChimp=eChimps.CHIMP_TYPE_FARMER_APPLE;
+                unit.r_AIState=state;unit.r_PathPlanStateBitFlags=flags;unit.r_TargetTilePositionX2=1;
+                unit.r_GlobalId=123;unit.r_ControllableForPlayerId=1;
+                var before=new UnitSnapshot { Type=(int)unit.r_UnitChimp,AIState=state,Flags=flags,Substep=8,
+                    GlobalId=123,Owner=1,Health=100,RequestedX=1 };
+                Require(RescueRuntime.AppleMoatBoundary(before,&unit),"audited stationary Apple5/7 active original-goal boundary admitted");
+                GameUnit changed=unit;changed.r_AIState=3;
+                Require(!RescueRuntime.AppleMoatBoundary(before,&changed),"picker cannot use the causal moat receipt");
+                changed=unit;changed.r_GlobalId++;
+                Require(!RescueRuntime.AppleMoatBoundary(before,&changed),"reused slot cannot use receipt");
+                changed=unit;changed.r_TargetTilePositionX2=2;
+                Require(!RescueRuntime.AppleMoatBoundary(before,&changed),"changed job destination cannot use receipt");
+                changed=unit;changed.r_NextTilePositionX2=1;
+                Require(!RescueRuntime.AppleMoatBoundary(before,&changed),"committed next tile cannot use stationary receipt");
+                changed=unit;changed.r_CurrentHealth--;
+                Require(!RescueRuntime.AppleMoatBoundary(before,&changed),"health change invalidates receipt");
+                changed=unit;*(ushort*)((byte*)&changed+0x9C8-0x65C)=1;
+                Require(!RescueRuntime.AppleMoatBoundary(before,&changed),"stored moat permission excludes zero-exit proof");
+                changed=unit;*(ushort*)((byte*)&changed+0x6EC-0x65C)=1;
+                Require(!RescueRuntime.AppleMoatBoundary(before,&changed),"special movement class excludes zero-exit proof");
+                uint[] job=RescueRuntime.CaptureAppleJob(&unit);
+                changed=unit;changed.r_CarryGoodAmount++;
+                Require(!Equal(job,RescueRuntime.CaptureAppleJob(&changed)),"job receipt detects cargo change");
+                changed=unit;changed.r_LinkedProductionBuildingGlobalId++;
+                Require(!Equal(job,RescueRuntime.CaptureAppleJob(&changed)),"job receipt detects employee workplace identity change");
+                changed=unit;*(ushort*)((byte*)&changed+0x9EC-0x65C)=1;
+                Require(!Equal(job,RescueRuntime.CaptureAppleJob(&changed)),"job receipt detects picking-cycle change");
+                changed=unit;*(uint*)((byte*)&changed+0x6F8-0x65C)=1;
+                Require(!Equal(job,RescueRuntime.CaptureAppleJob(&changed)),"job receipt detects delivery destination identity change");
+            }
+            Require(RescueRuntime.NewlyTrappedAppleMoat(0x8000,0x40008000,false),"new completed moat with no mode0 physical exit qualifies");
+            Require(!RescueRuntime.NewlyTrappedAppleMoat(0x40008000,0x40008000,false),"preexisting moat has no causal receipt");
+            Require(!RescueRuntime.NewlyTrappedAppleMoat(0x8000,0x8000,false),"ordinary enclosure cannot use moat-specific recovery");
+            Require(!RescueRuntime.NewlyTrappedAppleMoat(0x8000,0x40008000,true),"remaining forward/reverse edge prohibits relocation");
+        }
+        private static bool Equal(uint[] a,uint[] b)
+        {if(a.Length!=b.Length)return false;for(int i=0;i<a.Length;i++)if(a[i]!=b[i])return false;return true;}
         private static void CivilianResumePolicy()
         {
             foreach(eChimps type in new[]{eChimps.CHIMP_TYPE_FARMER_APPLE,eChimps.CHIMP_TYPE_QUARRY_OX})

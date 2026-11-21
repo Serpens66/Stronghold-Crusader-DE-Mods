@@ -33,6 +33,7 @@ namespace Pathfinding
 
         internal static bool IsAvailable => Volatile.Read(ref ready) != 0 &&
             Volatile.Read(ref failed) == 0 && acceptedHook != null && acceptedHook.IsApplied;
+        internal static bool QueueHooksApplied => IsAvailable && moveHook?.IsApplied == true && targetHook?.IsApplied == true;
         internal static bool IsDispatching => depth != 0 && IsAvailable;
         internal static void BindAssassin(AssassinPathfindingRuntime owner) => assassin = owner;
         internal static void BindClimb(Action<TribeIssueOrderWithTargetEventArgs> callback) => cancelClimb = callback;

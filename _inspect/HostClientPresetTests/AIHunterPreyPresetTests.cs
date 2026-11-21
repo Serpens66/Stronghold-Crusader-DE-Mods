@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using AIHunterPreyTest;
+using ImprovedHunters;
 using APIShared.ModSettings;
 using MessagePack;
 using SHCDESE.API;
@@ -11,17 +11,17 @@ using SHCDESE.API.Components.Network;
 
 internal static class AIHunterPreyPresetTests
 {
-    // The production model and APIShared preset controller/storage are compiled into this fixture.
-    // Only the existing network boundary and language getter below are test doubles.
+    // The complete production ImprovedHunters model and APIShared preset controller/storage are compiled into this fixture.
+    // Only existing presentation/network boundaries are test doubles; no replacement settings model is used.
     private static readonly string[] Names = {
-        nameof(AIHunterSettings.EnableMod), nameof(AIHunterSettings.ControlAivHunters),
-        nameof(AIHunterSettings.AutoBuildHunters), nameof(AIHunterSettings.RetireEmptyHunters)
+        nameof(ImprovedHuntersViewModel.EnableMod), nameof(ImprovedHuntersViewModel.ControlAivHunters),
+        nameof(ImprovedHuntersViewModel.AutoBuildHunters), nameof(ImprovedHuntersViewModel.RetireEmptyHunters)
     };
-    private static readonly Func<AIHunterSettings, bool>[] Getters = {
+    private static readonly Func<ImprovedHuntersViewModel, bool>[] Getters = {
         model => model.EnableMod, model => model.ControlAivHunters,
         model => model.AutoBuildHunters, model => model.RetireEmptyHunters
     };
-    private static readonly Action<AIHunterSettings, bool>[] Setters = {
+    private static readonly Action<ImprovedHuntersViewModel, bool>[] Setters = {
         (model, value) => model.EnableMod = value, (model, value) => model.ControlAivHunters = value,
         (model, value) => model.AutoBuildHunters = value, (model, value) => model.RetireEmptyHunters = value
     };
@@ -35,10 +35,10 @@ internal static class AIHunterPreyPresetTests
         try
         {
             SetRole(true, false);
-            var initial = new AIHunterSettings();
+            var initial = new ImprovedHuntersViewModel();
             for (int index = 0; index < Names.Length; index++)
             {
-                var property = typeof(AIHunterSettings).GetProperty(Names[index]);
+                var property = typeof(ImprovedHuntersViewModel).GetProperty(Names[index]);
                 Check(Getters[index](initial), Names[index] + " production default");
                 Check(property.GetCustomAttribute<SyncHostOnlyAttribute>() != null &&
                     property.GetCustomAttribute<SyncPerPlayerAttribute>() == null &&
@@ -46,8 +46,8 @@ internal static class AIHunterPreyPresetTests
                     Names[index] + " is exclusively host synchronized");
             }
 
-            string plugin = Path.Combine(Program.PresetFixtureInstallRoot, "AIHunterPrey.dll");
-            const string id = "AIHunterPrey";
+            string plugin = Path.Combine(Program.PresetFixtureInstallRoot, "ImprovedHunters.dll");
+            const string id = "ImprovedHuntersAI";
             string file = new PersonalSettingsPaths(plugin, "Tests." + id).SettingsFile;
             var model = Prepare(plugin, id);
             Check(model.CanEditHostSettings, "singleplayer can edit");
@@ -128,13 +128,13 @@ internal static class AIHunterPreyPresetTests
         GameNetworkAPI.ThrowOnRoleQuery = false; GameNetworkAPI.LocalHost = host;
         GameNetworkAPI.Networked = networked; GameNetworkAPI.MultiplayerGame = networked;
     }
-    private static AIHunterSettings Prepare(string plugin, string id)
+    private static ImprovedHuntersViewModel Prepare(string plugin, string id)
     {
-        var model = new AIHunterSettings(); model.PreparePresets(null, plugin, id); model.ActivatePresets(); return model;
+        var model = new ImprovedHuntersViewModel(); model.PreparePresets(null, plugin, id); model.ActivatePresets(); return model;
     }
-    private static void Apply(AIHunterSettings model, bool[] values)
+    private static void Apply(ImprovedHuntersViewModel model, bool[] values)
     { for (int index = 0; index < Names.Length; index++) Setters[index](model, values[index]); }
-    private static void Expect(AIHunterSettings model, bool[] values, string detail)
+    private static void Expect(ImprovedHuntersViewModel model, bool[] values, string detail)
     { for (int index = 0; index < Names.Length; index++) Check(Getters[index](model) == values[index], detail + ": " + Names[index]); }
     private static void ExpectStored(string file, bool[] values, string detail)
     {
@@ -158,12 +158,8 @@ internal static class AIHunterPreyPresetTests
     { checks++; if (!condition) throw new InvalidOperationException("AI hunter preset: " + detail); }
 }
 
-namespace SHCDESE.API
+namespace ImprovedHunters
 {
-    // Presentation-only boundary; no game assets or Noesis controls are needed for preset behavior.
-    public sealed class GameAssetManagerAPI
-    {
-        public static GameAssetManagerAPI Instance { get; } = new GameAssetManagerAPI();
-        public string CurrentLanguage => "en-US";
-    }
+    // Presentation-only boundary; the complete production model owns settings and reset behavior.
+    internal static class SerpLocalization { internal static string Get(string key) => key; }
 }

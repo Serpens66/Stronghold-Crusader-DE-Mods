@@ -81,7 +81,7 @@ namespace BugfixesAndQoL.TreeBlightDecay
                             unchecked((ulong)state.ToInt64()), image + NativeCode.GrowthSkip, original),
                         hookSize: NativeCode.Span, name: growth ? "TreeBlightDecay_Growth" : "TreeBlightDecay_Event");
                 }
-                CommitResult result = transaction.Commit();
+                CommitResult result = Shared.NativePatchGuard.Commit(transaction, "Tree blight decay fix");
                 if (!result.IsCompleteSuccess) throw new InvalidOperationException("Tree-blight transaction failed: " + result);
                 // Published code is never restored, even if a subsequent verification fails.
                 published = true;

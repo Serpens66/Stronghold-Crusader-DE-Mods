@@ -28,7 +28,7 @@ namespace BugfixesAndQoL
             ulong imageBase = unchecked((ulong)libraryHandle.ToInt64());
             VanillaPeaceTimeNativeContract.Validate(memory, imageBase, referenceHashMatches);
             native = new PermanentNativeSwitch(log, imageBase, NativeSwitchCatalog.CreatePlans(memory, imageBase, false),
-                VanillaPeaceTimeNativeContract.ReferenceSha256);
+                VanillaPeaceTimeNativeContract.ReferenceSha256, "Peace time wildlife rules");
             if (!TryApply(DesiredEnabled, out string reason))
                 throw new InvalidOperationException("Peace Time wildlife rules could not be configured: " + reason);
             settings.SettingChanged += Refresh;

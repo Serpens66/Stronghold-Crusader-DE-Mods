@@ -63,7 +63,7 @@ namespace Pathfinding.UnitCommands
                 pendingFillApproach = AddDetour(pendingTransaction,
                     libraryBase + unchecked((ulong)fillApproachResolution.Rva),
                     rootedHasFillMoatApproach);
-                var commitResult = CommitPermanentHooks(pendingTransaction);
+                var commitResult = CommitPermanentHooks(pendingTransaction, "Moat work target selection");
                 originalFindMoatWorkTarget = pendingFind.Original;
                 originalResolveMoatWorkTile = pendingResolve.Original;
                 originalHasFillMoatApproach = pendingFillApproach.Original;

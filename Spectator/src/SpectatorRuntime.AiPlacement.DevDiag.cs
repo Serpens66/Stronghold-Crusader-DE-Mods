@@ -5,6 +5,7 @@ using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 
 namespace Spectator
@@ -12,7 +13,27 @@ namespace Spectator
     internal static partial class SpectatorRuntime
     {
         private static int aiPlacementDiagnostics;
-        static partial void DiagAiPlacementReset() => Interlocked.Exchange(ref aiPlacementDiagnostics, 0);
+        // Bounded per-session evidence; Shift placement of many units must still be fully visible.
+        private const int AiResultLogLimit = 600, AiFollowUpLimit = 400;
+        // Simulation-tick offsets after the first tick that observed an Applied admission. The AI
+        // pass frequency is not statically known, so later samples reveal the controller handoff.
+        private static readonly int[] AiFollowUpDelays = { 50, 400, 1500, 4000 };
+        private static readonly List<AiFollowUp> aiFollowUps = new List<AiFollowUp>();
+        private sealed class AiFollowUp
+        {
+            internal long Session;
+            internal AiUnitRef Unit;
+            internal AiMilitaryRole Role;
+            internal int Owner, ExpectedRole, Group, StartX, StartY, StartTargetX, StartTargetY, Armed = int.MinValue, Sample;
+            internal uint GroupGlobal;
+            internal string Detail;
+            internal bool EverMoved;
+        }
+        static partial void DiagAiPlacementReset()
+        {
+            Interlocked.Exchange(ref aiPlacementDiagnostics, 0);
+            lock (aiFollowUps) aiFollowUps.Clear();
+        }
         static partial void DiagAiPlacementResult(long session, int owner, AiMilitaryAssignmentResult result)
             => DiagAiState(session, owner, result, "placement");
         static partial void DiagAiPlacementSessionStarted(long session)
@@ -39,7 +60,7 @@ namespace Spectator
         }
         private static unsafe void DiagAiState(long session, int owner, AiMilitaryAssignmentResult result, string source)
         {
-            if (!IsCurrentSession(session) || Interlocked.Increment(ref aiPlacementDiagnostics) > 128) return;
+            if (!IsCurrentSession(session) || Interlocked.Increment(ref aiPlacementDiagnostics) > AiResultLogLimit) return;
             int actualGroup = -1, actualRole = -1, actualOwner = -1, expectedRole = -1;
             uint actualGlobal = 0, actualUnitGlobal = 0;
             bool member = false, identity = false, validGroup = false;
@@ -78,6 +99,79 @@ namespace Spectator
                 " expectedRole=" + expectedRole + " actualRole=" + actualRole + " expectedGroup=" + result.Group.TribeId + "/" + result.Group.GlobalId +
                 " actualGroup=" + actualGroup + "/" + actualGlobal + " member=" + member + " additional=" + additional +
                 " check=" + (snapshot ? "current-snapshot" : "admission-postcondition") + " matches=" + matches + " detail=" + result.Detail);
+            if (!snapshot && result.Status == AiMilitaryAssignmentStatus.Applied && identity) TrackAiFollowUp(session, owner, result, expectedRole);
+        }
+
+        private static unsafe void TrackAiFollowUp(long session, int owner, AiMilitaryAssignmentResult result, int expectedRole)
+        {
+            if (!UnitAccess.TryGetById(result.Unit.UnitId, out GameUnit* unit, out _) || unit == null) return;
+            var entry = new AiFollowUp
+            {
+                Session = session, Unit = result.Unit, Role = result.Assignment.Role, Owner = owner, ExpectedRole = expectedRole,
+                Group = result.Group.TribeId, GroupGlobal = result.Group.GlobalId, Detail = result.Detail,
+                StartX = unit->r_CurrentTilePositionX, StartY = unit->r_CurrentTilePositionY,
+                StartTargetX = unit->r_TargetTilePositionX, StartTargetY = unit->r_TargetTilePositionY
+            };
+            lock (aiFollowUps)
+            {
+                if (aiFollowUps.Count >= AiFollowUpLimit) return;
+                aiFollowUps.Add(entry);
+            }
+        }
+
+        // Simulation tick (Extender OnTick). Reads only; skips a tick instead of waiting for the monitor.
+        private static unsafe void DiagAiFollowUps(int tick)
+        {
+            if (engineLock == null) return;
+            lock (aiFollowUps) if (aiFollowUps.Count == 0) return;
+            if (!Monitor.TryEnter(engineLock)) return;
+            try
+            {
+                lock (aiFollowUps)
+                {
+                    for (int index = aiFollowUps.Count - 1; index >= 0; index--)
+                    {
+                        var entry = aiFollowUps[index];
+                        if (!IsCurrentSession(entry.Session)) { aiFollowUps.RemoveAt(index); continue; }
+                        if (entry.Armed == int.MinValue) { entry.Armed = tick; continue; }
+                        if (unchecked(tick - entry.Armed) < AiFollowUpDelays[entry.Sample]) continue;
+                        LogAiFollowUp(entry, unchecked(tick - entry.Armed));
+                        if (++entry.Sample >= AiFollowUpDelays.Length) aiFollowUps.RemoveAt(index);
+                    }
+                }
+            }
+            catch (Exception error) { Shared.DevDiag.Log(() => "SPECTATOR_AI_FOLLOWUP_ERROR error=" + error); }
+            finally { Monitor.Exit(engineLock); }
+        }
+
+        private static unsafe void LogAiFollowUp(AiFollowUp entry, int elapsed)
+        {
+            bool alive = false, member = false, sameGroup = false;
+            int x = -1, y = -1, targetX = -1, targetY = -1, role = -1, group = -1, aiState = -1, distance = -1;
+            if (UnitAccess.TryGetById(entry.Unit.UnitId, out GameUnit* unit, out _) && unit != null && unit->r_GlobalId == entry.Unit.GlobalId)
+            {
+                alive = UnitAccess.IsReallyAlive(unit);
+                x = unit->r_CurrentTilePositionX; y = unit->r_CurrentTilePositionY;
+                targetX = unit->r_TargetTilePositionX; targetY = unit->r_TargetTilePositionY;
+                role = unit->r_AITribeRole; group = unit->r_TribeId; aiState = unit->r_AIState;
+                distance = Math.Max(Math.Abs(x - entry.StartX), Math.Abs(y - entry.StartY));
+                if (group > 0 && GameTribeManagerAPI.Instance.TryGetTribeById(group, out GameTribe* tribe) && tribe != null)
+                {
+                    sameGroup = group == entry.Group && tribe->r_GlobalId == entry.GroupGlobal;
+                    int id = entry.Unit.UnitId;
+                    if (id > 0 && id < 10000) member = ((((ushort*)((byte*)tribe + 0x36))[id >> 4] >> (id & 15)) & 1) != 0;
+                }
+            }
+            bool targetChanged = targetX != entry.StartTargetX || targetY != entry.StartTargetY;
+            entry.EverMoved |= distance > 1 || targetChanged;
+            bool last = entry.Sample == AiFollowUpDelays.Length - 1;
+            bool moved = entry.EverMoved;
+            Shared.DevDiag.Log(() => "SPECTATOR_AI_FOLLOWUP unit=" + entry.Unit + " owner=" + entry.Owner + " role=" + entry.Role +
+                " ticks=" + elapsed + " alive=" + alive + " expectedRole=" + entry.ExpectedRole + " actualRole=" + role +
+                " expectedGroup=" + entry.Group + "/" + entry.GroupGlobal + " actualGroup=" + group + " sameGroup=" + sameGroup + " member=" + member +
+                " start=" + entry.StartX + "," + entry.StartY + " now=" + x + "," + y + " distance=" + distance +
+                " target=" + entry.StartTargetX + "," + entry.StartTargetY + "->" + targetX + "," + targetY + " aiState=" + aiState +
+                " moved=" + moved + (last ? " final=True" : string.Empty) + " handoff=" + (entry.Detail.Length != 0));
         }
         // FBCB9319 diagnostic expectations only; never used by release admission or the menu.
         private static int DiagnosticNativeRole(AiMilitaryRole role)

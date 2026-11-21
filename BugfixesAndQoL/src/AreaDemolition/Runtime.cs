@@ -1,3 +1,4 @@
+using APIShared.Input;
 using System;
 using System.Diagnostics;
 using System.Threading;
@@ -16,9 +17,10 @@ namespace BugfixesAndQoL.AreaDemolition
         private readonly NativeDemolition native;
         private readonly DemolitionSettings settings;
         private readonly ManualLogSource log;
-        private readonly Func<bool> enabled;
+        private readonly Func<bool> menuEnabled;
         private bool presentationReady,localActive;
-        private bool LocalEnabled => presentationReady && enabled();
+        private bool MenuEnabled => presentationReady && menuEnabled();
+        private bool LocalEnabled => MenuEnabled && settings.EnableRectangleSelection;
         private readonly SelectionGesture gesture=new SelectionGesture();
         private readonly ScreenSelection screenSelection=new ScreenSelection();
         private readonly PreviewWorkPolicy previewPolicy=new PreviewWorkPolicy(Stopwatch.Frequency);
@@ -53,12 +55,12 @@ namespace BugfixesAndQoL.AreaDemolition
         private long pendingSession;
         private int pendingActor;
         private bool pendingPresented;
-        internal Runtime(ModApiClient api,NativeDemolition native,DemolitionSettings settings,DemolitionNetwork network,Func<bool> enabled,ManualLogSource log)
-        {this.api=api;this.native=native;this.settings=settings;this.network=network;this.enabled=enabled;this.log=log;}
+        internal Runtime(ModApiClient api,NativeDemolition native,DemolitionSettings settings,DemolitionNetwork network,Func<bool> menuEnabled,ManualLogSource log)
+        {this.api=api;this.native=native;this.settings=settings;this.network=network;this.menuEnabled=menuEnabled;this.log=log;}
         internal void Register()
         {
             if(!api.Ui.TryRegisterBeforeRender("area-demolition.presentation",Present,out work,out string reason)) throw new InvalidOperationException(reason);
-            view=new DemolitionView(settings,log,()=>LocalEnabled,()=>gesture.Owned || primaryReleaseFrame==Time.frameCount,()=>primaryReleaseFrame=-1);
+            view=new DemolitionView(settings,log,()=>MenuEnabled,()=>gesture.Owned || primaryReleaseFrame==Time.frameCount,()=>primaryReleaseFrame=-1);
             renderer=new SelectionRenderer(log);
             renderer.Failed+=reason=>{CancelSelection();log.LogError(AreaDemolitionFeature.Stamp("AREA_DEMOLITION_PREVIEW_DISABLED: "+reason));Wake();};
             renderer.Presented+=snapshot=>{if(ReferenceEquals(snapshot,pendingCommit)){pendingPresented=true;Wake();}};
@@ -97,14 +99,15 @@ namespace BugfixesAndQoL.AreaDemolition
         private void ResetScene()
         {gesture.Reset();primaryReleaseFrame=primaryDownObservedFrame=-1;CancelQuote();previewPolicy.Reset();pendingCommit=null;pendingPresented=false;targets=Array.Empty<DemolitionTarget>();renderer.Clear();view.Reset();}
         private void GuiChecks(PresentationPostEventArgs note)
-        { if(LocalEnabled && note.OriginalCompleted && MainViewModel.viewModelLoaded) view.RefreshHud(); }
+        { if(MenuEnabled && note.OriginalCompleted && MainViewModel.viewModelLoaded) view.RefreshHud(); }
         private void Wake()=>work?.Request();
         private void MenuChanged(){if(view.IsMenuOpen) CancelSelection();Wake();}
         private void FocusChanged(bool focus){if(presentationReady && !focus){CancelSelection();view.CloseMenu();if(network.IsBusy)network.CancelPending();Wake();}}
         internal bool CancelWithEscape()
         {
-            if(!presentationReady || !LocalEnabled && !gesture.Owned)return false;
-            bool consumed=gesture.Owned || pendingCommit!=null || finalCaptureRequested || view.IsMenuOpen || network.IsBusy;
+            if(!presentationReady)return false;
+            bool consumed=gesture.Owned || view.IsMenuOpen ||
+                LocalEnabled && (pendingCommit!=null || finalCaptureRequested || network.IsBusy);
             if(consumed){CancelSelection();view.CloseMenu();network.CancelPending();Wake();}
             return consumed;
         }
@@ -120,22 +123,22 @@ namespace BugfixesAndQoL.AreaDemolition
             {
                 if(!LocalEnabled)CancelSelection();
                 if(state==2) UpdatePointer(director);
-                if((state==3 || state==0) && Input.GetMouseButtonUp(0)) CompletePrimary(director,true);
-                else if((state==3 || state==0) && !Input.GetMouseButton(0)) CompletePrimary(director,false);
+                if((state==3 || state==0) && InputState.IsMouseReleased(0)) CompletePrimary(director,true);
+                else if((state==3 || state==0) && !InputState.IsMouseHeld(0)) CompletePrimary(director,false);
                 return true;
             }
-            if(!LocalEnabled)return false;
             if(view.IsInputShieldActive) return true;
+            if(!LocalEnabled)return false;
             if(state==1 && MainControls.instance!=null && MainControls.instance.CurrentAction==BulldozerAction && IsPointerOverUi())return true;
             if(state==1 && (pendingCommit!=null || finalCaptureRequested))CancelSelection();
             if(state!=1 || !CanCapture(director,out int owner) || !TryPointerTile(director,out int x,out int y,true)) return false;
             actor=owner;capturedSession=mission.SessionId;
-            bool shift=Input.GetKey(KeyCode.LeftShift)||Input.GetKey(KeyCode.RightShift);
+            bool shift=InputState.PhysicalShiftHeld;
             DemolitionTarget start=native.AtTile(x,y,actor);
             var mouse=Input.mousePosition;
             primaryReleaseFrame=-1;
             CancelQuote();targets=Array.Empty<DemolitionTarget>();renderer.Clear();previewPolicy.Reset();
-            gesture.Begin(mouse.x,mouse.y,new SelectionSpec(settings.Mask,shift,start));
+            gesture.Begin(mouse.x,mouse.y,new SelectionSpec(settings.Mask,shift,start),EngineInterface.FlattenedLandscape);
             director.clearMouseStateForEngine();Wake();
             return true;
         }
@@ -153,13 +156,13 @@ namespace BugfixesAndQoL.AreaDemolition
         }
         private bool UpdatePointer(EditorDirector director)
         {
-            if(mission?.SessionId!=capturedSession || !Application.isFocused || MainControls.instance==null || MainControls.instance.CurrentAction!=BulldozerAction ||
+            if(!gesture.IsViewCurrent(EngineInterface.FlattenedLandscape) || mission?.SessionId!=capturedSession || !Application.isFocused || MainControls.instance==null || MainControls.instance.CurrentAction!=BulldozerAction ||
                 !CanContinue(director,out int currentActor) || currentActor!=actor)
             {CancelSelection();return false;}
             var mouse=Input.mousePosition;
             // An owned drag uses screen geometry, including the map behind the HUD.
             gesture.MoveOnScreen(mouse.x,mouse.y,Screen.width,Screen.height,Math.Max(.5f,Screen.height/1080f));
-            if(gesture.SetSameType(Input.GetKey(KeyCode.LeftShift)||Input.GetKey(KeyCode.RightShift)))
+            if(gesture.SetSameType(InputState.PhysicalShiftHeld))
             {ClearPreviewWork();rootSelection.Clear();completedStamp=null;targets=Array.Empty<DemolitionTarget>();renderer.Clear();}
             return true;
         }
@@ -181,16 +184,16 @@ namespace BugfixesAndQoL.AreaDemolition
             if(!presentationReady)return;
             view.AfterInputFrame();
             if(!LocalEnabled && gesture.Owned)CancelSelection();
-            if(Input.GetMouseButtonDown(1) && (gesture.Owned || pendingCommit!=null || finalCaptureRequested)){CancelSelection();return;}
+            if(InputState.IsMousePressed(1) && (gesture.Owned || pendingCommit!=null || finalCaptureRequested)){CancelSelection();return;}
             // Vanilla may suppress the setter entirely on our raw visual hit. Recover only an
             // otherwise unobserved physical down, never a down already passed to Vanilla.
-            if(LocalEnabled && !gesture.Owned && Input.GetMouseButtonDown(0) && primaryDownObservedFrame!=Time.frameCount &&
+            if(LocalEnabled && !gesture.Owned && InputState.IsMousePressed(0) && primaryDownObservedFrame!=Time.frameCount &&
                 MainControls.instance!=null && MainControls.instance.CurrentAction==BulldozerAction && director.overUI() && !IsPointerOverUi())
                 HandlePrimary(director,1);
             if(!gesture.Owned) return;
             if(gesture.Stage!=GestureStage.Cancelled) UpdatePointer(director);
-            if(Input.GetMouseButtonUp(0)) CompletePrimary(director,true);
-            else if(!Input.GetMouseButton(0)) CompletePrimary(director,false);
+            if(InputState.IsMouseReleased(0)) CompletePrimary(director,true);
+            else if(!InputState.IsMouseHeld(0)) CompletePrimary(director,false);
         }
         private bool TryPointerTile(EditorDirector director,out int x,out int y,bool fresh=false)
             => TryPointerTile(director,out x,out y,out _,fresh);
@@ -346,13 +349,17 @@ namespace BugfixesAndQoL.AreaDemolition
             {
                 if(!LocalEnabled)
                 {
-                    if(localActive){localActive=false;CancelSelection();view.CloseMenu();network.CancelPending();}
+                    if(localActive){localActive=false;CancelSelection();}
                     // Preserve the owned release shield through its whole Noesis input frame.
-                    if(!gesture.Owned && primaryReleaseFrame!=Time.frameCount)view.Reset();
-                    work.SetContinuous(gesture.Owned || primaryReleaseFrame==Time.frameCount);return;
+                    if(MenuEnabled)view.RefreshHud();
+                    else if(!gesture.Owned && primaryReleaseFrame!=Time.frameCount)view.Reset();
+                    work.SetContinuous(gesture.Owned || primaryReleaseFrame==Time.frameCount || view.IsInputShieldActive);return;
                 }
                 localActive=true;view.RefreshHud();
                 if(mission==null){renderer.Clear();view.SetSelectionFrame(null);work.SetContinuous(view.IsInputShieldActive);return;}
+                if ((gesture.Stage == GestureStage.Pressed || gesture.Stage == GestureStage.Dragging || finalCaptureRequested || pendingCommit != null) &&
+                    !gesture.IsViewCurrent(EngineInterface.FlattenedLandscape))
+                    CancelSelection();
                 if(pendingCommit!=null || finalCaptureRequested)
                 {
                     var director=EditorDirector.instance;

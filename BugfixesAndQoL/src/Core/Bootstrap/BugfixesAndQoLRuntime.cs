@@ -311,7 +311,14 @@ namespace BugfixesAndQoL
             nativeLibraryAvailable = true;
             TryInitializePersistentFeature(
                 "Keep-flag rotation fix",
-                EnsureKeepFlagRotationRuntime);
+                () => EnsureKeepFlagRotationRuntime(context, isFixedLayoutHashValidated));
+            TryInitializePersistentFeature(
+                "multiplayer moat terrain rotation fix",
+                () => Multiplayer.MoatLandRotationPatch.Install(context, isFixedLayoutHashValidated, log));
+            TryInitializePersistentFeature(
+                "multiplayer autosave deferral",
+                () => Multiplayer.MultiplayerAutosavePausePatch.Install(context, isFixedLayoutHashValidated, log),
+                installationTarget: "autosave scheduler");
             TryInitializePersistentFeature(
                 "tannery animation fade fix",
                 () => EnsureNativeTannerFade(context));
@@ -561,7 +568,13 @@ namespace BugfixesAndQoL
             processPlacementCancelMoveSuppressionFeature = candidate;
         }
 
-        private void EnsureKeepFlagRotationRuntime()
+        internal static bool IsKeepFlagCanonicalizationReady() =>
+            processKeepFlagRotationRuntime?.IsMultiplayerCanonicalizationReady == true;
+
+        internal static void SetKeepFlagCanonicalizationActive(bool active) =>
+            processKeepFlagRotationRuntime?.SetMultiplayerCanonicalizationActive(active);
+
+        private void EnsureKeepFlagRotationRuntime(CrusaderLibraryLoadContext context, bool referenceHashMatches)
         {
             if (processKeepFlagRotationRuntime != null)
                 return;
@@ -569,6 +582,7 @@ namespace BugfixesAndQoL
             var candidate = new KeepFlagRotationRuntime(log, settings);
             candidate.Install();
             processKeepFlagRotationRuntime = candidate;
+            candidate.InstallMultiplayerCanonicalization(context, referenceHashMatches);
         }
 
         private void EnsureNativeTannerFade(CrusaderLibraryLoadContext context)
@@ -598,7 +612,7 @@ namespace BugfixesAndQoL
                 return;
             if (!isFixedLayoutHashValidated)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "BugfixesAndQoL/BugfixesAndQoLRuntime/EnsurePrebuiltAiWorkshopBothFixRuntime", "Prebuilt AI workshop Both fix is inactive because the installed native hash is not audited.");
+                Shared.DebugLogHelper.LogHookInstallFailure(log, "Prebuilt AI workshop Both fix", "workshop production hooks", "Unsupported CrusaderDE.dll hash for the required native layout.");
                 return;
             }
 
@@ -616,8 +630,7 @@ namespace BugfixesAndQoL
                 return;
             if (!isFixedLayoutHashValidated)
             {
-                Shared.DebugLogHelper.LogWarningLimited(log, "prebuilt-ai-storage-unsupported-build",
-                    "Prebuilt AI storage fix is inactive because the installed native hash is not audited.");
+                Shared.DebugLogHelper.LogHookInstallFailure(log, "Prebuilt AI storage fix", "storage registration hooks", "Unsupported CrusaderDE.dll hash for the required native layout.");
                 return;
             }
 
@@ -887,16 +900,17 @@ namespace BugfixesAndQoL
             RunIsolated("FeatureInitialize", featureName, initialize,
                 $"Bugfixes and QoL feature '{featureName}' could not be initialized and remains inactive");
 
-        private void TryInitializePersistentFeature(string featureName, Action initialize) =>
+        private void TryInitializePersistentFeature(string featureName, Action initialize, string installationTarget = null) =>
             RunIsolated("PersistentInitialize", featureName, initialize,
-                $"Bugfixes and QoL persistent feature '{featureName}' could not be initialized; independent features continue");
+                $"Bugfixes and QoL persistent feature '{featureName}' could not be initialized; independent features continue",
+                installationTarget);
 
         private void TryApplyFeature(string featureName, Action apply) =>
             RunIsolated("FeatureApply", featureName, apply,
                 $"Bugfixes and QoL feature '{featureName}' could not apply its setting; independent features continue");
 
         // One feature's failure must never stop the features after it.
-        private void RunIsolated(string breadcrumbCategory, string featureName, Action action, string failureMessage)
+        private void RunIsolated(string breadcrumbCategory, string featureName, Action action, string failureMessage, string installationTarget = null)
         {
             using (Shared.CrashBreadcrumbScope diagnostic =
                 (Shared.CrashBreadcrumbDiagnostics.IsEnabled ? Shared.CrashBreadcrumbDiagnostics.Enter(breadcrumbCategory, featureName.GetHashCode()) : default(Shared.CrashBreadcrumbScope)))
@@ -909,7 +923,10 @@ namespace BugfixesAndQoL
                 catch (Exception ex)
                 {
                     diagnostic.Complete(-1);
-                    Shared.RuntimeHealth.Failure(log, featureName, true, $"{failureMessage}: {ex}");
+                    if (installationTarget != null)
+                        Shared.DebugLogHelper.LogHookInstallFailure(log, featureName, installationTarget, ex.ToString());
+                    else
+                        Shared.RuntimeHealth.Failure(log, featureName, true, $"{failureMessage}: {ex}");
                 }
             }
         }

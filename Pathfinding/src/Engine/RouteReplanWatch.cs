@@ -148,7 +148,10 @@ namespace Pathfinding.Engine
             Array.Clear(replanTiles, 0, replanTiles.Length); replanTileCount = 0; replanVersion++;
             replanHot.Clear(); replanHotSet.Clear(); replanWaits.Clear(); replanSettled.Clear(); replanGroupWaits.Clear();
             replanWaitWork.Clear();
-            replanFastUntil = null; replanRebuildCursor = -1; tribeOrders.Clear(); playerMoveTribe = playerQueuedTribe = 0;
+            replanFastUntil = null; replanRebuildCursor = -1;
+            tribeOrders.Clear();
+            tribeOrderSequence = 0;
+            playerMoveTribe = playerQueuedTribe = 0;
             // The tribes belong to the old map: solo walkers are dropped without rejoining. A save keeps
             // them, its orders and its waits (MovementCaseSave), and its load restores them.
             replanSolos.Clear();

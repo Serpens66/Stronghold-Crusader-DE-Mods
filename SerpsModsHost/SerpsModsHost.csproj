@@ -49,6 +49,7 @@
     <Compile Include="..\Shared\Runtime\Gameplay\LobbyLifecycle.cs"><Link>Shared\Runtime\Gameplay\LobbyLifecycle.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Localization\SerpLocalization.cs"><Link>Shared\Runtime\Localization\SerpLocalization.cs</Link></Compile>
     <Compile Include="src\PackManifest.cs" />
+    <Compile Include="src\PackErrorLog.cs" />
     <Compile Include="src\RestartPreparationView.cs" />
     <Compile Include="src\PackManifestJson.cs" />
     <Compile Include="src\PackPluginDiagnosticMessages.cs" />
@@ -66,6 +67,7 @@
     <Compile Include="src\SerpsModsDiagnosticsViewModel.cs" />
     <Compile Include="src\SerpsModsHostPlugin.cs" />
     <Compile Include="src\SerpsModsHostBootstrap.cs" />
+    <Compile Include="src\HostMessageBox.cs" />
     <Compile Include="src\ApiSharedDependencyPolicy.cs" />
   </ItemGroup>
   <ItemGroup><Content Include="Locales\*.txt"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content></ItemGroup>

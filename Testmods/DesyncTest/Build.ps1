@@ -39,7 +39,8 @@ foreach($file in $references){if((Get-ApiRepositoryHash $file) -ne $referenceHas
 $package=Join-Path $modRoot 'BepInEx/plugins/DesyncTest_Serp'
 Copy-Item -LiteralPath (Join-Path $modRoot 'info.json'),(Join-Path $modRoot 'USAGE.md'),(Join-Path $modRoot 'DesyncTest_Serp.cfg.example') -Destination $package -Force
 Copy-Item -LiteralPath (Join-Path $modRoot 'tools/Analyze-Desync.py') -Destination $package -Force
-$proof=[ordered]@{Version='0.1.0';CreatedUtc=[DateTime]::UtcNow.ToString('o');NoInstall=$true;RuntimeAcceptance='pending';Evidence=$runRoot;NativeAudit=$auditFile;ReferencesUnchanged=$referenceHashes;Files=@(Get-ChildItem -LiteralPath $package -File | Where-Object Name -ne 'build-proof.json' | ForEach-Object{[ordered]@{Name=$_.Name;SHA256=(Get-ApiRepositoryHash $_.FullName)}})}
+$manifest=Get-Content -LiteralPath (Join-Path $modRoot 'info.json') -Raw | ConvertFrom-Json
+$proof=[ordered]@{Version=$manifest.Version;CreatedUtc=[DateTime]::UtcNow.ToString('o');NoInstall=$true;RuntimeAcceptance='pending';Evidence=$runRoot;NativeAudit=$auditFile;ReferencesUnchanged=$referenceHashes;Files=@(Get-ChildItem -LiteralPath $package -File | Where-Object Name -ne 'build-proof.json' | ForEach-Object{[ordered]@{Name=$_.Name;SHA256=(Get-ApiRepositoryHash $_.FullName)}})}
 [IO.File]::WriteAllText((Join-Path $package 'build-proof.json'),(($proof|ConvertTo-Json -Depth 6)+"`r`n"),[Text.UTF8Encoding]::new($false))
 $output=if($env:DESYNC_OUTPUT_ROOT){[IO.Path]::GetFullPath($env:DESYNC_OUTPUT_ROOT)}else{$package}
 $expected=[IO.Path]::GetFullPath((Join-Path $controllerRoot 'Testmods/DesyncTest/BepInEx/plugins/DesyncTest_Serp'))

@@ -1,4 +1,6 @@
 using System;
+using System.Threading;
+using APIShared;
 using CrusaderDE;
 
 namespace ExtendedData
@@ -13,15 +15,64 @@ namespace ExtendedData
         private string diagClientReceived;
         private string diagClientAccepted;
         private string diagHostEcho;
+        private string diagSaveSession;
+        private string diagLastFixesVerification;
 
         partial void DiagMapApplied(LordDataSnapshot snapshot)
         {
             if (string.Equals(diagMapApplied, snapshot.Digest, StringComparison.Ordinal)) return;
             diagMapApplied = snapshot.Digest;
             Shared.DevDiag.Log(() => "Lord-data map initialization applied: " + LordDataSyncDiagnostics.DescribeSnapshot(snapshot));
+            string session = Volatile.Read(ref diagSaveSession);
+            if (session != null)
+                DiagSaveStage("mission-applied", session, null, null);
         }
 
-        partial void DiagMapEnded() => diagMapApplied = null;
+        partial void DiagMapEnded()
+        {
+            diagMapApplied = null;
+            Volatile.Write(ref diagSaveSession, null);
+            Volatile.Write(ref diagLastFixesVerification, null);
+        }
+
+        partial void DiagSaveInitialization(MissionLifecycleNotification notification)
+        {
+            if (!notification.Context.IsSave) return;
+            string session = "mission=" + notification.Context.SessionId + ",save=" +
+                DiagnosticSaveName(notification.Context.FilePath) + ",role=" +
+                (notification.Context.IsHost is bool host ? (host ? "host" : "client") : "unknown");
+            Volatile.Write(ref diagSaveSession, session);
+            DiagSaveStage("mission-" + notification.Phase, session, null, null);
+        }
+
+        partial void DiagSavePreparation(string path, LordDataSnapshot saved, LordPackageManifest manifest, bool ready) =>
+            DiagSaveStage(ready ? "preparation-confirmed" : "preparation-blocked",
+                "role=host,save=" + DiagnosticSaveName(path), saved, manifest);
+
+        partial void DiagSaveArchive(string path, LordDataSnapshot saved, LordPackageManifest manifest, string result) =>
+            DiagSaveStage("archive-" + result, "save=" + DiagnosticSaveName(path) +
+                ",lastInitialization=" + (Volatile.Read(ref diagSaveSession) ?? "not-observed"), saved, manifest);
+
+        partial void DiagFixesVerification(LordDataSnapshot snapshot, string source, string result) =>
+            Volatile.Write(ref diagLastFixesVerification, source + ":" + snapshot.Digest + ":" + result);
+
+        private void DiagSaveStage(string stage, string context, LordDataSnapshot saved, LordPackageManifest manifest)
+        {
+            Shared.DevDiag.Log(() => "Lord-data save transition: stage=" + stage + "," + context +
+                ",storedDigest=" + (saved?.Digest ?? "none") +
+                ",inputManifestDigest=" + (manifest?.Digest ?? "none") +
+                "," + LordDataSyncDiagnostics.DescribePackageMode(packageManifest) +
+                ",publishedDigest=" + (ExtendedDataModDataApi.DiagnosticPublishedLordDigest ?? "none") +
+                ",lastFixesVerification=" + (Volatile.Read(ref diagLastFixesVerification) ?? "not-observed") +
+                "," + DescribeAcknowledgements(lobbyHumanSlots));
+        }
+
+        private static string DiagnosticSaveName(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return "unknown";
+            int lastSeparator = Math.Max(path.LastIndexOf('\\'), path.LastIndexOf('/'));
+            return LordDataSyncDiagnostics.SafeLabel(path.Substring(lastSeparator + 1));
+        }
 
         partial void DiagHostCapture(string source, LordDataSnapshot snapshot, FRONT_Multiplayer lobby)
         {
@@ -81,6 +132,8 @@ namespace ExtendedData
         {
             diagHostGate = diagHostCapture = diagRemoteStatus = diagMapApplied = null;
             diagClientReceived = diagClientAccepted = diagHostEcho = null;
+            Volatile.Write(ref diagSaveSession, null);
+            Volatile.Write(ref diagLastFixesVerification, null);
         }
     }
 }

@@ -1,15 +1,19 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using APIShared;
+using APIShared.Buildings;
+using APIShared.Simulation;
 using CrusaderDE;
 using Noesis;
 using RedBird.Core.Memory;
 using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
+using SHCDESE.ViewModels;
 
 using Path = System.IO.Path;
 
@@ -32,15 +36,20 @@ namespace UiAcceptance
         private const int PlayerRecordStride = 0x583C;
 
         private static string savePath;
+        private static int mpSpawnTick;
 
         internal static void Register()
         {
             Runner.Register("Tanner.Setup", Setup);
+            Runner.Register("Tanner.AddWorkshop", AddWorkshop);
             Runner.Register("Tanner.Open", Open);
             Runner.Register("Tanner.StopEatingMeat", StopEatingMeat);
             Runner.Register("Tanner.SetSlider", SetSlider);
             Runner.Register("Tanner.DragSlider", DragSlider);
             Runner.Register("Tanner.DragRepeatedly", DragRepeatedly);
+            Runner.Register("Tanner.ExpectHover", ExpectHover);
+            Runner.Register("Tanner.ArmMp", step => GameSteps.Do(() => ArmMp(step.Int(0))));
+            Runner.Register("Tanner.ExpectMpRatios", ExpectMpRatios);
             Runner.Register("Tanner.SetForeignGood", SetForeignGood);
             Runner.Register("Tanner.ExpectForeignGood", ExpectForeignGood);
             Runner.Register("Tanner.LogBonusInputs", LogBonusInputs);
@@ -50,15 +59,15 @@ namespace UiAcceptance
             Runner.Register("Tanner.Reload", Reload);
         }
 
-        private static GameBuilding* FindTannery(int owner, out int id)
+        private static GameBuilding* FindTannery(int owner, out int id, int ordinal = 0)
         {
             id = 0;
             SimpleNativeArray<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsArray();
             for (int index = 0; index < buildings.Length; index++)
             {
                 GameBuilding* building = buildings.GetValuePointer(index);
-                if (building->r_AliveState != AliveState.None && building->r_PlayerIdOwner == owner &&
-                    building->r_BuildingType == eStructs.STRUCT_TANNERS_WORKSHOP)
+                if (building->r_AliveState == AliveState.IsAlive && building->r_PlayerIdOwner == owner &&
+                    building->r_BuildingType == eStructs.STRUCT_TANNERS_WORKSHOP && ordinal-- == 0)
                 {
                     id = index + 1;
                     return building;
@@ -108,11 +117,86 @@ namespace UiAcceptance
             });
         }
 
-        private static (int Id, int X, int Y) TanneryPosition(int local)
+        private static IEnumerable<Wait> AddWorkshop(Step step)
+        {
+            int local = HuntSteps.Local();
+            PlaceAdditionalWorkshop(local);
+            yield return new Until("second Tannery alive", () => HasSecondWorkshop(local));
+        }
+
+        private static void PlaceAdditionalWorkshop(int local)
         {
             lock (HuntSteps.Engine())
             {
-                GameBuilding* tannery = FindTannery(local, out int id);
+                Runner.Require(UnitAccess.TryGetById(GamePlayerManagerAPI.Instance.GetLordUnitId(local), out GameUnit* lord, out _), "no local lord");
+                Runner.Require(HuntSteps.Place(local, lord->r_CurrentTilePositionX, lord->r_CurrentTilePositionY,
+                    eMappers.MAPPER_TANNER, eStructs.STRUCT_TANNERS_WORKSHOP, 19, out _, out _), "no second Tannery site");
+            }
+        }
+
+        private static bool HasSecondWorkshop(int local)
+        {
+            lock (HuntSteps.Engine()) return FindTannery(local, out _, 1) != null;
+        }
+
+        private static void ArmMp(int tick)
+        {
+            Runner.Require(SimulationTickEvents.TryGetCurrentTick(out int current) && current < tick,
+                "Tannery fixture tick must be in the future");
+            mpSpawnTick = tick;
+            Runner.Require(SimulationTickEvents.TryRegister("UiAcceptance_Serp", "tanner-mp", PlaceMpWorkshops,
+                out string reason, 900), reason);
+        }
+
+        private static void PlaceMpWorkshops(int tick)
+        {
+            if (tick != mpSpawnTick)
+                return;
+
+            // Both peers place the same fixtures in player-ID order, in the same simulation tick.
+            for (int player = 1; player <= 2; player++)
+            {
+                if (!UnitAccess.TryGetById(GamePlayerManagerAPI.Instance.GetLordUnitId(player), out GameUnit* lord, out _))
+                    throw new InvalidOperationException("Tannery fixture lord unavailable for player " + player);
+                int x = lord->r_CurrentTilePositionX, y = lord->r_CurrentTilePositionY;
+                if (!HuntSteps.Place(player, x, y, eMappers.MAPPER_TANNER, eStructs.STRUCT_TANNERS_WORKSHOP, 16, out _, out _) ||
+                    !HuntSteps.Place(player, x, y, eMappers.MAPPER_TANNER, eStructs.STRUCT_TANNERS_WORKSHOP, 19, out _, out _))
+                    throw new InvalidOperationException("Could not place both Tannery fixtures for player " + player);
+            }
+        }
+
+        private static IEnumerable<Wait> ExpectMpRatios(Step step)
+        {
+            int hostRuns = 3 - step.Int(0), clientRuns = 3 - step.Int(1);
+            var method = typeof(BuildingStates).GetMethod("Find", BindingFlags.Static | BindingFlags.NonPublic);
+            var table = method?.Invoke(null, new object[] { "ImprovedHunters_Serp", "tanner-meat" }) as BuildingStateTable;
+            Runner.Require(table != null, "Tannery state table unavailable");
+            yield return new Until("both players' Tannery ratios", () =>
+            {
+                lock (HuntSteps.Engine())
+                {
+                    return HasMpRatio(table, 1, hostRuns) && HasMpRatio(table, 2, clientRuns);
+                }
+            });
+            AcceptLog.Info("TANNER_MP hostRuns=" + hostRuns + " clientRuns=" + clientRuns);
+        }
+
+        private static bool HasMpRatio(BuildingStateTable table, int player, int runs)
+        {
+            for (int ordinal = 0; ordinal < 2; ordinal++)
+            {
+                GameBuilding* building = FindTannery(player, out int id, ordinal);
+                if (building == null || table.GetValue(id, building->r_GlobalId, 0) != runs)
+                    return false;
+            }
+            return true;
+        }
+
+        private static (int Id, int X, int Y) TanneryPosition(int local, int ordinal)
+        {
+            lock (HuntSteps.Engine())
+            {
+                GameBuilding* tannery = FindTannery(local, out int id, ordinal);
                 Runner.Require(tannery != null, "no Tannery");
                 return (id, tannery->r_TilePositionXBegin, tannery->r_TilePositionYBegin);
             }
@@ -121,7 +205,7 @@ namespace UiAcceptance
         // Opens the panel through the game's own map click, at any camera position.
         private static IEnumerable<Wait> Open(Step step)
         {
-            (int id, int x, int y) = TanneryPosition(HuntSteps.Local());
+            (int id, int x, int y) = TanneryPosition(HuntSteps.Local(), step.Int(0, 0));
             // A click right after a load is sometimes not read; AutomatisierungTest.md notes the open cause.
             for (int attempt = 0; attempt < 4 && !IsOpen(id); attempt++)
             {
@@ -247,15 +331,34 @@ namespace UiAcceptance
             input.MouseMove((int)from.X, (int)from.Y);
             foreach (Wait wait in InputPause()) yield return wait;
             input.MouseButtonDown((int)from.X, (int)from.Y, MouseButton.Left);
-            foreach (Wait wait in InputPause()) yield return wait;
-            AcceptLog.Info("TANNER_DRAG down from=" + (int)from.X + " to=" + (int)to.X + " " + SliderState(slider));
-            for (int part = 1; part <= 4; part++)
+            Key? shift = step.Arg(1, "") == "left" ? Key.LeftShift : step.Arg(1, "") == "right" ? Key.RightShift : (Key?)null;
+            bool hadKeyboard = FatControler.instance.NoesisHasKeyboard;
+            try
             {
-                input.MouseMove((int)(from.X + (to.X - from.X) * part / 4), (int)to.Y);
                 foreach (Wait wait in InputPause()) yield return wait;
+                if (shift.HasValue)
+                {
+                    // This runner injects into Noesis. Physical Shift enters through Unity during normal play.
+                    FatControler.instance.SetNoesisKeyboardState(true);
+                    input.KeyDown(shift.Value);
+                }
+                AcceptLog.Info("TANNER_DRAG down from=" + (int)from.X + " to=" + (int)to.X + " " + SliderState(slider));
+                for (int part = 1; part <= 4; part++)
+                {
+                    input.MouseMove((int)(from.X + (to.X - from.X) * part / 4), (int)to.Y);
+                    foreach (Wait wait in InputPause()) yield return wait;
+                }
+                AcceptLog.Info("TANNER_DRAG moved " + SliderState(slider));
             }
-            AcceptLog.Info("TANNER_DRAG moved " + SliderState(slider));
-            input.MouseButtonUp((int)to.X, (int)to.Y, MouseButton.Left);
+            finally
+            {
+                input.MouseButtonUp((int)to.X, (int)to.Y, MouseButton.Left);
+                if (shift.HasValue)
+                {
+                    input.KeyUp(shift.Value);
+                    FatControler.instance.SetNoesisKeyboardState(hadKeyboard);
+                }
+            }
             yield return new Until("slider dragged to " + value, () => (int)Math.Round(FindSlider().Value) == value);
             AcceptLog.Info("TANNER_SLIDER drag value=" + value + " noesisHasKeyboard=" + GamePlayerManagerAPI.Instance.GetNoesisHasKeyboard());
             yield return new Delay(500);
@@ -273,6 +376,24 @@ namespace UiAcceptance
                 }
             }
             AcceptLog.Info("TANNER_DRAG_REPEATED rounds=" + step.Int(0));
+        }
+
+        private static IEnumerable<Wait> ExpectHover(Step step)
+        {
+            foreach (Wait wait in WithoutRealMouse(HoverSlider(step.Arg(0), step.Arg(1)))) yield return wait;
+        }
+
+        private static IEnumerable<Wait> HoverSlider(string expected, string screenshot)
+        {
+            Slider slider = FindSlider();
+            Point thumb = SliderPoint(slider, (int)Math.Round(slider.Value));
+            FatControler.instance.NGview.MouseMove((int)thumb.X, (int)thumb.Y);
+            yield return new Until("Tannery shortcut hover", () =>
+                MainViewModel.Instance.HUDmain.HoverString == expected);
+            yield return new Delay(800);
+            Runner.Require(MainViewModel.Instance.HUDmain.HoverString == expected, "Tannery hover cleared before capture");
+            GameSteps.CaptureScreenshot(screenshot);
+            yield return new Delay(500);
         }
 
         // What a mod adding goods to the Tannery would do: Vanilla's own synchronized workshop action.
@@ -406,7 +527,7 @@ namespace UiAcceptance
         private static IEnumerable<Wait> Save(Step step)
         {
             string directory = Path.GetFullPath(ConfigSettings.GetSavesPath());
-            string path = Path.Combine(directory, "TannerCheck.sav");
+            string path = Path.Combine(directory, step.Arg(0, "TannerCheck.sav"));
             var location = CameraControls2D.instance.getScreenXYForSaveCentring(
                 (int)((float)(UnityEngine.Screen.width / 64) / PerfectPixelWithZoom.instance.getZoom()),
                 (int)((float)(UnityEngine.Screen.height / 16) / PerfectPixelWithZoom.instance.getZoom()));

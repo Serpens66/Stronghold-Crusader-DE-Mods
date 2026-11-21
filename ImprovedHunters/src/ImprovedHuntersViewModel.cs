@@ -18,8 +18,12 @@ namespace ImprovedHunters
         private const int DefaultCamelMeat = 8;
         private const int DefaultChickenMeat = 1;
         private const int MaximumMeat = 50;
+        private const int DefaultHerdRangeSize = 100;
 
         private bool enableMod = true;
+        private bool controlAivHunters = true;
+        private bool autoBuildHunters = true;
+        private bool retireEmptyHunters = true;
         private bool improvedTargetSelection = true;
         private bool improvedPathfinding = true;
         private bool rabbitsOnlyOnOrder = true;
@@ -35,15 +39,16 @@ namespace ImprovedHunters
         private int chickenMeat = DefaultChickenMeat;
         private bool tannerMeatMode = true;
         private int tannerMeatPerTrip = TannerMeatPolicy.DefaultMeatPerTrip;
-        private int hunterSearchRange = HunterSearchRangePolicy.Unlimited;
+        private int hunterSearchRange = HunterSearchRangePolicy.DefaultRange;
         private bool hunterHutAlwaysAvailable = true;
         private bool collectFreeCorpses = true;
         private bool deerFleeOnlyInSight = true;
         private bool herdsIgnoreFleeingHerds = true;
         private int herdReturnSeconds = HerdSettingsPolicy.Off;
-        private int herdRangeSize = HerdSettingsPolicy.Off;
-        private int startHerdMode = HerdSettingsPolicy.StartHerdsOff;
+        private int herdRangeSize = DefaultHerdRangeSize;
+        private int startHerdMode = HerdSettingsPolicy.StartHerdsOnEmptyMaps;
         private int chickensPerPlayer = GranaryChickenSpawnPolicy.DefaultTargetPerPlayer;
+        private int chickenRespawnSeconds = GranaryChickenSpawnPolicy.DefaultRespawnSeconds;
 
         public event Action<string> SettingChanged;
 
@@ -61,6 +66,13 @@ namespace ImprovedHunters
         public string EnableModText => SerpLocalization.Get("Common.EnableMod");
         public string TitleText => SerpLocalization.Get("ImprovedHunters.Title");
         public string BehaviorTitleText => SerpLocalization.Get("ImprovedHunters.BehaviorTitle");
+        public string AiHuntersTitleText => SerpLocalization.Get("ImprovedHunters.AiHuntersTitle");
+        public string ControlAivHuntersText => SerpLocalization.Get("ImprovedHunters.ControlAivHunters");
+        public string ControlAivHuntersHelpText => SerpLocalization.Get("ImprovedHunters.ControlAivHuntersHelp");
+        public string AutoBuildHuntersText => SerpLocalization.Get("ImprovedHunters.AutoBuildHunters");
+        public string AutoBuildHuntersHelpText => SerpLocalization.Get("ImprovedHunters.AutoBuildHuntersHelp");
+        public string RetireEmptyHuntersText => SerpLocalization.Get("ImprovedHunters.RetireEmptyHunters");
+        public string RetireEmptyHuntersHelpText => SerpLocalization.Get("ImprovedHunters.RetireEmptyHuntersHelp");
         public string TargetsYieldTitleText => SerpLocalization.Get("ImprovedHunters.TargetsYieldTitle");
         public string HelpText => SerpLocalization.Get("ImprovedHunters.Help");
         public string HuntText => SerpLocalization.Get("ImprovedHunters.Hunt");
@@ -137,6 +149,13 @@ namespace ImprovedHunters
         public string ChickenPopulationTitleText => SerpLocalization.Get("ImprovedHunters.ChickenPopulationTitle");
         public string ChickensPerPlayerText => SerpLocalization.Get("ImprovedHunters.ChickensPerPlayer");
         public string ChickensPerPlayerHelpText => SerpLocalization.Get("ImprovedHunters.ChickensPerPlayerHelp");
+        public string ChickenRespawnSecondsText => SerpLocalization.Get("ImprovedHunters.ChickenRespawnSeconds");
+        public string ChickenRespawnSecondsHelpText => SerpLocalization.Get("ImprovedHunters.ChickenRespawnSecondsHelp");
+        public string ChickenRespawnSecondsValueText
+        {
+            get => string.Format(CultureInfo.CurrentCulture, SerpLocalization.Get("ImprovedHunters.ChickenRespawnSecondsValueFormat"), ChickenRespawnSeconds);
+            set => SetBoundedIntText(value, parsed => ChickenRespawnSeconds = parsed, nameof(ChickenRespawnSecondsValueText));
+        }
         public string ChickensPerPlayerValueText
         {
             get => string.Format(
@@ -149,6 +168,9 @@ namespace ImprovedHunters
                 nameof(ChickensPerPlayerValueText));
         }
         [SyncHostOnly] public bool EnableMod { get => enableMod; set => SetSetting(ref enableMod, value, nameof(EnableMod)); }
+        [SyncHostOnly] public bool ControlAivHunters { get => controlAivHunters; set => SetSetting(ref controlAivHunters, value, nameof(ControlAivHunters)); }
+        [SyncHostOnly] public bool AutoBuildHunters { get => autoBuildHunters; set => SetSetting(ref autoBuildHunters, value, nameof(AutoBuildHunters)); }
+        [SyncHostOnly] public bool RetireEmptyHunters { get => retireEmptyHunters; set => SetSetting(ref retireEmptyHunters, value, nameof(RetireEmptyHunters)); }
         [SyncHostOnly] public bool ImprovedTargetSelection { get => improvedTargetSelection; set => SetSetting(ref improvedTargetSelection, value, nameof(ImprovedTargetSelection)); }
         [SyncHostOnly] public bool ImprovedPathfinding { get => improvedPathfinding; set => SetSetting(ref improvedPathfinding, value, nameof(ImprovedPathfinding)); }
         [SyncHostOnly] public bool RabbitsOnlyOnOrder { get => rabbitsOnlyOnOrder; set => SetSetting(ref rabbitsOnlyOnOrder, value, nameof(RabbitsOnlyOnOrder)); }
@@ -209,6 +231,13 @@ namespace ImprovedHunters
                 GranaryChickenSpawnPolicy.MaximumTargetPerPlayer,
                 nameof(ChickensPerPlayer),
                 nameof(ChickensPerPlayerValueText));
+        }
+
+        [SyncHostOnly] public int ChickenRespawnSeconds
+        {
+            get => chickenRespawnSeconds;
+            set => SetBoundedIntSetting(ref chickenRespawnSeconds, value, 0, GranaryChickenSpawnPolicy.MaximumRespawnSeconds,
+                nameof(ChickenRespawnSeconds), nameof(ChickenRespawnSecondsValueText));
         }
 
         [SyncHostOnly] public int DeerMeat { get => deerMeat; set => SetMeatSetting(ref deerMeat, value, DefaultDeerMeat, nameof(DeerMeat), nameof(DeerMeatText)); }
@@ -279,6 +308,9 @@ namespace ImprovedHunters
                 return;
 
             EnableMod = true;
+            ControlAivHunters = true;
+            AutoBuildHunters = true;
+            RetireEmptyHunters = true;
             ImprovedTargetSelection = true;
             ImprovedPathfinding = true;
             RabbitsOnlyOnOrder = true;
@@ -288,6 +320,7 @@ namespace ImprovedHunters
             HuntCamel = true;
             HuntChicken = true;
             ChickensPerPlayer = GranaryChickenSpawnPolicy.DefaultTargetPerPlayer;
+            ChickenRespawnSeconds = GranaryChickenSpawnPolicy.DefaultRespawnSeconds;
             DeerMeat = DefaultDeerMeat;
             GoatMeat = DefaultGoatMeat;
             RabbitMeat = DefaultRabbitMeat;
@@ -295,14 +328,14 @@ namespace ImprovedHunters
             ChickenMeat = DefaultChickenMeat;
             TannerMeatMode = true;
             TannerMeatPerTrip = TannerMeatPolicy.DefaultMeatPerTrip;
-            HunterSearchRange = HunterSearchRangePolicy.Unlimited;
+            HunterSearchRange = HunterSearchRangePolicy.DefaultRange;
             HunterHutAlwaysAvailable = true;
             CollectFreeCorpses = true;
             DeerFleeOnlyInSight = true;
             HerdsIgnoreFleeingHerds = true;
             HerdReturnSeconds = HerdSettingsPolicy.Off;
-            HerdRangeSize = HerdSettingsPolicy.Off;
-            StartHerdMode = HerdSettingsPolicy.StartHerdsOff;
+            HerdRangeSize = DefaultHerdRangeSize;
+            StartHerdMode = HerdSettingsPolicy.StartHerdsOnEmptyMaps;
         }
 
         private void SetSetting<T>(ref T field, T value, string propertyName)

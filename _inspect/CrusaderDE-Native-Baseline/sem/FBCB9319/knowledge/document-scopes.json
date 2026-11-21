@@ -230,6 +230,26 @@
       "note": "Mod references inline."
     },
     {
+      "file": "AI_SIEGE_START.md",
+      "scope": "vanilla",
+      "components": [],
+      "integrationSections": []
+    },
+    {
+      "file": "AI_MILITARY_ADMISSION.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "APIShared",
+        "AiGroupAdmissionTest"
+      ],
+      "integrationSections": [
+        "Admission consequences [mod integration]",
+        "Admission consequences of the siege audit [mod integration]",
+        "In-game siege acceptance 2026-11-18 [mod integration]",
+        "In-game siege state 7 and routeless recruits 2026-11-18 [mod integration]"
+      ]
+    },
+    {
       "file": "AI_RESOURCE_RESERVE.md",
       "scope": "vanilla",
       "components": [],
@@ -423,6 +443,16 @@
       "integrationSections": [
         "Hook backend contract",
         "Blueprint view contract (2026-10-07)"
+      ]
+    },
+    {
+      "file": "DRAWBRIDGE_REGION_CLOSURE.md",
+      "scope": "vanilla+integration",
+      "components": [
+        "Pathfinding", "testmod"
+      ],
+      "integrationSections": [
+        "Planning closure (EnemyBridgePathTest, since 2026-11-17 Pathfinding)"
       ]
     },
     {
@@ -791,11 +821,13 @@
       "file": "GROUP_MOVE_EXCLUSION_MARK.md",
       "scope": "vanilla+integration",
       "components": [
-        "PlayerControlRelayTest"
+        "PlayerControlRelayTest",
+        "AiGroupAdmissionTest"
       ],
       "integrationSections": [
         "Runtime evidence",
-        "PlayerControlRelayTest"
+        "PlayerControlRelayTest",
+        "In-game check of `+0xAC` for API-admitted recruits [mod integration]"
       ]
     },
     {
@@ -1302,6 +1334,12 @@
       "scope": "vanilla+integration",
       "components": ["APIShared"],
       "integrationSections": ["Shared adapter and hook evidence [mod integration]"]
+    },
+    {
+      "file": "PORTAL_TABLE.md",
+      "scope": "vanilla",
+      "components": [],
+      "integrationSections": []
     },
     {
       "file": "RUNTIME_STATE_ACCESS.md",

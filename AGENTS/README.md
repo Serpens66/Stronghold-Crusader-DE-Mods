@@ -11,10 +11,12 @@ Ergänzungen zur Root-[`AGENTS.md`](../AGENTS.md). Diese Dateien werden nicht au
 | [ids-enums.md](ids-enums.md) | 0-/1-basierte Unit-/Building-IDs, Tribe-Leader, Enums und native Konstanten |
 | [modsettings-ui.md](modsettings-ui.md) | Presetsystem, Modsettings-Layout, Suche, Tooltips, Ingame-Popups, Lokalisierung, Pflichttests |
 | [multiplayer-network.md](multiplayer-network.md) | Paket-Threadvertrag, MessagePack, Chores, PerPlayer-Sync, Autorität, Spielmodus-Freigaben, MP-Tests |
+| [desync-diagnosis.md](desync-diagnosis.md) | Host-/Client-Aufnahmen zuordnen, erste Abweichung eingrenzen, Reparaturdaten und lokale Eingaben prüfen |
 | [mission-lifecycle.md](mission-lifecycle.md) | APIShared-Missionslifecycle, OnTick- und Timeline-Einschränkungen, TimerEngine |
 | [apishared.md](apishared.md) | Shared-/APIShared-Zuständigkeit, Nutzung und Erweiterung, Breaking Changes, Repo-Workflow, Doku, Mod-Abhängigkeiten |
 | [external-components.md](external-components.md) | Umgang mit Fehlern in Script Extender und Fixes-Mod, Fixes-Kompatibilität |
 | [build-release.md](build-release.md) | Build-Ablauf, CRLF, Hashprüfungen, Versionierung, Steam-Modpack |
+| [steam-release.md](steam-release.md) | Ablauf eines Steam-Releases (Merges, Vorab-Builds, Treibertests, getrennte Aufrufe mit Bestätigung), Testinstallation der Release-Pakete im Spiel und bekannte Stolpersteine |
 | [shell-windows.md](shell-windows.md) | PowerShell-/CMD-Fallen, Treiberaufrufe, Prüfpfad-Tests, Sandbox |
 | [code-review.md](code-review.md) | Zweiphasige Code-Prüfung, Verifikation und Widerlegungsversuch je Befund, Einstufung, typische Fehlalarme, gleich strenge Prüfung von Korrekturen |
 | [performance.md](performance.md) | Mess- und Profiling-Werkzeuge, Messverfahren, Sampler-Auswertung, typische Kostenfallen in heißen Pfaden, Fallen der Messwerkzeuge |

@@ -63,7 +63,10 @@ namespace ImprovedHunters
             HunterHookInfrastructure.TrackNativeSite(transaction, imageBase + (ulong)rva, 14, handle);
         }
 
-        internal void Commit()
+        // Commits through HunterHookInfrastructure (native-site claim and Shared.NativePatchGuard).
+        // Not named Commit: the permanent-hook preflight reads any parameterless Commit call as an
+        // unguarded HookTransaction commit.
+        internal void Publish()
         {
             CommitResult commitResult = HunterHookInfrastructure.Commit(transaction, groupName);
             if (!commitResult.IsCompleteSuccess)

@@ -32,12 +32,20 @@ namespace ExtraFeatures
                   source.Contains("HealerListBounds.IsUsableListCount(currentCount)"),
                 "Vanilla forwarding, callback fail-open and transient bounds guards remain.");
 
-            byte[] entry = new byte[64];
+            // Offline backend contract (the runtime has no live probe): RedBird may decode the whole
+            // FunctionScanLimit window (+16 for a last instruction). The real bytes end directly in
+            // front of a PAGE_NOACCESS page, so any read beyond them faults here.
+            byte[] entry = new byte[NativeDetourBackend.Instance.Options.FunctionScanLimit + 16];
             Array.Copy(image, 0x181340, entry, 0, entry.Length);
             byte[] expected = { 0x48, 0x89, 0x5C, 0x24, 0x10,
                                 0x48, 0x89, 0x6C, 0x24, 0x20 };
             Check(entry.Take(expected.Length).SequenceEqual(expected), "Audited healer entry bytes.");
-            IntPtr copy = Marshal.AllocHGlobal(entry.Length);
+            const int pageSize = 4096;
+            int pages = (entry.Length + pageSize - 1) / pageSize;
+            IntPtr region = VirtualAlloc(IntPtr.Zero, (UIntPtr)((pages + 1) * pageSize), 0x3000, 0x04);
+            Check(region != IntPtr.Zero && VirtualProtect(region + pages * pageSize, (UIntPtr)pageSize, 0x01, out _),
+                "Guarded healer probe region could not be prepared.");
+            IntPtr copy = region + pages * pageSize - entry.Length;
             NativeDetour<Builder> probe = null;
             Builder callback = (_, __) => { };
             try
@@ -68,12 +76,18 @@ namespace ExtraFeatures
                 probe?.Dispose();
                 byte[] restored = new byte[entry.Length];
                 Marshal.Copy(copy, restored, 0, restored.Length);
-                Check(restored.SequenceEqual(entry), "Copied backend probe restores all original bytes.");
-                Marshal.FreeHGlobal(copy);
+                Check(restored.SequenceEqual(entry), "Offline backend detour restores all original bytes.");
+                VirtualFree(region, UIntPtr.Zero, 0x8000);
                 GC.KeepAlive(callback);
             }
         }
 
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern IntPtr VirtualAlloc(IntPtr address, UIntPtr size, uint type, uint protect);
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool VirtualProtect(IntPtr address, UIntPtr size, uint protect, out uint old);
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool VirtualFree(IntPtr address, UIntPtr size, uint type);
         private static void Check(bool condition, string message)
         {
             if (!condition) throw new InvalidOperationException(message);

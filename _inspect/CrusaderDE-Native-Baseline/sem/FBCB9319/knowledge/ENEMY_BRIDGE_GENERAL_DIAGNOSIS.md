@@ -142,7 +142,7 @@ damage and completed-rebuild observations. Unchanged field definitions are
 referenced; generation/dirty changes alone do not generate duplicate state.
 PCL50EC690, flags48F71B0, directions51890D0 and moat-task layer5F011A0 are read
 within320800 entries. Moat-task5F011A0 derives from tile root405EDB0+1EA23F0;
-it is not the organism layer485A770 used by69560. Historic evidence is never
+it is the word layer 0x69560 reads (`movzx eax, word [rcx+rax*2+0x1EA23F0]`; corrected 2026-11-17, an earlier note named 485A770). Historic evidence is never
 used to grant or deny live reachability. Scalar snapshots are non-atomic and
 cannot authorize negative decisions. Capacity overflow explicitly loses
 coverage. Later gate damage remains relevant after its last bridge disappears.

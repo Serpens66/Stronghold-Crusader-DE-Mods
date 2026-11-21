@@ -115,7 +115,8 @@ namespace ExtraFeatures
                   noKillReward.Contains("ExtraFeaturesHookInfrastructure.RootBeforeCommit(this, transaction);"),
                 "No Kill Reward source guardrail retains rooted hooks and atomic logical settings");
             int finalLiveCheck = noKillReward.LastIndexOf("VerifyLiveSpans(memory);", StringComparison.Ordinal);
-            int commit = noKillReward.IndexOf("transaction.Commit();", StringComparison.Ordinal);
+            // The commit goes through Shared.NativePatchGuard, which also checks the spans against the load snapshot.
+            int commit = noKillReward.IndexOf("Shared.NativePatchGuard.Commit(transaction,", StringComparison.Ordinal);
             string noKillRewardContract = File.ReadAllText(Path.Combine(sourceDirectory, "NoKillRewardStubContract.cs"));
             Check(noKillRewardContract.Contains("Marshal.Copy(new IntPtr(unchecked((long)address))") &&
                   noKillReward.Contains("snapshot.Slice(rva, length), moduleBase + (ulong)rva, rva") &&

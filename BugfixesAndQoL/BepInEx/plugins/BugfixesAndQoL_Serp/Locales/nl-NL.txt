@@ -355,6 +355,8 @@ BugfixesAndQoL.EnableAssassinCapturedGateProtectionFixHelp=Prevents AI Assassins
 
 BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFix=Doelmarkeringen op poortgebouwen corrigeren
 BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFixHelp=Corrigeert de hoogte van groene bewegingsdoelmarkeringen op poortgebouwen, inclusief formatievoorbeelden. Torens en donjons blijven ongewijzigd. Deze instelling is lokaal en wordt niet gesynchroniseerd.
+BugfixesAndQoL.EnableTroopPanelPageCountFix=Hide unneeded page arrows in the troop panel
+BugfixesAndQoL.EnableTroopPanelPageCountFixHelp=In Vanilla, the page arrows of the troop panel stay visible after you once selected more than eight unit types, even when the current selection fits on one page, and they can lead to empty pages. With this fix, the arrows only appear when the selection really needs more pages. This setting is local and is not synchronized.
 BugfixesAndQoL.EnableVanillaPerformanceOptimizations=Prestatieoptimalisaties van het basisspel
 BugfixesAndQoL.EnableVanillaPerformanceOptimizationsHelp=Slaat het opnieuw koppelen van de ongewijzigde minikaart bij elke tick over en voorkomt dat de bondgenoot- en rangweergave het beeld bevriest terwijl een lange simulatietick loopt. De spellogica blijft ongewijzigd. Deze instelling is lokaal en wordt niet gesynchroniseerd.
 BugfixesAndQoL.EnableMinimapRefreshThrottle=Minikaart minder vaak opnieuw tekenen
@@ -427,6 +429,7 @@ BugfixesAndQoL.SettingsRework.MaximumGameSpeed=Maximum game speed
 
 BugfixesAndQoL.SettingsRework.Reason.PreserveDisplayResolution=Protects the borderless fullscreen resolution loaded from settings.cfg against automatic changes during startup and focus changes.
 BugfixesAndQoL.SettingsRework.Reason.EnableGatehouseTargetMarkerHeightFix=Corrects the height of green movement target markers on gatehouses, including formation previews.
+BugfixesAndQoL.SettingsRework.Reason.EnableTroopPanelPageCountFix=Shows the troop panel page arrows only when the selection really needs more pages.
 BugfixesAndQoL.SettingsRework.Reason.EnableVanillaPerformanceOptimizations=Skips re-binding the unchanged minimap on every tick and keeps the alliance and rank displays from freezing the picture while a long simulation tick runs.
 BugfixesAndQoL.SettingsRework.Reason.EnableMinimapRefreshThrottle=Clearly more game speed on large maps; the minimap lags behind by at most 0.1 seconds.
 BugfixesAndQoL.SettingsRework.Reason.SpriteSheetMergeModeIndex=A rendering optimization with additional memory requirements and a restart notice; the appropriate choice depends on the system.
@@ -577,6 +580,7 @@ BugfixesAndQoL.LocalAutosaveUnit=min
 BugfixesAndQoL.EnableAreaDemolition=Area demolition
 BugfixesAndQoL.EnableAreaDemolitionHelp=Adds area demolition to the normal bulldozer. Right-click its button to choose filters, then drag to mark matching objects red. Hold Shift to select the starting type or positive/negative fear-factor group. Single clicks remain unchanged. This local option controls your input; in multiplayer all players need Bugfixes and QoL. Already submitted orders still execute.
 BugfixesAndQoL.SettingsRework.Reason.EnableAreaDemolition=Chooses whether dragging with the bulldozer marks and removes several objects at once.
+BugfixesAndQoL.AreaDemolition.AllFilters=Alles
 BugfixesAndQoL.AreaDemolition.MenuTitle=Area demolition filters
 BugfixesAndQoL.AreaDemolition.RightClickSettings=Right-click: settings
 BugfixesAndQoL.AreaDemolition.DragHelp=Drag: enabled filters

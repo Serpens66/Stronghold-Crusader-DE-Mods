@@ -80,15 +80,6 @@ namespace ExtraFeatures
             moduleBase = unchecked((ulong)context.ModuleHandle.ToInt64());
             VerifyResourceContract(memory);
             awardStatisticsRva = ResolveAwardStatisticsRva(memory);
-            Probe(memory, RewardRva, RewardLength, (probe, copiedAddress) =>
-                NoKillRewardStubContract.VerifyReward(
-                    probe, SuppressForSelectedWinner,
-                    CreateRewardOptions(copiedAddress + (ulong)(CleanupRva - RewardRva)),
-                    copiedAddress + (ulong)(CleanupRva - RewardRva),
-                    copiedAddress + RewardLength));
-            Probe(memory, GoldMessageRva, GoldMessageLength, (probe, copiedAddress) =>
-                NoKillRewardStubContract.VerifyGoldMessage(
-                    probe, copiedAddress + GoldMessageLength));
 
             // Memory is the load-time image. Another mod may already have patched
             // the executable pages even while the audited snapshot still matches.
@@ -100,7 +91,9 @@ namespace ExtraFeatures
                 new HookTransactionOptions
                 {
                     FailureMode = TransactionFailureMode.RollbackAndThrow,
-                    OwnsHooks = true
+                    OwnsHooks = true,
+                    // Shared.NativePatchGuard.Commit checks the spans for foreign patches, then enables.
+                    InstallOnCommit = false
                 });
             try
             {
@@ -119,13 +112,20 @@ namespace ExtraFeatures
                 // retry may hook these spans a second time.
                 rootedPublishedInstance = this;
                 ExtraFeaturesHookInfrastructure.RootBeforeCommit(this, transaction);
-                CommitResult result = transaction.Commit();
+                CommitResult result = Shared.NativePatchGuard.Commit(transaction, "no kill reward");
                 if (!result.IsCompleteSuccess ||
                     !rewardHandle.Success || !goldMessageHandle.Success ||
                     !rewardHandle.IsInstalled || !goldMessageHandle.IsInstalled ||
                     rewardHandle.Hook.DisplacedByteCount != RewardLength ||
                     goldMessageHandle.Hook.DisplacedByteCount != GoldMessageLength)
                     throw new InvalidOperationException("The two defeat-loot hooks did not commit with their audited spans; rolling back.");
+                // The generated stubs are checked on the committed hooks (no live copied-entry probe);
+                // the configuration is still Vanilla, and a mismatch rolls back below.
+                // _inspect/ExtraFeaturesNativeTests checks the same stubs offline on the installed backend.
+                NoKillRewardStubContract.VerifyRewardEmitted(rewardHandle.Hook,
+                    moduleBase + CleanupRva, moduleBase + RewardRva + RewardLength);
+                NoKillRewardStubContract.VerifyGoldMessageEmitted(goldMessageHandle.Hook,
+                    moduleBase + GoldMessageReturnRva);
                 installed = true;
             }
             catch
@@ -208,27 +208,6 @@ namespace ExtraFeatures
 
         internal static int* AwardStatistic(ulong imageBase, int resolvedRva, int winnerId) =>
             (int*)(imageBase + (ulong)resolvedRva + (ulong)winnerId * sizeof(int));
-
-        private static void Probe(ReadOnlySpan<byte> memory, int rva, int length,
-            Action<X64InlineHook, ulong> verify)
-        {
-            IntPtr copy = Marshal.AllocHGlobal(64);
-            try
-            {
-                Marshal.Copy(memory.Slice(rva, 64).ToArray(), 0, copy, 64);
-                ulong address = unchecked((ulong)copy.ToInt64());
-                using (var probe = new X64InlineHook(address, length))
-                {
-                    if (probe.DisplacedByteCount != length)
-                        throw new InvalidOperationException("The installed RedBird backend displaced a different span at 0x" + rva.ToString("X") + ".");
-                    verify(probe, address);
-                }
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(copy);
-            }
-        }
 
         private void VerifyLiveSpans(ReadOnlySpan<byte> snapshot)
         {

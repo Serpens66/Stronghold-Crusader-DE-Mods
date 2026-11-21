@@ -1232,7 +1232,8 @@ Regression: existing BuildPreview.Tests production memory fixture covers all sev
 - Update audit: F4930 profile argument/branch; F32B0 versus F3060; DAAC0/DA590;
   E1640 surface count; DB650 and its native unsafe fallback; 196280 publication;
   1855A0/DCE60/DCD60 consumers; SE surface bypass; building/Goodsyard exceptions.
-- Native route-core ABI `0x04000011` and managed adapter must ship together.
+- Native route-core ABI (currently `0x04000012`, see "Route straightening" below)
+  and managed adapter must ship together.
   New surface write/update exports carry one metadata byte per map node; task
   and single-route functions carry the class explicitly after moat cost.
 - Classes are private ABI integers: `0=Any`, `1=LargeSearch`,
@@ -1289,3 +1290,90 @@ exception/reentry paths, and failed subanchor publication/retry. Under the teste
 with identical route outputs and counted peak 598,563,448 bytes. Evidence:
 `.work/a/pf-surface/001/native-abi11-tests.log`. This proves the tested internal
 budget contract; actual multiplayer acceptance is a separate requirement.
+
+### Route straightening (private ABI `0x04000012`, TODO G10)
+
+`StraightenRoute` post-processes every route the core finds (field descents,
+local box and via-anchor answers, sub-anchors, sub-single and single routes). It
+replaces route sections by the same raster ray as `TryDirectGroundRoute` when
+every ray edge exists in the task's traversal view (directed edges, ground-only
+dry edges, surface class) and the ray's summed entering costs are at most the
+replaced section's exact cost. Routes therefore never become more expensive or
+longer; via-anchor and box-margin detours can become cheaper. It reads only the
+core's own masks, no game memory, and is a pure function of route and mask, so
+batch and thread-count determinism is unchanged. A deterministic work cap of
+`16*steps+64` walked cells keeps the remaining route unchanged when exceeded.
+
+The ABI change is only the counter block: `StatCount` grew from 26 to 32
+(`StraightenRoutes`, `StraightenRays`, `StraightenSegments`, `StraightenSaved`,
+`StraightenCapped`, `StraightenNs`). `mma_stats` rejects shorter buffers, so
+`AnchorRouting.AnchorNative.StatCount`, the contract constant and the native
+regression check move together. No game RVA, hook or saved data is involved.
+Offline evidence and costs: `Findings/RouteShape.md`; benchmark tool:
+`tools/RouteShape/Run-RouteShape.ps1`.
+
+### Enemy drawbridge closure (2026-11-17, `src/GateRouting/DrawbridgeDeckClosure.cs`, `GateTopologySnapshotProvider.cs`)
+
+Setting `EnableEnemyDrawbridgeClosure` (host, child of `EnableEnemyGatePathfindingFix`). Lowered
+drawbridges in front of gatehouses count as raised for the route planning of every player the
+gate does not admit. Two parts that are only consistent together (`DrawbridgeDeckClosure.IsActive`):
+
+1. **Region closure** (`DrawbridgeDeckClosure`): two permanent NativeX64 detours, scheme Indirect,
+   installed when the setting is first wanted (initial library load without thread suspension,
+   otherwise on a later settings change with suspension), never unpatched; the setting only
+   switches the logical state.
+   - `0xC4BF0` temporarily close (1) / open (2) / restore (0) all gates, `void(buildingManager, mode)`.
+     After every mode-1 call lowered decks in front of a gatehouse portal are cut from all
+     non-deck neighbours; the gate aperture edge (Vanilla's own open value from `0xD8CE0`) and
+     the near abutment edge are re-added. Every changed direction byte is restored before the
+     next `0xC4BF0` call (also when the setting changed in between).
+   - `0xF4540` per-tick portal refresh, `void(pathManager)`. Afterwards a gate portal endpoint
+     whose tile shares the gate tile's region gets the region beyond the bridge footprint.
+2. **Deck entry mask** (`GateTopologySnapshotProvider`, owner: gate routing route policy): for
+   every player the gate does not admit, all edges INTO the deck of the gate owner's live
+   drawbridge are cleared (edges out stay open). Covers routes that stay inside one region
+   (second way into the castle). Fingerprint mixes the closure state and the deck cells.
+
+Reference image: `CrusaderDE.dll` SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The whole feature is hash-bound (`isFixedLayoutHashValidated` from the plugin plus the constant
+in the class): on any other build one `PATHFINDING_DRAWBRIDGE_CLOSURE_INACTIVE` error is logged,
+nothing is hooked or written and the mask stays off (gatehouse masks unaffected). No pattern
+fallback: several data tables below have no independent second anchor.
+
+| RVA / offset | Meaning | Source |
+|---|---|---|
+| `0xC4BF0` entry `48896C2418 4889742420` | hooked, 10 displaced bytes; no branch into the span | capstone 2026-11-16 |
+| `0xF4540` entry `48895C2408 57` | hooked, 6 displaced bytes; no branch into the span | capstone 2026-11-16 |
+| `0xD8CE0` entry `48895C240848896C2418` | called `void(pathManager, buildingId)` twice per gate (state 0, then 2); bytes compared afterwards | 0xC4BF0 |
+| `0x64CCBB0` | building manager, record = base + id*0x32C (1-based ids); count at +0x50 | loop bound in 0xC4BF0 |
+| record +0x12C / +0x12E / +0x132 | alive state / type / owner | 0xC4BF0, 0xB9330 |
+| record +0x14A / +0x14C / +0x154 / +0x15E | tile X / Y / footprint size / variation (gate axis `== 0x50`, bridge orientation 0/2/4/6) | 0xD8CE0, 0x645C0 |
+| record +0x224 | ordered occupied tile ids (uint[25]) of a drawbridge, mapper order (managed `r_OccupiedTileIdsArrayBegin`) | 0x739C0 |
+| record +0x2FE / +0x32E | gate state byte (2 = closed) / portal record id | 0xC4BF0, 0xD8040 |
+| `0x60AD660` | path manager; portal record at +0x2024 + id*0x204 (ids 1..[0]-1, max 199) | 0xF4540, 0xD8510 |
+| portal +0 / +4 / +0xC / +0x24 / +0x30 / +0x34 / +0x38 | state / class (3 big, 4 small gatehouse) / building / entry tile / exit tile / region A / region B | 0xD7E90, 0xD8040, 0xE2610 |
+| `0x51890D0` | direction byte per tile; bits 01 N, 02 NE, 04 E, 08 SE, 10 S, 20 SW, 40 W, 80 NW | 0xE49D0 |
+| `0x50EC690` | PCL (region) per tile (ushort) | 0xE49D0 |
+| `0x48F71B0` | tile flags (uint); `0x40000000` = raised drawbridge deck | 0x645C0 |
+| `0x4B6AA50` | building id per tile (short) | 0xB9330 |
+| `0x5F011A0` | moat task index per tile (ushort, read by 0x69560); nonzero decides the deck cells | 0x69560, 0x645C0 |
+| `0x2D1A30` | drawbridge mapper, 25 Int32 per orientation/2 (stride 100) | 0x645C0 |
+| `0x402FF2C` | packed row table, 12-byte entries; checked at installation against the Extender's `GetTileId` | 0xD8CE0 |
+
+- Domain constants are compared with Extender symbols at installation: `STRUCT_GATE_MAIN..WOOD`
+  must be 0x2D..0x2F (the selection 0xC4BF0 uses), `STRUCT_DRAWBRIDGE` 0x31, `AliveState.IsAlive` 2.
+- Entry bytes are checked in the unmodified load image and live (another hook owner = fail-closed);
+  each published hook is validated (scheme, displaced length, `FF 25` patch, pointer slot).
+- Vanilla facts: `_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/DRAWBRIDGE_REGION_CLOSURE.md`,
+  `PORTAL_TABLE.md`, `DRAWBRIDGES.md`. The former acceptance testmod `Testmods/EnemyBridgePathTest`
+  (including its `history/`) was removed on 2026-11-17; restore it when needed with
+  `git checkout 582d6e57f -- Testmods/EnemyBridgePathTest`.
+- Update check (new DLL hash):
+  - re-audit 0xC4BF0, 0xD8CE0, 0xE49D0, 0xF4540, the gatehouse portal handlers (table `0x3125D0`),
+    0xE2610/0xE2F60 and 0x645C0/0x739C0 against the layout above, including all callers of
+    0xC4BF0 (0x57330, 0xD95E0, 0x113BC0, 0x113E00, 0x113F60, 0xE49D0) and that nothing writes
+    the direction grid inside a closure window;
+  - confirm that the native direction filters still apply the mask on the departure tile;
+  - update RVAs, entry bytes and the reference hash together and run `build.bat /nopause`;
+  - for the in-game acceptance restore the former testmod (see above), adapt its read-only inspector
+    to the new layout and run its `bridge-<save>` scenarios (saves `test_gates_bridge*.sav`).

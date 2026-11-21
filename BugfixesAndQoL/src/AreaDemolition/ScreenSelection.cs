@@ -43,16 +43,16 @@ namespace BugfixesAndQoL.AreaDemolition
             internal readonly ScreenRect Viewport;
             internal readonly float Zoom;
             private readonly int rotation,size;
-            private readonly bool flattened;
+            internal readonly bool Flattened;
             internal ProjectionContext(ScreenSelection source,ScreenRect viewport,float zoom)
             {
                 Map=source.map;Tiles=source.tiles;Origin=source.origin;OriginCell=source.originCell;
                 ScreenOrigin=source.screenOrigin;ScreenX=source.screenX;ScreenY=source.screenY;ScreenHeight=source.screenHeight;
-                Viewport=viewport;Zoom=zoom;rotation=(int)Map.CurrentRotation();size=Map.getMapTileSize();flattened=EngineInterface.FlattenedLandscape;
+                Viewport=viewport;Zoom=zoom;rotation=(int)Map.CurrentRotation();size=Map.getMapTileSize();Flattened=EngineInterface.FlattenedLandscape;
             }
             // Camera-only movement is harmless: all screen axes above were frozen on capture.
             internal bool IsMapCurrent => ReferenceEquals(Map,GameMap.instance) && Map!=null &&
-                rotation==(int)Map.CurrentRotation() && size==Map.getMapTileSize() && flattened==EngineInterface.FlattenedLandscape;
+                rotation==(int)Map.CurrentRotation() && size==Map.getMapTileSize() && Flattened==EngineInterface.FlattenedLandscape;
         }
 
         internal ProjectionContext CaptureProjection()
@@ -118,12 +118,13 @@ namespace BugfixesAndQoL.AreaDemolition
                 }
                 if(job.Phase==1)
                 {
-                    var request=candidate.RequestTiles??Array.Empty<int>();
+                    // In the flat view only the root's drawn ground footprint can select it.
+                    var request=candidate.RequestBodyTiles(job.Context.Flattened);
                     if(job.RequestIndex<request.Length)
                     {
                         int tile=request[job.RequestIndex++];
                         if(bodyCells.Add(tile))
-                        {var cell=GetHitCell(tile,job.Context.Zoom,job.Context.Viewport);if(cell.HasBody)AddHull(job,cell.Body);}
+                        {var cell=GetHitCell(tile,job.Context);if(cell.HasBody)AddHull(job,cell.Body);}
                         continue;
                     }
                     job.Phase=2;
@@ -136,13 +137,13 @@ namespace BugfixesAndQoL.AreaDemolition
                     {
                         int tile=occupied[job.OccupiedIndex++];
                         if(groundCells.Add(tile))
-                        {var cell=GetHitCell(tile,job.Context.Zoom,job.Context.Viewport);if(cell.HasGround)AddHull(job,cell.Ground);}
+                        {var cell=GetHitCell(tile,job.Context);if(cell.HasGround)AddHull(job,cell.Ground);}
                         continue;
                     }
                 }
                 else if(job.OccupiedIndex++==0 && tiles.IsTileInsideMapBounds(root.X,root.Y))
                 {
-                    var cell=GetHitCell(tiles.GetTileId(root.X,root.Y),job.Context.Zoom,job.Context.Viewport);
+                    var cell=GetHitCell(tiles.GetTileId(root.X,root.Y),job.Context);
                     if(cell.HasGround)AddHull(job,cell.Ground);
                     continue;
                 }
@@ -162,11 +163,11 @@ namespace BugfixesAndQoL.AreaDemolition
             if(job.SelectArea.HasValue && !job.CurrentHit && hull.Intersects(job.SelectArea.Value))job.CurrentHit=true;
         }
 
-        private CellHitShapes GetHitCell(int tileId, float zoom, ScreenRect viewport)
+        private CellHitShapes GetHitCell(int tileId, ProjectionContext context)
         {
             if (hitCells.TryGetValue(tileId, out CellHitShapes cached)) return cached;
             if (emptyHitCells.Contains(tileId)) return default;
-            CellHitShapes result = BuildHitCell(tileId, zoom, viewport);
+            CellHitShapes result = BuildHitCell(tileId, context);
             // Most world candidates can be offscreen. Cache their ID only, rather than
             // retaining two empty hull structs for every offscreen request tile.
             if (result.HasBody || result.HasGround) hitCells[tileId] = result;
@@ -174,7 +175,7 @@ namespace BugfixesAndQoL.AreaDemolition
             return result;
         }
 
-        private CellHitShapes BuildHitCell(int tileId, float zoom, ScreenRect viewport)
+        private CellHitShapes BuildHitCell(int tileId, ProjectionContext context)
         {
             if (!tiles.IsValidTileId(tileId)) return default;
             var point = tiles.GetTileVectorFromId(tileId);
@@ -187,26 +188,28 @@ namespace BugfixesAndQoL.AreaDemolition
             float sy = screenOrigin.Y + screenX.Y * (point.X - centerX) + screenY.Y * (point.Y - centerY);
             ScreenHitHull body = default, ground = default;
             bool hasBody = false, hasGround;
-            ScreenHitHull plane = MakeHull(sx, sy, 0);
-            // No resolver probe rises farther than800screen pixels. Avoid sprite/height
-            // queries for request cells whose entire possible body hull is offscreen.
-            if (plane.Bounds.MinY <= viewport.MaxY && plane.Bounds.MaxY + 800 >= viewport.MinY)
+            if (!context.Flattened)
             {
-                float spriteHeight = 0;
-                if (tile.buildingHeight == 0)
+                ScreenHitHull plane = MakeHull(sx, sy, 0);
+                // No resolver probe rises farther than 800 screen pixels.
+                if (plane.Bounds.MinY <= context.Viewport.MaxY && plane.Bounds.MaxY + 800 >= context.Viewport.MinY)
                 {
-                    Sprite sprite = tile.constructionOrigImage != null ? tile.constructionOrigImage : tile.mirrorTileImage;
-                    if (sprite != null && !spriteHeights.TryGetValue(sprite, out spriteHeight))
-                    { spriteHeight = sprite.rect.height; spriteHeights.Add(sprite, spriteHeight); }
+                    float spriteHeight = 0;
+                    if (tile.buildingHeight == 0)
+                    {
+                        Sprite sprite = tile.constructionOrigImage != null ? tile.constructionOrigImage : tile.mirrorTileImage;
+                        if (sprite != null && !spriteHeights.TryGetValue(sprite, out spriteHeight))
+                        { spriteHeight = sprite.rect.height; spriteHeights.Add(sprite, spriteHeight); }
+                    }
+                    body = MakeHull(sx, sy, VanillaHitGeometry.MaximumRise(tile.testHeight, tile.buildingHeight, spriteHeight, context.Zoom));
+                    hasBody = body.Intersects(context.Viewport);
                 }
-                body = MakeHull(sx, sy, VanillaHitGeometry.MaximumRise(tile.testHeight, tile.buildingHeight, spriteHeight, zoom));
-                hasBody = body.Intersects(viewport);
             }
             float height = tile.height;
             if (!ScreenRect.Finite(height) || height < MinimumHeight || height > MaximumHeight)
                 throw new InvalidOperationException("A rendered map height is outside Vanilla's signed-short contract.");
             ground = MakeHull(sx + screenHeight.X * height, sy + screenHeight.Y * height, 0);
-            hasGround = ground.Intersects(viewport);
+            hasGround = ground.Intersects(context.Viewport);
             return new CellHitShapes(body, hasBody, ground, hasGround);
         }
 

@@ -1,12 +1,14 @@
 // Feature: Plugin bootstrap of the Pathfinding mod.
+using APIShared.Multiplayer;
 using BepInEx;
+using R3;
 using SHCDESE.API.LowLevel;
 using System;
 
 namespace Pathfinding
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.3")]
-    [BepInDependency(ApiSharedGuid, "0.53.0")]
+    [BepInDependency(ApiSharedGuid, "0.60.0")]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -27,12 +29,14 @@ namespace Pathfinding
 
         public const string PluginGuid = "Pathfinding_Serp";
         public const string PluginName = "Pathfinding";
-        public const string PluginVersion = "0.1.8";
+        public const string PluginVersion = "0.1.13";
 
         // Static roots: the plugin component itself is destroyed by the SHCDE startup cleanup.
         private static PathfindingPlugin processRoot;
         private static PathfindingRuntime runtime;
         private static bool initialized;
+        // Process-lived late check of published native spans (NativePatchGuard.Recheck).
+        private static IDisposable foreignPatchRecheck;
 
         public PathfindingViewModel Settings { get; private set; }
 
@@ -50,6 +54,8 @@ namespace Pathfinding
             FormationFeature.Configure(Logger, Config, Settings);
             GateRouting.GateRoutingFeature.Configure(Logger, Config, Settings);
             runtime = new PathfindingRuntime(Logger, Settings, System.IO.Path.GetDirectoryName(Info.Location));
+            SimulationAgreement.Register(PluginGuid, ExtendedShiftCommandQueueRuntime.AdmissionId, false,
+                () => runtime.IsShiftQueueReady, ExtendedShiftCommandQueueRuntime.ApplyMultiplayerAdmission);
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
             Shared.DebugLogHelper.LogInfo(Logger, $"{PluginName} {PluginVersion} loaded; awaiting native library.");
             ReportOutdatedBugfixesAndQoL();
@@ -75,12 +81,38 @@ namespace Pathfinding
         {
             using (Shared.CrashBreadcrumbScope diagnostic = Shared.CrashBreadcrumbDiagnostics.Enter("LibraryLoaded"))
             {
+                // Before the first hook: every span is compared with this load snapshot. Unbound,
+                // every guarded hook installation fails closed.
+                try { Shared.NativePatchGuard.Bind(context, Logger); }
+                catch (Exception ex) { Shared.DebugLogHelper.LogError(Logger, "PATHFINDING_PATCH_GUARD_UNAVAILABLE: native features stay Vanilla; " + ex); }
+                SubscribeForeignPatchRecheck();
                 // Initial native installation window (see PathfindingHookInfrastructure.DetourBackend).
                 HookInstallPhase.InitialLibraryLoad = true;
                 bool completed;
                 try { completed = InitializeLibraryRuntime(context); }
                 finally { HookInstallPhase.InitialLibraryLoad = false; }
                 if (completed) diagnostic.Complete();
+            }
+        }
+
+        // Mods loaded after Pathfinding can overwrite a published span; each mission or editor start
+        // compares all watched spans again and logs a new deviation once as an Error.
+        private void SubscribeForeignPatchRecheck()
+        {
+            if (foreignPatchRecheck != null) return;
+            BepInEx.Logging.ManualLogSource log = Logger; // the plugin component itself does not outlive startup
+            try
+            {
+                Shared.MissionEvents.SetOwner(PluginGuid);
+                foreignPatchRecheck = Shared.MissionEvents.Started.Subscribe(_ =>
+                {
+                    try { Shared.NativePatchGuard.Recheck(); }
+                    catch (Exception ex) { Shared.DebugLogHelper.LogError(log, "PATHFINDING_FOREIGN_PATCH_RECHECK_FAILED: " + ex); }
+                });
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, "PATHFINDING_FOREIGN_PATCH_RECHECK_UNAVAILABLE: published hooks are not checked again; " + ex);
             }
         }
 

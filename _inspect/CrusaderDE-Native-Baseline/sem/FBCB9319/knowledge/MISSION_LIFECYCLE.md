@@ -91,3 +91,23 @@ identity, roster and permission checks. Their former 15/30-second startup cutoff
 are support notices; actual operation/selection deadlines remain independent.
 Production-state tests and game acceptance evidence are retained under
 `.work/a/mission-ready/001`; a source test does not prove real multiplayer timing.
+
+## First native run after synchronized start, 2026-11-20
+
+For the native hash recorded above, `DLL_StartMultiplayerGameSynced` (confirmed
+export RVA `0x878B0`) writes `2` to the countdown at RVA `0x8EBAA0` and records
+the current native tick at RVA `0x366A12C`. `DLL_RunTick` (confirmed export RVA
+`0x86680`) decrements a positive countdown near entry, before the pause and
+multiplayer chore gates. On the second entry it calls `DLL_GameAction(6,-1,-1,-1)`.
+An unchanged countdown of `2` after one synchronized start places the stall
+before that path in `DLL_RunTick`. The managed `Director` counter counts run
+attempts and can advance while native time stays unchanged.
+
+[mod integration] On *Shattered Peninsula* at 23:04 Europe/Berlin, the host
+completed synchronized start and stayed at native tick `1` with countdown `2`.
+Direct process reads showed managed run attempts advancing at about 40/s, no
+new render buffer reservation, and the APIShared production gate enabled but
+unadmitted with fault code `0`. The host held a matching authenticated receipt
+and a committed round. The client had reached at least tick `8`. These values
+are from that session and can be rechecked through the native countdown,
+`Director.simTickCount`, and APIShared's production gate and receipt fields.

@@ -1,4 +1,5 @@
 using APIShared.Networking;
+using APIShared.Input;
 using APIShared.Presentation;
 using BepInEx.Logging;
 using CrusaderDE;
@@ -134,7 +135,8 @@ namespace ImprovedHunters
                 return;
 
             ShowRuns();
-            NetworkSendResult result = state.RequestMeatRuns(shownBuilding, shownGlobalId, CurrentMeatRuns);
+            bool allOfSameType = (InputState.ReadGestureModifiers(slider) & KeybindModifiers.Shift) != 0;
+            NetworkSendResult result = state.RequestMeatRuns(shownBuilding, shownGlobalId, CurrentMeatRuns, allOfSameType);
             if (result?.Submitted == true)
                 return;
 

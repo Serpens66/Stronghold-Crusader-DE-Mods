@@ -19,7 +19,7 @@ namespace BuildingCosts
 
         public const string PluginGuid = "BuildingCosts_Serp";
         public const string PluginName = "Building Costs";
-        public const string PluginVersion = "1.0.120";
+        public const string PluginVersion = "1.0.121";
 
 
         private static BuildingCostsRuntime runtime;

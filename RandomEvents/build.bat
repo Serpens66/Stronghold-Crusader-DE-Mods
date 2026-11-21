@@ -80,6 +80,12 @@ echo [%date% %time%] Compile projects
 "%MSBUILD%" RandomEvents.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" %SHCDE_BRANCH_MSBUILD_API%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 popd
+rem Audited RedBird entry detours on the real entries with the installed backend (the runtime has no live probe).
+echo [%date% %time%] Native entry detour tests
+dotnet build "%PROJECT_DIR%..\Shared\Tests\AuditedEntryDetour.Tests\Shared.AuditedEntryDetour.Tests.csproj" -c Release "-p:GameDir=%GAME_DIR%" "-p:ExtenderDir=%EXTENDER_DIR%"
+if not "%ERRORLEVEL%"=="0" goto build_failed
+"%PROJECT_DIR%..\Shared\Tests\AuditedEntryDetour.Tests\bin\Release\net481\Shared.AuditedEntryDetour.Tests.exe"
+if not "%ERRORLEVEL%"=="0" goto build_failed
 
 echo [%date% %time%] Copy package files
 copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul

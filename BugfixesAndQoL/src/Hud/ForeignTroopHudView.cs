@@ -20,7 +20,6 @@ namespace BugfixesAndQoL
         private readonly List<ForeignTroopEntry> visibleEntryPool = new List<ForeignTroopEntry>();
         private readonly ForeignTroopEntry[] drawnEntries = new ForeignTroopEntry[8];
         private Canvas panel;
-        private TextBlock pageText;
         private Button previous;
         private Button next;
         private int page;
@@ -34,6 +33,7 @@ namespace BugfixesAndQoL
         private bool originalTroopHitTest;
         private FrameworkElement[] nativeControls;
         private float[] originalOpacities;
+        private Geometry[] originalControlClips;
         private bool showHealth;
         internal bool IsVisible => panel != null && panel.Visibility == Visibility.Visible;
 
@@ -42,6 +42,12 @@ namespace BugfixesAndQoL
             "ButtonTroopPanelPage1", "ButtonTroopPanelPage2", "Leftpadding",
             "TroopsPanelRollover", "TroopsPanelRollover2", "StanceTabs", "UnitControls"
         };
+
+        // BTN_Building's IsEnabled storyboard holds Opacity at 1, and animated values win over local ones,
+        // so Opacity=0 never hid the page buttons. Vanilla rewrites PropEx.ButtonVisibility on every
+        // SetupSelectedTroops; neither touches Clip, so an empty clip hides them reliably.
+        private static bool ClipNativeControl(int index) =>
+            NativeControlNames[index].StartsWith("ButtonTroopPanelPage", StringComparison.Ordinal);
 
         internal bool LordIconMissing { get; private set; }
         internal Action<int, int> CenterOnGroup { get; set; }
@@ -76,11 +82,13 @@ namespace BugfixesAndQoL
             if (failure != null) return false;
             var controls = new FrameworkElement[NativeControlNames.Length];
             var opacities = new float[controls.Length];
+            var clips = new Geometry[controls.Length];
             for (int i = 0; i < controls.Length; i++)
             {
                 controls[i] = FindNamed<FrameworkElement>(main.HUDTroopPanel, "HUD_Troops", NativeControlNames[i], out failure);
                 if (failure != null) return false;
                 opacities[i] = controls[i].Opacity;
+                clips[i] = controls[i].Clip;
             }
             mainRoot = nextMainRoot;
             troopRoot = nextTroopRoot;
@@ -88,6 +96,7 @@ namespace BugfixesAndQoL
             activeTroopHud = main.HUDTroopPanel;
             nativeControls = controls;
             originalOpacities = opacities;
+            originalControlClips = clips;
             originalMainClip = mainRoot.Clip;
             originalTroopClip = troopRoot.Clip;
             originalTroopHitTest = troopRoot.IsHitTestVisible;
@@ -96,7 +105,11 @@ namespace BugfixesAndQoL
             // Keep Vanilla's sword at the left; stop before the minimap and editor controls.
             troopRoot.Clip = new RectangleGeometry(new Rect(130, 0, 430, 155));
             troopRoot.IsHitTestVisible = false;
-            foreach (FrameworkElement control in nativeControls) control.Opacity = 0;
+            for (int i = 0; i < nativeControls.Length; i++)
+            {
+                nativeControls[i].Opacity = 0;
+                if (ClipNativeControl(i)) nativeControls[i].Clip = new RectangleGeometry(new Rect(0, 0, 0, 0));
+            }
             return true;
         }
 
@@ -105,7 +118,10 @@ namespace BugfixesAndQoL
             if (nativeControls != null)
                 for (int i = 0; i < nativeControls.Length; i++)
                     if (nativeControls[i] != null)
+                    {
                         nativeControls[i].Opacity = originalOpacities[i];
+                        if (ClipNativeControl(i)) nativeControls[i].Clip = originalControlClips[i];
+                    }
             if (troopRoot != null)
             {
                 troopRoot.Clip = originalTroopClip;
@@ -118,6 +134,7 @@ namespace BugfixesAndQoL
             activeTroopHud = null;
             nativeControls = null;
             originalOpacities = null;
+            originalControlClips = null;
             originalMainClip = null;
             originalTroopClip = null;
         }
@@ -178,8 +195,6 @@ namespace BugfixesAndQoL
             if (panel != null && panel.IsLoaded && ReferenceEquals(activeIngameUi, screen)) return true;
             Canvas nextCanvas = FindNamed<Canvas>(screen, "IngameUI", "ForeignTroopHudPanel", out failure);
             if (failure != null) return false;
-            TextBlock nextPageText = FindNamed<TextBlock>(screen, "IngameUI", "ForeignTroopPageText", out failure);
-            if (failure != null) return false;
             Button nextPrevious = FindNamed<Button>(screen, "IngameUI", "ForeignTroopPrevious", out failure);
             if (failure != null) return false;
             Button nextNext = FindNamed<Button>(screen, "IngameUI", "ForeignTroopNext", out failure);
@@ -212,7 +227,6 @@ namespace BugfixesAndQoL
             Detach();
             activeIngameUi = screen;
             panel = nextCanvas;
-            pageText = nextPageText;
             previous = nextPrevious;
             next = nextNext;
             Array.Copy(nextSlots, slots, 8);
@@ -225,7 +239,6 @@ namespace BugfixesAndQoL
             // Resolved controls may retain their visual state from the previous map.
             panel.Visibility = Visibility.Collapsed;
             for (int i = 0; i < slots.Length; i++) slots[i].Visibility = Visibility.Collapsed;
-            pageText.Text = string.Empty;
             previous.Visibility = Visibility.Collapsed;
             next.Visibility = Visibility.Collapsed;
             page = 0;
@@ -264,7 +277,6 @@ namespace BugfixesAndQoL
             Array.Clear(drawnEntries, 0, drawnEntries.Length);
             panel = null;
             activeIngameUi = null;
-            pageText = null;
             previous = null;
             next = null;
             Array.Clear(slots, 0, slots.Length);
@@ -368,8 +380,6 @@ namespace BugfixesAndQoL
                 drawn.CurrentHealth = entry.CurrentHealth;
                 drawn.MaxHealth = entry.MaxHealth;
             }
-            int pages = (visibleEntries.Count + 7) / 8;
-            pageText.Text = pages > 1 ? (page + 1) + "/" + pages : "";
             previous.Visibility = page > 0 ? Visibility.Visible : Visibility.Collapsed;
             next.Visibility = (page + 1) * 8 < visibleEntries.Count ? Visibility.Visible : Visibility.Collapsed;
         }

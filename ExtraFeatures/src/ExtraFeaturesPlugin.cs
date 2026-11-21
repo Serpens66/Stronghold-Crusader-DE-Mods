@@ -25,7 +25,7 @@ namespace ExtraFeatures
 
         public const string PluginGuid = "ExtraFeatures_Serp";
         public const string PluginName = "Extra Features";
-        public const string PluginVersion = "1.0.138";
+        public const string PluginVersion = "1.0.139";
 
         private ExtraFeaturesRuntime runtime;
         private bool marketGoodPriceVisualRefreshFailureLogged;
@@ -63,6 +63,8 @@ namespace ExtraFeatures
 
         private void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)
         {
+            // Load snapshot for the foreign-patch checks of every later hook commit.
+            Shared.NativePatchGuard.Bind(context, Logger);
             // Initial native installation window (see ExtraFeaturesHookInfrastructure.DetourBackend).
             ExtraFeaturesHookInfrastructure.InitialLibraryLoad = true;
             try { InitializeLibraryRuntime(context); }

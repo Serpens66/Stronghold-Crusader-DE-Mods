@@ -54,11 +54,11 @@ namespace BugfixesAndQoL.GatehouseLivingCapture
             {
                 transaction = new HookTransaction(context.Region, SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
                     // Ownership allows Dispose to restore only a failed unpublished candidate.
-                    new HookTransactionOptions { FailureMode = TransactionFailureMode.RollbackAndThrow, OwnsHooks = true });
+                    new HookTransactionOptions { FailureMode = TransactionFailureMode.RollbackAndThrow, OwnsHooks = true, InstallOnCommit = false });
                 transaction.AddInline(captureHook, HookTarget.FromAddress(target),
                     (a, original, ret) => CaptureAdapterEmitter.Emit(a, original, callback),
                     hookSize: NativeDefinition.HookLength);
-                CommitResult result = transaction.Commit();
+                CommitResult result = Shared.NativePatchGuard.Commit(transaction, "Gatehouse living capture fix");
                 if (!result.IsCompleteSuccess || !captureHook.Success ||
                     captureHook.Hook.DisplacedByteCount != NativeDefinition.HookLength ||
                     captureHook.Hook.TargetAddress != target)

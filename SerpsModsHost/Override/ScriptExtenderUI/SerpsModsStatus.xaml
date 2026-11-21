@@ -13,6 +13,12 @@
                 VerticalScrollBarVisibility="Auto">
       <StackPanel Margin="10">
         <TextBlock Text="{Binding TitleText}" Foreground="White" FontSize="22" FontWeight="Bold" Margin="0,0,0,10"/>
+        <Border Visibility="{Binding HookFailureVisibility}" Background="#DD4A160F" BorderBrush="#FFFF7777" BorderThickness="3" CornerRadius="4" Padding="14,10" Margin="0,0,0,12">
+          <StackPanel>
+            <TextBlock Text="{Binding HookFailureNoticeText}" Foreground="#FFFFE0A3" FontSize="18" FontWeight="Bold" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding LatestHookFailure}" Foreground="White" TextWrapping="Wrap" Margin="0,6,0,0"/>
+          </StackPanel>
+        </Border>
         <Border Background="#55332112" BorderBrush="#FFB08A4A" BorderThickness="1" CornerRadius="3" Padding="10,7" Margin="0,0,0,12">
           <TextBlock Text="{Binding GameModeNoticeText}" Foreground="#FFF2D48A" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap"/>
         </Border>

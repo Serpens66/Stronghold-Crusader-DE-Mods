@@ -149,7 +149,7 @@ namespace ExtraFeatures
                     placement: OverwrittenInstructionPlacement.AfterCallback);
                 // RedBird pins the callback delegate only inside the hook instance.
                 ExtraFeaturesHookInfrastructure.RootBeforeCommit(this, candidate);
-                CommitResult commitResult = candidate.Commit();
+                CommitResult commitResult = Shared.NativePatchGuard.Commit(candidate, "plague duration");
                 if (!commitResult.IsCompleteSuccess || !lifetimeComparisonHook.Success)
                     throw new InvalidOperationException("The conditional plague-lifetime hook was not installed.");
                 if (!lifetimeComparisonHook.IsInstalled)
@@ -171,8 +171,7 @@ namespace ExtraFeatures
                     }
                     catch (Exception ex)
                     {
-                        Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/PlagueDurationPatch/TryInstallLifetimeComparisonHook.initialize-ai-flag-disease", "Extra Features could not initialize AI flag Disease tracking; " +
-                            $"the permanent lifetime hook remains active without that exception: {ex}");
+                        Shared.DebugLogHelper.LogHookInstallFailure(log, "Plague duration", "AI flag disease tracking", ex.ToString());
                     }
                 }
 
@@ -190,8 +189,7 @@ namespace ExtraFeatures
                 RollbackUnpublishedLifetimeComparisonHook(candidate, hookPublished);
                 aiFlagDiseaseTracker?.Dispose();
                 aiFlagDiseaseTracker = null;
-                Shared.DebugLogHelper.LogWarningLimited(log, "ExtraFeatures/PlagueDurationPatch/TryInstallLifetimeComparisonHook.install-plague-lifetime-hook", "Extra Features could not install the plague-lifetime hook; " +
-                    $"the plague duration multiplier is unavailable and Vanilla duration applies for this process: {ex}");
+                Shared.DebugLogHelper.LogHookInstallFailure(log, "Plague duration", "plague lifetime comparison", ex.ToString());
             }
         }
 

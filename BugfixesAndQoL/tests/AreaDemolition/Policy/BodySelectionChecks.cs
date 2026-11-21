@@ -14,6 +14,7 @@ internal static class BodySelectionChecks
         bool invalid=false;try{VanillaHitGeometry.MaximumRise(float.NaN,0,0,1);}catch(ArgumentException){invalid=true;}
         check(invalid,"invalid body height fails closed");
         ProbeOracle(check);FractionalProbeCoverage(check);ProbeThresholds(check);RootMembership(check);
+        FlatWallRows(check);
         Benchmark(100);Benchmark(500);Benchmark(1000);
     }
 
@@ -48,6 +49,66 @@ internal static class BodySelectionChecks
     }
 
     private static DemolitionTarget Root(int slot)=>new DemolitionTarget {Kind=TargetKind.Building,Group=TargetGroup.Buildings,Slot=slot,GlobalId=(uint)slot,Owner=1,Type=4,TileId=slot};
+
+    private static void FlatWallRows(Action<bool,string> check)
+    {
+        var cells = new[] { (0, 0), (1, 0), (0, 4), (1, 4), (0, 3), (1, 3) };
+        var walls = new PreviewHitCandidate[4];
+        for (int i = 0; i < walls.Length; i++)
+        {
+            walls[i] = new PreviewHitCandidate
+            {
+                Root = new DemolitionTarget { Kind = TargetKind.Wall, TileId = i, OccupiedTiles = new[] { i } },
+                RequestTiles = i < 2 ? new[] { i } : new[] { i, i + 2 }
+            };
+        }
+
+        foreach (float zoom in new[] { 0.75f, 1.5f })
+        for (int rotation = 0; rotation < 4; rotation++)
+        {
+            (float X, float Y) Center(int tile)
+            {
+                var (x, y) = cells[tile];
+                for (int turn = 0; turn < rotation; turn++) (x, y) = (-y, x);
+                return ((x - y) * 32 * zoom, ((x + y) * 16 + 4) * zoom);
+            }
+
+            ScreenHitHull TileHull(int tile, float rise = 0)
+            {
+                var (x, y) = Center(tile);
+                return Hull(x, y, rise, 32 * zoom, 16 * zoom);
+            }
+
+            ScreenRect NearCenter(int tile, float yOffset = 0)
+            {
+                var (x, y) = Center(tile);
+                return new ScreenRect(x - 1, y + yOffset - 1, x + 1, y + yOffset + 1);
+            }
+
+            var flat = new ScreenHitGeometry();
+            var normal = new ScreenHitGeometry();
+            foreach (var wall in walls)
+            {
+                int tile = wall.Root.OccupiedTiles[0];
+                flat.AddRoot(wall.Root, new[] { TileHull(tile) });
+                foreach (int request in wall.RequestBodyTiles(true))
+                    flat.AddRoot(wall.Root, new[] { TileHull(request, 80 * zoom) });
+                foreach (int request in wall.RequestBodyTiles(false))
+                    normal.AddRoot(wall.Root, new[] { TileHull(request, 80 * zoom) });
+            }
+
+            var selected = flat.SelectRoots(NearCenter(0));
+            check(selected.Length == 1 && selected[0] == walls[0].Root, "flat drag selects only the intersecting wall across rotations and zooms");
+            check(flat.SelectRoots(NearCenter(4)).Length == 0 && normal.Intersects(walls[2].Root, NearCenter(4)),
+                "flat drag in the gap ignores other walls' request cells");
+            check(!flat.Intersects(walls[0].Root, NearCenter(0, 48 * zoom)) &&
+                normal.Intersects(walls[0].Root, NearCenter(0, 48 * zoom)), "high wall body hit works only in the normal view");
+
+            var building = Root(20);
+            flat.AddRoot(building, new[] { TileHull(4), TileHull(5) });
+            check(flat.Intersects(building, NearCenter(5)), "partial overlap selects the entire multi-cell building root");
+        }
+    }
     private static void FractionalProbeCoverage(Action<bool,string> check)
     {
         foreach(float zoom in new[]{.125f,.33333334f,.75f,1.125f,3.7f})

@@ -1,3 +1,4 @@
+using APIShared.Input;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using CrusaderDE;
@@ -321,13 +322,9 @@ namespace Pathfinding.UnitCommands
             internal RangedPlacementMode PlacementMode;
         }
 
-        private static bool IsShiftHeld()
-        {
-            KeyManager manager = KeyManager.instance;
-            return manager != null &&
-                (manager.IsKeyHeldDown(KeyCode.LeftShift, ignoreModifiers: true) ||
-                 manager.IsKeyHeldDown(KeyCode.RightShift, ignoreModifiers: true));
-        }
+        private static bool IsShiftHeld() =>
+            InputState.IsGameKeyHeld(KeyCode.LeftShift, ignoreModifiers: true) ||
+            InputState.IsGameKeyHeld(KeyCode.RightShift, ignoreModifiers: true);
 
         private static int GetCommandMouseButton() =>
             ConfigSettings.Settings_SH1RTSControls ? 0 : 1;

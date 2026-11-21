@@ -18,6 +18,32 @@ namespace BugfixesAndQoL
 
     internal static class KeepFlagRotationPolicy
     {
+        // Both native main-flag callers use a seven-tile anchor, even for larger live keeps.
+        internal const int NativeMainFlagAnchorScale = 7;
+
+        internal static bool TryGetMultiplayerPosition(
+            int originX,
+            int originY,
+            int scale,
+            int orientation,
+            bool rotate,
+            KeepFlagPosition actual,
+            out KeepFlagPosition desired)
+        {
+            desired = default;
+            if (!TryGetPositions(originX, originY, NativeMainFlagAnchorScale, 0, out KeepFlagPosition anchor, out _) ||
+                actual.X != anchor.X || actual.Y != anchor.Y)
+                return false;
+            desired = anchor;
+            if (!rotate)
+                return true;
+
+            // The common native position identifies the main flag. Select its corrected corner
+            // from the actual footprint rather than extending the native seven-tile assumption.
+            return TryGetPositions(originX, originY, scale, orientation, out _, out desired) &&
+                (uint)desired.X <= ushort.MaxValue && (uint)desired.Y <= ushort.MaxValue;
+        }
+
         internal static bool TryGetPositions(
             int originX,
             int originY,

@@ -12,7 +12,9 @@ namespace BugfixesAndQoL
 {
     internal static class BugfixesHookInfrastructure
     {
-        internal static HookTransaction CreateOwnedTransaction(ScanRegion region, bool installOnCommit = true) =>
+        // Prepares without writing: commit it through Shared.NativePatchGuard.Commit, which checks every
+        // displaced span for a foreign patch before it enables the hooks.
+        internal static HookTransaction CreateOwnedTransaction(ScanRegion region, bool installOnCommit = false) =>
             new HookTransaction(
                 region,
                 SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,

@@ -67,7 +67,7 @@ namespace BugfixesAndQoL
                     (assembler, instructions, returnAddress) =>
                         GenerateClassifier(assembler, instructions, flagAddress, prefixInstructionCount: 2),
                     hookSize: SecondExpectedDisplacedBytes);
-                CommitResult result = transaction.Commit();
+                CommitResult result = Shared.NativePatchGuard.Commit(transaction, "Healer attack command");
                 if (!result.IsCompleteSuccess || !firstClassifierHook.Success || !secondClassifierHook.Success ||
                     !firstClassifierHook.IsInstalled || !secondClassifierHook.IsInstalled)
                     throw new InvalidOperationException("Healer AttackUnit classifier hooks were not installed atomically.");

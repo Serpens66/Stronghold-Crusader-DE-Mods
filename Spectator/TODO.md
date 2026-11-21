@@ -1,0 +1,7 @@
+# Spectator – offene Prüfungen zur Aufnahme in KI-Gruppen
+
+- [ ] **Problemspielstand `test_diagonal.sav` (Spieler 7):** Über die Spectator-Oberfläche Armbrustschützen als reguläre und zusätzliche Einheiten in bereits besetzte Gruppen für Burgverteidigung, Verteidigungspatrouille und Wirtschaftsschutz aufnehmen. Aufnahme, Mitgliedschaft und Verhalten der neuen und bisherigen Gruppenmitglieder prüfen. Der [bestandene Save-/Load-Test](../.work/t/aigroups/001/ce61cbd887bc/LogOutput.log) lief über APIShared mit einem eigens erzeugten Spielstand. Für den ursprünglichen Spielstand fehlt ein Nachweis.
+- [ ] **Erweiterte Verteidigungsslots im Fixes-Mod (zurückgestellt):** Die Aufnahme oberhalb von 10 Slots mit einem eigenen Test-Lord und einer AIV mit mehr als 10 Positionen derselben Verteidigungsklasse prüfen. Die bisherigen Läufe decken den Standardfall mit 10 Slots ab.
+- [ ] **Unbewegter Rekrut beim Rückzug (Belagerungszustand 9):** Prüfen, ob ein an der Burgtür platzierter Reserve- oder Sturmrekrut stehen bleibt, weil er bereits am Heimziel steht und die KI ihn mit `+0x428` markiert. Das wurde in den beiden auffälligen Läufen [1815ca850d09](../.work/t/aigroups/001/1815ca850d09/LogOutput.log) und [46859cc8aaf6](../.work/t/aigroups/001/46859cc8aaf6/LogOutput.log) noch nicht gemessen. Drei spätere Läufe mit der zusätzlichen Messung bestanden, ohne den Fall zu reproduzieren.
+
+Der frühere Plan und die abgeschlossenen Prüfnachweise stehen in der Git-Historie (`git show 7237e137b:Spectator/TODO.md`).

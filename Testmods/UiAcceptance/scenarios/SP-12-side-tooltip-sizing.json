@@ -1,0 +1,21 @@
+{
+  "enabled": true,
+  "series": "SP-12",
+  "role": "sp",
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 180000, "stopOnFail": true, "allowErrors": true },
+    { "id": "overview-client", "do": "SetModSetting", "args": ["Spectator.SpectatorPlugin::processRoot.Settings", "EnableClientFeatures", "true"], "stopOnFail": true },
+    { "id": "overview-on", "do": "SetModSetting", "args": ["Spectator.SpectatorPlugin::processRoot.Settings", "EnableLordOverview", "true"], "stopOnFail": true },
+    { "id": "load", "do": "LoadSave", "args": ["test_dustynoattack.sav"], "timeoutMs": 120000, "stopOnFail": true },
+    { "id": "resolution-4k", "do": "Resolution", "args": ["3840", "2160", "set"], "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "crown-4k", "do": "Spectator.TooltipPixels", "args": ["side:Lord overview \u00b7 Right-click: settings", "14", "hover", "crown"], "timeoutMs": 15000 },
+    { "id": "blueprints-4k", "do": "Spectator.TooltipPixels", "args": ["side:Blueprints", "14", "hover", "blueprints"], "timeoutMs": 15000 },
+    { "id": "resolution-1080", "do": "Resolution", "args": ["1920", "1080", "set"], "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "crown-1080", "do": "Spectator.TooltipPixels", "args": ["side:Lord overview \u00b7 Right-click: settings", "14", "hover", "crown"], "timeoutMs": 15000 },
+    { "id": "blueprints-1080", "do": "Spectator.TooltipPixels", "args": ["side:Blueprints", "14", "hover", "blueprints"], "timeoutMs": 15000 },
+    { "id": "resolution-4k-again", "do": "Resolution", "args": ["3840", "2160", "set"], "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "crown-settings", "do": "Spectator.TooltipPixels", "args": ["side:Lord overview \u00b7 Right-click: settings", "14", "hover-right"], "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "overview-settings-tooltip", "do": "Spectator.TooltipPixels", "args": ["overview:Choose the statistics layout. All designs share the selected values and sorting.", "14", "hover", "overview-settings"], "timeoutMs": 15000 },
+    { "id": "quit", "do": "QuitToMenu", "timeoutMs": 60000 }
+  ]
+}

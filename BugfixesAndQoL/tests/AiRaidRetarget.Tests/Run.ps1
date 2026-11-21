@@ -18,6 +18,8 @@ $references += '/reference:C:\Program Files (x86)\Reference Assemblies\Microsoft
 $testSources = @($source,(Join-Path $testDir 'Program.cs'),(Join-Path $testDir 'NativeSearchTests.cs'),
     (Join-Path $workspace 'BugfixesAndQoL\src\AI\Raid\RaidSearchEvidence.cs'),
     (Join-Path $workspace 'BugfixesAndQoL\src\AI\Raid\RaidSearchObserver.cs'),
+    (Join-Path $workspace 'Shared\Runtime\Native\NativePatchGuard.cs'),
+    (Join-Path $workspace 'Shared\Runtime\Native\CommittedMemory.cs'),
     (Join-Path $workspace 'Shared\Runtime\Diagnostics\DebugLogHelper.cs'),
     (Join-Path $workspace 'APIShared\src\Units\Selection\UnitAccess.cs'),
     (Join-Path $workspace 'APIShared\src\Buildings\BuildingAccess.cs'),

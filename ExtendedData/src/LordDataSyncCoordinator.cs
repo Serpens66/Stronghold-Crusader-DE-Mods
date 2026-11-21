@@ -145,6 +145,7 @@ namespace ExtendedData
                 throw new InvalidOperationException("Lord-data save identifier is already registered.");
             subscriptions.Add(MissionEvents.Initialization.Subscribe(notification =>
             {
+                DiagSaveInitialization(notification);
                 if (!activation.LordDataIntegration && !activeFromSave) return;
                 ExtendedDataModDataApi.SetSelectedLordIntegrationEnabled(true);
                 if (notification.Context.IsSave && activeFromSave && packageManifest?.UseLocalValues == true)
@@ -159,6 +160,7 @@ namespace ExtendedData
                     fixes.Apply(active);
                     VerifyEffectiveFixes(active, "save-initialization", false);
                     ExtendedDataModDataApi.SetNetworkSnapshot(active, true);
+                    DiagMapApplied(active);
                     return;
                 }
                 if (pendingTrail != null)
@@ -176,6 +178,7 @@ namespace ExtendedData
                     fixes.Apply(pendingTrail);
                     VerifyEffectiveFixes(pendingTrail, "trail-initialization", true);
                     ExtendedDataModDataApi.SetNetworkSnapshot(pendingTrail, true);
+                    DiagMapApplied(pendingTrail);
                     trailApplied = true;
                     Shared.DevDiag.Log(() => "Trail Lord values applied at mission initialization: " +
                         pendingTrail.Digest);
@@ -978,15 +981,17 @@ namespace ExtendedData
                     Publish(LordDataSnapshot.Create(CurrentSessionId(lobby), saved.FixesInstalled, currentSlots),
                         reconstructed ? "legacy-save" : "multiplayer-save");
                 bool ready = IsReadyToLaunch(lobby, out string reason);
+                DiagSavePreparation(header.filePath, saved, currentManifest, ready);
                 LogStartDecision(true, ready, reason);
                 if (!ready) LastSaveBlockReason = reason;
                 return ready;
             }
             catch (Exception exception)
             {
-                Invalidate(exception.Message);
                 Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/LordDataSyncCoordinator/PrepareSave", "Lord-data save preparation failed: " + exception);
-                LastSaveBlockReason = exception.Message;
+                // Read errors may include a local path. The status and rejection can reach the lobby.
+                LastSaveBlockReason = SerpLocalization.Get("ExtendedData.LordSavePreparationFailed");
+                Invalidate(LastSaveBlockReason);
                 return false;
             }
         }
@@ -1596,6 +1601,7 @@ namespace ExtendedData
             try
             {
                 ParseSavedLordData(bytes, out LordDataSnapshot saved, out LordPackageManifest savedManifest);
+                DiagSaveArchive(context.FilePath, saved, savedManifest, "record-read");
                 if (!GameModeHelper.IsRealMultiplayer() && GameNetworkAPI.IsLocalHost())
                 {
                     LordDataSnapshot completed = CompleteSavedSources(saved, savedManifest);
@@ -1611,6 +1617,7 @@ namespace ExtendedData
                         VerifyEffectiveFixes(completed, "single-player-save", true);
                         ExtendedDataModDataApi.SetNetworkSnapshot(completed, true);
                     }
+                    DiagSaveArchive(context.FilePath, saved, savedManifest, "local-record-restored");
                     return;
                 }
                 if (active == null && packageManifest?.UseLocalValues != true &&
@@ -1618,6 +1625,7 @@ namespace ExtendedData
                 {
                     // Save data is not an authenticated replacement for the lobby host.
                     ExtendedDataModDataApi.SetNetworkSnapshot(null, true);
+                    DiagSaveArchive(context.FilePath, saved, savedManifest, "missing-host-snapshot");
                     Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/LordDataSyncCoordinator/LoadSnapshot.lord-loaded-without-acknowledged", "Lord data was loaded without an acknowledged host snapshot.");
                 }
             }
@@ -1667,11 +1675,13 @@ namespace ExtendedData
         {
             if (!snapshot.FixesInstalled)
             {
+                DiagFixesVerification(snapshot, source, "not-installed");
                 if (logSuccess)
                     Shared.DevDiag.Log(() => "Lord-data Fixes verification: source=" + source +
                         ",digest=" + snapshot.Digest + ",state=not-installed.");
                 return;
             }
+            DiagFixesVerification(snapshot, source, "started");
             // Configurations sharing a Lord name may depend on different base AIs.
             foreach (LordDataSlot slot in snapshot.Slots)
             {
@@ -1696,12 +1706,14 @@ namespace ExtendedData
                 }
                 catch (Exception exception)
                 {
+                    DiagFixesVerification(snapshot, source, "failed");
                     Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/LordDataSyncCoordinator/VerifyEffectiveFixes.lord-fixes-verification-failed", "Lord-data Fixes verification failed: source=" + source +
                         ",digest=" + snapshot.Digest + ",lord=" + LordDataSyncDiagnostics.SafeLabel(slot.LordName) +
                         ",error=" + exception);
                     throw;
                 }
             }
+            DiagFixesVerification(snapshot, source, "matched");
         }
 
         private void OnLocalStatusChanged(string status) =>
@@ -1837,6 +1849,10 @@ namespace ExtendedData
         // Development diagnostics (LordDataSyncCoordinator.DevDiag.cs, build.bat /devdiag only).
         partial void DiagMapApplied(LordDataSnapshot snapshot);
         partial void DiagMapEnded();
+        partial void DiagSaveInitialization(MissionLifecycleNotification notification);
+        partial void DiagSavePreparation(string path, LordDataSnapshot saved, LordPackageManifest manifest, bool ready);
+        partial void DiagSaveArchive(string path, LordDataSnapshot saved, LordPackageManifest manifest, string result);
+        partial void DiagFixesVerification(LordDataSnapshot snapshot, string source, string result);
         partial void DiagHostCapture(string source, LordDataSnapshot snapshot, FRONT_Multiplayer lobby);
         partial void DiagHostEcho(string wireJson);
         partial void DiagClientReceived(string wireJson);

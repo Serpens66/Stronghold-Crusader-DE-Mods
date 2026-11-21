@@ -172,7 +172,7 @@ namespace Pathfinding
                     hookSize: MountedEndpointWallGateHookSize,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                CommitResult commitResult = transaction.Commit();
+                CommitResult commitResult = Shared.NativePatchGuard.Commit(transaction, "Mounted stockpile movement");
                 if (!commitResult.IsCompleteSuccess || !cursorClassificationHook.Success || !feedbackClassificationHook.Success ||
                     !mountedEndpointWallGateHook.Success)
                 {

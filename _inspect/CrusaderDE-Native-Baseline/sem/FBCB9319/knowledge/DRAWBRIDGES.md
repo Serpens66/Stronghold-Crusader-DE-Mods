@@ -58,3 +58,15 @@ Installed native and managed hashes were rechecked: native `FBCB93195FC7EFCA9BDA
 Validation on 2026-10-07: all 39 AIVParser test groups passed, including 128 gate/castle/camera fixtures; all 98 CastlePlanner test groups passed. JSON/lifecycle, persistent publishers, XAML, enum source/assembly parity, planar-direction and workspace executable-mutation checks passed. The runtime build reported zero warnings/errors. Installation used CastlePlanner/build.bat; local and installed CastlePlanner.dll match SHA-256 BF8BCA1EEEA3000F844F3837F24785E0985C9A19B588C028BF698E80276EDA6C. This initial validation build used version 0.8.36; automated fixture success does not claim a live four-view visual check.
 
 Release acceptance on 2026-10-07: the user confirmed the fix works and requested the version increase to 0.8.37. Plugin and package versions are advanced together; the historical 0.8.36 changelog remains intact.
+
+## Ordered footprint occupancy (2026-11-17)
+
+- The native building record holds the ordered occupied tile ids of a drawbridge at `+0x224`
+  (uint[25] in mapper order; managed view `GameBuilding.r_OccupiedTileIdsArrayBegin` at
+  `+0x1C8`, the 0x5C difference is the manager prefix). Writer `0x739C0` (static reading, store
+  not re-located on 2026-11-17); every drawbridge acceptance run of 2026-11-16/17 resolved the
+  deck cells from it consistently with mapper `0x2D1A30` (probable, runtime-consistent).
+- `0x645C0` (raise/lower) does not read `+0x224`; it recomputes the cells through
+  `0x69850(tileManager, i, 5)` and the mapper (confirmed).
+- Deck cells = mapper cells with a nonzero moat-task word (`0x5F011A0`, read by `0x69560`), i.e.
+  exactly the cells `0x645C0` flags `0x40000000` when raising.

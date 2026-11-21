@@ -36,6 +36,8 @@ namespace Spectator
         {
             if (Interlocked.Read(ref announcedSessionId) != sessionId) return;
             if (!initialized || sessionId <= 0 || sessionId == CurrentSessionId) return;
+            // Mods loaded after us may have overwritten a published span; reports each change once.
+            try { Shared.NativePatchGuard.Recheck(); } catch (Exception error) { log?.LogError("SPECTATOR_PATCH_RECHECK_FAILED: " + error); }
             ResetSessionState();
             sessionMode = mode;
             bool allowsGameplayActions = GameplayFeatureModePolicy.IsAllowed(
@@ -71,6 +73,7 @@ namespace Spectator
         {
             DiagAiPlacementReset();
             aiPlacement.Reset();
+            aiPanelPosition.Reset();
             ResetPresentationScheduling();
             ResetTestActions(0);
             ResetSpriteColourLease();

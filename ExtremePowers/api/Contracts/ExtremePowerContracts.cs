@@ -86,6 +86,11 @@ namespace ExtremePowers.API
     {
         public Func<string, ExtremePowersReadiness> GetSessionReadiness { get; set; }
         public Action<string> Diagnostic { get; set; }
+        /// <summary>Load context of CrusaderDE.dll. Required for the native hooks: their spans are checked
+        /// against its unchanged image for patches of other mods.</summary>
+        public SHCDESE.API.LowLevel.CrusaderLibraryLoadContext NativeLoadContext { get; set; }
+        /// <summary>Log for native hook errors such as a conflicting patch of another mod.</summary>
+        public BepInEx.Logging.ManualLogSource NativeLog { get; set; }
     }
 
     public interface IExtremePowersApi

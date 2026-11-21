@@ -28,6 +28,7 @@ namespace UiAcceptance
             Runner.Register("Autosave.Layout", Layout);
             Runner.Register("Autosave.Input", InputRegression);
             Runner.Register("Autosave.Surface", Surface);
+            Runner.Register("Autosave.ExpectInterval", ExpectInterval);
         }
 
         private static ContentControl AttachedEditor()
@@ -38,6 +39,24 @@ namespace UiAcceptance
                 if (item is ContentControl control && control.GetType().FullName == "BugfixesAndQoL.LocalAutosaveMenuControl" &&
                     control.Parent != null && control.IsVisible && control.ActualWidth > 0) return control;
             return null;
+        }
+
+        private static IEnumerable<Wait> ExpectInterval(Step step)
+        {
+            var mission = UiAcceptancePlugin.LastContext;
+            Runner.Require(mission != null, "mission context is unavailable");
+            Runner.Require(mission.Mode.Kind.ToString() == step.Arg(1) &&
+                mission.Mode.LaunchVariant.ToString() == step.Arg(2), mission.Mode.ToDiagnosticString());
+            if (step.Args.Length > 3)
+                Runner.Require(mission.IsRestart == (step.Arg(3) == "restart"), "mission restart state differs");
+            Open();
+            ContentControl attached = null;
+            yield return new Until("attached autosave editor", () => (attached = AttachedEditor()) != null);
+            var choice = (Delegate)Read(attached, "getMinutes");
+            int minutes = (int)Read(Read(choice.Target, "schedule"), "Minutes");
+            Runner.Require(minutes == step.Int(0), "active autosave interval is " + minutes);
+            AcceptLog.Info("AUTOSAVE_INTERVAL " + minutes);
+            MainViewModel.Instance.Show_HUD_IngameMenu = false;
         }
 
         private static IEnumerable<Wait> Layout(Step step)

@@ -45,7 +45,8 @@ namespace ImprovedHunters
                     new BuildingStateValue("meat-trip", 1, BuildingStateValueAccess.Simulation)
                 })
             {
-                AcceptsOwnerRequests = isEnabled
+                AcceptsOwnerRequests = isEnabled,
+                AllowSameTypeOwnerRequests = true
             };
             if (!BuildingStates.TryRegister(registration, out BuildingStateTable table, out string reason))
                 throw new InvalidOperationException(reason);
@@ -64,9 +65,14 @@ namespace ImprovedHunters
         internal void ForgetPendingChange() => table.ForgetPendingRequest();
 
         /// <summary>A Tanner on his way keeps the good he carries; only later runs follow the new value.</summary>
-        internal NetworkSendResult RequestMeatRuns(int buildingId, uint globalId, int meatRuns) =>
-            TannerMeatPolicy.IsValidMeatRuns(meatRuns)
-                ? table.RequestChange(buildingId, globalId, MeatRunsIndex, (byte)meatRuns)
-                : null;
+        internal NetworkSendResult RequestMeatRuns(int buildingId, uint globalId, int meatRuns, bool allOfSameType)
+        {
+            if (!TannerMeatPolicy.IsValidMeatRuns(meatRuns))
+                return null;
+
+            return allOfSameType
+                ? table.RequestChangeForSameType(buildingId, globalId, MeatRunsIndex, (byte)meatRuns)
+                : table.RequestChange(buildingId, globalId, MeatRunsIndex, (byte)meatRuns);
+        }
     }
 }

@@ -1,0 +1,19 @@
+# Player files kept when APIShared installs a Workshop update of this pack (see APIShared docs/WORKSHOP.md).
+# Current releases store settings, presets and stores under Documents/SHCDE. These folders only hold data
+# of old installations that the mods move to Documents on their first start; keeping them protects players
+# who skip several releases until that move has happened.
+LobbyModSettings/
+Mods/BugfixesAndQoL_Serp/LobbyModSettings/
+Mods/Pathfinding_Serp/LobbyModSettings/
+Mods/BuildingCosts_Serp/LobbyModSettings/
+Mods/BuildingLimit_Serp/LobbyModSettings/
+Mods/ExtraFeatures_Serp/LobbyModSettings/
+Mods/RandomEvents_Serp/LobbyModSettings/
+Mods/CastlePlanner_Serp/LobbyModSettings/
+Mods/StartConditions_Serp/LobbyModSettings/
+Mods/UnitCosts_Serp/LobbyModSettings/
+Mods/UnitLimit_Serp/LobbyModSettings/
+Mods/ExtendedData_Serp/LobbyModSettings/
+Mods/Spectator_Serp/LobbyModSettings/
+Mods/ImprovedHunters_Serp/LobbyModSettings/
+Mods/CastlePlanner_Serp/RuntimeData/

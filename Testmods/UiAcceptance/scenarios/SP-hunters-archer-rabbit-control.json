@@ -1,0 +1,32 @@
+{
+  "enabled": true,
+  "series": "SP-hunters-archer-rabbit-control",
+  "role": "sp",
+  "quitWhenDone": true,
+  "steps": [
+    {"id": "menu", "do": "WaitMainMenu", "timeoutMs": 60000, "stopOnFail": true, "allowErrors": true},
+    {"id": "no-random-events", "do": "RandomEvents", "args": ["off"], "timeoutMs": 10000, "stopOnFail": true},
+    {"id": "enable", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "EnableMod", "true"], "stopOnFail": true},
+    {"id": "rabbits-only-on-order", "do": "SetModSetting", "args": ["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings", "RabbitsOnlyOnOrder", "true"], "stopOnFail": true},
+    {"id": "skirmish", "do": "Skirmish.Open", "timeoutMs": 15000, "stopOnFail": true},
+    {"id": "map", "do": "Lobby.SelectMap", "args": ["testanimals.map"], "timeoutMs": 15000, "stopOnFail": true},
+    {"id": "ai", "do": "Lobby.AddAI", "args": ["1", "1"], "timeoutMs": 15000, "stopOnFail": true},
+    {"id": "start-places", "do": "Lobby.StartPositions", "args": ["0", "1"], "timeoutMs": 15000, "stopOnFail": true},
+    {"id": "arm", "do": "ArcherStart.Arm", "stopOnFail": true},
+    {"id": "play", "do": "Lobby.Play", "timeoutMs": 45000, "stopOnFail": true},
+    {"id": "briefing", "do": "AiMilitary.ResumeBriefing", "timeoutMs": 15000},
+    {"id": "unpause", "do": "Pause", "args": ["off"], "timeoutMs": 15000, "stopOnFail": true},
+    {"id": "startup", "do": "WaitTicks", "args": ["200"], "timeoutMs": 45000, "stopOnFail": true},
+    {"id": "place-rabbits", "do": "ArcherStart.RabbitFixture", "stopOnFail": true},
+    {"id": "idle", "do": "WaitTicks", "args": ["160"], "timeoutMs": 45000, "stopOnFail": true},
+    {"id": "idle-without-aim", "do": "ArcherStart.RabbitCheck", "args": ["idle"], "stopOnFail": true},
+    {"id": "attack", "do": "ArcherStart.RabbitAttack", "stopOnFail": true},
+    {"id": "hunt", "do": "WaitTicks", "args": ["480"], "timeoutMs": 45000, "stopOnFail": true},
+    {"id": "ordered-and-follow-up-arrows", "do": "ArcherStart.RabbitCheck", "args": ["shot"], "stopOnFail": true},
+    {"id": "move", "do": "ArcherStart.Move", "args": ["4"], "stopOnFail": true},
+    {"id": "no-flag-after-move", "do": "ArcherStart.RabbitCheck", "args": ["moved"], "stopOnFail": true},
+    {"id": "end-observation", "do": "ArcherStart.End", "stopOnFail": true},
+    {"id": "menu-back", "do": "QuitToMenu", "timeoutMs": 30000},
+    {"id": "restore-random-events", "do": "RandomEvents", "args": ["on"], "timeoutMs": 10000}
+  ]
+}

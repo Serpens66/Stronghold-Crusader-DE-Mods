@@ -155,7 +155,8 @@ namespace Pathfinding.Movement.Tests
                 "EnableTroopMovementFix", "EnableRallyTerrainSlowdownFix", "EnableFastRecruitRallyMovement",
                 "EnableMountedStockpileMovementFix", "EnableAssemblyPointPlacementFix" };
             string[] newGates = { nameof(PathfindingViewModel.EnablePathfindingCore),
-                nameof(PathfindingViewModel.EnableFriendlyMoatTraversal), nameof(PathfindingViewModel.AvoidFire), nameof(PathfindingViewModel.AvoidPlague) };
+                nameof(PathfindingViewModel.EnableFriendlyMoatTraversal), nameof(PathfindingViewModel.AvoidFire), nameof(PathfindingViewModel.AvoidPlague),
+                nameof(PathfindingViewModel.EnableEnemyDrawbridgeClosure) };
             var source = new MissionModSettingsEntry();
             source.Overrides.Add(master, false);
             source.Overrides.Add("UnrelatedBfqolSetting", true);

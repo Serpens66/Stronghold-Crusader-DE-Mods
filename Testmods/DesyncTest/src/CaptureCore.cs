@@ -5,7 +5,12 @@ using System.Threading;
 namespace DesyncTest
 {
     internal enum CaptureMode { Off, Light, Deep }
-    internal enum RecordKind : ushort { Start=1, End, Arrival, Dispatch, Checksum, CategoryFlags, Field, Unit, UnitHash, WorldUnit, ForcedRun, DeepEnded, Fault }
+    internal enum RecordKind : ushort
+    {
+        Start=1, End, Arrival, Dispatch, Checksum, CategoryFlags, Field, Unit, UnitHash, WorldUnit, ForcedRun, DeepEnded, Fault,
+        UnitChecksumTable, WorkerAssignment, BuildingChecksumTable, BuildingState, WorkerDecision, WorkerEntrance,
+        WorkerInputs, TerrainDelta, TerrainCoverage, CommandBuildingDelta, CommandCoverage
+    }
     internal struct CaptureEvent
     {
         internal RecordKind Kind;
@@ -39,7 +44,7 @@ namespace DesyncTest
             fixed(byte* d=data) { Buffer.MemoryCopy(source,d+pos,first,first); if(first<length)Buffer.MemoryCopy(source+first,d,length-first,length-first); }
             pos=(pos+length)%data.Length;
         }
-        internal long Append(CaptureEvent e, IntPtr source, int length, bool flush)
+        internal long Append(CaptureEvent e, IntPtr source, int length, bool flush, long order=0, bool protectCommitted=false)
         {
             if(length<0||length>data.Length-HeaderSize){Interlocked.Increment(ref DroppedRecords);Interlocked.Add(ref DroppedBytes,Math.Max(0,length));return 0;}
             if(!Monitor.TryEnter(gate)){Interlocked.Increment(ref ContentionDrops);return 0;}
@@ -52,10 +57,14 @@ namespace DesyncTest
                 while(bound-used<total)
                 {
                     int old=GetInt(head);long oldSeq=0;for(int i=0;i<8;i++)oldSeq|=(long)data[(head+8+i)%data.Length]<<(8*i);
+                    if(protectCommitted&&oldSeq<=Interlocked.Read(ref FlushThrough))
+                    {
+                        DroppedRecords++;DroppedBytes+=total;return 0;
+                    }
                     if(oldSeq<=Interlocked.Read(ref FlushThrough)){DroppedRecords++;DroppedBytes+=old;}else HistoryOverwrites++;
                     head=(head+old)%data.Length;used-=old;
                 }
-                long seq=++sequence;int p=tail;
+                long seq=sequence=order==0?sequence+1:order;int p=tail;
                 Put(ref p,total,4);Put(ref p,2,2);Put(ref p,(int)e.Kind,2);
                 Put(ref p,seq,8);Put(ref p,e.Session,8);Put(ref p,Stopwatch.GetTimestamp(),8);Put(ref p,DateTime.UtcNow.Ticks,8);
                 Put(ref p,e.Tick,4);Put(ref p,e.Phase,4);Put(ref p,e.Opcode,4);Put(ref p,e.Player,4);Put(ref p,e.Command,4);Put(ref p,e.Planned,4);
@@ -91,6 +100,8 @@ namespace DesyncTest
             finally { Monitor.Exit(gate); }
         }
         internal void Flush() { lock(gate)Interlocked.Exchange(ref FlushThrough,sequence); }
+        // Recorder serializes appends and calls this only after an append has returned.
+        internal void FlushPublished() => Interlocked.Exchange(ref FlushThrough,Interlocked.Read(ref sequence));
     }
 
     internal static unsafe class UnitChecksum

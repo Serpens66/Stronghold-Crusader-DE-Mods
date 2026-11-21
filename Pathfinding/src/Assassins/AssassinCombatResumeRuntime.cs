@@ -66,7 +66,7 @@ namespace Pathfinding
                     hookSize: AssassinCombatResumeNativeDefinition.PostCombatPathContextHookLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.BeforeCallback);
-                CommitResult commitResult = installedTransaction.Commit();
+                CommitResult commitResult = Shared.NativePatchGuard.Commit(installedTransaction, "Assassin combat resume");
 
                 if (!commitResult.IsCompleteSuccess || !postCombatPathContextHook.IsInstalled)
                     throw new InvalidOperationException("the Assassin post-combat path-context hook was not activated");

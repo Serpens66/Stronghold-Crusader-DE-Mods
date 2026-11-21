@@ -133,7 +133,9 @@ internal static class Program
         string pluginSource = File.ReadAllText(Path.Combine(modRoot, "src", "ExtremePowersPlugin.cs"));
         string sharedPresetSystem = string.Join("\n", Directory.GetFiles(Path.Combine(modRoot, "..", "APIShared", "src", "ModSettings"), "*.cs", SearchOption.AllDirectories).Select(File.ReadAllText));
         Check(!project.Contains("Include=\"src\\") && !project.Contains("Include=\"Locales\\") && !project.Contains("Include=\"Override\\") && !project.Contains("Include=\"Patches\\"), "extractable API project inputs");
-        string[] allowedSharedApiSources = { "..\\Shared\\Runtime\\Diagnostics\\DebugLogHelper.cs", "..\\Shared\\Adapters\\APIShared\\MissionEventsAdapter.cs", "..\\Shared\\Runtime\\Threading\\UnityMainThreadDispatch.cs" };
+        // The native sources provide the audited RedBird entry detours and the foreign-patch guard of the native hooks.
+        string[] allowedSharedApiSources = { "..\\Shared\\Runtime\\Diagnostics\\DebugLogHelper.cs", "..\\Shared\\Adapters\\APIShared\\MissionEventsAdapter.cs", "..\\Shared\\Runtime\\Threading\\UnityMainThreadDispatch.cs",
+            "..\\Shared\\Runtime\\Native\\AuditedEntryDetour.cs", "..\\Shared\\Runtime\\Native\\NativePatchGuard.cs", "..\\Shared\\Runtime\\Native\\CommittedMemory.cs" };
         foreach (string line in project.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Where(value => value.Contains("<Compile Include=")))
             Check(line.Contains("Include=\"api\\") || allowedSharedApiSources.Any(path => line.Contains("Include=\"" + path + "\"")), "API compile inputs are API sources or approved lifecycle links");
         Check(allowedSharedApiSources.All(path => project.Contains("Include=\"" + path + "\"")), "API project contains the complete approved lifecycle source set");

@@ -24,6 +24,9 @@ function Clear-WorkspaceReleaseOutputs {
         function Add-ReleaseReferences($Value){
             if($null -eq $Value){return}
             if($Value -is [string]){
+                # Proofs also hold free text such as multi-line release notes. Characters that
+                # cannot occur in a Windows path mark a non-path; .NET Framework would throw.
+                if($Value.IndexOfAny([IO.Path]::GetInvalidPathChars()) -ge 0){return}
                 if([IO.Path]::IsPathRooted($Value)){
                     $full=[IO.Path]::GetFullPath($Value).TrimEnd('\','/')
                     if($full.StartsWith($output+'\',[StringComparison]::OrdinalIgnoreCase)){[void]$protected.Add($full)}

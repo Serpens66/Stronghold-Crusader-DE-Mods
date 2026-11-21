@@ -128,7 +128,7 @@ namespace BugfixesAndQoL
                 hookSize: BroadRuinClassifierHookSize,
                 errorMode: CallbackErrorMode.LogAndContinue,
                 placement: OverwrittenInstructionPlacement.AfterCallback);
-            CommitResult commitResult = classifierTransaction.Commit();
+            CommitResult commitResult = Shared.NativePatchGuard.Commit(classifierTransaction, "AI tower ruin repair fix");
             if (!commitResult.IsCompleteSuccess || !narrowRuinClassifierHook.Success || !broadRuinClassifierHook.Success)
                 throw new InvalidOperationException("The AI tower-ruin classifier hooks were not installed atomically.");
             if (narrowRuinClassifierHook.Hook.DisplacedByteCount != NarrowRuinClassifierHookSize ||

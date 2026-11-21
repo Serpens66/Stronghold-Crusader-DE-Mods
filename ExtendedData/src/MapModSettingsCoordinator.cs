@@ -28,7 +28,7 @@ namespace ExtendedData
 {
     internal sealed class MapModSettingsCoordinator : IDisposable
     {
-        internal event Func<FRONT_Multiplayer, FileHeader, bool> MultiplayerSaveLaunchPreparing;
+        internal event Func<FRONT_Multiplayer, FileHeader, string> MultiplayerSaveLaunchPreparing;
         internal const string SaveDataIdentifier = "ExtendedData-MapModSettings";
         internal const string ArchiveEntryName = "_SE_ModData_" + SaveDataIdentifier + ".msgpack";
         private const int MaxPayloadBytes = 8 * 1024 * 1024;
@@ -150,9 +150,16 @@ namespace ExtendedData
                     // not a read-only gate: every contribution must get its veto first.
                     bool multiplayerSave = context.RequesterType == Enums.RequesterTypes.LoadMultiplayerGame ||
                         context.RequesterType == Enums.RequesterTypes.LoadMultiplayerCoopGame;
-                    if (activation.LordDataIntegration && multiplayerSave && MultiplayerSaveLaunchPreparing != null &&
-                        !MultiplayerSaveLaunchPreparing(MainViewModel.viewModelLoaded ? MainViewModel.Instance.FRONTMultiplayer : null, context.Header))
-                        throw new InvalidOperationException("Lord-data save preparation is not ready.");
+                    if (activation.LordDataIntegration && multiplayerSave)
+                    {
+                        string rejection = MultiplayerSaveLaunchPreparing?.Invoke(
+                            MainViewModel.viewModelLoaded ? MainViewModel.Instance.FRONTMultiplayer : null, context.Header);
+                        if (rejection != null)
+                        {
+                            context.RejectPreparation(rejection);
+                            return;
+                        }
+                    }
                     if (activation.EditorFiles && context.RequesterType == Enums.RequesterTypes.SaveEditorMap)
                         ArmMapEditorSave(IOPath.Combine(ConfigSettings.GetUserMapsPath(), context.FileName + ".map"),
                             editorSaveOptions.IncludeMapModSettings, context.State is bool existing && existing);

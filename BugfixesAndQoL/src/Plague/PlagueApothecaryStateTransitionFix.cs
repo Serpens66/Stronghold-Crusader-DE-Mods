@@ -79,7 +79,7 @@ namespace BugfixesAndQoL
                     registers: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RBP,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                CommitResult commitResult = transaction.Commit();
+                CommitResult commitResult = Shared.NativePatchGuard.Commit(transaction, "Plague apothecary state fix");
 
                 if (!commitResult.IsCompleteSuccess || !transitionHook.Success)
                     throw new InvalidOperationException("The apothecary state-2 transition hook was not installed.");

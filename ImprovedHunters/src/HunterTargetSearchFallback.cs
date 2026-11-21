@@ -30,7 +30,8 @@ namespace ImprovedHunters
         int nativeWorldDistance,
         out bool shouldLog);
 
-    internal delegate bool TryTakeHunterFiringPosition(int hunterUnitId, long timestamp, out int tileX, out int tileY);
+    internal delegate bool TryTakeHunterFiringPosition(
+        int hunterUnitId, uint preyGlobalId, eChimps preyType, long timestamp, out int tileX, out int tileY);
 
     internal delegate bool TryPrepareHunterPostShotStateZeroContinuation(
         int hunterUnitId,
@@ -138,6 +139,7 @@ namespace ImprovedHunters
         private readonly Action<int, uint, long> registerRejectedMove;
         private readonly Action<int, int, uint, eChimps, int, long> recordPclMoveHereResult;
         private readonly TryTakeHunterFiringPosition tryTakeFiringPosition;
+        private readonly Func<int, uint, int, long, bool> recordFiringPositionMove;
         private readonly Action<int, uint> onAttackFailedTooClose;
         private readonly long generation;
         private int* stateOneWorldDistanceScratch;
@@ -185,6 +187,7 @@ namespace ImprovedHunters
             Action<int, uint, long> registerRejectedMove,
             Action<int, int, uint, eChimps, int, long> recordPclMoveHereResult,
             TryTakeHunterFiringPosition tryTakeFiringPosition,
+            Func<int, uint, int, long, bool> recordFiringPositionMove,
             Action<int, uint> onAttackFailedTooClose)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
@@ -215,6 +218,8 @@ namespace ImprovedHunters
                 throw new ArgumentNullException(nameof(recordPclMoveHereResult));
             this.tryTakeFiringPosition = tryTakeFiringPosition ??
                 throw new ArgumentNullException(nameof(tryTakeFiringPosition));
+            this.recordFiringPositionMove = recordFiringPositionMove ??
+                throw new ArgumentNullException(nameof(recordFiringPositionMove));
             this.onAttackFailedTooClose = onAttackFailedTooClose ??
                 throw new ArgumentNullException(nameof(onAttackFailedTooClose));
             generation = Interlocked.Increment(ref nextGeneration);
@@ -670,14 +675,17 @@ namespace ImprovedHunters
             ClearQueryState(keepPendingMove: true);
         }
 
-        // A Hunter whose approach ended without sight walks to a staged firing position instead of the prey's tile.
+        // Vanilla has accepted this exact target and latched the lease. Only change the destination.
         private void ReplaceStateZeroMoveDestination(NativePointer<X64SmartCPUContext> context)
         {
             if (!IsAvailable || !canRunPathfinding())
                 return;
 
             int hunterUnitId = unchecked((int)(uint)context.Pointer->RDX);
-            if (!tryTakeFiringPosition(hunterUnitId, HunterSimulationTime.Now, out int tileX, out int tileY))
+            Candidate candidate = pendingMoveCandidate;
+            if (!candidate.IsValid || candidate.HunterUnitId != hunterUnitId ||
+                !tryTakeFiringPosition(hunterUnitId, candidate.PreyGlobalId, candidate.PreyType,
+                    HunterSimulationTime.Now, out int tileX, out int tileY))
                 return;
 
             context.Pointer->R8 = unchecked((ulong)(uint)tileX);
@@ -693,6 +701,8 @@ namespace ImprovedHunters
 
             int moveResult = unchecked((int)(uint)context.Pointer->RAX);
             long timestamp = HunterSimulationTime.Now;
+            bool firingPositionMove = recordFiringPositionMove(
+                candidate.HunterUnitId, candidate.PreyGlobalId, moveResult, timestamp);
 #if SERP_DEVDIAG
             // Captured before the callbacks below so the sample shows the MoveHere result state.
             string movementSnapshot = TryFormatMovementSnapshot(candidate.HunterUnitId);
@@ -783,7 +793,9 @@ namespace ImprovedHunters
 
             try
             {
-                registerRejectedMove(candidate.HunterUnitId, candidate.PreyGlobalId, timestamp);
+                // A rejected alternate tile does not establish that the prey's own tile is unreachable.
+                if (!firingPositionMove)
+                    registerRejectedMove(candidate.HunterUnitId, candidate.PreyGlobalId, timestamp);
             }
             catch (Exception exception)
             {
@@ -796,7 +808,7 @@ namespace ImprovedHunters
 
             try
             {
-                CleanupRejectedMove(candidate);
+                CleanupRejectedMove(candidate, firingPositionMove);
             }
             catch (Exception exception)
             {
@@ -946,7 +958,7 @@ namespace ImprovedHunters
             return *(ushort*)((byte*)hunter + HunterAiStateOffset) == requiredAiState;
         }
 
-        private void CleanupRejectedMove(Candidate candidate)
+        private void CleanupRejectedMove(Candidate candidate, bool firingPositionMove)
         {
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
             if (!APIShared.UnitAccess.TryGetById(unitApi, candidate.HunterUnitId, out GameUnit* hunter, out _) ||
@@ -1002,7 +1014,8 @@ namespace ImprovedHunters
                 $"moveResult=0, targetMatched={targetMatches}, " +
                 $"targetAfter={targetAfter}/{targetGlobalAfter}, reservation={reservationBefore}->{reservationAfter}, " +
                 $"targetedByOtherHunter={targetedByOtherHunter}, cooldownSeconds=" +
-                $"{RejectedCandidateCooldown / HunterSimulationTime.MapTicksPerSecond}, cleanupValid={cleanupValid}, " +
+                $"{(firingPositionMove ? 0 : RejectedCandidateCooldown / HunterSimulationTime.MapTicksPerSecond)}, " +
+                $"firingPosition={firingPositionMove}, cleanupValid={cleanupValid}, " +
                 "followup=Vanilla-state7.";
 
             // A rejection is an expected Vanilla outcome; only a failed cleanup is a fault.

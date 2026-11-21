@@ -48,8 +48,8 @@ namespace BugfixesAndQoL.BuildPreview
             result = new MarkResult(count, counts, changed);
             if (changed == 0) return true;
             for (int i = 0; i < count; i++)
-                if (preview[i] == FarmPreviewPolicy.RedPreview && view.ConstructionGrid[indices[i]] == FarmPreviewPolicy.DarkPreview)
-                    view.ConstructionGrid[indices[i]] = FarmPreviewPolicy.RedPreview;
+                if (preview[i] == FarmPreviewPolicy.GroundWarningPreview && view.ConstructionGrid[indices[i]] == FarmPreviewPolicy.DarkPreview)
+                    view.ConstructionGrid[indices[i]] = FarmPreviewPolicy.GroundWarningPreview;
             return true;
         }
     }

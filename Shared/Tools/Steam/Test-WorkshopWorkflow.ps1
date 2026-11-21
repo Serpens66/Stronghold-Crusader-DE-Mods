@@ -133,7 +133,8 @@ $reference=Write-PruneFixture 'SerpsMods/v1.0.7/proof.json'
 $sdk=Write-PruneFixture 'SerpsMods/cache/APIShared/v0.1.0/sdk.dll'
 $manifest=Write-PruneFixture 'SteamWorkshop/delivery/current/delivery.json'
 $null=Write-PruneFixture 'SteamWorkshop/releases/v1.0.2/current.zip'
-$null=Write-PruneFixture 'SteamWorkshop/prepared/SerpsMods.json' ((@{Version='1.0.2';ReleaseProvenance=$reference;MainSource=@{Selection=$manifest};Sdk=@{Path=$sdk};PublishedRelease=@{Version='1.0.2'}})|ConvertTo-Json -Depth 5)
+# Real proofs carry multi-line release notes; invalid path characters must not abort cleanup.
+$null=Write-PruneFixture 'SteamWorkshop/prepared/SerpsMods.json' ((@{Version='1.0.2';ReleaseNotes="## v1.0.2`r`n- <fixed> | ""quoted""";ReleaseProvenance=$reference;MainSource=@{Selection=$manifest};Sdk=@{Path=$sdk};PublishedRelease=@{Version='1.0.2'}})|ConvertTo-Json -Depth 5)
 $null=Write-PruneFixture 'SteamWorkshop/items/3024040-SerpsMods.item-id' '123'
 foreach($relative in @('SerpsMods/v1.0.7/stage/old.bin','SerpsMods/cache/old.bin','SteamWorkshop/validation/old/Uploads/a.bin','SteamWorkshop/preparation/old/payload.bin','SteamWorkshop/publisher/Uploads/old/payload.bin','SteamWorkshop/releases/v1.0.1/old.zip')){$null=Write-PruneFixture $relative}
 $cleanup=Clear-WorkspaceReleaseOutputs $pruneRoot

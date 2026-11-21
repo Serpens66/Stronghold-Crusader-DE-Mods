@@ -1,0 +1,10 @@
+{
+  "GUID": "WorkshopLoadProbePayload_Serp",
+  "Author": "Serpens66",
+  "Name": "Workshop Load Probe Payload",
+  "Description": "Test package for the safe Workshop installation prototype. Never part of a release.",
+  "Version": "0.2.0",
+  "Dependencies": [],
+  "Manifest": 1,
+  "NetworkMode": 0
+}

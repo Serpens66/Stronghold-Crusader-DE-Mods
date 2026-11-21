@@ -120,7 +120,7 @@ namespace BugfixesAndQoL
                     hookSize: NarrowBlockerLoadHookSize,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.BeforeCallback);
-                CommitResult commitResult = transaction.Commit();
+                CommitResult commitResult = Shared.NativePatchGuard.Commit(transaction, "AI overbuild rules fix");
                 if (!commitResult.IsCompleteSuccess || !mapperSelectionHook.Success || !broadBlockerProtectionHook.Success ||
                     !narrowBlockerProtectionHook.Success)
                 {

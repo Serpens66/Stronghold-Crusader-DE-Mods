@@ -87,7 +87,7 @@ namespace ExtraFeatures
                     hookSize: HookSize);
                 ExtraFeaturesHookInfrastructure.RootBeforeCommit(this, pendingTransaction);
                 commitAttempted = true;
-                CommitResult commitResult = pendingTransaction.Commit();
+                CommitResult commitResult = Shared.NativePatchGuard.Commit(pendingTransaction, "monk always run");
 
                 // The span length is enforced inside Commit: the generator rejects anything but the
                 // audited 9/2/9-byte instructions.

@@ -49,11 +49,29 @@ namespace PathfindingSurfaceTest
             internal bool Mounted, Arrived, Moved;
         }
         internal Fixture(string map, string scenario, Action<string> log) { this.map = map; this.scenario = scenario; this.log = log; }
-        internal static bool Owns(string value) => value == "surface-matrix" || value == "surface-groups-no-singles";
-        internal void Stop() { stopped = true; capture = false; queuedCommand = null; }
+        internal static bool Owns(string value) => value == "surface-matrix" || value == "surface-groups-no-singles" || value == "ground-route-shape" || value == "natural-route-corridor";
+        internal void Stop() { stopped = true; capture = false; naturalCapture = false; combatCleanupEnabled = false; queuedCommand = null; ClearCorridorTruce(); ReleaseNaturalControl(); }
         internal IEnumerable<AutomationStep> Steps()
         {
+            if (scenario == "natural-route-corridor")
+            {
+                yield return new AutomationStep("load-diagonal-reproducer", TimeSpan.FromSeconds(240), LoadNatural);
+                yield return new AutomationStep("prepare-corridor-observer", TimeSpan.FromSeconds(120), PrepareShape, true);
+                yield return new AutomationStep("temporary-reproducer-truce", TimeSpan.FromSeconds(120), EstablishCorridorTruce, true);
+                yield return new AutomationStep("new-natural-dairy-worker", TimeSpan.FromSeconds(240), ExerciseNaturalWorker, true);
+                yield return new AutomationStep("clean-before-forced-moves", TimeSpan.FromSeconds(180), PrepareCombatCleanup, true);
+                yield return new AutomationStep("new-individual-quarry-window", TimeSpan.FromSeconds(180), run => ExerciseCorridor(run, false), true);
+                yield return new AutomationStep("new-group-quarry-leg", TimeSpan.FromSeconds(240), run => ExerciseCorridor(run, true), true);
+                yield break;
+            }
             yield return new AutomationStep("skirmish", TimeSpan.FromSeconds(240), Start);
+            if (scenario == "ground-route-shape")
+            {
+                yield return new AutomationStep("empty-ground-region", TimeSpan.FromSeconds(120), PrepareShape, true);
+                yield return new AutomationStep("new-individual-45-22", TimeSpan.FromSeconds(120), run => ExerciseShape(run, false), true);
+                yield return new AutomationStep("new-group-45-22", TimeSpan.FromSeconds(120), run => ExerciseShape(run, true), true);
+                yield break;
+            }
             yield return new AutomationStep("real-wall-and-stairs", TimeSpan.FromSeconds(150), Prepare, true);
             if (scenario == "surface-matrix")
                 foreach (var type in Mounted.Concat(new[] { eChimps.CHIMP_TYPE_SPEARMAN }))
@@ -77,7 +95,7 @@ namespace PathfindingSurfaceTest
             var plugin = BepInEx.Bootstrap.Chainloader.PluginInfos["Pathfinding_Serp"].Instance;
             object settings = plugin.GetType().GetProperty("Settings").GetValue(plugin);
             Set(settings, "EnableMod", true); Set(settings, "EnablePathfindingCore", true);
-            Set(settings, "AnchorSingleMoves", scenario == "surface-matrix");
+            Set(settings, "AnchorSingleMoves", scenario == "surface-matrix" || scenario == "ground-route-shape");
             Set(settings, "EnableFriendlyMoatTraversal", false);
             Set(settings, "AvoidFire", false); Set(settings, "AvoidPlague", false);
             Set(settings, "EnableMoveFormationEnhancements", false);
@@ -329,6 +347,7 @@ namespace PathfindingSurfaceTest
         }
         private void ObserveMove(UnitMoveHereEventArgs args)
         {
+            ObserveNaturalMove(args);
             if (!capture || stopped || args.Phase != EventHookPhase.Post) return;
             Actor actor = actors.FirstOrDefault(a => a.Id == args.UnitId);
             if (actor == null) return;
@@ -349,13 +368,23 @@ namespace PathfindingSurfaceTest
         }
         internal void Tick(int tick)
         {
-            if (stopped || error != null || (!capture && queuedCommand == null)) return;
+            if (stopped || error != null || (!capture && queuedCommand == null && !combatCleanupEnabled)) return;
             if (missions?.Current?.SessionId != session)
             {
-                error = commandError = "Test mission was replaced"; capture = false;
+                error = commandError = "Test mission was replaced"; capture = false; combatCleanupEnabled = false;
                 queuedCommand = null; commandCompleted = true; return;
             }
             lastTick = tick;
+            if (combatCleanupEnabled && SimulationClock.TryGetElapsedTicks(combatCleanupLastTick, tick, out int cleanupElapsed) && cleanupElapsed >= 64)
+            {
+                combatCleanupLastTick = tick;
+                try { SweepDisposableMilitary(false); }
+                catch (Exception failure)
+                {
+                    error = commandError = "Disposable combat cleanup: " + failure.Message;
+                    queuedCommand = null; commandCompleted = true; return;
+                }
+            }
             Action command = queuedCommand;
             if (command != null)
             {
@@ -395,6 +424,7 @@ namespace PathfindingSurfaceTest
         private unsafe void ObserveActor(Actor actor)
         {
             GameUnit* unit = ActorUnit(actor);
+            TraceCorridorActorFailure(actor, unit);
             Require(UnitAccess.IsReallyAlive(unit), "Actor died during movement");
             int x = unit->r_CurrentTilePositionX, y = unit->r_CurrentTilePositionY;
             Require(!actor.Mounted || !Raised(x, y), "Mounted unit actually entered wall/stairs");

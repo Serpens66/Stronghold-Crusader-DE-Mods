@@ -1,0 +1,25 @@
+{
+  "enabled": true,
+  "series": "SP-long-map-filename",
+  "role": "sp",
+  "quitWhenDone": true,
+  "quitDelayMs": 1500,
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 120000, "stopOnFail": true, "allowErrors": true },
+    { "id": "radar-zoom", "do": "LongMap.EnableRadarZoom", "stopOnFail": true },
+    { "id": "lobby", "do": "Skirmish.Open", "timeoutMs": 15000, "stopOnFail": true },
+    { "id": "map", "do": "Lobby.SelectMap", "args": ["The 10th Crusade - 360h+ Mult Pro Map (Ultimate Modded Edition V.map"], "stopOnFail": true },
+    { "id": "ai", "do": "Lobby.AddAI", "args": ["1"], "stopOnFail": true },
+    { "id": "deep-path", "do": "LongMap.RejectDeepPath", "args": ["The 10th Crusade - 360h+ Mult Pro Map (Ultimate Modded Edition V.map"], "stopOnFail": true, "allowErrors": true },
+    { "id": "play", "do": "Lobby.Play", "timeoutMs": 70000, "stopOnFail": true },
+    { "id": "briefing", "do": "AiMilitary.ResumeBriefing", "timeoutMs": 20000, "stopOnFail": true },
+    { "id": "loaded", "do": "LongMap.AssertLoaded", "args": ["E:/ProgrammeE/Steam/steamapps/workshop/content/3024040/3842204726/The 10th Crusade - 360h+ Mult Pro Map (Ultimate Modded Edition V.map"], "stopOnFail": true },
+    { "id": "ticks", "do": "WaitTicks", "args": ["100"], "stopOnFail": true },
+    { "id": "first-image", "do": "Screenshot", "args": ["original"], "stopOnFail": true },
+    { "id": "restart", "do": "LongMap.Restart", "timeoutMs": 70000, "stopOnFail": true },
+    { "id": "restart-briefing", "do": "AiMilitary.ResumeBriefing", "timeoutMs": 20000, "stopOnFail": true },
+    { "id": "reloaded", "do": "LongMap.AssertLoaded", "args": ["E:/ProgrammeE/Steam/steamapps/workshop/content/3024040/3842204726/The 10th Crusade - 360h+ Mult Pro Map (Ultimate Modded Edition V.map"], "stopOnFail": true },
+    { "id": "restart-ticks", "do": "WaitTicks", "args": ["100"], "stopOnFail": true },
+    { "id": "restart-image", "do": "Screenshot", "args": ["restart"], "stopOnFail": true }
+  ]
+}
