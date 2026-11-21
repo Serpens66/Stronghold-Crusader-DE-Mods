@@ -1300,3 +1300,29 @@ and all branch targets before enabling on another game image. Paused frames
 change no timestamps. When active, an existing pending save covers any
 newly expired interval and only the wall-clock timer restarts.
 An unknown image or foreign bytes leave Vanilla behavior active.
+## Occupied wall demolition
+
+Reference DLL SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The feature binds to this image because its checks depend on the calling registers, grids
+and the two interior branch targets.
+
+- `0x79F84..0x79F98` displaces 6/8/6 bytes. The wall owner and empty structure layer
+  have already been checked. Replay wall selection and pending-removal test. A pending
+  removal continues at `0x79F98`, a Vanilla decision at `0x7A044`, and an enabled decision
+  at `0x7A058`. Fixes' moat hook at `0x7A047` remains on the Vanilla route.
+- `0x63735..0x63758` displaces 4/8/8/9/6 bytes. EDX still holds the actor just before
+  the displaced LEA replaces it. The alternate native callers at `0x62460` and
+  `0x62AB0` pass zero. Bypass the occupied rejection only for a valid actor, packed
+  tile, wall flag, zero structure and matching owner. Replay the original pending-bit
+  clear and occupancy comparison. Native continuation is `0x63758` (remove) or
+  `0x63842` (return). The Extender entry detour at `0x63700` remains upstream.
+- Native layout: tile manager in RCX, packed tile in RDI. Tile flags at `+0x898400`,
+  structure words at `+0xB0BCA0`, and owner bytes at `+0xE1AFE0`. The owner is
+  one plus the low three bits. The ordinary Chore and authenticated area operation
+  both pass the actual player ID and retain their Vanilla refund paths.
+
+Re-audit the complete functions, direct and indirect entries, three native callers,
+packed layouts, spans, branches and live RedBird displacement before changing the
+reference. A mismatched or occupied site leaves the feature unavailable. In multiplayer
+the APIShared simulation agreement requires both sites to be available on every peer,
+then the common host setting is frozen for the mission.

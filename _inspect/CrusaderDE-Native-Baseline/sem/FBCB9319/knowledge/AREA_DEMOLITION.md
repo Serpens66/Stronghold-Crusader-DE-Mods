@@ -96,11 +96,25 @@ The successful wall path resets the tile's height and refreshes its topology.
 The unit update at `0x182B00` calls the ordinary height normalizer `0x19B260`
 and then the standing-height updater on the stationary path.
 
-### Occupied-wall experiment [mod integration]
+The wall removal entry has three native callers. Chore 41 supplies the
+decoded actor, while map cleanup through `0x62460` and the terrain brush
+through `0x62AB0` pass zero. The actor in EDX is still available at
+`0x63735`. The LEA there replaces EDX before the occupancy guard, so that
+guard itself can no longer identify the actor through EDX.
 
-The isolated testmod uses the wall branch before the common permission check
-and the physical wall guard. It scopes the bypass to one test tile and keeps
-the existing Fixes moat hook and the Script Extender wall detour in place.
-Reference spans, cursor input and the procedure are in
-`Testmods/OccupiedWallDemolitionTest/UpdateToNewDLL.md` and
-`Testmods/OccupiedWallDemolitionTest/TESTING.md` from the workspace root.
+### Occupied-wall demolition [mod integration]
+
+On 2026-11-21 the prototype and the BugfixesAndQoL integration passed the
+single-click occupied-wall tests with and without Fixes 1.31.0. Stationary
+units stayed on the tile and adjusted to the ground height. Moving units
+continued their orders. Apple farmers completed deliveries on both the
+outbound and loaded return routes after the wall was removed. The chicken
+initially stayed on the tile. Both it and the intact-wall control chicken
+were removed later in the observation window.
+
+With the production option disabled, the occupied wall remained and the
+empty control wall was removed with a refund. With the option enabled, a
+separate area-demolition run removed the occupied wall once, issued the
+refund and preserved the unit position and health.
+
+See [the BugfixesAndQoL native contract](../../../../../BugfixesAndQoL/UpdateToNewDLL.md#occupied-wall-demolition).

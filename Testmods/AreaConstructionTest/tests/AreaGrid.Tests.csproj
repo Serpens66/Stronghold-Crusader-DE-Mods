@@ -6,5 +6,6 @@
   <ItemGroup>
     <Compile Include="../src/AreaGrid.cs" Link="AreaGrid.cs" />
     <Compile Include="../src/StorageGrid.cs" Link="StorageGrid.cs" />
+    <Compile Include="../src/QuarryLayout.cs" Link="QuarryLayout.cs" />
   </ItemGroup>
 </Project>

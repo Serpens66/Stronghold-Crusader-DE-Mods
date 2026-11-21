@@ -10,6 +10,7 @@ namespace AreaConstructionTest
     {
         private static readonly Color Allowed = new Color(1f, 1f, 1f, 0.59f);
         private static readonly Color Blocked = new Color(0.78f, 0.28f, 0.28f, 0.76f);
+        private static readonly Color PileGround = new Color(1f, 0.79f, 0.48f, 0.85f);
         private readonly List<SpriteRenderer> sprites = new List<SpriteRenderer>();
         private readonly Dictionary<Tilemap, TilemapRenderer> rows = new Dictionary<Tilemap, TilemapRenderer>();
         private GameObject root;
@@ -51,23 +52,7 @@ namespace AreaConstructionTest
                     for (int x = 0; x < scale; x++)
                     {
                         int mapX = cornerX + x, mapY = cornerY + y;
-                        map.mapGameTileToTilemapCoord(mapX, mapY, out int tx, out int ty);
-                        var tile = map.getMapTile(tx, ty);
-                        if (tile == null || tile.gameMapX != mapX || tile.gameMapY != mapY || tile.tilemapRef == null)
-                            continue;
-
-                        var row = tile.tilemapRef;
-                        Vector3 center = row.GetCellCenterWorld(new Vector3Int(tx, ty, 0)) +
-                            row.transform.TransformVector(new Vector3(0f, tile.height, 0f));
-                        if (camera != null && !NearViewport(camera.WorldToViewportPoint(center)))
-                            continue;
-
-                        if (!rows.TryGetValue(row, out var terrain) || terrain == null)
-                        {
-                            terrain = row.GetComponent<TilemapRenderer>();
-                            rows[row] = terrain;
-                        }
-                        if (terrain == null)
+                        if (!TryProject(mapX, mapY, out var tile, out var terrain, out var center))
                             continue;
 
                         Sprite sprite;
@@ -93,23 +78,56 @@ namespace AreaConstructionTest
                         {
                             sprite = spriteLoader.instance.GetGMSprite(file, site.Frame + Index(x, y, scale, rotation));
                         }
-                        if (sprite == null)
-                            continue;
-                        SpriteRenderer renderer = Take(shown++);
-                        renderer.gameObject.layer = terrain.gameObject.layer;
-                        renderer.sortingLayerID = terrain.sortingLayerID;
-                        renderer.sortingOrder = terrain.sortingOrder + 1;
-                        renderer.sharedMaterial = terrain.sharedMaterial;
-                        renderer.transform.position = center;
-                        renderer.sprite = sprite;
-                        renderer.color = tint;
-                        renderer.enabled = true;
+                        Paint(terrain, center, sprite, tint);
                     }
+                }
+                if (site.Pile is Tile pile)
+                {
+                    for (int y = 0; y < QuarryLayout.PileScale; y++)
+                    for (int x = 0; x < QuarryLayout.PileScale; x++)
+                        if (TryProject(pile.X + x, pile.Y + y, out var tile, out var terrain, out var center))
+                            Paint(terrain, center, tile.tileImage, site.Buildable ? PileGround : Blocked);
                 }
             }
 
             HideFrom(shown);
             return shown > 0;
+
+            bool TryProject(int mapX, int mapY, out GameMapTile tile, out TilemapRenderer terrain, out Vector3 center)
+            {
+                terrain = null;
+                center = default;
+                map.mapGameTileToTilemapCoord(mapX, mapY, out int tx, out int ty);
+                tile = map.getMapTile(tx, ty);
+                if (tile == null || tile.gameMapX != mapX || tile.gameMapY != mapY || tile.tilemapRef == null)
+                    return false;
+                var row = tile.tilemapRef;
+                center = row.GetCellCenterWorld(new Vector3Int(tx, ty, 0)) +
+                    row.transform.TransformVector(new Vector3(0f, tile.height, 0f));
+                if (camera != null && !NearViewport(camera.WorldToViewportPoint(center)))
+                    return false;
+                if (!rows.TryGetValue(row, out terrain) || terrain == null)
+                {
+                    terrain = row.GetComponent<TilemapRenderer>();
+                    rows[row] = terrain;
+                }
+                return terrain != null;
+            }
+
+            void Paint(TilemapRenderer terrain, Vector3 center, Sprite sprite, Color tint)
+            {
+                if (sprite == null)
+                    return;
+                SpriteRenderer renderer = Take(shown++);
+                renderer.gameObject.layer = terrain.gameObject.layer;
+                renderer.sortingLayerID = terrain.sortingLayerID;
+                renderer.sortingOrder = terrain.sortingOrder + 1;
+                renderer.sharedMaterial = terrain.sharedMaterial;
+                renderer.transform.position = center;
+                renderer.sprite = sprite;
+                renderer.color = tint;
+                renderer.enabled = true;
+            }
         }
 
         internal void Hide() => HideFrom(0);

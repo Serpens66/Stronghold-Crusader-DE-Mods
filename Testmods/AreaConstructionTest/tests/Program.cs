@@ -39,6 +39,33 @@ Grid(new Tile(int.MaxValue, int.MaxValue), size: 26);
 Expect((20, 20), (24, 20), (20, 24), (24, 24));
 Console.WriteLine("PASS: fixed anchor, all drag directions, shrinking, spacing, rectangular footprints and map bounds.");
 
+if (QuarryLayout.Fill(result, anchor, new Tile(25, 25)))
+    throw new InvalidOperationException("A short quarry gesture must use the ordinary single placement.");
+Expect((20, 20));
+foreach (int directionX in new[] { -1, 1 })
+foreach (int directionY in new[] { -1, 1 })
+{
+    if (!QuarryLayout.Fill(result, anchor, new Tile(20 + directionX * 70, 20 + directionY * 70)) ||
+        !QuarryLayout.IsBlock(result))
+        throw new InvalidOperationException("A long drag must produce one anchored quarry block.");
+    Expect((20, 20), (20 + directionX * 6, 20), (20, 20 + directionY * 6),
+        (20 + directionX * 6, 20 + directionY * 6));
+}
+
+QuarryLayout.Fill(result, anchor, new Tile(26, 26));
+var existingPiles = new[] { new Tile(22, 14) };
+if (QuarryLayout.AllowsPile(new Tile(25, 20), result, existingPiles) ||
+    QuarryLayout.AllowsPile(new Tile(20, 15), result, existingPiles) ||
+    QuarryLayout.AllowsPile(new Tile(21, 14), result, existingPiles) ||
+    QuarryLayout.AllowsPile(new Tile(799, 20), result, existingPiles) ||
+    !QuarryLayout.AllowsPile(new Tile(20, 14), result, existingPiles))
+    throw new InvalidOperationException("A pile must avoid the whole block, its walkway, map edges and other piles.");
+QuarryLayout.Fill(result, new Tile(796, 780), new Tile(799, 790));
+Expect((796, 780), (796, 786));
+if (!QuarryLayout.IsBlock(result) || QuarryLayout.IsBlock(new[] { anchor, new Tile(20, 26) }))
+    throw new InvalidOperationException("Only canonical blocks may reach simulation, including a clipped map edge.");
+Console.WriteLine("PASS: one quarry block, fixed order, protected walkway and disjoint pile footprints.");
+
 void Storage(Tile end, int width = 5, int height = 5, int size = 90) =>
     StorageGrid.Fill(result, anchor, end, width, height, size);
 

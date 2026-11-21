@@ -31,7 +31,11 @@ internal static partial class Program
         var document = new XmlDocument(); document.Load(file);
         XmlNode[] nodes = document.SelectNodes("//*").Cast<XmlNode>().ToArray();
         XmlNode[] topicNodes = nodes.Where(n => SearchAttribute(n, "IsSection") == "True").ToArray();
-        Check(topics.Length == 10 && topicNodes.Length == 10, "one collapsible level with ten topics");
+        Check(topicNodes.Length == topics.Length &&
+            new HashSet<string>(topicNodes.Select(n => SearchAttribute(n, "SectionKey")))
+                .SetEquals(topics.Select(t => (string)Get(t, "Key"))) &&
+            topicNodes.All(n => !Ancestors(n.ParentNode).Any(a => SearchAttribute(a, "IsSection") == "True")),
+            "each topic has one heading and topics are not nested");
         Check(topicNodes.All(n => n.Attributes?["Width"]?.Value.Contains("ViewportWidth, ElementName=SettingsViewport") == true &&
             n.Attributes?["HorizontalAlignment"]?.Value == "Left"), "topics have a finite viewport width even with horizontal Auto scrolling");
         Type widthConverter = mod.GetType("BugfixesAndQoL.SettingsTopicWidthConverter", true);
@@ -302,6 +306,9 @@ internal static partial class Program
         Check(tooltipChanges.SequenceEqual(new[] { "ToolTip" }), "catalog language refresh updates marker tooltip bindings");
 
         object display = Get(presentation, "ClientDisplay"), controls = Get(presentation, "ClientControls");
+        object hostControls = Get(presentation, "HostControls");
+        Check(Equals(Get(hostControls, "Title"), Get(controls, "Title")) && (bool)Get(hostControls, "IsHost"),
+            "occupied-wall demolition shares the controls theme title and keeps its host section");
         int notifications = 0;
         var headingChanges = new HashSet<string>();
         ((INotifyPropertyChanged)display).PropertyChanged += (_, e) => { notifications++; headingChanges.Add(e.PropertyName); };
@@ -350,7 +357,7 @@ internal static partial class Program
                 "every option retains its theme and receives exactly its category: " + key);
             string query = category == "Qol" ? "QoL" : category == "Possible" ? "Fixes?" : "Fixes";
             Check(matches(entry, query, false), "category matches without tooltip search: " + key);
-            Check(matches(entry, "Theme " + topicName + " " + query, false),
+            Check(matches(entry, Get(label, "Title") + " " + query, false),
                 "theme and category can be combined: " + key);
             Check(matches(entry, query + " " + Get(entry, "Title"), false),
                 "category and option title can be combined: " + key);
@@ -525,6 +532,7 @@ public class SearchPresentationLabels
     public SearchTopicLabel HostAi => new SearchTopicLabel { Title = "Theme HostAi" };
     public SearchTopicLabel HostTroops => new SearchTopicLabel { Title = "Theme HostTroops" };
     public SearchTopicLabel HostEconomy => new SearchTopicLabel { Title = "Theme HostEconomy" };
+    public SearchTopicLabel HostControls => ClientControls;
     public SearchTopicLabel HostSiege => new SearchTopicLabel { Title = "Theme HostSiege" };
     public SearchTopicLabel HostPerformance => new SearchTopicLabel { Title = "Theme HostPerformance" };
 }

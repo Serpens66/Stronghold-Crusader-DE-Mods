@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Threading;
 using APIShared;
 using APIShared.Input;
+using APIShared.Simulation;
 using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
@@ -22,7 +23,7 @@ namespace AreaConstructionTest
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class Plugin : BaseUnityPlugin
     {
-        public const string Guid = "AreaConstructionTest_Serp", Name = "AreaConstructionTest", Version = "0.2.0";
+        public const string Guid = "AreaConstructionTest_Serp", Name = "AreaConstructionTest", Version = "0.3.0";
 
         private void Awake() => PlacementInput.Install(Logger);
     }
@@ -43,16 +44,21 @@ namespace AreaConstructionTest
         private readonly List<Tile> storageOrder = new List<Tile>();
         private readonly HashSet<Tile> storageUnvisited = new HashSet<Tile>();
         private readonly Dictionary<Tile, int> storageFrames = new Dictionary<Tile, int>();
+        private readonly List<Tile> quarryPiles = new List<Tile>(4);
         private Tile? storageAwaiting;
         private readonly GhostView view = new GhostView();
         private IMissionPlayStateReadinessCapability readiness;
         private MissionContext mission;
         private NativePlacement native;
+        private NativeQuarryPlacement quarry;
+        private QuarryNetwork quarryNetwork;
+        private QuarryOrder quarryOrder;
+        private bool quarryTickReady;
         private GameMap map;
         private Tile start, end;
         private eMappers tool;
         private int actor, scale;
-        private bool editor, captured, dragging, faulted;
+        private bool editor, captured, dragging, faulted, quarryBlock;
         private long nextQuote;
 
         private PlacementInput(object engine, ManualLogSource log)
@@ -94,6 +100,7 @@ namespace AreaConstructionTest
             try
             {
                 Volatile.Write(ref native, new NativePlacement(context, log));
+                Volatile.Write(ref quarry, NativeQuarryPlacement.TryInstall(context, log));
                 log.LogInfo(Stamp("Native placement bindings ready."));
             }
             catch (Exception error) { Fail(error); }
@@ -104,7 +111,18 @@ namespace AreaConstructionTest
             if (!api.TryGetMissionPlayStateReadiness(out readiness, out var diagnostic) ||
                 !api.TryGetMissionLifecycle(out var lifecycle, out diagnostic) ||
                 !lifecycle.TryRegisterObserver("area-construction", OnStarted, OnEnded, null, out diagnostic))
+            {
                 Fail(new InvalidOperationException(diagnostic.Reason));
+                return;
+            }
+            quarryTickReady = SimulationTickEvents.TryRegister(Plugin.Guid, "area-construction.quarry", QuarryTick, out string reason);
+            if (!quarryTickReady)
+                log.LogError(Stamp("Offline quarry coordination unavailable: " + reason));
+            try
+            {
+                quarryNetwork = new QuarryNetwork(api, log, () => Volatile.Read(ref quarry)?.IsIntact == true, ReceiveQuarries);
+            }
+            catch (Exception error) { log.LogError(Stamp("Quarry coordination unavailable: " + error.Message)); }
         }
 
         private void OnStarted(MissionLifecycleNotification notification)
@@ -114,7 +132,9 @@ namespace AreaConstructionTest
                 dragging = false;
                 toBuild.Clear();
                 storageAwaiting = null;
+                quarryOrder = null;
                 native?.ValidateStorage();
+                quarry?.Recheck();
                 mission = notification.Context;
             }
             log.LogInfo(Stamp("Area-construction mission began."));
@@ -130,6 +150,7 @@ namespace AreaConstructionTest
                 dragging = false;
                 toBuild.Clear();
                 storageAwaiting = null;
+                quarryOrder = null;
             }
         }
 
@@ -163,7 +184,7 @@ namespace AreaConstructionTest
                 if (captured)
                     dragging = false;
                 captured = false;
-                if (toBuild.Count != 0 || !TryTarget(director, out var selected, out int player, out bool isEditor) ||
+                if (toBuild.Count != 0 || quarryOrder != null || !TryTarget(director, out var selected, out int player, out bool isEditor) ||
                     !TryPointerTile(director, false, out var pointer))
                     return false;
 
@@ -183,6 +204,7 @@ namespace AreaConstructionTest
                 captured = dragging = true;
                 nextQuote = 0;
                 shown.Clear();
+                quarryBlock = false;
                 storageOrder.Clear();
                 storageAwaiting = null;
                 director.clearMouseStateForEngine();
@@ -211,9 +233,21 @@ namespace AreaConstructionTest
 
             try
             {
+                runtime.quarryNetwork?.Pump();
                 bool draw;
+                QuarryOrder outbound = null;
                 lock (runtime.engine)
+                {
                     draw = runtime.OnDirectorFrame(__instance);
+                    if (runtime.quarryOrder != null && runtime.mission?.Mode.IsRealMultiplayer == true)
+                    {
+                        outbound = runtime.quarryOrder;
+                        runtime.quarryOrder = null;
+                    }
+                }
+                if (outbound != null &&
+                    !runtime.quarryNetwork.TrySubmit(outbound.SessionId, outbound.Actor, outbound.Block, outbound.BuildSites, out string reason))
+                    runtime.log.LogWarning(Stamp("Quarry block was not submitted: " + reason));
 
                 // Rendering and visibility tests are Unity work. Do not hold
                 // the simulation monitor while walking visible scene objects.
@@ -243,7 +277,25 @@ namespace AreaConstructionTest
                 {
                     if (released && dragging && MatchesTarget(director) && !CancelPressed())
                     {
-                        if (NativePlacement.IsStorage(tool))
+                        if (tool == eMappers.MAPPER_QUARRY && quarryBlock)
+                        {
+                            var accepted = new List<Tile>(4);
+                            foreach (var site in shown)
+                                if (site.Buildable) accepted.Add(site.Cursor);
+                            if (accepted.Count != 0)
+                            {
+                                quarryOrder = new QuarryOrder(mission.SessionId, actor, grid.ToArray(), accepted.ToArray());
+                                if (editor)
+                                {
+                                    var order = quarryOrder;
+                                    quarryOrder = null;
+                                    BuildQuarries(order.Actor, order.Block, order.BuildSites, true);
+                                }
+                            }
+                        }
+                        else if (tool == eMappers.MAPPER_QUARRY)
+                            toBuild.Enqueue(start);
+                        else if (NativePlacement.IsStorage(tool))
                         {
                             foreach (Tile tile in storageOrder) toBuild.Enqueue(tile);
                         }
@@ -265,6 +317,7 @@ namespace AreaConstructionTest
                 dragging = false;
                 toBuild.Clear();
                 storageAwaiting = null;
+                quarryOrder = null;
                 return false;
             }
 
@@ -297,6 +350,24 @@ namespace AreaConstructionTest
             shown.Clear();
             bool canProbe = native.Begin(tool, actor, editor);
             int frame = native.Frame(tool, actor);
+            if (tool == eMappers.MAPPER_QUARRY)
+            {
+                quarryBlock = QuarryLayout.Fill(grid, start, end);
+                quarryPiles.Clear();
+                Predicate<Tile> permits = pile => QuarryLayout.AllowsPile(pile, grid, quarryPiles);
+                foreach (Tile tile in grid)
+                {
+                    int image = frame;
+                    Tile pile = default;
+                    bool hasPile = canProbe && quarryBlock && quarry.TryChoose(actor, tile, permits, out pile);
+                    bool buildable = canProbe && (!quarryBlock || hasPile) &&
+                        native.ReserveVisual(tool, actor, editor, tile, scale, ref image);
+                    if (buildable && hasPile)
+                        quarryPiles.Add(pile);
+                    shown.Add(new Site(tile, buildable, image, pile: hasPile ? (Tile?)pile : null));
+                }
+                return;
+            }
             if (NativePlacement.IsStorage(tool))
             {
                 StorageGrid.Fill(grid, start, end, scale, scale, WorldAxisSize);
@@ -365,6 +436,46 @@ namespace AreaConstructionTest
                 log.LogInfo(Stamp("Rechecked " + attempted + " area sites, submitted " + submitted + " Vanilla build inputs."));
         }
 
+        private void QuarryTick(int ignored)
+        {
+            if (Volatile.Read(ref quarryOrder) == null)
+                return;
+            lock (engine)
+            {
+                if (mission == null || mission.IsEditor || mission.Mode.IsRealMultiplayer || quarryOrder == null)
+                    return;
+                var order = quarryOrder;
+                quarryOrder = null;
+                if (order.SessionId == mission.SessionId && readiness?.Current?.SessionId == mission.SessionId)
+                    BuildQuarries(order.Actor, order.Block, order.BuildSites, false);
+            }
+        }
+
+        private void ReceiveQuarries(int issuer, Tile[] block, Tile[] buildSites)
+        {
+            lock (engine)
+                if (mission?.Mode.IsRealMultiplayer == true && readiness?.Current?.SessionId == mission.SessionId)
+                    BuildQuarries(issuer, block, buildSites, false);
+        }
+
+        private void BuildQuarries(int player, Tile[] block, Tile[] buildSites, bool isEditor)
+        {
+            if (quarry?.IsIntact != true || !QuarryLayout.IsBlock(block))
+                return;
+
+            // Use live occupancy and cost for each candidate after the preceding build.
+            var acceptedPiles = new List<Tile>(4);
+            Predicate<Tile> permits = pile => QuarryLayout.AllowsPile(pile, block, acceptedPiles);
+            foreach (Tile tile in block)
+            {
+                if (Array.IndexOf(buildSites, tile) < 0 || !quarry.RefreshBeforeBuild() ||
+                    !quarry.TryChoose(player, tile, permits, out var pile))
+                    continue;
+                if (quarry.TryBuild(player, tile, pile, isEditor))
+                    acceptedPiles.Add(pile);
+            }
+        }
+
         private bool MatchesTarget(EditorDirector director) =>
             TryTarget(director, out var selected, out int player, out bool isEditor) &&
             selected == tool && player == actor && isEditor == editor && ReferenceEquals(GameMap.instance, map);
@@ -387,6 +498,10 @@ namespace AreaConstructionTest
 
             selected = (eMappers)MainControls.instance.CurrentSubAction;
             player = director.ActivePlayerID;
+            if (selected == eMappers.MAPPER_QUARRY &&
+                (quarry?.IsIntact != true || (!isEditor && !mission.Mode.IsRealMultiplayer && !quarryTickReady) ||
+                 (mission.Mode.IsRealMultiplayer && quarryNetwork?.IsReady != true)))
+                return false;
             return player >= 1 && player <= 8 && NativePlacement.Supports(selected) &&
                 native.SupportsMode(isEditor) && native.IsCurrent(selected);
         }
@@ -433,6 +548,7 @@ namespace AreaConstructionTest
                 faulted = true;
                 dragging = false;
                 toBuild.Clear();
+                quarryOrder = null;
             }
             log.LogError(Stamp(error.ToString()));
         }
@@ -440,14 +556,26 @@ namespace AreaConstructionTest
         private static string Stamp(string message) => $"[{DateTime.Now:HH:mm:ss.fff}] {message}";
     }
 
+    internal sealed class QuarryOrder
+    {
+        internal QuarryOrder(long sessionId, int actor, Tile[] block, Tile[] buildSites)
+        { SessionId = sessionId; Actor = actor; Block = block; BuildSites = buildSites; }
+
+        internal long SessionId { get; }
+        internal int Actor { get; }
+        internal Tile[] Block { get; }
+        internal Tile[] BuildSites { get; }
+    }
+
     internal readonly struct Site
     {
-        internal Site(Tile cursor, bool buildable, int frame, int[] previewTiles = null)
-        { Cursor = cursor; Buildable = buildable; Frame = frame; PreviewTiles = previewTiles; }
+        internal Site(Tile cursor, bool buildable, int frame, int[] previewTiles = null, Tile? pile = null)
+        { Cursor = cursor; Buildable = buildable; Frame = frame; PreviewTiles = previewTiles; Pile = pile; }
 
         internal Tile Cursor { get; }
         internal bool Buildable { get; }
         internal int Frame { get; }
         internal int[] PreviewTiles { get; }
+        internal Tile? Pile { get; }
     }
 }

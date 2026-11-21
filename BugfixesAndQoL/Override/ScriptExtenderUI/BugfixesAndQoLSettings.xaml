@@ -1674,6 +1674,39 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
           </StackPanel>
         </StackPanel>
       </StackPanel>
+      <StackPanel Visibility="{Binding SettingsPresentation.HostControls.Visibility}" Margin="0,0,0,6" shared:ModSettingsSearch.SectionKey="bugfixes.topic.host-controls" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.HostControls.Title}" shared:ModSettingsSearch.IsSection="True" Width="{Binding ViewportWidth, ElementName=SettingsViewport, Converter={StaticResource SettingsTopicWidthConverter}}" HorizontalAlignment="Left">
+        <Button Command="{Binding SettingsPresentation.HostControls.ToggleCommand}" HorizontalContentAlignment="Stretch" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" Style="{StaticResource TopicHeading}"><Button.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding SettingsPresentation.TopicToggleHelpText}"/></Button.ToolTip>
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="20"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Path Style="{StaticResource TopicChevron}" DataContext="{Binding SettingsPresentation.HostControls}" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
+            <TextBlock Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" VerticalAlignment="Center" Grid.Column="1" TextWrapping="Wrap" FontWeight="Bold">
+              <Run Text="{Binding SettingsPresentation.HostControls.Title}"/>
+              <Run Text=" "/>
+              <Run Text="{Binding SettingsPresentation.HostControls.CountText}" Foreground="#FFBBBBBB" FontSize="14" FontWeight="Normal"/>
+            </TextBlock>
+          </Grid>
+        </Button>
+        <StackPanel Visibility="{Binding SettingsPresentation.HostControls.ContentVisibility}" Margin="8,2,8,6">
+          <StackPanel Visibility="{Binding SettingsPresentation.HostControls.QolVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.host-controls" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.HostControls.QolSearchTitle}">
+            <TextBlock Text="{Binding QolTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.occupied-wall-demolition" shared:ModSettingsSearch.Title="{Binding EnableOccupiedWallDemolitionText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableOccupiedWallDemolitionHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="28"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableOccupiedWallDemolition}"><ContentControl.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ToolTip}"/></ContentControl.ToolTip></ContentControl>
+              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
+                <CheckBox IsChecked="{Binding EnableOccupiedWallDemolition, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" Margin="0,0,14,8"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding EnableOccupiedWallDemolitionHelpText}"/></CheckBox.ToolTip>
+                  <TextBlock Text="{Binding EnableOccupiedWallDemolitionText}" Foreground="White" TextWrapping="Wrap"/>
+                </CheckBox>
+              </Grid>
+            </Grid>
+          </StackPanel>
+        </StackPanel>
+      </StackPanel>
       <StackPanel Visibility="{Binding SettingsPresentation.HostSiege.Visibility}" Margin="0,0,0,6" shared:ModSettingsSearch.SectionKey="bugfixes.topic.host-siege" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.HostSiege.Title}" shared:ModSettingsSearch.IsSection="True" Width="{Binding ViewportWidth, ElementName=SettingsViewport, Converter={StaticResource SettingsTopicWidthConverter}}" HorizontalAlignment="Left">
         <Button Command="{Binding SettingsPresentation.HostSiege.ToggleCommand}" HorizontalContentAlignment="Stretch" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" Style="{StaticResource TopicHeading}"><Button.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding SettingsPresentation.TopicToggleHelpText}"/></Button.ToolTip>
           <Grid>

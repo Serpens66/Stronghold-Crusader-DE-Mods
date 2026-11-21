@@ -91,6 +91,7 @@ namespace BugfixesAndQoL
         private bool enableAiOutpostRetargetFix = true;
         private bool enableAiRaidRetargetFix = true;
         private bool enableMoatTerrainRestoration = true;
+        private bool enableOccupiedWallDemolition = true;
         private bool enableDrawbridgeDestructionFix = true;
         private bool enableSiegeCrewDuplicationFix = true;
         private bool enableSiegeCrewFireLossFix = true;
@@ -382,6 +383,8 @@ namespace BugfixesAndQoL
         public string QolTitleText => SerpLocalization.Get("BugfixesAndQoL.QolTitle");
         public string EnableMoatTerrainRestorationText => SerpLocalization.Get("BugfixesAndQoL.EnableMoatTerrainRestoration");
         public string EnableMoatTerrainRestorationHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMoatTerrainRestorationHelp");
+        public string EnableOccupiedWallDemolitionText => SerpLocalization.Get("BugfixesAndQoL.EnableOccupiedWallDemolition");
+        public string EnableOccupiedWallDemolitionHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableOccupiedWallDemolitionHelp");
         public string EnableTreeBlightDecayFixText => SerpLocalization.Get("BugfixesAndQoL.EnableTreeBlightDecayFix");
         public string EnableTreeBlightDecayFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableTreeBlightDecayFixHelp");
 
@@ -1174,6 +1177,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableOccupiedWallDemolition
+        {
+            get => enableOccupiedWallDemolition;
+            set => SetSetting(ref enableOccupiedWallDemolition, value, nameof(EnableOccupiedWallDemolition));
+        }
+
+        [SyncHostOnly]
         public bool EnableTreeBlightDecayFix
         {
             get => enableTreeBlightDecayFix;
@@ -1615,6 +1625,7 @@ namespace BugfixesAndQoL
                 EnableAiOutpostRetargetFix = true;
                 EnableAiRaidRetargetFix = true;
                 EnableMoatTerrainRestoration = true;
+                EnableOccupiedWallDemolition = true;
                 EnablePitchStairsFix = true;
                 EnableDrawbridgeDestructionFix = true;
                 EnableSiegeCrewDuplicationFix = true;

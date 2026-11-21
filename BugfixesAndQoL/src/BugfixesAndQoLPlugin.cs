@@ -76,6 +76,7 @@ namespace BugfixesAndQoL
                 () => Multiplayer.MoatLandRotationPatch.IsReady, Multiplayer.MoatLandRotationPatch.SetEnabled);
             APIShared.Multiplayer.SimulationAgreement.Register(PluginGuid, "keep-flag-rotation", true,
                 BugfixesAndQoLRuntime.IsKeepFlagCanonicalizationReady, BugfixesAndQoLRuntime.SetKeepFlagCanonicalizationActive);
+            AreaDemolition.OccupiedWallDemolition.RegisterAgreement();
             TrailCustomizationLaunchOriginApi.RegisterModeProvider();
             Shared.CrashBreadcrumbDiagnostics.Initialize(Logger, PluginGuid, PluginName, PluginVersion);
             try
@@ -365,6 +366,7 @@ namespace BugfixesAndQoL
             // Keep UI registration independent so one native feature cannot hide the whole mod.
             BuildPreview.BuildPreviewRuntime.Install(context);
             PitchMoatLines.PitchMoatLinesFeature.Install(context);
+            AreaDemolition.OccupiedWallDemolition.Install(context, Logger, Settings);
             AreaDemolition.AreaDemolitionFeature.Install(context);
             GatehouseTargetMarkerHeightHook.Install(context, Logger, Settings);
             CustomLordNervousSpeechFix.Install(Logger, Settings);

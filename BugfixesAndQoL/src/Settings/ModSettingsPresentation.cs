@@ -55,9 +55,9 @@ namespace BugfixesAndQoL
             foreach (SettingsOptionPresentation option in options.Values) option.RefreshLocalization();
         }
 
-        private SettingsTopicPresentation AddTopic(string id, string key, bool host)
+        private SettingsTopicPresentation AddTopic(string titleId, string key, bool host)
         {
-            var topic = new SettingsTopicPresentation(id, key, host, () => searchActive, OnTopicClosed);
+            var topic = new SettingsTopicPresentation(titleId, key, host, () => searchActive, OnTopicClosed);
             topics.Add(topic);
             return topic;
         }
@@ -160,22 +160,22 @@ namespace BugfixesAndQoL
             new Dictionary<string, SettingsOptionPresentation>(StringComparer.Ordinal);
         private readonly Func<bool> isSearching;
         private readonly Action<SettingsTopicPresentation> onClosed;
+        private readonly string titleId;
         private bool manualExpanded, activeSearch, hasMatches = true;
         private bool fixes, qol, possible;
 
-        internal SettingsTopicPresentation(string id, string key, bool host,
+        internal SettingsTopicPresentation(string titleId, string key, bool host,
             Func<bool> isSearching, Action<SettingsTopicPresentation> onClosed)
         {
-            Id = id; Key = key; IsHost = host;
+            this.titleId = titleId; Key = key; IsHost = host;
             this.isSearching = isSearching; this.onClosed = onClosed;
             ToggleCommand = new SettingsViewCommand(() => SetExpanded(!manualExpanded));
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
-        internal string Id { get; }
         public string Key { get; }
         public bool IsHost { get; }
-        public string Title => ModSettingsPresentation.Text("Topic." + Id);
+        public string Title => ModSettingsPresentation.Text("Topic." + titleId);
         // Keep the theme identity while adding its category to each descendant's search text.
         public string FixesSearchTitle => Title + " " + SerpLocalization.Get("BugfixesAndQoL.FixesTitle");
         public string QolSearchTitle => Title + " " + SerpLocalization.Get("BugfixesAndQoL.QolTitle");

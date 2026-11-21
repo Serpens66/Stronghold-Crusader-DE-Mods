@@ -149,6 +149,9 @@ In Vanilla, the two nervous messages of Custom Lords without their own voice fil
 
 ## Quality-of-life features
 
+### Demolish occupied walls
+You can demolish your own walls while units are standing on them, using either a single click or area demolition. Nearby enemies can still block demolition. This host option is enabled by default and appears under **Host Options → Camera, building and controls → QoL**.
+
 ### Show ground requirements when building
 This enabled-by-default local option shows current and required ground-tile counts in building tooltips for farms, quarries, iron mines and pitch rigs, and marks unsuitable tiles red when a ground requirement prevents placement. It can be toggled without restarting; building rules remain unchanged.
 

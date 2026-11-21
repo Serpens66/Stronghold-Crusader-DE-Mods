@@ -10,6 +10,7 @@ namespace BugfixesAndQoL
         public SettingsTopicPresentation HostAi { get; private set; }
         public SettingsTopicPresentation HostTroops { get; private set; }
         public SettingsTopicPresentation HostEconomy { get; private set; }
+        public SettingsTopicPresentation HostControls { get; private set; }
         public SettingsTopicPresentation HostSiege { get; private set; }
         public SettingsTopicPresentation HostPerformance { get; private set; }
 
@@ -108,6 +109,7 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableWorkshopIdleDelayFix => options["EnableWorkshopIdleDelayFix"];
         public SettingsOptionPresentation EnableGatehouseLivingCaptureFix => options["EnableGatehouseLivingCaptureFix"];
         public SettingsOptionPresentation EnableMoatTerrainRestoration => options["EnableMoatTerrainRestoration"];
+        public SettingsOptionPresentation EnableOccupiedWallDemolition => options["EnableOccupiedWallDemolition"];
         public SettingsOptionPresentation EnablePitchStairsFix => options["EnablePitchStairsFix"];
         public SettingsOptionPresentation EnableDrawbridgeDestructionFix => options["EnableDrawbridgeDestructionFix"];
         public SettingsOptionPresentation EnableSiegeCrewDuplicationFix => options["EnableSiegeCrewDuplicationFix"];
@@ -221,6 +223,8 @@ namespace BugfixesAndQoL
             AddOption("EnableCtrlSingleMarketTrade", "bugfixes.enable-ctrl-single-market-trade", SettingsCategory.Qol, HostEconomy);
             AddOption("EnableBakerMillerBreaks", "bugfixes.enable-baker-miller-breaks", SettingsCategory.Possible, HostEconomy);
             AddOption("EnableWorkshopIdleDelayFix", "bugfixes.enable-workshop-idle-delay-fix", SettingsCategory.Possible, HostEconomy);
+            HostControls = AddTopic("ClientControls", "bugfixes.topic.host-controls", true);
+            AddOption("EnableOccupiedWallDemolition", "bugfixes.occupied-wall-demolition", SettingsCategory.Qol, HostControls);
             HostSiege = AddTopic("HostSiege", "bugfixes.topic.host-siege", true);
             AddOption("EnableGatehouseLivingCaptureFix", "bugfixes.enable-gatehouse-living-capture-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableDrawbridgeDestructionFix", "bugfixes.enable-drawbridge-destruction-fix", SettingsCategory.Fixes, HostSiege);
