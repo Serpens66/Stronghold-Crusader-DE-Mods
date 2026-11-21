@@ -82,3 +82,25 @@ This does not guarantee that unrelated game/mod traffic cannot exhaust the queue
 Private-memory tests cover scratch restoration, layouts, refund policy and the
 ordered one-step moat writes; they do not establish optical or real multiplayer
 acceptance. Ingame acceptance was explicitly deferred by the user on 2026-11-11.
+
+## Follow-up on occupied ordinary walls, 2026-11-21
+
+The installed native hash still matched the SHA-256 above. The ordinary click
+dispatcher at `0x90830` returns before querying if the native pause DWORD at
+`0x366A0F8` is nonzero. At `0x79F84` the structure-free wall branch has already
+validated ownership. It sets the wall selector and checks the pending-removal
+bit before reaching the common wall/moat occupancy check at `0x7A047`.
+The occupied-wall execution guard at `0x63749` is separate: Chore 41 has already
+issued the refund, and the wall helper has already cleared its pending bit.
+The successful wall path resets the tile's height and refreshes its topology.
+The unit update at `0x182B00` calls the ordinary height normalizer `0x19B260`
+and then the standing-height updater on the stationary path.
+
+### Occupied-wall experiment [mod integration]
+
+The isolated testmod uses the wall branch before the common permission check
+and the physical wall guard. It scopes the bypass to one test tile and keeps
+the existing Fixes moat hook and the Script Extender wall detour in place.
+Reference spans, cursor input and the procedure are in
+`Testmods/OccupiedWallDemolitionTest/UpdateToNewDLL.md` and
+`Testmods/OccupiedWallDemolitionTest/TESTING.md` from the workspace root.

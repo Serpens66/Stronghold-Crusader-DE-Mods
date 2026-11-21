@@ -9,7 +9,8 @@ param(
     [string]$SaveFixture,
     [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$')][string]$Scenario,
     [Parameter(Mandatory)][string]$OutputDirectory,
-    [ValidateRange(1,86400)][int]$TimeoutSeconds = 300
+    [ValidateRange(1,86400)][int]$TimeoutSeconds = 300,
+    [switch]$HiddenDesktop
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
@@ -40,6 +41,7 @@ $player = Join-Path ([Environment]::GetFolderPath('UserProfile')) ('AppData/Loca
 $playerLog = Join-Path $player 'Player.log'
 $settings = Join-Path $player 'settings.cfg'
 $saves = Join-Path $player 'Saves'
+$steamAppIdFile = Join-Path $game 'steam_appid.txt'
 $documents = [Environment]::GetFolderPath('MyDocuments')
 if (-not $documents) { throw 'The Windows Documents folder could not be resolved.' }
 $apiSettings = Join-Path $documents 'SHCDE/APIShared'
@@ -160,6 +162,70 @@ function Write-TestProgress([string]$Message) {
     Write-Host ('[{0:HH:mm:ss.fff}] run={1} {2}' -f [DateTime]::Now, $run, $Message)
 }
 
+function Initialize-TestDesktop {
+    if (-not (Get-Process -Name steam -ErrorAction SilentlyContinue)) {
+        throw 'Hidden desktop launch requires the existing Steam session to be running.'
+    }
+    Assert-InGameTestUnlinked $steamAppIdFile
+    if ([IO.File]::Exists($steamAppIdFile) -and [IO.File]::ReadAllText($steamAppIdFile).Trim() -cne '3024040') {
+        throw 'Existing steam_appid.txt identifies a different Steam application.'
+    }
+    if (-not ('InGameTestDesktopHost' -as [type])) {
+        Add-Type -Path (Join-Path $PSScriptRoot 'InGameTest.DesktopHost.cs')
+    }
+}
+
+function Prepare-TestDesktopFiles {
+    $snapshots.Add((Save-InGameTestState $steamAppIdFile (Join-Path $rollback 'steam_appid.txt')))
+    if (-not [IO.File]::Exists($steamAppIdFile)) {
+        [IO.File]::WriteAllLines($steamAppIdFile, [string[]]@('3024040'), [Text.UTF8Encoding]::new($false))
+    }
+    $text = [IO.File]::ReadAllText($settings)
+    foreach ($volume in @('MasterVolume','SFXVolume','SpeechVolume','UnitSpeechVolume','MusicVolume')) {
+        $pattern = '(?m)^' + $volume + ':[^\r\n]*'
+        if ([regex]::Matches($text, $pattern).Count -ne 1) { throw "Expected exactly one audio setting: $volume" }
+        $text = [regex]::Replace($text, $pattern, ($volume + ':0'))
+    }
+    [IO.File]::WriteAllText($settings, $text, [Text.UTF8Encoding]::new($false))
+}
+
+function Wait-TestDesktopRun($Process, [IntPtr]$Desktop, $Observation) {
+    $clock = [Diagnostics.Stopwatch]::StartNew()
+    $nextReport = 0
+    while (-not $Process.WaitForExit(100)) {
+        if ([InGameTestDesktopHost]::InputDesktop() -cne $Observation.InputDesktop -or
+            [InGameTestDesktopHost]::HasInputWindow($Process.Id)) {
+            throw 'The input desktop changed or received a test game window.'
+        }
+        $related = @(Get-Process -Name $processName,'UnityCrashHandler64' -ErrorAction SilentlyContinue)
+        try {
+            foreach ($candidate in $related) {
+                if ($candidate.ProcessName -eq $processName -and $candidate.Id -ne $Process.Id) {
+                    throw 'A separate game process appeared during the hidden desktop run.'
+                }
+                if ($candidate.ProcessName -eq 'UnityCrashHandler64' -and $candidate.Path -ieq $crashExe -and
+                    [InGameTestDesktopHost]::HasInputWindow($candidate.Id)) {
+                    throw 'The Unity crash handler appeared on the input desktop.'
+                }
+            }
+        }
+        finally { foreach ($candidate in $related) { $candidate.Dispose() } }
+        if (-not $Observation.Windows.Count) {
+            $Observation.Windows = @([InGameTestDesktopHost]::Windows($Desktop) | Where-Object { $_.Pid -eq $Process.Id })
+            if ($Observation.Windows.Count) { Write-TestProgress "Game window confirmed on $($Observation.TestDesktop)." }
+        }
+        if ($clock.Elapsed.TotalSeconds -ge $TimeoutSeconds) { throw "TIMEOUT: the hidden test process exceeded $TimeoutSeconds seconds." }
+        if ($clock.Elapsed.TotalSeconds -ge $nextReport) {
+            $logBytes = if ([IO.File]::Exists($log)) { [IO.FileInfo]::new($log).Length } else { 0 }
+            $Process.Refresh()
+            Write-TestProgress ('Hidden process elapsed={0:N0}s CPU={1:N1}s logBytes={2}' -f
+                $clock.Elapsed.TotalSeconds, $Process.TotalProcessorTime.TotalSeconds, $logBytes)
+            $nextReport += 15
+        }
+    }
+    if (-not $Observation.Windows.Count) { throw 'No game window was confirmed on the hidden test desktop.' }
+}
+
 $mutex = [Threading.Mutex]::new($false, 'Local\SHCDE.InGameTest.3024040')
 $locked = $false
 $instance = $null
@@ -173,6 +239,8 @@ $swaps = [Collections.Generic.List[object]]::new()
 $snapshots = [Collections.Generic.List[object]]::new()
 $restorationErrors = [Collections.Generic.List[string]]::new()
 $savedLog = Join-Path $evidence 'LogOutput.log'
+$desktop = [IntPtr]::Zero
+$desktopObservation = $null
 $failure = $null
 try {
     try { $locked = $mutex.WaitOne(0) }
@@ -183,6 +251,7 @@ try {
     if (Get-TestGame) { throw 'The game started while preparing the test.' }
     if (Test-Path -LiteralPath $rollback) { throw "A prior rollback is incomplete. Preserved files: $rollback" }
     if (Test-Path -LiteralPath $request) { throw "An older test request is already present: $request" }
+    if ($HiddenDesktop) { Initialize-TestDesktop }
 
     $null = [IO.Directory]::CreateDirectory($evidence)
     $null = [IO.Directory]::CreateDirectory($rollback)
@@ -192,7 +261,8 @@ try {
     $snapshots.Add((Save-InGameTestState $settings (Join-Path $rollback 'settings.cfg')))
     $snapshots.Add((Save-InGameTestState $apiSettings (Join-Path $rollback 'api-settings') -Directory))
     $snapshots.Add((Save-InGameTestState $log (Join-Path $rollback 'previous-LogOutput.log')))
-    $previousPlayerLog = if ([IO.File]::Exists($playerLog)) { (Read-TestUnityLog).Hash }
+    if ($HiddenDesktop) { Prepare-TestDesktopFiles }
+    $previousPlayerLog = if (-not $HiddenDesktop -and [IO.File]::Exists($playerLog)) { (Read-TestUnityLog).Hash }
     [IO.File]::Delete($log) # Isolate the new log with either BepInEx AppendLog setting.
     $runLogIsolated = $true
 
@@ -219,26 +289,44 @@ try {
     [IO.File]::WriteAllLines($pending, [string[]]@($run, $Scenario), [Text.UTF8Encoding]::new($false))
     [IO.File]::Move($pending, $request)
 
-    $watch = [Diagnostics.Stopwatch]::StartNew()
-    Write-TestProgress 'Starting the game through Steam.'
-    $steamStarted = $true
-    Start-Process -FilePath 'steam://rungameid/3024040' -WindowStyle Hidden
-    $retried = $false
-    while (-not ($instance = Get-TestGame -PathWaitSeconds 30)) {
-        if ([IO.File]::Exists($log)) { throw 'GAME_CRASH: the game wrote its startup log and exited before its process could be observed.' }
-        if ($watch.Elapsed.TotalSeconds -ge 90) { throw 'START_FAILED: Steam did not start the game within 90 seconds.' }
-        if (-not $retried -and $watch.Elapsed.TotalSeconds -ge 45) {
-            $retried = $true
-            Write-TestProgress 'Retrying the Steam start.'
-            Start-Process -FilePath 'steam://rungameid/3024040' -WindowStyle Hidden
+    if ($HiddenDesktop) {
+        $desktopName = 'SerpTest_' + $run.Substring(0, 12)
+        $desktopObservation = [ordered]@{
+            InputDesktop = [InGameTestDesktopHost]::InputDesktop()
+            TestDesktop = $desktopName
+            Windows = @()
         }
-        Start-Sleep -Milliseconds 100
+        # This handle does not request desktop-switch access.
+        $desktop = [InGameTestDesktopHost]::CreateDesktopW($desktopName, [IntPtr]::Zero, [IntPtr]::Zero, 0, 0xC3, [IntPtr]::Zero)
+        if ($desktop -eq [IntPtr]::Zero) { throw [ComponentModel.Win32Exception]::new() }
+        $hiddenPlayerLog = Join-Path $evidence 'Player.log'
+        $arguments = '-screen-fullscreen 0 -screen-width 1280 -screen-height 720 -logFile "' + $hiddenPlayerLog + '"'
+        Write-TestProgress "Starting the Steam game once on $desktopName."
+        $instance = [InGameTestDesktopHost]::Start($gameExe, $arguments, $game, $desktopName)
+        $desktopObservation.GamePid = $instance.Id
+        Wait-TestDesktopRun $instance $desktop $desktopObservation
+    } else {
+        $watch = [Diagnostics.Stopwatch]::StartNew()
+        Write-TestProgress 'Starting the game through Steam.'
+        $steamStarted = $true
+        Start-Process -FilePath 'steam://rungameid/3024040' -WindowStyle Hidden
+        $retried = $false
+        while (-not ($instance = Get-TestGame -PathWaitSeconds 30)) {
+            if ([IO.File]::Exists($log)) { throw 'GAME_CRASH: the game wrote its startup log and exited before its process could be observed.' }
+            if ($watch.Elapsed.TotalSeconds -ge 90) { throw 'START_FAILED: Steam did not start the game within 90 seconds.' }
+            if (-not $retried -and $watch.Elapsed.TotalSeconds -ge 45) {
+                $retried = $true
+                Write-TestProgress 'Retrying the Steam start.'
+                Start-Process -FilePath 'steam://rungameid/3024040' -WindowStyle Hidden
+            }
+            Start-Sleep -Milliseconds 100
+        }
+        # Retain the process handle to obtain the actual exit code, even if it exits during the run.
+        try { $null = $instance.Handle }
+        catch { if ($instance.HasExited) { throw 'GAME_CRASH: the game exited before its startup could be observed.' }; throw }
+        Write-TestProgress "Game started (PID $($instance.Id))."
+        if (-not $instance.WaitForExit($TimeoutSeconds * 1000)) { throw "TIMEOUT: the test process exceeded $TimeoutSeconds seconds." }
     }
-    # Retain the process handle to obtain the actual exit code, even if it exits during the run.
-    try { $null = $instance.Handle }
-    catch { if ($instance.HasExited) { throw 'GAME_CRASH: the game exited before its startup could be observed.' }; throw }
-    Write-TestProgress "Game started (PID $($instance.Id))."
-    if (-not $instance.WaitForExit($TimeoutSeconds * 1000)) { throw "TIMEOUT: the test process exceeded $TimeoutSeconds seconds." }
     if ($instance.ExitCode -ne 0) { throw ('GAME_CRASH: game exited with 0x{0:X8}.' -f $instance.ExitCode) }
 }
 catch { $failure = $_.Exception.Message }
@@ -255,6 +343,7 @@ finally {
             $instance.Kill()
             if (-not $instance.WaitForExit(15000)) { throw 'The test process did not exit after termination.' }
         }
+        if ($recovery -and $HiddenDesktop) { Wait-TestCrashHandler }
         if ($recovery -and (Get-TestGame)) { throw 'Game is still running. Do not restore files while the process owns them.' }
         if ($recovery) {
             if ($runLogIsolated -and [IO.File]::Exists($log)) {
@@ -262,7 +351,7 @@ finally {
                 catch { $restorationErrors.Add("Cannot save BepInEx log: $($_.Exception.Message)") }
             }
             try {
-                if ([IO.File]::Exists($playerLog)) {
+                if (-not $HiddenDesktop -and [IO.File]::Exists($playerLog)) {
                     $unityLog = Read-TestUnityLog
                     if ($unityLog.Hash -cne $previousPlayerLog) {
                         [IO.File]::WriteAllBytes((Join-Path $evidence 'Player.log'), $unityLog.Bytes)
@@ -292,6 +381,16 @@ finally {
     catch { $restorationErrors.Add($_.Exception.Message) }
     finally {
         if ($instance) { $instance.Dispose() }
+        if ($desktopObservation) {
+            try {
+                $desktopObservation.Closed = $desktop -eq [IntPtr]::Zero -or [InGameTestDesktopHost]::CloseDesktop($desktop)
+                $desktopObservation.FinalInputDesktop = [InGameTestDesktopHost]::InputDesktop()
+                $desktopObservation.Failure = $failure
+                [IO.File]::WriteAllText((Join-Path $evidence 'desktop.json'), ($desktopObservation | ConvertTo-Json -Depth 5))
+                if (-not $desktopObservation.Closed) { throw 'The hidden desktop handle could not be closed.' }
+            }
+            catch { $restorationErrors.Add($_.Exception.Message) }
+        }
         if ($locked) { $mutex.ReleaseMutex() }
         $mutex.Dispose()
     }
