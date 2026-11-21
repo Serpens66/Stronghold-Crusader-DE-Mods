@@ -97,6 +97,23 @@ Expect((20, 20), (21, 20), (22, 20),
     (20, 18), (21, 18), (22, 18));
 Console.WriteLine("PASS: dense one-tile murder-hole rectangle.");
 
+foreach (int farmScale in new[] { 9, 10 })
+{
+    Storage(new Tile(20 + farmScale - 1, 20 + farmScale - 1), farmScale, farmScale);
+    Expect((20, 20));
+    foreach (int dx in new[] { -farmScale, farmScale })
+    foreach (int dy in new[] { -farmScale, farmScale })
+    {
+        Storage(new Tile(20 + dx * 2, 20 + dy * 2), farmScale, farmScale);
+        Expect((20, 20), (20 + dx, 20), (20 + 2 * dx, 20),
+            (20, 20 + dy), (20 + dx, 20 + dy), (20 + 2 * dx, 20 + dy),
+            (20, 20 + 2 * dy), (20 + dx, 20 + 2 * dy), (20 + 2 * dx, 20 + 2 * dy));
+    }
+    Storage(new Tile(200, 20), farmScale, farmScale, 38);
+    Expect((20, 20), (20 + farmScale, 20));
+}
+Console.WriteLine("PASS: gapless 9×9 and 10×10 farm footprints in every direction and at the map edge.");
+
 var accepted = new List<Tile>();
 var quoted = new List<(Tile Site, Tile? Neighbor)>();
 var unvisited = new HashSet<Tile>();

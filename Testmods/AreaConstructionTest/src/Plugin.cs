@@ -23,7 +23,7 @@ namespace AreaConstructionTest
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class Plugin : BaseUnityPlugin
     {
-        public const string Guid = "AreaConstructionTest_Serp", Name = "AreaConstructionTest", Version = "0.3.0";
+        public const string Guid = "AreaConstructionTest_Serp", Name = "AreaConstructionTest", Version = "0.3.1";
 
         private void Awake() => PlacementInput.Install(Logger);
     }
@@ -40,7 +40,7 @@ namespace AreaConstructionTest
         private readonly ManualLogSource log;
         private readonly List<Tile> grid = new List<Tile>();
         private readonly List<Site> shown = new List<Site>();
-        private readonly Queue<Tile> toBuild = new Queue<Tile>();
+        private readonly Queue<(Tile Cursor, eMappers Mapper)> toBuild = new Queue<(Tile, eMappers)>();
         private readonly List<Tile> storageOrder = new List<Tile>();
         private readonly HashSet<Tile> storageUnvisited = new HashSet<Tile>();
         private readonly Dictionary<Tile, int> storageFrames = new Dictionary<Tile, int>();
@@ -222,7 +222,7 @@ namespace AreaConstructionTest
             if (runtime == null || !__6)
                 return true;
             lock (runtime.engine)
-                return !runtime.dragging || (int)runtime.tool != __0 || runtime.actor != __4;
+                return !runtime.dragging || !PlacementVariants.SameSelection(runtime.tool, (eMappers)__0) || runtime.actor != __4;
         }
 
         private static void AfterInput(EditorDirector __instance)
@@ -294,15 +294,15 @@ namespace AreaConstructionTest
                             }
                         }
                         else if (tool == eMappers.MAPPER_QUARRY)
-                            toBuild.Enqueue(start);
+                            toBuild.Enqueue((start, tool));
                         else if (NativePlacement.IsStorage(tool))
                         {
-                            foreach (Tile tile in storageOrder) toBuild.Enqueue(tile);
+                            foreach (Tile tile in storageOrder) toBuild.Enqueue((tile, tool));
                         }
                         else
                         {
                             foreach (var site in shown)
-                                if (site.Buildable) toBuild.Enqueue(site.Cursor);
+                                if (site.Buildable) toBuild.Enqueue((site.Cursor, site.Mapper ?? tool));
                         }
                     }
                     captured = dragging = false;
@@ -382,15 +382,18 @@ namespace AreaConstructionTest
                 return;
             }
 
-            if (tool == eMappers.MAPPER_KILLING_PIT)
+            if (tool == eMappers.MAPPER_KILLING_PIT || NativePlacement.IsFarm(tool))
                 StorageGrid.Fill(grid, start, end, scale, scale, WorldAxisSize);
             else
                 AreaGrid.Fill(grid, start, end, scale, NativePlacement.FootprintHeight(tool, scale), WorldAxisSize);
+            eMappers variant = tool;
             foreach (var tile in grid)
             {
-                int image = frame;
-                bool buildable = canProbe && native.ReserveVisual(tool, actor, editor, tile, scale, ref image);
-                shown.Add(new Site(tile, buildable, image, buildable ? native.LastPreviewTiles : null));
+                int image = variant == tool ? frame : native.Frame(variant, actor);
+                bool buildable = canProbe && native.ReserveVisual(variant, actor, editor, tile, scale, ref image);
+                shown.Add(new Site(tile, buildable, image, buildable ? native.LastPreviewTiles : null, mapper: variant));
+                if (buildable)
+                    variant = PlacementVariants.Next(variant);
             }
         }
 
@@ -416,12 +419,12 @@ namespace AreaConstructionTest
             {
                 if (!native.HasQueueSpace)
                     break;
-                Tile tile = toBuild.Dequeue();
+                var (tile, mapper) = toBuild.Dequeue();
                 attempted++;
                 int unused = 0;
-                if (!native.Reserve(tool, actor, editor, tile, scale, ref unused))
+                if (!native.Reserve(mapper, actor, editor, tile, scale, ref unused))
                     continue;
-                EngineInterface.PlaceMapperItem((int)tool, tile.X, tile.Y, 0, actor, !editor, false, 1);
+                native.Place(mapper, tile, actor, editor);
                 native.Submitted();
                 submitted++;
                 if (NativePlacement.IsStorage(tool))
@@ -478,7 +481,7 @@ namespace AreaConstructionTest
 
         private bool MatchesTarget(EditorDirector director) =>
             TryTarget(director, out var selected, out int player, out bool isEditor) &&
-            selected == tool && player == actor && isEditor == editor && ReferenceEquals(GameMap.instance, map);
+            PlacementVariants.SameSelection(tool, selected) && player == actor && isEditor == editor && ReferenceEquals(GameMap.instance, map);
 
         private bool TryTarget(EditorDirector director, out eMappers selected, out int player, out bool isEditor)
         {
@@ -496,14 +499,14 @@ namespace AreaConstructionTest
             if (!isEditor && readiness?.Current?.SessionId != mission.SessionId)
                 return false;
 
-            selected = (eMappers)MainControls.instance.CurrentSubAction;
             player = director.ActivePlayerID;
+            if (!native.TryResolveMapper((eMappers)MainControls.instance.CurrentSubAction, out selected))
+                return false;
             if (selected == eMappers.MAPPER_QUARRY &&
                 (quarry?.IsIntact != true || (!isEditor && !mission.Mode.IsRealMultiplayer && !quarryTickReady) ||
                  (mission.Mode.IsRealMultiplayer && quarryNetwork?.IsReady != true)))
                 return false;
-            return player >= 1 && player <= 8 && NativePlacement.Supports(selected) &&
-                native.SupportsMode(isEditor) && native.IsCurrent(selected);
+            return player >= 1 && player <= 8 && native.SupportsMode(isEditor);
         }
 
         private static bool TryPointerTile(EditorDirector director, bool owned, out Tile tile)
@@ -569,13 +572,14 @@ namespace AreaConstructionTest
 
     internal readonly struct Site
     {
-        internal Site(Tile cursor, bool buildable, int frame, int[] previewTiles = null, Tile? pile = null)
-        { Cursor = cursor; Buildable = buildable; Frame = frame; PreviewTiles = previewTiles; Pile = pile; }
+        internal Site(Tile cursor, bool buildable, int frame, int[] previewTiles = null, Tile? pile = null, eMappers? mapper = null)
+        { Cursor = cursor; Buildable = buildable; Frame = frame; PreviewTiles = previewTiles; Pile = pile; Mapper = mapper; }
 
         internal Tile Cursor { get; }
         internal bool Buildable { get; }
         internal int Frame { get; }
         internal int[] PreviewTiles { get; }
         internal Tile? Pile { get; }
+        internal eMappers? Mapper { get; }
     }
 }

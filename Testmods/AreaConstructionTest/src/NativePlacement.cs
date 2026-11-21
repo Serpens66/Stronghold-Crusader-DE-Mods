@@ -123,7 +123,11 @@ namespace AreaConstructionTest
             }
         }
 
-        internal bool IsCurrent(eMappers tool) => Read(Mapper) == (int)tool;
+        internal bool TryResolveMapper(eMappers menu, out eMappers active)
+        {
+            active = (eMappers)Read(Mapper);
+            return Supports(active) && PlacementVariants.SameSelection(menu, active);
+        }
         internal bool SupportsMode(bool editor)
         {
             int kind = Read(WorldKind);
@@ -156,7 +160,7 @@ namespace AreaConstructionTest
             pendingCurrent.Clear();
             allowance = 0;
             freeSlots = outboundSlots = 0;
-            if (!SupportsMode(editor) || !IsCurrent(tool) || Read(PlacementDisabled) != 0 ||
+            if (!SupportsMode(editor) || !TryResolveMapper(tool, out _) || Read(PlacementDisabled) != 0 ||
                 (IsStorage(tool) && storageNeighbor?.IsIntact != true) ||
                 Read(PreviewOverride) != 0 ||
                 unchecked((long)GameGlobalsManager.Instance.ChoreManagerVA) != image.ToInt64() + Queue ||
@@ -280,6 +284,23 @@ namespace AreaConstructionTest
         internal bool HasQueueSpace => freeSlots > 0 && outboundSlots > 0;
         internal bool IsPending(Tile cursor) => pendingCurrent.Contains(cursor);
 
+        internal void Place(eMappers mapper, Tile cursor, int actor, bool editor)
+        {
+            int previous = Read(Mapper);
+            bool replace = previous != (int)mapper;
+            if (replace)
+                Marshal.WriteInt32(image, Mapper, (int)mapper);
+            try
+            {
+                EngineInterface.PlaceMapperItem((int)mapper, cursor.X, cursor.Y, 0, actor, !editor, false, 1);
+            }
+            finally
+            {
+                if (replace)
+                    Marshal.WriteInt32(image, Mapper, previous);
+            }
+        }
+
         internal void Submitted()
         {
             // Immediate execution may actually free the slot again. Counting it
@@ -355,6 +376,8 @@ namespace AreaConstructionTest
             bool valid;
             try
             {
+                if (Read(Mapper) != (int)tool)
+                    Marshal.WriteInt32(image, Mapper, (int)tool);
                 if (draftNeighbor)
                 {
                     using (storageNeighbor.Scope(actor, corner.X, corner.Y, scale, tool.ConvertToEStructs()))

@@ -16,7 +16,7 @@
     <ManagedDir>$(GameDir)/Stronghold Crusader Definitive Edition_Data/Managed</ManagedDir>
     <ExtenderDir Condition="'$(ExtenderDir)' == ''">$(GameDir)/BepInEx/plugins/000shcdese</ExtenderDir>
     <ApiSharedDir Condition="'$(ApiSharedDir)' == ''">$(GameDir)/BepInEx/plugins/APIShared_Serp</ApiSharedDir>
-    <AssemblyVersion>0.3.0.0</AssemblyVersion>
+    <AssemblyVersion>0.3.1.0</AssemblyVersion>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
