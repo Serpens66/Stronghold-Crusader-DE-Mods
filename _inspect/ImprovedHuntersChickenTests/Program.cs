@@ -267,7 +267,8 @@ static class Program
         TestWildlifeOrigins();
         TestHerdSettings();
         Assert(HunterSearchRangePolicy.Clamp(0) == 0 && HunterSearchRangePolicy.Clamp(-3) == 0 && HunterSearchRangePolicy.Clamp(5) == 21 &&
-            HunterSearchRangePolicy.Clamp(40) == 40 && HunterSearchRangePolicy.Clamp(999) == 200, "The search range clamp changed.");
+            HunterSearchRangePolicy.Clamp(200) == 200 && HunterSearchRangePolicy.Clamp(400) == 400 &&
+            HunterSearchRangePolicy.Clamp(401) == 400, "The search range clamp changed.");
         Assert(HunterSearchRangePolicy.IsWithin(500, 0) && HunterSearchRangePolicy.IsWithin(30, 30) && !HunterSearchRangePolicy.IsWithin(31, 30),
             "The search range rule changed.");
         Assert(TannerMeatPolicy.ClampMeatPerTrip(0) == 1 && TannerMeatPolicy.ClampMeatPerTrip(51) == 50 && TannerMeatPolicy.ClampMeatPerTrip(50) == 50, "The meat per trip clamp failed.");

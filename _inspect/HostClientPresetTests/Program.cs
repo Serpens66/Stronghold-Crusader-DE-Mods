@@ -6589,7 +6589,10 @@ namespace SHCDESE.Interop
     {
         CHIMP_TYPE_KNIGHT = 28,
         CHIMP_TYPE_ARAB_ASSASIN = 73,
-        CHIMP_TYPE_LORD = 55
+        CHIMP_TYPE_LORD = 55,
+        // Animal vocabulary used by the complete linked ImprovedHunters settings model.
+        CHIMP_TYPE_DEER = 44, CHIMP_TYPE_RABBIT = 46, CHIMP_TYPE_CAMEL = 47,
+        CHIMP_TYPE_CHICKEN = 62, CHIMP_TYPE_GOAT = 86
     }
 }
 

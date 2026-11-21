@@ -141,7 +141,7 @@
           <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
         <TextBlock Grid.Column="0" Text="{Binding HunterSearchRangeText}" Foreground="White" TextWrapping="Wrap" Margin="0,0,8,0" VerticalAlignment="Center" ToolTipService.ShowDuration="60000"><TextBlock.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding HunterSearchRangeHelpText}"/></TextBlock.ToolTip></TextBlock>
-        <Slider Grid.Column="1" Minimum="0" Maximum="200" Value="{Binding HunterSearchRange, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000"><Slider.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding HunterSearchRangeHelpText}"/></Slider.ToolTip></Slider>
+        <Slider Grid.Column="1" Minimum="0" Maximum="400" Value="{Binding HunterSearchRange, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000"><Slider.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding HunterSearchRangeHelpText}"/></Slider.ToolTip></Slider>
         <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding HunterSearchRangeValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Left" Margin="8,0,0,0" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"><TextBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding HunterSearchRangeHelpText}"/></TextBox.ToolTip></TextBox>
       </Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="hunters.collect-free-corpses" shared:ModSettingsSearch.Title="{Binding CollectFreeCorpsesText}" shared:ModSettingsSearch.ToolTipText="{Binding CollectFreeCorpsesHelpText}"><CheckBox IsChecked="{Binding CollectFreeCorpses, Mode=TwoWay}"
@@ -197,6 +197,24 @@
                 Foreground="White"
                 Margin="0,0,14,8"
                 ToolTipService.ShowDuration="60000"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding RabbitsOnlyOnOrderHelpText}"/></CheckBox.ToolTip></CheckBox></Grid>
+      </StackPanel>
+      <StackPanel shared:ModSettingsSearch.SectionKey="hunters.section.ai-hunters" shared:ModSettingsSearch.SectionTitle="{Binding AiHuntersTitleText}">
+      <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding AiHuntersTitleText}" Style="{StaticResource SectionHeader}" Margin="0,10,0,4"/></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="hunters.control-aiv-hunters" shared:ModSettingsSearch.Title="{Binding ControlAivHuntersText}" shared:ModSettingsSearch.ToolTipText="{Binding ControlAivHuntersHelpText}"><CheckBox IsChecked="{Binding ControlAivHunters, Mode=TwoWay}"
+                Content="{Binding ControlAivHuntersText}"
+                Foreground="White"
+                Margin="0,0,14,8"
+                ToolTipService.ShowDuration="60000"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ControlAivHuntersHelpText}"/></CheckBox.ToolTip></CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="hunters.auto-build-hunters" shared:ModSettingsSearch.Title="{Binding AutoBuildHuntersText}" shared:ModSettingsSearch.ToolTipText="{Binding AutoBuildHuntersHelpText}"><CheckBox IsChecked="{Binding AutoBuildHunters, Mode=TwoWay}"
+                Content="{Binding AutoBuildHuntersText}"
+                Foreground="White"
+                Margin="0,0,14,8"
+                ToolTipService.ShowDuration="60000"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding AutoBuildHuntersHelpText}"/></CheckBox.ToolTip></CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="hunters.retire-empty-hunters" shared:ModSettingsSearch.Title="{Binding RetireEmptyHuntersText}" shared:ModSettingsSearch.ToolTipText="{Binding RetireEmptyHuntersHelpText}"><CheckBox IsChecked="{Binding RetireEmptyHunters, Mode=TwoWay}"
+                Content="{Binding RetireEmptyHuntersText}"
+                Foreground="White"
+                Margin="0,0,14,8"
+                ToolTipService.ShowDuration="60000"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding RetireEmptyHuntersHelpText}"/></CheckBox.ToolTip></CheckBox></Grid>
       </StackPanel>
       <StackPanel shared:ModSettingsSearch.SectionKey="hunters.section.chicken-population" shared:ModSettingsSearch.SectionTitle="{Binding ChickenPopulationTitleText}">
       <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding ChickenPopulationTitleText}" Style="{StaticResource SectionHeader}" Margin="0,4,0,4"/></Grid>

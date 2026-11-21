@@ -22,6 +22,19 @@ Limits how far Hunters look for prey, from 21 to 200 tiles. 0 means no limit, as
 ### Hunter's hut always available
 In the base game, the Hunter's hut cannot be built in skirmish and multiplayer when the map starts without deer and goats. With this option, which is on by default, you can always build it, for example for chickens, rabbits and camels.
 
+### AI Hunter's huts
+The AI can otherwise build Hunter's huts even on maps without prey. Three separate options, all on by default, help it use these buildings sensibly:
+
+- **Check planned AI Hunter's huts for prey** lets the AI skip huts from its castle plan when there is nothing to hunt. One hut is allowed for its own chickens; additional huts require other prey.
+- **AI builds a Hunter's hut when useful** lets an AI without one build a hut near its first granary, even if its castle plan contains none. It needs a keep, a granary, a suitable site and the normal building materials.
+- **AI removes Hunter's huts without prey** removes unneeded huts after their current work and deliveries have finished. With only chickens, the AI keeps the hut closest to its first granary. Other prey allows it to keep additional huts.
+
+A replenishing supply of the AI's own chickens can support its first hut even while no chickens are currently alive. This requires chicken hunting, a positive chicken population setting, active replenishment and one of its own granaries, mills or bakeries. This allowance does not apply in the map editor, where automatic chicken replenishment is inactive. Existing huntable animals still count there.
+
+These decisions use the enabled animal types and free carcasses across the map. They do not check the distance or route to each animal, so available prey does not guarantee that a Hunter can reach it. The first automatic build or removal check runs after 200 simulation ticks, then every 4800 ticks: about 5 seconds and 2 minutes at speed 40. Planned hut construction is checked when the AI attempts it.
+
+Automatic building searches within 32 tiles of the first granary, at four-tile intervals, with at most 256 candidate sites and 64 placement attempts per check. It builds at most one hut per AI and only when that AI has none. Space reserved by its active castle plan, including the footprints of future buildings, stays free. If that plan reserves every search site, this AI stops searching for the rest of the match. Other obstacles or missing materials can change, so those cases are checked again later. Loading a save starts a fresh check. The three options affect AI players only and can be switched independently before a game.
+
 ## Animals
 
 ### Deer and goats flee only from units in sight
@@ -53,6 +66,6 @@ Meat goes to the granary, after the Tanner has finished the other runs of that c
 
 ## Requirements and settings
 
-This mod requires the Script Extender and **APIShared 0.54.0 or newer**. Subscribe to APIShared separately when using the Steam modpack. Mod settings indicate when gameplay changes are inactive for a direct mission or Trail launch. Use **Customize** where available to start with those changes; edits made while inactive are saved for later games.
+This mod requires the Script Extender and **APIShared 0.60.0 or newer**. Subscribe to APIShared separately when using the Steam modpack. Mod settings indicate when gameplay changes are inactive for a direct mission or Trail launch. Use **Customize** where available to start with those changes; edits made while inactive are saved for later games.
 
 All players in a multiplayer game need this mod, and the host's settings apply to everyone. Settings can only be changed before or after a match.

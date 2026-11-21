@@ -163,6 +163,7 @@ namespace ImprovedHunters
             InitializeHunterRemainingPathSpeedRecovery(memory, imageBase, referenceHashMatches);
             InitializeHunterVanillaPathContinuation(memory, imageBase, referenceHashMatches);
 
+            TryInitializeFeature("AI hunter economy", () => InitializeAIHunterEconomy(context, referenceHashMatches));
             TryInitializeFeature("simulation tick", RegisterSimulationTick);
 
             if (Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
@@ -239,6 +240,7 @@ namespace ImprovedHunters
                 RunNativeScan(mapTick);
                 Shared.DevDiag.StopSpike(ref measured, "hunters.scan", 5000);
             }
+            aiHunterEconomy?.OnTick(mapTick);
         }
 
         private unsafe void RunNativeScan(long timestamp)

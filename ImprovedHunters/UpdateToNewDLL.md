@@ -7,7 +7,7 @@
 - SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
 
 On the audited hash, the mod uses each reference RVA directly and validates its
-local semantic pattern without scanning the DLL. On a changed hash, each native
+local semantic pattern without scanning the DLL. Except for the explicitly hash-bound features below, on a changed hash each native
 feature performs an executable-section-limited unique pattern search and then
 validates its derived branches, tables and operands. An absent, ambiguous or
 semantically inconsistent match disables only the affected feature. Raw unit
@@ -1479,3 +1479,21 @@ Receipt integration is additive: if its shared adapter is unavailable, the exist
 Tanner cohort still publishes with its already resolved ordinary B6100 target.
 It does not confirm receipt support in that case, so required money observers fail
 closed independently of Tanner meat production. No second native owner is installed.
+
+
+## AI hunter economy integration (2026-11-21)
+
+`src/AIHunterEconomyFeature.cs` and `src/AIHunters/` now own the former standalone
+AI-hunter prototype. The [developer contract](Plan/AIHunterEconomy.md) records the
+full native branch/callee hashes, derived manager/call anchors, public layout and
+drain predicates, loaded-AIV compound geometry, scheduling and bounded-work rules.
+It also preserves the dated prototype build/test results, without treating them as
+acceptance of this integration. No additional native hook is installed.
+
+Retirement and geometry-dependent automatic supplementation require the exact
+reference hash, shared with the existing IH image check; no second file hash or
+unknown-image pattern fallback. The live refund entry remains in the normal
+SE event chain, with CallOnly registration owned by
+`ImprovedHunters_Serp/ai-hunter-retirement-calls`. AIV validation uses the public
+Post event. Re-audit these contracts as one feature before admitting a new native
+image; the independent public AIV gating retains its own availability checks.

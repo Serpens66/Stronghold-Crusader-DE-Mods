@@ -183,6 +183,8 @@
     <Compile Include="src\HunterMovingTargetPathfinding.cs" />
     <Compile Include="src\HunterVanillaPathContinuation.cs" />
     <Compile Include="src\ImprovedHuntersRuntime.cs" />
+    <Compile Include="src\AIHunterEconomyFeature.cs" />
+    <Compile Include="src\AIHunters\*.cs" />
     <Compile Include="src\ImprovedHuntersViewModel.cs" />
   </ItemGroup>
 

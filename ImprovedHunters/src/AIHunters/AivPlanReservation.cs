@@ -1,26 +1,42 @@
 using System;
+using System.Collections.Generic;
 using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 
-namespace AIHunterPreyTest
+namespace ImprovedHunters
 {
-    // A short-lived, clipped mask: build once per rare placement search, never per candidate/tick.
+    // Reuse the clipped mask between rare searches; its anchor and contents belong to one search only.
     internal sealed class AivPlanReservation
     {
-        private readonly int minimumX, minimumY, width;
-        private readonly bool[] reserved;
+        private int minimumX, minimumY, width;
+        private bool[] reserved = Array.Empty<bool>();
+        // Initialized with the builder at native readiness, never reflected per frame or placement.
+        private static readonly Dictionary<eMappers, int> mapperScales;
+
+        static AivPlanReservation() { mapperScales = CreateMapperScales(); }
+
+        internal AivPlanReservation() { }
         internal AivPlanReservation(int x, int y, int radius, int hutSize)
         {
-            minimumX = x - radius; minimumY = y - radius;
-            width = checked(radius * 2 + hutSize);
-            reserved = new bool[checked(width * width)];
+            Reset(x, y, radius, hutSize);
         }
 
-        internal static unsafe bool TryCapture(int player, int x, int y, int radius, int hutSize,
-            out AivPlanReservation result, out string reason)
+        internal void Reset(int x, int y, int radius, int hutSize)
         {
-            result = null; reason = "aiv-plan-unavailable";
+            if (radius < 0 || hutSize < 1) throw new ArgumentOutOfRangeException();
+            minimumX = checked(x - radius); minimumY = checked(y - radius);
+            width = checked(radius * 2 + hutSize);
+            int length = checked(width * width);
+            if (reserved.Length != length) reserved = new bool[length];
+            else Array.Clear(reserved, 0, reserved.Length);
+        }
+
+        internal unsafe bool TryCapture(int player, int x, int y, int radius, int hutSize,
+            out string reason)
+        {
+            Reset(x, y, radius, hutSize);
+            reason = "aiv-plan-unavailable";
             var api = GameAIVManagerAPI.Instance;
             if (!api.TryGetVillageSlotByPlayerId(player, out int slot) ||
                 !api.TryGetVillageBySlot(slot, out AivVillageState* village) || village->OwnerPlayerId != player ||
@@ -29,7 +45,9 @@ namespace AIHunterPreyTest
             var steps = api.GetBuildSteps(slot);
             int maximum = village->MaximumBuildStep;
             if (maximum < 0 || maximum >= steps.Length) return false;
-            var mask = new AivPlanReservation(x, y, radius, hutSize);
+            int orderedCount = api.GetOrderedMapTiles(slot).Length;
+            int packedCapacity = GamePathingManagerAPI.Instance.GetPathComponentGrid().Length;
+            var tileApi = GameTileManagerAPI.Instance;
             for (int frame = 0; frame <= maximum; frame++)
             {
                 ref readonly AivBuildStep step = ref steps[frame];
@@ -38,20 +56,19 @@ namespace AIHunterPreyTest
                 bool grouped = GameAIVManagerAPI.UsesOrderedMapTileBuffer(step.BuildingType);
                 if (grouped)
                 {
-                    int count = api.GetOrderedMapTiles(slot).Length;
-                    if (step.MapTileIdOrBufferIndex < 0 || step.MapTileIdOrBufferIndex > count - step.TileCount) return false;
+                    if (step.MapTileIdOrBufferIndex < 0 || step.MapTileIdOrBufferIndex > orderedCount - step.TileCount) return false;
                 }
                 var tiles = api.GetBuildStepMapTiles(slot, frame);
                 if (tiles.Length != (grouped ? step.TileCount : 1)) return false;
                 foreach (int tile in tiles)
                 {
-                    if (tile <= 0 || tile >= GamePathingManagerAPI.Instance.GetPathComponentGrid().Length) return false;
-                    var point = GameTileManagerAPI.Instance.GetTileVectorFromId(tile);
-                    if (!mask.ReservePlacement(step.BuildingType, point.X, point.Y, village->Rotation, grouped))
+                    if (tile <= 0 || tile >= packedCapacity) return false;
+                    var point = tileApi.GetTileVectorFromId(tile);
+                    if (!ReservePlacement(step.BuildingType, point.X, point.Y, village->Rotation, grouped))
                     { reason = "aiv-plan-unknown-footprint"; return false; }
                 }
             }
-            result = mask; reason = ""; return true;
+            reason = ""; return true;
         }
 
         internal static bool ValidRotation(AivRotation rotation) => rotation == AivRotation.South || rotation == AivRotation.East ||
@@ -61,13 +78,7 @@ namespace AIHunterPreyTest
         {
             if (!ValidRotation(rotation)) return false;
             if (grouped) { ReserveSquare(x, y, 1); return true; }
-            int size = BuildingScales.GetScale(mapper);
-            if (size < 0)
-            {
-                if (!Enum.IsDefined(typeof(eMappers), mapper)) return false;
-                size = 1; // Defined special commands, notably stairs, use a single prepared tile.
-            }
-            if (size == 0) size = 1; // Native AIV import clamps non-building marker reservations to one tile.
+            if (!mapperScales.TryGetValue(mapper, out int size)) return false;
             ReserveSquare(x, y, size);
             // These are prepared-frame minimum corners, not serialized AIV anchors. Only the
             // additional native components rotate; never transform the base position again.
@@ -103,6 +114,15 @@ namespace AIHunterPreyTest
             return true;
         }
 
+        private static Dictionary<eMappers, int> CreateMapperScales()
+        {
+            var scales = new Dictionary<eMappers, int>();
+            foreach (eMappers mapper in Enum.GetValues(typeof(eMappers)))
+                // Native AIV import clamps defined markers and special commands to one tile.
+                scales[mapper] = Math.Max(1, BuildingScales.GetScale(mapper));
+            return scales;
+        }
+
         private void ReserveSquare(int x, int y, int size)
         {
             int firstX = Math.Max(x - minimumX, 0), firstY = Math.Max(y - minimumY, 0);
@@ -118,6 +138,19 @@ namespace AIHunterPreyTest
             for (int row = y; row < y + size; row++)
                 for (int column = x; column < x + size; column++) if (reserved[row * width + column]) return true;
             return false;
+        }
+
+        // Only the plan can justify suppressing later searches. Current obstacles, pathing
+        // and resources can change. Include the entire search raster, beyond the attempt budget.
+        internal bool CoversSearchArea(int centerX, int centerY, int radius, int step, int hutSize)
+        {
+            if (radius <= 0 || step <= 0 || radius % step != 0 || hutSize <= 0 ||
+                minimumX != centerX - radius || minimumY != centerY - radius || width != radius * 2 + hutSize)
+                return false;
+            for (int dx = -radius; dx <= radius; dx += step)
+                for (int dy = -radius; dy <= radius; dy += step)
+                    if ((dx != 0 || dy != 0) && !Overlaps(centerX + dx, centerY + dy, hutSize)) return false;
+            return true;
         }
 
     }

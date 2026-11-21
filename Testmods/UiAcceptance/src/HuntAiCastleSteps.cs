@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using APIShared;
 using APIShared.Buildings;
 using APIShared.Sight;
@@ -7,6 +8,7 @@ using APIShared.Simulation;
 using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.Projectiles;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
@@ -20,14 +22,87 @@ namespace UiAcceptance
             new Dictionary<uint, (int, int, uint, int)>();
         private static readonly HashSet<int> ObservedOwners = new HashSet<int>();
         private static IDisposable projectileSubscription;
-        private static bool registered, active;
-        private static int currentTick, shots;
+        private static IDisposable placementSubscription;
+        private static bool registered, active, armed;
+        private static int currentTick, shots, placementAttempts, placementBlocked;
 
         internal static void Register()
         {
+            Runner.Register("HuntAiCastles.Arm", s => GameSteps.Do(Arm));
             Runner.Register("HuntAiCastles.Begin", s => GameSteps.Do(Begin));
+            Runner.Register("HuntAiCastles.Snapshot", s => GameSteps.Do(() => Snapshot(s.Arg(0), s.Int(1, 0) != 0, s.Int(2, 0) != 0)));
             Runner.Register("HuntAiCastles.SupplyHutCosts", s => GameSteps.Do(SupplyHutCosts));
             Runner.Register("HuntAiCastles.End", s => GameSteps.Do(End));
+        }
+
+        private static void Arm()
+        {
+            placementAttempts = placementBlocked = 0;
+            if (placementSubscription == null)
+                placementSubscription = BuildingR3EventHooks.OnPlacementValidation.Observable.Subscribe(ObservePlacement);
+            armed = true;
+        }
+
+        private static void ObservePlacement(BuildingPlacementValidationEventArgs args)
+        {
+            if (!armed || args.Phase != EventHookPhase.Post || args.Mappers != eMappers.MAPPER_HUNTER ||
+                args.PlayerId < 1 || args.PlayerId > GamePlayerManagerAPI.MAX_PLAYERS ||
+                !GamePlayerManagerAPI.Instance.IsAIPlayer(args.PlayerId)) return;
+            placementAttempts++;
+            if (GameTileManagerAPI.Instance.TileManager.IsPlacementBlocked) placementBlocked++;
+        }
+
+        private static T EconomyField<T>(object economy, string name) =>
+            (T)GameSteps.Read(economy.GetType(), economy, name, BindingFlags.Instance);
+
+        // A native world snapshot is the assertion; private state is read only to diagnose
+        // whether this run reached the intended production feature and prey configuration.
+        private static void Snapshot(string label, bool afterCheck, bool requireHut)
+        {
+            lock (HuntSteps.Engine())
+            {
+                object economy = GameSteps.ResolveStatic("ImprovedHunters.ImprovedHuntersPlugin::persistentRuntime.aiHunterEconomy");
+                Runner.Require(EconomyField<bool>(economy, "initialized") && EconomyField<bool>(economy, "active") &&
+                    EconomyField<bool>(economy, "started") && !EconomyField<bool>(economy, "faulted") &&
+                    !EconomyField<bool>(economy, "initializationFailed"), "ImprovedHunters AI economy is not healthy and active");
+                Runner.Require(EconomyField<bool>(economy, "controlAiv") && EconomyField<bool>(economy, "automatic") &&
+                    EconomyField<bool>(economy, "retire"), "expected all three AI options enabled");
+                int prey = EconomyField<int>(economy, "preyMask"), other = EconomyField<int>(economy, "otherPreyMask");
+                int food = EconomyField<int>(economy, "baselineFoodMask");
+                if (afterCheck)
+                    Runner.Require(EconomyField<bool>(economy, "preyKnown") && other == 0,
+                        "expected a completed chicken-only prey check");
+                Runner.Require(ConstructionCosts.TryGetCurrent(ConstructionCostTarget.FromStructure(eStructs.STRUCT_HUNTERS_HUT),
+                    out var cost, out _), "native hunter hut costs unavailable");
+                var counts = new int[GamePlayerManagerAPI.MAX_PLAYERS + 1];
+                var identities = new List<string>();
+                var buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+                for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
+                {
+                    ref readonly GameBuilding building = ref buildings[spanIndex];
+                    int player = building.r_PlayerIdOwner;
+                    if (building.r_BuildingType != eStructs.STRUCT_HUNTERS_HUT ||
+                        (building.r_AliveState != AliveState.IsAlive && building.r_AliveState != AliveState.NeedsInit) ||
+                        player < 1 || player >= counts.Length || !GamePlayerManagerAPI.Instance.IsAIPlayer(player)) continue;
+                    counts[player]++;
+                    identities.Add(player + ":" + (spanIndex + 1) + "/" + building.r_GlobalId);
+                }
+                int total = 0;
+                for (int player = 1; player < counts.Length; player++)
+                {
+                    if (!GamePlayerManagerAPI.Instance.IsAIPlayer(player)) continue;
+                    Runner.Require(counts[player] <= 1, "chicken-only AI player " + player + " has " + counts[player] + " Hunter's huts");
+                    total += counts[player];
+                    AcceptLog.Info("HUNT_AI_CASTLES_SNAPSHOT label=" + label + " player=" + player + " huts=" + counts[player] +
+                        " wood=" + GamePlayerManagerAPI.Instance.GetGoodAmount(player, eGoods.STORED_WOOD_PLANKS) +
+                        " gold=" + GamePlayerManagerAPI.Instance.GetGoodAmount(player, eGoods.STORED_GOLD));
+                }
+                AcceptLog.Info("HUNT_AI_CASTLES_ECONOMY label=" + label + " identities=" + string.Join(",", identities) +
+                    " preyMask=" + prey + " otherPreyMask=" + other + " baselineFoodMask=" + food +
+                    " cycleActive=" + EconomyField<bool>(economy, "cycleActive") + " placementAttempts=" + placementAttempts +
+                    " blocked=" + placementBlocked + " hutCost=" + cost.Wood + "/" + cost.Stone + "/" + cost.Iron + "/" + cost.Pitch + "/" + cost.Gold);
+                if (requireHut) Runner.Require(total > 0, "ImprovedHunters did not provide a real AI Hunter's hut");
+            }
         }
 
         private static void Begin()
@@ -157,11 +232,12 @@ namespace UiAcceptance
             lock (HuntSteps.Engine())
             {
                 active = false;
+                armed = false;
                 projectileSubscription?.Dispose();
                 projectileSubscription = null;
                 AcceptLog.Info("HUNT_AI_CASTLES_END ownersWithHunter=" + ObservedOwners.Count + " hunters=" +
-                    Previous.Count + " shots=" + shots);
-                Runner.Require(ObservedOwners.Count > 0, "AIHunterPreyTest did not provide a Hunter in this run");
+                    Previous.Count + " shots=" + shots + " placementAttempts=" + placementAttempts + " blocked=" + placementBlocked);
+                Runner.Require(ObservedOwners.Count > 0, "ImprovedHunters did not provide a Hunter in this run");
             }
         }
     }

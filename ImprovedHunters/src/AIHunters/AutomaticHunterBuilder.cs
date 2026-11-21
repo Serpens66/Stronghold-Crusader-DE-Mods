@@ -6,9 +6,9 @@ using SHCDESE.EventAPI.Buildings;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 
-namespace AIHunterPreyTest
+namespace ImprovedHunters
 {
-    // Testmod-only ordinary construction. The caller owns the rare simulation-tick schedule
+    // Ordinary construction. The caller owns the rare simulation-tick schedule
     // and the prey decision; this class never creates units, supplies goods or clears terrain.
     internal sealed unsafe class AutomaticHunterBuilder
     {
@@ -20,6 +20,7 @@ namespace AIHunterPreyTest
         private const int AutomaticOrientation = 15;
         private readonly IDisposable spawnSubscription;
         private readonly bool auditedAivGeometry;
+        private readonly AivPlanReservation reservations = new AivPlanReservation();
         private bool placing;
         private int capturePlayer, captureX, captureY, spawnedId;
         private uint spawnedGlobalId;
@@ -32,11 +33,12 @@ namespace AIHunterPreyTest
             spawnSubscription = BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(ObserveSpawn);
         }
 
-        internal bool TryBuild(int playerId, int maximumHuts, out string reason)
+        internal bool TryBuild(int playerId, int currentHutCount, out string reason, out bool aivFullyReserved)
         {
             reason = "not-eligible";
+            aivFullyReserved = false;
             if (!auditedAivGeometry) { reason = "aiv-plan-native-unavailable"; return false; }
-            if (placing || maximumHuts < 1 || playerId < 1 || playerId > GamePlayerManagerAPI.MAX_PLAYERS)
+            if (placing || currentHutCount < 0 || playerId < 1 || playerId > GamePlayerManagerAPI.MAX_PLAYERS)
                 return false;
             var players = GamePlayerManagerAPI.Instance;
             if (!players.IsAIPlayer(playerId) || !players.TryGetPlayerResourcesById(playerId, out var resources))
@@ -50,16 +52,9 @@ namespace AIHunterPreyTest
                 reason = "building-capacity";
                 return false;
             }
-            int huts = 0;
-            var buildings = api.GetBuildingsAsSpan();
-            for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
-            {
-                ref readonly GameBuilding building = ref buildings[spanIndex];
-                if (building.r_PlayerIdOwner == playerId && building.r_BuildingType == eStructs.STRUCT_HUNTERS_HUT &&
-                    (building.r_AliveState == AliveState.IsAlive || building.r_AliveState == AliveState.NeedsInit))
-                    huts++;
-            }
-            if (huts >= maximumHuts)
+            // The controller maintains/revalidates its small per-owner hut index. Do not rescan
+            // every world building once per player here. Automatic supplementation is capped at one.
+            if (currentHutCount != 0)
             {
                 reason = "hut-limit";
                 return false;
@@ -91,8 +86,14 @@ namespace AIHunterPreyTest
             int scale = BuildingScales.GetScale(eMappers.MAPPER_HUNTER);
             if (scale != 3)
                 throw new InvalidOperationException("Hunter footprint differs from the audited three-tile square.");
-            if (!AivPlanReservation.TryCapture(playerId, centerX, centerY, SearchRadius, scale, out var reservations, out reason))
+            if (!reservations.TryCapture(playerId, centerX, centerY, SearchRadius, scale, out reason))
                 return false;
+            if (reservations.CoversSearchArea(centerX, centerY, SearchRadius, SearchStep, scale))
+            {
+                aivFullyReserved = true;
+                reason = "aiv-plan-reserves-entire-search-area";
+                return false;
+            }
 
             int candidates = 0, attempts = 0;
             // Fixed order and bounded work, independent of wall clock, frame rate or selected player.

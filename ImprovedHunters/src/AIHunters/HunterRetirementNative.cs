@@ -1,8 +1,6 @@
 using System;
-using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
-using System.Text;
 using APIShared.NativeSites;
 using BepInEx.Logging;
 using SHCDESE.API;
@@ -10,13 +8,12 @@ using SHCDESE.API.LowLevel;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 
-namespace AIHunterPreyTest
+namespace ImprovedHunters
 {
     // No patch: reproduce the three calls made by Vanilla's AI retirement branch at 0x3B305.
     // The caller owns the simulation boundary and must independently establish prey absence.
     internal sealed unsafe class HunterRetirementNative
     {
-        private const string AuditedHash = "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
         private const int RetirementBranch = 0x3B270;
         private readonly ManualLogSource log;
         private readonly IntPtr buildingManager, aivState;
@@ -34,25 +31,18 @@ namespace AIHunterPreyTest
         private delegate void Refund(IntPtr manager, int buildingId, int playerId, int percent);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate void MarkForRemoval(IntPtr manager, int buildingId);
-        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        private static extern uint GetModuleFileName(IntPtr module, StringBuilder path, int capacity);
-
-        internal HunterRetirementNative(ManualLogSource logger, CrusaderLibraryLoadContext context)
+        internal HunterRetirementNative(ManualLogSource logger, CrusaderLibraryLoadContext context, bool referenceHashMatches)
         {
             log = logger;
             try
             {
                 if (IntPtr.Size != 8 || context == null || context.ModuleHandle == IntPtr.Zero)
                     throw new InvalidOperationException("No x64 native image.");
-                ValidateLayout();
-                var path = new StringBuilder(32768);
-                uint count = GetModuleFileName(context.ModuleHandle, path, path.Capacity);
-                if (count == 0 || count >= path.Capacity) throw new InvalidOperationException("Cannot identify loaded native file.");
-                using (var stream = File.OpenRead(path.ToString()))
-                using (var sha = SHA256.Create())
-                    if (!string.Equals(Hex(sha.ComputeHash(stream)), AuditedHash, StringComparison.OrdinalIgnoreCase))
-                        throw new InvalidOperationException("Native image is outside the audited retirement contract.");
+                // ImprovedHunters already identifies the native image once for all native features.
+                if (!referenceHashMatches)
+                    throw new InvalidOperationException("Native image is outside the audited retirement contract.");
                 AuditedImage = true;
+                ValidateLayout();
 
                 // Validate the original load snapshot, then call live entries so SE's refund hooks run.
                 var memory = context.Memory;
@@ -76,7 +66,7 @@ namespace AIHunterPreyTest
                 avoidCell = Marshal.GetDelegateForFunctionPointer<AvoidCell>(IntPtr.Add(context.ModuleHandle, avoid));
                 refund = Marshal.GetDelegateForFunctionPointer<Refund>(IntPtr.Add(context.ModuleHandle, repay));
                 markForRemoval = Marshal.GetDelegateForFunctionPointer<MarkForRemoval>(IntPtr.Add(context.ModuleHandle, remove));
-                var claim = NativeSiteRegistry.Register(AIHunterPreyPlugin.PluginGuid, "HunterRetirementCalls", new[] {
+                var claim = NativeSiteRegistry.Register(ImprovedHuntersPlugin.PluginGuid, "ai-hunter-retirement-calls", new[] {
                     new NativeSiteSpan(avoid, 1, NativeSiteMode.CallOnly),
                     new NativeSiteSpan(repay, 1, NativeSiteMode.CallOnly),
                     new NativeSiteSpan(remove, 1, NativeSiteMode.CallOnly) });
@@ -151,7 +141,7 @@ namespace AIHunterPreyTest
                 if (index >= length) return false;
                 ref GameUnit worker = ref units[index];
                 if (building.N0000176A == 0 || worker.r_GlobalId != building.N0000176A || worker.r_LinkedProductionBuildingGlobalId != building.r_GlobalId ||
-                    worker.r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER || !IdleAndEmpty(in worker)) return false;
+                    worker.r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER || !IsIdleAndEmpty(in worker)) return false;
             }
             // Scan all links as well: an unregistered/second worker must not hide unfinished meat.
             // The hound's carry field is an animation counter, so only Hunters are inspected here.
@@ -159,12 +149,12 @@ namespace AIHunterPreyTest
             {
                 ref GameUnit worker = ref units[i];
                 if (worker.r_AliveState != AliveState.None && worker.r_UnitChimp == eChimps.CHIMP_TYPE_HUNTER &&
-                    worker.r_LinkedProductionBuildingGlobalId == building.r_GlobalId && !IdleAndEmpty(in worker)) return false;
+                    worker.r_LinkedProductionBuildingGlobalId == building.r_GlobalId && !IsIdleAndEmpty(in worker)) return false;
             }
             return true;
         }
 
-        private static bool IdleAndEmpty(in GameUnit worker) => worker.r_AliveState == AliveState.IsAlive &&
+        internal static bool IsIdleAndEmpty(in GameUnit worker) => worker.r_AliveState == AliveState.IsAlive &&
             worker.r_CarryGoodAmount == 0 && (worker.r_AIState == 0 || worker.r_AIState == 7 || worker.r_AIState == 8);
 
         private static void CheckFunction(ReadOnlySpan<byte> image, int rva, int length, string expected)

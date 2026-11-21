@@ -2,14 +2,22 @@
   "GUID": "ImprovedHunters_Serp",
   "Author": "Serpens66",
   "Name": "Improved Hunters",
-  "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels and chickens.",
-  "Version": "1.2.4",
+  "Description": "Adds configurable hunter prey and meat yield, and lets AI Hunter's huts follow available prey.",
+  "Version": "1.2.5",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.2.5",
+      "Changes": [
+        "Separate AI options check planned Hunter's huts, build a missing hut and remove unneeded huts after work and deliveries finish.",
+        "Own chickens support one hut per AI; additional planned huts require other huntable prey, including animals registered by other mods.",
+        "Automatic huts respect future buildings in the active castle plan. Checks are infrequent and construction searches are bounded; an AI stops retrying when its plan reserves every search site."
+      ]
+    },
     {
       "Version": "1.2.4",
       "Changes": [

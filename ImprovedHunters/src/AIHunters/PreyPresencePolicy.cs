@@ -1,4 +1,4 @@
-namespace AIHunterPreyTest
+namespace ImprovedHunters
 {
     internal static class PreyPresencePolicy
     {
@@ -11,8 +11,6 @@ namespace AIHunterPreyTest
             if (owner == 0) return 0x1FE;
             return ownPlayerAllowed && owner >= 1 && owner <= 8 ? 1 << owner : 0;
         }
-        internal static bool ShouldBlock(bool enabled, bool controlAiv, bool autoCall, bool ai, bool known, bool prey) =>
-            enabled && (controlAiv || autoCall) && ai && known && !prey;
     }
 
     // Default/reset starts a fresh mission-relative delay, even when a save restores a large map tick.
