@@ -1351,6 +1351,14 @@ picked the same deer again: an endless walk between hut and deer.
 
 On a new DLL hash, revalidate the span and its register contract together with the other `HunterUpdate` hooks.
 
+### Bounded search and moving prey
+
+The existing State-0 destination hook remains the only firing-position handoff. It consumes the candidate recorded by the State-0 query return hook, after the matching live target and reservation have been written. For an own chicken already within the State-1 attack radius, a blocked line can trigger a search on the initial approach. Other requests come from close active prey or failed approaches. Stage-0 target and reservation writes, the native MoveHere call, and the State-1 attack gates retain their original order.
+
+The scan runs every four map ticks. Initial search and revalidation inside the destination callback use native sight and same-component checks only. The scan is the sole caller of the player-aware component query for this search. A prepared cross-component destination needs a matching player, mode, and components and a positive answer less than one scan interval old. A fresh directional sight check and walkability check still guard the destination. MoveHere rejection runs ordinary reservation cleanup and postpones this alternate tile without classifying the prey itself as unreachable.
+
+A shared four-tick budget covers 96 candidate tiles, 32 directional sight calls, and four component queries. The inline allowance uses at most 24 tiles and 12 directional calls from that total. An earlier active-target visibility probe spends two directional calls from the same budget, and ordinary probes keep their existing cadence. The wrapper result is reconstructed as the first positive directional result, following the audited early return in `0xA06F0`. Keep the helper signature, private context and direction order in the new-hash review.
+
 ### Flag-based hooks removed in 1.2.0
 
 Two context hooks decided an untouched conditional jump through

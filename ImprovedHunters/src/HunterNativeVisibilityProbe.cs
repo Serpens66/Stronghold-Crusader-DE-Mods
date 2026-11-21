@@ -290,23 +290,6 @@ namespace ImprovedHunters
                     preyPoint.Y,
                     preyPoint.Height);
 
-                if (!Evaluate(hunterPoint, preyPoint, LineOfSightRoutine.Bidirectional,
-                        "near-visibility native invocation", out wrapperResult))
-                {
-                    return false;
-                }
-
-                // The validated wrapper calls both core directions before it
-                // can return zero. Preserve those exact results without two
-                // redundant native calls on the new 250-ms near-target path.
-                if (wrapperResult == 0)
-                {
-                    hunterToPreyResult = 0;
-                    preyToHunterResult = 0;
-                    diagnostic.Complete(0);
-                    return true;
-                }
-
                 if (!Evaluate(hunterPoint, preyPoint, LineOfSightRoutine.Directional,
                         "near-visibility native invocation", out hunterToPreyResult) ||
                     !Evaluate(preyPoint, hunterPoint, LineOfSightRoutine.Directional,
@@ -315,6 +298,9 @@ namespace ImprovedHunters
                     return false;
                 }
 
+                // Vanilla's wrapper returns the forward result when nonzero, or the reverse result otherwise.
+                // We need both results for the attack handoff, so reuse them instead of making a wrapper call.
+                wrapperResult = hunterToPreyResult != 0 ? hunterToPreyResult : preyToHunterResult;
                 diagnostic.Complete(wrapperResult);
                 return true;
             }

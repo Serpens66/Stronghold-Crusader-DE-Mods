@@ -71,6 +71,8 @@ namespace ImprovedHunters
         private const ushort ActivePathState = 2;
         private const ushort OwnHunterReservation = 2;
         private const uint MaximumPathSteps = 2000;
+        private const int AttackRangeTiles = 28;
+        private const int UrgentDistanceGainTiles = 6;
         private const int MaxDiagnosticLogs = 240;
         private const int MaxProbeSampleLogs = 240;
 
@@ -88,6 +90,10 @@ namespace ImprovedHunters
         private readonly Dictionary<int, Tracker> trackers = new Dictionary<int, Tracker>();
         private readonly Dictionary<int, long> acceptedPathGenerations =
             new Dictionary<int, long>();
+        private readonly List<ProbeRequest> requests = new List<ProbeRequest>();
+        private readonly HashSet<int> activeHunterIds = new HashSet<int>();
+        private readonly Dictionary<int, string> captureFailures = new Dictionary<int, string>();
+        private readonly List<int> staleHunters = new List<int>();
         private long mapGeneration = 1;
         private long nextPathGeneration;
         private int diagnosticLogs;
@@ -150,44 +156,54 @@ namespace ImprovedHunters
                 $"previousTrackerPresent={trackerPresent}, behaviorMutation=False.");
         }
 
-        public void ProcessNativeScan(SimpleNativeArray<GameUnit> units, long timestamp)
+        public void ProcessNativeScan(
+            SimpleNativeArray<GameUnit> units,
+            List<IntPtr> hunters,
+            long timestamp,
+            Func<bool> tryReserveUrgentProbe)
         {
             if (!IsAvailable || !canRun() || units._array == null || units.Length == 0)
                 return;
 
-            List<ProbeRequest> requests = new List<ProbeRequest>();
-            HashSet<int> activeHunterIds = new HashSet<int>();
-            Dictionary<int, string> captureFailures = new Dictionary<int, string>();
-            HashSet<int> trackedHunterIds;
+            requests.Clear();
+            activeHunterIds.Clear();
+            captureFailures.Clear();
+            staleHunters.Clear();
+#if SERP_DEVDIAG
+            List<string> retentionLogs = null;
+#endif
             lock (stateLock)
-                trackedHunterIds = new HashSet<int>(trackers.Keys);
-
-            for (int index = 0; index < units.Length; index++)
             {
-                GameUnit* hunter = units.GetValuePointer(index);
-                int hunterUnitId = index + 1;
-                if (!TryCaptureInputs(
-                        units,
-                        hunterUnitId,
-                        hunter,
-                        allowProbeReservationOne: true,
-                        out VisibilityInputs inputs,
-                        out string captureFailure))
+                // The enclosing simulation scan already collected these pointers in unit-ID order.
+                foreach (IntPtr address in hunters)
                 {
-                    if (trackedHunterIds.Contains(hunterUnitId))
-                        captureFailures[hunterUnitId] = captureFailure;
-                    continue;
-                }
+                    GameUnit* hunter = (GameUnit*)address;
+                    int hunterUnitId = checked((int)(hunter - units._array) + 1);
+                    bool tracked = trackers.ContainsKey(hunterUnitId);
+                    if (!tracked && *(ushort*)((byte*)hunter + HunterAiStateOffset) != HunterStateFollowingTarget)
+                        continue;
 
-                activeHunterIds.Add(hunterUnitId);
-                lock (stateLock)
-                {
+                    if (!TryCaptureInputs(
+                            units,
+                            hunterUnitId,
+                            hunter,
+                            allowProbeReservationOne: true,
+                            out VisibilityInputs inputs,
+                            out string captureFailure))
+                    {
+                        if (tracked)
+                            captureFailures[hunterUnitId] = captureFailure;
+                        continue;
+                    }
+
+                    activeHunterIds.Add(hunterUnitId);
                     Tracker tracker = GetOrReplaceTracker(inputs, timestamp, out _);
                     long interval = inputs.TileManhattanDistance <= 30
                         ? NearTargetProbeInterval
                         : ProbeInterval;
                     if (tracker.LastProbeRequestedAt != 0 &&
-                        timestamp - tracker.LastProbeRequestedAt < interval)
+                        timestamp - tracker.LastProbeRequestedAt < interval &&
+                        (!IsUrgentProbe(inputs, tracker) || !tryReserveUrgentProbe()))
                     {
                         continue;
                     }
@@ -197,14 +213,7 @@ namespace ImprovedHunters
                     tracker.LastProbeRequestedAt = timestamp;
                     requests.Add(new ProbeRequest(inputs, tracker.PathGeneration));
                 }
-            }
 
-#if SERP_DEVDIAG
-            List<string> retentionLogs = null;
-#endif
-            lock (stateLock)
-            {
-                List<int> staleHunters = null;
                 foreach (KeyValuePair<int, Tracker> entry in trackers)
                 {
                     int hunterUnitId = entry.Key;
@@ -244,8 +253,6 @@ namespace ImprovedHunters
                         continue;
                     }
 
-                    if (staleHunters == null)
-                        staleHunters = new List<int>();
                     staleHunters.Add(hunterUnitId);
 #if SERP_DEVDIAG
                     if (retentionLogs == null)
@@ -261,12 +268,8 @@ namespace ImprovedHunters
 #endif
                 }
 
-                if (staleHunters != null)
-                {
-                    foreach (int hunterUnitId in staleHunters)
-                        trackers.Remove(hunterUnitId);
-                }
-
+                foreach (int hunterUnitId in staleHunters)
+                    trackers.Remove(hunterUnitId);
             }
 
 #if SERP_DEVDIAG
@@ -279,6 +282,24 @@ namespace ImprovedHunters
 
             foreach (ProbeRequest request in requests)
                 Probe(request, timestamp);
+        }
+
+        private static bool IsUrgentProbe(VisibilityInputs inputs, Tracker tracker)
+        {
+            // On failure, wait for the regular cadence before trying again.
+            if (!tracker.HasSnapshot || tracker.LastProbeRequestedAt != tracker.ObservedAt ||
+                (tracker.ObservedPreyTileX == inputs.PreyTileX && tracker.ObservedPreyTileY == inputs.PreyTileY))
+            {
+                return false;
+            }
+
+            int distance = inputs.TileManhattanDistance;
+            if (distance > AttackRangeTiles)
+                return false;
+
+            int observedDistance = Math.Abs(tracker.ObservedPreyTileX - tracker.ObservedHunterTileX) +
+                Math.Abs(tracker.ObservedPreyTileY - tracker.ObservedHunterTileY);
+            return observedDistance > AttackRangeTiles || observedDistance - distance >= UrgentDistanceGainTiles;
         }
 
         public bool TryGetObservation(

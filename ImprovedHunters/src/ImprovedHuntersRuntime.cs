@@ -43,7 +43,7 @@ namespace ImprovedHunters
 
         // The BepInEx plugin component is short-lived in SHCDE. Repeating work runs on APIShared's
         // process-lived map-tick callback, at the same map ticks on every multiplayer peer.
-        private const int NativeScanIntervalMapTicks = HunterSimulationTime.MapTicksPerSecond / 10;
+        private const int NativeScanIntervalMapTicks = HunterFiringPositionBudget.WindowTicks;
         // Vanilla's Hunter stops and shoots within this distance (0x12FC70, state 1).
         private const int HunterShootingDistance = 20;
         private const int BetterPreyCheckEveryScans = 10;
@@ -108,6 +108,8 @@ namespace ImprovedHunters
         private HunterNativeVisibilityProbe hunterNativeVisibilityProbe;
         private HunterActiveTargetVisibilitySnapshot hunterActiveTargetVisibilitySnapshot;
         private HunterFiringPositionSearch hunterFiringPositionSearch;
+        private readonly HunterFiringPositionBudget firingPositionBudget = new HunterFiringPositionBudget();
+        private readonly Func<bool> reserveUrgentVisibilityProbe;
         private HunterPclReachability hunterPclReachability;
         private HunterRemainingPathSpeedRecovery hunterRemainingPathSpeedRecovery;
         private HunterPostShotContinuation hunterPostShotContinuation;
@@ -123,6 +125,7 @@ namespace ImprovedHunters
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            reserveUrgentVisibilityProbe = TryReserveUrgentVisibilityProbe;
             Shared.GameplayModActivationGate.Initialize(log, ImprovedHuntersPlugin.PluginGuid, ImprovedHuntersPlugin.PluginName, () => settings.EnableMod);
             Shared.GameplayModActivationGate.StateChanged += OnModeStateChanged;
         }
@@ -280,12 +283,16 @@ namespace ImprovedHunters
                 }
 
                 CleanupShortLivedCorpsePreserveCache(units, timestamp);
-                hunterActiveTargetVisibilitySnapshot?.ProcessNativeScan(units, timestamp);
+                hunterActiveTargetVisibilitySnapshot?.ProcessNativeScan(units, hunters, timestamp, reserveUrgentVisibilityProbe);
                 RequeryHuntersWithUnreachableActivePrey(units, hunters, timestamp);
                 RequeryHuntersWithBetterPrey(units, hunters, timestamp);
-                if (CanRunHunterPathfinding())
-                    hunterFiringPositionSearch?.Observe(units, hunters, timestamp);
                 long measured = 0;
+                if (CanRunHunterPathfinding() && hunterTargetSearchFallback?.IsAvailable == true)
+                {
+                    Shared.DevDiag.Start(ref measured);
+                    hunterFiringPositionSearch?.Observe(units, hunters, hunterActiveTargetVisibilitySnapshot, timestamp);
+                    Shared.DevDiag.Stop(ref measured, "hunters.firingPosition");
+                }
                 Shared.DevDiag.Start(ref measured);
                 herdFleeSight?.Update(units);
                 Shared.DevDiag.Stop(ref measured, "hunters.herdSight");
@@ -694,6 +701,7 @@ namespace ImprovedHunters
             hunterNativeVisibilityProbe?.ResetForMap();
             hunterActiveTargetVisibilitySnapshot?.ResetForMap();
             hunterFiringPositionSearch?.ResetForMap();
+            firingPositionBudget.Reset();
             hunterPclReachability?.ResetForMap();
             hunterPostShotContinuation?.ResetForMap();
             hunterTargetSearchFallback?.ResetForMap();
@@ -949,6 +957,8 @@ namespace ImprovedHunters
                 propertyName == nameof(ImprovedHuntersViewModel.ImprovedPathfinding))
             {
                 hunterActiveTargetVisibilitySnapshot?.ResetForMap();
+                hunterFiringPositionSearch?.ResetForMap();
+                firingPositionBudget.Reset();
                 hunterPclReachability?.ResetForMap();
                 hunterPostShotContinuation?.ResetForMap();
                 hunterTargetSearchFallback?.ResetForMap();
@@ -1143,7 +1153,8 @@ namespace ImprovedHunters
             try
             {
                 if (hunterNativeVisibilityProbe?.IsAvailable == true)
-                    hunterFiringPositionSearch = new HunterFiringPositionSearch(log, hunterNativeVisibilityProbe, SetHunterGiveUpCooldown);
+                    hunterFiringPositionSearch = new HunterFiringPositionSearch(
+                        log, settings, hunterNativeVisibilityProbe, firingPositionBudget, SetHunterGiveUpCooldown);
                 hunterTargetSearchFallback = new HunterTargetSearchFallback(
                     log,
                     settings,
@@ -1164,6 +1175,7 @@ namespace ImprovedHunters
                     RegisterRejectedHunterStateZeroMove,
                     RecordHunterPclMoveHereResult,
                     TryTakeHunterFiringPosition,
+                    RecordHunterFiringPositionMove,
                     (hunterUnitId, preyGlobalId) => hunterFiringPositionSearch?.StageTooCloseRetry(hunterUnitId, preyGlobalId));
             }
             catch (Exception exception)
@@ -1499,13 +1511,20 @@ namespace ImprovedHunters
             }
         }
 
-        private bool TryTakeHunterFiringPosition(int hunterUnitId, long timestamp, out int tileX, out int tileY)
+        private bool TryReserveUrgentVisibilityProbe() =>
+            firingPositionBudget.TryTakeSight(HunterSimulationTime.Now, inline: false, urgent: true);
+
+        private bool TryTakeHunterFiringPosition(
+            int hunterUnitId, uint preyGlobalId, eChimps preyType, long timestamp, out int tileX, out int tileY)
         {
             tileX = 0;
             tileY = 0;
             return hunterFiringPositionSearch != null &&
-                hunterFiringPositionSearch.TryTakeDestination(hunterUnitId, timestamp, out tileX, out tileY);
+                hunterFiringPositionSearch.TryTakeDestination(hunterUnitId, preyGlobalId, preyType, timestamp, out tileX, out tileY);
         }
+
+        private bool RecordHunterFiringPositionMove(int hunterUnitId, uint preyGlobalId, int moveResult, long timestamp) =>
+            hunterFiringPositionSearch?.RecordMoveResult(hunterUnitId, preyGlobalId, moveResult, timestamp) == true;
 
         // A Hunter gave up on this prey even from a firing position, or none exists: other prey first for a while.
         private void SetHunterGiveUpCooldown(int hunterUnitId, uint preyGlobalId, long expiresAt)
@@ -1836,6 +1855,8 @@ namespace ImprovedHunters
                 {
                     targetSelectionModeAllowed = false;
                     pathfindingModeAllowed = false;
+                    hunterFiringPositionSearch?.ResetForMap();
+                    firingPositionBudget.Reset();
                     ClearTargetSelectionCaches();
                 }));
             runtimeEventsSubscribed = true;

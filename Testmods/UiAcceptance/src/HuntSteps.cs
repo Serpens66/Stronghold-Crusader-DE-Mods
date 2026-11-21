@@ -110,6 +110,8 @@ namespace UiAcceptance
             Runner.Register("Hunt.SightWall", s => GameSteps.Do(() => { lock (Engine()) SightWall(s.Int(0), s.Int(1)); }));
             Runner.Register("Hunt.SightBuilding", s => GameSteps.Do(() => { lock (Engine()) SightBuilding(s.Int(0), s.Int(1)); }));
             RegisterCorridorSteps();
+            RegisterHuntPositionSteps();
+            RegisterHuntStress800Steps();
             Runner.Register("Hunt.Ring", Ring);
             Runner.Register("Hunt.CloseRing", CloseRing);
             Runner.Register("Hunt.OpenRing", OpenRing);

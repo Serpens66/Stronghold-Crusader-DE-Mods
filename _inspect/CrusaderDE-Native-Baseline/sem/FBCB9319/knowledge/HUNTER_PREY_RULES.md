@@ -115,7 +115,7 @@ from `+0x2EC` again (`0x89F40`, `0x97380`) and only those panels read it (`0x19D
 
 State 1 (`0x12FF38`) decides the stage (`+0x348`, read at manager `+0x9A4`) anew on every update from the Manhattan
 distance EDI to the target: over 40 stage 1, over 36 stage 2, over 34 stage 3, over 32 stage 4, over 30 stage 6, over 28
-stage 8, otherwise 10. Nothing in Vanilla holds a stage once chosen. Chebyshev 20 or less on the tile fields triggers the new search.
+stage 8, otherwise 10. Nothing in Vanilla holds a stage once chosen. The separate near refresh uses Chebyshev distance at most 20 on the world coordinates (8 world units per tile), as detailed below.
 
 ## Herd flight and respawn [Scope: Vanilla]
 
@@ -496,7 +496,7 @@ arrival drops the first update of the final step, including its substep-zero
 opening for the attack gate in Hunter state 1.
 
 Hunter state 1 renews the target's reservation before its near-world-distance
-branch at `0x130069`. At distance at most 20 world units it calls the ordinary
+branch at `0x130069`. The distance helper `0x79C0` returns Manhattan distance for the tile-based speed and attack checks and writes the maximum axis difference at scratch `+0xC`. The near branch compares that scratch after calling the helper with world X/Y. At Chebyshev distance at most 20 world units it calls the ordinary
 query. That query rejects reserved units and checks minimum tile distances of
 20 and 5, so it can return zero while the current prey is live and visible.
 The return leads to state 6. The alternate branch at distance greater than 20

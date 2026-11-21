@@ -22,6 +22,11 @@ namespace UiAcceptance
         private static bool corridorStartedBlocked, corridorTraceFinished;
         private static uint corridorHunterGlobal, corridorPreyGlobal;
         private static bool corridorObserverRegistered;
+        private static bool corridorHasFirstApproach;
+        private static int corridorFirstApproachDistance;
+        private static bool corridorFirstApproachBlocked;
+        private static int corridorFirstAimTick;
+        private static bool corridorReturnedBeforeArrow;
         private static string corridorLastSample;
         private static IDisposable corridorProjectiles;
         private static IDisposable corridorDeliverySubscription;
@@ -153,12 +158,6 @@ namespace UiAcceptance
         {
             lock (Engine())
             {
-                if (!corridorObserverRegistered)
-                {
-                    Runner.Require(SimulationTickEvents.TryRegister("UiAcceptance_Serp", "hunt-corridor",
-                        TraceCorridorTick, out string reason, 900), reason);
-                    corridorObserverRegistered = true;
-                }
                 GameUnit* hunter = FindHunter(local);
                 Runner.Require(hunter != null, "Hunter vanished before the corridor test");
                 int preyX = x + CorridorLength * signX;
@@ -169,25 +168,41 @@ namespace UiAcceptance
                     preyY += signY + signX;
                 }
                 SpawnPreyAt("deer", preyX, preyY);
-                corridorPrey = deer[deer.Count - 1];
-                Runner.Require(UnitAccess.TryGetById(corridorPrey, out GameUnit* prey, out _) && prey != null, "no prey");
-                corridorPreyGlobal = prey->r_GlobalId;
-                corridorHunter = checked((int)(hunter - GameUnitManagerAPI.Instance.GetUnitArray()._array) + 1);
-                corridorHunterGlobal = hunter->r_GlobalId;
-                corridorStartTick = 0;
-                corridorLastSample = null;
-                corridorArrowsAtPrey = 0;
-                corridorDelivered = 0;
-                corridorPreviousState = -1;
-                corridorVisibleTerminalAborts = 0;
-                corridorTraceFinished = false;
-                corridorStartedBlocked = LineOfSight.TryEvaluateUnits(in *hunter, in *prey,
-                    LineOfSightRoutine.Bidirectional, out int initialSight, out _) && initialSight == 0;
-                corridorProjectiles ??= ProjectileR3EventHooks.OnProjectileSpawn.Observable.Subscribe(TraceCorridorProjectile);
-                corridorDeliverySubscription ??= UnitR3EventHooks.OnHunterDropOffMeat.Observable.Subscribe(ObserveCorridorDelivery);
+                BeginHuntTrace(hunter, deer[deer.Count - 1]);
                 AcceptLog.Info("HUNT_CORRIDOR layout=" + layout + " hunter=" + corridorHunter + " prey=" + corridorPrey +
                     " start=" + x + "," + y + " end=" + preyX + "," + preyY + " blocked=" + corridorStartedBlocked);
             }
+        }
+
+        private static void BeginHuntTrace(GameUnit* hunter, int preyId)
+        {
+            if (!corridorObserverRegistered)
+            {
+                Runner.Require(SimulationTickEvents.TryRegister("UiAcceptance_Serp", "hunt-corridor",
+                    TraceCorridorTick, out string reason, 900), reason);
+                corridorObserverRegistered = true;
+            }
+            corridorPrey = preyId;
+            Runner.Require(UnitAccess.TryGetById(preyId, out GameUnit* prey, out _) && prey != null, "no prey");
+            corridorPreyGlobal = prey->r_GlobalId;
+            corridorHunter = checked((int)(hunter - GameUnitManagerAPI.Instance.GetUnitArray()._array) + 1);
+            corridorHunterGlobal = hunter->r_GlobalId;
+            corridorStartTick = 0;
+            corridorLastSample = null;
+            corridorArrowsAtPrey = 0;
+            corridorDelivered = 0;
+            corridorPreviousState = -1;
+            corridorVisibleTerminalAborts = 0;
+            corridorTraceFinished = false;
+            corridorHasFirstApproach = false;
+            corridorFirstApproachDistance = 0;
+            corridorFirstApproachBlocked = false;
+            corridorFirstAimTick = 0;
+            corridorReturnedBeforeArrow = false;
+            corridorStartedBlocked = LineOfSight.TryEvaluateUnits(in *hunter, in *prey,
+                LineOfSightRoutine.Bidirectional, out int initialSight, out _) && initialSight == 0;
+            corridorProjectiles ??= ProjectileR3EventHooks.OnProjectileSpawn.Observable.Subscribe(TraceCorridorProjectile);
+            corridorDeliverySubscription ??= UnitR3EventHooks.OnHunterDropOffMeat.Observable.Subscribe(ObserveCorridorDelivery);
         }
 
         private static void TraceCorridorProjectile(ProjectileSpawnEventArgs args)
@@ -200,6 +215,7 @@ namespace UiAcceptance
                 UnitAccess.TryGetById(corridorPrey, out GameUnit* prey, out _) && prey != null &&
                 prey->r_GlobalId == corridorPreyGlobal)
                 corridorArrowsAtPrey++;
+
             SimulationTickEvents.TryGetCurrentTick(out int tick);
             AcceptLog.Info("HUNT_CORRIDOR_ARROW tick=" + tick + " hunter=" + corridorHunter +
                 " target=" + args.AttackedUnitId + " projectile=" + args.ReturnValue);
@@ -263,6 +279,24 @@ namespace UiAcceptance
                 AcceptLog.Info("HUNT_CORRIDOR_VISIBLE_TERMINAL_ABORT tick=" + tick + " hunter=" + corridorHunter);
             }
             corridorPreviousState = hunter->r_AIState;
+            if (hunter->r_AIState == 6 && corridorArrowsAtPrey == 0)
+                corridorReturnedBeforeArrow = true;
+            if (corridorFirstAimTick == 0 && hunter->r_AIState == 9 &&
+                *(uint*)((byte*)hunter + HunterTargetGlobalOffset) == corridorPreyGlobal)
+                corridorFirstAimTick = tick;
+            if (!corridorHasFirstApproach && hunter->r_AIState == 1 && hunter->r_PathPlanStateBitFlags == 2 &&
+                *(uint*)((byte*)hunter + HunterTargetGlobalOffset) == corridorPreyGlobal)
+            {
+                corridorHasFirstApproach = true;
+                corridorFirstApproachBlocked = forward <= 0 || reverse <= 0;
+                corridorFirstApproachDistance = Math.Max(
+                    Math.Abs(hunter->r_TargetTilePositionX2 - prey->r_CurrentTilePositionX),
+                    Math.Abs(hunter->r_TargetTilePositionY2 - prey->r_CurrentTilePositionY));
+                AcceptLog.Info("HUNT_FIRST_APPROACH tick=" + tick + " hunter=" + corridorHunter +
+                    " destination=" + hunter->r_TargetTilePositionX2 + "," + hunter->r_TargetTilePositionY2 +
+                    " prey=" + prey->r_CurrentTilePositionX + "," + prey->r_CurrentTilePositionY +
+                    " separation=" + corridorFirstApproachDistance + " blocked=" + corridorFirstApproachBlocked);
+            }
             bool shotFrame = hunter->r_AIState == 10 && hunter->r_CurrentSpriteAnimationFrame == 22;
             string sample = "state=" + hunter->r_AIState + " target=" + *(ushort*)((byte*)hunter + HunterTargetIdOffset) +
                 " hunter=" + hunter->r_CurrentTilePositionX + "," + hunter->r_CurrentTilePositionY +
