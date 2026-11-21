@@ -1443,20 +1443,19 @@ namespace ExtendedData
                             InvokeUploadFailure(mapTitle, terminalFailure);
                             return;
                         }
-                        if (!CustomLordWorkshopPackagePolicy.TryStageFiles(
+                        if (!CustomLordJsonUploadPolicy.TryStageDirectJsonFiles(
                                 source,
+                                nameMap,
                                 stagingChild,
                                 out int copiedFiles,
                                 out int existingFiles,
-                                out int packageFiles,
-                                out long packageBytes,
                                 out string stagingError))
                         {
                             Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/UploadWorkshopMapHook.cpu-lord-upload-aborted-because-json-staging-2", $"Extended CPU Lord upload [{mapTitle}] aborted because JSON staging failed: {stagingError}");
                             InvokeUploadFailure(mapTitle, terminalFailure);
                             return;
                         }
-                        Shared.DevDiag.Log(() => $"Extended CPU Lord staging ready for [{mapTitle}]: {copiedFiles} copied, {existingFiles} already present, {packageFiles} package files, {packageBytes} bytes.");
+                        Shared.DevDiag.Log(() => $"Extended CPU Lord staging ready for [{mapTitle}]: {copiedFiles} JSON files copied, {existingFiles} already present.");
                     }
                     catch (Exception exception)
                     {

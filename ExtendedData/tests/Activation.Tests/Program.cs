@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -90,6 +91,87 @@ internal static class Program
             Check(true, "disabled Lord receivers do not parse or enqueue input");
         }
     }
+    private static void ExtendedCpuLordUpload(Assembly extended, string[] options)
+    {
+        const string itemName = "UploadFixture";
+        const string uploadSetting = "EnableWorkshopUploads";
+        object model = Model(extended, "ExtendedData.ExtendedDataSettingsViewModel", options, false, true, uploadSetting, true);
+        object coordinator = Consumer(extended, "TrailMissionSettingsCoordinator", Property(model, "FeatureActivation"));
+        Field(coordinator, "uploadDecisionLock", new object());
+        InstallOriginal(coordinator, "uploadWorkshopMapOriginal");
+        FieldInfo logField = coordinator.GetType().GetField("log", All);
+        logField.SetValue(coordinator, Activator.CreateInstance(logField.FieldType, "ExtendedCpuLordUploadTest"));
+
+        MethodInfo upload = coordinator.GetType().GetMethod("UploadWorkshopMapHook", All);
+        Assembly game = upload.GetParameters()[0].ParameterType.Assembly;
+        string[] lordFolders = (string[])game.GetType("ConfigSettings", true).GetField("extendedLordPaths", All).GetValue(null);
+        const string baseLord = "Rat";
+        int lordIndex = Array.IndexOf(lordFolders, baseLord);
+        Check(lordIndex >= 0, "Vanilla exposes the base Lord fixture folder");
+        Type managerType = game.GetType("CustomisationFileManager", true);
+        object manager = managerType.GetProperty("Instance", All).GetValue(null, null);
+        var catalog = (IDictionary)managerType.GetField("extendedLords", All).GetValue(manager);
+
+        string root = Path.Combine(Path.GetTempPath(), "ExtendedCpuLordUpload-" + Guid.NewGuid().ToString("N"));
+        string source = Path.Combine(root, "ExtendedLords", baseLord);
+        string content = Path.Combine(root, "WorkshopTemp", "Content");
+        string stagedLord = Path.Combine(content, baseLord);
+        string directJson = Path.Combine(stagedLord, "info.json");
+        string nestedJson = Path.Combine(stagedLord, "Override", "preferences.json");
+        string stagedConfig = Path.Combine(stagedLord, itemName + ".lordjson");
+        byte[] configBytes = { 0x7B, 0x7D, 0x0D, 0x0A };
+        object config = Activator.CreateInstance(managerType.GetNestedType("CustomLordConfig", All));
+        Field(config, "name", itemName);
+        Field(config, "path", source);
+        Field(config, "lordType", lordIndex);
+        object lord = Activator.CreateInstance(managerType.GetNestedType("CustomLord", All));
+        ((IList)lord.GetType().GetField("configs", All).GetValue(lord)).Add(config);
+        catalog.Add(lordIndex, lord);
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(source, "Override"));
+            Directory.CreateDirectory(stagedLord);
+            File.WriteAllText(Path.Combine(source, "info.json"), "{}");
+            File.WriteAllText(Path.Combine(source, "Override", "preferences.json"), "{\"fixture\":true}");
+            string lua = Path.Combine(source, "init.lua");
+            File.WriteAllText(lua, "-- local fixture");
+            File.WriteAllBytes(Path.Combine(source, itemName + ".lordjson"), configBytes);
+            File.WriteAllBytes(stagedConfig, configBytes);
+
+            int failureCalls = 0;
+            object[] uploadArgs =
+            {
+                null, content, itemName, "", new[] { "Extended CPU Lord", baseLord }, true, "", null,
+                new Action(() => failureCalls++)
+            };
+            int before = originalCalls;
+            upload.Invoke(coordinator, uploadArgs);
+            Check(originalCalls == before + 1 && failureCalls == 0, "Extended CPU Lord upload is forwarded once after staging");
+            Check(File.Exists(directJson) && File.ReadAllText(directJson) == "{}", "root JSON is staged under the base Lord");
+            Check(File.Exists(nestedJson) && File.ReadAllText(nestedJson) == "{\"fixture\":true}", "nested JSON is staged under the base Lord");
+            Check(configBytes.SequenceEqual(File.ReadAllBytes(stagedConfig)), "the staged Vanilla Lord config stays byte-identical");
+            Check(File.Exists(lua) && !File.Exists(Path.Combine(stagedLord, "init.lua")), "Lua stays in the local source");
+
+            before = originalCalls;
+            upload.Invoke(coordinator, uploadArgs);
+            Check(originalCalls == before + 1 && failureCalls == 0, "retry forwards once with identical files already staged");
+
+            object disabled = Model(extended, "ExtendedData.ExtendedDataSettingsViewModel", options, false, true, uploadSetting, false);
+            Field(coordinator, "activation", Property(disabled, "FeatureActivation"));
+            File.Delete(directJson);
+            File.Delete(nestedJson);
+            before = originalCalls;
+            upload.Invoke(coordinator, uploadArgs);
+            Check(originalCalls == before + 1 && failureCalls == 0, "disabled staging forwards once");
+            Check(!File.Exists(directJson) && !File.Exists(nestedJson), "disabled staging adds no JSON files");
+        }
+        finally
+        {
+            catalog.Remove(lordIndex);
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
     private static void Matrix(Assembly assembly, string type, string[] options, string option, string member, bool host, bool extended)
     {
         int index = 0;
@@ -144,6 +226,7 @@ internal static class Program
             string[] extendedOptions = { "EnableMissionModSettings", "EnableCoopPackages", "EnableLordDataIntegration", "EnableEditorFileIntegration", "EnableWorkshopUploads" };
             string[] members = { "MissionModSettings", "CoopPackages", "LordDataIntegration", "EditorFiles", "WorkshopUploads" };
             for (int i = 0; i < extendedOptions.Length; i++) Matrix(ed, "ExtendedData.ExtendedDataSettingsViewModel", extendedOptions, extendedOptions[i], members[i], i < 3, true);
+            ExtendedCpuLordUpload(ed, extendedOptions);
             // Host-controlled options first: only eliminated-player promotion follows the host switch;
             // perspective, statistics and tools are local (PresetLocal) and follow the client switch.
             string[] spectatorOptions = { "EnableEliminatedPlayersBecomeSpectators", "EnableSpectatorPerspective", "EnableStatistics", "EnableTestTools" };
@@ -160,7 +243,7 @@ internal static class Program
                 Check((bool)hasToolbar.Invoke(null, new object[] { tools, perspective, statistics, false }) == toolbarTruth[toolbarCase++], "toolbar combines available groups");
                 Check(!(bool)hasToolbar.Invoke(null, new object[] { tools, perspective, statistics, true }), "map editor never shows the toolbar");
             }
-            Console.WriteLine("PASS: " + checks + " production activation and dormant-entry checks; no hooks installed.");
+            Console.WriteLine("PASS: " + checks + " activation and upload checks; no hooks installed.");
             return 0;
         }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }

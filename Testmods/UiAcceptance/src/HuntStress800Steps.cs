@@ -16,6 +16,8 @@ namespace UiAcceptance
         private const int StressMapSize = 800;
         private const int StressHutSpacing = 7;
         private const int StressMaximumRadius = 350;
+        private const int ResidentsPerHovel = 6;
+        private const int StressPreyPerHut = 3;
         private static readonly Dictionary<int, (int X, int Y, int WorkerX, int WorkerY)> stressFixtureHuts =
             new Dictionary<int, (int X, int Y, int WorkerX, int WorkerY)>();
         private static readonly HashSet<uint> stressHuntersWithPrey = new HashSet<uint>();
@@ -35,6 +37,8 @@ namespace UiAcceptance
             lock (Engine())
             {
                 stressFixtureOwner = 0;
+                Runner.Require(PeaceTimeState.TryGetActive(out bool peace) && peace,
+                    "the 800-by-800 stress fixture requires active peace time");
                 BuildStressHuts(owner, requested);
             }
             yield return new Until("new Hunter's Huts have live workers", () =>
@@ -92,8 +96,10 @@ namespace UiAcceptance
             uint freeBuildings = manager.Pointer->FreeBuildings;
             AcceptLog.Info("HUNT_STRESS800_CAPACITY owner=" + local + " freeBuildings=" + freeBuildings +
                 " occupiedUnits=" + occupiedUnits + " freePhysicalUnitRecords=" + freeUnitRecords);
-            Runner.Require(freeBuildings >= requested, "the save does not have enough building records");
-            Runner.Require(freeUnitRecords >= requested * 2, "the save does not have enough physical unit records for workers and deer");
+            int requiredHovels = (requested + ResidentsPerHovel - 1) / ResidentsPerHovel;
+            Runner.Require(freeBuildings >= requested + requiredHovels, "the map has too few free building records");
+            Runner.Require(freeUnitRecords >= requested * (1 + StressPreyPerHut),
+                "the map has too few physical unit records for workers and deer");
             int scale = BuildingScales.GetScale(eMappers.MAPPER_HUNTER);
             Runner.Require(scale == 3, "the Hunter's Hut footprint changed");
             Span<ushort> components = GamePathingManagerAPI.Instance.GetPathComponentGrid();
@@ -101,17 +107,41 @@ namespace UiAcceptance
             Runner.Require((uint)keepTile < (uint)components.Length && components[keepTile] != 0,
                 "the test owner's keep has no accessible path component");
             ushort keepLand = components[keepTile];
-            int candidates = 0, attempts = 0, peasants = 0, rejectSamples = 0;
+            int hovelScale = BuildingScales.GetScale(eMappers.MAPPER_HOVEL);
+            int hovels = 0, candidates = 0, attempts = 0, peasants = 0, rejectSamples = 0;
+            eStructs expectedType = eStructs.STRUCT_HOVEL;
             int captureX = -1, captureY = -1, capturedId = 0;
             using (BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(args =>
             {
                 if (args.Phase == EventHookPhase.Post && args.PlayerId == local &&
-                    args.Building == eStructs.STRUCT_HUNTERS_HUT &&
+                    args.Building == expectedType &&
                     args.TileX == captureX && args.TileY == captureY &&
                     args.ReturnValue > 0 && args.ReturnValue <= int.MaxValue)
                     capturedId = (int)args.ReturnValue;
             }))
             {
+                foreach ((int x, int y) in StressHutSites(door.X, door.Y))
+                {
+                    if (hovels >= requiredHovels)
+                        break;
+                    if (!IsStressHutSite(tiles, components, keepLand, hovelScale, x, y,
+                            x + hovelScale, y + 1, out _))
+                        continue;
+
+                    captureX = x;
+                    captureY = y;
+                    capturedId = 0;
+                    buildings.CreatePrefab(local, x, y, eMappers.MAPPER_HOVEL, hovelScale,
+                        AutomaticSpriteVariation, bIsFree: true, bypassPlacementRules: true);
+                    if (BuildingAccess.TryGetById(capturedId, out GameBuilding* hovel, out _) && hovel != null &&
+                        hovel->r_BuildingType == eStructs.STRUCT_HOVEL && hovel->r_PlayerIdOwner == local)
+                        hovels++;
+                }
+                AcceptLog.Info("HUNT_STRESS800_HOUSING owner=" + local + " hovels=" + hovels +
+                    " placesAtSixPerHovel=" + (hovels * ResidentsPerHovel));
+                Runner.Require(hovels == requiredHovels, "the map has too few connected hovel sites");
+
+                expectedType = eStructs.STRUCT_HUNTERS_HUT;
                 foreach ((int x, int y) in StressHutSites(door.X, door.Y))
                 {
                     if (stressFixtureHuts.Count >= requested)
@@ -217,7 +247,7 @@ namespace UiAcceptance
             {
                 AcceptLog.Info("HUNT_STRESS800_WORKERS tick=" + tick + " ready=" + ready + " minimum=" + minimumWorkers +
                     " sameKeepComponent=" + connected + " readyPeasants=" + player->r_ReadyPeasants +
-                    " vacancies=" + player->r_VacantWorkBuildings);
+                    " vacancies=" + player->r_VacantWorkBuildings + " housing=" + player->r_CivilianHousingSpace);
             }
         }
 
@@ -226,12 +256,13 @@ namespace UiAcceptance
             var tiles = GameTileManagerAPI.Instance;
             var units = GameUnitManagerAPI.Instance;
             Span<ushort> components = GamePathingManagerAPI.Instance.GetPathComponentGrid();
+            var occupiedPreyTiles = new HashSet<int>();
             int spawned = 0;
             foreach ((int hx, int hy, int workerX, int workerY) in stressFixtureHuts.Values)
             {
                 ushort land = components[tiles.GetTileId(workerX, workerY)];
-                bool placed = false;
-                for (int distance = 9; distance <= 16 && !placed; distance++)
+                int spawnedAtHut = 0;
+                for (int distance = 7; distance <= 24 && spawnedAtHut < StressPreyPerHut; distance++)
                 {
                     foreach ((int dx, int dy) in ApproachDirections)
                     {
@@ -239,16 +270,20 @@ namespace UiAcceptance
                         if (!IsHuntingFixtureTile(tiles, components, land, x, y))
                             continue;
                         int tile = tiles.GetTileId(x, y);
-                        if (units.CreateUnitLocal(0, 0, x, y, tiles.GetTileHeight(tile), eChimps.CHIMP_TYPE_DEER) <= 0)
+                        if (occupiedPreyTiles.Contains(tile) ||
+                            units.CreateUnitLocal(0, 0, x, y, tiles.GetTileHeight(tile), eChimps.CHIMP_TYPE_DEER) <= 0)
                             continue;
+
+                        occupiedPreyTiles.Add(tile);
                         spawned++;
-                        placed = true;
-                        break;
+                        if (++spawnedAtHut == StressPreyPerHut)
+                            break;
                     }
                 }
             }
             AcceptLog.Info("HUNT_STRESS800_PREY spawned=" + spawned);
-            Runner.Require(spawned >= stressFixtureHuts.Count, "the save could not supply enough nearby prey");
+            Runner.Require(spawned >= stressFixtureHuts.Count * (StressPreyPerHut - 1),
+                "the map did not supply at least two nearby prey per hut on average");
         }
 
         private static IEnumerable<Wait> MeasureStress800(Step step)
@@ -262,6 +297,7 @@ namespace UiAcceptance
                 Runner.Require(SimulationTickEvents.TryGetCurrentTick(out start), "the stress fixture needs a live map tick");
                 stressHuntersWithPrey.Clear();
             }
+            Runner.Require(PeaceTimeState.TryGetActive(out bool peace) && peace, "peace time ended before measurement");
             AcceptLog.Info("HUNT_STRESS800_BEGIN tick=" + start);
             yield return new Until("stress measurement reached its map tick window", () =>
             {
@@ -279,6 +315,7 @@ namespace UiAcceptance
                     return elapsed >= ticks;
                 }
             });
+            Runner.Require(PeaceTimeState.TryGetActive(out peace) && peace, "peace time ended during measurement");
             AcceptLog.Info("HUNT_STRESS800_END elapsedTicks=" + elapsed + " peakLive=" + peakLive +
                 " peakHunting=" + peak + " distinctHunting=" + stressHuntersWithPrey.Count);
             Runner.Require(peakLive >= MinimumStressWorkers(stressFixtureHuts.Count),

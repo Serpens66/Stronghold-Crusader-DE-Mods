@@ -18,12 +18,20 @@
     {"id":"start-herds","do":"SetModSetting","args":["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings","StartHerdMode","0"]},
     {"id":"respawn-herds","do":"SetModSetting","args":["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings","HerdReturnSeconds","0"]},
     {"id":"collect-corpses","do":"SetModSetting","args":["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings","CollectFreeCorpses","false"]},
-    {"id":"load","do":"LoadSave","args":["huntertest2.sav"],"timeoutMs":180000,"stopOnFail":true},
+    {"id":"skirmish","do":"Skirmish.Open","timeoutMs":15000,"stopOnFail":true},
+    {"id":"map","do":"Lobby.SelectMap","args":["Back to Back.map"],"timeoutMs":15000,"stopOnFail":true},
+    {"id":"ai","do":"Lobby.AddAI","args":["1","1"],"timeoutMs":15000,"stopOnFail":true},
+    {"id":"start-places","do":"Lobby.StartPositions","args":["0","1"],"timeoutMs":15000,"stopOnFail":true},
+    {"id":"peace","do":"Lobby.PeaceTime","args":["60"],"timeoutMs":15000,"stopOnFail":true},
+    {"id":"play","do":"Lobby.Play","timeoutMs":60000,"stopOnFail":true},
+    {"id":"briefing","do":"AiMilitary.ResumeBriefing","timeoutMs":15000},
+    {"id":"peace-active","do":"Hunt.ExpectPeace","timeoutMs":20000,"stopOnFail":true},
     {"id":"unpause","do":"Pause","args":["off"],"timeoutMs":15000,"stopOnFail":true},
+    {"id":"settle","do":"WaitTicks","args":["160"],"timeoutMs":20000,"stopOnFail":true},
     {"id":"clear-wildlife","do":"Hunt.ClearOtherAnimals","args":["all"],"stopOnFail":true},
     {"id":"speed","do":"Speed","args":["250"],"stopOnFail":true},
     {"id":"prepare","do":"Hunt.PrepareStress800","args":["500"],"timeoutMs":180000,"stopOnFail":true},
-    {"id":"measure","do":"Hunt.MeasureStress800","args":["1200","450"],"timeoutMs":180000,"stopOnFail":true},
+    {"id":"measure","do":"Hunt.MeasureStress800","args":["3600","450"],"timeoutMs":180000,"stopOnFail":true},
     {"id":"menu-back","do":"QuitToMenu","timeoutMs":60000}
   ]
 }

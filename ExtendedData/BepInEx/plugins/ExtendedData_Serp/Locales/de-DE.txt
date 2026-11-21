@@ -227,6 +227,7 @@ ExtendedData.ErrorCoopPreparationFailed=Die Koop-Mission konnte nicht vorbereite
 ExtendedData.ErrorParticipantsSelectionNotReady=Die Koop-Mission oder Lord-Auswahl ist noch nicht abgeglichen bei: {Players}. Wartet, bis die aktuelle Auswahl synchronisiert ist, und prüft lokale Fehlermeldungen zu den Lords.
 ExtendedData.LordSlotsNotConfirmed=Die ausgewählten Lord-Daten stimmen noch nicht mit dem bestätigten Datenstand überein. Betroffene Spielerplätze: {Players}. Wartet auf die Synchronisation. Bleibt der Fehler bestehen, wählt die Koop-Mission erneut aus und prüft das BepInEx-Log.
 ExtendedData.LordSlotSelectionUnavailable=Die ausgewählten Lords sind noch nicht vollständig geladen. Wählt die Koop-Mission erneut aus und wartet auf die Synchronisation.
+ExtendedData.LordSavePreparationFailed=Die Lord-Daten des Spielstands konnten nicht vorbereitet werden. Einzelheiten stehen im lokalen BepInEx-Log des Hosts.
 ExtendedData.LoadingParticipants=Koop-Mission wird geladen bei: {Players}.
 ExtendedData.WaitingForPartner=Warte auf den zweiten Spieler.
 ExtendedData.ErrorMissionMapMissing=Die von dieser Koop-Mission benötigte Karte ist nicht installiert: {Map}. Installiert oder abonniert sie und wählt die Mission danach erneut aus.
