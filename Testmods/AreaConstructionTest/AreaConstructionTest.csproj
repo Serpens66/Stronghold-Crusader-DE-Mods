@@ -1,0 +1,40 @@
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)/$(MSBuildToolsVersion)/Microsoft.Common.props" />
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
+    <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
+    <OutputType>Library</OutputType>
+    <AssemblyName>AreaConstructionTest</AssemblyName>
+    <RootNamespace>AreaConstructionTest</RootNamespace>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>portable</DebugType>
+    <OutputPath>BepInEx/plugins/AreaConstructionTest_Serp/</OutputPath>
+    <GameDir Condition="'$(GameDir)' == ''">E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition</GameDir>
+    <ManagedDir>$(GameDir)/Stronghold Crusader Definitive Edition_Data/Managed</ManagedDir>
+    <ExtenderDir Condition="'$(ExtenderDir)' == ''">$(GameDir)/BepInEx/plugins/000shcdese</ExtenderDir>
+    <ApiSharedDir Condition="'$(ApiSharedDir)' == ''">$(GameDir)/BepInEx/plugins/APIShared_Serp</ApiSharedDir>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="BepInEx"><HintPath>$(GameDir)/BepInEx/core/BepInEx.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="0Harmony"><HintPath>$(GameDir)/BepInEx/core/0Harmony.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="APIShared"><HintPath>$(ApiSharedDir)/APIShared.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)/SHCDESE.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="R3"><HintPath>$(ExtenderDir)/R3.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="RedBird.Core"><HintPath>$(ExtenderDir)/RedBird.Core.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="System.Memory"><HintPath>$(ExtenderDir)/System.Memory.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Assembly-CSharp"><HintPath>$(ManagedDir)/Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(ManagedDir)/UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(ManagedDir)/UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.GridModule"><HintPath>$(ManagedDir)/UnityEngine.GridModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.InputLegacyModule"><HintPath>$(ManagedDir)/UnityEngine.InputLegacyModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.TilemapModule"><HintPath>$(ManagedDir)/UnityEngine.TilemapModule.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <ItemGroup><Compile Include="src/*.cs" /></ItemGroup>
+  <Import Project="$(MSBuildToolsPath)/Microsoft.CSharp.targets" />
+</Project>
