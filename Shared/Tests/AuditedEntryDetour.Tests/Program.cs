@@ -10,8 +10,8 @@ using RedBird.Core.Memory;
 using Shared;
 
 // Offline backend contract of AuditedEntryDetour (the runtime has no live probe): runs the installed RedBird
-// NativeX64 backend and the real helper on copies of the real CrusaderDE.dll entries of ExtremePowers and
-// RandomEvents. Each copy holds the backend's whole scan window and ends directly in front of a
+// NativeX64 backend and the real helper on copies of the real CrusaderDE.dll entries. Each copy holds
+// the backend's whole scan window and ends directly in front of a
 // PAGE_NOACCESS page, so a read beyond it faults instead of passing. Per entry: an audited entry that
 // differs from the load image is rejected, a foreign jump inside the live span blocks the install before
 // any byte is written, and the clean entry is published as an Indirect detour whose trampoline replays
@@ -45,6 +45,7 @@ internal static class Program
         new Site("RandomEvents presentation", 0x1031B0, @"RandomEvents\src\NativeVanillaEventDispatcher.cs", new byte[] { 0x83, 0x39, 0x00, 0x0F, 0x84, 0xB0, 0x00, 0x00, 0x00 }),
         new Site("RandomEvents sound", 0x2940, @"RandomEvents\src\NativeVanillaEventDispatcher.cs", new byte[] { 0x41, 0xB9, 0x40, 0x00, 0x00, 0x00 }),
         new Site("RandomEvents action point", 0xF4D40, @"RandomEvents\src\NativeWildlifeEventDispatcher.cs", new byte[] { 0x40, 0x53, 0x48, 0x83, 0xEC, 0x20 }),
+        new Site("AreaConstructionTest empty storage cap", 0xB8140, @"Testmods\AreaConstructionTest\src\StorageEmptyLimitPatch.cs", new byte[] { 0x4C, 0x63, 0x51, 0x50, 0x45, 0x33, 0xC9 }),
     };
 
     private static int Main()
@@ -83,7 +84,7 @@ internal static class Program
             Console.Error.WriteLine("FAIL: " + failures + " AuditedEntryDetour check(s) failed.");
             return 1;
         }
-        Console.WriteLine("PASS: installed RedBird backend publishes the audited Indirect entry detours of ExtremePowers and RandomEvents and refuses changed or foreign-patched entries.");
+        Console.WriteLine("PASS: installed RedBird backend publishes the audited Indirect entry detours and refuses changed or foreign-patched entries.");
         return 0;
     }
 

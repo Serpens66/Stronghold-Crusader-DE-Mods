@@ -30,6 +30,7 @@ namespace AreaConstructionTest
         private const int FirstHovelFrame = 0x2E90A8;
         private const byte BuildStructure = 28;
         private const int GoodsCount = 5;
+        internal const int MaximumFootprint = 13;
         private static readonly eGoods[] Goods =
         {
             eGoods.STORED_WOOD_PLANKS, eGoods.STORED_STONE_BLOCKS, eGoods.STORED_IRON_INGOTS,
@@ -38,13 +39,14 @@ namespace AreaConstructionTest
 
         private readonly IntPtr image;
         private readonly StorageNeighborProbe storageNeighbor;
+        private readonly StorageEmptyLimitPatch storageLimitPatch;
         private readonly List<Footprint> pending = new List<Footprint>();
         private readonly HashSet<Tile> pendingCurrent = new HashSet<Tile>();
         private readonly long[] resources = new long[GoodsCount];
         private readonly int[] cost = new int[GoodsCount];
-        private readonly int[] tileIds = new int[25];
-        private readonly int[] previewTokens = new int[25];
-        private readonly short[] previewFlags = new short[25];
+        private readonly int[] tileIds = new int[MaximumFootprint * MaximumFootprint];
+        private readonly int[] previewTokens = new int[MaximumFootprint * MaximumFootprint];
+        private readonly short[] previewFlags = new short[MaximumFootprint * MaximumFootprint];
         private readonly int[] otherCost = new int[GoodsCount];
         // Scope the synthetic hover's placement and map-action presentation
         // fields. Path search scratch uses its own generations and stays live.
@@ -67,21 +69,41 @@ namespace AreaConstructionTest
                     throw new InvalidOperationException("Unsupported CrusaderDE.dll SHA-256 " + actual);
             }
             storageNeighbor = StorageNeighborProbe.TryInstall(context, log);
+            storageLimitPatch = StorageEmptyLimitPatch.TryInstall(context, log);
         }
 
-        internal void ValidateStorage() => storageNeighbor?.Recheck();
+        internal void ValidateStorage()
+        {
+            storageNeighbor?.Recheck();
+            storageLimitPatch?.Recheck();
+        }
 
         internal static bool Supports(eMappers tool) =>
             IsStorage(tool) || tool == eMappers.MAPPER_WOODSMAN || tool == eMappers.MAPPER_HOVEL ||
-            tool == eMappers.MAPPER_MILL || WorkshopFrame(tool) > 0;
+            tool == eMappers.MAPPER_MILL || tool == eMappers.MAPPER_KILLING_PIT ||
+            WorkshopFrame(tool) > 0 || RegularBuildingFrame(tool) > 0;
 
         internal static bool IsStorage(eMappers tool) =>
             tool == eMappers.MAPPER_STORES || tool == eMappers.MAPPER_GRANARY || tool == eMappers.MAPPER_ARMOURY;
 
-        private static int RecordCount(eMappers tool) => tool == eMappers.MAPPER_STORES ? 4 : 1;
+        private static int RecordCount(eMappers tool)
+        {
+            if (tool == eMappers.MAPPER_STORES)
+                return 4;
+            // The oil smelter has two parts. A quarry may attach a separate pile.
+            return tool == eMappers.MAPPER_QUARRY || tool == eMappers.MAPPER_OIL_SMELTER ? 2 : 1;
+        }
 
-        internal static Enums.GM SpriteFile(eMappers tool) =>
-            WorkshopFrame(tool) > 0 ? Enums.GM.GM_WORKSHOPS : Enums.GM.GM_BUILDINGS2;
+        internal static Enums.GM SpriteFile(eMappers tool)
+        {
+            if (tool == eMappers.MAPPER_KILLING_PIT)
+                return Enums.GM.GM_KILLING_PITS;
+            if (IsChurch(tool))
+                return Enums.GM.GM_CHURCHS;
+            if (LandscapeFrame(tool) > 0)
+                return Enums.GM.GM_BUILDINGS1;
+            return WorkshopFrame(tool) > 0 ? Enums.GM.GM_WORKSHOPS : Enums.GM.GM_BUILDINGS2;
+        }
 
         private static int WorkshopFrame(eMappers tool)
         {
@@ -110,7 +132,7 @@ namespace AreaConstructionTest
 
         internal int Frame(eMappers tool, int actor)
         {
-            if (tool == eMappers.MAPPER_WOODSMAN)
+            if (tool == eMappers.MAPPER_WOODSMAN || tool == eMappers.MAPPER_KILLING_PIT)
                 return 1;
             if (tool == eMappers.MAPPER_STORES)
                 return 26;
@@ -121,7 +143,7 @@ namespace AreaConstructionTest
             if (tool == eMappers.MAPPER_MILL)
                 return 219;
             if (tool != eMappers.MAPPER_HOVEL)
-                return WorkshopFrame(tool);
+                return Math.Max(WorkshopFrame(tool), RegularBuildingFrame(tool));
             if (!GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(actor, out GamePlayerResources* player))
                 return 0;
             uint appearance = player->N00003F41;
@@ -140,6 +162,14 @@ namespace AreaConstructionTest
                 unchecked((long)GameGlobalsManager.Instance.ChoreManagerVA) != image.ToInt64() + Queue ||
                 !GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(actor, out GamePlayerResources* player))
                 return false;
+            if (tool == eMappers.MAPPER_OIL_SMELTER)
+            {
+                // The PC hover validates the axis-aligned apron at (0,+4).
+                // A queued orientation with another apron would need its own lattice.
+                int variation = Read(0x60AD4BC);
+                if (variation != 0 && variation != 1 && variation != 15)
+                    return false;
+            }
 
             resources[0] = player->r_TotalGoodsWoodPlanks;
             resources[1] = player->r_TotalGoodsStoneBlocks;
@@ -150,7 +180,8 @@ namespace AreaConstructionTest
             freeWoodcutters = free ? 0 : FreeWoodcutterQuota(actor);
             freeGranaries = free ? 0 : FreeGranaryQuota(actor);
             Quote(tool, actor, free, cost);
-            storageAllowance = IsStorage(tool) ? StorageAllowance(tool, actor) : int.MaxValue;
+            storageAllowance = IsStorage(tool) && storageLimitPatch?.IsIntact != true
+                ? StorageAllowance(tool, actor) : int.MaxValue;
 
             int ownPending = 0;
             int occupiedSlots = 0;
@@ -169,8 +200,12 @@ namespace AreaConstructionTest
                 occupiedSlots += RecordCount(pendingTool);
                 int scale = Marshal.ReadByte(image, entry + 23);
                 if (scale > 0)
-                    pending.Add(new Footprint(new Tile(Marshal.ReadInt16(image, entry + 17),
-                        Marshal.ReadInt16(image, entry + 19)), scale));
+                {
+                    var corner = new Tile(Marshal.ReadInt16(image, entry + 17), Marshal.ReadInt16(image, entry + 19));
+                    pending.Add(new Footprint(corner, scale));
+                    if (pendingTool == eMappers.MAPPER_OIL_SMELTER)
+                        AddPendingOilPart(corner, scale, Marshal.ReadByte(image, entry + 24));
+                }
                 if (Read(entry + 4) != actor)
                     continue;
                 ownPending += RecordCount(pendingTool);
@@ -260,17 +295,26 @@ namespace AreaConstructionTest
             outboundSlots--;
         }
 
+        internal int[] LastPreviewTiles { get; private set; }
+
         internal bool Reserve(eMappers tool, int actor, bool editor, Tile cursor, int scale, ref int frame)
-            => ReserveCore(tool, actor, editor, cursor, scale, ref frame, false);
+            => ReserveCore(tool, actor, editor, cursor, scale, ref frame, false, false);
+
+        internal bool ReserveVisual(eMappers tool, int actor, bool editor, Tile cursor, int scale, ref int frame)
+        {
+            LastPreviewTiles = null;
+            return ReserveCore(tool, actor, editor, cursor, scale, ref frame, false,
+                IsFarm(tool) || tool == eMappers.MAPPER_OIL_SMELTER);
+        }
 
         internal bool ReserveStoragePreview(eMappers tool, int actor, bool editor, Tile cursor, int scale, ref int frame, bool draftNeighbor)
-            => ReserveCore(tool, actor, editor, cursor, scale, ref frame, draftNeighbor);
+            => ReserveCore(tool, actor, editor, cursor, scale, ref frame, draftNeighbor, false);
 
-        private bool ReserveCore(eMappers tool, int actor, bool editor, Tile cursor, int scale, ref int frame, bool draftNeighbor)
+        private bool ReserveCore(eMappers tool, int actor, bool editor, Tile cursor, int scale, ref int frame, bool draftNeighbor, bool captureTiles)
         {
             bool storage = IsStorage(tool);
             if (allowance <= 0 || storageAllowance <= 0 ||
-                (uint)(scale - 1) >= 5 || (draftNeighbor && (!storage || storageNeighbor?.IsIntact != true)))
+                (uint)(scale - 1) >= MaximumFootprint || (draftNeighbor && (!storage || storageNeighbor?.IsIntact != true)))
                 return false;
             bool freeWoodcutter = tool == eMappers.MAPPER_WOODSMAN && freeWoodcutters > 0;
             bool freeGranary = tool == eMappers.MAPPER_GRANARY && freeGranaries > 0;
@@ -280,12 +324,13 @@ namespace AreaConstructionTest
                         return false;
 
             var corner = new Tile(cursor.X - scale / 2, cursor.Y - scale / 2);
+            int height = FootprintHeight(tool, scale);
             foreach (Footprint item in pending)
-                if (item.Intersects(corner, scale))
+                if (item.Intersects(corner, scale, height))
                     return false;
 
             var tiles = GameTileManagerAPI.Instance;
-            for (int y = 0; y < scale; y++)
+            for (int y = 0; y < height; y++)
             {
                 for (int x = 0; x < scale; x++)
                 {
@@ -328,23 +373,31 @@ namespace AreaConstructionTest
                 {
                     int first = int.MaxValue;
                     int file = (int)SpriteFile(tool);
-                    for (int i = 0; i < scale * scale; i++)
+                    int graphicScale = IsFarm(tool) ? 3 : scale;
+                    for (int y = 0; y < graphicScale && valid; y++)
                     {
-                        int token = Read(PreviewTokens + tileIds[i] * sizeof(int));
-                        if (token >> 16 != file)
+                        for (int x = 0; x < graphicScale; x++)
                         {
-                            valid = false;
-                            break;
+                            int token = Read(PreviewTokens + tileIds[y * scale + x] * sizeof(int));
+                            if (token >> 16 != file)
+                            {
+                                valid = false;
+                                break;
+                            }
+                            first = Math.Min(first, (token & 0xFFFF) + 1);
                         }
-                        first = Math.Min(first, (token & 0xFFFF) + 1);
                     }
                     if (valid)
+                    {
                         frame = first;
+                        if (captureTiles)
+                            LastPreviewTiles = ReadPreviewTiles(tool, scale, height, file);
+                    }
                 }
             }
             finally
             {
-                for (int i = 0; i < scale * scale; i++)
+                for (int i = 0; i < scale * height; i++)
                 {
                     Marshal.WriteInt32(image, PreviewTokens + tileIds[i] * sizeof(int), previewTokens[i]);
                     Marshal.WriteInt16(image, PreviewFlags + tileIds[i] * sizeof(short), previewFlags[i]);
@@ -375,6 +428,43 @@ namespace AreaConstructionTest
             void Hover() => EngineInterface.DLL_MapAction((int)tool, cursor.X, cursor.Y, 0, actor, !editor, true, 0);
         }
 
+        private int[] ReadPreviewTiles(eMappers tool, int scale, int height, int primaryFile)
+        {
+            bool farm = IsFarm(tool);
+            var graphic = new int[scale * height];
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < scale; x++)
+                {
+                    int index = y * scale + x;
+                    int token = Read(PreviewTokens + tileIds[index] * sizeof(int));
+                    int expected = farm
+                        ? (x < 3 && y < 3 ? primaryFile : (int)Enums.GM.GM_FARMLAND)
+                        : (y < scale ? primaryFile : (int)Enums.GM.GM_BUILDINGS1);
+                    if (token >> 16 == expected)
+                        graphic[index] = token;
+                }
+            }
+            return graphic;
+        }
+
+        private void AddPendingOilPart(Tile corner, int scale, int rotation)
+        {
+            int x = 0, y = 0;
+            switch (rotation == 15 ? 0 : rotation / 2)
+            {
+                case 0: y = scale; break;
+                case 1: x = scale; break;
+                case 2: y = -scale; break;
+                case 3: x = -scale; break;
+                default:
+                    // An unknown queued orientation may still allocate around the main building.
+                    pending.Add(new Footprint(new Tile(corner.X - scale, corner.Y - scale), 3 * scale));
+                    return;
+            }
+            pending.Add(new Footprint(new Tile(corner.X + x, corner.Y + y), scale));
+        }
+
         private void Spend(int[] amounts)
         {
             for (int i = 0; i < GoodsCount; i++)
@@ -399,9 +489,9 @@ namespace AreaConstructionTest
             private readonly Tile corner;
             private readonly int size;
             internal Footprint(Tile corner, int size) { this.corner = corner; this.size = size; }
-            internal bool Intersects(Tile other, int length) =>
-                other.X < corner.X + size && corner.X < other.X + length &&
-                other.Y < corner.Y + size && corner.Y < other.Y + length;
+            internal bool Intersects(Tile other, int width, int height) =>
+                other.X < corner.X + size && corner.X < other.X + width &&
+                other.Y < corner.Y + size && corner.Y < other.Y + height;
         }
     }
 }

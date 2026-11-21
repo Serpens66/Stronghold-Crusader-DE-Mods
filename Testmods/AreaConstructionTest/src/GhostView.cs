@@ -35,6 +35,8 @@ namespace AreaConstructionTest
             }
 
             var file = NativePlacement.SpriteFile(tool);
+            bool farm = NativePlacement.IsFarm(tool);
+            int height = NativePlacement.FootprintHeight(tool, scale);
             Camera camera = Camera.main;
             int shown = 0;
             foreach (var site in sites)
@@ -44,7 +46,7 @@ namespace AreaConstructionTest
                 Color tint = site.Buildable ? Allowed : Blocked;
                 int cornerX = site.Cursor.X - scale / 2;
                 int cornerY = site.Cursor.Y - scale / 2;
-                for (int y = 0; y < scale; y++)
+                for (int y = 0; y < height; y++)
                 {
                     for (int x = 0; x < scale; x++)
                     {
@@ -68,7 +70,29 @@ namespace AreaConstructionTest
                         if (terrain == null)
                             continue;
 
-                        var sprite = spriteLoader.instance.GetGMSprite(file, site.Frame + Index(x, y, scale, rotation));
+                        Sprite sprite;
+                        if (site.PreviewTiles != null)
+                        {
+                            int token = site.PreviewTiles[y * scale + x];
+                            if (token == 0)
+                                continue;
+                            sprite = spriteLoader.instance.GetGMSprite((Enums.GM)(token >> 16), (token & 0xFFFF) + 1);
+                        }
+                        else if (farm)
+                        {
+                            sprite = x < 3 && y < 3
+                                ? spriteLoader.instance.GetGMSprite(file, site.Frame + Index(x, y, 3, rotation))
+                                : tile.tileImage;
+                        }
+                        else if (y >= scale)
+                        {
+                            sprite = spriteLoader.instance.GetGMSprite(Enums.GM.GM_BUILDINGS1,
+                                297 + Index(x, y - scale, scale, rotation));
+                        }
+                        else
+                        {
+                            sprite = spriteLoader.instance.GetGMSprite(file, site.Frame + Index(x, y, scale, rotation));
+                        }
                         if (sprite == null)
                             continue;
                         SpriteRenderer renderer = Take(shown++);

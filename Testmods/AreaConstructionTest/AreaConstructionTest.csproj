@@ -16,7 +16,7 @@
     <ManagedDir>$(GameDir)/Stronghold Crusader Definitive Edition_Data/Managed</ManagedDir>
     <ExtenderDir Condition="'$(ExtenderDir)' == ''">$(GameDir)/BepInEx/plugins/000shcdese</ExtenderDir>
     <ApiSharedDir Condition="'$(ApiSharedDir)' == ''">$(GameDir)/BepInEx/plugins/APIShared_Serp</ApiSharedDir>
-    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <AssemblyVersion>0.2.0.0</AssemblyVersion>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -26,7 +26,11 @@
     <Reference Include="APIShared"><HintPath>$(ApiSharedDir)/APIShared.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)/SHCDESE.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="R3"><HintPath>$(ExtenderDir)/R3.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Iced"><HintPath>$(ExtenderDir)/Iced.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="RedBird.Abstractions"><HintPath>$(ExtenderDir)/RedBird.Abstractions.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="RedBird.Core"><HintPath>$(ExtenderDir)/RedBird.Core.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="RedBird.X64"><HintPath>$(ExtenderDir)/RedBird.X64.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="RedBird.Backends.NativeX64"><HintPath>$(ExtenderDir)/RedBird.Backends.NativeX64.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="System.Memory"><HintPath>$(ExtenderDir)/System.Memory.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Assembly-CSharp"><HintPath>$(ManagedDir)/Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine"><HintPath>$(ManagedDir)/UnityEngine.dll</HintPath><Private>false</Private></Reference>
@@ -36,5 +40,11 @@
     <Reference Include="UnityEngine.TilemapModule"><HintPath>$(ManagedDir)/UnityEngine.TilemapModule.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
   <ItemGroup><Compile Include="src/*.cs" /></ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../Shared/Runtime/Native/AuditedEntryDetour.cs"><Link>Shared/Runtime/Native/AuditedEntryDetour.cs</Link></Compile>
+    <Compile Include="../../Shared/Runtime/Native/NativePatchGuard.cs"><Link>Shared/Runtime/NativePatchGuard.cs</Link></Compile>
+    <Compile Include="../../Shared/Runtime/Native/CommittedMemory.cs"><Link>Shared/Runtime/Native/CommittedMemory.cs</Link></Compile>
+    <Compile Include="../../Shared/Runtime/Diagnostics/DebugLogHelper.cs"><Link>Shared/Runtime/Diagnostics/DebugLogHelper.cs</Link></Compile>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)/Microsoft.CSharp.targets" />
 </Project>

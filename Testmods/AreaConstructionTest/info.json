@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "AreaConstructionTest",
   "Description": "Test mod for drag placement of buildings in two-by-two blocks.",
-  "Version": "0.1.0",
+  "Version": "0.2.0",
   "MinimumScriptExtenderVersion": "2.14.3",
   "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.60.0" }],
   "Manifest": 1,

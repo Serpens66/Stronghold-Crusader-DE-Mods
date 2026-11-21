@@ -22,7 +22,7 @@ namespace AreaConstructionTest
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class Plugin : BaseUnityPlugin
     {
-        public const string Guid = "AreaConstructionTest_Serp", Name = "AreaConstructionTest", Version = "0.1.0";
+        public const string Guid = "AreaConstructionTest_Serp", Name = "AreaConstructionTest", Version = "0.2.0";
 
         private void Awake() => PlacementInput.Install(Logger);
     }
@@ -169,7 +169,8 @@ namespace AreaConstructionTest
 
                 int footprint = BuildingScales.GetScale(selected);
                 int frame = native.Frame(selected, player);
-                if (footprint < 3 || footprint > 5 || frame <= 0 || !native.Begin(selected, player, isEditor) ||
+                if ((uint)(footprint - 1) >= NativePlacement.MaximumFootprint ||
+                    frame <= 0 || !native.Begin(selected, player, isEditor) ||
                     (NativePlacement.IsStorage(selected) && !native.Reserve(selected, player, isEditor, pointer, footprint, ref frame)))
                     return false;
 
@@ -268,7 +269,10 @@ namespace AreaConstructionTest
             }
 
             if (map.pendingRotationtriggered)
+            {
+                nextQuote = 0;
                 return false;
+            }
             if (toBuild.Count != 0)
                 Commit();
             if (!dragging)
@@ -307,12 +311,15 @@ namespace AreaConstructionTest
                 return;
             }
 
-            AreaGrid.Fill(grid, start, end, scale, scale, WorldAxisSize);
+            if (tool == eMappers.MAPPER_KILLING_PIT)
+                StorageGrid.Fill(grid, start, end, scale, scale, WorldAxisSize);
+            else
+                AreaGrid.Fill(grid, start, end, scale, NativePlacement.FootprintHeight(tool, scale), WorldAxisSize);
             foreach (var tile in grid)
             {
                 int image = frame;
-                bool buildable = canProbe && native.Reserve(tool, actor, editor, tile, scale, ref image);
-                shown.Add(new Site(tile, buildable, image));
+                bool buildable = canProbe && native.ReserveVisual(tool, actor, editor, tile, scale, ref image);
+                shown.Add(new Site(tile, buildable, image, buildable ? native.LastPreviewTiles : null));
             }
         }
 
@@ -435,11 +442,12 @@ namespace AreaConstructionTest
 
     internal readonly struct Site
     {
-        internal Site(Tile cursor, bool buildable, int frame)
-        { Cursor = cursor; Buildable = buildable; Frame = frame; }
+        internal Site(Tile cursor, bool buildable, int frame, int[] previewTiles = null)
+        { Cursor = cursor; Buildable = buildable; Frame = frame; PreviewTiles = previewTiles; }
 
         internal Tile Cursor { get; }
         internal bool Buildable { get; }
         internal int Frame { get; }
+        internal int[] PreviewTiles { get; }
     }
 }

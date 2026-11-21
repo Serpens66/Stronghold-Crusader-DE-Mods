@@ -64,6 +64,11 @@ Expect((20, 20), (17, 20), (14, 20), (11, 20),
     (20, 12), (17, 12), (14, 12), (11, 12));
 Storage(new Tile(int.MaxValue, int.MinValue), size: 22);
 Expect((20, 20), (20, 15), (20, 10), (20, 5), (20, 0));
+Storage(new Tile(22, 18), width: 1, height: 1);
+Expect((20, 20), (21, 20), (22, 20),
+    (20, 19), (21, 19), (22, 19),
+    (20, 18), (21, 18), (22, 18));
+Console.WriteLine("PASS: dense one-tile murder-hole rectangle.");
 
 var accepted = new List<Tile>();
 var quoted = new List<(Tile Site, Tile? Neighbor)>();

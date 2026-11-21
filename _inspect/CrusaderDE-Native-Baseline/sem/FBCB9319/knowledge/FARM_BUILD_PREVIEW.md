@@ -92,3 +92,22 @@ Vanilla adjacency for all real builds. An editor integration run placed
 three contiguous pieces per family, confirmed occupied/unattached rejection
 and draft-only acceptance, and observed 12/3/3 new records with unchanged
 stock. The acceptance harness queried the native paths directly.
+
+### Killing-pit footprint and ordinary construction [Vanilla facts]
+
+The installed FBCB9319 native image and Extender enums identify
+`MAPPER_KILLING_PIT` (98), `STRUCT_KILLING_PIT` (67), and a one-tile
+footprint. The canonical sprite table at `0x2E7AF0` selects
+`GM_KILLING_PITS` (139), with base image 1 at table `0x2E7CB0` and
+no separate alternate at `0x2E7E70`. The stock hover emits one token
+through the common path of `0x5DD70` using automatic variation 15.
+
+The validator dispatches the mapper to `0x78334`. It preserves the
+pit-specific enemy checks, territorial checks, and common terrain and
+occupancy checks. There is no storage-style adjacent-piece requirement.
+`0x90CD0` uses ordinary affordability `0xCC420` and Chore 28.
+`0x12090` hands the decoded mapper, coordinates, and scale to
+`0x6D580`, which validates and constructs through `0x75DF0`.
+That constructor creates one record and registers the footprint before
+the regular `0xC8A90` debit. The default data has a six-wood cost.
+Charges use the live construction table.
