@@ -16,6 +16,7 @@ $textFiles = @($sourceFiles) + @(
     (Join-Path $project 'tests\TradeSession\TradeSession.Tests.csproj'),
     (Join-Path $project 'tests\TradeSession\Program.cs'),
     (Join-Path $project 'tests\TradeSession\MarketDemandTargetTests.cs'),
+    (Join-Path $project 'tests\TradeSession\MarketDemandPersistenceTests.cs'),
     (Join-Path $testDirectory 'MarketDemandLogTests.cs'),
     (Join-Path $project 'tests\TradeEntries\TradeEntries.Tests.csproj'),
     (Join-Path $project 'tests\TradeEntries\Program.cs'),

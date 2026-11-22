@@ -34,11 +34,11 @@ namespace AIMarketOverbuyDiagnostic
 #if SERP_DEVDIAG
         private MarketTradeTrace tradeTrace;
         private bool causalRequested;
-        private bool demandStartPending;
         internal void InstallTrace(SHCDESE.API.LowLevel.CrusaderLibraryLoadContext context)
         {
             causalRequested = MarketAutomation.NeedsCausalTrace();
             MarketPendingDemandFix.Install(context, log);
+            MarketPendingDemandFix.InitializeConsumers(log);
             // The decision wrapper also drives correction in ordinary test games.
             // Detailed trade capture remains confined to explicitly owned short runs.
             tradeTrace = MarketTradeTrace.Install(context, log);
@@ -47,7 +47,7 @@ namespace AIMarketOverbuyDiagnostic
         }
         internal void CheckTraceHealthForAutomation(bool requireCalls)
         {
-            if (!MarketPendingDemandFix.Ready || MarketPendingDemandFix.CorrectionFailures != 0)
+            if (!MarketPendingDemandFix.FeatureReady || MarketPendingDemandFix.CorrectionFailures != 0)
                 throw new InvalidOperationException("Native demand correction is unavailable or its runtime capture/correction failed.");
             if (!causalRequested) return;
             if (tradeTrace == null || !tradeTrace.Ready || tradeTrace.CaptureFailures != 0 || tradeTrace.InvalidContexts != 0)
@@ -84,8 +84,6 @@ namespace AIMarketOverbuyDiagnostic
                 Interlocked.Exchange(ref ObservedBuySellCandidates, 0);
                 started = active;
 #if SERP_DEVDIAG
-                MarketPendingDemandFix.End();
-                demandStartPending = started;
                 if (started && causalRequested) tradeTrace?.Start(sessionId);
                 else tradeTrace?.End();
 #endif
@@ -93,7 +91,7 @@ namespace AIMarketOverbuyDiagnostic
 #if SERP_DEVDIAG
             Shared.NativePatchGuard.Recheck();
 #endif
-            Shared.DebugLogHelper.LogInfo(log, $"AI_MARKET_SESSION: session={session.SessionId}, kind={session.Kind}, loadedSave={session.IsLoadedSave}, editor={session.IsEditor}, replayNotification={session.IsReplay}, fixesLoaded={fixesLoaded}, active={started}.");
+            Shared.DebugLogHelper.LogInfo(log, $"AI_MARKET_SESSION: session={session.SessionId}, kind={session.Kind}, loadedSave={session.IsLoadedSave}, editor={session.IsEditor}, replayNotification={session.IsReplay}, fixesLoaded={fixesLoaded}, observationActive={started}, mode={session.Mode.ToDiagnosticString()}.");
         }
 
         internal void OnSessionEnded()
@@ -103,8 +101,6 @@ namespace AIMarketOverbuyDiagnostic
                 active = false;
                 capture.End();
 #if SERP_DEVDIAG
-                demandStartPending = false;
-                MarketPendingDemandFix.End();
                 tradeTrace?.End();
 #endif
             }
@@ -134,20 +130,8 @@ namespace AIMarketOverbuyDiagnostic
 
         private void CaptureTick(int localRun, long started)
         {
-            int tick = 0;
-            if (!SimulationTickEvents.TryGetCurrentTick(out tick)) return;
+            int tick = localRun; // APIShared publishes the native map tick, never Director's local run count.
             if (hasMapTick && tick == lastMapTick) return;
-#if SERP_DEVDIAG
-            bool resetDemand = demandStartPending || (hasMapTick &&
-                !SimulationClock.TryGetElapsedTicks(lastMapTick, tick, out _));
-            if (resetDemand)
-            {
-                // Commit lifecycle state on the serialized simulation publisher,
-                // never from a UI notification in the middle of a native source.
-                demandStartPending = false;
-                if (tradeTrace != null && tradeTrace.Ready) MarketPendingDemandFix.Reset(sessionId);
-            }
-#endif
             hasMapTick = true;
             lastMapTick = tick;
             LastObservedMapTick = tick;
@@ -229,6 +213,7 @@ namespace AIMarketOverbuyDiagnostic
         private static void ValidateInteropLayout()
         {
             if ((int)eGoods.STORED_NULL != 0 || (int)eGoods.STORED_WOOD_LOGS != 1 ||
+                (int)eGoods.STORED_GOLD != 15 || (int)eGoods.STORED_STONE_BLOCKS != 4 || GamePlayerManagerAPI.MAX_PLAYERS != 8 ||
                 (int)eGoods.Count != 25 ||
                 (int)eGoods.STORED_METAL_ARMOUR != (int)eGoods.Count - 1 ||
                 Offset(nameof(GamePlayerResources.r_TotalGoodsNull)) != 0x04D0 ||

@@ -8,17 +8,18 @@ using RedBird.Backends.NativeX64;
 using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API.LowLevel;
 using BepInEx.Bootstrap;
+using APIShared.Economy;
+using APIShared.NativeSites;
 
 namespace AIBuildDiagnoseTest
 {
-    // Sole diagnostic owner of these function entries. Existing price/fix hooks stay untouched.
+    // Market entries are shared APIShared observations; other diagnostics own their audited entries.
     internal sealed class EconomyNativeHooks
     {
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int PairResult(ulong state, int player);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate void PairAction(ulong state, int player);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int QuadResult(ulong state, int a, int b, int c);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate void QuadAction(ulong state, int player, int kind, byte flag);
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate void TradeAction(ulong state, int player, int good, int amount);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate void SettlementAction(ulong state);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate void CellAction(ulong state, int x, int y);
         private readonly EconomyDiagnostics owner;
@@ -29,6 +30,9 @@ namespace AIBuildDiagnoseTest
         private readonly Action<Exception> captureFailed;
         private readonly List<object> roots = new List<object>();
         private static EconomyNativeHooks published;
+        private AiMarketRegistration marketRegistration;
+        private readonly object marketSync = new object();
+        private readonly Dictionary<long, EconomyOperation> marketOperations = new Dictionary<long, EconomyOperation>(32);
         internal EconomyNativeHooks(EconomyDiagnostics owner)
         {
             this.owner = owner; beginCounter = owner.SafeBeginCounter; endCounter = owner.SafeEnd;
@@ -50,8 +54,7 @@ namespace AIBuildDiagnoseTest
             var cell = new Node<CellAction>();
             Add(context, 0x55E10, cell, (CellAction)((state, x, y) =>
                 ObserveCell(cell.Handle.Original, state, x, y, cell.Ready ? beginCell : null, endCell, captureFailed)));
-            ActionPair(context, 0x3EC90, "purchase-decision");
-            ActionPair(context, 0x40740, "ai-recruitment");
+            RegisterMarketObservations();
             var settlement = new Node<SettlementAction>();
             Add(context, 0xCCBB0, settlement, (SettlementAction)(state =>
             {
@@ -76,20 +79,6 @@ namespace AIBuildDiagnoseTest
                     finally { owner.SafeEnd(op, result); }
                 }));
             }
-            var buy = new Node<QuadResult>();
-            Add(context, 0x29650, buy, (QuadResult)((state, player, good, amount) =>
-            {
-                var op = buy.Ready ? owner.SafeBegin("ai-buy", player, good, amount) : null; int? result = null;
-                try { int value = buy.Handle.Original(state, player, good, amount); result = value; return value; }
-                finally { owner.SafeEnd(op, result); }
-            }));
-            var sell = new Node<TradeAction>();
-            Add(context, 0x29700, sell, (TradeAction)((state, player, good, amount) =>
-            {
-                var op = sell.Ready ? owner.SafeBegin("ai-sell", player, good, amount) : null;
-                try { sell.Handle.Original(state, player, good, amount); }
-                finally { owner.SafeEnd(op, null); }
-            }));
             var emergency = new Node<QuadAction>();
             Add(context, 0x2D810, emergency, (QuadAction)((state, player, category, flag) =>
             {
@@ -97,6 +86,34 @@ namespace AIBuildDiagnoseTest
                 try { emergency.Handle.Original(state, player, category, flag); }
                 finally { owner.SafeEnd(op, null); }
             }));
+        }
+        private void RegisterMarketObservations()
+        {
+            bool ready = AiMarketEvents.IsAvailable && AiMarketEvents.TryRegister("AIBuildDiagnoseTest_Serp", "economy-market",
+                BeginMarket, EndMarket, out marketRegistration, out _, onFailure: captureFailed);
+            if (ready) marketRegistration.SetEnabled(true);
+            owner.Coverage("shared-ai-market-observation", ready, ready ? "APIShared.AiMarketEvents" : AiMarketEvents.Diagnostic);
+        }
+        private long BeginMarket(AiMarketContext context)
+        {
+            string kind = context.Operation == AiMarketOperation.PurchaseDecision ? "purchase-decision" :
+                context.Operation == AiMarketOperation.Recruitment ? "ai-recruitment" :
+                context.Operation == AiMarketOperation.Buy ? "ai-buy" : "ai-sell";
+            var op = owner.SafeBegin(kind, context.PlayerId, context.GoodIndex, context.SignedAmount);
+            if (op == null) return 0;
+            lock (marketSync) marketOperations.Add(context.InvocationId, op);
+            return context.InvocationId;
+        }
+        private void EndMarket(AiMarketContext context, long token, bool completed, int rawResult)
+        {
+            if (token == 0) return;
+            EconomyOperation op;
+            lock (marketSync)
+            {
+                if (!marketOperations.TryGetValue(token, out op)) return;
+                marketOperations.Remove(token);
+            }
+            owner.SafeEnd(op, completed && context.Operation == AiMarketOperation.Buy ? (int?)rawResult : null);
         }
         // Keep the original call outside both observer error boundaries. Delegates are rooted once at installation.
         internal static int ObserveCounter(PairResult original, ulong state, int slot,
@@ -153,6 +170,7 @@ namespace AIBuildDiagnoseTest
                 EconomyHookContract contract = EconomyHookContract.Find(rva);
                 ulong target = unchecked((ulong)context.ModuleHandle.ToInt64()) + (uint)rva;
                 contract.ValidateBytes(context.Memory);
+                RequirePristineEntry(contract, target);
                 var request = new DetourRequest<T> { Name = "AI economy preflight " + rva.ToString("X"), TargetAddress = target, Callback = callback };
                 NativeDetour<T> probe = null;
                 try
@@ -164,6 +182,9 @@ namespace AIBuildDiagnoseTest
                 pending = new HookTransaction(context.Region, SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
                     new HookTransactionOptions { OwnsHooks = false, FailureMode = TransactionFailureMode.RollbackAndThrow });
                 pending.AddDetour(node.Handle, HookTarget.FromAddress(target), callback);
+                // Preparing an unpublished backend candidate is not ownership of the live site.
+                // In particular, never chain Bugfix's already published emergency-demolition entry.
+                RequirePristineEntry(contract, target);
                 var result = pending.Commit();
                 node.Transaction = pending;
                 if (!result.IsCompleteSuccess || !node.Handle.Success) throw new InvalidOperationException("Commit incomplete");
@@ -177,6 +198,29 @@ namespace AIBuildDiagnoseTest
                 if (!node.Handle.Success) pending?.Dispose(); // Only unpublished failures.
                 owner.Coverage("native-" + rva.ToString("X"), false, ex.Message);
             }
+        }
+        internal static void RequirePristineEntry(EconomyHookContract contract, ulong target)
+        {
+            var live = new byte[contract.Length];
+            Marshal.Copy(unchecked((IntPtr)(long)target), live, 0, live.Length);
+            bool same = true;
+            for (int i = 0; i < live.Length; i++) same &= live[i] == contract.Prefix[i];
+            if (same) return;
+            var expected = new byte[contract.Length];
+            Array.Copy(contract.Prefix, expected, expected.Length);
+            string writer = "unregistered/unknown";
+            // Registry attribution is supplementary: an unregistered patch is preserved too.
+            try
+            {
+                for (int i = 0; i < contract.Length; i++)
+                    if (NativeSiteRegistry.TryGetWriter(contract.Rva + i, out var registered))
+                    { writer = registered.OwnerGuid + "/" + registered.Name; break; }
+            }
+            catch { }
+            throw new InvalidOperationException("NATIVE_FOREIGN_PATCH: observation unavailable; owner-preserved; RVA=0x" +
+                contract.Rva.ToString("X") + ", length=" + contract.Length + ", registeredOwner=" + writer +
+                ", expected=" + BitConverter.ToString(expected).Replace("-", "") +
+                ", live=" + BitConverter.ToString(live).Replace("-", "") + "; no detour or chaining.");
         }
         internal static void Validate<T>(NativeDetour<T> hook, ulong target, int length, bool installed) where T : Delegate
         {

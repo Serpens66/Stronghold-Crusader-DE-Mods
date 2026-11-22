@@ -17,7 +17,7 @@ namespace AIMarketOverbuyDiagnostic
     // Exact stores establish quantity ownership; source policies distinguish
     // procurement refreshes from current construction resource requirements.
     // All native objects are accessed on the producer, never by the output worker.
-    internal static unsafe class MarketPendingDemandFix
+    internal static unsafe partial class MarketPendingDemandFix
     {
         private const string Owner = "AIMarketOverbuyDiagnostic_Serp", Feature = "ai-market-pending-demand";
         private const int Players = GamePlayerManagerAPI.MAX_PLAYERS, Goods = (int)eGoods.Count;
@@ -168,6 +168,8 @@ namespace AIMarketOverbuyDiagnostic
                 Array.Clear(reductionsByGood, 0, reductionsByGood.Length);
                 Array.Clear(decisionDepth, 0, decisionDepth.Length);
                 if (!Ready) return;
+                if (!APIShared.Economy.AiMarketEvents.CheckIntegrity())
+                { RecordFailure(new InvalidOperationException("Shared AI market entry integrity differs.")); return; }
                 MarketFixesDemandSource.Recheck();
                 for (int i = 0; i < hooks.Length; i++)
                     if (!hooks[i].IntegrityReady) { RecordFailure(new InvalidOperationException("Demand writer live integrity differs.")); return; }
@@ -255,6 +257,7 @@ namespace AIMarketOverbuyDiagnostic
                     if (receiptGate != IntPtr.Zero) *(int*)receiptGate = 0;
                     RecordFailure(failure);
                 }
+                APIShared.Multiplayer.SimulationAgreement.ReportFault("AI market source observer failed: " + failure.Message);
             }
             finally { RecordTiming(isReceipt ? 3 : 0, Stopwatch.GetTimestamp() - started); }
         }
@@ -639,7 +642,10 @@ namespace AIMarketOverbuyDiagnostic
         internal static void DeactivateExperiment()
         { lock (gate) { corrective = 0; if (receiptGate != IntPtr.Zero) *(int*)receiptGate = 0; } }
         internal static void FailCorrection(Exception failure)
-        { lock (gate) { corrective = 0; if (receiptGate != IntPtr.Zero) *(int*)receiptGate = 0; RecordFailure(failure); } }
+        {
+            lock (gate) { corrective = 0; if (receiptGate != IntPtr.Zero) *(int*)receiptGate = 0; RecordFailure(failure); }
+            APIShared.Multiplayer.SimulationAgreement.ReportFault("AI market pending correction failed: " + failure.Message);
+        }
         private static void RecordFailure(Exception failure)
         {
             Interlocked.Increment(ref CorrectionFailures);
@@ -647,7 +653,7 @@ namespace AIMarketOverbuyDiagnostic
         }
         private static bool ValidCell(int player, int good) => player > 0 && player <= Players && good > (int)eGoods.STORED_NULL &&
             good < Goods && good != (int)eGoods.STORED_GOLD;
-        private static int CurrentTick() => SimulationTickEvents.TryGetCurrentTick(out int tick) ? tick : AIMarketOverbuyDiagnosticRuntime.LastObservedMapTick;
+        private static int CurrentTick() => SimulationTickEvents.TryGetCurrentTick(out int tick) ? tick : 0;
         private static bool Enqueue(Evidence evidence)
         {
             long output = written;

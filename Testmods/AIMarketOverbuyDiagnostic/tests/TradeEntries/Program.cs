@@ -50,7 +50,7 @@ internal static class Program
         new Site("buy", 0x29650, Source, new byte[] { 0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x6C, 0x24, 0x10 }),
         new Site("sell", 0x29700, Source, new byte[] { 0x45, 0x85, 0xC9, 0x0F, 0x88, 0x96, 0x00, 0x00, 0x00 }),
     };
-    private const string Source = @"Testmods\AIMarketOverbuyDiagnostic\src\MarketTradeTrace.DevDiag.cs";
+    private const string Source = @"APIShared\src\Economy\AiMarketNativeRuntime.cs";
 
     private static int Main()
     {
@@ -73,16 +73,20 @@ internal static class Program
             {
                 string text = File.ReadAllText(Path.Combine(workspace, site.Source));
                 string literal = string.Join(", ", site.Entry.Select(value => "0x" + value.ToString("X2")));
-                Check(text.Contains("{ " + literal + " }"), site.Name + ": audited entry constant is unchanged in " + site.Source);
-                Match rvas = Regex.Match(text, @"EntryRvas\s*=\s*\{([^}]+)\}");
+                Match entries = Regex.Match(text, @"Entries\s*=\s*\{([\s\S]+?)\};");
+                var arrays = Regex.Matches(entries.Groups[1].Value, @"new byte\[\]\{([^}]+)\}");
+                byte[] productive = arrays[Array.IndexOf(Sites, site)].Groups[1].Value.Split(',')
+                    .Select(v => v.Trim()).Select(v => Convert.ToByte(v.StartsWith("0x") ? v.Substring(2) : v, v.StartsWith("0x") ? 16 : 10)).ToArray();
+                Check(productive.SequenceEqual(site.Entry), site.Name + ": shared audited bytes match native fixture");
+                Match rvas = Regex.Match(text, @"Rvas\s*=\s*\{([^}]+)\}");
                 string[] sourceRvas = Regex.Matches(rvas.Groups[1].Value, @"0x[0-9A-Fa-f]+").Cast<Match>().Select(m => m.Value).ToArray();
                 Check(sourceRvas.Length == Sites.Length && Convert.ToInt32(sourceRvas[Array.IndexOf(Sites, site)].Substring(2), 16) == site.Rva,
                     site.Name + ": productive RVA/order matches exact entry");
-                Check(text.Contains("delegate void PairCall(IntPtr profileRoot, int player)") &&
-                    text.Contains("delegate int BuyCall(IntPtr profileRoot, int player, int good, int signedAmount)") &&
-                    text.Contains("delegate void SellCall(IntPtr profileRoot, int player, int good, int signedAmount)") &&
+                Check(Regex.IsMatch(text, @"delegate void PairCall\(IntPtr root,int player\)") &&
+                    text.Contains("delegate int BuyCall(IntPtr root,int player,int good,int amount)") &&
+                    text.Contains("delegate void SellCall(IntPtr root,int player,int good,int amount)") &&
                     Regex.Matches(text, @"UnmanagedFunctionPointer\(CallingConvention.Cdecl\)").Count == 3,
-                    site.Name + ": productive Windows-x64 callback ABI matches tests");
+                    site.Name + ": shared Windows-x64 callback ABI matches tests");
                 RunSite(dll, site, log);
             }
             WriterRelayTests.Run(dll, log, Check);

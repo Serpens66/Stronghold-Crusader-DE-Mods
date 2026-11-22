@@ -1,0 +1,10 @@
+{
+  "GUID": "AIMarketAcceptance_Serp", "Author": "Serpens66", "Name": "AI Market Acceptance",
+  "Description": "Explicit local save/load acceptance for native AI market demand provenance.",
+  "Version": "0.1.0", "Manifest": 1, "NetworkMode": 1,
+  "MinimumScriptExtenderVersion": "2.14.4",
+  "Dependencies": [
+    { "GUID": "APIShared_Serp", "MinimumVersion": "0.62.0" },
+    { "GUID": "AIMarketOverbuyDiagnostic_Serp", "MinimumVersion": "0.1.0" }
+  ]
+}

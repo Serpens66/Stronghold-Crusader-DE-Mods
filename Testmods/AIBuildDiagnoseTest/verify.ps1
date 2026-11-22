@@ -171,17 +171,13 @@ if (-not $summaryStages -or $summaryStages -match 'trade-controller') {
 foreach ($stage in @('purchase-decision', 'ai-buy', 'ai-sell')) {
     if ($summaryStages -notmatch [regex]::Escape('"' + $stage + '"')) { throw "Lost partial trade summary: $stage" }
 }
-foreach ($entry in @('ActionPair(context, 0x3EC90, "purchase-decision")', 'ActionPair(context, 0x40740, "ai-recruitment")',
-    'Add(context, 0x29650, buy,', 'Add(context, 0x29700, sell,',
-    'owner.SafeBegin("ai-buy",', 'owner.SafeBegin("ai-sell",')) {
-    if (-not $economyNative.Contains($entry)) { throw "Lost retained observation: $entry" }
+foreach ($entry in @('RegisterMarketObservations();', 'AiMarketEvents.TryRegister(',
+    'AiMarketOperation.PurchaseDecision', 'AiMarketOperation.Recruitment', 'AiMarketOperation.Buy',
+    '"purchase-decision"', '"ai-recruitment"', '"ai-buy"', '"ai-sell"')) {
+    if (-not $economyNative.Contains($entry)) { throw "Lost shared market observation: $entry" }
 }
-foreach ($wrapper in @('buy', 'sell', 'node')) {
-    $originalCall = [regex]::Escape($wrapper + '.Handle.Original(state, player')
-    $expectedCount = if ($wrapper -eq 'node') { 2 } else { 1 }
-    if ([regex]::Matches($economyNative, $originalCall).Count -ne $expectedCount) {
-        throw "Retained wrapper original-call count differs: $wrapper"
-    }
+if ($economyNative -match '(?:Add|ActionPair)\(context, 0x(?:3EC90|40740|29650|29700)') {
+    throw 'Market observations must use the shared owner, never competing entry hooks.'
 }
 foreach ($boundary in @('market-gate=unknown', 'buy-sell-alternation=unknown', 'aborted-sale-decisions=unknown',
     'missing-controller-observations-are-not-evidence-of-no-trade')) {

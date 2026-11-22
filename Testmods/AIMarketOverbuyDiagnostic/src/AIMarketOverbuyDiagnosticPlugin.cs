@@ -8,7 +8,7 @@ using System;
 namespace AIMarketOverbuyDiagnostic
 {
     [BepInDependency("000shcdese", "2.14.4")]
-    [BepInDependency("APIShared_Serp", "0.56.1")]
+    [BepInDependency("APIShared_Serp", "0.62.0")]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(Guid, Name, Version)]
     public sealed class AIMarketOverbuyDiagnosticPlugin : BaseUnityPlugin
@@ -42,7 +42,6 @@ namespace AIMarketOverbuyDiagnostic
                 return;
 
             IDisposable candidateSubscription = null;
-            bool candidateTickRegistered = false;
             try
             {
                 var candidate = new AIMarketOverbuyDiagnosticRuntime(log,
@@ -53,20 +52,18 @@ namespace AIMarketOverbuyDiagnostic
 #endif
                 candidateSubscription = Shared.GameplaySessionLifecycle.SubscribeStarted(
                     log, candidate.OnSessionStarted, candidate.OnSessionEnded);
-                GameTimeManagerAPI.Instance.OnTick += OnTick;
-                candidateTickRegistered = true;
+                if (!APIShared.Simulation.SimulationTickEvents.TryRegister(Guid, "market-overview", OnTick, out string reason))
+                    throw new InvalidOperationException(reason);
 
                 // The extender's publisher and these static fields outlive startup cleanup.
                 Shared.DebugLogHelper.LogInfo(log,
-                    "AI_MARKET_DIAGNOSTIC_READY: publisher=GameTimeManagerAPI.OnTick; overview=readOnly; development build additionally owns source-aware pending correction.");
+                    "AI_MARKET_DIAGNOSTIC_READY: publisher=APIShared.SimulationTickEvents; overview=readOnly; development build additionally owns source-aware pending correction.");
                 candidate.StartWriter();
                 sessionSubscription = candidateSubscription;
                 runtime = candidate;
             }
             catch (Exception ex)
             {
-                if (candidateTickRegistered)
-                    GameTimeManagerAPI.Instance.OnTick -= OnTick;
                 candidateSubscription?.Dispose(); // Only an unpublished initialization candidate.
                 Shared.DebugLogHelper.LogError(log, "AI market diagnostic initialization failed: " + ex);
                 return;
@@ -84,6 +81,7 @@ namespace AIMarketOverbuyDiagnostic
         internal static long StopForAutomation()
         {
             runtime?.OnSessionEnded();
+            MarketPendingDemandFix.End();
             return System.Threading.Interlocked.Read(ref AIMarketOverbuyDiagnosticRuntime.WriterPasses);
         }
         internal static void CheckTraceHealthForAutomation(bool requireCalls) => runtime?.CheckTraceHealthForAutomation(requireCalls);

@@ -5,10 +5,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using APIShared.NativeSites;
 using APIShared.Simulation;
-using BepInEx.Bootstrap;
 using BepInEx.Logging;
-using RedBird.Abstractions.Hooks;
-using RedBird.Backends.NativeX64;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using SHCDESE.Interop;
@@ -28,27 +25,7 @@ namespace AIMarketOverbuyDiagnostic
         private const int GoodCount = (int)eGoods.Count;
         private static MarketTradeTrace published;
 
-        // Full displaced entries, not AOBs/call sites. Offline tests use these exact bytes.
-        internal static readonly int[] EntryRvas = { 0x3EC90, 0x40740, 0x29650, 0x29700 };
-        internal static readonly byte[][] EntryBytes =
-        {
-            new byte[] { 0x40, 0x56, 0x41, 0x54, 0x41, 0x55 },
-            new byte[] { 0x40, 0x55, 0x56, 0x41, 0x56, 0x48, 0x81, 0xEC, 0x60, 0x01, 0x00, 0x00 },
-            new byte[] { 0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x6C, 0x24, 0x10 },
-            new byte[] { 0x45, 0x85, 0xC9, 0x0F, 0x88, 0x96, 0x00, 0x00, 0x00 }
-        };
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        internal delegate void PairCall(IntPtr profileRoot, int player);
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        internal delegate int BuyCall(IntPtr profileRoot, int player, int good, int signedAmount);
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        internal delegate void SellCall(IntPtr profileRoot, int player, int good, int signedAmount);
-
-        private PairCall originalDecision, originalRecruit;
-        private BuyCall originalBuy;
-        private SellCall originalSell;
-        private Func<bool> integrity;
+        private APIShared.Economy.AiMarketRegistration marketRegistration;
         private readonly Frame[] frames = new Frame[FrameCapacity];
         private readonly long module;
         private readonly int moduleLength;
@@ -90,72 +67,44 @@ namespace AIMarketOverbuyDiagnostic
         {
             if (published != null) return published;
             var owner = new MarketTradeTrace(context);
-            NativeDetour<PairCall> decision = null, recruit = null;
-            NativeDetour<BuyCall> buy = null;
-            NativeDetour<SellCall> sell = null;
-            bool claimed = false;
+            published = owner;
             try
             {
-                if (!DebugLogHelper.IsCurrentNativeLibraryVersion())
-                    throw new InvalidOperationException("Trade trace requires the audited native image; no layout migration fallback.");
-                if (Chainloader.PluginInfos.ContainsKey("AIBuildDiagnoseTest_Serp"))
-                    throw new InvalidOperationException("AIBuildDiagnoseTest already owns the trade diagnostic entries; do not install both diagnostic owners.");
                 ValidateLayout();
-                NativePatchGuard.Bind(context, log);
-                var spans = new NativeSiteSpan[EntryRvas.Length];
-                for (int i = 0; i < spans.Length; i++)
-                {
-                    spans[i] = new NativeSiteSpan(EntryRvas[i], EntryBytes[i].Length, NativeSiteMode.Exclusive);
-                    NativePatchGuard.RequireUnpatched(unchecked((ulong)moduleAddress(context)) + (uint)EntryRvas[i],
-                        EntryBytes[i].Length, Feature, Feature);
-                }
-                var registration = NativeSiteRegistry.Register(Owner, Feature, spans);
-                if (!registration.Succeeded) throw new InvalidOperationException(registration.Reason);
-                claimed = true;
-                PairCall decisionCallback = owner.Decision, recruitCallback = owner.Recruit;
-                BuyCall buyCallback = owner.Buy;
-                SellCall sellCallback = owner.Sell;
-                ulong image = unchecked((ulong)moduleAddress(context));
-                // Prepare all entries before publishing any. AuditedEntryDetour checks the real
-                // installed backend's Indirect span and trampoline; no copied startup probe.
-                decision = AuditedEntryDetour.Prepare(context.Memory, image, EntryRvas[0], EntryBytes[0], decisionCallback, Feature + ".decision");
-                recruit = AuditedEntryDetour.Prepare(context.Memory, image, EntryRvas[1], EntryBytes[1], recruitCallback, Feature + ".recruit");
-                buy = AuditedEntryDetour.Prepare(context.Memory, image, EntryRvas[2], EntryBytes[2], buyCallback, Feature + ".buy");
-                sell = AuditedEntryDetour.Prepare(context.Memory, image, EntryRvas[3], EntryBytes[3], sellCallback, Feature + ".sell");
-                owner.originalDecision = decision.Original;
-                owner.originalRecruit = recruit.Original;
-                owner.originalBuy = buy.Original;
-                owner.originalSell = sell.Original;
-                published = owner; // Every callback already has a valid original, even on partial Enable failure.
-                AuditedEntryDetour.Publish(decision, decisionCallback, Feature + ".decision");
-                AuditedEntryDetour.Publish(recruit, recruitCallback, Feature + ".recruit");
-                AuditedEntryDetour.Publish(buy, buyCallback, Feature + ".buy");
-                AuditedEntryDetour.Publish(sell, sellCallback, Feature + ".sell");
-                owner.integrity = NativePatchGuard.CaptureIntegrity(new IHook[] { decision, recruit, buy, sell }, Feature);
+                if (!APIShared.Economy.AiMarketEvents.IsAvailable)
+                    throw new InvalidOperationException(APIShared.Economy.AiMarketEvents.Diagnostic);
+                if (!APIShared.Economy.AiMarketEvents.TryRegister(Owner, Feature, owner.SharedBegin, owner.SharedEnd,
+                    out owner.marketRegistration, out string diagnostic, order: 0,
+                    onFailure: error => Interlocked.Increment(ref owner.captureFailures)))
+                    throw new InvalidOperationException(diagnostic);
+                owner.marketRegistration.SetEnabled(true);
                 Volatile.Write(ref owner.ready, 1);
-                DevDiag.Log(() => "AI_MARKET_TRADE_READY: method=reference-rva; entries=3EC90/6,40740/12,29650/10,29700/9; Indirect; nativeOriginalExactlyOnce=true; controller3F270NotHooked=true.");
+                DevDiag.Log(() => "AI_MARKET_TRADE_READY: method=APIShared.AiMarketEvents; nativeOriginalExactlyOnce=shared-owner; controller3F270NotHooked=true.");
             }
-            catch (Exception error)
-            {
-                bool anyPublished = AuditedEntryDetour.WasPublished(decision) || AuditedEntryDetour.WasPublished(recruit) ||
-                    AuditedEntryDetour.WasPublished(buy) || AuditedEntryDetour.WasPublished(sell);
-                if (!AuditedEntryDetour.WasPublished(decision)) decision?.Dispose();
-                if (!AuditedEntryDetour.WasPublished(recruit)) recruit?.Dispose();
-                if (!AuditedEntryDetour.WasPublished(buy)) buy?.Dispose();
-                if (!AuditedEntryDetour.WasPublished(sell)) sell?.Dispose();
-                if (claimed && !anyPublished) NativeSiteRegistry.Unregister(Owner, Feature);
-                // Already published callbacks remain original-only, never undone or freed.
-                DebugLogHelper.LogError(log, "AI_MARKET_TRADE_UNAVAILABLE: " + error);
-            }
+            catch (Exception error) { DebugLogHelper.LogError(log, "AI_MARKET_TRADE_UNAVAILABLE: " + error); }
             return owner;
         }
 
-        private static long moduleAddress(CrusaderLibraryLoadContext context) => context.ModuleHandle.ToInt64();
+        private long SharedBegin(APIShared.Economy.AiMarketContext context)
+        {
+            int kind = context.Operation == APIShared.Economy.AiMarketOperation.PurchaseDecision ? DecisionKind :
+                context.Operation == APIShared.Economy.AiMarketOperation.Recruitment ? RecruitKind :
+                context.Operation == APIShared.Economy.AiMarketOperation.Buy ? BuyKind : SellKind;
+            Frame frame = Begin(context.ProfileRoot, context.PlayerId, kind, context.GoodIndex, context.SignedAmount);
+            return frame == null ? 0 : frame.Sequence;
+        }
+        private void SharedEnd(APIShared.Economy.AiMarketContext context, long token, bool completed, int result)
+        {
+            if (token == 0) return;
+            lock (captureGate)
+                for (int i = frames.Length - 1; i >= 0; i--)
+                    if (frames[i].Sequence == token) { Finish(frames[i], result, completed); return; }
+        }
 
         internal void Start(long sessionId)
         {
             NativePatchGuard.Recheck();
-            bool enabled = Ready && integrity != null && integrity();
+            bool enabled = Ready && APIShared.Economy.AiMarketEvents.IsAvailable;
             lock (captureGate)
             {
                 lifecycle.RequestStart(sessionId, enabled);
@@ -201,53 +150,6 @@ namespace AIMarketOverbuyDiagnostic
                     DevDiag.Count("ai.market.trade.summary");
                 }
             }
-        }
-
-        private void Decision(IntPtr root, int player)
-        {
-            Frame frame = Begin(root, player, DecisionKind, -1, 0);
-            bool completed = false;
-            try
-            {
-                // Correction cannot depend on successful diagnostic capture.
-                try
-                {
-                    int tick = SimulationTickEvents.TryGetCurrentTick(out int currentTick) ? currentTick : lastMapTick;
-                    MarketPendingDemandFix.BeforeDecision(player, tick);
-                }
-                catch (Exception failure) { MarketPendingDemandFix.FailCorrection(failure); }
-                try { MarketPendingDemandFix.EnterDecision(player); }
-                catch (Exception failure) { MarketPendingDemandFix.FailCorrection(failure); }
-                originalDecision(root, player); completed = true;
-            }
-            finally
-            {
-                try { MarketPendingDemandFix.LeaveDecision(player); }
-                catch (Exception failure) { MarketPendingDemandFix.FailCorrection(failure); }
-                MarketPendingDemandFix.AfterDecision(player);
-                Finish(frame, 0, completed);
-            }
-        }
-        private void Recruit(IntPtr root, int player)
-        {
-            Frame frame = Begin(root, player, RecruitKind, -1, 0);
-            bool completed = false;
-            try { originalRecruit(root, player); completed = true; }
-            finally { Finish(frame, 0, completed); }
-        }
-        private int Buy(IntPtr root, int player, int good, int amount)
-        {
-            Frame frame = Begin(root, player, BuyKind, good, amount);
-            int result = 0; bool completed = false;
-            try { result = originalBuy(root, player, good, amount); completed = true; return result; }
-            finally { Finish(frame, result, completed); }
-        }
-        private void Sell(IntPtr root, int player, int good, int amount)
-        {
-            Frame frame = Begin(root, player, SellKind, good, amount);
-            bool completed = false;
-            try { originalSell(root, player, good, amount); completed = true; }
-            finally { Finish(frame, 0, completed); }
         }
 
         // Capture failures cannot skip, retry, replace or swallow the original call.

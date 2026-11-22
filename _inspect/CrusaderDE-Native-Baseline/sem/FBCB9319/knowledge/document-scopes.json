@@ -20,6 +20,7 @@
     "untaggedReason": "Their exact bytes are pinned by validators that do not resolve Git history; their scope is recorded only here and in CURRENT.md."
   },
   "documents": [
+    {"file":"AI_MARKET_LIFECYCLE.md","scope":"vanilla+integration","components":["CrusaderDE.dll","APIShared","AIMarketOverbuyDiagnostic","AIMarketAcceptance","AIBuildDiagnoseTest","BugfixesAndQoL"],"note":"Hash-bound market entry and multiplayer repair phase audit; tagged integration sections distinguish shared ownership, private executable fixtures, local save acceptance and the still-open two-peer repair test."},
     {"file":"TRAPPED_UNIT_RESCUE_AUDIT.md","scope":"mod","components":["TrappedUnitRescueTest","BugfixesAndQoL","Fixes","Script Extender"],"vanillaSections":["Relocation, occupancy and identity","Search and physical exits differ","Mounted siege crew and dismount","Apple-worker arrival and production boundaries","Native caller bytes"],"note":"Static hash-bound native contracts are explicitly tagged [Vanilla facts]; external suppression and unfinished runtime acceptance remain mod work."},
     {"file":"CONSTRUCTION_COST_TABLES.md","scope":"vanilla+integration","components":["CrusaderDE.dll","Assembly-CSharp.dll","Script Extender","APIShared"],"note":"Hash-bound construction table, alias and Undo parameter audits; tagged integration sections record Extender compatibility and dated game probes."},
     {

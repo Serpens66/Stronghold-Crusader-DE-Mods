@@ -273,7 +273,7 @@ namespace AIMarketOverbuyDiagnostic
                 ", maxCaptureUs=" + (b.MaxCaptureTicks * 1000000.0 / Stopwatch.Frequency).ToString("F1", System.Globalization.CultureInfo.InvariantCulture) +
                 ", extended=" + b.Extended + ", writerFailures=" + Interlocked.Read(ref WriterFailures) +
                 ", skippedSessions=" + Interlocked.Read(ref SkippedSessions) + ", start=" + b.Start + ", final=" + b.Final +
-                (b.Start ? ", AI_MARKET_POST_STARTUP_TICK; source=GameTimeManagerAPI.OnTick" : "") + ".";
+                (b.Start ? ", AI_MARKET_POST_STARTUP_TICK; source=APIShared.SimulationTickEvents" : "") + ".";
         }
 
         private string FormatPlayer(Batch b, int player)
