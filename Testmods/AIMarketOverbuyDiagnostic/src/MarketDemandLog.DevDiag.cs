@@ -8,7 +8,9 @@ namespace AIMarketOverbuyDiagnostic
     internal struct MarketDemandEvidence
     {
         internal long Session, Sequence, SourceSequence, Goal;
-        internal bool IsMaterial;
+        internal bool IsMaterial, IsAmmo;
+        internal int UnitId, Ammo, AmmoState;
+        internal uint UnitGlobalId, UnitCreationTick;
         internal int Kind, Player, Good, Tick, SourceTick, SourceRva, SourceStock, Stock, Before, After, AicId, BoundaryRva, OriginalPackage, Credited, MaterialCost, MaterialPadding;
     }
 
@@ -23,25 +25,31 @@ namespace AIMarketOverbuyDiagnostic
 
         internal static string FormatSource(MarketDemandEvidence item)
         {
-            string goal = item.IsMaterial
+            string goal = item.IsAmmo ? AmmoGoal(item) : item.IsMaterial
                 ? string.Format(CultureInfo.InvariantCulture, "cost={0} pad={1}", item.MaterialCost, item.MaterialPadding)
                 : string.Format(CultureInfo.InvariantCulture, "initialSum={0}", item.Goal);
             return string.Format(CultureInfo.InvariantCulture,
                 "MARKET_STALE_NATIVE_REQUEST: session={0} player={1} good={2} nativeTick={3} sequence={4} sourceRva={5:X} initialStock={6} amount={7} mode={10} {8} aic={9} pendingWrites=0",
                 item.Session, item.Player, item.Good, item.Tick, item.Sequence, item.SourceRva,
-                item.SourceStock, item.After, goal, item.AicId, item.IsMaterial ? "M" : "B");
+                item.SourceStock, item.After, goal, item.AicId, item.IsAmmo ? "A" : item.IsMaterial ? "M" : "B");
         }
 
         internal static string FormatAdjustment(MarketDemandEvidence item)
         {
-            string goal = item.IsMaterial
+            string goal = item.IsAmmo ? AmmoGoal(item) : item.IsMaterial
                 ? string.Format(CultureInfo.InvariantCulture, "cost={0} pad={1}", item.MaterialCost, item.MaterialPadding)
                 : string.Format(CultureInfo.InvariantCulture, "package={0} credited={1}", item.OriginalPackage, item.Credited);
             return string.Format(CultureInfo.InvariantCulture,
                 "MARKET_PENDING_ADJUSTED: session={0} player={1} good={2} nativeTick={3} sourceRva={4:X} sourceTick={5} sourceSequence={6} initialStock={7} mode={14} {8} stock={9} oldPending={10} newPending={11} aic={12} boundaryRva={13:X}",
                 item.Session, item.Player, item.Good, item.Tick, item.SourceRva, item.SourceTick, item.SourceSequence,
-                item.SourceStock, goal, item.Stock, item.Before, item.After, item.AicId, item.BoundaryRva, item.IsMaterial ? "M" : "B");
+                item.SourceStock, goal, item.Stock, item.Before, item.After, item.AicId, item.BoundaryRva, item.IsAmmo ? "A" : item.IsMaterial ? "M" : "B");
         }
+
+        // One compound identity keeps the bounded example useful without adding
+        // per-unit event logs. a is signed native ammo/result (0 unknown,1 ended,2 live).
+        private static string AmmoGoal(MarketDemandEvidence item) => string.Format(CultureInfo.InvariantCulture,
+            "u={0}/{1}/{2} need={3} a={4}/{5}", item.UnitId, item.UnitGlobalId,
+            item.UnitCreationTick, item.MaterialCost, item.Ammo, item.AmmoState);
 
         internal static string FormatSummary(long stores, long reductions, long increases, long cancellations,
             long sourceP99Micros, long beforeP99Micros, long afterP99Micros, long stockP99Micros, long omitted) =>

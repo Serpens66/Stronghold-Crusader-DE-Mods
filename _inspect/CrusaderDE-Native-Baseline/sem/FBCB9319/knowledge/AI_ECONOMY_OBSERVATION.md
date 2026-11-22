@@ -277,3 +277,20 @@ Detailed machine spans, register maps, counterexamples and source-flow evidence:
 [material audit](../../../../../Testmods/AIMarketOverbuyDiagnostic/Findings/AllGoodsMaterialAudit.md),
 [food/recruitment audit](../../../../../Testmods/AIMarketOverbuyDiagnostic/Findings/AllGoodsRecruitFoodAudit.md),
 [completed-stock audit](../../../../../Testmods/AIMarketOverbuyDiagnostic/Findings/StockReceiptAudit.md).
+
+### Automatic siege reload demand provenance (22.11.2026) [Vanilla facts]
+
+The canonical FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+image has five automatic CALL returns into D5710:153057/153156 in1520D0,
+1542C6/1543C7 in1535F0, and18FD8A in18FC00. Each is dominated by signed
+native ammunition-WORD<=0. Manual18AE0 instead tail-jumps18BB5 without that
+guard. At pending storeD5791, originalRSP+38h contains the real caller return,
+and RBX retains the one-based unit ID from MOVSXD RBX,EDX atD572B.
+D5710 consumes atomic10 stone and adds20 ammo; its missing-stock branch writes
+literal10 even at stock9. It is not a continuous general stockpile target and
+not an AIC weapons/food batch. D55B0 can use9 stone to supply18 ammo manually;
+a fractional remaining1-stone purchase cannot itself feed the automatic10-stone
+consumer. Reading only the low SDK ammo byte is also invalid:GameUnit+35E is
+a signed16-bit native value spanning both SDK byte fields.
+Full call/branch, stack, identity and counterexample audit:
+[automatic ammunition source](../../../../../Testmods/AIMarketOverbuyDiagnostic/Findings/AutoAmmoSourceAudit.md).

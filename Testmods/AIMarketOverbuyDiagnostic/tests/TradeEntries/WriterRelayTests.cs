@@ -37,6 +37,7 @@ internal static class WriterRelayTests
         RunMultiplyBoundary(nativeDll,log,check);
         RunRecountMarker(nativeDll,log,check,false);
         RunRecountMarker(nativeDll,log,check,true);
+        RunRecountMarker(nativeDll,log,check,false,0xB8122);
     }
 
     private static void RunSite(byte[] dll, ManualLogSource log, Action<bool,string> check, int site,bool pairedSource=false)
@@ -162,10 +163,12 @@ internal static class WriterRelayTests
         PopAll(b);b.Add(0xC3);
         while(b.Count<0xE00)b.Add(0xCC);b.AddRange(BitConverter.GetBytes(site.ToInt64()));return b.ToArray();
     }
-    private static void RunRecountMarker(byte[] dll,ManualLogSource log,Action<bool,string>check,bool stackMarker)
+    private static void RunRecountMarker(byte[] dll,ManualLogSource log,Action<bool,string>check,bool stackMarker,int overrideRva=0)
     {
-        int rva=stackMarker?0xB9A30:0xC1F4A;
-        byte[] entry=stackMarker?new byte[]{0x48,0x8B,0x4C,0x24,0x28,0x48,0x33,0xCC}:
+        bool lossMarker=overrideRva==0xB8122;
+        int rva=overrideRva!=0?overrideRva:stackMarker?0xB9A30:0xC1F4A;
+        byte[] entry=lossMarker?new byte[]{0x45,0x89,0x94,0x8E,0xA0,0xB2,0x79,0x03}:
+            stackMarker?new byte[]{0x48,0x8B,0x4C,0x24,0x28,0x48,0x33,0xCC}:
             new byte[]{0x42,0x89,0xAC,0x36,0xCC,0xF0,0x12,0x00};
         int scan=NativeDetourBackend.Instance.Options.FunctionScanLimit+16,pages=(scan+4095)/4096;
         IntPtr region=Alloc((pages+1)*4096),copy=region+pages*4096-scan;
@@ -178,10 +181,13 @@ internal static class WriterRelayTests
         Marshal.Copy(bytes,0,copy,bytes.Length);ulong module=unchecked((ulong)(copy.ToInt64()-rva));var image=new byte[rva+scan];Buffer.BlockCopy(bytes,0,image,rva,scan);
         NativePatchGuard.Bind(ScanRegion.FromMemory(image,module,name+" private image"),log);
         ulong[] values=new ulong[16];for(int reg=0;reg<16;reg++)values[reg]=0x1122334400000000UL+(uint)reg;
-        if(!stackMarker){values[6]=unchecked((ulong)target.ToInt64()-0x12F0CCUL);values[14]=0;values[5]=0x12345678;}
+        if(lossMarker){values[14]=unchecked((ulong)target.ToInt64()-0x379B2A0UL);values[1]=0;values[10]=0;}
+        else if(!stackMarker){values[6]=unchecked((ulong)target.ToInt64()-0x12F0CCUL);values[14]=0;values[5]=0x12345678;}
         int callbacks=0;MarketDemandWriterHooks.Observer observer=(snapshot,index)=>{
             callbacks++;check(index==(stackMarker?1003:1002),name+": site index");
             for(int i=0;i<Order.Length;i++)check(unchecked((ulong)Marshal.ReadInt64(snapshot,i*8))==values[Order[i]],name+": original GPR input "+Order[i]);
+            if(lossMarker)check(Marshal.ReadInt32(target)==23&&Marshal.ReadInt64(snapshot,MarketDemandWriterHooks.R10)==0,
+                name+": observer sees old stock23 and guaranteed planned zero before actual fallback store");
             if(stackMarker)check(unchecked((ulong)Marshal.ReadInt64(snapshot,MarketDemandWriterHooks.SnapshotBytes+0x28))==0xA1B2C3D4E5F60718UL,
                 name+": snapshot+128 identifies original RSP and its seeded stack operand");};
         var hook=MarketDemandWriterHooks.Prepare(image,module,rva,entry,stackMarker?1003:1002,gate,observer);roots.Add(hook);hook.Publish();
@@ -191,7 +197,7 @@ internal static class WriterRelayTests
             byte[] sseBytes=Enumerable.Range(0,256).Select(i=>(byte)(i*29)).ToArray();Marshal.Copy(sseBytes,0,sse,256);
             Write(harness,Harness(unchecked((ulong)harness.ToInt64()),copy,result,hostFx,sse,values,alignment,0xAD7,stackMarker));
             NativeCall call=Marshal.GetDelegateForFunctionPointer<NativeCall>(harness);roots.Add(call);
-            callbacks=0;Marshal.WriteInt32(gate,active);Marshal.WriteInt32(count,0);call();string label=name+" active="+active+" alignment="+alignment;
+            callbacks=0;Marshal.WriteInt32(gate,active);Marshal.WriteInt32(count,0);Marshal.WriteInt32(target,23);call();string label=name+" active="+active+" alignment="+alignment;
             check(callbacks==active&&Marshal.ReadInt32(count)==1,label+": gate and original continuation once");
             ulong originalRsp=unchecked((ulong)Marshal.ReadInt64(result,768)),xorResult=0xA1B2C3D4E5F60718UL^originalRsp;
             for(int i=0;i<Order.Length;i++)check(unchecked((ulong)Marshal.ReadInt64(result,i*8))==
@@ -202,7 +208,7 @@ internal static class WriterRelayTests
                 ulong flags=((parity&1)==0?4UL:0)|(xorResult==0?0x40UL:0)|((xorResult>>63)!=0?0x80UL:0);
                 check((unchecked((ulong)Marshal.ReadInt64(result,120))&0x8C5)==flags,label+": XOR flags match original stack-derived result");
             }
-            else check(Marshal.ReadInt32(target)==0x12345678&&(Marshal.ReadInt64(result,120)&0x8D5)==(0xAD7&0x8D5),label+": original nongold count store and flags");
+            else check(Marshal.ReadInt32(target)==(lossMarker?0:0x12345678)&&(Marshal.ReadInt64(result,120)&0x8D5)==(0xAD7&0x8D5),label+": original count store and flags");
             var actualSse=new byte[256];Marshal.Copy(result+128+160,actualSse,0,256);check(actualSse.SequenceEqual(sseBytes),label+": SSE preserved");
         }
         Marshal.WriteInt32(gate,0);

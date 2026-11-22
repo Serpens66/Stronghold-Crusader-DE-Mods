@@ -1,7 +1,7 @@
 #if SERP_DEVDIAG
 namespace AIMarketOverbuyDiagnostic
 {
-    internal enum MarketDemandPolicy { FixedBatch, MaterialStockGoal }
+    internal enum MarketDemandPolicy { FixedBatch, MaterialStockGoal, AutoAmmo }
     internal enum MarketDemandSourceFamily { Recruit, Food, Scarcity, Pitch, Emergency, Aiv, Ammo, Fixes }
 
     internal struct MarketDemandPolicySnapshot
@@ -108,12 +108,32 @@ namespace AIMarketOverbuyDiagnostic
             return true;
         }
 
+        // The caller separately proves AUTO origin and stable unit identity.
+        // This is an atomic live-stock requirement, never fractional ammo credit.
+        internal bool ObserveAutoAmmoStore(int sourceStock, int beforePending, int amount, int cost,
+            int aicId, long policyToken, bool sameOrigin, out bool refreshed)
+        {
+            refreshed = false;
+            if (sourceStock < 0 || cost <= sourceStock || amount <= 0 || aicId <= 0)
+            { this = default; return false; }
+            refreshed = sameOrigin && Active && Policy == MarketDemandPolicy.AutoAmmo &&
+                MaterialCost == cost && OriginalPackage == amount && PolicyToken == policyToken &&
+                CheckOwner(beforePending, sourceStock, aicId);
+            this = new MarketDemandTarget { Active = true, Policy = MarketDemandPolicy.AutoAmmo,
+                Family = MarketDemandSourceFamily.Ammo, MaterialCost = cost, OriginalPackage = amount,
+                ExpectedPending = amount, LastObservedStock = sourceStock, AicId = aicId,
+                PolicyToken = policyToken, Goal = cost };
+            return true;
+        }
+
         // True authorizes exactly this write. Only positively observed deliveries
         // reduce an owed package; later consumption cannot undo their credit.
         internal bool TryReconcile(int currentPending, int currentStock, int currentAicId,
             long currentPolicyToken, out int adjusted)
         {
             adjusted = currentPending;
+            if (Policy == MarketDemandPolicy.AutoAmmo)
+            { Active = false; return false; } // A stable live-unit proof is mandatory.
             if (!CheckOwner(currentPending, currentStock, currentAicId)) return false;
             if (currentPolicyToken != PolicyToken)
             { Active = false; return false; }
@@ -132,6 +152,20 @@ namespace AIMarketOverbuyDiagnostic
             if (needed == 0) Active = false;
             if (needed == currentPending) return false;
             ExpectedPending = adjusted = needed;
+            return true;
+        }
+
+        internal bool TryReconcileAutoAmmo(int currentPending, int currentStock, int currentAicId,
+            long currentPolicyToken, int liveDesired, out int adjusted)
+        {
+            adjusted = currentPending;
+            if (Policy != MarketDemandPolicy.AutoAmmo || !CheckOwner(currentPending, currentStock, currentAicId)) return false;
+            if (currentPolicyToken != PolicyToken || liveDesired < 0 || liveDesired > MaterialCost)
+            { Active = false; return false; }
+            LastObservedStock = currentStock;
+            if (liveDesired == 0) Active = false;
+            if (liveDesired == currentPending) return false;
+            ExpectedPending = adjusted = liveDesired;
             return true;
         }
 

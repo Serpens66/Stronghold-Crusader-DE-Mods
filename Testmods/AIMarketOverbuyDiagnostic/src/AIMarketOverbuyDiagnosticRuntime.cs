@@ -55,7 +55,8 @@ namespace AIMarketOverbuyDiagnostic
             if (requireCalls && tradeTrace.ObservedNativeCalls == 0)
                 throw new InvalidOperationException("The native trade trace received no real native callbacks.");
         }
-        internal bool TraceOutputDrainedForAutomation => !causalRequested || (tradeTrace != null && tradeTrace.OutputDrained && MarketPendingDemandFix.OutputDrained);
+        internal bool TraceOutputDrainedForAutomation => MarketPendingDemandFix.OutputDrained &&
+            (!causalRequested || (tradeTrace != null && tradeTrace.OutputDrained));
 #endif
 
         internal AIMarketOverbuyDiagnosticRuntime(ManualLogSource log, bool fixesLoaded)

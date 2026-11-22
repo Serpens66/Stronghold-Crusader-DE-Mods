@@ -117,6 +117,7 @@ internal static class MarketDemandTargetTests
             "maximum positive receipt is capped without credit overflow");
 
         SourcePolicies();
+        AutoAmmoPolicy();
 
         var targets = new MarketDemandTarget[9 * 25];
         for (int player = 1; player <= 8; player++)
@@ -254,6 +255,30 @@ internal static class MarketDemandTargetTests
             MarketDemandPolicyStamp.Literal(MarketDemandSourceFamily.Pitch, 10) !=
             MarketDemandPolicyStamp.Literal(MarketDemandSourceFamily.Pitch, 5),
             "fixed literal policies retain their family and actual package");
+    }
+
+    private static void AutoAmmoPolicy()
+    {
+        var state = default(MarketDemandTarget);
+        Check(state.ObserveAutoAmmoStore(9, 0, 10, 10, 32, 10, false, out bool refresh) && !refresh,
+            "proven empty AUTO unit starts atomic ten-stone requirement");
+        Check(state.TryReconcileAutoAmmo(10, 9, 32, 10, 1, out int adjusted) && adjusted == 1,
+            "atomic reload needs only one additional stone when nine are already present");
+        Check(state.ObserveAutoAmmoStore(9, 1, 10, 10, 32, 10, true, out refresh) && refresh &&
+            state.TryReconcileAutoAmmo(10, 9, 32, 10, 1, out adjusted) && adjusted == 1,
+            "same stable AUTO unit refresh cannot overwrite corrected one with ten");
+        state.ObserveStock(1, 0, 32);
+        Check(state.TryReconcileAutoAmmo(1, 0, 32, 10, 10, out adjusted) && adjusted == 10 && state.Credited == 0,
+            "stone consumed elsewhere does not fractionally fulfil an atomic reload");
+        Check(state.TryReconcileAutoAmmo(10, 0, 32, 10, 0, out adjusted) && adjusted == 0 && !state.Active,
+            "validated nonempty or ended unit cancels obsolete request even at stone zero");
+        Check(!state.TryReconcileAutoAmmo(0, 0, 32, 10, 10, out adjusted), "completed atomic goal cannot recreate itself");
+        state.ObserveAutoAmmoStore(9, 0, 10, 10, 32, 10, false, out _);
+        Check(!state.TryReconcile(10, 9, 32, 10, out adjusted) && adjusted == 10 && !state.Active,
+            "generic batch or material calculation cannot authorize an AUTO write without live unit proof");
+        state.ObserveAutoAmmoStore(9, 0, 10, 10, 32, 10, false, out _);
+        Check(!state.TryReconcileAutoAmmo(10, 9, 32, 10, 11, out adjusted) && adjusted == 10 && !state.Active,
+            "invalid live unit demand fails closed without changing native quantity");
     }
 
     private static bool ExerciseWarmPath()

@@ -19,7 +19,8 @@ $textFiles = @($sourceFiles) + @(
     (Join-Path $testDirectory 'MarketDemandLogTests.cs'),
     (Join-Path $project 'tests\TradeEntries\TradeEntries.Tests.csproj'),
     (Join-Path $project 'tests\TradeEntries\Program.cs'),
-    (Join-Path $project 'tests\TradeEntries\WriterRelayTests.cs'))
+    (Join-Path $project 'tests\TradeEntries\WriterRelayTests.cs'),
+    (Join-Path $project 'tests\TradeEntries\AmmoDemandSourceTests.cs'))
 $runtimeText = (($sourceFiles + @((Get-Item -LiteralPath $projectFile))) |
     ForEach-Object { [IO.File]::ReadAllText($_.FullName) }) -join "`n"
 $forbiddenJson = 'System\.Web\.Extensions|JavaScriptSerializer|System\.Text\.Json|Newtonsoft\.Json|DataContractJsonSerializer|JsonUtility|System\.Runtime\.Serialization\.Json'

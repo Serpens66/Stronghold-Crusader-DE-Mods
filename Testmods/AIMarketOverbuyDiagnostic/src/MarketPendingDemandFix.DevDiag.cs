@@ -50,8 +50,9 @@ namespace AIMarketOverbuyDiagnostic
         private struct Request
         {
             internal MarketDemandTarget Target;
+            internal MarketAmmoDemandSource.Origin AmmoOrigin;
             internal int Tick, SourceRva, SourceStock, GoalAmount, PolicySourceRva, WriteRva, WriteAmount;
-            internal long Sequence, WriteSession, WriteSequence;
+            internal long Sequence, GoalSession, WriteSession, WriteSequence;
             internal bool WaitingAfter;
         }
 
@@ -70,6 +71,7 @@ namespace AIMarketOverbuyDiagnostic
                 {
                     if (!DebugLogHelper.IsCurrentNativeLibraryVersion())
                         throw new InvalidOperationException("Demand correction requires the audited native hash.");
+                    MarketAmmoDemandSource.Initialize(context);
                     MarketFixesDemandSource.Initialize(context, log);
                     bool withFixes = MarketFixesDemandSource.IsCovered;
                     candidates = new MarketDemandWriterHooks.WriterHook[MarketDemandSites.All.Length + (withFixes ? 1 : 0) + 3];
@@ -106,7 +108,7 @@ namespace AIMarketOverbuyDiagnostic
                     MarketFixesDemandSource.SealBodyAfterInstallation();
                     Volatile.Write(ref installed, 1);
                     DebugLogHelper.LogInfo(log, "AI_MARKET_DEMAND_READY: nativeDemandStores=22 stockMarkers=3 hooks=" + candidates.Length +
-                        " method=reference-rva; gate=session; fixedBatch=permanent-credit; material=current-cost; untrackedOrders=unchanged; MD_SUM delta36=source/down/up/cancel p99us36=source/before/after/stock om36=omitted (base36).");
+                        " method=reference-rva; gate=session; fixedBatch=permanent-credit; material=current-cost; AUTOammo=atomic-unit-goal; manualAmmo=unowned; A:u=unit/global/creation need=stone-cost a=signed-ammo/result(0unknown,1ended,2live); untrackedOrders=unchanged; MD_SUM delta36=source/down/up/cancel p99us36=source/before/after/stock om36=omitted (base36).");
                 }
                 catch (Exception failure)
                 {
@@ -240,7 +242,7 @@ namespace AIMarketOverbuyDiagnostic
                     MarketDemandSite site = MarketDemandSites.All[index];
                     if (!DecodeCell(site.Cell(snapshot), true, out int player, out int good, out GamePlayerResources* resources)) return;
                     if (after) FinishStore(player, good, site.Amount(snapshot), site.Rva, resources);
-                    else CaptureStore(player, good, site.Amount(snapshot), site.Rva, resources, true);
+                    else CaptureStore(player, good, site.Amount(snapshot), site.Rva, resources, true, snapshot);
                 }
             }
             catch (Exception failure)
@@ -285,7 +287,7 @@ namespace AIMarketOverbuyDiagnostic
                 {
                     if (sessionActive == 0 || !ValidCell(player, good) || !GamePlayerManagerAPI.Instance.IsAIPlayer(player)) return;
                     if (GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(player, out GamePlayerResources* resources) && resources != null)
-                        CaptureStore(player, good, amount, sourceRva, resources, false);
+                        CaptureStore(player, good, amount, sourceRva, resources, false, IntPtr.Zero);
                 }
             }
             catch (Exception failure) { FailCorrection(failure); }
@@ -294,7 +296,7 @@ namespace AIMarketOverbuyDiagnostic
         private static void CaptureFixesStore(int player, int good, int sourceStock, int amount, int sourceRva) =>
             ObserveExternalStore(player, good, amount, sourceRva);
 
-        private static void CaptureStore(int player, int good, int amount, int sourceRva, GamePlayerResources* resources, bool paired)
+        private static void CaptureStore(int player, int good, int amount, int sourceRva, GamePlayerResources* resources, bool paired, IntPtr sourceFrame)
         {
             int index = player * Goods + good, stock = ((int*)&resources->r_TotalGoodsNull)[good];
             int aicId = unchecked((int)resources->r_AILordMinusOne);
@@ -302,10 +304,23 @@ namespace AIMarketOverbuyDiagnostic
             if (amount <= 0 || !DescribeSource(sourceRva, good, out bool material, out MarketDemandSourceFamily family, out int padding) ||
                 !TryPolicy(player, good, resources, material, family, amount, sourceRva, out long policy))
             { requests[index] = default; return; }
+            var ammoOrigin = default(MarketAmmoDemandSource.Origin);
+            bool autoAmmo = family == MarketDemandSourceFamily.Ammo;
+            if (autoAmmo && (good != (int)eGoods.STORED_STONE_BLOCKS || amount != MarketAmmoDemandSource.RequiredStone ||
+                !MarketAmmoDemandSource.TryCapture(sourceFrame, player, stock, unchecked((ulong)module), out ammoOrigin)))
+            { requests[index] = default; return; } // Manual/unknown replaces old provenance but remains Vanilla.
             Request request = requests[index];
             MarketDemandTarget target = request.Target;
             bool keepOrigin;
-            if (material)
+            if (autoAmmo)
+            {
+                bool same = request.GoalSession == session && request.AmmoOrigin.SameIdentity(ammoOrigin);
+                if (!target.ObserveAutoAmmoStore(stock, before, amount, MarketAmmoDemandSource.RequiredStone,
+                    aicId, policy, same, out keepOrigin))
+                { requests[index] = default; return; }
+                request.AmmoOrigin = ammoOrigin;
+            }
+            else if (material)
             {
                 int oldCost = target.MaterialCost;
                 if (!target.ObserveMaterialStore(stock, before, amount, padding, aicId, policy, out bool merged))
@@ -322,6 +337,7 @@ namespace AIMarketOverbuyDiagnostic
             {
                 request.Tick = CurrentTick(); request.Sequence = sourceSequence; request.SourceRva = sourceRva;
                 request.SourceStock = stock; request.GoalAmount = amount;
+                request.GoalSession = session;
             }
             request.Target = target;
             request.PolicySourceRva = sourceRva;
@@ -334,6 +350,7 @@ namespace AIMarketOverbuyDiagnostic
                 Tick = request.Tick, SourceRva = request.SourceRva, SourceStock = request.SourceStock, After = request.GoalAmount, Goal = target.Goal,
                 OriginalPackage = target.OriginalPackage, Credited = target.Credited, AicId = aicId,
                 IsMaterial = target.Policy == MarketDemandPolicy.MaterialStockGoal, MaterialCost = target.MaterialCost, MaterialPadding = target.MaterialPadding };
+            AddAmmoEvidence(ref evidence, request, player, stock);
             if (Enqueue(evidence)) firstSource[index] = true;
         }
 
@@ -353,9 +370,7 @@ namespace AIMarketOverbuyDiagnostic
                 case 0x2EB9C: family = MarketDemandSourceFamily.Pitch; return true;
                 case 0x2F56E: family = MarketDemandSourceFamily.Emergency; return true;
                 case 0x51ADB: family = MarketDemandSourceFamily.Aiv; return true;
-                // Atomic ammo reloads need caller/unit goal provenance. Until the
-                // AUTO-only contract is bound, this store deliberately stays unowned.
-                case 0xD5791: return false;
+                case 0xD5791: family = MarketDemandSourceFamily.Ammo; return true;
                 case 0x2A4D8: family = MarketDemandSourceFamily.Fixes; return true;
                 default: return false;
             }
@@ -449,7 +464,17 @@ namespace AIMarketOverbuyDiagnostic
             int* cell = (int*)&resources->r_AIPendingMarketPurchaseAmountNull + good;
             int original = *cell, stock = ((int*)&resources->r_TotalGoodsNull)[good];
             int aicId = unchecked((int)resources->r_AILordMinusOne);
-            if (!request.Target.TryReconcile(original, stock, aicId, policy, out int adjusted))
+            int adjusted;
+            bool changed;
+            if (request.Target.Policy == MarketDemandPolicy.AutoAmmo)
+            {
+                if (request.GoalSession != session) { request.Target.Active = false; return; }
+                var result = request.AmmoOrigin.TryDesired(player, stock, out int desired, out _);
+                if (result == MarketAmmoDemandSource.Result.Unknown) { request.Target.Active = false; return; }
+                changed = request.Target.TryReconcileAutoAmmo(original, stock, aicId, policy, desired, out adjusted);
+            }
+            else changed = request.Target.TryReconcile(original, stock, aicId, policy, out adjusted);
+            if (!changed)
             {
                 if (boundaryRva == 0x3EC90 && request.Target.Active && stock == 0) Interlocked.Increment(ref ZeroStockPassed);
                 return;
@@ -469,7 +494,17 @@ namespace AIMarketOverbuyDiagnostic
                 MaterialCost = request.Target.MaterialCost, MaterialPadding = request.Target.MaterialPadding,
                 AicId = aicId, SourceRva = request.SourceRva, SourceTick = request.Tick,
                 SourceSequence = request.Sequence, SourceStock = request.SourceStock, BoundaryRva = boundaryRva };
+            AddAmmoEvidence(ref evidence, request, player, stock);
             if (Enqueue(evidence)) firstAdjustment[index] = true;
+        }
+
+        private static void AddAmmoEvidence(ref Evidence evidence, Request request, int player, int stock)
+        {
+            if (request.Target.Policy != MarketDemandPolicy.AutoAmmo) return;
+            var result = request.AmmoOrigin.TryDesired(player, stock, out _, out int ammo);
+            evidence.IsAmmo = true; evidence.UnitId = request.AmmoOrigin.UnitId;
+            evidence.UnitGlobalId = request.AmmoOrigin.GlobalId; evidence.UnitCreationTick = request.AmmoOrigin.CreationTick;
+            evidence.Ammo = ammo; evidence.AmmoState = (int)result;
         }
 
         // Root brackets only the actual native decision. Its own purchases call
@@ -511,7 +546,7 @@ namespace AIMarketOverbuyDiagnostic
                 if (!CorrectionCovered(good)) request.Target.Active = false;
                 if (!request.Target.ObserveStock(pending[good], currentStock, aicId))
                 { requests[index] = request; continue; }
-                if (request.Target.NeedsAdjustment(currentStock))
+                if (request.Target.Policy == MarketDemandPolicy.AutoAmmo || request.Target.NeedsAdjustment(currentStock))
                     ApplyRequest(player, good, resources, CurrentTick(), boundaryRva, ref request);
                 requests[index] = request;
             }
@@ -552,7 +587,7 @@ namespace AIMarketOverbuyDiagnostic
         internal static void ObservePendingState(int player, int good, int value)
         { if (ValidCell(player, good)) lock (gate) requests[player * Goods + good].Target.ObservePending(value); }
 
-        internal static bool TryGetTrackedRequest(int player, int good, out int amount)
+        internal static bool TryGetTrackedRequest(int player, int good, out int amount, bool allRecruitmentSources = false)
         {
             amount = 0;
             lock (gate)
@@ -560,7 +595,9 @@ namespace AIMarketOverbuyDiagnostic
                 if (!ValidCell(player, good) || good < (int)eGoods.STORED_BOWS || good > (int)eGoods.STORED_METAL_ARMOUR) return false;
                 int index = player * Goods + good;
                 Request request = requests[index];
-                if (request.SourceStock != 0 || (request.SourceRva != 0x40D62 && request.SourceRva != 0x40D3C)) return false;
+                bool combat = request.SourceRva == 0x40D62 || request.SourceRva == 0x40D3C;
+                bool otherRecruit = request.SourceRva == 0x403A7 || request.SourceRva == 0x40597;
+                if (request.SourceStock != 0 || (!combat && !(allRecruitmentSources && otherRecruit))) return false;
                 if (!GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(player, out GamePlayerResources* resources) || resources == null) return false;
                 request.Target.ObservePending(((int*)&resources->r_AIPendingMarketPurchaseAmountNull)[good]);
                 if (unchecked((int)resources->r_AILordMinusOne) != request.Target.AicId ||
@@ -572,12 +609,12 @@ namespace AIMarketOverbuyDiagnostic
             }
         }
 
-        internal static bool TryGetProvenance(int player, int good, out int tick, out long sourceSequence, out int target)
+        internal static bool TryGetProvenance(int player, int good, out int tick, out long sourceSequence, out int target, bool allRecruitmentSources = false)
         {
             tick = target = 0; sourceSequence = 0;
             lock (gate)
             {
-                if (!TryGetTrackedRequest(player, good, out _)) return false;
+                if (!TryGetTrackedRequest(player, good, out _, allRecruitmentSources)) return false;
                 Request request = requests[player * Goods + good];
                 tick = request.Tick; sourceSequence = request.Sequence; target = request.Target.OriginalPackage;
                 return true;

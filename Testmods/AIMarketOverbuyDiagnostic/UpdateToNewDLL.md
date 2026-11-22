@@ -102,23 +102,36 @@ AIV `51ADB`, Steinmunition `D5791`.
 
 Jede verdrängte Spanne ist genau eine vollständige MOV-Instruktion (6 bis
 12 Byte), ohne RSP-/RIP-Operand oder inneres Sprungziel. Ein nativer Relay
-sichert GPR, Flags und FXSAVE-Zustand, beobachtet die Operanden und springt
-nach Wiederherstellung ins Originaltrampolin. Die Originalzuweisung läuft genau
-einmal. Der installierte Indirect-Backendvertrag wird für jede Stelle offline
-ausgeführt; ein 14-Byte-Inline-Hook wäre an mehreren Stellen unzulässig.
+sichert GPR, Flags und FXSAVE-Zustand. Der Vorher-Callback prüft die alte
+Kaufzelle, der Relay führt die Originalzuweisung genau einmal aus, und der
+Nachher-Callback korrigiert die nun tatsächlich geschriebene Menge. Danach
+geht es direkt zur nativen Fortsetzung, ohne die Zuweisung erneut auszuführen.
+Der installierte Indirect-Backendvertrag wird für jede Stelle offline geprüft;
+ein 14-Byte-Inline-Hook wäre an mehreren Stellen unzulässig. Rohe Relayziele
+werden über RedBirds öffentlichen IntermediaryFactory-Vertrag veröffentlicht;
+ein Marshal-Delegate-Roundtrip ist unter Unity Mono kein Identitätsnachweis.
 
-Aus dem belegten ursprünglichen Bestand S und der tatsächlich zugewiesenen Menge
-Q entsteht das unveränderte Ziel S+Q. Vor dem Markt wird die gespeicherte Menge
-auf `min(Q, max(0, Ziel-aktuellerBestand))` gesetzt. Positive eigene Restmengen
-dürfen nach Verbrauch wieder bis Q steigen; vollständige Erfüllung beendet den
-Auftrag. Gleichwertige erneute native Zuweisungen erneuern das Paket. Auch der
-native Holzpuffer bleibt erhalten. Ein erfolgreicher Bau oder ein rekrutierter
-Soldat bedeutet damit keine automatische Stornierung der Vorbevorratung.
+Feste Einkaufschargen (unter anderem Waffen und Nahrung) erhalten eine
+Liefergutschrift: ursprüngliche Menge Q minus bestätigte Zugänge. Späterer
+Verbrauch macht die Gutschrift nicht rückgängig. Eine wiederholte native
+Zuweisung derselben Charge bei nachweislich noch eigener offener Kaufzelle
+setzt die Gutschrift nicht zurück. Eine neue Menge, Quellenfamilie, relevante
+Kaufregel oder tatsächlich gelöschte Zelle beginnt eine neue Zuordnung.
+Unbeteiligte AIC-Felder ändern die Identität nicht. Die ursprüngliche Summe
+S+Q dient nur als Beleg, nicht als immer wieder aufzufüllender Lagerbestand.
+
+CC420-Materialanforderungen erhalten dagegen ihre aus den ausgeführten
+Operanden belegten Baukosten: Kosten = Quellbestand + Menge - Holzpuffer.
+Der Puffer beträgt bei Holz zwei, sonst null. Unterhalb der Kosten bleibt
+Kosten - aktueller Bestand + Puffer offen; beim Erreichen der Kosten endet
+der Auftrag. Verlust kann die noch offene Menge deshalb wieder erhöhen.
+Gleichzeitig belegte eigene Materialkosten werden maximal zusammengeführt;
+aufgegebene Bauvorhaben werden nicht aus den Mengen rekonstruiert.
 
 Der effektive Zellzeiger wird gegen `module+379D840+player*583C+good*4` und
 den tatsächlichen öffentlichen SDK-Zeiger geprüft; Bestand liegt 25A0 Byte
 davor. AIC-Root `404C950`, Recordgröße 5E4 und Spielerlayout sind hashgebunden.
-Ein geänderter AIC-/LastStand-Vertrag, abweichende Mengen, beobachtetes Löschen,
+Ein geänderter relevanter AIC-/LastStand-Vertrag, abweichende Mengen, beobachtetes Löschen,
 Sitzungs- oder Tickwechsel verwerfen die Zuordnung. Nicht zugeordnete gespeicherte
 Wünsche bleiben unangetastet. Numerisch identische direkte Fremdzuweisungen ohne
 beobachtbaren Schreiber sind nicht unterscheidbar und daher keine zugesicherte
@@ -134,21 +147,48 @@ Funktionskörper wird vor Installation und nach Veröffentlichung geprüft und a
 Sitzungsgrenzen erneut verglichen. Unbekannte Fixes-Schreiber sperren nur die
 Korrektur der betroffenen drei Güter.
 
-Vollständige Erfüllung wird zusätzlich an zwei fertigen Bestandsveröffentlichungen
+Teil- und Vollerfüllung werden zusätzlich an zwei fertigen Bestandsveröffentlichungen
 erkannt: `C1F4A`, Bytes `42 89 AC 36 CC F0 12 00`, nach der Nicht-Gold-Summe
 eines Spielers (RSI=Spieler*583C), und `B9A30`, Bytes `48 8B 4C 24 28 48 33 CC`,
 nach der Neuberechnung aller acht Spieler. Letzterer enthält einen RSP-relativen
 Zugriff: der Relay stellt vor dem Trampolin den ursprünglichen Stack exakt wieder
 her. Alle normalen nativen Nicht-Gold-Zugänge erreichen einen dieser Endpunkte;
 Herleitung und vollständige Alias-/Callerprüfung: `Findings/StockReceiptAudit.md`.
-Dadurch bleibt ein vollständig geliefertes Paket auch nach sofortigem Verbrauch
-geschlossen. Teilmengen werden weiterhin am Handelsintervall korrigiert. Eine
-gesonderte native Datenfreigabe lässt die beiden Marker im Baselineversuch ohne
+Auch Teilmengen werden dort unmittelbar angerechnet; späterer Verbrauch hebt
+die Gutschrift nicht auf. Der Nullbestands-Sonderpfad B8122 (Bytes
+45 89 94 8E A0 B2 79 03) aktualisiert Verlustmetadaten auf null, bevor Vanilla
+seinen möglicherweise transient negativen Gesamtwert auf null setzt. Eine
+gesonderte native Datenfreigabe lässt diese Marker im Baselineversuch ohne
 verwalteten Aufruf passieren. Während der Originalausführung von `3EC90` werden
 diese Abschlüsse ausgelassen: dessen eigene erfolgreichen Käufe löschen ihren
 Wunsch selbst und zählen nicht als vermiedene Käufe. Der zusätzliche Versuch
-`MARKET_TERMINAL_SUPPLY_PASS` verlangt einen frischen nativen Auftrag, volle
-physische Lieferung und unmittelbaren Verbrauch unter derselben Simulationssperre.
+`MARKET_TERMINAL_SUPPLY_PASS` verlangt einen frischen nativen Auftrag, Teilzugang, Teilverbrauch, Restlieferung
+und unmittelbaren Restverbrauch unter derselben Simulationssperre.
+
+## Automatische Steinmunition
+
+D5791 bleibt kein allgemeines Zehnerpaket. D5710 benötigt atomar zehn Stein
+für zwanzig Schuss. Bei neun vorhandenen Steinen fehlt für diesen Vorgang nur
+einer. Nur die fünf belegten automatischen Aufrufer werden zugeordnet:
+Rücksprung-RVAs 153057, 153156, 1542C6, 1543C7 und 18FD8A. Ihre CALL-Ziele
+werden gegen D5710 geprüft. Der Prolog D5710 (48 89 5C 24 08 57 48 83 EC 30)
+belegt den Rücksprung auf Original-RSP+38h; D572B (48 63 DA) belegt die
+Einheiten-ID aus EDX im an D5791 erhaltenen RBX. Der Relayrahmen liegt 128 Byte
+darunter. Der manuelle Tailjump aus 18AE0 hat keinen Leer-Munition-Guard und
+ist ausdrücklich keine zugeordnete automatische Quelle.
+
+Öffentlicher UnitAccess-Lookup mit 1-basierter ID liefert eine unmittelbare Sicht.
+Global-ID, Erzeugungstick und Eigentümer sichern die Identität innerhalb der
+Sitzung. GameUnit-Größe490 und die öffentlichen Felder Alive88, Owner92,
+GlobalId94, Creation98, Todesmarker29C und Munitionswort35E werden gegen das
+installierte SDK-Layout geprüft (hexadezimale Werte). Munition ist ein signiertes
+16-Bit-Wort über beide benachbarten SDK-Bytes, kein einzelnes Byte. Ein positiver
+Munitionswert oder das Ende der Ursprungseinheit beendet den alten Bedarf.
+Solange diese Einheit leer ist, gilt max(0,10-aktuellerSteinbestand).
+Ein inzwischen aufgebrauchter Lagerzugang darf hier wieder Bedarf erzeugen,
+weil der automatische Verbraucher nur volle zehn Stein verwenden kann.
+Unbekannte/manuelle Quellen überschreiben alte Zuordnung ohne neue zu erfinden.
+Details und Widerlegungsfälle: Findings/AllGoodsRecruitFoodAudit.md.
 
 Alle Hooks bleiben prozessweit veröffentlicht; nur Daten-Gates wechseln. Kein
 Pattern-Fallback bei unbekanntem Hash: Datenlayout und konkrete Schreibersemantik

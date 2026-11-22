@@ -86,6 +86,7 @@ internal static class Program
                 RunSite(dll, site, log);
             }
             WriterRelayTests.Run(dll, log, Check);
+            AmmoDemandSourceTests.Run(dll, Check);
             Check(NativePatchGuard.Recheck() == 0, "published copies are not reported as overwritten");
         }
         catch (Exception error)

@@ -170,8 +170,6 @@ namespace AIMarketOverbuyDiagnostic
                     int tick = run.InSimulation(mission, slice);
                     if (phase == 2 && GiftUnits == 0 && clock.Elapsed.TotalSeconds >= controlSeconds + stressSeconds * (2.0 / 3.0))
                         run.InSimulation(mission, () => TryGiftTrackedEquipment(mission, actors));
-                    if (MarketAutomation.Scenario == "market-backlog-fixed" && GiftUnits > 0 && TerminalProbeTick == 0)
-                        run.InSimulation(mission, () => TryTerminalSupplyProbe(mission));
                     if (!tickSeen || tick != previousTick) { progressAt = clock.Elapsed.TotalSeconds; previousTick = tick; tickSeen = true; }
                     if (clock.Elapsed.TotalSeconds - progressAt >= 120) throw new InvalidOperationException("Backlog experiment native clock stalled.");
                     goodIndex = (goodIndex + 1) % goods.Length;
@@ -260,10 +258,16 @@ namespace AIMarketOverbuyDiagnostic
         // delivery, then fulfill and consume the rest without an intervening AI run.
         private static unsafe bool TryTerminalSupplyProbe(MissionContext mission)
         {
+            for (int good = (int)eGoods.STORED_BOWS; good <= (int)eGoods.STORED_METAL_ARMOUR; good++)
+                if (TryTerminalSupplyProbeForGood(mission, GiftPlayer, good)) return true;
+            return false;
+        }
+
+        private static unsafe bool TryTerminalSupplyProbeForGood(MissionContext mission, int player, int good)
+        {
             var players = GamePlayerManagerAPI.Instance;
-            int player = GiftPlayer, good = GiftGood;
-            if (player <= 0 || !MarketPendingDemandFix.TryGetTrackedRequest(player, good, out int amount) || amount <= 1 ||
-                !MarketPendingDemandFix.TryGetProvenance(player, good, out int sourceTick, out long sourceSequence, out int target) || target <= 0 ||
+            if (player <= 0 || !MarketPendingDemandFix.TryGetTrackedRequest(player, good, out int amount, true) || amount <= 1 ||
+                !MarketPendingDemandFix.TryGetProvenance(player, good, out int sourceTick, out long sourceSequence, out int target, true) || target <= 0 ||
                 sourceTick <= GiftTick || players.GetGoodAmount(player, (eGoods)good) != 0) return false;
             if (!players.TryGetPlayerResourcesById(player, out GamePlayerResources* resources) || resources == null) return false;
             int* pending = (int*)&resources->r_AIPendingMarketPurchaseAmountNull;
@@ -294,7 +298,7 @@ namespace AIMarketOverbuyDiagnostic
                 int afterGold = players.GetPlayerGold(player);
                 Record(tick, player, good, supplied, remaining, gold, afterGold);
                 if (remaining != 0 || afterConsumptionPending != 0 || afterGold != gold ||
-                    MarketPendingDemandFix.TryGetTrackedRequest(player, good, out _))
+                    MarketPendingDemandFix.TryGetTrackedRequest(player, good, out _, true))
                     throw new InvalidOperationException("Immediate consumption reopened an already fulfilled package.");
                 TerminalProbeTick = tick;
                 Shared.DevDiag.Log(() => "MARKET_TERMINAL_SUPPLY_PASS run=" + MarketAutomation.RunId +
@@ -348,7 +352,7 @@ namespace AIMarketOverbuyDiagnostic
                         {
                             MarketPendingDemandFix.EnableAfterGift();
                             Shared.DevDiag.Log(() => "MARKET_STALE_FIX_ENABLED run=" + MarketAutomation.RunId +
-                                " nativeTick=" + tick + " scope=native40740-empty-stock-equipment originalTargetRetained=True");
+                                " nativeTick=" + tick + " scope=source-aware-all-goods matchedGiftSource=native40740 deliveryCreditRetained=True");
                         }
                         return true;
                     }
@@ -417,6 +421,10 @@ namespace AIMarketOverbuyDiagnostic
             {
                 if (!SimulationClock.TryGetCurrentTick(activeMission, out int tick))
                     throw new InvalidOperationException("Backlog simulation tick belongs to another mission.");
+                // Tick context observes short-lived true orders that a 250-ms UI
+                // poll can miss. The original matched gift remains unchanged.
+                if (MarketAutomation.Scenario == "market-backlog-fixed" && GiftUnits > 0 && TerminalProbeTick == 0)
+                    TryTerminalSupplyProbe(activeMission);
                 var players = GamePlayerManagerAPI.Instance;
                 for (int player = 1; player < targetActors.Length; player++)
                 {

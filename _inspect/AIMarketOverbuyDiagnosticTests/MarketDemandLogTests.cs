@@ -20,10 +20,12 @@ internal static class MarketDemandLogTests
             SourceStock = int.MaxValue, Stock = int.MaxValue, Before = int.MaxValue,
             After = int.MaxValue, AicId = int.MaxValue, BoundaryRva = int.MaxValue,
             OriginalPackage = int.MaxValue, Credited = int.MaxValue,
-            IsMaterial = true, MaterialCost = int.MaxValue, MaterialPadding = 2
+            IsMaterial = true, MaterialCost = int.MaxValue, MaterialPadding = 2,
+            IsAmmo = false, UnitId = int.MaxValue, UnitGlobalId = uint.MaxValue,
+            UnitCreationTick = uint.MaxValue, Ammo = short.MinValue, AmmoState = 2
         };
         CultureInfo original = CultureInfo.CurrentCulture;
-        int sourceBytes, adjustmentBytes, summaryBytes, batchSourceBytes, batchAdjustmentBytes;
+        int sourceBytes, adjustmentBytes, summaryBytes, batchSourceBytes, batchAdjustmentBytes, ammoSourceBytes, ammoAdjustmentBytes;
         try
         {
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("ar-SA");
@@ -32,6 +34,9 @@ internal static class MarketDemandLogTests
             item.IsMaterial = false;
             batchSourceBytes = LineBytes(MarketDemandLog.FormatSource(item));
             batchAdjustmentBytes = LineBytes(MarketDemandLog.FormatAdjustment(item));
+            item.IsAmmo = true;
+            ammoSourceBytes = LineBytes(MarketDemandLog.FormatSource(item));
+            ammoAdjustmentBytes = LineBytes(MarketDemandLog.FormatAdjustment(item));
             summaryBytes = LineBytes(MarketDemandLog.FormatSummary(long.MaxValue, long.MaxValue,
                 long.MaxValue, long.MaxValue, long.MaxValue, long.MaxValue, long.MaxValue, long.MaxValue, long.MaxValue));
         }
@@ -41,6 +46,8 @@ internal static class MarketDemandLogTests
         Check(batchSourceBytes <= MarketDemandLog.ExampleLineBudgetBytes, "actual fixed source formatter exceeds its line budget");
         Check(batchAdjustmentBytes <= MarketDemandLog.ExampleLineBudgetBytes, "actual fixed adjustment formatter exceeds its line budget");
         Check(summaryBytes <= MarketDemandLog.SummaryLineBudgetBytes, "actual summary formatter exceeds its line budget");
+        Check(ammoSourceBytes <= MarketDemandLog.ExampleLineBudgetBytes && ammoAdjustmentBytes <= MarketDemandLog.ExampleLineBudgetBytes,
+            "actual ammo formatter exceeds its line budget");
         var goal = new MarketDemandEvidence { IsMaterial = true, MaterialCost = 20, MaterialPadding = 2,
             OriginalPackage = 5, Credited = 3, SourceStock = 17, Goal = 22, Before = 5, After = 22 };
         string material = MarketDemandLog.FormatAdjustment(goal);
@@ -58,6 +65,12 @@ internal static class MarketDemandLogTests
         string source = MarketDemandLog.FormatSource(goal);
         Check(Field(source, "cost") == "20" && Field(source, "initialSum") == null,
             "material source must identify the actual required cost");
+        goal.IsAmmo = true; goal.UnitId = 7; goal.UnitGlobalId = 81; goal.UnitCreationTick = 104;
+        goal.MaterialCost = 10; goal.Ammo = 256; goal.AmmoState = 1;
+        string ammo = MarketDemandLog.FormatAdjustment(goal);
+        Check(Field(ammo, "mode") == "A" && Field(ammo, "u") == "7/81/104" && Field(ammo, "need") == "10" &&
+            Field(ammo, "a") == "256/1" && Field(ammo, "package") == null && Field(ammo, "cost") == null,
+            "ammo example must preserve unit generation and signed ammo/result without implying batch credit");
         long additional = MarketDemandLog.EightHourAdditionalBudgetBytes(8, 23);
         Check(additional == 1110240, "eight-hour ceiling includes 2882 summaries, 368 examples and startup allowance");
         // The authoritative combined assertion uses the overview suite's live
@@ -66,6 +79,7 @@ internal static class MarketDemandLogTests
         Console.WriteLine("PASS: actual demand log formatter bytes materialSource=" + sourceBytes +
             " materialAdjustment=" + adjustmentBytes + " batchSource=" + batchSourceBytes +
             " batchAdjustment=" + batchAdjustmentBytes + " summary=" + summaryBytes +
+            " ammoSource=" + ammoSourceBytes + " ammoAdjustment=" + ammoAdjustmentBytes +
             "; additional8h=" + additional + ".");
     }
 
