@@ -46,6 +46,8 @@ namespace MultiplayerRestartTest
         private bool failureParkPending;
         private bool productionReady;
         private long nextReadyAttempt;
+        private RestartSeedHandoff seedHandoff;
+        private bool targetLoadCompleted, loadReported, seedReleasePending, sendingHeldSeed;
         private readonly HashSet<ulong> compatible = new HashSet<ulong>();
         private readonly HashSet<string> retired = new HashSet<string>(StringComparer.Ordinal);
         private string session, digest, settingsHash, notice = "Restart.NoMission";
@@ -68,14 +70,14 @@ namespace MultiplayerRestartTest
         {
             Main(); if (initialized) return;
             api = ApiShared.ForMod(RestartPlugin.Guid);
-            messages = api.Network.RegisterMessage<RestartWire>("restart-v2", Receive,
+            messages = api.Network.RegisterMessage<RestartWire>("restart-v3", Receive,
                 new MessageChannelOptions<RestartWire> { Snapshot = p => p?.Copy(), MaximumBodyBytes = 512,
                     Diagnostic = d => Report("TRANSPORT " + d.Reason) });
             if (!api.Ui.TryRegisterBeforeRender("restart-transition", Tick, out frame, out string reason)) throw new InvalidOperationException(reason);
             if (!api.TryGetMissionLifecycle(out lifecycle, out var diagnostic)) throw new InvalidOperationException(diagnostic.Reason);
             if (!lifecycle.TryRegisterObserver("restart-session", Started, Ended, Initializing, out diagnostic)) throw new InvalidOperationException(diagnostic.Reason);
-            if (!IngameMenuActions.TryRegister(RestartPlugin.Guid, "restart", MenuState, Confirm,
-                new IngameMenuActionOptions(IngameMenuRow.RestartMission, IngameMenuSlot.Right, replaceVanilla: true), out menu, out reason))
+            if (!IngameMenuActions.TryOverrideVanillaAction(RestartPlugin.Guid, "restart", IngameMenuRow.RestartMission,
+                VanillaRestartEnabled, Confirm, out menu, out reason))
                 throw new InvalidOperationException(reason);
             foreach (var operation in new[] { MissionOverOperation.State, MissionOverOperation.Text })
                 if (!MissionOverEvents.TryRegister(operation, RestartPlugin.Guid, "transition-" + operation,
@@ -95,6 +97,8 @@ namespace MultiplayerRestartTest
                 new HarmonyMethod(typeof(RestartRuntime), nameof(AfterLaunch)));
             harmony.Patch(AccessTools.Method(typeof(Platform_Multiplayer), "StartSave"),
                 new HarmonyMethod(typeof(RestartRuntime), nameof(BeforeSave)));
+            harmony.Patch(AccessTools.Method(typeof(Platform_Multiplayer), "SendPacketToAll", new[] { typeof(Platform_Multiplayer.MPData), typeof(bool) }),
+                new HarmonyMethod(typeof(RestartRuntime), nameof(BeforePacketSend)));
             if (!api.TryGetMissionPlayStateReadiness(out var playState, out diagnostic) ||
                 !playState.TryRegisterObserver("restart-first-state", PlayStateReady, out diagnostic))
                 throw new InvalidOperationException(diagnostic.Reason);
@@ -102,7 +106,7 @@ namespace MultiplayerRestartTest
                 throw new InvalidOperationException(reason);
             initialized = true;
             SmokeAutomation.TryStart(api, log, Report);
-            Report("INITIALIZED version=0.1.3 barrierInstalled=" + StopBarrier.Installed + "; new games only; install identical package on every peer.");
+            Report("INITIALIZED version=0.1.4 barrierInstalled=" + StopBarrier.Installed + "; new games only; install identical package on every peer.");
         }
         private int transitionCommitted;
         private int suppressSourcePresentation;
@@ -138,7 +142,23 @@ namespace MultiplayerRestartTest
             var runtime = RestartPlugin.Runtime;
             if (runtime == null || !runtime.initialized) return;
             runtime.Capture(MPSetupData, map, coopTrailID, coopMissionID);
+            if (runtime.Active) runtime.targetLoadCompleted = true;
             runtime.frame.Request();
+        }
+        private static bool BeforePacketSend(Platform_Multiplayer.MPData data, bool instantMessage)
+        {
+            var runtime = RestartPlugin.Runtime;
+            if (data == null || data.packetType != (short)Enums.MPFlags.InitialSeedPacket ||
+                runtime == null || !runtime.Active || !runtime.targetLoadEntered ||
+                !runtime.protocol.IsHost || runtime.sendingHeldSeed) return true;
+            runtime.Main();
+            try {
+                if (runtime.protocol.Phase != RestartPhase.Starting)
+                    throw new InvalidOperationException("Target seed outside the authorized launch phase.");
+                runtime.seedHandoff.Hold(data, instantMessage);
+                runtime.Report("TARGET_SEED_HELD");
+                return false;
+            } catch (Exception error) { runtime.Fail("Target seed capture failed: " + error.Message); throw; }
         }
         private static void BeforeSave()
         {
@@ -248,12 +268,12 @@ namespace MultiplayerRestartTest
             }))
                 Report("Production readiness dispatch unavailable.");
         }
-        private IngameMenuActionState MenuState()
+        private bool? VanillaRestartEnabled()
         {
-            bool visible = initialized && lifecycle?.Current?.Mode.IsRealMultiplayer == true && CurrentHost() == self;
-            string reason = Eligible();
-            return new IngameMenuActionState(RestartText.Get("Restart.Label"), visible, visible && reason == null,
-                reason ?? RestartText.Get("Restart.Help"));
+            if (!initialized) return null;
+            if (Active || StopBarrier.Requested) return false;
+            if (lifecycle?.Current?.Mode.IsRealMultiplayer != true) return null;
+            return CurrentHost() == self && Eligible() == null;
         }
         private string Eligible()
         {
@@ -299,6 +319,8 @@ namespace MultiplayerRestartTest
             stopped = localPublished = restored = verified = lobbyCreated = allowStart = cancellationHandled = recoveryPending = failureParkPending = false;
             targetLobby = 0; nextCompletionRetry = 0;
             nextReadyAttempt = 0;
+            seedHandoff = new RestartSeedHandoff();
+            targetLoadCompleted = loadReported = seedReleasePending = sendingHeldSeed = false;
         }
         private void Receive(NetworkMessage<RestartWire> message)
         { try { ReceiveCore(message); } catch (Exception error) { Fail(error.ToString()); } }
@@ -365,6 +387,7 @@ namespace MultiplayerRestartTest
             // Client completion is cached before its acknowledgement is sent. A send error
             // may still Abort this exact target via the retained old control context.
             if ((step.Effects & RestartEffect.CompletedLocal) != 0) PromoteCompletion();
+            if ((step.Effects & RestartEffect.ReleaseSeed) != 0) seedReleasePending = true;
             foreach (var p in step.Outbound)
                 foreach (ulong peer in attemptPeers ?? snapshot.HumanIds) if (peer != self) Send(peer, new RestartWire { Packet = p });
             if ((step.Effects & RestartEffect.PrepareLocal) != 0)
@@ -460,6 +483,29 @@ namespace MultiplayerRestartTest
                     Apply(protocol.PublishLobby(targetLobby, Now)); // CreateLobbyResult's flush already returned.
                 }
                 if (protocol.Phase == RestartPhase.Joining) VerifyLobby();
+                // This runs after FRONT_Multiplayer.Update has returned, including its
+                // Director.StartMultiplayerGame queue reset. A StartGame postfix alone
+                // is too early to announce that it is safe to send the one-shot seed.
+                if (protocol.Phase == RestartPhase.Starting && targetLoadCompleted && !loadReported)
+                {
+                    if (pendingLaunch == null || targetState.TargetSessionId == 0 ||
+                        !Director.instance.MultiplayerGame || Director.instance.SimRunning)
+                    { Fail("Target load handoff is incomplete or simulation started before its seed."); return; }
+                    loadReported = true;
+                    Report("TARGET_LOADED target=" + targetState.TargetSessionId);
+                    Apply(protocol.LocalTargetLoaded(Now));
+                }
+                if (seedReleasePending)
+                {
+                    if (!protocol.IsHost || protocol.Phase != RestartPhase.Starting || !loadReported ||
+                        CurrentHost() != host || !protocol.RosterMatches(Roster()))
+                    { Fail("Target seed handoff lost its launch authority or roster."); return; }
+                    var seed = seedHandoff.Take(); seedReleasePending = false;
+                    sendingHeldSeed = true;
+                    try { Platform_Multiplayer.Instance.SendPacketToAll(seed, seedHandoff.InstantMessage); }
+                    finally { sendingHeldSeed = false; }
+                    Report("TARGET_SEED_SENT allPeersLoaded=true");
+                }
                 if (targetLoadEntered && Volatile.Read(ref gameOverSignal) != 0)
                 { Fail("Target mission entered game-over during restart."); return; }
                 if (simulationReported && (CurrentHost() != host || !protocol.RosterMatches(Roster())))
@@ -571,6 +617,7 @@ namespace MultiplayerRestartTest
         {
             if (cancellationHandled) return;
             cancellationHandled = true;
+            seedHandoff?.Discard(); seedReleasePending = false;
             bool committed = protocol.IsCommitted;
             notice = "Restart.Failed";
             if (protocol.Operation != null) retired.Add(protocol.Operation);

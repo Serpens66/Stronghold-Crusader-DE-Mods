@@ -7,34 +7,42 @@ using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
+using SHCDESE.API.LowLevel;
 using SHCDESE.Interop.Enums;
+using Shared;
 using UnityEngine;
 using Position = System.Numerics.Vector3;
+using Axis = System.Numerics.Vector2;
 
 namespace ProjectileTrailsTest
 {
-    [BepInPlugin(Guid, "Extreme Troops Projectile Trails Test", "0.1.0")]
+    [BepInPlugin(Guid, "Extreme Troops Projectile Trails Test", "0.1.3")]
     [BepInDependency("000shcdese", "2.14.4")]
     [BepInDependency("APIShared_Serp", "0.62.0")]
     public sealed partial class Plugin : BaseUnityPlugin
     {
         internal const string Guid = "ProjectileTrailsTest_Serp";
-        // Native launch subtype 0x5B becomes an ArcherArrow, uses this render file,
-        // and retains its kind-1 Vanilla trail (see EXTREME_TROOPS.md).
-        private const int KindOneArrowSpriteFile = 0x91;
+        private const int WideProjectileLimit = TrailBuffer.WideProjectileLimit;
+        private const int ProjectileLayerDelay = 1;
+        private const float NativeHeightScale = 32f;
         private static ManualLogSource log;
         private static ConfigEntry<bool> enabledSetting;
         private static ModApiClient api;
         private static IMissionLifecycleCapability missions;
         private static IUiFrameWorkRegistration frame;
-        private static TrailBuffer history;
+        private static NativeFlightSamples native;
         private static TrailMeshes meshes;
+        private static readonly TrailBuffer history = new TrailBuffer();
+        private static bool clockKnown;
         private static GameMap map;
         private static Camera camera;
         private static Matrix4x4 cameraMatrix;
         private static Enums.Dircs rotation;
-        private static long session;
-        private static bool initialized, ready, renderingEnabled, dirty, firstVisible;
+        private static long session, lastHead;
+        private static uint lastTick;
+        private static int sortLayer, objectLayer;
+        private static Axis axisX, axisY;
+        private static bool initialized, ready, renderingEnabled, styleKnown, firstVisible;
         private static volatile bool failed;
 
         internal static bool SessionExtreme { get; private set; }
@@ -47,6 +55,7 @@ namespace ProjectileTrailsTest
                 if (renderingEnabled == value) return;
                 renderingEnabled = value;
                 ResetView();
+                RefreshCapture();
             }
         }
 
@@ -55,16 +64,29 @@ namespace ProjectileTrailsTest
             if (initialized) return;
             initialized = true;
             log = Logger;
-            enabledSetting = Config.Bind("Display", "Enabled", true, "Draw local arrow and bolt trails in Extreme Troops.");
+            enabledSetting = Config.Bind("Display", "Enabled", true, "Draw local fading arrow and bolt afterimages in Extreme Troops.");
             api = ApiShared.ForMod(Guid);
+            CrusaderLibrary.Instance.LibraryLoaded += LibraryLoaded;
             api.WhenReady(_ =>
             {
                 if (!api.Ui.TryPost(Initialize)) Fail("Unity dispatch unavailable");
             });
         }
 
+        private static void LibraryLoaded(CrusaderLibraryLoadContext context)
+        {
+            try
+            {
+                // Root the buffer and hook before publication, even if the backend later reports failure.
+                native = new NativeFlightSamples(context, log);
+                native.Install(context);
+            }
+            catch (Exception ex) { Fail(ex.ToString()); }
+        }
+
         private static void Initialize()
         {
+            if (failed) return;
             try
             {
                 var add = typeof(GameMap).GetMethod(nameof(GameMap.addUpdateFly), new[] {
@@ -72,10 +94,8 @@ namespace ProjectileTrailsTest
                     typeof(int), typeof(int), typeof(int), typeof(int), typeof(int), typeof(int),
                     typeof(int), typeof(int)
                 });
-                var remove = typeof(GameMap).GetMethod(nameof(GameMap.deleteFly), new[] { typeof(Fly), typeof(bool) });
                 var flies = typeof(GameMap).GetField("flies", BindingFlags.Instance | BindingFlags.NonPublic);
-                if (add == null || add.IsStatic || add.ReturnType != typeof(void) || remove == null ||
-                    remove.IsStatic || remove.ReturnType != typeof(void) ||
+                if (add == null || add.IsStatic || add.ReturnType != typeof(void) ||
                     flies?.FieldType != typeof(Dictionary<int, Fly>))
                     throw new InvalidOperationException("GameMap projectile presentation contract changed.");
                 var arguments = add.GetParameters();
@@ -87,17 +107,15 @@ namespace ProjectileTrailsTest
                     throw new InvalidOperationException(reason);
                 if (!api.TryGetMissionLifecycle(out missions, out var diagnostic))
                     throw new InvalidOperationException(diagnostic.Reason);
-                history = new TrailBuffer();
                 meshes = new TrailMeshes();
                 renderingEnabled = enabledSetting.Value;
-                var harmony = new Harmony(Guid);
-                // APIShared's IL edit for the popularity popup stays in the original body.
-                harmony.Patch(add, postfix: new HarmonyMethod(typeof(Plugin), nameof(AfterAdd)));
-                harmony.Patch(remove, postfix: new HarmonyMethod(typeof(Plugin), nameof(AfterRemove)));
+                // APIShared's popularity-popup IL edit stays in the original body.
+                new Harmony(Guid).Patch(add, postfix: new HarmonyMethod(typeof(Plugin), nameof(AfterAdd)));
                 if (!missions.TryRegisterObserver("flight-trail-mission", MissionChanged, MissionChanged, null, out diagnostic))
                     throw new InvalidOperationException(diagnostic.Reason);
                 enabledSetting.SettingChanged += (_, __) => api.Ui.TryPost(() => TrailRenderingEnabled = enabledSetting.Value);
                 ready = true;
+                SynchronizeMission();
                 WriteInfo("ready");
                 InitializeAllocationCounters();
                 StartAutomation(api);
@@ -121,72 +139,57 @@ namespace ProjectileTrailsTest
             session = next;
             SessionExtreme = false;
             firstVisible = false;
-            if (current == null || current.IsEditor) return;
+            if (current == null) return;
             try
             {
+                if (NativePatchGuard.Recheck() != 0)
+                    throw new InvalidOperationException("Afterimage observer was overwritten.");
+                if (current.IsEditor) return;
                 SessionExtreme = EngineInterface.getMultiplayerStartingData().extreme_troops != 0;
+                RefreshCapture();
                 WriteInfo($"mission {session} extreme={SessionExtreme} enabled={renderingEnabled}");
             }
             catch (Exception ex) { Fail(ex.ToString()); }
         }
 
-        private static void AfterAdd(GameMap __instance, int __0, int __6, int __11, Dictionary<int, Fly> ___flies)
+        private static void AfterAdd(GameMap __instance, int __0, int __1, int __2, int __3, int __4,
+            float __5, int __6, int __7, int __9, int __10, int __11, Dictionary<int, Fly> ___flies)
         {
-            if (!ready || failed || !SessionExtreme || !renderingEnabled || !TrailBuffer.IsBodySlot(__0)) return;
+            if (!ready || failed || __0 <= 0 || __0 >= WideProjectileLimit) return;
+            TraceVanilla(__0, __1, __2, __3, __4, __5, __6, __7, __9, __10, __11, ___flies);
+            if (!SessionExtreme || !renderingEnabled || styleKnown ||
+                (__11 != (int)ProjectileType.ArcherArrow && __11 != (int)ProjectileType.CrossbowBolt &&
+                 __11 != (int)ProjectileType.UnkMissile24)) return;
             try
             {
-                if ((__11 != (int)ProjectileType.ArcherArrow && __11 != (int)ProjectileType.CrossbowBolt) ||
-                    __6 == KindOneArrowSpriteFile)
-                {
-                    if (history.Remove(__0)) Invalidate();
-                    return;
-                }
-
-                if (!PrepareView(__instance)) return;
-                if (!___flies.TryGetValue(__0, out var fly) || fly.sprRenderer == null)
-                {
-                    if (history.Remove(__0)) Invalidate();
-                    return;
-                }
+                if (!___flies.TryGetValue(__0, out var fly) || fly.sprRenderer == null) return;
                 var sprite = fly.sprRenderer;
-                Vector3 world = sprite.transform.position;
-                long sort = BatchBudget.Key(sprite.sortingLayerID, sprite.sortingOrder);
-                bool changed = history.Observe(__0, fly, __11, sort, new Position(world.x, world.y, world.z));
-                TraceObservation(__0, world, changed);
-                if (changed)
-                    Invalidate();
+                Matrix4x4 transform = sprite.transform.localToWorldMatrix;
+                float flipX = sprite.flipX ? -1f : 1f;
+                float flipY = sprite.flipY ? -1f : 1f;
+                axisX = new Axis(transform.m00 * flipX, transform.m10 * flipX);
+                axisY = new Axis(transform.m01 * flipY, transform.m11 * flipY);
+                sortLayer = sprite.sortingLayerID;
+                objectLayer = sprite.gameObject.layer;
+                styleKnown = true;
             }
             catch (Exception ex) { Fail(ex.ToString()); }
         }
 
-        private static void AfterRemove(GameMap __instance, Fly __0)
+        private static void RestartCapture(bool active)
         {
-            if (!ready || failed || __0 == null || !ReferenceEquals(map, __instance)) return;
-            if (history.Remove(__0.objectID)) Invalidate();
+            lastHead = native?.Head ?? 0;
+            native?.Reset(active);
+            history.Clear();
+            clockKnown = false;
+            HideMesh();
         }
 
-        private static bool PrepareView(GameMap current)
+        private static void RefreshCapture()
         {
-            if (current == null || current.pendingRotationtriggered)
-            {
-                if (map != null) ResetView();
-                return false;
-            }
-            var currentRotation = current.CurrentRotation();
-            if (!ReferenceEquals(map, current) || rotation != currentRotation)
-            {
-                ResetView();
-                map = current;
-                rotation = currentRotation;
-            }
-            return true;
-        }
-
-        private static void Invalidate()
-        {
-            if (dirty) return;
-            dirty = true;
-            frame.Request();
+            bool active = !failed && session != 0 && SessionExtreme && renderingEnabled;
+            RestartCapture(active);
+            frame?.SetContinuous(active);
         }
 
         private static void BeforeRender()
@@ -196,32 +199,73 @@ namespace ProjectileTrailsTest
                 ResetView();
                 return;
             }
-            if (!SessionExtreme || !renderingEnabled || map == null) return;
+            if (!SessionExtreme || !renderingEnabled || native == null) return;
             try
             {
-                if (!PrepareView(GameMap.instance)) return;
+                GameMap currentMap = GameMap.instance;
+                if (currentMap == null || currentMap.pendingRotationtriggered)
+                {
+                    if (native.Generation != 0) RestartCapture(false);
+                    map = null;
+                    return;
+                }
+
+                var currentRotation = currentMap.CurrentRotation();
+                if (map != currentMap || rotation != currentRotation)
+                {
+                    if (map != null || native.Generation == 0) RestartCapture(true);
+                    map = currentMap;
+                    rotation = currentRotation;
+                }
+                if (!styleKnown) return;
+
+                long head = native.Head;
+                if (head == lastHead && history.Count == 0) return;
+                uint tick = native.Tick;
+                if (clockKnown && unchecked(tick - lastTick) > int.MaxValue)
+                {
+                    RestartCapture(true);
+                    return;
+                }
+                if (!clockKnown || lastTick != tick)
+                {
+                    meshes.SetTick(tick);
+                    lastTick = tick;
+                    clockKnown = true;
+                }
+
+                bool changed = history.Expire(tick);
+                long oldest = Math.Max(lastHead + 1, head - NativeFlightSamples.Capacity + 1);
+                int epoch = native.Generation;
+                for (long sequence = oldest; sequence <= head; sequence++)
+                {
+                    if (!native.TryRead(sequence, epoch, out var sample))
+                    {
+                        lastHead = sequence;
+                        continue;
+                    }
+                    uint age = unchecked(tick - sample.Tick);
+                    if (age > int.MaxValue) break; // The next snapshot publishes this later tick.
+                    lastHead = sequence;
+                    if (age < TrailBuffer.Lifetime) changed |= AddEcho(sample);
+                }
+
                 Camera current = Camera.main;
                 if (current == null)
                 {
-                    meshes.Hide();
-                    camera = null;
-                    LastSegmentCount = 0;
-                    frame.SetContinuous(history.HasSegments);
+                    HideMesh();
                     return;
                 }
                 Matrix4x4 matrix = current.cullingMatrix;
-                if (!dirty && camera == current && cameraMatrix.Equals(matrix)) return;
-                dirty = false;
+                if (!changed && camera == current && cameraMatrix.Equals(matrix)) return;
                 camera = current;
                 cameraMatrix = matrix;
+
                 long allocatedBefore = 0;
                 SampleMeshAllocation(ref allocatedBefore);
-                LastSegmentCount = meshes.Draw(history, current);
+                LastSegmentCount = meshes.Publish(history, current, axisX, axisY);
                 RecordMeshAllocation(allocatedBefore);
                 TracePublish(current);
-                // Continue checking camera movement only while the last publish
-                // can contain trails. Mesh uploads depend on actual changes.
-                frame.SetContinuous(history.HasSegments);
                 if (!firstVisible && LastSegmentCount > 0)
                 {
                     firstVisible = true;
@@ -235,21 +279,53 @@ namespace ProjectileTrailsTest
             }
         }
 
+        private static bool AddEcho(NativeFlightSamples.EntrySample sample)
+        {
+            const int unitsPerTile = 8;
+            if (sample.X < 0 || sample.Y < 0 || sample.Frame == 0) return false;
+            map.mapGameTileToTilemapCoord(sample.X / unitsPerTile, sample.Y / unitsPerTile, out int x, out int y);
+            if (map.getMapTile(x, y) == null) return false;
+            int appearance = meshes.GetAppearance(sample.File, sample.Frame);
+            if (appearance < 0) return false;
+
+            native.Subtile(sample.X, sample.Y, rotation, out int subX, out int subY);
+            var position = map.getSpritePosVector(x, y, subX, subY, sample.Slot);
+            position.y += sample.Height / NativeHeightScale;
+            int row = map.getRow(x, y, ProjectileLayerDelay);
+            var echo = new TrailBuffer.Sample
+            {
+                Appearance = appearance,
+                SortKey = TrailBuffer.Key(sortLayer, -20000 + row * 49 + 15),
+                ObjectLayer = objectLayer,
+                Position = new Position(position.x, position.y, position.z),
+                Tick = sample.Tick,
+                SourceSlot = sample.Slot
+            };
+            RememberEchoDetails(ref echo, sample, x, y, subX, subY);
+            history.Append(echo);
+            return true;
+        }
+
+        private static void HideMesh()
+        {
+            meshes?.Hide();
+            camera = null;
+            LastSegmentCount = 0;
+        }
+
         private static void ResetView()
         {
-            history?.Clear();
-            meshes?.Hide();
+            RestartCapture(false);
             frame?.SetContinuous(false);
             map = null;
-            camera = null;
-            dirty = false;
-            LastSegmentCount = 0;
+            styleKnown = false;
         }
 
         private static void Fail(string reason)
         {
             if (failed) return;
             failed = true;
+            native?.Reset(false);
             frame?.Request();
             log.LogError($"[{DateTime.Now:HH:mm:ss.fff}] ProjectileTrailsTest disabled. {reason}");
         }
@@ -261,7 +337,9 @@ namespace ProjectileTrailsTest
         static partial void InitializeAllocationCounters();
         static partial void SampleMeshAllocation(ref long allocated);
         static partial void RecordMeshAllocation(long before);
-        static partial void TraceObservation(int id, Vector3 position, bool changed);
+        static partial void TraceVanilla(int id, int x, int y, int subX, int subY, float height, int file,
+            int image, int transparency, int layerDelay, int kind, Dictionary<int, Fly> flies);
+        static partial void RememberEchoDetails(ref TrailBuffer.Sample echo, NativeFlightSamples.EntrySample sample, int x, int y, int subX, int subY);
         static partial void TracePublish(Camera current);
     }
 }

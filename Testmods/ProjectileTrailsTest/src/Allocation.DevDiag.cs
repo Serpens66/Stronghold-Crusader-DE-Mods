@@ -45,16 +45,44 @@ namespace ProjectileTrailsTest
             DevDiag.Count("projectileTrail.meshUploadAllocatedBytes", bytes);
         }
 
-        static partial void TraceObservation(int id, Vector3 position, bool changed)
+        static partial void TraceVanilla(int id, int x, int y, int subX, int subY, float height,
+            int file, int image, int transparency, int layerDelay, int kind, System.Collections.Generic.Dictionary<int, Fly> flies)
         {
-            if (traceVisibility && sampledPositions++ < 12)
-                WriteInfo($"sample id={id} position={position} changed={changed} hasSegments={history.HasSegments}");
+            if (!traceVisibility || kind != (int)SHCDESE.Interop.Enums.ProjectileType.AfterImage ||
+                file != (int)Enums.GM.GM_BODY_MISSILE) return;
+            referenceFlies = flies;
+            referenceIds.Add(id);
+            if (sampledPositions++ >= 260) return;
+            WriteInfo(FormattableString.Invariant(
+                $"reference tick={native.Tick} id={id} tile={x},{y} sub={subX},{subY} height={height} file={file} frame={image} t={transparency} delay={layerDelay} order={flies[id].sprRenderer.sortingOrder}"));
+        }
+
+        static partial void RememberEchoDetails(ref TrailBuffer.Sample echo, NativeFlightSamples.EntrySample sample,
+            int x, int y, int subX, int subY)
+        {
+            if (!traceVisibility) return;
+            echo.TileX = x;
+            echo.TileY = y;
+            echo.SubX = subX;
+            echo.SubY = subY;
+            echo.File = sample.File;
+            echo.Frame = sample.Frame;
+            echo.Height = sample.Height;
         }
 
         static partial void TracePublish(Camera current)
         {
-            if (traceVisibility && sampledPublishes++ < 12)
-                WriteInfo($"publish camera={current.name} position={current.transform.position} history={history.Count} hasSegments={history.HasSegments} drawn={LastSegmentCount}");
+            if (!traceVisibility) return;
+            if (sampledPublishes++ < 12)
+                WriteInfo($"publish camera={current.name} position={current.transform.position} head={lastHead} tick={lastTick} drawn={LastSegmentCount}");
+            for (int i = 0; i < LastSegmentCount && sampledPositions < 260; i++)
+            {
+                var echo = meshes.GetAccepted(i);
+                uint age = unchecked(lastTick - echo.Tick);
+                sampledPositions++;
+                WriteInfo(FormattableString.Invariant(
+                    $"echo tick={lastTick} born={echo.Tick} slot={echo.SourceSlot} tile={echo.TileX},{echo.TileY} sub={echo.SubX},{echo.SubY} height={echo.Height / NativeHeightScale} file={echo.File} frame={echo.Frame} opacity={TrailBuffer.Opacity(age)} order={(int)echo.SortKey}"));
+            }
         }
     }
 }

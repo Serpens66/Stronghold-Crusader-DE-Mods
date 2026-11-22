@@ -9,11 +9,41 @@ internal static class EditTests
     private static int checks;
     internal static int Run()
     {
-        AtomicBounds(); CoalescedQueue(); LegacyPauseMigration(); ChatMessagesStateAndSave(); ChatMessagesQueue(); PacketRoundTrip(); return checks;
+        SliderCompletion(); AtomicBounds(); CoalescedQueue(); LegacyPauseMigration(); ChatMessagesStateAndSave(); ChatMessagesQueue(); PacketRoundTrip(); return checks;
     }
     private static void Check(bool value) { checks++; if (!value) throw new Exception("Edit regression check " + checks + " failed."); }
     private static void Rule(AutoSendRule rule, int min, int max, bool enabled)
     { Check(rule.Minimum == min && rule.Maximum == max && rule.Enabled == enabled); }
+    private static void SliderCompletion()
+    {
+        var gesture = new AutoSendSliderGesture();
+        // Track clicks can change Value without an observed ValueChanged callback.
+        gesture.Begin(13); long first = gesture.Generation;
+        Check(gesture.TryComplete(first, 50, out bool submit) && submit);
+        Check(!gesture.TryComplete(first, 50, out submit) && !submit);
+        // Completion reads the final position even if the last notification lagged.
+        gesture.Begin(50); gesture.ValueChanged();
+        Check(gesture.TryComplete(gesture.Generation, 87, out submit) && submit);
+        // A clamped thumb alone must not overwrite an out-of-range textbox value.
+        gesture.Begin(100);
+        Check(gesture.TryComplete(gesture.Generation, 100, out submit) && !submit);
+        // Deliberate Home/End or dragging away and back still selects that bound.
+        gesture.Begin(100); gesture.ValueChanged();
+        Check(gesture.TryComplete(gesture.Generation, 100, out submit) && submit);
+        // A queued capture-loss callback cannot finish a subsequent drag.
+        gesture.Begin(25); first = gesture.Generation;
+        gesture.Begin(40); long second = gesture.Generation;
+        Check(!gesture.TryComplete(first, 60, out submit) && !submit);
+        Check(gesture.TryComplete(second, 75, out submit) && submit);
+        // Escape, context changes and unloading invalidate all deferred callbacks.
+        gesture.Begin(10); first = gesture.Generation; gesture.Cancel();
+        gesture.ValueChanged();
+        Check(!gesture.TryComplete(first, 80, out submit) && !submit);
+        gesture.Begin(10000);
+        Check(gesture.TryComplete(gesture.Generation, 4970, out submit) && submit);
+        gesture.Begin(30);
+        Check(gesture.TryComplete(gesture.Generation, 300, out submit) && submit);
+    }
     private static void AtomicBounds()
     {
         var state = new AutoSendState(new[] { 901 }, new[] { 100 });

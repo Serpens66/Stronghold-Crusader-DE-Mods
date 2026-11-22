@@ -1,113 +1,74 @@
 using System;
-using System.Collections.Generic;
 using System.Numerics;
 
 namespace ProjectileTrailsTest
 {
     internal sealed class TrailBuffer
     {
-        // Vanilla publishes ordinary projectile slots in this range. Shadow render IDs
-        // use a separate namespace starting at 10000.
-        internal const int SlotLimit = 6000;
-        internal const float MaximumMovement = 2f;
-        internal const float TrailLength = 0.45f;
+        internal const int WideProjectileLimit = 6000;
+        internal const int Lifetime = 10;
+        // Ten live sweeps and one sweep the producer can write during a snapshot.
+        internal const int CaptureCapacity = 1 << 17;
 
-        internal struct Trail
+        internal struct Sample
         {
-            internal object Identity;
-            internal int Kind;
+            internal int Appearance;
             internal long SortKey;
-            internal Vector3 Head;
-            internal Vector3 Tail;
-            internal bool HasSegment;
-        }
-
-        private readonly Trail[] trails = new Trail[SlotLimit];
-        private readonly int[] indices = new int[SlotLimit];
-        private readonly List<int> slots = new List<int>(SlotLimit - 1);
-        private int segmentCount;
-
-        internal int Count => slots.Count;
-        internal bool HasSegments => segmentCount != 0;
-        internal Trail Get(int index) => trails[slots[index]];
+            internal int ObjectLayer, SourceSlot;
+            internal Vector3 Position;
+            internal uint Tick;
+            internal int Visibility;
 #if SERP_DEVDIAG
-        internal int GetSlot(int index) => slots[index];
+            internal int TileX, TileY, SubX, SubY, File, Frame, Height;
 #endif
-        internal static bool IsBodySlot(int id) => id > 0 && id < SlotLimit;
-
-        internal bool Observe(int id, object identity, int kind, long sortKey, Vector3 position)
-        {
-            ref Trail current = ref trails[id];
-            if (current.Identity == null)
-            {
-                indices[id] = slots.Count;
-                slots.Add(id);
-            }
-            Vector3 delta = position - current.Head;
-            float distanceSquared = delta.LengthSquared();
-            bool hasSegment = ReferenceEquals(current.Identity, identity) && current.Kind == kind &&
-                delta.X * delta.X + delta.Y * delta.Y > 0.000001f &&
-                distanceSquared <= MaximumMovement * MaximumMovement;
-            Vector3 tail = hasSegment && distanceSquared > TrailLength * TrailLength
-                ? position - delta * (TrailLength / (float)Math.Sqrt(distanceSquared))
-                : current.Head;
-            bool dirty = current.HasSegment || hasSegment;
-            if (current.HasSegment != hasSegment) segmentCount += hasSegment ? 1 : -1;
-            current = new Trail { Identity = identity, Kind = kind, SortKey = sortKey,
-                Head = position, Tail = tail, HasSegment = hasSegment };
-            return dirty;
         }
 
-        internal bool Remove(int id)
+        private Sample[] samples = Array.Empty<Sample>();
+        private int start;
+        internal int Count { get; private set; }
+
+        internal ref Sample Get(int index) => ref samples[(start + index) & (samples.Length - 1)];
+
+        internal void Append(Sample sample)
         {
-            if (!IsBodySlot(id) || trails[id].Identity == null) return false;
-            int index = indices[id];
-            int last = slots[slots.Count - 1];
-            slots[index] = last;
-            indices[last] = index;
-            slots.RemoveAt(slots.Count - 1);
-            bool dirty = trails[id].HasSegment;
-            if (dirty) segmentCount--;
-            trails[id] = default;
-            return dirty;
+            if (Count == samples.Length)
+            {
+                var grown = new Sample[samples.Length == 0 ? 256 : checked(samples.Length * 2)];
+                for (int i = 0; i < Count; i++) grown[i] = Get(i);
+                samples = grown;
+                start = 0;
+            }
+            samples[(start + Count) & (samples.Length - 1)] = sample;
+            Count++;
+        }
+
+        internal bool Expire(uint tick)
+        {
+            int previous = Count;
+            while (Count > 0)
+            {
+                uint age = unchecked(tick - samples[start].Tick);
+                if (age < Lifetime || age > int.MaxValue) break;
+                start = (start + 1) & (samples.Length - 1);
+                Count--;
+            }
+            return Count != previous;
         }
 
         internal void Clear()
         {
-            foreach (int id in slots) trails[id] = default;
-            slots.Clear();
-            segmentCount = 0;
+            start = 0;
+            Count = 0;
         }
-    }
 
-    internal sealed class BatchBudget
-    {
-        internal const int SegmentLimit = 1024;
-        internal const int GroupLimit = 64;
-        private readonly Dictionary<long, int> groups = new Dictionary<long, int>(GroupLimit);
-
-        internal int Count { get; private set; }
-        internal int GroupCount => groups.Count;
         internal static long Key(int layer, int order) => ((long)layer << 32) | (uint)order;
 
-        internal bool TryAdd(long key, out int group)
+        internal static float Opacity(uint age)
         {
-            group = -1;
-            if (Count >= SegmentLimit) return false;
-            if (!groups.TryGetValue(key, out group))
-            {
-                if (GroupCount >= GroupLimit) return false;
-                group = GroupCount;
-                groups.Add(key, group);
-            }
-            Count++;
-            return true;
-        }
-
-        internal void Clear()
-        {
-            groups.Clear();
-            Count = 0;
+            if (age >= Lifetime) return 0;
+            uint stage = Math.Min(age / 3, 2u);
+            uint transparency = stage * 32 / 3;
+            return (32 - transparency) / 32f;
         }
     }
 }

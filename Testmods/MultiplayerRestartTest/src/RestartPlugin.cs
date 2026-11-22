@@ -4,9 +4,9 @@ using SHCDESE.API.LowLevel;
 
 namespace MultiplayerRestartTest
 {
-    [BepInPlugin(Guid, "Multiplayer Restart Test", "0.1.3")]
+    [BepInPlugin(Guid, "Multiplayer Restart Test", "0.1.4")]
     [BepInDependency("000shcdese", "2.14.0")]
-    [BepInDependency("APIShared_Serp", "0.62.1")]
+    [BepInDependency("APIShared_Serp", "0.64.0")]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class RestartPlugin : BaseUnityPlugin

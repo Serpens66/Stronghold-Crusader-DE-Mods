@@ -1,12 +1,12 @@
 {
   "GUID": "DepositRestorationTest_Serp",
   "Author": "Serpens66",
-  "Name": "Deposit Restoration Test",
-  "Description": "Restores stone and iron deposits covered by newly built walls and stairs in local games and the map editor.",
-  "Version": "0.1.0",
+  "Name": "Deposit Restoration",
+  "Description": "Restores stone and iron deposits covered by newly built walls and stairs.",
+  "Version": "0.2.0",
   "MinimumScriptExtenderVersion": "2.14.4",
   "MaximumScriptExtenderVersion": "",
-  "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.62.0" }],
+  "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.63.0" }],
   "Manifest": 1,
   "NetworkMode": 1,
   "SupportedGameVersions": ["2.8.0.2"]

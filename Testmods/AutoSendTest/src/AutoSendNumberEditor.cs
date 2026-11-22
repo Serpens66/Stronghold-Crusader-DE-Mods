@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using Noesis;
+using SHCDESE.API;
 using SHCDESE.Interop;
 
 namespace AutoSendTest
@@ -28,8 +29,9 @@ namespace AutoSendTest
         private readonly string help, invalidAmountKey;
         private readonly int minimumValue, maximumValue, sliderStep;
         private readonly Func<int, string> valueHelp;
+        private readonly AutoSendSliderGesture sliderGesture = new AutoSendSliderGesture();
         private AutoSendEditTarget target, frozen;
-        private int modelValue, draft, step = 1;
+        private int modelValue, step = 1;
         private int helpValue = int.MinValue;
         private string valueHelpText;
         private bool allowed, updating, editing, pointer, changed, textEditing, canceling;
@@ -62,33 +64,44 @@ namespace AutoSendTest
             Element = row;
             sliderTip = tooltip(Slider); boxTip = tooltip(Box); help = (string)boxTip.Content;
             SHCDESE.UI.KeyboardCaptureBinding.SetEnabled(Box, true);
-            Slider.PreviewMouseDown += (_, args) => {
-                if (args.ChangedButton != MouseButton.Left) return;
-                if (editing && textEditing) FinishText(false);
+            // The parent sees preview input before Slider's move-to-point/class
+            // handling can change Value or consume the event.
+            row.PreviewMouseDown += (_, args) => {
+                if (args.ChangedButton != MouseButton.Left || !FromSlider(args.Source)) return;
+                if (editing) { if (textEditing) FinishText(false); else FinishSlider(); }
                 Begin(false, true);
+                // A track click need not capture the mouse. Complete it after the
+                // route; a captured thumb instead waits for release.
+                ScheduleSliderFinish(true);
             };
-            Slider.PreviewMouseUp += (_, args) => { if (args.ChangedButton == MouseButton.Left && pointer) FinishSlider(); };
-            Slider.LostMouseCapture += (_, __) => { if (pointer) FinishSlider(); };
+            row.PreviewMouseUp += (_, args) => {
+                if (args.ChangedButton == MouseButton.Left && pointer) ScheduleSliderFinish(false);
+            };
+            Slider.LostMouseCapture += (_, __) => { if (pointer) ScheduleSliderFinish(true); };
             Slider.LostFocus += (_, __) => { if (editing && !textEditing && !pointer) FinishSlider(); };
-            Slider.PreviewKeyDown += (_, args) => {
+            row.PreviewKeyDown += (_, args) => {
+                if (!FromSlider(args.Source)) return;
                 if (args.Key == Key.Escape) { Cancel(); args.Handled = true; }
                 else if (SliderKey(args.Key)) Begin(false, false);
             };
-            Slider.PreviewKeyUp += (_, args) => {
-                if (!SliderKey(args.Key) || !editing || textEditing) return;
+            row.PreviewKeyUp += (_, args) => {
+                if (!FromSlider(args.Source) || !SliderKey(args.Key) || !editing || textEditing || pointer) return;
                 // Home/End explicitly select a bound even if a larger textbox value
                 // already displays its clamped thumb at that same bound.
                 if (args.Key == Key.Home || args.Key == Key.End)
-                { draft = RoundedSliderValue(Slider.Value); changed = true; }
+                    sliderGesture.ValueChanged();
                 FinishSlider();
             };
             Slider.ValueChanged += (_, args) => {
                 if (updating || !editing || textEditing) return;
-                draft = RoundedSliderValue(args.NewValue);
-                changed = true; SetText(draft);
-                if (valueHelp != null) SetHelp(HelpFor(draft));
+                int value = RoundedSliderValue(args.NewValue);
+                sliderGesture.ValueChanged(); SetText(value);
+                if (valueHelp != null) SetHelp(HelpFor(value));
             };
-            Box.GotFocus += (_, __) => { Begin(true, false); Box.SelectAll(); };
+            Box.GotFocus += (_, __) => {
+                if (editing && !textEditing) FinishSlider();
+                Begin(true, false); Box.SelectAll();
+            };
             Box.TextChanged += (_, __) => {
                 if (updating) return;
                 if (!editing) Begin(true, false);
@@ -134,13 +147,32 @@ namespace AutoSendTest
         private void Begin(bool text, bool mouse)
         {
             if (updating || !allowed || editing) return;
-            frozen = target; editing = true; textEditing = text; pointer = mouse; changed = false; draft = modelValue;
+            frozen = target; editing = true; textEditing = text; pointer = mouse; changed = false;
+            if (!text) sliderGesture.Begin(RoundedSliderValue(Slider.Value));
             SetHelp(HelpFor(modelValue));
         }
-        private void FinishSlider()
+        private void ScheduleSliderFinish(bool onlyWithoutCapture)
+        {
+            long generation = sliderGesture.Generation;
+            UnityMainThreadDispatcher.Instance.EnqueueDeferred(() => {
+                // Capture may move between children during the same input route.
+                // Old callbacks must never finish a newer gesture or a new selection.
+                if (onlyWithoutCapture && Slider.IsMouseCaptureWithin) return;
+                FinishSlider(generation);
+            });
+        }
+        private bool FromSlider(object source)
+        {
+            for (var node = source as DependencyObject; node != null; node = VisualTreeHelper.GetParent(node))
+                if (ReferenceEquals(node, Slider)) return true;
+            return false;
+        }
+        private void FinishSlider(long? generation = null)
         {
             if (!editing || textEditing) return;
-            bool send = changed; int value = draft; var captured = frozen;
+            int value = RoundedSliderValue(Slider.Value);
+            if (!sliderGesture.TryComplete(generation ?? sliderGesture.Generation, value, out bool send)) return;
+            var captured = frozen;
             editing = pointer = changed = false;
             if (send) commit(captured, value); else Restore();
         }
@@ -170,6 +202,7 @@ namespace AutoSendTest
                 // Capture release synchronously raises LostMouseCapture/DragCompleted.
                 // Clear the draft first so those callbacks cannot submit it.
                 editing = textEditing = pointer = changed = false;
+                sliderGesture.Cancel();
                 var captured = Slider.Mouse?.Captured;
                 for (DependencyObject node = captured; node != null; node = VisualTreeHelper.GetParent(node))
                     if (ReferenceEquals(node, Slider))

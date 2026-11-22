@@ -7,10 +7,10 @@ namespace MultiplayerRestartTest
     // The caller owns Unity dispatch, actual transport, native stopping and lobby validation.
     // Each instance owns exactly one attempt. Session IDs and retired operation IDs must also
     // be checked by the caller before it admits a new instance from a received Prepare.
-    internal enum RestartMessageKind { Prepare = 1, Ready, Stop, Stopped, Lobby, Joined, Start, Abort, StartAcknowledged, StreamsDrained, SimulationReady, Complete, CompleteAck }
+    internal enum RestartMessageKind { Prepare = 1, Ready, Stop, Stopped, Lobby, Joined, Start, Abort, StartAcknowledged, StreamsDrained, SimulationReady, Complete, CompleteAck, TargetLoaded }
     internal enum RestartPhase { Idle, Preparing, Stopping, Draining, WaitingLobby, Joining, Starting, Completing, Completed, Aborted, Failed }
     [Flags]
-    internal enum RestartEffect { None = 0, PrepareLocal = 1, StopLocal = 2, CreateLobby = 4, JoinLobby = 8, StartLocal = 16, Cancelled = 32, CompletedLocal = 64 }
+    internal enum RestartEffect { None = 0, PrepareLocal = 1, StopLocal = 2, CreateLobby = 4, JoinLobby = 8, StartLocal = 16, Cancelled = 32, CompletedLocal = 64, ReleaseSeed = 128 }
 
     internal sealed class RestartPacket
     {
@@ -35,12 +35,13 @@ namespace MultiplayerRestartTest
         private readonly ulong self, host;
         private readonly HashSet<ulong> peers, ready = new HashSet<ulong>(), stopped = new HashSet<ulong>(), verified = new HashSet<ulong>();
         private readonly HashSet<ulong> startAcknowledged = new HashSet<ulong>();
+        private readonly HashSet<ulong> targetLoaded = new HashSet<ulong>();
         private readonly HashSet<ulong> drained = new HashSet<ulong>(), simulationReady = new HashSet<ulong>(), completionAcknowledged = new HashSet<ulong>();
         private readonly string session, digest;
         private readonly long timeout;
         private long phaseStarted, lastClock;
         private bool localPrepared, localStopped, localVerified, localDrained, localSimulationReady;
-        private bool hostLaunchRequested;
+        private bool hostLaunchRequested, localTargetLoaded, seedReleased;
 
         internal RestartProtocol(ulong selfSteamId, ulong hostSteamId, IEnumerable<ulong> humanPeers,
             string sessionId, string snapshotDigest, long timeoutTicks)
@@ -170,9 +171,15 @@ namespace MultiplayerRestartTest
                     hostLaunchRequested = true;
                     return new RestartStep { Effects = RestartEffect.StartLocal };
                 case RestartMessageKind.SimulationReady:
-                    if (!IsHost || Phase != RestartPhase.Starting || !hostLaunchRequested || !simulationReady.Add(senderSteamId))
+                    if (!IsHost || Phase != RestartPhase.Starting || !seedReleased || !targetLoaded.Contains(senderSteamId) || !simulationReady.Add(senderSteamId))
                         return RestartStep.Reject("Unexpected or duplicate target simulation readiness.");
                     return AdvanceSimulationReady(now);
+                case RestartMessageKind.TargetLoaded:
+                    // Another client's sender stream can outrun its StartAcknowledged
+                    // receipt. Retain the load proof, but never grant host launch here.
+                    if (!IsHost || Phase != RestartPhase.Starting || !targetLoaded.Add(senderSteamId))
+                        return RestartStep.Reject("Unexpected or duplicate target load receipt.");
+                    return AdvanceTargetLoaded();
                 case RestartMessageKind.Complete:
                     if (IsHost || senderSteamId != host || Phase != RestartPhase.Starting || !localSimulationReady)
                         return RestartStep.Reject("Unexpected completion or local target simulation is not ready.");
@@ -249,11 +256,22 @@ namespace MultiplayerRestartTest
         // target PlayState and the verified native multiplayer start handoff.
         internal RestartStep LocalSimulationReady(long now)
         {
-            if (Phase != RestartPhase.Starting || localSimulationReady || (IsHost && !hostLaunchRequested))
+            if (Phase != RestartPhase.Starting || !localTargetLoaded || localSimulationReady || (IsHost && !seedReleased))
                 return RestartStep.Reject("Target readiness is not pending or host launch is not authorized.");
             RestartStep failure = CheckClock(now); if (failure != null) return failure;
             localSimulationReady = true; simulationReady.Add(self);
             return IsHost ? AdvanceSimulationReady(now) : Send(RestartMessageKind.SimulationReady);
+        }
+
+        // The runtime reports this only after the target StartGame call and its
+        // enclosing frontend update returned, before receiving the deferred seed.
+        internal RestartStep LocalTargetLoaded(long now)
+        {
+            if (Phase != RestartPhase.Starting || localTargetLoaded || (IsHost && !hostLaunchRequested))
+                return RestartStep.Reject("Target load is not pending or host launch is not authorized.");
+            RestartStep failure = CheckClock(now); if (failure != null) return failure;
+            localTargetLoaded = true; targetLoaded.Add(self);
+            return IsHost ? AdvanceTargetLoaded() : Send(RestartMessageKind.TargetLoaded);
         }
 
         // The runtime chooses its retry interval. A retry never renews the phase deadline.
@@ -313,6 +331,15 @@ namespace MultiplayerRestartTest
             Enter(RestartPhase.Completing, now);
             completionAcknowledged.Add(self);
             return Send(RestartMessageKind.Complete);
+        }
+
+        private RestartStep AdvanceTargetLoaded()
+        {
+            if (!hostLaunchRequested || !localTargetLoaded || seedReleased || targetLoaded.Count != peers.Count)
+                return new RestartStep();
+            seedReleased = true;
+            // This is an admission receipt, not completion and not a fresh deadline.
+            return new RestartStep { Effects = RestartEffect.ReleaseSeed };
         }
 
         private RestartStep AdvanceVerified(long now)

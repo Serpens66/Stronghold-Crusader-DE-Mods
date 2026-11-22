@@ -3,12 +3,20 @@
   "Author": "Serpens66",
   "Name": "Multiplayer Restart Test",
   "Description": "Experimental host-only same-mission multiplayer restart through an automatically restored private lobby. New games only; identical testmod required on every peer.",
-  "Version": "0.1.3",
+  "Version": "0.1.4",
   "MinimumScriptExtenderVersion": "2.14.0",
-  "Dependencies": [ { "GUID": "APIShared_Serp", "MinimumVersion": "0.62.1" } ],
+  "Dependencies": [ { "GUID": "APIShared_Serp", "MinimumVersion": "0.64.0" } ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.1.4",
+      "Changes": [
+        "Hold the host's one-shot start seed until every original participant has finished loading the replacement map, preventing loss to the lobby receiver and a black map.",
+        "Use the existing Vanilla Restart Mission button through APIShared's general Vanilla-action override API; clients cannot restart and no duplicate action is added.",
+        "Use restart protocol v3; every participant needs the same testmod and APIShared 0.64.0 or newer."
+      ]
+    },
     {
       "Version": "0.1.3",
       "Changes": [

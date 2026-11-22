@@ -34,15 +34,70 @@ namespace ProjectileTrailsTest
             string[] lines = File.ReadAllLines(request);
             if (lines.Length < 2) return;
             string scenario = lines[1];
+            bool green = scenario == "trails-green-standard" || scenario == "trails-green-extreme";
+            bool gpuCapacity = scenario == "trails-gpu-capacity";
+            bool mass = scenario == "trails-mass-match" || scenario == "trails-mass-gpu" || scenario == "trails-mass-gpu-off" || scenario == "trails-mass-vanilla" || scenario == "trails-mass-extreme" || scenario == "trails-mass-mod";
             bool smoke = scenario == "trails-smoke";
             bool standard = scenario == "trails-standard";
             bool archers = scenario == "trails-archers";
             bool stressOn = scenario == "trails-stress-on";
-            if (!smoke && !standard && !archers && !stressOn && scenario != "trails-stress-off") return;
+            if (!gpuCapacity && !mass && !green && !smoke && !standard && !archers && !stressOn && scenario != "trails-stress-off") return;
             if (!System.Guid.TryParseExact(lines[0], "N", out System.Guid runId) || runId == System.Guid.Empty)
                 throw new InvalidDataException("Invalid projectile-trails test run identity.");
 
             bool enabled = TrailRenderingEnabled;
+            if (gpuCapacity)
+            {
+                TrailRenderingEnabled = true;
+                File.Delete(request);
+                api.Automation.Start(runId, new[]
+                {
+                    new AutomationStep("start-capacity-map", TimeSpan.FromSeconds(110), run => StartGreen(run, true)),
+                    new AutomationStep("prepare", TimeSpan.FromSeconds(35), run => Prepare(run, true), missionBound: true),
+                    new AutomationStep("gpu-capacity", TimeSpan.FromSeconds(45), run => CheckGpuCapacity(run, runId), missionBound: true)
+                }, log, completed: _ =>
+                {
+                    if (fixtureCamera != null) fixtureCamera.AllowMove = previousCameraMovement;
+                    TrailRenderingEnabled = enabled;
+                }, quitWhenDone: true);
+                return;
+            }
+            if (mass)
+            {
+                string variant = scenario.Substring("trails-mass-".Length);
+                bool extreme = variant != "vanilla";
+                TrailRenderingEnabled = variant == "mod" || variant == "gpu" || variant == "match";
+                meshes.MatchLegacyBudget = variant == "match";
+                File.Delete(request);
+                api.Automation.Start(runId, new[]
+                {
+                    new AutomationStep("start-test-green", TimeSpan.FromSeconds(110), run => StartGreen(run, extreme)),
+                    new AutomationStep("prepare", TimeSpan.FromSeconds(35), run => Prepare(run, extreme), missionBound: true),
+                    new AutomationStep("mass-archers", TimeSpan.FromSeconds(95), run => MeasureMass(run, runId, variant), missionBound: true)
+                }, log, completed: _ =>
+                {
+                    if (fixtureCamera != null) fixtureCamera.AllowMove = previousCameraMovement;
+                    TrailRenderingEnabled = enabled;
+                }, quitWhenDone: true);
+                return;
+            }
+            if (green)
+            {
+                bool extreme = scenario == "trails-green-extreme";
+                TrailRenderingEnabled = true;
+                File.Delete(request);
+                api.Automation.Start(runId, new[]
+                {
+                    new AutomationStep("start-test-green", TimeSpan.FromSeconds(110), run => StartGreen(run, extreme)),
+                    new AutomationStep("prepare", TimeSpan.FromSeconds(35), run => Prepare(run, extreme), missionBound: true),
+                    new AutomationStep("green-flight", TimeSpan.FromSeconds(55), run => GreenFlight(run, runId, extreme), missionBound: true)
+                }, log, completed: _ =>
+                {
+                    if (fixtureCamera != null) fixtureCamera.AllowMove = previousCameraMovement;
+                    TrailRenderingEnabled = enabled;
+                }, quitWhenDone: true);
+                return;
+            }
             traceVisibility = smoke;
             TrailRenderingEnabled = scenario != "trails-stress-off";
             File.Delete(request);
@@ -129,10 +184,12 @@ namespace ProjectileTrailsTest
         private static IEnumerable<AutomationWait> CaptureArchers(AutomationRun run, System.Guid runId)
         {
             var mission = run.CurrentMission;
-            int x = -1, y = -1;
-            GameMap.instance.getRotationCentre(ref x, ref y);
-            var centre = run.InSimulation(mission, () => FindGate(new Vector2Int(x, y)));
+            // Open firing position already used by the paused comparison in this save.
+            var centre = new Vector2Int(424, 424);
             foreach (var wait in PositionCamera(run, centre, Enums.Dircs.North)) yield return wait;
+            foreach (var wait in run.ZoomStep(mission, true, _ => { })) yield return wait;
+            GamePlayerManagerAPI.Instance.SetScreenCenterToTilePosition(new System.Numerics.Vector2(centre.x, centre.y));
+            yield return run.WaitForTicks(mission, 4);
 
             var shooters = new HashSet<int>();
             int tribe = run.InSimulation(mission, () => SpawnShooters(centre, shooters));
@@ -141,19 +198,57 @@ namespace ProjectileTrailsTest
                 "The ranged group declined the ordinary Attack Here command.");
             WriteInfo($"Spawned {shooters.Count} ranged troops near tile {centre.x},{centre.y} and issued Attack Here");
             int fromShooters = 0;
-            yield return AutomationWait.Until("rendered projectiles from spawned troops", () =>
+            for (var wait = Stopwatch.StartNew(); wait.Elapsed.TotalSeconds < 10 && fromShooters < 8;)
             {
-                if (LastSegmentCount == 0) return false;
-                fromShooters = run.InSimulation(mission, () => CountShooterTrails(shooters));
-                return fromShooters >= 8;
-            });
+                yield return AutomationWait.NextFrame;
+                if (LastSegmentCount > 0)
+                    fromShooters = run.InSimulation(mission, () => CountShooterTrails(shooters));
+            }
+            if (fromShooters < 8)
+            {
+                WriteInfo($"Spawned ranged group supplied {fromShooters} observed arrows. Using a controlled volley for the paired GPU capture.");
+                TrailRenderingEnabled = false;
+                TrailRenderingEnabled = true;
+                var volley = run.InSimulation(mission, () => LaunchVolley(centre, 96, lowTrajectory: false));
+                Require(volley.arrows > 0 && volley.bolts > 0, "The controlled GPU volley was not admitted.");
+                yield return AutomationWait.Until("controlled volley rendered", () => LastSegmentCount >= 20);
+                yield return run.WaitForTicks(mission, 4);
+            }
             foreach (var wait in run.SetPause(mission, true)) yield return wait;
             Require(LastSegmentCount > 0, "No trail remained at the paused capture.");
+            var focus = FindVisibleEchoForCapture();
+            if (focus.HasValue)
+            {
+                for (int step = 0; step < 3 && Camera.main.orthographicSize > 9f; step++)
+                    foreach (var wait in run.ZoomStep(mission, true, _ => { })) yield return wait;
+                CameraControls2D.instance.setCameraPos(focus.Value.x, focus.Value.y);
+                yield return AutomationWait.NextFrame;
+                yield return AutomationWait.NextFrame;
+            }
             WriteInfo($"Spawned-troop capture: observed={fromShooters} rendered={LastSegmentCount}");
             foreach (var wait in Capture(runId, "spawned-archers-on")) yield return wait;
             TrailRenderingEnabled = false;
             yield return AutomationWait.NextFrame;
             foreach (var wait in Capture(runId, "spawned-archers-off")) yield return wait;
+        }
+
+        private static Vector2? FindVisibleEchoForCapture()
+        {
+            var current = Camera.main;
+            Vector2? focal = null;
+            float best = float.PositiveInfinity;
+            for (int i = 0; i < LastSegmentCount; i++)
+            {
+                var point = meshes.GetAccepted(i).Position;
+                var projected = current.WorldToViewportPoint(new Vector3(point.X, point.Y, point.Z));
+                if (projected.z <= 0 || projected.x < 0.2f || projected.x > 0.8f ||
+                    projected.y < 0.2f || projected.y > 0.8f) continue;
+                float distance = (projected.x - 0.5f) * (projected.x - 0.5f) + (projected.y - 0.5f) * (projected.y - 0.5f);
+                if (distance >= best) continue;
+                best = distance;
+                focal = new Vector2(point.X, point.Y);
+            }
+            return focal;
         }
 
         private static int SpawnShooters(Vector2Int centre, HashSet<int> shooters)
@@ -186,8 +281,8 @@ namespace ProjectileTrailsTest
         {
             int count = 0;
             var projectiles = GameProjectileManagerAPI.Instance;
-            for (int i = 0; i < history.Count; i++)
-                if (history.Get(i).HasSegment && shooters.Contains(projectiles.GetSourceUnit(history.GetSlot(i)))) count++;
+            for (int i = 0; i < LastSegmentCount; i++)
+                if (shooters.Contains(projectiles.GetSourceUnit(meshes.GetAccepted(i).SourceSlot))) count++;
             return count;
         }
 
@@ -283,11 +378,15 @@ namespace ProjectileTrailsTest
             using (var drawRecorder = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Draw Calls Count"))
             using (var gcRecorder = ProfilerRecorder.StartNew(ProfilerCategory.Memory, "GC Allocated In Frame"))
             {
+                foreach (var wait in run.SetPause(mission, true)) yield return wait;
                 run.InSimulation(mission, () => LaunchVolley(centre, VolleySize, lowTrajectory: false));
+                foreach (var wait in run.SetPause(mission, false)) yield return wait;
                 yield return AutomationWait.Delay(TimeSpan.FromSeconds(2));
                 for (int volley = 0; volley < 5; volley++)
                 {
+                    foreach (var wait in run.SetPause(mission, true)) yield return wait;
                     var launched = run.InSimulation(mission, () => LaunchVolley(centre, VolleySize, lowTrajectory: false));
+                    foreach (var wait in run.SetPause(mission, false)) yield return wait;
                     arrows += launched.arrows;
                     bolts += launched.bolts;
                     // The injection frame includes fixture allocations and is excluded from both variants.

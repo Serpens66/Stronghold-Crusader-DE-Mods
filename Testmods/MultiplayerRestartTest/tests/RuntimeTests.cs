@@ -30,6 +30,7 @@ internal static class RestartTestBootstrap
         StopBarrier.InstallEarly(null);
         if (!StopBarrier.Installed) throw new Exception("Actual early loop/Director hooks failed to publish.");
         Console.WriteLine("Actual early hook installation passed in desktop fixture (no game thread executed).");
+        VanillaHandshakeTests.Run();
         RuntimeReadyTests.Run();
         RuntimeContextTests.Run();
         RuntimeParkingTests.Run();
@@ -50,11 +51,11 @@ internal static class WireTests
                 LobbyId = kind == RestartMessageKind.Lobby ? 12345UL : 0 } };
             var bytes = MessagePackSerializer.Serialize(packet);
             Check(bytes[0] == 0x98 && bytes[1] == RestartWire.WireVersion, "Unexpected wire version framing.");
-            var oldVersion = (byte[])bytes.Clone(); oldVersion[1] = 1;
+            var oldVersion = (byte[])bytes.Clone(); oldVersion[1] = RestartWire.WireVersion - 1;
             bool oldRejected = false;
             try { MessagePackSerializer.Deserialize<RestartWire>(oldVersion); }
             catch (MessagePackSerializationException) { oldRejected = true; }
-            Check(oldRejected, "Protocol v1 accepted by v2 formatter.");
+            Check(oldRejected, "The previous wire version was accepted by the current formatter.");
             var copy = MessagePackSerializer.Deserialize<RestartWire>(bytes);
             Check(copy.Packet.Kind == kind && copy.Packet.Session == packet.Packet.Session && copy.Packet.Operation == packet.Packet.Operation &&
                 copy.Packet.Digest == packet.Packet.Digest && copy.Packet.LobbyId == packet.Packet.LobbyId && copy.PacketId == packet.PacketId,

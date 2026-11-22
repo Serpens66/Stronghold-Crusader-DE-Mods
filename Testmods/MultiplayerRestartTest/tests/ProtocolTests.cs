@@ -35,6 +35,7 @@ internal static class ProtocolTests
         private readonly int schedule;
         private readonly Random random;
         internal long Now = 1;
+        private readonly bool[] reportedLoads;
         internal const long Timeout = 10000;
         internal static ulong Id(int n) => (ulong)(1001 + n);
         internal Mesh(int count, int schedule)
@@ -42,12 +43,12 @@ internal static class ProtocolTests
             this.schedule = schedule; random = new Random(701 + count * 31 + schedule);
             ulong[] peers = Enumerable.Range(0, count).Select(Id).ToArray();
             Nodes = peers.Select(id => new RestartProtocol(id, peers[0], peers, Session, Digest, Timeout)).ToArray();
-            Effects = new int[count, 7]; markers = new bool[count, count];
+            Effects = new int[count, 8]; markers = new bool[count, count]; reportedLoads = new bool[count];
         }
         internal void Emit(int sender, RestartStep step)
         {
             Check(step.Accepted, "Unexpected local rejection: " + step.Rejection);
-            for (int bit = 0; bit < 7; bit++) if (((int)step.Effects & (1 << bit)) != 0) Effects[sender, bit]++;
+            for (int bit = 0; bit < 8; bit++) if (((int)step.Effects & (1 << bit)) != 0) Effects[sender, bit]++;
             if ((step.Effects & RestartEffect.CreateLobby) != 0)
             {
                 Check(sender == 0 && !Queue.Any(item => item.Old), "Lobby creation bypassed unread old peer traffic.");
@@ -73,7 +74,8 @@ internal static class ProtocolTests
             var step = Nodes[item.Recipient].Receive(Id(item.Sender), item.Packet, Now);
             bool hostOnly = item.Packet.Kind == RestartMessageKind.Ready || item.Packet.Kind == RestartMessageKind.StreamsDrained ||
                 item.Packet.Kind == RestartMessageKind.Joined || item.Packet.Kind == RestartMessageKind.StartAcknowledged ||
-                item.Packet.Kind == RestartMessageKind.SimulationReady || item.Packet.Kind == RestartMessageKind.CompleteAck;
+                item.Packet.Kind == RestartMessageKind.SimulationReady || item.Packet.Kind == RestartMessageKind.CompleteAck ||
+                item.Packet.Kind == RestartMessageKind.TargetLoaded;
             if (hostOnly && item.Recipient != 0)
             {
                 Check(!step.Accepted && step.Effects == RestartEffect.None && step.Outbound.Count == 0, "Client treated another peer's acknowledgement as authority.");
@@ -137,7 +139,7 @@ internal static class ProtocolTests
             Check(Effects[0, 2] == 0, "Host omitted final peer stream-drain receipt.");
             Drain(); Check(Effects[0, 2] == 1 && Nodes.All(node => node.Phase == RestartPhase.WaitingLobby), "Drain convergence did not create exactly one lobby.");
         }
-        internal void Start()
+        internal void Start(bool earlyLoad = false)
         {
             Emit(0, Nodes[0].PublishLobby(77, Now++)); Drain();
             Check(Nodes.All(node => node.LobbyId == 77 && node.Phase == RestartPhase.Joining), "Target lobby differs.");
@@ -147,23 +149,46 @@ internal static class ProtocolTests
             Check(Effects[0, 4] == 0 && !Nodes[0].LocalSimulationReady(Now).Accepted, "Host skipped launch-grant barrier.");
             while (Queue.Any(item => item.Packet.Kind == RestartMessageKind.Start)) Deliver(Take(item => item.Packet.Kind == RestartMessageKind.Start));
             Check(Effects[0, 4] == 0, "Host started without receiving client launch grants.");
+            if (earlyLoad)
+            {
+                Deliver(Take(item => item.Packet.Kind == RestartMessageKind.StartAcknowledged && item.Sender == 1 && item.Recipient == 0));
+                ReportLoaded(1);
+                Deliver(Take(item => item.Packet.Kind == RestartMessageKind.TargetLoaded && item.Sender == 1 && item.Recipient == 0));
+                Check(Effects[0, 4] == 0 && Effects[0, 7] == 0 && !Nodes[0].LocalTargetLoaded(Now).Accepted,
+                    "An early target-load receipt bypassed another peer's launch grant or the local host load.");
+            }
             Drain(); Check(Nodes.All(node => node.Phase == RestartPhase.Starting) && Enumerable.Range(0, Nodes.Length).All(peer => Effects[peer, 4] == 1), "Launch was not granted once per node.");
+        }
+        internal void ReportLoaded(int peer)
+        {
+            Emit(peer, Nodes[peer].LocalTargetLoaded(Now++)); reportedLoads[peer] = true;
+            Check(!Nodes[peer].LocalTargetLoaded(Now).Accepted, "Duplicate local target load emitted work.");
+        }
+        internal void LoadTargets()
+        {
+            for (int peer = Nodes.Length - 1; peer >= 0; peer--) if (!reportedLoads[peer]) ReportLoaded(peer);
+            Drain();
+            Check(Effects[0, 7] == 1 && Enumerable.Range(1, Nodes.Length - 1).All(peer => Effects[peer, 7] == 0),
+                "All target loads did not grant the host exactly one seed release.");
+            Check(Nodes.All(node => node.Phase == RestartPhase.Starting), "Target loading completed or changed the start phase.");
         }
         internal void SimulationReady()
         {
+            LoadTargets();
             for (int peer = Nodes.Length - 1; peer >= 0; peer--)
             { Emit(peer, Nodes[peer].LocalSimulationReady(Now++)); Check(!Nodes[peer].LocalSimulationReady(Now).Accepted, "Duplicate local ready emitted work."); }
             while (Queue.Any(item => item.Packet.Kind == RestartMessageKind.SimulationReady)) Deliver(Take(item => item.Packet.Kind == RestartMessageKind.SimulationReady));
             Check(Nodes[0].Phase == RestartPhase.Completing && Effects[0, 6] == 0, "Host retired before completion acknowledgements.");
         }
     }
-    private static Mesh Starting(int count = 3, int schedule = 0)
-    { var mesh = new Mesh(count, schedule); mesh.Prepare(); mesh.StopAndDrain(); mesh.Start(); return mesh; }
+    private static Mesh Starting(int count = 3, int schedule = 0, bool earlyLoad = false)
+    { var mesh = new Mesh(count, schedule); mesh.Prepare(); mesh.StopAndDrain(); mesh.Start(earlyLoad); return mesh; }
 
     private static void FullRoundTrip(int count, int schedule)
     {
         Mesh mesh = Starting(count, schedule);
         Rejected(mesh.Nodes[1], Mesh.Id(0), Packet(RestartMessageKind.Complete), mesh.Now);
+        mesh.LoadTargets();
         for (int peer = 0; peer < count - 1; peer++) mesh.Emit(peer, mesh.Nodes[peer].LocalSimulationReady(mesh.Now++));
         mesh.Drain(); Check(mesh.Nodes.All(node => node.Phase == RestartPhase.Starting), "Missing target-simulation readiness was ignored.");
         mesh.Emit(count - 1, mesh.Nodes[count - 1].LocalSimulationReady(mesh.Now++));
@@ -219,18 +244,59 @@ internal static class ProtocolTests
         Check(client.Tick(12).Effects == RestartEffect.Cancelled && client.Phase == RestartPhase.Failed, "Post-commit timeout promised rollback.");
         host = fresh(1001); host.Begin(Operation, 5); Check(host.Tick(4).Effects == RestartEffect.Cancelled, "Clock regression hung attempt.");
         Check(fresh(1001).RosterMatches(peers.Reverse()) && !fresh(1001).RosterMatches(new ulong[] { 1001, 1002, 1002 }), "Roster accepted duplicate identities.");
-        Mesh mesh = Starting(); long waiting = mesh.Now;
+        Mesh mesh = Starting(); mesh.LoadTargets(); long waiting = mesh.Now;
         mesh.Emit(0, mesh.Nodes[0].LocalSimulationReady(mesh.Now++)); mesh.Drain();
         Check(mesh.Nodes[0].Phase == RestartPhase.Starting && mesh.Nodes[0].Tick(waiting + Mesh.Timeout).Effects == RestartEffect.Cancelled, "Missing simulation-ready peer did not time out.");
         mesh = Starting(); mesh.SimulationReady(); long completing = mesh.Now;
         Check(mesh.Nodes[0].RetryCompletion(completing + Mesh.Timeout - 2).Accepted, "Premature completion retry timeout.");
         Check(mesh.Nodes[0].RetryCompletion(completing + Mesh.Timeout).Effects == RestartEffect.Cancelled && mesh.Nodes[0].Phase == RestartPhase.Failed, "Completion retry renewed missing-ACK deadline.");
     }
+    private static void TargetLoadAdmission()
+    {
+        for (int schedule = 0; schedule < 6; schedule++)
+        {
+            Mesh mesh = Starting(3, schedule, earlyLoad: true);
+            Check(!mesh.Nodes[0].LocalSimulationReady(mesh.Now).Accepted && !mesh.Nodes[2].LocalSimulationReady(mesh.Now).Accepted,
+                "Readiness bypassed the local target-load proof.");
+            Rejected(mesh.Nodes[0], 9999, Packet(RestartMessageKind.TargetLoaded), mesh.Now);
+            Rejected(mesh.Nodes[0], Mesh.Id(0), Packet(RestartMessageKind.TargetLoaded), mesh.Now);
+            Rejected(mesh.Nodes[0], Mesh.Id(2), Packet(RestartMessageKind.TargetLoaded, session: "wrong"), mesh.Now);
+            Rejected(mesh.Nodes[0], Mesh.Id(2), Packet(RestartMessageKind.TargetLoaded, digest: "wrong"), mesh.Now);
+            Rejected(mesh.Nodes[0], Mesh.Id(2), Packet(RestartMessageKind.TargetLoaded, operation: Guid.NewGuid().ToString("N")), mesh.Now);
+            Rejected(mesh.Nodes[0], Mesh.Id(2), Packet(RestartMessageKind.TargetLoaded, lobby: 77), mesh.Now);
+            Rejected(mesh.Nodes[1], Mesh.Id(0), Packet(RestartMessageKind.TargetLoaded), mesh.Now);
+            Rejected(mesh.Nodes[2], Mesh.Id(1), Packet(RestartMessageKind.TargetLoaded), mesh.Now);
+            Rejected(mesh.Nodes[0], Mesh.Id(1), Packet(RestartMessageKind.TargetLoaded), mesh.Now); // Already recorded before the last launch grant.
+            mesh.ReportLoaded(0); mesh.Drain();
+            Check(mesh.Effects[0, 7] == 0 && !mesh.Nodes[0].LocalSimulationReady(mesh.Now).Accepted,
+                "Host released seed or reported readiness without the last target load.");
+            Rejected(mesh.Nodes[0], Mesh.Id(1), Packet(RestartMessageKind.SimulationReady), mesh.Now);
+            mesh.ReportLoaded(2); mesh.Drain();
+            Check(mesh.Effects[0, 7] == 1 && mesh.Nodes.All(node => node.Phase == RestartPhase.Starting),
+                "The last expected target load did not grant exactly one host seed release.");
+            Rejected(mesh.Nodes[0], Mesh.Id(2), Packet(RestartMessageKind.TargetLoaded), mesh.Now);
+            Check(mesh.Nodes[0].LocalSimulationReady(mesh.Now++).Accepted, "Released host could not provide normal simulation readiness.");
+
+            mesh = Starting(3, schedule);
+            long deadline = mesh.Now + Mesh.Timeout;
+            mesh.ReportLoaded(0); mesh.ReportLoaded(1); mesh.Drain();
+            Check(mesh.Nodes[0].Tick(deadline).Effects == RestartEffect.Cancelled && mesh.Effects[0, 7] == 0,
+                "Partial target loads renewed the deadline or released a seed for a missing peer.");
+            Rejected(mesh.Nodes[0], Mesh.Id(2), Packet(RestartMessageKind.TargetLoaded), deadline);
+
+            mesh = Starting(3, schedule);
+            deadline = mesh.Now + Mesh.Timeout;
+            mesh.LoadTargets();
+            Check(mesh.Nodes[0].Tick(deadline).Effects == RestartEffect.Cancelled,
+                "Seed admission renewed the original startup deadline.");
+        }
+    }
     public static int Main()
     {
         try
         {
             AuthorityAndTimeouts();
+            TargetLoadAdmission();
             foreach (int count in new[] { 2, 3, 8 }) for (int schedule = 0; schedule < 6; schedule++) FullRoundTrip(count, schedule);
             PartialCompletionFailure();
             Console.WriteLine("PASS: " + checks + " restart protocol behavior checks. No game/network acceptance is inferred."); return 0;

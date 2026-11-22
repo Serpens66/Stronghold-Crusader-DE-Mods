@@ -9,7 +9,7 @@ namespace MultiplayerRestartTest
     [MessagePackFormatter(typeof(RestartWireFormatter))]
     internal sealed class RestartWire
     {
-        internal const int WireVersion = 2;
+        internal const int WireVersion = 3;
         internal int Control; // 0=protocol, 1=capability hello, 2=hello acknowledgement.
         internal short PacketId;
         internal RestartPacket Packet;

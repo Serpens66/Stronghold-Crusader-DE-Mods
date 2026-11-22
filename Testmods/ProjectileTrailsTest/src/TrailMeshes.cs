@@ -1,182 +1,367 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Rendering;
+using Axis = System.Numerics.Vector2;
 
 namespace ProjectileTrailsTest
 {
     internal sealed class TrailMeshes
     {
-        private const float HalfWidth = 0.018f;
-        private static readonly Color32 Transparent = new Color32(255, 239, 196, 0);
-        private static readonly Color32 Lit = new Color32(255, 239, 196, 145);
-        private const MeshUpdateFlags UpdateFlags = MeshUpdateFlags.DontRecalculateBounds;
-        private static readonly VertexAttributeDescriptor[] Layout = {
-            new VertexAttributeDescriptor(VertexAttribute.Position),
-            new VertexAttributeDescriptor(VertexAttribute.Color, VertexAttributeFormat.UNorm8, 4),
-            new VertexAttributeDescriptor(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 2)
-        };
+        internal const string BundleName = "projectiletrails-shader";
+        private const string ShaderPath = "Assets/ProjectileTrails.shader";
+        private static readonly int EchoBufferId = Shader.PropertyToID("_SerpTrailEchoes");
+        private static readonly int GeometryId = Shader.PropertyToID("_SerpTrailGeometry");
+        private static readonly int TickId = Shader.PropertyToID("_SerpTrailTick");
+        private static readonly int BeginId = Shader.PropertyToID("_SerpTrailBegin");
+        private static readonly int CountId = Shader.PropertyToID("_SerpTrailCount");
+        private static readonly int StrideId = Shader.PropertyToID("_SerpTrailVertexStride");
+        private static readonly int BasisId = Shader.PropertyToID("_SerpTrailBasis");
+        private static readonly int LifetimeId = Shader.PropertyToID("_SerpTrailLifetime");
 
         [StructLayout(LayoutKind.Sequential)]
-        private struct Vertex
+        private struct Echo
         {
             internal Vector3 Position;
-            internal Color32 Color;
-            internal Vector2 Uv;
-            internal Vertex(Vector3 position, Color32 color)
-            { Position = position; Color = color; Uv = new Vector2(0.5f, 0.5f); }
+            internal uint Shape, Tick, VertexCount;
         }
 
-        private sealed class MeshGroup
+        private sealed class Appearance
         {
-            internal Mesh Mesh;
-            internal MeshRenderer Renderer;
-            internal int Capacity;
+            internal int Shape, VertexCount, TextureId;
+            internal Vector2 Extent, WorldExtent;
+            internal readonly float[] PlaneRadii = new float[6];
+            internal Material Material;
         }
 
-        private readonly BatchBudget budget = new BatchBudget();
-        private readonly MeshGroup[] groups = new MeshGroup[BatchBudget.GroupLimit];
-        private readonly int[] first = new int[BatchBudget.GroupLimit];
-        private readonly int[] next = new int[BatchBudget.SegmentLimit];
-        private readonly long[] keys = new long[BatchBudget.GroupLimit];
-        private readonly TrailBuffer.Trail[] segments = new TrailBuffer.Trail[BatchBudget.SegmentLimit];
-        private readonly Vertex[] vertices = new Vertex[BatchBudget.SegmentLimit * 4];
-        private readonly ushort[] triangles = new ushort[BatchBudget.SegmentLimit * 6];
+        private sealed class Group
+        {
+            internal readonly MeshFilter Filter;
+            internal readonly MeshRenderer Renderer;
+            internal int Count, Write, First, VertexStride;
+            internal Bounds Bounds;
+            internal Mesh Mesh;
+            internal Material Material;
+            internal long Order;
+            internal int Layer;
+
+            internal Group(GameObject root)
+            {
+                var child = new GameObject("Projectile echo depth group");
+                child.transform.SetParent(root.transform, false);
+                Filter = child.AddComponent<MeshFilter>();
+                Renderer = child.AddComponent<MeshRenderer>();
+                Renderer.enabled = false;
+                Renderer.shadowCastingMode = ShadowCastingMode.Off;
+                Renderer.receiveShadows = false;
+                Renderer.lightProbeUsage = LightProbeUsage.Off;
+                Renderer.reflectionProbeUsage = ReflectionProbeUsage.Off;
+                Renderer.motionVectorGenerationMode = MotionVectorGenerationMode.ForceNoMotion;
+                Renderer.allowOcclusionWhenDynamic = false;
+            }
+        }
+
+        private readonly AssetBundle bundle;
+        private readonly Shader shader;
+        private readonly List<Vector4> geometry = new List<Vector4>();
+        private readonly List<Appearance> appearances = new List<Appearance>();
+        private readonly Dictionary<(int file, int frame), int> sprites = new Dictionary<(int, int), int>();
+        private readonly Dictionary<Texture, Material> materials = new Dictionary<Texture, Material>();
+        private readonly Dictionary<int, Mesh> carriers = new Dictionary<int, Mesh>();
+        private readonly Dictionary<(long order, int texture, int layer), int> buckets =
+            new Dictionary<(long, int, int), int>();
+        private readonly List<Group> groups = new List<Group>();
+        private readonly List<(int bucket, int historyIndex)> visible = new List<(int, int)>();
+        private TrailBuffer publishedHistory;
         private readonly Plane[] planes = new Plane[6];
+        private readonly MaterialPropertyBlock properties = new MaterialPropertyBlock();
+        private Echo[] echoData = Array.Empty<Echo>();
+        private GraphicsBuffer echoes, shapes;
+        private int uploadedShapes, activeGroups, extentCount, radiusCount, viewEpoch;
+        private Camera viewCamera;
+        private Matrix4x4 viewMatrix;
+        private Axis previousX, previousY;
         private GameObject root;
-        private Material material;
-        private int visibleGroupCount;
+#if SERP_DEVDIAG
+        internal bool MatchLegacyBudget { get; set; }
+#endif
+        internal int Accepted => visible.Count;
+        internal int GroupCount => activeGroups;
+        internal int UploadBytes { get; private set; }
+        internal TrailBuffer.Sample GetAccepted(int index) => publishedHistory.Get(visible[index].historyIndex);
 
         internal TrailMeshes()
         {
-            for (int i = 0; i < BatchBudget.SegmentLimit; i++)
+            if (SystemInfo.graphicsShaderLevel < 45)
+                throw new InvalidOperationException("Projectile trails need Shader Model 4.5 structured buffers.");
+            if (Marshal.SizeOf<Echo>() != 24)
+                throw new InvalidOperationException("Projectile echo buffer layout differs from the shader.");
+            string path = Path.Combine(Path.GetDirectoryName(typeof(Plugin).Assembly.Location), BundleName);
+            bundle = AssetBundle.LoadFromFile(path);
+            if (bundle == null)
+                throw new InvalidOperationException("Could not load the projectile shader bundle at " + path);
+            shader = bundle.LoadAsset<Shader>(ShaderPath);
+            if (shader == null || !shader.isSupported)
             {
-                int v = i * 4;
-                int t = i * 6;
-                triangles[t] = (ushort)v;
-                triangles[t + 1] = (ushort)(v + 2);
-                triangles[t + 2] = (ushort)(v + 1);
-                triangles[t + 3] = (ushort)(v + 2);
-                triangles[t + 4] = (ushort)(v + 3);
-                triangles[t + 5] = (ushort)(v + 1);
+                bundle.Unload(true);
+                throw new InvalidOperationException("The projectile shader is unavailable on " + SystemInfo.graphicsDeviceType + ".");
             }
         }
 
-        internal int Draw(TrailBuffer history, Camera camera)
+        internal int GetAppearance(int file, int frame)
         {
-            GeometryUtility.CalculateFrustumPlanes(camera, planes);
-            budget.Clear();
-            for (int i = 0; i < history.Count && budget.Count < BatchBudget.SegmentLimit; i++)
+            var key = (file, frame);
+            if (sprites.TryGetValue(key, out int found)) return found;
+            var sprite = SpriteMapping.getBodyImage(file, frame);
+            if (sprite == null)
             {
-                TrailBuffer.Trail trail = history.Get(i);
-                if (!trail.HasSegment || !Visible(trail)) continue;
-                int segment = budget.Count;
-                int previousGroupCount = budget.GroupCount;
-                if (!budget.TryAdd(trail.SortKey, out int group)) continue;
-                if (group == previousGroupCount)
-                {
-                    first[group] = -1;
-                    keys[group] = trail.SortKey;
-                }
-                trail.Identity = null;
-                segments[segment] = trail;
-                next[segment] = first[group];
-                first[group] = segment;
+                sprites.Add(key, -1);
+                return -1;
             }
-            for (int group = 0; group < budget.GroupCount; group++)
-                Upload(group);
-            for (int group = budget.GroupCount; group < visibleGroupCount; group++)
-                groups[group].Renderer.enabled = false;
-            visibleGroupCount = budget.GroupCount;
-            return budget.Count;
+
+            Vector2[] positions = sprite.vertices;
+            Vector2[] uv = sprite.uv;
+            ushort[] indices = sprite.triangles;
+            if (indices.Length == 0 || indices.Length % 3 != 0)
+                throw new InvalidOperationException("A projectile sprite has no supported triangle geometry.");
+            Texture texture = sprite.texture;
+            if (!materials.TryGetValue(texture, out var material))
+            {
+                material = new Material(shader) { mainTexture = texture, hideFlags = HideFlags.DontSave };
+                materials.Add(texture, material);
+            }
+            Bounds bounds = sprite.bounds;
+            var appearance = new Appearance
+            {
+                Shape = geometry.Count,
+                VertexCount = indices.Length,
+                Extent = new Vector2(Mathf.Abs(bounds.center.x) + bounds.extents.x,
+                    Mathf.Abs(bounds.center.y) + bounds.extents.y),
+                Material = material,
+                TextureId = texture.GetInstanceID()
+            };
+            foreach (ushort index in indices)
+                geometry.Add(new Vector4(positions[index].x, positions[index].y, uv[index].x, uv[index].y));
+            int id = appearances.Count;
+            appearances.Add(appearance);
+            sprites.Add(key, id);
+            return id;
+        }
+
+        internal void SetTick(uint tick) => Shader.SetGlobalInteger(TickId, unchecked((int)tick));
+
+        internal int Publish(TrailBuffer history, Camera camera, Axis axisX, Axis axisY)
+        {
+            Matrix4x4 matrix = camera.cullingMatrix;
+            bool basisChanged = axisX != previousX || axisY != previousY;
+            if (camera != viewCamera || !matrix.Equals(viewMatrix) || basisChanged || publishedHistory != history)
+            {
+                viewCamera = camera;
+                viewMatrix = matrix;
+                GeometryUtility.CalculateFrustumPlanes(camera, planes);
+                radiusCount = 0;
+                if (viewEpoch == int.MaxValue)
+                {
+                    for (int i = 0; i < history.Count; i++) history.Get(i).Visibility = 0;
+                    viewEpoch = 0;
+                }
+                viewEpoch++;
+            }
+            if (basisChanged)
+            {
+                previousX = axisX;
+                previousY = axisY;
+                extentCount = 0;
+            }
+            for (; extentCount < appearances.Count; extentCount++)
+            {
+                var appearance = appearances[extentCount];
+                appearance.WorldExtent = new Vector2(
+                    Math.Abs(axisX.X) * appearance.Extent.x + Math.Abs(axisY.X) * appearance.Extent.y,
+                    Math.Abs(axisX.Y) * appearance.Extent.x + Math.Abs(axisY.Y) * appearance.Extent.y);
+            }
+            for (; radiusCount < appearances.Count; radiusCount++)
+            {
+                var appearance = appearances[radiusCount];
+                for (int i = 0; i < planes.Length; i++)
+                {
+                    Vector3 n = planes[i].normal;
+                    appearance.PlaneRadii[i] = Math.Abs(n.x) * appearance.WorldExtent.x +
+                        Math.Abs(n.y) * appearance.WorldExtent.y + Math.Abs(n.z) * 0.01f;
+                }
+            }
+            buckets.Clear();
+            visible.Clear();
+            publishedHistory = history;
+            int count = 0;
+            UploadBytes = 0;
+            for (int i = 0; i < history.Count; i++)
+            {
+                ref var sample = ref history.Get(i);
+                if (sample.Visibility == -viewEpoch) continue;
+                var appearance = appearances[sample.Appearance];
+                Vector3 position = ToUnity(sample.Position);
+                var extent = appearance.WorldExtent;
+                if (sample.Visibility != viewEpoch)
+                {
+                    sample.Visibility = Visible(position, appearance.PlaneRadii) ? viewEpoch : -viewEpoch;
+                    if (sample.Visibility < 0) continue;
+                }
+#if SERP_DEVDIAG
+                if (MatchLegacyBudget && visible.Count == 1024) break;
+#endif
+                var bounds = new Bounds(position, new Vector3(2 * extent.x, 2 * extent.y, 0.02f));
+                var key = (sample.SortKey, appearance.TextureId, sample.ObjectLayer);
+                if (!buckets.TryGetValue(key, out int bucket))
+                {
+#if SERP_DEVDIAG
+                    if (MatchLegacyBudget && count == 64) continue;
+#endif
+                    bucket = count++;
+                    buckets.Add(key, bucket);
+                    Group group = GetGroup(bucket);
+                    group.Count = 0;
+                    group.VertexStride = 0;
+                    group.Bounds = bounds;
+                    if (group.Layer != sample.ObjectLayer)
+                        group.Renderer.gameObject.layer = group.Layer = sample.ObjectLayer;
+                    if (group.Material != appearance.Material || group.Order != sample.SortKey)
+                    {
+                        group.Order = sample.SortKey;
+                        group.Material = appearance.Material;
+                        group.Renderer.sortingLayerID = (int)(sample.SortKey >> 32);
+                        group.Renderer.sortingOrder = (int)sample.SortKey;
+                        group.Renderer.sharedMaterial = appearance.Material;
+                    }
+                }
+                Group entry = groups[bucket];
+                entry.Count++;
+                entry.VertexStride = Math.Max(entry.VertexStride, appearance.VertexCount);
+                entry.Bounds.Encapsulate(bounds);
+                visible.Add((bucket, i));
+            }
+
+            if (visible.Count != 0)
+            {
+                int offset = 0;
+                for (int i = 0; i < count; i++)
+                {
+                    Group group = groups[i];
+                    group.First = group.Write = offset;
+                    offset += group.Count;
+                }
+                if (echoData.Length < visible.Count) echoData = new Echo[Mathf.NextPowerOfTwo(visible.Count)];
+                for (int i = 0; i < visible.Count; i++)
+                {
+                    var item = visible[i];
+                    ref readonly var sample = ref history.Get(item.historyIndex);
+                    var appearance = appearances[sample.Appearance];
+                    echoData[groups[item.bucket].Write++] = new Echo
+                    {
+                        Position = ToUnity(sample.Position), Shape = (uint)appearance.Shape,
+                        Tick = sample.Tick, VertexCount = (uint)appearance.VertexCount
+                    };
+                }
+
+                EnsureBuffer(ref echoes, visible.Count, 24);
+                echoes.SetData(echoData, 0, 0, visible.Count);
+                UploadBytes = visible.Count * 24;
+                if (EnsureBuffer(ref shapes, geometry.Count, 16)) uploadedShapes = 0;
+                if (uploadedShapes < geometry.Count)
+                {
+                    int append = geometry.Count - uploadedShapes;
+                    shapes.SetData(geometry, uploadedShapes, uploadedShapes, append);
+                    UploadBytes += append * 16;
+                    uploadedShapes = geometry.Count;
+                }
+                for (int i = 0; i < count; i++)
+                {
+                    Group group = groups[i];
+                    Mesh mesh = Carrier(checked(group.Count * (group.VertexStride / 3)));
+                    if (group.Mesh != mesh) group.Filter.sharedMesh = group.Mesh = mesh;
+                    group.Renderer.bounds = group.Bounds;
+                    properties.SetBuffer(EchoBufferId, echoes);
+                    properties.SetBuffer(GeometryId, shapes);
+                    properties.SetInteger(BeginId, group.First);
+                    properties.SetInteger(CountId, group.Count);
+                    properties.SetInteger(StrideId, group.VertexStride);
+                    properties.SetInteger(LifetimeId, TrailBuffer.Lifetime);
+                    properties.SetVector(BasisId, new Vector4(axisX.X, axisX.Y, axisY.X, axisY.Y));
+                    group.Renderer.SetPropertyBlock(properties);
+                    if (i >= activeGroups) group.Renderer.enabled = true;
+                }
+            }
+            DisableGroups(count);
+            return visible.Count;
         }
 
         internal void Hide()
         {
-            // Sweep all created renderers, including groups enabled just before a failed upload.
-            foreach (MeshGroup group in groups)
-                if (group != null && group.Renderer != null) group.Renderer.enabled = false;
-            visibleGroupCount = 0;
+            DisableGroups(0);
+            visible.Clear();
+            publishedHistory = null;
         }
 
-        private bool Visible(TrailBuffer.Trail trail)
+        private bool Visible(Vector3 position, float[] radii)
         {
-            Vector3 from = Position(trail.Tail);
-            Vector3 to = Position(trail.Head);
-            Bounds bounds = new Bounds(from, Vector3.zero);
-            bounds.Encapsulate(to);
-            bounds.Expand(2 * HalfWidth);
-            return GeometryUtility.TestPlanesAABB(planes, bounds);
+            for (int i = 0; i < planes.Length; i++)
+                if (Vector3.Dot(planes[i].normal, position) + planes[i].distance < -radii[i]) return false;
+            return true;
         }
 
-        private void Upload(int index)
+        private void DisableGroups(int count)
         {
-            MeshGroup group = groups[index] ?? (groups[index] = Create(index));
-            int count = 0;
-            Bounds bounds = new Bounds(Position(segments[first[index]].Head), Vector3.zero);
-            for (int i = first[index]; i >= 0; i = next[i])
-            {
-                Vector3 tail = Position(segments[i].Tail);
-                Vector3 head = Position(segments[i].Head);
-                Vector3 delta = head - tail;
-                float length = Mathf.Sqrt(delta.x * delta.x + delta.y * delta.y);
-                if (length <= 0.0001f) continue;
-                Vector3 side = new Vector3(-delta.y, delta.x, 0) * (HalfWidth / length);
-                int v = count++ * 4;
-                vertices[v] = new Vertex(tail - side, Transparent);
-                vertices[v + 1] = new Vertex(tail + side, Transparent);
-                vertices[v + 2] = new Vertex(head - side, Lit);
-                vertices[v + 3] = new Vertex(head + side, Lit);
-                bounds.Encapsulate(tail);
-                bounds.Encapsulate(head);
-            }
-            if (count == 0)
-            {
-                group.Renderer.enabled = false;
-                return;
-            }
-            bounds.Expand(2 * HalfWidth);
-            if (group.Capacity < count)
-            {
-                group.Capacity = Mathf.NextPowerOfTwo(count);
-                group.Mesh.SetVertexBufferParams(group.Capacity * 4, Layout);
-                group.Mesh.SetIndexBufferParams(group.Capacity * 6, IndexFormat.UInt16);
-                group.Mesh.SetIndexBufferData(triangles, 0, 0, group.Capacity * 6, UpdateFlags);
-                group.Mesh.subMeshCount = 1;
-            }
-            group.Mesh.SetVertexBufferData(vertices, 0, 0, count * 4, 0, UpdateFlags);
-            group.Mesh.SetSubMesh(0, new SubMeshDescriptor(0, count * 6, MeshTopology.Triangles)
-                { bounds = bounds, vertexCount = count * 4 }, UpdateFlags);
-            group.Mesh.bounds = bounds;
-            group.Renderer.sortingLayerID = (int)(keys[index] >> 32);
-            group.Renderer.sortingOrder = (int)keys[index];
-            group.Renderer.enabled = true;
+            for (int i = count; i < activeGroups; i++)
+                groups[i].Renderer.enabled = false;
+            activeGroups = count;
         }
 
-        private MeshGroup Create(int index)
+        private Group GetGroup(int index)
         {
+            if (index < groups.Count) return groups[index];
             if (root == null)
             {
-                Shader shader = Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default")
-                    ?? Shader.Find("Sprites/Default");
-                if (shader == null) throw new InvalidOperationException("Sprite shader unavailable.");
-                material = new Material(shader) { mainTexture = Texture2D.whiteTexture };
                 root = new GameObject("ProjectileTrailsTest");
                 UnityEngine.Object.DontDestroyOnLoad(root);
             }
-            var child = new GameObject("Flight trail batch");
-            child.transform.SetParent(root.transform, false);
-            var mesh = new Mesh { name = "Projectile trail batch " + index };
-            mesh.MarkDynamic();
-            child.AddComponent<MeshFilter>().sharedMesh = mesh;
-            var renderer = child.AddComponent<MeshRenderer>();
-            renderer.enabled = false;
-            renderer.sharedMaterial = material;
-            renderer.shadowCastingMode = ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
-            return new MeshGroup { Mesh = mesh, Renderer = renderer };
+            var group = new Group(root);
+            groups.Add(group);
+            return group;
         }
 
-        private static Vector3 Position(System.Numerics.Vector3 value) => new Vector3(value.X, value.Y, value.Z);
+        // One shared carrier for every required draw-length class. Its position stream is
+        // ignored. SV_VertexID selects the instance and vertex in the real sprite geometry.
+        private Mesh Carrier(int triangles)
+        {
+            int capacity = Mathf.NextPowerOfTwo(triangles);
+            if (carriers.TryGetValue(capacity, out Mesh mesh)) return mesh;
+            int vertices = checked(capacity * 3);
+            mesh = new Mesh { name = "Projectile echo topology " + capacity, hideFlags = HideFlags.DontSave };
+            mesh.SetVertexBufferParams(vertices, new VertexAttributeDescriptor(VertexAttribute.Position));
+            mesh.SetIndexBufferParams(vertices, IndexFormat.UInt32);
+            var identity = new int[vertices];
+            for (int i = 0; i < vertices; i++) identity[i] = i;
+            const MeshUpdateFlags flags = MeshUpdateFlags.DontRecalculateBounds | MeshUpdateFlags.DontValidateIndices;
+            mesh.SetIndexBufferData(identity, 0, 0, vertices, flags);
+            mesh.subMeshCount = 1;
+            mesh.SetSubMesh(0, new SubMeshDescriptor(0, vertices, MeshTopology.Triangles)
+                { vertexCount = vertices }, flags);
+            mesh.UploadMeshData(true);
+            carriers.Add(capacity, mesh);
+            return mesh;
+        }
+
+        private static bool EnsureBuffer(ref GraphicsBuffer buffer, int count, int stride)
+        {
+            if (buffer != null && buffer.count >= count) return false;
+            var next = new GraphicsBuffer(GraphicsBuffer.Target.Structured, Mathf.NextPowerOfTwo(count), stride);
+            buffer?.Dispose();
+            buffer = next;
+            return true;
+        }
+
+        private static Vector3 ToUnity(System.Numerics.Vector3 p) => new Vector3(p.X, p.Y, p.Z);
     }
 }

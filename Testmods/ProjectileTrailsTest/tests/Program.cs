@@ -1,5 +1,4 @@
 using System;
-using System.Numerics;
 using ProjectileTrailsTest;
 
 static void Require(bool condition, string message)
@@ -7,52 +6,40 @@ static void Require(bool condition, string message)
     if (!condition) throw new InvalidOperationException(message);
 }
 
+float[] expected = { 1f, 1f, 1f, 0.6875f, 0.6875f, 0.6875f, 0.34375f, 0.34375f, 0.34375f, 0.34375f, 0f };
+for (uint age = 0; age < expected.Length; age++)
+    Require(TrailBuffer.Opacity(age) == expected[age], "vanilla alpha and terminal slot at age " + age);
+
+Require(TrailBuffer.Opacity(unchecked(2u - uint.MaxValue)) == 0.6875f, "age remains valid over tick wrap");
+Require(TrailBuffer.Opacity(unchecked(10u - 11u)) == 0, "future entries are never drawn");
+int needed = (TrailBuffer.WideProjectileLimit - 1) * (TrailBuffer.Lifetime + 1);
+Require(TrailBuffer.CaptureCapacity >= needed && TrailBuffer.CaptureCapacity / 2 < needed &&
+    (TrailBuffer.CaptureCapacity & (TrailBuffer.CaptureCapacity - 1)) == 0,
+    "capture storage covers all live sweeps and a concurrent write sweep");
+
 var history = new TrailBuffer();
-var identity = new object();
-var layer = BatchBudget.Key(-5, -1234);
-Require(!TrailBuffer.IsBodySlot(0) && !TrailBuffer.IsBodySlot(10001) &&
-    !TrailBuffer.IsBodySlot(6000) && TrailBuffer.IsBodySlot(5999), "body slot boundaries");
-Require(!history.Observe(1, identity, 1, layer, Vector3.Zero), "first observation");
-Require(history.Observe(1, identity, 1, layer, Vector3.UnitX), "continuous movement");
-Require(Math.Abs(history.Get(0).Tail.X - (1f - TrailBuffer.TrailLength)) < 0.0001f, "length clamp");
-Require(history.Remove(1) && !history.HasSegments && history.Count == 0, "retire visible segment");
-Require(!history.Observe(1, identity, 1, layer, Vector3.UnitY), "delete followed by same slot and identity");
-Require(!history.Observe(1, new object(), 1, layer, Vector3.Zero), "new identity in same slot");
-history.Observe(1, identity, 1, layer, Vector3.Zero);
-history.Observe(1, identity, 1, layer, Vector3.UnitX);
-Require(history.Observe(1, identity, 2, layer, Vector3.UnitY) && !history.HasSegments, "type change");
-Require(!history.Observe(1, identity, 2, layer, Vector3.One * 10) && !history.HasSegments, "position jump");
-history.Observe(1, identity, 2, layer, Vector3.One * 10 + Vector3.UnitY);
-Require(history.HasSegments, "track again after teleport");
-history.Observe(2, identity, 2, layer, Vector3.Zero);
-Require(history.Remove(1) && history.Count == 1, "remove from a dense active list");
-Require(history.Observe(2, identity, 2, layer, Vector3.UnitX) && history.HasSegments, "moved dense index remains usable");
-history.Clear();
-Require(!history.Observe(2, identity, 2, layer, Vector3.Zero) && !history.HasSegments, "clear at view boundary");
-
-var budget = new BatchBudget();
-for (int i = 0; i < BatchBudget.GroupLimit; i++)
-    Require(budget.TryAdd(BatchBudget.Key(-5, -1234 + i), out int group) && group == i, "exact sort buckets");
-Require(!budget.TryAdd(BatchBudget.Key(-4, -1234), out _), "different layer exceeds the group budget");
-for (int i = BatchBudget.GroupLimit; i < BatchBudget.SegmentLimit; i++)
-    Require(budget.TryAdd(layer, out int group) && group == 0, "reuse existing group beyond group cap");
-Require(!budget.TryAdd(layer, out _), "segment cap");
-budget.Clear();
-Require(budget.TryAdd(layer, out var next) && next == 0 && budget.Count == 1, "reset render budget");
-
-static void Publish(TrailBuffer history, BatchBudget budget, object identity, long sort)
+int perTick = TrailBuffer.WideProjectileLimit - 1;
+uint first = uint.MaxValue - 4;
+void Add(uint tick)
 {
-    budget.Clear();
-    for (int id = 1; id <= BatchBudget.SegmentLimit; id++)
-    {
-        history.Observe(id, identity, 1, sort, Vector3.Zero);
-        history.Observe(id, identity, 1, sort, Vector3.UnitX);
-        budget.TryAdd(sort, out _);
-        history.Remove(id);
-    }
+    for (int slot = 1; slot <= perTick; slot++)
+        history.Append(new TrailBuffer.Sample { Tick = tick, SourceSlot = slot });
 }
-Publish(history, budget, identity, layer);
-long allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
-Publish(history, budget, identity, layer);
-Require(GC.GetAllocatedBytesForCurrentThread() == allocatedBefore, "warmed history and budget must not allocate");
-Console.WriteLine("PASS projectile slot lifetime, discontinuities, and both render budgets");
+for (int sweep = 0; sweep < TrailBuffer.Lifetime; sweep++)
+    Add(unchecked(first + (uint)sweep));
+Require(history.Count == perTick * TrailBuffer.Lifetime, "the projected history holds every live slot");
+Require(!history.Expire(unchecked(first + (uint)TrailBuffer.Lifetime - 1)), "retain the terminal opacity");
+long before = GC.GetAllocatedBytesForCurrentThread();
+for (int step = TrailBuffer.Lifetime; step < 50; step++)
+{
+    uint tick = unchecked(first + (uint)step);
+    Require(history.Expire(tick), "expire one complete sweep");
+    Add(tick);
+    Require(history.Count == perTick * TrailBuffer.Lifetime, "reuse the same history storage");
+    Require(history.Get(0).SourceSlot == 1 && history.Get(history.Count - 1).Tick == tick, "preserve chronological order");
+}
+Require(GC.GetAllocatedBytesForCurrentThread() == before, "warmed history must not allocate");
+history.Clear();
+Add(0);
+Require(history.Get(0).Tick == 0 && history.Count == perTick, "reset history at the mission boundary");
+Console.WriteLine("PASS alpha, expiry, history wrapping, and maximum native flight workload");

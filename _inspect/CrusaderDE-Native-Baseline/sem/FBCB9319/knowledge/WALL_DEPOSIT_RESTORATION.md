@@ -70,7 +70,7 @@ logic flags are also relevant to later quarry/mine placement.
   a pre-existing wall when undoing a repair. `0x80320` separately
   normalizes zero-height stairs during map initialization.
 
-## Standalone prototype [mod integration]
+## Runtime integration [mod integration]
 
 The test plugin records only the two lost resource bits in an independent
 packed-tile buffer. The installed hooks publish the bits immediately before
@@ -83,10 +83,24 @@ Undo reads the saved wall flag before consuming history. The explicit rock
 writer discards history, including the editor branch that retains the wall bit.
 
 The native hash, original spans, packed bounds and published jump encodings
-are checked independently. The prototype enables the behavior in local
-missions and the editor, and stores the history in a versioned map/save
-record. Existing walls without a record have no recoverable origin.
-Real multiplayer is outside this prototype's activation policy. The
-private executable fixture exercises the emitted bookkeeping against
-private tile grids. Gameplay rendering, actual resource placement,
-network/session behavior, and the map/save roundtrip need in-game acceptance.
+are checked independently. The standalone package's 0.1.0 local behavior
+was accepted in game by the user. The 0.2.0 runtime removes the mode filter
+and uses the same history for editor, campaign, trail and skirmish modes.
+True multiplayer arms only after APIShared admits the capability for all
+peers. The preserved schema is an atomic, simulation-relevant record. The
+native restore callback restores the record before the first simulation fold.
+Existing walls without a record have no recoverable origin.
+
+Chore 65's native writer at `0x16C90` transfers the vanilla logic block;
+the native checksum builder at `0x22020` reads the same grid. Neither
+includes the private deposit buffer. The common executed Chore 54/67
+boundaries suspend and retire private history on every peer so repair
+cannot resume with contradictory wall origins. Older covered deposits
+can therefore be lost on repair. The synchronized wall Undo consumer
+at `0x17CC0` reads the complete native undo packet before invoking
+`0x63E90`, including the wall flags used to decide whether to restore
+or retain an origin.
+
+The private fixture checked native bookkeeping and the installed RedBird
+backend on the 13 original spans. Genuine Host/Client gameplay, recovery
+after native repair, and the new early restore path await live acceptance.

@@ -49,6 +49,7 @@
     <Compile Include="tests\SettingsFingerprintTests.cs" />
     <Compile Include="tests\LocaleTests.cs" />
     <Compile Include="tests\RuntimeReadyTests.cs" />
+    <Compile Include="tests\VanillaHandshakeTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="src\**\*.cs" />
