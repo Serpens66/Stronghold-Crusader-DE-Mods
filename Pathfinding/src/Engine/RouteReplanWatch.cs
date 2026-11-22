@@ -245,8 +245,9 @@ namespace Pathfinding.Engine
             return -1;
         }
 
-        // Lord and healer take no plague damage (0x192750's type table 0x32BC40): a tile that only Pathfinding's
-        // plague policy holds neither stops them nor blocks their probes; fire and other replan sets still do.
+        // Plague-immune units (IsPlagueImmune; among soldiers the lord) take no plague damage (0x192750's type
+        // table 0x32BC40): a tile that only Pathfinding's plague policy holds neither stops them nor blocks their
+        // probes; fire and other replan sets still do.
         // Limit: GetReplanPolicy names the first set by owner GUID and registration ID, so a foreign set ordered
         // after Pathfinding's plague set on the same tile is not seen here.
         private bool IsPlagueOnlyTile(int node, int player) =>
@@ -536,7 +537,7 @@ namespace Pathfinding.Engine
 
         // Whether the core's route from (startX,startY) avoids every replan and burning tile and fits the
         // policy against `remaining` steps. Consumes the tick's probe budget. plagueImmune: plague-only tiles
-        // (IsPlagueOnlyTile) do not count for a lord or healer.
+        // (IsPlagueOnlyTile) do not count for a plague-immune unit.
         private int CoreRouteProbe(int player, int startX, int startY, int targetX, int targetY, RouteReplanPolicy policy, int remaining,
             RouteSurfaceClass surface = RouteSurfaceClass.Any, bool plagueImmune = false)
         {

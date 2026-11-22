@@ -9,6 +9,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../src/MarketTradeSession.DevDiag.cs" Link="MarketTradeSession.DevDiag.cs" />
-    <Compile Include="../../src/StaleEquipmentTarget.DevDiag.cs" Link="StaleEquipmentTarget.DevDiag.cs" />
+    <Compile Include="../../src/MarketDemandTarget.DevDiag.cs" Link="MarketDemandTarget.DevDiag.cs" />
   </ItemGroup>
 </Project>

@@ -107,9 +107,10 @@ namespace AIMarketOverbuyDiagnostic
         }
 
         private static bool Owns(string value) => value == "market-smoke" || value == "market-loaded" ||
-            value == "market-fresh" || value == "market-fresh-smoke" || value == "market-causal" || value == "market-backlog" || value == "market-backlog-fixed";
+            value == "market-fresh" || value == "market-fresh-smoke" || value == "market-fresh-fixed" ||
+            value == "market-causal" || value == "market-backlog" || value == "market-backlog-fixed";
 
-        private static bool IsFresh => Scenario == "market-fresh" || Scenario == "market-fresh-smoke";
+        private static bool IsFresh => Scenario == "market-fresh" || Scenario == "market-fresh-smoke" || Scenario == "market-fresh-fixed";
 
         private static IEnumerable<AutomationStep> Steps()
         {
@@ -120,7 +121,8 @@ namespace AIMarketOverbuyDiagnostic
                 yield return new AutomationStep("controlled-small-trades", TimeSpan.FromMinutes(8), RunBacklog, true);
                 yield break;
             }
-            int seconds = Scenario == "market-smoke" || Scenario == "market-fresh-smoke" ? 60 : Scenario == "market-causal" ? 240 : 20 * 60;
+            int seconds = Scenario == "market-smoke" || Scenario == "market-fresh-smoke" ? 60 :
+                Scenario == "market-causal" ? 240 : Scenario == "market-fresh-fixed" ? 300 : 20 * 60;
             yield return new AutomationStep("natural-economy-observation", TimeSpan.FromSeconds(seconds + 150),
                 run => Observe(run, seconds), true);
         }
@@ -331,8 +333,8 @@ namespace AIMarketOverbuyDiagnostic
             Require(Interlocked.Read(ref AIMarketOverbuyDiagnosticRuntime.CaptureFailures) == 0, "diagnostic capture reported a failure");
             Require(Interlocked.Read(ref AIMarketOverbuyDiagnosticRuntime.WriterFailures) == 0, "diagnostic writer reported a failure");
             Require(Interlocked.Read(ref AIMarketOverbuyDiagnosticRuntime.IncompleteSessions) == 0, "diagnostic reported incomplete sessions");
-            Require(Interlocked.Read(ref MarketStaleEquipmentFix.CorrectionFailures) == 0 &&
-                Interlocked.Read(ref MarketStaleEquipmentFix.OmittedEvidence) == 0, "equipment correction failed or lost evidence");
+            Require(Interlocked.Read(ref MarketPendingDemandFix.CorrectionFailures) == 0 &&
+                Interlocked.Read(ref MarketPendingDemandFix.OmittedEvidence) == 0, "equipment correction failed or lost evidence");
         }
 
         private static IEnumerable<AutomationWait> SaveSuspect(AutomationRun run, long candidates)

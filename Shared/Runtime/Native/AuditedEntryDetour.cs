@@ -31,6 +31,40 @@ namespace Shared
         /// </summary>
         internal static NativeDetour<T> Prepare<T>(ReadOnlySpan<byte> loadImage, ulong moduleBase, int rva,
             byte[] entry, T callback, string feature) where T : Delegate
+            => PrepareCore(loadImage, moduleBase, rva, entry, callback, feature, null, IntPtr.Zero);
+
+        /// <summary>
+        /// Installs a native relay through RedBird's public intermediary contract.
+        /// Unity Mono wraps GetDelegateForFunctionPointer delegates when converting
+        /// them back to pointers; that wrapper is not valid at a mid-function site.
+        /// The required placeholder delegate is never a patch destination. The
+        /// backend must use the explicit relay and the actual original trampoline.
+        /// The caller owns and permanently roots the executable relay allocation.
+        /// </summary>
+        internal static NativeDetour<T> PrepareNativeTarget<T>(ReadOnlySpan<byte> loadImage, ulong moduleBase,
+            int rva, byte[] entry, T placeholder, IntPtr nativeRelay, string feature) where T : Delegate
+        {
+            if (nativeRelay == IntPtr.Zero) throw new ArgumentNullException(nameof(nativeRelay));
+            return PrepareCore(loadImage, moduleBase, rva, entry, placeholder, feature,
+                new NativeRelayFactory(nativeRelay, moduleBase + (ulong)rva), nativeRelay);
+        }
+
+        private sealed class NativeRelayFactory : IDetourIntermediaryFactory
+        {
+            private readonly IntPtr relay;
+            private readonly ulong target;
+            internal NativeRelayFactory(IntPtr address, ulong expectedTarget) { relay = address; target = expectedTarget; }
+            public DetourIntermediaryStubs Create(in DetourIntermediaryContext context)
+            {
+                if (context.Architecture != DetourArchitecture.X64 || context.TargetAddress != target ||
+                    context.TrampolineAddress == IntPtr.Zero)
+                    throw new InvalidOperationException("Native relay intermediary context differs from the audited backend contract.");
+                return new DetourIntermediaryStubs(relay, context.TrampolineAddress);
+            }
+        }
+
+        private static NativeDetour<T> PrepareCore<T>(ReadOnlySpan<byte> loadImage, ulong moduleBase, int rva,
+            byte[] entry, T callback, string feature, IDetourIntermediaryFactory intermediary, IntPtr nativeRelay) where T : Delegate
         {
             if (callback == null) throw new ArgumentNullException(nameof(callback));
             if (entry == null || entry.Length < 6) throw new ArgumentException(feature + ": the audited entry must cover the 6-byte Indirect patch.", nameof(entry));
@@ -44,7 +78,8 @@ namespace Shared
             Instruction[] audited = DecodeEntry(entry, target, feature);
             NativePatchGuard.RequireUnpatched(target, entry.Length, feature, feature);
 
-            var request = new DetourRequest<T> { Name = feature, TargetAddress = target, Callback = callback };
+            var request = new DetourRequest<T> { Name = feature, TargetAddress = target, Callback = callback,
+                IntermediaryFactory = intermediary };
             var candidate = NativeDetourBackend.Instance.CreateDetour(in request) as NativeDetour<T>;
             try
             {
@@ -53,6 +88,9 @@ namespace Shared
                     candidate.IsInstalled || candidate.ChainDepth != 1)
                     throw new InvalidOperationException(feature + ": detour candidate differs from the audited Indirect/" +
                         entry.Length + " contract (scheme=" + candidate?.Scheme + ", displaced=" + candidate?.DisplacedByteCount + ").");
+                if (nativeRelay != IntPtr.Zero && (candidate.HookEntryPointAddress != nativeRelay ||
+                    candidate.OriginalEntryPointAddress != candidate.TrampolineAddress))
+                    throw new InvalidOperationException(feature + ": backend did not preserve the explicit native relay/trampoline destinations.");
                 VerifyTrampoline(candidate.TrampolineAddress, candidate.TrampolineSize, entry, audited, target, feature);
             }
             catch

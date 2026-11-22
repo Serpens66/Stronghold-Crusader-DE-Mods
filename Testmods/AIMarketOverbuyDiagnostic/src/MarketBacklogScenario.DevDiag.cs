@@ -45,6 +45,7 @@ namespace AIMarketOverbuyDiagnostic
         internal static int GiftPlayer, GiftGood, GiftTrackedAmount, GiftTick, GiftUnits, GiftOriginalTarget;
         internal static int GiftFirstBuyTick, GiftFirstBuyStock, GiftFirstBuyAmount;
         internal static long GiftGoodBuysAfterDelivery, GiftExcessUnitsBought;
+        internal static int TerminalProbeTick;
 
         internal static void ObserveTrade(int player, int good, int requested, int result,
             long stockDelta, long goldDelta, bool isBuy, int beforeStock, int nativeTick)
@@ -169,6 +170,8 @@ namespace AIMarketOverbuyDiagnostic
                     int tick = run.InSimulation(mission, slice);
                     if (phase == 2 && GiftUnits == 0 && clock.Elapsed.TotalSeconds >= controlSeconds + stressSeconds * (2.0 / 3.0))
                         run.InSimulation(mission, () => TryGiftTrackedEquipment(mission, actors));
+                    if (MarketAutomation.Scenario == "market-backlog-fixed" && GiftUnits > 0 && TerminalProbeTick == 0)
+                        run.InSimulation(mission, () => TryTerminalSupplyProbe(mission));
                     if (!tickSeen || tick != previousTick) { progressAt = clock.Elapsed.TotalSeconds; previousTick = tick; tickSeen = true; }
                     if (clock.Elapsed.TotalSeconds - progressAt >= 120) throw new InvalidOperationException("Backlog experiment native clock stalled.");
                     goodIndex = (goodIndex + 1) % goods.Length;
@@ -190,8 +193,10 @@ namespace AIMarketOverbuyDiagnostic
                     throw new InvalidOperationException("No physically fulfilled genuinely tracked native equipment request was tested.");
                 if (MarketAutomation.Scenario == "market-backlog-fixed")
                 {
-                    if (MarketStaleEquipmentFix.GetReductionCount(GiftPlayer, GiftGood) == 0 || GiftExcessUnitsBought != 0)
+                    if (MarketPendingDemandFix.GetReductionCount(GiftPlayer, GiftGood) == 0 || GiftExcessUnitsBought != 0)
                         throw new InvalidOperationException("The correction did not reduce the fulfilled request or still overbought its original stock target.");
+                    if (TerminalProbeTick == 0)
+                        throw new InvalidOperationException("No fresh native order was fully supplied and immediately consumed to verify terminal closure.");
                 }
                 else if (GiftExcessUnitsBought == 0)
                     throw new InvalidOperationException("The stale-request excess purchase was not reproduced; conditions are insufficient.");
@@ -199,7 +204,7 @@ namespace AIMarketOverbuyDiagnostic
             finally
             {
                 active = false;
-                MarketStaleEquipmentFix.DeactivateExperiment();
+                MarketPendingDemandFix.DeactivateExperiment();
                 try { run.InSimulation(mission, () => { MarketBacklogAic.RestoreAll(); return true; }); }
                 finally { Volatile.Write(ref Phase, 5); LogStatus("end"); }
             }
@@ -250,6 +255,61 @@ namespace AIMarketOverbuyDiagnostic
             }
         }
 
+        // A second, separately marked probe leaves the original matched gift intact.
+        // All SDK operations share one simulation lock. First consume a partial
+        // delivery, then fulfill and consume the rest without an intervening AI run.
+        private static unsafe bool TryTerminalSupplyProbe(MissionContext mission)
+        {
+            var players = GamePlayerManagerAPI.Instance;
+            int player = GiftPlayer, good = GiftGood;
+            if (player <= 0 || !MarketPendingDemandFix.TryGetTrackedRequest(player, good, out int amount) || amount <= 1 ||
+                !MarketPendingDemandFix.TryGetProvenance(player, good, out int sourceTick, out long sourceSequence, out int target) || target <= 0 ||
+                sourceTick <= GiftTick || players.GetGoodAmount(player, (eGoods)good) != 0) return false;
+            if (!players.TryGetPlayerResourcesById(player, out GamePlayerResources* resources) || resources == null) return false;
+            int* pending = (int*)&resources->r_AIPendingMarketPurchaseAmountNull;
+            if (pending[good] != amount) return false;
+            if (!SimulationClock.TryGetCurrentTick(mission, out int tick)) throw new InvalidOperationException("Terminal probe clock unavailable.");
+            int gold = players.GetPlayerGold(player);
+            Volatile.Write(ref InterventionActive, 1);
+            try
+            {
+                bool partialAdded = players.TryAddGood(player, (eGoods)good, 1);
+                int partialStock = players.GetGoodAmount(player, (eGoods)good), afterPartialPending = pending[good];
+                Record(tick, player, good, 0, partialStock, gold, players.GetPlayerGold(player));
+                if (!partialAdded || partialStock != 1 || afterPartialPending != amount - 1 || players.GetPlayerGold(player) != gold)
+                    throw new InvalidOperationException("Partial delivery was not credited to its owned package.");
+                players.RemoveGood(player, (eGoods)good, 1);
+                int partialConsumedStock = players.GetGoodAmount(player, (eGoods)good), afterPartialConsumptionPending = pending[good];
+                Record(tick, player, good, partialStock, partialConsumedStock, gold, players.GetPlayerGold(player));
+                if (partialConsumedStock != 0 || afterPartialConsumptionPending != amount - 1 || players.GetPlayerGold(player) != gold)
+                    throw new InvalidOperationException("Consumption refunded a delivery already credited to the package.");
+                int finalDelivery = afterPartialConsumptionPending;
+                bool added = players.TryAddGood(player, (eGoods)good, finalDelivery);
+                int supplied = players.GetGoodAmount(player, (eGoods)good), afterSupplyPending = pending[good];
+                Record(tick, player, good, 0, supplied, gold, players.GetPlayerGold(player));
+                if (!added || supplied != finalDelivery || afterSupplyPending != 0 || players.GetPlayerGold(player) != gold)
+                    throw new InvalidOperationException("Completed supply did not close its owned package before consumption.");
+                players.RemoveGood(player, (eGoods)good, finalDelivery);
+                int remaining = players.GetGoodAmount(player, (eGoods)good), afterConsumptionPending = pending[good];
+                int afterGold = players.GetPlayerGold(player);
+                Record(tick, player, good, supplied, remaining, gold, afterGold);
+                if (remaining != 0 || afterConsumptionPending != 0 || afterGold != gold ||
+                    MarketPendingDemandFix.TryGetTrackedRequest(player, good, out _))
+                    throw new InvalidOperationException("Immediate consumption reopened an already fulfilled package.");
+                TerminalProbeTick = tick;
+                Shared.DevDiag.Log(() => "MARKET_TERMINAL_SUPPLY_PASS run=" + MarketAutomation.RunId +
+                    " nativeTick=" + tick + " sourceTick=" + sourceTick + " sourceSequence=" + sourceSequence +
+                    " player=" + player + " good=" + good + " originalPending=" + amount + " package=" + target +
+                    " partialDelivery=1 pendingAfterPartial=" + afterPartialPending +
+                    " pendingAfterPartialConsumption=" + afterPartialConsumptionPending +
+                    " supplied=" + supplied + " pendingAfterSupply=" + afterSupplyPending +
+                    " stockAfterConsumption=" + remaining + " pendingAfterConsumption=" + afterConsumptionPending +
+                    " goldBefore=" + gold + " goldAfter=" + afterGold + " fixturePendingWrites=0");
+                return true;
+            }
+            finally { Volatile.Write(ref InterventionActive, 0); }
+        }
+
         private static unsafe bool TryGiftTrackedEquipment(MissionContext mission, bool[] actors)
         {
             if (GiftUnits != 0) return true;
@@ -262,8 +322,8 @@ namespace AIMarketOverbuyDiagnostic
                 uint* pending = &resources->r_AIPendingMarketPurchaseAmountNull;
                 for (int good = (int)eGoods.STORED_BOWS; good <= (int)eGoods.STORED_METAL_ARMOUR; good++)
                 {
-                    if (!MarketStaleEquipmentFix.TryGetTrackedRequest(player, good, out int amount) || amount <= 0 || pending[good] != (uint)amount) continue;
-                    if (!MarketStaleEquipmentFix.TryGetProvenance(player, good, out int sourceTick, out long sourceSequence, out int originalTarget)) continue;
+                    if (!MarketPendingDemandFix.TryGetTrackedRequest(player, good, out int amount) || amount <= 0 || pending[good] != (uint)amount) continue;
+                    if (!MarketPendingDemandFix.TryGetProvenance(player, good, out int sourceTick, out long sourceSequence, out int originalTarget)) continue;
                     int gift = checked(amount * 2);
                     int before = players.GetGoodAmount(player, (eGoods)good), gold = players.GetPlayerGold(player);
                     uint pendingBefore = pending[good];
@@ -286,7 +346,7 @@ namespace AIMarketOverbuyDiagnostic
                             " pendingAfter=" + pendingAfter + " pendingWrites=0");
                         if (MarketAutomation.Scenario == "market-backlog-fixed")
                         {
-                            MarketStaleEquipmentFix.EnableAfterGift();
+                            MarketPendingDemandFix.EnableAfterGift();
                             Shared.DevDiag.Log(() => "MARKET_STALE_FIX_ENABLED run=" + MarketAutomation.RunId +
                                 " nativeTick=" + tick + " scope=native40740-empty-stock-equipment originalTargetRetained=True");
                         }
@@ -426,11 +486,12 @@ namespace AIMarketOverbuyDiagnostic
                 .Append(" sequence=").Append(InterventionSequence).Append(" goldAdded=").Append(GoldAdded)
                 .Append(" removedUnits=").Append(RemovedUnits).Append(" removalCalls=").Append(RemovalCalls)
                 .Append(" completedBuyPhases=").Append(CompletedBuyPhases).Append(" stressRemovedUnits=").Append(StressRemovedUnits)
-                .Append(" correctionReductions=").Append(Interlocked.Read(ref MarketStaleEquipmentFix.Reductions))
-                .Append(" correctionCancellations=").Append(Interlocked.Read(ref MarketStaleEquipmentFix.CancelledOrders))
-                .Append(" correctionZeroStockPassed=").Append(Interlocked.Read(ref MarketStaleEquipmentFix.ZeroStockPassed))
+                .Append(" correctionReductions=").Append(Interlocked.Read(ref MarketPendingDemandFix.Reductions))
+                .Append(" correctionCancellations=").Append(Interlocked.Read(ref MarketPendingDemandFix.CancelledOrders))
+                .Append(" correctionZeroStockPassed=").Append(Interlocked.Read(ref MarketPendingDemandFix.ZeroStockPassed))
                 .Append(" giftGoodBuysAfterDelivery=").Append(Interlocked.Read(ref GiftGoodBuysAfterDelivery))
                 .Append(" giftExcessUnitsBought=").Append(Interlocked.Read(ref GiftExcessUnitsBought))
+                .Append(" terminalProbeTick=").Append(TerminalProbeTick)
                 .Append(" giftFirstBuy=").Append(GiftFirstBuyTick).Append(':').Append(GiftFirstBuyStock).Append('+').Append(GiftFirstBuyAmount)
                 .Append(" staleGift=").Append(GiftPlayer).Append('/').Append(GiftGood).Append(':').Append(GiftUnits)
                 .Append(" stressTickCalls=").Append(StressTickCalls)

@@ -165,7 +165,8 @@ namespace Pathfinding.Engine
             return plagueEscapeRaised || !IsPlagueRaisedTile(x, y);
         }
 
-        // 0x32BC40: among the soldiers only the lord and the healer are immune to plague.
+        // 0x32BC40 marks the lord and CHIMP_TYPE_HEALER immune. The latter is the apothecary's civilian (the
+        // controllable CHIMP_TYPE_BEDOUIN_HEALER is not immune), so among the soldiers this matters for the lord.
         private static bool IsPlagueImmune(GameUnit* unit) =>
             unit->r_UnitChimp == eChimps.CHIMP_TYPE_LORD || unit->r_UnitChimp == eChimps.CHIMP_TYPE_HEALER;
 

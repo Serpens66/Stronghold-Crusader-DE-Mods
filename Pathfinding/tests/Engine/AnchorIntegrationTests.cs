@@ -272,7 +272,7 @@ namespace EngineHarness
                         "a replacement order was excluded from hazard checks after ending the previous wait");
                 }
 
-                // Lord and healer take no plague damage (0x32BC40): a tile only the plague policy holds neither
+                // Plague-immune types (0x32BC40; IsPlagueImmune) take no plague damage: a tile only the plague policy holds neither
                 // stops them nor blocks their probe. An ordinary soldier still stops, and fire on the tile stops
                 // the lord as well.
                 fire.ClearAll(); AnchorTick(++ticks); ResetReplanWatch(); tribeOrders[3] = plain;

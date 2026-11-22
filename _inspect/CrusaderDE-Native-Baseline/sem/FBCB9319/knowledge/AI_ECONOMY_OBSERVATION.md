@@ -185,3 +185,95 @@ proof and limitations are retained in the assessment referenced above. Two
 earlier fixed starts blocked before mission entry by a Workshop prompt are
 excluded. This is controlled in-game test acceptance, not a general release
 or a natural-frequency/performance guarantee.
+
+## Exact pending STORE sites and completed stock publication, 2026-11-22 [Vanilla facts]
+
+Static extension on the same CURRENT-selected native hash, independently checked
+against the installed PE. Historical game proofs above are unchanged. This
+extension does not establish in-game acceptance of an all-goods correction.
+
+The following22 actual pending-store RVAs were verified with their complete
+containing functions and incoming-reference checks. Each is a single ordinary
+MOV of6..12 bytes, without RIP-relative addressing or a known interior target;
+that is not permission to overwrite a larger14-byte inline span.
+These are demand-producer stores;3EC90's success clear and initialization/load
+copies are separate from this22-site set.
+
+| Producer | Actual STORE RVAs | Assigned goods / quantity |
+| --- | --- | --- |
+| Food2A420 | 2A464,2A488,2A4AC,2A4D0,2A4F4 | fruit13,cheese11,bread10,wheat9,hops3; AIC batch |
+| Bodyguard40230 / economy40430 | 403A7,40597 | dynamically reported missing good; buy_weapons |
+| Combat40740 | 40D3C,40D62 | dynamic missing good; LastStand5 / ordinary AIC batch |
+| ConstructionCC420 | CC555,CC5C1,CC657,CC692,CC6E4 | iron6,pitch7,wood2,wood2,stone4; raised deficits, wood+2 |
+| Scarcity2AA20 | 2ADB5,2ADD7,2ADF9,2AE1B | wood5,iron2,flour2,hops2, when corresponding cell is zero |
+| Smelter2EAC0 / emergency2F080 | 2EB9C,2F56E | pitch4 / wood20 |
+| AIV retry51790 / ammunitionD5710 | 51ADB,D5791 | stone5 / stone10 |
+
+No chronological immutable FIFO tickets were found: these stores replace or
+raise one signed quantity per player/good.3EC90 reads that current cell, buys at
+most one successful good in table priority, then clears the selected cell.
+Repeated assignments may write exactly the old numeric value. Before/after
+numeric differences therefore cannot prove the absence of a renewal. Global
+recruitment failure/missing-good fields also survive producer early returns;
+their post-call values alone do not prove a current request was emitted.
+Configurable unit costs mean recruitment requests are not limited to equipment.
+
+A request can be fully supplied and then consumed before the next purchase
+snapshot. Example: stock10,pending12,target22; supply12 reaches22, construction
+uses20, later market sees2. Fulfillment must be observed before subsequent
+consumption, rather than inferred solely from the final market-time stock.
+
+The identified normal non-gold TotalGoods writer set is AED70,AF210,B23F0,
+B58B0,B6100,B7D80,B8460,B97B0,C1CE0,C95D0. Incoming-store deliveries and
+committed local-storage additions reach C1CE0; B8460/C95D0 are storage-loss
+routes, and B7D80 ordinary physical subtraction also recounts. B97B0 is the
+separate all-eight-player recount and closes direct local-storage changes.
+Computed-pointer aliases in B6100/C95D0 were explicitly included. Every identified
+normal non-gold increase is published by completed C1CE0 or completed B97B0
+before its native caller can perform subsequent consumption. Unknown external
+pointer writes and save/load bulk copies are separate boundaries, not receipts.
+
+BFD30's actual25-entry storage-kind table at2E76D0 is
+`0,10,10,10,10,10,10,10,10,10,19,19,19,19,10,40,10,11,11,11,11,11,11,11,11`.
+Kind40 is Gold15 only. Thus B58B0's direct non-recount kind40 increment does not
+bypass receipt publication for any ordinary AI purchase good.
+
+Two final-publication markers avoid transient zeroing/partial sums:
+
+- C1CE0 ABI is void(BuildingManager*,int playerId). At C1F4A..C1F52,
+  `42 89 AC 36 CC F0 12 00` is MOV[RSI+R14+12F0CC],EBP restoring gold AFTER
+  all non-gold sums. RSI=playerId*583C,R14=player-manager. All paths reach it,
+  including no buildings. The8-byte single instruction has no known interior
+  target and no RIP/RSP addressing. C1CE0 contains no CALL or goods consumer.
+- B97B0 ABI is void(BuildingManager*). At B9A30..B9A38,
+  `48 8B 4C 24 28 48 33 CC` is MOV RCX,[RSP+28]; XOR RCX,RSP, after all eight
+  final sums and gold restores. All paths reach it; the no-buildings branch
+  bypasses B99D6, so that earlier location is not universal. No known interior
+  target enters the8-byte span. A relay MUST restore the exact original RSP
+  before replaying its stack-relative MOV and preserve the XOR/security-cookie
+  continuation. No goods mutation follows before return.
+
+PRE-C1CE0 alone is insufficient: AF210's metal-armour delivery can temporarily
+assign TotalGoods1 before final recount reconstructs existing+new storage.
+Final signed Int32 values are the valid evidence. Current source ownership
+searches found no owner of those two final markers; live exact-byte checks and
+later mission rechecks remain mandatory. SE already owns B58B0/B6100 entries.
+3EC90 supplies only its own selected purchase through29650; its other callees
+priceCEB10 and ally-request300F0 do not immediately transfer/consume stock.
+
+### Package-preserving correction scope [mod integration]
+
+The selected testmod policy preserves an emitted package: request5 plus later
+supply1 leaves4. It is not a Vanilla proof of current construction/recruitment
+intent, and does not infer cancellation from completed roles or disappeared
+buildings. Supply reaching a whole package target can close owned demand before
+later consumption. Own purchases inside original3EC90 must be distinguished from
+external supply, so ordinary native buys are not counted as avoided purchases.
+Unknown saved/foreign demand remains unattributed. This broader integration has
+no in-game acceptance in this static extension; the earlier narrow equipment
+A/B proof does not establish its behavior or performance.
+
+Detailed machine spans, register maps, counterexamples and source-flow evidence:
+[material audit](../../../../../Testmods/AIMarketOverbuyDiagnostic/Findings/AllGoodsMaterialAudit.md),
+[food/recruitment audit](../../../../../Testmods/AIMarketOverbuyDiagnostic/Findings/AllGoodsRecruitFoodAudit.md),
+[completed-stock audit](../../../../../Testmods/AIMarketOverbuyDiagnostic/Findings/StockReceiptAudit.md).

@@ -2,7 +2,8 @@
 
 Geprüfter Stand vom 21.11.2026: `CrusaderDE.dll` SHA-256
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
-Nur Entwicklungsdiagnose, keine Veränderung von Handelsargumenten oder Ergebnissen.
+Entwicklungsdiagnose mit experimenteller, quellbezogener Korrektur gespeicherter
+Kaufwünsche. Handelsargumente und Ergebnisse der nativen Helfer bleiben unverändert.
 
 ## Einstieg und ABI
 
@@ -53,7 +54,7 @@ desselben Guts wird mit dem vorangegangenen Kauf verbunden; das beweist weder
 Unnötigkeit noch identische physische Waren. Produktion, Geschenke, Verbrauch,
 AIC-Verkaufsschwellen und Geldmangel müssen weiterhin geprüft werden.
 Negative Verkaufsschwellen und Kaufpreisabfragen gesondert unterscheiden.
-Kleine spezielle Erzeuger werden erst bei einem konkreten Trace gezielt ergänzt.
+Die unten dokumentierten Schreibstellen erfassen auch kleine spezielle Erzeuger.
 
 Native Originale laufen genau einmal und ohne gemeinsamen Lifecycle-Lock.
 Kurze Capture-Sperren schützen Stack und Intervalle; Start/End werden bei einer
@@ -83,22 +84,77 @@ Die Versuchsvorbereitung schreibt keine Pending-Mengen. AIC- und Lagerzugriffe
 verwenden geprüfte öffentliche SDK-Wege, die sieben AIC-Felder werden vor Ende
 kooperativ mit vollständiger Rückleseprüfung wiederhergestellt.
 
-`market-backlog-fixed` führt denselben Versuch aus und aktiviert erst nach dem
-Warenzugang die experimentelle Korrektur. Sie berücksichtigt ausschließlich
-beobachtete `40740`-Anforderungen für Ausrüstung, deren Bestand vor und nach dem
-Erzeugeraufruf null war, bei LastStand0 und passender AIC-Kaufcharge. Das beim
-leeren Lager beobachtete Auffüllziel bleibt erhalten; vor `3EC90` darf die
-wartende Menge nur auf den noch nicht anderweitig gedeckten Anteil sinken.
-Materialdefizite aus `CC420` haben eine andere Bedeutung und fallen nicht unter
-diese Regel. Geänderte AIC-Chargen, fremde Mengen, beobachtetes Löschen sowie
-Sitzungs-/Tickwechsel verwerfen die Zuordnung. Die Originalfunktion läuft auch
-bei einem Korrekturfehler genau einmal; dann wird die Korrektur deaktiviert.
+`market-backlog-fixed` aktiviert die Korrektur nach dem protokollierten Warenzugang.
+Die kontrollierten Baseline-Szenarien erfassen Quellen bei ausgeschalteter Korrektur.
+Ein normal gestartetes Spiel mit diesem Entwicklungsbuild korrigiert beobachtete
+native Pakete direkt im gespeicherten Wunsch vor `3EC90`.
 
-Dies ist ein begrenzter A/B-Testfix, keine allgemeine Freigabe für andere
-Rekrutierungsquellen oder geänderte Einheitenkosten. Außerhalb des expliziten
-Fixversuchs bleibt der installierte Mod beobachtend. Die Native-Entry-Hooks
-bleiben prozessweit veröffentlicht; sie werden nicht zurückgepatcht.
-Die produktive Mengenregel wird direkt in `tests/TradeSession` geprüft.
+## Alle nativen Auftragserzeuger: Restpaketvertrag vom 22.11.2026
+
+Referenzhash bleibt der oben angegebene vollständige SHA-256. Die 22 produktiven
+Schreibstellen und vollständigen Bytes stehen in `src/MarketDemandSites.DevDiag.cs`;
+Herleitung, gesamte Erzeuger-/Verbraucherkette, eingehende Kanten und Grenzen in
+`Findings/AllGoodsMaterialAudit.md` und `Findings/AllGoodsRecruitFoodAudit.md`.
+Die Stellen sind: Nahrung `2A464/2A488/2A4AC/2A4D0/2A4F4`, Rekrutierung
+`403A7/40597/40D3C/40D62`, Baukosten `CC555/CC5C1/CC657/CC692/CC6E4`,
+Knappheit `2ADB5/2ADD7/2ADF9/2AE1B`, Pech `2EB9C`, Notkauf `2F56E`,
+AIV `51ADB`, Steinmunition `D5791`.
+
+Jede verdrängte Spanne ist genau eine vollständige MOV-Instruktion (6 bis
+12 Byte), ohne RSP-/RIP-Operand oder inneres Sprungziel. Ein nativer Relay
+sichert GPR, Flags und FXSAVE-Zustand, beobachtet die Operanden und springt
+nach Wiederherstellung ins Originaltrampolin. Die Originalzuweisung läuft genau
+einmal. Der installierte Indirect-Backendvertrag wird für jede Stelle offline
+ausgeführt; ein 14-Byte-Inline-Hook wäre an mehreren Stellen unzulässig.
+
+Aus dem belegten ursprünglichen Bestand S und der tatsächlich zugewiesenen Menge
+Q entsteht das unveränderte Ziel S+Q. Vor dem Markt wird die gespeicherte Menge
+auf `min(Q, max(0, Ziel-aktuellerBestand))` gesetzt. Positive eigene Restmengen
+dürfen nach Verbrauch wieder bis Q steigen; vollständige Erfüllung beendet den
+Auftrag. Gleichwertige erneute native Zuweisungen erneuern das Paket. Auch der
+native Holzpuffer bleibt erhalten. Ein erfolgreicher Bau oder ein rekrutierter
+Soldat bedeutet damit keine automatische Stornierung der Vorbevorratung.
+
+Der effektive Zellzeiger wird gegen `module+379D840+player*583C+good*4` und
+den tatsächlichen öffentlichen SDK-Zeiger geprüft; Bestand liegt 25A0 Byte
+davor. AIC-Root `404C950`, Recordgröße 5E4 und Spielerlayout sind hashgebunden.
+Ein geänderter AIC-/LastStand-Vertrag, abweichende Mengen, beobachtetes Löschen,
+Sitzungs- oder Tickwechsel verwerfen die Zuordnung. Nicht zugeordnete gespeicherte
+Wünsche bleiben unangetastet. Numerisch identische direkte Fremdzuweisungen ohne
+beobachtbaren Schreiber sind nicht unterscheidbar und daher keine zugesicherte
+Erzeugerkompatibilität. Der Fix rekonstruiert keine weggefallenen Einzelabsichten.
+
+Fixes erweitert Nahrung um Holz/Eisen/Bier an `2A4D8`. Dessen tatsächlicher Stub
+wird gegen die vollständige Semantik und die gebundenen Arrays geprüft. Der
+optionale Beobachter `2A42A`, Bytes `4C 69 C0 3C 58 00 00`, erfasst garantiert
+folgende Fixes-Zuweisungen vor der eigenen Funktion; diese verändert keinen Bestand
+und hat bei AIC ungleich null keinen davor liegenden Rückweg. `2A4EB` wäre wegen
+des vorherigen JLE bei ausgeschaltetem Hopfenkauf unvollständig. Der gesamte
+Funktionskörper wird vor Installation und nach Veröffentlichung geprüft und an
+Sitzungsgrenzen erneut verglichen. Unbekannte Fixes-Schreiber sperren nur die
+Korrektur der betroffenen drei Güter.
+
+Vollständige Erfüllung wird zusätzlich an zwei fertigen Bestandsveröffentlichungen
+erkannt: `C1F4A`, Bytes `42 89 AC 36 CC F0 12 00`, nach der Nicht-Gold-Summe
+eines Spielers (RSI=Spieler*583C), und `B9A30`, Bytes `48 8B 4C 24 28 48 33 CC`,
+nach der Neuberechnung aller acht Spieler. Letzterer enthält einen RSP-relativen
+Zugriff: der Relay stellt vor dem Trampolin den ursprünglichen Stack exakt wieder
+her. Alle normalen nativen Nicht-Gold-Zugänge erreichen einen dieser Endpunkte;
+Herleitung und vollständige Alias-/Callerprüfung: `Findings/StockReceiptAudit.md`.
+Dadurch bleibt ein vollständig geliefertes Paket auch nach sofortigem Verbrauch
+geschlossen. Teilmengen werden weiterhin am Handelsintervall korrigiert. Eine
+gesonderte native Datenfreigabe lässt die beiden Marker im Baselineversuch ohne
+verwalteten Aufruf passieren. Während der Originalausführung von `3EC90` werden
+diese Abschlüsse ausgelassen: dessen eigene erfolgreichen Käufe löschen ihren
+Wunsch selbst und zählen nicht als vermiedene Käufe. Der zusätzliche Versuch
+`MARKET_TERMINAL_SUPPLY_PASS` verlangt einen frischen nativen Auftrag, volle
+physische Lieferung und unmittelbaren Verbrauch unter derselben Simulationssperre.
+
+Alle Hooks bleiben prozessweit veröffentlicht; nur Daten-Gates wechseln. Kein
+Pattern-Fallback bei unbekanntem Hash: Datenlayout und konkrete Schreibersemantik
+sind ohne erneuten Audit nicht sicher migrierbar. Fehler lassen Vanilla weiterlaufen.
+Die produktive Mengenregel wird direkt in `tests/TradeSession` geprüft; Register,
+Flags, SIMD, neue Schreibstellen und beide bedingten Trampolinpfade in `tests/TradeEntries`.
 
 Der Testmod setzt inzwischen mindestens SE 2.14.4 voraus: Gegen genau diese
 installierte öffentliche API wurde auch der Workshop-Teststartschalter geprüft.

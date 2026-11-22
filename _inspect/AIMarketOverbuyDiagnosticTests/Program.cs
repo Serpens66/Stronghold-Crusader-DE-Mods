@@ -222,12 +222,14 @@ internal static class Program
         Assert(retainedExamples==goodsPlayers*4,"first examples lost or repeatedly logged");
         Assert(fixedBytes<8*1024*1024,"capture buffer memory budget exceeded");
         Console.WriteLine("METRICS: 8h at 40 ticks/s, 8 players, all 23 goods changing each tick; bytes="+bytes+", MiB="+(bytes/1048576.0).ToString("F2",CultureInfo.InvariantCulture)+", summaries="+summaries+", fixedCaptureBytes="+fixedBytes+", allocatedCaptureBytes="+allocated+", p99Ms="+p99.ToString("F4",CultureInfo.InvariantCulture)+", testSeconds="+watch.Elapsed.TotalSeconds.ToString("F1",CultureInfo.InvariantCulture));
-        Assert(allocated==0,"ordinary capture allocated"); Assert(p99<0.5,"p99 capture budget exceeded"); Assert(bytes<=32L*1024*1024,"8h log budget exceeded");
+        long fixBudget=MarketDemandLog.EightHourAdditionalBudgetBytes(8,23);
+        Console.WriteLine("METRICS: combined 8h own-log bound="+(bytes+fixBudget)+", MiB="+((bytes+fixBudget)/1048576.0).ToString("F3",CultureInfo.InvariantCulture)+", includes native-source/fix summaries and bounded first examples.");
+        Assert(allocated==0,"ordinary capture allocated"); Assert(p99<0.5,"p99 capture budget exceeded"); Assert(bytes+fixBudget<=32L*1024*1024,"combined 8h own-log budget exceeded");
         Console.WriteLine("PASS: log volume, fixed capture buffers, zero capture allocations, p99 performance.");
     }
     private static int Main()
     {
-        try { LifecycleAndEvidence(); ReferenceTrace(); Backpressure(); EightHours(); return 0; }
+        try { MarketDemandLogTests.Run(); LifecycleAndEvidence(); ReferenceTrace(); Backpressure(); EightHours(); return 0; }
         catch(Exception ex){Console.Error.WriteLine(ex);return 1;}
     }
 }

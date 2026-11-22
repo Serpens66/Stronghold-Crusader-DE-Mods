@@ -58,7 +58,7 @@ namespace AIMarketOverbuyDiagnostic
 
                 // The extender's publisher and these static fields outlive startup cleanup.
                 Shared.DebugLogHelper.LogInfo(log,
-                    "AI_MARKET_DIAGNOSTIC_READY: readOnly=true, publisher=GameTimeManagerAPI.OnTick.");
+                    "AI_MARKET_DIAGNOSTIC_READY: publisher=GameTimeManagerAPI.OnTick; overview=readOnly; development build additionally owns source-aware pending correction.");
                 candidate.StartWriter();
                 sessionSubscription = candidateSubscription;
                 runtime = candidate;

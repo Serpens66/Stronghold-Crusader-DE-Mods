@@ -8,9 +8,12 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <!-- This harness uses only the local SDK and production source, no NuGet packages. -->
     <NuGetAudit>false</NuGetAudit>
+    <DefineConstants>$(DefineConstants);SERP_DEVDIAG</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="MarketDemandLogTests.cs" />
     <Compile Include="..\..\Testmods\AIMarketOverbuyDiagnostic\src\MarketObservation.cs" Link="MarketObservation.cs" />
+    <Compile Include="..\..\Testmods\AIMarketOverbuyDiagnostic\src\MarketDemandLog.DevDiag.cs" Link="MarketDemandLog.DevDiag.cs" />
   </ItemGroup>
 </Project>

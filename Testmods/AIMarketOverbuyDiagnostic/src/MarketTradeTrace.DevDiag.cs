@@ -16,8 +16,8 @@ using Shared;
 
 namespace AIMarketOverbuyDiagnostic
 {
-    // Diagnostic only: never changes arguments, return values, resources or instructions
-    // after publication. The static owner, hooks and delegates survive Unity startup cleanup.
+    // Trade arguments/results remain native. The independent pending correction
+    // runs before the decision; published hooks survive Unity startup cleanup.
     internal sealed unsafe partial class MarketTradeTrace
     {
         internal const string Feature = "ai-market-trade-trace";
@@ -190,12 +190,10 @@ namespace AIMarketOverbuyDiagnostic
             lock (captureGate)
             {
                 if (Volatile.Read(ref active) == 0) return;
-                bool clockReset = lastMapTick != 0 && !SimulationClock.TryGetElapsedTicks(lastMapTick, mapTick, out _);
                 lastMapTick = mapTick;
                 // A callback chain owns its before/after interval until its outermost
                 // original returns; tick/lifecycle notifications cannot split that chain.
                 if (lifecycle.Depth != 0) return;
-                if (clockReset) MarketStaleEquipmentFix.Reset(session);
                 long now = Stopwatch.GetTimestamp();
                 if (now >= nextSummaryClock && PublishSummary(false))
                 {
@@ -211,15 +209,24 @@ namespace AIMarketOverbuyDiagnostic
             bool completed = false;
             try
             {
-                if (frame != null)
+                // Correction cannot depend on successful diagnostic capture.
+                try
                 {
-                    try { MarketStaleEquipmentFix.BeforeDecision(player, frame.BeforeProfile.AicId,
-                        frame.BeforeProfile.BuyWeapons, frame.BeforeProfile.LastStand, frame.BeforeProfile.Tick); }
-                    catch (Exception failure) { MarketStaleEquipmentFix.FailCorrection(failure); }
+                    int tick = SimulationTickEvents.TryGetCurrentTick(out int currentTick) ? currentTick : lastMapTick;
+                    MarketPendingDemandFix.BeforeDecision(player, tick);
                 }
+                catch (Exception failure) { MarketPendingDemandFix.FailCorrection(failure); }
+                try { MarketPendingDemandFix.EnterDecision(player); }
+                catch (Exception failure) { MarketPendingDemandFix.FailCorrection(failure); }
                 originalDecision(root, player); completed = true;
             }
-            finally { Finish(frame, 0, completed); }
+            finally
+            {
+                try { MarketPendingDemandFix.LeaveDecision(player); }
+                catch (Exception failure) { MarketPendingDemandFix.FailCorrection(failure); }
+                MarketPendingDemandFix.AfterDecision(player);
+                Finish(frame, 0, completed);
+            }
         }
         private void Recruit(IntPtr root, int player)
         {

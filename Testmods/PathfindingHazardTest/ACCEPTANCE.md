@@ -42,7 +42,7 @@ und Bewegungsfälle wieder her und entfernt die Soldaten.
 | `plague-escape` | Wie oben mit acht Wolken auf der Kachel des Soldaten. |
 | `fire-wait-bounded`, `plague-wait-bounded` | Gefahr entsteht nach dem Befehl quer über den Weg: Wartefall, Abbruch erst nach der eigenen Frist und bei noch bestehender Gefahr, Stillstand, Ziel nicht mehr aktiv, ursprüngliche Gruppe. |
 | `fire-wait-unlimited`, `plague-wait-unlimited` | Wartefall überdauert die endliche Frist ohne Abbruch. Nach Ende der Gefahr wird weitergelaufen, Ankunft am Ziel, ursprüngliche Gruppe. |
-| `plague-immune-crossing` | Heiler (pestimmun, `0x32BC40`) quert die Pestsperre ohne Wartefall und kommt an, nachweislich auf einer Pestkachel gesehen. Ein Kontroll-Speerkämpfer bleibt vor der Sperre stehen (Wartefall). |
+| `plague-immune-crossing` | Lord (pestimmun, `0x32BC40`) quert die Pestsperre ohne Wartefall und kommt an, nachweislich auf einer Pestkachel gesehen. Ein Kontroll-Speerkämpfer bleibt vor der Sperre stehen (Wartefall). Der eigene Lord läuft vorher zur Startkachel; hat der Spieler keinen (so auf `test AI.map`), wird einer gespawnt und nie getötet, wenn das Spiel ihn als Spieler-Lord führt. `CHIMP_TYPE_HEALER` ist der zivile Apotheker-Heiler und kein Soldat. |
 
 Ein ungeeignetes Gelände, ein Gefahrenaufbau, der nicht schließt, oder ein Zeitlimit führen zu einem
 Fehler und nie zu einem PASS. Es wird nichts gespeichert.

@@ -15,14 +15,18 @@ $textFiles = @($sourceFiles) + @(
     (Join-Path $testDirectory 'Test.ps1'),
     (Join-Path $project 'tests\TradeSession\TradeSession.Tests.csproj'),
     (Join-Path $project 'tests\TradeSession\Program.cs'),
-    (Join-Path $project 'tests\TradeSession\StaleEquipmentTargetTests.cs'),
+    (Join-Path $project 'tests\TradeSession\MarketDemandTargetTests.cs'),
+    (Join-Path $testDirectory 'MarketDemandLogTests.cs'),
     (Join-Path $project 'tests\TradeEntries\TradeEntries.Tests.csproj'),
-    (Join-Path $project 'tests\TradeEntries\Program.cs'))
+    (Join-Path $project 'tests\TradeEntries\Program.cs'),
+    (Join-Path $project 'tests\TradeEntries\WriterRelayTests.cs'))
 $runtimeText = (($sourceFiles + @((Get-Item -LiteralPath $projectFile))) |
     ForEach-Object { [IO.File]::ReadAllText($_.FullName) }) -join "`n"
 $forbiddenJson = 'System\.Web\.Extensions|JavaScriptSerializer|System\.Text\.Json|Newtonsoft\.Json|DataContractJsonSerializer|JsonUtility|System\.Runtime\.Serialization\.Json'
 $forbiddenLifecycle = '\b(OnDestroy|OnDisable|OnApplicationQuit|OnApplicationPause|Update|LateUpdate|FixedUpdate|StartCoroutine)\s*\('
-$forbiddenMutations = 'CodePatch\.Write|Marshal\.Write|VirtualProtect|X64InlineHook|HookTransaction|\.Apply\s*\(|\.Undo\s*\(|\.Enable\s*\(|\.Disable\s*\('
+# Type references can observe a foreign hook without installing or mutating it.
+# Actual publication remains restricted to the audited shared detour helper.
+$forbiddenMutations = 'CodePatch\.Write|Marshal\.Write|VirtualProtect|new\s+(?:X64InlineHook|HookTransaction)\b|\.Apply\s*\(|\.Undo\s*\(|\.Enable\s*\(|\.Disable\s*\('
 if ($runtimeText -match $forbiddenJson) { throw 'Forbidden runtime JSON dependency.' }
 if ($runtimeText -match '\b(OnDestroy|OnDisable|OnApplicationQuit|OnApplicationPause)\s*\(') { throw 'Forbidden runtime lifecycle teardown.' }
 $pluginText = [IO.File]::ReadAllText((Join-Path $project 'src\AIMarketOverbuyDiagnosticPlugin.cs'))

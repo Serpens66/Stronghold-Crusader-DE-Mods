@@ -246,7 +246,8 @@ records come from the effect manager `FireRouteRules` binds; no RVA of their own
   gate for neighbours and ring: `|H(cloud) - H(tile)| < 120` with `H` = `0x6B910` (raw height `0x4DDD350`, or building roof
   `0xC07C0` on raw height, on DefaultHeight for main and inner gates). Roof table in `PlagueDamageModel.Roof`.
 - **Per-unit gate (`0x192750`):** tile flags `0x10000100`, building types 40..47 and 74..78, unit-type table `0x32BC40` (among
-  soldiers only lord and healer are immune), healer resistance only scales the damage.
+  soldiers only the lord is immune; the also immune `CHIMP_TYPE_HEALER` is the apothecary's civilian, the controllable
+  `CHIMP_TYPE_BEDOUIN_HEALER` is not immune), healer resistance only scales the damage.
 - **APIShared policy:** lanes and standing planes as in `APIShared/src/Projectiles/PlagueHeightAssembly.cs` (`GenerateSurface`,
 +
 +  returns no policy (Vanilla rules).

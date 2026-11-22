@@ -116,10 +116,19 @@ einen Testmod unter `Testmods/` über die öffentliche Test-API, nicht in den Ha
   erlaubter/zu langer/fehlender Umweg, gefährliches Ziel und eingekreiste Einheit.
   Fertig: Umweg beziehungsweise Warten/Abbruch, realer Schaden, Animation und
   Wiederholungsversuche sind anhand von Zustand und Sichtprüfung bestätigt.
+  **Teilweise im Spiel abgenommen (22.11.2026, [IngameHazards](../Findings/IngameHazards.md)):**
+  Feuer quer über den laufenden Weg mit begrenztem Warten/Abbruch und unbegrenztem
+  Warten/Fortsetzen, Flucht aus Feuer, KI unberührt. Offen: Pech, Feuerpfeile/-töpfe,
+  Gebäudebrand, Umwegfälle, gefährliches Ziel, eingekreiste Einheit, Sichtprüfung.
 - [ ] **T3: Pest-Ingame-Matrix abschließen.** Natürliche und Geschosswolken,
   Drift, Ausblendphase, Behandlung und Entfernung; Lord/Heiler, Heilerresistenz,
   erhöhte Garnison mit `EscapePlagueRaised` aus/an. Fertig: zusammen mit Q2
   Schadensflächen, Schutz/Ausnahme und Rückkehr nach Entfernung belegt.
+  **Teilweise im Spiel abgenommen (22.11.2026, [IngameHazards](../Findings/IngameHazards.md)):**
+  Wolken wie Vanillas natürliche Pest, begrenztes/unbegrenztes Warten, Flucht/Rückkehr,
+  Lord quert Pest ohne Stopp (Immunität). `CHIMP_TYPE_HEALER` ist der zivile
+  Apotheker-Heiler, kein Soldat; der steuerbare Beduinenheiler ist nicht immun. Offen:
+  Geschosswolken, Behandlung, Heilerresistenz, Garnison/Höhe, Warten mit Flucht bei Drift.
 - [ ] **T4: Flucht und Rückkehr vollständig abnehmen.** `FireEscape.cs:317`:
   **Offline erweitert, Spielabnahme offen:** reale Flucht-/Rückkehr-/Besitzmethoden
   einschließlich erneuter Gefahr und überlappender Savefälle bestehen.
@@ -128,6 +137,9 @@ einen Testmod unter `Testmods/` über die öffentliche Test-API, nicht in den Ha
   Gefahrenwechsel während Rückkehr. Fertig: Endposition und Gruppenaufnahme sind
   korrekt, keine Befehlsoszillation und keine unbeabsichtigte Fristverlängerung.
   Erteilten Rückkehrbefehl und tatsächliches Ankommen getrennt nachweisen.
+  **Grundfall im Spiel abgenommen (22.11.2026):** Flucht, sichere Ankunft, erteilte
+  Rückkehr und Ankunft am Ausgangspunkt mit eigener Gruppe für Feuer und Pest. Offen:
+  blockierte Rückkehr, Fristablauf, neue Gefahr am Fluchtziel/während der Rückkehr.
 - [ ] **T5: Befehlsintegration im Spiel prüfen.**
   **Offline erweitert, Spielabnahme offen:** Vorrang neuer Befehle, Queue-Sperren,
   Gruppenbesitz, Aufnahmeausschlüsse und Veto-Subscriber sind regressionsgesichert.
@@ -185,13 +197,12 @@ einen Testmod unter `Testmods/` über die öffentliche Test-API, nicht in den Ha
 ## Freigabearbeiten
 
 - [ ] **R1: Abnahme reproduzierbar vorbereiten.**
-  **Vorbereitet, nicht abgenommen:** der getrennte
-  [Gefahren-Testmod](../../Testmods/PathfindingHazardTest/ACCEPTANCE.md) ist kompiliert;
-  97 Konfigurations-/reale-DLL-Reflexionsprüfungen bestehen. Sechs Szenarien
-  beobachten echte Flucht/Rückkehr sowie begrenztes/unbegrenztes Warten für beide
-  Gefahren. Passende echte Testsaves und die tatsächliche Ausführung fehlen noch.
-  Kein Spielstart dieses Auftrags und kein erfolgreicher Gefahrenlauf aus einer
-  Offline-Fixture abgeleitet. Fehler/Cancel und pausiertes Cleanup selbst abnehmen.
+  **Reproduzierbarer Lauf vorhanden (22.11.2026):** der
+  [Gefahren-Testmod](../../Testmods/PathfindingHazardTest/ACCEPTANCE.md) erzeugt Welt,
+  Soldaten, Feuer und Pest selbst (keine Testsaves); `hazard-matrix` mit sieben Fällen
+  bestand in einem Spielstart mit echten Scan-/Flucht-/Wartecallbacks und
+  wiederhergestellten Optionen ([IngameHazards](../Findings/IngameHazards.md)).
+  Offen: Fehler/Cancel und pausiertes Cleanup selbst abnehmen.
   Die produktive Sperre bleibt bis zur Freigabe bestehen. Für spätere Spieltests einen getrennten
   Testweg mit explizit aktivierten EngineOptions festlegen; kein Lauf, der weiterhin
   `AvoidFire=false`/`AvoidPlague=false` nutzt, darf als Gefahrentest zählen.

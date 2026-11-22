@@ -85,6 +85,7 @@ internal static class Program
                     site.Name + ": productive Windows-x64 callback ABI matches tests");
                 RunSite(dll, site, log);
             }
+            WriterRelayTests.Run(dll, log, Check);
             Check(NativePatchGuard.Recheck() == 0, "published copies are not reported as overwritten");
         }
         catch (Exception error)
@@ -97,7 +98,7 @@ internal static class Program
             Console.Error.WriteLine("FAIL: " + failures + " AuditedEntryDetour check(s) failed.");
             return 1;
         }
-        Console.WriteLine("PASS: installed RedBird backend publishes the audited Indirect entry detours and refuses changed or foreign-patched entries.");
+        Console.WriteLine("PASS: installed RedBird backend publishes the audited entries and all22 writer relays; changed/foreign entries rejected; GPR/flags/SSE and both conditional boundary paths preserved.");
         return 0;
     }
 

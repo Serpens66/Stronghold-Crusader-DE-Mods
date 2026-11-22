@@ -49,7 +49,7 @@ namespace PathfindingHazardTest
             internal int Id, Owner, Tribe, OriginX, OriginY, TargetX, TargetY, WaitStarted, WaitUntil, StopX, StopY;
             internal uint Global, TribeGlobal;
             internal eChimps Type;
-            internal bool Ai, Control, SawCase, SawSafe, SawReturning, Exposed, Waited, PastDeadline, Arrived;
+            internal bool Ai, Control, Borrowed, SawCase, SawSafe, SawReturning, Exposed, Waited, PastDeadline, Arrived;
         }
 
         internal Fixture(string map, HazardCase[] cases, int waitSeconds, Action<string> log)
@@ -165,6 +165,14 @@ namespace PathfindingHazardTest
             // Fire or clouds of the previous case still burn natively (the restored options stop the scan).
             yield return AutomationWait.Until("no native fire or plague record left", () => run.InSimulation(mission, () => NativeHazards() == 0));
             current = item; caseDone = false; error = null;
+            if (item.Kind == CaseKind.ImmuneCrossing)
+            {
+                // A spawned CHIMP_TYPE_HEALER is the apothecary's civilian, not a soldier, so the immune actor is a
+                // lord: the player's own lord walks to the start tile first (hazard options still off); without one
+                // (test AI.map has none for the human) SpawnActors spawns a lord, and no second lord is ever spawned.
+                Execute(run, StageLord);
+                yield return AutomationWait.Until("lord at the crossing start", () => run.InSimulation(mission, LordStaged));
+            }
             Execute(run, () => SpawnActors(item));
             yield return run.WaitForTicks(mission, 16);
             yield return AutomationWait.Until("live actors and owner route mask", () => run.InSimulation(mission, ActorsReady));
@@ -224,7 +232,13 @@ namespace PathfindingHazardTest
                     if (!item.Plague) actors.Add(Spawn(aiOwner, eChimps.CHIMP_TYPE_SPEARMAN, cx + 1, cy, cx + 1, cy, true));
                     break;
                 case CaseKind.ImmuneCrossing:
-                    actors.Add(Spawn(owner, eChimps.CHIMP_TYPE_HEALER, cx - StartOffset, cy - 2, cx + TargetOffset, cy - 2, false));
+                    if (lord == null)
+                    {
+                        lord = Spawn(owner, eChimps.CHIMP_TYPE_LORD, cx - StartOffset, cy - 2, cx + TargetOffset, cy - 2, false);
+                        // Never kill what the game registered as the player's lord (defeat); it stays after the case.
+                        lord.Borrowed = GamePlayerManagerAPI.Instance.GetLordUnitId(owner) == lord.Id;
+                    }
+                    actors.Add(lord);
                     actors.Add(Spawn(owner, eChimps.CHIMP_TYPE_SPEARMAN, cx - StartOffset, cy + 2, cx + TargetOffset, cy + 2, false, control: true));
                     break;
                 default:
@@ -248,16 +262,46 @@ namespace PathfindingHazardTest
             Require(unit->r_UnitChimp == type && unit->r_CurrentTilePositionX == x && unit->r_CurrentTilePositionY == y, "Spawn projected or wrong type.");
             var actor = new Actor { Id = id, Global = unit->r_GlobalId, Owner = player, Type = type, OriginX = x, OriginY = y,
                 TargetX = targetX, TargetY = targetY, Ai = ai, Control = control };
-            if (!ai)
-            {
-                int tribe = checked((int)GameTribeManagerAPI.Instance.Create(player, false));
-                Require(tribe > 0, "Group creation failed.");
-                if (unit->r_TribeId > 0) GameTribeManagerAPI.Instance.UnassignUnit(unit->r_TribeId, id);
-                Require(GameTribeManagerAPI.Instance.AssignUnit(tribe, id), "Group assignment failed.");
-                Require(GameTribeManagerAPI.Instance.TryGetTribeById(tribe, out GameTribe* group) && group != null, "Group missing.");
-                actor.Tribe = tribe; actor.TribeGlobal = group->r_GlobalId;
-            }
+            if (!ai) AssignOwnTribe(actor, unit);
             return actor;
+        }
+
+        // ---- Plague-immune lord (0x32BC40: among controllable soldiers only CHIMP_TYPE_LORD is immune) ----
+
+        private Actor lord;
+        private void StageLord()
+        {
+            lord = null;
+            int id = GamePlayerManagerAPI.Instance.GetLordUnitId(owner);
+            if (id == 0) return;
+            GameUnit* unit = null;
+            bool found = id > 0 && UnitAccess.TryGetById(id, out unit, out _) && unit != null;
+            Require(found && unit->r_UnitChimp == eChimps.CHIMP_TYPE_LORD && unit->r_GlobalId == (uint)GamePlayerManagerAPI.Instance.GetLordUnitGlobalId(owner) &&
+                unit->r_ControllableForPlayerId == owner && UnitAccess.IsReallyAlive(unit), "The own lord is not a live controllable lord: id=" + id + " found=" + found +
+                (found ? " type=" + unit->r_UnitChimp + " global=" + unit->r_GlobalId + "/" + GamePlayerManagerAPI.Instance.GetLordUnitGlobalId(owner) +
+                    " controllable=" + unit->r_ControllableForPlayerId + " alive=" + UnitAccess.IsReallyAlive(unit) + " tribe=" + unit->r_TribeId : ""));
+            lord = new Actor { Id = id, Global = unit->r_GlobalId, Owner = owner, Type = eChimps.CHIMP_TYPE_LORD, OriginX = cx - StartOffset, OriginY = cy - 2,
+                TargetX = cx + TargetOffset, TargetY = cy - 2, Borrowed = true };
+            AssignOwnTribe(lord, unit);
+            Require(GameTribeManagerAPI.Instance.IssueMoveHereCommand(lord.Tribe, lord.OriginX, lord.OriginY, false, 1, TribeMoveType.DefaultInSync),
+                "Lord staging move rejected.");
+        }
+
+        private bool LordStaged()
+        {
+            if (lord == null) return true;
+            GameUnit* unit = ActorUnit(lord);
+            return !Walking(unit) && unit->r_CurrentTilePositionX == lord.OriginX && unit->r_CurrentTilePositionY == lord.OriginY;
+        }
+
+        private void AssignOwnTribe(Actor actor, GameUnit* unit)
+        {
+            int tribe = checked((int)GameTribeManagerAPI.Instance.Create(actor.Owner, false));
+            Require(tribe > 0, "Group creation failed.");
+            if (unit->r_TribeId > 0) GameTribeManagerAPI.Instance.UnassignUnit(unit->r_TribeId, actor.Id);
+            Require(GameTribeManagerAPI.Instance.AssignUnit(tribe, actor.Id), "Group assignment failed.");
+            Require(GameTribeManagerAPI.Instance.TryGetTribeById(tribe, out GameTribe* group) && group != null, "Group missing.");
+            actor.Tribe = tribe; actor.TribeGlobal = group->r_GlobalId;
         }
 
         private bool ActorsReady()
@@ -351,7 +395,7 @@ namespace PathfindingHazardTest
         {
             foreach (Actor actor in actors)
             {
-                if (actor.Type == eChimps.CHIMP_TYPE_HEALER) continue;
+                if (actor.Type == eChimps.CHIMP_TYPE_LORD) continue; // the immune lord is meant to cross
                 GameUnit* unit = ActorUnit(actor);
                 int x = unit->r_CurrentTilePositionX, y = unit->r_CurrentTilePositionY;
                 int straight = Math.Max(Math.Abs(actor.TargetX - x), Math.Abs(actor.TargetY - y));
@@ -516,17 +560,17 @@ namespace PathfindingHazardTest
 
         private void ObserveImmune(int tick)
         {
-            Actor healer = actors[0], control = actors[1];
-            GameUnit* unit = ActorUnit(healer);
-            Require(bridge.Case("replanWaits", healer.Id) == null, "The plague-immune healer was stopped in front of plague.");
-            if (bridge.Hazard(true, unit->r_CurrentTilePositionX, unit->r_CurrentTilePositionY)) healer.Exposed = true;
+            Actor immune = actors[0], control = actors[1];
+            GameUnit* unit = ActorUnit(immune);
+            Require(bridge.Case("replanWaits", immune.Id) == null, "The plague-immune lord was stopped in front of plague.");
+            if (bridge.Hazard(true, unit->r_CurrentTilePositionX, unit->r_CurrentTilePositionY)) immune.Exposed = true;
             if (!control.Waited && bridge.Case("replanWaits", control.Id) != null) { control.Waited = true; Emit("control-wait tick=" + tick); }
-            if (!healer.Arrived && !Walking(unit) && Math.Abs(unit->r_CurrentTilePositionX - healer.TargetX) <= 1 &&
-                Math.Abs(unit->r_CurrentTilePositionY - healer.TargetY) <= 1)
-            { healer.Arrived = true; Emit("healer-arrived tick=" + tick + " crossedPlague=" + healer.Exposed); }
-            if (!healer.Arrived || !control.Waited) return;
-            Require(healer.Exposed, "The healer arrived without being seen on a plague tile; the crossing is unproven.");
-            Finish(tick, "immune-healer-crossed+control-waited");
+            if (!immune.Arrived && !Walking(unit) && Math.Abs(unit->r_CurrentTilePositionX - immune.TargetX) <= 1 &&
+                Math.Abs(unit->r_CurrentTilePositionY - immune.TargetY) <= 1)
+            { immune.Arrived = true; Emit("lord-arrived tick=" + tick + " crossedPlague=" + immune.Exposed); }
+            if (!immune.Arrived || !control.Waited) return;
+            Require(immune.Exposed, "The lord arrived without being seen on a plague tile; the crossing is unproven.");
+            Finish(tick, "immune-lord-crossed+control-waited");
         }
 
         private bool BarrierHolds()
@@ -556,7 +600,7 @@ namespace PathfindingHazardTest
             }
             foreach (Actor actor in actors)
             {
-                if (!UnitAccess.TryGetById(actor.Id, out GameUnit* unit, out _) || unit == null || unit->r_GlobalId != actor.Global || !UnitAccess.IsReallyAlive(unit)) continue;
+                if (actor.Borrowed || !UnitAccess.TryGetById(actor.Id, out GameUnit* unit, out _) || unit == null || unit->r_GlobalId != actor.Global || !UnitAccess.IsReallyAlive(unit)) continue;
                 if (APIShared.UnitAccess.TryGetById(actor.Id, out _, out _)) GameUnitManagerAPI.Instance.KillUnit(actor.Id);
             }
             actors.Clear();

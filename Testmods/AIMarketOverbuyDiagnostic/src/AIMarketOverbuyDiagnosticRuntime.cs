@@ -34,21 +34,28 @@ namespace AIMarketOverbuyDiagnostic
 #if SERP_DEVDIAG
         private MarketTradeTrace tradeTrace;
         private bool causalRequested;
+        private bool demandStartPending;
         internal void InstallTrace(SHCDESE.API.LowLevel.CrusaderLibraryLoadContext context)
         {
             causalRequested = MarketAutomation.NeedsCausalTrace();
-            if (causalRequested) tradeTrace = MarketTradeTrace.Install(context, log);
-            else Shared.DevDiag.Log(() => "AI_MARKET_CAUSAL_SCOPE: nativeTrace=false; overview uses bounded snapshots; detail traces require an explicit smoke/causal run.");
+            MarketPendingDemandFix.Install(context, log);
+            // The decision wrapper also drives correction in ordinary test games.
+            // Detailed trade capture remains confined to explicitly owned short runs.
+            tradeTrace = MarketTradeTrace.Install(context, log);
+            Shared.DevDiag.Log(() => "AI_MARKET_CAUSAL_SCOPE: detailedCapture=" + causalRequested +
+                "; pendingCorrectionReady=" + (MarketPendingDemandFix.Ready && tradeTrace.Ready));
         }
         internal void CheckTraceHealthForAutomation(bool requireCalls)
         {
+            if (!MarketPendingDemandFix.Ready || MarketPendingDemandFix.CorrectionFailures != 0)
+                throw new InvalidOperationException("Native demand correction is unavailable or its runtime capture/correction failed.");
             if (!causalRequested) return;
             if (tradeTrace == null || !tradeTrace.Ready || tradeTrace.CaptureFailures != 0 || tradeTrace.InvalidContexts != 0)
                 throw new InvalidOperationException("Requested native trade trace is unavailable or its capture failed.");
             if (requireCalls && tradeTrace.ObservedNativeCalls == 0)
                 throw new InvalidOperationException("The native trade trace received no real native callbacks.");
         }
-        internal bool TraceOutputDrainedForAutomation => !causalRequested || (tradeTrace != null && tradeTrace.OutputDrained && MarketStaleEquipmentFix.OutputDrained);
+        internal bool TraceOutputDrainedForAutomation => !causalRequested || (tradeTrace != null && tradeTrace.OutputDrained && MarketPendingDemandFix.OutputDrained);
 #endif
 
         internal AIMarketOverbuyDiagnosticRuntime(ManualLogSource log, bool fixesLoaded)
@@ -76,7 +83,9 @@ namespace AIMarketOverbuyDiagnostic
                 Interlocked.Exchange(ref ObservedBuySellCandidates, 0);
                 started = active;
 #if SERP_DEVDIAG
-                if (started) tradeTrace?.Start(sessionId);
+                MarketPendingDemandFix.End();
+                demandStartPending = started;
+                if (started && causalRequested) tradeTrace?.Start(sessionId);
                 else tradeTrace?.End();
 #endif
             }
@@ -93,6 +102,8 @@ namespace AIMarketOverbuyDiagnostic
                 active = false;
                 capture.End();
 #if SERP_DEVDIAG
+                demandStartPending = false;
+                MarketPendingDemandFix.End();
                 tradeTrace?.End();
 #endif
             }
@@ -125,6 +136,17 @@ namespace AIMarketOverbuyDiagnostic
             int tick = 0;
             if (!SimulationTickEvents.TryGetCurrentTick(out tick)) return;
             if (hasMapTick && tick == lastMapTick) return;
+#if SERP_DEVDIAG
+            bool resetDemand = demandStartPending || (hasMapTick &&
+                !SimulationClock.TryGetElapsedTicks(lastMapTick, tick, out _));
+            if (resetDemand)
+            {
+                // Commit lifecycle state on the serialized simulation publisher,
+                // never from a UI notification in the middle of a native source.
+                demandStartPending = false;
+                if (tradeTrace != null && tradeTrace.Ready) MarketPendingDemandFix.Reset(sessionId);
+            }
+#endif
             hasMapTick = true;
             lastMapTick = tick;
             LastObservedMapTick = tick;
@@ -176,7 +198,7 @@ namespace AIMarketOverbuyDiagnostic
                     while (capture.DrainOne(sink)) { }
 #if SERP_DEVDIAG
                     tradeTrace?.Drain(sink);
-                    MarketStaleEquipmentFix.Drain(log);
+                    MarketPendingDemandFix.Drain(log);
 #endif
                     long skipped = Interlocked.Read(ref capture.SkippedSessions);
                     if (skipped != lastSkipped)

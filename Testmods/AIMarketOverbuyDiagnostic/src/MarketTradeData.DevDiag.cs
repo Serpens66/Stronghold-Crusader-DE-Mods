@@ -116,7 +116,6 @@ namespace AIMarketOverbuyDiagnostic
             Array.Clear(seenDetails, 0, seenDetails.Length);
             Array.Clear(hasBuy, 0, hasBuy.Length);
             Array.Clear(lastBuy, 0, lastBuy.Length);
-            MarketStaleEquipmentFix.Reset(id);
             nextSummaryClock = Stopwatch.GetTimestamp() + SummaryClockInterval;
             return true;
         }
@@ -161,10 +160,7 @@ namespace AIMarketOverbuyDiagnostic
         private void ObservePairGood(Frame frame, int good, Sample after, Profile profile, bool completed)
         {
             Sample before = frame.Before[good];
-            if (completed && frame.Kind == RecruitKind)
-                MarketStaleEquipmentFix.ObserveRecruitment(frame.Player, good, before.Stock, after.Stock,
-                    before.Pending, after.Pending, profile.AicId, profile.BuyWeapons, profile.LastStand, after.Tick, frame.Sequence);
-            if (completed) MarketStaleEquipmentFix.ObservePendingState(frame.Player, good, after.Pending);
+            if (completed) MarketPendingDemandFix.ObservePendingState(frame.Player, good, after.Pending);
             if (before.Pending == 0 && after.Pending == 0 && before.Stock == after.Stock) return;
             ref Totals stats = ref currentSummary.Goods[frame.Player * GoodCount + good];
             stats.Pending(before.Pending, after.Pending);

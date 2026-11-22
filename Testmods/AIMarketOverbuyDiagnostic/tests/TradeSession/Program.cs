@@ -58,7 +58,7 @@ internal static class Program
         Check(producer.Join(TimeSpan.FromSeconds(5)));
         if (failure != null) throw failure;
         Check(state.Depth == 0);
-        StaleEquipmentTargetTests.Run();
+        MarketDemandTargetTests.Run();
         Console.WriteLine("PASS: nested, deferred, last-wins and concurrent original lifecycle.");
     }
 }
