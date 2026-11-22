@@ -64,6 +64,19 @@ Testmod [CrenelatedWallAcceptance](../CrenelatedWallAcceptance/Run.ps1): unsicht
 
 Nicht abgedeckt: rote Vorschau mit echter Maus, Leitern, Belagerungstürme, Abriss und Beschuss, Editor, Multiplayer. Zinnen lassen sich nur neben einer Mauer- oder Zinnenkachel bauen (0x5C580); der Test setzt deshalb tragende Steinmauern.
 
+## Leitern und Belagerungsturm (22.11.2026, Lauf `13e32903`)
+
+Gleicher Testmod, zusätzlich eine eigene Angriffsreihe in zwei getrennten Abschnitten (Leiter und Turm, getrennte Stützmauern, damit kein Weg über den Mauergang den anderen Nachweis verfälscht). Alle Prüfungen des ersten Laufs bestanden erneut; 53 verwaltete Zinnen. Nachweis: `.work/a/crenel-ingame/021`.
+
+| Prüfung | Ergebnis |
+|---|---|
+| Leiter an niedrige Zinne einer Spielermauer | Vorher lehnt Vanilla den Bewegungsbefehl eines Speerträgers auf die Zinne ab. Nach `AttachLadderToWall` steht die Leiter direkt vor der Zinne, und der Speerträger erreicht sie (`ENTER_PASS ladder`). |
+| Belagerungsturm vor dem Turmabschnitt | Vorher ist keine niedrige Zinne des Abschnitts erreichbar. Vier Ingenieure bemannen den Turm, er dockt mit 9 Kacheln an. Unter den Wandkacheln vor ihm liegen nach Schachbrett niedrige Zinnen, und ein Speerträger erreicht über den Turm eine davon (`ENTER_PASS siege-tower`). |
+
+Aufbau: Die Angreifer gehören einem freien Spielerplatz ohne KI, weil die KI neu erzeugte eigene Einheiten sofort in ihre Trupps übernimmt. Leitern brauchen ohnehin einen anderen Besitzer als die Mauer. Nach den Belagerungsprüfungen werden die Angreifer entfernt, weil Vanilla Bauen neben feindlichen Truppen verweigert.
+
+Weiter nicht abgedeckt: rote Vorschau mit echter Maus, Abriss und Beschuss, Editor, Multiplayer, Leitern und Türme der echten KI-Belagerung (hier per Befehl gesteuert).
+
 ## Multiplayer
 
 Host und Client verwenden denselben Testmod; nur der Host stellt die Aktivierung ein.

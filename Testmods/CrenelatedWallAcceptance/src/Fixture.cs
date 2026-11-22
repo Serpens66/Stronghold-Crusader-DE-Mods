@@ -27,7 +27,7 @@ namespace CrenelatedWallAcceptance
         private readonly HashSet<int> humanTiles = new HashSet<int>();
         private readonly List<int> controlTiles = new List<int>();
         private readonly Dictionary<int, uint> snapshot = new Dictionary<int, uint>();
-        private int owner, ai, ox, oy, cx, cy;
+        private int owner, ai, attacker, ox, oy, cx, cy;
         private string save;
         private volatile bool stopped;
 
@@ -59,6 +59,9 @@ namespace CrenelatedWallAcceptance
             yield return new AutomationStep("build-and-reject", TimeSpan.FromSeconds(240), Build, true);
             yield return new AutomationStep("heights", TimeSpan.FromSeconds(60), Heights, true);
             yield return new AutomationStep("assassins", TimeSpan.FromSeconds(240), Assassins, true);
+            yield return new AutomationStep("siege-tower", TimeSpan.FromSeconds(420), SiegeTower, true);
+            yield return new AutomationStep("ladder", TimeSpan.FromSeconds(300), Ladder, true);
+            yield return new AutomationStep("siege-summary", TimeSpan.FromSeconds(10), SiegeSummary);
             yield return new AutomationStep("save", TimeSpan.FromSeconds(60), Save, true);
             yield return new AutomationStep("reload", TimeSpan.FromSeconds(180), Reload);
             yield return new AutomationStep("after-load", TimeSpan.FromSeconds(120), AfterLoad, true);
@@ -107,6 +110,9 @@ namespace CrenelatedWallAcceptance
             foreach (var w in Support(run, m, owner, 10, 9, 12, 9, false)) yield return w; // stairs
             foreach (var w in Support(run, m, owner, 1, 13, 6, 13, false)) yield return w; // L horizontal
             foreach (var w in Support(run, m, owner, 0, 15, 0, 20, false)) yield return w; // L vertical
+            // Two separate attack segments: a shared walkway would let one siege path reach the other.
+            foreach (var w in Support(run, m, owner, 0, 25, 5, 25, false)) yield return w; // ladder segment
+            foreach (var w in Support(run, m, owner, 7, 25, 13, 25, false)) yield return w; // tower segment
             // Exploit case: straight rows placed piece by piece, simulation running between pieces.
             for (int i = 1; i <= 7; i++) foreach (var w in Line(run, m, "piece-x", owner, i, 1, i, 1, null)) yield return w;
             for (int i = 1; i <= 7; i++) foreach (var w in Line(run, m, "piece-y", owner, 10, i, 10, i, null)) yield return w;
@@ -128,6 +134,9 @@ namespace CrenelatedWallAcceptance
             // Long L shape stays allowed.
             foreach (var w in Line(run, m, "L", owner, 1, 14, 6, 14, null)) yield return w;
             foreach (var w in Line(run, m, "L", owner, 1, 15, 1, 20, null)) yield return w;
+            // Attack row for ladders and the siege tower; open ground lies north of it.
+            foreach (var w in Line(run, m, "ladder-row", owner, 1, 24, 5, 24, null)) yield return w;
+            foreach (var w in Line(run, m, "tower-row", owner, 7, 24, 12, 24, null)) yield return w;
         }
 
         private IEnumerable<AutomationWait> Heights(AutomationRun run)
@@ -195,9 +204,17 @@ namespace CrenelatedWallAcceptance
                 "CRENEL_LOAD did not restore " + humanTiles.Count + " managed tiles: " + string.Join(" | ", crenelSeen.Where(l => l.Contains("CRENEL_LOAD"))));
             int changed = run.InSimulation(m, () => snapshot.Count(p => Flags(p.Key) != p.Value));
             Require(changed == 0, changed + " managed tiles changed flags across save/load");
+            // SE wall cost multipliers are not part of the save; restore the test supply.
+            run.InSimulation(m, () => { GameBuildingManagerAPI.Instance.SetLowWallCostMultiplier(0f); GameBuildingManagerAPI.Instance.SetHighWallCostMultiplier(0f); return 0; });
+            foreach (var w in Stock(run, m)) yield return w;
             // Extending a loaded managed row must count the restored set.
             int before = humanTiles.Count;
-            foreach (var w in Line(run, m, "after-load", owner, 8, 1, 8, 1, null)) yield return w;
+            // Vanilla refuses a tile occupied by a unit; extend a loaded managed row at a free end.
+            var ends = new[] { (8, 1), (0, 1), (0, 4), (8, 4) };
+            var free = run.InSimulation(m, () => ends.Where(e => GameTileManagerAPI.Instance.IsTileWalkableAndUnoccupied(Tile(e.Item1 + ox, e.Item2 + oy))).ToList());
+            log("AFTER_LOAD_CANDIDATES " + string.Join(" ", ends.Select(e => (e.Item1 + ox) + "," + (e.Item2 + oy) + (free.Contains(e) ? ":free" : ":occupied"))));
+            Require(free.Count > 0, "after-load: no free end tile to extend a managed row");
+            foreach (var w in Line(run, m, "after-load", owner, free[0].Item1, free[0].Item2, free[0].Item1, free[0].Item2, null)) yield return w;
             Drain();
             Require(crenelSeen.Any(l => l.Contains("CRENEL_BUILD") && l.Contains("managed=" + (before + 1) + ".")), "managed set after load did not grow to " + (before + 1));
             foreach (var w in Settle(run, m)) yield return w;
@@ -350,10 +367,238 @@ namespace CrenelatedWallAcceptance
             run.InSimulation(m, () => { Kill(unit); return 0; });
         }
 
+        private unsafe int KillAttackers()
+        {
+            var ids = new List<int>(); var units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+            for (int i = 0; i < units.Length; i++)
+                if (UnitAccess.IsReallyAlive(in units[i]) && units[i].r_ControllableForPlayerId == attacker) ids.Add(i + 1);
+            foreach (int id in ids) Kill(id);
+            return ids.Count;
+        }
+
         private static unsafe void Kill(int unit)
         {
             if (APIShared.UnitAccess.TryGetById(unit, out GameUnit* _, out _))
                 GameUnitManagerAPI.Instance.KillUnit(unit);
+        }
+
+        // ---------- enemy siege: ladders and siege tower ----------
+        // Ladder target choice 0xDC900 only accepts walls of a different owner, so the attackers
+        // are AI units in tribes created here; the walls are the human's managed crenels.
+        // A failed siege scenario is recorded instead of aborting, so both are always exercised.
+        private readonly List<string> siegeFailures = new List<string>();
+        private void Fail(string message) { siegeFailures.Add(message); log("SIEGE_FAIL " + message); }
+
+        private IEnumerable<AutomationWait> Ladder(AutomationRun run)
+        {
+            var m = run.CurrentMission;
+            int lx = Enumerable.Range(2, 3).First(x => Low(x, 24));
+            int tx = lx + ox, ty = 24 + oy, target = 0;
+            foreach (var w in run.SetPause(m, true)) yield return w;
+            // Causal proof: the spearman in front of the wall cannot reach the crenel before the
+            // ladder exists, and reaches it afterwards. Ladder flags are logged as evidence only.
+            int climber = 0; uint climberGlobal = 0;
+            run.InSimulation(m, () => { Squad(attacker, eChimps.CHIMP_TYPE_SPEARMAN, 1, lx + 1, 21, out var ids); climber = ids[0]; climberGlobal = Global(climber); target = Tile(tx, ty); return 0; });
+            foreach (var w in Initialize(run, m)) yield return w;
+            int climberTribe = run.InSimulation(m, () => TribeOf(climber, climberGlobal));
+            bool before = run.InSimulation(m, () => GameTribeManagerAPI.Instance.IssueMoveHereCommand(climberTribe, tx, ty));
+            log("LADDER_BEFORE moveAccepted=" + before + " target=" + run.InSimulation(m, () => Describe(target)));
+            if (before) { Fail("ladder: crenel was reachable before any ladder; proof impossible"); yield break; }
+            int man = 0; uint manGlobal = 0;
+            int ladderTribe = run.InSimulation(m, () => { int t = Squad(attacker, eChimps.CHIMP_TYPE_LADDERMAN, 1, lx, 22, out var ids); man = ids[0]; manGlobal = Global(man); return t; });
+            foreach (var w in Initialize(run, m)) yield return w;
+            log("LADDER_START man=" + run.InSimulation(m, () => UnitState(man, manGlobal)));
+            bool ordered = false;
+            for (int i = 0; i < 90 && !ordered; i++)
+            {
+                if (i % 20 == 0) log("LADDER_ORDER attach=" + run.InSimulation(m, () => GameTribeManagerAPI.Instance.AttachLadderToWall(ladderTribe, target)) + " i=" + i);
+                foreach (var w in run.SetPause(m, false)) yield return w;
+                yield return run.WaitForTicks(m, 40);
+                foreach (var w in run.SetPause(m, true)) yield return w;
+                ordered = run.InSimulation(m, () => GameTribeManagerAPI.Instance.IssueMoveHereCommand(climberTribe, tx, ty));
+                if (ordered || i % 10 == 9)
+                    log("LADDER_WAIT i=" + i + " climberOrder=" + ordered + " man=" + run.InSimulation(m, () => UnitState(man, manGlobal)) +
+                        " ladderFlags=" + (run.InSimulation(m, () => FindFlag(-1, 0, 14, 26, 0x800000u)) ?? "none"));
+            }
+            if (!ordered) { Fail("ladder: crenel never became reachable after the ladder order; man=" + run.InSimulation(m, () => UnitState(man, manGlobal))); yield break; }
+            string state = ""; bool arrived = false;
+            for (int i = 0; i < 90 && !arrived; i++)
+            {
+                foreach (var w in run.SetPause(m, false)) yield return w;
+                yield return run.WaitForTicks(m, 40);
+                foreach (var w in run.SetPause(m, true)) yield return w;
+                arrived = run.InSimulation(m, () => Settled(climber, climberGlobal, out state)) && state.StartsWith(tx + "," + ty + ":");
+            }
+            log("ENTER ladder target=" + run.InSimulation(m, () => Describe(target)) + " unit=" + state);
+            if (!arrived) { Fail("ladder: spearman did not reach the low crenel " + tx + "," + ty + "; unit=" + state); yield break; }
+            log("ENTER_PASS ladder arrived=True unreachableBeforeLadder=True");
+        }
+
+        private IEnumerable<AutomationWait> SiegeTower(AutomationRun run)
+        {
+            var m = run.CurrentMission;
+            foreach (var w in run.SetPause(m, true)) yield return w;
+            int climber = 0; uint climberGlobal = 0;
+            run.InSimulation(m, () => { Squad(attacker, eChimps.CHIMP_TYPE_SPEARMAN, 1, 12, 13, out var ids); climber = ids[0]; climberGlobal = Global(climber); return 0; });
+            foreach (var w in Initialize(run, m)) yield return w;
+            int probeTribe = run.InSimulation(m, () => TribeOf(climber, climberGlobal));
+            var segment = Enumerable.Range(7, 6).Where(x => Low(x, 24)).ToList();
+            bool before = segment.Any(x => run.InSimulation(m, () => GameTribeManagerAPI.Instance.IssueMoveHereCommand(probeTribe, x + ox, 24 + oy)));
+            log("TOWER_BEFORE anyLowReachable=" + before + " lows=" + string.Join(" ", segment.Select(x => (x + ox) + "," + (24 + oy))));
+            if (before) { Fail("siege: tower segment was reachable before the tower; proof impossible"); yield break; }
+            int tower = 0; uint towerGlobal = 0;
+            List<int> crewIds = null; uint crewGlobal = 0;
+            int crew = run.InSimulation(m, () =>
+            {
+                tower = SpawnUnit(attacker, 9, 17, eChimps.CHIMP_TYPE_SIEGE_TOWER); towerGlobal = Global(tower);
+                int t = Squad(attacker, eChimps.CHIMP_TYPE_ENGINEER, 4, 9, 15, out crewIds); crewGlobal = Global(crewIds[0]); return t;
+            });
+            foreach (var w in Initialize(run, m)) yield return w;
+            bool manOrder = run.InSimulation(m, () => GameTribeManagerAPI.Instance.ManSiegeEquipment(crew, tower));
+            log("TOWER_ORDER man=" + manOrder + " tower=" + run.InSimulation(m, () => UnitState(tower, towerGlobal)));
+            if (!manOrder) { Fail("siege: ManSiegeEquipment rejected"); yield break; }
+            bool manned = false;
+            for (int i = 0; i < 60 && !manned; i++)
+            {
+                foreach (var w in run.SetPause(m, false)) yield return w;
+                yield return run.WaitForTicks(m, 40);
+                foreach (var w in run.SetPause(m, true)) yield return w;
+                manned = run.InSimulation(m, () => Engineers(tower, towerGlobal) >= 4);
+                if (i % 10 == 9) log("TOWER_MAN_WAIT i=" + i + " engineers=" + run.InSimulation(m, () => Engineers(tower, towerGlobal)) +
+                    " tower=" + run.InSimulation(m, () => UnitState(tower, towerGlobal)) + " crew0=" + run.InSimulation(m, () => UnitState(crewIds[0], crewGlobal)));
+            }
+            if (!manned) { Fail("siege: tower was not manned by four engineers; assigned=" + run.InSimulation(m, () => Engineers(tower, towerGlobal))); yield break; }
+            log("TOWER_MANNED engineers=" + run.InSimulation(m, () => Engineers(tower, towerGlobal)) + " tower=" + run.InSimulation(m, () => UnitState(tower, towerGlobal)));
+            // A manned tower has no tribe of its own; give it one, as a player selection would.
+            int towerTribe = run.InSimulation(m, () => TowerTribe(tower, towerGlobal));
+            int tx = 8;
+            bool attack = run.InSimulation(m, () => GameTribeManagerAPI.Instance.AttackWall(towerTribe, Tile(tx + ox, 24 + oy)));
+            log("TOWER_ORDER attackWall=" + attack + " tribe=" + towerTribe);
+            if (!attack) { Fail("siege: AttackWall rejected"); yield break; }
+            string docked = null;
+            for (int i = 0; i < 120 && docked == null; i++)
+            {
+                foreach (var w in run.SetPause(m, false)) yield return w;
+                yield return run.WaitForTicks(m, 40);
+                foreach (var w in run.SetPause(m, true)) yield return w;
+                docked = run.InSimulation(m, () => FindFlag(0, 17, 13, 24, 0x10000000u));
+                if (i % 15 == 14) log("TOWER_WAIT i=" + i + " tower=" + run.InSimulation(m, () => UnitState(tower, towerGlobal)));
+            }
+            if (docked == null) { Fail("siege: tower never docked (no 0x10000000 tile); tower=" + run.InSimulation(m, () => UnitState(tower, towerGlobal))); yield break; }
+            int dockX = run.InSimulation(m, () => FlagCenterX(0, 17, 13, 24, 0x10000000u)) - ox;
+            log("TOWER_DOCKED target=" + (tx + ox) + "," + (24 + oy) + " tiles=" + docked + " centerX=" + (dockX + ox));
+            // Troops leave the tower onto a non-high tile among the five wall tiles in front of it.
+            var front = Enumerable.Range(dockX - 2, 5).Where(x => x >= 7 && x <= 12).ToList();
+            log("TOWER_FRONT " + string.Join(" ", front.Select(x => (x + ox) + "," + (24 + oy) + (Low(x, 24) ? ":L" : ":H"))));
+            if (!front.Any(x => Low(x, 24))) { Fail("siege: no low crenel among the five wall tiles in front of the tower"); yield break; }
+            int target = front.First(x => Low(x, 24));
+            foreach (var w in Enter(run, m, "siege-tower", climber, climberGlobal, target, 24)) yield return w;
+        }
+
+        // Orders given to a unit that is still NeedsInit are dropped by Vanilla.
+        private IEnumerable<AutomationWait> Initialize(AutomationRun run, MissionContext m)
+        {
+            foreach (var w in run.SetPause(m, false)) yield return w;
+            yield return run.WaitForTicks(m, 10);
+            foreach (var w in run.SetPause(m, true)) yield return w;
+        }
+
+        private IEnumerable<AutomationWait> SiegeSummary(AutomationRun run)
+        {
+            Require(siegeFailures.Count == 0, "siege scenarios failed: " + string.Join(" | ", siegeFailures));
+            log("SIEGE_PASS ladder and siege tower");
+            // Vanilla forbids building near enemy troops; remove the attackers before the save/load part.
+            var m = run.CurrentMission;
+            foreach (var w in run.SetPause(m, true)) yield return w;
+            int killed = run.InSimulation(m, KillAttackers);
+            foreach (var w in run.SetPause(m, false)) yield return w;
+            yield return run.WaitForTicks(m, 40);
+            log("SIEGE_CLEANUP attackerUnitsKilled=" + killed);
+        }
+
+        private IEnumerable<AutomationWait> Enter(AutomationRun run, MissionContext m, string label, int unit, uint global, int x, int y)
+        {
+            int tx = x + ox, ty = y + oy;
+            foreach (var w in Initialize(run, m)) yield return w;
+            log("ENTER_START " + label + " unit=" + run.InSimulation(m, () => UnitState(unit, global)));
+            int tribe = run.InSimulation(m, () => TribeOf(unit, global));
+            bool ordered = false;
+            for (int r = 0; r < 20 && !ordered; r++)
+            {
+                ordered = run.InSimulation(m, () => GameTribeManagerAPI.Instance.IssueMoveHereCommand(tribe, tx, ty));
+                if (ordered) { log("ENTER_ORDER " + label + " attempt=" + r); break; }
+                foreach (var w in run.SetPause(m, false)) yield return w;
+                yield return run.WaitForTicks(m, 40);
+                foreach (var w in run.SetPause(m, true)) yield return w;
+            }
+            if (!ordered) { Fail(label + ": move onto low crenel rejected 20 times; unit=" + run.InSimulation(m, () => UnitState(unit, global))); yield break; }
+            string state = ""; bool arrived = false;
+            for (int i = 0; i < 90 && !arrived; i++)
+            {
+                foreach (var w in run.SetPause(m, false)) yield return w;
+                yield return run.WaitForTicks(m, 40);
+                foreach (var w in run.SetPause(m, true)) yield return w;
+                arrived = run.InSimulation(m, () => Settled(unit, global, out state)) && state.StartsWith(tx + "," + ty + ":");
+            }
+            log("ENTER " + label + " target=" + run.InSimulation(m, () => Describe(Tile(tx, ty))) + " unit=" + state);
+            if (!arrived) { Fail(label + ": spearman did not reach the low crenel " + tx + "," + ty + "; unit=" + state); yield break; }
+            log("ENTER_PASS " + label + " arrived=True");
+        }
+
+        private int Squad(int player, eChimps type, int count, int x, int y, out List<int> ids)
+        {
+            ids = new List<int>();
+            int tribe = checked((int)GameTribeManagerAPI.Instance.Create(player));
+            Require(tribe > 0, "tribe creation failed for player " + player);
+            for (int i = 0; i < count; i++)
+            {
+                int id = SpawnUnit(player, x + i, y, type);
+                Require(GameTribeManagerAPI.Instance.AssignUnit(tribe, id), "assigning unit " + id + " to tribe " + tribe + " failed");
+                ids.Add(id);
+            }
+            return tribe;
+        }
+
+        private unsafe int SpawnUnit(int player, int x, int y, eChimps type)
+        {
+            x += ox; y += oy;
+            var tiles = GameTileManagerAPI.Instance; int tile = Tile(x, y);
+            Require(tiles.IsTileWalkableAndUnoccupied(tile), "spawn tile not free " + Describe(tile));
+            long id = GameUnitManagerAPI.Instance.CreateUnitLocal(player, player, x, y, tiles.GetTileHeight(tile), type);
+            Require(id > 0 && id <= int.MaxValue && UnitAccess.TryGetById((int)id, out GameUnit* unit, out _) && unit != null, type + " spawn missing");
+            return (int)id;
+        }
+
+        private unsafe int Engineers(int id, uint global)
+        {
+            GameUnit* u = Raw(id, global);
+            return (u->r_AssignedEngineer1 != 0 ? 1 : 0) + (u->r_AssignedEngineer2 != 0 ? 1 : 0) + (u->r_AssignedEngineer3 != 0 ? 1 : 0) + (u->r_AssignedEngineer4 != 0 ? 1 : 0);
+        }
+        private unsafe int TowerTribe(int id, uint global)
+        {
+            GameUnit* u = Raw(id, global);
+            if (u->r_TribeId > 0) return u->r_TribeId;
+            int tribe = checked((int)GameTribeManagerAPI.Instance.Create(attacker));
+            Require(tribe > 0 && GameTribeManagerAPI.Instance.AssignUnit(tribe, id), "siege: tower tribe could not be created");
+            return tribe;
+        }
+        private unsafe int TribeOf(int id, uint global) { GameUnit* u = Raw(id, global); Require(u->r_TribeId > 0, "unit " + id + " has no tribe"); return u->r_TribeId; }
+        private unsafe string UnitState(int id, uint global)
+        { GameUnit* u = Raw(id, global); return "alive=" + UnitAccess.IsReallyAlive(u) + ":" + u->r_CurrentTilePositionX + "," + u->r_CurrentTilePositionY + ":ai=" + (int)u->r_AIState + ":tribe=" + u->r_TribeId + ":cmd=" + u->r_AI_LastIssuedTribeCommand + ":owner=" + u->r_ControllableForPlayerId; }
+
+        private string FindFlag(int x0, int y0, int x1, int y1, uint flag)
+        {
+            var found = new List<string>();
+            for (int y = y0; y <= y1; y++) for (int x = x0; x <= x1; x++)
+                    if ((Flags(Tile(x + ox, y + oy)) & flag) != 0) found.Add((x + ox) + "," + (y + oy));
+            return found.Count == 0 ? null : string.Join(" ", found);
+        }
+        private int FlagCenterX(int x0, int y0, int x1, int y1, uint flag)
+        {
+            var xs = new List<int>();
+            for (int y = y0; y <= y1; y++) for (int x = x0; x <= x1; x++)
+                    if ((Flags(Tile(x + ox, y + oy)) & flag) != 0) xs.Add(x + ox);
+            return (xs.Min() + xs.Max()) / 2;
         }
 
         private unsafe int Spawn(int x, int y)
@@ -365,6 +610,12 @@ namespace CrenelatedWallAcceptance
             return (int)id;
         }
         private unsafe uint Global(int id) { Require(UnitAccess.TryGetById(id, out GameUnit* u, out _) && u != null, "assassin missing"); return u->r_GlobalId; }
+        // Identity only: a fresh spawn is still NeedsInit, and a manned tower may not count as alive.
+        private unsafe GameUnit* Raw(int id, uint global)
+        {
+            Require(UnitAccess.TryGetById(id, out GameUnit* u, out _) && u != null && u->r_GlobalId == global, "unit " + id + " identity lost");
+            return u;
+        }
         private unsafe GameUnit* Unit(int id, uint global)
         {
             Require(UnitAccess.TryGetById(id, out GameUnit* u, out _) && u != null && u->r_GlobalId == global && UnitAccess.IsReallyAlive(u), "assassin identity lost");
@@ -418,15 +669,19 @@ namespace CrenelatedWallAcceptance
             owner = players.GetLocalPlayerId();
             ai = Enumerable.Range(1, 8).FirstOrDefault(p => p != owner && players.IsPlayerIdValid(p) && players.IsAIPlayer(p) && players.GetPlayerKeepId(p) > 0);
             Require(owner > 0 && ai > 0, "local or AI player missing");
+            // The AI absorbs freshly spawned units into its own tribes and sends them home, so
+            // siege attackers belong to an unused slot without AI control (still a different owner).
+            attacker = Enumerable.Range(2, 7).FirstOrDefault(p => p != ai && players.GetPlayerKeepId(p) <= 0);
+            Require(attacker > 0, "no unused player slot for the siege attackers");
             Require(!players.IsAIPlayer(owner), "local player is not human");
             GameBuildingManagerAPI.Instance.SetLowWallCostMultiplier(0f);
             GameBuildingManagerAPI.Instance.SetHighWallCostMultiplier(0f);
             // Vanilla refuses wall commands without stone even at zero cost; stock both players.
             bool aiStone = players.TryAddGood(ai, eGoods.STORED_STONE_BLOCKS, 300);
-            Require(Area(owner, 14, 21, out ox, out oy), "no free 14x21 area near own keep");
+            Require(Area(owner, 14, 26, out ox, out oy), "no free 14x26 area near own keep");
             // The AI door may lie in another path component; the control only needs uniform free land.
             Require(Area(ai, 9, 2, out cx, out cy, anyComponent: true), "no free 9x2 area near AI keep");
-            return "owner=" + owner + " ai=" + ai + " area=" + ox + "," + oy + " control=" + cx + "," + cy +
+            return "owner=" + owner + " ai=" + ai + " area=" + ox + "," + oy + " control=" + cx + "," + cy + " attacker=" + attacker +
                 " stone=" + players.GetGoodAmount(owner, eGoods.STORED_STONE_BLOCKS) + " aiStone=" + aiStone + ":" + players.GetGoodAmount(ai, eGoods.STORED_STONE_BLOCKS);
         }
 
