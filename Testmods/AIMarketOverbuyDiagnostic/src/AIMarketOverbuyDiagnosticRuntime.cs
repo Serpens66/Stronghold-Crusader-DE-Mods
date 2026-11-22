@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
+using APIShared.Simulation;
 
 namespace AIMarketOverbuyDiagnostic
 {
@@ -17,9 +18,38 @@ namespace AIMarketOverbuyDiagnostic
         private readonly MarketObservation capture;
         private readonly Thread writer;
         private readonly Action<string> sink;
+        // Lifecycle notifications can arrive on Unity while a numeric simulation sample
+        // is in flight. Only producers share this gate; the disk writer never takes it.
+        private readonly object captureGate = new object();
         private bool active;
         private long sessionId;
         private long nextWriterError;
+        private bool hasMapTick;
+        private int lastMapTick;
+        internal static long ObservedTicks;
+        internal static int LastObservedMapTick;
+        internal static long CaptureFailures;
+        internal static long WriterPasses, WriterFailures, IncompleteSessions;
+        internal static long ObservedBuySellCandidates;
+#if SERP_DEVDIAG
+        private MarketTradeTrace tradeTrace;
+        private bool causalRequested;
+        internal void InstallTrace(SHCDESE.API.LowLevel.CrusaderLibraryLoadContext context)
+        {
+            causalRequested = MarketAutomation.NeedsCausalTrace();
+            if (causalRequested) tradeTrace = MarketTradeTrace.Install(context, log);
+            else Shared.DevDiag.Log(() => "AI_MARKET_CAUSAL_SCOPE: nativeTrace=false; overview uses bounded snapshots; detail traces require an explicit smoke/causal run.");
+        }
+        internal void CheckTraceHealthForAutomation(bool requireCalls)
+        {
+            if (!causalRequested) return;
+            if (tradeTrace == null || !tradeTrace.Ready || tradeTrace.CaptureFailures != 0 || tradeTrace.InvalidContexts != 0)
+                throw new InvalidOperationException("Requested native trade trace is unavailable or its capture failed.");
+            if (requireCalls && tradeTrace.ObservedNativeCalls == 0)
+                throw new InvalidOperationException("The native trade trace received no real native callbacks.");
+        }
+        internal bool TraceOutputDrainedForAutomation => !causalRequested || (tradeTrace != null && tradeTrace.OutputDrained && MarketStaleEquipmentFix.OutputDrained);
+#endif
 
         internal AIMarketOverbuyDiagnosticRuntime(ManualLogSource log, bool fixesLoaded)
         {
@@ -37,50 +67,91 @@ namespace AIMarketOverbuyDiagnostic
 
         internal void OnSessionStarted(Shared.GameplaySessionStartedContext session)
         {
-            sessionId = session.SessionId;
-            active = capture.Start(session.SessionId, session.IsEditor, session.IsReplay);
-            Shared.DebugLogHelper.LogInfo(log, $"AI_MARKET_SESSION: session={session.SessionId}, kind={session.Kind}, loadedSave={session.IsLoadedSave}, editor={session.IsEditor}, replayNotification={session.IsReplay}, fixesLoaded={fixesLoaded}, active={active}.");
+            bool started;
+            lock (captureGate)
+            {
+                sessionId = session.SessionId;
+                hasMapTick = false;
+                active = capture.Start(session.SessionId, session.IsEditor, session.IsReplay);
+                Interlocked.Exchange(ref ObservedBuySellCandidates, 0);
+                started = active;
+#if SERP_DEVDIAG
+                if (started) tradeTrace?.Start(sessionId);
+                else tradeTrace?.End();
+#endif
+            }
+#if SERP_DEVDIAG
+            Shared.NativePatchGuard.Recheck();
+#endif
+            Shared.DebugLogHelper.LogInfo(log, $"AI_MARKET_SESSION: session={session.SessionId}, kind={session.Kind}, loadedSave={session.IsLoadedSave}, editor={session.IsEditor}, replayNotification={session.IsReplay}, fixesLoaded={fixesLoaded}, active={started}.");
         }
 
         internal void OnSessionEnded()
         {
-            active = false;
-            capture.End();
-        }
-
-        internal void OnTick(int tick)
-        {
-            if (!active) return;
-            long started = Stopwatch.GetTimestamp();
-            try
-            {
-                if (!capture.BeginTick(tick, DateTime.UtcNow.Ticks, started)) { active = false; return; }
-                var players = GamePlayerManagerAPI.Instance;
-                for (int playerId = 1; playerId <= MarketObservation.Players; playerId++)
-                {
-                    if (!players.IsAIPlayer(playerId) ||
-                        !players.TryGetPlayerResourcesById(playerId, out GamePlayerResources* resources)) continue;
-                    uint* stock = (uint*)&resources->r_TotalGoodsNull;
-                    uint* pending = (uint*)&resources->r_AIPendingMarketPurchaseAmountNull;
-                    int gold = resources->r_TotalGoodsGold;
-                    int phase = (int)resources->r_AISellOrBuyPhase;
-                    capture.Player(playerId, (int)players.GetAILord(playerId), gold, phase);
-                    for (int goodIndex = (int)eGoods.STORED_WOOD_LOGS; goodIndex < (int)eGoods.Count; goodIndex++)
-                    {
-                        if (goodIndex == (int)eGoods.STORED_GOLD) continue;
-                        capture.Good(playerId, goodIndex, pending[goodIndex], stock[goodIndex], gold, phase);
-                    }
-                }
-                long finished = Stopwatch.GetTimestamp();
-                capture.EndTick(finished - started, finished);
-            }
-            catch (Exception ex)
+            lock (captureGate)
             {
                 active = false;
-                capture.FailTick();
-                // Exceptional path only. No ordinary tick formats text or calls a log listener.
-                Shared.DebugLogHelper.LogError(log, $"AI_MARKET_OBSERVATION_FAILED: session={sessionId}, tick={tick}; observation stopped: {ex}");
+                capture.End();
+#if SERP_DEVDIAG
+                tradeTrace?.End();
+#endif
             }
+        }
+
+        internal void OnTick(int localRun)
+        {
+            long started = Stopwatch.GetTimestamp();
+            Exception failure = null;
+            long failedSession = 0;
+            lock (captureGate)
+            {
+                if (!active) return;
+                try { CaptureTick(localRun, started); }
+                catch (Exception ex)
+                {
+                    active = false;
+                    Interlocked.Increment(ref CaptureFailures);
+                    capture.FailTick();
+                    failure = ex;
+                    failedSession = sessionId;
+                }
+            }
+            if (failure != null)
+                Shared.DebugLogHelper.LogError(log, $"AI_MARKET_OBSERVATION_FAILED: session={failedSession}, localRun={localRun}; observation stopped: {failure}");
+        }
+
+        private void CaptureTick(int localRun, long started)
+        {
+            int tick = 0;
+            if (!SimulationTickEvents.TryGetCurrentTick(out tick)) return;
+            if (hasMapTick && tick == lastMapTick) return;
+            hasMapTick = true;
+            lastMapTick = tick;
+            LastObservedMapTick = tick;
+            Interlocked.Increment(ref ObservedTicks);
+            if (!capture.BeginTick(tick, DateTime.UtcNow.Ticks, started, localRun)) { active = false; return; }
+#if SERP_DEVDIAG
+            tradeTrace?.OnTick(tick);
+#endif
+            var players = GamePlayerManagerAPI.Instance;
+            for (int playerId = 1; playerId <= MarketObservation.Players; playerId++)
+            {
+                if (!players.IsAIPlayer(playerId) ||
+                    !players.TryGetPlayerResourcesById(playerId, out GamePlayerResources* resources)) continue;
+                uint* stock = (uint*)&resources->r_TotalGoodsNull;
+                uint* pending = (uint*)&resources->r_AIPendingMarketPurchaseAmountNull;
+                int gold = resources->r_TotalGoodsGold;
+                int phase = (int)resources->r_AISellOrBuyPhase;
+                capture.Player(playerId, (int)players.GetAILord(playerId), gold, phase);
+                for (int goodIndex = (int)eGoods.STORED_WOOD_LOGS; goodIndex < (int)eGoods.Count; goodIndex++)
+                {
+                    if (goodIndex == (int)eGoods.STORED_GOLD) continue;
+                    capture.Good(playerId, goodIndex, pending[goodIndex], stock[goodIndex], gold, phase);
+                }
+            }
+            long finished = Stopwatch.GetTimestamp();
+            Interlocked.Exchange(ref ObservedBuySellCandidates, capture.BuySellCandidates);
+            capture.EndTick(finished - started, finished);
         }
 
         private void WriteLine(string text) => Shared.DebugLogHelper.LogInfo(log, text);
@@ -103,16 +174,23 @@ namespace AIMarketOverbuyDiagnostic
                         legendWritten = true;
                     }
                     while (capture.DrainOne(sink)) { }
+#if SERP_DEVDIAG
+                    tradeTrace?.Drain(sink);
+                    MarketStaleEquipmentFix.Drain(log);
+#endif
                     long skipped = Interlocked.Read(ref capture.SkippedSessions);
                     if (skipped != lastSkipped)
                     {
+                        Interlocked.Exchange(ref IncompleteSessions, skipped);
                         Shared.DebugLogHelper.LogError(log, $"AI_MARKET_CAPTURE_INCOMPLETE: writer backlog exhausted at session/tick reset boundary; affectedSessions={skipped}. No retained summaries were overwritten.");
                         lastSkipped = skipped;
                     }
+                    Interlocked.Increment(ref WriterPasses);
                 }
                 catch (Exception ex)
                 {
                     Interlocked.Increment(ref capture.WriterFailures);
+                    Interlocked.Increment(ref WriterFailures);
                     long now = Stopwatch.GetTimestamp();
                     if (now >= nextWriterError)
                     {

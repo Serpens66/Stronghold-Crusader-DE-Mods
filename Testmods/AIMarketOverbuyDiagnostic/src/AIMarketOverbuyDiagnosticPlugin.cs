@@ -7,8 +7,8 @@ using System;
 
 namespace AIMarketOverbuyDiagnostic
 {
-    [BepInDependency("000shcdese", "2.11.0")]
-    [BepInDependency("APIShared_Serp", "0.4.2")]
+    [BepInDependency("000shcdese", "2.14.4")]
+    [BepInDependency("APIShared_Serp", "0.56.1")]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(Guid, Name, Version)]
     public sealed class AIMarketOverbuyDiagnosticPlugin : BaseUnityPlugin
@@ -25,6 +25,10 @@ namespace AIMarketOverbuyDiagnostic
         private void Awake()
         {
             log = Logger;
+            Shared.DevDiag.Attach(log);
+#if SERP_DEVDIAG
+            MarketAutomation.PrepareTestStartup();
+#endif
             Shared.DebugLogHelper.LogInfo(log, $"{Name} {Version} loaded; waiting for native library.");
             if (libraryRegistered) return;
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
@@ -43,6 +47,10 @@ namespace AIMarketOverbuyDiagnostic
             {
                 var candidate = new AIMarketOverbuyDiagnosticRuntime(log,
                     Chainloader.PluginInfos.ContainsKey("fixes"));
+#if SERP_DEVDIAG
+                Shared.NativePatchGuard.Bind(context, log);
+                candidate.InstallTrace(context);
+#endif
                 candidateSubscription = Shared.GameplaySessionLifecycle.SubscribeStarted(
                     log, candidate.OnSessionStarted, candidate.OnSessionEnded);
                 GameTimeManagerAPI.Instance.OnTick += OnTick;
@@ -61,9 +69,25 @@ namespace AIMarketOverbuyDiagnostic
                     GameTimeManagerAPI.Instance.OnTick -= OnTick;
                 candidateSubscription?.Dispose(); // Only an unpublished initialization candidate.
                 Shared.DebugLogHelper.LogError(log, "AI market diagnostic initialization failed: " + ex);
+                return;
             }
+#if SERP_DEVDIAG
+            // Automation is an independent consumer of the committed runtime. Its
+            // failures must never undo published event registrations or native hooks.
+            try { MarketAutomation.TryStart(log); }
+            catch (Exception ex) { Shared.DebugLogHelper.LogError(log, "AI_MARKET_AUTOMATION_INIT_FAILED: " + ex); }
+#endif
         }
 
         private static void OnTick(int tick) => runtime?.OnTick(tick);
+#if SERP_DEVDIAG
+        internal static long StopForAutomation()
+        {
+            runtime?.OnSessionEnded();
+            return System.Threading.Interlocked.Read(ref AIMarketOverbuyDiagnosticRuntime.WriterPasses);
+        }
+        internal static void CheckTraceHealthForAutomation(bool requireCalls) => runtime?.CheckTraceHealthForAutomation(requireCalls);
+        internal static bool TraceOutputDrainedForAutomation => runtime != null && runtime.TraceOutputDrainedForAutomation;
+#endif
     }
 }

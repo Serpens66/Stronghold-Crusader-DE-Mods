@@ -4,12 +4,12 @@
   "Name": "AI Market Overbuy Diagnostic",
   "Description": "Read-only per-tick diagnostics for pending AI purchases, stocks, and gold.",
   "Version": "0.1.0",
-  "MinimumScriptExtenderVersion": "2.11.0",
+  "MinimumScriptExtenderVersion": "2.14.4",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.4.2"
+      "MinimumVersion": "0.56.1"
     }
   ],
   "Manifest": 1,

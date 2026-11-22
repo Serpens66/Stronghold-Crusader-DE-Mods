@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- These local-reference fixtures have no PackageReference vulnerability audit. -->
+    <NuGetAudit>false</NuGetAudit>
+    <TargetFramework>net8.0</TargetFramework>
+    <DefineConstants>$(DefineConstants);SERP_DEVDIAG</DefineConstants>
+    <SerpDevDiagnostics>true</SerpDevDiagnostics>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/MarketTradeSession.DevDiag.cs" Link="MarketTradeSession.DevDiag.cs" />
+    <Compile Include="../../src/StaleEquipmentTarget.DevDiag.cs" Link="StaleEquipmentTarget.DevDiag.cs" />
+  </ItemGroup>
+</Project>

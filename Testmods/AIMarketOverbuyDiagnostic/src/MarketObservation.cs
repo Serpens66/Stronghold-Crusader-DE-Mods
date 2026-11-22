@@ -28,6 +28,7 @@ namespace AIMarketOverbuyDiagnostic
         private long lastElapsed;
         internal long WriterFailures = 0;
         internal long SkippedSessions;
+        internal long BuySellCandidates;
 
         internal MarketObservation(int goodsCount, int firstGood, int goldId, long frequency)
         {
@@ -50,6 +51,7 @@ namespace AIMarketOverbuyDiagnostic
                 return false; // Explicitly reported by the writer; never overwrite retained data.
             }
             session = id;
+            BuySellCandidates = 0;
             epoch = 0;
             lastTick = -1;
             firstBatch = true;
@@ -60,7 +62,7 @@ namespace AIMarketOverbuyDiagnostic
             return true;
         }
 
-        internal bool BeginTick(int tick, long utcTicks, long clock)
+        internal bool BeginTick(int tick, long utcTicks, long clock, int localRun = 0)
         {
             if (current == null) return false;
             if (lastTick >= 0 && tick < lastTick)
@@ -91,11 +93,13 @@ namespace AIMarketOverbuyDiagnostic
                 current.FirstTick = tick;
                 current.FirstUtc = utcTicks;
                 current.FirstClock = clock;
+                current.FirstLocalRun = localRun;
                 nextDue = clock + interval;
             }
             current.LastTick = tick;
             current.LastUtc = utcTicks;
             current.LastClock = clock;
+            current.LastLocalRun = localRun;
             current.Ticks++;
             return true;
         }
@@ -175,6 +179,7 @@ namespace AIMarketOverbuyDiagnostic
 
         private void Candidate(ref Observation old, ref GoodStats stats, int kind, Value value)
         {
+            if (kind == 3) BuySellCandidates++;
             stats.Events.Add(kind, lastTick);
             int mask = 1 << kind;
             if ((old.Examples & mask) != 0) return;
@@ -262,7 +267,7 @@ namespace AIMarketOverbuyDiagnostic
         private string Header(Batch b)
         {
             return "AI_MARKET_INTERVAL: session=" + b.Session + ", epoch=" + b.Epoch +
-                ", tick=" + b.FirstTick + ".." + b.LastTick + ", utc=" + Utc(b.FirstUtc) + ".." + Utc(b.LastUtc) +
+                ", tick=" + b.FirstTick + ".." + b.LastTick + ", localRun=" + b.FirstLocalRun + ".." + b.LastLocalRun + ", utc=" + Utc(b.FirstUtc) + ".." + Utc(b.LastUtc) +
                 ", ticks=" + b.Ticks + ", incompleteTicks=" + b.IncompleteTicks + ", elapsedMs=" + ((b.LastClock - b.FirstClock) * 1000.0 / Stopwatch.Frequency).ToString("F1", System.Globalization.CultureInfo.InvariantCulture) +
                 ", captureUs=" + (b.CaptureTicks * 1000000.0 / Stopwatch.Frequency).ToString("F1", System.Globalization.CultureInfo.InvariantCulture) +
                 ", maxCaptureUs=" + (b.MaxCaptureTicks * 1000000.0 / Stopwatch.Frequency).ToString("F1", System.Globalization.CultureInfo.InvariantCulture) +
@@ -384,14 +389,14 @@ namespace AIMarketOverbuyDiagnostic
             internal readonly PlayerStats[] Player = new PlayerStats[Players + 1];
             internal readonly GoodStats[] Goods;
             internal long Session, FirstUtc, LastUtc, FirstClock, LastClock, Ticks, IncompleteTicks, CaptureTicks, MaxCaptureTicks, Extended;
-            internal int Epoch, FirstTick, LastTick, NextPlayer;
+            internal int Epoch, FirstTick, LastTick, FirstLocalRun, LastLocalRun, NextPlayer;
             internal bool Start, Final, HeaderWritten;
             internal Batch(int count) { Goods = new GoodStats[count]; }
             internal void Clear(long session, int epoch)
             {
                 Array.Clear(Player, 0, Player.Length); Array.Clear(Goods, 0, Goods.Length);
                 Session = session; Epoch = epoch; FirstUtc = LastUtc = FirstClock = LastClock = Ticks = IncompleteTicks = CaptureTicks = MaxCaptureTicks = Extended = 0;
-                FirstTick = LastTick = 0; NextPlayer = 1; Start = Final = HeaderWritten = false;
+                FirstTick = LastTick = FirstLocalRun = LastLocalRun = 0; NextPlayer = 1; Start = Final = HeaderWritten = false;
             }
         }
     }
