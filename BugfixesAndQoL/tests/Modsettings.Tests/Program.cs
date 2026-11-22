@@ -419,7 +419,6 @@ internal static partial class Program
     {
         var scopes=new Dictionary<string,bool>{{"EnableCompactLobbyChat",false},{"EnableLocalAutosave",false},{"EnableLordAndMapListEnhancements",false},{"EnableMissingMapSaveRecovery",false},{"EnablePitchMoatLines",false},{"EnableAreaDemolition",false},{"EnableOccupiedWallDemolition",true},{"EnableTroopPanelPageCountFix",false},{"EnableRandomOpponentSelectionEnhancements",true},{"EnableMultiplayerStartupStateFix",true},{"EnablePeaceTimeGameplayFixes",true},{"EnablePeaceTimeCivilianProximityReduction",true},{"EnablePitchStairsFix",true},{"EnableSiegeCrewDuplicationFix",true},{"EnableSiegeCrewFireLossFix",true},{"EnableTreeBlightDecayFix",true},{"EnablePrebuiltAiStorageFix",true},{"EnableAiOutpostRetargetFix",true}};
         scopes.Add("EnableAreaConstruction", false);
-        scopes.Add("RemoveEmptyStorageLimit", true);
         MethodBase ctor=modelType.GetConstructors(All).Single();
         List<Tuple<OpCode,object>> body=Instructions(ctor);
         var xaml=new XmlDocument();xaml.Load(Path.Combine(workspace,"BugfixesAndQoL/Override/ScriptExtenderUI/BugfixesAndQoLSettings.xaml"));
@@ -449,7 +448,7 @@ internal static partial class Program
         Check(reset.Select((instruction, index) => new { instruction, index }).Any(entry =>
             Equals(entry.instruction.Item2, localAutosave.GetSetMethod()) && entry.index > 0 &&
             reset[entry.index - 1].Item1 == OpCodes.Ldc_I4_1), "reset enables local autosave");
-        foreach (string option in new[] { "EnableSiegeCrewDuplicationFix", "EnableSiegeCrewFireLossFix", "EnableOccupiedWallDemolition", "RemoveEmptyStorageLimit" })
+        foreach (string option in new[] { "EnableSiegeCrewDuplicationFix", "EnableSiegeCrewFireLossFix", "EnableOccupiedWallDemolition" })
         {
             Check(hostProperties.Any(property => property.Name == option), "preset discovery includes host option " + option);
             var setter = modelType.GetProperty(option).GetSetMethod();
@@ -457,6 +456,7 @@ internal static partial class Program
                 Equals(entry.instruction.Item2, setter) && entry.index > 0 &&
                 reset[entry.index - 1].Item1 == OpCodes.Ldc_I4_1), "reset restores enabled default for " + option);
         }
+        StorageLimitSettings(xaml, hostProperties, body, reset);
         foreach(string option in new[]{"EnablePitchMoatLines","EnableAreaDemolition","EnableAreaConstruction"})
         {
             var localPreference=modelType.GetProperty(option);
@@ -491,6 +491,67 @@ internal static partial class Program
         Check(Ancestors(workshop).Any(a=>a.Attributes?["IsEnabled"]?.Value=="{Binding CanEditClientSettings}"),"Workshop is locally editable by a multiplayer client");
         Check(!Ancestors(workshop).Any(a=>a.Attributes?["IsEnabled"]?.Value=="{Binding CanEditHostSettings}"),"Workshop no longer inherits Host authority");
     }
+    private static void StorageLimitSettings(XmlDocument xaml, PropertyInfo[] hostProperties,
+        List<Tuple<OpCode, object>> constructor, List<Tuple<OpCode, object>> reset)
+    {
+        object model = FormatterServices.GetUninitializedObject(modelType);
+        MethodInfo parse = modelType.GetMethod("ParseStorageLimit", All);
+        MethodInfo fromSlider = modelType.GetMethod("StorageLimitFromSlider", All);
+        MethodInfo applySlider = modelType.GetMethod("CanApplyStorageSliderValue", All);
+        var cases = new[] { (Value: -1, Thumb: 0), (Value: 1, Thumb: 1), (Value: 20, Thumb: 20),
+            (Value: 21, Thumb: 20), (Value: 100, Thumb: 20) };
+        foreach (string name in new[] { "EmptyStockpileLimit", "EmptyGranaryArmouryLimit" })
+        {
+            PropertyInfo limit = modelType.GetProperty(name);
+            PropertyInfo slider = modelType.GetProperty(name + "SliderValue");
+            PropertyInfo text = modelType.GetProperty(name + "ValueText");
+            FieldInfo field = modelType.GetField(char.ToLowerInvariant(name[0]) + name.Substring(1), All);
+            Check(limit.PropertyType == typeof(int) && hostProperties.Contains(limit), name + " is a synchronized integer");
+            Check(constructor.Select((op, index) => new { op, index }).Any(entry =>
+                entry.op.Item1 == OpCodes.Stfld && Equals(entry.op.Item2, field) && entry.index > 0 &&
+                constructor[entry.index - 1].Item1 == OpCodes.Ldc_I4_M1), name + " defaults to Vanilla");
+            Check(reset.Select((op, index) => new { op, index }).Any(entry =>
+                Equals(entry.op.Item2, limit.GetSetMethod()) && entry.index > 0 &&
+                reset[entry.index - 1].Item1 == OpCodes.Ldc_I4_M1), name + " resets to Vanilla");
+            Check(new[] { slider, text }.All(proxy => !hostProperties.Contains(proxy) &&
+                proxy.GetCustomAttributesData().Any(a => a.AttributeType.Name == "DoNotPersistAttribute")),
+                name + " excludes both display proxies from saves and synchronization");
+            foreach (var example in cases)
+            {
+                field.SetValue(model, example.Value);
+                Check((int)slider.GetValue(model) == example.Thumb && Equals(text.GetValue(model), example.Value.ToString()),
+                    name + " preserves typed values above the slider range and displays Vanilla as -1");
+            }
+
+            XmlNode thumb = xaml.SelectSingleNode("//*[local-name()='Slider' and contains(@Value,'" + slider.Name + ",')]");
+            XmlNode entryBox = xaml.SelectSingleNode("//*[local-name()='TextBox' and contains(@Text,'" + text.Name + ",')]");
+            Check(thumb?.Attributes["Minimum"]?.Value == "0" && thumb.Attributes["Maximum"]?.Value == "20" &&
+                thumb.Attributes["TickFrequency"]?.Value == "1" && thumb.Attributes["IsSnapToTickEnabled"]?.Value == "True",
+                name + " has 21 discrete slider positions including Vanilla");
+            Check(entryBox?.Attributes["Text"]?.Value.Contains("UpdateSourceTrigger=LostFocus") == true,
+                name + " accepts a complete integer when the input loses focus");
+            foreach (XmlNode editor in new[] { thumb, entryBox })
+            {
+                Check(Ancestors(editor).Any(a => a.Attributes?["IsEnabled"]?.Value == "{Binding CanEditHostSettings}"),
+                    name + " editors both inherit Host authority");
+                XmlNode tooltip = editor.SelectSingleNode("./*[local-name()='" + editor.LocalName + ".ToolTip']/*[local-name()='ToolTip']/@Content");
+                Check(editor.Attributes["ToolTipService.ShowDuration"]?.Value == "60000" &&
+                    tooltip?.Value == "{Binding " + name + "HelpText}", name + " editors both explain the limit");
+            }
+        }
+
+        Check((int)fromSlider.Invoke(null, new object[] { 0 }) == -1 &&
+            (int)fromSlider.Invoke(null, new object[] { 20 }) == 20, "slider points select Vanilla and values through 20");
+        Check(!(bool)applySlider.Invoke(null, new object[] { 20, 20 }) &&
+            !(bool)applySlider.Invoke(null, new object[] { 21, 20 }) &&
+            (bool)applySlider.Invoke(null, new object[] { 19, 20 }), "slider binding echoes preserve a higher value until the thumb moves");
+        foreach (var example in cases)
+            Check((int)parse.Invoke(null, new object[] { example.Value.ToString() }) == example.Value,
+                "manual input can express limit " + example.Value);
+        foreach (string invalid in new[] { "", "1.5", "21 units", "9999999999" })
+            Check((int)parse.Invoke(null, new object[] { invalid }) == 0, "malformed manual input is not a limit: " + invalid);
+    }
+
     private static IEnumerable<XmlNode> Ancestors(XmlNode n){for(;n!=null;n=n.ParentNode)yield return n;}
     private static void SiegeCrewActivationMatrix()
     {

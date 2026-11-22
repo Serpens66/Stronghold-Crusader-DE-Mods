@@ -88,7 +88,11 @@ namespace AutoSendTest
                 focused = keyboard.FocusedElement;
             }
             active = false; restoring = focused == null; expectedAfterExit = focused; generation++;
-            if (focused == null) { Apply(original); ReconcileLater(generation); }
+            // Unloaded can detach a checkbox/slider template child before this callback:
+            // it still holds focus but no longer has an input ancestor. Release our flag
+            // without stealing focus; an already focused foreign textbox keeps its lease.
+            if (focused == null || AncestorTextBox(focused) == null) Apply(original);
+            if (focused == null) ReconcileLater(generation);
         }
         private bool Inside(DependencyObject value)
         {

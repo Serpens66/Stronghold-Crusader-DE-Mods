@@ -5,13 +5,30 @@ Bedienung
 ---------
 Im Vanilla-Allies-Menü einen lebenden Verbündeten, Waren senden und eine Ware
 wählen. Die eigene Reserve gilt pro Ware für alle Verbündeten gemeinsam.
-Empfänger-Minimum, Maximum und Aktivierung gelten für Ware und Verbündeten.
+Empfänger-Minimum, Maximum, Intervall und Aktivierung gelten für Ware und Verbündeten.
 Das Empfänger-Minimum priorisiert Bedarf; es ist keine Startschwelle eines
 Auffüllzyklus. Übrigen Überschuss bis zum Maximum fair verteilen.
 
 Waren-Slider: 0 bis 100, Schritt 1. Gold: 0 bis 10000, Schritt 10. Textboxen
 akzeptieren größere nichtnegative Ganzzahlen und einzelne Goldstücke. Der
 Slider darf diese Werte beim Anzeigen niemals überschreiben.
+
+Das Intervall ist 1 bis 300 Spielsekunden (Standard 30), Schritt 1.
+Gerechnet wird ausschließlich in nativen Simulationsticks: 1 Sekunde = 40 Ticks.
+Pause hält den Timer an; die Spielgeschwindigkeit beeinflusst die Echtzeitdauer.
+Aktivieren oder Ändern des Intervalls startet eine volle Wartezeit. Min-/Max-
+Änderungen erhalten die Frist. Jede Prüfung startet die nächste volle Frist,
+auch ohne verfügbaren Überschuss oder freien Bedarf. Keine Nachholsendungen.
+Die eigene Reserve bleibt pro Ware gemeinsam. Der Tooltip zeigt die Tickzahl.
+
+Chatmeldungen gilt für alle eigenen automatischen Lieferungen gemeinsam, nicht
+pro Ware oder Empfänger. Standard: aus. Ohne Haken entstehen weder beim Sender
+noch beim Empfänger Vanilla-Chatmeldungen dieser automatischen Sendungen.
+Manuelle Lieferungen, Empfangstöne, KI-Reaktionen und deren Wartezeiten bleiben
+unverändert. Mit Haken gelten Vanillas Nachrichtenregeln. Fehlt sichere
+Unterdrückung, bleiben stille Sendungen angehalten; Einschalten der Meldungen
+erlaubt den bisherigen Versandweg. Änderungen laufen synchronisiert und werden
+mit der Partie gespeichert; neue Partien beginnen ohne Chatmeldungen.
 
 Slider beim Loslassen übernehmen, Texte bei Enter oder Fokusverlust. Escape
 verwirft die Eingabe und beendet eine eigene laufende Ziehgeste. Minimum über
@@ -22,11 +39,16 @@ die eingeschaltete Regel für den gewählten Verbündeten unabhängig vom Vorrat
 
 Prüfung und Build
 -----------------
-Schlussabnahme am 22.11.2026: 2047 Console-Prüfungen, 37/37 SP-Schritte und
+Abnahme vor der Intervallerweiterung am 22.11.2026: 2047 Console-Prüfungen, 37/37 SP-Schritte und
 9/9 Editor-Schritte (neue Karte, eigene Karte speichern/laden) bestanden.
 Der MP-Save-Roster wird erst nach Vanillas Spielerplatz-Remapping beim ersten
 Simulationstick erfasst. Die Slots 1/8 und die strikte Save-Identität sind durch
 Regressionen abgesichert; echter Host-/Client-Test steht weiterhin aus.
+
+Intervallerweiterung: 3299 Console-Prüfungen; getrennte Fristen, exakte Tick-
+Grenzen, Leerlauf ohne Weltzugriffe/Allokationen, Ticküberlauf und Save-Restphase.
+Ingame: tatsächliche Sendungen im Abstand 40/120 Ticks, Noesis-Eingaben mit
+1/300 und Ablehnung 0/301, unabhängige Werte 1/3/7/300 nach Save/Reload.
 
 Die verbleibenden Console-Tests prüfen die produktive Verteilung, Grenzen,
 Zyklen, partielle/unklare Transferergebnisse, mehrere Sender, eingefrorene
@@ -51,7 +73,9 @@ Noch keine Hauptmod-Übernahme in diesem Prototyp. Kein zweiter Planer parallel:
 Hauptmod-Feature und AutoSendTest dürfen nie beide automatische Güter senden.
 
 Owner aktuell AutoSendTest_Serp; SaveIdentifier AutoSendTest_Serp.rules.
-Speicher-Envelope 2/minReader 2, inneres Format 2 mit Lesen/Migration von Format 1.
+Speicher-Envelope 4/minReader 4, inneres Format 4; liest Format 1 bis 3 mit
+Standardintervall 30 für Format 1/2. Format 3/4 erhält die Intervallphase; ältere Formate erhalten Chatmeldungen=false.
+Wire-Protokoll 4: SetRule überträgt Min/Max/Aktivierung/Intervall atomar; ChatMessages ist eine eigene globale Senderänderung.
 Eine Änderung der Owner-/Speicherkennung liest alte Testmod-Saves nicht
 von selbst. Bei der Übernahme ausdrücklich migrieren oder als neue Funktion
 starten; niemals unbemerkt unter neuer Kennung denselben Save doppelt ausführen.
@@ -79,3 +103,15 @@ Bestände/Revisionsstände und einmalige Ausführung auf beiden Peers vergleiche
 Save/Reload mit nicht fortlaufenden Menschenplätzen (zum Beispiel 1 und 8),
 Spieleransicht/Spectator, Ausscheiden und anschließenden frischen Kartenstart
 prüfen. Ein lokaler KI-Lauf beweist keine Multiplayer-Synchronisation.
+
+Chatmeldungen-Abnahme am 22.11.2026
+---------------------------------
+3374 Console-Prüfungen und 29 fokussierte APIShared-Tests einschließlich
+produktivem nativen Writer, Verschachtelung, GP/XMM/Flags/Stack bestanden.
+Checkbox/ACK, globale Wirkung über Waren/Verbündete, Eingabegrenzen und
+Fokusübergabe im Spiel bestätigt. Ein beim Menü-Neuaufbau belegter verlorener
+Keyboard-Restore wurde mit unveränderter Gegenprobe korrigiert.
+Vanilla sperrt die Chat-Ausgabe im SP-Gefecht bereits selbst (Chatgate99).
+Deshalb belegt dort eine stille Lieferung keine Unterdrückung. Die eigentliche
+Nachrichten- und Host/Client-Abnahme übernimmt der Nutzer manuell.
+Temporäre AutoSend-Ingame-Testquellen sind entfernt.

@@ -8,7 +8,8 @@ namespace BugfixesAndQoL
         {
             options["EnableMoatTerrainRestoration"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableMoatTerrainRestoration");
             options["EnableOccupiedWallDemolition"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableOccupiedWallDemolition");
-            options["RemoveEmptyStorageLimit"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.RemoveEmptyStorageLimit");
+            options["EmptyStockpileLimit"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EmptyStockpileLimit");
+            options["EmptyGranaryArmouryLimit"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EmptyGranaryArmouryLimit");
             options["EnablePitchStairsFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnablePitchStairsFix");
             options["PreserveDisplayResolution"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.PreserveDisplayResolution");
             options["EnableGatehouseTargetMarkerHeightFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableGatehouseTargetMarkerHeightFix");

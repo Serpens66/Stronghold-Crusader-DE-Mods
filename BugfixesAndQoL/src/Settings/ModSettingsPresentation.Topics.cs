@@ -111,7 +111,8 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableGatehouseLivingCaptureFix => options["EnableGatehouseLivingCaptureFix"];
         public SettingsOptionPresentation EnableMoatTerrainRestoration => options["EnableMoatTerrainRestoration"];
         public SettingsOptionPresentation EnableOccupiedWallDemolition => options["EnableOccupiedWallDemolition"];
-        public SettingsOptionPresentation RemoveEmptyStorageLimit => options["RemoveEmptyStorageLimit"];
+        public SettingsOptionPresentation EmptyStockpileLimit => options["EmptyStockpileLimit"];
+        public SettingsOptionPresentation EmptyGranaryArmouryLimit => options["EmptyGranaryArmouryLimit"];
         public SettingsOptionPresentation EnablePitchStairsFix => options["EnablePitchStairsFix"];
         public SettingsOptionPresentation EnableDrawbridgeDestructionFix => options["EnableDrawbridgeDestructionFix"];
         public SettingsOptionPresentation EnableSiegeCrewDuplicationFix => options["EnableSiegeCrewDuplicationFix"];
@@ -228,7 +229,8 @@ namespace BugfixesAndQoL
             AddOption("EnableWorkshopIdleDelayFix", "bugfixes.enable-workshop-idle-delay-fix", SettingsCategory.Possible, HostEconomy);
             HostControls = AddTopic("ClientControls", "bugfixes.topic.host-controls", true);
             AddOption("EnableOccupiedWallDemolition", "bugfixes.occupied-wall-demolition", SettingsCategory.Qol, HostControls);
-            AddOption("RemoveEmptyStorageLimit", "bugfixes.remove-empty-storage-limit", SettingsCategory.Qol, HostControls);
+            AddOption("EmptyStockpileLimit", "bugfixes.empty-stockpile-limit", SettingsCategory.Qol, HostControls);
+            AddOption("EmptyGranaryArmouryLimit", "bugfixes.empty-granary-armoury-limit", SettingsCategory.Qol, HostControls);
             HostSiege = AddTopic("HostSiege", "bugfixes.topic.host-siege", true);
             AddOption("EnableGatehouseLivingCaptureFix", "bugfixes.enable-gatehouse-living-capture-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableDrawbridgeDestructionFix", "bugfixes.enable-drawbridge-destruction-fix", SettingsCategory.Fixes, HostSiege);

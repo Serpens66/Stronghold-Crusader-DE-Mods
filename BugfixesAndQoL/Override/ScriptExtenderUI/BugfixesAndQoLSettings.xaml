@@ -1716,17 +1716,33 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
                 </CheckBox>
               </Grid>
             </Grid>
-            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.remove-empty-storage-limit" shared:ModSettingsSearch.Title="{Binding RemoveEmptyStorageLimitText}" shared:ModSettingsSearch.ToolTipText="{Binding RemoveEmptyStorageLimitHelpText}">
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.empty-stockpile-limit" shared:ModSettingsSearch.Title="{Binding EmptyStockpileLimitText}" shared:ModSettingsSearch.ToolTipText="{Binding EmptyStockpileLimitHelpText}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.RemoveEmptyStorageLimit}"><ContentControl.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ToolTip}"/></ContentControl.ToolTip></ContentControl>
-              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <CheckBox IsChecked="{Binding RemoveEmptyStorageLimit, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" Margin="0,0,14,8"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding RemoveEmptyStorageLimitHelpText}"/></CheckBox.ToolTip>
-                  <TextBlock Text="{Binding RemoveEmptyStorageLimitText}" Foreground="White" TextWrapping="Wrap"/>
-                </CheckBox>
-              </Grid>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EmptyStockpileLimit}"><ContentControl.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ToolTip}"/></ContentControl.ToolTip></ContentControl>
+              <WrapPanel Margin="0,0,0,8" Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
+                <TextBlock Text="{Binding EmptyStockpileLimitText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                <WrapPanel Orientation="Horizontal" Margin="4,0,0,0" VerticalAlignment="Center">
+                  <Slider Width="160" Minimum="0" Maximum="20" Value="{Binding EmptyStockpileLimitSliderValue, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="1" IsSnapToTickEnabled="True" ToolTipService.ShowDuration="60000"><Slider.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding EmptyStockpileLimitHelpText}"/></Slider.ToolTip></Slider>
+                  <TextBox Width="56" ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding EmptyStockpileLimitValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" shared:ModSettingsSearch.StateValue="{Binding EmptyStockpileLimit}" shared:ModSettingsSearch.InactiveValues="-1" ToolTipService.ShowDuration="60000" Foreground="White" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Padding="4,1" Margin="8,0,0,0"><TextBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding EmptyStockpileLimitHelpText}"/></TextBox.ToolTip></TextBox>
+                </WrapPanel>
+              </WrapPanel>
+            </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.empty-granary-armoury-limit" shared:ModSettingsSearch.Title="{Binding EmptyGranaryArmouryLimitText}" shared:ModSettingsSearch.ToolTipText="{Binding EmptyGranaryArmouryLimitHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="28"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EmptyGranaryArmouryLimit}"><ContentControl.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ToolTip}"/></ContentControl.ToolTip></ContentControl>
+              <WrapPanel Margin="0,0,0,8" Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
+                <TextBlock Text="{Binding EmptyGranaryArmouryLimitText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                <WrapPanel Orientation="Horizontal" Margin="4,0,0,0" VerticalAlignment="Center">
+                  <Slider Width="160" Minimum="0" Maximum="20" Value="{Binding EmptyGranaryArmouryLimitSliderValue, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="1" IsSnapToTickEnabled="True" ToolTipService.ShowDuration="60000"><Slider.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding EmptyGranaryArmouryLimitHelpText}"/></Slider.ToolTip></Slider>
+                  <TextBox Width="56" ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding EmptyGranaryArmouryLimitValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" shared:ModSettingsSearch.StateValue="{Binding EmptyGranaryArmouryLimit}" shared:ModSettingsSearch.InactiveValues="-1" ToolTipService.ShowDuration="60000" Foreground="White" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Padding="4,1" Margin="8,0,0,0"><TextBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding EmptyGranaryArmouryLimitHelpText}"/></TextBox.ToolTip></TextBox>
+                </WrapPanel>
+              </WrapPanel>
             </Grid>
           </StackPanel>
         </StackPanel>

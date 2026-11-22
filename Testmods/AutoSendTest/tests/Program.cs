@@ -13,6 +13,7 @@ internal static class Program
         PauseAndInvalidPlayers(); CycleAdmission(); MultipleSenders(); KnownPartialAndVeto(); UncertaintyStopsEntireRun();
         RechecksBeforeExecution(); SaveRoundTrip(); MalformedSaves(); ForgedRuleSaves(); SavedBundleIsAtomic(); EpochRequiresAuthenticatedLocalIdentity(); RendezvousRequiresEveryExpectedPeer(); InitialRosterDoesNotUseLaterLossState(); BoundedWork(); DormantRulesDoNotReadWorld();
         checks += EditTests.Run();
+        checks += IntervalTests.Run();
         MultiplayerSaveUsesFinalRosterSlots();
         Console.WriteLine("AutoSend policy: " + checks + " checks passed.");
     }
@@ -23,20 +24,20 @@ internal static class Program
     {
         AutoSendState state = State(); var world = new World();
         world.Stock[1] = 120; Rule(state, 1, 2, 0, 100); Rule(state, 1, 3, 0, 100); Rule(state, 1, 4, 0, 100);
-        AutoSendRunResult result = new AutoSendPlanner(state).Run(world);
+        AutoSendRunResult result = new AutoSendPlanner(state).Run(world, world.NextRunTick());
         Equal(40, world.Stock[2]); Equal(40, world.Stock[3]); Equal(40, world.Stock[4]); Equal(3, result.Transfers); Equal(120L, result.Units);
         state = State(); world = new World(); world.Stock[1] = 120;
         Rule(state, 1, 2, 0, 10); Rule(state, 1, 3, 0, 100); Rule(state, 1, 4, 0, 100);
-        new AutoSendPlanner(state).Run(world);
+        new AutoSendPlanner(state).Run(world, world.NextRunTick());
         Equal(10, world.Stock[2]); Equal(55, world.Stock[3]); Equal(55, world.Stock[4]);
     }
     private static void EmergencyTier()
     {
         AutoSendState state = State(); var world = new World(); world.Stock[1] = 40;
         Rule(state, 1, 2, 30, 100); Rule(state, 1, 3, 10, 100); Rule(state, 1, 4, 0, 100);
-        new AutoSendPlanner(state).Run(world);
+        new AutoSendPlanner(state).Run(world, world.NextRunTick());
         Equal(30, world.Stock[2]); Equal(10, world.Stock[3]); Equal(0, world.Stock[4]);
-        world.Stock[1] = 30; new AutoSendPlanner(state).Run(world);
+        world.Stock[1] = 30; new AutoSendPlanner(state).Run(world, world.NextRunTick());
         Equal(40, world.Stock[2]); Equal(20, world.Stock[3]); Equal(10, world.Stock[4]);
     }
     private static void RemainderRotation()
@@ -44,7 +45,7 @@ internal static class Program
         AutoSendState state = State(); var world = new World();
         Rule(state, 1, 2, 0, 100); Rule(state, 1, 3, 0, 100); Rule(state, 1, 4, 0, 100);
         var planner = new AutoSendPlanner(state);
-        for (int round = 0; round < 6; round++) { world.Stock[1] = 1; planner.Run(world); }
+        for (int round = 0; round < 6; round++) { world.Stock[1] = 1; planner.Run(world, world.NextRunTick()); }
         Equal(2, world.Stock[2]); Equal(2, world.Stock[3]); Equal(2, world.Stock[4]);
     }
     private static void ReserveAndCapacity()
@@ -52,10 +53,10 @@ internal static class Program
         AutoSendState state = State(); var world = new World(); world.Stock[1] = 200;
         Check(state.TrySetReserve(1, Resource, 150, out _));
         Rule(state, 1, 2, 0, 100); Rule(state, 1, 3, 0, 100); world.Free[2] = 5;
-        new AutoSendPlanner(state).Run(world);
+        new AutoSendPlanner(state).Run(world, world.NextRunTick());
         Equal(150, world.Stock[1]); Equal(5, world.Stock[2]); Equal(45, world.Stock[3]);
         world.Stock[1] = 200; world.Free[2] = -1; world.Free[3] = 0;
-        new AutoSendPlanner(state).Run(world); Equal(200, world.Stock[1]);
+        new AutoSendPlanner(state).Run(world, world.NextRunTick()); Equal(200, world.Stock[1]);
         Check(!state.TrySetReserve(1, Resource, -1, out _)); Equal(150, state.GetReserve(1, Resource));
         Check(!state.TrySetRule(1, 2, Resource, 101, 100, true, out _)); Equal(100, state.GetRule(1, 2, Resource).Maximum);
         Check(!state.TrySetRule(1, 2, Resource, 0, 0, true, out _));
@@ -64,9 +65,9 @@ internal static class Program
     {
         AutoSendState state = State(); var world = new World(); world.Stock[1] = 100;
         Rule(state, 1, 2, 0, 100); Check(state.TrySetPaused(1, true, out _));
-        new AutoSendPlanner(state).Run(world); Equal(0, world.Calls);
+        new AutoSendPlanner(state).Run(world, world.NextRunTick()); Equal(0, world.Calls);
         Check(state.TrySetPaused(1, false, out _)); world.Allied[2] = false;
-        new AutoSendPlanner(state).Run(world); Equal(0, world.Calls);
+        new AutoSendPlanner(state).Run(world, world.NextRunTick()); Equal(0, world.Calls);
         Check(!state.TrySetRule(1, 1, Resource, 0, 100, true, out _));
         Check(!state.TrySetRule(0, 2, Resource, 0, 100, true, out _));
         Check(!state.TrySetRule(1, 9, Resource, 0, 100, true, out _));
@@ -87,19 +88,19 @@ internal static class Program
     {
         AutoSendState state = State(); var world = new World();
         world.Stock[1] = 100; world.Stock[2] = 100; Rule(state, 1, 3, 0, 100); Rule(state, 2, 3, 0, 100);
-        new AutoSendPlanner(state).Run(world); Equal(100, world.Stock[3]); Equal(100, world.Stock[1] + world.Stock[2]);
+        new AutoSendPlanner(state).Run(world, world.NextRunTick()); Equal(100, world.Stock[3]); Equal(100, world.Stock[1] + world.Stock[2]);
         world.Stock[3] = 0; world.Stock[1] = 100; world.Stock[2] = 100;
-        new AutoSendPlanner(state).Run(world); Equal(100, world.Stock[1]); Equal(0, world.Stock[2]);
+        new AutoSendPlanner(state).Run(world, world.NextRunTick()); Equal(100, world.Stock[1]); Equal(0, world.Stock[2]);
     }
     private static void KnownPartialAndVeto()
     {
         AutoSendState state = State(); var world = new World(); world.Stock[1] = 90; world.Partial = true;
         Rule(state, 1, 2, 0, 100); Rule(state, 1, 3, 0, 100); Rule(state, 1, 4, 0, 100);
-        AutoSendRunResult result = new AutoSendPlanner(state).Run(world);
+        AutoSendRunResult result = new AutoSendPlanner(state).Run(world, world.NextRunTick());
         Equal(3, world.Calls); Equal(0, result.UncertainTransfers); Equal(3, result.Transfers); Equal(45, result.Units);
         state = State(); world = new World(); world.Stock[1] = 90; world.Veto = true;
         Rule(state, 1, 2, 0, 100); Rule(state, 1, 3, 0, 100);
-        result = new AutoSendPlanner(state).Run(world);
+        result = new AutoSendPlanner(state).Run(world, world.NextRunTick());
         Equal(2, world.Calls); Equal(0, result.UncertainTransfers); Equal(0, result.Transfers); Equal(90, world.Stock[1]);
     }
     private static void UncertaintyStopsEntireRun()
@@ -115,7 +116,7 @@ internal static class Program
             AutoSendState state = State(); var world = new World();
             world.Stock[1] = 90; world.Stock[2] = 90; world.Reported = reported;
             Rule(state, 1, 3, 0, 100); Rule(state, 1, 4, 0, 100); Rule(state, 2, 5, 0, 100);
-            AutoSendRunResult result = new AutoSendPlanner(state).Run(world);
+            AutoSendRunResult result = new AutoSendPlanner(state).Run(world, world.NextRunTick());
             Equal(1, world.Calls); Equal(1, result.UncertainTransfers); Equal(0, result.Transfers);
         }
     }
@@ -125,7 +126,7 @@ internal static class Program
         Check(state.TrySetReserve(1, Resource, 25, out _));
         Rule(state, 1, 2, 0, 100); Rule(state, 1, 3, 0, 100);
         world.AfterFirst = () => { world.Stock[1] = 30; if (world.Stock[2] > 0) world.Stock[3] = 99; else world.Stock[2] = 99; };
-        new AutoSendPlanner(state).Run(world); Equal(29, world.Stock[1]); Check(world.Stock[2] == 100 || world.Stock[3] == 100);
+        new AutoSendPlanner(state).Run(world, world.NextRunTick()); Equal(29, world.Stock[1]); Check(world.Stock[2] == 100 || world.Stock[3] == 100);
     }
     private static void SaveRoundTrip()
     {
@@ -340,7 +341,7 @@ internal static class Program
         using (var reader = new BinaryReader(stream))
         {
             reader.ReadInt32(); reader.ReadInt32(); int goodsCount = reader.ReadInt32(); reader.ReadInt32(); reader.ReadBoolean(); reader.ReadInt32();
-            for (int player = 1; player <= AutoSendState.PlayerCount; player++) { reader.ReadBoolean(); reader.ReadInt64(); }
+            for (int player = 1; player <= AutoSendState.PlayerCount; player++) { reader.ReadBoolean(); reader.ReadInt64(); reader.ReadBoolean(); }
             for (int g = 0; g < goodsCount; g++)
             {
                 int good = reader.ReadInt32();
@@ -351,6 +352,7 @@ internal static class Program
                     {
                         long position = stream.Position;
                         reader.ReadInt32(); reader.ReadInt32(); reader.ReadBoolean();
+                        reader.ReadInt32(); reader.ReadBoolean(); reader.ReadInt32();
                         if (good != Resource || sender != wantedSender || recipient != wantedRecipient) continue;
                         stream.Position = position;
                         using (var writer = new BinaryWriter(stream, System.Text.Encoding.UTF8, true))
@@ -366,17 +368,17 @@ internal static class Program
     {
         AutoSendState state = State(); var world = new World(); world.Stock[1] = int.MaxValue;
         for (int p = 2; p <= AutoSendState.PlayerCount; p++) Rule(state, 1, p, int.MaxValue, int.MaxValue);
-        new AutoSendPlanner(state).Run(world);
+        new AutoSendPlanner(state).Run(world, world.NextRunTick());
         Equal(7, world.Calls); Equal(int.MaxValue - 700, world.Stock[1]);
         for (int p = 2; p <= AutoSendState.PlayerCount; p++) Equal(100, world.Stock[p]);
     }
     private static void DormantRulesDoNotReadWorld()
     {
         AutoSendState state = State(); var world = new World();
-        new AutoSendPlanner(state).Run(world); Equal(0, world.StockReads);
+        new AutoSendPlanner(state).Run(world, world.NextRunTick()); Equal(0, world.StockReads);
         Rule(state, 1, 2, 0, 100); Check(state.HasActiveRules(1, Resource));
         Check(state.TrySetRule(1, 2, Resource, 0, 100, false, out _)); Check(!state.HasActiveRules(1, Resource));
-        new AutoSendPlanner(state).Run(world); Equal(0, world.StockReads);
+        new AutoSendPlanner(state).Run(world, world.NextRunTick()); Equal(0, world.StockReads);
     }
     private static void Check(bool success, string message = null)
     { checks++; if (!success) throw new InvalidOperationException(message ?? "Assertion failed."); }
@@ -390,6 +392,8 @@ internal static class Program
         internal bool Partial, Veto;
         internal AutoSendTransferResult? Reported;
         internal int Calls, StockReads;
+        private int mapTick;
+        internal int NextRunTick() => mapTick += AutoSendState.DefaultIntervalSeconds * AutoSendState.TicksPerSecond;
         internal Action AfterFirst;
         internal World() { for (int p = 1; p <= AutoSendState.PlayerCount; p++) { Free[p] = int.MaxValue; Allied[p] = true; } }
         public int GetStock(int player, int good) { StockReads++; return good == Resource ? Stock[player] : 0; }

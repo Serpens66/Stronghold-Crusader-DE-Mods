@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using APIShared.Presentation;
 using Noesis;
 using SHCDESE.Interop;
@@ -11,10 +12,11 @@ namespace AutoSendTest
     {
         private readonly AutoSendRuntime runtime;
         private Border root;
-        private AutoSendNumberEditor reserve, minimum, maximum;
+        private AutoSendNumberEditor reserve, minimum, maximum, interval;
         private Button enabled;
+        private CheckBox chatMessages;
         private TextBlock toggleText, pendingText;
-        private bool hasTogglePaint, paintedOn;
+        private bool hasTogglePaint, paintedOn, updatingChatMessages, confirmedChatMessages;
         private readonly Brush activeBackground = new SolidColorBrush(Color.FromArgb(255, 32, 69, 44));
         private readonly Brush activeBorder = new SolidColorBrush(Color.FromArgb(255, 242, 212, 138));
         private ToolTip toggleTip;
@@ -32,13 +34,26 @@ namespace AutoSendTest
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Parse("*") });
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             root = new Border { Child = grid };
             reserve = Editor("Reserve", AutoSendEdit.Reserve);
             minimum = Editor("Minimum", AutoSendEdit.Minimum);
             maximum = Editor("Maximum", AutoSendEdit.Maximum);
+            interval = Editor("Interval", AutoSendEdit.Interval,
+                minimumValue: AutoSendState.MinimumIntervalSeconds, maximumValue: AutoSendState.MaximumIntervalSeconds,
+                invalidAmountKey: "InvalidInterval", valueHelp: seconds => AutoSendText.Get("IntervalTicks")
+                    .Replace("{Ticks}", (seconds * AutoSendState.TicksPerSecond).ToString(CultureInfo.InvariantCulture)));
             Place(grid, reserve.Element, 0, 0);
             Place(grid, minimum.Element, 1, 0);
             Place(grid, maximum.Element, 0, 1);
+            Place(grid, interval.Element, 2, 0);
+            chatMessages = new CheckBox { Name = "AutoSendChatMessages", Height = 28,
+                Margin = new Thickness(8, 2, 8, 2), Content = new TextBlock {
+                    Text = AutoSendText.Get("ChatMessages"), FontSize = 16,
+                    Foreground = new SolidColorBrush(Colors.White), VerticalAlignment = VerticalAlignment.Center } };
+            chatMessages.Click += (_, __) => ToggleChatMessages();
+            AttachTooltip(chatMessages, "ChatMessagesHelp");
+            Place(grid, chatMessages, 2, 1);
             toggleText = new TextBlock { TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, FontSize = 16 };
             pendingText = new TextBlock { Width = 18, TextAlignment = TextAlignment.Center, FontSize = 16 };
             var toggleContent = new Grid();
@@ -52,15 +67,16 @@ namespace AutoSendTest
             toggleTip = AttachTooltip(enabled, "EnabledHelp");
             Place(grid, enabled, 1, 1);
             hasTogglePaint = false;
-            var editors = new[] { reserve, minimum, maximum };
+            var editors = new[] { reserve, minimum, maximum, interval };
             keyboardCapture = new AutoSendKeyboardCapture(root, () => { foreach (var editor in editors) editor.Cancel(); },
-                reserve.Slider, reserve.Box, minimum.Slider, minimum.Box, maximum.Slider, maximum.Box);
+                reserve.Slider, reserve.Box, minimum.Slider, minimum.Box, maximum.Slider, maximum.Box, interval.Slider, interval.Box, chatMessages);
             Refresh(); return root;
         }
-        private AutoSendNumberEditor Editor(string key, AutoSendEdit operation) => new AutoSendNumberEditor(
+        private AutoSendNumberEditor Editor(string key, AutoSendEdit operation, int minimumValue = 0,
+            int maximumValue = int.MaxValue, string invalidAmountKey = "InvalidAmount", Func<int, string> valueHelp = null) => new AutoSendNumberEditor(
             "AutoSend" + key, AutoSendText.Get(key), element => AttachTooltip(element, key + "Help"),
             (target, amount) => runtime.EditCaptured(target.SessionId, operation, target.RecipientPlayerId,
-                (int)target.Good, amount, false));
+                (int)target.Good, amount, false), minimumValue, maximumValue, 1, invalidAmountKey, valueHelp);
         private static void Place(Grid parent, FrameworkElement child, int row, int column)
         { Grid.SetRow(child, row); Grid.SetColumn(child, column); parent.Children.Add(child); }
 
@@ -76,18 +92,29 @@ namespace AutoSendTest
             if (root == null) return;
             var data = runtime.ReadDisplay(context);
             bool canEdit = context.IsOpen && context.IsSendMode && data.Ready;
+            bool canEditSender = context.IsOpen && context.IsSendMode && data.SenderReady;
             // End the input lease while its controls still belong to their view,
             // before changing their visibility or editability.
-            if (!canEdit) keyboardCapture?.Release();
+            if (!canEdit && !canEditSender) keyboardCapture?.Release();
             root.Visibility = context.IsSendMode ? Visibility.Visible : Visibility.Collapsed;
             var target = new AutoSendEditTarget(data.SessionId, data.SenderPlayerId, context.RecipientPlayerId,
                 context.Good.GetValueOrDefault());
             var rule = data.HasDesiredValues ? data.DesiredRule : data.Rule;
             string reason = data.TransferUnavailable ? AutoSendText.Get("TransferUnavailable") :
-                !data.Ready ? AutoSendText.Get(data.IdentityMismatch ? "IdentityMismatch" : "NotReady") : data.Feedback;
+                !data.Ready ? AutoSendText.Get(data.IdentityMismatch ? "IdentityMismatch" :
+                    !context.Good.HasValue ? "SelectGood" :
+                    data.SenderPlayerId > 0 && context.ViewedPlayerId != data.SenderPlayerId ? "OwnView" : "NotReady") :
+                string.IsNullOrEmpty(data.Feedback) ? string.Empty : AutoSendText.Get("ChangeFailed");
             reserve.Render(target, canEdit, data.HasDesiredValues ? data.DesiredReserve : data.Reserve, reason);
             minimum.Render(target, canEdit, rule.Minimum, reason);
             maximum.Render(target, canEdit, rule.Maximum, reason);
+            int seconds = rule.IntervalSeconds;
+            // An unavailable selection carries a default struct rather than a rule.
+            if (seconds < AutoSendState.MinimumIntervalSeconds || seconds > AutoSendState.MaximumIntervalSeconds)
+                seconds = AutoSendState.DefaultIntervalSeconds;
+            interval.Render(target, canEdit, seconds, reason);
+            ShowChatMessages(data.ChatMessages);
+            chatMessages.IsEnabled = canEditSender && !data.Pending;
             bool on = data.Rule.Enabled;
             enabled.IsEnabled = canEdit && !data.Pending && (on || rule.Maximum > 0);
             string label = AutoSendText.Get(on ? "EnabledOn" : "EnabledOff");
@@ -105,7 +132,8 @@ namespace AutoSendTest
                 }
                 paintedOn = on; hasTogglePaint = true;
             }
-            string help = !string.IsNullOrEmpty(reason) ? reason : data.Pending ? AutoSendText.Get("Pending") :
+            string help = !data.ChatMessages && data.ChatSuppressionUnavailable ? AutoSendText.Get("SuppressionUnavailable") :
+                !string.IsNullOrEmpty(reason) ? reason : data.Pending ? AutoSendText.Get("Pending") :
                 !on && rule.Maximum == 0 ? AutoSendText.Get("StartNeedsMaximum") : AutoSendText.Get("EnabledHelp");
             if (!Equals(toggleTip.Content, help)) toggleTip.Content = help;
         }
@@ -116,6 +144,27 @@ namespace AutoSendTest
             if (!data.Ready || data.Pending || !data.Rule.Enabled && data.Rule.Maximum == 0) return;
             runtime.EditCaptured(data.SessionId, AutoSendEdit.Enabled, context.RecipientPlayerId,
                 (int)context.Good.Value, 0, !data.Rule.Enabled);
+        }
+
+        private void ShowChatMessages(bool value)
+        {
+            confirmedChatMessages = value;
+            updatingChatMessages = true;
+            try { if (chatMessages.IsChecked != value) chatMessages.IsChecked = value; }
+            finally { updatingChatMessages = false; }
+        }
+        private void ToggleChatMessages()
+        {
+            if (updatingChatMessages) return;
+            bool requested = chatMessages.IsChecked == true;
+            if (!AllyGoodsPanelExtensions.TryGetContext(out var context))
+            { ShowChatMessages(confirmedChatMessages); return; }
+            var data = runtime.ReadDisplay(context);
+            // The control shows acknowledged state while the global edit is in flight.
+            // IsChecked changes never dispatch this Click handler.
+            ShowChatMessages(data.ChatMessages);
+            if (!context.IsOpen || !context.IsSendMode || !data.SenderReady || data.Pending) return;
+            runtime.EditCaptured(data.SessionId, AutoSendEdit.ChatMessages, 0, 0, 0, requested);
         }
 
         internal FrameworkElement CreateAdornment(AllyGoodsSectionContext context, eGoods good)

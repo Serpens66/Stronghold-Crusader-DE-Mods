@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace AutoSendTest
 {
-    internal enum AutoSendEdit { Hello, Reserve, Minimum, Maximum, Enabled, Paused, Ready, SetRule }
+    internal enum AutoSendEdit { Hello, Reserve, Minimum, Maximum, Enabled, Paused, Ready, SetRule, Interval, ChatMessages }
 
     internal static class AutoSendRuleEdits
     {
@@ -12,13 +12,19 @@ namespace AutoSendTest
         {
             result = old; reason = string.Empty;
             if (amount < 0) { reason = "Amounts must not be negative."; return false; }
-            int min = old.Minimum, max = old.Maximum; bool on = old.Enabled;
+            int min = old.Minimum, max = old.Maximum, interval = old.IntervalSeconds; bool on = old.Enabled;
             if (operation == AutoSendEdit.Minimum) { min = amount; max = Math.Max(max, min); }
             else if (operation == AutoSendEdit.Maximum) { max = amount; min = Math.Min(min, max); if (max == 0) on = false; }
             else if (operation == AutoSendEdit.Enabled) on = enabled;
+            else if (operation == AutoSendEdit.Interval)
+            {
+                if (amount < AutoSendState.MinimumIntervalSeconds || amount > AutoSendState.MaximumIntervalSeconds)
+                { reason = "The interval must be between 1 and 300 game seconds."; return false; }
+                interval = amount;
+            }
             else { reason = "Unknown rule edit."; return false; }
             if (on && max == 0) { reason = "Choose a positive maximum before starting this rule."; return false; }
-            result = new AutoSendRule(min, max, on); return true;
+            result = new AutoSendRule(min, max, on, interval, old.HasCheckTick, old.LastCheckTick); return true;
         }
     }
 
@@ -31,8 +37,9 @@ namespace AutoSendTest
         internal AutoSendEditIntent(long session, int player, AutoSendEdit operation, int recipient, int good, int amount, bool enabled)
         {
             Session = session; Player = player; Operation = operation; Amount = amount; Enabled = enabled;
-            Recipient = operation == AutoSendEdit.Reserve || operation == AutoSendEdit.Paused ? 0 : recipient;
-            Good = operation == AutoSendEdit.Paused ? 0 : good;
+            bool senderWide = operation == AutoSendEdit.Paused || operation == AutoSendEdit.ChatMessages;
+            Recipient = operation == AutoSendEdit.Reserve || senderWide ? 0 : recipient;
+            Good = senderWide ? 0 : good;
         }
         internal bool SameKey(AutoSendEditIntent other) => Session == other.Session && Player == other.Player &&
             Recipient == other.Recipient && Good == other.Good && Operation == other.Operation;

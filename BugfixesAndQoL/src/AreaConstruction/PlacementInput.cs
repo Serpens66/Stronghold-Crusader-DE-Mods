@@ -33,7 +33,7 @@ namespace BugfixesAndQoL.AreaConstruction
         private readonly HashSet<Tile> storageUnvisited = new HashSet<Tile>();
         private readonly Dictionary<Tile, int> storageFrames = new Dictionary<Tile, int>();
         private readonly List<Tile> quarryPiles = new List<Tile>(4);
-        private Tile? storageAwaiting;
+        private StorageBuildOrder storageBuild;
         private readonly GhostView view = new GhostView();
         private IMissionPlayStateReadinessCapability readiness;
         private MissionContext mission;
@@ -168,7 +168,7 @@ namespace BugfixesAndQoL.AreaConstruction
         {
             dragging = false;
             toBuild.Clear();
-            storageAwaiting = null;
+            storageBuild = null;
             quarryOrder = null;
         }
 
@@ -203,7 +203,8 @@ namespace BugfixesAndQoL.AreaConstruction
                 if (captured)
                     dragging = false;
                 captured = false;
-                if (toBuild.Count != 0 || quarryOrder != null || !TryTarget(director, out var selected, out int player, out bool isEditor) ||
+                if (toBuild.Count != 0 || storageBuild != null || quarryOrder != null ||
+                    !TryTarget(director, out var selected, out int player, out bool isEditor) ||
                     !TryPointerTile(director, false, out var pointer))
                     return false;
 
@@ -225,7 +226,6 @@ namespace BugfixesAndQoL.AreaConstruction
                 shown.Clear();
                 quarryBlock = false;
                 storageOrder.Clear();
-                storageAwaiting = null;
                 director.clearMouseStateForEngine();
                 return true;
             }
@@ -323,9 +323,7 @@ namespace BugfixesAndQoL.AreaConstruction
                         else if (tool == eMappers.MAPPER_QUARRY)
                             toBuild.Enqueue((start, tool));
                         else if (NativePlacement.IsStorage(tool))
-                        {
-                            foreach (Tile tile in storageOrder) toBuild.Enqueue((tile, tool));
-                        }
+                            ReleaseStorage();
                         else
                         {
                             foreach (var site in shown)
@@ -336,6 +334,12 @@ namespace BugfixesAndQoL.AreaConstruction
                 }
             }
 
+            if (storageBuild != null)
+            {
+                DrainStorage(director);
+                return false;
+            }
+
             if (!dragging && toBuild.Count == 0)
                 return false;
 
@@ -343,7 +347,6 @@ namespace BugfixesAndQoL.AreaConstruction
             {
                 dragging = false;
                 toBuild.Clear();
-                storageAwaiting = null;
                 quarryOrder = null;
                 return false;
             }
@@ -433,13 +436,65 @@ namespace BugfixesAndQoL.AreaConstruction
             return true;
         }
 
+        private void ReleaseStorage()
+        {
+            if (storageOrder.Count != 0)
+                storageBuild = new StorageBuildOrder(mission.SessionId, map, actor, editor, tool, scale, storageOrder.ToArray());
+        }
+
+        private void DrainStorage(EditorDirector director)
+        {
+            var order = storageBuild;
+            if (mission?.SessionId != order.SessionId || !ReferenceEquals(GameMap.instance, order.Map) ||
+                GameData.scenario?.InGameoverSituation == true)
+            {
+                storageBuild = null;
+                return;
+            }
+
+            if (director == null || !director.IsActive)
+                return;
+            if (director.ActivePlayerID != order.Actor)
+            {
+                storageBuild = null;
+                return;
+            }
+
+            if (Director.instance == null || Director.instance.Paused || GameData.scenario == null ||
+                order.Map.pendingRotationtriggered || (!order.Editor && readiness?.Current?.SessionId != order.SessionId) ||
+                !native.BeginQueuedStorage(order.Tool, order.Actor, order.Editor) || !native.HasQueueSpace)
+                return;
+
+            // The next section can use only an initialized neighbor, even after the native Chore has finished.
+            if (order.Awaiting is Tile inFlight && (native.IsPending(inFlight) ||
+                native.IsStorageInitializing(order.Tool, order.Actor, inFlight, order.Scale)))
+                return;
+
+            int first = order.Next;
+            bool submitted = false;
+            while (order.Next < order.Tiles.Length && order.Next - first < CommitPerUpdate)
+            {
+                if (!ApplyLocalActivation() || storageBuild != order)
+                    return;
+                Tile tile = order.Tiles[order.Next++];
+                if (!native.TryPlaceQueuedStorage(order.Tool, order.Actor, order.Editor, tile, order.Scale))
+                    continue;
+                native.Submitted();
+                order.Awaiting = tile;
+                submitted = true;
+                break;
+            }
+
+            if (order.Next == order.Tiles.Length)
+                storageBuild = null;
+            if (order.Next > first)
+                log.LogInfo(Stamp("Rechecked " + (order.Next - first) + " storage sites, submitted " + (submitted ? 1 : 0) + " Vanilla build inputs."));
+        }
+
         private void Commit()
         {
             if (!native.Begin(tool, actor, editor) || !native.HasQueueSpace)
                 return;
-            if (storageAwaiting is Tile inFlight && native.IsPending(inFlight))
-                return;
-            storageAwaiting = null;
 
             int attempted = 0, submitted = 0;
             while (toBuild.Count != 0 && attempted < CommitPerUpdate)
@@ -456,13 +511,6 @@ namespace BugfixesAndQoL.AreaConstruction
                 native.Place(mapper, tile, actor, editor);
                 native.Submitted();
                 submitted++;
-                if (NativePlacement.IsStorage(tool))
-                {
-                    // A delayed Chore is not a registered neighboring building.
-                    // Wait for its queue receipt to finish before testing more sites.
-                    storageAwaiting = tile;
-                    break;
-                }
             }
             if (attempted > 0)
                 log.LogInfo(Stamp("Rechecked " + attempted + " area sites, submitted " + submitted + " Vanilla build inputs."));
@@ -584,6 +632,30 @@ namespace BugfixesAndQoL.AreaConstruction
         }
 
         private static string Stamp(string message) => $"[{DateTime.Now:HH:mm:ss.fff}] {message}";
+
+        private sealed class StorageBuildOrder
+        {
+            internal StorageBuildOrder(long sessionId, GameMap map, int actor, bool editor, eMappers tool, int scale, Tile[] tiles)
+            {
+                SessionId = sessionId;
+                Map = map;
+                Actor = actor;
+                Editor = editor;
+                Tool = tool;
+                Scale = scale;
+                Tiles = tiles;
+            }
+
+            internal long SessionId { get; }
+            internal GameMap Map { get; }
+            internal int Actor { get; }
+            internal bool Editor { get; }
+            internal eMappers Tool { get; }
+            internal int Scale { get; }
+            internal Tile[] Tiles { get; }
+            internal int Next { get; set; }
+            internal Tile? Awaiting { get; set; }
+        }
     }
 
     internal sealed class QuarryOrder

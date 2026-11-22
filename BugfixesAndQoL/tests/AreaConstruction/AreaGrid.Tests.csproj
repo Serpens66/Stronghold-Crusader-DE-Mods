@@ -6,6 +6,7 @@
   <ItemGroup>
     <Compile Include="../../src/AreaConstruction/AreaGrid.cs" Link="AreaGrid.cs" />
     <Compile Include="../../src/AreaConstruction/StorageGrid.cs" Link="StorageGrid.cs" />
+    <Compile Include="../../src/AreaConstruction/StorageEmptyLimitPolicy.cs" Link="StorageEmptyLimitPolicy.cs" />
     <Compile Include="../../src/AreaConstruction/QuarryLayout.cs" Link="QuarryLayout.cs" />
   </ItemGroup>
 </Project>

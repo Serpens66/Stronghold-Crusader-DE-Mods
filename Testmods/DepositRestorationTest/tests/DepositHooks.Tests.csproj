@@ -1,0 +1,23 @@
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)/$(MSBuildToolsVersion)/Microsoft.Common.props" />
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>DepositHooks.Tests</AssemblyName>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PlatformTarget>x64</PlatformTarget>
+    <OutputPath>bin/</OutputPath>
+    <GameDir Condition="'$(GameDir)' == ''">E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition</GameDir>
+    <ExtenderDir Condition="'$(ExtenderDir)' == ''">$(GameDir)/BepInEx/plugins/000shcdese</ExtenderDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System;System.Core" />
+    <Reference Include="Iced;SHCDESE;System.Memory;System.Runtime.CompilerServices.Unsafe;RedBird.Abstractions;RedBird.Core;RedBird.X64;RedBird.Backends.NativeX64;Microsoft.Extensions.Logging.Abstractions">
+      <HintPath>$(ExtenderDir)/%(Identity).dll</HintPath><Private>true</Private>
+    </Reference>
+    <Compile Include="Program.cs" />
+    <Compile Include="../src/DepositHooks.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)/Microsoft.CSharp.targets" />
+</Project>

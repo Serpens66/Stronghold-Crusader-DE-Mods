@@ -6,7 +6,7 @@ namespace AutoSendTest
     internal static class AutoSendSaveCodec
     {
         // These numbers identify our binary format, not game-domain values.
-        private const int Magic = 0x41535431, FormatVersion = 2, MaximumBytes = 1024 * 1024;
+        private const int Magic = 0x41535431, FormatVersion = 4, MaximumBytes = 1024 * 1024;
         internal static byte[] Encode(AutoSendState state)
         {
             if (state == null) throw new ArgumentNullException(nameof(state));
@@ -16,7 +16,7 @@ namespace AutoSendTest
                 writer.Write(Magic); writer.Write(FormatVersion); writer.Write(state.GoodCount);
                 writer.Write(state.SenderCursor); writer.Write(state.HasProcessedTick); writer.Write(state.LastProcessedTick);
                 for (int player = 1; player <= AutoSendState.PlayerCount; player++)
-                { writer.Write(state.IsPaused(player)); writer.Write(state.GetRevision(player)); }
+                { writer.Write(state.IsPaused(player)); writer.Write(state.GetRevision(player)); writer.Write(state.ShowVanillaChatMessages(player)); }
                 for (int g = 0; g < state.GoodCount; g++)
                 {
                     int good = state.GetGood(g); writer.Write(good);
@@ -27,6 +27,7 @@ namespace AutoSendTest
                         {
                             AutoSendRule rule = state.GetRule(sender, recipient, good);
                             writer.Write(rule.Minimum); writer.Write(rule.Maximum); writer.Write(rule.Enabled);
+                            writer.Write(rule.IntervalSeconds); writer.Write(rule.HasCheckTick); writer.Write(rule.LastCheckTick);
                         }
                     }
                 }
@@ -56,9 +57,11 @@ namespace AutoSendTest
                     if (hasTick) candidate.MarkProcessedTick(tick);
                     var paused = new bool[AutoSendState.PlayerCount + 1];
                     var revision = new long[AutoSendState.PlayerCount + 1];
+                    var chatMessages = new bool[AutoSendState.PlayerCount + 1];
                     for (int player = 1; player <= AutoSendState.PlayerCount; player++)
                     {
                         paused[player] = ReadBoolean(reader); revision[player] = reader.ReadInt64();
+                        chatMessages[player] = format >= 4 && ReadBoolean(reader);
                         if (revision[player] < 0) throw new InvalidDataException("Invalid revision.");
                     }
                     var seen = new bool[candidate.GoodCount];
@@ -76,18 +79,23 @@ namespace AutoSendTest
                             for (int recipient = 1; recipient <= AutoSendState.PlayerCount; recipient++)
                             {
                                 int minimum = reader.ReadInt32(), maximum = reader.ReadInt32(); bool enabled = ReadBoolean(reader);
+                                int interval = format >= 3 ? reader.ReadInt32() : AutoSendState.DefaultIntervalSeconds;
+                                bool hasCheck = format >= 3 && ReadBoolean(reader);
+                                int lastCheck = format >= 3 ? reader.ReadInt32() : 0;
                                 if (recipient == sender)
                                 {
-                                    if (minimum != 0 || maximum != 0 || enabled) throw new InvalidDataException("Self-delivery rule.");
+                                    if (minimum != 0 || maximum != 0 || enabled || interval != AutoSendState.DefaultIntervalSeconds || hasCheck || lastCheck != 0)
+                                        throw new InvalidDataException("Self-delivery rule.");
                                     continue;
                                 }
-                                if (!candidate.TrySetRule(sender, recipient, good, minimum, maximum, enabled, out reason))
+                                if (!candidate.TrySetRule(sender, recipient, good, minimum, maximum, enabled, interval, 0, out reason))
                                     throw new InvalidDataException(reason);
+                                candidate.RestoreRuleClock(sender, recipient, good, hasCheck, lastCheck);
                             }
                         }
                     }
                     if (stream.Position != stream.Length) throw new InvalidDataException("Trailing save bytes.");
-                    for (int player = 1; player <= AutoSendState.PlayerCount; player++) candidate.RestoreMeta(player, paused[player], revision[player]);
+                    for (int player = 1; player <= AutoSendState.PlayerCount; player++) candidate.RestoreMeta(player, paused[player], revision[player], chatMessages[player]);
                     if (format == 1) candidate.MigrateLegacyPausedRules();
                 }
                 state = candidate; reason = string.Empty; return true;

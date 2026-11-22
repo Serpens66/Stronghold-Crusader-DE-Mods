@@ -25,23 +25,33 @@ namespace AutoSendTest
         internal readonly TextBox Box;
         private readonly Action<AutoSendEditTarget, int> commit;
         private readonly ToolTip sliderTip, boxTip;
-        private readonly string help;
+        private readonly string help, invalidAmountKey;
+        private readonly int minimumValue, maximumValue, sliderStep;
+        private readonly Func<int, string> valueHelp;
         private AutoSendEditTarget target, frozen;
         private int modelValue, draft, step = 1;
+        private int helpValue = int.MinValue;
+        private string valueHelpText;
         private bool allowed, updating, editing, pointer, changed, textEditing, canceling;
         private string reason;
 
         internal AutoSendNumberEditor(string name, string label, Func<FrameworkElement, ToolTip> tooltip,
-            Action<AutoSendEditTarget, int> commit)
+            Action<AutoSendEditTarget, int> commit, int minimumValue = 0, int maximumValue = int.MaxValue,
+            int sliderStep = 1, string invalidAmountKey = "InvalidAmount", Func<int, string> valueHelp = null)
         {
+            if (minimumValue < 0 || maximumValue < minimumValue || sliderStep <= 0)
+                throw new ArgumentOutOfRangeException(nameof(minimumValue));
             this.commit = commit;
+            this.minimumValue = minimumValue; this.maximumValue = maximumValue; this.sliderStep = sliderStep;
+            this.invalidAmountKey = invalidAmountKey; this.valueHelp = valueHelp;
             var row = new Grid { Margin = new Thickness(8, 2, 8, 2), Height = 28 };
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(88) });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Parse("*") });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(87) });
             var caption = new TextBlock { Text = label, Foreground = new SolidColorBrush(Colors.White), FontSize = 14,
                 VerticalAlignment = VerticalAlignment.Center };
-            Slider = new Slider { Name = name + "Slider", Minimum = 0, Maximum = 100, TickFrequency = 1,
+            Slider = new Slider { Name = name + "Slider", Minimum = minimumValue,
+                Maximum = maximumValue == int.MaxValue ? 100 : maximumValue, TickFrequency = sliderStep,
                 IsSnapToTickEnabled = true, IsMoveToPointEnabled = true, Margin = new Thickness(0, 0, 8, 0), Height = 27 };
             Box = new TextBox { Name = name + "Value", Width = 87, FontSize = 16, Padding = new Thickness(5, 2, 5, 2),
                 Foreground = new SolidColorBrush(Colors.White), Background = new SolidColorBrush(Color.FromArgb(255, 29, 23, 16)),
@@ -69,19 +79,24 @@ namespace AutoSendTest
                 // Home/End explicitly select a bound even if a larger textbox value
                 // already displays its clamped thumb at that same bound.
                 if (args.Key == Key.Home || args.Key == Key.End)
-                { draft = (int)Math.Round(Slider.Value / step, MidpointRounding.AwayFromZero) * step; changed = true; }
+                { draft = RoundedSliderValue(Slider.Value); changed = true; }
                 FinishSlider();
             };
             Slider.ValueChanged += (_, args) => {
                 if (updating || !editing || textEditing) return;
-                draft = (int)Math.Round(args.NewValue / step, MidpointRounding.AwayFromZero) * step;
+                draft = RoundedSliderValue(args.NewValue);
                 changed = true; SetText(draft);
+                if (valueHelp != null) SetHelp(HelpFor(draft));
             };
             Box.GotFocus += (_, __) => { Begin(true, false); Box.SelectAll(); };
             Box.TextChanged += (_, __) => {
                 if (updating) return;
                 if (!editing) Begin(true, false);
-                if (editing && textEditing) changed = true;
+                if (editing && textEditing)
+                {
+                    changed = true;
+                    if (valueHelp != null && TryReadValue(out int value)) SetHelp(HelpFor(value));
+                }
             };
             Box.LostFocus += (_, __) => { if (editing && textEditing) FinishText(false); };
             Box.PreviewKeyDown += (_, args) => {
@@ -98,15 +113,19 @@ namespace AutoSendTest
             updating = true;
             try
             {
-                bool gold = next.Good == eGoods.STORED_GOLD;
-                step = gold ? 10 : 1;
-                Slider.Maximum = gold ? 10000 : 100; Slider.TickFrequency = step;
+                // Quantity editors retain their independent display range and free text.
+                // A finite input maximum instead fixes both bounds, regardless of goods.
+                bool quantity = maximumValue == int.MaxValue;
+                bool gold = quantity && next.Good == eGoods.STORED_GOLD;
+                step = quantity ? gold ? 10 : 1 : sliderStep;
+                Slider.Minimum = minimumValue;
+                Slider.Maximum = quantity ? gold ? 10000 : 100 : maximumValue; Slider.TickFrequency = step;
                 Slider.SmallChange = step; Slider.LargeChange = step * 10;
                 Slider.IsEnabled = Box.IsEnabled = canEdit;
                 if (!editing)
                 {
                     Slider.Value = Position(value); SetText(value);
-                    SetHelp(string.IsNullOrEmpty(reason) ? help : reason);
+                    SetHelp(string.IsNullOrEmpty(reason) ? HelpFor(value) : reason);
                 }
             }
             finally { updating = false; }
@@ -116,7 +135,7 @@ namespace AutoSendTest
         {
             if (updating || !allowed || editing) return;
             frozen = target; editing = true; textEditing = text; pointer = mouse; changed = false; draft = modelValue;
-            SetHelp(help);
+            SetHelp(HelpFor(modelValue));
         }
         private void FinishSlider()
         {
@@ -129,15 +148,17 @@ namespace AutoSendTest
         {
             if (!editing || !textEditing) return;
             if (!changed) { editing = textEditing = false; Restore(); return; }
-            if (!int.TryParse(Box.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value) || value < 0)
+            if (!TryReadValue(out int value))
             {
-                SetHelp(AutoSendText.Get("InvalidAmount"));
-                if (!fromEnter) { editing = textEditing = changed = false; Restore(); SetHelp(AutoSendText.Get("InvalidAmount")); }
+                SetHelp(AutoSendText.Get(invalidAmountKey));
+                if (!fromEnter) { editing = textEditing = changed = false; Restore(); SetHelp(AutoSendText.Get(invalidAmountKey)); }
                 return;
             }
             var captured = frozen;
             editing = textEditing = changed = false;
-            SetText(value); commit(captured, value);
+            SetText(value);
+            if (valueHelp != null) SetHelp(HelpFor(value));
+            commit(captured, value);
         }
         internal void Cancel()
         {
@@ -164,11 +185,26 @@ namespace AutoSendTest
         private void Restore()
         {
             bool previous = updating; updating = true;
-            try { Slider.Value = Position(modelValue); SetText(modelValue); }
+            try
+            {
+                Slider.Value = Position(modelValue); SetText(modelValue);
+                if (valueHelp != null) SetHelp(string.IsNullOrEmpty(reason) ? HelpFor(modelValue) : reason);
+            }
             finally { updating = previous; }
         }
-        private float Position(int value) => Math.Max(0, Math.Min(Slider.Maximum,
-            (float)(Math.Round((double)value / step, MidpointRounding.AwayFromZero) * step)));
+        private float Position(int value) => Math.Max(Slider.Minimum, Math.Min(Slider.Maximum,
+            (float)(Slider.Minimum + Math.Round(((double)value - Slider.Minimum) / step, MidpointRounding.AwayFromZero) * step)));
+        private int RoundedSliderValue(float value) => (int)Math.Max(Slider.Minimum, Math.Min(Slider.Maximum,
+            Slider.Minimum + (float)Math.Round((value - Slider.Minimum) / step, MidpointRounding.AwayFromZero) * step));
+        private bool TryReadValue(out int value) => int.TryParse(Box.Text, NumberStyles.Integer,
+            CultureInfo.InvariantCulture, out value) && value >= minimumValue && value <= maximumValue;
+        private string HelpFor(int value)
+        {
+            if (valueHelp == null) return help;
+            if (helpValue != value)
+            { helpValue = value; valueHelpText = help + "\n" + valueHelp(value); }
+            return valueHelpText;
+        }
         private void SetText(int value)
         {
             string text = value.ToString(CultureInfo.InvariantCulture);

@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Threading;
 using APIShared;
+using APIShared.Economy;
 using APIShared.Lobby;
 using APIShared.ModSettings;
 using APIShared.Networking;
@@ -43,9 +44,11 @@ namespace MultiplayerRestartTest
         private long sourceSessionId, adoptedSessionId, nextCompletionRetry;
         private bool expectedSourceEnd, targetLoadEntered, simulationReported, completionPromoted;
         private bool failureParkPending;
+        private bool productionReady;
+        private long nextReadyAttempt;
         private readonly HashSet<ulong> compatible = new HashSet<ulong>();
         private readonly HashSet<string> retired = new HashSet<string>(StringComparer.Ordinal);
-        private string session, digest, settingsHash, notice = "Noch keine unterstützte Partie erfasst.";
+        private string session, digest, settingsHash, notice = "Restart.NoMission";
         private ulong self, host, capturedLobby, targetLobby;
         private bool initialized, ready, stopped, localPublished, restored, verified, allowStart, cancellationHandled, recoveryPending;
         private bool lobbyCreated;
@@ -72,7 +75,7 @@ namespace MultiplayerRestartTest
             if (!api.TryGetMissionLifecycle(out lifecycle, out var diagnostic)) throw new InvalidOperationException(diagnostic.Reason);
             if (!lifecycle.TryRegisterObserver("restart-session", Started, Ended, Initializing, out diagnostic)) throw new InvalidOperationException(diagnostic.Reason);
             if (!IngameMenuActions.TryRegister(RestartPlugin.Guid, "restart", MenuState, Confirm,
-                new IngameMenuActionOptions(IngameMenuRow.RestartMission, IngameMenuSlot.Left), out menu, out reason))
+                new IngameMenuActionOptions(IngameMenuRow.RestartMission, IngameMenuSlot.Right, replaceVanilla: true), out menu, out reason))
                 throw new InvalidOperationException(reason);
             foreach (var operation in new[] { MissionOverOperation.State, MissionOverOperation.Text })
                 if (!MissionOverEvents.TryRegister(operation, RestartPlugin.Guid, "transition-" + operation,
@@ -95,9 +98,11 @@ namespace MultiplayerRestartTest
             if (!api.TryGetMissionPlayStateReadiness(out var playState, out diagnostic) ||
                 !playState.TryRegisterObserver("restart-first-state", PlayStateReady, out diagnostic))
                 throw new InvalidOperationException(diagnostic.Reason);
+            if (!WorkerProductionModifiers.TryRegisterObserver(RestartPlugin.Guid, "restart-production", ProductionChanged, out reason))
+                throw new InvalidOperationException(reason);
             initialized = true;
             SmokeAutomation.TryStart(api, log, Report);
-            Report("INITIALIZED version=0.1.1 barrierInstalled=" + StopBarrier.Installed + "; new games only; install identical package on every peer.");
+            Report("INITIALIZED version=0.1.3 barrierInstalled=" + StopBarrier.Installed + "; new games only; install identical package on every peer.");
         }
         private int transitionCommitted;
         private int suppressSourcePresentation;
@@ -141,7 +146,7 @@ namespace MultiplayerRestartTest
             if (runtime == null) return;
             if (StopBarrier.Requested || runtime.Active) throw new InvalidOperationException("Cannot load a save during the restart transition.");
             runtime.snapshot = null; runtime.ready = false;
-            runtime.notice = "Aus Spielständen geladene Partien werden im ersten Prototyp nicht unterstützt.";
+            runtime.notice = "Restart.SavedGame";
             runtime.menu?.Invalidate();
         }
         private void Capture(EngineInterface.MultiplayerSetupData setup, FileHeader map, int trail, int mission)
@@ -160,12 +165,13 @@ namespace MultiplayerRestartTest
                     pendingLaunch = capture;
                 }
                 else AdoptCapture(capture);
-                Report("CAPTURE session=" + capture.Session + " humans=" + string.Join(",", capture.Snapshot.HumanIds));
+                Report("CAPTURE session=" + capture.Session + " humans=" + string.Join(",", capture.Snapshot.HumanIds) +
+                    " launchDigest=" + capture.Snapshot.Digest + " hostSettingsDigest=" + capture.SettingsHash);
             }
             catch (Exception error)
             {
                 if (Active) { Fail("Target capture failed: " + error.Message); throw; }
-                snapshot = null; notice = "Startdaten konnten nicht vollständig erfasst werden: " + error.Message; Report("CAPTURE_REJECTED " + error);
+                snapshot = null; notice = "Restart.CaptureFailed"; Report("CAPTURE_REJECTED " + error);
             }
         }
         private void AdoptCapture(LaunchCapture capture)
@@ -198,10 +204,10 @@ namespace MultiplayerRestartTest
             Volatile.Write(ref gameOverSignal, 0);
             if (ready)
             {
-                host = CurrentHost(); compatible.Add(self); notice = "Warte auf Testmod-Bestätigung aller Teilnehmer.";
+                host = CurrentHost(); compatible.Add(self); notice = "Restart.WaitPeers";
                 helloUntil = Now + Stopwatch.Frequency * 90L; nextHello = 0; frame.SetContinuous(true);
             }
-            else { frame.SetContinuous(false); if (n.Context.IsSave) notice = "Geladene Spielstände sind im ersten Prototyp gesperrt."; }
+            else { frame.SetContinuous(false); if (n.Context.IsSave) notice = "Restart.SavedGame"; }
             menu.Invalidate();
         }
         private void Ended(MissionLifecycleNotification n)
@@ -231,39 +237,50 @@ namespace MultiplayerRestartTest
             Main(); Report("FIRST_PLAYSTATE session=" + n.Context.SessionId + " realMP=" + n.Context.Mode.IsRealMultiplayer);
             if (Active && targetState != null && targetState.MarkPlayStateReady(n.Context.SessionId)) frame.Request();
         }
+        private void ProductionChanged(WorkerProductionStatus status)
+        {
+            // This public observer may run on the preparation thread. Copy the immutable
+            // admission result and marshal it; never touch lobby/UI state on that thread.
+            bool canReady = status != null && status.CanStart && string.IsNullOrEmpty(status.PeerReadinessCode);
+            if (!api.Ui.TryPost(() => {
+                if (!ReferenceEquals(status, WorkerProductionModifiers.Status)) return;
+                productionReady = canReady; if (Active) frame.Request();
+            }))
+                Report("Production readiness dispatch unavailable.");
+        }
         private IngameMenuActionState MenuState()
         {
             bool visible = initialized && lifecycle?.Current?.Mode.IsRealMultiplayer == true && CurrentHost() == self;
             string reason = Eligible();
-            return new IngameMenuActionState("Mission neustarten (Test)", visible, visible && reason == null,
-                reason ?? "Alle Teilnehmer wechseln automatisch in eine neue Lobby. Dieselbe Mission startet mit denselben Spielern und Einstellungen erneut. Experimenteller Testmod.");
+            return new IngameMenuActionState(RestartText.Get("Restart.Label"), visible, visible && reason == null,
+                reason ?? RestartText.Get("Restart.Help"));
         }
         private string Eligible()
         {
-            if (!initialized) return "Der Testmod konnte nicht vollständig initialisiert werden.";
-            if (!ready || snapshot == null || lifecycle.Current == null) return notice;
-            if (Active) return "Ein Neustart läuft bereits.";
-            if (!StopBarrier.Installed || !StopBarrier.Observed) return "Der frühe Simulations-Checkpoint wurde nicht bestätigt. Spiel vollständig neu starten.";
-            if (CurrentHost() != self) return "Nur der aktuelle Host darf neustarten.";
-            if (!snapshot.HumanIds.All(compatible.Contains)) return "Noch nicht alle Teilnehmer haben denselben Testmod und dieselben Startdaten bestätigt.";
+            if (!initialized) return RestartText.Get("Restart.InitializationFailed");
+            if (!ready || snapshot == null || lifecycle.Current == null) return RestartText.Get(notice);
+            if (Active) return RestartText.Get("Restart.InProgress");
+            if (!StopBarrier.Installed || !StopBarrier.Observed) return RestartText.Get("Restart.CheckpointMissing");
+            if (CurrentHost() != self) return RestartText.Get("Restart.HostOnly");
+            if (!snapshot.HumanIds.All(compatible.Contains)) return RestartText.Get("Restart.PeersMismatch");
             return ValidateRunning();
         }
         private string ValidateRunning()
         {
             var mp = Platform_Multiplayer.Instance;
-            if (!Director.instance.MultiplayerGame || !Director.instance.SimRunning) return "Die Multiplayer-Simulation läuft noch nicht.";
-            if (!Roster().OrderBy(x => x).SequenceEqual(snapshot.HumanIds.OrderBy(x => x))) return "Der Teilnehmerbestand hat sich geändert.";
+            if (!Director.instance.MultiplayerGame || !Director.instance.SimRunning) return RestartText.Get("Restart.NotRunning");
+            if (!Roster().OrderBy(x => x).SequenceEqual(snapshot.HumanIds.OrderBy(x => x))) return RestartText.Get("Restart.RosterChanged");
             if (Volatile.Read(ref gameOverSignal) != 0 || GameData.scenario.InGameoverSituation || mp.CoopContinuationLobbyID != 0 || mp.activeLobby != null)
-                return "Ein Missionsende oder anderer Lobbyübergang läuft bereits.";
-            if (VanillaBridge.Busy()) return "Speichern oder Resynchronisieren läuft.";
-            if (SettingsFingerprint() != settingsHash) return "Missionsbezogene Modsettings wurden seit dem Start verändert.";
+                return RestartText.Get("Restart.TransitionActive");
+            if (VanillaBridge.Busy()) return RestartText.Get("Restart.SaveBusy");
+            if (SettingsFingerprint() != settingsHash) return RestartText.Get("Restart.SettingsChanged");
             return null;
         }
         private void Confirm()
         {
             Main(); if (Eligible() != null) return;
             string source = session;
-            HUD_ConfirmationPopup.ShowConfirmation("Mission für alle Teilnehmer neu starten? (Test)", () => {
+            HUD_ConfirmationPopup.ShowConfirmation(RestartText.Get("Restart.ConfirmTitle"), () => {
                 if (session != source || Eligible() != null) return;
                 try {
                     host = CurrentHost(); BeginAttempt();
@@ -281,6 +298,7 @@ namespace MultiplayerRestartTest
             expectedSourceEnd = targetLoadEntered = simulationReported = completionPromoted = false;
             stopped = localPublished = restored = verified = lobbyCreated = allowStart = cancellationHandled = recoveryPending = failureParkPending = false;
             targetLobby = 0; nextCompletionRetry = 0;
+            nextReadyAttempt = 0;
         }
         private void Receive(NetworkMessage<RestartWire> message)
         { try { ReceiveCore(message); } catch (Exception error) { Fail(error.ToString()); } }
@@ -506,25 +524,38 @@ namespace MultiplayerRestartTest
                 return; // Normal Steam refresh must make the published state observable first.
             }
             string invalid = snapshot.ValidateLobby(lobby, protocol.IsHost);
-            if (invalid != null) { notice = invalid; return; }
+            if (invalid != null) { notice = "Restart.LobbyInvalid"; return; }
             if (SettingsFingerprint() != settingsHash) { Fail("Host Modsettings differ after lobby return; automatic start blocked."); return; }
             if (!verified)
             {
                 // Ready through Vanilla and its public admission guards; never set the Ready field directly.
-                if (!VanillaBridge.IsReady()) MainViewModel.Instance.FRONTMultiplayer.ButtonClicked("Ready");
+                if (!VanillaBridge.IsReady())
+                {
+                    if (!TryIssueReady()) return;
+                }
                 if (!VanillaBridge.IsReady()) return;
                 verified = true; Report("LOBBY_VERIFIED digest=" + digest); Apply(protocol.Verified(Now));
             }
         }
+        private bool TryIssueReady()
+        {
+            if (!productionReady || Now < nextReadyAttempt) return false;
+            // A different guard can still reject a ready attempt. Yield before retrying
+            // so asynchronous admission cannot flood lobby chat once per rendered frame.
+            nextReadyAttempt = Now + Stopwatch.Frequency;
+            ClickReady(); return true;
+        }
+        private static void ClickReady() => MainViewModel.Instance.FRONTMultiplayer.ButtonClicked("Ready");
         private string LaunchGuard(LobbyLaunchGuardContext context)
         {
-            if (StopBarrier.Requested && !Active) return "Test-Neustart fehlgeschlagen. Zuerst zum Hauptmenü zurückkehren oder das Spiel beenden.";
+            if (StopBarrier.Requested && !Active) return RestartText.Get("Restart.FailedGuard");
             if (!Active) return null;
-            if (protocol.Phase != RestartPhase.Joining && protocol.Phase != RestartPhase.Starting) return "Test-Neustart: Lobbyübergang läuft.";
+            if (protocol.Phase != RestartPhase.Joining && protocol.Phase != RestartPhase.Starting) return RestartText.Get("Restart.TransitionPending");
             if (context.Operation == LobbyLaunchOperation.Start && (!allowStart || protocol.Phase != RestartPhase.Starting))
-                return "Test-Neustart: Warte auf die geprüften Bestätigungen aller Teilnehmer.";
-            return snapshot.ValidateLobby(Platform_Multiplayer.Instance.activeLobby, protocol.IsHost) ??
-                (SettingsFingerprint() == settingsHash ? null : "Test-Neustart: Modsettings stimmen nicht überein.");
+                return RestartText.Get("Restart.WaitStart");
+            return snapshot.ValidateLobby(Platform_Multiplayer.Instance.activeLobby, protocol.IsHost) != null
+                ? RestartText.Get("Restart.LobbyInvalid")
+                : (SettingsFingerprint() == settingsHash ? null : RestartText.Get("Restart.SettingsChanged"));
         }
         private void Fail(string reason)
         {
@@ -541,7 +572,7 @@ namespace MultiplayerRestartTest
             if (cancellationHandled) return;
             cancellationHandled = true;
             bool committed = protocol.IsCommitted;
-            notice = "Neustart abgebrochen: " + protocol.FailureReason;
+            notice = "Restart.Failed";
             if (protocol.Operation != null) retired.Add(protocol.Operation);
             frame.SetContinuous(false); allowStart = false; ready = !committed && ready;
             if (!committed) { StopBarrier.Release(); Volatile.Write(ref transitionCommitted, 0); }
@@ -551,37 +582,20 @@ namespace MultiplayerRestartTest
                 // cleanup or recovery UI. The old parked receipt is no longer sufficient.
                 StopBarrier.Request(); failureParkPending = true; frame.SetContinuous(true);
             }
-            menu.Invalidate(); Report("CANCELLED committed=" + committed + " " + notice);
+            menu.Invalidate(); Report("CANCELLED committed=" + committed + " " + protocol.FailureReason);
         }
         private void ShowFailureRecovery()
         {
             frame.SetContinuous(false);
-            HUD_ConfirmationPopup.ShowConfirmation(notice + " Die Partie kann nicht fortgesetzt werden. Zum Hauptmenü?",
+            HUD_ConfirmationPopup.ShowConfirmation(RestartText.Get("Restart.RecoveryTitle"),
                 () => { StopBarrier.Request(); recoveryPending = true; frame.SetContinuous(true); }, () => { });
         }
         private ulong CurrentHost() => Platform_Multiplayer.Instance?.gameMembers?
             .Where(p => !p.skirmishAI && !p.kicked && p.isHost).Select(p => p.steamID).FirstOrDefault() ?? 0;
         private ulong[] Roster() => Platform_Multiplayer.Instance?.gameMembers?
             .Where(p => !p.skirmishAI && !p.kicked).Select(p => p.steamID).ToArray() ?? Array.Empty<ulong>();
-        private static string SettingsFingerprint()
-        {
-            using (var bytes = new System.IO.MemoryStream())
-            using (var writer = new System.IO.BinaryWriter(bytes))
-            {
-                foreach (var endpoint in ModSettingsApplication.Endpoints.OrderBy(p => p.Key, StringComparer.Ordinal))
-                {
-                    writer.Write(endpoint.Key);
-                    var snapshot = endpoint.Value.System_CreateCurrentWorkingSnapshot();
-                    foreach (var property in ModSettingsApplication.GetHostProperties(endpoint.Value).OrderBy(p => p.Name, StringComparer.Ordinal))
-                    {
-                        writer.Write(property.Name);
-                        if (!snapshot.TryGetValue(property.Name, out byte[] value) || value == null) writer.Write(-1);
-                        else { writer.Write(value.Length); writer.Write(value); }
-                    }
-                }
-                writer.Flush(); using (var sha = SHA256.Create()) return BitConverter.ToString(sha.ComputeHash(bytes.ToArray())).Replace("-", "");
-            }
-        }
+        private static string SettingsFingerprint() => RestartSettingsFingerprint.Compute(
+            ModSettingsApplication.Endpoints.Select(endpoint => new KeyValuePair<string, object>(endpoint.Key, endpoint.Value)));
         private static string Hash(string value)
         { using (var sha = SHA256.Create()) return BitConverter.ToString(sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(value))).Replace("-", ""); }
     }

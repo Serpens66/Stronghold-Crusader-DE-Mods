@@ -42,6 +42,8 @@ namespace AutoSendTest
         private long localEpoch;
         private long initialAttempt;
         private bool hasInitialAttempt;
+        private int initialMapTick;
+        private bool hasInitialMapTick;
         private int localPlayer;
         private int expectedLocalPlayer;
         private int expectedMask;
@@ -68,7 +70,7 @@ namespace AutoSendTest
                 out _, out reason, 100)) throw new InvalidOperationException(reason);
             if (!AllyGoodsPanelExtensions.TrySubscribeContext(AutoSendPlugin.Guid, "selection", SelectionChanged,
                 out reason)) throw new InvalidOperationException(reason);
-            var save = new VersionedSaveDataRegistration(AutoSendPlugin.Guid, AutoSendPlugin.Guid + ".rules", 2, 2,
+            var save = new VersionedSaveDataRegistration(AutoSendPlugin.Guid, AutoSendPlugin.Guid + ".rules", 4, 4,
                 new[] { "rules", "players" }, Capture, Loaded) { SimulationRelevant = true };
             if (!VersionedSaveData.TryRegister(save, out _, out reason)) throw new InvalidOperationException(reason);
             if (!api.TryGetMissionLifecycle(out missions, out var diagnostic) ||
@@ -82,11 +84,15 @@ namespace AutoSendTest
 
         private static bool ValidPacket(AutoSendPacket p)
         {
-            if (p == null || p.Protocol != 2 || p.Epoch == 0 || p.Revision < 0 || p.Amount < 0 ||
+            if (p == null || p.Protocol != 4 || p.Epoch == 0 || p.Revision < 0 || p.Amount < 0 ||
                 p.Minimum < 0 || p.Maximum < 0 || p.Recipient < 0 || p.Recipient > 8) return false;
             var operation = (AutoSendEdit)p.Operation;
+            if (operation == AutoSendEdit.ChatMessages)
+                return p.Recipient == 0 && p.Good == 0 && p.Amount == 0 && p.Minimum == 0 && p.Maximum == 0;
             return operation == AutoSendEdit.Hello || operation == AutoSendEdit.Ready || operation == AutoSendEdit.Paused ||
-                (operation == AutoSendEdit.Reserve || operation == AutoSendEdit.SetRule) && AutoSendGoods.Contains(p.Good);
+                operation == AutoSendEdit.Reserve && AutoSendGoods.Contains(p.Good) ||
+                operation == AutoSendEdit.SetRule && AutoSendGoods.Contains(p.Good) &&
+                    p.Amount >= AutoSendState.MinimumIntervalSeconds && p.Amount <= AutoSendState.MaximumIntervalSeconds;
         }
 
         private void Start(MissionLifecycleNotification note)
@@ -111,6 +117,10 @@ namespace AutoSendTest
                 localEpoch = BitConverter.ToInt64(Guid.NewGuid().ToByteArray(), 0);
                 if (localEpoch == 0) localEpoch = 1;
                 feedback = string.Empty;
+                if (hasInitialMapTick && initialAttempt == note.Context.SessionId) state.InitializeMissingSchedules(initialMapTick);
+                else if (note.Context.Mode.IsRealMultiplayer)
+                { identityMismatch = true; Report("Initial native schedule clock unavailable; automatic gifts remain stopped."); }
+                else if (SimulationClock.TryGetCurrentTick(note.Context, out int fallbackTick)) state.InitializeMissingSchedules(fallbackTick);
                 if (SimulationClock.TryGetCurrentTick(note.Context, out int startingTick)) state.MarkProcessedTick(startingTick);
             }
             long session = note.Context.SessionId;
@@ -122,8 +132,9 @@ namespace AutoSendTest
             lock (sync)
             {
                 if (!hasInitialAttempt || initialAttempt != note.Context.SessionId || note.Phase == MissionInitializationPhase.BeforeLoad)
-                { initialAttempt = note.Context.SessionId; hasInitialAttempt = true; initialRoster.Reset(initialAttempt); }
+                { initialAttempt = note.Context.SessionId; hasInitialAttempt = true; hasInitialMapTick = false; initialRoster.Reset(initialAttempt); }
                 if (note.Phase != MissionInitializationPhase.NativeLoaded) return;
+                hasInitialMapTick = SimulationClock.TryGetCurrentTick(note.Context, out initialMapTick);
                 if (!AllyTransfers.IsAvailable) return;
                 // This phase precedes running simulation. A first-published-tick snapshot
                 // could differ between peers if a Lord died while another peer started.
@@ -160,7 +171,7 @@ namespace AutoSendTest
                 if (now < nextHelloAttempt) return;
                 if (helloAttempts == 0) helloAttempts = 1; else helloAttempts = 2;
                 nextHelloAttempt = now + Stopwatch.Frequency;
-                hello = new AutoSendPacket { Protocol = 2, Epoch = localEpoch, Operation = (int)AutoSendEdit.Hello };
+                hello = new AutoSendPacket { Protocol = 4, Epoch = localEpoch, Operation = (int)AutoSendEdit.Hello };
             }
             // Authenticated submission rejects spectators and foreign viewpoints. It is
             // safe to try again on the next actual UI edit; never retry a submitted edit.
@@ -180,7 +191,7 @@ namespace AutoSendTest
             {
                 if (mission == null || !initializedMap || identityMismatch || readySubmitted || !epochs.AllKnown(expectedMask) || localPlayer < 1 || localPlayer > 8 ||
                     epochs.Get(localPlayer) != localEpoch || (expectedMask & (1 << localPlayer)) == 0) return;
-                packet = new AutoSendPacket { Protocol = 2, Epoch = localEpoch, Operation = (int)AutoSendEdit.Ready,
+                packet = new AutoSendPacket { Protocol = 4, Epoch = localEpoch, Operation = (int)AutoSendEdit.Ready,
                     Good = expectedMask, Revision = epochs.Fingerprint(expectedMask) };
             }
             var result = channel.Send(packet);
@@ -229,10 +240,13 @@ namespace AutoSendTest
                 if (state.GetRevision(sender) == long.MaxValue || p.Revision != state.GetRevision(sender) + 1)
                     reason = "The rule revision changed before this command was applied.";
                 else if (operation == AutoSendEdit.Paused) accepted = state.TrySetPaused(sender, p.Enabled, out reason);
+                else if (operation == AutoSendEdit.ChatMessages) accepted = state.TrySetShowVanillaChatMessages(sender, p.Enabled, out reason);
                 else if (operation == AutoSendEdit.Reserve) accepted = state.TrySetReserve(sender, p.Good, p.Amount, out reason);
                 else if (operation == AutoSendEdit.SetRule && p.Recipient != sender && IsAlliedLiving(sender, p.Recipient))
                 {
-                    accepted = state.TrySetRule(sender, p.Recipient, p.Good, p.Minimum, p.Maximum, p.Enabled, out reason);
+                    if (SimulationClock.TryGetCurrentTick(mission, out int commandTick))
+                        accepted = state.TrySetRule(sender, p.Recipient, p.Good, p.Minimum, p.Maximum, p.Enabled, p.Amount, commandTick, out reason);
+                    else reason = "The current native map tick is unavailable.";
                 }
                 else reason = "The selected recipient is no longer a living ally.";
                 if (sender == localPlayer && p.Epoch == localEpoch && edits.Acknowledge(mission.SessionId, sender, p.Epoch, p.Revision))
@@ -276,15 +290,16 @@ namespace AutoSendTest
                     // first final-slot Hello is not dependent on logging or input.
                     RequestPresentation();
                 }
-                if (!SimulationClock.TryGetElapsedTicks(state.LastProcessedTick, tick, out int elapsed) || elapsed == 0 || unchecked((uint)tick) % 40 != 0) return;
+                if (!SimulationClock.TryGetElapsedTicks(state.LastProcessedTick, tick, out int elapsed) || elapsed == 0) return;
                 state.MarkProcessedTick(tick);
                 if (!identityMismatch && epochs.IsReady(expectedMask))
                 {
-                    var result = planner.Run(this);
+                    var result = planner.Run(this, tick);
                     if (result.UncertainTransfers > 0)
                     { identityMismatch = true; Report("Supply stopped: a transfer had unequal or unknown stock changes. No retry was issued."); }
                 }
                 // Copy bounded values under the simulation lock; Unity only sees these snapshots.
+                if (unchecked((uint)tick) % AutoSendState.TicksPerSecond != 0) return;
                 var selection = selectedContext;
                 if (selection != null && selection.IsSendMode && selection.Good.HasValue)
                 {
@@ -320,9 +335,13 @@ namespace AutoSendTest
         }
         public AutoSendTransferResult Transfer(int sender, int recipient, int good, int amount)
         {
+            bool showChat = state.ShowVanillaChatMessages(sender);
+            // A missing suppression capability must never turn a silent gift into
+            // an ordinary noisy gift. A known zero is safe and does not stop edits.
+            if (!showChat && !AllyTransfers.CanSuppressVanillaChatMessages) return new AutoSendTransferResult(0, 0, true);
             var rule = state.GetRule(sender, recipient, good);
             AllyTransfers.TryExecute(new AllyTransferRequest(sender, recipient, (eGoods)good, amount,
-                state.GetReserve(sender, good), rule.Maximum), out var result, out _);
+                state.GetReserve(sender, good), rule.Maximum, showChat), out var result, out _);
             if (result == null || !result.OriginalWasCalled) return new AutoSendTransferResult(0, 0, true);
             if (result.Status == AllyTransferStatus.Faulted || result.Status == AllyTransferStatus.Uncertain)
                 return new AutoSendTransferResult(0, 0, false);
@@ -346,11 +365,15 @@ namespace AutoSendTest
                     !initializedMap || !epochs.IsReady(expectedMask) || !AllyTransfers.IsAvailable) return;
                 if (state.GetRevision(localPlayer) == long.MaxValue)
                 { feedback = "Revision range exhausted."; RequestPresentation(); return; }
-                bool field = operation == AutoSendEdit.Reserve || operation == AutoSendEdit.Minimum || operation == AutoSendEdit.Maximum;
-                bool toggle = operation == AutoSendEdit.Enabled || operation == AutoSendEdit.Paused;
-                if ((!field && !toggle) || amount < 0 || operation != AutoSendEdit.Paused && !AutoSendGoods.Contains(good)) return;
+                bool field = operation == AutoSendEdit.Reserve || operation == AutoSendEdit.Minimum || operation == AutoSendEdit.Maximum || operation == AutoSendEdit.Interval;
+                bool senderWide = operation == AutoSendEdit.Paused || operation == AutoSendEdit.ChatMessages;
+                bool toggle = operation == AutoSendEdit.Enabled || senderWide;
+                if ((!field && !toggle) || amount < 0 || !senderWide && !AutoSendGoods.Contains(good)) return;
+                if (operation == AutoSendEdit.ChatMessages &&
+                    (selectedContext == null || selectedContext.LocalPlayerId != localPlayer || selectedContext.ViewedPlayerId != localPlayer)) return;
+                if (operation == AutoSendEdit.Interval && (amount < AutoSendState.MinimumIntervalSeconds || amount > AutoSendState.MaximumIntervalSeconds)) return;
                 if (toggle && edits.Pending) return;
-                if (operation != AutoSendEdit.Paused && (recipient < 1 || recipient > 8 || recipient == localPlayer)) return;
+                if (!senderWide && (recipient < 1 || recipient > 8 || recipient == localPlayer)) return;
                 var intent = new AutoSendEditIntent(session, localPlayer, operation, recipient, good, amount, enabled);
                 if (operation == AutoSendEdit.Enabled && enabled)
                 {
@@ -372,16 +395,18 @@ namespace AutoSendTest
                 if (mission == null || identityMismatch || !initializedMap || !epochs.IsReady(expectedMask) ||
                     localPlayer < 1 || localPlayer > 8 || state.GetRevision(localPlayer) == long.MaxValue) return;
                 if (!edits.TryBegin(mission.SessionId, localPlayer, localEpoch, state.GetRevision(localPlayer) + 1, out intent)) return;
-                packet = new AutoSendPacket { Protocol = 2, Epoch = localEpoch, Revision = state.GetRevision(localPlayer) + 1,
+                packet = new AutoSendPacket { Protocol = 4, Epoch = localEpoch, Revision = state.GetRevision(localPlayer) + 1,
                     Operation = (int)intent.Operation, Recipient = intent.Recipient, Good = intent.Good,
                     Amount = intent.Amount, Enabled = intent.Enabled };
-                if (intent.Operation != AutoSendEdit.Reserve && intent.Operation != AutoSendEdit.Paused)
+                if (intent.Operation == AutoSendEdit.ChatMessages) packet.Amount = 0;
+                else if (intent.Operation != AutoSendEdit.Reserve && intent.Operation != AutoSendEdit.Paused)
                 {
                     var old = state.GetRule(intent.Player, intent.Recipient, intent.Good);
                     if (!AutoSendRuleEdits.TryApply(old, intent.Operation, intent.Amount, intent.Enabled, out var rule, out string reason))
                     { edits.Failed(intent); feedback = reason; RequestPresentation(); return; }
                     packet.Operation = (int)AutoSendEdit.SetRule;
                     packet.Minimum = rule.Minimum; packet.Maximum = rule.Maximum; packet.Enabled = rule.Enabled;
+                    packet.Amount = rule.IntervalSeconds;
                 }
             }
             // The native queue can deliver synchronously. The flight is already bound;
@@ -410,6 +435,10 @@ namespace AutoSendTest
                 var result = new AutoSendDisplay { Selected = selected, Pending = edits.Pending, Feedback = feedback,
                     SessionId = mission?.SessionId ?? 0, SenderPlayerId = localPlayer,
                     TransferUnavailable = !AllyTransfers.IsAvailable,
+                    ChatSuppressionUnavailable = !AllyTransfers.CanSuppressVanillaChatMessages,
+                    ChatMessages = sender >= 1 && sender <= 8 && state.ShowVanillaChatMessages(sender),
+                    SenderReady = sender >= 1 && sender <= 8 && mission != null && initializedMap && epochs.IsReady(expectedMask) && AllyTransfers.IsAvailable && !identityMismatch &&
+                        sender == localPlayer && context.ViewedPlayerId == sender,
                     Ready = mission != null && initializedMap && epochs.IsReady(expectedMask) && AllyTransfers.IsAvailable && !identityMismatch && selected && sender == localPlayer &&
                         context.ViewedPlayerId == sender && allies[sender, recipient], IdentityMismatch = identityMismatch };
                 if (!selected) return result;
@@ -489,11 +518,12 @@ namespace AutoSendTest
     {
         internal long SessionId;
         internal int SenderPlayerId, DesiredReserve;
-        internal AutoSendRule DesiredRule;
+        internal AutoSendRule DesiredRule = new AutoSendRule(0, 0, false);
         internal bool HasDesiredValues;
-        internal bool Selected, Ready, Pending, Paused, IdentityMismatch, TransferUnavailable;
+        internal bool Selected, Ready, SenderReady, Pending, Paused, IdentityMismatch, TransferUnavailable;
+        internal bool ChatMessages, ChatSuppressionUnavailable;
         internal int Reserve, SourceStock, RecipientStock, Capacity, ActiveRules;
-        internal AutoSendRule Rule;
+        internal AutoSendRule Rule = new AutoSendRule(0, 0, false);
         internal string Feedback;
     }
 }

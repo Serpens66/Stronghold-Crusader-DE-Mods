@@ -3,6 +3,31 @@ using System.Collections.Generic;
 using System.Linq;
 using BugfixesAndQoL.AreaConstruction;
 
+foreach (bool stockpile in new[] { false, true })
+{
+    int vanillaLimit = stockpile ? 32 : 8;
+    int recordsPerSection = stockpile ? 4 : 1;
+    foreach (int value in new[] { -2, -1, 0, 1, 8, 20, 21, 100, 101 })
+    {
+        bool custom = value >= 1 && value <= 100;
+        if (StorageEmptyLimitPolicy.IsValid(value) != (custom || value == -1))
+            throw new InvalidOperationException($"Unexpected acceptance of storage limit {value}.");
+        int expectedThreshold = custom ? value * recordsPerSection : vanillaLimit;
+        int threshold = StorageEmptyLimitPolicy.RecordLimit(value, stockpile);
+        if (threshold != expectedThreshold)
+            throw new InvalidOperationException($"Unexpected storage threshold for {value}, stockpile={stockpile}.");
+
+        foreach (int emptyRecords in new[] { 0, expectedThreshold - 1, expectedThreshold, expectedThreshold + 1 })
+        {
+            int compared = StorageEmptyLimitPolicy.CountForVanillaComparison(emptyRecords, threshold, vanillaLimit);
+            if ((compared >= vanillaLimit) != (emptyRecords >= expectedThreshold) ||
+                threshold == vanillaLimit && compared != emptyRecords)
+                throw new InvalidOperationException($"Native threshold changed incorrectly at {emptyRecords} records.");
+        }
+    }
+}
+Console.WriteLine("PASS: Vanilla/custom empty storage thresholds, stockpile record conversion and native branch encoding.");
+
 var result = new List<Tile>();
 var anchor = new Tile(20, 20);
 

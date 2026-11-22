@@ -9,7 +9,7 @@ internal static class EditTests
     private static int checks;
     internal static int Run()
     {
-        AtomicBounds(); CoalescedQueue(); LegacyPauseMigration(); PacketRoundTrip(); return checks;
+        AtomicBounds(); CoalescedQueue(); LegacyPauseMigration(); ChatMessagesStateAndSave(); ChatMessagesQueue(); PacketRoundTrip(); return checks;
     }
     private static void Check(bool value) { checks++; if (!value) throw new Exception("Edit regression check " + checks + " failed."); }
     private static void Rule(AutoSendRule rule, int min, int max, bool enabled)
@@ -73,9 +73,7 @@ internal static class EditTests
         Check(original.TrySetRule(2, 3, 901, 6, 300, true, out _));
         Check(original.TrySetReserve(1, 41, 999, out _)); Check(original.TrySetPaused(1, true, out _));
         original.RestoreMeta(1, true, long.MaxValue); original.SetCursor(1, 41, 5); original.MarkProcessedTick(123);
-        byte[] bytes = AutoSendSaveCodec.Encode(original);
-        // V1 has the same bounded binary layout; its global pause needs explicit migration.
-        bytes[4] = 1;
+        byte[] bytes = IntervalTests.EncodeLegacy(original, 1);
         Check(AutoSendSaveCodec.TryDecode(bytes, new[] { 901, 41 }, new[] { 1000, 100 }, out var migrated, out _));
         Rule(migrated.GetRule(1, 2, 41), 12, 100, false); Rule(migrated.GetRule(1, 3, 901), 21, 200, false);
         Rule(migrated.GetRule(2, 3, 901), 6, 300, true); Check(!migrated.IsPaused(1)); Check(!migrated.HasActiveRules(1, 41));
@@ -84,21 +82,21 @@ internal static class EditTests
         Check(AutoSendSaveCodec.TryDecode(AutoSendSaveCodec.Encode(migrated), new[] { 41, 901 }, new[] { 100, 1000 }, out var again, out _));
         Rule(again.GetRule(1, 2, 41), 12, 100, false); Rule(again.GetRule(2, 3, 901), 6, 300, true); Check(!again.IsPaused(1));
         // Nonpaused V1 records retain active rules and all their values.
-        Check(original.TrySetPaused(2, false, out _)); bytes = AutoSendSaveCodec.Encode(original); bytes[4] = 1;
+        Check(original.TrySetPaused(2, false, out _)); bytes = IntervalTests.EncodeLegacy(original, 1);
         Check(AutoSendSaveCodec.TryDecode(bytes, new[] { 41, 901 }, new[] { 100, 1000 }, out migrated, out _));
         Rule(migrated.GetRule(2, 3, 901), 6, 300, true);
     }
     private static void PacketRoundTrip()
     {
-        var packet = new AutoSendPacket { Protocol = 2, Epoch = long.MinValue, Revision = long.MaxValue, Operation = (int)AutoSendEdit.SetRule,
-            Recipient = 8, Good = 901, Amount = 0, Enabled = true, Minimum = 10000, Maximum = int.MaxValue };
+        var packet = new AutoSendPacket { Protocol = 4, Epoch = long.MinValue, Revision = long.MaxValue, Operation = (int)AutoSendEdit.SetRule,
+            Recipient = 8, Good = 901, Amount = 300, Enabled = true, Minimum = 10000, Maximum = int.MaxValue };
         var buffer = new ArrayBufferWriter<byte>(); var writer = new MessagePackWriter(buffer); var formatter = new AutoSendPacketFormatter();
         formatter.Serialize(ref writer, packet, null); writer.Flush();
         var reader = new MessagePackReader(new ReadOnlySequence<byte>(buffer.WrittenMemory));
         var restored = formatter.Deserialize(ref reader, null);
-        Check(reader.End && restored.Protocol == 2 && restored.Epoch == long.MinValue && restored.Revision == long.MaxValue);
+        Check(reader.End && restored.Protocol == 4 && restored.Epoch == long.MinValue && restored.Revision == long.MaxValue);
         Check(restored.Operation == (int)AutoSendEdit.SetRule && restored.Recipient == 8 && restored.Good == 901 && restored.Enabled);
-        Check(restored.Minimum == 10000 && restored.Maximum == int.MaxValue && restored.Amount == 0);
+        Check(restored.Minimum == 10000 && restored.Maximum == int.MaxValue && restored.Amount == 300);
         foreach (int length in new[] { 0, 1, buffer.WrittenCount - 1 })
         {
             bool rejected = false;
@@ -113,5 +111,57 @@ internal static class EditTests
         try { reader = new MessagePackReader(new ReadOnlySequence<byte>(buffer.WrittenMemory)); formatter.Deserialize(ref reader, null); }
         catch (InvalidOperationException) { oldShapeRejected = true; }
         Check(oldShapeRejected);
+        packet = new AutoSendPacket { Protocol = 4, Epoch = 55, Revision = 9, Operation = (int)AutoSendEdit.ChatMessages, Enabled = true };
+        buffer = new ArrayBufferWriter<byte>(); writer = new MessagePackWriter(buffer);
+        formatter.Serialize(ref writer, packet, null); writer.Flush();
+        reader = new MessagePackReader(new ReadOnlySequence<byte>(buffer.WrittenMemory)); restored = formatter.Deserialize(ref reader, null);
+        Check(reader.End && restored.Protocol == 4 && restored.Operation == (int)AutoSendEdit.ChatMessages && restored.Enabled);
+        Check(restored.Recipient == 0 && restored.Good == 0 && restored.Amount == 0 && restored.Minimum == 0 && restored.Maximum == 0);
+    }
+    private static void ChatMessagesStateAndSave()
+    {
+        var state = new AutoSendState(new[] { 41 }, new[] { 100 });
+        for (int player = 1; player <= 8; player++) Check(!state.ShowVanillaChatMessages(player));
+        Check(state.TrySetRule(1, 2, 41, 12, 100, true, 7, 17, out _));
+        long revision = state.GetRevision(1); int due = state.CollectDueRecipients(1, 41, 18); Check(due == 0);
+        Check(state.TrySetShowVanillaChatMessages(1, true, out _));
+        Check(state.GetRevision(1) == revision + 1 && state.ShowVanillaChatMessages(1) && !state.ShowVanillaChatMessages(2));
+        Check(state.GetRule(1, 2, 41).LastCheckTick == 17 && state.GetRule(1, 2, 41).IntervalSeconds == 7);
+        Check(state.CollectDueRecipients(1, 41, 296) == 0 && state.CollectDueRecipients(1, 41, 297) == (1 << 2));
+        byte[] bytes = AutoSendSaveCodec.Encode(state);
+        Check(AutoSendSaveCodec.TryDecode(bytes, new[] { 41 }, new[] { 100 }, out var restored, out _));
+        Check(restored.ShowVanillaChatMessages(1) && !restored.ShowVanillaChatMessages(2));
+        Check(restored.GetRevision(1) == state.GetRevision(1) && restored.GetRule(1, 2, 41).LastCheckTick == 297);
+        // Boolean fields are canonical bytes; corrupt settings never publish state.
+        bytes[4 * 4 + 1 + 4 + 1 + 8] = 2;
+        Check(!AutoSendSaveCodec.TryDecode(bytes, new[] { 41 }, new[] { 100 }, out restored, out _) && restored == null);
+        foreach (int version in new[] { 1, 2, 3 })
+        {
+            Check(AutoSendSaveCodec.TryDecode(IntervalTests.EncodeLegacy(state, version), new[] { 41 }, new[] { 100 }, out restored, out _));
+            for (int player = 1; player <= 8; player++) Check(!restored.ShowVanillaChatMessages(player));
+            Check(restored.GetRule(1, 2, 41).Enabled);
+            Check(version < 3 ? !restored.GetRule(1, 2, 41).HasCheckTick : restored.GetRule(1, 2, 41).LastCheckTick == 297);
+        }
+        revision = state.GetRevision(1);
+        foreach (int player in new[] { 0, 9, int.MinValue, int.MaxValue }) Check(!state.TrySetShowVanillaChatMessages(player, true, out _));
+        Check(state.GetRevision(1) == revision && state.ShowVanillaChatMessages(1));
+        state.RestoreMeta(1, false, long.MaxValue, true);
+        Check(!state.TrySetShowVanillaChatMessages(1, false, out _) && state.ShowVanillaChatMessages(1));
+    }
+    private static void ChatMessagesQueue()
+    {
+        var queue = new AutoSendEditQueue();
+        queue.Enqueue(new AutoSendEditIntent(10, 1, AutoSendEdit.ChatMessages, 2, 41, 0, false));
+        queue.Enqueue(new AutoSendEditIntent(10, 1, AutoSendEdit.ChatMessages, 8, 901, 0, true));
+        Check(queue.WaitingCount == 1); // Selection changes cannot split a sender-wide key.
+        int reserve = 7; var rule = new AutoSendRule(10, 100, true, 7, true, 17);
+        Check(!queue.Project(10, 1, 8, 901, ref reserve, ref rule));
+        Check(reserve == 7 && rule.Minimum == 10 && rule.IntervalSeconds == 7 && rule.LastCheckTick == 17);
+        Check(queue.TryBegin(10, 1, 55, 4, out var flight));
+        Check(flight.Enabled && flight.Good == 0 && flight.Recipient == 0 && flight.Operation == AutoSendEdit.ChatMessages);
+        Check(!queue.Acknowledge(10, 2, 55, 4) && !queue.Acknowledge(11, 1, 55, 4));
+        Check(queue.Acknowledge(10, 1, 55, 4) && !queue.Pending);
+        queue.Enqueue(new AutoSendEditIntent(10, 1, AutoSendEdit.ChatMessages, 0, 0, 0, true));
+        Check(!queue.TryBegin(11, 1, 66, 1, out _) && !queue.Pending);
     }
 }

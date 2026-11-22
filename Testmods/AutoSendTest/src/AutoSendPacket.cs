@@ -13,6 +13,7 @@ namespace AutoSendTest
         [Key(3)] public int Operation;
         [Key(4)] public int Recipient;
         [Key(5)] public int Good;
+        // SetRule carries its interval in game seconds here; Reserve carries goods.
         [Key(6)] public int Amount;
         [Key(7)] public bool Enabled;
         [Key(8)] public int Minimum;

@@ -155,7 +155,9 @@ Select a building, hold the left mouse button on the map and drag to preview sev
 
 **Area construction** is on by default under **Client Options → Camera, building and controls → QoL**, next to **Area demolition**. The option controls your own input. In multiplayer, everyone needs the same Bugfixes and QoL version, and each player can choose whether to drag. If you installed the earlier AreaConstructionTest, remove it before loading this version.
 
-The separate **Remove empty storage limit** option is on by default under **Host Options → Camera, building and controls → QoL**. It lets players add more empty stockpile, granary and armoury sections, including with single clicks. The host's choice applies to everyone in multiplayer. The original limits apply if the host switches this off or the game cannot enable the rule for everyone.
+Under **Host Options → Camera, building and controls → QoL**, set limits for **Empty stockpiles** and **Empty granaries and armouries**. The second setting applies separately to each type. Both default to `-1` for the original rules. Use the slider to choose up to 20 or type a number up to 100. These limits apply per player when building by drag or single click and use the game's usual empty-storage count. In multiplayer, everyone uses the host's settings. The original limits apply if the game cannot enable the custom limits for everyone.
+
+Once you release a storage drag, you can close the build menu or select another tool while the game places the remaining valid sections in sequence.
 
 ### Demolish occupied walls
 You can demolish your own walls while units are standing on them, using either a single click or area demolition. Nearby enemies can still block demolition. This host option is enabled by default and appears under **Host Options → Camera, building and controls → QoL**.

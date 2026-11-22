@@ -3,9 +3,19 @@
   "Author": "Serpens66",
   "Name": "Multiplayer Restart Test",
   "Description": "Experimental host-only same-mission multiplayer restart through an automatically restored private lobby. New games only; identical testmod required on every peer.",
-  "Version": "0.1.1",
+  "Version": "0.1.3",
   "MinimumScriptExtenderVersion": "2.14.0",
-  "Dependencies": [ { "GUID": "APIShared_Serp", "MinimumVersion": "0.50.0" } ],
+  "Dependencies": [ { "GUID": "APIShared_Serp", "MinimumVersion": "0.62.1" } ],
   "Manifest": 1,
-  "NetworkMode": 1
+  "NetworkMode": 1,
+  "SerpChangelog": [
+    {
+      "Version": "0.1.3",
+      "Changes": [
+        "Use the game language for restart messages and short confirmation headings in every supported language.",
+        "Wait for production-rule agreement before automatically pressing Ready and limit retries after another start guard rejects the command.",
+        "Require APIShared 0.62.1 to recover the production-rule agreement after a lobby change."
+      ]
+    }
+  ]
 }

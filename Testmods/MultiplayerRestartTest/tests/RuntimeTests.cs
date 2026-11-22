@@ -10,7 +10,8 @@ internal static class RestartTestBootstrap
     public static int Main(string[] args)
     {
         string game = Path.GetFullPath(args[0]);
-        string[] roots = { Path.Combine(game,"BepInEx/core"), Path.Combine(game,"BepInEx/plugins/APIShared_Serp"),
+        string api = args.Length > 1 ? Path.GetFullPath(args[1]) : Path.Combine(game,"BepInEx/plugins/APIShared_Serp");
+        string[] roots = { Path.Combine(game,"BepInEx/core"), api,
             Path.Combine(game,"BepInEx/plugins/000shcdese"), Path.Combine(game,"Stronghold Crusader Definitive Edition_Data/Managed") };
         AppDomain.CurrentDomain.AssemblyResolve += (sender, e) => {
             string file = new AssemblyName(e.Name).Name + ".dll";
@@ -24,11 +25,12 @@ internal static class RestartTestBootstrap
     {
         int result = BarrierTests.Main(new[] { Path.Combine(game,"Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll") });
         if (result != 0) return result;
-        WireTests.Run(); LaunchSnapshotTests.Run(); TransportTests.Run(); TargetReadinessTests.Run(); VanillaBridge.Validate();
+        WireTests.Run(); LaunchSnapshotTests.Run(); SettingsFingerprintTests.Run(); LocaleTests.Run(); TransportTests.Run(); TargetReadinessTests.Run(); VanillaBridge.Validate();
         Console.WriteLine("Actual runtime private-member contracts passed.");
         StopBarrier.InstallEarly(null);
         if (!StopBarrier.Installed) throw new Exception("Actual early loop/Director hooks failed to publish.");
         Console.WriteLine("Actual early hook installation passed in desktop fixture (no game thread executed).");
+        RuntimeReadyTests.Run();
         RuntimeContextTests.Run();
         RuntimeParkingTests.Run();
         RuntimeFailureTests.Run();

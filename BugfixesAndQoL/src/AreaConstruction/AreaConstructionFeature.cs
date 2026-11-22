@@ -60,16 +60,22 @@ namespace BugfixesAndQoL.AreaConstruction
             var patch = StorageEmptyLimitPatch.TryInstall(context, log);
             if (patch != null)
             {
-                MissionEvents.Ended.Subscribe(_ => patch.SetActive(false));
+                MissionEvents.Ended.Subscribe(_ => patch.ClearLimits());
                 MissionEvents.Started.Subscribe(note =>
                 {
                     bool multiplayer = note.Context.Mode.IsRealMultiplayer;
                     bool shared = Volatile.Read(ref agreed);
-                    bool requested = model.EnableMod && model.RemoveEmptyStorageLimit;
+                    int stockpile = model.EmptyStockpileLimit;
+                    int granaryArmoury = model.EmptyGranaryArmouryLimit;
+                    bool requested = model.EnableMod &&
+                        (stockpile != StorageEmptyLimitPolicy.Vanilla || granaryArmoury != StorageEmptyLimitPolicy.Vanilla);
                     bool ready = patch.CheckIntegrity();
                     if (requested && multiplayer && shared && !ready)
                         SimulationAgreement.ReportFault("The agreed storage placement limit patch changed during map start.");
-                    patch.SetActive(requested && ready && (!multiplayer || shared));
+                    if (requested && ready && (!multiplayer || shared))
+                        patch.SetLimits(stockpile, granaryArmoury);
+                    else
+                        patch.ClearLimits();
                 });
                 Volatile.Write(ref storageLimitPatch, patch);
             }

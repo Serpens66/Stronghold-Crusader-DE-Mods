@@ -1,5 +1,6 @@
 using APIShared.ModSettings;
 using APIShared.Input;
+using BugfixesAndQoL.AreaConstruction;
 // Feature: Lobby settings model for the Bugfixes and QoL features.
 using SHCDESE.API.Components.Network;
 using SHCDESE.NoesisUtil;
@@ -8,6 +9,7 @@ using CrusaderDE;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Windows.Input;
 using BepInEx.Logging;
 using Noesis;
@@ -92,7 +94,8 @@ namespace BugfixesAndQoL
         private bool enableAiRaidRetargetFix = true;
         private bool enableMoatTerrainRestoration = true;
         private bool enableOccupiedWallDemolition = true;
-        private bool removeEmptyStorageLimit = true;
+        private int emptyStockpileLimit = StorageEmptyLimitPolicy.Vanilla;
+        private int emptyGranaryArmouryLimit = StorageEmptyLimitPolicy.Vanilla;
         private bool enableDrawbridgeDestructionFix = true;
         private bool enableSiegeCrewDuplicationFix = true;
         private bool enableSiegeCrewFireLossFix = true;
@@ -387,8 +390,10 @@ namespace BugfixesAndQoL
         public string EnableMoatTerrainRestorationHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMoatTerrainRestorationHelp");
         public string EnableOccupiedWallDemolitionText => SerpLocalization.Get("BugfixesAndQoL.EnableOccupiedWallDemolition");
         public string EnableOccupiedWallDemolitionHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableOccupiedWallDemolitionHelp");
-        public string RemoveEmptyStorageLimitText => SerpLocalization.Get("BugfixesAndQoL.RemoveEmptyStorageLimit");
-        public string RemoveEmptyStorageLimitHelpText => SerpLocalization.Get("BugfixesAndQoL.RemoveEmptyStorageLimitHelp");
+        public string EmptyStockpileLimitText => SerpLocalization.Get("BugfixesAndQoL.EmptyStockpileLimit");
+        public string EmptyStockpileLimitHelpText => SerpLocalization.Get("BugfixesAndQoL.EmptyStockpileLimitHelp");
+        public string EmptyGranaryArmouryLimitText => SerpLocalization.Get("BugfixesAndQoL.EmptyGranaryArmouryLimit");
+        public string EmptyGranaryArmouryLimitHelpText => SerpLocalization.Get("BugfixesAndQoL.EmptyGranaryArmouryLimitHelp");
         public string EnableTreeBlightDecayFixText => SerpLocalization.Get("BugfixesAndQoL.EnableTreeBlightDecayFix");
         public string EnableTreeBlightDecayFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableTreeBlightDecayFixHelp");
 
@@ -1197,10 +1202,55 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
-        public bool RemoveEmptyStorageLimit
+        public int EmptyStockpileLimit
         {
-            get => removeEmptyStorageLimit;
-            set => SetSetting(ref removeEmptyStorageLimit, value, nameof(RemoveEmptyStorageLimit));
+            get => emptyStockpileLimit;
+            set => SetEmptyStorageLimit(ref emptyStockpileLimit, value, nameof(EmptyStockpileLimit),
+                nameof(EmptyStockpileLimitSliderValue), nameof(EmptyStockpileLimitValueText));
+        }
+
+        [SyncHostOnly]
+        public int EmptyGranaryArmouryLimit
+        {
+            get => emptyGranaryArmouryLimit;
+            set => SetEmptyStorageLimit(ref emptyGranaryArmouryLimit, value, nameof(EmptyGranaryArmouryLimit),
+                nameof(EmptyGranaryArmouryLimitSliderValue), nameof(EmptyGranaryArmouryLimitValueText));
+        }
+
+        [SHCDESE.API.Components.ModManager.DoNotPersist]
+        public int EmptyStockpileLimitSliderValue
+        {
+            get => StorageLimitSliderValue(EmptyStockpileLimit);
+            set
+            {
+                if (CanApplyStorageSliderValue(value, EmptyStockpileLimitSliderValue))
+                    EmptyStockpileLimit = StorageLimitFromSlider(value);
+            }
+        }
+
+        [SHCDESE.API.Components.ModManager.DoNotPersist]
+        public int EmptyGranaryArmouryLimitSliderValue
+        {
+            get => StorageLimitSliderValue(EmptyGranaryArmouryLimit);
+            set
+            {
+                if (CanApplyStorageSliderValue(value, EmptyGranaryArmouryLimitSliderValue))
+                    EmptyGranaryArmouryLimit = StorageLimitFromSlider(value);
+            }
+        }
+
+        [SHCDESE.API.Components.ModManager.DoNotPersist]
+        public string EmptyStockpileLimitValueText
+        {
+            get => EmptyStockpileLimit.ToString(CultureInfo.InvariantCulture);
+            set => EmptyStockpileLimit = ParseStorageLimit(value);
+        }
+
+        [SHCDESE.API.Components.ModManager.DoNotPersist]
+        public string EmptyGranaryArmouryLimitValueText
+        {
+            get => EmptyGranaryArmouryLimit.ToString(CultureInfo.InvariantCulture);
+            set => EmptyGranaryArmouryLimit = ParseStorageLimit(value);
         }
 
         [SyncHostOnly]
@@ -1646,7 +1696,8 @@ namespace BugfixesAndQoL
                 EnableAiRaidRetargetFix = true;
                 EnableMoatTerrainRestoration = true;
                 EnableOccupiedWallDemolition = true;
-                RemoveEmptyStorageLimit = true;
+                EmptyStockpileLimit = StorageEmptyLimitPolicy.Vanilla;
+                EmptyGranaryArmouryLimit = StorageEmptyLimitPolicy.Vanilla;
                 EnablePitchStairsFix = true;
                 EnableDrawbridgeDestructionFix = true;
                 EnableSiegeCrewDuplicationFix = true;
@@ -1891,6 +1942,36 @@ namespace BugfixesAndQoL
             field = clamped;
             SettingChanged?.Invoke(propertyName);
             OnPropertyChanged(propertyName);
+            OnPropertyChanged(textPropertyName);
+        }
+
+        private static int StorageLimitSliderValue(int limit) =>
+            limit == StorageEmptyLimitPolicy.Vanilla ? 0 : Math.Min(limit, StorageEmptyLimitPolicy.SliderMaximum);
+
+        private static int StorageLimitFromSlider(int sliderValue) =>
+            sliderValue == 0 ? StorageEmptyLimitPolicy.Vanilla : sliderValue;
+
+        // A binding may echo the capped thumb value when the text field commits a higher limit.
+        private static bool CanApplyStorageSliderValue(int value, int current) =>
+            (uint)value <= StorageEmptyLimitPolicy.SliderMaximum && value != current;
+
+        private static int ParseStorageLimit(string text) =>
+            int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value) ? value : 0;
+
+        private void SetEmptyStorageLimit(ref int field, int value, string propertyName,
+            string sliderPropertyName, string textPropertyName)
+        {
+            if (!CanMutateSettingWithDependents(propertyName, sliderPropertyName, textPropertyName))
+                return;
+
+            if (StorageEmptyLimitPolicy.IsValid(value) && field != value)
+            {
+                field = value;
+                SettingChanged?.Invoke(propertyName);
+                OnPropertyChanged(propertyName);
+                OnPropertyChanged(sliderPropertyName);
+            }
+
             OnPropertyChanged(textPropertyName);
         }
 

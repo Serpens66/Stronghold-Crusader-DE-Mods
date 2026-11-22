@@ -17,7 +17,7 @@ namespace BugfixesAndQoL.AreaConstruction
             Marshal.ReadByte(image, WoodcutterPresent + actor) == 0 &&
             Read(WoodPlanks + actor * PlayerStride) < Read(GranaryWoodCost) ? 1 : 0;
 
-        private static int StorageAllowance(eMappers tool, int actor)
+        private int StorageAllowance(eMappers tool, int actor)
         {
             var manager = GameBuildingManagerAPI.Instance;
             var managerPointer = manager.GetBuildingManager();
@@ -37,7 +37,10 @@ namespace BugfixesAndQoL.AreaConstruction
                     slot.r_BuildingType == structure && unchecked((int)slot.r_CurrentGoodStackAmount) < 1)
                     count++;
             }
-            return (tool == eMappers.MAPPER_STORES ? 32 : 8) - count;
+            bool stockpile = tool == eMappers.MAPPER_STORES;
+            int recordLimit = storageLimitPatch?.RecordLimit(stockpile) ??
+                StorageEmptyLimitPolicy.RecordLimit(StorageEmptyLimitPolicy.Vanilla, stockpile);
+            return recordLimit - count;
         }
     }
 }

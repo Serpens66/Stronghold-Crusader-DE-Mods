@@ -14,7 +14,7 @@ namespace BugfixesAndQoL.AreaConstruction
     // or armoury placement limit. The native neighbor check remains downstream.
     internal sealed class StorageEmptyLimitPatch
     {
-        internal const string Feature = "remove-empty-storage-limit";
+        internal const string Feature = "empty-storage-limits";
         private const int CountRva = 0xB8140;
         private const int BuildingManagerRva = 0x64CCBB0;
         private static readonly byte[] Entry = { 0x4C, 0x63, 0x51, 0x50, 0x45, 0x33, 0xC9 };
@@ -35,7 +35,19 @@ namespace BugfixesAndQoL.AreaConstruction
         private readonly ManualLogSource log;
         private Count original;
         private Func<bool> integrity;
-        private bool active;
+        private Limits limits;
+
+        private sealed class Limits
+        {
+            internal Limits(int stockpile, int granaryArmoury)
+            {
+                StockpileRecords = StorageEmptyLimitPolicy.RecordLimit(stockpile, true);
+                GranaryArmouryRecords = StorageEmptyLimitPolicy.RecordLimit(granaryArmoury, false);
+            }
+
+            internal int StockpileRecords { get; }
+            internal int GranaryArmouryRecords { get; }
+        }
 
         private StorageEmptyLimitPatch(IntPtr image, ManualLogSource log)
         {
@@ -44,9 +56,18 @@ namespace BugfixesAndQoL.AreaConstruction
             buildingManager = IntPtr.Add(image, BuildingManagerRva);
         }
 
-        internal bool IsActive => Volatile.Read(ref active);
+        internal void ClearLimits() => Volatile.Write(ref limits, null);
 
-        internal void SetActive(bool value) => Volatile.Write(ref active, value);
+        internal void SetLimits(int stockpile, int granaryArmoury) =>
+            Volatile.Write(ref limits, new Limits(stockpile, granaryArmoury));
+
+        internal int RecordLimit(bool stockpile)
+        {
+            var current = Volatile.Read(ref limits);
+            if (current == null)
+                return StorageEmptyLimitPolicy.RecordLimit(StorageEmptyLimitPolicy.Vanilla, stockpile);
+            return stockpile ? current.StockpileRecords : current.GranaryArmouryRecords;
+        }
 
         // The caller has verified the exact native hash before installation.
         internal static StorageEmptyLimitPatch TryInstall(CrusaderLibraryLoadContext context, ManualLogSource log)
@@ -116,12 +137,19 @@ namespace BugfixesAndQoL.AreaConstruction
 
         private int CountForValidator(IntPtr manager, int actor, int structure)
         {
-            var type = (eStructs)structure;
-            if (IsActive && manager == buildingManager && (uint)(actor - 1) < 8 &&
-                (type == eStructs.STRUCT_GOODS_YARD || type == eStructs.STRUCT_GRANARY || type == eStructs.STRUCT_ARMOURY))
-                return 0;
+            int count = original(manager, actor, structure);
+            var current = Volatile.Read(ref limits);
+            if (current == null || manager != buildingManager || (uint)(actor - 1) >= 8)
+                return count;
 
-            return original(manager, actor, structure);
+            var type = (eStructs)structure;
+            if (type != eStructs.STRUCT_GOODS_YARD && type != eStructs.STRUCT_GRANARY && type != eStructs.STRUCT_ARMOURY)
+                return count;
+
+            bool stockpile = type == eStructs.STRUCT_GOODS_YARD;
+            int recordLimit = stockpile ? current.StockpileRecords : current.GranaryArmouryRecords;
+            int vanillaRecordLimit = StorageEmptyLimitPolicy.RecordLimit(StorageEmptyLimitPolicy.Vanilla, stockpile);
+            return StorageEmptyLimitPolicy.CountForVanillaComparison(count, recordLimit, vanillaRecordLimit);
         }
 
         private static void RequireReference(ReadOnlySpan<byte> snapshot, int rva, byte[] expected)

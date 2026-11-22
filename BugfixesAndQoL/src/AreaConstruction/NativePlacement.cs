@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using APIShared;
 using APIShared.Buildings;
 using BepInEx.Logging;
 using SHCDESE.API;
@@ -11,6 +12,7 @@ using SHCDESE.API.LowLevel;
 using SHCDESE.Extensions;
 using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
 
 namespace BugfixesAndQoL.AreaConstruction
 {
@@ -22,6 +24,9 @@ namespace BugfixesAndQoL.AreaConstruction
         private const int ValidMapMask = 0x3A11EA4, Axis = 800;
         private const int PreviewOverride = 0x60AD59C;
         private const int PreviewTokens = 0x4411FB0, PreviewFlags = 0x4F64CF0;
+        private const int PlacementScratch = 0x60AD458, CursorScratch = 0x3A11DCC, MouseScratch = 0x8EBA93;
+        private const int CursorDepth = 0x3A11E28, EditorOwner = 0x88E3D78, MapperResult = 0x2D4D8C;
+        private const int NeighborScratch = 0x67E8380, LastClickedTile = 0x8EC038;
         private const int Queue = 0x8574320, QueueEntries = 0xB0BF8, QueueStride = 0x500, QueueCapacity = 500;
         private const int WorldKind = 0x3665F28, FreeBuild = 0x3665FC8;
         private const int FreeBuildingSlots = 0x64CCC04, PlayerBuildings = 0x64CCBB4;
@@ -52,7 +57,7 @@ namespace BugfixesAndQoL.AreaConstruction
         // fields. Path search scratch uses its own generations and stays live.
         private readonly byte[] placementScratch = new byte[0x150];
         private readonly byte[] cursorScratch = new byte[16];
-        private readonly byte[] mouseScratch = new byte[9];
+        private readonly byte[] mouseScratch = new byte[10];
         private int allowance, storageAllowance, freeSlots, outboundSlots, freeWoodcutters, freeGranaries;
 
         internal static void RequireSupportedImage(CrusaderLibraryLoadContext context)
@@ -89,7 +94,7 @@ namespace BugfixesAndQoL.AreaConstruction
         private static int RecordCount(eMappers tool)
         {
             if (tool == eMappers.MAPPER_STORES)
-                return 4;
+                return StorageEmptyLimitPolicy.RecordsPerStockpile;
             // The oil smelter has two parts. A quarry may attach a separate pile.
             return tool == eMappers.MAPPER_QUARRY || tool == eMappers.MAPPER_OIL_SMELTER ? 2 : 1;
         }
@@ -154,13 +159,18 @@ namespace BugfixesAndQoL.AreaConstruction
             return appearance < 7 ? Read(FirstHovelFrame + (int)appearance * sizeof(int)) : 0;
         }
 
-        internal bool Begin(eMappers tool, int actor, bool editor)
+        internal bool Begin(eMappers tool, int actor, bool editor) => BeginCore(tool, actor, editor, true);
+
+        internal bool BeginQueuedStorage(eMappers tool, int actor, bool editor) =>
+            IsStorage(tool) && BeginCore(tool, actor, editor, false);
+
+        private bool BeginCore(eMappers tool, int actor, bool editor, bool requireSelection)
         {
             pending.Clear();
             pendingCurrent.Clear();
             allowance = 0;
             freeSlots = outboundSlots = 0;
-            if (!SupportsMode(editor) || !TryResolveMapper(tool, out _) || Read(PlacementDisabled) != 0 ||
+            if (!SupportsMode(editor) || (requireSelection && !TryResolveMapper(tool, out _)) || Read(PlacementDisabled) != 0 ||
                 (IsStorage(tool) && storageNeighbor?.IsIntact != true) ||
                 Read(PreviewOverride) != 0 ||
                 unchecked((long)GameGlobalsManager.Instance.ChoreManagerVA) != image.ToInt64() + Queue ||
@@ -182,8 +192,7 @@ namespace BugfixesAndQoL.AreaConstruction
             freeGranaries = free ? 0 : FreeGranaryQuota(actor);
             if (!Quote(tool, actor, free, cost))
                 return false;
-            storageAllowance = IsStorage(tool) && storageLimitPatch?.IsActive != true
-                ? StorageAllowance(tool, actor) : int.MaxValue;
+            storageAllowance = IsStorage(tool) ? StorageAllowance(tool, actor) : int.MaxValue;
 
             int ownPending = 0;
             int occupiedSlots = 0;
@@ -284,6 +293,26 @@ namespace BugfixesAndQoL.AreaConstruction
         internal bool HasQueueSpace => freeSlots > 0 && outboundSlots > 0;
         internal bool IsPending(Tile cursor) => pendingCurrent.Contains(cursor);
 
+        internal bool IsStorageInitializing(eMappers tool, int actor, Tile cursor, int scale)
+        {
+            int left = cursor.X - scale / 2, top = cursor.Y - scale / 2;
+            var tiles = GameTileManagerAPI.Instance;
+            var structure = tool.ConvertToEStructs();
+            int partsPerAxis = tool == eMappers.MAPPER_STORES ? 2 : 1;
+            // Stores registers four 2x2 records at the corners of its 5x5 footprint.
+            for (int y = 0; y < partsPerAxis; y++)
+            for (int x = 0; x < partsPerAxis; x++)
+            {
+                int tile = tiles.GetTileId(left + x * (scale - 2), top + y * (scale - 2));
+                if (tiles.IsValidTileId(tile) &&
+                    BuildingAccess.TryGetById(tiles.GetTileBuildingId(tile), out GameBuilding* building, out _) &&
+                    building->r_BuildingType == structure && building->r_PlayerIdOwner == actor &&
+                    building->r_AliveState == AliveState.NeedsInit)
+                    return true;
+            }
+            return false;
+        }
+
         internal void Place(eMappers mapper, Tile cursor, int actor, bool editor)
         {
             int previous = Read(Mapper);
@@ -299,6 +328,38 @@ namespace BugfixesAndQoL.AreaConstruction
                 if (replace)
                     Marshal.WriteInt32(image, Mapper, previous);
             }
+        }
+
+        internal bool TryPlaceQueuedStorage(eMappers tool, int actor, bool editor, Tile cursor, int scale)
+        {
+            int frame = 0;
+            if (!Reserve(tool, actor, editor, cursor, scale, ref frame))
+                return false;
+
+            // A queued build may run with another tool active. The successful probe has already
+            // saved the presentation tokens for this footprint under the same engine monitor.
+            var scratch = CaptureMapActionScratch(true);
+            int lastClickedTile = Read(LastClickedTile);
+            try
+            {
+                Place(tool, cursor, actor, editor);
+            }
+            finally
+            {
+                const ushort TemporaryPreview = 0x8000;
+                for (int i = 0; i < scale * scale; i++)
+                {
+                    Marshal.WriteInt32(image, PreviewTokens + tileIds[i] * sizeof(int), previewTokens[i]);
+                    int flags = PreviewFlags + tileIds[i] * sizeof(short);
+                    int current = Marshal.ReadInt16(image, flags);
+                    // The immediate native build can also update other bits of the display word.
+                    Marshal.WriteInt16(image, flags, unchecked((short)((current & ~TemporaryPreview) |
+                        (previewFlags[i] & TemporaryPreview))));
+                }
+                RestoreMapActionScratch(scratch, true);
+                Marshal.WriteInt32(image, LastClickedTile, lastClickedTile);
+            }
+            return true;
         }
 
         internal void Submitted()
@@ -364,14 +425,7 @@ namespace BugfixesAndQoL.AreaConstruction
 
             // The game monitor serializes both the native probe and its temporary preview-grid writes.
             // Do not undo Vanilla's path-search scratch counters and visitation marks.
-            const int PlacementScratch = 0x60AD458, CursorScratch = 0x3A11DCC, MouseScratch = 0x8EBA93;
-            const int CursorDepth = 0x3A11E28, EditorOwner = 0x88E3D78, MapperResult = 0x2D4D8C;
-            const int NeighborScratch = 0x67E8380;
-            Marshal.Copy(IntPtr.Add(image, PlacementScratch), placementScratch, 0, placementScratch.Length);
-            Marshal.Copy(IntPtr.Add(image, CursorScratch), cursorScratch, 0, cursorScratch.Length);
-            Marshal.Copy(IntPtr.Add(image, MouseScratch), mouseScratch, 0, mouseScratch.Length);
-            int depth = Read(CursorDepth), editorOwner = Read(EditorOwner), result = Read(MapperResult);
-            long neighborScratch = storage ? Marshal.ReadInt64(image, NeighborScratch) : 0;
+            var scratch = CaptureMapActionScratch(storage);
 
             bool valid;
             try
@@ -418,14 +472,7 @@ namespace BugfixesAndQoL.AreaConstruction
                     Marshal.WriteInt32(image, PreviewTokens + tileIds[i] * sizeof(int), previewTokens[i]);
                     Marshal.WriteInt16(image, PreviewFlags + tileIds[i] * sizeof(short), previewFlags[i]);
                 }
-                Marshal.Copy(placementScratch, 0, IntPtr.Add(image, PlacementScratch), placementScratch.Length);
-                Marshal.Copy(cursorScratch, 0, IntPtr.Add(image, CursorScratch), cursorScratch.Length);
-                Marshal.Copy(mouseScratch, 0, IntPtr.Add(image, MouseScratch), mouseScratch.Length);
-                Marshal.WriteInt32(image, CursorDepth, depth);
-                Marshal.WriteInt32(image, EditorOwner, editorOwner);
-                Marshal.WriteInt32(image, MapperResult, result);
-                if (storage)
-                    Marshal.WriteInt64(image, NeighborScratch, neighborScratch);
+                RestoreMapActionScratch(scratch, storage);
             }
 
             if (!valid) return false;
@@ -442,6 +489,26 @@ namespace BugfixesAndQoL.AreaConstruction
             return true;
 
             void Hover() => EngineInterface.DLL_MapAction((int)tool, cursor.X, cursor.Y, 0, actor, !editor, true, 0);
+        }
+
+        private (int Depth, int Owner, int Result, long Neighbor) CaptureMapActionScratch(bool storage)
+        {
+            Marshal.Copy(IntPtr.Add(image, PlacementScratch), placementScratch, 0, placementScratch.Length);
+            Marshal.Copy(IntPtr.Add(image, CursorScratch), cursorScratch, 0, cursorScratch.Length);
+            Marshal.Copy(IntPtr.Add(image, MouseScratch), mouseScratch, 0, mouseScratch.Length);
+            return (Read(CursorDepth), Read(EditorOwner), Read(MapperResult), storage ? Marshal.ReadInt64(image, NeighborScratch) : 0);
+        }
+
+        private void RestoreMapActionScratch((int Depth, int Owner, int Result, long Neighbor) scratch, bool storage)
+        {
+            Marshal.Copy(placementScratch, 0, IntPtr.Add(image, PlacementScratch), placementScratch.Length);
+            Marshal.Copy(cursorScratch, 0, IntPtr.Add(image, CursorScratch), cursorScratch.Length);
+            Marshal.Copy(mouseScratch, 0, IntPtr.Add(image, MouseScratch), mouseScratch.Length);
+            Marshal.WriteInt32(image, CursorDepth, scratch.Depth);
+            Marshal.WriteInt32(image, EditorOwner, scratch.Owner);
+            Marshal.WriteInt32(image, MapperResult, scratch.Result);
+            if (storage)
+                Marshal.WriteInt64(image, NeighborScratch, scratch.Neighbor);
         }
 
         private int[] ReadPreviewTiles(eMappers tool, int scale, int height, int primaryFile)

@@ -77,6 +77,10 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 
 ## Vanilla audits with mod integration
 
+- [Extreme Troops](./sem/FBCB9319/knowledge/EXTREME_TROOPS.md) covers the unit and projectile bounds, disabled flight trails, outpost timing, and save and multiplayer implications.
+
+- [Stone and iron under walls](./sem/FBCB9319/knowledge/WALL_DEPOSIT_RESTORATION.md) records the wall and stair placement masks, building footprint comparison, wall removal paths and standalone testmod.
+
 - [Construction cost tables](./sem/FBCB9319/knowledge/CONSTRUCTION_COST_TABLES.md): native110-row and managed109-row bounds, aliases and Undo parameter contracts; tagged Extender integration and dated game probes.
 
 - [Friendly moat traversal for all unit types](./sem/FBCB9319/knowledge/MOAT_TRAVERSAL_ALL_UNITS.md): all 89 dispatch slots, 20 economic roles, civilian target and building-access gates, independent wander publication, mobile-siege removal, stored modes and save/transfer contracts; 183 indexed functions and five leaf entries checked against the installed PE, static audit with no feature implementation or gameplay acceptance.

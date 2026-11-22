@@ -1,0 +1,11 @@
+{
+  "GUID": "ProjectileTrailsTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Extreme Troops Projectile Trails Test",
+  "Description": "Client-only test of lightweight projectile trails in Extreme Troops.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.14.4",
+  "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.62.0" }],
+  "Manifest": 1,
+  "NetworkMode": 0
+}

@@ -11,6 +11,7 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="EditTests.cs" />
+    <Compile Include="IntervalTests.cs" />
     <Compile Include="../src/AutoSendEdits.cs" Link="AutoSendEdits.cs" />
     <Compile Include="../src/AutoSendPacket.cs" Link="AutoSendPacket.cs" />
     <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath></Reference>

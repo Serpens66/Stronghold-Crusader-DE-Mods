@@ -183,3 +183,195 @@ production can consume the last eligible space while a request is queued.
 The managed return and the pre-queue capacity check cannot prove a balanced
 transfer. This case was verified statically and has no live reproduction in
 this audit.
+
+
+## Gift message production and display, 2026-11-22 [Vanilla facts]
+
+Rechecked installed native SHA-256:
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`;
+installed managed SHA-256:
+`BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`.
+Native identity also matches CURRENT.json and the queried function binaryHash.
+These are confirmed-static dataflow findings, not a reproduction of a player's
+match. VA = image base `0x180000000` + each RVA below. Generated function names
+remain candidate names; the stated branches were checked against exports and
+Iced-verified instructions. External source provenance in the semantic index is
+older than the current Extender checkout; it is not used to prove current SE code.
+
+`1A6F0` mode 2 reaches `D7AD0(recipient, good, amount, sender)` with four signed
+Int32 parameters. The native payload has no automatic/manual origin label.
+After the resource mutations, `D7AD0:D7BD2-D7C44` checks whether the recipient is
+local viewpoint `DAT_1888E3D70`. Only then it compares unsigned
+`timer[sender] < timeGetTime()`, table VA `180905B90`, stride four bytes.
+The failed comparison skips receipt reaction and receipt text; it does not skip
+the transfer. All goods from the same sender share this local timer. A passing
+check writes a second `timeGetTime() + 30000`, i.e. thirty seconds of wall-clock
+milliseconds rather than simulation ticks. It also emits presentation event16
+through `2940 -> 1A4190`: subtype36 for iron/gold, subtype39 for weapon IDs17-24,
+otherwise subtype35. These are event subtypes, not gift-text categories.
+
+`D4DF0`, called by generic reset `87D10`, initializes the nine table entries to
+one current `timeGetTime()` value, without adding thirty seconds. Thus the first
+receipt is eligible once the clock exceeds initialization; exact millisecond
+equality blocks it. This is not an initial thirty-second suppression.
+
+Both gift-text branches require native mode `DAT_188574B90 != 0 && != 99`:
+
+- `D7C58-D7C8E`: local recipient and the successful shared timer check enqueue
+  category10 `(recipient, sender, amount, good)` through `1C8D0` at `D7C7B`,
+  then call `EDF0` with `fx\speech\ally_request09.wav`.
+- `D7C93-D7CB2`: local sender enqueues category15
+  `(sender, recipient, amount, good)` through `1C8D0` at `D7CB2`, independently
+  of that timer. This explains repeated sender rows while later recipient rows
+  are not produced during the thirty-second interval. There is no queued
+  recipient row waiting to be released when that interval ends.
+
+`1C8D0` has no deduplication or timer. It writes five 16-bit fields
+`(category, self, other, amount, good)` to manager `188574320 + 275A08 + index*10`,
+with index at `+275A00` (VA `1887E9D20`). The Int32 amount is truncated to Int16
+for subsequent signed managed consumption. The helper increments its index and
+resets it to zero at ten. `DLL_RunTick` (`86680`) clears this index before native
+processing and calls `19D960` after processing. The exporter copies the index
+byte to output offset `899` and the five parallel ten-short arrays to byte
+offsets `89C/8B0/8C4/8D8/8EC`. The decompiler's `undefined4*` pointer arithmetic
+must be scaled by four when interpreting these offsets.
+
+This buffer has a separate static overload boundary: ten writes between that
+reset and export yield count zero; eleven yield only the overwritten first
+record. This is not evidence that the ordinary thirty-second recipient behavior
+is an overflow, and no live overload reproduction was performed here.
+
+`EngineInterface` copies the count and fifty shorts into managed
+`chat_store_data[10,5]`, preserving the field order. `FatControler.GUICheck`
+consumes them only in multiplayer or skirmish mode. Case10 formats
+`TEXT_SKIRMISH_MISC` text1; case15 formats text2. Both append the signed short
+amount, translated goods name and other player's skirmish name, and call
+`HUD_MPChatMessages.recieveIngameChat`. No origin label survives this payload or
+the formatted-message arguments.
+
+The HUD keeps up to five current rows and a five-entry replay cache. A new row
+removes the oldest at capacity, receives `DateTime.UtcNow + duration` expiry
+(default twenty seconds), and is enqueued without deduplication. Update expires
+one oldest row per call when the chat panel is not open. Reopening the panel
+copies the cache; it does not produce previously throttled native receipts.
+
+The separate AI response `3F870 -> 103AA0 -> 103290` uses a global twenty-second
+speech throttle and a ten-entry pending speech queue. Its queue and timeout do
+not regulate gift-text categories10/15. `D7AD0` still clears a matching goods
+request and performs the response follow-through after either text branch.
+
+Exact source anchors, relative to this semantic directory:
+
+- `exports/semantic-decompiled-functions.c`: lines15509 (dispatch), 126006-126084
+  (transfer and message branches), 124273-124320 (timer initialization),
+  79448 (reset caller), 17145-17165 (message writer), 78406 (RunTick reset),
+  78490 (export caller), 237510-237525 (count/array exporter),
+  1473 (2940), 239083-239093 (event16), 36627-36648 (AI response).
+- `managed/BC8B6A39/decompiled/EngineInterface.cs`: lines2558-2564
+  (native-layout count/short array), 5934 (count copy), 6015-6018 (array copy).
+- `managed/BC8B6A39/decompiled/FatControler.cs`: lines2324-2328 (mode/count
+  guard), 2357-2359 (category10), 2372-2374 (category15).
+- `managed/BC8B6A39/decompiled/CrusaderDE/HUD_MPChatMessages.cs`:
+  lines47-77 (enqueue/cap/expiry/cache), 79-100 (replay), 102-116 (expiry).
+
+### Current integration boundary, 2026-11-22 [mod integration]
+
+The local Extender checkout `7c3a252794974ee7af5cca02f446ba994fb9d22d` has
+`src/SHCDESE.BepInEx/ManagedHooks/HUD_MPChatMessages_Hooks.cs:15-25`: it calls
+chat handling inside a try/catch and then unconditionally invokes its trampoline.
+This current source observation is distinct from the older SE provenance above.
+The installed SE assembly SHA-256 is
+`E1B73D1E64E809EC51B9F2540F8F5DBF5357B5970492C688E9A8A7A8283E7D37`.
+The coordinating reviewer checked its actual IL for this unconditional call;
+compact evidence is `.work/a/autosend-interval/001/installed-chat-hook.txt` and
+`chat-hook-proof.json` relative to the workspace root. This identity supersedes
+the older integration snapshot only for this dated observation.
+The chat event is observational, not a text-cancellation API;
+no already-implemented source-specific suppression service is claimed here.
+
+Source attribution is precise only while an actual owned primitive invocation is
+identified; an ambient service frame alone also spans SE Pre/Post and nested
+foreign calls. Category, sender, recipient, amount or formatted text alone cannot
+prove an automated origin. Suppressing only such an attributed text would leave
+resource effects, the recipient's shared thirty-second timer, receipt speech and
+AI response unchanged. This audit supplies the boundary, not a suppression design
+or a newly installed hook.
+
+
+## Native chat gate versus mission-mode domains, 2026-11-22 [Vanilla facts]
+
+Follow-up inspection used the same freshly verified installed native SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
+and managed SHA-256
+`BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`.
+CURRENT.json and the queried function binary_hash match. Complete `D7AD0`
+(585 bytes, SHA-256 `206BDE68C11D963B744BF671B185935EC32EF05CB1EBB3A479E308095CC03612`)
+was re-read through the query interface and independently disassembled with
+Capstone from the installed PE. Findings below are confirmed-static. They do not
+identify the actual unlogged gate value of a historical test or player session.
+
+Several native mode domains are independent. All addresses below are RVAs,
+relative to the loaded DLL; the canonical preferred image base is `180000000`.
+
+| RVA | Domain and source |
+| --- | --- |
+| `3665F28` | Game type, SE `GetCurrentGameTypeMode`; `eGameTypeModes.GAMETYPE_MULTIPLAYER` = 3. This value alone does not distinguish singleplayer skirmish from network multiplayer and does not enable gift-chat rows. |
+| `3669040` | Skirmish origin, SE `GetCurrentSkirmishGameMode`; `eSkirmishGameMode` Custom0, Trail1, CustomTrail2, TestMission3, NotSkirmish-1. |
+| `88E6A04` | Skirmish rules mode, SE `GetCurrentSkirmishMode`; `SkirmishMode` Unknown0, Normal1, Crusader2, Deathmatch3. |
+| `8574B90` | Separate native gate read by both gift-chat branches, manager `8574320 + 870`. The transfer skips both row producers when this Int32 equals 0 or 99. It must not be interpreted through any of the three enums above. |
+
+These SE field mappings were independently resolved against the canonical image
+using the current checkout's anchors in
+`shcde-script-extender/src/SHCDESE.BepInEx/GameGlobals/GameGlobalsManager.cs:1452-1493`:
+GameType anchor `4078C`, SkirmishGameMode anchor `28C5A`, and
+GameSkirmishMode anchor `D14E0`. Their RIP-relative destinations are the three
+RVAs in the table. The SE enum declarations describe the enum values; native
+machine destinations establish that these are different fields.
+
+Native `DLL_PreInitMap_Multiplayer` (`86270`) resets managers, then sets the chat
+gate to 99 for `skirmishGame=true`, or 1 for false. This is also visible in machine
+code: `86352: 40 84 F6` tests the saved Boolean; `8635F: B8 63 00 00 00`
+selects 99; `862CE: 41 BE 01 00 00 00` prepares R14D=1;
+`8636E: 41 0F 44 C6` selects that register when false;
+`86377: 89 05 13 E8 4E 08` writes the result to `8574B90`.
+Managed fresh-SP creation passes true in `FRONT_Multiplayer.cs:9963/9983`;
+network creation passes false in `Platform_Multiplayer.StartGame:3923`.
+A fresh local skirmish can therefore have GameType3 while Vanilla generates
+neither gift-chat category10 nor category15. This is a producer gate, not HUD
+deduplication, a deferred receipt, or evidence of failed resource transfer.
+
+Reset `87D10` and `8ADC0` write gate0; manager reset `211A0` writes manager+870=0
+and independently sets GameType `3665F28` to3. The map-load function `94350`
+captures the old gate in `local_df8` and restores that exact value after loading;
+it does not normalize a fresh-SP gate99 to1. `DLL_StartMultiplayerGame87880`
+and `DLL_StartMultiplayerGameSynced878B0` do not change this gate. Other observed
+lifecycle paths include explicit restoration of99 for local-skirmish saves;
+there is no basis to infer a network gate merely from the mission's GameType.
+
+The text-producing instructions confirm the physical layout:
+`D7C49: 8B 05 41 CF 49 08` reads `8574B90`, followed by
+`85 C0; 74 64; 83 F8 63; 74 5F` to skip both branches for0/99.
+`D7C93: 3B 2D D7 C0 80 08` compares the sender with viewpoint `88E3D70`;
+the sender branch has no receipt timer. Both branches use R13 as the chat manager:
+its gold-path LEA at `D7B1A` and goods-path LEA at `D7BA9` resolve to `8574320`.
+Consequently index `8574320 + 275A00 = 87E9D20` and records at index+8 are
+unchanged. Calls `D7C7B: E8 50 4C F4 FF` and `D7CB2: E8 19 4C F4 FF`
+reach writer `1C8D0`, giving physical returns `D7C80` and `D7CB7`.
+
+`DLL_SetEditorPlayer872E0`, for ordinary player IDs<=1000, writes viewpoint
+`88E3D70` at `872FC: 89 0D 6E CA 85 08`. Its additional alliance-field writes
+occur only when GameType `3665F28` equals1. It does not change chat gate8574B90.
+Borrowing the viewpoint in GameType3 therefore cannot make SP gate99 emit rows.
+IDs>1000 follow a different editor-selection branch and do not set this viewpoint.
+
+Exact anchors in `exports/semantic-decompiled-functions.c`: lines78104-78134
+(PreInit), 79428 (reset), 81363-81370 (alternate reset), 19482-19496 (manager
+reset and GameType), 86525/86849 (map-load capture/restore), 79109-79149
+(multiplayer starts), 78820-78847 (SetEditorPlayer), 126044-126077 (gift gates).
+Managed paths are in `managed/BC8B6A39/decompiled/CrusaderDE/FRONT_Multiplayer.cs`
+and `managed/BC8B6A39/decompiled/Platform_Multiplayer.cs` at the lines above.
+
+A silent-transfer test with no rows must have a positive Vanilla-chat control
+under the same native gate before it can prove suppression. A confirmed resource
+receipt alone is insufficient. No native gate writes, new hooks, production
+changes or new live acceptance results are established by this follow-up.

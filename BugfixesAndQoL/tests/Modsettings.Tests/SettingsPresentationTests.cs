@@ -19,6 +19,18 @@ internal static partial class Program
         .FirstOrDefault(a => a.LocalName == "ModSettingsSearch." + name)?.Value;
     private static string BindingProperty(string value) => Regex.Match(value ?? "", @"^\{Binding (\w+)").Groups[1].Value;
 
+    private static string PrimaryEditorProperty(XmlNode editor)
+    {
+        string property = BindingProperty(editor.Attributes?[editor.LocalName == "CheckBox" ? "IsChecked" :
+            editor.LocalName == "Slider" ? "Value" : "SelectedIndex"]?.Value);
+        if (editor.LocalName != "Slider")
+            return property;
+
+        XmlNode text = editor.ParentNode.SelectSingleNode("./*[local-name()='TextBox']");
+        string authoritative = text == null ? "" : BindingProperty(SearchAttribute(text, "StateValue"));
+        return authoritative.Length > 0 && property == authoritative + "SliderValue" ? authoritative : property;
+    }
+
     private static void SettingsPresentationTests(string workspace)
     {
         Type presentationType = mod.GetType("BugfixesAndQoL.ModSettingsPresentation", true);
@@ -108,7 +120,7 @@ internal static partial class Program
         // Read the actual editor bindings, rather than fixing the total to a historical snapshot.
         var editors = nodes.Where(n => n.LocalName == "CheckBox" || n.LocalName == "Slider" || n.LocalName == "ComboBox")
             .Where(n => Ancestors(n).Any(a => SearchAttribute(a, "SectionKey")?.StartsWith("bugfixes.topic.", StringComparison.Ordinal) == true))
-            .Select(n => new { Node = n, Property = BindingProperty(n.Attributes?[n.LocalName == "CheckBox" ? "IsChecked" : n.LocalName == "Slider" ? "Value" : "SelectedIndex"]?.Value) })
+            .Select(n => new { Node = n, Property = PrimaryEditorProperty(n) })
             .Where(x => x.Property.Length > 0).ToArray();
         Check(editors.Length == options.Length && editors.Select(e => e.Property).Distinct().Count() == editors.Length,
             "each current main editor appears exactly once");
@@ -310,16 +322,18 @@ internal static partial class Program
         Check(Equals(Get(hostControls, "Title"), Get(controls, "Title")) && (bool)Get(hostControls, "IsHost"),
             "occupied-wall demolition shares the controls theme title and keeps its host section");
         var areaConstruction = Get(presentation, "EnableAreaConstruction");
-        var storageLimit = Get(presentation, "RemoveEmptyStorageLimit");
         XmlNode constructionRow = nodes.Single(n => SearchAttribute(n, "Key") == (string)Get(areaConstruction, "Key"));
-        XmlNode storageLimitRow = nodes.Single(n => SearchAttribute(n, "Key") == (string)Get(storageLimit, "Key"));
         Check(SearchAttribute(constructionRow.PreviousSibling, "Key") == "bugfixes.area-demolition" &&
             SearchAttribute(constructionRow.ParentNode, "SectionKey") == (string)Get(controls, "Key") &&
             Get(areaConstruction, "Category").ToString() == "Qol",
             "area construction appears immediately after area demolition in client controls QoL");
-        Check(SearchAttribute(storageLimitRow.ParentNode, "SectionKey") == (string)Get(hostControls, "Key") &&
-            Get(storageLimit, "Category").ToString() == "Qol",
-            "empty storage limit appears in host controls QoL");
+        foreach (string name in new[] { "EmptyStockpileLimit", "EmptyGranaryArmouryLimit" })
+        {
+            var limit = Get(presentation, name);
+            XmlNode limitRow = nodes.Single(n => SearchAttribute(n, "Key") == (string)Get(limit, "Key"));
+            Check(SearchAttribute(limitRow.ParentNode, "SectionKey") == (string)Get(hostControls, "Key") &&
+                Get(limit, "Category").ToString() == "Qol", name + " appears in host controls QoL");
+        }
         int notifications = 0;
         var headingChanges = new HashSet<string>();
         ((INotifyPropertyChanged)display).PropertyChanged += (_, e) => { notifications++; headingChanges.Add(e.PropertyName); };
