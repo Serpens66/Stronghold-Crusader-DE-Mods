@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace CrenelatedWallTest
 {
@@ -16,20 +15,12 @@ namespace CrenelatedWallTest
         bool TryRead(int x, int y, out WallCell cell);
     }
 
-    internal sealed class WallPlan
-    {
-        internal readonly SortedDictionary<int, bool> Heights = new SortedDictionary<int, bool>();
-        internal readonly Dictionary<int, WallCell> Cells = new Dictionary<int, WallCell>();
-        internal string Rejection;
-        internal int Anchors, EqualPairs;
-        internal bool Accepted => Rejection == null;
-    }
-
-    // All choices depend only on the synchronized map, owner and command coordinates.
-    // No Unity, native addresses, frame time or local-player state enters this algorithm.
+    // All decisions depend only on the synchronized map, owner and command coordinates.
+    // No Unity, native addresses, frame time, local-player state or remembered heights.
     internal static class WallPolicy
     {
         internal const int MaximumCells = 320800; // Audited native packed tile capacity.
+        // Cardinal N, E, S, W first, then the diagonals.
         private static readonly int[] DX = { 0, 1, 0, -1, 1, 1, -1, -1 };
         private static readonly int[] DY = { -1, 0, 1, 0, -1, 1, 1, -1 };
 
@@ -37,12 +28,11 @@ namespace CrenelatedWallTest
         {
             var result = new List<WallCell>();
             if (maximum <= 0) return result;
-            int length = Math.Max(Math.Abs((long)endX - x), Math.Abs((long)endY - y)) > 800
-                ? -1 : (int)Math.Max(Math.Abs((long)endX - x), Math.Abs((long)endY - y));
-            if (length < 0) throw new InvalidOperationException("Raster exceeds the native map axis.");
+            long span = Math.Max(Math.Abs((long)endX - x), Math.Abs((long)endY - y));
+            if (span > 800) throw new InvalidOperationException("Raster exceeds the native map axis.");
             // Vanilla advances each nonzero coordinate difference by one, then processes
             // the endpoint again. The second endpoint visit cannot create another tile.
-            for (int i = 0; i <= length && i < maximum; i++)
+            for (int i = 0; i <= span && i < maximum; i++)
             {
                 if (!world.TryRead(x, y, out WallCell cell)) throw new InvalidOperationException("Invalid raster coordinate " + x + "," + y);
                 result.Add(cell.Copy());
@@ -52,195 +42,180 @@ namespace CrenelatedWallTest
             return result;
         }
 
-        internal static List<WallCell> Predict(List<WallCell> raster, int owner, int nativeAvailability = int.MaxValue)
+        // Every raster cell Vanilla could still turn into a crenel. The actual-placement
+        // quota is deliberately ignored: admission checks the whole affordable-or-not line,
+        // so it can only be stricter than execution, never weaker.
+        internal static List<WallCell> Predict(List<WallCell> raster, int owner)
         {
             var added = new List<WallCell>();
-            // 6F230 stops when available < alreadyPlaced, not <=. Use the exact
-            // Vanilla getter result, including campaign/cheat/remainder branches.
-            long limit = Math.Max(0L, (long)nativeAvailability + 1);
+            var seen = new HashSet<int>();
             foreach (WallCell old in raster)
             {
-                if (added.Count >= limit) break;
                 // Native 6F230 skips intact existing walls for MAPPER_CRENAL.
-                if (old.IsWall && !old.Damaged) continue;
+                if ((old.IsWall && !old.Damaged) || !seen.Add(old.Id)) continue;
                 var cell = old.Copy(); cell.Owner = owner; cell.IsWall = cell.IsCrenel = true;
-                cell.High = ((cell.X ^ cell.Y) & 1) != 0; cell.Damaged = false;
+                cell.High = Parity(cell.X, cell.Y); cell.Damaged = false; cell.Structure = false;
                 added.Add(cell);
             }
             return added;
         }
 
-        internal static WallPlan Plan(IWallWorld world, int owner, IList<WallCell> seeds, bool preventDoubleRows, IReadOnlyDictionary<int, WallCell> preferred = null)
+        // Vanilla placement 6F230/6CB20 sets high exactly for odd x+y.
+        internal static bool Parity(int x, int y) => ((x ^ y) & 1) != 0;
+
+        internal static bool Crenel(WallCell cell) => cell != null && cell.IsWall && cell.IsCrenel;
+
+        // Bits 0..3 = N, E, S, W, matching the cardinal mask read by native 5C2D0 (owner-independent).
+        internal static int CardinalMask(Func<int, int, WallCell> read, int x, int y)
         {
-            var plan = new WallPlan();
-            var overlay = new Dictionary<long, WallCell>();
-            foreach (WallCell seed in seeds)
-            {
-                WallCell value = seed;
-                if (seed.Owner == owner && !seed.Damaged && !seed.Structure && preferred != null &&
-                    preferred.TryGetValue(seed.Id, out WallCell saved) && saved.Owner == seed.Owner)
-                { value = seed.Copy(); value.High = saved.High; }
-                overlay[Key(seed.X, seed.Y)] = value;
-            }
-            var cache = new Dictionary<long, WallCell>();
-            Func<int, int, WallCell> read = (x, y) => {
-                long key = Key(x, y);
-                if (overlay.TryGetValue(key, out WallCell replacement)) return replacement;
-                if (cache.TryGetValue(key, out WallCell cached)) return cached;
-                if (!world.TryRead(x, y, out WallCell cell)) cell = null;
-                if (cell != null && cell.Owner == owner && !cell.Damaged && !cell.Structure && preferred != null &&
-                    preferred.TryGetValue(cell.Id, out WallCell saved) && saved.Owner == cell.Owner)
-                { cell = cell.Copy(); cell.High = saved.High; }
-                cache[key] = cell; return cell;
-            };
-            if (preventDoubleRows)
-            {
-                foreach (WallCell seed in seeds)
-                    for (int ox = -1; ox <= 0; ox++) for (int oy = -1; oy <= 0; oy++)
-                    {
-                        WallCell a = read(seed.X + ox, seed.Y + oy), b = read(seed.X + ox + 1, seed.Y + oy);
-                        WallCell c = read(seed.X + ox, seed.Y + oy + 1), d = read(seed.X + ox + 1, seed.Y + oy + 1);
-                        if (Crenel(a) && Crenel(b) && Crenel(c) && Crenel(d))
-                        { plan.Rejection = "double-row 2x2 at " + (seed.X + ox) + "," + (seed.Y + oy); return plan; }
-                    }
-            }
-            var queue = new Queue<WallCell>();
-            foreach (WallCell seed in seeds) if (Crenel(seed) && seed.Owner == owner) queue.Enqueue(read(seed.X, seed.Y));
-            while (queue.Count != 0)
-            {
-                WallCell cell = queue.Dequeue();
-                if (plan.Cells.ContainsKey(cell.Id)) continue;
-                if (plan.Cells.Count >= MaximumCells) { plan.Rejection = "component capacity exceeded"; return plan; }
-                plan.Cells.Add(cell.Id, cell);
-                for (int n = 0; n < 8; n++)
-                {
-                    WallCell next = read(cell.X + DX[n], cell.Y + DY[n]);
-                    if (Crenel(next) && next.Owner == owner && !plan.Cells.ContainsKey(next.Id)) queue.Enqueue(next);
-                }
-            }
-            var all = new Dictionary<int, WallCell>(plan.Cells);
-            // Two boundary rings are needed to detect triples crossing ownership borders.
-            var edge = plan.Cells.Values.ToArray();
-            for (int depth = 0; depth < 2; depth++)
-            {
-                var nextEdge = new List<WallCell>();
-                foreach (WallCell cell in edge) for (int n = 0; n < 8; n++)
-                {
-                    WallCell next = read(cell.X + DX[n], cell.Y + DY[n]);
-                    if (Crenel(next) && !all.ContainsKey(next.Id)) { all.Add(next.Id, next); nextEdge.Add(next); }
-                }
-                edge = nextEdge.ToArray();
-            }
-            var variable = new HashSet<int>();
-            foreach (WallCell cell in plan.Cells.Values)
-            {
-                if (cell.Damaged || cell.Structure) continue;
-                bool n = Crenel(read(cell.X, cell.Y - 1)), e = Crenel(read(cell.X + 1, cell.Y));
-                bool s = Crenel(read(cell.X, cell.Y + 1)), w = Crenel(read(cell.X - 1, cell.Y));
-                if (((n || s) && !e && !w) || ((e || w) && !n && !s)) variable.Add(cell.Id);
-                else { plan.Heights[cell.Id] = true; plan.Anchors++; }
-            }
-            var visited = new HashSet<int>();
-            foreach (WallCell start in plan.Cells.Values.OrderBy(c => c.Id))
-            {
-                if (!variable.Contains(start.Id) || visited.Contains(start.Id)) continue;
-                WallCell[] neighbors = Cardinal(start, read).Where(c => variable.Contains(c.Id)).ToArray();
-                if (neighbors.Length == 2) continue; // Start at a segment endpoint.
-                var chain = new List<WallCell>(); WallCell current = start, previous = null;
-                while (current != null && visited.Add(current.Id))
-                {
-                    chain.Add(current);
-                    WallCell next = Cardinal(current, read).FirstOrDefault(c => variable.Contains(c.Id) && (previous == null || c.Id != previous.Id));
-                    previous = current; current = next;
-                }
-                WallCell left = Cardinal(chain[0], read).FirstOrDefault(c => !variable.Contains(c.Id));
-                WallCell right = Cardinal(chain[chain.Count - 1], read).FirstOrDefault(c => !variable.Contains(c.Id) && (chain.Count != 1 || left == null || c.Id != left.Id));
-                if (!Solve(chain, left, right, plan, preferred)) { plan.Rejection = "incompatible segment anchors at " + start.X + "," + start.Y; return plan; }
-            }
-            if (visited.Count != variable.Count) { plan.Rejection = "unresolved straight component"; return plan; }
-            bool High(WallCell cell) => plan.Heights.TryGetValue(cell.Id, out bool high) ? high : cell.High;
-            foreach (WallCell center in all.Values.OrderBy(c => c.Id))
-            {
-                if (center.Damaged) continue;
-                WallCell[] same = Cardinal(center, read).Where(c => all.ContainsKey(c.Id) && !c.Damaged && High(c) == High(center)).ToArray();
-                for (int a = 0; a < same.Length; a++) for (int b = a + 1; b < same.Length; b++)
-                    if (plan.Cells.ContainsKey(center.Id) || plan.Cells.ContainsKey(same[a].Id) || plan.Cells.ContainsKey(same[b].Id))
-                    { plan.Rejection = "three equal crenels through " + center.X + "," + center.Y; return plan; }
-                // Native diagonal placements are isolated cardinal special pieces.
-                for (int d = 4; d < 6; d++)
-                {
-                    WallCell a = read(center.X - DX[d], center.Y - DY[d]), b = read(center.X + DX[d], center.Y + DY[d]);
-                    if (Crenel(a) && Crenel(b) && !a.Damaged && !b.Damaged && all.ContainsKey(a.Id) && all.ContainsKey(b.Id) &&
-                        High(a) == High(center) && High(b) == High(center) &&
-                        (plan.Cells.ContainsKey(center.Id) || plan.Cells.ContainsKey(a.Id) || plan.Cells.ContainsKey(b.Id)))
-                    { plan.Rejection = "three equal diagonal crenels through " + center.X + "," + center.Y; return plan; }
-                }
-                if (plan.Cells.ContainsKey(center.Id)) foreach (WallCell next in Cardinal(center, read))
-                    if (center.Id < next.Id && plan.Cells.ContainsKey(next.Id) && High(center) == High(next)) plan.EqualPairs++;
-            }
-            return plan;
+            int mask = 0;
+            for (int n = 0; n < 4; n++) if (Crenel(read(x + DX[n], y + DY[n]))) mask |= 1 << n;
+            return mask;
         }
 
-        private sealed class Score
+        // Straight middles (two opposite neighbours) and endpoints (one neighbour). Native
+        // renders all other shapes as special pieces and permanently ORs high into them.
+        internal static bool IsLine(int mask) => mask == 0b0101 || mask == 0b1010 || mask == 1 || mask == 2 || mask == 4 || mask == 8;
+
+        // Special piece: corner, junction or isolated crenel. Vanilla makes it high and every
+        // high crenel is unwalkable (0xD86F0 builds no edge to or from it).
+        internal static bool IsSpecial(Func<int, int, WallCell> read, WallCell cell) =>
+            Crenel(cell) && !cell.Structure && !IsLine(CardinalMask(read, cell.X, cell.Y));
+
+        // Desired logical height, or null when Vanilla's own height must stay untouched.
+        internal static bool? TargetHigh(Func<int, int, WallCell> read, WallCell cell)
         {
-            internal int Pairs, Changes, PreferredChanges, Previous;
-            internal Score(int pairs, int changes, int preferredChanges, int previous)
-            { Pairs = pairs; Changes = changes; PreferredChanges = preferredChanges; Previous = previous; }
+            if (!Crenel(cell) || cell.Damaged || cell.Structure) return null;
+            return IsLine(CardinalMask(read, cell.X, cell.Y)) ? Parity(cell.X, cell.Y) : (bool?)null;
         }
-        private static bool Better(Score candidate, Score best) => best == null || candidate.Pairs < best.Pairs ||
-            (candidate.Pairs == best.Pairs && (candidate.PreferredChanges < best.PreferredChanges ||
-            (candidate.PreferredChanges == best.PreferredChanges && candidate.Changes < best.Changes)));
-        private static bool Solve(List<WallCell> chain, WallCell left, WallCell right, WallPlan plan, IReadOnlyDictionary<int, WallCell> preferred)
+
+        internal static Func<int, int, WallCell> Reader(IWallWorld world, IEnumerable<WallCell> overlay = null)
         {
-            bool BoundaryHigh(WallCell c) => c != null && (plan.Heights.TryGetValue(c.Id, out bool h) ? h : c.High);
-            bool leftOwn = left != null && plan.Heights.ContainsKey(left.Id), rightOwn = right != null && plan.Heights.ContainsKey(right.Id);
-            bool lh = BoundaryHigh(left), rh = BoundaryHigh(right);
-            var levels = new List<Score[]>();
-            for (int i = 0; i < chain.Count; i++)
+            var replaced = new Dictionary<long, WallCell>();
+            if (overlay != null) foreach (WallCell cell in overlay) replaced[Key(cell.X, cell.Y)] = cell;
+            var cache = new Dictionary<long, WallCell>();
+            return (x, y) =>
             {
-                var level = new Score[4];
-                for (int value = 0; value < 2; value++)
+                long key = Key(x, y);
+                if (replaced.TryGetValue(key, out WallCell value)) return value;
+                if (cache.TryGetValue(key, out WallCell cached)) return cached;
+                if (!world.TryRead(x, y, out WallCell cell)) cell = null;
+                cache[key] = cell; return cell;
+            };
+        }
+
+        // Returns null when the predicted construction keeps every wall enterable, otherwise
+        // the first violated rule. Only shapes containing a changed cell are considered, so
+        // pre-existing map or save walls never block an unrelated command.
+        internal static string Violation(IWallWorld world, IList<WallCell> added, Func<int, bool> managed)
+        {
+            if (added.Count == 0) return null;
+            Func<int, int, WallCell> read = Reader(world, added);
+            var isNew = new HashSet<int>();
+            foreach (WallCell cell in added) isNew.Add(cell.Id);
+            // Double rows: any filled 2x2 block makes the whole band special and high.
+            foreach (WallCell seed in added)
+                for (int ox = -1; ox <= 0; ox++) for (int oy = -1; oy <= 0; oy++)
                 {
-                    if ((i == 0 && leftOwn && value == 1) || (i == chain.Count - 1 && rightOwn && value == 1)) continue;
-                    int change = chain[i].High == (value == 1) ? 0 : 1;
-                    int preferredChange = preferred != null && preferred.ContainsKey(chain[i].Id) ? change : 0;
-                    if (i == 0)
+                    int x = seed.X + ox, y = seed.Y + oy;
+                    if (Crenel(read(x, y)) && Crenel(read(x + 1, y)) && Crenel(read(x, y + 1)) && Crenel(read(x + 1, y + 1)))
+                        return "double-row 2x2 at " + x + "," + y;
+                }
+            // Diagonal chains: isolated crenels are special/high; three in a diagonal line form
+            // an unbroken high barrier. Adding a crenel never isolates another one, so every new
+            // chain contains a new cell.
+            foreach (WallCell seed in added)
+                for (int c = 0; c < 9; c++)
+                {
+                    WallCell center = read(seed.X + c % 3 - 1, seed.Y + c / 3 - 1);
+                    if (!Isolated(read, center)) continue;
+                    for (int d = 4; d < 6; d++)
                     {
-                        int run = left != null && lh == (value == 1) ? 2 : 1;
-                        level[value * 2 + run - 1] = new Score(run == 2 ? 1 : 0, change, preferredChange, -1);
-                    }
-                    else for (int prior = 0; prior < 4; prior++)
-                    {
-                        Score old = levels[i - 1][prior]; if (old == null) continue;
-                        bool equal = prior / 2 == value; int run = equal ? prior % 2 + 2 : 1;
-                        if (run > 2) continue;
-                        int slot = value * 2 + run - 1, pairs = old.Pairs + (equal ? 1 : 0), changes = old.Changes + change;
-                        var candidate = new Score(pairs, changes, old.PreferredChanges + preferredChange, prior);
-                        if (Better(candidate, level[slot])) level[slot] = candidate;
+                        WallCell a = read(center.X - DX[d], center.Y - DY[d]), b = read(center.X + DX[d], center.Y + DY[d]);
+                        if (Isolated(read, a) && Isolated(read, b) && (isNew.Contains(a.Id) || isNew.Contains(center.Id) || isNew.Contains(b.Id)))
+                            return "three diagonal crenels through " + center.X + "," + center.Y;
                     }
                 }
-                levels.Add(level);
-            }
-            int chosen = -1; Score bestFinal = null;
-            Score[] last = levels[levels.Count - 1];
-            for (int state = 0; state < 4; state++)
+            // Chains of three cardinally connected special pieces (dense zigzag, stairs, clustered
+            // junctions) leave several adjacent high tiles a siege tower can dock to but not
+            // unload onto. A cell's shape changes only for new cells and their cardinal
+            // neighbours, so any new chain contains one of those that is newly special.
+            // Pre-existing chains (e.g. map-designer walls) never block an extension.
+            Func<int, int, WallCell> before = Reader(world);
+            var affected = new Dictionary<int, WallCell>();
+            foreach (WallCell cell in added)
             {
-                Score score = last[state]; if (score == null) continue;
-                bool equal = right != null && rh == (state / 2 == 1);
-                if (equal && state % 2 == 1) continue;
-                var candidate = new Score(score.Pairs + (equal ? 1 : 0), score.Changes, score.PreferredChanges, state);
-                if (Better(candidate, bestFinal)) { chosen = state; bestFinal = candidate; }
+                affected[cell.Id] = cell;
+                for (int n = 0; n < 4; n++) { WallCell next = read(cell.X + DX[n], cell.Y + DY[n]); if (Crenel(next)) affected[next.Id] = next; }
             }
-            if (chosen < 0) return false;
-            for (int i = chain.Count - 1; i >= 0; i--) { plan.Heights[chain[i].Id] = chosen / 2 == 1; chosen = levels[i][chosen].Previous; }
+            foreach (WallCell cell in affected.Values)
+            {
+                if (!IsSpecial(read, cell) || (!isNew.Contains(cell.Id) && IsSpecial(before, cell))) continue;
+                var specials = new List<WallCell>();
+                for (int n = 0; n < 4; n++) { WallCell next = read(cell.X + DX[n], cell.Y + DY[n]); if (IsSpecial(read, next)) specials.Add(next); }
+                // As middle: two special neighbours. As end: a special neighbour that has another one.
+                if (specials.Count >= 2) return "three special crenels through " + cell.X + "," + cell.Y;
+                foreach (WallCell middle in specials)
+                    for (int n = 0; n < 4; n++)
+                    {
+                        WallCell far = read(middle.X + DX[n], middle.Y + DY[n]);
+                        if (far != null && far.Id != cell.Id && IsSpecial(read, far)) return "three special crenels through " + middle.X + "," + middle.Y;
+                    }
+            }
+            // Runs of four or more connected high crenels (e.g. stairs with two-tile steps)
+            // leave a siege tower front without a low tile. Vanilla checkerboard corners and
+            // junctions produce at most three. A new run must contain a cell that becomes high
+            // now; runs of tiles that are already high (e.g. designer walls) are not new.
+            foreach (WallCell cell in affected.Values)
+            {
+                if (!PredictedHigh(read, cell, isNew, managed) || (!isNew.Contains(cell.Id) && cell.High)) continue;
+                var arms = new List<List<WallCell>>();
+                CollectArms(read, cell, new List<WallCell>(), arms, isNew, managed);
+                foreach (List<WallCell> a in arms)
+                {
+                    if (a.Count >= 3) return "four high crenels through " + cell.X + "," + cell.Y;
+                    foreach (List<WallCell> b in arms)
+                        if (a.Count + b.Count >= 3 && Disjoint(a, b)) return "four high crenels through " + cell.X + "," + cell.Y;
+                }
+            }
+            return null;
+        }
+
+        // Height after this command and the mod's own normalization: specials are forced high
+        // by the renderer, new and managed lines follow parity, foreign/map walls keep theirs.
+        internal static bool PredictedHigh(Func<int, int, WallCell> read, WallCell cell, ISet<int> isNew, Func<int, bool> managed)
+        {
+            if (!Crenel(cell) || cell.Structure) return false;
+            if (!IsLine(CardinalMask(read, cell.X, cell.Y))) return true;
+            if (cell.Damaged) return cell.High;
+            return isNew.Contains(cell.Id) || (managed != null && managed(cell.Id)) ? Parity(cell.X, cell.Y) : cell.High;
+        }
+
+        // All simple paths of up to three further high cells starting next to origin.
+        private static void CollectArms(Func<int, int, WallCell> read, WallCell origin, List<WallCell> path,
+            List<List<WallCell>> arms, ISet<int> isNew, Func<int, bool> managed)
+        {
+            if (path.Count == 3) return;
+            WallCell from = path.Count == 0 ? origin : path[path.Count - 1];
+            for (int n = 0; n < 4; n++)
+            {
+                WallCell next = read(from.X + DX[n], from.Y + DY[n]);
+                if (next == null || next.Id == origin.Id || path.Exists(c => c.Id == next.Id) ||
+                    !PredictedHigh(read, next, isNew, managed)) continue;
+                var extended = new List<WallCell>(path) { next };
+                arms.Add(extended);
+                CollectArms(read, origin, extended, arms, isNew, managed);
+            }
+        }
+
+        private static bool Disjoint(List<WallCell> a, List<WallCell> b)
+        {
+            foreach (WallCell x in a) foreach (WallCell y in b) if (x.Id == y.Id) return false;
             return true;
         }
 
-        private static IEnumerable<WallCell> Cardinal(WallCell cell, Func<int, int, WallCell> read)
-        {
-            for (int n = 0; n < 4; n++) { WallCell next = read(cell.X + DX[n], cell.Y + DY[n]); if (Crenel(next)) yield return next; }
-        }
-        private static bool Crenel(WallCell cell) => cell != null && cell.IsWall && cell.IsCrenel;
+        private static bool Isolated(Func<int, int, WallCell> read, WallCell cell) =>
+            Crenel(cell) && !cell.Structure && CardinalMask(read, cell.X, cell.Y) == 0;
         private static long Key(int x, int y) => ((long)x << 32) | (uint)y;
     }
 }

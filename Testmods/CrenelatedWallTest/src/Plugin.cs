@@ -27,7 +27,7 @@ namespace CrenelatedWallTest
                 LobbyModSettingsPresetRegistration.Register(this, log, Name, settings,
                     "ScriptExtenderUI/CrenelatedWallTestSettings.xaml");
                 CrusaderLibrary.Instance.LibraryLoaded += LibraryLoaded;
-                Shared.DebugLogHelper.LogInfo(log, "CRENEL_BOOT version=" + Version + "; revision=vanilla-preview-20261023; APIShared public services only; permanent local endpoint and preview hooks.");
+                Shared.DebugLogHelper.LogInfo(log, "CRENEL_BOOT version=" + Version + "; revision=parity-20261122; APIShared public services only; permanent local endpoint and preview hooks.");
             }
             catch (Exception ex) { Shared.DebugLogHelper.LogError(log, "CRENEL_INIT_FAILED settings: " + ex); }
         }
@@ -36,7 +36,7 @@ namespace CrenelatedWallTest
             if (runtime != null || !Shared.DebugLogHelper.ReportNativeLibraryVersion(log, Name, true)) return;
             try
             {
-                var candidate = new WallRuntime(log, settings, new NativeAvailability(context, log));
+                var candidate = new WallRuntime(log, settings);
                 runtime = candidate; // Published registrations retain this object for process lifetime.
                 candidate.Register(ApiShared.ForMod(Guid), context);
             }

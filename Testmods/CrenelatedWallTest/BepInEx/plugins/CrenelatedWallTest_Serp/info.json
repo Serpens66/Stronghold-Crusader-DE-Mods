@@ -2,11 +2,11 @@
   "GUID": "CrenelatedWallTest_Serp",
   "Author": "Serpens66",
   "Name": "Crenelated Wall Test",
-  "Description": "Alternating straight crenels including endpieces, double-row prevention and saved corrections. Supports manual editor construction for all players; automatic AI builds stay unchanged.",
+  "Description": "Newly built human crenels follow Vanilla's checkerboard including endpieces; double rows, diagonal chains, special-piece chains and runs of four high crenels are rejected so walls stay enterable. Map, AI and earlier walls stay unchanged.",
   "Version": "0.1.0",
   "MinimumScriptExtenderVersion": "2.14.1",
   "MaximumScriptExtenderVersion": "",
-  "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.9.1" }],
+  "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.49.0" }],
   "Manifest": 1,
   "NetworkMode": 1,
   "SupportedGameVersions": ["2.8.0.2"]

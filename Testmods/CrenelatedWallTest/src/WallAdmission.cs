@@ -1,16 +1,22 @@
+using System;
 using System.Collections.Generic;
 
 namespace CrenelatedWallTest
 {
+    internal sealed class WallVerdict
+    {
+        internal string Rejection;
+        internal int Added;
+        internal bool Accepted => Rejection == null;
+    }
+
     internal static class WallAdmission
     {
-        // Shared by presentation and execution. Only execution supplies the queued
-        // command maximum; presentation uses the maximum Vanilla would queue now.
-        internal static WallPlan Evaluate(IWallWorld world, int owner, List<WallCell> raster,
-            int availability, IReadOnlyDictionary<int, WallCell> preferred)
+        // Shared by presentation and execution: the same raster, prediction and rules.
+        internal static WallVerdict Evaluate(IWallWorld world, int owner, List<WallCell> raster, Func<int, bool> managed)
         {
-            var predicted = WallPolicy.Predict(raster, owner, availability);
-            return predicted.Count == 0 ? new WallPlan() : WallPolicy.Plan(world, owner, predicted, true, preferred);
+            List<WallCell> predicted = WallPolicy.Predict(raster, owner);
+            return new WallVerdict { Added = predicted.Count, Rejection = WallPolicy.Violation(world, predicted, managed) };
         }
     }
 }

@@ -64,7 +64,9 @@ Assert-SERuntimeModPreflight ([pscustomobject]@{ Name='CrenelatedWallTest'; Proj
 if (-not $?) { throw 'Shared/dependency/tooltip/permanent-hook regression failed.' }
 [xml]$xaml = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'Override\ScriptExtenderUI\CrenelatedWallTestSettings.xaml'))
 foreach ($node in $xaml.SelectNodes("//*[local-name()='Button' or local-name()='CheckBox' or local-name()='ComboBox' or local-name()='TextBox']")) {
-    if (-not $node.GetAttribute('ToolTip') -or $node.GetAttribute('ToolTipService.ShowDuration') -ne '60000') { throw 'Missing 60000-ms tooltip.' }
+    # Tooltip as attribute or as explicitly styled property element (<Button.ToolTip><ToolTip .../>).
+    $element = $node.SelectSingleNode("./*[local-name()='" + $node.LocalName + ".ToolTip']/*[local-name()='ToolTip'][@Content]")
+    if ((-not $node.GetAttribute('ToolTip') -and -not $element) -or $node.GetAttribute('ToolTipService.ShowDuration') -ne '60000') { throw 'Missing 60000-ms tooltip.' }
 }
 $viewer = $xaml.SelectSingleNode("//*[local-name()='ScrollViewer']")
 if ($viewer.GetAttribute('HorizontalScrollBarVisibility') -ne 'Auto' -or $viewer.GetAttribute('VerticalScrollBarVisibility') -ne 'Auto') { throw 'Settings scroll contract changed.' }

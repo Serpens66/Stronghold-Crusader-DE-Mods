@@ -71,3 +71,51 @@ Occupied terrain is separately protected. After the native wall/moat selector an
 Observed corroboration, not a claim about every remaining tile: archived local run `.work/t/area-wolf1/009/walls/e23b931662da/LogOutput.log` records tile233160 changing `0x300 ->0x400300` before packet5 with owner1, Height106, DefaultHeight8, unit0 and structure0 unchanged; tile234924 shows the same High-only transition at Height76/DefaultHeight8. This matches the independently identified deferred Vanilla write.
 
 Archived local run `.work/t/area-wolf1/012/combined/565da8ecb291/LogOutput.log`, lines6223-6224 and7473-7474, corroborates this second condition: tiles171965 and172735 had unit0 at initial capture, then unit13 at the native-permission guard while owner, type/flags and native height remained unchanged. These observations support the occupancy predicate; they do not justify bypassing live eligibility or clearing the native tile-unit layer.
+
+## Follow-up audit: enterability of high crenels, 2026-11-22 [Vanilla facts]
+
+Native SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2` was rehashed against CURRENT.json. The findings below are static: they come from semantic pseudocode, capstone disassembly and installed table bytes. The two key tests at 0x6A560 and 0xD86F0 were cross-checked a second time against the pseudocode. Each finding gives its confidence.
+
+**Tile flags and heights.** Placement 0x6F230 sets 0x200 and 0x100 on every crenel (0x300). A crenel stands 8 above its wall height: 68 or 98, against 60 or 90 for the wall. The +10/+20 that 0x6B530 and 0x9C730 add for low/high only offsets unit height and projectile collision; pathing reads the raw height grid. *(confirmed)*
+
+**Edge builder 0xD86F0** (called via 0xD90D0 and 0xDAA50):
+- **High crenel as centre:** a tile with bit 0x400000 gets no edges; the function returns mask 0. *(confirmed)*
+- **High crenel as neighbour:** it never becomes passable. No unit can stand on, enter or cross a high crenel, archers included. *(confirmed)*
+- **Low crenel:** it is linked to wall-top tiles (0x100) within a height difference of ±16 (the comparisons include the bound). That covers the walkway behind it and diagonally adjacent low crenels. *(confirmed)*
+- **Docked siege-tower tiles (0x10000000):** they connect in all 8 directions to every neighbour that has 0x100 and is not high, with no height check. *(confirmed)*
+
+**Ladders (type 29):**
+- **Target choice (0xDC900):** it searches up to depth 10 for a ground tile that has an axis neighbour with 0x300 set, the high bit clear and a different owner. *(confirmed)*
+- **Placement (0x6A560):** it takes the first neighbour, in order 0, 4, 2, 6, 1, 7, 3, 5, where `(flags & 0x400102) == 0x100`. If none matches it returns 0xF and the ladder is not placed. Otherwise 0x1950B0 sets 0x800000 on the ladder tile and allocates portal type 1 through 0xD8510. *(confirmed)*
+- **Portal handler (0xD7D50):** it does not test the high bit again. A target that becomes high later probably leads into a tile with no edges. *(probable)*
+
+**Assassins (type 73):** path search 0xD9C40 and the physical step 0xDCE60 require an axis step into a tile with none of the bits in mask 0x4A5014B1, which contains the high bit. The owner is not checked. *(confirmed)*
+
+**Siege tower (type 58):**
+- **Target search (0xDFCF0):** it accepts any tile with 0x100, including high crenels.
+- **Spot check (0x181E30):** it requires the wall tile's two neighbours along the wall to have 0x100, and a free 3x3 footprint (tables 0x336950..0x336A28) two tiles away. It never consults the high bit. *(confirmed)*
+- **Deployment:** it places building 0x5E, which maps to type 0x45; 0x76D40 marks all 9 tiles with 0x10000000.
+- **Leaving the tower:** troops can only step onto a non-high tile among the 5 wall tiles in front of the tower (x-2..x+2). One low tile is enough; two adjacent low tiles are never needed. *(confirmed statically)*
+
+**Double crenel rows.** In a 2-wide band every tile has a crenel neighbour across the band, so the straight-piece check 0x5C2D0 fails for all of them. Renderer 0x65830 therefore makes the whole band permanently high. Siege towers still dock, because 0x181E30 ignores the high bit, but nobody can unload. Ladders and assassins find no target at all. This matches the user's in-game observation.
+
+**Other readers.**
+- 0xE9D90, 0xE9FF0 and 0xF0710 (choosing a free tile after a climb, via 0x181890) all exclude high tiles. *(confirmed)*
+- 0x10DF60 counts non-high wall tiles for AI wall planning. *(candidate)*
+- 0x41D60 only uses the bit for a sprite offset.
+- Corners, junctions and endpoints have no separate logic: special pieces behave exactly like straight high pieces.
+
+**Still open:**
+- The meaning of the byte at +0xFA2980 (compared against ≤ 20) on tower tiles.
+- How the AI selects siege targets.
+
+## Enterability rule set, 2026-11-22 [mod integration]
+
+`Testmods/CrenelatedWallTest` now uses the facts above as follows. This supersedes the alternating optimizer described in the consumer sections above.
+- **Height rule:** straight pieces and endpoints follow Vanilla placement parity (high when x+y is odd). Specials keep Vanilla's own height (high).
+- **Scope:** only crenels placed by humans while the mod is active are managed and saved, by id and owner without heights. Map, AI and pre-mod walls are never rewritten.
+- **Rejected constructions:** a command is rejected when it newly creates a filled 2x2 block, a diagonal chain of 3 isolated crenels, a chain of 3 cardinally connected special pieces, or a cardinal run of 4 high crenels.
+- **Removed native read:** the former 0xCF640 quota read is gone; admission checks the whole raster conservatively.
+- **Hooks:** the existing straight-predicate and preview hooks are unchanged.
+- **Regression tokens:** `tests/audit-native.py` covers 0x6A560 and 0xD86F0.
+- **Not yet verified in game:** graphics, actual docking and entering, and MP synchronization.

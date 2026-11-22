@@ -15,7 +15,10 @@ current = json.loads((baseline / "CURRENT.json").read_text(encoding="utf-8-sig")
 native = game / "Stronghold Crusader Definitive Edition_Data/Plugins/x86_64/CrusaderDE.dll"
 digest = hashlib.sha256(native.read_bytes()).hexdigest().upper()
 assert digest == current["currentNativeHash"] == "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2"
-database = baseline / current["semanticDirectory"] / "CrusaderDE-semantic.sqlite"
+# Resolve the database through the baseline manifest, exactly like tools/semantic/query.ps1.
+manifest = json.loads((baseline / current["databaseManifest"]).read_text(encoding="utf-8-sig"))
+database = (baseline / manifest["database"]["path"]).resolve()
+assert str(database).lower().startswith(str(baseline).lower()) and database.is_file(), "Semantic database missing: " + str(database)
 connection = sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)
 contracts = {
     "0x85BD0": ["DLL_MapAction", "FUN_18008aaf0"],
@@ -33,13 +36,13 @@ contracts = {
     "0x5C1C0": ["param_4 == 1", "param_4 == 3", "param_4 == 5", "param_4 != 7", "0x200"],
     "0x6B530": ["uVar3 = 10", "uVar3 = 0x14", "return ~uVar3"],
     "0xC8CC0": ["param_3 * 2 + param_4", "uVar1 & 3"],
-    "0xCF640": ["return 100", "DAT_183665f28 == 6", "0x130d10", "0xfa"],
+    "0x6A560": ["0x400102", "return 0xf"],  # Ladder target: needs a low crenel/wall tile.
     "0x1F5F0": ["+ param_3", "0xb0c09"],
     "0xE3B90": ["0x50", "= 2", "DAT_184a7faf0"],
     "0xCDE60": ["FUN_180065830", "FUN_18007c0a0", "FUN_18001d160"],
     "0x5BC70": ["FUN_180065830", "0x4e520"],
     "0x9C730": ["uVar2 + 0x14", "uVar2 + 10"],
-    "0xD86F0": [">> 0x16", "0x4a5014b1"],
+    "0xD86F0": [">> 0x16", "0x4a5014b1"],  # High crenels get no path edges at all.
     "0xDC900": [">> 0x16", "0x10000300"],
     "0xE9D90": [">> 0x16", "0x10000100"],
     "0xE9FF0": [">> 0x16", "0x10000100"],
@@ -59,12 +62,7 @@ decoder = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
 handler_size = connection.execute("select size from functions where binary_hash=? and rva=?", (digest, "0x11B50")).fetchone()[0]
 instructions = list(decoder.disasm(image.get_data(0x11B50, handler_size), handler))
 assert any(i.mnemonic == "call" and "0x18006f230" in i.op_str for i in instructions)
-import base64, re
-reader_source = (workspace / "Testmods/CrenelatedWallTest/src/NativeAvailability.cs").read_text(encoding="utf-8-sig")
-reader_bytes = base64.b64decode(re.search(r'ReferenceCode = "([^"]+)"', reader_source)[1])
-assert len(reader_bytes) == 179 and image.get_data(0xCF640, len(reader_bytes)) == reader_bytes
-assert hashlib.sha256(reader_bytes).hexdigest().upper() == "F2C875634DF70ABE13AE3938E6F63B1C4BCF2E61061B753BCD3FB9EFFF23B21A"
-assert sum(image.get_data(s.VirtualAddress, min(s.Misc_VirtualSize, s.SizeOfRawData)).count(reader_bytes) for s in image.sections if s.Characteristics & 0x20000000) == 1
+import re
 source_path = workspace / "shcde-script-extender/src/SHCDESE.BepInEx/Detours/BulkBuildingDetours.cs"
 if not source_path.is_file() and os.environ.get("SHCDE_NATIVE_BASELINE_ROOT"):
     # Isolated branch sources reuse the canonical read-only baseline/fork.

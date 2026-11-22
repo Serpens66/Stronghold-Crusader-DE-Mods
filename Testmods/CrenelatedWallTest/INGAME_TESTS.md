@@ -1,66 +1,60 @@
-# Zinnen-Testmod: Ingame-Prüfung der ersten Fassung
+# Zinnen-Testmod: Ingame-Prüfung (Schachbrett-Fassung, Stand 22.11.2026)
 
-Version 0.1.0. APIShared wird nur über bestehende öffentliche APIs verwendet und wurde nicht verändert oder gebaut. Ein permanenter lokaler Grafik-Hook ermöglicht niedrige gerade Endstücke. Die Aktivierung wird als Host-Einstellung synchronisiert und beim Beginn einer Partie oder Editor-Sitzung festgehalten.
+APIShared wird nur über bestehende öffentliche APIs verwendet. Zwei dauerhafte lokale Hooks bleiben: Der Grafik-Hook ermöglicht niedrige gerade Endstücke, der Vorschau-Hook färbt unzulässige Bauzüge rot. Die Aktivierung ist eine Host-Einstellung und wird beim Beginn einer Partie oder Editor-Sitzung festgehalten.
+
+## Regeln dieser Fassung
+
+- **Verwaltet werden nur neu gebaute Zinnen menschlicher Spieler**, im Editor die manuellen Bauten aller Slots. Karten-, KI- und ältere Mauern bleiben genau wie geladen. Kartenersteller deaktivieren den Mod, um wie in Vanilla zu bauen.
+- **Höhen:** Gerade Stücke und Endstücke folgen Vanillas Schachbrett: Bei ungerader Summe x+y ist die Zinne hoch, sonst niedrig. Ecken, Kreuzungen und Einzelstücke bleiben hoch wie in Vanilla.
+- **Abgelehnt wird der ganze Bauzug** (rote Vorschau und keine Ausführung), wenn er eines davon neu erzeugt:
+  - ein gefülltes 2×2,
+  - eine Diagonalkette aus drei Einzelzinnen,
+  - eine Kette aus drei zusammenhängenden Ecken/Kreuzungen,
+  - eine zusammenhängende Folge von vier hohen Zinnen.
+- **Grund** (nativer Audit vom 22.11.2026): Hohe Zinnen sind für alle Einheiten unbegehbar (0xD86F0). Leitern und Assassinen brauchen eine niedrige Zielkachel. Truppen aus Belagerungstürmen brauchen eine niedrige Kachel unter den fünf Kacheln vor der Turmfront.
+- Gespeichert wird nur, welche Kacheln der Mod gesetzt hat, nicht ihre Höhe.
 
 ## Einstieg und Nachweis
 
-1. Spiel nach der Installation neu starten. In den Modoptionen **Crenelated Wall Test** aktivieren. Editor und normale Partie sind unterstützt; Änderungen gelten ab der nächsten Sitzung.
-2. Auf einer Testkarte eine gewöhnliche Steinmauer errichten und daneben Zinnen bauen. Mit genügend Stein beginnen; anschließend dieselben Versuche mit wenig Stein wiederholen.
-3. Im aktuellen Spielstartabschnitt von `BepInEx/LogOutput.log` prüfen: `CRENEL_READY`, `CRENEL_NATIVE_READ`, `CRENEL_GRAPHICS_READY`, `CRENEL_SESSION`, `CRENEL_RUNTIME_AFTER_CLEANUP` und nach dem ersten erfolgreichen Bau `CRENEL_HOOK_CONFIRMED`. Beim ersten niedrigen Endstück muss `CRENEL_GRAPHICS_CONFIRMED` erscheinen. Im Editor ist `editor=True` zusammen mit `active=True` zu erwarten.
-4. Erfolgreiche Bauten protokollieren `CRENEL_BUILD` mit `eligible = changed + unchanged`. Ablehnungen protokollieren `CRENEL_REJECT` und `CRENEL_REJECT_VERIFIED` mit `added=0` und unverändertem Steinbestand.
-5. `CRENEL_CALLBACK_ERROR`, `CRENEL_POST_UNRESOLVED` oder unerwartetes `CRENEL_LOAD_SKIPPED` mit Screenshot und dem aktuellen Logabschnitt melden. Ein fehlender Start-/Tickmarker bedeutet, dass kein Laufzeitnachweis vorliegt.
+1. **Vorbereitung:** Spiel nach der Installation neu starten und in den Modoptionen **Crenelated Wall Test** aktivieren. Editor und normale Partie sind unterstützt; Änderungen gelten ab der nächsten Sitzung.
+2. **Startmarker:** Im aktuellen Spielstartabschnitt von `BepInEx/LogOutput.log` müssen erscheinen:
+   - `CRENEL_READY`, `CRENEL_GRAPHICS_READY`, `CRENEL_PREVIEW_READY`, `CRENEL_SESSION` und `CRENEL_RUNTIME_AFTER_CLEANUP`,
+   - nach dem ersten erfolgreichen Bau `CRENEL_HOOK_CONFIRMED`,
+   - beim ersten niedrigen Endstück `CRENEL_GRAPHICS_CONFIRMED`.
+3. **Bau- und Ablehnungsmarker:**
+   - Erfolgreiche Bauten protokollieren `CRENEL_BUILD` mit `checked = changed + unchanged`.
+   - In der Vorschau blockierte Züge erzeugen keinen Bauauftrag.
+   - Ablehnungen in der Ausführung protokollieren `CRENEL_REJECT` und `CRENEL_REJECT_VERIFIED` mit `added=0` und unverändertem Steinbestand.
+4. **Fehlermarker:** `CRENEL_CALLBACK_ERROR` oder ein fehlender Start- bzw. Tickmarker zusammen mit dem Logabschnitt melden.
 
-Die zusätzliche Bauprüfung setzt jetzt Vanillas Ungültigkeitsstatus: Unzulässige Zinnenzüge sollen bereits rot erscheinen und beim Loslassen keinen Bauauftrag auslösen. Dafür `CRENEL_PREVIEW_READY` und nach dem ersten zusätzlichen Veto `CRENEL_PREVIEW_CONFIRMED` prüfen; `CRENEL_PREVIEW_UNAVAILABLE` bedeutet, dass nur die bisherige Ausführungssperre verfügbar ist. Bei bereits in der Vorschau blockierten Versuchen sind keine OnBuildWall-Ablehnungsmarker zu erwarten, weil kein Bauauftrag entsteht. Abgelehnt wird weiterhin der gesamte noch mögliche Bauzug. Normale Kosten, Schäden, Grundhöhen und Eigentümer verwaltet Vanilla. Ändert sich die Karte oder der Steinbestand nach der Vorschau, entscheidet die frische synchronisierte Ausführungsprüfung erneut.
+## Prüffälle
 
-## Zusätzliche Vorschau-Abnahme
-
-- Eine Zinne ohne unterstützende normale Mauer zeigen: Vanillas rote Darstellung bleibt erhalten.
-- Ein zulässiges Feld zeigen, daneben einen neuen 2×2-Block vervollständigen: Die Vorschau muss vor dem Klick rot werden; Loslassen verändert weder Karte noch Steinbestand.
-- Vom unzulässigen Feld zurück auf ein zulässiges bewegen: Die gültige Darstellung muss sofort wiederkehren, auch bei pausiertem Spiel.
-- Dasselbe gezogen und einzeln, in allen Kartenrichtungen sowie im Editor für menschliche und KI-Spielerzuordnungen prüfen.
-- Während einer Vorschau benachbarte Mauern abreißen/wiederaufbauen, Spielerzuordnung ändern und Steinbestand verändern: kein veraltetes Grün oder Rot.
-- Mod vor der nächsten Sitzung deaktivieren: ursprüngliche Vorschau und ursprünglicher Bau bleiben vollständig erhalten.
-- In einer echten Host-/Client-Partie von beiden PCs bauen; Vorschau ist lokal, die Ausführungsentscheidung muss auf beiden gleich ausfallen.
-
-Diese visuellen Fälle sind bis zu tatsächlicher Beobachtung offen. Backend-Fixtures bestätigen Aufrufkonvention, Statuswechsel und deaktivierte Semantik; sie zeichnen keine Spielgrafik.
-
-## Alle Sonderfälle
-
-| Versuch | Erwartung der ersten Fassung | Worauf achten |
+| Versuch | Erwartung | Worauf achten |
 |---|---|---|
-| Eine Zinne einzeln setzen | Hohes Endstück. | Normale Endgrafik, unveränderte Kosten. |
-| Zweite daneben setzen | Hoch–niedrig; vorhandenes hohes Einzelstück möglichst erhalten. | Alle vier Richtungen und umgekehrte Baureihenfolge testen. |
-| Dritte daneben setzen | Hoch–niedrig–hoch. | Das zuvor einzeln gebaute Mittelstück muss niedrig werden. |
-| Gerade Reihen mit 4, 5, 6 und 11 Feldern | Durchgehend wechselnd, einschließlich der Endstücke. | Keine gleichen Nachbarn auf einer freien geraden Reihe. Einzelbau und Ziehen dürfen unterschiedliche gleichwertige Phasen erhalten. |
-| Reihen in Gegenrichtung oder an beiden Enden verlängern | Dieselbe Wechselregel. | Alle vier Kartenrichtungen und alle Kamerarotationen testen. |
-| Getrennte Reihen mit einer Lücke verbinden | Angeschlossenen eigenen Zug neu zuordnen. | Keine Dreierfolge nach dem Schließen; entfernte andere Mauern unverändert. |
-| Kurzes L aus genau drei Feldern | Niedrig–hoch–niedrig; hohe Ecke erhalten. | Beide Endstücke sichtbar niedrig, normale Ecke unverändert. |
-| L mit längeren Armen | Hohe Ecke; gerade Nachbarstücke niedrig. | Eckgrafik erhalten, keine Hochfolge um die Ecke. |
-| Kurzes U, dichtes Zickzack oder kurze Verzweigung | Ablehnung, wenn feste Sonderstücke eine Dreierfolge erzwingen. | Ablehnungsgrund und Koordinaten im Log; diese Fälle sind bewusst konservativ. |
-| T-Kreuzung mit längeren Armen | Hohe Verzweigung, angrenzende veränderbare Stücke niedrig. | Kurze zusätzliche Arme können abgelehnt werden. |
-| Geschlossener Ring mit ausreichend langen Seiten | Hohe Eckstücke, Wechsel zwischen den Ecken. | Seiten mit gerader/ungerader Länge und das letzte Schließen testen. |
-| Tatsächliche Diagonale im Kartenraster | Lange Dreierfolgen aus hohen Sonderstücken werden verhindert. | Die übliche isometrische Bildschirmdiagonale einer geraden Kartenachse ist davon nicht betroffen. |
-| Zweite parallele Reihe neben einer vorhandenen | Gesamten Bauzug ablehnen, sobald ein neues gefülltes 2×2 entsteht. | Kein Steinverlust. Ein einzelnes Eckfeld ohne 2×2 ist noch keine verbotene Doppelreihe. |
-| 2×2 über mehrere Einzelklicks vervollständigen | Letztes vervollständigendes Feld ablehnen. | Keine Umgehung durch Einzelbau oder Bau in Gegenrichtung. |
-| An vorhandene Doppelreihe anbauen | Bestand nicht löschen; problematische Erweiterung ablehnen. | Der Mod repariert keine alten Doppelreihen beim Laden. |
-| Anschluss an Tor oder Turm | Gebäudeflächen erhalten; angrenzende eigene Zinnen nur bei erfüllbaren Regeln korrigieren. | Grafik, Grundhöhe, Einheitengang und Anschluss kontrollieren. |
-| Unterschiedliche Boden-/Mauerhöhen | Native Höhen erhalten; nur Zinnenmarkierung wechseln. | Keine abgesenkten Mauerkörper oder versetzten Einheiten. |
-| Anschluss an fremde/alliierte Mauern | Fremde Flags und Eigentümer erhalten. | Fremde Nachbarn können die eigene Platzierung begrenzen. |
-| Zinnen über beziehungsweise neben niedrigen Mauern | Native Höhenwahl erhalten. | Die Korrektur ändert nicht Vanillas Wahl der Grundhöhe. |
-| Abriss einer Mitte oder Ecke | Betroffene gespeicherte Einträge entfernen und erreichbare eigene Nachbarn erneut prüfen. | Neue Endstücke dürfen hoch werden; unvermeidbare Sonderformen werden gemeldet, nicht automatisch abgerissen. |
-| Beschuss und anschließender Wiederaufbau | Beschädigte Grafik erhalten; intakte neue Bauten erneut zuordnen. | Projektile und Nahkampfschaden testen; die begrenzte Tickprüfung kann entfernte Änderungen verzögert erkennen. |
-| Bau mit knappem Steinbestand | Tatsächlich möglichen Präfix prüfen; einen problematischen kurzen Präfix vollständig ablehnen. | Auch mehrere schnell hintereinander abgeschickte Bauzüge testen. |
-| Alter Save ohne Moddaten | Keine automatische Kartenkorrektur. | Erst ein neuer menschlicher Bau darf den angeschlossenen eigenen Zug ändern. |
-| Save mit korrigierten Mauern | Zuordnung nach Neustart/Laden erhalten. | `CRENEL_SAVE` und `CRENEL_LOAD`; keine Änderung ungespeicherter anderer Mauern. |
-| Mod für die nächste Partie deaktivieren | Neue Bauten verwenden Vanilla. | Aktivierungsänderungen beeinflussen die laufende Partie nicht. |
-| KI baut oder erweitert ihre Burg | KI-Mauern bleiben Vanilla. | Keine eigenständigen KI-Korrekturen oder KI-Bauverbote. |
-| Im Editor für Spieler 1 bis 8 manuell bauen | Gleiche Regeln für jede Zuordnung. | Auch im späteren Spiel KI-gesteuerte Slots testen; tatsächliche automatische KI-Bauten bleiben ausgenommen. |
-| Editor-Karte speichern, neu öffnen und als Partie starten | Ausschließlich aufgezeichnete Korrekturen wiederherstellen. | Auch Zinnen für KI-Slots; alte Karten ohne Metadaten nicht automatisch bearbeiten. |
-| Seitliche Einzelanbauten und anschließende Verbindungen | Regeln unabhängig von Reihenfolge durchsetzen. | Züge aus dem Log vom 15.10.2026 nachstellen; unbekannte Exploits zusätzlich mit Vorher-/Nachher-Screenshots dokumentieren. |
-| Niedriges Endstück nach Kamerawechsel, Schaden oder Wiederaufbau | Intakte zugeordnete Endstücke bleiben niedrig; beschädigte Grafik bleibt Vanilla. | Alle Kamerarotationen, keine flackernden Höhen, Texturlücken oder versetzten Einheiten. |
+| Gerade Reihe Stück für Stück bauen (der Exploit) | Exaktes Schachbrett, auch an den Endstücken. | Kein Stück bleibt hoch; alle vier Richtungen, alle Kamerarotationen. |
+| Dieselbe Reihe ziehen | Gleiches Ergebnis wie Stück für Stück. | Auch in Gegenrichtung ziehen. |
+| Einzelne Zinne, dann Nachbar | Erst hoch (Einzelstück), dann beide nach Schachbrett. | Das erste Stück muss niedrig werden, wenn seine Parität niedrig ist. |
+| Leiter, Assassine, Belagerungsturm an Stück-für-Stück-Mauer | Andocken **und** Betreten der Mauer gelingt. | Einheiten erreichen den Mauergang. |
+| Turm vor Ecke/T-Kreuzung | Truppen kommen über eine niedrige Nachbarkachel hinein. | Lange und kurze Arme testen. |
+| Zweite parallele Reihe / 2×2 per Einzelklick | Rot, kein Bau, kein Steinverlust. | Auch an Karten- oder fremden Mauern. |
+| Diagonale aus drei Zinnen | Rot. | Zwei diagonale Zinnen bleiben erlaubt. |
+| Treppe mit 1er-Stufen | Rot beim dritten Eckstück. | Nachricht „three special“. |
+| Treppe mit 2er-Stufen, kurzes U (3 breit) | Je nach Kartenposition erlaubt oder rot („four high“). | Um eine Kachel verschoben wiederholen. |
+| Lange L-, T-, Kreuz- und Ringformen | Erlaubt, höchstens drei Hohe in Folge. | Beide Paritäten (um eine Kachel verschieben). |
+| Abriss einer Mitte oder eines Eckarms | Überbleibende verwaltete Stücke werden wieder Schachbrett; neue Endstücke niedrig, falls Parität niedrig. | Kurze Verzögerung durch den begrenzten Tick-Scan ist zulässig; kein dauerhaftes Flackern. |
+| Beschuss und Wiederaufbau | Beschädigte Grafik bleibt Vanilla; Wiederaufbau folgt dem Schachbrett. | Projektile und Nahkampf. |
+| Karte mit vorgebauten Mauern / alter Save ohne Moddaten | Keine Änderung beim Laden. | Anbauen ändert nur die neuen Stücke. |
+| Save mit Modbauten | Verwaltete Kacheln bleiben nach Laden verwaltet. | `CRENEL_SAVE` und `CRENEL_LOAD`. |
+| Editor: Mod deaktiviert bauen, speichern, mit Mod laden | Vanilla-Mauern bleiben unverändert. | Auch KI-Slots. |
+| KI baut ihre Burg | KI-Mauern bleiben Vanilla. | Keine KI-Bauverbote. |
+| Knapper Steinbestand | Ein Zug wird abgelehnt, wenn die ganze Linie verboten wäre, auch wenn nur ein Teil bezahlbar ist. | Bewusst konservativ. |
 
 ## Multiplayer
 
-Auf Host und Client denselben Testmod und dieselben erforderlichen Abhängigkeiten verwenden. Nur der Host stellt die Aktivierung ein. Abwechselnd auf beiden PCs Einzelstücke, Linien, Anschlüsse und verbotene Doppelreihen bauen; auf beiden dieselben Entscheidungen und Zinnenformen erwarten. Auch eigene Mauern beider Spieler, alliierte Anschlüsse, knappen Steinbestand, Kartenwechsel sowie einen Multiplayer-Save nach komplettem Neustart testen. `LoadContext.IsSaveFile` allein ist keine zuverlässige Save-Erkennung; der Mod verwendet dafür den vorhandenen APIShared-Missionskontext.
+Host und Client verwenden denselben Testmod; nur der Host stellt die Aktivierung ein.
+- Abwechselnd auf beiden PCs Linien, Anschlüsse und verbotene Formen bauen; auf beiden Seiten müssen dieselben Entscheidungen und Höhen entstehen.
+- Einen Multiplayer-Save nach einem kompletten Neustart prüfen.
 
-Die automatisierten Zwei-Peer- und Save-Tests sind Modell-/Codecprüfungen. Eine reale Netzwerkpartie, Resynchronisation, Grafik und Einheitenhöhe gelten erst nach diesen Ingame-Versuchen als bestätigt. Script-Extender-Debug-/Spiegelplatzierungen und direkte Fremdmod-Speicherwrites sind kein unterstützter menschlicher Baupfad dieser Testfassung. Weitere beobachtete Exploits bleiben bis zu konkreten Screenshots offene Prüffälle.
+**Offen:** Ob ein Resync die Moddaten (verwaltete Kacheln) mitüberträgt, ist ungeklärt. Bei einem Resync die Höhen beider Peers vergleichen.
+
+Die automatisierten Tests sind Modell- und Codecprüfungen. Grafik, Einheitengang, Andocken und Netzwerkgleichheit gelten erst nach diesen Ingame-Versuchen als bestätigt.

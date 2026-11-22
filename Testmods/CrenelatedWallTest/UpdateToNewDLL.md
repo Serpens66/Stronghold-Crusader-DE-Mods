@@ -1,18 +1,25 @@
-# Native contracts: CrenelatedWallTest 0.1.0
+# Native contracts: CrenelatedWallTest
 
 Reference native SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2. APIShared is a public-API dependency, not a version/file-hash-pinned implementation. Select its validated SDK through ApiSharedDir / SHCDE_API_SHARED_DIR; without an override use the local package. The project uses the ordinary workspace provenance gate and never ships APIShared. The minimum remains 0.9.1 because no newer public API is needed. At the 2026-10-23 update, local and installed APIShared were both 0.14.0; that observation is not a future compatibility condition.
 
 ## Runtime native access
 
-The read-only wall availability getter is RVA `0xCF640`, `int(playerManager*, int playerId, int goodsId)`. Its entire 179-byte reference body is stored in `NativeAvailability.ReferenceCode`; SHA-256 F2C875634DF70ABE13AE3938E6F63B1C4BCF2E61061B753BCD3FB9EFFF23B21A. Pointer and one-based player ID are validated through public SE methods; goods ID uses `eGoods.STORED_STONE_BLOCKS` (4, checked against the installed enum). The delegate is retained by the static process runtime.
+Since the 2026-11-22 rework the mod has no read-only native call: the former `0xCF640` quota getter was removed. Admission now checks the whole queued raster (`BuildWallsMaximum`) or, in the preview, the whole dragged line, ignoring the actual-placement quota. It is therefore conservative with respect to Vanilla's affordable prefix. The synchronized `OnBuildWall` execution check stays authoritative. The only native code contracts are the two permanent hooks below.
 
-Resolution: first validate the reference RVA against live bytes. On mismatch, attempt the exact full-body pattern exclusively in executable PE sections of the SE snapshot, require uniqueness and revalidate live bytes. Since the body contains relative globals, an equal byte body at a different RVA is not accepted without a new semantic audit. Unknown DLL hashes, ambiguous/missing patterns, changed live bytes or invalid module bounds leave the entire test feature inactive. The hash gate runs before this address is used. The quota getter itself is not patched.
+## Enterability evidence (2026-11-22)
 
-This getter preserves Vanilla's campaign/cheat result 100, native mode-6 resource branch, stone-times-two-minus-remainder branch and clamp to 250. The consumer does not interpret modes or calculate prices. In `0x6F230`, resource exhaustion is `available < alreadyPlaced`; the public command maximum independently counts raster visits. `WallPolicy.Predict` therefore limits new tiles to the exact getter result plus one, while `Raster` honors the original command maximum. The repeated endpoint cannot create a second tile. Re-audit both comparisons after updates.
+The rule set rests on this audited reader behaviour of the same hash. Its regression tokens are in `tests/audit-native.py`.
+- `0xD86F0` gives a high crenel (bit `0x400000`) no path edges at all.
+- `0x6A560` (ladder target, via `0xDC900`) requires `(flags & 0x400102) == 0x100`.
+- `0xD9C40`/`0xDCE60` (assassin climb) exclude the mask `0x4A5014B1`, which contains the high bit.
+- `0x181E30` (siege tower docking) never reads the high bit, so troops can leave the tower only through a low tile among the five wall tiles at its front.
+- Vanilla placement `0x6F230` sets high exactly for odd `x+y`.
+
+Re-audit these readers before changing the rules.
 
 ## Borrowed SE and Vanilla contracts
 
-Except the getter, graphics predicate and preview validator documented here, native addresses are audit references. Input/preview: `0x85BD0`, `0x8AAF0`, `0x94120`, `0x7A3B0`, `0x61210`. Execution/field transport: `0x11B50`, `0x1F5F0`, `0x6F230`, `0xC8CC0`, `0xCF640`. Shape/height: `0x5C580`, `0x5C0E0`, `0x5C2D0`, `0x5C1C0`, `0x6CB20`, `0x65830`. Refresh/lifetime: `0xE3B90`, `0xCDE60`, `0x5BC70`. Readers: `0x6B530`, `0x9C730`, `0xD86F0`, `0xDC900`, `0xE9D90`, `0xE9FF0`, `0xF0710`, `0x10DF60`.
+Except the graphics predicate and preview validator documented here, native addresses are audit references. Input/preview: `0x85BD0`, `0x8AAF0`, `0x94120`, `0x7A3B0`, `0x61210`. Execution/field transport: `0x11B50`, `0x1F5F0`, `0x6F230`, `0xC8CC0`. Shape/height: `0x5C580`, `0x5C0E0`, `0x5C2D0`, `0x5C1C0`, `0x6CB20`, `0x65830`. Refresh/lifetime: `0xE3B90`, `0xCDE60`, `0x5BC70`. Readers: `0x6B530`, `0x9C730`, `0xD86F0`, `0xDC900`, `0xE9D90`, `0xE9FF0`, `0xF0710`, `0x10DF60`, `0x6A560`, `0xD9C40`, `0x181E30`.
 
 `OnBuildWall` Pre can modify `BuildWallsMaximum`; the installed wrapper ignores `SkipOriginalFunction` and emits Post with original inputs. Zero maximum stops before placement, but Vanilla still runs once and may update ordinary bookkeeping. Actual before/after tiles and stone prove rejection at runtime. Mirror-tool originals run before the event and are outside this feature's supported input path. The event's `ReturnValue` is not a build-success signal.
 
@@ -42,6 +49,6 @@ Only the installed, hash-verified NativeX64 Absolute backend is admitted. Fourte
 
 Installation checks the complete load-time snapshot and live body before claiming Exclusive [7A3B0,7A3C2) and Observe [7A3C2,7AA0B) through the existing public NativeSiteRegistry. A failed unpublished candidate alone may dispose/unregister. From the first Enable attempt onward the owner remains rooted and registered permanently, with errors logically disabling the callback. A refused/unknown preview contract leaves existing execution protection active. The native hash gate and relative globals intentionally prevent accepting a moved function by a byte-pattern match; unknown hashes need a fresh semantic/layout audit, not a fallback to the old data offset.
 
-The callback calls Vanilla exactly once. A mod veto can only change zero to one in that data int. Current-thread OnBuildWall scopes bypass the additional policy evaluation: execution always uses fresh command inputs, never preview cache state. Interactive checks reuse WallAdmission and use CF640's quota as the maximum that 94120 would queue, keeping visit count distinct from actual-placement quota. One cached request is reused only after every raw cell read (including failed/empty reads), relevant saved preference, owner, coordinates and quota matches. Session retirement clears it. No simulation state, saved assignment or resource is changed by prediction.
+The callback calls Vanilla exactly once. A mod veto can only change zero to one in that data int. Current-thread OnBuildWall scopes bypass the additional policy evaluation: execution always uses fresh command inputs, never preview cache state. Interactive checks reuse WallAdmission over the whole dragged line. One cached request is reused only after every raw cell read (including failed/empty reads), the managed flag of each read tile, owner, coordinates and maximum match. Session retirement clears it. No simulation state, managed set or resource is changed by prediction.
 
 NativeSiteRegistry was added in APIShared commit 5ed595c while its declared version was 0.9.1; no newer minimum is introduced merely for the current 0.14.0 SDK. Consumer compilation tests the exact public registry members and rejects missing members, while unrelated additions/version changes remain accepted. No APIShared code, package or README is changed.
