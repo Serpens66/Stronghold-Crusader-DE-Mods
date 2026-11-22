@@ -1,8 +1,12 @@
 param([Parameter(Mandatory)][string]$BuildRecord,
-    [Parameter(Mandatory)][string]$ApiPackageRecord,
     [Parameter(Mandatory)][string]$EvidenceDirectory,
     [string]$GameDir = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition')
 $ErrorActionPreference = 'Stop'
+$mutex = [Threading.Mutex]::new($false, 'Local\SHCDE.InGameTest.3024040')
+$locked = $false
+try {
+try { $locked = $mutex.WaitOne(0) } catch [Threading.AbandonedMutexException] { $locked = $true }
+if (!$locked) { throw 'Another game test owns the installation window.' }
 $project = Split-Path -Parent $PSScriptRoot
 $workspace = [IO.Path]::GetFullPath((Join-Path $project '..\..'))
 . (Join-Path $workspace 'Shared\Tools\Paths\WorkPaths.ps1')
@@ -13,29 +17,16 @@ Assert-ShortWorkDirectory $EvidenceDirectory
 if (Test-Path -LiteralPath (Join-Path $EvidenceDirectory 'installation.json')) { throw 'Installation evidence already exists; allocate a fresh run.' }
 $game = [IO.Path]::GetFullPath($GameDir).TrimEnd('\','/')
 $build = Get-Content -LiteralPath $BuildRecord -Raw | ConvertFrom-Json
-$frozen = Get-Content -LiteralPath $ApiPackageRecord -Raw | ConvertFrom-Json
-$sdkPackage = [IO.Path]::GetFullPath($frozen.PackageDirectory)
-Assert-ApiBootstrapPair $sdkPackage
-if ((Get-Content -LiteralPath (Join-Path $sdkPackage 'BepInEx\plugins\APIShared_Serp\info.json') -Raw | ConvertFrom-Json).Version -ne $frozen.ApiSharedVersion) {
-    throw 'SDK record and package versions differ.'
-}
+# This consumer installer never replaces the independently maintained SDK.
+Assert-ApiBootstrapPair $game
+$sdkFile = Join-Path $game 'BepInEx\plugins\APIShared_Serp\APIShared.dll'
+$sdkVersion = (Get-Content -LiteralPath (Join-Path $game 'BepInEx\plugins\APIShared_Serp\info.json') -Raw | ConvertFrom-Json).Version
+if ((Get-ApiFileHash $sdkFile) -ne $build.SdkSha256) { throw 'Build against the currently installed SDK before installing.' }
 $modPackage = Join-Path (Split-Path -Parent $build.Package) 'package'
 foreach ($source in $build.Sources) {
     if ((Get-ApiFileHash $source.Path) -ne $source.Sha256) { throw "Mod sources changed after build: $($source.Path)" }
 }
 $payload = [Collections.Generic.List[object]]::new()
-foreach ($entry in $frozen.Files) {
-    $relative = $entry.Path.Replace('/','\')
-    if ([IO.Path]::IsPathRooted($relative) -or $relative.Split('\') -contains '..') { throw 'Unsafe SDK payload path.' }
-    if ($relative.StartsWith('BepInEx\plugins\APIShared_Serp\', [StringComparison]::OrdinalIgnoreCase) -or
-        $relative -eq 'BepInEx\patchers\APIShared.DependencyBootstrap.dll') {
-        $payload.Add([pscustomobject]@{Relative=$relative;Source=(Join-Path $sdkPackage $relative);Sha256=$entry.Sha256})
-    } else { throw 'Unexpected SDK payload target.' }
-}
-if (@($payload | Where-Object Relative -eq 'BepInEx\plugins\APIShared_Serp\APIShared.dll').Count -ne 1 -or
-    @($payload | Where-Object Relative -eq 'BepInEx\patchers\APIShared.DependencyBootstrap.dll').Count -ne 1) {
-    throw 'A complete matching APIShared plugin/bootstrap package is required.'
-}
 $modBase = [IO.Path]::GetFullPath($modPackage).TrimEnd('\','/') + '\'
 foreach ($entry in $build.Files) {
     $full = [IO.Path]::GetFullPath($entry.Path)
@@ -45,22 +36,19 @@ foreach ($entry in $build.Files) {
     $payload.Add([pscustomobject]@{Relative=$relative;Source=$full;Sha256=$entry.Sha256})
 }
 if (!$payload.Count) { throw 'Empty payload.' }
-if ((Get-ApiFileHash (Join-Path $sdkPackage 'BepInEx\plugins\APIShared_Serp\APIShared.dll')) -ne $build.SdkSha256) { throw 'The compiled mod used a different SDK.' }
 foreach ($entry in $payload) {
     if ((Get-ApiFileHash $entry.Source) -ne $entry.Sha256) { throw "Payload hash changed: $($entry.Relative)" }
     $target = [IO.Path]::GetFullPath((Join-Path $game $entry.Relative))
     if (!$target.StartsWith($game + '\',[StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe installation target.' }
     $entry | Add-Member -NotePropertyName Target -NotePropertyValue $target
 }
-Add-Type -Path (Join-Path $game 'BepInEx\core\Mono.Cecil.dll')
+[void][Reflection.Assembly]::Load([IO.File]::ReadAllBytes((Join-Path $game 'BepInEx\core\Mono.Cecil.dll')))
 $assembly = [Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $modPackage 'BepInEx\plugins\AutoSendTest_Serp\AutoSendTest.dll'))
 try {
     $marker = @($assembly.CustomAttributes | Where-Object { $_.AttributeType.FullName -eq 'System.Reflection.AssemblyMetadataAttribute' -and
         $_.ConstructorArguments.Count -eq 2 -and $_.ConstructorArguments[0].Value -eq 'SerpDevDiagnostics' -and $_.ConstructorArguments[1].Value -eq 'true' })
     $diagnosticRuntime = @($assembly.MainModule.Types | Where-Object { $_.FullName -eq 'Shared.DevDiagRuntime' })
-    if ($build.DevDiag) {
-        if ($marker.Count -ne 1 -or $diagnosticRuntime.Count -ne 1) { throw 'Diagnostic compilation marker missing.' }
-    } elseif ($marker.Count -ne 0 -or $diagnosticRuntime.Count -ne 0) { throw 'Diagnostic code found in normal artifact.' }
+    if ($build.DevDiag -or $marker.Count -ne 0 -or $diagnosticRuntime.Count -ne 0) { throw 'Only a normal artifact may be installed.' }
 } finally { $assembly.Dispose() }
 function Snapshot {
     @(Get-ChildItem -LiteralPath (Join-Path $game 'BepInEx\plugins'),(Join-Path $game 'BepInEx\patchers') -Recurse -File |
@@ -104,7 +92,8 @@ $otherBefore = @($before | Where-Object { !$targets.Contains($_.Path) } | ForEac
 $otherAfter = @($after | Where-Object { !$targets.Contains($_.Path) } | ForEach-Object { $_.Path + '|' + $_.Sha256 })
 if (Compare-Object $otherBefore $otherAfter) { throw 'Unrelated installed files changed; inspect snapshots.' }
 [ordered]@{InstalledUtc=[DateTime]::UtcNow.ToString('o');Installed=$true;Diagnostic=[bool]$build.DevDiag;GameDir=$game;
-    BuildRecord=[IO.Path]::GetFullPath($BuildRecord);ApiPackageRecord=[IO.Path]::GetFullPath($ApiPackageRecord);ApiSharedVersion=$frozen.ApiSharedVersion;Files=$payload;
+    BuildRecord=[IO.Path]::GetFullPath($BuildRecord);ApiSharedVersion=$sdkVersion;ApiSharedChanged=$false;Files=$payload;
     UnrelatedFilesVerified=$otherBefore.Count;GameAcceptance='Prepared, not executed; no game launched.'} |
     ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $EvidenceDirectory 'installation.json') -Encoding UTF8
 Write-Host "PASS: $($payload.Count) files installed; $($otherBefore.Count) unrelated installed files unchanged."
+} finally { if ($locked) { $mutex.ReleaseMutex() }; $mutex.Dispose() }

@@ -12,8 +12,8 @@ internal static class Program
         EqualShareAndCappedRedistribution(); EmergencyTier(); RemainderRotation(); ReserveAndCapacity();
         PauseAndInvalidPlayers(); CycleAdmission(); MultipleSenders(); KnownPartialAndVeto(); UncertaintyStopsEntireRun();
         RechecksBeforeExecution(); SaveRoundTrip(); MalformedSaves(); ForgedRuleSaves(); SavedBundleIsAtomic(); EpochRequiresAuthenticatedLocalIdentity(); RendezvousRequiresEveryExpectedPeer(); InitialRosterDoesNotUseLaterLossState(); BoundedWork(); DormantRulesDoNotReadWorld();
-        checks += ProbeTests.Run();
         checks += EditTests.Run();
+        MultiplayerSaveUsesFinalRosterSlots();
         Console.WriteLine("AutoSend policy: " + checks + " checks passed.");
     }
     private static AutoSendState State(int batch = 100) => new AutoSendState(new[] { Resource, OtherResource }, new[] { batch, 1000 });
@@ -245,6 +245,44 @@ internal static class Program
         }
         firstPeer.Reset(103); Check(firstPeer.Capture(103, (1 << 1) | (1 << 2)));
         Check(firstPeer.TryGet(103, humans, out mask)); Equal(0, mask);
+    }
+    private static void MultiplayerSaveUsesFinalRosterSlots()
+    {
+        const long attempt = 201;
+        // Actual Vanilla ordering: a saved client in slot 8 is temporarily slot 2
+        // during ManagedReady. remapMPGameMembers restores 8 before simulation.
+        var savedHumans = new ulong[9]; savedHumans[1] = 111; savedHumans[8] = 888;
+        var temporaryHumans = new ulong[9]; temporaryHumans[1] = 111; temporaryHumans[2] = 888;
+        var finalHumans = (ulong[])savedHumans.Clone();
+        var lords = new uint[9]; lords[1] = 123; lords[8] = 456;
+        var original = State(); Rule(original, 1, 8, 10, 100);
+        Check(AutoSendSavedPlayers.TryRead(AutoSendSaveCodec.Encode(original), AutoSendSavedPlayers.EncodePlayers(lords, savedHumans),
+            new[] { Resource, OtherResource }, new[] { 100, 1000 }, out var restored, out var restoredLords, out var restoredHumans, out _));
+        var roster = new AutoSendInitialRoster(); roster.Reset(attempt);
+        Check(!roster.TryResolveFinal(attempt, finalHumans, restoredHumans, true, out int mask, out _)); Equal(0, mask);
+        Check(roster.Capture(attempt, 0));
+        Check(!roster.TryResolveFinal(attempt, temporaryHumans, restoredHumans, true, out mask, out _)); Equal(0, mask);
+        Check(roster.TryResolveFinal(attempt, finalHumans, restoredHumans, true, out mask, out _)); Equal((1 << 1) | (1 << 8), mask);
+        Equal(456U, restoredLords[8]); Equal(10, restored.GetRule(1, 8, Resource).Minimum);
+        var firstPeer = new AutoSendEpochs(); var secondPeer = new AutoSendEpochs();
+        Check(firstPeer.Bind(1, 11, 1, 11, out _)); Check(firstPeer.Bind(8, 88, 1, 11, out _));
+        Check(secondPeer.Bind(8, 88, 8, 88, out bool own)); Check(own); Check(secondPeer.Bind(1, 11, 8, 88, out _));
+        Check(!firstPeer.AllKnown((1 << 1) | (1 << 2))); // the old early snapshot deadlocked
+        long proof = firstPeer.Fingerprint(mask); Equal(proof, secondPeer.Fingerprint(mask));
+        Check(firstPeer.AcknowledgeReady(1, 11, mask, proof)); Check(firstPeer.AcknowledgeReady(8, 88, mask, proof));
+        Check(secondPeer.AcknowledgeReady(1, 11, mask, proof)); Check(secondPeer.AcknowledgeReady(8, 88, mask, proof));
+        Check(firstPeer.IsReady(mask) && secondPeer.IsReady(mask));
+        // NoRecord also derives its rendezvous from final slots. Saved identity
+        // mismatches remain strict even for a human excluded by frozen defeat.
+        Check(roster.TryResolveFinal(attempt, finalHumans, null, true, out mask, out _)); Equal((1 << 1) | (1 << 8), mask);
+        roster.Reset(attempt + 1); Check(roster.Capture(attempt + 1, 1 << 8));
+        Check(roster.TryResolveFinal(attempt + 1, finalHumans, restoredHumans, true, out mask, out _)); Equal(1 << 1, mask);
+        var replaced = (ulong[])finalHumans.Clone(); replaced[8] = 999;
+        Check(!roster.TryResolveFinal(attempt + 1, replaced, restoredHumans, true, out mask, out _)); Equal(0, mask);
+        Check(!roster.TryResolveFinal(attempt, finalHumans, restoredHumans, true, out mask, out _)); Equal(0, mask);
+        var solo = new AutoSendInitialRoster(); var noSteamIds = new ulong[9];
+        Check(solo.TryResolveFinal(9, noSteamIds, noSteamIds, false, out mask, out _)); Equal(0, mask);
+        Check(!solo.TryResolveFinal(9, noSteamIds, noSteamIds, true, out mask, out _)); Equal(0, mask);
     }
     private static void SavedBundleIsAtomic()
     {

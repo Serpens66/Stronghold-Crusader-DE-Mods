@@ -31,7 +31,7 @@ namespace UiAcceptance
         private static Stopwatch stepClock, waitClock;
         private static Wait waiting;
         private static IUiFrameWorkRegistration frame;
-        private static bool finished;
+        private static bool finished, completing;
         private static int lastFrame = -1;
         internal static Scenario Active => scenario;
 
@@ -48,7 +48,7 @@ namespace UiAcceptance
 
         internal static void Tick()
         {
-            if (scenario == null || lastFrame == UnityEngine.Time.frameCount) return;
+            if (scenario == null || completing || lastFrame == UnityEngine.Time.frameCount) return;
             lastFrame = UnityEngine.Time.frameCount;
             if (finished) { DriveQuit(); return; }
             try
@@ -91,29 +91,43 @@ namespace UiAcceptance
             return true;
         }
 
-        private static void CompleteStep(string failure)
+        private static void CompleteStep(string failure, bool allowFinish = true)
         {
-            var problems = new List<string>();
-            if (failure != null) problems.Add(failure);
-            foreach (Expectation e in step.Expect)
+            if (completing) return;
+            completing = true;
+            bool stop = false;
+            try
             {
-                int count = AcceptLog.Count(stepLog, e.Marker);
-                if (count < e.Min || count > e.Max)
-                    problems.Add("marker /" + e.Text + "/ count=" + count + " expected " + e.Min + ".." + (e.Max == int.MaxValue ? "inf" : e.Max.ToString()));
+                var problems = new List<string>();
+                if (failure != null) problems.Add(failure);
+                // Satisfied can fail before MoveNext resumes an iterator. Detach it first,
+                // then run its finally blocks before checking markers/errors and reporting.
+                var iterator = current;
+                current = null; waiting = null;
+                try { iterator?.Dispose(); }
+                catch (Exception error) { problems.Add("cleanup failed: " + error); }
+                foreach (Expectation e in step.Expect)
+                {
+                    int count = AcceptLog.Count(stepLog, e.Marker);
+                    if (count < e.Min || count > e.Max)
+                        problems.Add("marker /" + e.Text + "/ count=" + count + " expected " + e.Min + ".." + (e.Max == int.MaxValue ? "inf" : e.Max.ToString()));
+                }
+                List<string> errors = AcceptLog.Errors(stepLog);
+                if (!step.AllowErrors && errors.Count > 0)
+                    problems.Add("errors=" + errors.Count + " first=" + errors[0].Replace('\n', ' '));
+                bool pass = problems.Count == 0;
+                if (pass) passed++; else failed++;
+                AcceptLog.Result(step.Id, pass, step.Do + " ms=" + stepClock.ElapsedMilliseconds + (pass ? "" : " :: " + string.Join(" | ", problems)));
+                stop = !pass && step.StopOnFail;
             }
-            List<string> errors = AcceptLog.Errors(stepLog);
-            if (!step.AllowErrors && errors.Count > 0)
-                problems.Add("errors=" + errors.Count + " first=" + errors[0].Replace('\n', ' '));
-            bool pass = problems.Count == 0;
-            if (pass) passed++; else failed++;
-            AcceptLog.Result(step.Id, pass, step.Do + " ms=" + stepClock.ElapsedMilliseconds + (pass ? "" : " :: " + string.Join(" | ", problems)));
-            current = null; waiting = null;
-            if (!pass && step.StopOnFail) { AcceptLog.Warn("stopOnFail: remaining steps skipped."); Finish(); }
+            finally { completing = false; }
+            if (stop && allowFinish) { AcceptLog.Warn("stopOnFail: remaining steps skipped."); Finish(); }
         }
 
         private static void Finish()
         {
-            if (finished) return;
+            if (finished || completing) return;
+            if (current != null) CompleteStep(null, false);
             finished = true;
             AcceptLog.Result("SUMMARY", failed == 0, "series=" + scenario.Series + " passed=" + passed + " failed=" + failed +
                 " skipped=" + Math.Max(0, scenario.Steps.Count - passed - failed));

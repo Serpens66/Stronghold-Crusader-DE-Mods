@@ -10,7 +10,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
-    <Compile Include="ProbeTests.cs" />
     <Compile Include="EditTests.cs" />
     <Compile Include="../src/AutoSendEdits.cs" Link="AutoSendEdits.cs" />
     <Compile Include="../src/AutoSendPacket.cs" Link="AutoSendPacket.cs" />
@@ -21,6 +20,5 @@
     <Compile Include="../src/AutoSendSavedPlayers.cs" Link="AutoSendSavedPlayers.cs" />
     <Compile Include="../src/AutoSendEpochs.cs" Link="AutoSendEpochs.cs" />
     <Compile Include="../src/AutoSendInitialRoster.cs" Link="AutoSendInitialRoster.cs" />
-    <Compile Include="../src/AutoSendProbe.DevDiag.cs" Link="AutoSendProbe.DevDiag.cs" />
   </ItemGroup>
 </Project>

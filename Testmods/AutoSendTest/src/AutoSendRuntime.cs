@@ -17,7 +17,7 @@ namespace AutoSendTest
 {
     // The engine owns simulation access; this lock only protects our save/presentation
     // snapshots. Unity never calls the engine or submits a Chore while holding it.
-    internal sealed partial class AutoSendRuntime : IAutoSendWorld
+    internal sealed class AutoSendRuntime : IAutoSendWorld
     {
         private readonly object sync = new object();
         private readonly ModApiClient api;
@@ -61,7 +61,6 @@ namespace AutoSendTest
                     Diagnostic = e => Report(e.Reason) });
             if (!api.Ui.TryRegisterBeforeRender("presentation", Present, out presentation, out string reason))
                 throw new InvalidOperationException(reason);
-            InitializeDiagnostics();
             view = new AutoSendView(this);
             if (!AllyGoodsPanelExtensions.TryRegisterSection(AutoSendPlugin.Guid, "auto-send", view.Create,
                 out _, out reason, 100)) throw new InvalidOperationException(reason);
@@ -105,15 +104,9 @@ namespace AutoSendTest
                 identityMismatch = loadFailure;
                 Array.Clear(stocks, 0, stocks.Length); Array.Clear(capacities, 0, capacities.Length); Array.Clear(allies, 0, allies.Length);
                 Array.Clear(humanIdentities, 0, humanIdentities.Length);
-                var roster = Platform_Multiplayer.Instance?.gameMembers;
-                if (roster != null) foreach (var member in roster)
-                    if (member != null && !member.kicked && !member.skirmishAI && member.playerID >= 1 && member.playerID <= 8)
-                    {
-                        humanIdentities[member.playerID] = member.steamID;
-                        if (note.Context.Mode.IsRealMultiplayer && member.steamID == 0) identityMismatch = true;
-                    }
-                if (!initialRoster.TryGet(note.Context.SessionId, humanIdentities, out expectedMask) && note.Context.Mode.IsRealMultiplayer)
-                { identityMismatch = true; Report("Initial participant roster unavailable; automatic gifts remain stopped."); }
+                // A multiplayer save still has temporary lobby slots here. Vanilla
+                // remaps them before starting simulation; bind its final slots once
+                // in our first simulation callback, keeping NativeLoaded loss state.
                 localPlayer = note.Context.LocalPlayerId.GetValueOrDefault();
                 localEpoch = BitConverter.ToInt64(Guid.NewGuid().ToByteArray(), 0);
                 if (localEpoch == 0) localEpoch = 1;
@@ -149,7 +142,6 @@ namespace AutoSendTest
             {
                 mission = null; initializedMap = false; edits.Reset(); localEpoch = 0;
                 loadedState = null; loadedIdentities = null; loadedHumanIdentities = null; loadFailure = false;
-                EndDiagnostics();
             }
             RequestPresentation();
         }
@@ -162,7 +154,7 @@ namespace AutoSendTest
             AutoSendPacket hello;
             lock (sync)
             {
-                if (mission == null || mission.SessionId != session || identityMismatch || helloSubmitted || epochs.IsReady(expectedMask)) return;
+                if (mission == null || mission.SessionId != session || !initializedMap || identityMismatch || helloSubmitted || epochs.IsReady(expectedMask)) return;
                 expectedLocalPlayer = participant;
                 long now = Stopwatch.GetTimestamp();
                 if (now < nextHelloAttempt) return;
@@ -186,7 +178,7 @@ namespace AutoSendTest
             AutoSendPacket packet;
             lock (sync)
             {
-                if (mission == null || readySubmitted || !epochs.AllKnown(expectedMask) || localPlayer < 1 || localPlayer > 8 ||
+                if (mission == null || !initializedMap || identityMismatch || readySubmitted || !epochs.AllKnown(expectedMask) || localPlayer < 1 || localPlayer > 8 ||
                     epochs.Get(localPlayer) != localEpoch || (expectedMask & (1 << localPlayer)) == 0) return;
                 packet = new AutoSendPacket { Protocol = 2, Epoch = localEpoch, Operation = (int)AutoSendEdit.Ready,
                     Good = expectedMask, Revision = epochs.Fingerprint(expectedMask) };
@@ -206,7 +198,7 @@ namespace AutoSendTest
         {
             lock (sync)
             {
-                if (mission == null) return;
+                if (mission == null || !initializedMap) return;
                 if (!AllyTransfers.IsAvailable) return;
                 int sender = message.SenderPlayerId;
                 var p = message.Packet;
@@ -256,15 +248,23 @@ namespace AutoSendTest
                 if (mission == null) return;
                 if (!firstTick) { firstTick = true; Report("First native mission tick reached; startup cleanup survived."); }
                 if (!AllyTransfers.IsAvailable) return;
-                TickDiagnostics(tick);
                 if (!initializedMap)
                 {
+                    var roster = Platform_Multiplayer.Instance?.gameMembers;
+                    if (roster != null) foreach (var member in roster)
+                        if (member != null && !member.kicked && !member.skirmishAI && member.playerID >= 1 && member.playerID <= 8)
+                        {
+                            humanIdentities[member.playerID] = member.steamID;
+                            if (mission.Mode.IsRealMultiplayer && member.steamID == 0) identityMismatch = true;
+                        }
+                    if (!initialRoster.TryResolveFinal(mission.SessionId, humanIdentities, loadedHumanIdentities,
+                        mission.Mode.IsRealMultiplayer, out expectedMask, out string rosterFailure))
+                    { identityMismatch = true; Report(rosterFailure + " Automatic gifts remain stopped."); }
                     var players = GamePlayerManagerAPI.Instance;
                     for (int player = 1; player <= 8; player++)
                     {
                         uint currentIdentity = players.TryGetPlayerResourcesById(player, out GamePlayerResources* data) && data != null ? data->r_LordUnitGlobalId : 0;
                         if (loadedIdentities != null && loadedIdentities[player] != currentIdentity) identityMismatch = true;
-                        if (loadedHumanIdentities != null && loadedHumanIdentities[player] != humanIdentities[player]) identityMismatch = true;
                     }
                     loadedIdentities = null; loadedHumanIdentities = null;
                     initializedMap = true;
@@ -272,14 +272,15 @@ namespace AutoSendTest
                     PromoteReadiness();
                     // Start on a future deterministic boundary; a loaded boundary is never repeated.
                     if (!state.HasProcessedTick) state.MarkProcessedTick(tick);
+                    // This tick need not be a supply boundary. Wake Unity so the
+                    // first final-slot Hello is not dependent on logging or input.
+                    RequestPresentation();
                 }
                 if (!SimulationClock.TryGetElapsedTicks(state.LastProcessedTick, tick, out int elapsed) || elapsed == 0 || unchecked((uint)tick) % 40 != 0) return;
                 state.MarkProcessedTick(tick);
                 if (!identityMismatch && epochs.IsReady(expectedMask))
                 {
-                    BeforeDiagnosticRound(tick);
                     var result = planner.Run(this);
-                    AfterDiagnosticRound();
                     if (result.UncertainTransfers > 0)
                     { identityMismatch = true; Report("Supply stopped: a transfer had unequal or unknown stock changes. No retry was issued."); }
                 }
@@ -320,10 +321,8 @@ namespace AutoSendTest
         public AutoSendTransferResult Transfer(int sender, int recipient, int good, int amount)
         {
             var rule = state.GetRule(sender, recipient, good);
-            BeforeDiagnosticTransfer(sender, recipient, good, amount);
             AllyTransfers.TryExecute(new AllyTransferRequest(sender, recipient, (eGoods)good, amount,
                 state.GetReserve(sender, good), rule.Maximum), out var result, out _);
-            AfterDiagnosticTransfer(sender, recipient, good, amount, result);
             if (result == null || !result.OriginalWasCalled) return new AutoSendTransferResult(0, 0, true);
             if (result.Status == AllyTransferStatus.Faulted || result.Status == AllyTransferStatus.Uncertain)
                 return new AutoSendTransferResult(0, 0, false);
@@ -466,7 +465,6 @@ namespace AutoSendTest
         }
         private void Present()
         {
-            PresentDiagnostics();
             long currentSession;
             lock (sync) currentSession = mission?.SessionId ?? 0;
             if (currentSession != 0 && channel.IsAvailable) Announce(currentSession);
@@ -486,14 +484,6 @@ namespace AutoSendTest
             RequestPresentation();
         }
         private void RequestPresentation() => presentation?.Request();
-        partial void InitializeDiagnostics();
-        partial void EndDiagnostics();
-        partial void TickDiagnostics(int tick);
-        partial void BeforeDiagnosticRound(int tick);
-        partial void AfterDiagnosticRound();
-        partial void BeforeDiagnosticTransfer(int sender, int recipient, int good, int amount);
-        partial void AfterDiagnosticTransfer(int sender, int recipient, int good, int amount, AllyTransferResult result);
-        partial void PresentDiagnostics();
     }
     internal sealed class AutoSendDisplay
     {

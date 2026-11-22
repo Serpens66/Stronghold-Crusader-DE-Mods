@@ -28,5 +28,27 @@ namespace AutoSendTest
                 if (humanIds[player] != 0 && (defeated & (1 << player)) == 0) mask |= 1 << player;
             return true;
         }
+
+        // Invoke once after Vanilla's saved-slot remap, at the first simulation
+        // notification. Identity checks cover every slot, including defeated humans;
+        // only rendezvous membership excludes the losses frozen at NativeLoaded.
+        internal bool TryResolveFinal(long currentAttempt, ulong[] humans, ulong[] savedHumans,
+            bool requireInitialCapture, out int mask, out string reason)
+        {
+            mask = 0; reason = string.Empty;
+            if (humans == null || humans.Length != AutoSendState.PlayerCount + 1 || humans[0] != 0)
+            { reason = "Final participant identities are invalid."; return false; }
+            if (savedHumans != null)
+            {
+                if (savedHumans.Length != humans.Length || savedHumans[0] != 0)
+                { reason = "Saved participant identities are invalid."; return false; }
+                for (int player = 1; player <= AutoSendState.PlayerCount; player++)
+                    if (savedHumans[player] != humans[player])
+                    { reason = "Saved participant identities differ from the final player slots."; return false; }
+            }
+            if (!TryGet(currentAttempt, humans, out mask) && requireInitialCapture)
+            { reason = "Initial participant loss state is unavailable."; return false; }
+            return true;
+        }
     }
 }
