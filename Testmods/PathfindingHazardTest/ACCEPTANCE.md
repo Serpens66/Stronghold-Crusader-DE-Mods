@@ -1,93 +1,56 @@
-# Vorbereiteter Feuer-/Pest-Beobachter
+# Feuer-/Pest-Abnahme mit selbst erzeugter Testwelt
 
-Stand 13.11.2026: Quellcode und Build-/Offlineprüfungen vorbereitet, **kein Spieltest
-ausgeführt**. Dieser Testmod schaltet die produktive Freigabesperre nicht frei.
-Er benötigt den gemeinsam mit ihm geprüften Pathfinding-Arbeitsstand; die Versionsnummer
-allein beweist den internen Reflexionsvertrag nicht.
+Stand 22.11.2026: Der Testmod erzeugt Testwelt, Soldaten, Feuer und Pest selbst und braucht keine
+vorbereiteten Spielstände mehr. Er schaltet die produktive Freigabesperre von Pathfinding nicht frei:
+Die Gefahrenoptionen gelten nur in einer privaten Kopie der Missionsoptionen (Lease) während eines Falls.
 
-## Einstieg und Voraussetzungen
+## Einstieg
 
-`build.bat /nopause /noinstall` kompiliert nur den Testmod und führt seine Offline-
-Vertragsprüfung aus. Er installiert nichts, startet kein Spiel und schreibt keine
-Laufanforderung. Optional `-ApiSharedDir <Ordner>` an den PowerShell-Treiber übergeben.
-Die Vertragsprüfung liest das kompilierte Hauptmod-Paket im Workspace; zuerst den
-aktuellen Hauptmod ohne Installation bauen.
+`build.bat /nopause /noinstall` kompiliert den Testmod und führt die Offline-Vertragsprüfung aus
+(Szenarioauswahl und Reflection-Grenze gegen das kompilierte `Pathfinding.dll` im Workspace; zuerst
+Pathfinding bauen). Es installiert nichts und startet kein Spiel.
 
-Für einen später ausdrücklich autorisierten Lauf den üblichen
-`Shared/Tools/Automation/Invoke-InGameTest.ps1` mit Testmod-GUID
-`PathfindingHazardTest_Serp`, passendem PluginLayout und ModPackage verwenden.
-Der Einstieg konsumiert ausschließlich bekannte Szenarien in
-`BepInEx/config/SerpAutomation/PathfindingHazardTest_Serp.run`: Lauf-GUID im N-Format
-und Szenario, jeweils eine Zeile. Unbekannte Szenarien und ungültige Anforderungen
-werden nicht gelöscht. Ohne Anforderung keine Aktivierung.
+Ein Lauf über `Shared/Tools/Automation/Invoke-InGameTest.ps1` mit `-ModGuid PathfindingHazardTest_Serp`,
+dem Testmod-Paket und `-Scenario hazard-matrix` (alle Fälle in einem Spielstart) oder einem einzelnen
+Fallnamen. Konfiguration in `BepInEx/config/PathfindingHazardTest_Serp.cfg`, Abschnitt `[Fixture]`:
 
-In `BepInEx/config/PathfindingHazardTest_Serp.cfg`, Abschnitt `[Fixture]`, angeben:
-
-| Schlüssel | Vorbereitung |
+| Schlüssel | Bedeutung |
 | --- | --- |
-| `SavePath` | Absoluter Pfad zu einem bestehenden isolierten SP-Testsave; keine Datei wird vom Test erzeugt/überschrieben. |
-| `ActorId` | Lebender menschlich kontrollierter Speerkämpfer in einer eigenen lebenden Einmanngruppe, anfangs stehend. Global-ID und Gruppenidentität werden im echten Simulationstick erfasst. |
-| `HazardX`, `HazardY` | Kachel mit einem echten aktiven Feuer-/Pesteffekt, die der Produktionsscanner markieren muss. |
-| `TargetX`, `TargetY` | Bei Wartefällen Ziel hinter der Gefahr. Beide Achsen müssen auch für Fluchtszenarien gültig konfiguriert sein. |
-| `WaitSeconds` | Endliche Vergleichsfrist, Standard 2 Spielsekunden; begrenzt weiterhin die Fortsetzungsfrist eines vorher laufenden Fliehenden. |
-| `MaximumTicks` | Native Beobachtungsgrenze, Standard 12000; mindestens `WaitSeconds × 40 + 80`, höchstens 72000. |
+| `Map` | Gefechtskarte (Standard `test AI.map`); gesucht wird eine flache, freie Fläche nahe der eigenen Burg. |
+| `WaitSeconds` | Endliche Wartefrist der begrenzten Fälle und Vergleichsfrist der unbegrenzten (1..15 Spielsekunden). |
 
-Vorbereitete Saves müssen echte Effekte und passende Wegverhältnisse mitbringen.
-Dieser Treiber spawnt/zündet/verschiebt keine Effekte und verändert keine Timeline.
-Keine aktiven Flucht-, Solo- oder Wartefälle beim Aktivieren; Basis-Routenkern muss
-aktiv und verfügbar sein. Das Testsave muss isoliert sein: keine externen Befehle,
-keine anderen gefährdeten menschlichen Truppen oder laufenden Automationen.
+## Ablauf
 
-## Bereits ausführbar vorbereitete Szenarien
+Gefecht mit einer KI (Friedenszeit 60 min), Speed 250, RandomEvents aus, ExtraFeatures-Pestdauer auf Vanilla (Faktor 1;
+sonst treiben die Wolken bis zum wartenden Soldaten, dessen Flucht die Wartefälle abschalten). Gesucht wird eine flache Fläche von 31 × 51
+Kacheln: begehbar, frei, eine Wegkomponente, Höhenunterschied höchstens 8. Pathfinding-Einstellungen
+werden vor dem Start fest gesetzt. Jeder Fall wartet zuerst, bis kein natives Feuer und keine Pestwolke
+mehr existiert, spawnt eigene Soldaten in Einmanngruppen und aktiviert die Optionen. Danach beobachtet er
+auf dem echten Simulationstick (Ordnung 700 nach Pathfindings Scheduler 600). Am Ende stellt er Optionen
+und Bewegungsfälle wieder her und entfernt die Soldaten.
 
-| Szenario | Erforderlicher Save und tatsächlicher Erfolgsnachweis |
+- Feuer: nativer `0x9C120` über den Extender-Wrapper (Zielkachel kann springen; Lücken werden nachgefüllt).
+- Pest: `0x9B2B0` über `GameProjectileManagerAPI.CreateProjectile` mit denselben Argumenten wie Vanillas
+  natürliche Pest `0xD17D0` (Baseline `FIRE_EFFECTS.md`, Abschnitt „Effect constructor and natural plague creation“).
+  Jeder erzeugte Datensatz muss Typ 22 im von Pathfinding gebundenen Effektmanager haben.
+- Wegsperren: Ein unabhängiger BFS über das native Richtungsraster belegt, dass kein gefahrfreier Weg
+  innerhalb der Umwegregel existiert. Bei Lücken wird nachgefüllt, höchstens viermal.
+
+| Fall | Nachweis |
 | --- | --- |
-| `fire-escape`, `plague-escape` | Actor steht in einer echten gefährlichen Fläche; erreichbares sicheres Umfeld. Gefahr endet rechtzeitig innerhalb der normalen Rückkehrfrist. Beobachtet werden echter Scan, Fluchtfall, sicheres Ankommen, `Returning`, tatsächliche Rückkehr bis auf eine Kachel und gleiche ursprüngliche Gruppenidentität. Ein erteilter Befehl allein ist kein Erfolg. |
-| `fire-wait-bounded`, `plague-wait-bounded` | Actor steht sicher vor einer Passage ohne zulässigen sicheren Umweg. Der Treiber erteilt einen normalen Gruppen-Move erst nach echtem Scanzeugen. Gefahr bleibt über die Wartefrist hinaus bestehen. Ein echter Wartefall, dessen eigene Frist, gestiegener Abbruchzähler und anschließender Stillstand müssen beobachtet sein. |
-| `fire-wait-unlimited`, `plague-wait-unlimited` | Gleiche Passage; Gefahr bleibt zunächst länger als die endliche Vergleichsfrist und verschwindet später oder eröffnet einen zulässigen sicheren Weg. Wartefall muss die Vergleichsfrist überleben, anschließend verschwinden und Actor muss tatsächlich am Ziel ankommen. |
+| `fire-escape` | Speerkämpfer im Feuer: Fluchtfall, sichere Ankunft, Rückkehrbefehl, Ankunft höchstens eine Kachel vom Ausgangspunkt, ursprüngliche Gruppe. KI-Speerkämpfer im selben Feuer: nachweislich auf einer Feuerkachel gesehen, nie ein Flucht- oder Wartefall. |
+| `plague-escape` | Wie oben mit acht Wolken auf der Kachel des Soldaten. |
+| `fire-wait-bounded`, `plague-wait-bounded` | Gefahr entsteht nach dem Befehl quer über den Weg: Wartefall, Abbruch erst nach der eigenen Frist und bei noch bestehender Gefahr, Stillstand, Ziel nicht mehr aktiv, ursprüngliche Gruppe. |
+| `fire-wait-unlimited`, `plague-wait-unlimited` | Wartefall überdauert die endliche Frist ohne Abbruch. Nach Ende der Gefahr wird weitergelaufen, Ankunft am Ziel, ursprüngliche Gruppe. |
+| `plague-immune-crossing` | Heiler (pestimmun, `0x32BC40`) quert die Pestsperre ohne Wartefall und kommt an, nachweislich auf einer Pestkachel gesehen. Ein Kontroll-Speerkämpfer bleibt vor der Sperre stehen (Wartefall). |
 
-Ein unpassendes Save führt zu einem Fehler/Timeout und niemals zu einem fingierten
-Gameplay-PASS. Der Speerkämpfer und die Umgebung werden nicht künstlich unsterblich
-gemacht; ausreichende Gesundheit und passende Effektlebensdauer gehören zur
-Savevorbereitung. Unterschiedliche Einheitentypen bleiben weitere Matrixfälle.
+Ein ungeeignetes Gelände, ein Gefahrenaufbau, der nicht schließt, oder ein Zeitlimit führen zu einem
+Fehler und nie zu einem PASS. Es wird nichts gespeichert.
 
-## Thread, Aktivierung und Wiederherstellung
+## Grenzen und weiterhin offene Abnahmen
 
-Die öffentliche Automation läuft auf Unity und lädt das Save regulär. Aktivierung,
-Optionen, Befehle und Beobachtung laufen ausschließlich im registrierten echten
-`SimulationTickEvents`-Callback mit Ordnung 700, nach Pathfindings Scheduler 600.
-`AutomationRun.InSimulation` auf Unity wird nicht als echter Simulationscallback
-ausgegeben. Logdaten werden als unveränderliche Texte über den öffentlichen
-UI-Dispatcher ausgegeben; keine Noesis-/Unity-Arbeit aus dem Simulationsthread.
-
-Der Treiber kopiert das bestehende interne EngineOptions-Objekt und verändert nur
-seine private Testkopie. Hauptmod-Capture und versteckte Einstellungsbereiche bleiben
-unverändert. Reflexion ist auf benannte, vor Verwendung geprüfte Verträge begrenzt;
-keine rohen nativen Adressen und keine neue Hauptmod-Test-API.
-
-Vor einem Erfolg endet der Treiber vorhandene Testfälle mit deaktivierter
-Flucht/Neuplanung über den tatsächlichen Save-Wiederherstellungspfad, damit eigene
-Tribes wieder aufgenommen werden. Danach setzt er ursprüngliche Optionen und
-Fallbytes einschließlich Auftragssequenz zurück und prüft die Referenz/Bytes.
-Nur solange der Provider noch genau die Testkopie hält und dieselbe Mission aktiv
-ist, darf er wiederherstellen. Eine neue Missionskonfiguration wird nicht überschrieben.
-Die Engine-Welt, Positionen, HP und Effekte werden nicht zurückgespult: dafür das
-disposable Testsave neu laden; den normalen Runner für Datei-/Plugin-Rücksetzung nutzen.
-
-Bei Fehler/Abbruch wird die Wiederherstellung für den nächsten tatsächlichen
-Simulationstick angefordert. Ist die Simulation pausiert, bleibt sie ausdrücklich
-ausstehend, bis die Simulation wieder läuft. Deshalb kein automatisches Beenden
-und kein PASS vor bestätigter Wiederherstellung. Bei Missions-/Optionswechsel wird
-die alte Lease verworfen, ohne alte Einheiten- oder Gruppendaten auf eine neue Karte
-anzuwenden. Dieser Ablauf ist offline vorbereitet, noch nicht im Spiel abgenommen.
-
-## Weiterhin erforderliche Abnahmen
-
-- Sichtprüfung, weitere Soldatentypen, echte HP-Schadensvergleiche, Höhen-/Treppen-
-  Übergänge und erhöhte Garnisonen; gegenseitige Feuer-/Pestüberlagerung.
-- Save/Load während aller Phasen, Solo-/Formationsüberschneidung, neue Befehle,
-  Queue, KI-Gruppen, ID-Wiederverwendung, Editor, optionale Modkombinationen.
-- Große Gefahrenlast, aktuelle Karten-/Savevergleiche und echte Zweirechner-MP-Läufe.
-  Dieser lokale Testtreiber startet keinen Multiplayer und ist kein MP-Nachweis.
-- Erfolgs-, Fehler-, Cancel- und pausierte Cleanup-Pfade dieses Treibers selbst
-  im Spiel prüfen. Kein Spieltest oder Installation wurde für seine Erstellung ausgeführt.
+- Der Lauf ist eine Einzelspieler-Abnahme auf flachem Boden. Keine Höhen-, Treppen- oder Garnisonsfälle
+  (Q2), kein Save/Load während der Fälle (T6), keine Formationen oder Shift-Queues (T5), kein Gebäudebrand.
+- Nicht abgedeckt: Sichtprüfung (T10) und echter Zweirechner-Multiplayer (T9).
+- Ein PASS der Fälle beweist nicht, dass der native Gruppenweg der Flucht keine Gefahrenkachel betritt
+  (Q4). Es zählt der beobachtete Ausgang.

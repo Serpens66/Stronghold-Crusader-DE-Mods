@@ -271,6 +271,44 @@ namespace EngineHarness
                     Check(replanTriggers == hazardTriggers + 1 && replanWaits.TryGetValue(7, out ReplanWait replacement) && replacement.TargetX == 170,
                         "a replacement order was excluded from hazard checks after ending the previous wait");
                 }
+
+                // Lord and healer take no plague damage (0x32BC40): a tile only the plague policy holds neither
+                // stops them nor blocks their probe. An ordinary soldier still stops, and fire on the tile stops
+                // the lord as well.
+                fire.ClearAll(); AnchorTick(++ticks); ResetReplanWatch(); tribeOrders[3] = plain;
+                var immunePolicy = new APIShared.Pathfinding.RouteReplanPolicy(3, 50, 10, 400);
+                fire.ReplanPolicy = immunePolicy; fireAbortPolicy = null; plagueAbortPolicy = immunePolicy;
+                int plagueNode = 10 * MapWidth + 143;
+                Check(fire.Set(143, 10, APIShared.Pathfinding.RouteTileEffect.Penalty, 254), "plague rule rejected");
+                AnchorTick(++ticks); plagueTiles.Set(plagueNode, true); answer = tooLong;
+                try
+                {
+                    foreach (int chimp in new[] { eChimps.CHIMP_TYPE_LORD, eChimps.CHIMP_TYPE_HEALER, 0 })
+                    {
+                        bool immune = chimp != 0;
+                        walker->r_UnitChimp = chimp; replanSettled.Clear(); replanWaits.Clear();
+                        Route(7, 140, 10, straight, 160, 10); units.Moves.Clear();
+                        long immuneTriggers = replanTriggers;
+                        for (int i = 0; i < 48 && !replanWaits.ContainsKey(7); i++) ReplanTick(++ticks);
+                        Check(immune ? replanTriggers == immuneTriggers && !replanWaits.ContainsKey(7) && units.Moves.Count == 0 : replanWaits.ContainsKey(7),
+                            $"plague-only tile with chimp {chimp}: immune={immune} triggers={replanTriggers - immuneTriggers} waiting={replanWaits.ContainsKey(7)}");
+                        replanProbeLeft = ReplanProbeTickSettles;
+                        int probe = CoreRouteProbe(1, 140, 10, 160, 10, immunePolicy, 20, RouteSurfaceClass.Any, immune);
+                        Check(immune ? probe == ProbeClear : probe == ProbeRuleTile, $"plague-only probe with chimp {chimp} returned {probe}");
+                    }
+                    replanWaits.Clear(); replanSettled.Clear();
+                    walker->r_UnitChimp = eChimps.CHIMP_TYPE_LORD; fireTiles.Set(plagueNode, true);
+                    Route(7, 140, 10, straight, 160, 10);
+                    for (int i = 0; i < 48 && !replanWaits.ContainsKey(7); i++) ReplanTick(++ticks);
+                    Check(replanWaits.ContainsKey(7), "fire on a plague tile did not stop the immune lord");
+                    replanProbeLeft = ReplanProbeTickSettles;
+                    Check(CoreRouteProbe(1, 140, 10, 160, 10, immunePolicy, 20, RouteSurfaceClass.Any, true) == ProbeRuleTile,
+                        "fire on a plague tile did not block the immune lord's probe");
+                }
+                finally
+                {
+                    plagueTiles.Clear(); fireTiles.Clear(); replanWaits.Clear(); replanSettled.Clear(); walker->r_UnitChimp = 0;
+                }
                 plagueAbortPolicy = null;
 
                 // Foreign policies may intentionally continue through their rule tiles after expiry.

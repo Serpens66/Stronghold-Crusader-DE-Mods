@@ -114,8 +114,9 @@ Vanilla's search mask `0x9C6B0` counts `state == 2 && type == 9` only, and so do
 (9 = fire, written by `0x9C120`, `0x9C450`, `0x9DCF0` through `0x9B2B0`), native tile id +0x60 (int; `0x9F5B0`
 unlinks by it). Tile ids convert to coordinates with the
 Extender's `GetTileVectorFromId` and are checked back with `GetTileId`. Both entries resolve through
-`Shared.NativePatternResolver` (reference RVA first, unique executable-section pattern fallback); the derived
-manager must lie before the tile heads by at least 6000 records. Any failure logs an error and registers no
+`Shared.NativePatternResolver` (reference RVA first, unique executable-section pattern fallback); both `lea`
+targets are decoded with `Shared.NativeInstructionOperands.RipDataTarget` and must lie in a writable data section
+(`.data` on the reference hash), and the derived manager must lie before the tile heads by at least 6000 records. Any failure logs an error and registers no
 fire rules; movement keeps working. The record layout has no second semantic source beyond these anchors, so
 the feature stays hash-gated with the rest of the engine.
 

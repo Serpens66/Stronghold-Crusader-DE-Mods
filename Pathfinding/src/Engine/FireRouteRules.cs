@@ -48,10 +48,12 @@ namespace Pathfinding.Engine
             {
                 int removal = Shared.NativePatternResolver.ResolveUnique(memory, RemovalPattern, RemovalRva, true, "Pathfinding fire effect manager", log).Rva;
                 int lookup = Shared.NativePatternResolver.ResolveUnique(memory, LookupPattern, LookupRva, true, "Pathfinding fire tile lookup", log).Rva;
-                int manager = Shared.NativePatternResolver.ResolveRelativeTarget(memory, removal + RemovalLeaOffset + 3, removal + RemovalLeaOffset + 7);
+                // Both lea targets are decoded from the validated instructions and must lie in a writable data
+                // section (the records and tile heads are mutable globals).
+                int manager = Shared.NativeInstructionOperands.RipDataTarget(memory, removal + RemovalLeaOffset, true);
                 // The lookup's caller passes the same manager; its own lea addresses the tile heads,
                 // which follow the records (second, independent anchor of the record layout).
-                int heads = Shared.NativePatternResolver.ResolveRelativeTarget(memory, lookup + 6, lookup + 10);
+                int heads = Shared.NativeInstructionOperands.RipDataTarget(memory, lookup + 3, true);
                 if (manager <= 0 || heads <= manager + (long)EffectSlots * EffectStride || manager >= memory.Length || heads >= memory.Length)
                 { reason = $"effect layout anchors disagree (manager=0x{manager:X}, heads=0x{heads:X})"; return false; }
                 effects = (byte*)(moduleBase + (ulong)manager);
