@@ -485,6 +485,10 @@ view.ButtonIngameMenuCommand.Execute("6");
 view.ButtonConfirmationCommand.Execute("1");
 ```
 
+**Friedenszeit im Gefecht (22.11.2026, DLL `FBCB9319…`):** Vanilla setzt bei jeder Kartenwahl `Show_MPPeacetime = !skirmishGame` (`FRONT_Multiplayer`). In einem lokalen Gefecht mit minimalem Plugin-Layout (Script Extender, Fixes, APIShared) bietet die Lobby deshalb keine Friedenszeit an, und `StartSkirmish(..., peaceTimeMinutes)` bricht mit „Peace time is not offered“ ab. Kurze Tests laufen dann ohne Friedenszeit.
+
+**Mauern und Zinnen im Test:** Eine Zinne (Mapper 26) braucht eine angrenzende Mauer- oder Zinnenkachel (0x5C580); auf freiem Feld baut `CreateWall` nichts. Ohne Stein baut es auch bei Kostenfaktor 0 nichts. Auf `4spielerkarte.map` startet der Spieler ohne Stein; `TryAddGood` in kleinen Portionen (25) füllt das vorhandene Lager, 300 auf einmal schlug fehl. Beispiel: [CrenelatedWallAcceptance](Testmods/CrenelatedWallAcceptance/src/Fixture.cs).
+
 Missionsbeginn zuverlässig: `APIShared.IMissionLifecycleCapability` (Beobachter registrieren, `notification.IsReplay` überspringen, Sitzungs-ID merken) und `FatControler.currentScene != FrontEnd`. Spielstand laden: siehe „Laden ohne AutoLoadSave“ oben; das klappt beliebig oft in einem Prozess. Der Pfad kommt aus `ConfigSettings.GetSavesPath()`.
 
 Mod-Einstellungen nur im Menü setzen. Fremde Mods: `BepInEx.Bootstrap.Chainloader.PluginInfos[guid].Instance`, dessen Einstellungsobjekt und Eigenschaften per Reflection. Der Wert danach zurücklesen, denn ein Setter kann ablehnen.

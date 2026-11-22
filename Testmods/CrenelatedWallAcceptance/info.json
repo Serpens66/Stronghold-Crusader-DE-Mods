@@ -1,0 +1,14 @@
+{
+  "GUID": "CrenelatedWallAcceptance_Serp",
+  "Author": "Serpens66",
+  "Name": "Crenelated Wall Acceptance",
+  "Description": "Explicit-request-only in-game acceptance for CrenelatedWallTest: real wall commands, logic heights, rejections, save/load and Assassin climbing. No OS input.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.14.1",
+  "Dependencies": [
+    { "GUID": "APIShared_Serp", "MinimumVersion": "0.62.0" },
+    { "GUID": "CrenelatedWallTest_Serp", "MinimumVersion": "0.1.0" }
+  ],
+  "Manifest": 1,
+  "NetworkMode": 1
+}

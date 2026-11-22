@@ -49,6 +49,21 @@ APIShared wird nur über bestehende öffentliche APIs verwendet. Zwei dauerhafte
 | KI baut ihre Burg | KI-Mauern bleiben Vanilla. | Keine KI-Bauverbote. |
 | Knapper Steinbestand | Ein Zug wird abgelehnt, wenn die ganze Linie verboten wäre, auch wenn nur ein Teil bezahlbar ist. | Bewusst konservativ. |
 
+## Automatisierte Ingame-Abnahme (22.11.2026, Lauf `d673bb3e`)
+
+Testmod [CrenelatedWallAcceptance](../CrenelatedWallAcceptance/Run.ps1): unsichtbarer Win32-Desktop, minimales Plugin-Layout (Script Extender, Fixes, APIShared 0.62.0, dieser Mod), `4spielerkarte.map` gegen die Ratte, Geschwindigkeit 250. Bauzüge laufen über `CreateWall` und damit über denselben `OnBuildWall`-Hook wie ein Spielerbau; die Vorschau (rote Anzeige) prüft dieser Lauf nicht. Nachweis: `.work/a/crenel-ingame/010` (Log, Player.log, Test-Save).
+
+| Prüfung | Ergebnis |
+|---|---|
+| 42 Zinnen (Reihe und Spalte Stück für Stück, gezogene Reihe, L, Reste von 2×2/Diagonale/Treppe) nach Vanillas Render-Durchlauf | Alle Höhen wie Regel (`HEIGHTS_PASS`), auch auf einem zweiten Startplatz mit anderer Parität |
+| 2×2, Diagonale aus drei, Treppe mit 1er-Stufen | Jeweils abgelehnt mit passendem Grund, kein Steinverlust |
+| Assassine auf niedriges Endstück und niedrige Mitte einer Stück-für-Stück-Mauer | Steht danach auf der Zielkachel (`CLIMB_PASS`) |
+| Assassine auf hohe Mitte | Vanilla lehnt den Bewegungsbefehl ab |
+| Speichern und Laden | `CRENEL_SAVE`/`CRENEL_LOAD` mit 42 Kacheln; nach dem Laden alle Flags wie vor dem Speichern; Anbau danach regelkonform |
+| Kontrolle: KI-Zinnen Stück für Stück (vom Mod nicht verwaltet) | Alle 7 hoch, davon 3 entgegen der Parität: Vanillas Exploit tritt ohne Mod auf |
+
+Nicht abgedeckt: rote Vorschau mit echter Maus, Leitern, Belagerungstürme, Abriss und Beschuss, Editor, Multiplayer. Zinnen lassen sich nur neben einer Mauer- oder Zinnenkachel bauen (0x5C580); der Test setzt deshalb tragende Steinmauern.
+
 ## Multiplayer
 
 Host und Client verwenden denselben Testmod; nur der Host stellt die Aktivierung ein.

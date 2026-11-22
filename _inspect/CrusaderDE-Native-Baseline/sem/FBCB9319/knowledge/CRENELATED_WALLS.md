@@ -119,3 +119,11 @@ Native SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
 - **Hooks:** the existing straight-predicate and preview hooks are unchanged.
 - **Regression tokens:** `tests/audit-native.py` covers 0x6A560 and 0xD86F0.
 - **Not yet verified in game:** graphics, actual docking and entering, and MP synchronization.
+
+## In-game confirmation and crenel support predicate, 2026-11-22 [Vanilla facts + mod integration]
+
+- **Crenel support 0x5C580** (disassembled 2026-11-22): returns 1 if any of the four cardinal neighbours (direction table entries 0, 2, 4, 6 at `rcx+row*8*4`) has `(logic & 0x102) == 0x100`, i.e. an intact wall or crenel tile without bit 0x2. A crenel cannot be placed on open ground; the first piece needs an adjacent wall, later pieces may lean on earlier crenels. *(confirmed by disassembly and by `CreateWall` refusing unsupported tiles in game)*
+- **Placement needs stone:** with zero stone and SE wall cost multipliers at 0, `CreateWall` for mapper 26 placed nothing; with stone it placed. Consistent with the 0xCF640 availability read in 0x6F230. *(observed)*
+- **Vanilla sticky high reproduced:** an AI-owned crenel row (unmanaged by the mod) built piece by piece with the simulation running between pieces ended with all 7 tiles high, 3 of them against parity. *(observed, run d673bb3e)*
+- **Move order onto a high crenel:** `IssueMoveHereCommand` to a high crenel middle returned 0 (native rejection), while orders to low crenels led an Assassin onto the target tile. *(observed; consistent with 0xD86F0 building no edges for high crenels)*
+- **Mod integration (CrenelatedWallTest, parity rules):** 42 managed crenels matched the rule after render maintenance on two start positions of opposite parity; 2x2, diagonal and one-step stairs were rejected; save/load kept all flags of managed tiles. On load the mod rewrote 6 tiles (`CRENEL_LOAD changed=6`); which load path raised them was not traced. Evidence: `.work/a/crenel-ingame/010`.
