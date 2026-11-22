@@ -14,7 +14,8 @@ using Evidence = AIMarketOverbuyDiagnostic.MarketDemandEvidence;
 
 namespace AIMarketOverbuyDiagnostic
 {
-    // Exact stores own packages; the consumer only reconciles those packages.
+    // Exact stores establish quantity ownership; source policies distinguish
+    // procurement refreshes from current construction resource requirements.
     // All native objects are accessed on the producer, never by the output worker.
     internal static unsafe class MarketPendingDemandFix
     {
@@ -34,6 +35,7 @@ namespace AIMarketOverbuyDiagnostic
         private static readonly byte[] fixesObserverBytes = { 0x4C, 0x69, 0xC0, 0x3C, 0x58, 0x00, 0x00 };
         private static readonly byte[] recountBytes = { 0x42, 0x89, 0xAC, 0x36, 0xCC, 0xF0, 0x12, 0x00 };
         private static readonly byte[] rebuildBytes = { 0x48, 0x8B, 0x4C, 0x24, 0x28, 0x48, 0x33, 0xCC };
+        private static readonly byte[] lossBytes = { 0x45, 0x89, 0x94, 0x8E, 0xA0, 0xB2, 0x79, 0x03 };
         private static IntPtr writerGate, receiptGate;
         private static long module, session, sequence, written, read, nextSummary, nextError;
         private static int moduleLength, installed, corrective, sessionActive, forceSummary, summaryInFlight;
@@ -48,8 +50,9 @@ namespace AIMarketOverbuyDiagnostic
         private struct Request
         {
             internal MarketDemandTarget Target;
-            internal int Tick, SourceRva, SourceStock;
-            internal long Sequence;
+            internal int Tick, SourceRva, SourceStock, GoalAmount, PolicySourceRva, WriteRva, WriteAmount;
+            internal long Sequence, WriteSession, WriteSequence;
+            internal bool WaitingAfter;
         }
 
         internal static bool Ready => Volatile.Read(ref installed) != 0;
@@ -69,7 +72,7 @@ namespace AIMarketOverbuyDiagnostic
                         throw new InvalidOperationException("Demand correction requires the audited native hash.");
                     MarketFixesDemandSource.Initialize(context, log);
                     bool withFixes = MarketFixesDemandSource.IsCovered;
-                    candidates = new MarketDemandWriterHooks.WriterHook[MarketDemandSites.All.Length + (withFixes ? 1 : 0) + 2];
+                    candidates = new MarketDemandWriterHooks.WriterHook[MarketDemandSites.All.Length + (withFixes ? 1 : 0) + 3];
                     if (Goods != 25 || sizeof(GamePlayerResources) != PlayerStride || sizeof(InternalAIC) != 0x5E4 ||
                         Marshal.OffsetOf(typeof(GamePlayerResources), nameof(GamePlayerResources.r_AIPendingMarketPurchaseAmountNull)).ToInt32() != 0x2A70)
                         throw new InvalidOperationException("Demand correction resource/AIC layout differs.");
@@ -93,15 +96,17 @@ namespace AIMarketOverbuyDiagnostic
                     for (int i = 0; i < candidates.Length; i++)
                     {
                         CandidateSite(i, withFixes, out int rva, out byte[] bytes, out int siteIndex, out bool isReceipt);
-                        candidates[i] = MarketDemandWriterHooks.Prepare(context, rva, bytes, siteIndex,
-                            isReceipt ? receiptGate : writerGate, observerRoot);
+                        candidates[i] = siteIndex < MarketDemandSites.All.Length
+                            ? MarketDemandWriterHooks.PrepareSource(context, rva, bytes, siteIndex, writerGate, observerRoot, receiptGate)
+                            : MarketDemandWriterHooks.Prepare(context, rva, bytes, siteIndex,
+                                isReceipt ? receiptGate : writerGate, observerRoot);
                     }
                     hooks = candidates; // Root the complete prepared set before the first publication.
                     for (int i = 0; i < candidates.Length; i++) candidates[i].Publish();
                     MarketFixesDemandSource.SealBodyAfterInstallation();
                     Volatile.Write(ref installed, 1);
-                    DebugLogHelper.LogInfo(log, "AI_MARKET_DEMAND_READY: nativeDemandStores=22 stockMarkers=2 hooks=" + candidates.Length +
-                        " method=reference-rva; gate=session; normalGames=rest-package; untrackedOrders=unchanged; MD_SUM delta36=source/down/up/cancel p99us36=source/before/after/stock om36=omitted (base36).");
+                    DebugLogHelper.LogInfo(log, "AI_MARKET_DEMAND_READY: nativeDemandStores=22 stockMarkers=3 hooks=" + candidates.Length +
+                        " method=reference-rva; gate=session; fixedBatch=permanent-credit; material=current-cost; untrackedOrders=unchanged; MD_SUM delta36=source/down/up/cancel p99us36=source/before/after/stock om36=omitted (base36).");
                 }
                 catch (Exception failure)
                 {
@@ -130,7 +135,7 @@ namespace AIMarketOverbuyDiagnostic
         }
 
         // Callback indices stay stable when the optional Fixes relay is absent:
-        // native stores0..21, Fixes22, single-player recount23, bulk recount24.
+        // native stores0..21 (post callbacks+256), Fixes22, recount23/24, loss25.
         private static void CandidateSite(int position, bool withFixes, out int rva, out byte[] bytes,
             out int siteIndex, out bool isReceipt)
         {
@@ -142,8 +147,8 @@ namespace AIMarketOverbuyDiagnostic
             { rva = MarketFixesDemandSource.ObservationRva; bytes = fixesObserverBytes; siteIndex = nativeCount; return; }
             int receipt = position - nativeCount - (withFixes ? 1 : 0);
             isReceipt = true; siteIndex = nativeCount + 1 + receipt;
-            rva = receipt == 0 ? 0xC1F4A : 0xB9A30;
-            bytes = receipt == 0 ? recountBytes : rebuildBytes;
+            rva = receipt == 0 ? 0xC1F4A : receipt == 1 ? 0xB9A30 : 0xB8122;
+            bytes = receipt == 0 ? recountBytes : receipt == 1 ? rebuildBytes : lossBytes;
         }
 
         internal static void Reset(long nextSession)
@@ -189,18 +194,21 @@ namespace AIMarketOverbuyDiagnostic
         private static void ObserveNativeStore(IntPtr snapshot, int siteIndex)
         {
             long started = Stopwatch.GetTimestamp();
-            bool isReceipt = siteIndex == MarketDemandSites.All.Length + 1 || siteIndex == MarketDemandSites.All.Length + 2;
+            int nativeCount = MarketDemandSites.All.Length;
+            bool after = siteIndex >= 256;
+            int index = after ? siteIndex - 256 : siteIndex;
+            bool isReceipt = !after && index > nativeCount;
             try
             {
                 lock (gate)
                 {
                     if (sessionActive == 0 || !Ready) return;
-                    if (snapshot == IntPtr.Zero || (uint)siteIndex > (uint)(MarketDemandSites.All.Length + 2))
+                    if (snapshot == IntPtr.Zero || (after ? (uint)index >= (uint)nativeCount : (uint)index > (uint)(nativeCount + 3)))
                         throw new InvalidOperationException("Demand store snapshot/site is invalid.");
                     if (isReceipt)
                     {
                         if (corrective == 0) return;
-                        if (siteIndex == MarketDemandSites.All.Length + 1)
+                        if (index == nativeCount + 1)
                         {
                             ulong playerOffset = ((ulong*)snapshot)[9]; // RSI is the audited player*583C.
                             // Native storage updates also accept neutral owner0.
@@ -208,30 +216,31 @@ namespace AIMarketOverbuyDiagnostic
                             if (playerOffset == 0) return;
                             if (playerOffset % PlayerStride != 0 || playerOffset / PlayerStride > Players)
                                 throw new InvalidOperationException("Stock recount player stride is invalid.");
-                            CloseFullySupplied((int)(playerOffset / PlayerStride), 0xC1F4A);
+                            ObserveStockBoundary((int)(playerOffset / PlayerStride), 0xC1F4A);
                         }
-                        else for (int bulkPlayer = 1; bulkPlayer <= Players; bulkPlayer++) CloseFullySupplied(bulkPlayer, 0xB9A30);
+                        else if (index == nativeCount + 2)
+                        { for (int bulkPlayer = 1; bulkPlayer <= Players; bulkPlayer++) ObserveStockBoundary(bulkPlayer, 0xB9A30); }
+                        else
+                        {
+                            ulong* registers = (ulong*)snapshot;
+                            if (registers[1] != unchecked((ulong)module) || unchecked((int)registers[5]) != 0)
+                                throw new InvalidOperationException("No-storage loss operands differ from the audited zero store.");
+                            ulong lossCell = registers[1] + registers[13] * sizeof(int) + TotalGoodsRootRva;
+                            if (DecodeCell(lossCell, false, out int lossPlayer, out int lossGood, out GamePlayerResources* lossResources))
+                                ObservePlannedLoss(lossPlayer, lossGood, lossResources);
+                        }
                         return;
                     }
-                    if (siteIndex == MarketDemandSites.All.Length)
+                    if (index == nativeCount)
                     {
                         int fixesPlayer = unchecked((int)((ulong*)snapshot)[14]); // RAX, before the audited IMUL.
                         MarketFixesDemandSource.CapturePlanned(fixesPlayer, fixesCapture);
                         return;
                     }
-                    MarketDemandSite site = MarketDemandSites.All[siteIndex];
-                    ulong cell = site.Cell(snapshot), root = unchecked((ulong)module) + PendingRootRva;
-                    if (cell < root) throw new InvalidOperationException("Demand cell precedes its audited array.");
-                    ulong offset = cell - root, playerSlot = offset / PlayerStride, within = offset % PlayerStride;
-                    if (playerSlot == 0 || playerSlot > Players || (within & 3) != 0 || within >= Goods * sizeof(int))
-                        throw new InvalidOperationException("Demand cell is outside the audited player/good cells.");
-                    int player = (int)playerSlot, good = (int)(within / sizeof(int));
-                    if (good == (int)eGoods.STORED_NULL || good == (int)eGoods.STORED_GOLD) return;
-                    if (!GamePlayerManagerAPI.Instance.IsAIPlayer(player)) return;
-                    if (!GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(player, out GamePlayerResources* resources) || resources == null ||
-                        unchecked((ulong)((int*)&resources->r_AIPendingMarketPurchaseAmountNull + good)) != cell)
-                        throw new InvalidOperationException("Demand cell disagrees with the SDK player resource pointer.");
-                    CaptureStore(player, good, site.Amount(snapshot), site.Rva, resources);
+                    MarketDemandSite site = MarketDemandSites.All[index];
+                    if (!DecodeCell(site.Cell(snapshot), true, out int player, out int good, out GamePlayerResources* resources)) return;
+                    if (after) FinishStore(player, good, site.Amount(snapshot), site.Rva, resources);
+                    else CaptureStore(player, good, site.Amount(snapshot), site.Rva, resources, true);
                 }
             }
             catch (Exception failure)
@@ -248,6 +257,24 @@ namespace AIMarketOverbuyDiagnostic
             finally { RecordTiming(isReceipt ? 3 : 0, Stopwatch.GetTimestamp() - started); }
         }
 
+        private static bool DecodeCell(ulong cell, bool pendingCell, out int player, out int good, out GamePlayerResources* resources)
+        {
+            player = good = 0; resources = null;
+            ulong root = unchecked((ulong)module) + (uint)(pendingCell ? PendingRootRva : TotalGoodsRootRva);
+            if (cell < root) throw new InvalidOperationException("Observed goods cell precedes its audited array.");
+            ulong offset = cell - root, slot = offset / PlayerStride, within = offset % PlayerStride;
+            if (slot > Players || (within & 3) != 0 || within >= Goods * sizeof(int))
+                throw new InvalidOperationException("Observed goods cell is outside the audited player/good cells.");
+            player = (int)slot; good = (int)(within / sizeof(int));
+            if (!ValidCell(player, good) || !GamePlayerManagerAPI.Instance.IsAIPlayer(player)) return false;
+            if (!GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(player, out resources) || resources == null)
+                throw new InvalidOperationException("Observed goods player resources are unavailable.");
+            int* field = pendingCell ? (int*)&resources->r_AIPendingMarketPurchaseAmountNull : (int*)&resources->r_TotalGoodsNull;
+            if (unchecked((ulong)(field + good)) != cell)
+                throw new InvalidOperationException("Observed goods cell disagrees with the SDK resource pointer.");
+            return true;
+        }
+
         // Optional native-store adapters use the same source contract. This does
         // not infer a store from a policy callback or a changed snapshot.
         internal static void ObserveExternalStore(int player, int good, int amount, int sourceRva)
@@ -258,7 +285,7 @@ namespace AIMarketOverbuyDiagnostic
                 {
                     if (sessionActive == 0 || !ValidCell(player, good) || !GamePlayerManagerAPI.Instance.IsAIPlayer(player)) return;
                     if (GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(player, out GamePlayerResources* resources) && resources != null)
-                        CaptureStore(player, good, amount, sourceRva, resources);
+                        CaptureStore(player, good, amount, sourceRva, resources, false);
                 }
             }
             catch (Exception failure) { FailCorrection(failure); }
@@ -267,37 +294,126 @@ namespace AIMarketOverbuyDiagnostic
         private static void CaptureFixesStore(int player, int good, int sourceStock, int amount, int sourceRva) =>
             ObserveExternalStore(player, good, amount, sourceRva);
 
-        private static void CaptureStore(int player, int good, int amount, int sourceRva, GamePlayerResources* resources)
+        private static void CaptureStore(int player, int good, int amount, int sourceRva, GamePlayerResources* resources, bool paired)
         {
             int index = player * Goods + good, stock = ((int*)&resources->r_TotalGoodsNull)[good];
             int aicId = unchecked((int)resources->r_AILordMinusOne);
-            if (amount <= 0 || !TryPolicy(resources, out long policy) ||
-                !MarketDemandTarget.TryStartPackage(stock, amount, aicId, policy, out MarketDemandTarget target))
+            int before = ((int*)&resources->r_AIPendingMarketPurchaseAmountNull)[good];
+            if (amount <= 0 || !DescribeSource(sourceRva, good, out bool material, out MarketDemandSourceFamily family, out int padding) ||
+                !TryPolicy(player, good, resources, material, family, amount, sourceRva, out long policy))
             { requests[index] = default; return; }
-            int tick = CurrentTick();
-            requests[index] = new Request { Target = target, Tick = tick, Sequence = ++sequence,
-                SourceRva = sourceRva, SourceStock = stock };
+            Request request = requests[index];
+            MarketDemandTarget target = request.Target;
+            bool keepOrigin;
+            if (material)
+            {
+                int oldCost = target.MaterialCost;
+                if (!target.ObserveMaterialStore(stock, before, amount, padding, aicId, policy, out bool merged))
+                { requests[index] = default; return; }
+                keepOrigin = merged && target.MaterialCost == oldCost;
+            }
+            else
+            {
+                if (!target.ObserveFixedStore(stock, before, amount, aicId, policy, family, out keepOrigin))
+                { requests[index] = default; return; }
+            }
+            long sourceSequence = ++sequence;
+            if (!keepOrigin)
+            {
+                request.Tick = CurrentTick(); request.Sequence = sourceSequence; request.SourceRva = sourceRva;
+                request.SourceStock = stock; request.GoalAmount = amount;
+            }
+            request.Target = target;
+            request.PolicySourceRva = sourceRva;
+            request.WriteRva = sourceRva; request.WriteAmount = amount;
+            request.WriteSession = session; request.WriteSequence = sourceSequence; request.WaitingAfter = paired;
+            requests[index] = request;
             Interlocked.Increment(ref SourceStores);
             if (firstSource[index]) return;
-            var evidence = new Evidence { Session = session, Sequence = sequence, Player = player, Good = good,
-                Tick = tick, SourceRva = sourceRva, SourceStock = stock, After = amount, Goal = target.Goal,
+            var evidence = new Evidence { Session = session, Sequence = request.Sequence, Player = player, Good = good,
+                Tick = request.Tick, SourceRva = request.SourceRva, SourceStock = request.SourceStock, After = request.GoalAmount, Goal = target.Goal,
                 OriginalPackage = target.OriginalPackage, Credited = target.Credited, AicId = aicId,
                 IsMaterial = target.Policy == MarketDemandPolicy.MaterialStockGoal, MaterialCost = target.MaterialCost, MaterialPadding = target.MaterialPadding };
             if (Enqueue(evidence)) firstSource[index] = true;
         }
 
-        private static bool TryPolicy(GamePlayerResources* resources, out long policy)
+        private static bool DescribeSource(int rva, int good, out bool material, out MarketDemandSourceFamily family, out int padding)
+        {
+            material = false; padding = 0; family = default;
+            switch (rva)
+            {
+                case 0xCC555: case 0xCC5C1: case 0xCC657: case 0xCC692: case 0xCC6E4:
+                    material = true; padding = good == (int)eGoods.STORED_WOOD_PLANKS ? 2 : 0; return true;
+                case 0x403A7: case 0x40597: case 0x40D3C: case 0x40D62:
+                    family = MarketDemandSourceFamily.Recruit; return true;
+                case 0x2A464: case 0x2A488: case 0x2A4AC: case 0x2A4D0: case 0x2A4F4:
+                    family = MarketDemandSourceFamily.Food; return true;
+                case 0x2ADB5: case 0x2ADD7: case 0x2ADF9: case 0x2AE1B:
+                    family = MarketDemandSourceFamily.Scarcity; return true;
+                case 0x2EB9C: family = MarketDemandSourceFamily.Pitch; return true;
+                case 0x2F56E: family = MarketDemandSourceFamily.Emergency; return true;
+                case 0x51ADB: family = MarketDemandSourceFamily.Aiv; return true;
+                // Atomic ammo reloads need caller/unit goal provenance. Until the
+                // AUTO-only contract is bound, this store deliberately stays unowned.
+                case 0xD5791: return false;
+                case 0x2A4D8: family = MarketDemandSourceFamily.Fixes; return true;
+                default: return false;
+            }
+        }
+
+        private static bool TryPolicy(int player, int good, GamePlayerResources* resources, bool material,
+            MarketDemandSourceFamily family, int package, int policySourceRva, out long policy)
         {
             policy = 0;
             int aicId = unchecked((int)resources->r_AILordMinusOne);
             long address = module + AicRootRva + ((long)aicId - 1) * sizeof(InternalAIC);
             if (aicId <= 0 || address < module || address > module + moduleLength - sizeof(InternalAIC)) return false;
-            byte* bytes = (byte*)address;
-            ulong hash = 14695981039346656037UL;
-            for (int i = 0; i < sizeof(InternalAIC); i++) hash = unchecked((hash ^ bytes[i]) * 1099511628211UL);
-            hash = unchecked((hash ^ resources->r_AILastStandPhase) * 1099511628211UL);
-            policy = unchecked((long)hash);
-            return true;
+            if (material) { policy = MarketDemandPolicyStamp.Material; return true; }
+            InternalAIC* aic = (InternalAIC*)address;
+            var snapshot = default(MarketDemandPolicySnapshot);
+            switch (family)
+            {
+                case MarketDemandSourceFamily.Recruit:
+                    snapshot.BuyWeapons = aic->buy_weapons; snapshot.LastStandPhase = resources->r_AILastStandPhase;
+                    policy = MarketDemandPolicyStamp.Recruit(snapshot, policySourceRva == 0x40D3C || policySourceRva == 0x40D62);
+                    return true;
+                case MarketDemandSourceFamily.Food:
+                    snapshot.BuyFoodAmount = aic->buy_food_amount;
+                    switch ((eGoods)good)
+                    {
+                        case eGoods.STORED_FOOD_FRUIT: snapshot.FoodThreshold = aic->buy_apples_at; break;
+                        case eGoods.STORED_FOOD_CHEESE: snapshot.FoodThreshold = aic->buy_cheese_at; break;
+                        case eGoods.STORED_FOOD_BREAD: snapshot.FoodThreshold = aic->buy_bread_at; break;
+                        case eGoods.STORED_RAW_WHEAT: snapshot.FoodThreshold = aic->buy_wheat_at; break;
+                        case eGoods.STORED_RAW_HOPS: snapshot.FoodThreshold = aic->buy_hops_at; break;
+                        default: return false;
+                    }
+                    policy = MarketDemandPolicyStamp.Food(snapshot); return true;
+                case MarketDemandSourceFamily.Fixes:
+                    if (!MarketFixesDemandSource.TryGetPolicySnapshot(player, good, out snapshot.FixesFlag,
+                        out snapshot.FixesThreshold, out snapshot.FixesAmount)) return false;
+                    return MarketDemandPolicyStamp.Fixes(snapshot, out policy);
+                default:
+                    policy = MarketDemandPolicyStamp.Literal(family, package); return true;
+            }
+        }
+
+        private static bool TryPolicy(int player, int good, GamePlayerResources* resources, Request request, out long policy) =>
+            TryPolicy(player, good, resources, request.Target.Policy == MarketDemandPolicy.MaterialStockGoal,
+                request.Target.Family, request.Target.OriginalPackage, request.PolicySourceRva, out policy);
+
+        private static void FinishStore(int player, int good, int emitted, int rva, GamePlayerResources* resources)
+        {
+            if (corrective == 0) return;
+            int index = player * Goods + good;
+            Request request = requests[index];
+            if (!request.WaitingAfter || request.WriteSession != session || request.WriteRva != rva || request.WriteAmount != emitted) return;
+            request.WaitingAfter = false;
+            int actual = ((int*)&resources->r_AIPendingMarketPurchaseAmountNull)[good];
+            if (actual != emitted || request.Target.ExpectedPending != emitted)
+            { request.Target.Active = false; requests[index] = request; return; }
+            ApplyRequest(player, good, resources, CurrentTick(), rva, ref request);
+            requests[index] = request;
         }
 
         internal static void BeforeDecision(int player, int tick)
@@ -311,45 +427,49 @@ namespace AIMarketOverbuyDiagnostic
                     if (sessionActive == 0 || corrective == 0 || player <= 0 || player > Players ||
                         !GamePlayerManagerAPI.Instance.IsAIPlayer(player)) return;
                     if (!GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(player, out GamePlayerResources* resources) || resources == null) return;
-                    int aicId = unchecked((int)resources->r_AILordMinusOne);
-                    bool hasPolicy = TryPolicy(resources, out long policy);
-                    int* pending = (int*)&resources->r_AIPendingMarketPurchaseAmountNull;
-                    int* stock = (int*)&resources->r_TotalGoodsNull;
                     for (int good = (int)eGoods.STORED_WOOD_LOGS; good < Goods; good++)
                     {
                         if (good == (int)eGoods.STORED_GOLD) continue;
-                        int index = player * Goods + good, original = pending[good];
+                        int index = player * Goods + good;
                         Request request = requests[index];
-                        if (!CorrectionCovered(good))
-                        { request.Target.Active = false; requests[index] = request; continue; }
-                        if (!hasPolicy) request.Target.Active = false;
-                        if (!request.Target.TryReconcile(original, stock[good], aicId, policy, out int adjusted))
-                        {
-                            requests[index] = request;
-                            if (request.Target.Active && stock[good] == 0) Interlocked.Increment(ref ZeroStockPassed);
-                            continue;
-                        }
-                        pending[good] = adjusted;
-                        if (pending[good] != adjusted) throw new InvalidOperationException("Demand correction readback differs.");
+                        ApplyRequest(player, good, resources, tick, 0x3EC90, ref request);
                         requests[index] = request;
-                        if (adjusted < original)
-                        { Interlocked.Increment(ref Reductions); Interlocked.Increment(ref reductionsByGood[index]); }
-                        else Interlocked.Increment(ref Increases);
-                        if (adjusted == 0) Interlocked.Increment(ref CancelledOrders);
-                        if (firstAdjustment[index]) continue;
-                        var evidence = new Evidence { Kind = 1, Session = session, Player = player, Good = good,
-                            Tick = tick, Before = original, After = adjusted, Stock = stock[good], Goal = request.Target.Goal,
-                            OriginalPackage = request.Target.OriginalPackage, Credited = request.Target.Credited,
-                            IsMaterial = request.Target.Policy == MarketDemandPolicy.MaterialStockGoal,
-                            MaterialCost = request.Target.MaterialCost, MaterialPadding = request.Target.MaterialPadding,
-                            AicId = aicId, SourceRva = request.SourceRva, SourceTick = request.Tick,
-                            SourceSequence = request.Sequence, SourceStock = request.SourceStock, BoundaryRva = 0x3EC90 };
-                        if (Enqueue(evidence)) firstAdjustment[index] = true;
                     }
                 }
             }
             catch (Exception failure) { FailCorrection(failure); }
             finally { RecordTiming(1, Stopwatch.GetTimestamp() - started); }
+        }
+
+        private static void ApplyRequest(int player, int good, GamePlayerResources* resources, int tick, int boundaryRva, ref Request request)
+        {
+            if (!request.Target.Active) return;
+            if (!CorrectionCovered(good) || !TryPolicy(player, good, resources, request, out long policy))
+            { request.Target.Active = false; return; }
+            int* cell = (int*)&resources->r_AIPendingMarketPurchaseAmountNull + good;
+            int original = *cell, stock = ((int*)&resources->r_TotalGoodsNull)[good];
+            int aicId = unchecked((int)resources->r_AILordMinusOne);
+            if (!request.Target.TryReconcile(original, stock, aicId, policy, out int adjusted))
+            {
+                if (boundaryRva == 0x3EC90 && request.Target.Active && stock == 0) Interlocked.Increment(ref ZeroStockPassed);
+                return;
+            }
+            *cell = adjusted;
+            if (*cell != adjusted) throw new InvalidOperationException("Demand correction readback differs.");
+            int index = player * Goods + good;
+            if (adjusted < original)
+            { Interlocked.Increment(ref Reductions); Interlocked.Increment(ref reductionsByGood[index]); }
+            else Interlocked.Increment(ref Increases);
+            if (adjusted == 0) Interlocked.Increment(ref CancelledOrders);
+            if (firstAdjustment[index]) return;
+            var evidence = new Evidence { Kind = 1, Session = session, Player = player, Good = good,
+                Tick = tick, Before = original, After = adjusted, Stock = stock, Goal = request.Target.Goal,
+                OriginalPackage = request.Target.OriginalPackage, Credited = request.Target.Credited,
+                IsMaterial = request.Target.Policy == MarketDemandPolicy.MaterialStockGoal,
+                MaterialCost = request.Target.MaterialCost, MaterialPadding = request.Target.MaterialPadding,
+                AicId = aicId, SourceRva = request.SourceRva, SourceTick = request.Tick,
+                SourceSequence = request.Sequence, SourceStock = request.SourceStock, BoundaryRva = boundaryRva };
+            if (Enqueue(evidence)) firstAdjustment[index] = true;
         }
 
         // Root brackets only the actual native decision. Its own purchases call
@@ -368,10 +488,10 @@ namespace AIMarketOverbuyDiagnostic
         private static bool CorrectionCovered(int good) => !MarketFixesDemandSource.DoesSourceExist || MarketFixesDemandSource.IsCovered ||
             (good != (int)eGoods.STORED_WOOD_PLANKS && good != (int)eGoods.STORED_IRON_INGOTS && good != (int)eGoods.STORED_FOOD_ALE);
 
-        // The two audited markers follow completed, committed non-gold stock
-        // accounting. Only terminal full coverage is acted on here; partial
-        // packages remain the consumer's responsibility and may still rebound.
-        private static void CloseFullySupplied(int player, int boundaryRva)
+        // Completed recounts provide positive receipts and intervening losses.
+        // Publish changed desired quantities immediately, with only relevant policy
+        // reads. Own native purchases remain excluded by decisionDepth.
+        private static void ObserveStockBoundary(int player, int boundaryRva)
         {
             if (decisionDepth[player] != 0 || !GamePlayerManagerAPI.Instance.IsAIPlayer(player)) return;
             if (!GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(player, out GamePlayerResources* resources) || resources == null) return;
@@ -381,43 +501,30 @@ namespace AIMarketOverbuyDiagnostic
             int* stock = (int*)&resources->r_TotalGoodsNull;
             int* pending = (int*)&resources->r_AIPendingMarketPurchaseAmountNull;
             int aicId = unchecked((int)resources->r_AILordMinusOne);
-            bool policyRead = false, policyValid = false;
-            long policy = 0;
             for (int good = (int)eGoods.STORED_WOOD_LOGS; good < Goods; good++)
             {
                 if (good == (int)eGoods.STORED_GOLD) continue;
                 int index = player * Goods + good;
                 Request request = requests[index];
                 if (!request.Target.Active) continue;
-                int original = pending[good], currentStock = stock[good];
-                request.Target.ObservePending(original);
+                int currentStock = stock[good];
                 if (!CorrectionCovered(good)) request.Target.Active = false;
-                if (!request.Target.Active || currentStock < request.Target.Goal)
+                if (!request.Target.ObserveStock(pending[good], currentStock, aicId))
                 { requests[index] = request; continue; }
-                if (aicId != request.Target.AicId)
-                { request.Target.Active = false; requests[index] = request; continue; }
-                // The ordinary no-fulfilment path does not hash any AIC bytes.
-                if (!policyRead) { policyValid = TryPolicy(resources, out policy); policyRead = true; }
-                if (!policyValid) request.Target.Active = false;
-                if (!request.Target.TryReconcile(original, currentStock, aicId, policy, out int adjusted))
-                { requests[index] = request; continue; }
-                if (adjusted != 0) throw new InvalidOperationException("Terminal stock coverage produced a partial correction.");
-                pending[good] = 0;
-                if (pending[good] != 0) throw new InvalidOperationException("Terminal stock correction readback differs.");
+                if (request.Target.NeedsAdjustment(currentStock))
+                    ApplyRequest(player, good, resources, CurrentTick(), boundaryRva, ref request);
                 requests[index] = request;
-                Interlocked.Increment(ref Reductions);
-                Interlocked.Increment(ref reductionsByGood[index]);
-                Interlocked.Increment(ref CancelledOrders);
-                if (firstAdjustment[index]) continue;
-                var evidence = new Evidence { Kind = 1, Session = session, Player = player, Good = good,
-                    Tick = CurrentTick(), Before = original, After = 0, Stock = currentStock, Goal = request.Target.Goal,
-                    OriginalPackage = request.Target.OriginalPackage, Credited = request.Target.Credited,
-                    IsMaterial = request.Target.Policy == MarketDemandPolicy.MaterialStockGoal,
-                    MaterialCost = request.Target.MaterialCost, MaterialPadding = request.Target.MaterialPadding,
-                    AicId = aicId, SourceRva = request.SourceRva, SourceTick = request.Tick,
-                    SourceSequence = request.Sequence, SourceStock = request.SourceStock, BoundaryRva = boundaryRva };
-                if (Enqueue(evidence)) firstAdjustment[index] = true;
             }
+        }
+
+        private static void ObservePlannedLoss(int player, int good, GamePlayerResources* resources)
+        {
+            if (decisionDepth[player] != 0) return;
+            int index = player * Goods + good;
+            // The audited next instruction publishes exactly zero. Reading the
+            // temporary negative total before that clamp would lose valid ownership.
+            requests[index].Target.ObserveStock(((int*)&resources->r_AIPendingMarketPurchaseAmountNull)[good], 0,
+                unchecked((int)resources->r_AILordMinusOne));
         }
 
         internal static void AfterDecision(int player)
@@ -431,8 +538,11 @@ namespace AIMarketOverbuyDiagnostic
                     if (sessionActive == 0 || player <= 0 || player > Players) return;
                     if (!GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(player, out GamePlayerResources* resources) || resources == null) return;
                     int* pending = (int*)&resources->r_AIPendingMarketPurchaseAmountNull;
+                    int* stock = (int*)&resources->r_TotalGoodsNull;
+                    int aicId = unchecked((int)resources->r_AILordMinusOne);
                     for (int good = (int)eGoods.STORED_WOOD_LOGS; good < Goods; good++)
-                        if (good != (int)eGoods.STORED_GOLD) requests[player * Goods + good].Target.ObservePending(pending[good]);
+                        if (good != (int)eGoods.STORED_GOLD)
+                            requests[player * Goods + good].Target.ObserveDecisionEnd(pending[good], stock[good], aicId);
                 }
             }
             catch (Exception failure) { FailCorrection(failure); }
@@ -454,7 +564,7 @@ namespace AIMarketOverbuyDiagnostic
                 if (!GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(player, out GamePlayerResources* resources) || resources == null) return false;
                 request.Target.ObservePending(((int*)&resources->r_AIPendingMarketPurchaseAmountNull)[good]);
                 if (unchecked((int)resources->r_AILordMinusOne) != request.Target.AicId ||
-                    !TryPolicy(resources, out long policy) || policy != request.Target.PolicyToken) request.Target.Active = false;
+                    !TryPolicy(player, good, resources, request, out long policy) || policy != request.Target.PolicyToken) request.Target.Active = false;
                 requests[index] = request;
                 if (!request.Target.Active) return false;
                 amount = request.Target.ExpectedPending;

@@ -159,6 +159,26 @@ namespace AIMarketOverbuyDiagnostic
                 Disable("Custom-purchasing owner, native stub or food-purchase body changed since validation.");
         }
 
+        // Relevant live policy only; the owner can compare threshold+amount
+        // exactly without hashing unrelated AIC fields. Disabled flags are data,
+        // whereas an unknown/unvalidated channel has no usable policy snapshot.
+        internal static bool TryGetPolicySnapshot(int player, int good,
+            out int enabledFlag, out int threshold, out int amount)
+        {
+            enabledFlag = threshold = amount = 0;
+            if (!covered || !sealedAfterInstallation || player <= 0 ||
+                player > GamePlayerManagerAPI.MAX_PLAYERS) return false;
+            Channel channel;
+            if (good == (int)eGoods.STORED_WOOD_PLANKS) channel = wood;
+            else if (good == (int)eGoods.STORED_IRON_INGOTS) channel = iron;
+            else if (good == (int)eGoods.STORED_FOOD_ALE) channel = ale;
+            else return false;
+            enabledFlag = *((byte*)channel.FlagsAddress + player);
+            threshold = *((int*)channel.ThresholdAddress + player);
+            amount = *((int*)channel.AmountAddress + player);
+            return true;
+        }
+
         private static void CaptureChannel(Channel channel, int player, int* stock,
             Action<int, int, int, int, int> capture)
         {

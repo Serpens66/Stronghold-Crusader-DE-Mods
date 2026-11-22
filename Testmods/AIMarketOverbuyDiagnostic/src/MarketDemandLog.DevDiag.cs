@@ -21,16 +21,27 @@ namespace AIMarketOverbuyDiagnostic
             (8L * 60 * 60 / 10 + 2) * SummaryLineBudgetBytes +
             (long)players * goods * 2 * ExampleLineBudgetBytes + HealthyStartupBudgetBytes;
 
-        internal static string FormatSource(MarketDemandEvidence item) => string.Format(CultureInfo.InvariantCulture,
-            "MARKET_STALE_NATIVE_REQUEST: session={0} player={1} good={2} nativeTick={3} sequence={4} sourceRva={5:X} initialStock={6} amount={7} initialSum={8} aicNativeIndex={9} pendingWrites=0",
-            item.Session, item.Player, item.Good, item.Tick, item.Sequence, item.SourceRva,
-            item.SourceStock, item.After, item.Goal, item.AicId);
+        internal static string FormatSource(MarketDemandEvidence item)
+        {
+            string goal = item.IsMaterial
+                ? string.Format(CultureInfo.InvariantCulture, "cost={0} pad={1}", item.MaterialCost, item.MaterialPadding)
+                : string.Format(CultureInfo.InvariantCulture, "initialSum={0}", item.Goal);
+            return string.Format(CultureInfo.InvariantCulture,
+                "MARKET_STALE_NATIVE_REQUEST: session={0} player={1} good={2} nativeTick={3} sequence={4} sourceRva={5:X} initialStock={6} amount={7} mode={10} {8} aic={9} pendingWrites=0",
+                item.Session, item.Player, item.Good, item.Tick, item.Sequence, item.SourceRva,
+                item.SourceStock, item.After, goal, item.AicId, item.IsMaterial ? "M" : "B");
+        }
 
-        internal static string FormatAdjustment(MarketDemandEvidence item) => string.Format(CultureInfo.InvariantCulture,
-            "MARKET_PENDING_ADJUSTED: session={0} player={1} good={2} nativeTick={3} sourceRva={4:X} sourceTick={5} sourceSequence={6} initialStock={7} mode={15} package={8} credited={14} cost={16} pad={17} stock={9} oldPending={10} newPending={11} aic={12} boundaryRva={13:X} corrected=1",
-            item.Session, item.Player, item.Good, item.Tick, item.SourceRva, item.SourceTick, item.SourceSequence,
-            item.SourceStock, item.OriginalPackage, item.Stock, item.Before, item.After, item.AicId, item.BoundaryRva,
-            item.Credited, item.IsMaterial ? "m" : "b", item.MaterialCost, item.MaterialPadding);
+        internal static string FormatAdjustment(MarketDemandEvidence item)
+        {
+            string goal = item.IsMaterial
+                ? string.Format(CultureInfo.InvariantCulture, "cost={0} pad={1}", item.MaterialCost, item.MaterialPadding)
+                : string.Format(CultureInfo.InvariantCulture, "package={0} credited={1}", item.OriginalPackage, item.Credited);
+            return string.Format(CultureInfo.InvariantCulture,
+                "MARKET_PENDING_ADJUSTED: session={0} player={1} good={2} nativeTick={3} sourceRva={4:X} sourceTick={5} sourceSequence={6} initialStock={7} mode={14} {8} stock={9} oldPending={10} newPending={11} aic={12} boundaryRva={13:X}",
+                item.Session, item.Player, item.Good, item.Tick, item.SourceRva, item.SourceTick, item.SourceSequence,
+                item.SourceStock, goal, item.Stock, item.Before, item.After, item.AicId, item.BoundaryRva, item.IsMaterial ? "M" : "B");
+        }
 
         internal static string FormatSummary(long stores, long reductions, long increases, long cancellations,
             long sourceP99Micros, long beforeP99Micros, long afterP99Micros, long stockP99Micros, long omitted) =>

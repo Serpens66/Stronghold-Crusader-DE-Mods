@@ -80,6 +80,8 @@
     <Compile Include="src\CoopLaunchBlockDiagnostics.cs" />
     <Compile Include="src\CoopPackageBlockMessages.cs" />
     <Compile Include="src\ExtendedDataRuntime.CoopCache.cs" />
+    <Compile Include="src\ExtendedDataRuntime.CoopWorkshop.cs" />
+    <Compile Include="src\CoopWorkshopDiagnostics.cs" />
     <Compile Include="src\CoopClientLobbyPresentation.cs" />
     <Compile Include="src\ExtendedDataRuntime.LaunchReadiness.cs" />
     <Compile Include="src\CoopMissionDataCopies.cs" />

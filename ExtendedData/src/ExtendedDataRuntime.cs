@@ -286,6 +286,7 @@ namespace ExtendedData
             missionSettingsCoordinator.LobbyOpened += lordDataCoordinator.OnLobbyOpened;
             mapSettingsCoordinator.MultiplayerSaveLaunchPreparing += PrepareLordSaveWithDiagnostics;
             InitializeLaunchReadiness();
+            InitializeCoopWorkshopDiagnostics();
             RefreshModCompatibility();
             settings.ActiveCoopPackageChanged += OnActiveCoopPackageChanged;
             settings.CoopPackageRemoteStatusChanged += OnCoopPackageRemoteStatusChanged;
@@ -828,6 +829,7 @@ namespace ExtendedData
                 try
                 {
                     packageOverviews = packageCatalog.Discover(roots, message => LogError(message));
+                    RememberCoopWorkshopSources(roots.Skip(1));
                     settings.RefreshPackageOverviews(packageOverviews);
                 }
                 finally { Shared.DevDiag.StopSpike(ref started, "coop.discovery", 10000); }
@@ -850,6 +852,7 @@ namespace ExtendedData
             {
                 RefreshPackageCatalog();
                 ApplyActivePackage();
+                ReportCoopWorkshopDiagnostics(GetExistingMainViewModel()?.FRONTMultiplayer);
             }
             finally
             {
@@ -860,6 +863,7 @@ namespace ExtendedData
         private void OnCoopSetupOpened()
         {
             clientLobbyPresentation = null;
+            ReportCoopWorkshopDiagnostics(GetExistingMainViewModel()?.FRONTMultiplayer);
             if (!activation.CoopPackages || selected == null)
                 return;
             try
@@ -950,9 +954,7 @@ namespace ExtendedData
                 if (changed && refreshVisible) RefreshVisibleCoopMissionAfterPackageChange();
                 return;
             }
-            if (!GameNetworkAPI.IsLocalHost() &&
-                (!string.Equals(settings.ActiveCoopPackageDescriptor, ExpectedPackageDescriptor(), StringComparison.Ordinal) ||
-                 string.IsNullOrEmpty(settings.ActiveCoopPackageFingerprint)))
+            if (!GameNetworkAPI.IsLocalHost() && !HasCoherentHostPackageDescriptor())
             {
                 ClearPackageData();
                 missionSettingsCoordinator?.SetCoopPackagePresentation(settings.ActiveCoopPackageId, settings.ActiveCoopPackageMissionCount);
@@ -961,6 +963,7 @@ namespace ExtendedData
             }
             try
             {
+                coopPackageConflict = null;
                 CoopTrailPackage next = LoadSelectedPackage();
                 if (GameNetworkAPI.IsLocalHost())
                 {
@@ -974,7 +977,8 @@ namespace ExtendedData
                     string reason = SerpLocalization.Get("ExtendedData.ErrorFingerprintMismatch");
                     CoopLaunchBlockDiagnostics.ReportLocal(log, "PackageCheck", reason, DescribeLaunchBlockContext(
                         GetExistingMainViewModel()?.FRONTMultiplayer), "localFingerprint=" + next.Manifest.ContentFingerprint +
-                        "; localMissionCount=" + next.Manifest.MissionCount + "; hostMissionCount=" + settings.ActiveCoopPackageMissionCount);
+                        "; localMissionCount=" + next.Manifest.MissionCount + "; hostMissionCount=" + settings.ActiveCoopPackageMissionCount +
+                        "; " + DescribeCoopWorkshopCandidate(next.RootPath, next.Manifest.ContentFingerprint));
                     ClearPackageData();
                     missionSettingsCoordinator?.SetCoopPackagePresentation(settings.ActiveCoopPackageId, settings.ActiveCoopPackageMissionCount);
                     SetLocalPackageError(ExtendedDataSettingsViewModel.MismatchStatus, reason);
@@ -1000,6 +1004,12 @@ namespace ExtendedData
             }
             catch (Exception exception)
             {
+                coopPackageConflict = exception as CoopTrailPackageConflictException;
+                if (coopPackageConflict != null)
+                    CoopLaunchBlockDiagnostics.ReportLocal(log, "PackageConflict", "Conflicting validated Coop Trail copies",
+                        DescribeLaunchBlockContext(GetExistingMainViewModel()?.FRONTMultiplayer),
+                        string.Join("; ", coopPackageConflict.Candidates.Select(item =>
+                            DescribeCoopWorkshopCandidate(item.RootPath, item.Manifest.ContentFingerprint))));
                 ClearPackageData();
                 ClearHostPackageDescriptor();
                 missionSettingsCoordinator?.SetCoopPackagePresentation(settings.ActiveCoopPackageId, settings.ActiveCoopPackageMissionCount);
@@ -1498,6 +1508,9 @@ namespace ExtendedData
         private string ExpectedPackageDescriptor() =>
             settings.ActiveCoopPackageId + "|" + settings.ActiveCoopPackageFingerprint + "|" + settings.ActiveCoopPackageMissionCount;
 
+        private bool HasCoherentHostPackageDescriptor() => !string.IsNullOrEmpty(settings.ActiveCoopPackageFingerprint) &&
+            string.Equals(settings.ActiveCoopPackageDescriptor, ExpectedPackageDescriptor(), StringComparison.Ordinal);
+
         private List<HumanPackageState> GetHumanPackageStates(FRONT_Multiplayer self)
         {
             var result = new List<HumanPackageState>();
@@ -1717,6 +1730,7 @@ namespace ExtendedData
         private void ReportLaunchFailure(string command, string reason, string detail, bool showPopup)
         {
             FRONT_Multiplayer self = GetExistingMainViewModel()?.FRONTMultiplayer;
+            if (IsLaunchCommand(command)) ReportCoopWorkshopDiagnostics(self);
             lastAttemptFailure = reason ?? string.Empty;
             lastAttemptScope = LaunchScope(self);
             lastAttemptRevision = System.Threading.Interlocked.Read(ref readinessInputRevision);

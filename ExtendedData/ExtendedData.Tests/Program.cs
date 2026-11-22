@@ -67,6 +67,7 @@ var tests = new (string Name, Action Run)[]
     ("Maker menus discover twenty forty-mission packages without opening their contents", TestMakerPackageDiscovery),
     ("Maker metadata preserves replicas, conflicts, legacy sources and refreshes", TestMakerPackageMetadata),
     ("selected package session reuses and invalidates validated data", TestPackageSession),
+    ("Coop Workshop notice requires an associated Steam item and an observed completion", TestCoopWorkshopNotice),
     ("author re-export diverges from the subscribed package only after publication", TestAuthorExportCompatibility),
     ("Maker export shares the authored advanced rules across Coop modes", TestCoopExportAdvancedOptions),
     ("lazy mission cache resolves only selected slots and retries failures", TestLazyMissionCache),
@@ -2192,6 +2193,28 @@ static void TestMakerPackageMetadata()
         "Vanilla confirmation failure was swallowed as package corruption");
 }
 
+static void TestCoopWorkshopNotice()
+{
+    const ulong item = 123;
+    const string package = "selected-package";
+    var source = new CoopWorkshopInstallation { PackageIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { package } };
+    var installations = new Dictionary<ulong, CoopWorkshopInstallation> { [item] = source };
+    Assert(CoopWorkshopInstallation.TryMatch(installations, "SELECTED-PACKAGE", out var match) && match.Key == item,
+        "known package was not associated with its Steam item");
+    Assert(!CoopWorkshopInstallation.TryMatch(installations, "unknown-package", out _), "unrelated package matched");
+    Assert(!CoopWorkshopInstallation.TryObserveCompletion(installations, 456, 789), "unrelated Steam item recorded a completion");
+    Assert(source.Notice(true, true, false) == CoopWorkshopNotice.None, "an item already installed at startup requested a restart");
+    Assert(source.Notice(true, true, true) == CoopWorkshopNotice.UpdatePending, "pending Steam update was not recognized");
+    Assert(CoopWorkshopInstallation.TryObserveCompletion(installations, item, 789), "install completion was not recorded");
+    Assert(!CoopWorkshopInstallation.TryObserveCompletion(installations, item, 789), "duplicate install completion was recorded");
+    Assert(source.Notice(true, true, true) == CoopWorkshopNotice.UpdatePending, "restart was suggested while Steam still reports pending work");
+    Assert(source.Notice(true, true, false) == CoopWorkshopNotice.Restart, "completed Steam update did not suggest a restart");
+    Assert(source.Notice(false, true, false) == CoopWorkshopNotice.None, "unsubscribed item suggested a restart");
+    Assert(source.Notice(true, false, false) == CoopWorkshopNotice.None, "uninstalled item suggested a restart");
+    installations[456] = new CoopWorkshopInstallation { PackageIds = new HashSet<string> { package } };
+    Assert(!CoopWorkshopInstallation.TryMatch(installations, package, out _), "ambiguous Steam item association was accepted");
+}
+
 static void TestPackageSession()
 {
     using Fixture fixture = Fixture.Create();
@@ -2542,15 +2565,29 @@ static void TestDuplicatePackageIds()
     using Fixture fixture = Fixture.Create();
     string root = Path.Combine(fixture.Root, "CustomTrails");
     string id = Guid.NewGuid().ToString("D");
-    CreatePackage(fixture, root, "One", 1, id);
-    CreatePackage(fixture, root, "Two", 1, id);
+    string first = CreatePackage(fixture, root, "One", 1, id);
+    string second = CreatePackage(fixture, root, "Two", 1, id);
+    File.AppendAllText(Path.Combine(second, "CoopMissions", "map.map"), "changed playable contents");
+    RehashTestPackage(second);
     var errors = new List<string>();
     var catalog = new CoopTrailPackageCatalog();
     catalog.Scan(root, null, errors.Add);
     Assert(catalog.Packages.Count == 0, "duplicate package ID remained selectable");
     Assert(errors.Any(message => message.Contains("duplicate", StringComparison.OrdinalIgnoreCase)), "duplicate package ID was not diagnosed");
-    ExpectFailure(() => new CoopTrailPackageSession().GetOrLoad(catalog.Discover(new[] { root }), id, out _),
-        "selected-package validation accepted conflicting valid replicas");
+    try
+    {
+        new CoopTrailPackageSession().GetOrLoad(catalog.Discover(new[] { root }), id, out _);
+    }
+    catch (CoopTrailPackageConflictException conflict)
+    {
+        var candidatesByPath = conflict.Candidates.ToDictionary(candidate => candidate.RootPath);
+        Assert(candidatesByPath.Count == 2 && candidatesByPath[first].Manifest.PackageId == id &&
+            candidatesByPath[second].Manifest.PackageId == id, "the conflict lost either package's root or identity");
+        Assert(candidatesByPath[first].Manifest.ContentFingerprint != candidatesByPath[second].Manifest.ContentFingerprint,
+            "the conflict lost the distinct fingerprints of the valid packages");
+        return;
+    }
+    throw new InvalidOperationException("selected-package validation accepted conflicting valid replicas");
 }
 
 static void TestIdenticalPackageReplicas()

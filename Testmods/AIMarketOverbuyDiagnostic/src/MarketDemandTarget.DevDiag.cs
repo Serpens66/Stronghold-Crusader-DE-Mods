@@ -3,6 +3,36 @@ namespace AIMarketOverbuyDiagnostic
 {
     internal enum MarketDemandPolicy { FixedBatch, MaterialStockGoal }
     internal enum MarketDemandSourceFamily { Recruit, Food, Scarcity, Pitch, Emergency, Aiv, Ammo, Fixes }
+
+    internal struct MarketDemandPolicySnapshot
+    {
+        internal int BuyWeapons, BuyFoodAmount, FoodThreshold, FixesFlag, FixesThreshold, FixesAmount;
+        internal uint LastStandPhase;
+    }
+
+    // Exact packed relevant fields, not a hash of unrelated AIC configuration.
+    // Family and AIC identity are checked separately by the target contract.
+    internal static class MarketDemandPolicyStamp
+    {
+        internal static long Recruit(MarketDemandPolicySnapshot snapshot, bool combat)
+        {
+            int amount = combat && MarketDemandTarget.LastStandPolicyCode(snapshot.LastStandPhase) != 0
+                ? 5 : snapshot.BuyWeapons;
+            return unchecked((uint)amount);
+        }
+        internal static long Food(MarketDemandPolicySnapshot snapshot) => Pair(snapshot.BuyFoodAmount, snapshot.FoodThreshold);
+        internal static long Literal(MarketDemandSourceFamily family, int package) =>
+            unchecked((long)(((ulong)(uint)family << 32) | (uint)package));
+        internal static long Material => 0;
+        internal static bool Fixes(MarketDemandPolicySnapshot snapshot, out long stamp)
+        {
+            stamp = 0;
+            if (snapshot.FixesFlag == 0) return false;
+            stamp = Pair(snapshot.FixesAmount, snapshot.FixesThreshold);
+            return true;
+        }
+        private static long Pair(int amount, int threshold) => unchecked((long)(((ulong)(uint)threshold << 32) | (uint)amount));
+    }
     // Pure per-player/per-good package accounting. The caller must prove a new
     // package under its source-specific goal contract, not merely an executed STORE:
     // a repeated native assignment may refresh the same still-open intent.
@@ -14,6 +44,10 @@ namespace AIMarketOverbuyDiagnostic
         internal MarketDemandPolicy Policy;
         internal MarketDemandSourceFamily Family;
         internal long Goal, PolicyToken;
+
+        // Native combat purchase quantities distinguish positive LastStand from
+        // normal mode, not the countdown values8..1 inside the positive mode.
+        internal static uint LastStandPolicyCode(uint phase) => phase > 0 ? 1u : 0u;
 
         internal static bool TryStartPackage(int sourceStock, int emittedAmount, int aicId,
             long policyToken, out MarketDemandTarget state)
@@ -111,8 +145,13 @@ namespace AIMarketOverbuyDiagnostic
             return true;
         }
 
-        internal bool NeedsImmediateCompletion(int stock) => Active &&
-            (Policy == MarketDemandPolicy.FixedBatch ? Credited == OriginalPackage : stock >= MaterialCost);
+        internal bool NeedsAdjustment(int stock)
+        {
+            if (!Active) return false;
+            long wanted = Policy == MarketDemandPolicy.FixedBatch ? OriginalPackage - Credited :
+                stock >= MaterialCost ? 0 : (long)MaterialCost - stock + MaterialPadding;
+            return wanted != ExpectedPending;
+        }
 
         // Native 3EC90 supplies only its selected purchase and then clears that
         // pending cell. Refresh surviving packages without counting our own buy

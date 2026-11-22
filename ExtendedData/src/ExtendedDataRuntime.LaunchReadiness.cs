@@ -73,6 +73,7 @@ namespace ExtendedData
                 try
                 {
                     FRONT_Multiplayer self = GetExistingMainViewModel()?.FRONTMultiplayer;
+                    ReportCoopWorkshopDiagnostics(self);
                     if (self?.currentLobby?.isHost != true || selected?.Loaded.LordRequirements == null ||
                         !CurrentSlotRequiresPackage(self)) return;
                     // Inside Vanilla's mission switch the slots still hold the previous mission's Lords.

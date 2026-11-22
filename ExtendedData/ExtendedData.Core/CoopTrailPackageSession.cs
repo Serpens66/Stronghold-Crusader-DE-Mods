@@ -5,6 +5,18 @@ using System.Linq;
 
 namespace ExtendedData.Core
 {
+    internal sealed class CoopTrailPackageConflictException : IOException
+    {
+        internal CoopTrailPackageConflictException(string packageId, List<CoopTrailPackage> candidates)
+            : base("Conflicting Coop Trail packageId [" + packageId + "] in: " +
+                string.Join(", ", candidates.Select(item => item.RootPath)))
+        {
+            Candidates = candidates.AsReadOnly();
+        }
+
+        internal IReadOnlyList<CoopTrailPackage> Candidates { get; }
+    }
+
     // One validated package per session owner. File metadata is an invalidation hint;
     // every cache miss still uses the complete, unchanged SHA-256 package contract.
     internal sealed class CoopTrailPackageSession
@@ -52,8 +64,7 @@ namespace ExtendedData.Core
             if (valid.Any(item => !SameReplica(valid[0], item)))
             {
                 Clear();
-                throw new InvalidDataException("Conflicting Coop Trail packageId [" + packageId + "] in: " +
-                    string.Join(", ", valid.Select(item => item.RootPath)));
+                throw new CoopTrailPackageConflictException(packageId, valid);
             }
             string[] after = CaptureCandidates(candidates);
             if (!before.SequenceEqual(after, StringComparer.Ordinal))

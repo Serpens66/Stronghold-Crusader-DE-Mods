@@ -37,17 +37,19 @@ internal static class MarketDemandTargetTests
         Check(!state.TryReconcile(2, 0, 32, 100, out adjusted) && adjusted == 2 && state.Credited == 8,
             "building consumes all twenty without reviving ten already credited units");
 
-        // Receipt boundaries maintain metadata without requiring partial pending
-        // writes. The market consumer later publishes the accumulated rest amount.
+        // Pure receipt bookkeeping is separate from policy-validated game-write
+        // authorization. No observation may credit the same stock snapshot twice.
         state = Package();
         Check(state.ObserveStock(5, 1, 32) && state.ExpectedPending == 5 && state.Credited == 1,
             "partial receipt observation leaves actual pending ownership unchanged");
+        Check(state.NeedsAdjustment(1), "actual partial receipt signals an immediate pending correction");
         Check(state.ObserveStock(5, 0, 32) && state.LastObservedStock == 0 && state.Credited == 1,
             "negative boundary refreshes stock without refunding credit");
         Check(state.ObserveStock(5, 1, 32) && state.Credited == 2,
             "second receipt is counted despite identical endpoint stock");
         Check(state.TryReconcile(5, 1, 32, 100, out adjusted) && adjusted == 3,
-            "consumer publishes cumulative delivery credit");
+            "validated correction publishes cumulative delivery credit");
+        Check(!state.NeedsAdjustment(1), "already published quantity does not trigger redundant game writes");
         Check(!state.TryReconcile(3, 1, 32, 100, out adjusted) && adjusted == 3,
             "same stock snapshot cannot credit the same receipt twice");
 
@@ -151,6 +153,20 @@ internal static class MarketDemandTargetTests
         Check(state.ObserveFixedStore(1, 6, 6, 32, 101, MarketDemandSourceFamily.Recruit, out refresh) && !refresh && state.PolicyToken == 101,
             "changed source policy starts a fresh goal");
 
+        var combatPolicy = new MarketDemandPolicySnapshot { BuyWeapons = 4, LastStandPhase = 8 };
+        long wavePolicy = MarketDemandPolicyStamp.Recruit(combatPolicy, true);
+        combatPolicy.LastStandPhase = 7;
+        long nextWavePolicy = MarketDemandPolicyStamp.Recruit(combatPolicy, true);
+        Check(MarketDemandTarget.TryStartPackage(0, 5, 32, wavePolicy, out state), "LastStand fixed package starts");
+        state.TryReconcile(5, 1, 32, wavePolicy, out _);
+        Check(state.ObserveFixedStore(0, 4, 5, 32, nextWavePolicy, MarketDemandSourceFamily.Recruit, out refresh) && refresh &&
+            state.TryReconcile(5, 0, 32, nextWavePolicy, out adjusted) && adjusted == 4,
+            "actual production phase normalization retains delivery credit through countdown8to7");
+        combatPolicy.LastStandPhase = 0;
+        Check(!state.TryReconcile(4, 0, 32, MarketDemandPolicyStamp.Recruit(combatPolicy, true), out adjusted) && adjusted == 4 && !state.Active,
+            "effective recruit amount changes from LastStand five to normal four without an unsafe write");
+        RelevantPolicyStamps();
+
         state = default;
         Check(state.ObserveFixedStore(0, 0, 20, 32, 100, MarketDemandSourceFamily.Emergency, out refresh) && !refresh,
             "emergency source starts its own fixed family");
@@ -200,6 +216,44 @@ internal static class MarketDemandTargetTests
             "largest representable padded source cost is accepted");
         Check(!state.TryReconcile(int.MaxValue, 0, 32, 100, out adjusted) && adjusted == int.MaxValue && !state.Active,
             "unrepresentable later padded deficit fails closed instead of wrapping");
+    }
+
+    private static void RelevantPolicyStamps()
+    {
+        var config = new MarketDemandPolicySnapshot { BuyWeapons = 5, BuyFoodAmount = 1, FoodThreshold = 1,
+            LastStandPhase = 0, FixesFlag = 1, FixesThreshold = 7, FixesAmount = 5 };
+        long weapon = MarketDemandPolicyStamp.Recruit(config, false), food = MarketDemandPolicyStamp.Food(config);
+        Check(MarketDemandPolicyStamp.Fixes(config, out long fixes), "enabled Fixes snapshot has a relevant stamp");
+        config.BuyFoodAmount = 8;
+        Check(MarketDemandPolicyStamp.Recruit(config, false) == weapon && MarketDemandPolicyStamp.Food(config) != food &&
+            MarketDemandPolicyStamp.Fixes(config, out long unchangedFixes) && unchangedFixes == fixes,
+            "actual stress-driver food batch1to8 changes food policy without discarding weapon or Fixes credit");
+        config.FoodThreshold = 2;
+        long secondFood = MarketDemandPolicyStamp.Food(config);
+        config.BuyWeapons = 6;
+        Check(MarketDemandPolicyStamp.Food(config) == secondFood && MarketDemandPolicyStamp.Recruit(config, false) != weapon,
+            "weapon policy is affected only by relevant effective weapon amount");
+
+        config.BuyWeapons = 5;
+        config.LastStandPhase = 8;
+        Check(MarketDemandPolicyStamp.Recruit(config, true) == weapon,
+            "normal five and combat LastStand five are the same effective procurement policy");
+        config.BuyWeapons = 4;
+        Check(MarketDemandPolicyStamp.Recruit(config, false) == 4 && MarketDemandPolicyStamp.Recruit(config, true) == 5,
+            "bodyguard and economic recruits retain configured four even during combat LastStand five");
+        config.LastStandPhase = 7;
+        Check(MarketDemandPolicyStamp.Recruit(config, true) == 5, "LastStand countdown does not create a new procurement goal");
+
+        config.FixesThreshold = 8;
+        Check(MarketDemandPolicyStamp.Fixes(config, out long differentFixes) && differentFixes != fixes,
+            "Fixes threshold belongs to that channel's policy");
+        config.FixesFlag = 0;
+        Check(!MarketDemandPolicyStamp.Fixes(config, out _), "disabled Fixes source cannot validate an old correction");
+        Check(MarketDemandPolicyStamp.Literal(MarketDemandSourceFamily.Pitch, 10) !=
+            MarketDemandPolicyStamp.Literal(MarketDemandSourceFamily.Aiv, 10) &&
+            MarketDemandPolicyStamp.Literal(MarketDemandSourceFamily.Pitch, 10) !=
+            MarketDemandPolicyStamp.Literal(MarketDemandSourceFamily.Pitch, 5),
+            "fixed literal policies retain their family and actual package");
     }
 
     private static bool ExerciseWarmPath()

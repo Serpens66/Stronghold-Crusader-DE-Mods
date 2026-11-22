@@ -1,5 +1,17 @@
 # Erweiterung der Kaufmengenkorrektur: Architekturprüfung
 
+## Aktuelle quellspezifische Regeln nach weiterer Klärung
+
+Der reine Produktionsvertrag trennt inzwischen zwei nachgewiesene Mengenbedeutungen. Feste Kaufchargen sind Beschaffungspakete: Bereits gelieferte Waren bleiben angerechnet, auch wenn sie verbraucht wurden. Eine erneute Zuweisung derselben ursprünglichen Menge aus derselben Quellenfamilie und unveränderter AIC-/Politikidentität aktualisiert einen noch offenen, nachweislich eigenen Wunsch; sie beginnt kein unabhängiges neues Paket. Dabei muss auch die unmittelbar vor dem Store vorliegende Menge noch der erwarteten eigenen Menge entsprechen. Beobachtetes Löschen, abgeschlossene Beschaffung oder eine andere Menge, Politik beziehungsweise Quellenfamilie beginnen einen neuen Paketvertrag. Rekrutierungsquellen können dieselbe feste Waffencharge gemeinsam aktualisieren; es werden keine fünf konkreten Soldaten erfunden.
+
+Die fünf tatsächlichen CC420-Schreibstellen besitzen dagegen einen Materialvertrag. Aus Ausgangsbestand, tatsächlich geschriebenem Defizit und dem nativen Holzaufschlag wird der erforderliche Baukostenbestand ermittelt. Solange dieser Bestand fehlt, gilt aktuelle Fehlmenge plus der native Aufschlag. Sobald die eigentlichen Kosten vorhanden sind, endet dieser Materialwunsch einschließlich seines jetzt nicht mehr benötigten Aufschlags. Ein späterer Verlust kann eine noch nicht erfüllte Materialanforderung wieder vergrößern. Für mehrere bereits bekannte, noch nicht erfüllte Materialanforderungen bleibt der größte Kostenbestand erhalten. Eine fremde feste Warenquelle ersetzt einen solchen Materialvertrag, statt versteckt mit ihm vermischt zu werden; umgekehrt gilt dasselbe.
+
+Damit wird die frühere pauschale Aussage „jedes tatsächlich ausgeführte Store beginnt ein neues Paket“ ersetzt. Der Store beweist die Schreiboperation und ihre Menge; der Quellenvertrag bestimmt, ob der Zweck neu ist. Der reine Vertrag prüft auch diesen Unterschied direkt im Verhaltenstest.
+
+D5710 bleibt nach ausdrücklicher Festlegung eine native feste Zehnercharge, auch bei anfänglich neun Stein. Eine Änderung dieses frischen Auftrags auf nur einen Stein ist nicht als Fehlerbehebung nachgewiesen und wird nicht eingebaut. Das Beschaffungsziel einer solchen Charge ist von der Auffüllung einer bestimmten Einheit zu unterscheiden. Ebenso wird ein unbekannt aufgegebener Bauplan nicht automatisch erkannt. Die Korrektur der belegten Mengenverträge ist kein vollständiger Ersatz für Vanillas Planungs- und Absichtsverwaltung.
+
+Die Runtimeeinbindung des dauerhaften Lieferledgers benötigt zusätzlich die geschlossene Prüfung der negativen Bestandswege. Bis diese Einbindung und ihre Spielabnahme abgeschlossen sind, sind die folgenden reinen Verhaltenstests kein Nachweis eines fertigen allgemeinen Ingame-Fixes.
+
 ## Spätere Präzisierung im selben Auftrag: Lieferungen bleiben angerechnet
 
 Der Nutzer hat inzwischen ausdrücklich entschieden: Von fünf angeforderten Waren bleibt nach einer Lieferung von einer Ware ein Rest von vier, auch wenn diese eine Ware vor dem Marktkauf verbraucht wird. Die weiter unten beschriebene zwischenzeitliche Variante mit erneutem Mengenanstieg nach Verbrauch ist damit verworfen. Sie ist keine aktuelle Implementierungsvorgabe.
