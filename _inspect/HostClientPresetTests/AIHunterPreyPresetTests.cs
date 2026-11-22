@@ -35,11 +35,12 @@ internal static class AIHunterPreyPresetTests
         try
         {
             SetRole(true, false);
+            bool[] defaults = { true, true, false, true };
             var initial = new ImprovedHuntersViewModel();
             for (int index = 0; index < Names.Length; index++)
             {
                 var property = typeof(ImprovedHuntersViewModel).GetProperty(Names[index]);
-                Check(Getters[index](initial), Names[index] + " production default");
+                Check(Getters[index](initial) == defaults[index], Names[index] + " production default");
                 Check(property.GetCustomAttribute<SyncHostOnlyAttribute>() != null &&
                     property.GetCustomAttribute<SyncPerPlayerAttribute>() == null &&
                     property.GetCustomAttribute<PresetLocalAttribute>() == null,
@@ -50,18 +51,19 @@ internal static class AIHunterPreyPresetTests
             const string id = "ImprovedHuntersAI";
             string file = new PersonalSettingsPaths(plugin, "Tests." + id).SettingsFile;
             var model = Prepare(plugin, id);
+            Expect(model, defaults, "fresh preset uses production defaults");
             Check(model.CanEditHostSettings, "singleplayer can edit");
             for (int changed = 0; changed < Names.Length; changed++)
             {
                 model.ResetToDefaultCommand.Execute(null);
-                Setters[changed](model, false);
+                Setters[changed](model, !defaults[changed]);
                 for (int index = 0; index < Names.Length; index++)
-                    Check(Getters[index](model) == (index != changed), Names[changed] + " independent of " + Names[index]);
+                    Check(Getters[index](model) == (defaults[index] ^ (index == changed)), Names[changed] + " independent of " + Names[index]);
             }
             model.ResetToDefaultCommand.Execute(null);
-            Expect(model, new[] { true, true, true, true }, "actual reset restores all defaults");
+            Expect(model, defaults, "actual reset restores all defaults");
 
-            bool[] personal = { false, true, false, true };
+            bool[] personal = { false, true, true, true };
             Apply(model, personal);
             ExpectStored(file, personal, "host working values atomically persisted");
             model = Prepare(plugin, id);
@@ -75,7 +77,7 @@ internal static class AIHunterPreyPresetTests
             model.ResetToDefaultCommand.Execute(null);
             Expect(model, personal, "client reset cannot bypass host ownership");
             byte[] before = File.ReadAllBytes(file);
-            bool[] received = { true, false, true, false };
+            bool[] received = { true, false, false, false };
             GameXAMLManagerAPI.Instance.ApplyNetworkSync(model, () => Apply(model, received));
             Expect(model, received, "authorized incoming host values accepted");
             Check(before.SequenceEqual(File.ReadAllBytes(file)), "remote values do not overwrite personal storage");
@@ -107,13 +109,13 @@ internal static class AIHunterPreyPresetTests
             model.System_RefreshSettingsAccess();
             Check(model.CanEditHostSettings, "multiplayer host can edit switches");
             model.ResetToDefaultCommand.Execute(null);
-            Expect(model, new[] { true, true, true, true }, "host reset restores all defaults");
-            ExpectStored(file, new[] { true, true, true, true }, "host reset persists defaults");
+            Expect(model, defaults, "host reset restores all defaults");
+            ExpectStored(file, defaults, "host reset persists defaults");
 
             string legacyId = id + "Legacy";
             string legacyFile = new PersonalSettingsPaths(plugin, "Tests." + legacyId).SettingsFile;
             WriteLegacy(legacyFile);
-            Expect(Prepare(plugin, legacyId), new[] { true, true, true, true }, "old snapshot missing switches retains defaults");
+            Expect(Prepare(plugin, legacyId), defaults, "old snapshot missing switches retains defaults");
             Console.WriteLine("PASS: AI hunter actual settings defaults, separate switches, host/client authority, network nonpersistence, reset, restart and Trail (" + checks + " checks).");
         }
         finally

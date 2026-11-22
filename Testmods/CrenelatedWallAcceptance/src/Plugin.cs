@@ -14,7 +14,7 @@ namespace CrenelatedWallAcceptance
     public sealed class Plugin : BaseUnityPlugin
     {
         public const string Guid = "CrenelatedWallAcceptance_Serp";
-        internal const string Scenario = "crenel-acceptance";
+        internal const string Scenario = "crenel-acceptance", EditorScenario = "crenel-editor", TopologyScenario = "crenel-vanilla-topology";
         private static ManualLogSource log;
         private static Fixture active;
         private static bool initialized;
@@ -26,13 +26,13 @@ namespace CrenelatedWallAcceptance
             string request = Path.Combine(Paths.ConfigPath, "SerpAutomation", Guid + ".run");
             if (!File.Exists(request)) return;
             string[] lines = File.ReadAllLines(request);
-            if (lines.Length < 2 || lines[1] != Scenario) return;
+            if (lines.Length < 2 || (lines[1] != Scenario && lines[1] != EditorScenario && lines[1] != TopologyScenario)) return;
             if (!System.Guid.TryParseExact(lines[0], "N", out var runId) || runId == System.Guid.Empty)
             { Stamp("invalid owned request; not consumed"); return; }
             var api = ApiShared.ForMod(Guid);
             api.WhenReady(_ => {
                 if (!api.Ui.TryPost(() => {
-                    active = new Fixture(runId.ToString("N"), Stamp);
+                    active = new Fixture(runId.ToString("N"), lines[1], Stamp);
                     File.Delete(request); // Only the owned and valid request is consumed.
                     api.Automation.Start(runId, active.Steps(), log,
                         result => { active.Stop(); Stamp("finished status=" + result.Status + " detail=" + result.Detail); }, quitWhenDone: true);

@@ -43,7 +43,7 @@ internal static class Program
             foreach (WallCell cell in WallPolicy.Predict(raster, owner))
             {
                 Cells[cell.Id] = cell; Managed.Add(cell.Id); ids.Add(cell.Id);
-                foreach (WallCell next in Cardinal(cell)) if (Managed.Contains(next.Id)) ids.Add(next.Id);
+                foreach (WallCell next in Neighbours(cell)) if (Managed.Contains(next.Id)) ids.Add(next.Id);
             }
             Normalize(ids);
             return verdict;
@@ -69,6 +69,12 @@ internal static class Program
             foreach (var d in new[] { (0, -1), (1, 0), (0, 1), (-1, 0) })
                 if (TryRead(cell.X + d.Item1, cell.Y + d.Item2, out WallCell next) && WallPolicy.Crenel(next)) yield return next;
         }
+        // Axis and diagonal crenel neighbours (WallRuntime normalizes both after a build).
+        internal IEnumerable<WallCell> Neighbours(WallCell cell)
+        {
+            foreach (var d in new[] { (0, -1), (1, 0), (0, 1), (-1, 0), (1, -1), (1, 1), (-1, 1), (-1, -1) })
+                if (TryRead(cell.X + d.Item1, cell.Y + d.Item2, out WallCell next) && WallPolicy.Crenel(next)) yield return next;
+        }
         internal void VanillaGraphics()
         {
             foreach (WallCell cell in Cells.Values.ToArray())
@@ -77,8 +83,10 @@ internal static class Program
                 bool Has(int x, int y) => TryRead(x, y, out WallCell c) && WallPolicy.Crenel(c);
                 bool n = Has(cell.X, cell.Y - 1), s = Has(cell.X, cell.Y + 1), e = Has(cell.X + 1, cell.Y), w = Has(cell.X - 1, cell.Y);
                 int count = (n ? 1 : 0) + (s ? 1 : 0) + (e ? 1 : 0) + (w ? 1 : 0);
-                // StraightGraphicsHook: published = managed, intact, low, exactly one neighbour.
-                bool publishedEndpoint = Managed.Contains(cell.Id) && !cell.High && count == 1;
+                // StraightGraphicsHook: published = managed, intact, low, exactly one axis neighbour,
+                // or no axis but a diagonal neighbour (diagonal row piece).
+                bool diagonal = count == 0 && WallPolicy.DiagonalMask(WallPolicy.Reader(this), cell.X, cell.Y) != 0;
+                bool publishedEndpoint = Managed.Contains(cell.Id) && !cell.High && (count == 1 || diagonal);
                 if (!publishedEndpoint && !((n && s && !e && !w) || (e && w && !n && !s))) cell.High = true;
             }
         }
@@ -188,9 +196,45 @@ internal static class Program
             }
         }
         var diagonalPair = new World(); Check(diagonalPair.Build(30, 30, 31, 31).Accepted, "Two diagonal crenels rejected");
+        DiagonalRows();
         var gate = new World(); for (int x = 50; x <= 56; x++) gate.Build(x, 60, x, 60);
         gate.TryRead(53, 60, out WallCell tower); tower.Structure = true; bool before = tower.High;
         gate.Normalize(gate.Managed.ToArray()); Check(gate.Cells[tower.Id].High == before, "Building footprint was modified");
+    }
+    // Screen-horizontal walls are tile diagonals. Vanilla draws every piece as an isolated high
+    // special; managed pieces alternate high/low along the diagonal, dragged or piece by piece.
+    private static void DiagonalRows()
+    {
+        foreach (var dir in new[] { (1, 1), (1, -1), (-1, 1), (-1, -1) }) for (int start = 200; start <= 201; start++) for (int length = 2; length <= 12; length++)
+        {
+            var dragged = new World(); var sequential = new World();
+            int ex = start + dir.Item1 * (length - 1), ey = 200 + dir.Item2 * (length - 1);
+            WallVerdict whole = dragged.Build(start, 200, ex, ey);
+            Check(whole.Accepted, "Diagonal drag rejected: " + whole.Rejection);
+            dragged.Settle();
+            for (int i = 0; i < length; i++)
+            {
+                int x = start + dir.Item1 * i, y = 200 + dir.Item2 * i;
+                Check(sequential.Build(x, y, x, y).Accepted, "Diagonal piece rejected");
+                sequential.Settle();
+            }
+            foreach (World world in new[] { dragged, sequential })
+            {
+                Check(world.Cells.Count == length, "Diagonal placement count changed");
+                foreach (WallCell cell in world.Cells.Values)
+                    Check(cell.High == WallPolicy.DiagonalHigh(cell.X), "Diagonal row does not alternate at " + cell.X + "," + cell.Y);
+                string before = world.State(); world.Settle(); Check(before == world.State(), "Redraw changed a settled diagonal row");
+            }
+            Check(dragged.State() == sequential.State(), "Diagonal drag and single placement differ");
+        }
+        // Removing the diagonal neighbour leaves a lone piece to Vanilla (high).
+        var lone = new World(); lone.Build(40, 40, 41, 41); lone.Settle(); lone.Remove(41, 41); lone.Settle();
+        Check(lone.Cells[40 * 800 + 40].High, "A lone former diagonal piece did not return to Vanilla high");
+        // A designer's unmanaged diagonal stays untouched when a managed piece joins it.
+        var designer = new World(); designer.Put(60, 60); designer.Put(61, 61);
+        Check(designer.Build(62, 62, 62, 62).Accepted, "Extending an unmanaged diagonal rejected"); designer.Settle();
+        Check(designer.Cells[60 * 800 + 60].High && designer.Cells[61 * 800 + 61].High, "Unmanaged diagonal pieces changed");
+        Check(designer.Cells[62 * 800 + 62].High == WallPolicy.DiagonalHigh(62), "New diagonal piece not alternating");
     }
     private static void ForbiddenShapes()
     {
@@ -201,10 +245,6 @@ internal static class Program
         Check(!clicks.Build(41, 41, 41, 41).Accepted, "2x2 completed by single clicks");
         var within = new World(); within.Put(30, 31); within.Put(31, 31);
         Check(!within.Build(30, 30, 31, 30).Accepted, "Same-command 2x2 with an unmanaged wall not rejected");
-        var diagonal = new World(); WallVerdict d = diagonal.Build(30, 30, 34, 34);
-        Check(!d.Accepted && d.Rejection.Contains("diagonal"), "Three diagonal crenels accepted");
-        var diagonalClicks = new World(); diagonalClicks.Build(30, 30, 30, 30); diagonalClicks.Build(31, 31, 31, 31);
-        Check(!diagonalClicks.Build(32, 32, 32, 32).Accepted, "Diagonal chain completed by single clicks");
         // Stairs with one-tile steps: every piece a corner.
         var stairs = new World();
         foreach (var c in new[] { (30, 30), (31, 30), (31, 31), (32, 31) }) Check(stairs.Build(c.Item1, c.Item2, c.Item1, c.Item2).Accepted, "Stair prefix rejected");
@@ -524,5 +564,13 @@ internal static class Program
             Check(!EndpointGraphicsPolicy.Matches(assignment, tile, -1, d, logic, deltas, damage, structure, owner), "Wrong row accepted");
         }
         Check(!EndpointGraphicsPolicy.Matches(null, tile, row, 0, logic, deltas, damage, structure, owner), "Untracked endpoint overridden");
+        // Low diagonal piece: no axis neighbour, answered only for the renderer's first query (direction 0).
+        Array.Clear(logic); logic[tile] = 0x300; logic[tile + steps[3]] = 0x300; owner[tile] = 0xA0;
+        var piece = new EndpointAssignment(1, row, -1);
+        Check(EndpointGraphicsPolicy.Matches(piece, tile, row, 0, logic, deltas, damage, structure, owner), "Low diagonal piece not drawn straight");
+        Check(!EndpointGraphicsPolicy.Matches(piece, tile, row, 2, logic, deltas, damage, structure, owner), "Diagonal piece answered a second axis");
+        logic[tile] |= 0x400000; Check(!EndpointGraphicsPolicy.Matches(piece, tile, row, 0, logic, deltas, damage, structure, owner), "High diagonal piece replaced");
+        logic[tile] &= ~0x400000; logic[tile + steps[0]] = 0x300;
+        Check(!EndpointGraphicsPolicy.Matches(piece, tile, row, 0, logic, deltas, damage, structure, owner), "Diagonal assignment reused after an axis neighbour appeared");
     }
 }

@@ -17,10 +17,10 @@ namespace CrenelatedWallAcceptance
     // In-game acceptance of CrenelatedWallTest through the real wall entry point (SE CreateWall ->
     // hooked native build -> OnBuildWall Pre/Post). Checks logic heights after Vanilla's render
     // maintenance, rejections, save/load of the managed set and real Assassin climbs.
-    internal sealed class Fixture
+    internal sealed partial class Fixture
     {
         private const string WallMod = "CrenelatedWallTest_Serp";
-        private readonly string runId;
+        private readonly string runId, scenario;
         private readonly Action<string> log;
         private readonly ConcurrentQueue<string> crenelLog = new ConcurrentQueue<string>();
         private readonly List<string> crenelSeen = new List<string>();
@@ -31,9 +31,9 @@ namespace CrenelatedWallAcceptance
         private string save;
         private volatile bool stopped;
 
-        internal Fixture(string runId, Action<string> log)
+        internal Fixture(string runId, string scenario, Action<string> log)
         {
-            this.runId = runId; this.log = log;
+            this.runId = runId; this.scenario = scenario; this.log = log;
             BepInEx.Logging.Logger.Listeners.Add(new Capture(this));
         }
         internal void Stop() => stopped = true;
@@ -52,7 +52,10 @@ namespace CrenelatedWallAcceptance
             public void Dispose() { }
         }
 
-        internal IEnumerable<AutomationStep> Steps()
+        internal IEnumerable<AutomationStep> Steps() => scenario == Plugin.EditorScenario ? EditorSteps() :
+            scenario == Plugin.TopologyScenario ? TopologySteps() : SkirmishSteps();
+
+        private IEnumerable<AutomationStep> SkirmishSteps()
         {
             yield return new AutomationStep("skirmish", TimeSpan.FromSeconds(240), Start);
             yield return new AutomationStep("prepare", TimeSpan.FromSeconds(90), Prepare, true);
@@ -121,10 +124,10 @@ namespace CrenelatedWallAcceptance
             foreach (var w in Line(run, m, "2x2", owner, 1, 8, 2, 8, null)) yield return w;
             foreach (var w in Line(run, m, "2x2", owner, 1, 9, 1, 9, null)) yield return w;
             foreach (var w in Line(run, m, "2x2", owner, 2, 9, 2, 9, "double-row")) yield return w;
-            // Diagonal chain: the third isolated diagonal crenel is rejected.
+            // Diagonal row (a screen-horizontal wall): allowed, pieces alternate high/low.
             foreach (var w in Line(run, m, "diagonal", owner, 5, 8, 5, 8, null)) yield return w;
             foreach (var w in Line(run, m, "diagonal", owner, 6, 9, 6, 9, null)) yield return w;
-            foreach (var w in Line(run, m, "diagonal", owner, 7, 10, 7, 10, "three diagonal")) yield return w;
+            foreach (var w in Line(run, m, "diagonal", owner, 7, 10, 7, 10, null)) yield return w;
             // One-tile stairs: the third connected special piece is rejected.
             foreach (var w in Line(run, m, "stairs", owner, 10, 10, 10, 10, null)) yield return w;
             foreach (var w in Line(run, m, "stairs", owner, 11, 10, 11, 10, null)) yield return w;
@@ -319,7 +322,7 @@ namespace CrenelatedWallAcceptance
                 XY(id, out int x, out int y);
                 int mask = Mask(x, y);
                 bool line = mask == 0b0101 || mask == 0b1010 || mask == 1 || mask == 2 || mask == 4 || mask == 8;
-                bool expected = line ? Parity(x, y) : true;
+                bool expected = line ? Parity(x, y) : mask == 0 && DiagonalMask(x, y) != 0 ? (x & 1) != 0 : true;
                 bool high = (Flags(id) & (uint)TilePropertyFlag.CrenelatedHigh) != 0;
                 checkedCount++; if (!line) special++; if (!high) low++;
                 if (high != expected) bad.Add(Describe(id) + " mask=" + mask + " expected=" + (expected ? "H" : "L"));
@@ -712,7 +715,7 @@ namespace CrenelatedWallAcceptance
                     if (!tiles.IsTileInsideMapBounds(x, y)) return false;
                     int id = tiles.GetTileId(x, y);
                     if (!tiles.IsTileWalkableAndUnoccupied(id) || tiles.GetTileBuildingId(id) != 0 || grid[id] != component ||
-                        (tiles.GetTilePropertyFlag(id) & (TilePropertyFlag.IsWall | TilePropertyFlag.IsElevated | TilePropertyFlag.IsBuilding)) != 0) return false;
+                        (tiles.GetTilePropertyFlag(id) & (TilePropertyFlag.IsWall | TilePropertyFlag.IsElevated | TilePropertyFlag.IsBuilding | TilePropertyFlag.IsSwamp)) != 0) return false; // swamp is walkable but unbuildable
                 }
             return true;
         }
@@ -742,6 +745,17 @@ namespace CrenelatedWallAcceptance
         {
             int mask = 0, n = 0;
             foreach (var d in new[] { (0, -1), (1, 0), (0, 1), (-1, 0) })
+            {
+                int nx = x + d.Item1, ny = y + d.Item2;
+                if (GameTileManagerAPI.Instance.IsTileInsideMapBounds(nx, ny) && IsCrenel(Tile(nx, ny))) mask |= 1 << n;
+                n++;
+            }
+            return mask;
+        }
+        private static int DiagonalMask(int x, int y)
+        {
+            int mask = 0, n = 0;
+            foreach (var d in new[] { (1, -1), (1, 1), (-1, 1), (-1, -1) })
             {
                 int nx = x + d.Item1, ny = y + d.Item2;
                 if (GameTileManagerAPI.Instance.IsTileInsideMapBounds(nx, ny) && IsCrenel(Tile(nx, ny))) mask |= 1 << n;

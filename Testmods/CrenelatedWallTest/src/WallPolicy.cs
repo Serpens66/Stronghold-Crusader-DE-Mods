@@ -73,6 +73,23 @@ namespace CrenelatedWallTest
             return mask;
         }
 
+        // Bits 0..3 = crenels at (+1,-1), (+1,+1), (-1,+1), (-1,-1). Vanilla has no straight
+        // diagonal: the neighbour table (TileManager+row*32) uses axis neighbours for 0/2/4/6.
+        internal static int DiagonalMask(Func<int, int, WallCell> read, int x, int y)
+        {
+            int mask = 0;
+            for (int n = 4; n < 8; n++) if (Crenel(read(x + DX[n], y + DY[n]))) mask |= 1 << (n - 4);
+            return mask;
+        }
+
+        // Diagonal rows (screen-horizontal walls) consist of isolated pieces, which Vanilla makes
+        // high. Measured in game: a dragged diagonal row is walkable only by stale path edges, a
+        // piece-by-piece one not at all. Managed diagonal pieces alternate along the diagonal.
+        internal static bool DiagonalHigh(int x) => (x & 1) != 0;
+
+        internal static bool IsDiagonalPiece(Func<int, int, WallCell> read, WallCell cell) =>
+            Crenel(cell) && !cell.Structure && CardinalMask(read, cell.X, cell.Y) == 0 && DiagonalMask(read, cell.X, cell.Y) != 0;
+
         // Straight middles (two opposite neighbours) and endpoints (one neighbour). Native
         // renders all other shapes as special pieces and permanently ORs high into them.
         internal static bool IsLine(int mask) => mask == 0b0101 || mask == 0b1010 || mask == 1 || mask == 2 || mask == 4 || mask == 8;
@@ -86,7 +103,10 @@ namespace CrenelatedWallTest
         internal static bool? TargetHigh(Func<int, int, WallCell> read, WallCell cell)
         {
             if (!Crenel(cell) || cell.Damaged || cell.Structure) return null;
-            return IsLine(CardinalMask(read, cell.X, cell.Y)) ? Parity(cell.X, cell.Y) : (bool?)null;
+            int mask = CardinalMask(read, cell.X, cell.Y);
+            if (IsLine(mask)) return Parity(cell.X, cell.Y);
+            if (mask == 0 && DiagonalMask(read, cell.X, cell.Y) != 0) return DiagonalHigh(cell.X);
+            return null;
         }
 
         internal static Func<int, int, WallCell> Reader(IWallWorld world, IEnumerable<WallCell> overlay = null)
@@ -121,21 +141,7 @@ namespace CrenelatedWallTest
                     if (Crenel(read(x, y)) && Crenel(read(x + 1, y)) && Crenel(read(x, y + 1)) && Crenel(read(x + 1, y + 1)))
                         return "double-row 2x2 at " + x + "," + y;
                 }
-            // Diagonal chains: isolated crenels are special/high; three in a diagonal line form
-            // an unbroken high barrier. Adding a crenel never isolates another one, so every new
-            // chain contains a new cell.
-            foreach (WallCell seed in added)
-                for (int c = 0; c < 9; c++)
-                {
-                    WallCell center = read(seed.X + c % 3 - 1, seed.Y + c / 3 - 1);
-                    if (!Isolated(read, center)) continue;
-                    for (int d = 4; d < 6; d++)
-                    {
-                        WallCell a = read(center.X - DX[d], center.Y - DY[d]), b = read(center.X + DX[d], center.Y + DY[d]);
-                        if (Isolated(read, a) && Isolated(read, b) && (isNew.Contains(a.Id) || isNew.Contains(center.Id) || isNew.Contains(b.Id)))
-                            return "three diagonal crenels through " + center.X + "," + center.Y;
-                    }
-                }
+            // Diagonal rows are allowed: managed diagonal pieces alternate high/low (TargetHigh).
             // Chains of three cardinally connected special pieces (dense zigzag, stairs, clustered
             // junctions) leave several adjacent high tiles a siege tower can dock to but not
             // unload onto. A cell's shape changes only for new cells and their cardinal
@@ -186,7 +192,10 @@ namespace CrenelatedWallTest
         internal static bool PredictedHigh(Func<int, int, WallCell> read, WallCell cell, ISet<int> isNew, Func<int, bool> managed)
         {
             if (!Crenel(cell) || cell.Structure) return false;
-            if (!IsLine(CardinalMask(read, cell.X, cell.Y))) return true;
+            int mask = CardinalMask(read, cell.X, cell.Y);
+            bool ours = isNew.Contains(cell.Id) || (managed != null && managed(cell.Id));
+            if (!IsLine(mask))
+                return !(ours && !cell.Damaged && mask == 0 && DiagonalMask(read, cell.X, cell.Y) != 0 && !DiagonalHigh(cell.X));
             if (cell.Damaged) return cell.High;
             return isNew.Contains(cell.Id) || (managed != null && managed(cell.Id)) ? Parity(cell.X, cell.Y) : cell.High;
         }
@@ -214,8 +223,6 @@ namespace CrenelatedWallTest
             return true;
         }
 
-        private static bool Isolated(Func<int, int, WallCell> read, WallCell cell) =>
-            Crenel(cell) && !cell.Structure && CardinalMask(read, cell.X, cell.Y) == 0;
         private static long Key(int x, int y) => ((long)x << 32) | (uint)y;
     }
 }

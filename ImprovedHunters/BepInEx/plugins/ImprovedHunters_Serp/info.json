@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Improved Hunters",
   "Description": "Adds configurable hunter prey and meat yield, and lets AI Hunter's huts follow available prey.",
-  "Version": "1.2.5",
+  "Version": "1.2.6",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.2.6",
+      "Changes": [
+        "Automatic AI Hunter's hut construction is disabled by default."
+      ]
+    },
     {
       "Version": "1.2.5",
       "Changes": [

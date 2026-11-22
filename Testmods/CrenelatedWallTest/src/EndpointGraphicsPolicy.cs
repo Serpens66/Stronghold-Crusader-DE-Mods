@@ -4,6 +4,7 @@ namespace CrenelatedWallTest
 {
     internal sealed class EndpointAssignment
     {
+        // Neighbor = -1: a low managed diagonal piece (no axis neighbour), drawn as a straight piece.
         internal readonly int Owner, Row, Neighbor;
         internal EndpointAssignment(int owner, int row, int neighbor) { Owner = owner; Row = row; Neighbor = neighbor; }
     }
@@ -26,6 +27,9 @@ namespace CrenelatedWallTest
                 long id = (long)tile + deltas[row * 8 + d];
                 if (id >= 0 && id < logic.Length && (logic[(int)id] & 0x200) != 0) { count++; neighbor = (int)id; }
             }
+            // Renderer 65830 asks direction 0 first (65DD6); answering it keeps a low diagonal
+            // piece on the straight-sprite branch, so 65EF0 never ORs the high bit into it.
+            if (endpoint.Neighbor == -1) return count == 0 && direction == 0;
             return count == 1 && neighbor == endpoint.Neighbor &&
                 (neighbor == (long)tile + deltas[row * 8 + direction] || neighbor == (long)tile + deltas[row * 8 + ((direction + 4) & 7)]);
         }

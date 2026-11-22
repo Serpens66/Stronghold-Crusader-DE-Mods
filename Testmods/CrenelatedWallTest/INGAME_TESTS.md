@@ -5,10 +5,9 @@ APIShared wird nur über bestehende öffentliche APIs verwendet. Zwei dauerhafte
 ## Regeln dieser Fassung
 
 - **Verwaltet werden nur neu gebaute Zinnen menschlicher Spieler**, im Editor die manuellen Bauten aller Slots. Karten-, KI- und ältere Mauern bleiben genau wie geladen. Kartenersteller deaktivieren den Mod, um wie in Vanilla zu bauen.
-- **Höhen:** Gerade Stücke und Endstücke folgen Vanillas Schachbrett: Bei ungerader Summe x+y ist die Zinne hoch, sonst niedrig. Ecken, Kreuzungen und Einzelstücke bleiben hoch wie in Vanilla.
+- **Höhen:** Gerade Stücke und Endstücke folgen Vanillas Schachbrett: Bei ungerader Summe x+y ist die Zinne hoch, sonst niedrig. Diagonale Reihen (auf dem Bildschirm waagerecht) bestehen aus Einzelstücken ohne geraden Nachbarn; ihre Stücke wechseln hoch/niedrig nach ungerader bzw. gerader x-Koordinate, die niedrigen zeichnet der Grafik-Hook als gerades niedriges Stück. Ecken, Kreuzungen und allein stehende Zinnen bleiben hoch wie in Vanilla.
 - **Abgelehnt wird der ganze Bauzug** (rote Vorschau und keine Ausführung), wenn er eines davon neu erzeugt:
   - ein gefülltes 2×2,
-  - eine Diagonalkette aus drei Einzelzinnen,
   - eine Kette aus drei zusammenhängenden Ecken/Kreuzungen,
   - eine zusammenhängende Folge von vier hohen Zinnen.
 - **Grund** (nativer Audit vom 22.11.2026): Hohe Zinnen sind für alle Einheiten unbegehbar (0xD86F0). Leitern und Assassinen brauchen eine niedrige Zielkachel. Truppen aus Belagerungstürmen brauchen eine niedrige Kachel unter den fünf Kacheln vor der Turmfront.
@@ -37,7 +36,7 @@ APIShared wird nur über bestehende öffentliche APIs verwendet. Zwei dauerhafte
 | Leiter, Assassine, Belagerungsturm an Stück-für-Stück-Mauer | Andocken **und** Betreten der Mauer gelingt. | Einheiten erreichen den Mauergang. |
 | Turm vor Ecke/T-Kreuzung | Truppen kommen über eine niedrige Nachbarkachel hinein. | Lange und kurze Arme testen. |
 | Zweite parallele Reihe / 2×2 per Einzelklick | Rot, kein Bau, kein Steinverlust. | Auch an Karten- oder fremden Mauern. |
-| Diagonale aus drei Zinnen | Rot. | Zwei diagonale Zinnen bleiben erlaubt. |
+| Diagonale Reihe vor diagonaler Mauer (auf dem Bildschirm waagerecht), gezogen und Stück für Stück | Erlaubt; abwechselnd hoch/niedrig entlang der Diagonale, niedrige Stücke betretbar. | Optik der niedrigen Stücke prüfen (gerades niedriges Sprite). |
 | Treppe mit 1er-Stufen | Rot beim dritten Eckstück. | Nachricht „three special“. |
 | Treppe mit 2er-Stufen, kurzes U (3 breit) | Je nach Kartenposition erlaubt oder rot („four high“). | Um eine Kachel verschoben wiederholen. |
 | Lange L-, T-, Kreuz- und Ringformen | Erlaubt, höchstens drei Hohe in Folge. | Beide Paritäten (um eine Kachel verschieben). |
@@ -77,6 +76,22 @@ Aufbau: Die Angreifer gehören einem freien Spielerplatz ohne KI, weil die KI ne
 
 Weiter nicht abgedeckt: rote Vorschau mit echter Maus, Abriss und Beschuss, Editor, Multiplayer, Leitern und Türme der echten KI-Belagerung (hier per Befehl gesteuert).
 
+## Editor: Vorschau, Abriss, Beschuss, Slots, Kartenersteller (22.11.2026, Lauf `d33717ce`)
+
+Szenario `crenel-editor` desselben Testmods (`Run.ps1 -Scenario crenel-editor`), `4spielerkarte.map` im Editor, Burgmodus (`MEMode` 1), keine Gegner. Mauerzüge laufen über Vanillas UI-Linienweg `EngineInterface.PlaceMapperItem` mit Maus gedrückt, gezogen und losgelassen. Der Bulldozer läuft über den normalen Editor-Eingabeweg mit emulierter Kartenmaus (Harmony auf `getMouseMapTilePosition`/`getMouseStateForEngine`, keine Windows-Eingaben). Den Vorschau-Status liest der Test an TileManager+`0x204E6E4`. Nachweis: `.work/a/crenel-ingame/035`.
+
+| Prüfung | Ergebnis |
+|---|---|
+| Gezogene und Stück für Stück gebaute Reihe | Vorschau grün, gebaut, Höhen nach Regel |
+| Schließende Kachel eines 2×2 | Vorschau rot (`CRENEL_PREVIEW_CONFIRMED`), nach dem Loslassen nichts gebaut |
+| Zweite Reihe entlang einer bestehenden | 4 von 5 Kacheln rot, nichts gebaut |
+| Bauten für Slot 2 | Vom Mod verwaltet (`CRENEL_BUILD owner=2`), Höhen nach Regel |
+| Bulldozer auf die Mitte einer Reihe | Zinne entfernt; die neuen Endstücke haben die Regelhöhe |
+| Beschuss durch Streitkolbenkämpfer von Slot 2 | Schaden steigt bis zur Zerstörung (3 Zinnen); übrige Höhen nach Regel; Wiederaufbau folgt der Regel |
+| Kartenersteller: Mod aus, Stück für Stück bauen, Karte speichern, mit Mod laden | Vanilla-Zinnen (2 von 5 dauerhaft hoch) bleiben beim Laden unverändert; Anbau verwaltet nur die neue Kachel |
+
+Hinweise aus dem Aufbau: Eine Zinne braucht eine tragende, nicht stark beschädigte Mauer daneben. Sumpf (`IsSwamp`) ist nicht bebaubar. Neben Mauern eines anderen Slots verweigert Vanilla das Bauen.
+
 ## Multiplayer
 
 Host und Client verwenden denselben Testmod; nur der Host stellt die Aktivierung ein.
@@ -86,3 +101,7 @@ Host und Client verwenden denselben Testmod; nur der Host stellt die Aktivierung
 **Offen:** Ob ein Resync die Moddaten (verwaltete Kacheln) mitüberträgt, ist ungeklärt. Bei einem Resync die Höhen beider Peers vergleichen.
 
 Die automatisierten Tests sind Modell- und Codecprüfungen. Grafik, Einheitengang, Andocken und Netzwerkgleichheit gelten erst nach diesen Ingame-Versuchen als bestätigt.
+
+## Diagonale Reihen (22.11.2026, Läufe `f6204c35`, `13fbdad4`, `0a4991c0`)
+
+Vanilla-Messung im Editor mit ausgeschaltetem Mod (`Run.ps1 -Scenario crenel-vanilla-topology`): Die native Nachbartabelle kennt als gerade Nachbarn nur die Kachelachsen. Diagonale Zinnen sind deshalb Einzelstücke, die Vanilla hoch setzt. Eine gezogene Diagonale war nur begehbar, weil Vanilla die Wege vor dem optischen Hochsetzen berechnet; Stück für Stück gebaut war sie nicht begehbar, und auf der anderen Parität ist sie schon beim Platzieren ganz hoch. Mit Mod: Diagonale Reihen werden nicht mehr abgelehnt, wechseln hoch/niedrig, und alle niedrigen Stücke waren für Assassinen betretbar (Editor `DIAGONAL_PASS` 4/4). Gefecht und Editor-Abnahme sind vollständig bestanden. Nicht geprüft: das Aussehen der niedrigen Diagonalstücke.

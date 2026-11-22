@@ -22,7 +22,7 @@ namespace ImprovedHunters
 
         private bool enableMod = true;
         private bool controlAivHunters = true;
-        private bool autoBuildHunters = true;
+        private bool autoBuildHunters;
         private bool retireEmptyHunters = true;
         private bool improvedTargetSelection = true;
         private bool improvedPathfinding = true;
@@ -309,7 +309,7 @@ namespace ImprovedHunters
 
             EnableMod = true;
             ControlAivHunters = true;
-            AutoBuildHunters = true;
+            AutoBuildHunters = false;
             RetireEmptyHunters = true;
             ImprovedTargetSelection = true;
             ImprovedPathfinding = true;

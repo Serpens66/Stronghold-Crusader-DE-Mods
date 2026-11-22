@@ -41,7 +41,8 @@ namespace CrenelatedWallTest
     internal sealed class WallRuntime
     {
         private readonly object sync = new object();
-        private static readonly int[] NeighborX = { 0, 1, 0, -1 }, NeighborY = { -1, 0, 1, 0 };
+        // Axis neighbours first, then diagonals (diagonal pieces depend on diagonal neighbours).
+        private static readonly int[] NeighborX = { 0, 1, 0, -1, 1, 1, -1, -1 }, NeighborY = { -1, 0, 1, 0, -1, 1, 1, -1 };
         // Preview raster bound: longer than any native map axis, so the whole dragged line is checked.
         private const int PreviewMaximum = 801;
         private readonly ManualLogSource log;
@@ -191,7 +192,7 @@ namespace CrenelatedWallTest
                         normalize.Add(cell.Id);
                         // A neighbour's shape changes with the new piece (e.g. former endpoint
                         // now straight); only managed neighbours are ever rewritten.
-                        for (int d = 0; d < 4; d++)
+                        for (int d = 0; d < 8; d++)
                             if (world.TryRead(cell.X + NeighborX[d], cell.Y + NeighborY[d], out WallCell next) && managed.ContainsKey(next.Id))
                                 normalize.Add(next.Id);
                     }
@@ -266,6 +267,8 @@ namespace CrenelatedWallTest
                     if (world.TryRead(cell.X + NeighborX[d], cell.Y + NeighborY[d], out WallCell next) && next.IsWall && next.IsCrenel)
                     { count++; neighbor = next.Id; }
                 if (count == 1) endpoints.Add(cell.Id, new EndpointAssignment(cell.Owner, cell.Y, neighbor));
+                else if (count == 0 && WallPolicy.IsDiagonalPiece(WallPolicy.Reader(world), cell))
+                    endpoints.Add(cell.Id, new EndpointAssignment(cell.Owner, cell.Y, -1));
             }
             graphics.Publish(endpoints);
         }
@@ -273,7 +276,7 @@ namespace CrenelatedWallTest
         {
             if (!world.TryRead(at.X, at.Y, out WallCell cell) || cell.Id != at.Id) return -1;
             int value = cell.Owner | (cell.IsWall ? 16 : 0) | (cell.IsCrenel ? 32 : 0) | (cell.High ? 64 : 0) | (cell.Damaged ? 128 : 0) | (cell.Structure ? 256 : 0);
-            for (int i = 0; i < 4; i++) if (world.TryRead(at.X + NeighborX[i], at.Y + NeighborY[i], out WallCell neighbor) && neighbor.IsWall && neighbor.IsCrenel) value |= 1 << (i + 9);
+            for (int i = 0; i < 8; i++) if (world.TryRead(at.X + NeighborX[i], at.Y + NeighborY[i], out WallCell neighbor) && neighbor.IsWall && neighbor.IsCrenel) value |= 1 << (i + 9);
             return value;
         }
         private void Tick(int tick)

@@ -1,5 +1,8 @@
 [CmdletBinding()]
-param([string]$GameDir = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition')
+param(
+    [string]$GameDir = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition',
+    [ValidateSet('crenel-acceptance', 'crenel-editor', 'crenel-vanilla-topology')][string]$Scenario = 'crenel-acceptance'
+)
 # One hidden-desktop in-game acceptance of CrenelatedWallTest. Minimal plugin layout (Script
 # Extender, Fixes, APIShared, CrenelatedWallTest, this testmod); the runner restores the
 # original plugins, settings and saves afterwards.
@@ -24,7 +27,7 @@ try {
         ApiPluginPackage = Join-Path $workspace 'APIShared/BepInEx/plugins/APIShared_Serp'
         ApiPatcherPackage = Join-Path $workspace 'APIShared/BepInEx/patchers/APIShared.DependencyBootstrap.dll'
         PluginLayout = $plugins
-        Scenario = 'crenel-acceptance'
+        Scenario = $Scenario
         OutputDirectory = $out
         TimeoutSeconds = 1200
         HiddenDesktop = $true
