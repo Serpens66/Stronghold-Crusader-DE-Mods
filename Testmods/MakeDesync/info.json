@@ -2,12 +2,12 @@
   "GUID": "MakeDesync_Serp",
   "Author": "Serpens66",
   "Name": "MakeDesync",
-  "Description": "Local test commands for checking multiplayer repair and wall deposit restoration.",
-  "Version": "0.1.0",
+  "Description": "Local test commands for checking multiplayer repair, wall deposits and moat soil restoration.",
+  "Version": "0.2.1",
   "MinimumScriptExtenderVersion": "2.14.4",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
-    { "GUID": "APIShared_Serp", "MinimumVersion": "0.67.0" },
+    { "GUID": "APIShared_Serp", "MinimumVersion": "0.69.0" },
     { "GUID": "DepositRestorationTest_Serp", "MinimumVersion": "0.3.1" }
   ],
   "Manifest": 1,

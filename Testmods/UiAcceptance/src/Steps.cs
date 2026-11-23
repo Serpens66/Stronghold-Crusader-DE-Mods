@@ -11,6 +11,7 @@ namespace UiAcceptance
             ModKeybindSteps.Register();
             ProbeSteps.Register();
             LobbySteps.Register();
+            PairedResyncSteps.Register();
             RuntimeAiSteps.Register();
             RuntimeAiUiSteps.Register();
             RelaySteps.Register();

@@ -8,7 +8,7 @@ internal static class IntervalTests
     private static int checks;
     internal static int Run()
     {
-        ExactDeadlineAndEdits(); FairDueRecipients(); IndependentGoods(); SaveRemainingPhase(); RejectInvalidSavedSchedules(); LegacySchedules();
+        ExactDeadlineAndEdits(); FairDueRecipients(); IndependentGoods(); SaveRemainingPhase(); RepairAfterDeliveryDoesNotRepeat(); RejectInvalidSavedSchedules(); LegacySchedules();
         WrapAndNoCatchup(); IntervalQueue(); NoDueDoesNotReadOrAllocate(); return checks;
     }
     private static void Check(bool condition) { checks++; if (!condition) throw new Exception("Interval regression " + checks + " failed."); }
@@ -81,6 +81,26 @@ internal static class IntervalTests
             var world = new World(); world.Stock[1, 0] = 100; var planner = new AutoSendPlanner(loaded);
             planner.Run(world, 1520); Check(world.Reads == 0); planner.Run(world, 1521); Check(world.Stock[2, 0] == 100);
         }
+    }
+
+    private static void RepairAfterDeliveryDoesNotRepeat()
+    {
+        var host = State(); var client = State();
+        Set(host, 2, 1, 0);
+        Set(client, 2, 1, 0);
+        var hostWorld = new World(); hostWorld.Stock[1, 0] = 200;
+        new AutoSendPlanner(host).Run(hostWorld, 40);
+        host.MarkProcessedTick(40);
+        Check(hostWorld.Calls == 1);
+        byte[] snapshot = AutoSendSaveCodec.Encode(host);
+        Check(AutoSendSaveCodec.TryDecode(snapshot, new[] { Good, Other }, new[] { 100, 1000 }, out var repaired, out _));
+        Check(repaired.LastProcessedTick == 40 && client.GetRule(1, 2, Good).LastCheckTick == 0);
+        Check(repaired.GetRevision(1) == host.GetRevision(1) && repaired.GetCursor(1, Good) == host.GetCursor(1, Good));
+        var repairedWorld = new World(); repairedWorld.Stock[1, 0] = 100;
+        new AutoSendPlanner(repaired).Run(repairedWorld, 41);
+        Check(repairedWorld.Calls == 0);
+        new AutoSendPlanner(repaired).Run(repairedWorld, 80);
+        Check(repairedWorld.Calls == 1);
     }
     private static void RejectInvalidSavedSchedules()
     {

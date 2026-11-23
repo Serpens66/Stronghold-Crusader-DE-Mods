@@ -1,5 +1,6 @@
 // Feature: Lifecycle orchestration of the Pathfinding features. The relative installation order
 // follows the source mods (BugfixesAndQoL runtime, then the movement engine provider).
+using APIShared.Multiplayer;
 using BepInEx.Logging;
 using Pathfinding.Engine;
 using RedBird.Core.Memory;
@@ -62,8 +63,16 @@ namespace Pathfinding
             TryPersistent("automatic gate closing", reachableEnemyGatehouseRuntime.Initialize);
             TryPersistent("Assassin climb-state synchronization", assassinClimbRuntime.InitializeNetwork);
             TryPersistent("Assassin climb-state save data", assassinClimbRuntime.InitializeSaveData);
+            TryPersistent("Assassin climb-state repair", assassinClimbRuntime.InitializeResync);
             TryPersistent("troop movement synchronization save data", troopMovementFixRuntime.InitializeSaveData);
+            TryPersistent("troop movement repair", troopMovementFixRuntime.InitializeResync);
             TryPersistent("Assassin climb cancellation event", assassinClimbCancellationRuntime.Initialize);
+            TryPersistent("repair cache rebuild", () =>
+            {
+                if (!MultiplayerResyncEvents.TryRegister(PathfindingPlugin.PluginGuid, "route-caches",
+                    () => { }, RebuildRepairedRouteCaches, out string reason))
+                    throw new InvalidOperationException(reason);
+            });
             // APIShared owns the button, overflow placement and the single troop-action setup hook.
             TryPersistent("troop action HUD registration", () =>
             {
@@ -78,6 +87,12 @@ namespace Pathfinding
             if (mapUnloadSubscription == null)
                 TryPersistent("gameplay-session end subscription", () => mapUnloadSubscription =
                     Shared.MissionEvents.Ended.Subscribe(_ => EndGameplaySession()));
+        }
+
+        private void RebuildRepairedRouteCaches()
+        {
+            processUnitCommandPathRuntime?.ResetRepairDerivedState();
+            assassinPathfindingRuntime.ResetRepairDerivedState();
         }
 
         private void EndGameplaySession()

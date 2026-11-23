@@ -14,6 +14,7 @@ namespace ExtraFeatures
         private const int AttemptsPerTick = 16;
         private const int HeaderSize = 8;
         private const int RecordSize = 11;
+        internal const int MaximumEncodedBytes = HeaderSize + RecordSize * (VegetationSlots - 1);
 
         internal struct Site
         {

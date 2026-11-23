@@ -9,7 +9,7 @@ namespace BuildingLimit
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency("APIShared_Serp", "0.49.0")]
+    [BepInDependency("APIShared_Serp", "0.62.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class BuildingLimitPlugin : BaseUnityPlugin
     {

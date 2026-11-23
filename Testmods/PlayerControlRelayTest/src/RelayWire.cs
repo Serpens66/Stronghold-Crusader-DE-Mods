@@ -23,7 +23,7 @@ namespace PlayerControlRelayTest
             Kind = Kind, Epoch = Epoch, Nonce = Nonce, Player = Player, Outcome = Outcome, Text = Text,
             MessagePacketId = MessagePacketId, ChorePacketId = ChorePacketId,
             Command = Command == null ? null : new RelayCommand(Command.Epoch, Command.Owner, Command.Requester,
-                Command.RequestId, Command.Action, Command.TargetX, Command.TargetY, Command.MaxGlobalId, Command.Slots)
+                Command.RequestId, Command.Action, Command.TargetX, Command.TargetY, Command.Units)
         };
     }
 
@@ -84,22 +84,21 @@ namespace PlayerControlRelayTest
         private static void WriteCommand(ref MessagePackWriter writer, RelayCommand command)
         {
             if (command == null) { writer.WriteNil(); return; }
-            writer.WriteArrayHeader(9); writer.Write(command.Epoch); writer.Write(command.Owner); writer.Write(command.Requester);
+            writer.WriteArrayHeader(8); writer.Write(command.Epoch); writer.Write(command.Owner); writer.Write(command.Requester);
             writer.Write(command.RequestId); writer.Write((int)command.Action); writer.Write(command.TargetX); writer.Write(command.TargetY);
-            writer.Write(command.MaxGlobalId); writer.Write(command.EncodedSlots);
+            writer.Write(command.EncodedUnits);
         }
         private static RelayCommand ReadCommand(ref MessagePackReader reader)
         {
             if (reader.TryReadNil()) return null;
-            if (reader.ReadArrayHeader() != 9) throw Bad("Relay command must have exactly nine fields.");
+            if (reader.ReadArrayHeader() != 8) throw Bad("Relay v6 command requires eight fields.");
             string epoch = ReadText(ref reader, 64);
             int owner = reader.ReadInt32(); ulong requester = reader.ReadUInt64(); long requestId = reader.ReadInt64();
             var action = (RelayAction)reader.ReadInt32(); int x = reader.ReadInt32(), y = reader.ReadInt32();
-            uint maxGlobalId = reader.ReadUInt32();
             var encoded = reader.ReadBytes();
-            if (!encoded.HasValue || encoded.Value.Length > RelaySlotCodec.MaximumEncodedBytes) throw Bad("Relay unit list is missing or exceeds its size limit.");
-            int[] slots = RelaySlotCodec.Decode(System.Buffers.BuffersExtensions.ToArray(encoded.Value));
-            return new RelayCommand(epoch, owner, requester, requestId, action, x, y, maxGlobalId, slots);
+            if (!encoded.HasValue || encoded.Value.Length > RelayUnitCodec.MaximumEncodedBytes) throw Bad("Relay unit list is missing or exceeds its size limit.");
+            RelayUnit[] units = RelayUnitCodec.Decode(System.Buffers.BuffersExtensions.ToArray(encoded.Value), owner);
+            return new RelayCommand(epoch, owner, requester, requestId, action, x, y, units);
         }
         private static string ReadText(ref MessagePackReader reader, int maximumCharacters)
         {

@@ -1,4 +1,5 @@
 using APIShared;
+using APIShared.Multiplayer;
 using APIShared.Savegames;
 using APIShared.Simulation;
 using BepInEx.Logging;
@@ -10,12 +11,14 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
+using System.IO;
 
 namespace ExtraFeatures
 {
     internal sealed class TreeRespawnRuntime
     {
         private const string SaveEntry = "sites";
+        private const string ResyncRecord = "tree-respawn-sites";
         // Vanilla's seed placement exclusions, plus pitch traps and crop/structure flags.
         private const TilePropertyFlag Blocked =
             TilePropertyFlag.Sea | TilePropertyFlag.IsFarm | TilePropertyFlag.PitchTrap |
@@ -43,6 +46,9 @@ namespace ExtraFeatures
         private long attempt;
         private bool awaitingArchive;
         private bool loggedPlant;
+        private bool resyncReady;
+        private volatile bool repairing;
+        private volatile bool deletionSuspended;
         private int minutes;
 
         internal TreeRespawnRuntime(ManualLogSource log, ExtraFeaturesViewModel settings)
@@ -62,6 +68,15 @@ namespace ExtraFeatures
                 1, 1, new[] { SaveEntry }, Save, ArchiveLoaded) { SimulationRelevant = true };
             if (!VersionedSaveData.TryRegister(save, out _, out reason))
                 throw new InvalidOperationException(reason);
+            resyncReady = EngineRunEvents.TryRegister(ExtraFeaturesPlugin.PluginGuid, ResyncRecord, () => { },
+                SuspendDeletionDuringRepair, out reason) &&
+                MultiplayerResyncEvents.TryRegister(ExtraFeaturesPlugin.PluginGuid, ResyncRecord,
+                BeginRepair, CompleteRepair, out reason) &&
+                MultiplayerResyncData.TryRegister<TreeRespawnState>(
+                    ExtraFeaturesPlugin.PluginGuid, ResyncRecord, 1, TreeRespawnState.MaximumEncodedBytes,
+                    CaptureResync, PrepareResync, CommitResync, out reason);
+            if (!resyncReady)
+                Shared.DebugLogHelper.LogError(log, "Tree Respawn multiplayer repair is unavailable: " + reason);
 
             // These publishers own the runtime after the BepInEx component has been destroyed.
             Shared.MissionEvents.Loading.Subscribe(Loading);
@@ -113,7 +128,9 @@ namespace ExtraFeatures
                 if (attempt != mission.SessionId || captured == null ||
                     !SimulationClock.TryGetCurrentTick(mission, out int tick))
                     return;
-                bool enabled = minutes != TreeRespawnState.Off && Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod);
+                bool enabled = minutes != TreeRespawnState.Off &&
+                    (!mission.Mode.IsRealMultiplayer || resyncReady && MultiplayerResyncData.CheckIntegrity()) &&
+                    Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod);
                 captured.ReconcileSettings(tick, enabled ? minutes : TreeRespawnState.Off);
                 if (enabled)
                 {
@@ -143,7 +160,43 @@ namespace ExtraFeatures
             attempt = 0;
             awaitingArchive = false;
             loggedPlant = false;
+            repairing = deletionSuspended = false;
             deleting.Clear();
+        }
+
+        private void BeginRepair() => repairing = resyncReady && mission?.Mode.IsRealMultiplayer == true;
+
+        private void SuspendDeletionDuringRepair()
+        {
+            // Complete the native due list before fencing vegetation callbacks. Chore54
+            // stops the simulation update, but later commands in its list still run.
+            if (!repairing || deletionSuspended)
+                return;
+            deleting.Clear();
+            deletionSuspended = true;
+        }
+
+        private void CompleteRepair() => repairing = deletionSuspended = false;
+
+        private byte[] CaptureResync() => repairing && captured != null ? captured.Encode() : Array.Empty<byte>();
+
+        private TreeRespawnState PrepareResync(ReadOnlyMemory<byte> bytes)
+        {
+            if (bytes.IsEmpty)
+                return null;
+            if (!repairing || !SimulationClock.TryGetCurrentTick(mission, out int tick))
+                throw new InvalidDataException("Tree Respawn has no active repair mission or map tick.");
+            return TreeRespawnState.Decode(bytes.ToArray(), tick, ValidSite) ??
+                throw new InvalidDataException("Tree Respawn repair data is invalid for the repaired map.");
+        }
+
+        private void CommitResync(TreeRespawnState prepared)
+        {
+            if (!repairing)
+                return;
+            captured = prepared;
+            active = minutes != TreeRespawnState.Off &&
+                Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) ? prepared : null;
         }
 
         private bool Save(VersionedSaveWriter writer)
@@ -173,14 +226,14 @@ namespace ExtraFeatures
         private void OnTick(int tick)
         {
             TreeRespawnState state = active;
-            if (state == null || state.Count == 0 || !state.HasWork(tick) ||
+            if (repairing || state == null || state.Count == 0 || !state.HasWork(tick) ||
                 !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                 return;
             // Normal ticks already hold the monitor. The editor can also reach the
             // time update through map resizing, outside EngineInterface.run.
             lock (engine)
             {
-                if (!ReferenceEquals(state, active) || !state.HasWork(tick) ||
+                if (repairing || !ReferenceEquals(state, active) || !state.HasWork(tick) ||
                     !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                     return;
                 if (state.Advance(tick, minutes, hasTree, plant))
@@ -197,14 +250,14 @@ namespace ExtraFeatures
 
         private void OnDelete(VegetationDeleteEventArgs args)
         {
-            if (active == null)
+            if (deletionSuspended || active == null)
                 return;
             try
             {
                 lock (engine)
                 {
                     TreeRespawnState state = active;
-                    if (state == null || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
+                    if (deletionSuspended || state == null || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                         return;
 
                     int id = args.VegetationId;

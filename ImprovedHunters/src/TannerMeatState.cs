@@ -18,9 +18,10 @@ namespace ImprovedHunters
 
         private readonly BuildingStateTable table;
 
-        private TannerMeatState(BuildingStateTable table)
+        private TannerMeatState(BuildingStateTable table, bool resyncReady)
         {
             this.table = table;
+            ResyncReady = resyncReady;
             Layout = new TannerStateLayout(
                 table.NativeAddress,
                 table.Capacity,
@@ -32,7 +33,7 @@ namespace ImprovedHunters
 
         /// <summary>Registers on every peer, whatever the settings say: APIShared registers its request Chore with the
         /// first table, and the dynamic packet IDs must match on all peers.</summary>
-        internal static TannerMeatState Register(Func<bool> isEnabled)
+        internal static TannerMeatState Register(Func<bool> isEnabled, Action<string> reportRepairFailure)
         {
             var registration = new BuildingStateRegistration(
                 ImprovedHuntersPlugin.PluginGuid,
@@ -51,10 +52,13 @@ namespace ImprovedHunters
             if (!BuildingStates.TryRegister(registration, out BuildingStateTable table, out string reason))
                 throw new InvalidOperationException(reason);
 
-            return new TannerMeatState(table);
+            bool resyncReady = table.TryRegisterMultiplayerResync(out reason);
+            if (!resyncReady) reportRepairFailure(reason);
+            return new TannerMeatState(table, resyncReady);
         }
 
         internal TannerStateLayout Layout { get; }
+        internal bool ResyncReady { get; }
 
         internal int GetMeatRuns(int buildingId, uint globalId) => table.GetValue(buildingId, globalId, MeatRunsIndex);
 

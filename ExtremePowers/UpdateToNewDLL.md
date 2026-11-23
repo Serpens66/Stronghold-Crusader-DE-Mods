@@ -25,6 +25,12 @@ Geprüft: vollständige Instruktionen ohne RIP-relativen Operanden oder Sprung, 
 
 Der Regenerationsblock ist 69 Byte lang und greift über die verschobene Schleifenbasis auf `+0x3950` zu, entsprechend `GamePlayerResources.r_ExtremePowersMana + 0x39D4`. Er vergleicht gegen `7000`, prüft die Modulo-3-Kadenz und schreibt höchstens `+1`.
 
+Beim Resync bleibt der private Rundungsrest vom ausgeführten Chore 54 bis zum
+gemeinsamen Abschluss eingefroren. Der native Reparaturzweig in `0xCDE60`
+umgeht das gewöhnliche Ressourcenupdate. APIShared überträgt acht einzelne
+Reste im Bereich 0–99, passend zu den acht Slots des bestehenden Writers.
+Der native Spielerrecord und sein Manawert haben ihren eigenen Reparaturpfad.
+
 ## Hashgebundene Datenziele
 
 Diese Ziele besitzen keinen belastbaren eigenständigen Pattern-Fallback. Bei einer neuen DLL müssen Managerbasis, Spielerformel und mehrere bekannte Ressourcenfelder erneut gemeinsam validiert werden.

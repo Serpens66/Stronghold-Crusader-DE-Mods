@@ -6,7 +6,7 @@ using System;
 namespace ImprovedHunters
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.0")]
-    [BepInDependency("APIShared_Serp", "0.60.0")]
+    [BepInDependency("APIShared_Serp", "0.69.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class ImprovedHuntersPlugin : BaseUnityPlugin

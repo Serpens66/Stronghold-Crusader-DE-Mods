@@ -14,7 +14,7 @@ using System.Text;
 
 namespace AIDefenseTest
 {
-    internal sealed unsafe class AIDefenseTestRuntime : IDisposable
+    internal sealed unsafe partial class AIDefenseTestRuntime : IDisposable
     {
         private bool simulationTickRegistered;
         private const int InitialScanDelayTicks = 20;
@@ -55,9 +55,9 @@ namespace AIDefenseTest
 
         private readonly ManualLogSource log;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
-        private readonly Dictionary<int, ProtectedDefender> protectedByUnitId = new Dictionary<int, ProtectedDefender>();
-        private readonly Dictionary<uint, ProtectedDefender> protectedByTowerGlobalId = new Dictionary<uint, ProtectedDefender>();
-        private readonly Dictionary<int, ProtectedDefender> protectedByPrivateTribeId = new Dictionary<int, ProtectedDefender>();
+        private Dictionary<int, ProtectedDefender> protectedByUnitId = new Dictionary<int, ProtectedDefender>();
+        private Dictionary<uint, ProtectedDefender> protectedByTowerGlobalId = new Dictionary<uint, ProtectedDefender>();
+        private Dictionary<int, ProtectedDefender> protectedByPrivateTribeId = new Dictionary<int, ProtectedDefender>();
         private readonly HashSet<uint> loggedSpawnFailureTowerGlobals = new HashSet<uint>();
 
         private bool applied;
@@ -85,6 +85,7 @@ namespace AIDefenseTest
             if (applied)
                 return;
 
+            RegisterRepair();
             subscriptions.Add(Shared.MissionEvents.Started
                 .Where(args => args.Context.Mode.Kind != APIShared.GameModes.GameModeKind.Tutorial && args.Context.Mode.Kind != APIShared.GameModes.GameModeKind.Unknown)
                 .Subscribe(args =>
@@ -223,6 +224,8 @@ namespace AIDefenseTest
         private void BeginMap(string reason)
         {
             ClearTracking();
+            if (Shared.MissionEvents.CurrentContext?.Mode.IsRealMultiplayer == true && !repairRegistered)
+                return;
             mapActive = true;
             editorBypassActive = false;
             firstScanPending = true;
@@ -1037,7 +1040,7 @@ namespace AIDefenseTest
 
         private bool IsRuntimeActiveForCurrentContext(string reason)
         {
-            if (!mapActive)
+            if (!mapActive || repairing)
                 return false;
             if (!IsMapEditor())
                 return true;
@@ -1423,6 +1426,7 @@ namespace AIDefenseTest
 
         private void ClearTracking()
         {
+            ResumeAfterRepair();
             protectedByUnitId.Clear();
             protectedByTowerGlobalId.Clear();
             protectedByPrivateTribeId.Clear();

@@ -1877,6 +1877,32 @@ namespace EngineHarness
                 // Later requests keep the per-tick budget.
                 AnchorTick(++ticks);
                 Check(anchorMaskNext[3] == Math.Min(AnchorMaskNodesPerTick, total), "a later mask request is not built within the per-tick budget");
+
+                // A repair can replace bytes without firing any ordinary tile notification.
+                int preRepairTask = TryComputeAnchorTask(1, anchor, 1, 7, new[] { start }, 1);
+                Check(preRepairTask != 0 && anchorLiveTasks.Contains(preRepairTask), "repair fixture has no pre-repair task");
+                var queued = fastCommands.Enqueue(1, 3, 300, 150, 10, 0, 1, ticks,
+                    new[] { new FastUnitIdentity(7, 9007) });
+                nativeMovementMasks[blocked] = 0;
+                try
+                {
+                    ResetRepairDerivedState();
+                    Check(anchorLiveTasks.Count == 0 && anchorMaps[1] == null &&
+                        fastSimulationRouting == null && fastCursorRouting == null,
+                        "repair kept a cached route or search task from the old map");
+                    Check(fastCommands.Commands.Count == 1 && ReferenceEquals(fastCommands.Commands[0], queued),
+                        "repair invalidation dropped an outstanding Fast command");
+                    RequestAnchorMask(1);
+                    anchorBuildAll = true;
+                    AnchorTick(++ticks);
+                    Check(AnchorReady(1) && !LiveEdge(1, 10 * MapWidth + 140, 10 * MapWidth + 141, 2, false, null, out _, out _),
+                        "fresh route after repair still uses the old passage");
+                }
+                finally
+                {
+                    nativeMovementMasks[blocked] = 0x44;
+                    fastCommands.Clear();
+                }
             }
             finally
             {

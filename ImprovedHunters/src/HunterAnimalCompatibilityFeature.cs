@@ -6,6 +6,8 @@ namespace ImprovedHunters
 {
     internal sealed partial class ImprovedHuntersRuntime
     {
+        private bool camelHealthResyncReady;
+
         // Per-animal compatibility required by the corresponding Hunt setting. Corpse lifetimes of rabbits,
         // camels and chickens are part of their HuntablePrey registrations (HuntablePreyIntegration).
 
@@ -28,6 +30,9 @@ namespace ImprovedHunters
             }
 
             camelHealthPolicy = handle;
+            camelHealthResyncReady = APIShared.Health.HealthModifiers.TryEnableMultiplayerResync(out reason);
+            if (!camelHealthResyncReady)
+                Shared.DebugLogHelper.LogError(log, "Improved Hunters multiplayer camel health repair unavailable: " + reason);
             UpdateCamelHealthPolicy();
             Shared.DebugLogHelper.LogInfo(
                 log,
@@ -46,6 +51,7 @@ namespace ImprovedHunters
         {
             if (context.Kind != APIShared.Health.HealthObjectKind.Unit ||
                 context.UnitType != eChimps.CHIMP_TYPE_CAMEL ||
+                (Shared.GameplayModActivationGate.Snapshot.IsRealMultiplayer && !camelHealthResyncReady) ||
                 !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) ||
                 !settings.HuntCamel)
             {

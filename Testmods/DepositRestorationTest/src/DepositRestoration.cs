@@ -7,6 +7,7 @@ using APIShared;
 using APIShared.Multiplayer;
 using APIShared.NativeSites;
 using APIShared.Savegames;
+using APIShared.Simulation;
 using BepInEx;
 using BepInEx.Logging;
 using RedBird.Abstractions.Hooks;
@@ -37,6 +38,8 @@ namespace DepositRestoration
         private long pendingSession, activeSession;
         private byte[] pending;
         private bool invalidRecord, multiplayerWorld, repairing, repairHistoryApplied;
+        private bool repairWritersSuspended;
+        private int engineRunDepth;
         private bool resyncReady;
         private volatile bool ready, agreed;
         private Func<bool> intact;
@@ -130,7 +133,8 @@ namespace DepositRestoration
                 }
                 intact = NativePatchGuard.CaptureIntegrity(result.Installed, Feature);
 
-                if (!MultiplayerResyncEvents.TryRegister(ownerGuid, Feature, BeginRepair, CompleteRepair, out string reason))
+                if (!EngineRunEvents.TryRegister(ownerGuid, Feature + "-repair-writers", () => engineRunDepth++, EndEngineRun, out string reason) ||
+                    !MultiplayerResyncEvents.TryRegister(ownerGuid, Feature, BeginRepair, CompleteRepair, out reason))
                     throw new InvalidOperationException(reason);
                 if (!NativeWorldRestoreEvents.TryRegister(ownerGuid, Feature, RestoreWorld, out reason))
                     throw new InvalidOperationException(reason);
@@ -147,7 +151,7 @@ namespace DepositRestoration
                 if (!lifecycle.TryRegisterObserver(Feature, Start, End, Initialize, out diagnostic))
                     throw new InvalidOperationException(diagnostic?.Reason);
 
-                resyncReady = MultiplayerResyncData.TryRegisterEarlyCapture<byte[]>(ownerGuid, Entry, 1, RecordSize,
+                resyncReady = MultiplayerResyncData.TryRegister<byte[]>(ownerGuid, Entry, 1, RecordSize,
                     CaptureResync, PrepareResync, CommitResync, out reason);
                 if (!resyncReady)
                     DebugLogHelper.LogError(log, "Wall deposit multiplayer resync registration failed. " + reason);
@@ -186,7 +190,7 @@ namespace DepositRestoration
             History.Clear();
             pendingSession = activeSession = 0;
             pending = null;
-            invalidRecord = multiplayerWorld = repairing = repairHistoryApplied = false;
+            invalidRecord = multiplayerWorld = repairing = repairHistoryApplied = repairWritersSuspended = false;
         }
 
         private void Initialize(MissionLifecycleNotification notification)
@@ -267,7 +271,20 @@ namespace DepositRestoration
             if (!multiplayerWorld || !agreed || activeSession == 0) return;
             repairing = true;
             repairHistoryApplied = false;
+            repairWritersSuspended = false;
+            if (engineRunDepth == 0) SuspendRepairWriters();
+        }
+
+        private void EndEngineRun()
+        {
+            // The materialized due list can contain ordinary wall Chores after Chore 54.
+            if (--engineRunDepth == 0 && repairing && !repairWritersSuspended) SuspendRepairWriters();
+        }
+
+        private void SuspendRepairWriters()
+        {
             Marshal.WriteByte(state, 0);
+            repairWritersSuspended = true;
         }
 
         private void CompleteRepair()
@@ -275,9 +292,10 @@ namespace DepositRestoration
             if (!repairing) return;
             if (!agreed || !intact() || !HasResyncIntegrity())
                 throw new InvalidOperationException("Wall deposit restoration lost its agreed hooks during repair.");
-            if (!repairHistoryApplied)
+            if (!repairWritersSuspended || !repairHistoryApplied)
                 throw new InvalidOperationException("Wall deposit repair completed without committing the host history.");
             repairing = false;
+            repairWritersSuspended = false;
             Marshal.WriteByte(state, 1);
         }
 
@@ -289,14 +307,15 @@ namespace DepositRestoration
             if (!repairing || !multiplayerWorld || !agreed || activeSession == 0)
                 throw new InvalidOperationException("Wall deposit history is unavailable for the agreed repair.");
             var record = NewRecord(GameTileManagerAPI.Instance.GetCurrentMapSize());
-            // BeginRepair froze history before this capture. PrepareResync checks the final grid.
+            // Client comparison uses the pre-repair bytes. Host authority is captured later,
+            // after any remaining due-list entries have changed the history.
             History.CopyTo(record.AsSpan(sizeof(int)));
             return record;
         }
 
         private byte[] PrepareResync(ReadOnlyMemory<byte> snapshot)
         {
-            if (!repairing || !agreed || !intact())
+            if (!repairing || !repairWritersSuspended || !agreed || !intact())
                 throw new InvalidOperationException("Wall deposit history cannot be prepared outside the agreed repair.");
             var tiles = GameTileManagerAPI.Instance;
             var record = snapshot.Span;

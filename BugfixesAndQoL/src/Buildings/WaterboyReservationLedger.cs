@@ -59,6 +59,28 @@ namespace BugfixesAndQoL
             modEnabled && hostSettingEnabled && playerId >= 1 && playerId <= 8;
     }
 
+    internal readonly struct WaterboyRepairRow
+    {
+        internal WaterboyRepairRow(int player, NativeIdentity owner, NativeIdentity target,
+            uint compoundKey, ushort x, ushort y, int progressTick, bool suppressed)
+        {
+            Player = player;
+            Owner = owner;
+            Target = target;
+            CompoundKey = compoundKey;
+            X = x;
+            Y = y;
+            ProgressTick = progressTick;
+            Suppressed = suppressed;
+        }
+
+        internal readonly int Player, ProgressTick;
+        internal readonly NativeIdentity Owner, Target;
+        internal readonly uint CompoundKey;
+        internal readonly ushort X, Y;
+        internal readonly bool Suppressed;
+    }
+
     internal sealed class ReservationLedger
     {
         internal const int WalkingState = 3;
@@ -81,6 +103,23 @@ namespace BugfixesAndQoL
             foreach (FireReservation reservation in reservationsByOwner.Values)
                 destination.Add(reservation);
         }
+
+        internal void CopyRepairHistoryTo(List<WaterboyRepairRow> destination)
+        {
+            foreach (FireReservation row in reservationsByOwner.Values)
+                destination.Add(new WaterboyRepairRow(row.PlayerId, row.Owner, row.Target,
+                    row.CompoundKey, row.LastX, row.LastY, row.LastProgressTick, suppressed: false));
+            foreach (SuppressedAssignment row in suppressedByOwner.Values)
+                destination.Add(new WaterboyRepairRow(row.PlayerId, row.Owner, row.Target,
+                    row.CompoundKey, row.X, row.Y, 0, suppressed: true));
+        }
+
+        internal bool HasRepairHistory(NativeIdentity owner) =>
+            reservationsByOwner.ContainsKey(owner.GlobalId) || suppressedByOwner.ContainsKey(owner.GlobalId);
+
+        internal void RestoreSuppression(WaterboyRepairRow row) =>
+            suppressedByOwner.Add(row.Owner.GlobalId, new SuppressedAssignment(row.Player, row.Owner,
+                row.Target, row.CompoundKey, row.X, row.Y));
 
         internal ReservationClaimResult Claim(int playerId, NativeIdentity owner,
             NativeIdentity target, uint compoundKey, ushort x, ushort y, int currentTick)

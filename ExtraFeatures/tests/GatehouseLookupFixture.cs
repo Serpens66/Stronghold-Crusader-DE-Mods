@@ -83,6 +83,7 @@ namespace ExtraFeatures
         private readonly Settings settings = new Settings();
         private readonly HashSet<int> manualOnlyGateGlobalIds = new HashSet<int>();
         private bool automationReady = true;
+        private bool ManualControlAvailable => automationReady;
         private bool mapActive = true;
         private bool editorSessionActive;
         private bool loadedMapStatePending;

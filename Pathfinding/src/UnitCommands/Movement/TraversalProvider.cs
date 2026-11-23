@@ -55,6 +55,7 @@ namespace Pathfinding.UnitCommands
         { summary = default; return false; }
         internal virtual PendingDigMoatTarget CreatePendingDigMoatTarget(MoatWorkSelectionScope scope, int moatId) => null;
         internal abstract void ResetMapState();
+        internal virtual void ResetRepairDerivedState() => InvalidateFastMoatData();
         internal abstract bool TryPrepareGroundReconstruction(PlanScope plan, GameUnit* unit);
         internal abstract bool HasPendingUnit(int id, uint global);
         internal abstract bool RequiredOnly { get; }

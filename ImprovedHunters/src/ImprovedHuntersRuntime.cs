@@ -99,6 +99,7 @@ namespace ImprovedHunters
         private readonly GranaryChickenSpawnPolicy chickenSpawnPolicy = new GranaryChickenSpawnPolicy(GamePlayerManagerAPI.MAX_PLAYERS);
         private RabbitMeleeOrderPatch rabbitMeleeOrderPatch;
         private TannerMeatPatch tannerMeatPatch;
+        private bool tannerMeatResyncReady;
         private APIShared.Buildings.BuildMenuAvailabilityRule hunterHutRule;
         private WildlifeRespawnFeature wildlifeRespawn;
         private WildlifeRangeFeature wildlifeRange;
@@ -1115,7 +1116,9 @@ namespace ImprovedHunters
                 Func<bool> isEnabled = () => tannerMeatPatch?.IsAvailable == true && IsTannerMeatModeEnabled;
                 // Unconditionally on every peer, also when the patch fails: APIShared registers its request
                 // Chore with the first table, and packet IDs must match on all peers.
-                TannerMeatState state = TannerMeatState.Register(isEnabled);
+                TannerMeatState state = TannerMeatState.Register(isEnabled, reason =>
+                    Shared.DebugLogHelper.LogError(log, "Tanner meat mode unavailable in multiplayer: " + reason));
+                tannerMeatResyncReady = state.ResyncReady;
                 tannerMeatPatch = new TannerMeatPatch(log, hookRegion, memory, imageBase, referenceHashMatches, state.Layout);
                 ApplyTannerMeatRule();
                 TannerModePanel.Install(log, isEnabled, state);
@@ -1556,7 +1559,8 @@ namespace ImprovedHunters
             IsPreyAdmitted(eChimps.CHIMP_TYPE_CHICKEN);
 
         private bool IsTannerMeatModeEnabled =>
-            Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.TannerMeatMode;
+            Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.TannerMeatMode &&
+            (tannerMeatResyncReady || !Shared.GameplayModActivationGate.Snapshot.IsRealMultiplayer);
 
         private void ApplyTannerMeatRule()
         {

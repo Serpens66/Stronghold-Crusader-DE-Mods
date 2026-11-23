@@ -158,6 +158,37 @@ internal static unsafe partial class Program
         history.Reset(); history.Begin(6, 400, true, filter); history.Tiles[Tile] = tiles[Tile];
         byte[] captured = history.Capture(true, filter);
         Check(TerrainState.Decode(captured, out _)[Tile] == tiles[Tile], "production capture reads the native buffer");
+        history.Tiles[OtherTile] = TerrainState.Bridge;
+        history.BeginRepair(insideEngineRun: true);
+        Check(history.Active, "Chore 54 inside an engine run preserves remaining ordinary Chore writers");
+        history.Tiles[Tile] = TerrainState.Dug | 0x40; // A later native writer in the same due list.
+        history.SuspendRepairWriters();
+        history.SetEnabled(false);
+        byte[] repair = history.CaptureRepair();
+        Check(!history.Active && TerrainState.Decode(repair, out _, repair: true)[OtherTile] == TerrainState.Bridge,
+            "suspension keeps the bridge-only guard without inventing an origin");
+        Check(TerrainState.Decode(repair, out _, repair: true)[Tile] == (TerrainState.Dug | 0x40),
+            "late host capture includes the last accepted writer, not the pre-batch value");
+        Reject(() => TerrainState.Decode(repair, out _), "repair-only bridge guard is not accepted as a saved origin");
+        Reject(() => history.PrepareRepair(repair, 700, filter), "repair rejects the wrong map size");
+        ushort[] replacement = history.PrepareRepair(repair, 400, filter);
+        Check(history.Tiles[OtherTile] == TerrainState.Bridge && replacement[OtherTile] == 0,
+            "preparation filters the replacement without modifying live history");
+        history.CommitRepair(replacement);
+        Check(!history.Active && history.Tiles[OtherTile] == 0, "published history still has a suspended writer");
+        history.CompleteRepair(true);
+        Check(history.Active && history.Tiles[Tile] == (TerrainState.Dug | 0x40), "successful repair resumes the filtered history");
+        ushort bridged = (ushort)(TerrainState.Dug | TerrainState.Bridge | (byte)TileType.OasisGrass);
+        Check(TerrainState.ReconcileRepairEntry(bridged, TilePropertyFlag.IsMoat, liveBridge: false) == tiles[Tile],
+            "bridge removal preserves a surviving moat's origin and clears the bridge flag");
+        Check(TerrainState.ReconcileRepairEntry(bridged, 0, liveBridge: true) == bridged &&
+            TerrainState.ReconcileRepairEntry(TerrainState.Bridge, TilePropertyFlag.IsMoat, liveBridge: false) == 0,
+            "only a live bridge keeps the bridge guard and non-moat soil history");
+        Check(TerrainState.ReconcileRepairEntry(tiles[OtherTile], TilePropertyFlag.PlannedMoat, liveBridge: false) == tiles[OtherTile] &&
+            TerrainState.ReconcileRepairEntry(tiles[OtherTile], TilePropertyFlag.IsMoat, liveBridge: false) == 0,
+            "planned history requires a repaired plan and is not reused as an excavated origin");
+        history.BeginRepair(insideEngineRun: false);
+        Check(!history.Active, "a direct repair entry outside a run suspends without waiting for a future frame");
         history.Reset();
         Check(!history.Active && history.Tiles[Tile] == 0 && history.Captured == 0, "retirement clears buffer and execution markers");
     }

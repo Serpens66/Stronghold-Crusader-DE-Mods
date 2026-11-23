@@ -42,6 +42,7 @@ namespace ExtremePowers.API
                 NativeExtremePowersRuntime pendingNative = new NativeExtremePowersRuntime(this, libraryHandle, libraryMemory);
                 networkRuntime = pendingNetwork;
                 nativeRuntime = pendingNative;
+                pendingNative.RegisterRegenerationRepair(options.RequiresRegenerationRepair, options.NativeLog);
                 NativeBackendStatus = "Supported Steam build 24816905; validated Extreme Powers hooks are active.";
             }
             catch (Exception ex)

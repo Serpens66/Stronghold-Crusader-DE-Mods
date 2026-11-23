@@ -24,6 +24,7 @@ namespace Pathfinding.UnitCommands
             OnTribeIssueOrderMoveHere(args);
         void IFormationCommandHandler.OnUnitMoveHere(UnitMoveHereEventArgs args) => OnUnitMoveHere(args);
         void IFormationCommandHandler.ResetTransientState() => ResetTransientState();
+        void IFormationCommandHandler.ClearRepairPreview() => ClearPreview();
         void IFormationCommandHandler.DisableForProcess(string contract, Exception exception) =>
             DisableForProcess(contract, exception);
     }

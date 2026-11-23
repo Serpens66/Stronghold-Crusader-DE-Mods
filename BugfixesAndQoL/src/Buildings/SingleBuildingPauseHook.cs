@@ -22,7 +22,7 @@ using UnityEngine;
 
 namespace BugfixesAndQoL
 {
-    internal sealed class SingleBuildingPauseHook
+    internal sealed partial class SingleBuildingPauseHook
     {
         private delegate void ButtonToggleZzzModeDelegate(MainViewModel self, object parameter);
 
@@ -35,7 +35,7 @@ namespace BugfixesAndQoL
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
-        private readonly SingleBuildingPauseOverrideStore overrides = new SingleBuildingPauseOverrideStore();
+        private volatile SingleBuildingPauseOverrideStore overrides = new SingleBuildingPauseOverrideStore();
         private Hook buttonHook;
         private APIShared.Patching.SafeIlHook addChimpActionsHook;
         private ButtonToggleZzzModeDelegate buttonTrampoline;
@@ -136,7 +136,9 @@ namespace BugfixesAndQoL
 
         public void ClearOverrides(string reason)
         {
+            pendingRepair = null;
             ClearManualSleepOverrides();
+            repairing = false;
         }
 
         // The native save keeps each building's sleep byte, but not the override that stops the
@@ -186,7 +188,7 @@ namespace BugfixesAndQoL
             ClearManualSleepOverrides();
             if (state.Entries.Length == 0)
                 return;
-            if (!settings.EnableMod || !settings.EnableSingleBuildingPause)
+            if (!settings.EnableMod || !settings.EnableSingleBuildingPause || (context.Mode.IsRealMultiplayer && !resyncReady))
             {
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
                     LogInfo($"single-building pause save data ignored because the feature is disabled: overrides={state.Entries.Length}.");
@@ -222,6 +224,7 @@ namespace BugfixesAndQoL
             synchronizeSleepStates = synchronizer ?? throw new ArgumentNullException(nameof(synchronizer));
             setSleepOverrideInterceptionEnabled =
                 setInterceptionEnabled ?? throw new ArgumentNullException(nameof(setInterceptionEnabled));
+            InitializeResync();
         }
 
         internal unsafe bool TryResolveManualOverrideForSleepingAddress(
@@ -302,6 +305,7 @@ namespace BugfixesAndQoL
 
         private void ButtonToggleZzzModeHook(MainViewModel self, object parameter)
         {
+            if (repairing && settings.EnableMod && settings.EnableSingleBuildingPause) return;
             int selectedBuildingId = TryGetSelectedBuildingId();
             bool controlPressed = IsControlPressed();
             bool mapEditor = IsMapEditor();
@@ -392,7 +396,8 @@ namespace BugfixesAndQoL
         {
             return settings.EnableMod &&
                 settings.EnableSingleBuildingPause &&
-                (!RequiresChoreTransport() || IsChoreTransportReady());
+                !repairing &&
+                (!RequiresChoreTransport() || (resyncReady && IsChoreTransportReady()));
         }
 
         private unsafe void ToggleSelectedBuildingOnly(MainViewModel self)
@@ -546,7 +551,8 @@ namespace BugfixesAndQoL
 
             // A packet queued just before a synchronized setting change must not
             // recreate overrides after the feature was disabled and cleared.
-            if (!settings.EnableMod || !settings.EnableSingleBuildingPause)
+            // The native due list may still execute this Chore after Chore 54.
+            if (!settings.EnableMod || !settings.EnableSingleBuildingPause || !resyncReady)
                 return;
 
             try

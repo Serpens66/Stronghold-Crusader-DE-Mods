@@ -43,7 +43,8 @@ namespace ImprovedHunters
         private void Activate(APIShared.GameModes.GameModeSnapshot mode)
         {
             size = settings.HerdRangeSize;
-            active = settings.EnableMod && size != HerdSettingsPolicy.Off && Shared.GameplayFeatureModePolicy.IsAllowed(
+            active = settings.EnableMod && size != HerdSettingsPolicy.Off &&
+                (!mode.IsRealMultiplayer || origins.ResyncReady) && Shared.GameplayFeatureModePolicy.IsAllowed(
                 ImprovedHuntersPlugin.PluginGuid,
                 Shared.GameplayFeatureId.ImprovedHunterWildlifeRange,
                 mode);
@@ -52,7 +53,7 @@ namespace ImprovedHunters
 
         private void OnRoute(HerdRoute route)
         {
-            if (!active)
+            if (!active || origins.Repairing)
                 return;
 
             try

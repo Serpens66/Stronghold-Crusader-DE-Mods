@@ -77,6 +77,8 @@
     <Compile Include="src\ExtraFeaturesViewModel.ProductionBonus.cs" />
     <Compile Include="src\PeriodicGoldRuntime.cs" />
     <Compile Include="src\TreeRespawnRuntime.cs" />
+    <Compile Include="src\GatehouseAutomationRuntime.Resync.cs" />
+    <Compile Include="src\AiFlagDiseaseTracker.Resync.cs" />
     <Compile Include="src\MatureTreeHarvestRuntime.cs" />
     <Compile Include="src\MatureTreeHarvestNative.cs" />
     <Compile Include="src\TreeRespawnState.cs" />

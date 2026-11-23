@@ -153,11 +153,11 @@ namespace PlayerControlRelayTest
 
         // A unit the owner has selected is ordered too: Vanilla's selection code (0x1173F0, 0x19A5D0,
         // 0x19A700) reads the unit's current group, so it reaches the unit in its new group.
-        private static bool ResolveOrderUnit(int slot, int owner, uint maxGlobalId, out int tribeId, out int stance)
+        private static bool ResolveOrderUnit(RelayUnit expected, out int tribeId, out int stance)
         {
             tribeId = 0; stance = 0;
-            if (!TryGetSelectableUnit(slot, out RelayUnit live) || live.Owner != owner || live.GlobalId > maxGlobalId ||
-                !UnitAccess.TryGetById(slot, out GameUnit* unit, out _)) return false;
+            if (!TryGetSelectableUnit(expected.Slot, out RelayUnit live) || !live.Equals(expected) ||
+                !UnitAccess.TryGetById(expected.Slot, out GameUnit* unit, out _)) return false;
             tribeId = unit->r_TribeId;
             if (tribeId > 0 && GameTribeManagerAPI.Instance.TryGetTribeById(tribeId, out GameTribe* tribe) && tribe != null)
                 stance = (int)tribe->r_TribeStance;

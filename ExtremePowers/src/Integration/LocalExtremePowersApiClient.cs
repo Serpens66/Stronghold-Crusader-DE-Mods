@@ -18,6 +18,7 @@ namespace ExtremePowers.Integration
                     return new ExtremePowersReadiness(readiness.Ready, readiness.Reason);
                 },
                 Diagnostic = diagnostic,
+                RequiresRegenerationRepair = () => Shared.GameplayModActivationGate.Snapshot.IsRealMultiplayer,
                 NativeLoadContext = context,
                 NativeLog = log
             };

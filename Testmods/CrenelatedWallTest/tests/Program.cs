@@ -105,10 +105,46 @@ internal static class Program
             CSharpCompilation compiled = CompileRuntime(root, sdk);
             ApiCompatibility(compiled, sdk);
             StraightRows(); EnterableShapes(); ForbiddenShapes(); ScopeAndOwnership(); Persistence(); EndpointGraphics(); RandomConstruction(); PreviewAdmission();
+            RepairOrigins();
             Console.WriteLine("PASS: " + checks + " assertions; production runtime compilation, parity policy, enterability rules, redraw stability, scope and MessagePack persistence. Real game/peer execution is not inferred.");
         }
         catch (Exception ex) { Console.Error.WriteLine(ex); Environment.ExitCode = 1; }
     }
+    private static void RepairOrigins()
+    {
+        var host = new World();
+        var client = new World();
+        WallCell origin = host.Put(100, 100);
+        host.Put(101, 100);
+        client.Put(100, 100);
+        WallCell foreign = client.Put(101, 100);
+        host.Managed.Add(origin.Id);
+        client.Managed.Add(foreign.Id);
+        var empty = new HashSet<int>();
+        Check(!WallPolicy.PredictedHigh(WallPolicy.Reader(host), origin, empty, host.IsManaged) &&
+            WallPolicy.PredictedHigh(WallPolicy.Reader(client), client.Cells[origin.Id], empty, client.IsManaged),
+            "identical high walls can have different next normalization/admission heights when provenance differs");
+
+        byte[] bytes = WallRepairRecord.Capture(400, host.Managed.Select(id => host.Cells[id]), host);
+        WallCell Lookup(int id) => client.Cells.TryGetValue(id, out WallCell cell) ? cell : null;
+        var replacement = WallRepairRecord.Prepare(bytes, 400, Lookup);
+        Check(bytes.Length == WallRepairRecord.MaximumBytes && replacement.Count == 1 && replacement.ContainsKey(origin.Id),
+            "bounded record rebuilds only the host's present, owned crenel provenance");
+        client.Managed.Clear();
+        client.Managed.UnionWith(replacement.Keys);
+        host.Settle(); client.Settle();
+        Check(client.State() == host.State() && !client.HighAt(100, 100) && client.HighAt(101, 100),
+            "restored provenance recovers the enterable endpoint while leaving the other wall alone");
+        client.Put(100, 100, owner: 2);
+        Check(WallRepairRecord.Prepare(bytes, 400, Lookup).Count == 0,
+            "a replaced owner on the repaired tile does not inherit wall provenance");
+        client.Remove(100, 100);
+        Check(WallRepairRecord.Prepare(bytes, 400, Lookup).Count == 0,
+            "a removed wall does not return from provenance alone");
+        try { WallRepairRecord.Prepare(bytes, 600, Lookup); throw new Exception("mismatched repair map accepted"); }
+        catch (InvalidDataException) { checks++; }
+    }
+
     // Longest cardinal simple path of high crenels (all high tiles are unwalkable natively).
     private static int LongestHighRun(World world)
     {

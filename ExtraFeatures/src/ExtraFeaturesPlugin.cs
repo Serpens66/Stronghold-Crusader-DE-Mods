@@ -9,7 +9,7 @@ using System;
 namespace ExtraFeatures
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.0")]
-    [BepInDependency(ApiSharedGuid, "0.55.0")]
+    [BepInDependency(ApiSharedGuid, "0.69.0")]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("FearFactorNeutralizationTest_Serp", BepInDependency.DependencyFlags.SoftDependency)]

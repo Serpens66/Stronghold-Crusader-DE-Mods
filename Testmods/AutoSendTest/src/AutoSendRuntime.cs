@@ -2,9 +2,11 @@ using System;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Diagnostics;
+using System.Threading;
 using APIShared;
 using APIShared.Economy;
 using APIShared.Networking;
+using APIShared.Multiplayer;
 using APIShared.Presentation;
 using APIShared.Savegames;
 using APIShared.Simulation;
@@ -25,6 +27,8 @@ namespace AutoSendTest
         private readonly ConcurrentQueue<string> messages = new ConcurrentQueue<string>();
         private AutoSendState state = AutoSendGoods.NewState(), loadedState;
         private AutoSendPlanner planner;
+        private RepairedRules preparedRepair, repairedRules;
+        private bool resyncRulesReady;
         private AuthenticatedChoreChannel<AutoSendPacket> channel;
         private IMissionLifecycleCapability missions;
         private IUiFrameWorkRegistration presentation;
@@ -50,7 +54,7 @@ namespace AutoSendTest
         private int expectedMask;
         private readonly long[] readyEpoch = new long[9], readyProof = new long[9];
         private readonly int[] readyRoster = new int[9];
-        private bool initializedMap, identityMismatch, firstTick, loadFailure, helloSubmitted, readySubmitted;
+        private bool initializedMap, identityMismatch, transferUncertain, firstTick, loadFailure, helloSubmitted, readySubmitted;
         private AllyGoodsPanelContext selectedContext;
         private int helloAttempts;
         private long nextHelloAttempt;
@@ -82,6 +86,11 @@ namespace AutoSendTest
             // from LibraryLoaded after APIShared's entire handler has returned.
             if (!SimulationTickEvents.TryRegister(AutoSendPlugin.Guid, "supply", Tick, out reason))
                 throw new InvalidOperationException(reason);
+            int maximum = AutoSendSaveCodec.Encode(state).Length;
+            resyncRulesReady = MultiplayerResyncEvents.TryRegister(AutoSendPlugin.Guid, "repair-rules", BeginRepair, EndRepair, out reason) &&
+                MultiplayerResyncData.TryRegister<RepairedRules>(AutoSendPlugin.Guid, "rules", 1, maximum,
+                    CaptureRulesForRepair, PrepareRulesForRepair, CommitRulesForRepair, out reason);
+            if (!resyncRulesReady) Report("Automatic gifts unavailable in multiplayer: " + reason);
         }
 
         private static bool ValidPacket(AutoSendPacket p)
@@ -102,6 +111,7 @@ namespace AutoSendTest
             lock (sync)
             {
                 mission = note.Context;
+                preparedRepair = repairedRules = null;
                 state = loadedState ?? AutoSendGoods.NewState(); loadedState = null;
                 planner = new AutoSendPlanner(state);
                 epochs.Reset(); expectedLocalPlayer = expectedMask = 0;
@@ -109,7 +119,8 @@ namespace AutoSendTest
                 initializedMap = firstTick = helloSubmitted = readySubmitted = false;
                 edits.Reset();
                 helloAttempts = 0; nextHelloAttempt = 0;
-                identityMismatch = loadFailure;
+                identityMismatch = loadFailure || mission.Mode.IsRealMultiplayer && !resyncRulesReady;
+                transferUncertain = false;
                 Array.Clear(stocks, 0, stocks.Length); Array.Clear(capacities, 0, capacities.Length); Array.Clear(allies, 0, allies.Length);
                 Array.Clear(recipientReadiness, 0, recipientReadiness.Length);
                 Array.Clear(humanIdentities, 0, humanIdentities.Length);
@@ -155,6 +166,8 @@ namespace AutoSendTest
             lock (sync)
             {
                 mission = null; initializedMap = false; edits.Reset(); localEpoch = 0;
+                preparedRepair = repairedRules = null;
+                transferUncertain = false;
                 loadedState = null; loadedIdentities = null; loadedHumanIdentities = null; loadFailure = false;
             }
             RequestPresentation();
@@ -212,7 +225,8 @@ namespace AutoSendTest
         {
             lock (sync)
             {
-                if (mission == null || !initializedMap) return;
+                if (mission == null || !initializedMap || mission.Mode.IsRealMultiplayer && !resyncRulesReady) return;
+                ApplyRepairedRules();
                 if (!AllyTransfers.IsAvailable) return;
                 int sender = message.SenderPlayerId;
                 var p = message.Packet;
@@ -263,6 +277,7 @@ namespace AutoSendTest
             lock (sync)
             {
                 if (mission == null) return;
+                ApplyRepairedRules();
                 if (!firstTick) { firstTick = true; Report("First native mission tick reached; startup cleanup survived."); }
                 if (!AllyTransfers.IsAvailable) return;
                 if (!initializedMap)
@@ -299,7 +314,10 @@ namespace AutoSendTest
                 {
                     var result = planner.Run(this, tick);
                     if (result.UncertainTransfers > 0)
-                    { identityMismatch = true; Report("Supply stopped: a transfer had unequal or unknown stock changes. No retry was issued."); }
+                    {
+                        transferUncertain = identityMismatch = true;
+                        Report("Supply stopped: a transfer had unequal or unknown stock changes. No retry was issued.");
+                    }
                 }
                 // Copy bounded values under the simulation lock; Unity only sees these snapshots.
                 if (unchecked((uint)tick) % AutoSendState.TicksPerSecond != 0) return;
@@ -400,7 +418,9 @@ namespace AutoSendTest
             AutoSendPacket packet = null; AutoSendEditIntent intent;
             lock (sync)
             {
-                if (mission == null || identityMismatch || !initializedMap || !epochs.IsReady(expectedMask) ||
+                if (mission == null || identityMismatch || !initializedMap || MultiplayerResyncEvents.IsInProgress ||
+                    Volatile.Read(ref preparedRepair) != null || Volatile.Read(ref repairedRules) != null ||
+                    !epochs.IsReady(expectedMask) ||
                     localPlayer < 1 || localPlayer > 8 || state.GetRevision(localPlayer) == long.MaxValue) return;
                 if (!edits.TryBegin(mission.SessionId, localPlayer, localEpoch, state.GetRevision(localPlayer) + 1, out intent)) return;
                 packet = new AutoSendPacket { Protocol = 4, Epoch = localEpoch, Revision = state.GetRevision(localPlayer) + 1,
@@ -482,9 +502,57 @@ namespace AutoSendTest
                     if (!players.TryGetPlayerResourcesById(player, out GamePlayerResources* data) || data == null) return false;
                     currentIdentities[player] = data->r_LordUnitGlobalId;
                 }
-                writer.Write("rules", AutoSendSaveCodec.Encode(state));
+                writer.Write("rules", AutoSendSaveCodec.Encode(Volatile.Read(ref repairedRules)?.State ?? state));
                 writer.Write("players", AutoSendSavedPlayers.EncodePlayers(currentIdentities, humanIdentities)); return true;
             }
+        }
+
+        private void BeginRepair() { }
+
+        private void EndRepair()
+        {
+            RepairedRules completed = Volatile.Read(ref preparedRepair);
+            if (completed != null) Volatile.Write(ref repairedRules, completed);
+            Volatile.Write(ref preparedRepair, null);
+        }
+
+        private byte[] CaptureRulesForRepair()
+        {
+            lock (sync)
+            {
+                if (mission?.Mode.IsRealMultiplayer != true || !initializedMap) return Array.Empty<byte>();
+                return AutoSendSaveCodec.Encode(Volatile.Read(ref repairedRules)?.State ?? state);
+            }
+        }
+
+        private RepairedRules PrepareRulesForRepair(ReadOnlyMemory<byte> bytes)
+        {
+            // The rule snapshot does not prove the outcome of a partially observed
+            // native transaction. Prevent a shared resume if either peer saw one.
+            if (transferUncertain) throw new InvalidDataException("AutoSend observed an uncertain native transfer before repair.");
+            if (bytes.IsEmpty) return null;
+            if (!AutoSendSaveCodec.TryDecode(bytes.ToArray(), AutoSendGoods.Ids(), AutoSendGoods.Limits(),
+                out AutoSendState replacement, out string reason)) throw new InvalidDataException(reason);
+            return new RepairedRules(replacement);
+        }
+
+        private void CommitRulesForRepair(RepairedRules replacement) => Volatile.Write(ref preparedRepair, replacement);
+
+        // Called with sync held at the first simulation entry or ordinary save after repair.
+        // The transport epochs and any edits still awaiting a Chore reply remain local.
+        private void ApplyRepairedRules()
+        {
+            RepairedRules replacement = Interlocked.Exchange(ref repairedRules, null);
+            if (replacement == null) return;
+            state = replacement.State;
+            planner = replacement.Planner;
+        }
+
+        private sealed class RepairedRules
+        {
+            internal RepairedRules(AutoSendState state) { State = state; Planner = new AutoSendPlanner(state); }
+            internal readonly AutoSendState State;
+            internal readonly AutoSendPlanner Planner;
         }
         private void Loaded(VersionedSaveLoad load)
         {

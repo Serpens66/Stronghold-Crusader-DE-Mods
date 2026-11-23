@@ -45,7 +45,7 @@ namespace ExtraFeatures
         // HUD clicks and lifecycle callbacks. The simulation reads a published snapshot. Methods that
         // also write native gate timers take EngineLock.Gate first; never in the reverse order.
         private readonly object stateLock = new object();
-        private readonly HashSet<int> manualOnlyGateGlobalIds = new HashSet<int>();
+        private HashSet<int> manualOnlyGateGlobalIds = new HashSet<int>();
         private readonly List<GatehouseMapLocator> pendingMapLocators = new List<GatehouseMapLocator>();
         private IDisposable gatehouseQuerySubscription;
         private R3PacketEventHook<GatehouseAutomationPacket> packetHook;
@@ -124,6 +124,7 @@ namespace ExtraFeatures
                 throw;
             }
             initialized = true;
+            RegisterGateResync();
             if (!EngineRunEvents.TryRegister(ExtraFeaturesPlugin.PluginGuid, "gatehouse-query-cache",
                     BeginGateQueryRun, EndGateQueryRun, out string cacheFailure))
                 LogWarning($"Gatehouse candidate lookups will be read fresh: {cacheFailure}.");
@@ -156,7 +157,7 @@ namespace ExtraFeatures
 
             // Save data can arrive before the native map has finished loading.
             // Only the completed session start may resolve saved building IDs.
-            if (!loadedMapStatePending && automationReady && Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
+            if (!loadedMapStatePending && ManualControlAvailable && Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
             {
                 if (mapActive)
                     ReconcileManualGateTimers(removeMissing: false);
@@ -202,7 +203,7 @@ namespace ExtraFeatures
                 return;
             }
             RefreshEditorReadiness();
-            if (!automationReady)
+            if (!ManualControlAvailable)
             {
                 buttonViewModel.Hide();
                 LogVisibilityState("hidden: native-automation-unavailable");
@@ -439,7 +440,7 @@ namespace ExtraFeatures
         {
             try
             {
-                if (!automationReady || loadedMapStatePending || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !mapActive)
+                if (!ManualControlAvailable || loadedMapStatePending || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !mapActive)
                     return;
                 RefreshEditorReadiness();
 
@@ -524,7 +525,7 @@ namespace ExtraFeatures
             try
             {
                 ApplyManualState(packet.PlayerId, packet.BuildingGlobalId, packet.AutomaticEnabled,
-                    $"Chore operationId={packet.OperationId}");
+                    $"Chore operationId={packet.OperationId}", synchronized: true);
             }
             catch (Exception ex)
             {
@@ -532,9 +533,10 @@ namespace ExtraFeatures
             }
         }
 
-        private void ApplyManualState(int playerId, int globalId, bool automaticEnabled, string source)
+        private void ApplyManualState(int playerId, int globalId, bool automaticEnabled, string source,
+            bool synchronized = false)
         {
-            if (!automationReady || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
+            if (!IsManualStateSupported || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                 return;
 
             // Chore packets already hold the monitor on the engine thread (re-entrant); the
@@ -543,6 +545,10 @@ namespace ExtraFeatures
             byte gateState;
             lock (EngineLock.Gate)
             {
+                // Chore54 can start repair halfway through the native due list. The gate
+                // command still belongs to that tick and is included in late host capture.
+                if (!IsManualStateSupported || (gateRepairing && !synchronized))
+                    return;
                 if (!TryFindGatehouseByGlobalId(globalId, out GameBuilding* building, out buildingId) ||
                     building->r_PlayerIdOwner != playerId)
                 {
@@ -905,7 +911,7 @@ namespace ExtraFeatures
 
         private void ReconcileManualGateTimersLocked(bool removeMissing)
         {
-            if (!automationReady || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || manualOnlyGateGlobalIds.Count == 0)
+            if (!ManualControlAvailable || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || manualOnlyGateGlobalIds.Count == 0)
                 return;
 
             List<int> missing = removeMissing ? new List<int>() : null;
@@ -940,6 +946,8 @@ namespace ExtraFeatures
 
         private void ReleaseManualGateTimersLocked()
         {
+            if (gateRepairing || Shared.GameplayModActivationGate.Snapshot.IsRealMultiplayer && !gateResyncReady)
+                return;
             foreach (int globalId in manualOnlyGateGlobalIds)
             {
                 if (TryFindGatehouseByGlobalId(globalId, out GameBuilding* building, out _))
@@ -986,6 +994,7 @@ namespace ExtraFeatures
                 manualOnlyGateGlobalIds.Clear();
                 PublishManualGateIdsLocked();
                 pendingMapLocators.Clear();
+                gateRepairing = false;
                 InvalidateGateQueryCache();
                 return manualOnlyCount;
             }

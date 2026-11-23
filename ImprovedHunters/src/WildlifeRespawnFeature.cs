@@ -1,3 +1,4 @@
+using APIShared.Multiplayer;
 using APIShared.Savegames;
 using APIShared.Wildlife;
 using BepInEx.Logging;
@@ -8,6 +9,7 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
+using System.IO;
 
 namespace ImprovedHunters
 {
@@ -31,6 +33,8 @@ namespace ImprovedHunters
         private const int MapMiddle = 400;
         private const int CorpseFlagOffset = 0x29C;
         private const string SaveEntry = "origins";
+        private const string ResyncRecord = "wildlife-origins";
+        private const byte CapturedFlag = 1, MapHasHerdsFlag = 2, StartPendingFlag = 4;
         private const int FarthestPlace = 10;
         private const int PlaceStep = 2;
 
@@ -49,6 +53,7 @@ namespace ImprovedHunters
         private bool mapHasHerds;
         private bool startHerdsPending;
         private bool failureLogged;
+        private bool realMultiplayer;
 
         public WildlifeRespawnFeature(ManualLogSource log, ImprovedHuntersViewModel settings, WildlifeNativeAddresses addresses, WildlifeOriginTable origins, HerdFleeSightFeature sectors)
         {
@@ -71,10 +76,20 @@ namespace ImprovedHunters
             };
             if (!VersionedSaveData.TryRegister(registration, out _, out string reason))
                 throw new InvalidOperationException(reason);
+            origins.ResyncReady = MultiplayerResyncEvents.TryRegister(ImprovedHuntersPlugin.PluginGuid, ResyncRecord,
+                () => origins.Repairing = origins.ResyncReady && realMultiplayer,
+                () => origins.Repairing = false, out reason) &&
+                MultiplayerResyncData.TryRegisterEarlyCapture<PreparedOrigins>(
+                    ImprovedHuntersPlugin.PluginGuid, ResyncRecord, 1, 1 + WildlifeOriginTable.MaximumEncodedBytes,
+                    CaptureResync, PrepareResync, CommitResync, out reason);
+            if (!origins.ResyncReady)
+                Shared.DebugLogHelper.LogError(log, "Improved Hunters wildlife multiplayer repair is unavailable: " + reason);
 
             // A load's own result stays when the earlier mission reports its end after that load.
             Shared.MissionEvents.Ended.Subscribe(_ =>
             {
+                origins.Repairing = false;
+                realMultiplayer = false;
                 if (archiveLoadedForMission)
                     return;
 
@@ -86,11 +101,15 @@ namespace ImprovedHunters
                 archiveLoadedForMission = false;
                 startedFromSave = started.Context.IsSave;
                 startHerdsPending = false;
+                origins.Repairing = false;
+                realMultiplayer = started.Context.Mode.IsRealMultiplayer;
             });
         }
 
         public void OnTick(int mapTick)
         {
+            if (origins.Repairing || realMultiplayer && !origins.ResyncReady)
+                return;
             // Every tick comes through here, so nothing is read beyond these two checks between the boundaries.
             uint tick = unchecked((uint)mapTick);
             bool captureDue = (!origins.IsCaptured || startHerdsPending) && tick % CaptureIntervalTicks == 0;
@@ -365,11 +384,80 @@ namespace ImprovedHunters
             lock (origins.SyncRoot)
             {
                 // Without this entry the load reads the herds again, as for an older save.
-                if (origins.IsCaptured)
-                    writer.Write(SaveEntry, origins.Encode());
+                byte[] snapshot = origins.EncodeCaptured();
+                if (snapshot != null)
+                    writer.Write(SaveEntry, snapshot);
             }
 
             return true;
+        }
+
+        private sealed class PreparedOrigins
+        {
+            internal WildlifeOriginTable Table;
+            internal byte Flags;
+        }
+
+        private byte[] CaptureResync()
+        {
+            if (!origins.Repairing)
+                return Array.Empty<byte>();
+            lock (origins.SyncRoot)
+            {
+                byte[] encoded = origins.Encode();
+                var bytes = new byte[1 + encoded.Length];
+                if (origins.IsCaptured)
+                    bytes[0] = (byte)(CapturedFlag | (!startedFromSave && mapHasHerds ? MapHasHerdsFlag : 0) |
+                        (startHerdsPending ? StartPendingFlag : 0));
+                encoded.CopyTo(bytes, 1);
+                return bytes;
+            }
+        }
+
+        private PreparedOrigins PrepareResync(ReadOnlyMemory<byte> bytes)
+        {
+            if (!origins.Repairing)
+            {
+                if (!bytes.IsEmpty)
+                    throw new InvalidDataException("Wildlife origins have no active repair mission.");
+                return null;
+            }
+
+            var decoded = new WildlifeOriginTable();
+            if (bytes.IsEmpty || (bytes.Span[0] & ~(CapturedFlag | MapHasHerdsFlag | StartPendingFlag)) != 0 ||
+                !decoded.TryRestore(bytes.Slice(1).ToArray(), strict: true))
+                throw new InvalidDataException("Invalid wildlife origin repair record.");
+
+            byte flags = bytes.Span[0];
+            var restored = new WildlifeOriginTable();
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            for (int index = 0; index < decoded.Count; index++)
+            {
+                WildlifeOrigin origin = decoded[index];
+                if (!tiles.IsTileInsideMapBounds(origin.X, origin.Y))
+                    continue;
+                bool sameHerd = Herds.TryGet(origin.Herd, out HerdInfo herd) &&
+                    unchecked((int)herd.GlobalId) == origin.HerdSerial;
+                if (sameHerd && (!WildlifeNativeAddresses.IsWildDeerOrGoatHerd(herd, out bool isDeer) ||
+                    origin.IsDeer != isDeer))
+                    continue;
+                // A new herd can reuse the slot. Keep an original respawn site and its deadline,
+                // but a range-only entry for the retired generation has no remaining consumer.
+                if (sameHerd || origin.Respawns)
+                    restored.TryAdd(origin);
+            }
+            if ((flags & CapturedFlag) != 0)
+                restored.MarkCaptured();
+            return new PreparedOrigins { Table = restored, Flags = flags };
+        }
+
+        private void CommitResync(PreparedOrigins prepared)
+        {
+            if (prepared == null)
+                return;
+            origins.PublishRepair(prepared.Table);
+            mapHasHerds = (prepared.Flags & MapHasHerdsFlag) != 0;
+            startHerdsPending = (prepared.Flags & StartPendingFlag) != 0;
         }
 
         private void OnArchiveLoaded(VersionedSaveLoad load)

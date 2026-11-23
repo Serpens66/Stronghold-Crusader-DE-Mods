@@ -13,6 +13,7 @@ namespace EngineHarness
         public bool IsDispatching => false;
         public bool HasPreparedFormation(TribeIssueOrderMoveHereEventArgs args) => false;
         public void ResetTransientState() { }
+        public void ClearRepairPreview() { }
         public void OnTribeIssueOrderMoveHere(TribeIssueOrderMoveHereEventArgs args) { }
         public void OnUnitMoveHere(UnitMoveHereEventArgs args) { }
         public long CommonGroupMoveHook(IntPtr manager, int tribeId, short x, short y, short patrol, int newOrder, Func<long> original) => original();

@@ -32,7 +32,8 @@ internal static partial class Program
             .GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().First();
         string[] excluded = { "InitializeNative", "Dispose", "BuildWeightedPath", "DescribeNativeAssassinState",
             "ObservePreparedAssassinRoute",
-            "CompleteCommand", "ClearTransientState", "ResetMapValidation", "HasAssassinSearchObservers", "ApplySetting", "BeginMap", "EndMap", "LogDebug", "LogInfo", "LogWarning", "LogError", "TimestampNow" };
+            "CompleteCommand", "ClearTransientState", "ResetMapValidation", "ResetRepairDerivedState",
+            "HasAssassinSearchObservers", "ApplySetting", "BeginMap", "EndMap", "LogDebug", "LogInfo", "LogWarning", "LogError", "TimestampNow" };
         var members = runtime.Members.Where(m => m is FieldDeclarationSyntax || m is DelegateDeclarationSyntax ||
             m is MethodDeclarationSyntax method && !excluded.Contains(method.Identifier.Text) ||
             m is BaseTypeDeclarationSyntax type && type.Identifier.Text != "AssassinObservation" ||

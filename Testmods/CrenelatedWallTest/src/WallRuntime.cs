@@ -1,5 +1,6 @@
 using APIShared;
 using APIShared.GameModes;
+using APIShared.Multiplayer;
 using BepInEx.Logging;
 using MessagePack;
 using R3;
@@ -12,6 +13,7 @@ using SHCDESE.Interop.Enums;
 using SHCDESE.API.LowLevel;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace CrenelatedWallTest
@@ -54,7 +56,7 @@ namespace CrenelatedWallTest
         private readonly NativeWallWorld world = new NativeWallWorld();
         // Crenels placed by humans while the mod was active (Id, X, Y, Owner only). Heights are
         // never remembered: they follow from the current map. Map/AI/pre-mod walls are absent.
-        private readonly SortedDictionary<int, WallCell> managed = new SortedDictionary<int, WallCell>();
+        private SortedDictionary<int, WallCell> managed = new SortedDictionary<int, WallCell>();
         private readonly Func<int, bool> isManaged;
         private readonly Dictionary<int, int> signatures = new Dictionary<int, int>();
         private readonly Stack<BuildScope> builds = new Stack<BuildScope>();
@@ -66,6 +68,8 @@ namespace CrenelatedWallTest
         private int[] scanIds = new int[0];
         private int scanCursor;
         private bool initialized, active, activationRequested, activationCaptured, ready, restorePending, tickLogged, callbackLogged;
+        private bool repairing, resyncReady;
+        private SortedDictionary<int, WallCell> repairedOrigins;
         private long sessionId;
         private sealed class BuildScope
         {
@@ -92,6 +96,11 @@ namespace CrenelatedWallTest
             GameTimeManagerAPI.Instance.OnTick += Tick;
             graphics.Install(library);
             preview.Install(library); // Optional: execution protection survives a preview conflict.
+            resyncReady = MultiplayerResyncEvents.TryRegister(Plugin.Guid, "crenel-origins", BeginRepair, CompleteRepair,
+                out string reason) && MultiplayerResyncData.TryRegister<SortedDictionary<int, WallCell>>(Plugin.Guid,
+                    "crenel-origins", 1, WallRepairRecord.MaximumBytes, CaptureRepair, PrepareRepair,
+                    replacement => repairedOrigins = replacement, out reason);
+            if (!resyncReady) Shared.DebugLogHelper.LogError(log, "Crenel origin multiplayer data registration failed: " + reason);
             initialized = true;
             Shared.DebugLogHelper.LogInfo(log, "CRENEL_READY durable publishers=OnBuildWall,APIShared missions,ModSaveDataAPI,OnTick; permanent local graphics predicate.");
         }
@@ -123,16 +132,68 @@ namespace CrenelatedWallTest
         {
             if (!activationCaptured) { activationRequested = settings.EnableMod; activationCaptured = true; }
             // Mode evidence may become known only at ManagedReady; settings stay frozen.
-            active = Allowed(context) && activationRequested;
+            active = Allowed(context) && activationRequested && (!context.Mode.IsRealMultiplayer || resyncReady);
             if (!active) graphics.Publish(null);
         }
         private void Ended(MissionLifecycleNotification note) { lock (sync) { Clear(); context = null; sessionId = 0; } }
         private void Clear()
         {
             active = activationRequested = activationCaptured = ready = restorePending = tickLogged = callbackLogged = false;
+            repairing = false;
+            repairedOrigins = null;
             managed.Clear(); signatures.Clear(); builds.Clear(); pendingSave = null; scanIds = new int[0]; scanCursor = 0;
             graphics.Publish(null);
             previewCache.Clear();
+        }
+
+        private void BeginRepair()
+        {
+            if (!resyncReady) return;
+            lock (sync) { repairing = true; repairedOrigins = null; }
+        }
+
+        private byte[] CaptureRepair()
+        {
+            lock (sync) return active ? WallRepairRecord.Capture(world.Tiles.GetCurrentMapSize(), managed.Values, world) : Array.Empty<byte>();
+        }
+
+        private SortedDictionary<int, WallCell> PrepareRepair(ReadOnlyMemory<byte> bytes)
+        {
+            lock (sync)
+            {
+                if (!repairing || bytes.IsEmpty == active)
+                    throw new InvalidDataException("Crenel placement activation differs during repair.");
+                return bytes.IsEmpty ? new SortedDictionary<int, WallCell>() :
+                    WallRepairRecord.Prepare(bytes.Span, world.Tiles.GetCurrentMapSize(), ReadRepairedCell);
+            }
+        }
+
+        private unsafe WallCell ReadRepairedCell(int id)
+        {
+            var tiles = world.Tiles;
+            if (!tiles.IsValidTileId(id) || tiles.MapColumnLookupTable == null || tiles.MapRowLookupTable == null) return null;
+            int y = tiles.MapColumnLookupTable[id];
+            if (y >= GameTileManagerAPI.MAX_HEIGHT) return null;
+            int x = tiles.GetTileXFromTileIdAndY(id, y);
+            return world.TryRead(x, y, out WallCell cell) ? cell : null;
+        }
+
+        private void CompleteRepair()
+        {
+            lock (sync)
+            {
+                if (!repairing) return;
+                if (repairedOrigins == null) throw new InvalidOperationException("Crenel repair completed without host origins.");
+                managed = repairedOrigins;
+                repairedOrigins = null;
+                signatures.Clear();
+                scanCursor = 0;
+                previewCache.Clear();
+                // Once Chore 67 has re-enqueued held actions, restore derived path/graphics state
+                // through the same native-facing policy used for a successful placement.
+                Normalize(managed.Keys);
+                repairing = false;
+            }
         }
         private void BuildWall(BuildWallEventArgs e)
         {
@@ -212,7 +273,7 @@ namespace CrenelatedWallTest
             if (buildDepth != 0 || mapper != (short)eMappers.MAPPER_CRENAL) return false;
             lock (sync)
             {
-                if (!initialized || !ready || !active || manager != world.Tiles.GetTileManager() ||
+                if (repairing || !initialized || !ready || !active || manager != world.Tiles.GetTileManager() ||
                     !GamePlayerManagerAPI.Instance.IsPlayerIdValid(owner) ||
                     (!context.IsEditor && GamePlayerManagerAPI.Instance.IsAIPlayer(owner))) return false;
                 // The whole dragged line is checked. Execution re-checks its queued raster
@@ -283,7 +344,7 @@ namespace CrenelatedWallTest
         {
             lock (sync)
             {
-                if (!initialized || !ready) return;
+                if (repairing || !initialized || !ready) return;
                 try
                 {
                     if (!tickLogged) { tickLogged = true; Shared.DebugLogHelper.LogInfo(log, "CRENEL_RUNTIME_AFTER_CLEANUP session=" + sessionId + "; tick=" + tick + "; active=" + active); }

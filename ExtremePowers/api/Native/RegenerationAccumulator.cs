@@ -7,7 +7,10 @@ namespace ExtremePowers.API
         {
             if (vanillaDelta < 0) throw new System.ArgumentOutOfRangeException(nameof(vanillaDelta));
             if (percent < 0 || percent > 1000) throw new System.ArgumentOutOfRangeException(nameof(percent));
-            long scaled = (long)vanillaDelta * percent + remainder; int result = (int)(scaled / 100); remainder = scaled % 100; return result;
+            long scaled = (long)vanillaDelta * percent + remainder;
+            int result = (int)(scaled / Scale);
+            remainder = scaled % Scale;
+            return result;
         }
         public bool TryScaleConfirmedIncrement(uint before, uint after, int percent, uint cap, out uint adjusted)
         {
@@ -20,5 +23,9 @@ namespace ExtremePowers.API
             return true;
         }
         public void Reset() { remainder = 0; }
+
+        internal const int Scale = 100;
+        internal byte CaptureRemainder() => (byte)remainder;
+        internal void ApplyPreparedRemainder(byte value) => remainder = value;
     }
 }

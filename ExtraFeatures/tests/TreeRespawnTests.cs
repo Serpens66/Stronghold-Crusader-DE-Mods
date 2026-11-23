@@ -15,6 +15,28 @@ namespace ExtraFeatures.Tests
             Settings(check);
             Timers(check);
             BatchAndArchive(check);
+            RepairKeepsTheHostDeadline(check);
+        }
+
+        private static void RepairKeepsTheHostDeadline(Action<bool, string> check)
+        {
+            const int minute = TreeRespawnState.TicksPerMinute;
+            var site = new TreeRespawnState.Site(7, 5, VegetationType.PineTree);
+            var host = new TreeRespawnState(new List<TreeRespawnState.Site> { site }, 0);
+            var client = new TreeRespawnState(new List<TreeRespawnState.Site> { site }, 0);
+            host.Removed(site.Key, 0);
+            client.Removed(site.Key, 1);
+            var hostWorld = new World();
+            var repairedClientWorld = new World();
+            TreeRespawnState repairedClient = TreeRespawnState.Decode(host.Encode(), minute - 1, _ => true);
+            check(!client.Advance(minute, 1, repairedClientWorld.HasTree, repairedClientWorld.Plant),
+                "An equally empty tile can still have a different private due tick before repair");
+            check(host.Advance(minute, 1, hostWorld.HasTree, hostWorld.Plant) &&
+                repairedClient.Advance(minute, 1, repairedClientWorld.HasTree, repairedClientWorld.Plant),
+                "A repaired client plants at the host deadline");
+            check(hostWorld.Attempts.Select(attempt => attempt.Key).SequenceEqual(
+                repairedClientWorld.Attempts.Select(attempt => attempt.Key)),
+                "Host and repaired client plant at the same original site");
         }
 
         private static void Settings(Action<bool, string> check)

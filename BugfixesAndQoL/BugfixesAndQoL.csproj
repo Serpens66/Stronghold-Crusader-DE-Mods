@@ -242,6 +242,7 @@
     <Compile Include="src\Buildings\WaterboyReservationLedger.cs" />
     <Compile Include="src\Buildings\WaterboyNativeDefinition.cs" />
     <Compile Include="src\Buildings\WaterboyTargetReservationRuntime.cs" />
+    <Compile Include="src\Buildings\WaterboyTargetReservationRuntime.Resync.cs" />
     <Compile Include="src\Buildings\WorkerBreakPauseHook.cs" />
     <Compile Include="src\Buildings\WorkshopIdleDelayHook.cs" />
     <Compile Include="src\Buildings\WorkshopIdleDelayNative.cs" />
@@ -310,6 +311,7 @@
     <Compile Include="src\LordAndControlGroups\LordUnitControlsPolicy.cs" />
     <Compile Include="src\Core\Common\SpectatorInputControlPolicy.cs" />
     <Compile Include="src\Plague\PlaguePopularityFix.cs" />
+    <Compile Include="src\Plague\PlaguePopularityFix.Resync.cs" />
     <Compile Include="src\Plague\PlagueHerdLedger.cs" />
     <Compile Include="src\Plague\PlagueTreatmentFadeFix.cs" />
     <Compile Include="src\Plague\PlagueTargetReservationFix.cs" />
@@ -360,6 +362,7 @@
     <Compile Include="src\Multiplayer\SteamInviteBlacklistStore.cs" />
     <Compile Include="src\Core\Common\StartupDiagnosticPolicy.cs" />
     <Compile Include="src\Buildings\SingleBuildingPauseHook.cs" />
+    <Compile Include="src\Buildings\SingleBuildingPauseHook.Resync.cs" />
     <Compile Include="src\Buildings\SingleBuildingPausePolicy.cs" />
     <Compile Include="src\Buildings\SingleBuildingPauseUiIlContract.cs" />
     <Compile Include="src\Buildings\SingleBuildingPauseOverrideStore.cs" />

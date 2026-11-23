@@ -195,9 +195,16 @@ namespace UiAcceptance
             yield return new Delay(1500);
             Lobby.ButtonClicked("Host");
             yield return new Delay(800);
+            if (step.Arg(1, "") == "private")
+            {
+                var privacy = typeof(FRONT_Multiplayer).GetField("MPLobbyMode", BindingFlags.Instance | BindingFlags.NonPublic);
+                Runner.Require(privacy != null && privacy.FieldType == typeof(int), "Vanilla lobby privacy field differs");
+                if ((int)privacy.GetValue(Lobby) == 0) Lobby.ButtonClicked("TogglePublic");
+                Runner.Require((int)privacy.GetValue(Lobby) == 4, "Vanilla did not select a private lobby");
+            }
             Lobby.ButtonClicked(step.Arg(0, "DoHost"));
             yield return new Until("hosted lobby", () => LobbyReady() && Lobby.currentLobby.isHost && !FRONT_Multiplayer.skirmishGame);
-            AcceptLog.Info("MP_HOST lobby=" + Lobby.currentLobby.id.m_SteamID);
+            AcceptLog.Info("MP_HOST lobby=" + Lobby.currentLobby.id.m_SteamID + " run=" + AcceptLog.RunId);
         }
 
         private static IEnumerable<Wait> WaitMembers(Step step)

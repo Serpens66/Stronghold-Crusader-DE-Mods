@@ -18,16 +18,17 @@ capability. All peers use the same feature registration and compare
 the matching saved metadata before loading. The fix has no
 player-local setting, timer or network command.
 
-At repair start, the wall hooks pause and freeze the raw covered-deposit
-history. The runtime opts in to early capture so APIShared can compare
-the host's checksum with local copies while Vanilla repairs the world.
-If another record needs late capture, APIShared compares the complete set
-at the normal boundary. A differing copy receives the host's record after
-Vanilla reaches its completion gate. Each peer validates the record against
-the repaired grid, keeps entries for tiles that still have walls and commits
-the replacement before the hooks resume. An agreed world cannot resume a
-repair with missing or invalid deposit history. The archive identifier and
-format continue to support existing saves.
+At repair start the wall hooks remain active through the rest of the current
+engine run. Vanilla can execute ordinary wall Chores from the same due list
+after Chore 54. The hooks suspend at the end of that run. A repair that
+starts outside an engine run suspends them immediately.
+
+APIShared captures the authoritative history at the host's completion gate,
+after those wall actions have been applied. Each peer validates the record
+against the repaired grid, keeps entries for tiles that still have walls
+and commits the replacement before the hooks resume. An agreed world cannot
+resume a repair with missing or invalid deposit history. The archive format
+continues to support existing saves.
 
 ## Acceptance
 
@@ -48,11 +49,12 @@ timestamped mission message confirms activation for the current mode.
 | Load a shared multiplayer save with covered cells, then demolish | Both peers restore the same original deposits. A mismatching mod record must prevent the shared load. |
 | Cover stone and iron before an actual multiplayer repair, then remove the walls and repeat with newly built walls | Both peers restore the original deposits before and after new construction. Repeat after loading a shared save and across successive repairs. |
 | Repair a grid in which a captured tile is no longer a wall | The tile has no stored wall origin after repair. Subsequent walls on it record the current terrain. |
+| Execute an ordinary wall action after Chore 54 in the same native due list | Both peers execute the action. For a new covered deposit, the host snapshot includes its origin and removing the wall after repair reveals the deposit on both peers. |
 
 The APIShared log emits `RESYNC_DATA_COMPLETED` on each peer. Run the
 following checks with Deposit Restoration as the sole resync data provider.
 With matching histories, both peers report `requestedRecords=0` and
 `transferredBytes=0`.
-With divergent histories, the affected peer requests the host's record
-and both peers restore the same deposits after demolition. Repeat with a
+With divergent histories, the affected peer requests one host record of
+320,804 payload bytes and both peers restore the same deposits after demolition. Repeat with a
 repair that removes a wall to verify that its entry is filtered out.

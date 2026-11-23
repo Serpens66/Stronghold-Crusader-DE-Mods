@@ -3,15 +3,29 @@ using SHCDESE.API.LowLevel;
 
 namespace MakeDesync
 {
-    [BepInPlugin(Guid, "MakeDesync", "0.1.0")]
+    [BepInPlugin(Guid, "MakeDesync", "0.2.1")]
     [BepInDependency("000shcdese", "2.14.4")]
-    [BepInDependency("APIShared_Serp", "0.67.0")]
+    [BepInDependency("APIShared_Serp", "0.69.0")]
     [BepInDependency(DepositGuid, "0.3.1")]
+    [BepInDependency("AIMarketOverbuyDiagnostic_Serp", BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class Plugin : BaseUnityPlugin
     {
         internal const string Guid = "MakeDesync_Serp";
         internal const string DepositGuid = "DepositRestorationTest_Serp";
         private static Runtime runtime;
+
+        // Test-only entry point for the armed UiAcceptance scenario.
+        public static bool TryQueueAcceptance(string check, int tile)
+        {
+            switch (check)
+            {
+                case "units": return runtime?.TryQueue(UnityEngine.KeyCode.F9) == true;
+                case "moat": return tile >= 0 && runtime?.TryQueue(UnityEngine.KeyCode.F11, tile) == true;
+                case "soil": return runtime?.TryQueue(UnityEngine.KeyCode.F8) == true;
+                default: return false;
+            }
+        }
 
         private void Awake()
         {

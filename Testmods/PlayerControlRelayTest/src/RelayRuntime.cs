@@ -18,7 +18,7 @@ namespace PlayerControlRelayTest
 {
     internal sealed class RelayRuntime
     {
-        private const string Contract = "relay-v5";
+        private const string Contract = "relay-v6";
         private readonly ManualLogSource log;
         private readonly int mainThread = Thread.CurrentThread.ManagedThreadId;
         private readonly ModApiClient api = ApiShared.ForMod(PlayerControlRelayPlugin.Guid);
@@ -329,12 +329,11 @@ namespace PlayerControlRelayTest
             {
                 int executor = Responsible(s, group.Key);
                 if (executor == 0) { Report("No active owner or AI host for player " + group.Key); continue; }
-                uint maxGlobalId = group.Max(unit => unit.GlobalId);
-                var slots = group.Select(unit => unit.Slot).OrderBy(slot => slot).ToArray();
+                RelayUnit[] units = group.OrderBy(unit => unit.Slot).ToArray();
                 // A very large selection needs several Chores; each chunk becomes its own native group.
-                foreach (int[] chunk in RelaySlotCodec.Split(slots))
+                foreach (RelayUnit[] chunk in RelayUnitCodec.Split(units))
                 {
-                    var command = new RelayCommand(s.Epoch, group.Key, s.LocalSteam, ++requestId, action, x, y, maxGlobalId, chunk);
+                    var command = new RelayCommand(s.Epoch, group.Key, s.LocalSteam, ++requestId, action, x, y, chunk);
                     var packet = Envelope(RelayEnvelope.Request, s.Epoch); packet.Command = command; packet.Player = group.Key;
                     Report("Request " + command.RequestId + " (" + action + ", " + chunk.Length + " units) sent to player " + executor + ".");
                     SendTo(s.SteamOf(executor), packet);

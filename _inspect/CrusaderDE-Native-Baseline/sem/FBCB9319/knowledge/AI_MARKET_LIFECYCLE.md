@@ -183,3 +183,31 @@ The host instead enters `28160` to wait for those acknowledgements. The
 end of local reconstruction and the host's receipt of all acknowledgements
 are therefore separate boundaries. Executed Chore67 at `16E40` resets the
 repair state and returns held packets to the receive queue.
+
+## Commands already selected when repair starts
+
+Static recheck on 2026-11-23, same native SHA-256 `FBCB9319…F2831E2`.
+The ordinary divergence route `0x27C50` queues opcode 54 through `0x23990`.
+The PACK path in `0x15170` adds 30 ticks to the pending slot's scheduled
+tick. `0x23990` on the host and `0x23F10` on the recipient use the immediate
+execution branch only for a resulting wire tick below 1. This repair start is
+therefore part of scheduled execution on both peers.
+
+In `DLL_RunTick` (`0x86680`), `0x21EE0` selects the due slots and sorts them by
+command ID. `0x1F7E0` executes the selected list before `0xCDE60`. After each
+handler it retires that slot and continues against the selected count at
+manager `+0x372B40`. The loop does not recheck the repair state at `0x85750CC`.
+Executed `0x15170` sets that state to 10 and builds repair checksums through
+`0x22020`. It leaves the selected count alone. A normal scheduled command
+with a later command ID can therefore execute after Chore54 in the same run.
+The `0xCDE60` repair scheduler then takes its state-10 branch.
+
+### Implications for mod data [mod integration]
+
+Treat a post-Started callback for a selected gameplay command as an ordinary
+writer or consumer. Its successful native execution can change the repair
+source. Prove that an early record has no such writer, or capture it at the
+ordinary late boundary. A native observer that must distinguish the gameplay
+tail from repair-only callbacks also needs evidence for the first state-10
+run. This static result does not establish the callback ordering of an
+independent mod or the size and timing of a live repair.

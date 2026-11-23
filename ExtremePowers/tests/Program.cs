@@ -43,6 +43,11 @@ internal static class Program
         var zero = new RegenerationAccumulator(); Check(zero.TryScaleConfirmedIncrement(100, 101, 0, 7000, out uint value) && value == 100, "regen 0%");
         var half = new RegenerationAccumulator(); Check(half.TryScaleConfirmedIncrement(100, 101, 50, 7000, out value) && value == 100 && half.TryScaleConfirmedIncrement(100, 101, 50, 7000, out value) && value == 101, "regen 50% remainder");
         var vanilla = new RegenerationAccumulator(); Check(vanilla.TryScaleConfirmedIncrement(100, 101, 100, 7000, out value) && value == 101, "regen 100%");
+        var repaired = new RegenerationAccumulator();
+        half.TryScaleConfirmedIncrement(100, 101, 50, 7000, out _);
+        repaired.ApplyPreparedRemainder(half.CaptureRemainder());
+        Check(repaired.TryScaleConfirmedIncrement(100, 101, 50, 7000, out value) && value == 101, "resync carries the fractional increment");
+        Check(repaired.TryScaleConfirmedIncrement(7000, 7000, 50, 7000, out value) && value == 7000, "resync preserves the native mana cap");
         var fast = new RegenerationAccumulator(); Check(fast.TryScaleConfirmedIncrement(100, 101, 1000, 7000, out value) && value == 110, "regen 1000%");
         Check(fast.TryScaleConfirmedIncrement(6999, 7000, 1000, 7000, out value) && value == 7000, "regen cap");
         Check(!fast.TryScaleConfirmedIncrement(7000, 7001, 1000, 7000, out value) && value == 7001, "regen above cap unchanged");

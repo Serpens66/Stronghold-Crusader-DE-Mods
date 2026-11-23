@@ -1,0 +1,29 @@
+{
+  "enabled": true,
+  "quitWhenDone": true,
+  "quitDelayMs": 6000,
+  "series": "paired-resync-client",
+  "role": "client",
+  "steps": [
+    {"id":"menu","do":"WaitMainMenu","timeoutMs":180000,"allowErrors":true,"stopOnFail":true},
+    {"id":"begin","do":"Paired.Begin"},
+    {"id":"lobby","do":"Mp.Follow","args":["lobby"],"timeoutMs":900000,"stopOnFail":true},
+    {"id":"host-setup","do":"Paired.HostSetup","timeoutMs":120000,"stopOnFail":true},
+    {"id":"ready","do":"Mp.Ready","timeoutMs":180000,"stopOnFail":true},
+    {"id":"play","do":"Mp.Follow","args":["mission"],"timeoutMs":240000,"stopOnFail":true},
+    {"id":"real-mp","do":"Mp.ExpectRealMultiplayer","stopOnFail":true},
+    {"id":"warmup","do":"WaitTicks","args":["180"],"timeoutMs":60000,"stopOnFail":true},
+    {"id":"client-esc","do":"Paired.ClientEsc","timeoutMs":30000,"stopOnFail":false},
+    {"id":"building-pause-before","do":"Paired.CheckPausedBuilding","timeoutMs":40000,"stopOnFail":false},
+    {"id":"units-first","do":"Paired.ArmRepair","args":["units"],"timeoutMs":70000,"stopOnFail":true},
+    {"id":"units-second","do":"Paired.ArmRepair","args":["units"],"timeoutMs":70000,"stopOnFail":true},
+    {"id":"dug","do":"Paired.WaitMoat","timeoutMs":180000,"stopOnFail":true},
+    {"id":"moat","do":"Paired.ArmRepair","args":["moat"],"timeoutMs":90000,"stopOnFail":true},
+    {"id":"restored-terrain","do":"Paired.WaitSoil","timeoutMs":65000,"stopOnFail":true},
+    {"id":"soil","do":"Paired.ArmRepair","args":["soil"],"timeoutMs":30000,"stopOnFail":true},
+    {"id":"building-pause-after","do":"Paired.CheckPausedBuilding","timeoutMs":12000,"stopOnFail":false},
+    {"id":"market","do":"Paired.ExpectMarket","args":["3"],"timeoutMs":10000,"stopOnFail":false},
+    {"id":"restarts","do":"Paired.RestartCount","args":["2"],"timeoutMs":400000,"stopOnFail":true},
+    {"id":"screenshots","do":"Screenshot","args":["client-final"],"allowErrors":true}
+  ]
+}

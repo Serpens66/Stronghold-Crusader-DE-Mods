@@ -1,4 +1,5 @@
 // Feature: Fix synchronized movement speed for mixed troop groups.
+using APIShared.Multiplayer;
 using BepInEx.Logging;
 using R3;
 using SHCDESE.API;
@@ -10,6 +11,7 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using RedBird.Core.Memory;
 
 namespace Pathfinding
@@ -23,10 +25,12 @@ namespace Pathfinding
         private const int TribeFreeUnitSpeedsOffset = 0x542;
         private const int TribeMovementSpeedOffset = 0x54E;
         private const string SaveDataIdentifier = "BugfixesAndQoL-TroopMovementSync";
+        private const int RepairEntryBytes = sizeof(ushort) + sizeof(uint) + 2 * sizeof(byte) + 3 * sizeof(ushort);
+        private const int RepairRecordBytes = sizeof(ushort) + SynchronizedMovementCadencePatch.MaximumTrackedTribeId * RepairEntryBytes;
 
         private readonly ManualLogSource log;
         private readonly PathfindingViewModel settings;
-        private readonly Dictionary<int, TribeSynchronization>
+        private Dictionary<int, TribeSynchronization>
             synchronizationByTribeId =
                 new Dictionary<int, TribeSynchronization>();
         private readonly HashSet<int> activeMoveOrderTribeIds =
@@ -58,6 +62,7 @@ namespace Pathfinding
         private bool fixedLayoutHashValidated;
         private bool fixedLayoutErrorLogged;
         private bool initializationFailed;
+        private bool resyncRegistered;
 
         public TroopMovementFixRuntime(
             ManualLogSource log,
@@ -199,6 +204,95 @@ namespace Pathfinding
                 bytes => MessagePack.MessagePackSerializer.Deserialize<TroopMovementSyncSaveState>(bytes));
         }
 
+        internal void InitializeResync()
+        {
+            resyncRegistered = MultiplayerResyncData.TryRegister(
+                PathfindingPlugin.PluginGuid, "troop-movement-cadence", 1, RepairRecordBytes,
+                CaptureRepair, PrepareRepair, CommitRepair, out string reason);
+            if (!resyncRegistered)
+                TroopMovementFixModLog.Warning(log, "Troop movement repair unavailable: " + reason);
+        }
+
+        private byte[] CaptureRepair()
+        {
+            if (!IsFeatureEnabled)
+                return Array.Empty<byte>();
+
+            var tribeIds = new List<int>(synchronizationByTribeId.Keys);
+            tribeIds.Sort();
+            using (var stream = new MemoryStream())
+            using (var output = new BinaryWriter(stream))
+            {
+                ushort count = 0;
+                output.Write(count);
+                foreach (int tribeId in tribeIds)
+                {
+                    TribeSynchronization state = synchronizationByTribeId[tribeId];
+                    if (!MatchesLiveTribe(tribeId, state, out GameTribe* _))
+                        continue;
+
+                    output.Write((ushort)tribeId);
+                    output.Write(state.TribeGlobalId);
+                    output.Write((byte)state.Owner);
+                    output.Write(state.Cadence == SynchronizedMovementCadence.Running);
+                    output.Write(state.RunningSpeedBonus);
+                    output.Write(state.PreviousMovementSpeed);
+                    output.Write(state.AppliedMovementSpeed);
+                    count++;
+                }
+                stream.Position = 0;
+                output.Write(count);
+                return stream.ToArray();
+            }
+        }
+
+        private Dictionary<int, TribeSynchronization> PrepareRepair(ReadOnlyMemory<byte> record)
+        {
+            var states = new Dictionary<int, TribeSynchronization>();
+            if (record.IsEmpty)
+                return states;
+            if (!IsFeatureEnabled || record.Length < sizeof(ushort) || record.Length > RepairRecordBytes)
+                throw new InvalidDataException("Troop movement state is unavailable or its repair record has an invalid size.");
+
+            using (var stream = new MemoryStream(record.ToArray(), writable: false))
+            using (var input = new BinaryReader(stream))
+            {
+                int count = input.ReadUInt16();
+                if (record.Length != sizeof(ushort) + count * RepairEntryBytes)
+                    throw new InvalidDataException("Unexpected troop movement entry count.");
+                int previousTribeId = 0;
+                for (int index = 0; index < count; index++)
+                {
+                    int tribeId = input.ReadUInt16();
+                    uint globalId = input.ReadUInt32();
+                    ushort owner = input.ReadByte();
+                    int running = input.ReadByte();
+                    if (tribeId <= previousTribeId || tribeId > SynchronizedMovementCadencePatch.MaximumTrackedTribeId ||
+                        globalId == 0 || owner == 0 || owner > GamePlayerManagerAPI.MAX_PLAYERS || running > 1)
+                        throw new InvalidDataException("Invalid troop movement repair entry.");
+                    previousTribeId = tribeId;
+                    var state = new TribeSynchronization(globalId, owner,
+                        running != 0 ? SynchronizedMovementCadence.Running : SynchronizedMovementCadence.Walking,
+                        input.ReadUInt16(), input.ReadUInt16(), input.ReadUInt16());
+                    if (MatchesLiveTribe(tribeId, state, out _))
+                        states.Add(tribeId, state);
+                }
+            }
+            return states;
+        }
+
+        private void CommitRepair(Dictionary<int, TribeSynchronization> states)
+        {
+            cadencePatch?.ClearAllSynchronization();
+            synchronizationByTribeId = states;
+            foreach (KeyValuePair<int, TribeSynchronization> entry in states)
+                cadencePatch.SetSynchronization(entry.Key, entry.Value.Cadence, entry.Value.RunningSpeedBonus);
+        }
+
+        private static bool MatchesLiveTribe(int tribeId, TribeSynchronization state, out GameTribe* tribe) =>
+            TryGetTribe(tribeId, out tribe) && tribe->r_AliveState == AliveState.IsAlive &&
+            tribe->r_GlobalId == state.TribeGlobalId && tribe->r_PlayerIdOwner == state.Owner;
+
         private TroopMovementSyncSaveState CaptureSaveState()
         {
             var tribeIds = new List<int>(synchronizationByTribeId.Keys);
@@ -207,13 +301,14 @@ namespace Pathfinding
             foreach (int tribeId in tribeIds)
             {
                 TribeSynchronization synchronization = synchronizationByTribeId[tribeId];
-                if (!TryGetTribe(tribeId, out GameTribe* tribe) || tribe->r_GlobalId == 0)
+                if (!TryGetTribe(tribeId, out GameTribe* tribe) ||
+                    tribe->r_GlobalId != synchronization.TribeGlobalId || tribe->r_PlayerIdOwner != synchronization.Owner)
                     continue;
 
                 entries.Add(new TroopMovementSyncSaveEntry
                 {
                     TribeId = tribeId,
-                    TribeGlobalId = tribe->r_GlobalId,
+                    TribeGlobalId = synchronization.TribeGlobalId,
                     Running = synchronization.Cadence == SynchronizedMovementCadence.Running,
                     RunningSpeedBonus = synchronization.RunningSpeedBonus,
                     PreviousMovementSpeed = synchronization.PreviousMovementSpeed,
@@ -267,6 +362,8 @@ namespace Pathfinding
                 }
 
                 var synchronization = new TribeSynchronization(
+                    tribe->r_GlobalId,
+                    tribe->r_PlayerIdOwner,
                     entry.Running
                         ? SynchronizedMovementCadence.Running
                         : SynchronizedMovementCadence.Walking,
@@ -294,6 +391,7 @@ namespace Pathfinding
         private bool IsFeatureEnabled =>
             settings.EnableMod &&
             settings.EnableTroopMovementFix &&
+            (resyncRegistered || Shared.MissionEvents.CurrentContext?.Mode.IsRealMultiplayer != true) &&
             cadencePatch != null &&
             AreTroopMovementFixComponentsActive;
 
@@ -648,6 +746,8 @@ namespace Pathfinding
 
             TribeSynchronization synchronization =
                 new TribeSynchronization(
+                    tribe->r_GlobalId,
+                    tribe->r_PlayerIdOwner,
                     supportsSharedCadence && sharedRunningSpeedBonus > 0
                         ? SynchronizedMovementCadence.Running
                         : SynchronizedMovementCadence.Walking,
@@ -704,7 +804,7 @@ namespace Pathfinding
             synchronizationByTribeId.Remove(tribeId);
             cadencePatch?.ClearSynchronization(tribeId);
             if (!restoreSpeed ||
-                !TryGetTribe(tribeId, out GameTribe* tribe))
+                !MatchesLiveTribe(tribeId, synchronization, out GameTribe* tribe))
             {
                 return;
             }
@@ -776,17 +876,23 @@ namespace Pathfinding
         private readonly struct TribeSynchronization
         {
             public TribeSynchronization(
+                uint tribeGlobalId,
+                ushort owner,
                 SynchronizedMovementCadence cadence,
                 ushort runningSpeedBonus,
                 ushort previousMovementSpeed,
                 ushort appliedMovementSpeed)
             {
+                TribeGlobalId = tribeGlobalId;
+                Owner = owner;
                 Cadence = cadence;
                 RunningSpeedBonus = runningSpeedBonus;
                 PreviousMovementSpeed = previousMovementSpeed;
                 AppliedMovementSpeed = appliedMovementSpeed;
             }
 
+            public uint TribeGlobalId { get; }
+            public ushort Owner { get; }
             public SynchronizedMovementCadence Cadence { get; }
             public ushort RunningSpeedBonus { get; }
             public ushort PreviousMovementSpeed { get; }

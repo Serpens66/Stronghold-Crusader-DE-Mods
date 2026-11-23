@@ -8,7 +8,7 @@ using System;
 namespace Pathfinding
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.3")]
-    [BepInDependency(ApiSharedGuid, "0.60.0")]
+    [BepInDependency(ApiSharedGuid, "0.65.0")]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]

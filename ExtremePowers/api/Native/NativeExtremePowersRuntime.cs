@@ -62,6 +62,8 @@ namespace ExtremePowers.API
         private readonly Button[] powerButtons = new Button[8];
         private readonly string[] appliedSpriteKeys = new string[8];
         private readonly RegenerationAccumulator[] regenerationAccumulators = CreateRegenerationAccumulators();
+        private Func<bool> requiresRegenerationRepair;
+        private bool regenerationRepairReady;
         private readonly uint[] resourceManaBefore = new uint[9];
         private bool unexpectedResourceDeltaLogged;
         private ulong nativeOperationSequence;
@@ -301,6 +303,8 @@ namespace ExtremePowers.API
             if (!owner.GetSessionReadiness().Ready) return;
             int percent = owner.Snapshot().RegenerationPercent;
             if (percent == 100) return;
+            if (!regenerationRepairReady && percent % RegenerationAccumulator.Scale != 0 &&
+                requiresRegenerationRepair?.Invoke() == true) return;
             for (int player = 1; player <= 8; player++)
             {
                 uint* mana = PlayerMana(player);
@@ -320,6 +324,40 @@ namespace ExtremePowers.API
         {
             try { Shared.NativePatchGuard.Recheck(); }
             catch (Exception ex) { owner.Log("Foreign-patch recheck failed: " + ex.Message); }
+        }
+
+        internal void RegisterRegenerationRepair(Func<bool> requiresRepair, BepInEx.Logging.ManualLogSource log)
+        {
+            if (requiresRepair == null) return;
+            requiresRegenerationRepair = requiresRepair;
+            int count = regenerationAccumulators.Length - 1;
+            regenerationRepairReady = APIShared.Multiplayer.MultiplayerResyncData.TryRegisterEarlyCapture<byte[]>(
+                "ExtremePowers_Serp", "mana-regeneration", 1, count, CaptureRegeneration,
+                bytes => PrepareRegeneration(bytes.Span, count), CommitRegeneration, out string reason);
+            if (!regenerationRepairReady)
+                Shared.DebugLogHelper.LogError(log, "Fractional mana regeneration unavailable in multiplayer: " + reason);
+        }
+
+        private byte[] CaptureRegeneration()
+        {
+            var snapshot = new byte[regenerationAccumulators.Length - 1];
+            for (int player = 1; player < regenerationAccumulators.Length; player++)
+                snapshot[player - 1] = regenerationAccumulators[player].CaptureRemainder();
+            return snapshot;
+        }
+
+        private static byte[] PrepareRegeneration(ReadOnlySpan<byte> snapshot, int count)
+        {
+            if (snapshot.Length != count) throw new System.IO.InvalidDataException("Mana regeneration repair length.");
+            foreach (byte remainder in snapshot)
+                if (remainder >= RegenerationAccumulator.Scale) throw new System.IO.InvalidDataException("Mana regeneration repair remainder.");
+            return snapshot.ToArray();
+        }
+
+        private void CommitRegeneration(byte[] snapshot)
+        {
+            for (int player = 1; player < regenerationAccumulators.Length; player++)
+                regenerationAccumulators[player].ApplyPreparedRemainder(snapshot[player - 1]);
         }
 
         private void OnUnloadMap(APIShared.MissionLifecycleNotification args)

@@ -122,3 +122,26 @@ both damage directions (`0x7EB00`, `0x15ECE0`) use a signed Int32 product involv
 the unit maximum and building health. Scaling both independently can overflow
 even while their individual storage bounds are respected. The common coordinated
 bound must additionally satisfy unit maximum times proxy maximum <= Int32.MaxValue.
+
+## Wounded records through multiplayer repair and save load (2026-11-23)
+
+On the same native hash, Chore56 (`0x15710`) copies the `0x490` unit record
+and Chore57 (`0x158B0`) copies the `0x32C` building record into the destination
+slot in their unpack paths. Neither transfer executes the respective new-object
+initialization path. The unit rebuild at `0x187B30` does not manufacture a new
+unit type-initializer observation for the replaced identity.
+
+The save-load unit normalizer at `0x19C300` skips its maximum and current HP
+stores for a wounded record whose current HP is below its maximum. The
+building normalization path through `0xCA110`/`0xCA5F0` similarly leaves a
+wounded record's maximum in place in that comparison branch.
+
+### Shared HP after a repaired replacement [mod integration]
+
+The private basis ledger is absent from the native transfers. If the repaired
+identity had no basis on the client, a subsequent save can omit the old slot's
+row while retaining the complete-ledger flag. On load, the initial scan can
+then mistake the already scaled maximum of the wounded replacement for its
+original basis. The opt-in HP resync record carries the host's proven basis and
+generation to the repaired identity. This is a static explanation with offline
+component coverage. The paired repair/save/reload case remains a game test.
