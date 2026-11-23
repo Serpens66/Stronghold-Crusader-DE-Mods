@@ -77,7 +77,7 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 
 ## Vanilla audits with mod integration
 
-- [Extreme Troops](./sem/FBCB9319/knowledge/EXTREME_TROOPS.md) covers the unit and projectile bounds, disabled flight trails, outpost timing, and save and multiplayer implications.
+- [Extreme Troops](./sem/FBCB9319/knowledge/EXTREME_TROOPS.md) covers unit and projectile bounds, flight trails, the Steam HD comparison, outpost timing, save and multiplayer implications, and archived flight-trail tests.
 
 - [Stone and iron under walls](./sem/FBCB9319/knowledge/WALL_DEPOSIT_RESTORATION.md) records the wall and stair placement masks, building footprint comparison, wall removal paths and standalone testmod.
 

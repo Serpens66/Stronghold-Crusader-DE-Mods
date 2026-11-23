@@ -396,13 +396,23 @@ namespace Pathfinding.GateRouting
                 int cls = *(int*)(portal + PClass);
                 if (cls != (int)PathConnectionClass.GatehouseBig && cls != (int)PathConnectionClass.GatehouseSmall) continue;
                 int gate = *(int*)(portal + PBuilding);
-                if (gate <= 0 || gate >= *(int*)(buildings + BuildingCountOffset)) continue;
+                int buildingCount = *(int*)(buildings + BuildingCountOffset);
+                if (gate <= 0 || gate >= buildingCount) continue;
                 byte* record = buildings + (long)gate * BuildingStride;
                 if (*(short*)(record + OffAlive) == 0 || !IsGateType(*(ushort*)(record + OffType))) continue;
+                if (!HasBuildingAtEndpoint(*(int*)(portal + PEntryTile), buildingCount) &&
+                    !HasBuildingAtEndpoint(*(int*)(portal + PExitTile), buildingCount)) continue;
                 if (*(int*)(portal + PEnabled) != 0 && TryPatchOpenPortal(id, portal, record, gate)) continue;
                 PatchEndpoint(id, portal, record, gate, PEntryTile, PCompA);
                 PatchEndpoint(id, portal, record, gate, PExitTile, PCompB);
             }
+        }
+
+        private bool HasBuildingAtEndpoint(int tile, int buildingCount)
+        {
+            if ((uint)tile >= TileCount) return false;
+            int building = structures[tile];
+            return building > 0 && building < buildingCount;
         }
 
         private bool TryPatchOpenPortal(int id, byte* portal, byte* record, int gate)
@@ -444,11 +454,11 @@ namespace Pathfinding.GateRouting
                 !DeckClosureCore.CollectLandingRegions(this, outside, inside, corridor, isOnBridge, isDeck, otherConnection, componentOf,
                     footprint, regions)) return false;
 
-            int previous = DeckClosureCore.FindLanding(this, outside, inside, isOnBridge, componentOf);
-            if (regions[1] != 0 && regions[1] == previous)
+            if (regions[1] != 0 && regions[1] == DeckClosureCore.FindLanding(this, outside, inside, isOnBridge, componentOf))
             {
+                int preferred = regions[1];
                 regions[1] = regions[0];
-                regions[0] = previous;
+                regions[0] = preferred;
             }
             if (regions[0] == 0) regions[0] = original;
             return true;

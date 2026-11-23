@@ -133,13 +133,13 @@ namespace Pathfinding.GateRouting
                 {
                     if ((directions & DirectionBits.Bit[d]) == 0 ||
                         !grid.TryGetTile(x + DirectionBits.Dx[d], y + DirectionBits.Dy[d], out int next) ||
+                        footprint.Slice(0, count).IndexOf(next) >= 0 ||
                         (grid.GetDirections(next) & DirectionBits.Bit[DirectionBits.Opposite(d)]) == 0) continue;
 
                     int region = component(next);
                     if (region == 0) continue;
                     if (onBridge(next))
                     {
-                        if (footprint.Slice(0, count).IndexOf(next) >= 0) continue;
                         if (count == footprint.Length) return false;
                         footprint[count++] = next;
                     }

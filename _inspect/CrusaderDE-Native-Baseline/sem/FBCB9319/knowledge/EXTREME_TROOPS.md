@@ -54,9 +54,9 @@ Cross-checked the installed PE by decoding direct RIP-relative references in exe
 
 CastlePlanner's [ground-marker renderer](../../../../../CastlePlanner/src/BlueprintRenderer.cs) demonstrates a Unity mesh per depth row using the formula `-20000 + row * 49 + 1`. Projectile sort order is a different position in that row. On the confirmed managed assembly, `Director.Update → GameMap.processTestMap` consumes kind-3 records. An update forwards the render ID, projectile kind, signed height and sprite fields to `GameMap.addUpdateFly`; zero sprite file emits a deletion. The public ID deletion forwards to `deleteFly(Fly,bool)`, which also receives the map clear path. The existing `Fly` and its sprite renderer own the projected coordinates, sorting layer and row order (`-20000 + row * 49 + 15`). Render ID `slot + 10000` is a shadow variant. Original launch subtype `0x5B` becomes an archer arrow with kind-1 trail and sprite file `0x91` in the native creator (`0x9B3D4`, `0x9B821`, `0x9B9D6`).
 
-The [ProjectileTrailsTest](../../../../../Testmods/ProjectileTrailsTest) prototype samples the existing body sprite after managed publication. It uses its sorting layer and full order as the batch key and adds a local transparent segment from two observed positions. All groups share one material and each group has a reusable mesh. Trail geometry lives in Unity and uses zero native slots. Visual occlusion and performance acceptance require in-game comparisons.
+The standalone prototype samples the existing body sprite after managed publication. It uses its sorting layer and full order as the batch key and adds a local transparent segment from two observed positions. All groups share one material and each group has a reusable mesh. Trail geometry lives in Unity and uses zero native slots. Visual occlusion and performance acceptance require in-game comparisons.
 
-Hidden-desktop tests on 2026-11-22 confirmed geometry submission in all four rotations, persistence during pause, and zero mod segments after a same-process switch to a Standard Troops save. A separate group of 24 spawned archers and eight crossbowmen produced 24 source-matched segments at the paused capture. Two alternating stress pairs measured roughly 55–58 additional draw calls per frame at up to 1,024 simultaneous segments in the original line renderer. Individual wall, tower and gate overlaps and in-game allocation bytes remain unverified. See the [test results](../../../../../Testmods/ProjectileTrailsTest/TESTING.md#first-prototype-desktop-test-on-2026-11-22).
+Hidden-desktop tests on 2026-11-22 confirmed geometry submission in all four rotations, persistence during pause, and zero mod segments after a same-process switch to a Standard Troops save. A separate group of 24 spawned archers and eight crossbowmen produced 24 source-matched segments at the paused capture. Two alternating stress pairs measured roughly 55–58 additional draw calls per frame at up to 1,024 simultaneous segments in the original line renderer. Individual wall, tower and gate overlaps and in-game allocation bytes remain unverified. See the [archived results](#archived-projectile-trail-results-mod-integration).
 
 The player's screenshots showed that the original line was hard to discern even when the renderer reported geometry. Testmod 0.1.1 stores the actual Sprite geometry, texture and basis from each of up to three preceding observations and draws fading copies locally. Batches share materials by texture and preserve each historical sprite's sorting order. The 1,024-copy and 64-batch budgets give first priority to each shot's newest copy.
 
@@ -85,7 +85,7 @@ and the less common later-age case caused by allocating before the current slot
 were outside the isolated capture.
 
 The test details and log pointers are in
-[ProjectileTrailsTest TESTING](../../../../../Testmods/ProjectileTrailsTest/TESTING.md#simulation-tick-afterimages-on-test_green).
+[archived results](#archived-projectile-trail-results-mod-integration).
 
 The projectile sweep's cursor-reset counter at `0x3A0FA28` cycles with the
 calendar. In a single continuous mass test the sampled value moved from 157
@@ -106,7 +106,7 @@ texture and sorting keys. It reuses sprite geometry and streams one
 native slots. The synthetic game fixture submitted 50,000 visible copies in
 96 groups. An independent Unity Player pixel test verified 50,000 distinct
 positions using the same shader bundle. See the
-[GPU game test and timings](../../../../../Testmods/ProjectileTrailsTest/TESTING.md#gpu-renderer).
+[recorded timings](#archived-projectile-trail-results-mod-integration).
 The matching Editor, reproducible bundle and standalone pixel test are
 documented in [Unity asset pipeline](UNITY_ASSET_PIPELINE.md).
 These observations do not establish why the developers chose to suppress native
@@ -121,7 +121,7 @@ stone facade. The back copies were covered by the tower and remained
 visible beside its silhouette. The paused North-view fixture held the
 world positions, camera and sprite layer constant while varying the
 projectile sort row. See the
-[paired images and pixel-mask method](../../../../../Testmods/ProjectileTrailsTest/TESTING.md#tower-occlusion).
+[pixel-mask results](#archived-projectile-trail-results-mod-integration).
 
 ## Effect allocation under pressure (2026-11-23) [Vanilla facts]
 
@@ -156,7 +156,7 @@ afterimages are suppressed.
 
 ### Standard replacement at the existing observer [mod integration]
 
-ProjectileTrailsTest 0.4.0 can skip allocating the selected ordinary
+The standalone 0.4.0 prototype could skip allocating the selected ordinary
 arrow and bolt afterimages in Standard mode. It uses the existing entry
 span and returns zero after restoring the entry stack, before the Vanilla
 prologue and allocation. The Vanilla early return used for Extreme
@@ -169,12 +169,12 @@ producer is outside the entry span.
 The native rule is a shared Host setting in multiplayer and uses
 APIShared simulation admission. The local renderer's settings never
 control the admitted allocation rule. See the
-[Standard replacement tests](../../../../../Testmods/ProjectileTrailsTest/TESTING.md#standard-mode-replacement-040).
+[recorded cases](#archived-projectile-trail-results-mod-integration).
 
 ### BugfixesAndQoL ownership (2026-11-23) [mod integration]
 
 BugfixesAndQoL 1.0.237 owns the same entry span and the Unity renderer.
-ProjectileTrailsTest 0.5.0 exercises the feature without owning a hook.
+The archived 0.5.0 test harness exercised the feature without owning a hook.
 The renderer adds no native effect IDs. The host setting determines
 whether Standard allocates native afterimages. Local display and its
 two budgets select the number of copies drawn, independently of the
@@ -187,4 +187,137 @@ shader could not load. A Standard fire arrow still produced its native type-5
 smoke. The matched Standard and Extreme traces reproduced all sampled
 Vanilla flight positions and all matched sorting orders. Some copies
 entered a fade step one tick sooner. See the
-[acceptance traces](../../../../../Testmods/ProjectileTrailsTest/TESTING.md).
+[acceptance traces](#archived-projectile-trail-results-mod-integration).
+
+## Steam HD and HD Extreme comparison (2026-11-23) [Vanilla facts]
+
+Read-only audit of the installed Steam executables. Both report file version
+`1, 1, 0, 1`. The following addresses are preferred 32-bit VAs, with image
+base `0x400000`.
+
+| Executable | SHA-256 | Exclusive effect bound | Type-6 call → allocator |
+|---|---|---:|---|
+| `Stronghold Crusader.exe` | `3BB0A8C1E72331B3A30A5AA93ED94BECA0081B476B04C1960E26D5B45387AC5A` | 3,000 | `0x408D0A → 0x4083A0` |
+| `Stronghold_Crusader_Extreme.exe` | `55648E6B05D67D37A5773FE699BBB17A2D6AD4DE1BB9DBDED9A21CAEF82BD7FB` | 6,000 | `0x408D1A → 0x4083B0` |
+
+- Both executables set kind 3 for ordinary arrows (0x01, 0x18) and crossbow
+  bolts (0x07). The initializer at `0x4011D0` loads the table at
+  `0x5B6760 + 4 * (type - 10)` into record +0xBA. The flight sweep reaches
+  the type-6 call before moving the primary shot when the trajectory and
+  stop checks permit. The type-5 smoke call is a distinct branch. In the
+  Extreme executable there is no DE-style wide-pool early return.
+- The Extreme allocator claims an independent 0xE8-byte slot from the
+  same manager and cursor as the main projectile allocator at `0x404AF0`.
+  The sweep periodically resets the cursor to 25 at `0x4087F6`. Type-6
+  allocation returns zero at `0x4084A7` after a saturated forward scan.
+  The caller continues with the main shot. Type-6 records carry the original
+  sprite and pose. The normal template sets a three-visit age interval
+  and terminal age four at `0x4013CA..0x4013DC`. Its Extreme age handler
+  `0x401D10` writes integer transparency 0, 8, 16 or 24, then marks
+  the record for removal at the terminal age. The Classic map renderer
+  reads that transparency in the entity draw path and passes it to the
+  blend routine at `0x4EBB21`.
+- The Extreme main allocator's launch jump table at
+  `0x405048/0x405050` sends ordinary arrows and bolts to a second pass
+  from slot 25 after the forward scan saturates. The reclamation dispatch
+  at `0x4050B0/0x4050B8` permits types 0x09, 0x15, 0x1B, 0x1E and
+  0x1F, including existing ground fire. Type 6 is outside that list.
+  A new ground-fire allocation can fail on the forward scan. A new shot
+  can fail even after its retry if every remaining record is ineligible.
+  The normal HD executable uses the same policy with the smaller bound.
+- The 10,000 advertised troop cap is independent of the effect pool.
+  Pool pressure can therefore affect gameplay even with a steady frame
+  rate. HD uses the classic DirectDraw-backed rendering path. The binary
+  audit establishes the resource contention, not the frequency or FPS
+  impact during HD play. DE returns before reserving a type-6 slot or
+  submitting that afterimage. No primary source examined gives Firefly's
+  motivation or ranks slot pressure against frame cost. Firefly explicitly
+  documented restoring smoke for flaming projectiles in DE Extreme.
+  [HD product description](https://store.steampowered.com/app/40970/Stronghold_Crusader_Extreme_HD/)
+  · [DE 1.04 patch notes](https://steamcommunity.com/app/3024040/discussions/0/600786717156361781/)
+
+### Archived projectile-trail results [mod integration]
+
+The evidence here covers the retired standalone prototype and the final
+BugfixesAndQoL 1.0.237 renderer. Controlled volleys use the engine's
+projectile launch path with each archer's ID. They measure the whole game
+frame and do not synchronize all archer attack animations.
+
+- **Runtime and visual parity.** The original two-position line was difficult
+  to see in player captures. Sprite afterimages reproduced all 15 controlled
+  Vanilla poses in the final `test_green` comparison. Standard replacement
+  and Extreme each matched all 98 comparable sort samples and 91 alpha
+  samples. The other seven entered the next fade step one tick earlier.
+  All three Vanilla alpha levels were reproduced. A paused shot held ten
+  copies at the full setting. Arrow and bolt submission survived all four
+  rotations. Switching to a Standard save cleared the previous renderer.
+  The same-process restart cleared old history and drew the new shot.
+  The isolated North-facing Tower1 test found that 8,966 of 9,064 overlap
+  pixels changed by the front pass retained their original tower value in
+  the behind-tower pass. The separate outside-silhouette control retained
+  450 visible changed pixels. This verifies the sort row independently
+  of collision, with no isolated wall/gate pixel verdict.
+- **Host and local settings.** With the host rule off, the Standard reference
+  peaked at ten native copies. With it on, the replacement peaked at ten
+  local copies and zero native copies. Local length zero hid the copies
+  while the admitted rule continued to suppress native allocation. A missing
+  bundle preserved all ten native copies in Standard with zero mod copies.
+  An ignited arrow generated seven native smoke effects and zero ordinary
+  copies. Two-peer gameplay was outside those tests.
+- **Budgets and allocation.** The GPU renderer caches expanded sprite
+  geometry, streams one 24-byte input per visible copy and uses a shader
+  clock for fade-only changes. It tests visibility before the budget and
+  favors newer copies under pressure while maintaining chronological blend
+  order within a group. The production defaults are five and 10,000, with
+  ranges 0–10 and 0–60,000 (step 500). A single copy uses 68.75% alpha.
+  Lengths 2–9 use a quadratic fade from 100% to 34.375%. Length 10
+  uses the three DE Vanilla levels. Individual samples cannot connect separate shots
+  when a native ID is reused. A 50,000-copy fixture submitted 1,200,000
+  bytes in 96 groups. Repeating unchanged work rebound zero groups,
+  changing the lifetime rebound all 96, and a basis change made while
+  hidden was applied on reactivation. A standalone D3D11 pixel test passed
+  all 121 readbacks across lengths 0–10, including five-copy alpha bytes
+  255, 245, 213, 161 and 88. The warmed offline history allocated zero
+  managed bytes. The Mono in-game allocation counter failed a known 4,096-byte
+  positive control. The complete Unity path's managed allocation rate
+  and isolated GPU frame cost remain unmeasured.
+- **Historical controls.** The line prototype with up to 1,024 copies added
+  around 55–58 scene draw calls and 0.55–1.10 ms at p95 in alternating
+  800-arrow plus 800-bolt tests. An equal-budget 2,999-unit run (2,991
+  archers, two 2,900-arrow volleys) measured 270 native copies in Standard,
+  zero in vanilla Extreme, and up to 1,024 mod copies in Extreme. Median
+  frame times were 4.587 ms for Standard, 4.570 ms for vanilla Extreme,
+  5.503 ms for the CPU renderer and 5.241 ms for the GPU renderer.
+  The Standard and Extreme native pools differ. In a separate alternating
+  5,000-archer comparison, buffer and sort-row reuse in prototype 0.3.1
+  reduced p95 from 47.89–50.85 ms to 37.00–37.56 ms at the same peak
+  49,997 submitted copies.
+
+| 5,000-archer test on `test_green` | Peak drawn | Frame p50 | Frame p95 | Mean draw calls |
+|---|---:|---:|---:|---:|
+| Vanilla Extreme, two prototype controls | 0 | 6.90–7.04 ms | 17.93–18.99 ms | 688–690 |
+| Prototype GPU, paired with those controls | 49,997 | 20.62–21.71 ms | 48.05–51.00 ms | 842–851 |
+| BugfixesAndQoL 1.0.237, defaults 5 / 10,000 | 10,000 | 12.34 ms | 27.05 ms | 853 |
+| BugfixesAndQoL 1.0.237, maxima 10 / 60,000 | 49,997 | 21.81 ms | 37.82 ms | 863 |
+
+Tests used two 5,000-arrow volleys at a fixed camera and speed, 1280×720,
+North, zoom 0.256, Direct3D 11 on a GeForce RTX 4090. The paired prototype
+comparisons alternate controls within a revision. The final two rows
+compare display settings of the same final build. Both final cases
+reported zero native afterimages. The runs give no frame-time guarantee
+for 10,000 archers. Raw visual and run IDs for the measurements are in
+the local evidence under `.work/a/trail-final/001` (tower),
+`.work/a/trail-gpu/001` (prototype controls), and `.work/a/bfq-trails/001`
+(final suite: `1a312efdd3bb`, `cd9ea994d3b0` for load,
+`999b81abc189` for missing shader, `8876c51266d6` for restart).
+
+On 2026-11-23 the final local pre-install repeat suite passed Extreme
+(`3625381bf9e7`), Standard with the host rule off (`d5570a1b176c`) and
+on (`89aa116654b0`), local length zero (`630059e8c442`), an ignited
+arrow (`9e0b54307f06`) and a same-process restart
+(`a86b728fce08`). Each start loaded BugfixesAndQoL 1.0.237 and its
+exclusive native observer. The old standalone plugin and its config were
+removed at deployment. All 51 installed package paths matched the tested
+candidate by SHA-256. The manifest of file hashes and run IDs is
+`.work/a/bfq-trails/001/installation.json`. The separate multiplayer
+client was unavailable for live acceptance.

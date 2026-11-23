@@ -1347,6 +1347,6 @@ An entry-only pattern cannot establish those contracts.
 
 APIShared owns the multiplayer admission and native restore boundaries.
 BugfixesAndQoL owns the hook, renderer and presentation clock. Run the
-current ProjectileTrailsTest as a consumer-only acceptance fixture.
+[archived acceptance results](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/EXTREME_TROOPS.md#archived-projectile-trail-results-mod-integration).
 Remove the old standalone renderer before using this feature. See the
 [effect allocation audit](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/EXTREME_TROOPS.md).

@@ -12,7 +12,7 @@ namespace AutoSendTest
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class AutoSendPlugin : BaseUnityPlugin
     {
-        public const string Guid = "AutoSendTest_Serp", Version = "0.4.2";
+        public const string Guid = "AutoSendTest_Serp", Version = "0.4.3";
         private static AutoSendRuntime runtime;
         private static ManualLogSource log;
         private static bool registered;

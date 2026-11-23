@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Pathfinding",
   "Description": "Faster and smarter unit movement: shared group routes, better commands, gate routing, Assassin climbing, formations, command queue and synchronized troop movement.",
-  "Version": "0.1.14",
+  "Version": "0.1.15",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.3",
   "MaximumScriptExtenderVersion": "",
@@ -20,9 +20,10 @@
   ],
   "SerpChangelog": [
     {
-      "Version": "0.1.14",
+      "Version": "0.1.15",
       "Changes": [
-        "Own and allied units can reach buildings via sideways exits from a lowered drawbridge at an open gate, even when the straight landing is blocked. This applies when the gate can represent all connected areas in its pathfinding record."
+        "With the drawbridge option enabled, your units and allies can use side exits from lowered drawbridges at open gates, even when a building or moat blocks the straight landing. Very complex layouts with several separate landings can still use the previous routing.",
+        "Reduced the time spent updating drawbridge routes during play."
       ]
     },
     {

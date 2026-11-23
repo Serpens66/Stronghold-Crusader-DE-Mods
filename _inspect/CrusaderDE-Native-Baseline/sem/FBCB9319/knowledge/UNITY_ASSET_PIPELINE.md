@@ -42,7 +42,7 @@ were recorded on an earlier revision of the bundle.
   50,000 visible afterimages in 96 sort groups. The fixed-arrow comparison
   on `test_green` corroborated the Vanilla pose, depth and opacity sequence.
   See [Extreme Troops](EXTREME_TROOPS.md#gpu-renderer-runtime-check-2026-11-23-mod-integration)
-  and the [game test report](../../../../../Testmods/ProjectileTrailsTest/TESTING.md#gpu-renderer).
+  and the [archived game tests](EXTREME_TROOPS.md#archived-projectile-trail-results-mod-integration).
 
 The builder includes Direct3D 12 and Vulkan shader variants. The results
 above only cover Direct3D 11. For a different player version or graphics

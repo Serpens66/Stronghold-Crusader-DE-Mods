@@ -13,7 +13,8 @@ namespace AutoSendTest
         private AllyGoodsSectionRegistration sectionRegistration;
         private ContentControl disclosureHost;
         private Button disclosureButton;
-        private TextBlock disclosureArrow;
+        private Noesis.Path disclosureArrow;
+        private Geometry disclosureArrowRight, disclosureArrowDown;
         private bool sectionVisible;
 
         internal void RegisterDisclosure(AllyGoodsSectionRegistration registration)
@@ -32,8 +33,12 @@ namespace AutoSendTest
             var content = new StackPanel { Orientation = Orientation.Horizontal };
             content.Children.Add(new TextBlock { Text = AutoSendText.Get("Disclosure"), FontSize = 12,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 239, 243, 198)) });
-            disclosureArrow = new TextBlock { Width = 12, TextAlignment = TextAlignment.Center, FontSize = 12,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 239, 243, 198)) };
+            // Draw the indicator: Vanilla's font does not contain triangle glyphs.
+            if (disclosureArrowRight == null) disclosureArrowRight = Geometry.Parse("M0,0 L6,3 L0,6 Z");
+            if (disclosureArrowDown == null) disclosureArrowDown = Geometry.Parse("M0,0 L6,0 L3,6 Z");
+            disclosureArrow = new Noesis.Path { Width = 6, Height = 6, Margin = new Thickness(3, 0, 3, 0),
+                VerticalAlignment = VerticalAlignment.Center, Data = disclosureArrowRight,
+                Fill = new SolidColorBrush(Color.FromArgb(255, 239, 243, 198)) };
             content.Children.Add(disclosureArrow);
             disclosureButton = new Button { Name = "AutoSendDisclosureButton", Content = content,
                 MinWidth = 0, MinHeight = 0, Padding = new Thickness(4, 0, 4, 0),
@@ -76,7 +81,7 @@ namespace AutoSendTest
             bool visible = disclosure.IsVisible(context.IsSendMode);
             if (disclosureHost != null) disclosureHost.Visibility = context.IsSendMode ? Visibility.Visible : Visibility.Collapsed;
             if (disclosureButton != null) disclosureButton.IsEnabled = session != 0;
-            if (disclosureArrow != null) disclosureArrow.Text = disclosure.Expanded ? "▾" : "▸";
+            if (disclosureArrow != null) disclosureArrow.Data = disclosure.Expanded ? disclosureArrowDown : disclosureArrowRight;
             ApplyDisclosure(visible);
             return visible;
         }

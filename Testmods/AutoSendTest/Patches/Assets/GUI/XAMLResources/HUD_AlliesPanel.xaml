@@ -2,8 +2,8 @@
   <Operation Type="Add" XPath="//n:Grid[n:Button[@CommandParameter='ConfirmGoods'] and n:Button[@CommandParameter='CancelGoods']]">
     <Content>
       <ContentControl xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                      x:Name="AutoSendDisclosureHost" Margin="16,0,0,4"
-                      HorizontalAlignment="Left" VerticalAlignment="Bottom" Visibility="Collapsed" />
+                      x:Name="AutoSendDisclosureHost" Margin="0,0,0,4"
+                      HorizontalAlignment="Center" VerticalAlignment="Bottom" Visibility="Collapsed" />
     </Content>
   </Operation>
 </Patch>
