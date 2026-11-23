@@ -22,6 +22,7 @@
   <ItemGroup>
     <Compile Include="src\AcceptancePlugin.cs" />
     <Compile Include="src\OwnerContractRegression.cs" />
+    <Compile Include="src\GiftRecruit.cs" />
   </ItemGroup>
   <ItemGroup><None Update="info.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>

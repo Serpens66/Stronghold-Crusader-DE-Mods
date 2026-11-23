@@ -43,6 +43,15 @@ function Save-TestPath([string]$Path, [string]$Name, [switch]$Directory, [switch
     $snapshots.Add([pscustomobject]@{State=$snapshot; Client=[bool]$Client})
 }
 
+function Publish-Checkpoint([string]$Name, [string[]]$Lines, [switch]$Client) {
+    $folder = if($Client){$clientUi}else{$hostUi}
+    $path = Join-Path $folder ($label+'-'+$Name+'.ok')
+    $temporary = $path+'.tmp'
+    foreach($file in @($path,$temporary)){$testPaths.Add([pscustomobject]@{Path=$file; Client=[bool]$Client})}
+    [IO.File]::WriteAllLines($temporary,$Lines,$utf8)
+    [IO.File]::Move($temporary,$path)
+}
+
 function Assert-GameClosed([string]$Root) {
     $stream = [IO.File]::Open((Join-Path $Root 'BepInEx/LogOutput.log'),'Open','Read','Read')
     $stream.Dispose()
@@ -107,6 +116,16 @@ try {
     $steamAppId = Join-Path $hostRoot 'steam_appid.txt'
     $hostSettings = Join-Path $env:USERPROFILE ('AppData/LocalLow/Firefly Studios/'+$gameName+'/settings.cfg')
     $apiSettings = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'SHCDE/APIShared/BugfixesAndQoL_Serp'
+    $lordSource = Join-Path $workspace 'Testmods/AIMarketAcceptance/Fixtures/SerpMarketRest4'
+    $lordTarget = Join-Path ([IO.Path]::GetDirectoryName($hostSettings)) 'CustomLords/SerpMarketRest4'
+    $lordInventory = Get-InGameTestTree $lordSource
+    if($lordInventory.Files.Count -ne 2 -or $lordInventory.Directories.Count -ne 0 -or
+        $lordInventory.Files['SerpMarketRest4.lordjson'] -ne '17b809e9ea015a5181efd5f76cc2908dca50166bd68787db3c7588dbc08c4a5b' -or
+        $lordInventory.Files['SerpMarketRest4.aivjson'] -ne '84bd02e51d2da4abb5c6ae5fbe76820a96b99ac4dfedf8760a6bcd26c8951806'){
+        throw 'The trading AI AIC or AIV differs from the reviewed fixture.'
+    }
+    $installedLord = Get-InGameTestTree $lordTarget
+    if($installedLord.Exists){Assert-InGameTestTree $lordTarget $lordInventory}
 
     Save-TestPath $hostSettings 'host-settings.cfg'
     Save-TestPath $steamAppId 'host-appid.txt'
@@ -114,7 +133,10 @@ try {
     Save-TestPath (Join-Path $hostConfig 'UiAcceptance_Serp.cfg') 'host-ui.cfg'
     Save-TestPath (Join-Path $clientConfig 'UiAcceptance_Serp.cfg') 'client-ui.cfg' -Client
     Save-TestPath (Join-Path $clientUi 'join-lobby.txt') 'client-join-lobby.txt' -Client
+    if(-not $installedLord.Exists){Save-TestPath $lordTarget 'host-custom-trading-ai' -Directory}
     [IO.File]::WriteAllText((Join-Path $run 'recovery.json'),(($snapshots | ConvertTo-Json -Depth 7) -replace '(?<!\r)\n',$crlf)+$crlf,$utf8)
+
+    if(-not $installedLord.Exists){Copy-InGameTestTree $lordSource $lordTarget $lordInventory}
 
     foreach($root in @($hostRoot,$ClientRoot)){
         Install-TestPackage $MakeDesyncPackage $root
@@ -146,25 +168,27 @@ try {
     }
     [IO.File]::WriteAllText($hostSettings,$text,$utf8)
 
-    $inputDesktop = [DesktopHost]::InputDesktop()
+    $inputDesktop = [InGameTestDesktopHost]::InputDesktop()
     $desktopName = 'SerpTest_'+$label
-    $desktop = [DesktopHost]::CreateDesktopW($desktopName,[IntPtr]::Zero,[IntPtr]::Zero,0,0xC3,[IntPtr]::Zero)
+    $desktop = [InGameTestDesktopHost]::CreateDesktopW($desktopName,[IntPtr]::Zero,[IntPtr]::Zero,0,0xC3,[IntPtr]::Zero)
     if($desktop -eq [IntPtr]::Zero){throw [ComponentModel.Win32Exception]::new()}
     $launchArguments = '-screen-fullscreen 0 -screen-width 1280 -screen-height 720 -logFile "'+(Join-Path $run 'Player.log')+'"'
-    $instance = [DesktopHost]::Start($exe,$launchArguments,$hostRoot,$desktopName)
+    $instance = [InGameTestDesktopHost]::Start($exe,$launchArguments,$hostRoot,$desktopName)
     $watch = [Diagnostics.Stopwatch]::StartNew()
     $seenWindow = $false
     $published = $false
     $readySent = $false
+    $fixtureSent = $false
+    $terrainAborted = $false
     $sent = @{}
     $runRegex = 'ACCEPT run='+[regex]::Escape($label)+' step='
     Write-ProgressLine ('Started host on separate desktop, PID '+$instance.Id)
     while(-not $instance.HasExited -and $watch.Elapsed.TotalMinutes -lt 26){
-        if([DesktopHost]::InputDesktop() -cne $inputDesktop -or [DesktopHost]::WindowPid([DesktopHost]::GetForegroundWindow()) -eq $instance.Id){
+        if([InGameTestDesktopHost]::InputDesktop() -cne $inputDesktop -or [InGameTestDesktopHost]::HasInputWindow($instance.Id)){
             throw 'Host reached the input desktop or foreground.'
         }
         if(-not $seenWindow){
-            $seenWindow = @([DesktopHost]::Windows($desktop) | Where-Object {$_.Pid -eq $instance.Id}).Count -gt 0
+            $seenWindow = @([InGameTestDesktopHost]::Windows($desktop) | Where-Object {$_.Pid -eq $instance.Id}).Count -gt 0
             if(-not $seenWindow -and $watch.Elapsed.TotalSeconds -gt 80){throw 'Host window did not appear on the isolated desktop.'}
         }
         $hostLines = @(Read-Recent $hostLog)
@@ -176,20 +200,36 @@ try {
                 Write-ProgressLine 'PRIVATE_LOBBY_READY. Start the client game now. The client scenario joins automatically.'
             }
         }
-        if($published -and -not $readySent -and $hostLines -match ($runRegex+'peace PASS ')){
-            $p = Join-Path $clientUi ($label+'-host-setup.ok')
-            $testPaths.Add([pscustomobject]@{Path=$p; Client=$true})
-            [IO.File]::WriteAllText($p,$label,$utf8)
+        if($published -and -not $readySent -and $hostLines -match ($runRegex+'peace-readback PASS ')){
+            $profile = $hostLines | Select-String -Pattern ('PAIRED_AI_PROFILE run='+[regex]::Escape($label)+' .*digest=([A-F0-9]{64})\b') | Select-Object -Last 1
+            $digest = if($profile){$profile.Matches[0].Groups[1].Value}else{'unavailable'}
+            Publish-Checkpoint 'host-setup' @($label,$digest) -Client
             $readySent = $true
-            Write-ProgressLine 'Client joined. AI, keeps and peace time are set.'
+            Write-ProgressLine 'Client joined. The host published the test setup.'
         }
         if($published){
             $clientLines = @(Read-Recent $clientLog)
+            if(-not $fixtureSent){
+                $point = '(none|\d+,\d+)'
+                $fixture = $hostLines | Select-String -Pattern ('PAIRED_FIXTURE run='+[regex]::Escape($label)+' moat='+$point+' hutA='+$point+' hutB='+$point) | Select-Object -Last 1
+                if($fixture){
+                    $fields = $fixture.Matches[0].Groups
+                    Publish-Checkpoint 'fixture' @($label,$fields[1].Value,$fields[2].Value,$fields[3].Value) -Client
+                    $fixtureSent = $true
+                }elseif($hostLines -match ($runRegex+'fixture FAIL ')){
+                    Publish-Checkpoint 'fixture' @($label,'none','none','none') -Client
+                    $fixtureSent = $true
+                }
+            }
+            if(-not $terrainAborted -and ($hostLines -match ($runRegex+'(?:dig|client-moat|fill|client-soil) FAIL ') -or
+                $clientLines -match ($runRegex+'(?:dug|moat|restored-terrain|soil) FAIL '))){
+                Publish-Checkpoint 'terrain-aborted' @($label) -Client
+                Publish-Checkpoint 'terrain-aborted' @($label)
+                $terrainAborted = $true
+            }
             foreach($checkpoint in @('moat','soil')){
                 if(-not $sent[$checkpoint] -and $clientLines -match ($runRegex+$checkpoint+' PASS ')){
-                    $p = Join-Path $hostUi ($label+'-'+$checkpoint+'.ok')
-                    $testPaths.Add([pscustomobject]@{Path=$p; Client=$false})
-                    [IO.File]::WriteAllText($p,$label,$utf8)
+                    Publish-Checkpoint $checkpoint @($label)
                     $sent[$checkpoint] = $true
                     Write-ProgressLine ('Confirmed client checkpoint: '+$checkpoint)
                 }
@@ -221,7 +261,7 @@ try {
         if(-not $instance.HasExited -and -not $instance.WaitForExit(20000)){$instance.Kill();$null=$instance.WaitForExit(10000)}
         $instance.Dispose()
     }
-    if($desktop -ne [IntPtr]::Zero){$null=[DesktopHost]::CloseDesktop($desktop)}
+    if($desktop -ne [IntPtr]::Zero){$null=[InGameTestDesktopHost]::CloseDesktop($desktop)}
     if($hostLog){try{Save-LogExcerpt $hostLog 'host.log'}catch{Write-Warning $_.Exception.Message}}
     if($clientLog){
         try{Save-LogExcerpt $clientLog 'client.log'}catch{Write-Warning $_.Exception.Message}

@@ -39,6 +39,7 @@ namespace AIMarketAcceptance
         private static Type owner,aic;
         private static long module;
         private static string runId,fixture,save;
+        private static bool giftRecruitRun;
         private static int initialized,player,good,expectRestore,restores,decisionChecks,rawVerified;
         private static long lastRawSession;
         private static Exception observationFailure;
@@ -59,7 +60,8 @@ namespace AIMarketAcceptance
             string path=Path.Combine(Paths.ConfigPath,"SerpAutomation",AcceptancePlugin.Guid+".run");
             if(!File.Exists(path))return;
             string[] request=File.ReadAllLines(path);
-            if(request.Length<2||request[1]!="market-save-roundtrip")return;
+            if(request.Length<2||(request[1]!="market-save-roundtrip"&&request[1]!="market-gift-recruit"))return;
+            giftRecruitRun=request[1]=="market-gift-recruit";
             if(!System.Guid.TryParseExact(request[0],"N",out var id)||id==System.Guid.Empty)
                 throw new InvalidDataException("Invalid owned acceptance run ID; request retained.");
             runId=id.ToString("N");
@@ -82,11 +84,15 @@ namespace AIMarketAcceptance
                         Require(AiMarketEvents.CheckIntegrity(),"shared market hooks unavailable: "+AiMarketEvents.Diagnostic);
                         owner=FindType("AIMarketOverbuyDiagnostic.MarketPendingDemandFix");
                         aic=FindType("AIMarketOverbuyDiagnostic.MarketBacklogAic");
-                        RegisterComponentContracts();
-                        Require(NativeWorldRestoreEvents.TryRegister(AcceptancePlugin.Guid,"pre-fold-ledger",AfterRestore,out string reason,100),reason);
-                        Require(AiMarketEvents.TryRegister(AcceptancePlugin.Guid,"loaded-ledger-decision",BeforeDecision,
-                            (c,t,d,r)=>{},out marketObserver,out reason,-200,onFailure:e=>observationFailure=e),reason);
-                        marketObserver.SetEnabled(true);
+                        if(giftRecruitRun) RegisterGiftRecruit();
+                        else
+                        {
+                            RegisterComponentContracts();
+                            Require(NativeWorldRestoreEvents.TryRegister(AcceptancePlugin.Guid,"pre-fold-ledger",AfterRestore,out string reason,100),reason);
+                            Require(AiMarketEvents.TryRegister(AcceptancePlugin.Guid,"loaded-ledger-decision",BeforeDecision,
+                                (c,t,d,r)=>{},out marketObserver,out reason,-200,onFailure:e=>observationFailure=e),reason);
+                            marketObserver.SetEnabled(true);
+                        }
                         File.Delete(path);
                         api.Automation.Start(id,Steps(),log,quitWhenDone:true);
                     }
@@ -97,6 +103,11 @@ namespace AIMarketAcceptance
         private static IEnumerable<AutomationStep> Steps()
         {
             yield return new AutomationStep("load-owned-fixture",TimeSpan.FromSeconds(150),r=>r.LoadSave(fixture));
+            if(giftRecruitRun)
+            {
+                yield return new AutomationStep("vanilla-single-gift-and-recruit",TimeSpan.FromSeconds(230),RunGiftRecruit,true);
+                yield break;
+            }
             yield return new AutomationStep("native-source-credit-save",TimeSpan.FromSeconds(180),PrepareAndSave,true);
             yield return new AutomationStep("load-roundtrip-one",TimeSpan.FromSeconds(150),r=>Reload(r,1));
             yield return new AutomationStep("check-roundtrip-one",TimeSpan.FromSeconds(45),r=>CheckLoaded(r,1),true);
@@ -206,6 +217,12 @@ namespace AIMarketAcceptance
                     if(gold<1000000)Require(players.AddPlayerGold(candidate,1000000-gold),"funded recruitment fixture failed");
                     for(int g=(int)eGoods.STORED_BOWS;g<=(int)eGoods.STORED_METAL_ARMOUR;g++)
                     {
+                        if(giftRecruitRun&&(g==(int)eGoods.STORED_LEATHER_ARMOUR||g==(int)eGoods.STORED_METAL_ARMOUR))
+                        {
+                            int armour=players.GetGoodAmount(candidate,(eGoods)g);
+                            if(armour<4)Require(players.TryAddGood(candidate,(eGoods)g,4-armour),"fixture armour not accepted");
+                            continue;
+                        }
                         State prior=Read(candidate,g);
                         if(prior.Active&&prior.Expected>0)Require(players.TryAddGood(candidate,(eGoods)g,prior.Expected),"close prior request physically");
                         int stock=players.GetGoodAmount(candidate,(eGoods)g);
@@ -219,6 +236,7 @@ namespace AIMarketAcceptance
                         {
                             State found=Read(candidate,g);
                             if(!found.Active||found.Pending!=5||found.Expected!=5||found.Package!=5||found.Credit!=0||found.Stock!=0||found.Sequence<=0)continue;
+                            if(giftRecruitRun&&g!=(int)eGoods.STORED_MACES)continue;
                             if(found.Source!=0x403A7&&found.Source!=0x40597&&found.Source!=0x40D3C&&found.Source!=0x40D62)continue;
                             player=candidate;good=g;break;
                         }
@@ -230,6 +248,7 @@ namespace AIMarketAcceptance
                         " nativeMissingGood="+(units.Pointer==null?-1:(int)units.Pointer->r_RecruitmentResultMissingGoodId));
                 }
                 if(player==0)return false;
+                if(giftRecruitRun)return true;
                 Require(players.TryAddGood(player,(eGoods)good,1),"physical partial delivery failed");
                 players.RemoveGood(player,(eGoods)good,1);
                 RequireState(Read(player,good),"before-save");

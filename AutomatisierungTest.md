@@ -579,7 +579,7 @@ Für Serien eine Schleife um das Skript, und bei einem Abbruch im Vorbereitungss
 
 ### Echter Multiplayer
 
-Zwei Rechner mit gleichem Mod-Stand. Bisher nur für Host/Client-Abläufe gebaut, die Ergebnisse dieser Prüfung stehen noch aus.
+Zwei Rechner mit gleichem Mod-Stand. Beitritt, Kartenstart und zwei erzwungene Einheiten-Resyncs wurden mit zwei Steam-Konten bestätigt. Für die Proben zum Graben, zur Gebäudepause und zum Neustart gelten eigene Erfolgskriterien.
 
 ```csharp
 MainViewModel.Instance.FrontEndMenu.ButtonClicked("Multiplayer");   // 1500 ms warten
@@ -591,6 +591,15 @@ Platform_Multiplayer.Instance.ResumeInvite();
 ```
 
 Steam gibt private Lobbys über den Freundesstatus nicht preis, daher der Weg über die Datei. Beide Rechner treffen sich ohne eigenes Netzwerk über den Tickzähler seit Missionsbeginn, der ist auf allen Peers gleich. Ob es echter Multiplayer ist, im Modus der Mission prüfen: `realMultiplayer=True` und mindestens zwei `realNetworkGameMembers`. Ein Client muss mitspielen; ein solo gestartetes MP-Spiel beweist keine Synchronisation.
+
+#### Erkenntnisse aus dem kombinierten Lauf vom 23. November 2026
+
+- Trenne Voraussetzungen der Partie von Voraussetzungen einzelner Prüffälle. Einheiten-Resync und ESC-Neustart brauchen keine bestimmte Burgposition, keinen Graben und keinen teilbelieferten Kaufauftrag. Ein Fehler bei der Vorbereitung einer Probe soll nur davon abhängige Schritte blockieren. Fehlt ein erwarteter Zustand, bleibt diese Probe offen.
+- Prüfe den normalen Spielablauf zuerst mit möglichst wenigen Schritten. Für einmalige Abnahmen sind zwei menschliche Teilnehmer mit einer kurzen manuellen Prüfliste oft schneller als ein eigens gebauter Lobby- und Weltaufbau. Vor einem weiteren Lauf mit zwei Rechnern zuerst den konkret gescheiterten Teilschritt prüfen.
+- Verwende in der Lobby Spieler-IDs aus der tatsächlichen Mitgliedszuordnung, falls ein Prüffall eine feste Startposition braucht. Radarposition, Kartenmarker, Koordinate des fertigen Gebäudes und Positionsfeld der Spielerressourcen können sich unterscheiden. Auf The Jordan Valley hatte der Host im Lauf `paired-0a4fed731e28` das Burggebäude korrekt bei `(532,418)` und ein Ressourcenfeld bei `(531,421)`. Die KI-Burg stand bei `(377,280)` neben dem Marker `(376,279)`. Die Prüfung auf exakte Gleichheit mit dem Marker brach die Partie fälschlich ab.
+- Ermittle die für einen Geländetest nötige Fläche auf der geladenen Karte. Prüfe Geländeart, Fläche und Belegung, teile die ausgewählten Koordinaten mit dem Client und platziere Testobjekte über die synchronisierten Spielbefehle. Prüfe die tatsächlich entstandenen Objekte. Die vom Host angelegte Grabenfläche hat keinen Bezug zur KI-Burg.
+- Für einen KI-Verhaltenstest die konkrete AIV- und AIC-Datei festlegen. Prüfe im Spiel die übertragene Variante für den tatsächlichen KI-Spielerslot und vergleiche sie auf Host und Client. Für den Teilauftrag reicht weder ein passender Lordname noch ein Kaufauftrag über fünf Waffen. Der Resync muss den verlangten Zwischenstand mit Teilgutschrift tatsächlich treffen.
+- Behandle Lobby-Einstellungen und Bereitmeldung als eigene Schritte. Der Host wurde zu früh vom Abgleich der Produktionsregeln blockiert. Der anschließende Lauf konnte starten, als der Host erst nach der Bereitmeldung des Clients selbst bereit meldete. Sichere beim Abbruch beide Logs und stelle die temporäre Startkonfiguration nach dem Prozessende zurück.
 
 ### Native Stellen vor dem Einbau prüfen
 

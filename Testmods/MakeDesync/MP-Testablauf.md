@@ -3,11 +3,13 @@
 ## Automatischer Ablauf
 
 Der Host-Treiber startet eine private Partie auf **The Jordan Valley** und
-richtet feste Startplätze, Friedenszeit und Richard Löwenherz als Handels-KI
-ein. Sobald die Lobby bereit ist, genügt der normale Spielstart am Client.
+richtet null Minuten Friedenszeit und den verbündeten Testlord
+**SerpMarketRest4** für den Handel ein. Die Burgpositionen sind frei.
+Sobald die Lobby bereit ist, genügt der normale Spielstart am Client.
 UiAcceptance übernimmt Beitritt und Bereitmeldung. Die aktivierte
 Testkonfiguration gilt für einen Start.
 
+Der Host sucht im laufenden Spiel freie Testflächen und teilt sie dem Client mit.
 Die automatische Probe setzt und entfernt einen 3×3-Graben über Vanillas
 synchronisierte Mapper-Befehle. Sie vergleicht das Kachelraster und die
 private Historie während der Reparatur sowie das Oasengras nach dem Entfernen.
@@ -25,6 +27,14 @@ der Spieler und Platz für eine wirtschaftlich aktive KI. Der Host aktiviert
 vorher in BugfixesAndQoL **Boden nach Burggrabenentfernung wiederherstellen** und
 **Pausieren einzelner Gebäude aktivieren**. Verschiedene Spielsprachen auf
 Host und Client decken zusätzlich die Übersetzung des Neustartdialogs ab.
+
+Für einen kurzen Lauf eignet sich **The Jordan Valley** mit beliebigen
+Startplätzen und **0 Minuten Friedenszeit**. Auf dem Host kann der Testlord
+**SerpMarketRest4** als Verbündeter hinzugefügt werden. Seine KI-Probe läuft
+nebenbei. Für die Graben-, Gebäudepause- und Neustartprüfung reicht eine
+gewöhnliche KI. Den Graben hebt der Host auf einer freien Grasfläche aus.
+Einheiten-Resync und Vorkommen wurden bereits geprüft und müssen für die
+offenen Fälle nicht wiederholt werden.
 
 Benötigt werden die identischen Pakete auf beiden Rechnern, insbesondere
 APIShared **0.69.0** mit passendem Patcher, BugfixesAndQoL **1.0.237**,

@@ -271,6 +271,13 @@ namespace UiAcceptance
         {
             yield return new Until("own lobby member", () => LobbyReady() && Self() != null);
             yield return new Until("map valid", () => Lobby.currentLobby.isHost || (bool)GameSteps.Read(typeof(FRONT_Multiplayer), Lobby, "MPMapValid", BindingFlags.Instance));
+            if (step.Arg(0, "") == "after-peers")
+            {
+                Runner.Require(Lobby.currentLobby.isHost, "waiting for peers before Ready requires the host");
+                yield return new Until("remote human ready", () => LobbyReady() &&
+                    Lobby.currentLobby.members.Exists(m => IsHuman(m) && !m.IsSelf() && !m.dummyToBeKicked) &&
+                    Lobby.currentLobby.members.TrueForAll(m => !IsHuman(m) || m.IsSelf() || m.ready || m.dummyToBeKicked));
+            }
             if (!Self().ready) Lobby.ButtonClicked("Ready");
             yield return new Until("own ready state", () => Self()?.ready == true);
             if (Lobby.currentLobby.isHost)
