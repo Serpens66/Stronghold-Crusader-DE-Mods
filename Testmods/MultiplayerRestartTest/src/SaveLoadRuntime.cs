@@ -38,6 +38,10 @@ namespace MultiplayerSaveLoadTest
         private string creationError;
         private LoadPacket releaseRetry, acknowledgementRetry;
         private long nextReleaseRetry, nextAcknowledgementRetry, acknowledgementDeadline;
+        private ulong readyLobby;
+        private long readyDeadline, nextReady;
+        private int readyAttempts;
+        private bool readyPending, loadMenuPending;
         private Action<string, string, int> chat;
         private long Now => Stopwatch.GetTimestamp();
         private bool Active => protocol != null && !protocol.IsTerminal;
@@ -85,6 +89,8 @@ namespace MultiplayerSaveLoadTest
                 throw new InvalidOperationException("The group lobby transition has not finished.");
             runtime.nextLobby = __instance.activeLobby?.identifier ?? 0;
             runtime.acknowledgementRetry = null;
+            runtime.readyPending = false;
+            runtime.loadMenuPending = false;
         }
         private static Exception CreationReturned(Exception __exception)
         {
@@ -111,6 +117,8 @@ namespace MultiplayerSaveLoadTest
             if (lifecycle.Current?.SessionId != notification.Context.SessionId) return;
             if (Active) { Fail("Unexpected mission start during group return."); return; }
             protocol = null; peers = null; compatible.Clear();
+            readyPending = false;
+            loadMenuPending = false;
             stopped = joined = released = failurePending = recovering = false;
             sourceMission = notification.Context.SessionId;
             sourceLobby = notification.Context.Mode.IsRealMultiplayer && !notification.Context.IsEditor ? nextLobby : 0;
@@ -227,6 +235,7 @@ namespace MultiplayerSaveLoadTest
                 // Clients must permit the ordinary native loader before acknowledging.
                 released = true; LoadBarrier.AllowLaunch();
                 Report("LOBBY_RELEASED id=" + protocol.LobbyId);
+                ScheduleAutoReady();
             }
             bool cancelling = (step.Effects & LoadEffect.Cancelled) != 0;
             string sendFailure = null;
@@ -290,9 +299,10 @@ namespace MultiplayerSaveLoadTest
             {
                 retired.Add(protocol.Operation); frame.SetContinuous(false); menu.Invalidate();
                 Report("LOAD_MENU_READY id=" + protocol.LobbyId);
-                // Keep both native categories available without changing their CRC filters.
-                HUD_ConfirmationPopup.ShowConfirmation(LoadText.Get("Load.CategoryTitle"),
-                    () => OpenNativeLoad(true), () => OpenNativeLoad(false));
+                // Ready guards can open a native error popup. Finish this one-shot local
+                // action before installing the category popup's shared native callbacks.
+                loadMenuPending = true;
+                frame.RequestAfter(TimeSpan.FromSeconds(1));
             }
             if (protocol.IsCompleted)
             {
@@ -313,6 +323,8 @@ namespace MultiplayerSaveLoadTest
             try
             {
                 PumpReceipts();
+                PumpAutoReady();
+                PumpLoadMenu();
                 if (failurePending || recovering)
                 {
                     // CreateLobbyResult writes through its pending placeholder before invoking
@@ -382,6 +394,67 @@ namespace MultiplayerSaveLoadTest
                 }
             }
             catch (Exception error) { Fail(error.Message); }
+        }
+        private void ScheduleAutoReady()
+        {
+            readyLobby = protocol.LobbyId; readyAttempts = 0;
+            readyDeadline = Now + Stopwatch.Frequency * 90L;
+            nextReady = Now + Stopwatch.Frequency;
+            readyPending = true;
+            // Let the enclosing frontend update and initial settings/map refresh finish.
+            frame.RequestAfter(TimeSpan.FromSeconds(1));
+        }
+        private void PumpAutoReady()
+        {
+            if (!readyPending) return;
+            if (Active || failurePending || recovering || !released || protocol?.IsCompleted != true ||
+                protocol.LobbyId != readyLobby)
+            { readyPending = false; return; }
+            if (Now < nextReady) { frame.RequestAfter(TimeSpan.FromSeconds(1)); return; }
+            if (Now >= readyDeadline)
+            { readyPending = false; Report("AUTO_READY_STOP timeout; manual Ready remains available."); return; }
+            try
+            {
+                var result = LobbyBridge.TryReady(readyLobby, host, peers, self);
+                if (result == LocalReadyResult.Ready || result == LocalReadyResult.NotCurrent)
+                {
+                    readyPending = false;
+                    Report(result == LocalReadyResult.Ready ? "AUTO_READY_CONFIRMED" : "AUTO_READY_STOP lobby changed or launch pending.");
+                    return;
+                }
+                // The real command retains all guards. Bound rejected attempts and back off;
+                // never keep reasserting Ready after success or a later Vanilla reset.
+                if (result == LocalReadyResult.Rejected && ++readyAttempts >= 5)
+                { readyPending = false; Report("AUTO_READY_STOP rejected; manual Ready remains available."); return; }
+                int seconds = result == LocalReadyResult.Rejected ? 1 << readyAttempts : 1;
+                if (result == LocalReadyResult.Rejected) Report("AUTO_READY_RETRY attempt=" + readyAttempts);
+                nextReady = Now + Stopwatch.Frequency * seconds;
+                frame.RequestAfter(TimeSpan.FromSeconds(seconds));
+            }
+            catch (Exception error)
+            { readyPending = false; Report("AUTO_READY_STOP " + error.Message); }
+        }
+        private void PumpLoadMenu()
+        {
+            if (!loadMenuPending) return;
+            if (Active || failurePending || recovering || protocol?.IsCompleted != true || !protocol.IsHost ||
+                Platform_Multiplayer.Instance.activeLobby?.identifier != protocol.LobbyId ||
+                Director.instance.MultiplayerGame || Director.instance.SimRunning)
+            { loadMenuPending = false; return; }
+            try
+            {
+                // A manually opened native requester already fulfils this pending action.
+                // Do not reopen a second dialog after its confirmation or cancellation.
+                if (LobbyBridge.HasSaveRequester()) { loadMenuPending = false; return; }
+                if (readyPending || LobbyBridge.HasModal())
+                { frame.RequestAfter(TimeSpan.FromSeconds(1)); return; }
+                loadMenuPending = false;
+                Report("SAVE_CATEGORY_OPEN");
+                HUD_ConfirmationPopup.ShowConfirmation(LoadText.Get("Load.CategoryTitle"),
+                    () => OpenNativeLoad(true), () => OpenNativeLoad(false));
+            }
+            catch (Exception error)
+            { loadMenuPending = false; Report("SAVE_DIALOG_FAILED " + error); }
         }
         private void PumpReceipts()
         {

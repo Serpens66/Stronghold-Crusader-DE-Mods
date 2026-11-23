@@ -67,6 +67,11 @@ internal static class RuntimeReceiptTests
 {
     private static int checks, sends;
     private static bool rejectSend;
+    private static int readyCalls;
+    private static bool readyThrows;
+    private static LocalReadyResult readyResult;
+    private static bool hasModal, hasRequester;
+    private static int popups;
     private static readonly BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
     private static void Check(bool value, string reason)
     { checks++; if (!value) throw new Exception(reason); }
@@ -84,12 +89,23 @@ internal static class RuntimeReceiptTests
         return false;
     }
     private static bool ReportPrefix() => false;
+    private static bool ReadyPrefix(ref LocalReadyResult __result)
+    {
+        readyCalls++;
+        if (readyThrows) throw new InvalidOperationException("fixture-ready-failed");
+        __result = readyResult; return false;
+    }
+    private static bool ModalPrefix(ref bool __result) { __result = hasModal; return false; }
+    private static bool RequesterPrefix(ref bool __result) { __result = hasRequester; return false; }
+    private static bool PopupPrefix() { popups++; return false; }
+    private static bool TextPrefix(string key, ref string __result) { __result = key; return false; }
 
     private sealed class Frame : APIShared.Presentation.IUiFrameWorkRegistration
     {
         internal bool Continuous;
+        internal readonly List<TimeSpan> Delays = new List<TimeSpan>();
         public void Request() { }
-        public void RequestAfter(TimeSpan delay) { }
+        public void RequestAfter(TimeSpan delay) { Delays.Add(delay); }
         public void CancelPending() { }
         public void SetContinuous(bool enabled) { Continuous = enabled; }
     }
@@ -123,8 +139,19 @@ internal static class RuntimeReceiptTests
         var harmony = new HarmonyLib.Harmony("MultiplayerSaveLoadTest.RuntimeReceiptFixture");
         var send = typeof(SaveLoadRuntime).GetMethod("Send", Private);
         var report = typeof(SaveLoadRuntime).GetMethod("Report", Private | BindingFlags.Public);
+        var ready = typeof(LobbyBridge).GetMethod("TryReady", BindingFlags.Static | BindingFlags.NonPublic);
+        var modal = typeof(LobbyBridge).GetMethod("HasModal", BindingFlags.Static | BindingFlags.NonPublic);
+        var requester = typeof(LobbyBridge).GetMethod("HasSaveRequester", BindingFlags.Static | BindingFlags.NonPublic);
+        var popup = typeof(CrusaderDE.HUD_ConfirmationPopup).GetMethod("ShowConfirmation", BindingFlags.Static | BindingFlags.Public,
+            null, new[] { typeof(string), typeof(Action), typeof(Action), typeof(bool), typeof(bool) }, null);
+        var text = typeof(SerpLocalization).GetMethod("Get", new[] { typeof(string) });
         harmony.Patch(send, prefix: new HarmonyLib.HarmonyMethod(typeof(RuntimeReceiptTests), nameof(SendPrefix)));
         harmony.Patch(report, prefix: new HarmonyLib.HarmonyMethod(typeof(RuntimeReceiptTests), nameof(ReportPrefix)));
+        harmony.Patch(ready, prefix: new HarmonyLib.HarmonyMethod(typeof(RuntimeReceiptTests), nameof(ReadyPrefix)));
+        harmony.Patch(modal, prefix: new HarmonyLib.HarmonyMethod(typeof(RuntimeReceiptTests), nameof(ModalPrefix)));
+        harmony.Patch(requester, prefix: new HarmonyLib.HarmonyMethod(typeof(RuntimeReceiptTests), nameof(RequesterPrefix)));
+        harmony.Patch(popup, prefix: new HarmonyLib.HarmonyMethod(typeof(RuntimeReceiptTests), nameof(PopupPrefix)));
+        harmony.Patch(text, prefix: new HarmonyLib.HarmonyMethod(typeof(RuntimeReceiptTests), nameof(TextPrefix)));
         var platform = Platform_Multiplayer.Instance;
         var previousLobby = platform.activeLobby;
         var previousDirector = Director.instance;
@@ -143,6 +170,9 @@ internal static class RuntimeReceiptTests
             Invoke(runtime, "Apply", receipt);
             Check(sends == 1 && Get<LoadPacket>(runtime, "acknowledgementRetry") != null && frame.Continuous,
                 "Rejected final receipt was not cached with continuing frame work.");
+            long readyDeadline = Get<long>(runtime, "readyDeadline");
+            Check(Get<bool>(runtime, "readyPending") && frame.Delays.Last() == TimeSpan.FromSeconds(1),
+                "Actual release did not schedule deferred Ready.");
             long deadline = Get<long>(runtime, "acknowledgementDeadline");
             Check(deadline > System.Diagnostics.Stopwatch.GetTimestamp(), "Receipt did not receive a bounded deadline.");
             var duplicateRelease = new LoadPacket { Kind = LoadMessageKind.ReleaseLobby, Session = protocol.Session,
@@ -151,6 +181,7 @@ internal static class RuntimeReceiptTests
             Check(duplicate.Accepted && duplicate.Effects == LoadEffect.None, "Duplicate release repeated local effects.");
             Invoke(runtime, "Apply", duplicate);
             Check(Get<long>(runtime, "acknowledgementDeadline") == deadline, "Duplicate failed receipt extended its deadline.");
+            Check(Get<long>(runtime, "readyDeadline") == readyDeadline, "Duplicate release reset the Ready deadline.");
             Set(runtime, "nextAcknowledgementRetry", 0L); Invoke(runtime, "PumpReceipts");
             Check(sends == 3 && Get<LoadPacket>(runtime, "acknowledgementRetry") != null &&
                 Get<long>(runtime, "acknowledgementDeadline") == deadline, "Failed retry lost cache or renewed its deadline.");
@@ -166,6 +197,8 @@ internal static class RuntimeReceiptTests
                 "Retired receipt acted on a replacement world.");
             var requested = typeof(LoadBarrier).GetField("requested", BindingFlags.NonPublic | BindingFlags.Static);
             Check((int)requested.GetValue(null) == 0, "Retired receipt parked a replacement world.");
+            AutoReady(runtime, frame, protocol);
+            LoadMenu(runtime, platform, lobby);
             Console.WriteLine("Runtime receipts: " + checks + " checks passed.");
         }
         finally
@@ -174,6 +207,102 @@ internal static class RuntimeReceiptTests
             LoadBarrier.Release();
             harmony.Unpatch(send, HarmonyLib.HarmonyPatchType.Prefix, harmony.Id);
             harmony.Unpatch(report, HarmonyLib.HarmonyPatchType.Prefix, harmony.Id);
+            harmony.Unpatch(ready, HarmonyLib.HarmonyPatchType.Prefix, harmony.Id);
+            harmony.Unpatch(modal, HarmonyLib.HarmonyPatchType.Prefix, harmony.Id);
+            harmony.Unpatch(requester, HarmonyLib.HarmonyPatchType.Prefix, harmony.Id);
+            harmony.Unpatch(popup, HarmonyLib.HarmonyPatchType.Prefix, harmony.Id);
+            harmony.Unpatch(text, HarmonyLib.HarmonyPatchType.Prefix, harmony.Id);
+        }
+    }
+
+    private static void LoadMenu(SaveLoadRuntime runtime, Platform_Multiplayer platform, Platform_Multiplayer.MPLobby lobby)
+    {
+        var host = new LoadProtocol(1, 1, new ulong[] { 1 }, 10, 1000);
+        host.Begin("59064f03768c4d5b99a19bec606e218d", 1); host.Prepared(2); host.Stopped(3);
+        host.PublishLobby(20, 4); LoadStep completed = host.Joined(5);
+        Check(host.IsCompleted && (completed.Effects & LoadEffect.OpenLoadMenu) != 0,
+            "Host setup did not produce the real deferred load-menu effect.");
+        Set(runtime, "protocol", host); Set(runtime, "host", 1UL); Set(runtime, "self", 1UL);
+        typeof(Director).GetField("multiplayerGame", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(Director.instance, false);
+        platform.activeLobby = lobby; popups = 0; hasModal = hasRequester = false;
+        Invoke(runtime, "Apply", completed);
+        Check(Get<bool>(runtime, "loadMenuPending") && popups == 0, "Host completion opened the category popup synchronously.");
+        Invoke(runtime, "PumpLoadMenu");
+        Check(popups == 0 && Get<bool>(runtime, "loadMenuPending"), "Category popup preceded automatic Ready completion.");
+        Set(runtime, "readyPending", false); hasModal = true; Invoke(runtime, "PumpLoadMenu");
+        Check(popups == 0 && Get<bool>(runtime, "loadMenuPending"), "Category popup replaced a foreign modal.");
+        hasModal = false; Invoke(runtime, "PumpLoadMenu"); Invoke(runtime, "PumpLoadMenu");
+        Check(popups == 1 && !Get<bool>(runtime, "loadMenuPending"), "Unblocked category popup did not open exactly once.");
+
+        Set(runtime, "loadMenuPending", true); hasRequester = true; Invoke(runtime, "PumpLoadMenu");
+        Check(popups == 1 && !Get<bool>(runtime, "loadMenuPending"), "Manual native requester did not cancel deferred category.");
+        hasRequester = false; Invoke(runtime, "PumpLoadMenu");
+        Check(popups == 1, "Closing the manual requester reopened the deferred category.");
+
+        Set(runtime, "loadMenuPending", true);
+        typeof(Director).GetField("multiplayerGame", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(Director.instance, true);
+        Invoke(runtime, "PumpLoadMenu");
+        Check(popups == 1 && !Get<bool>(runtime, "loadMenuPending"), "New mission received a stale category popup.");
+        typeof(Director).GetField("multiplayerGame", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(Director.instance, false);
+        Set(runtime, "loadMenuPending", true); platform.activeLobby = null; Invoke(runtime, "PumpLoadMenu");
+        Check(popups == 1 && !Get<bool>(runtime, "loadMenuPending"), "Changed lobby received a stale category popup.");
+    }
+
+    private static void AutoReady(SaveLoadRuntime runtime, Frame frame, LoadProtocol completed)
+    {
+        readyCalls = 0; readyThrows = false; readyResult = LocalReadyResult.Waiting;
+        Set(runtime, "released", true);
+        Invoke(runtime, "ScheduleAutoReady");
+        long deadline = Get<long>(runtime, "readyDeadline");
+        long now = System.Diagnostics.Stopwatch.GetTimestamp();
+        Check(deadline > now && deadline <= now + System.Diagnostics.Stopwatch.Frequency * 90L,
+            "Ready waiting period is not bounded to ninety seconds.");
+        Invoke(runtime, "PumpAutoReady");
+        Check(readyCalls == 0 && Get<bool>(runtime, "readyPending"), "Ready command fired before the initial delay.");
+        Set(runtime, "nextReady", 0L); Invoke(runtime, "PumpAutoReady");
+        Check(readyCalls == 1 && Get<bool>(runtime, "readyPending") && Get<int>(runtime, "readyAttempts") == 0 &&
+            Get<long>(runtime, "readyDeadline") == deadline && frame.Delays.Last() == TimeSpan.FromSeconds(1),
+            "Map waiting consumed a rejection or extended the waiting deadline.");
+        Set(runtime, "readyDeadline", 0L); Set(runtime, "nextReady", 0L); Invoke(runtime, "PumpAutoReady");
+        Check(readyCalls == 1 && !Get<bool>(runtime, "readyPending"), "Expired map waiting invoked Ready or kept retrying.");
+
+        Invoke(runtime, "ScheduleAutoReady"); readyResult = LocalReadyResult.Rejected;
+        int before = readyCalls;
+        for (int attempt = 1; attempt <= 5; attempt++)
+        {
+            Set(runtime, "nextReady", 0L); Invoke(runtime, "PumpAutoReady");
+            Check(Get<int>(runtime, "readyAttempts") == attempt && readyCalls == before + attempt,
+                "Rejected Ready attempts were not counted exactly once.");
+            if (attempt < 5)
+                Check(Get<bool>(runtime, "readyPending") && frame.Delays.Last() == TimeSpan.FromSeconds(1 << attempt),
+                    "Rejected Ready did not schedule exponential backoff.");
+        }
+        Check(!Get<bool>(runtime, "readyPending"), "Five rejections did not stop automatic Ready.");
+        Invoke(runtime, "PumpAutoReady"); Check(readyCalls == before + 5, "Rejected command retried past the limit.");
+
+        foreach (LocalReadyResult result in new[] { LocalReadyResult.Ready, LocalReadyResult.NotCurrent })
+        {
+            Invoke(runtime, "ScheduleAutoReady"); readyResult = result;
+            Set(runtime, "nextReady", 0L); Invoke(runtime, "PumpAutoReady"); before = readyCalls;
+            Check(!Get<bool>(runtime, "readyPending"), "Terminal Ready result kept the loop active.");
+            readyResult = LocalReadyResult.Rejected; // A later native reset must remain under user control.
+            Invoke(runtime, "PumpAutoReady"); Check(readyCalls == before, "Terminal Ready was reasserted after a later native reset.");
+        }
+        Invoke(runtime, "ScheduleAutoReady"); readyThrows = true;
+        Set(runtime, "nextReady", 0L); Invoke(runtime, "PumpAutoReady"); readyThrows = false;
+        Check(!Get<bool>(runtime, "readyPending"), "Ready exception did not stop retries.");
+
+        foreach (string guard in new[] { "active", "released", "failurePending", "recovering", "readyLobby" })
+        {
+            Invoke(runtime, "ScheduleAutoReady");
+            if (guard == "active") Set(runtime, "protocol", new LoadProtocol(2, 1, new ulong[] { 1, 2 }, 10, 1000));
+            else if (guard == "released") Set(runtime, guard, false);
+            else if (guard == "readyLobby") Set(runtime, guard, completed.LobbyId + 1);
+            else Set(runtime, guard, true);
+            before = readyCalls; Set(runtime, "nextReady", 0L); Invoke(runtime, "PumpAutoReady");
+            Check(readyCalls == before && !Get<bool>(runtime, "readyPending"), "Ready escaped its runtime guard: " + guard);
+            Set(runtime, "protocol", completed); Set(runtime, "released", true);
+            Set(runtime, "failurePending", false); Set(runtime, "recovering", false);
         }
     }
 }

@@ -3,12 +3,20 @@
   "Author": "Serpens66",
   "Name": "Multiplayer Save Load Test",
   "Description": "Experimental host-only Load command during multiplayer: return the group to a private lobby and select an existing save using the normal multiplayer load dialog. Identical testmod required on every peer.",
-  "Version": "0.2.0",
+  "Version": "0.2.1",
   "MinimumScriptExtenderVersion": "2.14.0",
   "Dependencies": [ { "GUID": "APIShared_Serp", "MinimumVersion": "0.69.0" } ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.2.1",
+      "Changes": [
+        "Automatically request Ready locally on every participant after the shared loading lobby is fully joined and released, using the normal Vanilla command and all existing mod guards.",
+        "Keep already-ready players ready, wait for client map validation, and bound rejected attempts. Later settings changes and manual unready actions retain Vanilla behavior; no automatic match start is added.",
+        "Wait for existing modal dialogs and finish the host's local Ready attempt before opening the save-category prompt, preserving native dialog callbacks."
+      ]
+    },
     {
       "Version": "0.2.0",
       "Changes": [

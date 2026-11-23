@@ -9,6 +9,8 @@ using Steamworks;
 
 namespace MultiplayerSaveLoadTest
 {
+    internal enum LocalReadyResult { NotCurrent, Waiting, Ready, Rejected }
+
     // Calls the same Vanilla frontend/transport primitives as the ordinary lobby return.
     // No save files, save checksums, original-map inputs or Lord settings are examined here.
     internal static class LobbyBridge
@@ -16,7 +18,7 @@ namespace MultiplayerSaveLoadTest
         private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
         // This is the audited CreateLobby UI protocol value, not ELobbyType's numeric value.
         private const int VanillaPrivateLobbyMode = 4;
-        private static FieldInfo chat, pendingExit, loading, ready, locked, setup, selectedHeader, startTime;
+        private static FieldInfo chat, pendingExit, loading, ready, locked, setup, selectedHeader, startTime, mapValid, closing;
         private static MethodInfo raw;
         internal static MethodInfo CreationResultMethod { get; private set; }
 
@@ -27,6 +29,8 @@ namespace MultiplayerSaveLoadTest
             loading = Field(typeof(FRONT_Multiplayer), "MPGameLoading", typeof(bool));
             ready = Field(typeof(FRONT_Multiplayer), "MPLocalReady", typeof(bool));
             locked = Field(typeof(FRONT_Multiplayer), "MPLocalReadyLocked", typeof(bool));
+            mapValid = Field(typeof(FRONT_Multiplayer), "MPMapValid", typeof(bool));
+            closing = Field(typeof(FRONT_Multiplayer), "closePanelDisplayed", typeof(bool));
             setup = Field(typeof(FRONT_Multiplayer), "MPsetupData", typeof(EngineInterface.MultiplayerSetupData));
             selectedHeader = Field(typeof(FRONT_Multiplayer), "selectedMPHeader", typeof(FileHeader));
             startTime = Field(typeof(FRONT_Multiplayer), "startGameTime", typeof(DateTime));
@@ -37,6 +41,17 @@ namespace MultiplayerSaveLoadTest
                 FrontMethod(method, Type.EmptyTypes);
             FrontMethod("UpdateHostInfo", new[] { typeof(bool) });
             FrontMethod("updateRadarTexture", new[] { typeof(FileHeader) });
+            var button = FrontMethod(nameof(FRONT_Multiplayer.ButtonClicked), new[] { typeof(string) });
+            if (!button.IsPublic || button.IsStatic || button.ReturnType != typeof(void))
+                throw new MissingMethodException("Public FRONT_Multiplayer.ButtonClicked contract");
+            foreach (string propertyName in new[] { "Show_HUD_Confirmation", "Show_HUD_ConfirmationMP",
+                "Show_HUD_ConfirmationSands", "Show_HUD_ConfirmationSM", "Show_HUD_LoadSaveRequester",
+                "Show_HUD_LoadSaveRequesterMP", "Show_HUD_LoadSaveRequesterTrails" })
+            {
+                var property = typeof(MainViewModel).GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance);
+                if (property?.PropertyType != typeof(bool) || property.GetGetMethod() == null || property.GetGetMethod().IsStatic)
+                    throw new MissingMemberException("Public MainViewModel." + propertyName + " modal visibility contract");
+            }
             CreationResultMethod = typeof(Platform_Multiplayer).GetMethod("CreateLobbyResult", Instance, null,
                 new[] { typeof(LobbyCreated_t), typeof(bool) }, null);
             if (CreationResultMethod == null || CreationResultMethod.ReturnType != typeof(void))
@@ -158,6 +173,43 @@ namespace MultiplayerSaveLoadTest
                 lobby.isHost == (self == hostId) &&
                 SteamMatchmaking.GetLobbyOwner(lobby.id).m_SteamID == hostId &&
                 MatchesHumans(lobby, expectedPeers, self) && !(bool)loading.GetValue(front);
+        }
+
+        internal static LocalReadyResult TryReady(ulong lobbyId, ulong hostId, ulong[] expectedPeers, ulong self)
+        {
+            // The singleton getter constructs UI; never touch it before Vanilla loaded it.
+            if (!MainViewModel.viewModelLoaded) return LocalReadyResult.NotCurrent;
+            if (!IsLobbyReady(lobbyId, hostId, expectedPeers, self)) return LocalReadyResult.NotCurrent;
+            var front = MainViewModel.Instance.FRONTMultiplayer;
+            if (Director.instance == null || Director.instance.MultiplayerGame || Director.instance.SimRunning ||
+                !string.IsNullOrEmpty(front.currentLobby.startGame) || (bool)closing.GetValue(front))
+                return LocalReadyResult.NotCurrent;
+            // Ready is a toggle. Never unready a player who already accepted this lobby.
+            if ((bool)ready.GetValue(front)) return LocalReadyResult.Ready;
+            // A normal launch guard can open a confirmation and replace its callbacks.
+            // Never run that autonomous command over an existing confirmation/requester.
+            if (HasModal()) return LocalReadyResult.Waiting;
+            if (!front.currentLobby.isHost && !(bool)mapValid.GetValue(front)) return LocalReadyResult.Waiting;
+            // Keep the real UI entry: APIShared, ExtendedData and other registered guards
+            // must see the attempt. A normal return does not prove that Ready was accepted.
+            front.ButtonClicked("Ready");
+            return (bool)ready.GetValue(front) ? LocalReadyResult.Ready : LocalReadyResult.Rejected;
+        }
+
+        internal static bool HasSaveRequester()
+        {
+            if (!MainViewModel.viewModelLoaded) return false;
+            var view = MainViewModel.Instance;
+            return view.Show_HUD_LoadSaveRequester || view.Show_HUD_LoadSaveRequesterMP ||
+                view.Show_HUD_LoadSaveRequesterTrails;
+        }
+
+        internal static bool HasModal()
+        {
+            if (!MainViewModel.viewModelLoaded) return false;
+            var view = MainViewModel.Instance;
+            return view.Show_HUD_Confirmation || view.Show_HUD_ConfirmationMP || view.Show_HUD_ConfirmationSands ||
+                view.Show_HUD_ConfirmationSM || HasSaveRequester();
         }
 
         // This verifies the requested group's transport handoff only, not save eligibility.

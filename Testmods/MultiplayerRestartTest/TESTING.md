@@ -21,6 +21,10 @@ The confirmation is consequential: once the coordinated exit is committed, the o
 6. Cancelling this dialog leaves everyone in the load lobby. The host can use its normal Load command again or leave the lobby.
 7. After a save successfully starts and its multiplayer simulation is running, the host can use the in-game Load action again.
 
+After the shared lobby handoff, every participant automatically requests **Ready** through the normal local button path. Already-ready players are left unchanged. Client map validation and all installed launch guards remain in effect. Rejected attempts back off and stop after five attempts; waiting for map validation is bounded to 90 seconds. Manual Ready remains available. This is an initial one-shot action: later Vanilla settings/map resets or manually becoming unready are respected, and no match is started automatically.
+
+The host's category question opens after its initial Auto-Ready action finishes. Auto-Ready waits while native confirmation or save dialogs are visible, so a guard cannot replace the category question's callbacks. If the host opens the normal save requester manually during this wait, the testmod does not open another requester afterward.
+
 The mod coordinates the transition of the currently present humans. It does not reconstruct an original mission, keep the initial Steam lobby alive for the whole match, create an automatic beginning save, or choose a save for the host.
 
 ## Save eligibility and categories
@@ -34,6 +38,7 @@ An existing save is loaded as the state it contains. Starting a mission from its
 ## Manual acceptance
 
 - With two humans and a running ordinary multiplayer match, use the host's original Load button. Confirm that both players reach the same private lobby automatically, with the same host and no manual join or invitation.
+- Confirm that both players become Ready after joining without extra clicks. Recheck an already-ready player, a temporarily missing client map, an initially blocking mod guard and a participant leaving before the attempt. After initial success, change a setting or manually unready: the testmod must not force Ready again. A rejected guard must remain effective and retries must stop.
 - Load an ordinary multiplayer save already available on both computers. Check the rendered map, the intended local player slots, teams and continuing simulation ticks on both peers. A loader-return log or a living process alone is insufficient.
 - Repeat with the cooperative category and a cooperative save. Exercise the other category separately; a category question answered No must open ordinary multiplayer saves, not cancel the transition.
 - Where available, include a saved game with nonconsecutive human slots, such as 1 and 8. Let the normal save-load remapping finish, then check both players' actual controlled Lords before gameplay.

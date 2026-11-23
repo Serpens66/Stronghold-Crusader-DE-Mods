@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.Serialization;
+using Mono.Cecil;
+using Mono.Cecil.Cil;
+using MonoMod.Utils;
 using MultiplayerSaveLoadTest;
 using Steamworks;
 
@@ -20,7 +23,32 @@ internal static class LobbyBridgeTests
             "Native lobby completion observer contract is unavailable.");
         Framing();
         Membership();
+        ReadyBeforeUiLoaded();
         Console.WriteLine("LobbyBridge: " + checks + " checks passed.");
+    }
+
+    private static void ReadyBeforeUiLoaded()
+    {
+        foreach (string name in new[] { "TryReady", "HasModal", "HasSaveRequester" })
+        {
+            var target = typeof(LobbyBridge).GetMethod(name,
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+            using (var method = new DynamicMethodDefinition(target))
+            {
+                // Replace only the external load-state read. Execute the production
+                // early return: any premature singleton/Steam/UI access still fails here.
+                var reads = method.Definition.Body.Instructions.Where(instruction =>
+                    instruction.OpCode == OpCodes.Ldsfld && instruction.Operand is FieldReference field &&
+                    field.DeclaringType.Name == "MainViewModel" && field.Name == "viewModelLoaded").ToArray();
+                Check(reads.Length == 1, name + " no longer has its explicit UI-load guard.");
+                reads[0].OpCode = OpCodes.Ldc_I4_0;
+                reads[0].Operand = null;
+                object result = method.Generate().Invoke(null,
+                    name == "TryReady" ? new object[] { 0UL, 0UL, null, 0UL } : Array.Empty<object>());
+                Check(name == "TryReady" ? (LocalReadyResult)result == LocalReadyResult.NotCurrent : !(bool)result,
+                    name + " accessed or reported unloaded UI.");
+            }
+        }
     }
 
     private static byte[] Frame(short id, byte[] body)
