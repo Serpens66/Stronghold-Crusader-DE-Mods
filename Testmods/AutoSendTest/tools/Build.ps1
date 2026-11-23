@@ -15,6 +15,14 @@ $output = Join-Path $run 'package\BepInEx\plugins\AutoSendTest_Serp'
 Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss.fff')] AutoSend build: $run"
 & dotnet run --project (Join-Path $project 'tests\AutoSendPolicy.Tests.csproj') --configuration Release
 if ($LASTEXITCODE -ne 0) { throw 'AutoSend policy regressions failed.' }
+$previousModulePath = $env:PSModulePath
+try {
+    # Exercise the installer fixtures in the same clean Windows PowerShell used by build.bat.
+    $env:PSModulePath = "$env:USERPROFILE\Documents\WindowsPowerShell\Modules;C:\Program Files\WindowsPowerShell\Modules;$env:SystemRoot\system32\WindowsPowerShell\v1.0\Modules"
+    & (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe') -NoProfile -ExecutionPolicy Bypass `
+        -File (Join-Path $PSScriptRoot 'Test-InstallMigration.ps1') -ResultPath (Join-Path $run 'installer-tests.json')
+    if ($LASTEXITCODE -ne 0) { throw 'AutoSend offline installer regressions failed.' }
+} finally { $env:PSModulePath = $previousModulePath }
 & $msbuild (Join-Path $project 'AutoSendTest.csproj') /t:Rebuild /nologo /v:minimal /p:ImportDirectoryBuildTargets=false "/p:GameDir=$GameDir" "/p:ExtenderDir=$extender" "/p:ApiSharedDir=$ApiSharedDir" "/p:OutputPath=$output" *> (Join-Path $run 'compile.log')
 if ($LASTEXITCODE -ne 0) { throw "AutoSend compilation failed: $run\compile.log" }
 $zip = Join-Path $run 'AutoSendTest.zip'

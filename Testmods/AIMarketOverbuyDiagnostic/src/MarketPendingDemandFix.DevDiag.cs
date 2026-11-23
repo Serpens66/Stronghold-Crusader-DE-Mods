@@ -57,6 +57,18 @@ namespace AIMarketOverbuyDiagnostic
         }
 
         internal static bool Ready => Volatile.Read(ref installed) != 0;
+        // Admission/readiness alone does not prove an experiment enabled the correction.
+        // Used only at explicit automation checkpoints, never as a polling publisher.
+        internal static bool CorrectionActive
+        {
+            get
+            {
+                lock (gate)
+                    return FeatureReady && sessionActive == 1 && corrective == 1 &&
+                        writerGate != IntPtr.Zero && receiptGate != IntPtr.Zero &&
+                        *(int*)writerGate == 1 && *(int*)receiptGate == 1;
+            }
+        }
         internal static bool OutputDrained => Volatile.Read(ref read) == Volatile.Read(ref written) &&
             Volatile.Read(ref forceSummary) == 0 && Volatile.Read(ref summaryInFlight) == 0;
 
@@ -636,6 +648,9 @@ namespace AIMarketOverbuyDiagnostic
                     throw new InvalidOperationException("Fixed comparison requires its owned fulfilled-demand scenario.");
                 corrective = 1;
                 if (receiptGate != IntPtr.Zero) *(int*)receiptGate = 1;
+                if (!CorrectionActive) throw new InvalidOperationException("The fixed gift comparison did not enable all correction gates.");
+                Shared.DevDiag.Log(() => "AI_MARKET_FIX_ACTIVE: scenario=" + MarketAutomation.Scenario +
+                    " run=" + MarketAutomation.RunId + " corrective=1 sessionActive=1 writerGate=1 receiptGate=1 checkpoint=after-gift");
             }
         }
 

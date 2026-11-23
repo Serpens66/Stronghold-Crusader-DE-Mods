@@ -3,6 +3,13 @@ AutoSendTest: Bedienvertrag und Integrationshinweise
 
 Bedienung
 ---------
+Der Bereich beginnt je Partie eingeklappt. Der mittige Auto-Send-Button unten
+im Warenkasten öffnet und schließt ihn; die Auswahl von Ware oder Empfänger
+erhält diesen Zustand. APIShared stellt Button und Bereich gemeinsam mit
+anderen Menüerweiterungen bereit. Bei mehreren zu breiten Footer-Controls
+erscheint stattdessen ein gemeinsames Mehr-Menü. Diplomatische Geschenke an
+Nichtverbündete bleiben manuell; dort erklärt der deaktivierte Button die Grenze.
+
 Im Vanilla-Allies-Menü einen lebenden Verbündeten, Waren senden und eine Ware
 wählen. Die eigene Reserve gilt pro Ware für alle Verbündeten gemeinsam.
 Empfänger-Minimum, Maximum, Intervall und Aktivierung gelten für Ware und Verbündeten.
@@ -61,6 +68,16 @@ kann ausdrücklich über SHCDE_AUTOSEND_API_DIR gewählt werden. Für die lokale
 Installation gegen das installierte APIShared bauen; tools/Install.ps1 prüft
 BuildRecord und Dateien und ersetzt ausschließlich AutoSendTest_Serp.
 APIShared-Plugin und Bootstrap bleiben unverändert. Kein Diagnose-Build mehr.
+Der Installer entfernt zusätzlich ausschließlich die beiden hashbekannten alten
+AutoSend-Menüpatches. Bei einer bearbeiteten oder unbekannten Datei bricht er
+vor Änderungen ab; ein späterer Fehler stellt auch den entfernten Patch wieder her.
+
+Menü-Kompatibilität: ohne und mit Diplomacy Waren/Empfänger wechseln, auf- und
+zuklappen, Hauptansicht und Warenanforderung öffnen, HUD neu erzeugen und kleine
+Viewport-Höhe prüfen. Alte Erweiterungen bleiben unter der gesamten Menüwurzel;
+AutoSend folgt dem sichtbaren Warenkasten. Bei verdecktem oder umgebautem
+Footer dürfen keine fremden Controls überlagert werden. Ingame-Abnahme dieses
+Kompatibilitätsstands bleibt offen; Offline-Komposition und Build ersetzen sie nicht.
 
 Die temporäre automatische AutoSend-Ingame-Abnahme ist nach erfolgreicher
 Schlussabnahme entfernt. Nachweise im .work-Index unterscheiden historische

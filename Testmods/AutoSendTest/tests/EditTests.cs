@@ -24,6 +24,18 @@ internal static class EditTests
         // Closing the menu, request mode and HUD/selection recreation retain state.
         Check(!ui.IsVisible(false) && ui.Expanded);
         ui.ObserveSession(1); Check(ui.IsVisible(true));
+        // Enemy selection and a blocked/temporarily rebuilding layout only hide
+        // the pane. Returning to an eligible ally restores the expanded state.
+        Check(!ui.IsVisible(true, false) && ui.Expanded);
+        Check(!ui.IsVisible(true, true, false) && ui.Expanded);
+        Check(ui.IsVisible(true, true, true));
+        Check(AutoSendDisclosureState.UnavailableReason(false, false, false, true, AutoSendRecipientReadiness.NotAllied, true) == "NotReady");
+        Check(AutoSendDisclosureState.UnavailableReason(true, false, false, true, AutoSendRecipientReadiness.Unknown, true) == "NotReady");
+        Check(AutoSendDisclosureState.UnavailableReason(true, false, false, true, AutoSendRecipientReadiness.NotAllied, true) == "RecipientNotAllied");
+        Check(AutoSendDisclosureState.UnavailableReason(true, false, false, true, AutoSendRecipientReadiness.NotLiving, true) == "RecipientNotLiving");
+        Check(AutoSendDisclosureState.UnavailableReason(true, false, false, false, AutoSendRecipientReadiness.NotAllied, true) == "OwnView");
+        Check(AutoSendDisclosureState.UnavailableReason(true, false, false, true, AutoSendRecipientReadiness.AlliedLiving, false) == "LayoutUnavailable");
+        Check(AutoSendDisclosureState.UnavailableReason(true, false, false, true, AutoSendRecipientReadiness.AlliedLiving, true) == null);
         ui.Toggle(1); Check(!ui.Expanded && !ui.IsVisible(true));
         ui.Toggle(1); ui.ObserveSession(2); Check(!ui.Expanded);
         ui.Toggle(2); ui.ObserveSession(0); Check(!ui.Expanded);

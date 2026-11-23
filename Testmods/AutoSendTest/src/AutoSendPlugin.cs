@@ -8,11 +8,11 @@ namespace AutoSendTest
 {
     [BepInPlugin(Guid, "Auto Send Test", Version)]
     [BepInDependency("000shcdese", "2.14.0")]
-    [BepInDependency("APIShared_Serp", "0.63.0")]
+    [BepInDependency("APIShared_Serp", "0.68.0")]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class AutoSendPlugin : BaseUnityPlugin
     {
-        public const string Guid = "AutoSendTest_Serp", Version = "0.4.3";
+        public const string Guid = "AutoSendTest_Serp", Version = "0.4.4";
         private static AutoSendRuntime runtime;
         private static ManualLogSource log;
         private static bool registered;

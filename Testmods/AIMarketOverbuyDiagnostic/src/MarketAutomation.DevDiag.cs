@@ -24,6 +24,7 @@ namespace AIMarketOverbuyDiagnostic
     {
         internal static string RunId, Scenario;
         internal static volatile bool IsRunning;
+        internal static bool OutputDrainStarted;
         internal static long LocalCallbacks, NativeAdvances, ProfileSamples, ClockDiscontinuities;
         internal static int LastLocalTick, LastNativeTick, LastProfileNativeTick;
         internal static long LastProfileUtcTicks;
@@ -239,7 +240,13 @@ namespace AIMarketOverbuyDiagnostic
 
         private static IEnumerable<AutomationWait> RunBacklog(AutomationRun run)
         {
-            foreach (var wait in MarketBacklogScenario.Run(run)) yield return wait;
+            foreach (var wait in MarketBacklogScenario.Run(run))
+            {
+                // The fixed phase must remain enabled, not merely have been enabled once
+                // at its gift. This uses the existing Unity automation cadence, not a tick hook.
+                CheckDiagnosticHealth();
+                yield return wait;
+            }
             // Reuse the normal health and final-drain checks after the scenario has
             // restored its profile edits and disabled physical interventions.
             foreach (var wait in Observe(run, 10)) yield return wait;
@@ -304,6 +311,7 @@ namespace AIMarketOverbuyDiagnostic
             Require(SimulationClock.TryGetElapsedTicks(firstProducer, Volatile.Read(ref AIMarketOverbuyDiagnosticRuntime.LastObservedMapTick), out int producerAdvanced) && producerAdvanced >= 200,
                 "diagnostic producer native time did not advance 200 ticks");
             CheckDiagnosticHealth();
+            OutputDrainStarted = true; // Final drain deliberately disables the owner after its last active health check.
             long writerBeforeStop = AIMarketOverbuyDiagnosticPlugin.StopForAutomation();
             long stopClock = Stopwatch.GetTimestamp();
             yield return AutomationWait.Until("final diagnostic output drained by two writer passes", () => {

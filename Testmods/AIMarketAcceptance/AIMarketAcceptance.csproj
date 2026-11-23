@@ -19,6 +19,9 @@
     <Reference Include="Assembly-CSharp"><HintPath>$(ManagedDir)\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Noesis.NoesisGUI"><HintPath>$(ManagedDir)\Noesis.NoesisGUI.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
-  <ItemGroup><Compile Include="src\*.cs" /></ItemGroup>
+  <ItemGroup>
+    <Compile Include="src\AcceptancePlugin.cs" />
+    <Compile Include="src\OwnerContractRegression.cs" />
+  </ItemGroup>
   <ItemGroup><None Update="info.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>

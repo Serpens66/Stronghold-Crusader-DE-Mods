@@ -115,9 +115,8 @@ namespace AIMarketOverbuyDiagnostic
                         if (!ValidateRestoredRequest(player, good, r))
                         {
                             // Policy/ownership can legitimately end before the next market call
-                            // (for example LastStand1->0). Saving observes that invalidation; it
-                            // must neither retain stale authority nor prevent a normal save.
-                            requests[player * Goods + good].Target.Active = false;
+                            // (for example LastStand1->0). Omit that detached snapshot row;
+                            // capture must not change live authority, even if saving later fails.
                             continue;
                         }
                         rows.Add(new MarketDemandSaveRow { Player = player, Good = good, SourceRva = r.SourceRva,

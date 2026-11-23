@@ -34,6 +34,7 @@ namespace AIMarketOverbuyDiagnostic
 #if SERP_DEVDIAG
         private MarketTradeTrace tradeTrace;
         private bool causalRequested;
+        private bool fixActivationLogged;
         internal void InstallTrace(SHCDESE.API.LowLevel.CrusaderLibraryLoadContext context)
         {
             causalRequested = MarketAutomation.NeedsCausalTrace();
@@ -49,6 +50,20 @@ namespace AIMarketOverbuyDiagnostic
         {
             if (!MarketPendingDemandFix.FeatureReady || MarketPendingDemandFix.CorrectionFailures != 0)
                 throw new InvalidOperationException("Native demand correction is unavailable or its runtime capture/correction failed.");
+            bool expectsCorrection = !MarketAutomation.OutputDrainStarted &&
+                (MarketAutomation.Scenario == "market-fresh-fixed" ||
+                MarketAutomation.Scenario == "market-backlog-fixed" && MarketBacklogScenario.Active && MarketBacklogScenario.GiftUnits > 0);
+            if (expectsCorrection)
+            {
+                if (!MarketPendingDemandFix.CorrectionActive)
+                    throw new InvalidOperationException("The fixed experiment is ready but its correction/native gates are not active.");
+                if (!fixActivationLogged && MarketAutomation.Scenario == "market-fresh-fixed")
+                {
+                    fixActivationLogged = true;
+                    Shared.DevDiag.Log(() => "AI_MARKET_FIX_ACTIVE: scenario=" + MarketAutomation.Scenario +
+                        " run=" + MarketAutomation.RunId + " corrective=1 sessionActive=1 writerGate=1 receiptGate=1 checkpoint=health");
+                }
+            }
             if (!causalRequested) return;
             if (tradeTrace == null || !tradeTrace.Ready || tradeTrace.CaptureFailures != 0 || tradeTrace.InvalidContexts != 0)
                 throw new InvalidOperationException("Requested native trade trace is unavailable or its capture failed.");

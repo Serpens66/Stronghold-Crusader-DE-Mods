@@ -39,6 +39,7 @@ namespace AutoSendTest
         private readonly int[,] stocks = new int[9, AutoSendGoods.Values.Length];
         private readonly int[,] capacities = new int[9, AutoSendGoods.Values.Length];
         private readonly bool[,] allies = new bool[9, 9];
+        private readonly AutoSendRecipientReadiness[,] recipientReadiness = new AutoSendRecipientReadiness[9, 9];
         private long localEpoch;
         private long initialAttempt;
         private bool hasInitialAttempt;
@@ -64,7 +65,7 @@ namespace AutoSendTest
             if (!api.Ui.TryRegisterBeforeRender("presentation", Present, out presentation, out string reason))
                 throw new InvalidOperationException(reason);
             view = new AutoSendView(this);
-            if (!AllyGoodsPanelExtensions.TryRegisterSection(AutoSendPlugin.Guid, "auto-send", view.Create,
+            if (!AllyGoodsPanelExtensions.TryRegisterSection(AutoSendPlugin.Guid, "auto-send", view.Create, AllyGoodsSectionPlacement.GoodsDialogBottom,
                 out var section, out reason, 100)) throw new InvalidOperationException(reason);
             view.RegisterDisclosure(section);
             if (!AllyGoodsPanelExtensions.TryRegisterGoodsAdornment(AutoSendPlugin.Guid, "active-goods", view.CreateAdornment,
@@ -110,6 +111,7 @@ namespace AutoSendTest
                 helloAttempts = 0; nextHelloAttempt = 0;
                 identityMismatch = loadFailure;
                 Array.Clear(stocks, 0, stocks.Length); Array.Clear(capacities, 0, capacities.Length); Array.Clear(allies, 0, allies.Length);
+                Array.Clear(recipientReadiness, 0, recipientReadiness.Length);
                 Array.Clear(humanIdentities, 0, humanIdentities.Length);
                 // A multiplayer save still has temporary lobby slots here. Vanilla
                 // remaps them before starting simulation; bind its final slots once
@@ -302,17 +304,18 @@ namespace AutoSendTest
                 // Copy bounded values under the simulation lock; Unity only sees these snapshots.
                 if (unchecked((uint)tick) % AutoSendState.TicksPerSecond != 0) return;
                 var selection = selectedContext;
-                if (selection != null && selection.IsSendMode && selection.Good.HasValue)
+                if (selection != null && selection.IsSendMode)
                 {
                     int source = selection.LocalPlayerId, recipient = selection.RecipientPlayerId;
                     if (source >= 1 && source <= 8 && recipient >= 1 && recipient <= 8)
                     {
-                        for (int g = 0; g < AutoSendGoods.Values.Length; g++) if (AutoSendGoods.Values[g] == selection.Good.Value)
+                        recipientReadiness[source, recipient] = ReadRecipientReadiness(source, recipient);
+                        allies[source, recipient] = recipientReadiness[source, recipient] == AutoSendRecipientReadiness.AlliedLiving;
+                        for (int g = 0; selection.Good.HasValue && g < AutoSendGoods.Values.Length; g++) if (AutoSendGoods.Values[g] == selection.Good.Value)
                         {
                             int good = (int)selection.Good.Value;
                             stocks[source, g] = GetStock(source, good); stocks[recipient, g] = GetStock(recipient, good);
                             capacities[recipient, g] = GetFreeCapacity(recipient, good);
-                            allies[source, recipient] = IsAlliedLiving(source, recipient);
                             break;
                         }
                     }
@@ -324,15 +327,19 @@ namespace AutoSendTest
         public int GetStock(int player, int good) => GamePlayerManagerAPI.Instance.GetGoodAmount(player, (eGoods)good);
         public int GetFreeCapacity(int player, int good) => AllyTransfers.TryGetCapacity(player, (eGoods)good,
             out var capacity, out _) ? capacity.FreeAmount : 0;
-        public unsafe bool IsAlliedLiving(int sender, int recipient)
+        public bool IsAlliedLiving(int sender, int recipient) => ReadRecipientReadiness(sender, recipient) == AutoSendRecipientReadiness.AlliedLiving;
+        private unsafe AutoSendRecipientReadiness ReadRecipientReadiness(int sender, int recipient)
         {
-            if (sender < 1 || sender > 8 || recipient < 1 || recipient > 8 || sender == recipient || epochs.Get(sender) == 0) return false;
+            if (sender < 1 || sender > 8 || recipient < 1 || recipient > 8 || sender == recipient || epochs.Get(sender) == 0)
+                return AutoSendRecipientReadiness.Unknown;
             var players = GamePlayerManagerAPI.Instance;
-            return players.TryGetPlayerResourcesById(sender, out GamePlayerResources* source) && source != null &&
-                players.TryGetPlayerResourcesById(recipient, out GamePlayerResources* target) && target != null &&
-                source->r_LordUnitId != 0 && target->r_LordUnitId != 0 &&
-                source->r_WinLossState != WinLossState.Loss && target->r_WinLossState != WinLossState.Loss &&
-                players.IsPlayerAlliedTo(sender, recipient);
+            if (!players.TryGetPlayerResourcesById(sender, out GamePlayerResources* source) || source == null ||
+                !players.TryGetPlayerResourcesById(recipient, out GamePlayerResources* target) || target == null)
+                return AutoSendRecipientReadiness.Unknown;
+            if (source->r_LordUnitId == 0 || target->r_LordUnitId == 0 ||
+                source->r_WinLossState == WinLossState.Loss || target->r_WinLossState == WinLossState.Loss)
+                return AutoSendRecipientReadiness.NotLiving;
+            return players.IsPlayerAlliedTo(sender, recipient) ? AutoSendRecipientReadiness.AlliedLiving : AutoSendRecipientReadiness.NotAllied;
         }
         public AutoSendTransferResult Transfer(int sender, int recipient, int good, int amount)
         {
@@ -438,6 +445,8 @@ namespace AutoSendTest
                     TransferUnavailable = !AllyTransfers.IsAvailable,
                     ChatSuppressionUnavailable = !AllyTransfers.CanSuppressVanillaChatMessages,
                     ChatMessages = sender >= 1 && sender <= 8 && state.ShowVanillaChatMessages(sender),
+                    RecipientReadiness = sender >= 1 && sender <= 8 && recipient >= 1 && recipient <= 8
+                        ? recipientReadiness[sender, recipient] : AutoSendRecipientReadiness.Unknown,
                     SenderReady = sender >= 1 && sender <= 8 && mission != null && initializedMap && epochs.IsReady(expectedMask) && AllyTransfers.IsAvailable && !identityMismatch &&
                         sender == localPlayer && context.ViewedPlayerId == sender,
                     Ready = mission != null && initializedMap && epochs.IsReady(expectedMask) && AllyTransfers.IsAvailable && !identityMismatch && selected && sender == localPlayer &&
@@ -523,6 +532,7 @@ namespace AutoSendTest
         internal bool HasDesiredValues;
         internal bool Selected, Ready, SenderReady, Pending, Paused, IdentityMismatch, TransferUnavailable;
         internal bool ChatMessages, ChatSuppressionUnavailable;
+        internal AutoSendRecipientReadiness RecipientReadiness;
         internal int Reserve, SourceStock, RecipientStock, Capacity, ActiveRules;
         internal AutoSendRule Rule = new AutoSendRule(0, 0, false);
         internal string Feedback;

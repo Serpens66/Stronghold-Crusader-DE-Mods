@@ -86,13 +86,13 @@ namespace AutoSendTest
             {
                 keyboardCapture?.Release();
                 if (root != null) root.Visibility = Visibility.Collapsed;
-                if (disclosureHost != null) disclosureHost.Visibility = Visibility.Collapsed;
+                footerRegistration?.SetVisible(false);
                 ApplyDisclosure(false);
                 return;
             }
             var data = runtime.ReadDisplay(context);
             disclosure.ObserveSession(data.SessionId);
-            bool expanded = RefreshDisclosure(context, data.SessionId);
+            bool expanded = RefreshDisclosure(context, data);
             RefreshBadges(context);
             if (root == null) return;
             bool canEdit = context.IsOpen && context.IsSendMode && data.Ready;

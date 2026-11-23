@@ -13,6 +13,7 @@ $workspace = [IO.Path]::GetFullPath((Join-Path $project '..\..'))
 . (Join-Path $workspace 'APIShared\tools\BuildProof.ps1')
 . (Join-Path $workspace 'APIShared\tools\WorkshopPackage.ps1')
 . (Join-Path $workspace 'APIShared\tools\DependencyBootstrapPackage.ps1')
+. (Join-Path $PSScriptRoot 'InstallTransaction.ps1')
 Assert-ShortWorkDirectory $EvidenceDirectory
 if (Test-Path -LiteralPath (Join-Path $EvidenceDirectory 'installation.json')) { throw 'Installation evidence already exists; allocate a fresh run.' }
 $game = [IO.Path]::GetFullPath($GameDir).TrimEnd('\','/')
@@ -42,6 +43,8 @@ foreach ($entry in $payload) {
     if (!$target.StartsWith($game + '\',[StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe installation target.' }
     $entry | Add-Member -NotePropertyName Target -NotePropertyValue $target
 }
+# Unknown or user-edited retired patches stop here, before evidence/backup/target writes.
+$plan = New-AutoSendInstallPlan -GameDir $game -Payload $payload.ToArray()
 [void][Reflection.Assembly]::Load([IO.File]::ReadAllBytes((Join-Path $game 'BepInEx\core\Mono.Cecil.dll')))
 $assembly = [Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $modPackage 'BepInEx\plugins\AutoSendTest_Serp\AutoSendTest.dll'))
 try {
@@ -57,43 +60,28 @@ function Snapshot {
 if (Get-Process | Where-Object { $_.ProcessName -match 'Stronghold|Crusader' }) { throw 'Close the game before installing.' }
 $before = Snapshot
 $before | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $EvidenceDirectory 'installed-before.json') -Encoding UTF8
-$targets = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-foreach ($entry in $payload) {
-    if (!$targets.Add($entry.Target)) { throw 'Duplicate installation target.' }
-    if (Test-Path -LiteralPath $entry.Target) {
-        $backup = Join-Path $EvidenceDirectory ('backup\' + $entry.Relative)
-        [void][IO.Directory]::CreateDirectory((Split-Path -Parent $backup))
-        Copy-Item -LiteralPath $entry.Target -Destination $backup
-    }
-}
-if (Get-Process | Where-Object { $_.ProcessName -match 'Stronghold|Crusader' }) { throw 'The game started during preparation; nothing installed.' }
-$written = [Collections.Generic.List[object]]::new()
 try {
-    foreach ($entry in $payload) {
-        [void][IO.Directory]::CreateDirectory((Split-Path -Parent $entry.Target))
-        # Copy can fail after partially overwriting a file; register it first.
-        $written.Add($entry)
-        Copy-Item -LiteralPath $entry.Source -Destination $entry.Target -Force
-        if ((Get-ApiFileHash $entry.Target) -ne $entry.Sha256) { throw "Installed file mismatch: $($entry.Target)" }
+    $transaction = Invoke-AutoSendInstallTransaction -Plan $plan -EvidenceDirectory $EvidenceDirectory -BeforeWrite {
+        if (Get-Process | Where-Object { $_.ProcessName -match 'Stronghold|Crusader' }) { throw 'The game started during preparation; nothing installed.' }
+    } -ValidateAfter {
+        Assert-ApiBootstrapPair $game
+        $after = Snapshot
+        $otherBefore = @($before | Where-Object { !$plan.Targets.Contains($_.Path) } | ForEach-Object { $_.Path + '|' + $_.Sha256 })
+        $otherAfter = @($after | Where-Object { !$plan.Targets.Contains($_.Path) } | ForEach-Object { $_.Path + '|' + $_.Sha256 })
+        if (Compare-Object $otherBefore $otherAfter) { throw 'Unrelated installed files changed; inspect snapshots.' }
+        $after | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $EvidenceDirectory 'installed-after.json') -Encoding UTF8
+        [ordered]@{InstalledUtc=[DateTime]::UtcNow.ToString('o');Installed=$true;Diagnostic=[bool]$build.DevDiag;GameDir=$game;
+            BuildRecord=[IO.Path]::GetFullPath($BuildRecord);ApiSharedVersion=$sdkVersion;ApiSharedChanged=$false;Files=$payload;
+            RemovedFiles=@($plan.RemovedFiles);UnrelatedFilesVerified=$otherBefore.Count;
+            GameAcceptance='Prepared, not executed; no game launched.'} |
+            ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $EvidenceDirectory 'installation.json') -Encoding UTF8
+        [pscustomobject]@{UnrelatedCount=$otherBefore.Count}
     }
-    Assert-ApiBootstrapPair $game
 } catch {
-    # Restore only files this invocation actually touched; preserve unrelated files.
-    foreach ($entry in $written) {
-        $backup = Join-Path $EvidenceDirectory ('backup\' + $entry.Relative)
-        if (Test-Path -LiteralPath $backup) { Copy-Item -LiteralPath $backup -Destination $entry.Target -Force }
-        elseif (Test-Path -LiteralPath $entry.Target) { Remove-Item -LiteralPath $entry.Target -Force }
-    }
+    # A failed final evidence write must not leave a success marker after rollback.
+    $marker = Join-Path $EvidenceDirectory 'installation.json'
+    if (Test-Path -LiteralPath $marker -PathType Leaf) { Remove-Item -LiteralPath $marker -Force }
     throw
 }
-$after = Snapshot
-$after | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $EvidenceDirectory 'installed-after.json') -Encoding UTF8
-$otherBefore = @($before | Where-Object { !$targets.Contains($_.Path) } | ForEach-Object { $_.Path + '|' + $_.Sha256 })
-$otherAfter = @($after | Where-Object { !$targets.Contains($_.Path) } | ForEach-Object { $_.Path + '|' + $_.Sha256 })
-if (Compare-Object $otherBefore $otherAfter) { throw 'Unrelated installed files changed; inspect snapshots.' }
-[ordered]@{InstalledUtc=[DateTime]::UtcNow.ToString('o');Installed=$true;Diagnostic=[bool]$build.DevDiag;GameDir=$game;
-    BuildRecord=[IO.Path]::GetFullPath($BuildRecord);ApiSharedVersion=$sdkVersion;ApiSharedChanged=$false;Files=$payload;
-    UnrelatedFilesVerified=$otherBefore.Count;GameAcceptance='Prepared, not executed; no game launched.'} |
-    ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $EvidenceDirectory 'installation.json') -Encoding UTF8
-Write-Host "PASS: $($payload.Count) files installed; $($otherBefore.Count) unrelated installed files unchanged."
+Write-Host "PASS: $($payload.Count) files installed, $($transaction.RemovedFiles.Count) obsolete files removed; $($transaction.Validation.UnrelatedCount) unrelated installed files unchanged."
 } finally { if ($locked) { $mutex.ReleaseMutex() }; $mutex.Dispose() }

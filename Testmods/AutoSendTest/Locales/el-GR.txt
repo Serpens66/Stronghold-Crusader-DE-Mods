@@ -38,3 +38,6 @@ SelectGood=Select the good you want to send automatically.
 OwnView=Switch to your own player view to change your deliveries.
 ChangeFailed=The change could not be applied. Check the settings and try again.
 SuppressionUnavailable=Automatic deliveries are stopped because chat messages cannot currently be suppressed. Enable chat messages to continue sending.
+RecipientNotAllied=Automatic deliveries are only available to allies. You can still send gifts to this lord manually.
+RecipientNotLiving=Automatic deliveries require both lords to be alive.
+LayoutUnavailable=The automatic delivery settings cannot be displayed in the current menu layout.

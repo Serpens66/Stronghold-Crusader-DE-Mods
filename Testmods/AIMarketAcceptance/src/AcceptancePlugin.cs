@@ -8,6 +8,7 @@ using System.Threading;
 using APIShared;
 using APIShared.Automation;
 using APIShared.Economy;
+using APIShared.Multiplayer;
 using APIShared.Savegames;
 using BepInEx;
 using BepInEx.Logging;
@@ -20,7 +21,7 @@ namespace AIMarketAcceptance
 {
     [BepInPlugin(Guid, "AI Market Acceptance", "0.1.0")]
     [BepInDependency("000shcdese", "2.14.4")]
-    [BepInDependency("APIShared_Serp", "0.62.0")]
+    [BepInDependency("APIShared_Serp", "0.65.0")]
     [BepInDependency("AIMarketOverbuyDiagnostic_Serp", "0.1.0")]
     public sealed class AcceptancePlugin : BaseUnityPlugin
     {
@@ -29,7 +30,7 @@ namespace AIMarketAcceptance
     }
     // Explicit .run opt-in only. APIShared owns the persistent Unity automation driver;
     // all callbacks/delegates here are process-rooted statics, without startup teardown.
-    internal static class Acceptance
+    internal static partial class Acceptance
     {
         private const BindingFlags Static=BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
         private const BindingFlags Instance=BindingFlags.Instance|BindingFlags.Public|BindingFlags.NonPublic;
@@ -81,6 +82,7 @@ namespace AIMarketAcceptance
                         Require(AiMarketEvents.CheckIntegrity(),"shared market hooks unavailable: "+AiMarketEvents.Diagnostic);
                         owner=FindType("AIMarketOverbuyDiagnostic.MarketPendingDemandFix");
                         aic=FindType("AIMarketOverbuyDiagnostic.MarketBacklogAic");
+                        RegisterComponentContracts();
                         Require(NativeWorldRestoreEvents.TryRegister(AcceptancePlugin.Guid,"pre-fold-ledger",AfterRestore,out string reason,100),reason);
                         Require(AiMarketEvents.TryRegister(AcceptancePlugin.Guid,"loaded-ledger-decision",BeforeDecision,
                             (c,t,d,r)=>{},out marketObserver,out reason,-200,onFailure:e=>observationFailure=e),reason);
@@ -119,6 +121,13 @@ namespace AIMarketAcceptance
                 yield return AutomationWait.Delay(TimeSpan.FromMilliseconds(250));
             }
             Require(GamePlayerManagerAPI.Instance.IsLocalPaused(),"native gate capture did not retain pause");
+            run.InSimulation(mission,()=>{
+                RequireFixOn("before-contract-regressions");
+                VerifyPureCapture();
+                VerifyOwnerRepairCallbacks();
+                RequireState(Read(player,good),"after-contract-regressions");
+                return true;
+            });
             save=Path.Combine(ConfigSettings.GetSavesPath(),"SerpAcceptance-"+runId+".sav");
             Require(!File.Exists(save),"run-owned save already exists; refusing overwrite");
             yield return AutomationWait.Until("native safe save",()=>Director.instance.SafeToSave());
@@ -131,6 +140,7 @@ namespace AIMarketAcceptance
         }
         private static unsafe bool PrepareWarmup()
         {
+            RequireFixOn("before-native-warmup");
             var players=GamePlayerManagerAPI.Instance;int eligible=0;
             for(int candidate=1;candidate<warmupActors.Length;candidate++)
             {
@@ -254,6 +264,7 @@ namespace AIMarketAcceptance
             try
             {
                 Require(context.Mission!=null&&SamePath(context.Mission.FilePath,save),"unexpected raw restore mission");
+                RequireFixOn("raw-pre-first-fold");
                 RequireState(Read(player,good),"raw-pre-first-fold");
                 Interlocked.Exchange(ref lastRawSession,context.Mission.SessionId);
                 Interlocked.Increment(ref restores);Volatile.Write(ref rawVerified,1);
@@ -279,6 +290,7 @@ namespace AIMarketAcceptance
                 "raw restore checkpoint did not precede this managed session");
             foreach(var wait in run.SetPause(mission,true))yield return wait;
             run.InSimulation(mission,()=>{
+                RequireFixOn("after-managed-start");
                 State state=Read(player,good);
                 if(state.Pending!=0)RequireState(state,"after-managed-start");
                 int before=Volatile.Read(ref decisionChecks);

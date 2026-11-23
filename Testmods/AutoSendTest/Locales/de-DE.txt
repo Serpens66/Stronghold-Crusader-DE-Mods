@@ -38,3 +38,6 @@ SelectGood=Die Ware auswählen, die automatisch gesendet werden soll.
 OwnView=Zur eigenen Spieleransicht wechseln, um eigene Lieferungen zu ändern.
 ChangeFailed=Die Änderung konnte nicht übernommen werden. Einstellungen prüfen und erneut versuchen.
 SuppressionUnavailable=Automatische Lieferungen sind angehalten, weil Chatmeldungen derzeit nicht unterdrückt werden können. Chatmeldungen einschalten, um weiter zu senden.
+RecipientNotAllied=Automatische Lieferungen sind nur an Verbündete möglich. Geschenke an diesen Fürsten kannst du weiterhin manuell senden.
+RecipientNotLiving=Automatische Lieferungen sind nur möglich, solange beide Fürsten leben.
+LayoutUnavailable=Der Bereich für automatische Lieferungen kann im aktuellen Menü nicht eingeblendet werden.
