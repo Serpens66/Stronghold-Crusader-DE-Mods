@@ -21,3 +21,4 @@ Restart.WaitStart=Restart: waiting for all start confirmations.
 Restart.LobbyInvalid=The restored lobby does not match the original start data.
 Restart.ConfirmTitle=Börja om?
 Restart.RecoveryTitle=Huvudmeny?
+Restart.LobbyChanged=Omstart: inställningarna har ändrats. Spelet använder lobbyns aktuella inställningar.

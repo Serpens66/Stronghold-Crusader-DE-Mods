@@ -41,6 +41,7 @@
     <Compile Include="tests\BarrierTests.cs" />
     <Compile Include="tests\RuntimeTests.cs" />
     <Compile Include="tests\LaunchSnapshotTests.cs" />
+    <Compile Include="tests\ExtendedRestartContextTests.cs" />
     <Compile Include="tests\RuntimeFailureTests.cs" />
     <Compile Include="tests\TransportTests.cs" />
     <Compile Include="tests\TargetReadinessTests.cs" />

@@ -9,11 +9,11 @@ using Mono.Cecil;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
 
-namespace MultiplayerRestartTest
+namespace MultiplayerSaveLoadTest
 {
     // A process-lived checkpoint before EACH sim iteration, never inside native execution.
     // Unity requests parking and observes receipts; it never waits for worker threads.
-    internal static class StopBarrier
+    internal static class LoadBarrier
     {
         private static readonly object Entry = new object();
         private static int requested, parked, entries, hits, networkAllowed, launchAllowed, installed;
@@ -31,18 +31,18 @@ namespace MultiplayerRestartTest
             if (threadField?.FieldType != typeof(Thread)) throw new MissingFieldException("Director.simThread");
             if (director != null && threadField.GetValue(director) is Thread thread && thread.IsAlive)
                 throw new InvalidOperationException("The sim thread already runs; its active invocation cannot be repatched.");
-            if (!SafeIlHook.TryInstall(RestartPlugin.Guid, RestartPlugin.Guid + ".sim-checkpoint",
+            if (!SafeIlHook.TryInstall(SaveLoadPlugin.Guid, SaveLoadPlugin.Guid + ".sim-checkpoint",
                 AccessTools.Method(typeof(Director), "runSimTickTest"), Inject, log, out hook, out string reason))
                 throw new InvalidOperationException(reason);
-            harmony = new Harmony(RestartPlugin.Guid + ".barrier");
+            harmony = new Harmony(SaveLoadPlugin.Guid + ".barrier");
             foreach (string method in new[] { "MyFixedUpdate", "forceEarlyEngine", "UpdateMultiplayer" })
                 harmony.Patch(AccessTools.Method(typeof(Director), method),
-                    prefix: new HarmonyMethod(typeof(StopBarrier), nameof(Enter)),
-                    finalizer: new HarmonyMethod(typeof(StopBarrier), nameof(Leave)), ilmanipulator: null);
+                    prefix: new HarmonyMethod(typeof(LoadBarrier), nameof(Enter)),
+                    finalizer: new HarmonyMethod(typeof(LoadBarrier), nameof(Leave)), ilmanipulator: null);
             harmony.Patch(AccessTools.Method(typeof(Director), "startSimThread"),
-                new HarmonyMethod(typeof(StopBarrier), nameof(Start)));
+                new HarmonyMethod(typeof(LoadBarrier), nameof(Start)));
             harmony.Patch(AccessTools.Method(typeof(Director), "OnDestroy"),
-                new HarmonyMethod(typeof(StopBarrier), nameof(Shutdown)));
+                new HarmonyMethod(typeof(LoadBarrier), nameof(Shutdown)));
             Volatile.Write(ref installed, 1);
         }
         internal static void Inject(ILContext il)
@@ -57,7 +57,7 @@ namespace MultiplayerRestartTest
             if (branches.Length != 1 || (branches[0].OpCode != OpCodes.Brtrue && branches[0].OpCode != OpCodes.Brtrue_S))
                 throw new InvalidOperationException("Unique sim-loop backedge missing.");
             var cursor = new ILCursor(il); cursor.Goto(target, MoveType.Before);
-            cursor.Emit(OpCodes.Call, typeof(StopBarrier).GetMethod(nameof(Checkpoint), BindingFlags.Static | BindingFlags.NonPublic));
+            cursor.Emit(OpCodes.Call, typeof(LoadBarrier).GetMethod(nameof(Checkpoint), BindingFlags.Static | BindingFlags.NonPublic));
             // Explicitly redirect the loop backedge. Existing active method invocations cannot use this edit.
             foreach (var branch in branches)
             {

@@ -21,3 +21,4 @@ Restart.WaitStart=Restart: waiting for all start confirmations.
 Restart.LobbyInvalid=The restored lobby does not match the original start data.
 Restart.ConfirmTitle=Yeniden?
 Restart.RecoveryTitle=Ana menü?
+Restart.LobbyChanged=Yeniden başlatma: ayarlar değişti. Oyun mevcut lobi ayarlarıyla başlayacak.

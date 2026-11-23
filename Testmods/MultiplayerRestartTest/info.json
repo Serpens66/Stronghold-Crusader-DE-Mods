@@ -3,12 +3,21 @@
   "Author": "Serpens66",
   "Name": "Multiplayer Restart Test",
   "Description": "Experimental host-only same-mission multiplayer restart through an automatically restored private lobby. New games only; identical testmod required on every peer.",
-  "Version": "0.1.4",
+  "Version": "0.1.5",
   "MinimumScriptExtenderVersion": "2.14.0",
-  "Dependencies": [ { "GUID": "APIShared_Serp", "MinimumVersion": "0.64.0" } ],
+  "Dependencies": [ { "GUID": "APIShared_Serp", "MinimumVersion": "0.69.0" } ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.1.5",
+      "Changes": [
+        "Preserve exact local Lord/AIV sources and effective map or Custom-Coop mission settings when restoring the lobby; retain normal content and readiness validation.",
+        "Allow intentional AI, map, team and settings changes in the restored lobby with a chat notice. A refused automatic start leaves time for manual editing and retry.",
+        "Keep legitimate Coop host/guest building permissions separate from shared launch identity and wait for the client's actual mission/swap setup pass.",
+        "Use protocol v4 to verify the actual new target configuration on every peer before releasing the one-shot seed. Every peer needs this testmod and APIShared 0.69.0 or newer."
+      ]
+    },
     {
       "Version": "0.1.4",
       "Changes": [

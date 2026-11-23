@@ -50,6 +50,9 @@ namespace BugfixesAndQoL
         private FrontendUpdateDelegate updateTrampoline;
         private MultiplayerAivManifest confirmedManifest;
         private MultiplayerAivManifest activeStartManifest;
+        private readonly MultiplayerAivMissionManifest missionManifest = new MultiplayerAivMissionManifest();
+        private ulong loadingManifestLobby;
+        private byte[] loadingManifestPayload;
         private MultiplayerAivManifest pendingClientManifest;
         private MultiplayerAivSyncPacket incomingBegin;
         private MultiplayerAivSyncPacket pendingClientBegin;
@@ -95,6 +98,9 @@ namespace BugfixesAndQoL
             if (initialized)
                 return;
 
+            Shared.MissionEvents.Loading.Subscribe(OnMissionLoading);
+            Shared.MissionEvents.Started.Subscribe(notification => missionManifest.RecordStart(notification.Context.SessionId));
+            Shared.MissionEvents.Ended.Subscribe(OnMissionEnded);
             packetHook = GameNetworkAPI.Instance.GetPacketEventFor<MultiplayerAivSyncPacket>();
             packetSubscription = packetHook.GetBaseHook().Observable.Subscribe(OnPacketReceived);
 
@@ -561,7 +567,13 @@ namespace BugfixesAndQoL
             {
                 if (IsFeatureActive() && coopTrailId > 0 && self?.activeLobby?.gameTypeCoop == "1")
                     ValidateCustomCoopLobby(self?.activeLobby, null, false);
-                MultiplayerAivManifest manifest = ResolveManifestForStart(coopTrailId);
+                MultiplayerAivManifest manifest = ResolveManifestForStart(coopTrailId, out byte[] restartPayload);
+                if (manifest?.Slots.Count > 0)
+                {
+                    // Imports use decoded buffers. Keep the approved bytes independent of native consumers.
+                    loadingManifestLobby = manifest.LobbyId;
+                    loadingManifestPayload = restartPayload ?? MultiplayerAivSyncProtocol.Encode(manifest);
+                }
                 int preparedSlots = CoopCustomLordSelectionFeature.BeginCoopStart(
                     self?.activeLobby, coopTrailId, manifest);
                 // Coop extra candidates belong to the APIShared import plans, which import every candidate
@@ -588,6 +600,8 @@ namespace BugfixesAndQoL
             {
                 CoopCustomLordSelectionFeature.EndCoopStart();
                 activeStartManifest = null;
+                loadingManifestPayload = null;
+                loadingManifestLobby = 0;
                 confirmedManifest = null;
                 incomingBegin = null;
                 incomingChunks.Clear();
@@ -597,24 +611,47 @@ namespace BugfixesAndQoL
             }
         }
 
-        private MultiplayerAivManifest ResolveManifestForStart(int coopTrailId)
+        private void OnMissionLoading(APIShared.MissionLifecycleNotification notification)
+        {
+            var context = notification.Context;
+            if (notification.Phase == APIShared.MissionInitializationPhase.BeforeLoad &&
+                context.Mode.IsRealMultiplayer && !context.IsSave && !context.IsEditor)
+                missionManifest.RecordLoad(context.SessionId, loadingManifestLobby, loadingManifestPayload);
+        }
+
+        private void OnMissionEnded(APIShared.MissionLifecycleNotification notification)
+        {
+            var replacement = notification.ReplacementContext;
+            long session = notification.Context.SessionId;
+            missionManifest.RecordEnd(session, replacement?.RestartedFromSessionId == session &&
+                replacement.Mode.IsRealMultiplayer && !replacement.IsSave ? replacement.SessionId : (long?)null);
+        }
+
+        private MultiplayerAivManifest ResolveManifestForStart(int coopTrailId, out byte[] restartPayload)
         {
             Platform_Multiplayer.MPLobby lobby = Platform_Multiplayer.Instance?.activeLobby;
-            if (!MultiplayerAivSyncPolicy.CanUseConfirmedManifest(
-                    IsFeatureActive(),
-                    coopTrailId,
-                    FRONT_Multiplayer.customCoopGame,
-                    confirmedManifest != null,
-                    lobby?.id.m_SteamID ?? 0UL,
-                    confirmedManifest?.LobbyId ?? 0UL))
+            ulong lobbyId = lobby?.id.m_SteamID ?? 0UL;
+            bool hasFreshManifest = MultiplayerAivSyncPolicy.CanUseConfirmedManifest(
+                IsFeatureActive(), coopTrailId, FRONT_Multiplayer.customCoopGame, confirmedManifest != null,
+                lobbyId, confirmedManifest?.LobbyId ?? 0UL);
+            byte[] retained = missionManifest.TakeReplacement(lobbyId, APIShared.MissionRestart.IsInProgress);
+            restartPayload = hasFreshManifest ? null : retained;
+            if (hasFreshManifest)
             {
-                // Never let a confirmation from an older lobby affect a later Vanilla start.
-                confirmedManifest = null;
-                return null;
+                ValidateManifestAgainstLobby(Platform_Multiplayer.Instance, confirmedManifest);
+                return confirmedManifest;
             }
-
-            ValidateManifestAgainstLobby(Platform_Multiplayer.Instance, confirmedManifest);
-            return confirmedManifest;
+            if (restartPayload != null)
+            {
+                if (!IsFeatureActive())
+                    throw new InvalidOperationException("Synchronized AIV support changed before the multiplayer restart.");
+                var manifest = MultiplayerAivSyncProtocol.Decode(restartPayload);
+                ValidateManifestAgainstLobby(Platform_Multiplayer.Instance, manifest);
+                return manifest;
+            }
+            // Never let a confirmation from an older lobby affect a later Vanilla start.
+            confirmedManifest = null;
+            return null;
         }
 
         private static void ValidateCustomCoopLobby(

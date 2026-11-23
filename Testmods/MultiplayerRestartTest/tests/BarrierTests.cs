@@ -7,9 +7,9 @@ using HarmonyLib;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
-using MultiplayerRestartTest;
+using MultiplayerSaveLoadTest;
 
-// Separate fixture executable: compile production StopBarrier and this file against
+// Separate fixture executable: compile production LoadBarrier and this file against
 // the selected runtime references. Pass the installed Assembly-CSharp.dll as argv[0].
 // This reads its actual method body; it does not install a hook into the game.
 internal static class BarrierTests
@@ -17,8 +17,8 @@ internal static class BarrierTests
     private static int checks, calls;
     private static void Check(bool value, string message)
     { checks++; if (!value) throw new Exception(message); }
-    private static MethodInfo Private(string name) => typeof(StopBarrier).GetMethod(name, BindingFlags.NonPublic | BindingFlags.Static);
-    private static FieldInfo Field(string name) => typeof(StopBarrier).GetField(name, BindingFlags.NonPublic | BindingFlags.Static);
+    private static MethodInfo Private(string name) => typeof(LoadBarrier).GetMethod(name, BindingFlags.NonPublic | BindingFlags.Static);
+    private static FieldInfo Field(string name) => typeof(LoadBarrier).GetField(name, BindingFlags.NonPublic | BindingFlags.Static);
     private static Instruction Target(object operand) => operand is ILLabel label ? label.Target : operand as Instruction;
 
     private static void InstalledLoopFixture(string gameAssembly)
@@ -34,7 +34,7 @@ internal static class BarrierTests
                     Target(i.Operand)?.Next?.Operand is FieldReference f && f.Name == "FramesToProcess");
                 var originalEntry = Target(edge.Operand);
                 Check(edge.Operand is ILLabel, "Fixture did not exercise MonoMod label normalization.");
-                StopBarrier.Inject(ctx);
+                LoadBarrier.Inject(ctx);
                 var gate = Target(edge.Operand);
                 Check(gate.OpCode == OpCodes.Call && gate.Operand is MethodReference called && called.Name == "Checkpoint",
                     "Backedge bypasses the production checkpoint.");
@@ -55,7 +55,7 @@ internal static class BarrierTests
                 frame.Next.OpCode = OpCodes.Ldc_I4_1; // An incompatible admission predicate must fail before any edit.
                 int count = ctx.Body.Instructions.Count;
                 bool rejected = false;
-                try { StopBarrier.Inject(ctx); } catch (InvalidOperationException) { rejected = true; }
+                try { LoadBarrier.Inject(ctx); } catch (InvalidOperationException) { rejected = true; }
                 Check(rejected && ctx.Body.Instructions.Count == count, "Unknown loop contract was mutated.");
             });
         }
@@ -69,11 +69,11 @@ internal static class BarrierTests
 
     private static void HarmonyReceipts()
     {
-        var patcher = new Harmony("MultiplayerRestartTest.BarrierFixture");
+        var patcher = new Harmony("MultiplayerSaveLoadTest.BarrierFixture");
         foreach (string name in new[] { nameof(MyFixedUpdate), nameof(UpdateMultiplayer) })
             patcher.Patch(typeof(BarrierTests).GetMethod(name, BindingFlags.NonPublic | BindingFlags.Static),
                 prefix: new HarmonyMethod(Private("Enter")), finalizer: new HarmonyMethod(Private("Leave")), ilmanipulator: null);
-        StopBarrier.Release();
+        LoadBarrier.Release();
         MyFixedUpdate(false);
         Check(calls == 1 && (int)Field("entries").GetValue(null) == 0, "Normal prefix/finalizer receipt differs.");
         bool threw = false;
@@ -82,10 +82,10 @@ internal static class BarrierTests
         Field("requested").SetValue(null, 1);
         MyFixedUpdate(false); UpdateMultiplayer();
         Check(calls == 2 && (int)Field("entries").GetValue(null) == 0, "Blocked calls ran or leaked active counts.");
-        StopBarrier.AllowNetwork();
+        LoadBarrier.AllowNetwork();
         UpdateMultiplayer(); MyFixedUpdate(false);
         Check(calls == 3 && (int)Field("entries").GetValue(null) == 0, "Network-only reopening admitted timer work.");
-        StopBarrier.Release();
+        LoadBarrier.Release();
     }
 
     private static void ParkReceipt()
@@ -95,10 +95,10 @@ internal static class BarrierTests
         lock (entry) Field("requested").SetValue(null, 1);
         var worker = new Thread(() => checkpoint());
         worker.Start();
-        Check(SpinWait.SpinUntil(() => StopBarrier.Quiescent, 3000), "Checkpoint did not park.");
-        StopBarrier.Release();
+        Check(SpinWait.SpinUntil(() => LoadBarrier.Quiescent, 3000), "Checkpoint did not park.");
+        LoadBarrier.Release();
         Check(worker.Join(3000), "Release failed to wake worker.");
-        Check((int)Field("parked").GetValue(null) == 0 && !StopBarrier.Quiescent, "Park receipt survived worker release.");
+        Check((int)Field("parked").GetValue(null) == 0 && !LoadBarrier.Quiescent, "Park receipt survived worker release.");
     }
 
     public static int Main(string[] args)
@@ -112,6 +112,6 @@ internal static class BarrierTests
             return 0;
         }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
-        finally { StopBarrier.Release(); }
+        finally { LoadBarrier.Release(); }
     }
 }

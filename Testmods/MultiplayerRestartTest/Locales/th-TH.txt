@@ -21,3 +21,4 @@ Restart.WaitStart=Restart: waiting for all start confirmations.
 Restart.LobbyInvalid=The restored lobby does not match the original start data.
 Restart.ConfirmTitle=เริ่มใหม่?
 Restart.RecoveryTitle=เมนูหลัก?
+Restart.LobbyChanged=เริ่มใหม่: มีการเปลี่ยนการตั้งค่า จะใช้การตั้งค่าล็อบบี้ปัจจุบันเมื่อเริ่มเกม

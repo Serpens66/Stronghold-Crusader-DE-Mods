@@ -21,3 +21,4 @@ Restart.WaitStart=Restart: waiting for all start confirmations.
 Restart.LobbyInvalid=The restored lobby does not match the original start data.
 Restart.ConfirmTitle=Újra?
 Restart.RecoveryTitle=Főmenü?
+Restart.LobbyChanged=Újraindítás: a beállítások megváltoztak. A játék az aktuális lobbibeállításokkal indul.

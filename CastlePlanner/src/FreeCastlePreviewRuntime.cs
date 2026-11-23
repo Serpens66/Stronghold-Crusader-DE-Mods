@@ -792,6 +792,13 @@ namespace CastlePlanner
                 !FreeCastleParticipantReadiness.AreAllReady(HumanPeerSteamIds(), manifestAcks))
                 return;
 
+            try { ValidateMultiplayerRestart(); }
+            catch (InvalidOperationException error)
+            {
+                FailBeforeCommit(error.Message);
+                return;
+            }
+
             // A network game may legitimately have no remote human peers. In that
             // case the host's local readiness completes the same protocol immediately.
             Broadcast(NewPacket(FreeCastlePacketKind.Commit, 0));
@@ -1718,6 +1725,14 @@ namespace CastlePlanner
             string error = RestartCompatibilityValidator?.Invoke(selections);
             if (!string.IsNullOrEmpty(error))
                 throw new InvalidOperationException(error);
+            ValidateMultiplayerRestart();
+        }
+
+        private void ValidateMultiplayerRestart()
+        {
+            if (realMultiplayer && !APIShared.MissionRestart.TryValidateMultiplayerMap(
+                    capturedSetup, capturedMap, capturedCoopTrailId, capturedCoopMissionId, out string reason))
+                throw new InvalidOperationException(reason);
         }
 
         private void ValidateSelectionPermissions(FreeCastleSelection selection)

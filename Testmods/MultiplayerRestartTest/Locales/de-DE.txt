@@ -21,3 +21,4 @@ Restart.WaitStart=Neustart: Warte auf alle Startbestätigungen.
 Restart.LobbyInvalid=Die wiederhergestellte Lobby stimmt nicht mit den ursprünglichen Startdaten überein.
 Restart.ConfirmTitle=Neustart?
 Restart.RecoveryTitle=Hauptmenü?
+Restart.LobbyChanged=Neustart: Einstellungen geändert. Beim Start gelten die aktuellen Lobbyeinstellungen.

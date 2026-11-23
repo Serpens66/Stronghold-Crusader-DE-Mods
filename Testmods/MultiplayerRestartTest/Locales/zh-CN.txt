@@ -21,3 +21,4 @@ Restart.WaitStart=Restart: waiting for all start confirmations.
 Restart.LobbyInvalid=The restored lobby does not match the original start data.
 Restart.ConfirmTitle=重新开始？
 Restart.RecoveryTitle=主菜单？
+Restart.LobbyChanged=重新开始：设置已更改。开始时将使用当前大厅设置。

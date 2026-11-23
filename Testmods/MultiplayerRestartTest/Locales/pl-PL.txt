@@ -21,3 +21,4 @@ Restart.WaitStart=Restart: waiting for all start confirmations.
 Restart.LobbyInvalid=The restored lobby does not match the original start data.
 Restart.ConfirmTitle=Od nowa?
 Restart.RecoveryTitle=Menu główne?
+Restart.LobbyChanged=Restart: ustawienia zmienione. Gra użyje bieżących ustawień lobby.
