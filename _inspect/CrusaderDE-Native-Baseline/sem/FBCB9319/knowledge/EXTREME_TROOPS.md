@@ -95,3 +95,17 @@ measure time since emission. The installed image increments that Int32 at
 resolved by the installed Extender for `GetElapsedMapTicks()`. See
 [periodic simulation clock](PERIODIC_GOLD.md) and
 [gatehouse query pass](GATEHOUSE_QUERY_PASS.md) for the two distinct clocks.
+
+### GPU renderer runtime check (2026-11-23) [mod integration]
+
+On the same managed and native hashes, the test mod reproduced the ten-copy
+paused arrow on `test_green` with 15 matching position, sprite and depth
+records and 36 matching opacity samples. The GPU renderer keeps the same
+texture and sorting keys. It reuses sprite geometry and streams one
+24-byte record per visible copy. The local display continues to consume zero
+native slots. The synthetic game fixture submitted 50,000 visible copies in
+96 groups. An independent Unity Player pixel test verified 50,000 distinct
+positions using the same shader bundle. See the
+[GPU game test and timings](../../../../../Testmods/ProjectileTrailsTest/TESTING.md#gpu-renderer).
+These observations do not establish why the developers chose to suppress native
+trail generation in Extreme Troops.

@@ -175,3 +175,65 @@ expired/future samples by pixel readback. An additional draw verified all
 and harness source are in `.work/a/trail-gpu/001`. This test exercises
 the compiled projectile shader outside Stronghold and cannot verify
 the game's sorting or scene performance.
+
+### Game acceptance and 5,000-archer load on test_green (2026-11-23)
+
+The paired fixed-camera test on `test_green` matched 15 pose, sprite and
+depth records and all 36 sampled opacities. Both captures held ten copies
+during the pause. The screenshots show the same trail shape with minor pixel
+differences. The rotation fixture exercised arrows and bolts in each of the
+four views and finished with zero mod copies after loading a Standard save.
+It did not isolate occlusion by each of a wall, tower and gate. The sort key
+uses the same per-row renderer principle as
+[CastlePlanner](../../CastlePlanner/src/BlueprintRenderer.cs), with Vanilla's
+projectile offset within the row.
+
+The synthetic in-game fixture drew 50,000 copies in 96 groups and uploaded
+exactly 1,200,000 echo bytes with the sprite cache already warm. Separately,
+each timed run spawned 5,000 European archers and used their IDs to launch
+two controlled 5,000-arrow volleys. This drives the native projectile
+creation path without synchronizing the attack animations. Tests used the
+same fixture, 1280×720, North, zoom 0.256, speed 40, no camera drift, and
+Direct3D 11 on a GeForce RTX 4090. The game peaked at 5,607–5,608 active
+arrows and 49,997 submitted afterimages with the renderer enabled.
+
+| Pair | Extreme drawing | Peak mod copies | Median frame | p95 frame | Mean main thread | Mean draw calls |
+|---|---|---:|---:|---:|---:|---:|
+| 1 | Vanilla, suppressed trails | 0 | 7.038 ms | 17.928 ms | 9.885 ms | 689.907 |
+| 1 | GPU trails | 49,997 | 21.713 ms | 51.001 ms | 23.402 ms | 841.928 |
+| 2 | Vanilla, suppressed trails | 0 | 6.898 ms | 18.991 ms | 9.748 ms | 688.476 |
+| 2 | GPU trails | 49,997 | 20.620 ms | 48.053 ms | 23.933 ms | 850.957 |
+
+The tests measure the entire scene, including the native capture, Unity CPU
+work and GPU submission. The game's frame timing API reported no GPU time.
+The warmed offline history test reports zero managed allocation bytes.
+Mono's allocation counter failed the positive control in game, so the
+managed allocation rate for the complete warmed Unity path is unverified.
+A 50,000-copy capacity pass does not establish a smooth frame rate at that
+load or at 10,000 archers.
+
+The acceptance logs and screenshots are in `.work/a/trail-gpu/001`; the
+four mass runs in table order are `bc02f91f92c2`, `7328112fb13d`,
+`178804cd848b` and `5a0ad54d3c78`.
+
+### Vanilla comparison and equal-budget renderer check
+
+Four recent runs repeat the 2,999-unit fixture with 2,991 spawned archers,
+two 2,900-arrow volleys and identical camera and speed settings. The
+1,024-copy / 64-group test ceiling was applied to the GPU build solely
+for comparison with 0.1.3. Its sample selection need not match 0.1.3
+exactly. Standard enables the original native afterimages and has a
+smaller native projectile pool than Extreme Troops.
+
+| Mode | Peak native afterimages | Peak displayed mod copies | Median frame | p95 frame | Mean draw calls |
+|---|---:|---:|---:|---:|---:|
+| Standard, Vanilla drawing | 270 | 0 | 4.587 ms | 11.728 ms | 560.013 |
+| Extreme, Vanilla drawing | 0 | 0 | 4.570 ms | 11.444 ms | 562.728 |
+| Extreme, 0.1.3 CPU renderer | 0 | 1,024 | 5.503 ms | 12.837 ms | 669.498 |
+| Extreme, GPU renderer with test ceiling | 0 | 1,024 | 5.241 ms | 12.213 ms | 659.774 |
+
+Run directories in table order are `a3a7465e500d`, `d9bc34b9b97e`,
+`febdd10dfcb3` and `a229bb4b10f5`. The small improvement at equal
+budgets is a single paired observation. The installed 0.2.0 package uses
+the full renderer; SHA-256 verification of the DLL, manifest and shader
+is recorded at `.work/a/trail-install/003/installation.json`.

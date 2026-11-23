@@ -16,7 +16,7 @@ using Axis = System.Numerics.Vector2;
 
 namespace ProjectileTrailsTest
 {
-    [BepInPlugin(Guid, "Extreme Troops Projectile Trails Test", "0.1.3")]
+    [BepInPlugin(Guid, "Extreme Troops Projectile Trails Test", "0.2.0")]
     [BepInDependency("000shcdese", "2.14.4")]
     [BepInDependency("APIShared_Serp", "0.62.0")]
     public sealed partial class Plugin : BaseUnityPlugin
