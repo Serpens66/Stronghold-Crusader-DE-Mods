@@ -72,6 +72,31 @@ length==-1 can clear85750CC and8575124 without executed Chore67. Clearing native
 repair state is consequently not proof of common completion. A metadata owner
 must not manufacture a successful local resume from that observation.
 
+### Gate before native completion is sent
+
+In the audited image every host release from `28160` converges at `281B5`.
+The five-byte `E8 D6 B7 FF FF` is a call to `23990` with RCX holding the
+manager and DL holding opcode 67. The next instruction at `281BA` is also
+reached independently. The all-ACK branch repeats the same call on each
+scheduler run; it precedes the timeout branches. The timeout path can mark
+players kicked and synthesize ACKs before it also reaches that call.
+
+The manager's human registrations occupy eight Int32 slots starting at
+`+8B0`. Kick bytes start at `+919`. `DLL_RegisterSkirmishUser` uses a
+separate AI table. `23990` packs and adds the outgoing completion before
+running Chore67 locally, so a host-side pre-publication guard belongs before
+the call. The corresponding client ingress is `23F10` before queue-slot
+allocation. `Platform_Multiplayer` resolves the Steam sender to its in-game
+player slot, and `DLL_ReceiveChore` writes that issuer separately from the
+packet payload. Chore55 applies the repaired data before the client enters
+state 3. The client scheduler sends Chore66 as it transitions to state 4.
+Completion resets repair state and re-enqueues held native commands.
+
+The checksum divergence path at `27C50` queues Chore54 once, then sets
+the repair-start latch at `8575124`. Completion, local abort and multiplayer
+initialization clear the latch. The Steam path sends reliably and has no
+application-level redelivery of Chore54 within an open repair.
+
 ## Shared ownership and failure semantics [mod integration]
 
 APIShared.Economy.AiMarketEvents owns the four trade entries as permanent
@@ -143,3 +168,18 @@ first coverage lines2301/2304 and later session summaries retain that explicit
 gap. The registry owner text is unregistered/unknown, so that log alone does not
 identify its publisher; the original main-mod guard and load-order/source audit
 establish the conflicting owner. No main-mod protection is disabled by this fix.
+
+## Host and client windows before release
+
+The host's state-2 repair sender at `251F0` can return after an intermediate
+Chore87 batch and resume on a later scheduler run. The final path calls
+`23990` with Chore55 and enters state 3. The executed Chore55 handler at
+`15200` performs reconstruction on both roles. It writes state 3 before
+the last reconstruction calls, so read that state at a serialized engine
+boundary after the native call returned. PACK and SIZE have their own paths.
+
+In `CDE60`, the client in state 3 transitions to state 4 and queues Chore66.
+The host instead enters `28160` to wait for those acknowledgements. The
+end of local reconstruction and the host's receipt of all acknowledgements
+are therefore separate boundaries. Executed Chore67 at `16E40` resets the
+repair state and returns held packets to the receive queue.

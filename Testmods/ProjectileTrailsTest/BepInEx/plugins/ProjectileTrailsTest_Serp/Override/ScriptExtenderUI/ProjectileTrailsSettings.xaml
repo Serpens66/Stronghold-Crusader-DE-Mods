@@ -117,6 +117,14 @@
           </StackPanel>
         </StackPanel>
       </Border>
+    <TextBlock Text="{Binding HostReadOnlyNoticeText}" Visibility="{Binding HostReadOnlyNoticeVisibility}" Margin="0,4"/>
+    <TextBlock Text="{Binding HostOptionsText}" Background="#33264A6A" Foreground="#88BBE8" FontWeight="Bold" Margin="0,6,0,6"/>
+    <Border Background="#33264A6A" BorderBrush="#66477194" BorderThickness="1" Padding="6" Margin="0,0,0,8">
+      <CheckBox Content="{Binding ReplaceStandardText}" IsChecked="{Binding ReplaceStandardAfterimages, Mode=TwoWay}"
+                IsEnabled="{Binding CanEditHostSettings}" ToolTipService.ShowDuration="60000">
+        <CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ReplaceStandardHelp}"/></CheckBox.ToolTip>
+      </CheckBox>
+    </Border>
     <TextBlock Text="{Binding ClientOptionsText}" Background="#33306950" Foreground="#66CC99" FontWeight="Bold" Margin="0,6,0,6"/>
     <StackPanel IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
       <Grid Margin="0,4">

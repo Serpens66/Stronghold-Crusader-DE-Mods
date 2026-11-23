@@ -34,7 +34,8 @@ namespace ProjectileTrailsTest
             string[] lines = File.ReadAllLines(request);
             if (lines.Length < 2) return;
             string scenario = lines[1];
-            bool green = scenario == "trails-green-standard" || scenario == "trails-green-extreme";
+            bool replace = scenario == "trails-green-standard-replaced";
+            bool green = scenario == "trails-green-standard" || scenario == "trails-green-extreme" || replace;
             bool gpuCapacity = scenario == "trails-gpu-capacity";
             bool mass = scenario == "trails-mass-match" || scenario == "trails-mass-gpu" || scenario == "trails-mass-gpu-off" || scenario == "trails-mass-vanilla" || scenario == "trails-mass-extreme" || scenario == "trails-mass-mod";
             bool smoke = scenario == "trails-smoke";
@@ -46,6 +47,8 @@ namespace ProjectileTrailsTest
                 throw new InvalidDataException("Invalid projectile-trails test run identity.");
 
             bool enabled = TrailRenderingEnabled;
+            // The runner backs up the preset store. Exercise the real setting instead of overriding admission.
+            settings.ReplaceStandardAfterimages = replace;
             if (gpuCapacity)
             {
                 TrailRenderingEnabled = true;
@@ -85,12 +88,14 @@ namespace ProjectileTrailsTest
             {
                 bool extreme = scenario == "trails-green-extreme";
                 TrailRenderingEnabled = true;
+                settings.AfterimageCount = TrailBuffer.Lifetime;
+                settings.MaximumVisible = TrailBuffer.MaximumVisibleCopies;
                 File.Delete(request);
                 api.Automation.Start(runId, new[]
                 {
                     new AutomationStep("start-test-green", TimeSpan.FromSeconds(110), run => StartGreen(run, extreme)),
                     new AutomationStep("prepare", TimeSpan.FromSeconds(35), run => Prepare(run, extreme), missionBound: true),
-                    new AutomationStep("green-flight", TimeSpan.FromSeconds(55), run => GreenFlight(run, runId, extreme), missionBound: true)
+                    new AutomationStep("green-flight", TimeSpan.FromSeconds(55), run => GreenFlight(run, runId, extreme, replace), missionBound: true)
                 }, log, completed: _ =>
                 {
                     if (fixtureCamera != null) fixtureCamera.AllowMove = previousCameraMovement;

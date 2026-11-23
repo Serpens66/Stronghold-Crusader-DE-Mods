@@ -29,6 +29,7 @@ namespace ProjectileTrailsTest
         private const int ProjectileStride = 0xE8;
         private const int TypeOffset = 0x3E;
         private const int HeaderSize = 32;
+        private const int SuppressOffset = 16;
         internal const int Capacity = TrailBuffer.CaptureCapacity;
         private static readonly byte[] Prologue = { 0x48, 0x89, 0x5C, 0x24, 0x10,
             0x48, 0x89, 0x6C, 0x24, 0x18, 0x57, 0x48, 0x83, 0xEC, 0x30 };
@@ -40,6 +41,9 @@ namespace ProjectileTrailsTest
         private readonly ManualLogSource log;
         private int generation;
         private HookTransaction transaction;
+        private Func<bool> integrity;
+
+        internal bool IsIntact => integrity?.Invoke() == true;
 
         [StructLayout(LayoutKind.Sequential)]
         internal struct EntrySample
@@ -100,6 +104,7 @@ namespace ProjectileTrailsTest
                 *(ushort*)target != 0x25FF || *(uint*)(target + 2) != 0 ||
                 *(ulong*)(target + 6) != (ulong)handle.Hook.StubAddress)
                 throw new InvalidOperationException("Afterimage observer did not publish the audited jump.");
+            integrity = NativePatchGuard.CaptureIntegrity(new[] { handle.Hook }, Feature);
 
             log.LogInfo($"[{DateTime.Now:HH:mm:ss.fff}] {Feature}: RVA 0x9BFC0–0x9BFCE (5/5/1/4 bytes), next instruction 448B1562CE5C03");
         }
@@ -110,6 +115,9 @@ namespace ProjectileTrailsTest
 
         internal void Reset(bool active) =>
             Volatile.Write(ref *(int*)buffer, active ? ++generation : 0);
+
+        internal void SuppressNativeAfterimages(bool suppress) =>
+            Volatile.Write(ref *(int*)(buffer + SuppressOffset), suppress ? 1 : 0);
 
         internal bool TryRead(long sequence, int epoch, out EntrySample sample)
         {
@@ -136,7 +144,8 @@ namespace ProjectileTrailsTest
         private void Emit(Assembler a, ReadOnlySpan<Instruction> original)
         {
             var restore = a.CreateLabel();
-            var append = a.CreateLabel();
+            var supported = a.CreateLabel();
+            var afterCapture = a.CreateLabel();
 
             // 9FED0 is the sole caller. Capture the Win64 args on entry, before the allocator
             // returns zero in Extreme. Preserve original RFLAGS and all modified registers.
@@ -147,21 +156,24 @@ namespace ProjectileTrailsTest
             a.push(r12);
             a.mov(r10, (ulong)buffer);
             a.mov(r12d, __dword_ptr[r10]);
-            a.test(r12d, r12d);
+            a.mov(r11d, r12d);
+            a.or(r11d, __dword_ptr[r10 + SuppressOffset]);
             a.jz(restore);
 
             a.mov(rax, (ulong)(image + CurrentSlotRva));
             a.movsxd(rax, __dword_ptr[rax]);
             a.imul(r11, rax, ProjectileStride);
             a.cmp(__word_ptr[rcx + r11 + TypeOffset], (int)ProjectileType.ArcherArrow);
-            a.je(append);
+            a.je(supported);
             a.cmp(__word_ptr[rcx + r11 + TypeOffset], (int)ProjectileType.CrossbowBolt);
-            a.je(append);
+            a.je(supported);
             // The European Attack Here launch uses this type when it isn't mapped to ArcherArrow.
             a.cmp(__word_ptr[rcx + r11 + TypeOffset], (int)ProjectileType.UnkMissile24);
             a.jne(restore);
 
-            a.Label(ref append);
+            a.Label(ref supported);
+            a.test(r12d, r12d);
+            a.jz(afterCapture);
             a.mov(r11, __qword_ptr[r10 + 8]);
             a.inc(r11);
             // Keep the source slot in EAX while indexing the 32-byte ring by sequence.
@@ -189,13 +201,26 @@ namespace ProjectileTrailsTest
             a.mov(__qword_ptr[rax], r11);
             a.mov(__qword_ptr[r10 + 8], r11);
 
+            a.Label(ref afterCapture);
+            a.cmp(__dword_ptr[r10 + SuppressOffset], 0);
+            a.je(restore);
+            // The original prologue has not run. Return zero on the untouched caller stack.
+            RestoreRegisters(a);
+            a.mov(eax, 0);
+            a.ret();
+
             a.Label(ref restore);
+            RestoreRegisters(a);
+            foreach (var instruction in original) a.AddInstruction(instruction);
+        }
+
+        private static void RestoreRegisters(Assembler a)
+        {
             a.pop(r12);
             a.pop(r11);
             a.pop(r10);
             a.pop(rax);
             a.popfq();
-            foreach (var instruction in original) a.AddInstruction(instruction);
         }
     }
 }

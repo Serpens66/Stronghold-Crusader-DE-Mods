@@ -3,6 +3,21 @@ using System.Collections.Generic;
 using System.Linq;
 using BugfixesAndQoL.AreaConstruction;
 
+var cadence = new StorageBuildCadence();
+if (!cadence.TryBegin(0))
+    throw new InvalidOperationException("The first check must be allowed at native tick zero.");
+for (int frame = 0; frame < 240; frame++)
+    if (cadence.TryBegin(0))
+        throw new InvalidOperationException("Repeated frames cannot repeat a storage check in the same tick.");
+if (!cadence.TryBegin(1) || !cadence.TryBegin(80) || cadence.TryBegin(80) || cadence.TryBegin(79))
+    throw new InvalidOperationException("Storage checks must follow new ticks without catching up or accepting stale ticks.");
+if (!cadence.TryBegin(null) || !cadence.TryBegin(null) || cadence.TryBegin(80) || !cadence.TryBegin(81))
+    throw new InvalidOperationException("Frame cadence must remain available without a clock and resume tick cadence on recovery.");
+var wrapped = new StorageBuildCadence();
+if (!wrapped.TryBegin(int.MaxValue) || !wrapped.TryBegin(int.MinValue) || wrapped.TryBegin(int.MaxValue))
+    throw new InvalidOperationException("Signed map tick wrap must preserve forward progress.");
+Console.WriteLine("PASS: storage cadence, slow ticks, skipped ticks, clock fallback, and counter wrap.");
+
 foreach (bool stockpile in new[] { false, true })
 {
     int vanillaLimit = stockpile ? 32 : 8;

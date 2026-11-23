@@ -5,9 +5,9 @@ using Shared;
 
 namespace DepositRestoration
 {
-    [BepInPlugin(Guid, "Deposit Restoration", "0.2.0")]
+    [BepInPlugin(Guid, "Deposit Restoration", "0.3.1")]
     [BepInDependency("000shcdese", "2.14.4")]
-    [BepInDependency("APIShared_Serp", "0.63.0")]
+    [BepInDependency("APIShared_Serp", "0.67.0")]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class Plugin : BaseUnityPlugin
     {

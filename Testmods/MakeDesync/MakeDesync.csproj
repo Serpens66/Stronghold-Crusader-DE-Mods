@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)/$(MSBuildToolsVersion)/Microsoft.Common.props" />
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
+    <Platform>AnyCPU</Platform>
+    <OutputType>Library</OutputType>
+    <AssemblyName>MakeDesync</AssemblyName>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DebugType>portable</DebugType>
+    <OutputPath>BepInEx/plugins/MakeDesync_Serp/</OutputPath>
+    <GameDir Condition="'$(GameDir)' == ''">E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition</GameDir>
+    <ExtenderDir Condition="'$(ExtenderDir)' == ''">$(GameDir)/BepInEx/plugins/000shcdese</ExtenderDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System;System.Core" />
+    <Reference Include="BepInEx"><HintPath>$(GameDir)/BepInEx/core/BepInEx.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Assembly-CSharp;UnityEngine;UnityEngine.CoreModule;UnityEngine.InputLegacyModule">
+      <HintPath>$(GameDir)/Stronghold Crusader Definitive Edition_Data/Managed/%(Identity).dll</HintPath><Private>false</Private>
+    </Reference>
+    <Reference Include="APIShared;SHCDESE;System.Memory;R3">
+      <HintPath>$(ExtenderDir)/%(Identity).dll</HintPath><Private>false</Private>
+    </Reference>
+    <Compile Include="src/*.cs" />
+    <Compile Include="../../Shared/Runtime/Native/CommittedMemory.cs"><Link>Shared/Runtime/Native/CommittedMemory.cs</Link></Compile>
+    <Content Include="info.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)/Microsoft.CSharp.targets" />
+</Project>

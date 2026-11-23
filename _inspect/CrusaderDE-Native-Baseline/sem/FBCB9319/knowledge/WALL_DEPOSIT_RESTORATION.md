@@ -104,3 +104,12 @@ or retain an origin.
 The private fixture checked native bookkeeping and the installed RedBird
 backend on the 13 original spans. Genuine Host/Client gameplay, recovery
 after native repair, and the new early restore path await live acceptance.
+
+The preceding repair behavior describes 0.2.0. The user subsequently
+confirmed that loading a shared multiplayer save preserved the covered
+deposits. In 0.3.0, APIShared separately transfers a snapshot of the host's
+private buffer for each executed repair. The participant prepares a
+replacement against the final native logic grid, excluding cells that no
+longer carry the wall flag. The prepared history is committed on each peer
+before the legacy completion callback rearms the wall hooks. The archive
+schema is unchanged. Live multiplayer repair acceptance is still pending.

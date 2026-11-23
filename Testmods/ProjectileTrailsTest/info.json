@@ -2,10 +2,10 @@
   "GUID": "ProjectileTrailsTest_Serp",
   "Author": "Serpens66",
   "Name": "Extreme Troops Projectile Trails Test",
-  "Description": "Client-only test of fading arrow and bolt sprites in Extreme Troops.",
-  "Version": "0.3.1",
+  "Description": "Configurable arrow and bolt trails in Extreme Troops, with optional host-controlled replacement in Standard mode.",
+  "Version": "0.4.0",
   "MinimumScriptExtenderVersion": "2.14.4",
   "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.62.0" }],
   "Manifest": 1,
-  "NetworkMode": 0
+  "NetworkMode": 1
 }

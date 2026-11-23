@@ -1,5 +1,6 @@
 using System;
 using APIShared.ModSettings;
+using SHCDESE.API.Components.Network;
 using SHCDESE.NoesisUtil;
 
 namespace ProjectileTrailsTest
@@ -7,6 +8,7 @@ namespace ProjectileTrailsTest
     public sealed class TrailSettings : PresetLobbyModSettingsViewModel
     {
         private bool enabled;
+        private bool replaceStandardAfterimages = true;
         private int afterimageCount = TrailBuffer.Lifetime;
         private int maximumVisible = TrailBuffer.MaximumVisibleCopies;
 
@@ -25,6 +27,18 @@ namespace ProjectileTrailsTest
                 if (enabled == value) return;
                 enabled = value;
                 OnPropertyChanged(nameof(EnableClientFeatures));
+            }
+        }
+
+        [SyncHostOnly]
+        public bool ReplaceStandardAfterimages
+        {
+            get => replaceStandardAfterimages;
+            set
+            {
+                if (replaceStandardAfterimages == value) return;
+                replaceStandardAfterimages = value;
+                OnPropertyChanged(nameof(ReplaceStandardAfterimages));
             }
         }
 
@@ -60,6 +74,8 @@ namespace ProjectileTrailsTest
 
         public string EnableText => SerpLocalization.Get(SerpLocalization.EnableMod);
         public string EnableHelp => SerpLocalization.Get("ProjectileTrails.EnableHelp");
+        public string ReplaceStandardText => SerpLocalization.Get("ProjectileTrails.ReplaceStandard");
+        public string ReplaceStandardHelp => SerpLocalization.Get("ProjectileTrails.ReplaceStandardHelp");
         public string CountText => SerpLocalization.Get("ProjectileTrails.Count");
         public string CountHelp => SerpLocalization.Get("ProjectileTrails.CountHelp");
         public string MaximumText => SerpLocalization.Get("ProjectileTrails.Maximum");
@@ -75,6 +91,7 @@ namespace ProjectileTrailsTest
         {
             if (!CanResetSettings) return;
             EnableClientFeatures = true;
+            if (CanEditHostSettings) ReplaceStandardAfterimages = true;
             AfterimageCount = TrailBuffer.Lifetime;
             MaximumVisible = TrailBuffer.MaximumVisibleCopies;
         }

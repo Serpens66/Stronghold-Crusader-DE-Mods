@@ -12,17 +12,22 @@ editor maps and saves written by version 0.1.0. Ship a single owner
 of the native spans and archive identifier. Remove the standalone
 package when moving the feature into the receiving mod.
 
-The runtime uses Script Extender 2.14.4 and APIShared 0.63.0 or newer.
+The runtime uses Script Extender 2.14.4 and APIShared 0.67.0 or newer.
 It registers an atomic simulation record and a required multiplayer
 capability. All peers use the same feature registration and compare
 the matching saved metadata before loading. The fix has no
 player-local setting, timer or network command.
 
-The common native repair lifecycle suspends capture and restoration,
-then clears private history on every peer before resuming. This can
-lose the origin of a wall that was standing before a resync. The
-original terrain is still available for deposits exposed before
-the repair and for walls built afterwards.
+At repair start, the wall hooks pause and freeze the raw covered-deposit
+history. The runtime opts in to early capture so APIShared can compare
+the host's checksum with local copies while Vanilla repairs the world.
+If another record needs late capture, APIShared compares the complete set
+at the normal boundary. A differing copy receives the host's record after
+Vanilla reaches its completion gate. Each peer validates the record against
+the repaired grid, keeps entries for tiles that still have walls and commits
+the replacement before the hooks resume. An agreed world cannot resume a
+repair with missing or invalid deposit history. The archive identifier and
+format continue to support existing saves.
 
 ## Acceptance
 
@@ -41,4 +46,13 @@ timestamped mission message confirms activation for the current mode.
 | Load an older Vanilla save whose wall already erased a deposit | No resource is inferred under that wall. New placements on intact deposits still track normally. |
 | Host and client each build and demolish wall cells on both deposits | Both see the same tile flags after the orders and after later checksum checkpoints. |
 | Load a shared multiplayer save with covered cells, then demolish | Both peers restore the same original deposits. A mismatching mod record must prevent the shared load. |
-| Exercise an actual multiplayer repair and then place and remove new walls | The peers retire the old history and resume recording on the same repair boundary. |
+| Cover stone and iron before an actual multiplayer repair, then remove the walls and repeat with newly built walls | Both peers restore the original deposits before and after new construction. Repeat after loading a shared save and across successive repairs. |
+| Repair a grid in which a captured tile is no longer a wall | The tile has no stored wall origin after repair. Subsequent walls on it record the current terrain. |
+
+The APIShared log emits `RESYNC_DATA_COMPLETED` on each peer. Run the
+following checks with Deposit Restoration as the sole resync data provider.
+With matching histories, both peers report `requestedRecords=0` and
+`transferredBytes=0`.
+With divergent histories, the affected peer requests the host's record
+and both peers restore the same deposits after demolition. Repeat with a
+repair that removes a wall to verify that its entry is filtered out.

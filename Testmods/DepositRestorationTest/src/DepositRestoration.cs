@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -26,6 +27,7 @@ namespace DepositRestoration
         // Stable across the move to a main mod, including saves from the original prototype.
         private const string SaveIdentifier = "DepositRestorationTest_Serp";
         private const string Entry = "covered-deposits";
+        private const int RecordSize = sizeof(int) + DepositHooks.Capacity;
         private readonly string ownerGuid;
         private readonly ManualLogSource log;
         private HookTransaction transaction;
@@ -34,7 +36,8 @@ namespace DepositRestoration
         private ulong tileManager;
         private long pendingSession, activeSession;
         private byte[] pending;
-        private bool invalidRecord, multiplayerWorld, repairing;
+        private bool invalidRecord, multiplayerWorld, repairing, repairHistoryApplied;
+        private bool resyncReady;
         private volatile bool ready, agreed;
         private Func<bool> intact;
 
@@ -44,7 +47,7 @@ namespace DepositRestoration
             this.ownerGuid = ownerGuid;
             this.log = log;
             SimulationAgreement.Register(ownerGuid, Feature, required: true,
-                isReady: () => ready && intact() && MultiplayerResyncEvents.CheckIntegrity(),
+                isReady: () => ready && intact() && HasResyncIntegrity(),
                 apply: enabled => agreed = enabled);
         }
 
@@ -144,6 +147,10 @@ namespace DepositRestoration
                 if (!lifecycle.TryRegisterObserver(Feature, Start, End, Initialize, out diagnostic))
                     throw new InvalidOperationException(diagnostic?.Reason);
 
+                resyncReady = MultiplayerResyncData.TryRegisterEarlyCapture<byte[]>(ownerGuid, Entry, 1, RecordSize,
+                    CaptureResync, PrepareResync, CommitResync, out reason);
+                if (!resyncReady)
+                    DebugLogHelper.LogError(log, "Wall deposit multiplayer resync registration failed. " + reason);
                 ready = true;
             }
             catch (Exception error)
@@ -179,7 +186,7 @@ namespace DepositRestoration
             History.Clear();
             pendingSession = activeSession = 0;
             pending = null;
-            invalidRecord = multiplayerWorld = repairing = false;
+            invalidRecord = multiplayerWorld = repairing = repairHistoryApplied = false;
         }
 
         private void Initialize(MissionLifecycleNotification notification)
@@ -222,7 +229,7 @@ namespace DepositRestoration
             multiplayerWorld = context.Mode.IsRealMultiplayer;
             if (multiplayerWorld && !agreed) return true;
             NativePatchGuard.Recheck();
-            if (!intact() || (multiplayerWorld && !MultiplayerResyncEvents.CheckIntegrity()))
+            if (!intact() || (multiplayerWorld && !HasResyncIntegrity()))
                 return RefuseWorld("A required wall deposit hook is unavailable.");
 
             var tiles = GameTileManagerAPI.Instance;
@@ -234,7 +241,7 @@ namespace DepositRestoration
                 if (invalidRecord) return RefuseWorld("The saved wall deposit state could not be read.");
                 if (pending != null)
                 {
-                    if (BitConverter.ToInt32(pending, 0) != tiles.GetCurrentMapSize())
+                    if (BinaryPrimitives.ReadInt32LittleEndian(pending) != tiles.GetCurrentMapSize())
                         return RefuseWorld("Saved wall deposits use a different map size.");
                     var history = History;
                     for (int tile = 0; tile < logic.Length; tile++)
@@ -259,18 +266,57 @@ namespace DepositRestoration
         {
             if (!multiplayerWorld || !agreed || activeSession == 0) return;
             repairing = true;
+            repairHistoryApplied = false;
             Marshal.WriteByte(state, 0);
         }
 
         private void CompleteRepair()
         {
             if (!repairing) return;
-            if (!agreed || !intact() || !MultiplayerResyncEvents.CheckIntegrity())
+            if (!agreed || !intact() || !HasResyncIntegrity())
                 throw new InvalidOperationException("Wall deposit restoration lost its agreed hooks during repair.");
-            // Chore 65 repairs the Vanilla grid. Retire its private history on every peer.
-            History.Clear();
+            if (!repairHistoryApplied)
+                throw new InvalidOperationException("Wall deposit repair completed without committing the host history.");
             repairing = false;
             Marshal.WriteByte(state, 1);
+        }
+
+        private bool HasResyncIntegrity() => resyncReady && MultiplayerResyncEvents.CheckIntegrity() &&
+            MultiplayerResyncData.CheckIntegrity();
+
+        private byte[] CaptureResync()
+        {
+            if (!repairing || !multiplayerWorld || !agreed || activeSession == 0)
+                throw new InvalidOperationException("Wall deposit history is unavailable for the agreed repair.");
+            var record = NewRecord(GameTileManagerAPI.Instance.GetCurrentMapSize());
+            // BeginRepair froze history before this capture. PrepareResync checks the final grid.
+            History.CopyTo(record.AsSpan(sizeof(int)));
+            return record;
+        }
+
+        private byte[] PrepareResync(ReadOnlyMemory<byte> snapshot)
+        {
+            if (!repairing || !agreed || !intact())
+                throw new InvalidOperationException("Wall deposit history cannot be prepared outside the agreed repair.");
+            var tiles = GameTileManagerAPI.Instance;
+            var record = snapshot.Span;
+            if (!ValidRecord(record) || BinaryPrimitives.ReadInt32LittleEndian(record) != tiles.GetCurrentMapSize())
+                throw new InvalidDataException("Invalid wall deposit history for the repaired map.");
+            var logic = tiles.GetLogicLayer();
+            if (unchecked((ulong)tiles.GetTileManager().ToInt64()) != tileManager || logic.Length != DepositHooks.Capacity)
+                throw new InvalidOperationException("The repaired map uses a different tile layout.");
+
+            var history = new byte[DepositHooks.Capacity];
+            for (int tile = 0; tile < history.Length; tile++)
+                if ((logic[tile] & (int)TilePropertyFlag.IsWall) != 0)
+                    history[tile] = record[tile + sizeof(int)];
+            return history;
+        }
+
+        private void CommitResync(byte[] history)
+        {
+            history.AsSpan().CopyTo(History);
+            repairHistoryApplied = true;
         }
 
         private bool CaptureSave(VersionedSaveWriter writer)
@@ -285,11 +331,7 @@ namespace DepositRestoration
                 for (int tile = 0; tile < history.Length; tile++)
                 {
                     if (history[tile] == 0 || (logic[tile] & (int)TilePropertyFlag.IsWall) == 0) continue;
-                    if (record == null)
-                    {
-                        record = new byte[DepositHooks.Capacity + sizeof(int)];
-                        BitConverter.GetBytes(GameTileManagerAPI.Instance.GetCurrentMapSize()).CopyTo(record, 0);
-                    }
+                    if (record == null) record = NewRecord(GameTileManagerAPI.Instance.GetCurrentMapSize());
                     record[tile + sizeof(int)] = history[tile];
                 }
                 if (record != null) writer.Write(Entry, record);
@@ -319,9 +361,16 @@ namespace DepositRestoration
             }
         }
 
-        private static bool ValidRecord(byte[] record)
+        private static byte[] NewRecord(int mapSize)
         {
-            if (record.Length != DepositHooks.Capacity + sizeof(int)) return false;
+            var record = new byte[RecordSize];
+            BinaryPrimitives.WriteInt32LittleEndian(record, mapSize);
+            return record;
+        }
+
+        private static bool ValidRecord(ReadOnlySpan<byte> record)
+        {
+            if (record.Length != RecordSize) return false;
             for (int i = sizeof(int); i < record.Length; i++)
                 if ((record[i] & ~DepositHooks.StoredMask) != 0) return false;
             return true;

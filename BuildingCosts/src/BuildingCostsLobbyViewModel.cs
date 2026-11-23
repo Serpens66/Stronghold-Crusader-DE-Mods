@@ -67,7 +67,6 @@ namespace BuildingCosts
             "MAPPER_TOWER5",
             "MAPPER_GATE_MAIN",
             "MAPPER_GATE_INNER",
-            "MAPPER_GATE_WOOD",
             "MAPPER_DRAWBRIDGE",
             "MAPPER_KILLING_PIT",
             "MAPPER_BRAZIER",
@@ -386,7 +385,10 @@ namespace BuildingCosts
             Dictionary<string, BuildingCostValues> parsed = ParseSerializedCosts(buildingCosts);
             foreach (KeyValuePair<string, BuildingCostValues> entry in parsed)
             {
-                if (Enum.TryParse(entry.Key, true, out eMappers mapper) && mapper != eMappers.MAPPER_BRAZIER)
+                if (Enum.TryParse(entry.Key, true, out eMappers mapper) &&
+                    mapper is not (eMappers.MAPPER_BRAZIER or eMappers.MAPPER_GATE_WOOD or
+                        eMappers.MAPPER_GATE_WOOD1A or eMappers.MAPPER_GATE_WOOD1B or
+                        eMappers.MAPPER_GATE_WOOD1C or eMappers.MAPPER_GATE_WOOD1D))
                     result[mapper] = entry.Value;
             }
 
@@ -507,11 +509,6 @@ namespace BuildingCosts
                 case eStructs.STRUCT_GATE_INNER:
                 case eStructs.STRUCT_GATE_STONE1A:
                 case eStructs.STRUCT_GATE_STONE1B: return "UI-Buildings L003";
-                case eStructs.STRUCT_GATE_WOOD:
-                case eStructs.STRUCT_GATE_WOOD1A:
-                case eStructs.STRUCT_GATE_WOOD1B:
-                case eStructs.STRUCT_GATE_WOOD1C:
-                case eStructs.STRUCT_GATE_WOOD1D: return "UI-Buildings L001";
                 case eStructs.STRUCT_DRAWBRIDGE: return "UI-Buildings L007";
                 case eStructs.STRUCT_KILLING_PIT: return "UI-Buildings L013";
                 case eStructs.STRUCT_BRAZIER: return "UI-Buildings L015";

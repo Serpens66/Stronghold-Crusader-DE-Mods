@@ -58,8 +58,10 @@ namespace ProjectileTrailsTest
             Require(pinnedGreenSlot >= 0, "The test_green starting slot was not pinned.");
         }
 
-        private static IEnumerable<AutomationWait> GreenFlight(AutomationRun run, System.Guid runId, bool extreme)
+        private static IEnumerable<AutomationWait> GreenFlight(AutomationRun run, System.Guid runId, bool extreme, bool replace)
         {
+            Require(replaceStandard == replace, "Unexpected native Standard replacement decision.");
+            bool usesModTrails = extreme || replace;
             var mission = run.CurrentMission;
             var players = GamePlayerManagerAPI.Instance;
             var units = GameUnitManagerAPI.Instance;
@@ -164,19 +166,49 @@ namespace ProjectileTrailsTest
                 uint tick = native.Tick;
                 if (tick == recorded) continue;
                 recorded = tick;
-                int count = extreme ? LastSegmentCount : CountVanillaReference();
+                int count = usesModTrails ? LastSegmentCount : CountVanillaReference();
+                if (replace) Require(CountVanillaReference() == 0, "A native arrow afterimage was drawn with replacement on.");
                 peak = Math.Max(peak, count);
                 WriteInfo($"test_green frame extreme={extreme} tick={tick} copies={count}");
                 if (tick - firstTick >= 16 && peak >= 10) break;
             }
-            Require(peak >= 10 && peak <= (extreme ? 10 : 11), "Unexpected peak of simultaneous afterimages: " + peak);
+            Require(peak >= 10 && peak <= (usesModTrails ? 10 : 11), "Unexpected peak of simultaneous afterimages: " + peak);
             foreach (var wait in run.SetPause(mission, true)) yield return wait;
-            int paused = extreme ? LastSegmentCount : CountVanillaReference();
+            int paused = usesModTrails ? LastSegmentCount : CountVanillaReference();
             yield return AutomationWait.Delay(TimeSpan.FromMilliseconds(350));
-            Require(paused > 0 && paused == (extreme ? LastSegmentCount : CountVanillaReference()), "Afterimages changed while paused.");
+            Require(paused > 0 && paused == (usesModTrails ? LastSegmentCount : CountVanillaReference()), "Afterimages changed while paused.");
+            Require((run.InSimulation(mission, CountNativeArrowAfterimages) == 0) == usesModTrails,
+                "Unexpected occupancy of the native arrow afterimage slots.");
             WriteInfo($"GREEN_RESULT extreme={extreme} natural={natural} peak={peak} paused={paused} rotation={GameMap.instance.CurrentRotation()} zoom={PerfectPixelWithZoom.instance.getZoom()}");
-            foreach (var wait in Capture(runId, extreme ? "test-green-extreme" : "test-green-standard")) yield return wait;
+            string label = replace ? "test-green-standard-replaced" : extreme ? "test-green-extreme" : "test-green-standard";
+            foreach (var wait in Capture(runId, label)) yield return wait;
+            if (replace)
+            {
+                TrailRenderingEnabled = false;
+                foreach (var wait in run.SetPause(mission, false)) yield return wait;
+                int secondShot = run.InSimulation(mission, () =>
+                {
+                    int elevation = tiles.GetTileHeight(tiles.GetTileId(source.origin.x, source.origin.y)) + 96;
+                    return checked((int)projectiles.CreateProjectile(source.id, owner, FineTileCentre(source.origin.x),
+                        FineTileCentre(source.origin.y), elevation, FineTileCentre(target.x), FineTileCentre(target.y),
+                        elevation, ProjectileType.ArcherArrow, 0));
+                });
+                Require(secondShot > 0, "Local display toggle prevented another real shot.");
+                yield return run.WaitForTicks(mission, 8);
+                Require(LastSegmentCount == 0 && run.InSimulation(mission, CountNativeArrowAfterimages) == 0,
+                    "Local display off must hide mod trails without re-enabling native allocation.");
+                WriteInfo("STANDARD_REPLACEMENT PASS: native trails suppressed with local drawing on and off.");
+            }
             traceVisibility = false;
+        }
+
+        private static int CountNativeArrowAfterimages()
+        {
+            int count = 0;
+            foreach (ref readonly var projectile in GameProjectileManagerAPI.Instance.GetProjectilesAsSpan())
+                if (projectile.r_AliveState != AliveState.None && projectile.r_ProjectileType == ProjectileType.AfterImage &&
+                    (int)projectile.r_GameMaterial == (int)Enums.GM.GM_BODY_MISSILE) count++;
+            return count;
         }
 
         private static int CountVanillaReference()

@@ -1,5 +1,7 @@
-ProjectileTrails.EnableHelp=Zeigt lokale Nachbilder von Pfeilen und Armbrustbolzen in Extreme Troops. Gilt ab der nächsten Partie.
+ProjectileTrails.EnableHelp=Zeigt lokale Nachbilder von Pfeilen und Armbrustbolzen in Extreme Troops und bei aktiviertem Ersatz im Standardmodus. Gilt ab der nächsten Partie.
 ProjectileTrails.Count=Nachbilder pro Geschoss
-ProjectileTrails.CountHelp=0 entspricht der normalen Darstellung in Extreme Troops. 10 stellt die volle Spur wieder her. Niedrigere Werte behalten weniger Momentaufnahmen. Gilt ab der nächsten Partie.
+ProjectileTrails.CountHelp=0 blendet die Mod-Nachbilder aus. 10 stellt die volle Spur wieder her. Niedrigere Werte behalten weniger Momentaufnahmen. Gilt ab der nächsten Partie.
 ProjectileTrails.Maximum=Sichtbare Nachbilder insgesamt
 ProjectileTrails.MaximumHelp=Begrenzt die Gesamtzahl gleichzeitig sichtbarer Nachbilder. Ein niedrigerer Wert entlastet die Darstellung bei großen Salven. Am Limit haben neuere Nachbilder Vorrang. Gilt ab der nächsten Partie.
+ProjectileTrails.ReplaceStandard=Vanilla-Nachbilder im Standardmodus ersetzen
+ProjectileTrails.ReplaceStandardHelp=Verhindert native Nachbilder normaler Pfeile und Armbrustbolzen und gibt ihre Plätze für Geschosse und Effekte frei. Die Darstellung folgt den lokalen Reglern. Im Mehrspieler gilt die Einstellung des Hosts ab Kartenstart.

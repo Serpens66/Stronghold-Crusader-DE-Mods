@@ -122,3 +122,51 @@ visible beside its silhouette. The paused North-view fixture held the
 world positions, camera and sprite layer constant while varying the
 projectile sort row. See the
 [paired images and pixel-mask method](../../../../../Testmods/ProjectileTrailsTest/TESTING.md#tower-occlusion).
+
+## Effect allocation under pressure (2026-11-23) [Vanilla facts]
+
+The reference DLL's ordinary allocator scans from its cursor at
+`0x9B366..0x9B39E`. Ordinary slots start at 25 (the sweep resets the cursor
+to 25 at `0x9F970`), so the Standard bound gives 2,975 ordinary slots
+(25..2999). Economy indicators 0x28 and 0x29 use the separate reserved
+slots 1..24 at `0x9B336`.
+
+When the ordinary forward search reaches the last occupied slot, the
+allocator uses the launch-type selector at `0x9BA24` and destinations
+at `0x9BA1C`. Values that reach `0x9B403` among admitted inputs include
+ordinary arrows (0x01, 0x18), crossbow bolts (0x07), catapult/trebuchet/
+mangonel rocks (0x02..0x04), and disease clouds (0x16). Affected callers
+scan again from 25. They can take a free slot or reclaim a record whose
+state is nonzero and different from 1, whose byte at +0x36 is zero,
+and whose stored type is 0x09, 0x15, 0x1B, 0x1E or 0x1F
+(`0x9B420..0x9B44F`). Reclamation calls the normal removal function
+`0x9F2D0` before allocating the replacement (`0x9B480..0x9B498`).
+The list includes ground fire but excludes type-6 AfterImage records.
+Types 0x09 (new ground fire) and 0x14 (ordinary ballista bolt) take the
+return-zero path at `0x9B45F` when the forward search is exhausted.
+An already burning tile can renew its existing record without allocating
+a new one. See [ground fire and damage](FIRE_EFFECTS.md#effect-manager-and-fire-records)
+and [plague damage cadence](PLAGUE_HEIGHT.md#cloud-life-cycle-movement-and-damage-cadence-audit-2026-11-02-same-hash).
+
+Confirmed statically with the installed PE, including the jump table and
+removal call. The fixed Standard volley counted a peak of 270 native
+AfterImage records. That peak is measured independently of the arrow peak
+and does not quantify additional shots, fires or reclaimed effects when
+afterimages are suppressed.
+
+### Standard replacement at the existing observer [mod integration]
+
+ProjectileTrailsTest 0.4.0 can skip allocating the selected ordinary
+arrow and bolt afterimages in Standard mode. It uses the existing entry
+span and returns zero after restoring the entry stack, before the Vanilla
+prologue and allocation. The Vanilla early return used for Extreme
+Troops runs its own epilogue at `0x9C0E6`. Both paths reach the same caller
+continuation at `0x9FED5`, which reloads the source slot and does not
+consume the result. The ordinary flight update still follows at
+`0x9FEF0` when the source is not stopped. The separate type-5 smoke
+producer is outside the entry span.
+
+The native rule is a shared Host setting in multiplayer and uses
+APIShared simulation admission. The local renderer's settings never
+control the admitted allocation rule. See the
+[Standard replacement tests](../../../../../Testmods/ProjectileTrailsTest/TESTING.md#standard-mode-replacement-040).

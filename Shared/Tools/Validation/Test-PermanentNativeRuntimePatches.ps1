@@ -54,25 +54,26 @@ if ((-not $ModDirectory -or $selectedFiles.Contains($wheatMemory)) -and (Test-Pa
 # The checker verifies the once gate, process root, publication barrier, all publisher
 # callers, readiness order, and unpublished-only disposal; a filename is not permission.
 $startupPublications = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-$constructionCallPublications = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+$rawCallPublications = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
 $unitVoiceRuntime = Join-Path $workspace 'APIShared\src\Audio\UnitVoices\UnitVoiceNativeRuntime.cs'
 if ($selectedFiles.Contains($unitVoiceRuntime)) {
     $project = Join-Path $workspace 'APIShared\tools\SourceContracts\SourceContracts.csproj'
     $report = @(& dotnet run --project $project --configuration Release --verbosity quiet -- (Join-Path $workspace 'APIShared') hook-publications)
     if ($LASTEXITCODE -ne 0) { throw 'Unit voice startup publication verification failed.' }
-    $sites = @($report[-1] | ConvertFrom-Json)
+    $sites = ConvertFrom-Json -InputObject $report[-1]
     foreach ($site in $sites) { [void]$startupPublications.Add(([IO.Path]::GetFullPath($site.Path) + ':' + $site.Line)) }
 }
 
 # Exact CodePatch writer locations come from the Roslyn-verified startup call chain,
 # hash/byte checks, process root and failed-publication barrier. No filename is exempt.
 $constructionCalls = Join-Path $workspace 'APIShared\src\Buildings\ConstructionCosts\HumanConstructionRuntime.GoldCalls.cs'
-if ($selectedFiles.Contains($constructionCalls)) {
+$resyncCall = Join-Path $workspace 'APIShared\src\Multiplayer\MultiplayerResyncDataNativeRuntime.cs'
+if ($selectedFiles.Contains($constructionCalls) -or $selectedFiles.Contains($resyncCall)) {
     $project = Join-Path $workspace 'APIShared\tools\SourceContracts\SourceContracts.csproj'
-    $report = @(& dotnet run --project $project --configuration Release --verbosity quiet -- (Join-Path $workspace 'APIShared') construction-call-publications)
-    if ($LASTEXITCODE -ne 0) { throw 'Construction gold CALL startup publication verification failed.' }
-    $sites = @($report[-1] | ConvertFrom-Json)
-    foreach ($site in $sites) { [void]$constructionCallPublications.Add(([IO.Path]::GetFullPath($site.Path) + ':' + $site.Line)) }
+    $report = @(& dotnet run --project $project --configuration Release --verbosity quiet -- (Join-Path $workspace 'APIShared') raw-call-publications)
+    if ($LASTEXITCODE -ne 0) { throw 'Raw CALL startup publication verification failed.' }
+    $sites = ConvertFrom-Json -InputObject $report[-1]
+    foreach ($site in $sites) { [void]$rawCallPublications.Add(([IO.Path]::GetFullPath($site.Path) + ':' + $site.Line)) }
 }
 
 # Returns the first/last line of the brace block that starts at the only line containing $Signature.
@@ -170,9 +171,9 @@ foreach ($file in $files) {
             $startupPublication = $line -match '\.Hook\.Enable\s*\(' -and
                 $line -notmatch '\.Hook\.Disable\s*\(|\bCodePatch\.|GatehouseNativeMutation|\bVirtualProtect\s*\(|\bFlushInstructionCache\s*\(' -and
                 $startupPublications.Contains(($file.FullName + ':' + ($index + 1)))
-            $constructionCallPublication = $line -match '\bCodePatch\.Write\s*\(' -and
-                $constructionCallPublications.Contains(($file.FullName + ':' + ($index + 1)))
-            if ($file.FullName -ne $wheatMemory -and -not $freshSpectatorStub -and -not $freshPage -and -not $startupPublication -and -not $constructionCallPublication) {
+            $rawCallPublication = $line -match '\bCodePatch\.Write\s*\(' -and
+                $rawCallPublications.Contains(($file.FullName + ':' + ($index + 1)))
+            if ($file.FullName -ne $wheatMemory -and -not $freshSpectatorStub -and -not $freshPage -and -not $startupPublication -and -not $rawCallPublication) {
                 $errors.Add("$($file.FullName):$($index + 1): runtime executable-memory mutation: $($line.Trim())")
             }
         }

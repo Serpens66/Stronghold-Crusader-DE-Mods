@@ -34,6 +34,7 @@ namespace BugfixesAndQoL.AreaConstruction
         private readonly Dictionary<Tile, int> storageFrames = new Dictionary<Tile, int>();
         private readonly List<Tile> quarryPiles = new List<Tile>(4);
         private StorageBuildOrder storageBuild;
+        private bool storageClockWarningLogged;
         private readonly GhostView view = new GhostView();
         private IMissionPlayStateReadinessCapability readiness;
         private MissionContext mission;
@@ -461,7 +462,23 @@ namespace BugfixesAndQoL.AreaConstruction
             }
 
             if (Director.instance == null || Director.instance.Paused || GameData.scenario == null ||
-                order.Map.pendingRotationtriggered || (!order.Editor && readiness?.Current?.SessionId != order.SessionId) ||
+                order.Map.pendingRotationtriggered || (!order.Editor && readiness?.Current?.SessionId != order.SessionId))
+                return;
+
+            // The engine monitor protects the clock read until the native state for that tick is stable.
+            int? currentTick = null;
+            if (!order.Editor)
+            {
+                if (SimulationClock.TryGetCurrentTick(mission, out int tick))
+                    currentTick = tick;
+                else if (!storageClockWarningLogged)
+                {
+                    storageClockWarningLogged = true;
+                    log.LogWarning(Stamp("Native map tick unavailable; area storage uses frame cadence until it returns."));
+                }
+            }
+
+            if (!order.Cadence.TryBegin(currentTick) ||
                 !native.BeginQueuedStorage(order.Tool, order.Actor, order.Editor) || !native.HasQueueSpace)
                 return;
 
@@ -655,6 +672,7 @@ namespace BugfixesAndQoL.AreaConstruction
             internal Tile[] Tiles { get; }
             internal int Next { get; set; }
             internal Tile? Awaiting { get; set; }
+            internal StorageBuildCadence Cadence;
         }
     }
 

@@ -335,3 +335,40 @@ The global visible-copy setting remains the direct way to bound draw cost.
 The paired final visual check matched 15 Vanilla emissions and all 36 checked
 opacity samples. See the final run directory's green-parity.json and the
 0.3.1 installation manifest with all 25 package hashes.
+
+## Standard mode replacement (0.4.0)
+
+The Host option **Replace Vanilla afterimages in Standard mode** defaults
+to enabled. It suppresses type-6 allocations from the arrow, crossbow bolt
+and ordinary Attack Here source branches captured by the renderer. The
+type-5 smoke producer and other source types retain their native handling.
+The entry stub returns zero before the original prologue or allocation,
+after restoring the caller stack and all scratch state. See
+[Native update notes](UpdateToNewDLL.md).
+
+The Host preference follows the shared preset, lobby and save settings
+paths. The package uses `NetworkMode=1`. In multiplayer the optional
+simulation capability requires the enabled setting and intact hook on all
+peers. The agreed decision arms the native gate before the map loads and
+retirement clears it. Draw activation, duration and visible-copy budget
+remain personal. A player can set the number to zero while the selected
+native afterimages stay suppressed for everyone. A local draw error does
+not change an admitted native multiplayer rule.
+
+The single-player A/B cases use `trails-green-standard`,
+`trails-green-standard-replaced` and the Extreme control on `test_green`.
+They count occupied native arrow afterimage slots under the engine monitor,
+assert that the replacement draws when requested, and check a second real
+shot with local rendering off. Test runs temporarily change the registered
+settings and let the runner restore the preset store. Two-peer multiplayer
+acceptance is separate from the shared host/client preset suite.
+
+All three cases passed using the installed APIShared 0.67.0 with Steam
+running on the hidden desktop. With identical ten-copy graphics settings,
+the two Standard runs matched 15 sprite emissions and all 36 sampled
+opacities. The host setting enabled and disabled the replacement in the
+two cases. With replacement enabled, native arrow afterimage occupancy
+was zero both with local drawing enabled and after local drawing was
+disabled before another shot. Evidence is under
+`.work/a/trail-standard/001` (runs `6157b708b713`, `8e1f7c2918aa`, and
+Extreme control `8436ca32a3a3`, plus `standard-parity.json`).

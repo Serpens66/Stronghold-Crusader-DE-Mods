@@ -1,5 +1,7 @@
-ProjectileTrails.EnableHelp=Show local arrow and crossbow bolt afterimages in Extreme Troops. Applies to your next match.
+ProjectileTrails.EnableHelp=Show local arrow and crossbow bolt afterimages in Extreme Troops and in Standard mode when replacement is enabled. Applies to your next match.
 ProjectileTrails.Count=Afterimages per projectile
-ProjectileTrails.CountHelp=0 leaves the normal Extreme Troops appearance. 10 restores the full trail. Lower values keep fewer recent copies. Applies to your next match.
+ProjectileTrails.CountHelp=0 hides the mod afterimages. 10 restores the full trail. Lower values keep fewer recent copies. Applies to your next match.
 ProjectileTrails.Maximum=Visible afterimages in total
 ProjectileTrails.MaximumHelp=Caps the total number of visible afterimages at once. Lower this for large volleys. At the limit, more recent copies take priority. Applies to your next match.
+ProjectileTrails.ReplaceStandard=Replace Vanilla afterimages in Standard mode
+ProjectileTrails.ReplaceStandardHelp=Suppresses native afterimages of ordinary arrows and crossbow bolts to free slots for projectiles and effects. Drawing follows each player's local sliders. In multiplayer the host setting applies from map start.

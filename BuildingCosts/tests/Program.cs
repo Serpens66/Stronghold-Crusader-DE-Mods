@@ -67,6 +67,27 @@ internal static class Program
             Check(MessagePackSerializer.Deserialize<string>(converted["HumanExtraBuildingCosts"]).Contains("MAPPER_BRAZIER=\r\n"), "legacy unchanged -1 becomes zero extra cost");
             var baseCosts = (IDictionary)type.GetMethod("ParseBuildingCosts").Invoke(model, null);
             Check(baseCosts.Count == 1, "old Brazier row is never applied to native costs");
+
+            const string legacyBaseCosts = "MAPPER_GATE_WOOD=20,-1,-1,-1,-1\nMAPPER_GATE_WOOD1A=30,-1,-1,-1,-1\nMAPPER_HOVEL=7,-1,-1,-1,-1";
+            type.GetField("buildingCosts", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(model, legacyBaseCosts);
+            var legacyBase = (IDictionary)type.GetMethod("ParseBuildingCosts").Invoke(model, null);
+            foreach (DictionaryEntry entry in baseCosts)
+            {
+                object loaded = legacyBase[entry.Key];
+                Check(legacyBase.Count == 1 && loaded != null && (int)loaded.GetType().GetProperty("Wood").GetValue(loaded) == 7,
+                    "old wooden gatehouse base costs are ignored and hovel costs are preserved");
+            }
+            var baseRows = (IEnumerable)type.GetMethod("CreateCostEntriesWithCallback", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(model, new object[] { legacyBaseCosts });
+            var keys = new HashSet<string>();
+            foreach (object row in baseRows)
+                keys.Add((string)row.GetType().GetProperty("Key").GetValue(row));
+            Check(!keys.Contains("MAPPER_GATE_WOOD") && keys.Contains("MAPPER_HOVEL"), "base cost rows omit the wooden gatehouse");
+
+            var legacyHuman = parse.Invoke(null, new object[] { "MAPPER_GATE_WOOD=STORED_GOLD:20\nMAPPER_HOVEL=STORED_GOLD:7" });
+            string normalizedLegacyHuman = (string)serialize.Invoke(null, new[] { legacyHuman });
+            Check(!normalizedLegacyHuman.Contains("MAPPER_GATE_WOOD") && normalizedLegacyHuman.Contains("MAPPER_HOVEL=STORED_GOLD:7"),
+                "Human cost rows omit the wooden gatehouse and preserve hovel costs");
             Check(type.GetProperty("CostEntries") != null && type.GetProperty("BuildingCosts") != null, "existing published settings surface retained");
             Console.WriteLine("Human cost settings: " + checks + " checks passed.");
             return 0;
