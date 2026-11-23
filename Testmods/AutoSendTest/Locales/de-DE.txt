@@ -1,3 +1,5 @@
+Disclosure=Auto Send
+DisclosureHelp=Einstellungen für automatische Lieferungen auf- oder zuklappen. Aktive Lieferungen laufen auch bei eingeklapptem Bereich weiter.
 Title=Automatisch senden
 ActiveCount={Count} aktive Waren für diesen Verbündeten
 Reserve=Reserve

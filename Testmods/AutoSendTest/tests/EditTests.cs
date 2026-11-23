@@ -9,11 +9,26 @@ internal static class EditTests
     private static int checks;
     internal static int Run()
     {
-        SliderCompletion(); AtomicBounds(); CoalescedQueue(); LegacyPauseMigration(); ChatMessagesStateAndSave(); ChatMessagesQueue(); PacketRoundTrip(); return checks;
+        DisclosureState(); SliderCompletion(); AtomicBounds(); CoalescedQueue(); LegacyPauseMigration(); ChatMessagesStateAndSave(); ChatMessagesQueue(); PacketRoundTrip(); return checks;
     }
     private static void Check(bool value) { checks++; if (!value) throw new Exception("Edit regression check " + checks + " failed."); }
     private static void Rule(AutoSendRule rule, int min, int max, bool enabled)
     { Check(rule.Minimum == min && rule.Maximum == max && rule.Enabled == enabled); }
+    private static void DisclosureState()
+    {
+        var ui = new AutoSendDisclosureState();
+        Check(!ui.Expanded && !ui.IsVisible(true));
+        ui.Toggle(0); Check(!ui.Expanded);
+        ui.ObserveSession(1); Check(!ui.IsVisible(true));
+        ui.Toggle(1); Check(ui.Expanded && ui.IsVisible(true));
+        // Closing the menu, request mode and HUD/selection recreation retain state.
+        Check(!ui.IsVisible(false) && ui.Expanded);
+        ui.ObserveSession(1); Check(ui.IsVisible(true));
+        ui.Toggle(1); Check(!ui.Expanded && !ui.IsVisible(true));
+        ui.Toggle(1); ui.ObserveSession(2); Check(!ui.Expanded);
+        ui.Toggle(2); ui.ObserveSession(0); Check(!ui.Expanded);
+        ui.ObserveSession(3); Check(!ui.Expanded);
+    }
     private static void SliderCompletion()
     {
         var gesture = new AutoSendSliderGesture();

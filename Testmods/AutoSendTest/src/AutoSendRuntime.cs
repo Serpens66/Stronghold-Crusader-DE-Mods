@@ -65,7 +65,8 @@ namespace AutoSendTest
                 throw new InvalidOperationException(reason);
             view = new AutoSendView(this);
             if (!AllyGoodsPanelExtensions.TryRegisterSection(AutoSendPlugin.Guid, "auto-send", view.Create,
-                out _, out reason, 100)) throw new InvalidOperationException(reason);
+                out var section, out reason, 100)) throw new InvalidOperationException(reason);
+            view.RegisterDisclosure(section);
             if (!AllyGoodsPanelExtensions.TryRegisterGoodsAdornment(AutoSendPlugin.Guid, "active-goods", view.CreateAdornment,
                 out _, out reason, 100)) throw new InvalidOperationException(reason);
             if (!AllyGoodsPanelExtensions.TrySubscribeContext(AutoSendPlugin.Guid, "selection", SelectionChanged,

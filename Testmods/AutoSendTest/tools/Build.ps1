@@ -21,7 +21,7 @@ $zip = Join-Path $run 'AutoSendTest.zip'
 Compress-Archive -LiteralPath (Join-Path $run 'package\BepInEx') -DestinationPath $zip
 if ((Get-ApiFileHash $sdkFile) -ne $sdkHash) { throw 'The selected APIShared SDK changed during this build.' }
 $sourceInputs = @(Get-ChildItem -LiteralPath $project -Recurse -File | Where-Object {
-    $_.FullName -notmatch '[\\/](bin|obj|BepInEx)[\\/]' -and $_.Extension -in @('.cs','.csproj','.ps1','.bat','.json','.txt')
+    $_.FullName -notmatch '[\\/](bin|obj|BepInEx)[\\/]' -and $_.Extension -in @('.cs','.csproj','.ps1','.bat','.json','.txt','.xaml')
 } | Sort-Object FullName | ForEach-Object { [ordered]@{Path=$_.FullName;Sha256=(Get-ApiFileHash $_.FullName)} })
 [ordered]@{CreatedUtc=[DateTime]::UtcNow.ToString('o');Head=(& git -C $workspace rev-parse HEAD);
     Installed=$false;DevDiag=$false;SdkPath=$sdkFile;SdkSha256=$sdkHash;Package=$zip;PackageSha256=(Get-ApiFileHash $zip);

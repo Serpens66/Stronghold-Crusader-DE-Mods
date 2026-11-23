@@ -8,7 +8,7 @@ using SHCDESE.Interop;
 namespace AutoSendTest
 {
     // One stable control tree per vanilla host. Rendering never submits numeric edits.
-    internal sealed class AutoSendView
+    internal sealed partial class AutoSendView
     {
         private readonly AutoSendRuntime runtime;
         private Border root;
@@ -28,7 +28,7 @@ namespace AutoSendTest
         internal FrameworkElement Create(AllyGoodsSectionContext context)
         {
             AutoSendText.Load();
-            tooltipStyle = CreateTooltipStyle();
+            if (tooltipStyle == null) tooltipStyle = CreateTooltipStyle();
             var grid = new Grid { Margin = new Thickness(4) };
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Parse("*") });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Parse("*") });
@@ -86,17 +86,21 @@ namespace AutoSendTest
             {
                 keyboardCapture?.Release();
                 if (root != null) root.Visibility = Visibility.Collapsed;
+                if (disclosureHost != null) disclosureHost.Visibility = Visibility.Collapsed;
+                ApplyDisclosure(false);
                 return;
             }
+            var data = runtime.ReadDisplay(context);
+            disclosure.ObserveSession(data.SessionId);
+            bool expanded = RefreshDisclosure(context, data.SessionId);
             RefreshBadges(context);
             if (root == null) return;
-            var data = runtime.ReadDisplay(context);
             bool canEdit = context.IsOpen && context.IsSendMode && data.Ready;
             bool canEditSender = context.IsOpen && context.IsSendMode && data.SenderReady;
             // End the input lease while its controls still belong to their view,
             // before changing their visibility or editability.
             if (!canEdit && !canEditSender) keyboardCapture?.Release();
-            root.Visibility = context.IsSendMode ? Visibility.Visible : Visibility.Collapsed;
+            root.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
             var target = new AutoSendEditTarget(data.SessionId, data.SenderPlayerId, context.RecipientPlayerId,
                 context.Good.GetValueOrDefault());
             var rule = data.HasDesiredValues ? data.DesiredRule : data.Rule;

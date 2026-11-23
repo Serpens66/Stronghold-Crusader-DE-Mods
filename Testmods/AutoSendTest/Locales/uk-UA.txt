@@ -1,3 +1,5 @@
+Disclosure=Auto Send
+DisclosureHelp=Show or hide automatic delivery settings. Active deliveries continue while this section is collapsed.
 Title=Automatic gifts
 ActiveCount={Count} active goods for this ally
 Reserve=My reserve

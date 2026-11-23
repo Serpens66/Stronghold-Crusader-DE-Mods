@@ -4,7 +4,7 @@ using System.IO;
 
 namespace AutoSendTest
 {
-    // Loaded only on Unity when the section is created; simulation never reads locale files.
+    // Loaded only on Unity when the UI is created; simulation never reads locale files.
     internal static class AutoSendText
     {
         private static readonly Dictionary<string, string> text = new Dictionary<string, string>(StringComparer.Ordinal);
