@@ -13,7 +13,7 @@
     <ApiSharedDir Condition="'$(ApiSharedDir)' == ''">$(GameDir)\BepInEx\plugins\APIShared_Serp</ApiSharedDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Fixture)' == 'true'">
-    <OutputType>Exe</OutputType><StartupObject>RestartTestBootstrap</StartupObject>
+    <OutputType>Exe</OutputType><StartupObject>SaveLoadTestBootstrap</StartupObject>
     <AppConfig>tests\Fixture.config</AppConfig>
     <OutputPath>.local\fixture\</OutputPath><IntermediateOutputPath>obj\Fixture\</IntermediateOutputPath>
   </PropertyGroup>
@@ -40,17 +40,8 @@
   <ItemGroup Condition="'$(Fixture)' == 'true'">
     <Compile Include="tests\BarrierTests.cs" />
     <Compile Include="tests\RuntimeTests.cs" />
-    <Compile Include="tests\LaunchSnapshotTests.cs" />
-    <Compile Include="tests\ExtendedRestartContextTests.cs" />
-    <Compile Include="tests\RuntimeFailureTests.cs" />
-    <Compile Include="tests\TransportTests.cs" />
-    <Compile Include="tests\TargetReadinessTests.cs" />
-    <Compile Include="tests\RuntimeParkingTests.cs" />
-    <Compile Include="tests\RuntimeContextTests.cs" />
-    <Compile Include="tests\SettingsFingerprintTests.cs" />
+    <Compile Include="tests\LobbyBridgeTests.cs" />
     <Compile Include="tests\LocaleTests.cs" />
-    <Compile Include="tests\RuntimeReadyTests.cs" />
-    <Compile Include="tests\VanillaHandshakeTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="src\**\*.cs" />

@@ -1,43 +1,64 @@
-# Multiplayer Restart Test 0.1.5
+# Multiplayer Save Load Test
 
-Experimental standalone testmod. Main mods and Script Extender remain separate. APIShared 0.69.0 provides the general original-button override API; it also retains the earlier lobby-agreement correction.
+This standalone testmod enables the original **Load** button for the host during a running multiplayer match. After the host confirms that the match will end, the current human participants move automatically to a private multiplayer lobby. The host then chooses a save through the normal multiplayer save dialog. Nobody needs to find the lobby or enter its code manually.
 
-## Install and exercise
+The confirmation is consequential: once the coordinated exit is committed, the old match is ended. Cancelling the subsequent save dialog leaves the group in the load lobby; it does not resume the old match.
 
-1. Build with `build.bat /nopause`. This builds the working testmod against installed dependencies, runs the offline checks and creates `.local/MultiplayerRestartTest.zip`. It does not install anything.
-2. Extract the same ZIP into the game directory on **every participating computer**. It contains only `BepInEx/plugins/MultiplayerRestartTest_Serp`, including its `Locales` directory. APIShared 0.69.0 or newer and Script Extender 2.14.0 or newer must already be installed; use identical compatible dependencies on all peers.
-3. Fully exit and restart the game on every computer. The worker checkpoint must be installed before Director starts its simulation thread.
-4. Start a **new real multiplayer game**. Loaded saves and missing initial launch data are intentionally unsupported. Local singleplayer is not a multiplayer test.
-5. On the host, open ESC and select the original **Restart Mission** button (its Vanilla label follows the game language). The same button remains disabled on clients. Confirm the short **Restart?** question once on the host. Singleplayer keeps Vanilla's original command. No second restart entry is registered, including on the additional-actions page.
-6. Expect a private lobby with the original map, players, AI sources, teams, colours and effective mission settings, followed by an automatic normal start. If an ordinary start guard refuses it, read its lobby-chat reason, change the offending AI/settings if desired and start manually. Changes from the original configuration produce an informational chat notice; they do not veto the new configuration or get overwritten by repeated restoration. The same host and original human peers remain required for the synchronized worker/seed handoff.
+## Build and installation
 
-Version 0.1.5 uses protocol v4; older testmod packages cannot participate. Existing Steam peer sessions stay open during the handoff. Every participant must first consume every old peer's reliable stop marker before the host creates the replacement lobby. After loading, all peers confirm the same actual target configuration through `TargetLoaded` before the host sends Vanilla's one-shot seed. These receipts are sent from before-render after the enclosing frontend update and its queue reset have returned. They do not require the seed-dependent managed client start or first PlayState. The next restart is enabled on the host only after all peers confirm their target simulation started and acknowledge completion. Logical map filename casing may differ between computers. Coop host/guest building permissions remain local native inputs, while the common identity uses verified host-authoritative lobby settings; unexpected differences in other native setup fields are rejected. Map contents, CRC and local source validation remain strict.
+1. Build with `build.bat /nopause`. The build checks the working sources against the selected installed dependencies and creates `.local/MultiplayerRestartTest.zip` plus `.local/build.json`. It does not install the mod or start the game.
+2. Close the game on every participating computer. Install the same resulting ZIP on each one, with the dependency minimums declared in `info.json` and mutually compatible multiplayer mods.
+3. The existing package identity is deliberately retained: `BepInEx/plugins/MultiplayerRestartTest_Serp/MultiplayerRestartTest.dll`. This replaces the previous experiment in that location; do not install a second copy under another directory. The displayed name is **Multiplayer Save Load Test**.
+4. Fully start the game again on every computer. The process-lived simulation checkpoint must be installed before the simulation thread starts.
 
-The prototype captures current synchronized Host properties, not each computer's personal preset. Different personal preferences therefore do not block a restart when the actual Host values match. Dynamic settings/application backends remain unsupported. Materialized mission settings are restored without writing personal presets. Local Lord paths and all selected AIV sources are preserved separately from the network representation; their files are checked before restoration. Original random choices are not promised to replay byte-for-byte.
+## Use
 
-Optional ExtendedData integration restores the exact Custom-Coop package/mission, embedded Lord sources and effective mission-settings draft. It also restores an ExtendedData map-settings context that a temporary default-map selection would otherwise discard. This testmod uses a deliberately narrow private adapter bound to the verified ExtendedData 1.0.27 runtime/Core build identities and exact member signatures. It does not modify ExtendedData or APIShared, bypass their content/readiness checks, or require ExtendedData for ordinary matches. A different participating ExtendedData build requires a new adapter audit before restart is enabled for that context. Restitution happens once; subsequent intentional lobby edits use the normal owner paths.
+1. Start or normally load a multiplayer match. For genuine multiplayer acceptance, use at least two human participants.
+2. Open ESC on the host. Use the original **Load** button, whose normal label follows the game's language. Clients cannot initiate the coordinated return. No additional Load entry is added to the mod-actions page.
+3. Confirm **End match?**. Dismissing this confirmation leaves the current match in place. After confirmation, wait for the group's automatic return to the private lobby.
+4. At **Coop saves?**, choose **Yes** for cooperative saves or **No** for ordinary multiplayer saves. This is a category choice, not a way to undo the completed exit.
+5. Choose a save in the normal dialog. Its existing eligibility checks and normal APIShared contributions remain responsible for which saves can be selected and started.
+6. Cancelling this dialog leaves everyone in the load lobby. The host can use its normal Load command again or leave the lobby.
+7. After a save successfully starts and its multiplayer simulation is running, the host can use the in-game Load action again.
 
-## Acceptance cases
+The mod coordinates the transition of the currently present humans. It does not reconstruct an original mission, keep the initial Steam lobby alive for the whole match, create an automatic beginning save, or choose a save for the host.
 
-- Ordinary multiplayer with at least two humans and AI; all original keeps, teams, colours, Lord/AIV/AIC selections and settings match after restart.
-- Built-in Coop repeats the same mission, not the following mission. For Custom Coop, test an ordinary package mission and a customized mission with effective Host overrides, swapped humans/teams, embedded AI data and an explicitly selected external Lord/AIV source. Include a mission beyond the first ten where the package provides one.
-- After an automatically refused start, remove or replace the offending AI and change a team or starting setting. Both players must see an informational change notice, and a normal manual start must load the new configuration. Leave the lobby open longer than 90 seconds before retrying: the editable lobby must not expire. Normal content/readiness guards still apply.
-- Test a normal map with ExtendedData mission overrides and different personal preferences on the two computers. Its first restored launch must retain the originally effective values; later manual changes must remain possible without changing personal presets.
-- Restart twice in succession and wait for actual simulation progress on both computers each time.
-- Use different game languages on host and client. Labels and recovery prompts must follow each game's language; the single-line confirmation title must fit. Leave the production agreement pending briefly: the testmod must wait without repeatedly clicking Ready or flooding chat.
-- With other ESC actions installed, inspect both the main menu and additional-actions page. Exactly one original Restart Mission button must exist; singleplayer, editor and other menu commands retain Vanilla behavior.
-- Verify the client cannot initiate a restart and that a missing/incompatible testmod prevents the host action.
-- Changed human peers/host, save/resync, mission end, changed original source file before restoration and competing transitions block or abort the operation. AI, teams, colours, map and settings may be changed in the restored lobby.
-- Disconnect before commit must leave the old game untouched by the restart. Failure after commitment cannot roll back the old simulation; the failure dialog offers controlled return to the frontend. Do not try to continue a partially stopped match.
-- Delay or disconnect a participant during target loading and during completion. The remaining participants must not declare success early. Any already started target is parked again before the failure dialog or cleanup. A legitimate target defeat retains normal Vanilla presentation and cancels the pending restart.
-- Check normal singleplayer and ordinary postgame lobby return with the testmod dormant.
+## Save eligibility and categories
 
-Keep **both** BepInEx logs. Relevant markers contain `MP_RESTART_TEST`: `INITIALIZED`, `CAPTURE`, `PREPARED`, `STOPPED`, `LOBBY_CREATED`, `LOBBY_RESTORED`, `LOBBY_VERIFIED`, `AUTOSTART`, `AUTOSTART_SUBMITTED`, `LOBBY_CHANGED`, `TARGET_SEED_HELD`, `TARGET_LOADED`, `TARGET_SEED_SENT`, `MANAGED_START_COMPLETE`, `FIRST_PLAYSTATE`, `SIMULATION_READY`, `RESTART_COMPLETE`, `FAILED` and `CANCELLED`. `AUTOSTART_SUBMITTED` proves only that the guarded UI command returned. Managed completion alone does not prove the multiplayer simulation started: check advancing simulation ticks and a rendered, populated map on both machines.
+The native multiplayer picker checks locally available saves through its existing name/checksum/time exchange. A selected save normally needs a matching local multiplayer-save copy on every participant's computer. This flow does not copy a missing save from the host to another computer.
+
+The cooperative and ordinary picker categories retain their normal filtering. The testmod adds no Lord, package, original-map, team, slot or modsettings criteria of its own. Existing checks belonging to Vanilla, the Script Extender, APIShared and other installed mods still apply. A save that the ordinary multiplayer workflow refuses must not become accepted through this menu action.
+
+An existing save is loaded as the state it contains. Starting a mission from its original beginning requires a save made at that beginning; this mod does not derive an initial map from a later save. Saving, stored modsettings, saved Lord data and eventual next-mission behavior remain owned by their normal components.
+
+## Manual acceptance
+
+- With two humans and a running ordinary multiplayer match, use the host's original Load button. Confirm that both players reach the same private lobby automatically, with the same host and no manual join or invitation.
+- Load an ordinary multiplayer save already available on both computers. Check the rendered map, the intended local player slots, teams and continuing simulation ticks on both peers. A loader-return log or a living process alone is insufficient.
+- Repeat with the cooperative category and a cooperative save. Exercise the other category separately; a category question answered No must open ordinary multiplayer saves, not cancel the transition.
+- Where available, include a saved game with nonconsecutive human slots, such as 1 and 8. Let the normal save-load remapping finish, then check both players' actual controlled Lords before gameplay.
+- Include saved Lord data and mission modsettings through the ordinary installed mod set. Compare the result with a normal lobby load of the same save; this mod must not introduce a second settings or source-restoration path.
+- Remove a matching save copy from one test computer, or provide a different revision under the same name. Observe the native picker/readiness result and compare it with the ordinary multiplayer load workflow. Do not weaken its checks to make the test pass.
+- Cancel **End match?** and confirm that the current match continues. Separately confirm the exit, then cancel the native save dialog: everyone must remain in the lobby, and the ended match must not resume.
+- After one save load, repeat the in-game transition and load again. Then leave the match and create or load another ordinary game, checking that the old transition has not retained control of the new session.
+- Verify that a client cannot initiate the action and that a missing or incompatible testmod on a participant prevents the coordinated host action. Preserve normal singleplayer/editor menu behavior.
+- With other ESC actions installed, inspect the main menu and additional-actions page. There must be one original Load action and no remaining custom Restart Mission action from this experiment.
+- Use different game languages on the two computers. The two confirmation headings and the short recovery heading must follow the game catalog and fit their single-line popup headings. The recovery notice uses a statement heading and a single OK button; OK starts the controlled return to the main menu.
+
+## Failure and cancellation cases
+
+- Change or disconnect a participant before the protocol commits. The incomplete transition must be refused; do not silently form a smaller replacement group.
+- Disconnect a participant after commitment or while the private lobby is being created or joined. The mod must report a failed transition rather than open a save dialog for an incomplete party.
+- Fail or delay lobby creation. A pending creation callback must not write into a discarded placeholder during recovery. Keep both logs. When the native recovery notice is offered, its only OK button must start the controlled main-menu return; there must be no misleading Yes/No choice. The transition guard remains active until OK and recovery completes.
+- Exercise the normal loader's own save rejection and cancellation paths. Once the group's return is complete, those remain normal lobby operations; the testmod must not force a load, substitute a save, bypass a refusal or overwrite settings to satisfy it.
+- An error after the coordinated exit cannot roll back the old simulation. Do not attempt to continue a partially stopped match. Ending the program remains available if a test failure prevents normal recovery.
 
 ## Evidence and limits
 
-Offline fixtures execute the production protocol, actual MessagePack formatter, actual installed Director IL and real private-member metadata. They cover local Lord-source mutation/missing-file rejection, detached effective settings, current-target digest agreement, editable-lobby waiting and expired-load cleanup. When ExtendedData is installed, its real assembly metadata must satisfy the optional adapter's complete binding/build contract; this check does not execute ExtendedData restoration or prove its live timing. The actual installed SE lobby receiver reproduces consumed-and-discarded Vanilla seed packets; the real Vanilla seed/ack/start path is executed with a parked worker. Narrow desktop-only adapters replace unavailable Mono BCL calls and external frontend/transport/UI boundaries. Capture/restore, rendered maps and live Steam transport still need manual two-PC acceptance; no game test is run by the build.
+Keep **both** BepInEx logs. This version uses the `MP_SAVE_LOAD` prefix. Useful transition markers include `INITIALIZED`, `SESSION`, `PREPARED`, `STOP_REQUESTED`, `SOURCE_STOPPED`, `LOBBY_REQUESTED`, `LOBBY_OPEN`, `PARTY_JOINED`, `LOBBY_RELEASED`, `LOAD_MENU_READY`, `VANILLA_SAVE_DIALOG`, `FAILED` and `CANCELLED`. Retain any ordinary save-loader or APIShared rejection messages as well.
 
-The opt-in `startup-smoke` scenario uses the public APIShared automation service. It consumes only its own valid `BepInEx/config/SerpAutomation/MultiplayerRestartTest_Serp.run` request and checks startup initialization plus an actual worker-checkpoint callback before quitting. It sends no OS mouse or keyboard input and does not claim multiplayer acceptance.
+`LOAD_MENU_READY` means the coordinated lobby return is complete. `VANILLA_SAVE_DIALOG` means the host opened a picker; neither proves that a save loaded or that the simulation is advancing. Confirm the actual loaded player assignments, populated rendered map and sustained tick progress on both computers.
+
+Offline protocol and runtime fixtures check only their documented state, serialization, method-binding and isolated control-flow contracts. Their external Steam, Unity, UI and native boundaries are test adapters, not real multiplayer acceptance. Use the successful build record and verification log for the exact source/package identity and completed checks. No game test is run by the build; the user's manual multiplayer acceptance remains outstanding until performed.
 
 Uninstall by removing only `BepInEx/plugins/MultiplayerRestartTest_Serp` while the game is closed. This testmod is not part of the main modpack.

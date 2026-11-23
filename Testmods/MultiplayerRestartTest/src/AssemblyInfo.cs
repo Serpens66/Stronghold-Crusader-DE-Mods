@@ -1,4 +1,4 @@
 using System.Reflection;
-[assembly: AssemblyTitle("Multiplayer Restart Test")]
-[assembly: AssemblyVersion("0.1.5.0")]
-[assembly: AssemblyFileVersion("0.1.5.0")]
+[assembly: AssemblyTitle("Multiplayer Save Load Test")]
+[assembly: AssemblyVersion("0.2.0.0")]
+[assembly: AssemblyFileVersion("0.2.0.0")]

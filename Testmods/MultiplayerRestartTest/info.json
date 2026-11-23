@@ -1,14 +1,23 @@
 {
   "GUID": "MultiplayerRestartTest_Serp",
   "Author": "Serpens66",
-  "Name": "Multiplayer Restart Test",
-  "Description": "Experimental host-only same-mission multiplayer restart through an automatically restored private lobby. New games only; identical testmod required on every peer.",
-  "Version": "0.1.5",
+  "Name": "Multiplayer Save Load Test",
+  "Description": "Experimental host-only Load command during multiplayer: return the group to a private lobby and select an existing save using the normal multiplayer load dialog. Identical testmod required on every peer.",
+  "Version": "0.2.0",
   "MinimumScriptExtenderVersion": "2.14.0",
   "Dependencies": [ { "GUID": "APIShared_Serp", "MinimumVersion": "0.69.0" } ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.2.0",
+      "Changes": [
+        "Replace the mission-reconstruction restart experiment with a host-only Load command on the existing Vanilla ESC Load button. No duplicate action is added.",
+        "After confirmation, end the match for the whole group and automatically open a private multiplayer loading lobby. Cancelling save selection keeps the group in that lobby; the old match is not resumed.",
+        "Offer normal and Coop saves through Vanilla's multiplayer requester, including its existing peer/save checks and ordinary mod preparation. No original map, Lord, mission-settings or random-seed reconstruction remains.",
+        "Support entering this flow from a fresh multiplayer match or a loaded multiplayer save. Keep compact prompts in the game language; singleplayer and ordinary individual Quit remain unchanged."
+      ]
+    },
     {
       "Version": "0.1.5",
       "Changes": [

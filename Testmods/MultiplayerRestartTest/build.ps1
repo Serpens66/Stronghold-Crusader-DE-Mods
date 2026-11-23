@@ -17,10 +17,10 @@ $restartNative = Join-Path $GameDir 'Stronghold Crusader Definitive Edition_Data
 Step ('Working testmod sources; selected APIShared: '+$restartApi+'; no installation or dependency rebuild.')
 & (Join-Path $restartWorkspace 'Shared/Tools/Validation/Test-SharedBoundaries.ps1') -Workspace $restartWorkspace -ModDirectory 'Testmods/MultiplayerRestartTest' -ConsumerOnly
 Step 'Production protocol tests'
-& dotnet run --project (Join-Path $restartRoot 'tests/RestartProtocol.Tests.csproj') --configuration Release -p:ImportDirectoryBuildTargets=false
-if ($LASTEXITCODE -ne 0) { throw 'Restart protocol tests failed.' }
+& dotnet run --project (Join-Path $restartRoot 'tests/LoadProtocol.Tests.csproj') --configuration Release -p:ImportDirectoryBuildTargets=false
+if ($LASTEXITCODE -ne 0) { throw 'Save-load return protocol tests failed.' }
 $restartProject = Join-Path $restartRoot 'MultiplayerRestartTest.csproj'
-Step 'Actual game IL, barrier, serializer, snapshot and failure-path fixtures'
+Step 'Actual game IL, stop barrier, serializer, native bridge and locale fixtures'
 & $restartMsbuild $restartProject /nologo /verbosity:quiet /clp:ErrorsOnly /p:Configuration=Release /p:Fixture=true /p:ImportDirectoryBuildTargets=false ("/p:GameDir="+$GameDir) ("/p:ApiSharedDir="+$restartApi) ("/flp:LogFile="+(Join-Path $restartLocal 'fixture-build.log')+';Verbosity=minimal')
 if ($LASTEXITCODE -ne 0) { throw 'Runtime fixture compilation failed.' }
 & (Join-Path $restartLocal 'fixture/MultiplayerRestartTest.exe') $GameDir $restartApi
@@ -46,6 +46,6 @@ $restartFiles = @(Get-ChildItem -LiteralPath $restartOutput -Recurse -File | For
 $restartInputs = @(Get-ChildItem -LiteralPath $restartRoot -Recurse -File | Where-Object { $_.FullName -notmatch '[\\/](obj|bin|\.local|BepInEx)[\\/]' -and $_.Extension -in '.cs','.csproj','.json','.ps1','.bat','.config','.md','.txt' } | ForEach-Object { [ordered]@{ Path=$_.FullName.Substring($restartRoot.Length+1); Sha256=(Get-BranchHash $_.FullName) } })
 $restartInputs += [ordered]@{ Path='../../Shared/Runtime/Localization/SerpLocalization.cs'; Sha256=(Get-BranchHash (Join-Path $restartWorkspace 'Shared/Runtime/Localization/SerpLocalization.cs')) }
 $restartInputs += [ordered]@{ Path='../../Shared/Runtime/Diagnostics/DebugLogHelper.cs'; Sha256=(Get-BranchHash (Join-Path $restartWorkspace 'Shared/Runtime/Diagnostics/DebugLogHelper.cs')) }
-$restartRecord = [ordered]@{ BuiltUtc=[DateTime]::UtcNow.ToString('o'); Version='0.1.5'; Experimental=$true; Installed=$false; MultiplayerAccepted=$false; NativeSha256=(Get-BranchHash $restartNative); ManagedSha256=(Get-BranchHash (Join-Path $GameDir 'Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll')); ApiSharedSha256=$restartApiBefore; Files=$restartFiles; Inputs=$restartInputs; Package=$restartPackage; PackageSha256=(Get-BranchHash $restartPackage) }
+$restartRecord = [ordered]@{ BuiltUtc=[DateTime]::UtcNow.ToString('o'); Version=((Get-Content -LiteralPath (Join-Path $restartRoot 'info.json') -Raw | ConvertFrom-Json).Version); Experimental=$true; Installed=$false; MultiplayerAccepted=$false; NativeSha256=(Get-BranchHash $restartNative); ManagedSha256=(Get-BranchHash (Join-Path $GameDir 'Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll')); ApiSharedSha256=$restartApiBefore; Files=$restartFiles; Inputs=$restartInputs; Package=$restartPackage; PackageSha256=(Get-BranchHash $restartPackage) }
 [IO.File]::WriteAllText((Join-Path $restartLocal 'build.json'),(($restartRecord|ConvertTo-Json -Depth 6)+"`r`n"),[Text.UTF8Encoding]::new($false))
 Step ('PASS: '+$restartPackage+'; not installed.')
