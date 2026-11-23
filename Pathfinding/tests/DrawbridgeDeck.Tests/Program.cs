@@ -20,6 +20,8 @@ namespace Pathfinding.DrawbridgeDeck.Tests
             JournalKeepsFirstOriginalAcrossRepeatedWrites();
             LandingUsesCentreThenSides();
             AbutmentRowJoinsDeckAndGate();
+            LandingRegionsFollowPhysicalEdges();
+            PortalKeepsEveryRepresentableRegion();
             Console.WriteLine(failures == 0 ? "Drawbridge deck closure tests passed: " + checks + " checks." : "Drawbridge deck closure tests FAILED: " + failures + " of " + checks);
             return failures == 0 ? 0 : 1;
         }
@@ -239,6 +241,56 @@ namespace Pathfinding.DrawbridgeDeck.Tests
             comps[g.T(11, 7)] = 0;
             Check(DeckClosureCore.FindLanding(g, front, gate, deckSet.Contains, t => comps[t]) == 0, "no walkable landing keeps the endpoint");
             Check(DeckClosureCore.FindLanding(g, front, g.T(11, 13), deckSet.Contains, t => comps[t]) == 0, "diagonal gate offset is rejected");
+        }
+
+        private static void LandingRegionsFollowPhysicalEdges()
+        {
+            var g = new Grid();
+            g.Build((x, y) => false);
+            int front = g.T(10, 12), gate = g.T(10, 13), deck = g.T(10, 11), farDeck = g.T(10, 10);
+            int side = g.T(11, 10), sameRegion = g.T(11, 11), support = g.T(10, 9);
+            int blocked = g.T(9, 10), isolated = g.T(13, 10), isolatedExit = g.T(14, 10);
+            var bridge = new HashSet<int> { front, deck, farDeck, support, isolated };
+            var deckSet = new HashSet<int> { deck, farDeck, isolated };
+            var components = new int[Grid.W * Grid.H];
+            foreach (int tile in new[] { front, gate, deck, farDeck, isolated }) components[tile] = 11;
+            components[side] = components[sameRegion] = 14;
+            components[support] = 20;
+            components[blocked] = 22;
+            components[isolatedExit] = 23;
+            var journal = new DirectionJournal(Grid.W * Grid.H);
+            foreach (var edge in new[] { (front, gate), (front, deck), (deck, farDeck), (farDeck, side),
+                (deck, sameRegion), (farDeck, support), (isolated, isolatedExit) })
+                DeckClosureCore.Link(g, edge.Item1, edge.Item2, true, true, journal);
+            DeckClosureCore.Link(g, farDeck, blocked, true, false, journal);
+
+            var footprint = new int[25];
+            var regions = new int[2];
+            var other = new HashSet<int> { gate };
+            bool Collect() => DeckClosureCore.CollectLandingRegions(g, front, gate, 11, bridge.Contains,
+                deckSet.Contains, other.Contains, tile => components[tile], footprint, regions);
+            Check(Collect() && regions.SequenceEqual(new[] { 14, 20 }), "finds side and support regions, excluding duplicate, one-way and disconnected exits");
+            other.Add(side);
+            Check(!Collect(), "a path through a different bridge or gate is ambiguous");
+            other.Remove(side);
+            DeckClosureCore.Link(g, farDeck, blocked, true, true, journal);
+            Check(!Collect(), "a third land region exceeds capacity on one side");
+            Cut(g, front, deck);
+            Check(!Collect(), "an isolated near abutment cannot publish deck regions");
+        }
+
+        private static void PortalKeepsEveryRepresentableRegion()
+        {
+            Check(DeckClosureCore.TryFitPortalRegions(new[] { 11, 0 }, new[] { 14, 20 }, 11, out int a, out int b, out int c) &&
+                (a, b, c) == (11, 14, 20), "AIV case uses duplicate corridor field for the second landing");
+            Check(DeckClosureCore.TryFitPortalRegions(new[] { 12, 0 }, new[] { 14, 0 }, 11, out a, out b, out c) &&
+                (a, b, c) == (12, 14, 11), "two distinct landings preserve the corridor in C");
+            Check(DeckClosureCore.TryFitPortalRegions(new[] { 14, 20 }, new[] { 14, 20 }, 11, out a, out b, out c) &&
+                (a, b, c) == (14, 20, 11), "two bridges can cover their shared landings in A and B");
+            Check(!DeckClosureCore.TryFitPortalRegions(new[] { 12, 0 }, new[] { 14, 20 }, 11, out _, out _, out _),
+                "a fourth region cannot displace the corridor or an existing side");
+            Check(!DeckClosureCore.TryFitPortalRegions(new[] { 0, 0 }, new[] { 14, 20 }, 11, out _, out _, out _),
+                "an absent aperture cannot take the corridor's place");
         }
     }
 }

@@ -1325,3 +1325,28 @@ packed layouts, spans, branches and live RedBird displacement before changing th
 reference. A mismatched or occupied site leaves the feature unavailable. In multiplayer
 the APIShared simulation agreement requires both sites to be available on every peer,
 then the common host setting is frozen for the mission.
+
+## Projectile trails and Standard afterimage replacement
+
+The projectile-trail observer is hash-bound to CrusaderDE.dll
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The exclusive entry at `0x9BFC0` displaces 5/5/1/4 bytes. It verifies the
+prologue, the bound load at `0x9BFCF` and the sole call at `0x9FED0`.
+For supported arrow and bolt source types the Standard rule can return
+zero on the restored entry stack before the original allocation. The
+caller ignores the return and reloads the current slot before ordinary
+flight update. All other paths replay the prologue and resume Vanilla.
+The type-5 smoke producer has a separate entry.
+
+The trampoline reads the signed source slot at `0x8F8C30`, projectile
+stride 0xE8 and type word at record +0x3E. Time comes from the monotonic
+map tick at `0x3665F58`. Sprite sub-tile offsets are the two signed
+words at +0 and +4 in the 8-byte entries at `0x2DB520`. A different DLL
+needs an audit of those values, the entry span and the caller contract.
+An entry-only pattern cannot establish those contracts.
+
+APIShared owns the multiplayer admission and native restore boundaries.
+BugfixesAndQoL owns the hook, renderer and presentation clock. Run the
+current ProjectileTrailsTest as a consumer-only acceptance fixture.
+Remove the old standalone renderer before using this feature. See the
+[effect allocation audit](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/EXTREME_TROOPS.md).

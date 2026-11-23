@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.236.0</AssemblyVersion>
-    <FileVersion>1.0.236.0</FileVersion>
+    <AssemblyVersion>1.0.237.0</AssemblyVersion>
+    <FileVersion>1.0.237.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -50,6 +50,7 @@
     <Compile Include="src\GateRouting\GatehouseTargetMarkerHeightPolicy.cs" />
     <Compile Include="src\GateRouting\GatehouseTargetMarkerHeightHook.cs" />
     <Compile Include="src\VanillaPerformance\VanillaPerformanceFeature.cs" />
+    <Compile Include="src\ProjectileTrails\*.cs" />
     <Compile Include="src\VanillaPerformance\RadarRebindOptimization.cs" />
     <Compile Include="src\VanillaPerformance\MeritDataLockOptimization.cs" />
     <Compile Include="src\VanillaPerformance\EnginePresentationBridge.cs" />
@@ -86,6 +87,7 @@
     <Reference Include="MonoMod.RuntimeDetour"><HintPath>$(GameDir)\BepInEx\core\MonoMod.RuntimeDetour.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MonoMod.Utils"><HintPath>$(GameDir)\BepInEx\core\MonoMod.Utils.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.AssetBundleModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.AssetBundleModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.AudioModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.AudioModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.ImageConversionModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.ImageConversionModule.dll</HintPath><Private>false</Private></Reference>
@@ -385,7 +387,7 @@
   <ItemGroup>
     <!-- Published neutral replacements are package content too. Always replace stale outputs,
          even when checkout timestamps are older than a previously generated package. -->
-    <Content Include="Patches\**\*;Override\**\*;Locales\**\*;info.json"><CopyToOutputDirectory>Always</CopyToOutputDirectory></Content>
+    <Content Include="Patches\**\*;Override\**\*;Locales\**\*;info.json;projectiletrails-shader"><CopyToOutputDirectory>Always</CopyToOutputDirectory></Content>
   </ItemGroup>
   <ItemGroup>
     <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath><Private>false</Private></Reference>

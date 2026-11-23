@@ -4,6 +4,6 @@
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\src\TrailBuffer.cs" Link="TrailBuffer.cs" />
+    <Compile Include="..\..\..\BugfixesAndQoL\src\ProjectileTrails\TrailBuffer.cs" Link="TrailBuffer.cs" />
   </ItemGroup>
 </Project>

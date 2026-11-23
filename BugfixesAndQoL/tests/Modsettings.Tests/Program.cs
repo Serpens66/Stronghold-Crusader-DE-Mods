@@ -419,6 +419,8 @@ internal static partial class Program
     {
         var scopes=new Dictionary<string,bool>{{"EnableCompactLobbyChat",false},{"EnableLocalAutosave",false},{"EnableLordAndMapListEnhancements",false},{"EnableMissingMapSaveRecovery",false},{"EnablePitchMoatLines",false},{"EnableAreaDemolition",false},{"EnableOccupiedWallDemolition",true},{"EnableTroopPanelPageCountFix",false},{"EnableRandomOpponentSelectionEnhancements",true},{"EnableMultiplayerStartupStateFix",true},{"EnablePeaceTimeGameplayFixes",true},{"EnablePeaceTimeCivilianProximityReduction",true},{"EnablePitchStairsFix",true},{"EnableSiegeCrewDuplicationFix",true},{"EnableSiegeCrewFireLossFix",true},{"EnableTreeBlightDecayFix",true},{"EnablePrebuiltAiStorageFix",true},{"EnableAiOutpostRetargetFix",true}};
         scopes.Add("EnableAreaConstruction", false);
+        scopes.Add("EnableProjectileTrails", false);
+        scopes.Add("ReplaceStandardProjectileAfterimages", true);
         MethodBase ctor=modelType.GetConstructors(All).Single();
         List<Tuple<OpCode,object>> body=Instructions(ctor);
         var xaml=new XmlDocument();xaml.Load(Path.Combine(workspace,"BugfixesAndQoL/Override/ScriptExtenderUI/BugfixesAndQoLSettings.xaml"));
@@ -448,7 +450,7 @@ internal static partial class Program
         Check(reset.Select((instruction, index) => new { instruction, index }).Any(entry =>
             Equals(entry.instruction.Item2, localAutosave.GetSetMethod()) && entry.index > 0 &&
             reset[entry.index - 1].Item1 == OpCodes.Ldc_I4_1), "reset enables local autosave");
-        foreach (string option in new[] { "EnableSiegeCrewDuplicationFix", "EnableSiegeCrewFireLossFix", "EnableOccupiedWallDemolition" })
+        foreach (string option in new[] { "EnableSiegeCrewDuplicationFix", "EnableSiegeCrewFireLossFix", "EnableOccupiedWallDemolition", "ReplaceStandardProjectileAfterimages" })
         {
             Check(hostProperties.Any(property => property.Name == option), "preset discovery includes host option " + option);
             var setter = modelType.GetProperty(option).GetSetMethod();
@@ -457,7 +459,18 @@ internal static partial class Program
                 reset[entry.index - 1].Item1 == OpCodes.Ldc_I4_1), "reset restores enabled default for " + option);
         }
         StorageLimitSettings(xaml, hostProperties, body, reset);
-        foreach(string option in new[]{"EnablePitchMoatLines","EnableAreaDemolition","EnableAreaConstruction"})
+        foreach (var slider in new[] { (Name: "ProjectileTrailLength", Max: "10"), (Name: "ProjectileTrailMaximum", Max: "60000") })
+        {
+            var property = modelType.GetProperty(slider.Name);
+            Check(property.PropertyType == typeof(int) && !hostProperties.Contains(property) &&
+                property.GetCustomAttributesData().Any(attribute => attribute.AttributeType.Name == "PresetLocalAttribute"),
+                slider.Name + " is an integer in the local preset only");
+            var editor = xaml.SelectSingleNode("//*[local-name()='Slider' and contains(@Value,'" + slider.Name + ",')]");
+            Check(editor?.Attributes["Minimum"]?.Value == "0" && editor.Attributes["Maximum"]?.Value == slider.Max &&
+                Ancestors(editor).Any(node => node.Attributes?["IsEnabled"]?.Value == "{Binding CanEditClientSettings}"),
+                slider.Name + " has the documented range and local authority");
+        }
+        foreach(string option in new[]{"EnablePitchMoatLines","EnableAreaDemolition","EnableAreaConstruction","EnableProjectileTrails"})
         {
             var localPreference=modelType.GetProperty(option);
             Check(!hostProperties.Any(property=>property==localPreference),option+" is excluded from host snapshots");

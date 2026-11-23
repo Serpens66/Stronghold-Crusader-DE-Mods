@@ -1329,8 +1329,18 @@ gate does not admit. Two parts that are only consistent together (`DrawbridgeDec
      non-deck neighbours; the gate aperture edge (Vanilla's own open value from `0xD8CE0`) and
      the near abutment edge are re-added. Every changed direction byte is restored before the
      next `0xC4BF0` call (also when the setting changed in between).
-   - `0xF4540` per-tick portal refresh, `void(pathManager)`. Afterwards a gate portal endpoint
-     whose tile shares the gate tile's region gets the region beyond the bridge footprint.
+   - `0xF4540` per-tick portal refresh, `void(pathManager)`. After the native refresh, an open
+     gate's coupled bridge is walked from its aperture through mutual live direction bits
+     within the footprint. The scan includes support tiles and all eight directions along
+     the rim, deduplicates positive regions and requires a reachable deck cell. A distinct
+     region on the opposite, unbridged side requires a traversable aperture too.
+   - A and B retain their side assignments. C can represent another landing only when its
+     previous corridor region is already in A or B. `0xE2610` and `0xE2F60` use the three
+     fields as a set under the existing gate access checks. `0xDF720` associates A and B
+     with the entry and exit coordinates and tests C for positivity. The native refresh
+     restores the original fields on the next pass. A closed gate, an ambiguous crossing
+     into another structure connection or a region set too large for the record retains
+     the three-tile landing lookup.
 2. **Deck entry mask** (`GateTopologySnapshotProvider`, owner: gate routing route policy): for
    every player the gate does not admit, all edges INTO the deck of the gate owner's live
    drawbridge are cleared (edges out stay open). Covers routes that stay inside one region
@@ -1354,6 +1364,7 @@ fallback: several data tables below have no independent second anchor.
 | record +0x2FE / +0x32E | gate state byte (2 = closed) / portal record id | 0xC4BF0, 0xD8040 |
 | `0x60AD660` | path manager; portal record at +0x2024 + id*0x204 (ids 1..[0]-1, max 199) | 0xF4540, 0xD8510 |
 | portal +0 / +4 / +0xC / +0x24 / +0x30 / +0x34 / +0x38 | state / class (3 big, 4 small gatehouse) / building / entry tile / exit tile / region A / region B | 0xD7E90, 0xD8040, 0xE2610 |
+| portal +0x18 / +0x1E8 | enabled / region C (gate floor before the mod refresh) | 0xD7E90, 0xD8040, 0xE2610, 0xE2F60, 0xDF720 |
 | `0x51890D0` | direction byte per tile; bits 01 N, 02 NE, 04 E, 08 SE, 10 S, 20 SW, 40 W, 80 NW | 0xE49D0 |
 | `0x50EC690` | PCL (region) per tile (ushort) | 0xE49D0 |
 | `0x48F71B0` | tile flags (uint); `0x40000000` = raised drawbridge deck | 0x645C0 |

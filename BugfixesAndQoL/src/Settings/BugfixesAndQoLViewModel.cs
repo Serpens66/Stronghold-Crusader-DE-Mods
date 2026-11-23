@@ -162,6 +162,12 @@ namespace BugfixesAndQoL
         private bool enableGatehouseTargetMarkerHeightFix = true;
         private bool enableTroopPanelPageCountFix = true;
         private bool enableVanillaPerformanceOptimizations = true;
+        private const int DefaultProjectileTrailLength = 5;
+        private const int DefaultProjectileTrailMaximum = 10000;
+        private bool enableProjectileTrails = true;
+        private int projectileTrailLength = DefaultProjectileTrailLength;
+        private int projectileTrailMaximum = DefaultProjectileTrailMaximum;
+        private bool replaceStandardProjectileAfterimages = true;
         private bool enableMinimapRefreshThrottle = true;
         private SpriteSheetMergeMode spriteSheetMergeMode = SpriteSheetMergeMode.Automatic;
         private bool enableWorkshopUploadLordSelectionFix = true;
@@ -626,6 +632,14 @@ namespace BugfixesAndQoL
         public string EnableTroopPanelPageCountFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableTroopPanelPageCountFixHelp");
         public string EnableVanillaPerformanceOptimizationsText => SerpLocalization.Get("BugfixesAndQoL.EnableVanillaPerformanceOptimizations");
         public string EnableVanillaPerformanceOptimizationsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableVanillaPerformanceOptimizationsHelp");
+        public string EnableProjectileTrailsText => SerpLocalization.Get("BugfixesAndQoL.EnableProjectileTrails");
+        public string EnableProjectileTrailsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableProjectileTrailsHelp");
+        public string ProjectileTrailLengthText => SerpLocalization.Get("BugfixesAndQoL.ProjectileTrailLength");
+        public string ProjectileTrailLengthHelpText => SerpLocalization.Get("BugfixesAndQoL.ProjectileTrailLengthHelp");
+        public string ProjectileTrailMaximumText => SerpLocalization.Get("BugfixesAndQoL.ProjectileTrailMaximum");
+        public string ProjectileTrailMaximumHelpText => SerpLocalization.Get("BugfixesAndQoL.ProjectileTrailMaximumHelp");
+        public string ReplaceStandardProjectileAfterimagesText => SerpLocalization.Get("BugfixesAndQoL.ReplaceStandardProjectileAfterimages");
+        public string ReplaceStandardProjectileAfterimagesHelpText => SerpLocalization.Get("BugfixesAndQoL.ReplaceStandardProjectileAfterimagesHelp");
         public string EnableMinimapRefreshThrottleText => SerpLocalization.Get("BugfixesAndQoL.EnableMinimapRefreshThrottle");
         public string EnableMinimapRefreshThrottleHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMinimapRefreshThrottleHelp");
         public string SpriteSheetMergeModeText => SerpLocalization.Get("BugfixesAndQoL.SpriteSheetMergeMode");
@@ -1023,6 +1037,40 @@ namespace BugfixesAndQoL
 
         // Effective switch of all of them. Not public, so it is no setting of its own.
         internal bool VanillaPerformanceOptimizationsActive => EnableClientFeatures && EnableVanillaPerformanceOptimizations;
+
+        [PresetLocal]
+        public bool EnableProjectileTrails
+        {
+            get => enableProjectileTrails;
+            set => SetSetting(ref enableProjectileTrails, value, nameof(EnableProjectileTrails));
+        }
+
+        [PresetLocal]
+        public int ProjectileTrailLength
+        {
+            get => projectileTrailLength;
+            set => SetBoundedIntSetting(ref projectileTrailLength, value, 0, 10,
+                nameof(ProjectileTrailLength), nameof(ProjectileTrailLengthValueText));
+        }
+
+        public string ProjectileTrailLengthValueText => ProjectileTrailLength.ToString(CultureInfo.CurrentCulture);
+
+        [PresetLocal]
+        public int ProjectileTrailMaximum
+        {
+            get => projectileTrailMaximum;
+            set => SetBoundedIntSetting(ref projectileTrailMaximum, value, 0, 60000,
+                nameof(ProjectileTrailMaximum), nameof(ProjectileTrailMaximumValueText));
+        }
+
+        public string ProjectileTrailMaximumValueText => ProjectileTrailMaximum.ToString("N0", CultureInfo.CurrentCulture);
+
+        [SyncHostOnly]
+        public bool ReplaceStandardProjectileAfterimages
+        {
+            get => replaceStandardProjectileAfterimages;
+            set => SetSetting(ref replaceStandardProjectileAfterimages, value, nameof(ReplaceStandardProjectileAfterimages));
+        }
 
         // V13 minimap throttle (drawn at most every 100 ms). Presentation only, so a mismatch cannot
         // desync; it is a host value because a lockstep match runs at the speed of its slowest peer.
@@ -1683,6 +1731,7 @@ namespace BugfixesAndQoL
             if (CanEditHostSettings)
             {
                 EnableMod = true;
+                ReplaceStandardProjectileAfterimages = true;
                 EnableRandomOpponentSelectionEnhancements = true;
                 EnableMultiplayerStartupStateFix = true;
                 EnablePeaceTimeGameplayFixes = true;
@@ -1756,6 +1805,9 @@ namespace BugfixesAndQoL
 
             // Every participant resets only their own per-player preferences.
             EnableClientFeatures = true;
+            EnableProjectileTrails = true;
+            ProjectileTrailLength = DefaultProjectileTrailLength;
+            ProjectileTrailMaximum = DefaultProjectileTrailMaximum;
             EnableLordAndMapListEnhancements = true;
             EnableMissingMapSaveRecovery = true;
             EnableCompactLobbyChat = true;

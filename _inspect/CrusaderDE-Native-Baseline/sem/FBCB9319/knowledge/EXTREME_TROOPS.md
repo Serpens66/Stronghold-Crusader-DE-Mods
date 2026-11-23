@@ -170,3 +170,21 @@ The native rule is a shared Host setting in multiplayer and uses
 APIShared simulation admission. The local renderer's settings never
 control the admitted allocation rule. See the
 [Standard replacement tests](../../../../../Testmods/ProjectileTrailsTest/TESTING.md#standard-mode-replacement-040).
+
+### BugfixesAndQoL ownership (2026-11-23) [mod integration]
+
+BugfixesAndQoL 1.0.237 owns the same entry span and the Unity renderer.
+ProjectileTrailsTest 0.5.0 exercises the feature without owning a hook.
+The renderer adds no native effect IDs. The host setting determines
+whether Standard allocates native afterimages. Local display and its
+two budgets select the number of copies drawn, independently of the
+admitted native rule. Extreme still uses Vanilla's early return.
+
+On `test_green`, Standard with the rule off reached ten native copies.
+With the rule on, the renderer reached ten local copies and the native
+peak was zero. The game kept its native copies if the replacement
+shader could not load. A Standard fire arrow still produced its native type-5
+smoke. The matched Standard and Extreme traces reproduced all sampled
+Vanilla flight positions and all matched sorting orders. Some copies
+entered a fade step one tick sooner. See the
+[acceptance traces](../../../../../Testmods/ProjectileTrailsTest/TESTING.md).

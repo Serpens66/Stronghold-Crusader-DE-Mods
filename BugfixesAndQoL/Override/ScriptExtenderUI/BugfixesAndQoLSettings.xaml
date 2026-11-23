@@ -380,6 +380,46 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
           </StackPanel>
           <StackPanel Visibility="{Binding SettingsPresentation.ClientDisplay.QolVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.client-display" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.ClientDisplay.QolSearchTitle}">
             <TextBlock Text="{Binding QolTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.projectile-trails" shared:ModSettingsSearch.Title="{Binding EnableProjectileTrailsText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableProjectileTrailsHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="28"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableProjectileTrails}"><ContentControl.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ToolTip}"/></ContentControl.ToolTip></ContentControl>
+              <Grid Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}">
+                <CheckBox IsChecked="{Binding EnableProjectileTrails, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" Margin="0,0,14,8"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding EnableProjectileTrailsHelpText}"/></CheckBox.ToolTip>
+                  <TextBlock Text="{Binding EnableProjectileTrailsText}" Foreground="White" TextWrapping="Wrap"/>
+                </CheckBox>
+              </Grid>
+            </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.projectile-trail-length" shared:ModSettingsSearch.Title="{Binding ProjectileTrailLengthText}" shared:ModSettingsSearch.ToolTipText="{Binding ProjectileTrailLengthHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="28"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.ProjectileTrailLength}"><ContentControl.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ToolTip}"/></ContentControl.ToolTip></ContentControl>
+              <WrapPanel ToolTipService.ShowDuration="60000" Margin="0,0,0,8" Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}"><WrapPanel.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ProjectileTrailLengthHelpText}"/></WrapPanel.ToolTip>
+                <TextBlock Text="{Binding ProjectileTrailLengthText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                <WrapPanel Orientation="Horizontal" Margin="4,0,0,0" VerticalAlignment="Center">
+                  <Slider shared:ModSettingsSearch.InactiveValues="0" Width="160" Minimum="0" Maximum="10" Value="{Binding ProjectileTrailLength, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="1" IsSnapToTickEnabled="True" ToolTipService.ShowDuration="60000"><Slider.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ProjectileTrailLengthHelpText}"/></Slider.ToolTip></Slider>
+                  <TextBlock Text="{Binding ProjectileTrailLengthValueText}" Foreground="White" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                </WrapPanel>
+              </WrapPanel>
+            </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.projectile-trail-maximum" shared:ModSettingsSearch.Title="{Binding ProjectileTrailMaximumText}" shared:ModSettingsSearch.ToolTipText="{Binding ProjectileTrailMaximumHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="28"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.ProjectileTrailMaximum}"><ContentControl.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ToolTip}"/></ContentControl.ToolTip></ContentControl>
+              <WrapPanel ToolTipService.ShowDuration="60000" Margin="0,0,0,8" Grid.Column="1" IsEnabled="{Binding CanEditClientSettings}" Opacity="{Binding ClientSettingsOpacity}"><WrapPanel.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ProjectileTrailMaximumHelpText}"/></WrapPanel.ToolTip>
+                <TextBlock Text="{Binding ProjectileTrailMaximumText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                <WrapPanel Orientation="Horizontal" Margin="4,0,0,0" VerticalAlignment="Center">
+                  <Slider shared:ModSettingsSearch.InactiveValues="0" Width="160" Minimum="0" Maximum="60000" Value="{Binding ProjectileTrailMaximum, Mode=TwoWay}" TickFrequency="500" SmallChange="500" LargeChange="5000" IsSnapToTickEnabled="True" ToolTipService.ShowDuration="60000"><Slider.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ProjectileTrailMaximumHelpText}"/></Slider.ToolTip></Slider>
+                  <TextBlock Text="{Binding ProjectileTrailMaximumValueText}" Foreground="White" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                </WrapPanel>
+              </WrapPanel>
+            </Grid>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.show-selected-unit-health" shared:ModSettingsSearch.Title="{Binding ShowSelectedUnitHealthText}" shared:ModSettingsSearch.ToolTipText="{Binding ShowSelectedUnitHealthHelpText}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="28"/>
@@ -1475,6 +1515,18 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
           </StackPanel>
           <StackPanel Visibility="{Binding SettingsPresentation.HostTroops.QolVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.host-troops" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.HostTroops.QolSearchTitle}">
             <TextBlock Text="{Binding QolTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.replace-standard-projectile-afterimages" shared:ModSettingsSearch.Title="{Binding ReplaceStandardProjectileAfterimagesText}" shared:ModSettingsSearch.ToolTipText="{Binding ReplaceStandardProjectileAfterimagesHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="28"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.ReplaceStandardProjectileAfterimages}"><ContentControl.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ToolTip}"/></ContentControl.ToolTip></ContentControl>
+              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
+                <CheckBox IsChecked="{Binding ReplaceStandardProjectileAfterimages, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" Margin="0,0,14,8"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ReplaceStandardProjectileAfterimagesHelpText}"/></CheckBox.ToolTip>
+                  <TextBlock Text="{Binding ReplaceStandardProjectileAfterimagesText}" Foreground="White" TextWrapping="Wrap"/>
+                </CheckBox>
+              </Grid>
+            </Grid>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-lord-unit-controls" shared:ModSettingsSearch.Title="{Binding EnableLordUnitControlsText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableLordUnitControlsHelpText}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="28"/>

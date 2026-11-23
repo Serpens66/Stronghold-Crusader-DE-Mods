@@ -1,4 +1,75 @@
-# Extreme Troops projectile trails
+# Projectile trail acceptance
+
+The acceptance harness exercises the renderer, settings and Standard Troops
+replacement in BugfixesAndQoL 1.0.237 or newer. Build it with
+`build.bat /nopause` or set an isolated package output with
+`Build.ps1 -NoPause -OutputPath <package directory>`. The default package is
+`bin/harness/ProjectileTrailsTest_Serp`. The build also runs the offline policy
+tests directly against the main mod's history implementation.
+
+Run the harness with the shared `Invoke-InGameTest.ps1 -HiddenDesktop` runner
+and a plugin layout containing BugfixesAndQoL, Fixes and Script Extender. Use
+the matching APIShared plugin and patcher. Set `SERP_TRAIL_SHOTS` to write the
+optional game screenshots into the run's evidence directory. The harness
+configures each variant before loading the map and observes the actual
+installed main mod. The runner restores the original plugin and setting files.
+
+| Scenario | Acceptance |
+|---|---|
+| `trails-green-standard` | Standard on `test_green.map`, host replacement off. Verify Vanilla afterimages and record their visible footprint. |
+| `trails-green-standard-replaced` | Standard with host replacement on. Verify that the old copies are suppressed while production replacement copies appear. |
+| `trails-green-standard-hidden` | Standard with host replacement on and local length zero. Verify both sets of copies stay hidden. |
+| `trails-green-standard-unavailable` | Stage a disposable main mod package without its shader. Request Standard replacement and verify the original afterimages remain visible. |
+| `trails-green-standard-restart` | Restart through the in-game menu during a paused shot. Verify a linked new mission clears the old trail but retains the host setting and renders a fresh shot. |
+| `trails-green-fire` | Standard with host replacement on. Verify that Vanilla fire-arrow smoke remains visible and the main mod adds no ordinary copies. |
+| `trails-green-extreme` | Extreme with host Standard replacement off. Verify the production replacement and pause behavior. |
+| `trails-smoke` | Fire real arrow and bolt volleys in all four directions on `test_stresstest5.sav`. Verify pause, then load `test_gates_vanilla.sav` and verify the production renderer has cleared. |
+| `trails-mass-default` and `trails-mass-gpu` | Compare 5 copies / 10,000 maximum with 10 / 60,000. Use the same two controlled 5,000-archer volleys, camera and speed. Inspect `MASS_RESULT` for frame times and accepted copies. |
+
+Compare `ECHO` lines from the Standard, Standard-replaced and Extreme runs
+for world position, draw order and fade at matched shot phases. Vanilla
+alpha comes from the actual SpriteRenderer. Replacement alpha is computed
+with the production opacity function for the samples actually submitted to
+the renderer. Overlap compositing requires separate visual review.
+
+On 2026-11-23, the Standard Vanilla (`34b74f1b46ba`), Standard replacement
+(`de7011b8b47f`) and Extreme replacement (`f959337c6162`) runs on
+`test_green.map` each reached ten copies and held ten while paused. Both
+replacement runs visited the same 15 positions as Vanilla. At 98 shared
+position and launch-relative tick pairs per comparison, all 98 sorting orders
+matched. The alpha matched for 91 pairs. The remaining seven faded one level
+earlier in the replacement, consistent with the known one-tick difference in
+native copy aging. All three variants used the same three opacity levels.
+Standard host replacement left zero native arrow copies. A local trail length
+of zero left both renderers blank (`407979f6de46`), and an ignited arrow retained
+seven active Vanilla smoke particles with zero ordinary copies (`fca362cf6e13`).
+
+
+In the final build, a disposable package without the shader logged the
+missing asset and retained ten native copies with zero production copies
+(`999b81abc189`). The same build with its shader reached ten production
+copies and zero native copies (`899250006ac8`). The in-game menu restart
+opened a new linked mission with empty history, and the next shot again
+reached ten production copies and zero native copies (`8876c51266d6`).
+
+The final 1.0.237 build also passed the four-direction rotation, pause and
+save-switch check (`e8d91063610b`). On `test_green`, the controlled load test
+used 5,000 distinct archers, two volleys of 5,000 admitted shots each,
+a fixed camera and zoom 0.256 at 1280×720.
+
+| Copy settings | Peak drawn | Median frame | p95 frame | Average draw calls |
+|---|---:|---:|---:|---:|
+| 5 / 10,000 | 10,000 | 12.34 ms | 27.05 ms | 853 |
+| 10 / 60,000 | 49,997 | 21.81 ms | 37.82 ms | 863 |
+
+Both runs reported zero native afterimage slots. The recorded timings
+include the whole frame on this machine. GPU frame timing was unavailable.
+The run directories are `1a312efdd3bb` and `cd9ea994d3b0` under
+`.work/a/bfq-trails/001`.
+
+## Historical standalone prototype
+
+The instructions and results below refer to retired standalone revisions.
 
 `build.bat /nopause` builds the ordinary test plugin in `BepInEx/plugins/ProjectileTrailsTest_Serp` under this mod directory and runs the offline tests. The local BepInEx setting `[Display] Enabled` defaults to true. Extreme Troops supplies the session gate.
 
@@ -344,7 +415,7 @@ and ordinary Attack Here source branches captured by the renderer. The
 type-5 smoke producer and other source types retain their native handling.
 The entry stub returns zero before the original prologue or allocation,
 after restoring the caller stack and all scratch state. See
-[Native update notes](UpdateToNewDLL.md).
+[Native update notes](../../BugfixesAndQoL/UpdateToNewDLL.md).
 
 The Host preference follows the shared preset, lobby and save settings
 paths. The package uses `NetworkMode=1`. In multiplayer the optional

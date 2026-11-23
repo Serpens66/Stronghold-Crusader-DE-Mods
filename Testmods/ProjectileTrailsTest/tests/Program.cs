@@ -1,5 +1,5 @@
 using System;
-using ProjectileTrailsTest;
+using BugfixesAndQoL.ProjectileTrails;
 
 static void Require(bool condition, string message)
 {

@@ -114,6 +114,84 @@ namespace Pathfinding.GateRouting
             return false;
         }
 
+        // Follow live, reciprocal edges within the footprint and across its boundary.
+        // An abutment can itself belong to a land region separated by the planning cut.
+        internal static bool CollectLandingRegions(IDeckGrid grid, int outside, int inside, int corridor,
+            Func<int, bool> onBridge, Func<int, bool> isDeck,
+            Func<int, bool> otherConnection, Func<int, int> component, Span<int> footprint, Span<int> regions)
+        {
+            int count = 1, regionCount = 0;
+            bool reachedDeck = false;
+            footprint[0] = outside;
+            for (int index = 0; index < count; index++)
+            {
+                int tile = footprint[index];
+                reachedDeck |= isDeck(tile);
+                if (!grid.TryGetCoordinates(tile, out int x, out int y)) return false;
+                byte directions = grid.GetDirections(tile);
+                for (int d = 0; d < 8; d++)
+                {
+                    if ((directions & DirectionBits.Bit[d]) == 0 ||
+                        !grid.TryGetTile(x + DirectionBits.Dx[d], y + DirectionBits.Dy[d], out int next) ||
+                        (grid.GetDirections(next) & DirectionBits.Bit[DirectionBits.Opposite(d)]) == 0) continue;
+
+                    int region = component(next);
+                    if (region == 0) continue;
+                    if (onBridge(next))
+                    {
+                        if (footprint.Slice(0, count).IndexOf(next) >= 0) continue;
+                        if (count == footprint.Length) return false;
+                        footprint[count++] = next;
+                    }
+                    else if (otherConnection(next))
+                    {
+                        // A different bridge or gate requires its own access decision.
+                        if (next != inside) return false;
+                        continue;
+                    }
+
+                    if (region == corridor || regions.Slice(0, regionCount).IndexOf(region) >= 0) continue;
+                    if (regionCount == regions.Length) return false;
+                    regions[regionCount++] = region;
+                }
+            }
+            return reachedDeck;
+        }
+
+        internal static bool TryFitPortalRegions(ReadOnlySpan<int> first, ReadOnlySpan<int> second, int corridor,
+            out int a, out int b, out int c)
+        {
+            foreach (int entry in first[1] == 0 ? first.Slice(0, 1) : first)
+            {
+                foreach (int exit in second[1] == 0 ? second.Slice(0, 1) : second)
+                {
+                    int extra = 0;
+                    if (CollectExtraRegion(first, entry, exit, corridor, ref extra) &&
+                        CollectExtraRegion(second, entry, exit, corridor, ref extra) &&
+                        (extra == 0 || corridor == entry || corridor == exit))
+                    {
+                        a = entry;
+                        b = exit;
+                        c = extra == 0 ? corridor : extra;
+                        return true;
+                    }
+                }
+            }
+            a = b = c = 0;
+            return false;
+        }
+
+        private static bool CollectExtraRegion(ReadOnlySpan<int> regions, int a, int b, int c, ref int extra)
+        {
+            foreach (int region in regions)
+            {
+                if (region == 0 || region == a || region == b || region == c) continue;
+                if (extra != 0 && extra != region) return false;
+                extra = region;
+            }
+            return true;
+        }
+
         // Landing tiles beyond the far end of the bridge footprint, centre first. The walk starts
         // in front of the gate and follows the gate passage axis away from the gate.
         internal static int FindLanding(IDeckGrid grid, int outside, int inside, Func<int, bool> onBridge, Func<int, int> component, int maxDeckLength = 8) =>

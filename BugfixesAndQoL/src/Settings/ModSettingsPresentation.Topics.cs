@@ -18,6 +18,10 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableGatehouseTargetMarkerHeightFix => options["EnableGatehouseTargetMarkerHeightFix"];
         public SettingsOptionPresentation EnableTroopPanelPageCountFix => options["EnableTroopPanelPageCountFix"];
         public SettingsOptionPresentation EnableVanillaPerformanceOptimizations => options["EnableVanillaPerformanceOptimizations"];
+        public SettingsOptionPresentation EnableProjectileTrails => options["EnableProjectileTrails"];
+        public SettingsOptionPresentation ProjectileTrailLength => options["ProjectileTrailLength"];
+        public SettingsOptionPresentation ProjectileTrailMaximum => options["ProjectileTrailMaximum"];
+        public SettingsOptionPresentation ReplaceStandardProjectileAfterimages => options["ReplaceStandardProjectileAfterimages"];
         public SettingsOptionPresentation EnableMinimapRefreshThrottle => options["EnableMinimapRefreshThrottle"];
         public SettingsOptionPresentation SpriteSheetMergeModeIndex => options["SpriteSheetMergeModeIndex"];
         public SettingsOptionPresentation EnableCompleteNotificationSkipOnClick => options["EnableCompleteNotificationSkipOnClick"];
@@ -133,6 +137,9 @@ namespace BugfixesAndQoL
             AddOption("SpriteSheetMergeModeIndex", "bugfixes.sprite-sheet-merge", SettingsCategory.Fixes, ClientDisplay);
             AddOption("EnableCompleteNotificationSkipOnClick", "bugfixes.enable-complete-notification-skip-on-click", SettingsCategory.Fixes, ClientDisplay);
             AddOption("ShowSelectedUnitHealth", "bugfixes.show-selected-unit-health", SettingsCategory.Qol, ClientDisplay);
+            AddOption("EnableProjectileTrails", "bugfixes.projectile-trails", SettingsCategory.Qol, ClientDisplay);
+            AddOption("ProjectileTrailLength", "bugfixes.projectile-trail-length", SettingsCategory.Qol, ClientDisplay);
+            AddOption("ProjectileTrailMaximum", "bugfixes.projectile-trail-maximum", SettingsCategory.Qol, ClientDisplay);
             AddOption("ShowForeignTroopHud", "bugfixes.show-foreign-troop-hud", SettingsCategory.Qol, ClientDisplay);
             AddOption("EnableDamagedHealthBars", "bugfixes.damaged-health-bars", SettingsCategory.Qol, ClientDisplay);
             AddOption("ShowCountdownTimers", "bugfixes.show-countdown-timers", SettingsCategory.Qol, ClientDisplay);
@@ -212,6 +219,7 @@ namespace BugfixesAndQoL
             AddOption("EnableHealerAttackCommandFix", "bugfixes.enable-healer-attack-command-fix", SettingsCategory.Fixes, HostTroops);
             AddOption("EnableLordReturnTeleportFix", "bugfixes.lord-return-teleport-fix", SettingsCategory.Fixes, HostTroops);
             AddOption("EnableLordUnitControls", "bugfixes.enable-lord-unit-controls", SettingsCategory.Qol, HostTroops);
+            AddOption("ReplaceStandardProjectileAfterimages", "bugfixes.replace-standard-projectile-afterimages", SettingsCategory.Qol, HostTroops);
             HostEconomy = AddTopic("HostEconomy", "bugfixes.topic.host-economy", true);
             AddOption("EnableTreeBlightDecayFix", "bugfixes.enable-tree-blight-decay-fix", SettingsCategory.Fixes, HostEconomy);
             AddOption("EnableKeepFlagRotationFix", "bugfixes.enable-keep-flag-rotation-fix", SettingsCategory.Fixes, HostEconomy);

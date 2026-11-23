@@ -3,19 +3,25 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.236",
+  "Version": "1.0.237",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.3",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.61.0"
+      "MinimumVersion": "0.62.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.237",
+      "Changes": [
+        "Show configurable fading arrow and crossbow bolt trails in Extreme Troops. In Standard mode the host can replace the original trails and free room for more shots and effects in large battles. Set the trail length and total number under local display options."
+      ]
+    },
     {
       "Version": "1.0.236",
       "Changes": [

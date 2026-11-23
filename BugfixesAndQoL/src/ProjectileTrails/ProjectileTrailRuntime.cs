@@ -4,10 +4,9 @@ using System.IO;
 using System.Reflection;
 using APIShared;
 using APIShared.GameModes;
-using APIShared.ModSettings;
 using APIShared.Multiplayer;
 using APIShared.Presentation;
-using BepInEx;
+using APIShared.Savegames;
 using BepInEx.Logging;
 using HarmonyLib;
 using SHCDESE.API.LowLevel;
@@ -17,19 +16,16 @@ using UnityEngine;
 using Position = System.Numerics.Vector3;
 using Axis = System.Numerics.Vector2;
 
-namespace ProjectileTrailsTest
+namespace BugfixesAndQoL.ProjectileTrails
 {
-    [BepInPlugin(Guid, "Extreme Troops Projectile Trails Test", "0.4.0")]
-    [BepInDependency("000shcdese", "2.14.4")]
-    [BepInDependency("APIShared_Serp", "0.62.0")]
-    public sealed partial class Plugin : BaseUnityPlugin
+    internal static class ProjectileTrailRuntime
     {
-        internal const string Guid = "ProjectileTrailsTest_Serp";
+        private const string Owner = BugfixesAndQoLPlugin.PluginGuid;
         private const int WideProjectileLimit = TrailBuffer.WideProjectileLimit;
         private const int ProjectileLayerDelay = 1;
         private const float NativeHeightScale = 32f;
         private static ManualLogSource log;
-        private static TrailSettings settings;
+        private static BugfixesAndQoLViewModel settings;
         private static int afterimageCount = TrailBuffer.Lifetime;
         private static int maximumVisible = TrailBuffer.MaximumVisibleCopies;
         private static ModApiClient api;
@@ -47,8 +43,10 @@ namespace ProjectileTrailsTest
         private static uint lastTick;
         private static int sortLayer, objectLayer;
         private static Axis axisX, axisY;
-        private static bool initialized, ready, renderingEnabled, styleKnown, firstVisible;
-        private static volatile bool failed;
+        private static bool renderingEnabled, styleKnown, firstVisible;
+        private static volatile bool nativeReady, presentationReady, presentationFailed;
+        private static long localPreparedSession;
+        private static bool localReplacement;
 
         internal static bool SessionExtreme { get; private set; }
         private static bool replaceStandard;
@@ -56,39 +54,21 @@ namespace ProjectileTrailsTest
         private static bool UsesModTrails => SessionExtreme || replaceStandard;
         internal static int LastSegmentCount { get; private set; }
         private static bool CanDrawTrails => renderingEnabled && afterimageCount > 0 && maximumVisible > 0;
-#if SERP_DEVDIAG
-        private static bool? automationActivation;
-        internal static bool TrailRenderingEnabled
-        {
-            get => renderingEnabled;
-            set
-            {
-                automationActivation = value;
-                if (renderingEnabled == value) return;
-                renderingEnabled = value;
-                ResetView();
-                RefreshCapture();
-            }
-        }
-#endif
 
-        private void Awake()
+        internal static void Configure(ManualLogSource logger, BugfixesAndQoLViewModel model)
         {
-            if (initialized) return;
-            initialized = true;
-            log = Logger;
-            var legacyEnabled = Config.Bind("Display", "Enabled", true, "Initial value for the local modsettings switch when no preset exists.");
-            settings = new TrailSettings(legacyEnabled.Value);
-            api = ApiShared.ForMod(Guid);
-            SimulationAgreement.Register(Guid, "standard-projectile-trails", required: false,
-                () => ready && !failed && settings.ReplaceStandardAfterimages && native?.IsIntact == true,
-                ApplyMultiplayerReplacement);
-            CrusaderLibrary.Instance.LibraryLoaded += LibraryLoaded;
-            api.WhenReady(_ =>
-            {
-                if (!api.Ui.TryPost(Initialize)) Fail("Unity dispatch unavailable");
-            });
+            log = logger;
+            settings = model;
+            api = ApiShared.ForMod(Owner);
+            SimulationAgreement.Register(Owner, "standard-projectile-trails", required: false,
+                CanReplaceNative, ApplyMultiplayerReplacement);
         }
+
+        // An unsupported renderer keeps Standard Vanilla at admission. A local failure after
+        // admission must not alter the rule, and an intentional local display-off is supported.
+        private static bool CanReplaceNative() =>
+            nativeReady && presentationReady && !presentationFailed &&
+            settings.EnableMod && settings.ReplaceStandardProjectileAfterimages && native.IsIntact;
 
         private static void ApplyMultiplayerReplacement(bool enabled)
         {
@@ -96,23 +76,40 @@ namespace ProjectileTrailsTest
             native?.SuppressNativeAfterimages(enabled);
         }
 
-        private void LibraryLoaded(CrusaderLibraryLoadContext context)
+        internal static void Install(CrusaderLibraryLoadContext context)
         {
             try
             {
+                if (api == null) return;
                 // Root the buffer and hook before publication, even if the backend later reports failure.
-                native = new NativeFlightSamples(context, Guid, log);
+                native = new NativeFlightSamples(context, Owner, log);
                 native.Install(context);
-                LobbyModSettingsPresetRegistration.Register(this, Shared.DebugLogHelper.ForExternalCode(log),
-                    "Extreme Troops Projectile Trails Test", settings, "ScriptExtenderUI/ProjectileTrailsSettings.xaml",
-                    logRoutineActivity: false);
+                api.WhenReady(_ =>
+                {
+                    if (!api.Ui.TryPost(Initialize)) FailPresentation("Unity dispatch unavailable");
+                });
             }
-            catch (Exception ex) { Fail(ex.ToString()); }
+            catch (Exception ex) { LogError("Native projectile trails are unavailable. " + ex); }
         }
 
         private static void Initialize()
         {
-            if (failed) return;
+            try
+            {
+                if (!api.TryGetMissionLifecycle(out missions, out var diagnostic))
+                    throw new InvalidOperationException(diagnostic.Reason);
+                if (!NativeWorldRestoreEvents.TryRegister(Owner, "projectile-trails", OnWorldRestore, out string reason))
+                    throw new InvalidOperationException(reason);
+                if (!missions.TryRegisterObserver("projectile-trails", MissionStarted, MissionEnded, PrepareMission, out diagnostic))
+                    throw new InvalidOperationException(diagnostic.Reason);
+                nativeReady = true;
+            }
+            catch (Exception ex)
+            {
+                LogError("Projectile trails could not register mission boundaries. " + ex);
+                return;
+            }
+
             try
             {
                 var add = typeof(GameMap).GetMethod(nameof(GameMap.addUpdateFly), new[] {
@@ -129,41 +126,79 @@ namespace ProjectileTrailsTest
                     arguments[11].Name != "_gameObjectType")
                     throw new InvalidOperationException("GameMap projectile presentation contract changed.");
 
-                if (!api.Ui.TryRegisterBeforeRender("flight-trails", BeforeRender, out frame, out string reason))
+                if (!api.Ui.TryRegisterBeforeRender("projectile-trails", BeforeRender, out frame, out string reason))
                     throw new InvalidOperationException(reason);
-                if (!api.TryGetMissionLifecycle(out missions, out var diagnostic))
-                    throw new InvalidOperationException(diagnostic.Reason);
                 meshes = new TrailMeshes(Path.Combine(
-                    Path.GetDirectoryName(typeof(Plugin).Assembly.Location), TrailMeshes.BundleName));
-                renderingEnabled = settings.EnableClientFeatures;
+                    Path.GetDirectoryName(typeof(BugfixesAndQoLPlugin).Assembly.Location), TrailMeshes.BundleName));
                 // APIShared's popularity-popup IL edit stays in the original body.
-                new Harmony(Guid).Patch(add, postfix: new HarmonyMethod(typeof(Plugin), nameof(AfterAdd)));
-                if (!missions.TryRegisterObserver("flight-trail-mission", MissionChanged, MissionEnded, null, out diagnostic))
-                    throw new InvalidOperationException(diagnostic.Reason);
-                ready = true;
+                new Harmony(Owner + ".ProjectileTrails").Patch(add,
+                    postfix: new HarmonyMethod(typeof(ProjectileTrailRuntime), nameof(AfterAdd)));
+                presentationReady = true;
                 SynchronizeMission();
-                WriteInfo("ready");
-                InitializeAllocationCounters();
-                StartAutomation(api);
             }
-            catch (Exception ex) { Fail(ex.ToString()); }
+            catch (Exception ex) { FailPresentation(ex.ToString()); }
         }
 
-        private static void MissionChanged(MissionLifecycleNotification notification)
+        private static void PrepareMission(MissionLifecycleNotification notification)
         {
-            if (!api.Ui.TryPost(SynchronizeMission))
-                Fail("Mission notification could not reach Unity");
+            if (notification.Phase == MissionInitializationPhase.BeforeNativeStart && !notification.Context.IsSave)
+                PrepareLocalReplacement(notification.Context);
+        }
+
+        private static bool OnWorldRestore(NativeWorldRestoreContext restore)
+        {
+            if (restore.Mission?.IsSave == true) PrepareLocalReplacement(restore.Mission);
+            return true;
+        }
+
+        private static void PrepareLocalReplacement(MissionContext current)
+        {
+            var mode = current.Mode;
+            if (!nativeReady || current.IsEditor || mode.IsRealMultiplayer || mode.MultiplayerSave ||
+                mode.Kind == GameModeKind.Unknown || localPreparedSession == current.SessionId) return;
+            localReplacement = CanReplaceNative();
+            localPreparedSession = current.SessionId;
+            native.SuppressNativeAfterimages(localReplacement);
+        }
+
+        private static void MissionStarted(MissionLifecycleNotification notification)
+        {
+            if (!nativeReady) return;
+            if (!native.IsIntact)
+            {
+                if (multiplayerReplacement)
+                    SimulationAgreement.ReportFault("Projectile afterimage hook lost its agreed native entry.");
+                else
+                    native.SuppressNativeAfterimages(false);
+                FailPresentation("Afterimage observer was overwritten.");
+                return;
+            }
+            // Some local mission entry points do not publish either early boundary.
+            PrepareLocalReplacement(notification.Context);
+            QueuePresentation();
         }
 
         private static void MissionEnded(MissionLifecycleNotification notification)
         {
-            native?.SuppressNativeAfterimages(false);
-            MissionChanged(notification);
+            if (localPreparedSession == notification.Context.SessionId)
+            {
+                native.SuppressNativeAfterimages(false);
+                localPreparedSession = 0;
+                localReplacement = false;
+            }
+            native.Reset(false);
+            QueuePresentation();
+        }
+
+        private static void QueuePresentation()
+        {
+            if (presentationReady && !api.Ui.TryPost(SynchronizeMission))
+                FailPresentation("Mission notification could not reach Unity");
         }
 
         private static void SynchronizeMission()
         {
-            if (failed) return;
+            if (presentationFailed) return;
             var current = missions.Current;
             long next = current?.SessionId ?? 0;
             if (session == next) return;
@@ -172,47 +207,25 @@ namespace ProjectileTrailsTest
             SessionExtreme = false;
             replaceStandard = false;
             firstVisible = false;
-            if (current == null) return;
-            afterimageCount = settings.AfterimageCount;
-            maximumVisible = settings.MaximumVisible;
-            renderingEnabled = settings.EnableClientFeatures;
-#if SERP_DEVDIAG
-            renderingEnabled = automationActivation ?? renderingEnabled;
-#endif
+            if (current == null || current.IsEditor) return;
+            afterimageCount = settings.ProjectileTrailLength;
+            maximumVisible = settings.ProjectileTrailMaximum;
+            renderingEnabled = settings.EnableClientFeatures && settings.EnableProjectileTrails;
             try
             {
-                NativePatchGuard.Recheck();
-                if (native?.IsIntact != true)
-                {
-                    if (multiplayerReplacement)
-                        SimulationAgreement.ReportFault("Projectile afterimage hook lost its agreed native entry.");
-                    throw new InvalidOperationException("Afterimage observer was overwritten.");
-                }
-                if (current.IsEditor) return;
                 SessionExtreme = EngineInterface.getMultiplayerStartingData().extreme_troops != 0;
-                var mode = current.Mode;
-                if (mode.IsRealMultiplayer || mode.MultiplayerSave)
-                {
-                    // Native admission already armed the same decision on all peers.
-                    replaceStandard = !SessionExtreme && multiplayerReplacement;
-                }
-                else
-                {
-                    replaceStandard = settings.ReplaceStandardAfterimages && !SessionExtreme && mode.Kind != GameModeKind.Unknown;
-                    native.SuppressNativeAfterimages(replaceStandard);
-                }
+                replaceStandard = !SessionExtreme && (multiplayerReplacement ||
+                    (localPreparedSession == next && localReplacement));
                 RefreshCapture();
                 WriteInfo($"mission {session} extreme={SessionExtreme} replaceStandard={replaceStandard} enabled={renderingEnabled}");
             }
-            catch (Exception ex) { Fail(ex.ToString()); }
+            catch (Exception ex) { FailPresentation(ex.ToString()); }
         }
 
-        private static void AfterAdd(GameMap __instance, int __0, int __1, int __2, int __3, int __4,
-            float __5, int __6, int __7, int __9, int __10, int __11, Dictionary<int, Fly> ___flies)
+        private static void AfterAdd(int __0, int __11, Dictionary<int, Fly> ___flies)
         {
-            if (!ready || failed || __0 <= 0 || __0 >= WideProjectileLimit) return;
-            TraceVanilla(__0, __1, __2, __3, __4, __5, __6, __7, __9, __10, __11, ___flies);
-            if (!UsesModTrails || !CanDrawTrails || styleKnown ||
+            if (!presentationReady || presentationFailed || styleKnown || !UsesModTrails || !CanDrawTrails ||
+                __0 <= 0 || __0 >= WideProjectileLimit ||
                 (__11 != (int)ProjectileType.ArcherArrow && __11 != (int)ProjectileType.CrossbowBolt &&
                  __11 != (int)ProjectileType.UnkMissile24)) return;
             try
@@ -228,7 +241,7 @@ namespace ProjectileTrailsTest
                 objectLayer = sprite.gameObject.layer;
                 styleKnown = true;
             }
-            catch (Exception ex) { Fail(ex.ToString()); }
+            catch (Exception ex) { FailPresentation(ex.ToString()); }
         }
 
         private static void RestartCapture(bool active)
@@ -242,14 +255,14 @@ namespace ProjectileTrailsTest
 
         private static void RefreshCapture()
         {
-            bool active = !failed && session != 0 && UsesModTrails && CanDrawTrails;
+            bool active = !presentationFailed && session != 0 && UsesModTrails && CanDrawTrails;
             RestartCapture(active);
             frame?.SetContinuous(active);
         }
 
         private static void BeforeRender()
         {
-            if (failed)
+            if (presentationFailed || missions.Current?.SessionId != session)
             {
                 ResetView();
                 return;
@@ -261,6 +274,7 @@ namespace ProjectileTrailsTest
                 if (currentMap == null || currentMap.pendingRotationtriggered)
                 {
                     if (native.Generation != 0) RestartCapture(false);
+                    styleKnown = false;
                     map = null;
                     return;
                 }
@@ -268,6 +282,7 @@ namespace ProjectileTrailsTest
                 var currentRotation = currentMap.CurrentRotation();
                 if (map != currentMap || rotation != currentRotation)
                 {
+                    if (map != null) styleKnown = false;
                     if (map != null || native.Generation == 0) RestartCapture(true);
                     map = currentMap;
                     rotation = currentRotation;
@@ -316,11 +331,7 @@ namespace ProjectileTrailsTest
                 camera = current;
                 cameraMatrix = matrix;
 
-                long allocatedBefore = 0;
-                SampleMeshAllocation(ref allocatedBefore);
                 LastSegmentCount = meshes.Publish(history, current, axisX, axisY, afterimageCount, maximumVisible);
-                RecordMeshAllocation(allocatedBefore);
-                TracePublish(current);
                 if (!firstVisible && LastSegmentCount > 0)
                 {
                     firstVisible = true;
@@ -330,7 +341,7 @@ namespace ProjectileTrailsTest
             catch (Exception ex)
             {
                 ResetView();
-                Fail(ex.ToString());
+                FailPresentation(ex.ToString());
             }
         }
 
@@ -358,7 +369,6 @@ namespace ProjectileTrailsTest
                 Tick = sample.Tick,
                 SourceSlot = sample.Slot
             };
-            RememberEchoDetails(ref echo, sample, x, y, subX, subY);
             history.Append(echo);
             return true;
         }
@@ -378,27 +388,19 @@ namespace ProjectileTrailsTest
             styleKnown = false;
         }
 
-        private static void Fail(string reason)
+        private static void FailPresentation(string reason)
         {
-            if (failed) return;
-            failed = true;
-            // Drawing can fail locally. Keep the agreed native rule until the shared world retires.
-            if (!multiplayerReplacement) native?.SuppressNativeAfterimages(false);
+            if (presentationFailed) return;
+            presentationFailed = true;
             native?.Reset(false);
             frame?.Request();
-            log.LogError($"[{DateTime.Now:HH:mm:ss.fff}] ProjectileTrailsTest disabled. {reason}");
+            LogError("Local drawing disabled. " + reason);
         }
 
-        internal static void WriteInfo(string message) =>
-            log.LogInfo($"[{DateTime.Now:HH:mm:ss.fff}] ProjectileTrailsTest {message}");
+        private static void WriteInfo(string message) =>
+            DebugLogHelper.LogInfo(log, "Projectile trails: " + message);
 
-        static partial void StartAutomation(ModApiClient api);
-        static partial void InitializeAllocationCounters();
-        static partial void SampleMeshAllocation(ref long allocated);
-        static partial void RecordMeshAllocation(long before);
-        static partial void TraceVanilla(int id, int x, int y, int subX, int subY, float height, int file,
-            int image, int transparency, int layerDelay, int kind, Dictionary<int, Fly> flies);
-        static partial void RememberEchoDetails(ref TrailBuffer.Sample echo, NativeFlightSamples.EntrySample sample, int x, int y, int subX, int subY);
-        static partial void TracePublish(Camera current);
+        private static void LogError(string message) =>
+            DebugLogHelper.LogError(log, "Projectile trails: " + message);
     }
 }

@@ -13,7 +13,7 @@ using SHCDESE.Interop.Enums;
 using Shared;
 using static Iced.Intel.AssemblerRegisters;
 
-namespace ProjectileTrailsTest
+namespace BugfixesAndQoL.ProjectileTrails
 {
     // One native producer (the simulation's projectile sweep), one Unity reader.
     internal sealed unsafe class NativeFlightSamples

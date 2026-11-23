@@ -20,6 +20,10 @@ namespace BugfixesAndQoL
             options["SpriteSheetMergeModeIndex"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.SpriteSheetMergeModeIndex");
             options["EnableCompleteNotificationSkipOnClick"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableCompleteNotificationSkipOnClick");
             options["ShowSelectedUnitHealth"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.ShowSelectedUnitHealth");
+            options["EnableProjectileTrails"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableProjectileTrails");
+            options["ProjectileTrailLength"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.ProjectileTrailLength");
+            options["ProjectileTrailMaximum"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.ProjectileTrailMaximum");
+            options["ReplaceStandardProjectileAfterimages"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.ReplaceStandardProjectileAfterimages");
             options["ShowForeignTroopHud"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.ShowForeignTroopHud");
             options["EnableDamagedHealthBars"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableDamagedHealthBars");
             options["ShowCountdownTimers"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.ShowCountdownTimers");

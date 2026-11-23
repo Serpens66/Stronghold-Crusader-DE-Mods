@@ -10,16 +10,23 @@ The matching Editor occupied about 5.94 GiB after installation. Its installer
 was removed. Players use the Unity Player shipped with the game and only
 need the mod's compiled bundle.
 
-The [build entry point](../../../../../Testmods/ProjectileTrailsTest/Build-Shader.ps1)
+The [BugfixesAndQoL build entry point](../../../../../BugfixesAndQoL/Rebuild-ProjectileTrailShader.ps1)
 uses that Editor or the version-checked `SERP_TRAILS_UNITY_EDITOR` override.
 It builds a short-lived project for Windows x64 in batch mode, enables the
 built-in AssetBundle module, and invokes the checked-in
-[bundle builder](../../../../../Testmods/ProjectileTrailsTest/shader/BuildShaderBundle.cs).
+[bundle builder](../../../../../BugfixesAndQoL/Shader/BuildShaderBundle.cs).
 Keep the shader's checked-in `.meta` GUID stable. The working build uses an
-uncompressed bundle and fingerprints its inputs and cached output.
+uncompressed bundle. Run the builder script with `-Verify` to compare it with the packaged source bundle.
 An early LZ4 build without the AssetBundle module was rejected by the loader.
 Both settings changed before the successful test, so the initial failure
 does not establish which change was necessary.
+
+The bundle shipped with BugfixesAndQoL 1.0.237 reproduced the final
+standalone renderer's SHA-256
+`2640546595F2C048A2E2FD4B6CC0B10D73EAC2E450615EA3E96792B9EE43B56F`.
+The regular mod build copies and verifies that bundle. The Unity Editor
+is only needed when rebuilding the shader. The capacity results below
+were recorded on an earlier revision of the bundle.
 
 ## Confirmed on Direct3D 11
 

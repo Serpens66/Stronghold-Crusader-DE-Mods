@@ -1,7 +1,7 @@
 using System;
 using System.Numerics;
 
-namespace ProjectileTrailsTest
+namespace BugfixesAndQoL.ProjectileTrails
 {
     internal sealed class TrailBuffer
     {
@@ -19,9 +19,6 @@ namespace ProjectileTrailsTest
             internal Vector3 Position;
             internal uint Tick;
             internal int Visibility;
-#if SERP_DEVDIAG
-            internal int TileX, TileY, SubX, SubY, File, Frame, Height;
-#endif
         }
 
         private Sample[] samples = Array.Empty<Sample>();

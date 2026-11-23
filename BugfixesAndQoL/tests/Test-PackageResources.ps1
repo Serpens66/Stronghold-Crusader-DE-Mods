@@ -41,6 +41,10 @@ if ($esc.DocumentElement.LocalName -cne 'Patch' -or @($esc.DocumentElement.Child
     throw 'The retired ESC replacement is not a neutral Patch document.'
 }
 $future = [DateTime]::UtcNow.AddDays(2)
+$shader = Join-Path $package 'projectiletrails-shader'
+[IO.File]::WriteAllBytes($shader, [byte[]]@(0))
+[IO.File]::SetLastWriteTimeUtc($shader, $future)
+Verify-Fixture $false
 foreach ($folder in @('Patches','Override','Locales')) {
     foreach ($file in Get-ChildItem -LiteralPath (Join-Path $package $folder) -Recurse -File) {
         [IO.File]::WriteAllText($file.FullName, 'stale package bytes', [Text.UTF8Encoding]::new($false))
@@ -57,6 +61,10 @@ if ($escHash -cne (Get-Sha256Hex -Path (Join-Path $modRoot $escRelative))) { thr
 $removed = Join-Path $package $escRelative
 [IO.File]::Delete($removed)
 Verify-Fixture $false
+Copy-Item -LiteralPath (Join-Path $modRoot $escRelative) -Destination $removed
+[IO.File]::Delete($shader)
+Verify-Fixture $false
+[IO.File]::Delete($removed)
 Build-Fixture
 Verify-Fixture $true
 $installed = Join-Path $fixture 'installed'
@@ -76,5 +84,5 @@ $unexpected = Join-Path $package 'Patches/unclaimed.xaml'
 [IO.File]::WriteAllText($unexpected, '<Patch/>', [Text.UTF8Encoding]::new($false))
 Verify-Fixture $false
 if (-not [IO.File]::Exists($unexpected)) { throw 'Validation must not remove unclaimed files.' }
-Write-Host 'PASS: actual incremental project builds replace future-dated stale resources, retain the neutral ESC patch, and restore missing files; validation rejects stale/missing/unclaimed resources without deletion.'
+Write-Host 'PASS: actual incremental project builds replace future-dated stale resources, retain the neutral ESC patch, and restore missing files including the projectile shader; validation rejects stale/missing/unclaimed resources without deletion.'
 Write-Host "Fixture evidence: $fixture"

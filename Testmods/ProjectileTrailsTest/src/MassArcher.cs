@@ -1,4 +1,3 @@
-#if SERP_DEVDIAG
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -13,13 +12,11 @@ namespace ProjectileTrailsTest
 {
     public sealed partial class Plugin
     {
-        private const int MassUnitLimit = 2999;
-        // Vanilla reserves low projectile slots and shares the remaining pool with effects.
-        private const int MassArrowsPerVolley = 2900;
+        private const int MassArchers = 5000;
 
         private sealed class MassFixture
         {
-            internal readonly List<MassShot> Archers = new List<MassShot>(MassUnitLimit);
+            internal readonly List<MassShot> Archers = new List<MassShot>(MassArchers);
             internal int Owner, InitialUnits;
         }
 
@@ -30,7 +27,7 @@ namespace ProjectileTrailsTest
 
         private sealed class MassObservation
         {
-            private readonly uint[] serials = new uint[WideProjectileLimit];
+            private readonly uint[] serials = new uint[GameProjectileManagerAPI.Instance.GetProjectilesAsSpan().Length];
             private readonly bool[] fixtureArchers;
             private readonly bool[] hasFired;
             internal int Shooters, Launches, PeakArrows, PeakVanilla, ActiveArrows, ActiveVanilla;
@@ -95,7 +92,7 @@ namespace ProjectileTrailsTest
             return count;
         }
 
-        private static MassFixture PrepareMassBattle(Vector2Int center, int archerCount)
+        private static MassFixture PrepareMassBattle(Vector2Int center)
         {
             var players = GamePlayerManagerAPI.Instance;
             var units = GameUnitManagerAPI.Instance;
@@ -111,7 +108,7 @@ namespace ProjectileTrailsTest
             players.SetPlayerPopularity(result.Owner, 0);
             players.SetPlayerPopularity(enemy, 0);
 
-            int quota = archerCount > 0 ? archerCount : MassUnitLimit - result.InitialUnits;
+            const int quota = MassArchers;
             // Fill square rings around the camera centre to keep the formation in view.
             for (int ring = 1; ring <= 50 && result.Archers.Count < quota; ring++)
             {
@@ -160,22 +157,18 @@ namespace ProjectileTrailsTest
         private static string MassMean(double sum, int count) => count == 0 ? "unavailable" :
             (sum / count).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
 
-        private static IEnumerable<AutomationWait> MeasureMass(AutomationRun run, System.Guid runId, string variant)
+        private static IEnumerable<AutomationWait> MeasureMass(AutomationRun run, System.Guid runId, bool full)
         {
             var mission = run.CurrentMission;
             var center = new Vector2Int(400, 396);
             foreach (var wait in PositionCamera(run, center, Enums.Dircs.North)) yield return wait;
             foreach (var wait in run.SetPause(mission, true)) yield return wait;
-            bool large = variant == "gpu" || variant == "gpu-off";
-            bool enabled = variant == "mod" || variant == "gpu" || variant == "match";
-            const int largeVolley = 5000;
-            int arrowsPerVolley = large ? largeVolley : MassArrowsPerVolley;
-            var fixture = run.InSimulation(mission, () => PrepareMassBattle(center, large ? largeVolley : 0));
+            string variant = full ? "full" : "default";
+            const int arrowsPerVolley = MassArchers;
+            var fixture = run.InSimulation(mission, () => PrepareMassBattle(center));
             int initialUnits = fixture.InitialUnits + fixture.Archers.Count;
             var observation = new MassObservation(fixture.Archers);
             var clock = GameTimeManagerAPI.Instance;
-            Require(run.InSimulation(mission, () => native.Tick == unchecked((uint)clock.GetElapsedMapTicks())),
-                "The observer and Extender disagree on the native map clock.");
             WriteInfo($"MASS_SETUP variant={variant} units={initialUnits} archers={fixture.Archers.Count} initial={fixture.InitialUnits} camera={center}");
             foreach (var wait in run.SetPause(mission, false)) yield return wait;
             yield return run.WaitForTicks(mission, 12);
@@ -210,9 +203,9 @@ namespace ProjectileTrailsTest
                             foreach (var wait in Capture(runId, "test-green-mass-" + variant)) yield return wait;
                             foreach (var wait in run.SetPause(mission, false)) yield return wait;
                         }
-                        uint start = native.Tick;
+                        uint start = MapTick;
                         long lastFrame = Stopwatch.GetTimestamp();
-                        while (unchecked(native.Tick - start) < 45 && frames < samples.Length)
+                        while (unchecked(MapTick - start) < 45 && frames < samples.Length)
                         {
                             yield return AutomationWait.NextFrame;
                             long now = Stopwatch.GetTimestamp();
@@ -239,7 +232,7 @@ namespace ProjectileTrailsTest
                         yield return run.WaitForTicks(mission, 45);
                         foreach (var wait in run.SetPause(mission, true)) yield return wait;
                         int retired = run.InSimulation(mission, observation.RetireRemainingFixtureArrows);
-                        WriteInfo($"MASS_WAVE variant={variant} wave={volley + 1} tick={native.Tick} observed={observation.Shooters} liveArrows={observation.ActiveArrows} liveVanilla={observation.ActiveVanilla} retired={retired}");
+                        WriteInfo($"MASS_WAVE variant={variant} wave={volley + 1} tick={MapTick} observed={observation.Shooters} liveArrows={observation.ActiveArrows} liveVanilla={observation.ActiveVanilla} retired={retired}");
                         foreach (var wait in run.SetPause(mission, false)) yield return wait;
                         yield return run.WaitForTicks(mission, 30);
                         foreach (var wait in run.SetPause(mission, true)) yield return wait;
@@ -251,16 +244,18 @@ namespace ProjectileTrailsTest
                     $"Only {observation.Shooters}/{fixture.Archers.Count} distinct sources were observed.");
                 WriteInfo(FormattableString.Invariant(
                     $"MASS_RESULT variant={variant} unitsStart={initialUnits} unitsFinal={finalUnits} archers={fixture.Archers.Count} shooters={observation.Shooters} admitted={admitted} launches={observation.Launches} peakArrows={observation.PeakArrows} peakVanilla={observation.PeakVanilla} peakMod={maximumMod} frames={frames} p50={Percentile(samples, frames, 0.50):0.###} p95={Percentile(samples, frames, 0.95):0.###} p99={Percentile(samples, frames, 0.99):0.###} draws={Mean(draws, drawSamples)} mainMs={MassMean(mainNanoseconds / 1000000d, mainSamples)} gpuMs={MassMean(gpuMilliseconds, gpuSamples)} zoom={zoom:0.###} cam={cameraX:0.###},{cameraY:0.###} drift={drift:0.###} resolution={Screen.width}x{Screen.height}"));
-                Require(enabled == (maximumMod > 0) &&
-                    (variant == "vanilla") == (observation.PeakVanilla > 0),
-                    "The requested projectile drawing mode was not observed.");
+                Require(maximumMod > 0 && maximumMod <= (full ? FullMaximum : DefaultMaximum) && observation.PeakVanilla == 0,
+                    "Visible projectile trails exceeded the configured budget or unexpectedly used native afterimage slots.");
             }
             finally
             {
                 clock.OnTick -= observation.OnTick;
-                meshes.MatchLegacyBudget = false;
             }
         }
+        private static double Percentile(double[] ordered, int count, double fraction) =>
+            ordered[(int)Math.Ceiling(count * fraction) - 1];
+
+        private static string Mean(long sum, int count) => count == 0 ? "unavailable" :
+            ((double)sum / count).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
     }
 }
-#endif

@@ -1,11 +1,14 @@
 {
   "GUID": "ProjectileTrailsTest_Serp",
   "Author": "Serpens66",
-  "Name": "Extreme Troops Projectile Trails Test",
-  "Description": "Configurable arrow and bolt trails in Extreme Troops, with optional host-controlled replacement in Standard mode.",
-  "Version": "0.4.0",
+  "Name": "Projectile trails acceptance",
+  "Description": "Automation harness for BugfixesAndQoL projectile trails.",
+  "Version": "0.5.0",
   "MinimumScriptExtenderVersion": "2.14.4",
-  "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.62.0" }],
+  "Dependencies": [
+    { "GUID": "APIShared_Serp", "MinimumVersion": "0.62.0" },
+    { "GUID": "BugfixesAndQoL_Serp", "MinimumVersion": "1.0.237" }
+  ],
   "Manifest": 1,
-  "NetworkMode": 1
+  "NetworkMode": 0
 }

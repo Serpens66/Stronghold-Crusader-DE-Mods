@@ -12,7 +12,7 @@ using System.Reflection;
 namespace BugfixesAndQoL
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.3")]
-    [BepInDependency(ApiSharedGuid, "0.61.0")]
+    [BepInDependency(ApiSharedGuid, "0.62.0")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
@@ -39,7 +39,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.236";
+        public const string PluginVersion = "1.0.237";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;
@@ -102,6 +102,8 @@ namespace BugfixesAndQoL
                 SteamInviteBlacklistStore.GetDefaultPath(), SteamInviteBlacklistStore.GetLegacyPath(),
                 message => Shared.DebugLogHelper.LogWarningLimited(Logger, "invite-blacklist-storage", message));
             Settings = new BugfixesAndQoLViewModel(legacySomeSettingsLoaded, steamInviteBlacklist, Logger);
+            try { ProjectileTrails.ProjectileTrailRuntime.Configure(Logger, Settings); }
+            catch (Exception ex) { Shared.DebugLogHelper.LogError(Logger, "Projectile trails could not register multiplayer admission. " + ex); }
             if (Chainloader.PluginInfos.TryGetValue("fixes", out PluginInfo fixes) && fixes.Instance != null)
                 FixesSuppressMessagesSync.Initialize(Logger, fixes.Instance.GetType().Assembly);
             LobbySaveLoadingFeature.Initialize(Logger, Settings);
@@ -285,6 +287,8 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.settings-registration-failed-gameplay", $"Bugfixes and QoL settings registration failed; gameplay runtime stopped fail-closed: {ex}");
                 return false;
             }
+
+            ProjectileTrails.ProjectileTrailRuntime.Install(context);
 
             try
             {

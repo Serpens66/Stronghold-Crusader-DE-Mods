@@ -22,8 +22,8 @@ namespace Pathfinding.GateRouting
     //    (component rebuild 0xE49D0, AI siege field 0xD95E0, AI tactical 0x113BC0/E00/F60)
     //    the deck is cut from its surroundings and linked to the gate corridor. The window is
     //    restored byte-exactly before Vanilla reopens the gates.
-    //  * 0xF4540 (per-tick portal refresh). Afterwards the region field of the gate endpoint
-    //    that lies on such a deck is pointed at the region beyond the far deck end.
+    //  * 0xF4540 (per-tick portal refresh). Afterwards open gates connect the regions
+    //    reachable over each coupled deck, when they fit in the native portal record.
     // Effect: the deck and everything behind it is only reachable through the gate portal,
     // i.e. with the gate's owner/alliance/capture rules (0xE2610/0xE2F60). Routes that stay
     // inside one region (second way into the castle) are covered by the per-player deck entry
@@ -48,6 +48,7 @@ namespace Pathfinding.GateRouting
         private const short ApertureAxisVariation = 0x50;
         // Portal record offsets relative to entry base +0x2024.
         private const int PState = 0, PClass = 4, PBuilding = 0xC, PEntryTile = 0x24, PExitTile = 0x30, PCompA = 0x34, PCompB = 0x38;
+        private const int PEnabled = 0x18, PCompC = 0x1E8;
         // Drawbridge footprint: 25 mapper cells (5x5), one 25-int mapper per orientation/2.
         internal const int FootprintCells = 25;
         private const int MapperStride = FootprintCells * sizeof(int);
@@ -93,7 +94,7 @@ namespace Pathfinding.GateRouting
         private readonly List<Candidate> candidates = new List<Candidate>(16);
         private readonly List<int> cutBridges = new List<int>(16);
         private bool[] openEdges = new bool[32];
-        private readonly Func<int, bool> isDeck, isOnBridge;
+        private readonly Func<int, bool> isDeck, isOnBridge, otherConnection;
         private int currentBridge;
         private readonly Func<int, int> componentOf;
         private bool cutActive;
@@ -115,6 +116,7 @@ namespace Pathfinding.GateRouting
         {
             isDeck = IsDeckCell;
             isOnBridge = tile => (uint)tile < TileCount && currentBridge > 0 && structures[tile] == currentBridge;
+            otherConnection = IsOtherConnection;
             componentOf = tile => (uint)tile < TileCount ? components[tile] : 0;
         }
 
@@ -397,38 +399,127 @@ namespace Pathfinding.GateRouting
                 if (gate <= 0 || gate >= *(int*)(buildings + BuildingCountOffset)) continue;
                 byte* record = buildings + (long)gate * BuildingStride;
                 if (*(short*)(record + OffAlive) == 0 || !IsGateType(*(ushort*)(record + OffType))) continue;
+                if (*(int*)(portal + PEnabled) != 0 && TryPatchOpenPortal(id, portal, record, gate)) continue;
                 PatchEndpoint(id, portal, record, gate, PEntryTile, PCompA);
                 PatchEndpoint(id, portal, record, gate, PExitTile, PCompB);
             }
         }
 
+        private bool TryPatchOpenPortal(int id, byte* portal, byte* record, int gate)
+        {
+            int corridor = *(int*)(portal + PCompC);
+            if (corridor <= 0) return false;
+            Span<int> first = stackalloc int[2];
+            Span<int> second = stackalloc int[2];
+            Span<int> footprint = stackalloc int[FootprintCells];
+            if (!TryCollectPortalSide(portal, record, PEntryTile, PCompA, corridor, footprint, first, out int firstBridge) ||
+                !TryCollectPortalSide(portal, record, PExitTile, PCompB, corridor, footprint, second, out int secondBridge) ||
+                (firstBridge == 0 && secondBridge == 0) || (firstBridge != 0 && firstBridge == secondBridge) ||
+                !DeckClosureCore.TryFitPortalRegions(first, second, corridor, out int a, out int b, out int c))
+                return false;
+
+            int oldA = WritePortalComponent(portal, PCompA, a);
+            int oldB = WritePortalComponent(portal, PCompB, b);
+            WritePortalComponent(portal, PCompC, c);
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+            {
+                LogChangedEndpoint(id, portal, record, gate, PEntryTile, oldA, a);
+                LogChangedEndpoint(id, portal, record, gate, PExitTile, oldB, b);
+            }
+            return true;
+        }
+
+        private bool TryCollectPortalSide(byte* portal, byte* record, int tileOffset, int componentOffset, int corridor,
+            Span<int> footprint, Span<int> regions, out int bridge)
+        {
+            regions.Clear();
+            int outside = *(int*)(portal + tileOffset);
+            int original = *(int*)(portal + componentOffset);
+            if (!TryGetCoupledEndpoint(record, outside, out int inside, out bridge))
+            {
+                regions[0] = original;
+                return original <= 0 || original == corridor || (inside >= 0 && HasOpenAperture(outside, inside));
+            }
+            if (original != corridor || !HasOpenAperture(outside, inside) ||
+                !DeckClosureCore.CollectLandingRegions(this, outside, inside, corridor, isOnBridge, isDeck, otherConnection, componentOf,
+                    footprint, regions)) return false;
+
+            int previous = DeckClosureCore.FindLanding(this, outside, inside, isOnBridge, componentOf);
+            if (regions[1] != 0 && regions[1] == previous)
+            {
+                regions[1] = regions[0];
+                regions[0] = previous;
+            }
+            if (regions[0] == 0) regions[0] = original;
+            return true;
+        }
+
+        private bool HasOpenAperture(int outside, int inside)
+        {
+            if (!TryGetCoordinates(outside, out int ox, out int oy) ||
+                !TryGetCoordinates(inside, out int ix, out int iy)) return false;
+            int direction = DirectionBits.FromDelta(ix - ox, iy - oy);
+            return direction >= 0 && (directions[outside] & DirectionBits.Bit[direction]) != 0 &&
+                (directions[inside] & DirectionBits.Bit[DirectionBits.Opposite(direction)]) != 0;
+        }
+
+        private bool TryGetCoupledEndpoint(byte* record, int outside, out int inside, out int bridge)
+        {
+            inside = -1;
+            bridge = 0;
+            if ((uint)outside >= TileCount) return false;
+            for (int side = 0; side < 2 && inside < 0; side++)
+                if (TryAperture(record, side, out int o, out int i) && o == outside) inside = i;
+            if (inside < 0) return false;
+            int deckComponent = components[outside];
+            if (deckComponent == 0 || deckComponent != components[inside] ||
+                !TryLoweredBridge(outside, *(short*)(record + OffOwner), out int matchedBridge)) return false;
+            bridge = matchedBridge;
+            return true;
+        }
+
         private void PatchEndpoint(int id, byte* portal, byte* record, int gate, int tileOffset, int componentOffset)
         {
             int outside = *(int*)(portal + tileOffset);
-            if ((uint)outside >= TileCount) return;
-            int inside = -1;
-            for (int side = 0; side < 2 && inside < 0; side++)
-                if (TryAperture(record, side, out int o, out int i) && o == outside) inside = i;
-            if (inside < 0) return;
-            // Only our closure window can put the deck tile into the gate corridor component.
-            int deckComponent = components[outside];
-            if (deckComponent == 0 || deckComponent != components[inside] || !TryLoweredBridge(outside, *(short*)(record + OffOwner), out int bridge)) return;
-            // The deck/corridor region stays in the portal through field C (PCL of footprint tile
-            // X+1/Y+1, the gatehouse floor), which Vanilla itself relies on for units inside the
-            // corridor; observed equal to the corridor region on all accepted gates.
+            if (!TryGetCoupledEndpoint(record, outside, out int inside, out int bridge)) return;
             int landing = DeckClosureCore.FindLanding(this, outside, inside, isOnBridge, componentOf);
             if (landing <= 0) return;
-            int* field = (int*)(portal + componentOffset);
-            if (*field == landing) return;
+            int old = WritePortalComponent(portal, componentOffset, landing);
+            if (old != landing && Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogPatch(id, gate, bridge, outside, inside, old, landing);
+        }
+
+        private int WritePortalComponent(byte* portal, int offset, int region)
+        {
+            int* field = (int*)(portal + offset);
             int old = *field;
-            *field = landing;
-            portalWrites++;
-            if (Shared.DebugLogHelper.DiagnosticsEnabled) LogPatch(id, gate, bridge, outside, inside, old, landing);
+            if (old != region)
+            {
+                *field = region;
+                portalWrites++;
+            }
+            return old;
+        }
+
+        private void LogChangedEndpoint(int id, byte* portal, byte* record, int gate, int tileOffset, int old, int landing)
+        {
+            if (old == landing) return;
+            int outside = *(int*)(portal + tileOffset);
+            if (TryGetCoupledEndpoint(record, outside, out int inside, out int bridge))
+                LogPatch(id, gate, bridge, outside, inside, old, landing);
         }
 
         // ---- geometry ------------------------------------------------------------------------
 
         private static bool IsGateType(ushort type) => (uint)(type - NativeFirstGateType) < NativeGateTypeCount;
+
+        private bool IsOtherConnection(int tile)
+        {
+            int id = structures[tile];
+            if (id <= 0 || id >= *(int*)(buildings + BuildingCountOffset)) return false;
+            ushort type = *(ushort*)(buildings + (long)id * BuildingStride + OffType);
+            return type == NativeDrawbridgeType || IsGateType(type);
+        }
 
         private bool HasOwnPortal(int gate, byte* record)
         {

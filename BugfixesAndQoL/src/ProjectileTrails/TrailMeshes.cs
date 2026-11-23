@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using Axis = System.Numerics.Vector2;
 
-namespace ProjectileTrailsTest
+namespace BugfixesAndQoL.ProjectileTrails
 {
     internal sealed class TrailMeshes
     {
@@ -89,10 +89,6 @@ namespace ProjectileTrailsTest
         private Matrix4x4 viewMatrix;
         private Axis previousX, previousY;
         private GameObject root;
-#if SERP_DEVDIAG
-        internal bool MatchLegacyBudget { get; set; }
-        internal int BindingUpdates { get; private set; }
-#endif
         internal int Accepted => visible.Count;
         internal int GroupCount => activeGroups;
         internal int UploadBytes { get; private set; }
@@ -120,11 +116,7 @@ namespace ProjectileTrailsTest
             var key = (file, frame);
             if (sprites.TryGetValue(key, out int found)) return found;
             var sprite = SpriteMapping.getBodyImage(file, frame);
-            if (sprite == null)
-            {
-                sprites.Add(key, -1);
-                return -1;
-            }
+            if (sprite == null) return -1;
 
             Vector2[] positions = sprite.vertices;
             Vector2[] uv = sprite.uv;
@@ -203,10 +195,6 @@ namespace ProjectileTrailsTest
             publishedHistory = history;
             int count = 0;
             UploadBytes = 0;
-#if SERP_DEVDIAG
-            BindingUpdates = 0;
-            if (MatchLegacyBudget) maximum = Math.Min(maximum, 1024);
-#endif
             // If capped, prefer current positions and spend remaining slots on older copies.
             bool newestFirst = history.Count > maximum;
             for (int index = 0; index < history.Count && visible.Count < maximum; index++)
@@ -228,9 +216,6 @@ namespace ProjectileTrailsTest
                 var key = (sample.SortKey, appearance.TextureId, sample.ObjectLayer);
                 if (!buckets.TryGetValue(key, out int bucket))
                 {
-#if SERP_DEVDIAG
-                    if (MatchLegacyBudget && count == 64) continue;
-#endif
                     bucket = count++;
                     buckets.Add(key, bucket);
                     Group group = GetGroup(bucket);
@@ -320,9 +305,6 @@ namespace ProjectileTrailsTest
                         properties.SetInteger(StrideId, group.BoundStride = group.VertexStride);
                         group.Renderer.SetPropertyBlock(properties);
                         group.BoundRevision = bindingRevision;
-#if SERP_DEVDIAG
-                        BindingUpdates++;
-#endif
                     }
                     if (i >= activeGroups) group.Renderer.enabled = true;
                 }
@@ -357,7 +339,7 @@ namespace ProjectileTrailsTest
             if (index < groups.Count) return groups[index];
             if (root == null)
             {
-                root = new GameObject("ProjectileTrailsTest");
+                root = new GameObject("BugfixesAndQoL projectile trails");
                 UnityEngine.Object.DontDestroyOnLoad(root);
             }
             var group = new Group(root);
