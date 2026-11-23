@@ -40,6 +40,18 @@ Shader "Serp/ProjectileTrails"
                 nointerpolation float opacity : TEXCOORD1;
             };
 
+            float Opacity(uint age, uint lifetime)
+            {
+                if (lifetime == 10u)
+                {
+                    uint transparency = min(age / 3u, 2u) * 32u / 3u;
+                    return (32u - transparency) / 32.0;
+                }
+                if (lifetime == 1u) return 22.0 / 32.0;
+                float progress = (float)age / (lifetime - 1u);
+                return 1.0 - (21.0 / 32.0) * progress * progress;
+            }
+
             Varyings Vertex(uint vertex : SV_VertexID)
             {
                 Varyings result = (Varyings)0;
@@ -55,8 +67,7 @@ Shader "Serp/ProjectileTrails"
                 float3 world = float3(echo.positionXY, echo.positionZ) + float3(cornerData.x * _SerpTrailBasis.xy + cornerData.y * _SerpTrailBasis.zw, 0);
                 result.position = mul(UNITY_MATRIX_VP, float4(world, 1));
                 result.uv = cornerData.zw;
-                uint transparency = min(age / 3u, 2u) * 32u / 3u;
-                result.opacity = (32u - transparency) / 32.0;
+                result.opacity = Opacity(age, _SerpTrailLifetime);
                 return result;
             }
 

@@ -237,3 +237,101 @@ Run directories in table order are `a3a7465e500d`, `d9bc34b9b97e`,
 budgets is a single paired observation. The installed 0.2.0 package uses
 the full renderer; SHA-256 verification of the DLL, manifest and shader
 is recorded at `.work/a/trail-install/003/installation.json`.
+
+## Local display settings (0.3.0)
+
+The Modsettings page stores the activation switch, trail length (0–10),
+and total visible-copy budget (0–60,000 in steps of 500) as local preset
+values. They are sampled once per mission. The defaults are 10 and 60,000.
+A zero value for either setting disables capture and drawing. Once the
+budget is exhausted, the visible renderer keeps more recent samples,
+preserving the original chronological blend order within each draw group.
+
+A single afterimage uses 68.75% alpha. Lengths 2–9 fall off quadratically
+from 100% at the head to 34.375% at the tail. Length 10 retains the original
+Vanilla opacity steps. The GPU capacity scenario confirmed that the
+Extender loaded the new Noesis page and the renderer reduced 50,000 visible
+copies to 7,000, selecting the newest positions, and then to zero. A
+second run on test_green retained ten copies for the default. See
+`.work/a/trail-settings/001/9ce808ff08c5` and
+`.work/a/trail-settings/001/022f3ca32e78`. The same directory contains
+the installation manifest with all 25 verified hashes.
+
+A Windows Direct3D 11 Player built with Unity 2021.3.45f2 used the
+0.3.0 bundle and passed 121 pixel readbacks across settings 0–10. With
+five copies the alpha bytes were 255, 245, 213, 161 and 88. The full
+ten-copy setting returned the original three opacity levels and all
+expired positions were transparent. See
+`.work/a/trail-settings/001/Fade-player.log`.
+
+## Handoff to a main mod
+
+- Port the native capture (`NativeFlightSamples`), expiry history
+  (`TrailBuffer`), GPU renderer (`TrailMeshes`), and the initialisation,
+  mission observer and before-render adapter from `Plugin.cs`. The native
+  observer takes the receiving mod's GUID for exclusive site ownership.
+  Use exactly one active owner for RVA `0x9BFC0` and one owner of the
+  shader clock. Remove or disable the standalone testmod when integrating.
+- Keep runtime local. Map the three display preferences to the receiving
+  mod's local preset fields and snapshot them at mission start. Keep
+  Standard Troops on its native path. The installation must still ship the
+  shader bundle. Pass its installed path explicitly to `TrailMeshes`;
+  the receiving mod's assembly name and package layout are independent.
+- Preserve APIShared's popularity patch on `GameMap.addUpdateFly`; the
+  afterimage adapter is a postfix. Keep the native hash, transaction and
+  live-span recheck. In a main mod with other watched sites, use the guard's
+  per-feature CaptureIntegrity result to gate this observer. The aggregate
+  Recheck count is only a log notification count. Unity work remains on the APIShared render path after
+  the Extender's startup cleanup. On mission end hide all render groups and
+  stop capture. Keep the native callback and its ring rooted for process life.
+- Use the existing bundle build and checked-in shader asset GUID. Existing
+  DevDiag fixtures are a standalone acceptance harness. The normal binary
+  compiles those fixtures out. Run the fixed-arrow and capacity checks when
+  replacing the graphics path. Repeat the matched load tests if changing
+  the default budget or the grouping strategy.
+
+### Tower occlusion
+
+On `test_green`, the Direct3D 11 hidden-desktop fixture placed and verified
+a native Tower1 building at (388,380), then paused the map facing North.
+It repeated the draw with identical arrow samples and identical camera
+and shader state while changing only the sort order to a row on either side
+of the tower. In the tower-overlap mask, 8,966 of 9,064 pixels visibly changed
+by the front overlay stayed at the tower's original value within tolerance
+when the same overlay was drawn behind it. 450 changed pixels remained
+visible beside the tower. The mask uses the picture of the same ground before
+placement. See `.work/a/trail-final/001/tower-depth.png` and
+`tower-depth.json` beside it. This isolates renderer layer order from native
+collision, projectile trajectories and other camera rotations.
+
+### Renderer finalisation (0.3.1)
+
+Projection reuses the tile from the visibility check for Vanilla's clamped
+sort row. Group bounds are accumulated as extrema and assigned only when
+changed. Each group retains its last shader-buffer revision and draw
+range. A rebinding is required after buffer growth, a different sprite
+basis or lifetime, or a changed slice of the echo buffer. Hidden groups
+are checked on reactivation. The capacity fixture verifies zero repeated
+bindings on an unchanged redraw, rebinding of all 96 groups for a changed
+lifetime, and a changed basis taken while the renderer is hidden.
+
+The same 5,000-archer scenario alternated 0.3.0 and 0.3.1 twice. Each
+run peaked at 49,997 submitted copies with the camera fixed. Timings
+include the complete game frame.
+
+| Pair | Mod | Median frame | p95 frame | Mean main thread |
+|---|---|---:|---:|---:|
+| 1 | 0.3.0 | 19.943 ms | 47.893 ms | 23.500 ms |
+| 1 | 0.3.1 | 17.354 ms | 37.563 ms | 19.028 ms |
+| 2 | 0.3.0 | 18.516 ms | 50.849 ms | 23.347 ms |
+| 2 | 0.3.1 | 16.907 ms | 36.996 ms | 18.142 ms |
+
+The alternating runs are `886897587634`, `0338129ba0f8`,
+`00b5e9335a26` and `da52549e7407` under `.work/a/trail-final/001`.
+The remaining heavy-load costs include projecting new observations,
+regrouping and uploading changed visible copies and alpha blending.
+The global visible-copy setting remains the direct way to bound draw cost.
+
+The paired final visual check matched 15 Vanilla emissions and all 36 checked
+opacity samples. See the final run directory's green-parity.json and the
+0.3.1 installation manifest with all 25 package hashes.

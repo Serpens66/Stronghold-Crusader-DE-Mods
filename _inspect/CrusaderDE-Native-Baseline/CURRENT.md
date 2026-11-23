@@ -200,6 +200,8 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 
 ## Mod and testmod work (not Vanilla)
 
+- [Matching Unity Editor and asset pipeline](./sem/FBCB9319/knowledge/UNITY_ASSET_PIPELINE.md) covers the verified D3D11 bundle pipeline, unit sprite and animation workflows, CastlePlanner rendering tests, and other editor uses.
+
 - [Trapped-unit rescue prototype contracts](./sem/FBCB9319/knowledge/TRAPPED_UNIT_RESCUE_AUDIT.md): identity-preserving relocation and occupancy, physical reverse edges, mounted crew and worker production boundaries under `[Vanilla facts]`; external suppression and experimental acceptance limits remain separate.
 
 - [Knight replacement selection and input lifetime](./sem/FBCB9319/knowledge/KNIGHT_SELECTION_TRANSFERS.md): replacement initialization/removal, three-phase input ordering, stale selection repair and the accepted Extender cancellation boundary; original game scenario user-confirmed, extended editor/MP acceptance pending.

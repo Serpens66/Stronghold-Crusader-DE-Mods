@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using APIShared;
+using APIShared.ModSettings;
 using APIShared.Presentation;
 using BepInEx;
-using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
 using SHCDESE.API.LowLevel;
@@ -16,9 +17,10 @@ using Axis = System.Numerics.Vector2;
 
 namespace ProjectileTrailsTest
 {
-    [BepInPlugin(Guid, "Extreme Troops Projectile Trails Test", "0.2.0")]
+    [BepInPlugin(Guid, "Extreme Troops Projectile Trails Test", "0.3.1")]
     [BepInDependency("000shcdese", "2.14.4")]
     [BepInDependency("APIShared_Serp", "0.62.0")]
+    [ExcludeFromSavegameModSettings]
     public sealed partial class Plugin : BaseUnityPlugin
     {
         internal const string Guid = "ProjectileTrailsTest_Serp";
@@ -26,7 +28,9 @@ namespace ProjectileTrailsTest
         private const int ProjectileLayerDelay = 1;
         private const float NativeHeightScale = 32f;
         private static ManualLogSource log;
-        private static ConfigEntry<bool> enabledSetting;
+        private static TrailSettings settings;
+        private static int afterimageCount = TrailBuffer.Lifetime;
+        private static int maximumVisible = TrailBuffer.MaximumVisibleCopies;
         private static ModApiClient api;
         private static IMissionLifecycleCapability missions;
         private static IUiFrameWorkRegistration frame;
@@ -47,24 +51,30 @@ namespace ProjectileTrailsTest
 
         internal static bool SessionExtreme { get; private set; }
         internal static int LastSegmentCount { get; private set; }
+        private static bool CanDrawTrails => renderingEnabled && afterimageCount > 0 && maximumVisible > 0;
+#if SERP_DEVDIAG
+        private static bool? automationActivation;
         internal static bool TrailRenderingEnabled
         {
             get => renderingEnabled;
             set
             {
+                automationActivation = value;
                 if (renderingEnabled == value) return;
                 renderingEnabled = value;
                 ResetView();
                 RefreshCapture();
             }
         }
+#endif
 
         private void Awake()
         {
             if (initialized) return;
             initialized = true;
             log = Logger;
-            enabledSetting = Config.Bind("Display", "Enabled", true, "Draw local fading arrow and bolt afterimages in Extreme Troops.");
+            var legacyEnabled = Config.Bind("Display", "Enabled", true, "Initial value for the local modsettings switch when no preset exists.");
+            settings = new TrailSettings(legacyEnabled.Value);
             api = ApiShared.ForMod(Guid);
             CrusaderLibrary.Instance.LibraryLoaded += LibraryLoaded;
             api.WhenReady(_ =>
@@ -73,13 +83,16 @@ namespace ProjectileTrailsTest
             });
         }
 
-        private static void LibraryLoaded(CrusaderLibraryLoadContext context)
+        private void LibraryLoaded(CrusaderLibraryLoadContext context)
         {
             try
             {
                 // Root the buffer and hook before publication, even if the backend later reports failure.
-                native = new NativeFlightSamples(context, log);
+                native = new NativeFlightSamples(context, Guid, log);
                 native.Install(context);
+                LobbyModSettingsPresetRegistration.Register(this, Shared.DebugLogHelper.ForExternalCode(log),
+                    "Extreme Troops Projectile Trails Test", settings, "ScriptExtenderUI/ProjectileTrailsSettings.xaml",
+                    logRoutineActivity: false);
             }
             catch (Exception ex) { Fail(ex.ToString()); }
         }
@@ -107,13 +120,13 @@ namespace ProjectileTrailsTest
                     throw new InvalidOperationException(reason);
                 if (!api.TryGetMissionLifecycle(out missions, out var diagnostic))
                     throw new InvalidOperationException(diagnostic.Reason);
-                meshes = new TrailMeshes();
-                renderingEnabled = enabledSetting.Value;
+                meshes = new TrailMeshes(Path.Combine(
+                    Path.GetDirectoryName(typeof(Plugin).Assembly.Location), TrailMeshes.BundleName));
+                renderingEnabled = settings.EnableClientFeatures;
                 // APIShared's popularity-popup IL edit stays in the original body.
                 new Harmony(Guid).Patch(add, postfix: new HarmonyMethod(typeof(Plugin), nameof(AfterAdd)));
                 if (!missions.TryRegisterObserver("flight-trail-mission", MissionChanged, MissionChanged, null, out diagnostic))
                     throw new InvalidOperationException(diagnostic.Reason);
-                enabledSetting.SettingChanged += (_, __) => api.Ui.TryPost(() => TrailRenderingEnabled = enabledSetting.Value);
                 ready = true;
                 SynchronizeMission();
                 WriteInfo("ready");
@@ -140,6 +153,12 @@ namespace ProjectileTrailsTest
             SessionExtreme = false;
             firstVisible = false;
             if (current == null) return;
+            afterimageCount = settings.AfterimageCount;
+            maximumVisible = settings.MaximumVisible;
+            renderingEnabled = settings.EnableClientFeatures;
+#if SERP_DEVDIAG
+            renderingEnabled = automationActivation ?? renderingEnabled;
+#endif
             try
             {
                 if (NativePatchGuard.Recheck() != 0)
@@ -157,7 +176,7 @@ namespace ProjectileTrailsTest
         {
             if (!ready || failed || __0 <= 0 || __0 >= WideProjectileLimit) return;
             TraceVanilla(__0, __1, __2, __3, __4, __5, __6, __7, __9, __10, __11, ___flies);
-            if (!SessionExtreme || !renderingEnabled || styleKnown ||
+            if (!SessionExtreme || !CanDrawTrails || styleKnown ||
                 (__11 != (int)ProjectileType.ArcherArrow && __11 != (int)ProjectileType.CrossbowBolt &&
                  __11 != (int)ProjectileType.UnkMissile24)) return;
             try
@@ -187,7 +206,7 @@ namespace ProjectileTrailsTest
 
         private static void RefreshCapture()
         {
-            bool active = !failed && session != 0 && SessionExtreme && renderingEnabled;
+            bool active = !failed && session != 0 && SessionExtreme && CanDrawTrails;
             RestartCapture(active);
             frame?.SetContinuous(active);
         }
@@ -199,7 +218,7 @@ namespace ProjectileTrailsTest
                 ResetView();
                 return;
             }
-            if (!SessionExtreme || !renderingEnabled || native == null) return;
+            if (!SessionExtreme || !CanDrawTrails || native == null) return;
             try
             {
                 GameMap currentMap = GameMap.instance;
@@ -234,7 +253,7 @@ namespace ProjectileTrailsTest
                     clockKnown = true;
                 }
 
-                bool changed = history.Expire(tick);
+                bool changed = history.Expire(tick, afterimageCount);
                 long oldest = Math.Max(lastHead + 1, head - NativeFlightSamples.Capacity + 1);
                 int epoch = native.Generation;
                 for (long sequence = oldest; sequence <= head; sequence++)
@@ -247,7 +266,7 @@ namespace ProjectileTrailsTest
                     uint age = unchecked(tick - sample.Tick);
                     if (age > int.MaxValue) break; // The next snapshot publishes this later tick.
                     lastHead = sequence;
-                    if (age < TrailBuffer.Lifetime) changed |= AddEcho(sample);
+                    if (age < (uint)afterimageCount) changed |= AddEcho(sample);
                 }
 
                 Camera current = Camera.main;
@@ -263,7 +282,7 @@ namespace ProjectileTrailsTest
 
                 long allocatedBefore = 0;
                 SampleMeshAllocation(ref allocatedBefore);
-                LastSegmentCount = meshes.Publish(history, current, axisX, axisY);
+                LastSegmentCount = meshes.Publish(history, current, axisX, axisY, afterimageCount, maximumVisible);
                 RecordMeshAllocation(allocatedBefore);
                 TracePublish(current);
                 if (!firstVisible && LastSegmentCount > 0)
@@ -284,14 +303,16 @@ namespace ProjectileTrailsTest
             const int unitsPerTile = 8;
             if (sample.X < 0 || sample.Y < 0 || sample.Frame == 0) return false;
             map.mapGameTileToTilemapCoord(sample.X / unitsPerTile, sample.Y / unitsPerTile, out int x, out int y);
-            if (map.getMapTile(x, y) == null) return false;
+            var tile = map.getMapTile(x, y);
+            if (tile == null) return false;
             int appearance = meshes.GetAppearance(sample.File, sample.Frame);
             if (appearance < 0) return false;
 
             native.Subtile(sample.X, sample.Y, rotation, out int subX, out int subY);
             var position = map.getSpritePosVector(x, y, subX, subY, sample.Slot);
             position.y += sample.Height / NativeHeightScale;
-            int row = map.getRow(x, y, ProjectileLayerDelay);
+            // Same clamp as GameMap.getRow, using the tile already read above.
+            int row = Math.Min(tile.row + ProjectileLayerDelay, GameMap.tilemapSize);
             var echo = new TrailBuffer.Sample
             {
                 Appearance = appearance,

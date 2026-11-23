@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -41,7 +40,10 @@ namespace ProjectileTrailsTest
             internal readonly MeshFilter Filter;
             internal readonly MeshRenderer Renderer;
             internal int Count, Write, First, VertexStride;
-            internal Bounds Bounds;
+            internal Vector3 Min, Max;
+            internal Bounds RenderedBounds;
+            internal int BoundFirst, BoundCount, BoundStride;
+            internal long BoundRevision = -1;
             internal Mesh Mesh;
             internal Material Material;
             internal long Order;
@@ -80,25 +82,28 @@ namespace ProjectileTrailsTest
         private Echo[] echoData = Array.Empty<Echo>();
         private GraphicsBuffer echoes, shapes;
         private int uploadedShapes, activeGroups, extentCount, radiusCount, viewEpoch;
+        private int boundLifetime;
+        private long bindingRevision;
+        private Axis boundX, boundY;
         private Camera viewCamera;
         private Matrix4x4 viewMatrix;
         private Axis previousX, previousY;
         private GameObject root;
 #if SERP_DEVDIAG
         internal bool MatchLegacyBudget { get; set; }
+        internal int BindingUpdates { get; private set; }
 #endif
         internal int Accepted => visible.Count;
         internal int GroupCount => activeGroups;
         internal int UploadBytes { get; private set; }
         internal TrailBuffer.Sample GetAccepted(int index) => publishedHistory.Get(visible[index].historyIndex);
 
-        internal TrailMeshes()
+        internal TrailMeshes(string path)
         {
             if (SystemInfo.graphicsShaderLevel < 45)
                 throw new InvalidOperationException("Projectile trails need Shader Model 4.5 structured buffers.");
             if (Marshal.SizeOf<Echo>() != 24)
                 throw new InvalidOperationException("Projectile echo buffer layout differs from the shader.");
-            string path = Path.Combine(Path.GetDirectoryName(typeof(Plugin).Assembly.Location), BundleName);
             bundle = AssetBundle.LoadFromFile(path);
             if (bundle == null)
                 throw new InvalidOperationException("Could not load the projectile shader bundle at " + path);
@@ -152,7 +157,8 @@ namespace ProjectileTrailsTest
 
         internal void SetTick(uint tick) => Shader.SetGlobalInteger(TickId, unchecked((int)tick));
 
-        internal int Publish(TrailBuffer history, Camera camera, Axis axisX, Axis axisY)
+        internal int Publish(TrailBuffer history, Camera camera, Axis axisX, Axis axisY,
+            int lifetime = TrailBuffer.Lifetime, int maximum = TrailBuffer.MaximumVisibleCopies)
         {
             Matrix4x4 matrix = camera.cullingMatrix;
             bool basisChanged = axisX != previousX || axisY != previousY;
@@ -197,8 +203,15 @@ namespace ProjectileTrailsTest
             publishedHistory = history;
             int count = 0;
             UploadBytes = 0;
-            for (int i = 0; i < history.Count; i++)
+#if SERP_DEVDIAG
+            BindingUpdates = 0;
+            if (MatchLegacyBudget) maximum = Math.Min(maximum, 1024);
+#endif
+            // If capped, prefer current positions and spend remaining slots on older copies.
+            bool newestFirst = history.Count > maximum;
+            for (int index = 0; index < history.Count && visible.Count < maximum; index++)
             {
+                int i = newestFirst ? history.Count - 1 - index : index;
                 ref var sample = ref history.Get(i);
                 if (sample.Visibility == -viewEpoch) continue;
                 var appearance = appearances[sample.Appearance];
@@ -209,10 +222,9 @@ namespace ProjectileTrailsTest
                     sample.Visibility = Visible(position, appearance.PlaneRadii) ? viewEpoch : -viewEpoch;
                     if (sample.Visibility < 0) continue;
                 }
-#if SERP_DEVDIAG
-                if (MatchLegacyBudget && visible.Count == 1024) break;
-#endif
-                var bounds = new Bounds(position, new Vector3(2 * extent.x, 2 * extent.y, 0.02f));
+                var halfSize = new Vector3(extent.x, extent.y, 0.01f);
+                Vector3 min = position - halfSize;
+                Vector3 max = position + halfSize;
                 var key = (sample.SortKey, appearance.TextureId, sample.ObjectLayer);
                 if (!buckets.TryGetValue(key, out int bucket))
                 {
@@ -224,7 +236,8 @@ namespace ProjectileTrailsTest
                     Group group = GetGroup(bucket);
                     group.Count = 0;
                     group.VertexStride = 0;
-                    group.Bounds = bounds;
+                    group.Min = min;
+                    group.Max = max;
                     if (group.Layer != sample.ObjectLayer)
                         group.Renderer.gameObject.layer = group.Layer = sample.ObjectLayer;
                     if (group.Material != appearance.Material || group.Order != sample.SortKey)
@@ -239,7 +252,8 @@ namespace ProjectileTrailsTest
                 Group entry = groups[bucket];
                 entry.Count++;
                 entry.VertexStride = Math.Max(entry.VertexStride, appearance.VertexCount);
-                entry.Bounds.Encapsulate(bounds);
+                entry.Min = Vector3.Min(entry.Min, min);
+                entry.Max = Vector3.Max(entry.Max, max);
                 visible.Add((bucket, i));
             }
 
@@ -255,7 +269,8 @@ namespace ProjectileTrailsTest
                 if (echoData.Length < visible.Count) echoData = new Echo[Mathf.NextPowerOfTwo(visible.Count)];
                 for (int i = 0; i < visible.Count; i++)
                 {
-                    var item = visible[i];
+                    // Keep the original blend order within each depth group.
+                    var item = visible[newestFirst ? visible.Count - 1 - i : i];
                     ref readonly var sample = ref history.Get(item.historyIndex);
                     var appearance = appearances[sample.Appearance];
                     echoData[groups[item.bucket].Write++] = new Echo
@@ -265,10 +280,11 @@ namespace ProjectileTrailsTest
                     };
                 }
 
-                EnsureBuffer(ref echoes, visible.Count, 24);
+                bool echoesReplaced = EnsureBuffer(ref echoes, visible.Count, 24);
                 echoes.SetData(echoData, 0, 0, visible.Count);
                 UploadBytes = visible.Count * 24;
-                if (EnsureBuffer(ref shapes, geometry.Count, 16)) uploadedShapes = 0;
+                bool shapesReplaced = EnsureBuffer(ref shapes, geometry.Count, 16);
+                if (shapesReplaced) uploadedShapes = 0;
                 if (uploadedShapes < geometry.Count)
                 {
                     int append = geometry.Count - uploadedShapes;
@@ -276,20 +292,38 @@ namespace ProjectileTrailsTest
                     UploadBytes += append * 16;
                     uploadedShapes = geometry.Count;
                 }
+                if (echoesReplaced || shapesReplaced || boundLifetime != lifetime || axisX != boundX || axisY != boundY)
+                {
+                    bindingRevision++;
+                    boundLifetime = lifetime;
+                    boundX = axisX;
+                    boundY = axisY;
+                    properties.SetBuffer(EchoBufferId, echoes);
+                    properties.SetBuffer(GeometryId, shapes);
+                    properties.SetInteger(LifetimeId, lifetime);
+                    properties.SetVector(BasisId, new Vector4(axisX.X, axisX.Y, axisY.X, axisY.Y));
+                }
                 for (int i = 0; i < count; i++)
                 {
                     Group group = groups[i];
                     Mesh mesh = Carrier(checked(group.Count * (group.VertexStride / 3)));
                     if (group.Mesh != mesh) group.Filter.sharedMesh = group.Mesh = mesh;
-                    group.Renderer.bounds = group.Bounds;
-                    properties.SetBuffer(EchoBufferId, echoes);
-                    properties.SetBuffer(GeometryId, shapes);
-                    properties.SetInteger(BeginId, group.First);
-                    properties.SetInteger(CountId, group.Count);
-                    properties.SetInteger(StrideId, group.VertexStride);
-                    properties.SetInteger(LifetimeId, TrailBuffer.Lifetime);
-                    properties.SetVector(BasisId, new Vector4(axisX.X, axisX.Y, axisY.X, axisY.Y));
-                    group.Renderer.SetPropertyBlock(properties);
+                    var bounds = new Bounds();
+                    bounds.SetMinMax(group.Min, group.Max);
+                    if (group.BoundRevision < 0 || !group.RenderedBounds.Equals(bounds))
+                        group.Renderer.bounds = group.RenderedBounds = bounds;
+                    if (group.BoundRevision != bindingRevision || group.BoundFirst != group.First ||
+                        group.BoundCount != group.Count || group.BoundStride != group.VertexStride)
+                    {
+                        properties.SetInteger(BeginId, group.BoundFirst = group.First);
+                        properties.SetInteger(CountId, group.BoundCount = group.Count);
+                        properties.SetInteger(StrideId, group.BoundStride = group.VertexStride);
+                        group.Renderer.SetPropertyBlock(properties);
+                        group.BoundRevision = bindingRevision;
+#if SERP_DEVDIAG
+                        BindingUpdates++;
+#endif
+                    }
                     if (i >= activeGroups) group.Renderer.enabled = true;
                 }
             }

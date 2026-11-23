@@ -37,6 +37,7 @@ namespace ProjectileTrailsTest
 
         private readonly byte* buffer;
         private readonly byte* image;
+        private readonly ManualLogSource log;
         private int generation;
         private HookTransaction transaction;
 
@@ -50,8 +51,9 @@ namespace ProjectileTrailsTest
             internal int Frame, Slot;
         }
 
-        internal NativeFlightSamples(CrusaderLibraryLoadContext context, ManualLogSource log)
+        internal NativeFlightSamples(CrusaderLibraryLoadContext context, string ownerGuid, ManualLogSource log)
         {
+            this.log = log;
             if (!string.Equals(DebugLogHelper.InstalledNativeSha256(), Hash, StringComparison.Ordinal))
                 throw new InvalidOperationException("CrusaderDE.dll has a different SHA-256.");
 
@@ -71,7 +73,7 @@ namespace ProjectileTrailsTest
                 if (probe.IsInstalled || probe.TargetAddress != target || probe.DisplacedByteCount != length)
                     throw new InvalidOperationException("RedBird displaced span differs from the audited 5/5/1/4 prologue.");
 
-            var claim = NativeSiteRegistry.Register(Plugin.Guid, Feature, Entry, length, NativeSiteMode.Exclusive);
+            var claim = NativeSiteRegistry.Register(ownerGuid, Feature, Entry, length, NativeSiteMode.Exclusive);
             if (!claim.Succeeded) throw new InvalidOperationException(claim.Reason);
             int size = HeaderSize + Capacity * sizeof(EntrySample);
             buffer = (byte*)Marshal.AllocHGlobal(size);
@@ -99,7 +101,7 @@ namespace ProjectileTrailsTest
                 *(ulong*)(target + 6) != (ulong)handle.Hook.StubAddress)
                 throw new InvalidOperationException("Afterimage observer did not publish the audited jump.");
 
-            Plugin.WriteInfo("native observer RVA 0x9BFC0–0x9BFCE (5/5/1/4 bytes), next instruction 448B1562CE5C03");
+            log.LogInfo($"[{DateTime.Now:HH:mm:ss.fff}] {Feature}: RVA 0x9BFC0–0x9BFCE (5/5/1/4 bytes), next instruction 448B1562CE5C03");
         }
 
         internal int Generation => Volatile.Read(ref *(int*)buffer);

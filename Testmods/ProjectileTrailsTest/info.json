@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Extreme Troops Projectile Trails Test",
   "Description": "Client-only test of fading arrow and bolt sprites in Extreme Troops.",
-  "Version": "0.2.0",
+  "Version": "0.3.1",
   "MinimumScriptExtenderVersion": "2.14.4",
   "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.62.0" }],
   "Manifest": 1,

@@ -107,5 +107,18 @@ native slots. The synthetic game fixture submitted 50,000 visible copies in
 96 groups. An independent Unity Player pixel test verified 50,000 distinct
 positions using the same shader bundle. See the
 [GPU game test and timings](../../../../../Testmods/ProjectileTrailsTest/TESTING.md#gpu-renderer).
+The matching Editor, reproducible bundle and standalone pixel test are
+documented in [Unity asset pipeline](UNITY_ASSET_PIPELINE.md).
 These observations do not establish why the developers chose to suppress native
 trail generation in Extreme Troops.
+
+### Isolated tower depth (2026-11-23) [mod integration]
+
+With the installed Direct3D 11 player on `test_green`, the GPU renderer
+drew identical arrow afterimages on documented projectile sort orders
+in front of and behind a native Tower1. The front copies crossed the
+stone facade. The back copies were covered by the tower and remained
+visible beside its silhouette. The paused North-view fixture held the
+world positions, camera and sprite layer constant while varying the
+projectile sort row. See the
+[paired images and pixel-mask method](../../../../../Testmods/ProjectileTrailsTest/TESTING.md#tower-occlusion).

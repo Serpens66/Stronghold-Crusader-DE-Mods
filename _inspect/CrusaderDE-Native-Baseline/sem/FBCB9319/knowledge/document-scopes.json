@@ -20,6 +20,7 @@
     "untaggedReason": "Their exact bytes are pinned by validators that do not resolve Git history; their scope is recorded only here and in CURRENT.md."
   },
   "documents": [
+    {"file":"UNITY_ASSET_PIPELINE.md","scope":"mod","components":["Unity","Script Extender","ProjectileTrailsTest","CastlePlanner"],"note":"Dated AssetBundle runtime evidence and editor workflows for mod assets, tests and authoring."},
     {"file":"EXTREME_TROOPS.md","scope":"vanilla+integration","components":["CrusaderDE.dll","Assembly-CSharp.dll"],"integrationSections":["Mod options"],"note":"Hash-bound direct reference inventory and static effect audit."},
     {"file":"WALL_DEPOSIT_RESTORATION.md","scope":"vanilla+integration","components":["CrusaderDE.dll","Script Extender","Fixes","DepositRestorationTest"],"integrationSections":["Runtime integration"]},
     {"file":"AI_MARKET_LIFECYCLE.md","scope":"vanilla+integration","components":["CrusaderDE.dll","APIShared","AIMarketOverbuyDiagnostic","AIMarketAcceptance","AIBuildDiagnoseTest","BugfixesAndQoL"],"note":"Hash-bound market entry and multiplayer repair phase audit; tagged integration sections distinguish shared ownership, private executable fixtures, local save acceptance and the still-open two-peer repair test."},

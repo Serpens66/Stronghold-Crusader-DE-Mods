@@ -81,7 +81,7 @@ namespace ProjectileTrailsTest
                 uint age = unchecked(lastTick - echo.Tick);
                 sampledPositions++;
                 WriteInfo(FormattableString.Invariant(
-                    $"echo tick={lastTick} born={echo.Tick} slot={echo.SourceSlot} tile={echo.TileX},{echo.TileY} sub={echo.SubX},{echo.SubY} height={echo.Height / NativeHeightScale} file={echo.File} frame={echo.Frame} opacity={TrailBuffer.Opacity(age)} order={(int)echo.SortKey}"));
+                    $"echo tick={lastTick} born={echo.Tick} slot={echo.SourceSlot} tile={echo.TileX},{echo.TileY} sub={echo.SubX},{echo.SubY} height={echo.Height / NativeHeightScale} file={echo.File} frame={echo.Frame} opacity={TrailBuffer.Opacity(age, afterimageCount)} order={(int)echo.SortKey}"));
             }
         }
     }

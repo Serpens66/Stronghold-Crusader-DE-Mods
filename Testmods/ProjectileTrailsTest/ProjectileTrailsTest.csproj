@@ -37,7 +37,7 @@
     <Reference Include="RedBird.Backends.NativeX64"><HintPath>$(ExtenderDir)\RedBird.Backends.NativeX64.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Microsoft.Extensions.Logging.Abstractions"><HintPath>$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath><Private>false</Private></Reference>
-    <Reference Include="Noesis.NoesisGUI" Condition="'$(SHCDE_DEVDIAG)' == '1'"><HintPath>$(GameManaged)\Noesis.NoesisGUI.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Noesis.NoesisGUI"><HintPath>$(GameManaged)\Noesis.NoesisGUI.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="APIShared"><HintPath>$(ApiSharedDir)\APIShared.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
@@ -47,8 +47,11 @@
     <Compile Include="..\..\Shared\Runtime\Diagnostics\DevDiag.cs" Condition="'$(SHCDE_DEVDIAG)' == '1'"><Link>Shared\Runtime\Diagnostics\DevDiag.cs</Link></Compile>
     <Compile Include="..\..\Shared\Runtime\Native\CommittedMemory.cs"><Link>Shared\Runtime\Native\CommittedMemory.cs</Link></Compile>
     <Compile Include="..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link></Compile>
+    <Compile Include="..\..\Shared\Runtime\Localization\SerpLocalization.cs"><Link>Shared\Runtime\Localization\SerpLocalization.cs</Link></Compile>
     <Content Include="obj\shader\projectiletrails-shader" Condition="Exists('obj\shader\projectiletrails-shader')"><Link>projectiletrails-shader</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
     <Content Include="info.json"><CopyToOutputDirectory>Always</CopyToOutputDirectory></Content>
+    <Content Include="Override\ScriptExtenderUI\ProjectileTrailsSettings.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="Locales\*.txt"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
