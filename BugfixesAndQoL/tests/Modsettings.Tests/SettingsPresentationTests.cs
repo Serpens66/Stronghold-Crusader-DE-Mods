@@ -327,6 +327,11 @@ internal static partial class Program
         object hostControls = Get(presentation, "HostControls");
         Check(Equals(Get(hostControls, "Title"), Get(controls, "Title")) && (bool)Get(hostControls, "IsHost"),
             "occupied-wall demolition shares the controls theme title and keeps its host section");
+        var autoSend = Get(presentation, "EnableAutoSend");
+        XmlNode autoSendRow = nodes.Single(node => SearchAttribute(node, "Key") == (string)Get(autoSend, "Key"));
+        Check(SearchAttribute(autoSendRow.ParentNode, "SectionKey") == (string)Get(controls, "Key") &&
+            Get(autoSend, "Category").ToString() == "Qol" && !(bool)Get(controls, "IsHost"),
+            "AutoSend appears in personal client controls QoL");
         var areaConstruction = Get(presentation, "EnableAreaConstruction");
         XmlNode constructionRow = nodes.Single(n => SearchAttribute(n, "Key") == (string)Get(areaConstruction, "Key"));
         Check(SearchAttribute(constructionRow.PreviousSibling, "Key") == "bugfixes.area-demolition" &&

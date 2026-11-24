@@ -22,6 +22,7 @@ namespace MultiplayerSaveLoadTest
         internal static bool Installed => Volatile.Read(ref installed) != 0 && hook?.IsApplied == true;
         internal static bool Observed => Volatile.Read(ref hits) != 0;
         internal static bool Requested => Volatile.Read(ref requested) != 0;
+        internal static bool LaunchAllowed => Volatile.Read(ref launchAllowed) != 0;
         internal static bool Quiescent { get { lock (Entry) return Requested && Volatile.Read(ref parked) != 0 && entries == 0; } }
         internal static void InstallEarly(ManualLogSource log)
         {

@@ -96,9 +96,15 @@ internal static class BarrierTests
         var worker = new Thread(() => checkpoint());
         worker.Start();
         Check(SpinWait.SpinUntil(() => LoadBarrier.Quiescent, 3000), "Checkpoint did not park.");
-        LoadBarrier.Release();
+        Check(!(bool)Private("Start").Invoke(null, null) && LoadBarrier.Quiescent,
+            "A premature native start released the worker before group admission.");
+        LoadBarrier.AllowLaunch();
+        Check(LoadBarrier.Quiescent && LoadBarrier.LaunchAllowed,
+            "Launch admission resumed the worker before the native start checkpoint.");
+        Check((bool)Private("Start").Invoke(null, null), "An admitted native start was rejected.");
         Check(worker.Join(3000), "Release failed to wake worker.");
-        Check((int)Field("parked").GetValue(null) == 0 && !LoadBarrier.Quiescent, "Park receipt survived worker release.");
+        Check((int)Field("parked").GetValue(null) == 0 && !LoadBarrier.Quiescent && !LoadBarrier.LaunchAllowed,
+            "Park receipt or launch permission survived the final native start.");
     }
 
     public static int Main(string[] args)

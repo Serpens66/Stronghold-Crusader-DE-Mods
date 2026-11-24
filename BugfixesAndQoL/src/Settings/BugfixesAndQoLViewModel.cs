@@ -48,6 +48,8 @@ namespace BugfixesAndQoL
 
         private void OnSettingsPresentationPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
+            if (args.PropertyName == nameof(CanEditClientSettings))
+                OnPropertyChanged(nameof(CanConfigureAutoSend));
             if (args.PropertyName == nameof(CanEditHostSettings))
             {
                 OnPropertyChanged(nameof(CanConfigurePeaceTimeCivilianProximity));
@@ -248,6 +250,7 @@ namespace BugfixesAndQoL
                 nameof(EnableBriefingNoStartingGoldFix),
                 nameof(EnableTroopHudMiddleClickCameraJump),
                 nameof(EnableClientFeatures),
+                nameof(EnableAutoSend),
                 nameof(AllowMinimapWhilePlacingBuilding),
                 nameof(PreventMoveOrderOnPlacementCancel),
                 nameof(AllowCameraMovementWithModifiers),
@@ -389,6 +392,8 @@ namespace BugfixesAndQoL
         public string EnableModText => SerpLocalization.Get(SerpLocalization.EnableMod);
         public string EnableClientFeaturesText => SerpLocalization.Get("BugfixesAndQoL.EnableClientFeatures");
         public string EnableClientFeaturesHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableClientFeaturesHelp");
+        public string EnableAutoSendText => SerpLocalization.Get("BugfixesAndQoL.EnableAutoSend");
+        public string EnableAutoSendHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAutoSendHelp");
         public string EnableHostFeaturesText => SerpLocalization.Get("BugfixesAndQoL.EnableHostFeatures");
         public string EnableHostFeaturesHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableHostFeaturesHelp");
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
@@ -1816,6 +1821,7 @@ namespace BugfixesAndQoL
 
             // Every participant resets only their own per-player preferences.
             EnableClientFeatures = true;
+            EnableAutoSend = true;
             EnableProjectileTrails = true;
             ProjectileTrailLength = DefaultProjectileTrailLength;
             ProjectileTrailMaximum = DefaultProjectileTrailMaximum;
@@ -2043,6 +2049,7 @@ namespace BugfixesAndQoL
             if (!enableClientFeatures.TrySetLocalPlayerId(playerId))
                 return false;
 
+            enableAutoSend.TrySetLocalPlayerId(playerId);
             enableMinimapCursorFollowFix.TrySetLocalPlayerId(playerId);
             enableCompleteNotificationSkipOnClick.TrySetLocalPlayerId(playerId);
             enableNotificationLastFrame.TrySetLocalPlayerId(playerId);

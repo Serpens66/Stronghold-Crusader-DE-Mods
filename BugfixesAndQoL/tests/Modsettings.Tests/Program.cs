@@ -458,6 +458,7 @@ internal static partial class Program
                 Equals(entry.instruction.Item2, setter) && entry.index > 0 &&
                 reset[entry.index - 1].Item1 == OpCodes.Ldc_I4_1), "reset restores enabled default for " + option);
         }
+        AutoSendSettingsMetadata(xaml, hostProperties, reset);
         StorageLimitSettings(xaml, hostProperties, body, reset);
         foreach (var slider in new[] { (Name: "ProjectileTrailLength", Max: "10"), (Name: "ProjectileTrailMaximum", Max: "60000") })
         {
@@ -504,6 +505,32 @@ internal static partial class Program
         Check(Ancestors(workshop).Any(a=>a.Attributes?["IsEnabled"]?.Value=="{Binding CanEditClientSettings}"),"Workshop is locally editable by a multiplayer client");
         Check(!Ancestors(workshop).Any(a=>a.Attributes?["IsEnabled"]?.Value=="{Binding CanEditHostSettings}"),"Workshop no longer inherits Host authority");
     }
+    private static void AutoSendSettingsMetadata(XmlDocument xaml, PropertyInfo[] hostProperties,
+        List<Tuple<OpCode, object>> reset)
+    {
+        var property = modelType.GetProperty("EnableAutoSend");
+        var attributes = property.GetCustomAttributesData().Select(attribute => attribute.AttributeType.Name).ToArray();
+        Check(attributes.Contains("SyncPerPlayerAttribute") && !attributes.Contains("SyncHostOnlyAttribute") &&
+            !attributes.Contains("PresetLocalAttribute") && !attributes.Contains("DoNotPersistAttribute"),
+            "AutoSend is a persisted personal synchronized preference");
+        Check(!hostProperties.Contains(property), "AutoSend preference is excluded from host snapshots");
+        object model = FormatterServices.GetUninitializedObject(modelType);
+        Set(model, "EnableAutoSend", true);
+        var companion = modelType.GetProperty("EnableAutoSendData");
+        var data = (bool[])companion.GetValue(model, null);
+        Check(data.Length == 9 && ReferenceEquals(data, companion.GetValue(model, null)),
+            "AutoSend companion exposes one stable array for slots zero through eight");
+        Check(reset.Select((instruction, index) => new { instruction, index }).Any(entry =>
+            Equals(entry.instruction.Item2, property.GetSetMethod()) && entry.index > 0 &&
+            reset[entry.index - 1].Item1 == OpCodes.Ldc_I4_1), "full reset enables AutoSend");
+        var editor = xaml.SelectSingleNode("//*[local-name()='CheckBox' and contains(@IsChecked,'EnableAutoSend,')]");
+        Check(editor != null && editor.Attributes["ToolTipService.ShowDuration"]?.Value == "60000" &&
+            editor.SelectSingleNode("./*[local-name()='CheckBox.ToolTip']/*[local-name()='ToolTip']/@Content")?.Value ==
+                "{Binding EnableAutoSendHelpText}", "AutoSend editor has its player-facing long tooltip");
+        Check(Ancestors(editor).Any(node => node.Attributes?["IsEnabled"]?.Value == "{Binding CanConfigureAutoSend}"),
+            "AutoSend editor uses the combined personal-permission and mission lock");
+    }
+
     private static void StorageLimitSettings(XmlDocument xaml, PropertyInfo[] hostProperties,
         List<Tuple<OpCode, object>> constructor, List<Tuple<OpCode, object>> reset)
     {

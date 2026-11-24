@@ -87,6 +87,8 @@
     <Compile Include="..\..\ImprovedHunters\src\HunterSearchRangePolicy.cs" />
     <Compile Include="..\..\ImprovedHunters\src\HerdSettingsPolicy.cs" />
     <Compile Include="..\..\ImprovedHunters\src\GranaryChickenSpawnPolicy.cs" />
+    <Compile Include="AutoSendSettingsPresetTests.cs" />
+    <Compile Include="..\..\BugfixesAndQoL\src\Settings\BugfixesAndQoLViewModel.AutoSend.cs" />
     <Compile Include="PeaceTimeProximityPresetTests.cs" />
     <Compile Include="..\..\BugfixesAndQoL\src\Settings\BugfixesAndQoLViewModel.PeaceTime.cs" />
     <Compile Include="PitchStairsPresetTests.cs" />

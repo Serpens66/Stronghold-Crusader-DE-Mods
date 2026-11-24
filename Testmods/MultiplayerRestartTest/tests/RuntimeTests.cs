@@ -209,6 +209,7 @@ internal static class RuntimeReceiptTests
             var requested = typeof(LoadBarrier).GetField("requested", BindingFlags.NonPublic | BindingFlags.Static);
             Check((int)requested.GetValue(null) == 0, "Retired receipt parked a replacement world.");
             AutoReady(runtime, frame, protocol);
+            RetryAdmission(runtime, platform);
             LoadMenu(runtime, platform, lobby);
             Console.WriteLine("Runtime receipts: " + checks + " checks passed.");
         }
@@ -223,6 +224,47 @@ internal static class RuntimeReceiptTests
             harmony.Unpatch(requester, HarmonyLib.HarmonyPatchType.Prefix, harmony.Id);
             harmony.Unpatch(popup, HarmonyLib.HarmonyPatchType.Prefix, harmony.Id);
             harmony.Unpatch(text, HarmonyLib.HarmonyPatchType.Prefix, harmony.Id);
+        }
+    }
+
+    private static void RetryAdmission(SaveLoadRuntime runtime, Platform_Multiplayer platform)
+    {
+        var previousRuntime = SaveLoadPlugin.Runtime;
+        var previousProtocol = Get<LoadProtocol>(runtime, "protocol");
+        bool previousInitialized = Get<bool>(runtime, "initialized");
+        bool previousReleased = Get<bool>(runtime, "released");
+        var flags = BindingFlags.NonPublic | BindingFlags.Static;
+        var requested = typeof(LoadBarrier).GetField("requested", flags);
+        var admission = typeof(SaveLoadRuntime).GetMethod("BeforeStart", flags);
+        try
+        {
+            SaveLoadPlugin.Runtime = runtime; Set(runtime, "initialized", true);
+            // This is the state left after Managed Started/Adopt when the native
+            // handshake never reaches startSimThread: the protocol is retired,
+            // its released flag is false, and the worker is still requested.
+            Set(runtime, "protocol", null); Set(runtime, "released", false);
+            requested.SetValue(null, 1); LoadBarrier.AllowLaunch();
+            admission.Invoke(null, new object[] { platform });
+            Check(LoadBarrier.Requested && LoadBarrier.LaunchAllowed,
+                "A later Vanilla start was blocked or prematurely released the parked worker.");
+            Check(Get<ulong>(runtime, "nextLobby") == platform.activeLobby.identifier,
+                "A later admitted start did not capture its actual lobby.");
+            typeof(LoadBarrier).GetField("launchAllowed", flags).SetValue(null, 0);
+            bool blocked = false;
+            try { admission.Invoke(null, new object[] { platform }); }
+            catch (TargetInvocationException error) { blocked = error.InnerException is InvalidOperationException; }
+            Check(blocked, "An unfinished barrier admitted an ordinary start.");
+            LoadBarrier.AllowLaunch(); Set(runtime, "failurePending", true);
+            blocked = false;
+            try { admission.Invoke(null, new object[] { platform }); }
+            catch (TargetInvocationException error) { blocked = error.InnerException is InvalidOperationException; }
+            Check(blocked, "A failed group return admitted a start merely because the worker had launch permission.");
+        }
+        finally
+        {
+            LoadBarrier.Release(); SaveLoadPlugin.Runtime = previousRuntime;
+            Set(runtime, "initialized", previousInitialized); Set(runtime, "protocol", previousProtocol);
+            Set(runtime, "released", previousReleased); Set(runtime, "failurePending", false);
         }
     }
 

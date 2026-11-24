@@ -37,6 +37,8 @@ An existing save is loaded as the state it contains. Starting a mission from its
 
 ## Manual acceptance
 
+First complete case A in the repeated-load comparison below: ordinary manual lobby loading with this testmod absent from both processes. Only after that baseline succeeds, compare cases B and C. Do not compensate for a failing manual baseline with additional testmod loading logic.
+
 - With two humans and a running ordinary multiplayer match, use the host's original Load button. Confirm that both players reach the same private lobby automatically, with the same host and no manual join or invitation.
 - Confirm that both players become Ready after joining without extra clicks. Recheck an already-ready player, a temporarily missing client map, an initially blocking mod guard and a participant leaving before the attempt. Manually unready before the first automatic attempt, during a rejected retry, and after initial success: the testmod must not force Ready again. Also change a setting after initial success. A rejected guard must remain effective and retries must stop.
 - Open and immediately cancel the normal multiplayer save requester while the host category question is pending. No delayed duplicate question or requester may appear.
@@ -50,6 +52,18 @@ An existing save is loaded as the state it contains. Starting a mission from its
 - Verify that a client cannot initiate the action and that a missing or incompatible testmod on a participant prevents the coordinated host action. Preserve normal singleplayer/editor menu behavior.
 - With other ESC actions installed, inspect the main menu and additional-actions page. There must be one original Load action and no remaining custom Restart Mission action from this experiment.
 - Use different game languages on the two computers. The two confirmation headings and the short recovery heading must follow the game catalog and fit their single-line popup headings. The recovery notice uses a statement heading and a single OK button; OK starts the controlled return to the main menu.
+
+## Repeated-load comparison
+
+Run each row in a fresh process on both computers, with the same APIShared, Extended Data, other mods, participants and existing save copies. A disabled testmod means its plugin is absent before startup on both peers; hiding its menu action or changing a setting in an already running process does not remove its permanent hooks. Do not overwrite either source save.
+
+| Case | Testmod | Transition and sequence |
+| --- | --- | --- |
+| A: ordinary workflow baseline | Absent on both peers | Manually leave the match, create and join a new lobby, load save A; repeat the manual leave/new-lobby workflow to load save B, then start a fresh game. |
+| B: ordinary workflow with hooks | Active on both peers | Perform exactly case A using the normal lobby commands, without the testmod's in-game Load action. |
+| C: coordinated return | Active on both peers | Use the in-game Load action to load save A, repeat it to load save B, then manually leave and start a fresh game. |
+
+For every load, record the selected file's actual path and native load path on both peers, lobby identity, player remapping, first simulation tick and sustained tick advancement. Exercise A then A as well as A then B. A managed Started marker alone is not a completed multiplayer start. Separately record a cancelled/rejected load followed by another ordinary load and a fresh game. Compare cases A/B before attributing a failure to the coordinated-return action; case A still includes the installed SDK and other mods, so it is not a mod-free Vanilla control.
 
 ## Failure and cancellation cases
 

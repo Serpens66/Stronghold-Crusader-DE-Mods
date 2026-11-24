@@ -33,11 +33,11 @@ namespace Pathfinding
         private IDisposable mapStartSubscription, mapUnloadSubscription;
         private IntPtr libraryHandle;
         private ScanRegion nativeRegion;
-        private bool nativeLibraryAvailable, fixedLayoutHashValidated;
+        private bool nativeLibraryAvailable, fixedLayoutHashValidated, repairBoundariesReady;
         private bool assemblyPointPlacementPatchUnavailable, mountedStockpileMovementPatchUnavailable, fastRecruitInitializationAttempted;
         private ulong LibraryBase => unchecked((ulong)libraryHandle.ToInt64());
         internal static bool HasMission { get; private set; }
-        internal bool IsShiftQueueReady => processExtendedShiftCommandQueueRuntime?.IsMultiplayerReady == true;
+        internal bool IsShiftQueueReady => repairBoundariesReady && processExtendedShiftCommandQueueRuntime?.IsMultiplayerReady == true;
 
         public PathfindingRuntime(ManualLogSource log, PathfindingViewModel settings, string pluginDirectory)
         {
@@ -69,8 +69,9 @@ namespace Pathfinding
             TryPersistent("Assassin climb cancellation event", assassinClimbCancellationRuntime.Initialize);
             TryPersistent("repair cache rebuild", () =>
             {
-                if (!MultiplayerResyncEvents.TryRegister(PathfindingPlugin.PluginGuid, "route-caches",
-                    () => { }, RebuildRepairedRouteCaches, out string reason))
+                repairBoundariesReady = MultiplayerResyncEvents.TryRegister(PathfindingPlugin.PluginGuid, "route-caches",
+                    () => { }, CompleteResync, out string reason);
+                if (!repairBoundariesReady)
                     throw new InvalidOperationException(reason);
             });
             // APIShared owns the button, overflow placement and the single troop-action setup hook.
@@ -89,8 +90,9 @@ namespace Pathfinding
                     Shared.MissionEvents.Ended.Subscribe(_ => EndGameplaySession()));
         }
 
-        private void RebuildRepairedRouteCaches()
+        private void CompleteResync()
         {
+            processExtendedShiftCommandQueueRuntime?.DiscardPendingAfterResync();
             processUnitCommandPathRuntime?.ResetRepairDerivedState();
             assassinPathfindingRuntime.ResetRepairDerivedState();
         }

@@ -91,8 +91,11 @@ namespace MultiplayerSaveLoadTest
             if (runtime == null || !runtime.initialized) return;
             runtime.Main();
             if (runtime.Active || runtime.failurePending || runtime.recovering ||
-                LoadBarrier.Requested && !runtime.released)
+                LoadBarrier.Requested && !LoadBarrier.LaunchAllowed)
                 throw new InvalidOperationException("The group lobby transition has not finished.");
+            // Managed Started can precede the native MP handshake. Adopt resets the
+            // old protocol flags then, but only startSimThread releases the parked
+            // worker. A later Vanilla retry/start must retain that launch permission.
             runtime.nextLobby = __instance.activeLobby?.identifier ?? 0;
             runtime.acknowledgementRetry = null;
             runtime.readyPending = false;

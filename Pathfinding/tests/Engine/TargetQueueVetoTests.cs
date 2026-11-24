@@ -5,7 +5,7 @@ using System.Reflection;
 internal static class TargetQueueVetoTests {
  internal static void Run(string root){
   var syntax=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Pathfinding/src/CommandQueue/ExtendedShiftCommandQueueRuntime.cs"))).GetRoot();
-  string[] methods={"OnTargetOrderCore","OnFinalAcceptedTarget","CancelQueuesForTribeUnits","RentWorkBuffers","MaintainCommandBoundary","MaintainMultiplayerQueue","ResetMapState"};
+  string[] methods={"OnTargetOrderCore","OnFinalAcceptedTarget","CancelQueuesForTribeUnits","RentWorkBuffers","MaintainCommandBoundary","MaintainMultiplayerQueue","ResetMapState","DiscardPendingAfterResync","RemoveCohort"};
   string members=string.Join("\n",syntax.DescendantNodes().OfType<MethodDeclarationSyntax>().Where(m=>methods.Contains(m.Identifier.Text)).Select(m=>m.ToFullString()));
   members+=syntax.DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c=>c.Identifier.Text=="ObservedAttack").ToFullString();
   string fixture="""
@@ -27,7 +27,10 @@ namespace Pathfinding {
  Dictionary<int,ObservedAttack> observedAttacks=new();HashSet<int> loggedUnsupportedCommands=new();
  Dictionary<long,TribeQueueState> cohorts=new();Dictionary<QueueUnitIdentity,long> unitToCohort=new();
  HashSet<long> loggedPredecessorRedispatchFailures=new(),loggedIsolationFailures=new();Stack<QueueWorkBuffers> workBufferPool=new();
- class QueueWorkBuffers {public List<QueueUnitIdentity> Members=new();public void Clear()=>Members.Clear();}
+ class QueueWorkBuffers {
+  public List<QueueUnitIdentity> Members=new();public List<long> CohortIds=new();
+  public void Clear(){Members.Clear();CohortIds.Clear();}
+ }
  bool IsRealMultiplayer()=>mp;bool IsAiOwnedAliveTribe(int id)=>ai;bool IsShiftPressed()=>shift;
  bool IsLocalSelectedTribe(int id,out GameTribe* value){value=tribe;return selected;}
  bool TryGetAliveTribe(int id,out GameTribe* value){value=tribe;return value!=null;}
@@ -71,6 +74,18 @@ namespace Pathfinding {
   var revertedVeto=new TribeIssueOrderWithTargetEventArgs{AICommand=(TribeAICommand)132,SkipOriginalFunction=true};
   rejected.OnTargetOrderCore(revertedVeto);revertedVeto.SkipOriginalFunction=false;rejected.OnFinalAcceptedTarget(revertedVeto);
   Check(revertedVeto.SkipOriginalFunction&&rejected.enqueued==0&&SimulationAgreement.Faults==2,"A later subscriber cannot restore immediate execution of a marked target in an unadmitted session");
+  var repaired=new Fixture{mp=true,tribe=&live,MultiplayerQueueAdmitted=false};repaired.Seed();
+  var predecessor=repaired.cohorts[7].ExternalAttack;
+  var idleMember=new QueueUnitIdentity(2,101);
+  var idle=new TribeQueueState(11,128,new[]{idleMember},1,8,2);
+  idle.TryEnqueue(new QueueCommand(QueueCommandKind.Move,1,2));
+  repaired.cohorts.Add(8,idle);repaired.unitToCohort.Add(idleMember,8);
+  repaired.DiscardPendingAfterResync();
+  Check(repaired.cohorts[7].PendingCount==1&&idle.PendingCount==1,"unadmitted repair does not edit Shift state");
+  repaired.MultiplayerQueueAdmitted=true;repaired.DiscardPendingAfterResync();
+  Check(repaired.cohorts.Count==1&&repaired.cohorts[7].PendingCount==0&&
+      ReferenceEquals(repaired.cohorts[7].ExternalAttack,predecessor)&&repaired.unitToCohort.Count==1&&
+      !repaired.unitToCohort.ContainsKey(idleMember),"repair preserves an executing predecessor and retires the idle cohort and index");
   Console.WriteLine("PASS: "+checks+" actual target queue admission/reconciliation and real cohort state checks.");
  }
  }

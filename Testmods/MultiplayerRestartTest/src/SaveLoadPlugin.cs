@@ -4,7 +4,7 @@ using SHCDESE.API.LowLevel;
 
 namespace MultiplayerSaveLoadTest
 {
-    [BepInPlugin(Guid, "Multiplayer Save Load Test", "0.2.2")]
+    [BepInPlugin(Guid, "Multiplayer Save Load Test", "0.2.3")]
     [BepInDependency("000shcdese", "2.14.0")]
     [BepInDependency("APIShared_Serp", "0.71.0")]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]

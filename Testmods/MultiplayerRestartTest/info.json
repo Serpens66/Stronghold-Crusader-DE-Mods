@@ -3,12 +3,19 @@
   "Author": "Serpens66",
   "Name": "Multiplayer Save Load Test",
   "Description": "Experimental host-only Load command during multiplayer: return the group to a private lobby and select an existing save using the normal multiplayer load dialog. Identical testmod required on every peer.",
-  "Version": "0.2.2",
+  "Version": "0.2.3",
   "MinimumScriptExtenderVersion": "2.14.0",
   "Dependencies": [ { "GUID": "APIShared_Serp", "MinimumVersion": "0.71.0" } ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.2.3",
+      "Changes": [
+        "Allow later normal multiplayer load and new-game attempts after a failed start handshake; keep the simulation worker parked until Vanilla actually starts the next match.",
+        "Distinguish the completed group handoff from the later native launch permission instead of retaining a stale start veto."
+      ]
+    },
     {
       "Version": "0.2.2",
       "Changes": [

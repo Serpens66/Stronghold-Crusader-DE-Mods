@@ -12,7 +12,7 @@ using System.Reflection;
 namespace BugfixesAndQoL
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.3")]
-    [BepInDependency(ApiSharedGuid, "0.67.0")]
+    [BepInDependency(ApiSharedGuid, "0.73.2")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
@@ -27,6 +27,7 @@ namespace BugfixesAndQoL
     [BepInIncompatibility("PitchMoatLineTest_Serp")]
     [BepInIncompatibility("AreaDemolitionTest_Serp")]
     [BepInIncompatibility("AreaConstructionTest_Serp")]
+    [BepInIncompatibility("AutoSendTest_Serp")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
 
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
@@ -294,6 +295,7 @@ namespace BugfixesAndQoL
                 return false;
             }
 
+            AutoSend.AutoSendFeature.Initialize(Logger, Settings);
             ProjectileTrails.ProjectileTrailRuntime.Install(context);
 
             try

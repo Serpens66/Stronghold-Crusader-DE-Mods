@@ -35,6 +35,7 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableMinimapCursorFollowFix => options["EnableMinimapCursorFollowFix"];
         public SettingsOptionPresentation EnableDisbandedUnitControlGroupCleanup => options["EnableDisbandedUnitControlGroupCleanup"];
         public SettingsOptionPresentation EnableEnemyProximityBulldozeCursorFix => options["EnableEnemyProximityBulldozeCursorFix"];
+        public SettingsOptionPresentation EnableAutoSend => options["EnableAutoSend"];
         public SettingsOptionPresentation EnableImprovedBuildPreview => options["EnableImprovedBuildPreview"];
         public SettingsOptionPresentation EnablePitchMoatLines => options["EnablePitchMoatLines"];
         public SettingsOptionPresentation EnableAreaDemolition => options["EnableAreaDemolition"];
@@ -151,6 +152,7 @@ namespace BugfixesAndQoL
             AddOption("EnableMinimapCursorFollowFix", "bugfixes.enable-minimap-cursor-follow-fix", SettingsCategory.Fixes, ClientControls);
             AddOption("EnableDisbandedUnitControlGroupCleanup", "bugfixes.disbanded-unit-control-group-cleanup", SettingsCategory.Fixes, ClientControls);
             AddOption("EnableEnemyProximityBulldozeCursorFix", "bugfixes.enable-enemy-proximity-bulldoze-cursor-fix", SettingsCategory.Fixes, ClientControls);
+            AddOption("EnableAutoSend", "bugfixes.auto-send", SettingsCategory.Qol, ClientControls);
             AddOption("EnableImprovedBuildPreview", "bugfixes.improved-build-preview", SettingsCategory.Qol, ClientControls);
             AddOption("EnablePitchMoatLines", "bugfixes.pitch-moat-lines", SettingsCategory.Qol, ClientControls);
             AddOption("EnableAreaDemolition", "bugfixes.area-demolition", SettingsCategory.Qol, ClientControls);

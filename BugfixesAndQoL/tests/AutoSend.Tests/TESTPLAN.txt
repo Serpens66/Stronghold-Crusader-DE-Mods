@@ -1,0 +1,83 @@
+AutoSend: Hauptmod-Integration und Abnahme
+=======================================
+
+Featurevertrag
+--------------
+AutoSend ist eine persönliche QoL-Funktion in BugfixesAndQoL. Die synchronisierte
+persönliche Modsetting ist standardmäßig an. Der lokale Client-Hauptschalter und
+die AutoSend-Einstellung erlauben nur die Lieferungen des jeweiligen Senders.
+Andere Spieler behalten ihre eigene Freigabe. Eine Abschaltung blendet dessen
+Oberfläche aus und pausiert seine Lieferungen; gespeicherte Regeln bleiben erhalten.
+Modsettings werden außerhalb der Partie geändert. Netzwerk-/Simulationsbackend
+bleiben für alle Teilnehmer registriert, auch bei persönlich ausgeschaltetem Feature.
+
+Die lokale Freigabe wird auf dem Unity-Thread einmal pro Mission eingefroren.
+Das bestehende authentifizierte Hello bindet sie an die Sender-Epoche; Ready
+bestätigt gemeinsam Teilnehmer, Epochen und Freigaben. Fehlende Bestätigung
+erlaubt keine Lieferung. Die Simulation liest dafür keine veränderlichen
+ViewModels oder noch unbestätigten Standardwerte fremder Companion-Slots.
+
+Neue Partien beginnen ohne Regeln. Der Hauptmod verwendet einen eigenen
+Speicherbezeichner; Regeln des früheren AutoSend-Testmods werden nicht übernommen.
+Der Testmod wird abgelöst und darf nicht neben dem Hauptmod senden.
+
+Die gemeinsame Vanilla-Umrandung, der kompakte Footer-Button, die Slider und
+Icon-Markierungen bleiben erhalten. Jedes Öffnen des Senden-Menüs beginnt
+eingeklappt. Ein aktiver Warenklick öffnet den Bereich; danach bleibt er bei
+Waren-/Empfängerwechseln offen. Menüende, HUD-Neuaufbau und Partiewechsel setzen
+die Darstellung zurück. Manuelles Zuklappen erlaubt ein erneutes Öffnen über
+einen weiteren aktiven Warenklick.
+
+Eigene Reserve gilt pro Ware gemeinsam; Empfänger-Minimum, Maximum, Intervall
+und Aktivierung gelten pro Ware und Verbündetem. Mindestbedarf erhält Vorrang;
+übriger Überschuss wird bis zum Maximum fair verteilt. Chatmeldungen gelten
+senderweit und sind standardmäßig aus. Manuelle Lieferungen bleiben unverändert.
+Intervalle: 1 bis 300 Spielsekunden, Standard 30; 1 Sekunde = 40 Simulationsticks.
+Aktivieren und Intervalländerung starten eine volle Frist. Andere Regeländerungen
+erhalten sie. Jede Prüfung startet eine neue volle Frist, ohne Nachholsendungen.
+
+Offlineprüfung
+--------------
+Die Console-Suite verlinkt die produktiven Policies aus src/AutoSend. Sie prüft
+Verteilung/Fairness, Reserve und Kapazität, Intervalle und Ticküberlauf, mehrere
+Sender, zyklische Regeln, Veto/partielle/unklare Transferergebnisse, Speicherung,
+Spieleridentität nach Save-Remapping, authentifizierte Sitzungsbarrieren,
+Eingabeziele/ACKs, Paketformat, Slidergesten, Disclosure und Paintgleichheit.
+Die Featurefreigabe wird mit unterschiedlichen Senderoptionen, fehlenden
+Bestätigungen und beiden persönlichen Hauptschaltern geprüft. Abschaltung darf
+Regeln weder löschen noch fremde Lieferungen unterbrechen.
+
+Später aus dem Hauptmodordner ausführen:
+dotnet run --project tests/AutoSend.Tests/AutoSend.Tests.csproj -c Release
+GameDir/ExtenderDir müssen auf die tatsächlich gewählten Spiel-/Extenderdateien
+zeigen. Der reguläre Build bindet die Suite für alle geprüften Buildmodi ein.
+Sie ist kein Nachweis echten Multiplayer- oder Noesis-Verhaltens.
+
+Zusätzlich vor dem ersten freigegebenen Build die relevanten Presetprüfungen,
+XAML-/Tooltipprüfung und Locale-Parität für die neue Modsetting ausführen.
+Bei der Quellvorbereitung wurden bewusst keine Tests oder Builds ausgeführt.
+
+Spätere Ingame-Abnahme
+---------------------
+Zwei menschliche Sender mit unterschiedlichen persönlichen Einstellungen,
+menschliche und KI-Empfänger, gemeinsamen Empfänger und knappen Überschuss
+prüfen. Bestände/Revisionsstände und einmalige Ausführung auf beiden Peers
+vergleichen. Ausgeschalteter Spieler darf keine eigenen Lieferungen auslösen,
+aber die Simulation des eingeschalteten Spielers muss weiterlaufen.
+
+Regeln speichern, persönliche Funktion außerhalb der Partie ausschalten, neu
+laden: Regeln erhalten, eigene Lieferungen gestoppt, Oberfläche verborgen.
+Nach erneutem Einschalten und Laden reguläre Fortsetzung ohne Nachholserie.
+Alte Testmod-Spielstände beginnen im Hauptmod ohne Regeln. Save/Reload mit
+nicht fortlaufenden Menschenplätzen (z. B. 1 und 8), Resync, Spectatoransicht,
+Ausscheiden und anschließenden frischen Kartenstart prüfen.
+
+UI: ohne und mit Diplomacy Waren/Empfänger wechseln, auf-/zuklappen, Anforderungen
+öffnen, HUD neu erzeugen und kleine Viewport-Höhe prüfen. Keine Überlagerung
+fremder Controls. Slider/Textboxen müssen bestätigte Werte behalten, Fokus und
+Escape korrekt behandeln und ohne Änderungen keine erneuten Paintschreibzugriffe
+verursachen. Stille und mit Chatmeldungen versehene Lieferungen getrennt prüfen;
+danach manuelle Lieferung als Gegenprobe.
+
+Echte Host-/Client-Abnahme und Installation erfolgen erst nach Freigabe. Für
+beide Rechner gehören APIShared-Plugin und Bootstrap zum selben geprüften Build.

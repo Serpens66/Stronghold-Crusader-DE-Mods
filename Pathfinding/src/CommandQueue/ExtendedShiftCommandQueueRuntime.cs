@@ -23,7 +23,8 @@ namespace Pathfinding
 {
     internal sealed unsafe class ExtendedShiftCommandQueueRuntime
     {
-        internal const string AdmissionId = "shift-command-queue";
+        // Old peers retain pending commands after repair, so they cannot share this agreement.
+        internal const string AdmissionId = "shift-command-queue-v2";
         private static volatile bool MultiplayerQueueAdmitted;
         private static readonly object VetoedSynchronizedTarget = new object();
         internal static void ApplyMultiplayerAdmission(bool admitted) => MultiplayerQueueAdmitted = admitted;
@@ -653,6 +654,29 @@ namespace Pathfinding
             pendingTribeSourcesByTargetId.Clear();
             loggedPredecessorRedispatchFailures.Clear();
             loggedIsolationFailures.Clear();
+        }
+
+        internal void DiscardPendingAfterResync()
+        {
+            if (!MultiplayerQueueAdmitted || cohorts.Count == 0) return;
+
+            QueueWorkBuffers buffers = RentWorkBuffers();
+            try
+            {
+                foreach (TribeQueueState state in cohorts.Values)
+                {
+                    state.DiscardPending();
+                    if (state.IsEmpty)
+                        buffers.CohortIds.Add(state.CohortId);
+                }
+                foreach (long id in buffers.CohortIds)
+                    RemoveCohort(id);
+            }
+            finally
+            {
+                buffers.Clear();
+                workBufferPool.Push(buffers);
+            }
         }
 
         private void OnTargetOrder(TribeIssueOrderWithTargetEventArgs args)

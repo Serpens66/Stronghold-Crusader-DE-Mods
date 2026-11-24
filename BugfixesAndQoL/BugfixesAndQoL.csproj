@@ -29,6 +29,7 @@
   <PropertyGroup Condition="'$(ExtenderDir)' == '' and Exists('$(LocalScriptExtenderBuildOutput)\SHCDESE.dll')"><ExtenderDir>$(LocalScriptExtenderBuildOutput)</ExtenderDir></PropertyGroup>
   <PropertyGroup Condition="'$(ExtenderDir)' == '' and Exists('$(LocalScriptExtenderModOutput)\SHCDESE.dll')"><ExtenderDir>$(LocalScriptExtenderModOutput)</ExtenderDir></PropertyGroup>
   <ItemGroup>
+    <Compile Include="src\AutoSend\*.cs" />
     <Compile Include="src\AreaDemolition\*.cs" />
     <Compile Include="src\AreaConstruction\*.cs" />
     <Compile Include="src\PitchMoatLines\*.cs" />
@@ -251,6 +252,7 @@
     <Compile Include="src\TreeBlightDecay\NativeCode.cs" />
     <Compile Include="src\TreeBlightDecay\FixRuntime.cs" />
     <Compile Include="src\Settings\BugfixesAndQoLViewModel.cs" />
+    <Compile Include="src\Settings\BugfixesAndQoLViewModel.AutoSend.cs" />
     <Compile Include="src\Settings\ModSettingsPresentation.cs" />
     <Compile Include="src\Settings\ModSettingsPresentation.Topics.cs" />
     <Compile Include="src\Settings\ModSettingsPresentation.Recommendations.cs" />

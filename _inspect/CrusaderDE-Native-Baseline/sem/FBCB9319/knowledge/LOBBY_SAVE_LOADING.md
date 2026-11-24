@@ -130,3 +130,42 @@ sites fail closed. Policy and static settings/locale/tooltip checks do not execu
 Noesis or load a save. Actual solo save reload, three-human saves with fewer
 participants, AI preservation and subsequent simulation remain game acceptance
 tests; do not infer them from an installation or test PASS marker.
+
+## Repeated multiplayer loading and early handshake packets [mod integration]
+
+Audit observation: 2026-11-24. The canonical native and managed hashes above
+were verified again. The inspected current Extender source is clean at commit
+7c3a252794974ee7af5cca02f446ba994fb9d22d; this is a dated external-source
+observation, not a new native-baseline provenance claim.
+
+Vanilla FRONT_Multiplayer.Update returns early once MPGameLoading is true.
+Before that point, its ready branch calls ReceiveGameMessages, then
+RefreshLobbyList, and only later StartGame/StartSave. ReceiveGameMessages returns
+without reading channel 2 when gameMembers is null or there are no connected
+remote members. RefreshLobbyList invokes receiveLobbyMessages. The Extender's
+Platform_Multiplayer_ReceiveLobbyMessages_Hook drains channel 2 there, forwards
+only packet types at or above CustomPacketStart, releases every received Steam
+message and calls its original trampoline afterward. It discards early Vanilla
+handshake packets. This is a concrete loss window for both ordinary manual lobby
+starts and coordinated mod transitions; the native save loader is not its owner.
+
+The relevant Vanilla processMessage branches are 2 (initial seed, then deferred
+postLoading/acknowledgement), 3 (host acknowledgement), 9 (saved-player mapping)
+and 4 (final mapping/synchronized start). Processing these against old gameMembers
+or calling startSimThread early is not an equivalent repair. Preserve their copied
+payload and transport sender only for the authenticated current preparation,
+then resolve that sender against the newly created participant list and enter
+Vanilla's existing main-thread message path. A new lobby/attempt or failed start
+must not inherit the previous buffer. Custom packets must retain the Extender's
+normal transport; adding a competing channel-2 drain can starve mod readiness.
+
+Live evidence in the observed failed repeat-load run: both peers entered the
+native test.msv load, but the client never completed managed postLoading and no
+new simulation tick occurred. Packet loss itself was not logged, so this timing
+match does not establish which packet was lost in that run. Separately, a
+MultiplayerRestartTest launch-veto bug explained subsequent start failures:
+managed Started reset its protocol flag before the native handshake completed.
+The correction reads the existing barrier launch permission, while still keeping
+the worker parked until Vanilla's final startSimThread. An SDK no-preparation
+message after the first original-call exception is a secondary retry failure,
+not by itself evidence that SDK cleanup caused the original exception.

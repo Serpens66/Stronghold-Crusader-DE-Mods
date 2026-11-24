@@ -169,6 +169,8 @@ namespace Pathfinding
         public bool IsFull => slots.Count == 9;
         public bool IsComplete => slots.Count != 0 && slots.TrueForAll(slot => slot.Completed);
 
+        public void RemoveTail(int count) => slots.RemoveRange(slots.Count - count, count);
+
         public QueueVisualSlot Add(
             QueueCommand command,
             bool isVanillaWaypoint,
@@ -503,6 +505,31 @@ namespace Pathfinding
             Active = pending.Dequeue();
             command = Active;
             return true;
+        }
+
+        internal void DiscardPending()
+        {
+            int remaining = pending.Count;
+            if (remaining == 0) return;
+
+            // Native predecessors are added before mod commands. Activated commands
+            // leave the FIFO, so the pending commands occupy the visual tail.
+            foreach (QueueCommand command in pending)
+                visualSlots.Remove(command);
+            outstandingVisualCount -= remaining;
+            pending.Clear();
+
+            while (remaining > 0)
+            {
+                int last = visualPages.Count - 1;
+                QueueVisualPage page = visualPages[last];
+                int removed = Math.Min(remaining, page.Slots.Count);
+                page.RemoveTail(removed);
+                if (page.Slots.Count == 0)
+                    visualPages.RemoveAt(last);
+                remaining -= removed;
+            }
+            nextVisualPageNumber = visualPages.Count == 0 ? 1 : visualPages[visualPages.Count - 1].PageNumber + 1;
         }
 
         public bool CompleteActive()
