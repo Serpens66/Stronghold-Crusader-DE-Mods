@@ -10,8 +10,6 @@ namespace MakeDesync
 {
     internal sealed unsafe class MoatProbe
     {
-        private const string Owner = "BugfixesAndQoL_Serp";
-        private static readonly Version OwnerVersion = new Version(1, 0, 237);
         private const int TileManagerRva = 0x405EDB0, LogicOffset = 0x898400;
         private const int Capacity = 320800, DataOffset = 64;
         private const int RepairableLogicTiles = 128 * (0x2728 / sizeof(int));
@@ -100,9 +98,9 @@ namespace MakeDesync
         // This is a private, version-bound test binding. The runtime retains ownership.
         private IntPtr ActiveHistory()
         {
-            if (!Chainloader.PluginInfos.TryGetValue(Owner, out var plugin) ||
-                !OwnerVersion.Equals(plugin.Metadata.Version) || ReferenceEquals(plugin.Instance, null))
-                throw new InvalidOperationException("BugfixesAndQoL 1.0.237 is required for the moat test.");
+            if (!Chainloader.PluginInfos.TryGetValue(Plugin.BugfixesGuid, out var plugin) ||
+                ReferenceEquals(plugin.Instance, null))
+                throw new InvalidOperationException("BugfixesAndQoL is required for the moat test.");
             var assembly = plugin.Instance.GetType().Assembly;
             var runtimeType = assembly.GetType("BugfixesAndQoL.BugfixesAndQoLRuntime", true);
             var terrainType = assembly.GetType("BugfixesAndQoL.MoatTerrain.TerrainRuntime", true);

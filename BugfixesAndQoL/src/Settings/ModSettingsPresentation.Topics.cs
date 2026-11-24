@@ -114,6 +114,7 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableWorkshopIdleDelayFix => options["EnableWorkshopIdleDelayFix"];
         public SettingsOptionPresentation EnableGatehouseLivingCaptureFix => options["EnableGatehouseLivingCaptureFix"];
         public SettingsOptionPresentation EnableMoatTerrainRestoration => options["EnableMoatTerrainRestoration"];
+        public SettingsOptionPresentation EnableWallDepositRestoration => options["EnableWallDepositRestoration"];
         public SettingsOptionPresentation EnableOccupiedWallDemolition => options["EnableOccupiedWallDemolition"];
         public SettingsOptionPresentation EmptyStockpileLimit => options["EmptyStockpileLimit"];
         public SettingsOptionPresentation EmptyGranaryArmouryLimit => options["EmptyGranaryArmouryLimit"];
@@ -245,6 +246,7 @@ namespace BugfixesAndQoL
             AddOption("EnableSiegeCrewDuplicationFix", "bugfixes.siege-crew-duplication-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableSiegeCrewFireLossFix", "bugfixes.siege-crew-fire-loss-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableMoatTerrainRestoration", "bugfixes.moat-terrain-restoration", SettingsCategory.Fixes, HostSiege);
+            AddOption("EnableWallDepositRestoration", "bugfixes.wall-deposit-restoration", SettingsCategory.Fixes, HostSiege);
             AddOption("EnablePitchStairsFix", "bugfixes.pitch-stairs-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableTunnelPlacementDistanceFix", "bugfixes.enable-tunnel-placement-distance-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableCenteredGatehouseDistanceFix", "bugfixes.centered-gatehouse-distance", SettingsCategory.Qol, HostSiege);

@@ -39,10 +39,11 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.239";
+        public const string PluginVersion = "1.0.240";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;
+        private static WallDeposits.DepositRestorationRuntime wallDeposits;
         private static StartupUiReadinessGuardHook startupUiReadinessGuardHook;
         private static ResolutionAwareZoomHook resolutionAwareZoomHook;
         private static SteamLobbyInvitePrompt steamLobbyInvitePrompt;
@@ -102,6 +103,11 @@ namespace BugfixesAndQoL
                 SteamInviteBlacklistStore.GetDefaultPath(), SteamInviteBlacklistStore.GetLegacyPath(),
                 message => Shared.DebugLogHelper.LogWarningLimited(Logger, "invite-blacklist-storage", message));
             Settings = new BugfixesAndQoLViewModel(legacySomeSettingsLoaded, steamInviteBlacklist, Logger);
+            try { wallDeposits = new WallDeposits.DepositRestorationRuntime(Settings, Logger); }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, "Wall deposit agreement registration failed: " + ex);
+            }
             try { ProjectileTrails.ProjectileTrailRuntime.Configure(Logger, Settings); }
             catch (Exception ex) { Shared.DebugLogHelper.LogError(Logger, "Projectile trails could not register multiplayer admission. " + ex); }
             if (Chainloader.PluginInfos.TryGetValue("fixes", out PluginInfo fixes) && fixes.Instance != null)
@@ -426,6 +432,12 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.native-runtime-initialization-failed", $"Bugfixes and QoL native runtime initialization failed; unaffected features may continue: {ex}");
+            }
+
+            try { wallDeposits?.Install(context); }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, "Wall deposit restoration initialization failed: " + ex);
             }
 
             try

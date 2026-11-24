@@ -8,7 +8,7 @@ using Shared;
 
 namespace MakeDesync
 {
-    // Private test-only binding. The standalone Deposit Restoration mod owns the live buffer.
+    // Private test-only binding to the wall deposit buffer in BugfixesAndQoL.
     internal sealed class DepositHistory
     {
         private readonly FieldInfo runtime, state, session, multiplayer, agreed, repairing, tileManager;
@@ -16,14 +16,14 @@ namespace MakeDesync
 
         internal DepositHistory()
         {
-            if (!Chainloader.PluginInfos.TryGetValue(Plugin.DepositGuid, out var plugin) ||
-                !Equals(plugin.Metadata.Version, new Version(0, 3, 1)) || ReferenceEquals(plugin.Instance, null))
-                throw new InvalidOperationException("Deposit Restoration 0.3.1 is required for the private test binding.");
+            if (!Chainloader.PluginInfos.TryGetValue(Plugin.BugfixesGuid, out var plugin) ||
+                ReferenceEquals(plugin.Instance, null))
+                throw new InvalidOperationException("BugfixesAndQoL is required for the deposit test.");
 
             var type = plugin.Instance.GetType();
-            var owner = type.Assembly.GetType("DepositRestoration.DepositRestorationRuntime", true);
-            var hooks = type.Assembly.GetType("DepositRestoration.DepositHooks", true);
-            runtime = RequireField(type, "runtime", owner, BindingFlags.Static | BindingFlags.NonPublic);
+            var owner = type.Assembly.GetType("BugfixesAndQoL.WallDeposits.DepositRestorationRuntime", true);
+            var hooks = type.Assembly.GetType("BugfixesAndQoL.WallDeposits.DepositHooks", true);
+            runtime = RequireField(type, "wallDeposits", owner, BindingFlags.Static | BindingFlags.NonPublic);
             const BindingFlags instance = BindingFlags.Instance | BindingFlags.NonPublic;
             state = RequireField(owner, "state", typeof(IntPtr), instance);
             session = RequireField(owner, "activeSession", typeof(long), instance);

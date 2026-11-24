@@ -2,20 +2,46 @@
 
 ## Nächste manuelle Resync-Abnahme
 
-Ziel sind die noch offenen Fälle für **Gebäudeersatz, Fleischtransport oder
-Jägerabgabe und einen bereits angenommenen Bewegungsbefehl**. Die frühere
-F9/F10-Abnahme, normales Verfüllen und den ESC-Neustart hier nicht wiederholen.
-Der untere Ablauf dokumentiert den früheren kombinierten Test.
+Erst die Pakete, Testwelt und Nachweise fertig vorbereiten. Danach folgt ein
+gemeinsamer MP-Termin mit einem Spielstart pro Rechner und mehreren Prüfpunkten
+in derselben Partie. Der untere Ablauf dokumentiert den früheren kombinierten
+Test. Die damalige F10-Abnahme gilt für den eigenständigen Deposit-Testmod.
 
-1. Bei geschlossenem Spiel für beide Rechner Versionen und Hashes der
-   beteiligten Mods und des APIShared-Plugin-/Bootstrap-Paars vergleichen.
-   Seit dem 24.11.2026 ist auf dem Host APIShared 0.72.1 und ExtendedData
-   1.0.29 installiert. Der Host hat außerdem BugfixesAndQoL 1.0.238,
-   ImprovedHunters 1.2.6, Pathfinding 0.1.15 und MakeDesync 0.2.1.
-   Clientstand vor der Abnahme prüfen. Eine private neue
-   Partie mit zwei Steam-Konten auf The Jordan Valley starten. Startplätze
-   sind frei. Eine KI ist für diese drei Fälle entbehrlich. BugfixesAndQoL
-   mit Einzelgebäude-Pause und ImprovedHunters mit Gerberei-Fleisch aktivieren.
+### Vorbereitung ohne Spielstart
+
+- Die zusammengehörigen Pakete prüfen. MakeDesync 0.2.2 bindet F10 an den
+  integrierten Vorkommens-Fix in BugfixesAndQoL ab 1.0.240. Für das spätere
+  Testlayout nur den integrierten Anbieter vorsehen. Der alte
+  `DepositRestorationTest_Serp` gehört nicht in dieses Layout. Reguläre Nutzerdateien
+  und die ursprüngliche Installation vor dem späteren Tausch sichern.
+- Das gewählte APIShared-Plugin mit seinem Bootstrap aus demselben Paket und
+  die beteiligten Mods einmal auf beiden Seiten abgleichen. Den Start über den
+  Client-Watcher und die Aufzeichnung über den manuellen Paarlauf vorbereiten.
+  Das Testlayout bleibt für den gesamten Termin liegen und wird am Ende einmal
+  zurückgesetzt.
+- Karte und Hostoptionen festlegen. Für den bekannten Kartenaufbau The Jordan
+  Valley verwenden. Solange der Markt-Sonderfall keine nachgewiesene MP-Fixture
+  hat, mit zwei Menschen ohne KI planen. Einzelgebäude-Pause und Gerberei-Fleisch
+  aktivieren, automatische Gebäudeerzeugung und störende Zufallsereignisse
+  für diesen Lauf deaktivieren. Bauplätze und Wege von der tatsächlichen
+  Burgposition aus vor dem jeweiligen Versuch prüfen. Keinen Fall über eine
+  feste Burgkoordinate erzwingen.
+- Beim späteren Termin startet der Nutzer auf dem Client einmal den
+  `_Automation/Start-ClientStartWatcher.bat` und lässt das Fenster offen.
+  Watcher-Herzschlag und Installation vor dem Start prüfen. Für die sichtbare
+  manuelle Partie den Starthelfer erst bei geöffneter privater Host-Lobby
+  anfordern. Die Antwort `STARTED` bestätigt die Steam-Anforderung. Für die
+  Abnahme zählen der Beitritt und laufende Simulation auf beiden Rechnern.
+
+### Prüfpunkte in derselben Partie
+
+1. **Integrierter Vorkommens-Fix.** Vor F10 in derselben Testwelt ein intaktes
+   Stein- oder Eisenvorkommen mit einer Mauer überbauen und sicherstellen,
+   dass die Historie den Eintrag erfasst. Auf dem Client F10 auslösen und
+   den vollständigen Abschluss abwarten. Wenn nur die Vorkommenshistorie
+   abweicht, auf beiden Seiten einen übertragenen Datensatz und 320.804 Bytes
+   erwarten. Mauer entfernen und die freigelegte Ressource vergleichen.
+   Fehlt ein nachgewiesener Mauer-/Vorkommenseintrag, bleibt der Fall offen.
 2. **Gebäudeersatz.** Zwei Holzfällerhütten bauen. Beide pausieren und eine
    Hütte mit Strg-Klick wieder einschalten. Diese Hütte abreißen und an
    derselben Stelle neu bauen. Die reguläre Typ-Pause und den Zustand der
@@ -46,9 +72,24 @@ Einheitenreparatur. Es kann daneben den Erhalt privater Moddaten belegen,
 liefert aber keinen nativen Gebäudereparaturrecord. Fehlende Ausgangszustände
 oder bloße Sichtprüfung eines anderen Falls als offen vermerken.
 
-Für eine spätere Grabenprobe zuerst die MakeDesync-Bindung prüfen. Die
-installierte MakeDesync-Version verlangt für F11 noch BugfixesAndQoL
-1.0.237. Der oben beschriebene F9-Lauf verwendet diese Bindung nicht.
+### Abgrenzung der Nachweise
+
+Gerber und Jäger haben eigene Abnahmekriterien. Beide in derselben Partie
+aufnehmen, sofern Fleischweg bzw. Beuteabgabe jeweils eindeutig beobachtbar
+sind. Torhaus-Ausnahmen, Respawn und andere bereits implementierte Fälle nur
+in den Termin aufnehmen, wenn ihr Auslöser und ihre Folgeaktion vorab
+feststehen. Eine Reparatur ohne passenden Ausgangszustand zählt für den
+jeweiligen Fall als offen.
+
+Normales Grabenverfüllen und die wiederholten Einheitenreparaturen sind
+bereits belegt. Varianten mit fehlender Mauer, repariertem Gebäudeslot,
+nativer Vollreparatur oder Rest-vier-Marktauftrag brauchen einen passenden
+nachgewiesenen Auslöser. F9/F10 ersetzen diese Nachweise nicht. Anbieterfehler
+und Client-Abbruch können die laufende Partie beenden und werden bei dieser
+Runde anhand der vorhandenen Offline-Prüfungen bewertet. Die echte
+Zwei-Rechner-Abnahme dieser Fehlerfälle bleibt offen. Für einen Lauf mit
+bewusst ausgelöstem Resync die Reparaturmarker direkt auswerten. Das
+allgemeine Desync-Urteil des Paarlauf-Reports allein ist dafür ungeeignet.
 
 ## Automatischer Ablauf
 

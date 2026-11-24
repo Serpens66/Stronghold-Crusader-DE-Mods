@@ -7,6 +7,7 @@ namespace BugfixesAndQoL
         private void ApplyApprovedRecommendations()
         {
             options["EnableMoatTerrainRestoration"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableMoatTerrainRestoration");
+            options["EnableWallDepositRestoration"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableWallDepositRestoration");
             options["EnableOccupiedWallDemolition"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableOccupiedWallDemolition");
             options["EmptyStockpileLimit"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EmptyStockpileLimit");
             options["EmptyGranaryArmouryLimit"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EmptyGranaryArmouryLimit");

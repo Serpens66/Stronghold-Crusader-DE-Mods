@@ -1,14 +1,13 @@
 using System;
 using System.Buffers.Binary;
 using System.IO;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using APIShared;
 using APIShared.Multiplayer;
 using APIShared.NativeSites;
 using APIShared.Savegames;
 using APIShared.Simulation;
-using BepInEx;
+using BepInEx.Bootstrap;
 using BepInEx.Logging;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
@@ -20,7 +19,7 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using Shared;
 
-namespace DepositRestoration
+namespace BugfixesAndQoL.WallDeposits
 {
     internal sealed unsafe class DepositRestorationRuntime
     {
@@ -29,15 +28,18 @@ namespace DepositRestoration
         private const string SaveIdentifier = "DepositRestorationTest_Serp";
         private const string Entry = "covered-deposits";
         private const int RecordSize = sizeof(int) + DepositHooks.Capacity;
-        private readonly string ownerGuid;
+        private const string Owner = BugfixesAndQoLPlugin.PluginGuid;
         private readonly ManualLogSource log;
+        private readonly BugfixesAndQoLViewModel settings;
         private HookTransaction transaction;
+        private bool attempted;
         private IntPtr state;
         private object engineGate;
         private ulong tileManager;
         private long pendingSession, activeSession;
         private byte[] pending;
         private bool invalidRecord, multiplayerWorld, repairing, repairHistoryApplied;
+        private bool requiresCompatibleReader;
         private bool repairWritersSuspended;
         private int engineRunDepth;
         private bool resyncReady;
@@ -45,42 +47,67 @@ namespace DepositRestoration
         private Func<bool> intact;
 
         // Construct on the Unity thread before joining a lobby. Retain for the process.
-        internal DepositRestorationRuntime(string ownerGuid, ManualLogSource log)
+        internal DepositRestorationRuntime(BugfixesAndQoLViewModel settings, ManualLogSource log)
         {
-            this.ownerGuid = ownerGuid;
+            this.settings = settings;
             this.log = log;
-            SimulationAgreement.Register(ownerGuid, Feature, required: true,
+            // If a peer cannot install the fix, keep it inactive on all peers.
+            SimulationAgreement.Register(Owner, Feature, required: false,
                 isReady: () => ready && intact() && HasResyncIntegrity(),
                 apply: enabled => agreed = enabled);
         }
 
         internal void Install(CrusaderLibraryLoadContext context)
         {
-            if (transaction != null) return;
+            if (attempted) return;
+            attempted = true;
+            // The provider list stays the same even when the option is off or a peer
+            // cannot install the native hooks. Inactive participants capture an empty record.
+            resyncReady = MultiplayerResyncData.TryRegister<byte[]>(Owner, Entry, 1, RecordSize,
+                CaptureResync, PrepareResync, CommitResync, out string reason);
+            if (!resyncReady)
+                DebugLogHelper.LogError(log, "Wall deposit multiplayer resync registration failed. " + reason);
+
+            if (Chainloader.PluginInfos.ContainsKey(SaveIdentifier))
+            {
+                DebugLogHelper.LogWarning(log, "The standalone Deposit Restoration plugin is installed. Remove it to use the BugfixesAndQoL option.");
+                return;
+            }
+
+            if (!ApiShared.ForMod(Owner).TryGetMissionLifecycle(out var lifecycle, out var diagnostic))
+                throw new InvalidOperationException(diagnostic?.Reason);
+            if (!EngineRunEvents.TryRegister(Owner, Feature + "-repair-writers", () => engineRunDepth++, EndEngineRun, out reason) ||
+                !MultiplayerResyncEvents.TryRegister(Owner, Feature, BeginRepair, CompleteRepair, out reason) ||
+                !NativeWorldRestoreEvents.TryRegister(Owner, Feature, RestoreWorld, out reason))
+                throw new InvalidOperationException(reason);
+            if (!lifecycle.TryRegisterObserver(Feature, Start, End, Initialize, out diagnostic))
+                throw new InvalidOperationException(diagnostic?.Reason);
+
+            InstallHooksAndSaveData(context);
+            ready = true;
+            DebugLogHelper.LogInfo(log, $"Wall deposit hooks installed by reference RVA ({DepositHooks.Sites.Length} spans).");
+        }
+
+        private void InstallHooksAndSaveData(CrusaderLibraryLoadContext context)
+        {
+            // The library-load callback runs before any simulation code can enter these spans.
+            // Only this unpublished candidate may be disposed when installation fails.
+            if (!HookInstallPhase.InitialLibraryLoad || DebugLogHelper.InstalledNativeSha256() != DepositHooks.NativeHash ||
+                context.ModuleHandle == IntPtr.Zero ||
+                DepositHooks.Capacity != GameTileManagerView.NativePackedTileCapacity ||
+                DepositHooks.Deposits != 0xA0000 || (int)TilePropertyFlag.IsWall != 0x100)
+                throw new InvalidOperationException("The audited wall deposit layout or startup installation window is unavailable.");
+
             bool claimed = false;
-            bool publishing = false;
+            var sites = DepositHooks.Sites;
+            var handles = new HookHandle<X64InlineHook>[sites.Length];
+            int activationAttempts = 0;
             try
             {
-                string path = Path.Combine(Paths.GameRootPath, "Stronghold Crusader Definitive Edition_Data",
-                    "Plugins", "x86_64", "CrusaderDE.dll");
-                if (context.ModuleHandle == IntPtr.Zero || DebugLogHelper.GetFileSha256(path) != DepositHooks.NativeHash ||
-                    DepositHooks.Capacity != GameTileManagerView.NativePackedTileCapacity ||
-                    DepositHooks.Deposits != 0xA0000 || (int)TilePropertyFlag.IsWall != 0x100)
-                    throw new InvalidOperationException("The audited native terrain layout is unavailable.");
-
-                if (!ApiShared.ForMod(ownerGuid).TryGetMissionLifecycle(out var lifecycle, out var diagnostic))
-                    throw new InvalidOperationException(diagnostic?.Reason);
-                var monitor = typeof(EngineInterface).GetField("threadLock", BindingFlags.Static | BindingFlags.NonPublic);
-                if (monitor == null || !monitor.IsPrivate || monitor.FieldType != typeof(object))
-                    throw new MissingFieldException("EngineInterface.threadLock");
-                engineGate = monitor.GetValue(null) ?? throw new InvalidOperationException("Engine monitor unavailable.");
-
+                engineGate = EngineThreadLock.Gate;
                 ulong image = unchecked((ulong)context.ModuleHandle.ToInt64());
                 tileManager = image + DepositHooks.TileManager;
-                NativePatchGuard.Bind(context, log);
-                var sites = DepositHooks.Sites;
                 var spans = new NativeSiteSpan[sites.Length];
-                var handles = new HookHandle<X64InlineHook>[sites.Length];
                 for (int index = 0; index < sites.Length; index++)
                 {
                     var site = sites[index];
@@ -89,19 +116,13 @@ namespace DepositRestoration
                     NativePatchGuard.RequireUnpatched(image + (uint)site.Rva, site.Bytes.Length, site.Name, Feature);
                     spans[index] = new NativeSiteSpan(site.Rva, site.Bytes.Length, NativeSiteMode.Exclusive);
                 }
-                var claim = NativeSiteRegistry.Register(ownerGuid, Feature, spans);
+                var claim = NativeSiteRegistry.Register(Owner, Feature, spans);
                 if (!claim.Succeeded) throw new InvalidOperationException(claim.Reason);
                 claimed = true;
 
                 state = Marshal.AllocHGlobal(DepositHooks.HistoryOffset + DepositHooks.Capacity);
                 Reset();
-                var factory = SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory;
-                transaction = new HookTransaction(context.Region, factory, new HookTransactionOptions
-                {
-                    FailureMode = TransactionFailureMode.RollbackAndThrow,
-                    InstallOnCommit = false,
-                    OwnsHooks = true
-                });
+                transaction = BugfixesHookInfrastructure.CreateOwnedTransaction(context.Region);
                 for (int index = 0; index < sites.Length; index++)
                 {
                     var site = sites[index];
@@ -123,22 +144,18 @@ namespace DepositRestoration
                     NativePatchGuard.RequireUnpatched(handle.Hook, Feature);
                 }
 
-                publishing = true;
                 foreach (var handle in handles)
                 {
                     var hook = handle.Hook;
+                    activationAttempts++;
                     hook.Enable();
                     VerifyPublishedJump(hook);
-                    NativePatchGuard.Watch(hook, Feature);
                 }
+                foreach (var handle in handles)
+                    NativePatchGuard.Watch(handle.Hook, Feature);
                 intact = NativePatchGuard.CaptureIntegrity(result.Installed, Feature);
 
-                if (!EngineRunEvents.TryRegister(ownerGuid, Feature + "-repair-writers", () => engineRunDepth++, EndEngineRun, out string reason) ||
-                    !MultiplayerResyncEvents.TryRegister(ownerGuid, Feature, BeginRepair, CompleteRepair, out reason))
-                    throw new InvalidOperationException(reason);
-                if (!NativeWorldRestoreEvents.TryRegister(ownerGuid, Feature, RestoreWorld, out reason))
-                    throw new InvalidOperationException(reason);
-                var registration = new VersionedSaveDataRegistration(ownerGuid, SaveIdentifier, 1, 1,
+                var registration = new VersionedSaveDataRegistration(Owner, SaveIdentifier, 1, 1,
                     new[] { Entry }, CaptureSave, _ => { })
                 {
                     Scope = VersionedSaveScope.SaveGamesAndMaps,
@@ -146,29 +163,35 @@ namespace DepositRestoration
                     RequireAtomicWrite = true,
                     Prepared = PrepareLoad
                 };
-                if (!VersionedSaveData.TryRegister(registration, out _, out reason))
+                if (!VersionedSaveData.TryRegister(registration, out _, out string reason))
                     throw new InvalidOperationException(reason);
-                if (!lifecycle.TryRegisterObserver(Feature, Start, End, Initialize, out diagnostic))
-                    throw new InvalidOperationException(diagnostic?.Reason);
-
-                resyncReady = MultiplayerResyncData.TryRegister<byte[]>(ownerGuid, Entry, 1, RecordSize,
-                    CaptureResync, PrepareResync, CommitResync, out reason);
-                if (!resyncReady)
-                    DebugLogHelper.LogError(log, "Wall deposit multiplayer resync registration failed. " + reason);
-                ready = true;
             }
-            catch (Exception error)
+            catch (Exception installError)
             {
-                if (!publishing)
+                // RedBird's transaction disposal logs hook failures and continues.
+                // Confirm the native spans are restored before releasing the buffer.
+                try
                 {
-                    transaction?.Dispose();
-                    transaction = null;
-                    if (state != IntPtr.Zero) Marshal.FreeHGlobal(state);
-                    state = IntPtr.Zero;
-                    if (claimed) NativeSiteRegistry.Unregister(ownerGuid, Feature);
+                    for (int index = activationAttempts - 1; index >= 0; index--)
+                    {
+                        var hook = handles[index].Hook;
+                        hook.Disable();
+                        var expected = sites[index].Bytes;
+                        if (!new ReadOnlySpan<byte>((void*)hook.TargetAddress, expected.Length).SequenceEqual(expected))
+                            throw new InvalidOperationException("Could not restore the original bytes at " + sites[index].Name);
+                    }
                 }
-                // A partly published transaction remains rooted and dormant.
-                DebugLogHelper.LogError(log, $"Deposit restoration initialization failed. {error}");
+                catch (Exception rollbackError)
+                {
+                    // The dormant candidate and its state stay rooted if a span could not be restored.
+                    throw new AggregateException("Wall deposit hook rollback failed.", installError, rollbackError);
+                }
+                transaction?.Dispose();
+                transaction = null;
+                if (state != IntPtr.Zero) Marshal.FreeHGlobal(state);
+                state = IntPtr.Zero;
+                if (claimed) NativeSiteRegistry.Unregister(Owner, Feature);
+                throw;
             }
         }
 
@@ -190,12 +213,13 @@ namespace DepositRestoration
             History.Clear();
             pendingSession = activeSession = 0;
             pending = null;
+            requiresCompatibleReader = false;
             invalidRecord = multiplayerWorld = repairing = repairHistoryApplied = repairWritersSuspended = false;
         }
 
         private void Initialize(MissionLifecycleNotification notification)
         {
-            if (notification.Phase != MissionInitializationPhase.BeforeLoad) return;
+            if (!ready || notification.Phase != MissionInitializationPhase.BeforeLoad) return;
             lock (engineGate)
             {
                 Reset();
@@ -205,6 +229,7 @@ namespace DepositRestoration
 
         private void End(MissionLifecycleNotification notification)
         {
+            if (!ready) return;
             lock (engineGate)
                 if (pendingSession == notification.Context.SessionId || activeSession == notification.Context.SessionId)
                     Reset();
@@ -218,6 +243,7 @@ namespace DepositRestoration
 
         private void Start(MissionLifecycleNotification notification)
         {
+            if (!ready) return;
             lock (engineGate)
             {
                 var context = notification.Context;
@@ -230,23 +256,39 @@ namespace DepositRestoration
         private bool Activate(MissionContext context)
         {
             if (!ready || activeSession == context.SessionId) return true;
+            // APIShared protects these bytes from replacement, so the atomic writer
+            // cannot save this world. Refuse restoration before gameplay begins.
+            if (pendingSession == context.SessionId && requiresCompatibleReader)
+            {
+                DebugLogHelper.LogError(log, "This file needs a compatible version of wall deposit restoration before it can be loaded and saved.");
+                return false;
+            }
+            if (!settings.EnableMod || !settings.EnableWallDepositRestoration) return true;
             multiplayerWorld = context.Mode.IsRealMultiplayer;
-            if (multiplayerWorld && !agreed) return true;
-            NativePatchGuard.Recheck();
+            if (multiplayerWorld && !agreed)
+            {
+                DebugLogHelper.LogWarningLimited(log, "wall-deposits.agreement",
+                    "Wall deposit restoration was not available on every player. It is disabled for this multiplayer session.");
+                return true;
+            }
             if (!intact() || (multiplayerWorld && !HasResyncIntegrity()))
-                return RefuseWorld("A required wall deposit hook is unavailable.");
+                return SkipWorld("A required wall deposit hook is unavailable.");
 
             var tiles = GameTileManagerAPI.Instance;
             var logic = tiles.GetLogicLayer();
             if (unchecked((ulong)tiles.GetTileManager().ToInt64()) != tileManager || logic.Length != DepositHooks.Capacity)
-                return RefuseWorld("The current map uses a different tile layout.");
+                return SkipWorld("The current map uses a different wall deposit tile layout.");
             if (pendingSession == context.SessionId)
             {
-                if (invalidRecord) return RefuseWorld("The saved wall deposit state could not be read.");
-                if (pending != null)
+                bool wrongMapSize = pending != null && BinaryPrimitives.ReadInt32LittleEndian(pending) != tiles.GetCurrentMapSize();
+                if (invalidRecord || wrongMapSize)
                 {
-                    if (BinaryPrimitives.ReadInt32LittleEndian(pending) != tiles.GetCurrentMapSize())
-                        return RefuseWorld("Saved wall deposits use a different map size.");
+                    const string message = "The saved wall deposit history could not be restored.";
+                    if (multiplayerWorld) return SkipWorld(message);
+                    DebugLogHelper.LogWarning(log, message);
+                }
+                else if (pending != null)
+                {
                     var history = History;
                     for (int tile = 0; tile < logic.Length; tile++)
                         if ((logic[tile] & (int)TilePropertyFlag.IsWall) != 0)
@@ -260,10 +302,10 @@ namespace DepositRestoration
             return true;
         }
 
-        private bool RefuseWorld(string reason)
+        private bool SkipWorld(string reason)
         {
             DebugLogHelper.LogError(log, reason);
-            return false;
+            return !multiplayerWorld;
         }
 
         private void BeginRepair()
@@ -304,7 +346,8 @@ namespace DepositRestoration
 
         private byte[] CaptureResync()
         {
-            if (!repairing || !multiplayerWorld || !agreed || activeSession == 0)
+            if (activeSession == 0 || !multiplayerWorld || !agreed) return Array.Empty<byte>();
+            if (!repairing)
                 throw new InvalidOperationException("Wall deposit history is unavailable for the agreed repair.");
             var record = NewRecord(GameTileManagerAPI.Instance.GetCurrentMapSize());
             // Client comparison uses the pre-repair bytes. Host authority is captured later,
@@ -315,6 +358,7 @@ namespace DepositRestoration
 
         private byte[] PrepareResync(ReadOnlyMemory<byte> snapshot)
         {
+            if (snapshot.IsEmpty && activeSession == 0) return null;
             if (!repairing || !repairWritersSuspended || !agreed || !intact())
                 throw new InvalidOperationException("Wall deposit history cannot be prepared outside the agreed repair.");
             var tiles = GameTileManagerAPI.Instance;
@@ -334,6 +378,7 @@ namespace DepositRestoration
 
         private void CommitResync(byte[] history)
         {
+            if (history == null) return;
             history.AsSpan().CopyTo(History);
             repairHistoryApplied = true;
         }
@@ -342,8 +387,8 @@ namespace DepositRestoration
         {
             lock (engineGate)
             {
-                if (repairing || invalidRecord) return false;
-                if (activeSession == 0) return pending == null;
+                if (repairing) return false;
+                if (activeSession == 0) return true;
                 var logic = GameTileManagerAPI.Instance.GetLogicLayer();
                 var history = History;
                 byte[] record = null;
@@ -368,13 +413,16 @@ namespace DepositRestoration
                 if (load.Status != VersionedSaveLoadStatus.Restored)
                 {
                     invalidRecord = true;
+                    requiresCompatibleReader = load.Status == VersionedSaveLoadStatus.TooNew ||
+                        load.Status == VersionedSaveLoadStatus.Unrecognized ||
+                        load.Status == VersionedSaveLoadStatus.MigrationFailed;
                     return;
                 }
                 if (!load.Entries.TryGetValue(Entry, out var record)) return;
                 if (!ValidRecord(record))
                 {
                     invalidRecord = true;
-                    throw new InvalidDataException("Invalid wall deposit history.");
+                    return;
                 }
                 pending = record;
             }

@@ -93,6 +93,7 @@ namespace BugfixesAndQoL
         private bool enableAiOutpostRetargetFix = true;
         private bool enableAiRaidRetargetFix = true;
         private bool enableMoatTerrainRestoration = true;
+        private bool enableWallDepositRestoration = true;
         private bool enableOccupiedWallDemolition = true;
         private int emptyStockpileLimit = StorageEmptyLimitPolicy.Vanilla;
         private int emptyGranaryArmouryLimit = StorageEmptyLimitPolicy.Vanilla;
@@ -394,6 +395,8 @@ namespace BugfixesAndQoL
         public string QolTitleText => SerpLocalization.Get("BugfixesAndQoL.QolTitle");
         public string EnableMoatTerrainRestorationText => SerpLocalization.Get("BugfixesAndQoL.EnableMoatTerrainRestoration");
         public string EnableMoatTerrainRestorationHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMoatTerrainRestorationHelp");
+        public string EnableWallDepositRestorationText => SerpLocalization.Get("BugfixesAndQoL.EnableWallDepositRestoration");
+        public string EnableWallDepositRestorationHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableWallDepositRestorationHelp");
         public string EnableOccupiedWallDemolitionText => SerpLocalization.Get("BugfixesAndQoL.EnableOccupiedWallDemolition");
         public string EnableOccupiedWallDemolitionHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableOccupiedWallDemolitionHelp");
         public string EmptyStockpileLimitText => SerpLocalization.Get("BugfixesAndQoL.EmptyStockpileLimit");
@@ -1243,6 +1246,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableWallDepositRestoration
+        {
+            get => enableWallDepositRestoration;
+            set => SetSetting(ref enableWallDepositRestoration, value, nameof(EnableWallDepositRestoration));
+        }
+
+        [SyncHostOnly]
         public bool EnableOccupiedWallDemolition
         {
             get => enableOccupiedWallDemolition;
@@ -1744,6 +1754,7 @@ namespace BugfixesAndQoL
                 EnableAiOutpostRetargetFix = true;
                 EnableAiRaidRetargetFix = true;
                 EnableMoatTerrainRestoration = true;
+                EnableWallDepositRestoration = true;
                 EnableOccupiedWallDemolition = true;
                 EmptyStockpileLimit = StorageEmptyLimitPolicy.Vanilla;
                 EmptyGranaryArmouryLimit = StorageEmptyLimitPolicy.Vanilla;

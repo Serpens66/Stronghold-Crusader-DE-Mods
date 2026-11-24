@@ -266,8 +266,14 @@ internal static partial class Program
             "pitch stairs is a recommended host siege fix with mission-aware editing");
         var siegeRows = pitchRow.ParentNode.ChildNodes.Cast<XmlNode>().Where(n => n.LocalName == "Grid").ToArray();
         int pitchOrdinal = Array.IndexOf(siegeRows, pitchRow);
-        Check(pitchOrdinal > 0 && SearchAttribute(siegeRows[pitchOrdinal - 1], "Key") == "bugfixes.moat-terrain-restoration",
-            "pitch stairs directly follows moat terrain restoration");
+        var wallDepositEditor = editors.Single(e => e.Property == "EnableWallDepositRestoration");
+        XmlNode wallDepositRow = Ancestors(wallDepositEditor.Node).First(a => SearchAttribute(a, "Key") != null);
+        int wallDepositOrdinal = Array.IndexOf(siegeRows, wallDepositRow);
+        Check(wallDepositOrdinal > 0 && SearchAttribute(siegeRows[wallDepositOrdinal - 1], "Key") == "bugfixes.moat-terrain-restoration" &&
+            pitchOrdinal == wallDepositOrdinal + 1 &&
+            wallDepositEditor.Node.SelectSingleNode("ancestor::*[@IsEnabled='{Binding CanEditHostSettings}']") != null &&
+            modelType.GetProperty("EnableWallDepositRestoration").GetCustomAttributesData().Any(a => a.AttributeType.Name == "SyncHostOnlyAttribute"),
+            "wall deposits is host-controlled and appears immediately after moat terrain restoration");
         var pitchProperty = modelType.GetProperty("EnablePitchStairsFix");
         Check(pitchProperty.GetCustomAttributesData().Any(a => a.AttributeType.Name == "SyncHostOnlyAttribute") &&
             Instructions(pitchProperty.SetMethod).Any(i => i.Item2 is MethodBase method && method.Name == "SetSetting"),

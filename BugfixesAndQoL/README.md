@@ -62,6 +62,12 @@ Under **Host → Gates and siege rules → Fixes**, the host can switch these tw
 - **Prevent duplicate engineers** keeps engineers assigned when they finish building a catapult, trebuchet or fire ballista, and prevents all eight siege engine types from taking engineers who already operate another engine or man a tent. AI harassment groups wait until their engineers have finished recruitment before building, helping the AI keep sending siege engines instead of accumulating unused engineers near the guild. Engineers become available again after dismounting. This enabled-by-default host fix also protects new assignments after loading a save; it does not repair crews already duplicated in that save.
 - **Crew loss in fires** makes engineers die with their siege engine when it burns down while they are operating it. It covers catapults, trebuchets, mangonels, siege towers, battering rams, portable shields, ballistas and fire ballistas.
 
+### Restore stone and iron after wall removal
+
+When a wall or stair is removed or destroyed, this fix reveals the stone or iron deposit it covered. It works for player and AI walls, in multiplayer, and in the map editor. The host option is enabled by default under **Host → Gates and siege rules → Fixes**, directly below **Restore terrain after moat removal**.
+
+Older walls need deposit data recorded when they were built. Saves and editor maps created with the former Deposit Restoration test mod can still use that data. Saving with this option turned off clears the recorded deposits in the new file.
+
 ### Keep stairs behind pitch fields accessible
 
 In some castle designs, pitch fields at the foot of a staircase could make the game treat it as impassable, especially after loading a saved game. This fix restores the route up those stairs for all units, so both player-controlled and AI-controlled units can find their way to the buildings beyond them. The host option is enabled by default.

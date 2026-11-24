@@ -1,16 +1,17 @@
-# MakeDesync 0.2.1
+# MakeDesync 0.2.2
 
 MakeDesync löst auf dem Client gezielt einen Multiplayer-Resync aus. Für
-die Probe brauchen beide Rechner MakeDesync 0.2.1, APIShared 0.69.0 und
-Deposit Restoration 0.3.1. Verwende eine Kopie des Spielstands `test_stone`
+die Probe brauchen beide Rechner MakeDesync 0.2.2, APIShared ab 0.69.0 und
+BugfixesAndQoL ab 1.0.240. Aktiviere für F10 im Hauptmod die Wiederherstellung
+von Stein und Eisen. Verwende eine Kopie des Spielstands `test_stone`
 mit übermauerten Stein- und Eisenvorkommen. Lass den Lord des Clients bei
 voller Gesundheit und halte Kampf und Bauarbeiten während der Probe an.
 
 | Kürzel auf dem Client | Erwartung |
 | --- | --- |
 | **Strg+Umschalt+F9** | Einmalig einen Lebenspunkt beim Lord abziehen. Vanilla stellt ihn wieder her. APIShared meldet `requestedRecords=0` und `transferredBytes=0`, wenn die lokalen Mod-Daten übereinstimmen. |
-| **Strg+Umschalt+F10** | Einen gespeicherten Stein- oder Eiseneintrag unter einer Mauer auf dem Client löschen und dieselbe Lebenspunkt-Abweichung auslösen. Bei Deposit Restoration als einzigem registrierten Datensatz erwartet der Client `requestedRecords=1` und `transferredBytes=320804`. |
-| **Strg+Umschalt+F11** | Eine fertig ausgehobene, unbelegte Grabenkachel im nativen Kachelraster und den dazugehörigen privaten Eintrag in BugfixesAndQoL 1.0.237 verändern. Der Lord bleibt unverändert. Auf dem Client müssen `divergedAtStart=True`, `tileRestored=True` und `historyRestored=True` erscheinen. |
+| **Strg+Umschalt+F10** | Einen gespeicherten Stein- oder Eiseneintrag unter einer Mauer auf dem Client löschen und dieselbe Lebenspunkt-Abweichung auslösen. Wenn nur die Vorkommenshistorie abweicht, erwartet der Client `requestedRecords=1` und `transferredBytes=320804`. |
+| **Strg+Umschalt+F11** | Eine fertig ausgehobene, unbelegte Grabenkachel im nativen Kachelraster und den dazugehörigen privaten Eintrag in BugfixesAndQoL verändern. Der Lord bleibt unverändert. Auf dem Client müssen `divergedAtStart=True`, `tileRestored=True` und `historyRestored=True` erscheinen. |
 | **Strg+Umschalt+F8** | Nach dem Verfüllen derselben F11-Grabenkachel den Bodentyp und das Ende der Historie auf dem Client prüfen. Erwartet `MAKE_DESYNC_MOAT_FILL ... restored=True`. |
 
 Pro Resync ist ein Versuch möglich. Warte auf `MAKE_DESYNC_RESYNC_COMPLETED`

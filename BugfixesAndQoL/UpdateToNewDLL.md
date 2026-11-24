@@ -1350,3 +1350,41 @@ BugfixesAndQoL owns the hook, renderer and presentation clock. Run the
 [archived acceptance results](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/EXTREME_TROOPS.md#archived-projectile-trail-results-mod-integration).
 Remove the old standalone renderer before using this feature. See the
 [effect allocation audit](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/EXTREME_TROOPS.md).
+
+## Wall deposit restoration
+
+BugfixesAndQoL 1.0.240 replaces the standalone Deposit Restoration test mod.
+The archive identifier `DepositRestorationTest_Serp`, entry `covered-deposits`
+and schema 1 remain stable for existing saves and editor maps. The integrated
+F10 probe is documented in [MakeDesync](../Testmods/MakeDesync/USAGE.md).
+
+The fix uses the audited hash
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The packed tile manager is at RVA `0x405EDB0` and its logic grid starts at
+manager offset `0x898400`. Its 320,800 entries and the native wall and ore flags
+must match the Extender's definitions. A new image needs a tile layout audit
+and revalidation of every writer and continuation. Matching code patterns
+alone cannot establish the manager or grid layout.
+
+| Site | RVA | Displaced bytes |
+| --- | --- | ---: |
+| ManualPlacement | `0x6F55D` | 20 |
+| AiPlacement | `0x6CB85` | 15 |
+| Bulldozer | `0x63775` | 14 |
+| PlayerDefeat | `0x71F0D` | 16 |
+| DirectClear | `0x71FF3` | 21 |
+| AreaDamage | `0x7E15A` | 19 |
+| AttackDamage | `0x7ED20` | 18 |
+| AreaClear | `0xED990` | 15 |
+| BuildingPreparation | `0x6D711` | 20 |
+| BuildingFootprintReplacement | `0x5D78A` | 15 |
+| StructureFootprintClear | `0x638D3` | 19 |
+| WallUndo | `0x63F25` | 15 |
+| RockPlacement | `0x6D4B1` | 19 |
+
+At library load the original bytes, displaced lengths and live spans are
+checked. A foreign patch or unsupported layout disables this feature. The
+known Fixes AI stair hook at 0x6CCC8 and the moat replacement hook ending at
+0x5D783 lie outside the deposit spans. Check the whole span and its incoming
+branches when auditing an update. See the native baseline's
+[wall deposit audit](../_inspect/CrusaderDE-Native-Baseline/CURRENT.md#vanilla-behavior-audits).

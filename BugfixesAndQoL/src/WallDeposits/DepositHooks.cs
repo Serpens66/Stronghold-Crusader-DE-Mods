@@ -4,7 +4,7 @@ using RedBird.X64.Extensions;
 using SHCDESE.Interop.Enums;
 using static Iced.Intel.AssemblerRegisters;
 
-namespace DepositRestoration
+namespace BugfixesAndQoL.WallDeposits
 {
     internal static class DepositHooks
     {
