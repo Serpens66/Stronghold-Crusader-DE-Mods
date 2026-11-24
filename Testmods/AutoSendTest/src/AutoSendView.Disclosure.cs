@@ -21,6 +21,7 @@ namespace AutoSendTest
         {
             sectionRegistration = registration;
             registration.SetVisible(false);
+            RegisterFrame();
             // Layout changes also refresh while simulation is paused.
             registration.LayoutAvailabilityChanged += Refresh;
             if (!AllyGoodsPanelExtensions.TryRegisterFooterControl(AutoSendPlugin.Guid, "auto-send-disclosure", CreateDisclosure,
@@ -110,6 +111,7 @@ namespace AutoSendTest
             if (!visible && sectionVisible) keyboardCapture?.Release();
             sectionVisible = visible;
             sectionRegistration?.SetVisible(visible);
+            frameRegistration?.SetEnabled(visible);
         }
     }
 }

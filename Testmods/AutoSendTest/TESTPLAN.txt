@@ -3,6 +3,12 @@ AutoSendTest: Bedienvertrag und Integrationshinweise
 
 Bedienung
 ---------
+Aufgeklappt verbindet eine gemeinsame Vanilla-Umrandung Warenansicht und
+AutoSend-Einstellungen. Stil, Innenabstände und Rahmenüberstände legt AutoSend
+fest; APIShared verwaltet nur die gemeinsame Darstellung und deren Layout.
+Beim Einklappen wird der ursprüngliche Rahmen wieder sichtbar. Bei einem
+fremden, nicht unterstützten Rahmen bleibt die bisherige Darstellung erhalten.
+
 Der Bereich beginnt je Partie eingeklappt. Der mittige Auto-Send-Button unten
 im Warenkasten öffnet und schließt ihn; die Auswahl von Ware oder Empfänger
 erhält diesen Zustand. APIShared stellt Button und Bereich gemeinsam mit
