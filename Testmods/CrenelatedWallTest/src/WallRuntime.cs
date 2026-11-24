@@ -200,11 +200,11 @@ namespace CrenelatedWallTest
                 if (!repairing || bytes.IsEmpty == heights)
                     throw new InvalidDataException("Crenel placement activation differs during repair.");
                 return bytes.IsEmpty ? new SortedDictionary<int, WallCell>() :
-                    WallRepairRecord.Prepare(bytes.Span, world.Tiles.GetCurrentMapSize(), ReadRepairedCell);
+                    WallRepairRecord.Prepare(bytes.Span, world.Tiles.GetCurrentMapSize(), ReadCellById);
             }
         }
 
-        private unsafe WallCell ReadRepairedCell(int id)
+        private unsafe WallCell ReadCellById(int id)
         {
             var tiles = world.Tiles;
             if (!tiles.IsValidTileId(id) || tiles.MapColumnLookupTable == null || tiles.MapRowLookupTable == null) return null;
@@ -460,13 +460,50 @@ namespace CrenelatedWallTest
         }
         private void Bulldozed(WallBulldozeEventArgs e)
         {
-            if (e.Phase != EventHookPhase.Post) return;
-            lock (sync) if (heights && managed.ContainsKey(e.TileId)) signatures[e.TileId] = int.MinValue;
+            if (e.Phase == EventHookPhase.Post) ShapeChanged(e.TileId, "bulldoze");
         }
         private void Damaged(BuildingTileTakeDamageEventArgs e)
         {
             if (e.Phase != EventHookPhase.Post) return;
-            lock (sync) if (heights && managed.ContainsKey(e.TileId)) signatures[e.TileId] = int.MinValue;
+            // Hits arrive many times per siege tick; only a destroyed tile changes neighbour shapes.
+            // A merely damaged tile keeps its height (TargetHigh null) and is left to the tick scan.
+            lock (sync)
+            {
+                if (!heights) return;
+                try
+                {
+                    WallCell at = ReadCellById(e.TileId);
+                    if (at != null && WallPolicy.Crenel(at))
+                    {
+                        if (managed.ContainsKey(e.TileId)) signatures[e.TileId] = int.MinValue;
+                        return;
+                    }
+                }
+                catch (Exception ex) { Error("damage", ex); return; }
+            }
+            ShapeChanged(e.TileId, "damage");
+        }
+        // Demolition or destruction changes the shape of the managed neighbours (e.g. a middle
+        // becomes an endpoint). Normalizing and publishing endpoints right in the event keeps the
+        // renderer from raising them first. The tick scan stays the net for changes without event.
+        private void ShapeChanged(int tileId, string phase)
+        {
+            lock (sync)
+            {
+                if (!initialized || !ready || !heights || repairing) return;
+                try
+                {
+                    WallCell at = ReadCellById(tileId);
+                    if (at == null) return;
+                    var ids = new SortedSet<int>();
+                    if (managed.ContainsKey(tileId)) ids.Add(tileId);
+                    for (int d = 0; d < 8; d++)
+                        if (world.TryRead(at.X + NeighborX[d], at.Y + NeighborY[d], out WallCell next) && managed.ContainsKey(next.Id))
+                            ids.Add(next.Id);
+                    if (ids.Count != 0) Normalize(ids);
+                }
+                catch (Exception ex) { Error(phase, ex); }
+            }
         }
         private byte[] Save(SaveContext save)
         {
