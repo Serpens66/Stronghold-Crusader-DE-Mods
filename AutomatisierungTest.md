@@ -93,6 +93,29 @@ bisherigen Nachweise.
 
 Stand: 20.10.2026. Untersucht wurden die installierten Spielassemblies, der lokale Script Extender sowie die Arbeitsquellen von BugfixesAndQoL und CastlePlanner.
 
+## Testwelt festlegen statt Zufall wegerklären
+
+Verbindlich für jeden Spieltest. Alles, was das geprüfte Ergebnis beeinflussen kann, legt das Szenario selbst fest und
+prüft es vor dem ersten Prüfschritt. Nichts davon wird aus dem Zufall der Partie oder aus der aktuellen Installation
+des Nutzers übernommen:
+
+- **Karte und Lage:** Karte, Teams und Startpositionen (`Lobby.StartPositions` nach `Lobby.AddAI`), sobald Abstände,
+  Erreichbarkeit, Gelände oder Nachbarburgen eine Rolle spielen. Die Plätze loggen (`LOBBY_KEEP`).
+- **Spieleinstellungen:** Friedenszeit, Geschwindigkeit, Startbedingungen (Ressourcen, fertige KI-Burg) und
+  RandomEvents ausdrücklich setzen.
+- **Modsettings:** zuerst `ModSettingsDefaults`, danach nur die für den Test nötigen Abweichungen per
+  `SetModSetting`. Andere Mods mit Einfluss auf die Testwelt (etwa Burg-Spawn, Ereignisse) ausdrücklich abschalten.
+- **KI:** konkreten Lord sowie AIV und AIC festlegen, wenn KI-Verhalten, KI-Burg, KI-Gebäude oder KI-Einheiten den
+  Test berühren.
+- **Testobjekte:** Positionen von einem festen Bezug aus wählen (Burgtür, selbst gesetztes Gebäude) und jede
+  Vorbedingung vor dem Schritt prüfen: freier Bauplatz, Kosten, Erreichbarkeit über dieselbe Pfadkomponente,
+  passende Einheiten. Reicht ein fester Platz nicht, sucht der Helfer einen geeigneten Platz und loggt ihn.
+
+Scheitert ein Lauf, weil eine dieser Bedingungen zufällig anders war, ist das ein Fehler des Tests und kein
+„flackernder“ Lauf. Zuerst den Testaufbau so ändern, dass die Bedingung festgelegt oder vor dem Schritt geprüft wird,
+dann neu laufen lassen. Wiederholen bis zum Erfolg ist kein Nachweis und keine Erklärung. Ausnahme: Ein Test, der
+gerade verschiedene Lagen abdecken soll, variiert sie ausdrücklich und loggt sie.
+
 ## Was bereits möglich ist
 
 | Aufgabe | Aufrufweg | Nachweis / Grenze |
@@ -555,7 +578,7 @@ Mehrere Tests waren zuerst grün, ohne etwas zu prüfen:
 - **Szenario-IDs:** Die Schritt-`id` muss im Szenario eindeutig sein, sonst startet der Lauf gar nicht (`step=INIT FAIL`).
 - **Fehlersuche im Test:** Beim Warten alle paar Sekunden den Zustand ins Log schreiben (Einheit, Zustand, Ziel, relevante Felder). Nach einem Timeout ist das fast immer der schnellste Weg zur Ursache; einen zusätzlichen Lauf spart es meist auch.
 - **Wartende Einheit ist nicht frei:** Ein Jäger mit Fleisch in der Hütte sucht kein neues Ziel. Bei großen Mengen braucht er viele Wege, bis er wieder jagt, deshalb vor dem nächsten Fall auf Leerlauf warten (Tragmenge 0 und Zustand 0, 6 oder 7), statt eine feste Zeit zu warten.
-- **Startpositionen und KI-Burgen gehören zur Testwelt:** Im Gefecht wechseln die Startpositionen von Partie zu Partie, und KI-Lords bringen je nach Lobby-Einstellung eine fertige Burg mit Mauern und Toren mit. Was von der Lage abhängt, tritt dann nur in manchen Läufen auf. Beispiel (08.11.2026): Ein Test-Reh auf `399,275` war für den Jäger nur unsichtbar, wenn die eigene Burg bei `403,278` stand; in anderen Partien stand dort keine Burg, und der Test bestand. Ebenso kann Beute innerhalb einer KI-Burg nur durch ein feindliches Tor erreichbar und damit für den Jäger unerreichbar sein. Startpositionen und KI-Lords (Lord, Burgplan, Start mit fertiger Burg) im Log festhalten.
+- **Startpositionen und KI-Burgen gehören zur Testwelt:** Im Gefecht wechseln die Startpositionen von Partie zu Partie, und KI-Lords bringen je nach Lobby-Einstellung eine fertige Burg mit Mauern und Toren mit. Was von der Lage abhängt, tritt dann nur in manchen Läufen auf. Beispiel (08.11.2026): Ein Test-Reh auf `399,275` war für den Jäger nur unsichtbar, wenn die eigene Burg bei `403,278` stand; in anderen Partien stand dort keine Burg, und der Test bestand. Ebenso kann Beute innerhalb einer KI-Burg nur durch ein feindliches Tor erreichbar und damit für den Jäger unerreichbar sein. Startpositionen und KI-Lords (Lord, Burgplan, Start mit fertiger Burg) deshalb festlegen (siehe [Testwelt festlegen statt Zufall wegerklären](#testwelt-festlegen-statt-zufall-wegerklären)) und im Log festhalten.
 - **Vergleiche nur unter gleichen Bedingungen:** Bei A/B-Läufen, Vorher-/Nachher-Vergleichen und Messreihen müssen Startpositionen und KI-Burgen in allen Läufen identisch sein. Sonst ist der Unterschied nicht dem Code zuzuschreiben. `Lobby.StartPositions <Platz Mensch> <Platz KI 1> …` setzt nach `Lobby.AddAI` die Startplätze fest und loggt alle Plätze (`LOBBY_KEEP`). Testgebäude (`Hunt.PlaceHut`) richten sich nach der Burgtür, nicht nach dem herumlaufenden Lord; Vorrichtungen relativ zur Burg (`Hunt.PreyBehindKeep`) oder auf exakten Kacheln (`Hunt.PreyAt`) setzen. Ob zwei Läufe dieselbe Lage hatten, an den geloggten Positionen prüfen (Burg, Hütte, Beute); Läufe mit abweichender Lage nicht miteinander vergleichen. Ob ein KI-Lord seinen Burgplan zufällig wählt, ist noch ungeprüft; bis dahin die KI-Burg im Log festhalten.
 - **Bei jeder Spielgeschwindigkeit:** Der Mod rechnet in Map-Ticks und muss bei jeder Geschwindigkeit gleich funktionieren. Tests warten deshalb auf Spielzustände (`Hunt.WaitHuntersFree`, Beute entfernt), nicht auf feste Echtzeit. Schlägt ein Test nur bei hoher Geschwindigkeit fehl, zuerst nach einer Echtzeit-Abhängigkeit im Test suchen und sie durch eine Zustandsprüfung ersetzen.
 - **Vorrichtungen erreichbar setzen:** `Hunt.Prey` verschiebt ein Test-Tier auf die nächste begehbare Kachel der Wegfläche des Jägers und loggt das (`HUNT_PREY_MOVED`); sonst ignoriert der Jäger es zu Recht. Ring-Tiere bleiben absichtlich im Ring.
