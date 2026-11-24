@@ -7,6 +7,7 @@ using R3;
 using SHCDESE.API;
 using SHCDESE.API.Components.SaveData;
 using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.AI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
@@ -54,8 +55,9 @@ namespace CrenelatedWallTest
         private readonly PreviewAdmissionCache previewCache = new PreviewAdmissionCache();
         [ThreadStatic] private static int buildDepth;
         private readonly NativeWallWorld world = new NativeWallWorld();
-        // Crenels placed by humans while the mod was active (Id, X, Y, Owner only). Heights are
-        // never remembered: they follow from the current map. Map/AI/pre-mod walls are absent.
+        // Crenels placed by humans or the AI while height adjustment was active (Id, X, Y, Owner
+        // only). Heights are never remembered: they follow from the current map. Map and
+        // pre-mod walls are absent.
         private SortedDictionary<int, WallCell> managed = new SortedDictionary<int, WallCell>();
         private readonly Func<int, bool> isManaged;
         private readonly Dictionary<int, int> signatures = new Dictionary<int, int>();
@@ -67,7 +69,14 @@ namespace CrenelatedWallTest
         private int[][] pendingSave;
         private int[] scanIds = new int[0];
         private int scanCursor;
-        private bool initialized, active, activationRequested, activationCaptured, ready, restorePending, tickLogged, callbackLogged;
+        // active = mod allowed and enabled this session; heights/block = its two frozen parts.
+        private bool initialized, active, heights, block, activationRequested, heightsRequested, blockRequested, activationCaptured, ready, restorePending, tickLogged, callbackLogged, aiLogged;
+        // Pre state of the tile an AI placement (0x6CB20, one tile per call) is about to change.
+        private readonly Stack<WallCell> aiBuilds = new Stack<WallCell>();
+        // Pre-built AI castles are placed through 0x6CB20 while the mission is still starting.
+        // Collected until Started decides (heights on, no editor, no save); cleared only at
+        // Ended, because the calls may precede this mission's first lifecycle notification.
+        private readonly List<WallCell> prebuilt = new List<WallCell>();
         private bool repairing, resyncReady;
         private SortedDictionary<int, WallCell> repairedOrigins;
         private long sessionId;
@@ -91,6 +100,8 @@ namespace CrenelatedWallTest
             if (!ModSaveDataAPI.Instance.RegisterModDataHandler(Plugin.Guid, Save, Load))
                 throw new InvalidOperationException("Save registration rejected.");
             subscriptions.Add(BuildingR3EventHooks.OnBuildWall.Observable.Subscribe(BuildWall));
+            // Automatic AI construction uses 0x6CB20, not 0x6F230; SE's OnAIBuildWall wraps it.
+            subscriptions.Add(AIR3EventHooks.OnAIBuildWall.Observable.Subscribe(AIBuildWall));
             subscriptions.Add(BuildingR3EventHooks.OnWallBulldoze.Observable.Subscribe(Bulldozed));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingTileTakeDamage.Observable.Subscribe(Damaged));
             GameTimeManagerAPI.Instance.OnTick += Tick;
@@ -102,7 +113,7 @@ namespace CrenelatedWallTest
                     replacement => repairedOrigins = replacement, out reason);
             if (!resyncReady) Shared.DebugLogHelper.LogError(log, "Crenel origin multiplayer data registration failed: " + reason);
             initialized = true;
-            Shared.DebugLogHelper.LogInfo(log, "CRENEL_READY durable publishers=OnBuildWall,APIShared missions,ModSaveDataAPI,OnTick; permanent local graphics predicate.");
+            Shared.DebugLogHelper.LogInfo(log, "CRENEL_READY durable publishers=OnBuildWall,OnAIBuildWall,APIShared missions,ModSaveDataAPI,OnTick; permanent local graphics predicate.");
         }
         private void Initializing(MissionLifecycleNotification note)
         {
@@ -122,23 +133,48 @@ namespace CrenelatedWallTest
                 if (!initialized) return;
                 if (sessionId != note.Context.SessionId) { Clear(); sessionId = note.Context.SessionId; }
                 context = note.Context; CaptureActivation(); ready = true;
-                restorePending = active && pendingSave != null;
+                restorePending = heights && pendingSave != null;
                 if (restorePending) Restore();
-                Shared.DebugLogHelper.LogInfo(log, "CRENEL_SESSION id=" + sessionId + "; active=" + active + "; save=" + context.IsSave + "; editor=" + context.IsEditor + "; host settings frozen until next session.");
+                AdoptPrebuilt();
+                Shared.DebugLogHelper.LogInfo(log, "CRENEL_SESSION id=" + sessionId + "; active=" + active + "; heights=" + heights + "; block=" + block + "; save=" + context.IsSave + "; editor=" + context.IsEditor + "; host settings frozen until next session.");
             }
         }
         private static bool Allowed(MissionContext ctx) => ctx != null && (ctx.IsEditor || ctx.Mode.Kind != GameModeKind.Unknown);
         private void CaptureActivation()
         {
-            if (!activationCaptured) { activationRequested = settings.EnableMod; activationCaptured = true; }
+            if (!activationCaptured)
+            {
+                activationRequested = settings.EnableMod; heightsRequested = settings.AdjustHeights;
+                blockRequested = settings.BlockPlacements; activationCaptured = true;
+            }
             // Mode evidence may become known only at ManagedReady; settings stay frozen.
             active = Allowed(context) && activationRequested && (!context.Mode.IsRealMultiplayer || resyncReady);
-            if (!active) graphics.Publish(null);
+            heights = active && heightsRequested; block = active && blockRequested;
+            if (!heights) graphics.Publish(null);
         }
-        private void Ended(MissionLifecycleNotification note) { lock (sync) { Clear(); context = null; sessionId = 0; } }
+        private void Ended(MissionLifecycleNotification note) { lock (sync) { Clear(); prebuilt.Clear(); context = null; sessionId = 0; } }
+        // Saves restore their own managed set; the editor has no automatic AI construction.
+        private void AdoptPrebuilt()
+        {
+            if (prebuilt.Count == 0) return;
+            var cells = new List<WallCell>(); var seen = new HashSet<int>();
+            try
+            {
+                if (!heights || context.IsEditor || context.IsSave) return;
+                foreach (WallCell placed in prebuilt)
+                    if (world.TryRead(placed.X, placed.Y, out WallCell now) && now.Id == placed.Id && WallPolicy.Crenel(now) &&
+                        now.Owner == placed.Owner && seen.Add(now.Id)) cells.Add(now);
+                int changed = cells.Count == 0 ? 0 : Adopt(cells, out _);
+                Shared.DebugLogHelper.LogInfo(log, "CRENEL_AI_PREBUILT calls=" + prebuilt.Count + "; adopted=" + cells.Count + "; changed=" + changed + "; managed=" + managed.Count + ".");
+            }
+            catch (Exception ex) { Error("prebuilt", ex); }
+            finally { prebuilt.Clear(); }
+        }
         private void Clear()
         {
-            active = activationRequested = activationCaptured = ready = restorePending = tickLogged = callbackLogged = false;
+            active = heights = block = activationRequested = heightsRequested = blockRequested = activationCaptured = false;
+            ready = restorePending = tickLogged = callbackLogged = aiLogged = false;
+            aiBuilds.Clear();
             repairing = false;
             repairedOrigins = null;
             managed.Clear(); signatures.Clear(); builds.Clear(); pendingSave = null; scanIds = new int[0]; scanCursor = 0;
@@ -154,14 +190,14 @@ namespace CrenelatedWallTest
 
         private byte[] CaptureRepair()
         {
-            lock (sync) return active ? WallRepairRecord.Capture(world.Tiles.GetCurrentMapSize(), managed.Values, world) : Array.Empty<byte>();
+            lock (sync) return heights ? WallRepairRecord.Capture(world.Tiles.GetCurrentMapSize(), managed.Values, world) : Array.Empty<byte>();
         }
 
         private SortedDictionary<int, WallCell> PrepareRepair(ReadOnlyMemory<byte> bytes)
         {
             lock (sync)
             {
-                if (!repairing || bytes.IsEmpty == active)
+                if (!repairing || bytes.IsEmpty == heights)
                     throw new InvalidDataException("Crenel placement activation differs during repair.");
                 return bytes.IsEmpty ? new SortedDictionary<int, WallCell>() :
                     WallRepairRecord.Prepare(bytes.Span, world.Tiles.GetCurrentMapSize(), ReadRepairedCell);
@@ -209,13 +245,17 @@ namespace CrenelatedWallTest
                     try
                     {
                         if (!initialized || !ready || !active || e.WallType != eMappers.MAPPER_CRENAL ||
-                            !GamePlayerManagerAPI.Instance.IsPlayerIdValid(e.PlayerId) || (!context.IsEditor && GamePlayerManagerAPI.Instance.IsAIPlayer(e.PlayerId))) return;
+                            !GamePlayerManagerAPI.Instance.IsPlayerIdValid(e.PlayerId)) return;
+                        // The blockade applies to humans (editor: every manual build); heights to all.
+                        bool admit = block && (context.IsEditor || !GamePlayerManagerAPI.Instance.IsAIPlayer(e.PlayerId));
+                        if (!admit && !heights) return;
                         scope = new BuildScope { Owner = e.PlayerId, BeginX = e.TileXBegin, BeginY = e.TileYBegin,
                             EndX = e.TileXEnd, EndY = e.TileYEnd,
                             Before = WallPolicy.Raster(world, e.TileXBegin, e.TileYBegin, e.TileXEnd, e.TileYEnd, e.BuildWallsMaximum),
                             Stone = GamePlayerManagerAPI.Instance.GetGoodAmount(e.PlayerId, eGoods.STORED_STONE_BLOCKS) };
                         builds.Pop(); builds.Push(scope);
-                        WallVerdict verdict = WallAdmission.Evaluate(world, scope.Owner, scope.Before, isManaged);
+                        if (!admit) return;
+                        WallVerdict verdict = WallAdmission.Evaluate(world, scope.Owner, scope.Before, isManaged, heights);
                         if (!verdict.Accepted)
                         {
                             scope.Rejected = true; e.BuildWallsMaximum = 0;
@@ -245,27 +285,79 @@ namespace CrenelatedWallTest
                         Rejection("verified", "CRENEL_REJECT_VERIFIED line=" + Line(completed) + "; added=0; stone unchanged=" + stone);
                         return;
                     }
-                    if (added.Count == 0) return;
-                    var normalize = new SortedSet<int>();
-                    foreach (WallCell cell in added)
-                    {
-                        managed[cell.Id] = new WallCell { Id = cell.Id, X = cell.X, Y = cell.Y, Owner = cell.Owner };
-                        normalize.Add(cell.Id);
-                        // A neighbour's shape changes with the new piece (e.g. former endpoint
-                        // now straight); only managed neighbours are ever rewritten.
-                        for (int d = 0; d < 8; d++)
-                            if (world.TryRead(cell.X + NeighborX[d], cell.Y + NeighborY[d], out WallCell next) && managed.ContainsKey(next.Id))
-                                normalize.Add(next.Id);
-                    }
-                    int changed = Normalize(normalize);
+                    if (added.Count == 0 || !heights) return;
+                    int changed = Adopt(added, out int checkedCount);
                     if (!callbackLogged)
                     {
                         callbackLogged = true;
                         Shared.DebugLogHelper.LogInfo(log, "CRENEL_HOOK_CONFIRMED owner=" + completed.Owner + "; tile=" + added[0].Id + "; position=" + added[0].X + "," + added[0].Y + "; durable native publisher reached after startup cleanup.");
                     }
-                    Shared.DebugLogHelper.LogInfo(log, "CRENEL_BUILD owner=" + completed.Owner + "; line=" + Line(completed) + "; built=" + added.Count + "; checked=" + normalize.Count + "; changed=" + changed + "; unchanged=" + (normalize.Count - changed) + "; managed=" + managed.Count + ".");
+                    Shared.DebugLogHelper.LogInfo(log, "CRENEL_BUILD owner=" + completed.Owner + "; line=" + Line(completed) + "; built=" + added.Count + "; checked=" + checkedCount + "; changed=" + changed + "; unchanged=" + (checkedCount - changed) + "; managed=" + managed.Count + ".");
                 }
                 catch (Exception ex) { Error("post", ex); }
+            }
+        }
+        // Registers newly built crenels and normalizes them with their managed neighbours.
+        private int Adopt(List<WallCell> added, out int checkedCount)
+        {
+            var normalize = new SortedSet<int>();
+            foreach (WallCell cell in added)
+            {
+                managed[cell.Id] = new WallCell { Id = cell.Id, X = cell.X, Y = cell.Y, Owner = cell.Owner };
+                normalize.Add(cell.Id);
+                // A neighbour's shape changes with the new piece (e.g. former endpoint
+                // now straight); only managed neighbours are ever rewritten.
+                for (int d = 0; d < 8; d++)
+                    if (world.TryRead(cell.X + NeighborX[d], cell.Y + NeighborY[d], out WallCell next) && managed.ContainsKey(next.Id))
+                        normalize.Add(next.Id);
+            }
+            checkedCount = normalize.Count;
+            return Normalize(normalize);
+        }
+        // Automatic AI placement (0x6CB20) changes at most one tile per call. Only height
+        // adjustment applies; the blockade never vetoes AI construction.
+        private void AIBuildWall(AIBuildWallEventArgs e)
+        {
+            lock (sync)
+            {
+                if (e.Phase == EventHookPhase.Pre)
+                {
+                    WallCell before = null;
+                    try
+                    {
+                        if (initialized && ready && heights && !repairing && world.TryRead(e.TileX, e.TileY, out WallCell cell)) before = cell;
+                    }
+                    catch (Exception ex) { Error("ai-pre", ex); }
+                    aiBuilds.Push(before);
+                    return;
+                }
+                if (e.Phase != EventHookPhase.Post || aiBuilds.Count == 0) return;
+                WallCell old = aiBuilds.Pop();
+                if (old == null && !ready && initialized && !repairing)
+                {
+                    // Mission start (pre-built castle): remember the resulting crenel, decide at Started.
+                    try
+                    {
+                        if (world.TryRead(e.TileX, e.TileY, out WallCell placed) && WallPolicy.Crenel(placed) && prebuilt.Count < WallPolicy.MaximumCells)
+                            prebuilt.Add(new WallCell { Id = placed.Id, X = placed.X, Y = placed.Y, Owner = placed.Owner });
+                    }
+                    catch (Exception ex) { Error("ai-prebuilt", ex); }
+                    return;
+                }
+                if (old == null || !heights || repairing) return;
+                try
+                {
+                    if (!world.TryRead(old.X, old.Y, out WallCell now) || now.Id != old.Id || !WallPolicy.Crenel(now) ||
+                        (old.IsWall && old.IsCrenel && old.Damaged == now.Damaged && old.Owner == now.Owner)) return;
+                    int changed = Adopt(new List<WallCell> { now }, out int checkedCount);
+                    if (!aiLogged)
+                    {
+                        aiLogged = true;
+                        Shared.DebugLogHelper.LogInfo(log, "CRENEL_AI_HOOK_CONFIRMED player=" + e.PlayerId + "; owner=" + now.Owner + "; tile=" + now.Id + "; position=" + now.X + "," + now.Y + "; mapper=" + e.Mappers + ".");
+                    }
+                    Shared.DebugLogHelper.LogInfo(log, "CRENEL_AI_BUILD owner=" + now.Owner + "; position=" + now.X + "," + now.Y + "; checked=" + checkedCount + "; changed=" + changed + "; managed=" + managed.Count + ".");
+                }
+                catch (Exception ex) { Error("ai-post", ex); }
             }
         }
         private bool RejectPreview(IntPtr manager, int owner, uint x, uint y, uint endX, uint endY, short mapper)
@@ -273,12 +365,12 @@ namespace CrenelatedWallTest
             if (buildDepth != 0 || mapper != (short)eMappers.MAPPER_CRENAL) return false;
             lock (sync)
             {
-                if (repairing || !initialized || !ready || !active || manager != world.Tiles.GetTileManager() ||
+                if (repairing || !initialized || !ready || !block || manager != world.Tiles.GetTileManager() ||
                     !GamePlayerManagerAPI.Instance.IsPlayerIdValid(owner) ||
                     (!context.IsEditor && GamePlayerManagerAPI.Instance.IsAIPlayer(owner))) return false;
                 // The whole dragged line is checked. Execution re-checks its queued raster
                 // (possibly a shorter prefix) and remains the authoritative, synchronized decision.
-                return !previewCache.Evaluate(world, owner, (int)x, (int)y, (int)endX, (int)endY, PreviewMaximum, isManaged).Accepted;
+                return !previewCache.Evaluate(world, owner, (int)x, (int)y, (int)endX, (int)endY, PreviewMaximum, isManaged, heights).Accepted;
             }
         }
         // Rewrites only managed, intact, structure-free line pieces (straight middles and
@@ -347,8 +439,8 @@ namespace CrenelatedWallTest
                 if (repairing || !initialized || !ready) return;
                 try
                 {
-                    if (!tickLogged) { tickLogged = true; Shared.DebugLogHelper.LogInfo(log, "CRENEL_RUNTIME_AFTER_CLEANUP session=" + sessionId + "; tick=" + tick + "; active=" + active); }
-                    if (!active) return;
+                    if (!tickLogged) { tickLogged = true; Shared.DebugLogHelper.LogInfo(log, "CRENEL_RUNTIME_AFTER_CLEANUP session=" + sessionId + "; tick=" + tick + "; active=" + active + "; heights=" + heights + "; block=" + block); }
+                    if (!heights) return;
                     if (restorePending) Restore();
                     // A bounded native-tick scan catches demolition, projectile destruction and
                     // Vanilla's deferred renderer promotion of a managed piece's height.
@@ -369,12 +461,12 @@ namespace CrenelatedWallTest
         private void Bulldozed(WallBulldozeEventArgs e)
         {
             if (e.Phase != EventHookPhase.Post) return;
-            lock (sync) if (active && managed.ContainsKey(e.TileId)) signatures[e.TileId] = int.MinValue;
+            lock (sync) if (heights && managed.ContainsKey(e.TileId)) signatures[e.TileId] = int.MinValue;
         }
         private void Damaged(BuildingTileTakeDamageEventArgs e)
         {
             if (e.Phase != EventHookPhase.Post) return;
-            lock (sync) if (active && managed.ContainsKey(e.TileId)) signatures[e.TileId] = int.MinValue;
+            lock (sync) if (heights && managed.ContainsKey(e.TileId)) signatures[e.TileId] = int.MinValue;
         }
         private byte[] Save(SaveContext save)
         {
@@ -382,13 +474,13 @@ namespace CrenelatedWallTest
             {
                 if (!initialized || !ready || context == null) return null;
                 var valid = new List<WallCell>();
-                if (active) foreach (WallCell entry in managed.Values)
+                if (heights) foreach (WallCell entry in managed.Values)
                     if (world.TryRead(entry.X, entry.Y, out WallCell cell) && cell.Id == entry.Id && cell.IsWall && cell.IsCrenel && cell.Owner == entry.Owner)
                         valid.Add(entry);
                 // An empty header overwrites earlier metadata when disabled, rather than
                 // leaving stale entries in the archive. MP IsSaveFile can be false.
                 byte[] bytes = MessagePackSerializer.Serialize(SaveState.Capture(world.Tiles.GetCurrentMapSize(), valid));
-                Shared.DebugLogHelper.LogInfo(log, "CRENEL_SAVE tiles=" + valid.Count + "; bytes=" + bytes.Length + "; active=" + active);
+                Shared.DebugLogHelper.LogInfo(log, "CRENEL_SAVE tiles=" + valid.Count + "; bytes=" + bytes.Length + "; heights=" + heights);
                 return bytes;
             }
         }
@@ -406,12 +498,12 @@ namespace CrenelatedWallTest
         private void Restore()
         {
             restorePending = false;
-            if (!active || context == null || pendingSave == null) return;
+            if (!heights || context == null || pendingSave == null) return;
             int[][] data = pendingSave; pendingSave = null;
             try
             {
-                // Only tiles the mod itself placed are restored and normalized. Map-designer,
-                // AI and pre-mod walls stay exactly as loaded. Editor metadata may name AI slots;
+                // Only tiles the mod itself adopted are restored and normalized. Map-designer
+                // and pre-mod walls stay exactly as loaded. Editor metadata may name AI slots;
                 // replaying it is not intercepting automatic AI construction.
                 List<WallCell> cells = SaveState.Validate(data, world.Tiles.GetCurrentMapSize(), world);
                 foreach (WallCell cell in cells) managed[cell.Id] = cell;

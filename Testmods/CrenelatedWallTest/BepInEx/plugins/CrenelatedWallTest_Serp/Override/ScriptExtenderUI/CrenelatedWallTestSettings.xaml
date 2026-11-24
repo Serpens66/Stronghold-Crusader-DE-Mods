@@ -32,7 +32,10 @@
       <Border Style="{StaticResource HostActivationBorder}" Margin="0,0,0,8"><CheckBox Content="{Binding ModEnabledText}" IsChecked="{Binding EnableMod, Mode=TwoWay}" IsEnabled="{Binding CanEditHostSettings}" ToolTip="{Binding EnableModHelpText}" ToolTipService.ShowDuration="60000" Foreground="White" FontWeight="Bold"/></Border>
       <StackPanel Opacity="{Binding HostSettingsOpacity}">
       <TextBlock Text="{Binding ScopeText}" Foreground="White" TextWrapping="Wrap" MaxWidth="700" Margin="0,0,0,8"/>
-      <TextBlock Text="{Binding RuleText}" Foreground="#FFCCCCCC" TextWrapping="Wrap" MaxWidth="700"/>
+      <CheckBox Content="{Binding AdjustHeightsText}" IsChecked="{Binding AdjustHeights, Mode=TwoWay}" IsEnabled="{Binding CanEditHostSettings}" ToolTip="{Binding AdjustHeightsHelpText}" ToolTipService.ShowDuration="60000" Foreground="White" Margin="0,0,0,4"/>
+      <TextBlock Text="{Binding HeightRuleText}" Foreground="#FFCCCCCC" TextWrapping="Wrap" MaxWidth="700" Margin="20,0,0,8"/>
+      <CheckBox Content="{Binding BlockPlacementsText}" IsChecked="{Binding BlockPlacements, Mode=TwoWay}" IsEnabled="{Binding CanEditHostSettings}" ToolTip="{Binding BlockPlacementsHelpText}" ToolTipService.ShowDuration="60000" Foreground="White" Margin="0,0,0,4"/>
+      <TextBlock Text="{Binding BlockRuleText}" Foreground="#FFCCCCCC" TextWrapping="Wrap" MaxWidth="700" Margin="20,0,0,0"/>
       </StackPanel>
     </StackPanel>
   </ScrollViewer>

@@ -21,6 +21,8 @@ internal static class Program
         internal readonly Dictionary<int, WallCell> Cells = new Dictionary<int, WallCell>();
         internal readonly HashSet<int> Managed = new HashSet<int>();
         internal Func<int, bool> IsManaged => id => Managed.Contains(id);
+        // Frozen session switches of WallRuntime: height adjustment and placement blockade.
+        internal bool Heights = true, Block = true;
         public bool TryRead(int x, int y, out WallCell cell)
         {
             cell = null; if (x < 1 || x >= 799 || y < 1 || y >= 399) return false;
@@ -37,12 +39,14 @@ internal static class Program
         internal WallVerdict Build(int x, int y, int endX, int endY, int owner = 1, int maximum = 800)
         {
             List<WallCell> raster = WallPolicy.Raster(this, x, y, endX, endY, maximum);
-            WallVerdict verdict = WallAdmission.Evaluate(this, owner, raster, IsManaged);
+            WallVerdict verdict = Block ? WallAdmission.Evaluate(this, owner, raster, IsManaged, Heights) : new WallVerdict();
             if (!verdict.Accepted) return verdict;
             var ids = new List<int>();
             foreach (WallCell cell in WallPolicy.Predict(raster, owner))
             {
-                Cells[cell.Id] = cell; Managed.Add(cell.Id); ids.Add(cell.Id);
+                Cells[cell.Id] = cell;
+                if (!Heights) continue;
+                Managed.Add(cell.Id); ids.Add(cell.Id);
                 foreach (WallCell next in Neighbours(cell)) if (Managed.Contains(next.Id)) ids.Add(next.Id);
             }
             Normalize(ids);
@@ -105,10 +109,74 @@ internal static class Program
             CSharpCompilation compiled = CompileRuntime(root, sdk);
             ApiCompatibility(compiled, sdk);
             StraightRows(); EnterableShapes(); ForbiddenShapes(); ScopeAndOwnership(); Persistence(); EndpointGraphics(); RandomConstruction(); PreviewAdmission();
+            SplitSwitches();
             RepairOrigins();
             Console.WriteLine("PASS: " + checks + " assertions; production runtime compilation, parity policy, enterability rules, redraw stability, scope and MessagePack persistence. Real game/peer execution is not inferred.");
         }
         catch (Exception ex) { Console.Error.WriteLine(ex); Environment.ExitCode = 1; }
+    }
+    // The two parts are switched separately. Heights without blockade must alternate whatever
+    // the build order; blockade without heights must predict pure Vanilla heights.
+    private static void SplitSwitches()
+    {
+        // Heights on, blockade off: forbidden shapes are built, every managed line piece still
+        // follows its target and the settled map does not depend on the build order.
+        var doubled = new World { Block = false };
+        Check(doubled.Build(40, 40, 45, 40).Accepted && doubled.Build(40, 41, 45, 41).Accepted, "Blockade off still rejected a double row");
+        doubled.Settle(); CheckManagedParity(doubled, "Double row parity without blockade");
+        var shapes = new List<(int, int)>();
+        for (int x = 0; x < 9; x++) shapes.Add((300 + x, 300));             // straight run
+        for (int y = 1; y < 6; y++) shapes.Add((308, 300 + y));             // corner and arm
+        for (int x = 0; x < 4; x++) shapes.Add((303, 301 + x));             // T junction arm
+        for (int i = 0; i < 5; i++) shapes.Add((320 + i, 310 + i));         // diagonal row
+        for (int x = 0; x < 4; x++) shapes.Add((330 + x, 320)); shapes.Add((330, 321)); shapes.Add((331, 321)); // 2x2 block
+        var reference = new World { Block = false };
+        foreach (var c in shapes) reference.Build(c.Item1, c.Item2, c.Item1, c.Item2);
+        reference.Settle();
+        var random = new Random(20261124);
+        for (int order = 0; order < 60; order++)
+        {
+            var world = new World { Block = false };
+            foreach (var c in shapes.OrderBy(_ => random.Next()))
+            {
+                Check(world.Build(c.Item1, c.Item2, c.Item1, c.Item2).Accepted, "Blockade off rejected a piece");
+                if (random.Next(3) == 0) world.Settle(); // renders between some placements (sticky high)
+            }
+            world.Settle();
+            CheckManagedParity(world, "Order-independent parity");
+            Check(world.State() == reference.State(), "Build order changed the settled heights");
+            string settled = world.State(); world.Settle(); Check(settled == world.State(), "Redraw changed a settled map");
+        }
+        foreach (WallCell cell in reference.Cells.Values.Where(c => c.Y == 300 && c.X > 300 && c.X < 308 && c.X != 303))
+            Check(cell.High == WallPolicy.Parity(cell.X, cell.Y), "Straight middle not alternating at " + cell.X);
+        // Heights off: nothing is managed, Vanilla's renderer keeps endpoints and lone pieces high.
+        var vanilla = new World { Heights = false, Block = false };
+        for (int x = 60; x <= 66; x++) { Check(vanilla.Build(x, 60, x, 60).Accepted, "Heights off rejected a straight piece"); vanilla.Settle(); }
+        Check(vanilla.Managed.Count == 0, "Heights off managed a tile");
+        Check(vanilla.Cells.Values.All(c => c.High), "Heights off changed Vanilla sticky highs");
+        // Blockade alone therefore stops a piece-by-piece row at the fourth sticky-high piece.
+        var vanillaBlocked = new World { Heights = false };
+        for (int x = 60; x <= 62; x++) { Check(vanillaBlocked.Build(x, 60, x, 60).Accepted, "Blockade alone rejected a short row"); vanillaBlocked.Settle(); }
+        WallVerdict fourth = vanillaBlocked.Build(63, 60, 63, 60);
+        Check(!fourth.Accepted && fourth.Rejection.Contains("four high"), "Blockade alone accepted four sticky highs");
+        // Blockade with Vanilla prediction: endpoints/lone pieces count as high, middles as parity.
+        var predict = new World(); predict.Put(70, 70, 1, false); predict.Put(71, 70, 1, false);
+        Func<int, int, WallCell> read = WallPolicy.Reader(predict);
+        var none = new HashSet<int>();
+        Check(WallPolicy.PredictedHigh(read, predict.Cells[70 * 800 + 70], none, predict.IsManaged, false), "Vanilla prediction lowered an endpoint");
+        predict.Put(72, 70, 1, false); read = WallPolicy.Reader(predict);
+        Check(!WallPolicy.PredictedHigh(read, predict.Cells[70 * 800 + 71], none, predict.IsManaged, false), "Vanilla prediction raised a low straight middle");
+        var newMiddle = new HashSet<int> { 70 * 800 + 71 };
+        Check(WallPolicy.PredictedHigh(read, predict.Cells[70 * 800 + 71], newMiddle, predict.IsManaged, false) == WallPolicy.Parity(71, 70), "New Vanilla middle not at placement parity");
+        // A command accepted with height adjustment can be rejected with Vanilla heights.
+        bool differs = false;
+        for (int shift = 0; shift <= 1 && !differs; shift++)
+        {
+            var a = new World(); var b = new World { Heights = false };
+            foreach (World w in new[] { a, b }) { w.Build(100 + shift, 100, 100 + shift, 100); w.Build(100 + shift, 101, 100 + shift, 101); w.Settle(); }
+            differs = a.Build(101 + shift, 101, 102 + shift, 101).Accepted && !b.Build(101 + shift, 101, 102 + shift, 101).Accepted;
+        }
+        Check(differs, "Vanilla height prediction never changed a blockade decision");
     }
     private static void RepairOrigins()
     {

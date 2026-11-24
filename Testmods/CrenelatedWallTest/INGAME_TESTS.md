@@ -1,12 +1,13 @@
 # Zinnen-Testmod: Ingame-Prüfung (Schachbrett-Fassung, Stand 22.11.2026)
 
-APIShared wird nur über bestehende öffentliche APIs verwendet. Zwei dauerhafte lokale Hooks bleiben: Der Grafik-Hook ermöglicht niedrige gerade Endstücke, der Vorschau-Hook färbt unzulässige Bauzüge rot. Die Aktivierung ist eine Host-Einstellung und wird beim Beginn einer Partie oder Editor-Sitzung festgehalten.
+APIShared wird nur über bestehende öffentliche APIs verwendet. Zwei dauerhafte lokale Hooks bleiben: Der Grafik-Hook ermöglicht niedrige gerade Endstücke, der Vorschau-Hook färbt unzulässige Bauzüge rot. Die Aktivierung ist eine Host-Einstellung und wird beim Beginn einer Partie oder Editor-Sitzung festgehalten. Seit 24.11.2026 gibt es unter dem Hauptschalter zwei getrennte Host-Schalter: „Zinnenhöhen abwechselnd anpassen“ (Standard an) und „Unbetretbare Zinnenformen blockieren“ (Standard aus).
 
 ## Regeln dieser Fassung
 
-- **Verwaltet werden nur neu gebaute Zinnen menschlicher Spieler**, im Editor die manuellen Bauten aller Slots. Karten-, KI- und ältere Mauern bleiben genau wie geladen. Kartenersteller deaktivieren den Mod, um wie in Vanilla zu bauen.
+- **Höhenanpassung verwaltet neu gebaute Zinnen menschlicher Spieler und der KI** (KI über native 0x6CB20, SE-Event `OnAIBuildWall`), einschließlich vorgebauter KI-Burgen (Lobby-Option `advopt_pre_build`; ihre 0x6CB20-Aufrufe laufen vor dem Missionsstart und werden bei `Started` übernommen), im Editor die manuellen Bauten aller Slots. Karten-, Spielstand- und ältere Mauern bleiben genau wie geladen. Kartenersteller schalten die Höhenanpassung aus, um wie in Vanilla zu bauen.
+- **Blockade** gilt nur für Bauzüge menschlicher Spieler (Editor: alle manuellen Bauten). Ist die Höhenanpassung aus, sagt die Blockade reine Vanilla-Höhen vorher (Endstücke und Einzelstücke hoch); dann stoppt sie z. B. eine Stück für Stück gebaute Reihe beim vierten Stück.
 - **Höhen:** Gerade Stücke und Endstücke folgen Vanillas Schachbrett: Bei ungerader Summe x+y ist die Zinne hoch, sonst niedrig. Diagonale Reihen (auf dem Bildschirm waagerecht) bestehen aus Einzelstücken ohne geraden Nachbarn; ihre Stücke wechseln hoch/niedrig nach ungerader bzw. gerader x-Koordinate, die niedrigen zeichnet der Grafik-Hook als gerades niedriges Stück. Ecken, Kreuzungen und allein stehende Zinnen bleiben hoch wie in Vanilla.
-- **Abgelehnt wird der ganze Bauzug** (rote Vorschau und keine Ausführung), wenn er eines davon neu erzeugt:
+- **Mit eingeschalteter Blockade wird der ganze Bauzug abgelehnt** (rote Vorschau und keine Ausführung), wenn er eines davon neu erzeugt:
   - ein gefülltes 2×2,
   - eine Kette aus drei zusammenhängenden Ecken/Kreuzungen,
   - eine zusammenhängende Folge von vier hohen Zinnen.
@@ -105,3 +106,13 @@ Die automatisierten Tests sind Modell- und Codecprüfungen. Grafik, Einheitengan
 ## Diagonale Reihen (22.11.2026, Läufe `f6204c35`, `13fbdad4`, `0a4991c0`)
 
 Vanilla-Messung im Editor mit ausgeschaltetem Mod (`Run.ps1 -Scenario crenel-vanilla-topology`): Die native Nachbartabelle kennt als gerade Nachbarn nur die Kachelachsen. Diagonale Zinnen sind deshalb Einzelstücke, die Vanilla hoch setzt. Eine gezogene Diagonale war nur begehbar, weil Vanilla die Wege vor dem optischen Hochsetzen berechnet; Stück für Stück gebaut war sie nicht begehbar, und auf der anderen Parität ist sie schon beim Platzieren ganz hoch. Mit Mod: Diagonale Reihen werden nicht mehr abgelehnt, wechseln hoch/niedrig, und alle niedrigen Stücke waren für Assassinen betretbar (Editor `DIAGONAL_PASS` 4/4). Gefecht und Editor-Abnahme sind vollständig bestanden. Nicht geprüft: das Aussehen der niedrigen Diagonalstücke.
+
+## Getrennte Schalter, Bau-Reihenfolge und KI-Burgen (24.11.2026, Läufe `4f4c49d6` und `e0091dd7`)
+
+Testmod-Szenarien `crenel-heights` (Editor und KI) und `crenel-ai` (nur KI), Höhenanpassung an, Blockade aus. Nachweise in `.work/a/crenel-ingame/042` und `044`.
+
+- **Beliebige Reihenfolge (Editor):** Gerade Reihe, 2×2-Block und L wurden Stück für Stück in zufälliger Reihenfolge gebaut, Lücken später geschlossen, außerdem eine Reihe in umgekehrten Hälften gezogen. Keine Ablehnung, der 2×2-Block steht. Alle 30 Zinnen haben die Zielhöhe (12 niedrig; 2×2 und Ecke hoch).
+- **Diagonale Reihen** mit ausgeschalteter Blockade: 40 Zinnen richtig, alle 4 niedrigen Stücke für Assassinen betretbar.
+- **Vorgebaute KI-Burg (Wolf, `advopt_pre_build=1`):** `CRENEL_AI_PREBUILT calls=117; adopted=117; changed=4`. Nach 400 Ticks Render-Pflege haben alle 39 verbliebenen KI-Zinnen die Zielhöhe (17 niedrig). Von den 117 beim Start gesetzten Zinnen trugen eine Sekunde später nur noch 39 das Zinnenbit; die übrigen 78 KI-Mauerkacheln wandelt Vanilla beim Burgaufbau um (Ursache nicht untersucht). Der Tick-Abgleich entfernt sie aus der Verwaltung.
+- **Manuell gebaute KI-Burg (`advopt_pre_build=0`, normale Mauerkosten):** 27 Zinnen übernommen, nach der Render-Pflege alle richtig (13 niedrig).
+- **Hinweis für Testaufbauten:** In einem früheren Lauf (Mauerkosten-Multiplikator 0) entstanden trotz vieler 0x6CB20-Aufrufe keine KI-Mauern; die Ursache ist nicht belegt. Der KI-Test setzt die Multiplikatoren vorsichtshalber auf 1 zurück.

@@ -2,7 +2,7 @@
   "GUID": "CrenelatedWallTest_Serp",
   "Author": "Serpens66",
   "Name": "Crenelated Wall Test",
-  "Description": "Newly built human crenels follow Vanilla's checkerboard including endpieces; diagonal rows alternate as well; double rows, special-piece chains and runs of four high crenels are rejected so walls stay enterable. Map, AI and earlier walls stay unchanged.",
+  "Description": "Two separate host switches: newly built human and AI crenels (including pre-built AI castles) alternate high/low (Vanilla checkerboard including endpieces and diagonal rows), and optionally double rows, special-piece chains and runs of four high crenels are rejected so walls stay enterable. Map and earlier walls stay unchanged.",
   "Version": "0.1.0",
   "MinimumScriptExtenderVersion": "2.14.1",
   "MaximumScriptExtenderVersion": "",

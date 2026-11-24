@@ -127,7 +127,7 @@ namespace CrenelatedWallTest
         // Returns null when the predicted construction keeps every wall enterable, otherwise
         // the first violated rule. Only shapes containing a changed cell are considered, so
         // pre-existing map or save walls never block an unrelated command.
-        internal static string Violation(IWallWorld world, IList<WallCell> added, Func<int, bool> managed)
+        internal static string Violation(IWallWorld world, IList<WallCell> added, Func<int, bool> managed, bool heightsManaged = true)
         {
             if (added.Count == 0) return null;
             Func<int, int, WallCell> read = Reader(world, added);
@@ -174,9 +174,9 @@ namespace CrenelatedWallTest
             // now; runs of tiles that are already high (e.g. designer walls) are not new.
             foreach (WallCell cell in affected.Values)
             {
-                if (!PredictedHigh(read, cell, isNew, managed) || (!isNew.Contains(cell.Id) && cell.High)) continue;
+                if (!PredictedHigh(read, cell, isNew, managed, heightsManaged) || (!isNew.Contains(cell.Id) && cell.High)) continue;
                 var arms = new List<List<WallCell>>();
-                CollectArms(read, cell, new List<WallCell>(), arms, isNew, managed);
+                CollectArms(read, cell, new List<WallCell>(), arms, isNew, managed, heightsManaged);
                 foreach (List<WallCell> a in arms)
                 {
                     if (a.Count >= 3) return "four high crenels through " + cell.X + "," + cell.Y;
@@ -189,10 +189,18 @@ namespace CrenelatedWallTest
 
         // Height after this command and the mod's own normalization: specials are forced high
         // by the renderer, new and managed lines follow parity, foreign/map walls keep theirs.
-        internal static bool PredictedHigh(Func<int, int, WallCell> read, WallCell cell, ISet<int> isNew, Func<int, bool> managed)
+        // Without height adjustment (heightsManaged=false) the Vanilla renderer decides: every
+        // non-middle piece (endpoint, diagonal, isolated, corner, junction) is ORed high and
+        // stays high; only straight middles keep placement parity or their current height.
+        internal static bool PredictedHigh(Func<int, int, WallCell> read, WallCell cell, ISet<int> isNew, Func<int, bool> managed, bool heightsManaged = true)
         {
             if (!Crenel(cell) || cell.Structure) return false;
             int mask = CardinalMask(read, cell.X, cell.Y);
+            if (!heightsManaged)
+            {
+                if (mask != 0b0101 && mask != 0b1010) return true;
+                return isNew.Contains(cell.Id) && !cell.Damaged ? Parity(cell.X, cell.Y) : cell.High;
+            }
             bool ours = isNew.Contains(cell.Id) || (managed != null && managed(cell.Id));
             if (!IsLine(mask))
                 return !(ours && !cell.Damaged && mask == 0 && DiagonalMask(read, cell.X, cell.Y) != 0 && !DiagonalHigh(cell.X));
@@ -202,7 +210,7 @@ namespace CrenelatedWallTest
 
         // All simple paths of up to three further high cells starting next to origin.
         private static void CollectArms(Func<int, int, WallCell> read, WallCell origin, List<WallCell> path,
-            List<List<WallCell>> arms, ISet<int> isNew, Func<int, bool> managed)
+            List<List<WallCell>> arms, ISet<int> isNew, Func<int, bool> managed, bool heightsManaged)
         {
             if (path.Count == 3) return;
             WallCell from = path.Count == 0 ? origin : path[path.Count - 1];
@@ -210,10 +218,10 @@ namespace CrenelatedWallTest
             {
                 WallCell next = read(from.X + DX[n], from.Y + DY[n]);
                 if (next == null || next.Id == origin.Id || path.Exists(c => c.Id == next.Id) ||
-                    !PredictedHigh(read, next, isNew, managed)) continue;
+                    !PredictedHigh(read, next, isNew, managed, heightsManaged)) continue;
                 var extended = new List<WallCell>(path) { next };
                 arms.Add(extended);
-                CollectArms(read, origin, extended, arms, isNew, managed);
+                CollectArms(read, origin, extended, arms, isNew, managed, heightsManaged);
             }
         }
 

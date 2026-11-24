@@ -45,20 +45,10 @@ namespace CrenelatedWallAcceptance
         }
 
         // ---------- editor session ----------
-        private IEnumerable<AutomationWait> LoadEditor(AutomationRun run, bool enable, string explicitPath)
+        private IEnumerable<AutomationWait> LoadEditor(AutomationRun run, bool enable, string explicitPath, bool heights = true, bool block = true)
         {
-            if (run.CurrentMission != null)
-            {
-                Drain(); crenelSeen.Clear();
-                MainViewModel.Instance.InitNewScene(Enums.SceneIDS.FrontEnd);
-            }
-            yield return AutomationWait.Until("ready main menu", () => run.CurrentMission == null && MainViewModel.viewModelLoaded &&
-                FatControler.currentScene == Enums.SceneIDS.FrontEnd && MainViewModel.Instance.Show_Frontend_MainMenu &&
-                !MainViewModel.Instance.Show_IntroSequence && MainViewModel.Instance.HUDmain != null && EditorDirector.instance != null && Director.instance != null);
-            // Host setting, changed only in the menu; the mod freezes it per session.
-            object settings = WallSettings(); var property = settings.GetType().GetProperty("EnableMod");
-            property.SetValue(settings, enable);
-            Require((bool)property.GetValue(settings) == enable, "EnableMod could not be set to " + enable);
+            foreach (var w in ToMenu(run)) yield return w;
+            SetSwitches(enable, heights, block);
             string path = explicitPath;
             FileHeader header = null;
             if (path == null)
@@ -94,8 +84,9 @@ namespace CrenelatedWallAcceptance
             log("EDITOR_MODE meMode=" + MainViewModel.Instance.MEMode + " appMode=" + GameData.Instance.app_mode + "/" + GameData.Instance.app_sub_mode +
                 " mapEditorMode=" + MainViewModel.Instance.IsMapEditorMode);
             Drain();
-            Require(crenelSeen.Any(l => l.Contains("CRENEL_SESSION") && l.Contains("editor=True") && l.Contains("active=" + enable)),
-                "CrenelatedWallTest editor session active=" + enable + " not reported");
+            string parts = "active=" + enable + "; heights=" + (enable && heights) + "; block=" + (enable && block);
+            Require(crenelSeen.Any(l => l.Contains("CRENEL_SESSION") && l.Contains("editor=True") && l.Contains(parts)),
+                "CrenelatedWallTest editor session " + parts + " not reported");
             log("EDITOR_LOADED map=" + path + " modEnabled=" + enable + " session=" + run.CurrentMission.SessionId);
         }
 

@@ -17,16 +17,17 @@ namespace CrenelatedWallTest
         private IWallWorld world;
         private Func<int, bool> managed;
         private int owner, x, y, endX, endY, maximum;
+        private bool heights;
         private WallVerdict result;
         internal void Clear() { result = null; reads.Clear(); world = null; managed = null; }
-        internal WallVerdict Evaluate(IWallWorld source, int player, int bx, int by, int ex, int ey, int max, Func<int, bool> isManaged)
+        internal WallVerdict Evaluate(IWallWorld source, int player, int bx, int by, int ex, int ey, int max, Func<int, bool> isManaged, bool heightsManaged = true)
         {
             if (result != null && ReferenceEquals(world, source) && owner == player && x == bx && y == by &&
-                endX == ex && endY == ey && maximum == max && Matches(source, isManaged)) return result;
+                endX == ex && endY == ey && maximum == max && heights == heightsManaged && Matches(source, isManaged)) return result;
             Clear(); world = source; managed = isManaged;
-            owner = player; x = bx; y = by; endX = ex; endY = ey; maximum = max;
+            owner = player; x = bx; y = by; endX = ex; endY = ey; maximum = max; heights = heightsManaged;
             // Publish the cached result only after a complete successful calculation.
-            result = WallAdmission.Evaluate(this, player, WallPolicy.Raster(this, bx, by, ex, ey, max), isManaged);
+            result = WallAdmission.Evaluate(this, player, WallPolicy.Raster(this, bx, by, ex, ey, max), isManaged, heightsManaged);
             return result;
         }
         public bool TryRead(int rx, int ry, out WallCell cell)

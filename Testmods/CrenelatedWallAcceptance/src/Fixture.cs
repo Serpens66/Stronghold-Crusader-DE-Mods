@@ -53,7 +53,7 @@ namespace CrenelatedWallAcceptance
         }
 
         internal IEnumerable<AutomationStep> Steps() => scenario == Plugin.EditorScenario ? EditorSteps() :
-            scenario == Plugin.TopologyScenario ? TopologySteps() : SkirmishSteps();
+            scenario == Plugin.TopologyScenario ? TopologySteps() : scenario == Plugin.HeightsScenario ? HeightsSteps() : scenario == Plugin.AiScenario ? AiSteps() : SkirmishSteps();
 
         private IEnumerable<AutomationStep> SkirmishSteps()
         {
@@ -74,11 +74,8 @@ namespace CrenelatedWallAcceptance
         // ---------- steps ----------
         private IEnumerable<AutomationWait> Start(AutomationRun run)
         {
-            object settings = WallSettings();
-            var property = settings.GetType().GetProperty("EnableMod");
-            property.SetValue(settings, true);
-            Require((bool)property.GetValue(settings), "CrenelatedWallTest EnableMod could not be set");
-            log("settings EnableMod=True map=4spielerkarte.map opponent=SK_RAT peace=none (lobby offers none; short run)");
+            SetSwitches(true, true, true);
+            log("settings map=4spielerkarte.map opponent=SK_RAT peace=none (lobby offers none; short run)");
             foreach (var wait in run.StartSkirmish("4spielerkarte.map", new[] { AILords.SK_RAT })) yield return wait;
         }
 
