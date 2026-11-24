@@ -61,19 +61,13 @@ namespace UiAcceptance
             var before = session.members.ToArray();
             Runner.Require(before.Length == 2 && session.CountHumanPlayers() == 2, "expected two humans before adding the test AI");
 
-            lobby.SkirmishAIAddClick("98"); // Open the built-in custom-lord picker.
-            var list = lobby.FindName("CustomLordList") as ListView;
-            Runner.Require(list?.ItemsSource != null, "custom lord picker is unavailable");
-            var rows = list.ItemsSource.Cast<object>().OfType<FileRow>()
-                .Where(row => string.Equals(row.lord?.lordName, lord, StringComparison.Ordinal)).ToArray();
-            Runner.Require(lord == TradingLord && rows.Length == 1 && !rows[0].lord.workshop &&
-                rows[0].lord.aivs.Count == 1 && rows[0].lord.configs.Count == 1,
-                "expected one local trading lord with exactly one AIV and one AIC: " + lord);
-            list.SelectedItem = rows[0];
-            lobby.ButtonClicked("AddCustomLord");
-            yield return new Until("the custom trading AI joined", () => session.members.Count == before.Length + 1);
-            var ai = session.members.Single(member => !before.Contains(member));
-            Runner.Require(ai.customLordName == lord && session.CountAIPlayers() == 1, "unexpected AI after adding " + lord);
+            var added = new Platform_Multiplayer.MPLobbyMember[1];
+            foreach (Wait wait in LobbySteps.AddCustomLord(lobby, lord, rows => lord == TradingLord && rows.Length == 1 &&
+                    !rows[0].lord.workshop && rows[0].lord.aivs.Count == 1 && rows[0].lord.configs.Count == 1,
+                "expected one local trading lord with exactly one AIV and one AIC: " + lord, "the custom trading AI joined", added))
+                yield return wait;
+            var ai = added[0];
+            Runner.Require(session.CountAIPlayers() == 1, "unexpected AI after adding " + lord);
 
             var host = before.Single(member => member.IsSelf());
             if (session.getTeam(ai) != session.getTeam(host))

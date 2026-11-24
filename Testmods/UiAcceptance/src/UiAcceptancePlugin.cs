@@ -27,9 +27,13 @@ namespace UiAcceptance
         internal static ManualLogSource Log;
         internal static Harmony Harmony;
         internal static IMissionLifecycleCapability Missions;
-        internal static long StartedSession, EndedSession;
+        internal static long StartedSession, EndedSession, StartedUtcTicks;
         internal static MissionContext LastContext;
         internal static int Ticks;
+        // Native map tick at NativeLoaded of a session: the save's own tick for a load, so it is the same
+        // on every MP peer and anchors relative fixture ticks ("+N"). AnchorTick is written before AnchorSession.
+        internal static long AnchorSession;
+        internal static int AnchorTick;
         private static bool initialized;
 
         private void Awake()
@@ -54,7 +58,7 @@ namespace UiAcceptance
                 Steps.RegisterAll();
                 var api = ApiShared.ForMod(Guid);
                 if (!api.TryGetMissionLifecycle(out Missions, out var diagnostic) ||
-                    !Missions.TryRegisterObserver("acceptance", OnStart, OnEnd, null, out diagnostic))
+                    !Missions.TryRegisterObserver("acceptance", OnStart, OnEnd, OnInitialization, out diagnostic))
                     throw new InvalidOperationException("Mission lifecycle unavailable: " + diagnostic.Reason);
                 SHCDESE.API.GameTimeManagerAPI.Instance.OnTick += tick => Interlocked.Increment(ref Ticks);
                 if (!api.Ui.TryRegisterBeforeRender("driver", Runner.Tick, out var frame, out string reason, 1000))
@@ -68,9 +72,23 @@ namespace UiAcceptance
         {
             if (notification.IsReplay) return;
             LastContext = notification.Context;
+            Interlocked.Exchange(ref StartedUtcTicks, DateTime.UtcNow.Ticks);
             Interlocked.Exchange(ref StartedSession, notification.Context.SessionId);
             AcceptLog.Info("Mission started session=" + notification.Context.SessionId + " save=" + notification.Context.IsSave +
                 " editor=" + notification.Context.IsEditor + " mode=" + notification.Context.Mode.ToDiagnosticString());
+        }
+
+        private static void OnInitialization(MissionLifecycleNotification notification)
+        {
+            if (notification.Phase != MissionInitializationPhase.NativeLoaded || notification.Context == null) return;
+            if (!APIShared.Simulation.SimulationClock.TryGetCurrentTick(notification.Context, out int tick))
+            {
+                AcceptLog.Warn("MISSION_ANCHOR unavailable session=" + notification.Context.SessionId);
+                return;
+            }
+            Volatile.Write(ref AnchorTick, tick);
+            Interlocked.Exchange(ref AnchorSession, notification.Context.SessionId);
+            AcceptLog.Info("MISSION_ANCHOR session=" + notification.Context.SessionId + " mapTick=" + tick + " save=" + notification.Context.IsSave);
         }
 
         private static void OnEnd(MissionLifecycleNotification notification)

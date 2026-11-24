@@ -22,6 +22,15 @@ any compiled nonpublic access): `EngineInterface.threadLock`, `FRONT_Multiplayer
 `View`, APIShared internals `IngameMenuActions.registry` and `UiWorkRuntime.scheduler`, and
 `Spectator.SpectatorPlugin.processRoot`. A missing member fails only the step that needs it.
 
+## Passive observer
+
+`ObserveSteps` only reads Script Extender interop fields inside `SimulationTickEvents`; it uses no RVA.
+Its gate interpretation follows the FBCB9319 Vanilla audit `DRAWBRIDGE_REGION_CLOSURE.md`: the gate
+closure 0xC4BF0 handles types 0x2D..0x2F (`STRUCT_GATE_MAIN/INNER/WOOD`) and treats the native WORD
+at interop 0x2A2 (`r_GateState | r_GateState2 << 8`) as closed when it is 2. After a DLL update,
+recheck that audit and the interop offsets of `r_GateState`, `r_GateDoNotCloseForTicks` (ExtraFeatures'
+manual marker -1) and `r_StoneQuarry_StockPileBuildingId`.
+
 ## Worker production integration acceptance
 
 `WorkerProductionSteps` is armed only by its two explicit local scenarios. It registers

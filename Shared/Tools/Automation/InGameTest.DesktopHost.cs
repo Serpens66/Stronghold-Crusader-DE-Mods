@@ -53,7 +53,9 @@ public static class InGameTestDesktopHost
     public static WindowInfo[] Windows(IntPtr desktop) {
         var result=new List<WindowInfo>();
         string desktopName=ObjectName(desktop);
+        bool visited=false;
         EnumWindow callback=delegate(IntPtr window,IntPtr unused) {
+            visited=true;
             uint pid; uint tid=GetWindowThreadProcessId(window,out pid);
             if(tid==0 || pid==0) return true; // A startup window may disappear during enumeration.
             var title=new StringBuilder(512); GetWindowTextW(window,title,512);
@@ -64,9 +66,10 @@ public static class InGameTestDesktopHost
         };
         if(!EnumDesktopWindows(desktop,callback,IntPtr.Zero)) {
             int error=Marshal.GetLastWin32Error();
-            // A fresh desktop can have no top-level windows yet; a false return with
-            // ERROR_SUCCESS is not a failure and must not abort the just-started game.
-            if(error!=0) throw new System.ComponentModel.Win32Exception(error);
+            // A fresh desktop can have no top-level windows yet. EnumDesktopWindows then returns
+            // false without visiting any window and may leave a stale last error (observed: 203).
+            // ObjectName above already validated the handle, so only a failure after a visit counts.
+            if(visited && error!=0) throw new System.ComponentModel.Win32Exception(error);
         }
         return result.ToArray();
     }

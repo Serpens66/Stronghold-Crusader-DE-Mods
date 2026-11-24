@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "quitWhenDone": false,
+  "series": "manual-observe-client",
+  "role": "client",
+  "steps": [
+    {"id":"menu","do":"WaitMainMenu","timeoutMs":300000,"allowErrors":true,"stopOnFail":true},
+    {"id":"no-fixes","do":"ExpectPlugin","args":["fixes","absent"]},
+    {"id":"extended-data","do":"ExpectPlugin","args":["ExtendedData_Serp","1.0.30"]},
+    {"id":"bugfixes","do":"ExpectPlugin","args":["BugfixesAndQoL_Serp","1.0.239"]},
+    {"id":"extra-features","do":"ExpectPlugin","args":["ExtraFeatures_Serp","1.0.140"]},
+    {"id":"observe","do":"Observe","args":["500"],"timeoutMs":86400000,"allowErrors":true}
+  ]
+}
