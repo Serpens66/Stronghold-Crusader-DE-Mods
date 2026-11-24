@@ -92,7 +92,7 @@ namespace UiAcceptance
         {
             int id = Gate(step.Arg(0));
             GateTile(id, out int x, out int y);
-            foreach (var wait in InputSteps.MoveNoesisMouseOverMap()) yield return wait;
+            yield return new Delay(300);
             AcceptLog.Info("GATE_CLICK_CONTEXT id=" + id + " " + ClickContext(x, y));
             foreach (var wait in InputSteps.ClickTile(x, y)) yield return wait;
             AcceptLog.Info("GATE_CLICK id=" + id + " tile=" + x + "," + y + " after: " + ClickContext(x, y));

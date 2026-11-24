@@ -45,21 +45,6 @@ namespace UiAcceptance
             foreach (var wait in ClickElement(element, step.Arg(0))) yield return wait;
         }
 
-        // Noesis keeps its last mouse position, so a map click right after a Noesis click would still count as over the UI.
-        // Moves Noesis' mouse (not the Windows cursor) through a few map points until the game no longer reports UI under it.
-        internal static IEnumerable<Wait> MoveNoesisMouseOverMap()
-        {
-            float[,] points = { { 0.5f, 0.33f }, { 0.5f, 0.5f }, { 0.25f, 0.3f }, { 0.75f, 0.3f }, { 0.3f, 0.55f }, { 0.7f, 0.55f } };
-            for (int index = 0; index < points.GetLength(0); index++)
-            {
-                int x = (int)(UnityEngine.Screen.width * points[index, 0]), y = (int)(UnityEngine.Screen.height * points[index, 1]);
-                NoesisView().MouseMove(x, y);
-                yield return new Delay(150);
-                if (EditorDirector.instance != null && !EditorDirector.instance.overUI()) { AcceptLog.Info("NOESIS_MOUSE_OVER_MAP at " + x + "," + y); yield break; }
-            }
-            throw new StepFailure("no map point without UI for the Noesis mouse");
-        }
-
         // A left click in the element's middle, sent to Noesis directly (the Windows cursor stays where it is).
         internal static IEnumerable<Wait> ClickElement(Noesis.FrameworkElement element, string name)
         {
@@ -81,6 +66,10 @@ namespace UiAcceptance
 
         // One left click on a game tile: preDLLCallActions publishes the tile, getMouseStateForEngine
         // the button state (1 = down, then 3 = up). Priority.First lets Spectator's own postfixes see it.
+        // Vanilla's overNoesisUI (EditorDirector.Update, FatControler.overNoesisGUI) hit-tests Noesis at the real Windows
+        // cursor (Input.mousePosition), which a map click does not move. During the click the preDLLCallActions postfix
+        // clears it for that pass, as a real click on the map would; otherwise the result depends on where the user's
+        // cursor happens to be, and on a hidden desktop it always counts as over the UI.
         private static int clickX = -1, clickY = -1, clickState;
         private static bool patched;
         private static IEnumerable<Wait> MapClick(Step step) => ClickTile(step.Int(0), step.Int(1));
@@ -105,9 +94,10 @@ namespace UiAcceptance
             yield return new Delay(200);
         }
 
-        private static void AfterPreDll(ref int mouseOverX, ref int mouseOverY)
+        private static void AfterPreDll(ref int mouseOverX, ref int mouseOverY, ref bool ___overNoesisUI)
         {
             if (clickX < 0) return;
+            ___overNoesisUI = false;
             mouseOverX = clickX; mouseOverY = clickY;
         }
 

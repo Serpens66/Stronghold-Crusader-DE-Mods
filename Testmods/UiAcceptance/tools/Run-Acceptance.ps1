@@ -15,7 +15,10 @@ param(
     [int]$StallSeconds = 180,
     # Host runs: writes the lobby ID from this run's "MP_HOST lobby=" line into the client's join file
     # (Steam friend status does not expose private lobbies).
-    [switch]$PublishLobbyToClient
+    [switch]$PublishLobbyToClient,
+    # Starts the game on a separate, never activated Win32 desktop (AGENTS/shell-windows.md): no visible window,
+    # no focus change and muted audio for the user. Needs the running Steam session; windowed 1280x720.
+    [switch]$HiddenDesktop
 )
 # Runs one UiAcceptance scenario on this PC (sp/host role): writes the [Run] config, starts the game
 # through Steam, waits until the scenario quits the game and saves the logs and screenshots before the
@@ -66,6 +69,16 @@ if ($PrepareClient) {
 }
 
 if (Get-Process -Name $process -ErrorAction SilentlyContinue) { throw 'The game is already running.' }
+if ($HiddenDesktop) {
+    if ($PublishLobbyToClient) { throw '-HiddenDesktop is for single-player runs.' }
+    if (-not (Get-Process -Name steam -ErrorAction SilentlyContinue)) { throw 'A hidden desktop run needs the running Steam session.' }
+    $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
+    if (-not ('InGameTestDesktopHost' -as [type])) { Add-Type -Path (Join-Path $workspace 'Shared/Tools/Automation/InGameTest.DesktopHost.cs') }
+    # The same machine-wide lock as Invoke-InGameTest and Run-PairedResync: one automated game test at a time.
+    $testMutex = [Threading.Mutex]::new($false, 'Local\SHCDE.InGameTest.3024040')
+    try { $mutexHeld = $testMutex.WaitOne(0) } catch [Threading.AbandonedMutexException] { $mutexHeld = $true }
+    if (-not $mutexHeld) { $testMutex.Dispose(); throw 'Another automated game test holds the game.' }
+}
 $quiet = (Get-Date).AddSeconds(60)
 while ((Get-Process -Name 'UnityCrashHandler64' -ErrorAction SilentlyContinue) -and (Get-Date) -lt $quiet) { Start-Sleep -Seconds 1 }
 Start-Sleep -Seconds 10
@@ -108,54 +121,113 @@ if (Test-Path -LiteralPath $modSettings) {
 if (Test-Path -LiteralPath $log) { [IO.File]::Delete($log) }
 $started = Get-Date
 $stalled = $false
+$hiddenPlayerLog = Join-Path $OutputDirectory ($Label + '_Player.log')
+$steamAppId = Join-Path $game 'steam_appid.txt'
+$createdSteamAppId = $false
+$desktop = [IntPtr]::Zero
+$instance = $null
 try {
     if ($Locale) {
         $extenderText = [Text.Encoding]::UTF8.GetString($extenderOriginal)
         $extenderText = Set-CfgValue $extenderText 'Visual' 'LanguageProvider' $Locale
         [IO.File]::WriteAllText($extenderConfig, $extenderText, (New-Object Text.UTF8Encoding($false)))
     }
-    Start-Process 'steam://rungameid/3024040'
-    $deadline = $started.AddSeconds($TimeoutSeconds)
-    $retryAt = (Get-Date).AddSeconds(45)
-    while (-not (Get-Process -Name $process -ErrorAction SilentlyContinue)) {
-        if ((Get-Date) -gt $deadline) { throw 'The game did not start.' }
-        if ($retryAt -and (Get-Date) -gt $retryAt) { $retryAt = $null; Start-Process 'steam://rungameid/3024040' }
-        Start-Sleep -Seconds 2
-    }
-    $published = $null
-    $joinFile = Join-Path $ClientRoot 'BepInEx\config\UiAcceptance\join-lobby.txt'
-    if ($PublishLobbyToClient -and (Test-Path -LiteralPath $joinFile)) { [IO.File]::Delete($joinFile) }
-    while (Get-Process -Name $process -ErrorAction SilentlyContinue) {
-        if ($PublishLobbyToClient -and -not $published -and (Test-Path -LiteralPath $log)) {
-            $hosted = Select-String -LiteralPath $log -Pattern 'MP_HOST lobby=(\d+)' | Select-Object -Last 1
-            if ($hosted) {
-                $published = $hosted.Matches[0].Groups[1].Value
-                [IO.File]::WriteAllText($joinFile, $published)
-                "published lobby $published to $joinFile"
+    if ($HiddenDesktop) {
+        # Valve's development start with the running Steam session (AppID 3024040); a file the user had stays.
+        if ([IO.File]::Exists($steamAppId)) {
+            if ([IO.File]::ReadAllText($steamAppId).Trim() -cne '3024040') { throw 'steam_appid.txt names another application.' }
+        } else { [IO.File]::WriteAllText($steamAppId, "3024040`r`n", (New-Object Text.UTF8Encoding($false))); $createdSteamAppId = $true }
+        # Muted for this run only; settings.cfg is restored byte-exact below.
+        $text = [IO.File]::ReadAllText($settings)
+        foreach ($volume in @('MasterVolume', 'SFXVolume', 'SpeechVolume', 'UnitSpeechVolume', 'MusicVolume')) {
+            $pattern = '(?m)^' + $volume + ':[^\r\n]*'
+            if ([regex]::Matches($text, $pattern).Count -ne 1) { throw "Expected exactly one audio setting: $volume" }
+            $text = [regex]::Replace($text, $pattern, ($volume + ':0'))
+        }
+        [IO.File]::WriteAllText($settings, $text, (New-Object Text.UTF8Encoding($false)))
+        $inputDesktop = [InGameTestDesktopHost]::InputDesktop()
+        $desktopName = 'SerpTest_' + ($Label -replace '[^A-Za-z0-9_-]', '_')
+        $desktop = [InGameTestDesktopHost]::CreateDesktopW($desktopName, [IntPtr]::Zero, [IntPtr]::Zero, 0, 0xC3, [IntPtr]::Zero)
+        if ($desktop -eq [IntPtr]::Zero) { throw [ComponentModel.Win32Exception]::new() }
+        $arguments = '-screen-fullscreen 0 -screen-width 1280 -screen-height 720 -logFile "' + $hiddenPlayerLog + '"'
+        $instance = [InGameTestDesktopHost]::Start((Join-Path $game ($process + '.exe')), $arguments, $game, $desktopName)
+        "[{0:HH:mm:ss.fff}] started PID {1} on hidden desktop {2}" -f (Get-Date), $instance.Id, $desktopName
+        $deadline = $started.AddSeconds($TimeoutSeconds)
+        $windowSeen = $false
+        # Checked every 100 ms: the user's input desktop stays active and never receives a game window; any other
+        # game process (for example a Steam relaunch on the user's desktop) aborts the run.
+        while (-not $instance.WaitForExit(100)) {
+            if ([InGameTestDesktopHost]::InputDesktop() -cne $inputDesktop -or [InGameTestDesktopHost]::HasInputWindow($instance.Id)) {
+                $instance.Kill(); throw 'The game reached the input desktop; run aborted.'
+            }
+            if (@(Get-Process -Name $process -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $instance.Id }).Count) {
+                $instance.Kill(); throw 'A second game process appeared; run aborted.'
+            }
+            if (-not $windowSeen) {
+                $windowSeen = @([InGameTestDesktopHost]::Windows($desktop) | Where-Object { $_.Pid -eq $instance.Id }).Count -gt 0
+                if ($windowSeen) { "[{0:HH:mm:ss.fff}] game window confirmed on {1}" -f (Get-Date), $desktopName }
+                elseif (((Get-Date) - $started).TotalSeconds -gt 80) { $instance.Kill(); throw 'No game window appeared on the hidden desktop.' }
+            }
+            $now = Get-Date
+            if ($now -gt $deadline -or ($StallSeconds -gt 0 -and (Test-Path -LiteralPath $log) -and
+                ($now - (Get-Item -LiteralPath $log).LastWriteTime).TotalSeconds -gt $StallSeconds -and
+                ($now - $started).TotalSeconds -gt $StallSeconds)) {
+                $instance.Kill(); $stalled = $true; break
             }
         }
-        if ((Get-Date) -gt $deadline) {
-            Get-Process -Name $process -ErrorAction SilentlyContinue | Stop-Process -Force -Confirm:$false
-            $stalled = $true; break
+        [void]$instance.WaitForExit(15000)
+    }
+    else {
+        Start-Process 'steam://rungameid/3024040'
+        $deadline = $started.AddSeconds($TimeoutSeconds)
+        $retryAt = (Get-Date).AddSeconds(45)
+        while (-not (Get-Process -Name $process -ErrorAction SilentlyContinue)) {
+            if ((Get-Date) -gt $deadline) { throw 'The game did not start.' }
+            if ($retryAt -and (Get-Date) -gt $retryAt) { $retryAt = $null; Start-Process 'steam://rungameid/3024040' }
+            Start-Sleep -Seconds 2
         }
-        if ($StallSeconds -gt 0 -and (Test-Path -LiteralPath $log) -and
-            ((Get-Date) - (Get-Item -LiteralPath $log).LastWriteTime).TotalSeconds -gt $StallSeconds -and
-            ((Get-Date) - $started).TotalSeconds -gt $StallSeconds) {
-            Get-Process -Name $process -ErrorAction SilentlyContinue | Stop-Process -Force -Confirm:$false
-            $stalled = $true; break
-        }
-        Start-Sleep -Seconds 2
-        if (-not (Get-Process -Name $process -ErrorAction SilentlyContinue)) {
-            # Steam can end the first game process and start a second one a few seconds later. Restoring
-            # settings in that gap let the second process run the scenario unsupervised on 08.11.2026 and
-            # overwrite personal settings, so only a sustained absence counts as the end of the run.
-            $relaunchUntil = (Get-Date).AddSeconds(20)
-            while (-not (Get-Process -Name $process -ErrorAction SilentlyContinue) -and (Get-Date) -lt $relaunchUntil) { Start-Sleep -Seconds 1 }
+        $published = $null
+        $joinFile = Join-Path $ClientRoot 'BepInEx\config\UiAcceptance\join-lobby.txt'
+        if ($PublishLobbyToClient -and (Test-Path -LiteralPath $joinFile)) { [IO.File]::Delete($joinFile) }
+        while (Get-Process -Name $process -ErrorAction SilentlyContinue) {
+            if ($PublishLobbyToClient -and -not $published -and (Test-Path -LiteralPath $log)) {
+                $hosted = Select-String -LiteralPath $log -Pattern 'MP_HOST lobby=(\d+)' | Select-Object -Last 1
+                if ($hosted) {
+                    $published = $hosted.Matches[0].Groups[1].Value
+                    [IO.File]::WriteAllText($joinFile, $published)
+                    "published lobby $published to $joinFile"
+                }
+            }
+            if ((Get-Date) -gt $deadline) {
+                Get-Process -Name $process -ErrorAction SilentlyContinue | Stop-Process -Force -Confirm:$false
+                $stalled = $true; break
+            }
+            if ($StallSeconds -gt 0 -and (Test-Path -LiteralPath $log) -and
+                ((Get-Date) - (Get-Item -LiteralPath $log).LastWriteTime).TotalSeconds -gt $StallSeconds -and
+                ((Get-Date) - $started).TotalSeconds -gt $StallSeconds) {
+                Get-Process -Name $process -ErrorAction SilentlyContinue | Stop-Process -Force -Confirm:$false
+                $stalled = $true; break
+            }
+            Start-Sleep -Seconds 2
+            if (-not (Get-Process -Name $process -ErrorAction SilentlyContinue)) {
+                # Steam can end the first game process and start a second one a few seconds later. Restoring
+                # settings in that gap let the second process run the scenario unsupervised on 08.11.2026 and
+                # overwrite personal settings, so only a sustained absence counts as the end of the run.
+                $relaunchUntil = (Get-Date).AddSeconds(20)
+                while (-not (Get-Process -Name $process -ErrorAction SilentlyContinue) -and (Get-Date) -lt $relaunchUntil) { Start-Sleep -Seconds 1 }
+            }
         }
     }
     Start-Sleep -Seconds 3
 }
 finally {
+    if ($HiddenDesktop) {
+        # Only our own process; then the desktop, a steam_appid.txt this run created, and the shared test lock.
+        if ($instance -and -not $instance.HasExited) { try { $instance.Kill(); [void]$instance.WaitForExit(15000) } catch { } }
+        if ($desktop -ne [IntPtr]::Zero) { [void][InGameTestDesktopHost]::CloseDesktop($desktop) }
+        if ($createdSteamAppId -and [IO.File]::Exists($steamAppId)) { [IO.File]::Delete($steamAppId) }
+        if ($testMutex) { $testMutex.ReleaseMutex(); $testMutex.Dispose() }
+    }
     if ($Locale) { [IO.File]::WriteAllBytes($extenderConfig, $extenderOriginal) }
     # The game may rewrite settings.cfg on exit; restore the original bytes exactly in every case.
     [IO.File]::WriteAllBytes($settings, $settingsOriginal)
@@ -175,7 +247,7 @@ foreach ($entry in $settingsBackup.GetEnumerator()) {
 }
 $savedLog = Join-Path $OutputDirectory ($Label + '_LogOutput.log')
 Copy-Item -LiteralPath $log -Destination $savedLog
-Copy-Item -LiteralPath (Join-Path $playerDir 'Player.log') -Destination (Join-Path $OutputDirectory ($Label + '_Player.log'))
+if (-not $HiddenDesktop) { Copy-Item -LiteralPath (Join-Path $playerDir 'Player.log') -Destination $hiddenPlayerLog }
 if (Test-Path -LiteralPath $shots) { Get-ChildItem -LiteralPath $shots -Filter ($Label + '_*.png') | Copy-Item -Destination $OutputDirectory }
 $restored = [Linq.Enumerable]::SequenceEqual([byte[]]$settingsOriginal, [byte[]][IO.File]::ReadAllBytes($settings))
 $localeRestored = -not $Locale -or [Linq.Enumerable]::SequenceEqual([byte[]]$extenderOriginal, [byte[]][IO.File]::ReadAllBytes($extenderConfig))

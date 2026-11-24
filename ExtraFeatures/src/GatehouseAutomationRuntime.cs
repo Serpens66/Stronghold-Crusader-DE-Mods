@@ -25,6 +25,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
 using System.Reflection;
+using System.Threading;
 using UnityEngine;
 
 namespace ExtraFeatures
@@ -78,7 +79,6 @@ namespace ExtraFeatures
         private EditorPlayerActionDelegate editorPlayerTrampoline;
         private IDisposable buildingDeleteSubscription;
         private IDisposable buildingSpawnSubscription;
-        private string lastVisibilityState;
         private BuildingPanelSectionRegistration panelSection;
 
         public GatehouseAutomationRuntime(
@@ -237,55 +237,76 @@ namespace ExtraFeatures
             return button;
         }
 
-        // Every GUI check while a gate panel is open; read the state without allocating on the common paths.
+        private enum GateButtonState { Visible, SavedMapPending, AutomationUnavailable, ModDisabled, MapInactive, ChoreUnavailable, NotOwnedGate }
+
+        // Unity thread. The gate check of the current showing: APIShared hands out a new context instance for any other
+        // building, owner, presenter, viewpoint or HUD, and none for a destroyed building, so the lookup (a path-record
+        // search for gatehouses) runs once per showing and acting player, not on every GUI check. Click and execution
+        // validate again in full.
+        private BuildingPanelContext checkedGateContext;
+        private int checkedGatePlayer;
+        private bool checkedGateOwned;
+        private BuildingPanelContext loggedButtonContext;
+        private GateButtonState loggedButtonState;
+
+        // Every GUI check while a gate panel is open: plain field reads, no lookups or strings on the common paths.
         private bool ShowButtonFor(BuildingPanelContext context)
         {
-            if (loadedMapStatePending)
+            GateButtonState state = ButtonReadiness(context);
+            if (state == GateButtonState.Visible)
             {
-                LogVisibilityState("hidden: saved-map-pending");
-                return false;
-            }
-            if (!ManualControlAvailable)
-            {
-                LogVisibilityState("hidden: native-automation-unavailable");
-                return false;
-            }
-            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
-            {
-                LogVisibilityState("hidden: mod-disabled");
-                return false;
-            }
-            if (!mapActive)
-            {
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogVisibilityState($"hidden: map-inactive, editor={IsMapEditor()}");
-                return false;
-            }
-            // A presented gate runs through its presenter's transport; the local switch needs our own Chore.
-            if (!context.IsPresented && multiplayerFeatureGate.BlocksLocalStateChanges && !IsChoreTransportReady())
-            {
-                LogVisibilityState("hidden: multiplayer-chore-unavailable");
-                return false;
-            }
-
-            int playerId = ActingPlayer(context);
-            if (!TryGetOwnedGatehouse(context.BuildingId, playerId, out GameBuilding* building, out string failure) ||
-                building->r_GlobalId != context.GlobalId)
-            {
-                if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogVisibilityState($"hidden: editor={IsMapEditor()}, playerId={playerId}, buildingId={context.BuildingId}, presented={context.IsPresented}, reason={failure}, selection={DescribeBuilding(context.BuildingId)}");
-                return false;
+                int playerId = ActingPlayer(context);
+                if (!ReferenceEquals(context, checkedGateContext) || playerId != checkedGatePlayer)
+                {
+                    checkedGateOwned = IsOwnedGatehouse(context.BuildingId, playerId, context.GlobalId);
+                    checkedGateContext = context;
+                    checkedGatePlayer = playerId;
+                }
+                if (!checkedGateOwned)
+                    state = GateButtonState.NotOwnedGate;
             }
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                LogVisibilityState($"visible: editor={IsMapEditor()}, playerId={playerId}, buildingId={context.BuildingId}, presented={context.IsPresented}, globalId={context.GlobalId}");
-            return true;
+                LogButtonVisibility(state, context);
+            return state == GateButtonState.Visible;
         }
 
+        private GateButtonState ButtonReadiness(BuildingPanelContext context)
+        {
+            if (loadedMapStatePending) return GateButtonState.SavedMapPending;
+            if (!ManualControlAvailable) return GateButtonState.AutomationUnavailable;
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod)) return GateButtonState.ModDisabled;
+            if (!mapActive) return GateButtonState.MapInactive;
+            // A presented gate runs through its presenter's transport; the local switch needs our own Chore.
+            if (!context.IsPresented && multiplayerFeatureGate.BlocksLocalStateChanges && !IsChoreTransportReady())
+                return GateButtonState.ChoreUnavailable;
+            return GateButtonState.Visible;
+        }
+
+        // Diagnostics only, and only when the state or the showing changed.
+        private void LogButtonVisibility(GateButtonState state, BuildingPanelContext context)
+        {
+            if (state == loggedButtonState && ReferenceEquals(context, loggedButtonContext))
+                return;
+            loggedButtonState = state;
+            loggedButtonContext = context;
+            {
+                // Captures inside this block, so the compiler allocates the closure only after the early return.
+                string text = $"{state}: editor={IsMapEditor()}, playerId={ActingPlayer(context)}, buildingId={context.BuildingId}, " +
+                    $"globalId={context.GlobalId}, presented={context.IsPresented}" +
+                    (state == GateButtonState.NotOwnedGate ? ", selection=" + DescribeBuilding(context.BuildingId) : string.Empty);
+                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures.GatehouseVisibility", () => $"Extra Features gatehouse button visibility: {text}.");
+            }
+        }
+
+        // A live gatehouse or drawbridge of the player with this identity, without building a failure text.
+        private static bool IsOwnedGatehouse(int buildingId, int playerId, uint globalId) =>
+            TryGetLiveGatehouse(buildingId, out GameBuilding* building, out _) && building->r_PlayerIdOwner == playerId &&
+            building->r_GlobalId == globalId && globalId != 0 && globalId <= int.MaxValue;
+
+        // Every GUI check of a showing: the published, immutable set of manual gates, read without the state lock.
         private void ShowButtonState(BuildingPanelSectionEventArgs args)
         {
-            bool automaticEnabled;
-            lock (stateLock)
-                automaticEnabled = !manualOnlyGateGlobalIds.Contains((int)args.Context.GlobalId);
+            bool automaticEnabled = !Volatile.Read(ref manualGateIdsSnapshot).Contains((int)args.Context.GlobalId);
             buttonViewModel.Show(automaticEnabled, args.Context.BuildingType == eStructs.STRUCT_DRAWBRIDGE);
         }
 
@@ -1033,7 +1054,7 @@ namespace ExtraFeatures
             mapActive = false;
             editorSessionActive = false;
             loadedMapStatePending = false;
-            lastVisibilityState = null;
+            loggedButtonContext = null;
             firstQueryLogged = false;
             failureLogs = 0;
         }
@@ -1132,19 +1153,6 @@ namespace ExtraFeatures
             if (!global::APIShared.BuildingAccess.TryGetById(buildingId, out GameBuilding* building, out _) || building == null)
                 return "unresolvable";
             return $"type={building->r_BuildingType},alive={building->r_AliveState},owner={building->r_PlayerIdOwner},globalId={building->r_GlobalId}";
-        }
-
-        private void LogVisibilityState(string state)
-        {
-            if (string.Equals(lastVisibilityState, state, StringComparison.Ordinal))
-                return;
-            lastVisibilityState = state;
-            if (Shared.DebugLogHelper.DiagnosticsEnabled)
-            {
-                // Keep captures inside the enabled scope; otherwise the compiler can allocate them before the guard.
-                var diagnosticState = @state;
-                Shared.DebugLogHelper.LogDebugLimited(log, "ExtraFeatures.GatehouseVisibility", () => $"Extra Features gatehouse button visibility: {diagnosticState}.");
-            }
         }
 
         private void LogFailure(string message)
