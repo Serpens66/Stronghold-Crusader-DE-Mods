@@ -75,8 +75,6 @@ Tools.SelectHelp=Right click = Keep; Middle click = Lord
 Tools.SelectTarget=Select a target below.
 Tools.StopPlacement=Stop placing
 
-Tools.GateAutomatic=Automatic gate control enabled.
-Tools.GateFixed=Manual gate control enabled.
 Tools.PowerCancelled=Power action cancelled.
 
 Tools.ResetAmountHelp=Reset the amount to 0.

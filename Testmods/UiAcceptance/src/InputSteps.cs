@@ -42,13 +42,34 @@ namespace UiAcceptance
         {
             Noesis.FrameworkElement element = null;
             yield return new Until("element " + step.Arg(0), () => (element = GameXAMLManagerAPI.Instance.FindGlobalElement(step.Arg(0))) != null && element.IsVisible);
+            foreach (var wait in ClickElement(element, step.Arg(0))) yield return wait;
+        }
+
+        // Noesis keeps its last mouse position, so a map click right after a Noesis click would still count as over the UI.
+        // Moves Noesis' mouse (not the Windows cursor) through a few map points until the game no longer reports UI under it.
+        internal static IEnumerable<Wait> MoveNoesisMouseOverMap()
+        {
+            float[,] points = { { 0.5f, 0.33f }, { 0.5f, 0.5f }, { 0.25f, 0.3f }, { 0.75f, 0.3f }, { 0.3f, 0.55f }, { 0.7f, 0.55f } };
+            for (int index = 0; index < points.GetLength(0); index++)
+            {
+                int x = (int)(UnityEngine.Screen.width * points[index, 0]), y = (int)(UnityEngine.Screen.height * points[index, 1]);
+                NoesisView().MouseMove(x, y);
+                yield return new Delay(150);
+                if (EditorDirector.instance != null && !EditorDirector.instance.overUI()) { AcceptLog.Info("NOESIS_MOUSE_OVER_MAP at " + x + "," + y); yield break; }
+            }
+            throw new StepFailure("no map point without UI for the Noesis mouse");
+        }
+
+        // A left click in the element's middle, sent to Noesis directly (the Windows cursor stays where it is).
+        internal static IEnumerable<Wait> ClickElement(Noesis.FrameworkElement element, string name)
+        {
             Noesis.Point center = element.PointToScreen(new Noesis.Point((float)element.ActualWidth / 2, (float)element.ActualHeight / 2));
             int x = (int)center.X, y = (int)center.Y;
             NoesisView view = NoesisView();
             view.MouseMove(x, y);
             view.MouseButtonDown(x, y, Noesis.MouseButton.Left);
             view.MouseButtonUp(x, y, Noesis.MouseButton.Left);
-            AcceptLog.Info("NOESIS_CLICK " + step.Arg(0) + " at " + x + "," + y);
+            AcceptLog.Info("NOESIS_CLICK " + name + " at " + x + "," + y);
             yield return new Delay(200);
         }
 
@@ -77,7 +98,8 @@ namespace UiAcceptance
             }
             clickX = x; clickY = y;
             clickState = 1;
-            yield return new Until("engine read the button-down", () => clickState == 3);
+            // At high speed the engine can read down and up between two frames: wait until it left the down state.
+            yield return new Until("engine read the button-down", () => clickState != 1);
             yield return new Until("engine read the button-up", () => clickState == 0);
             clickX = clickY = -1;
             yield return new Delay(200);

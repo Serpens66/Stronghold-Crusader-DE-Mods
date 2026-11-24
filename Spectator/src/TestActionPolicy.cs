@@ -3,7 +3,7 @@ using System.Globalization;
 
 namespace Spectator
 {
-    internal enum TestActionKind { Credit, Attack, Defend, Cancel, Power, Gate, GateAutomation, PowerToggle }
+    internal enum TestActionKind { Credit, Attack, Defend, Cancel, Power, Gate, BuildingAction, PowerToggle }
     internal enum CreditFailure { None, NegativeBalance, Overflow, Postcondition, Provider }
 
     // Pure policy used by both the runtime and its independent behavioral checks.

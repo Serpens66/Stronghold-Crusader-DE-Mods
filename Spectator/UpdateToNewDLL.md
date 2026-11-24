@@ -152,24 +152,16 @@ button sprites and optional button bindings are restored; never snapshot the
 whole visual tree or restore old HUD flags. Without a newer transition, release
 routes through the current PlayState's Vanilla HUD method. Placement explicitly
 opens the main/editor HUD before selecting a supported build page.
-The Extender-registered automation host DataContext is never overwritten: its
-visibility binding has an explicit test-model Source, and only its child button
-receives the test DataContext. A HUD replacement never restores flags into
+A HUD replacement never restores flags into
 its new instance. The test toolbar follows global UI visibility, not a particular
 bottom HUD tab. Native building selection and global player identity stay intact.
 
-ExtraFeatures 1.0.114 and 1.0.115 supply the optional existing gate/bridge button host and
-viewmodel. The encapsulated internal adapter verifies version/member contracts,
-uses `IsManualOnlyBuilding` and `ApplyManualState(player,global,automatic,source)`,
-and preserves the provider's native-ready, map-ready, loading, enabled and mode
-gates. Only the test viewmodel command changes; the provider retains its sole
-resolver and persistence. Unknown versions hide the integration, not direct
-gate commands. Re-audit this internal adapter when ExtraFeatures changes.
-The activation predicate is internal static bool IsEnabled(bool), resolved with
-NonPublic/Static flags and cached once along with the readiness field contracts.
-A provider refresh failure latches the optional adapter off and hides its button;
-later frames must not throw again or format another stack trace. Regression tests
-match the installed access modifier and exercise 1000 frames after a failure.
+The test gate panel is an APIShared building panel presenter (`test-gate-panel`, APIShared
+0.73.0): while it is acquired it reports the selected gate and its AI owner, so building panel
+sections of other mods (ExtraFeatures' automation switch) show for that gate with their own
+readiness rules. Their owner actions arrive as `BuildingActionRequest`s, are queued as test
+actions and run offline under the engine lock through `BuildingActions.TryExecute`, which
+validates the building again. Spectator reads no other mod's internals.
 
 
 Validation: production-generator tests execute real installed RedBird hooks on

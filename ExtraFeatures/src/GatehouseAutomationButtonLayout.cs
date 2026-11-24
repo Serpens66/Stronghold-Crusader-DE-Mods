@@ -1,0 +1,80 @@
+// Feature: layout of the gatehouse/drawbridge automation button, an APIShared building panel section.
+namespace ExtraFeatures
+{
+    internal static class GatehouseAutomationButtonLayout
+    {
+        // The former HUD_Buildings patch's button: the section host is laid out like Vanilla's 800x170 gate and
+        // drawbridge panels (ShowGate, ShowDrawbridge), so the same margin and alignment keep the same position. The names
+        // stay for UI automation (one section serves gatehouses and drawbridges).
+        internal const string Xaml = @"<Grid x:Name=""ExtraFeaturesGatehouseAutomationButtonHost""
+      xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation""
+xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml""
+xmlns:extraFeaturesApi=""clr-namespace:APIShared.ModSettings;assembly=APIShared""
+      Width=""57""
+      Height=""57""
+      Margin=""0,100,600,0""
+      HorizontalAlignment=""Right""
+      VerticalAlignment=""Top""
+      Visibility=""{Binding ButtonVisibility}"">
+  <Grid.Resources>
+    <Style x:Key=""ModSettingsToolTipStyle"" TargetType=""{x:Type ToolTip}"">
+      <Setter Property=""Background"" Value=""#FF1D1710""/>
+      <Setter Property=""Foreground"" Value=""White""/>
+      <Setter Property=""BorderBrush"" Value=""#FFF2D48A""/>
+      <Setter Property=""FontSize"" Value=""{x:Static extraFeaturesApi:ToolTipPresentation.AutomaticFontSize}""/>
+      <Setter Property=""MaxWidth"" Value=""{x:Static extraFeaturesApi:ToolTipPresentation.AutomaticMaximumWidth}""/>
+      <Setter Property=""Padding"" Value=""24,18""/>
+      <Setter Property=""BorderThickness"" Value=""4.5""/>
+      <Setter Property=""Template"">
+        <Setter.Value>
+          <ControlTemplate TargetType=""{x:Type ToolTip}"">
+            <Border Background=""{TemplateBinding Background}"" BorderBrush=""{TemplateBinding BorderBrush}""
+                    BorderThickness=""{TemplateBinding BorderThickness}"" CornerRadius=""2""
+                    Padding=""{TemplateBinding Padding}"" MaxWidth=""{TemplateBinding MaxWidth}"">
+              <TextBlock Text=""{TemplateBinding Content}"" Foreground=""{TemplateBinding Foreground}""
+                         FontSize=""{TemplateBinding FontSize}"" TextWrapping=""Wrap""/>
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </Grid.Resources>
+  <Button x:Name=""ExtraFeaturesGatehouseAutomationButton""
+          Width=""57""
+          Height=""57""
+          Margin=""0""
+          Padding=""0""
+          Command=""{Binding ToggleCommand}""
+          ToolTipService.ShowDuration=""60000""
+          Background=""#DD1B1B1B""
+          BorderBrush=""#FFB08A4A""
+          BorderThickness=""2"">
+    <Button.ToolTip>
+      <ToolTip Style=""{StaticResource ModSettingsToolTipStyle}"" extraFeaturesApi:SharedToolTipSizing.Enabled=""True""
+               Content=""{Binding ToolTipText}""/>
+    </Button.ToolTip>
+    <Grid Width=""53"" Height=""53"">
+      <Image Width=""49""
+             Height=""49""
+             HorizontalAlignment=""Center""
+             VerticalAlignment=""Center""
+             Stretch=""Uniform""
+             Source=""{Binding IconImageSource}""
+             Opacity=""{Binding IconOpacity}""/>
+      <Border Width=""48""
+              Height=""5""
+              HorizontalAlignment=""Center""
+              VerticalAlignment=""Center""
+              Background=""#FFFF9C38""
+              BorderBrush=""#FF2A1608""
+              BorderThickness=""1""
+              Visibility=""{Binding ManualIndicatorVisibility}"">
+        <Border.RenderTransform>
+          <RotateTransform Angle=""-42""/>
+        </Border.RenderTransform>
+      </Border>
+    </Grid>
+  </Button>
+</Grid>";
+    }
+}

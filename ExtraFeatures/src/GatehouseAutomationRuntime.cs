@@ -2,6 +2,7 @@ using APIShared.GameModes;
 // Feature: Reachability-aware and per-building manual gatehouse automation.
 using APIShared;
 using APIShared.Buildings;
+using APIShared.Presentation;
 using APIShared.Simulation;
 using BepInEx.Logging;
 using CrusaderDE;
@@ -35,6 +36,14 @@ namespace ExtraFeatures
         private const string SaveDataIdentifier = "serp-extrafeatures-gatehouse-automation-v1";
         private const string AutomationIconAssetPath = "Assets/GUI/Sprites/ExtraFeatures_GatehouseAutomation.png";
         private const int ChoreProtocolVersion = 1;
+        // Public identities: other mods address the switch as BuildingActions (PluginGuid, GateAutomaticAction).
+        private const string GateAutomationSection = "gate-automation";
+        internal const string GateAutomaticAction = "gate-automatic";
+        private static readonly eStructs[] GateTypes =
+        {
+            eStructs.STRUCT_GATE_MAIN, eStructs.STRUCT_GATE_INNER, eStructs.STRUCT_GATE_WOOD,
+            eStructs.STRUCT_GATE_POSTERN, eStructs.STRUCT_GATEHOUSE, eStructs.STRUCT_DRAWBRIDGE
+        };
         private const int MaximumFailureLogs = 20;
 
         private readonly ManualLogSource log;
@@ -67,10 +76,10 @@ namespace ExtraFeatures
         private BuildingHudActionDelegate buildingHudTrampoline;
         private Hook editorPlayerHook;
         private EditorPlayerActionDelegate editorPlayerTrampoline;
-        private MainViewModel observedHudViewModel;
         private IDisposable buildingDeleteSubscription;
         private IDisposable buildingSpawnSubscription;
         private string lastVisibilityState;
+        private BuildingPanelSectionRegistration panelSection;
 
         public GatehouseAutomationRuntime(
             ManualLogSource log,
@@ -80,10 +89,8 @@ namespace ExtraFeatures
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             this.multiplayerFeatureGate = multiplayerFeatureGate ?? throw new ArgumentNullException(nameof(multiplayerFeatureGate));
-            buttonViewModel = new GatehouseAutomationButtonViewModel(ToggleSelectedGatehouse);
+            buttonViewModel = new GatehouseAutomationButtonViewModel(ToggleShownGatehouse);
         }
-
-        public object ButtonViewModel => buttonViewModel;
 
         public void Initialize()
         {
@@ -165,7 +172,7 @@ namespace ExtraFeatures
             else if (!loadedMapStatePending)
                 ReleaseManualGateTimers();
 
-            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(RefreshButtonVisibility);
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(RefreshHudStateSafely);
         }
 
         public void BeginMap()
@@ -177,7 +184,7 @@ namespace ExtraFeatures
             editorSessionActive = false;
             ResolvePendingMapLocators(removeUnresolved: true);
             ReconcileManualGateTimers(removeMissing: true);
-            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(RefreshButtonVisibilitySafely);
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(RefreshHudStateSafely);
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
                 LogInfo($"gatehouse map state {(wasActive ? "resumed" : "started")}: manualOnly={ManualOnlyCount()}.");
         }
@@ -193,59 +200,112 @@ namespace ExtraFeatures
             ResetMapState();
         }
 
-        public void RefreshButtonVisibility()
+        // HUD changes still resolve editor map locators; the button itself follows the APIShared section callbacks.
+        public void RefreshHudState()
         {
             TryLoadButtonIcon();
+            if (!loadedMapStatePending)
+                RefreshEditorReadiness();
+        }
+
+        // Unity thread after Script Extender readiness. The switch is an APIShared building panel section at the position of
+        // the former HUD_Buildings patch, and an APIShared building action that presenters (a spectator tool, foreign control)
+        // run for the gate's owner instead of reflecting into this runtime.
+        public void RegisterPanel()
+        {
+            if (panelSection != null)
+                return;
+            var options = new BuildingPanelSectionOptions(ExtraFeaturesPlugin.PluginGuid, GateAutomationSection, GateTypes, CreateButton)
+            {
+                ShowWhen = ShowButtonFor,
+                Opened = ShowButtonState,
+                Updated = ShowButtonState,
+                Closed = _ => buttonViewModel.Hide()
+            };
+            if (!BuildingPanelSections.TryRegister(options, out panelSection, out string reason))
+                LogError($"gatehouse automation button unavailable: {reason}.");
+            if (!BuildingActions.TryRegister(new BuildingActionOptions(ExtraFeaturesPlugin.PluginGuid, GateAutomaticAction,
+                    GateTypes, ExecuteGateAction), out reason))
+                LogError($"gatehouse automation action unavailable: {reason}.");
+        }
+
+        private FrameworkElement CreateButton(BuildingPanelSectionFactoryContext context)
+        {
+            TryLoadButtonIcon();
+            var button = (FrameworkElement)GUI.ParseXaml(GatehouseAutomationButtonLayout.Xaml);
+            button.DataContext = buttonViewModel;
+            return button;
+        }
+
+        // Every GUI check while a gate panel is open; read the state without allocating on the common paths.
+        private bool ShowButtonFor(BuildingPanelContext context)
+        {
             if (loadedMapStatePending)
             {
-                buttonViewModel.Hide();
                 LogVisibilityState("hidden: saved-map-pending");
-                return;
+                return false;
             }
-            RefreshEditorReadiness();
             if (!ManualControlAvailable)
             {
-                buttonViewModel.Hide();
                 LogVisibilityState("hidden: native-automation-unavailable");
-                return;
+                return false;
             }
             if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
             {
-                buttonViewModel.Hide();
                 LogVisibilityState("hidden: mod-disabled");
-                return;
+                return false;
             }
             if (!mapActive)
             {
-                buttonViewModel.Hide();
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
                     LogVisibilityState($"hidden: map-inactive, editor={IsMapEditor()}");
-                return;
+                return false;
             }
-            if (multiplayerFeatureGate.BlocksLocalStateChanges && !IsChoreTransportReady())
+            // A presented gate runs through its presenter's transport; the local switch needs our own Chore.
+            if (!context.IsPresented && multiplayerFeatureGate.BlocksLocalStateChanges && !IsChoreTransportReady())
             {
-                buttonViewModel.Hide();
                 LogVisibilityState("hidden: multiplayer-chore-unavailable");
-                return;
+                return false;
             }
 
-            int localPlayerId = ControlledPlayer.GetId();
-            int selectedBuildingId = GamePlayerManagerAPI.Instance.GetSelectedBuildingId();
-            if (!TryGetOwnedGatehouse(selectedBuildingId, localPlayerId, out GameBuilding* building, out string failure))
+            int playerId = ActingPlayer(context);
+            if (!TryGetOwnedGatehouse(context.BuildingId, playerId, out GameBuilding* building, out string failure) ||
+                building->r_GlobalId != context.GlobalId)
             {
-                buttonViewModel.Hide();
-                // Runs on every HUD action; build the diagnostic text only when it is logged.
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                    LogVisibilityState($"hidden: editor={IsMapEditor()}, playerId={localPlayerId}, selectedBuildingId={selectedBuildingId}, reason={failure}, selection={DescribeBuilding(selectedBuildingId)}");
-                return;
+                    LogVisibilityState($"hidden: editor={IsMapEditor()}, playerId={playerId}, buildingId={context.BuildingId}, presented={context.IsPresented}, reason={failure}, selection={DescribeBuilding(context.BuildingId)}");
+                return false;
             }
+            if (Shared.DebugLogHelper.DiagnosticsEnabled)
+                LogVisibilityState($"visible: editor={IsMapEditor()}, playerId={playerId}, buildingId={context.BuildingId}, presented={context.IsPresented}, globalId={context.GlobalId}");
+            return true;
+        }
 
+        private void ShowButtonState(BuildingPanelSectionEventArgs args)
+        {
             bool automaticEnabled;
             lock (stateLock)
-                automaticEnabled = !manualOnlyGateGlobalIds.Contains((int)building->r_GlobalId);
-            buttonViewModel.Show(automaticEnabled, building->r_BuildingType == eStructs.STRUCT_DRAWBRIDGE);
-            if (Shared.DebugLogHelper.DiagnosticsEnabled)
-                LogVisibilityState($"visible: editor={IsMapEditor()}, playerId={localPlayerId}, selectedBuildingId={selectedBuildingId}, globalId={building->r_GlobalId}, automaticEnabled={automaticEnabled}");
+                automaticEnabled = !manualOnlyGateGlobalIds.Contains((int)args.Context.GlobalId);
+            buttonViewModel.Show(automaticEnabled, args.Context.BuildingType == eStructs.STRUCT_DRAWBRIDGE);
+        }
+
+        // The local player for Vanilla's own selection, else the player the presenter acts for.
+        private static int ActingPlayer(BuildingPanelContext context) =>
+            context.IsPresented ? context.ActingPlayerId : ControlledPlayer.GetId();
+
+        // BuildingActions executor (argument 1 = automatic, 0 = manual only): a presenter's authorized execution, an
+        // authenticated Chore on every peer or a single-player engine action, with the engine monitor held.
+        private bool ExecuteGateAction(BuildingActionRequest request, out string reason)
+        {
+            if (request.Argument != 0 && request.Argument != 1)
+            {
+                reason = "The gate switch argument must be 0 (manual only) or 1 (automatic).";
+                return false;
+            }
+            bool applied = TryApplyManualState(request.ActingPlayerId, unchecked((int)request.BuildingGlobalId),
+                request.Argument == 1, "building-action", synchronized: true);
+            reason = applied ? (request.Argument == 1 ? "gate automatic" : "gate manual only") : "Extra Features did not apply the gate switch.";
+            return applied;
         }
 
 
@@ -349,28 +409,14 @@ namespace ExtraFeatures
         private void OnBuildingHudAction(MainViewModel viewModel)
         {
             buildingHudTrampoline(viewModel);
-            if (!ReferenceEquals(observedHudViewModel, viewModel))
-            {
-                if (observedHudViewModel != null)
-                    observedHudViewModel.PropertyChanged -= OnHudPropertyChanged;
-                observedHudViewModel = viewModel;
-                observedHudViewModel.PropertyChanged += OnHudPropertyChanged;
-            }
-            RefreshButtonVisibilitySafely();
+            RefreshHudStateSafely();
         }
 
         private void OnEditorPlayerAction(EditorDirector editor, int playerId)
         {
             editorPlayerTrampoline(editor, playerId);
             if (editorSessionActive)
-                RefreshButtonVisibilitySafely();
-        }
-
-        private void OnHudPropertyChanged(object sender, PropertyChangedEventArgs args)
-        {
-            if (args?.PropertyName == nameof(MainViewModel.Show_HUD_Building) &&
-                sender is MainViewModel viewModel && !viewModel.Show_HUD_Building)
-                buttonViewModel.Hide();
+                RefreshHudStateSafely();
         }
 
         private void OnBuildingDeleted(BuildingDeleteEventArgs args)
@@ -386,7 +432,7 @@ namespace ExtraFeatures
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
             {
                 if (mapActive && GamePlayerManagerAPI.Instance.GetSelectedBuildingId() == buildingId)
-                    RefreshButtonVisibilitySafely();
+                    RefreshHudStateSafely();
             });
         }
 
@@ -399,14 +445,14 @@ namespace ExtraFeatures
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
             {
                 if (editorSessionActive && pendingMapLocators.Count != 0)
-                    RefreshButtonVisibilitySafely();
+                    RefreshHudStateSafely();
             });
         }
 
-        private void RefreshButtonVisibilitySafely()
+        private void RefreshHudStateSafely()
         {
-            try { RefreshButtonVisibility(); }
-            catch (Exception ex) { LogFailure($"gatehouse button refresh failed: {ex}"); }
+            try { RefreshHudState(); }
+            catch (Exception ex) { LogFailure($"gatehouse HUD refresh failed: {ex}"); }
         }
 
         private void TryLoadButtonIcon()
@@ -436,17 +482,21 @@ namespace ExtraFeatures
                 LogInfo($"gatehouse automation icon loaded: asset='{AutomationIconAssetPath}', bytes={imageBytes.Length}.");
         }
 
-        private void ToggleSelectedGatehouse()
+        // The button's command: the gate of the section's current showing.
+        private void ToggleShownGatehouse()
         {
             try
             {
-                if (!ManualControlAvailable || loadedMapStatePending || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !mapActive)
+                BuildingPanelContext context = panelSection?.Current?.Context;
+                if (context == null || !ManualControlAvailable || loadedMapStatePending ||
+                    !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !mapActive)
                     return;
                 RefreshEditorReadiness();
 
-                int playerId = ControlledPlayer.GetId();
-                int buildingId = GamePlayerManagerAPI.Instance.GetSelectedBuildingId();
-                if (!TryGetOwnedGatehouse(buildingId, playerId, out GameBuilding* building, out string failure))
+                int playerId = ActingPlayer(context);
+                int buildingId = context.BuildingId;
+                if (!TryGetOwnedGatehouse(buildingId, playerId, out GameBuilding* building, out string failure) ||
+                    building->r_GlobalId != context.GlobalId)
                 {
                     LogError($"gatehouse automation toggle rejected: buildingId={buildingId}, playerId={playerId}, reason={failure}.");
                     return;
@@ -456,6 +506,14 @@ namespace ExtraFeatures
                 bool automaticEnabled;
                 lock (stateLock)
                     automaticEnabled = manualOnlyGateGlobalIds.Contains(globalId);
+                if (context.IsPresented)
+                {
+                    // The presenter runs its own authorized execution, which ends in ExecuteGateAction.
+                    if (!BuildingPanelSections.TrySubmitAction(context, ExtraFeaturesPlugin.PluginGuid, GateAutomaticAction,
+                            automaticEnabled ? 1 : 0, out string reason))
+                        LogError($"gatehouse automation toggle for player {playerId} not submitted: buildingId={buildingId}, reason={reason}.");
+                    return;
+                }
                 if (multiplayerFeatureGate.BlocksLocalStateChanges)
                 {
                     if (!TrySendChore(playerId, globalId, automaticEnabled))
@@ -463,7 +521,7 @@ namespace ExtraFeatures
                 }
                 else
                 {
-                    ApplyManualState(playerId, globalId, automaticEnabled, "local");
+                    TryApplyManualState(playerId, globalId, automaticEnabled, "local", synchronized: false);
                 }
             }
             catch (Exception ex)
@@ -524,7 +582,7 @@ namespace ExtraFeatures
 
             try
             {
-                ApplyManualState(packet.PlayerId, packet.BuildingGlobalId, packet.AutomaticEnabled,
+                TryApplyManualState(packet.PlayerId, packet.BuildingGlobalId, packet.AutomaticEnabled,
                     $"Chore operationId={packet.OperationId}", synchronized: true);
             }
             catch (Exception ex)
@@ -533,11 +591,11 @@ namespace ExtraFeatures
             }
         }
 
-        private void ApplyManualState(int playerId, int globalId, bool automaticEnabled, string source,
-            bool synchronized = false)
+        // synchronized: the call belongs to a synchronized simulation command of the current tick (Chore, building action).
+        private bool TryApplyManualState(int playerId, int globalId, bool automaticEnabled, string source, bool synchronized)
         {
             if (!IsManualStateSupported || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
-                return;
+                return false;
 
             // Chore packets already hold the monitor on the engine thread (re-entrant); the
             // single-player click arrives on the main thread and must not race the simulation.
@@ -548,12 +606,12 @@ namespace ExtraFeatures
                 // Chore54 can start repair halfway through the native due list. The gate
                 // command still belongs to that tick and is included in late host capture.
                 if (!IsManualStateSupported || (gateRepairing && !synchronized))
-                    return;
+                    return false;
                 if (!TryFindGatehouseByGlobalId(globalId, out GameBuilding* building, out buildingId) ||
                     building->r_PlayerIdOwner != playerId)
                 {
                     LogError($"gatehouse state change rejected because the owned gatehouse could not be resolved: source={source}, globalId={globalId}, playerId={playerId}.");
-                    return;
+                    return false;
                 }
 
                 lock (stateLock)
@@ -569,9 +627,10 @@ namespace ExtraFeatures
                 gateState = building->r_GateState;
             }
 
-            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(RefreshButtonVisibility);
+            // The section's next GUI check shows the new state.
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
                 LogInfo($"gatehouse automatic state applied: source={source}, buildingId={buildingId}, globalId={globalId}, owner={playerId}, automaticEnabled={automaticEnabled}, gateState={gateState}.");
+            return true;
         }
 
         private void OnGatehouseQuery(GatehouseQueryEventArgs args)
@@ -793,7 +852,7 @@ namespace ExtraFeatures
             loadedMapStatePending = false;
             mapActive = true;
             editorSessionActive = true;
-            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(RefreshButtonVisibilitySafely);
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(RefreshHudStateSafely);
         }
 
         private void RefreshEditorReadiness()
@@ -974,8 +1033,6 @@ namespace ExtraFeatures
             mapActive = false;
             editorSessionActive = false;
             loadedMapStatePending = false;
-            // Also the save-data unload callback and mission end, which may run off the main thread.
-            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(HideButtonIfMapInactive);
             lastVisibilityState = null;
             firstQueryLogged = false;
             failureLogs = 0;
@@ -998,13 +1055,6 @@ namespace ExtraFeatures
                 InvalidateGateQueryCache();
                 return manualOnlyCount;
             }
-        }
-
-        // A next map may already have shown the button before this queued Hide runs.
-        private void HideButtonIfMapInactive()
-        {
-            if (!mapActive)
-                buttonViewModel.Hide();
         }
 
         private static bool TryGetOwnedGatehouse(int buildingId, int playerId, out GameBuilding* building, out string failure)

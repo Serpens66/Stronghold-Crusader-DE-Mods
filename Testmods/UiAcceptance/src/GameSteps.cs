@@ -12,7 +12,7 @@ using UnityEngine;
 namespace UiAcceptance
 {
     // Game flow: menus, saves, scenes, pause/speed, waits, screenshots, settings, quitting.
-    internal static class GameSteps
+    internal static partial class GameSteps
     {
         internal static void Register()
         {
@@ -31,6 +31,7 @@ namespace UiAcceptance
             Runner.Register("ExpectElement", ExpectElement);
             Runner.Register("InvokeCommand", InvokeCommand);
             Runner.Register("SetModSetting", SetModSetting);
+            Runner.Register("ModSettingsDefaults", ModSettingsDefaults);
             Runner.Register("RandomEvents", RandomEventsSwitch);
             Runner.Register("ExpectModSetting", ExpectModSetting);
             Runner.Register("Log", s => Do(() => AcceptLog.Info("NOTE " + string.Join(" ", s.Args))));

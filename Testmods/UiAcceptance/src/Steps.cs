@@ -24,6 +24,7 @@ namespace UiAcceptance
             WorkerProductionSteps.Register();
             LocalAutosaveSteps.Register();
             LongMapSteps.Register();
+            GateAutomationSteps.Register();
         }
     }
 }

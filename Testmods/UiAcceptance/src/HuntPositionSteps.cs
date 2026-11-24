@@ -212,7 +212,10 @@ namespace UiAcceptance
             Runner.Require(IsHuntingFixtureTile(tileApi, components, land, x, y), "nearer rabbit site is not usable");
             int preyX = prey->r_CurrentTilePositionX, preyY = prey->r_CurrentTilePositionY;
             corridorReturnedBeforeArrow = false;
-            GameUnitManagerAPI.Instance.MoveToTile(corridorPrey, x, y);
+            // The workspace UnitAccess scan requires the checked lookup directly in front of the indirect call.
+            if (APIShared.UnitAccess.TryGetById(corridorPrey, out GameUnit* _, out _))
+                GameUnitManagerAPI.Instance.MoveToTile(corridorPrey, x, y);
+            else Runner.Require(false, "the fixture rabbit disappeared before its order");
             AcceptLog.Info("HUNT_CLOSER_ORDER prey=" + corridorPrey + "/" + corridorPreyGlobal +
                 " start=" + preyX + "," + preyY + " destination=" + x + "," + y);
             return (preyX, preyY);

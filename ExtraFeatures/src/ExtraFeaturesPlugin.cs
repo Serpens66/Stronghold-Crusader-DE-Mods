@@ -9,7 +9,7 @@ using System;
 namespace ExtraFeatures
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.0")]
-    [BepInDependency(ApiSharedGuid, "0.69.0")]
+    [BepInDependency(ApiSharedGuid, "0.73.0")]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("FearFactorNeutralizationTest_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -25,7 +25,7 @@ namespace ExtraFeatures
 
         public const string PluginGuid = "ExtraFeatures_Serp";
         public const string PluginName = "Extra Features";
-        public const string PluginVersion = "1.0.139";
+        public const string PluginVersion = "1.0.140";
 
         private ExtraFeaturesRuntime runtime;
         private bool marketGoodPriceVisualRefreshFailureLogged;
@@ -119,16 +119,11 @@ namespace ExtraFeatures
 
             try
             {
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "ExtraFeaturesGatehouseAutomationButtonHost",
-                    runtime.GatehouseAutomationButton);
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "ExtraFeaturesDrawbridgeAutomationButtonHost",
-                    runtime.GatehouseAutomationButton);
+                runtime.RegisterGatehouseAutomationPanel();
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/ExtraFeaturesPlugin/InitializeLibraryRuntime.gatehouse-automation-button-binding", $"Extra Features gatehouse automation button binding failed: {ex}");
+                Shared.DebugLogHelper.LogErrorLimited(Logger, "ExtraFeatures/ExtraFeaturesPlugin/InitializeLibraryRuntime.gatehouse-automation-panel", $"Extra Features gatehouse automation panel registration failed: {ex}");
             }
 
             try

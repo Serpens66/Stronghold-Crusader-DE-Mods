@@ -37,6 +37,7 @@ namespace Spectator
             internal ToolPower Power;
             internal int Tile;
             internal GateSelection Gate;
+            internal APIShared.Buildings.BuildingActionRequest BuildingRequest;
             internal CreditTrace Credit;
             internal string CreditError;
         }
@@ -176,11 +177,16 @@ namespace Spectator
                             case TestActionKind.Credit: result = ExecuteCredit(action); break;
                             case TestActionKind.Power: result = ExecutePower(action); break;
                             case TestActionKind.Gate: result = ExecuteGate(action); break;
-                            case TestActionKind.GateAutomation:
-                                if (!GateIsCurrent(action.Gate) || action.Actor != humanSelectedOwner || gateAutomation == null)
+                            case TestActionKind.BuildingAction:
+                                // A gate mod's section action for the test panel's gate; APIShared validates the building again.
+                                if (!GateIsCurrent(action.Gate) || action.Actor != humanSelectedOwner)
                                     result = SerpLocalization.Get("Tools.InvalidTarget");
-                                else { gateAutomation.Apply(action.Actor, action.Gate.Id, action.Gate.Global, action.Force);
-                                    result = SerpLocalization.Get(action.Force ? "Tools.GateAutomatic" : "Tools.GateFixed"); }
+                                else if (!APIShared.Buildings.BuildingActions.TryExecute(action.BuildingRequest, out string refusal))
+                                {
+                                    result = SerpLocalization.Get("Tools.Failed");
+                                    log.LogWarning("TEST_BUILDING_ACTION_REFUSED " + action.BuildingRequest + ": " + refusal);
+                                }
+                                else result = SerpLocalization.Get("Tools.GateRequested");
                                 break;
                             case TestActionKind.PowerToggle:
                                 CancelPowerSelection();
