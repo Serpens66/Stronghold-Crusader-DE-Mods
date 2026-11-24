@@ -67,8 +67,7 @@ namespace CrenelatedWallTest
         private IMissionLifecycleCapability missions;
         private MissionContext context;
         private int[][] pendingSave;
-        private int[] scanIds = new int[0];
-        private int scanCursor;
+        private readonly List<int> redrawn = new List<int>();
         // active = mod allowed and enabled this session; heights/block = its two frozen parts.
         private bool initialized, active, heights, block, activationRequested, heightsRequested, blockRequested, activationCaptured, ready, restorePending, tickLogged, callbackLogged, aiLogged;
         // Pre state of the tile an AI placement (0x6CB20, one tile per call) is about to change.
@@ -177,8 +176,8 @@ namespace CrenelatedWallTest
             aiBuilds.Clear();
             repairing = false;
             repairedOrigins = null;
-            managed.Clear(); signatures.Clear(); builds.Clear(); pendingSave = null; scanIds = new int[0]; scanCursor = 0;
-            graphics.Publish(null);
+            managed.Clear(); signatures.Clear(); builds.Clear(); pendingSave = null;
+            graphics.Publish(null); graphics.Watch(null);
             previewCache.Clear();
         }
 
@@ -223,7 +222,6 @@ namespace CrenelatedWallTest
                 managed = repairedOrigins;
                 repairedOrigins = null;
                 signatures.Clear();
-                scanCursor = 0;
                 previewCache.Clear();
                 // Once Chore 67 has re-enqueued held actions, restore derived path/graphics state
                 // through the same native-facing policy used for a successful placement.
@@ -404,7 +402,7 @@ namespace CrenelatedWallTest
                 world.Tiles.RefreshTileAreaVisuals(cell.X, cell.Y);
             }
             foreach (int id in considered) signatures[id] = Signature(managed[id]);
-            scanIds = managed.Keys.ToArray(); scanCursor = scanIds.Length == 0 ? 0 : scanCursor % scanIds.Length;
+            graphics.Watch(new HashSet<int>(managed.Keys));
             PublishEndpoints();
             return writes.Count;
         }
@@ -442,18 +440,17 @@ namespace CrenelatedWallTest
                     if (!tickLogged) { tickLogged = true; Shared.DebugLogHelper.LogInfo(log, "CRENEL_RUNTIME_AFTER_CLEANUP session=" + sessionId + "; tick=" + tick + "; active=" + active + "; heights=" + heights + "; block=" + block); }
                     if (!heights) return;
                     if (restorePending) Restore();
-                    // A bounded native-tick scan catches demolition, projectile destruction and
-                    // Vanilla's deferred renderer promotion of a managed piece's height.
-                    int count = Math.Min(256, scanIds.Length);
+                    // Vanilla changes a managed crenel's height only while redrawing it (sticky high
+                    // at 65EF0), and it redraws a crenel when the crenel or a neighbour changed. The
+                    // graphics predicate reports those redraws, including changes without an SE event
+                    // (e.g. 7DF60 projectile path, 71E90 player removal), so only they are re-checked.
+                    graphics.TakeReports(redrawn);
+                    if (redrawn.Count == 0) return;
                     var changed = new List<int>();
-                    for (int i = 0; i < count && scanIds.Length != 0; i++)
-                    {
-                        if (scanCursor >= scanIds.Length) scanCursor = 0;
-                        int id = scanIds[scanCursor++]; if (!managed.TryGetValue(id, out WallCell entry)) continue;
-                        if (signatures.TryGetValue(id, out int prior) && Signature(entry) == prior) continue;
-                        changed.Add(id);
-                    }
-                    if (changed.Count != 0 || scanIds.Length != managed.Count) Normalize(changed);
+                    foreach (int id in redrawn)
+                        if (managed.TryGetValue(id, out WallCell entry) && (!signatures.TryGetValue(id, out int prior) || Signature(entry) != prior))
+                            changed.Add(id);
+                    if (changed.Count != 0) Normalize(changed);
                 }
                 catch (Exception ex) { Error("tick", ex); }
             }
@@ -466,18 +463,14 @@ namespace CrenelatedWallTest
         {
             if (e.Phase != EventHookPhase.Post) return;
             // Hits arrive many times per siege tick; only a destroyed tile changes neighbour shapes.
-            // A merely damaged tile keeps its height (TargetHigh null) and is left to the tick scan.
+            // A merely damaged tile keeps its height (TargetHigh null), so nothing is normalized.
             lock (sync)
             {
                 if (!heights) return;
                 try
                 {
                     WallCell at = ReadCellById(e.TileId);
-                    if (at != null && WallPolicy.Crenel(at))
-                    {
-                        if (managed.ContainsKey(e.TileId)) signatures[e.TileId] = int.MinValue;
-                        return;
-                    }
+                    if (at != null && WallPolicy.Crenel(at)) return;
                 }
                 catch (Exception ex) { Error("damage", ex); return; }
             }
@@ -485,7 +478,7 @@ namespace CrenelatedWallTest
         }
         // Demolition or destruction changes the shape of the managed neighbours (e.g. a middle
         // becomes an endpoint). Normalizing and publishing endpoints right in the event keeps the
-        // renderer from raising them first. The tick scan stays the net for changes without event.
+        // renderer from raising them first. Redraw reports cover changes without an event.
         private void ShapeChanged(int tileId, string phase)
         {
             lock (sync)

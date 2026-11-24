@@ -94,7 +94,8 @@ internal static class Program
                 if (!publishedEndpoint && !((n && s && !e && !w) || (e && w && !n && !s))) cell.High = true;
             }
         }
-        // Render pass, tick normalization, render pass: the steady state the game converges to.
+        // Render pass, normalization of the redrawn (reported) tiles, render pass: the steady state
+        // the game converges to. This model redraws every tile, so every managed tile is reported.
         internal void Settle() { VanillaGraphics(); Normalize(Managed.ToArray()); VanillaGraphics(); }
         internal string State() => string.Join(";", Cells.OrderBy(p => p.Key).Select(p => p.Key + ":" + p.Value.Owner + ":" + p.Value.High + ":" + Managed.Contains(p.Key)));
         internal bool HighAt(int x, int y) => TryRead(x, y, out WallCell c) && WallPolicy.Crenel(c) && c.High && !c.Structure;

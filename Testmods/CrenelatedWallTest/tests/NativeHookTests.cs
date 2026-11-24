@@ -2,6 +2,7 @@ using CrenelatedWallTest;
 using RedBird.Abstractions.Hooks;
 using RedBird.Backends.NativeX64;
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.InteropServices;
 
@@ -59,6 +60,16 @@ internal static class NativeHookTests
                 }
             }
             owner.Publish(null); Check(invoke(data, 100, 0, 0) == candidate.Original(data, 100, 0, 0), "Empty snapshot remains original");
+            // Redraw reports replace the periodic scan: watched tiles are recorded once per drain,
+            // for straight and non-straight results alike, without changing the native answer.
+            var reports = new List<int>();
+            owner.TakeReports(reports); Check(reports.Count == 0, "Unwatched redraw was reported");
+            owner.Watch(new HashSet<int> { 100 });
+            foreach (int direction in new[] { 0, 2, 0 })
+                Check(invoke(data, 100, 0, direction) == candidate.Original(data, 100, 0, direction), "Watched redraw changed the native answer");
+            owner.TakeReports(reports); Check(reports.Count == 1 && reports[0] == 100, "Watched redraw not reported exactly once");
+            owner.TakeReports(reports); Check(reports.Count == 0, "Drained report repeated");
+            owner.Watch(null); invoke(data, 100, 0, 0); owner.TakeReports(reports); Check(reports.Count == 0, "Cleared watch still reports");
             Console.WriteLine("PASS: " + checks + " installed NativeX64 fixture checks; Absolute/15, entry, trampoline continuation, exact original ABI and actual disabled callback. No game hook installed.");
             PreviewHookTests.Run();
             return 0;

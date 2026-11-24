@@ -484,8 +484,9 @@ namespace MultiplayerSaveLoadTest
                 { frame.RequestAfter(TimeSpan.FromSeconds(1)); return; }
                 loadMenuPending = false;
                 Report("SAVE_CATEGORY_OPEN");
+                // The frontend lobby renders Show_HUD_ConfirmationMP, not the in-mission popup.
                 HUD_ConfirmationPopup.ShowConfirmation(LoadText.Get("Load.CategoryTitle"),
-                    () => OpenNativeLoad(true), () => OpenNativeLoad(false));
+                    () => OpenNativeLoad(true), () => OpenNativeLoad(false), MPConf: true);
             }
             catch (Exception error)
             { loadMenuPending = false; Report("SAVE_DIALOG_FAILED " + error); }

@@ -73,6 +73,7 @@ internal static class RuntimeReceiptTests
     private static Action duringReady;
     private static bool hasModal, hasRequester;
     private static int popups;
+    private static bool popupInMultiplayer, popupInMasters;
     private static readonly BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
     private static void Check(bool value, string reason)
     { checks++; if (!value) throw new Exception(reason); }
@@ -99,7 +100,8 @@ internal static class RuntimeReceiptTests
     }
     private static bool ModalPrefix(ref bool __result) { __result = hasModal; return false; }
     private static bool RequesterPrefix(ref bool __result) { __result = hasRequester; return false; }
-    private static bool PopupPrefix() { popups++; return false; }
+    private static bool PopupPrefix(bool MPConf, bool skirmishMasters)
+    { popups++; popupInMultiplayer = MPConf; popupInMasters = skirmishMasters; return false; }
     private static bool TextPrefix(string key, ref string __result) { __result = key; return false; }
 
     private static APIShared.Savegames.SaveLoadDialogContext Request(Enums.RequesterTypes type)
@@ -286,6 +288,8 @@ internal static class RuntimeReceiptTests
         Check(popups == 0 && Get<bool>(runtime, "loadMenuPending"), "Category popup replaced a foreign modal.");
         hasModal = false; Invoke(runtime, "PumpLoadMenu"); Invoke(runtime, "PumpLoadMenu");
         Check(popups == 1 && !Get<bool>(runtime, "loadMenuPending"), "Unblocked category popup did not open exactly once.");
+        Check(popupInMultiplayer && !popupInMasters,
+            "Category question targeted the hidden in-mission popup instead of the multiplayer lobby popup.");
 
         Set(runtime, "loadMenuPending", true); hasRequester = true; Invoke(runtime, "PumpLoadMenu");
         Check(popups == 1 && !Get<bool>(runtime, "loadMenuPending"), "Manual native requester did not cancel deferred category.");

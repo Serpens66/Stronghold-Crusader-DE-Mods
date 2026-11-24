@@ -41,7 +41,7 @@ APIShared wird nur über bestehende öffentliche APIs verwendet. Zwei dauerhafte
 | Treppe mit 1er-Stufen | Rot beim dritten Eckstück. | Nachricht „three special“. |
 | Treppe mit 2er-Stufen, kurzes U (3 breit) | Je nach Kartenposition erlaubt oder rot („four high“). | Um eine Kachel verschoben wiederholen. |
 | Lange L-, T-, Kreuz- und Ringformen | Erlaubt, höchstens drei Hohe in Folge. | Beide Paritäten (um eine Kachel verschieben). |
-| Abriss einer Mitte oder eines Eckarms | Überbleibende verwaltete Stücke werden wieder Schachbrett; neue Endstücke niedrig, falls Parität niedrig. | Kurze Verzögerung durch den begrenzten Tick-Scan ist zulässig; kein dauerhaftes Flackern. |
+| Abriss einer Mitte oder eines Eckarms | Überbleibende verwaltete Stücke werden wieder Schachbrett; neue Endstücke niedrig, falls Parität niedrig. | Kurze Verzögerung bis zum nächsten Tick (Neuzeichnungsmeldung) ist zulässig; kein dauerhaftes Flackern. |
 | Beschuss und Wiederaufbau | Beschädigte Grafik bleibt Vanilla; Wiederaufbau folgt dem Schachbrett. | Projektile und Nahkampf. |
 | Karte mit vorgebauten Mauern / alter Save ohne Moddaten | Keine Änderung beim Laden. | Anbauen ändert nur die neuen Stücke. |
 | Save mit Modbauten | Verwaltete Kacheln bleiben nach Laden verwaltet. | `CRENEL_SAVE` und `CRENEL_LOAD`. |
@@ -118,3 +118,7 @@ Testmod-Szenarien `crenel-heights` (Editor und KI) und `crenel-ai` (nur KI), Hö
 - **Hinweis für Testaufbauten:** In einem früheren Lauf (Mauerkosten-Multiplikator 0) entstanden trotz vieler 0x6CB20-Aufrufe keine KI-Mauern; die Ursache ist nicht belegt. Der KI-Test setzt die Multiplikatoren vorsichtshalber auf 1 zurück.
 
 - **Abriss und Zerstörung sofort (24.11.2026, Lauf `b41b0605`, Nachweis `.work/a/crenel-ingame/046`):** Abriss (`OnWallBulldoze`) und Zerstörung durch Beschuss (`OnBuildingTileTakeDamage`, nur wenn die Kachel danach keine Zinne mehr ist) richten die verwalteten Nachbarn direkt im Event aus und veröffentlichen neue Endstücke, bevor der Renderer sie hoch machen kann. Bloße Treffer bleiben beim Tick-Abgleich, der als Sicherheitsnetz erhalten bleibt. Editor-Regression mit Blockade grün (Abriss, Beschuss, Wiederaufbau, Kartenersteller).
+
+## Neuzeichnungsmeldung statt Tick-Abgleich (24.11.2026)
+
+Der periodische Abgleich (bis zu 256 verwaltete Zinnen pro Tick) ist entfernt. Der Grafik-Hook meldet jede Neuzeichnung einer verwalteten Zinne; der nächste Tick prüft nur diese Kacheln. Grundlage ist der statische Audit aller Schreiber von Mauer-/Zinnenbits (Baseline `CRENELATED_WALLS.md`, Abschnitt vom 24.11.2026). Spielnachweis siehe unten, sobald gelaufen.

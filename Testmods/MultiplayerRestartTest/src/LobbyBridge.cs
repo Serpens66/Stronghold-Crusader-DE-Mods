@@ -120,6 +120,9 @@ namespace MultiplayerSaveLoadTest
             RequireParked();
             if (lobby == null || !lobby.isHost || lobby.identifier == 0)
                 throw new InvalidOperationException("The replacement host lobby is unavailable.");
+            // doOpen(fromNew:false) preserves this static flag. The new lobby is generic;
+            // retaining a previous Custom-Coop choice would republish type=1/maxPlayers=2.
+            FRONT_Multiplayer.customCoopGame = false;
             var multiplayer = Platform_Multiplayer.Instance;
             var view = MainViewModel.Instance;
             view.Show_HUD_MissionOver = false;

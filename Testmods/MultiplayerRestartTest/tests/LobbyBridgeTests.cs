@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.Serialization;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -13,6 +14,12 @@ using Steamworks;
 internal static class LobbyBridgeTests
 {
     private static int checks;
+    private static bool fixtureCustomCoop, fixtureSkirmish;
+    private static int publishedType, publishedPlayers, publications;
+    private static Platform_Multiplayer fixturePlatform;
+    private static FileHeader fixtureHeader;
+    private static EngineInterface.MultiplayerSetupData fixtureSetup;
+    private const BindingFlags PrivateStatic = BindingFlags.Static | BindingFlags.NonPublic;
     private static void Check(bool value, string message)
     { checks++; if (!value) throw new Exception(message); }
 
@@ -24,7 +31,117 @@ internal static class LobbyBridgeTests
         Framing();
         Membership();
         ReadyBeforeUiLoaded();
+        GenericHostMode();
         Console.WriteLine("LobbyBridge: " + checks + " checks passed.");
+    }
+
+    private static void GenericHostMode()
+    {
+        var target = typeof(LobbyBridge).GetMethod("OpenHost", PrivateStatic);
+        using (var prefix = new DynamicMethodDefinition(target))
+        {
+            var body = prefix.Definition.Body;
+            var reset = body.Instructions.Single(instruction => instruction.OpCode == OpCodes.Stsfld &&
+                instruction.Operand is FieldReference field && field.DeclaringType.Name == "FRONT_Multiplayer" && field.Name == "customCoopGame");
+            // Execute the actual production prefix including all host/lobby validation.
+            // Only the external parked-worker receipt is bypassed. Stop before UI/Steam
+            // startup and redirect the static field to avoid FRONT's Noesis type initializer.
+            var receipt = body.Instructions.Single(instruction => instruction.Operand is MethodReference method &&
+                method.DeclaringType.Name == nameof(LobbyBridge) && method.Name == "RequireParked");
+            receipt.OpCode = OpCodes.Nop; receipt.Operand = null;
+            reset.Operand = prefix.Definition.Module.ImportReference(typeof(LobbyBridgeTests).GetField(nameof(fixtureCustomCoop), PrivateStatic));
+            int end = body.Instructions.IndexOf(reset) + 1;
+            while (body.Instructions.Count > end) body.Instructions.RemoveAt(end);
+            body.Instructions.Add(Instruction.Create(OpCodes.Ret));
+            MethodInfo run = prefix.Generate();
+            var host = Lobby(Member(76561198000000001));
+            host.id = new CSteamID(77); host.isHost = true;
+            fixtureCustomCoop = true;
+            PublishGenericMetadata(1, 2); // Negative control: reproduce Vanilla's stale-Coop metadata.
+            foreach (bool priorCoop in new[] { true, false })
+            {
+                fixtureCustomCoop = priorCoop;
+                run.Invoke(null, new object[] { host });
+                Check(!fixtureCustomCoop, "Generic host retained the previous Custom-Coop mode.");
+                PublishGenericMetadata(0, 8);
+            }
+            var client = Lobby(Member(76561198000000001)); client.id = new CSteamID(77);
+            var missingId = Lobby(Member(76561198000000001)); missingId.isHost = true;
+            foreach (var invalid in new[] { null, client, missingId })
+            {
+                fixtureCustomCoop = true; bool rejected = false;
+                try { run.Invoke(null, new object[] { invalid }); }
+                catch (TargetInvocationException error) { rejected = error.InnerException is InvalidOperationException; }
+                Check(rejected && fixtureCustomCoop, "Invalid host input changed the previous lobby mode.");
+            }
+        }
+    }
+
+    private static Platform_Multiplayer MetadataPlatform() => fixturePlatform;
+    private static FileHeader MetadataHeader(object front) => fixtureHeader;
+    private static EngineInterface.MultiplayerSetupData MetadataSetup(object front) => fixtureSetup;
+    private static int MetadataPlayerCap(object front) => 8;
+    private static string MetadataHostName(object front) => "fixture";
+    private static CrusaderDE.FRONT_Multiplayer.MPAIVInfo[] MetadataAivs(object front) => null;
+    private static void MetadataDelay(object front, DateTime value) { }
+    private static void CapturePublication(Platform_Multiplayer platform, string gameName, string mapName,
+        string fileName, int maxPlayers, int type, string settings, int crc, CrusaderDE.FRONT_Multiplayer.MPAIVInfo[] aivs)
+    { publications++; publishedPlayers = maxPlayers; publishedType = type; }
+
+    private static void PublishGenericMetadata(int expectedType, int expectedPlayers)
+    {
+        var frontType = typeof(CrusaderDE.FRONT_Multiplayer);
+        fixturePlatform = (Platform_Multiplayer)FormatterServices.GetUninitializedObject(typeof(Platform_Multiplayer));
+        fixtureHeader = new FileHeader { maxPlayers = 8, fileName = "fixture", display_filename = "fixture" };
+        fixtureSetup = new EngineInterface.MultiplayerSetupData();
+        var instance = BindingFlags.Instance | BindingFlags.NonPublic;
+        var target = frontType.GetMethod("UpdateHostInfo", instance);
+        using (var publication = new DynamicMethodDefinition(target))
+        {
+            var body = publication.Definition.Body;
+            // This closed managed segment is the real Vanilla publication logic.
+            // Remove only native starting-data/keep-order setup before the mode branch;
+            // replace the Steam sink and neutral metadata inputs, never the type/max
+            // algorithm. No FRONT instance is constructed (its cctor creates Noesis brushes).
+            var entry = body.Instructions.First(instruction => instruction.OpCode == OpCodes.Ldsfld &&
+                instruction.Operand is FieldReference field && field.DeclaringType.Name == "FRONT_Multiplayer" && field.Name == "skirmishGame");
+            while (!ReferenceEquals(body.Instructions[0], entry)) body.Instructions.RemoveAt(0);
+            foreach (var instruction in body.Instructions)
+            {
+                if (instruction.Operand is FieldReference field && field.DeclaringType.Name == "FRONT_Multiplayer" &&
+                    (field.Name == "customCoopGame" || field.Name == "skirmishGame"))
+                    instruction.Operand = publication.Definition.Module.ImportReference(typeof(LobbyBridgeTests).GetField(
+                        field.Name == "customCoopGame" ? nameof(fixtureCustomCoop) : nameof(fixtureSkirmish), PrivateStatic));
+                if (instruction.Operand is FieldReference input && input.DeclaringType.Name == "FRONT_Multiplayer")
+                {
+                    string adapter = input.Name == "selectedMPHeader" ? nameof(MetadataHeader) :
+                        input.Name == "MPsetupData" ? nameof(MetadataSetup) :
+                        input.Name == "PlayerCap" ? nameof(MetadataPlayerCap) :
+                        input.Name == "MPHostLobbyname" ? nameof(MetadataHostName) :
+                        input.Name == "AIVs" ? nameof(MetadataAivs) :
+                        input.Name == "delayedSendDataToLobby" ? nameof(MetadataDelay) : null;
+                    if (adapter != null)
+                    {
+                        Check(instruction.OpCode == (adapter == nameof(MetadataDelay) ? OpCodes.Stfld : OpCodes.Ldfld),
+                            "Vanilla metadata input access changed: " + input.Name);
+                        instruction.OpCode = OpCodes.Call;
+                        instruction.Operand = publication.Definition.Module.ImportReference(typeof(LobbyBridgeTests).GetMethod(adapter, PrivateStatic));
+                    }
+                }
+                if (!(instruction.Operand is MethodReference method) || method.DeclaringType.Name != "Platform_Multiplayer") continue;
+                if (method.Name == "get_Instance" || method.Name == "UpdateHostLobbyInfo")
+                {
+                    instruction.OpCode = OpCodes.Call;
+                    instruction.Operand = publication.Definition.Module.ImportReference(typeof(LobbyBridgeTests).GetMethod(
+                        method.Name == "get_Instance" ? nameof(MetadataPlatform) : nameof(CapturePublication), PrivateStatic));
+                }
+            }
+            fixtureSkirmish = false; publications = 0;
+            publication.Generate().Invoke(null, new object[] { null, false });
+            Check(publications == 1 && publishedType == expectedType && publishedPlayers == expectedPlayers,
+                "Vanilla published unexpected type/max-player metadata for the current lobby mode.");
+        }
+        fixturePlatform = null; fixtureHeader = null; fixtureSetup = null;
     }
 
     private static void ReadyBeforeUiLoaded()

@@ -372,7 +372,7 @@ namespace CrenelatedWallAcceptance
             yield return run.WaitForTicks(m, 4);
         }
 
-        // The editor has no gameplay pause API; let render maintenance and the mod's tick scan run.
+        // The editor has no gameplay pause API; let render maintenance and the mod's redraw checks run.
         private IEnumerable<AutomationWait> EditorSettle(AutomationRun run, MissionContext m) { yield return run.WaitForTicks(m, 80); }
 
         private readonly List<string> trace = new List<string>();

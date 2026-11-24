@@ -169,3 +169,48 @@ The correction reads the existing barrier launch permission, while still keeping
 the worker parked until Vanilla's final startSimThread. An SDK no-preparation
 message after the first original-call exception is a secondary retry failure,
 not by itself evidence that SDK cleanup caused the original exception.
+
+## Reusing the multiplayer frontend after Custom-Coop [mod integration]
+
+Audit observation: 2026-11-24; the canonical native and managed hashes at the
+start of this document were verified again. In the selected managed decompile,
+FRONT_Multiplayer.doOpen resets customCoopGame only in its fromNew block
+(lines 1429/1494). ShowLobbyScreen also clears it (7980/7987), but
+ShowSetupScreen only sets it true when the current lobby has type "1"
+(8001/8056); type "0" does not clear an earlier true value. NewScene and the
+frontend visibility cleanup are not a reset of this static field.
+
+UpdateHostInfo (8856) publishes type=1 and maxPlayers=2 whenever customCoopGame
+is true and a selected map header exists, even if the replacement lobby was
+created with type=0. Its ordinary Play caller publishes again. The save requester
+cancel callback only updates the radar texture; it does not normalize the mode.
+Therefore a generic loading-lobby handoff using doOpen(fromNew:false) must clear
+the prior Custom-Coop mode before reopening or publishing the host frontend.
+Calling the complete fromNew path instead also resets multiplayer transport and
+is not an equivalent handoff while peers still exchange completion receipts.
+
+This lobby-mode reset does not choose a save category or alter saved mission
+data. The normal requester supplies the selected save header to StartSave, which
+uses that header's coopTrailID for the cooperative refresh path. Save eligibility,
+saved settings and cooperative content preparation retain their normal owners.
+
+## Confirmation context and customized Coop load buttons [mod integration]
+
+Audit observation: 2026-11-24, canonical binary hashes as above. In the managed
+HUD_ConfirmationPopup.ShowConfirmation entry, MPConf=false selects
+Show_HUD_Confirmation; MPConf=true selects Show_HUD_ConfirmationMP. The actual
+FRONT_Multiplayer.xaml confirmation overlay is bound to the latter property.
+Calling the default overload after returning to the frontend is not evidence of
+a visible popup. The save-category question in the coordinated loading lobby
+must select the multiplayer confirmation context explicitly.
+
+The ordinary FRONT_Multiplayer.Update Load-button predicate at managed line 7686
+is (flag5 && !flag6) | skirmishGame. flag6 is set if CountAIPlayers is positive.
+The four native Coop-trail page Load buttons at 7687-7690 instead use flag4 plus
+the local-Coop/invite exceptions. Both issue the same ButtonClicked("Load")
+command; coopGame selects the Coop requester and SendSaveCRCs(true) in that
+command. A customized Coop setup displaying the generic FRONT Load button
+therefore inherits an AI prohibition absent from the original Coop-page button.
+The current BugfixesAndQoL solo-MP load override deliberately excludes Coop;
+expanding that solo override is not the same as repairing this presentation
+mismatch. Live read-only evidence: .work/a/coop-load-live/001/findings.json.

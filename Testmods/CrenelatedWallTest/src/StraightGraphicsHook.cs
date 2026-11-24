@@ -13,7 +13,8 @@ using System.Threading;
 namespace CrenelatedWallTest
 {
     // This predicate has exactly two callers, both in Vanilla's tile graphics builder.
-    // The callback only reads a published assignment; it never chooses logical heights.
+    // The callback only reads a published assignment and records redraws of watched tiles;
+    // it never chooses logical heights and writes no game data.
     internal sealed class StraightGraphicsHook
     {
         internal const int Rva = 0x5C2D0, BodySize = 237, Displaced = 15;
@@ -53,7 +54,7 @@ namespace CrenelatedWallTest
             // Once Enable starts there is deliberately no rollback or teardown path.
             hook.Enable(); Validate(hook, unchecked((ulong)target.ToInt64()));
             if (!hook.IsInstalled) throw new InvalidOperationException("Graphics hook publication incomplete.");
-            Shared.DebugLogHelper.LogInfo(log, "CRENEL_GRAPHICS_READY RVA=0x5C2D0; Absolute/15; permanent; endpoint assignments only; disabled=original.");
+            Shared.DebugLogHelper.LogInfo(log, "CRENEL_GRAPHICS_READY RVA=0x5C2D0; Absolute/15; permanent; endpoint assignments and redraw reports only; disabled=original.");
         }
         internal static byte[] DecodeBody()
         {
@@ -75,9 +76,32 @@ namespace CrenelatedWallTest
         }
         // Caller transfers exclusive ownership of the immutable dictionary.
         internal void Publish(Dictionary<int, EndpointAssignment> snapshot) => Volatile.Write(ref endpoints, snapshot ?? Empty);
+        // Managed tiles whose redraw is reported. Vanilla redraws a crenel when it or a neighbour
+        // changed; its only height change (sticky high at 65EF0) follows this predicate. Reporting
+        // replaces a periodic scan: the runtime re-checks just these tiles on its next tick.
+        private static readonly HashSet<int> NoTiles = new HashSet<int>();
+        private HashSet<int> watched = NoTiles;
+        private readonly object reportLock = new object();
+        private HashSet<int> reported = new HashSet<int>(), draining = new HashSet<int>();
+        // Caller transfers exclusive ownership of the immutable set.
+        internal void Watch(HashSet<int> tiles) => Volatile.Write(ref watched, tiles ?? NoTiles);
+        // Swaps the reported tiles into the caller's set (cleared first); no allocation per call.
+        internal void TakeReports(List<int> into)
+        {
+            into.Clear();
+            HashSet<int> taken;
+            lock (reportLock)
+            {
+                if (reported.Count == 0) return;
+                taken = reported; reported = draining; draining = taken;
+            }
+            into.AddRange(taken); taken.Clear();
+        }
         private int Invoke(IntPtr manager, int tile, int row, int direction)
         {
             int original = hook.Original(manager, tile, row, direction);
+            // Only records the id; validation of the live tile happens on the next tick.
+            if (Volatile.Read(ref watched).Contains(tile)) lock (reportLock) reported.Add(tile);
             if (original != 0) return original;
             try
             {
