@@ -1,5 +1,55 @@
 # Gemeinsamer Multiplayer-Test für Resync, KI-Handel und ESC-Neustart
 
+## Nächste manuelle Resync-Abnahme
+
+Ziel sind die noch offenen Fälle für **Gebäudeersatz, Fleischtransport oder
+Jägerabgabe und einen bereits angenommenen Bewegungsbefehl**. Die frühere
+F9/F10-Abnahme, normales Verfüllen und den ESC-Neustart hier nicht wiederholen.
+Der untere Ablauf dokumentiert den früheren kombinierten Test.
+
+1. Bei geschlossenem Spiel für beide Rechner Versionen und Hashes der
+   beteiligten Mods und des APIShared-Plugin-/Bootstrap-Paars vergleichen.
+   Seit dem 24.11.2026 ist auf dem Host APIShared 0.72.1 und ExtendedData
+   1.0.29 installiert. Der Host hat außerdem BugfixesAndQoL 1.0.238,
+   ImprovedHunters 1.2.6, Pathfinding 0.1.15 und MakeDesync 0.2.1.
+   Clientstand vor der Abnahme prüfen. Eine private neue
+   Partie mit zwei Steam-Konten auf The Jordan Valley starten. Startplätze
+   sind frei. Eine KI ist für diese drei Fälle entbehrlich. BugfixesAndQoL
+   mit Einzelgebäude-Pause und ImprovedHunters mit Gerberei-Fleisch aktivieren.
+2. **Gebäudeersatz.** Zwei Holzfällerhütten bauen. Beide pausieren und eine
+   Hütte mit Strg-Klick wieder einschalten. Diese Hütte abreißen und an
+   derselben Stelle neu bauen. Die reguläre Typ-Pause und den Zustand der
+   neuen Hütte auf beiden Rechnern vergleichen. Gleiche Koordinate belegt
+   keinen wiederverwendeten nativen Slot. Für die volle Abnahme muss eine
+   tatsächliche Gebäudereparatur den betreffenden Slot mit alter und neuer
+   Global-ID belegen. Der manuelle Neubau prüft den sichtbaren Normalfall.
+3. **Laufender Fleischtransport.** Gerberei mit Kornspeicher und erreichbarer
+   Kuh aufbauen, den Fleischregler auf drei Gänge stellen und Fleischbestand
+   und Gerberei vor der Probe auf beiden Seiten festhalten. Während der
+   Gerber mit Fleisch zum Kornspeicher läuft, am Client **Strg+Umschalt+F9**
+   drücken. Nach dem Abschluss dieselbe Lieferung und den Fleischzuwachs
+   auf beiden Seiten vergleichen. Währenddessen andere Fleischzufuhr und
+   Verbrauch soweit möglich ausschließen. Alternativ mit einem Jäger nach
+   dem Schlachten und vor der Abgabe prüfen. Einen vorbeibewegten Arbeiter
+   allein nicht als Beleg für einen laufenden Fleischtransport werten.
+4. **Bestätigte Bewegung.** Einen Trupp über eine längere Strecke schicken.
+   Sobald beide Spieler seine Bewegung sehen, bei noch laufender Bewegung
+   am Client erneut **Strg+Umschalt+F9** drücken. Nach abgeschlossenem Resync
+   verfolgen, ob derselbe Trupp genau einmal an seinem ursprünglichen Ziel
+   ankommt. Einfache Bewegung und modseitige Shift-Folgeschritte getrennt
+   auswerten. Eine fehlende Folgeaktion sagt erst mit nachgewiesener
+   Annahmephase aus, ob ein bestätigter Auftrag verloren ging.
+
+Pro Versuch beide Logs sichern und über Reparaturtick, Kategorie,
+Reparaturnummer und übertragenen Datensatz zuordnen. F9 prüft eine native
+Einheitenreparatur. Es kann daneben den Erhalt privater Moddaten belegen,
+liefert aber keinen nativen Gebäudereparaturrecord. Fehlende Ausgangszustände
+oder bloße Sichtprüfung eines anderen Falls als offen vermerken.
+
+Für eine spätere Grabenprobe zuerst die MakeDesync-Bindung prüfen. Die
+installierte MakeDesync-Version verlangt für F11 noch BugfixesAndQoL
+1.0.237. Der oben beschriebene F9-Lauf verwendet diese Bindung nicht.
+
 ## Automatischer Ablauf
 
 Der Host-Treiber startet eine private Partie auf **The Jordan Valley** und
