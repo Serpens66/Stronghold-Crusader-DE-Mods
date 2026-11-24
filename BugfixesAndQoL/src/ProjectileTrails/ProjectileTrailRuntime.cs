@@ -388,6 +388,9 @@ namespace BugfixesAndQoL.ProjectileTrails
             styleKnown = false;
         }
 
+        // Intentionally keeps Vanilla afterimages suppressed for the rest of the mission, also in
+        // single player: suppression is itself a fix that stops afterimages from exhausting the
+        // native effect pool IDs, so no trails are better than Vanilla's. The error log reports it.
         private static void FailPresentation(string reason)
         {
             if (presentationFailed) return;

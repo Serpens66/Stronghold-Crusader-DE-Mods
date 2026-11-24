@@ -23,6 +23,21 @@ namespace ExtendedData
     internal static class LordSaveAuthorProof
     {
         internal static bool AllowsInheritedDigest(string authored, string current) => authored == null || authored == current;
+
+        // Mirrors the host's empty-publication shortcut in PrepareSaveLocked. Such Lords play
+        // from local files, so the host publishes nothing for them, exactly as main did.
+        // Without Fixes a snapshot cannot hold Fixes values (LordDataSnapshot.ValidateSlots).
+        internal static bool NeedsNoSync(LordDataSnapshot author, LordPackageManifest authorManifest)
+            => (author != null || authorManifest != null) && authorManifest?.UseLocalValues != true &&
+                (authorManifest == null || !authorManifest.Slots.Any(slot => slot.NeedsSnapshot || slot.NeedsLocalFiles)) &&
+                (author == null || !author.FixesInstalled && author.Slots.All(slot => slot.ModLordJson == null));
+
+        internal static bool AcceptsEmptyPublication(LordDataSnapshot author, LordPackageManifest authorManifest,
+            LordPackageManifest manifest, LordDataSnapshot received, bool localFixesInstalled)
+            => NeedsNoSync(author, authorManifest) && manifest != null && !manifest.UseLocalValues &&
+                manifest.Slots.Count == 0 && received != null && received.Slots.Count == 0 &&
+                received.FixesInstalled == localFixesInstalled;
+
         internal static bool Matches(LordDataSnapshot author, LordDataSnapshot received, Func<string, string> normalize)
         {
             if (author == null || received == null || received.FixesInstalled != author.FixesInstalled ||

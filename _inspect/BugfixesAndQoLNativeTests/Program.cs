@@ -56,7 +56,6 @@ internal static class Program
             ["SleepStateSynchronizationFunctionPattern"] = 0xC7D50,
             ["AIHovelDemolitionFunctionPattern"] = 0x3B1D0,
             ["InaccessibleBuildingDecisionPattern"] = 0xC8FD7,
-            ["SetupBuildingEntrancesOffsetPattern"] = 0xC0270,
             ["NarrowRuinClassifierPattern"] = 0x5D055,
             ["BroadRuinClassifierPattern"] = 0x5D025,
             ["MapperSelectionPattern"] = 0x5CEAB,

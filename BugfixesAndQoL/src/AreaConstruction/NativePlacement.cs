@@ -260,8 +260,9 @@ namespace BugfixesAndQoL.AreaConstruction
                 int participants = 0;
                 for (int id = 1; id <= 8; id++)
                 {
+                    // The AI lineup entry is an int32 (Vanilla 0x90CD0 and SE GetAILord compare the dword).
                     if (Read(ParticipantSlots + id * sizeof(int)) != -1 ||
-                        Marshal.ReadByte(image, ParticipantFlags + id * sizeof(int)) != 0)
+                        Read(ParticipantFlags + id * sizeof(int)) != 0)
                         participants++;
                 }
                 int quota = 4000 / Math.Max(2, participants);

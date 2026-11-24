@@ -65,6 +65,53 @@ internal static class LordSaveAuthorProofTests
             "Existing authored local-values source history was changed or erased.");
     }
 
+    // A Lord with only local .lordjson/.aivjson is saved by every peer, but the host publishes an
+    // empty record for it when loading. Clients must accept that instead of waiting into a timeout.
+    internal static void RunEmptyPublication()
+    {
+        LordDataSlot PlainSlot() => new LordDataSlot { PlayerId = 2, LordType = 3, LordName = "Wolf",
+            ConfigName = "local", ConfigChecksum = "42" };
+        LordPackageSlot PlainPackage() => new LordPackageSlot { PlayerId = 2, LordType = 3, LordName = "Wolf",
+            ConfigName = "local", ConfigChecksum = "42", FileDigest = "files" };
+        LordPackageManifest Manifest(LordPackageSlot slot, bool local = false) =>
+            LordPackageManifest.Create("original", local, slot == null ? new LordPackageSlot[0] : new[] { slot });
+        LordDataSnapshot Author(LordDataSlot slot, bool fixes = false) =>
+            LordDataSnapshot.Create("original", fixes, new[] { slot });
+        var emptyManifest = LordPackageManifest.Create("lobby", false, new LordPackageSlot[0]);
+        var emptySnapshot = LordDataSnapshot.Create("lobby", false, new LordDataSlot[0]);
+
+        Require(LordSaveAuthorProof.AcceptsEmptyPublication(Author(PlainSlot()), Manifest(PlainPackage()),
+            emptyManifest, emptySnapshot, false), "A save with only local-file Lords rejected the host's empty publication.");
+        Require(LordSaveAuthorProof.AcceptsEmptyPublication(Author(PlainSlot()), null, emptyManifest, emptySnapshot, false) &&
+            LordSaveAuthorProof.AcceptsEmptyPublication(null, Manifest(PlainPackage()), emptyManifest, emptySnapshot, false),
+            "An older record without manifest or values rejected the host's empty publication.");
+        Require(!LordSaveAuthorProof.NeedsNoSync(null, null),
+            "A save without any Lord record bypassed the legacy identity check.");
+
+        var sidecar = PlainSlot(); sidecar.ModLordJson = "{}";
+        var needsFiles = PlainPackage(); needsFiles.NeedsLocalFiles = true;
+        var needsSnapshot = PlainPackage(); needsSnapshot.NeedsSnapshot = true;
+        foreach (var (author, manifest, text) in new[] {
+            (Author(sidecar), null, "a .modlord.json sidecar"),
+            (Author(PlainSlot(), true), Manifest(PlainPackage()), "a save made with Fixes"),
+            (Author(PlainSlot()), Manifest(needsFiles), "required local files"),
+            (Author(PlainSlot()), Manifest(needsSnapshot), "a required snapshot"),
+            (Author(PlainSlot()), Manifest(PlainPackage(), true), "local values"),
+        })
+            Require(!LordSaveAuthorProof.AcceptsEmptyPublication(author, manifest, emptyManifest, emptySnapshot, false),
+                "An empty publication dropped saved Lord data with " + text + ".");
+
+        var author2 = Author(PlainSlot());
+        var manifest2 = Manifest(PlainPackage());
+        Require(!LordSaveAuthorProof.AcceptsEmptyPublication(author2, manifest2, emptyManifest, emptySnapshot, true),
+            "An empty publication was accepted although the Fixes installation differs.");
+        Require(!LordSaveAuthorProof.AcceptsEmptyPublication(author2, manifest2, Manifest(PlainPackage()),
+            Author(PlainSlot()), false), "A non-empty publication skipped the author value check.");
+        Require(!LordSaveAuthorProof.AcceptsEmptyPublication(author2, manifest2,
+            LordPackageManifest.Create("lobby", true, new LordPackageSlot[0]), emptySnapshot, false),
+            "An empty local-values publication was accepted as an empty value publication.");
+    }
+
     private static void Ownership()
     {
         var ownership = new LordSaveOwnership();

@@ -24,6 +24,7 @@
     <Compile Include="..\..\..\APIShared\src\Core\Internal\Logging\FailureThrottle.cs" />
     <Compile Include="..\..\src\Plague\PlagueHerdLedger.cs" />
     <Compile Include="..\..\src\Plague\PlaguePopularityFix.cs" />
+    <Compile Include="..\..\src\Plague\PlaguePopularityFix.Resync.cs" />
     <Compile Include="..\..\src\Plague\PlaguePopularitySaveState.cs" />
     <Compile Include="..\..\src\Core\Common\SessionSaveRecordSlot.cs" />
     <Compile Include="..\..\src\Core\Common\FeatureSaveStates.cs" />

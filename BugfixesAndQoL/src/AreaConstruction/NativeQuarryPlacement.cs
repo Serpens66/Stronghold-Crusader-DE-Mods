@@ -149,16 +149,19 @@ namespace BugfixesAndQoL.AreaConstruction
 
         private bool HasTwoBuildingSlots(int actor)
         {
-            if (Read(AvailableBuildingsRva) < 21)
+            // Same thresholds as Vanilla's single quarry click (0x90CD0) and the area preview:
+            // one check covers quarry and pile together.
+            if (Read(AvailableBuildingsRva) < 20)
                 return false;
             if (Read(NetworkModeRva) == 0)
                 return true;
             int participants = 0;
             for (int i = 1; i <= 8; i++)
+                // The AI lineup entry is an int32 (Vanilla 0x90CD0 and SE GetAILord compare the dword).
                 if (Read(ParticipantSlotsRva + i * sizeof(int)) != -1 ||
-                    Marshal.ReadByte(image, ParticipantFlagsRva + i * sizeof(int)) != 0)
+                    Read(ParticipantFlagsRva + i * sizeof(int)) != 0)
                     participants++;
-            return Read(PlayerBuildingCountsRva + actor * sizeof(int)) + 2 < 4000 / Math.Max(2, participants);
+            return 4000 / Math.Max(2, participants) - Read(PlayerBuildingCountsRva + actor * sizeof(int)) >= 2;
         }
 
         // Vanilla has no first-free quarry exception. A live resource check stays

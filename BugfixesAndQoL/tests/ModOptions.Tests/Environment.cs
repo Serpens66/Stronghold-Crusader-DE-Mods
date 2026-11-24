@@ -82,6 +82,7 @@ namespace SHCDESE.API
         public void RemoveAction(string handle) => Pending.Remove(handle);
         public void Fire() { var actions = new List<Action>(Pending.Values); Pending.Clear(); foreach (var action in actions) action(); }
     }
+    public sealed class GamePlayerManagerAPI { public const int MAX_PLAYERS = 8; }
     public sealed class GameTimeManagerAPI { public static readonly GameTimeManagerAPI Instance = new GameTimeManagerAPI(); public readonly TestTimerEngine Timers = new TestTimerEngine(); public TestTimerEngine GetTimerEngine() => Timers; }
     public sealed class ModSaveDataAPI
     {
@@ -116,7 +117,7 @@ namespace RedBird.X64.Hooks.Transaction
 }
 namespace Shared
 {
-    public class Mode { public string ToDiagnosticString() => "test"; }
+    public class Mode { public bool IsRealMultiplayer; public string ToDiagnosticString() => "test"; }
     public class GameplaySessionStartedContext { public string Kind = "test"; public Mode Mode = new Mode(); public bool IsLoadedSave, IsEditor, IsReplay; }
     public sealed class MissionInitializationArgs { public APIShared.MissionInitializationPhase Phase; }
     public static class MissionEvents
@@ -187,4 +188,18 @@ namespace BugfixesAndQoL
 }
 
 namespace APIShared { public enum MissionInitializationPhase { BeforeLoad, BeforeNativeStart } }
+namespace APIShared.Multiplayer
+{
+    public static class MultiplayerResyncEvents
+    {
+        public static bool TryRegister(string ownerGuid, string registrationId, Action started, Action completed,
+            out string reason, int order = 0) { reason = null; return true; }
+    }
+    public static class MultiplayerResyncData
+    {
+        public static bool TryRegister<TPrepared>(string ownerGuid, string recordId, int schemaVersion, int maximumBytes,
+            Func<byte[]> capture, Func<ReadOnlyMemory<byte>, TPrepared> prepare, Action<TPrepared> commit, out string reason)
+        { reason = null; return true; }
+    }
+}
 namespace APIShared.GameModes { public static class GameModeHelper { public static Shared.Mode Capture() => new Shared.Mode(); } }

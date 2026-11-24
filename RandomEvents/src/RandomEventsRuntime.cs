@@ -1444,6 +1444,10 @@ namespace RandomEvents
                     $"eligibleAbsoluteMonth={cooldownUntil}.");
         }
 
+        // Known, accepted gap: pendingBanditGroups is not saved (only the MP resync carries it).
+        // A save in the BanditGroupActivationDelayTicks window (~0.5 s game time at normal speed)
+        // loads idle bandits without their march order. No autosave is tied to event timing, and
+        // the result is no crash or desync, so a save schema extension is not worth it.
         private byte[] SaveState(SaveContext context)
         {
             if (!context.IsSaveFile || !Shared.GameplayModActivationGate.IsAllowed || !mapActive || state == null)

@@ -283,6 +283,8 @@ namespace ExtendedData
 
         private bool ValidatePreparedAuthor(PreparedLordSave scope, LordPackageManifest manifest, LordDataSnapshot received)
         {
+            if (LordSaveAuthorProof.AcceptsEmptyPublication(scope.Author, scope.AuthorManifest, manifest, received, fixes.Installed))
+                return true;
             if (scope.AuthorManifest != null)
             {
                 if (manifest.UseLocalValues != scope.AuthorManifest.UseLocalValues || manifest.Slots.Count != scope.AuthorManifest.Slots.Count) return false;
@@ -316,6 +318,9 @@ namespace ExtendedData
 
         private void BindCompleteAuthorDigests(PreparedLordSave scope, string session)
         {
+            // A no-sync author may legitimately receive the host's empty publication, so its
+            // digests are adopted from the first validated publication instead.
+            if (LordSaveAuthorProof.NeedsNoSync(scope.Author, scope.AuthorManifest)) return;
             if (scope.ManifestDigest != null || scope.AuthorManifest == null || scope.Author == null ||
                 scope.Author.Slots.Any(slot => slot.FixesSources == null && scope.Author.FixesInstalled || !slot.LordType.HasValue)) return;
             var slots = scope.Author.Slots.Select(slot => new LordDataSlot {

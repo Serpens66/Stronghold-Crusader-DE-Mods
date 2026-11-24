@@ -27,6 +27,7 @@ var tests = new (string Name, Action Run)[]
     ("mission origin survives restarts and replacements, but releases on failures and exit", MissionOriginLifecycleTests.Run),
     ("Fixes bridge owns custom aliases, extended identity, defaults and originals", FixesBridgeTests.Run),
     ("Saved Lord author proof permits rebasing and missing-source migration without changing authored values", LordSaveAuthorProofTests.Run),
+    ("Saved local-file Lords accept the host's empty load publication but authored sync data does not", LordSaveAuthorProofTests.RunEmptyPublication),
     ("Prepared Lord save admission waits for scoped READY instead of aborting on stale remote ERROR", PreparedSaveReadinessTests.Run),
     ("Same-name Extended and Custom Lords keep independent Fixes asset validation", FixesBridgeTests.AssetIdentityCollision),
     ("Extended map defaults verify live sources, absence and Trail media remapping", FixesBridgeTests.MapDefaultSources),
