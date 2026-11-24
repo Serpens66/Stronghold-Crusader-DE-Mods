@@ -11,6 +11,7 @@ $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 . (Join-Path $workspace 'Shared/Tools/Paths/WorkPaths.ps1')
 . (Join-Path $workspace 'Shared/Tools/ApiSharedRepository/RepositoryProcess.Common.ps1')
 . (Join-Path $workspace 'Shared/Tools/Automation/InGameTest.Transaction.ps1')
+. (Join-Path $workspace 'Shared/Tools/Automation/InGameTest.ClientStart.ps1')
 Add-Type -Path (Resolve-Path -LiteralPath $DesktopHostSource).Path
 
 $hostRoot = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
@@ -197,7 +198,12 @@ try {
             if($hosted){
                 [IO.File]::WriteAllText($joinFile,$hosted.Matches[0].Groups[1].Value,$utf8)
                 $published = $true
-                Write-ProgressLine 'PRIVATE_LOBBY_READY. Start the client game now. The client scenario joins automatically.'
+                $clientStart = Request-ClientGameStart $ClientRoot $label
+                if($clientStart.Started){
+                    Write-ProgressLine 'PRIVATE_LOBBY_READY. The client start watcher launched the client game. The client scenario joins automatically.'
+                }else{
+                    Write-ProgressLine ('PRIVATE_LOBBY_READY. Remote client start unavailable ('+$clientStart.Detail+'). Start the client game now. The client scenario joins automatically.')
+                }
             }
         }
         if($published -and -not $readySent -and $hostLines -match ($runRegex+'peace-readback PASS ')){

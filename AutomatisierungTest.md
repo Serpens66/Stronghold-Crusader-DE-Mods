@@ -613,6 +613,8 @@ Platform_Multiplayer.Instance.SetInviteLobbyID(id);                 // Client
 Platform_Multiplayer.Instance.ResumeInvite();
 ```
 
+**Client-Spiel aus der Ferne starten.** Der Nutzer startet vor anstehenden Paartests auf dem Client `<Spielordner>\_Automation\Start-ClientStartWatcher.bat` und schließt das Fenster danach; nichts davon wird bei der Anmeldung automatisch eingerichtet. Der Wächter (`Shared/Tools/Automation/ClientStart`) startet ausschließlich das Spiel über `steam://rungameid/3024040`, wenn der Host eine Lauf-ID in `_Automation\start.request` legt, und antwortet in `start.result` mit `STARTED` oder `REFUSED <Grund>` (`mods-disabled`, `already-running`, `invalid-label`). `InGameTest.ClientStart.ps1` kopiert die Wächterdateien (`Install-ClientStartWatcher`) und fordert den Start an (`Request-ClientGameStart`); ein veralteter Herzschlag `watcher.alive` (älter als 20 s) gilt als „Wächter läuft nicht“. `Run-PairedResync.ps1` nutzt das an der Stelle `PRIVATE_LOBBY_READY` und fällt sonst auf den manuellen Clientstart zurück. Fernverwaltung von Aufgaben (RPC) ist auf dem Client gesperrt (Stand 24.11.2026); der Weg über die Freigabe braucht keine Firewalländerung.
+
 Steam gibt private Lobbys über den Freundesstatus nicht preis, daher der Weg über die Datei. Beide Rechner treffen sich ohne eigenes Netzwerk über den Tickzähler seit Missionsbeginn, der ist auf allen Peers gleich. Ob es echter Multiplayer ist, im Modus der Mission prüfen: `realMultiplayer=True` und mindestens zwei `realNetworkGameMembers`. Ein Client muss mitspielen; ein solo gestartetes MP-Spiel beweist keine Synchronisation.
 
 #### Erkenntnisse aus dem kombinierten Lauf vom 23. November 2026
