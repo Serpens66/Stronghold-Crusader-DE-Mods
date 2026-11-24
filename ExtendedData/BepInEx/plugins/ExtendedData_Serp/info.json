@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Extended Data",
   "Description": "Adds portable Custom and Coop Trail data plus complete Script Extender Custom Lord Workshop packages.",
-  "Version": "1.0.30",
+  "Version": "1.0.31",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.4.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,14 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.31",
+      "Changes": [
+        "Use the original Coop save-load permission in the customized Coop setup, retaining Vanilla readiness and save checks.",
+        "Retain authored mission settings and report any missing or incompatible required settings mod instead of replacing all mission rules with defaults.",
+        "Bind multiplayer mission readiness to the exact selected mission and prepared settings; preserve explicit Map overrides, selection recovery and independent save loading."
+      ]
+    },
     {
       "Version": "1.0.30",
       "Changes": [

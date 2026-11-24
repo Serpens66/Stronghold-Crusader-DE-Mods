@@ -51,6 +51,8 @@ class Controller {public string TargetGuid="a";}
 class ResetTarget {public string Guid;public IModSettingsWorkingCopyEndpoint Endpoint;}
 class Fixture:Base,IModSettingsWorkingSourceProvider {
  public event Action SourcesChanged;
+ bool HasMissingProviders;
+ void RequireAvailableProviders(){if(HasMissingProviders)throw new InvalidOperationException("Missing provider");}
  object log=new(); bool trailContext=true,workingContextEditable=true;string activeContextLabel="Map",workingSourceContextId="map-a";
  TrailSource trailSource=new();ModSettingsDefinition mapSourceDocument=new(){Value=91};
  Dictionary<string,IModSettingsPresetEndpoint> participants=new();

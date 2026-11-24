@@ -9,6 +9,7 @@ using System.Text.Json;
 
 var tests = new (string Name, Action Run)[]
 {
+    ("Coop mission settings acknowledgements preserve errors and bind the exact mission", CoopMissionSettingsReadinessTests.Run),
     ("Complete Lord metadata survives snapshots, Trails and saves", LordPresentationTests.Roundtrip),
     ("Optional media retains locale variants and deduplicates across missions", LordPresentationTests.Media),
     ("Invalid lordmeta.json falls back to the display name", LordPresentationTests.InvalidMetadataFallsBack),
@@ -22,6 +23,7 @@ var tests = new (string Name, Action Run)[]
     ("Trail reset sources retain authored rules and replace or clear mission identity", TrailSetupTests.Sources),
     ("Personal reset executes provider, individual selector and global confirmation without replacing source rules", PersonalResetRuntimeTests.Run),
     ("Coop Customize refreshes setup, map, team and radar presentation on hosts and clients", TrailSetupTests.Presentation),
+    ("Coop Customize projects Vanilla load permission without enabling unrelated lobbies", CoopCustomizeLoadTests.Run),
     ("legacy mission-settings adapter preserves aliases, mutation and wire contracts", MissionSettingsAdapterTests.Run),
     ("shared mod-data source preserves host authority, local provenance, reset and cleanup", ModDataSourceTests.Run),
     ("mission origin survives restarts and replacements, but releases on failures and exit", MissionOriginLifecycleTests.Run),

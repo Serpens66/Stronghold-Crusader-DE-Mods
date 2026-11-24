@@ -547,6 +547,7 @@ namespace ExtendedData
             FileHeader selected = GetSelectedHeader(lobby);
             // A null row is a transient list rebuild, not a new source selection.
             if (selected == null) return;
+            settingsCoordinator.ObserveMapProviderSelection(NormalizePath(selected.filePath) + ":" + selected.crc);
             // Vanilla clears the selection transiently while rebuilding the same map list.
             // Only a new, concrete map identity counts as a map change.
             if (mapContextActive && selected != null && !MatchesActiveMap(selected))
@@ -610,7 +611,7 @@ namespace ExtendedData
                 if (!IsMapContextCurrent() && !mapDraft.IsFrozen) { mapDraft.Reset(); workingSnapshots = null; }
                 mapDraft.Prepare(identity, true, true, false,
                     () => missing = settingsCoordinator.EnterStrict(document, editable: true,
-                        source: "selected Map", presetLabel: "Map"),
+                        source: "selected Map", presetLabel: "Map", providerScope: MissionProviderScope.Map),
                     FreezeMapDraft, ReopenMapDraft);
             }
             catch (Exception exception)
@@ -629,6 +630,7 @@ namespace ExtendedData
             activeJson = json;
             activeDraftIdentity = NormalizePath(selected.filePath) + ":" + selected.crc;
             activeDocument = document;
+            settingsCoordinator.NotifySourcesChanged();
             LogMapContext("editable", "selected map; existing draft preserved when identity matches");
             if (missing.Length != 0)
             {
@@ -663,7 +665,7 @@ namespace ExtendedData
                     if (json.Length > 0 && json[0] == '\uFEFF')
                         json = json.Substring(1);
                     document = ModSettingsJson.ParseObject(json);
-                    document = settingsCoordinator.ValidateStrict(document, "embedded Map");
+                    document = settingsCoordinator.ValidateStrict(document, "embedded Map", MissionProviderScope.Map);
                     return true;
                 }
             }
@@ -814,7 +816,7 @@ namespace ExtendedData
                 if (!IsMapContextCurrent() && !mapDraft.IsFrozen) { mapDraft.Reset(); workingSnapshots = null; }
                 mapDraft.Prepare(identity, true, true, false,
                     () => missing = settingsCoordinator.EnterStrict(document, editable: true,
-                        source: "authenticated host Map", presetLabel: "Map"),
+                        source: "authenticated host Map", presetLabel: "Map", providerScope: MissionProviderScope.Map),
                     FreezeMapDraft, ReopenMapDraft);
                 mapContextActive = true;
                 mapMissionActive = false;
@@ -824,6 +826,7 @@ namespace ExtendedData
                 activeJson = packet.Json;
                 activeDraftIdentity = identity;
                 activeDocument = document;
+                settingsCoordinator.NotifySourcesChanged();
                 LogMapContext("editable", "authenticated host map source");
                 if (missing.Length != 0)
                 {

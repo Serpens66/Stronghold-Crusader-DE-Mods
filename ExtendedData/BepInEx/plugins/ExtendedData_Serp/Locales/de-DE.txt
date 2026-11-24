@@ -242,3 +242,4 @@ ExtendedData.LordMediaIncluded=Lord-Metadaten und Medien sind im exportierten Fe
 ExtendedData.LordMetadataOnly=Lord-Metadaten sind enthalten; Mediendateien sind nicht eingebettet.
 ExtendedData.LordMetadataLegacy=Dieser Feldzug enthält keine eingebetteten Lord-Metadaten.
 ExtendedData.CoopAdvancedOptionsHint=Gilt für Einzel- und Mehrspieler.
+ExtendedData.RequiredMissionModsMissing=Benötigte Missionsmods fehlen oder sind inkompatibel: {Mods}. Installiere passende Versionen und wähle die Mission erneut. Die Missionseinstellungen wurden nicht geändert.

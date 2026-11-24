@@ -48,6 +48,10 @@ namespace ExtendedData
                 request.CoopTrail != mission.Loaded.TrailNumber ||
                 request.CoopMission + 1 != mission.Loaded.MissionNumber)
                 return null;
+            // Supplemental final boundary for AI starts; the synchronized package
+            // acknowledgement is the primary host gate, including missions without AI.
+            if (missionSettingsCoordinator.ProviderBlockReason is string providerReason)
+                throw new InvalidOperationException(providerReason);
             FRONT_Multiplayer self = GetExistingMainViewModel()?.FRONTMultiplayer;
             Platform_Multiplayer.MPLobby lobby = self?.currentLobby ?? Platform_Multiplayer.Instance?.activeLobby;
             if (lobby == null)
@@ -135,6 +139,9 @@ namespace ExtendedData
             ResolvedMission mission = selected;
             if (mission == null || self?.currentLobby == null)
                 return null;
+            if (APIShared.Savegames.MultiplayerSavePreparation.Current == null &&
+                missionSettingsCoordinator?.ProviderBlockReason is string providerReason)
+                return providerReason;
             try
             {
                 Shared.CoopAiStartPlanFactory.ValidateLobby(self.currentLobby, self.AIVs, FRONT_Multiplayer.coopGame);

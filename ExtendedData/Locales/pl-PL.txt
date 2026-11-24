@@ -242,3 +242,4 @@ ExtendedData.LordMediaIncluded=Lord metadata and media are included in the expor
 ExtendedData.LordMetadataOnly=Lord metadata is included; media files are not embedded.
 ExtendedData.LordMetadataLegacy=This trail has no embedded Lord metadata.
 ExtendedData.CoopAdvancedOptionsHint=Applies to single-player and multiplayer.
+ExtendedData.RequiredMissionModsMissing=Required mission mods are missing or incompatible: {Mods}. Install compatible versions and select the mission again. The mission settings were not changed.

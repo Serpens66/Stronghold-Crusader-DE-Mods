@@ -750,6 +750,11 @@ namespace ExtendedData
                         starting: IsStartCommand(command) &&
                             (!string.Equals(command, "COOP_START", StringComparison.Ordinal) ||
                              self.singlePlayerCoop || self.currentLobby?.CountHumanPlayers() == 2));
+                    if (missionSettingsCoordinator.ProviderBlockReason is string providerReason)
+                    {
+                        BlockLaunch(command, providerReason);
+                        return;
+                    }
                     if (IsStartCommand(command) &&
                         (!string.Equals(command, "COOP_START", StringComparison.Ordinal) ||
                          self.singlePlayerCoop || self.currentLobby?.CountHumanPlayers() == 2))
@@ -892,7 +897,29 @@ namespace ExtendedData
         private void LobbyUpdateHook(FRONT_Multiplayer self)
         {
             CoopClientLobbyPresentation presentation = clientLobbyPresentation;
+            var previousLobby = self.currentLobby;
+            bool customizedCoop = activation.CoopPackages && missionSettingsCoordinator.WasLaunchedThroughCustomize() &&
+                ExtendedDataLaunchOriginApi.Origin == ExtendedDataLaunchOriginKind.CustomizedCoopTrail &&
+                MainViewModel.viewModelLoaded && MainViewModel.Instance.Show_MultiplayerSetup &&
+                MainViewModel.Instance.Show_MPGameCreation;
             lobbyUpdateTrampoline(self);
+            if (customizedCoop && ReferenceEquals(previousLobby, self.currentLobby) &&
+                activation.CoopPackages && missionSettingsCoordinator.WasLaunchedThroughCustomize() &&
+                ExtendedDataLaunchOriginApi.Origin == ExtendedDataLaunchOriginKind.CustomizedCoopTrail)
+            {
+                try
+                {
+                    // Vanilla has now refreshed all four Coop load buttons for this frame.
+                    CoopCustomizeLoadPresentation.Refresh(self,
+                        MainViewModel.viewModelLoaded ? MainViewModel.Instance : null,
+                        Platform_Multiplayer.Instance.activeLobby, true);
+                }
+                catch (Exception exception)
+                {
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/CoopCustomizeLoadPresentation",
+                        "Could not project the Vanilla Coop load permission: " + exception);
+                }
+            }
             // A transition may open the setup during the network processing above.
             // Let the next complete Vanilla update supply its first roster and settings.
             if (presentation == null || !ReferenceEquals(presentation, clientLobbyPresentation))
@@ -1445,6 +1472,9 @@ namespace ExtendedData
         private string BuildMissionDescription()
         {
             string description = selected?.Loaded.Definition.Description ?? string.Empty;
+            string providerReason = missionSettingsCoordinator?.ProviderBlockReason;
+            if (!string.IsNullOrEmpty(providerReason))
+                return string.IsNullOrWhiteSpace(description) ? providerReason : description + "\r\n\r\n" + providerReason;
             if (missingMods == null || missingMods.Length == 0)
                 return description;
             string warning = "Required mission mods not installed: " + string.Join(", ", missingMods) + ".";
@@ -1485,12 +1515,17 @@ namespace ExtendedData
         private bool IsLocalPackageReady() =>
             string.Equals(settings.CoopPackageStatus, ExpectedReadyStatus(), StringComparison.Ordinal);
 
-        private string ExpectedReadyStatus() =>
-            "OK|" + settings.ActiveCoopPackageId + "|" + settings.ActiveCoopPackageFingerprint +
-            (selected?.Loaded.LordRequirements == null ? string.Empty :
-                "|" + selected.Loaded.TrailNumber + "/" + selected.Loaded.MissionNumber +
-                "/" + selected.Loaded.LordRequirements.MissionDigest + "/" +
-                LordSelectionDigest(GetExistingMainViewModel()?.FRONTMultiplayer));
+        private string ExpectedReadyStatus()
+        {
+            string ready = "OK|" + settings.ActiveCoopPackageId + "|" + settings.ActiveCoopPackageFingerprint +
+                (selected?.Loaded.LordRequirements == null ? string.Empty :
+                    "|" + selected.Loaded.TrailNumber + "/" + selected.Loaded.MissionNumber +
+                    "/" + selected.Loaded.LordRequirements.MissionDigest + "/" +
+                    LordSelectionDigest(GetExistingMainViewModel()?.FRONTMultiplayer));
+            // Every mission needs its own acknowledgement, including missions with no AI.
+            return selected == null ? ready : CoopMissionSettingsReadiness.BindMission(ready,
+                selected.Loaded.TrailNumber, selected.Loaded.MissionNumber);
+        }
 
         private static string LordSelectionDigest(FRONT_Multiplayer self)
         {
@@ -1638,6 +1673,21 @@ namespace ExtendedData
 
         private void SetLocalPackageStatus(string status)
         {
+            if (activation.MissionModSettings && selected != null &&
+                status != null && status.StartsWith("OK|", StringComparison.Ordinal))
+            {
+                string expected = ExpectedReadyStatus();
+                FRONT_Multiplayer self = GetExistingMainViewModel()?.FRONTMultiplayer;
+                string reason = missionSettingsCoordinator.ProviderBlockReason;
+                bool prepared = mapSettingsCoordinator?.IsActiveForLobby(self) == true ||
+                    missionSettingsCoordinator.HasPreparedSource(SelectedMissionSettingsSource());
+                string resolved = CoopMissionSettingsReadiness.Resolve(status, expected,
+                    ExtendedDataSettingsViewModel.WaitingStatus, ExtendedDataSettingsViewModel.InvalidStatusPrefix,
+                    reason, prepared);
+                if (string.Equals(status, expected, StringComparison.Ordinal))
+                    localPackageError = reason ?? string.Empty;
+                status = resolved;
+            }
             settings.SetLocalPackageStatus(status);
             // A derived status can remain textually identical after host settings
             // arrive. Requesting Shared publication still advertises it for the
@@ -1769,9 +1819,13 @@ namespace ExtendedData
                 return;
             missingMods = missionSettingsCoordinator.PrepareCoopSettings(
                 selected.Loaded.Definition.ModSettings,
-                "coop:" + settings.ActiveCoopPackageId + ":" + settings.ActiveCoopPackageFingerprint + ":" + selected.Loaded.TrailNumber + ":" + selected.Loaded.MissionNumber,
+                SelectedMissionSettingsSource(),
                 editable, starting);
         }
+
+        private string SelectedMissionSettingsSource() =>
+            "coop:" + settings.ActiveCoopPackageId + ":" + settings.ActiveCoopPackageFingerprint + ":" +
+            selected.Loaded.TrailNumber + ":" + selected.Loaded.MissionNumber;
 
         private void ActivateSelectedMissionSettingsUnlessMap(
             FRONT_Multiplayer lobby,
@@ -1905,6 +1959,8 @@ namespace ExtendedData
                 GetExistingMainViewModel()?.FRONTMultiplayer,
                 editable: false,
                 source: "authenticated host Coop launch", starting: true);
+            if (!missionSettingsCoordinator.TryPrepareRestartSettings(
+                reason => BlockLaunch("COOP_START", reason))) return;
             coopLaunchPending = true;
             missionSettingsCoordinator.PrepareCoopMissionLaunch();
             // Support-relevant once per launch.
