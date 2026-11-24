@@ -2,8 +2,9 @@
 
 Geprüfter Stand vom 21.11.2026: `CrusaderDE.dll` SHA-256
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
-Entwicklungsdiagnose mit experimenteller, quellbezogener Korrektur gespeicherter
-Kaufwünsche. Handelsargumente und Ergebnisse der nativen Helfer bleiben unverändert.
+Der normale Testmod enthält die quellbezogene Korrektur gespeicherter Kaufwünsche
+unter `src/Fix/`. Optionale Diagnose liegt unter `src/Diagnostics/` und wird nur
+mit `/devdiag` kompiliert; der externe Testaufbau liegt in `AIMarketAcceptance`. Handelsargumente und Ergebnisse der nativen Helfer bleiben unverändert.
 
 ## Einstieg und ABI
 
@@ -92,7 +93,7 @@ native Pakete direkt im gespeicherten Wunsch vor `3EC90`.
 ## Alle nativen Auftragserzeuger: Restpaketvertrag vom 22.11.2026
 
 Referenzhash bleibt der oben angegebene vollständige SHA-256. Die 22 produktiven
-Schreibstellen und vollständigen Bytes stehen in `src/MarketDemandSites.DevDiag.cs`;
+Schreibstellen und vollständigen Bytes stehen in `src/Fix/MarketDemandSites.cs`;
 Herleitung, gesamte Erzeuger-/Verbraucherkette, eingehende Kanten und Grenzen in
 `Findings/AllGoodsMaterialAudit.md` und `Findings/AllGoodsRecruitFoodAudit.md`.
 Die Stellen sind: Nahrung `2A464/2A488/2A4AC/2A4D0/2A4F4`, Rekrutierung

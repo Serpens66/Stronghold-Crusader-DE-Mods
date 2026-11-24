@@ -25,7 +25,7 @@ if ($Build) {
     & cmd.exe /c "`"$(Join-Path $root 'Pathfinding\build.bat')`" /source:working /notests /nopause" *>&1 | Out-File -Encoding utf8 (Join-Path $runs "$Label-build.log")
     if ($LASTEXITCODE -ne 0) { throw "Build failed; see $runs" }
 }
-$park = @('RandomEvents_Serp', 'PlayerControlRelayTest_Serp', 'AutoSendTest_Serp', 'TroopActionButtonTest_Serp')
+$park = @('RandomEvents_Serp', 'PlayerControlRelayTest_Serp', 'TroopActionButtonTest_Serp')
 $moved = @(); $probeDir = Join-Path $plugins 'PerfProbe_Serp'; $probeInstalled = $false
 $modConfig = Join-Path $game 'BepInEx\config\Pathfinding_Serp.cfg'; $modConfigBytes = $null
 try {

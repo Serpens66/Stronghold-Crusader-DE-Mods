@@ -1,4 +1,3 @@
-#if SERP_DEVDIAG
 using System;
 using System.Runtime.InteropServices;
 using SHCDESE.API;
@@ -11,6 +10,8 @@ namespace AIMarketOverbuyDiagnostic
     // Native profile identity and the SDK array base are proved equal before writing.
     internal static unsafe class MarketBacklogAic
     {
+        internal static Action<string> Reporter;
+
         private const int RecordSize = 0x5E4;
         private const int NativeProfileRootRva = 0x404C950;
         private static readonly Owned[] owned = new Owned[GamePlayerManagerAPI.MAX_PLAYERS + 1];
@@ -72,7 +73,7 @@ namespace AIMarketOverbuyDiagnostic
             // still be cooperatively restored by the scenario's finally block.
             owned[count++] = state;
             WriteVerified(index, target, updated);
-            Shared.DevDiag.Log(() => "MARKET_BACKLOG_AIC configured player=" + player + " lineupLord=" + (int)players.GetAILord(player) +
+            Reporter?.Invoke("MARKET_BACKLOG_AIC configured player=" + player + " lineupLord=" + (int)players.GetAILord(player) +
                 " nativeId=" + nativeId + " sdkIndex=" + index + " nativeSdkAddressEqual=True" +
                 " foodBefore=" + state.Bread + "/" + state.Cheese + "/" + state.Apples + "/" + state.Amount +
                 " foodAfter=1/1/1/1 weaponBefore=" + state.WeaponBuy + "/" + state.WeaponSell + "/" + state.TradeMinimum +
@@ -158,7 +159,7 @@ namespace AIMarketOverbuyDiagnostic
                         owned[i] = state;
                     }
                 }
-                Shared.DevDiag.Log(() => "MARKET_BACKLOG_AIC batch sdkIndex=" + state.Index +
+                Reporter?.Invoke("MARKET_BACKLOG_AIC batch sdkIndex=" + state.Index +
                     " amount=" + amount + " fullRecordReadback=True pendingWrites=0");
             }
         }
@@ -187,7 +188,7 @@ namespace AIMarketOverbuyDiagnostic
                 WriteVerified(state.Index, state.Address, current);
                 count--;
                 owned[count] = default;
-                Shared.DevDiag.Log(() => "MARKET_BACKLOG_AIC restored sdkIndex=" + state.Index +
+                Reporter?.Invoke("MARKET_BACKLOG_AIC restored sdkIndex=" + state.Index +
                     " foreignOwnedFieldsPreserved=" + foreign + " otherFieldsPreserved=True");
             }
         }
@@ -223,4 +224,3 @@ namespace AIMarketOverbuyDiagnostic
         }
     }
 }
-#endif

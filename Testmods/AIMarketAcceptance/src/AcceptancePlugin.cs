@@ -41,6 +41,7 @@ namespace AIMarketAcceptance
         private static string runId,fixture,save;
         private static bool giftRecruitRun;
         private static int initialized,player,good,expectRestore,restores,decisionChecks,rawVerified;
+        private static int terminalArmed,terminalBuyAttempts;
         private static long lastRawSession;
         private static Exception observationFailure;
         private static AiMarketRegistration marketObserver;
@@ -83,7 +84,8 @@ namespace AIMarketAcceptance
                         Require(current.Length>=2&&current[0]==request[0]&&current[1]==request[1],"request changed before startup");
                         Require(AiMarketEvents.CheckIntegrity(),"shared market hooks unavailable: "+AiMarketEvents.Diagnostic);
                         owner=FindType("AIMarketOverbuyDiagnostic.MarketPendingDemandFix");
-                        aic=FindType("AIMarketOverbuyDiagnostic.MarketBacklogAic");
+                        aic=typeof(AIMarketOverbuyDiagnostic.MarketBacklogAic);
+                        AIMarketOverbuyDiagnostic.MarketBacklogAic.Reporter=Info;
                         if(giftRecruitRun) RegisterGiftRecruit();
                         else
                         {
@@ -294,6 +296,8 @@ namespace AIMarketAcceptance
         }
         private static long BeforeDecision(AiMarketContext context)
         {
+            if(context.Operation==AiMarketOperation.Buy&&context.PlayerId==player&&context.GoodIndex==good&&Volatile.Read(ref terminalArmed)!=0)
+                Interlocked.Increment(ref terminalBuyAttempts);
             if(context.Operation!=AiMarketOperation.PurchaseDecision||context.PlayerId!=player||Volatile.Read(ref rawVerified)==0)return 0;
             // If Vanilla has already fulfilled the packet, zero pending is legitimate.
             // An open packet must retain its partial supply through managed MissionStarted.
@@ -312,9 +316,18 @@ namespace AIMarketAcceptance
                 RequireFixOn("after-managed-start");
                 State state=Read(player,good);
                 if(state.Pending!=0)RequireState(state,"after-managed-start");
+                if(ordinal==2) CompleteLoadedPackage();
                 int before=Volatile.Read(ref decisionChecks);
                 var decision=Marshal.GetDelegateForFunctionPointer<RecruitCall>(new IntPtr(module+0x3EC90));
                 decision(new IntPtr(module+0x404C950),player);
+                if(ordinal==2)
+                {
+                    State closed=Read(player,good);
+                    Require(closed.Pending==0&&closed.Stock==0&&Volatile.Read(ref terminalBuyAttempts)==0,
+                        "the completed loaded package reopened or caused an additional native purchase");
+                    Volatile.Write(ref terminalArmed,0);
+                    Info("TERMINAL_DECISION_PASS player="+player+" good="+good+" pending=0 stock=0 targetExtraBuyAttempts=0 fixturePendingWrites=0");
+                }
                 Require(Volatile.Read(ref decisionChecks)==before+1,"new mission did not reactivate shared decision observers");
                 Require(observationFailure==null,"loaded decision lost source credit: "+observationFailure);
                 Info("ROUNDTRIP_PASS ordinal="+ordinal+" session="+mission.SessionId+" sourceCreditPreserved=True rawBeforeFirstFold=True freshDecisionGate=True");
@@ -325,6 +338,26 @@ namespace AIMarketAcceptance
                 run.InSimulation(mission,()=>{Call(aic,"RestoreAll");return true;});
                 marketObserver.SetEnabled(false);Volatile.Write(ref expectRestore,0);
             }
+        }
+        private static void CompleteLoadedPackage()
+        {
+            Require(GamePlayerManagerAPI.Instance.IsLocalPaused(),"terminal delivery must run under native pause");
+            State partial=Read(player,good);
+            RequireState(partial,"terminal-loaded-partial-package");
+            var players=GamePlayerManagerAPI.Instance;
+            int gold=players.GetPlayerGold(player);
+            Volatile.Write(ref terminalBuyAttempts,0);Volatile.Write(ref terminalArmed,1);
+            Require(players.TryAddGood(player,(eGoods)good,4),"terminal four-item delivery failed");
+            State supplied=Read(player,good);
+            Require(supplied.Pending==0&&supplied.Stock==4&&players.GetPlayerGold(player)==gold,
+                "final delivery did not close the loaded five-item package without spending gold");
+            players.RemoveGood(player,(eGoods)good,4);
+            State consumed=Read(player,good);
+            Require(consumed.Pending==0&&consumed.Stock==0&&players.GetPlayerGold(player)==gold,
+                "consumption reopened the fully delivered loaded package or changed gold");
+            Info("TERMINAL_SUPPLY_PASS player="+player+" good="+good+" sequence="+partial.Sequence+
+                " originalPackage=5 priorCredit=1 beforePending=4 delivered=4 suppliedPending=0 consumed=4 finalPending=0 stock=0 goldBefore="+
+                gold+" goldAfter="+players.GetPlayerGold(player)+" fixturePendingWrites=0");
         }
         private static unsafe State Read(int p,int g)
         {
@@ -346,7 +379,7 @@ namespace AIMarketAcceptance
                 stage+": active="+state.Active+" pending="+state.Pending+" expected="+state.Expected+" package="+state.Package+" credited="+state.Credit+" stock="+state.Stock+" lastStock="+state.LastStock);
         }
         private static Type FindType(string name)
-        {foreach(var assembly in AppDomain.CurrentDomain.GetAssemblies()){var type=assembly.GetType(name,false);if(type!=null)return type;}throw new TypeLoadException(name+" requires the diagnosis development build.");}
+        {foreach(var assembly in AppDomain.CurrentDomain.GetAssemblies()){var type=assembly.GetType(name,false);if(type!=null)return type;}throw new TypeLoadException(name+" requires the installed market fix.");}
         private static object Field(object value,string name)=>value.GetType().GetField(name,Instance).GetValue(value);
         private static object Call(Type type,string name,params object[] arguments)=>type.GetMethod(name,Static).Invoke(null,arguments);
         private static bool SamePath(string a,string b)=>!string.IsNullOrEmpty(a)&&!string.IsNullOrEmpty(b)&&string.Equals(Path.GetFullPath(a),Path.GetFullPath(b),StringComparison.OrdinalIgnoreCase);

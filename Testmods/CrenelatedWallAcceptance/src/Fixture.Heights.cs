@@ -109,8 +109,10 @@ namespace CrenelatedWallAcceptance
                     prefix: new HarmonyMethod(typeof(Fixture).GetMethod(nameof(BeforeSkirmishStart), BindingFlags.Static | BindingFlags.NonPublic)));
             }
             forcedPreBuild = preBuild;
-            log("AI run map=4spielerkarte.map opponent=SK_WOLF; heights only; preBuild=" + preBuild);
-            foreach (var wait in run.StartSkirmish("4spielerkarte.map", new[] { AILords.SK_WOLF })) yield return wait;
+            // Peace time: without it the AI killed the human lord during the long build wait
+            // (run 682010f4), which ended the match and stopped the simulation.
+            log("AI run map=4spielerkarte.map opponent=SK_WOLF; heights only; preBuild=" + preBuild + "; peace=60min");
+            foreach (var wait in run.StartSkirmish("4spielerkarte.map", new[] { AILords.SK_WOLF }, peaceTimeMinutes: 60)) yield return wait;
         }
 
         // Runs the simulation until the AI has placed crenels, then checks every adopted AI tile.

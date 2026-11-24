@@ -1,4 +1,3 @@
-#if SERP_DEVDIAG
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -235,4 +234,3 @@ namespace AIMarketOverbuyDiagnostic
         private static extern bool FlushInstructionCache(IntPtr process, IntPtr address, UIntPtr size);
     }
 }
-#endif

@@ -33,6 +33,8 @@
   </ItemGroup>
   <ItemGroup Condition="'$(SHCDE_DEVDIAG)' == '1' or '$(SerpDevDiagnostics)' == 'true'">
     <Reference Include="Noesis.NoesisGUI"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Noesis.NoesisGUI.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <ItemGroup>
     <Reference Include="Iced"><HintPath>$(ExtenderDir)\Iced.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="RedBird.Abstractions"><HintPath>$(ExtenderDir)\RedBird.Abstractions.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="RedBird.Core"><HintPath>$(ExtenderDir)\RedBird.Core.dll</HintPath><Private>false</Private></Reference>
@@ -43,13 +45,23 @@
     <Compile Include="..\..\Shared\Runtime\Native\CommittedMemory.cs"><Link>Shared\Runtime\Native\CommittedMemory.cs</Link></Compile>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="src\Fix\MarketPendingDemandFix.cs" />
+    <Compile Include="src\Fix\MarketDemandPersistence.cs" />
+    <Compile Include="src\Fix\MarketDemandMissionState.cs" />
+    <Compile Include="src\Fix\MarketDemandSaveCodec.cs" />
+    <Compile Include="src\Fix\MarketDemandTarget.cs" />
+    <Compile Include="src\Fix\MarketDemandSites.cs" />
+    <Compile Include="src\Fix\MarketDemandWriterHooks.cs" />
+    <Compile Include="src\Fix\MarketAmmoDemandSource.cs" />
+    <Compile Include="src\Fix\MarketFixesDemandSource.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="src\AIMarketOverbuyDiagnosticPlugin.cs" />
-    <Compile Include="src\AIMarketOverbuyDiagnosticRuntime.cs" />
-    <Compile Include="src\MarketObservation.cs" />
     <Compile Include="..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\..\Shared\Runtime\Diagnostics\DevDiag.cs"><Link>Shared\Runtime\Diagnostics\DevDiag.cs</Link></Compile>
+  </ItemGroup>
+  <ItemGroup Condition="'$(SHCDE_DEVDIAG)' == '1' or '$(SerpDevDiagnostics)' == 'true'">
     <Compile Include="..\..\Shared\Adapters\APIShared\MissionEventsAdapter.cs"><Link>Shared\Adapters\APIShared\MissionEventsAdapter.cs</Link></Compile>
+    <Compile Include="..\AIMarketAcceptance\src\MarketBacklogAic.cs"><Link>Diagnostics\MarketBacklogAic.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="ValidateReferences" BeforeTargets="BeforeBuild">

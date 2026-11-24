@@ -1,6 +1,4 @@
-#if SERP_DEVDIAG
 using System;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using APIShared.NativeSites;
@@ -10,7 +8,6 @@ using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using SHCDESE.Interop;
 using Shared;
-using Evidence = AIMarketOverbuyDiagnostic.MarketDemandEvidence;
 
 namespace AIMarketOverbuyDiagnostic
 {
@@ -22,12 +19,8 @@ namespace AIMarketOverbuyDiagnostic
         private const string Owner = "AIMarketOverbuyDiagnostic_Serp", Feature = "ai-market-pending-demand";
         private const int Players = GamePlayerManagerAPI.MAX_PLAYERS, Goods = (int)eGoods.Count;
         private const int PlayerStride = 0x583C, PendingRootRva = 0x379D840, TotalGoodsRootRva = 0x379B2A0, AicRootRva = 0x404C950;
-        private const int Capacity = 512;
         private static readonly object gate = new object();
         private static readonly Request[] requests = new Request[(Players + 1) * Goods];
-        private static readonly bool[] firstSource = new bool[(Players + 1) * Goods], firstAdjustment = new bool[(Players + 1) * Goods];
-        private static readonly long[] reductionsByGood = new long[(Players + 1) * Goods];
-        private static readonly Evidence[] records = new Evidence[Capacity];
         private static readonly int[] decisionDepth = new int[Players + 1];
         private static MarketDemandWriterHooks.WriterHook[] hooks;
         private static MarketDemandWriterHooks.Observer observerRoot;
@@ -37,15 +30,13 @@ namespace AIMarketOverbuyDiagnostic
         private static readonly byte[] rebuildBytes = { 0x48, 0x8B, 0x4C, 0x24, 0x28, 0x48, 0x33, 0xCC };
         private static readonly byte[] lossBytes = { 0x45, 0x89, 0x94, 0x8E, 0xA0, 0xB2, 0x79, 0x03 };
         private static IntPtr writerGate, receiptGate;
-        private static long module, session, sequence, written, read, nextSummary, nextError;
-        private static int moduleLength, installed, corrective, sessionActive, forceSummary, summaryInFlight;
-        private static long lastSourceCount, lastReductionCount, lastIncreaseCount, lastCancellationCount;
-        private static Exception failureToWrite;
-        internal static long Reductions, Increases, CancelledOrders, OmittedEvidence, ZeroStockPassed, CorrectionFailures, SourceStores;
-        // 0=source observer, 1=before decision, 2=after decision, 3=stock boundary. Histograms contain
-        // only this owner's managed work, never the native original's duration.
-        internal static readonly long[] ManagedCalls = new long[4], ManagedClockTicks = new long[4], ManagedMaxClockTicks = new long[4];
-        private static readonly long[] timingHistogram = new long[4 * 32];
+        private static long module, session, sequence;
+        private static int moduleLength, installed, corrective, sessionActive;
+        internal static long CorrectionFailures;
+        private static ManualLogSource functionalLog;
+        private static Exception firstFailure;
+        private static int failureLogQueued;
+        private static readonly Action failureReporter = ReportFirstFailure;
 
         private struct Request
         {
@@ -57,8 +48,7 @@ namespace AIMarketOverbuyDiagnostic
         }
 
         internal static bool Ready => Volatile.Read(ref installed) != 0;
-        // Admission/readiness alone does not prove an experiment enabled the correction.
-        // Used only at explicit automation checkpoints, never as a polling publisher.
+        // Functional activation status, also observed by external acceptance tools.
         internal static bool CorrectionActive
         {
             get
@@ -69,14 +59,13 @@ namespace AIMarketOverbuyDiagnostic
                         *(int*)writerGate == 1 && *(int*)receiptGate == 1;
             }
         }
-        internal static bool OutputDrained => Volatile.Read(ref read) == Volatile.Read(ref written) &&
-            Volatile.Read(ref forceSummary) == 0 && Volatile.Read(ref summaryInFlight) == 0;
 
         internal static void Install(CrusaderLibraryLoadContext context, ManualLogSource log)
         {
             lock (gate)
             {
                 if (hooks != null) return;
+                functionalLog = log;
                 bool claimed = false;
                 var candidates = new MarketDemandWriterHooks.WriterHook[MarketDemandSites.All.Length];
                 try
@@ -120,7 +109,7 @@ namespace AIMarketOverbuyDiagnostic
                     MarketFixesDemandSource.SealBodyAfterInstallation();
                     Volatile.Write(ref installed, 1);
                     DebugLogHelper.LogInfo(log, "AI_MARKET_DEMAND_READY: nativeDemandStores=22 stockMarkers=3 hooks=" + candidates.Length +
-                        " method=reference-rva; gate=session; fixedBatch=permanent-credit; material=current-cost; AUTOammo=atomic-unit-goal; manualAmmo=unowned; A:u=unit/global/creation need=stone-cost a=signed-ammo/result(0unknown,1ended,2live); untrackedOrders=unchanged; MD_SUM delta36=source/down/up/cancel p99us36=source/before/after/stock om36=omitted (base36).");
+                        " method=reference-rva; gate=session; fixedBatch=permanent-credit; material=current-cost; AUTOammo=atomic-unit-goal; manualAmmo=unowned; untrackedOrders=unchanged.");
                 }
                 catch (Exception failure)
                 {
@@ -173,11 +162,8 @@ namespace AIMarketOverbuyDiagnostic
                 if (receiptGate != IntPtr.Zero) *(int*)receiptGate = 0;
                 sessionActive = corrective = 0;
                 session = nextSession;
-                Interlocked.Exchange(ref forceSummary, 1);
+                DiagReset();
                 Array.Clear(requests, 0, requests.Length);
-                Array.Clear(firstSource, 0, firstSource.Length);
-                Array.Clear(firstAdjustment, 0, firstAdjustment.Length);
-                Array.Clear(reductionsByGood, 0, reductionsByGood.Length);
                 Array.Clear(decisionDepth, 0, decisionDepth.Length);
                 if (!Ready) return;
                 if (!APIShared.Economy.AiMarketEvents.CheckIntegrity())
@@ -186,9 +172,8 @@ namespace AIMarketOverbuyDiagnostic
                 for (int i = 0; i < hooks.Length; i++)
                     if (!hooks[i].IntegrityReady) { RecordFailure(new InvalidOperationException("Demand writer live integrity differs.")); return; }
                 sessionActive = 1;
-                // Owned baseline scenarios still observe exact sources. The fixed
-                // scenario enables correction after its independently logged gift.
-                corrective = string.IsNullOrEmpty(MarketAutomation.Scenario) || MarketAutomation.Scenario == "market-fresh-fixed" ? 1 : 0;
+                corrective = 1;
+                DiagConfigureCorrection(ref corrective);
                 *(int*)writerGate = 1;
                 *(int*)receiptGate = corrective;
             }
@@ -199,7 +184,7 @@ namespace AIMarketOverbuyDiagnostic
             lock (gate)
             {
                 sessionActive = corrective = 0;
-                Interlocked.Exchange(ref forceSummary, 1);
+                DiagEnd();
                 if (writerGate != IntPtr.Zero) *(int*)writerGate = 0;
                 if (receiptGate != IntPtr.Zero) *(int*)receiptGate = 0;
                 Array.Clear(requests, 0, requests.Length);
@@ -209,11 +194,11 @@ namespace AIMarketOverbuyDiagnostic
 
         private static void ObserveNativeStore(IntPtr snapshot, int siteIndex)
         {
-            long started = Stopwatch.GetTimestamp();
             int nativeCount = MarketDemandSites.All.Length;
             bool after = siteIndex >= 256;
             int index = after ? siteIndex - 256 : siteIndex;
             bool isReceipt = !after && index > nativeCount;
+            DiagBeginTiming(isReceipt ? 3 : 0);
             try
             {
                 lock (gate)
@@ -271,7 +256,7 @@ namespace AIMarketOverbuyDiagnostic
                 }
                 APIShared.Multiplayer.SimulationAgreement.ReportFault("AI market source observer failed: " + failure.Message);
             }
-            finally { RecordTiming(isReceipt ? 3 : 0, Stopwatch.GetTimestamp() - started); }
+            finally { DiagEndTiming(isReceipt ? 3 : 0); }
         }
 
         private static bool DecodeCell(ulong cell, bool pendingCell, out int player, out int good, out GamePlayerResources* resources)
@@ -325,6 +310,7 @@ namespace AIMarketOverbuyDiagnostic
                 !MarketAmmoDemandSource.TryCapture(sourceFrame, player, stock, unchecked((ulong)module), out ammoOrigin)))
             { requests[index] = default; return; } // Manual/unknown replaces old provenance but remains Vanilla.
             Request request = requests[index];
+            if (request.GoalSession != session) request = default;
             MarketDemandTarget target = request.Target;
             bool keepOrigin;
             if (autoAmmo)
@@ -350,7 +336,7 @@ namespace AIMarketOverbuyDiagnostic
             long sourceSequence = ++sequence;
             if (!keepOrigin)
             {
-                request.Tick = CurrentTick(); request.Sequence = sourceSequence; request.SourceRva = sourceRva;
+                request.Sequence = sourceSequence; request.SourceRva = sourceRva;
                 request.SourceStock = stock; request.GoalAmount = amount;
                 request.GoalSession = session;
             }
@@ -358,15 +344,8 @@ namespace AIMarketOverbuyDiagnostic
             request.PolicySourceRva = sourceRva;
             request.WriteRva = sourceRva; request.WriteAmount = amount;
             request.WriteSession = session; request.WriteSequence = sourceSequence; request.WaitingAfter = paired;
+            DiagSourceObserved(player, good, stock, aicId, !keepOrigin, ref request);
             requests[index] = request;
-            Interlocked.Increment(ref SourceStores);
-            if (firstSource[index]) return;
-            var evidence = new Evidence { Session = session, Sequence = request.Sequence, Player = player, Good = good,
-                Tick = request.Tick, SourceRva = request.SourceRva, SourceStock = request.SourceStock, After = request.GoalAmount, Goal = target.Goal,
-                OriginalPackage = target.OriginalPackage, Credited = target.Credited, AicId = aicId,
-                IsMaterial = target.Policy == MarketDemandPolicy.MaterialStockGoal, MaterialCost = target.MaterialCost, MaterialPadding = target.MaterialPadding };
-            AddAmmoEvidence(ref evidence, request, player, stock);
-            if (Enqueue(evidence)) firstSource[index] = true;
         }
 
         private static bool DescribeSource(int rva, int good, out bool material, out MarketDemandSourceFamily family, out int padding)
@@ -442,14 +421,14 @@ namespace AIMarketOverbuyDiagnostic
             int actual = ((int*)&resources->r_AIPendingMarketPurchaseAmountNull)[good];
             if (actual != emitted || request.Target.ExpectedPending != emitted)
             { request.Target.Active = false; requests[index] = request; return; }
-            ApplyRequest(player, good, resources, CurrentTick(), rva, ref request);
+            ApplyRequest(player, good, resources, rva, ref request);
             requests[index] = request;
         }
 
         internal static void BeforeDecision(int player, int tick)
         {
             if (Volatile.Read(ref sessionActive) == 0 || Volatile.Read(ref corrective) == 0) return;
-            long started = Stopwatch.GetTimestamp();
+            DiagBeginTiming(1);
             try
             {
                 lock (gate)
@@ -462,18 +441,19 @@ namespace AIMarketOverbuyDiagnostic
                         if (good == (int)eGoods.STORED_GOLD) continue;
                         int index = player * Goods + good;
                         Request request = requests[index];
-                        ApplyRequest(player, good, resources, tick, 0x3EC90, ref request);
+                        ApplyRequest(player, good, resources, 0x3EC90, ref request);
                         requests[index] = request;
                     }
                 }
             }
             catch (Exception failure) { FailCorrection(failure); }
-            finally { RecordTiming(1, Stopwatch.GetTimestamp() - started); }
+            finally { DiagEndTiming(1); }
         }
 
-        private static void ApplyRequest(int player, int good, GamePlayerResources* resources, int tick, int boundaryRva, ref Request request)
+        private static void ApplyRequest(int player, int good, GamePlayerResources* resources, int boundaryRva, ref Request request)
         {
             if (!request.Target.Active) return;
+            if (request.GoalSession != session) { request.Target.Active = false; return; }
             if (!CorrectionCovered(good) || !TryPolicy(player, good, resources, request, out long policy))
             { request.Target.Active = false; return; }
             int* cell = (int*)&resources->r_AIPendingMarketPurchaseAmountNull + good;
@@ -483,7 +463,6 @@ namespace AIMarketOverbuyDiagnostic
             bool changed;
             if (request.Target.Policy == MarketDemandPolicy.AutoAmmo)
             {
-                if (request.GoalSession != session) { request.Target.Active = false; return; }
                 var result = request.AmmoOrigin.TryDesired(player, stock, out int desired, out _);
                 if (result == MarketAmmoDemandSource.Result.Unknown) { request.Target.Active = false; return; }
                 changed = request.Target.TryReconcileAutoAmmo(original, stock, aicId, policy, desired, out adjusted);
@@ -491,35 +470,12 @@ namespace AIMarketOverbuyDiagnostic
             else changed = request.Target.TryReconcile(original, stock, aicId, policy, out adjusted);
             if (!changed)
             {
-                if (boundaryRva == 0x3EC90 && request.Target.Active && stock == 0) Interlocked.Increment(ref ZeroStockPassed);
+                DiagUnchanged(boundaryRva, stock, request.Target.Active);
                 return;
             }
             *cell = adjusted;
             if (*cell != adjusted) throw new InvalidOperationException("Demand correction readback differs.");
-            int index = player * Goods + good;
-            if (adjusted < original)
-            { Interlocked.Increment(ref Reductions); Interlocked.Increment(ref reductionsByGood[index]); }
-            else Interlocked.Increment(ref Increases);
-            if (adjusted == 0) Interlocked.Increment(ref CancelledOrders);
-            if (firstAdjustment[index]) return;
-            var evidence = new Evidence { Kind = 1, Session = session, Player = player, Good = good,
-                Tick = tick, Before = original, After = adjusted, Stock = stock, Goal = request.Target.Goal,
-                OriginalPackage = request.Target.OriginalPackage, Credited = request.Target.Credited,
-                IsMaterial = request.Target.Policy == MarketDemandPolicy.MaterialStockGoal,
-                MaterialCost = request.Target.MaterialCost, MaterialPadding = request.Target.MaterialPadding,
-                AicId = aicId, SourceRva = request.SourceRva, SourceTick = request.Tick,
-                SourceSequence = request.Sequence, SourceStock = request.SourceStock, BoundaryRva = boundaryRva };
-            AddAmmoEvidence(ref evidence, request, player, stock);
-            if (Enqueue(evidence)) firstAdjustment[index] = true;
-        }
-
-        private static void AddAmmoEvidence(ref Evidence evidence, Request request, int player, int stock)
-        {
-            if (request.Target.Policy != MarketDemandPolicy.AutoAmmo) return;
-            var result = request.AmmoOrigin.TryDesired(player, stock, out _, out int ammo);
-            evidence.IsAmmo = true; evidence.UnitId = request.AmmoOrigin.UnitId;
-            evidence.UnitGlobalId = request.AmmoOrigin.GlobalId; evidence.UnitCreationTick = request.AmmoOrigin.CreationTick;
-            evidence.Ammo = ammo; evidence.AmmoState = (int)result;
+            DiagAdjusted(player, good, original, adjusted, stock, aicId, boundaryRva, request);
         }
 
         // Root brackets only the actual native decision. Its own purchases call
@@ -562,7 +518,7 @@ namespace AIMarketOverbuyDiagnostic
                 if (!request.Target.ObserveStock(pending[good], currentStock, aicId))
                 { requests[index] = request; continue; }
                 if (request.Target.Policy == MarketDemandPolicy.AutoAmmo || request.Target.NeedsAdjustment(currentStock))
-                    ApplyRequest(player, good, resources, CurrentTick(), boundaryRva, ref request);
+                    ApplyRequest(player, good, resources, boundaryRva, ref request);
                 requests[index] = request;
             }
         }
@@ -580,7 +536,7 @@ namespace AIMarketOverbuyDiagnostic
         internal static void AfterDecision(int player)
         {
             if (Volatile.Read(ref sessionActive) == 0) return;
-            long started = Stopwatch.GetTimestamp();
+            DiagBeginTiming(2);
             try
             {
                 lock (gate)
@@ -596,66 +552,9 @@ namespace AIMarketOverbuyDiagnostic
                 }
             }
             catch (Exception failure) { FailCorrection(failure); }
-            finally { RecordTiming(2, Stopwatch.GetTimestamp() - started); }
+            finally { DiagEndTiming(2); }
         }
 
-        internal static void ObservePendingState(int player, int good, int value)
-        { if (ValidCell(player, good)) lock (gate) requests[player * Goods + good].Target.ObservePending(value); }
-
-        internal static bool TryGetTrackedRequest(int player, int good, out int amount, bool allRecruitmentSources = false)
-        {
-            amount = 0;
-            lock (gate)
-            {
-                if (!ValidCell(player, good) || good < (int)eGoods.STORED_BOWS || good > (int)eGoods.STORED_METAL_ARMOUR) return false;
-                int index = player * Goods + good;
-                Request request = requests[index];
-                bool combat = request.SourceRva == 0x40D62 || request.SourceRva == 0x40D3C;
-                bool otherRecruit = request.SourceRva == 0x403A7 || request.SourceRva == 0x40597;
-                if (request.SourceStock != 0 || (!combat && !(allRecruitmentSources && otherRecruit))) return false;
-                if (!GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(player, out GamePlayerResources* resources) || resources == null) return false;
-                request.Target.ObservePending(((int*)&resources->r_AIPendingMarketPurchaseAmountNull)[good]);
-                if (unchecked((int)resources->r_AILordMinusOne) != request.Target.AicId ||
-                    !TryPolicy(player, good, resources, request, out long policy) || policy != request.Target.PolicyToken) request.Target.Active = false;
-                requests[index] = request;
-                if (!request.Target.Active) return false;
-                amount = request.Target.ExpectedPending;
-                return true;
-            }
-        }
-
-        internal static bool TryGetProvenance(int player, int good, out int tick, out long sourceSequence, out int target, bool allRecruitmentSources = false)
-        {
-            tick = target = 0; sourceSequence = 0;
-            lock (gate)
-            {
-                if (!TryGetTrackedRequest(player, good, out _, allRecruitmentSources)) return false;
-                Request request = requests[player * Goods + good];
-                tick = request.Tick; sourceSequence = request.Sequence; target = request.Target.OriginalPackage;
-                return true;
-            }
-        }
-
-        internal static long GetReductionCount(int player, int good) => ValidCell(player, good)
-            ? Interlocked.Read(ref reductionsByGood[player * Goods + good]) : 0;
-
-        internal static void EnableAfterGift()
-        {
-            lock (gate)
-            {
-                if (MarketAutomation.Scenario != "market-backlog-fixed" || !MarketBacklogScenario.Active ||
-                    MarketBacklogScenario.GiftUnits <= 0 || sessionActive == 0 || !Ready)
-                    throw new InvalidOperationException("Fixed comparison requires its owned fulfilled-demand scenario.");
-                corrective = 1;
-                if (receiptGate != IntPtr.Zero) *(int*)receiptGate = 1;
-                if (!CorrectionActive) throw new InvalidOperationException("The fixed gift comparison did not enable all correction gates.");
-                Shared.DevDiag.Log(() => "AI_MARKET_FIX_ACTIVE: scenario=" + MarketAutomation.Scenario +
-                    " run=" + MarketAutomation.RunId + " corrective=1 sessionActive=1 writerGate=1 receiptGate=1 checkpoint=after-gift");
-            }
-        }
-
-        internal static void DeactivateExperiment()
-        { lock (gate) { corrective = 0; if (receiptGate != IntPtr.Zero) *(int*)receiptGate = 0; } }
         internal static void FailCorrection(Exception failure)
         {
             lock (gate) { corrective = 0; if (receiptGate != IntPtr.Zero) *(int*)receiptGate = 0; RecordFailure(failure); }
@@ -664,90 +563,34 @@ namespace AIMarketOverbuyDiagnostic
         private static void RecordFailure(Exception failure)
         {
             Interlocked.Increment(ref CorrectionFailures);
-            Interlocked.CompareExchange(ref failureToWrite, failure, null);
+            // After the first fault this feature remains fail-closed. Report that
+            // complete cause once per process, without waiting for diagnostic output.
+            Interlocked.CompareExchange(ref firstFailure, failure, null);
+            if (Interlocked.CompareExchange(ref failureLogQueued, 1, 0) != 0) return;
+            try { if (APIShared.ApiShared.ForMod(Owner).Ui.TryPost(failureReporter)) return; } catch { }
+            Interlocked.Exchange(ref failureLogQueued, 0);
         }
         private static bool ValidCell(int player, int good) => player > 0 && player <= Players && good > (int)eGoods.STORED_NULL &&
             good < Goods && good != (int)eGoods.STORED_GOLD;
-        private static int CurrentTick() => SimulationTickEvents.TryGetCurrentTick(out int tick) ? tick : 0;
-        private static bool Enqueue(Evidence evidence)
-        {
-            long output = written;
-            if (output - Volatile.Read(ref read) >= Capacity) { Interlocked.Increment(ref OmittedEvidence); return false; }
-            records[(int)(output % Capacity)] = evidence;
-            Volatile.Write(ref written, output + 1);
-            return true;
-        }
+        internal static void FailInitialization(Exception failure) => FailCorrection(failure);
 
-        private static void RecordTiming(int kind, long elapsed)
+        private static void ReportFirstFailure()
         {
-            Interlocked.Increment(ref ManagedCalls[kind]);
-            Interlocked.Add(ref ManagedClockTicks[kind], elapsed);
-            long previous;
-            do { previous = Volatile.Read(ref ManagedMaxClockTicks[kind]); if (elapsed <= previous) break; }
-            while (Interlocked.CompareExchange(ref ManagedMaxClockTicks[kind], elapsed, previous) != previous);
-            long micros = elapsed * 1000000 / Stopwatch.Frequency;
-            int bucket = 0;
-            while (micros > 1 && bucket < 31) { micros = (micros + 1) >> 1; bucket++; }
-            Interlocked.Increment(ref timingHistogram[kind * 32 + bucket]);
-        }
-
-        // Conservative histogram upper bound, in microseconds. The worker reads
-        // counters concurrently, so this is a measurement summary, not a gate.
-        internal static long TimingP99Microseconds(int kind)
-        {
-            if ((uint)kind >= 4) return 0;
-            long total = 0;
-            for (int i = 0; i < 32; i++) total += Volatile.Read(ref timingHistogram[kind * 32 + i]);
-            if (total == 0) return 0;
-            long required = total - total / 100, cumulative = 0;
-            for (int i = 0; i < 32; i++)
-            {
-                cumulative += Volatile.Read(ref timingHistogram[kind * 32 + i]);
-                if (cumulative >= required) return 1L << i;
-            }
-            return 1L << 31;
-        }
-
-        internal static void Drain(ManualLogSource log)
-        {
-            long cursor = read;
-            while (cursor < Volatile.Read(ref written))
-            {
-                Evidence item = records[(int)(cursor % Capacity)];
-                DebugLogHelper.LogInfo(log, item.Kind == 1 ? MarketDemandLog.FormatAdjustment(item) : MarketDemandLog.FormatSource(item));
-                Volatile.Write(ref read, ++cursor);
-            }
-            long now = Stopwatch.GetTimestamp();
-            // Take the wakeup before the snapshot. End/Reset during formatting
-            // publishes another wakeup that this worker must not clear afterward.
-            Volatile.Write(ref summaryInFlight, 1);
-            bool forced = Interlocked.Exchange(ref forceSummary, 0) != 0;
             try
             {
-                if (forced || now >= nextSummary)
-                {
-                    long stores = Interlocked.Read(ref SourceStores), reduced = Interlocked.Read(ref Reductions),
-                        increased = Interlocked.Read(ref Increases), cancelled = Interlocked.Read(ref CancelledOrders);
-                    if (forced || stores != lastSourceCount || reduced != lastReductionCount || increased != lastIncreaseCount || cancelled != lastCancellationCount)
-                        DebugLogHelper.LogInfo(log, MarketDemandLog.FormatSummary(stores - lastSourceCount,
-                            reduced - lastReductionCount, increased - lastIncreaseCount, cancelled - lastCancellationCount,
-                            TimingP99Microseconds(0), TimingP99Microseconds(1), TimingP99Microseconds(2), TimingP99Microseconds(3), Interlocked.Read(ref OmittedEvidence)));
-                    lastSourceCount = stores; lastReductionCount = reduced; lastIncreaseCount = increased; lastCancellationCount = cancelled;
-                    nextSummary = now + Stopwatch.Frequency * 10;
-                }
+                DebugLogHelper.LogError(functionalLog, "AI_MARKET_FIX_ERROR: correction disabled; " + Volatile.Read(ref firstFailure));
             }
-            catch { if (forced) Interlocked.Exchange(ref forceSummary, 1); throw; }
-            finally { Volatile.Write(ref summaryInFlight, 0); }
-            if (now >= nextError)
-            {
-                Exception failure = Interlocked.Exchange(ref failureToWrite, null);
-                if (failure != null)
-                {
-                    nextError = now + Stopwatch.Frequency * 30;
-                    DebugLogHelper.LogError(log, "MARKET_STALE_FIX_ERROR: correction disabled; " + failure);
-                }
-            }
+            catch { Interlocked.Exchange(ref failureLogQueued, 0); }
         }
+
+        // Optional methods and their argument evaluation disappear from normal IL.
+        static partial void DiagReset();
+        static partial void DiagEnd();
+        static partial void DiagConfigureCorrection(ref int correction);
+        static partial void DiagBeginTiming(int kind);
+        static partial void DiagEndTiming(int kind);
+        static partial void DiagSourceObserved(int player, int good, int stock, int aicId, bool newGoal, ref Request request);
+        static partial void DiagAdjusted(int player, int good, int original, int adjusted, int stock, int aicId, int boundaryRva, Request request);
+        static partial void DiagUnchanged(int boundaryRva, int stock, bool active);
     }
 }
-#endif

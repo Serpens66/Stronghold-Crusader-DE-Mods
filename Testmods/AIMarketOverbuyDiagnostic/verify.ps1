@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $project = Split-Path -Parent $MyInvocation.MyCommand.Path
 $workspace = (Resolve-Path -LiteralPath (Join-Path $project '..\..')).Path
-$sourceFiles = @(Get-ChildItem -LiteralPath (Join-Path $project 'src') -Filter '*.cs' -File)
+$sourceFiles = @(Get-ChildItem -LiteralPath (Join-Path $project 'src') -Filter '*.cs' -File -Recurse)
 $projectFile = Join-Path $project 'AIMarketOverbuyDiagnostic.csproj'
 $testDirectory = Join-Path $workspace '_inspect\AIMarketOverbuyDiagnosticTests'
 $textFiles = @($sourceFiles) + @(

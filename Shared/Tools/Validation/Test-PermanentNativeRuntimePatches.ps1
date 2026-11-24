@@ -97,6 +97,30 @@ function Get-SourceBlock([string[]]$Lines, [string]$Signature) {
 # publication contract holds; anything else stays a normal finding.
 function Get-FreshPageAllowance([string]$Path, [string[]]$Lines) {
     $text = [string]::Join("`n", $Lines)
+    if ($Path -eq (Join-Path $workspace 'Testmods\AIMarketOverbuyDiagnostic\src\Fix\MarketDemandWriterHooks.cs')) {
+        # The normal fix now explicitly compiles this previously diagnosis-only relay.
+        # Its sole cache flush targets a fresh private page before publication. This
+        # is a narrow source guardrail; TradeEntries executes the real relay/backend.
+        $prepare = Get-SourceBlock $Lines 'private static unsafe WriterHook PrepareCore('
+        $publish = Get-SourceBlock $Lines 'internal void Publish()'
+        $rollback = Get-SourceBlock $Lines 'internal void DisposeUnpublished()'
+        if (-not $prepare -or -not $publish -or -not $rollback) { return $null }
+        $prepareText = [string]::Join("`n", $Lines[$prepare.Start..$prepare.End])
+        $publishText = [string]::Join("`n", $Lines[$publish.Start..$publish.End])
+        $rollbackText = [string]::Join("`n", $Lines[$rollback.Start..$rollback.End])
+        if ($prepareText -notmatch 'hook\.page = VirtualAlloc\(IntPtr.Zero, \(UIntPtr\)PageBytes, 0x3000, 0x40\)' -or
+            $prepareText -notmatch 'Marshal.Copy\(code, 0, hook.page, code.Length\)' -or
+            $prepareText -notmatch 'FlushInstructionCache\(GetCurrentProcess\(\), hook.page, \(UIntPtr\)code.Length\)' -or
+            $prepareText -match '\.Publish\(' -or
+            [regex]::Matches($text, '\bFlushInstructionCache\s*\(').Count -ne 2 -or
+            -not $publishText.Contains('roots.Add(this)') -or -not $publishText.Contains('publishAttempted = true') -or
+            -not $publishText.Contains('AuditedEntryDetour.Publish(') -or
+            $publishText.IndexOf('roots.Add(this)') -gt $publishText.IndexOf('publishAttempted = true') -or
+            $publishText.IndexOf('publishAttempted = true') -gt $publishText.IndexOf('AuditedEntryDetour.Publish(') -or
+            $rollbackText -notmatch 'if \(publishAttempted \|\| AuditedEntryDetour.WasPublished\(detour\) \|\| disposed\) return;' -or
+            [regex]::Matches($text, '\bVirtualFree\s*\(').Count -ne 2) { return $null }
+        return @($prepare)
+    }
     # Both helpers share one contract; APIShared's SourceModel guardrail lists the same two owners.
     $preparedHelpers = @{
         (Join-Path $workspace 'APIShared\src\Projectiles\PlagueNativeCode.cs') = 'PlagueNativeCode'

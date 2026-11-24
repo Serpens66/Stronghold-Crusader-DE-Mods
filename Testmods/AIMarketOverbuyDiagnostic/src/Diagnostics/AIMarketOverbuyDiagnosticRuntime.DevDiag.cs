@@ -38,8 +38,6 @@ namespace AIMarketOverbuyDiagnostic
         internal void InstallTrace(SHCDESE.API.LowLevel.CrusaderLibraryLoadContext context)
         {
             causalRequested = MarketAutomation.NeedsCausalTrace();
-            MarketPendingDemandFix.Install(context, log);
-            MarketPendingDemandFix.InitializeConsumers(log);
             // The decision wrapper also drives correction in ordinary test games.
             // Detailed trade capture remains confined to explicitly owned short runs.
             tradeTrace = MarketTradeTrace.Install(context, log);
@@ -48,7 +46,7 @@ namespace AIMarketOverbuyDiagnostic
         }
         internal void CheckTraceHealthForAutomation(bool requireCalls)
         {
-            if (!MarketPendingDemandFix.FeatureReady || MarketPendingDemandFix.CorrectionFailures != 0)
+            if (!MarketPendingDemandFix.FeatureReady || MarketPendingDemandFix.CorrectionFailures != 0 || MarketPendingDemandFix.DiagnosticFailures != 0)
                 throw new InvalidOperationException("Native demand correction is unavailable or its runtime capture/correction failed.");
             bool expectsCorrection = !MarketAutomation.OutputDrainStarted &&
                 (MarketAutomation.Scenario == "market-fresh-fixed" ||
@@ -103,9 +101,6 @@ namespace AIMarketOverbuyDiagnostic
                 else tradeTrace?.End();
 #endif
             }
-#if SERP_DEVDIAG
-            Shared.NativePatchGuard.Recheck();
-#endif
             Shared.DebugLogHelper.LogInfo(log, $"AI_MARKET_SESSION: session={session.SessionId}, kind={session.Kind}, loadedSave={session.IsLoadedSave}, editor={session.IsEditor}, replayNotification={session.IsReplay}, fixesLoaded={fixesLoaded}, observationActive={started}, mode={session.Mode.ToDiagnosticString()}.");
         }
 

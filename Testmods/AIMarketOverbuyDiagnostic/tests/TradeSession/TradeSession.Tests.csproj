@@ -8,10 +8,10 @@
     <SerpDevDiagnostics>true</SerpDevDiagnostics>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../src/MarketTradeSession.DevDiag.cs" Link="MarketTradeSession.DevDiag.cs" />
-    <Compile Include="../../src/MarketDemandTarget.DevDiag.cs" Link="MarketDemandTarget.DevDiag.cs" />
-    <Compile Include="../../src/MarketDemandSaveCodec.DevDiag.cs" Link="MarketDemandSaveCodec.DevDiag.cs" />
-    <Compile Include="../../src/MarketDemandMissionState.DevDiag.cs" Link="MarketDemandMissionState.DevDiag.cs" />
-    <Compile Include="../../src/MarketObservation.cs" Link="MarketObservation.cs" />
+    <Compile Include="../../src/Diagnostics/MarketTradeSession.DevDiag.cs" Link="MarketTradeSession.DevDiag.cs" />
+    <Compile Include="../../src/Fix/MarketDemandTarget.cs" Link="MarketDemandTarget.DevDiag.cs" />
+    <Compile Include="../../src/Fix/MarketDemandSaveCodec.cs" Link="MarketDemandSaveCodec.DevDiag.cs" />
+    <Compile Include="../../src/Fix/MarketDemandMissionState.cs" Link="MarketDemandMissionState.DevDiag.cs" />
+    <Compile Include="../../src/Diagnostics/MarketObservation.DevDiag.cs" Link="MarketObservation.cs" />
   </ItemGroup>
 </Project>

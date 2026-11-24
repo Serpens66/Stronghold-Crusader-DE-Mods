@@ -1,4 +1,3 @@
-#if SERP_DEVDIAG
 namespace AIMarketOverbuyDiagnostic
 {
     internal enum MarketDemandPolicy { FixedBatch, MaterialStockGoal, AutoAmmo }
@@ -218,4 +217,3 @@ namespace AIMarketOverbuyDiagnostic
         }
     }
 }
-#endif

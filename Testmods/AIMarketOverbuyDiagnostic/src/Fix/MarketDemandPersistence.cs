@@ -1,4 +1,3 @@
-#if SERP_DEVDIAG
 using System;
 using System.Collections.Generic;
 using APIShared;
@@ -49,8 +48,7 @@ namespace AIMarketOverbuyDiagnostic
         private static long MarketBegin(AiMarketContext context)
         {
             if (context.Operation != AiMarketOperation.PurchaseDecision) return 0;
-            int tick = SimulationTickEvents.TryGetCurrentTick(out int current) ? current : 0;
-            BeforeDecision(context.PlayerId, tick);
+            BeforeDecision(context.PlayerId, 0);
             EnterDecision(context.PlayerId);
             return 1;
         }
@@ -79,7 +77,28 @@ namespace AIMarketOverbuyDiagnostic
             }
         }
         private static void OnDemandStarted(MissionLifecycleNotification note)
-        { lock (gate) { BeginDemandAttempt(note.Context); worldState.NativeArmed = true; PublishWorldGate(); } }
+        {
+            // Published relays outlive the diagnostic host and must still detect
+            // later foreign patches in normal builds, including editor starts.
+            Shared.NativePatchGuard.Recheck();
+            lock (gate)
+            {
+                RecheckDemandIntegrity();
+                BeginDemandAttempt(note.Context);
+                worldState.NativeArmed = true;
+                PublishWorldGate();
+            }
+        }
+        private static void RecheckDemandIntegrity()
+        {
+            if (!Ready) return;
+            MarketFixesDemandSource.Recheck();
+            if (!AiMarketEvents.CheckIntegrity())
+            { FailCorrection(new InvalidOperationException("Shared AI market entry integrity differs at mission start.")); return; }
+            for (int index = 0; index < hooks.Length; index++)
+                if (!hooks[index].IntegrityReady)
+                { FailCorrection(new InvalidOperationException("Demand writer live integrity differs at mission start.")); return; }
+        }
         private static void BeginDemandAttempt(MissionContext context)
         {
             lock (gate)
@@ -191,7 +210,8 @@ namespace AIMarketOverbuyDiagnostic
         }
         private static bool ValidateRestoredRequest(int player, int good, Request request)
         {
-            if (!ValidCell(player, good) || !GamePlayerManagerAPI.Instance.IsAIPlayer(player) ||
+            if (attempt == null || request.GoalSession != session || request.GoalSession != attempt.SessionId ||
+                !ValidCell(player, good) || !GamePlayerManagerAPI.Instance.IsAIPlayer(player) ||
                 !GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(player, out GamePlayerResources* resources) || resources == null ||
                 !DescribeSource(request.SourceRva, good, out bool material, out MarketDemandSourceFamily family, out int padding) ||
                 (material ? MarketDemandPolicy.MaterialStockGoal : family == MarketDemandSourceFamily.Ammo ? MarketDemandPolicy.AutoAmmo : MarketDemandPolicy.FixedBatch) != request.Target.Policy ||
@@ -206,4 +226,3 @@ namespace AIMarketOverbuyDiagnostic
         }
     }
 }
-#endif

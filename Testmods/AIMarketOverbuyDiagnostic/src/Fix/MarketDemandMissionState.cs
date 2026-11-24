@@ -1,4 +1,3 @@
-#if SERP_DEVDIAG
 namespace AIMarketOverbuyDiagnostic
 {
     // Gameplay admission has no dependency on diagnostic buffers, wall time or disk progress.
@@ -17,4 +16,3 @@ namespace AIMarketOverbuyDiagnostic
         internal void End() { SessionId = 0; InRepair = false; Agreed = false; NativeArmed = false; }
     }
 }
-#endif

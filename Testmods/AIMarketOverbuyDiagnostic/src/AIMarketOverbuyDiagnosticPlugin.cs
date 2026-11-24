@@ -1,5 +1,4 @@
 using BepInEx;
-using BepInEx.Bootstrap;
 using BepInEx.Logging;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
@@ -11,24 +10,18 @@ namespace AIMarketOverbuyDiagnostic
     [BepInDependency("APIShared_Serp", "0.62.0")]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(Guid, Name, Version)]
-    public sealed class AIMarketOverbuyDiagnosticPlugin : BaseUnityPlugin
+    public sealed partial class AIMarketOverbuyDiagnosticPlugin : BaseUnityPlugin
     {
         public const string Guid = "AIMarketOverbuyDiagnostic_Serp";
         public const string Name = "AI Market Overbuy Diagnostic";
         public const string Version = "0.1.0";
-
         private static ManualLogSource log;
-        private static AIMarketOverbuyDiagnosticRuntime runtime;
-        private static IDisposable sessionSubscription;
-        private static bool libraryRegistered;
+        private static bool libraryRegistered, initialized;
 
         private void Awake()
         {
             log = Logger;
-            Shared.DevDiag.Attach(log);
-#if SERP_DEVDIAG
-            MarketAutomation.PrepareTestStartup();
-#endif
+            PrepareDiagnostics();
             Shared.DebugLogHelper.LogInfo(log, $"{Name} {Version} loaded; waiting for native library.");
             if (libraryRegistered) return;
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
@@ -37,55 +30,26 @@ namespace AIMarketOverbuyDiagnostic
 
         private static void OnLibraryLoaded(CrusaderLibraryLoadContext context)
         {
-            if (runtime != null) return;
-            if (!Shared.DebugLogHelper.ReportNativeLibraryVersion(log, Name, requireCurrentVersion: true))
-                return;
-
-            IDisposable candidateSubscription = null;
+            if (initialized) return;
+            if (!Shared.DebugLogHelper.ReportNativeLibraryVersion(log, Name, requireCurrentVersion: true)) return;
+            initialized = true;
             try
             {
-                var candidate = new AIMarketOverbuyDiagnosticRuntime(log,
-                    Chainloader.PluginInfos.ContainsKey("fixes"));
-#if SERP_DEVDIAG
-                Shared.NativePatchGuard.Bind(context, log);
-                candidate.InstallTrace(context);
-#endif
-                candidateSubscription = Shared.GameplaySessionLifecycle.SubscribeStarted(
-                    log, candidate.OnSessionStarted, candidate.OnSessionEnded);
-                if (!APIShared.Simulation.SimulationTickEvents.TryRegister(Guid, "market-overview", OnTick, out string reason))
-                    throw new InvalidOperationException(reason);
-
-                // The extender's publisher and these static fields outlive startup cleanup.
-                Shared.DebugLogHelper.LogInfo(log,
-                    "AI_MARKET_DIAGNOSTIC_READY: publisher=APIShared.SimulationTickEvents; overview=readOnly; development build additionally owns source-aware pending correction.");
-                candidate.StartWriter();
-                sessionSubscription = candidateSubscription;
-                runtime = candidate;
+                MarketPendingDemandFix.Install(context, log);
+                if (!MarketPendingDemandFix.Ready) throw new InvalidOperationException("Native demand hooks unavailable.");
+                MarketPendingDemandFix.InitializeConsumers(log);
+                Shared.DebugLogHelper.LogInfo(log, "AI_MARKET_FIX_READY: source-aware pending correction; publisher=APIShared.AiMarketEvents; editor=inactive.");
             }
             catch (Exception ex)
             {
-                candidateSubscription?.Dispose(); // Only an unpublished initialization candidate.
-                Shared.DebugLogHelper.LogError(log, "AI market diagnostic initialization failed: " + ex);
+                MarketPendingDemandFix.FailInitialization(ex);
+                Shared.DebugLogHelper.LogError(log, "AI_MARKET_FIX_INIT_FAILED: " + ex);
                 return;
             }
-#if SERP_DEVDIAG
-            // Automation is an independent consumer of the committed runtime. Its
-            // failures must never undo published event registrations or native hooks.
-            try { MarketAutomation.TryStart(log); }
-            catch (Exception ex) { Shared.DebugLogHelper.LogError(log, "AI_MARKET_AUTOMATION_INIT_FAILED: " + ex); }
-#endif
+            InitializeDiagnostics(context);
         }
 
-        private static void OnTick(int tick) => runtime?.OnTick(tick);
-#if SERP_DEVDIAG
-        internal static long StopForAutomation()
-        {
-            runtime?.OnSessionEnded();
-            MarketPendingDemandFix.End();
-            return System.Threading.Interlocked.Read(ref AIMarketOverbuyDiagnosticRuntime.WriterPasses);
-        }
-        internal static void CheckTraceHealthForAutomation(bool requireCalls) => runtime?.CheckTraceHealthForAutomation(requireCalls);
-        internal static bool TraceOutputDrainedForAutomation => runtime != null && runtime.TraceOutputDrainedForAutomation;
-#endif
+        static partial void PrepareDiagnostics();
+        static partial void InitializeDiagnostics(CrusaderLibraryLoadContext context);
     }
 }

@@ -1,4 +1,3 @@
-#if SERP_DEVDIAG
 using System;
 
 namespace AIMarketOverbuyDiagnostic
@@ -55,4 +54,3 @@ namespace AIMarketOverbuyDiagnostic
         };
     }
 }
-#endif

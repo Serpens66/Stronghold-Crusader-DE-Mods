@@ -72,6 +72,10 @@ echo [%date% %time%] Compile projects
 "%MSBUILD%" AIMarketOverbuyDiagnostic.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
 if not "%ERRORLEVEL%"=="0" goto failed_popd
 popd
+set "PACKAGE_DIAGNOSTIC_ARG="
+if "%SHCDE_DEVDIAG%"=="1" set "PACKAGE_DIAGNOSTIC_ARG=-DevDiag"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Verify-Package.ps1" -AssemblyPath "%LOCAL_PLUGIN_DIR%\AIMarketOverbuyDiagnostic.dll" %PACKAGE_DIAGNOSTIC_ARG%
+if not "%ERRORLEVEL%"=="0" goto failed
 
 echo [%date% %time%] Copy package files
 copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul

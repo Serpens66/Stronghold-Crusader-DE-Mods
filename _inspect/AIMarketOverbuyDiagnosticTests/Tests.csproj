@@ -13,7 +13,7 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="MarketDemandLogTests.cs" />
-    <Compile Include="..\..\Testmods\AIMarketOverbuyDiagnostic\src\MarketObservation.cs" Link="MarketObservation.cs" />
-    <Compile Include="..\..\Testmods\AIMarketOverbuyDiagnostic\src\MarketDemandLog.DevDiag.cs" Link="MarketDemandLog.DevDiag.cs" />
+    <Compile Include="..\..\Testmods\AIMarketOverbuyDiagnostic\src\Diagnostics\MarketObservation.DevDiag.cs" Link="MarketObservation.cs" />
+    <Compile Include="..\..\Testmods\AIMarketOverbuyDiagnostic\src\Diagnostics\MarketDemandLog.DevDiag.cs" Link="MarketDemandLog.DevDiag.cs" />
   </ItemGroup>
 </Project>

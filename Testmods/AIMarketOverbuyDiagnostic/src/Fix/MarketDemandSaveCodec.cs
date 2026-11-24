@@ -1,4 +1,3 @@
-#if SERP_DEVDIAG
 using System;
 using System.IO;
 
@@ -87,4 +86,3 @@ namespace AIMarketOverbuyDiagnostic
         }
     }
 }
-#endif
