@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>ExtendedData</RootNamespace>
     <AssemblyName>ExtendedData</AssemblyName>
-    <AssemblyVersion>1.0.27.0</AssemblyVersion>
-    <FileVersion>1.0.27.0</FileVersion>
+    <AssemblyVersion>1.0.28.0</AssemblyVersion>
+    <FileVersion>1.0.28.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <Nullable>annotations</Nullable>
@@ -94,6 +94,9 @@
     <Compile Include="src\FixesLordPreferencesBridge.cs" />
     <Compile Include="src\TypedPreferenceSnapshotCodec.cs" />
     <Compile Include="src\LordDataSyncCoordinator.cs" />
+    <Compile Include="src\LordDataSyncCoordinator.SavePreparation.cs" />
+    <Compile Include="src\LordSaveAuthorProof.cs" />
+    <Compile Include="src\LordSaveFileRead.cs" />
     <Compile Include="src\LordDataSyncCoordinator.FixesAssetSource.cs" />
     <Compile Include="src\LordDataSyncCoordinator.Presentation.cs" />
     <Compile Include="src\LordDataSyncDiagnostics.cs" />

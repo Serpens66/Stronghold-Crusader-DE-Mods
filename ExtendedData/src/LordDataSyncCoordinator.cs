@@ -131,6 +131,7 @@ namespace ExtendedData
         internal void Initialize()
         {
             ExtendedDataModDataApi.SetSelectedLordIntegrationEnabled(activation.LordDataIntegration);
+            InitializeSavePreparation();
 
             InitializePresentation();
             settings.LordDataSnapshotChanged += OnSnapshotChanged;
@@ -145,6 +146,7 @@ namespace ExtendedData
                 throw new InvalidOperationException("Lord-data save identifier is already registered.");
             subscriptions.Add(MissionEvents.Initialization.Subscribe(notification =>
             {
+                if (notification.Context.IsSave) TransferSavePreparationToMission(notification.Context.SessionId);
                 DiagSaveInitialization(notification);
                 if (!activation.LordDataIntegration && !activeFromSave) return;
                 ExtendedDataModDataApi.SetSelectedLordIntegrationEnabled(true);
@@ -228,6 +230,7 @@ namespace ExtendedData
             }));
             subscriptions.Add(MissionEvents.Started.Subscribe(notification =>
             {
+                if (notification.Context.IsSave) CommitSavePreparationToMission(notification.Context.SessionId);
                 sessionStarted = true;
                 if (notification.Context.IsSave && !notification.Context.Mode.IsRealMultiplayer) RestoreLegacySavedPresentation();
                 if (!activation.LordDataIntegration || notification.Context.Mode.IsRealMultiplayer || trailApplied || activeFromSave)
@@ -240,7 +243,7 @@ namespace ExtendedData
                      notification.Context.Mode.LaunchVariant != GameModeLaunchVariant.Standard);
                 PublishSinglePlayerLordSelection(customGame, selectedTrail);
             }));
-            subscriptions.Add(MissionEvents.Ended.Subscribe(_ =>
+            subscriptions.Add(MissionEvents.Ended.Subscribe(notification =>
             {
                 sessionStarted = false;
                 RefreshPresentation(null);
@@ -265,6 +268,7 @@ namespace ExtendedData
                 // SetActivation deferred the cleanup while this session owned its values.
                 if (!activation.LordDataIntegration)
                     ClearIntegrationState();
+                RetireFailedSaveMission(notification.Context.SessionId);
             }));
         }
 
@@ -613,11 +617,13 @@ namespace ExtendedData
                     return true;
                 try
                 {
+                    string lordName = TrailLordSourceSelector.ResolveLordName(info.lordName,
+                        config.lordType, ConfigSettings.extendedLordPaths);
                     LordPackageFileState files = LordPackageFingerprint.Capture(config.path, config.name);
                     if (files.HasUnsupportedGameplayFiles ||
                         File.Exists(Path.Combine(config.path, config.name + ".modlord.json")) ||
-                        fixes.Capture(info.lordName, config.lordType) != null ||
-                        fixes.CaptureSources(info.lordName, config.lordType, config.lordData.opponent_type) != null ||
+                        fixes.Capture(lordName, config.lordType) != null ||
+                        fixes.CaptureSources(lordName, config.lordType, config.lordData.opponent_type) != null ||
                         (fixes.Installed && File.Exists(Path.Combine(config.path,
                             "Override", "Fixes", "preferences.json"))))
                         return true;
@@ -625,7 +631,9 @@ namespace ExtendedData
                 catch (Exception exception)
                 {
                     Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/LordDataSyncCoordinator/RequiresLordSyncFromSelection", "Selected Lord data inspection failed: lord=" +
-                        LordDataSyncDiagnostics.SafeLabel(info.lordName) + ",error=" + exception);
+                        LordDataSyncDiagnostics.SafeLabel(info.lordName) + ",player=" + (index + 1) +
+                        ",slotLordType=" + info.lordType + ",configType=" + config.lordType +
+                        ",config=" + LordDataSyncDiagnostics.SafeLabel(config.name) + ",error=" + exception);
                     return true;
                 }
             }
@@ -917,6 +925,21 @@ namespace ExtendedData
         internal bool PrepareSave(FRONT_Multiplayer lobby, FileHeader header)
         {
             LastSaveBlockReason = string.Empty;
+            if (!activation.LordDataIntegration || header == null || string.IsNullOrWhiteSpace(header.filePath)) return true;
+            try { return LordSaveFileRead.Read(header.filePath, hash => PrepareSaveLocked(lobby, header, hash)); }
+            catch (Exception failure)
+            {
+                DiscardUnboundSaveCandidate();
+                LastSaveBlockReason = SerpLocalization.Get("ExtendedData.LordSavePreparationFailed");
+                Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/LordDataSyncCoordinator/PrepareSave", "Lord-data save provenance failed: " + failure);
+                Invalidate(LastSaveBlockReason);
+                return false;
+            }
+        }
+
+        private bool PrepareSaveLocked(FRONT_Multiplayer lobby, FileHeader header, string originalHash)
+        {
+            LastSaveBlockReason = string.Empty;
             if (!activation.LordDataIntegration) return true;
 
             try
@@ -936,7 +959,7 @@ namespace ExtendedData
                 }
                 if (saved == null && savedManifest == null &&
                     !SaveHasPotentialLordData(header))
-                    return true;
+                    return PrepareEmptyLordSave(lobby, header, originalHash);
                 bool reconstructed = saved == null;
                 if (saved == null && savedManifest?.UseLocalValues == true)
                     saved = LordDataSnapshot.Create(savedManifest.SessionId, fixes.Installed,
@@ -953,7 +976,7 @@ namespace ExtendedData
                 if (savedManifest == null)
                     savedManifest = CaptureSavedPackageManifest(saved);
                 if (!savedManifest.Slots.Any(slot => slot.NeedsSnapshot || slot.NeedsLocalFiles) && !saved.FixesInstalled)
-                    return true;
+                    return PrepareEmptyLordSave(lobby, header, originalHash);
                 if (!IsHostLobby(lobby))
                 {
                     LogHostGateSkip(lobby, "multiplayer-save");
@@ -976,18 +999,20 @@ namespace ExtendedData
                 var currentManifestSlots = currentManifest.Slots;
                 if (currentSlots.Any(slot => !currentManifestSlots.Any(item => item.PlayerId == slot.PlayerId && item.LordType == slot.LordType)))
                     throw new InvalidDataException("Saved Lord type identities disagree with the package manifest.");
+                BeginSaveCandidate(header, saved, savedManifest, currentManifest,
+                    savedManifest.UseLocalValues ? null : LordDataSnapshot.Create(CurrentSessionId(lobby), saved.FixesInstalled, currentSlots), originalHash);
                 PublishPackageManifest(currentManifest, "multiplayer-save");
                 if (!savedManifest.UseLocalValues)
                     Publish(LordDataSnapshot.Create(CurrentSessionId(lobby), saved.FixesInstalled, currentSlots),
                         reconstructed ? "legacy-save" : "multiplayer-save");
-                bool ready = IsReadyToLaunch(lobby, out string reason);
-                DiagSavePreparation(header.filePath, saved, currentManifest, ready);
-                LogStartDecision(true, ready, reason);
-                if (!ready) LastSaveBlockReason = reason;
-                return ready;
+                // Publication is a local preparation, not a synchronous peer receipt.
+                // The SDK's operation-bound typed guard waits for the asynchronous reports.
+                DiagSavePreparation(header.filePath, saved, currentManifest, true);
+                return true;
             }
             catch (Exception exception)
             {
+                DiscardUnboundSaveCandidate();
                 Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/LordDataSyncCoordinator/PrepareSave", "Lord-data save preparation failed: " + exception);
                 // Read errors may include a local path. The status and rejection can reach the lobby.
                 LastSaveBlockReason = SerpLocalization.Get("ExtendedData.LordSavePreparationFailed");
@@ -1913,6 +1938,7 @@ namespace ExtendedData
 
         private void Invalidate(string message)
         {
+            RecordPreparedSaveFailure(message);
             RefreshPresentation(null);
             try { fixes.Restore(); }
             catch (Exception exception)

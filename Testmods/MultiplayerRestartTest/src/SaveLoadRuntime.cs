@@ -8,6 +8,7 @@ using APIShared;
 using APIShared.Lobby;
 using APIShared.Networking;
 using APIShared.Presentation;
+using APIShared.Savegames;
 using BepInEx.Logging;
 using CrusaderDE;
 using HarmonyLib;
@@ -41,7 +42,7 @@ namespace MultiplayerSaveLoadTest
         private ulong readyLobby;
         private long readyDeadline, nextReady;
         private int readyAttempts;
-        private bool readyPending, loadMenuPending;
+        private bool readyPending, loadMenuPending, ownReadyInvocation;
         private Action<string, string, int> chat;
         private long Now => Stopwatch.GetTimestamp();
         private bool Active => protocol != null && !protocol.IsTerminal;
@@ -65,6 +66,11 @@ namespace MultiplayerSaveLoadTest
                 LoadEnabled, Confirm, out menu, out reason)) throw new InvalidOperationException(reason);
             if (!LobbyLaunchGuards.TryRegister(SaveLoadPlugin.Guid, "return-pending",
                 _ => Active || failurePending || recovering ? LoadText.Get("Load.Transition") : null, out reason))
+                throw new InvalidOperationException(reason);
+            if (!SaveLoadDialogEvents.IsAvailable) throw new InvalidOperationException("Native save requester observations are unavailable.");
+            SaveLoadDialogEvents.Register(SaveLoadPlugin.Guid, "load-intent",
+                new SaveLoadDialogCallbacks { Opened = SaveRequesterOpened });
+            if (!LobbyActionEvents.TryRegisterObserver(SaveLoadPlugin.Guid, "ready-intent", LobbyActionObserved, out reason))
                 throw new InvalidOperationException(reason);
             LobbyBridge.Validate();
             hooks = new Harmony(SaveLoadPlugin.Guid + ".save-load");
@@ -404,6 +410,28 @@ namespace MultiplayerSaveLoadTest
             // Let the enclosing frontend update and initial settings/map refresh finish.
             frame.RequestAfter(TimeSpan.FromSeconds(1));
         }
+        private void SaveRequesterOpened(SaveLoadDialogContext context)
+        {
+            Main();
+            if (!loadMenuPending || protocol?.IsCompleted != true || !protocol.IsHost ||
+                Platform_Multiplayer.Instance.activeLobby?.identifier != protocol.LobbyId ||
+                (context.RequesterType != Enums.RequesterTypes.LoadMultiplayerGame &&
+                 context.RequesterType != Enums.RequesterTypes.LoadMultiplayerCoopGame)) return;
+            // Remember the opening event even if the user closes it between frame callbacks.
+            loadMenuPending = false;
+            Report("SAVE_CATEGORY_CANCELLED native requester opened.");
+        }
+        private void LobbyActionObserved(LobbyActionNotification notification)
+        {
+            Main();
+            if (!readyPending || ownReadyInvocation || notification.Command != "Ready" ||
+                !notification.OriginalInvoked || !notification.ReadyBefore || notification.ReadyAfter ||
+                protocol?.IsCompleted != true || notification.LobbyId != readyLobby ||
+                protocol.LobbyId != readyLobby || Platform_Multiplayer.Instance.activeLobby?.identifier != readyLobby) return;
+            // Only an executed Ready toggle is user intent; settings/map resets are not.
+            readyPending = false;
+            Report("AUTO_READY_STOP manual unready.");
+        }
         private void PumpAutoReady()
         {
             if (!readyPending) return;
@@ -415,7 +443,10 @@ namespace MultiplayerSaveLoadTest
             { readyPending = false; Report("AUTO_READY_STOP timeout; manual Ready remains available."); return; }
             try
             {
-                var result = LobbyBridge.TryReady(readyLobby, host, peers, self);
+                LocalReadyResult result;
+                ownReadyInvocation = true;
+                try { result = LobbyBridge.TryReady(readyLobby, host, peers, self); }
+                finally { ownReadyInvocation = false; }
                 if (result == LocalReadyResult.Ready || result == LocalReadyResult.NotCurrent)
                 {
                     readyPending = false;

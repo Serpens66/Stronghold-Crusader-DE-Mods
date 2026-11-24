@@ -29,6 +29,7 @@ namespace ExtendedData
     internal sealed class MapModSettingsCoordinator : IDisposable
     {
         internal event Func<FRONT_Multiplayer, FileHeader, string> MultiplayerSaveLaunchPreparing;
+        internal event Action MultiplayerSaveLaunchAttemptFinished;
         internal const string SaveDataIdentifier = "ExtendedData-MapModSettings";
         internal const string ArchiveEntryName = "_SE_ModData_" + SaveDataIdentifier + ".msgpack";
         private const int MaxPayloadBytes = 8 * 1024 * 1024;
@@ -166,6 +167,9 @@ namespace ExtendedData
                 },
                 AttemptFinished = context =>
                 {
+                    if (context.RequesterType == Enums.RequesterTypes.LoadMultiplayerGame ||
+                        context.RequesterType == Enums.RequesterTypes.LoadMultiplayerCoopGame)
+                        MultiplayerSaveLaunchAttemptFinished?.Invoke();
                     if (context.RequesterType == Enums.RequesterTypes.SaveEditorMap) ClearMapEditorSaveDecision();
                 },
                 Closed = (context, outcome) =>

@@ -285,6 +285,7 @@ namespace ExtendedData
             missionSettingsCoordinator.LordDataCoordinator = lordDataCoordinator;
             missionSettingsCoordinator.LobbyOpened += lordDataCoordinator.OnLobbyOpened;
             mapSettingsCoordinator.MultiplayerSaveLaunchPreparing += PrepareLordSaveWithDiagnostics;
+            mapSettingsCoordinator.MultiplayerSaveLaunchAttemptFinished += lordDataCoordinator.DiscardUnboundSaveCandidate;
             InitializeLaunchReadiness();
             InitializeCoopWorkshopDiagnostics();
             RefreshModCompatibility();
@@ -435,6 +436,8 @@ namespace ExtendedData
             mapSettingsCoordinator?.Dispose();
             if (mapSettingsCoordinator != null && lordDataCoordinator != null)
                 mapSettingsCoordinator.MultiplayerSaveLaunchPreparing -= PrepareLordSaveWithDiagnostics;
+            if (mapSettingsCoordinator != null && lordDataCoordinator != null)
+                mapSettingsCoordinator.MultiplayerSaveLaunchAttemptFinished -= lordDataCoordinator.DiscardUnboundSaveCandidate;
             if (missionSettingsCoordinator != null && lordDataCoordinator != null)
                 missionSettingsCoordinator.LobbyOpened -= lordDataCoordinator.OnLobbyOpened;
             lordDataCoordinator?.Dispose();

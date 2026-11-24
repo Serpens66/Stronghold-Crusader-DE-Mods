@@ -232,6 +232,18 @@ namespace ExtendedData
             }
             if (activation.LordDataIntegration && lordDataCoordinator?.NeedsLordStartGate == true)
             {
+                var preparation = APIShared.Savegames.MultiplayerSavePreparation.Current;
+                if (preparation != null)
+                {
+                    var readiness = lordDataCoordinator.PreparedSaveReadiness(preparation);
+                    if (readiness.State != LobbyLaunchGuardState.Ready)
+                        Add(readiness.Reason, readiness.State == LobbyLaunchGuardState.Waiting
+                            ? LobbyLaunchStatusKind.Loading : LobbyLaunchStatusKind.Blocking);
+                    return items;
+                }
+                // The dialog has published host-local values but has not yet transferred
+                // them to the SDK operation. Never compare these against live lobby AIVs.
+                if (lordDataCoordinator.HasPreparedLordSave) return items;
                 // Lord data synchronizes after the package selection; a persistent failure is escalated by APIShared.
                 if (!lordDataCoordinator.IsLocalSelectionReady(CurrentLordInfoMap(self), out string reason,
                     verifyEffectiveData: false)) Add(reason, LobbyLaunchStatusKind.Loading);

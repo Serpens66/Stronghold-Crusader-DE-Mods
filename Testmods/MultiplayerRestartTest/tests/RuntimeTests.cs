@@ -70,6 +70,7 @@ internal static class RuntimeReceiptTests
     private static int readyCalls;
     private static bool readyThrows;
     private static LocalReadyResult readyResult;
+    private static Action duringReady;
     private static bool hasModal, hasRequester;
     private static int popups;
     private static readonly BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
@@ -92,6 +93,7 @@ internal static class RuntimeReceiptTests
     private static bool ReadyPrefix(ref LocalReadyResult __result)
     {
         readyCalls++;
+        duringReady?.Invoke();
         if (readyThrows) throw new InvalidOperationException("fixture-ready-failed");
         __result = readyResult; return false;
     }
@@ -99,6 +101,15 @@ internal static class RuntimeReceiptTests
     private static bool RequesterPrefix(ref bool __result) { __result = hasRequester; return false; }
     private static bool PopupPrefix() { popups++; return false; }
     private static bool TextPrefix(string key, ref string __result) { __result = key; return false; }
+
+    private static APIShared.Savegames.SaveLoadDialogContext Request(Enums.RequesterTypes type)
+        => (APIShared.Savegames.SaveLoadDialogContext)Activator.CreateInstance(typeof(APIShared.Savegames.SaveLoadDialogContext),
+            BindingFlags.Instance | BindingFlags.NonPublic, null, new object[] { 1L, type }, null);
+
+    private static APIShared.Lobby.LobbyActionNotification ReadyAction(ulong lobby, string command = "Ready",
+        bool before = true, bool after = false, bool originalInvoked = true)
+        => (APIShared.Lobby.LobbyActionNotification)Activator.CreateInstance(typeof(APIShared.Lobby.LobbyActionNotification),
+            BindingFlags.Instance | BindingFlags.NonPublic, null, new object[] { lobby, command, before, after, originalInvoked }, null);
 
     private sealed class Frame : APIShared.Presentation.IUiFrameWorkRegistration
     {
@@ -239,6 +250,25 @@ internal static class RuntimeReceiptTests
         hasRequester = false; Invoke(runtime, "PumpLoadMenu");
         Check(popups == 1, "Closing the manual requester reopened the deferred category.");
 
+        // The opening and cancellation both happen between pumps; visibility alone
+        // cannot retain that user choice. Exercise the actual registered callback.
+        Set(runtime, "loadMenuPending", true);
+        Invoke(runtime, "SaveRequesterOpened", Request(Enums.RequesterTypes.LoadMultiplayerGame));
+        Check(!Get<bool>(runtime, "loadMenuPending"), "Short manual requester opening did not cancel category intent.");
+        Invoke(runtime, "PumpLoadMenu");
+        Check(popups == 1, "Short requester open/cancel was followed by another category popup.");
+        Set(runtime, "loadMenuPending", true);
+        Invoke(runtime, "SaveRequesterOpened", Request(Enums.RequesterTypes.LoadSinglePlayerGame));
+        Check(Get<bool>(runtime, "loadMenuPending"), "Unrelated requester cancelled multiplayer category intent.");
+        platform.activeLobby = null;
+        Invoke(runtime, "SaveRequesterOpened", Request(Enums.RequesterTypes.LoadMultiplayerCoopGame));
+        Check(Get<bool>(runtime, "loadMenuPending"), "Old lobby requester affected current category intent.");
+        platform.activeLobby = lobby;
+        Invoke(runtime, "SaveRequesterOpened", Request(Enums.RequesterTypes.LoadMultiplayerCoopGame));
+        Check(!Get<bool>(runtime, "loadMenuPending"), "Cooperative requester opening did not cancel category intent.");
+        Invoke(runtime, "SaveRequesterOpened", Request(Enums.RequesterTypes.LoadMultiplayerGame));
+        Check(!Get<bool>(runtime, "loadMenuPending"), "Own already-consumed requester recreated category intent.");
+
         Set(runtime, "loadMenuPending", true);
         typeof(Director).GetField("multiplayerGame", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(Director.instance, true);
         Invoke(runtime, "PumpLoadMenu");
@@ -291,6 +321,9 @@ internal static class RuntimeReceiptTests
         Invoke(runtime, "ScheduleAutoReady"); readyThrows = true;
         Set(runtime, "nextReady", 0L); Invoke(runtime, "PumpAutoReady"); readyThrows = false;
         Check(!Get<bool>(runtime, "readyPending"), "Ready exception did not stop retries.");
+        Check(!Get<bool>(runtime, "ownReadyInvocation"), "Ready exception retained autonomous invocation ownership.");
+
+        ManualReadyIntent(runtime);
 
         foreach (string guard in new[] { "active", "released", "failurePending", "recovering", "readyLobby" })
         {
@@ -304,6 +337,46 @@ internal static class RuntimeReceiptTests
             Set(runtime, "protocol", completed); Set(runtime, "released", true);
             Set(runtime, "failurePending", false); Set(runtime, "recovering", false);
         }
+    }
+
+    private static void ManualReadyIntent(SaveLoadRuntime runtime)
+    {
+        Invoke(runtime, "ScheduleAutoReady");
+        int before = readyCalls;
+        // A manual Ready followed by Unready before the first pump must stay unready.
+        Invoke(runtime, "LobbyActionObserved", ReadyAction(20, before: false, after: true));
+        Check(Get<bool>(runtime, "readyPending"), "Manual Ready-on cancelled the pending action as an Unready.");
+        Invoke(runtime, "LobbyActionObserved", ReadyAction(20));
+        Set(runtime, "nextReady", 0L); Invoke(runtime, "PumpAutoReady");
+        Check(!Get<bool>(runtime, "readyPending") && readyCalls == before, "Manual Unready before first pump was reasserted.");
+
+        Invoke(runtime, "ScheduleAutoReady"); readyResult = LocalReadyResult.Rejected;
+        Set(runtime, "nextReady", 0L); Invoke(runtime, "PumpAutoReady"); before = readyCalls;
+        Invoke(runtime, "LobbyActionObserved", ReadyAction(20));
+        Set(runtime, "nextReady", 0L); Invoke(runtime, "PumpAutoReady");
+        Check(!Get<bool>(runtime, "readyPending") && readyCalls == before, "Manual Unready during retry backoff was reasserted.");
+
+        Invoke(runtime, "ScheduleAutoReady");
+        foreach (var notification in new[] { ReadyAction(21), ReadyAction(20, command: "Play"),
+            ReadyAction(20, originalInvoked: false), ReadyAction(20, before: false), ReadyAction(20, after: true) })
+        {
+            Invoke(runtime, "LobbyActionObserved", notification);
+            Check(Get<bool>(runtime, "readyPending"), "Nonmanual/old/unexecuted action cancelled Ready intent.");
+        }
+        readyResult = LocalReadyResult.Waiting;
+        duringReady = () => Invoke(runtime, "LobbyActionObserved", ReadyAction(20));
+        try { Set(runtime, "nextReady", 0L); Invoke(runtime, "PumpAutoReady"); }
+        finally { duringReady = null; }
+        Check(Get<bool>(runtime, "readyPending") && !Get<bool>(runtime, "ownReadyInvocation"),
+            "Own Ready callback cancelled intent or retained invocation ownership.");
+        // A settings-driven reset has no Ready command notification and cannot cancel intent.
+        before = readyCalls; Set(runtime, "nextReady", 0L); Invoke(runtime, "PumpAutoReady");
+        Check(readyCalls == before + 1 && Get<bool>(runtime, "readyPending"), "A state-only reset suppressed the pending command.");
+        readyResult = LocalReadyResult.Ready;
+        Set(runtime, "nextReady", 0L); Invoke(runtime, "PumpAutoReady"); before = readyCalls;
+        Invoke(runtime, "LobbyActionObserved", ReadyAction(20));
+        Invoke(runtime, "PumpAutoReady");
+        Check(!Get<bool>(runtime, "readyPending") && readyCalls == before, "Manual Unready after success reactivated automatic Ready.");
     }
 }
 

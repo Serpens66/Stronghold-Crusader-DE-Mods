@@ -3,12 +3,20 @@
   "Author": "Serpens66",
   "Name": "Multiplayer Save Load Test",
   "Description": "Experimental host-only Load command during multiplayer: return the group to a private lobby and select an existing save using the normal multiplayer load dialog. Identical testmod required on every peer.",
-  "Version": "0.2.1",
+  "Version": "0.2.2",
   "MinimumScriptExtenderVersion": "2.14.0",
-  "Dependencies": [ { "GUID": "APIShared_Serp", "MinimumVersion": "0.69.0" } ],
+  "Dependencies": [ { "GUID": "APIShared_Serp", "MinimumVersion": "0.71.0" } ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.2.2",
+      "Changes": [
+        "Respect an intentional manual Unready even during the initial Auto-Ready delay or a retry; later automatic requests stop for that lobby handoff.",
+        "Observe native save requester opening immediately, so a manually opened and closed dialog cannot cause a delayed duplicate category prompt.",
+        "Use APIShared's general lobby-action and save-dialog events without adding a competing input hook."
+      ]
+    },
     {
       "Version": "0.2.1",
       "Changes": [

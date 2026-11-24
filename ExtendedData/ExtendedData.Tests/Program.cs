@@ -26,6 +26,7 @@ var tests = new (string Name, Action Run)[]
     ("shared mod-data source preserves host authority, local provenance, reset and cleanup", ModDataSourceTests.Run),
     ("mission origin survives restarts and replacements, but releases on failures and exit", MissionOriginLifecycleTests.Run),
     ("Fixes bridge owns custom aliases, extended identity, defaults and originals", FixesBridgeTests.Run),
+    ("Saved Lord author proof permits rebasing and missing-source migration without changing authored values", LordSaveAuthorProofTests.Run),
     ("Same-name Extended and Custom Lords keep independent Fixes asset validation", FixesBridgeTests.AssetIdentityCollision),
     ("Extended map defaults verify live sources, absence and Trail media remapping", FixesBridgeTests.MapDefaultSources),
     ("deferred settings remain complete at 4233, 12000 and 16384 options", DeferredSettingsTests.Run),

@@ -3,19 +3,28 @@
   "Author": "Serpens66",
   "Name": "Extended Data",
   "Description": "Adds portable Custom and Coop Trail data plus complete Script Extender Custom Lord Workshop packages.",
-  "Version": "1.0.27",
+  "Version": "1.0.28",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.4.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.58.3"
+      "MinimumVersion": "0.71.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.28",
+      "Changes": [
+        "Prepare saved Lord data once and let the existing multiplayer save coordinator wait for peer confirmations, avoiding a second Launch click.",
+        "Bind saved Lord readiness and status to the exact load operation; restore normal lobby checks after cancellation, replacement or failure without overwriting a successful mission.",
+        "Resolve legitimate unnamed Extended Lords before inspecting Fixes preference sources, preserving strict source validation and historical save data.",
+        "Preserve authored values during host-authorized legacy source completion and reject changed files or stale preparation callbacks."
+      ]
+    },
     {
       "Version": "1.0.27",
       "Changes": [
