@@ -266,7 +266,11 @@ namespace ExtendedData
                     {
                         status = player == identity.PlayerId ? settings.LordDataStatus :
                             player < settings.LordDataStatusData.Length ? settings.LordDataStatusData[player] : null;
-                        if ((status ?? string.Empty).StartsWith("ERROR|", StringComparison.Ordinal))
+                        // Remote ERROR has no digest/operation identity and may still describe
+                        // an older selection while this save's deferred READY is in flight.
+                        // Current local failures remain authoritative; every peer must still
+                        // confirm the exact saved snapshot before the host can release it.
+                        if (player == identity.PlayerId && (status ?? string.Empty).StartsWith("ERROR|", StringComparison.Ordinal))
                             return LobbyLaunchGuardResult.Rejected("A participant rejected the saved Lord values.");
                         if (status != "READY|" + active.Digest)
                             return LobbyLaunchGuardResult.Waiting("Waiting for saved-Lord value confirmations.");
