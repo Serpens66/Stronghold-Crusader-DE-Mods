@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.242",
+  "Version": "1.0.243",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.4",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,14 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.243",
+      "Changes": [
+        "Add the host option Keep crenels crossable (enabled by default, Gates and siege rules / Fixes). Crenels built by players or the AI alternate high and low in a fixed checkerboard pattern, including corners, junctions, wall ends, double rows and diagonal rows, so ladders, Assassins and siege tower troops always find low crenels and units can cross from one low crenel to the next.",
+        "Add three host options, disabled by default, that also align crenels already present when loading a map in the editor, loading a savegame or starting a map with pre-placed walls. Aligned crenels keep their heights even after the option is switched off again.",
+        "Replace the standalone Crenelated Wall Test. Remove that testmod on every computer."
+      ]
+    },
     {
       "Version": "1.0.242",
       "Changes": [

@@ -16,7 +16,7 @@ namespace RandomEvents
         private const string ScriptExtenderGuid = "000shcdese";
         public const string PluginGuid = "RandomEvents_Serp";
         public const string PluginName = "Random Events";
-        public const string PluginVersion = "1.0.60";
+        public const string PluginVersion = "1.0.61";
 
         private RandomEventsRuntime runtime;
         // Process-lived late foreign-patch check of the native detours; rooted by the mission publisher.

@@ -8,10 +8,10 @@ function Get-ReleaseRoot {
 function Get-ReleaseConfiguration {
     $root = Get-ReleaseRoot
     $publicConfigPath = Join-Path $PSScriptRoot 'release-projects.json'
-    $config = Get-Content -LiteralPath $publicConfigPath -Raw | ConvertFrom-Json
+    $config = Get-Content -LiteralPath $publicConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
     $localConfigPath = Join-Path $root 'release.local.json'
     $local = if (Test-Path -LiteralPath $localConfigPath) {
-        Get-Content -LiteralPath $localConfigPath -Raw | ConvertFrom-Json
+        Get-Content -LiteralPath $localConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
     } else {
         [PSCustomObject]@{}
     }
@@ -185,7 +185,7 @@ function Get-ApiSharedConsumerMinimum {
         if ($infos.Count -ne 1) { throw "Ambiguous source manifest for $ModName" }
         $infoPath = $infos[0].FullName
     }
-    $manifest = Get-Content -LiteralPath $infoPath -Raw | ConvertFrom-Json
+    $manifest = Get-Content -LiteralPath $infoPath -Raw -Encoding UTF8 | ConvertFrom-Json
     $dependenciesProperty = $manifest.PSObject.Properties['Dependencies']
     if ($null -eq $dependenciesProperty) { return $null }
     $dependencies = @($dependenciesProperty.Value | Where-Object { [string]$_.GUID -ceq [string]$apiSharedProperty.Value.Guid })
@@ -280,11 +280,11 @@ function Get-PluginMetadata {
     $manifestSource = $infos[0].FullName
     $rootManifest = Join-Path $modDir 'info.json'
     if (Test-Path -LiteralPath $rootManifest -PathType Leaf) {
-        $packaged = Get-Content -LiteralPath $infos[0].FullName -Raw | ConvertFrom-Json
-        $source = Get-Content -LiteralPath $rootManifest -Raw | ConvertFrom-Json
+        $packaged = Get-Content -LiteralPath $infos[0].FullName -Raw -Encoding UTF8 | ConvertFrom-Json
+        $source = Get-Content -LiteralPath $rootManifest -Raw -Encoding UTF8 | ConvertFrom-Json
         if ([string]$source.GUID -ceq [string]$packaged.GUID) { $manifestSource = $rootManifest }
     }
-    $manifest = Get-Content -LiteralPath $manifestSource -Raw | ConvertFrom-Json
+    $manifest = Get-Content -LiteralPath $manifestSource -Raw -Encoding UTF8 | ConvertFrom-Json
     foreach ($property in @('GUID', 'Name', 'Version', 'SerpChangelog')) {
         if ($manifest.PSObject.Properties.Name -notcontains $property) {
             throw "Missing property '$property' in $manifestSource."
@@ -386,8 +386,8 @@ function Get-ValidatedApiSharedPackage {
         -not (Test-Path -LiteralPath $apiDllPath -PathType Leaf)) {
         throw "APIShared package is incomplete. Build and validate $apiProject first: $apiPackage"
     }
-    $apiSourceInfo = Get-Content -LiteralPath $apiSourceInfoPath -Raw | ConvertFrom-Json
-    $apiInfo = Get-Content -LiteralPath $apiInfoPath -Raw | ConvertFrom-Json
+    $apiSourceInfo = Get-Content -LiteralPath $apiSourceInfoPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $apiInfo = Get-Content -LiteralPath $apiInfoPath -Raw -Encoding UTF8 | ConvertFrom-Json
     $apiVersion = [string]$apiSourceInfo.Version
     if ([string]$apiSourceInfo.GUID -cne $apiGuid) {
         throw "APIShared source manifest GUID mismatch: expected $apiGuid, found $([string]$apiSourceInfo.GUID)."
