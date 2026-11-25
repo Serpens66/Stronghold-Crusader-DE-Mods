@@ -84,6 +84,10 @@
     <Compile Include="src\MoatTerrain\NativeDefinition.cs" />
     <Compile Include="src\MoatTerrain\TerrainRuntime.cs" />
     <Compile Include="src\MoatTerrain\TerrainPublication.cs" />
+    <Compile Include="src\Crenels\CrenelGraphicsHook.cs" />
+    <Compile Include="src\Crenels\CrenelPolicy.cs" />
+    <Compile Include="src\Crenels\CrenelRecords.cs" />
+    <Compile Include="src\Crenels\CrenelRuntime.cs" />
     <Compile Include="src\WallDeposits\DepositHooks.cs" />
     <Compile Include="src\WallDeposits\DepositRestoration.cs" />
     <Compile Include="src\DrawbridgeDestructionFix\NativeContract.cs" />

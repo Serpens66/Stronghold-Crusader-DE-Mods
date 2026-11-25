@@ -19,15 +19,7 @@ try {
     $plugins = Join-Path $layout 'plugins'
     New-Item -ItemType Directory -Path $plugins | Out-Null
     foreach ($name in @('000shcdese', 'fixes')) { Copy-Item -Recurse -LiteralPath (Join-Path $installed $name) -Destination $plugins }
-    Copy-Item -Recurse -LiteralPath (Join-Path $workspace 'Testmods/CrenelatedWallTest/BepInEx/plugins/CrenelatedWallTest_Serp') -Destination $plugins
-    # The tests read per-build log lines that only a diagnostics build writes. Compile one into the
-    # temporary layout; the installed and committed CrenelatedWallTest stays a normal build.
-    $diagOut = Join-Path $layout 'diag'
-    $msbuild = 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe'
-    & $msbuild (Join-Path $workspace 'Testmods/CrenelatedWallTest/CrenelatedWallTest.csproj') /t:Rebuild /p:Configuration=Debug /p:SerpDevDiagnostics=true `
-        ('/p:ApiSharedDir=' + (Join-Path $workspace 'APIShared/BepInEx/plugins/APIShared_Serp')) ('/p:OutputPath=' + $diagOut + '\') ('/p:IntermediateOutputPath=' + (Join-Path $layout 'obj') + '\') /nologo /verbosity:minimal | Out-Host
-    if ($LASTEXITCODE -ne 0) { throw 'Diagnostics build of CrenelatedWallTest failed.' }
-    foreach ($name in 'CrenelatedWallTest.dll', 'CrenelatedWallTest.pdb') { Copy-Item -LiteralPath (Join-Path $diagOut $name) -Destination (Join-Path $plugins ('CrenelatedWallTest_Serp/' + $name)) -Force }
+    Copy-Item -Recurse -LiteralPath (Join-Path $workspace 'BugfixesAndQoL/BepInEx/plugins/BugfixesAndQoL_Serp') -Destination $plugins
     Write-Host ('[{0:HH:mm:ss.fff}] layout={1} evidence={2}' -f [DateTime]::Now, $plugins, $out)
     $env:SCDEModManagerLaunchId = 'SerpAcceptance-Crenel-' + [Guid]::NewGuid().ToString('N')
     $options = @{

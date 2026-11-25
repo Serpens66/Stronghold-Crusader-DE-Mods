@@ -19,7 +19,7 @@ namespace CrenelatedWallAcceptance
     // maintenance, rejections, save/load of the managed set and real Assassin climbs.
     internal sealed partial class Fixture
     {
-        private const string WallMod = "CrenelatedWallTest_Serp";
+        private const string WallMod = "BugfixesAndQoL_Serp";
         private readonly string runId, scenario;
         private readonly Action<string> log;
         private readonly ConcurrentQueue<string> crenelLog = new ConcurrentQueue<string>();
@@ -791,8 +791,8 @@ namespace CrenelatedWallAcceptance
         private static object WallSettings()
         {
             var plugin = BepInEx.Bootstrap.Chainloader.PluginInfos[WallMod].Instance;
-            var field = plugin.GetType().GetField("settings", BindingFlags.NonPublic | BindingFlags.Static) ?? throw new MissingFieldException("settings");
-            return field.GetValue(null) ?? throw new InvalidOperationException("CrenelatedWallTest settings missing");
+            var property = plugin.GetType().GetProperty("Settings") ?? throw new MissingMemberException("Settings");
+            return property.GetValue(plugin) ?? throw new InvalidOperationException("BugfixesAndQoL settings missing");
         }
         private static void Require(bool value, string message) { if (!value) throw new InvalidOperationException(message); }
     }

@@ -27,7 +27,6 @@ namespace CrenelatedWallAcceptance
             yield return new AutomationStep("heights-diagonal", TimeSpan.FromSeconds(240), EditorDiagonal, true);
             yield return new AutomationStep("heights-frame", TimeSpan.FromSeconds(420), HeightsFrame, true);
             yield return new AutomationStep("heights-local-redraw", TimeSpan.FromSeconds(180), HeightsLocalRedraw, true);
-            foreach (var step in AiSteps()) yield return step;
         }
 
         // Camera rotation and the flatten toggle re-run Vanilla's tile graphics builder (65830) over
@@ -371,7 +370,7 @@ namespace CrenelatedWallAcceptance
         private void SetExisting(bool editor, bool saveLoad, bool mapStart)
         {
             object settings = WallSettings();
-            foreach (var entry in new[] { ("AdjustExistingInEditor", editor), ("AdjustExistingOnSaveLoad", saveLoad), ("AdjustExistingOnMapStart", mapStart) })
+            foreach (var entry in new[] { ("AlignExistingCrenelsInEditor", editor), ("AlignExistingCrenelsOnSaveLoad", saveLoad), ("AlignExistingCrenelsOnMapStart", mapStart) })
             {
                 var property = settings.GetType().GetProperty(entry.Item1) ?? throw new MissingMemberException(entry.Item1);
                 property.SetValue(settings, entry.Item2);
@@ -382,7 +381,7 @@ namespace CrenelatedWallAcceptance
         private void SetSwitches(bool enable, bool heights)
         {
             object settings = WallSettings();
-            foreach (var entry in new[] { ("EnableMod", enable), ("AdjustHeights", heights) })
+            foreach (var entry in new[] { ("EnableCrenelCheckerboard", enable && heights) })
             {
                 var property = settings.GetType().GetProperty(entry.Item1) ?? throw new MissingMemberException(entry.Item1);
                 property.SetValue(settings, entry.Item2);

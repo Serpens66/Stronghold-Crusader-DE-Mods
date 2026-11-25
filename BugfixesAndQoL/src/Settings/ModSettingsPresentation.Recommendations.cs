@@ -12,6 +12,11 @@ namespace BugfixesAndQoL
             options["EnableOccupiedWallDemolition"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableOccupiedWallDemolition");
             options["EmptyStockpileLimit"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EmptyStockpileLimit");
             options["EmptyGranaryArmouryLimit"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EmptyGranaryArmouryLimit");
+            // Added 2026-11-25 with the crenel checkerboard (moved from a testmod): a gameplay rule, not a pure fix.
+            options["EnableCrenelCheckerboard"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableCrenelCheckerboard");
+            options["AlignExistingCrenelsInEditor"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.AlignExistingCrenelsInEditor");
+            options["AlignExistingCrenelsOnSaveLoad"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.AlignExistingCrenelsOnSaveLoad");
+            options["AlignExistingCrenelsOnMapStart"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.AlignExistingCrenelsOnMapStart");
             options["EnablePitchStairsFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnablePitchStairsFix");
             options["PreserveDisplayResolution"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.PreserveDisplayResolution");
             options["EnableGatehouseTargetMarkerHeightFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableGatehouseTargetMarkerHeightFix");

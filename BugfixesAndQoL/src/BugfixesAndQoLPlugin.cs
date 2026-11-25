@@ -46,6 +46,7 @@ namespace BugfixesAndQoL
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;
         private static WallDeposits.DepositRestorationRuntime wallDeposits;
+        private static Crenels.CrenelRuntime crenels;
         private static StartupUiReadinessGuardHook startupUiReadinessGuardHook;
         private static ResolutionAwareZoomHook resolutionAwareZoomHook;
         private static SteamLobbyInvitePrompt steamLobbyInvitePrompt;
@@ -111,6 +112,8 @@ namespace BugfixesAndQoL
             {
                 Shared.DebugLogHelper.LogError(Logger, "Wall deposit agreement registration failed: " + ex);
             }
+            try { crenels = new Crenels.CrenelRuntime(Settings, Logger); }
+            catch (Exception ex) { Shared.DebugLogHelper.LogError(Logger, "Crenel checkerboard agreement registration failed: " + ex); }
             try { ProjectileTrails.ProjectileTrailRuntime.Configure(Logger, Settings); }
             catch (Exception ex) { Shared.DebugLogHelper.LogError(Logger, "Projectile trails could not register multiplayer admission. " + ex); }
             if (Chainloader.PluginInfos.TryGetValue("fixes", out PluginInfo fixes) && fixes.Instance != null)
@@ -444,6 +447,9 @@ namespace BugfixesAndQoL
             {
                 Shared.DebugLogHelper.LogError(Logger, "Wall deposit restoration initialization failed: " + ex);
             }
+
+            try { crenels?.Install(context, Shared.DebugLogHelper.IsCurrentNativeLibraryVersion()); }
+            catch (Exception ex) { Shared.DebugLogHelper.LogError(Logger, "Crenel checkerboard stays inactive: " + ex); }
 
             try
             {

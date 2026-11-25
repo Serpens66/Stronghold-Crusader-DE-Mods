@@ -118,6 +118,10 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableGatehouseLivingCaptureFix => options["EnableGatehouseLivingCaptureFix"];
         public SettingsOptionPresentation EnableMoatTerrainRestoration => options["EnableMoatTerrainRestoration"];
         public SettingsOptionPresentation EnableWallDepositRestoration => options["EnableWallDepositRestoration"];
+        public SettingsOptionPresentation EnableCrenelCheckerboard => options["EnableCrenelCheckerboard"];
+        public SettingsOptionPresentation AlignExistingCrenelsInEditor => options["AlignExistingCrenelsInEditor"];
+        public SettingsOptionPresentation AlignExistingCrenelsOnSaveLoad => options["AlignExistingCrenelsOnSaveLoad"];
+        public SettingsOptionPresentation AlignExistingCrenelsOnMapStart => options["AlignExistingCrenelsOnMapStart"];
         public SettingsOptionPresentation EnableOccupiedWallDemolition => options["EnableOccupiedWallDemolition"];
         public SettingsOptionPresentation EmptyStockpileLimit => options["EmptyStockpileLimit"];
         public SettingsOptionPresentation EmptyGranaryArmouryLimit => options["EmptyGranaryArmouryLimit"];
@@ -254,6 +258,10 @@ namespace BugfixesAndQoL
             AddOption("EnableMoatTerrainRestoration", "bugfixes.moat-terrain-restoration", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableWallDepositRestoration", "bugfixes.wall-deposit-restoration", SettingsCategory.Fixes, HostSiege);
             AddOption("EnablePitchStairsFix", "bugfixes.pitch-stairs-fix", SettingsCategory.Fixes, HostSiege);
+            AddOption("EnableCrenelCheckerboard", "bugfixes.crenel-checkerboard", SettingsCategory.Fixes, HostSiege);
+            AddOption("AlignExistingCrenelsInEditor", "bugfixes.align-existing-crenels-in-editor", SettingsCategory.Fixes, HostSiege);
+            AddOption("AlignExistingCrenelsOnSaveLoad", "bugfixes.align-existing-crenels-on-save-load", SettingsCategory.Fixes, HostSiege);
+            AddOption("AlignExistingCrenelsOnMapStart", "bugfixes.align-existing-crenels-on-map-start", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableTunnelPlacementDistanceFix", "bugfixes.enable-tunnel-placement-distance-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableCenteredGatehouseDistanceFix", "bugfixes.centered-gatehouse-distance", SettingsCategory.Qol, HostSiege);
             AddOption("EnableFairSiegeAmmoRestock", "bugfixes.enable-fair-siege-ammo-restock", SettingsCategory.Qol, HostSiege);

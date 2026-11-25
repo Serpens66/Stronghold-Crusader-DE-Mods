@@ -97,6 +97,10 @@ namespace BugfixesAndQoL
         private bool enableAiRaidRetargetFix = true;
         private bool enableMoatTerrainRestoration = true;
         private bool enableWallDepositRestoration = true;
+        private bool enableCrenelCheckerboard = true;
+        private bool alignExistingCrenelsInEditor;
+        private bool alignExistingCrenelsOnSaveLoad;
+        private bool alignExistingCrenelsOnMapStart;
         private bool enableOccupiedWallDemolition = true;
         private int emptyStockpileLimit = StorageEmptyLimitPolicy.Vanilla;
         private int emptyGranaryArmouryLimit = StorageEmptyLimitPolicy.Vanilla;
@@ -404,6 +408,15 @@ namespace BugfixesAndQoL
         public string EnableMoatTerrainRestorationHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMoatTerrainRestorationHelp");
         public string EnableWallDepositRestorationText => SerpLocalization.Get("BugfixesAndQoL.EnableWallDepositRestoration");
         public string EnableWallDepositRestorationHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableWallDepositRestorationHelp");
+        public string EnableCrenelCheckerboardText => SerpLocalization.Get("BugfixesAndQoL.EnableCrenelCheckerboard");
+        public string EnableCrenelCheckerboardHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCrenelCheckerboardHelp");
+        public string AlignExistingCrenelsText => SerpLocalization.Get("BugfixesAndQoL.AlignExistingCrenels");
+        public string AlignExistingCrenelsInEditorText => SerpLocalization.Get("BugfixesAndQoL.AlignExistingCrenelsInEditor");
+        public string AlignExistingCrenelsInEditorHelpText => SerpLocalization.Get("BugfixesAndQoL.AlignExistingCrenelsInEditorHelp");
+        public string AlignExistingCrenelsOnSaveLoadText => SerpLocalization.Get("BugfixesAndQoL.AlignExistingCrenelsOnSaveLoad");
+        public string AlignExistingCrenelsOnSaveLoadHelpText => SerpLocalization.Get("BugfixesAndQoL.AlignExistingCrenelsOnSaveLoadHelp");
+        public string AlignExistingCrenelsOnMapStartText => SerpLocalization.Get("BugfixesAndQoL.AlignExistingCrenelsOnMapStart");
+        public string AlignExistingCrenelsOnMapStartHelpText => SerpLocalization.Get("BugfixesAndQoL.AlignExistingCrenelsOnMapStartHelp");
         public string EnableOccupiedWallDemolitionText => SerpLocalization.Get("BugfixesAndQoL.EnableOccupiedWallDemolition");
         public string EnableOccupiedWallDemolitionHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableOccupiedWallDemolitionHelp");
         public string EmptyStockpileLimitText => SerpLocalization.Get("BugfixesAndQoL.EmptyStockpileLimit");
@@ -1270,6 +1283,35 @@ namespace BugfixesAndQoL
             set => SetSetting(ref enableWallDepositRestoration, value, nameof(EnableWallDepositRestoration));
         }
 
+        // Crenel checkerboard (src/Crenels). All four values are frozen per session at its start.
+        [SyncHostOnly]
+        public bool EnableCrenelCheckerboard
+        {
+            get => enableCrenelCheckerboard;
+            set => SetSetting(ref enableCrenelCheckerboard, value, nameof(EnableCrenelCheckerboard));
+        }
+
+        [SyncHostOnly]
+        public bool AlignExistingCrenelsInEditor
+        {
+            get => alignExistingCrenelsInEditor;
+            set => SetSetting(ref alignExistingCrenelsInEditor, value, nameof(AlignExistingCrenelsInEditor));
+        }
+
+        [SyncHostOnly]
+        public bool AlignExistingCrenelsOnSaveLoad
+        {
+            get => alignExistingCrenelsOnSaveLoad;
+            set => SetSetting(ref alignExistingCrenelsOnSaveLoad, value, nameof(AlignExistingCrenelsOnSaveLoad));
+        }
+
+        [SyncHostOnly]
+        public bool AlignExistingCrenelsOnMapStart
+        {
+            get => alignExistingCrenelsOnMapStart;
+            set => SetSetting(ref alignExistingCrenelsOnMapStart, value, nameof(AlignExistingCrenelsOnMapStart));
+        }
+
         [SyncHostOnly]
         public bool EnableOccupiedWallDemolition
         {
@@ -1781,6 +1823,10 @@ namespace BugfixesAndQoL
                 EnableAiRaidRetargetFix = true;
                 EnableMoatTerrainRestoration = true;
                 EnableWallDepositRestoration = true;
+                EnableCrenelCheckerboard = true;
+                AlignExistingCrenelsInEditor = false;
+                AlignExistingCrenelsOnSaveLoad = false;
+                AlignExistingCrenelsOnMapStart = false;
                 EnableOccupiedWallDemolition = true;
                 EmptyStockpileLimit = StorageEmptyLimitPolicy.Vanilla;
                 EmptyGranaryArmouryLimit = StorageEmptyLimitPolicy.Vanilla;
