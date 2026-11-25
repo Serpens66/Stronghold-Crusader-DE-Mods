@@ -230,6 +230,18 @@ Dabei gelten folgende geprüfte Grenzen:
 - Zoom ist lokale Darstellung, auch im Multiplayer. Er muss nicht als Gameplay-Chore an andere Teilnehmer gesendet werden. Für vergleichbare Screenshots Auflösung, Kartengröße, UI-Sichtbarkeit, Kameraposition/-rotation und Zoom-Einstellungen je Teilnehmer festhalten.
 - Im Tutorial löst `adjustZoom` zusätzlich einen Vanilla-`TutorialAction`-Aufruf aus. Ein allgemeiner Screenshot-Test sollte daher einen normalen Testspielstand verwenden, statt unbemerkt Tutorialfortschritt auszulösen.
 
+### Kamera positionieren und Screenshots aufnehmen
+
+Erkenntnisse aus dem Szenario `crenel-look` (`Testmods/CrenelatedWallAcceptance/src/Fixture.Look.cs`, Läufe vom 25.11.2026, Hash FBCB9319, Hintergrunddesktop 1280×720):
+
+- **Startkamera abwarten:** Nach Partie- und Editorstart gleitet die Kamera noch einige Sekunden (zur Burg bzw. Startposition). Wer in dieser Zeit `setCameraPos`/`setNewPosition` aufruft oder `GameMap.ScreenCentreTileX/Y` liest, bekommt eine Position, die kurz darauf nicht mehr gilt. Vor jeder Kamera- oder Bildmittenabhängigkeit warten, bis `CameraControls2D.instance.getCameraXPos()/getCameraYPos()` über mehrere 500-ms-Proben unverändert sind. Feste Wartezeiten nicht annehmen.
+- **Koordinaten:** Spiel, native Engine und Script Extender verwenden dieselbe Achsreihenfolge. `GameMapTile.gameMapX/Y` und damit `ScreenCentreTileX/Y` sind globale 800er-Koordinaten wie die Extender-Kacheln; es gibt keinen x/y-Tausch (Codeprüfung `GameMap.setGameCoordMapping`, Editor-`PlaceMapperItem`). Die Extender-Doku zu `SetScreenCenterToTilePosition` nennt sie „local“, gemeint sind ebenfalls die globalen Werte.
+- **Kamera auf eine Kachel:** `GamePlayerManagerAPI.SetScreenCenterToTilePosition` rechnet wie Vanillas `GameData.SetCameraFromGameState` (Kachel → Tilemap → Spriteposition + Geländehöhe → `setCameraPos`). Erst nach ruhender Startkamera verwenden. `setNewPosition` wirkt im nächsten `CameraControls2D.Update` ohne Grenzprüfung; `setCameraPos` begrenzt bei gesperrter Karte (`isMapLocked`) auf die Kartengrenzen. Die Kartensperre nicht für Screenshots aufheben: Das ergab ein schwarzes Bild außerhalb der Karte.
+- **Einfacher und robuster:** Testaufbauten für Bilder dort bauen, wo die ruhende Kamera hinschaut (freie Fläche nahe `ScreenCentreTileX/Y`), statt die Kamera zu bewegen. Liegt die nächste freie Fläche zu weit weg, ist sie nicht im Bild; den Suchabstand begrenzen oder danach die Kamera auf die Mitte des Aufbaus setzen.
+- **Karteneditor bevorzugen:** Für reine Anschauungsbilder im Editor bauen (`LoadEditor`, Mauern per `UiWall`/Mapper-Geste). Dort gibt es keine Gebiets-, Burg- oder Steingrenzen; im Gefecht scheiterten Bauten außerhalb des eigenen Gebiets.
+- **Zoom und Aufnahme:** `SetZoomImmediate(0,25f)` lieferte 0,5 (untere Grenze bei dieser Auflösung). Für eine Übersicht 0,5 verwenden und den gewünschten Ausschnitt danach zuschneiden und vergrößern. `ScreenCapture.CaptureScreenshot(pfad)` schreibt asynchron am Frame-Ende; vor der Existenzprüfung etwa 1,5 s warten. Nach Kamera- oder Zoomwechsel einige Simulationsticks und rund 1 s Renderzeit abwarten.
+- `Camera.main.WorldToScreenPoint` spiegelte die Kartenkamera nicht wider und eignet sich nicht zur Prüfung, ob ein Objekt im Bild liegt. Nicht sichtbare Einheiten (z. B. Marker) werden nicht gezeichnet und taugen ebenfalls nicht als Positionsmarker.
+
 ## Kleine Helfer für einen Einzelspieler-Testmod
 
 Diese Klasse illustriert direkt nutzbare öffentliche Aufrufe; sie registriert keine Callbacks und startet von sich aus keinen Test. Der Aufrufer gewährleistet die oben beschriebene Missions- und Extender-Bereitschaft und ruft sie auf dem Unity-Main-Thread auf.

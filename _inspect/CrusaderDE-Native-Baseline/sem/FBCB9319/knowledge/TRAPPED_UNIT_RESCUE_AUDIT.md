@@ -351,6 +351,19 @@ external adapters, implementation requirements and outstanding game acceptance.
   also changes the stored segment endpoint. Reissuing that endpoint must not
   blindly shorten it a second time. Tanner/cow and hunter/prey have additional
   identity/reservation/linked-actor state, unlike a plain tile destination.
+- Tunnel handler `0x12E400` pairs class1/Hidden state with a specific tunnel
+  building and reconstructed route. Its `0x185240` work consumer traverses the
+  stored full route for terrain/damage effects; terminal AI4 removes the linked
+  tunnel and retires the unit. Ordinary relocation does not normalize this job.
+- Assassin `0x16CD70` commits Next through `0x180A80` at the end of AI127 but at
+  the beginning of AI129, then continues height/animation progress. Retaining
+  those states across an arbitrary relocation retains old climb effects.
+- Portal/ladders bind serial, object global identity and participant records.
+  `0x19AB10` can legitimately wait 96 updates for a height-progress step and
+  can retire/kill a participant after a broken active transition. `0x187110`
+  performs partial connection/Aux cleanup but is not a complete portal/job/
+  Hidden normalizer. A distant Next or slow progress is not itself a trapped
+  ordinary unit.
 
 These are static contracts, not newly successful rescue implementations. No
 universal freedom to interrupt every AI state or to reconstruct an old reachable

@@ -25,7 +25,7 @@ Statuswerte: **offen**, **in Arbeit**, **teilweise geprüft**, **abgenommen**. E
 | ID | Arbeitspaket | Status | Abhängigkeit / Ergebnis |
 |---|---|---|---|
 | P0 | Vorhandene Rettung, Pathfinding und Schnittstellen einordnen | Abgenommen für die dokumentierte Bestandsaufnahme | Abschnitt 3; vorhandene Nachweise in Abschnitt 4 |
-| P1 | Erzeuger, Zustandsübergänge und Beobachtungsverträge auditieren | Teilweise offline geprüft; nächster Schritt | Quellen-/Hookmatrix vom 25.11.; vollständiger nativer Abschlussaudit weiter offen |
+| P1 | Erzeuger, Zustandsübergänge und Beobachtungsverträge auditieren | Statischer Audit abgeschlossen; Korrektur/Runtimefreigabe offen | Ausführliche Audits vom 25.11.; bestätigter API-Befund F1 vor Brokererweiterung beheben |
 | P2 | Gemeinsames Kandidatenmodell, Nachbeobachtung und Budgets | Offen | P1-Verträge; keine neuen permanenten Vollscans |
 | P3 | Bau- und Geländeänderungen automatisch anbinden | Teilweise geprüft | KI-AIV-Zugbrücke vorhanden; weitere Quellen offen |
 | P4 | Gewöhnliche Soldaten und KI-Gruppen im Normalbetrieb absichern | Teilweise geprüft | P2/P3; bisherige kontrollierte Gruppenbelege erhalten |
@@ -36,7 +36,7 @@ Statuswerte: **offen**, **in Arbeit**, **teilweise geprüft**, **abgenommen**. E
 | P9 | Normalbetrieb, Last und Kompatibilität abnehmen | Offen | P3–P8, messbare Budget- und Verhaltensnachweise |
 | P10 | Abgenommenen Kern nach Pathfinding überführen | Offen | Testmod-Abnahme und genau ein aktiver Rettungsbesitzer |
 
-**Nächster konkreter Arbeitsschritt:** P1. Zuerst eine vollständige Tabelle der Bau-/Gelände-Erzeuger und der vorhandenen Pathfinding-Besitzer erstellen. Für jede Quelle Vorherzustand, endgültigen Änderungsabschluss, Thread und Einheitenzuordnung belegen. Erst danach die nächste Quelle aktiv anbinden.
+**Nächster konkreter Arbeitsschritt:** Den bestätigten Fehler F1 im AIV-Fehlerreporter gezielt korrigieren und die reproduzierten Gegenbeispiele als erfolgreiche Isolation absichern. Danach P2 und den additiven funktionalen Broker gemäß den abgeschlossenen statischen Verträgen implementieren. Die tatsächliche Live-Spannenprüfung und Spielabnahme bleiben bis zu einem entsprechenden Auftrag offen.
 
 ### Offline-Fortschritt vom 25.11.2026
 
@@ -45,6 +45,16 @@ Die relevanten ausführbaren Offline-Prüfungen des vorhandenen Prototyps und de
 Es wurde nichts installiert und kein Spiel gestartet. Die Abnahme vom 17.11. bleibt historisch. Der aktuelle Referenzstand ist Extender 2.14.4, Fixes 1.31.0 und APIShared 0.73.3; Pathfinding-Quellversion 0.1.16. Der native Hash ist unverändert. Die ältere Interop-Provenienz des Baseline-Datasets muss vor zusätzlichen nativen Integrationen relevant validiert werden. Die bekannte veränderliche Scanner-Capture im Fixes-Reiterinstaller ist statisch weiterhin vorhanden; ihre aktuelle Spielwirkung wurde nicht neu geprüft.
 
 P1 ist durch die dokumentierten AIV-/Bau-/Spiegel-/Editor-/Bewegungsverträge vorangekommen, aber noch nicht geschlossen. P2–P10 erhalten durch erfolgreiche Tests des bestehenden Codes keine pauschale Freigabe. Weiter offen sind insbesondere zusätzliche endgültige Änderungsabschlüsse, alte Ausweichbereiche, Next-/Schrittzustände, automatische Arbeiter-/Besatzungspfade und die spätere echte Spiel-/MP-/Lastabnahme. Bis zur nächsten Umsetzung zuerst diese P1-Lücken für die ausgewählte Quelle schließen.
+
+### Anschließender vollständiger statischer Audit vom 25.11.2026
+
+Der spätere ausdrückliche Auditauftrag schließt die zuvor genannten statischen P1-Lücken. Einstieg und verbindliche Teilberichte: [Audits/AUDIT.md](Audits/AUDIT.md). Untersucht wurden sämtliche 23 Creator-Dispatchfamilien des gemeinsamen Baupfads, AIV/Prebuild, Menschen-/KI-Mauern, finale Original-/Mirroraufrufe, terminales Dig/Fill, alle sieben äußeren Editorwriter, terminaler Abriss, gewöhnliche und besondere Current-/Next-/Belegungsfolgen, Tunnel/Assassinen/Portal-/Ladderzustände, alle 20 Wirtschaftsrollen, Geräte/Crew sowie Lifecycle, Save, Resync und aktuelle Hookbesitzer. Sichere Nichtfreigaben sind mit konkreten legitimen beziehungsweise schädlichen Folgezuständen begründet; nicht durch pauschales „unbekannt“ ersetzt.
+
+Der Audit beschreibt den additiven Brokervertrag einschließlich eines äußeren Mirror-Batchscopes, effektiver Childinvocations, nicht werfender Fehlerbehandlung und begrenzter innerer nativer Arbeit. Er belegt eine Current-Occupancy-Discovery mit einem Tile Halo für gewöhnliche Next-Schritte und trennt sie ausdrücklich von entfernten Portal-/Transportendpunkten. Nominale BuildingScale-Quadrate sind für Compoundbauten nicht allgemein ausreichend. Die Worker-Matrix beschreibt rollenabhängige Reise-/Kontakt-/Cargo-/Retryverträge; sie aktiviert keine zusätzlichen Runtimezustände.
+
+**Bestätigter Zusatzbefund:** [F1](Audits/AUDIT-FINDINGS.md): Ein erneut werfendes `Exception.ToString()` im AIV-Fehlerreporter kann Original oder weitere Receipts verhindern beziehungsweise eine Originalexception maskieren. Drei Gegenbeispiele und ein normaler Kontrollfall wurden am tatsächlichen Workspace-Produktionsdispatch offline reproduziert, unabhängig wiederholt und mit Assembly-SHA/MVID dokumentiert. F1 wurde in diesem Auditauftrag nicht korrigiert. Das ist ein seltener bestätigter Fehlerpfad, kein neu beobachteter Spielschaden.
+
+Native/Managed-Hashes wurden erneut geprüft; die Extenderstände von Dataset, installierter Referenz und aktuellem Quellbaum2.14.6 wurden getrennt abgeglichen. Keine Installation, kein Spielstart, keine Runtimequellenänderung. Die wiederverwendbaren neuen nativen Fakten stehen zusätzlich im bestehenden Baseline-Dossier `TRAPPED_UNIT_RESCUE_AUDIT.md`. P2–P10 bleiben Implementierungs-/Abnahmearbeit; Altsave-/Besitzer-/Persistenzentscheidungen bleiben ausdrücklich offen.
 
 ### Bei jeder Fortsetzung
 
@@ -158,12 +168,14 @@ Originale laufen genau einmal. Beobachtungsfehler dürfen weder Vanilla noch and
 
 ### P1 — Erzeuger- und Vertragsmatrix
 
-- [ ] Alle relevanten Quellen aufführen: KI-AIV-Brücke, KI-Mauer-/Gebäudebau, menschlicher Bau einschließlich Spiegel-/Serienpfaden, Editorbau/-gelände, Grabenfortschritt und tatsächlicher Abschluss, Rückbau/Zerstörung sowie externe Bau-APIs.
-- [ ] Je Quelle native/verwaltete Erzeuger, effektive Parameter, Footprint, betroffene Nachbarschaft, Thread, Reihenfolge, Abbrüche, Ausnahmen und den stabilen Abschluss bis zur späteren Bewegung vollständig auditieren.
-- [ ] Vorhandene Extender-Ereignisse und APIShared-/Pathfinding-Hookbesitzer zuordnen. Post-only-Kachelinvalidierung ausdrücklich von Vorher-/Nachher-Transaktion trennen.
-- [ ] Relevante Fixes-Reaktionen und deren Reihenfolge prüfen; dokumentieren, wann bestehende Rettung beibehalten werden muss.
-- [ ] Für aktuell fehlende öffentliche Verträge eine kleine additive Schnittstelle entwerfen: stabile Quelle/Invocation, effektive Daten, einmaliger Abschluss, Originalfehler, Thread/Lebensdauer und Callback-Fehlerisolation. Erst danach APIShared ändern.
-- [ ] Aktuelle Native-/SDK-/Extender-Provenienz und tatsächliche Live-Spannen belegen; keine neuen RVA-Adapter aus diesem Plan ableiten.
+- [x] Alle relevanten Quellen aufführen: KI-AIV-Brücke, KI-Mauer-/Gebäudebau, menschlicher Bau einschließlich Spiegel-/Serienpfaden, Editorbau/-gelände, Grabenfortschritt und tatsächlicher Abschluss, Rückbau/Zerstörung sowie externe Bau-APIs. Siehe vier Teilaudits.
+- [x] Je Quelle native/verwaltete Erzeuger, effektive Parameter, Footprint, betroffene Nachbarschaft, Thread, Reihenfolge, Abbrüche, Ausnahmen und stabilen Abschluss bis zur späteren Bewegung auditieren; nicht allgemein rettbare Zustände mit konkretem Vertrag abgrenzen.
+- [x] Vorhandene Extender-Ereignisse und APIShared-/Pathfinding-Hookbesitzer zuordnen. Post-only-Kachelinvalidierung ausdrücklich von Vorher-/Nachher-Transaktion getrennt.
+- [x] Relevante Fixes-Reaktionen und deren Reihenfolge geprüft; ursprüngliche Prävention und Fixtureisolation getrennt, Keep-Reiterrettung bleibt eigenständig.
+- [x] Additiven funktionalen Brokervertrag entworfen: Quelle/Invocation, äußerer Mirrorrahmen, effektive Originaldaten, einmaliger Abschluss, Originalfehler, Thread/Lebensdauer und vollständige Callback-/Diagnosefehlerisolation. Siehe `Audits/AUDIT.md` Abschnitt3; noch keine APIänderung.
+- [x] Native-/SDK-/Extender-Provenienz und offline relevante Einstiegsspannen einschließlich Dig/Fill-Innenreferenzen belegt. Keine neue Hookveröffentlichung.
+- [ ] F1 gezielt korrigieren; danach die drei Fehlergegenbeispiele als erfolgreiche Isolation und Originalerhaltung prüfen.
+- [ ] Tatsächliche Live-Spannen erst beim später autorisierten Start prüfen. Die Offline-PE-Analyse ersetzt keinen Live-Fremdpatchnachweis; keine neuen RVA-Adapter ungeprüft aus dem Plan ableiten.
 
 **Abgenommen wenn:** Für jeden anzubindenden Pfad ist belegt, wie betroffene Einheiten vor der Änderung erfasst und nach dem vollständigen Umbau geprüft werden. Nicht belegte Pfade stehen sichtbar als offen in der Abdeckungsmatrix. Ein getesteter Pfad darf dabei bereits inkrementell weitergehen.
 
@@ -306,5 +318,6 @@ Technische Details können innerhalb belegter Verträge entschieden werden. Mehr
 |---|---|---|---|
 | 17.11.2026 | P0 / Planerstellung | Aktuellen Pathfinding-Quellstand, menschliche/KI-Grenzen, vorhandene Taktung, Hookbesitzer und öffentliche Vertragsgrenzen eingeordnet. Zielmigration ausdrücklich Pathfinding. Nächster Schritt P1. Keine neuen Runtimeänderungen, Builds oder Spieltests für diesen Plan. | Quellen in Abschnitt3; vorhandene Rettungsnachweise in Abschnitt4 |
 | 25.11.2026 | Offline-Abnahme des vorhandenen Stands / P1 teilweise | Testmod, kompletter Pathfinding-Offline-Build und ausgewählte API-Verträge PASS. Testmod-Tooltip-Stil korrigiert; Nachprüfung PASS. Sandbox-Testhost-Startfehler durch unveränderte erfolgreiche Läufe außerhalb abgegrenzt. Keine Installation/Spieltests; keine neue allgemeine Rettungsquelle implementiert. Nächster Schritt: relevante Baseline-Provenienz validieren und P1 für die nächste Quelle vollständig schließen. | [OFFLINE-CHECKS.md](OFFLINE-CHECKS.md), `.work/a/rescue-offline/001/result.json` |
+| 25.11.2026 | Vollständiger statischer Featureaudit | Bau-/Gelände-/Bewegungs-/Job-/Lifecycleketten und sichere Ausschlüsse geschlossen; alle20 Wirtschaftsrollen und besondere Tunnel-/Climb-/Portalzustände ergänzt. Neue native Bytebelege unabhängig gegengeprüft. F1 durch3 Gegenbeispiele+Kontrolle am Produktionsdispatch reproduziert; keine Runtimekorrektur. Keine Installation/Spieltests. Nächster Schritt F1-Korrektur, dann P2/Brokerimplementierung. | [Audits/AUDIT.md](Audits/AUDIT.md), [F1](Audits/AUDIT-FINDINGS.md), `.work/a/rescue-audit/001/` |
 
 Für spätere Einträge mindestens Datum, tatsächlichen Quell-/Buildstand, geänderte Dateien/Verträge, bestandene und fehlgeschlagene Prüfungen, verbleibende Grenzen sowie den nächsten konkreten Schritt ergänzen. Bei neuen Erkenntnissen diesen Plan anpassen; erledigte technische Annahmen nicht als dauerhafte Sperren konservieren.

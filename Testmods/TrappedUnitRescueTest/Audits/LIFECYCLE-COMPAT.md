@@ -36,6 +36,8 @@ Beleg: `APIShared/src/Missions/MissionLifecycleState.cs:40–160`; der Lade-Wrap
 
 Der bestehende AIV-Receipt ist single-use, vergleicht sein Kontextobjekt und seine Sitzung und verlangt `VanillaCompleted`. Er behandelt den Rückgabecode nicht als Geometriebeweis. Ein währenddessen ersetzter Versuch führt keine alte Rettung mehr aus (`GeneralRescueObserver.Completion`). Der Pilot führt seine Prüfung synchron durch und hat noch keine dauerhafte Kandidatenqueue.
 
+Die normale AIV-Beobachterexception-Isolation besitzt eine eng begrenzte bestätigte Ausnahme: Wenn die Textformatierung der gefangenen fremden Exception erneut wirft, kann der Fehlerreporter Original oder weitere Receipts verhindern beziehungsweise eine Originalexception maskieren. [AUDIT-FINDINGS.md](AUDIT-FINDINGS.md) belegt drei Gegenbeispiele und eine normale Kontrolle am tatsächlichen Workspace-Produktionsdispatch. Die Aussage über stabile Missionszustände ist davon unabhängig; eine künftige Brokererweiterung muss auch ihren Fehlerreporter nicht werfend kapseln. Hier wurde kein Runtimefix eingebaut.
+
 Für eine spätere Queue folgt daraus:
 
 - Keine `GameUnit*`-/AIV-/Buildingpointer über Callbackgrenzen speichern. Slot plus globale Identität, Weltgeneration, Besitzer, Typ und relevante Zustandswerte beim Verwenden neu auflösen.

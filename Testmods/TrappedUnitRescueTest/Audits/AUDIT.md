@@ -10,6 +10,7 @@ Stand: 25.11.2026. Dieser Auftrag untersucht die statisch zugänglichen Verträg
 | [Bewegung und Gruppen](MOVEMENT.md) | Current/Next, tatsächliche und spekulative Schritte, Mittelpunkt/Belegung, physische Ausgänge, native Relocatehelfer, Gruppenführer/-mitglieder, KI-Grenzen und Fehlersignale |
 | [Gelände und Arbeiter](TERRAIN-WORKERS.md) | Planung versus terminales Dig/Fill, sämtliche äußeren Editorbrushes, Abriss bis terminaler Entfernung, Wirtschaftsrollen, Geräte-/Ingenieurverbund und Arbeitsfortsetzung |
 | [Lifecycle und Kompatibilität](LIFECYCLE-COMPAT.md) | Startup, Mission-/Weltwechsel, Simulationstakt, Save/Resync, aktuelle Extenderstände, Fixes-Unterdrückung, temporäre Scannerkorrektur und echte CastlePlanner-Keeprotation |
+| [Verifizierter Zusatzbefund](AUDIT-FINDINGS.md) | Reproduzierter seltener Fehler der AIV-Beobachterisolation bei erneut fehlschlagender Exceptionformatierung; drei Gegenbeispiele und Kontrollfall |
 
 Native Identitäten und Bytevergleiche stehen in [MOVEMENT-NATIVE.json](MOVEMENT-NATIVE.json), [TERRAIN-WORKERS-EVIDENCE.json](TERRAIN-WORKERS-EVIDENCE.json) und [construction-native-evidence.txt](construction-native-evidence.txt). Sie werden im Text nicht als ausgeführte Spielszenarien gezählt. Übergreifende Quell-/Referenzidentitäten: `.work/a/rescue-audit/001/identities.json` und `source-inputs.json`.
 
@@ -58,8 +59,8 @@ Dies ist der auditierte Entwurf einer **additiven** APIShared-Grenze, keine bere
 | Invocation | Stabile Quelle und einmalige Serienkennung, verschachtelte Elternzuordnung, wirksame Parameter und optionale fachliche Besitzer-ID. Keine gemeinsame mutable EventArgs-Kopie als späterer Beweis. |
 | Before | Direkt vor der tatsächlich ausgeführten Originalinvocation nach Pre-Änderungen und Vetos. Mirror-Originale separat mit echten Spiegelkoordinaten erfassen. Vorarbeit darf keine nativen Scratch-Enumeratoren oder mutierende „Probe“-Moves aufrufen. |
 | Privater Zustand | Jeder Beobachter erhält seinen eigenen Receipt; keine fremden State-Objekte, Pointer oder Frames über eine verzögerte Grenze teilen. |
-| Original | Genau einmal; Beobachterfehler verhindern/wiederholen Vanilla nicht. Nicht auf Erfolgsrückgaben vertrauen, die der konkrete native Vertrag nicht liefert. |
-| Completion | In `finally` mit getrennten Fakten „aufgerufen“, „normal zurückgekehrt“ und Fehler/Abbruch; kein erfundener Erfolg bei Exception. Der Originalfehler bleibt erhalten. |
+| Original | Genau einmal; Beobachterfehler verhindern/wiederholen Vanilla nicht. Das ist eine Anforderung an die Erweiterung; der heutige AIV-Service hat die eng abgegrenzte Ausnahme F1 im Zusatzbefund. Nicht auf Erfolgsrückgaben vertrauen, die der konkrete native Vertrag nicht liefert. |
+| Completion | In `finally` mit getrennten Fakten „aufgerufen“, „normal zurückgekehrt“ und Fehler/Abbruch; kein erfundener Erfolg bei Exception. Auch Fehlerformatierung, Logging und Cleanup müssen nicht werfend isoliert sein, damit der Originalfehler erhalten bleibt (F1). |
 | Verschachtelung | Lowlevelupdates zunächst nur sammeln. Ein Scope um den **gesamten Extender-Wrapper** umfasst die vorher ausgeführten Mirror-Siblings; separate native AIV-/Linienrahmen und effektive Original-Childreceipts werden darin zugeordnet. FinalOriginal-Wrapping allein erzeugt keinen solchen Mirror-Batchrahmen. Eine untergeordnete Teilfläche oder das erste Mirror-Original veröffentlicht keine fertige Compound-Welt. |
 | Mutation | Tatsächliche alte/neue Geometrie und überlebende Identität bestätigen. Ein Ergebniscode, Spawn-Post oder Cacheinvalidierung allein genügt nicht. |
 | Thread/Lebensdauer | Synchron auf dem gültigen nativen Publisherthread, kein UI-/Mainthreadwechsel mitten im Original, prozessweit verwurzelte Registrierung, logische Aktivierung. Beliebige fremde Hintergrundaufrufe werden dadurch nicht legal. |
@@ -84,6 +85,7 @@ Die geschlossenen statischen Verträge sind Grundlage für die schrittweise Impl
 
 Die verbleibenden Arbeiten werden getrennt geführt:
 
+- **Bestätigte Korrektur:** F1 im AIV-Fehlerreporter gezielt beheben und die drei reproduzierten Gegenbeispiele künftig als grüne Isolationstests absichern. Der Audit hat den Defekt nachgewiesen, keinen installierten Mod korrigiert und keinen bereits aufgetretenen Spielschaden behauptet.
 - **Implementierung:** funktionaler Broker und Quelladapter, Kandidatenqueue, vollständige Hüllenfamilien, Current/Next-Behandlung, familientreue Fortsetzung und ein aktiver Rettungsbesitzer.
 - **Produktentscheidungen:** Alliierte/Neutral/Feind, Altsaves, Queuepersistenz und Umfang der ersten Freigabe. Fehlende Vorherdaten werden nicht mit einem stillen Default ersetzt.
 - **Tests des neuen Codes:** reine Gegenproben zu Identität, Reihenfolge, Verschachtelung, Überlast, neueren Befehlen, Writerfehlern und familienbezogenen Wiederaufnahmeverträgen.

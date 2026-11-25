@@ -4515,5 +4515,80 @@
         "0xd7e6b"
       ]
     }
-  ]
+  ],
+  "SourceSnapshots": [
+    {
+      "Path": "Testmods/TrappedUnitRescueTest/src/RescueRuntime.cs",
+      "Sha256": "71405f3d0c298c9fadd17ea3767a85df2cf59d9abe00e5a8adb65f227a4d5484"
+    },
+    {
+      "Path": "Testmods/TrappedUnitRescueTest/src/NativeRelocation.cs",
+      "Sha256": "acff6f28441129a4ce27df6506662a0f773f08dd33329fcace491e264ebc824e"
+    },
+    {
+      "Path": "Testmods/TrappedUnitRescueTest/src/GeneralRescueObserver.cs",
+      "Sha256": "20658a2f65c892abcf14a4e623866e698d1c4329c7e15a8d181e07784e7faf4f"
+    },
+    {
+      "Path": "Pathfinding/src/UnitCommands/Runtime/ManualGroupAdmission.cs",
+      "Sha256": "34c3d787f39d69b1f3f6016512544fcfc7f6251e7c1939918a9d2c592000f3c8"
+    },
+    {
+      "Path": "Pathfinding/src/UnitCommands/Movement/UnitMovementContext.cs",
+      "Sha256": "f2f099f3e6d4cb14ccd1aeb70b8c81986b176f775eb4821d7cb374415499fd4f"
+    },
+    {
+      "Path": "Pathfinding/src/UnitCommands/Movement/NativeMovementRecovery.cs",
+      "Sha256": "be354eecd960c00c36f80e937ddd463278164e21b91cc972ce5ae31279e2437b"
+    },
+    {
+      "Path": "Pathfinding/src/UnitCommands/Movement/MovementSurfacePolicy.cs",
+      "Sha256": "7a2f25f11cc97783886a976c0450554d4bd575393cbf86af580e4849de49efbe"
+    },
+    {
+      "Path": "Pathfinding/src/UnitCommands/Native/NativeDetourBarriers.cs",
+      "Sha256": "cee96db3f8bc583da7fe202f5d35ae0e1bffc181d6b9b4efe64bbe0a4f078272"
+    },
+    {
+      "Path": "Pathfinding/src/Engine/RouteReplanWatch.cs",
+      "Sha256": "b80f38ee633ccb2f9138133bc9ac5cb43c422d2510a98de1499948472f55da43"
+    },
+    {
+      "Path": "Pathfinding/src/Assassins/AssassinClimbCancellationRuntime.cs",
+      "Sha256": "f6f2ae8ad999aecc1ed98590d4926b722d6c1d53f645303c829b1551b6a5e949"
+    },
+    {
+      "Path": "Pathfinding/src/Assassins/AssassinClimbCancellationPolicy.cs",
+      "Sha256": "61d7332b36e6aa9234d1409e7484469acc5e4ab963cb7bc38395e0c0e14b1f27"
+    },
+    {
+      "Path": "shcde-script-extender/src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+      "Sha256": "2ecfbd78d4fa63dd1d4f4dd07c535f14c629b52510de3e585c678b91900de3c8"
+    },
+    {
+      "Path": "shcde-script-extender/src/SHCDESE.BepInEx/Interop/GameUnitManager.cs",
+      "Sha256": "ad40f1d9a3b7ebc4a3118b7eeb8d13927294b2c8a18d33b848034104f4a5c8bc"
+    },
+    {
+      "Path": "shcde-script-extender/src/SHCDESE.BepInEx/API/GameTileManagerAPI.cs",
+      "Sha256": "5763b3952b300252ed96f43b50cd9b6a06efce1d4b09d3c80576ca13bd713569"
+    },
+    {
+      "Path": "shcde-script-extender/src/SHCDESE.BepInEx/API/GamePathingManagerAPI.cs",
+      "Sha256": "4323d4965f416daca27b65ab4ea806bd294b365e8e711e49cb234e2d3fcfc276"
+    },
+    {
+      "Path": "shcde-script-extender/src/SHCDESE.BepInEx/Detours/BulkUnitDetours.cs",
+      "Sha256": "a89b4f4b1ab431bb19cbd08721d23b6e1a544c1b7c40139396da8903fdf1f8fe"
+    },
+    {
+      "Path": "shcde-script-extender/src/SHCDESE.BepInEx/Detours/BulkPathingDetours.cs",
+      "Sha256": "cf6aa7e53c51013bdaddae8186f3aa7c9033214c2704cfee7b964434ea7850e3"
+    },
+    {
+      "Path": "APIShared/src/Pathfinding/Routes/RouteSearchEvents.cs",
+      "Sha256": "9018eca415357b9c032daf352e02b3f600214e2e6da0c0bc5dbd587f678f0602"
+    }
+  ],
+  "CompletedUtc": "2026-11-25T12:44:00.6000347Z"
 }
