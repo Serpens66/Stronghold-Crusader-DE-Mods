@@ -49,6 +49,17 @@ namespace TrappedUnitRescueTest.Tests
             Check(RescuePendingCodec.TryEncode(new RescuePendingCandidate<UnitSnapshot>("MoatDig",worker,1,0,0),out var workerBytes) &&
                 RescuePendingCodec.TryDecode(workerBytes,out var workerCopy) && workerCopy.Snapshot.Job.Rule.UnitType==(eChimps)worker.Type,
                 "pending worker preserves its exact known job schema for later live revalidation");
+            var apple=Soldier();apple.Type=(int)eChimps.CHIMP_TYPE_FARMER_APPLE;apple.AIState=2;apple.Command=null;
+            WorkerTravelPolicy.TryDescribe((eChimps)apple.Type,apple.AIState,out var appleRule);
+            WorkerJourneySnapshot.TryCapture(appleRule,offset=>offset==0x6E6?(ushort)apple.Type:offset==0x918?(ushort)apple.AIState:
+                offset==0x6EE?(ushort)apple.Owner:offset==0x9A0?(ushort)7:(ushort)0,
+                offset=>offset==0x6F0?apple.GlobalId:0,out apple.Job);
+            Check(!RescuePendingCodec.TryEncode(new RescuePendingCandidate<UnitSnapshot>("BuildStructure",apple,0,0,0),out _),
+                "selected vegetation without pre-mutation lifetime cannot become a saved causal proof");
+            apple.HasCapturedVegetation=true;apple.CapturedVegetationGlobal=222;
+            Check(RescuePendingCodec.TryEncode(new RescuePendingCandidate<UnitSnapshot>("BuildStructure",apple,0,0,0),out var appleBytes) &&
+                RescuePendingCodec.TryDecode(appleBytes,out var appleCopy) && appleCopy.Snapshot.HasCapturedVegetation && appleCopy.Snapshot.CapturedVegetationGlobal==222,
+                "Apple pre-mutation tree lifetime survives save/load instead of being adopted at recovery time");
             var stationary=Soldier();stationary.AIState=2;stationary.Flags=0;stationary.Substep=8;stationary.OrdinaryStep=false;
             stationary.NextX=stationary.X;stationary.NextY=stationary.Y;stationary.NextTileId=stationary.TileId;
             stationary.RequestedX=stationary.X;stationary.RequestedY=stationary.Y;

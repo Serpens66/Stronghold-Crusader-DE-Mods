@@ -75,6 +75,7 @@ namespace CrenelatedWallAcceptance
         private IEnumerable<AutomationWait> Start(AutomationRun run)
         {
             SetSwitches(true, true);
+            SetExisting(false, false, true); // map start: the skirmish map's pre-placed walls (if any) are aligned
             // Peace time keeps the AI from attacking the lord or the test units. The climbing and siege
             // units belong to an unused slot and act on direct orders, so peace does not affect them.
             // Fixed AI castle template and keep order: the control row area depends on the start (run 7270b60a).
@@ -155,6 +156,8 @@ namespace CrenelatedWallAcceptance
             foreach (var w in Settle(run, m)) yield return w;
             string result = run.InSimulation(m, () => CheckHeights("heights"));
             log(result);
+            Drain();
+            Require(crenelSeen.Any(l => l.Contains("CRENEL_ADOPT_EXISTING kind=map")), "option align existing on map start did not run");
         }
 
         private IEnumerable<AutomationWait> Assassins(AutomationRun run)
@@ -190,6 +193,7 @@ namespace CrenelatedWallAcceptance
             Drain();
             Require(crenelSeen.Any(l => l.Contains("CRENEL_SAVE tiles=" + humanTiles.Count + ";")), "CRENEL_SAVE does not list " + humanTiles.Count + " managed tiles");
             log("SAVE_PASS path=" + save + " managed=" + humanTiles.Count);
+            SetExisting(false, true, false); // the reloaded session aligns the savegame's unmanaged crenels
         }
 
         private IEnumerable<AutomationWait> Reload(AutomationRun run)
@@ -214,6 +218,9 @@ namespace CrenelatedWallAcceptance
                 "CRENEL_LOAD did not restore " + humanTiles.Count + " managed tiles: " + string.Join(" | ", crenelSeen.Where(l => l.Contains("CRENEL_LOAD"))));
             int changed = run.InSimulation(m, () => snapshot.Count(p => Flags(p.Key) != p.Value));
             Require(changed == 0, changed + " managed tiles changed flags across save/load");
+            Require(crenelSeen.Any(l => l.Contains("CRENEL_ADOPT_EXISTING kind=save")), "option align existing on savegame load did not run");
+            // Settings are locked during a match; the runner restores the original settings afterwards.
+            log("ADOPT_SAVE " + string.Join(" | ", crenelSeen.Where(l => l.Contains("CRENEL_ADOPT_EXISTING"))));
             // SE wall cost multipliers are not part of the save; restore the test supply.
             run.InSimulation(m, () => { GameBuildingManagerAPI.Instance.SetLowWallCostMultiplier(0f); GameBuildingManagerAPI.Instance.SetHighWallCostMultiplier(0f); return 0; });
             foreach (var w in Stock(run, m)) yield return w;

@@ -70,6 +70,9 @@ namespace TrappedUnitRescueTest
                 runtime = new RescueRuntime(native, () => Volatile.Read(ref active) != 0, Stamp);
                 var generalRuntime = new RescueRuntime(native, () => generalObserver != null && generalObserver.IsActive, Stamp);
                 generalObserver = new GeneralRescueObserver(generalRuntime, SetGeneralSuppression, Stamp);
+                generalObserver.ReplanIntents=new NativeRescueReplanIntentWorld(generalRuntime,new NativeWorkerResumeWorld(native));
+                generalObserver.ReplanOwnerGuid=Guid;
+                generalObserver.OwnReplanScope=()=>workers?.Supervisor.IsExecutingNativeCall==true || generalObserver.IsRecovering || idleEscapes?.IsExecutingNativeCall==true;
                 workers=new WorkerRecoveryService(native,()=>generalObserver.IsRecovering || idleEscapes?.IsExecutingNativeCall==true,Stamp);
                 if(!workers.Register(Guid,out string saveReason))throw new InvalidOperationException("Worker persistence unavailable: "+saveReason);
                 idleEscapeWorld=new NativeIdleEscapeWorld(native,Guid,IdleEscapeAuthority,native.TryReissue);
@@ -86,6 +89,8 @@ namespace TrappedUnitRescueTest
                 generalObserver.WorldMutated=workers.Supervisor.MarkWorldMutation;
                 workers.CapturePending=generalObserver.TryCapturePending;
                 workers.RestorePending=generalObserver.StagePending;
+                workers.CaptureGeometry=generalObserver.TryCaptureGeometry;
+                workers.RestoreGeometry=generalObserver.StageGeometry;
                 if (!WorldMutationEvents.TryRegister(Guid,"rescue-world-mutations",generalObserver,out string mutationReason,
                     enabled:()=>generalObserver.IsActive))
                     throw new InvalidOperationException("World-mutation observer unavailable: " + mutationReason);
@@ -99,6 +104,9 @@ namespace TrappedUnitRescueTest
                 if(!UnitMoveEvents.TryRegister(Guid,"rescue-order-identity",orders,out string orderReason,
                     enabled:()=>generalObserver.HasEvidence || idleEscapes.Count!=0 || workers.Supervisor.Ledger.Count!=0))
                     throw new InvalidOperationException("Final unit-move observations unavailable: "+orderReason);
+                if(!UnitMoveEvents.TryRegister(Guid,"rescue-replan-proof",generalObserver,out string replanReason,order:100,
+                    enabled:()=>generalObserver.HasEvidence))
+                    throw new InvalidOperationException("Replan proof observations unavailable: "+replanReason);
                 libraryReady = true;
                 UpdateGeneralSession();
                 Stamp("NATIVE_READY; experimental setting defaults off; gatehouse farmer fix retained");

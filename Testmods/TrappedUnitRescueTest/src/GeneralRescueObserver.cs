@@ -41,7 +41,7 @@ namespace TrappedUnitRescueTest
 
     // Effective sources supply old geometry; the next admitted simulation callback owns
     // recovery. Child completions never mutate inside construction or a worker handler.
-    internal sealed class GeneralRescueObserver : IWorldMutationObserver
+    internal sealed partial class GeneralRescueObserver : IWorldMutationObserver
     {
         private sealed class Captured
         {
@@ -73,10 +73,10 @@ namespace TrappedUnitRescueTest
         internal long RescueCount=>Interlocked.Read(ref rescues);
         internal bool IsActive=>Interlocked.Read(ref session)!=0;
         internal bool IsRecovering=>Volatile.Read(ref busy)!=0;
-        internal int PendingCount=>queue.Count+staged.Length;
+        internal int PendingCount=>queue.Count+staged.Length+GeometryCount;
         internal bool HasEvidence=>PendingCount!=0 || batches.Count!=0;
         internal bool IsInterestedInOrder(int id)=>id>0 && id<orders.Length &&
-            (capturedInterest[id]!=0 || queue.ContainsUnit(id) || stagedIds.Contains(id));
+            (capturedInterest[id]!=0 || queue.ContainsUnit(id) || stagedIds.Contains(id) || IsReplanInterested(id));
         internal Action WorldMutated { get; set; }
         internal GeneralRescueObserver(RescueRuntime runtime,Action<bool> suppression,Action<string> report)
             : this(new NativeRescueMutationWorld(runtime),suppression,report) { }
@@ -95,6 +95,7 @@ namespace TrappedUnitRescueTest
         internal bool TryCapturePending(out RescuePendingCandidate<UnitSnapshot>[] records)
         {
             records=null;
+            if(HasUnsettledReplans)return false;
             if(!queue.HasWork){records=(RescuePendingCandidate<UnitSnapshot>[])staged.Clone();return true;}
             if(!IsCurrent(session,world) || !access.TryGetTick(out int tick) || !queue.TryCopyPending(tick,out var live))return false;
             records=new RescuePendingCandidate<UnitSnapshot>[staged.Length+live.Length];
@@ -104,7 +105,7 @@ namespace TrappedUnitRescueTest
         internal void StagePending(RescuePendingCandidate<UnitSnapshot>[] records)
         {
             stagedIds.Clear();
-            if(records==null || records.Length>512){staged=Array.Empty<RescuePendingCandidate<UnitSnapshot>>();return;}
+            if(records==null || records.Length+GeometryCount>512){staged=Array.Empty<RescuePendingCandidate<UnitSnapshot>>();return;}
             var seen=new HashSet<int>();
             foreach(var record in records)
                 if(record.Snapshot==null || record.Snapshot.Id<1 || record.Snapshot.Id>=orders.Length || record.Snapshot.GlobalId==0 ||
@@ -117,10 +118,10 @@ namespace TrappedUnitRescueTest
         // Inactive paused loads can be re-saved unchanged. Actual simulation progress
         // retires that historical proof without reading or mutating native game state.
         internal void ExpireInactivePending()
-        {if(!IsActive){staged=Array.Empty<RescuePendingCandidate<UnitSnapshot>>();stagedIds.Clear();}}
+        {if(!IsActive){staged=Array.Empty<RescuePendingCandidate<UnitSnapshot>>();stagedIds.Clear();ResetGeometry(true);}}
         internal void ClearPending()
         {
-            staged=Array.Empty<RescuePendingCandidate<UnitSnapshot>>();stagedIds.Clear();ResetWorld(0);
+            staged=Array.Empty<RescuePendingCandidate<UnitSnapshot>>();stagedIds.Clear();ResetGeometry(true);ResetWorld(0);
         }
         private bool RetireStaged(int id,uint identity=0)
         {
@@ -147,6 +148,7 @@ namespace TrappedUnitRescueTest
             world=generation;batches.Clear();queue.Reset(session,generation);drainedTick=false;
             Array.Clear(orders,0,orders.Length);reported=0;
             Array.Clear(capturedInterest,0,capturedInterest.Length);
+            ResetGeometry(false);
         }
         private bool IsCurrent(long expectedSession,long expectedWorld)=>IsActive && session==expectedSession && world==expectedWorld &&
             access.TryGetWorld(out long currentSession,out long currentWorld) && currentSession==session && currentWorld==world;
@@ -159,9 +161,9 @@ namespace TrappedUnitRescueTest
         internal void ObserveOrder(int id,bool independentlyExternal=false)
         {
             if(IsRecovering && !independentlyExternal || id<1 || id>=orders.Length)return;
-            RetireStaged(id);
-            if(!IsActive)return;
-            if(orders[id]==long.MaxValue){queue.InvalidateUnit(id);return;}
+            if(!IsActive){RetireStaged(id);RetireStagedGeometry(id);return;}
+            RetainBeforeOrder(id);RetireStaged(id);
+            if(orders[id]==long.MaxValue){queue.InvalidateUnit(id);DropGeometry(id);return;}
             orders[id]++;queue.InvalidateUnit(id);
         }
         public IWorldMutationInvocation TryBegin(WorldMutationContext context)
@@ -219,10 +221,18 @@ namespace TrappedUnitRescueTest
                 !IsCurrent(batch.Session,batch.World) || !access.TryGetTick(out int tick))return;
             foreach(var entry in batch.Units.Values)
             {
-                var before=entry.Before;if(entry.Order!=orders[before.Id] || !access.HasChangedTrapCandidate(before))continue;
+                var before=entry.Before;if(!access.HasChangedTrapCandidate(before))continue;
                 // A fresh geometry cause cannot silently overwrite unbound saved proof.
                 if(RetireStaged(before.Id,before.GlobalId)){queue.InvalidateUnit(before.Id);continue;}
-                if(queue.Count+staged.Length>=512){queue.InvalidateUnit(before.Id);ReportBounded("mutation-pending-capacity");continue;}
+                if(RetireStagedGeometry(before.Id,before.GlobalId)){queue.InvalidateUnit(before.Id);DropGeometry(before.Id);continue;}
+                DropGeometry(before.Id);
+                if(entry.Order!=orders[before.Id])
+                {
+                    queue.InvalidateUnit(before.Id);
+                    if(RescueGeometryWitness.TryCapture(before,out var witness))RetainGeometry(witness,entry.Source,tick,0,0,completion.BatchId);
+                    continue;
+                }
+                if(PendingCount>=512){queue.InvalidateUnit(before.Id);ReportBounded("mutation-pending-capacity");continue;}
                 var identity=new RescueIdentity(batch.Session,batch.World,before.Id,before.GlobalId,entry.Order);
                 var outcome=queue.Offer(identity,completion.BatchId,entry.Source,before,tick);
                 if(outcome!=RescueOfferResult.Added && outcome!=RescueOfferResult.Duplicate)
@@ -235,14 +245,17 @@ namespace TrappedUnitRescueTest
             if(PendingCount==0 || drainedTick && lastDrainTick==tick || Interlocked.CompareExchange(ref busy,1,0)!=0)return;
             try
             {
-                if(staged.Length!=0)
+                if(staged.Length!=0 || stagedGeometry.Length!=0)
                 {
                     if(!access.TryGetWorld(out long liveSession,out long liveWorld) || liveSession!=session || liveWorld==0)return;
                     if(world!=liveWorld)ResetWorld(liveWorld);
                     RestoreStaged(tick);
+                    RestoreGeometry(tick);
                 }
                 if(!IsCurrent(session,world)){ResetWorld(0);return;}
                 drainedTick=true;lastDrainTick=tick;
+                ProcessReplans(tick,32);
+                if(!queue.HasWork)return;
                 suppression?.Invoke(true);
                 queue.Drain(tick,32,8,candidate=>
                 {

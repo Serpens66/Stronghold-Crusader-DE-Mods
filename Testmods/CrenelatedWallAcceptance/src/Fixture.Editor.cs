@@ -42,6 +42,27 @@ namespace CrenelatedWallAcceptance
             yield return new AutomationStep("editor-off-build", TimeSpan.FromSeconds(180), EditorVanillaBuild, true);
             yield return new AutomationStep("editor-on-load", TimeSpan.FromSeconds(180), r => LoadEditor(r, true, vanillaMapPath));
             yield return new AutomationStep("editor-on-check", TimeSpan.FromSeconds(120), EditorVanillaCheck, true);
+            yield return new AutomationStep("editor-adopt-load", TimeSpan.FromSeconds(180), r => { SetExisting(true, false, false); return LoadEditor(r, true, vanillaMapPath); });
+            yield return new AutomationStep("editor-adopt-check", TimeSpan.FromSeconds(120), EditorAdoptCheck, true);
+        }
+
+        // Option "align existing crenels when loading a map in the editor": the designer's Vanilla walls
+        // of the saved map become managed and follow the checkerboard.
+        private IEnumerable<AutomationWait> EditorAdoptCheck(AutomationRun run)
+        {
+            var m = run.CurrentMission;
+            yield return run.WaitForTicks(m, 80);
+            Drain();
+            string adopt = crenelSeen.FirstOrDefault(l => l.Contains("CRENEL_ADOPT_EXISTING kind=editor"));
+            Require(adopt != null, "no CRENEL_ADOPT_EXISTING kind=editor after loading the designer map");
+            int designer = vanillaSnapshot.Count;
+            int changed = Engine(() => vanillaSnapshot.Count(p => Flags(p.Key) != p.Value));
+            humanTiles.Clear(); humanTiles.UnionWith(vanillaSnapshot.Keys);
+            log(Engine(() => CheckHeights("editor-adopt")) + " designerTiles=" + designer + " changedFromVanilla=" + changed + " | " + adopt);
+            Require(changed > 0, "aligning the designer map changed no crenel");
+            SetExisting(false, false, false);
+            try { File.Delete(vanillaMapPath); } catch (Exception error) { log("TEMP_MAP_DELETE_FAILED " + error.Message); }
+            log("EDITOR_PASS preview, owners, bulldozer, damage, designer map, align existing on editor load");
         }
 
         // ---------- editor session ----------
@@ -314,8 +335,6 @@ namespace CrenelatedWallAcceptance
             Require(crenelSeen.Any(l => l.Contains("CRENEL_BUILD") && l.Contains("managed=1.")), "extension was not managed as a single new tile");
             Require(after == 0, after + " designer crenels changed after extending the row");
             log(Engine(() => CheckHeights("editor-designer-extend")) + " designerTilesUnchanged=" + vanillaSnapshot.Count);
-            try { File.Delete(vanillaMapPath); } catch (Exception error) { log("TEMP_MAP_DELETE_FAILED " + error.Message); }
-            log("EDITOR_PASS preview, owners, bulldozer, damage, designer map");
         }
 
         // ---------- UI wall drag ----------

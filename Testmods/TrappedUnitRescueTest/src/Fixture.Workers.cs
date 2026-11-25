@@ -186,12 +186,7 @@ namespace TrappedUnitRescueTest
         // The public SDK getter instead accepts a one-based array ID and subtracts one.
         // Keep the stored native index in WorkerFacts; translate only at this boundary.
         private static unsafe bool TryGetNativeAppleTree(int nativeIndex,out GameVegetation* tree)
-        {
-            tree=null;
-            var vegetation=GameVegetationManagerAPI.Instance;
-            if(nativeIndex<=0 || nativeIndex>=vegetation.GetVegetationAsSpan().Length)return false;
-            return vegetation.TryGetVegetationById(nativeIndex+1,out tree) && tree!=null;
-        }
+            =>NativeVegetationAccess.TryGet(nativeIndex,out tree);
         private static unsafe bool SameObservedAppleTree(WorkerFacts facts) => facts.TreeValid &&
             TryGetNativeAppleTree(facts.TreeId,out GameVegetation* tree) &&
             tree->r_AliveState==AliveState.IsAlive && tree->r_GlobalId==facts.TreeGlobal &&

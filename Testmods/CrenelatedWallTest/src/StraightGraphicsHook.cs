@@ -19,6 +19,7 @@ namespace CrenelatedWallTest
     internal sealed class StraightGraphicsHook
     {
         internal const int Rva = 0x5C2D0, BodySize = 237, Displaced = 15;
+        internal const string Feature = "CrenelatedWallTest straight crenel graphics";
         internal const string BackendHash = "0843DD4C381A3E77DD6D8B51D5CCF95465B3FB49BFDF2980F39A212D774AADB0";
         internal const string BodyHex = "48895C2408488974241048897C24184533DB8BF2488BD9418BC3418BFB458BD34585C9740C4183F902741B4183F904750FBF04000000448D5FFE448D5702EB154183F906750F41BA04000000B802000000418D7A02428D14C50000000003C24863C88B048B03C64898F78483008489000002000074658D043A4863C88B048B03C64898F784830084890000020000744B428D041A4863C88B048B03C64898F7848300848900000200007530428D04124863C88B048B03C64898F7848300848900000200007515B801000000488B5C2408488B742410488B7C2418C3488B5C240833C0488B742410488B7C2418C3";
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -36,17 +37,19 @@ namespace CrenelatedWallTest
             Chaining = HookChainingPolicy.Refuse, FunctionScanLimit = BodySize });
         internal void Install(CrusaderLibraryLoadContext context)
         {
-            using (var stream = File.OpenRead(typeof(NativeDetourBackend).Assembly.Location))
-            using (var sha = SHA256.Create())
-                if (BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "") != BackendHash)
-                    throw new InvalidOperationException("NativeX64 backend changed; graphics hook requires a new audit.");
+            // BackendHash is a build gate only (tests/audit-native.py); at runtime the backend contract is
+            // checked on the real hook by Validate, never by file hash (AGENTS/native-hooks.md, RedBird).
             byte[] expected = DecodeBody();
             if (context.ModuleHandle == IntPtr.Zero || context.Memory.Length < Rva + expected.Length)
                 throw new InvalidOperationException("Graphics predicate outside native module.");
+            // The audited body is checked against the unpatched load image; the live displaced span is
+            // checked by NativePatchGuard, which logs a foreign patch with bytes and jump target.
+            ReadOnlySpan<byte> image = context.Memory.Slice(Rva, expected.Length);
+            for (int i = 0; i < expected.Length; i++) if (image[i] != expected[i])
+                throw new InvalidOperationException("Graphics predicate unknown in the load image at +" + i);
             IntPtr target = IntPtr.Add(context.ModuleHandle, Rva);
-            var live = new byte[expected.Length]; Marshal.Copy(target, live, 0, live.Length);
-            for (int i = 0; i < live.Length; i++) if (live[i] != expected[i])
-                throw new InvalidOperationException("Graphics predicate already modified or unknown at +" + i);
+            Shared.NativePatchGuard.Bind(context, log);
+            Shared.NativePatchGuard.RequireUnpatched(unchecked((ulong)target.ToInt64()), Displaced, "0x5C2D0 straight predicate", Feature);
             var request = new DetourRequest<Predicate> { Name = "CrenelatedWallTest straight endpoints", TargetAddress = unchecked((ulong)target.ToInt64()), Callback = callback };
             hook = (NativeDetour<Predicate>)CreateBackend().CreateDetour(in request);
             // No executable publication yet: a failed prepared candidate may be released.
@@ -56,6 +59,7 @@ namespace CrenelatedWallTest
             // Once Enable starts there is deliberately no rollback or teardown path.
             hook.Enable(); Validate(hook, unchecked((ulong)target.ToInt64()));
             if (!hook.IsInstalled) throw new InvalidOperationException("Graphics hook publication incomplete.");
+            Shared.NativePatchGuard.Watch(hook, Feature); // Recheck at every mission and editor start.
             Shared.DebugLogHelper.LogInfo(log, "CRENEL_GRAPHICS_READY RVA=0x5C2D0; Absolute/15; permanent; endpoint assignments and redraw reports only; disabled=original.");
         }
         internal static byte[] DecodeBody()
@@ -93,7 +97,13 @@ namespace CrenelatedWallTest
         {
             if (on) watched[tile] = 0; else watched.TryRemove(tile, out _);
         }
-        internal void ClearWatch() => watched.Clear();
+        // Also drops pending reports: a report from an earlier session must not trigger a local
+        // normalization in the next one (only this peer would have it).
+        internal void ClearWatch()
+        {
+            watched.Clear();
+            lock (reportLock) { reported.Clear(); hasReports = 0; }
+        }
         // Swaps the reported tiles into the caller's list (cleared first); an idle call is one
         // volatile read, and no call allocates.
         internal void TakeReports(List<int> into)

@@ -5,6 +5,7 @@
     <Reference Include="System"/><Reference Include="System.Core"/>
     <Reference Include="RedBird.Abstractions"><HintPath>$(ExtenderDir)/RedBird.Abstractions.dll</HintPath></Reference>
     <Reference Include="RedBird.Core"><HintPath>$(ExtenderDir)/RedBird.Core.dll</HintPath></Reference>
+    <Reference Include="RedBird.X64"><HintPath>$(ExtenderDir)/RedBird.X64.dll</HintPath></Reference>
     <Reference Include="RedBird.Backends.NativeX64"><HintPath>$(ExtenderDir)/RedBird.Backends.NativeX64.dll</HintPath></Reference>
     <Reference Include="Iced"><HintPath>$(ExtenderDir)/Iced.dll</HintPath></Reference>
     <Reference Include="Microsoft.Extensions.Logging.Abstractions"><HintPath>$(ExtenderDir)/Microsoft.Extensions.Logging.Abstractions.dll</HintPath></Reference>
@@ -17,6 +18,6 @@
     <Reference Include="BepInEx"><HintPath>$(GameDir)/BepInEx/core/BepInEx.dll</HintPath></Reference>
     <Reference Include="APIShared"><HintPath>$(ApiSharedDir)/APIShared.dll</HintPath></Reference>
   </ItemGroup>
-  <ItemGroup><Compile Include="NativeHookTests.cs"/><Compile Include="../src/StraightGraphicsHook.cs" Link="StraightGraphicsHook.cs"/><Compile Include="../src/EndpointGraphicsPolicy.cs" Link="EndpointGraphicsPolicy.cs"/></ItemGroup>
+  <ItemGroup><Compile Include="NativeHookTests.cs"/><Compile Include="../src/StraightGraphicsHook.cs" Link="StraightGraphicsHook.cs"/><Compile Include="../src/EndpointGraphicsPolicy.cs" Link="EndpointGraphicsPolicy.cs"/><Compile Include="../../../Shared/Runtime/Native/NativePatchGuard.cs" Link="NativePatchGuard.cs"/><Compile Include="../../../Shared/Runtime/Native/CommittedMemory.cs" Link="CommittedMemory.cs"/></ItemGroup>
   <Import Project="$(MSBuildToolsPath)/Microsoft.CSharp.targets" />
 </Project>

@@ -13,12 +13,15 @@ internal static class Program
             RescuePolicyFixture.Run();
             IdleEscapeFixture.Run();
             GeneralObserverFixture.Run();
+            RescueGeometryWitnessFixture.Run();
+            RescueReplanIntentFixture.Run();
             RescueOrderFixture.Run();
             CandidateQueueFixture.Run();
             PendingRescueFixture.Run();
             DiscoveryFixture.Run();
             StartedStepFixture.Run();
             WorkerTravelFixture.Run();
+            NativeVegetationAccessFixture.Run();
             CommandJourneyFixture.Run();
             WorkerResumeLedgerFixture.Run();
             WorkerResumeSupervisorFixture.Run();

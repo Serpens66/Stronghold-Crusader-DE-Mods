@@ -342,6 +342,18 @@ namespace CrenelatedWallAcceptance
         }
 
         // Host settings, changed only in the menu; the mod freezes them per session.
+        // Options "align existing crenels" (editor load, savegame load, map start); frozen per session.
+        private void SetExisting(bool editor, bool saveLoad, bool mapStart)
+        {
+            object settings = WallSettings();
+            foreach (var entry in new[] { ("AdjustExistingInEditor", editor), ("AdjustExistingOnSaveLoad", saveLoad), ("AdjustExistingOnMapStart", mapStart) })
+            {
+                var property = settings.GetType().GetProperty(entry.Item1) ?? throw new MissingMemberException(entry.Item1);
+                property.SetValue(settings, entry.Item2);
+                Require((bool)property.GetValue(settings) == entry.Item2, entry.Item1 + " could not be set to " + entry.Item2);
+            }
+            log("SETTINGS existing editor=" + editor + " save=" + saveLoad + " map=" + mapStart);
+        }
         private void SetSwitches(bool enable, bool heights)
         {
             object settings = WallSettings();

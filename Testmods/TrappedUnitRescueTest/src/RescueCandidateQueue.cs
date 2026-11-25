@@ -68,6 +68,11 @@ namespace TrappedUnitRescueTest
         internal int PendingCount => pending.Count;
         internal bool HasWork => byUnit.Count != 0;
         internal bool ContainsUnit(int unitId)=>byUnit.ContainsKey(unitId);
+        internal bool TryTakeUnit(int unitId,out RescueQueuedCandidate<T> candidate)
+        {
+            if(!byUnit.TryGetValue(unitId,out candidate))return false;
+            Remove(candidate);return true;
+        }
         internal long OverflowCount { get; private set; }
         internal long ConflictCount { get; private set; }
 

@@ -54,7 +54,7 @@ Besonders wichtig:
 1. Native funktionale Neuplanung vom neuen Moat wird akzeptiert: keine Versetzung, ursprüngliches Segment bleibt korrekt und wird tatsächlich beendet.
 2. Probe abgelehnt, lokale Rettung erfolgreich, Reissue erfolgreich: dieselbe Einheit liefert ursprüngliche Waren korrekt ab.
 3. Reissue scheitert nach Relocation: eigene Flags 5-Sperre verhindert falsche Ankunft und Warenproduktion. Späterer zulässiger Retry führt zur tatsächlichen Fortsetzung.
-4. Arbeitsplatz/Lager/Baum wird während des Wartens zerstört oder sein Slot wiederverwendet: kein falscher Zielbezug und keine erfundenen Waren.
+4. Arbeitsplatz/Lager/Baum wird während des Wartens zerstört oder sein Slot wiederverwendet: kein falscher Zielbezug und keine erfundenen Waren. Besonders Apple: denselben nativen Baumindex mit neuer Global-ID bereits zwischen Before-Capture und Recoverytick erzeugen; der alte Vorherbeleg muss die Rettung ablehnen. Nach Save/Laden muss die identische Prüfung greifen.
 5. Externer neuer Auftrag im Wartezustand: erfolgreiche neue Route löst die alte Quittung ab; fehlgeschlagener neuer Auftrag darf niemals das alte Ziel wiederherstellen.
 6. Fehlender Zielort, volle Quittungskapazität und bewusst verletzte Parknachbedingung: keine ungesicherte native Mutation; unsichere Reservierung darf nicht als erfolgreiche Rettung verschwinden.
 7. Bereits vorliegende offene Apfel-Cargo-/Grabenarbeiter-/Ochsen-Grenzen bleiben einzeln offen, bis ein tatsächlicher Arbeits-/Lieferbeleg vorliegt.

@@ -529,3 +529,30 @@ The same-hash continuation audit also closes these relevant counterexamples:
 The complete per-handler matrix and its rescue admission consequences are in
 `Testmods/TrappedUnitRescueTest/Audits/COMMAND-RESUME.md`. The matrix's `R/N`
 labels describe mod policy, not new Vanilla states or gameplay acceptance.
+
+### Selected vegetation index and lifetime, 2026-11-25 [Vanilla facts]
+
+The same-hash `0x108040` returns its selected array index only when the final
+candidate satisfies `0 < index`; its failure return is zero. Apple handler
+`0x135E30` explicitly branches on zero before storing a successful return
+unchanged at unit `+0x9A0` (state2/state8). Zero is therefore no selected tree
+for this contract, not a public one-based ID or an admissible selected slot.
+
+Woodcutter `0x12BC00` likewise stores the positive selector result unchanged in
+unit `+0x9A0`, computes `index*0x9C`, and copies the selected record's global
+identity into unit `+0x700`. Apple does not have that equivalent selected-tree
+lifetime stamp in its audited travel contract. Re-reading an Apple slot's
+global only after an intervening removal/reallocation cannot establish that it
+is the previously selected lifetime. A stable slot number alone is insufficient.
+
+### Current SDK vegetation boundary [mod integration]
+
+The installed Script Extender 2.14.6 getter was independently read again:
+`TryGetVegetationById(id)` accepts `1..Length` and returns array base plus
+`id-1`. Its public span retains that base. The testmod now shares one adapter
+between runtime and fixture: translate the positive native index to `index+1`,
+check strict native index bounds, and verify the returned address equals span
+base plus native index. The causal snapshot separately captures the selected
+tree global before mutation; recovery and saved pending records cannot adopt a
+new lifetime from the same slot. These are integration safeguards, not a claim
+of a defective one-based SDK contract or completed worker gameplay acceptance.

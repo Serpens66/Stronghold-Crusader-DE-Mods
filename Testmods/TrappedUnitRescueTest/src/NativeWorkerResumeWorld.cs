@@ -46,7 +46,9 @@ namespace TrappedUnitRescueTest
             {store=native.JobWord(unit,0x98E);storeGlobal=native.JobDword(unit,0x6F8);if(!BuildingAlive(store,storeGlobal))return false;}
             if((required&WorkerExternalBindings.Vegetation)!=0)
             {
-                tree=native.JobWord(unit,0x9A0);if(!TryVegetation(tree,out treeGlobal))return false;
+                tree=native.JobWord(unit,0x9A0);
+                if(!NativeVegetationAccess.TryGet(tree,out var vegetation) ||
+                    !NativeVegetationAccess.TryReadCapturedAliveGlobal(vegetation,before.HasCapturedVegetation,before.CapturedVegetationGlobal,out treeGlobal))return false;
                 if(job.Rule.VegetationSerialNativeOffset!=0 && treeGlobal!=native.JobDword(unit,job.Rule.VegetationSerialNativeOffset))return false;
             }
             var bindings=new WorkerBindingSnapshot(required,home,homeGlobal,store,storeGlobal,tree,treeGlobal);
@@ -118,9 +120,7 @@ namespace TrappedUnitRescueTest
         private static bool TryVegetation(int id,out uint global)
         {
             global=0;
-            if(id<=0 || !GameVegetationManagerAPI.Instance.TryGetVegetationById(id,out var vegetation) || vegetation==null ||
-                vegetation->r_AliveState!=AliveState.IsAlive)return false;
-            global=vegetation->r_GlobalId;return true;
+            return NativeVegetationAccess.TryGet(id,out var vegetation) && NativeVegetationAccess.TryReadAliveGlobal(vegetation,out global);
         }
         private static bool BindingsAlive(WorkerBindingSnapshot bindings)
         {

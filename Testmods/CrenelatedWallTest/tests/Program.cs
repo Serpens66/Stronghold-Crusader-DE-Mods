@@ -75,6 +75,19 @@ internal static class Program
             return writes.Count;
         }
         internal void Remove(int x, int y) { Cells.Remove(y * 800 + x); }
+        // Mirrors WallRuntime.AdoptExisting: every unmanaged crenel becomes managed, then normalized.
+        internal int AdoptExisting()
+        {
+            if (!Heights) return 0;
+            var ids = new List<int>();
+            foreach (WallCell cell in Cells.Values.Where(c => WallPolicy.Crenel(c) && !Managed.Contains(c.Id)).ToArray())
+            {
+                Managed.Add(cell.Id); ids.Add(cell.Id);
+                foreach (WallCell next in Neighbours(cell)) if (Managed.Contains(next.Id)) ids.Add(next.Id);
+            }
+            Normalize(ids);
+            return ids.Count;
+        }
         internal IEnumerable<WallCell> Cardinal(WallCell cell)
         {
             foreach (var d in new[] { (0, -1), (1, 0), (0, 1), (-1, 0) })
@@ -117,7 +130,7 @@ internal static class Program
             CSharpCompilation compiled = CompileRuntime(root, sdk);
             ApiCompatibility(compiled, sdk);
             StraightRows(); EnterableShapes(); CheckerboardShapes(); ScopeAndOwnership(); Persistence(); EndpointGraphics(); RandomConstruction();
-            OrderIndependence();
+            OrderIndependence(); ExistingWalls();
             RepairOrigins();
             Console.WriteLine("PASS: " + checks + " assertions; production runtime compilation, checkerboard policy, straight-drawing assignments, redraw stability, scope and MessagePack persistence. Real game/peer execution is not inferred.");
         }
@@ -156,6 +169,28 @@ internal static class Program
         for (int x = 60; x <= 66; x++) { vanilla.Build(x, 60, x, 60); vanilla.Settle(); }
         Check(vanilla.Managed.Count == 0, "Heights off managed a tile");
         Check(vanilla.Cells.Values.All(c => c.High), "Heights off changed Vanilla sticky highs");
+    }
+    // Optional alignment of crenels that already exist at session start (designer, save, pre-placed).
+    private static void ExistingWalls()
+    {
+        for (int shift = 0; shift <= 1; shift++)
+        {
+            var designed = new World();
+            for (int x = 0; x < 8; x++) { designed.Put(100 + shift + x, 100); designed.Put(100 + shift + x, 104); }
+            for (int y = 1; y < 4; y++) { designed.Put(100 + shift, 100 + y); designed.Put(107 + shift, 100 + y); }
+            for (int y = 0; y < 3; y++) for (int x = 0; x < 3; x++) designed.Put(120 + shift + x, 100 + y); // block
+            for (int i = 0; i < 6; i++) designed.Put(140 + shift + i, 100 + i);                           // diagonal
+            designed.Settle();
+            Check(designed.Cells.Values.All(c => c.High), "Designer walls are not all high before alignment");
+            designed.AdoptExisting(); designed.Settle();
+            Check(designed.Managed.Count == designed.Cells.Count, "Not every existing crenel was adopted");
+            CheckEnterable(designed, "Aligned existing walls, shift " + shift);
+            string once = designed.State(); designed.AdoptExisting(); designed.Settle();
+            Check(once == designed.State(), "A second alignment changed the map");
+            // Already managed tiles keep their state; heights off adopts nothing.
+            var off = new World { Heights = false }; off.Put(10, 10); off.Put(11, 10);
+            Check(off.AdoptExisting() == 0 && off.Managed.Count == 0, "Alignment ran with height adjustment off");
+        }
     }
     private static void RepairOrigins()
     {

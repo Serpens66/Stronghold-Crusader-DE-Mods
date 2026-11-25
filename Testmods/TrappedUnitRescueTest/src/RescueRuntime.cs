@@ -14,8 +14,11 @@ namespace TrappedUnitRescueTest
         internal bool OrdinaryStep, AffectedCurrent, AffectedNext, CurrentWasOrdinary, NextWasOrdinary;
         internal uint GroundFlags, NextGroundFlags;
         internal uint GlobalId, Health, TribeGlobalId;
+        internal bool HasCapturedVegetation;
+        internal uint CapturedVegetationGlobal;
         internal WorkerJourneySnapshot Job;
         internal CommandJourneySnapshot Command;
+        internal RescueGeometryWitness GeometryWitness;
         internal byte Connections;
         internal string Unsupported;
         internal uint[] CrewIdentity;
@@ -50,7 +53,7 @@ namespace TrappedUnitRescueTest
         internal RescueRuntime(NativeRelocation native, Func<bool> isEnabled, Action<string> report)
         { this.native = native ?? throw new ArgumentNullException(nameof(native)); enabled = isEnabled ?? throw new ArgumentNullException(nameof(isEnabled)); this.report = report; }
         internal UnitSnapshot SnapshotUnit(int id) => SnapshotUnit(id, false);
-        internal UnitSnapshot SnapshotUnit(int id, bool includeOrdinaryStep)
+        internal UnitSnapshot SnapshotUnit(int id, bool includeOrdinaryStep,bool collectCandidates=true)
         {
             if (!native.TryUnit(id, out GameUnit* unit)) return null;
             var value = new UnitSnapshot { Id=id, GlobalId=unit->r_GlobalId, Type=(int)unit->r_UnitChimp, Owner=unit->r_ControllableForPlayerId,
@@ -70,6 +73,14 @@ namespace TrappedUnitRescueTest
                 IntPtr pointer=(IntPtr)unit;
                 if(!WorkerJourneySnapshot.TryCapture(rule,offset=>native.JobWord((GameUnit*)pointer,offset),
                     offset=>native.JobDword((GameUnit*)pointer,offset),out value.Job))value.Unsupported="worker-job-snapshot-unavailable";
+                else if((rule.RequiredExternalBindings&WorkerExternalBindings.Vegetation)!=0)
+                {
+                    if(!value.Job.TryGetValue(0x9A0,out uint treeIndex) || !NativeVegetationAccess.TryGet((int)treeIndex,out var tree) ||
+                        !NativeVegetationAccess.TryReadAliveGlobal(tree,out value.CapturedVegetationGlobal) ||
+                        rule.VegetationSerialNativeOffset!=0 && (!value.Job.TryGetValue(rule.VegetationSerialNativeOffset,out uint serial) || serial!=value.CapturedVegetationGlobal))
+                        value.Unsupported="worker-selected-vegetation-identity-unavailable";
+                    else value.HasCapturedVegetation=true;
+                }
             }
             else if(value.Unsupported==null)
             {
@@ -90,7 +101,7 @@ namespace TrappedUnitRescueTest
             value.AffectedCurrent=true; // Explicit fixture snapshots observe their current tile.
             if((uint)value.NextTileId<NativeRelocation.TileCapacity)
             { value.NextGroundFlags=native.Flags(value.NextTileId);value.NextWasOrdinary=native.OrdinaryGround(value.NextTileId); }
-            if (value.Unsupported == null && native.OrdinaryGround(value.TileId)) CaptureCandidates(value);
+            if (collectCandidates && value.Unsupported == null && native.OrdinaryGround(value.TileId)) CaptureCandidates(value);
             return value;
         }
         internal bool TryCaptureMutation(IList<RescueTile> changed,out List<UnitSnapshot> before,out string reason)

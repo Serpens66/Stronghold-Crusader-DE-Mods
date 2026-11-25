@@ -41,7 +41,7 @@ namespace CrenelatedWallTest
         }
     }
 
-    internal sealed class WallRuntime
+    internal sealed partial class WallRuntime
     {
         private readonly object sync = new object();
         // Axis neighbours first, then diagonals (diagonal pieces depend on diagonal neighbours).
@@ -62,9 +62,13 @@ namespace CrenelatedWallTest
         private int[][] pendingSave;
         private readonly List<int> redrawn = new List<int>();
         // active = mod allowed and enabled this session; heights = its frozen height adjustment.
+        // existing*: frozen per session, align crenels that already exist at Started (editor / save / map).
+        private bool existingInEditor, existingOnSave, existingOnMapStart;
         private bool initialized, active, heights, activationRequested, heightsRequested, activationCaptured, ready, restorePending, tickLogged, callbackLogged, aiLogged;
         // Pre state of the tile an AI placement (0x6CB20, one tile per call) is about to change.
         private readonly Stack<WallCell> aiBuilds = new Stack<WallCell>();
+        // Per melee-damage call (SE c_game_buildingtile_take_melee_damage, Pre/Post pairs): crenel before the hit?
+        private readonly Stack<bool> damageWasCrenel = new Stack<bool>();
         // Pre-built AI castles are placed through 0x6CB20 while the mission is still starting.
         // Collected until Started decides (heights on, no editor, no save); cleared only at
         // Ended, because the calls may precede this mission's first lifecycle notification.
@@ -125,6 +129,10 @@ namespace CrenelatedWallTest
                 restorePending = heights && pendingSave != null;
                 if (restorePending) Restore();
                 AdoptPrebuilt();
+                AdoptExisting();
+                DiagSession("started");
+                try { Shared.NativePatchGuard.Recheck(); } // later foreign patches on the graphics hook
+                catch (Exception ex) { Error("patch-recheck", ex); }
                 Shared.DebugLogHelper.LogInfo(log, "CRENEL_SESSION id=" + sessionId + "; active=" + active + "; heights=" + heights + "; save=" + context.IsSave + "; editor=" + context.IsEditor + "; host settings frozen until next session.");
             }
         }
@@ -134,6 +142,8 @@ namespace CrenelatedWallTest
             if (!activationCaptured)
             {
                 activationRequested = settings.EnableMod; heightsRequested = settings.AdjustHeights;
+                existingInEditor = settings.AdjustExistingInEditor; existingOnSave = settings.AdjustExistingOnSaveLoad;
+                existingOnMapStart = settings.AdjustExistingOnMapStart;
                 activationCaptured = true;
             }
             // Mode evidence may become known only at ManagedReady; settings stay frozen.
@@ -159,11 +169,39 @@ namespace CrenelatedWallTest
             catch (Exception ex) { Error("prebuilt", ex); }
             finally { prebuilt.Clear(); }
         }
+        // Optional: adopts every crenel that already exists when the session starts (map designer walls,
+        // savegame walls the mod did not build, pre-placed map walls), per start kind. Runs at Started on
+        // every peer with the frozen host settings, after saved managed tiles were restored.
+        private void AdoptExisting()
+        {
+            if (!heights || context == null) return;
+            string kind = context.IsEditor ? "editor" : context.IsSave ? "save" : "map";
+            if (!(context.IsEditor ? existingInEditor : context.IsSave ? existingOnSave : existingOnMapStart)) return;
+            try
+            {
+                GameTileManagerAPI tiles = world.Tiles;
+                Span<int> logic = tiles.GetLogicLayer();
+                const TilePropertyFlag crenelBits = TilePropertyFlag.IsWall | TilePropertyFlag.CrenelatedLow;
+                var cells = new List<WallCell>();
+                for (int y = 0; y < GameTileManagerAPI.MAX_HEIGHT; y++)
+                    for (int x = 0; x < GameTileManagerAPI.MAX_WIDTH; x++)
+                    {
+                        if (!tiles.IsTileInsideMapBounds(x, y)) continue;
+                        int id = tiles.GetTileId(x, y);
+                        if (id < 0 || id >= logic.Length || ((TilePropertyFlag)logic[id] & crenelBits) != crenelBits || managed.ContainsKey(id)) continue;
+                        if (world.TryRead(x, y, out WallCell cell) && WallPolicy.Crenel(cell)) cells.Add(cell);
+                    }
+                int changed = cells.Count == 0 ? 0 : Adopt(cells, out _);
+                Shared.DebugLogHelper.LogInfo(log, "CRENEL_ADOPT_EXISTING kind=" + kind + "; adopted=" + cells.Count + "; changed=" + changed + "; managed=" + managed.Count + ".");
+            }
+            catch (Exception ex) { Error("adopt-existing", ex); }
+        }
         private void Clear()
         {
             active = heights = activationRequested = heightsRequested = activationCaptured = false;
+            existingInEditor = existingOnSave = existingOnMapStart = false;
             ready = restorePending = tickLogged = callbackLogged = aiLogged = false;
-            aiBuilds.Clear();
+            aiBuilds.Clear(); damageWasCrenel.Clear();
             repairing = false;
             repairedOrigins = null;
             managed.Clear(); signatures.Clear(); builds.Clear(); pendingSave = null;
@@ -173,7 +211,7 @@ namespace CrenelatedWallTest
         private void BeginRepair()
         {
             if (!resyncReady) return;
-            lock (sync) { repairing = true; repairedOrigins = null; }
+            lock (sync) { repairing = true; repairedOrigins = null; DiagSession("resync-begin"); }
         }
 
         private byte[] CaptureRepair()
@@ -187,8 +225,10 @@ namespace CrenelatedWallTest
             {
                 if (!repairing || bytes.IsEmpty == heights)
                     throw new InvalidDataException("Crenel placement activation differs during repair.");
-                return bytes.IsEmpty ? new SortedDictionary<int, WallCell>() :
+                SortedDictionary<int, WallCell> prepared = bytes.IsEmpty ? new SortedDictionary<int, WallCell>() :
                     WallRepairRecord.Prepare(bytes.Span, world.Tiles.GetCurrentMapSize(), ReadCellById);
+                DiagEvent("resync-prepare", prepared.Count, 0);
+                return prepared;
             }
         }
 
@@ -215,8 +255,9 @@ namespace CrenelatedWallTest
                 graphics.ClearEndpoints(); graphics.ClearWatch();
                 // Once Chore 67 has re-enqueued held actions, restore derived path/graphics state
                 // through the same native-facing policy used for a successful placement.
-                Normalize(managed.Keys);
+                int repairWrites = Normalize(managed.Keys);
                 repairing = false;
+                DiagEvent("resync-complete", -1, repairWrites);
             }
         }
         private void BuildWall(BuildWallEventArgs e)
@@ -402,10 +443,17 @@ namespace CrenelatedWallTest
             }
             return value;
         }
+        // Multiplayer diagnostics, implemented only in WallRuntime.DevDiag.cs (build.bat /devdiag);
+        // without that file the compiler removes these calls including their arguments.
+        partial void DiagTick(int tick);
+        partial void DiagRedraw(int reported, int changed, int writes);
+        partial void DiagEvent(string phase, int tile, int writes);
+        partial void DiagSession(string phase);
         private void Tick(int tick)
         {
             lock (sync)
             {
+                DiagTick(tick);
                 if (repairing || !initialized || !ready) return;
                 try
                 {
@@ -422,7 +470,8 @@ namespace CrenelatedWallTest
                     foreach (int id in redrawn)
                         if (managed.TryGetValue(id, out WallCell entry) && (!signatures.TryGetValue(id, out int prior) || Signature(entry) != prior))
                             changed.Add(id);
-                    if (changed.Count != 0) Normalize(changed);
+                    // Normalize stays outside the Diag call: an unimplemented partial call drops its arguments.
+                    if (changed.Count != 0) { int writes = Normalize(changed); DiagRedraw(redrawn.Count, changed.Count, writes); }
                 }
                 catch (Exception ex) { Error("tick", ex); }
             }
@@ -433,17 +482,21 @@ namespace CrenelatedWallTest
         }
         private void Damaged(BuildingTileTakeDamageEventArgs e)
         {
-            if (e.Phase != EventHookPhase.Post) return;
-            // Hits arrive many times per siege tick; only a destroyed tile changes neighbour shapes.
-            // A merely damaged tile keeps its height (TargetHigh null), so nothing is normalized.
+            // Hits arrive many times per siege tick. Shapes and targets depend only on crenel
+            // neighbours, so only a crenel that is gone after the hit needs its neighbours normalized;
+            // hits on plain walls, gatehouses or buildings and merely damaged crenels change nothing.
             lock (sync)
             {
-                if (!heights) return;
-                try
+                if (e.Phase == EventHookPhase.Pre)
                 {
-                    WallCell at = ReadCellById(e.TileId);
-                    if (at != null && WallPolicy.Crenel(at)) return;
+                    bool crenel = false;
+                    try { crenel = heights && WallPolicy.Crenel(ReadCellById(e.TileId)); }
+                    catch (Exception ex) { Error("damage-pre", ex); }
+                    damageWasCrenel.Push(crenel);
+                    return;
                 }
+                if (e.Phase != EventHookPhase.Post || damageWasCrenel.Count == 0 || !damageWasCrenel.Pop() || !heights) return;
+                try { if (WallPolicy.Crenel(ReadCellById(e.TileId))) return; }
                 catch (Exception ex) { Error("damage", ex); return; }
             }
             ShapeChanged(e.TileId, "damage");
@@ -465,7 +518,7 @@ namespace CrenelatedWallTest
                     for (int d = 0; d < 8; d++)
                         if (world.TryRead(at.X + NeighborX[d], at.Y + NeighborY[d], out WallCell next) && managed.ContainsKey(next.Id))
                             ids.Add(next.Id);
-                    if (ids.Count != 0) Normalize(ids);
+                    if (ids.Count != 0) { int writes = Normalize(ids); DiagEvent(phase, tileId, writes); }
                 }
                 catch (Exception ex) { Error(phase, ex); }
             }
@@ -494,6 +547,7 @@ namespace CrenelatedWallTest
                 // SE invokes archive reads more than once. Stage only; lifecycle NativeLoaded
                 // supplies the authoritative save/editor classification and memory readiness.
                 pendingSave = MessagePackSerializer.Deserialize<int[][]>(bytes);
+                DiagEvent("save-data-load", bytes.Length, 0);
                 restorePending = true;
             }
         }

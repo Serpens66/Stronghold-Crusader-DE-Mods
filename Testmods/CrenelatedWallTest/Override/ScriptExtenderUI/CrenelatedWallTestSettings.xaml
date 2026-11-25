@@ -33,7 +33,11 @@
       <StackPanel Opacity="{Binding HostSettingsOpacity}">
       <TextBlock Text="{Binding ScopeText}" Foreground="White" TextWrapping="Wrap" MaxWidth="700" Margin="0,0,0,8"/>
       <CheckBox Content="{Binding AdjustHeightsText}" IsChecked="{Binding AdjustHeights, Mode=TwoWay}" IsEnabled="{Binding CanEditHostSettings}" ToolTip="{Binding AdjustHeightsHelpText}" ToolTipService.ShowDuration="60000" Foreground="White" Margin="0,0,0,4"/>
-      <TextBlock Text="{Binding HeightRuleText}" Foreground="#FFCCCCCC" TextWrapping="Wrap" MaxWidth="700" Margin="20,0,0,0"/>
+      <TextBlock Text="{Binding HeightRuleText}" Foreground="#FFCCCCCC" TextWrapping="Wrap" MaxWidth="700" Margin="20,0,0,8"/>
+      <TextBlock Text="{Binding AdjustExistingText}" Foreground="White" FontWeight="Bold" TextWrapping="Wrap" MaxWidth="700" Margin="0,0,0,4"/>
+      <CheckBox Content="{Binding AdjustExistingInEditorText}" IsChecked="{Binding AdjustExistingInEditor, Mode=TwoWay}" IsEnabled="{Binding CanEditHostSettings}" ToolTip="{Binding AdjustExistingInEditorHelpText}" ToolTipService.ShowDuration="60000" Foreground="White" Margin="20,0,0,4"/>
+      <CheckBox Content="{Binding AdjustExistingOnSaveLoadText}" IsChecked="{Binding AdjustExistingOnSaveLoad, Mode=TwoWay}" IsEnabled="{Binding CanEditHostSettings}" ToolTip="{Binding AdjustExistingOnSaveLoadHelpText}" ToolTipService.ShowDuration="60000" Foreground="White" Margin="20,0,0,4"/>
+      <CheckBox Content="{Binding AdjustExistingOnMapStartText}" IsChecked="{Binding AdjustExistingOnMapStart, Mode=TwoWay}" IsEnabled="{Binding CanEditHostSettings}" ToolTip="{Binding AdjustExistingOnMapStartHelpText}" ToolTipService.ShowDuration="60000" Foreground="White" Margin="20,0,0,0"/>
       </StackPanel>
     </StackPanel>
   </ScrollViewer>

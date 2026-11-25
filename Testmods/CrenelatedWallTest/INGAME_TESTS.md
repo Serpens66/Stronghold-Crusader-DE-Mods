@@ -171,3 +171,9 @@ Spielnachweise (Testmod `CrenelatedWallAcceptance`, Hintergrund-Desktop, Nachwei
 | `crenel-look-x` (`cc5c322d`) | X vor einer Stützmauer: Vanilla alle fünf hoch, mit Mod Mitte niedrig und gerade gezeichnet. Nur die Ausgangsrotation ist im Bild; die Karte dreht um die Kartenmitte. |
 
 Testaufbau-Erkenntnisse: Der Beschussschritt im Editor zielte bisher auf die zweite Reihe, weil die Blockade die vordere Doppelreihe ablehnte; jetzt steht die Doppelreihe, das Ziel liegt vorn. Den Wiederaufbau direkt neben gerade getöteten Angreifern zeigt Vanilla rot; nach rund 600 Ticks Wartezeit ist er grün (Ursache vermutlich die Bauregel neben feindlichen Einheiten, nicht nativ geprüft). Die Mitte eines X lässt sich nicht direkt bauen (Zinne braucht einen Achsnachbarn, 0x5C580); der Test setzt eine Hilfsmauer und reißt sie danach ab.
+
+## Bestehende Zinnen angleichen, Review-Korrekturen (25.11.2026)
+
+Neue Host-Optionen unter der Überschrift „Bestehende Zinnen ebenfalls angleichen“ (Standard aus, pro Sitzung eingefroren): beim Laden einer Karte im Editor, beim Laden eines Spielstands, beim Start einer Karte mit vorplatzierten Mauern. Beim Start (`Started`, nach dem Wiederherstellen der Spielstanddaten) durchsucht der Mod einmal die Karte, nimmt alle noch nicht verwalteten Zinnen auf und gleicht sie über denselben Weg an wie neue Bauten. Logmarker `CRENEL_ADOPT_EXISTING kind=editor|save|map; adopted=…; changed=…`.
+
+Korrekturen aus der unabhängigen Prüfung: keine Laufzeitsperre mehr über den Datei-Hash des RedBird-Backends; Fremdpatch-Erkennung über `Shared.NativePatchGuard` mit erneuter Prüfung bei jedem Missions- und Editorstart; ausstehende Neuzeichnungsmeldungen werden beim Sitzungswechsel verworfen; das Schadensereignis normalisiert nur noch, wenn eine Zinne zerstört wurde.

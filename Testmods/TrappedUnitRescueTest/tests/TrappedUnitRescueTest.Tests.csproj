@@ -139,6 +139,10 @@
     <Compile Include="../src/IdleEscapeOwner.cs" />
     <Compile Include="../src/NativeIdleEscapeWorld.cs" />
     <Compile Include="../src/GeneralRescueObserver.cs" />
+    <Compile Include="../src/GeneralRescueObserver.Replans.cs" />
+    <Compile Include="../src/RescueGeometryWitness.cs" />
+    <Compile Include="../src/RescueGeometryCodec.cs" />
+    <Compile Include="../src/RescueReplanIntent.cs" />
     <Compile Include="../src/RescueOrderObserver.cs" />
     <Compile Include="../src/RescueCandidateQueue.cs" />
     <Compile Include="../src/RescueCleanupProjection.cs" />
@@ -152,6 +156,7 @@
     <Compile Include="../src/NativeMutationFootprints.cs" />
     <Compile Include="../src/WorkerResumeSupervisor.cs" />
     <Compile Include="../src/NativeWorkerResumeWorld.cs" />
+    <Compile Include="../src/NativeVegetationAccess.cs" />
     <Compile Include="../src/WorkerRecoveryService.cs" />
     <Compile Include="../src/RescueMutationFootprints.cs" />
   </ItemGroup>

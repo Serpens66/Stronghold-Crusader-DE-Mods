@@ -13,6 +13,9 @@ namespace Shared
     {
         internal static void LogInfo(BepInEx.Logging.ManualLogSource log, string text) { }
         internal static void LogErrorLimited(BepInEx.Logging.ManualLogSource log, string site, params object[] data) { }
+        // Used by the linked NativePatchGuard.
+        internal static void LogError(BepInEx.Logging.ManualLogSource log, string message) { }
+        internal static void LogHookInstallFailure(BepInEx.Logging.ManualLogSource log, string feature, string hook, string reason) { }
     }
 }
 internal static class NativeHookTests

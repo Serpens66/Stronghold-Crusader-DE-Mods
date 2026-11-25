@@ -44,6 +44,8 @@ Neue Aufträge und legitime Zustandsänderungen beenden die Beobachtung. Der ber
 
 ## Speicherung und Lifecycle
 
+Die ausgewählte Vegetationsidentität wird bereits vor der Mutation erfasst. Native Arrayindizes werden an der SDK-Grenze übersetzt und gegen die wirkliche Datensatzadresse geprüft. Eine gelöschte oder unter derselben Nummer neu belegte Baumidentität wird vor jeder Rettungsaktion abgelehnt; sie darf nicht erst am Recoverytick neu übernommen werden. Dasselbe gilt nach dem Laden ausstehender Kandidaten mit Codec3.
+
 Eigene wartende Fortsetzungen und noch nicht abgearbeitete kausale Kandidaten werden als begrenzte binäre Einträge über APIShared `VersionedSaveData` gespeichert. Capture verändert keine Simulation. Alle Einträge werden vor dem ersten Write validiert; unvollständige Recovery-/Reservierungsphasen oder halb beobachtete externe Orders sperren den atomaren Save vor Dateiersetzung.
 
 Prozesslokale Welt-/Befehls-/Batchnummern werden beim Laden nicht wiederverwendet. Alter, Versuchsverbrauch, unveränderliche Semantik und alte lokale Erreichbarkeit bleiben erhalten. Das repariert keine alten Saves ohne eigene Vorherdaten.
@@ -64,10 +66,10 @@ Langlebige statische Mission-, Bau-, Move- und Simulationstakt-Publisher tragen 
 
 ## Aktuelle Offline-Nachweise und verbleibende Arbeit
 
-- `.work/a/rescue-impl/001/stage-idle-build.log`: integrierter Build, tatsächliche gemeinsame Policy-/Coordinator-/Persistenz-/Native-Fixtures. Spätere endgültige Identität wird im Übergabenachweis festgehalten.
-- `.work/a/rescue-impl/001/idle-boundaries.log`: modbezogene Ownership-, JSON-, Lifecycle-, Abhängigkeits-, XAML- und permanente Hookgrenzen.
+- `.work/a/rescue-impl/001/stage-final-build.log`: aktueller integrierter Normalbuild mit 61407 Einzelprüfungen plus Fixes-IL-/Cecil-Verträgen bestanden. Paket- und Quellidentitäten stehen in `.work/a/rescue-impl/001/integrated-stage.json`.
+- `.work/a/rescue-impl/001/stage-final-boundaries.log`: modbezogene Ownership-, JSON-, Lifecycle-, Abhängigkeits-, XAML- und permanente Hookgrenzen. 21 Locales mit vier konsistenten Schlüsseln geprüft; kompiliertes Paket ohne DEVDIAG-Marker/-Typ/-Aufruf.
 - `.work/a/rescue-impl/001/api-full-build.log` und API-Kopie `.local/build-proof.json`: vollständiger Entwicklungs-SDK-Build ohne Installation.
-- Unabhängige Prüfung der Idle-Originalphase, Native0/1-/Post-Ausnahmegrenzen, Supersession, Save und Lifecycle abgeschlossen; kein weiterer bestätigter Befund.
+- Unabhängige Prüfung der Idle-Originalphase, Native0/1-/Post-Ausnahmegrenzen, Supersession, Save und Lifecycle sowie des korrigierten Fremdauftrag-Handoffs und der vollständigen zeitlichen Vegetationsbindung abgeschlossen; kein weiterer bestätigter Befund.
 - Kanonische Native-Baseline `TRAPPED_UNIT_RESCUE_AUDIT.md` um die belegten Bau-, Bewegungs-, Identitäts- und Phasenverträge ergänzt; Rohprojekte und historische Nachweise unverändert.
 
-Noch abzuschließen sind der gesonderte Bewegungsfehler-Eingang P7, endgültiger Gesamtbuild/Identitätsnachweis und die nachvollziehbare Übergabe der API-Arbeitskopie. Fehlgeschlagene Wege ohne Vorherdaten erfinden keine sichere alte Ausweichseite. Die tatsächlichen Spiel-, Gruppen-, Wirtschafts-, Save-/Editor-, Kompatibilitäts-, Last- und MP-Abnahmen stehen vollständig offen in [INGAME-PENDING.md](INGAME-PENDING.md). Die spätere Migration nach Pathfinding erfolgt erst auf gesonderten Auftrag nach Abnahme.
+Noch offen ist die Implementierung des gesonderten P7-Vertrags für einen erhaltenen Geometrienachweis zusammen mit frischer Befehlsabsicht. Die Untersuchung steht in `Audits/MOVE-FAILURE-SOURCE.md`; sie ist eine zusätzliche Offline-Codeaufgabe und wird nicht allein durch spätere Spieltests erledigt. Der bisherige Gesamtbuild und die API-Übergabe sind nachgewiesen; siehe auch [API-HANDOFF.md](API-HANDOFF.md). Fehlgeschlagene Wege ohne Vorherdaten erfinden keine sichere alte Ausweichseite. Die tatsächlichen Spiel-, Gruppen-, Wirtschafts-, Save-/Editor-, Kompatibilitäts-, Last- und MP-Abnahmen stehen vollständig offen in [INGAME-PENDING.md](INGAME-PENDING.md). Die spätere Migration nach Pathfinding erfolgt erst auf gesonderten Auftrag nach Abnahme.
