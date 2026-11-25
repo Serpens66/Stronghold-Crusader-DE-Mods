@@ -4,6 +4,7 @@ using RedBird.Backends.NativeX64;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -22,8 +23,9 @@ namespace CrenelatedWallTest
         internal const string BodyHex = "48895C2408488974241048897C24184533DB8BF2488BD9418BC3418BFB458BD34585C9740C4183F902741B4183F904750FBF04000000448D5FFE448D5702EB154183F906750F41BA04000000B802000000418D7A02428D14C50000000003C24863C88B048B03C64898F78483008489000002000074658D043A4863C88B048B03C64898F784830084890000020000744B428D041A4863C88B048B03C64898F7848300848900000200007530428D04124863C88B048B03C64898F7848300848900000200007515B801000000488B5C2408488B742410488B7C2418C3488B5C240833C0488B742410488B7C2418C3";
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         internal delegate int Predicate(IntPtr manager, int tile, int row, int direction);
-        private static readonly Dictionary<int, EndpointAssignment> Empty = new Dictionary<int, EndpointAssignment>();
-        private Dictionary<int, EndpointAssignment> endpoints = Empty;
+        // Updated per affected tile by the runtime (cost proportional to the change, never to the
+        // number of managed crenels); lock-free reads in the render callback.
+        private readonly ConcurrentDictionary<int, EndpointAssignment> endpoints = new ConcurrentDictionary<int, EndpointAssignment>();
         private readonly ManualLogSource log;
         private readonly Predicate callback;
         private NativeDetour<Predicate> hook;
@@ -74,24 +76,34 @@ namespace CrenelatedWallTest
                 BitConverter.ToInt64(bytes, 6) != value.HookEntryPointAddress.ToInt64() || bytes[14] != 0x90)
                 throw new InvalidOperationException("Graphics hook entry patch differs from Absolute/15.");
         }
-        // Caller transfers exclusive ownership of the immutable dictionary.
-        internal void Publish(Dictionary<int, EndpointAssignment> snapshot) => Volatile.Write(ref endpoints, snapshot ?? Empty);
+        // Null removes the assignment of this tile.
+        internal void SetEndpoint(int tile, EndpointAssignment endpoint)
+        {
+            if (endpoint == null) endpoints.TryRemove(tile, out _); else endpoints[tile] = endpoint;
+        }
+        internal void ClearEndpoints() => endpoints.Clear();
         // Managed tiles whose redraw is reported. Vanilla redraws a crenel when it or a neighbour
         // changed; its only height change (sticky high at 65EF0) follows this predicate. Reporting
         // replaces a periodic scan: the runtime re-checks just these tiles on its next tick.
-        private static readonly HashSet<int> NoTiles = new HashSet<int>();
-        private HashSet<int> watched = NoTiles;
+        private readonly ConcurrentDictionary<int, byte> watched = new ConcurrentDictionary<int, byte>();
         private readonly object reportLock = new object();
         private HashSet<int> reported = new HashSet<int>(), draining = new HashSet<int>();
-        // Caller transfers exclusive ownership of the immutable set.
-        internal void Watch(HashSet<int> tiles) => Volatile.Write(ref watched, tiles ?? NoTiles);
-        // Swaps the reported tiles into the caller's set (cleared first); no allocation per call.
+        private int hasReports; // 1 while reported may be non-empty; lets an idle tick skip the lock
+        internal void Watch(int tile, bool on)
+        {
+            if (on) watched[tile] = 0; else watched.TryRemove(tile, out _);
+        }
+        internal void ClearWatch() => watched.Clear();
+        // Swaps the reported tiles into the caller's list (cleared first); an idle call is one
+        // volatile read, and no call allocates.
         internal void TakeReports(List<int> into)
         {
             into.Clear();
+            if (Volatile.Read(ref hasReports) == 0) return;
             HashSet<int> taken;
             lock (reportLock)
             {
+                hasReports = 0;
                 if (reported.Count == 0) return;
                 taken = reported; reported = draining; draining = taken;
             }
@@ -101,12 +113,11 @@ namespace CrenelatedWallTest
         {
             int original = hook.Original(manager, tile, row, direction);
             // Only records the id; validation of the live tile happens on the next tick.
-            if (Volatile.Read(ref watched).Contains(tile)) lock (reportLock) reported.Add(tile);
+            if (watched.ContainsKey(tile)) lock (reportLock) { reported.Add(tile); hasReports = 1; }
             if (original != 0) return original;
             try
             {
-                Dictionary<int, EndpointAssignment> snapshot = Volatile.Read(ref endpoints);
-                if (!snapshot.TryGetValue(tile, out EndpointAssignment endpoint)) return original;
+                if (!endpoints.TryGetValue(tile, out EndpointAssignment endpoint)) return original;
                 GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
                 if (manager != tiles.GetTileManager()) return original;
                 if (!EndpointGraphicsPolicy.Matches(endpoint, tile, row, direction, tiles.GetLogicLayer(), tiles.GetPackedNeighborTileDeltas(),

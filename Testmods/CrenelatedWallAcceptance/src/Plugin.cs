@@ -15,7 +15,7 @@ namespace CrenelatedWallAcceptance
     {
         public const string Guid = "CrenelatedWallAcceptance_Serp";
         internal const string Scenario = "crenel-acceptance", EditorScenario = "crenel-editor", TopologyScenario = "crenel-vanilla-topology",
-            HeightsScenario = "crenel-heights", AiScenario = "crenel-ai";
+            HeightsScenario = "crenel-heights", AiScenario = "crenel-ai", StressScenario = "crenel-stress";
         private static ManualLogSource log;
         private static Fixture active;
         private static bool initialized;
@@ -27,7 +27,7 @@ namespace CrenelatedWallAcceptance
             string request = Path.Combine(Paths.ConfigPath, "SerpAutomation", Guid + ".run");
             if (!File.Exists(request)) return;
             string[] lines = File.ReadAllLines(request);
-            if (lines.Length < 2 || (lines[1] != Scenario && lines[1] != EditorScenario && lines[1] != TopologyScenario && lines[1] != HeightsScenario && lines[1] != AiScenario)) return;
+            if (lines.Length < 2 || (lines[1] != Scenario && lines[1] != EditorScenario && lines[1] != TopologyScenario && lines[1] != HeightsScenario && lines[1] != AiScenario && lines[1] != StressScenario)) return;
             if (!System.Guid.TryParseExact(lines[0], "N", out var runId) || runId == System.Guid.Empty)
             { Stamp("invalid owned request; not consumed"); return; }
             var api = ApiShared.ForMod(Guid);

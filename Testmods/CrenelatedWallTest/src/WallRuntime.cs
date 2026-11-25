@@ -149,7 +149,7 @@ namespace CrenelatedWallTest
             // Mode evidence may become known only at ManagedReady; settings stay frozen.
             active = Allowed(context) && activationRequested && (!context.Mode.IsRealMultiplayer || resyncReady);
             heights = active && heightsRequested; block = active && blockRequested;
-            if (!heights) graphics.Publish(null);
+            if (!heights) { graphics.ClearEndpoints(); graphics.ClearWatch(); }
         }
         private void Ended(MissionLifecycleNotification note) { lock (sync) { Clear(); prebuilt.Clear(); context = null; sessionId = 0; } }
         // Saves restore their own managed set; the editor has no automatic AI construction.
@@ -177,7 +177,7 @@ namespace CrenelatedWallTest
             repairing = false;
             repairedOrigins = null;
             managed.Clear(); signatures.Clear(); builds.Clear(); pendingSave = null;
-            graphics.Publish(null); graphics.Watch(null);
+            graphics.ClearEndpoints(); graphics.ClearWatch();
             previewCache.Clear();
         }
 
@@ -222,6 +222,8 @@ namespace CrenelatedWallTest
                 managed = repairedOrigins;
                 repairedOrigins = null;
                 signatures.Clear();
+                // The managed set was replaced as a whole: rebuild the render-side sets from it.
+                graphics.ClearEndpoints(); graphics.ClearWatch();
                 previewCache.Clear();
                 // Once Chore 67 has re-enqueued held actions, restore derived path/graphics state
                 // through the same native-facing policy used for a successful placement.
@@ -384,8 +386,8 @@ namespace CrenelatedWallTest
                 if (!managed.TryGetValue(id, out WallCell entry)) continue;
                 WallCell cell = read(entry.X, entry.Y);
                 if (cell == null || cell.Id != id || !WallPolicy.Crenel(cell) || cell.Owner != entry.Owner)
-                { managed.Remove(id); signatures.Remove(id); continue; }
-                considered.Add(id);
+                { managed.Remove(id); signatures.Remove(id); graphics.Watch(id, false); graphics.SetEndpoint(id, null); continue; }
+                considered.Add(id); graphics.Watch(id, true);
                 bool? target = WallPolicy.TargetHigh(read, cell);
                 if (target.HasValue && target.Value != cell.High) writes.Add(new KeyValuePair<WallCell, bool>(cell, target.Value));
             }
@@ -402,32 +404,46 @@ namespace CrenelatedWallTest
                 world.Tiles.RefreshTileAreaVisuals(cell.X, cell.Y);
             }
             foreach (int id in considered) signatures[id] = Signature(managed[id]);
-            graphics.Watch(new HashSet<int>(managed.Keys));
-            PublishEndpoints();
+            // Only the normalized tiles: every caller passes all managed tiles whose shape or height
+            // may have changed, so the cost follows the change, not the number of managed crenels.
+            foreach (int id in considered) graphics.SetEndpoint(id, Endpoint(managed[id]));
             return writes.Count;
         }
-        private void PublishEndpoints()
+        // The low endpoint or diagonal piece the graphics hook may draw as a straight piece, or null.
+        private EndpointAssignment Endpoint(WallCell saved)
         {
-            var endpoints = new Dictionary<int, EndpointAssignment>();
-            foreach (WallCell saved in managed.Values)
-            {
-                if (!world.TryRead(saved.X, saved.Y, out WallCell cell) || cell.Id != saved.Id || cell.Owner != saved.Owner ||
-                    !cell.IsWall || !cell.IsCrenel || cell.High || cell.Damaged || cell.Structure) continue;
-                int count = 0, neighbor = -1;
-                for (int d = 0; d < 4; d++)
-                    if (world.TryRead(cell.X + NeighborX[d], cell.Y + NeighborY[d], out WallCell next) && next.IsWall && next.IsCrenel)
-                    { count++; neighbor = next.Id; }
-                if (count == 1) endpoints.Add(cell.Id, new EndpointAssignment(cell.Owner, cell.Y, neighbor));
-                else if (count == 0 && WallPolicy.IsDiagonalPiece(WallPolicy.Reader(world), cell))
-                    endpoints.Add(cell.Id, new EndpointAssignment(cell.Owner, cell.Y, -1));
-            }
-            graphics.Publish(endpoints);
+            if (!world.TryRead(saved.X, saved.Y, out WallCell cell) || cell.Id != saved.Id || cell.Owner != saved.Owner ||
+                !cell.IsWall || !cell.IsCrenel || cell.High || cell.Damaged || cell.Structure) return null;
+            int count = 0, neighbor = -1;
+            for (int d = 0; d < 4; d++)
+                if (world.TryRead(cell.X + NeighborX[d], cell.Y + NeighborY[d], out WallCell next) && next.IsWall && next.IsCrenel)
+                { count++; neighbor = next.Id; }
+            if (count == 1) return new EndpointAssignment(cell.Owner, cell.Y, neighbor);
+            if (count == 0 && WallPolicy.IsDiagonalPiece(WallPolicy.Reader(world), cell)) return new EndpointAssignment(cell.Owner, cell.Y, -1);
+            return null;
         }
+        // Shape and state of a managed tile, read straight from the layers: it runs for every
+        // reported redraw, so it must not allocate (WallCell reads would create nine objects).
         private int Signature(WallCell at)
         {
-            if (!world.TryRead(at.X, at.Y, out WallCell cell) || cell.Id != at.Id) return -1;
-            int value = cell.Owner | (cell.IsWall ? 16 : 0) | (cell.IsCrenel ? 32 : 0) | (cell.High ? 64 : 0) | (cell.Damaged ? 128 : 0) | (cell.Structure ? 256 : 0);
-            for (int i = 0; i < 8; i++) if (world.TryRead(at.X + NeighborX[i], at.Y + NeighborY[i], out WallCell neighbor) && neighbor.IsWall && neighbor.IsCrenel) value |= 1 << (i + 9);
+            GameTileManagerAPI tiles = world.Tiles;
+            if (!tiles.IsTileInsideMapBounds(at.X, at.Y)) return -1;
+            int id = tiles.GetTileId(at.X, at.Y);
+            Span<int> logic = tiles.GetLogicLayer(); Span<byte> owners = tiles.GetWallOwnerLayer();
+            Span<byte> damage = tiles.GetDamageLayer(); Span<ushort> structures = tiles.GetStructureLayer();
+            if (id != at.Id || !tiles.IsValidTileId(id) || id >= logic.Length || id >= owners.Length || id >= damage.Length || id >= structures.Length) return -1;
+            var flags = (TilePropertyFlag)logic[id];
+            int value = ((owners[id] & 7) + 1) | ((flags & TilePropertyFlag.IsWall) != 0 ? 16 : 0) | ((flags & TilePropertyFlag.CrenelatedLow) != 0 ? 32 : 0) |
+                ((flags & TilePropertyFlag.CrenelatedHigh) != 0 ? 64 : 0) | (damage[id] != 0 ? 128 : 0) | (structures[id] != 0 ? 256 : 0);
+            for (int i = 0; i < 8; i++)
+            {
+                int x = at.X + NeighborX[i], y = at.Y + NeighborY[i];
+                if (!tiles.IsTileInsideMapBounds(x, y)) continue;
+                int n = tiles.GetTileId(x, y);
+                if (!tiles.IsValidTileId(n) || n >= logic.Length) continue;
+                var nf = (TilePropertyFlag)logic[n];
+                if ((nf & TilePropertyFlag.IsWall) != 0 && (nf & TilePropertyFlag.CrenelatedLow) != 0) value |= 1 << (i + 9);
+            }
             return value;
         }
         private void Tick(int tick)

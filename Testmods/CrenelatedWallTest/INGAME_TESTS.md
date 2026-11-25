@@ -132,3 +132,20 @@ Testaufbau-Erkenntnisse:
 
 - Die KI-Kontrollreihe in `crenel-acceptance` war seit der Aufteilung der Schalter veraltet: Neue KI-Bauten werden verwaltet. Die Reihe muss jetzt durchgehend die Zielhöhe haben; das Vanilla-Hängenbleiben weist `crenel-vanilla-topology` nach.
 - Eingebaute KI-Lords bekommen bei jedem Start zufällig eine ihrer Standard-Burgvorlagen samt Drehung (`AIVLoader.UploadDefaultAIV`, `preferredAIVs = -1 - rotation`). Die vorgebaute Burg war deshalb verschieden groß (117, 135 oder 186 Zinnenaufrufe). In zwei Läufen (`2fc44ab9`, `bf01f7c2`; 135 bzw. 186 Aufrufe) gab es 20 Ticks nach dem Start keine einzige Mauerkachel mehr auf der Karte, obwohl der Mod beim Start alle Zinnen übernommen hatte; der Mod schreibt nur das Hoch-Bit. Ursache nicht untersucht. Der KI-Test legt deshalb die Burgvorlage fest (`preferredAIVs = 100`: Vorlage 0, 0 Grad) und ordnet die Startburgen fest zu; Herleitung in der Baseline `AIV_LOBBY_SELECTION.md` (Abschnitt vom 25.11.2026). Die Vorbau-Prüfung läuft ohne Friedenszeit; mit Friedenszeit verschwanden die Mauern einer zufälligen Vorlage ebenfalls.
+
+## Lasttest und kostenproportionale Aktualisierung (25.11.2026, Lauf `bff6522d`, Nachweis `.work/a/crenel-ingame/058`)
+
+Vorher baute jede Normalisierung die Endstück-Zuordnung und die beobachtete Menge für alle verwalteten Zinnen neu (Kosten proportional zur Gesamtzahl). Jetzt aktualisiert die Runtime nur die Einträge der normalisierten Zinnen in nebenläufigen Wörterbüchern, die der Grafik-Hook ohne Sperre liest; ein Tick ohne Meldung kostet einen Volatile-Lesezugriff, die Zustandsprüfung gemeldeter Zinnen liest die Schichten direkt ohne Allokation.
+
+Szenario `crenel-stress` (Testmod `CrenelatedWallAcceptance`): neue 800x800-Editorkarte, 60 Reihen à 300 verwaltete Zinnen (18.000), Beschuss mit über die SE-API erzeugten Katapultsteinen (`CreateProjectile`, `CatapultRocks`, Positionen in Achtel-Kacheln; Einschlag über 0x9C730 → 0x7EB00 und Splash 0x7DF60). Die Methoden des Mods werden von außen per Harmony gemessen (der Mod enthält keinen Testcode); dieselbe Last läuft mit und ohne Höhenanpassung.
+
+| | Höhenanpassung an | aus |
+|---|---|---|
+| Einschläge / Ticks | 940 / 3.308 | 907 / 4.175 |
+| Mod-Zeit gesamt | 56 ms | 20 ms |
+| Mod-Zeit pro Tick, höchstens | 1,36 ms | 0,14 ms |
+| Tickabstand p50 / p99 / max | 3,9 / 7,5 / 13,8 ms | 4,0 / 7,4 / 16,5 ms |
+| Grafik-Hook-Aufrufe (gesamt / max) | 93.792 / 0,31 ms | 90.946 / 0,09 ms |
+| Bau eines 100er-Zinnenbefehls, höchstens | 26 ms | 0,6 ms |
+
+Danach hatten alle 16.914 unbeschädigten Zinnen die Zielhöhe. Grenzen: Die Messung enthält den Harmony-Aufwand; zerstört wurden nur rund 35 Zinnen (die meisten Einschläge beschädigen nur), der Splash-Zerstörungspfad ohne Event lief also selten; Laden eines Spielstands mit vielen verwalteten Zinnen (Restore, einmalig beim Kartenstart) ist nicht gemessen. Katapulteinheiten wurden im Editor nicht bemannt (Lauf `5bbf59bd`), daher die erzeugten Steine.
