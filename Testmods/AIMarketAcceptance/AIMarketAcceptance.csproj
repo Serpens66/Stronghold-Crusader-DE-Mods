@@ -24,6 +24,7 @@
     <Compile Include="src\OwnerContractRegression.cs" />
     <Compile Include="src\GiftRecruit.cs" />
     <Compile Include="src\MarketBacklogAic.cs" />
+    <Compile Include="src\SettingsLifecycle.cs" />
     <Compile Include="..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link></Compile>
   </ItemGroup>
   <ItemGroup><None Update="info.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>

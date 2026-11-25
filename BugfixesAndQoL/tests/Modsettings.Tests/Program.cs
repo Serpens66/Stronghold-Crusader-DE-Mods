@@ -197,6 +197,12 @@ internal static partial class Program
                 return null;
             };
             mod=Assembly.LoadFrom(dll);modelType=mod.GetType("BugfixesAndQoL.BugfixesAndQoLViewModel",true);
+            if (args.Length > 3 && args[3] == "--ai-market-only")
+            {
+                AiMarketSettingsTests(workspace);
+                Console.WriteLine("PASS: production AI market settings, authority, reset, UI and activation matrix: " + checks);
+                return 0;
+            }
             if (args.Length > 3 && args[3] == "--settings-metadata-only")
             {
                 Metadata(workspace);
@@ -418,6 +424,7 @@ internal static partial class Program
     private static void Metadata(string workspace)
     {
         var scopes=new Dictionary<string,bool>{{"EnableCompactLobbyChat",false},{"EnableLocalAutosave",false},{"EnableLordAndMapListEnhancements",false},{"EnableMissingMapSaveRecovery",false},{"EnablePitchMoatLines",false},{"EnableAreaDemolition",false},{"EnableOccupiedWallDemolition",true},{"EnableTroopPanelPageCountFix",false},{"EnableRandomOpponentSelectionEnhancements",true},{"EnableMultiplayerStartupStateFix",true},{"EnablePeaceTimeGameplayFixes",true},{"EnablePeaceTimeCivilianProximityReduction",true},{"EnablePitchStairsFix",true},{"EnableSiegeCrewDuplicationFix",true},{"EnableSiegeCrewFireLossFix",true},{"EnableTreeBlightDecayFix",true},{"EnablePrebuiltAiStorageFix",true},{"EnableAiOutpostRetargetFix",true}};
+        scopes.Add("EnableAiMarketOverbuyFix", true);
         scopes.Add("EnableAreaConstruction", false);
         scopes.Add("EnableProjectileTrails", false);
         scopes.Add("ReplaceStandardProjectileAfterimages", true);
@@ -450,7 +457,7 @@ internal static partial class Program
         Check(reset.Select((instruction, index) => new { instruction, index }).Any(entry =>
             Equals(entry.instruction.Item2, localAutosave.GetSetMethod()) && entry.index > 0 &&
             reset[entry.index - 1].Item1 == OpCodes.Ldc_I4_1), "reset enables local autosave");
-        foreach (string option in new[] { "EnableSiegeCrewDuplicationFix", "EnableSiegeCrewFireLossFix", "EnableOccupiedWallDemolition", "ReplaceStandardProjectileAfterimages" })
+        foreach (string option in new[] { "EnableAiMarketOverbuyFix", "EnableSiegeCrewDuplicationFix", "EnableSiegeCrewFireLossFix", "EnableOccupiedWallDemolition", "ReplaceStandardProjectileAfterimages" })
         {
             Check(hostProperties.Any(property => property.Name == option), "preset discovery includes host option " + option);
             var setter = modelType.GetProperty(option).GetSetMethod();

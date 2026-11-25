@@ -1,5 +1,4 @@
 Load.ConfirmTitle=จบเกม?
-Load.CategoryTitle=เซฟร่วมมือ?
 Load.RecoveryTitle=เมนูหลัก
 Load.WaitPeers=กำลังรอให้ผู้เล่นทุกคนเปิดใช้การโหลดเกมหลายผู้เล่น
 Load.Transition=กำลังย้ายผู้เล่นไปยังล็อบบี้โหลดเกมหลายผู้เล่น

@@ -1388,3 +1388,11 @@ known Fixes AI stair hook at 0x6CCC8 and the moat replacement hook ending at
 0x5D783 lie outside the deposit spans. Check the whole span and its incoming
 branches when auditing an update. See the native baseline's
 [wall deposit audit](../_inspect/CrusaderDE-Native-Baseline/CURRENT.md#vanilla-behavior-audits).
+
+## AI market pending-demand correction
+
+The functional owner in `src/AI/Market` and its hash-bound producer, stock,
+ammunition, save and repair contracts are documented in
+[AI market native contract](docs/AiMarketNativeContract.md). The maintained
+production-linked logic and native ABI fixtures live in `tests/AiMarket.Tests`.
+Dated diagnosis/acceptance evidence remains under `Findings/AiMarket`.

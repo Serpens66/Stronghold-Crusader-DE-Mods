@@ -1,5 +1,4 @@
 Load.ConfirmTitle=Termina?
-Load.CategoryTitle=Salvat. coop?
 Load.RecoveryTitle=Menu iniziale
 Load.WaitPeers=In attesa che tutti i giocatori attivino il caricamento multigiocatore.
 Load.Transition=Trasferimento dei giocatori nella sala di caricamento multigiocatore.

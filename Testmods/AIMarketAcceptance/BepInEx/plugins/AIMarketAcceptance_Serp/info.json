@@ -4,7 +4,7 @@
   "Version": "0.1.0", "Manifest": 1, "NetworkMode": 1,
   "MinimumScriptExtenderVersion": "2.14.4",
   "Dependencies": [
-    { "GUID": "APIShared_Serp", "MinimumVersion": "0.65.0" },
-    { "GUID": "AIMarketOverbuyDiagnostic_Serp", "MinimumVersion": "0.1.0" }
+    { "GUID": "APIShared_Serp", "MinimumVersion": "0.73.3" },
+    { "GUID": "BugfixesAndQoL_Serp", "MinimumVersion": "1.0.241" }
   ]
 }

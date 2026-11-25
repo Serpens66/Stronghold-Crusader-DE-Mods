@@ -111,6 +111,14 @@ When an AI tries to rebuild a tower from its castle plan, its own tower ruin can
 ### Better AI overbuild rules
 Stockpiles, markets, granaries, and armouries can clear ordinary obstacles while an AI builds its castle, matching the special placement behavior already used by hovels and recruitment buildings. Protected buildings and their reserved yards are preserved where AI castles overlap. If one AI demolishes a building that another AI immediately rebuilds, the repeated conflict is detected and further demolition is stopped without blocking the first legitimate overbuild attempt.
 
+### Prevent AI overbuying
+
+AI Lords can keep an outdated purchase request after receiving goods from another source, wasting gold on excess purchases and later sales. The enabled-by-default **Prevent AI overbuying** host option under **Host → AI → Fixes** adjusts these outstanding requests.
+
+For example, if an AI orders five weapons and receives one before its market purchase, only four remain to buy, even if it has already used the delivered weapon. The intended purchase batch is preserved; construction-material requests instead follow the current building requirement. Partly fulfilled requests retain their progress when saving and loading.
+
+The fix applies to AI players in singleplayer and multiplayer. The map editor is unaffected. Existing requests in older saves are left alone until the AI generates a new request. Remove the former AI Market Overbuy Diagnostic test mod before using this version.
+
 ### Fix AI stone reserve mechanics
 Fixed wrong stone calculations for AIs, causing it to need longer to build their castle and selling+buying stone within short time.  
 Details of the bug: Vanilla gives each AI a basic stone reserve and intends to add the cost of the most expensive castle building that has not yet been built. However, it uses a value that is updated only occasionally. Early in a match this value can still be zero, causing the AI to sell stone needed for its castle and buy it back later. After construction or a failed placement, the value can instead remain outdated and make the AI hoard unnecessary stone.
@@ -228,6 +236,16 @@ The enabled-by-default local **Pitch and moat lines** option is under **Client �
 ### Adjust ally goods-transfer amounts with Ctrl and Shift
 In the ally goods-transfer panel, Shift multiplies the clicked amount by five and Ctrl reduces it to one fifth, while the displayed button values update to show what will be sent. After selecting a good and a positive amount, the send button remains available even if the stock changes. Vanilla rechecks the current stock when clicked; successful and insufficient transfers both keep the panel open with the selection intact, while insufficient goods also play the normal warning.
 
+### Automatically supply allies
+
+The personal **Automatically send to allies** option is enabled by default. Open **Send Goods** in the allies menu, expand **Auto Send**, and select an ally and a good. Set your reserve, the ally's minimum and maximum stock, and a check interval of **1–300 game seconds** (default **30**). Click **Start** to activate that delivery rule.
+
+Your reserve for a good is shared across all recipients. Allies below their minimum receive supplies first; remaining surplus is shared fairly up to their maximums. Deliveries require surplus goods and free storage at the recipient. The interval follows game time, so transfers stop during pause and happen more often in real time at higher game speeds.
+
+A circular arrow marks goods with active rules. Rules are saved with the game. You can pause all your deliveries without deleting them, and each player controls their own rules. Automatic-delivery chat messages are off by default; manual gifts are independent. Change the personal feature switch before or after a match. Remove the old AutoSend test mod; its saved rules are not imported.
+
+Multiplayer support is implemented, but automatic deliveries still await confirmation in a real host/client game.
+
 ### Accept Steam lobby invitations in game
 Incoming invitations can appear as a Yes/No popup ingame. An optional checkbox permanently suppresses further ingame popups for invites from that Steam user; the complete local invite blacklist can be cleared beside this feature's mod setting.
 
@@ -320,6 +338,6 @@ Adds "Customize" Button to custom and coop trails. Allows to use custom AI as Al
 
 ## Compatibility
 
-This mod requires the Script Extender and **APIShared 0.50.0 or newer**. Subscribe to APIShared separately when using the Steam modpack.
+This mod requires **Script Extender 2.14.4 or newer** and **APIShared 0.73.2 or newer**. Subscribe to APIShared separately when using the Steam modpack.
 
 All multiplayer participants need matching modpack and APIShared versions. Gameplay timing follows the match's simulation time, keeping movement and other timed features consistent between players with different frame rates.

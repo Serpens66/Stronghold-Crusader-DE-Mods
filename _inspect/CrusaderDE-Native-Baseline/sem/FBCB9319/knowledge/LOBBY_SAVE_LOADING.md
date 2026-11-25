@@ -214,3 +214,37 @@ therefore inherits an AI prohibition absent from the original Coop-page button.
 The current BugfixesAndQoL solo-MP load override deliberately excludes Coop;
 expanding that solo override is not the same as repairing this presentation
 mismatch. Live read-only evidence: .work/a/coop-load-live/001/findings.json.
+
+## Multiplayer save category versus peer responses [Vanilla facts]
+
+Audit observation: 2026-11-25; canonical native SHA-256 reverified as above.
+In the selected managed decompile, MapFileManager.GetMPSaves (1114) with
+coopOnly=false returns all SaveMPFiles; true restricts to nonzero coopTrailID.
+Thus the ordinary multiplayer requester already has an unfiltered list. The two
+MP requester variants otherwise share populateList, row response eligibility,
+confirmation and the HostLoadGame callback.
+
+Platform_Multiplayer.SendSaveCRCs (1268) resets every MP header's response counter
+and sends only the requested category: coopTrailID>0 for true, <=0 for false.
+Its private SendSaveCRC (3577) emits filename plus checksum XOR save time on
+channel 21. receiveLobbyMessages checks the client's matching local header and
+checksum/time before replying; the host increments retrieveCRCChecks. The
+requester hides rows until that count equals CountHumanPlayers()-1. Two category
+calls are not a single combined check, because the second resets both categories.
+
+HostLoadGame publishes the filename without a requester-category value. The
+frontend resolves its header and calls StartSave; StartSave derives cooperative
+lobby refresh from map.coopTrailID>0, independently of which requester selected
+it. The native save/remapping/start contracts earlier in this document apply to
+both categories. This static fact does not establish every possible save's
+eligibility or gameplay correctness.
+
+### Scoped combined requester [mod integration]
+
+MultiplayerRestartTest 0.2.6 opens the ordinary MP requester directly after its
+completed handoff. Only that explicit caller resets once and invokes the original
+single-file SendSaveCRC for every MP header. There is no global category hook or
+change to normal lobby commands. Existing reply checks and APIShared save
+preparation remain in use. Offline fixtures execute the production send/reset
+loop with both header orders and immediate simulated replies; actual combined
+list acceptance on two PCs remains pending. Evidence: .work/a/unified-mp-saves/001.

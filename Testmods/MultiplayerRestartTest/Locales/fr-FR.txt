@@ -1,5 +1,4 @@
 Load.ConfirmTitle=Quitter ?
-Load.CategoryTitle=Parties coop?
 Load.RecoveryTitle=Menu
 Load.WaitPeers=Tous les joueurs doivent activer le chargement multijoueur.
 Load.Transition=Transfert des joueurs vers le salon de chargement multijoueur.

@@ -148,6 +148,19 @@ dotnet build "%PROJECT_DIR%..\Shared\Tests\NativePatchGuard.Tests\Shared.NativeP
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 "%PROJECT_DIR%..\Shared\Tests\NativePatchGuard.Tests\bin\Release\net481\Shared.NativePatchGuard.Tests.exe"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+rem Source-aware AI demand contracts use production sources and the installed native backend.
+call :step_start "tests" "AiMarket.Logic.Tests"
+dotnet run --project "%PROJECT_DIR%tests\AiMarket.Tests\Logic\AiMarket.Logic.Tests.csproj" --configuration Release
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "AiMarket.Native.Tests build"
+dotnet build "%PROJECT_DIR%tests\AiMarket.Tests\Native\AiMarket.Native.Tests.csproj" --configuration Release --nologo -v minimal "/p:GameDir=%GAME_DIR%" "/p:ExtenderDir=%EXTENDER_DIR%" "/p:ApiSharedDir=%API_SHARED_DIR%"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "AiMarket.Native.Tests execution"
+"%PROJECT_DIR%tests\AiMarket.Tests\Native\bin\Release\net481\AiMarket.Native.Tests.exe"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 rem Exercise remembered and named AI selection repairs before a checked build can publish output.
 call :step_start "tests" "ai-selection-memory"
 "%MSBUILD%" "%PROJECT_DIR%..\_inspect\BugfixesAndQoLAivMemoryTests\BugfixesAndQoLAivMemoryTests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal %SHCDE_BRANCH_MSBUILD_API%

@@ -12,7 +12,7 @@ namespace MakeDesync
     // Observation only. Never invoke the market owner's repair or purchase methods.
     internal sealed unsafe class MarketRepairProbe
     {
-        private const string OwnerGuid = "AIMarketOverbuyDiagnostic_Serp";
+        private const string OwnerGuid = "BugfixesAndQoL_Serp";
         private const int Players = GamePlayerManagerAPI.MAX_PLAYERS, Goods = (int)eGoods.Count;
         private const BindingFlags Static = BindingFlags.Static | BindingFlags.NonPublic;
         private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.NonPublic;
@@ -35,9 +35,9 @@ namespace MakeDesync
         internal static void Register(object engineGate, Func<bool> inMultiplayer, Action<string> report)
         {
             if (!Chainloader.PluginInfos.TryGetValue(OwnerGuid, out var plugin) ||
-                !new Version(0, 1, 0).Equals(plugin.Metadata.Version) || ReferenceEquals(plugin.Instance, null)) return;
-            var owner = plugin.Instance.GetType().Assembly.GetType("AIMarketOverbuyDiagnostic.MarketPendingDemandFix");
-            if (owner == null) { report("MAKE_DESYNC_MARKET_UNAVAILABLE reason=missing-devdiag-owner"); return; }
+                plugin.Metadata.Version < new Version(1, 0, 241) || ReferenceEquals(plugin.Instance, null)) return;
+            var owner = plugin.Instance.GetType().Assembly.GetType("BugfixesAndQoL.AI.Market.MarketPendingDemandFix");
+            if (owner == null) { report("MAKE_DESYNC_MARKET_UNAVAILABLE reason=missing-integrated-market-owner"); return; }
             var probe = new MarketRepairProbe(owner, engineGate, inMultiplayer, report);
             if (!MultiplayerResyncEvents.TryRegister(Plugin.Guid, "market-before", () => probe.Observe(true, true),
                     () => probe.Observe(false, true), out string reason, order: -101) ||

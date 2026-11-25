@@ -1,5 +1,4 @@
 Load.ConfirmTitle=Beenden?
-Load.CategoryTitle=Koop laden?
 Load.RecoveryTitle=Hauptmenü
 Load.WaitPeers=Warte, bis alle Spieler das Laden im Mehrspieler aktivieren.
 Load.Transition=Die Spieler wechseln in die Mehrspieler-Ladelobby.

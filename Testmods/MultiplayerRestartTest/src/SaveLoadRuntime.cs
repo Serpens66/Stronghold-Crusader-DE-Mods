@@ -309,7 +309,7 @@ namespace MultiplayerSaveLoadTest
                 retired.Add(protocol.Operation); frame.SetContinuous(false); menu.Invalidate();
                 Report("LOAD_MENU_READY id=" + protocol.LobbyId);
                 // Ready guards can open a native error popup. Finish this one-shot local
-                // action before installing the category popup's shared native callbacks.
+                // action before opening the requester.
                 loadMenuPending = true;
                 frame.RequestAfter(TimeSpan.FromSeconds(1));
             }
@@ -318,12 +318,12 @@ namespace MultiplayerSaveLoadTest
                 retired.Add(protocol.Operation); frame.SetContinuous(acknowledgementRetry != null); menu.Invalidate();
             }
         }
-        private void OpenNativeLoad(bool coop)
+        private void OpenNativeLoad()
         {
             try {
                 if (protocol?.IsCompleted != true || Platform_Multiplayer.Instance.activeLobby?.identifier != protocol.LobbyId) return;
-                LobbyBridge.OpenLoadDialog(coop);
-                Report("VANILLA_SAVE_DIALOG coop=" + coop);
+                LobbyBridge.OpenLoadDialog();
+                Report("VANILLA_SAVE_DIALOG category=all-multiplayer");
             } catch (Exception error) { Report("SAVE_DIALOG_FAILED " + error); }
         }
         private void Tick()
@@ -422,7 +422,7 @@ namespace MultiplayerSaveLoadTest
                  context.RequesterType != Enums.RequesterTypes.LoadMultiplayerCoopGame)) return;
             // Remember the opening event even if the user closes it between frame callbacks.
             loadMenuPending = false;
-            Report("SAVE_CATEGORY_CANCELLED native requester opened.");
+            Report("SAVE_DIALOG_CANCELLED native requester opened.");
         }
         private void LobbyActionObserved(LobbyActionNotification notification)
         {
@@ -483,10 +483,7 @@ namespace MultiplayerSaveLoadTest
                 if (readyPending || LobbyBridge.HasModal())
                 { frame.RequestAfter(TimeSpan.FromSeconds(1)); return; }
                 loadMenuPending = false;
-                Report("SAVE_CATEGORY_OPEN");
-                // The frontend lobby renders Show_HUD_ConfirmationMP, not the in-mission popup.
-                HUD_ConfirmationPopup.ShowConfirmation(LoadText.Get("Load.CategoryTitle"),
-                    () => OpenNativeLoad(true), () => OpenNativeLoad(false), MPConf: true);
+                OpenNativeLoad();
             }
             catch (Exception error)
             { loadMenuPending = false; Report("SAVE_DIALOG_FAILED " + error); }

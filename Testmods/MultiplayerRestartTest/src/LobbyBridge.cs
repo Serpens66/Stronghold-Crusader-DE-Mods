@@ -12,7 +12,7 @@ namespace MultiplayerSaveLoadTest
     internal enum LocalReadyResult { NotCurrent, Waiting, Ready, Rejected }
 
     // Calls the same Vanilla frontend/transport primitives as the ordinary lobby return.
-    // No save files, save checksums, original-map inputs or Lord settings are examined here.
+    // Save eligibility and transport remain Vanilla-owned; no original-map or Lord rules.
     internal static class LobbyBridge
     {
         private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
@@ -20,6 +20,7 @@ namespace MultiplayerSaveLoadTest
         private const int VanillaPrivateLobbyMode = 4;
         private static FieldInfo chat, pendingExit, loading, ready, locked, setup, selectedHeader, startTime, mapValid, closing;
         private static MethodInfo raw;
+        private static Action<Platform_Multiplayer, string, int> sendSaveCrc;
         internal static MethodInfo CreationResultMethod { get; private set; }
 
         internal static void Validate()
@@ -37,6 +38,12 @@ namespace MultiplayerSaveLoadTest
             raw = typeof(GameNetworkAPI).GetMethod("HandleRawPacket", Instance, null,
                 new[] { typeof(short), typeof(byte[]), typeof(CSteamID?) }, null);
             if (raw == null || raw.ReturnType != typeof(bool)) throw new MissingMethodException("GameNetworkAPI.HandleRawPacket contract");
+            var saveCrc = typeof(Platform_Multiplayer).GetMethod("SendSaveCRC", Instance, null,
+                new[] { typeof(string), typeof(int) }, null);
+            if (saveCrc == null || saveCrc.IsStatic || saveCrc.ReturnType != typeof(void))
+                throw new MissingMethodException("Platform_Multiplayer.SendSaveCRC contract");
+            sendSaveCrc = (Action<Platform_Multiplayer, string, int>)Delegate.CreateDelegate(
+                typeof(Action<Platform_Multiplayer, string, int>), saveCrc);
             foreach (string method in new[] { "updateSteamIDMappings", "UpdateRadarShieldPositions", "ShowSetupScreen" })
                 FrontMethod(method, Type.EmptyTypes);
             FrontMethod("UpdateHostInfo", new[] { typeof(bool) });
@@ -229,18 +236,27 @@ namespace MultiplayerSaveLoadTest
             return current.SetEquals(expectedPeers);
         }
 
-        internal static void OpenLoadDialog(bool coop)
+        internal static void RequestAllSaveChecks(Platform_Multiplayer multiplayer)
+        {
+            var saves = MapFileManager.Instance.GetMPSaves(0, true, false);
+            // Reset once before any send. Calling SendSaveCRCs twice would reset the
+            // other category's acknowledgements. Keep Vanilla's wire and reply checks.
+            foreach (var save in saves) save.retrieveCRCChecks = 0;
+            foreach (var save in saves)
+                sendSaveCrc(multiplayer, save.fileName, save.xPlaySaveChecksum ^ save.xPlaySaveTime);
+        }
+
+        internal static void OpenLoadDialog()
         {
             var front = Front();
             var multiplayer = Platform_Multiplayer.Instance;
             if (front.currentLobby == null || !front.currentLobby.isHost || !ReferenceEquals(front.currentLobby, multiplayer.activeLobby))
                 throw new InvalidOperationException("Only the current loading-lobby host can open its save requester.");
             MainViewModel.Instance.FrontEndMenu.UpdateFrontMenuPopupScale();
-            // Exact native Load-branch sequence, with only the category explicitly supplied.
-            // All file filtering, peer CRC counts and SDK contributions remain on this path.
-            multiplayer.SendSaveCRCs(coop);
-            var type = coop ? Enums.RequesterTypes.LoadMultiplayerCoopGame : Enums.RequesterTypes.LoadMultiplayerGame;
-            HUD_LoadSaveRequester.OpenLoadSaveRequester(type, (name, header) => {
+            // The normal MP requester lists both kinds; its rows retain Vanilla's
+            // peer-response requirement. Only this explicit caller requests both kinds.
+            RequestAllSaveChecks(multiplayer);
+            HUD_LoadSaveRequester.OpenLoadSaveRequester(Enums.RequesterTypes.LoadMultiplayerGame, (name, header) => {
                 multiplayer.HostLoadGame(header.fileName);
                 startTime.SetValue(front, DateTime.UtcNow.AddMilliseconds(500));
             }, () => Invoke(front, "updateRadarTexture", new[] { typeof(FileHeader) }, selectedHeader.GetValue(front)),

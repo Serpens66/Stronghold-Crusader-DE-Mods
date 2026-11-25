@@ -1,5 +1,4 @@
 Load.ConfirmTitle=Завершити?
-Load.CategoryTitle=Кооп-сейви?
 Load.RecoveryTitle=Головне меню
 Load.WaitPeers=Очікування ввімкнення завантаження мережевої гри в усіх гравців.
 Load.Transition=Гравці переходять до лобі завантаження мережевої гри.

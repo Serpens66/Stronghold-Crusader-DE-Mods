@@ -4,7 +4,7 @@ using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using SHCDESE.Interop;
 
-namespace AIMarketOverbuyDiagnostic
+namespace AIMarketAcceptance
 {
     // Scenario-owned profile edits, called only inside AutomationRun.InSimulation.
     // Native profile identity and the SDK array base are proved equal before writing.

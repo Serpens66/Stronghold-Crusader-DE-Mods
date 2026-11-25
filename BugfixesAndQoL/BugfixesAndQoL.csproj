@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.240.0</AssemblyVersion>
-    <FileVersion>1.0.240.0</FileVersion>
+    <AssemblyVersion>1.0.241.0</AssemblyVersion>
+    <FileVersion>1.0.241.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -29,6 +29,16 @@
   <PropertyGroup Condition="'$(ExtenderDir)' == '' and Exists('$(LocalScriptExtenderBuildOutput)\SHCDESE.dll')"><ExtenderDir>$(LocalScriptExtenderBuildOutput)</ExtenderDir></PropertyGroup>
   <PropertyGroup Condition="'$(ExtenderDir)' == '' and Exists('$(LocalScriptExtenderModOutput)\SHCDESE.dll')"><ExtenderDir>$(LocalScriptExtenderModOutput)</ExtenderDir></PropertyGroup>
   <ItemGroup>
+    <Compile Include="src\AI\Market\MarketPendingDemandFix.cs" />
+    <Compile Include="src\AI\Market\MarketDemandPersistence.cs" />
+    <Compile Include="src\AI\Market\MarketDemandMissionState.cs" />
+    <Compile Include="src\AI\Market\MarketDemandSaveCodec.cs" />
+    <Compile Include="src\AI\Market\MarketDemandTarget.cs" />
+    <Compile Include="src\AI\Market\MarketDemandSites.cs" />
+    <Compile Include="src\AI\Market\MarketDemandWriterHooks.cs" />
+    <Compile Include="src\AI\Market\MarketAmmoDemandSource.cs" />
+    <Compile Include="src\AI\Market\MarketFixesDemandSource.cs" />
+    <Compile Include="src\AI\Market\MarketDemandFeature.cs" />
     <Compile Include="src\AutoSend\*.cs" />
     <Compile Include="src\AreaDemolition\*.cs" />
     <Compile Include="src\AreaConstruction\*.cs" />

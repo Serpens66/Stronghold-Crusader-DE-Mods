@@ -97,10 +97,10 @@ function Get-SourceBlock([string[]]$Lines, [string]$Signature) {
 # publication contract holds; anything else stays a normal finding.
 function Get-FreshPageAllowance([string]$Path, [string[]]$Lines) {
     $text = [string]::Join("`n", $Lines)
-    if ($Path -eq (Join-Path $workspace 'Testmods\AIMarketOverbuyDiagnostic\src\Fix\MarketDemandWriterHooks.cs')) {
-        # The normal fix now explicitly compiles this previously diagnosis-only relay.
+    if ($Path -eq (Join-Path $workspace 'BugfixesAndQoL\src\AI\Market\MarketDemandWriterHooks.cs')) {
+        # The AI market owner explicitly compiles this audited native relay.
         # Its sole cache flush targets a fresh private page before publication. This
-        # is a narrow source guardrail; TradeEntries executes the real relay/backend.
+        # is a narrow source guardrail; AiMarket.Tests/Native executes the real relay/backend.
         $prepare = Get-SourceBlock $Lines 'private static unsafe WriterHook PrepareCore('
         $publish = Get-SourceBlock $Lines 'internal void Publish()'
         $rollback = Get-SourceBlock $Lines 'internal void DisposeUnpublished()'

@@ -1,5 +1,4 @@
 Load.ConfirmTitle=Avsluta?
-Load.CategoryTitle=Coop-filer?
 Load.RecoveryTitle=Huvudmeny
 Load.WaitPeers=Väntar på att alla spelare aktiverar inläsning i flerspelarläge.
 Load.Transition=Flyttar spelarna till lobbyn för inläsning i flerspelarläge.

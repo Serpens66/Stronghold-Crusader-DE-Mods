@@ -7,7 +7,6 @@ namespace MakeDesync
     [BepInDependency("000shcdese", "2.14.4")]
     [BepInDependency("APIShared_Serp", "0.69.0")]
     [BepInDependency(BugfixesGuid, "1.0.240")]
-    [BepInDependency("AIMarketOverbuyDiagnostic_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class Plugin : BaseUnityPlugin
     {
         internal const string Guid = "MakeDesync_Serp";

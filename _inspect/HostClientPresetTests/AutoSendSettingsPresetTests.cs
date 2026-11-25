@@ -108,7 +108,10 @@ internal static class AutoSendSettingsPresetTests
     private static BugfixesAndQoLViewModel Prepare(string plugin, string id)
     {
         var settings = new BugfixesAndQoLViewModel();
-        settings.PreparePresets(null, plugin, id); settings.ActivatePresets(); return settings;
+        // The short fixture overload adds "Tests." to its mod name. This helper
+        // already receives a complete GUID, also used by PersonalSettingsPaths.
+        settings.PreparePresets(null, plugin, id, id, new Version(1, 0, 0));
+        settings.ActivatePresets(); return settings;
     }
 
     private static bool ReadWorkingBool(string file)

@@ -6,6 +6,7 @@ namespace BugfixesAndQoL
         // no locale lookup at plugin startup and no runtime Markdown parsing.
         private void ApplyApprovedRecommendations()
         {
+            options["EnableAiMarketOverbuyFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAiMarketOverbuyFix");
             options["EnableMoatTerrainRestoration"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableMoatTerrainRestoration");
             options["EnableWallDepositRestoration"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableWallDepositRestoration");
             options["EnableOccupiedWallDemolition"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableOccupiedWallDemolition");

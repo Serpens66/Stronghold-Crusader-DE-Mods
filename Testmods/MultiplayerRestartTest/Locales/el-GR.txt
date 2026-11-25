@@ -1,5 +1,4 @@
 Load.ConfirmTitle=Τέλος αγώνα;
-Load.CategoryTitle=Συνεργασία;
 Load.RecoveryTitle=Κύριο μενού
 Load.WaitPeers=Αναμονή για ενεργοποίηση της φόρτωσης πολλών παικτών από όλους.
 Load.Transition=Οι παίκτες μεταφέρονται στο λόμπι φόρτωσης πολλών παικτών.

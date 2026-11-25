@@ -32,7 +32,61 @@ internal static class LobbyBridgeTests
         Membership();
         ReadyBeforeUiLoaded();
         GenericHostMode();
+        AllSaveChecks();
         Console.WriteLine("LobbyBridge: " + checks + " checks passed.");
+    }
+
+    private static List<FileHeader> saveHeaders;
+    private static MapFileManager SaveManager() => null;
+    private static List<FileHeader> AllHeaders(MapFileManager manager, int sort, bool ascending, bool coopOnly)
+    {
+        Check(sort == 0 && ascending && !coopOnly, "Combined request filtered out a save category.");
+        return saveHeaders;
+    }
+    private static void AllSaveChecks()
+    {
+        var sender = typeof(LobbyBridge).GetField("sendSaveCrc", PrivateStatic);
+        object previous = sender.GetValue(null);
+        var platform = (Platform_Multiplayer)FormatterServices.GetUninitializedObject(typeof(Platform_Multiplayer));
+        try
+        {
+            var method = typeof(LobbyBridge).GetMethod("RequestAllSaveChecks", PrivateStatic);
+            using (var fixture = new DynamicMethodDefinition(method))
+            {
+                // Replace filesystem discovery and transport only. Execute production
+                // reset/sending order, category coverage and checksum construction.
+                foreach (var instruction in fixture.Definition.Body.Instructions)
+                {
+                    if (!(instruction.Operand is MethodReference called) || called.DeclaringType.Name != "MapFileManager") continue;
+                    string replacement = called.Name == "get_Instance" ? nameof(SaveManager) : called.Name == "GetMPSaves" ? nameof(AllHeaders) : null;
+                    Check(replacement != null, "Unexpected save discovery boundary.");
+                    instruction.OpCode = OpCodes.Call;
+                    instruction.Operand = fixture.Definition.Module.ImportReference(typeof(LobbyBridgeTests).GetMethod(replacement, PrivateStatic));
+                }
+                MethodInfo run = fixture.Generate();
+                foreach (bool reverse in new[] { false, true })
+                {
+                    var normal = new FileHeader { fileName = "ordinary.msv", coopTrailID = 0, xPlaySaveChecksum = 123, xPlaySaveTime = 97, retrieveCRCChecks = 7 };
+                    var coop = new FileHeader { fileName = "coop.msv", coopTrailID = 1, xPlaySaveChecksum = 456, xPlaySaveTime = 82, retrieveCRCChecks = 8 };
+                    saveHeaders = reverse ? new List<FileHeader> { coop, normal } : new List<FileHeader> { normal, coop };
+                    int sent = 0;
+                    sender.SetValue(null, (Action<Platform_Multiplayer, string, int>)((target, name, checksum) =>
+                    {
+                        Check(ReferenceEquals(target, platform), "Save check changed its transport owner.");
+                        Check(saveHeaders.All(header => header.retrieveCRCChecks == (saveHeaders.IndexOf(header) < sent ? 1 : 0)),
+                            "Reset order erased a reply or retained stale acknowledgements.");
+                        FileHeader expected = saveHeaders[sent++];
+                        Check(name == expected.fileName && checksum == (expected.xPlaySaveChecksum ^ expected.xPlaySaveTime), "Vanilla checksum/name changed.");
+                        expected.retrieveCRCChecks = 1; // Synchronous reply must survive all later sends.
+                    }));
+                    run.Invoke(null, new object[] { platform });
+                    Check(sent == 2 && saveHeaders.All(header => header.retrieveCRCChecks == 1), "Both save kinds were not checked exactly once.");
+                }
+                saveHeaders.Clear();
+                run.Invoke(null, new object[] { platform });
+            }
+        }
+        finally { sender.SetValue(null, previous); saveHeaders = null; }
     }
 
     private static void GenericHostMode()

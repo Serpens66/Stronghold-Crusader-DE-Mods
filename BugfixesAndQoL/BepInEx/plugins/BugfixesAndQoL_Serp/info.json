@@ -3,19 +3,26 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.240",
+  "Version": "1.0.241",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
-  "MinimumScriptExtenderVersion": "2.14.3",
+  "MinimumScriptExtenderVersion": "2.14.4",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.67.0"
+      "MinimumVersion": "0.73.2"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.241",
+      "Changes": [
+        "Prevent AI Lords from buying the full amount of an outdated order after goods arrive from another source. Delivered goods remain counted after use and save/loading. The new host option, Prevent AI overbuying, is enabled by default under AI / Fixes.",
+        "Added automatic ally deliveries to Send Goods: choose your reserve, recipient minimum and maximum stocks, and a game-time interval. Rules start only when enabled, persist with the game, and can be paused without deleting them. The personal feature switch is enabled by default. Multiplayer gameplay acceptance is still pending."
+      ]
+    },
     {
       "Version": "1.0.240",
       "Changes": [

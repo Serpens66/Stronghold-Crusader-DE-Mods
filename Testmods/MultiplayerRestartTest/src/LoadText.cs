@@ -12,7 +12,6 @@ namespace MultiplayerSaveLoadTest
         private static readonly Dictionary<string, string> english = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["Load.ConfirmTitle"] = "End match?",
-            ["Load.CategoryTitle"] = "Coop saves?",
             ["Load.RecoveryTitle"] = "Main menu",
             ["Load.WaitPeers"] = "Waiting for all players to enable multiplayer loading.",
             ["Load.Transition"] = "Moving the players to the multiplayer load lobby.",

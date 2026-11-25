@@ -430,6 +430,8 @@ namespace BugfixesAndQoL
                 processAiRaidRetargetFixRuntime = new AiRaidRetargetFixRuntime(log);
                 processAiRaidRetargetFixRuntime.Initialize(context, settings.EnableMod && settings.EnableAiRaidRetargetFix);
             });
+            TryInitializePersistentFeature("AI market pending demand", () =>
+                AI.Market.MarketDemandFeature.Initialize(context, log, settings));
             TryInitializePersistentFeature("AI sell threshold safety", () =>
             {
                 if (processAiSellThresholdPolicy == null && !APIShared.Economy.AiMarketSellPolicies.TryRegister(
@@ -481,6 +483,7 @@ namespace BugfixesAndQoL
 
         public void ApplySettings()
         {
+            TryApplyFeature("AI market pending demand", () => AI.Market.MarketDemandFeature.ApplySettings(settings));
             TryApplyFeature("AI sell threshold safety", ApplyAiSellThresholdFix);
             processGatehouseLivingCaptureRuntime?.SetEnabled(settings.EnableMod, settings.EnableGatehouseLivingCaptureFix);
             processDrawbridgeDestructionFixRuntime?.SetEnabled(settings.EnableMod, settings.EnableDrawbridgeDestructionFix);

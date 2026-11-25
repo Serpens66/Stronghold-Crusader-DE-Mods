@@ -89,6 +89,7 @@ namespace BugfixesAndQoL
         private bool showMpAdvancedSettingsInSingleplayer = true;
         private bool rememberAiAivSettings = true;
         private bool enableCustomLordListEnhancements = true;
+        private bool enableAiMarketOverbuyFix = true;
         private bool enableAiStoneReserveFix = true;
         private bool enableAiSellThresholdFix = false;
         private bool enableAiDefensePatrolFix = true;
@@ -456,6 +457,8 @@ namespace BugfixesAndQoL
                 }
             }
         }
+        public string EnableAiMarketOverbuyFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAiMarketOverbuyFix");
+        public string EnableAiMarketOverbuyFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAiMarketOverbuyFixHelp");
         public string EnableAiStoneReserveFixText => SerpLocalization.Get(SerpLocalization.EnableAiStoneReserveFix);
         public string EnableAiSellThresholdFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAiSellThresholdFix");
         public string EnableAiSellThresholdFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAiSellThresholdFixHelp");
@@ -1223,6 +1226,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableAiMarketOverbuyFix
+        {
+            get => enableAiMarketOverbuyFix;
+            set => SetSetting(ref enableAiMarketOverbuyFix, value, nameof(EnableAiMarketOverbuyFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableAiStoneReserveFix
         {
             get => enableAiStoneReserveFix;
@@ -1753,6 +1763,7 @@ namespace BugfixesAndQoL
                 EnablePeaceTimeCivilianProximityReduction = true;
                 AllowFullAiMultiplayerLobby = true;
                 ShowMpAdvancedSettingsInSingleplayer = true;
+                EnableAiMarketOverbuyFix = true;
                 EnableAiStoneReserveFix = true;
                 EnableAiSellThresholdFix = false;
                 EnableAiDefensePatrolFix = true;

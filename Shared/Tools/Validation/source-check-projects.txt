@@ -8,6 +8,8 @@ _inspect/UnitIdAccess/Tests/UnitAccess.Tests.csproj
 APIShared/APIShared.csproj
 APIShared/examples/ThirdPartyMod/ThirdPartyMod.csproj
 BugfixesAndQoL/BugfixesAndQoL.csproj
+BugfixesAndQoL/tests/AiMarket.Tests/Logic/AiMarket.Logic.Tests.csproj
+BugfixesAndQoL/tests/AiMarket.Tests/Native/AiMarket.Native.Tests.csproj
 BugfixesAndQoL/tests/AIKeepRange.Tests/AIKeepRange.Tests.csproj
 Pathfinding/tests/AssassinPathfinding.Tests/AssassinPathfinding.Tests.csproj
 Pathfinding/tests/ExtendedShiftCommandQueue.Tests/ExtendedShiftCommandQueue.Tests.csproj
@@ -44,7 +46,6 @@ Testmods/AIWoodSafetyTest/AIWoodSafetyTest.csproj
 Testmods/AIWoodSafetyTest/tests/Safety.Tests.csproj
 Testmods/AICoarsePathComponentFixTest/AICoarsePathComponentFixTest.csproj
 Testmods/AIDefenseTest/AIDefenseTest.csproj
-Testmods/AIMarketOverbuyDiagnostic/AIMarketOverbuyDiagnostic.csproj
 Testmods/AivLobbyPresetTest/AivLobbyPresetTest.csproj
 Testmods/MainViewModelInitProbe/MainViewModelInitProbe.csproj
 Testmods/OutpostTest/OutpostTest.csproj

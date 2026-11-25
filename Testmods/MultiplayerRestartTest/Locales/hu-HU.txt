@@ -1,5 +1,4 @@
 Load.ConfirmTitle=Kilépés?
-Load.CategoryTitle=Koop mentés?
 Load.RecoveryTitle=Főmenü
 Load.WaitPeers=Várakozás, amíg minden játékos engedélyezi a többjátékos betöltést.
 Load.Transition=A játékosok átlépnek a többjátékos betöltési lobbiba.

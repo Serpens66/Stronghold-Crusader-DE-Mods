@@ -1,5 +1,4 @@
 Load.ConfirmTitle=結束對局？
-Load.CategoryTitle=合作存檔？
 Load.RecoveryTitle=主選單
 Load.WaitPeers=正在等候所有玩家啟用多人遊戲讀取功能。
 Load.Transition=正在將玩家移至多人遊戲讀取大廳。

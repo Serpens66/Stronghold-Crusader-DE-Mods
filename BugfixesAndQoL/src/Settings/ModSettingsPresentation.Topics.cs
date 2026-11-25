@@ -78,6 +78,7 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableShiftGameSpeedSteps => options["EnableShiftGameSpeedSteps"];
         public SettingsOptionPresentation EnableSurrenderAndStatistics => options["EnableSurrenderAndStatistics"];
         public SettingsOptionPresentation EnableRandomOpponentSelectionEnhancements => options["EnableRandomOpponentSelectionEnhancements"];
+        public SettingsOptionPresentation EnableAiMarketOverbuyFix => options["EnableAiMarketOverbuyFix"];
         public SettingsOptionPresentation EnableAiStoneReserveFix => options["EnableAiStoneReserveFix"];
         public SettingsOptionPresentation EnableAiDefensePatrolFix => options["EnableAiDefensePatrolFix"];
         public SettingsOptionPresentation EnableAiOutpostRetargetFix => options["EnableAiOutpostRetargetFix"];
@@ -200,6 +201,7 @@ namespace BugfixesAndQoL
             AddOption("EnableSurrenderAndStatistics", "bugfixes.enable-surrender-and-statistics", SettingsCategory.Qol, HostSetup);
             AddOption("EnableRandomOpponentSelectionEnhancements", "bugfixes.enable-random-opponent-selection-enhancements", SettingsCategory.Qol, HostSetup);
             HostAi = AddTopic("HostAi", "bugfixes.topic.host-ai", true);
+            AddOption("EnableAiMarketOverbuyFix", "bugfixes.enable-ai-market-overbuy-fix", SettingsCategory.Fixes, HostAi);
             AddOption("EnableAiStoneReserveFix", "bugfixes.enable-ai-stone-reserve-fix", SettingsCategory.Fixes, HostAi);
             AddOption("EnableAiDefensePatrolFix", "bugfixes.enable-ai-defense-patrol-fix", SettingsCategory.Fixes, HostAi);
             AddOption("EnableAiOutpostRetargetFix", "bugfixes.enable-ai-outpost-retarget-fix", SettingsCategory.Fixes, HostAi);

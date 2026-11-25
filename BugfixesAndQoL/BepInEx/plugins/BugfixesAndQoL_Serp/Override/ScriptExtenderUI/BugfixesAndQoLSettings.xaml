@@ -590,6 +590,18 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
           </StackPanel>
           <StackPanel Visibility="{Binding SettingsPresentation.ClientControls.QolVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.client-controls" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.ClientControls.QolSearchTitle}">
             <TextBlock Text="{Binding QolTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.auto-send" shared:ModSettingsSearch.Title="{Binding EnableAutoSendText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAutoSendHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="28"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAutoSend}"><ContentControl.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ToolTip}"/></ContentControl.ToolTip></ContentControl>
+              <Grid Grid.Column="1" IsEnabled="{Binding CanConfigureAutoSend}" Opacity="{Binding ClientSettingsOpacity}">
+                <CheckBox IsChecked="{Binding EnableAutoSend, Mode=TwoWay}" Foreground="White" Margin="0,0,14,8" ToolTipService.ShowDuration="60000"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding EnableAutoSendHelpText}"/></CheckBox.ToolTip>
+                  <TextBlock Text="{Binding EnableAutoSendText}" Foreground="White" TextWrapping="Wrap"/>
+                </CheckBox>
+              </Grid>
+            </Grid>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.improved-build-preview" shared:ModSettingsSearch.Title="{Binding ImprovedBuildPreviewText}" shared:ModSettingsSearch.ToolTipText="{Binding ImprovedBuildPreviewHelpText}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="28"/>
@@ -1242,6 +1254,18 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
         <StackPanel Visibility="{Binding SettingsPresentation.HostAi.ContentVisibility}" Margin="8,2,8,6">
           <StackPanel Visibility="{Binding SettingsPresentation.HostAi.FixesVisibility}" shared:ModSettingsSearch.SectionKey="bugfixes.topic.host-ai" shared:ModSettingsSearch.SectionTitle="{Binding SettingsPresentation.HostAi.FixesSearchTitle}">
             <TextBlock Text="{Binding FixesTitleText}" Style="{StaticResource CategoryHeader}" Margin="28,8,0,4" shared:ModSettingsSearch.Exclude="True"/>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-ai-market-overbuy-fix" shared:ModSettingsSearch.Title="{Binding EnableAiMarketOverbuyFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAiMarketOverbuyFixHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="28"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableAiMarketOverbuyFix}"><ContentControl.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ToolTip}"/></ContentControl.ToolTip></ContentControl>
+              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
+                <CheckBox IsChecked="{Binding EnableAiMarketOverbuyFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" Margin="0,0,14,8"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding EnableAiMarketOverbuyFixHelpText}"/></CheckBox.ToolTip>
+                  <TextBlock Text="{Binding EnableAiMarketOverbuyFixText}" Foreground="White" TextWrapping="Wrap"/>
+                </CheckBox>
+              </Grid>
+            </Grid>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-ai-stone-reserve-fix" shared:ModSettingsSearch.Title="{Binding EnableAiStoneReserveFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAiStoneReserveFixHelpText}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="28"/>

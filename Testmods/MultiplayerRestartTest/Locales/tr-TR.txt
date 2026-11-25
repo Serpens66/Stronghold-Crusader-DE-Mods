@@ -1,5 +1,4 @@
 Load.ConfirmTitle=Bitir?
-Load.CategoryTitle=Koop kayıt?
 Load.RecoveryTitle=Ana menü
 Load.WaitPeers=Tüm oyuncuların çok oyunculu yüklemeyi etkinleştirmesi bekleniyor.
 Load.Transition=Oyuncular çok oyunculu yükleme lobisine taşınıyor.

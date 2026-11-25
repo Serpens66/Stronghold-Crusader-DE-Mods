@@ -154,7 +154,29 @@ internal static partial class Program
             XmlNode topicNode = Ancestors(row).First(a => SearchAttribute(a, "IsSection") == "True");
             object topic = topics.Single(t => (string)Get(t, "Key") == SearchAttribute(topicNode, "SectionKey"));
             string authority = (bool)Get(topic, "IsHost") ? "CanEditHostSettings" : "CanEditClientSettings";
-            Check(Ancestors(editor.Node).Any(a => a.Attributes?["IsEnabled"]?.Value == "{Binding " + authority + "}"),
+            string editorAuthority = authority;
+            if (editor.Property == "EnableAutoSend")
+            {
+                // AutoSend adds a mission lock to the ordinary personal permission.
+                // Prove the actual stronger gate instead of accepting arbitrary bindings.
+                Check(authority == "CanEditClientSettings", "AutoSend remains a personal option");
+                editorAuthority = "CanConfigureAutoSend";
+                MethodInfo gate = modelType.GetProperty(editorAuthority).GetGetMethod();
+                MethodInfo personalPermission = modelType.GetProperty(authority).GetGetMethod();
+                // ResolveMethod returns a declaring-type view; inherited GetProperty
+                // may return a different reflected-type view of the same definition.
+                Check(Instructions(gate).Any(instruction => instruction.Item2 is MethodBase called &&
+                    called.Module == personalPermission.Module && called.MetadataToken == personalPermission.MetadataToken),
+                    "AutoSend gate retains the shared personal permission");
+                object model = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(modelType);
+                FieldInfo missionLock = modelType.GetField("autoSendMissionLocked", All);
+                missionLock.SetValue(model, false);
+                Check(Equals(gate.Invoke(model, null), personalPermission.Invoke(model, null)),
+                    "unlocked AutoSend gate preserves the shared personal permission");
+                missionLock.SetValue(model, true);
+                Check(!(bool)gate.Invoke(model, null), "active-mission AutoSend gate rejects editing");
+            }
+            Check(Ancestors(editor.Node).Any(a => a.Attributes?["IsEnabled"]?.Value == "{Binding " + editorAuthority + "}"),
                 "editor retains role authority: " + editor.Property);
             Check(!Ancestors(topicNode).Any(a => a.Attributes?["IsEnabled"] != null), "topic header remains browsable independently of authority");
             XmlNode marker = row.ChildNodes.Cast<XmlNode>().Single(n => n.LocalName == "ContentControl");
@@ -214,6 +236,14 @@ internal static partial class Program
             SearchAttribute(keepRow, "Key") == "bugfixes.remove-ai-keep-range-limit" &&
             keepEditor.Node.Attributes?["IsChecked"]?.Value == "{Binding RemoveAIKeepRangeLimit, Mode=TwoWay}",
             "AI keep range is recommended and appears once at the end of AI fixes with its original binding and search identity");
+        const string marketOption = "EnableAiMarketOverbuyFix";
+        object marketFix = options.Single(o => (string)Get(o, "PropertyName") == marketOption);
+        var marketEditor = editors.Single(e => e.Property == marketOption);
+        XmlNode marketRow = Ancestors(marketEditor.Node).First(a => SearchAttribute(a, "Key") != null);
+        Check(Get(marketFix, "Category").ToString() == "Fixes" && (string)Get(marketFix, "Symbol") == "★" &&
+            marketRow.ParentNode.Attributes?["Visibility"]?.Value == "{Binding SettingsPresentation.HostAi.FixesVisibility}" &&
+            SearchAttribute(marketRow, "Key") == "bugfixes.enable-ai-market-overbuy-fix",
+            "AI overbuy correction is discoverable as a recommended AI fix");
         const string outpostOption = "EnableAiOutpostRetargetFix";
         object outpostFix = options.Single(o => (string)Get(o, "PropertyName") == outpostOption);
         var outpostEditor = editors.Single(e => e.Property == outpostOption);

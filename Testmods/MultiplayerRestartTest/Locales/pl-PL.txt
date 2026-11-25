@@ -1,5 +1,4 @@
 Load.ConfirmTitle=Zakończyć?
-Load.CategoryTitle=Zapisy ko-op?
 Load.RecoveryTitle=Menu główne
 Load.WaitPeers=Oczekiwanie, aż wszyscy gracze włączą wczytywanie gry wieloosobowej.
 Load.Transition=Przenoszenie graczy do lobby wczytywania gry wieloosobowej.

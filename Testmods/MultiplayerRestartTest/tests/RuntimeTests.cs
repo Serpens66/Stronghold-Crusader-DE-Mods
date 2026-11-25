@@ -72,8 +72,7 @@ internal static class RuntimeReceiptTests
     private static LocalReadyResult readyResult;
     private static Action duringReady;
     private static bool hasModal, hasRequester;
-    private static int popups;
-    private static bool popupInMultiplayer, popupInMasters;
+    private static int popups, loadDialogs;
     private static readonly BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
     private static void Check(bool value, string reason)
     { checks++; if (!value) throw new Exception(reason); }
@@ -100,8 +99,8 @@ internal static class RuntimeReceiptTests
     }
     private static bool ModalPrefix(ref bool __result) { __result = hasModal; return false; }
     private static bool RequesterPrefix(ref bool __result) { __result = hasRequester; return false; }
-    private static bool PopupPrefix(bool MPConf, bool skirmishMasters)
-    { popups++; popupInMultiplayer = MPConf; popupInMasters = skirmishMasters; return false; }
+    private static bool PopupPrefix() { popups++; return false; }
+    private static bool LoadDialogPrefix() { loadDialogs++; return false; }
     private static bool TextPrefix(string key, ref string __result) { __result = key; return false; }
 
     private static APIShared.Savegames.SaveLoadDialogContext Request(Enums.RequesterTypes type)
@@ -155,6 +154,7 @@ internal static class RuntimeReceiptTests
         var ready = typeof(LobbyBridge).GetMethod("TryReady", BindingFlags.Static | BindingFlags.NonPublic);
         var modal = typeof(LobbyBridge).GetMethod("HasModal", BindingFlags.Static | BindingFlags.NonPublic);
         var requester = typeof(LobbyBridge).GetMethod("HasSaveRequester", BindingFlags.Static | BindingFlags.NonPublic);
+        var loadDialog = typeof(LobbyBridge).GetMethod("OpenLoadDialog", BindingFlags.Static | BindingFlags.NonPublic);
         var popup = typeof(CrusaderDE.HUD_ConfirmationPopup).GetMethod("ShowConfirmation", BindingFlags.Static | BindingFlags.Public,
             null, new[] { typeof(string), typeof(Action), typeof(Action), typeof(bool), typeof(bool) }, null);
         var text = typeof(SerpLocalization).GetMethod("Get", new[] { typeof(string) });
@@ -163,6 +163,7 @@ internal static class RuntimeReceiptTests
         harmony.Patch(ready, prefix: new HarmonyLib.HarmonyMethod(typeof(RuntimeReceiptTests), nameof(ReadyPrefix)));
         harmony.Patch(modal, prefix: new HarmonyLib.HarmonyMethod(typeof(RuntimeReceiptTests), nameof(ModalPrefix)));
         harmony.Patch(requester, prefix: new HarmonyLib.HarmonyMethod(typeof(RuntimeReceiptTests), nameof(RequesterPrefix)));
+        harmony.Patch(loadDialog, prefix: new HarmonyLib.HarmonyMethod(typeof(RuntimeReceiptTests), nameof(LoadDialogPrefix)));
         harmony.Patch(popup, prefix: new HarmonyLib.HarmonyMethod(typeof(RuntimeReceiptTests), nameof(PopupPrefix)));
         harmony.Patch(text, prefix: new HarmonyLib.HarmonyMethod(typeof(RuntimeReceiptTests), nameof(TextPrefix)));
         var platform = Platform_Multiplayer.Instance;
@@ -224,6 +225,7 @@ internal static class RuntimeReceiptTests
             harmony.Unpatch(ready, HarmonyLib.HarmonyPatchType.Prefix, harmony.Id);
             harmony.Unpatch(modal, HarmonyLib.HarmonyPatchType.Prefix, harmony.Id);
             harmony.Unpatch(requester, HarmonyLib.HarmonyPatchType.Prefix, harmony.Id);
+            harmony.Unpatch(loadDialog, HarmonyLib.HarmonyPatchType.Prefix, harmony.Id);
             harmony.Unpatch(popup, HarmonyLib.HarmonyPatchType.Prefix, harmony.Id);
             harmony.Unpatch(text, HarmonyLib.HarmonyPatchType.Prefix, harmony.Id);
         }
@@ -279,49 +281,48 @@ internal static class RuntimeReceiptTests
             "Host setup did not produce the real deferred load-menu effect.");
         Set(runtime, "protocol", host); Set(runtime, "host", 1UL); Set(runtime, "self", 1UL);
         typeof(Director).GetField("multiplayerGame", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(Director.instance, false);
-        platform.activeLobby = lobby; popups = 0; hasModal = hasRequester = false;
+        platform.activeLobby = lobby; popups = loadDialogs = 0; hasModal = hasRequester = false;
         Invoke(runtime, "Apply", completed);
-        Check(Get<bool>(runtime, "loadMenuPending") && popups == 0, "Host completion opened the category popup synchronously.");
+        Check(Get<bool>(runtime, "loadMenuPending") && popups == 0, "Host completion opened the save dialog synchronously.");
         Invoke(runtime, "PumpLoadMenu");
-        Check(popups == 0 && Get<bool>(runtime, "loadMenuPending"), "Category popup preceded automatic Ready completion.");
+        Check(loadDialogs == 0 && popups == 0 && Get<bool>(runtime, "loadMenuPending"), "Save dialog preceded automatic Ready completion.");
         Set(runtime, "readyPending", false); hasModal = true; Invoke(runtime, "PumpLoadMenu");
-        Check(popups == 0 && Get<bool>(runtime, "loadMenuPending"), "Category popup replaced a foreign modal.");
+        Check(loadDialogs == 0 && popups == 0 && Get<bool>(runtime, "loadMenuPending"), "Save dialog replaced a foreign modal.");
         hasModal = false; Invoke(runtime, "PumpLoadMenu"); Invoke(runtime, "PumpLoadMenu");
-        Check(popups == 1 && !Get<bool>(runtime, "loadMenuPending"), "Unblocked category popup did not open exactly once.");
-        Check(popupInMultiplayer && !popupInMasters,
-            "Category question targeted the hidden in-mission popup instead of the multiplayer lobby popup.");
+        Check(loadDialogs == 1 && popups == 0 && !Get<bool>(runtime, "loadMenuPending"),
+            "Shared save dialog did not open exactly once without a save dialog.");
 
         Set(runtime, "loadMenuPending", true); hasRequester = true; Invoke(runtime, "PumpLoadMenu");
-        Check(popups == 1 && !Get<bool>(runtime, "loadMenuPending"), "Manual native requester did not cancel deferred category.");
+        Check(loadDialogs == 1 && popups == 0 && !Get<bool>(runtime, "loadMenuPending"), "Manual native requester did not cancel deferred load menu.");
         hasRequester = false; Invoke(runtime, "PumpLoadMenu");
-        Check(popups == 1, "Closing the manual requester reopened the deferred category.");
+        Check(loadDialogs == 1 && popups == 0, "Closing the manual requester reopened the deferred load menu.");
 
         // The opening and cancellation both happen between pumps; visibility alone
         // cannot retain that user choice. Exercise the actual registered callback.
         Set(runtime, "loadMenuPending", true);
         Invoke(runtime, "SaveRequesterOpened", Request(Enums.RequesterTypes.LoadMultiplayerGame));
-        Check(!Get<bool>(runtime, "loadMenuPending"), "Short manual requester opening did not cancel category intent.");
+        Check(!Get<bool>(runtime, "loadMenuPending"), "Short manual requester opening did not cancel load intent.");
         Invoke(runtime, "PumpLoadMenu");
-        Check(popups == 1, "Short requester open/cancel was followed by another category popup.");
+        Check(loadDialogs == 1 && popups == 0, "Short requester open/cancel was followed by another save dialog.");
         Set(runtime, "loadMenuPending", true);
         Invoke(runtime, "SaveRequesterOpened", Request(Enums.RequesterTypes.LoadSinglePlayerGame));
-        Check(Get<bool>(runtime, "loadMenuPending"), "Unrelated requester cancelled multiplayer category intent.");
+        Check(Get<bool>(runtime, "loadMenuPending"), "Unrelated requester cancelled multiplayer load intent.");
         platform.activeLobby = null;
         Invoke(runtime, "SaveRequesterOpened", Request(Enums.RequesterTypes.LoadMultiplayerCoopGame));
-        Check(Get<bool>(runtime, "loadMenuPending"), "Old lobby requester affected current category intent.");
+        Check(Get<bool>(runtime, "loadMenuPending"), "Old lobby requester affected current load intent.");
         platform.activeLobby = lobby;
         Invoke(runtime, "SaveRequesterOpened", Request(Enums.RequesterTypes.LoadMultiplayerCoopGame));
-        Check(!Get<bool>(runtime, "loadMenuPending"), "Cooperative requester opening did not cancel category intent.");
+        Check(!Get<bool>(runtime, "loadMenuPending"), "Cooperative requester opening did not cancel load intent.");
         Invoke(runtime, "SaveRequesterOpened", Request(Enums.RequesterTypes.LoadMultiplayerGame));
-        Check(!Get<bool>(runtime, "loadMenuPending"), "Own already-consumed requester recreated category intent.");
+        Check(!Get<bool>(runtime, "loadMenuPending"), "Own already-consumed requester recreated load intent.");
 
         Set(runtime, "loadMenuPending", true);
         typeof(Director).GetField("multiplayerGame", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(Director.instance, true);
         Invoke(runtime, "PumpLoadMenu");
-        Check(popups == 1 && !Get<bool>(runtime, "loadMenuPending"), "New mission received a stale category popup.");
+        Check(loadDialogs == 1 && popups == 0 && !Get<bool>(runtime, "loadMenuPending"), "New mission received a stale save dialog.");
         typeof(Director).GetField("multiplayerGame", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(Director.instance, false);
         Set(runtime, "loadMenuPending", true); platform.activeLobby = null; Invoke(runtime, "PumpLoadMenu");
-        Check(popups == 1 && !Get<bool>(runtime, "loadMenuPending"), "Changed lobby received a stale category popup.");
+        Check(loadDialogs == 1 && popups == 0 && !Get<bool>(runtime, "loadMenuPending"), "Changed lobby received a stale save dialog.");
     }
 
     private static void AutoReady(SaveLoadRuntime runtime, Frame frame, LoadProtocol completed)

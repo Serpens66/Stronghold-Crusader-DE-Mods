@@ -1,5 +1,4 @@
 Load.ConfirmTitle=Ukončit hru?
-Load.CategoryTitle=Koop uložené?
 Load.RecoveryTitle=Hlavní menu
 Load.WaitPeers=Čeká se, až všichni hráči povolí načítání ve hře více hráčů.
 Load.Transition=Přesun hráčů do lobby pro načtení hry více hráčů.

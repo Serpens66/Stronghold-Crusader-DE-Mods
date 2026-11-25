@@ -672,3 +672,6 @@ BugfixesAndQoL.AutoSend.SuppressionUnavailable=Automatic deliveries are stopped 
 BugfixesAndQoL.AutoSend.RecipientNotAllied=Automatic deliveries are only available to allies. You can still send gifts to this lord manually.
 BugfixesAndQoL.AutoSend.RecipientNotLiving=Automatic deliveries require both lords to be alive.
 BugfixesAndQoL.AutoSend.LayoutUnavailable=The automatic delivery settings cannot be displayed in the current menu layout.
+BugfixesAndQoL.EnableAiMarketOverbuyFix=Prevent AI overbuying
+BugfixesAndQoL.EnableAiMarketOverbuyFixHelp=Updates outstanding AI purchase quantities when goods arrive from other sources. Delivered goods remain credited after consumption, preventing stale orders from buying the same supply again. The AI keeps its intended purchase batches. Applies to all AI players.
+BugfixesAndQoL.SettingsRework.Reason.EnableAiMarketOverbuyFix=Corrects stale AI purchase quantities and avoids unnecessary spending while preserving intended purchase batches.

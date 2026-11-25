@@ -21,8 +21,8 @@ namespace AIMarketAcceptance
 {
     [BepInPlugin(Guid, "AI Market Acceptance", "0.1.0")]
     [BepInDependency("000shcdese", "2.14.4")]
-    [BepInDependency("APIShared_Serp", "0.65.0")]
-    [BepInDependency("AIMarketOverbuyDiagnostic_Serp", "0.1.0")]
+    [BepInDependency("APIShared_Serp", "0.73.3")]
+    [BepInDependency("BugfixesAndQoL_Serp", "1.0.241")]
     public sealed class AcceptancePlugin : BaseUnityPlugin
     {
         public const string Guid="AIMarketAcceptance_Serp";
@@ -83,13 +83,12 @@ namespace AIMarketAcceptance
                         string[] current=File.ReadAllLines(path);
                         Require(current.Length>=2&&current[0]==request[0]&&current[1]==request[1],"request changed before startup");
                         Require(AiMarketEvents.CheckIntegrity(),"shared market hooks unavailable: "+AiMarketEvents.Diagnostic);
-                        owner=FindType("AIMarketOverbuyDiagnostic.MarketPendingDemandFix");
-                        aic=typeof(AIMarketOverbuyDiagnostic.MarketBacklogAic);
-                        AIMarketOverbuyDiagnostic.MarketBacklogAic.Reporter=Info;
+                        owner=FindType("BugfixesAndQoL.AI.Market.MarketPendingDemandFix");
+                        aic=typeof(AIMarketAcceptance.MarketBacklogAic);
+                        AIMarketAcceptance.MarketBacklogAic.Reporter=Info;
                         if(giftRecruitRun) RegisterGiftRecruit();
                         else
                         {
-                            RegisterComponentContracts();
                             Require(NativeWorldRestoreEvents.TryRegister(AcceptancePlugin.Guid,"pre-fold-ledger",AfterRestore,out string reason,100),reason);
                             Require(AiMarketEvents.TryRegister(AcceptancePlugin.Guid,"loaded-ledger-decision",BeforeDecision,
                                 (c,t,d,r)=>{},out marketObserver,out reason,-200,onFailure:e=>observationFailure=e),reason);
@@ -104,7 +103,7 @@ namespace AIMarketAcceptance
         }
         private static IEnumerable<AutomationStep> Steps()
         {
-            yield return new AutomationStep("load-owned-fixture",TimeSpan.FromSeconds(150),r=>r.LoadSave(fixture));
+            yield return new AutomationStep("load-owned-fixture",TimeSpan.FromSeconds(150),LoadInitialFixture);
             if(giftRecruitRun)
             {
                 yield return new AutomationStep("vanilla-single-gift-and-recruit",TimeSpan.FromSeconds(230),RunGiftRecruit,true);
@@ -115,6 +114,12 @@ namespace AIMarketAcceptance
             yield return new AutomationStep("check-roundtrip-one",TimeSpan.FromSeconds(45),r=>CheckLoaded(r,1),true);
             yield return new AutomationStep("load-roundtrip-two",TimeSpan.FromSeconds(150),r=>Reload(r,2));
             yield return new AutomationStep("check-roundtrip-two",TimeSpan.FromSeconds(45),r=>CheckLoaded(r,2),true);
+            yield return new AutomationStep("load-with-main-mod-disabled",TimeSpan.FromSeconds(150),r=>LoadSettingsCase(r,false,true,0));
+            yield return new AutomationStep("check-main-mod-disabled",TimeSpan.FromSeconds(30),r=>CheckDisabled(r,false,true),true);
+            yield return new AutomationStep("load-with-market-option-disabled",TimeSpan.FromSeconds(150),r=>LoadSettingsCase(r,true,false,0));
+            yield return new AutomationStep("check-market-option-disabled",TimeSpan.FromSeconds(30),r=>CheckDisabled(r,true,false),true);
+            yield return new AutomationStep("load-with-market-reenabled",TimeSpan.FromSeconds(150),r=>LoadSettingsCase(r,true,true,3));
+            yield return new AutomationStep("check-market-reenabled",TimeSpan.FromSeconds(45),r=>CheckLoaded(r,3),true);
         }
         private static IEnumerable<AutomationWait> PrepareAndSave(AutomationRun run)
         {
@@ -137,7 +142,6 @@ namespace AIMarketAcceptance
             run.InSimulation(mission,()=>{
                 RequireFixOn("before-contract-regressions");
                 VerifyPureCapture();
-                VerifyOwnerRepairCallbacks();
                 RequireState(Read(player,good),"after-contract-regressions");
                 return true;
             });
@@ -316,11 +320,11 @@ namespace AIMarketAcceptance
                 RequireFixOn("after-managed-start");
                 State state=Read(player,good);
                 if(state.Pending!=0)RequireState(state,"after-managed-start");
-                if(ordinal==2) CompleteLoadedPackage();
+                if(ordinal>=2) CompleteLoadedPackage();
                 int before=Volatile.Read(ref decisionChecks);
                 var decision=Marshal.GetDelegateForFunctionPointer<RecruitCall>(new IntPtr(module+0x3EC90));
                 decision(new IntPtr(module+0x404C950),player);
-                if(ordinal==2)
+                if(ordinal>=2)
                 {
                     State closed=Read(player,good);
                     Require(closed.Pending==0&&closed.Stock==0&&Volatile.Read(ref terminalBuyAttempts)==0,
@@ -333,7 +337,7 @@ namespace AIMarketAcceptance
                 Info("ROUNDTRIP_PASS ordinal="+ordinal+" session="+mission.SessionId+" sourceCreditPreserved=True rawBeforeFirstFold=True freshDecisionGate=True");
                 return true;
             });
-            if(ordinal==2)
+            if(ordinal>=2)
             {
                 run.InSimulation(mission,()=>{Call(aic,"RestoreAll");return true;});
                 marketObserver.SetEnabled(false);Volatile.Write(ref expectRestore,0);

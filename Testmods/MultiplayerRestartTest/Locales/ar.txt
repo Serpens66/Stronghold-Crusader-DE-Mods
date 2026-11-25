@@ -1,5 +1,4 @@
 Load.ConfirmTitle=إنهاء الجولة؟
-Load.CategoryTitle=حفظ تعاوني؟
 Load.RecoveryTitle=القائمة
 Load.WaitPeers=في انتظار تفعيل التحميل الجماعي لدى جميع اللاعبين.
 Load.Transition=يتم نقل اللاعبين إلى ردهة تحميل اللعب الجماعي.

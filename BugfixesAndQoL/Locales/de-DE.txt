@@ -672,3 +672,6 @@ BugfixesAndQoL.AutoSend.SuppressionUnavailable=Automatische Lieferungen sind ang
 BugfixesAndQoL.AutoSend.RecipientNotAllied=Automatische Lieferungen sind nur an Verbündete möglich. Geschenke an diesen Fürsten kannst du weiterhin manuell senden.
 BugfixesAndQoL.AutoSend.RecipientNotLiving=Automatische Lieferungen sind nur möglich, solange beide Fürsten leben.
 BugfixesAndQoL.AutoSend.LayoutUnavailable=Der Bereich für automatische Lieferungen kann im aktuellen Menü nicht eingeblendet werden.
+BugfixesAndQoL.EnableAiMarketOverbuyFix=KI-Überkäufe verhindern
+BugfixesAndQoL.EnableAiMarketOverbuyFixHelp=Passt offene KI-Kaufmengen an, wenn Waren aus anderen Quellen eintreffen. Gelieferte Waren bleiben auch nach ihrem Verbrauch angerechnet, damit veraltete Aufträge dieselbe Lieferung nicht erneut einkaufen. Die vorgesehenen Einkaufspakete der KI bleiben erhalten. Gilt für alle KI-Spieler.
+BugfixesAndQoL.SettingsRework.Reason.EnableAiMarketOverbuyFix=Korrigiert veraltete KI-Kaufmengen und vermeidet unnötige Ausgaben, während die vorgesehenen Einkaufspakete erhalten bleiben.
