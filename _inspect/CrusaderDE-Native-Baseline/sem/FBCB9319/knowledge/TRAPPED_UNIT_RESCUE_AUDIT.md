@@ -556,3 +556,23 @@ base plus native index. The causal snapshot separately captures the selected
 tree global before mutation; recovery and saved pending records cannot adopt a
 new lifetime from the same slot. These are integration safeguards, not a claim
 of a defective one-based SDK contract or completed worker gameplay acceptance.
+
+### Failed-order trigger versus spatial authority, 2026-11-25 [mod integration]
+
+The testmod's P7 integration reuses the final existing UnitMove owner; it adds no
+native hook and does not interpret native196280 result0 as proof of entrapment.
+An unreachable destination from legal ground remains a valid native refusal.
+Spatial authority comes only from an earlier observed construction/terrain
+capture, separated from a newly captured active typed intent. A positive later
+native publication cancels the retained authority even when its Begin belongs
+to an older outer call than a nested failed call. Completion precedes mutable
+legacy Post and native caller tails, so actual rescue stays at a later admitted
+simulation boundary with fresh validation and transient save gating.
+
+The original local candidate frame remains anchored at original Current. Moving
+to the one originally accepted Next does not rebase its radius8 search to another
+origin: an old legitimate candidate can then be nine coordinates from the fresh
+origin. Geometry codec and canonical join preserve both frames. These are tested
+managed ownership rules; they establish neither a universal physical failure
+sensor nor acceptance of native gameplay/save/worker behaviour. See testmod
+Audits/MOVE-FAILURE-SOURCE.md, IMPLEMENTATION.md and INGAME-PENDING.md.

@@ -109,3 +109,36 @@ The native safety argument is conditional on the explicit guards above and reuse
 IsCurrent validates the original receipt through Inspect(receipt,true), including original active external binding lifetimes, before any new capture. Its live pose guard rejects special modes, death, incoherent packed coordinates, stationary pending740, unrelated Next, step reset and an unproved second successor. TryGetSnapshot then uses NativeWorld.TryCapture to refresh the exact synchronous job and current health, compares identity/goal/bindings/schema, and preserves all original fresh Pre pose fields for GeometryJoin. Only the explicitly audited worker timers may differ. It never reserves a ledger slot, calls a planner, parks a unit or changes geometry. The coordinator still exclusively owns actualNative0, world/session/order serial, wrapper settling, geometry join, age/budgets and save integration.
 
 RescueReplanIntentFixture executes that same orchestration with real immutable worker/command snapshots and injected read-only access.928 offline assertions cover all20 admitted Worker families and their R states, every admitted Command phase, exact completed-Next0 handling, rejected second steps, health/timer refresh, selected-tree lifetime changes, crew/AI/owner/tribe/goal/command changes and mutable-copy isolation. The genuine-SDK isolated executable passes; an independent read-only review found no additional confirmed defect within this boundary. These are boundary proofs, not a claim that coordinator wiring or native gameplay has passed.
+
+### Coordinator and persistence implementation checkpoint, 2026-11-25
+
+The proposed retained-geometry contract above is now implemented in GeneralRescueObserver.Replans and wired at final Move priority100 after canonical order invalidation. Geometry-only records use a separate codec; joined candidates use pending codec4 with an exact canonical geometry join, preserving the original radius8 frame even when the fresh origin is originalNext. Both namespaces share capacity512 and original age/attempt accounting. Begin through first admitted Tick is unsettled and blocks atomic save. Late zero completions cannot arm a future boundary; a late positive publication still retires geometry.
+
+Independent actual-source offline runs passed GeometryWitness209, FreshIntent928, GeometryPersistence637 and Coordinator853 assertions, plus all existing suites. These close managed identity/order/pose/codec orchestration at this checkpoint; they do not prove native caller-tail timing or gameplay. The final footprint-conflict regression and complete packaged build are recorded in IMPLEMENTATION.md. A failed move without a causal witness remains outside the admitted rescue source.
+
+### Historical-bank overlap and compound failure closure
+
+The actual coordinator regression reproduced a retained witness surviving a later
+planned write at originalX+3/originalY+3 with no local actors, away from its
+endpoints and chosen candidate fields. Candidate occupancy checks cannot prove
+that an intermediate old path is unchanged. The coordinator now invalidates all
+historical representations on overlapping original radius8 envelopes before the
+new writer; disjoint complete envelopes preserve independent cases. Native
+planning is done once, and its complete envelope remains available if occupant
+discovery subsequently fails. No envelope is inferred from the captured actors.
+
+A failed first or later child capture leaves an Invalid Batch tombstone until
+outer completion. Zero-actor conflicts retain retired actor IDs too, preventing
+later samecompound child re-admission. Unknown envelopes cannot publish a partial
+proof. A bounded64-batch failure overflow retires historical state and latches
+capture off until world reset. Successful complete samecompound captures retain
+their existing earliest-proof rule. These corrections change metadata ownership,
+not the original native writer or its execution count.
+
+The final focused actual-source run passed Coordinator919 and General179 checks;
+six live/staged/joined/unjoined stores, shiftedNext radius9, sparse disjoint
+control, known-envelope discovery failure, unknown planning, failed-first/child,
+conflict tombstones and overflow/reset are covered. The additional invalidation
+work is bounded by2048 envelope entries plus at most512 historical records with
+at most289 coordinate-hash probes each (147968 maximum), with no unit reads or
+new native hooks. This is an operation bound, not a game timing measurement.

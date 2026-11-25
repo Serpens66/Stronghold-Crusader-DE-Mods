@@ -41,3 +41,9 @@ Die spätere Migration der Rettung nach Pathfinding ist nicht Bestandteil dieses
 ## P7-Zwischenstand beim Sicherungscommit
 
 Der Rettungs-Testmod enthält inzwischen begonnene P7-Coordinator- und Persistenzänderungen. Der letzte vollständige grüne Gesamtbuild mit61407 Prüfungen liegt vor diesen Änderungen. Die neuen reinen Geometrie-/Intent-Bausteine wurden getrennt geprüft; die Gesamtintegration und der begonnene Persistenztest sind noch nicht abschließend kompiliert oder getestet. Der Sicherungscommit behauptet keine Abnahme dieses Zwischenstands.
+
+## Fortschritt nach dem Sicherungscheckpoint
+
+Der oben beschriebene unvollständige Zustand ist der historische Stand des ersten Sicherungscommits. Inzwischen wurden die integrierten P7-Quellen unabhängig kompiliert und alle tatsächlichen Offline-Fixtures ausgeführt: Geometrie209, frische Absicht928, Persistenz637 und Coordinator853 Prüfungen bestanden; zusätzliche bestehende Suiten ebenfalls bestanden. Nachweis: `.work/a/rescue-impl/001/replan-review-build.log` und `replan-review-tests.log`. Der anschließende Überschneidungsfix einschließlich früher/später fehlgeschlagener Batchteiloperationen ist mit Coordinator919 Prüfungen und dem vollständigen Normalbuild abgeschlossen:64101 Einzelprüfungen plus Fixes-Verträge bestanden. Aktueller Nachweis: `.work/a/rescue-impl/001/offline-completion.json` und `p7-final-build.log`; Umsetzung und Spielgrenzen stehen in IMPLEMENTATION.md. Die SDK-Quellen werden durch diese testmodinterne Ergänzung nicht verändert; der vollständige SDK-Buildnachweis bleibt gegen seine aktuellen Eingaben prüfbar.
+
+Die angeforderten Sicherungscommits im Hauptrepository sind `be28405a4` und `3f8244061`. Das sind lokale Arbeitsstandsicherungen und keine Freigabe des Testmods oder späterer Änderungen.

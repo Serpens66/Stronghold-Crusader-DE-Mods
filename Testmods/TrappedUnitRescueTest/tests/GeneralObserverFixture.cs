@@ -10,7 +10,7 @@ namespace TrappedUnitRescueTest.Tests
     internal static class GeneralObserverFixture
     {
         private static int assertions;
-        private sealed class World : IRescueMutationWorld
+        private sealed class World : IRescueMutationFootprintWorld
         {
             internal long Session=9,Generation=3;
             internal int TickValue=100,CaptureCalls,ChangedCalls,RescueCalls,WorldReads,TickReads;
@@ -22,6 +22,10 @@ namespace TrappedUnitRescueTest.Tests
             internal RescueStatus FailureStatus=RescueStatus.NoCandidate;
             public bool TryCapture(WorldMutationContext context,out List<UnitSnapshot> before,out string reason)
             {CaptureCalls++;before=Next;reason=CaptureSupported?null:"unsupported";return CaptureSupported;}
+            // This fixture isolates queue/receipt policy; real geometry conflicts
+            // and nonempty envelopes are exercised in ReplanCoordinatorFixture.
+            public bool TryCapture(WorldMutationContext context,out List<UnitSnapshot> before,out IReadOnlyList<RescueTile> plannedWrites,out string reason)
+            {plannedWrites=Array.Empty<RescueTile>();return TryCapture(context,out before,out reason);}
             public bool HasChangedTrapCandidate(UnitSnapshot before){ChangedCalls++;return Changed;}
             public bool TryRescue(UnitSnapshot before,string cause,bool resume,out RescueResult result)
             {
@@ -127,7 +131,7 @@ namespace TrappedUnitRescueTest.Tests
             moved.Complete(Outcome(second));old.Complete(Outcome(first));mismatch.OnBatchCompleted(Batch(30));Require(mismatch.PendingCount==0,"nested movement cannot inherit earlier geometry proof");
             var supportedWorld=new World();var supported=New(supportedWorld);var known=Context(40,1,source:WorldMutationSource.AivBuildStep);supportedWorld.Next=Units(1,1);var knownReceipt=supported.TryBegin(known);
             supportedWorld.CaptureSupported=false;Require(supported.TryBegin(Context(40,2))==null,"unsupported child has no private capture");
-            knownReceipt.Complete(Outcome(known));supported.OnBatchCompleted(Batch(40));Require(supported.PendingCount==1,"unsupported child alone does not destroy valid full outer proof");
+            knownReceipt.Complete(Outcome(known));supported.OnBatchCompleted(Batch(40));Require(supported.PendingCount==0,"failed child invalidates partial samebatch capture rather than publishing incomplete evidence");
         }
         private static void FailureAndLifetime()
         {

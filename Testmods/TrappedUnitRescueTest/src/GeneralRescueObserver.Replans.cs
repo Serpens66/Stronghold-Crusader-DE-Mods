@@ -29,6 +29,68 @@ namespace TrappedUnitRescueTest
         private int GeometryCount=>geometry.Count+stagedGeometry.Length;
         internal bool HasUnsettledReplans=>unsettledReplans.Count!=0;
         private bool IsReplanInterested(int id)=>geometry.ContainsKey(id) || stagedGeometryIds.Contains(id);
+        private void RetireAllHistoricalGeometry()
+        {
+            queue.Reset(session,world);staged=Array.Empty<RescuePendingCandidate<UnitSnapshot>>();stagedIds.Clear();ResetGeometry(true);
+        }
+        private IReadOnlyList<int> RetireHistoricalGeometry(IReadOnlyList<RescueTile> writes,out bool completeEnvelope)
+        {
+            completeEnvelope=writes!=null && writes.Count<=2048;
+            if(PendingCount==0 || writes!=null && writes.Count==0)return Array.Empty<int>();
+            // This bound is the native adapter's complete-envelope budget. A provider
+            // exceeding it has supplied no usable bounded proof, never a partial one.
+            if(!completeEnvelope){RetireAllHistoricalGeometry();return Array.Empty<int>();}
+            var retired=new List<int>();
+            var cells=new HashSet<long>();int minX=799,minY=799,maxX=0,maxY=0;
+            foreach(var tile in writes)
+            {
+                if((uint)tile.X>=800 || (uint)tile.Y>=800 || (uint)tile.TileId>=NativeRelocation.TileCapacity)
+                {completeEnvelope=false;RetireAllHistoricalGeometry();return retired;}
+                cells.Add(CoordinateKey(tile.X,tile.Y));
+                minX=Math.Min(minX,tile.X);maxX=Math.Max(maxX,tile.X);minY=Math.Min(minY,tile.Y);maxY=Math.Max(maxY,tile.Y);
+            }
+            var remove=new List<int>();
+            foreach(var item in geometry.Values)
+                if(EnvelopeOverlaps(item.Witness.Current.X,item.Witness.Current.Y,cells,minX,minY,maxX,maxY))remove.Add(item.Witness.UnitId);
+            foreach(int id in remove){retired.Add(id);DropGeometry(id);}
+            var keptGeometry=new List<RescuePendingGeometry>();stagedGeometryIds.Clear();
+            foreach(var record in stagedGeometry)
+                if(!EnvelopeOverlaps(record.Witness.Current.X,record.Witness.Current.Y,cells,minX,minY,maxX,maxY))
+                {keptGeometry.Add(record);stagedGeometryIds.Add(record.Witness.UnitId);}
+                else retired.Add(record.Witness.UnitId);
+            stagedGeometry=keptGeometry.ToArray();
+            var keptPending=new List<RescuePendingCandidate<UnitSnapshot>>();stagedIds.Clear();
+            foreach(var record in staged)
+                if(!SnapshotEnvelopeOverlaps(record.Snapshot,cells,minX,minY,maxX,maxY))
+                {keptPending.Add(record);stagedIds.Add(record.Snapshot.Id);}
+                else retired.Add(record.Snapshot.Id);
+            staged=keptPending.ToArray();
+            if(!queue.HasWork)return retired;
+            if(!access.TryGetTick(out int tick) || !queue.TryCopyPending(tick,out var queued))
+            {completeEnvelope=false;RetireAllHistoricalGeometry();return retired;}
+            foreach(var record in queued)
+                if(SnapshotEnvelopeOverlaps(record.Snapshot,cells,minX,minY,maxX,maxY))
+                {retired.Add(record.Snapshot.Id);queue.InvalidateUnit(record.Snapshot.Id);}
+            return retired;
+        }
+        private static bool SnapshotEnvelopeOverlaps(UnitSnapshot snapshot,HashSet<long> cells,int minX,int minY,int maxX,int maxY)
+        {
+            if(snapshot==null)return true;
+            var origin=snapshot.GeometryWitness;
+            return EnvelopeOverlaps(origin==null?snapshot.X:origin.Current.X,origin==null?snapshot.Y:origin.Current.Y,cells,minX,minY,maxX,maxY);
+        }
+        // Coordinate keys are NOT native packed tile IDs. All old BFS paths stay
+        // inside the original radius8 square, even when fresh Current is old Next.
+        private static long CoordinateKey(int x,int y)=>((long)(uint)x<<32)|(uint)y;
+        private static bool EnvelopeOverlaps(int x,int y,HashSet<long> cells,int minX,int minY,int maxX,int maxY)
+        {
+            if((uint)x>=800 || (uint)y>=800)return true;
+            if(maxX<x-8 || minX>x+8 || maxY<y-8 || minY>y+8)return false;
+            for(int row=Math.Max(0,y-8);row<=Math.Min(799,y+8);row++)
+                for(int column=Math.Max(0,x-8);column<=Math.Min(799,x+8);column++)
+                    if(cells.Contains(CoordinateKey(column,row)))return true;
+            return false;
+        }
         private bool RetireStagedGeometry(int id,uint global=0)
         {
             if(!stagedGeometryIds.Remove(id))return false;

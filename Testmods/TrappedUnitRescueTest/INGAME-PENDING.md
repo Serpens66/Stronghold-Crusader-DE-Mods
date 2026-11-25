@@ -18,6 +18,7 @@ Zu jeder Familie gehören Gegenproben: Funktion aus, No-op/abgelehnter Writer, v
 | Menschlicher gemeinsamer Bau | Gültige Platzierungen sowie natürliche Ablehnung auf Einheiten; keine künstliche Umgehung als Beleg für die normale Menschen-UI |
 | Alle 23 Creator-Dispatchfamilien | Reale betroffene Randfelder, Compound-/Subsidiärteile, Farms und Quarry-Erweiterungen; leere/unbetroffene Hüllen müssen ohne Aktion bleiben |
 | AIV-Cleanup und Replacements | Entfernte Compoundteile, Farmfelder ohne BuildingLayer, vollständige Vorherdaten auch vor Cleanup; anschließend echte neue Konstruktion |
+| Verschachtelter Erfassungsausfall | Frühe oder späte Teiloperation kann nicht vollständig erfasst werden: gesamter betroffener Batch darf keinen partiellen Rettungsbeleg veröffentlichen; ursprünglicher Bau läuft weiter |
 | Menschen-/KI-Mauern | Einzeltiles und Linien, Mirrors, mehrere Einheiten und Gruppen, frühere Fixes-Aktionen erhalten; kein Doppelretten |
 | Sieben Editoroperationen | Reale Editor-Neuanlage und Laden, Typ-/Height-/Clear-Brushes, Kartenränder; absichtliches Löschen von Einheiten darf nicht rückgängig gemacht werden |
 | Graben Dig/Fill | Tatsächlich terminaler Fortschritt, mehrere Arbeiter und Reservierungen; nichtterminale Fortschritte lösen keine Erfassung/Rettung aus; Caller-AI erst vollständig abgewickelt |
@@ -32,6 +33,20 @@ Zu jeder Familie gehören Gegenproben: Funktion aus, No-op/abgelehnter Writer, v
 - Assassinen an echten Mauern, Torhäusern und Zugbrücken: legale Kletter-/Abstiegskanten dürfen keine Rettung auslösen. Tunnel, Portal, Transport und Ladder-/Sonderzustände bleiben gesonderte negative Freigabeprüfungen.
 - Kein Zielort: Einheit nicht auf belegtes, ungültiges oder zuvor nicht erreichbares Feld setzen. Später wieder freier Zielort und Retry-/Altersgrenzen getrennt prüfen.
 - Vor dem ersten Recoverytick erteilter neuer Auftrag, einschließlich gleicher Zielkoordinate, veränderter Pre-Argumente, Veto, Post-Manipulation und fremder geschachtelter Aufträge. Keine alte Absicht wiederherstellen.
+
+## P7: neuer fehlgeschlagener Auftrag bei bereits belegter Blockade
+
+Diese Fälle benötigen echten Native0/1-Ausgang und den vollständigen nativen Aufrufernachlauf; die Offline-Completions sind dafür kein Spielbeleg.
+
+- Echte Bauänderung erfasst einen vorher gewöhnlichen Standort; noch vor dem Recoverytick tritt ein neuer qualifizierter aktiver Auftrag zum aktuellen Requested-Ziel auf und scheitert nativ. Rettung führt ausschließlich den neuen Auftrag fort. Gleiches Ziel mit neuer Aufgabe gesondert prüfen.
+- Worker-Reise mit natürlicher Arbeitsplatz-/Lager-/Baumidentität sowie militärischer Auftrag mit echtem Verband; Zerstörung oder Wiederverwendung eines gebundenen Objekts nach Begin muss ablehnen. Schäden bleiben erhalten.
+- Standort bleibt original Current oder beendet genau das zuvor angenommene Next. Zweiter Schritt, anderer Nachfolger, neuer AI-/Kontaktzustand, geändertes Ziel oder Verbandswechsel müssen den Nachweis verwerfen.
+- Älterer äußerer Aufruf veröffentlicht nach verschachteltem Native0 eine tatsächliche positive Route: keine zusätzliche Rettung. Veto, Redirect, Ausnahme und manipuliertes Legacy-Post-Ergebnis jeweils getrennt testen.
+- Spätere Bauänderung verändert die alte Ausweichregion, ohne die Actor-Kachel zu berühren; alte räumliche Belege dürfen nicht weiterwirken. Eine räumlich getrennte Änderung darf einen unabhängigen Fall nicht unnötig verlieren lassen.
+- Save mit ausschließlich erhaltener Geometrie: nach Laden keine spontane Aktion. Erst ein neuer tatsächlich qualifizierter Native0-Aufruf darf einen frischen Trigger liefern. Save mit bereits verbundenem frischem Auftrag dagegen genau einmal abarbeiten; Originalalter, Retryverzögerung und verbrauchte Versuche erhalten.
+- Save innerhalb eines fremden Begin/Original/Completion und vor erster Taktgrenze atomar ablehnen. Nach erster Taktgrenze darf eine verspätete Null-Completion keinen neuen Trigger erzeugen.
+- Viele gleichzeitige Fehlschläge: gemeinsame Kapazität512,32 frische Validierungen sowie gemeinsame8 Recoveryversuche pro Tick nachweisen; wiederholter Callback desselben Ticks darf nichts verdoppeln. Alter80 und Versuchslimit4 durch neue Aufträge nicht zurücksetzen.
+- Negative Kontrolle ohne Vorherdaten: gesunde Einheit mit unerreichbarem Ziel, eingeschlossener legaler Hof und defekter Altsave ohne eigene Daten erzeugen durch Native0 keine Teleportberechtigung.
 
 ## Untätige Einheiten auf neuem fertigem Graben
 

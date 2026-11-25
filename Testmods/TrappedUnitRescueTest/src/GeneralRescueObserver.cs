@@ -15,7 +15,13 @@ namespace TrappedUnitRescueTest
         bool TryGetWorld(out long session,out long generation);
         bool TryGetTick(out int tick);
     }
-    internal sealed class NativeRescueMutationWorld : IRescueMutationWorld
+    // Null means an unknown write envelope; empty means proved no geometry writes.
+    // A complete envelope survives failed occupant discovery and zero occupants.
+    internal interface IRescueMutationFootprintWorld : IRescueMutationWorld
+    {
+        bool TryCapture(WorldMutationContext context,out List<UnitSnapshot> before,out IReadOnlyList<RescueTile> plannedWrites,out string reason);
+    }
+    internal sealed class NativeRescueMutationWorld : IRescueMutationFootprintWorld
     {
         private readonly RescueRuntime runtime;
         private readonly NativeMutationFootprints footprints;
@@ -25,9 +31,12 @@ namespace TrappedUnitRescueTest
             footprints=new NativeMutationFootprints(runtime.Native,new RescueFootprintBudget(2048,131072));
         }
         public bool TryCapture(WorldMutationContext context,out List<UnitSnapshot> before,out string reason)
+            =>TryCapture(context,out before,out _,out reason);
+        public bool TryCapture(WorldMutationContext context,out List<UnitSnapshot> before,out IReadOnlyList<RescueTile> plannedWrites,out string reason)
         {
-            before=null;
+            before=null;plannedWrites=null;
             if(!footprints.TryPlan(context,out List<RescueTile> tiles,out int owner,out reason))return false;
+            plannedWrites=tiles;
             if(tiles.Count==0){before=new List<UnitSnapshot>();return true;}
             if(!runtime.TryCaptureMutation(tiles,out before,out reason))return false;
             before.RemoveAll(unit=>unit.Unsupported!=null || owner>0 && unit.Owner!=owner);
@@ -67,6 +76,7 @@ namespace TrappedUnitRescueTest
         private long session,world,captures,attempts,rescues;
         private int busy,reported,lastDrainTick;
         private bool drainedTick;
+        private bool failedBatchOverflow;
         private RescuePendingCandidate<UnitSnapshot>[] staged=Array.Empty<RescuePendingCandidate<UnitSnapshot>>();
         internal long CaptureCount=>Interlocked.Read(ref captures);
         internal long AttemptCount=>Interlocked.Read(ref attempts);
@@ -145,7 +155,7 @@ namespace TrappedUnitRescueTest
         }
         private void ResetWorld(long generation)
         {
-            world=generation;batches.Clear();queue.Reset(session,generation);drainedTick=false;
+            world=generation;batches.Clear();queue.Reset(session,generation);drainedTick=false;failedBatchOverflow=false;
             Array.Clear(orders,0,orders.Length);reported=0;
             Array.Clear(capturedInterest,0,capturedInterest.Length);
             ResetGeometry(false);
@@ -171,15 +181,47 @@ namespace TrappedUnitRescueTest
             if(!IsActive || IsRecovering || context==null || context.SessionId!=session || context.WorldGeneration==0)return null;
             if(!access.TryGetWorld(out long liveSession,out long liveWorld) || liveSession!=context.SessionId || liveWorld!=context.WorldGeneration)return null;
             if(world!=liveWorld)ResetWorld(liveWorld);
-            if(!access.TryCapture(context,out List<UnitSnapshot> before,out string reason))
-            {ReportBounded("mutation capture deferred source="+context.Source+" reason="+reason);return null;}
-            if(before.Count==0)return null;
+            if(failedBatchOverflow)return null;
+            List<UnitSnapshot> before=null;IReadOnlyList<RescueTile> writes=null;string reason=null;bool captured=false;
+            try
+            {
+                captured=access is IRescueMutationFootprintWorld withFootprint?
+                    withFootprint.TryCapture(context,out before,out writes,out reason):access.TryCapture(context,out before,out reason);
+            }
+            catch{reason="mutation-capture-exception";}
+            // This runs before the original even when no local actor was found.
+            // Active captures belong to this compound event, not historical caches.
+            var retired=RetireHistoricalGeometry(writes,out bool completeEnvelope);
+            if(!captured || before==null || !completeEnvelope)
+            {
+                if(!batches.TryGetValue(context.BatchId,out Batch partial))
+                {
+                    if(batches.Count>=64)
+                    {
+                        // A failed first parent cannot disappear merely because the
+                        // bounded batch ledger is full. Fail closed until world reset.
+                        failedBatchOverflow=true;RetireAllHistoricalGeometry();
+                        foreach(var existing in batches.Values)existing.Invalid=true;
+                        ReportBounded("failed-mutation-batch-capacity");return null;
+                    }
+                    partial=new Batch{Session=context.SessionId,World=context.WorldGeneration};batches.Add(context.BatchId,partial);
+                }
+                partial.Invalid=true;
+                ReportBounded("mutation capture deferred source="+context.Source+" reason="+reason);return null;
+            }
+            if(before.Count==0 && retired.Count==0)return null;
             if(!batches.TryGetValue(context.BatchId,out Batch batch))
             {
                 if(batches.Count>=64){ReportBounded("mutation-batch-capacity");return null;}
                 batch=new Batch{Session=context.SessionId,World=context.WorldGeneration};batches.Add(context.BatchId,batch);
             }
             if(batch.Session!=context.SessionId || batch.World!=context.WorldGeneration){batch.Invalid=true;return null;}
+            foreach(int id in retired)
+            {
+                if(batch.Units.Remove(id))capturedInterest[id]--;
+                batch.RetiredUnits.Add(id);
+            }
+            if(before.Count==0)return null;
             foreach(var unit in before)
             {
                 if(batch.RetiredUnits.Contains(unit.Id))continue;

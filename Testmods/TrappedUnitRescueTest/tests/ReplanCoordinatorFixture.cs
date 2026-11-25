@@ -14,16 +14,20 @@ namespace TrappedUnitRescueTest.Tests
     {
         private static int checks;
         private static void Check(bool value,string why){checks++;if(!value)throw new Exception("Replan coordinator: "+why);}
-        private sealed class Engine : IRescueMutationWorld
+        private sealed class Engine : IRescueMutationFootprintWorld
         {
             internal long Session=9,Generation=3;
             internal int Now=100,RescueCalls,WorldReads,TickReads;
             internal bool RescueSuccess=true;
+            internal IReadOnlyList<RescueTile> PlannedWrites=Array.Empty<RescueTile>();
+            internal bool CaptureSupported=true;
             internal Action<UnitSnapshot> DuringRescue;
             internal readonly List<UnitSnapshot> Captured=new List<UnitSnapshot>();
             internal readonly List<UnitSnapshot> Rescued=new List<UnitSnapshot>();
             public bool TryCapture(WorldMutationContext c,out List<UnitSnapshot> before,out string reason)
-            {before=new List<UnitSnapshot>(Captured);reason=null;return true;}
+            {before=new List<UnitSnapshot>(Captured);reason=CaptureSupported?null:"fixture capture failure";return CaptureSupported;}
+            public bool TryCapture(WorldMutationContext c,out List<UnitSnapshot> before,out IReadOnlyList<RescueTile> plannedWrites,out string reason)
+            {plannedWrites=PlannedWrites;return TryCapture(c,out before,out reason);}
             public bool HasChangedTrapCandidate(UnitSnapshot before)=>true;
             public bool TryRescue(UnitSnapshot before,string cause,bool resume,out RescueResult result)
             {RescueCalls++;Rescued.Add(before);DuringRescue?.Invoke(before);result=new RescueResult{Status=RescueSuccess?RescueStatus.Rescued:RescueStatus.NoCandidate};return RescueSuccess;}
@@ -135,7 +139,7 @@ namespace TrappedUnitRescueTest.Tests
         }
         internal static void Run()
         {
-            checks=0;FreshIntentAndSaveBoundary();OriginalAcceptedNextRoundTrip();NestedPublication();FirstBoundaryAndNewOrder();RejectedCallsAndInvalidation();
+            checks=0;EnvelopeOverlapRetirement();FreshIntentAndSaveBoundary();OriginalAcceptedNextRoundTrip();NestedPublication();FirstBoundaryAndNewOrder();RejectedCallsAndInvalidation();
             OriginalLifetimeAndAttempts();CapacityAndBudgets();GeometryOnlyLoadAndDisable();
             Console.WriteLine("ReplanCoordinatorFixture: "+checks+" checks passed; actual General coordinator/queue/join/codecs, no native calls");
         }
@@ -158,6 +162,84 @@ namespace TrappedUnitRescueTest.Tests
             Check(joined.GeometryWitness!=null && joined.Candidates.Count==old.Candidates.Count && joined.Candidates[2].Tile==old.Candidates[2].Tile,"old reachable bank remains original evidence");
             h.Tick(100);Check(h.Engine.RescueCalls==1,"duplicate simulation callback cannot rescue twice");
             Check(h.Observer.TryCapturePending(out var pending) && pending.Length==0 && h.Observer.TryCaptureGeometry(out var geometry) && geometry.Length==0,"settled successful Tick restores atomic-save admission");
+        }
+        private static void EnvelopeOverlapRetirement()
+        {
+            for(int kind=0;kind<6;kind++)
+            {
+                var h=new Harness();var old=Old(step:kind==2 || kind==4);
+                if(kind<=2)
+                {
+                    h.Enqueue(old);
+                    if(kind==0)h.Observer.ObserveOrder(old.Id);
+                    if(kind==2){h.Engine.RescueSuccess=false;h.Fail(Fresh(old,true));h.Tick(100);}
+                }
+                else if(kind==3)h.Observer.StagePending(new[]{new RescuePendingCandidate<UnitSnapshot>("BuildStructure",old,0,0,0)});
+                else
+                {
+                    Check(RescueGeometryWitness.TryCapture(old,out var witness),"historical storage witness fixture");
+                    if(kind==4)
+                    {Check(RescueGeometryWitness.TryJoin(witness,Fresh(old,true),out var joined),"joined staged fixture");h.Observer.StagePending(new[]{new RescuePendingCandidate<UnitSnapshot>("replan/BuildStructure",joined,0,0,0)});}
+                    else h.Observer.StageGeometry(new[]{new RescuePendingGeometry("BuildStructure",witness,0,0,0)});
+                }
+                int calls=h.Engine.RescueCalls;Check(h.Observer.PendingCount==1,"historical storage admitted kind"+kind);
+                h.Engine.Captured.Clear();
+                // Joined cases use the original left radius8 border: distance9 from
+                // fresh acceptedNext, not the incorrectly shifted fresh square.
+                h.Engine.PlannedWrites=new[]{new RescueTile(old.X-(kind==2 || kind==4?8:-3),old.Y+3,20000)};
+                Check(h.Observer.TryBegin(Mutation(900,h.Engine.Session,h.Engine.Generation))==null,"later writer has zero local actors kind"+kind);
+                Check(h.Observer.PendingCount==0,"envelope overlap retires historical proof before original kind"+kind);
+                h.Observer.OnBatchCompleted(BatchEnd(900,h.Engine.Session,h.Engine.Generation));h.Tick(101);
+                Check(h.Engine.RescueCalls==calls,"retired proof cannot rescue later kind"+kind);
+            }
+            var separate=new Harness();var near=Old();var far=Old(2);Shift(far,200,200);separate.Enqueue(near,far);
+            separate.Observer.ObserveOrder(near.Id);separate.Observer.ObserveOrder(far.Id);separate.Engine.Captured.Clear();
+            separate.Engine.PlannedWrites=new[]{new RescueTile(near.X+3,near.Y+3,20000)};separate.Engine.CaptureSupported=false;
+            Check(separate.Observer.TryBegin(Mutation(901,9,3))==null,"unit discovery failure publishes no new proof");
+            Check(separate.Observer.PendingCount==1 && separate.Observer.IsInterestedInOrder(far.Id) && !separate.Observer.IsInterestedInOrder(near.Id),
+                "complete plan survives failed unit capture and preserves unrelated historical bank");
+            separate.Engine.PlannedWrites=null;
+            Check(separate.Observer.TryBegin(Mutation(902,9,3))==null && separate.Observer.PendingCount==0,"unknown plan retires all unknown affected histories");
+            var sparse=new Harness();near=Old();sparse.Enqueue(near);sparse.Observer.ObserveOrder(near.Id);sparse.Engine.Captured.Clear();
+            sparse.Engine.PlannedWrites=new[]{new RescueTile(0,0,20000),new RescueTile(100,100,20001)};
+            sparse.Observer.TryBegin(Mutation(903,9,3));Check(sparse.Observer.PendingCount==1,"bounding-box overlap alone does not discard unrelated sparse writes");
+            var active=new Harness();near=Old();active.Enqueue(near);var waiting=active.Begin(Fresh(near),out var moveContext);
+            active.Engine.Captured.Clear();active.Engine.PlannedWrites=new[]{new RescueTile(near.X+3,near.Y+3,20000)};
+            active.Observer.TryBegin(Mutation(904,9,3));waiting.Complete(MoveEnd(moveContext));active.Tick(101);
+            Check(active.Observer.PendingCount==0 && active.Engine.RescueCalls==0 && !active.Observer.HasUnsettledReplans,"conflict cancels unsettled receipt and late zero cannot revive it");
+            CompoundEnvelopeCases();
+        }
+        private static void Shift(UnitSnapshot u,int dx,int dy)
+        {u.X+=dx;u.Y+=dy;u.NextX+=dx;u.NextY+=dy;for(int i=0;i<u.Candidates.Count;i++){var c=u.Candidates[i];c.X+=dx;c.Y+=dy;u.Candidates[i]=c;}}
+        private static void CompoundEnvelopeCases()
+        {
+            foreach(bool failedFirst in new[]{true,false})
+            {
+                var h=new Harness();var old=Old();var outer=Mutation(910,9,3);
+                h.Engine.Captured.Add(old);h.Engine.CaptureSupported=!failedFirst;h.Engine.PlannedWrites=failedFirst?null:Array.Empty<RescueTile>();
+                var first=h.Observer.TryBegin(outer);h.Engine.CaptureSupported=failedFirst;h.Engine.PlannedWrites=failedFirst?Array.Empty<RescueTile>():null;
+                var child=Mutation(910,9,3);var next=h.Observer.TryBegin(child);
+                first?.Complete(MutationEnd(outer));next?.Complete(MutationEnd(child));h.Observer.OnBatchCompleted(BatchEnd(910,9,3));h.Tick(100);
+                Check(h.Observer.PendingCount==0 && h.Engine.RescueCalls==0,"failed first/child prevents partial samebatch evidence first="+failedFirst);
+            }
+            var complete=new Harness();var source=Old();complete.Engine.Captured.Add(source);var parent=Mutation(911,9,3);
+            var parentReceipt=complete.Observer.TryBegin(parent);var nested=Mutation(911,9,3);
+            complete.Engine.PlannedWrites=new[]{new RescueTile(source.X+3,source.Y+3,20000)};
+            var nestedReceipt=complete.Observer.TryBegin(nested);nestedReceipt.Complete(MutationEnd(nested));parentReceipt.Complete(MutationEnd(parent));
+            complete.Observer.OnBatchCompleted(BatchEnd(911,9,3));complete.Tick(100);
+            Check(complete.Engine.RescueCalls==1 && ReferenceEquals(source,complete.Engine.Rescued[0]),"successful complete samebatch nested captures preserve earliest fresh event proof");
+            var conflict=new Harness();source=Old();conflict.Enqueue(source);conflict.Engine.Captured.Clear();
+            conflict.Engine.PlannedWrites=new[]{new RescueTile(source.X+3,source.Y+3,20000)};var firstWriter=Mutation(912,9,3);
+            Check(conflict.Observer.TryBegin(firstWriter)==null && conflict.Observer.PendingCount==0,"zero-actor first writer retires prior normal queue");
+            conflict.Engine.Captured.Add(Old());var secondWriter=Mutation(912,9,3);var second=conflict.Observer.TryBegin(secondWriter);
+            second?.Complete(MutationEnd(secondWriter));conflict.Observer.OnBatchCompleted(BatchEnd(912,9,3));conflict.Tick(100);
+            Check(conflict.Engine.RescueCalls==0,"samecompound child cannot re-admit a retired conflicting actor");
+            var overflow=new Harness();overflow.Engine.CaptureSupported=false;overflow.Engine.PlannedWrites=null;
+            for(int i=0;i<65;i++)overflow.Observer.TryBegin(Mutation(1000+i,9,3));
+            overflow.Engine.CaptureSupported=true;overflow.Engine.PlannedWrites=Array.Empty<RescueTile>();overflow.Engine.Captured.Add(Old());
+            Check(overflow.Observer.TryBegin(Mutation(1100,9,3))==null,"failed-batch tombstone overflow remains fail-closed without unbounded metadata");
+            overflow.Engine.Generation++;var resumed=overflow.Observer.TryBegin(Mutation(1101,9,overflow.Engine.Generation));
+            Check(resumed!=null,"new world resets bounded failed-batch overflow latch");
         }
         private static void OriginalAcceptedNextRoundTrip()
         {
