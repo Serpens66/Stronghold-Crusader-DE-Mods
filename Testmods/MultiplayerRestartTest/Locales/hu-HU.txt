@@ -1,6 +1,0 @@
-Load.ConfirmTitle=Kilépés?
-Load.RecoveryTitle=Főmenü
-Load.WaitPeers=Várakozás, amíg minden játékos engedélyezi a többjátékos betöltést.
-Load.Transition=A játékosok átlépnek a többjátékos betöltési lobbiba.
-Load.Failed=Nem sikerült megnyitni a többjátékos betöltési lobbit. Részletek a naplóban.
-Load.NotReady=A többjátékos betöltés még nem érhető el.

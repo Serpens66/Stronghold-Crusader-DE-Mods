@@ -3,7 +3,7 @@ using System.Buffers;
 using MessagePack;
 using MessagePack.Formatters;
 
-namespace MultiplayerSaveLoadTest
+namespace BugfixesAndQoL.Multiplayer.SaveLoading
 {
     [MessagePackFormatter(typeof(LoadWireFormatter))]
     internal sealed class LoadWire

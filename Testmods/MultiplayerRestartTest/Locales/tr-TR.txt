@@ -1,6 +1,0 @@
-Load.ConfirmTitle=Bitir?
-Load.RecoveryTitle=Ana menü
-Load.WaitPeers=Tüm oyuncuların çok oyunculu yüklemeyi etkinleştirmesi bekleniyor.
-Load.Transition=Oyuncular çok oyunculu yükleme lobisine taşınıyor.
-Load.Failed=Çok oyunculu yükleme lobisi açılamadı. Günlüğe bakın.
-Load.NotReady=Çok oyunculu yükleme henüz kullanılamıyor.

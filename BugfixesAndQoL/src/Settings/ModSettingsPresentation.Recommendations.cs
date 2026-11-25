@@ -73,6 +73,7 @@ namespace BugfixesAndQoL
             options["EnableTrailCustomizationButtons"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableTrailCustomizationButtons");
             options["AllowFullAiMultiplayerLobby"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.AllowFullAiMultiplayerLobby");
             options["EnableReturnToMultiplayerLobby"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableReturnToMultiplayerLobby");
+            options["EnableIngameMultiplayerSaveLoading"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableIngameMultiplayerSaveLoading");
             options["MultiplayerTimeControlPermissionIndex"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.MultiplayerTimeControlPermissionIndex");
             options["MultiplayerGameSpeedMaximum"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.MultiplayerGameSpeedMaximum");
             options["EnableShiftGameSpeedSteps"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableShiftGameSpeedSteps");

@@ -8,7 +8,7 @@
     <Nullable>disable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\src\LoadProtocol.cs" Link="LoadProtocol.cs" />
+    <Compile Include="..\..\src\Multiplayer\SaveLoading\LoadProtocol.cs" Link="LoadProtocol.cs" />
     <Compile Include="LoadProtocolTests.cs" />
   </ItemGroup>
 </Project>

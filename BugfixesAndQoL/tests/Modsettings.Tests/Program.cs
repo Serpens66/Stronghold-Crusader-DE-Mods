@@ -428,6 +428,7 @@ internal static partial class Program
         scopes.Add("EnableAreaConstruction", false);
         scopes.Add("EnableProjectileTrails", false);
         scopes.Add("ReplaceStandardProjectileAfterimages", true);
+        scopes.Add("EnableIngameMultiplayerSaveLoading", true);
         MethodBase ctor=modelType.GetConstructors(All).Single();
         List<Tuple<OpCode,object>> body=Instructions(ctor);
         var xaml=new XmlDocument();xaml.Load(Path.Combine(workspace,"BugfixesAndQoL/Override/ScriptExtenderUI/BugfixesAndQoLSettings.xaml"));
@@ -444,12 +445,23 @@ internal static partial class Program
             Check(node.Attributes["ToolTipService.ShowDuration"]?.Value == "60000" &&
                 !string.IsNullOrWhiteSpace(popupHelp?.Value), "new setting tooltip contract");
             string role=pair.Value?"CanEditHostSettings":"CanEditClientSettings";
+            if (property.GetCustomAttributesData().Any(attribute => attribute.AttributeType.Name == "MissionIndependentAttribute"))
+                role = "CanEditMissionIndependentHostSettings";
             Check(Ancestors(node).Any(a=>a.Attributes?["IsEnabled"]?.Value=="{Binding "+role+"}"),"new editor inherits its own role authority");
         }
         var presetApplication = modelType.BaseType.Assembly.GetType("APIShared.ModSettings.ModSettingsApplication", true);
         var hostProperties = (PropertyInfo[])presetApplication.GetMethod("GetHostProperties")
             .Invoke(null, new[] { FormatterServices.GetUninitializedObject(modelType) });
         var reset = Instructions(modelType.GetMethod("ResetToDefault", All));
+        var ingameLoad = modelType.GetProperty("EnableIngameMultiplayerSaveLoading");
+        Check(ingameLoad.GetCustomAttributesData().Any(attribute => attribute.AttributeType.Name == "MissionIndependentAttribute") &&
+            hostProperties.Contains(ingameLoad), "in-game multiplayer loading stays host-owned and mission-independent");
+        var missionProperties = (PropertyInfo[])presetApplication.GetMethod("GetMissionHostProperties")
+            .Invoke(null, new[] { FormatterServices.GetUninitializedObject(modelType) });
+        Check(!missionProperties.Contains(ingameLoad), "in-game multiplayer loading is excluded from mission snapshots");
+        Check(reset.Select((instruction, index) => new { instruction, index }).Any(entry =>
+            Equals(entry.instruction.Item2, ingameLoad.GetSetMethod()) && entry.index > 0 &&
+            reset[entry.index - 1].Item1 == OpCodes.Ldc_I4_1), "full reset enables in-game multiplayer loading");
         var localAutosave = modelType.GetProperty("EnableLocalAutosave");
         Check(!hostProperties.Any(property => property == localAutosave), "local autosave preference is excluded from host snapshots");
         Check(!localAutosave.GetCustomAttributesData().Any(attribute => attribute.AttributeType.Name == "SyncPerPlayerAttribute"),

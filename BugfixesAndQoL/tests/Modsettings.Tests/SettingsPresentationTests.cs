@@ -155,6 +155,14 @@ internal static partial class Program
             object topic = topics.Single(t => (string)Get(t, "Key") == SearchAttribute(topicNode, "SectionKey"));
             string authority = (bool)Get(topic, "IsHost") ? "CanEditHostSettings" : "CanEditClientSettings";
             string editorAuthority = authority;
+            if (modelType.GetProperty(editor.Property).GetCustomAttributesData().Any(attribute =>
+                attribute.AttributeType.Name == "MissionIndependentAttribute"))
+            {
+                Check(authority == "CanEditHostSettings", "mission-independent option retains host ownership");
+                editorAuthority = "CanEditMissionIndependentHostSettings";
+                Check(!Ancestors(editor.Node).Any(node => node.Attributes?["IsEnabled"]?.Value == "{Binding CanEditHostSettings}"),
+                    "mission-independent editor remains outside mission-locked containers");
+            }
             if (editor.Property == "EnableAutoSend")
             {
                 // AutoSend adds a mission lock to the ordinary personal permission.

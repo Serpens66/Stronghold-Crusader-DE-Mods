@@ -7,7 +7,7 @@ using CrusaderDE;
 using SHCDESE.API;
 using Steamworks;
 
-namespace MultiplayerSaveLoadTest
+namespace BugfixesAndQoL.Multiplayer.SaveLoading
 {
     internal enum LocalReadyResult { NotCurrent, Waiting, Ready, Rejected }
 

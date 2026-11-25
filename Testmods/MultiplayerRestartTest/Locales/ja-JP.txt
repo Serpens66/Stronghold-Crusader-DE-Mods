@@ -1,6 +1,0 @@
-Load.ConfirmTitle=対戦を終了？
-Load.RecoveryTitle=メインメニュー
-Load.WaitPeers=すべてのプレイヤーがマルチプレイのロードを有効にするまで待っています。
-Load.Transition=プレイヤーをマルチプレイのロードロビーへ移動しています。
-Load.Failed=マルチプレイのロードロビーを開けませんでした。ログを確認してください。
-Load.NotReady=マルチプレイのロードはまだ利用できません。

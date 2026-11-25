@@ -1396,3 +1396,18 @@ ammunition, save and repair contracts are documented in
 [AI market native contract](docs/AiMarketNativeContract.md). The maintained
 production-linked logic and native ABI fixtures live in `tests/AiMarket.Tests`.
 Dated diagnosis/acceptance evidence remains under `Findings/AiMarket`.
+
+## In-game multiplayer save loading
+
+`src/Multiplayer/SaveLoading` owns the migrated coordinated return. It changes no
+native address or save format. `LoadBarrier` validates and edits the actual managed
+`Director.runSimTickTest` loop admission/backedge before its first running thread;
+published hooks remain process-lived. Disabled preferences never request parking.
+Other managed boundaries are validated against the selected real game assembly:
+Director callback/start methods, multiplayer frontend state and lobby completion,
+the original single-file save-CRC sender, and public MP save/header/requester members.
+Vanilla still loads through DLL_LoadMapToPlay (reference RVA 0x84AC0), registers
+and remaps humans, and owns the final synchronized simulation start. The mapped
+save header selects cooperative refresh. See the current native baseline's
+LOBBY_SAVE_LOADING audit, the production-linked tests/MultiplayerSaveLoading.Tests
+fixtures and docs/MultiplayerSaveLoadingTesting.md. No new direct RVA access exists.

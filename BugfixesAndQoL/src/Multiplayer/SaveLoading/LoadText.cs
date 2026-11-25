@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 
-namespace MultiplayerSaveLoadTest
+namespace BugfixesAndQoL.Multiplayer.SaveLoading
 {
     // Shared localization owns game-language selection. Embedded defaults also cover
     // missing assets; Vanilla confirmation headings have a single-line width budget.
@@ -11,12 +11,12 @@ namespace MultiplayerSaveLoadTest
         internal const int MaximumTitleElements = 14;
         private static readonly Dictionary<string, string> english = new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            ["Load.ConfirmTitle"] = "End match?",
-            ["Load.RecoveryTitle"] = "Main menu",
-            ["Load.WaitPeers"] = "Waiting for all players to enable multiplayer loading.",
-            ["Load.Transition"] = "Moving the players to the multiplayer load lobby.",
-            ["Load.Failed"] = "The multiplayer load lobby could not be opened. See the log.",
-            ["Load.NotReady"] = "Multiplayer loading is not available yet."
+            ["BugfixesAndQoL.MultiplayerLoad.ConfirmTitle"] = "End match?",
+            ["BugfixesAndQoL.MultiplayerLoad.RecoveryTitle"] = "Main menu",
+            ["BugfixesAndQoL.MultiplayerLoad.WaitPeers"] = "Waiting for all players to enable multiplayer loading.",
+            ["BugfixesAndQoL.MultiplayerLoad.Transition"] = "Moving the players to the multiplayer load lobby.",
+            ["BugfixesAndQoL.MultiplayerLoad.Failed"] = "The multiplayer load lobby could not be opened. See the log.",
+            ["BugfixesAndQoL.MultiplayerLoad.NotReady"] = "Multiplayer loading is not available yet."
         };
 
         internal static IEnumerable<string> Keys => english.Keys;

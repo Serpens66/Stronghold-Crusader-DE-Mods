@@ -1170,6 +1170,18 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
                 </CheckBox>
               </Grid>
             </Grid>
+            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-ingame-multiplayer-save-loading" shared:ModSettingsSearch.Title="{Binding EnableIngameMultiplayerSaveLoadingText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableIngameMultiplayerSaveLoadingHelpText}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="28"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableIngameMultiplayerSaveLoading}"><ContentControl.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ToolTip}"/></ContentControl.ToolTip></ContentControl>
+              <Grid Grid.Column="1" IsEnabled="{Binding CanEditMissionIndependentHostSettings}">
+                <CheckBox IsChecked="{Binding EnableIngameMultiplayerSaveLoading, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" Margin="0,0,14,8"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding EnableIngameMultiplayerSaveLoadingHelpText}"/></CheckBox.ToolTip>
+                  <TextBlock Text="{Binding EnableIngameMultiplayerSaveLoadingText}" Foreground="White" TextWrapping="Wrap"/>
+                </CheckBox>
+              </Grid>
+            </Grid>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-multiplayer-game-speed-changes" shared:ModSettingsSearch.Title="{Binding EnableMultiplayerGameSpeedChangesText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableMultiplayerGameSpeedChangesHelpText}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="28"/>

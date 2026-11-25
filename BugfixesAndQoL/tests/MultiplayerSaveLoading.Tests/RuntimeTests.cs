@@ -5,7 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using MessagePack;
-using MultiplayerSaveLoadTest;
+using BugfixesAndQoL.Multiplayer.SaveLoading;
 
 // A separate desktop fixture. No Unity startup, Steam initialization or game process.
 internal static class SaveLoadTestBootstrap
@@ -54,6 +54,7 @@ internal static class SaveLoadTestBootstrap
         if (BarrierTests.Main(new[] { gameAssembly }) != 0) return 1;
         LobbyBridgeTests.Run();
         LocaleTests.Run();
+        FeatureGateTests.Run();
         LoadWireTests.Run();
         RuntimeReceiptTests.Run();
         Console.WriteLine("Save/load offline runtime fixtures passed.");
@@ -77,6 +78,8 @@ internal static class RuntimeReceiptTests
     private static void Check(bool value, string reason)
     { checks++; if (!value) throw new Exception(reason); }
     private static void Set(object target, string field, object value) => target.GetType().GetField(field, Private).SetValue(target, value);
+    private static void SetFeatureRuntime(SaveLoadRuntime runtime) => typeof(IngameSaveLoadFeature)
+        .GetProperty("Runtime", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, runtime, null);
     private static T Get<T>(object target, string field) => (T)target.GetType().GetField(field, Private).GetValue(target);
     private static void Invoke(object target, string method, params object[] args)
         => target.GetType().GetMethod(method, Private).Invoke(target, args);
@@ -123,7 +126,8 @@ internal static class RuntimeReceiptTests
     }
     private sealed class Lifecycle : APIShared.IMissionLifecycleCapability
     {
-        public APIShared.MissionContext Current => null;
+        internal APIShared.MissionContext Context;
+        public APIShared.MissionContext Current => Context;
         public bool TryRegisterObserver(string id, Action<APIShared.MissionLifecycleNotification> start,
             Action<APIShared.MissionLifecycleNotification> end, Action<APIShared.MissionLifecycleNotification> initialization,
             out APIShared.NativeCapabilityDiagnostic diagnostic)
@@ -174,7 +178,8 @@ internal static class RuntimeReceiptTests
             var lobby = (Platform_Multiplayer.MPLobby)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(Platform_Multiplayer.MPLobby));
             lobby.id = new Steamworks.CSteamID(20); platform.activeLobby = lobby;
             Director.instance = (Director)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(Director));
-            var runtime = new SaveLoadRuntime(null);
+            var runtime = new SaveLoadRuntime(null, () => true);
+            Set(runtime, "sessionEnabled", true);
             var frame = new Frame();
             Set(runtime, "frame", frame); Set(runtime, "lifecycle", new Lifecycle()); Set(runtime, "host", 1UL);
             Set(runtime, "menu", Activator.CreateInstance(typeof(APIShared.Presentation.IngameMenuActionRegistration),
@@ -214,6 +219,7 @@ internal static class RuntimeReceiptTests
             AutoReady(runtime, frame, protocol);
             RetryAdmission(runtime, platform);
             LoadMenu(runtime, platform, lobby);
+            PreferenceSnapshot(platform);
             Console.WriteLine("Runtime receipts: " + checks + " checks passed.");
         }
         finally
@@ -231,9 +237,70 @@ internal static class RuntimeReceiptTests
         }
     }
 
+    private static Steamworks.CSteamID FixtureSelf() => new Steamworks.CSteamID(1);
+    private static object Construct(Type type, Dictionary<string, object> values, Func<ConstructorInfo, bool> choose = null)
+    {
+        var constructor = type.GetConstructors(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+            .First(item => choose == null || choose(item));
+        return constructor.Invoke(constructor.GetParameters().Select(parameter => values.TryGetValue(parameter.Name, out object value)
+            ? value : parameter.HasDefaultValue ? parameter.DefaultValue : parameter.ParameterType.IsValueType
+                ? Activator.CreateInstance(parameter.ParameterType) : null).ToArray());
+    }
+    private static void PreferenceSnapshot(Platform_Multiplayer platform)
+    {
+        platform.activeLobby = (Platform_Multiplayer.MPLobby)System.Runtime.Serialization.FormatterServices
+            .GetUninitializedObject(typeof(Platform_Multiplayer.MPLobby));
+        platform.activeLobby.id = new Steamworks.CSteamID(20);
+        bool option = true;
+        var runtime = new SaveLoadRuntime(null, () => option);
+        var lifecycle = new Lifecycle();
+        Set(runtime, "lifecycle", lifecycle); Set(runtime, "frame", new Frame());
+        Set(runtime, "menu", Activator.CreateInstance(typeof(APIShared.Presentation.IngameMenuActionRegistration),
+            BindingFlags.Instance | BindingFlags.NonPublic, null, new object[] { (Action)(() => { }) }, null));
+        Set(runtime, "nextLobby", platform.activeLobby.identifier);
+        var mode = Construct(typeof(APIShared.GameModes.GameModeSnapshot), new Dictionary<string, object> { ["isRealMultiplayer"] = true });
+        var adopt = typeof(SaveLoadRuntime).GetMethod("Adopt", Private);
+        using (var fixture = new MonoMod.Utils.DynamicMethodDefinition(adopt))
+        {
+            foreach (var instruction in fixture.Definition.Body.Instructions)
+                if (instruction.Operand is Mono.Cecil.MethodReference method && method.DeclaringType.Name == "SteamUser" && method.Name == "GetSteamID")
+                    instruction.Operand = fixture.Definition.Module.ImportReference(typeof(RuntimeReceiptTests).GetMethod(nameof(FixtureSelf), BindingFlags.Static | BindingFlags.NonPublic));
+            var run = fixture.Generate();
+            foreach (long id in new[] { 100L, 101L })
+            {
+                lifecycle.Context = (APIShared.MissionContext)Construct(typeof(APIShared.MissionContext), new Dictionary<string, object>
+                    { ["id"] = id, ["mode"] = mode, ["host"] = true });
+                var notification = Construct(typeof(APIShared.MissionLifecycleNotification), new Dictionary<string, object>
+                    { ["context"] = lifecycle.Context, ["started"] = true }, constructor => constructor.GetParameters().Last().Name == "replay");
+                run.Invoke(null, new[] { (object)runtime, notification });
+                Check(Get<bool>(runtime, "sessionEnabled") == option, "Actual mission adoption did not capture the host preference.");
+                if (option)
+                {
+                    Check(Get<ulong>(runtime, "sourceLobby") == platform.activeLobby.identifier, "Enabled mission lost its lobby identity.");
+                    option = false;
+                    Check(Get<bool>(runtime, "sessionEnabled"), "A preference edit changed an already adopted mission.");
+                }
+                else
+                {
+                    Check(Get<ulong>(runtime, "sourceLobby") == 0, "Disabled mission entered capability negotiation.");
+                    Check(typeof(SaveLoadRuntime).GetMethod("LoadEnabled", Private).Invoke(runtime, null) == null,
+                        "Disabled extension replaced the Vanilla action result.");
+                }
+            }
+        }
+        var previous = IngameSaveLoadFeature.Runtime;
+        try
+        {
+            SetFeatureRuntime(runtime); Set(runtime, "initialized", true);
+            typeof(SaveLoadRuntime).GetMethod("BeforeStart", BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, new object[] { platform });
+            Check(!LoadBarrier.Requested, "Disabled extension requested a stop on an ordinary start.");
+        }
+        finally { SetFeatureRuntime(previous); }
+    }
+
     private static void RetryAdmission(SaveLoadRuntime runtime, Platform_Multiplayer platform)
     {
-        var previousRuntime = SaveLoadPlugin.Runtime;
+        var previousRuntime = IngameSaveLoadFeature.Runtime;
         var previousProtocol = Get<LoadProtocol>(runtime, "protocol");
         bool previousInitialized = Get<bool>(runtime, "initialized");
         bool previousReleased = Get<bool>(runtime, "released");
@@ -242,7 +309,7 @@ internal static class RuntimeReceiptTests
         var admission = typeof(SaveLoadRuntime).GetMethod("BeforeStart", flags);
         try
         {
-            SaveLoadPlugin.Runtime = runtime; Set(runtime, "initialized", true);
+            SetFeatureRuntime(runtime); Set(runtime, "initialized", true);
             // This is the state left after Managed Started/Adopt when the native
             // handshake never reaches startSimThread: the protocol is retired,
             // its released flag is false, and the worker is still requested.
@@ -266,7 +333,7 @@ internal static class RuntimeReceiptTests
         }
         finally
         {
-            LoadBarrier.Release(); SaveLoadPlugin.Runtime = previousRuntime;
+            LoadBarrier.Release(); SetFeatureRuntime(previousRuntime);
             Set(runtime, "initialized", previousInitialized); Set(runtime, "protocol", previousProtocol);
             Set(runtime, "released", previousReleased); Set(runtime, "failurePending", false);
         }

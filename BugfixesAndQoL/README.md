@@ -291,6 +291,12 @@ Adds the multiplayer **Game Options** dialog to local Skirmish, including restri
 ### Load multiplayer saves alone
 A ready host can load a normal multiplayer save without another human player. Missing human players are removed rather than replaced with AI; existing AI players are restored from the save, and this option is enabled by default.
 
+### Load another save together during multiplayer
+
+The enabled-by-default host option **Load a save during a multiplayer match** is under **QoL → Game setup, multiplayer and spectators**. During a match, the host can use **Load** in the ESC menu. After confirmation, the current match ends and everyone automatically joins the same private lobby, without entering a lobby code again. The normal load dialog shows ordinary and Coop Trail saves together and keeps the usual save checks. Each player is initially set Ready; choosing Unready afterwards is respected.
+
+Cancelling the load dialog leaves the group together in the lobby; it does not resume the old match. All participants need compatible mod support and matching copies of the chosen save. The host can change this option between matches, and loading a save or selecting a Trail does not overwrite it. Remove the old **Multiplayer Save Load Test** from every PC when installing this integrated version.
+
 ### Surrender
 Active players receive a confirmed Surrender button that kills their lord through the normal game rules, preserving the natural defeat and statistics flow.
 

@@ -1,6 +1,0 @@
-Load.ConfirmTitle=Ukončit hru?
-Load.RecoveryTitle=Hlavní menu
-Load.WaitPeers=Čeká se, až všichni hráči povolí načítání ve hře více hráčů.
-Load.Transition=Přesun hráčů do lobby pro načtení hry více hráčů.
-Load.Failed=Lobby pro načtení hry více hráčů se nepodařilo otevřít. Podrobnosti jsou v logu.
-Load.NotReady=Načítání ve hře více hráčů zatím není dostupné.

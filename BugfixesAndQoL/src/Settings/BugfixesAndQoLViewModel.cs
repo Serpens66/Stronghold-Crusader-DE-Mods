@@ -133,6 +133,7 @@ namespace BugfixesAndQoL
         private bool enableConnectionRecoverySave = true;
         private bool enableResyncHostKick = true;
         private bool enableReturnToMultiplayerLobby = true;
+        private bool enableIngameMultiplayerSaveLoading = true;
         private bool enableCtrlSingleMarketTrade = true;
         private bool enableSingleBuildingPause = true;
         private bool enableNearestWaterboyTargeting = true;
@@ -521,6 +522,8 @@ namespace BugfixesAndQoL
         public string EnableConnectionRecoverySaveHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableConnectionRecoverySaveHelp");
         public string EnableReturnToMultiplayerLobbyText => SerpLocalization.Get("BugfixesAndQoL.EnableReturnToMultiplayerLobby");
         public string EnableReturnToMultiplayerLobbyHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableReturnToMultiplayerLobbyHelp");
+        public string EnableIngameMultiplayerSaveLoadingText => SerpLocalization.Get("BugfixesAndQoL.EnableIngameMultiplayerSaveLoading");
+        public string EnableIngameMultiplayerSaveLoadingHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableIngameMultiplayerSaveLoadingHelp");
         public string CustomTrailsTitleText => SerpLocalization.Get("BugfixesAndQoL.CustomTrailsTitle");
         public string EnableMinimapCursorFollowFixText => SerpLocalization.Get("BugfixesAndQoL.EnableMinimapCursorFollowFix");
         public string EnableMinimapCursorFollowFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMinimapCursorFollowFixHelp");
@@ -1668,6 +1671,13 @@ namespace BugfixesAndQoL
             set => SetSetting(ref enableReturnToMultiplayerLobby, value, nameof(EnableReturnToMultiplayerLobby));
         }
 
+        [SyncHostOnly, MissionIndependent]
+        public bool EnableIngameMultiplayerSaveLoading
+        {
+            get => enableIngameMultiplayerSaveLoading;
+            set => SetSetting(ref enableIngameMultiplayerSaveLoading, value, nameof(EnableIngameMultiplayerSaveLoading));
+        }
+
         [SyncHostOnly]
         public bool EnableCtrlSingleMarketTrade
         {
@@ -1829,6 +1839,10 @@ namespace BugfixesAndQoL
                 EnableMinimapRefreshThrottle = true;
                 EnableTrailCustomizationButtons = true;
             }
+
+            // The host's personal preference is not locked by a mission's gameplay rules.
+            if (CanEditMissionIndependentHostSettings)
+                EnableIngameMultiplayerSaveLoading = true;
 
             // Every participant resets only their own per-player preferences.
             EnableClientFeatures = true;

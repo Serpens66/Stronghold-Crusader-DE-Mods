@@ -1,6 +1,0 @@
-Load.ConfirmTitle=Avsluta?
-Load.RecoveryTitle=Huvudmeny
-Load.WaitPeers=Väntar på att alla spelare aktiverar inläsning i flerspelarläge.
-Load.Transition=Flyttar spelarna till lobbyn för inläsning i flerspelarläge.
-Load.Failed=Det gick inte att öppna lobbyn för inläsning. Se loggen.
-Load.NotReady=Inläsning i flerspelarläge är ännu inte tillgänglig.

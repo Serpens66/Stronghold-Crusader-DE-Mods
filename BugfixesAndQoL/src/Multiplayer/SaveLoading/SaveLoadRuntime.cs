@@ -14,13 +14,15 @@ using CrusaderDE;
 using HarmonyLib;
 using Steamworks;
 
-namespace MultiplayerSaveLoadTest
+namespace BugfixesAndQoL.Multiplayer.SaveLoading
 {
     // Only the joint return is custom. Once every peer joined, the native save
     // requester and its normal SDK contributions own eligibility and loading.
     internal sealed class SaveLoadRuntime
     {
         private readonly ManualLogSource log;
+        private readonly Func<bool> enabled;
+        private bool sessionEnabled;
         private readonly int unityThread = Thread.CurrentThread.ManagedThreadId;
         private readonly HashSet<ulong> compatible = new HashSet<ulong>();
         private readonly HashSet<string> retired = new HashSet<string>(StringComparer.Ordinal);
@@ -47,14 +49,15 @@ namespace MultiplayerSaveLoadTest
         private long Now => Stopwatch.GetTimestamp();
         private bool Active => protocol != null && !protocol.IsTerminal;
 
-        internal SaveLoadRuntime(ManualLogSource logger) { log = logger; }
+        internal SaveLoadRuntime(ManualLogSource logger, Func<bool> isEnabled)
+        { log = logger; enabled = isEnabled ?? throw new ArgumentNullException(nameof(isEnabled)); }
         internal void Report(string message) => log.LogInfo("[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + "] MP_SAVE_LOAD " + message);
         private void Main() { if (Thread.CurrentThread.ManagedThreadId != unityThread) throw new InvalidOperationException("Unity thread required."); }
 
         internal void Initialize()
         {
             Main(); if (initialized) return;
-            api = ApiShared.ForMod(SaveLoadPlugin.Guid);
+            api = ApiShared.ForMod(BugfixesAndQoLPlugin.PluginGuid);
             channel = api.Network.RegisterMessage<LoadWire>("save-load-v1", Receive,
                 new MessageChannelOptions<LoadWire> { Snapshot = value => value?.Copy(), MaximumBodyBytes = 512,
                     Diagnostic = value => Report("TRANSPORT " + value.Reason) });
@@ -62,18 +65,18 @@ namespace MultiplayerSaveLoadTest
             if (!api.TryGetMissionLifecycle(out lifecycle, out var diagnostic) ||
                 !lifecycle.TryRegisterObserver("save-load-session", Started, Ended, null, out diagnostic))
                 throw new InvalidOperationException(diagnostic.Reason);
-            if (!IngameMenuActions.TryOverrideVanillaAction(SaveLoadPlugin.Guid, "load", IngameMenuRow.Load,
+            if (!IngameMenuActions.TryOverrideVanillaAction(BugfixesAndQoLPlugin.PluginGuid, "load", IngameMenuRow.Load,
                 LoadEnabled, Confirm, out menu, out reason)) throw new InvalidOperationException(reason);
-            if (!LobbyLaunchGuards.TryRegister(SaveLoadPlugin.Guid, "return-pending",
-                _ => Active || failurePending || recovering ? LoadText.Get("Load.Transition") : null, out reason))
+            if (!LobbyLaunchGuards.TryRegister(BugfixesAndQoLPlugin.PluginGuid, "return-pending",
+                _ => Active || failurePending || recovering ? LoadText.Get("BugfixesAndQoL.MultiplayerLoad.Transition") : null, out reason))
                 throw new InvalidOperationException(reason);
             if (!SaveLoadDialogEvents.IsAvailable) throw new InvalidOperationException("Native save requester observations are unavailable.");
-            SaveLoadDialogEvents.Register(SaveLoadPlugin.Guid, "load-intent",
+            SaveLoadDialogEvents.Register(BugfixesAndQoLPlugin.PluginGuid, "load-intent",
                 new SaveLoadDialogCallbacks { Opened = SaveRequesterOpened });
-            if (!LobbyActionEvents.TryRegisterObserver(SaveLoadPlugin.Guid, "ready-intent", LobbyActionObserved, out reason))
+            if (!LobbyActionEvents.TryRegisterObserver(BugfixesAndQoLPlugin.PluginGuid, "ready-intent", LobbyActionObserved, out reason))
                 throw new InvalidOperationException(reason);
             LobbyBridge.Validate();
-            hooks = new Harmony(SaveLoadPlugin.Guid + ".save-load");
+            hooks = new Harmony(BugfixesAndQoLPlugin.PluginGuid + ".save-load");
             foreach (string name in new[] { "StartGame", "StartSave" })
                 hooks.Patch(AccessTools.Method(typeof(Platform_Multiplayer), name),
                     prefix: new HarmonyMethod(typeof(SaveLoadRuntime), nameof(BeforeStart)));
@@ -82,12 +85,12 @@ namespace MultiplayerSaveLoadTest
             if (creation == null) throw new MissingMethodException("Platform_Multiplayer.CreateLobbyResult");
             hooks.Patch(creation, finalizer: new HarmonyMethod(typeof(SaveLoadRuntime), nameof(CreationReturned)));
             initialized = true;
-            Report("INITIALIZED; replaces restart experiment; no save compatibility rules added.");
+            Report("INITIALIZED; integrated multiplayer Load; no save compatibility rules added.");
         }
 
         private static void BeforeStart(Platform_Multiplayer __instance)
         {
-            var runtime = SaveLoadPlugin.Runtime;
+            var runtime = IngameSaveLoadFeature.Runtime;
             if (runtime == null || !runtime.initialized) return;
             runtime.Main();
             if (runtime.Active || runtime.failurePending || runtime.recovering ||
@@ -103,7 +106,7 @@ namespace MultiplayerSaveLoadTest
         }
         private static Exception CreationReturned(Exception __exception)
         {
-            var runtime = SaveLoadPlugin.Runtime;
+            var runtime = IngameSaveLoadFeature.Runtime;
             if (runtime != null && runtime.creating)
             {
                 runtime.creating = false;
@@ -130,7 +133,10 @@ namespace MultiplayerSaveLoadTest
             loadMenuPending = false;
             stopped = joined = released = failurePending = recovering = false;
             sourceMission = notification.Context.SessionId;
-            sourceLobby = notification.Context.Mode.IsRealMultiplayer && !notification.Context.IsEditor ? nextLobby : 0;
+            // A host preference is fixed for this mission, including a committed exit.
+            // Never use the mission-dependent gameplay master switch for this QoL action.
+            sessionEnabled = enabled();
+            sourceLobby = sessionEnabled && notification.Context.Mode.IsRealMultiplayer && !notification.Context.IsEditor ? nextLobby : 0;
             self = SteamUser.GetSteamID().m_SteamID;
             compatible.Add(self);
             helloUntil = Now + Stopwatch.Frequency * 90L; nextHello = 0;
@@ -156,12 +162,12 @@ namespace MultiplayerSaveLoadTest
         private static ulong Host() => Platform_Multiplayer.Instance?.gameMembers?
             .Where(member => member != null && !member.kicked && !member.skirmishAI && member.isHost)
             .Select(member => member.steamID).FirstOrDefault() ?? 0;
-        private bool Running() => sourceLobby != 0 && lifecycle.Current?.SessionId == sourceMission &&
+        private bool Running() => sessionEnabled && sourceLobby != 0 && lifecycle.Current?.SessionId == sourceMission &&
             lifecycle.Current.Mode.IsRealMultiplayer && Director.instance.MultiplayerGame && Director.instance.SimRunning &&
             !GameData.scenario.InGameoverSituation && Platform_Multiplayer.Instance.CoopContinuationLobbyID == 0;
         private bool? LoadEnabled()
         {
-            if (lifecycle?.Current?.Mode.IsRealMultiplayer != true) return null;
+            if (!sessionEnabled || lifecycle?.Current?.Mode.IsRealMultiplayer != true) return null;
             var members = Humans();
             return initialized && !Active && !failurePending && !recovering && !creating && !LoadBarrier.Requested &&
                 LoadBarrier.Installed && LoadBarrier.Observed && Running() && Host() == self &&
@@ -171,7 +177,7 @@ namespace MultiplayerSaveLoadTest
         {
             Main(); if (LoadEnabled() != true) return;
             ulong session = sourceLobby;
-            HUD_ConfirmationPopup.ShowConfirmation(LoadText.Get("Load.ConfirmTitle"), () => {
+            HUD_ConfirmationPopup.ShowConfirmation(LoadText.Get("BugfixesAndQoL.MultiplayerLoad.ConfirmTitle"), () => {
                 if (sourceLobby != session || LoadEnabled() != true) return;
                 try {
                     Begin();
@@ -204,7 +210,7 @@ namespace MultiplayerSaveLoadTest
             {
                 Main();
                 var wire = message.Packet; var packet = wire?.Packet;
-                if (!initialized || packet == null || wire.PacketId != channel.PacketId || packet.Session != sourceLobby) return;
+                if (!initialized || !sessionEnabled || packet == null || wire.PacketId != channel.PacketId || packet.Session != sourceLobby) return;
                 if (wire.Control != 0)
                 {
                     if (Active || !Running() || !Humans().Contains(message.SenderSteamId)) return;
@@ -347,8 +353,8 @@ namespace MultiplayerSaveLoadTest
                     }
                     // Retain the launch guard while the recovery choice is displayed.
                     frame.SetContinuous(false);
-                    HUD_ConfirmationPopup.ShowConfirmationOKMessage(LoadText.Get("Load.RecoveryTitle"),
-                        () => { recovering = true; frame.SetContinuous(true); }, LoadText.Get("Load.Failed"));
+                    HUD_ConfirmationPopup.ShowConfirmationOKMessage(LoadText.Get("BugfixesAndQoL.MultiplayerLoad.RecoveryTitle"),
+                        () => { recovering = true; frame.SetContinuous(true); }, LoadText.Get("BugfixesAndQoL.MultiplayerLoad.Failed"));
                     return;
                 }
                 if (!Active)

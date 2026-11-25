@@ -1,6 +1,0 @@
-Load.ConfirmTitle=¿Terminar?
-Load.RecoveryTitle=Menú
-Load.WaitPeers=Esperando a que todos los jugadores activen la carga multijugador.
-Load.Transition=Trasladando a los jugadores a la sala de carga multijugador.
-Load.Failed=No se pudo abrir la sala de carga multijugador. Consulta el registro.
-Load.NotReady=La carga multijugador aún no está disponible.

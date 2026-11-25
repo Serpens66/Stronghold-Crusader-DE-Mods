@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using MultiplayerSaveLoadTest;
+using BugfixesAndQoL.Multiplayer.SaveLoading;
 
 internal static class LoadProtocolTests
 {

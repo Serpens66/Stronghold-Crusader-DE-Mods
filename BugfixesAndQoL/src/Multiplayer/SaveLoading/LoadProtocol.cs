@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace MultiplayerSaveLoadTest
+namespace BugfixesAndQoL.Multiplayer.SaveLoading
 {
     // This coordinates only the irreversible transition to an ordinary shared lobby.
     // Save selection, native save eligibility and loading remain with Vanilla/APIShared.

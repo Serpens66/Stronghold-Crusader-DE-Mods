@@ -1,6 +1,0 @@
-Load.ConfirmTitle=Spel stoppen?
-Load.RecoveryTitle=Hoofdmenu
-Load.WaitPeers=Wachten tot alle spelers laden in multiplayer hebben ingeschakeld.
-Load.Transition=De spelers gaan naar de multiplayerlaadlobby.
-Load.Failed=De multiplayerlaadlobby kon niet worden geopend. Zie het logboek.
-Load.NotReady=Laden in multiplayer is nog niet beschikbaar.

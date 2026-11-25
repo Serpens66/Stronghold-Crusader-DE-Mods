@@ -4,7 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using MultiplayerSaveLoadTest;
+using BugfixesAndQoL.Multiplayer.SaveLoading;
 
 internal static class LocaleTests
 {
@@ -19,13 +19,26 @@ internal static class LocaleTests
         MethodInfo read = typeof(SerpLocalization).GetMethod("LoadLocaleFile", BindingFlags.NonPublic | BindingFlags.Static);
         if (read == null) throw new Exception("Shared locale reader fixture boundary changed.");
         string[] required = { "ar", "cs-CZ", "de-DE", "el-GR", "en-US", "es-ES", "fr-FR", "hu-HU", "it-IT", "ja-JP", "ko-KR", "nl-NL", "pl-PL", "pt-BR", "ru-RU", "sv-SE", "th-TH", "tr-TR", "uk-UA", "zh-CN", "zh-HK" };
-        string[] headings = { "Load.ConfirmTitle", "Load.RecoveryTitle" };
+        string[] headings = { "BugfixesAndQoL.MultiplayerLoad.ConfirmTitle", "BugfixesAndQoL.MultiplayerLoad.RecoveryTitle" };
+        // These literal keys are the runtime/catalog contract, including recovery
+        // branches not executed by the Steam/UI-isolated control-flow fixture.
+        foreach (var method in typeof(SaveLoadRuntime).GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+        {
+            using (var definition = new MonoMod.Utils.DynamicMethodDefinition(method))
+                foreach (var instruction in definition.Definition.Body.Instructions)
+                    if (instruction.Operand is Mono.Cecil.MethodReference called && called.DeclaringType.Name == nameof(LoadText) && called.Name == "Get")
+                    {
+                        Check(instruction.Previous?.Operand is string, "Runtime locale key is not covered by the literal-key fixture.");
+                        string key = (string)instruction.Previous.Operand;
+                        Check(!string.IsNullOrWhiteSpace(LoadText.Resolve(key, value => value)), "Runtime locale key has no fallback: " + key);
+                    }
+        }
         var loaded = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
         foreach (string locale in required)
         {
             var texts = new Dictionary<string, string>(StringComparer.Ordinal);
             read.Invoke(null, new object[] { texts, Path.Combine(root, locale + ".txt") });
-            Check(texts.Keys.OrderBy(key => key, StringComparer.Ordinal).SequenceEqual(LoadText.Keys.OrderBy(key => key, StringComparer.Ordinal)),
+            Check(LoadText.Keys.All(texts.ContainsKey),
                 "Locale key parity failed: " + locale);
             foreach (string key in LoadText.Keys)
                 Check(!string.IsNullOrWhiteSpace(LoadText.Resolve(key, requested => texts[requested])), "Empty localized text: " + locale + "/" + key);
@@ -39,8 +52,8 @@ internal static class LocaleTests
             loaded.Add(locale, texts);
         }
 
-        Check(LoadText.Resolve("Load.ConfirmTitle", key => loaded["en-US"][key]) == "End match?", "English selection did not use the English catalog.");
-        Check(LoadText.Resolve("Load.ConfirmTitle", key => loaded["de-DE"][key]) == "Beenden?", "German selection did not use the German catalog.");
+        Check(LoadText.Resolve("BugfixesAndQoL.MultiplayerLoad.ConfirmTitle", key => loaded["en-US"][key]) == "End match?", "English selection did not use the English catalog.");
+        Check(LoadText.Resolve("BugfixesAndQoL.MultiplayerLoad.ConfirmTitle", key => loaded["de-DE"][key]) == "Beenden?", "German selection did not use the German catalog.");
         foreach (string key in LoadText.Keys)
         {
             string expected = loaded["en-US"][key];

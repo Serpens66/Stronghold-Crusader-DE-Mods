@@ -1,6 +1,0 @@
-Load.ConfirmTitle=게임 종료?
-Load.RecoveryTitle=주 메뉴
-Load.WaitPeers=모든 플레이어가 멀티플레이 불러오기를 활성화할 때까지 기다리는 중입니다.
-Load.Transition=플레이어를 멀티플레이 불러오기 로비로 이동하는 중입니다.
-Load.Failed=멀티플레이 불러오기 로비를 열 수 없습니다. 로그를 확인하세요.
-Load.NotReady=아직 멀티플레이 불러오기를 사용할 수 없습니다.

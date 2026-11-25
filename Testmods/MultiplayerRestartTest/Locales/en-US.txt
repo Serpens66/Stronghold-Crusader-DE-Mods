@@ -1,6 +1,0 @@
-Load.ConfirmTitle=End match?
-Load.RecoveryTitle=Main menu
-Load.WaitPeers=Waiting for all players to enable multiplayer loading.
-Load.Transition=Moving the players to the multiplayer load lobby.
-Load.Failed=The multiplayer load lobby could not be opened. See the log.
-Load.NotReady=Multiplayer loading is not available yet.

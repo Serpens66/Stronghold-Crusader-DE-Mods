@@ -487,6 +487,19 @@ call :step_start "compile" "72-BugfixesAndQoL.csproj"
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 if "%BUILD_TEST_MODE%"=="none" goto artifact_tests_completed
+rem The migrated MP load protocol and actual-game fixtures remain offline-only.
+call :step_start "tests" "MultiplayerSaveLoading protocol"
+dotnet run --project "%PROJECT_DIR%tests\MultiplayerSaveLoading.Tests\LoadProtocol.Tests.csproj" --configuration Release -p:ImportDirectoryBuildTargets=false
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "MultiplayerSaveLoading runtime build"
+"%MSBUILD%" "%PROJECT_DIR%tests\MultiplayerSaveLoading.Tests\MultiplayerSaveLoading.Tests.csproj" /p:Configuration=Release /p:ImportDirectoryBuildTargets=false /p:GameDir="%GAME_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%" /nologo /verbosity:minimal
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "MultiplayerSaveLoading runtime"
+"%PROJECT_DIR%tests\MultiplayerSaveLoading.Tests\bin\MultiplayerSaveLoading.Tests.exe" "%GAME_DIR%" "%API_SHARED_DIR%"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "AutoSend.Tests"
 dotnet run --project "%PROJECT_DIR%tests\AutoSend.Tests\AutoSend.Tests.csproj" --configuration Release "/p:GameDir=%GAME_DIR%" "/p:ExtenderDir=%EXTENDER_DIR%"
 call :step_end %ERRORLEVEL%

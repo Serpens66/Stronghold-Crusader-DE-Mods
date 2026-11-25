@@ -9,7 +9,7 @@ using Mono.Cecil;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
 
-namespace MultiplayerSaveLoadTest
+namespace BugfixesAndQoL.Multiplayer.SaveLoading
 {
     // A process-lived checkpoint before EACH sim iteration, never inside native execution.
     // Unity requests parking and observes receipts; it never waits for worker threads.
@@ -32,10 +32,10 @@ namespace MultiplayerSaveLoadTest
             if (threadField?.FieldType != typeof(Thread)) throw new MissingFieldException("Director.simThread");
             if (director != null && threadField.GetValue(director) is Thread thread && thread.IsAlive)
                 throw new InvalidOperationException("The sim thread already runs; its active invocation cannot be repatched.");
-            if (!SafeIlHook.TryInstall(SaveLoadPlugin.Guid, SaveLoadPlugin.Guid + ".sim-checkpoint",
+            if (!SafeIlHook.TryInstall(BugfixesAndQoLPlugin.PluginGuid, BugfixesAndQoLPlugin.PluginGuid + ".sim-checkpoint",
                 AccessTools.Method(typeof(Director), "runSimTickTest"), Inject, log, out hook, out string reason))
                 throw new InvalidOperationException(reason);
-            harmony = new Harmony(SaveLoadPlugin.Guid + ".barrier");
+            harmony = new Harmony(BugfixesAndQoLPlugin.PluginGuid + ".barrier");
             foreach (string method in new[] { "MyFixedUpdate", "forceEarlyEngine", "UpdateMultiplayer" })
                 harmony.Patch(AccessTools.Method(typeof(Director), method),
                     prefix: new HarmonyMethod(typeof(LoadBarrier), nameof(Enter)),

@@ -1,6 +1,0 @@
-Load.ConfirmTitle=Quitter ?
-Load.RecoveryTitle=Menu
-Load.WaitPeers=Tous les joueurs doivent activer le chargement multijoueur.
-Load.Transition=Transfert des joueurs vers le salon de chargement multijoueur.
-Load.Failed=Ouverture du salon de chargement multijoueur impossible. Consultez le journal.
-Load.NotReady=Le chargement multijoueur est encore indisponible.

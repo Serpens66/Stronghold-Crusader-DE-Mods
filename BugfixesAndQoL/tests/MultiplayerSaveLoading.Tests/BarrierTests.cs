@@ -7,7 +7,7 @@ using HarmonyLib;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
-using MultiplayerSaveLoadTest;
+using BugfixesAndQoL.Multiplayer.SaveLoading;
 
 // Separate fixture executable: compile production LoadBarrier and this file against
 // the selected runtime references. Pass the installed Assembly-CSharp.dll as argv[0].

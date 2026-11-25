@@ -73,6 +73,7 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableTrailCustomizationButtons => options["EnableTrailCustomizationButtons"];
         public SettingsOptionPresentation AllowFullAiMultiplayerLobby => options["AllowFullAiMultiplayerLobby"];
         public SettingsOptionPresentation EnableReturnToMultiplayerLobby => options["EnableReturnToMultiplayerLobby"];
+        public SettingsOptionPresentation EnableIngameMultiplayerSaveLoading => options["EnableIngameMultiplayerSaveLoading"];
         public SettingsOptionPresentation MultiplayerTimeControlPermissionIndex => options["MultiplayerTimeControlPermissionIndex"];
         public SettingsOptionPresentation MultiplayerGameSpeedMaximum => options["MultiplayerGameSpeedMaximum"];
         public SettingsOptionPresentation EnableShiftGameSpeedSteps => options["EnableShiftGameSpeedSteps"];
@@ -194,6 +195,7 @@ namespace BugfixesAndQoL
             AddOption("EnableTrailCustomizationButtons", "bugfixes.enable-trail-customization-buttons", SettingsCategory.Qol, HostSetup);
             AddOption("AllowFullAiMultiplayerLobby", "bugfixes.allow-full-ai-multiplayer-lobby", SettingsCategory.Qol, HostSetup);
             AddOption("EnableReturnToMultiplayerLobby", "bugfixes.enable-return-to-multiplayer-lobby", SettingsCategory.Qol, HostSetup);
+            AddOption("EnableIngameMultiplayerSaveLoading", "bugfixes.enable-ingame-multiplayer-save-loading", SettingsCategory.Qol, HostSetup);
             AddOption("MultiplayerTimeControlPermissionIndex", "bugfixes.enable-multiplayer-game-speed-changes", SettingsCategory.Qol, HostSetup);
             AddOption("MultiplayerGameSpeedMaximum", "bugfixes.multiplayer-game-speed-maximum", SettingsCategory.Qol, HostSetup);
             AddOption("EnableShiftGameSpeedSteps", "bugfixes.enable-shift-game-speed-steps", SettingsCategory.Qol, HostSetup);

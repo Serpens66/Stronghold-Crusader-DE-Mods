@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.241",
+  "Version": "1.0.242",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.4",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,14 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.242",
+      "Changes": [
+        "Add a default-enabled QoL host preference to load a save during multiplayer. After confirmation, the group automatically returns to a private lobby and the normal dialog lists both cooperative and ordinary multiplayer saves.",
+        "Keep this host preference independent of Map, Trail and saved-game rules. Manual Unready, native file checks and cancellation in the shared lobby remain respected.",
+        "Replace the standalone Multiplayer Save Load Test. Remove that testmod on every computer; if it remains installed, the integrated feature stays inactive to prevent duplicate hooks."
+      ]
+    },
     {
       "Version": "1.0.241",
       "Changes": [

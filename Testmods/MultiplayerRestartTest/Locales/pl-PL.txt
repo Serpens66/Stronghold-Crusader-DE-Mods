@@ -1,6 +1,0 @@
-Load.ConfirmTitle=Zakończyć?
-Load.RecoveryTitle=Menu główne
-Load.WaitPeers=Oczekiwanie, aż wszyscy gracze włączą wczytywanie gry wieloosobowej.
-Load.Transition=Przenoszenie graczy do lobby wczytywania gry wieloosobowej.
-Load.Failed=Nie udało się otworzyć lobby wczytywania. Szczegóły w dzienniku.
-Load.NotReady=Wczytywanie gry wieloosobowej nie jest jeszcze dostępne.

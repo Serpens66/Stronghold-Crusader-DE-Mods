@@ -1,21 +1,22 @@
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup><BaseIntermediateOutputPath>obj\Runtime\</BaseIntermediateOutputPath></PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
   <PropertyGroup>
     <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
-    <OutputType>Library</OutputType><AssemblyName>MultiplayerRestartTest</AssemblyName>
+    <OutputType>Library</OutputType><AssemblyName>MultiplayerSaveLoading.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion><LangVersion>latest</LangVersion>
     <DebugSymbols>true</DebugSymbols><DebugType>portable</DebugType>
-    <OutputPath>BepInEx\plugins\MultiplayerRestartTest_Serp\</OutputPath>
+    <OutputPath>bin\</OutputPath>
     <GameDir Condition="'$(GameDir)' == ''">E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
     <Managed>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed</Managed>
     <Core>$(GameDir)\BepInEx\core</Core>
     <ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
     <ApiSharedDir Condition="'$(ApiSharedDir)' == ''">$(GameDir)\BepInEx\plugins\APIShared_Serp</ApiSharedDir>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Fixture)' == 'true'">
+  <PropertyGroup>
     <OutputType>Exe</OutputType><StartupObject>SaveLoadTestBootstrap</StartupObject>
-    <AppConfig>tests\Fixture.config</AppConfig>
-    <OutputPath>.local\fixture\</OutputPath><IntermediateOutputPath>obj\Fixture\</IntermediateOutputPath>
+    <AppConfig>Fixture.config</AppConfig>
+    <OutputPath>bin\</OutputPath><IntermediateOutputPath>obj\Runtime\</IntermediateOutputPath>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System"/><Reference Include="System.Core"/>
@@ -37,18 +38,19 @@
     <Reference Include="Noesis.NoesisGUI"><HintPath>$(Managed)\Noesis.NoesisGUI.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="com.rlabrecque.steamworks.net"><HintPath>$(Managed)\com.rlabrecque.steamworks.net.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
-  <ItemGroup Condition="'$(Fixture)' == 'true'">
-    <Compile Include="tests\BarrierTests.cs" />
-    <Compile Include="tests\RuntimeTests.cs" />
-    <Compile Include="tests\LobbyBridgeTests.cs" />
-    <Compile Include="tests\LocaleTests.cs" />
+  <ItemGroup>
+    <Compile Include="BarrierTests.cs" />
+    <Compile Include="RuntimeTests.cs" />
+    <Compile Include="LobbyBridgeTests.cs" />
+    <Compile Include="LocaleTests.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="src\**\*.cs" />
-    <Compile Include="..\..\Shared\Runtime\Localization\SerpLocalization.cs"><Link>Shared\SerpLocalization.cs</Link></Compile>
-    <Compile Include="..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
-    <Content Include="info.json"><CopyToOutputDirectory>Always</CopyToOutputDirectory></Content>
-    <Content Include="Locales\*.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></Content>
+    <Compile Include="..\..\src\Multiplayer\SaveLoading\*.cs" />
+    <Compile Include="..\..\..\Shared\Runtime\Localization\SerpLocalization.cs"><Link>Shared\SerpLocalization.cs</Link></Compile>
+    <Compile Include="..\..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
+    <Compile Include="FixtureHost.cs" />
+    <Compile Include="FeatureGateTests.cs" />
+    <Content Include="..\..\Locales\*.txt"><Link>Locales\%(Filename)%(Extension)</Link><CopyToOutputDirectory>Always</CopyToOutputDirectory></Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

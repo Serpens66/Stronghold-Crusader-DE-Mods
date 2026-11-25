@@ -41,7 +41,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.241";
+        public const string PluginVersion = "1.0.242";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;
@@ -105,6 +105,7 @@ namespace BugfixesAndQoL
                 SteamInviteBlacklistStore.GetDefaultPath(), SteamInviteBlacklistStore.GetLegacyPath(),
                 message => Shared.DebugLogHelper.LogWarningLimited(Logger, "invite-blacklist-storage", message));
             Settings = new BugfixesAndQoLViewModel(legacySomeSettingsLoaded, steamInviteBlacklist, Logger);
+            Multiplayer.SaveLoading.IngameSaveLoadFeature.InitializeEarly(Logger, Settings);
             try { wallDeposits = new WallDeposits.DepositRestorationRuntime(Settings, Logger); }
             catch (Exception ex)
             {
@@ -297,6 +298,7 @@ namespace BugfixesAndQoL
             }
 
             AutoSend.AutoSendFeature.Initialize(Logger, Settings);
+            Multiplayer.SaveLoading.IngameSaveLoadFeature.Initialize(Logger);
             ProjectileTrails.ProjectileTrailRuntime.Install(context);
 
             try
