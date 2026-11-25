@@ -18,8 +18,8 @@ namespace TrappedUnitRescueTest.Tests
         }
         internal static void Run()
         {
-            checks=0;bool recovering=true;var pre=new List<int>();var post=new List<string>();
-            var observer=new RescueOrderObserver("rescue",()=>recovering,id=>pre.Add(id),(id,result)=>post.Add(id+":"+result));
+            checks=0;bool recovering=true;var pre=new List<int>();var post=new List<string>();var aborted=new List<int>();
+            var observer=new RescueOrderObserver("rescue",()=>recovering,id=>pre.Add(id),(id,result)=>post.Add(id+":"+result),aborted:id=>aborted.Add(id));
             Check(observer.TryBegin(Context(1,"rescue"))==null && pre.Count==0,"only the bound own recovery call is ignored");
             var foreign=Context(2);var receipt=observer.TryBegin(foreign);
             Check(receipt!=null && pre.Count==1 && pre[0]==2,"independent foreign command remains authoritative during recovery");
@@ -38,6 +38,8 @@ namespace TrappedUnitRescueTest.Tests
             int prior=pre.Count;Check(filtered.TryBegin(Context(500))==null && pre.Count==prior,"unrelated commands allocate no consumer receipt or scan pending units");
             var skipped=Context(7);observer.TryBegin(skipped).Complete(Completion(skipped,invoked:false));
             Check(post.Count==2,"uninvoked originals are not treated as executed new orders");
+            Check(aborted.Count==3 && aborted[0]==5 && aborted[1]==6 && aborted[2]==7,
+                "stale, throwing and vetoed attempts release external-order reservations without inventing a native handoff");
             Console.WriteLine("PASS: final native order consumer checks="+checks+"; effective identities, own-origin distinction and exact native receipts; no native calls.");
         }
     }

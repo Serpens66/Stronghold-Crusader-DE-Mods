@@ -36,13 +36,17 @@ namespace TrappedUnitRescueTest
     // worker arrival barrier and never restores an earlier AI state or order.
     internal sealed class IdleEscapeOwner
     {
-        private sealed class Receipt { internal IdleEscapeTicket Ticket;internal uint Started; }
+        private sealed class Receipt { internal IdleEscapeTicket Ticket;internal uint Started;internal LinkedListNode<Receipt> Node; }
         private readonly IIdleEscapeWorld world;
         private readonly int capacity,perTick;
         private readonly uint deadline;
         private readonly Dictionary<int,Receipt> receipts=new Dictionary<int,Receipt>();
-        private readonly Queue<Receipt> schedule=new Queue<Receipt>();
+        private readonly LinkedList<Receipt> schedule=new LinkedList<Receipt>();
         private bool executing;
+        private bool hasAdvanced;
+        private uint lastAdvanced;
+        internal bool IsExecutingNativeCall=>executing;
+        internal long CompletedCount {get;private set;}
         internal int Count=>receipts.Count;
         internal IdleEscapeState LastState {get;private set;}=IdleEscapeState.Rejected;
         internal IdleEscapeOwner(IIdleEscapeWorld world,int capacity=64,int perTick=8,uint deadlineTicks=600)
@@ -52,15 +56,18 @@ namespace TrappedUnitRescueTest
         }
         internal bool Owns(IdleEscapeTicket ticket)=>ticket!=null && receipts.TryGetValue(ticket.UnitId,out var receipt) && ReferenceEquals(receipt.Ticket,ticket);
         internal bool Contains(int unitId)=>receipts.ContainsKey(unitId);
-        internal void Release(int unitId){receipts.Remove(unitId);}
-        internal void Clear(){receipts.Clear();schedule.Clear();}
+        internal void Release(int unitId)
+        {if(receipts.TryGetValue(unitId,out var receipt)){if(receipt.Node!=null)schedule.Remove(receipt.Node);receipts.Remove(unitId);}}
+        internal void Clear(){receipts.Clear();schedule.Clear();hasAdvanced=false;}
         internal bool TryStart(IdleEscapeRequest request,uint tick,out string reason)
         {
             LastState=IdleEscapeState.Rejected;reason="idle-escape-rejected";
             if(executing || request?.Before==null)return false;
             if(receipts.ContainsKey(request.Before.Id)){reason="idle-escape-already-owned";return false;}
             if(receipts.Count>=capacity){reason="idle-escape-capacity";return false;}
-            if(!world.TryCapture(request,out var ticket,out reason) || ticket==null || !ReferenceEquals(ticket.Request,request))return false;
+            IdleEscapeTicket ticket;
+            try {if(!world.TryCapture(request,out ticket,out reason) || ticket==null || !ReferenceEquals(ticket.Request,request))return false;}
+            catch {reason="idle-escape-capture-failed";return false;}
             var receipt=new Receipt{Ticket=ticket,Started=tick};receipts.Add(ticket.UnitId,receipt);
             // Reservation precedes every native call, including synchronous callbacks.
             executing=true;
@@ -71,12 +78,13 @@ namespace TrappedUnitRescueTest
                 if(move==IdleEscapeMove.NativeSucceeded && world.HasPublishedRoute(ticket))
                 {
                     var state=world.Inspect(ticket);
-                    if(state==IdleEscapeInspection.Arrived){Release(ticket.UnitId);LastState=IdleEscapeState.Completed;reason="idle-escape-arrived";return true;}
-                    if(state==IdleEscapeInspection.Waiting){schedule.Enqueue(receipt);LastState=IdleEscapeState.InProgress;reason="idle-escape-native-route-in-progress";return true;}
+                    if(!Owns(ticket)){LastState=IdleEscapeState.Superseded;reason="idle-escape-authority-lost";return false;}
+                    if(state==IdleEscapeInspection.Arrived){Release(ticket.UnitId);CompletedCount++;LastState=IdleEscapeState.Completed;reason="idle-escape-arrived";return true;}
+                    if(state==IdleEscapeInspection.Waiting){receipt.Node=schedule.AddLast(receipt);LastState=IdleEscapeState.InProgress;reason="idle-escape-native-route-in-progress";return true;}
                 }
                 else if(move==IdleEscapeMove.NativeRefused && world.CanFallback(ticket) && Owns(ticket) &&
-                    world.RelocateAndNormalize(ticket) && Owns(ticket) && world.Inspect(ticket)==IdleEscapeInspection.Arrived)
-                {Release(ticket.UnitId);LastState=IdleEscapeState.Completed;reason="idle-escape-native-refusal-local-arrival";return true;}
+                    world.RelocateAndNormalize(ticket) && Owns(ticket) && world.Inspect(ticket)==IdleEscapeInspection.Arrived && Owns(ticket))
+                {Release(ticket.UnitId);CompletedCount++;LastState=IdleEscapeState.Completed;reason="idle-escape-native-refusal-local-arrival";return true;}
                 Release(ticket.UnitId);reason="idle-escape-not-proven";return false;
             }
             catch {Release(ticket.UnitId);reason="idle-escape-call-failed";return false;}
@@ -84,19 +92,21 @@ namespace TrappedUnitRescueTest
         }
         internal int Advance(uint tick)
         {
-            if(executing)return 0;
+            if(executing || hasAdvanced && lastAdvanced==tick)return 0;
+            hasAdvanced=true;lastAdvanced=tick;
             int processed=0,available=Math.Min(perTick,schedule.Count);
-            while(processed<available)
+            while(processed<available && schedule.Count!=0)
             {
-                var receipt=schedule.Dequeue();var ticket=receipt.Ticket;
+                var receipt=schedule.First.Value;schedule.RemoveFirst();receipt.Node=null;var ticket=receipt.Ticket;
                 if(!Owns(ticket))continue;
                 processed++;
                 if(unchecked(tick-receipt.Started)>=deadline)
                 {Release(ticket.UnitId);LastState=IdleEscapeState.Expired;continue;}
                 IdleEscapeInspection state;
                 try {state=world.Inspect(ticket);}catch{state=IdleEscapeInspection.Changed;}
-                if(state==IdleEscapeInspection.Waiting)schedule.Enqueue(receipt);
-                else {Release(ticket.UnitId);LastState=state==IdleEscapeInspection.Arrived?IdleEscapeState.Completed:IdleEscapeState.Superseded;}
+                if(!Owns(ticket))continue;
+                if(state==IdleEscapeInspection.Waiting)receipt.Node=schedule.AddLast(receipt);
+                else {Release(ticket.UnitId);if(state==IdleEscapeInspection.Arrived)CompletedCount++;LastState=state==IdleEscapeInspection.Arrived?IdleEscapeState.Completed:IdleEscapeState.Superseded;}
             }
             return processed;
         }

@@ -57,7 +57,7 @@ namespace TrappedUnitRescueTest
         private bool TryCaptureCommand(UnitSnapshot before,out WorkerResumeTicket ticket,out string reason)
         {
             ticket=null;reason="command-live-capture-rejected";
-            if(before.Unsupported!=null || !native.TryUnit(before.Id,out var unit) || unit->r_GlobalId!=before.GlobalId ||
+            if((before.Flags!=2 && before.Flags!=4) || before.Unsupported!=null || !native.TryUnit(before.Id,out var unit) || unit->r_GlobalId!=before.GlobalId ||
                 unit->r_CurrentHealth!=before.Health || unit->r_ControllableForPlayerId!=before.Owner || unit->r_TribeId!=before.Tribe ||
                 unit->r_TargetTilePositionX2!=before.RequestedX || unit->r_TargetTilePositionY2!=before.RequestedY || !SafeMode(unit) ||
                 !AdmissibleCapturePosition(before,(int)unit->r_CurrentPositionTileId,unit->r_CurrentTilePositionX,unit->r_CurrentTilePositionY,
@@ -248,29 +248,54 @@ namespace TrappedUnitRescueTest
                 return WorkerOrderObservation.Release;
             if(nativeResult>0 && unit->r_PathPlanStateBitFlags==0 && unit->r_CurrentTilePositionX==unit->r_TargetTilePositionX2 &&
                 unit->r_CurrentTilePositionY==unit->r_TargetTilePositionY2)return WorkerOrderObservation.Release;
-            if(unit->r_PathPlanStateBitFlags!=5 || unit->r_UnitChimp!=ticket.UnitType ||
-                unit->r_ControllableForPlayerId!=ticket.Owner || unit->r_TribeId!=ticket.TribeId ||
-                !native.TryTribeGlobal(ticket.TribeId,out uint tribeGlobal) || tribeGlobal!=ticket.TribeGlobalId ||
-                !SafeMode(unit,true) || native.Tile(unit->r_TargetTilePositionX2,unit->r_TargetTilePositionY2)<0)
-                return WorkerOrderObservation.Keep;
+            if(!native.TryTribeGlobal(ticket.TribeId,out uint tribeGlobal))return WorkerOrderObservation.Keep;
             IntPtr pointer=(IntPtr)unit;
-            if(ticket.Kind==ResumeReceiptKind.Command)
+            if(!TryPrepareFailedOrderHandoff(ticket,nativeResult,offset=>native.JobWord((GameUnit*)pointer,offset),
+                offset=>native.JobDword((GameUnit*)pointer,offset),native.Tile,tribeGlobal,out replacement) ||
+                replacement.Command!=null && !CommandCrewAlive(replacement.Command,ticket.Owner))return WorkerOrderObservation.Keep;
+            // This is the supervisor's safe boundary after the entire wrapper. A
+            // failed foreign order may retain flags2 after clearing the path bytes.
+            // Park the fresh live goal, never the obsolete receipt's target.
+            return TryPark(replacement,true)?WorkerOrderObservation.Rebind:WorkerOrderObservation.Keep;
+        }
+        // The real adapter and offline fixture use this same reader-only admission.
+        // All machine fields retain NativeRelocation's pinned image/layout contract.
+        internal static bool TryPrepareFailedOrderHandoff(WorkerResumeTicket ticket,long nativeResult,
+            Func<int,ushort> word,Func<int,uint> dword,Func<int,int,int> tileAt,uint tribeGlobal,out WorkerResumeTicket replacement)
+        {
+            replacement=null;
+            if(ticket==null || !ticket.IsValid || nativeResult!=0 || word==null || dword==null || tileAt==null)return false;
+            try
             {
-                // This is a completed authoritative external order, so its new
-                // admitted command context may differ. Never reconstruct the old one.
-                if(!CommandJourneySnapshot.TryCapture(unit->r_UnitChimp,unit->r_AIState,offset=>native.JobWord((GameUnit*)pointer,offset),
-                    offset=>native.JobDword((GameUnit*)pointer,offset),out var command) || !CommandCrewAlive(command,ticket.Owner) ||
-                    !SameCrew(ticket.Command,command))return WorkerOrderObservation.Keep;
-                replacement=WorkerResumeTicket.ForCommand(ticket.UnitId,ticket.UnitGlobalId,ticket.UnitType,unit->r_AIState,ticket.Owner,
-                    ticket.TribeId,ticket.TribeGlobalId,unit->r_TargetTilePositionX2,unit->r_TargetTilePositionY2,command);
-                return replacement.IsValid && TryPark(replacement,true)?WorkerOrderObservation.Rebind:WorkerOrderObservation.Keep;
+                int flags=word(0x74E),ai=word(0x918),x=word(0x71C),y=word(0x71E);
+                if(flags!=0 && flags!=2 && flags!=4 && flags!=5)return false;
+                // Existing flags5 already owns its barrier. Adopting stale active or
+                // stopped output additionally requires the previously qualified AI.
+                if(flags!=5 && ai!=ticket.AIState || dword(0x6F0)!=ticket.UnitGlobalId ||
+                    word(0x6E4)!=(ushort)AliveState.IsAlive || word(0x6E6)!=(ushort)ticket.UnitType ||
+                    word(0x6EE)!=ticket.Owner || word(0x930)!=ticket.TribeId || tribeGlobal!=ticket.TribeGlobalId ||
+                    ticket.TribeId!=0 && dword(0x93C)!=tribeGlobal || dword(0xA20)==0 || word(0x8F8)!=0 ||
+                    word(0x6EC)!=0 || word(0x9C8)>1 || word(0x9B0)!=0 || word(0x8EC)!=0 || word(0x8F6)!=0 ||
+                    word(0x750)!=8 || dword(0x740)!=0 || tileAt(x,y)<0 || dword(0x72C)!=(uint)tileAt(x,y) ||
+                    word(0x738)!=x || word(0x73A)!=y || dword(0x73C)!=dword(0x72C))return false;
+                ushort goalX=word(0x744),goalY=word(0x746);
+                if(tileAt(goalX,goalY)<0)return false;
+                if(ticket.Kind==ResumeReceiptKind.Command)
+                {
+                    if(!CommandJourneySnapshot.TryCapture(ticket.UnitType,ai,word,dword,out var command) || !SameCrew(ticket.Command,command))return false;
+                    replacement=WorkerResumeTicket.ForCommand(ticket.UnitId,ticket.UnitGlobalId,ticket.UnitType,ai,ticket.Owner,
+                        ticket.TribeId,tribeGlobal,goalX,goalY,command);
+                }
+                else
+                {
+                    if(ai!=ticket.AIState || !ticket.Job.MatchesContinuation(ticket.UnitType,ai,word,dword) ||
+                        !WorkerJourneySnapshot.TryCapture(ticket.Job.Rule,word,dword,out var job))return false;
+                    replacement=new WorkerResumeTicket(ticket.UnitId,ticket.UnitGlobalId,ticket.UnitType,ai,ticket.Owner,
+                        ticket.TribeId,tribeGlobal,goalX,goalY,job,ticket.Bindings);
+                }
+                if(replacement.IsValid)return true;replacement=null;return false;
             }
-            if(unit->r_AIState!=ticket.AIState || !Match(ticket,unit,true))return WorkerOrderObservation.Keep;
-            if(!WorkerJourneySnapshot.TryCapture(ticket.Job.Rule,offset=>native.JobWord((GameUnit*)pointer,offset),
-                offset=>native.JobDword((GameUnit*)pointer,offset),out var job))return WorkerOrderObservation.Keep;
-            replacement=new WorkerResumeTicket(ticket.UnitId,ticket.UnitGlobalId,ticket.UnitType,ticket.AIState,ticket.Owner,
-                ticket.TribeId,ticket.TribeGlobalId,unit->r_TargetTilePositionX2,unit->r_TargetTilePositionY2,job,ticket.Bindings);
-            return replacement.IsValid && TryPark(replacement,true)?WorkerOrderObservation.Rebind:WorkerOrderObservation.Keep;
+            catch{replacement=null;return false;}
         }
         private static bool SameCrew(CommandJourneySnapshot first,CommandJourneySnapshot second)
         {

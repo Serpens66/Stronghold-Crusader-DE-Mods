@@ -35,9 +35,16 @@ namespace TrappedUnitRescueTest.Tests
         }
         private static GeneralRescueObserver New(World world,Action<bool> suppression=null,Action<string> report=null)
         {var observer=new GeneralRescueObserver(world,suppression,report);observer.SetSession(world.Session);return observer;}
-        private static UnitSnapshot Unit(int id)=>new UnitSnapshot{Id=id,GlobalId=(uint)(1000+id),Owner=1,TileId=50+id,NextTileId=60+id,
-            RequestedX=20,RequestedY=30,AffectedCurrent=true,CurrentWasOrdinary=true,Health=100,
-            Type=(int)SHCDESE.Interop.eChimps.CHIMP_TYPE_SPEARMAN,CrewIdentity=Array.Empty<uint>()};
+        private static UnitSnapshot Unit(int id)
+        {
+            var unit=new UnitSnapshot{Id=id,GlobalId=(uint)(1000+id),Owner=1,TileId=50+id,NextTileId=50+id,Substep=8,
+                RequestedX=20,RequestedY=30,AffectedCurrent=true,CurrentWasOrdinary=true,Health=100,
+                Type=(int)SHCDESE.Interop.eChimps.CHIMP_TYPE_SPEARMAN,CrewIdentity=Array.Empty<uint>()};
+            CommandJourneySnapshot.TryCaptureStationary((SHCDESE.Interop.eChimps)unit.Type,unit.AIState,
+                offset=>offset==0x6E4?(ushort)2:offset==0x6E6?(ushort)unit.Type:offset==0x6EE?(ushort)unit.Owner:
+                    offset==0xA9E?(ushort)1:(ushort)0,offset=>offset==0x6F0?unit.GlobalId:0,out unit.Command);
+            return unit;
+        }
         private static List<UnitSnapshot> Units(int first,int count)
         {var result=new List<UnitSnapshot>();for(int i=0;i<count;i++)result.Add(Unit(first+i));return result;}
         private static WorldMutationContext Context(long batch,long invocation=1,long session=9,long generation=3,
@@ -236,6 +243,10 @@ namespace TrappedUnitRescueTest.Tests
             Require(retriesWorld.RescueCalls==4 && retries.PendingCount==0,"coordinator maps NoCandidate to bounded retry rather than infinite replay");
             var rejectWorld=new World{RescueSuccess=false,FailureStatus=RescueStatus.Unsupported};var reject=New(rejectWorld);Enqueue(reject,rejectWorld,460,Units(1,1));reject.Tick(100);
             Require(rejectWorld.RescueCalls==1 && reject.PendingCount==0,"nonretryable native result retires proof immediately");
+            var escapeWorld=new World{RescueSuccess=false,FailureStatus=RescueStatus.EscapeInProgress};var escape=New(escapeWorld);
+            Enqueue(escape,escapeWorld,470,Units(1,1));escape.Tick(100);escape.Tick(101);
+            Require(escapeWorld.RescueCalls==1 && escape.PendingCount==0 && escape.RescueCount==0,
+                "published idle escape transfers observation to its owner without replay or premature rescue success");
         }
         private static void Require(bool condition,string message)
         {assertions++;if(!condition)throw new InvalidOperationException(message);}

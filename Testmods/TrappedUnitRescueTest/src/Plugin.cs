@@ -26,6 +26,8 @@ namespace TrappedUnitRescueTest
         private static RescueRuntime runtime;
         private static GeneralRescueObserver generalObserver;
         private static WorkerRecoveryService workers;
+        private static IdleEscapeOwner idleEscapes;
+        private static NativeIdleEscapeWorld idleEscapeWorld;
         private static FixesIntegration fixes;
         private static Fixture fixture;
         private static IMissionLifecycleCapability missions;
@@ -68,10 +70,19 @@ namespace TrappedUnitRescueTest
                 runtime = new RescueRuntime(native, () => Volatile.Read(ref active) != 0, Stamp);
                 var generalRuntime = new RescueRuntime(native, () => generalObserver != null && generalObserver.IsActive, Stamp);
                 generalObserver = new GeneralRescueObserver(generalRuntime, SetGeneralSuppression, Stamp);
-                workers=new WorkerRecoveryService(native,()=>generalObserver.IsRecovering,Stamp);
+                workers=new WorkerRecoveryService(native,()=>generalObserver.IsRecovering || idleEscapes?.IsExecutingNativeCall==true,Stamp);
                 if(!workers.Register(Guid,out string saveReason))throw new InvalidOperationException("Worker persistence unavailable: "+saveReason);
+                idleEscapeWorld=new NativeIdleEscapeWorld(native,Guid,IdleEscapeAuthority,native.TryReissue);
+                idleEscapes=new IdleEscapeOwner(idleEscapeWorld);
+                if(!UnitMoveEvents.TryRegister(Guid,"idle-escape-source-phase",idleEscapeWorld,out string idleReason,enabled:()=>idleEscapeWorld.IsArmed))
+                    throw new InvalidOperationException("Idle escape source-phase observation unavailable: "+idleReason);
                 foreach(var rescue in new[]{runtime,generalRuntime})
-                {rescue.Workers=workers.Supervisor;rescue.WorkerTick=()=>workers.TickValue;rescue.WorkerReady=()=>workers.Ready;}
+                {
+                    rescue.Workers=workers.Supervisor;rescue.WorkerTick=()=>workers.TickValue;rescue.WorkerReady=()=>workers.Ready;
+                    rescue.IdleEscapes=idleEscapes;
+                    rescue.CreateIdleEscapeRequest=(before,target)=>WorldMutationEvents.TryGetCurrentWorld(out long session,out long generation)?
+                        new IdleEscapeRequest(session,generation,generalObserver.GetOrderSerial(before.Id),before,target,true):null;
+                }
                 generalObserver.WorldMutated=workers.Supervisor.MarkWorldMutation;
                 workers.CapturePending=generalObserver.TryCapturePending;
                 workers.RestorePending=generalObserver.StagePending;
@@ -80,13 +91,13 @@ namespace TrappedUnitRescueTest
                     throw new InvalidOperationException("World-mutation observer unavailable: " + mutationReason);
                 if(!SimulationTickEvents.TryRegister(Guid,"rescue-candidates",RecoveryTick,out string tickReason))
                     throw new InvalidOperationException("Recovery tick unavailable: " + tickReason);
-                orders=new RescueOrderObserver(Guid,()=>workers.Supervisor.IsExecutingNativeCall || generalObserver.IsRecovering,
-                    id=>{generalObserver.ObserveOrder(id,true);if(workers.Ready)workers.Supervisor.ObserveOrderPre(id);},
+                orders=new RescueOrderObserver(Guid,()=>workers.Supervisor.IsExecutingNativeCall || generalObserver.IsRecovering || idleEscapes.IsExecutingNativeCall,
+                    id=>{idleEscapes.Release(id);generalObserver.ObserveOrder(id,true);if(workers.Ready)workers.Supervisor.ObserveOrderPre(id);},
                     (id,result)=>{if(workers.Ready)workers.Supervisor.ObserveOrderPost(id,workers.TickValue,result);},
-                    id=>generalObserver.IsInterestedInOrder(id) || workers.Supervisor.Ledger.TryGetOwnedByUnit(id,out _),
+                    id=>generalObserver.IsInterestedInOrder(id) || idleEscapes.Contains(id) || workers.Supervisor.Ledger.TryGetOwnedByUnit(id,out _),
                     id=>workers.Supervisor.ObserveOrderAborted(id,workers.TickValue));
                 if(!UnitMoveEvents.TryRegister(Guid,"rescue-order-identity",orders,out string orderReason,
-                    enabled:()=>generalObserver.HasEvidence || workers.Supervisor.Ledger.Count!=0))
+                    enabled:()=>generalObserver.HasEvidence || idleEscapes.Count!=0 || workers.Supervisor.Ledger.Count!=0))
                     throw new InvalidOperationException("Final unit-move observations unavailable: "+orderReason);
                 libraryReady = true;
                 UpdateGeneralSession();
@@ -105,11 +116,12 @@ namespace TrappedUnitRescueTest
                 if (!ApiShared.ForMod(Guid).TryGetMissionLifecycle(out missions, out var diagnostic))
                     throw new InvalidOperationException(diagnostic.Reason);
                 if (!missions.TryRegisterObserver("rescue-session", n => {
+                    idleEscapes?.Clear();
                     fixes?.RecheckPublishedHooks();
                     SetActive(Volatile.Read(ref fixtureActive) != 0 && settings.EnableMod && settings.EnableExperimentalRescue);
                     UpdateGeneralSession();
                     workers?.BeginSession(n.Context.SessionId,LocalModeAllowed(n.Context));
-                }, n => { generalObserver?.SetSession(0); generalObserver?.ClearPending(); workers?.EndSession(); Volatile.Write(ref generalFixture, 0); SetActive(false); fixture?.Stop(); }, null, out var observerDiagnostic))
+                }, n => { idleEscapes?.Clear();generalObserver?.SetSession(0); generalObserver?.ClearPending(); workers?.EndSession(); Volatile.Write(ref generalFixture, 0); SetActive(false); fixture?.Stop(); }, null, out var observerDiagnostic))
                     throw new InvalidOperationException(observerDiagnostic.Reason);
                 settingsReady = true;
                 UpdateGeneralSession();
@@ -126,9 +138,13 @@ namespace TrappedUnitRescueTest
         private static void RecoveryTick(int tick)
         {
             generalObserver?.ExpireInactivePending();
-            if(workers==null || (generalObserver.PendingCount==0 && workers.Supervisor.Ledger.Count==0) || !workers.AdmitTick(tick))return;
-            if(!UnitMoveEvents.IsAvailable){generalObserver.ClearPending();return;}
+            if(!settings.EnableMod || !settings.EnableExperimentalRescue)idleEscapes?.Clear();
+            if(workers==null || (generalObserver.PendingCount==0 && workers.Supervisor.Ledger.Count==0 && idleEscapes.Count==0) || !workers.AdmitTick(tick))return;
+            if(!UnitMoveEvents.IsAvailable){generalObserver.ClearPending();idleEscapes.Clear();return;}
             generalObserver?.Tick(tick);
+            long completed=idleEscapes.CompletedCount;
+            idleEscapes.Advance(unchecked((uint)workers.TickValue));
+            if(idleEscapes.CompletedCount!=completed)Stamp("IDLE_ESCAPE_ARRIVED count="+(idleEscapes.CompletedCount-completed));
             if(workers.Supervisor.Ledger.Count==0 || !workers.Ready || !settings.EnableMod || !settings.EnableExperimentalRescue)return;
             bool fixtureScope=Volatile.Read(ref fixtureActive)!=0 && Volatile.Read(ref generalFixture)==0;
             if(fixtureScope)SetSuppression(true);else SetGeneralSuppression(true);
@@ -137,6 +153,10 @@ namespace TrappedUnitRescueTest
         }
         private static bool LocalModeAllowed(MissionContext current)=>current!=null && !current.Mode.IsRealMultiplayer &&
             !current.Mode.HasConflictingCustomizedOrigin && current.Mode.Kind!=APIShared.GameModes.GameModeKind.Unknown;
+        private static bool IdleEscapeAuthority(IdleEscapeRequest request)=>request!=null && settings.EnableMod && settings.EnableExperimentalRescue &&
+            LocalModeAllowed(missions?.Current) && (generalObserver.IsActive || Volatile.Read(ref active)!=0) &&
+            WorldMutationEvents.TryGetCurrentWorld(out long session,out long generation) && session==request.Session && generation==request.Generation &&
+            generalObserver.GetOrderSerial(request.Before.Id)==request.OrderSerial;
 
         private static void StartRequestedFixture()
         {

@@ -78,7 +78,8 @@ namespace TrappedUnitRescueTest
                     }
                     else if(kind==2)
                     {
-                        if(!CommandJourneySnapshot.IsSupportedPhase((eChimps)u.Type,u.AIState))return false;
+                        if(!(u.Flags==0?CommandJourneySnapshot.IsSupportedStationaryPhase((eChimps)u.Type,u.AIState):
+                            CommandJourneySnapshot.IsSupportedPhase((eChimps)u.Type,u.AIState)))return false;
                         int fields=reader.ReadInt32();if(fields<1 || fields>64)return false;
                         var offsets=new int[fields];var widths=new int[fields];var values=new uint[fields];
                         for(int i=0;i<fields;i++){offsets[i]=reader.ReadInt32();widths[i]=reader.ReadByte();values[i]=reader.ReadUInt32();}
@@ -111,11 +112,11 @@ namespace TrappedUnitRescueTest
                 return rule.CanResumeOrdinary && u.Job!=null && u.Command==null && u.Job.Rule.UnitType==(eChimps)u.Type && u.Job.Rule.AIState==u.AIState &&
                     u.Job.TryGetValue(0x6F0,out uint global) && global==u.GlobalId && u.Job.TryGetValue(0x6EE,out uint owner) && owner==(uint)u.Owner;
             if(u.Job!=null)return false;
-            if(u.Flags==2 || u.Flags==4)return u.Command!=null && u.Command.UnitType==(eChimps)u.Type && u.Command.AIState==u.AIState &&
+            return (u.Flags==0?CommandJourneySnapshot.IsSupportedStationaryPhase((eChimps)u.Type,u.AIState):
+                    CommandJourneySnapshot.IsSupportedPhase((eChimps)u.Type,u.AIState)) &&
+                u.Command!=null && u.Command.UnitType==(eChimps)u.Type && u.Command.AIState==u.AIState &&
                 u.Command.TryGetValue(0x6F0,out uint commandGlobal) && commandGlobal==u.GlobalId &&
                 u.Command.TryGetValue(0x6EE,out uint commandOwner) && commandOwner==(uint)u.Owner;
-            return u.Command==null && (CommandResumePolicy.IsCommandState((eChimps)u.Type,u.AIState) ||
-                u.Type==(int)eChimps.CHIMP_TYPE_SPEARMAN && u.AIState==2);
         }
         private static bool XY(int x,int y)=>(uint)x<800 && (uint)y<800;
         private static bool Tile(int tile)=>(uint)tile<NativeRelocation.TileCapacity;

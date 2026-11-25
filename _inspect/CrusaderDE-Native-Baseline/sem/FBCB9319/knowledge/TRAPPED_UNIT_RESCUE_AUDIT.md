@@ -369,3 +369,163 @@ These are static contracts, not newly successful rescue implementations. No
 universal freedom to interrupt every AI state or to reconstruct an old reachable
 bank from a later world is inferred. Earlier dated game observations retain
 their original scope and version identities.
+
+## Construction envelope closure, 2026-11-25 [Vanilla facts]
+
+Identity: the installed canonical DLL was rehashed on 2026-11-25 and still
+matches CURRENT.json and the dataset binaryHash:
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+Confidence is confirmed for the machine contracts below; no new game run is
+claimed. Reproduce the containing functions with `query.ps1 function <RVA>`.
+The complete branch inventory and independently decoded table/expansion evidence
+are in `Testmods/TrappedUnitRescueTest/Audits/CONSTRUCTION.md` and
+`Audits/TERRAIN-WORKERS.md`; these are mutable integration reports, so the
+reusable native conclusions are recorded here explicitly.
+
+- `0x6A620` with a nonzero brush selector enumerates `0xE3360`, a breadth-first
+  expansion, rather than a width-by-width square. Counts at `0x2D1C38` for
+  widths 0..9 are `0,1,5,13,25,41,85,145,313,545`. Cardinal directions are visited
+  in order 0,2,4,6. A discovered neighbour is counted before its own expansion
+  test; a popped tile expands only when its flags have neither bit in `0x30`
+  (RealityEdge and MapBorder). Checking only active neighbours would change
+  later ordinals. Native scratch is modified by these enumeration functions.
+- The relevant cleanup/terrain writers preserve these two expansion bits,
+  including terminal removal through `0x61FC0`, its type-specific branches,
+  vegetation removal `0x107970 -> 0x71D60`, and refresh helpers
+  `0x725E0/0x5B020/0x5D740`. This is a contract for bits `0x30` only: building
+  occupancy, height and other flags can change. It does not generalize to an
+  arbitrary foreign writer.
+- A possible counterexample through `0xB5C40 -> 0x9B2B0 -> 0x9C730 ->
+  0x7DF60 -> ... -> 0xFEE50` is infeasible for this cleanup: `0xB5C40` requests
+  effect `0x1E`, while that transition uses other effect types. The actual
+  handler table `0x2DA9C0[30]` selects `0x9A6E0`, which changes effect animation.
+  The dataset's size 1778 for `0x9B2B0` is not a contiguous-function-end proof:
+  its actual control flow includes tailcalls at `0x9B9E6/0x9B9F0`, indirect
+  dispatch at `0x9BA06`, and `0x9BA16 -> 0x9B468..0x9B47F`. Inspect those
+  machine instructions when revisiting this contract; the missing decompiler
+  body or an unqualified transitive callgraph cannot close it.
+- `0x61DB0 -> 0x619C0` initializes square-offset blocks only for sizes 0..13.
+  Nevertheless `0x5CD90` cleanup size 10 reaches size 14 in its second pass.
+  `0x69850` then addresses 196 records starting at `0x8EBA90` in adjacent mutable
+  native data. Those live X/Y pairs are not an initialized 14-by-14 square.
+  Duplicate or distant offsets cannot be replaced by a guessed rectangle.
+- `0xC43A0 -> 0xB8310 -> 0x61FC0` can remove distant building records sharing
+  the same nonzero compound key (raw building offset `0x304`, typed `0x2A8`).
+  `0xB8ED0` additionally searches all 36 stored farm-plot entries under flag
+  `0x04000000`, even for farm types with fewer actual plots. `0xB8E00` finds
+  farm preparation areas under flag 4. Building-layer zero is not sufficient
+  to exclude either path. Apple removal uses preparation size 11, whereas its
+  creator preparation is size 10.
+- Keep replacement preparation `0x77E60` precedes the relevant `0x5D3A0`
+  scratch-dependent branch. The latter includes main area, marker, camp and
+  goods parts and finalizes already Alive3-marked slots 1..3999. Main area and
+  the originally requested orientation alone do not bound that operation.
+- `0x59730` has a low-ground moat path and a high-ground alternative reaching
+  `0x6D580` with mapper `0x62` (KillingPit), scale 1 and direction 15. A moat
+  task callback alone therefore does not identify the eventual surface writer.
+- Dig `0x639C0` and fill `0x69470` first increment/decrement the stored byte,
+  including byte wrap, and then compare its signed result (dig >=4, fill <=0).
+  Nonterminal calls return before geometric mutation. This refines the earlier
+  progress-four summary; it is not permission to ignore malformed byte values.
+
+### Orientation and mapper integration limits [mod integration]
+
+Fixes or CastlePlanner can change the effective Keep direction below the upper
+construction observation boundary. The testmod captures the union of all four
+native orientations and validates the actual resulting world separately; a
+Before callback's requested direction is not treated as immutable. The native
+direction/variation distinction remains as documented in KEEP_DIRECTION.md.
+
+An offline comparison of all 440 declared installed SDK mapper values against
+native `0xC77C0` and scale lookup `0x6A190` found a discrepancy for legacy
+MAPPER_KEEP4/KEEP5: the SDK converts to KEEP_FOUR/FIVE, whereas Vanilla uses
+STRUCT_NULL with scale -1. Regular Keep1..3 agree. This is a dated SDK comparison,
+not a new native Keep type or a general SDK compatibility promise.
+
+## Movement publication and safe waiting, 2026-11-25 [Vanilla facts]
+
+Same hash and confidence as above. Reproducible containing functions:
+`0x196280`, `0x196840`, `0x199CD0`, `0xE32B0`, `0x182B00`, `0x1855A0`,
+`0x186AD0`, `0x180230`, `0x143400`, `0x181890`, `0x19BA40`, `0x11D370`,
+and `0x118660`.
+
+- `0x196840` tests completed moat from the unit's Current packed tile `+0x72C`.
+  `0x196280` can therefore select moat escape planning for an idle unit too.
+  Before search it writes requested X/Y `+0x744/+0x746`, clears portal `+0x8EC`
+  and `+0xA4C`, and can clear the unit's 1000-byte route buffer. Failure can
+  leave changes to `+0x900/+0x92A`; type `0x52` also receives `+0xA7E=100`
+  on the failed-builder branch. These are real writes, not a read-only probe.
+- On failure `0x199CD0` can assign AI110 and clear `+0x986` when `+0x8FC=0`,
+  Current has Wall bit `0x100`, type is neither Lord, Lady nor Jester, and
+  `0xE9D90` returns nonzero. A simultaneous Moat bit does not bypass this Wall
+  branch. Returning zero from a move is not a guarantee that AI is unchanged.
+- The same-start/goal branch of `0x196280` returns 1 with zero path length and
+  flags zero. Thus return 1 alone is not proof of a positive route or physical
+  movement. Selector 1 uses `0xE32B0` reconstruction of existing search scratch;
+  it is not an independent fresh search or a read-only fallback.
+- `0x182B00` dispatches the type handler and subsequently the common movement
+  executor. Flags 2/4 can therefore advance an accepted ordinary step while AI
+  is idle 0/2; forcing AI101 is not required by that physical executor. However,
+  the type handler and other earlier AI consumers can independently select
+  targets or change intent. `0x1855A0` also respects pause `+0x8F8` and physical
+  edge/portal checks. A published route is not proof of eventual arrival.
+- Path flags 5 prevent `0x188340` from reporting normal arrival, but do not
+  freeze all unit logic or undo a pending midpoint marker. `0x186AD0 ->
+  0x180230` can consume nonzero DWORD `+0x740` to commit Next. A stable parked
+  pose additionally requires substep 8, Current==Next, coherent packed IDs and
+  a zero marker; flag 5 alone does not establish those conditions.
+- `0x19BA40` clears flags `+0x74E`, DWORD `+0x740`, and writes DWORD `+0x750=8`
+  (substep8/cursor0). It does not clear requested `+0x744/+0x746`, stored moat
+  `+0x9C8`, or old length `+0x754`. Combining relocation with a rejected search
+  is not a generic worker-arrival or old-route restoration mechanism.
+- `0x11D370` writes the tribe ID at unit `+0x930` and stamps its global identity
+  at `+0x93C` from tribe record `+0x34` (stride `0x688`). Independently,
+  `0x118660` checks that stamp against the currently referenced tribe record
+  before deciding whether to reassign membership. An unchanged numeric tribe
+  slot alone does not prove unchanged membership identity.
+- Type dispatch in `0x182B00` uses pointer table `0x321CB0`. Constructors
+  `0x19A240/0x19C130` initialize unit `+0xA9E` from `0x3226B0`; `0x19D960`
+  can override it through a Lord definition. The table's value 1 also occurs
+  for animals. That field alone is not proof of a military consumer or safe
+  command-resume behavior. Trebuchet handler `0x1535F0` is a separate owner:
+  its AI101-to-0 branch does not use `0x188340` as an arrival test.
+- The military dig/fill command selector is native `+0x9F4`, not `+0x956`.
+  For example, complete handlers `0x143400/0x14AED0/0x174F90` test values 6/7
+  before the `0x69D60(1/2)`, `0x6AF60`, `0x196280` and conditional `0x198620`
+  sequence. A value 6 in work-mode metadata `+0x956` alone is not a dig order.
+- Siege attach `0x1520D0` stores engineer IDs/globals on the engine at
+  `+0x96C/+0x974`. Engineer AI5 instead uses its own DWORD `+0x974` as a
+  watchdog. The engine pass in `0x182B00` refreshes matching global/AI5 crew
+  entries up to the recorded crew count. Those fields do not establish a
+  reverse Engineer-to-engine pointer at `+0x9F6/+0x9F8`; a rescue must not
+  manufacture one from their numeric contents.
+
+These facts constrain rescue policy; they do not establish that every military
+idle, worker state or failed path can be resumed safely. The new managed owners,
+their bounded receipts and offline fixtures remain implementation evidence.
+No additional installation, in-game or multiplayer acceptance is asserted.
+
+### Command phase limits, 2026-11-25 [Vanilla facts]
+
+The same-hash continuation audit also closes these relevant counterexamples:
+
+- `0x193B80` writes path flags 5 AND copies current AI `+0x918` into `+0x91E`.
+  It is not a side-effect-free replacement for a single arrival-barrier write.
+- Engineer `0x14AED0` AI0 can enter payload work without `0x188340`, select
+  dig/fill, or invoke a group role. `0x199C70` wraps `0x11E960`, command 15;
+  that producer can assign Engineer AI8/9 and building identity `+0x98E/+0x6F8`.
+  An empty route and AI0 alone therefore do not prove an idle no-job engineer.
+- The Archer, Arabian Bow, Slinger, Grenadier, Ambusher and Skirmisher handlers
+  (`0x13F540/0x167D40/0x16B220/0x170570/0x1768A0/0x178350`) have no top-level
+  AI1 case. Crossbow `0x141DA0` AI1 instead reaches the shared animation tail
+  `0x142DF2/0x142E0E`, selecting AI0 and `0x181890`; Slave `0x169B70` has the
+  corresponding tail `0x16AE2C/0x16AE32`. Numeric phase equality is not a
+  cross-type semantic contract.
+- `0x11E960` independently supplies the `+0x9F4` command producer: it writes
+  the command payload there, with separate branches assigning 3/4/5. Together
+  with the handler readers above this closes the producer/consumer distinction
+  from the unrelated `+0x956` work-mode word.
+
+The complete per-handler matrix and its rescue admission consequences are in
+`Testmods/TrappedUnitRescueTest/Audits/COMMAND-RESUME.md`. The matrix's `R/N`
+labels describe mod policy, not new Vanilla states or gameplay acceptance.

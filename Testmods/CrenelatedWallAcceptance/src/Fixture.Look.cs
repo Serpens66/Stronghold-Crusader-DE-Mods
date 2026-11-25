@@ -170,7 +170,8 @@ namespace CrenelatedWallAcceptance
             string directory = Path.Combine(BepInEx.Paths.BepInExRootPath, "CrenelLook_shots");
             Directory.CreateDirectory(directory);
             PerfectPixelWithZoom.instance.SetZoomImmediate(0.5f);
-            foreach (var (name, mode) in new[] { ("current", 0), ("dir0", 4), ("dir2", 5) })
+            // Straight-sprite combinations for row B (low direction, high direction; 9 = Vanilla special).
+            foreach (var (name, mode) in new[] { ("current", 0), ("l0-h0", 100), ("l0-h2", 102), ("l2-hs", 129), ("l2-h0", 120), ("l2-h2", 122) })
             {
                 Engine(() =>
                 {
@@ -187,7 +188,8 @@ namespace CrenelatedWallAcceptance
                 string file = Path.Combine(directory, runId + "_diag-" + name + ".png");
                 ScreenCapture.CaptureScreenshot(file);
                 yield return AutomationWait.Delay(TimeSpan.FromMilliseconds(1500));
-                log("LOOK_SHOT diag-" + name + " file=" + file + " exists=" + File.Exists(file));
+                log("LOOK_SHOT diag-" + name + " file=" + file + " exists=" + File.Exists(file) + " heights=" + Engine(() =>
+                    new string(DiagonalRow(1, true).Select(t => (Flags(Tile(t.Item1 + ex, t.Item2 + ey)) & (uint)TilePropertyFlag.CrenelatedHigh) != 0 ? 'H' : 'L').ToArray())));
             }
             PerfectPixelWithZoom.instance.SetZoomImmediate(1f);
         }
@@ -219,11 +221,20 @@ namespace CrenelatedWallAcceptance
         private static Harmony lookHarmony;
         private static void LookPostfix(int tile, int direction, ref int __result)
         {
-            if (__result != 0) return;
             int mode;
             lock (lookMode) if (!lookMode.TryGetValue(tile, out mode)) return;
             bool low = (Flags(tile) & (uint)TilePropertyFlag.CrenelatedHigh) == 0;
             // The rows run along x, so the straight sprite of the east-west axis (direction 2) is used.
+            // 100 + low*10 + high: diagonal pieces drawn straight in direction 0/2, 9 = high keeps the
+            // Vanilla special sprite (crenel-look-diagonal combinations). Overrides the mod's answer.
+            if (mode >= 100)
+            {
+                int target = low ? (mode - 100) / 10 : (mode - 100) % 10;
+                if (target == 9) return;
+                __result = direction == target ? 1 : 0;
+                return;
+            }
+            if (__result != 0) return;
             // 4/5: high diagonal pieces with the straight sprite of direction 0 / 2 (crenel-look-diagonal).
             if (mode == 4 || mode == 5) { if (!low && direction == (mode == 4 ? 0 : 2)) __result = 1; return; }
             if (mode == 3 ? direction == 0 && low : direction == 2 && (mode == 1 || low)) __result = 1;

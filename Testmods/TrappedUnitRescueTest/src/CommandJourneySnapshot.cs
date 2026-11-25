@@ -43,9 +43,28 @@ namespace TrappedUnitRescueTest
             CommandResumePolicy.IsSiege(type)?Siege:type==eChimps.CHIMP_TYPE_ENGINEER?Engineer:
             type==eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER?Demolisher:Plain;
         // Type admission and functional phase admission are intentionally distinct.
-        // AI0/1 autonomous selection is still audited separately before broad admission.
-        internal static bool IsSupportedPhase(eChimps type,int state)=>CommandResumePolicy.IsKnownType(type) &&
-            type!=eChimps.CHIMP_TYPE_TREBUCHET && (state==101 || RequiredCrewCount(type)>0 && (state==0 || state==1));
+        // AI0/1 can autonomously change owner/intent: these native changes always
+        // retire the old receipt. Six ranged handlers have no AI1 case at all.
+        internal static bool IsSupportedPhase(eChimps type,int state)
+        {
+            if(!CommandResumePolicy.IsKnownType(type) || type==eChimps.CHIMP_TYPE_TREBUCHET)return false;
+            if(state==101)return true;
+            if(type==eChimps.CHIMP_TYPE_ENGINEER)return false;
+            if(state==0)return true;
+            if(state!=1)return false;
+            switch(type)
+            {
+                case eChimps.CHIMP_TYPE_ARCHER:case eChimps.CHIMP_TYPE_ARAB_BOW:
+                case eChimps.CHIMP_TYPE_ARAB_SLINGER:case eChimps.CHIMP_TYPE_ARAB_GRENADIER:
+                case eChimps.CHIMP_TYPE_BEDOUIN_AMBUSHER:case eChimps.CHIMP_TYPE_BEDOUIN_SKIRMISHER:return false;
+                default:return true;
+            }
+        }
+        // A finished AI101 contact phase is not an idle proof. This authorizes
+        // only the audited idle/animation families, never restoration of a goal.
+        internal static bool IsSupportedStationaryPhase(eChimps type,int state)=>
+            (state==0 || state==1) && IsSupportedPhase(type,state) ||
+            type==eChimps.CHIMP_TYPE_SPEARMAN && state==2;
         internal static int RequiredCrewCount(eChimps type)
         {
             switch(type)
@@ -60,8 +79,12 @@ namespace TrappedUnitRescueTest
         internal WorkerJourneyField Field(int index)=>Fields(UnitType)[index];
         internal uint[] CopyValues()=>(uint[])values.Clone();
         internal static bool TryCapture(eChimps type,int state,Func<int,ushort> word,Func<int,uint> dword,out CommandJourneySnapshot snapshot)
+            =>TryCaptureCore(type,state,word,dword,IsSupportedPhase(type,state),out snapshot);
+        internal static bool TryCaptureStationary(eChimps type,int state,Func<int,ushort> word,Func<int,uint> dword,out CommandJourneySnapshot snapshot)
+            =>TryCaptureCore(type,state,word,dword,IsSupportedStationaryPhase(type,state),out snapshot);
+        private static bool TryCaptureCore(eChimps type,int state,Func<int,ushort> word,Func<int,uint> dword,bool admitted,out CommandJourneySnapshot snapshot)
         {
-            snapshot=null;if(!IsSupportedPhase(type,state) || word==null || dword==null)return false;
+            snapshot=null;if(!admitted || word==null || dword==null)return false;
             try
             {
                 var schema=Fields(type);var data=new uint[schema.Length];
@@ -73,9 +96,10 @@ namespace TrappedUnitRescueTest
         }
         private bool Valid()
         {
-            if(!IsSupportedPhase(UnitType,AIState) || !TryGetValue(0x6E4,out var alive) || alive!=(uint)AliveState.IsAlive ||
+            if((!IsSupportedPhase(UnitType,AIState) && !IsSupportedStationaryPhase(UnitType,AIState)) || !TryGetValue(0x6E4,out var alive) || alive!=(uint)AliveState.IsAlive ||
                 !TryGetValue(0x6E6,out var type) || type!=(uint)UnitType || !TryGetValue(0x918,out var state) || state!=(uint)AIState ||
-                !TryGetValue(0xA9E,out var capability) || capability!=1 || !TryGetValue(0x956,out var mode) || mode==6 || mode==7)return false;
+                !TryGetValue(0xA9E,out var capability) || capability!=1 || !TryGetValue(0x9F4,out var command) ||
+                command==(uint)TribeAICommand.DigMoatTileId || command==(uint)TribeAICommand.Unknown7)return false;
             if(UnitType==eChimps.CHIMP_TYPE_ENGINEER &&
                 (!TryGetValue(0x9E0,out var payload) || payload!=0 || !TryGetValue(0xAA4,out var payloadState) || payloadState!=0))return false;
             if(CommandResumePolicy.IsSiege(UnitType))
@@ -98,7 +122,7 @@ namespace TrappedUnitRescueTest
         }
         internal static bool TryRestoreKnownSnapshot(eChimps type,int state,int[] offsets,int[] widths,uint[] source,out CommandJourneySnapshot snapshot)
         {
-            snapshot=null;if(!IsSupportedPhase(type,state) || offsets==null || widths==null || source==null)return false;
+            snapshot=null;if((!IsSupportedPhase(type,state) && !IsSupportedStationaryPhase(type,state)) || offsets==null || widths==null || source==null)return false;
             var schema=Fields(type);if(offsets.Length!=schema.Length || widths.Length!=schema.Length || source.Length!=schema.Length)return false;
             for(int i=0;i<schema.Length;i++)if(offsets[i]!=schema[i].NativeOffset || widths[i]!=schema[i].Width ||
                 (widths[i]==2 && source[i]>ushort.MaxValue))return false;

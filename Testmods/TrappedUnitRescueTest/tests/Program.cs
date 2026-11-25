@@ -11,6 +11,7 @@ internal static class Program
             FixesManagedContractFixture.Run();
             int native = WorkerGuardFixture.Run();
             RescuePolicyFixture.Run();
+            IdleEscapeFixture.Run();
             GeneralObserverFixture.Run();
             RescueOrderFixture.Run();
             CandidateQueueFixture.Run();

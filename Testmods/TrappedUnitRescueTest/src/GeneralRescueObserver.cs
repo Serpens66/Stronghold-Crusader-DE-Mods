@@ -153,6 +153,7 @@ namespace TrappedUnitRescueTest
         private void ReportBounded(string message)
         {if(reported>=32)return;reported++;try{report?.Invoke(message);}catch{}}
         // Called for every external effective move attempt, before it can replace the route.
+        internal long GetOrderSerial(int id)=>id>0 && id<orders.Length?orders[id]:-1;
         // Our synchronous recovery calls are excluded; a cancelled attempt may conservatively
         // retire old proof, but can never authorize restoring an obsolete target.
         internal void ObserveOrder(int id,bool independentlyExternal=false)

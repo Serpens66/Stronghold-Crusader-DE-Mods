@@ -2,7 +2,7 @@
 
 Fortlaufender Plan: [RESCUE-PLAN.md](RESCUE-PLAN.md). Aktueller Entwicklungsstand: [IMPLEMENTATION.md](IMPLEMENTATION.md). Vollständige offene Spielabnahme: [INGAME-PENDING.md](INGAME-PENDING.md).
 
-Der Testmod bleibt ein isolierter Versuchsstand; die experimentelle Einstellung ist standardmäßig aus. Die Quellen vom 25.11.2026 erweitern den älteren AIV-Brückenpiloten auf gemeinsame Bau-/Geländeereignisse, lokale Current-/Next-Erkennung und abgesicherte Arbeiterfortsetzung. Sie brauchen das gemeinsam geprüfte Entwicklungs-SDK APIShared 0.74.0. Diese neuen Pfade sind ausschließlich offline geprüft; unten aufgeführte historische Spielversuche des früheren Prototyps sind keine Abnahme des neuen Systems.
+Der Testmod bleibt ein isolierter Versuchsstand; die experimentelle Einstellung ist standardmäßig aus. Die Quellen vom 25.11.2026 erweitern den älteren AIV-Brückenpiloten auf gemeinsame Bau-/Geländeereignisse, lokale Current-/Next-Erkennung, qualifizierte Arbeiter-/Befehlsfortsetzung und einen getrennten neuen Fluchtauftrag für untätige Einheiten auf frischem Moat. Sie brauchen das gemeinsam geprüfte Entwicklungs-SDK APIShared 0.74.0. Diese neuen Pfade sind ausschließlich offline geprüft; unten aufgeführte historische Spielversuche des früheren Prototyps sind keine Abnahme des neuen Systems.
 
 Erfassung und Rettung sind getrennt: Originale einschließlich Fixes laufen zunächst unverändert, der Coordinator wartet auf den vollständigen äußeren Batch und versucht eigene Rettung erst im zugelassenen Simulationstick. Die Fixes-Unterdrückung bleibt auf eigene synchrone Rettungs-/Fortsetzungsaufrufe begrenzt und wird in finally ausgeschaltet. Die Fixture hat ihre gesonderte kontrollierte Testisolation.
 

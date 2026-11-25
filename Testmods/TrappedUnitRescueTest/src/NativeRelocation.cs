@@ -158,7 +158,10 @@ namespace TrappedUnitRescueTest
                 unit->r_CurrentPositionTileId == (uint)tile && HasOccupancyExactlyOnce(tile, id);
         }
         internal bool Reissue(int id, int x, int y,Func<bool> authorityCurrent=null)
+            =>TryReissue(id,x,y,authorityCurrent,out _);
+        internal bool TryReissue(int id,int x,int y,Func<bool> authorityCurrent,out UnitMoveRunResult result)
         {
+            result=null;
             if(!TryUnit(id,out var before))return false;
             uint global=before->r_GlobalId;var type=before->r_UnitChimp;
             int owner=before->r_ControllableForPlayerId,tribe=before->r_TribeId;
@@ -169,7 +172,7 @@ namespace TrappedUnitRescueTest
             // R3 Post can overwrite or throw after the original. Its managed return is
             // not evidence of native refusal or publication; use the sole shared owner.
             if(!UnitMoveEvents.TryRun(ownerGuid,id,x,y,0,IdentityCurrent,
-                ()=>move((IntPtr)GameGlobalsManager.Instance.GameUnitManagerVA,id,x,y,0),out _,out _))return false;
+                ()=>move((IntPtr)GameGlobalsManager.Instance.GameUnitManagerVA,id,x,y,0),out result,out _))return false;
             return IdentityCurrent() && TryUnit(id,out var unit) && unit->r_TargetTilePositionX2==x && unit->r_TargetTilePositionY2==y &&
                 ((unit->r_PathPlanLength>0 && (unit->r_PathPlanStateBitFlags==2 || unit->r_PathPlanStateBitFlags==4)) ||
                 (unit->r_PathPlanStateBitFlags==0 && unit->r_CurrentTilePositionX==x && unit->r_CurrentTilePositionY==y));

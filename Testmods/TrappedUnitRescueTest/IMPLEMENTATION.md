@@ -1,54 +1,73 @@
 # Rettungssystem: aktueller Implementierungsstand
 
-Stand 25.11.2026. Fortlaufender Entwicklerbericht, keine Ingame-Abnahme. Auftrag: Testmod und getrennte APIShared-Arbeitskopie, ausschließlich offline; keine Installation, Spielstarts, Produktionsmodänderungen oder Commits.
+Stand 25.11.2026. Entwicklerbericht und Offline-Nachweis, keine neue Spielabnahme. Der Auftrag bleibt auf Testmod und getrennte APIShared-Arbeitskopie beschränkt. Keine Installation, Spielstarts, Produktionsmodänderungen oder Commits durch diesen Auftrag.
 
 ## Quellzuständigkeit und Entwicklungs-SDK
 
-- Testmod: `Testmods/TrappedUnitRescueTest`, Version 0.1.0; eigene Einstellung weiterhin standardmäßig aus.
-- API-Kopie: `.work/a/rescue-api/001`, Branch`codex/rescue-observation`, Basis`681f57f36cdd349bc540a52651d81b3effad04a6`. Uncommittierte Entwicklung für spätere gesonderte Integration; nicht löschen.
-- Callbackkorrekturen aus`855516b19236e9c0cd809e182b17b74aa69d0123` vollständig übernommen. Kanonischer APIShared-Checkout bleibt durch diesen Auftrag unverändert.
-- Neue Dienste brauchen die eigene Entwicklungsversion APIShared 0.74.0. Manifest und BepInDependency des Testmods stimmen überein. Öffentliche 0.73.4 enthält diese neuen Dienste nicht.
-- Tatsächlich ausgewählte installierte Extenderreferenz:2.14.6. Frühere 2.14.4-Berichte bleiben historische Momentaufnahmen. Native-Hash weiterhin`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+- Testmod: `Testmods/TrappedUnitRescueTest`, Version 0.1.0; eigene experimentelle Einstellung weiterhin standardmäßig aus.
+- API-Kopie: `.work/a/rescue-api/001`, Branch `codex/rescue-observation`, Basis `681f57f36cdd349bc540a52651d81b3effad04a6`. Eigenständige, uncommittierte Entwicklung für spätere gesonderte Integration; nicht löschen.
+- Callbackkorrekturen aus `855516b19236e9c0cd809e182b17b74aa69d0123` vollständig übernommen und mit Gegenbeispielen geprüft. Der kanonische APIShared-Checkout bleibt durch diesen Auftrag unverändert.
+- Die neuen Dienste brauchen APIShared 0.74.0 aus dieser Entwicklung. Manifest und BepInDependency stimmen überein; die öffentliche Version 0.73.4 enthält diese Dienste noch nicht.
+- Tatsächlich ausgewählte installierte Extenderreferenz: 2.14.6. Native-Hash: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. Frühere Berichte bleiben datierte Momentaufnahmen.
 
-Der API-Brokerbuild mit 15 Quellen besteht vollständig; dokumentierter Zwischenstand 1776 Tests bestanden,1 optionaler Consumer-Rescan übersprungen, zusätzliche native Fixtures bestanden. Ein weiterer finaler UnitMove-Dienst wird wegen der unten beschriebenen Ergebnis-/Argumentgrenze ergänzt; der bisherige Build belegt diesen neuen Dienst ausdrücklich noch nicht. Aktuelle Buildidentitäten nach weiteren Änderungen immer aus`.local/build-proof.json` der Arbeitskopie nehmen, nicht aus dieser Momentaufnahme.
+Der abschließende vollständige Entwicklungs-SDK-Build besteht: 1787 Tests bestanden, ein optionaler Consumer-Rescan übersprungen, zusätzliche native Fixtures bestanden; öffentliche API gegenüber der Entwicklungsbasis +112/-0. Nachweis: `.work/a/rescue-impl/001/api-full-build.log` und `.work/a/rescue-api/001/.local/build-proof.json`. Aktuelle Eingaben und Ausgaben immer gegen diesen Nachweis prüfen; eine Versionsnummer allein beweist keine identischen Dateien.
 
-## Bereits verbundene Funktion
+## Automatische Erkennung und kausaler Nachweis
 
-`WorldMutationEvents` beobachtet effektive Originalaufrufe, private Receipts und ganze äußere Batches einschließlich Mirrors. Der Testmod ermittelt die tatsächliche lokale Änderungshülle, validiert Current-Belegung samt Rand für gewöhnliche Next-Schritte und erfasst nur lokale betroffene Einheiten. Keine dauerhafte Beobachtung aller Einheiten oder aller Kartenzellen.
+`WorldMutationEvents` beobachtet 15 effektive Originalquellen, private Receipts und vollständige äußere Batches einschließlich Mirrors. Der Testmod ermittelt die tatsächliche lokale Änderungshülle und erfasst Current-Belegung samt einem Feld Rand für gewöhnliche Next-Schritte. Es gibt keine permanente Beobachtung aller Einheiten oder Kartenzellen.
 
-AIV-Cleanup, Compoundteile, Farmplots, native BFS-Brushes, echte Keep-Offsettabellen und mögliche CastlePlanner-/Fixes-Rotationen gehören zur Hülle. NativeDomänen, Tabellen und Adressen sind an den auditierten Hash gebunden. Nichtterminale Grabenarbeit wird vor teurer Erfassung anhand des tatsächlichen signedByte-Fortschritts ausgeschlossen. Reale Keepfälle werden innerhalb eines seltenen Bauereignisses mit festem Budget verarbeitet; das ist kein proTick-Gebäudescan.
+AIV-Cleanup, entfernte Compoundteile, Farmplots, native BFS-Brushes, tatsächliche Keep-Offsettabellen und mögliche CastlePlanner-/Fixes-Rotationen gehören zur Hülle. Nichtterminale Grabenarbeit wird vor teurer Erfassung anhand des tatsächlichen signed-Byte-Fortschritts ausgeschlossen. Der seltene Keep-Replacementpfad benötigt einen begrenzten Gebäudeslotindex innerhalb des Bauereignisses; dieser bleibt nicht über Mutationen hinweg erhalten.
 
-Der Coordinator sammelt bis zum äußeren Batchende, führt dort keine Rettung aus und prüft erst am zugelassenen Simulationstick. Keine alte Einheit oder alte Befehlsabsicht wird allein wegen ähnlicher Koordinaten wiederverwendet. Einheit/Global-ID, Sitzung/Welt, Ziel, AI, Arbeitsdaten und Gruppenidentität werden erneut geprüft. Für laufende Bewegung ist höchstens der vorher erfasste einzelne Schritt zulässig. Ein unpassierbares Next kann durch native Normalisierung am weiterhin gültigen Current abgefangen werden.
+Der Coordinator sammelt bis zum äußeren Batchende und rettet erst am zugelassenen Simulationstick. Er behält die früheste belegte lokale Erreichbarkeit. Eine veränderte Einheit wird einzeln verworfen; ihre unveränderten Nachbarn verlieren dadurch nicht ihre unabhängigen Nachweise. Identität, Sitzung/Welt, Ziel, AI, Arbeitsdaten und Verbandsstempel werden erneut geprüft. Legitime Schäden zwischen Erfassung und Rettung werden übernommen, niemals geheilt. Von einer begonnenen Bewegung ist höchstens der zuvor erfasste einzelne Schritt zulässig.
 
-Für die 20 auditierten Wirtschaftsrollen sind ausschließlich die belegten gewöhnlichen Reiseabschnitte freigegeben. Kontaktarbeit, Transport-/Portal-/Tunnelzustände und unbewiesene Sonderflächen werden dadurch nicht freigegeben. Vor eigener Arbeiterversetzung existiert bereits eine reservierte Fortsetzungsquittung. Eine erfolglose Wegsuche darf keine falsche Ankunft oder Warenproduktion erlauben: eigene wartende Fortsetzung verwendet ausschließlich die auditierte Flags 5-Ankunftssperre und erhält Identität, Jobdaten und Cargo. Retry ist begrenzt; danach wartet die Quittung auf eine neue Änderung. Neue native Befehle ersetzen alte Absichten.
+Sichere Ziele müssen zuvor lokal erreichbar und jetzt gewöhnlich sowie frei sein. Ein tatsächlicher gewöhnlicher Nachbar mit passender Vorwärts- oder Rückwärtskante muss bestehen; ein beliebiges nichtnull Richtungsbyte genügt nicht. Ein weiterhin legales Current kann bei ausschließlich ungültigem Next selbst Normalisierungsziel sein.
 
-Bei neuem fertigem Graben wird für qualifizierte Arbeiter zunächst der echte ursprüngliche Auftrag funktional geprüft. Eine erfolgreiche neue Moat-Route bedeutet keinen Teleport. Bei abgelehntem Probe bleiben lokale Versetzung und erneute Veröffentlichung durch die bereits reservierte Quittung abgesichert. Gewöhnliche Soldaten auf neuem fertigem Moat brauchen noch die entsprechende abgesicherte allgemeine Befehlsfortsetzung; der vorhandene Modusguard ist keine Abnahme dieser Fälle.
+## Befehlsabsicht und qualifizierte Fortsetzung
 
-Eigene wartende Fortsetzungen und noch nicht abgearbeitete kausale Kandidaten werden als begrenzte binäre Einträge über APIShared`VersionedSaveData` gespeichert. Capture erfolgt unter dem geschützten atomaren Savevertrag und verändert keine Simulation. Unvollständige Recovery-/Reservierungsphasen verhindern den Save vor dem Schreiben. Alte processlokale Welt-/Befehls-/Batchnummern werden beim Laden nicht als aktuelle Identität übernommen; Alter, Versuchsverbrauch und alte lokale Erreichbarkeit bleiben dagegen erhalten. Das repariert keine älteren Saves ohne eigene Vorherdaten.
+`UnitMoveEvents` nutzt den bestehenden gemeinsamen Originalbesitzer. Effektive Einheit/Ziel/Modus, tatsächliches Native0/1, Veto, Umleitung, Ausnahme und fremde verschachtelte Aufträge bleiben getrennt. Die veränderbare Legacy-Post-Rückgabe ist keine Erfolgsquelle. Entry-Bytes und indirekter Pointer-Slot des tatsächlichen Extender-Hooks werden geprüft; fremde Überschreibungen sperren den Dienst vor einem eigenen Aufruf.
 
-Eine ausgeschaltete Einstellung startet keine Rettung. Eigene gespeicherte Worker-Quittungen bleiben als Eigentumsnachweis erhalten, bis die Funktion wieder aktiv ist beziehungsweise ein tatsächlicher nativer Folgeauftrag sie ablöst. Noch ungebundene kausale Kandidaten können bei ausgeschalteter, pausiert geladener Karte unverändert weitergespeichert werden; der erste tatsächlich fortschreitende inaktive Simulationstick verwirft diese historische Beweisgrundlage ohne native Änderung. So erwacht nach inaktivem Spielen keine veraltete Ursache.
+Für die 20 auditierten Wirtschaftsrollen sind ausschließlich belegte gewöhnliche Reiseabschnitte freigegeben. Kontaktarbeit, Transport, Tunnel und unbewiesene Sonderflächen sind davon nicht umfasst. Für militärische Befehle gilt die genaue Typ-/Phasenmatrix in [Audits/COMMAND-RESUME.md](Audits/COMMAND-RESUME.md). Insbesondere rechtfertigt A9E allein keine Freigabe: auch Tiere tragen den Wert. Trebuchet, Engineer0/1 und sechs nicht vorhandene Fernkampf-AI1-Zweige werden nicht als generische Reise behandelt.
 
-## Budgets und Grenzen
+Auch stationäre Soldaten erhalten einen unveränderlichen Semantiknachweis. Nur die belegten AI0/1-Abschnitte und Spearman2 sind zulässig; stationäres AI101 bleibt ein eigener Kontaktfall. Ein stationärer Nachweis kann weder durch Save-Laden noch durch den Runtimepfad zu einem aktiven Resume-Receipt werden. Dig/Fill wird über das tatsächliche Befehlsfeld9F4 erkannt; WorkMode956 mit derselben Zahl ist kein Digauftrag.
 
-- Höchstens 512 ausstehende kausale Kandidaten; Lebenszeit 80 nativeTicks, höchstens 4 Evaluierungen pro Kandidat.
-- ProTick maximal 32 Queuebesuche und 8 Kandidatenversuche, anschließend maximal 4 Worker-Retry-Versuche.
-- Das ist kein Versprechen von 8 nativen Aufrufen: ein Worker-Moatfall kann ProbeMove, Relocate und ResumeMove benötigen. Gegenwärtiger Worstcase höchstens 28 direkte native Einstiegaufrufe proTick, davon höchstens 20 Move-Suchen. Vanilla-Suchlaufzeit wird dadurch nicht begrenzt; echte Laufzeitmessung steht aus.
-- Hülle maximal 2048 aktiveTiles und 131072 Arbeitsschritte; Discovery maximal 4096 Randzellen,16384 Belegungslinks und 512 Einheiten. Überlast wird sichtbar abgelehnt und niemals als gerettet gezählt.
-- Größter aktuell vermessener Keepfall: benötigte Mindestgrenze 67932 Work,1219 Tiles,7584 eindeutige nativeReads und 3999 einmalige Slotprüfungen für die mögliche Replacement-Closure. Diese Zähler sind keine FPS-Messung.
-- Reale Multiplayer-/Repairfreigabe bleibt geschlossen. Gespeicherte Gameplaydaten sind simulation-relevant deklariert; gleiche Dateien allein beweisen noch keine Peer-Abnahme.
+Vor einer eigenen Versetzung oder funktionalen Neuplanung existiert bereits eine reservierte Fortsetzungsquittung. Eine erfolglose Suche darf keine falsche Ankunft oder Warenproduktion erlauben: die eigene Wartephase verwendet die auditierte Flags5-Ankunftssperre nur in kohärenter Pose mit Substep8, Current=Next und leerem740. Retry ist begrenzt; danach wartet die Quittung auf eine neue Änderung. Neue native AI-/Kontakt-/Befehlsabsichten gewinnen, statt alte Zustände zurückzuschreiben.
 
-## Aktuelle Offline-Nachweise
+Auf neuem fertigem Graben wird für qualifizierte aktive Reisen zunächst der echte ursprüngliche Auftrag funktional geprüft. Eine passende neue Moat-Veröffentlichung bedeutet keine Versetzung. Bei bestätigter Ablehnung bleiben lokale Rettung und erneute Veröffentlichung durch den reservierten Besitzer abgesichert. Nicht fortsetzbare aktive Routen besitzen keinen alten ungesicherten Direktpfad mehr.
 
-- `.work/a/rescue-impl/001/stage-persistence-build.log`: tatsächlicher Testmod-Build und Tests erfolgreich. Unter anderem Coordinator 169, Queue 10032, PendingCodec 196, Discovery 24, Current/Next-Selektor 12, WorkerPolicy 3167, Ledger 1844, Supervisor 33, Service 29, Hüllenkern 83, NativeAdapter 566 und WorkerGuard 263 Einzelprüfungen. Spätere Coordinator-Ergänzungen 174 bestehen separat in`general-integrated-tests.log`.
-- `.work/a/rescue-impl/001/stage-integrated-boundaries.log`: modbezogene Ownership-, JSON-, Lifecycle-, Abhängigkeits-, XAML- und permanenteHook-Quellgrenzen bestanden.
-- `.work/a/rescue-impl/001/api-full-build.log` und API-Kopie`.local/build-proof.json`: vollständiger Entwicklungs-SDK-Build ohne Installation; aktuelle Inputs erneut prüfen.
-- `Audits/` sowie kompakte Worker-/Mapper-/Keep-Nachweise in`.work/a/rescue-impl/001`: Native- und SDK-Verträge, ausdrücklich getrennt von tatsächlichem Spielverhalten.
+## Neuer Fluchtauftrag für untätige Einheiten auf Moat
 
-## Noch laufende Offline-Arbeit
+Für einen streng qualifizierten untätigen Ausgangszustand gibt es einen getrennten Besitzer: `IdleEscapeOwner`. Er übernimmt keinen alten Arbeitsauftrag. Er erteilt einmal einen echten neuen Auftrag zu einem belegten alten Ausweichfeld und beobachtet eine veröffentlichte Route als `EscapeInProgress`. Erst physische Ankunft erhöht seinen Abschlusszähler. Es gibt keine Planner-Wiederholung, AI-Rücksetzung oder eigene Arrival-Barriere.
 
-1. Final-UnitMove-Beobachtung/guardedReceipt am bestehenden gemeinsamen Besitzer; effektive Argumente und echtes Originalresultat dürfen nicht aus veränderbaren R 3-Postdaten geraten werden.
-2. NativeReissue und externe Orderbeobachtung darauf umstellen, dann gewöhnliche Soldaten-Moatfortsetzung mit entsprechender eigener Fortsetzungsabsicherung schließen.
-3. Gemeinsame Regressionen für Save vor erstem Recoverytick, Codec-/Welt-/Ordergrenzen, zurückgestellte Resumequittungen, tatsächliche Aufrufbudgets und Szenarioanpassungen abschließen.
-4. Aktuelle Quellen abschließend auf Fremdpatch-/Lifecycle-/Standaloneverträge prüfen, Normalbuild und reproduzierbare Übergabe der API-Kopie erstellen.
+Vor dem tatsächlichen Original prüft eine eigene private Completion-Phase die ursprüngliche Pose und Semantik erneut, auch nach fremden Begin-Observern. Nur ein bestätigtes Native0 mit normal abgeschlossenem Wrapper erlaubt nach erneuter Prüfung die lokale Ersatzversetzung. Veto, Umleitung, Originalausnahme und Postausnahme nach Native0 erlauben sie nicht. Native1 darf nach einer Legacy-Postausnahme weiterhin ausschließlich beobachtet werden, sofern aktuelle Identität und veröffentlichte Route tatsächlich stimmen.
 
-Spielprüfungen werden ausschließlich in[INGAME-PENDING.md](INGAME-PENDING.md) als offen geführt. Historische positive Spielversuche des früheren Prototyps gelten nicht automatisch für diese neuen Quellen.
+Neue Aufträge und legitime Zustandsänderungen beenden die Beobachtung. Der bereits veröffentlichte normale native Auftrag benötigt keine zusätzliche Receipt-Persistenz: beim Laden wird er nicht nochmals erteilt. Details und native Widerlegungen: [Audits/IDLE-MOAT-ESCAPE.md](Audits/IDLE-MOAT-ESCAPE.md).
+
+## Speicherung und Lifecycle
+
+Eigene wartende Fortsetzungen und noch nicht abgearbeitete kausale Kandidaten werden als begrenzte binäre Einträge über APIShared `VersionedSaveData` gespeichert. Capture verändert keine Simulation. Alle Einträge werden vor dem ersten Write validiert; unvollständige Recovery-/Reservierungsphasen oder halb beobachtete externe Orders sperren den atomaren Save vor Dateiersetzung.
+
+Prozesslokale Welt-/Befehls-/Batchnummern werden beim Laden nicht wiederverwendet. Alter, Versuchsverbrauch, unveränderliche Semantik und alte lokale Erreichbarkeit bleiben erhalten. Das repariert keine alten Saves ohne eigene Vorherdaten.
+
+Ausgeschaltete Rettung startet keine Eingriffe. Gespeicherte Worker-Eigentumsquittungen bleiben als Nachweis erhalten; es erfolgt keine automatische Zustandsrücksetzung. Noch ungebundene kausale Kandidaten können bei pausiert geladenem, ausgeschaltetem Feature unverändert weitergespeichert werden. Der erste fortschreitende inaktive Tick verwirft diese historischen Kandidaten ohne native Änderung. Idle-Fluchtbeobachtung ist reine Metadatenarbeit und wird bei Ende/Load/Ausschalten verworfen.
+
+Langlebige statische Mission-, Bau-, Move- und Simulationstakt-Publisher tragen die Runtime nach dem SHCDE-Startup-Cleanup. Es gibt keine Update-/Coroutine-Hostkomponente oder Hookentfernung bei Plugin-OnDestroy. Reale Multiplayerfreigabe bleibt geschlossen.
+
+## Budgets und messbare Grenzen
+
+- Maximal 512 kausale Kandidaten; Lebenszeit80 native Ticks und höchstens4 Evaluierungen je Kandidat. Ein Tick besucht maximal32 Queueeinträge und versucht8 Kandidaten.
+- Maximal512 eigene Worker-/Command-Quittungen; der Retrytakt besucht32 und versucht4. Externe Handoff-Reconciliation ist gesondert durch die512 Quittungen begrenzt und ruft keinen Planner auf.
+- Maximal64 Idle-Fluchtbeobachtungen; maximal8 Beobachtungen je Tick, Deadline600 Ticks. Mehrfache Callbacks desselben Ticks verbrauchen das Budget nicht nochmals. Beobachtung ruft weder Planner noch Relocation auf.
+- Ein Kandidatenversuch ist nicht ein Nativecall: Probe, Relocation und Resume können drei Einstiege benötigen. Gegenwärtige obere Grenze im Recoverytick:28 direkte native Einstiege, davon maximal20 Move-Suchen. Vanilla-Suchlaufzeit wird dadurch nicht begrenzt.
+- Hülle maximal2048 aktive Felder/131072 Work; Discovery maximal4096 Randzellen/16384 Belegungslinks/512 Einheiten. Überlast wird benannt abgelehnt; keine Teilhülle gilt als vollständig.
+- Größter vermessener Keepfall: Mindestgrenze67932 Work,1219 Tiles,7584 eindeutige native Reads,3999 einmalige Gebäudeslotprüfungen. Das sind deterministische Operationszähler, keine FPS-Messung.
+- Beim erstmaligen Geräte-Rettungsversuch ist wegen fehlender nativer Rückreferenz eine begrenzte Prüfung möglicher Crew-Aliase nötig: einmal bis9999 Unitslots pro Gerät, gemeinsam für alle Ingenieure. Kein solcher Vollvergleich bei normalen Soldaten, leerem Betrieb oder Worker-Retry. Reale Kosten und dichte Gerätegruppen müssen im Spiel gemessen werden.
+
+## Aktuelle Offline-Nachweise und verbleibende Arbeit
+
+- `.work/a/rescue-impl/001/stage-idle-build.log`: integrierter Build, tatsächliche gemeinsame Policy-/Coordinator-/Persistenz-/Native-Fixtures. Spätere endgültige Identität wird im Übergabenachweis festgehalten.
+- `.work/a/rescue-impl/001/idle-boundaries.log`: modbezogene Ownership-, JSON-, Lifecycle-, Abhängigkeits-, XAML- und permanente Hookgrenzen.
+- `.work/a/rescue-impl/001/api-full-build.log` und API-Kopie `.local/build-proof.json`: vollständiger Entwicklungs-SDK-Build ohne Installation.
+- Unabhängige Prüfung der Idle-Originalphase, Native0/1-/Post-Ausnahmegrenzen, Supersession, Save und Lifecycle abgeschlossen; kein weiterer bestätigter Befund.
+- Kanonische Native-Baseline `TRAPPED_UNIT_RESCUE_AUDIT.md` um die belegten Bau-, Bewegungs-, Identitäts- und Phasenverträge ergänzt; Rohprojekte und historische Nachweise unverändert.
+
+Noch abzuschließen sind der gesonderte Bewegungsfehler-Eingang P7, endgültiger Gesamtbuild/Identitätsnachweis und die nachvollziehbare Übergabe der API-Arbeitskopie. Fehlgeschlagene Wege ohne Vorherdaten erfinden keine sichere alte Ausweichseite. Die tatsächlichen Spiel-, Gruppen-, Wirtschafts-, Save-/Editor-, Kompatibilitäts-, Last- und MP-Abnahmen stehen vollständig offen in [INGAME-PENDING.md](INGAME-PENDING.md). Die spätere Migration nach Pathfinding erfolgt erst auf gesonderten Auftrag nach Abnahme.

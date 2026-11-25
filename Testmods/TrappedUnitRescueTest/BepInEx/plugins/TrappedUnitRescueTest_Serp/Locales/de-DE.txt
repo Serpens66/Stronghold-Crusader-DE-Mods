@@ -1,4 +1,4 @@
 Rescue.Enabled=Experimentelle lokale Einheitenrettung
-Rescue.Help=Aktiviert den experimentellen KI-Zugbrücken-Rettungspiloten in lokalen Missionen und die angeforderten Testszenarien. Standardmäßig aus. Dieser Testmod ist noch kein abgenommener allgemeiner Spielfix.
-Rescue.Scope=Pilot: neu eingeschlossene kontrollierbare Soldaten und Reiter beim KI-AIV-Zugbrückenbau in bekannten lokalen Missionen, einschließlich Editor. Keine Arbeiter-/Geräterettung, menschliche oder Editorplatzierung, Grabenfertigstellung, rückwirkende Save-Reparatur oder echter Multiplayer.
-Rescue.Rule=Prüft Identität, Gesundheit, Kachelbelegung und sichere lokale Platzierung. Der ursprüngliche Vanilla-/Fixes-Bau läuft weiter; die entsprechende Unterdrückung gilt nur während eigener synchroner Rettungsaufrufe. Fixes-Torhaus- und Bergfried-Reiterrettung bleiben aktiv.
+Rescue.Help=Versucht lokale Rettung nach Bau- oder Geländeänderungen. Experimentell und standardmäßig aus. Die neue Spielabnahme dieses Teststands steht noch aus.
+Rescue.Scope=Für bekannte lokale Missionen und den Editor. Nur geprüfte Einheitenzustände; manche Arbeits- und Sonderbewegungen bleiben ausgenommen. Keine automatische Reparatur alter Saves ohne eigene Vorherdaten und kein echter Multiplayer.
+Rescue.Rule=Erhält dieselbe Einheit, Waren und gültige Befehle. Scheitert die Fortsetzung, kann eine geschützte wartende Rettung bestehen bleiben. Vanilla- und Fixes-Bau laufen weiter; entsprechende Unterdrückung gilt nur für eigene Aufrufe. Fixes-Bergfried- und Torhausrettung bleiben aktiv.

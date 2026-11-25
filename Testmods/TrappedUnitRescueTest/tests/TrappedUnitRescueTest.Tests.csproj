@@ -136,6 +136,8 @@
     <Compile Include="../../../Shared/Runtime/Diagnostics/DebugLogHelper.cs" />
     <Compile Include="../src/NativeRelocation.cs" />
     <Compile Include="../src/RescueRuntime.cs" />
+    <Compile Include="../src/IdleEscapeOwner.cs" />
+    <Compile Include="../src/NativeIdleEscapeWorld.cs" />
     <Compile Include="../src/GeneralRescueObserver.cs" />
     <Compile Include="../src/RescueOrderObserver.cs" />
     <Compile Include="../src/RescueCandidateQueue.cs" />

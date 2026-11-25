@@ -25,18 +25,18 @@ Statuswerte: **offen**, **in Arbeit**, **teilweise geprüft**, **abgenommen**. E
 | ID | Arbeitspaket | Status | Abhängigkeit / Ergebnis |
 |---|---|---|---|
 | P0 | Vorhandene Rettung, Pathfinding und Schnittstellen einordnen | Abgenommen für die dokumentierte Bestandsaufnahme | Abschnitt 3; vorhandene Nachweise in Abschnitt 4 |
-| P1 | Erzeuger, Zustandsübergänge und Beobachtungsverträge auditieren | Statischer Audit abgeschlossen; neue Schnittstellen in Arbeit | F1 aus APIShared0.73.4 übernommen und12/12 geprüft; additive Broker in isolierter API-Kopie |
-| P2 | Gemeinsames Kandidatenmodell, Nachbeobachtung und Budgets | Implementiert und offline geprüft; Integration weiter in Arbeit | Queue, lokale Current/Next-Discovery, echte Coordinator-Fixtures und kausale Save-Daten; keine permanenten Vollscans |
+| P1 | Erzeuger, Zustandsübergänge und Beobachtungsverträge auditieren | Statisch geschlossen und implementiert für die freigegebenen Quellen | F1 aus APIShared0.73.4 übernommen; WorldMutation- und finaler UnitMove-Broker in eigener API-Kopie vollständig offline geprüft |
+| P2 | Gemeinsames Kandidatenmodell, Nachbeobachtung und Budgets | Implementiert und integriert offline geprüft | Queue, lokale Current/Next-Discovery, Coordinator, kausale Save-Daten und feste Budgets; keine permanenten Vollscans |
 | P3 | Bau- und Geländeänderungen automatisch anbinden | Implementiert; offline geprüft; Spielabnahme offen | 15 gemeinsame Quellen, vollständige native Hüllen einschließlich Compound/Keep-Rotation und Cleanup |
-| P4 | Gewöhnliche Soldaten und KI-Gruppen im Normalbetrieb absichern | Teilweise geprüft | P2/P3; bisherige kontrollierte Gruppenbelege erhalten |
+| P4 | Gewöhnliche Soldaten und KI-Gruppen im Normalbetrieb absichern | Typ-/Phasenmatrix und Befehlsbesitz offline geprüft; neue Gruppen-Spielabnahme offen | Stationäre Semantik, aktive Fortsetzung und neue fremde Befehle getrennt; ursprünglicher Verband bleibt erhalten |
 | P5 | Begonnene Schritte, Next-Belegung und Sonderflächen | Gewöhnliche Schritte implementiert/offline geprüft; Sondermodi bleiben gesondert | Ein zuvor erfasster Schritt darf fortschreiten; legale Sonderbewegungen werden nicht als normale Blockade behandelt |
-| P6 | Zivile Arbeit, Grabenfälle und Besatzungen integrieren | Teilweise geprüft | Einzelne echte Abläufe bestanden; automatische Anbindung offen |
-| P7 | Bewegungsfehler als weitere Kandidatenquelle | Offen | Bestehende Besitzer nutzen; keine Mutation im Such-Callback |
+| P6 | Zivile Arbeit, Grabenfälle und Besatzungen integrieren | Automatische Anbindung implementiert und offline geprüft; neue Spielabnahme offen | 20 Rollen, qualifizierte Command-Reisen, eigener untätiger Moat-Fluchtauftrag und Crew-/Cargo-Schutz |
+| P7 | Bewegungsfehler als weitere Kandidatenquelle | Finaler Identitäts-/Ergebniskanal implementiert; eigener Kandidatennachweis in Prüfung | Eine native Ablehnung beweist weder eingeschlossenen Start noch sichere Ausweichseite |
 | P8 | Lifecycle, Saves, Editor und Multiplayer | Teilweise geprüft | Sitzungsgates vorhanden; neue echte Abnahmen erforderlich |
 | P9 | Normalbetrieb, Last und Kompatibilität abnehmen | Offen | P3–P8, messbare Budget- und Verhaltensnachweise |
 | P10 | Abgenommenen Kern nach Pathfinding überführen | Offen | Testmod-Abnahme und genau ein aktiver Rettungsbesitzer |
 
-**Nächster konkreter Arbeitsschritt:** Die tatsächlichen finalen UnitMove-Argumente und nativen Rückgaben am bereits vorhandenen APIShared-Besitzer anbinden; veränderbare Extender-Postwerte genügen dafür nicht. Anschließend gemeinsame Integrations-, Save-, Budget- und Lifecycleprüfungen abschließen. Fortschritt und noch ausstehende Spielprüfungen stehen in [IMPLEMENTATION.md](IMPLEMENTATION.md) und [INGAME-PENDING.md](INGAME-PENDING.md).
+**Nächster konkreter Arbeitsschritt:** Gesonderten Bewegungsfehler-Eingang P7 abschließen und endgültigen Build-/Übergabenachweis sichern. Finale UnitMove-Argumente, native Rückgaben, Common-Owner-Anbindung, Save-/Ordergrenzen sowie gewöhnliche und untätige Moat-Fortsetzung sind implementiert und integriert offline geprüft. Fortschritt und noch ausstehende Spielprüfungen stehen in [IMPLEMENTATION.md](IMPLEMENTATION.md) und [INGAME-PENDING.md](INGAME-PENDING.md).
 
 ### Offline-Fortschritt vom 25.11.2026
 
@@ -181,11 +181,11 @@ Originale laufen genau einmal. Beobachtungsfehler dürfen weder Vanilla noch and
 
 ### P2 — Kandidatenkern und begrenzte Verarbeitung
 
-- [ ] Bestehende Testmod-Snapshots/Ergebnisse so strukturieren, dass Erkennung, Nachweis, Planung, native Ausführung und Beobachtung getrennte Fehlerpfade besitzen.
-- [ ] Kandidatenliste mit Identität, Ursache, Sitzung, Deduplizierung, Ablauf und begrenzten Wiedervorlagen implementieren. Vorherdaten nur so lange wie fachlich nötig halten.
-- [ ] Vorhandene Simulationstaktung benutzen; bei leerer Arbeit sofort zurückkehren. Nachbeobachtung vorhandener Kandidaten ist erlaubt, permanentes Scannen aller Einheiten für den neuen Dienst nicht.
-- [ ] Bereits vorhandene Pathfinding-Revisions- und Auftragsmuster nach Vertragsprüfung anpassen. Keine Engine-Quellkopie in den Testmod aufnehmen.
-- [ ] Reine Verhaltenstests: doppelte/nested Ereignisse, ID-Wiederverwendung, neue Befehle, mehrere Umbauten, Sitzungstausch, Budgeterschöpfung, fehlender Zielort und deterministische Reihenfolge.
+- [x] Bestehende Testmod-Snapshots/Ergebnisse so strukturieren, dass Erkennung, Nachweis, Planung, native Ausführung und Beobachtung getrennte Fehlerpfade besitzen.
+- [x] Kandidatenliste mit Identität, Ursache, Sitzung, Deduplizierung, Ablauf und begrenzten Wiedervorlagen implementieren. Vorherdaten nur so lange wie fachlich nötig halten.
+- [x] Vorhandene Simulationstaktung benutzen; bei leerer Arbeit sofort zurückkehren. Nachbeobachtung vorhandener Kandidaten ist erlaubt, permanentes Scannen aller Einheiten für den neuen Dienst nicht.
+- [x] Bereits vorhandene Pathfinding-Revisions- und Auftragsmuster nach Vertragsprüfung anpassen. Keine Engine-Quellkopie in den Testmod aufnehmen.
+- [x] Reine Verhaltenstests: doppelte/nested Ereignisse, ID-Wiederverwendung, neue Befehle, mehrere Umbauten, Sitzungstausch, Budgeterschöpfung, fehlender Zielort und deterministische Reihenfolge.
 
 **Abgenommen wenn:** Ohne Ereignisse keine Einheiten-/Wegprüfungen; ein Verdachtsfall verursacht begrenzte Arbeit; abgelaufene oder ersetzte Fälle können keine Mutation mehr auslösen.
 
@@ -194,9 +194,9 @@ Originale laufen genau einmal. Beobachtungsfehler dürfen weder Vanilla noch and
 - [x] Vorhandenen echten KI-AIV-Zugbrückenpilot und dessen No-op-/Off-/On-Belege als Ausgangspunkt dokumentiert.
 - [ ] Den Pilot in den gemeinsamen Kandidatenpfad überführen, ohne ursprüngliche Bauaktionen zu unterdrücken oder die bestehende Gegenprobe zu verlieren.
 - [ ] In belegter Reihenfolge weitere KI-Bauten und danach Menschen-/Editorpfade anbinden. Keine pauschale Callback-Ausführung je Footprintkachel.
-- [ ] Tatsächlichen Grabenabschluss separat anbinden; ein Eintrag/Schreibaufruf allein gilt nicht als fertiger unpassierbarer Graben.
+- [x] Tatsächlichen Grabenabschluss separat anbinden; ein Eintrag/Schreibaufruf allein gilt nicht als fertiger unpassierbarer Graben.
 - [ ] Teilbau, abgelehnte Platzierung, unverändertes Gelände, Rückbau und wiederholte Bauversuche als Gegenproben aufnehmen.
-- [ ] Bounded Tile-Occupancy-Discovery für aktuelle Betroffene; Next-only-Kandidaten erst nach P5 belastbar ergänzen. Keine versprochene vollständige Erkennung durch die bisherige Current-Kette.
+- [x] Bounded Tile-Occupancy-Discovery für aktuelle Betroffene; Next-only-Kandidaten erst nach P5 belastbar ergänzen. Keine versprochene vollständige Erkennung durch die bisherige Current-Kette.
 
 **Abgenommen wenn:** Echte normale Bauvorgänge lösen die Erkennung aus, ohne dass die Fixture ausdrücklich `BeginMutation` oder die Rettung aufrufen muss. Kontrollierte native Bauaufrufe und autonome KI-Abläufe werden im Nachweis getrennt.
 
@@ -237,7 +237,7 @@ Originale laufen genau einmal. Beobachtungsfehler dürfen weder Vanilla noch and
 
 - [ ] Abdeckung von `OnUnitMoveHere`, vorhandenen Builder-/Recovery-Besitzern und tatsächlichen Schrittablehnungen vollständig unterscheiden und auditieren. Globale Auftragsbeobachtung ist kein vollständiger Bewegungssensor.
 - [ ] Verlässliche Unit-ID/Global-ID, tatsächlichen Besitzer, effektiven Ziel-/Moduskontext und nativen Ausgang einem Aufruf zuordnen. Endpunktgleichheit oder aktuelle UI-Auswahl sind keine Identität.
-- [ ] Skipped Original, veränderte Pre-Argumente, fehlendes Post bei Ausnahme und verschachtelte Aufrufe abnehmen. Keine neue instabile LIFO-Kopie neben bestehenden Besitzern.
+- [x] Skipped Original, veränderte Pre-Argumente, fehlendes Post bei Ausnahme und verschachtelte Aufrufe abnehmen. Keine neue instabile LIFO-Kopie neben bestehenden Besitzern.
 - [ ] Aus Fehlermeldungen nur Kandidaten erzeugen. Keine Weltmutation in `RouteSearchEvents` oder in einem laufenden fremden Suchkontext.
 - [ ] Ohne Vorherdaten erst einen eigenständigen Nachweis für aktuell fehlende legale Ausgänge und einen sicheren Zielort entwickeln. Nicht einfach den kausalen alten-Bank-Nachweis erfinden.
 - [ ] Häufig wiederholte Fehler deduplizieren und zeitlich begrenzen. Vor einem verwalteten Callback an einem sehr heißen nativen Pfad dessen Eintrittskosten und ein natives Bedarfs-/Fehlergate prüfen.

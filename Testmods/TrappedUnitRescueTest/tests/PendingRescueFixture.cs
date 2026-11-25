@@ -49,6 +49,22 @@ namespace TrappedUnitRescueTest.Tests
             Check(RescuePendingCodec.TryEncode(new RescuePendingCandidate<UnitSnapshot>("MoatDig",worker,1,0,0),out var workerBytes) &&
                 RescuePendingCodec.TryDecode(workerBytes,out var workerCopy) && workerCopy.Snapshot.Job.Rule.UnitType==(eChimps)worker.Type,
                 "pending worker preserves its exact known job schema for later live revalidation");
+            var stationary=Soldier();stationary.AIState=2;stationary.Flags=0;stationary.Substep=8;stationary.OrdinaryStep=false;
+            stationary.NextX=stationary.X;stationary.NextY=stationary.Y;stationary.NextTileId=stationary.TileId;
+            stationary.RequestedX=stationary.X;stationary.RequestedY=stationary.Y;
+            CommandJourneySnapshot.TryCaptureStationary((eChimps)stationary.Type,stationary.AIState,
+                offset=>offset==0x6E4?(ushort)2:offset==0x6E6?(ushort)stationary.Type:offset==0x918?(ushort)stationary.AIState:
+                    offset==0x6EE?(ushort)stationary.Owner:offset==0xA9E?(ushort)1:(ushort)0,
+                offset=>offset==0x6F0?stationary.GlobalId:0,out stationary.Command);
+            Check(RescuePendingCodec.TryEncode(new RescuePendingCandidate<UnitSnapshot>("MoatDig",stationary,0,0,0),out var idleBytes) &&
+                RescuePendingCodec.TryDecode(idleBytes,out var idleCopy) && idleCopy.Snapshot.Command!=null && idleCopy.Snapshot.AIState==2,
+                "stationary intent guards survive save/load without becoming an active resume receipt");
+            stationary.Flags=2;
+            Check(!RescuePendingCodec.TryEncode(new RescuePendingCandidate<UnitSnapshot>("MoatDig",stationary,0,0,0),out _),
+                "stationary-only phase cannot be upgraded to active travel through a saved snapshot");
+            stationary.Flags=0;stationary.Command=null;
+            Check(!RescuePendingCodec.TryEncode(new RescuePendingCandidate<UnitSnapshot>("MoatDig",stationary,0,0,0),out _),
+                "stationary pending rescue without semantic guards is not persisted");
             for(int length=0;length<bytes.Length;length++)
                 Check(!RescuePendingCodec.TryDecode(bytes.Take(length).ToArray(),out _),"truncated record is not a partial proof");
             byte[] trailing=bytes.Concat(new byte[]{0}).ToArray();Check(!RescuePendingCodec.TryDecode(trailing,out _),"trailing bytes rejected");

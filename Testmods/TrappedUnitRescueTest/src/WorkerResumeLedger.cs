@@ -51,6 +51,7 @@ namespace TrappedUnitRescueTest
                 {if(Job==null || Command!=null || Job.Rule.UnitType!=UnitType || Job.Rule.AIState!=AIState || !Job.Rule.CanResumeOrdinary || !Bindings.MatchesSchema(Job))return false;}
                 else if(Kind==ResumeReceiptKind.Command)
                 {if(Command==null || Job!=null || Command.UnitType!=UnitType || Command.AIState!=AIState || !Bindings.IsEmpty ||
+                    !CommandJourneySnapshot.IsSupportedPhase(UnitType,AIState) ||
                     !Command.TryGetValue(0x930,out uint tribe) || tribe!=(uint)TribeId)return false;}
                 else return false;
                 return TryGetValue(0x6F0,out uint global) && global==UnitGlobalId &&

@@ -6,7 +6,7 @@ using SHCDESE.Interop.Enums;
 
 namespace TrappedUnitRescueTest
 {
-    internal enum RescueStatus { Inactive, NotTrapped, Unsupported, NoCandidate, RelocationFailed, IdentityFailed, Rescued, ResumeFailed }
+    internal enum RescueStatus { Inactive, NotTrapped, Unsupported, NoCandidate, RelocationFailed, IdentityFailed, Rescued, ResumeFailed, EscapeInProgress }
     internal sealed class UnitSnapshot
     {
         internal int Id, Type, Owner, Tribe, X, Y, TileId, AIState, Flags, Substep, RequestedX, RequestedY,CrewCount;
@@ -44,6 +44,8 @@ namespace TrappedUnitRescueTest
         internal WorkerResumeSupervisor Workers { get; set; }
         internal Func<long> WorkerTick { get; set; }
         internal Func<bool> WorkerReady { get; set; }
+        internal IdleEscapeOwner IdleEscapes { get; set; }
+        internal Func<UnitSnapshot,RescueCandidate,IdleEscapeRequest> CreateIdleEscapeRequest { get; set; }
         private static readonly int[] Dx = { 0,1,1,1,0,-1,-1,-1 }, Dy = { -1,-1,0,1,1,1,0,-1 };
         internal RescueRuntime(NativeRelocation native, Func<bool> isEnabled, Action<string> report)
         { this.native = native ?? throw new ArgumentNullException(nameof(native)); enabled = isEnabled ?? throw new ArgumentNullException(nameof(isEnabled)); this.report = report; }
@@ -69,11 +71,15 @@ namespace TrappedUnitRescueTest
                 if(!WorkerJourneySnapshot.TryCapture(rule,offset=>native.JobWord((GameUnit*)pointer,offset),
                     offset=>native.JobDword((GameUnit*)pointer,offset),out value.Job))value.Unsupported="worker-job-snapshot-unavailable";
             }
-            else if(value.Unsupported==null && (value.Flags==2 || value.Flags==4))
+            else if(value.Unsupported==null)
             {
                 IntPtr pointer=(IntPtr)unit;
-                if(!CommandJourneySnapshot.TryCapture(unit->r_UnitChimp,unit->r_AIState,offset=>native.JobWord((GameUnit*)pointer,offset),
-                    offset=>native.JobDword((GameUnit*)pointer,offset),out value.Command))value.Unsupported="command-travel-needs-audited-intent";
+                bool captured=value.Flags==0?
+                    CommandJourneySnapshot.TryCaptureStationary(unit->r_UnitChimp,unit->r_AIState,offset=>native.JobWord((GameUnit*)pointer,offset),
+                        offset=>native.JobDword((GameUnit*)pointer,offset),out value.Command):
+                    CommandJourneySnapshot.TryCapture(unit->r_UnitChimp,unit->r_AIState,offset=>native.JobWord((GameUnit*)pointer,offset),
+                        offset=>native.JobDword((GameUnit*)pointer,offset),out value.Command);
+                if(!captured)value.Unsupported="command-state-needs-audited-intent";
             }
             if (native.Tile(value.X,value.Y) != value.TileId) value.Unsupported="incoherent-position";
             if(value.OrdinaryStep && native.Tile(value.NextX,value.NextY)!=value.NextTileId)value.Unsupported="incoherent-next-position";
@@ -185,6 +191,8 @@ namespace TrappedUnitRescueTest
         }
         internal static string ClassifyState(GameUnit* unit) => ClassifyState(unit,false);
         internal static string ClassifyState(GameUnit* unit,bool includeOrdinaryStep)
+            =>ClassifyState(unit,includeOrdinaryStep,false);
+        private static string ClassifyState(GameUnit* unit,bool includeOrdinaryStep,bool allowCompletedCapturedStep)
         {
             if(unit==null)return "missing-unit";
             // DCE60 receives native+6EC as its movement-class argument. Mode1 bypasses ordinary
@@ -213,6 +221,9 @@ namespace TrappedUnitRescueTest
             bool stationarySpearmanIdle=unit->r_UnitChimp==eChimps.CHIMP_TYPE_SPEARMAN && unit->r_AIState==2 && unit->r_PathPlanStateBitFlags==0;
             if(!stationarySpearmanIdle && !CommandResumePolicy.IsCommandState(unit->r_UnitChimp,unit->r_AIState))
                 return IsSiege((int)unit->r_UnitChimp)?"siege-special-state":"unproven-order-state";
+            if(!activeRoute && !CommandJourneySnapshot.IsSupportedStationaryPhase(unit->r_UnitChimp,unit->r_AIState) &&
+                !(allowCompletedCapturedStep && CommandJourneySnapshot.IsSupportedPhase(unit->r_UnitChimp,unit->r_AIState)))
+                return "stationary-state-needs-native-owner";
             return null;
         }
         private static ushort ReadStateWord(GameUnit* unit,int nativeOffset)=>*(ushort*)((byte*)unit+nativeOffset-0x65C);
@@ -236,13 +247,21 @@ namespace TrappedUnitRescueTest
                 int id=(int)before.CrewIdentity[i]; if(id==0) continue;
                 if(!seen.Add(id) || !native.TryUnit(id,out GameUnit* crew) || crew->r_GlobalId!=before.CrewIdentity[i+1] ||
                     crew->r_UnitChimp!=eChimps.CHIMP_TYPE_ENGINEER || crew->r_AIState!=5 || native.Word(crew,0x9B0)==0 || crew->r_ControllableForPlayerId!=before.Owner) return false;
-                // Existing saves can alias the same engineer from two engines. Rescue must not adopt that corruption.
-                for(int other=1;other<=NativeRelocation.MaximumUnitId;other++)
-                    if(other!=before.Id && native.TryUnit(other,out GameUnit* engine) && IsSiege((int)engine->r_UnitChimp))
-                        for(int slot=0;slot<4;slot++)
-                            if(native.Word(engine,0x96C+slot*2)==id && *(uint*)((byte*)engine+0x974-0x65C+slot*4)==crew->r_GlobalId)return false;
             }
+            if(before.CrewIdentity.Length==0)return true;
+            // No native reverse reference proves exclusivity. Check possible saved
+            // aliases once per admission, not once for each of up to four engineers.
+            for(int other=1;other<=NativeRelocation.MaximumUnitId;other++)
+                if(other!=before.Id && native.TryUnit(other,out GameUnit* engine) && IsSiege((int)engine->r_UnitChimp))
+                    for(int slot=0;slot<4;slot++)
+                        if(HasCrewAlias(before.CrewIdentity,native.Word(engine,0x96C+slot*2),native.JobDword(engine,0x974+slot*4)))return false;
             return true;
+        }
+        internal static bool HasCrewAlias(uint[] identity,int id,uint global)
+        {
+            if(id==0 || identity==null)return false;
+            for(int i=0;i+1<identity.Length;i+=2)if(identity[i]==id && identity[i+1]==global)return true;
+            return false;
         }
         // Native 182B00's refresh pass visits the first Count slots, not every
         // nonzero slot. Trailing global IDs can be stale after an ID slot is cleared.
@@ -373,9 +392,15 @@ namespace TrappedUnitRescueTest
             if(before==null || !native.TryUnit(before.Id,out GameUnit* unit) || unit->r_GlobalId!=before.GlobalId) return Finish(result,RescueStatus.Unsupported,"identity-disappeared");
             before=before.WithCurrentHealth(unit->r_CurrentHealth);
             result.IdentityPreserved=true;
-            if(before.Unsupported!=null || ClassifyState(unit,before.OrdinaryStep)!=null || !ValidCrew(before))
-                return Finish(result,RescueStatus.Unsupported,(before.Unsupported??ClassifyState(unit,before.OrdinaryStep)??"crew-inconsistent")+
+            if(before.Unsupported!=null || ClassifyState(unit,before.OrdinaryStep,before.OrdinaryStep)!=null || !ValidCrew(before))
+                return Finish(result,RescueStatus.Unsupported,(before.Unsupported??ClassifyState(unit,before.OrdinaryStep,before.OrdinaryStep)??"crew-inconsistent")+
                     "; ai="+unit->r_AIState+" flags="+unit->r_PathPlanStateBitFlags+" substep="+unit->r_MovementSubstep);
+            if(before.Command!=null)
+            {
+                IntPtr pointer=(IntPtr)unit;
+                if(!before.Command.Matches(unit->r_UnitChimp,unit->r_AIState,offset=>native.JobWord((GameUnit*)pointer,offset),
+                    offset=>native.JobDword((GameUnit*)pointer,offset)))return Finish(result,RescueStatus.Unsupported,"command-intent-changed-after-capture");
+            }
             if(NeedsExplicitCivilianResume(before.Type,before.Flags,resume))
                 return Finish(result,RescueStatus.Unsupported,"civilian-active-route-requires-explicit-reissue");
             if(unit->r_CurrentHealth!=before.Health || unit->r_TribeId!=before.Tribe || unit->r_AIState!=before.AIState ||
@@ -402,8 +427,6 @@ namespace TrappedUnitRescueTest
             // A mixed wall/moat source needs its surface owner, not this functional probe.
             if(completedMoat && (native.Flags((int)unit->r_CurrentPositionTileId)&(uint)TilePropertyFlag.IsWall)!=0)
                 return Finish(result,RescueStatus.Unsupported,"mixed-wall-moat-source-needs-native-owner");
-            if(completedMoat && before.Job==null && before.Command==null)
-                return Finish(result,RescueStatus.Unsupported,"completed-moat-needs-mode-aware-escape-proof");
             int sourceTile=(int)unit->r_CurrentPositionTileId;
             if(!native.HasOccupancyExactlyOnce(sourceTile,before.Id)) return Finish(result,RescueStatus.Unsupported,"source-occupancy-invalid");
             // DCE60 fallback: wall at either endpoint, destination mask and optional tree exception.
@@ -416,6 +439,7 @@ namespace TrappedUnitRescueTest
                     if(((native.Flags(trapped.Tile)|flags)&0x100)!=0 && ((flags&0x4A5014B1)==0 || (flags&0x1000)!=0))
                         return Finish(result,RescueStatus.Unsupported,"possible-native-assassin-climb-exit");
                 }
+            IdleEscapes?.Release(before.Id); // A new proved mutation supersedes observation of an earlier escape.
             bool recovered=RelocateAndResume(before,resume,result,sourceTile,completedMoat);
             if(recovered)report?.Invoke(result.ToString());
             return recovered;
@@ -447,10 +471,25 @@ namespace TrappedUnitRescueTest
         {
             if(sourceTile<0)sourceTile=before.TileId;
             RescueCandidate? chosen=ChooseCandidate(before.Candidates,candidate=>native.Tile(candidate.X,candidate.Y)==candidate.Tile && native.OrdinaryGround(candidate.Tile) &&
-                (native.Head(candidate.Tile)==0 || candidate.Tile==sourceTile && native.HasOccupancyExactlyOnce(sourceTile,before.Id)) && native.Connections(candidate.Tile)!=0);
+                (native.Head(candidate.Tile)==0 || candidate.Tile==sourceTile && native.HasOccupancyExactlyOnce(sourceTile,before.Id)) &&
+                NativeIdleEscapeWorld.HasPhysicalExit(candidate,native.Tile,native.OrdinaryGround,native.Connections));
             if(!chosen.HasValue && !probeOriginal) return Finish(result,RescueStatus.NoCandidate,"no-old-reachable-free-local-ground");
             var target=chosen.GetValueOrDefault();
-            if(before.Job!=null || before.Command!=null)
+            if(probeOriginal && before.Job==null && before.Flags==0)
+            {
+                if(!chosen.HasValue)return Finish(result,RescueStatus.NoCandidate,"idle-moat-no-old-reachable-free-local-ground");
+                if(!resume || IdleEscapes==null || CreateIdleEscapeRequest==null || WorkerTick==null || WorkerReady==null || !WorkerReady())
+                    return Finish(result,RescueStatus.Unsupported,"idle-escape-owner-not-ready");
+                var request=CreateIdleEscapeRequest(before,target);
+                bool accepted=IdleEscapes.TryStart(request,unchecked((uint)WorkerTick()),out string detail);
+                result.ResumeAttempted=true;result.ResumeSucceeded=accepted;
+                if(!accepted)return Finish(result,RescueStatus.Unsupported,detail);
+                if(IdleEscapes.LastState==IdleEscapeState.InProgress)
+                    return Finish(result,RescueStatus.EscapeInProgress,detail);
+                result.AfterX=target.X;result.AfterY=target.Y;
+                return Finish(result,RescueStatus.Rescued,detail);
+            }
+            if(before.Job!=null || before.Command!=null && (before.Flags==2 || before.Flags==4))
             {
                 if(!resume || Workers==null || WorkerTick==null || WorkerReady==null || !WorkerReady())
                     return Finish(result,RescueStatus.Unsupported,"worker-resume-owner-not-ready");
@@ -475,10 +514,13 @@ namespace TrappedUnitRescueTest
             if(!native.Relocate(before.Id,target.X,target.Y)) return Finish(result,RescueStatus.RelocationFailed,"live-relocation-veto-or-postcondition");
             result.AfterX=target.X;result.AfterY=target.Y;
             if(!native.TryUnit(before.Id,out GameUnit* unit)) return Finish(result,RescueStatus.IdentityFailed,"lost-after-relocation");
+            IntPtr pointer=(IntPtr)unit;
             result.IdentityPreserved=unit->r_GlobalId==before.GlobalId && (int)unit->r_UnitChimp==before.Type && unit->r_CurrentHealth==before.Health &&
                 unit->r_ControllableForPlayerId==before.Owner && unit->r_TribeId==before.Tribe && unit->r_AIState==before.AIState && Same(CaptureCrew(unit),before.CrewIdentity) &&
                 native.TryTribeGlobal(before.Tribe,out uint tribeGlobal) && tribeGlobal==before.TribeGlobalId &&
                 (before.Tribe==0 || native.JobDword(unit,0x93C)==tribeGlobal) &&
+                (before.Command==null || before.Command.Matches(unit->r_UnitChimp,unit->r_AIState,
+                    offset=>native.JobWord((GameUnit*)pointer,offset),offset=>native.JobDword((GameUnit*)pointer,offset))) &&
                 (!IsSiege(before.Type) || native.Word(unit,0xA0C)==before.CrewCount);
             if(!result.IdentityPreserved || !native.HasOccupancyCount(sourceTile,before.Id,target.Tile==sourceTile?1:0)) return Finish(result,RescueStatus.IdentityFailed,"identity-or-source-occupancy");
             return true;

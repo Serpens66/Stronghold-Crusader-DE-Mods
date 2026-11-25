@@ -33,6 +33,16 @@ Zu jeder Familie gehören Gegenproben: Funktion aus, No-op/abgelehnter Writer, v
 - Kein Zielort: Einheit nicht auf belegtes, ungültiges oder zuvor nicht erreichbares Feld setzen. Später wieder freier Zielort und Retry-/Altersgrenzen getrennt prüfen.
 - Vor dem ersten Recoverytick erteilter neuer Auftrag, einschließlich gleicher Zielkoordinate, veränderter Pre-Argumente, Veto, Post-Manipulation und fremder geschachtelter Aufträge. Keine alte Absicht wiederherstellen.
 
+## Untätige Einheiten auf neuem fertigem Graben
+
+Der neue Fluchtauftrag benötigt eigene Spielbelege. Für jede zugelassene Familie den echten AI0-Ausgang und Spearman2 getrennt herstellen; alle fünf mobilen Geräte nur mit vollständiger ursprünglicher Crew. Engineer0, Trebuchet, Dig/Fill, Rekrutierung, besondere Bewegung und fremde laufende Aufgaben sind negative Aufnahmefälle. Ein beliebiges Flags0 oder Current=Requested genügt nicht als Vorbedingung.
+
+- Native1 muss eine wirkliche positive Route veröffentlichen und anschließend physisch am Ziel ankommen. `EscapeInProgress` ist kein abgeschlossener Rettungsbeleg. Pause, Feind-/Patientenkontakt und neue AI-/Gruppenabsicht dürfen nicht durch erneutes Erteilen des Fluchtauftrags übersteuert werden.
+- Ausschließlich normales tatsächliches Native0 darf nach erneuter Prüfung zur lokalen Versetzung führen. Veto, Umleitung, Originalausnahme und Postausnahme nach Native0 dürfen keinen Teleport auslösen. Native1 mit Postausnahme darf nur bei weiterhin kohärenter Route beobachtet werden.
+- Ein anderer Begin-Observer verändert vor dem Original Pose, Aufgabe, Belegung oder Welt: der ursprüngliche Fluchtaufruf muss abgelehnt werden. Ein fremder verschachtelter Auftrag bleibt wirksam, auch bei identischem Ziel.
+- Save nach Veröffentlichung und erneutes Laden: der normale gespeicherte Auftrag läuft ohne Receipt-Replay weiter. Save während des eigenen synchronen Aufrufs wird vor Dateiersetzung gesperrt. Ausschalten, Missionstausch und abgelaufene Beobachtung erzeugen keine Nachholaktion.
+- Ein weiteres Bauereignis betrifft dieselbe noch fliehende Einheit: die alte reine Beobachtung darf keine zweite Rettung zählen oder alte Befehle ausführen. Ein nun belegtes Ziel oder ein Richtungsbyte ausschließlich in blockiertes Gelände ist kein sicherer Versetzungsort.
+
 ## Wirtschaft und eigene wartende Fortsetzung
 
 Für **alle 20 Rollen** ausschließlich die in WorkerTravelPolicy freigegebenen Reiseabschnitte als positive Fälle testen: Woodcutter, Fletcher, Hunter, Mason, Quarry-Grunt, Ox, Pitch-Digger, Wheat/Hops/Apple/Cattle, Miller, Baker, Brewer, Poleturner, Smith, Armourer, Tanner und beide Miner. Jede Rolle braucht natürliche reale Arbeitsplatz-/Lager-/Vegetationsbeziehungen; manuelles Setzen von AI/Cargo gilt nicht als Beleg natürlicher Arbeitsfortsetzung.
