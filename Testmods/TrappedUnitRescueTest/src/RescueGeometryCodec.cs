@@ -19,7 +19,7 @@ namespace TrappedUnitRescueTest
     {
         private const uint Signature=0x52475343;
         private static readonly Encoding Utf8=new UTF8Encoding(false,true);
-        internal static bool ValidWitness(RescueGeometryWitness w)=>w!=null && w.Owner>=0 && w.Owner<=8 &&
+        internal static bool ValidWitness(RescueGeometryWitness w)=>w!=null && w.Owner>=0 && w.Owner<=8 && w.Type>=0 && w.Type<=ushort.MaxValue &&
             Enum.IsDefined(typeof(eChimps),(eChimps)w.Type) &&
             RescueGeometryWitness.TryCreate(w.UnitId,w.GlobalId,w.Type,w.Owner,w.Current,w.Next,w.HasAcceptedNext,w.CopyCandidates(),out _);
         private static bool Valid(RescuePendingGeometry r)=>!string.IsNullOrEmpty(r.Source) && r.Source.Length<=96 &&
@@ -55,7 +55,7 @@ namespace TrappedUnitRescueTest
                     if(!Valid(candidate))return false;record=candidate;return true;
                 }
             }
-            catch(IOException){return false;}catch(ArgumentException){return false;}catch(OverflowException){return false;}
+            catch(InvalidDataException){return false;}catch(IOException){return false;}catch(ArgumentException){return false;}catch(OverflowException){return false;}
         }
         internal static void WriteWitness(BinaryWriter writer,RescueGeometryWitness w)
         {
@@ -77,7 +77,7 @@ namespace TrappedUnitRescueTest
             int count=reader.ReadInt32();if(count<0 || count>RescueGeometryWitness.MaximumCandidates)return false;
             var candidates=new List<RescueCandidate>(count);
             for(int i=0;i<count;i++)candidates.Add(new RescueCandidate{X=reader.ReadInt32(),Y=reader.ReadInt32(),Tile=reader.ReadInt32(),Distance=reader.ReadInt32()});
-            return owner>=0 && owner<=8 && Enum.IsDefined(typeof(eChimps),(eChimps)type) &&
+            return owner>=0 && owner<=8 && type>=0 && type<=ushort.MaxValue && Enum.IsDefined(typeof(eChimps),(eChimps)type) &&
                 RescueGeometryWitness.TryCreate(id,global,type,owner,current,next,accepted,candidates,out witness);
         }
         internal static bool CanonicalJoin(UnitSnapshot snapshot)

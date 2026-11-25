@@ -15,6 +15,8 @@ internal static class Program
             GeneralObserverFixture.Run();
             RescueGeometryWitnessFixture.Run();
             RescueReplanIntentFixture.Run();
+            RescueGeometryPersistenceFixture.Run();
+            ReplanCoordinatorFixture.Run();
             RescueOrderFixture.Run();
             CandidateQueueFixture.Run();
             PendingRescueFixture.Run();

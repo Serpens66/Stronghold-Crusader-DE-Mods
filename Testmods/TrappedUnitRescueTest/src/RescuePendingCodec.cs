@@ -17,9 +17,10 @@ namespace TrappedUnitRescueTest
         internal static bool TryEncode(RescuePendingCandidate<UnitSnapshot> record,out byte[] data)
         {
             data=null;if(!ValidRecord(record))return false;
+            byte[] source;
+            try{source=Utf8.GetBytes(record.Source);}catch(ArgumentException){return false;}
             using(var stream=new MemoryStream())using(var writer=new BinaryWriter(stream))
             {
-                byte[] source=Utf8.GetBytes(record.Source);
                 writer.Write(Signature);writer.Write(Version);writer.Write((ushort)source.Length);writer.Write(source);
                 writer.Write(record.Age);writer.Write(record.Attempts);writer.Write(record.RetryIn);
                 var u=record.Snapshot;
@@ -96,7 +97,7 @@ namespace TrappedUnitRescueTest
                     record=result;return true;
                 }
             }
-            catch(IOException){return false;}catch(ArgumentException){return false;}catch(OverflowException){return false;}
+            catch(InvalidDataException){return false;}catch(IOException){return false;}catch(ArgumentException){return false;}catch(OverflowException){return false;}
         }
         private static bool ReadBool(BinaryReader reader)
         {byte value=reader.ReadByte();if(value>1)throw new InvalidDataException("Invalid boolean.");return value!=0;}
@@ -106,7 +107,7 @@ namespace TrappedUnitRescueTest
             if(string.IsNullOrEmpty(record.Source) || record.Source.Length>96 || record.Age<0 || record.Age>=80 ||
                 record.Attempts<0 || record.Attempts>=4 || record.RetryIn<0 || record.RetryIn>1 || u==null || u.Unsupported!=null ||
                 u.Id<1 || u.Id>NativeRelocation.MaximumUnitId || u.GlobalId==0 || u.Health==0 || u.Owner<0 || u.Owner>8 || u.Tribe<0 ||
-                !Enum.IsDefined(typeof(eChimps),(eChimps)u.Type) || !XY(u.X,u.Y) || !XY(u.NextX,u.NextY) || !XY(u.RequestedX,u.RequestedY) ||
+                u.Type<0 || u.Type>ushort.MaxValue || !Enum.IsDefined(typeof(eChimps),(eChimps)u.Type) || !XY(u.X,u.Y) || !XY(u.NextX,u.NextY) || !XY(u.RequestedX,u.RequestedY) ||
                 !Tile(u.TileId) || !Tile(u.NextTileId) || (u.Flags!=0 && u.Flags!=2 && u.Flags!=4) || u.Substep<0 || u.Substep>8 ||
                 !RescueRuntime.HasCoherentCrewShape(u.CrewIdentity,u.CrewCount) || u.Candidates.Count>MaximumCandidates)return false;
             if(u.OrdinaryStep && (u.Flags==0 || u.Substep>=8 || Math.Abs(u.X-u.NextX)>1 || Math.Abs(u.Y-u.NextY)>1 || u.TileId==u.NextTileId))return false;

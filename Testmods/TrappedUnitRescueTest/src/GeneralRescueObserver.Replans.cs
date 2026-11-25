@@ -11,7 +11,7 @@ namespace TrappedUnitRescueTest
         {
             internal RescueGeometryWitness Witness;
             internal string Source;
-            internal int CapturedTick,Attempts,RetryIn;
+            internal int CapturedTick,Attempts,DueTick;
             internal long Session,World,Mutation;
             internal RescueReplanIntent Fresh;
             internal long FreshSerial;
@@ -20,6 +20,7 @@ namespace TrappedUnitRescueTest
         private readonly Dictionary<int,RetainedGeometry> geometry=new Dictionary<int,RetainedGeometry>();
         private readonly LinkedList<RetainedGeometry> geometrySchedule=new LinkedList<RetainedGeometry>();
         private readonly HashSet<int> unsettledReplans=new HashSet<int>();
+        private long replanBoundary;
         private RescuePendingGeometry[] stagedGeometry=Array.Empty<RescuePendingGeometry>();
         private readonly HashSet<int> stagedGeometryIds=new HashSet<int>();
         internal IRescueReplanIntentWorld ReplanIntents {get;set;}
@@ -38,6 +39,7 @@ namespace TrappedUnitRescueTest
         }
         private static bool GeometryAge(int captured,int tick,out int age)
         {uint delta=unchecked((uint)(tick-captured));age=delta<=int.MaxValue?(int)delta:0;return delta<80;}
+        private static int GeometryDelay(int due,int tick)=>unchecked(tick-due)>=0?0:unchecked(due-tick);
         private void DropGeometry(int id)
         {
             if(geometry.TryGetValue(id,out var item))
@@ -58,7 +60,10 @@ namespace TrappedUnitRescueTest
                 if(!IsCurrent(session,world) || !access.TryGetTick(out int tick))return false;
                 foreach(var item in geometry.Values)
                     if(GeometryAge(item.CapturedTick,tick,out int age) && item.Attempts<4)
-                        result.Add(new RescuePendingGeometry(item.Source,item.Witness,age,item.Attempts,item.RetryIn));
+                    {
+                        int delay=GeometryDelay(item.DueTick,tick);if(delay>1)return false;
+                        result.Add(new RescuePendingGeometry(item.Source,item.Witness,age,item.Attempts,delay));
+                    }
             }
             result.Sort((a,b)=>a.Witness.UnitId.CompareTo(b.Witness.UnitId));records=result.ToArray();return true;
         }
@@ -77,12 +82,12 @@ namespace TrappedUnitRescueTest
             var records=stagedGeometry;stagedGeometry=Array.Empty<RescuePendingGeometry>();stagedGeometryIds.Clear();
             foreach(var record in records)
                 if(!geometry.ContainsKey(record.Witness.UnitId) && !queue.ContainsUnit(record.Witness.UnitId))
-                    RetainGeometry(record.Witness,record.Source,unchecked(tick-record.Age),record.Attempts,record.RetryIn,long.MaxValue);
+                    RetainGeometry(record.Witness,record.Source,unchecked(tick-record.Age),record.Attempts,record.RetryIn,long.MaxValue,tick);
         }
-        private void RetainGeometry(RescueGeometryWitness witness,string source,int captured,int attempts,int retry,long mutation)
+        private void RetainGeometry(RescueGeometryWitness witness,string source,int captured,int attempts,int retry,long mutation,int? boundTick=null)
         {
             if(ReplanIntents==null || witness==null || attempts>=4 || PendingCount>=512)return;
-            var item=new RetainedGeometry{Witness=witness,Source=source,CapturedTick=captured,Attempts=attempts,RetryIn=retry,
+            var item=new RetainedGeometry{Witness=witness,Source=source,CapturedTick=captured,Attempts=attempts,DueTick=unchecked((boundTick??captured)+retry),
                 Session=session,World=world,Mutation=mutation};
             item.Node=geometrySchedule.AddLast(item);geometry.Add(witness.UnitId,item);
         }
@@ -100,12 +105,12 @@ namespace TrappedUnitRescueTest
             if(queue.TryTakeUnit(id,out var queued))
             {
                 DropGeometry(id);
-                if(GeometryAge(queued.CapturedTick,tick,out _) && queued.Attempts<4 &&
-                    (queued.Snapshot.GeometryWitness!=null || RescueGeometryWitness.TryCapture(queued.Snapshot,out _)))
+                if(GeometryAge(queued.CapturedTick,tick,out _) && queued.Attempts<4)
                 {
                     var witness=queued.Snapshot.GeometryWitness;
                     if(witness==null)RescueGeometryWitness.TryCapture(queued.Snapshot,out witness);
-                    RetainGeometry(witness,queued.Source,queued.CapturedTick,queued.Attempts,0,queued.MutationId);
+                    int delay=GeometryDelay(queued.DueTick,tick);
+                    if(delay<=1)RetainGeometry(witness,queued.Source,queued.CapturedTick,queued.Attempts,delay,queued.MutationId,tick);
                 }
             }
             // Restored pending intent is equally revocable before its first Tick.
@@ -118,7 +123,7 @@ namespace TrappedUnitRescueTest
                 {
                     var witness=saved.Snapshot.GeometryWitness;
                     if(witness==null)RescueGeometryWitness.TryCapture(saved.Snapshot,out witness);
-                    RetainGeometry(witness,saved.Source,unchecked(tick-saved.Age),saved.Attempts,saved.RetryIn,long.MaxValue);
+                    RetainGeometry(witness,saved.Source,unchecked(tick-saved.Age),saved.Attempts,saved.RetryIn,long.MaxValue,tick);
                 }
             }
         }
@@ -133,12 +138,16 @@ namespace TrappedUnitRescueTest
                 unsettledReplans.Add(context.UnitId);
                 try
                 {
-                    if(ReplanIntents!=null && ReplanIntents.TryCapture(context.UnitId,context.X,context.Y,context.Extra,out var capture) &&
-                        RescueGeometryWitness.TryJoin(item.Witness,capture.CopyBefore(),out _))fresh=capture;
+                    if(ReplanIntents!=null && ReplanIntents.TryCapture(context.UnitId,context.X,context.Y,context.Extra,out var capture))
+                    {
+                        if(!RescueGeometryWitness.TryJoin(item.Witness,capture.CopyBefore(),out _))
+                        {DropGeometry(context.UnitId);return null;}
+                        fresh=capture;
+                    }
                 }
                 catch{ReportBounded("replan-intent-capture-failed");}
             }
-            return new ReplanCompletion(this,item,context,orders[context.UnitId],fresh,own);
+            return new ReplanCompletion(this,item,context,orders[context.UnitId],fresh,own,replanBoundary);
         }
         private sealed class ReplanCompletion : IUnitMoveInvocation
         {
@@ -148,9 +157,10 @@ namespace TrappedUnitRescueTest
             private readonly long serial;
             private readonly RescueReplanIntent fresh;
             private readonly bool own;
+            private readonly long boundary;
             private int completed;
-            internal ReplanCompletion(GeneralRescueObserver owner,RetainedGeometry item,UnitMoveContext context,long serial,RescueReplanIntent fresh,bool own)
-            {this.owner=owner;this.item=item;this.context=context;this.serial=serial;this.fresh=fresh;this.own=own;}
+            internal ReplanCompletion(GeneralRescueObserver owner,RetainedGeometry item,UnitMoveContext context,long serial,RescueReplanIntent fresh,bool own,long boundary)
+            {this.owner=owner;this.item=item;this.context=context;this.serial=serial;this.fresh=fresh;this.own=own;this.boundary=boundary;}
             public void Complete(UnitMoveCompletion completion)
             {
                 if(Interlocked.Exchange(ref completed,1)!=0 || completion==null || !ReferenceEquals(completion.Context,context) ||
@@ -161,7 +171,7 @@ namespace TrappedUnitRescueTest
                 // executes its original after a newer nested failed call.
                 if(completion.NativeInvoked && completion.NativeReturned && completion.NativeResult!=0)
                 {owner.DropGeometry(context.UnitId);return;}
-                if(own || !ReferenceEquals(current,item) || owner.orders[context.UnitId]!=serial)return;
+                if(own || boundary!=owner.replanBoundary || !ReferenceEquals(current,item) || owner.orders[context.UnitId]!=serial)return;
                 current.Fresh=completion.NativeInvoked && completion.NativeReturned && completion.Failure==null && completion.NativeResult==0?fresh:null;
                 current.FreshSerial=serial;
             }
@@ -184,11 +194,15 @@ namespace TrappedUnitRescueTest
                     {
                         DropGeometry(item.Witness.UnitId);
                         string source=item.Source.StartsWith("replan/",StringComparison.Ordinal)?item.Source:"replan/"+item.Source;
-                        var record=new RescuePendingCandidate<UnitSnapshot>(source,snapshot,age,item.Attempts,item.RetryIn);
+                        int delay=GeometryDelay(item.DueTick,tick);
+                        var record=new RescuePendingCandidate<UnitSnapshot>(source,snapshot,age,item.Attempts,delay);
                         if(!queue.OfferRestored(new RescueIdentity(item.Session,item.World,snapshot.Id,snapshot.GlobalId,item.FreshSerial),item.Mutation,record,tick))
                             ReportBounded("replan-candidate-transfer-rejected");
                         continue;
                     }
+                    // Failed fresh validation may include a departure. Do not
+                    // retain spatial authority across an unclassified transition.
+                    DropGeometry(item.Witness.UnitId);continue;
                 }
                 item.Node=geometrySchedule.AddLast(item);
             }
@@ -196,6 +210,7 @@ namespace TrappedUnitRescueTest
             // This is bounded metadata cleanup, with no unit reads or native calls.
             foreach(var item in geometry.Values)item.Fresh=null;
             unsettledReplans.Clear();
+            replanBoundary=unchecked(replanBoundary+1);
         }
     }
 }
