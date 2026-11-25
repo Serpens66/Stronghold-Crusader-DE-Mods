@@ -204,6 +204,10 @@ try {
         throw 'ZIP audit failed: archive contents differ from the staged package.'
     }
 
+    if ($env:SHCDE_PREPARE_ONLY -eq '1') {
+        Remove-UntrackedReleaseBinaries $config.Root $metadata.PackageDir $fileRecords
+    }
+
     $gitVersion = ((Invoke-CheckedCommand -FilePath 'git' -Arguments @('--version')).Output -join ' ').Trim()
     $ghVersion = ((Invoke-CheckedCommand -FilePath 'gh' -Arguments @('--version')).Output | Select-Object -First 1).Trim()
     $dotnetVersion = ((Invoke-CheckedCommand -FilePath 'dotnet' -Arguments @('--version')).Output -join '').Trim()

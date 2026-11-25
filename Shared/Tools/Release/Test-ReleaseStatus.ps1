@@ -196,6 +196,34 @@ Assert-ApiSharedValidationFails -SourceGuid 'APIShared_Serp' -SourceVersion 'inv
 Assert-ApiSharedValidationFails -SourceGuid 'APIShared_Serp' -SourceVersion '1.2.3' -PackageGuid 'APIShared_Serp' -PackageVersion '1.2.2' -MinimumVersion '1.0.0' -ExpectedMessage 'package identity mismatch'
 Assert-ApiSharedValidationFails -SourceGuid 'APIShared_Serp' -SourceVersion '1.2.3' -PackageGuid 'APIShared_Serp' -PackageVersion '1.2.3' -MinimumVersion '2.0.0' -ExpectedMessage 'below the required minimum'
 
+. (Join-Path $PSScriptRoot '../BuildCache/ModBuildCheckpoint.ps1')
+. (Join-Path $PSScriptRoot '../Paths/WorkPaths.ps1')
+$cleanupRoot = New-ShortWorkDirectory -Root (Get-ReleaseRoot) -Kind t -Name 'ReleaseBuildOutputs' -Transient
+$cleanupPackage = Join-Path $cleanupRoot 'Mod/BepInEx/plugins/Fixture_Serp'
+[void][IO.Directory]::CreateDirectory($cleanupPackage)
+$tracked = Join-Path $cleanupPackage 'tracked.dll'
+$generated = Join-Path $cleanupPackage 'generated.dll'
+$symbols = Join-Path $cleanupPackage 'generated.pdb'
+$resource = Join-Path $cleanupPackage 'keep.txt'
+$outside = Join-Path $cleanupRoot 'outside.dll'
+foreach ($file in @($tracked,$generated,$symbols,$resource,$outside)) {
+    [IO.File]::WriteAllText($file, [IO.Path]::GetFileName($file))
+}
+[void](Invoke-CheckedCommand -FilePath 'git' -Arguments @('-C',$cleanupRoot,'init','--quiet'))
+[void](Invoke-CheckedCommand -FilePath 'git' -Arguments @('-C',$cleanupRoot,'add','--','Mod/BepInEx/plugins/Fixture_Serp/tracked.dll'))
+$cleanRecords = @(foreach ($file in @($tracked,$generated,$symbols)) {
+    Get-FileHashRecord -Path $file -BasePath (Split-Path -Parent $cleanupPackage)
+})
+[IO.File]::WriteAllText($symbols,'different bytes')
+$refused = $false
+try { Remove-UntrackedReleaseBinaries $cleanupRoot $cleanupPackage $cleanRecords }
+catch { $refused = $_.Exception.Message -match 'differs from the verified release package' }
+Assert-True ($refused -and [IO.File]::Exists($generated) -and [IO.File]::Exists($symbols)) 'Changed binary bytes must prevent cleanup of the package.'
+[IO.File]::WriteAllText($symbols,[IO.Path]::GetFileName($symbols))
+Remove-UntrackedReleaseBinaries $cleanupRoot $cleanupPackage $cleanRecords
+Assert-True (-not [IO.File]::Exists($generated) -and -not [IO.File]::Exists($symbols)) 'Verified untracked binaries should not dirty the next child release.'
+Assert-True ([IO.File]::Exists($tracked) -and [IO.File]::Exists($resource) -and [IO.File]::Exists($outside)) 'Preserve tracked binaries, package resources and unrelated outputs.'
+
 $releaseModSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'Release-Mod.ps1'))
 Assert-True ($releaseModSource -match '\$env:SHCDE_API_SHARED_DIR = \$apiSharedPackage\.Directory') 'APIShared consumer releases must pass the workspace package to build.bat.'
 Assert-True ($releaseModSource -match "Remove-Item -LiteralPath 'Env:SHCDE_API_SHARED_DIR'") 'Release builds must restore an initially undefined APIShared environment override.'
