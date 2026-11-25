@@ -3,6 +3,9 @@ using System.IO;
 using System.Threading;
 using APIShared;
 using APIShared.ModSettings;
+using APIShared.WorldMutations;
+using APIShared.Simulation;
+using APIShared.Units;
 using BepInEx;
 using BepInEx.Logging;
 using SHCDESE.API.LowLevel;
@@ -11,7 +14,7 @@ namespace TrappedUnitRescueTest
 {
     [BepInPlugin(Guid, Name, Version)]
     [BepInDependency("000shcdese", "2.14.3")]
-    [BepInDependency("APIShared_Serp", "0.53.0")]
+    [BepInDependency("APIShared_Serp", "0.74.0")]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("Pathfinding_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -22,6 +25,7 @@ namespace TrappedUnitRescueTest
         private static Settings settings;
         private static RescueRuntime runtime;
         private static GeneralRescueObserver generalObserver;
+        private static WorkerRecoveryService workers;
         private static FixesIntegration fixes;
         private static Fixture fixture;
         private static IMissionLifecycleCapability missions;
@@ -32,6 +36,7 @@ namespace TrappedUnitRescueTest
         private static string configuredMap;
         private static int configuredPeaceTime;
         private static int startupThread;
+        private static RescueOrderObserver orders;
 
         private void Awake()
         {
@@ -57,15 +62,31 @@ namespace TrappedUnitRescueTest
             try
             {
                 Shared.NativePatchGuard.Bind(context, log);
-                var native = NativeRelocation.Create();
+                var native = NativeRelocation.Create(Guid);
                 fixes = new FixesIntegration(log, native);
                 fixes.Initialize(context);
                 runtime = new RescueRuntime(native, () => Volatile.Read(ref active) != 0, Stamp);
                 var generalRuntime = new RescueRuntime(native, () => generalObserver != null && generalObserver.IsActive, Stamp);
                 generalObserver = new GeneralRescueObserver(generalRuntime, SetGeneralSuppression, Stamp);
-                if (!ApiShared.ForMod(Guid).TryGetAivBuildStep(out var aiv, out var aivDiagnostic) ||
-                    !aiv.TryRegisterObserver("rescue-ai-drawbridge", generalObserver, out aivDiagnostic))
-                    throw new InvalidOperationException("AIV observer unavailable: " + aivDiagnostic.Reason);
+                workers=new WorkerRecoveryService(native,()=>generalObserver.IsRecovering,Stamp);
+                if(!workers.Register(Guid,out string saveReason))throw new InvalidOperationException("Worker persistence unavailable: "+saveReason);
+                foreach(var rescue in new[]{runtime,generalRuntime})
+                {rescue.Workers=workers.Supervisor;rescue.WorkerTick=()=>workers.TickValue;rescue.WorkerReady=()=>workers.Ready;}
+                generalObserver.WorldMutated=workers.Supervisor.MarkWorldMutation;
+                workers.CapturePending=generalObserver.TryCapturePending;
+                workers.RestorePending=generalObserver.StagePending;
+                if (!WorldMutationEvents.TryRegister(Guid,"rescue-world-mutations",generalObserver,out string mutationReason,
+                    enabled:()=>generalObserver.IsActive))
+                    throw new InvalidOperationException("World-mutation observer unavailable: " + mutationReason);
+                if(!SimulationTickEvents.TryRegister(Guid,"rescue-candidates",RecoveryTick,out string tickReason))
+                    throw new InvalidOperationException("Recovery tick unavailable: " + tickReason);
+                orders=new RescueOrderObserver(Guid,()=>workers.Supervisor.IsExecutingNativeCall || generalObserver.IsRecovering,
+                    id=>{generalObserver.ObserveOrder(id,true);if(workers.Ready)workers.Supervisor.ObserveOrderPre(id);},
+                    (id,result)=>{if(workers.Ready)workers.Supervisor.ObserveOrderPost(id,workers.TickValue,result);},
+                    id=>generalObserver.IsInterestedInOrder(id) || workers.Supervisor.Ledger.TryGetOwnedByUnit(id,out _));
+                if(!UnitMoveEvents.TryRegister(Guid,"rescue-order-identity",orders,out string orderReason,
+                    enabled:()=>generalObserver.HasEvidence || workers.Supervisor.Ledger.Count!=0))
+                    throw new InvalidOperationException("Final unit-move observations unavailable: "+orderReason);
                 libraryReady = true;
                 UpdateGeneralSession();
                 Stamp("NATIVE_READY; experimental setting defaults off; gatehouse farmer fix retained");
@@ -86,11 +107,12 @@ namespace TrappedUnitRescueTest
                     fixes?.RecheckPublishedHooks();
                     SetActive(Volatile.Read(ref fixtureActive) != 0 && settings.EnableMod && settings.EnableExperimentalRescue);
                     UpdateGeneralSession();
-                }, n => { generalObserver?.SetSession(0); Volatile.Write(ref generalFixture, 0); SetActive(false); fixture?.Stop(); }, null, out var observerDiagnostic))
+                    workers?.BeginSession(n.Context.SessionId,LocalModeAllowed(n.Context));
+                }, n => { generalObserver?.SetSession(0); generalObserver?.ClearPending(); workers?.EndSession(); Volatile.Write(ref generalFixture, 0); SetActive(false); fixture?.Stop(); }, null, out var observerDiagnostic))
                     throw new InvalidOperationException(observerDiagnostic.Reason);
                 settingsReady = true;
                 UpdateGeneralSession();
-                Stamp("SETTINGS_READY; no request means no automatic scenario; AI-AIV drawbridge pilot requires explicit setting");
+                Stamp("SETTINGS_READY; no request means no automatic scenario; event-driven rescue requires explicit setting");
                 if (libraryReady) QueueRequestedFixture();
             }
             catch (Exception ex) { SetActive(false); Stamp("INIT_FAILED settings: " + ex); }
@@ -100,6 +122,20 @@ namespace TrappedUnitRescueTest
         {
             if (!ApiShared.ForMod(Guid).Ui.TryPost(StartRequestedFixture)) Stamp("INIT_FAILED Unity dispatcher unavailable");
         }
+        private static void RecoveryTick(int tick)
+        {
+            generalObserver?.ExpireInactivePending();
+            if(workers==null || (generalObserver.PendingCount==0 && workers.Supervisor.Ledger.Count==0) || !workers.AdmitTick(tick))return;
+            if(!UnitMoveEvents.IsAvailable){generalObserver.ClearPending();return;}
+            generalObserver?.Tick(tick);
+            if(workers.Supervisor.Ledger.Count==0 || !workers.Ready || !settings.EnableMod || !settings.EnableExperimentalRescue)return;
+            bool fixtureScope=Volatile.Read(ref fixtureActive)!=0 && Volatile.Read(ref generalFixture)==0;
+            if(fixtureScope)SetSuppression(true);else SetGeneralSuppression(true);
+            try{workers.Supervisor.Tick(workers.TickValue,32,4);}
+            finally{if(fixtureScope)SetSuppression(false);else SetGeneralSuppression(false);}
+        }
+        private static bool LocalModeAllowed(MissionContext current)=>current!=null && !current.Mode.IsRealMultiplayer &&
+            !current.Mode.HasConflictingCustomizedOrigin && current.Mode.Kind!=APIShared.GameModes.GameModeKind.Unknown;
 
         private static void StartRequestedFixture()
         {
@@ -158,7 +194,7 @@ namespace TrappedUnitRescueTest
                 !current.Mode.IsRealMultiplayer && !current.Mode.HasConflictingCustomizedOrigin &&
                 current.Mode.Kind != APIShared.GameModes.GameModeKind.Unknown;
             generalObserver?.SetSession(allow ? current.SessionId : 0);
-            if (allow) Stamp("GENERAL_PILOT_ACTIVE session=" + current.SessionId + " scope=AI-AIV-drawbridge only; original Fixes unchanged");
+            if (allow) Stamp("GENERAL_PILOT_ACTIVE session=" + current.SessionId + " sources="+WorldMutationEvents.AvailableSources+"; recovery budgets active; original Fixes unchanged");
         }
         private static void SetGeneralSuppression(bool enabled)
         {
@@ -166,7 +202,7 @@ namespace TrappedUnitRescueTest
             if (generalObserver == null || !generalObserver.IsActive ||
                 (Volatile.Read(ref fixtureActive) != 0 && Volatile.Read(ref generalFixture) == 0) ||
                 fixes == null || !fixes.Ready || missions?.Current == null)
-                throw new InvalidOperationException("General rescue requires the active local AIV pilot session.");
+                throw new InvalidOperationException("General rescue requires the active local rescue session.");
             fixes.SetEnabled(true);
         }
         // Explicit observer fixture opt-in; callers hold the public simulation monitor and

@@ -2,7 +2,7 @@
 
 APIShared wird in diesem Auftrag weder verändert noch gebaut. Der lokale Hook ist eine ausdrücklich erlaubte Testmod-Ausnahme.
 
-Für eine spätere Integration eignet sich ein zentraler, prozessweit einmaliger Dienst für Zinnengrafiken: APIShared besitzt den nativen Gerade-Prädikat-Hook bei RVA 0x5C2D0 und veröffentlicht einen typisierten Vertrag, über den Verbraucher gewünschte niedrige gerade Endstücke registrieren. Die Baupolitik, Doppelreihensperre, Eigentümerauswahl und Versionsspeicherung bleiben beim jeweiligen Verbraucher.
+Für eine spätere Integration eignet sich ein zentraler, prozessweit einmaliger Dienst für Zinnengrafiken: APIShared besitzt den nativen Gerade-Prädikat-Hook bei RVA 0x5C2D0 und veröffentlicht einen typisierten Vertrag, über den Verbraucher niedrige Zinnen registrieren, die als gerades Stück gezeichnet werden sollen. Die Baupolitik, Eigentümerauswahl und Versionsspeicherung bleiben beim jeweiligen Verbraucher.
 
 Der gemeinsame Dienst sollte immutable, sitzungsgebundene Zuordnungen annehmen, konkurrierende Ansprüche pro Tile ausdrücklich erkennen und ohne Eigentümer-/Kartenübereinstimmung Vanilla verwenden. Er darf keine logischen Höhen im Renderpfad wählen oder schreiben. Positive Vanilla-Ergebnisse bleiben autoritativ; fremde, beschädigte oder strukturell geänderte Felder werden nicht überschrieben. Normale Lebenszykluswechsel leeren ausschließlich Daten, niemals den veröffentlichten Hook.
 

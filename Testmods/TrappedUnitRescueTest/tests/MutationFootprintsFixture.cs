@@ -38,6 +38,8 @@ namespace TrappedUnitRescueTest.Tests
             request.Source = RescueMutationSource.HumanWallLine; request.X = 20; request.Y = 20; request.EndX = 24; request.EndY = 23;
             Require(RescueMutationFootprints.TryPlan(request, context, budget, out var line, out failure) && line.Count == 42 && Contains(line, 19, 19) && Contains(line, 25, 24), "partial line rectangle plus update halo");
             Require(!RescueMutationFootprints.TryPlan(request, context, new RescueFootprintBudget(10, 1000), out rejected, out failure) && rejected.Count == 0 && failure == "footprint-tile-budget", "overload never returns partial envelope");
+            request.EndX = int.MinValue;
+            Require(!RescueMutationFootprints.TryPlan(request, context, budget, out rejected, out failure) && failure == "footprint-source-coordinate-contract", "line input cannot wrap into a small rectangle");
             request.Source = RescueMutationSource.EditorBrush; request.X = 50; request.Y = 50; request.BrushWidth = 3;
             Require(RescueMutationFootprints.TryPlan(request, context, budget, out var brush, out failure) && brush.Count == 13, "native thirteen-cell brush");
             Require(Contains(brush, 50, 48) && Contains(brush, 52, 50) && !Contains(brush, 48, 48), "BFS diamond differs from width square");
@@ -124,6 +126,9 @@ namespace TrappedUnitRescueTest.Tests
                 request.Structure = family;
                 Require(RescueMutationFootprints.TryPlan(request, context, budget, out var familyCells, out failure) && familyCells.Count != 0, "audited creator dispatch " + family + ": " + failure);
             }
+            request.Structure = eStructs.STRUCT_GATE_MAIN; request.Direction = 81;
+            Require(RescueMutationFootprints.TryPlan(request, context, budget, out var gateSelector, out failure) && gateSelector.Count == 25,
+                "non-directional creator retains native path selector81");
             Console.WriteLine("MutationFootprintsFixture: " + checks + " checks passed.");
         }
         private static RescueFootprintContext Context(Dictionary<int, int> table)

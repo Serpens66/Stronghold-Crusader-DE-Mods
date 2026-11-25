@@ -137,9 +137,20 @@
     <Compile Include="../src/NativeRelocation.cs" />
     <Compile Include="../src/RescueRuntime.cs" />
     <Compile Include="../src/GeneralRescueObserver.cs" />
+    <Compile Include="../src/RescueOrderObserver.cs" />
     <Compile Include="../src/RescueCandidateQueue.cs" />
+    <Compile Include="../src/RescueCleanupProjection.cs" />
+    <Compile Include="../src/RescuePendingCodec.cs" />
     <Compile Include="../src/RescueDiscovery.cs" />
     <Compile Include="../src/WorkerTravelPolicy.cs" />
+    <Compile Include="../src/CommandResumePolicy.cs" />
+    <Compile Include="../src/CommandJourneySnapshot.cs" />
+    <Compile Include="../src/WorkerResumeLedger.cs" />
+    <Compile Include="../src/WorkerBindingSnapshot.cs" />
+    <Compile Include="../src/NativeMutationFootprints.cs" />
+    <Compile Include="../src/WorkerResumeSupervisor.cs" />
+    <Compile Include="../src/NativeWorkerResumeWorld.cs" />
+    <Compile Include="../src/WorkerRecoveryService.cs" />
     <Compile Include="../src/RescueMutationFootprints.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)/Microsoft.CSharp.targets" />

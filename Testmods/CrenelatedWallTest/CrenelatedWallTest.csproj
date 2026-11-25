@@ -35,8 +35,6 @@
   <ItemGroup>
     <Compile Include="src/Plugin.cs"/><Compile Include="src/WallSettings.cs"/><Compile Include="src/WallRuntime.cs"/>
     <Compile Include="src/StraightGraphicsHook.cs"/>
-    <Compile Include="src/PreviewValidationHook.cs"/><Compile Include="src/WallAdmission.cs"/>
-    <Compile Include="src/PreviewAdmissionCache.cs"/>
     <Compile Include="src/EndpointGraphicsPolicy.cs"/>
     <Compile Include="src/WallPolicy.cs"/><Compile Include="src/SaveState.cs"/><Compile Include="src/WallRepairRecord.cs"/><Compile Include="Properties/AssemblyInfo.cs"/>
     <Compile Include="../../Shared/Runtime/Diagnostics/DebugLogHelper.cs"><Link>Shared/DebugLogHelper.cs</Link></Compile>

@@ -3,7 +3,7 @@
   <PropertyGroup><ExtenderDir>E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition/BepInEx/plugins/000shcdese</ExtenderDir></PropertyGroup>
   <ItemGroup><Compile Include="Program.cs"/><Compile Include="../src/WallPolicy.cs" Link="WallPolicy.cs"/><Compile Include="../src/SaveState.cs" Link="SaveState.cs"/><Compile Include="../src/EndpointGraphicsPolicy.cs" Link="EndpointGraphicsPolicy.cs"/>
     <Compile Include="../../../APIShared/src/Core/Collections/IndexBounds.cs" Link="Production/IndexBounds.cs"/>
-    <Compile Include="../src/WallAdmission.cs"/><Compile Include="../src/PreviewAdmissionCache.cs"/><Compile Include="../src/WallRepairRecord.cs"/>
+    <Compile Include="../src/WallRepairRecord.cs"/>
     <Reference Include="Microsoft.CodeAnalysis"><HintPath>$(MSBuildSDKsPath)/../Roslyn/bincore/Microsoft.CodeAnalysis.dll</HintPath></Reference>
     <Reference Include="Microsoft.CodeAnalysis.CSharp"><HintPath>$(MSBuildSDKsPath)/../Roslyn/bincore/Microsoft.CodeAnalysis.CSharp.dll</HintPath></Reference>
     <Reference Include="MessagePack"><HintPath>$(ExtenderDir)/MessagePack.dll</HintPath></Reference>

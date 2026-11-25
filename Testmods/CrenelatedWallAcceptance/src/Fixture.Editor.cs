@@ -45,10 +45,10 @@ namespace CrenelatedWallAcceptance
         }
 
         // ---------- editor session ----------
-        private IEnumerable<AutomationWait> LoadEditor(AutomationRun run, bool enable, string explicitPath, bool heights = true, bool block = true)
+        private IEnumerable<AutomationWait> LoadEditor(AutomationRun run, bool enable, string explicitPath, bool heights = true)
         {
             foreach (var w in ToMenu(run)) yield return w;
-            SetSwitches(enable, heights, block);
+            SetSwitches(enable, heights);
             string path = explicitPath;
             FileHeader header = null;
             if (path == null)
@@ -84,7 +84,7 @@ namespace CrenelatedWallAcceptance
             log("EDITOR_MODE meMode=" + MainViewModel.Instance.MEMode + " appMode=" + GameData.Instance.app_mode + "/" + GameData.Instance.app_sub_mode +
                 " mapEditorMode=" + MainViewModel.Instance.IsMapEditorMode);
             Drain();
-            string parts = "active=" + enable + "; heights=" + (enable && heights) + "; block=" + (enable && block);
+            string parts = "active=" + enable + "; heights=" + (enable && heights);
             Require(crenelSeen.Any(l => l.Contains("CRENEL_SESSION") && l.Contains("editor=True") && l.Contains(parts)),
                 "CrenelatedWallTest editor session " + parts + " not reported");
             log("EDITOR_LOADED map=" + path + " modEnabled=" + enable + " session=" + run.CurrentMission.SessionId);
@@ -103,7 +103,7 @@ namespace CrenelatedWallAcceptance
             yield return run.WaitForTicks(m, 4);
         }
 
-        // Valid drag (green), piece-by-piece, 2x2 and double-row drags (red, nothing built).
+        // Drag, piece-by-piece, 2x2 and double-row drags: all green and built (no blockade).
         private IEnumerable<AutomationWait> EditorPreview(AutomationRun run)
         {
             var m = run.CurrentMission;
@@ -117,9 +117,9 @@ namespace CrenelatedWallAcceptance
             for (int i = 1; i <= 5; i++) foreach (var w in UiWall(run, m, "piece", 1, eMappers.MAPPER_CRENAL, i, 4, i, 4, false)) yield return w;
             foreach (var w in UiWall(run, m, "2x2", 1, eMappers.MAPPER_CRENAL, 1, 8, 2, 8, false)) yield return w;
             foreach (var w in UiWall(run, m, "2x2", 1, eMappers.MAPPER_CRENAL, 1, 7, 1, 7, false)) yield return w;
-            foreach (var w in UiWall(run, m, "2x2-close", 1, eMappers.MAPPER_CRENAL, 2, 7, 2, 7, true)) yield return w;
-            // A whole second row along the dragged row: every tile would form a double row.
-            foreach (var w in UiWall(run, m, "double-row", 1, eMappers.MAPPER_CRENAL, 1, 0, 5, 0, true)) yield return w;
+            foreach (var w in UiWall(run, m, "2x2-close", 1, eMappers.MAPPER_CRENAL, 2, 7, 2, 7, false)) yield return w;
+            // A whole second row along the dragged row: a double row, built as a checkerboard.
+            foreach (var w in UiWall(run, m, "double-row", 1, eMappers.MAPPER_CRENAL, 1, 0, 5, 0, false)) yield return w;
             foreach (var w in EditorSettle(run, m)) yield return w;
             log(Engine(() => CheckHeights("editor-preview")));
         }
@@ -198,7 +198,8 @@ namespace CrenelatedWallAcceptance
         private IEnumerable<AutomationWait> EditorDamage(AutomationRun run)
         {
             var m = run.CurrentMission;
-            int x = 3 + ex, y = 1 + ey, id = 0, tribe = 0;
+            // Front row (the double row at y=0): the macemen stand directly in front of it.
+            int x = 3 + ex, y = 0 + ey, id = 0, tribe = 0;
             var ids = new List<int>();
             Engine(() =>
             {
@@ -206,9 +207,9 @@ namespace CrenelatedWallAcceptance
                 tribe = checked((int)GameTribeManagerAPI.Instance.Create(2));
                 for (int i = 0; i < 3; i++)
                 {
-                    int tile = Tile(x - 1 + i, y - 2), unitId;
+                    int tile = Tile(x - 1 + i, y - 1), unitId;
                     Require(GameTileManagerAPI.Instance.IsTileWalkableAndUnoccupied(tile), "attacker spawn not free " + Describe(tile));
-                    long created = GameUnitManagerAPI.Instance.CreateUnitLocal(2, 2, x - 1 + i, y - 2, GameTileManagerAPI.Instance.GetTileHeight(tile), eChimps.CHIMP_TYPE_MACEMAN);
+                    long created = GameUnitManagerAPI.Instance.CreateUnitLocal(2, 2, x - 1 + i, y - 1, GameTileManagerAPI.Instance.GetTileHeight(tile), eChimps.CHIMP_TYPE_MACEMAN);
                     Require(created > 0 && created <= int.MaxValue, "maceman spawn failed");
                     unitId = (int)created; ids.Add(unitId);
                     Require(GameTribeManagerAPI.Instance.AssignUnit(tribe, unitId), "maceman tribe assignment failed");
@@ -241,9 +242,26 @@ namespace CrenelatedWallAcceptance
             foreach (var w in EditorSettle(run, m)) yield return w;
             log(Engine(() => CheckHeights("editor-after-damage")));
             // Rebuild the row over every damaged or destroyed tile through the UI path.
-            // Heavily damaged support wall no longer carries a crenel in Vanilla, so rebuild the destroyed
-            // target tile, whose support stayed intact in the runs (397,423 height 98).
-            foreach (var w in UiWall(run, m, "rebuild", 1, eMappers.MAPPER_CRENAL, 3, 1, 3, 1, false)) yield return w;
+            // Rebuild the destroyed tiles, each next to an undamaged wall or crenel: a damaged
+            // neighbour no longer carries a new crenel in Vanilla (red preview).
+            var rebuildTiles = Engine(() => lost.Length == 0 ? new List<int>() : Enumerable.Range(1, 5).Select(rx => Tile(rx + ex, y)).Where(t => !IsWall(t)).ToList());
+            for (int pass = 0; pass < 8 && rebuildTiles.Count > 0; pass++)
+            {
+                int next = Engine(() => rebuildTiles.FirstOrDefault(t =>
+                {
+                    XY(t, out int tx, out int ty);
+                    return new[] { (0, -1), (1, 0), (0, 1), (-1, 0) }.Any(d => { int n = Tile(tx + d.Item1, ty + d.Item2); return IsWall(n) && !Damaged(n) && GameTileManagerAPI.Instance.GetDamageLayer()[n] == 0; });
+                }));
+                Require(next != 0, "no rebuildTiles tile next to an undamaged support: " + Engine(() => string.Join(" ", rebuildTiles.Select(Describe))));
+                XY(next, out int rx, out int ry);
+                // Killed attackers keep occupying the gap during their death animation, and Vanilla
+                // refuses construction next to enemy units; give the bodies time to disappear.
+                for (int i = 0; i < 60 && !Engine(() => GameTileManagerAPI.Instance.IsTileWalkableAndUnoccupied(next)); i++) yield return run.WaitForTicks(m, 10);
+                if (pass == 0) yield return run.WaitForTicks(m, 600);
+                log("REBUILD_TILE " + Engine(() => Describe(next) + " free=" + GameTileManagerAPI.Instance.IsTileWalkableAndUnoccupied(next)));
+                foreach (var w in UiWall(run, m, "rebuild", 1, eMappers.MAPPER_CRENAL, rx - ex, ry - ey, rx - ex, ry - ey, false)) yield return w;
+                rebuildTiles.Remove(next);
+            }
             foreach (var w in EditorSettle(run, m)) yield return w;
             log(Engine(() => CheckHeights("editor-rebuild")));
         }
@@ -306,7 +324,6 @@ namespace CrenelatedWallAcceptance
             int x0, int y0, int x1, int y1, bool? expectRed, bool unmanaged = false)
         {
             int fx = x0 + ex, fy = y0 + ey, tx = x1 + ex, ty = y1 + ey;
-            if (expectRed == true) yield return AutomationWait.Delay(TimeSpan.FromMilliseconds(5600)); // mod log rate gate
             Drain();
             int redSeen = 0, greenSeen = 0, startResult = 0;
             List<int> fresh = null;
@@ -364,11 +381,6 @@ namespace CrenelatedWallAcceptance
                 return "UI_WALL " + label + " start=" + startResult + " player=" + player + " line=" + fx + "," + fy + "->" + tx + "," + ty + " red=" + redSeen + " green=" + greenSeen + " built=" + built;
             });
             log(result);
-            if (expectRed == true)
-            {
-                Drain();
-                Require(crenelSeen.Any(l => l.Contains("CRENEL_PREVIEW_CONFIRMED") || l.Contains("CRENEL_REJECT")) || redSeen > 0, label + ": no mod preview/reject evidence");
-            }
             yield return run.WaitForTicks(m, 4);
         }
 

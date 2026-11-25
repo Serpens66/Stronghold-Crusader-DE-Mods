@@ -5,7 +5,7 @@
   "Description": "Explicit-request-only local rescue experiments. Experimental rescue defaults off. Not a production fix.",
   "Version": "0.1.0",
   "MinimumScriptExtenderVersion": "2.14.3",
-  "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.53.0" }],
+  "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.74.0" }],
   "Manifest": 1,
   "NetworkMode": 1
 }

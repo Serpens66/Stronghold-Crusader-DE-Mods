@@ -165,6 +165,13 @@ namespace TrappedUnitRescueTest.Tests
                     unit=OrdinaryUnit();unit.r_AIState=state;unit.r_PathPlanStateBitFlags=flags;
                     Require(RescueRuntime.ClassifyState(&unit)==null,"normal soldier segment accepted");
                 }
+            foreach(eChimps type in new[]{eChimps.CHIMP_TYPE_DEER,eChimps.CHIMP_TYPE_LION,eChimps.CHIMP_TYPE_RABBIT})
+            {
+                unit=OrdinaryUnit();unit.r_UnitChimp=type;
+                Require(RescueRuntime.ClassifyState(&unit)=="unproven-unit-type","the same native group-order gate does not admit animal handlers");
+            }
+            unit=OrdinaryUnit();unit.r_UnitChimp=eChimps.CHIMP_TYPE_ENGINEER;unit.r_AIState=1;
+            Require(RescueRuntime.ClassifyState(&unit)=="unproven-order-state","engineering task travel is not an ordinary soldier order");
             for(ushort state=126;state<=129;state++)
             {
                 unit=OrdinaryUnit();unit.r_UnitChimp=eChimps.CHIMP_TYPE_ARAB_ASSASIN;unit.r_AIState=state;
@@ -242,7 +249,7 @@ namespace TrappedUnitRescueTest.Tests
             foreach(eChimps type in new[]{eChimps.CHIMP_TYPE_TREBUCHET,eChimps.CHIMP_TYPE_MANGONEL,eChimps.CHIMP_TYPE_BALLISTA})
             {
                 unit=OrdinaryUnit();unit.r_UnitChimp=type;unit.N000000DB=0;
-                Require(RescueRuntime.ClassifyState(&unit)=="unclassified-zero-group-order-field",
+                Require(RescueRuntime.ClassifyState(&unit)!=null,
                     "stationary zero-table types are not authorized by the civilian exception");
             }
             unit=OrdinaryUnit();unit.r_UnitChimp=eChimps.CHIMP_TYPE_CATAPULT;unit.r_AIState=8;

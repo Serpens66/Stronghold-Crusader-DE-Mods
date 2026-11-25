@@ -15,14 +15,15 @@ internal static class Program
     private static int checks;
     private static void Check(bool condition, string name) { if (!condition) throw new Exception(name); checks++; }
     // Model of the synchronized map plus the runtime's managed set. Build/Normalize call the
-    // production policy; VanillaGraphics models renderer 65830 with the endpoint hook.
+    // production policy; VanillaGraphics models renderer 65830 with the straight-drawing hook.
     private sealed class World : IWallWorld
     {
         internal readonly Dictionary<int, WallCell> Cells = new Dictionary<int, WallCell>();
         internal readonly HashSet<int> Managed = new HashSet<int>();
-        internal Func<int, bool> IsManaged => id => Managed.Contains(id);
-        // Frozen session switches of WallRuntime: height adjustment and placement blockade.
-        internal bool Heights = true, Block = true;
+        // Published straight-drawing assignments: tile -> axis neighbour ids seen at normalization.
+        internal readonly Dictionary<int, int[]> Assignments = new Dictionary<int, int[]>();
+        // Frozen session switch of WallRuntime: height adjustment.
+        internal bool Heights = true;
         public bool TryRead(int x, int y, out WallCell cell)
         {
             cell = null; if (x < 1 || x >= 799 || y < 1 || y >= 399) return false;
@@ -36,45 +37,38 @@ internal static class Program
             TryRead(x, y, out WallCell cell); cell = cell.Copy();
             cell.Owner = owner; cell.IsWall = cell.IsCrenel = true; cell.High = high; Cells[cell.Id] = cell; return cell;
         }
-        internal WallVerdict Build(int x, int y, int endX, int endY, int owner = 1, int maximum = 800)
+        // Vanilla 6F230 places every raster cell that is not an intact wall at placement parity.
+        internal void Build(int x, int y, int endX, int endY, int owner = 1, int maximum = 800)
         {
-            List<WallCell> raster = WallPolicy.Raster(this, x, y, endX, endY, maximum);
-            WallVerdict verdict = Block ? WallAdmission.Evaluate(this, owner, raster, IsManaged, Heights) : new WallVerdict();
-            if (!verdict.Accepted) return verdict;
             var ids = new List<int>();
-            foreach (WallCell cell in WallPolicy.Predict(raster, owner))
+            foreach (WallCell old in WallPolicy.Raster(this, x, y, endX, endY, maximum))
             {
+                if (old.IsWall && !old.Damaged) continue;
+                var cell = old.Copy(); cell.Owner = owner; cell.IsWall = cell.IsCrenel = true;
+                cell.High = WallPolicy.Parity(cell.X, cell.Y); cell.Damaged = false; cell.Structure = false;
                 Cells[cell.Id] = cell;
                 if (!Heights) continue;
                 Managed.Add(cell.Id); ids.Add(cell.Id);
                 foreach (WallCell next in Neighbours(cell)) if (Managed.Contains(next.Id)) ids.Add(next.Id);
             }
             Normalize(ids);
-            return verdict;
         }
-        // Mirrors WallRuntime.Normalize: only managed, live, owned crenels; whole runs through a given
-        // tile or its axis neighbours are included (a corner shifts the phase of a run); TargetHigh decides.
+        // Mirrors WallRuntime.Normalize: only managed, live, owned crenels; TargetHigh decides, and
+        // every low non-middle tile gets a straight-drawing assignment for its current neighbourhood.
         internal int Normalize(IEnumerable<int> ids)
         {
             Func<int, int, WallCell> read = WallPolicy.Reader(this);
             var writes = new List<KeyValuePair<int, bool>>();
-            var order = new SortedSet<int>(ids);
-            foreach (int id in order.ToArray())
-            {
-                if (!Managed.Contains(id) || !Cells.TryGetValue(id, out WallCell seed)) continue;
-                foreach (var d in new[] { (0, 0), (0, -1), (1, 0), (0, 1), (-1, 0) })
-                {
-                    if (!TryRead(seed.X + d.Item1, seed.Y + d.Item2, out WallCell cell) || !WallPolicy.Crenel(cell)) continue;
-                    int mask = WallPolicy.CardinalMask(read, cell.X, cell.Y);
-                    if (!WallPolicy.IsLine(mask)) continue;
-                    foreach (WallCell member in WallPolicy.Run(read, cell, mask).Members) if (Managed.Contains(member.Id)) order.Add(member.Id);
-                }
-            }
-            foreach (int id in order)
+            foreach (int id in new SortedSet<int>(ids))
             {
                 if (!Managed.Contains(id)) continue;
-                if (!Cells.TryGetValue(id, out WallCell cell) || !WallPolicy.Crenel(cell)) { Managed.Remove(id); continue; }
+                if (!Cells.TryGetValue(id, out WallCell cell) || !WallPolicy.Crenel(cell)) { Managed.Remove(id); Assignments.Remove(id); continue; }
                 bool? target = WallPolicy.TargetHigh(read, cell);
+                bool high = target ?? cell.High;
+                int[] around = Cardinal(cell).Select(c => c.Id).OrderBy(i => i).ToArray();
+                if (!high && !cell.Damaged && !cell.Structure && !WallPolicy.IsStraightMiddle(WallPolicy.CardinalMask(read, cell.X, cell.Y)))
+                    Assignments[id] = around;
+                else Assignments.Remove(id);
                 if (target.HasValue && target.Value != cell.High) writes.Add(new KeyValuePair<int, bool>(id, target.Value));
             }
             foreach (var write in writes) Cells[write.Key].High = write.Value;
@@ -92,6 +86,8 @@ internal static class Program
             foreach (var d in new[] { (0, -1), (1, 0), (0, 1), (-1, 0), (1, -1), (1, 1), (-1, 1), (-1, -1) })
                 if (TryRead(cell.X + d.Item1, cell.Y + d.Item2, out WallCell next) && WallPolicy.Crenel(next)) yield return next;
         }
+        // Renderer: straight middles keep their bit; every other shape is ORed high unless the hook
+        // draws it straight (managed, intact, low, assignment for exactly the current neighbours).
         internal void VanillaGraphics()
         {
             foreach (WallCell cell in Cells.Values.ToArray())
@@ -99,12 +95,10 @@ internal static class Program
                 if (cell.Damaged || cell.Structure) continue;
                 bool Has(int x, int y) => TryRead(x, y, out WallCell c) && WallPolicy.Crenel(c);
                 bool n = Has(cell.X, cell.Y - 1), s = Has(cell.X, cell.Y + 1), e = Has(cell.X + 1, cell.Y), w = Has(cell.X - 1, cell.Y);
-                int count = (n ? 1 : 0) + (s ? 1 : 0) + (e ? 1 : 0) + (w ? 1 : 0);
-                // StraightGraphicsHook: published = managed, intact, low, exactly one axis neighbour,
-                // or no axis but a diagonal neighbour (diagonal row piece).
-                bool diagonal = count == 0 && WallPolicy.DiagonalMask(WallPolicy.Reader(this), cell.X, cell.Y) != 0;
-                bool publishedEndpoint = Managed.Contains(cell.Id) && !cell.High && (count == 1 || diagonal);
-                if (!publishedEndpoint && !((n && s && !e && !w) || (e && w && !n && !s))) cell.High = true;
+                if ((n && s && !e && !w) || (e && w && !n && !s)) continue;
+                bool drawnStraight = Managed.Contains(cell.Id) && !cell.High && Assignments.TryGetValue(cell.Id, out int[] around) &&
+                    around.SequenceEqual(Cardinal(cell).Select(c => c.Id).OrderBy(i => i));
+                if (!drawnStraight) cell.High = true;
             }
         }
         // Render pass, normalization of the redrawn (reported) tiles, render pass: the steady state
@@ -122,75 +116,46 @@ internal static class Program
                 Environment.GetEnvironmentVariable("SHCDE_API_SHARED_DIR") ?? Path.Combine(root, "APIShared/BepInEx/plugins/APIShared_Serp");
             CSharpCompilation compiled = CompileRuntime(root, sdk);
             ApiCompatibility(compiled, sdk);
-            StraightRows(); EnterableShapes(); ForbiddenShapes(); ScopeAndOwnership(); Persistence(); EndpointGraphics(); RandomConstruction(); PreviewAdmission();
-            SplitSwitches(); SpecialAnchoredRuns();
+            StraightRows(); EnterableShapes(); CheckerboardShapes(); ScopeAndOwnership(); Persistence(); EndpointGraphics(); RandomConstruction();
+            OrderIndependence();
             RepairOrigins();
-            Console.WriteLine("PASS: " + checks + " assertions; production runtime compilation, parity policy, enterability rules, redraw stability, scope and MessagePack persistence. Real game/peer execution is not inferred.");
+            Console.WriteLine("PASS: " + checks + " assertions; production runtime compilation, checkerboard policy, straight-drawing assignments, redraw stability, scope and MessagePack persistence. Real game/peer execution is not inferred.");
         }
         catch (Exception ex) { Console.Error.WriteLine(ex); Environment.ExitCode = 1; }
     }
-    // The two parts are switched separately. Heights without blockade must alternate whatever
-    // the build order; blockade without heights must predict pure Vanilla heights.
-    private static void SplitSwitches()
+    // The settled map depends only on the shapes, never on build order or render timing; without
+    // height adjustment nothing is managed and Vanilla's sticky highs remain.
+    private static void OrderIndependence()
     {
-        // Heights on, blockade off: forbidden shapes are built, every managed line piece still
-        // follows its target and the settled map does not depend on the build order.
-        var doubled = new World { Block = false };
-        Check(doubled.Build(40, 40, 45, 40).Accepted && doubled.Build(40, 41, 45, 41).Accepted, "Blockade off still rejected a double row");
-        doubled.Settle(); CheckManagedParity(doubled, "Double row parity without blockade");
         var shapes = new List<(int, int)>();
         for (int x = 0; x < 9; x++) shapes.Add((300 + x, 300));             // straight run
         for (int y = 1; y < 6; y++) shapes.Add((308, 300 + y));             // corner and arm
         for (int x = 0; x < 4; x++) shapes.Add((303, 301 + x));             // T junction arm
         for (int i = 0; i < 5; i++) shapes.Add((320 + i, 310 + i));         // diagonal row
         for (int x = 0; x < 4; x++) shapes.Add((330 + x, 320)); shapes.Add((330, 321)); shapes.Add((331, 321)); // 2x2 block
-        var reference = new World { Block = false };
+        var reference = new World();
         foreach (var c in shapes) reference.Build(c.Item1, c.Item2, c.Item1, c.Item2);
         reference.Settle();
+        CheckEnterable(reference, "Reference shapes");
         var random = new Random(20261124);
         for (int order = 0; order < 60; order++)
         {
-            var world = new World { Block = false };
+            var world = new World();
             foreach (var c in shapes.OrderBy(_ => random.Next()))
             {
-                Check(world.Build(c.Item1, c.Item2, c.Item1, c.Item2).Accepted, "Blockade off rejected a piece");
+                world.Build(c.Item1, c.Item2, c.Item1, c.Item2);
                 if (random.Next(3) == 0) world.Settle(); // renders between some placements (sticky high)
             }
             world.Settle();
-            CheckManagedParity(world, "Order-independent parity");
+            CheckEnterable(world, "Order-independent checkerboard");
             Check(world.State() == reference.State(), "Build order changed the settled heights");
             string settled = world.State(); world.Settle(); Check(settled == world.State(), "Redraw changed a settled map");
         }
-        foreach (WallCell cell in reference.Cells.Values.Where(c => c.Y == 300 && c.X > 300 && c.X < 308 && c.X != 303))
-            Check(cell.High == WallPolicy.Parity(cell.X, cell.Y), "Straight middle not alternating at " + cell.X);
         // Heights off: nothing is managed, Vanilla's renderer keeps endpoints and lone pieces high.
-        var vanilla = new World { Heights = false, Block = false };
-        for (int x = 60; x <= 66; x++) { Check(vanilla.Build(x, 60, x, 60).Accepted, "Heights off rejected a straight piece"); vanilla.Settle(); }
+        var vanilla = new World { Heights = false };
+        for (int x = 60; x <= 66; x++) { vanilla.Build(x, 60, x, 60); vanilla.Settle(); }
         Check(vanilla.Managed.Count == 0, "Heights off managed a tile");
         Check(vanilla.Cells.Values.All(c => c.High), "Heights off changed Vanilla sticky highs");
-        // Blockade alone therefore stops a piece-by-piece row at the fourth sticky-high piece.
-        var vanillaBlocked = new World { Heights = false };
-        for (int x = 60; x <= 62; x++) { Check(vanillaBlocked.Build(x, 60, x, 60).Accepted, "Blockade alone rejected a short row"); vanillaBlocked.Settle(); }
-        WallVerdict fourth = vanillaBlocked.Build(63, 60, 63, 60);
-        Check(!fourth.Accepted && fourth.Rejection.Contains("four high"), "Blockade alone accepted four sticky highs");
-        // Blockade with Vanilla prediction: endpoints/lone pieces count as high, middles as parity.
-        var predict = new World(); predict.Put(70, 70, 1, false); predict.Put(71, 70, 1, false);
-        Func<int, int, WallCell> read = WallPolicy.Reader(predict);
-        var none = new HashSet<int>();
-        Check(WallPolicy.PredictedHigh(read, predict.Cells[70 * 800 + 70], none, predict.IsManaged, false), "Vanilla prediction lowered an endpoint");
-        predict.Put(72, 70, 1, false); read = WallPolicy.Reader(predict);
-        Check(!WallPolicy.PredictedHigh(read, predict.Cells[70 * 800 + 71], none, predict.IsManaged, false), "Vanilla prediction raised a low straight middle");
-        var newMiddle = new HashSet<int> { 70 * 800 + 71 };
-        Check(WallPolicy.PredictedHigh(read, predict.Cells[70 * 800 + 71], newMiddle, predict.IsManaged, false) == WallPolicy.Parity(71, 70), "New Vanilla middle not at placement parity");
-        // A command accepted with height adjustment can be rejected with Vanilla heights.
-        bool differs = false;
-        for (int shift = 0; shift <= 1 && !differs; shift++)
-        {
-            var a = new World(); var b = new World { Heights = false };
-            foreach (World w in new[] { a, b }) { w.Build(100 + shift, 100, 100 + shift, 100); w.Build(100 + shift, 101, 100 + shift, 101); w.Settle(); }
-            differs = a.Build(101 + shift, 101, 102 + shift, 101).Accepted && !b.Build(101 + shift, 101, 102 + shift, 101).Accepted;
-        }
-        Check(differs, "Vanilla height prediction never changed a blockade decision");
     }
     private static void RepairOrigins()
     {
@@ -202,17 +167,16 @@ internal static class Program
         WallCell foreign = client.Put(101, 100);
         host.Managed.Add(origin.Id);
         client.Managed.Add(foreign.Id);
-        var empty = new HashSet<int>();
-        Check(!WallPolicy.PredictedHigh(WallPolicy.Reader(host), origin, empty, host.IsManaged) &&
-            WallPolicy.PredictedHigh(WallPolicy.Reader(client), client.Cells[origin.Id], empty, client.IsManaged),
-            "identical high walls can have different next normalization/admission heights when provenance differs");
+        host.Settle(); client.Settle();
+        Check(!host.HighAt(100, 100) && client.HighAt(100, 100),
+            "identical walls get different normalized heights when provenance differs");
 
         byte[] bytes = WallRepairRecord.Capture(400, host.Managed.Select(id => host.Cells[id]), host);
         WallCell Lookup(int id) => client.Cells.TryGetValue(id, out WallCell cell) ? cell : null;
         var replacement = WallRepairRecord.Prepare(bytes, 400, Lookup);
         Check(bytes.Length == WallRepairRecord.MaximumBytes && replacement.Count == 1 && replacement.ContainsKey(origin.Id),
             "bounded record rebuilds only the host's present, owned crenel provenance");
-        client.Managed.Clear();
+        client.Managed.Clear(); client.Assignments.Clear();
         client.Managed.UnionWith(replacement.Keys);
         host.Settle(); client.Settle();
         Check(client.State() == host.State() && !client.HighAt(100, 100) && client.HighAt(101, 100),
@@ -227,22 +191,22 @@ internal static class Program
         catch (InvalidDataException) { checks++; }
     }
 
-    // Longest cardinal simple path of high crenels (all high tiles are unwalkable natively).
-    private static int LongestHighRun(World world)
+    // Every managed intact crenel sits at its target height (checkerboard, diagonal pieces by x),
+    // so no two managed crenels on the same axis are both high and every low one stays low after
+    // a render pass (its straight drawing matches the current neighbourhood).
+    private static void CheckEnterable(World world, string name)
     {
-        int best = 0;
-        void Walk(WallCell cell, HashSet<int> path)
+        CheckManagedParity(world, name);
+        foreach (int id in world.Managed)
         {
-            best = Math.Max(best, path.Count); if (best >= 4) return;
+            WallCell cell = world.Cells[id];
+            if (cell.Damaged || cell.Structure) continue;
             foreach (WallCell next in world.Cardinal(cell))
-                if (next.High && !next.Structure && path.Add(next.Id)) { Walk(next, path); path.Remove(next.Id); }
+                if (world.Managed.Contains(next.Id) && !next.Damaged && !next.Structure)
+                    Check(!(cell.High && next.High), name + ": two adjacent managed highs at " + cell.X + "," + cell.Y);
         }
-        foreach (WallCell cell in world.Cells.Values.Where(c => WallPolicy.Crenel(c) && c.High && !c.Structure).ToArray())
-            Walk(cell, new HashSet<int> { cell.Id });
-        return best;
+        string before = world.State(); world.VanillaGraphics(); Check(before == world.State(), name + ": render pass raised a managed low crenel");
     }
-    private static bool Has2x2(World world) => world.Cells.Values.Any(c => WallPolicy.Crenel(c) &&
-        new[] { (1, 0), (0, 1), (1, 1) }.All(d => world.TryRead(c.X + d.Item1, c.Y + d.Item2, out WallCell o) && WallPolicy.Crenel(o)));
     private static void CheckManagedParity(World world, string name)
     {
         Func<int, int, WallCell> read = WallPolicy.Reader(world);
@@ -260,11 +224,10 @@ internal static class Program
             for (int i = 0; i < length; i++)
             {
                 int x = start + dir.Item1 * i, y = 200 + dir.Item2 * i;
-                WallVerdict step = sequential.Build(x, y, x, y);
-                Check(step.Accepted, "Single-place row rejected at " + length + "/" + i + ": " + step.Rejection);
+                sequential.Build(x, y, x, y);
                 sequential.Settle();
             }
-            Check(dragged.Build(start, 200, start + dir.Item1 * (length - 1), 200 + dir.Item2 * (length - 1)).Accepted, "Dragged row rejected");
+            dragged.Build(start, 200, start + dir.Item1 * (length - 1), 200 + dir.Item2 * (length - 1));
             dragged.Settle();
             foreach (World world in new[] { sequential, dragged })
             {
@@ -276,49 +239,40 @@ internal static class Program
             }
             Check(sequential.State() == dragged.State(), "Single placement and dragging differ");
         }
-        var single = new World(); single.Build(30, 30, 30, 30); single.Settle();
-        Check(single.Cells.Values.Single().High, "An isolated crenel stays a high Vanilla special piece");
-        single.Build(31, 30, 31, 30); single.Settle();
-        Check(!single.Cells[30 * 800 + 30].High && single.Cells[30 * 800 + 31].High, "Sticky high first piece was not returned to parity");
+        // An isolated crenel follows the checkerboard as well (drawn straight when low).
+        foreach (int x in new[] { 30, 31 })
+        {
+            var single = new World(); single.Build(x, 30, x, 30); single.Settle();
+            Check(single.Cells.Values.Single().High == WallPolicy.Parity(x, 30), "An isolated crenel is not at parity, x=" + x);
+        }
+        var pair = new World(); pair.Build(30, 30, 30, 30); pair.Settle(); pair.Build(31, 30, 31, 30); pair.Settle();
+        Check(!pair.Cells[30 * 800 + 30].High && pair.Cells[30 * 800 + 31].High, "First piece did not stay at parity");
         var reversedA = new World(); var reversedB = new World();
-        Check(reversedA.Build(50, 50, 100, 50).Accepted && reversedB.Build(100, 50, 50, 50).Accepted, "Reverse drag failed");
+        reversedA.Build(50, 50, 100, 50); reversedB.Build(100, 50, 50, 50);
         Check(reversedA.State() == reversedB.State(), "Reverse drag changed deterministic result");
         var connect = new World(); connect.Build(50, 100, 54, 100); connect.Build(58, 100, 62, 100);
-        Check(connect.Build(55, 100, 57, 100).Accepted, "Joining rows failed"); connect.Settle();
-        CheckManagedParity(connect, "Joined row parity");
+        connect.Build(55, 100, 57, 100); connect.Settle();
+        CheckEnterable(connect, "Joined row");
         var limited = new World(); var raster = WallPolicy.Raster(limited, 20, 20, 30, 25, 3);
         Check(raster.Count == 3 && raster[2].X == 22 && raster[2].Y == 22, "Native simultaneous XY step/max prefix changed");
-        Check(WallPolicy.Raster(limited, 20, 20, 30, 20, 0).Count == 0, "Rejected command has placements");
-        limited.Put(20, 20); Check(WallPolicy.Predict(WallPolicy.Raster(limited, 20, 20, 20, 20, 5), 1).Count == 0, "Existing intact wall was rebuilt");
+        Check(WallPolicy.Raster(limited, 20, 20, 30, 20, 0).Count == 0, "Zero maximum has placements");
         bool invalid = false; try { WallPolicy.Raster(limited, -1, 30, 2, 30, 20); } catch (InvalidOperationException) { invalid = true; }
         Check(invalid, "Out-of-bounds raster not rejected");
     }
-    // Straight runs follow the nearest special piece (corner, junction): next to it low, then
-    // alternating; runs between two specials anchor at the lower coordinate (user decision
-    // 2026-11-25: an even run ends with a high piece next to the other special). Free runs keep parity.
-    private static void SpecialAnchoredRuns()
+    // Corners, junctions, crossings, double rows, blocks and stairs all follow the map checkerboard,
+    // in any build order, and their low tiles stay low through render passes.
+    private static void CheckerboardShapes()
     {
         for (int shift = 0; shift <= 1; shift++) for (int width = 4; width <= 9; width++)
         {
             int x0 = 100 + shift, y0 = 100, x1 = x0 + width - 1, y1 = y0 + 2;
             var frame = new World();
-            Check(frame.Build(x0, y0, x1, y0).Accepted && frame.Build(x0, y1, x1, y1).Accepted &&
-                frame.Build(x0, y0 + 1, x0, y0 + 1).Accepted && frame.Build(x1, y0 + 1, x1, y0 + 1).Accepted, "Frame rejected");
+            frame.Build(x0, y0, x1, y0); frame.Build(x0, y1, x1, y1);
+            frame.Build(x0, y0 + 1, x0, y0 + 1); frame.Build(x1, y0 + 1, x1, y0 + 1);
             frame.Settle();
-            CheckManagedParity(frame, "Frame run heights");
-            foreach (int x in new[] { x0, x1 })
-            {
-                Check(!frame.HighAt(x, y0 + 1), "Three-piece end row is not high-low-high at x=" + x + " shift " + shift);
-                Check(frame.HighAt(x, y0) && frame.HighAt(x, y1), "Frame corner is not high");
-            }
-            for (int y = y0; y <= y1; y += 2)
-            {
-                // Long sides: low next to the left corner, alternating; at the right corner an even
-                // run (width - 2) ends high, an odd one low.
-                for (int x = x0 + 1; x < x1; x++) Check(frame.HighAt(x, y) == ((x - x0) % 2 == 0), "Long side not anchored at the left corner, x=" + x);
-                Check(frame.HighAt(x1 - 1, y) == ((width - 2) % 2 == 0), "Right end of the run");
-            }
-            // Same result in any build order and position-independent in the anchored runs.
+            CheckEnterable(frame, "Frame width " + width + " shift " + shift);
+            foreach (WallCell cell in frame.Cells.Values)
+                Check(cell.High == WallPolicy.Parity(cell.X, cell.Y), "Frame tile (incl. corner) not at parity: " + cell.X + "," + cell.Y);
             var shuffled = new World(); var random = new Random(width * 7 + shift);
             var cells = new List<(int, int)>();
             for (int x = x0; x <= x1; x++) { cells.Add((x, y0)); cells.Add((x, y1)); }
@@ -327,62 +281,60 @@ internal static class Program
             shuffled.Settle();
             Check(shuffled.State() == frame.State(), "Frame heights depend on build order, width " + width + " shift " + shift);
         }
-        // A corner added to the end of a free row re-anchors the whole row; removing it restores parity.
         for (int shift = 0; shift <= 1; shift++)
         {
-            int x0 = 200 + shift;
-            var row = new World(); row.Build(x0, 200, x0 + 11, 200); row.Settle();
-            foreach (WallCell cell in row.Cells.Values) Check(cell.High == WallPolicy.Parity(cell.X, cell.Y), "Free row lost its parity");
-            Check(row.Build(x0 + 11, 201, x0 + 11, 201).Accepted, "Corner piece rejected"); row.Settle();
-            CheckManagedParity(row, "Re-anchored row");
-            for (int x = x0; x < x0 + 11; x++) Check(row.HighAt(x, 200) == ((x0 + 11 - x) % 2 == 0), "Row not anchored at the new corner, x=" + x);
-            int corner = 200 * 800 + x0 + 11, added = 201 * 800 + x0 + 11;
-            row.Remove(x0 + 11, 201); row.Normalize(new[] { corner }); row.Settle();
-            foreach (WallCell cell in row.Cells.Values) Check(cell.High == WallPolicy.Parity(cell.X, cell.Y), "Removing the corner did not restore parity at " + cell.X);
-            Check(!row.Cells.ContainsKey(added), "Removed piece still present");
+            var doubleRow = new World(); doubleRow.Build(40 + shift, 40, 45 + shift, 40); doubleRow.Build(40 + shift, 41, 45 + shift, 41);
+            var block = new World(); for (int y = 60; y < 65; y++) block.Build(60 + shift, y, 64 + shift, y);
+            var stairs = new World();
+            foreach (var c in new[] { (30, 30), (31, 30), (31, 31), (32, 31), (32, 32), (33, 32) }) stairs.Build(c.Item1 + shift, c.Item2, c.Item1 + shift, c.Item2);
+            var wide = new World();
+            for (int step = 0, x = 80 + shift, y = 80; step < 6; step++, x += 2, y++) { wide.Build(x, y, x + 1, y); wide.Build(x + 1, y + 1, x + 1, y + 1); }
+            var u = new World(); u.Build(12 + shift, 10, 12 + shift, 11); u.Build(13 + shift, 11, 14 + shift, 11); u.Build(14 + shift, 10, 14 + shift, 10);
+            foreach (World world in new[] { doubleRow, block, stairs, wide, u })
+            {
+                world.Settle();
+                CheckEnterable(world, "Former blockade shape, shift " + shift);
+                foreach (WallCell cell in world.Cells.Values)
+                    if (world.Cardinal(cell).Any()) Check(cell.High == WallPolicy.Parity(cell.X, cell.Y), "Shape tile not at parity: " + cell.X + "," + cell.Y);
+            }
         }
+        // A corner added to the end of a free row changes nothing along the row; removing it neither.
+        var row = new World(); row.Build(200, 200, 211, 200); row.Settle(); string straight = row.State();
+        row.Build(211, 201, 211, 201); row.Settle(); CheckEnterable(row, "Row with new corner");
+        foreach (WallCell cell in row.Cells.Values) Check(cell.High == WallPolicy.Parity(cell.X, cell.Y), "Corner changed the row at " + cell.X);
+        row.Remove(211, 201); row.Normalize(new[] { 200 * 800 + 211 }); row.Settle();
+        Check(row.State() == straight, "Removing the corner did not restore the row");
     }
     private static void EnterableShapes()
     {
-        // Normal castle shapes stay buildable at both parities; at most three highs in a row.
         for (int shift = 0; shift <= 1; shift++)
         {
-            var longL = new World(); longL.Build(20 + shift, 20, 24 + shift, 20);
-            Check(longL.Build(24 + shift, 21, 24 + shift, 24).Accepted, "Long corner rejected, shift " + shift);
-            var branch = new World(); branch.Build(50 + shift, 50, 60 + shift, 50);
-            Check(branch.Build(55 + shift, 51, 55 + shift, 55).Accepted, "Long T junction rejected, shift " + shift);
-            var cross = new World(); cross.Build(80 + shift, 50, 90 + shift, 50); cross.Build(85 + shift, 51, 85 + shift, 55);
-            Check(cross.Build(85 + shift, 49, 85 + shift, 45).Accepted, "Long crossing rejected, shift " + shift);
+            var longL = new World(); longL.Build(20 + shift, 20, 24 + shift, 20); longL.Build(24 + shift, 21, 24 + shift, 24);
+            var branch = new World(); branch.Build(50 + shift, 50, 60 + shift, 50); branch.Build(55 + shift, 51, 55 + shift, 55);
+            var cross = new World(); cross.Build(80 + shift, 50, 90 + shift, 50); cross.Build(85 + shift, 51, 85 + shift, 55); cross.Build(85 + shift, 49, 85 + shift, 45);
             var ring = new World(); ring.Build(70 + shift, 70, 76 + shift, 70); ring.Build(76 + shift, 71, 76 + shift, 76); ring.Build(75 + shift, 76, 70 + shift, 76);
-            Check(ring.Build(70 + shift, 75, 70 + shift, 71).Accepted, "Ring rejected, shift " + shift);
-            foreach (World world in new[] { longL, branch, cross, ring })
-            {
-                world.Settle();
-                Check(LongestHighRun(world) <= 3, "Accepted normal shape has four highs in a row");
-                CheckManagedParity(world, "Normal shape parity");
-            }
+            ring.Build(70 + shift, 75, 70 + shift, 71);
+            foreach (World world in new[] { longL, branch, cross, ring }) { world.Settle(); CheckEnterable(world, "Normal shape, shift " + shift); }
         }
-        var diagonalPair = new World(); Check(diagonalPair.Build(30, 30, 31, 31).Accepted, "Two diagonal crenels rejected");
         DiagonalRows();
         var gate = new World(); for (int x = 50; x <= 56; x++) gate.Build(x, 60, x, 60);
         gate.TryRead(53, 60, out WallCell tower); tower.Structure = true; bool before = tower.High;
         gate.Normalize(gate.Managed.ToArray()); Check(gate.Cells[tower.Id].High == before, "Building footprint was modified");
     }
-    // Screen-horizontal walls are tile diagonals. Vanilla draws every piece as an isolated high
-    // special; managed pieces alternate high/low along the diagonal, dragged or piece by piece.
+    // Screen-horizontal walls are tile diagonals. Map parity would give a whole diagonal one height;
+    // managed pieces without axis neighbours alternate along x, dragged or piece by piece.
     private static void DiagonalRows()
     {
         foreach (var dir in new[] { (1, 1), (1, -1), (-1, 1), (-1, -1) }) for (int start = 200; start <= 201; start++) for (int length = 2; length <= 12; length++)
         {
             var dragged = new World(); var sequential = new World();
             int ex = start + dir.Item1 * (length - 1), ey = 200 + dir.Item2 * (length - 1);
-            WallVerdict whole = dragged.Build(start, 200, ex, ey);
-            Check(whole.Accepted, "Diagonal drag rejected: " + whole.Rejection);
+            dragged.Build(start, 200, ex, ey);
             dragged.Settle();
             for (int i = 0; i < length; i++)
             {
                 int x = start + dir.Item1 * i, y = 200 + dir.Item2 * i;
-                Check(sequential.Build(x, y, x, y).Accepted, "Diagonal piece rejected");
+                sequential.Build(x, y, x, y);
                 sequential.Settle();
             }
             foreach (World world in new[] { dragged, sequential })
@@ -394,68 +346,29 @@ internal static class Program
             }
             Check(dragged.State() == sequential.State(), "Diagonal drag and single placement differ");
         }
-        // Removing the diagonal neighbour leaves a lone piece to Vanilla (high).
+        // X: centre and four diagonal pieces, none with an axis neighbour; the centre differs from them.
+        var x5 = new World(); foreach (var c in new[] { (50, 50), (49, 49), (51, 49), (49, 51), (51, 51) }) x5.Build(c.Item1, c.Item2, c.Item1, c.Item2);
+        x5.Settle(); CheckEnterable(x5, "X shape");
+        Check(x5.HighAt(50, 50) != x5.HighAt(49, 49), "X centre has the height of its diagonal pieces");
+        // Removing the diagonal neighbour leaves an isolated piece, which follows the checkerboard.
         var lone = new World(); lone.Build(40, 40, 41, 41); lone.Settle(); lone.Remove(41, 41); lone.Settle();
-        Check(lone.Cells[40 * 800 + 40].High, "A lone former diagonal piece did not return to Vanilla high");
+        Check(lone.Cells[40 * 800 + 40].High == WallPolicy.Parity(40, 40), "A lone former diagonal piece is not at parity");
         // A designer's unmanaged diagonal stays untouched when a managed piece joins it.
         var designer = new World(); designer.Put(60, 60); designer.Put(61, 61);
-        Check(designer.Build(62, 62, 62, 62).Accepted, "Extending an unmanaged diagonal rejected"); designer.Settle();
+        designer.Build(62, 62, 62, 62); designer.Settle();
         Check(designer.Cells[60 * 800 + 60].High && designer.Cells[61 * 800 + 61].High, "Unmanaged diagonal pieces changed");
         Check(designer.Cells[62 * 800 + 62].High == WallPolicy.DiagonalHigh(62), "New diagonal piece not alternating");
-    }
-    private static void ForbiddenShapes()
-    {
-        var doubled = new World(); doubled.Build(40, 40, 45, 40); doubled.Settle(); string old = doubled.State();
-        WallVerdict rejected = doubled.Build(40, 41, 45, 41);
-        Check(!rejected.Accepted && rejected.Rejection.Contains("double-row"), "Double row accepted"); Check(old == doubled.State(), "Rejected row changed map");
-        var clicks = new World(); clicks.Build(40, 40, 41, 40); clicks.Build(40, 41, 40, 41);
-        Check(!clicks.Build(41, 41, 41, 41).Accepted, "2x2 completed by single clicks");
-        var within = new World(); within.Put(30, 31); within.Put(31, 31);
-        Check(!within.Build(30, 30, 31, 30).Accepted, "Same-command 2x2 with an unmanaged wall not rejected");
-        // Stairs with one-tile steps: every piece a corner.
-        var stairs = new World();
-        foreach (var c in new[] { (30, 30), (31, 30), (31, 31), (32, 31) }) Check(stairs.Build(c.Item1, c.Item2, c.Item1, c.Item2).Accepted, "Stair prefix rejected");
-        WallVerdict third = stairs.Build(32, 32, 32, 32);
-        Check(!third.Accepted && third.Rejection.Contains("special"), "Three special pieces accepted");
-        // Stairs with two-tile steps pass the special rule. Under map parity they formed runs of
-        // four or more highs and were stopped; with corner-anchored runs the piece next to each
-        // corner is low. Guarantee either way: no accepted state has four highs in a row.
-        foreach (int shift in new[] { 0, 1 })
-        {
-            var wide = new World(); bool stopped = false;
-            int x = 40 + shift, y = 40;
-            for (int step = 0; step < 6 && !stopped; step++)
-            {
-                foreach (var c in new[] { (x, y), (x + 1, y), (x + 1, y + 1) })
-                {
-                    if (wide.Cells.ContainsKey(c.Item2 * 800 + c.Item1)) continue;
-                    WallVerdict v = wide.Build(c.Item1, c.Item2, c.Item1, c.Item2);
-                    if (!v.Accepted) { Check(v.Rejection.Contains("four high"), "Wide stairs rejected for an unexpected rule: " + v.Rejection); stopped = true; break; }
-                    wide.Settle(); Check(LongestHighRun(wide) <= 3, "Accepted wide stair has four highs");
-                }
-                x += 2; y += 1;
-            }
-            wide.Settle(); Check(LongestHighRun(wide) <= 3, "Wide stair state has four highs in a row, shift " + shift + ", stopped " + stopped);
-        }
-        // Short U, three tiles wide, at both map parities: the pieces next to its corners are low,
-        // so it is accepted and never forms four highs (under map parity one parity was rejected).
-        var uLow = new World(); uLow.Build(12, 10, 12, 11); uLow.Build(13, 11, 14, 11);
-        Check(uLow.Build(14, 10, 14, 10).Accepted, "Enterable short U rejected");
-        var uHigh = new World(); uHigh.Build(11, 10, 11, 11); uHigh.Build(12, 11, 13, 11);
-        Check(uHigh.Build(13, 10, 13, 10).Accepted, "Short U rejected at the other parity");
-        foreach (World u in new[] { uLow, uHigh }) { u.Settle(); Check(LongestHighRun(u) <= 3, "Short U has four highs in a row"); CheckManagedParity(u, "Short U run heights"); }
     }
     private static void ScopeAndOwnership()
     {
         // Map-designer and pre-mod walls keep their loaded height; only new pieces are managed.
         var designed = new World(); for (int x = 100; x <= 105; x++) designed.Put(x, 100, 1, true);
         string designedBefore = string.Join(",", designed.Cells.Values.Select(c => c.High));
-        Check(designed.Build(106, 100, 106, 100).Accepted, "Extending a designer wall rejected");
+        designed.Build(106, 100, 106, 100);
         designed.Settle();
         Check(designedBefore == string.Join(",", designed.Cells.Values.Where(c => c.X <= 105).Select(c => c.High)), "Unmanaged designer wall was rewritten");
         Check(designed.Managed.SetEquals(new[] { 100 * 800 + 106 }), "Only the new piece may become managed");
         var foreign = new World(); foreign.Put(52, 100, 2, false); foreign.Put(53, 100, 2, true);
-        string foreignBefore = foreign.State();
         foreign.Build(50, 100, 51, 100); foreign.Settle();
         Check(foreign.Cells[100 * 800 + 52].Owner == 2 && !foreign.Managed.Contains(100 * 800 + 52) && !foreign.Managed.Contains(100 * 800 + 53), "Foreign walls became managed");
         var damaged = new World(); damaged.Build(30, 130, 36, 130); damaged.Settle();
@@ -465,19 +378,19 @@ internal static class Program
         // Demolition: survivors next to the gap must return to parity, never stay sticky high.
         var demolished = new World(); demolished.Build(50, 150, 60, 150); demolished.Settle();
         demolished.Remove(55, 150); demolished.Settle();
-        CheckManagedParity(demolished, "Demolition survivor parity");
+        CheckEnterable(demolished, "Demolition survivors");
         Check(!demolished.Managed.Contains(150 * 800 + 55), "Demolished tile stayed managed");
         foreach (int x in new[] { 54, 56 }) Check(demolished.Cells[150 * 800 + x].High == WallPolicy.Parity(x, 150), "Survivor endpoint not at parity");
-        // Removing an arm turns a managed corner into an endpoint, which must be lowered again.
+        // Removing an arm turns a managed corner into an endpoint; it keeps its checkerboard height.
         var corner = new World(); corner.Build(20, 20, 24, 20); corner.Build(24, 21, 24, 24); corner.Settle();
         for (int y = 21; y <= 24; y++) corner.Remove(24, y);
-        corner.Settle(); CheckManagedParity(corner, "Former corner parity");
+        corner.Settle(); CheckEnterable(corner, "Former corner");
         var host = new World(); var client = new World();
         foreach (var command in new[] { (100, 180, 120, 180), (115, 181, 115, 190), (101, 181, 119, 181), (121, 180, 121, 180), (116, 190, 120, 190) })
         {
-            WallVerdict a = host.Build(command.Item1, command.Item2, command.Item3, command.Item4), b = client.Build(command.Item1, command.Item2, command.Item3, command.Item4);
+            host.Build(command.Item1, command.Item2, command.Item3, command.Item4); client.Build(command.Item1, command.Item2, command.Item3, command.Item4);
             host.Settle(); client.Settle();
-            Check(a.Accepted == b.Accepted && a.Rejection == b.Rejection && host.State() == client.State(), "Two-peer deterministic fixture diverged");
+            Check(host.State() == client.State(), "Two-peer deterministic fixture diverged");
         }
     }
     private static void Persistence()
@@ -500,7 +413,7 @@ internal static class Program
         bad = false; try { SaveState.Validate(schemaOne, 400, w); } catch (InvalidOperationException) { bad = true; } Check(bad, "Old schema accepted");
         for (int player = 1; player <= 8; player++)
         {
-            var editor = new World(); Check(editor.Build(100, 240, 109, 240, player).Accepted, "Editor owner fixture build failed");
+            var editor = new World(); editor.Build(100, 240, 109, 240, player);
             editor.Put(110, 240, player, true); // Designer-placed vanilla tile next to the managed run.
             int[][] mapData = MessagePackSerializer.Deserialize<int[][]>(MessagePackSerializer.Serialize(SaveState.Capture(400, editor.Managed.Select(i => editor.Cells[i]))));
             List<WallCell> mapRestored = SaveState.Validate(mapData, 400, editor);
@@ -510,7 +423,7 @@ internal static class Program
     }
     private static void RandomConstruction()
     {
-        // Build-only sequences: every accepted state keeps all walls enterable.
+        // Build-only sequences: every state keeps all managed walls at their target and enterable.
         var random = new Random(20261122);
         for (int fixture = 0; fixture < 40; fixture++)
         {
@@ -519,16 +432,12 @@ internal static class Program
             {
                 int x = 200 + random.Next(14), y = 220 + random.Next(14), length = random.Next(4);
                 bool vertical = random.Next(2) == 0;
-                string before = map.State();
-                WallVerdict result = map.Build(x, y, vertical ? x : x + length, vertical ? y + length : y);
-                if (!result.Accepted) { Check(before == map.State(), "Rejected random build changed map"); continue; }
+                map.Build(x, y, vertical ? x : x + length, vertical ? y + length : y);
                 map.Settle();
-                Check(!Has2x2(map), "Random construction created 2x2");
-                Check(LongestHighRun(map) <= 3, "Random construction created four highs in a row");
-                CheckManagedParity(map, "Random construction parity");
+                CheckEnterable(map, "Random construction");
             }
         }
-        // With demolition (not vetoed) the managed pieces still always return to parity.
+        // With demolition the managed pieces still always return to their target.
         for (int fixture = 0; fixture < 20; fixture++)
         {
             var map = new World();
@@ -542,90 +451,8 @@ internal static class Program
                 int x = 300 + random.Next(12), y = 220 + random.Next(12);
                 map.Build(x, y, x + random.Next(3), y);
                 map.Settle();
-                CheckManagedParity(map, "Demolition fuzz parity");
+                CheckEnterable(map, "Demolition fuzz");
             }
-        }
-    }
-    private static void PreviewAdmission()
-    {
-        foreach (var dir in new[] { (1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1) })
-        {
-            var world = new World(); var cache = new PreviewAdmissionCache();
-            for (int length = 1; length <= 8; length++) for (int maximum = 0; maximum < 12; maximum++)
-            {
-                int ex = 200 + dir.Item1 * length, ey = 200 + dir.Item2 * length;
-                string before = world.State();
-                WallVerdict preview = cache.Evaluate(world, 8, 200, 200, ex, ey, maximum, world.IsManaged);
-                WallVerdict command = WallAdmission.Evaluate(world, 8, WallPolicy.Raster(world, 200, 200, ex, ey, maximum), world.IsManaged);
-                Check(preview.Accepted == command.Accepted && preview.Rejection == command.Rejection && preview.Added == command.Added, "Preview differs from synchronized admission");
-                Check(world.State() == before, "Preview modified map");
-                Check(ReferenceEquals(preview, cache.Evaluate(world, 8, 200, 200, ex, ey, maximum, world.IsManaged)), "Stable full-read snapshot not reused");
-            }
-        }
-        var map = new World(); map.Build(100, 100, 101, 100);
-        var memo = new PreviewAdmissionCache();
-        Check(!memo.Evaluate(map, 1, 100, 101, 101, 101, 10, map.IsManaged).Accepted, "Double row preview admitted");
-        map.Remove(101, 100);
-        Check(memo.Evaluate(map, 1, 100, 101, 101, 101, 10, map.IsManaged).Accepted, "Demolition left stale red preview");
-        map.Put(101, 100);
-        Check(!memo.Evaluate(map, 1, 100, 101, 101, 101, 10, map.IsManaged).Accepted, "Rebuild bypassed preview veto");
-        var stable = new World(); stable.Build(120, 120, 124, 120);
-        WallVerdict old = memo.Evaluate(stable, 1, 125, 120, 126, 120, 20, stable.IsManaged);
-        var watch = stable.Cells[120 * 800 + 123];
-        foreach (Action<WallCell> mutate in new Action<WallCell>[] {
-            c => c.Owner = 8, c => c.High = !c.High, c => c.Damaged = true,
-            c => c.Structure = true, c => c.IsCrenel = false, c => c.IsWall = false })
-        {
-            WallCell original = watch.Copy(); mutate(watch);
-            Check(!ReferenceEquals(old, memo.Evaluate(stable, 1, 125, 120, 126, 120, 20, stable.IsManaged)), "Relevant cell change reused preview decision");
-            stable.Cells[original.Id] = original; watch = original;
-            old = memo.Evaluate(stable, 1, 125, 120, 126, 120, 20, stable.IsManaged);
-        }
-        stable.Managed.Remove(watch.Id);
-        Check(!ReferenceEquals(old, memo.Evaluate(stable, 1, 125, 120, 126, 120, 20, stable.IsManaged)), "Managed-set change reused preview decision");
-        stable.Managed.Add(watch.Id);
-        memo.Clear();
-        Check(!ReferenceEquals(old, memo.Evaluate(stable, 1, 125, 120, 126, 120, 20, stable.IsManaged)), "Session reset retained preview result");
-        old = memo.Evaluate(stable, 1, 125, 120, 126, 120, 20, stable.IsManaged);
-        Check(!ReferenceEquals(old, memo.Evaluate(stable, 2, 125, 120, 126, 120, 20, stable.IsManaged)), "Editor owner switch reused preview result");
-        var bounds = new MutableBounds();
-        old = memo.Evaluate(bounds, 1, 1, 100, 2, 100, 10, null);
-        bounds.Open = true;
-        Check(!ReferenceEquals(old, memo.Evaluate(bounds, 1, 1, 100, 2, 100, 10, null)), "Previously failed boundary read was not validated");
-        old = memo.Evaluate(stable, 1, 125, 120, 126, 120, 20, stable.IsManaged);
-        var timer = System.Diagnostics.Stopwatch.StartNew();
-        for (int i = 0; i < 1000; i++)
-            Check(ReferenceEquals(old, memo.Evaluate(stable, 1, 125, 120, 126, 120, 20, stable.IsManaged)), "Unchanged preview recomputed");
-        Console.WriteLine("PASS: 1000 fully revalidated preview cache hits in " + timer.ElapsedMilliseconds + " ms on the small fixture; no in-game performance claim.");
-        // A stale green/red decision is the cache's concrete failure class.
-        var random = new Random(70123); var changing = new World(); var changingCache = new PreviewAdmissionCache();
-        for (int i = 0; i < 2000; i++)
-        {
-            int rx = random.Next(98, 107), ry = random.Next(98, 104);
-            int id = ry * 800 + rx;
-            switch (random.Next(6))
-            {
-                case 0: changing.Cells.Remove(id); break;
-                case 1: changing.Put(rx, ry, random.Next(1, 3), random.Next(2) != 0); break;
-                case 2: var damaged = changing.Put(rx, ry); damaged.Damaged = true; break;
-                case 3: var structure = changing.Put(rx, ry); structure.Structure = true; break;
-                case 4: changing.Managed.Remove(id); break;
-                case 5: changing.Managed.Add(id); break;
-            }
-            int player = 1 + i / 100 % 2, maximum = i / 50 % 8;
-            WallVerdict cached = changingCache.Evaluate(changing, player, 100, 100, 105, 100, maximum, changing.IsManaged);
-            WallVerdict fresh = WallAdmission.Evaluate(changing, player, WallPolicy.Raster(changing, 100, 100, 105, 100, maximum), changing.IsManaged);
-            Check(cached.Rejection == fresh.Rejection && cached.Added == fresh.Added, "Mutated-world preview cache diverged at step " + i);
-        }
-    }
-    private sealed class MutableBounds : IWallWorld
-    {
-        internal bool Open;
-        private readonly World inner = new World();
-        public bool TryRead(int x, int y, out WallCell cell)
-        {
-            if (x == 0 && y == 100 && Open) { cell = new WallCell { Id = 80000, X = x, Y = y }; return true; }
-            return inner.TryRead(x, y, out cell);
         }
     }
     private static CSharpCompilation CompileRuntime(string root, string sdk)
@@ -699,14 +526,6 @@ internal static class Program
         }
         Diagnostic[] rejected = DiagnosticsFor(broken);
         Check(rejected.Any(d => d.GetMessage().Contains("TryGetMissionLifecycle")), "Loss of the required public mission capability was not detected");
-        string brokenRegistry = Path.Combine(directory, "broken-registry.dll");
-        using (var assembly = Mono.Cecil.AssemblyDefinition.ReadAssembly(api, options))
-        {
-            var getter = assembly.MainModule.GetType("APIShared.NativeSites.NativeSiteRegistry").Methods.Single(m => m.Name == "get_IsImageBound");
-            getter.IsPublic = false; getter.IsPrivate = true;
-            assembly.Write(brokenRegistry);
-        }
-        Check(DiagnosticsFor(brokenRegistry).Any(d => d.GetMessage().Contains("IsImageBound")), "Loss of required native-site API was not detected");
         Console.WriteLine("PASS: synthetic SDK version/additive API accepted; missing required mission API rejected. Actual selected SDK remains untouched; fixtures=" + directory);
     }
     private static void EndpointGraphics()
@@ -716,31 +535,51 @@ internal static class Program
         int tile = 500, row = 20;
         int[] steps = { -40, -39, 1, 41, 40, 39, -1, -41 };
         Array.Copy(steps, 0, deltas, row * 8, 8);
+        // Assignment for exactly the given native directions (0/2/4/6) as axis neighbours.
+        EndpointAssignment Assign(int player, params int[] directions)
+        {
+            Array.Clear(logic); logic[tile] = 0x300; owner[tile] = (byte)(0xA0 | (player - 1));
+            foreach (int d in directions) logic[tile + steps[d]] = 0x300;
+            return new EndpointAssignment(player, row, directions.Select(d => tile + steps[d]).ToArray(), directions.Length);
+        }
+        bool Matches(EndpointAssignment a, int direction) => EndpointGraphicsPolicy.Matches(a, tile, row, direction, logic, deltas, damage, structure, owner);
         foreach (int player in Enumerable.Range(1, 8)) foreach (int d in new[] { 0, 2, 4, 6 })
         {
-            Array.Clear(logic); logic[tile] = 0x300; logic[tile + steps[d]] = 0x300; owner[tile] = (byte)(0xA0 | (player - 1));
-            var assignment = new EndpointAssignment(player, row, tile + steps[d]);
-            bool Matches(int direction) => EndpointGraphicsPolicy.Matches(assignment, tile, row, direction, logic, deltas, damage, structure, owner);
-            Check(Matches(d) && Matches((d + 4) & 7), "Low endpoint axis or owner decoding failed");
-            Check(!Matches((d + 2) & 7) && !Matches(1), "Transverse/invalid graphics axis accepted");
-            logic[tile] |= 0x400000; Check(!Matches(d), "High endpoint graphics were replaced"); logic[tile] &= ~0x400000;
-            damage[tile] = 1; Check(!Matches(d), "Damaged graphics were replaced"); damage[tile] = 0;
-            structure[tile] = 3; Check(!Matches(d), "Building graphics were replaced"); structure[tile] = 0;
-            owner[tile] ^= 1; Check(!Matches(d), "Transferred endpoint was rendered from stale metadata"); owner[tile] ^= 1;
-            logic[tile + steps[(d + 2) & 7]] = 0x300; Check(!Matches(d), "A new corner reused old endpoint graphics");
+            // Endpoint: straight along its neighbour's axis, never across it.
+            var assignment = Assign(player, d);
+            Check(Matches(assignment, d) && Matches(assignment, (d + 4) & 7), "Low endpoint axis or owner decoding failed");
+            Check(!Matches(assignment, (d + 2) & 7) && !Matches(assignment, 1), "Transverse/invalid graphics axis accepted");
+            logic[tile] |= 0x400000; Check(!Matches(assignment, d), "High endpoint graphics were replaced"); logic[tile] &= ~0x400000;
+            damage[tile] = 1; Check(!Matches(assignment, d), "Damaged graphics were replaced"); damage[tile] = 0;
+            structure[tile] = 3; Check(!Matches(assignment, d), "Building graphics were replaced"); structure[tile] = 0;
+            owner[tile] ^= 1; Check(!Matches(assignment, d), "Transferred endpoint was rendered from stale metadata"); owner[tile] ^= 1;
+            logic[tile + steps[(d + 2) & 7]] = 0x300; Check(!Matches(assignment, d), "A new corner reused old endpoint graphics");
             logic[tile + steps[(d + 2) & 7]] = 0;
-            logic[tile + steps[d]] = 0; Check(!Matches(d), "An isolated tile reused old endpoint graphics");
+            logic[tile + steps[d]] = 0; Check(!Matches(assignment, d), "An isolated tile reused old endpoint graphics");
             Check(!EndpointGraphicsPolicy.Matches(assignment, -1, row, d, logic, deltas, damage, structure, owner), "Negative id accepted");
             Check(!EndpointGraphicsPolicy.Matches(assignment, tile, -1, d, logic, deltas, damage, structure, owner), "Wrong row accepted");
+            // Corner (two perpendicular neighbours): tie, drawn along the axis of direction 0 only.
+            var corner = Assign(player, d, (d + 2) & 7);
+            Check(Matches(corner, 0) && Matches(corner, 4) && !Matches(corner, 2) && !Matches(corner, 6), "Corner not drawn along direction 0");
+            logic[tile + steps[(d + 4) & 7]] = 0x300; Check(!Matches(corner, 0), "Corner assignment reused for a junction");
+            // T junction (bar along d, stem across): straight along the bar.
+            var junction = Assign(player, d, (d + 4) & 7, (d + 2) & 7);
+            Check(Matches(junction, d) && !Matches(junction, (d + 2) & 7), "Junction not drawn along its bar");
+            logic[tile + steps[(d + 2) & 7]] = 0; Check(!Matches(junction, d), "Junction assignment reused for a straight middle");
         }
-        Check(!EndpointGraphicsPolicy.Matches(null, tile, row, 0, logic, deltas, damage, structure, owner), "Untracked endpoint overridden");
-        // Low diagonal piece: no axis neighbour, answered only for the renderer's first query (direction 0).
-        Array.Clear(logic); logic[tile] = 0x300; logic[tile + steps[3]] = 0x300; owner[tile] = 0xA0;
-        var piece = new EndpointAssignment(1, row, -1);
-        Check(EndpointGraphicsPolicy.Matches(piece, tile, row, 0, logic, deltas, damage, structure, owner), "Low diagonal piece not drawn straight");
-        Check(!EndpointGraphicsPolicy.Matches(piece, tile, row, 2, logic, deltas, damage, structure, owner), "Diagonal piece answered a second axis");
-        logic[tile] |= 0x400000; Check(!EndpointGraphicsPolicy.Matches(piece, tile, row, 0, logic, deltas, damage, structure, owner), "High diagonal piece replaced");
+        // Cross / block inside (four neighbours): tie, direction 0.
+        var full = Assign(1, 0, 2, 4, 6);
+        Check(Matches(full, 0) && !Matches(full, 2), "Cross not drawn along direction 0");
+        Check(!EndpointGraphicsPolicy.Matches(null, tile, row, 0, logic, deltas, damage, structure, owner), "Untracked tile overridden");
+        // Low diagonal or isolated piece: no axis neighbour, answered only for the renderer's first query.
+        var piece = Assign(1);
+        logic[tile + steps[3]] = 0x300; // diagonal neighbour does not count
+        Check(Matches(piece, 0), "Low diagonal piece not drawn straight");
+        Check(!Matches(piece, 2), "Diagonal piece answered a second axis");
+        logic[tile] |= 0x400000; Check(!Matches(piece, 0), "High diagonal piece replaced");
         logic[tile] &= ~0x400000; logic[tile + steps[0]] = 0x300;
-        Check(!EndpointGraphicsPolicy.Matches(piece, tile, row, 0, logic, deltas, damage, structure, owner), "Diagonal assignment reused after an axis neighbour appeared");
+        Check(!Matches(piece, 0), "Diagonal assignment reused after an axis neighbour appeared");
+        bool invalid = false; try { new EndpointAssignment(1, row, new int[2], 3); } catch (ArgumentOutOfRangeException) { invalid = true; }
+        Check(invalid, "Assignment accepted more neighbours than given");
     }
 }

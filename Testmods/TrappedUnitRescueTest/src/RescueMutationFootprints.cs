@@ -21,6 +21,14 @@ namespace TrappedUnitRescueTest
         internal readonly int X, Y;
         internal RescueFootprintOffset(int x, int y) { X = x; Y = y; }
     }
+    internal readonly struct RescueBrushOrigin : IEquatable<RescueBrushOrigin>
+    {
+        private readonly int x, y;
+        internal RescueBrushOrigin(int x, int y) { this.x = x; this.y = y; }
+        public bool Equals(RescueBrushOrigin other) => x == other.x && y == other.y;
+        public override bool Equals(object other) => other is RescueBrushOrigin origin && Equals(origin);
+        public override int GetHashCode() => unchecked(x * 397 ^ y);
+    }
     internal delegate bool RescueFootprintNeighbor(RescueTile tile, int direction, out RescueTile next);
     internal sealed class RescueFootprintContext
     {
@@ -34,6 +42,9 @@ namespace TrappedUnitRescueTest
         internal Func<int, IList<RescueTile>> CompleteRemovalFootprint;
         // All removals reachable from BOTH cleanup passes, including linked/auxiliary buildings.
         internal Func<int, int, int, IList<RescueTile>> CompleteCleanupFootprint;
+        // Opt-in only for one synchronous immutable predicate view. Never reuse across mutations.
+        internal Dictionary<RescueBrushOrigin, List<RescueTile>> BrushCache;
+        internal int BrushCacheHits, BrushSearches, BrushNodes;
     }
     internal readonly struct RescueFootprintBudget
     {
@@ -92,15 +103,16 @@ namespace TrappedUnitRescueTest
                 if (width < 1 || height < 1 || (long)width * height > budget.MaximumWork - work) Reject("footprint-work-budget");
                 for (int dy = 0; dy < height; dy++) for (int dx = 0; dx < width; dx++) Add(checked(x + dx), checked(y + dy));
             }
-            private List<RescueFootprintOffset> Square(int x, int y, int size)
+            private List<RescueFootprintOffset> Square(int x, int y, int size, bool nativeCleanupSpill = false)
             {
-                if (size < 1 || size > 13 || context.SquareOffset == null) Reject("footprint-square-contract");
+                if (size < 1 || size > (nativeCleanupSpill ? 14 : 13) || nativeCleanupSpill && size != 14 || context.SquareOffset == null) Reject("footprint-square-contract");
                 var offsets = new List<RescueFootprintOffset>();
                 var seen = new HashSet<long>();
                 for (int i = 0; i < size * size; i++)
                 {
                     Spend(); var offset = context.SquareOffset(size, i);
-                    if (offset.X < 0 || offset.X >= size || offset.Y < 0 || offset.Y >= size || !seen.Add(((long)offset.X << 32) | (uint)offset.Y)) Reject("footprint-square-contract");
+                    if (!nativeCleanupSpill && (offset.X < 0 || offset.X >= size || offset.Y < 0 || offset.Y >= size || !seen.Add(((long)offset.X << 32) | (uint)offset.Y))) Reject("footprint-square-contract");
+                    if (nativeCleanupSpill && ((long)x + offset.X < 0 || (long)x + offset.X >= 800 || (long)y + offset.Y < 0 || (long)y + offset.Y >= 800)) Reject("footprint-native-spill-coordinate-contract");
                     offsets.Add(offset); Add(checked(x + offset.X), checked(y + offset.Y));
                 }
                 return offsets;
@@ -129,16 +141,17 @@ namespace TrappedUnitRescueTest
                 foreach (var t in closure)
                 { if (context.TileAt(t.X, t.Y) != t.TileId) Reject("footprint-removal-tile-invalid"); Add(t.X, t.Y); }
                 Square(r.X, r.Y, r.Size);
-                if (r.Size <= 11) { int halo = r.Size == 11 ? 1 : 2; Square(checked(r.X - halo), checked(r.Y - halo), r.Size == 11 ? 13 : r.Size + 4); }
+                if (r.Size <= 11) { int halo = r.Size == 11 ? 1 : 2; int side = r.Size == 11 ? 13 : r.Size + 4; Square(checked(r.X - halo), checked(r.Y - halo), side, side == 14); }
             }
             private void Brush(int x, int y, int width, bool centeredSquare = false)
             {
+                if (width == 0) return; // Native count-table entry0 is zero: no surface writes.
                 if (width < 1 || width > 9) Reject("footprint-brush-contract");
                 int count = Table(0x2D1C38 + width * 4);
                 if (count < 1 || count > 545) Reject("footprint-brush-count-contract");
                 if (centeredSquare)
                 {
-                    // Native 6FE90 still iterates the brush count, which can exceed width².
+                    // Native 6FE90 still iterates the brush count, which can exceed widthÂ².
                     // Read its actual 69850 table, including those extra entries.
                     if (context.SquareOffset == null) Reject("footprint-square-contract");
                     for (int i = 0; i < count; i++)
@@ -146,6 +159,14 @@ namespace TrappedUnitRescueTest
                     return;
                 }
                 if (context.RawTileAt == null || context.Flags == null || context.Neighbor == null) Reject("footprint-brush-reader-unavailable");
+                var origin = new RescueBrushOrigin(x, y);
+                if (context.BrushCache != null && context.BrushCache.TryGetValue(origin, out var cached) && cached.Count >= count)
+                {
+                    context.BrushCacheHits++;
+                    for (int i = 0; i < count; i++) Add(cached[i].X, cached[i].Y);
+                    return;
+                }
+                context.BrushSearches++;
                 int seed = context.TileAt(x, y);
                 if (seed < 0) Reject("footprint-brush-seed-inactive");
                 var queue = new List<RescueTile> { new RescueTile(x, y, seed) };
@@ -169,11 +190,16 @@ namespace TrappedUnitRescueTest
                 }
                 // E3360 returns zero/zero for missing ordinals; do not silently omit such native writes.
                 if (discovered != count) Reject("footprint-brush-search-exhausted");
+                context.BrushNodes += queue.Count;
+                if (context.BrushCache != null) context.BrushCache[origin] = queue;
             }
             private void BrushSquare(int x, int y, int size, int width)
             { foreach (var p in Square(x, y, size)) Brush(checked(x + p.X), checked(y + p.Y), width); }
             internal void Build(RescueMutationFootprintRequest r)
             {
+                // Native source coordinates are bounded before any derived footprint arithmetic.
+                // 800 is the audited native XY capacity, not the current active-map size.
+                if (r.X < 0 || r.X >= 800 || r.Y < 0 || r.Y >= 800) Reject("footprint-source-coordinate-contract");
                 switch (r.Source)
                 {
                     case RescueMutationSource.EditorDelete: Reject("intentional-unit-deletion"); break;
@@ -184,6 +210,7 @@ namespace TrappedUnitRescueTest
                     case RescueMutationSource.MoatFill:
                     case RescueMutationSource.AiWallTile: Rectangle(checked(r.X - 1), checked(r.Y - 1), 3, 3); return;
                     case RescueMutationSource.HumanWallLine:
+                        if (r.EndX < 0 || r.EndX >= 800 || r.EndY < 0 || r.EndY >= 800) Reject("footprint-source-coordinate-contract");
                         int left = Math.Min(r.X, r.EndX), top = Math.Min(r.Y, r.EndY);
                         Rectangle(checked(left - 1), checked(top - 1), checked(Math.Abs(r.EndX - r.X) + 3), checked(Math.Abs(r.EndY - r.Y) + 3)); return;
                     case RescueMutationSource.AivBuilding:
@@ -196,7 +223,12 @@ namespace TrappedUnitRescueTest
                 if (!Enum.IsDefined(typeof(eStructs), r.Structure) || r.Structure < eStructs.STRUCT_HOVEL || r.Structure > eStructs.STRUCT_DOCK)
                     Reject("unsupported-construction-structure");
                 int orientation = r.Direction == 15 ? 0 : r.Direction / 2;
-                if (r.Direction != 15 && (r.Direction < 0 || r.Direction > 6 || (r.Direction & 1) != 0)) Reject("footprint-direction-contract");
+                bool directional = r.Structure == eStructs.STRUCT_BARRACKS_WOOD || r.Structure == eStructs.STRUCT_BARRACKS_STONE ||
+                    r.Structure == eStructs.STRUCT_BEDOUIN_STOCKADE || r.Structure == eStructs.STRUCT_ENGINEERS_GUILD ||
+                    r.Structure == eStructs.STRUCT_TUNNELLERS_GUILD || r.Structure == eStructs.STRUCT_OIL_SMELTER ||
+                    r.Structure >= eStructs.STRUCT_KEEP_ONE && r.Structure <= eStructs.STRUCT_KEEP_FIVE;
+                // Other creator families use this common argument as a sprite/path selector (e.g.81).
+                if (directional && r.Direction != 15 && (r.Direction < 0 || r.Direction > 6 || (r.Direction & 1) != 0)) Reject("footprint-direction-contract");
                 Removal(r.ReplacedBuildingId);
                 Square(r.X, r.Y, r.Structure == eStructs.STRUCT_DRAWBRIDGE ? 5 : r.Size);
                 switch (r.Structure)

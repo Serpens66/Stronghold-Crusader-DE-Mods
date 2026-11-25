@@ -6,13 +6,13 @@ namespace CrenelatedWallTest
 {
     public sealed class WallSettings : PresetLobbyModSettingsViewModel
     {
-        private bool enableMod = true, adjustHeights = true, blockPlacements;
+        private bool enableMod = true, adjustHeights = true;
         public WallSettings()
         {
             ResetToDefaultCommand = new RelayCommand(() =>
             {
                 if (!CanEditHostSettings) return;
-                EnableMod = true; AdjustHeights = true; BlockPlacements = false;
+                EnableMod = true; AdjustHeights = true;
             });
         }
         [SyncHostOnly]
@@ -28,22 +28,12 @@ namespace CrenelatedWallTest
             get => adjustHeights;
             set { if (!CanMutateSetting() || value == adjustHeights) return; adjustHeights = value; OnPropertyChanged(nameof(AdjustHeights)); }
         }
-        // Rejection of unenterable shapes; off by default while its rules are still open.
-        [SyncHostOnly]
-        public bool BlockPlacements
-        {
-            get => blockPlacements;
-            set { if (!CanMutateSetting() || value == blockPlacements) return; blockPlacements = value; OnPropertyChanged(nameof(BlockPlacements)); }
-        }
         public RelayCommand ResetToDefaultCommand { get; }
         public string ResetToDefaultText => SerpLocalization.Get("Common.ResetToDefault");
         public string ScopeText => SerpLocalization.Get("Crenel.Scope");
         public string AdjustHeightsText => SerpLocalization.Get("Crenel.AdjustHeights");
         public string AdjustHeightsHelpText => SerpLocalization.Get("Crenel.AdjustHeightsHelp");
-        public string BlockPlacementsText => SerpLocalization.Get("Crenel.BlockPlacements");
-        public string BlockPlacementsHelpText => SerpLocalization.Get("Crenel.BlockPlacementsHelp");
         public string HeightRuleText => SerpLocalization.Get("Crenel.HeightRule");
-        public string BlockRuleText => SerpLocalization.Get("Crenel.BlockRule");
         protected override string ResolveSettingsUiText(string key, string fallback)
         {
             string text = SerpLocalization.Get(key); return text == key ? fallback : text;

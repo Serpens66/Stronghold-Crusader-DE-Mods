@@ -72,7 +72,6 @@ internal static class NativeHookTests
             owner.ClearWatch(); invoke(data, 100, 0, 0); owner.TakeReports(reports); Check(reports.Count == 0, "Cleared watch still reports");
             owner.Watch(100, true); owner.Watch(100, false); invoke(data, 100, 0, 0); owner.TakeReports(reports); Check(reports.Count == 0, "Unwatched tile still reports");
             Console.WriteLine("PASS: " + checks + " installed NativeX64 fixture checks; Absolute/15, entry, trampoline continuation, exact original ABI and actual disabled callback. No game hook installed.");
-            PreviewHookTests.Run();
             return 0;
         }
         catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }

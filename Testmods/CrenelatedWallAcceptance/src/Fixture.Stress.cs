@@ -113,7 +113,7 @@ namespace CrenelatedWallAcceptance
         private IEnumerable<AutomationWait> StressMap(AutomationRun run, bool heights)
         {
             foreach (var w in ToMenu(run)) yield return w;
-            SetSwitches(true, heights, false);
+            SetSwitches(true, heights);
             StressInstrument();
             long before = run.CurrentMission?.SessionId ?? 0;
             // Public sequence of FRONT_EditorSetup's "Start" handler for a new 800x800 build map.

@@ -204,3 +204,11 @@ In game (scenario `crenel-diagonal-walk`, runs `f344a763` and the following reru
 - Edge masks of the forced lows show the diagonal bits (e.g. 0xAA on an interior low).
 
 Consequence: a checkerboard of low and high crenels is crossable diagonally even in wide bands and blocks.
+
+## Checkerboard for every crenel, blockade removed, 2026-11-25 [mod integration]
+
+Supersedes the corner-anchored runs and the blockade of the sections above (those stay as dated evidence).
+- Rule: every managed intact crenel takes map parity (high when x+y is odd), corners, junctions, crosses, double rows and blocks included; crenels without axis but with diagonal crenel neighbours alternate by x, because x+y is constant in parity along a diagonal and an all-high diagonal is not crossable. *(mod design, user decision after the diagonal-walk proof and visual check)*
+- Graphics: each low managed crenel that is not a straight middle gets a straight-drawing assignment for 0x5C2D0 holding its axis neighbour ids; the hook answers on the axis with more crenel neighbours (tie: direction 0, asked first at 0x65DD6), so 0x65EF0 never ORs it high. The assignment is published before the height bit is written. *(implemented, offline-tested)*
+- Visual check (user, editor, 2026-11-25): low band, block, L-corner, T and cross pieces drawn with the straight sprite look acceptable in the tested layouts. The X shape (centre plus four diagonal crenels) renders badly in Vanilla by camera rotation; cause per static audit: body sprite 0x6BDD0, column height 0x7C0A0 and missing filler tiles 0x6621D, none reachable through 0x5C2D0. *(observed / static)*
+- The preview validator hook at 0x7A3B0 is no longer installed.

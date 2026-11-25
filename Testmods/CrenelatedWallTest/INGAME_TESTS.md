@@ -1,30 +1,23 @@
-# Zinnen-Testmod: Ingame-Prüfung (Schachbrett-Fassung, Stand 22.11.2026)
+# Zinnen-Testmod: Ingame-Prüfung (Schachbrett für alle Zinnen, Stand 25.11.2026)
 
-APIShared wird nur über bestehende öffentliche APIs verwendet. Zwei dauerhafte lokale Hooks bleiben: Der Grafik-Hook ermöglicht niedrige gerade Endstücke, der Vorschau-Hook färbt unzulässige Bauzüge rot. Die Aktivierung ist eine Host-Einstellung und wird beim Beginn einer Partie oder Editor-Sitzung festgehalten. Seit 24.11.2026 gibt es unter dem Hauptschalter zwei getrennte Host-Schalter: „Zinnenhöhen abwechselnd anpassen“ (Standard an) und „Unbetretbare Zinnenformen blockieren“ (Standard aus).
+APIShared wird nur über bestehende öffentliche APIs verwendet. Ein dauerhafter lokaler Hook bleibt: Der Grafik-Hook zeichnet niedrige Zinnen, die Vanilla als Sonderstück zeichnen würde, als gerades Stück. Die Aktivierung ist eine Host-Einstellung und wird beim Beginn einer Partie oder Editor-Sitzung festgehalten. Unter dem Hauptschalter gibt es den Host-Schalter „Zinnenhöhen abwechselnd anpassen“ (Standard an). Die Blockade unbetretbarer Formen und ihr Vorschau-Hook sind seit 25.11.2026 entfernt.
 
 ## Regeln dieser Fassung
 
 - **Höhenanpassung verwaltet neu gebaute Zinnen menschlicher Spieler und der KI** (KI über native 0x6CB20, SE-Event `OnAIBuildWall`), einschließlich vorgebauter KI-Burgen (Lobby-Option `advopt_pre_build`; ihre 0x6CB20-Aufrufe laufen vor dem Missionsstart und werden bei `Started` übernommen), im Editor die manuellen Bauten aller Slots. Karten-, Spielstand- und ältere Mauern bleiben genau wie geladen. Kartenersteller schalten die Höhenanpassung aus, um wie in Vanilla zu bauen.
-- **Blockade** gilt nur für Bauzüge menschlicher Spieler (Editor: alle manuellen Bauten). Ist die Höhenanpassung aus, sagt die Blockade reine Vanilla-Höhen vorher (Endstücke und Einzelstücke hoch); dann stoppt sie z. B. eine Stück für Stück gebaute Reihe beim vierten Stück.
-- **Höhen:** Gerade Stücke und Endstücke folgen Vanillas Schachbrett: Bei ungerader Summe x+y ist die Zinne hoch, sonst niedrig. Diagonale Reihen (auf dem Bildschirm waagerecht) bestehen aus Einzelstücken ohne geraden Nachbarn; ihre Stücke wechseln hoch/niedrig nach ungerader bzw. gerader x-Koordinate, die niedrigen zeichnet der Grafik-Hook als gerades niedriges Stück. Ecken, Kreuzungen und allein stehende Zinnen bleiben hoch wie in Vanilla.
-- **Mit eingeschalteter Blockade wird der ganze Bauzug abgelehnt** (rote Vorschau und keine Ausführung), wenn er eines davon neu erzeugt:
-  - ein gefülltes 2×2,
-  - eine Kette aus drei zusammenhängenden Ecken/Kreuzungen,
-  - eine zusammenhängende Folge von vier hohen Zinnen.
-- **Grund** (nativer Audit vom 22.11.2026): Hohe Zinnen sind für alle Einheiten unbegehbar (0xD86F0). Leitern und Assassinen brauchen eine niedrige Zielkachel. Truppen aus Belagerungstürmen brauchen eine niedrige Kachel unter den fünf Kacheln vor der Turmfront.
+- **Höhen:** Jede verwaltete, unbeschädigte Zinne folgt Vanillas Schachbrett der Karte: Bei ungerader Summe x+y ist sie hoch, sonst niedrig. Das gilt für gerade Stücke, Endstücke, Ecken, Verzweigungen, Kreuzungen, Doppelreihen, Blöcke und einzelne Zinnen. Ausnahme: Zinnen ohne Achsnachbarn, aber mit diagonalen Nachbarn (diagonale Reihen, auf dem Bildschirm waagerecht) wechseln nach ungerader bzw. gerader x-Koordinate, weil die Kartenparität eine ganze Diagonale gleich hoch machen würde.
+- **Zeichnung:** Vanilla zeichnet jede Form außer einem geraden Mittelstück (genau zwei gegenüberliegende Achsnachbarn) als Sonderstück und setzt sie dabei hoch (0x65EF0). Niedrige verwaltete Zinnen bekommen deshalb über den Grafik-Hook das gerade Bild: entlang der Achse mit mehr Zinnen-Nachbarn, bei Gleichstand entlang Richtung 0. Die Zuordnung gilt nur für die beim Festlegen gesehenen Achsnachbarn.
+- **Grund** (nativer Audit vom 22.11.2026, Spielnachweis vom 25.11.2026): Hohe Zinnen sind für alle Einheiten unbegehbar (0xD86F0). Leitern und Assassinen brauchen eine niedrige Zielkachel. Von einer niedrigen Zinne zur diagonal benachbarten niedrigen Zinne gehen Einheiten auch, wenn beide Kacheln dazwischen hoch sind. Damit bleibt jede Form im Schachbrett überquerbar.
 - Gespeichert wird nur, welche Kacheln der Mod gesetzt hat, nicht ihre Höhe.
 
 ## Einstieg und Nachweis
 
 1. **Vorbereitung:** Spiel nach der Installation neu starten und in den Modoptionen **Crenelated Wall Test** aktivieren. Editor und normale Partie sind unterstützt; Änderungen gelten ab der nächsten Sitzung.
 2. **Startmarker:** Im aktuellen Spielstartabschnitt von `BepInEx/LogOutput.log` müssen erscheinen:
-   - `CRENEL_READY`, `CRENEL_GRAPHICS_READY`, `CRENEL_PREVIEW_READY`, `CRENEL_SESSION` und `CRENEL_RUNTIME_AFTER_CLEANUP`,
+   - `CRENEL_READY`, `CRENEL_GRAPHICS_READY`, `CRENEL_SESSION` und `CRENEL_RUNTIME_AFTER_CLEANUP`,
    - nach dem ersten erfolgreichen Bau `CRENEL_HOOK_CONFIRMED`,
-   - beim ersten niedrigen Endstück `CRENEL_GRAPHICS_CONFIRMED`.
-3. **Bau- und Ablehnungsmarker:**
-   - Erfolgreiche Bauten protokollieren `CRENEL_BUILD` mit `checked = changed + unchanged`.
-   - In der Vorschau blockierte Züge erzeugen keinen Bauauftrag.
-   - Ablehnungen in der Ausführung protokollieren `CRENEL_REJECT` und `CRENEL_REJECT_VERIFIED` mit `added=0` und unverändertem Steinbestand.
+   - bei der ersten gerade gezeichneten niedrigen Zinne `CRENEL_GRAPHICS_CONFIRMED`.
+3. **Baumarker:** Nur im Diagnose-Build (`build.bat /devdiag`) protokollieren Bauten `CRENEL_BUILD` mit `checked = changed + unchanged`.
 4. **Fehlermarker:** `CRENEL_CALLBACK_ERROR` oder ein fehlender Start- bzw. Tickmarker zusammen mit dem Logabschnitt melden.
 
 ## Prüffälle
@@ -33,21 +26,19 @@ APIShared wird nur über bestehende öffentliche APIs verwendet. Zwei dauerhafte
 |---|---|---|
 | Gerade Reihe Stück für Stück bauen (der Exploit) | Exaktes Schachbrett, auch an den Endstücken. | Kein Stück bleibt hoch; alle vier Richtungen, alle Kamerarotationen. |
 | Dieselbe Reihe ziehen | Gleiches Ergebnis wie Stück für Stück. | Auch in Gegenrichtung ziehen. |
-| Einzelne Zinne, dann Nachbar | Erst hoch (Einzelstück), dann beide nach Schachbrett. | Das erste Stück muss niedrig werden, wenn seine Parität niedrig ist. |
+| Einzelne Zinne, dann Nachbar | Beide nach Schachbrett, auch die einzelne. | Die einzelne niedrige Zinne als gerades Stück gezeichnet. |
+| Ecke, T-Kreuzung, Kreuz, Rahmen | Alle Stücke nach Schachbrett, Ecken eingeschlossen. | Optik der niedrigen Ecken und Verzweigungen in allen Kamerarotationen. |
+| Doppelreihe, 2×2, größerer Block, Treppe | Gebaut (keine Sperre), Schachbrett. | Assassine bzw. Leitertruppe geht diagonal von niedrig zu niedrig. |
 | Leiter, Assassine, Belagerungsturm an Stück-für-Stück-Mauer | Andocken **und** Betreten der Mauer gelingt. | Einheiten erreichen den Mauergang. |
-| Turm vor Ecke/T-Kreuzung | Truppen kommen über eine niedrige Nachbarkachel hinein. | Lange und kurze Arme testen. |
-| Zweite parallele Reihe / 2×2 per Einzelklick | Rot, kein Bau, kein Steinverlust. | Auch an Karten- oder fremden Mauern. |
-| Diagonale Reihe vor diagonaler Mauer (auf dem Bildschirm waagerecht), gezogen und Stück für Stück | Erlaubt; abwechselnd hoch/niedrig entlang der Diagonale, niedrige Stücke betretbar. | Optik der niedrigen Stücke prüfen (gerades niedriges Sprite). |
-| Treppe mit 1er-Stufen | Rot beim dritten Eckstück. | Nachricht „three special“. |
-| Treppe mit 2er-Stufen, kurzes U (3 breit) | Je nach Kartenposition erlaubt oder rot („four high“). | Um eine Kachel verschoben wiederholen. |
-| Lange L-, T-, Kreuz- und Ringformen | Erlaubt, höchstens drei Hohe in Folge. | Beide Paritäten (um eine Kachel verschieben). |
-| Abriss einer Mitte oder eines Eckarms | Überbleibende verwaltete Stücke werden wieder Schachbrett; neue Endstücke niedrig, falls Parität niedrig. | Kurze Verzögerung bis zum nächsten Tick (Neuzeichnungsmeldung) ist zulässig; kein dauerhaftes Flackern. |
+| Diagonale Reihe (auf dem Bildschirm waagerecht), gezogen und Stück für Stück | Abwechselnd hoch/niedrig nach x, niedrige Stücke betretbar. | Optik der niedrigen Stücke (gerades niedriges Sprite). |
+| „X“ aus fünf Zinnen | Mitte und Diagonalstücke unterschiedlich hoch. | Vanilla zeichnet die X-Form je Kamerarotation unschön; Vergleich mit und ohne Mod. |
+| Abriss einer Mitte oder eines Eckarms | Überbleibende verwaltete Stücke bleiben im Schachbrett; neue Endstücke niedrig, falls Parität niedrig. | Kurze Verzögerung bis zum nächsten Tick (Neuzeichnungsmeldung) ist zulässig; kein dauerhaftes Flackern. |
 | Beschuss und Wiederaufbau | Beschädigte Grafik bleibt Vanilla; Wiederaufbau folgt dem Schachbrett. | Projektile und Nahkampf. |
 | Karte mit vorgebauten Mauern / alter Save ohne Moddaten | Keine Änderung beim Laden. | Anbauen ändert nur die neuen Stücke. |
 | Save mit Modbauten | Verwaltete Kacheln bleiben nach Laden verwaltet. | `CRENEL_SAVE` und `CRENEL_LOAD`. |
 | Editor: Mod deaktiviert bauen, speichern, mit Mod laden | Vanilla-Mauern bleiben unverändert. | Auch KI-Slots. |
-| KI baut ihre Burg | KI-Mauern bleiben Vanilla. | Keine KI-Bauverbote. |
-| Knapper Steinbestand | Ein Zug wird abgelehnt, wenn die ganze Linie verboten wäre, auch wenn nur ein Teil bezahlbar ist. | Bewusst konservativ. |
+
+Die folgenden datierten Abschnitte bis zum 25.11.2026 beschreiben frühere Fassungen (Blockade, Ecken hoch, eckverankerte Läufe) und bleiben als Nachweis unverändert.
 
 ## Automatisierte Ingame-Abnahme (22.11.2026, Lauf `d673bb3e`)
 
@@ -158,3 +149,25 @@ Bisher folgten gerade Stücke der festen Kartenparität. Neben einer immer hohen
 - Läufe ohne Sonderstück behalten die Kartenparität.
 
 `Normalize` gleicht dafür ganze Läufe durch die geänderten Kacheln und ihre Achsnachbarn ab; die Blockade-Vorhersage berücksichtigt die verschobenen Läufe ebenso. Regeltests: Rahmen beider Paritäten und Breiten 4 bis 9, nachträglich angebaute und wieder abgerissene Ecke, zufällige Baureihenfolge. Spieltest: Schritt `heights-frame` im Szenario `crenel-heights`.
+
+## Schachbrett für alle Zinnen, Blockade entfernt (25.11.2026)
+
+Nachweis vorab (Szenario `crenel-diagonal-walk` mit erzwungenem Schachbrett, Läufe vom 25.11.2026): Assassinen und Leitertruppen gehen diagonal von niedriger zu niedriger Zinne, auch wenn beide Kacheln dazwischen hoch sind. Sichtprüfung des Nutzers im Editor (`crenel-look`, `crenel-look-corners`, `crenel-look-manual`): Niedrige Band-, Block-, Eck-, T- und Kreuzstücke sehen als gerades Stück gezeichnet stimmig aus.
+
+Damit ersetzt das Schachbrett die Blockade: Jede verwaltete Zinne folgt der Kartenparität (Diagonalstücke der x-Regel), niedrige Sonderstücke werden gerade gezeichnet. Entfernt sind die Blockade samt Einstellung, der Vorschau-Hook (0x7A3B0), die eckverankerten Läufe und die Lauf-Erweiterung in `Normalize`. Die Grafik-Zuordnung speichert die Achsnachbarn; der Hook wählt die Achse aus der nativen Nachbartabelle. `Normalize` veröffentlicht die Zuordnung, bevor es das Hoch-Bit schreibt.
+
+Offline: Regel- und Grafiktests (Schachbrett für alle Formen und Baureihenfolgen, Stabilität über Render-Durchläufe, Zuordnungsschutz bei veränderter Nachbarschaft), 2.298.228 Assertions; Native-Audit und Hook-Fixtures bestanden.
+
+Spielnachweise (Testmod `CrenelatedWallAcceptance`, Hintergrund-Desktop, Nachweise `.work/a/crenel-ingame/094` bis `105`):
+
+| Szenario | Ergebnis |
+|---|---|
+| `crenel-editor` (Lauf `8914deb4`) | Bestanden: Doppelreihe und 2×2 grün gebaut, Slots, Diagonale, Abriss, Beschuss mit Zerstörung, Wiederaufbau, Kartenersteller. |
+| `crenel-acceptance` (`aa9a8029`) | Bestanden: Höhen, Assassinen, Leiter, Belagerungsturm, Speichern/Laden, KI-Kontrollreihe. |
+| `crenel-heights` (`f1c2e4ac`) | Bestanden; Rahmen `HLHLHLH`/`LHLHLHLH`, Ecken nach Schachbrett; vorgebaute KI-Burg 117 Zinnen. |
+| `crenel-ai` (`878262b2`) | Bestanden; vorgebaute KI-Burg 213 Zinnen, manuell gebaute 50 Zinnen. |
+| `crenel-diagonal-walk` (`17db8f60`), Höhenregel an | Block und Band stellen sich selbst aufs Schachbrett ein; Assassine ins Blockinnere und ins Band angekommen (diagonaler Weg), Befehl auf hohe Zinne abgelehnt, Leiter-Speerträger auf Kante und weiter ins Blockinnere angekommen. |
+| `crenel-stress` (`7247d166`) | 18.000 Zinnen, 4.028 Ticks: Mod-Zeit pro Tick höchstens 1,37 ms (Eckregel vorher 3,37 ms), 100er-Bauzug höchstens 14 ms; alle 16.923 intakten Zinnen auf Zielhöhe. |
+| `crenel-look-x` (`cc5c322d`) | X vor einer Stützmauer: Vanilla alle fünf hoch, mit Mod Mitte niedrig und gerade gezeichnet. Nur die Ausgangsrotation ist im Bild; die Karte dreht um die Kartenmitte. |
+
+Testaufbau-Erkenntnisse: Der Beschussschritt im Editor zielte bisher auf die zweite Reihe, weil die Blockade die vordere Doppelreihe ablehnte; jetzt steht die Doppelreihe, das Ziel liegt vorn. Den Wiederaufbau direkt neben gerade getöteten Angreifern zeigt Vanilla rot; nach rund 600 Ticks Wartezeit ist er grün (Ursache vermutlich die Bauregel neben feindlichen Einheiten, nicht nativ geprüft). Die Mitte eines X lässt sich nicht direkt bauen (Zinne braucht einen Achsnachbarn, 0x5C580); der Test setzt eine Hilfsmauer und reißt sie danach ab.

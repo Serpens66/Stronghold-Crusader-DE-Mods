@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$GameDir = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition',
-    [ValidateSet('crenel-acceptance', 'crenel-editor', 'crenel-vanilla-topology', 'crenel-heights', 'crenel-ai', 'crenel-stress', 'crenel-diagonal-walk', 'crenel-look', 'crenel-look-corners', 'crenel-look-manual')][string]$Scenario = 'crenel-acceptance',
+    [ValidateSet('crenel-acceptance', 'crenel-editor', 'crenel-vanilla-topology', 'crenel-heights', 'crenel-ai', 'crenel-stress', 'crenel-diagonal-walk', 'crenel-look', 'crenel-look-corners', 'crenel-look-manual', 'crenel-look-x', 'crenel-look-diagonal')][string]$Scenario = 'crenel-acceptance',
     # Visible game window, e.g. for crenel-look-manual where the user inspects the editor by hand.
     [switch]$Foreground
 )

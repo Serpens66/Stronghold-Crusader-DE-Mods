@@ -44,6 +44,167 @@ namespace CrenelatedWallAcceptance
             yield return new AutomationStep("look-manual", TimeSpan.FromHours(4), LookManualWait);
         }
 
+        // Scenario crenel-look-x: an "X" (centre plus four diagonal crenels) in front of a support wall,
+        // first without the mod's height adjustment, then with it; four camera rotations each.
+        private IEnumerable<AutomationStep> LookXSteps()
+        {
+            yield return new AutomationStep("editor-vanilla", TimeSpan.FromSeconds(180), r => LoadEditor(r, true, null, heights: false));
+            yield return new AutomationStep("x-vanilla", TimeSpan.FromSeconds(300), r => LookX(r, "vanilla"), true);
+            yield return new AutomationStep("editor-mod", TimeSpan.FromSeconds(180), r => LoadEditor(r, true, null, heights: true));
+            yield return new AutomationStep("x-mod", TimeSpan.FromSeconds(300), r => LookX(r, "mod"), true);
+        }
+
+        private IEnumerable<AutomationWait> LookX(AutomationRun run, string variant)
+        {
+            var m = run.CurrentMission;
+            foreach (var w in WaitCameraRest()) yield return w;
+            int sx = GameMap.instance.ScreenCentreTileX, sy = GameMap.instance.ScreenCentreTileY;
+            owner = 1;
+            bool found = Engine(() =>
+            {
+                for (int r = 0; r <= 30; r++)
+                    for (int dy = -r; dy <= r; dy++)
+                        for (int dx = -r; dx <= r; dx++)
+                            if (Math.Max(Math.Abs(dx), Math.Abs(dy)) == r && Free(sx - 3 + dx, sy - 2 + dy, 7, 5, 0)) { ox = ex = sx - 3 + dx; oy = ey = sy - 2 + dy; return true; }
+                return false;
+            });
+            Require(found, "no free area for the X");
+            log("LOOK_X " + variant + " origin=" + ox + "," + oy + " centre=" + sx + "," + sy);
+            foreach (var w in UiWall(run, m, "x-support", owner, eMappers.MAPPER_WALL, 0, 0, 6, 0, null)) yield return w;
+            // A crenel needs an axis neighbour wall or crenel (0x5C580), which the X centre and its lower
+            // arms lack; a temporary plain wall below the centre carries them and is bulldozed afterwards.
+            foreach (var w in UiWall(run, m, "x-helper", owner, eMappers.MAPPER_WALL, 3, 3, 3, 3, null)) yield return w;
+            foreach (var (x, y) in new[] { (2, 1), (4, 1), (3, 2), (2, 3), (4, 3) })
+                foreach (var w in UiWall(run, m, "x-piece", owner, eMappers.MAPPER_CRENAL, x, y, x, y, false, unmanaged: variant == "vanilla")) yield return w;
+            int helper = Engine(() => Tile(3 + ex, 3 + ey));
+            EditorDirector.instance.SetEditorPlayerID(1);
+            MainControls.instance.CurrentAction = 6; // bulldozer tool, as in EditorDemolish
+            foreach (var w in MouseClick(3 + ex, 3 + ey, 1, 2, 2, 3)) yield return w;
+            MainControls.instance.StopAllPlacement();
+            bool gone = false;
+            for (int i = 0; i < 30 && !gone; i++) { yield return run.WaitForTicks(m, 10); gone = Engine(() => !IsWall(helper)); }
+            Require(gone, "helper wall below the X centre was not removed");
+            yield return run.WaitForTicks(m, 200);
+            log("LOOK_X_GRID " + variant + " " + Engine(() => string.Join("|", Enumerable.Range(0, 5).Select(y => new string(Enumerable.Range(0, 7).Select(x =>
+            {
+                int id = Tile(x + ox, y + oy);
+                return IsCrenel(id) ? ((Flags(id) & (uint)TilePropertyFlag.CrenelatedHigh) != 0 ? 'H' : 'L') : IsWall(id) ? 'W' : '.';
+            }).ToArray())))));
+            string directory = Path.Combine(BepInEx.Paths.BepInExRootPath, "CrenelLook_shots");
+            Directory.CreateDirectory(directory);
+            PerfectPixelWithZoom.instance.SetZoomImmediate(0.5f);
+            for (int rotation = 0; rotation < 4; rotation++)
+            {
+                yield return run.WaitForTicks(m, 8);
+                yield return AutomationWait.Delay(TimeSpan.FromMilliseconds(1200));
+                string file = Path.Combine(directory, runId + "_x-" + variant + "-r" + rotation + ".png");
+                ScreenCapture.CaptureScreenshot(file);
+                yield return AutomationWait.Delay(TimeSpan.FromMilliseconds(1500));
+                log("LOOK_SHOT x-" + variant + "-r" + rotation + " file=" + file + " exists=" + File.Exists(file));
+                GameMap.instance.RotateMapRight();
+            }
+            PerfectPixelWithZoom.instance.SetZoomImmediate(1f);
+        }
+
+        // Scenario crenel-look-diagonal (user's comparison): two diagonal rows of 10 plain walls
+        // (screen-horizontal), each with a crenel row in front; heights on. The plain walls of row B
+        // are bulldozed. Shots: current drawing, then row B's high crenels drawn with the straight
+        // sprite of direction 0, then of direction 2 (test postfix only).
+        private IEnumerable<AutomationStep> LookDiagonalSteps()
+        {
+            yield return new AutomationStep("editor-load", TimeSpan.FromSeconds(180), r => LookStart(r, true));
+            yield return new AutomationStep("diagonal-rows", TimeSpan.FromSeconds(900), LookDiagonal, true);
+        }
+
+        private const int DiagonalLength = 10, DiagonalGap = 8;
+        // Row 0 walls at (i, i), row 1 walls at (gap + i, -gap + i); crenels one tile further in +x,
+        // which is the screen-front side at the editor start rotation (+1,-1 points down on screen).
+        private static IEnumerable<(int, int)> DiagonalRow(int row, bool crenels)
+        {
+            for (int i = 0; i < DiagonalLength; i++) yield return (row * DiagonalGap + i + (crenels ? 1 : 0), -row * DiagonalGap + i);
+        }
+
+        private IEnumerable<AutomationWait> LookDiagonal(AutomationRun run)
+        {
+            var m = run.CurrentMission;
+            foreach (var w in WaitCameraRest()) yield return w;
+            int sx = GameMap.instance.ScreenCentreTileX, sy = GameMap.instance.ScreenCentreTileY;
+            owner = 1;
+            var used = DiagonalRow(0, false).Concat(DiagonalRow(0, true)).Concat(DiagonalRow(1, false)).Concat(DiagonalRow(1, true)).ToList();
+            bool found = Engine(() =>
+            {
+                for (int r = 0; r <= 40; r++)
+                    for (int dy = -r; dy <= r; dy++)
+                        for (int dx = -r; dx <= r; dx++)
+                        {
+                            int x0 = sx - 9 + dx, y0 = sy - 1 + dy;
+                            if (Math.Max(Math.Abs(dx), Math.Abs(dy)) == r && used.All(t => Free(x0 + t.Item1, y0 + t.Item2, 1, 1, 0))) { ox = ex = x0; oy = ey = y0; return true; }
+                        }
+                return false;
+            });
+            Require(found, "no free area for the diagonal rows");
+            log("LOOK_DIAG origin=" + ox + "," + oy + " centre=" + sx + "," + sy);
+            for (int row = 0; row < 2; row++)
+            {
+                // Editor drags turn red from the seventh tile on: two drags of five per row.
+                var walls = DiagonalRow(row, false).ToList(); var crenels = DiagonalRow(row, true).ToList();
+                foreach (var (a, b) in new[] { (0, 4), (5, 9) })
+                    foreach (var w in UiWall(run, m, "diag-wall", owner, eMappers.MAPPER_WALL, walls[a].Item1, walls[a].Item2, walls[b].Item1, walls[b].Item2, null)) yield return w;
+                foreach (var (a, b) in new[] { (0, 4), (5, 9) })
+                    foreach (var w in UiWall(run, m, "diag-crenels", owner, eMappers.MAPPER_CRENAL, crenels[a].Item1, crenels[a].Item2, crenels[b].Item1, crenels[b].Item2, false)) yield return w;
+            }
+            EditorDirector.instance.SetEditorPlayerID(1);
+            foreach (var (x, y) in DiagonalRow(1, false))
+            {
+                int wall = Engine(() => Tile(x + ex, y + ey));
+                MainControls.instance.CurrentAction = 6; // bulldozer tool, as in EditorDemolish
+                foreach (var w in MouseClick(x + ex, y + ey, 1, 2, 2, 3)) yield return w;
+                MainControls.instance.StopAllPlacement();
+                bool gone = false;
+                for (int t = 0; t < 30 && !gone; t++) { yield return run.WaitForTicks(m, 10); gone = Engine(() => !IsWall(wall)); }
+                Require(gone, "plain wall of row B not removed at " + x + "," + y);
+            }
+            yield return run.WaitForTicks(m, 200);
+            log("LOOK_DIAG_HEIGHTS " + Engine(() => string.Join(" | ", Enumerable.Range(0, 2).Select(row =>
+                new string(DiagonalRow(row, true).Select(t => { int id = Tile(t.Item1 + ex, t.Item2 + ey); return !IsCrenel(id) ? '.' : (Flags(id) & (uint)TilePropertyFlag.CrenelatedHigh) != 0 ? 'H' : 'L'; }).ToArray())))));
+            string directory = Path.Combine(BepInEx.Paths.BepInExRootPath, "CrenelLook_shots");
+            Directory.CreateDirectory(directory);
+            PerfectPixelWithZoom.instance.SetZoomImmediate(0.5f);
+            foreach (var (name, mode) in new[] { ("current", 0), ("dir0", 4), ("dir2", 5) })
+            {
+                Engine(() =>
+                {
+                    foreach (var (x, y) in DiagonalRow(1, true))
+                    {
+                        int id = Tile(x + ex, y + ey);
+                        lock (lookMode) { if (mode == 0) lookMode.Remove(id); else lookMode[id] = mode; }
+                        GameTileManagerAPI.Instance.RefreshTileAreaVisuals(x + ex, y + ey);
+                    }
+                    return 0;
+                });
+                yield return run.WaitForTicks(m, 20);
+                yield return AutomationWait.Delay(TimeSpan.FromMilliseconds(1200));
+                string file = Path.Combine(directory, runId + "_diag-" + name + ".png");
+                ScreenCapture.CaptureScreenshot(file);
+                yield return AutomationWait.Delay(TimeSpan.FromMilliseconds(1500));
+                log("LOOK_SHOT diag-" + name + " file=" + file + " exists=" + File.Exists(file));
+            }
+            PerfectPixelWithZoom.instance.SetZoomImmediate(1f);
+        }
+
+        // The start camera still glides to its start position; wait until it rests.
+        private IEnumerable<AutomationWait> WaitCameraRest()
+        {
+            float lastX = float.NaN, lastY = float.NaN;
+            for (int wait = 0; wait < 40; wait++)
+            {
+                yield return AutomationWait.Delay(TimeSpan.FromMilliseconds(500));
+                float camX = CameraControls2D.instance.getCameraXPos(), camY = CameraControls2D.instance.getCameraYPos();
+                if (camX == lastX && camY == lastY && wait >= 4) yield break;
+                lastX = camX; lastY = camY;
+            }
+        }
+
         private IEnumerable<AutomationWait> LookManualWait(AutomationRun run)
         {
             long session = run.CurrentMission.SessionId;
@@ -63,10 +224,13 @@ namespace CrenelatedWallAcceptance
             lock (lookMode) if (!lookMode.TryGetValue(tile, out mode)) return;
             bool low = (Flags(tile) & (uint)TilePropertyFlag.CrenelatedHigh) == 0;
             // The rows run along x, so the straight sprite of the east-west axis (direction 2) is used.
+            // 4/5: high diagonal pieces with the straight sprite of direction 0 / 2 (crenel-look-diagonal).
+            if (mode == 4 || mode == 5) { if (!low && direction == (mode == 4 ? 0 : 2)) __result = 1; return; }
             if (mode == 3 ? direction == 0 && low : direction == 2 && (mode == 1 || low)) __result = 1;
         }
 
-        private IEnumerable<AutomationWait> LookStart(AutomationRun run)
+        private IEnumerable<AutomationWait> LookStart(AutomationRun run) => LookStart(run, false);
+        private IEnumerable<AutomationWait> LookStart(AutomationRun run, bool heights)
         {
             if (lookHarmony == null)
             {
@@ -76,8 +240,8 @@ namespace CrenelatedWallAcceptance
                 lookHarmony = new Harmony(Plugin.Guid + ".look");
                 lookHarmony.Patch(invoke, postfix: new HarmonyMethod(typeof(Fixture).GetMethod(nameof(LookPostfix), BindingFlags.Static | BindingFlags.NonPublic)));
             }
-            // Mod active (graphics hook) but without height adjustment and blockade.
-            foreach (var w in LoadEditor(run, true, null, heights: false, block: false)) yield return w;
+            // Mod active (graphics hook); height adjustment only where the scenario needs it.
+            foreach (var w in LoadEditor(run, true, null, heights: heights)) yield return w;
         }
 
         private static int LookY(int set) => 2 + set * 8;

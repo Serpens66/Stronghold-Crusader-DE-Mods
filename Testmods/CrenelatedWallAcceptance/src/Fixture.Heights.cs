@@ -15,13 +15,13 @@ using SHCDESE.Interop.Enums;
 
 namespace CrenelatedWallAcceptance
 {
-    // Height adjustment alone (blockade off): any build order alternates, forbidden shapes are
+    // Height adjustment: any build order alternates, double rows and blocks are
     // built, and crenels of the automatic AI (native 0x6CB20, SE OnAIBuildWall) are adopted.
     internal sealed partial class Fixture
     {
         private IEnumerable<AutomationStep> HeightsSteps()
         {
-            yield return new AutomationStep("heights-editor-load", TimeSpan.FromSeconds(180), r => LoadEditor(r, true, null, heights: true, block: false));
+            yield return new AutomationStep("heights-editor-load", TimeSpan.FromSeconds(180), r => LoadEditor(r, true, null, heights: true));
             yield return new AutomationStep("editor-prepare", TimeSpan.FromSeconds(60), EditorPrepare, true);
             yield return new AutomationStep("heights-any-order", TimeSpan.FromSeconds(420), HeightsAnyOrder, true);
             yield return new AutomationStep("heights-diagonal", TimeSpan.FromSeconds(240), EditorDiagonal, true);
@@ -105,8 +105,8 @@ namespace CrenelatedWallAcceptance
 
         // Two rectangular frames (user screenshots 2026-11-25): long sides joined by three-piece end
         // rows, at both map parities and with an odd (5) and an even (6) run between the corners,
-        // built piece by piece in a shuffled order. Corners stay high; the piece next to a corner
-        // is low, so every end row is high-low-high; an even run ends high at its right corner.
+        // built piece by piece in a shuffled order. Every piece, corners included, follows the map
+        // checkerboard (CheckHeights); the rows are logged for the record.
         private IEnumerable<AutomationWait> HeightsFrame(AutomationRun run)
         {
             var m = run.CurrentMission;
@@ -136,17 +136,10 @@ namespace CrenelatedWallAcceptance
                 foreach (var (x0, width) in frames)
                 {
                     int x1 = x0 + width - 1;
-                    foreach (int x in new[] { x0, x1 })
+                    for (int y = 1; y <= 3; y++)
                     {
-                        Require(IsHigh(x + ex, 1 + ey) && IsHigh(x + ex, 3 + ey), "frame corner not high at x=" + (x + ex));
-                        Require(!IsHigh(x + ex, 2 + ey), "three-piece end row is not high-low-high at " + (x + ex) + "," + (2 + ey));
-                    }
-                    for (int y = 1; y <= 3; y += 2)
-                    {
-                        Require(!IsHigh(x0 + 1 + ex, y + ey), "piece next to the left corner is high at y=" + (y + ey));
-                        Require(IsHigh(x1 - 1 + ex, y + ey) == ((width - 2) % 2 == 0), "right end of the run has the wrong height, width " + width);
                         var row = new System.Text.StringBuilder();
-                        for (int x = x0; x <= x1; x++) row.Append(IsHigh(x + ex, y + ey) ? 'H' : 'L');
+                        for (int x = x0; x <= x1; x++) row.Append(!IsCrenel(Tile(x + ex, y + ey)) ? '.' : IsHigh(x + ex, y + ey) ? 'H' : 'L');
                         cells.Add(row.ToString());
                     }
                 }
@@ -157,8 +150,8 @@ namespace CrenelatedWallAcceptance
         }
         private static bool IsHigh(int x, int y) { int id = Tile(x, y); return IsCrenel(id) && (Flags(id) & (uint)TilePropertyFlag.CrenelatedHigh) != 0; }
 
-        // Single pieces in a shuffled order (gaps closed later), a 2x2 block that the blockade
-        // would reject, an L and a row dragged in reverse halves and closed piece by piece.
+        // Single pieces in a shuffled order (gaps closed later), a 2x2 block (a former blockade
+        // case), an L and a row dragged in reverse halves and closed piece by piece.
         private IEnumerable<AutomationWait> HeightsAnyOrder(AutomationRun run)
         {
             var m = run.CurrentMission;
@@ -183,11 +176,10 @@ namespace CrenelatedWallAcceptance
             foreach (var w in EditorSettle(run, m)) yield return w;
             Engine(() =>
             {
-                Require(new[] { (0, 3), (1, 3), (0, 4), (1, 4) }.All(c => IsCrenel(Tile(c.Item1 + ex, c.Item2 + ey))), "2x2 block not built with the blockade off");
+                Require(new[] { (0, 3), (1, 3), (0, 4), (1, 4) }.All(c => IsCrenel(Tile(c.Item1 + ex, c.Item2 + ey))), "2x2 block not built");
                 return 0;
             });
             Drain();
-            Require(!crenelSeen.Any(l => l.Contains("CRENEL_REJECT")), "a build was rejected although the blockade is off");
             log(Engine(() => CheckHeights("heights-any-order")));
             ex = keepX; ey = keepY;
         }
@@ -195,7 +187,7 @@ namespace CrenelatedWallAcceptance
         private IEnumerable<AutomationWait> AiStart(AutomationRun run, int preBuild)
         {
             foreach (var w in ToMenu(run)) yield return w;
-            SetSwitches(true, true, false);
+            SetSwitches(true, true);
             humanTiles.Clear();
             aiCallSubscription?.Dispose();
             lock (aiCalls) aiPlaced.Clear();
@@ -350,16 +342,16 @@ namespace CrenelatedWallAcceptance
         }
 
         // Host settings, changed only in the menu; the mod freezes them per session.
-        private void SetSwitches(bool enable, bool heights, bool block)
+        private void SetSwitches(bool enable, bool heights)
         {
             object settings = WallSettings();
-            foreach (var entry in new[] { ("EnableMod", enable), ("AdjustHeights", heights), ("BlockPlacements", block) })
+            foreach (var entry in new[] { ("EnableMod", enable), ("AdjustHeights", heights) })
             {
                 var property = settings.GetType().GetProperty(entry.Item1) ?? throw new MissingMemberException(entry.Item1);
                 property.SetValue(settings, entry.Item2);
                 Require((bool)property.GetValue(settings) == entry.Item2, entry.Item1 + " could not be set to " + entry.Item2);
             }
-            log("SETTINGS enable=" + enable + " heights=" + heights + " block=" + block);
+            log("SETTINGS enable=" + enable + " heights=" + heights);
         }
     }
 }

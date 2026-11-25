@@ -26,18 +26,11 @@ foreach ($file in $files) {
         if ($body -match 'System\.Web\.Extensions|JavaScriptSerializer|System\.Text\.Json|Newtonsoft\.Json|DataContractJsonSerializer|JsonUtility|Serialization\.Json|Assembly-CSharp-publicized') { throw "Forbidden JSON/publicized reference: $($file.Name)" }
         if ($body -match '\b(?:OnDestroy|OnDisable|OnApplicationQuit|Update|LateUpdate|FixedUpdate|OnGUI|OnRenderObject|OnPostRender|StartCoroutine|InvokeRepeating)\s*\(') { throw "Forbidden runtime lifecycle/scheduling: $($file.Name)" }
         if ($body -match 'VirtualProtect|CodePatch\.Write|\.Undo\s*\(|\.Unpatch|\.Disable\s*\(') { throw "Unexpected native mutation/teardown: $($file.Name)" }
-        # This one data write is the feature's audited native output, never executable memory.
-        $withoutStatusWrite = $body.Replace('Marshal.WriteInt32(manager, InvalidOffset, 1);', '')
-        if ($withoutStatusWrite -match 'Marshal\.Write' -or ($file.Name -ne 'PreviewValidationHook.cs' -and $body -match 'Marshal\.Write')) { throw "Unexpected native data write: $($file.Name)" }
+        if ($body -match 'Marshal\.Write') { throw "Unexpected native data write: $($file.Name)" }
         if ($file.Name -eq 'StraightGraphicsHook.cs') {
             if ([regex]::Matches($body, 'hook\.Enable\s*\(').Count -ne 1 -or [regex]::Matches($body, '\.Dispose\s*\(').Count -ne 1 -or
                 -not $body.Contains('catch { hook.Dispose(); hook = null; throw; }') -or
                 -not $body.Contains('try { Validate(hook, unchecked((ulong)target.ToInt64())); }')) { throw 'Graphics hook preparation/publication lifetime changed.' }
-        } elseif ($file.Name -eq 'PreviewValidationHook.cs') {
-            # Limited structural lifetime guardrail, complemented by manual review and backend fixtures.
-            if ([regex]::Matches($body, 'hook\.Enable\s*\(').Count -ne 1 -or
-                [regex]::Matches($body, '\.Dispose\s*\(').Count -ne 1 -or
-                -not $body.Contains('if (!published)') -or -not $body.Contains('published = true;')) { throw 'Preview hook lifetime requires review.' }
         } elseif ($body -match 'NativeDetour|HookTransaction|\.Dispose\s*\(|\.(?:Enable|Apply)\s*\(') { throw "Unexpected native hook: $($file.Name)" }
     }
 }

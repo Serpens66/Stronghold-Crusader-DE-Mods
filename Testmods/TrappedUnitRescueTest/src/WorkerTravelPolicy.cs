@@ -71,6 +71,7 @@ namespace TrappedUnitRescueTest
         private static readonly WorkerJourneyField[] Common = {
             W(0x6E4,"alive"), W(0x6E6,"unit-type"), W(0x6EE,"owner"), D(0x6F0,"unit-global"),
             W(0x918,"ai-state"), W(0x91A,"saved-ai"), W(0x956,"work-mode"),
+            D(0x93C,"unit-stamped-tribe-global"),
             W(0x95C,"yield-fraction"), W(0x95E,"bonus-yield"),
             W(0x990,"workplace-id"), D(0x9C0,"workplace-global"),
             W(0x992,"workplace-access-x"), W(0x994,"workplace-access-y"),

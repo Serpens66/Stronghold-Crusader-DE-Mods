@@ -19,6 +19,15 @@ namespace TrappedUnitRescueTest
     internal enum RescueOfferResult { Added, Duplicate, ConflictingMutation, CapacityExceeded, Inactive, InvalidIdentity }
     internal enum RescueQueueDecision { Complete, Retry, Reject }
 
+    internal readonly struct RescuePendingCandidate<T>
+    {
+        internal readonly string Source;
+        internal readonly T Snapshot;
+        internal readonly int Age, Attempts, RetryIn;
+        internal RescuePendingCandidate(string source,T snapshot,int age,int attempts,int retryIn)
+        {Source=source;Snapshot=snapshot;Age=age;Attempts=attempts;RetryIn=retryIn;}
+    }
+
     internal sealed class RescueQueuedCandidate<T>
     {
         internal readonly RescueIdentity Identity;
@@ -30,10 +39,13 @@ namespace TrappedUnitRescueTest
         internal LinkedListNode<RescueQueuedCandidate<T>> Node;
         internal int DueTick { get; private set; }
         internal int Attempts { get; private set; }
+        internal bool IsRestored { get; private set; }
         internal RescueQueuedCandidate(RescueIdentity identity, long mutationId, string source, T snapshot, int tick, long sequence)
         { Identity = identity; MutationId = mutationId; Source = source; Snapshot = snapshot; CapturedTick = DueTick = tick; Sequence = sequence; }
         internal void BeginAttempt() { Attempts++; }
         internal void RetryAt(int tick) { DueTick = tick; }
+        internal void RestoreAttempts(int attempts) { Attempts=attempts; }
+        internal void MarkRestored() { IsRestored=true; }
     }
 
     internal readonly struct RescueQueueDrainResult
@@ -55,6 +67,7 @@ namespace TrappedUnitRescueTest
         internal int Count => byUnit.Count;
         internal int PendingCount => pending.Count;
         internal bool HasWork => byUnit.Count != 0;
+        internal bool ContainsUnit(int unitId)=>byUnit.ContainsKey(unitId);
         internal long OverflowCount { get; private set; }
         internal long ConflictCount { get; private set; }
 
@@ -72,6 +85,31 @@ namespace TrappedUnitRescueTest
             pending.Clear(); byUnit.Clear(); session = sessionId; world = worldGeneration; epoch++;
         }
 
+        // Read-only save capture under the caller's engine monitor. Expired proofs are
+        // omitted without mutating the live queue. No process-local identities are saved.
+        internal bool TryCopyPending(int tick,out RescuePendingCandidate<T>[] records)
+        {
+            records=null;if(draining)return false;
+            var result=new List<RescuePendingCandidate<T>>(byUnit.Count);
+            foreach(var candidate in pending)
+            {
+                if(!TryForward(candidate.CapturedTick,tick,out int age) || age>=lifetimeTicks || candidate.Attempts>=maximumAttempts)continue;
+                int delay=Reached(candidate.DueTick,tick)?0:unchecked(candidate.DueTick-tick);
+                if(delay<0 || delay>retryTicks)return false;
+                result.Add(new RescuePendingCandidate<T>(candidate.Source,candidate.Snapshot,age,candidate.Attempts,delay));
+            }
+            records=result.ToArray();return true;
+        }
+
+        internal bool OfferRestored(RescueIdentity identity,long mutationId,RescuePendingCandidate<T> record,int tick)
+        {
+            if(record.Age<0 || record.Age>=lifetimeTicks || record.Attempts<0 || record.Attempts>=maximumAttempts ||
+                record.RetryIn<0 || record.RetryIn>retryTicks)return false;
+            if(Offer(identity,mutationId,record.Source,record.Snapshot,unchecked(tick-record.Age))!=RescueOfferResult.Added)return false;
+            var candidate=byUnit[identity.UnitId];candidate.RestoreAttempts(record.Attempts);candidate.MarkRestored();
+            candidate.RetryAt(unchecked(tick+record.RetryIn));return true;
+        }
+
         internal RescueOfferResult Offer(RescueIdentity identity, long mutationId, string source, T snapshot, int tick)
         {
             if (session == 0 || world == 0 || identity.SessionId != session || identity.WorldGeneration != world)
@@ -84,7 +122,8 @@ namespace TrappedUnitRescueTest
                     return RescueOfferResult.InvalidIdentity;
                 if (previous.Identity.Equals(identity))
                 {
-                    if (previous.MutationId == mutationId) return RescueOfferResult.Duplicate;
+                    // Restored causes belong to the save, not this process's batch counter.
+                    if (previous.MutationId == mutationId && !previous.IsRestored) return RescueOfferResult.Duplicate;
                     // A second geometry change invalidates the old proof. Neither snapshot is
                     // silently promoted to a stronger combined historical reachability claim.
                     Remove(previous); ConflictCount++; return RescueOfferResult.ConflictingMutation;

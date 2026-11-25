@@ -53,13 +53,13 @@ namespace CrenelatedWallAcceptance
         }
 
         internal IEnumerable<AutomationStep> Steps() => scenario == Plugin.EditorScenario ? EditorSteps() :
-            scenario == Plugin.TopologyScenario ? TopologySteps() : scenario == Plugin.HeightsScenario ? HeightsSteps() : scenario == Plugin.AiScenario ? AiSteps() : scenario == Plugin.StressScenario ? StressSteps() : scenario == Plugin.DiagonalScenario ? DiagonalWalkSteps() : scenario == Plugin.LookScenario ? LookSteps(false) : scenario == Plugin.LookCornersScenario ? LookSteps(true) : scenario == Plugin.LookManualScenario ? LookManualSteps() : SkirmishSteps();
+            scenario == Plugin.TopologyScenario ? TopologySteps() : scenario == Plugin.HeightsScenario ? HeightsSteps() : scenario == Plugin.AiScenario ? AiSteps() : scenario == Plugin.StressScenario ? StressSteps() : scenario == Plugin.DiagonalScenario ? DiagonalWalkSteps() : scenario == Plugin.LookScenario ? LookSteps(false) : scenario == Plugin.LookCornersScenario ? LookSteps(true) : scenario == Plugin.LookManualScenario ? LookManualSteps() : scenario == Plugin.LookXScenario ? LookXSteps() : scenario == Plugin.LookDiagonalScenario ? LookDiagonalSteps() : SkirmishSteps();
 
         private IEnumerable<AutomationStep> SkirmishSteps()
         {
             yield return new AutomationStep("skirmish", TimeSpan.FromSeconds(240), Start);
             yield return new AutomationStep("prepare", TimeSpan.FromSeconds(90), Prepare, true);
-            yield return new AutomationStep("build-and-reject", TimeSpan.FromSeconds(240), Build, true);
+            yield return new AutomationStep("build", TimeSpan.FromSeconds(240), Build, true);
             yield return new AutomationStep("heights", TimeSpan.FromSeconds(60), Heights, true);
             yield return new AutomationStep("assassins", TimeSpan.FromSeconds(240), Assassins, true);
             yield return new AutomationStep("siege-tower", TimeSpan.FromSeconds(420), SiegeTower, true);
@@ -74,7 +74,7 @@ namespace CrenelatedWallAcceptance
         // ---------- steps ----------
         private IEnumerable<AutomationWait> Start(AutomationRun run)
         {
-            SetSwitches(true, true, true);
+            SetSwitches(true, true);
             // Peace time keeps the AI from attacking the lord or the test units. The climbing and siege
             // units belong to an unused slot and act on direct orders, so peace does not affect them.
             // Fixed AI castle template and keep order: the control row area depends on the start (run 7270b60a).
@@ -124,29 +124,29 @@ namespace CrenelatedWallAcceptance
             foreach (var w in Support(run, m, owner, 0, 25, 5, 25, false)) yield return w; // ladder segment
             foreach (var w in Support(run, m, owner, 7, 25, 13, 25, false)) yield return w; // tower segment
             // Exploit case: straight rows placed piece by piece, simulation running between pieces.
-            for (int i = 1; i <= 7; i++) foreach (var w in Line(run, m, "piece-x", owner, i, 1, i, 1, null)) yield return w;
-            for (int i = 1; i <= 7; i++) foreach (var w in Line(run, m, "piece-y", owner, 10, i, 10, i, null)) yield return w;
-            foreach (var w in Line(run, m, "drag", owner, 1, 4, 7, 4, null)) yield return w;
-            // Double row: the closing fourth tile of a 2x2 is rejected.
-            foreach (var w in Line(run, m, "2x2", owner, 1, 8, 2, 8, null)) yield return w;
-            foreach (var w in Line(run, m, "2x2", owner, 1, 9, 1, 9, null)) yield return w;
-            foreach (var w in Line(run, m, "2x2", owner, 2, 9, 2, 9, "double-row")) yield return w;
+            for (int i = 1; i <= 7; i++) foreach (var w in Line(run, m, "piece-x", owner, i, 1, i, 1)) yield return w;
+            for (int i = 1; i <= 7; i++) foreach (var w in Line(run, m, "piece-y", owner, 10, i, 10, i)) yield return w;
+            foreach (var w in Line(run, m, "drag", owner, 1, 4, 7, 4)) yield return w;
+            // Double row: a filled 2x2 is built and becomes a checkerboard.
+            foreach (var w in Line(run, m, "2x2", owner, 1, 8, 2, 8)) yield return w;
+            foreach (var w in Line(run, m, "2x2", owner, 1, 9, 1, 9)) yield return w;
+            foreach (var w in Line(run, m, "2x2", owner, 2, 9, 2, 9)) yield return w;
             // Diagonal row (a screen-horizontal wall): allowed, pieces alternate high/low.
-            foreach (var w in Line(run, m, "diagonal", owner, 5, 8, 5, 8, null)) yield return w;
-            foreach (var w in Line(run, m, "diagonal", owner, 6, 9, 6, 9, null)) yield return w;
-            foreach (var w in Line(run, m, "diagonal", owner, 7, 10, 7, 10, null)) yield return w;
-            // One-tile stairs: the third connected special piece is rejected.
-            foreach (var w in Line(run, m, "stairs", owner, 10, 10, 10, 10, null)) yield return w;
-            foreach (var w in Line(run, m, "stairs", owner, 11, 10, 11, 10, null)) yield return w;
-            foreach (var w in Line(run, m, "stairs", owner, 11, 11, 11, 11, null)) yield return w;
-            foreach (var w in Line(run, m, "stairs", owner, 12, 11, 12, 11, null)) yield return w;
-            foreach (var w in Line(run, m, "stairs", owner, 12, 12, 12, 12, "three special")) yield return w;
+            foreach (var w in Line(run, m, "diagonal", owner, 5, 8, 5, 8)) yield return w;
+            foreach (var w in Line(run, m, "diagonal", owner, 6, 9, 6, 9)) yield return w;
+            foreach (var w in Line(run, m, "diagonal", owner, 7, 10, 7, 10)) yield return w;
+            // One-tile stairs: every piece is a corner and follows the checkerboard.
+            foreach (var w in Line(run, m, "stairs", owner, 10, 10, 10, 10)) yield return w;
+            foreach (var w in Line(run, m, "stairs", owner, 11, 10, 11, 10)) yield return w;
+            foreach (var w in Line(run, m, "stairs", owner, 11, 11, 11, 11)) yield return w;
+            foreach (var w in Line(run, m, "stairs", owner, 12, 11, 12, 11)) yield return w;
+            foreach (var w in Line(run, m, "stairs", owner, 12, 12, 12, 12)) yield return w;
             // Long L shape stays allowed.
-            foreach (var w in Line(run, m, "L", owner, 1, 14, 6, 14, null)) yield return w;
-            foreach (var w in Line(run, m, "L", owner, 1, 15, 1, 20, null)) yield return w;
+            foreach (var w in Line(run, m, "L", owner, 1, 14, 6, 14)) yield return w;
+            foreach (var w in Line(run, m, "L", owner, 1, 15, 1, 20)) yield return w;
             // Attack row for ladders and the siege tower; open ground lies north of it.
-            foreach (var w in Line(run, m, "ladder-row", owner, 1, 24, 5, 24, null)) yield return w;
-            foreach (var w in Line(run, m, "tower-row", owner, 7, 24, 12, 24, null)) yield return w;
+            foreach (var w in Line(run, m, "ladder-row", owner, 1, 24, 5, 24)) yield return w;
+            foreach (var w in Line(run, m, "tower-row", owner, 7, 24, 12, 24)) yield return w;
         }
 
         private IEnumerable<AutomationWait> Heights(AutomationRun run)
@@ -224,7 +224,7 @@ namespace CrenelatedWallAcceptance
             var free = run.InSimulation(m, () => ends.Where(e => GameTileManagerAPI.Instance.IsTileWalkableAndUnoccupied(Tile(e.Item1 + ox, e.Item2 + oy))).ToList());
             log("AFTER_LOAD_CANDIDATES " + string.Join(" ", ends.Select(e => (e.Item1 + ox) + "," + (e.Item2 + oy) + (free.Contains(e) ? ":free" : ":occupied"))));
             Require(free.Count > 0, "after-load: no free end tile to extend a managed row");
-            foreach (var w in Line(run, m, "after-load", owner, free[0].Item1, free[0].Item2, free[0].Item1, free[0].Item2, null)) yield return w;
+            foreach (var w in Line(run, m, "after-load", owner, free[0].Item1, free[0].Item2, free[0].Item1, free[0].Item2)) yield return w;
             Drain();
             Require(crenelSeen.Any(l => l.Contains("CRENEL_BUILD") && l.Contains("managed=" + (before + 1) + ".")), "managed set after load did not grow to " + (before + 1));
             foreach (var w in Settle(run, m)) yield return w;
@@ -241,7 +241,7 @@ namespace CrenelatedWallAcceptance
             // hook). Vanilla's sticky behaviour itself is proven by the crenel-vanilla-topology scenario.
             foreach (var w in Support(run, m, ai, cx, cy + 1, cx + 8, cy + 1, true)) yield return w;
             for (int i = 1; i <= 7; i++)
-                foreach (var w in Line(run, m, "vanilla-ai", ai, cx + i, cy, cx + i, cy, null, absolute: true)) yield return w;
+                foreach (var w in Line(run, m, "vanilla-ai", ai, cx + i, cy, cx + i, cy, absolute: true)) yield return w;
             foreach (var w in Settle(run, m)) yield return w;
             var positions = new List<string>();
             string result = run.InSimulation(m, () =>
@@ -282,11 +282,9 @@ namespace CrenelatedWallAcceptance
         }
 
         private IEnumerable<AutomationWait> Line(AutomationRun run, MissionContext m, string label, int player,
-            int x0, int y0, int x1, int y1, string reject, bool absolute = false)
+            int x0, int y0, int x1, int y1, bool absolute = false)
         {
             if (!absolute) { x0 += ox; y0 += oy; x1 += ox; y1 += oy; }
-            // The mod rate-limits rejection logs per 5 s; wait so every rejection is visible.
-            if (reject != null) yield return AutomationWait.Delay(TimeSpan.FromMilliseconds(5600));
             foreach (var w in run.SetPause(m, true)) yield return w;
             Drain();
             int fx = x0, fy = y0, tx = x1, ty = y1;
@@ -294,25 +292,15 @@ namespace CrenelatedWallAcceptance
             {
                 var cells = Raster(fx, fy, tx, ty);
                 var fresh = cells.Where(id => !IsWall(id)).ToList();
-                int stone = GamePlayerManagerAPI.Instance.GetGoodAmount(player, eGoods.STORED_STONE_BLOCKS);
                 GameBuildingManagerAPI.Instance.CreateWall(player, fx, fy, tx, ty, eMappers.MAPPER_CRENAL);
-                if (reject == null)
+                foreach (int id in fresh)
                 {
-                    foreach (int id in fresh)
-                    {
-                        Require(IsCrenel(id) && Owner(id) == player, label + ": tile " + Describe(id) + " was not built for player " + player);
-                        if (player == owner) humanTiles.Add(id); else controlTiles.Add(id);
-                    }
-                    return "BUILD " + label + " line=" + fx + "," + fy + "->" + tx + "," + ty + " added=" + fresh.Count;
+                    Require(IsCrenel(id) && Owner(id) == player, label + ": tile " + Describe(id) + " was not built for player " + player);
+                    if (player == owner) humanTiles.Add(id); else controlTiles.Add(id);
                 }
-                foreach (int id in fresh) Require(!IsWall(id), label + ": rejected tile " + Describe(id) + " was built");
-                int after = GamePlayerManagerAPI.Instance.GetGoodAmount(player, eGoods.STORED_STONE_BLOCKS);
-                Require(after == stone, label + ": stone changed " + stone + "->" + after);
-                return "REJECT " + label + " line=" + fx + "," + fy + "->" + tx + "," + ty + " stone=" + stone;
+                return "BUILD " + label + " line=" + fx + "," + fy + "->" + tx + "," + ty + " added=" + fresh.Count;
             });
             Drain();
-            if (reject != null)
-                Require(crenelSeen.Any(l => l.Contains("CRENEL_REJECT owner=") && l.Contains(reject)), label + ": no CRENEL_REJECT with reason '" + reject + "'");
             log(result);
             foreach (var w in run.SetPause(m, false)) yield return w;
             yield return run.WaitForTicks(m, 8); // Vanilla render maintenance between single pieces.
@@ -334,10 +322,12 @@ namespace CrenelatedWallAcceptance
                 if (Damaged(id)) continue;
                 XY(id, out int x, out int y);
                 int mask = Mask(x, y);
-                bool line = mask == 0b0101 || mask == 0b1010 || mask == 1 || mask == 2 || mask == 4 || mask == 8;
-                bool expected = line ? RunExpected(x, y, mask) : mask == 0 && DiagonalMask(x, y) != 0 ? (x & 1) != 0 : true;
+                // Independent oracle of CrenelatedWallTest's rule: map checkerboard for every crenel;
+                // pieces without axis but with diagonal neighbours alternate along x.
+                bool middle = mask == 0b0101 || mask == 0b1010;
+                bool expected = mask == 0 && DiagonalMask(x, y) != 0 ? (x & 1) != 0 : Parity(x, y);
                 bool high = (Flags(id) & (uint)TilePropertyFlag.CrenelatedHigh) != 0;
-                checkedCount++; if (!line) special++; if (!high) low++;
+                checkedCount++; if (!middle) special++; if (!high) low++;
                 if (high != expected) bad.Add(Describe(id) + " mask=" + mask + " expected=" + (expected ? "H" : "L"));
             }
             Require(bad.Count == 0, stage + ": wrong heights " + string.Join(" | ", bad));
@@ -754,34 +744,6 @@ namespace CrenelatedWallAcceptance
         private static int Owner(int id) => (GameTileManagerAPI.Instance.GetWallOwnerLayer()[id] & 7) + 1;
         private static bool Damaged(int id) => GameTileManagerAPI.Instance.GetDamageLayer()[id] != 0 || GameTileManagerAPI.Instance.GetStructureLayer()[id] != 0;
         private static bool Parity(int x, int y) => ((x ^ y) & 1) != 0;
-        // Independent oracle of CrenelatedWallTest's run rule: a straight piece is low next to a
-        // corner/junction and alternates from there; with specials at both ends the lower coordinate
-        // anchors the run; runs without a special keep the map parity.
-        private static bool RunExpected(int x, int y, int mask)
-        {
-            bool vertical = (mask & 0b0101) != 0;
-            int dx = vertical ? 0 : 1, dy = vertical ? 1 : 0;
-            bool lowSpecial = RunEnd(x, y, -dx, -dy, vertical, out int low);
-            bool highSpecial = RunEnd(x, y, dx, dy, vertical, out int high);
-            if (lowSpecial) return (low + 1) % 2 == 0;
-            if (highSpecial) return (high + 1) % 2 == 0;
-            return Parity(x, y);
-        }
-        // Counts the straight pieces of the same axis in one direction; true when a special ends them.
-        private static bool RunEnd(int x, int y, int dx, int dy, bool vertical, out int members)
-        {
-            members = 0;
-            for (int step = 1; step <= 800; step++)
-            {
-                int nx = x + dx * step, ny = y + dy * step;
-                if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(nx, ny) || !IsCrenel(Tile(nx, ny))) return false;
-                int m = Mask(nx, ny);
-                bool line = m == 0b0101 || m == 0b1010 || m == 1 || m == 2 || m == 4 || m == 8;
-                if (!line || (vertical ? (m & 0b1010) != 0 : (m & 0b0101) != 0)) return true;
-                members++;
-            }
-            return false;
-        }
         private static int Mask(int x, int y)
         {
             int mask = 0, n = 0;

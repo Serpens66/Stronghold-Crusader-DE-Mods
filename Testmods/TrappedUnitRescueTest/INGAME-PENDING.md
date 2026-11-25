@@ -1,0 +1,77 @@
+# Noch ausstehende Spielabnahme des allgemeinen Rettungssystems
+
+Stand: 25.11.2026. **Keine dieser neuen Abnahmen wurde in diesem Offlineauftrag ausgeführt.** Ein erfolgreicher Managed-/Maschinencode-Fixturelauf ersetzt weder tatsächliche Belegung noch Warenlieferung im Spiel. Historische Versuche des früheren Prototyps bleiben in TESTING.md dokumentiert.
+
+Vor jedem später autorisierten Lauf müssen Quell-/SDK-/Paketidentität, passende APIShared-Plugin-/Patcher-Paarung, Spiel-/Extender-/Fixes-Stand und tatsächlich wirksame Einstellungen protokolliert werden. Die neue Entwicklung braucht das zugehörige APIShared-SDK ab 0.74.0; ein ungeprüftes installiertes gleich benanntes Paket genügt nicht. Dieser Bericht ist keine Installations- oder Teststartfreigabe.
+
+## Gemeinsame Vorbedingungen und Belege
+
+Jeder positive Rettungsfall braucht dieselben Nachweise: echte native Änderung, alte legale Oberfläche/Erreichbarkeit, danach tatsächlicher vollständiger Verlust eines zulässigen Ausgangs, unveränderte Lebensidentität/Gesundheit/Verband, kohärente Current-/Next- und Kachelbelegung sowie ein bestätigter sicherer Zielort. Falls die Einheit einen Auftrag hatte, muss ihre tatsächliche weitere Bewegung beziehungsweise Arbeit geprüft werden. Ein zurückgelieferter Erfolgscode oder ein verschobenes Sprite genügt nicht.
+
+Zu jeder Familie gehören Gegenproben: Funktion aus, No-op/abgelehnter Writer, vorhandener legaler Ausgang, legitimer Sondermodus, fehlender freier Zielort, zwischenzeitlich neuer Befehl und zerstörte beziehungsweise wiederverwendete Objekt-ID. Voraussetzungen selbst herstellen und prüfen; Zufallslage ist kein gültiger Testgrund.
+
+## Bau- und Geländequellen
+
+| Quelle | Offene Spielprüfung |
+|---|---|
+| Echter KI-AIV-Zugbrückenbau | Aktualisierte Deferred-Tick-Vorrichtung aus/an, No-op, ursprünglicher Bau unsuppressed, Rettung erst nach vollständigem Batch |
+| Menschlicher gemeinsamer Bau | Gültige Platzierungen sowie natürliche Ablehnung auf Einheiten; keine künstliche Umgehung als Beleg für die normale Menschen-UI |
+| Alle 23 Creator-Dispatchfamilien | Reale betroffene Randfelder, Compound-/Subsidiärteile, Farms und Quarry-Erweiterungen; leere/unbetroffene Hüllen müssen ohne Aktion bleiben |
+| AIV-Cleanup und Replacements | Entfernte Compoundteile, Farmfelder ohne BuildingLayer, vollständige Vorherdaten auch vor Cleanup; anschließend echte neue Konstruktion |
+| Menschen-/KI-Mauern | Einzeltiles und Linien, Mirrors, mehrere Einheiten und Gruppen, frühere Fixes-Aktionen erhalten; kein Doppelretten |
+| Sieben Editoroperationen | Reale Editor-Neuanlage und Laden, Typ-/Height-/Clear-Brushes, Kartenränder; absichtliches Löschen von Einheiten darf nicht rückgängig gemacht werden |
+| Graben Dig/Fill | Tatsächlich terminaler Fortschritt, mehrere Arbeiter und Reservierungen; nichtterminale Fortschritte lösen keine Erfassung/Rettung aus; Caller-AI erst vollständig abgewickelt |
+| Terminaler Gebäude-/Mauerabriss | Entfernte Verbundteile, verbliebene legale Dach-/Bodenflächen und erst später eintretende strukturelle Änderungen |
+| AIV-Grabenalternative | Niedrige Moatkachel und bauliche 1×1-Alternative auf geeigneter Höhe getrennt; kein aus einem Ergebniscode erfundener Erfolg |
+
+## Bewegung, Verbände und Sonderflächen
+
+- Stehende und bereits begonnene gewöhnliche Schritte getrennt: nur Current betroffen, nur Next betroffen, beide betroffen und genau ein vor der Auswertung abgeschlossener erfasster Schritt. Ein späterer anderer Schritt muss alte Daten entwerten.
+- Neu ungültiges Next bei weiterhin legalem Current: Current kann Ziel der nativen Normalisierung sein. Belegung bleibt genau einmal korrekt, keine künstliche freie Nachbarkachel erforderlich.
+- Anführer und Nicht-Anführer in echten menschlichen und KI-Verbänden. Freie Mitglieder müssen weiterlaufen; der gerettete Actor behält Verband und aktuellen gültigen Auftrag.
+- Assassinen an echten Mauern, Torhäusern und Zugbrücken: legale Kletter-/Abstiegskanten dürfen keine Rettung auslösen. Tunnel, Portal, Transport und Ladder-/Sonderzustände bleiben gesonderte negative Freigabeprüfungen.
+- Kein Zielort: Einheit nicht auf belegtes, ungültiges oder zuvor nicht erreichbares Feld setzen. Später wieder freier Zielort und Retry-/Altersgrenzen getrennt prüfen.
+- Vor dem ersten Recoverytick erteilter neuer Auftrag, einschließlich gleicher Zielkoordinate, veränderter Pre-Argumente, Veto, Post-Manipulation und fremder geschachtelter Aufträge. Keine alte Absicht wiederherstellen.
+
+## Wirtschaft und eigene wartende Fortsetzung
+
+Für **alle 20 Rollen** ausschließlich die in WorkerTravelPolicy freigegebenen Reiseabschnitte als positive Fälle testen: Woodcutter, Fletcher, Hunter, Mason, Quarry-Grunt, Ox, Pitch-Digger, Wheat/Hops/Apple/Cattle, Miller, Baker, Brewer, Poleturner, Smith, Armourer, Tanner und beide Miner. Jede Rolle braucht natürliche reale Arbeitsplatz-/Lager-/Vegetationsbeziehungen; manuelles Setzen von AI/Cargo gilt nicht als Beleg natürlicher Arbeitsfortsetzung.
+
+Je freigegebenem Abschnitt Warenaufnahme, Rückweg und Warenabgabe entsprechend der Auditmatrix unterscheiden. Cargo, Rendite, Rest-/Retryzustand, Mitarbeiter-/Gebäude-/Baumidentität sowie tatsächliche spätere Arbeitsleistung prüfen. K-/S-/Kontaktabschnitte und verlinkte Beute-/Kuh-/Transportzustände sind negative Fälle, keine stillschweigend freigegebenen Varianten.
+
+Besonders wichtig:
+
+1. Native funktionale Neuplanung vom neuen Moat wird akzeptiert: keine Versetzung, ursprüngliches Segment bleibt korrekt und wird tatsächlich beendet.
+2. Probe abgelehnt, lokale Rettung erfolgreich, Reissue erfolgreich: dieselbe Einheit liefert ursprüngliche Waren korrekt ab.
+3. Reissue scheitert nach Relocation: eigene Flags 5-Sperre verhindert falsche Ankunft und Warenproduktion. Späterer zulässiger Retry führt zur tatsächlichen Fortsetzung.
+4. Arbeitsplatz/Lager/Baum wird während des Wartens zerstört oder sein Slot wiederverwendet: kein falscher Zielbezug und keine erfundenen Waren.
+5. Externer neuer Auftrag im Wartezustand: erfolgreiche neue Route löst die alte Quittung ab; fehlgeschlagener neuer Auftrag darf niemals das alte Ziel wiederherstellen.
+6. Fehlender Zielort, volle Quittungskapazität und bewusst verletzte Parknachbedingung: keine ungesicherte native Mutation; unsichere Reservierung darf nicht als erfolgreiche Rettung verschwinden.
+7. Bereits vorliegende offene Apfel-Cargo-/Grabenarbeiter-/Ochsen-Grenzen bleiben einzeln offen, bis ein tatsächlicher Arbeits-/Lieferbeleg vorliegt.
+
+## Geschütze, Ingenieure und Fixes-Reiterrettung
+
+Alle bisherigen Geschütz-/Crewfälle mit aktuellem Code wiederholen: ursprüngliches Gerät, ursprüngliche Ingenieure, Anzahl/Global-IDs/Gesundheit, Absitzen und spätere Kachelbelegung. Beschädigte Mehrfachzuordnung ist ein Ablehnungsfall.
+
+Fixes-Reiterrettung aus/an zur eigenen Rettung: vier Reitertypen, drei tatsächliche Bergfriede, vier Campground-Ausrichtungen, stehende Einheiten und begonnene Schritte sowie blockierter Ausgang. CastlePlanner-Rotation muss aus realen Gebäudefeldern überprüft werden, nicht aus Kamera oder ursprünglichem AIV-Argument. Nach eigener erfolgreicher lokaler Rettung darf der nächste Fixes-Tick nicht nochmals versetzen.
+
+Der temporäre separate Fixes-Scannerpatch wird weiterhin mit und ohne Patch gegen die tatsächlich installierte Fixes-Version geprüft. Sobald der Originalautor korrigiert hat, Vertrag erneut kontrollieren und den separaten Workaround entfernen; keine automatische Mutation fremder Einstellungen.
+
+## Save, Editor, Lifecycle und Modus
+
+- Save unmittelbar nach einer echten Änderung vor dem ersten Recoverytick: eigene gespeicherte Vorherdaten restaurieren, frische Welt-/Sitzungsidentität binden und denselben gültigen Fall einmal abarbeiten.
+- Save mit Flags 5-Quittungen, mehrfaches Laden und tatsächliche spätere Arbeitsfortsetzung. Kein Retryverbrauch zurücksetzen, keine Arbeitswaren verdoppeln.
+- Saveversuch während eigener Reservierung/Mutation: atomarer Save wird vor Dateiersetzung abgelehnt; bestehender Nutzersave bleibt bytegleich erhalten.
+- Pausiert geladene Karte bei ausgeschalteter Funktion: pending Daten können unverändert weitergespeichert werden. Erster inaktiver Simulationstick verwirft ungebundene kausale Kandidaten; keine nachträglich wiedererweckte alte Mutation.
+- Eigene Worker-Eigentumsquittungen bleiben bei ausgeschalteter Funktion gespeichert; keine automatische Rettung oder Änderung fremder Einstellungen. Erneutes aktives Laden und bereits erteilter nativer Folgeauftrag jeweils prüfen.
+- Neue Partie, Save/Restart, EditorCreated/EditorLoaded, Missionsende, native Weltgeneration und fehlgeschlagener Start: keine alte Queue oder Quittung darf eine andere Welt verändern.
+- Unbekannte/zu neue/beschädigte Metadaten: keine geratenen Vorherdaten, keine unbemerkte alte Auftragswiederholung.
+- Echte Host-/Client-/Save-/Repairabnahme ist weiterhin offen; bis dahin keine automatische Multiplayerfreigabe. Jeder Peer muss deterministisch dieselben zulässigen Entscheidungen und gespeicherten Gameplaydaten haben.
+
+## Last und Kompatibilität
+
+Leerer Normalbetrieb, viele laufende Einheiten ohne Änderungen, dichte Baustelle, viele tatsächliche Blockaden und voller Retrybestand getrennt messen. Bis zu 10000 Einheiten und große 800×800-Karten sind ein Lastszenario, kein Grund zum dauerhaften Vollscan. Zähler für Erfassungsarbeit, Queuebesuche, direkte Nativecalls, Speicher und tatsächliche Simulations-/Renderzeiten getrennt aufnehmen.
+
+Prüfen: normales Minimalprofil, Fixes, Pathfinding/BugfixesAndQoL, CastlePlanner und vollständiges freigegebenes Modprofil. Fremdpatch an eigener Spanne vor Veröffentlichung und bei Missions-/Editorstart muss mit Error zur logischen Ablehnung führen, ohne Um-/Zurückpatchen. Dormante Quellen müssen Originalverhalten erhalten.
+
+Jedes Ergebnis benötigt konkrete Build-/Runidentität und vollständige Vorbedingungen. `not-executed`, `unsupported` und `overload` bleiben solche Ergebnisse und werden nicht als PASS zusammengezählt.

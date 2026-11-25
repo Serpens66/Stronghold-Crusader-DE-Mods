@@ -25,18 +25,18 @@ Statuswerte: **offen**, **in Arbeit**, **teilweise geprüft**, **abgenommen**. E
 | ID | Arbeitspaket | Status | Abhängigkeit / Ergebnis |
 |---|---|---|---|
 | P0 | Vorhandene Rettung, Pathfinding und Schnittstellen einordnen | Abgenommen für die dokumentierte Bestandsaufnahme | Abschnitt 3; vorhandene Nachweise in Abschnitt 4 |
-| P1 | Erzeuger, Zustandsübergänge und Beobachtungsverträge auditieren | Statischer Audit abgeschlossen; Korrektur/Runtimefreigabe offen | Ausführliche Audits vom 25.11.; bestätigter API-Befund F1 vor Brokererweiterung beheben |
-| P2 | Gemeinsames Kandidatenmodell, Nachbeobachtung und Budgets | Offen | P1-Verträge; keine neuen permanenten Vollscans |
-| P3 | Bau- und Geländeänderungen automatisch anbinden | Teilweise geprüft | KI-AIV-Zugbrücke vorhanden; weitere Quellen offen |
+| P1 | Erzeuger, Zustandsübergänge und Beobachtungsverträge auditieren | Statischer Audit abgeschlossen; neue Schnittstellen in Arbeit | F1 aus APIShared0.73.4 übernommen und12/12 geprüft; additive Broker in isolierter API-Kopie |
+| P2 | Gemeinsames Kandidatenmodell, Nachbeobachtung und Budgets | Implementiert und offline geprüft; Integration weiter in Arbeit | Queue, lokale Current/Next-Discovery, echte Coordinator-Fixtures und kausale Save-Daten; keine permanenten Vollscans |
+| P3 | Bau- und Geländeänderungen automatisch anbinden | Implementiert; offline geprüft; Spielabnahme offen | 15 gemeinsame Quellen, vollständige native Hüllen einschließlich Compound/Keep-Rotation und Cleanup |
 | P4 | Gewöhnliche Soldaten und KI-Gruppen im Normalbetrieb absichern | Teilweise geprüft | P2/P3; bisherige kontrollierte Gruppenbelege erhalten |
-| P5 | Begonnene Schritte, Next-Belegung und Sonderflächen | Offen | Vorher eigener vollständiger Bewegungs-/Belegungsaudit |
+| P5 | Begonnene Schritte, Next-Belegung und Sonderflächen | Gewöhnliche Schritte implementiert/offline geprüft; Sondermodi bleiben gesondert | Ein zuvor erfasster Schritt darf fortschreiten; legale Sonderbewegungen werden nicht als normale Blockade behandelt |
 | P6 | Zivile Arbeit, Grabenfälle und Besatzungen integrieren | Teilweise geprüft | Einzelne echte Abläufe bestanden; automatische Anbindung offen |
 | P7 | Bewegungsfehler als weitere Kandidatenquelle | Offen | Bestehende Besitzer nutzen; keine Mutation im Such-Callback |
 | P8 | Lifecycle, Saves, Editor und Multiplayer | Teilweise geprüft | Sitzungsgates vorhanden; neue echte Abnahmen erforderlich |
 | P9 | Normalbetrieb, Last und Kompatibilität abnehmen | Offen | P3–P8, messbare Budget- und Verhaltensnachweise |
 | P10 | Abgenommenen Kern nach Pathfinding überführen | Offen | Testmod-Abnahme und genau ein aktiver Rettungsbesitzer |
 
-**Nächster konkreter Arbeitsschritt:** Den bestätigten Fehler F1 im AIV-Fehlerreporter gezielt korrigieren und die reproduzierten Gegenbeispiele als erfolgreiche Isolation absichern. Danach P2 und den additiven funktionalen Broker gemäß den abgeschlossenen statischen Verträgen implementieren. Die tatsächliche Live-Spannenprüfung und Spielabnahme bleiben bis zu einem entsprechenden Auftrag offen.
+**Nächster konkreter Arbeitsschritt:** Die tatsächlichen finalen UnitMove-Argumente und nativen Rückgaben am bereits vorhandenen APIShared-Besitzer anbinden; veränderbare Extender-Postwerte genügen dafür nicht. Anschließend gemeinsame Integrations-, Save-, Budget- und Lifecycleprüfungen abschließen. Fortschritt und noch ausstehende Spielprüfungen stehen in [IMPLEMENTATION.md](IMPLEMENTATION.md) und [INGAME-PENDING.md](INGAME-PENDING.md).
 
 ### Offline-Fortschritt vom 25.11.2026
 

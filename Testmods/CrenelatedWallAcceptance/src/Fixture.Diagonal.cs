@@ -11,11 +11,10 @@ using SHCDESE.Interop.Enums;
 
 namespace CrenelatedWallAcceptance
 {
-    // Evidence only (scenario crenel-diagonal-walk): can units walk diagonally from a low crenel to
-    // the next low crenel when both tiles between them are high crenels? A 4x4 block and a 2x5 band
-    // are forced into a checkerboard. The mod's height adjustment is off; a Harmony postfix on the
-    // mod's straight predicate keeps the forced low tiles drawn as straight pieces, so the renderer
-    // does not raise them again. Interior low tiles of the block are reachable only diagonally.
+    // Scenario crenel-diagonal-walk: a 4x4 block and a 2x5 band (corners, junctions, inner tiles)
+    // built with the mod's height adjustment on must settle into the map checkerboard and keep it
+    // through render maintenance. Units then cross them diagonally from low to low crenel: interior
+    // low tiles of the block are reachable only diagonally.
     internal sealed partial class Fixture
     {
         private IEnumerable<AutomationStep> DiagonalWalkSteps()
@@ -27,28 +26,11 @@ namespace CrenelatedWallAcceptance
             yield return new AutomationStep("diag-ladder", TimeSpan.FromSeconds(420), DiagonalLadder, true);
         }
 
-        private static readonly HashSet<int> forcedLow = new HashSet<int>();
-        private static Harmony diagonalHarmony;
-        private static void DiagonalPostfix(int tile, int direction, ref int __result)
-        {
-            if (__result != 0 || direction != 0) return;
-            lock (forcedLow) if (!forcedLow.Contains(tile)) return;
-            if ((Flags(tile) & (uint)TilePropertyFlag.CrenelatedHigh) == 0) __result = 1;
-        }
-
         private IEnumerable<AutomationWait> DiagonalStart(AutomationRun run)
         {
-            SetSwitches(true, false, false); // height adjustment and blockade off: the mod writes nothing
+            SetSwitches(true, true);
             ArmLobby(-1, PeaceMinutes, fixedWorld: true);
-            if (diagonalHarmony == null)
-            {
-                Assembly mod = BepInEx.Bootstrap.Chainloader.PluginInfos[WallMod].Instance.GetType().Assembly;
-                MethodInfo invoke = AccessTools.Method(mod.GetType("CrenelatedWallTest.StraightGraphicsHook", true), "Invoke");
-                Require(invoke != null, "straight predicate callback missing");
-                diagonalHarmony = new Harmony(Plugin.Guid + ".diagonal");
-                diagonalHarmony.Patch(invoke, postfix: new HarmonyMethod(typeof(Fixture).GetMethod(nameof(DiagonalPostfix), BindingFlags.Static | BindingFlags.NonPublic)));
-            }
-            log("DIAG settings heights=off block=off; predicate postfix keeps forced lows straight");
+            log("DIAG settings heights=on");
             foreach (var wait in run.StartSkirmish("4spielerkarte.map", new[] { AILords.SK_RAT })) yield return wait;
         }
 
@@ -60,39 +42,16 @@ namespace CrenelatedWallAcceptance
             var m = run.CurrentMission;
             foreach (var w in Support(run, m, owner, 1, 2, 6, 2, false)) yield return w;
             foreach (var w in Support(run, m, owner, 7, 2, 12, 2, false)) yield return w;
-            for (int y = BlockY0; y <= BlockY1; y++) foreach (var w in Line(run, m, "diag-block", owner, BlockX0, y, BlockX1, y, null)) yield return w;
-            for (int y = 3; y <= 4; y++) foreach (var w in Line(run, m, "diag-band", owner, BandX0, y, BandX1, y, null)) yield return w;
+            for (int y = BlockY0; y <= BlockY1; y++) foreach (var w in Line(run, m, "diag-block", owner, BlockX0, y, BlockX1, y)) yield return w;
+            for (int y = 3; y <= 4; y++) foreach (var w in Line(run, m, "diag-band", owner, BandX0, y, BandX1, y)) yield return w;
             foreach (var w in run.SetPause(m, false)) yield return w;
-            yield return run.WaitForTicks(m, 60);
-            foreach (var w in run.SetPause(m, true)) yield return w;
-            log("DIAG_VANILLA " + run.InSimulation(m, () => DiagonalGrid()));
-            // Force the checkerboard: low where the map parity is low, then rebuild path edges.
-            run.InSimulation(m, () =>
-            {
-                var tiles = GameTileManagerAPI.Instance;
-                foreach (var (x, y) in DiagonalCells())
-                {
-                    int id = Tile(x, y);
-                    Require(IsCrenel(id), "test crenel missing at " + x + "," + y);
-                    TilePropertyFlag flags = tiles.GetTilePropertyFlag(id);
-                    bool high = Parity(x, y);
-                    if (!high) lock (forcedLow) forcedLow.Add(id);
-                    tiles.SetTilePropertyFlag(id, high ? flags | TilePropertyFlag.CrenelatedHigh : flags & ~TilePropertyFlag.CrenelatedHigh);
-                }
-                foreach (var (x, y) in DiagonalCells())
-                {
-                    Require(GamePathingManagerAPI.Instance.RecalculateTileAndNeighbours(x, y), "path refresh failed");
-                    tiles.RefreshTileAreaVisuals(x, y);
-                }
-                return 0;
-            });
-            foreach (var w in run.SetPause(m, false)) yield return w;
-            yield return run.WaitForTicks(m, 200); // render maintenance must keep the forced lows
+            yield return run.WaitForTicks(m, 200); // render maintenance must keep the checkerboard
             foreach (var w in run.SetPause(m, true)) yield return w;
             string grid = run.InSimulation(m, () => DiagonalGrid());
-            log("DIAG_FORCED " + grid);
+            log("DIAG_GRID " + grid);
             Require(run.InSimulation(m, () => DiagonalCells().All(c => ((Flags(Tile(c.Item1, c.Item2)) & (uint)TilePropertyFlag.CrenelatedHigh) != 0) == Parity(c.Item1, c.Item2))),
-                "the forced checkerboard did not survive render maintenance");
+                "block and band did not settle into the checkerboard");
+            log(run.InSimulation(m, () => CheckHeights("diagonal-build")));
         }
 
         private IEnumerable<(int, int)> DiagonalCells()

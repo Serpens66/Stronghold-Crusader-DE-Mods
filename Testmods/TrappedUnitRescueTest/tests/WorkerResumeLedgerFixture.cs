@@ -10,10 +10,11 @@ namespace TrappedUnitRescueTest.Tests
         private static WorkerResumeTicket Ticket(int id)
         {
             WorkerTravelPolicy.TryDescribe(eChimps.CHIMP_TYPE_QUARRY_OX,1,out var rule);
-            Func<int,ushort> word=offset=>offset==0x6E6?(ushort)eChimps.CHIMP_TYPE_QUARRY_OX:offset==0x918?(ushort)1:offset==0x6EE?(ushort)2:(ushort)0;
-            Func<int,uint> dword=offset=>offset==0x6F0?(uint)id:0;
+            Func<int,ushort> word=offset=>offset==0x6E6?(ushort)eChimps.CHIMP_TYPE_QUARRY_OX:offset==0x918 || offset==0x990 || offset==0x98E?(ushort)1:offset==0x6EE?(ushort)2:(ushort)0;
+            Func<int,uint> dword=offset=>offset==0x6F0?(uint)id:offset==0x93C?33u:0;
             Check(WorkerJourneySnapshot.TryCapture(rule,word,dword,out var job),"fixture snapshot");
-            return new WorkerResumeTicket(id,(uint)id,rule.UnitType,1,2,2,33,123,456,job);
+            return new WorkerResumeTicket(id,(uint)id,rule.UnitType,1,2,2,33,123,456,job,
+                new WorkerBindingSnapshot(rule.RequiredExternalBindings,1,0,1,0,0,0));
         }
         internal static void Run()
         {
@@ -64,7 +65,8 @@ namespace TrappedUnitRescueTest.Tests
             {var cut=new byte[length];Array.Copy(one,cut,length);Check(!single.TryRestore(cut,0) && single.Count==1,"truncated atomic parse");}
             Mutate(single,one,0,0,"signature");Mutate(single,one,4,255,"version");Mutate(single,one,6,255,"count");
             Mutate(single,one,18,255,"unit type");Mutate(single,one,22,255,"state");
-            Mutate(single,one,45,255,"field count");Mutate(single,one,49,255,"field offset");Mutate(single,one,53,255,"field width");
+            Mutate(single,one,45,255,"receipt kind");Mutate(single,one,46,255,"binding flags");Mutate(single,one,50,255,"workplace id");
+            Mutate(single,one,74,255,"field count");Mutate(single,one,78,255,"field offset");Mutate(single,one,82,255,"field width");
             var extra=new byte[one.Length+1];Array.Copy(one,extra,one.Length);Check(!single.TryRestore(extra,0),"trailing data");
             var two=new byte[10+(one.Length-10)*2];Array.Copy(one,two,one.Length);two[6]=2;
             Array.Copy(one,10,two,one.Length,one.Length-10);Check(!single.TryRestore(two,0),"duplicate ids");
