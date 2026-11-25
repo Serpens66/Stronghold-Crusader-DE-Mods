@@ -609,6 +609,37 @@ function Get-FileHashRecord {
     }
 }
 
+# A release starts with a clean worktree. Retire only newly built, untracked
+# binaries that are present byte-for-byte in the validated release package.
+function Remove-UntrackedReleaseBinaries([string]$Workspace, [string]$PackageDirectory, $FileRecords) {
+    $workspacePrefix = [IO.Path]::GetFullPath($Workspace).TrimEnd('\') + '\'
+    $packagePrefix = [IO.Path]::GetFullPath($PackageDirectory).TrimEnd('\') + '\'
+    if (-not $packagePrefix.StartsWith($workspacePrefix, [StringComparison]::OrdinalIgnoreCase) -or $packagePrefix -ieq $workspacePrefix) {
+        throw 'Release build package must be inside the workspace.'
+    }
+    $packagePath = $packagePrefix.Substring($workspacePrefix.Length).Replace('\', '/')
+    $untracked = (Invoke-CheckedCommand -FilePath 'git' -Arguments @('-C', $Workspace, '-c', 'core.quotepath=false',
+        'ls-files', '--others', '--exclude-standard', '--', $packagePath)).Output
+    $packageFolder = [IO.Path]::GetFileName($packagePrefix.TrimEnd('\'))
+    $staged = @{}
+    foreach ($record in $FileRecords) { $staged[$record.Path] = $record }
+    $removals = @(foreach ($path in $untracked) {
+        if ([IO.Path]::GetExtension($path) -notin @('.dll', '.pdb')) { continue }
+        $file = [IO.Path]::GetFullPath((Join-Path $Workspace $path))
+        if (-not $file.StartsWith($packagePrefix, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Untracked build output escaped its package: $path"
+        }
+        Assert-ModCheckpointPath $file
+        $recordPath = $packageFolder + '/' + $file.Substring($packagePrefix.Length).Replace('\', '/')
+        $record = $staged[$recordPath]
+        if (-not $record -or (Get-Sha256Hex -Path $file) -cne $record.Sha256) {
+            throw "Untracked binary differs from the verified release package: $path"
+        }
+        $file
+    })
+    foreach ($file in $removals) { [IO.File]::Delete($file) }
+}
+
 function Get-DependencyRecords {
     param(
         [Parameter(Mandatory)]$Metadata,
