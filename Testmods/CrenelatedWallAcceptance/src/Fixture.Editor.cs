@@ -42,7 +42,7 @@ namespace CrenelatedWallAcceptance
             yield return new AutomationStep("editor-off-build", TimeSpan.FromSeconds(180), EditorVanillaBuild, true);
             yield return new AutomationStep("editor-on-load", TimeSpan.FromSeconds(180), r => LoadEditor(r, true, vanillaMapPath));
             yield return new AutomationStep("editor-on-check", TimeSpan.FromSeconds(120), EditorVanillaCheck, true);
-            yield return new AutomationStep("editor-adopt-load", TimeSpan.FromSeconds(180), r => { SetExisting(true, false, false); return LoadEditor(r, true, vanillaMapPath); });
+            yield return new AutomationStep("editor-adopt-load", TimeSpan.FromSeconds(180), r => LoadEditor(r, true, vanillaMapPath, adoptInEditor: true));
             yield return new AutomationStep("editor-adopt-check", TimeSpan.FromSeconds(120), EditorAdoptCheck, true);
         }
 
@@ -66,10 +66,11 @@ namespace CrenelatedWallAcceptance
         }
 
         // ---------- editor session ----------
-        private IEnumerable<AutomationWait> LoadEditor(AutomationRun run, bool enable, string explicitPath, bool heights = true)
+        private IEnumerable<AutomationWait> LoadEditor(AutomationRun run, bool enable, string explicitPath, bool heights = true, bool adoptInEditor = false)
         {
             foreach (var w in ToMenu(run)) yield return w;
             SetSwitches(enable, heights);
+            if (adoptInEditor) SetExisting(true, false, false);
             string path = explicitPath;
             FileHeader header = null;
             if (path == null)

@@ -15,7 +15,9 @@ namespace CrenelatedWallTest
 {
     // This predicate has exactly two callers, both in Vanilla's tile graphics builder.
     // The callback only reads a published assignment and records redraws of watched tiles;
-    // it never chooses logical heights and writes no game data.
+    // it never chooses logical heights and writes no game data. Its answer depends only on
+    // synchronized tile state (EndpointGraphicsPolicy), because Vanilla also runs the builder
+    // locally on one peer (camera rotation, flatten toggle) and ORs high on a 0 answer (65EF0).
     internal sealed class StraightGraphicsHook
     {
         internal const int Rva = 0x5C2D0, BodySize = 237, Displaced = 15;

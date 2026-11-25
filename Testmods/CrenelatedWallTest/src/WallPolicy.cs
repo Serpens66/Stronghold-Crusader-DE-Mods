@@ -72,11 +72,6 @@ namespace CrenelatedWallTest
         internal static bool IsDiagonalPiece(Func<int, int, WallCell> read, WallCell cell) =>
             Crenel(cell) && !cell.Structure && CardinalMask(read, cell.X, cell.Y) == 0 && DiagonalMask(read, cell.X, cell.Y) != 0;
 
-        // Exactly two opposite axis neighbours: the only shape native 5C2D0 itself draws straight.
-        // Every other shape (endpoint, corner, junction, cross, isolated, inside a block) takes the
-        // special branch, where 65EF0 ORs high unless the graphics hook draws it straight.
-        internal static bool IsStraightMiddle(int mask) => mask == 0b0101 || mask == 0b1010;
-
         // Desired logical height, or null when Vanilla's own height must stay untouched. Every intact
         // crenel follows the map checkerboard, so units cross any shape diagonally from low to low
         // (in-game proof 2026-11-25); pieces without axis neighbours alternate along x.

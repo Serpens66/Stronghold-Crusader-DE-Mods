@@ -387,7 +387,7 @@ namespace CrenelatedWallTest
                 bool? target = WallPolicy.TargetHigh(read, cell);
                 // Publish the straight drawing before the bit changes: a redraw in between would
                 // otherwise take the special branch and OR the new low tile high again (65EF0).
-                graphics.SetEndpoint(id, Assignment(read, cell, target ?? cell.High));
+                graphics.SetEndpoint(id, Assignment(cell, target ?? cell.High));
                 if (target.HasValue && target.Value != cell.High) writes.Add(new KeyValuePair<WallCell, bool>(cell, target.Value));
             }
             // Validate the public path service before publishing any changed flag.
@@ -405,20 +405,12 @@ namespace CrenelatedWallTest
             foreach (int id in considered) signatures[id] = Signature(managed[id]);
             return writes.Count;
         }
-        // Straight drawing for a low, intact managed crenel that Vanilla would draw as a special piece
-        // (everything except a straight middle), or null. The hook picks the axis from the native
-        // neighbour table and accepts only the neighbourhood recorded here.
-        private EndpointAssignment Assignment(Func<int, int, WallCell> read, WallCell cell, bool high)
-        {
-            if (high || cell.Damaged || cell.Structure) return null;
-            var neighbors = new int[4]; int count = 0, mask = 0;
-            for (int d = 0; d < 4; d++)
-            {
-                WallCell next = read(cell.X + NeighborX[d], cell.Y + NeighborY[d]);
-                if (WallPolicy.Crenel(next)) { neighbors[count++] = next.Id; mask |= 1 << d; }
-            }
-            return WallPolicy.IsStraightMiddle(mask) ? null : new EndpointAssignment(cell.Owner, cell.Y, neighbors, count);
-        }
+        // Straight drawing for every low, intact managed crenel (straight middles included; native
+        // 5C2D0 answers 1 for them before the hook looks), or null. Deliberately independent of the
+        // neighbourhood: the hook picks the axis from the live neighbour table, so a camera rotation
+        // or flatten toggle (full re-render on one peer only) can never raise a managed low crenel.
+        private static EndpointAssignment Assignment(WallCell cell, bool high) =>
+            high || cell.Damaged || cell.Structure ? null : new EndpointAssignment(cell.Owner, cell.Y);
         // Shape and state of a managed tile, read straight from the layers: it runs for every
         // reported redraw, so it must not allocate (WallCell reads would create nine objects).
         private int Signature(WallCell at)

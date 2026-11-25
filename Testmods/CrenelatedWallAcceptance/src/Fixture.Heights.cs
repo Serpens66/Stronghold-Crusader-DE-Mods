@@ -26,7 +26,32 @@ namespace CrenelatedWallAcceptance
             yield return new AutomationStep("heights-any-order", TimeSpan.FromSeconds(420), HeightsAnyOrder, true);
             yield return new AutomationStep("heights-diagonal", TimeSpan.FromSeconds(240), EditorDiagonal, true);
             yield return new AutomationStep("heights-frame", TimeSpan.FromSeconds(420), HeightsFrame, true);
+            yield return new AutomationStep("heights-local-redraw", TimeSpan.FromSeconds(180), HeightsLocalRedraw, true);
             foreach (var step in AiSteps()) yield return step;
+        }
+
+        // Camera rotation and the flatten toggle re-run Vanilla's tile graphics builder (65830) over
+        // the whole map on this peer only, and its special branch ORs the logic high bit (65EF0). No
+        // managed crenel may change; in a /devdiag build no redraw line may report height writes.
+        // Four right rotations and two toggles restore the original view.
+        private IEnumerable<AutomationWait> HeightsLocalRedraw(AutomationRun run)
+        {
+            var m = run.CurrentMission;
+            foreach (var w in EditorSettle(run, m)) yield return w;
+            Drain(); crenelSeen.Clear();
+            Dictionary<int, uint> before = Engine(() => humanTiles.ToDictionary(id => id, id => Flags(id)));
+            int lowBefore = before.Count(p => (p.Value & (uint)TilePropertyFlag.CrenelatedHigh) == 0);
+            Require(lowBefore > 0, "no low managed crenel before the local redraw");
+            for (int i = 0; i < 4; i++) { GameMap.instance.RotateMapRight(); yield return run.WaitForTicks(m, 4); }
+            for (int i = 0; i < 2; i++) { EngineInterface.toggleFlattenedLandscapeMode(); yield return run.WaitForTicks(m, 4); }
+            foreach (var w in EditorSettle(run, m)) yield return w;
+            Drain();
+            List<string> changed = Engine(() => before.Where(p => Flags(p.Key) != p.Value).Select(p => Describe(p.Key) + " was=" + p.Value.ToString("X")).ToList());
+            Require(changed.Count == 0, "local redraw changed managed crenels: " + string.Join(" | ", changed));
+            List<string> writes = crenelSeen.Where(l => l.Contains("CRENEL_MP_REDRAW") && !l.Contains("heightWrites=0;")).ToList();
+            Require(writes.Count == 0, "redraw normalization wrote heights: " + string.Join(" | ", writes));
+            log(Engine(() => CheckHeights("heights-local-redraw")) + " lowBefore=" + lowBefore + " rotations=4 flattenToggles=2 redrawLines=" +
+                crenelSeen.Count(l => l.Contains("CRENEL_MP_REDRAW")));
         }
 
         internal IEnumerable<AutomationStep> AiSteps()
@@ -364,6 +389,9 @@ namespace CrenelatedWallAcceptance
                 Require((bool)property.GetValue(settings) == entry.Item2, entry.Item1 + " could not be set to " + entry.Item2);
             }
             log("SETTINGS enable=" + enable + " heights=" + heights);
+            // Test world: the "align existing crenels" options are personal settings the user may have
+            // left on; every session start defines them (off unless a step sets them afterwards).
+            SetExisting(false, false, false);
         }
     }
 }

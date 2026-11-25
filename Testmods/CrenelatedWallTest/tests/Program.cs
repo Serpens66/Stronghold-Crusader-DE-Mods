@@ -20,8 +20,8 @@ internal static class Program
     {
         internal readonly Dictionary<int, WallCell> Cells = new Dictionary<int, WallCell>();
         internal readonly HashSet<int> Managed = new HashSet<int>();
-        // Published straight-drawing assignments: tile -> axis neighbour ids seen at normalization.
-        internal readonly Dictionary<int, int[]> Assignments = new Dictionary<int, int[]>();
+        // Published straight-drawing assignments: tile -> owner (no neighbourhood, see EndpointAssignment).
+        internal readonly Dictionary<int, int> Assignments = new Dictionary<int, int>();
         // Frozen session switch of WallRuntime: height adjustment.
         internal bool Heights = true;
         public bool TryRead(int x, int y, out WallCell cell)
@@ -54,7 +54,7 @@ internal static class Program
             Normalize(ids);
         }
         // Mirrors WallRuntime.Normalize: only managed, live, owned crenels; TargetHigh decides, and
-        // every low non-middle tile gets a straight-drawing assignment for its current neighbourhood.
+        // every low intact tile gets a straight-drawing assignment (owner marker).
         internal int Normalize(IEnumerable<int> ids)
         {
             Func<int, int, WallCell> read = WallPolicy.Reader(this);
@@ -65,9 +65,7 @@ internal static class Program
                 if (!Cells.TryGetValue(id, out WallCell cell) || !WallPolicy.Crenel(cell)) { Managed.Remove(id); Assignments.Remove(id); continue; }
                 bool? target = WallPolicy.TargetHigh(read, cell);
                 bool high = target ?? cell.High;
-                int[] around = Cardinal(cell).Select(c => c.Id).OrderBy(i => i).ToArray();
-                if (!high && !cell.Damaged && !cell.Structure && !WallPolicy.IsStraightMiddle(WallPolicy.CardinalMask(read, cell.X, cell.Y)))
-                    Assignments[id] = around;
+                if (!high && !cell.Damaged && !cell.Structure) Assignments[id] = cell.Owner;
                 else Assignments.Remove(id);
                 if (target.HasValue && target.Value != cell.High) writes.Add(new KeyValuePair<int, bool>(id, target.Value));
             }
@@ -100,7 +98,8 @@ internal static class Program
                 if (TryRead(cell.X + d.Item1, cell.Y + d.Item2, out WallCell next) && WallPolicy.Crenel(next)) yield return next;
         }
         // Renderer: straight middles keep their bit; every other shape is ORed high unless the hook
-        // draws it straight (managed, intact, low, assignment for exactly the current neighbours).
+        // draws it straight (managed, intact, low, assignment for the current owner). The live shape
+        // only chooses the axis, so a full re-render never raises a managed low crenel.
         internal void VanillaGraphics()
         {
             foreach (WallCell cell in Cells.Values.ToArray())
@@ -109,8 +108,8 @@ internal static class Program
                 bool Has(int x, int y) => TryRead(x, y, out WallCell c) && WallPolicy.Crenel(c);
                 bool n = Has(cell.X, cell.Y - 1), s = Has(cell.X, cell.Y + 1), e = Has(cell.X + 1, cell.Y), w = Has(cell.X - 1, cell.Y);
                 if ((n && s && !e && !w) || (e && w && !n && !s)) continue;
-                bool drawnStraight = Managed.Contains(cell.Id) && !cell.High && Assignments.TryGetValue(cell.Id, out int[] around) &&
-                    around.SequenceEqual(Cardinal(cell).Select(c => c.Id).OrderBy(i => i));
+                bool drawnStraight = Managed.Contains(cell.Id) && !cell.High && Assignments.TryGetValue(cell.Id, out int assigned) &&
+                    assigned == cell.Owner;
                 if (!drawnStraight) cell.High = true;
             }
         }
@@ -130,7 +129,7 @@ internal static class Program
             CSharpCompilation compiled = CompileRuntime(root, sdk);
             ApiCompatibility(compiled, sdk);
             StraightRows(); EnterableShapes(); CheckerboardShapes(); ScopeAndOwnership(); Persistence(); EndpointGraphics(); RandomConstruction();
-            OrderIndependence(); ExistingWalls();
+            OrderIndependence(); ExistingWalls(); LocalRedraw();
             RepairOrigins();
             Console.WriteLine("PASS: " + checks + " assertions; production runtime compilation, checkerboard policy, straight-drawing assignments, redraw stability, scope and MessagePack persistence. Real game/peer execution is not inferred.");
         }
@@ -570,12 +569,12 @@ internal static class Program
         int tile = 500, row = 20;
         int[] steps = { -40, -39, 1, 41, 40, 39, -1, -41 };
         Array.Copy(steps, 0, deltas, row * 8, 8);
-        // Assignment for exactly the given native directions (0/2/4/6) as axis neighbours.
+        // Live tile with exactly the given native directions (0/2/4/6) as axis neighbours.
         EndpointAssignment Assign(int player, params int[] directions)
         {
             Array.Clear(logic); logic[tile] = 0x300; owner[tile] = (byte)(0xA0 | (player - 1));
             foreach (int d in directions) logic[tile + steps[d]] = 0x300;
-            return new EndpointAssignment(player, row, directions.Select(d => tile + steps[d]).ToArray(), directions.Length);
+            return new EndpointAssignment(player, row);
         }
         bool Matches(EndpointAssignment a, int direction) => EndpointGraphicsPolicy.Matches(a, tile, row, direction, logic, deltas, damage, structure, owner);
         foreach (int player in Enumerable.Range(1, 8)) foreach (int d in new[] { 0, 2, 4, 6 })
@@ -588,19 +587,23 @@ internal static class Program
             damage[tile] = 1; Check(!Matches(assignment, d), "Damaged graphics were replaced"); damage[tile] = 0;
             structure[tile] = 3; Check(!Matches(assignment, d), "Building graphics were replaced"); structure[tile] = 0;
             owner[tile] ^= 1; Check(!Matches(assignment, d), "Transferred endpoint was rendered from stale metadata"); owner[tile] ^= 1;
-            logic[tile + steps[(d + 2) & 7]] = 0x300; Check(!Matches(assignment, d), "A new corner reused old endpoint graphics");
+            // Shape changes without normalization (local full re-render): the assignment stays valid,
+            // only the axis follows the live neighbours, so the renderer never ORs the tile high.
+            logic[tile + steps[(d + 2) & 7]] = 0x300;
+            Check(Matches(assignment, 0) && Matches(assignment, 4) && !Matches(assignment, 2) && !Matches(assignment, 6), "New corner not drawn along direction 0");
             logic[tile + steps[(d + 2) & 7]] = 0;
-            logic[tile + steps[d]] = 0; Check(!Matches(assignment, d), "An isolated tile reused old endpoint graphics");
+            logic[tile + steps[d]] = 0;
+            Check(Matches(assignment, 0) && !Matches(assignment, 2), "Isolated tile not drawn along direction 0");
             Check(!EndpointGraphicsPolicy.Matches(assignment, -1, row, d, logic, deltas, damage, structure, owner), "Negative id accepted");
             Check(!EndpointGraphicsPolicy.Matches(assignment, tile, -1, d, logic, deltas, damage, structure, owner), "Wrong row accepted");
             // Corner (two perpendicular neighbours): tie, drawn along the axis of direction 0 only.
             var corner = Assign(player, d, (d + 2) & 7);
             Check(Matches(corner, 0) && Matches(corner, 4) && !Matches(corner, 2) && !Matches(corner, 6), "Corner not drawn along direction 0");
-            logic[tile + steps[(d + 4) & 7]] = 0x300; Check(!Matches(corner, 0), "Corner assignment reused for a junction");
+            logic[tile + steps[(d + 4) & 7]] = 0x300; Check(Matches(corner, d) && !Matches(corner, (d + 2) & 7), "Corner turned junction not drawn along its bar");
             // T junction (bar along d, stem across): straight along the bar.
             var junction = Assign(player, d, (d + 4) & 7, (d + 2) & 7);
             Check(Matches(junction, d) && !Matches(junction, (d + 2) & 7), "Junction not drawn along its bar");
-            logic[tile + steps[(d + 2) & 7]] = 0; Check(!Matches(junction, d), "Junction assignment reused for a straight middle");
+            logic[tile + steps[(d + 2) & 7]] = 0; Check(Matches(junction, d) && !Matches(junction, (d + 2) & 7), "Junction turned middle not drawn along its axis");
         }
         // Cross / block inside (four neighbours): tie, direction 0.
         var full = Assign(1, 0, 2, 4, 6);
@@ -612,9 +615,33 @@ internal static class Program
         Check(Matches(piece, 0), "Low diagonal piece not drawn straight");
         Check(!Matches(piece, 2), "Diagonal piece answered a second axis");
         logic[tile] |= 0x400000; Check(!Matches(piece, 0), "High diagonal piece replaced");
-        logic[tile] &= ~0x400000; logic[tile + steps[0]] = 0x300;
-        Check(!Matches(piece, 0), "Diagonal assignment reused after an axis neighbour appeared");
-        bool invalid = false; try { new EndpointAssignment(1, row, new int[2], 3); } catch (ArgumentOutOfRangeException) { invalid = true; }
-        Check(invalid, "Assignment accepted more neighbours than given");
+        logic[tile] &= ~0x400000; logic[tile + steps[2]] = 0x300;
+        Check(Matches(piece, 2) && Matches(piece, 6) && !Matches(piece, 0), "Diagonal piece with a new axis neighbour not drawn along it");
+        Check(!Matches(new EndpointAssignment(1, row + 1), 2), "Assignment of another row accepted");
+    }
+    // Camera rotation and the flatten toggle re-run the renderer over all tiles on one peer only,
+    // between ticks and without normalization (DLL_SetMapRotation/72720 -> 5D8A0 -> 65830). It must
+    // never raise a managed low crenel, otherwise that peer alone diverges (logic bit, 65EF0).
+    private static void LocalRedraw()
+    {
+        var w = new World();
+        w.Build(10, 11, 20, 11); w.Build(15, 5, 15, 17); w.Settle();
+        int[] lows = w.Managed.Where(id => !w.Cells[id].High).ToArray();
+        Check(lows.Length > 4 && !w.HighAt(19, 11), "Local redraw fixture has no low crenels");
+        // Unreported shape change: (19,11) becomes a low endpoint, (15,16) an endpoint of the stem.
+        w.Remove(20, 11); w.Remove(15, 17);
+        w.VanillaGraphics(); w.VanillaGraphics();
+        foreach (int id in lows) if (w.Cells.ContainsKey(id)) Check(!w.Cells[id].High, "Local re-render raised managed low crenel " + id);
+        // Target jumps to high without an event (axis neighbour lost, the tile becomes a diagonal
+        // piece): the renderer leaves it low, the next normalization raises it with a path refresh.
+        var d = new World();
+        d.Put(11, 11, high: false); d.Put(12, 11); d.Put(12, 12); d.AdoptExisting(); d.Settle();
+        Check(!d.HighAt(11, 11), "Checkerboard tile (11,11) not low");
+        d.Remove(12, 11);
+        d.VanillaGraphics();
+        Check(!d.HighAt(11, 11), "Renderer raised a crenel whose target changed without an event");
+        Check(WallPolicy.TargetHigh(WallPolicy.Reader(d), d.Cells[11 * 800 + 11]) == true, "Diagonal piece target not high");
+        d.Settle();
+        Check(d.HighAt(11, 11), "Normalization did not raise the diagonal piece to its target");
     }
 }
