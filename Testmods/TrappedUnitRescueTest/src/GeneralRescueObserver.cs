@@ -54,6 +54,7 @@ namespace TrappedUnitRescueTest
             internal long Session,World;
             internal bool Invalid;
             internal readonly SortedDictionary<int,Captured> Units=new SortedDictionary<int,Captured>();
+            internal readonly HashSet<int> RetiredUnits=new HashSet<int>();
         }
         private readonly IRescueMutationWorld access;
         private readonly Action<bool> suppression;
@@ -178,13 +179,18 @@ namespace TrappedUnitRescueTest
             if(batch.Session!=context.SessionId || batch.World!=context.WorldGeneration){batch.Invalid=true;return null;}
             foreach(var unit in before)
             {
+                if(batch.RetiredUnits.Contains(unit.Id))continue;
                 if(batch.Units.TryGetValue(unit.Id,out Captured previous))
                 {
                     // Keep the earliest old reachable fields. Later nested observations may
                     // only add affected endpoints of the same still-unmoved identity/order.
                     if(previous.Before.GlobalId!=unit.GlobalId || previous.Order!=orders[unit.Id] ||
                         previous.Before.TileId!=unit.TileId || previous.Before.NextTileId!=unit.NextTileId)
-                    {batch.Invalid=true;continue;}
+                    {
+                        // A new order or reused actor retires only its own old proof.
+                        // Unchanged members still have complete independent geometry.
+                        batch.Units.Remove(unit.Id);capturedInterest[unit.Id]--;batch.RetiredUnits.Add(unit.Id);continue;
+                    }
                     previous.Before.AffectedCurrent|=unit.AffectedCurrent;
                     previous.Before.AffectedNext|=unit.AffectedNext;
                 }
@@ -205,6 +211,7 @@ namespace TrappedUnitRescueTest
                 try{WorldMutated?.Invoke();}catch{ReportBounded("world-mutation callback failed");}
             }
             if(completion==null || !batches.TryGetValue(completion.BatchId,out Batch batch))return;
+            if(completion.SessionId!=batch.Session || completion.WorldGeneration!=batch.World)return;
             batches.Remove(completion.BatchId);
             foreach(int id in batch.Units.Keys)capturedInterest[id]--;
             if(batch.Invalid || !completion.ReturnedNormally || completion.ContainsOriginalFailure || !completion.IsCurrentWorld ||

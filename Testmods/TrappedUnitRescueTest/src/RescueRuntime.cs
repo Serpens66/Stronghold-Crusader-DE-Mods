@@ -446,7 +446,7 @@ namespace TrappedUnitRescueTest
         private bool RelocateAndResume(UnitSnapshot before,bool resume,RescueResult result,int sourceTile=-1,bool probeOriginal=false)
         {
             if(sourceTile<0)sourceTile=before.TileId;
-            RescueCandidate? chosen=ChooseCandidate(before.Candidates,candidate=>native.OrdinaryGround(candidate.Tile) &&
+            RescueCandidate? chosen=ChooseCandidate(before.Candidates,candidate=>native.Tile(candidate.X,candidate.Y)==candidate.Tile && native.OrdinaryGround(candidate.Tile) &&
                 (native.Head(candidate.Tile)==0 || candidate.Tile==sourceTile && native.HasOccupancyExactlyOnce(sourceTile,before.Id)) && native.Connections(candidate.Tile)!=0);
             if(!chosen.HasValue && !probeOriginal) return Finish(result,RescueStatus.NoCandidate,"no-old-reachable-free-local-ground");
             var target=chosen.GetValueOrDefault();

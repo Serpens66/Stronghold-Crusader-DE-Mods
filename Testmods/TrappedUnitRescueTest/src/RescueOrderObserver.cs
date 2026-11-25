@@ -12,26 +12,28 @@ namespace TrappedUnitRescueTest
         private readonly Func<bool> ownRecovery;
         private readonly Action<int> before;
         private readonly Action<int,long> after;
+        private readonly Action<int> aborted;
         private readonly Func<int,bool> interested;
-        internal RescueOrderObserver(string owner,Func<bool> ownRecovery,Action<int> before,Action<int,long> after,Func<int,bool> interested=null)
-        {this.owner=owner;this.ownRecovery=ownRecovery;this.before=before;this.after=after;this.interested=interested;}
+        internal RescueOrderObserver(string owner,Func<bool> ownRecovery,Action<int> before,Action<int,long> after,Func<int,bool> interested=null,Action<int> aborted=null)
+        {this.owner=owner;this.ownRecovery=ownRecovery;this.before=before;this.after=after;this.interested=interested;this.aborted=aborted;}
         public IUnitMoveInvocation TryBegin(UnitMoveContext context)
         {
             if(context==null || context.UnitId<1 || context.UnitId>NativeRelocation.MaximumUnitId ||
                 interested!=null && !interested(context.UnitId) ||
                 context.OriginOwnerGuid==owner && ownRecovery())return null;
-            before(context.UnitId);return new Completion(context,after);
+            before(context.UnitId);return new Completion(context,after,aborted);
         }
         private sealed class Completion : IUnitMoveInvocation
         {
             private readonly UnitMoveContext context;
             private readonly Action<int,long> after;
+            private readonly Action<int> aborted;
             private int completed;
-            internal Completion(UnitMoveContext context,Action<int,long> after){this.context=context;this.after=after;}
+            internal Completion(UnitMoveContext context,Action<int,long> after,Action<int> aborted){this.context=context;this.after=after;this.aborted=aborted;}
             public void Complete(UnitMoveCompletion completion)
             {
-                if(Interlocked.Exchange(ref completed,1)!=0 || completion==null || !ReferenceEquals(context,completion.Context) ||
-                    !completion.NativeInvoked || !completion.NativeReturned || !completion.IsCurrentWorld)return;
+                if(Interlocked.Exchange(ref completed,1)!=0 || completion==null || !ReferenceEquals(context,completion.Context))return;
+                if(!completion.NativeInvoked || !completion.NativeReturned || !completion.IsCurrentWorld){aborted?.Invoke(context.UnitId);return;}
                 after(context.UnitId,completion.NativeResult);
             }
         }

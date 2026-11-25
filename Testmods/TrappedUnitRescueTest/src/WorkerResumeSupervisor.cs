@@ -3,11 +3,11 @@ using System.Collections.Generic;
 
 namespace TrappedUnitRescueTest
 {
-    internal enum WorkerRecoveryOutcome { Rejected, Resumed, Parked, OwnershipUncertain }
+    internal enum WorkerRecoveryOutcome { Rejected, Resumed, Parked, OwnershipUncertain, Superseded }
     internal enum WorkerReceiptState { MatchingActive, MatchingParked, MatchingStopped, ReplacedOrGone, Unknown }
     internal enum WorkerOrderObservation { Keep, Release, Rebind }
     internal interface IWorkerResumeAuthorityAware
-    {void BindResumeAuthority(Func<WorkerResumeTicket,bool> isCurrent);}
+    {void BindResumeAuthority(Func<WorkerResumeTicket,bool> isCurrent,Action<WorkerResumeTicket> invalidateSource);}
     internal interface IWorkerResumeBarrierView
     {bool HasOwnedArrivalBarrier(WorkerResumeTicket ticket);}
     internal interface IWorkerResumeWorld
@@ -33,17 +33,20 @@ namespace TrappedUnitRescueTest
         private readonly Dictionary<int,long> deferredOrders=new Dictionary<int,long>();
         private readonly HashSet<int> foreignOrders=new HashSet<int>();
         private readonly HashSet<int> abortedOrders=new HashSet<int>();
+        private readonly HashSet<WorkerResumeTicket> lostSources=new HashSet<WorkerResumeTicket>();
         private long deferredTick;
         internal bool IsExecutingNativeCall=>executingNativeCall;
-        internal bool HasPendingExternalOrders=>foreignOrders.Count!=0 || deferredOrders.Count!=0;
+        internal bool HasPendingExternalOrders=>foreignOrders.Count!=0 || deferredOrders.Count!=0 || lostSources.Count!=0;
         internal readonly WorkerResumeLedger Ledger=new WorkerResumeLedger();
         internal WorkerResumeSupervisor(IWorkerResumeWorld world)
         {
             this.world=world??throw new ArgumentNullException(nameof(world));
-            if(world is IWorkerResumeAuthorityAware aware)aware.BindResumeAuthority(AuthorityCurrent);
+            if(world is IWorkerResumeAuthorityAware aware)aware.BindResumeAuthority(AuthorityCurrent,InvalidateSource);
         }
-        private bool AuthorityCurrent(WorkerResumeTicket ticket)=>ticket!=null && !foreignOrders.Contains(ticket.UnitId) &&
+        private bool AuthorityCurrent(WorkerResumeTicket ticket)=>ticket!=null && !foreignOrders.Contains(ticket.UnitId) && !lostSources.Contains(ticket) &&
             Ledger.TryGetOwnedByUnit(ticket.UnitId,out var current) && ReferenceEquals(ticket,current);
+        private void InvalidateSource(WorkerResumeTicket ticket)
+        {if(ticket!=null && Ledger.TryGetOwnedByUnit(ticket.UnitId,out var current) && ReferenceEquals(ticket,current))lostSources.Add(ticket);}
         internal bool ObserveOrderPre(int unitId)
         {
             if(!Ledger.TryGetOwnedByUnit(unitId,out _))return false;
@@ -67,9 +70,15 @@ namespace TrappedUnitRescueTest
             out WorkerRecoveryOutcome outcome,out string reason)
         {
             coordinationDepth++;
-            bool accepted;int ownedUnit;
+            bool accepted;int ownedUnit=0;bool hadExternal=false;
             try{accepted=TryRecoverCore(before,mutation,tick,probe,out outcome,out reason,out ownedUnit);}
-            finally{if(--coordinationDepth==0)FlushExternalOrders(tick);}
+            finally
+            {
+                hadExternal=foreignOrders.Contains(ownedUnit) || Ledger.TryGetOwnedByUnit(ownedUnit,out var current) && lostSources.Contains(current);
+                if(--coordinationDepth==0)FlushExternalOrders(tick);
+            }
+            if(hadExternal && ownedUnit!=0 && !Ledger.TryGetOwnedByUnit(ownedUnit,out _))
+            {outcome=WorkerRecoveryOutcome.Superseded;reason="worker-native-external-order-or-identity-won";return false;}
             if(!accepted && outcome==WorkerRecoveryOutcome.OwnershipUncertain && Ledger.TryGetParkedByUnit(ownedUnit,out _))
             {outcome=WorkerRecoveryOutcome.Parked;reason="worker-foreign-order-handed-off-to-owned-park";return true;}
             return accepted;
@@ -188,7 +197,9 @@ namespace TrappedUnitRescueTest
         }
         private void FlushExternalOrders(long boundaryTick)
         {
-            if(deferredOrders.Count==0 && abortedOrders.Count==0)return;
+            if(deferredOrders.Count==0 && abortedOrders.Count==0 && lostSources.Count==0)return;
+            foreach(var lost in lostSources)Ledger.ReleaseOwned(lost);
+            lostSources.Clear();
             var pending=new List<KeyValuePair<int,long>>(deferredOrders);deferredOrders.Clear();long tick=Math.Max(deferredTick,boundaryTick);deferredTick=0;
             // At most one entry per owned receipt; no native call or unit-wide scan.
             foreach(var entry in pending)if(!ReconcileOrder(entry.Key,tick,entry.Value))deferredOrders[entry.Key]=entry.Value;
@@ -206,6 +217,6 @@ namespace TrappedUnitRescueTest
             }
         }
         internal void MarkWorldMutation()=>Ledger.MarkWorldMutation();
-        internal void Reset(){Ledger.Reset();deferredOrders.Clear();foreignOrders.Clear();abortedOrders.Clear();deferredTick=0;}
+        internal void Reset(){Ledger.Reset();deferredOrders.Clear();foreignOrders.Clear();abortedOrders.Clear();lostSources.Clear();deferredTick=0;}
     }
 }

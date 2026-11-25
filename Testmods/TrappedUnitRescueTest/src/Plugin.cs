@@ -83,7 +83,8 @@ namespace TrappedUnitRescueTest
                 orders=new RescueOrderObserver(Guid,()=>workers.Supervisor.IsExecutingNativeCall || generalObserver.IsRecovering,
                     id=>{generalObserver.ObserveOrder(id,true);if(workers.Ready)workers.Supervisor.ObserveOrderPre(id);},
                     (id,result)=>{if(workers.Ready)workers.Supervisor.ObserveOrderPost(id,workers.TickValue,result);},
-                    id=>generalObserver.IsInterestedInOrder(id) || workers.Supervisor.Ledger.TryGetOwnedByUnit(id,out _));
+                    id=>generalObserver.IsInterestedInOrder(id) || workers.Supervisor.Ledger.TryGetOwnedByUnit(id,out _),
+                    id=>workers.Supervisor.ObserveOrderAborted(id,workers.TickValue));
                 if(!UnitMoveEvents.TryRegister(Guid,"rescue-order-identity",orders,out string orderReason,
                     enabled:()=>generalObserver.HasEvidence || workers.Supervisor.Ledger.Count!=0))
                     throw new InvalidOperationException("Final unit-move observations unavailable: "+orderReason);

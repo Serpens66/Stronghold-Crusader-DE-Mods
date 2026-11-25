@@ -34,6 +34,8 @@ namespace TrappedUnitRescueTest.Tests
             var failed=Context(6);observer.TryBegin(failed).Complete(Completion(failed,returned:false));
             Check(post.Count==2,"throwing original is not claimed as a native returned order");
             Check(observer.TryBegin(Context(0))==null && observer.TryBegin(Context(10000))==null,"invalid unit domains never reach callbacks");
+            var filtered=new RescueOrderObserver("rescue",()=>false,id=>pre.Add(id),(id,result)=>post.Add(id+":"+result),id=>id==2);
+            int prior=pre.Count;Check(filtered.TryBegin(Context(500))==null && pre.Count==prior,"unrelated commands allocate no consumer receipt or scan pending units");
             var skipped=Context(7);observer.TryBegin(skipped).Complete(Completion(skipped,invoked:false));
             Check(post.Count==2,"uninvoked originals are not treated as executed new orders");
             Console.WriteLine("PASS: final native order consumer checks="+checks+"; effective identities, own-origin distinction and exact native receipts; no native calls.");

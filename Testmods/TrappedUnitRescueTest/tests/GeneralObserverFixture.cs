@@ -89,6 +89,14 @@ namespace TrappedUnitRescueTest.Tests
             observer.Tick(100);
             Require(observer.PendingCount==0 && world.RescueCalls==1 && observer.RescueCount==1,"admitted tick performs recovery");
             Require(ReferenceEquals(before,world.Rescued[0]),"the original snapshot reaches the real queue evaluator");
+            Require(!observer.IsInterestedInOrder(1) && !observer.IsInterestedInOrder(9999),"completed work leaves no per-unit command interest");
+            var splitWorld=new World();var split=New(splitWorld);var outerSplit=Context(991,1);var innerSplit=Context(991,2);
+            splitWorld.Next=Units(1,2);var outerReceipt=split.TryBegin(outerSplit);
+            Require(split.IsInterestedInOrder(1) && split.IsInterestedInOrder(2) && !split.IsInterestedInOrder(3),"batch interest is exact and indexed by actor");
+            var replacedActor=Unit(1);replacedActor.GlobalId=999;splitWorld.Next=new List<UnitSnapshot>{replacedActor};
+            var innerReceipt=split.TryBegin(innerSplit);innerReceipt.Complete(Outcome(innerSplit));outerReceipt.Complete(Outcome(outerSplit));
+            split.OnBatchCompleted(Batch(991));split.Tick(100);
+            Require(splitWorld.Rescued.Count==1 && splitWorld.Rescued[0].Id==2,"one retired actor cannot discard another actor's complete valid proof");
             var noopWorld=new World();var noop=New(noopWorld);noopWorld.Next=new List<UnitSnapshot>();
             Require(noop.TryBegin(Context(2))==null,"empty region has no receipt");noop.OnBatchCompleted(Batch(2));noop.Tick(100);
             Require(noop.PendingCount==0 && noopWorld.RescueCalls==0 && noopWorld.ChangedCalls==0,"empty mutation creates no rescue work");

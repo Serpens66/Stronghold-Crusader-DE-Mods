@@ -61,7 +61,7 @@ namespace TrappedUnitRescueTest
         internal bool TryCaptureOwnedRecord(out byte[] bytes)
         {
             bytes=null;
-            return !unusable && !isRecovering() && !Supervisor.IsExecutingNativeCall && Supervisor.Ledger.TrySerialize(out bytes);
+            return !unusable && !isRecovering() && !Supervisor.IsExecutingNativeCall && !Supervisor.HasPendingExternalOrders && Supervisor.Ledger.TrySerialize(out bytes);
         }
         private void Load(VersionedSaveLoad load)
         {
