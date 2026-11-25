@@ -10,7 +10,11 @@ namespace TrappedUnitRescueTest
     internal sealed class UnitSnapshot
     {
         internal int Id, Type, Owner, Tribe, X, Y, TileId, AIState, Flags, Substep, RequestedX, RequestedY,CrewCount;
-        internal uint GlobalId, Health;
+        internal int NextX, NextY, NextTileId;
+        internal bool OrdinaryStep, AffectedCurrent, AffectedNext, NextWasOrdinary;
+        internal uint GroundFlags, NextGroundFlags;
+        internal uint GlobalId, Health, TribeGlobalId;
+        internal WorkerJourneySnapshot Job;
         internal byte Connections;
         internal string Unsupported;
         internal uint[] CrewIdentity;
@@ -35,21 +39,72 @@ namespace TrappedUnitRescueTest
         private static readonly int[] Dx = { 0,1,1,1,0,-1,-1,-1 }, Dy = { -1,-1,0,1,1,1,0,-1 };
         internal RescueRuntime(NativeRelocation native, Func<bool> isEnabled, Action<string> report)
         { this.native = native ?? throw new ArgumentNullException(nameof(native)); enabled = isEnabled ?? throw new ArgumentNullException(nameof(isEnabled)); this.report = report; }
-        internal UnitSnapshot SnapshotUnit(int id)
+        internal UnitSnapshot SnapshotUnit(int id) => SnapshotUnit(id, false);
+        internal UnitSnapshot SnapshotUnit(int id, bool includeOrdinaryStep)
         {
             if (!native.TryUnit(id, out GameUnit* unit)) return null;
             var value = new UnitSnapshot { Id=id, GlobalId=unit->r_GlobalId, Type=(int)unit->r_UnitChimp, Owner=unit->r_ControllableForPlayerId,
                 Tribe=unit->r_TribeId, Health=unit->r_CurrentHealth, X=unit->r_CurrentTilePositionX, Y=unit->r_CurrentTilePositionY,
                 TileId=(int)unit->r_CurrentPositionTileId, AIState=unit->r_AIState, Flags=unit->r_PathPlanStateBitFlags, Substep=unit->r_MovementSubstep,
+                NextX=unit->r_NextTilePositionX2,NextY=unit->r_NextTilePositionY2,NextTileId=(int)unit->r_NextPositionTileId2,
                 RequestedX=unit->r_TargetTilePositionX2, RequestedY=unit->r_TargetTilePositionY2, CrewIdentity=CaptureCrew(unit),
                 CrewCount=IsSiege((int)unit->r_UnitChimp)?native.Word(unit,0xA0C):0 };
-            value.Unsupported = ClassifyState(unit);
+            value.OrdinaryStep = HasOrdinaryStep(unit);
+            value.Unsupported = ClassifyState(unit, includeOrdinaryStep);
+            if(value.Tribe!=0 && !native.TryTribeGlobal(value.Tribe,out value.TribeGlobalId))value.Unsupported="tribe-identity-unavailable";
+            if(value.Unsupported==null && WorkerTravelPolicy.TryDescribe(unit->r_UnitChimp,unit->r_AIState,out var rule))
+            {
+                IntPtr pointer=(IntPtr)unit;
+                if(!WorkerJourneySnapshot.TryCapture(rule,offset=>native.JobWord((GameUnit*)pointer,offset),
+                    offset=>native.JobDword((GameUnit*)pointer,offset),out value.Job))value.Unsupported="worker-job-snapshot-unavailable";
+            }
             if (native.Tile(value.X,value.Y) != value.TileId) value.Unsupported="incoherent-position";
+            if(value.OrdinaryStep && native.Tile(value.NextX,value.NextY)!=value.NextTileId)value.Unsupported="incoherent-next-position";
             if (value.TileId < 0 || value.TileId >= NativeRelocation.TileCapacity) { value.Unsupported="invalid-tile"; return value; }
             value.Connections=native.Connections(value.TileId);
+            value.GroundFlags=native.Flags(value.TileId);
+            if((uint)value.NextTileId<NativeRelocation.TileCapacity)
+            { value.NextGroundFlags=native.Flags(value.NextTileId);value.NextWasOrdinary=native.OrdinaryGround(value.NextTileId); }
             if (value.Unsupported == null && native.OrdinaryGround(value.TileId)) CaptureCandidates(value);
             return value;
         }
+        internal bool TryCaptureMutation(IList<RescueTile> changed,out List<UnitSnapshot> before,out string reason)
+        {
+            before=new List<UnitSnapshot>();
+            if(!RescueDiscovery.TryCollect(changed,native.Tile,native.Head,ReadDiscoveryUnit,
+                new RescueDiscoveryBudget(4096,16384,512,NativeRelocation.MaximumUnitId,NativeRelocation.TileCapacity),
+                out var occupants,out reason))return false;
+            var affected=new HashSet<int>();foreach(var tile in changed)affected.Add(tile.TileId);
+            foreach(var occupant in occupants)
+            {
+                var snapshot=SnapshotUnit(occupant.UnitId,true);
+                if(snapshot==null || snapshot.GlobalId!=occupant.GlobalId || snapshot.TileId!=occupant.CurrentTile ||
+                    snapshot.OrdinaryStep && snapshot.NextTileId!=occupant.NextTile)
+                {before.Clear();reason="occupant-changed-before-snapshot";return false;}
+                snapshot.AffectedCurrent=affected.Contains(snapshot.TileId);
+                snapshot.AffectedNext=snapshot.OrdinaryStep && affected.Contains(snapshot.NextTileId);
+                // Cancelling a newly unsafe Next step may keep its still-legal Current tile.
+                // This candidate was reachable before the mutation; never manufacture it later.
+                if(!snapshot.AffectedCurrent && snapshot.AffectedNext && native.OrdinaryGround(snapshot.TileId))
+                    snapshot.Candidates.Insert(0,new RescueCandidate {X=snapshot.X,Y=snapshot.Y,Tile=snapshot.TileId,Distance=0});
+                before.Add(snapshot);
+            }
+            return true;
+        }
+        private bool ReadDiscoveryUnit(int id,out RescueDiscoveryUnit record)
+        {
+            record=default;if(!native.TryUnit(id,out var unit))return false;
+            record=new RescueDiscoveryUnit(id,unit->r_GlobalId,(int)unit->r_CurrentPositionTileId,
+                (int)unit->r_NextPositionTileId2,native.Next(unit),HasOrdinaryStep(unit));return true;
+        }
+        internal static bool HasOrdinaryStep(GameUnit* unit) => unit!=null &&
+            (unit->r_PathPlanStateBitFlags==2 || unit->r_PathPlanStateBitFlags==4) && unit->r_MovementSubstep<8 &&
+            ReadStateWord(unit,0x6EC)==0 && ReadStateWord(unit,0x9C8)==0 && ReadStateWord(unit,0x9B0)==0 &&
+            ReadStateWord(unit,0x8EC)==0 && ReadStateWord(unit,0x8F6)==0 &&
+            !(unit->r_AIState>=126 && unit->r_AIState<=129) &&
+            (unit->r_NextTilePositionX2!=unit->r_CurrentTilePositionX || unit->r_NextTilePositionY2!=unit->r_CurrentTilePositionY) &&
+            Math.Abs((int)unit->r_NextTilePositionX2-unit->r_CurrentTilePositionX)<=1 &&
+            Math.Abs((int)unit->r_NextTilePositionY2-unit->r_CurrentTilePositionY)<=1;
         internal bool TryCaptureCurrentOccupants(int x,int y,int width,int height,out List<UnitSnapshot> before,out string reason)
         {
             before=new List<UnitSnapshot>();reason=null;
@@ -109,7 +164,8 @@ namespace TrappedUnitRescueTest
             }
             ids.Sort();return true;
         }
-        internal static string ClassifyState(GameUnit* unit)
+        internal static string ClassifyState(GameUnit* unit) => ClassifyState(unit,false);
+        internal static string ClassifyState(GameUnit* unit,bool includeOrdinaryStep)
         {
             if(unit==null)return "missing-unit";
             // DCE60 receives native+6EC as its movement-class argument. Mode1 bypasses ordinary
@@ -120,7 +176,7 @@ namespace TrappedUnitRescueTest
             if(ReadStateWord(unit,0x9C8)!=0)return "stored-moat-route-needs-mode-aware-exit-proof";
             if (ReadStateWord(unit,0x9B0)!=0) return "mounted-or-hidden";
             if (ReadStateWord(unit,0x8EC)!=0 || ReadStateWord(unit,0x8F6)!=0) return "portal-or-transport";
-            if (unit->r_MovementSubstep!=8) return "step-in-progress";
+            if (unit->r_MovementSubstep!=8 && (!includeOrdinaryStep || !HasOrdinaryStep(unit))) return "step-in-progress";
             if (unit->r_AIState>=126 && unit->r_AIState<=129) return "assassin-transition";
             if (unit->r_IsKilledByProjectile!=0 || unit->r_CurrentHealth==0) return "dying";
             if (unit->r_PathPlanStateBitFlags!=0 && unit->r_PathPlanStateBitFlags!=2 && unit->r_PathPlanStateBitFlags!=4) return "special-path-state";
@@ -128,11 +184,8 @@ namespace TrappedUnitRescueTest
             bool activeRoute=unit->r_PathPlanStateBitFlags==2 || unit->r_PathPlanStateBitFlags==4;
             // Preserve only separately audited travel segments. In particular,135E30's
             // apple state3 continues picking after relocation without a new distance check.
-            if(unit->r_UnitChimp==eChimps.CHIMP_TYPE_FARMER_APPLE)
-                return activeRoute && (unit->r_AIState==2 || unit->r_AIState==5 || unit->r_AIState==7 || unit->r_AIState==8)
-                    ? null : "apple-worker-needs-audited-active-travel";
-            if(unit->r_UnitChimp==eChimps.CHIMP_TYPE_QUARRY_OX)
-                return activeRoute && unit->r_AIState==1 ? null : "ox-needs-audited-active-travel";
+            if(WorkerTravelPolicy.TryDescribe(unit->r_UnitChimp,unit->r_AIState,out var journey))
+                return activeRoute && journey.CanResumeOrdinary ? null : "worker-needs-audited-active-travel";
             // A9E is a type-derived group-order gate, not civilian locomotion ability.
             if(unit->N000000DB==0)return "unclassified-zero-group-order-field";
             //143400 state0 selects2 when no idle travel target is found. State2
@@ -144,7 +197,7 @@ namespace TrappedUnitRescueTest
         }
         private static ushort ReadStateWord(GameUnit* unit,int nativeOffset)=>*(ushort*)((byte*)unit+nativeOffset-0x65C);
         internal static bool NeedsExplicitCivilianResume(int type,int flags,bool resume) => !resume && (flags==2 || flags==4) &&
-            (type==(int)eChimps.CHIMP_TYPE_FARMER_APPLE || type==(int)eChimps.CHIMP_TYPE_QUARRY_OX);
+            WorkerTravelPolicy.TryDescribe((eChimps)type,0,out _);
         private static bool IsSiege(int type) => type==(int)eChimps.CHIMP_TYPE_CATAPULT || type==(int)eChimps.CHIMP_TYPE_TREBUCHET ||
             type==(int)eChimps.CHIMP_TYPE_SIEGE_TOWER || type==(int)eChimps.CHIMP_TYPE_BATTERING_RAM || type==(int)eChimps.CHIMP_TYPE_PORTABLE_SHIELD || type==(int)eChimps.CHIMP_TYPE_ARAB_BALLISTA;
         private uint[] CaptureCrew(GameUnit* unit)

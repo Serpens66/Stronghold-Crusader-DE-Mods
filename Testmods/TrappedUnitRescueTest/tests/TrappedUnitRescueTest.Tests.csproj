@@ -137,6 +137,10 @@
     <Compile Include="../src/NativeRelocation.cs" />
     <Compile Include="../src/RescueRuntime.cs" />
     <Compile Include="../src/GeneralRescueObserver.cs" />
+    <Compile Include="../src/RescueCandidateQueue.cs" />
+    <Compile Include="../src/RescueDiscovery.cs" />
+    <Compile Include="../src/WorkerTravelPolicy.cs" />
+    <Compile Include="../src/RescueMutationFootprints.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)/Microsoft.CSharp.targets" />
 </Project>

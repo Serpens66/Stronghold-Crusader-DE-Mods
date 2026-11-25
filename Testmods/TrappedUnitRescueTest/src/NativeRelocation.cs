@@ -108,6 +108,23 @@ namespace TrappedUnitRescueTest
         internal int Head(int tile) => ((short*)(image + 0x4C559B0))[tile];
         internal int Next(GameUnit* unit) => *(short*)((byte*)unit + (0x8FA - 0x65C));
         internal ushort Word(GameUnit* unit, int nativeOffset) => *(ushort*)((byte*)unit + nativeOffset - 0x65C);
+        internal ushort JobWord(GameUnit* unit,int nativeOffset)
+        {
+            if(unit==null || nativeOffset<0x65C || nativeOffset>0xAEA)throw new ArgumentOutOfRangeException(nameof(nativeOffset));
+            return Word(unit,nativeOffset);
+        }
+        internal uint JobDword(GameUnit* unit,int nativeOffset)
+        {
+            if(unit==null || nativeOffset<0x65C || nativeOffset>0xAE8)throw new ArgumentOutOfRangeException(nameof(nativeOffset));
+            return *(uint*)((byte*)unit+nativeOffset-0x65C);
+        }
+        internal bool TryTribeGlobal(int tribeId,out uint globalId)
+        {
+            globalId=0;
+            if(tribeId==0)return true;
+            if(!GameTribeManagerAPI.Instance.TryGetTribeById(tribeId,out var tribe) || tribe==null)return false;
+            globalId=tribe->r_GlobalId;return true;
+        }
         internal bool OrdinaryGround(int tile) => tile >= 0 && (Flags(tile) & 0x5A7015B1u) == 0 && Building(tile) == 0;
         internal bool HasOccupancyExactlyOnce(int tile, int id) => HasOccupancyCount(tile,id,1);
         internal bool HasOccupancyCount(int tile, int id,int expected)

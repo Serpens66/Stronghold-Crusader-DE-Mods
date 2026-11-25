@@ -140,3 +140,10 @@ Removal is confined to the `TemporaryFixes` directory, its build/self-test calls
 CastlePlanner is another direction producer: its human-start preparation changes the native argument at its own start-call site and `FixesKeepRotationCompatibility` temporarily aligns/restores Fixes' rotation data. `KeepDirectionReader` verifies and reads typed92. These sites do not overlap our worker span; tests must inspect actual built directions. The `Planner` test layout includes the installed CastlePlanner package without editing its source or settings.
 
 Required update checks: full DLL/layout identity; decode caller and both branches; external and local incoming edges; Script Extender, Fixes, APIShared and Pathfinding site ownership; live adjacency and stub equality; execute tests/WorkerGuardFixture on the real backend before game tests. Native fixture success is not gameplay or multiplayer acceptance.
+
+
+## Pure mutation-envelope contracts (2026-11-25)
+
+Before admitting `RescueMutationFootprints` on another native image, re-audit `69850/6A620/E3360`, the brush-count and offset tables, flags0x30 expansion semantics, cardinal neighbour order/row packing and exhaustion behavior. Recheck that every preliminary/nested writer preserves these expansion bits, or supply an audited overlay; pre-cleanup flags must not silently stand in for changed terrain. The planner never calls native scratch enumerators.
+
+Recheck all23 creator-family dispatches and compound tables, farm preparation/plot variants, Keep effective direction plus root/camp brush footprints and goods subcreator, Quarry's eleven perimeter attempts including outward expansion beyond width13, and both AIV-cleanup passes plus complete linked removal closures. Unknown/missing contracts and exceeded fixed budgets must remain explicit rejection. The pure fixture is behavioral coverage of the planner, not installation, gameplay, multiplayer or complete recovery acceptance. AIV cleanup remains gated by its additional complete-closure/flags contract; unsupported square sizes remain visibly unhandled.

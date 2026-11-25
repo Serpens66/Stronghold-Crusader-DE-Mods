@@ -53,7 +53,7 @@ namespace CrenelatedWallAcceptance
         }
 
         internal IEnumerable<AutomationStep> Steps() => scenario == Plugin.EditorScenario ? EditorSteps() :
-            scenario == Plugin.TopologyScenario ? TopologySteps() : scenario == Plugin.HeightsScenario ? HeightsSteps() : scenario == Plugin.AiScenario ? AiSteps() : scenario == Plugin.StressScenario ? StressSteps() : scenario == Plugin.DiagonalScenario ? DiagonalWalkSteps() : scenario == Plugin.LookScenario ? LookSteps(false) : scenario == Plugin.LookCornersScenario ? LookSteps(true) : SkirmishSteps();
+            scenario == Plugin.TopologyScenario ? TopologySteps() : scenario == Plugin.HeightsScenario ? HeightsSteps() : scenario == Plugin.AiScenario ? AiSteps() : scenario == Plugin.StressScenario ? StressSteps() : scenario == Plugin.DiagonalScenario ? DiagonalWalkSteps() : scenario == Plugin.LookScenario ? LookSteps(false) : scenario == Plugin.LookCornersScenario ? LookSteps(true) : scenario == Plugin.LookManualScenario ? LookManualSteps() : SkirmishSteps();
 
         private IEnumerable<AutomationStep> SkirmishSteps()
         {

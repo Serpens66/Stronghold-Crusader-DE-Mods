@@ -33,6 +33,25 @@ namespace CrenelatedWallAcceptance
             yield return new AutomationStep("look-shots", TimeSpan.FromSeconds(180), LookShots, true);
         }
 
+        // Scenario crenel-look-manual (foreground): both layouts in one editor session for a manual
+        // look with free camera and rotation. Ends with PASS when the user leaves the editor.
+        private IEnumerable<AutomationStep> LookManualSteps()
+        {
+            lookCorners = false;
+            yield return new AutomationStep("editor-load", TimeSpan.FromSeconds(180), LookStart);
+            yield return new AutomationStep("look-build-bands", TimeSpan.FromSeconds(300), LookBuild, true);
+            yield return new AutomationStep("look-build-corners", TimeSpan.FromSeconds(300), r => { lookCorners = true; return LookBuild(r); }, true);
+            yield return new AutomationStep("look-manual", TimeSpan.FromHours(4), LookManualWait);
+        }
+
+        private IEnumerable<AutomationWait> LookManualWait(AutomationRun run)
+        {
+            long session = run.CurrentMission.SessionId;
+            log("LOOK_MANUAL ready; leave the editor to end the run");
+            yield return AutomationWait.Until("user leaves the editor", () => run.CurrentMission == null || run.CurrentMission.SessionId != session);
+            log("LOOK_MANUAL editor left");
+        }
+
         // tile -> drawing mode: 1 = every band tile straight, 2 = only low band tiles straight,
         // 3 = low tiles straight with the sprite of direction 0.
         private static readonly Dictionary<int, int> lookMode = new Dictionary<int, int>();
@@ -89,7 +108,9 @@ namespace CrenelatedWallAcceptance
             yield return (1, y0 + 1, 1, y0 + 3);   // L: stem from the support wall
             yield return (1, y0 + 3, 4, y0 + 3);   // L: arm
             yield return (8, y0 + 1, 8, y0 + 4);   // T: stem
-            yield return (6, y0 + 4, 10, y0 + 4);  // T: bar
+            yield return (9, y0 + 4, 10, y0 + 4);  // T: bar, built outwards from the stem
+            yield return (7, y0 + 4, 7, y0 + 4);
+            yield return (6, y0 + 4, 6, y0 + 4);
             yield return (12, y0 + 1, 12, y0 + 4); // cross: vertical
             yield return (11, y0 + 2, 13, y0 + 2); // cross: horizontal
         }
@@ -137,21 +158,15 @@ namespace CrenelatedWallAcceptance
                 foreach (var w in UiWall(run, m, "look-support", owner, eMappers.MAPPER_WALL, 7, y0, 12, y0, null)) yield return w;
                 if (lookCorners)
                 {
-                    // In the editor a vertical crenel drag built nothing and a drag starting on an
-                    // existing crenel turned red, so vertical lines go tile by tile and horizontal ones
-                    // only over still empty tiles.
+                    // In the editor a crenel drag only builds tiles next to an already built wall or
+                    // crenel (the preview turned red from the second free-standing tile), so the thin
+                    // shapes go tile by tile in line order.
                     var placed = new HashSet<(int, int)>();
                     foreach (var (x0, ya, x1, yb) in CornerLines(y0))
                         for (int y = ya; y <= yb; y++)
                             for (int x = x0; x <= x1; x++)
-                            {
-                                if (placed.Contains((x, y))) continue;
-                                int end = x;
-                                while (end < x1 && !placed.Contains((end + 1, y))) end++;
-                                foreach (var w in UiWall(run, m, "look-corner", owner, eMappers.MAPPER_CRENAL, x, y, end, y, null)) yield return w;
-                                for (int c = x; c <= end; c++) placed.Add((c, y));
-                                x = end;
-                            }
+                                if (placed.Add((x, y)))
+                                    foreach (var w in UiWall(run, m, "look-corner", owner, eMappers.MAPPER_CRENAL, x, y, x, y, null)) yield return w;
                     continue;
                 }
                 for (int y = y0 + 1; y <= y0 + 4; y++) foreach (var w in UiWall(run, m, "look-block", owner, eMappers.MAPPER_CRENAL, 3, y, 6, y, null)) yield return w;

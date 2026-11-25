@@ -160,3 +160,27 @@ Damit sind für diese Bauquellen der frühere Eingangs-/Spiegel-/Abschluss-/Hül
 - Baseline-Vanillaverträge: `AIV_BUILD_RANGE.md`, `DRAWBRIDGES.md`, `KEEP_DIRECTION.md`, `UNIT_LOAD_PLACEMENT_CONTRACTS.md`, `AREA_DEMOLITION.md`; ihre jeweiligen Vanilla-/Integrationsabschnitte auseinanderhalten.
 
 Die RVAs in den Tabellen lassen sich über `query.ps1 function <RVA>` erneut verfolgen. Fehlt ein Decompilerkörper oder widerspricht er den Maschinenbytes, bleibt der direkte kanonische PE-Daten-/Kontrollfluss maßgeblich; ein leeres Resultat ist niemals ein Beweis fehlender Seitenwirkung.
+
+## Ergänzung 25.11.2026: reine Hüllenberechnung und Bürsten in Creatorn
+
+Die Implementierungsprüfung hat die Helfergeometrie desselben SHA-256 weiter geschlossen: vollständige Körper von `69850`, `6A620`, `E3360`, `6FE90`, `7AE50`, `6FA10`, `5D740`, `725E0`, `5B020`, `6CDD0`, `61FC0`, `72490`, `BD7A0`, `C0270` und den zusammengesetzten Creatorn wurden gezielt gelesen. Die Expansionsprüfung und die Schrittweiten von `E3360` wurden zusätzlich aus der kanonischen PE disassembliert. Die kompakte Tabelle unten beschreibt Maschinenverträge, keine neuen Spieltests.
+
+`69850` liest X/Y aus `RVA 8DDCC0 + (size*169 + ordinal)*24` und schreibt gemeinsames Scratch. Der reine Planner ruft ihn niemals auf: Ein Reader liefert seine Offsetwerte. Für gewöhnliche Quadrate prüft der Planner vollständig, dass alle `size²` gelieferten Offsets eindeutig und im Quadrat liegen. Damit hängt die Vollständigkeit weder von einer geratenen Enumeration noch von deren Reihenfolge ab. Unterstützte geprüfte Quadratgrößen sind 1..13; größere/ungewöhnliche Tabellen werden sichtbar abgelehnt.
+
+Die Hauptflächen allein reichen bei weiteren Creatorn nicht aus: Farmen rufen pro 3×3-Hauskachel `6FE90` mit Brush2; `76060` kann pro Hauptkachel Brush2 verwenden; `74DA0` verwendet pro Root- und pro 7×7-Campkachel Brush3 oder Brush6. Diese Brushflächen müssen ebenfalls vor der Mutation erfasst werden. Die Entscheidung zwischen Brush3 und Brush6 hängt am ursprünglichen Typbyte (`&0x90`); Brush6 ist bei identischen Expansionsflags ein Superset derselben Discovery-Reihenfolge. Der Planner vereinigt deshalb konservativ Brush6. Das 5×5-Unterteil des Keeps ruft anschließend selbst `76E80` mit vier 2×2-Teilen und neun Einzelkacheln auf.
+
+| Vertrag | Präzisierung für den reinen Planner |
+|---|---|
+| `72E10` | Drei Offsetpaare liegen bei `2D2E90 + orientation*24 + child*8`; alle relativ zum ursprünglichen Anchor, nicht kumulativ. |
+| `73BB0/77400` | Kindoffset ist das mittlere Paar derselben Orientierungsgruppe, `2D2E98 + orientation*24`. |
+| `75B00` | Kindoffset `2D2EF0 + orientation*8`; Kindgröße4. |
+| `76E80` | Vier Paare `2D2FB8`, neun Paare `2D3060`, jeweils Stride8. |
+| Farmplots | Wheat: zwei Varianten je36 Paare ab `2D37C0`; Hops: zwei Varianten je24 Paare ab `2D3C40`; Apple: acht Paare ab `2D3DC0`; Cattle: vier Varianten je27 Records ab `2D3E00`, Stride12. Vereinigung aller Varianten ist konservativ. Vorbereitung9/10 bleibt zusätzlich enthalten. |
+| Keep | Index `(structure-KEEP_ONE)*4 + effectiveDirection/2`, Richtung15 wird0. Drei Marker ab `2D30F0`, Record24; Campoffset `2D3210`, Goods-Unterteiloffset `2D3270`, jeweils Record8. Effektive Richtung verwenden, auch nach CastlePlanner/Fixes-Änderungen. |
+| `76060` | Konservative Vereinigung der beiden Kindpaare `2D2FE0/2D2FE8` und `2D3020/2D3028` sowie der optionalen Brush2. Die jeweiligen Paare beziehen sich auf den ursprünglichen Anchor. |
+| Quarry | Maximal elf Versuche. Solange `width+2<=13`, Größe um2 und Anchorshift um1 erhöhen; danach pro Versuch Outwardoffset um1 erhöhen. `C0270` betrachtet je `4*width` Tabellenpaare für Breiten1..13 und verschiebt die vier Seiten. Negative X- beziehungsweise Y-Koordinaten erhalten die zusätzliche 2×2-Anbaukorrektur -1. Deshalb reicht ein pauschaler Radius13 nicht; der Planner vereinigt alle möglichen 2×2-Orte aller elf Versuche. |
+| AIV-Cleanup | Der zweite Pass ist `size+4`, Anchor-2; bei size11 dagegen13, Anchor-1. Zusätzlich sind alle erreichbaren vollständigen Gebäuderemoval-Closures nötig, nicht nur die eine Root-ID. Ohne vollständigen Closure-Reader und nachgewiesene Stabilität der Brush-Expansionsbits lehnt der Planner diese Quelle ab. Ein Cleanup mit nicht unterstützter Quadratgröße wird ebenfalls sichtbar abgelehnt. |
+
+Die betreffenden normalen Creator-/Brush-Schreibmasken in `5D740`, `5B020`, `7AE50`, `6FA10`, `6FE90` erhalten die beiden Expansionsbits `0x30`. Für verschachtelte normale Creator-Brushes darf deshalb dieselbe rein gelesene Before-Flags-Sicht verwendet werden. Eine davor ausgeführte beliebige Demolition/Cleanup-Closure ist dadurch nicht freigegeben; insbesondere Terrainrekonstruktion erfordert den separaten Vertrag. Alle Callbackwerte müssen zur selben synchronen Welt und zum hashgebundenen Bild gehören.
+
+`RescueMutationFootprints` ist ein reiner Hüllenplanner im Testmod. Seine Ausgabe ist ausdrücklich kein Nachweis erfolgreicher Mutation. Fehlende Reader, unbekannte Quellen/Strukturen, nicht unterstützte Geometrie und feste Zell-/Arbeitsbudgets führen zu einer benannten vollständigen Ablehnung; es wird keine Teilhülle als vollständig ausgegeben. Die Tests prüfen Geometrie und Ablehnungen, nicht die spätere Ingame-Rettung.

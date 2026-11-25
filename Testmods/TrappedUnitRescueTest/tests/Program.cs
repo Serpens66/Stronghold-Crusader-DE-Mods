@@ -12,6 +12,10 @@ internal static class Program
             int native = WorkerGuardFixture.Run();
             RescuePolicyFixture.Run();
             GeneralObserverFixture.Run();
+            CandidateQueueFixture.Run();
+            DiscoveryFixture.Run();
+            WorkerTravelFixture.Run();
+            MutationFootprintsFixture.Run();
             Console.WriteLine("PASS: worker native guard assertions=" + native + "; production local rescue policy checked. No game hook installed.");
             return 0;
         }

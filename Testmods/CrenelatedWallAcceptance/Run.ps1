@@ -1,7 +1,9 @@
 [CmdletBinding()]
 param(
     [string]$GameDir = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition',
-    [ValidateSet('crenel-acceptance', 'crenel-editor', 'crenel-vanilla-topology', 'crenel-heights', 'crenel-ai', 'crenel-stress', 'crenel-diagonal-walk', 'crenel-look', 'crenel-look-corners')][string]$Scenario = 'crenel-acceptance'
+    [ValidateSet('crenel-acceptance', 'crenel-editor', 'crenel-vanilla-topology', 'crenel-heights', 'crenel-ai', 'crenel-stress', 'crenel-diagonal-walk', 'crenel-look', 'crenel-look-corners', 'crenel-look-manual')][string]$Scenario = 'crenel-acceptance',
+    # Visible game window, e.g. for crenel-look-manual where the user inspects the editor by hand.
+    [switch]$Foreground
 )
 # One hidden-desktop in-game acceptance of CrenelatedWallTest. Minimal plugin layout (Script
 # Extender, Fixes, APIShared, CrenelatedWallTest, this testmod); the runner restores the
@@ -37,8 +39,8 @@ try {
         PluginLayout = $plugins
         Scenario = $Scenario
         OutputDirectory = $out
-        TimeoutSeconds = $(if ($Scenario -eq 'crenel-stress') { 5400 } else { 1200 })
-        HiddenDesktop = $true
+        TimeoutSeconds = $(if ($Scenario -eq 'crenel-look-manual') { 14700 } elseif ($Scenario -eq 'crenel-stress') { 5400 } else { 1200 })
+        HiddenDesktop = -not $Foreground
     }
     & (Join-Path $workspace 'Shared/Tools/Automation/Invoke-InGameTest.ps1') @options
 }

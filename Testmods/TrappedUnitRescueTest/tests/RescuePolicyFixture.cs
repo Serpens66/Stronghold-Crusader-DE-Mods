@@ -216,13 +216,13 @@ namespace TrappedUnitRescueTest.Tests
                         unit=OrdinaryUnit();unit.r_UnitChimp=type;unit.N000000DB=0;
                         unit.r_AIState=state;unit.r_PathPlanStateBitFlags=flags;
                         bool audited=flags!=0 && (type==eChimps.CHIMP_TYPE_FARMER_APPLE
-                            ? state==2 || state==5 || state==7 || state==8 : state==1);
+                            ? state==2 || state==5 || state==7 || state==8 : state==1 || state==3);
                         Require((RescueRuntime.ClassifyState(&unit)==null)==audited,
                             "only the explicitly audited civilian active travel states are authorized");
                     }
             unit=OrdinaryUnit();unit.r_UnitChimp=eChimps.CHIMP_TYPE_FARMER_APPLE;unit.r_AIState=3;
             unit.r_TargetVegetationId=227;unit.N000000C5=2;
-            Require(RescueRuntime.ClassifyState(&unit)=="apple-worker-needs-audited-active-travel",
+            Require(RescueRuntime.ClassifyState(&unit)=="worker-needs-audited-active-travel",
                 "stationary picker cannot retain state3/counter/tree while being moved beyond the picking approach");
             foreach(eChimps type in new[]{eChimps.CHIMP_TYPE_SPEARMAN,eChimps.CHIMP_TYPE_ARAB_ASSASIN})
                 foreach(ushort state in new ushort[]{2,3,4,5,6,7,8,100,102,103,104,105,106,107})
