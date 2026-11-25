@@ -79,5 +79,25 @@ Escape korrekt behandeln und ohne Änderungen keine erneuten Paintschreibzugriff
 verursachen. Stille und mit Chatmeldungen versehene Lieferungen getrennt prüfen;
 danach manuelle Lieferung als Gegenprobe.
 
+Regression der Resync-Registrierung
+----------------------------------
+Den gebauten Hauptmod mit identischen Mod- und SDK-Paketen auf beiden Peers
+prüfen. Im registrierten Resync-Manifest auf beiden Seiten den Datensatz
+BugfixesAndQoL_Serp / auto-send-rules bestätigen und bei identischem Mod-Layout
+mit dem bisherigen Stand auf fehlende andere Datensätze vergleichen. Das
+Ausbleiben der Startup-Warnung allein reicht nicht.
+
+Zwei verbündete Menschen, feste Startbestände und ein bekanntes Intervall
+verwenden. Der Client schaltet AutoSend für eigene Lieferungen vor der Partie
+aus und bleibt Empfänger. Die einmalige Abbuchung und Gutschrift auf beiden
+Peers vor dem erzwungenen Resync bestätigen. Abschluss auf beiden Seiten
+prüfen und mindestens zwei weitere fällige Lieferungen vergleichen. Die Regel
+und ihre Intervallphase bleiben erhalten. Keine doppelte oder nachgeholte
+Lieferung zulassen.
+
+Einen vor dem Fix geschriebenen Hauptmod-Spielstand mit AutoSend-Regeln laden.
+Den MP-Teststand nach dem Resync ebenfalls speichern und erneut laden. In beiden
+Fällen die gespeicherten Regeln ohne Konvertierung prüfen.
+
 Echte Host-/Client-Abnahme und Installation erfolgen erst nach Freigabe. Für
 beide Rechner gehören APIShared-Plugin und Bootstrap zum selben geprüften Build.

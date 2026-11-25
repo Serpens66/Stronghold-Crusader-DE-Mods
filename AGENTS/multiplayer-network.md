@@ -17,6 +17,11 @@
 
 - Eigene `GameNetworkAPI`-Pakete nicht per Reflection-/Contractless-Serialisierung oder `[MessagePackObject(true)]` (fehlende Assembly `System.Runtime.Serialization` → `MessagePackSerializationException`). Immer einen expliziten `IMessagePackFormatter<T>` mit stabilen numerischen `[Key(...)]` registrieren; vorhandene Workspace-Formatter als Vorlage.
 
+## Resync-Datensätze
+
+- Bei `MultiplayerResyncData.TryRegister` und `TryRegisterEarlyCapture` dürfen Owner-GUID und Record-ID jeweils nur aus 1 bis 96 ASCII-Buchstaben, Ziffern, Punkten, Unterstrichen oder Bindestrichen bestehen. Featurepräfixe mit Bindestrich schreiben, etwa `auto-send-rules`. Andere Registrierungs-APIs können `/` akzeptieren.
+- Bei einer Übernahme in einen Hauptmod die tatsächliche Registrierung mit dem gebauten Mod und dem gewählten SDK prüfen. Den Datensatz auf beiden MP-Peers im Resync-Manifest bestätigen. Ein Spielstart oder fehlende Warnungen allein belegen die Registrierung nicht.
+
 ## Tick-synchrone Chore-Aktionen
 
 - Pakettypen, Formatter und Receiver beim Pluginstart auf allen Peers in derselben Reihenfolge registrieren.

@@ -94,7 +94,7 @@ namespace BugfixesAndQoL.AutoSend
                 throw new InvalidOperationException(reason);
             int maximum = AutoSendSaveCodec.Encode(state).Length;
             resyncRulesReady = MultiplayerResyncEvents.TryRegister(BugfixesAndQoLPlugin.PluginGuid, "auto-send/repair-rules", BeginRepair, EndRepair, out reason) &&
-                MultiplayerResyncData.TryRegister<RepairedRules>(BugfixesAndQoLPlugin.PluginGuid, "auto-send/rules", 1, maximum,
+                MultiplayerResyncData.TryRegister<RepairedRules>(BugfixesAndQoLPlugin.PluginGuid, "auto-send-rules", 1, maximum,
                     CaptureRulesForRepair, PrepareRulesForRepair, CommitRulesForRepair, out reason);
             if (!resyncRulesReady) Report("Automatic gifts unavailable in multiplayer: " + reason);
         }
