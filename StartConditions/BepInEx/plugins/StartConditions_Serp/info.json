@@ -13,7 +13,7 @@
     {
       "Version": "1.0.37",
       "Changes": [
-        "Preserve the protection that lets AI lords retreat safely with their starting troops when a multiplayer match resyncs."
+        "Keep extra starting troops assigned to AI players separate from the AI's regular armies after a multiplayer resync."
       ]
     },
     {
