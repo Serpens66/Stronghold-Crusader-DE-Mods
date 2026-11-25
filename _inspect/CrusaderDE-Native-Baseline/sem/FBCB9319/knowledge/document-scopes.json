@@ -421,11 +421,12 @@
       "file": "CRENELATED_WALLS.md",
       "scope": "vanilla+integration",
       "components": [
-        "CrenelatedWallTest",
+        "BugfixesAndQoL",
         "APIShared"
       ],
       "integrationSections": [
-        "Consumer contract and validation"
+        "Consumer contract and validation",
+        "Feature moved into BugfixesAndQoL; facts kept from the deleted testmods, 2026-11-25"
       ]
     },
     {
