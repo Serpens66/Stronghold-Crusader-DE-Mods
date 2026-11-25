@@ -67,5 +67,5 @@ Crenel.AdjustHeights=Alternate crenel heights
 Crenel.AdjustHeightsHelp=Newly built crenels alternate between high and low as far as possible, regardless of how and in which order they are built, and adapt to their neighbours afterwards. Applies to the next match.
 Crenel.BlockPlacements=Block unenterable crenel shapes
 Crenel.BlockPlacementsHelp=Rejects human build commands that would create connected high crenels. Applies to the next match.
-Crenel.HeightRule=Straight runs and endpieces follow Vanilla's checkerboard; diagonal rows (horizontal on screen) alternate high/low as well. Corners and junctions stay high because Vanilla always draws them high. High crenels cannot be entered by ladders, assassins or siege tower troops.
+Crenel.HeightRule=Straight runs alternate high/low: the crenel next to a corner or junction is always low, free runs follow Vanilla's checkerboard; diagonal rows (horizontal on screen) alternate as well. Corners and junctions stay high because Vanilla always draws them high. High crenels cannot be entered by ladders, assassins or siege tower troops.
 Crenel.BlockRule=Filled 2x2 blocks, chains of three corner/junction pieces and runs of four high crenels are rejected as complete commands (human players; in the editor every manual build).

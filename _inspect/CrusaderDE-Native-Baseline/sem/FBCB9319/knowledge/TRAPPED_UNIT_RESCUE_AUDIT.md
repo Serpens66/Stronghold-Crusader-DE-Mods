@@ -306,3 +306,53 @@ original-goal reissue and physical-arrival assertions are mod/test policy.
 The generic completed-moat path remains unsupported; future automatic moat
 completion and the newly added receipt have no gameplay-success claim in this
 audit. See `Testmods/TrappedUnitRescueTest/UpdateToNewDLL.md` for exact scope.
+
+## 2026-11-25 mutation and in-flight boundaries [Vanilla facts]
+
+Rechecked against the same canonical native SHA-256 above, without game startup.
+The detailed offline audit and compact native evidence are maintained under
+`Testmods/TrappedUnitRescueTest/Audits/`. Those reports separate native facts,
+external adapters, implementation requirements and outstanding game acceptance.
+
+- `0x1855A0` produces an ordinary class0 Next from Current plus one of eight
+  neighbour deltas. Accepted substeps do not rerun the new-step connection and
+  surface gates. At its midpoint, `0x180230` consumes marker `+0x740` to transfer
+  Next into Current before `0x1802A0` registers Current occupancy. `0x182B00`
+  additionally calls the movement executor on a copied record for prediction;
+  this is not a physical occupancy transition. Ordinary Next-only candidates
+  can therefore be found through Current occupancy within a one-tile halo of
+  the actual mutation, subject to the ordinary/no-portal state contract. This
+  bound is not a portal, transport, tunnelling or climb bound.
+- The 800-by-800 coordinate envelope is distinct from native packed tile IDs.
+  Packed IDs use X plus the row lookup, with capacity 320800. Native unit loops
+  use IDs 1 through 9999; slot zero is reserved in the 10000-slot allocation.
+- `0x59210` allocates or updates a moat task; its return is not a completed
+  terrain change. Dig writer `0x639C0` increments the signed progress byte and
+  commits a completed moat only at progress four: height zero, PlannedMoat off,
+  IsMoat on, then topology work through `0xE3B90` and `0xE0850 -> 0xD90D0`.
+  Fill writer `0x69470` removes IsMoat and restores height eight only at terminal
+  progress, before task deletion through `0x61E70`. Drawbridge `0x739C0` can
+  allocate a task and subsequently clear IsMoat again. Neither task allocation
+  nor an intermediate tile refresh is a whole-operation completion signal.
+- The `0x6D580` creator dispatch includes child plots, direction-dependent Keep
+  parts and dynamic secondary placement; the scale square is not a universal
+  mutation envelope. Its pre-creator unit loop can relocate or delete units.
+  `0x6F230` has independent unit handling and partial-line termination. Cleanup
+  `0x5CD90` can cover an enlarged area and linked building removals. A return
+  value alone establishes neither unchanged geometry nor survival of a unit.
+- Editor deletion `0x62AB0` intentionally marks affected units for deletion.
+  Ordinary building demolition marks records first, with terminal cleanup via
+  `0xC60F0 -> 0xB8310 -> 0x61FC0` later (or synchronously through `0xC43A0`).
+  A queued demolition command or a dead-building mark is not yet terrain removal.
+- The twenty economic handler contracts distinguish ordinary travel, entity/
+  linked-actor travel, contact/production and retry/terminal states. `0x188340`
+  is not a universal geometric arrival test. Relocation followed by stale job
+  execution can advance work without arrival; shortening helper `0x198620`
+  also changes the stored segment endpoint. Reissuing that endpoint must not
+  blindly shorten it a second time. Tanner/cow and hunter/prey have additional
+  identity/reservation/linked-actor state, unlike a plain tile destination.
+
+These are static contracts, not newly successful rescue implementations. No
+universal freedom to interrupt every AI state or to reconstruct an old reachable
+bank from a later world is inferred. Earlier dated game observations retain
+their original scope and version identities.

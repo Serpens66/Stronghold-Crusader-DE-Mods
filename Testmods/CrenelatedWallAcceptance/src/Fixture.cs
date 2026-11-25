@@ -53,7 +53,7 @@ namespace CrenelatedWallAcceptance
         }
 
         internal IEnumerable<AutomationStep> Steps() => scenario == Plugin.EditorScenario ? EditorSteps() :
-            scenario == Plugin.TopologyScenario ? TopologySteps() : scenario == Plugin.HeightsScenario ? HeightsSteps() : scenario == Plugin.AiScenario ? AiSteps() : scenario == Plugin.StressScenario ? StressSteps() : SkirmishSteps();
+            scenario == Plugin.TopologyScenario ? TopologySteps() : scenario == Plugin.HeightsScenario ? HeightsSteps() : scenario == Plugin.AiScenario ? AiSteps() : scenario == Plugin.StressScenario ? StressSteps() : scenario == Plugin.DiagonalScenario ? DiagonalWalkSteps() : SkirmishSteps();
 
         private IEnumerable<AutomationStep> SkirmishSteps()
         {
@@ -77,7 +77,8 @@ namespace CrenelatedWallAcceptance
             SetSwitches(true, true, true);
             // Peace time keeps the AI from attacking the lord or the test units. The climbing and siege
             // units belong to an unused slot and act on direct orders, so peace does not affect them.
-            ArmLobby(-1, PeaceMinutes);
+            // Fixed AI castle template and keep order: the control row area depends on the start (run 7270b60a).
+            ArmLobby(-1, PeaceMinutes, fixedWorld: true);
             log("settings map=4spielerkarte.map opponent=SK_RAT peace=" + PeaceMinutes + "min (set in MPsetupData; the Skirmish lobby shows no option)");
             foreach (var wait in run.StartSkirmish("4spielerkarte.map", new[] { AILords.SK_RAT })) yield return wait;
         }
@@ -334,7 +335,7 @@ namespace CrenelatedWallAcceptance
                 XY(id, out int x, out int y);
                 int mask = Mask(x, y);
                 bool line = mask == 0b0101 || mask == 0b1010 || mask == 1 || mask == 2 || mask == 4 || mask == 8;
-                bool expected = line ? Parity(x, y) : mask == 0 && DiagonalMask(x, y) != 0 ? (x & 1) != 0 : true;
+                bool expected = line ? RunExpected(x, y, mask) : mask == 0 && DiagonalMask(x, y) != 0 ? (x & 1) != 0 : true;
                 bool high = (Flags(id) & (uint)TilePropertyFlag.CrenelatedHigh) != 0;
                 checkedCount++; if (!line) special++; if (!high) low++;
                 if (high != expected) bad.Add(Describe(id) + " mask=" + mask + " expected=" + (expected ? "H" : "L"));
@@ -753,6 +754,34 @@ namespace CrenelatedWallAcceptance
         private static int Owner(int id) => (GameTileManagerAPI.Instance.GetWallOwnerLayer()[id] & 7) + 1;
         private static bool Damaged(int id) => GameTileManagerAPI.Instance.GetDamageLayer()[id] != 0 || GameTileManagerAPI.Instance.GetStructureLayer()[id] != 0;
         private static bool Parity(int x, int y) => ((x ^ y) & 1) != 0;
+        // Independent oracle of CrenelatedWallTest's run rule: a straight piece is low next to a
+        // corner/junction and alternates from there; with specials at both ends the lower coordinate
+        // anchors the run; runs without a special keep the map parity.
+        private static bool RunExpected(int x, int y, int mask)
+        {
+            bool vertical = (mask & 0b0101) != 0;
+            int dx = vertical ? 0 : 1, dy = vertical ? 1 : 0;
+            bool lowSpecial = RunEnd(x, y, -dx, -dy, vertical, out int low);
+            bool highSpecial = RunEnd(x, y, dx, dy, vertical, out int high);
+            if (lowSpecial) return (low + 1) % 2 == 0;
+            if (highSpecial) return (high + 1) % 2 == 0;
+            return Parity(x, y);
+        }
+        // Counts the straight pieces of the same axis in one direction; true when a special ends them.
+        private static bool RunEnd(int x, int y, int dx, int dy, bool vertical, out int members)
+        {
+            members = 0;
+            for (int step = 1; step <= 800; step++)
+            {
+                int nx = x + dx * step, ny = y + dy * step;
+                if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(nx, ny) || !IsCrenel(Tile(nx, ny))) return false;
+                int m = Mask(nx, ny);
+                bool line = m == 0b0101 || m == 0b1010 || m == 1 || m == 2 || m == 4 || m == 8;
+                if (!line || (vertical ? (m & 0b1010) != 0 : (m & 0b0101) != 0)) return true;
+                members++;
+            }
+            return false;
+        }
         private static int Mask(int x, int y)
         {
             int mask = 0, n = 0;

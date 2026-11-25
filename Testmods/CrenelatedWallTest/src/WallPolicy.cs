@@ -104,9 +104,57 @@ namespace CrenelatedWallTest
         {
             if (!Crenel(cell) || cell.Damaged || cell.Structure) return null;
             int mask = CardinalMask(read, cell.X, cell.Y);
-            if (IsLine(mask)) return Parity(cell.X, cell.Y);
+            if (IsLine(mask)) { LineRun run = Run(read, cell, mask); return run.High(run.IndexOf(cell.Id)); }
             if (mask == 0 && DiagonalMask(read, cell.X, cell.Y) != 0) return DiagonalHigh(cell.X);
             return null;
+        }
+
+        // A run is the maximal chain of straight pieces (middles and endpoints) on one axis. Each end
+        // is free (no crenel) or a special piece (corner, junction, crossing), which Vanilla always
+        // keeps high. Pieces next to a special are low and the run alternates from there; with
+        // specials at both ends the lower-coordinate end anchors it, so an even run ends with a high
+        // piece next to the other special (user decision 2026-11-25). Runs without a special keep
+        // the map parity. Everything follows from the current map, never from the build order.
+        internal sealed class LineRun
+        {
+            internal readonly List<WallCell> Members = new List<WallCell>(); // from the lower-coordinate end
+            internal bool LowSpecial, HighSpecial;
+            internal int IndexOf(int id) { for (int i = 0; i < Members.Count; i++) if (Members[i].Id == id) return i; return -1; }
+            internal bool High(int index)
+            {
+                if (LowSpecial) return (index + 1) % 2 == 0;
+                if (HighSpecial) return (Members.Count - index) % 2 == 0;
+                return Parity(Members[index].X, Members[index].Y);
+            }
+        }
+
+        // Walks the run through a straight piece; at most one native map axis in each direction.
+        internal static LineRun Run(Func<int, int, WallCell> read, WallCell cell, int mask)
+        {
+            bool vertical = (mask & 0b0101) != 0; // N or S neighbour: the run follows y
+            int dx = vertical ? 0 : 1, dy = vertical ? 1 : 0;
+            var run = new LineRun();
+            var low = new List<WallCell>();
+            run.LowSpecial = Walk(read, cell, -dx, -dy, vertical, low);
+            for (int i = low.Count - 1; i >= 0; i--) run.Members.Add(low[i]);
+            run.Members.Add(cell);
+            run.HighSpecial = Walk(read, cell, dx, dy, vertical, run.Members);
+            return run;
+        }
+
+        // Adds the straight pieces in one direction; true when the run ends at a special piece.
+        private static bool Walk(Func<int, int, WallCell> read, WallCell from, int dx, int dy, bool vertical, List<WallCell> into)
+        {
+            for (int step = 1; step <= 800; step++)
+            {
+                WallCell next = read(from.X + dx * step, from.Y + dy * step);
+                if (!Crenel(next)) return false;
+                int mask = CardinalMask(read, next.X, next.Y);
+                bool sameAxis = vertical ? (mask & 0b1010) == 0 : (mask & 0b0101) == 0;
+                if (next.Structure || !IsLine(mask) || !sameAxis) return true;
+                into.Add(next);
+            }
+            return false;
         }
 
         internal static Func<int, int, WallCell> Reader(IWallWorld world, IEnumerable<WallCell> overlay = null)
@@ -172,6 +220,18 @@ namespace CrenelatedWallTest
             // leave a siege tower front without a low tile. Vanilla checkerboard corners and
             // junctions produce at most three. A new run must contain a cell that becomes high
             // now; runs of tiles that are already high (e.g. designer walls) are not new.
+            // With managed heights a new or changed corner shifts the phase of whole straight
+            // runs (LineRun), so their members can become high far from the command as well.
+            if (heightsManaged)
+                foreach (WallCell seed in new List<WallCell>(affected.Values))
+                    for (int n = -1; n < 4; n++)
+                    {
+                        WallCell cell = n < 0 ? seed : read(seed.X + DX[n], seed.Y + DY[n]);
+                        if (!Crenel(cell)) continue;
+                        int mask = CardinalMask(read, cell.X, cell.Y);
+                        if (!IsLine(mask)) continue;
+                        foreach (WallCell member in Run(read, cell, mask).Members) affected[member.Id] = member;
+                    }
             foreach (WallCell cell in affected.Values)
             {
                 if (!PredictedHigh(read, cell, isNew, managed, heightsManaged) || (!isNew.Contains(cell.Id) && cell.High)) continue;
@@ -205,7 +265,9 @@ namespace CrenelatedWallTest
             if (!IsLine(mask))
                 return !(ours && !cell.Damaged && mask == 0 && DiagonalMask(read, cell.X, cell.Y) != 0 && !DiagonalHigh(cell.X));
             if (cell.Damaged) return cell.High;
-            return isNew.Contains(cell.Id) || (managed != null && managed(cell.Id)) ? Parity(cell.X, cell.Y) : cell.High;
+            if (!(isNew.Contains(cell.Id) || (managed != null && managed(cell.Id)))) return cell.High;
+            LineRun run = Run(read, cell, mask);
+            return run.High(run.IndexOf(cell.Id));
         }
 
         // All simple paths of up to three further high cells starting next to origin.

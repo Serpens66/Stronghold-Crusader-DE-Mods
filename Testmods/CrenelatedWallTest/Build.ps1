@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([int]$NoInstall = 0, [int]$VerifyOnly = 0)
+param([int]$NoInstall = 0, [int]$VerifyOnly = 0, [int]$DevDiag = 0)
 $ErrorActionPreference = 'Stop'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 . (Join-Path $workspace 'Shared\Tools\Release\Release.Common.ps1')
@@ -40,8 +40,10 @@ try {
         if (-not $NoInstall -and (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue)) {
             throw 'Close the game before installing CrenelatedWallTest.'
         }
+        # Diagnostics (per-build log lines for the acceptance tests) only via build.bat /devdiag.
+        if ($DevDiag -and $env:SHCDE_DEVDIAG -ne '1') { throw 'Use build.bat /devdiag for diagnostics.' }
         $msbuild = 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe'
-        & $msbuild (Join-Path $PSScriptRoot 'CrenelatedWallTest.csproj') /t:Rebuild /p:Configuration=Debug ("/p:ApiSharedDir=" + $sdk) /nologo /verbosity:minimal
+        & $msbuild (Join-Path $PSScriptRoot 'CrenelatedWallTest.csproj') /t:Rebuild /p:Configuration=Debug ("/p:ApiSharedDir=" + $sdk) ("/p:SerpDevDiagnostics=" + ([bool]$DevDiag).ToString().ToLowerInvariant()) /nologo /verbosity:minimal
         if ($LASTEXITCODE -ne 0) { throw 'Runtime build failed.' }
         $output = Join-Path $PSScriptRoot 'BepInEx\plugins\CrenelatedWallTest_Serp'
         $dll = Join-Path $output 'CrenelatedWallTest.dll'
@@ -54,6 +56,7 @@ try {
         Assert-DependenciesUnchanged
         $record['SdkVersion'] = $selectedVersion.ToString()
         $record['RuntimeSha256'] = Get-Sha256Hex $dll
+        $record['DevDiag'] = [bool]$DevDiag
         if (-not $NoInstall) {
             $target = Join-Path $game 'BepInEx\plugins\CrenelatedWallTest_Serp'
             foreach ($file in Get-ChildItem -LiteralPath $output -Recurse -File) {

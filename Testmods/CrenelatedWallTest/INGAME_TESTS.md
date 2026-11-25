@@ -113,7 +113,7 @@ Testmod-Szenarien `crenel-heights` (Editor und KI) und `crenel-ai` (nur KI), Hö
 
 - **Beliebige Reihenfolge (Editor):** Gerade Reihe, 2×2-Block und L wurden Stück für Stück in zufälliger Reihenfolge gebaut, Lücken später geschlossen, außerdem eine Reihe in umgekehrten Hälften gezogen. Keine Ablehnung, der 2×2-Block steht. Alle 30 Zinnen haben die Zielhöhe (12 niedrig; 2×2 und Ecke hoch).
 - **Diagonale Reihen** mit ausgeschalteter Blockade: 40 Zinnen richtig, alle 4 niedrigen Stücke für Assassinen betretbar.
-- **Vorgebaute KI-Burg (Wolf, `advopt_pre_build=1`):** `CRENEL_AI_PREBUILT calls=117; adopted=117; changed=4`. Nach 400 Ticks Render-Pflege haben alle 39 verbliebenen KI-Zinnen die Zielhöhe (17 niedrig). Von den 117 beim Start gesetzten Zinnen trugen eine Sekunde später nur noch 39 das Zinnenbit; die übrigen 78 KI-Mauerkacheln wandelt Vanilla beim Burgaufbau um (Ursache nicht untersucht). Der Tick-Abgleich entfernt sie aus der Verwaltung.
+- **Vorgebaute KI-Burg (Wolf, `advopt_pre_build=1`):** `CRENEL_AI_PREBUILT calls=117; adopted=117; changed=4`. Nach 400 Ticks Render-Pflege haben alle 39 verbliebenen KI-Zinnen die Zielhöhe (17 niedrig). Von den 117 beim Start gesetzten Zinnen trugen eine Sekunde später nur noch 39 das Zinnenbit; die übrigen 78 KI-Mauerkacheln wandelt Vanilla beim Burgaufbau um (Ursache nicht untersucht). Der Tick-Abgleich entfernt sie aus der Verwaltung. **Korrektur 25.11.2026:** Die „78 umgewandelten“ Kacheln waren ein Zählfehler des Tests (Schleife nur über x/y < Kartengröße; die Burg lag teils jenseits davon). Alle platzierten Mauern bleiben stehen (Lauf `199b6441`).
 - **Manuell gebaute KI-Burg (`advopt_pre_build=0`, normale Mauerkosten):** 27 Zinnen übernommen, nach der Render-Pflege alle richtig (13 niedrig).
 - **Hinweis für Testaufbauten:** In einem früheren Lauf (Mauerkosten-Multiplikator 0) entstanden trotz vieler 0x6CB20-Aufrufe keine KI-Mauern; die Ursache ist nicht belegt. Der KI-Test setzt die Multiplikatoren vorsichtshalber auf 1 zurück.
 
@@ -131,7 +131,7 @@ Der periodische Abgleich (bis zu 256 verwaltete Zinnen pro Tick) ist entfernt. D
 Testaufbau-Erkenntnisse:
 
 - Die KI-Kontrollreihe in `crenel-acceptance` war seit der Aufteilung der Schalter veraltet: Neue KI-Bauten werden verwaltet. Die Reihe muss jetzt durchgehend die Zielhöhe haben; das Vanilla-Hängenbleiben weist `crenel-vanilla-topology` nach.
-- Eingebaute KI-Lords bekommen bei jedem Start zufällig eine ihrer Standard-Burgvorlagen samt Drehung (`AIVLoader.UploadDefaultAIV`, `preferredAIVs = -1 - rotation`). Die vorgebaute Burg war deshalb verschieden groß (117, 135 oder 186 Zinnenaufrufe). In zwei Läufen (`2fc44ab9`, `bf01f7c2`; 135 bzw. 186 Aufrufe) gab es 20 Ticks nach dem Start keine einzige Mauerkachel mehr auf der Karte, obwohl der Mod beim Start alle Zinnen übernommen hatte; der Mod schreibt nur das Hoch-Bit. Ursache nicht untersucht. Der KI-Test legt deshalb die Burgvorlage fest (`preferredAIVs = 100`: Vorlage 0, 0 Grad) und ordnet die Startburgen fest zu; Herleitung in der Baseline `AIV_LOBBY_SELECTION.md` (Abschnitt vom 25.11.2026). Die Vorbau-Prüfung läuft ohne Friedenszeit; mit Friedenszeit verschwanden die Mauern einer zufälligen Vorlage ebenfalls.
+- Eingebaute KI-Lords bekommen bei jedem Start zufällig eine ihrer Standard-Burgvorlagen samt Drehung (`AIVLoader.UploadDefaultAIV`, `preferredAIVs = -1 - rotation`). Die vorgebaute Burg war deshalb verschieden groß (117, 135 oder 186 Zinnenaufrufe). In zwei Läufen (`2fc44ab9`, `bf01f7c2`; 135 bzw. 186 Aufrufe) gab es 20 Ticks nach dem Start keine einzige Mauerkachel mehr auf der Karte, obwohl der Mod beim Start alle Zinnen übernommen hatte; der Mod schreibt nur das Hoch-Bit. Ursache nicht untersucht. Der KI-Test legt deshalb die Burgvorlage fest (`preferredAIVs = 100`: Vorlage 0, 0 Grad) und ordnet die Startburgen fest zu; Herleitung in der Baseline `AIV_LOBBY_SELECTION.md` (Abschnitt vom 25.11.2026). Die Vorbau-Prüfung läuft ohne Friedenszeit; mit Friedenszeit verschwanden die Mauern einer zufälligen Vorlage ebenfalls. **Korrektur 25.11.2026:** Die Mauern verschwanden nicht. Die Testzählung lief nur über x/y < Kartengröße (400), die Burg lag aber bei x 508–557; an allen 540 platzierten Positionen standen weiter KI-Mauern (354 Mauern, 186 Zinnen, Lauf `199b6441`). Die Zählung läuft jetzt über die vollen Achsen (`MAX_WIDTH`/`MAX_HEIGHT`).
 
 ## Lasttest und kostenproportionale Aktualisierung (25.11.2026, Lauf `bff6522d`, Nachweis `.work/a/crenel-ingame/058`)
 
@@ -149,3 +149,12 @@ Szenario `crenel-stress` (Testmod `CrenelatedWallAcceptance`): neue 800x800-Edit
 | Bau eines 100er-Zinnenbefehls, höchstens | 26 ms | 0,6 ms |
 
 Danach hatten alle 16.914 unbeschädigten Zinnen die Zielhöhe. Grenzen: Die Messung enthält den Harmony-Aufwand; zerstört wurden nur rund 35 Zinnen (die meisten Einschläge beschädigen nur), der Splash-Zerstörungspfad ohne Event lief also selten; Laden eines Spielstands mit vielen verwalteten Zinnen (Restore, einmalig beim Kartenstart) ist nicht gemessen. Katapulteinheiten wurden im Editor nicht bemannt (Lauf `5bbf59bd`), daher die erzeugten Steine.
+
+## Reihen richten sich nach Ecken (25.11.2026)
+
+Bisher folgten gerade Stücke der festen Kartenparität. Neben einer immer hohen Ecke standen dadurch je nach Lage zwei hohe Zinnen; eine 3er-Endreihe zwischen zwei Ecken war mal H-L-H, mal H-H-H (Screenshots des Nutzers). Jetzt gilt für jeden Lauf (maximale Kette gerader Stücke einer Achse, `WallPolicy.LineRun`):
+- Neben einer Ecke oder Verzweigung niedrig, dann abwechselnd.
+- Bei Sonderstücken an beiden Enden verankert das Ende mit der kleineren Koordinate; eine gerade Anzahl Stücke endet dann mit einem hohen Stück neben der anderen Ecke (Entscheidung des Nutzers).
+- Läufe ohne Sonderstück behalten die Kartenparität.
+
+`Normalize` gleicht dafür ganze Läufe durch die geänderten Kacheln und ihre Achsnachbarn ab; die Blockade-Vorhersage berücksichtigt die verschobenen Läufe ebenso. Regeltests: Rahmen beider Paritäten und Breiten 4 bis 9, nachträglich angebaute und wieder abgerissene Ecke, zufällige Baureihenfolge. Spieltest: Schritt `heights-frame` im Szenario `crenel-heights`.

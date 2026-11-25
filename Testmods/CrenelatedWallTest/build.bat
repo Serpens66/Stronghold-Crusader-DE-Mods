@@ -21,9 +21,12 @@ set "SHCDE_DEVDIAG="
 set "BUILD_DRIVER_NOPAUSE=0"
 set "VERIFY_ONLY=0"
 set "NO_INSTALL=0"
+set "DEV_DIAG=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "BUILD_DRIVER_NOPAUSE=1"
 for %%A in (%*) do if /I "%%~A"=="/verifyonly" set "VERIFY_ONLY=1"
 for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
+for %%A in (%*) do if /I "%%~A"=="/devdiag" set "DEV_DIAG=1"
+for %%A in (%*) do if /I "%%~A"=="/devdiag" set "SHCDE_DEVDIAG=1"
 set "BUILD_DRIVER_ORIGINAL_DIR=%CD%"
 echo [%date% %time%] START CrenelatedWallTest
 cd /d "%~dp0"
@@ -36,5 +39,5 @@ if "%BUILD_DRIVER_NOPAUSE%"=="0" pause
 exit /b %BUILD_DRIVER_RESULT%
 
 :main
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Build.ps1" -NoInstall %NO_INSTALL% -VerifyOnly %VERIFY_ONLY%
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Build.ps1" -NoInstall %NO_INSTALL% -VerifyOnly %VERIFY_ONLY% -DevDiag %DEV_DIAG%
 exit /b %ERRORLEVEL%

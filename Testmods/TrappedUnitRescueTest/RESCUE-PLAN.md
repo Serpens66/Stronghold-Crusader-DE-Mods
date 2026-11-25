@@ -1,6 +1,6 @@
 # Plan: allgemeine Einheitenrettung und spätere Integration in Pathfinding
 
-Stand: 17.11.2026. Arbeitsplan und fortlaufendes Abnahmeprotokoll.
+Erstellt: 17.11.2026. Fortschritt aktualisiert: 25.11.2026. Arbeitsplan und fortlaufendes Abnahmeprotokoll.
 
 ## 1. Ziel, Auftrag und Zuständigkeit
 
@@ -25,7 +25,7 @@ Statuswerte: **offen**, **in Arbeit**, **teilweise geprüft**, **abgenommen**. E
 | ID | Arbeitspaket | Status | Abhängigkeit / Ergebnis |
 |---|---|---|---|
 | P0 | Vorhandene Rettung, Pathfinding und Schnittstellen einordnen | Abgenommen für die dokumentierte Bestandsaufnahme | Abschnitt 3; vorhandene Nachweise in Abschnitt 4 |
-| P1 | Erzeuger, Zustandsübergänge und Beobachtungsverträge auditieren | Offen; nächster Schritt | Quellen-/Hookmatrix, Auswahl belastbarer Einstiegspunkte |
+| P1 | Erzeuger, Zustandsübergänge und Beobachtungsverträge auditieren | Teilweise offline geprüft; nächster Schritt | Quellen-/Hookmatrix vom 25.11.; vollständiger nativer Abschlussaudit weiter offen |
 | P2 | Gemeinsames Kandidatenmodell, Nachbeobachtung und Budgets | Offen | P1-Verträge; keine neuen permanenten Vollscans |
 | P3 | Bau- und Geländeänderungen automatisch anbinden | Teilweise geprüft | KI-AIV-Zugbrücke vorhanden; weitere Quellen offen |
 | P4 | Gewöhnliche Soldaten und KI-Gruppen im Normalbetrieb absichern | Teilweise geprüft | P2/P3; bisherige kontrollierte Gruppenbelege erhalten |
@@ -37,6 +37,14 @@ Statuswerte: **offen**, **in Arbeit**, **teilweise geprüft**, **abgenommen**. E
 | P10 | Abgenommenen Kern nach Pathfinding überführen | Offen | Testmod-Abnahme und genau ein aktiver Rettungsbesitzer |
 
 **Nächster konkreter Arbeitsschritt:** P1. Zuerst eine vollständige Tabelle der Bau-/Gelände-Erzeuger und der vorhandenen Pathfinding-Besitzer erstellen. Für jede Quelle Vorherzustand, endgültigen Änderungsabschluss, Thread und Einheitenzuordnung belegen. Erst danach die nächste Quelle aktiv anbinden.
+
+### Offline-Fortschritt vom 25.11.2026
+
+Die relevanten ausführbaren Offline-Prüfungen des vorhandenen Prototyps und des aktuellen Pathfinding-Arbeitsstands bestehen. Einzelheiten, Quellidentitäten, verworfene Laufversuche, Vertragsmatrix und offene Grenzen stehen in [OFFLINE-CHECKS.md](OFFLINE-CHECKS.md). Geprüft wurden der Testmod-Build mit 1.807 Einzelprüfungen plus Fixes-Verträgen, NativePatchGuard, 105 ausgewählte APIShared-Tests, 62 Bauzustandsprüfungen, Quell-/XAML-/Locale-Prüfungen und sämtliche vom normalen Pathfinding-Build ausgewählten Offline-Suiten. Eine fehlende explizite Tooltip-Stilzuweisung wurde im Testmod korrigiert; die betroffenen Prüfungen und sein Build wurden erfolgreich wiederholt.
+
+Es wurde nichts installiert und kein Spiel gestartet. Die Abnahme vom 17.11. bleibt historisch. Der aktuelle Referenzstand ist Extender 2.14.4, Fixes 1.31.0 und APIShared 0.73.3; Pathfinding-Quellversion 0.1.16. Der native Hash ist unverändert. Die ältere Interop-Provenienz des Baseline-Datasets muss vor zusätzlichen nativen Integrationen relevant validiert werden. Die bekannte veränderliche Scanner-Capture im Fixes-Reiterinstaller ist statisch weiterhin vorhanden; ihre aktuelle Spielwirkung wurde nicht neu geprüft.
+
+P1 ist durch die dokumentierten AIV-/Bau-/Spiegel-/Editor-/Bewegungsverträge vorangekommen, aber noch nicht geschlossen. P2–P10 erhalten durch erfolgreiche Tests des bestehenden Codes keine pauschale Freigabe. Weiter offen sind insbesondere zusätzliche endgültige Änderungsabschlüsse, alte Ausweichbereiche, Next-/Schrittzustände, automatische Arbeiter-/Besatzungspfade und die spätere echte Spiel-/MP-/Lastabnahme. Bis zur nächsten Umsetzung zuerst diese P1-Lücken für die ausgewählte Quelle schließen.
 
 ### Bei jeder Fortsetzung
 
@@ -297,5 +305,6 @@ Technische Details können innerhalb belegter Verträge entschieden werden. Mehr
 | Datum | Paket | Ergebnis / nächste Arbeit | Nachweise |
 |---|---|---|---|
 | 17.11.2026 | P0 / Planerstellung | Aktuellen Pathfinding-Quellstand, menschliche/KI-Grenzen, vorhandene Taktung, Hookbesitzer und öffentliche Vertragsgrenzen eingeordnet. Zielmigration ausdrücklich Pathfinding. Nächster Schritt P1. Keine neuen Runtimeänderungen, Builds oder Spieltests für diesen Plan. | Quellen in Abschnitt3; vorhandene Rettungsnachweise in Abschnitt4 |
+| 25.11.2026 | Offline-Abnahme des vorhandenen Stands / P1 teilweise | Testmod, kompletter Pathfinding-Offline-Build und ausgewählte API-Verträge PASS. Testmod-Tooltip-Stil korrigiert; Nachprüfung PASS. Sandbox-Testhost-Startfehler durch unveränderte erfolgreiche Läufe außerhalb abgegrenzt. Keine Installation/Spieltests; keine neue allgemeine Rettungsquelle implementiert. Nächster Schritt: relevante Baseline-Provenienz validieren und P1 für die nächste Quelle vollständig schließen. | [OFFLINE-CHECKS.md](OFFLINE-CHECKS.md), `.work/a/rescue-offline/001/result.json` |
 
 Für spätere Einträge mindestens Datum, tatsächlichen Quell-/Buildstand, geänderte Dateien/Verträge, bestandene und fehlgeschlagene Prüfungen, verbleibende Grenzen sowie den nächsten konkreten Schritt ergänzen. Bei neuen Erkenntnissen diesen Plan anpassen; erledigte technische Annahmen nicht als dauerhafte Sperren konservieren.

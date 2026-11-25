@@ -292,7 +292,10 @@ namespace CrenelatedWallTest
                         callbackLogged = true;
                         Shared.DebugLogHelper.LogInfo(log, "CRENEL_HOOK_CONFIRMED owner=" + completed.Owner + "; tile=" + added[0].Id + "; position=" + added[0].X + "," + added[0].Y + "; durable native publisher reached after startup cleanup.");
                     }
+#if SERP_DEVDIAG
+                    // Per-command line for the in-game acceptance tests only (build.bat /devdiag).
                     Shared.DebugLogHelper.LogInfo(log, "CRENEL_BUILD owner=" + completed.Owner + "; line=" + Line(completed) + "; built=" + added.Count + "; checked=" + checkedCount + "; changed=" + changed + "; unchanged=" + (checkedCount - changed) + "; managed=" + managed.Count + ".");
+#endif
                 }
                 catch (Exception ex) { Error("post", ex); }
             }
@@ -355,7 +358,10 @@ namespace CrenelatedWallTest
                         aiLogged = true;
                         Shared.DebugLogHelper.LogInfo(log, "CRENEL_AI_HOOK_CONFIRMED player=" + e.PlayerId + "; owner=" + now.Owner + "; tile=" + now.Id + "; position=" + now.X + "," + now.Y + "; mapper=" + e.Mappers + ".");
                     }
+#if SERP_DEVDIAG
+                    // Per-tile line for the in-game acceptance tests only (build.bat /devdiag).
                     Shared.DebugLogHelper.LogInfo(log, "CRENEL_AI_BUILD owner=" + now.Owner + "; position=" + now.X + "," + now.Y + "; checked=" + checkedCount + "; changed=" + changed + "; managed=" + managed.Count + ".");
+#endif
                 }
                 catch (Exception ex) { Error("ai-post", ex); }
             }
@@ -374,21 +380,43 @@ namespace CrenelatedWallTest
             }
         }
         // Rewrites only managed, intact, structure-free line pieces (straight middles and
-        // endpoints) to Vanilla's placement parity. Specials keep Vanilla's own height.
+        // endpoints) to their run height (WallPolicy.LineRun). Specials keep Vanilla's own height.
         // Managed cells that are no longer the owner's crenel are forgotten.
         private int Normalize(IEnumerable<int> ids)
         {
             Func<int, int, WallCell> read = WallPolicy.Reader(world);
             var writes = new List<KeyValuePair<WallCell, bool>>();
             var considered = new List<int>();
-            foreach (int id in ids.Distinct().OrderBy(i => i).ToArray())
+            // A new, changed or removed corner shifts the phase of whole runs, so every run through a
+            // given tile or one of its axis neighbours is normalized completely. Each run is walked
+            // once; the cost follows the run length, never the number of managed crenels.
+            var order = new SortedSet<int>(ids);
+            var runTargets = new Dictionary<int, bool>();
+            foreach (int id in order.ToArray())
+            {
+                if (!managed.TryGetValue(id, out WallCell seed)) continue;
+                for (int d = -1; d < 4; d++)
+                {
+                    WallCell cell = read(seed.X + (d < 0 ? 0 : NeighborX[d]), seed.Y + (d < 0 ? 0 : NeighborY[d]));
+                    if (!WallPolicy.Crenel(cell) || runTargets.ContainsKey(cell.Id)) continue;
+                    int mask = WallPolicy.CardinalMask(read, cell.X, cell.Y);
+                    if (!WallPolicy.IsLine(mask)) continue;
+                    WallPolicy.LineRun run = WallPolicy.Run(read, cell, mask);
+                    for (int i = 0; i < run.Members.Count; i++)
+                    {
+                        runTargets[run.Members[i].Id] = run.High(i);
+                        if (managed.ContainsKey(run.Members[i].Id)) order.Add(run.Members[i].Id);
+                    }
+                }
+            }
+            foreach (int id in order)
             {
                 if (!managed.TryGetValue(id, out WallCell entry)) continue;
                 WallCell cell = read(entry.X, entry.Y);
                 if (cell == null || cell.Id != id || !WallPolicy.Crenel(cell) || cell.Owner != entry.Owner)
                 { managed.Remove(id); signatures.Remove(id); graphics.Watch(id, false); graphics.SetEndpoint(id, null); continue; }
                 considered.Add(id); graphics.Watch(id, true);
-                bool? target = WallPolicy.TargetHigh(read, cell);
+                bool? target = !cell.Damaged && !cell.Structure && runTargets.TryGetValue(id, out bool high) ? high : WallPolicy.TargetHigh(read, cell);
                 if (target.HasValue && target.Value != cell.High) writes.Add(new KeyValuePair<WallCell, bool>(cell, target.Value));
             }
             // Validate the public path service before publishing any changed flag.

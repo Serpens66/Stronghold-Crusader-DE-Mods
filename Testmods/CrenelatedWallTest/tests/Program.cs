@@ -52,12 +52,25 @@ internal static class Program
             Normalize(ids);
             return verdict;
         }
-        // Mirrors WallRuntime.Normalize: only managed, live, owned crenels; TargetHigh decides.
+        // Mirrors WallRuntime.Normalize: only managed, live, owned crenels; whole runs through a given
+        // tile or its axis neighbours are included (a corner shifts the phase of a run); TargetHigh decides.
         internal int Normalize(IEnumerable<int> ids)
         {
             Func<int, int, WallCell> read = WallPolicy.Reader(this);
             var writes = new List<KeyValuePair<int, bool>>();
-            foreach (int id in ids.Distinct().OrderBy(i => i).ToArray())
+            var order = new SortedSet<int>(ids);
+            foreach (int id in order.ToArray())
+            {
+                if (!Managed.Contains(id) || !Cells.TryGetValue(id, out WallCell seed)) continue;
+                foreach (var d in new[] { (0, 0), (0, -1), (1, 0), (0, 1), (-1, 0) })
+                {
+                    if (!TryRead(seed.X + d.Item1, seed.Y + d.Item2, out WallCell cell) || !WallPolicy.Crenel(cell)) continue;
+                    int mask = WallPolicy.CardinalMask(read, cell.X, cell.Y);
+                    if (!WallPolicy.IsLine(mask)) continue;
+                    foreach (WallCell member in WallPolicy.Run(read, cell, mask).Members) if (Managed.Contains(member.Id)) order.Add(member.Id);
+                }
+            }
+            foreach (int id in order)
             {
                 if (!Managed.Contains(id)) continue;
                 if (!Cells.TryGetValue(id, out WallCell cell) || !WallPolicy.Crenel(cell)) { Managed.Remove(id); continue; }
@@ -110,7 +123,7 @@ internal static class Program
             CSharpCompilation compiled = CompileRuntime(root, sdk);
             ApiCompatibility(compiled, sdk);
             StraightRows(); EnterableShapes(); ForbiddenShapes(); ScopeAndOwnership(); Persistence(); EndpointGraphics(); RandomConstruction(); PreviewAdmission();
-            SplitSwitches();
+            SplitSwitches(); SpecialAnchoredRuns();
             RepairOrigins();
             Console.WriteLine("PASS: " + checks + " assertions; production runtime compilation, parity policy, enterability rules, redraw stability, scope and MessagePack persistence. Real game/peer execution is not inferred.");
         }
@@ -280,6 +293,55 @@ internal static class Program
         bool invalid = false; try { WallPolicy.Raster(limited, -1, 30, 2, 30, 20); } catch (InvalidOperationException) { invalid = true; }
         Check(invalid, "Out-of-bounds raster not rejected");
     }
+    // Straight runs follow the nearest special piece (corner, junction): next to it low, then
+    // alternating; runs between two specials anchor at the lower coordinate (user decision
+    // 2026-11-25: an even run ends with a high piece next to the other special). Free runs keep parity.
+    private static void SpecialAnchoredRuns()
+    {
+        for (int shift = 0; shift <= 1; shift++) for (int width = 4; width <= 9; width++)
+        {
+            int x0 = 100 + shift, y0 = 100, x1 = x0 + width - 1, y1 = y0 + 2;
+            var frame = new World();
+            Check(frame.Build(x0, y0, x1, y0).Accepted && frame.Build(x0, y1, x1, y1).Accepted &&
+                frame.Build(x0, y0 + 1, x0, y0 + 1).Accepted && frame.Build(x1, y0 + 1, x1, y0 + 1).Accepted, "Frame rejected");
+            frame.Settle();
+            CheckManagedParity(frame, "Frame run heights");
+            foreach (int x in new[] { x0, x1 })
+            {
+                Check(!frame.HighAt(x, y0 + 1), "Three-piece end row is not high-low-high at x=" + x + " shift " + shift);
+                Check(frame.HighAt(x, y0) && frame.HighAt(x, y1), "Frame corner is not high");
+            }
+            for (int y = y0; y <= y1; y += 2)
+            {
+                // Long sides: low next to the left corner, alternating; at the right corner an even
+                // run (width - 2) ends high, an odd one low.
+                for (int x = x0 + 1; x < x1; x++) Check(frame.HighAt(x, y) == ((x - x0) % 2 == 0), "Long side not anchored at the left corner, x=" + x);
+                Check(frame.HighAt(x1 - 1, y) == ((width - 2) % 2 == 0), "Right end of the run");
+            }
+            // Same result in any build order and position-independent in the anchored runs.
+            var shuffled = new World(); var random = new Random(width * 7 + shift);
+            var cells = new List<(int, int)>();
+            for (int x = x0; x <= x1; x++) { cells.Add((x, y0)); cells.Add((x, y1)); }
+            cells.Add((x0, y0 + 1)); cells.Add((x1, y0 + 1));
+            foreach (var c in cells.OrderBy(_ => random.Next())) { shuffled.Build(c.Item1, c.Item2, c.Item1, c.Item2); if (random.Next(2) == 0) shuffled.Settle(); }
+            shuffled.Settle();
+            Check(shuffled.State() == frame.State(), "Frame heights depend on build order, width " + width + " shift " + shift);
+        }
+        // A corner added to the end of a free row re-anchors the whole row; removing it restores parity.
+        for (int shift = 0; shift <= 1; shift++)
+        {
+            int x0 = 200 + shift;
+            var row = new World(); row.Build(x0, 200, x0 + 11, 200); row.Settle();
+            foreach (WallCell cell in row.Cells.Values) Check(cell.High == WallPolicy.Parity(cell.X, cell.Y), "Free row lost its parity");
+            Check(row.Build(x0 + 11, 201, x0 + 11, 201).Accepted, "Corner piece rejected"); row.Settle();
+            CheckManagedParity(row, "Re-anchored row");
+            for (int x = x0; x < x0 + 11; x++) Check(row.HighAt(x, 200) == ((x0 + 11 - x) % 2 == 0), "Row not anchored at the new corner, x=" + x);
+            int corner = 200 * 800 + x0 + 11, added = 201 * 800 + x0 + 11;
+            row.Remove(x0 + 11, 201); row.Normalize(new[] { corner }); row.Settle();
+            foreach (WallCell cell in row.Cells.Values) Check(cell.High == WallPolicy.Parity(cell.X, cell.Y), "Removing the corner did not restore parity at " + cell.X);
+            Check(!row.Cells.ContainsKey(added), "Removed piece still present");
+        }
+    }
     private static void EnterableShapes()
     {
         // Normal castle shapes stay buildable at both parities; at most three highs in a row.
@@ -355,7 +417,9 @@ internal static class Program
         foreach (var c in new[] { (30, 30), (31, 30), (31, 31), (32, 31) }) Check(stairs.Build(c.Item1, c.Item2, c.Item1, c.Item2).Accepted, "Stair prefix rejected");
         WallVerdict third = stairs.Build(32, 32, 32, 32);
         Check(!third.Accepted && third.Rejection.Contains("special"), "Three special pieces accepted");
-        // Stairs with two-tile steps pass the special rule but form runs of five highs.
+        // Stairs with two-tile steps pass the special rule. Under map parity they formed runs of
+        // four or more highs and were stopped; with corner-anchored runs the piece next to each
+        // corner is low. Guarantee either way: no accepted state has four highs in a row.
         foreach (int shift in new[] { 0, 1 })
         {
             var wide = new World(); bool stopped = false;
@@ -371,14 +435,15 @@ internal static class Program
                 }
                 x += 2; y += 1;
             }
-            Check(stopped, "Two-tile stairs were never stopped, shift " + shift);
+            wide.Settle(); Check(LongestHighRun(wide) <= 3, "Wide stair state has four highs in a row, shift " + shift + ", stopped " + stopped);
         }
-        // Short U, three tiles wide: allowed or rejected depending on map parity.
+        // Short U, three tiles wide, at both map parities: the pieces next to its corners are low,
+        // so it is accepted and never forms four highs (under map parity one parity was rejected).
         var uLow = new World(); uLow.Build(12, 10, 12, 11); uLow.Build(13, 11, 14, 11);
         Check(uLow.Build(14, 10, 14, 10).Accepted, "Enterable short U rejected");
         var uHigh = new World(); uHigh.Build(11, 10, 11, 11); uHigh.Build(12, 11, 13, 11);
-        WallVerdict u = uHigh.Build(13, 10, 13, 10);
-        Check(!u.Accepted && u.Rejection.Contains("four high"), "Short U with five highs accepted");
+        Check(uHigh.Build(13, 10, 13, 10).Accepted, "Short U rejected at the other parity");
+        foreach (World u in new[] { uLow, uHigh }) { u.Settle(); Check(LongestHighRun(u) <= 3, "Short U has four highs in a row"); CheckManagedParity(u, "Short U run heights"); }
     }
     private static void ScopeAndOwnership()
     {

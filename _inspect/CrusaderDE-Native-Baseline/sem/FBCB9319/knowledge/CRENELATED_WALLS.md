@@ -164,7 +164,7 @@ Notes: `.work/a/crenel-corners/AUDIT.md`. Hash FBCB9319, capstone disassembly, n
 ## AI placement path and pre-built castles, 2026-11-24 [Vanilla facts + mod integration]
 
 - **AI path:** SE `OnAIBuildWall` wraps exactly 0x6CB20 (pattern resolves to one match). It runs validator 0x77CF0 first and skips placement while TileManager+0x204E6E4 is non-zero; mapper 26/35 set 0x200 and the parity high bit, owner byte = player-1. One tile per call. *(confirmed)*
-- **Pre-built castles:** lobby option `MPsetupData.advopt_pre_build` (FRONT_Multiplayer, private field). With 1 the AI castle is placed through 0x6CB20 before the mission lifecycle reports Started (run e0091dd7: 117 crenel results). About a second later only 39 of the 117 AI wall tiles still carried 0x200. *(observed)*
+- **Pre-built castles:** lobby option `MPsetupData.advopt_pre_build` (FRONT_Multiplayer, private field). With 1 the AI castle is placed through 0x6CB20 before the mission lifecycle reports Started (run e0091dd7: 117 crenel results). About a second later only 39 of the 117 AI wall tiles still carried 0x200. *(observed; corrected 2026-11-25: a test counting error, the loop covered only x/y below the map size while tile coordinates of a 400 map exceed 400; all placed walls remain, run 199b6441)*
 - **Mod integration:** the height adjustment collects pre-Started AI crenel placements and adopts them at Started (not in editor or save sessions); later AI placements are adopted per call. Pre-built and manually built AI castles matched the target heights after render maintenance. *(observed)*
 
 ## Writers of wall and crenel bits, 2026-11-24 [Vanilla facts + mod integration]
@@ -188,3 +188,19 @@ Follow-up to the writer audit above; corrects parts of its "without SE event" li
 - **Common helper 0x9F410** (remove static decoration of a tile) runs right before the wall clear in 0x7DF60, 0x71E90, 0xED2E0, 0x71FE0, 0x63700 and 0x7EB00 (also 0x61EF0, 0x62460, 0x63860, 0xDF9D0). APIShared already owns an Indirect/7 detour on it (`Buildings.ConstructionDecorationRemoval`), so any further use must go through that owner. It runs before the bits change and does not cover the editor paths.
 - **Editor paths** (tile type, heights, delete) have SE `MapEditorR3EventHooks` brush events (`BrushDelete`, `BrushSetTileType*`, `BrushSetTileHeight*`, `BrushEvenTileHeight`, `BrushRaiseTileHeight`).
 - Placing buildings onto walls is not possible in play (user statement); the clears inside `BuildStructure` 0x6D580 affect the footprint of the new building only.
+
+## Corner-anchored runs, 2026-11-25 [mod integration]
+
+`Testmods/CrenelatedWallTest` no longer uses map parity for straight pieces next to corners. A run (maximal chain of straight middles and endpoints on one axis, `WallPolicy.LineRun`) ending at a special piece (corner, junction, crossing; always high through 0x65EF0) is low next to it and alternates; with specials at both ends the lower-coordinate end anchors the run, so an even run ends high next to the other special (user decision). Runs without a special keep placement parity. Reason: under parity a three-piece end row between two corners was high-high-high at one of the two map parities. Normalization covers whole runs, because a new or removed corner shifts the phase of the entire run.
+
+## Diagonal walking between low crenels, 2026-11-25 [Vanilla facts]
+
+Static (0xD86F0): a low crenel (0x100 set, 0x400000 clear) gets an edge to every one of its 8 neighbours with 0x100, not high and within +-16 height, diagonals included. The final diagonal filter removes NE/SE/SW/NW only when both adjacent axis tiles are walls and the diagonal tile itself is not a wall (`(diag & 0x10000102) == 0`), so crenel-to-crenel diagonals stay. *(confirmed static)*
+
+In game (scenario `crenel-diagonal-walk`, runs `f344a763` and the following rerun; mod height adjustment off, a 4x4 crenel block and a 2x5 double row forced into a checkerboard, forced lows kept straight by a test-only postfix): *(observed)*
+- An Assassin climbed a low edge crenel and walked diagonally to an interior low crenel whose four axis neighbours were high (path ground > (409,533) > (408,532)); in the double row it walked from the near low tile diagonally to the far low tile.
+- A Spearman came up a ladder onto a low edge crenel and walked on diagonally to the same interior low crenel.
+- A move order onto a high crenel of the block was refused.
+- Edge masks of the forced lows show the diagonal bits (e.g. 0xAA on an interior low).
+
+Consequence: a checkerboard of low and high crenels is crossable diagonally even in wide bands and blocks.

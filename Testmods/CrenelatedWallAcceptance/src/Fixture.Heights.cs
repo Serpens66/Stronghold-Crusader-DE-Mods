@@ -25,6 +25,7 @@ namespace CrenelatedWallAcceptance
             yield return new AutomationStep("editor-prepare", TimeSpan.FromSeconds(60), EditorPrepare, true);
             yield return new AutomationStep("heights-any-order", TimeSpan.FromSeconds(420), HeightsAnyOrder, true);
             yield return new AutomationStep("heights-diagonal", TimeSpan.FromSeconds(240), EditorDiagonal, true);
+            yield return new AutomationStep("heights-frame", TimeSpan.FromSeconds(420), HeightsFrame, true);
             foreach (var step in AiSteps()) yield return step;
         }
 
@@ -41,6 +42,8 @@ namespace CrenelatedWallAcceptance
         // Raw 0x6CB20 calls per mapper, independent of the mod (diagnoses whether the AI builds at all).
         private readonly Dictionary<eMappers, int> aiCalls = new Dictionary<eMappers, int>();
         private IDisposable aiCallSubscription;
+        // Every AI wall placement of the current start: position, mapper and the logic flags right after it.
+        private readonly List<(int x, int y, eMappers mapper, uint flags)> aiPlaced = new List<(int, int, eMappers, uint)>();
 
         // Lobby option "pre-built castles" (MPsetupData.advopt_pre_build) for the next start only:
         // 1 = the AI castle is placed at mission start, 0 = the AI builds it during the match.
@@ -73,7 +76,10 @@ namespace CrenelatedWallAcceptance
             string beforeAiv = string.Join(",", setupData.preferredAIVs), beforeKeeps = string.Join(",", setupData.start_keep_location_order);
             for (int i = 1; i < setupData.preferredAIVs.Length; i++) setupData.preferredAIVs[i] = FixedAiv;
             int[] order = setupData.start_keep_location_order;
-            var occupants = order.Where(v => v >= 0).OrderBy(v => v).ToList();
+            // The lobby lists only the human; AI keeps would be chosen natively. The test opponents
+            // are the next player indices (one AI lord), assigned explicitly like Vanilla's trail
+            // missions do (FRONT_Multiplayer: order[location - 1] = player index).
+            var occupants = order.Where(v => v >= 0).Concat(Enumerable.Range(1, 1)).Distinct().OrderBy(v => v).ToList();
             int free = order.Any(v => v < 0) ? order.First(v => v < 0) : -10;
             int[,] keeps = GameData.Instance.Keep_Locations;
             for (int k = 0; k < order.Length; k++) order[k] = free;
@@ -96,6 +102,60 @@ namespace CrenelatedWallAcceptance
             }
             forcedPreBuild = preBuild; forcedPeace = peace; expectPeace = peace > 0; forceWorld = fixedWorld;
         }
+
+        // Two rectangular frames (user screenshots 2026-11-25): long sides joined by three-piece end
+        // rows, at both map parities and with an odd (5) and an even (6) run between the corners,
+        // built piece by piece in a shuffled order. Corners stay high; the piece next to a corner
+        // is low, so every end row is high-low-high; an even run ends high at its right corner.
+        private IEnumerable<AutomationWait> HeightsFrame(AutomationRun run)
+        {
+            var m = run.CurrentMission;
+            int keepX = ex, keepY = ey;
+            Engine(() => { Require(CenterArea(19, 6, out ex, out ey, keepX, keepY, 40), "no free area for the frame test"); return 0; });
+            log("FRAME_AREA " + ex + "," + ey);
+            foreach (int y in new[] { 0, 4 })
+                for (int x = 0; x <= 18; x += 6)
+                    foreach (var w in UiWall(run, m, "support", 1, eMappers.MAPPER_WALL, x, y, Math.Min(x + 5, 18), y, null)) yield return w;
+            // Plain walls beside the end-row middles, so every crenel has support in any build order.
+            foreach (int x in new[] { 0, 8, 9, 18 })
+                foreach (var w in UiWall(run, m, "support", 1, eMappers.MAPPER_WALL, x, 2, x, 2, null)) yield return w;
+            var frames = new[] { (1, 7), (10, 8) }; // (left x, width): end rows at both parities
+            var pieces = new List<(int, int)>();
+            foreach (var (x0, width) in frames)
+            {
+                for (int x = x0; x < x0 + width; x++) { pieces.Add((x, 1)); pieces.Add((x, 3)); }
+                pieces.Add((x0, 2)); pieces.Add((x0 + width - 1, 2));
+            }
+            var random = new Random(20261125);
+            foreach (var p in pieces.OrderBy(_ => random.Next()).ToList())
+                foreach (var w in UiWall(run, m, "frame-piece", 1, eMappers.MAPPER_CRENAL, p.Item1, p.Item2, p.Item1, p.Item2, false)) yield return w;
+            foreach (var w in EditorSettle(run, m)) yield return w;
+            string result = Engine(() =>
+            {
+                var cells = new List<string>();
+                foreach (var (x0, width) in frames)
+                {
+                    int x1 = x0 + width - 1;
+                    foreach (int x in new[] { x0, x1 })
+                    {
+                        Require(IsHigh(x + ex, 1 + ey) && IsHigh(x + ex, 3 + ey), "frame corner not high at x=" + (x + ex));
+                        Require(!IsHigh(x + ex, 2 + ey), "three-piece end row is not high-low-high at " + (x + ex) + "," + (2 + ey));
+                    }
+                    for (int y = 1; y <= 3; y += 2)
+                    {
+                        Require(!IsHigh(x0 + 1 + ex, y + ey), "piece next to the left corner is high at y=" + (y + ey));
+                        Require(IsHigh(x1 - 1 + ex, y + ey) == ((width - 2) % 2 == 0), "right end of the run has the wrong height, width " + width);
+                        var row = new System.Text.StringBuilder();
+                        for (int x = x0; x <= x1; x++) row.Append(IsHigh(x + ex, y + ey) ? 'H' : 'L');
+                        cells.Add(row.ToString());
+                    }
+                }
+                return CheckHeights("heights-frame") + " rows=" + string.Join(",", cells);
+            });
+            log(result);
+            ex = keepX; ey = keepY;
+        }
+        private static bool IsHigh(int x, int y) { int id = Tile(x, y); return IsCrenel(id) && (Flags(id) & (uint)TilePropertyFlag.CrenelatedHigh) != 0; }
 
         // Single pieces in a shuffled order (gaps closed later), a 2x2 block that the blockade
         // would reject, an L and a row dragged in reverse halves and closed piece by piece.
@@ -138,15 +198,19 @@ namespace CrenelatedWallAcceptance
             SetSwitches(true, true, false);
             humanTiles.Clear();
             aiCallSubscription?.Dispose();
+            lock (aiCalls) aiPlaced.Clear();
             aiCallSubscription = AIR3EventHooks.OnAIBuildWall.Observable.Subscribe(e =>
             {
                 if (e.Phase != EventHookPhase.Post) return;
-                lock (aiCalls) aiCalls[e.Mappers] = (aiCalls.TryGetValue(e.Mappers, out int n) ? n : 0) + 1;
+                lock (aiCalls)
+                {
+                    aiCalls[e.Mappers] = (aiCalls.TryGetValue(e.Mappers, out int n) ? n : 0) + 1;
+                    if (aiPlaced.Count < 4000) aiPlaced.Add((e.TileX, e.TileY, e.Mappers, Flags(GameTileManagerAPI.Instance.GetTileId(e.TileX, e.TileY))));
+                }
             });
-            // Peace time only for the long manual build: without it the AI killed the human lord
-            // (run 682010f4). With pre-built castles and peace time, all AI walls were gone 20 ticks
-            // after the start (run 2fc44ab9, Vanilla cause not investigated); that check is short.
-            int peace = preBuild == 0 ? PeaceMinutes : 0;
+            // Peace time: without it the AI killed the human lord during the long build (run 682010f4).
+            // (Walls that seemed to vanish with pre-built castles were a counting error of AiWalls.)
+            int peace = PeaceMinutes;
             ArmLobby(preBuild, peace, fixedWorld: true);
             log("AI run map=4spielerkarte.map opponent=SK_WOLF; heights only; preBuild=" + preBuild + "; peace=" + peace + "min");
             foreach (var wait in run.StartSkirmish("4spielerkarte.map", new[] { AILords.SK_WOLF })) yield return wait;
@@ -202,6 +266,7 @@ namespace CrenelatedWallAcceptance
             var m = run.CurrentMission;
             Require(forcedPreBuild < 0 && !forceWorld, "the lobby start hooks did not run");
             log("PREBUILT_WALLS " + run.InSimulation(m, () => AiWalls()));
+            log(run.InSimulation(m, () => PlacedState("prepare")));
             foreach (var w in run.SetPause(m, false)) yield return w;
             yield return run.WaitForTicks(m, 400); // Vanilla render maintenance (sticky highs)
             foreach (var w in run.SetPause(m, true)) yield return w;
@@ -209,11 +274,13 @@ namespace CrenelatedWallAcceptance
             string line = crenelSeen.LastOrDefault(l => l.Contains("CRENEL_AI_PREBUILT"));
             Require(line != null, "no CRENEL_AI_PREBUILT decision logged");
             Require(!crenelSeen.Any(l => l.Contains("CRENEL_CALLBACK_ERROR")), "runtime error while adopting the pre-built castle");
+            log(run.InSimulation(m, () => PlacedState("after400")));
             string result = run.InSimulation(m, () =>
             {
                 humanTiles.Clear();
                 var tiles = GameTileManagerAPI.Instance; int size = tiles.GetCurrentMapSize();
-                for (int y = 0; y < size; y++) for (int x = 0; x < size; x++)
+                // Tile coordinates span the full native axes (a 400 map reaches x/y beyond 400), not 0..size.
+                for (int y = 0; y < GameTileManagerAPI.MAX_HEIGHT; y++) for (int x = 0; x < GameTileManagerAPI.MAX_WIDTH; x++)
                 {
                     if (!tiles.IsTileInsideMapBounds(x, y)) continue;
                     int id = Tile(x, y);
@@ -226,12 +293,40 @@ namespace CrenelatedWallAcceptance
             humanTiles.Clear();
         }
 
+        // What stands now at every position the AI placed a wall piece during this start: counts of
+        // the current logic flags, structure and owner, plus samples with the flags right after placement.
+        private string PlacedState(string stage)
+        {
+            List<(int x, int y, eMappers mapper, uint flags)> placed;
+            lock (aiCalls) placed = aiPlaced.ToList();
+            var tiles = GameTileManagerAPI.Instance;
+            var states = new Dictionary<string, int>();
+            var samples = new List<string>();
+            int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;
+            foreach (var p in placed)
+            {
+                minX = Math.Min(minX, p.x); minY = Math.Min(minY, p.y); maxX = Math.Max(maxX, p.x); maxY = Math.Max(maxY, p.y);
+                int id = Tile(p.x, p.y);
+                uint now = Flags(id);
+                int structure = tiles.GetStructureLayer()[id];
+                string key = "wall=" + ((now & (uint)TilePropertyFlag.IsWall) != 0 ? 1 : 0) + "/crenel=" + ((now & (uint)TilePropertyFlag.CrenelatedLow) != 0 ? 1 : 0) +
+                    "/structure=" + (structure != 0 ? 1 : 0) + "/owner=" + Owner(id);
+                states[key] = (states.TryGetValue(key, out int c) ? c : 0) + 1;
+                if (samples.Count < 12) samples.Add(p.x + "," + p.y + ":" + p.mapper + ":after=" + p.flags.ToString("X") + ":now=" + now.ToString("X") +
+                    ":struct=" + structure + ":h=" + tiles.GetTileHeight(id) + ":unit=" + tiles.GetChimpLayer()[id]);
+            }
+            return "PLACED_STATE " + stage + " ai=" + ai + " calls=" + placed.Count + " area=" + minX + "," + minY + "-" + maxX + "," + maxY +
+                " keep=" + GamePlayerManagerAPI.Instance.GetPlayerKeepId(ai) + " states=" + string.Join(" ", states.OrderByDescending(k => k.Value).Select(k => k.Key + ":" + k.Value)) +
+                " samples=" + string.Join(" ", samples);
+        }
+
         // AI-owned wall and crenel tiles on the whole map.
         private string AiWalls()
         {
             var tiles = GameTileManagerAPI.Instance; int size = tiles.GetCurrentMapSize();
             var walls = new int[9]; var crenels = new int[9];
-            for (int y = 0; y < size; y++) for (int x = 0; x < size; x++)
+            // Tile coordinates span the full native axes (a 400 map reaches x/y beyond 400), not 0..size.
+            for (int y = 0; y < GameTileManagerAPI.MAX_HEIGHT; y++) for (int x = 0; x < GameTileManagerAPI.MAX_WIDTH; x++)
             {
                 if (!tiles.IsTileInsideMapBounds(x, y)) continue;
                 int id = tiles.GetTileId(x, y);

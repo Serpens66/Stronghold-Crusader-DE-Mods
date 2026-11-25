@@ -1,0 +1,35 @@
+Native SHA256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2; canonical PE read only; 2026-11-25.
+77E60 validation: selected control/exit anchors; full current decompilation unavailable, direct PE instructions used.
+0000000180077E60  48 89 5C 24 10                    mov       [rsp+10h],rbx
+0000000180077E90  89 B9 FC E6 04 02                 mov       [rcx+204`E6FCh],edi
+00000001800783C0  E8 3B 2B FF FF                    call      0000`0001`8006`AF00h
+00000001800783EA  E8 A1 6B 07 00                    call      0000`0001`800E`EF90h
+0000000180078890  74 0A                             je        short 0000`0001`8007`889Ch
+0000000180078892  C7 83 FC E6 04 02 01 00 00 00     mov       dword [rbx+204`E6FCh],1
+000000018007889C  8B 44 24 58                       mov       eax,[rsp+58h]
+0000000180078D15  41 03 D0                          add       edx,r8d
+0000000180078D18  03 D6                             add       edx,esi
+0000000180078D1A  48 63 C2                          movsxd    rax,edx
+0000000180078D1D  F6 84 83 00 84 89 00 30           test      byte [rbx+rax*4+89`8400h],30h
+00000001800798D1  C7 83 FC E6 04 02 02 00 00 00     mov       dword [rbx+204`E6FCh],2
+00000001800798DB  48 8B 9C 24 A8 00 00 00           mov       rbx,[rsp+0A8h]
+00000001800798F2  C3                                ret
+6D580 selected native side effects/cleanup calls:
+000000018006D603  E8 58 A8 00 00                    call      0000`0001`8007`7E60h
+000000018006DAE4  89 74 24 40                       mov       [rsp+40h],esi
+000000018006DE5A  E8 81 59 00 00                    call      0000`0001`8007`37E0h
+6CB20 selected native side effects/cleanup calls:
+000000018006CB4A  E8 A1 B1 00 00                    call      0000`0001`8007`7CF0h
+000000018006CDAC  E8 0F BF 05 00                    call      0000`0001`800C`8CC0h
+000000018006CDCD  C3                                ret
+6F230 selected native side effects/cleanup calls:
+000000018006F751  E8 7A 99 06 00                    call      0000`0001`800D`90D0h
+000000018006F91E  E8 9D 93 05 00                    call      0000`0001`800C`8CC0h
+000000018006F931  E8 6A 9C 06 00                    call      0000`0001`800D`95A0h
+000000018006F971  C3                                ret
+6D580 decisive current-PE call and return anchors:
+000000018006D85E  E8 DD E1 12 00                    call      0000`0001`8019`BA40h
+000000018006D87A  E8 91 84 12 00                    call      0000`0001`8019`5D10h
+000000018006D8BA  E8 01 91 11 00                    call      0000`0001`8018`69C0h
+000000018006DFCC  E8 CF B5 06 00                    call      0000`0001`800D`95A0h
+000000018006DFE7  C3                                ret
