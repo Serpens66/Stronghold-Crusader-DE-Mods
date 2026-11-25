@@ -121,4 +121,14 @@ Testmod-Szenarien `crenel-heights` (Editor und KI) und `crenel-ai` (nur KI), Hö
 
 ## Neuzeichnungsmeldung statt Tick-Abgleich (24.11.2026)
 
-Der periodische Abgleich (bis zu 256 verwaltete Zinnen pro Tick) ist entfernt. Der Grafik-Hook meldet jede Neuzeichnung einer verwalteten Zinne; der nächste Tick prüft nur diese Kacheln. Grundlage ist der statische Audit aller Schreiber von Mauer-/Zinnenbits (Baseline `CRENELATED_WALLS.md`, Abschnitt vom 24.11.2026). Spielnachweis siehe unten, sobald gelaufen.
+Der periodische Abgleich (bis zu 256 verwaltete Zinnen pro Tick) ist entfernt. Der Grafik-Hook meldet jede Neuzeichnung einer verwalteten Zinne; der nächste Tick prüft nur diese Kacheln. Grundlage ist der statische Audit aller Schreiber von Mauer-/Zinnenbits (Baseline `CRENELATED_WALLS.md`, Abschnitt vom 24.11.2026). Spielnachweise (25.11.2026, Nachweise in `.work/a/crenel-ingame`):
+
+- `crenel-editor` (Lauf `95b81a0c`, 047): bestanden, auch Abriss, Zerstörung durch Streitkolbenträger und Wiederaufbau.
+- `crenel-heights` Editor-Teil (Lauf `682010f4`, 048): beliebige Reihenfolge und Diagonalen bestanden. Vorgebaute KI-Burg (117 Zinnenaufrufe) bestanden: 39 Zinnen auf Zielhöhe.
+- `crenel-acceptance` (Lauf `5a7c4d25`, 054): bestanden (Höhen, Assassinen, Leiter, Belagerungsturm, Speichern/Laden, KI-Kontrollreihe).
+- `crenel-ai` mit fester Burgvorlage (Lauf `f32744d3`, 055): vorgebaute KI-Burg bestanden (117 Zinnenaufrufe, 59 Zinnen auf Zielhöhe, 27 niedrig); manuell gebaute KI-Burg mit 60 Minuten Friedenszeit bestanden (16 übernommene Zinnen auf Zielhöhe, 8 niedrig). Lauf `682010f4` davor hing, weil die KI ohne Friedenszeit den menschlichen Lord tötete. Die Friedenszeit setzt der Test über `MPsetupData.peacetime` (die Gefechtslobby zeigt die Option nicht) und prüft den nativen Friedensstatus.
+
+Testaufbau-Erkenntnisse:
+
+- Die KI-Kontrollreihe in `crenel-acceptance` war seit der Aufteilung der Schalter veraltet: Neue KI-Bauten werden verwaltet. Die Reihe muss jetzt durchgehend die Zielhöhe haben; das Vanilla-Hängenbleiben weist `crenel-vanilla-topology` nach.
+- Eingebaute KI-Lords bekommen bei jedem Start zufällig eine ihrer Standard-Burgvorlagen samt Drehung (`AIVLoader.UploadDefaultAIV`, `preferredAIVs = -1 - rotation`). Die vorgebaute Burg war deshalb verschieden groß (117, 135 oder 186 Zinnenaufrufe). In zwei Läufen (`2fc44ab9`, `bf01f7c2`; 135 bzw. 186 Aufrufe) gab es 20 Ticks nach dem Start keine einzige Mauerkachel mehr auf der Karte, obwohl der Mod beim Start alle Zinnen übernommen hatte; der Mod schreibt nur das Hoch-Bit. Ursache nicht untersucht. Der KI-Test legt deshalb die Burgvorlage fest (`preferredAIVs = 100`: Vorlage 0, 0 Grad) und ordnet die Startburgen fest zu; Herleitung in der Baseline `AIV_LOBBY_SELECTION.md` (Abschnitt vom 25.11.2026). Die Vorbau-Prüfung läuft ohne Friedenszeit; mit Friedenszeit verschwanden die Mauern einer zufälligen Vorlage ebenfalls.

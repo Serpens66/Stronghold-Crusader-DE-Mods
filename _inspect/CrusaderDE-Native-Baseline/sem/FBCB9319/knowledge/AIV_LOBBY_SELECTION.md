@@ -1305,3 +1305,12 @@ selected prepared live AIV and updates success bookkeeping only after verified
 creation; existing Vanilla sections retire matching duplicate frame retries.
 The Fixes per-player goodsyard policy remains authoritative. Actual game and
 matching-build host/client acceptance must be recorded separately.
+
+## Fixing the AIV choice of built-in Skirmish lords, 2026-11-25 [Vanilla facts + mod integration]
+
+Native hash rechecked against CURRENT.json. Static, from the semantic pseudocode of `0x94350` and `0x54EC0` and the managed decompilation.
+
+- **Managed source:** `FRONT_Multiplayer.StartSkirmishGame` writes `MPsetupData.preferredAIVs[i] = -1 - AIVs[i].rotation` for every slot (non-coop), so a built-in lord always gets a negative selector. It then calls `EngineInterface.setMultiplayerStartingData(MPsetupData)`, which serializes the class into native `DLL_ApplyMultiplayerSetupData` (0x81050, copy to `0x188574320`). *(confirmed managed; native table offset probable)*
+- **Native selector in `0x94350`:** negative values go to the random chooser `0x54F60` (`-1` with alternative rotations, `-2` and lower without). A value `>= 0` (after dropping a `>= 1000` prefix) is `rotation*100 + candidate`: the candidate `v % 100` goes to the fixed fit `0x54DE0`; for `v >= 100` the orientation is `(v/100)*2-2` (100 = 0 degrees, 400 = 270 degrees), otherwise `0x54EC0` draws a random orientation. *(confirmed static)*
+- **Observed (CrenelatedWallAcceptance, run `f32744d3`):** setting `preferredAIVs[1..7] = 100` in a Harmony prefix on `setMultiplayerStartingData` gave Wolf the same pre-built castle (117 crenel placements) in both starts. Random choices before that gave 117, 135 or 186 placements. `start_keep_location_order` only listed the human slot (AI keeps are assigned natively); the test reorders the occupied entries to the lowest valid keep locations.
+- **Open observation:** with two of the random Wolf templates (135 and 186 placements), no wall tile remained on the whole map 20 ticks after the start. Cause not investigated.

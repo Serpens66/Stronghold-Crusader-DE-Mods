@@ -45,15 +45,56 @@ namespace CrenelatedWallAcceptance
         // Lobby option "pre-built castles" (MPsetupData.advopt_pre_build) for the next start only:
         // 1 = the AI castle is placed at mission start, 0 = the AI builds it during the match.
         private static Harmony lobbyHarmony;
-        private static int forcedPreBuild = -1;
+        private static int forcedPreBuild = -1, forcedPeace = -1;
+        // Peace time (minutes): Vanilla hides the slider in AI Skirmish (Show_MPPeacetime false) and
+        // ApplySettings then writes 0, so the test sets MPsetupData.peacetime directly. Prepare checks
+        // the native peace flag afterwards, so an ignored value fails the run instead of passing silently.
         private static void BeforeSkirmishStart(FRONT_Multiplayer __instance)
         {
-            if (forcedPreBuild < 0) return;
+            if (forcedPreBuild < 0 && forcedPeace < 0) return;
             var field = typeof(FRONT_Multiplayer).GetField("MPsetupData", BindingFlags.Instance | BindingFlags.NonPublic) ?? throw new MissingFieldException("MPsetupData");
             var data = (EngineInterface.MultiplayerSetupData)field.GetValue(__instance);
-            Plugin.Stamp("LOBBY pre_build=" + data.advopt_pre_build + " -> " + forcedPreBuild);
-            data.advopt_pre_build = forcedPreBuild;
-            forcedPreBuild = -1;
+            if (forcedPreBuild >= 0) { Plugin.Stamp("LOBBY pre_build=" + data.advopt_pre_build + " -> " + forcedPreBuild); data.advopt_pre_build = forcedPreBuild; }
+            if (forcedPeace >= 0) { Plugin.Stamp("LOBBY peacetime=" + data.peacetime + " -> " + forcedPeace); data.peacetime = forcedPeace; }
+            forcedPreBuild = forcedPeace = -1;
+        }
+        // Fixed AI castle and start positions (test world, not chance). Built-in lords get a random
+        // default AIV and rotation: StartSkirmishGame writes preferredAIVs = -1 - rotation, and native
+        // 0x94350 sends negative selectors to the random chooser 0x54F60. A selector >= 0 is read as
+        // rotation*100 + candidate: candidate goes to the fixed fit 0x54DE0, rotation (v/100)*2-2
+        // (100 = 0 degrees). The keep order maps keep locations to player indices. Both are set
+        // in the managed setup data right before EngineInterface.setMultiplayerStartingData.
+        private const int FixedAiv = 100;
+        private static bool forceWorld;
+        private static void BeforeStartingData(EngineInterface.MultiplayerSetupData setupData)
+        {
+            if (!forceWorld || setupData == null) return;
+            forceWorld = false;
+            string beforeAiv = string.Join(",", setupData.preferredAIVs), beforeKeeps = string.Join(",", setupData.start_keep_location_order);
+            for (int i = 1; i < setupData.preferredAIVs.Length; i++) setupData.preferredAIVs[i] = FixedAiv;
+            int[] order = setupData.start_keep_location_order;
+            var occupants = order.Where(v => v >= 0).OrderBy(v => v).ToList();
+            int free = order.Any(v => v < 0) ? order.First(v => v < 0) : -10;
+            int[,] keeps = GameData.Instance.Keep_Locations;
+            for (int k = 0; k < order.Length; k++) order[k] = free;
+            for (int k = 0, next = 0; k < order.Length && next < occupants.Count; k++)
+                if (keeps[k, 0] >= 0) order[k] = occupants[next++];
+            Require(occupants.All(o => order.Contains(o)), "not enough keep locations for the fixed order");
+            Plugin.Stamp("LOBBY fixed world preferredAIVs " + beforeAiv + " -> " + string.Join(",", setupData.preferredAIVs) +
+                "; keepOrder " + beforeKeeps + " -> " + string.Join(",", order));
+        }
+        // Arms the one-shot lobby overrides for the next StartSkirmishGame.
+        private static void ArmLobby(int preBuild, int peace, bool fixedWorld = false)
+        {
+            if (lobbyHarmony == null)
+            {
+                lobbyHarmony = new Harmony(Plugin.Guid + ".lobby");
+                lobbyHarmony.Patch(AccessTools.Method(typeof(FRONT_Multiplayer), "StartSkirmishGame"),
+                    prefix: new HarmonyMethod(typeof(Fixture).GetMethod(nameof(BeforeSkirmishStart), BindingFlags.Static | BindingFlags.NonPublic)));
+                lobbyHarmony.Patch(AccessTools.Method(typeof(EngineInterface), nameof(EngineInterface.setMultiplayerStartingData)),
+                    prefix: new HarmonyMethod(typeof(Fixture).GetMethod(nameof(BeforeStartingData), BindingFlags.Static | BindingFlags.NonPublic)));
+            }
+            forcedPreBuild = preBuild; forcedPeace = peace; expectPeace = peace > 0; forceWorld = fixedWorld;
         }
 
         // Single pieces in a shuffled order (gaps closed later), a 2x2 block that the blockade
@@ -102,17 +143,13 @@ namespace CrenelatedWallAcceptance
                 if (e.Phase != EventHookPhase.Post) return;
                 lock (aiCalls) aiCalls[e.Mappers] = (aiCalls.TryGetValue(e.Mappers, out int n) ? n : 0) + 1;
             });
-            if (lobbyHarmony == null)
-            {
-                lobbyHarmony = new Harmony(Plugin.Guid + ".lobby");
-                lobbyHarmony.Patch(AccessTools.Method(typeof(FRONT_Multiplayer), "StartSkirmishGame"),
-                    prefix: new HarmonyMethod(typeof(Fixture).GetMethod(nameof(BeforeSkirmishStart), BindingFlags.Static | BindingFlags.NonPublic)));
-            }
-            forcedPreBuild = preBuild;
-            // Peace time: without it the AI killed the human lord during the long build wait
-            // (run 682010f4), which ended the match and stopped the simulation.
-            log("AI run map=4spielerkarte.map opponent=SK_WOLF; heights only; preBuild=" + preBuild + "; peace=60min");
-            foreach (var wait in run.StartSkirmish("4spielerkarte.map", new[] { AILords.SK_WOLF }, peaceTimeMinutes: 60)) yield return wait;
+            // Peace time only for the long manual build: without it the AI killed the human lord
+            // (run 682010f4). With pre-built castles and peace time, all AI walls were gone 20 ticks
+            // after the start (run 2fc44ab9, Vanilla cause not investigated); that check is short.
+            int peace = preBuild == 0 ? PeaceMinutes : 0;
+            ArmLobby(preBuild, peace, fixedWorld: true);
+            log("AI run map=4spielerkarte.map opponent=SK_WOLF; heights only; preBuild=" + preBuild + "; peace=" + peace + "min");
+            foreach (var wait in run.StartSkirmish("4spielerkarte.map", new[] { AILords.SK_WOLF })) yield return wait;
         }
 
         // Runs the simulation until the AI has placed crenels, then checks every adopted AI tile.
@@ -163,7 +200,7 @@ namespace CrenelatedWallAcceptance
         private IEnumerable<AutomationWait> PrebuiltCheck(AutomationRun run)
         {
             var m = run.CurrentMission;
-            Require(forcedPreBuild < 0, "the lobby start hook did not run");
+            Require(forcedPreBuild < 0 && !forceWorld, "the lobby start hooks did not run");
             log("PREBUILT_WALLS " + run.InSimulation(m, () => AiWalls()));
             foreach (var w in run.SetPause(m, false)) yield return w;
             yield return run.WaitForTicks(m, 400); // Vanilla render maintenance (sticky highs)

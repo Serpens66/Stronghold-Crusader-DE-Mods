@@ -75,10 +75,15 @@ namespace CrenelatedWallAcceptance
         private IEnumerable<AutomationWait> Start(AutomationRun run)
         {
             SetSwitches(true, true, true);
-            log("settings map=4spielerkarte.map opponent=SK_RAT peace=none (lobby offers none; short run)");
+            // Peace time keeps the AI from attacking the lord or the test units. The climbing and siege
+            // units belong to an unused slot and act on direct orders, so peace does not affect them.
+            ArmLobby(-1, PeaceMinutes);
+            log("settings map=4spielerkarte.map opponent=SK_RAT peace=" + PeaceMinutes + "min (set in MPsetupData; the Skirmish lobby shows no option)");
             foreach (var wait in run.StartSkirmish("4spielerkarte.map", new[] { AILords.SK_RAT })) yield return wait;
         }
 
+        private const int PeaceMinutes = 60;
+        private static bool expectPeace;
         private IEnumerable<AutomationWait> Prepare(AutomationRun run)
         {
             var mission = run.CurrentMission;
@@ -88,6 +93,10 @@ namespace CrenelatedWallAcceptance
             foreach (var wait in run.SetPause(mission, false)) yield return wait;
             yield return run.WaitForTicks(mission, 20);
             foreach (var wait in run.SetPause(mission, true)) yield return wait;
+            // Simulation reads require a mission without briefing.
+            string peace = run.InSimulation(mission, () => APIShared.Simulation.PeaceTimeState.TryGetActive(out bool on) ? (on ? "active" : "inactive") : "unavailable");
+            log("PEACE " + peace + " expected=" + (expectPeace ? "active" : "any"));
+            Require(!expectPeace || peace == "active", "peace time is not active (" + peace + "); the AI could attack the lord or the test units");
             Director.instance.SetEngineFrameRate(250);
             Drain();
             Require(crenelSeen.Any(l => l.Contains("CRENEL_SESSION") && l.Contains("active=True")), "CrenelatedWallTest session is not active");
@@ -225,25 +234,31 @@ namespace CrenelatedWallAcceptance
         private IEnumerable<AutomationWait> Control(AutomationRun run)
         {
             var m = run.CurrentMission;
-            // The AI's own walls are untouched by the mod: piece by piece they show Vanilla's sticky
-            // high bit. This proves the render maintenance ran during the measured windows.
+            // Since the height/blockade split the mod also manages new AI builds. A piece-by-piece AI
+            // row would get Vanilla's sticky highs; managed, every piece must end at its parity height.
+            // CRENEL_GRAPHICS_CONFIRMED proves that render maintenance ran (low pieces drawn through the
+            // hook). Vanilla's sticky behaviour itself is proven by the crenel-vanilla-topology scenario.
             foreach (var w in Support(run, m, ai, cx, cy + 1, cx + 8, cy + 1, true)) yield return w;
             for (int i = 1; i <= 7; i++)
                 foreach (var w in Line(run, m, "vanilla-ai", ai, cx + i, cy, cx + i, cy, null, absolute: true)) yield return w;
             foreach (var w in Settle(run, m)) yield return w;
+            var positions = new List<string>();
             string result = run.InSimulation(m, () =>
             {
                 var tiles = GameTileManagerAPI.Instance; int mismatch = 0; var cells = new List<string>();
                 foreach (int id in controlTiles)
                 {
-                    XY(id, out int x, out int y);
+                    XY(id, out int x, out int y); positions.Add(x + "," + y);
                     bool high = (Flags(id) & (uint)TilePropertyFlag.CrenelatedHigh) != 0;
                     if (high != Parity(x, y)) mismatch++;
                     cells.Add(x + "," + y + (high ? ":H" : ":L"));
                 }
-                Require(mismatch > 0, "Vanilla control row shows no sticky high bit; render maintenance not proven");
-                return "CONTROL_PASS vanillaStickyHigh=" + mismatch + "/" + controlTiles.Count + " cells=" + string.Join(" ", cells);
+                Require(mismatch == 0, "managed AI control row kept " + mismatch + " sticky or wrong heights");
+                return "CONTROL_PASS aiRowAtParity=" + controlTiles.Count + " cells=" + string.Join(" ", cells);
             });
+            Drain();
+            Require(graphicsConfirmed, "render maintenance not proven: graphics hook never selected a low piece");
+            Require(positions.All(p => crenelSeen.Any(l => l.Contains("CRENEL_BUILD owner=" + ai + "; line=" + p + "->" + p + ";"))), "AI control row was not managed");
             log(result);
         }
 
@@ -765,7 +780,16 @@ namespace CrenelatedWallAcceptance
             XY(id, out int x, out int y);
             return x + "," + y + ":f=" + Flags(id).ToString("X") + ":owner=" + Owner(id);
         }
-        private void Drain() { while (crenelLog.TryDequeue(out string line)) crenelSeen.Add(line); }
+        // The graphics confirmation is logged once per process; remember it across crenelSeen.Clear().
+        private bool graphicsConfirmed;
+        private void Drain()
+        {
+            while (crenelLog.TryDequeue(out string line))
+            {
+                crenelSeen.Add(line);
+                if (line.Contains("CRENEL_GRAPHICS_CONFIRMED")) graphicsConfirmed = true;
+            }
+        }
         private static object WallSettings()
         {
             var plugin = BepInEx.Bootstrap.Chainloader.PluginInfos[WallMod].Instance;
