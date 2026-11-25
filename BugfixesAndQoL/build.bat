@@ -521,7 +521,7 @@ dotnet run --project "%PROJECT_DIR%tests\PitchMoatLines.Native.Tests\PitchMoatLi
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "AreaConstruction.AreaGrid.Tests"
-dotnet run --project "%PROJECT_DIR%tests\AreaConstruction\AreaGrid.Tests.csproj" --configuration Release
+dotnet run --project "%PROJECT_DIR%tests\AreaConstruction\AreaGrid.Tests.csproj" --configuration Release --property:ExtenderDir="%EXTENDER_DIR%"
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed
 call :step_start "tests" "AreaDemolition.Native.Tests"

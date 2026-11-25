@@ -26,6 +26,7 @@ namespace BugfixesAndQoL.AreaConstruction
         private const int PreviewTokens = 0x4411FB0, PreviewFlags = 0x4F64CF0;
         private const int PlacementScratch = 0x60AD458, CursorScratch = 0x3A11DCC, MouseScratch = 0x8EBA93;
         private const int CursorDepth = 0x3A11E28, EditorOwner = 0x88E3D78, MapperResult = 0x2D4D8C;
+        private const int CursorOverlayCount = 0x4034008, CursorOverlayCapacity = 250;
         private const int NeighborScratch = 0x67E8380, LastClickedTile = 0x8EC038;
         private const int Queue = 0x8574320, QueueEntries = 0xB0BF8, QueueStride = 0x500, QueueCapacity = 500;
         private const int WorldKind = 0x3665F28, FreeBuild = 0x3665FC8;
@@ -59,6 +60,7 @@ namespace BugfixesAndQoL.AreaConstruction
         private readonly byte[] cursorScratch = new byte[16];
         private readonly byte[] mouseScratch = new byte[10];
         private int allowance, storageAllowance, freeSlots, outboundSlots, freeWoodcutters, freeGranaries;
+        private CrewBudget crewBudget;
 
         internal static void RequireSupportedImage(CrusaderLibraryLoadContext context)
         {
@@ -84,7 +86,7 @@ namespace BugfixesAndQoL.AreaConstruction
         internal void ValidateStorage() => storageNeighbor?.Recheck();
 
         internal static bool Supports(eMappers tool) =>
-            IsStorage(tool) || tool == eMappers.MAPPER_WOODSMAN || tool == eMappers.MAPPER_HOVEL ||
+            CrewPlacement.Required(tool) != 0 || IsStorage(tool) || tool == eMappers.MAPPER_WOODSMAN || tool == eMappers.MAPPER_HOVEL ||
             tool == eMappers.MAPPER_MILL || tool == eMappers.MAPPER_KILLING_PIT ||
             WorkshopFrame(tool) > 0 || RegularBuildingFrame(tool) > 0;
 
@@ -170,6 +172,7 @@ namespace BugfixesAndQoL.AreaConstruction
             pendingCurrent.Clear();
             allowance = 0;
             freeSlots = outboundSlots = 0;
+            crewBudget = default;
             if (!SupportsMode(editor) || (requireSelection && !TryResolveMapper(tool, out _)) || Read(PlacementDisabled) != 0 ||
                 (IsStorage(tool) && storageNeighbor?.IsIntact != true) ||
                 Read(PreviewOverride) != 0 ||
@@ -193,6 +196,10 @@ namespace BugfixesAndQoL.AreaConstruction
             if (!Quote(tool, actor, free, cost))
                 return false;
             storageAllowance = IsStorage(tool) ? StorageAllowance(tool, actor) : int.MaxValue;
+            int crewRequired = editor ? 0 : CrewPlacement.Required(tool);
+            eChimps crewType = CrewPlacement.UnitType(tool);
+            if (crewRequired != 0)
+                crewBudget = new CrewBudget(crewRequired, CountSelectedCrew(actor, crewType));
 
             int ownPending = 0;
             int occupiedSlots = 0;
@@ -220,6 +227,9 @@ namespace BugfixesAndQoL.AreaConstruction
                 if (Read(entry + 4) != actor)
                     continue;
                 ownPending += RecordCount(pendingTool);
+                int pendingCrew = CrewPlacement.Required(pendingTool);
+                if (crewRequired != 0 && pendingCrew != 0 && CrewPlacement.UnitType(pendingTool) == crewType)
+                    crewBudget.HoldPending(pendingCrew);
                 if (pendingTool == tool && scale > 0)
                 {
                     pendingCurrent.Add(new Tile(Marshal.ReadInt16(image, entry + 17) + scale / 2,
@@ -246,7 +256,7 @@ namespace BugfixesAndQoL.AreaConstruction
                 }
             }
 
-            allowance = Math.Max(0, Read(FreeBuildingSlots) - 19 - occupiedSlots);
+            allowance = Math.Max(0, Read(FreeBuildingSlots) - CrewPlacement.MinimumFreeRecords(tool) + 1 - occupiedSlots);
             int network = Read(NetworkMode);
             outboundSlots = int.MaxValue;
             if (network != 0)
@@ -271,6 +281,29 @@ namespace BugfixesAndQoL.AreaConstruction
             return true;
         }
 
+        private static int CountSelectedCrew(int actor, eChimps type)
+        {
+            var manager = GameUnitManagerAPI.Instance;
+            var units = manager.GetUnitsAsSpan();
+            uint nextUnitId = manager.GetUnitManager().Pointer->r_NextUnitId;
+            if (nextUnitId == 0 || nextUnitId > (uint)units.Length + 1)
+                return 0;
+
+            int count = 0;
+            for (int spanIndex = 0; spanIndex < (int)nextUnitId - 1; spanIndex++)
+            {
+                ref var unit = ref units[spanIndex];
+                // 0x186110 and 0x1861A0 use local marking at +0x30.
+                if (unit.r_AliveState != AliveState.IsAlive || unit.r_IsKilledByProjectile != 0 || unit.r_UnitHover == 0)
+                    continue;
+                if (unit.r_ControllableForPlayerId != actor)
+                    return 0;
+                if (unit.r_UnitChimp == type)
+                    count++;
+            }
+            return count;
+        }
+
         private static bool Quote(eMappers tool, int actor, bool free, int[] result)
         {
             if (free)
@@ -292,6 +325,8 @@ namespace BugfixesAndQoL.AreaConstruction
         }
 
         internal bool HasQueueSpace => freeSlots > 0 && outboundSlots > 0;
+        internal bool HasCrew => crewBudget.CanReserve;
+        internal bool HasPendingCrewOrder => crewBudget.HasPendingOrder;
         internal bool IsPending(Tile cursor) => pendingCurrent.Contains(cursor);
 
         internal bool IsStorageInitializing(eMappers tool, int actor, Tile cursor, int scale)
@@ -389,7 +424,7 @@ namespace BugfixesAndQoL.AreaConstruction
         private bool ReserveCore(eMappers tool, int actor, bool editor, Tile cursor, int scale, ref int frame, bool draftNeighbor, bool captureTiles)
         {
             bool storage = IsStorage(tool);
-            if (allowance <= 0 || storageAllowance <= 0 ||
+            if (allowance <= 0 || storageAllowance <= 0 || !HasCrew ||
                 (uint)(scale - 1) >= MaximumFootprint || (draftNeighbor && (!storage || storageNeighbor?.IsIntact != true)))
                 return false;
             bool freeWoodcutter = tool == eMappers.MAPPER_WOODSMAN && freeWoodcutters > 0;
@@ -427,10 +462,16 @@ namespace BugfixesAndQoL.AreaConstruction
             // The game monitor serializes both the native probe and its temporary preview-grid writes.
             // Do not undo Vanilla's path-search scratch counters and visitation marks.
             var scratch = CaptureMapActionScratch(storage);
+            bool crewTool = CrewPlacement.Required(tool) != 0;
+            bool usesOverlay = crewTool && tool != eMappers.MAPPER_TUNNEL_CONSTRUCTION;
+            int overlayCount = usesOverlay ? Read(CursorOverlayCount) : 0;
 
             bool valid;
             try
             {
+                // The valid siege preview would append a rotation-dependent overlay outside the footprint grid.
+                if (usesOverlay)
+                    Marshal.WriteInt32(image, CursorOverlayCount, CursorOverlayCapacity);
                 if (Read(Mapper) != (int)tool)
                     Marshal.WriteInt32(image, Mapper, (int)tool);
                 if (draftNeighbor)
@@ -440,7 +481,7 @@ namespace BugfixesAndQoL.AreaConstruction
                 }
                 else Hover();
                 valid = Read(CursorScale) == scale && Read(CursorState) == 0 && Read(PlacementState) == 0;
-                if (valid)
+                if (valid && !crewTool)
                 {
                     int first = int.MaxValue;
                     int file = (int)SpriteFile(tool);
@@ -468,6 +509,8 @@ namespace BugfixesAndQoL.AreaConstruction
             }
             finally
             {
+                if (usesOverlay)
+                    Marshal.WriteInt32(image, CursorOverlayCount, overlayCount);
                 for (int i = 0; i < scale * height; i++)
                 {
                     Marshal.WriteInt32(image, PreviewTokens + tileIds[i] * sizeof(int), previewTokens[i]);
@@ -479,6 +522,7 @@ namespace BugfixesAndQoL.AreaConstruction
             if (!valid) return false;
 
             allowance -= RecordCount(tool);
+            crewBudget.Reserve();
             if (storage)
                 storageAllowance -= RecordCount(tool);
             if (freeWoodcutter)
@@ -489,7 +533,10 @@ namespace BugfixesAndQoL.AreaConstruction
                 Spend(cost);
             return true;
 
-            void Hover() => EngineInterface.DLL_MapAction((int)tool, cursor.X, cursor.Y, 0, actor, !editor, true, 0);
+            // The Arab ballista has no entry in the editor brush table. Skip that fallback,
+            // which would overwrite the result after the ordinary placement validator ran.
+            void Hover() => EngineInterface.DLL_MapAction((int)tool, cursor.X, cursor.Y, 0, actor,
+                !editor || tool == eMappers.MAPPER_ARAB_BALLISTA, true, 0);
         }
 
         private (int Depth, int Owner, int Result, long Neighbor) CaptureMapActionScratch(bool storage)

@@ -138,3 +138,32 @@ raw spawns from acquiring a paid primary object's receipt. Published relays and
 callbacks remain process-rooted even on partial publication failure.
 Executable ABI and actual SE-wrapper fixtures are required before installation;
 these static contracts are not a new game or host/client acceptance claim.
+
+## Troop construction placement (2026-11-26)
+
+For the same native hash, the mapper-to-structure table at `0xC7B98` used by
+`0xC77C0` resolves troop-menu tunnel construction (mapper 66) to cost row 85.
+The finished tunnel entrance (mapper 57) resolves to row 50. Siege mappers
+190 through 194 resolve to rows 80 through 84. The Arab ballista (mapper 358)
+resolves to row 54. `0xCC420` reads these rows on click and `0xC8A90` debits the
+same resolved structure rows after construction by Chore 28, subject to the
+normal editor and free-build rules. The reference defaults for row 85 are all
+zero. The current row can carry a nonzero price. The tunnel validator at
+`0x78C3F` calls the hostile-structure search at `0xF1400` with a distance
+limit of `0x4C`; a clear footprint alone is insufficient.
+
+The post-click continuation in `0x90CD0` subtracts 2, 3, 4, 4, 1, 2 and 1
+respectively for catapult, trebuchet, siege tower, ram, shield, Arab ballista
+and tunnel construction. Its selected-count helpers at `0x186110` and
+`0x1861A0` read the active unit-slot range and filter live records at `+0x88`
+with local marking at `+0x30`, zero at `+0x29C` and the active player at
+`+0x92`. Any other controllable player in that marked set returns zero.
+Chore 28 passes the selected tribe through payload field six (`0x12090`).
+In the troop-assignment branch the building constructor (`0xB47E0`) forwards
+the tribe and new building to `0x11E960` via `0x199C70`. Order 15 admits
+reachable engineers until `0xC5810` reports no more crew slots. Order 21
+admits a reachable tunneler. Both successful paths call `0x186C20` to clear
+the local mark and `0x19A5D0` to remove the unit from synchronized selection.
+The route checks can leave unassigned units selected. Local marks can appear
+before the selected tribe is established, so mark count alone does not prove
+the test setup is ready to exercise the assignment branch.

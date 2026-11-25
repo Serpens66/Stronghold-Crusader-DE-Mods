@@ -212,7 +212,7 @@ namespace BugfixesAndQoL.AreaConstruction
                 int footprint = BuildingScales.GetScale(selected);
                 int frame = native.Frame(selected, player);
                 if ((uint)(footprint - 1) >= NativePlacement.MaximumFootprint ||
-                    frame <= 0 || !native.Begin(selected, player, isEditor) ||
+                    (frame <= 0 && CrewPlacement.Required(selected) == 0) || !native.Begin(selected, player, isEditor) ||
                     (NativePlacement.IsStorage(selected) && !native.Reserve(selected, player, isEditor, pointer, footprint, ref frame)))
                     return false;
 
@@ -305,6 +305,12 @@ namespace BugfixesAndQoL.AreaConstruction
                 {
                     if (released && dragging && MatchesTarget(director) && !CancelPressed())
                     {
+                        if (CrewPlacement.Required(tool) != 0)
+                        {
+                            if (TryPointerTile(director, true, out var releaseTile))
+                                end = releaseTile;
+                            Quote();
+                        }
                         if (tool == eMappers.MAPPER_QUARRY && quarryBlock)
                         {
                             var accepted = new List<Tile>(4);
@@ -512,7 +518,16 @@ namespace BugfixesAndQoL.AreaConstruction
         {
             if (!native.Begin(tool, actor, editor) || !native.HasQueueSpace)
                 return;
+            if (native.HasPendingCrewOrder)
+                return;
+            if (!native.HasCrew)
+            {
+                toBuild.Clear();
+                return;
+            }
 
+            // Each crew order may change the selection. Read it again after Vanilla has processed the order.
+            bool usesCrew = !editor && CrewPlacement.Required(tool) != 0;
             int attempted = 0, submitted = 0;
             while (toBuild.Count != 0 && attempted < CommitPerUpdate)
             {
@@ -528,6 +543,8 @@ namespace BugfixesAndQoL.AreaConstruction
                 native.Place(mapper, tile, actor, editor);
                 native.Submitted();
                 submitted++;
+                if (usesCrew)
+                    break;
             }
             if (attempted > 0)
                 log.LogInfo(Stamp("Rechecked " + attempted + " area sites, submitted " + submitted + " Vanilla build inputs."));

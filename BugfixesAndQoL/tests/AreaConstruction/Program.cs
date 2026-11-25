@@ -2,6 +2,44 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using BugfixesAndQoL.AreaConstruction;
+using SHCDESE.Interop;
+
+foreach (var (tool, workers, unitType, minimumRecords) in new[]
+{
+    (eMappers.MAPPER_CATAPULT, 2, eChimps.CHIMP_TYPE_ENGINEER, 11),
+    (eMappers.MAPPER_TREBUCHET, 3, eChimps.CHIMP_TYPE_ENGINEER, 11),
+    (eMappers.MAPPER_SIEGE_TOWER, 4, eChimps.CHIMP_TYPE_ENGINEER, 11),
+    (eMappers.MAPPER_BATTERING_RAM, 4, eChimps.CHIMP_TYPE_ENGINEER, 11),
+    (eMappers.MAPPER_PORTABLE_SHIELD, 1, eChimps.CHIMP_TYPE_ENGINEER, 11),
+    (eMappers.MAPPER_ARAB_BALLISTA, 2, eChimps.CHIMP_TYPE_ENGINEER, 20),
+    (eMappers.MAPPER_TUNNEL_CONSTRUCTION, 1, eChimps.CHIMP_TYPE_TUNNELER, 3)
+})
+{
+    if (CrewPlacement.Required(tool) != workers || CrewPlacement.UnitType(tool) != unitType ||
+        CrewPlacement.MinimumFreeRecords(tool) != minimumRecords)
+        throw new InvalidOperationException($"Unexpected Vanilla placement requirements for {tool}.");
+
+    var crewBudget = new CrewBudget(workers, 3 * workers - 1);
+    if (!crewBudget.CanReserve)
+        throw new InvalidOperationException($"The first {tool} must fit.");
+    crewBudget.HoldPending(workers);
+    if (!crewBudget.HasPendingOrder || !crewBudget.CanReserve)
+        throw new InvalidOperationException($"A pending {tool} must leave enough crew for exactly one more site.");
+    crewBudget.Reserve();
+    if (crewBudget.CanReserve)
+        throw new InvalidOperationException($"The remaining crew cannot build another {tool}.");
+
+    crewBudget = new CrewBudget(workers, 2 * workers - 1);
+    if (crewBudget.HasPendingOrder || !crewBudget.CanReserve)
+        throw new InvalidOperationException($"The live selection after a completed {tool} must not be charged twice.");
+    crewBudget = new CrewBudget(workers, workers - 1);
+    if (crewBudget.CanReserve)
+        throw new InvalidOperationException($"A reduction in the live selection must prevent another {tool}.");
+}
+if (CrewPlacement.Required(eMappers.MAPPER_TUNNEL) != 0 ||
+    CrewPlacement.Required(eMappers.MAPPER_HOVEL) != 0 || !default(CrewBudget).CanReserve)
+    throw new InvalidOperationException("Ordinary placements must retain the existing budget rules.");
+Console.WriteLine("PASS: all seven crew mappers, live selection limits, and pending crew reservations.");
 
 var cadence = new StorageBuildCadence();
 if (!cadence.TryBegin(0))
