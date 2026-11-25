@@ -104,7 +104,8 @@ namespace ExtraFeatures
             settings.SettingChanged += OnSettingChanged;
         }
 
-        public object GatehouseAutomationButton => gatehouseAutomationRuntime.ButtonViewModel;
+        // Unity thread after Script Extender readiness: the gate button as an APIShared building panel section.
+        public void RegisterGatehouseAutomationPanel() => gatehouseAutomationRuntime.RegisterPanel();
         public void InitializeNetwork()
         {
             TryRunFeature("elevated moat tooltip", () => elevatedMoatRuntime.RegisterTooltip(settings));

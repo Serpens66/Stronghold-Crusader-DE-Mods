@@ -197,6 +197,12 @@ internal static partial class Program
                 return null;
             };
             mod=Assembly.LoadFrom(dll);modelType=mod.GetType("BugfixesAndQoL.BugfixesAndQoLViewModel",true);
+            if (args.Length > 3 && args[3] == "--ai-market-only")
+            {
+                AiMarketSettingsTests(workspace);
+                Console.WriteLine("PASS: production AI market settings, authority, reset, UI and activation matrix: " + checks);
+                return 0;
+            }
             if (args.Length > 3 && args[3] == "--settings-metadata-only")
             {
                 Metadata(workspace);
@@ -417,7 +423,12 @@ internal static partial class Program
     }
     private static void Metadata(string workspace)
     {
-        var scopes=new Dictionary<string,bool>{{"EnableCompactLobbyChat",false},{"EnableLocalAutosave",false},{"EnableLordAndMapListEnhancements",false},{"EnableMissingMapSaveRecovery",false},{"EnablePitchMoatLines",false},{"EnableAreaDemolition",false},{"EnableTroopPanelPageCountFix",false},{"EnableRandomOpponentSelectionEnhancements",true},{"EnableMultiplayerStartupStateFix",true},{"EnablePeaceTimeGameplayFixes",true},{"EnablePeaceTimeCivilianProximityReduction",true},{"EnablePitchStairsFix",true},{"EnableSiegeCrewDuplicationFix",true},{"EnableSiegeCrewFireLossFix",true},{"EnableTreeBlightDecayFix",true},{"EnablePrebuiltAiStorageFix",true},{"EnableAiOutpostRetargetFix",true}};
+        var scopes=new Dictionary<string,bool>{{"EnableCompactLobbyChat",false},{"EnableLocalAutosave",false},{"EnableLordAndMapListEnhancements",false},{"EnableMissingMapSaveRecovery",false},{"EnablePitchMoatLines",false},{"EnableAreaDemolition",false},{"EnableOccupiedWallDemolition",true},{"EnableTroopPanelPageCountFix",false},{"EnableRandomOpponentSelectionEnhancements",true},{"EnableMultiplayerStartupStateFix",true},{"EnablePeaceTimeGameplayFixes",true},{"EnablePeaceTimeCivilianProximityReduction",true},{"EnablePitchStairsFix",true},{"EnableSiegeCrewDuplicationFix",true},{"EnableSiegeCrewFireLossFix",true},{"EnableTreeBlightDecayFix",true},{"EnablePrebuiltAiStorageFix",true},{"EnableAiOutpostRetargetFix",true}};
+        scopes.Add("EnableAiMarketOverbuyFix", true);
+        scopes.Add("EnableAreaConstruction", false);
+        scopes.Add("EnableProjectileTrails", false);
+        scopes.Add("ReplaceStandardProjectileAfterimages", true);
+        scopes.Add("EnableIngameMultiplayerSaveLoading", true);
         MethodBase ctor=modelType.GetConstructors(All).Single();
         List<Tuple<OpCode,object>> body=Instructions(ctor);
         var xaml=new XmlDocument();xaml.Load(Path.Combine(workspace,"BugfixesAndQoL/Override/ScriptExtenderUI/BugfixesAndQoLSettings.xaml"));
@@ -434,12 +445,23 @@ internal static partial class Program
             Check(node.Attributes["ToolTipService.ShowDuration"]?.Value == "60000" &&
                 !string.IsNullOrWhiteSpace(popupHelp?.Value), "new setting tooltip contract");
             string role=pair.Value?"CanEditHostSettings":"CanEditClientSettings";
+            if (property.GetCustomAttributesData().Any(attribute => attribute.AttributeType.Name == "MissionIndependentAttribute"))
+                role = "CanEditMissionIndependentHostSettings";
             Check(Ancestors(node).Any(a=>a.Attributes?["IsEnabled"]?.Value=="{Binding "+role+"}"),"new editor inherits its own role authority");
         }
         var presetApplication = modelType.BaseType.Assembly.GetType("APIShared.ModSettings.ModSettingsApplication", true);
         var hostProperties = (PropertyInfo[])presetApplication.GetMethod("GetHostProperties")
             .Invoke(null, new[] { FormatterServices.GetUninitializedObject(modelType) });
         var reset = Instructions(modelType.GetMethod("ResetToDefault", All));
+        var ingameLoad = modelType.GetProperty("EnableIngameMultiplayerSaveLoading");
+        Check(ingameLoad.GetCustomAttributesData().Any(attribute => attribute.AttributeType.Name == "MissionIndependentAttribute") &&
+            hostProperties.Contains(ingameLoad), "in-game multiplayer loading stays host-owned and mission-independent");
+        var missionProperties = (PropertyInfo[])presetApplication.GetMethod("GetMissionHostProperties")
+            .Invoke(null, new[] { FormatterServices.GetUninitializedObject(modelType) });
+        Check(!missionProperties.Contains(ingameLoad), "in-game multiplayer loading is excluded from mission snapshots");
+        Check(reset.Select((instruction, index) => new { instruction, index }).Any(entry =>
+            Equals(entry.instruction.Item2, ingameLoad.GetSetMethod()) && entry.index > 0 &&
+            reset[entry.index - 1].Item1 == OpCodes.Ldc_I4_1), "full reset enables in-game multiplayer loading");
         var localAutosave = modelType.GetProperty("EnableLocalAutosave");
         Check(!hostProperties.Any(property => property == localAutosave), "local autosave preference is excluded from host snapshots");
         Check(!localAutosave.GetCustomAttributesData().Any(attribute => attribute.AttributeType.Name == "SyncPerPlayerAttribute"),
@@ -447,7 +469,7 @@ internal static partial class Program
         Check(reset.Select((instruction, index) => new { instruction, index }).Any(entry =>
             Equals(entry.instruction.Item2, localAutosave.GetSetMethod()) && entry.index > 0 &&
             reset[entry.index - 1].Item1 == OpCodes.Ldc_I4_1), "reset enables local autosave");
-        foreach (string option in new[] { "EnableSiegeCrewDuplicationFix", "EnableSiegeCrewFireLossFix" })
+        foreach (string option in new[] { "EnableAiMarketOverbuyFix", "EnableSiegeCrewDuplicationFix", "EnableSiegeCrewFireLossFix", "EnableOccupiedWallDemolition", "ReplaceStandardProjectileAfterimages" })
         {
             Check(hostProperties.Any(property => property.Name == option), "preset discovery includes host option " + option);
             var setter = modelType.GetProperty(option).GetSetMethod();
@@ -455,7 +477,20 @@ internal static partial class Program
                 Equals(entry.instruction.Item2, setter) && entry.index > 0 &&
                 reset[entry.index - 1].Item1 == OpCodes.Ldc_I4_1), "reset restores enabled default for " + option);
         }
-        foreach(string option in new[]{"EnablePitchMoatLines","EnableAreaDemolition"})
+        AutoSendSettingsMetadata(xaml, hostProperties, reset);
+        StorageLimitSettings(xaml, hostProperties, body, reset);
+        foreach (var slider in new[] { (Name: "ProjectileTrailLength", Max: "10"), (Name: "ProjectileTrailMaximum", Max: "60000") })
+        {
+            var property = modelType.GetProperty(slider.Name);
+            Check(property.PropertyType == typeof(int) && !hostProperties.Contains(property) &&
+                property.GetCustomAttributesData().Any(attribute => attribute.AttributeType.Name == "PresetLocalAttribute"),
+                slider.Name + " is an integer in the local preset only");
+            var editor = xaml.SelectSingleNode("//*[local-name()='Slider' and contains(@Value,'" + slider.Name + ",')]");
+            Check(editor?.Attributes["Minimum"]?.Value == "0" && editor.Attributes["Maximum"]?.Value == slider.Max &&
+                Ancestors(editor).Any(node => node.Attributes?["IsEnabled"]?.Value == "{Binding CanEditClientSettings}"),
+                slider.Name + " has the documented range and local authority");
+        }
+        foreach(string option in new[]{"EnablePitchMoatLines","EnableAreaDemolition","EnableAreaConstruction","EnableProjectileTrails"})
         {
             var localPreference=modelType.GetProperty(option);
             Check(!hostProperties.Any(property=>property==localPreference),option+" is excluded from host snapshots");
@@ -489,6 +524,93 @@ internal static partial class Program
         Check(Ancestors(workshop).Any(a=>a.Attributes?["IsEnabled"]?.Value=="{Binding CanEditClientSettings}"),"Workshop is locally editable by a multiplayer client");
         Check(!Ancestors(workshop).Any(a=>a.Attributes?["IsEnabled"]?.Value=="{Binding CanEditHostSettings}"),"Workshop no longer inherits Host authority");
     }
+    private static void AutoSendSettingsMetadata(XmlDocument xaml, PropertyInfo[] hostProperties,
+        List<Tuple<OpCode, object>> reset)
+    {
+        var property = modelType.GetProperty("EnableAutoSend");
+        var attributes = property.GetCustomAttributesData().Select(attribute => attribute.AttributeType.Name).ToArray();
+        Check(attributes.Contains("SyncPerPlayerAttribute") && !attributes.Contains("SyncHostOnlyAttribute") &&
+            !attributes.Contains("PresetLocalAttribute") && !attributes.Contains("DoNotPersistAttribute"),
+            "AutoSend is a persisted personal synchronized preference");
+        Check(!hostProperties.Contains(property), "AutoSend preference is excluded from host snapshots");
+        object model = FormatterServices.GetUninitializedObject(modelType);
+        Set(model, "EnableAutoSend", true);
+        var companion = modelType.GetProperty("EnableAutoSendData");
+        var data = (bool[])companion.GetValue(model, null);
+        Check(data.Length == 9 && ReferenceEquals(data, companion.GetValue(model, null)),
+            "AutoSend companion exposes one stable array for slots zero through eight");
+        Check(reset.Select((instruction, index) => new { instruction, index }).Any(entry =>
+            Equals(entry.instruction.Item2, property.GetSetMethod()) && entry.index > 0 &&
+            reset[entry.index - 1].Item1 == OpCodes.Ldc_I4_1), "full reset enables AutoSend");
+        var editor = xaml.SelectSingleNode("//*[local-name()='CheckBox' and contains(@IsChecked,'EnableAutoSend,')]");
+        Check(editor != null && editor.Attributes["ToolTipService.ShowDuration"]?.Value == "60000" &&
+            editor.SelectSingleNode("./*[local-name()='CheckBox.ToolTip']/*[local-name()='ToolTip']/@Content")?.Value ==
+                "{Binding EnableAutoSendHelpText}", "AutoSend editor has its player-facing long tooltip");
+        Check(Ancestors(editor).Any(node => node.Attributes?["IsEnabled"]?.Value == "{Binding CanConfigureAutoSend}"),
+            "AutoSend editor uses the combined personal-permission and mission lock");
+    }
+
+    private static void StorageLimitSettings(XmlDocument xaml, PropertyInfo[] hostProperties,
+        List<Tuple<OpCode, object>> constructor, List<Tuple<OpCode, object>> reset)
+    {
+        object model = FormatterServices.GetUninitializedObject(modelType);
+        MethodInfo parse = modelType.GetMethod("ParseStorageLimit", All);
+        MethodInfo fromSlider = modelType.GetMethod("StorageLimitFromSlider", All);
+        MethodInfo applySlider = modelType.GetMethod("CanApplyStorageSliderValue", All);
+        var cases = new[] { (Value: -1, Thumb: 0), (Value: 1, Thumb: 1), (Value: 20, Thumb: 20),
+            (Value: 21, Thumb: 20), (Value: 100, Thumb: 20) };
+        foreach (string name in new[] { "EmptyStockpileLimit", "EmptyGranaryArmouryLimit" })
+        {
+            PropertyInfo limit = modelType.GetProperty(name);
+            PropertyInfo slider = modelType.GetProperty(name + "SliderValue");
+            PropertyInfo text = modelType.GetProperty(name + "ValueText");
+            FieldInfo field = modelType.GetField(char.ToLowerInvariant(name[0]) + name.Substring(1), All);
+            Check(limit.PropertyType == typeof(int) && hostProperties.Contains(limit), name + " is a synchronized integer");
+            Check(constructor.Select((op, index) => new { op, index }).Any(entry =>
+                entry.op.Item1 == OpCodes.Stfld && Equals(entry.op.Item2, field) && entry.index > 0 &&
+                constructor[entry.index - 1].Item1 == OpCodes.Ldc_I4_M1), name + " defaults to Vanilla");
+            Check(reset.Select((op, index) => new { op, index }).Any(entry =>
+                Equals(entry.op.Item2, limit.GetSetMethod()) && entry.index > 0 &&
+                reset[entry.index - 1].Item1 == OpCodes.Ldc_I4_M1), name + " resets to Vanilla");
+            Check(new[] { slider, text }.All(proxy => !hostProperties.Contains(proxy) &&
+                proxy.GetCustomAttributesData().Any(a => a.AttributeType.Name == "DoNotPersistAttribute")),
+                name + " excludes both display proxies from saves and synchronization");
+            foreach (var example in cases)
+            {
+                field.SetValue(model, example.Value);
+                Check((int)slider.GetValue(model) == example.Thumb && Equals(text.GetValue(model), example.Value.ToString()),
+                    name + " preserves typed values above the slider range and displays Vanilla as -1");
+            }
+
+            XmlNode thumb = xaml.SelectSingleNode("//*[local-name()='Slider' and contains(@Value,'" + slider.Name + ",')]");
+            XmlNode entryBox = xaml.SelectSingleNode("//*[local-name()='TextBox' and contains(@Text,'" + text.Name + ",')]");
+            Check(thumb?.Attributes["Minimum"]?.Value == "0" && thumb.Attributes["Maximum"]?.Value == "20" &&
+                thumb.Attributes["TickFrequency"]?.Value == "1" && thumb.Attributes["IsSnapToTickEnabled"]?.Value == "True",
+                name + " has 21 discrete slider positions including Vanilla");
+            Check(entryBox?.Attributes["Text"]?.Value.Contains("UpdateSourceTrigger=LostFocus") == true,
+                name + " accepts a complete integer when the input loses focus");
+            foreach (XmlNode editor in new[] { thumb, entryBox })
+            {
+                Check(Ancestors(editor).Any(a => a.Attributes?["IsEnabled"]?.Value == "{Binding CanEditHostSettings}"),
+                    name + " editors both inherit Host authority");
+                XmlNode tooltip = editor.SelectSingleNode("./*[local-name()='" + editor.LocalName + ".ToolTip']/*[local-name()='ToolTip']/@Content");
+                Check(editor.Attributes["ToolTipService.ShowDuration"]?.Value == "60000" &&
+                    tooltip?.Value == "{Binding " + name + "HelpText}", name + " editors both explain the limit");
+            }
+        }
+
+        Check((int)fromSlider.Invoke(null, new object[] { 0 }) == -1 &&
+            (int)fromSlider.Invoke(null, new object[] { 20 }) == 20, "slider points select Vanilla and values through 20");
+        Check(!(bool)applySlider.Invoke(null, new object[] { 20, 20 }) &&
+            !(bool)applySlider.Invoke(null, new object[] { 21, 20 }) &&
+            (bool)applySlider.Invoke(null, new object[] { 19, 20 }), "slider binding echoes preserve a higher value until the thumb moves");
+        foreach (var example in cases)
+            Check((int)parse.Invoke(null, new object[] { example.Value.ToString() }) == example.Value,
+                "manual input can express limit " + example.Value);
+        foreach (string invalid in new[] { "", "1.5", "21 units", "9999999999" })
+            Check((int)parse.Invoke(null, new object[] { invalid }) == 0, "malformed manual input is not a limit: " + invalid);
+    }
+
     private static IEnumerable<XmlNode> Ancestors(XmlNode n){for(;n!=null;n=n.ParentNode)yield return n;}
     private static void SiegeCrewActivationMatrix()
     {

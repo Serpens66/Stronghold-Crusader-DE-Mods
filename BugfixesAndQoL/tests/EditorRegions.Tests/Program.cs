@@ -1,7 +1,5 @@
 using System;
 using System.Diagnostics;
-using System.IO;
-using System.Text.Json;
 using BugfixesAndQoL.EditorRegions;
 
 internal static class Program
@@ -10,16 +8,10 @@ internal static class Program
     private static void Check(bool value, string name)
     { checks++; if (!value) throw new Exception(name); }
 
-    private static int Main(string[] args)
+    private static int Main()
     {
         try
         {
-            if (args.Length == 2 && args[0] == "--native-contract")
-            {
-                File.WriteAllText(args[1], JsonSerializer.Serialize(new {
-                    hash = NativeContract.ReferenceHash, rva = NativeContract.RebuildRva, pattern = NativeContract.RebuildPattern }));
-                return 0;
-            }
             var state = new RefreshState();
             Check(!state.Changed(1) && !state.HasPending, "no mutation before a ready editor session");
             state.Start(1, false, true);

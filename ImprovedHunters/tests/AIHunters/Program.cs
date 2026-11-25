@@ -10,10 +10,36 @@ internal static unsafe class Program
     private static int checks;
     private static void Check(bool value, string name)
     { if (!value) throw new Exception(name); checks++; }
+
+    private static void CheckWildlifeOriginRepair()
+    {
+        var host = new WildlifeOriginTable();
+        var client = new WildlifeOriginTable();
+        var extinct = new WildlifeOrigin
+        {
+            Herd = 3, HerdSerial = 5, X = 78, Y = 99, Respawns = true, IsDeer = true, ExtinctSinceTick = 42
+        };
+        var reused = new WildlifeOrigin
+        {
+            Herd = 3, HerdSerial = 6, X = 82, Y = 66, ExtinctSinceTick = WildlifeOrigin.NotExtinct
+        };
+        Check(host.TryAdd(extinct) && host.TryAdd(reused), "Extinct and live generations can share a herd slot");
+        extinct.ExtinctSinceTick = 126;
+        Check(client.TryAdd(extinct), "Client has a different historical deadline");
+        var prepared = new WildlifeOriginTable();
+        Check(prepared.TryRestore(host.Encode(), strict: true), "Host wildlife origin record prepares separately");
+        client.PublishRepair(prepared);
+        Check(client.TryFind(3, 5, out var old) && old.ExtinctSinceTick == 42 && old.X == 78 && old.Respawns,
+            "Repaired wildlife origin retains the host deadline and original site");
+        Check(client.TryFind(3, 6, out var current) && current.X == 82 && !current.Respawns,
+            "The current herd does not inherit a retired generation's origin");
+    }
+
     private static int Main()
     {
         try
         {
+            CheckWildlifeOriginRepair();
             var schedule = new HunterCheckSchedule();
             Check(!schedule.TryBeginCheck(80000), "loaded save anchors at its own restored tick");
             Check(!schedule.TryBeginCheck(80000), "paused start cannot consume delay");

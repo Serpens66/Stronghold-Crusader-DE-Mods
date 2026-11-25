@@ -75,8 +75,6 @@ Tools.SelectHelp=Rechtsklick = Bergfried; Mittelklick = Lord
 Tools.SelectTarget=Unten ein Ziel auswählen.
 Tools.StopPlacement=Platzieren beenden
 
-Tools.GateAutomatic=Automatische Torsteuerung aktiviert.
-Tools.GateFixed=Manuelle Torsteuerung aktiviert.
 Tools.PowerCancelled=Kraftaktion abgebrochen.
 
 Tools.ResetAmountHelp=Menge auf 0 zur�cksetzen.

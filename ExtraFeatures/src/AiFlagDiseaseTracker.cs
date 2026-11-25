@@ -19,7 +19,7 @@ using System.Runtime.InteropServices;
 
 namespace ExtraFeatures
 {
-    internal sealed unsafe class AiFlagDiseaseTracker : IDisposable
+    internal sealed unsafe partial class AiFlagDiseaseTracker : IDisposable
     {
         private const string SaveDataIdentifier = "ExtraFeatures.AiFlagDisease.v1";
         // log2 of the eight native world units per map tile.
@@ -37,7 +37,7 @@ namespace ExtraFeatures
 
         private readonly ManualLogSource log;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
-        private readonly PlagueFlagDiseaseRegistry registry = new PlagueFlagDiseaseRegistry();
+        private volatile PlagueFlagDiseaseRegistry registry = new PlagueFlagDiseaseRegistry();
         private HookTransaction transaction;
         private readonly DetourHandle<AiFlagRoutineDelegate> aiFlagRoutineHook =
             new DetourHandle<AiFlagRoutineDelegate>();
@@ -73,7 +73,7 @@ namespace ExtraFeatures
                     .Subscribe(OnProjectileSpawn));
                 subscriptions.Add(ProjectileR3EventHooks.OnProjectileDelete.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(args => registry.RemoveSlot(args.ProjectileId)));
+                    .Subscribe(args => { if (!projectileTrackingSuspended) registry.RemoveSlot(args.ProjectileId); }));
                 subscriptions.Add(Shared.MissionEvents.Ended
                     .Subscribe(_ => ResetMapState()));
 
@@ -114,14 +114,14 @@ namespace ExtraFeatures
         }
 
         public bool IsTracked(GameProjectile* projectile) =>
-            Shared.GameplayModActivationGate.IsAllowed && trackingAvailable &&
+            Shared.GameplayModActivationGate.IsAllowed && CanTrackInWorld &&
             projectile != null &&
             projectile->r_ProjectileType == ProjectileType.Disease &&
             registry.ContainsGlobalId(projectile->r_GlobalId);
 
         public bool TryTrackExternalDiseaseFlag(int slotId)
         {
-            if (!Shared.GameplayModActivationGate.IsAllowed || !trackingAvailable || slotId <= 0)
+            if (!Shared.GameplayModActivationGate.IsAllowed || !CanTrackInWorld || slotId <= 0)
                 return false;
 
             try
@@ -191,7 +191,7 @@ namespace ExtraFeatures
                     playerId,
                     aiManager.ToInt64()))
             {
-                if (!Shared.GameplayModActivationGate.IsAllowed || !trackingAvailable)
+                if (!Shared.GameplayModActivationGate.IsAllowed || !CanTrackInWorld)
                 {
                     aiFlagRoutineHook.Original(aiManager, playerId);
                     return;
@@ -217,7 +217,7 @@ namespace ExtraFeatures
                 return;
 
             int playerId = activeFlagPlayerId;
-            if (!trackingAvailable || args.ProjectileType != ProjectileType.Disease)
+            if (!CanTrackInWorld || args.ProjectileType != ProjectileType.Disease)
             {
                 return;
             }
@@ -301,7 +301,7 @@ namespace ExtraFeatures
 
         private byte[] SaveState(SaveContext context)
         {
-            if (!context.IsSaveFile || !Shared.GameplayModActivationGate.IsAllowed)
+            if (!context.IsSaveFile || !Shared.GameplayModActivationGate.IsAllowed || projectileRepairing)
                 return null;
 
             PruneInvalidProjectiles();
@@ -367,6 +367,7 @@ namespace ExtraFeatures
         private void ResetMapState()
         {
             activeFlagPlayerId = 0;
+            CompleteProjectileRepair();
             registry.Clear();
         }
 

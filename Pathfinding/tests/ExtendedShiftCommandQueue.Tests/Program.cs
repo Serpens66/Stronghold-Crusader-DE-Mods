@@ -14,6 +14,7 @@ internal static class Program
     {
         CheckClassification();
         CheckQueueLimitAndOrder();
+        CheckDiscardPendingAfterRepair();
         CheckBuildingQueueOrder();
         CheckStateTransitions();
         CheckVisualQueueProjection();
@@ -31,6 +32,38 @@ internal static class Program
         CheckGroundMoveAuthorization();
         CheckNativeReference();
         Console.WriteLine($"Extended Shift command queue static tests passed: {checks} checks.");
+    }
+
+    private static void CheckDiscardPendingAfterRepair()
+    {
+        var state = new TribeQueueState(10, 20);
+        QueueVisualSlot predecessor = state.AddVanillaWaypoint(new QueueCommand(QueueCommandKind.Move, 1, 2), 1, completed: false);
+        var active = new QueueCommand(QueueCommandKind.Move, 3, 4);
+        Check(state.TryEnqueue(active, out QueueVisualSlot activeSlot) && state.TryActivateNext(out _), "repair fixture has an active mod move");
+        for (int i = 0; i < 14; i++)
+            Check(state.TryEnqueue(new QueueCommand(QueueCommandKind.Move, 10 + i, 20)), "repair fixture spans visual pages");
+        state.RebindTribe(2, 20);
+        state.DiscardPending();
+        state.DiscardPending();
+        Check(state.PendingCount == 0 && ReferenceEquals(state.Active, active) && state.ActiveNeedsRedispatch,
+            "repair drops only pending commands and retains active rebind state");
+        Check(state.VisualPageCount == 1 && state.OutstandingVisualCount == 2 &&
+              state.CurrentVisualSlots.SequenceEqual(new[] { predecessor, activeSlot }),
+            "repair removes pending markers and leaves the native predecessor and active marker");
+        state.CompleteActive();
+        Check(!state.TryActivateNext(out _), "discarded follow-ups cannot activate");
+        var next = new QueueCommand(QueueCommandKind.Move, 30, 40);
+        Check(state.TryEnqueue(next, out var slot) && slot.Ordinal == 3 &&
+              state.TryActivateNext(out var dispatched) && ReferenceEquals(next, dispatched),
+            "new orders can be accepted after repair");
+
+        var waiting = new TribeQueueState(12, 20) { WaitForVanillaMovement = true };
+        Check(waiting.TryEnqueue(new QueueCommand(QueueCommandKind.Move, 4, 8)), "waiting fixture has a follow-up");
+        waiting.DiscardPending();
+        Check(waiting.WaitForVanillaMovement && !waiting.IsEmpty && waiting.VisualPageCount == 0,
+            "native movement wait survives removal of the entire mod overlay");
+        waiting.WaitForVanillaMovement = false;
+        Check(waiting.IsEmpty && !waiting.TryActivateNext(out _), "cohort with no running work can retire");
     }
 
     private static void CheckGroundMoveAuthorization()

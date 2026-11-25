@@ -95,6 +95,7 @@
     <Compile Include="..\..\Shared\Runtime\Native\GameBuildingFootprint.cs"><Link>Shared\Runtime\Native\GameBuildingFootprint.cs</Link></Compile>
     <Compile Include="src\AIDefenseTestPlugin.cs" />
     <Compile Include="src\AIDefenseTestRuntime.cs" />
+    <Compile Include="src\AIDefenseTestRuntime.Repair.cs" />
   </ItemGroup>
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

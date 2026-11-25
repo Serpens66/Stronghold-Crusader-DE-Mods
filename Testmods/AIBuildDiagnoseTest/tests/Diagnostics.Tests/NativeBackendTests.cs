@@ -70,45 +70,38 @@ namespace AIBuildDiagnoseTest.Tests
                 VerifyProbe(image, contract.Rva, "EconomyProbe", new object[] { null, contract.Length });
         }
         [TestMethod]
-        public void RelocatedSaleEntryExecutesBothSidesOfItsConditionalBranch()
+        public void EmergencyEntryGuardAcceptsPristineAndPreservesForeignPublishedJump()
         {
-            var contract = EconomyHookContract.Find(0x29700);
+            var contract = EconomyHookContract.Find(0x2D810);
             IntPtr copy = VirtualAlloc(IntPtr.Zero, new UIntPtr(0x10000), 0x3000, 0x40);
             Assert.AreNotEqual(IntPtr.Zero, copy);
-            NativeDetour<EconomyNativeHooks.QuadResult> probe = null;
-            EconomyNativeHooks.QuadResult original = null;
-            int calls = 0;
-            EconomyNativeHooks.QuadResult callback = (state, player, good, amount) =>
-            { calls++; return original(state, player, good, amount); };
             try
             {
                 Marshal.Copy(contract.Prefix, 0, copy, contract.Prefix.Length);
-                var decoder = Decoder.Create(64, new ByteArrayCodeReader(contract.Prefix));
-                decoder.IP = unchecked((ulong)copy.ToInt64());
-                decoder.Decode(); var branch = decoder.Decode();
-                Assert.AreEqual(FlowControl.ConditionalBranch, branch.FlowControl);
-                int negativeOffset = checked((int)(branch.NearBranchTarget - unchecked((ulong)copy.ToInt64())));
-                Assert.IsTrue(negativeOffset > contract.Length && negativeOffset < 0x10000 - 6);
-                // Synthetic pure return bodies: no game globals or native game calls execute.
-                Marshal.Copy(new byte[] { 0xB8, 17, 0, 0, 0, 0xC3 }, 0, copy + contract.Length, 6);
-                Marshal.Copy(new byte[] { 0xB8, 23, 0, 0, 0, 0xC3 }, 0, copy + negativeOffset, 6);
-                var request = new DetourRequest<EconomyNativeHooks.QuadResult>
-                { Name = "private economy branch fixture", TargetAddress = unchecked((ulong)copy.ToInt64()), Callback = callback };
-                probe = NativeDetourBackend.Instance.CreateDetour(in request) as NativeDetour<EconomyNativeHooks.QuadResult>;
-                EconomyNativeHooks.Validate(probe, unchecked((ulong)copy.ToInt64()), contract.Length, false);
-                original = Marshal.GetDelegateForFunctionPointer<EconomyNativeHooks.QuadResult>(probe.TrampolineAddress);
-                probe.Enable();
-                EconomyNativeHooks.Validate(probe, unchecked((ulong)copy.ToInt64()), contract.Length, true);
-                var entry = Marshal.GetDelegateForFunctionPointer<EconomyNativeHooks.QuadResult>(copy);
-                Assert.AreEqual(17, entry(0, 1, 0, 1));
-                Assert.AreEqual(23, entry(0, 1, 0, -1));
-                Assert.AreEqual(2, calls, "Each invocation must call through the original exactly once.");
+                byte[] pristine = new byte[contract.Length];
+                Marshal.Copy(copy, pristine, 0, pristine.Length);
+                EconomyNativeHooks.RequirePristineEntry(contract, unchecked((ulong)copy.ToInt64()));
+                byte[] after = new byte[contract.Length];
+                Marshal.Copy(copy, after, 0, after.Length);
+                CollectionAssert.AreEqual(pristine, after, "Accepted inspection must not write the entry.");
+                byte[] foreign = { 0xFF, 0x25, 0x12, 0x34, 0x56, 0x00 };
+                Marshal.Copy(foreign, 0, copy, foreign.Length);
+                var error = Assert.ThrowsExactly<InvalidOperationException>(() =>
+                    EconomyNativeHooks.RequirePristineEntry(contract, unchecked((ulong)copy.ToInt64())));
+                StringAssert.Contains(error.Message, "owner-preserved");
+                StringAssert.Contains(error.Message, "RVA=0x2D810");
+                StringAssert.Contains(error.Message, "expected=405556574156");
+                StringAssert.Contains(error.Message, "live=FF2512345600");
+                Marshal.Copy(copy, after, 0, after.Length);
+                CollectionAssert.AreEqual(foreign, after, "Foreign publication must remain byte-for-byte untouched.");
+                // A patch installed after an earlier successful preflight is rejected as well.
+                Marshal.Copy(pristine, 0, copy, pristine.Length);
+                EconomyNativeHooks.RequirePristineEntry(contract, unchecked((ulong)copy.ToInt64()));
+                Marshal.WriteByte(copy, contract.Length - 1, 0x90);
+                Assert.ThrowsExactly<InvalidOperationException>(() =>
+                    EconomyNativeHooks.RequirePristineEntry(contract, unchecked((ulong)copy.ToInt64())));
             }
-            finally
-            {
-                probe?.Dispose(); GC.KeepAlive(callback); GC.KeepAlive(original);
-                Assert.IsTrue(VirtualFree(copy, UIntPtr.Zero, 0x8000));
-            }
+            finally { Assert.IsTrue(VirtualFree(copy, UIntPtr.Zero, 0x8000)); }
         }
         [TestMethod]
         public void NewRemovalProloguesExecuteWithUnchangedArgumentsAndSingleOriginalCall()

@@ -1,0 +1,4594 @@
+{
+  "ObservedUtc": "2026-11-25T12:28:03.8502154Z",
+  "NativeSha256": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "Functions": [
+    {
+      "Rva": "0x1855A0",
+      "Name": "FUN_1801855a0",
+      "Confidence": "candidate",
+      "Size": 2688,
+      "ExpectedSha256": "7EBEF5EA3ADAA8669EEFC9811DF74E439B7B24709042421759FADAE82E04A2E0",
+      "Callees": [
+        {
+          "callee_rva": "0xC4290",
+          "callee_name": "FUN_1800c4290"
+        },
+        {
+          "callee_rva": "0xC70B0",
+          "callee_name": "FUN_1800c70b0"
+        },
+        {
+          "callee_rva": "0xDCD60",
+          "callee_name": "FUN_1800dcd60"
+        },
+        {
+          "callee_rva": "0xDCE60",
+          "callee_name": "FUN_1800dce60"
+        },
+        {
+          "callee_rva": "0xE2610",
+          "callee_name": "c_game_get_next_reachable_pcl_to_destination_for_player"
+        },
+        {
+          "callee_rva": "0x108E90",
+          "callee_name": "FUN_180108e90"
+        },
+        {
+          "callee_rva": "0x180230",
+          "callee_name": "FUN_180180230"
+        },
+        {
+          "callee_rva": "0x186AD0",
+          "callee_name": "FUN_180186ad0"
+        },
+        {
+          "callee_rva": "0x18BC00",
+          "callee_name": "FUN_18018bc00"
+        },
+        {
+          "callee_rva": "0x18BE50",
+          "callee_name": "FUN_18018be50"
+        },
+        {
+          "callee_rva": "0x193B80",
+          "callee_name": "FUN_180193b80"
+        },
+        {
+          "callee_rva": "0x193BB0",
+          "callee_name": "FUN_180193bb0"
+        },
+        {
+          "callee_rva": "0x196280",
+          "callee_name": "FUN_180196280"
+        },
+        {
+          "callee_rva": "0x196810",
+          "callee_name": "FUN_180196810"
+        },
+        {
+          "callee_rva": "0x197950",
+          "callee_name": "FUN_180197950"
+        },
+        {
+          "callee_rva": "0x1988F0",
+          "callee_name": "FUN_1801988f0"
+        },
+        {
+          "callee_rva": "0x198ED0",
+          "callee_name": "FUN_180198ed0"
+        },
+        {
+          "callee_rva": "0x199E10",
+          "callee_name": "FUN_180199e10"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x182B00"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "7EBEF5EA3ADAA8669EEFC9811DF74E439B7B24709042421759FADAE82E04A2E0",
+      "ByteRanges": [
+        {
+          "Start": "0x1855a0",
+          "EndExclusive": "0x186020"
+        }
+      ],
+      "DecodedInstructions": 520,
+      "KeyInstructions": [
+        "1855DD: je 0x18561f",
+        "1855E3: jne 0x18560f",
+        "1855F6: jbe 0x185df2",
+        "185606: je 0x18561f",
+        "18560A: jmp 0x185c91",
+        "185619: jne 0x185df2",
+        "18561F: movzx eax, word ptr [r12 + rcx + 0x74e]",
+        "18562C: jne 0x185656",
+        "185631: jne 0x185644",
+        "185635: call 0x186ad0",
+        "18563F: call 0x180230",
+        "185651: jmp 0x185c91",
+        "185662: je 0x185753",
+        "18566B: jne 0x185df2",
+        "185680: mov word ptr [r12 + rdi + 0x750], ax",
+        "18568C: call 0x18be50",
+        "185691: cmp word ptr [r12 + rdi + 0x8ec], 0",
+        "18569B: jne 0x1856ae",
+        "1856A9: jmp 0x185c91",
+        "1856B3: call 0x1988f0",
+        "1856BA: jne 0x185df2",
+        "1856CA: jle 0x1856dd",
+        "1856D8: jmp 0x185c91",
+        "1856FA: call 0x196280",
+        "185701: je 0x185714",
+        "185708: call 0x196810",
+        "18570F: jmp 0x185c91",
+        "18571F: jge 0x18572b",
+        "185738: jge 0x185741",
+        "18574E: jmp 0x185c91",
+        "185758: jne 0x185762",
+        "185777: je 0x185785",
+        "1857B6: js 0x185c8f",
+        "1857F9: jne 0x185ac0",
+        "18580F: ja 0x185c83",
+        "185815: movzx eax, word ptr [r12 + rdi + 0x750]",
+        "185821: mov dword ptr [r12 + rdi + 0x740], esi",
+        "185829: mov word ptr [r12 + rdi + 0x750], ax",
+        "185836: jl 0x185b21",
+        "18583C: movsx r8d, word ptr [r12 + rdi + 0x752]",
+        "185845: cmp r8w, word ptr [r12 + rdi + 0x754]",
+        "18584E: jl 0x18585f",
+        "185859: je 0x185caf",
+        "185869: mov word ptr [r12 + rdi + 0x750], si",
+        "1858AF: jne 0x1858be",
+        "1858B5: mov word ptr [r12 + rdi + 0x752], r8w",
+        "1858C7: jne 0x185fbd",
+        "1858D9: je 0x1859c1",
+        "1858E2: jne 0x185934",
+        "1858EC: je 0x185934",
+        "185902: je 0x185934",
+        "185923: ja 0x185934",
+        "18592E: je 0x185d55",
+        "185938: jne 0x185e00",
+        "18594E: movsx r9d, word ptr [r12 + rdi + 0x71e]",
+        "18596E: call 0xdce60",
+        "185975: je 0x185df9",
+        "18597B: movsx r9d, word ptr [r12 + rdi + 0x71e]",
+        "18599A: call 0xdcd60",
+        "1859A1: je 0x185df9",
+        "1859AA: jne 0x1859ba",
+        "1859B5: call 0x108e90",
+        "1859C1: movsx r9d, word ptr [r12 + rdi + 0x71e]",
+        "1859D2: movzx edx, word ptr [r12 + rdi + 0x71c]",
+        "185A13: mov word ptr [r12 + rdi + 0x738], ax",
+        "185A47: mov word ptr [r12 + rdi + 0x73a], ax",
+        "185A65: je 0x185afc",
+        "185A74: je 0x185afc",
+        "185A94: je 0x185a9f",
+        "185A99: jne 0x185b3d",
+        "185AA7: jle 0x185b3d",
+        "185ABE: jmp 0x185b3d",
+        "185AC2: jne 0x185815",
+        "185AD4: jle 0x185c83",
+        "185ADE: jl 0x185815",
+        "185AE8: jl 0x185c83",
+        "185AF7: jmp 0x185c83",
+        "185B0B: je 0x185b3d",
+        "185B15: jne 0x185b3d",
+        "185B1F: jmp 0x185b3d",
+        "185B33: jl 0x185b3d",
+        "185B35: mov dword ptr [r12 + rdi + 0x740], edx",
+        "185B40: jne 0x185b53",
+        "185B47: call 0x186ad0",
+        "185B5F: ja 0x185bc9",
+        "185B6C: jmp rcx",
+        "185B77: jmp 0x185bc9",
+        "185B8B: jmp 0x185bc9",
+        "185B9F: jmp 0x185bc9",
+        "185BAA: jmp 0x185bc9",
+        "185BB5: jmp 0x185bc0",
+        "185BCC: jne 0x185bd8",
+        "185BD3: call 0x180230",
+        "185BDD: cmp dword ptr [r12 + rdi + 0x740], esi",
+        "185BE5: je 0x185c49",
+        "185BE7: call 0x18be50",
+        "185BEF: jne 0x185c6c",
+        "185BF6: call 0xc70b0",
+        "185C1D: je 0x185c5a",
+        "185C33: je 0x185c3b",
+        "185C39: jne 0x185c5a",
+        "185C47: jmp 0x185c5a",
+        "185C49: call 0x18bc00",
+        "185C51: jne 0x185c6c",
+        "185C5C: mov dword ptr [r12 + rdi + 0x740], esi",
+        "185C67: call 0x199e10",
+        "185C89: jle 0x1857e0",
+        "185CB8: mov dword ptr [r12 + rdi + 0x74e], 0x80000",
+        "185CC4: cmp word ptr [r12 + rdi + 0x8ec], si",
+        "185CCD: jne 0x185df2",
+        "185CD3: movzx eax, word ptr [r12 + rdi + 0x71c]",
+        "185CF1: movzx eax, word ptr [r12 + rdi + 0x71e]",
+        "185D03: call 0x193bb0",
+        "185D0A: jne 0x185df2",
+        "185D40: ja 0x185df2",
+        "185D50: jmp 0x185c91",
+        "185D5A: call 0x198ed0",
+        "185D64: call 0x197950",
+        "185D72: je 0x185df2",
+        "185D83: je 0x185da2",
+        "185D91: call 0x193bb0",
+        "185D98: jne 0x185da2",
+        "185DA5: jne 0x185df2",
+        "185DB1: jne 0x185df2",
+        "185DBD: jne 0x185df2",
+        "185DC4: call 0x197950",
+        "185DED: call 0xc4290",
+        "185DF4: jmp 0x185c91",
+        "185E05: mov word ptr [r12 + rdi + 0x750], ax",
+        "185E1A: jle 0x185e2d",
+        "185E2B: jg 0x185df2",
+        "185E4D: ja 0x185f0c",
+        "185E56: ja 0x185f0c",
+        "185E71: je 0x185f0c",
+        "185EA6: je 0x185f16",
+        "185EBC: call 0xe2610",
+        "185EC3: jne 0x185f6f",
+        "185ED3: je 0x185df2",
+        "185EE2: jne 0x185d74",
+        "185EF0: je 0x185f3f",
+        "185EF5: jne 0x185df2",
+        "185F00: call 0x197950",
+        "185F07: jmp 0x185c91",
+        "185F11: call 0x197950",
+        "185F20: je 0x185df2",
+        "185F2F: jne 0x185d74",
+        "185F3D: jne 0x185ef2",
+        "185F49: je 0x185f6f",
+        "185F6A: jmp 0x185c91",
+        "185F72: jne 0x185df2",
+        "185F9B: call 0x196280",
+        "185FA2: jne 0x185703",
+        "185FB8: jmp 0x185c91",
+        "185FC2: call 0x193b80",
+        "185FD5: mov word ptr [r12 + rdi + 0x750], ax",
+        "18601B: jmp 0x185c91"
+      ]
+    },
+    {
+      "Rva": "0x196280",
+      "Name": "FUN_180196280",
+      "Confidence": "candidate",
+      "Size": 1293,
+      "ExpectedSha256": "D81EEBC55A1FB0CFEEB25D0B0D1CCEDE5C9F545E3CCCCAC5119A556C7B43E9E1",
+      "Callees": [
+        {
+          "callee_rva": "0x7140",
+          "callee_name": "FUN_180007140"
+        },
+        {
+          "callee_rva": "0x7490",
+          "callee_name": "FUN_180007490"
+        },
+        {
+          "callee_rva": "0xDF720",
+          "callee_name": "FUN_1800df720"
+        },
+        {
+          "callee_rva": "0xE2610",
+          "callee_name": "c_game_get_next_reachable_pcl_to_destination_for_player"
+        },
+        {
+          "callee_rva": "0xE32B0",
+          "callee_name": "FUN_1800e32b0"
+        },
+        {
+          "callee_rva": "0xE62D0",
+          "callee_name": "FUN_1800e62d0"
+        },
+        {
+          "callee_rva": "0xE7C40",
+          "callee_name": "FUN_1800e7c40"
+        },
+        {
+          "callee_rva": "0xF4630",
+          "callee_name": "FUN_1800f4630"
+        },
+        {
+          "callee_rva": "0xF4930",
+          "callee_name": "FUN_1800f4930"
+        },
+        {
+          "callee_rva": "0x196840",
+          "callee_name": "FUN_180196840"
+        },
+        {
+          "callee_rva": "0x199CD0",
+          "callee_name": "FUN_180199cd0"
+        },
+        {
+          "callee_rva": "0x19B1B0",
+          "callee_name": "FUN_18019b1b0"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0xABB90"
+        },
+        {
+          "caller_rva": "0xBF0A0"
+        },
+        {
+          "caller_rva": "0x116700"
+        },
+        {
+          "caller_rva": "0x118E00"
+        },
+        {
+          "caller_rva": "0x11B520"
+        },
+        {
+          "caller_rva": "0x11E960"
+        },
+        {
+          "caller_rva": "0x122800"
+        },
+        {
+          "caller_rva": "0x122B40"
+        },
+        {
+          "caller_rva": "0x12A8F0"
+        },
+        {
+          "caller_rva": "0x12BC00"
+        },
+        {
+          "caller_rva": "0x12D230"
+        },
+        {
+          "caller_rva": "0x12E400"
+        },
+        {
+          "caller_rva": "0x12FC70"
+        },
+        {
+          "caller_rva": "0x131430"
+        },
+        {
+          "caller_rva": "0x1319A0"
+        },
+        {
+          "caller_rva": "0x132910"
+        },
+        {
+          "caller_rva": "0x1332B0"
+        },
+        {
+          "caller_rva": "0x133DD0"
+        },
+        {
+          "caller_rva": "0x134F00"
+        },
+        {
+          "caller_rva": "0x135E30"
+        },
+        {
+          "caller_rva": "0x136D40"
+        },
+        {
+          "caller_rva": "0x1377C0"
+        },
+        {
+          "caller_rva": "0x138850"
+        },
+        {
+          "caller_rva": "0x139950"
+        },
+        {
+          "caller_rva": "0x13AAD0"
+        },
+        {
+          "caller_rva": "0x13BDD0"
+        },
+        {
+          "caller_rva": "0x13CF30"
+        },
+        {
+          "caller_rva": "0x13E0B0"
+        },
+        {
+          "caller_rva": "0x13F540"
+        },
+        {
+          "caller_rva": "0x141DA0"
+        },
+        {
+          "caller_rva": "0x143400"
+        },
+        {
+          "caller_rva": "0x145030"
+        },
+        {
+          "caller_rva": "0x146A70"
+        },
+        {
+          "caller_rva": "0x1483F0"
+        },
+        {
+          "caller_rva": "0x1493E0"
+        },
+        {
+          "caller_rva": "0x14A3F0"
+        },
+        {
+          "caller_rva": "0x14AED0"
+        },
+        {
+          "caller_rva": "0x14D6F0"
+        },
+        {
+          "caller_rva": "0x14DAC0"
+        },
+        {
+          "caller_rva": "0x14E4E0"
+        },
+        {
+          "caller_rva": "0x14F3C0"
+        },
+        {
+          "caller_rva": "0x1505D0"
+        },
+        {
+          "caller_rva": "0x151090"
+        },
+        {
+          "caller_rva": "0x1520D0"
+        },
+        {
+          "caller_rva": "0x155800"
+        },
+        {
+          "caller_rva": "0x155C60"
+        },
+        {
+          "caller_rva": "0x156130"
+        },
+        {
+          "caller_rva": "0x156DC0"
+        },
+        {
+          "caller_rva": "0x157810"
+        },
+        {
+          "caller_rva": "0x158EF0"
+        },
+        {
+          "caller_rva": "0x159C30"
+        },
+        {
+          "caller_rva": "0x15A670"
+        },
+        {
+          "caller_rva": "0x15A950"
+        },
+        {
+          "caller_rva": "0x15D400"
+        },
+        {
+          "caller_rva": "0x15DF90"
+        },
+        {
+          "caller_rva": "0x15ECE0"
+        },
+        {
+          "caller_rva": "0x162CB0"
+        },
+        {
+          "caller_rva": "0x163510"
+        },
+        {
+          "caller_rva": "0x164470"
+        },
+        {
+          "caller_rva": "0x166280"
+        },
+        {
+          "caller_rva": "0x1669A0"
+        },
+        {
+          "caller_rva": "0x166FE0"
+        },
+        {
+          "caller_rva": "0x167D40"
+        },
+        {
+          "caller_rva": "0x169B70"
+        },
+        {
+          "caller_rva": "0x16B220"
+        },
+        {
+          "caller_rva": "0x16CD70"
+        },
+        {
+          "caller_rva": "0x16E440"
+        },
+        {
+          "caller_rva": "0x16F590"
+        },
+        {
+          "caller_rva": "0x170570"
+        },
+        {
+          "caller_rva": "0x171C50"
+        },
+        {
+          "caller_rva": "0x1731F0"
+        },
+        {
+          "caller_rva": "0x174100"
+        },
+        {
+          "caller_rva": "0x174F90"
+        },
+        {
+          "caller_rva": "0x1768A0"
+        },
+        {
+          "caller_rva": "0x178350"
+        },
+        {
+          "caller_rva": "0x17A590"
+        },
+        {
+          "caller_rva": "0x17B540"
+        },
+        {
+          "caller_rva": "0x17CF50"
+        },
+        {
+          "caller_rva": "0x17F2F0"
+        },
+        {
+          "caller_rva": "0x181890"
+        },
+        {
+          "caller_rva": "0x182550"
+        },
+        {
+          "caller_rva": "0x1855A0"
+        },
+        {
+          "caller_rva": "0x188070"
+        },
+        {
+          "caller_rva": "0x18C160"
+        },
+        {
+          "caller_rva": "0x18DE10"
+        },
+        {
+          "caller_rva": "0x18E9A0"
+        },
+        {
+          "caller_rva": "0x1976C0"
+        },
+        {
+          "caller_rva": "0x1988F0"
+        },
+        {
+          "caller_rva": "0x19AB10"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "D81EEBC55A1FB0CFEEB25D0B0D1CCEDE5C9F545E3CCCCAC5119A556C7B43E9E1",
+      "ByteRanges": [
+        {
+          "Start": "0x196280",
+          "EndExclusive": "0x19678d"
+        }
+      ],
+      "DecodedInstructions": 256,
+      "KeyInstructions": [
+        "1962D1: ja 0x19676c",
+        "1962DD: ja 0x19676c",
+        "1962F5: je 0x19676c",
+        "196300: call 0x19b1b0",
+        "196305: cmp word ptr [rdi + 0x74e], 0",
+        "19630D: jne 0x19632a",
+        "19630F: cmp word ptr [rdi + 0x750], 8",
+        "196317: jne 0x19632a",
+        "196319: movzx r12d, word ptr [rdi + 0x71c]",
+        "196321: movzx ebx, word ptr [rdi + 0x71e]",
+        "196328: jmp 0x196339",
+        "19632A: movzx r12d, word ptr [rdi + 0x738]",
+        "196332: movzx ebx, word ptr [rdi + 0x73a]",
+        "19634D: call 0x196840",
+        "196371: mov word ptr [rdi + 0x8ec], r10w",
+        "196393: jne 0x196423",
+        "1963A0: jne 0x196428",
+        "1963A6: mov dword ptr [rdi + 0x752], r10d",
+        "1963B4: mov word ptr [rdi + 0x74e], r10w",
+        "19641E: jmp 0x196775",
+        "196476: jne 0x19676c",
+        "19648B: jne 0x19649e",
+        "196498: jne 0x19676c",
+        "1964A9: je 0x196585",
+        "1964B6: je 0x1964ee",
+        "1964D1: call 0xe7c40",
+        "1964DB: je 0x196585",
+        "1964EC: jmp 0x19650f",
+        "1964F5: jne 0x196585",
+        "1964FE: jne 0x196585",
+        "196523: call 0xe2610",
+        "196532: je 0x19664b",
+        "196548: call 0xdf720",
+        "19654D: mov word ptr [rdi + 0x8ec], ax",
+        "196557: je 0x19664b",
+        "19656A: call 0xf4630",
+        "196572: jne 0x196642",
+        "19659F: call 0x7140",
+        "1965C6: call 0x7490",
+        "1965DC: call 0xe62d0",
+        "196639: je 0x19666a",
+        "19663B: call 0xe32b0",
+        "196640: jmp 0x19667e",
+        "196645: jne 0x196585",
+        "196660: call 0x199cd0",
+        "196665: jmp 0x196773",
+        "196679: call 0xf4930",
+        "19668A: jle 0x196734",
+        "196690: movsx edx, word ptr [rdi + 0x71c]",
+        "19669E: mov word ptr [rdi + 0x754], ax",
+        "1966AA: mov word ptr [rdi + 0x74e], ax",
+        "1966B1: mov word ptr [rdi + 0x752], r8w",
+        "1966E2: movsx rax, word ptr [rdi + 0x71e]",
+        "196732: jmp 0x196775",
+        "196752: jne 0x196760",
+        "196765: call 0x199cd0",
+        "19676A: jmp 0x196773"
+      ]
+    },
+    {
+      "Rva": "0x19BA40",
+      "Name": "FUN_18019ba40",
+      "Confidence": "candidate",
+      "Size": 281,
+      "ExpectedSha256": "57526BD1FD3C99224D72622C6C219D36D26D23EF3BA59037350A0DEFEF965320",
+      "Callees": [
+        {
+          "callee_rva": "0x180230",
+          "callee_name": "FUN_180180230"
+        },
+        {
+          "callee_rva": "0x186AD0",
+          "callee_name": "FUN_180186ad0"
+        },
+        {
+          "callee_rva": "0x18BE50",
+          "callee_name": "FUN_18018be50"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x6D580"
+        },
+        {
+          "caller_rva": "0x6F230"
+        },
+        {
+          "caller_rva": "0x12E400"
+        },
+        {
+          "caller_rva": "0x13F540"
+        },
+        {
+          "caller_rva": "0x141DA0"
+        },
+        {
+          "caller_rva": "0x143400"
+        },
+        {
+          "caller_rva": "0x145030"
+        },
+        {
+          "caller_rva": "0x146A70"
+        },
+        {
+          "caller_rva": "0x1483F0"
+        },
+        {
+          "caller_rva": "0x1493E0"
+        },
+        {
+          "caller_rva": "0x14A3F0"
+        },
+        {
+          "caller_rva": "0x14AED0"
+        },
+        {
+          "caller_rva": "0x151090"
+        },
+        {
+          "caller_rva": "0x15A950"
+        },
+        {
+          "caller_rva": "0x167D40"
+        },
+        {
+          "caller_rva": "0x169B70"
+        },
+        {
+          "caller_rva": "0x16B220"
+        },
+        {
+          "caller_rva": "0x16CD70"
+        },
+        {
+          "caller_rva": "0x16E440"
+        },
+        {
+          "caller_rva": "0x16F590"
+        },
+        {
+          "caller_rva": "0x170570"
+        },
+        {
+          "caller_rva": "0x1731F0"
+        },
+        {
+          "caller_rva": "0x174100"
+        },
+        {
+          "caller_rva": "0x174F90"
+        },
+        {
+          "caller_rva": "0x1768A0"
+        },
+        {
+          "caller_rva": "0x178350"
+        },
+        {
+          "caller_rva": "0x17A590"
+        },
+        {
+          "caller_rva": "0x17B540"
+        },
+        {
+          "caller_rva": "0x17CF50"
+        },
+        {
+          "caller_rva": "0x181890"
+        },
+        {
+          "caller_rva": "0x1819D0"
+        },
+        {
+          "caller_rva": "0x182B00"
+        },
+        {
+          "caller_rva": "0x190CA0"
+        },
+        {
+          "caller_rva": "0x198ED0"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "57526BD1FD3C99224D72622C6C219D36D26D23EF3BA59037350A0DEFEF965320",
+      "ByteRanges": [
+        {
+          "Start": "0x19ba40",
+          "EndExclusive": "0x19bb59"
+        }
+      ],
+      "DecodedInstructions": 62,
+      "KeyInstructions": [
+        "19BA5F: ja 0x19bb4b",
+        "19BA6B: ja 0x19bb4b",
+        "19BA90: je 0x19bb46",
+        "19BAA9: mov word ptr [rbx + 0x74e], cx",
+        "19BAB0: mov dword ptr [rbx + 0x740], ecx",
+        "19BAB9: mov dword ptr [rbx + 0x750], 8",
+        "19BAC3: call 0x186ad0",
+        "19BACB: mov word ptr [rbx + 0x738], si",
+        "19BADC: mov word ptr [rbx + 0x71c], si",
+        "19BAF5: mov word ptr [rbx + 0x73a], di",
+        "19BB13: mov word ptr [rbx + 0x71e], di",
+        "19BB32: call 0x180230",
+        "19BB3C: call 0x18be50"
+      ]
+    },
+    {
+      "Rva": "0x187110",
+      "Name": "FUN_180187110",
+      "Confidence": "candidate",
+      "Size": 227,
+      "ExpectedSha256": "C2EB3DF1DC97F5AF92F0350C00E8484804EE6D553E4529ECF36842DD622928CE",
+      "Callees": [
+        {
+          "callee_rva": "0x180230",
+          "callee_name": "FUN_180180230"
+        },
+        {
+          "callee_rva": "0x186AD0",
+          "callee_name": "FUN_180186ad0"
+        },
+        {
+          "callee_rva": "0x186AF0",
+          "callee_name": "FUN_180186af0"
+        },
+        {
+          "callee_rva": "0x18BE50",
+          "callee_name": "FUN_18018be50"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x1988F0"
+        },
+        {
+          "caller_rva": "0x19AB10"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "C2EB3DF1DC97F5AF92F0350C00E8484804EE6D553E4529ECF36842DD622928CE",
+      "ByteRanges": [
+        {
+          "Start": "0x187110",
+          "EndExclusive": "0x1871f3"
+        }
+      ],
+      "DecodedInstructions": 48,
+      "KeyInstructions": [
+        "187159: mov word ptr [rbx + 0x750], ax",
+        "187160: call 0x186af0",
+        "187170: call 0x186ad0",
+        "187175: movsx edx, word ptr [rbx + 0x738]",
+        "187183: movsx r8, word ptr [rbx + 0x73a]",
+        "18718D: mov word ptr [rbx + 0x71c], dx",
+        "187194: mov word ptr [rbx + 0x71e], r8w",
+        "1871D0: call 0x18be50",
+        "1871EE: jmp 0x180230"
+      ]
+    },
+    {
+      "Rva": "0x180230",
+      "Name": "FUN_180180230",
+      "Confidence": "candidate",
+      "Size": 97,
+      "ExpectedSha256": "762365C59BF7287AED399C402651E6517B4432E4EC0E7ECBCD7CBDCE9949807B",
+      "Callees": [
+        {
+          "callee_rva": "0x1802A0",
+          "callee_name": "FUN_1801802a0"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x17FEF0"
+        },
+        {
+          "caller_rva": "0x180A80"
+        },
+        {
+          "caller_rva": "0x182B00"
+        },
+        {
+          "caller_rva": "0x185190"
+        },
+        {
+          "caller_rva": "0x1855A0"
+        },
+        {
+          "caller_rva": "0x187110"
+        },
+        {
+          "caller_rva": "0x187200"
+        },
+        {
+          "caller_rva": "0x187B30"
+        },
+        {
+          "caller_rva": "0x188EE0"
+        },
+        {
+          "caller_rva": "0x1890C0"
+        },
+        {
+          "caller_rva": "0x19BA40"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "762365C59BF7287AED399C402651E6517B4432E4EC0E7ECBCD7CBDCE9949807B",
+      "ByteRanges": [
+        {
+          "Start": "0x180230",
+          "EndExclusive": "0x180291"
+        }
+      ],
+      "DecodedInstructions": 15,
+      "KeyInstructions": [
+        "18023A: cmp dword ptr [r8 + rcx + 0x740], 0",
+        "180243: je 0x180281",
+        "180245: movzx eax, word ptr [r8 + rcx + 0x738]",
+        "180256: mov word ptr [r8 + rcx + 0x71c], ax",
+        "18025F: movzx eax, word ptr [r8 + rcx + 0x73a]",
+        "180268: mov word ptr [r8 + rcx + 0x71e], ax",
+        "18027C: jmp 0x1802a0",
+        "18028C: jmp 0x1802a0"
+      ]
+    },
+    {
+      "Rva": "0x1802A0",
+      "Name": "FUN_1801802a0",
+      "Confidence": "candidate",
+      "Size": 691,
+      "ExpectedSha256": "120FA95F572760906D6F1551A7BAA507A07EE6A5ADC8B5A0F6AB6AC7CF9E4BC6",
+      "Callees": [
+        {
+          "callee_rva": "0x1A6B20",
+          "callee_name": "FUN_1801a6b20"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x180230"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "120FA95F572760906D6F1551A7BAA507A07EE6A5ADC8B5A0F6AB6AC7CF9E4BC6",
+      "ByteRanges": [
+        {
+          "Start": "0x1802a0",
+          "EndExclusive": "0x180553"
+        }
+      ],
+      "DecodedInstructions": 149
+    },
+    {
+      "Rva": "0x186AD0",
+      "Name": "FUN_180186ad0",
+      "Confidence": "candidate",
+      "Size": 23,
+      "ExpectedSha256": "6C787B7E9C1EB2141F35EE4457DE571D1E872F702214B93B91653CD084B9A708",
+      "Callees": [
+        {
+          "callee_rva": "0x186AF0",
+          "callee_name": "FUN_180186af0"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x180A80"
+        },
+        {
+          "caller_rva": "0x185190"
+        },
+        {
+          "caller_rva": "0x1855A0"
+        },
+        {
+          "caller_rva": "0x1869C0"
+        },
+        {
+          "caller_rva": "0x187110"
+        },
+        {
+          "caller_rva": "0x188EE0"
+        },
+        {
+          "caller_rva": "0x1890C0"
+        },
+        {
+          "caller_rva": "0x196F80"
+        },
+        {
+          "caller_rva": "0x19BA40"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "6C787B7E9C1EB2141F35EE4457DE571D1E872F702214B93B91653CD084B9A708",
+      "ByteRanges": [
+        {
+          "Start": "0x186ad0",
+          "EndExclusive": "0x186ae7"
+        }
+      ],
+      "DecodedInstructions": 4
+    },
+    {
+      "Rva": "0x186AF0",
+      "Name": "FUN_180186af0",
+      "Confidence": "candidate",
+      "Size": 289,
+      "ExpectedSha256": "F4B77A13CB6C8A5294243D1A1B1C79EF97EAE0CEA3EB854CFE1CB84506203B5C",
+      "Callees": [],
+      "Callers": [
+        {
+          "caller_rva": "0x186AD0"
+        },
+        {
+          "caller_rva": "0x187110"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "F4B77A13CB6C8A5294243D1A1B1C79EF97EAE0CEA3EB854CFE1CB84506203B5C",
+      "ByteRanges": [
+        {
+          "Start": "0x186af0",
+          "EndExclusive": "0x186c11"
+        }
+      ],
+      "DecodedInstructions": 65
+    },
+    {
+      "Rva": "0x188340",
+      "Name": "FUN_180188340",
+      "Confidence": "candidate",
+      "Size": 77,
+      "ExpectedSha256": "45B565F3BE29063DF9656E8E9EDDE0ADEB6AA11DC7E482043A0184CE5DF2EC50",
+      "Callees": [],
+      "Callers": [
+        {
+          "caller_rva": "0x1178D0"
+        },
+        {
+          "caller_rva": "0x12A8F0"
+        },
+        {
+          "caller_rva": "0x12BC00"
+        },
+        {
+          "caller_rva": "0x12D230"
+        },
+        {
+          "caller_rva": "0x12E400"
+        },
+        {
+          "caller_rva": "0x12FC70"
+        },
+        {
+          "caller_rva": "0x131430"
+        },
+        {
+          "caller_rva": "0x1319A0"
+        },
+        {
+          "caller_rva": "0x132910"
+        },
+        {
+          "caller_rva": "0x1332B0"
+        },
+        {
+          "caller_rva": "0x133DD0"
+        },
+        {
+          "caller_rva": "0x134F00"
+        },
+        {
+          "caller_rva": "0x135E30"
+        },
+        {
+          "caller_rva": "0x136D40"
+        },
+        {
+          "caller_rva": "0x1377C0"
+        },
+        {
+          "caller_rva": "0x138850"
+        },
+        {
+          "caller_rva": "0x139950"
+        },
+        {
+          "caller_rva": "0x13AAD0"
+        },
+        {
+          "caller_rva": "0x13BDD0"
+        },
+        {
+          "caller_rva": "0x13CF30"
+        },
+        {
+          "caller_rva": "0x13E0B0"
+        },
+        {
+          "caller_rva": "0x13F540"
+        },
+        {
+          "caller_rva": "0x141DA0"
+        },
+        {
+          "caller_rva": "0x143400"
+        },
+        {
+          "caller_rva": "0x145030"
+        },
+        {
+          "caller_rva": "0x146A70"
+        },
+        {
+          "caller_rva": "0x1483F0"
+        },
+        {
+          "caller_rva": "0x1493E0"
+        },
+        {
+          "caller_rva": "0x14A3F0"
+        },
+        {
+          "caller_rva": "0x14AED0"
+        },
+        {
+          "caller_rva": "0x14D6F0"
+        },
+        {
+          "caller_rva": "0x14DAC0"
+        },
+        {
+          "caller_rva": "0x14E4E0"
+        },
+        {
+          "caller_rva": "0x14F3C0"
+        },
+        {
+          "caller_rva": "0x1505D0"
+        },
+        {
+          "caller_rva": "0x151090"
+        },
+        {
+          "caller_rva": "0x1520D0"
+        },
+        {
+          "caller_rva": "0x1535F0"
+        },
+        {
+          "caller_rva": "0x1547F0"
+        },
+        {
+          "caller_rva": "0x155800"
+        },
+        {
+          "caller_rva": "0x155C60"
+        },
+        {
+          "caller_rva": "0x156130"
+        },
+        {
+          "caller_rva": "0x156DC0"
+        },
+        {
+          "caller_rva": "0x157810"
+        },
+        {
+          "caller_rva": "0x158020"
+        },
+        {
+          "caller_rva": "0x158780"
+        },
+        {
+          "caller_rva": "0x158EF0"
+        },
+        {
+          "caller_rva": "0x159C30"
+        },
+        {
+          "caller_rva": "0x15A670"
+        },
+        {
+          "caller_rva": "0x15A950"
+        },
+        {
+          "caller_rva": "0x15D400"
+        },
+        {
+          "caller_rva": "0x15DF90"
+        },
+        {
+          "caller_rva": "0x15ECE0"
+        },
+        {
+          "caller_rva": "0x160420"
+        },
+        {
+          "caller_rva": "0x161220"
+        },
+        {
+          "caller_rva": "0x161CB0"
+        },
+        {
+          "caller_rva": "0x162CB0"
+        },
+        {
+          "caller_rva": "0x163510"
+        },
+        {
+          "caller_rva": "0x164470"
+        },
+        {
+          "caller_rva": "0x166280"
+        },
+        {
+          "caller_rva": "0x1669A0"
+        },
+        {
+          "caller_rva": "0x166FE0"
+        },
+        {
+          "caller_rva": "0x167D40"
+        },
+        {
+          "caller_rva": "0x169B70"
+        },
+        {
+          "caller_rva": "0x16B220"
+        },
+        {
+          "caller_rva": "0x16CD70"
+        },
+        {
+          "caller_rva": "0x16E440"
+        },
+        {
+          "caller_rva": "0x16F590"
+        },
+        {
+          "caller_rva": "0x170570"
+        },
+        {
+          "caller_rva": "0x171C50"
+        },
+        {
+          "caller_rva": "0x1731F0"
+        },
+        {
+          "caller_rva": "0x174100"
+        },
+        {
+          "caller_rva": "0x174F90"
+        },
+        {
+          "caller_rva": "0x1768A0"
+        },
+        {
+          "caller_rva": "0x178350"
+        },
+        {
+          "caller_rva": "0x17A590"
+        },
+        {
+          "caller_rva": "0x17B540"
+        },
+        {
+          "caller_rva": "0x17CF50"
+        },
+        {
+          "caller_rva": "0x17F2F0"
+        },
+        {
+          "caller_rva": "0x185430"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "45B565F3BE29063DF9656E8E9EDDE0ADEB6AA11DC7E482043A0184CE5DF2EC50",
+      "ByteRanges": [
+        {
+          "Start": "0x188340",
+          "EndExclusive": "0x18838d"
+        }
+      ],
+      "DecodedInstructions": 16,
+      "KeyInstructions": [
+        "18834A: cmp word ptr [rdx + rcx + 0x74e], 0",
+        "188353: jne 0x18838a",
+        "188355: cmp word ptr [rdx + rcx + 0x8ec], 0",
+        "18835E: je 0x188384",
+        "188360: movzx eax, word ptr [rdx + rcx + 0x71c]",
+        "188370: jne 0x18838a",
+        "188372: movzx eax, word ptr [rdx + rcx + 0x71e]",
+        "188382: jne 0x18838a"
+      ]
+    },
+    {
+      "Rva": "0x197950",
+      "Name": "FUN_180197950",
+      "Confidence": "candidate",
+      "Size": 36,
+      "ExpectedSha256": "C85A9BA68086CA8E6032C9F53F581F075F902361736F69A98F24EE9CCC9C85C7",
+      "Callees": [],
+      "Callers": [
+        {
+          "caller_rva": "0xCD1F0"
+        },
+        {
+          "caller_rva": "0x114E60"
+        },
+        {
+          "caller_rva": "0x11E960"
+        },
+        {
+          "caller_rva": "0x123D90"
+        },
+        {
+          "caller_rva": "0x12B980"
+        },
+        {
+          "caller_rva": "0x12BC00"
+        },
+        {
+          "caller_rva": "0x12D230"
+        },
+        {
+          "caller_rva": "0x12FC70"
+        },
+        {
+          "caller_rva": "0x131430"
+        },
+        {
+          "caller_rva": "0x132910"
+        },
+        {
+          "caller_rva": "0x1332B0"
+        },
+        {
+          "caller_rva": "0x133DD0"
+        },
+        {
+          "caller_rva": "0x134F00"
+        },
+        {
+          "caller_rva": "0x135E30"
+        },
+        {
+          "caller_rva": "0x136D40"
+        },
+        {
+          "caller_rva": "0x1377C0"
+        },
+        {
+          "caller_rva": "0x138850"
+        },
+        {
+          "caller_rva": "0x139950"
+        },
+        {
+          "caller_rva": "0x13AAD0"
+        },
+        {
+          "caller_rva": "0x13BDD0"
+        },
+        {
+          "caller_rva": "0x13CF30"
+        },
+        {
+          "caller_rva": "0x13E0B0"
+        },
+        {
+          "caller_rva": "0x14AED0"
+        },
+        {
+          "caller_rva": "0x14D6F0"
+        },
+        {
+          "caller_rva": "0x14DAC0"
+        },
+        {
+          "caller_rva": "0x14E4E0"
+        },
+        {
+          "caller_rva": "0x14F3C0"
+        },
+        {
+          "caller_rva": "0x1501D0"
+        },
+        {
+          "caller_rva": "0x1505D0"
+        },
+        {
+          "caller_rva": "0x155800"
+        },
+        {
+          "caller_rva": "0x155C60"
+        },
+        {
+          "caller_rva": "0x156DC0"
+        },
+        {
+          "caller_rva": "0x158020"
+        },
+        {
+          "caller_rva": "0x158780"
+        },
+        {
+          "caller_rva": "0x158EF0"
+        },
+        {
+          "caller_rva": "0x159C30"
+        },
+        {
+          "caller_rva": "0x15A670"
+        },
+        {
+          "caller_rva": "0x15A950"
+        },
+        {
+          "caller_rva": "0x15D400"
+        },
+        {
+          "caller_rva": "0x15DF90"
+        },
+        {
+          "caller_rva": "0x15ECE0"
+        },
+        {
+          "caller_rva": "0x162CB0"
+        },
+        {
+          "caller_rva": "0x163510"
+        },
+        {
+          "caller_rva": "0x164470"
+        },
+        {
+          "caller_rva": "0x166280"
+        },
+        {
+          "caller_rva": "0x1669A0"
+        },
+        {
+          "caller_rva": "0x166FE0"
+        },
+        {
+          "caller_rva": "0x182B00"
+        },
+        {
+          "caller_rva": "0x1855A0"
+        },
+        {
+          "caller_rva": "0x193DE0"
+        },
+        {
+          "caller_rva": "0x1946A0"
+        },
+        {
+          "caller_rva": "0x1976C0"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "C85A9BA68086CA8E6032C9F53F581F075F902361736F69A98F24EE9CCC9C85C7",
+      "ByteRanges": [
+        {
+          "Start": "0x197950",
+          "EndExclusive": "0x197974"
+        }
+      ],
+      "DecodedInstructions": 7,
+      "KeyInstructions": [
+        "19795C: mov dword ptr [rdx + rcx + 0x752], eax",
+        "19796B: mov word ptr [rdx + rcx + 0x8ec], ax"
+      ]
+    },
+    {
+      "Rva": "0xDCE60",
+      "Name": "FUN_1800dce60",
+      "Confidence": "candidate",
+      "Size": 759,
+      "ExpectedSha256": "B6DC82EB6C9A4FF2A006046512C7237643E64051AAFDB3D8572357C38BB060CF",
+      "Callees": [
+        {
+          "callee_rva": "0x107160",
+          "callee_name": "FUN_180107160"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x1855A0"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "B6DC82EB6C9A4FF2A006046512C7237643E64051AAFDB3D8572357C38BB060CF",
+      "ByteRanges": [
+        {
+          "Start": "0xdce60",
+          "EndExclusive": "0xdd157"
+        }
+      ],
+      "DecodedInstructions": 154
+    },
+    {
+      "Rva": "0xDCD60",
+      "Name": "FUN_1800dcd60",
+      "Confidence": "candidate",
+      "Size": 192,
+      "ExpectedSha256": "8420A702BCDBC227149A52C7BB2AF08EC9AFCDC8237FA5DC9302FC19D0757CC8",
+      "Callees": [],
+      "Callers": [
+        {
+          "caller_rva": "0x1855A0"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "8420A702BCDBC227149A52C7BB2AF08EC9AFCDC8237FA5DC9302FC19D0757CC8",
+      "ByteRanges": [
+        {
+          "Start": "0xdcd60",
+          "EndExclusive": "0xdce20"
+        }
+      ],
+      "DecodedInstructions": 40
+    },
+    {
+      "Rva": "0x19B1B0",
+      "Name": "FUN_18019b1b0",
+      "Confidence": "candidate",
+      "Size": 165,
+      "ExpectedSha256": "BB2B1F2A09D69F3386C62A183406D27D7CC6A4B15E9DE210CE949FBD2CE93B67",
+      "Callees": [
+        {
+          "callee_rva": "0x18BE50",
+          "callee_name": "FUN_18018be50"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x196280"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "BB2B1F2A09D69F3386C62A183406D27D7CC6A4B15E9DE210CE949FBD2CE93B67",
+      "ByteRanges": [
+        {
+          "Start": "0x19b1b0",
+          "EndExclusive": "0x19b255"
+        }
+      ],
+      "DecodedInstructions": 31
+    },
+    {
+      "Rva": "0x196810",
+      "Name": "FUN_180196810",
+      "Confidence": "candidate",
+      "Size": 33,
+      "ExpectedSha256": "FA0090EB160121E461BDBD72FAF66A24F519A7049BE8BA5C2FC7DEBAE554FA8A",
+      "Callees": [
+        {
+          "callee_rva": "0x198620",
+          "callee_name": "FUN_180198620"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x1855A0"
+        },
+        {
+          "caller_rva": "0x1976C0"
+        },
+        {
+          "caller_rva": "0x1988F0"
+        },
+        {
+          "caller_rva": "0x19AB10"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "FA0090EB160121E461BDBD72FAF66A24F519A7049BE8BA5C2FC7DEBAE554FA8A",
+      "ByteRanges": [
+        {
+          "Start": "0x196810",
+          "EndExclusive": "0x196831"
+        }
+      ],
+      "DecodedInstructions": 8
+    },
+    {
+      "Rva": "0x199CD0",
+      "Name": "FUN_180199cd0",
+      "Confidence": "candidate",
+      "Size": 115,
+      "ExpectedSha256": "96B756F495490B44F7B3F9CD32D5E444ED85EC2D1CB12D495EF826E9EFEAB4FC",
+      "Callees": [
+        {
+          "callee_rva": "0xE9D90",
+          "callee_name": "FUN_1800e9d90"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x196280"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "96B756F495490B44F7B3F9CD32D5E444ED85EC2D1CB12D495EF826E9EFEAB4FC",
+      "ByteRanges": [
+        {
+          "Start": "0x199cd0",
+          "EndExclusive": "0x199d43"
+        }
+      ],
+      "DecodedInstructions": 28
+    },
+    {
+      "Rva": "0x18BC00",
+      "Name": "FUN_18018bc00",
+      "Confidence": "candidate",
+      "Size": 62,
+      "ExpectedSha256": "72DCFDE1CC91A48206B7F62F7B5B1738514D41C285234999CFE430310393F90A",
+      "Callees": [],
+      "Callers": [
+        {
+          "caller_rva": "0x1855A0"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "72DCFDE1CC91A48206B7F62F7B5B1738514D41C285234999CFE430310393F90A",
+      "ByteRanges": [
+        {
+          "Start": "0x18bc00",
+          "EndExclusive": "0x18bc3e"
+        }
+      ],
+      "DecodedInstructions": 11
+    },
+    {
+      "Rva": "0x18BE50",
+      "Name": "FUN_18018be50",
+      "Confidence": "candidate",
+      "Size": 161,
+      "ExpectedSha256": "A77228B8837420133514FAF559BC160FB31871B9590742374D1B64FAC9A253B8",
+      "Callees": [],
+      "Callers": [
+        {
+          "caller_rva": "0xA93C0"
+        },
+        {
+          "caller_rva": "0xA9A30"
+        },
+        {
+          "caller_rva": "0xAA030"
+        },
+        {
+          "caller_rva": "0xAA630"
+        },
+        {
+          "caller_rva": "0x11E960"
+        },
+        {
+          "caller_rva": "0x15ECE0"
+        },
+        {
+          "caller_rva": "0x17FEF0"
+        },
+        {
+          "caller_rva": "0x180A80"
+        },
+        {
+          "caller_rva": "0x185190"
+        },
+        {
+          "caller_rva": "0x1855A0"
+        },
+        {
+          "caller_rva": "0x187110"
+        },
+        {
+          "caller_rva": "0x188EE0"
+        },
+        {
+          "caller_rva": "0x18B810"
+        },
+        {
+          "caller_rva": "0x18BA60"
+        },
+        {
+          "caller_rva": "0x18BC40"
+        },
+        {
+          "caller_rva": "0x18BF00"
+        },
+        {
+          "caller_rva": "0x19B1B0"
+        },
+        {
+          "caller_rva": "0x19BA40"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "A77228B8837420133514FAF559BC160FB31871B9590742374D1B64FAC9A253B8",
+      "ByteRanges": [
+        {
+          "Start": "0x18be50",
+          "EndExclusive": "0x18bef1"
+        }
+      ],
+      "DecodedInstructions": 44
+    },
+    {
+      "Rva": "0x182B00",
+      "Name": "FUN_180182b00",
+      "Confidence": "candidate",
+      "Size": 9137,
+      "ExpectedSha256": "F640FE9609EEC3199B9C675B91CCF488310B0A23B832BD010FDC80AB00DF153F",
+      "Callees": [
+        {
+          "callee_rva": "0x2960",
+          "callee_name": "FUN_180002960"
+        },
+        {
+          "callee_rva": "0x7490",
+          "callee_name": "FUN_180007490"
+        },
+        {
+          "callee_rva": "0x9C6B0",
+          "callee_name": "FUN_18009c6b0"
+        },
+        {
+          "callee_rva": "0x9F910",
+          "callee_name": "FUN_18009f910"
+        },
+        {
+          "callee_rva": "0x112540",
+          "callee_name": "FUN_180112540"
+        },
+        {
+          "callee_rva": "0x17FDC0",
+          "callee_name": "FUN_18017fdc0"
+        },
+        {
+          "callee_rva": "0x17FE50",
+          "callee_name": "FUN_18017fe50"
+        },
+        {
+          "callee_rva": "0x180230",
+          "callee_name": "FUN_180180230"
+        },
+        {
+          "callee_rva": "0x182470",
+          "callee_name": "FUN_180182470"
+        },
+        {
+          "callee_rva": "0x184FD0",
+          "callee_name": "c_game_unit_update_standing_height"
+        },
+        {
+          "callee_rva": "0x1855A0",
+          "callee_name": "FUN_1801855a0"
+        },
+        {
+          "callee_rva": "0x1869C0",
+          "callee_name": "FUN_1801869c0"
+        },
+        {
+          "callee_rva": "0x187200",
+          "callee_name": "FUN_180187200"
+        },
+        {
+          "callee_rva": "0x18C040",
+          "callee_name": "FUN_18018c040"
+        },
+        {
+          "callee_rva": "0x18C160",
+          "callee_name": "FUN_18018c160"
+        },
+        {
+          "callee_rva": "0x1909A0",
+          "callee_name": "FUN_1801909a0"
+        },
+        {
+          "callee_rva": "0x195170",
+          "callee_name": "FUN_180195170"
+        },
+        {
+          "callee_rva": "0x195D10",
+          "callee_name": "FUN_180195d10"
+        },
+        {
+          "callee_rva": "0x197950",
+          "callee_name": "FUN_180197950"
+        },
+        {
+          "callee_rva": "0x19AB10",
+          "callee_name": "FUN_18019ab10"
+        },
+        {
+          "callee_rva": "0x19B260",
+          "callee_name": "FUN_18019b260"
+        },
+        {
+          "callee_rva": "0x19BA40",
+          "callee_name": "FUN_18019ba40"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0xCDE60"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "F640FE9609EEC3199B9C675B91CCF488310B0A23B832BD010FDC80AB00DF153F",
+      "ByteRanges": [
+        {
+          "Start": "0x182b00",
+          "EndExclusive": "0x184eb1"
+        }
+      ],
+      "DecodedInstructions": 1659,
+      "MovementCalls": [
+        [
+          "18425B: cmovle cx, bp",
+          "18425F: xor r9d, r9d",
+          "184262: mov word ptr [rdx + rbx + 0x914], cx",
+          "18426A: movsxd rdx, dword ptr [rip + 0x7ac053]",
+          "184271: imul rcx, rdx, 0x490",
+          "184278: movsx r8d, word ptr [rcx + rbx + 0x916]",
+          "184281: mov rcx, rbx",
+          "184284: call 0x1855a0",
+          "184289: test eax, eax",
+          "18428B: je 0x18496e"
+        ],
+        [
+          "1844D3: jne 0x184482",
+          "1844D5: movups xmm0, xmmword ptr [rax]",
+          "1844D8: mov edx, r10d",
+          "1844DB: movups xmmword ptr [rcx], xmm0",
+          "1844DE: movsx r8d, word ptr [r9 + 0x916]",
+          "1844E6: mov rcx, rbx",
+          "1844E9: mov r9b, 1",
+          "1844EC: call 0x1855a0",
+          "1844F1: test eax, eax",
+          "1844F3: je 0x1848e9"
+        ]
+      ]
+    },
+    {
+      "Rva": "0x11B520",
+      "Name": "FUN_18011b520",
+      "Confidence": "candidate",
+      "Size": 3317,
+      "ExpectedSha256": "D101952A3003865D0A84B63412C6F2142AC8B0509A9CD65C22869F72FABCACDB",
+      "Callees": [
+        {
+          "callee_rva": "0x79C0",
+          "callee_name": "FUN_1800079c0"
+        },
+        {
+          "callee_rva": "0xD9C40",
+          "callee_name": "FUN_1800d9c40"
+        },
+        {
+          "callee_rva": "0xDA590",
+          "callee_name": "FUN_1800da590"
+        },
+        {
+          "callee_rva": "0xDAFD0",
+          "callee_name": "FUN_1800dafd0"
+        },
+        {
+          "callee_rva": "0xDF720",
+          "callee_name": "FUN_1800df720"
+        },
+        {
+          "callee_rva": "0xE0970",
+          "callee_name": "FUN_1800e0970"
+        },
+        {
+          "callee_rva": "0xE0AC0",
+          "callee_name": "FUN_1800e0ac0"
+        },
+        {
+          "callee_rva": "0xE1D30",
+          "callee_name": "FUN_1800e1d30"
+        },
+        {
+          "callee_rva": "0xE2610",
+          "callee_name": "c_game_get_next_reachable_pcl_to_destination_for_player"
+        },
+        {
+          "callee_rva": "0xE7C40",
+          "callee_name": "FUN_1800e7c40"
+        },
+        {
+          "callee_rva": "0xE9D90",
+          "callee_name": "FUN_1800e9d90"
+        },
+        {
+          "callee_rva": "0xE9FF0",
+          "callee_name": "FUN_1800e9ff0"
+        },
+        {
+          "callee_rva": "0x117820",
+          "callee_name": "FUN_180117820"
+        },
+        {
+          "callee_rva": "0x117BC0",
+          "callee_name": "FUN_180117bc0"
+        },
+        {
+          "callee_rva": "0x117C70",
+          "callee_name": "FUN_180117c70"
+        },
+        {
+          "callee_rva": "0x118E00",
+          "callee_name": "FUN_180118e00"
+        },
+        {
+          "callee_rva": "0x119E30",
+          "callee_name": "FUN_180119e30"
+        },
+        {
+          "callee_rva": "0x119EE0",
+          "callee_name": "FUN_180119ee0"
+        },
+        {
+          "callee_rva": "0x119F90",
+          "callee_name": "FUN_180119f90"
+        },
+        {
+          "callee_rva": "0x123460",
+          "callee_name": "FUN_180123460"
+        },
+        {
+          "callee_rva": "0x124740",
+          "callee_name": "FUN_180124740"
+        },
+        {
+          "callee_rva": "0x196280",
+          "callee_name": "FUN_180196280"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x3B450"
+        },
+        {
+          "caller_rva": "0x3C150"
+        },
+        {
+          "caller_rva": "0x3CAC0"
+        },
+        {
+          "caller_rva": "0x3CCD0"
+        },
+        {
+          "caller_rva": "0x3D020"
+        },
+        {
+          "caller_rva": "0x3D260"
+        },
+        {
+          "caller_rva": "0x3D3E0"
+        },
+        {
+          "caller_rva": "0x3D6E0"
+        },
+        {
+          "caller_rva": "0x3D840"
+        },
+        {
+          "caller_rva": "0x3E070"
+        },
+        {
+          "caller_rva": "0x3FE50"
+        },
+        {
+          "caller_rva": "0xABB90"
+        },
+        {
+          "caller_rva": "0xF82B0"
+        },
+        {
+          "caller_rva": "0x1045F0"
+        },
+        {
+          "caller_rva": "0x10AA20"
+        },
+        {
+          "caller_rva": "0x10C970"
+        },
+        {
+          "caller_rva": "0x1133B0"
+        },
+        {
+          "caller_rva": "0x1136E0"
+        },
+        {
+          "caller_rva": "0x113AB0"
+        },
+        {
+          "caller_rva": "0x113BC0"
+        },
+        {
+          "caller_rva": "0x113E00"
+        },
+        {
+          "caller_rva": "0x113F60"
+        },
+        {
+          "caller_rva": "0x1140C0"
+        },
+        {
+          "caller_rva": "0x1141D0"
+        },
+        {
+          "caller_rva": "0x114960"
+        },
+        {
+          "caller_rva": "0x114A80"
+        },
+        {
+          "caller_rva": "0x11A980"
+        },
+        {
+          "caller_rva": "0x11D7C0"
+        },
+        {
+          "caller_rva": "0x11D8D0"
+        },
+        {
+          "caller_rva": "0x11DD10"
+        },
+        {
+          "caller_rva": "0x11E960"
+        },
+        {
+          "caller_rva": "0x124890"
+        },
+        {
+          "caller_rva": "0x124B90"
+        },
+        {
+          "caller_rva": "0x124E80"
+        },
+        {
+          "caller_rva": "0x125290"
+        },
+        {
+          "caller_rva": "0x1256A0"
+        },
+        {
+          "caller_rva": "0x1259D0"
+        },
+        {
+          "caller_rva": "0x125D00"
+        },
+        {
+          "caller_rva": "0x196100"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "D101952A3003865D0A84B63412C6F2142AC8B0509A9CD65C22869F72FABCACDB",
+      "ByteRanges": [
+        {
+          "Start": "0x11b520",
+          "EndExclusive": "0x11c215"
+        }
+      ],
+      "DecodedInstructions": 672
+    },
+    {
+      "Rva": "0x11DD10",
+      "Name": "FUN_18011dd10",
+      "Confidence": "candidate",
+      "Size": 706,
+      "ExpectedSha256": "FE6C39A45A858CBC4C344F4CA47CF0EA205B0F6363A3F91D0A92C2911642E371",
+      "Callees": [
+        {
+          "callee_rva": "0x79C0",
+          "callee_name": "FUN_1800079c0"
+        },
+        {
+          "callee_rva": "0x119F90",
+          "callee_name": "FUN_180119f90"
+        },
+        {
+          "callee_rva": "0x11B520",
+          "callee_name": "FUN_18011b520"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x30620"
+        },
+        {
+          "caller_rva": "0x3E200"
+        },
+        {
+          "caller_rva": "0x3E850"
+        },
+        {
+          "caller_rva": "0x3E940"
+        },
+        {
+          "caller_rva": "0x3E9A0"
+        },
+        {
+          "caller_rva": "0x3EA50"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "FE6C39A45A858CBC4C344F4CA47CF0EA205B0F6363A3F91D0A92C2911642E371",
+      "ByteRanges": [
+        {
+          "Start": "0x11dd10",
+          "EndExclusive": "0x11dfd2"
+        }
+      ],
+      "DecodedInstructions": 162
+    },
+    {
+      "Rva": "0x118E00",
+      "Name": "FUN_180118e00",
+      "Confidence": "candidate",
+      "Size": 497,
+      "ExpectedSha256": "FE838B2718364376F36321E32940F4418AF6678151501D17A74E0F4B0E897A39",
+      "Callees": [
+        {
+          "callee_rva": "0x117820",
+          "callee_name": "FUN_180117820"
+        },
+        {
+          "callee_rva": "0x119F90",
+          "callee_name": "FUN_180119f90"
+        },
+        {
+          "callee_rva": "0x196280",
+          "callee_name": "FUN_180196280"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x11B520"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "FE838B2718364376F36321E32940F4418AF6678151501D17A74E0F4B0E897A39",
+      "ByteRanges": [
+        {
+          "Start": "0x118e00",
+          "EndExclusive": "0x118ff1"
+        }
+      ],
+      "DecodedInstructions": 98
+    },
+    {
+      "Rva": "0x117C70",
+      "Name": "FUN_180117c70",
+      "Confidence": "candidate",
+      "Size": 164,
+      "ExpectedSha256": "59C353001377B2541298AA8ADCAD7E1F7FC7EBF87B0B62D8F322468BEC989AB8",
+      "Callees": [
+        {
+          "callee_rva": "0x119F90",
+          "callee_name": "FUN_180119f90"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x11B520"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "59C353001377B2541298AA8ADCAD7E1F7FC7EBF87B0B62D8F322468BEC989AB8",
+      "ByteRanges": [
+        {
+          "Start": "0x117c70",
+          "EndExclusive": "0x117d14"
+        }
+      ],
+      "DecodedInstructions": 40
+    },
+    {
+      "Rva": "0x117BC0",
+      "Name": "FUN_180117bc0",
+      "Confidence": "candidate",
+      "Size": 173,
+      "ExpectedSha256": "22F2A1110140E18C7337E6098937E483A98C3BF0D1DCC36BF6B33DD2EFA7FDC8",
+      "Callees": [
+        {
+          "callee_rva": "0x119F90",
+          "callee_name": "FUN_180119f90"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x11B520"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "22F2A1110140E18C7337E6098937E483A98C3BF0D1DCC36BF6B33DD2EFA7FDC8",
+      "ByteRanges": [
+        {
+          "Start": "0x117bc0",
+          "EndExclusive": "0x117c6d"
+        }
+      ],
+      "DecodedInstructions": 41
+    },
+    {
+      "Rva": "0x124740",
+      "Name": "FUN_180124740",
+      "Confidence": "candidate",
+      "Size": 172,
+      "ExpectedSha256": "FFB294BD9F96BE36B85A9D7D3031746B843F7D1D1F98148E169003E449C9817C",
+      "Callees": [
+        {
+          "callee_rva": "0x119F90",
+          "callee_name": "FUN_180119f90"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x11B520"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "FFB294BD9F96BE36B85A9D7D3031746B843F7D1D1F98148E169003E449C9817C",
+      "ByteRanges": [
+        {
+          "Start": "0x124740",
+          "EndExclusive": "0x1247ec"
+        }
+      ],
+      "DecodedInstructions": 45
+    },
+    {
+      "Rva": "0x1988F0",
+      "Name": "FUN_1801988f0",
+      "Confidence": "candidate",
+      "Size": 616,
+      "ExpectedSha256": "0F72D52B1C012C6CF42F81FF1C116C7413EC51243D59E435E30F9C700C4E2AFB",
+      "Callees": [
+        {
+          "callee_rva": "0x185190",
+          "callee_name": "FUN_180185190"
+        },
+        {
+          "callee_rva": "0x187110",
+          "callee_name": "FUN_180187110"
+        },
+        {
+          "callee_rva": "0x196280",
+          "callee_name": "FUN_180196280"
+        },
+        {
+          "callee_rva": "0x196810",
+          "callee_name": "FUN_180196810"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x1855A0"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "0F72D52B1C012C6CF42F81FF1C116C7413EC51243D59E435E30F9C700C4E2AFB",
+      "ByteRanges": [
+        {
+          "Start": "0x1988f0",
+          "EndExclusive": "0x198b58"
+        }
+      ],
+      "DecodedInstructions": 130
+    },
+    {
+      "Rva": "0x199E10",
+      "Name": "FUN_180199e10",
+      "Confidence": "candidate",
+      "Size": 915,
+      "ExpectedSha256": "A79C40BEFE99FADB2C7BAD526E8704F8E9F3B22F3D4BF9CF87F7D94458A9B3CF",
+      "Callees": [
+        {
+          "callee_rva": "0x193BB0",
+          "callee_name": "FUN_180193bb0"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x1855A0"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "A79C40BEFE99FADB2C7BAD526E8704F8E9F3B22F3D4BF9CF87F7D94458A9B3CF",
+      "ByteRanges": [
+        {
+          "Start": "0x199e10",
+          "EndExclusive": "0x19a1a3"
+        }
+      ],
+      "DecodedInstructions": 199
+    },
+    {
+      "Rva": "0x193B80",
+      "Name": "FUN_180193b80",
+      "Confidence": "candidate",
+      "Size": 40,
+      "ExpectedSha256": "C6DCB34B6B1A48E9B5C881EF5CA922A82E38AD29597E50DF9C49DD8539351BAC",
+      "Callees": [],
+      "Callers": [
+        {
+          "caller_rva": "0x178350"
+        },
+        {
+          "caller_rva": "0x17CF50"
+        },
+        {
+          "caller_rva": "0x1855A0"
+        },
+        {
+          "caller_rva": "0x195170"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "C6DCB34B6B1A48E9B5C881EF5CA922A82E38AD29597E50DF9C49DD8539351BAC",
+      "ByteRanges": [
+        {
+          "Start": "0x193b80",
+          "EndExclusive": "0x193ba8"
+        }
+      ],
+      "DecodedInstructions": 7
+    },
+    {
+      "Rva": "0x193BB0",
+      "Name": "FUN_180193bb0",
+      "Confidence": "candidate",
+      "Size": 44,
+      "ExpectedSha256": "54A7F09248B35CD4EF1491D809A35A29518B00B3197B81C3621B5709F4FE9CE5",
+      "Callees": [],
+      "Callers": [
+        {
+          "caller_rva": "0x10AA20"
+        },
+        {
+          "caller_rva": "0x1855A0"
+        },
+        {
+          "caller_rva": "0x199E10"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "54A7F09248B35CD4EF1491D809A35A29518B00B3197B81C3621B5709F4FE9CE5",
+      "ByteRanges": [
+        {
+          "Start": "0x193bb0",
+          "EndExclusive": "0x193bdc"
+        }
+      ],
+      "DecodedInstructions": 13
+    },
+    {
+      "Rva": "0x198ED0",
+      "Name": "FUN_180198ed0",
+      "Confidence": "candidate",
+      "Size": 217,
+      "ExpectedSha256": "B0832E272342E9850D1F2A41C3008918C1D3C5EED2E73DFA84D36968147DC256",
+      "Callees": [
+        {
+          "callee_rva": "0x199110",
+          "callee_name": "FUN_180199110"
+        },
+        {
+          "callee_rva": "0x19BA40",
+          "callee_name": "FUN_18019ba40"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x11E960"
+        },
+        {
+          "caller_rva": "0x1855A0"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "B0832E272342E9850D1F2A41C3008918C1D3C5EED2E73DFA84D36968147DC256",
+      "ByteRanges": [
+        {
+          "Start": "0x198ed0",
+          "EndExclusive": "0x198fa9"
+        }
+      ],
+      "DecodedInstructions": 40
+    },
+    {
+      "Rva": "0xF4930",
+      "Name": "FUN_1800f4930",
+      "Confidence": "candidate",
+      "Size": 789,
+      "ExpectedSha256": "64907FAAEC427FAC4F39CCC904752249DF70C4A8FF21ECF06E1E87478A232326",
+      "Callees": [
+        {
+          "callee_rva": "0x79C0",
+          "callee_name": "FUN_1800079c0"
+        },
+        {
+          "callee_rva": "0xD9C40",
+          "callee_name": "FUN_1800d9c40"
+        },
+        {
+          "callee_rva": "0xDA590",
+          "callee_name": "FUN_1800da590"
+        },
+        {
+          "callee_rva": "0xDAAC0",
+          "callee_name": "FUN_1800daac0"
+        },
+        {
+          "callee_rva": "0xDAFD0",
+          "callee_name": "FUN_1800dafd0"
+        },
+        {
+          "callee_rva": "0xDB650",
+          "callee_name": "FUN_1800db650"
+        },
+        {
+          "callee_rva": "0xE1640",
+          "callee_name": "FUN_1800e1640"
+        },
+        {
+          "callee_rva": "0xE2F60",
+          "callee_name": "FUN_1800e2f60"
+        },
+        {
+          "callee_rva": "0xF3060",
+          "callee_name": "FUN_1800f3060"
+        },
+        {
+          "callee_rva": "0xF32B0",
+          "callee_name": "FUN_1800f32b0"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x18E1E0"
+        },
+        {
+          "caller_rva": "0x196280"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "64907FAAEC427FAC4F39CCC904752249DF70C4A8FF21ECF06E1E87478A232326",
+      "ByteRanges": [
+        {
+          "Start": "0xf4930",
+          "EndExclusive": "0xf4c45"
+        }
+      ],
+      "DecodedInstructions": 195
+    },
+    {
+      "Rva": "0xE32B0",
+      "Name": "FUN_1800e32b0",
+      "Confidence": "candidate",
+      "Size": 56,
+      "ExpectedSha256": "AEB810FF1AB15045C90193D8F551186A1708FC183986592C431EF24E1F76B38B",
+      "Callees": [
+        {
+          "callee_rva": "0xE1640",
+          "callee_name": "FUN_1800e1640"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x196280"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "AEB810FF1AB15045C90193D8F551186A1708FC183986592C431EF24E1F76B38B",
+      "ByteRanges": [
+        {
+          "Start": "0xe32b0",
+          "EndExclusive": "0xe32e8"
+        }
+      ],
+      "DecodedInstructions": 16
+    },
+    {
+      "Rva": "0xE1640",
+      "Name": "FUN_1800e1640",
+      "Confidence": "candidate",
+      "Size": 1512,
+      "ExpectedSha256": "3053F6D3A09DE7B5C2A85D30DDE925DEF73E4A5D3DADB63BBDD37E4887FCC24C",
+      "Callees": [
+        {
+          "callee_rva": "0xC3E50",
+          "callee_name": "FUN_1800c3e50"
+        },
+        {
+          "callee_rva": "0xDAA50",
+          "callee_name": "FUN_1800daa50"
+        },
+        {
+          "callee_rva": "0xDE6A0",
+          "callee_name": "FUN_1800de6a0"
+        },
+        {
+          "callee_rva": "0xE49D0",
+          "callee_name": "FUN_1800e49d0"
+        },
+        {
+          "callee_rva": "0xE4E90",
+          "callee_name": "FUN_1800e4e90"
+        },
+        {
+          "callee_rva": "0x107160",
+          "callee_name": "FUN_180107160"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0xE32B0"
+        },
+        {
+          "caller_rva": "0xF4930"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "3053F6D3A09DE7B5C2A85D30DDE925DEF73E4A5D3DADB63BBDD37E4887FCC24C",
+      "ByteRanges": [
+        {
+          "Start": "0xe1640",
+          "EndExclusive": "0xe17b9"
+        },
+        {
+          "Start": "0xe17c0",
+          "EndExclusive": "0xe1c2f"
+        }
+      ],
+      "DecodedInstructions": 315
+    },
+    {
+      "Rva": "0xE2610",
+      "Name": "c_game_get_next_reachable_pcl_to_destination_for_player",
+      "Confidence": "confirmed",
+      "Size": 1589,
+      "ExpectedSha256": "7F875ED003B5E0A047F394632F0F2F952D4364DCC9DD8C9A62D179441B39A0ED",
+      "Callees": [
+        {
+          "callee_rva": "0x1A64D0",
+          "callee_name": "__security_check_cookie"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x29B40"
+        },
+        {
+          "caller_rva": "0x3D840"
+        },
+        {
+          "caller_rva": "0x3E650"
+        },
+        {
+          "caller_rva": "0x58BE0"
+        },
+        {
+          "caller_rva": "0x69D60"
+        },
+        {
+          "caller_rva": "0x8C5F0"
+        },
+        {
+          "caller_rva": "0x90CD0"
+        },
+        {
+          "caller_rva": "0x9F700"
+        },
+        {
+          "caller_rva": "0xABB90"
+        },
+        {
+          "caller_rva": "0xB6890"
+        },
+        {
+          "caller_rva": "0xB70C0"
+        },
+        {
+          "caller_rva": "0xB72C0"
+        },
+        {
+          "caller_rva": "0xB8F40"
+        },
+        {
+          "caller_rva": "0xBA940"
+        },
+        {
+          "caller_rva": "0xBAD50"
+        },
+        {
+          "caller_rva": "0xBB3D0"
+        },
+        {
+          "caller_rva": "0xBC2A0"
+        },
+        {
+          "caller_rva": "0xBC3F0"
+        },
+        {
+          "caller_rva": "0xBC6A0"
+        },
+        {
+          "caller_rva": "0xBE6D0"
+        },
+        {
+          "caller_rva": "0xBEA20"
+        },
+        {
+          "caller_rva": "0xBED20"
+        },
+        {
+          "caller_rva": "0xBFD40"
+        },
+        {
+          "caller_rva": "0xC2190"
+        },
+        {
+          "caller_rva": "0xC3BF0"
+        },
+        {
+          "caller_rva": "0xC90E0"
+        },
+        {
+          "caller_rva": "0xC9310"
+        },
+        {
+          "caller_rva": "0xCF240"
+        },
+        {
+          "caller_rva": "0xCF2D0"
+        },
+        {
+          "caller_rva": "0xCF360"
+        },
+        {
+          "caller_rva": "0xCF400"
+        },
+        {
+          "caller_rva": "0xD9190"
+        },
+        {
+          "caller_rva": "0xDA020"
+        },
+        {
+          "caller_rva": "0xDBC60"
+        },
+        {
+          "caller_rva": "0xDC3C0"
+        },
+        {
+          "caller_rva": "0xDC900"
+        },
+        {
+          "caller_rva": "0xDECE0"
+        },
+        {
+          "caller_rva": "0xDF000"
+        },
+        {
+          "caller_rva": "0xE0C20"
+        },
+        {
+          "caller_rva": "0xE7C40"
+        },
+        {
+          "caller_rva": "0xE7F60"
+        },
+        {
+          "caller_rva": "0xE9FF0"
+        },
+        {
+          "caller_rva": "0x107E00"
+        },
+        {
+          "caller_rva": "0x10DF60"
+        },
+        {
+          "caller_rva": "0x1151E0"
+        },
+        {
+          "caller_rva": "0x11B520"
+        },
+        {
+          "caller_rva": "0x11E960"
+        },
+        {
+          "caller_rva": "0x14AED0"
+        },
+        {
+          "caller_rva": "0x181E30"
+        },
+        {
+          "caller_rva": "0x1855A0"
+        },
+        {
+          "caller_rva": "0x18C160"
+        },
+        {
+          "caller_rva": "0x18E1E0"
+        },
+        {
+          "caller_rva": "0x195E30"
+        },
+        {
+          "caller_rva": "0x196280"
+        },
+        {
+          "caller_rva": "0x19B820"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "7F875ED003B5E0A047F394632F0F2F952D4364DCC9DD8C9A62D179441B39A0ED",
+      "ByteRanges": [
+        {
+          "Start": "0xe2610",
+          "EndExclusive": "0xe2c45"
+        }
+      ],
+      "DecodedInstructions": 347
+    },
+    {
+      "Rva": "0xE9D90",
+      "Name": "FUN_1800e9d90",
+      "Confidence": "candidate",
+      "Size": 605,
+      "ExpectedSha256": "E524045F9438DE32A5FD944D412DC3904A3187F2F3E99947CF43CD5E1A0EE5D7",
+      "Callees": [
+        {
+          "callee_rva": "0x7490",
+          "callee_name": "FUN_180007490"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x8C5F0"
+        },
+        {
+          "caller_rva": "0x11B520"
+        },
+        {
+          "caller_rva": "0x199CD0"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "E524045F9438DE32A5FD944D412DC3904A3187F2F3E99947CF43CD5E1A0EE5D7",
+      "ByteRanges": [
+        {
+          "Start": "0xe9d90",
+          "EndExclusive": "0xe9fed"
+        }
+      ],
+      "DecodedInstructions": 115
+    },
+    {
+      "Rva": "0xE9FF0",
+      "Name": "FUN_1800e9ff0",
+      "Confidence": "candidate",
+      "Size": 987,
+      "ExpectedSha256": "09F8ED7A07781085CA1218C40EBD24290E57935DD4926A4498C45FC0FF7E3367",
+      "Callees": [
+        {
+          "callee_rva": "0x7490",
+          "callee_name": "FUN_180007490"
+        },
+        {
+          "callee_rva": "0xE2610",
+          "callee_name": "c_game_get_next_reachable_pcl_to_destination_for_player"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x8C5F0"
+        },
+        {
+          "caller_rva": "0x11B520"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "09F8ED7A07781085CA1218C40EBD24290E57935DD4926A4498C45FC0FF7E3367",
+      "ByteRanges": [
+        {
+          "Start": "0xe9ff0",
+          "EndExclusive": "0xea3cb"
+        }
+      ],
+      "DecodedInstructions": 209
+    },
+    {
+      "Rva": "0x119E30",
+      "Name": "FUN_180119e30",
+      "Confidence": "candidate",
+      "Size": 165,
+      "ExpectedSha256": "EB3800B96C6E7E5847BB9133337FE4C73D8BB28011D83D4B0CC5D50E266F790C",
+      "Callees": [
+        {
+          "callee_rva": "0x119F90",
+          "callee_name": "FUN_180119f90"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x11B520"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "EB3800B96C6E7E5847BB9133337FE4C73D8BB28011D83D4B0CC5D50E266F790C",
+      "ByteRanges": [
+        {
+          "Start": "0x119e30",
+          "EndExclusive": "0x119ed5"
+        }
+      ],
+      "DecodedInstructions": 37
+    },
+    {
+      "Rva": "0x119EE0",
+      "Name": "FUN_180119ee0",
+      "Confidence": "candidate",
+      "Size": 173,
+      "ExpectedSha256": "6306C63A3AF52FD7F0A3B9DE91480172607696191FF1093BB164618149310175",
+      "Callees": [
+        {
+          "callee_rva": "0x119F90",
+          "callee_name": "FUN_180119f90"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x11B520"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "6306C63A3AF52FD7F0A3B9DE91480172607696191FF1093BB164618149310175",
+      "ByteRanges": [
+        {
+          "Start": "0x119ee0",
+          "EndExclusive": "0x119f8d"
+        }
+      ],
+      "DecodedInstructions": 38
+    },
+    {
+      "Rva": "0x12E400",
+      "Name": "FUN_18012e400",
+      "Confidence": "candidate",
+      "Size": 6254,
+      "ExpectedSha256": "8CF03C65997C57F10192E49D44667496B8B1B5080B3AE716F69CDC3AA04DD176",
+      "Callees": [
+        {
+          "callee_rva": "0x2960",
+          "callee_name": "FUN_180002960"
+        },
+        {
+          "callee_rva": "0x77C0",
+          "callee_name": "FUN_1800077c0"
+        },
+        {
+          "callee_rva": "0x69560",
+          "callee_name": "FUN_180069560"
+        },
+        {
+          "callee_rva": "0x6D580",
+          "callee_name": "FUN_18006d580"
+        },
+        {
+          "callee_rva": "0x70C30",
+          "callee_name": "FUN_180070c30"
+        },
+        {
+          "callee_rva": "0x70D60",
+          "callee_name": "FUN_180070d60"
+        },
+        {
+          "callee_rva": "0x71FE0",
+          "callee_name": "FUN_180071fe0"
+        },
+        {
+          "callee_rva": "0x7DF60",
+          "callee_name": "FUN_18007df60"
+        },
+        {
+          "callee_rva": "0x7EB00",
+          "callee_name": "FUN_18007eb00"
+        },
+        {
+          "callee_rva": "0x7F960",
+          "callee_name": "FUN_18007f960"
+        },
+        {
+          "callee_rva": "0xBD5D0",
+          "callee_name": "FUN_1800bd5d0"
+        },
+        {
+          "callee_rva": "0xBFD40",
+          "callee_name": "FUN_1800bfd40"
+        },
+        {
+          "callee_rva": "0xC4290",
+          "callee_name": "FUN_1800c4290"
+        },
+        {
+          "callee_rva": "0xCAC40",
+          "callee_name": "FUN_1800cac40"
+        },
+        {
+          "callee_rva": "0x118660",
+          "callee_name": "FUN_180118660"
+        },
+        {
+          "callee_rva": "0x122800",
+          "callee_name": "FUN_180122800"
+        },
+        {
+          "callee_rva": "0x185240",
+          "callee_name": "FUN_180185240"
+        },
+        {
+          "callee_rva": "0x1853F0",
+          "callee_name": "FUN_1801853f0"
+        },
+        {
+          "callee_rva": "0x187CF0",
+          "callee_name": "FUN_180187cf0"
+        },
+        {
+          "callee_rva": "0x187E20",
+          "callee_name": "FUN_180187e20"
+        },
+        {
+          "callee_rva": "0x188070",
+          "callee_name": "FUN_180188070"
+        },
+        {
+          "callee_rva": "0x188340",
+          "callee_name": "FUN_180188340"
+        },
+        {
+          "callee_rva": "0x193DE0",
+          "callee_name": "FUN_180193de0"
+        },
+        {
+          "callee_rva": "0x196280",
+          "callee_name": "FUN_180196280"
+        },
+        {
+          "callee_rva": "0x196F80",
+          "callee_name": "FUN_180196f80"
+        },
+        {
+          "callee_rva": "0x197CF0",
+          "callee_name": "FUN_180197cf0"
+        },
+        {
+          "callee_rva": "0x199D50",
+          "callee_name": "FUN_180199d50"
+        },
+        {
+          "callee_rva": "0x19A1F0",
+          "callee_name": "FUN_18019a1f0"
+        },
+        {
+          "callee_rva": "0x19BA40",
+          "callee_name": "FUN_18019ba40"
+        },
+        {
+          "callee_rva": "0x19D030",
+          "callee_name": "FUN_18019d030"
+        }
+      ],
+      "Callers": [],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "8CF03C65997C57F10192E49D44667496B8B1B5080B3AE716F69CDC3AA04DD176",
+      "ByteRanges": [
+        {
+          "Start": "0x12e400",
+          "EndExclusive": "0x12fc6e"
+        }
+      ],
+      "DecodedInstructions": 1100
+    },
+    {
+      "Rva": "0x16CD70",
+      "Name": "FUN_18016cd70",
+      "Confidence": "candidate",
+      "Size": 5625,
+      "ExpectedSha256": "8F251F6F262312EC08415D635B3D3C402E8FB444764780067870C604E635AE9E",
+      "Callees": [
+        {
+          "callee_rva": null,
+          "callee_name": "WINMM.DLL::timeGetTime"
+        },
+        {
+          "callee_rva": "0x2960",
+          "callee_name": "FUN_180002960"
+        },
+        {
+          "callee_rva": "0x39A0",
+          "callee_name": "FUN_1800039a0"
+        },
+        {
+          "callee_rva": "0x69560",
+          "callee_name": "FUN_180069560"
+        },
+        {
+          "callee_rva": "0x7EB00",
+          "callee_name": "FUN_18007eb00"
+        },
+        {
+          "callee_rva": "0x7F960",
+          "callee_name": "FUN_18007f960"
+        },
+        {
+          "callee_rva": "0xBD5D0",
+          "callee_name": "FUN_1800bd5d0"
+        },
+        {
+          "callee_rva": "0xBE6D0",
+          "callee_name": "FUN_1800be6d0"
+        },
+        {
+          "callee_rva": "0xCAC40",
+          "callee_name": "FUN_1800cac40"
+        },
+        {
+          "callee_rva": "0x118660",
+          "callee_name": "FUN_180118660"
+        },
+        {
+          "callee_rva": "0x122800",
+          "callee_name": "FUN_180122800"
+        },
+        {
+          "callee_rva": "0x180A80",
+          "callee_name": "FUN_180180a80"
+        },
+        {
+          "callee_rva": "0x181890",
+          "callee_name": "FUN_180181890"
+        },
+        {
+          "callee_rva": "0x1853F0",
+          "callee_name": "FUN_1801853f0"
+        },
+        {
+          "callee_rva": "0x188070",
+          "callee_name": "FUN_180188070"
+        },
+        {
+          "callee_rva": "0x188340",
+          "callee_name": "FUN_180188340"
+        },
+        {
+          "callee_rva": "0x193DE0",
+          "callee_name": "FUN_180193de0"
+        },
+        {
+          "callee_rva": "0x196280",
+          "callee_name": "FUN_180196280"
+        },
+        {
+          "callee_rva": "0x196D30",
+          "callee_name": "FUN_180196d30"
+        },
+        {
+          "callee_rva": "0x197CF0",
+          "callee_name": "FUN_180197cf0"
+        },
+        {
+          "callee_rva": "0x19A1F0",
+          "callee_name": "FUN_18019a1f0"
+        },
+        {
+          "callee_rva": "0x19BA40",
+          "callee_name": "FUN_18019ba40"
+        },
+        {
+          "callee_rva": "0x19D030",
+          "callee_name": "FUN_18019d030"
+        }
+      ],
+      "Callers": [],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "8F251F6F262312EC08415D635B3D3C402E8FB444764780067870C604E635AE9E",
+      "ByteRanges": [
+        {
+          "Start": "0x16cd70",
+          "EndExclusive": "0x16e369"
+        }
+      ],
+      "DecodedInstructions": 966
+    },
+    {
+      "Rva": "0x185240",
+      "Name": "FUN_180185240",
+      "Confidence": "candidate",
+      "Size": 417,
+      "ExpectedSha256": "2A249A8CA0020B20F8247B4779BC18F18EB425353EE760F112DCC83222FC412D",
+      "Callees": [
+        {
+          "callee_rva": "0x70C30",
+          "callee_name": "FUN_180070c30"
+        },
+        {
+          "callee_rva": "0x7EB00",
+          "callee_name": "FUN_18007eb00"
+        },
+        {
+          "callee_rva": "0xE3B90",
+          "callee_name": "FUN_1800e3b90"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x7DF60"
+        },
+        {
+          "caller_rva": "0x7EB00"
+        },
+        {
+          "caller_rva": "0x12E400"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "2A249A8CA0020B20F8247B4779BC18F18EB425353EE760F112DCC83222FC412D",
+      "ByteRanges": [
+        {
+          "Start": "0x185240",
+          "EndExclusive": "0x1853e1"
+        }
+      ],
+      "DecodedInstructions": 93,
+      "KeyInstructions": [
+        "185282: jge 0x1853cd",
+        "1852BE: jne 0x185358",
+        "1852CD: jne 0x185306",
+        "1852DB: jb 0x1852e7",
+        "1852E5: jae 0x185306",
+        "1852F7: call 0x70c30",
+        "185304: jmp 0x185337",
+        "185332: call 0x7eb00",
+        "185349: call 0xe3b90",
+        "1853B7: jl 0x1852b0"
+      ]
+    },
+    {
+      "Rva": "0x187CF0",
+      "Name": "FUN_180187cf0",
+      "Confidence": "candidate",
+      "Size": 291,
+      "ExpectedSha256": "C64E7F3A791B217B94AB259EB7EDE7F69536B6020BFF51144E29D8264D6FF0EA",
+      "Callees": [
+        {
+          "callee_rva": "0xF1400",
+          "callee_name": "FUN_1800f1400"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x12E400"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "C64E7F3A791B217B94AB259EB7EDE7F69536B6020BFF51144E29D8264D6FF0EA",
+      "ByteRanges": [
+        {
+          "Start": "0x187cf0",
+          "EndExclusive": "0x187e13"
+        }
+      ],
+      "DecodedInstructions": 65
+    },
+    {
+      "Rva": "0x187E20",
+      "Name": "FUN_180187e20",
+      "Confidence": "candidate",
+      "Size": 51,
+      "ExpectedSha256": "426C7A8FA2701DD536CE6F8DE28000D9FE8E757E394249F1C1B9AACAE8073CFF",
+      "Callees": [
+        {
+          "callee_rva": "0xF1400",
+          "callee_name": "FUN_1800f1400"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x12E400"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "426C7A8FA2701DD536CE6F8DE28000D9FE8E757E394249F1C1B9AACAE8073CFF",
+      "ByteRanges": [
+        {
+          "Start": "0x187e20",
+          "EndExclusive": "0x187e53"
+        }
+      ],
+      "DecodedInstructions": 12
+    },
+    {
+      "Rva": "0x188070",
+      "Name": "FUN_180188070",
+      "Confidence": "candidate",
+      "Size": 353,
+      "ExpectedSha256": "C0DD5B8A3A368FFE00649331D325C14FFC91ABB9BCA7D8C8AB6EDC883664A270",
+      "Callees": [
+        {
+          "callee_rva": "0xDC3C0",
+          "callee_name": "FUN_1800dc3c0"
+        },
+        {
+          "callee_rva": "0x196280",
+          "callee_name": "FUN_180196280"
+        },
+        {
+          "callee_rva": "0x198620",
+          "callee_name": "FUN_180198620"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x12E400"
+        },
+        {
+          "caller_rva": "0x13F540"
+        },
+        {
+          "caller_rva": "0x141DA0"
+        },
+        {
+          "caller_rva": "0x143400"
+        },
+        {
+          "caller_rva": "0x145030"
+        },
+        {
+          "caller_rva": "0x146A70"
+        },
+        {
+          "caller_rva": "0x1483F0"
+        },
+        {
+          "caller_rva": "0x1493E0"
+        },
+        {
+          "caller_rva": "0x151090"
+        },
+        {
+          "caller_rva": "0x15A950"
+        },
+        {
+          "caller_rva": "0x160420"
+        },
+        {
+          "caller_rva": "0x167D40"
+        },
+        {
+          "caller_rva": "0x16B220"
+        },
+        {
+          "caller_rva": "0x16CD70"
+        },
+        {
+          "caller_rva": "0x16E440"
+        },
+        {
+          "caller_rva": "0x16F590"
+        },
+        {
+          "caller_rva": "0x170570"
+        },
+        {
+          "caller_rva": "0x1731F0"
+        },
+        {
+          "caller_rva": "0x174F90"
+        },
+        {
+          "caller_rva": "0x1768A0"
+        },
+        {
+          "caller_rva": "0x178350"
+        },
+        {
+          "caller_rva": "0x17A590"
+        },
+        {
+          "caller_rva": "0x17B540"
+        },
+        {
+          "caller_rva": "0x17CF50"
+        },
+        {
+          "caller_rva": "0x193DE0"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "C0DD5B8A3A368FFE00649331D325C14FFC91ABB9BCA7D8C8AB6EDC883664A270",
+      "ByteRanges": [
+        {
+          "Start": "0x188070",
+          "EndExclusive": "0x1881d1"
+        }
+      ],
+      "DecodedInstructions": 63
+    },
+    {
+      "Rva": "0x180A80",
+      "Name": "FUN_180180a80",
+      "Confidence": "candidate",
+      "Size": 219,
+      "ExpectedSha256": "421E2FC6AE60837E3A2AFED2E0CA381F3048DF5D793221341B4FEEFFE9554EB6",
+      "Callees": [
+        {
+          "callee_rva": "0x180230",
+          "callee_name": "FUN_180180230"
+        },
+        {
+          "callee_rva": "0x184FD0",
+          "callee_name": "c_game_unit_update_standing_height"
+        },
+        {
+          "callee_rva": "0x186AD0",
+          "callee_name": "FUN_180186ad0"
+        },
+        {
+          "callee_rva": "0x18BE50",
+          "callee_name": "FUN_18018be50"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x16CD70"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "421E2FC6AE60837E3A2AFED2E0CA381F3048DF5D793221341B4FEEFFE9554EB6",
+      "ByteRanges": [
+        {
+          "Start": "0x180a80",
+          "EndExclusive": "0x180b5b"
+        }
+      ],
+      "DecodedInstructions": 46,
+      "KeyInstructions": [
+        "180AB7: call 0x186ad0",
+        "180B33: call 0x180230",
+        "180B3D: call 0x18be50",
+        "180B56: jmp 0x184fd0"
+      ]
+    },
+    {
+      "Rva": "0x185190",
+      "Name": "FUN_180185190",
+      "Confidence": "candidate",
+      "Size": 168,
+      "ExpectedSha256": "689670F7BBABECC37165B1E824C3511CCB3E9EA03FED0A7A8A3850B5068C5B61",
+      "Callees": [
+        {
+          "callee_rva": "0x180230",
+          "callee_name": "FUN_180180230"
+        },
+        {
+          "callee_rva": "0x186AD0",
+          "callee_name": "FUN_180186ad0"
+        },
+        {
+          "callee_rva": "0x18BE50",
+          "callee_name": "FUN_18018be50"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x1988F0"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "689670F7BBABECC37165B1E824C3511CCB3E9EA03FED0A7A8A3850B5068C5B61",
+      "ByteRanges": [
+        {
+          "Start": "0x185190",
+          "EndExclusive": "0x185238"
+        }
+      ],
+      "DecodedInstructions": 37
+    },
+    {
+      "Rva": "0x196F80",
+      "Name": "FUN_180196f80",
+      "Confidence": "candidate",
+      "Size": 70,
+      "ExpectedSha256": "B24EA1CBF61B4D5B56F0D0E803B1A9283A48F1C3FAB70FE4AB9B386083EF57B2",
+      "Callees": [
+        {
+          "callee_rva": "0x186AD0",
+          "callee_name": "FUN_180186ad0"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0xA65A0"
+        },
+        {
+          "caller_rva": "0xA8E40"
+        },
+        {
+          "caller_rva": "0xA93C0"
+        },
+        {
+          "caller_rva": "0xA9A30"
+        },
+        {
+          "caller_rva": "0xAA030"
+        },
+        {
+          "caller_rva": "0xAA630"
+        },
+        {
+          "caller_rva": "0xB47E0"
+        },
+        {
+          "caller_rva": "0xC23C0"
+        },
+        {
+          "caller_rva": "0x11E960"
+        },
+        {
+          "caller_rva": "0x12BC00"
+        },
+        {
+          "caller_rva": "0x12D230"
+        },
+        {
+          "caller_rva": "0x12E400"
+        },
+        {
+          "caller_rva": "0x12FC70"
+        },
+        {
+          "caller_rva": "0x131430"
+        },
+        {
+          "caller_rva": "0x1332B0"
+        },
+        {
+          "caller_rva": "0x136D40"
+        },
+        {
+          "caller_rva": "0x1377C0"
+        },
+        {
+          "caller_rva": "0x138850"
+        },
+        {
+          "caller_rva": "0x139950"
+        },
+        {
+          "caller_rva": "0x13AAD0"
+        },
+        {
+          "caller_rva": "0x13BDD0"
+        },
+        {
+          "caller_rva": "0x13CF30"
+        },
+        {
+          "caller_rva": "0x13E0B0"
+        },
+        {
+          "caller_rva": "0x14AED0"
+        },
+        {
+          "caller_rva": "0x14D6F0"
+        },
+        {
+          "caller_rva": "0x14E4E0"
+        },
+        {
+          "caller_rva": "0x14F3C0"
+        },
+        {
+          "caller_rva": "0x1505D0"
+        },
+        {
+          "caller_rva": "0x155800"
+        },
+        {
+          "caller_rva": "0x155C60"
+        },
+        {
+          "caller_rva": "0x158780"
+        },
+        {
+          "caller_rva": "0x159C30"
+        },
+        {
+          "caller_rva": "0x15D400"
+        },
+        {
+          "caller_rva": "0x15DF90"
+        },
+        {
+          "caller_rva": "0x166FE0"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "B24EA1CBF61B4D5B56F0D0E803B1A9283A48F1C3FAB70FE4AB9B386083EF57B2",
+      "ByteRanges": [
+        {
+          "Start": "0x196f80",
+          "EndExclusive": "0x196fc6"
+        }
+      ],
+      "DecodedInstructions": 10,
+      "KeyInstructions": [
+        "196FA7: mov word ptr [r8 + rcx + 0x9b0], ax",
+        "196FC1: jmp 0x186ad0"
+      ]
+    },
+    {
+      "Rva": "0x196FD0",
+      "Name": "FUN_180196fd0",
+      "Confidence": "candidate",
+      "Size": 79,
+      "ExpectedSha256": "5C22575CCC32692D48EB3899284BD12BF981986982F733CCE8A310FDA2721456",
+      "Callees": [],
+      "Callers": [
+        {
+          "caller_rva": "0xA65A0"
+        },
+        {
+          "caller_rva": "0xA8E40"
+        },
+        {
+          "caller_rva": "0xA93C0"
+        },
+        {
+          "caller_rva": "0xA9A30"
+        },
+        {
+          "caller_rva": "0xAA030"
+        },
+        {
+          "caller_rva": "0xAA630"
+        },
+        {
+          "caller_rva": "0x11E960"
+        },
+        {
+          "caller_rva": "0x12BC00"
+        },
+        {
+          "caller_rva": "0x12D230"
+        },
+        {
+          "caller_rva": "0x12FC70"
+        },
+        {
+          "caller_rva": "0x1332B0"
+        },
+        {
+          "caller_rva": "0x136D40"
+        },
+        {
+          "caller_rva": "0x1377C0"
+        },
+        {
+          "caller_rva": "0x138850"
+        },
+        {
+          "caller_rva": "0x139950"
+        },
+        {
+          "caller_rva": "0x13AAD0"
+        },
+        {
+          "caller_rva": "0x13BDD0"
+        },
+        {
+          "caller_rva": "0x13CF30"
+        },
+        {
+          "caller_rva": "0x13E0B0"
+        },
+        {
+          "caller_rva": "0x14AED0"
+        },
+        {
+          "caller_rva": "0x14E4E0"
+        },
+        {
+          "caller_rva": "0x14F3C0"
+        },
+        {
+          "caller_rva": "0x1505D0"
+        },
+        {
+          "caller_rva": "0x155800"
+        },
+        {
+          "caller_rva": "0x155C60"
+        },
+        {
+          "caller_rva": "0x158780"
+        },
+        {
+          "caller_rva": "0x15A950"
+        },
+        {
+          "caller_rva": "0x15D400"
+        },
+        {
+          "caller_rva": "0x15DF90"
+        },
+        {
+          "caller_rva": "0x15ECE0"
+        },
+        {
+          "caller_rva": "0x166FE0"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "5C22575CCC32692D48EB3899284BD12BF981986982F733CCE8A310FDA2721456",
+      "ByteRanges": [
+        {
+          "Start": "0x196fd0",
+          "EndExclusive": "0x19701f"
+        }
+      ],
+      "DecodedInstructions": 12,
+      "KeyInstructions": [
+        "196FDD: movzx eax, word ptr [r8 + rcx + 0x9b0]",
+        "196FFB: mov word ptr [r8 + rcx + 0x9b0], r10w",
+        "197018: jne 0x180230"
+      ]
+    },
+    {
+      "Rva": "0x196D30",
+      "Name": "FUN_180196d30",
+      "Confidence": "candidate",
+      "Size": 589,
+      "ExpectedSha256": "C1995AE6B23909A308413DEA4967FD82D76D032D9E9BFA2825AED13D1BF64DF2",
+      "Callees": [
+        {
+          "callee_rva": "0x2960",
+          "callee_name": "FUN_180002960"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x13F540"
+        },
+        {
+          "caller_rva": "0x141DA0"
+        },
+        {
+          "caller_rva": "0x143400"
+        },
+        {
+          "caller_rva": "0x145030"
+        },
+        {
+          "caller_rva": "0x146A70"
+        },
+        {
+          "caller_rva": "0x1483F0"
+        },
+        {
+          "caller_rva": "0x1493E0"
+        },
+        {
+          "caller_rva": "0x15A950"
+        },
+        {
+          "caller_rva": "0x167D40"
+        },
+        {
+          "caller_rva": "0x169B70"
+        },
+        {
+          "caller_rva": "0x16B220"
+        },
+        {
+          "caller_rva": "0x16CD70"
+        },
+        {
+          "caller_rva": "0x16E440"
+        },
+        {
+          "caller_rva": "0x16F590"
+        },
+        {
+          "caller_rva": "0x170570"
+        },
+        {
+          "caller_rva": "0x1731F0"
+        },
+        {
+          "caller_rva": "0x174F90"
+        },
+        {
+          "caller_rva": "0x1768A0"
+        },
+        {
+          "caller_rva": "0x178350"
+        },
+        {
+          "caller_rva": "0x17A590"
+        },
+        {
+          "caller_rva": "0x17B540"
+        },
+        {
+          "caller_rva": "0x17CF50"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "C1995AE6B23909A308413DEA4967FD82D76D032D9E9BFA2825AED13D1BF64DF2",
+      "ByteRanges": [
+        {
+          "Start": "0x196d30",
+          "EndExclusive": "0x196f7d"
+        }
+      ],
+      "DecodedInstructions": 116
+    },
+    {
+      "Rva": "0x195170",
+      "Name": "FUN_180195170",
+      "Confidence": "candidate",
+      "Size": 2865,
+      "ExpectedSha256": "725ACFA91BF2F94EECA22A1D6EA52D0181F6E354B4A1DF8B222EAFF00D83FED3",
+      "Callees": [
+        {
+          "callee_rva": "0x64D40",
+          "callee_name": "FUN_180064d40"
+        },
+        {
+          "callee_rva": "0x6B910",
+          "callee_name": "FUN_18006b910"
+        },
+        {
+          "callee_rva": "0xCE710",
+          "callee_name": "FUN_1800ce710"
+        },
+        {
+          "callee_rva": "0x188A20",
+          "callee_name": "FUN_180188a20"
+        },
+        {
+          "callee_rva": "0x193B80",
+          "callee_name": "FUN_180193b80"
+        },
+        {
+          "callee_rva": "0x197B20",
+          "callee_name": "FUN_180197b20"
+        },
+        {
+          "callee_rva": "0x199110",
+          "callee_name": "FUN_180199110"
+        },
+        {
+          "callee_rva": "0x1A64D0",
+          "callee_name": "__security_check_cookie"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x182B00"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "725ACFA91BF2F94EECA22A1D6EA52D0181F6E354B4A1DF8B222EAFF00D83FED3",
+      "ByteRanges": [
+        {
+          "Start": "0x195170",
+          "EndExclusive": "0x195ca1"
+        }
+      ],
+      "DecodedInstructions": 606
+    },
+    {
+      "Rva": "0x19AB10",
+      "Name": "FUN_18019ab10",
+      "Confidence": "candidate",
+      "Size": 1642,
+      "ExpectedSha256": "28F3DA21321B0B4B6D5A5D5FF5784814ECDC8F8F710CDCCB7BD01AC80D5EAD9A",
+      "Callees": [
+        {
+          "callee_rva": "0x187110",
+          "callee_name": "FUN_180187110"
+        },
+        {
+          "callee_rva": "0x196280",
+          "callee_name": "FUN_180196280"
+        },
+        {
+          "callee_rva": "0x196810",
+          "callee_name": "FUN_180196810"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x182B00"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "28F3DA21321B0B4B6D5A5D5FF5784814ECDC8F8F710CDCCB7BD01AC80D5EAD9A",
+      "ByteRanges": [
+        {
+          "Start": "0x19ab10",
+          "EndExclusive": "0x19b17a"
+        }
+      ],
+      "DecodedInstructions": 352,
+      "KeyInstructions": [
+        "19AB3B: movsx rax, word ptr [rbx + 0x8ec]",
+        "19AB53: je 0x19b09b",
+        "19AB59: mov eax, dword ptr [rbx + 0x8f0]",
+        "19AB67: jne 0x19b09b",
+        "19AB78: jne 0x19b044",
+        "19AB7E: inc word ptr [rbx + 0x9b4]",
+        "19AB87: cmp word ptr [rbx + 0x9b4], 0x60",
+        "19AB8F: jl 0x19ac0f",
+        "19AB91: inc word ptr [rbx + 0x9bc]",
+        "19AB9D: movzx edx, word ptr [rbx + 0x9b6]",
+        "19ABAD: mov word ptr [rbx + 0x9b4], di",
+        "19ABF5: jne 0x19abfe",
+        "19ABFA: jle 0x19ac0f",
+        "19ABFC: jmp 0x19ac03",
+        "19AC01: jge 0x19ac0f",
+        "19AC08: mov word ptr [rbx + 0x9bc], ax",
+        "19AC1D: movzx r8d, word ptr [rbx + 0x9b6]",
+        "19AC2C: je 0x19ad8a",
+        "19AC36: jne 0x19acff",
+        "19AC3F: jne 0x19ac5c",
+        "19AC41: movsx eax, word ptr [rbx + 0x9bc]",
+        "19AC57: jmp 0x19ae57",
+        "19AC60: je 0x19adba",
+        "19AC6A: jne 0x19ac87",
+        "19AC6C: movsx eax, word ptr [rbx + 0x9bc]",
+        "19AC82: jmp 0x19ae57",
+        "19AC8B: jne 0x19aca6",
+        "19AC8D: movsx eax, word ptr [rbx + 0x9bc]",
+        "19ACA1: jmp 0x19ae57",
+        "19ACAA: je 0x19ae16",
+        "19ACB4: jne 0x19accf",
+        "19ACB6: movsx eax, word ptr [rbx + 0x9bc]",
+        "19ACCA: jmp 0x19ae57",
+        "19ACD3: jne 0x19af9f",
+        "19ACD9: movsx eax, word ptr [rbx + 0x9b4]",
+        "19ACFA: jmp 0x19af30",
+        "19AD02: jne 0x19ad17",
+        "19AD04: movsx eax, word ptr [rbx + 0x9bc]",
+        "19AD12: jmp 0x19af10",
+        "19AD1B: je 0x19ae94",
+        "19AD25: jne 0x19ad3a",
+        "19AD27: movsx eax, word ptr [rbx + 0x9bc]",
+        "19AD35: jmp 0x19af10",
+        "19AD3E: jne 0x19ad5b",
+        "19AD40: movsx eax, word ptr [rbx + 0x9bc]",
+        "19AD56: jmp 0x19af16",
+        "19AD5F: je 0x19aee3",
+        "19AD69: jne 0x19af8a",
+        "19AD6F: movsx eax, word ptr [rbx + 0x9bc]",
+        "19AD85: jmp 0x19af16",
+        "19AD8E: jne 0x19ae76",
+        "19AD97: jne 0x19adb4",
+        "19AD99: movsx eax, word ptr [rbx + 0x9bc]",
+        "19ADAF: jmp 0x19ae57",
+        "19ADB8: jne 0x19add6",
+        "19ADBA: movsx eax, word ptr [rbx + 0x9bc]",
+        "19ADD1: jmp 0x19ae57",
+        "19ADDA: jne 0x19adf4",
+        "19ADDC: movsx eax, word ptr [rbx + 0x9bc]",
+        "19ADF2: jmp 0x19ae57",
+        "19ADF8: jne 0x19ae10",
+        "19ADFA: movsx eax, word ptr [rbx + 0x9bc]",
+        "19AE0E: jmp 0x19ae57",
+        "19AE14: jne 0x19ae2e",
+        "19AE16: movsx eax, word ptr [rbx + 0x9bc]",
+        "19AE2C: jmp 0x19ae57",
+        "19AE32: jne 0x19ae4a",
+        "19AE34: movsx eax, word ptr [rbx + 0x9bc]",
+        "19AE48: jmp 0x19ae57",
+        "19AE4E: jne 0x19ae57",
+        "19AE57: movsx eax, word ptr [rbx + 0x9b4]",
+        "19AE71: jmp 0x19af30",
+        "19AE79: jne 0x19ae8e",
+        "19AE7B: movsx eax, word ptr [rbx + 0x9bc]",
+        "19AE89: jmp 0x19af10",
+        "19AE92: jne 0x19aea9",
+        "19AE94: movsx eax, word ptr [rbx + 0x9bc]",
+        "19AEA7: jmp 0x19af16",
+        "19AEAD: jne 0x19aebf",
+        "19AEAF: movsx eax, word ptr [rbx + 0x9bc]",
+        "19AEBD: jmp 0x19af10",
+        "19AEC3: jne 0x19aedd",
+        "19AEC5: movsx eax, word ptr [rbx + 0x9bc]",
+        "19AEDB: jmp 0x19af16",
+        "19AEE1: jne 0x19aef6",
+        "19AEE3: movsx eax, word ptr [rbx + 0x9bc]",
+        "19AEF4: jmp 0x19af10",
+        "19AEFA: jne 0x19af8a",
+        "19AF00: movsx ecx, word ptr [rbx + 0x9bc]",
+        "19AF16: movsx eax, word ptr [rbx + 0x9b4]",
+        "19AF65: jbe 0x19afe0",
+        "19AF6F: jbe 0x19afe0",
+        "19AF7F: je 0x19afc8",
+        "19AF88: jmp 0x19afea",
+        "19AF8E: jne 0x19af9f",
+        "19AF9A: jmp 0x19af16",
+        "19AF9F: movsx eax, word ptr [rbx + 0x9b4]",
+        "19AFB6: jne 0x19af29",
+        "19AFC3: jmp 0x19af30",
+        "19AFC8: cmp word ptr [rbx + 0x9b6], r9w",
+        "19AFDE: jmp 0x19afea",
+        "19AFEA: cmp word ptr [rbx + 0x9bc], 5",
+        "19AFF2: jl 0x19b165",
+        "19B02C: call 0x187110",
+        "19B031: movzx eax, word ptr [rbx + 0x9ce]",
+        "19B038: mov word ptr [rbx + 0x918], ax",
+        "19B03F: jmp 0x19b13d",
+        "19B04A: ja 0x19b165",
+        "19B050: cmp word ptr [rbx + 0x918], 0x6c",
+        "19B058: jne 0x19b134",
+        "19B081: mov word ptr [rbx + 0x918], ax",
+        "19B096: jmp 0x19b165",
+        "19B09B: cmp word ptr [rbx + 0x8f6], 1",
+        "19B0A3: jne 0x19b134",
+        "19B0AF: cmp word ptr [rbx + 0x9bc], di",
+        "19B0B6: jl 0x19b113",
+        "19B0B8: cmp word ptr [rbx + 0x918], 0x6a",
+        "19B0C0: jne 0x19b0ee",
+        "19B0E1: jns 0x19b0ee",
+        "19B111: jmp 0x19b116",
+        "19B11C: mov word ptr [rbx + 0x918], ax",
+        "19B12B: mov word ptr [rbx + 0x8f6], di",
+        "19B132: jmp 0x19b165",
+        "19B136: call 0x187110",
+        "19B156: call 0x196280",
+        "19B160: call 0x196810"
+      ]
+    },
+    {
+      "Rva": "0x19B260",
+      "Name": "FUN_18019b260",
+      "Confidence": "candidate",
+      "Size": 966,
+      "ExpectedSha256": "15CEB13D6FF56A004CF35CB77A868035410076F63742231CAD5C999AB9B45A9C",
+      "Callees": [
+        {
+          "callee_rva": "0x10A590",
+          "callee_name": "FUN_18010a590"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x182B00"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "15CEB13D6FF56A004CF35CB77A868035410076F63742231CAD5C999AB9B45A9C",
+      "ByteRanges": [
+        {
+          "Start": "0x19b260",
+          "EndExclusive": "0x19b626"
+        }
+      ],
+      "DecodedInstructions": 213
+    },
+    {
+      "Rva": "0xF1400",
+      "Name": "FUN_1800f1400",
+      "Confidence": "candidate",
+      "Size": 1006,
+      "ExpectedSha256": "09FF49017B49AE4E8B98112BFF4EA77FBE5DAB86A99C18B20232507AF18C99CC",
+      "Callees": [
+        {
+          "callee_rva": "0x7490",
+          "callee_name": "FUN_180007490"
+        },
+        {
+          "callee_rva": "0x107160",
+          "callee_name": "FUN_180107160"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x77E60"
+        },
+        {
+          "caller_rva": "0x187CF0"
+        },
+        {
+          "caller_rva": "0x187E20"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "09FF49017B49AE4E8B98112BFF4EA77FBE5DAB86A99C18B20232507AF18C99CC",
+      "ByteRanges": [
+        {
+          "Start": "0xf1400",
+          "EndExclusive": "0xf17ee"
+        }
+      ],
+      "DecodedInstructions": 201
+    },
+    {
+      "Rva": "0x1976C0",
+      "Name": "FUN_1801976c0",
+      "Confidence": "candidate",
+      "Size": 211,
+      "ExpectedSha256": "39E4EE6EF688BA664742C592585D2EFF99FF0CBDA16E60B6093DF9BBA64A0469",
+      "Callees": [
+        {
+          "callee_rva": "0x196280",
+          "callee_name": "FUN_180196280"
+        },
+        {
+          "callee_rva": "0x196810",
+          "callee_name": "FUN_180196810"
+        },
+        {
+          "callee_rva": "0x197950",
+          "callee_name": "FUN_180197950"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x178350"
+        },
+        {
+          "caller_rva": "0x17CF50"
+        },
+        {
+          "caller_rva": "0x1853F0"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "39E4EE6EF688BA664742C592585D2EFF99FF0CBDA16E60B6093DF9BBA64A0469",
+      "ByteRanges": [
+        {
+          "Start": "0x1976c0",
+          "EndExclusive": "0x197793"
+        }
+      ],
+      "DecodedInstructions": 43
+    },
+    {
+      "Rva": "0x1853F0",
+      "Name": "FUN_1801853f0",
+      "Confidence": "candidate",
+      "Size": 55,
+      "ExpectedSha256": "A7B2D84B7487FA73BF4A94C91536BB89F15E898F4525CCCD08B4818980DEA82E",
+      "Callees": [
+        {
+          "callee_rva": "0x1976C0",
+          "callee_name": "FUN_1801976c0"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x12BC00"
+        },
+        {
+          "caller_rva": "0x12E400"
+        },
+        {
+          "caller_rva": "0x12FC70"
+        },
+        {
+          "caller_rva": "0x131430"
+        },
+        {
+          "caller_rva": "0x1319A0"
+        },
+        {
+          "caller_rva": "0x13BDD0"
+        },
+        {
+          "caller_rva": "0x13E0B0"
+        },
+        {
+          "caller_rva": "0x13F540"
+        },
+        {
+          "caller_rva": "0x141DA0"
+        },
+        {
+          "caller_rva": "0x143400"
+        },
+        {
+          "caller_rva": "0x145030"
+        },
+        {
+          "caller_rva": "0x146A70"
+        },
+        {
+          "caller_rva": "0x1483F0"
+        },
+        {
+          "caller_rva": "0x1493E0"
+        },
+        {
+          "caller_rva": "0x1501D0"
+        },
+        {
+          "caller_rva": "0x151090"
+        },
+        {
+          "caller_rva": "0x156DC0"
+        },
+        {
+          "caller_rva": "0x158EF0"
+        },
+        {
+          "caller_rva": "0x15A950"
+        },
+        {
+          "caller_rva": "0x15DF90"
+        },
+        {
+          "caller_rva": "0x166FE0"
+        },
+        {
+          "caller_rva": "0x167D40"
+        },
+        {
+          "caller_rva": "0x169B70"
+        },
+        {
+          "caller_rva": "0x16B220"
+        },
+        {
+          "caller_rva": "0x16CD70"
+        },
+        {
+          "caller_rva": "0x16E440"
+        },
+        {
+          "caller_rva": "0x16F590"
+        },
+        {
+          "caller_rva": "0x170570"
+        },
+        {
+          "caller_rva": "0x1731F0"
+        },
+        {
+          "caller_rva": "0x174F90"
+        },
+        {
+          "caller_rva": "0x1768A0"
+        },
+        {
+          "caller_rva": "0x178350"
+        },
+        {
+          "caller_rva": "0x17A590"
+        },
+        {
+          "caller_rva": "0x17B540"
+        },
+        {
+          "caller_rva": "0x17CF50"
+        },
+        {
+          "caller_rva": "0x17F2F0"
+        },
+        {
+          "caller_rva": "0x187A40"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "A7B2D84B7487FA73BF4A94C91536BB89F15E898F4525CCCD08B4818980DEA82E",
+      "ByteRanges": [
+        {
+          "Start": "0x1853f0",
+          "EndExclusive": "0x185427"
+        }
+      ],
+      "DecodedInstructions": 14
+    },
+    {
+      "Rva": "0xDF720",
+      "Name": "FUN_1800df720",
+      "Confidence": "candidate",
+      "Size": 673,
+      "ExpectedSha256": "124F7150ACEE02EEEF7CA385C388A9D2C94AFA894B7B09E36E1AE143823697B4",
+      "Callees": [
+        {
+          "callee_rva": "0x79C0",
+          "callee_name": "FUN_1800079c0"
+        },
+        {
+          "callee_rva": "0x181E00",
+          "callee_name": "FUN_180181e00"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x11B520"
+        },
+        {
+          "caller_rva": "0x18E1E0"
+        },
+        {
+          "caller_rva": "0x196280"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "124F7150ACEE02EEEF7CA385C388A9D2C94AFA894B7B09E36E1AE143823697B4",
+      "ByteRanges": [
+        {
+          "Start": "0xdf720",
+          "EndExclusive": "0xdf9c1"
+        }
+      ],
+      "DecodedInstructions": 166
+    },
+    {
+      "Rva": "0xF4630",
+      "Name": "FUN_1800f4630",
+      "Confidence": "candidate",
+      "Size": 296,
+      "ExpectedSha256": "2132D345D31A07A6D3617DF5AB8233AF95969A016AA8E47AAB43755C5DBD082D",
+      "Callees": [],
+      "Callers": [
+        {
+          "caller_rva": "0x196280"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "2132D345D31A07A6D3617DF5AB8233AF95969A016AA8E47AAB43755C5DBD082D",
+      "ByteRanges": [
+        {
+          "Start": "0xf4630",
+          "EndExclusive": "0xf4758"
+        }
+      ],
+      "DecodedInstructions": 66
+    },
+    {
+      "Rva": "0xD8510",
+      "Name": "FUN_1800d8510",
+      "Confidence": "candidate",
+      "Size": 472,
+      "ExpectedSha256": "263C3AEE61B62BD8F8975DECFCC03CC2036115FD01A8346B806214A06689887E",
+      "Callees": [
+        {
+          "callee_rva": "0xDE090",
+          "callee_name": "FUN_1800de090"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x74080"
+        },
+        {
+          "caller_rva": "0x74240"
+        },
+        {
+          "caller_rva": "0x1950B0"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "263C3AEE61B62BD8F8975DECFCC03CC2036115FD01A8346B806214A06689887E",
+      "ByteRanges": [
+        {
+          "Start": "0xd8510",
+          "EndExclusive": "0xd86e8"
+        }
+      ],
+      "DecodedInstructions": 95
+    },
+    {
+      "Rva": "0x1950B0",
+      "Name": "FUN_1801950b0",
+      "Confidence": "candidate",
+      "Size": 96,
+      "ExpectedSha256": "AC483A4D27B75D46B12238A7C3516BA32A364EFAD6C1226C13A1859A192E1E2E",
+      "Callees": [
+        {
+          "callee_rva": "0xD8510",
+          "callee_name": "FUN_1800d8510"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x14A3F0"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "AC483A4D27B75D46B12238A7C3516BA32A364EFAD6C1226C13A1859A192E1E2E",
+      "ByteRanges": [
+        {
+          "Start": "0x1950b0",
+          "EndExclusive": "0x195110"
+        }
+      ],
+      "DecodedInstructions": 21
+    },
+    {
+      "Rva": "0xF4540",
+      "Name": "FUN_1800f4540",
+      "Confidence": "candidate",
+      "Size": 227,
+      "ExpectedSha256": "BD3BE0F1BD271911916D337666F5352270B6D4FDC54C33BA6CFE1F4D248281D1",
+      "Callees": [
+        {
+          "callee_rva": "0xDE090",
+          "callee_name": "FUN_1800de090"
+        },
+        {
+          "callee_rva": "0xF4760",
+          "callee_name": "FUN_1800f4760"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x71670"
+        },
+        {
+          "caller_rva": "0xCDE60"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "BD3BE0F1BD271911916D337666F5352270B6D4FDC54C33BA6CFE1F4D248281D1",
+      "ByteRanges": [
+        {
+          "Start": "0xf4540",
+          "EndExclusive": "0xf4623"
+        }
+      ],
+      "DecodedInstructions": 49
+    },
+    {
+      "Rva": "0xF4760",
+      "Name": "FUN_1800f4760",
+      "Confidence": "candidate",
+      "Size": 453,
+      "ExpectedSha256": "DF12A8EB7355416F779778692349BDCFF86BC32F0F5F7AAD1021AD2757408E78",
+      "Callees": [],
+      "Callers": [
+        {
+          "caller_rva": "0xF4540"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "DF12A8EB7355416F779778692349BDCFF86BC32F0F5F7AAD1021AD2757408E78",
+      "ByteRanges": [
+        {
+          "Start": "0xf4760",
+          "EndExclusive": "0xf4925"
+        }
+      ],
+      "DecodedInstructions": 99
+    },
+    {
+      "Rva": "0x181E00",
+      "Name": "FUN_180181e00",
+      "Confidence": "candidate",
+      "Size": 44,
+      "ExpectedSha256": "123E80D9DE1F8D55AA176789DC42D04DC940D30FD2BAC0BC75988B8CFD5FB086",
+      "Callees": [],
+      "Callers": [
+        {
+          "caller_rva": "0xDF720"
+        },
+        {
+          "caller_rva": "0x182750"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "123E80D9DE1F8D55AA176789DC42D04DC940D30FD2BAC0BC75988B8CFD5FB086",
+      "ByteRanges": [
+        {
+          "Start": "0x181e00",
+          "EndExclusive": "0x181e2c"
+        }
+      ],
+      "DecodedInstructions": 9
+    },
+    {
+      "Rva": "0xDE090",
+      "Name": "FUN_1800de090",
+      "Confidence": "candidate",
+      "Size": 40,
+      "ExpectedSha256": "D1308CC8CBF176B269A98D357D64AD151A91B4DBE4D8654548969A4F09A8480E",
+      "Callees": [
+        {
+          "callee_rva": "0x7490",
+          "callee_name": "FUN_180007490"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0xD8510"
+        },
+        {
+          "caller_rva": "0xE32F0"
+        },
+        {
+          "caller_rva": "0xE62F0"
+        },
+        {
+          "caller_rva": "0xF4540"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "D1308CC8CBF176B269A98D357D64AD151A91B4DBE4D8654548969A4F09A8480E",
+      "ByteRanges": [
+        {
+          "Start": "0xde090",
+          "EndExclusive": "0xde0b8"
+        }
+      ],
+      "DecodedInstructions": 8
+    },
+    {
+      "Rva": "0x184FD0",
+      "Name": "c_game_unit_update_standing_height",
+      "Confidence": "confirmed",
+      "Size": 437,
+      "ExpectedSha256": "D0E6CD911C2150EC892A2131A02641EDE59C81DC4F213579D7A468C9E6AC7B33",
+      "Callees": [
+        {
+          "callee_rva": "0xC0700",
+          "callee_name": "FUN_1800c0700"
+        },
+        {
+          "callee_rva": "0xC07C0",
+          "callee_name": "c_game_building_get_type_height_offset"
+        }
+      ],
+      "Callers": [
+        {
+          "caller_rva": "0x180A80"
+        },
+        {
+          "caller_rva": "0x182B00"
+        }
+      ],
+      "InstalledBytesMatch": true,
+      "InstalledInstructionByteSha256": "D0E6CD911C2150EC892A2131A02641EDE59C81DC4F213579D7A468C9E6AC7B33",
+      "ByteRanges": [
+        {
+          "Start": "0x184fd0",
+          "EndExclusive": "0x185185"
+        }
+      ],
+      "DecodedInstructions": 88
+    }
+  ],
+  "Verification": "PASS: installed file hash and 63 function instruction byte hashes match current baseline; one missing standalone portal leaf decoded directly from canonical PE. No native code executed.",
+  "Limits": "No game or native code execution; rawHash is exporter instruction bytes, not necessarily contiguous size bytes. E1640 has two exported ranges.",
+  "ManualLeafFunctions": [
+    {
+      "Rva": "0xd7d50",
+      "EndExclusive": "0xd7e78",
+      "BoundaryEvidence": "F4540 jump-table type1 pointer at3125D8; all local branches inside body; two RETs then INT3, next ret-stubD7E80; no indexed standalone function",
+      "Sha256": "4DAD4957F8C0FE1FA5455A36668B26C8499D5FF3A6CA04592A10A271DA5E9A3F",
+      "Instructions": [
+        "D7D50: 4863058DDE8200 movsxd rax, dword ptr [rip + 0x82de8d]",
+        "D7D57: 4C8D05A282F2FF lea r8, [rip - 0xd7d5e]",
+        "D7D5E: 4869D004020000 imul rdx, rax, 0x204",
+        "D7D65: 4A63840294F60A06 movsxd rax, dword ptr [rdx + r8 + 0x60af694]",
+        "D7D6D: 4869C890040000 imul rcx, rax, 0x490",
+        "D7D74: 428B8401F08A7E06 mov eax, dword ptr [rcx + r8 + 0x67e8af0]",
+        "D7D7C: 4239840298F60A06 cmp dword ptr [rdx + r8 + 0x60af698], eax",
+        "D7D84: 0F85E1000000 jne 0xd7e6b",
+        "D7D8A: 664283BC01188D7E0603 cmp word ptr [rcx + r8 + 0x67e8d18], 3",
+        "D7D94: 0F85D1000000 jne 0xd7e6b",
+        "D7D9A: 664283BC01F88C7E0600 cmp word ptr [rcx + r8 + 0x67e8cf8], 0",
+        "D7DA4: 0F85C1000000 jne 0xd7e6b",
+        "D7DAA: 4A0FBF84010C8D7E06 movsx rax, word ptr [rcx + r8 + 0x67e8d0c]",
+        "D7DB3: 42C784029CF60A0601000000 mov dword ptr [rdx + r8 + 0x60af69c], 1",
+        "D7DBF: 4289840254F80A06 mov dword ptr [rdx + r8 + 0x60af854], eax",
+        "D7DC7: 418B84C0502E2D00 mov eax, dword ptr [r8 + rax*8 + 0x2d2e50]",
+        "D7DCF: 42038402A0F60A06 add eax, dword ptr [rdx + r8 + 0x60af6a0]",
+        "D7DD7: 42898402ACF60A06 mov dword ptr [rdx + r8 + 0x60af6ac], eax",
+        "D7DDF: 4A63840254F80A06 movsxd rax, dword ptr [rdx + r8 + 0x60af854]",
+        "D7DE7: 418B8CC0542E2D00 mov ecx, dword ptr [r8 + rax*8 + 0x2d2e54]",
+        "D7DEF: 42038C02A4F60A06 add ecx, dword ptr [rdx + r8 + 0x60af6a4]",
+        "D7DF7: 42898C02B0F60A06 mov dword ptr [rdx + r8 + 0x60af6b0], ecx",
+        "D7DFF: 428B8C02A4F60A06 mov ecx, dword ptr [rdx + r8 + 0x60af6a4]",
+        "D7E07: 428B840254F80A06 mov eax, dword ptr [rdx + r8 + 0x60af854]",
+        "D7E0F: 8D04C8 lea eax, [rax + rcx*8]",
+        "D7E12: 4898 cdqe ",
+        "D7E14: 418B8480B0ED0504 mov eax, dword ptr [r8 + rax*4 + 0x405edb0]",
+        "D7E1C: 42038402A8F60A06 add eax, dword ptr [rdx + r8 + 0x60af6a8]",
+        "D7E24: 42898402B4F60A06 mov dword ptr [rdx + r8 + 0x60af6b4], eax",
+        "D7E2C: 4A638402A8F60A06 movsxd rax, dword ptr [rdx + r8 + 0x60af6a8]",
+        "D7E34: 410FBF8C4090C60E05 movsx ecx, word ptr [r8 + rax*2 + 0x50ec690]",
+        "D7E3D: 42898C02B8F60A06 mov dword ptr [rdx + r8 + 0x60af6b8], ecx",
+        "D7E45: 4A638402B4F60A06 movsxd rax, dword ptr [rdx + r8 + 0x60af6b4]",
+        "D7E4D: 410FBF8C4090C60E05 movsx ecx, word ptr [r8 + rax*2 + 0x50ec690]",
+        "D7E56: 42898C02BCF60A06 mov dword ptr [rdx + r8 + 0x60af6bc], ecx",
+        "D7E5E: 42C784026CF80A06FFFFFFFF mov dword ptr [rdx + r8 + 0x60af86c], 0xffffffff",
+        "D7E6A: C3 ret ",
+        "D7E6B: 42C7840284F60A0600000000 mov dword ptr [rdx + r8 + 0x60af684], 0",
+        "D7E77: C3 ret "
+      ],
+      "LocalBranchTargets": [
+        "0xd7e6b",
+        "0xd7e6b",
+        "0xd7e6b"
+      ]
+    }
+  ],
+  "SourceSnapshots": [
+    {
+      "Path": "Testmods/TrappedUnitRescueTest/src/RescueRuntime.cs",
+      "Sha256": "71405f3d0c298c9fadd17ea3767a85df2cf59d9abe00e5a8adb65f227a4d5484"
+    },
+    {
+      "Path": "Testmods/TrappedUnitRescueTest/src/NativeRelocation.cs",
+      "Sha256": "acff6f28441129a4ce27df6506662a0f773f08dd33329fcace491e264ebc824e"
+    },
+    {
+      "Path": "Testmods/TrappedUnitRescueTest/src/GeneralRescueObserver.cs",
+      "Sha256": "20658a2f65c892abcf14a4e623866e698d1c4329c7e15a8d181e07784e7faf4f"
+    },
+    {
+      "Path": "Pathfinding/src/UnitCommands/Runtime/ManualGroupAdmission.cs",
+      "Sha256": "34c3d787f39d69b1f3f6016512544fcfc7f6251e7c1939918a9d2c592000f3c8"
+    },
+    {
+      "Path": "Pathfinding/src/UnitCommands/Movement/UnitMovementContext.cs",
+      "Sha256": "f2f099f3e6d4cb14ccd1aeb70b8c81986b176f775eb4821d7cb374415499fd4f"
+    },
+    {
+      "Path": "Pathfinding/src/UnitCommands/Movement/NativeMovementRecovery.cs",
+      "Sha256": "be354eecd960c00c36f80e937ddd463278164e21b91cc972ce5ae31279e2437b"
+    },
+    {
+      "Path": "Pathfinding/src/UnitCommands/Movement/MovementSurfacePolicy.cs",
+      "Sha256": "7a2f25f11cc97783886a976c0450554d4bd575393cbf86af580e4849de49efbe"
+    },
+    {
+      "Path": "Pathfinding/src/UnitCommands/Native/NativeDetourBarriers.cs",
+      "Sha256": "cee96db3f8bc583da7fe202f5d35ae0e1bffc181d6b9b4efe64bbe0a4f078272"
+    },
+    {
+      "Path": "Pathfinding/src/Engine/RouteReplanWatch.cs",
+      "Sha256": "b80f38ee633ccb2f9138133bc9ac5cb43c422d2510a98de1499948472f55da43"
+    },
+    {
+      "Path": "Pathfinding/src/Assassins/AssassinClimbCancellationRuntime.cs",
+      "Sha256": "f6f2ae8ad999aecc1ed98590d4926b722d6c1d53f645303c829b1551b6a5e949"
+    },
+    {
+      "Path": "Pathfinding/src/Assassins/AssassinClimbCancellationPolicy.cs",
+      "Sha256": "61d7332b36e6aa9234d1409e7484469acc5e4ab963cb7bc38395e0c0e14b1f27"
+    },
+    {
+      "Path": "shcde-script-extender/src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+      "Sha256": "2ecfbd78d4fa63dd1d4f4dd07c535f14c629b52510de3e585c678b91900de3c8"
+    },
+    {
+      "Path": "shcde-script-extender/src/SHCDESE.BepInEx/Interop/GameUnitManager.cs",
+      "Sha256": "ad40f1d9a3b7ebc4a3118b7eeb8d13927294b2c8a18d33b848034104f4a5c8bc"
+    },
+    {
+      "Path": "shcde-script-extender/src/SHCDESE.BepInEx/API/GameTileManagerAPI.cs",
+      "Sha256": "5763b3952b300252ed96f43b50cd9b6a06efce1d4b09d3c80576ca13bd713569"
+    },
+    {
+      "Path": "shcde-script-extender/src/SHCDESE.BepInEx/API/GamePathingManagerAPI.cs",
+      "Sha256": "4323d4965f416daca27b65ab4ea806bd294b365e8e711e49cb234e2d3fcfc276"
+    },
+    {
+      "Path": "shcde-script-extender/src/SHCDESE.BepInEx/Detours/BulkUnitDetours.cs",
+      "Sha256": "a89b4f4b1ab431bb19cbd08721d23b6e1a544c1b7c40139396da8903fdf1f8fe"
+    },
+    {
+      "Path": "shcde-script-extender/src/SHCDESE.BepInEx/Detours/BulkPathingDetours.cs",
+      "Sha256": "cf6aa7e53c51013bdaddae8186f3aa7c9033214c2704cfee7b964434ea7850e3"
+    },
+    {
+      "Path": "APIShared/src/Pathfinding/Routes/RouteSearchEvents.cs",
+      "Sha256": "9018eca415357b9c032daf352e02b3f600214e2e6da0c0bc5dbd587f678f0602"
+    }
+  ],
+  "CompletedUtc": "2026-11-25T12:44:00.6000347Z"
+}

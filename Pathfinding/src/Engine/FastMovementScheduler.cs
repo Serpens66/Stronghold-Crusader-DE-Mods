@@ -847,12 +847,10 @@ namespace Pathfinding.Engine
             fireRules?.Reset(); plagueRules?.Reset();
             ruleProbe?.ClearAll(); ruleProbeElapsed = 0; moatCostProbeElapsed = 0; moatCostProbeActive = false;
             ResetAnchorMap();
-            fastSimulationRouting?.Pool.Clear(); fastCursorRouting?.Pool.Clear();
-            fastSimulationRouting = fastCursorRouting = null;
-            fastDistribution = null;
-            fastUnitDistributions.Clear();
+            ResetFastTraversalCaches();
             // A load's own resets keep what it staged; any other map change drops it.
             if (!fastSaveLoading) { fastLoadedCommands = null; fastLoadReady = false; loadedCases = null; }
         }
+
     }
 }

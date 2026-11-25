@@ -82,3 +82,39 @@ This does not guarantee that unrelated game/mod traffic cannot exhaust the queue
 Private-memory tests cover scratch restoration, layouts, refund policy and the
 ordered one-step moat writes; they do not establish optical or real multiplayer
 acceptance. Ingame acceptance was explicitly deferred by the user on 2026-11-11.
+
+## Follow-up on occupied ordinary walls, 2026-11-21
+
+The installed native hash still matched the SHA-256 above. The ordinary click
+dispatcher at `0x90830` returns before querying if the native pause DWORD at
+`0x366A0F8` is nonzero. At `0x79F84` the structure-free wall branch has already
+validated ownership. It sets the wall selector and checks the pending-removal
+bit before reaching the common wall/moat occupancy check at `0x7A047`.
+The occupied-wall execution guard at `0x63749` is separate: Chore 41 has already
+issued the refund, and the wall helper has already cleared its pending bit.
+The successful wall path resets the tile's height and refreshes its topology.
+The unit update at `0x182B00` calls the ordinary height normalizer `0x19B260`
+and then the standing-height updater on the stationary path.
+
+The wall removal entry has three native callers. Chore 41 supplies the
+decoded actor, while map cleanup through `0x62460` and the terrain brush
+through `0x62AB0` pass zero. The actor in EDX is still available at
+`0x63735`. The LEA there replaces EDX before the occupancy guard, so that
+guard itself can no longer identify the actor through EDX.
+
+### Occupied-wall demolition [mod integration]
+
+On 2026-11-21 the prototype and the BugfixesAndQoL integration passed the
+single-click occupied-wall tests with and without Fixes 1.31.0. Stationary
+units stayed on the tile and adjusted to the ground height. Moving units
+continued their orders. Apple farmers completed deliveries on both the
+outbound and loaded return routes after the wall was removed. The chicken
+initially stayed on the tile. Both it and the intact-wall control chicken
+were removed later in the observation window.
+
+With the production option disabled, the occupied wall remained and the
+empty control wall was removed with a refund. With the option enabled, a
+separate area-demolition run removed the occupied wall once, issued the
+refund and preserved the unit position and health.
+
+See [the BugfixesAndQoL native contract](../../../../../BugfixesAndQoL/UpdateToNewDLL.md#occupied-wall-demolition).

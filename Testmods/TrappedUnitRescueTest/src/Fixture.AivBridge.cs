@@ -37,6 +37,8 @@ namespace TrappedUnitRescueTest
                     CheckActor(actor,true);actor.SourceX=actor.X;actor.SourceY=actor.Y;
                 }
             });
+            long constructionCaptures=0,constructionAttempts=0,constructionRescues=0;
+            int constructionResult=0;
             // Do not use Fixture.Execute here: original Vanilla/Fixes construction is unsuppressed.
             run.InSimulation(run.CurrentMission,()=>{
                 Plugin.SetGeneralFixtureSession(expectedEnabled);
@@ -48,25 +50,35 @@ namespace TrappedUnitRescueTest
                 Require(observer.RescueCount==rescues,"No-op AIV frame caused an observer relocation");
                 foreach(var actor in actors){CheckActor(actor,true);Require(AtSource(actor),"No-op AIV frame moved a real actor");}
                 Require(!AivBridgeAtAnchor(),"Restricted native AIV call unexpectedly created a bridge");
-                if(expectedEnabled)Require(observer.CaptureCount==captures+1 && observer.AttemptCount>=attempts+actors.Count,
+                if(expectedEnabled)Require(observer.CaptureCount>=captures+1 && observer.AttemptCount==attempts,
                     "Real no-op AIV call did not traverse the installed observer broker");
                 else Require(observer.CaptureCount==captures && observer.AttemptCount==attempts,"Disabled observer processed a no-op frame");
                 log("aiv-bridge-noop realNative51790=true restricted=1 unchangedActors=true relocated=0 enabled="+expectedEnabled);
-                captures=observer.CaptureCount;attempts=observer.AttemptCount;rescues=observer.RescueCount;
-                int result=InvokeAivBridgeFrame(0);
-                Require(result==1 && AivBridgeAtAnchor(),"Actual AIV frame did not construct a native drawbridge beside the real gate");
+                constructionCaptures=observer.CaptureCount;constructionAttempts=observer.AttemptCount;constructionRescues=observer.RescueCount;
+                constructionResult=InvokeAivBridgeFrame(0);
+                Require(constructionResult==1 && AivBridgeAtAnchor(),"Actual AIV frame did not construct a native drawbridge beside the real gate");
+                foreach(var actor in actors){CheckActor(actor,true);Require(AtSource(actor),"Child or outer construction callback performed early rescue");}
+                Require(observer.AttemptCount==constructionAttempts,"Recovery ran before an admitted simulation tick");
+                return true;
+            });
+            // Exercise the actual public simulation publisher, not a manual observer.Tick call.
+            foreach(var wait in run.SetPause(run.CurrentMission,false))yield return wait;
+            yield return run.WaitForTicks(run.CurrentMission,1);
+            foreach(var wait in run.SetPause(run.CurrentMission,true))yield return wait;
+            run.InSimulation(run.CurrentMission,()=>{
+                var observer=Plugin.GeneralObserver;
                 foreach(var actor in actors)
                 {
                     CheckActor(actor,true);
                     if(expectedEnabled)Require(!AtSource(actor) && HasStructuralExit(actor),"General observer did not rescue an actual newly trapped current occupant");
                     else Require(AtSource(actor) && !HasStructuralExit(actor),"Disabled AIV observer did not preserve the actual vanilla trap");
                 }
-                if(expectedEnabled)Require(observer.CaptureCount==captures+1 && observer.AttemptCount>=attempts+actors.Count && observer.RescueCount==rescues+actors.Count,
-                    "Actual AIV observer did not account for every original rescued actor");
-                else Require(observer.CaptureCount==captures && observer.AttemptCount==attempts && observer.RescueCount==rescues,
+                if(expectedEnabled)Require(observer.CaptureCount>=constructionCaptures+1 && observer.AttemptCount>=constructionAttempts+actors.Count &&
+                    observer.RescueCount==constructionRescues+actors.Count,"Actual queued AIV observer did not account for every original rescued actor");
+                else Require(observer.CaptureCount==constructionCaptures && observer.AttemptCount==constructionAttempts && observer.RescueCount==constructionRescues,
                     "Disabled general observer executed construction rescue");
-                log("aiv-bridge-construction result="+result+" realNative51790=true originalConstructionUnsuppressed=true enabled="+expectedEnabled+
-                    " actors="+actors.Count+" actualObserverRescues="+(observer.RescueCount-rescues)+" identityHealthTribeOccupancy=true");
+                log("aiv-bridge-construction result="+constructionResult+" realNative51790=true originalConstructionUnsuppressed=true deferredTick=true enabled="+expectedEnabled+
+                    " actors="+actors.Count+" actualObserverRescues="+(observer.RescueCount-constructionRescues)+" identityHealthTribeOccupancy=true");
                 return true;
             });
             if(!expectedEnabled)

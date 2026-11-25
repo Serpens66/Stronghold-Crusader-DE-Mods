@@ -18,7 +18,7 @@ namespace AIBuildDiagnoseTest.Tests
         {
             Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => EconomyHookContract.Find(0x3F270));
             foreach (int rva in new[] { 0x3EC90, 0x29650, 0x29700, 0x40740 })
-                Assert.AreEqual(rva, EconomyHookContract.Find(rva).Rva);
+                Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => EconomyHookContract.Find(rva));
         }
         [TestMethod]
         public void UnobservedControllerCannotBecomeAZeroCallSummaryFinding()

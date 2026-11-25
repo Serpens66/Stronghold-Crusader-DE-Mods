@@ -747,10 +747,9 @@ No map-start flood, per-tile managed hook or competing native detour is installe
 
 Reference native SHA256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
 Call-only target: region rebuild RVA 0xE49D0, Win64 int(context*, int force). The
-production semantic signature checks force -> dirty+6C, countdown gating, generation
-+74 and dirty clearing. Known hash uses reference bytes; failed reference validation
-still reaches executable-section unique-pattern fallback. Unknown images use the
-existing native-hash/mod-version resolution cache, confirming the signature again.
+production binding now belongs to APIShared `PathComponentRefresh`. Its audited
+load image checks force -> dirty+6C, countdown gating, generation +74 and dirty clearing.
+The shared binding requires the reference hash and validates the SE context address.
 Context and generation/dirty access use the public installed SE view, whose two
 field offsets are independently fixed by those decoded native instructions.
 No stock component-buffer pointer/capacity is cached; foreign relocated buffers and
@@ -1300,3 +1299,115 @@ and all branch targets before enabling on another game image. Paused frames
 change no timestamps. When active, an existing pending save covers any
 newly expired interval and only the wall-clock timer restarts.
 An unknown image or foreign bytes leave Vanilla behavior active.
+## Occupied wall demolition
+
+Reference DLL SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The feature binds to this image because its checks depend on the calling registers, grids
+and the two interior branch targets.
+
+- `0x79F84..0x79F98` displaces 6/8/6 bytes. The wall owner and empty structure layer
+  have already been checked. Replay wall selection and pending-removal test. A pending
+  removal continues at `0x79F98`, a Vanilla decision at `0x7A044`, and an enabled decision
+  at `0x7A058`. Fixes' moat hook at `0x7A047` remains on the Vanilla route.
+- `0x63735..0x63758` displaces 4/8/8/9/6 bytes. EDX still holds the actor just before
+  the displaced LEA replaces it. The alternate native callers at `0x62460` and
+  `0x62AB0` pass zero. Bypass the occupied rejection only for a valid actor, packed
+  tile, wall flag, zero structure and matching owner. Replay the original pending-bit
+  clear and occupancy comparison. Native continuation is `0x63758` (remove) or
+  `0x63842` (return). The Extender entry detour at `0x63700` remains upstream.
+- Native layout: tile manager in RCX, packed tile in RDI. Tile flags at `+0x898400`,
+  structure words at `+0xB0BCA0`, and owner bytes at `+0xE1AFE0`. The owner is
+  one plus the low three bits. The ordinary Chore and authenticated area operation
+  both pass the actual player ID and retain their Vanilla refund paths.
+
+Re-audit the complete functions, direct and indirect entries, three native callers,
+packed layouts, spans, branches and live RedBird displacement before changing the
+reference. A mismatched or occupied site leaves the feature unavailable. In multiplayer
+the APIShared simulation agreement requires both sites to be available on every peer,
+then the common host setting is frozen for the mission.
+
+## Projectile trails and Standard afterimage replacement
+
+The projectile-trail observer is hash-bound to CrusaderDE.dll
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The exclusive entry at `0x9BFC0` displaces 5/5/1/4 bytes. It verifies the
+prologue, the bound load at `0x9BFCF` and the sole call at `0x9FED0`.
+For supported arrow and bolt source types the Standard rule can return
+zero on the restored entry stack before the original allocation. The
+caller ignores the return and reloads the current slot before ordinary
+flight update. All other paths replay the prologue and resume Vanilla.
+The type-5 smoke producer has a separate entry.
+
+The trampoline reads the signed source slot at `0x8F8C30`, projectile
+stride 0xE8 and type word at record +0x3E. Time comes from the monotonic
+map tick at `0x3665F58`. Sprite sub-tile offsets are the two signed
+words at +0 and +4 in the 8-byte entries at `0x2DB520`. A different DLL
+needs an audit of those values, the entry span and the caller contract.
+An entry-only pattern cannot establish those contracts.
+
+APIShared owns the multiplayer admission and native restore boundaries.
+BugfixesAndQoL owns the hook, renderer and presentation clock. Run the
+[archived acceptance results](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/EXTREME_TROOPS.md#archived-projectile-trail-results-mod-integration).
+Remove the old standalone renderer before using this feature. See the
+[effect allocation audit](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/EXTREME_TROOPS.md).
+
+## Wall deposit restoration
+
+BugfixesAndQoL 1.0.240 replaces the standalone Deposit Restoration test mod.
+The archive identifier `DepositRestorationTest_Serp`, entry `covered-deposits`
+and schema 1 remain stable for existing saves and editor maps. The integrated
+F10 probe is documented in [MakeDesync](../Testmods/MakeDesync/USAGE.md).
+
+The fix uses the audited hash
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The packed tile manager is at RVA `0x405EDB0` and its logic grid starts at
+manager offset `0x898400`. Its 320,800 entries and the native wall and ore flags
+must match the Extender's definitions. A new image needs a tile layout audit
+and revalidation of every writer and continuation. Matching code patterns
+alone cannot establish the manager or grid layout.
+
+| Site | RVA | Displaced bytes |
+| --- | --- | ---: |
+| ManualPlacement | `0x6F55D` | 20 |
+| AiPlacement | `0x6CB85` | 15 |
+| Bulldozer | `0x63775` | 14 |
+| PlayerDefeat | `0x71F0D` | 16 |
+| DirectClear | `0x71FF3` | 21 |
+| AreaDamage | `0x7E15A` | 19 |
+| AttackDamage | `0x7ED20` | 18 |
+| AreaClear | `0xED990` | 15 |
+| BuildingPreparation | `0x6D711` | 20 |
+| BuildingFootprintReplacement | `0x5D78A` | 15 |
+| StructureFootprintClear | `0x638D3` | 19 |
+| WallUndo | `0x63F25` | 15 |
+| RockPlacement | `0x6D4B1` | 19 |
+
+At library load the original bytes, displaced lengths and live spans are
+checked. A foreign patch or unsupported layout disables this feature. The
+known Fixes AI stair hook at 0x6CCC8 and the moat replacement hook ending at
+0x5D783 lie outside the deposit spans. Check the whole span and its incoming
+branches when auditing an update. See the native baseline's
+[wall deposit audit](../_inspect/CrusaderDE-Native-Baseline/CURRENT.md#vanilla-behavior-audits).
+
+## AI market pending-demand correction
+
+The functional owner in `src/AI/Market` and its hash-bound producer, stock,
+ammunition, save and repair contracts are documented in
+[AI market native contract](docs/AiMarketNativeContract.md). The maintained
+production-linked logic and native ABI fixtures live in `tests/AiMarket.Tests`.
+Dated diagnosis/acceptance evidence remains under `Findings/AiMarket`.
+
+## In-game multiplayer save loading
+
+`src/Multiplayer/SaveLoading` owns the migrated coordinated return. It changes no
+native address or save format. `LoadBarrier` validates and edits the actual managed
+`Director.runSimTickTest` loop admission/backedge before its first running thread;
+published hooks remain process-lived. Disabled preferences never request parking.
+Other managed boundaries are validated against the selected real game assembly:
+Director callback/start methods, multiplayer frontend state and lobby completion,
+the original single-file save-CRC sender, and public MP save/header/requester members.
+Vanilla still loads through DLL_LoadMapToPlay (reference RVA 0x84AC0), registers
+and remaps humans, and owns the final synchronized simulation start. The mapped
+save header selects cooperative refresh. See the current native baseline's
+LOBBY_SAVE_LOADING audit, the production-linked tests/MultiplayerSaveLoading.Tests
+fixtures and docs/MultiplayerSaveLoadingTesting.md. No new direct RVA access exists.

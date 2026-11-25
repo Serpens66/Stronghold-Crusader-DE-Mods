@@ -22,7 +22,7 @@ using System.Security.Cryptography;
 
 namespace RandomEvents
 {
-    internal sealed class RandomEventsRuntime : IDisposable
+    internal sealed partial class RandomEventsRuntime : IDisposable
     {
         private const string SaveDataIdentifier = "serp-randomevents-state";
         private const int RabbitSpawnRadius = 12;
@@ -54,7 +54,7 @@ namespace RandomEvents
         private readonly NativeWildlifeEventDispatcher nativeWildlifeDispatcher;
         private readonly NativeBanditEventSupport nativeBanditSupport;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
-        private readonly List<PendingBanditGroup> pendingBanditGroups = new List<PendingBanditGroup>();
+        private List<PendingBanditGroup> pendingBanditGroups = new List<PendingBanditGroup>();
         private readonly HashSet<int> initializationAcknowledgedPlayerIds = new HashSet<int>();
         private readonly ConcurrentQueue<QueuedInitializationAck> initializationAckQueue =
             new ConcurrentQueue<QueuedInitializationAck>();
@@ -200,6 +200,8 @@ namespace RandomEvents
             }
             catch (Exception ex) { LogFeatureFailure("simulation tick", ex); }
 
+            RegisterResync();
+
             initialized = true;
         }
 
@@ -277,6 +279,7 @@ namespace RandomEvents
 
         private void ResetMapState()
         {
+            repairedTimelineBeforeMonth = 0;
             startState.Reset();
             mapActive = false;
             currentSessionId = 0;
@@ -437,6 +440,11 @@ namespace RandomEvents
         {
             isRealMultiplayer = true;
             isLocalHost = GameNetworkAPI.IsLocalHost();
+            if (!resyncRegistered)
+            {
+                DisableForNetwork("Random Events repair state is unavailable", gameModeDetails);
+                return;
+            }
             if (!networkInitialized || initializationChorePacketHook == null || batchChorePacketHook == null ||
                 signpostChorePacketHook == null || initializationAckPacketHook == null ||
                 GameGlobalsManager.Instance.ChoreManagerVA == 0)
@@ -986,6 +994,7 @@ namespace RandomEvents
 
         private void ApplyInitializationChore(RandomEventsInitializationChorePacket packet, string bodyHash)
         {
+            if (!resyncRegistered) return;
             RandomEventsConfigurationSnapshot configuration = CaptureConfiguration();
             byte[] localConfigurationDigest = configuration.GetDigest();
             if (packet == null || packet.OperationId <= 0 || (packet.PrngState0 | packet.PrngState1) == 0 ||
@@ -1233,6 +1242,9 @@ namespace RandomEvents
                 return;
             }
 
+            // The host already applied these months. A held duplicate can arrive after repair.
+            if (isRealMultiplayer && packet.DueAbsoluteMonth < repairedTimelineBeforeMonth) return;
+
             if (state == null ||
                 packet.DueAbsoluteMonth != state.NextDueAbsoluteMonth ||
                 (packet.PrngState0 | packet.PrngState1) == 0)
@@ -1432,6 +1444,10 @@ namespace RandomEvents
                     $"eligibleAbsoluteMonth={cooldownUntil}.");
         }
 
+        // Known, accepted gap: pendingBanditGroups is not saved (only the MP resync carries it).
+        // A save in the BanditGroupActivationDelayTicks window (~0.5 s game time at normal speed)
+        // loads idle bandits without their march order. No autosave is tied to event timing, and
+        // the result is no crash or desync, so a save schema extension is not worth it.
         private byte[] SaveState(SaveContext context)
         {
             if (!context.IsSaveFile || !Shared.GameplayModActivationGate.IsAllowed || !mapActive || state == null)

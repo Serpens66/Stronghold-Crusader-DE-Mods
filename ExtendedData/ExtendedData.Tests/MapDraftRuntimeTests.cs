@@ -21,6 +21,7 @@ internal static class MapDraftRuntimeTests
 using System; using System.Collections.Generic; using IOPath=System.IO.Path;
 namespace Shared {static class DebugLogHelper {public static List<string> Lines=new();public static void LogInfo(object l,string m)=>Lines.Add(m);public static void LogErrorLimited(object l,string s,string m)=>throw new Exception(m);}static class DevDiag{public static void Log(Func<string> m){}}}
 namespace ExtendedData {
+enum MissionProviderScope { Trail, Map }
 class ModSettingsDefinition {public int Value;}
 class FileHeader {public string filePath,fileName;public uint crc;public ModSettingsDefinition Document;}
 class FRONT_Multiplayer {public bool trailMakerMode;public FileHeader Selected;}
@@ -34,8 +35,12 @@ static class SerpLocalization {public static string Get(string s)=>s;}
 class SettingsBoundary {
  public bool Active,Editable,Prepared=true,FailFreeze;public int Personal=23,Value=23,Applications,Freezes,Reopens;
  public bool IsContextActive(string s)=>Active&&s=="Map";
+ public int ObservedSelections;
+ public void ObserveMapProviderSelection(string identity){ObservedSelections++;}
  public void SetMapSourceDocument(ModSettingsDefinition d,string id=null){}
- public string[] EnterStrict(ModSettingsDefinition d,bool editable,string source,string presetLabel){Active=true;Editable=editable;Value=d.Value;Applications++;return Array.Empty<string>();}
+ public int Commits; public Action OnCommit;
+ public void NotifySourcesChanged(){Commits++;OnCommit?.Invoke();}
+ public string[] EnterStrict(ModSettingsDefinition d,bool editable,string source,string presetLabel,MissionProviderScope providerScope=MissionProviderScope.Trail){Active=true;Editable=editable;Value=d.Value;Applications++;return Array.Empty<string>();}
  public void ExitContext(bool force){Active=false;Editable=false;Value=Personal;}
  public Dictionary<string,Dictionary<string,byte[]>> CaptureWorkingDraft()=>new(){{"mod",new(){{"value",BitConverter.GetBytes(Value)}}}};
  public void ApplyWorkingDraft(Dictionary<string,Dictionary<string,byte[]>> s,string label,bool editable,ModSettingsDefinition source){if(!editable&&FailFreeze){FailFreeze=false;throw new InvalidOperationException("freeze fixture");}Active=true;Editable=editable;Value=BitConverter.ToInt32(s["mod"]["value"]);if(editable)Reopens++;else Freezes++;}
@@ -60,11 +65,14 @@ public class MapFixture {
  static void Check(bool b,string text){if(!b)throw new Exception(text);}
  public static void Run(){
   var f=new MapFixture();var s=f.settingsCoordinator;var l=new FRONT_Multiplayer{Selected=new FileHeader{filePath="map-a",fileName="a.map",crc=42,Document=new ModSettingsDefinition{Value=91}}};
+  s.OnCommit=()=>Check(f.mapContextActive&&f.activeDocument!=null&&f.activeMapCrc==l.Selected.crc,"Readiness signalled before Map identity committed");
   f.startSkirmishGameOriginal=(_,__)=>{f.launches++;f.mapMissionActive=true;};
-  f.OnMapSelectionChanged(l);Check(s.Value==91&&s.Editable&&s.Applications==1,"Embedded source not applied once");
+  f.OnMapSelectionChanged(l);Check(s.Value==91&&s.Editable&&s.Applications==1&&s.Commits==1,"Embedded source not applied and committed once");
   s.Value=99;int reads=f.reads;
   for(int i=0;i<3;i++)f.OnMapSelectionChanged(l);
+  int observed=s.ObservedSelections;
   l.Selected=null;f.OnMapSelectionChanged(l);
+  Check(s.ObservedSelections==observed,"Null row changed provider scope");
   Check(s.Value==99&&f.reads==reads&&s.Applications==1,"Lobby rebuild overwrote draft or reread files");
   l.Selected=new FileHeader{filePath="map-a",fileName="a.map",crc=42,Document=new ModSettingsDefinition{Value=91}};
   s.FailFreeze=true;bool failed=false;try{f.StartSkirmishGameHook(l,null);}catch(InvalidOperationException){failed=true;}Check(failed&&s.Value==99&&s.Editable&&f.launches==0,"Failed launch did not recover the editable draft");s.Reopens=0;f.StartSkirmishGameHook(l,null);Check(s.Value==99&&!s.Editable&&s.Freezes==1,"Start did not freeze working draft");

@@ -19,6 +19,7 @@ TargetAcceptedActionsTests.Run(root);
 OutsideBuilderDiagnosticsTests.Run(root);
 DirectionWatchTests.Run(root);
 if (args.Contains("--direction-watch-only")) return;
+TroopMovementRepairTests.Run(root);
 string sourceDir = Path.Combine(root, "Pathfinding", "src", "Engine");
 string testDir = Path.Combine(root, "Pathfinding", "tests", "Engine");
 string RuntimeSource(string name)

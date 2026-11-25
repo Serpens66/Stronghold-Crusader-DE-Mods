@@ -130,3 +130,121 @@ sites fail closed. Policy and static settings/locale/tooltip checks do not execu
 Noesis or load a save. Actual solo save reload, three-human saves with fewer
 participants, AI preservation and subsequent simulation remain game acceptance
 tests; do not infer them from an installation or test PASS marker.
+
+## Repeated multiplayer loading and early handshake packets [mod integration]
+
+Audit observation: 2026-11-24. The canonical native and managed hashes above
+were verified again. The inspected current Extender source is clean at commit
+7c3a252794974ee7af5cca02f446ba994fb9d22d; this is a dated external-source
+observation, not a new native-baseline provenance claim.
+
+Vanilla FRONT_Multiplayer.Update returns early once MPGameLoading is true.
+Before that point, its ready branch calls ReceiveGameMessages, then
+RefreshLobbyList, and only later StartGame/StartSave. ReceiveGameMessages returns
+without reading channel 2 when gameMembers is null or there are no connected
+remote members. RefreshLobbyList invokes receiveLobbyMessages. The Extender's
+Platform_Multiplayer_ReceiveLobbyMessages_Hook drains channel 2 there, forwards
+only packet types at or above CustomPacketStart, releases every received Steam
+message and calls its original trampoline afterward. It discards early Vanilla
+handshake packets. This is a concrete loss window for both ordinary manual lobby
+starts and coordinated mod transitions; the native save loader is not its owner.
+
+The relevant Vanilla processMessage branches are 2 (initial seed, then deferred
+postLoading/acknowledgement), 3 (host acknowledgement), 9 (saved-player mapping)
+and 4 (final mapping/synchronized start). Processing these against old gameMembers
+or calling startSimThread early is not an equivalent repair. Preserve their copied
+payload and transport sender only for the authenticated current preparation,
+then resolve that sender against the newly created participant list and enter
+Vanilla's existing main-thread message path. A new lobby/attempt or failed start
+must not inherit the previous buffer. Custom packets must retain the Extender's
+normal transport; adding a competing channel-2 drain can starve mod readiness.
+
+Live evidence in the observed failed repeat-load run: both peers entered the
+native test.msv load, but the client never completed managed postLoading and no
+new simulation tick occurred. Packet loss itself was not logged, so this timing
+match does not establish which packet was lost in that run. Separately, a
+MultiplayerRestartTest launch-veto bug explained subsequent start failures:
+managed Started reset its protocol flag before the native handshake completed.
+The correction reads the existing barrier launch permission, while still keeping
+the worker parked until Vanilla's final startSimThread. An SDK no-preparation
+message after the first original-call exception is a secondary retry failure,
+not by itself evidence that SDK cleanup caused the original exception.
+
+## Reusing the multiplayer frontend after Custom-Coop [mod integration]
+
+Audit observation: 2026-11-24; the canonical native and managed hashes at the
+start of this document were verified again. In the selected managed decompile,
+FRONT_Multiplayer.doOpen resets customCoopGame only in its fromNew block
+(lines 1429/1494). ShowLobbyScreen also clears it (7980/7987), but
+ShowSetupScreen only sets it true when the current lobby has type "1"
+(8001/8056); type "0" does not clear an earlier true value. NewScene and the
+frontend visibility cleanup are not a reset of this static field.
+
+UpdateHostInfo (8856) publishes type=1 and maxPlayers=2 whenever customCoopGame
+is true and a selected map header exists, even if the replacement lobby was
+created with type=0. Its ordinary Play caller publishes again. The save requester
+cancel callback only updates the radar texture; it does not normalize the mode.
+Therefore a generic loading-lobby handoff using doOpen(fromNew:false) must clear
+the prior Custom-Coop mode before reopening or publishing the host frontend.
+Calling the complete fromNew path instead also resets multiplayer transport and
+is not an equivalent handoff while peers still exchange completion receipts.
+
+This lobby-mode reset does not choose a save category or alter saved mission
+data. The normal requester supplies the selected save header to StartSave, which
+uses that header's coopTrailID for the cooperative refresh path. Save eligibility,
+saved settings and cooperative content preparation retain their normal owners.
+
+## Confirmation context and customized Coop load buttons [mod integration]
+
+Audit observation: 2026-11-24, canonical binary hashes as above. In the managed
+HUD_ConfirmationPopup.ShowConfirmation entry, MPConf=false selects
+Show_HUD_Confirmation; MPConf=true selects Show_HUD_ConfirmationMP. The actual
+FRONT_Multiplayer.xaml confirmation overlay is bound to the latter property.
+Calling the default overload after returning to the frontend is not evidence of
+a visible popup. The save-category question in the coordinated loading lobby
+must select the multiplayer confirmation context explicitly.
+
+The ordinary FRONT_Multiplayer.Update Load-button predicate at managed line 7686
+is (flag5 && !flag6) | skirmishGame. flag6 is set if CountAIPlayers is positive.
+The four native Coop-trail page Load buttons at 7687-7690 instead use flag4 plus
+the local-Coop/invite exceptions. Both issue the same ButtonClicked("Load")
+command; coopGame selects the Coop requester and SendSaveCRCs(true) in that
+command. A customized Coop setup displaying the generic FRONT Load button
+therefore inherits an AI prohibition absent from the original Coop-page button.
+The current BugfixesAndQoL solo-MP load override deliberately excludes Coop;
+expanding that solo override is not the same as repairing this presentation
+mismatch. Live read-only evidence: .work/a/coop-load-live/001/findings.json.
+
+## Multiplayer save category versus peer responses [Vanilla facts]
+
+Audit observation: 2026-11-25; canonical native SHA-256 reverified as above.
+In the selected managed decompile, MapFileManager.GetMPSaves (1114) with
+coopOnly=false returns all SaveMPFiles; true restricts to nonzero coopTrailID.
+Thus the ordinary multiplayer requester already has an unfiltered list. The two
+MP requester variants otherwise share populateList, row response eligibility,
+confirmation and the HostLoadGame callback.
+
+Platform_Multiplayer.SendSaveCRCs (1268) resets every MP header's response counter
+and sends only the requested category: coopTrailID>0 for true, <=0 for false.
+Its private SendSaveCRC (3577) emits filename plus checksum XOR save time on
+channel 21. receiveLobbyMessages checks the client's matching local header and
+checksum/time before replying; the host increments retrieveCRCChecks. The
+requester hides rows until that count equals CountHumanPlayers()-1. Two category
+calls are not a single combined check, because the second resets both categories.
+
+HostLoadGame publishes the filename without a requester-category value. The
+frontend resolves its header and calls StartSave; StartSave derives cooperative
+lobby refresh from map.coopTrailID>0, independently of which requester selected
+it. The native save/remapping/start contracts earlier in this document apply to
+both categories. This static fact does not establish every possible save's
+eligibility or gameplay correctness.
+
+### Scoped combined requester [mod integration]
+
+MultiplayerRestartTest 0.2.6 opens the ordinary MP requester directly after its
+completed handoff. Only that explicit caller resets once and invokes the original
+single-file SendSaveCRC for every MP header. There is no global category hook or
+change to normal lobby commands. Existing reply checks and APIShared save
+preparation remain in use. Offline fixtures execute the production send/reset
+loop with both header orders and immediate simulated replies; actual combined
+list acceptance on two PCs remains pending. Evidence: .work/a/unified-mp-saves/001.

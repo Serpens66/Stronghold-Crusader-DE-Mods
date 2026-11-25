@@ -21,6 +21,7 @@ namespace Pathfinding.UnitCommands
         void OnTribeIssueOrderMoveHere(TribeIssueOrderMoveHereEventArgs args);
         void OnUnitMoveHere(UnitMoveHereEventArgs args);
         void ResetTransientState();
+        void ClearRepairPreview();
         void DisableForProcess(string contract, Exception exception);
     }
 }

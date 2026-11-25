@@ -11,11 +11,10 @@ namespace UiAcceptance
             ModKeybindSteps.Register();
             ProbeSteps.Register();
             LobbySteps.Register();
-            AutoSendSteps.Register();
+            PairedResyncSteps.Register();
             RuntimeAiSteps.Register();
             RuntimeAiUiSteps.Register();
             RelaySteps.Register();
-            FireEscapeSteps.Register();
             HuntSteps.Register();
             ArcherStartSteps.Register();
             HuntAiCastleSteps.Register();
@@ -25,6 +24,8 @@ namespace UiAcceptance
             WorkerProductionSteps.Register();
             LocalAutosaveSteps.Register();
             LongMapSteps.Register();
+            GateAutomationSteps.Register();
+            ObserveSteps.Register();
         }
     }
 }

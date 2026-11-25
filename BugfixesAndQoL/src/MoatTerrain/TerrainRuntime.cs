@@ -1,6 +1,8 @@
 using APIShared;
+using APIShared.Multiplayer;
 using APIShared.NativeSites;
 using APIShared.Savegames;
+using APIShared.Simulation;
 using BepInEx;
 using BepInEx.Logging;
 using R3;
@@ -35,11 +37,14 @@ namespace BugfixesAndQoL.MoatTerrain
         private object engineGate;
         private long nativeTileManager;
         private int reportedMarkers;
+        private int engineRunDepth;
+        private bool multiplayerWorld, resyncReady, multiplayerRepairAvailable;
         private readonly TerrainPublication publication = new TerrainPublication();
 
         internal TerrainRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings)
         { this.log = log; this.settings = settings; }
-        private bool Enabled => publication.IsReady && settings.EnableMod && settings.EnableMoatTerrainRestoration;
+        private bool Enabled => publication.IsReady && settings.EnableMod && settings.EnableMoatTerrainRestoration &&
+            (!multiplayerWorld || multiplayerRepairAvailable);
 
         internal void Install(CrusaderLibraryLoadContext context, bool referenceHashMatches)
         {
@@ -111,7 +116,14 @@ namespace BugfixesAndQoL.MoatTerrain
                     ValidateInstalledHooks(image);
                     foreach (var hook in result.Installed) Shared.NativePatchGuard.Watch(hook, FeatureName);
                 });
-                Info("MOAT_TERRAIN_READY: 14 permanent native sites; native-only tile work; save schema 1; awaiting mission.");
+                resyncReady = EngineRunEvents.TryRegister(BugfixesAndQoLPlugin.PluginGuid, "moat-terrain-repair-writers",
+                    () => engineRunDepth++, EndEngineRun, out reason) &&
+                    MultiplayerResyncEvents.TryRegister(BugfixesAndQoLPlugin.PluginGuid, "moat-terrain",
+                    BeginRepair, CompleteRepair, out reason) &&
+                    MultiplayerResyncData.TryRegister<ushort[]>(BugfixesAndQoLPlugin.PluginGuid, "moat-terrain", 1,
+                        TerrainState.RecordBytes, history.CaptureRepair, PrepareRepair, history.CommitRepair, out reason);
+                if (!resyncReady) Error("Multiplayer data registration failed: " + reason, null);
+                Info($"MOAT_TERRAIN_READY: 14 permanent native sites; native-only tile work; save schema 1; resync={resyncReady}; awaiting mission.");
             }
             catch
             {
@@ -160,13 +172,19 @@ namespace BugfixesAndQoL.MoatTerrain
         private void OnInitialization(MissionLifecycleNotification notification)
         {
             if (notification.Phase != MissionInitializationPhase.BeforeLoad) return;
-            lock (engineGate) { history.Reset(); reportedMarkers = 0; }
+            lock (engineGate)
+            {
+                history.Reset(); reportedMarkers = 0;
+                multiplayerWorld = notification.Context.Mode.IsRealMultiplayer;
+                multiplayerRepairAvailable = resyncReady && (!multiplayerWorld || MultiplayerResyncData.CheckIntegrity());
+            }
         }
         private void OnEnd(MissionLifecycleNotification notification)
         {
             lock (engineGate)
             {
                 ReportExecution(); history.Reset(); reportedMarkers = 0;
+                multiplayerWorld = multiplayerRepairAvailable = false;
             }
         }
         private void OnStart(MissionLifecycleNotification notification)
@@ -175,6 +193,8 @@ namespace BugfixesAndQoL.MoatTerrain
             {
                 lock (engineGate)
                 {
+                    multiplayerWorld = notification.Context.Mode.IsRealMultiplayer;
+                    multiplayerRepairAvailable = resyncReady && (!multiplayerWorld || MultiplayerResyncData.CheckIntegrity());
                     ValidateCurrentView();
                     history.Begin(notification.Context.SessionId, GameTileManagerAPI.Instance.GetCurrentMapSize(), Enabled, Filter);
                     Info($"MOAT_TERRAIN_SESSION id={notification.Context.SessionId}; active={history.Active}; editor={notification.Context.IsEditor}; save={notification.Context.IsSave}; replay={notification.IsReplay}.");
@@ -204,6 +224,7 @@ namespace BugfixesAndQoL.MoatTerrain
         {
             lock (engineGate)
             {
+                if (history.Repairing) return false;
                 try
                 {
                     ReportExecution();
@@ -218,6 +239,31 @@ namespace BugfixesAndQoL.MoatTerrain
                 }
             }
         }
+
+        private void BeginRepair()
+        {
+            if (resyncReady) history.BeginRepair(engineRunDepth != 0);
+        }
+
+        private void EndEngineRun()
+        {
+            // The Chore 54 batch was already materialized. Its remaining ordinary Chores
+            // still execute; only suspend the tile writers after the complete native run.
+            if (--engineRunDepth == 0) history.SuspendRepairWriters();
+        }
+
+        private ushort[] PrepareRepair(ReadOnlyMemory<byte> bytes)
+        {
+            if (bytes.IsEmpty) return history.PrepareRepair(bytes.Span, 0, FilterRepair);
+            ValidateCurrentView();
+            return history.PrepareRepair(bytes.Span, GameTileManagerAPI.Instance.GetCurrentMapSize(), FilterRepair);
+        }
+
+        private void CompleteRepair() => history.CompleteRepair(Enabled);
+
+        private static void FilterRepair(Span<ushort> tiles) => Filter(tiles, repair: true);
+        private static void Filter(Span<ushort> tiles) => Filter(tiles, repair: false);
+
         private void ValidateCurrentView()
         {
             var api = GameTileManagerAPI.Instance;
@@ -225,7 +271,7 @@ namespace BugfixesAndQoL.MoatTerrain
                 api.GetLogic2Layer().Length != TerrainState.Capacity || api.GetStructureLayer().Length != TerrainState.Capacity)
                 throw new InvalidOperationException("Current tile spans differ from the native contract.");
         }
-        private static void Filter(Span<ushort> tiles)
+        private static void Filter(Span<ushort> tiles, bool repair)
         {
             var api = GameTileManagerAPI.Instance;
             var logic = api.GetLogicLayer(); var structures = api.GetStructureLayer();
@@ -234,8 +280,19 @@ namespace BugfixesAndQoL.MoatTerrain
             {
                 ushort value = tiles[tile];
                 if (value == 0) continue;
-                if (!TerrainState.IsPersistent(value)) { tiles[tile] = 0; continue; }
                 var flags = (TilePropertyFlag)logic[tile];
+                if (repair)
+                {
+                    int bridgeId = structures[tile];
+                    bool liveBridge = (value & TerrainState.Bridge) != 0 && bridgeId > 0 &&
+                        APIShared.BuildingAccess.TryGetById(bridgeId, out GameBuilding* bridge, out _) &&
+                        bridge->r_AliveState == AliveState.IsAlive && bridge->r_GlobalId != 0 &&
+                        bridge->r_BuildingType == eStructs.STRUCT_DRAWBRIDGE;
+                    // A moat can outlive its bridge. Keep the soil origin but retire the bridge marker.
+                    tiles[tile] = TerrainState.ReconcileRepairEntry(value, flags, liveBridge);
+                    continue;
+                }
+                if (!TerrainState.IsPersistent(value)) { tiles[tile] = 0; continue; }
                 if ((flags & TilePropertyFlag.IsMoat) != 0 && (value & TerrainState.Dug) != 0) continue;
                 if ((flags & TilePropertyFlag.PlannedMoat) != 0 && (value & TerrainState.Planned) != 0) continue;
                 int buildingId = structures[tile];

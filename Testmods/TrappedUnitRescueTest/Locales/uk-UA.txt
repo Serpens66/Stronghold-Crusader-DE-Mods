@@ -1,4 +1,4 @@
 Rescue.Enabled=Experimental local unit rescue
-Rescue.Help=Enables the experimental AI drawbridge rescue pilot in local missions and the requested test scenarios. Defaults off. This test mod is not an accepted general gameplay fix.
-Rescue.Scope=Pilot: newly trapped controllable soldiers and cavalry during AI AIV drawbridge construction in known local missions, including editor. No civilian or siege rescue, human/editor placement, moat completion, retrospective save repair or real multiplayer.
-Rescue.Rule=Checks identity, health, tile occupancy and safe local placement. Original Vanilla/Fixes construction still runs; matching suppression covers only our own synchronous rescue calls. Fixes gatehouse and mounted-keep recovery stay active.
+Rescue.Help=Attempts local recovery after construction or terrain changes. Experimental and off by default. This test build has not passed the new in-game acceptance tests.
+Rescue.Scope=For known local missions and the editor. Handles only audited unit states; some jobs and special movement remain unsupported. No automatic repair of old saves without our records and no real multiplayer.
+Rescue.Rule=Keeps the same unit, goods and valid orders. If continuation fails, a protected pending recovery may remain. Vanilla and Fixes construction still run; matching suppression covers only our own calls. Fixes keep and gatehouse recovery stay active.

@@ -191,6 +191,7 @@ namespace ExtraFeatures
                 aiFlagDiseaseTracker = null;
                 Shared.DebugLogHelper.LogHookInstallFailure(log, "Plague duration", "plague lifetime comparison", ex.ToString());
             }
+            aiFlagDiseaseTracker?.RegisterProjectileResync();
         }
 
         private static void RollbackUnpublishedLifetimeComparisonHook(

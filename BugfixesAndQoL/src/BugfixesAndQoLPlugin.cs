@@ -11,8 +11,8 @@ using System.Reflection;
 
 namespace BugfixesAndQoL
 {
-    [BepInDependency(ScriptExtenderGuid, "2.14.3")]
-    [BepInDependency(ApiSharedGuid, "0.60.1")]
+    [BepInDependency(ScriptExtenderGuid, "2.14.4")]
+    [BepInDependency(ApiSharedGuid, "0.73.2")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
@@ -26,6 +26,9 @@ namespace BugfixesAndQoL
     [BepInIncompatibility("PitchStairsTest_Serp")]
     [BepInIncompatibility("PitchMoatLineTest_Serp")]
     [BepInIncompatibility("AreaDemolitionTest_Serp")]
+    [BepInIncompatibility("AreaConstructionTest_Serp")]
+    [BepInIncompatibility("AutoSendTest_Serp")]
+    [BepInIncompatibility("AIMarketOverbuyDiagnostic_Serp")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
 
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
@@ -38,10 +41,12 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.235";
+        public const string PluginVersion = "1.0.243";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;
+        private static WallDeposits.DepositRestorationRuntime wallDeposits;
+        private static Crenels.CrenelRuntime crenels;
         private static StartupUiReadinessGuardHook startupUiReadinessGuardHook;
         private static ResolutionAwareZoomHook resolutionAwareZoomHook;
         private static SteamLobbyInvitePrompt steamLobbyInvitePrompt;
@@ -76,6 +81,8 @@ namespace BugfixesAndQoL
                 () => Multiplayer.MoatLandRotationPatch.IsReady, Multiplayer.MoatLandRotationPatch.SetEnabled);
             APIShared.Multiplayer.SimulationAgreement.Register(PluginGuid, "keep-flag-rotation", true,
                 BugfixesAndQoLRuntime.IsKeepFlagCanonicalizationReady, BugfixesAndQoLRuntime.SetKeepFlagCanonicalizationActive);
+            AreaDemolition.OccupiedWallDemolition.RegisterAgreement();
+            AreaConstruction.AreaConstructionFeature.RegisterAgreement();
             TrailCustomizationLaunchOriginApi.RegisterModeProvider();
             Shared.CrashBreadcrumbDiagnostics.Initialize(Logger, PluginGuid, PluginName, PluginVersion);
             try
@@ -99,12 +106,23 @@ namespace BugfixesAndQoL
                 SteamInviteBlacklistStore.GetDefaultPath(), SteamInviteBlacklistStore.GetLegacyPath(),
                 message => Shared.DebugLogHelper.LogWarningLimited(Logger, "invite-blacklist-storage", message));
             Settings = new BugfixesAndQoLViewModel(legacySomeSettingsLoaded, steamInviteBlacklist, Logger);
+            Multiplayer.SaveLoading.IngameSaveLoadFeature.InitializeEarly(Logger, Settings);
+            try { wallDeposits = new WallDeposits.DepositRestorationRuntime(Settings, Logger); }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, "Wall deposit agreement registration failed: " + ex);
+            }
+            try { crenels = new Crenels.CrenelRuntime(Settings, Logger); }
+            catch (Exception ex) { Shared.DebugLogHelper.LogError(Logger, "Crenel checkerboard agreement registration failed: " + ex); }
+            try { ProjectileTrails.ProjectileTrailRuntime.Configure(Logger, Settings); }
+            catch (Exception ex) { Shared.DebugLogHelper.LogError(Logger, "Projectile trails could not register multiplayer admission. " + ex); }
             if (Chainloader.PluginInfos.TryGetValue("fixes", out PluginInfo fixes) && fixes.Instance != null)
                 FixesSuppressMessagesSync.Initialize(Logger, fixes.Instance.GetType().Assembly);
             LobbySaveLoadingFeature.Initialize(Logger, Settings);
             BuildPreview.BuildPreviewRuntime.Configure(Logger, Settings);
             PitchMoatLines.PitchMoatLinesFeature.Configure(Logger, Settings);
             AreaDemolition.AreaDemolitionFeature.Configure(Logger, Settings, Config);
+            AreaConstruction.AreaConstructionFeature.Configure(Logger, Settings);
             ArabianIdleSoundRuntime.Configure(Logger, Settings);
             skirmishGameOptionsCompatible = !HasLegacyExtraFeaturesPeaceTimeSetting();
             skirmishGameOptionsAccess = new SkirmishGameOptionsAccessViewModel(
@@ -241,6 +259,7 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL.MapLoadPolicy", mapPolicyReason);
             // Register even when local controls or the optional native adapter are unavailable.
             AreaDemolition.AreaDemolitionFeature.RegisterNetwork();
+            AreaConstruction.AreaConstructionFeature.RegisterNetwork();
             // Register packet types immediately after Script Extender and before settings can vary.
             try
             {
@@ -280,6 +299,10 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.settings-registration-failed-gameplay", $"Bugfixes and QoL settings registration failed; gameplay runtime stopped fail-closed: {ex}");
                 return false;
             }
+
+            AutoSend.AutoSendFeature.Initialize(Logger, Settings);
+            Multiplayer.SaveLoading.IngameSaveLoadFeature.Initialize(Logger);
+            ProjectileTrails.ProjectileTrailRuntime.Install(context);
 
             try
             {
@@ -365,13 +388,15 @@ namespace BugfixesAndQoL
             // Keep UI registration independent so one native feature cannot hide the whole mod.
             BuildPreview.BuildPreviewRuntime.Install(context);
             PitchMoatLines.PitchMoatLinesFeature.Install(context);
+            AreaDemolition.OccupiedWallDemolition.Install(context, Logger, Settings);
             AreaDemolition.AreaDemolitionFeature.Install(context);
+            AreaConstruction.AreaConstructionFeature.Install(context);
             GatehouseTargetMarkerHeightHook.Install(context, Logger, Settings);
             CustomLordNervousSpeechFix.Install(Logger, Settings);
             TroopPanelPageCountFix.Install(Logger, Settings);
             try
             {
-                EditorRegions.EditorRegionRefreshRuntime.Install(context, Logger, Settings);
+                EditorRegions.EditorRegionRefreshRuntime.Install(Logger, Settings);
             }
             catch (Exception ex)
             {
@@ -416,6 +441,15 @@ namespace BugfixesAndQoL
             {
                 Shared.DebugLogHelper.LogErrorLimited(Logger, "BugfixesAndQoL/BugfixesAndQoLPlugin/InitializeLibraryRuntime.native-runtime-initialization-failed", $"Bugfixes and QoL native runtime initialization failed; unaffected features may continue: {ex}");
             }
+
+            try { wallDeposits?.Install(context); }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, "Wall deposit restoration initialization failed: " + ex);
+            }
+
+            try { crenels?.Install(context, Shared.DebugLogHelper.IsCurrentNativeLibraryVersion()); }
+            catch (Exception ex) { Shared.DebugLogHelper.LogError(Logger, "Crenel checkerboard stays inactive: " + ex); }
 
             try
             {

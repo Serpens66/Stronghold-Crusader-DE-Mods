@@ -20,6 +20,7 @@
     <Compile Include="..\src\TrailModSelectionItem.cs" Link="TrailModSelectionItem.cs" />
     <Compile Include="..\..\Shared\Runtime\Diagnostics\DevDiag.cs" Link="DevDiag.cs" />
     <Compile Include="..\src\TrailSettingsSourceState.cs" Link="TrailSettingsSourceState.cs" />
+    <Compile Include="..\src\TrailMissingProviderState.cs" Link="TrailMissingProviderState.cs" />
     <Compile Include="..\src\MissionSettingsMigration.cs" Link="MissionSettingsMigration.cs" />
     <Compile Include="..\src\CoopSettingsDraftState.cs" Link="CoopSettingsDraftState.cs" />
     <Compile Include="..\src\CoopTrailMenuViewModel.cs" Link="CoopTrailMenuViewModel.cs" />
@@ -27,11 +28,16 @@
     <Compile Include="..\src\CoopMissionDataCopies.cs" Link="CoopMissionDataCopies.cs" />
     <Compile Include="..\..\Shared\Runtime\UI\CoopTrailSetupPresentation.cs" Link="CoopTrailSetupPresentation.cs" />
     <Compile Include="..\src\CoopClientLobbyPresentation.cs" Link="CoopClientLobbyPresentation.cs" />
+    <Compile Include="..\src\CoopCustomizeLoadPresentation.cs" Link="CoopCustomizeLoadPresentation.cs" />
+    <Compile Include="..\src\CoopMissionSettingsReadiness.cs" Link="CoopMissionSettingsReadiness.cs" />
+    <Compile Include="..\src\CoopWorkshopDiagnostics.cs" Link="CoopWorkshopDiagnostics.cs" />
     <Compile Include="..\src\ExtendedDataLaunchOriginApi.cs" Link="ExtendedDataLaunchOriginApi.cs" />
     <Compile Include="..\src\ExtendedDataModDataApi.cs" Link="ExtendedDataModDataApi.cs" />
     <!-- Production reader with the same local SDK boundary doubles as the legacy facade tests. -->
     <Compile Include="..\..\APIShared\src\ModData\ModDataAccess.cs" Link="APIShared\ModDataAccess.cs" />
     <Compile Include="..\src\FixesLordPreferencesBridge.cs" Link="FixesLordPreferencesBridge.cs" />
+    <Compile Include="..\src\LordSaveAuthorProof.cs" Link="LordSaveAuthorProof.cs" />
+    <Compile Include="..\src\LordSaveFileRead.cs" Link="LordSaveFileRead.cs" />
     <Compile Include="..\src\LordDataSyncCoordinator.FixesAssetSource.cs" Link="LordDataSyncCoordinator.FixesAssetSource.cs" />
     <Compile Include="..\src\TypedPreferenceSnapshotCodec.cs" Link="TypedPreferenceSnapshotCodec.cs" />
     <Compile Include="..\src\LordDataSyncDiagnostics.cs" Link="LordDataSyncDiagnostics.cs" />

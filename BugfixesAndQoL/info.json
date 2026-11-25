@@ -3,19 +3,74 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.235",
+  "Version": "1.0.243",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
-  "MinimumScriptExtenderVersion": "2.14.3",
+  "MinimumScriptExtenderVersion": "2.14.4",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.60.1"
+      "MinimumVersion": "0.73.2"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.243",
+      "Changes": [
+        "Add the host option Keep crenels crossable (enabled by default, Gates and siege rules / Fixes). Crenels built by players or the AI alternate high and low in a fixed checkerboard pattern, including corners, junctions, wall ends, double rows and diagonal rows, so ladders, Assassins and siege tower troops always find low crenels and units can cross from one low crenel to the next.",
+        "Add three host options, disabled by default, that also align crenels already present when loading a map in the editor, loading a savegame or starting a map with pre-placed walls. Aligned crenels keep their heights even after the option is switched off again.",
+        "Replace the standalone Crenelated Wall Test. Remove that testmod on every computer."
+      ]
+    },
+    {
+      "Version": "1.0.242",
+      "Changes": [
+        "Add a default-enabled QoL host preference to load a save during multiplayer. After confirmation, the group automatically returns to a private lobby and the normal dialog lists both cooperative and ordinary multiplayer saves.",
+        "Keep this host preference independent of Map, Trail and saved-game rules. Manual Unready, native file checks and cancellation in the shared lobby remain respected.",
+        "Replace the standalone Multiplayer Save Load Test. Remove that testmod on every computer; if it remains installed, the integrated feature stays inactive to prevent duplicate hooks."
+      ]
+    },
+    {
+      "Version": "1.0.241",
+      "Changes": [
+        "Prevent AI Lords from buying the full amount of an outdated order after goods arrive from another source. Delivered goods remain counted after use and save/loading. The new host option, Prevent AI overbuying, is enabled by default under AI / Fixes.",
+        "Added automatic ally deliveries to Send Goods: choose your reserve, recipient minimum and maximum stocks, and a game-time interval. Rules start only when enabled, persist with the game, and can be paused without deleting them. The personal feature switch is enabled by default. Multiplayer gameplay acceptance is still pending."
+      ]
+    },
+    {
+      "Version": "1.0.240",
+      "Changes": [
+        "Restore stone and iron deposits after the walls or stairs covering them are removed. The new host option is enabled by default and works for players, AI, multiplayer and the map editor. Existing Deposit Restoration test-mod saves and maps retain their recorded deposits."
+      ]
+    },
+    {
+      "Version": "1.0.239",
+      "Changes": [
+        "Fix the last quarry of a dragged quarry area not being built near the building limit although the preview showed it."
+      ]
+    },
+    {
+      "Version": "1.0.238",
+      "Changes": [
+        "Keep additional AI castle layouts synchronized when CastlePlanner restarts a multiplayer match after the human players choose their starting castles."
+      ]
+    },
+    {
+      "Version": "1.0.237",
+      "Changes": [
+        "Show configurable fading arrow and crossbow bolt trails in Extreme Troops. In Standard mode the host can replace the original trails and free room for more shots and effects in large battles. Set the trail length and total number under local display options."
+      ]
+    },
+    {
+      "Version": "1.0.236",
+      "Changes": [
+        "Hold the left mouse button and drag to preview and place several buildings at once. The default-on Area construction option sits next to Area demolition under Client Options, Camera, building and controls. In multiplayer each player can choose whether to use area construction.",
+        "Adjust the empty stockpile limit separately from the limit for each of granaries and armouries in Host Options. Both start at -1 for the original limits. Choose up to 20 on the sliders or enter up to 100. In multiplayer the host sets the limits for everyone.",
+        "Released storage drags continue placing valid sections when you close the build menu or select a different tool."
+      ]
+    },
     {
       "Version": "1.0.235",
       "Changes": [

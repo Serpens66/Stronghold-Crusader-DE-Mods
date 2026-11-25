@@ -19,6 +19,18 @@ internal static partial class Program
         .FirstOrDefault(a => a.LocalName == "ModSettingsSearch." + name)?.Value;
     private static string BindingProperty(string value) => Regex.Match(value ?? "", @"^\{Binding (\w+)").Groups[1].Value;
 
+    private static string PrimaryEditorProperty(XmlNode editor)
+    {
+        string property = BindingProperty(editor.Attributes?[editor.LocalName == "CheckBox" ? "IsChecked" :
+            editor.LocalName == "Slider" ? "Value" : "SelectedIndex"]?.Value);
+        if (editor.LocalName != "Slider")
+            return property;
+
+        XmlNode text = editor.ParentNode.SelectSingleNode("./*[local-name()='TextBox']");
+        string authoritative = text == null ? "" : BindingProperty(SearchAttribute(text, "StateValue"));
+        return authoritative.Length > 0 && property == authoritative + "SliderValue" ? authoritative : property;
+    }
+
     private static void SettingsPresentationTests(string workspace)
     {
         Type presentationType = mod.GetType("BugfixesAndQoL.ModSettingsPresentation", true);
@@ -31,7 +43,11 @@ internal static partial class Program
         var document = new XmlDocument(); document.Load(file);
         XmlNode[] nodes = document.SelectNodes("//*").Cast<XmlNode>().ToArray();
         XmlNode[] topicNodes = nodes.Where(n => SearchAttribute(n, "IsSection") == "True").ToArray();
-        Check(topics.Length == 10 && topicNodes.Length == 10, "one collapsible level with ten topics");
+        Check(topicNodes.Length == topics.Length &&
+            new HashSet<string>(topicNodes.Select(n => SearchAttribute(n, "SectionKey")))
+                .SetEquals(topics.Select(t => (string)Get(t, "Key"))) &&
+            topicNodes.All(n => !Ancestors(n.ParentNode).Any(a => SearchAttribute(a, "IsSection") == "True")),
+            "each topic has one heading and topics are not nested");
         Check(topicNodes.All(n => n.Attributes?["Width"]?.Value.Contains("ViewportWidth, ElementName=SettingsViewport") == true &&
             n.Attributes?["HorizontalAlignment"]?.Value == "Left"), "topics have a finite viewport width even with horizontal Auto scrolling");
         Type widthConverter = mod.GetType("BugfixesAndQoL.SettingsTopicWidthConverter", true);
@@ -104,7 +120,7 @@ internal static partial class Program
         // Read the actual editor bindings, rather than fixing the total to a historical snapshot.
         var editors = nodes.Where(n => n.LocalName == "CheckBox" || n.LocalName == "Slider" || n.LocalName == "ComboBox")
             .Where(n => Ancestors(n).Any(a => SearchAttribute(a, "SectionKey")?.StartsWith("bugfixes.topic.", StringComparison.Ordinal) == true))
-            .Select(n => new { Node = n, Property = BindingProperty(n.Attributes?[n.LocalName == "CheckBox" ? "IsChecked" : n.LocalName == "Slider" ? "Value" : "SelectedIndex"]?.Value) })
+            .Select(n => new { Node = n, Property = PrimaryEditorProperty(n) })
             .Where(x => x.Property.Length > 0).ToArray();
         Check(editors.Length == options.Length && editors.Select(e => e.Property).Distinct().Count() == editors.Length,
             "each current main editor appears exactly once");
@@ -138,7 +154,37 @@ internal static partial class Program
             XmlNode topicNode = Ancestors(row).First(a => SearchAttribute(a, "IsSection") == "True");
             object topic = topics.Single(t => (string)Get(t, "Key") == SearchAttribute(topicNode, "SectionKey"));
             string authority = (bool)Get(topic, "IsHost") ? "CanEditHostSettings" : "CanEditClientSettings";
-            Check(Ancestors(editor.Node).Any(a => a.Attributes?["IsEnabled"]?.Value == "{Binding " + authority + "}"),
+            string editorAuthority = authority;
+            if (modelType.GetProperty(editor.Property).GetCustomAttributesData().Any(attribute =>
+                attribute.AttributeType.Name == "MissionIndependentAttribute"))
+            {
+                Check(authority == "CanEditHostSettings", "mission-independent option retains host ownership");
+                editorAuthority = "CanEditMissionIndependentHostSettings";
+                Check(!Ancestors(editor.Node).Any(node => node.Attributes?["IsEnabled"]?.Value == "{Binding CanEditHostSettings}"),
+                    "mission-independent editor remains outside mission-locked containers");
+            }
+            if (editor.Property == "EnableAutoSend")
+            {
+                // AutoSend adds a mission lock to the ordinary personal permission.
+                // Prove the actual stronger gate instead of accepting arbitrary bindings.
+                Check(authority == "CanEditClientSettings", "AutoSend remains a personal option");
+                editorAuthority = "CanConfigureAutoSend";
+                MethodInfo gate = modelType.GetProperty(editorAuthority).GetGetMethod();
+                MethodInfo personalPermission = modelType.GetProperty(authority).GetGetMethod();
+                // ResolveMethod returns a declaring-type view; inherited GetProperty
+                // may return a different reflected-type view of the same definition.
+                Check(Instructions(gate).Any(instruction => instruction.Item2 is MethodBase called &&
+                    called.Module == personalPermission.Module && called.MetadataToken == personalPermission.MetadataToken),
+                    "AutoSend gate retains the shared personal permission");
+                object model = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(modelType);
+                FieldInfo missionLock = modelType.GetField("autoSendMissionLocked", All);
+                missionLock.SetValue(model, false);
+                Check(Equals(gate.Invoke(model, null), personalPermission.Invoke(model, null)),
+                    "unlocked AutoSend gate preserves the shared personal permission");
+                missionLock.SetValue(model, true);
+                Check(!(bool)gate.Invoke(model, null), "active-mission AutoSend gate rejects editing");
+            }
+            Check(Ancestors(editor.Node).Any(a => a.Attributes?["IsEnabled"]?.Value == "{Binding " + editorAuthority + "}"),
                 "editor retains role authority: " + editor.Property);
             Check(!Ancestors(topicNode).Any(a => a.Attributes?["IsEnabled"] != null), "topic header remains browsable independently of authority");
             XmlNode marker = row.ChildNodes.Cast<XmlNode>().Single(n => n.LocalName == "ContentControl");
@@ -198,6 +244,14 @@ internal static partial class Program
             SearchAttribute(keepRow, "Key") == "bugfixes.remove-ai-keep-range-limit" &&
             keepEditor.Node.Attributes?["IsChecked"]?.Value == "{Binding RemoveAIKeepRangeLimit, Mode=TwoWay}",
             "AI keep range is recommended and appears once at the end of AI fixes with its original binding and search identity");
+        const string marketOption = "EnableAiMarketOverbuyFix";
+        object marketFix = options.Single(o => (string)Get(o, "PropertyName") == marketOption);
+        var marketEditor = editors.Single(e => e.Property == marketOption);
+        XmlNode marketRow = Ancestors(marketEditor.Node).First(a => SearchAttribute(a, "Key") != null);
+        Check(Get(marketFix, "Category").ToString() == "Fixes" && (string)Get(marketFix, "Symbol") == "★" &&
+            marketRow.ParentNode.Attributes?["Visibility"]?.Value == "{Binding SettingsPresentation.HostAi.FixesVisibility}" &&
+            SearchAttribute(marketRow, "Key") == "bugfixes.enable-ai-market-overbuy-fix",
+            "AI overbuy correction is discoverable as a recommended AI fix");
         const string outpostOption = "EnableAiOutpostRetargetFix";
         object outpostFix = options.Single(o => (string)Get(o, "PropertyName") == outpostOption);
         var outpostEditor = editors.Single(e => e.Property == outpostOption);
@@ -250,8 +304,14 @@ internal static partial class Program
             "pitch stairs is a recommended host siege fix with mission-aware editing");
         var siegeRows = pitchRow.ParentNode.ChildNodes.Cast<XmlNode>().Where(n => n.LocalName == "Grid").ToArray();
         int pitchOrdinal = Array.IndexOf(siegeRows, pitchRow);
-        Check(pitchOrdinal > 0 && SearchAttribute(siegeRows[pitchOrdinal - 1], "Key") == "bugfixes.moat-terrain-restoration",
-            "pitch stairs directly follows moat terrain restoration");
+        var wallDepositEditor = editors.Single(e => e.Property == "EnableWallDepositRestoration");
+        XmlNode wallDepositRow = Ancestors(wallDepositEditor.Node).First(a => SearchAttribute(a, "Key") != null);
+        int wallDepositOrdinal = Array.IndexOf(siegeRows, wallDepositRow);
+        Check(wallDepositOrdinal > 0 && SearchAttribute(siegeRows[wallDepositOrdinal - 1], "Key") == "bugfixes.moat-terrain-restoration" &&
+            pitchOrdinal == wallDepositOrdinal + 1 &&
+            wallDepositEditor.Node.SelectSingleNode("ancestor::*[@IsEnabled='{Binding CanEditHostSettings}']") != null &&
+            modelType.GetProperty("EnableWallDepositRestoration").GetCustomAttributesData().Any(a => a.AttributeType.Name == "SyncHostOnlyAttribute"),
+            "wall deposits is host-controlled and appears immediately after moat terrain restoration");
         var pitchProperty = modelType.GetProperty("EnablePitchStairsFix");
         Check(pitchProperty.GetCustomAttributesData().Any(a => a.AttributeType.Name == "SyncHostOnlyAttribute") &&
             Instructions(pitchProperty.SetMethod).Any(i => i.Item2 is MethodBase method && method.Name == "SetSetting"),
@@ -302,6 +362,27 @@ internal static partial class Program
         Check(tooltipChanges.SequenceEqual(new[] { "ToolTip" }), "catalog language refresh updates marker tooltip bindings");
 
         object display = Get(presentation, "ClientDisplay"), controls = Get(presentation, "ClientControls");
+        object hostControls = Get(presentation, "HostControls");
+        Check(Equals(Get(hostControls, "Title"), Get(controls, "Title")) && (bool)Get(hostControls, "IsHost"),
+            "occupied-wall demolition shares the controls theme title and keeps its host section");
+        var autoSend = Get(presentation, "EnableAutoSend");
+        XmlNode autoSendRow = nodes.Single(node => SearchAttribute(node, "Key") == (string)Get(autoSend, "Key"));
+        Check(SearchAttribute(autoSendRow.ParentNode, "SectionKey") == (string)Get(controls, "Key") &&
+            Get(autoSend, "Category").ToString() == "Qol" && !(bool)Get(controls, "IsHost"),
+            "AutoSend appears in personal client controls QoL");
+        var areaConstruction = Get(presentation, "EnableAreaConstruction");
+        XmlNode constructionRow = nodes.Single(n => SearchAttribute(n, "Key") == (string)Get(areaConstruction, "Key"));
+        Check(SearchAttribute(constructionRow.PreviousSibling, "Key") == "bugfixes.area-demolition" &&
+            SearchAttribute(constructionRow.ParentNode, "SectionKey") == (string)Get(controls, "Key") &&
+            Get(areaConstruction, "Category").ToString() == "Qol",
+            "area construction appears immediately after area demolition in client controls QoL");
+        foreach (string name in new[] { "EmptyStockpileLimit", "EmptyGranaryArmouryLimit" })
+        {
+            var limit = Get(presentation, name);
+            XmlNode limitRow = nodes.Single(n => SearchAttribute(n, "Key") == (string)Get(limit, "Key"));
+            Check(SearchAttribute(limitRow.ParentNode, "SectionKey") == (string)Get(hostControls, "Key") &&
+                Get(limit, "Category").ToString() == "Qol", name + " appears in host controls QoL");
+        }
         int notifications = 0;
         var headingChanges = new HashSet<string>();
         ((INotifyPropertyChanged)display).PropertyChanged += (_, e) => { notifications++; headingChanges.Add(e.PropertyName); };
@@ -350,7 +431,7 @@ internal static partial class Program
                 "every option retains its theme and receives exactly its category: " + key);
             string query = category == "Qol" ? "QoL" : category == "Possible" ? "Fixes?" : "Fixes";
             Check(matches(entry, query, false), "category matches without tooltip search: " + key);
-            Check(matches(entry, "Theme " + topicName + " " + query, false),
+            Check(matches(entry, Get(label, "Title") + " " + query, false),
                 "theme and category can be combined: " + key);
             Check(matches(entry, query + " " + Get(entry, "Title"), false),
                 "category and option title can be combined: " + key);
@@ -525,6 +606,7 @@ public class SearchPresentationLabels
     public SearchTopicLabel HostAi => new SearchTopicLabel { Title = "Theme HostAi" };
     public SearchTopicLabel HostTroops => new SearchTopicLabel { Title = "Theme HostTroops" };
     public SearchTopicLabel HostEconomy => new SearchTopicLabel { Title = "Theme HostEconomy" };
+    public SearchTopicLabel HostControls => ClientControls;
     public SearchTopicLabel HostSiege => new SearchTopicLabel { Title = "Theme HostSiege" };
     public SearchTopicLabel HostPerformance => new SearchTopicLabel { Title = "Theme HostPerformance" };
 }

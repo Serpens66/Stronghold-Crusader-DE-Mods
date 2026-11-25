@@ -159,6 +159,39 @@ namespace ExtendedData
             private bool workingContextEditable;
             private readonly TrailSettingsSourceState trailSource = new TrailSettingsSourceState();
             private ModSettingsDefinition activeCreatorDocument;
+            private readonly TrailMissingProviderState missingProviders = new TrailMissingProviderState();
+            private string mapProviderSelectionId;
+            internal bool HasMissingProviders => missingProviders.IsBlocked;
+            internal string[] MissingProviderGuids => missingProviders.Missing;
+            internal string ProviderBlockReason => HasMissingProviders
+                ? SerpLocalization.Get("ExtendedData.RequiredMissionModsMissing").Replace("{Mods}", string.Join(", ", MissingProviderGuids))
+                : null;
+            internal ModSettingsDefinition CaptureBlockedProviderDocument() => missingProviders.Capture();
+            internal bool HasPreparedSource(string source) => !HasMissingProviders && trailSource.IsAvailable &&
+                string.Equals(trailSource.ContextId, source, StringComparison.Ordinal);
+            internal void NotifySourcesChanged() => SourcesChanged?.Invoke();
+
+            private bool PreflightProviders(ModSettingsDefinition document, string source,
+                MissionProviderScope scope = MissionProviderScope.Trail)
+            {
+                bool blocked = missingProviders.Check(document, FindCompatibleViewModels().Keys, source, scope);
+                SourcesChanged?.Invoke();
+                return !blocked;
+            }
+
+            private void RequireAvailableProviders()
+            {
+                if (HasMissingProviders) throw new MissingMissionSettingsProviderException(ProviderBlockReason);
+            }
+
+            internal void ObserveMapProviderSelection(string identity)
+            {
+                if (string.IsNullOrEmpty(identity) || string.Equals(mapProviderSelectionId, identity, StringComparison.Ordinal)) return;
+                mapProviderSelectionId = identity;
+                if (!HasMissingProviders || missingProviders.Scope != MissionProviderScope.Map) return;
+                missingProviders.Clear();
+                SourcesChanged?.Invoke();
+            }
             private bool launchedThroughCustomize;
             private ModSettingsDefinition mapSourceDocument;
             private string workingSourceContextId = string.Empty;
@@ -483,10 +516,12 @@ namespace ExtendedData
             {
                 try
                 {
+                    document = MissionSettingsMigration.Migrate(document ?? ModSettingsDefinition.CreateModDefaults());
+                    // Migration already validates/normalizes and retains explicit empty
+                    // owners required by the session's provider-matching contract.
+                    if (!PreflightProviders(document, source)) return MissingProviderGuids;
                     return trailSource.Activate(document, source, () =>
                     {
-                        document = MissionSettingsMigration.Migrate(document ?? ModSettingsDefinition.CreateModDefaults());
-                        document = ModSettingsJson.NormalizeAndValidate(document, source + ".modSettings");
                         ModSettingsApplication.EnterContext(BuildRestartContext(source, document));
                         ApplyDocument(document, editable, presetLabel);
                         activeCreatorDocument = CloneDocument(document);
@@ -496,6 +531,7 @@ namespace ExtendedData
                 }
                 catch (Exception exception)
                 {
+                    if (exception is MissingMissionSettingsProviderException) throw;
                     if (ModSettingsApplication.HasApplicationEndpoints || ModSettingsApplication.HasRestartPreparation || ModSettingsApplication.HasActivationFailures) throw;
                     Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/Enter", $"Could not load {source} mod settings; sidecar mod settings are ignored: {exception}");
                     ApplyDocument(ModSettingsDefinition.CreateModDefaults(), editable, presetLabel);
@@ -510,9 +546,10 @@ namespace ExtendedData
                 bool editable,
                 string source,
                 string presetLabel,
-                bool materializeCurrentValues = false)
+                bool materializeCurrentValues = false,
+                MissionProviderScope providerScope = MissionProviderScope.Trail)
             {
-                document = ValidateStrict(document, source);
+                document = ValidateStrict(document, source, providerScope);
                 if (string.IsNullOrEmpty(ModSettingsApplication.ContextId)) ModSettingsApplication.EnterContext(BuildRestartContext(source, document));
                 ApplyDocument(document, editable, presetLabel, materializeCurrentValues: materializeCurrentValues);
                 activeCreatorDocument = CloneDocument(document);
@@ -520,10 +557,11 @@ namespace ExtendedData
                 return GetMissingMentionedMods(document);
             }
 
-            internal ModSettingsDefinition ValidateStrict(ModSettingsDefinition document, string source)
+            internal ModSettingsDefinition ValidateStrict(ModSettingsDefinition document, string source,
+                MissionProviderScope providerScope = MissionProviderScope.Trail)
             {
                 document = MissionSettingsMigration.Migrate(document ?? ModSettingsDefinition.CreateModDefaults());
-                document = ModSettingsJson.NormalizeAndValidate(document, source + ".modSettings");
+                if (!PreflightProviders(document, source, providerScope)) RequireAvailableProviders();
                 ValidateDocumentValues(document);
                 return document;
             }
@@ -541,9 +579,23 @@ namespace ExtendedData
                 bool editable, bool starting)
             {
                 if (!trailContext) coopSettingsDraft.Reset();
-                coopSettingsDraft.Prepare(source, launchedThroughCustomize, editable, starting,
-                    () => Enter(document, editable, source),
-                    FreezeWorkingDraft, ReopenWorkingDraft);
+                try
+                {
+                    coopSettingsDraft.Prepare(source, launchedThroughCustomize, editable, starting,
+                        () =>
+                        {
+                            Enter(document, editable, source);
+                            RequireAvailableProviders();
+                        },
+                        FreezeWorkingDraft, ReopenWorkingDraft);
+                }
+                catch (MissingMissionSettingsProviderException)
+                {
+                    // A failed selection must not retain the previous identity as a
+                    // reusable source when the user selects it again afterwards.
+                    coopSettingsDraft.Reset();
+                    return MissingProviderGuids;
+                }
                 // Enter owns migration; repeated Ready/lobby callbacks reuse the
                 // effective author document rather than cloning a large source again.
                 return GetMissingMentionedMods(activeCreatorDocument ?? document);
@@ -560,6 +612,7 @@ namespace ExtendedData
 
             private void FreezeWorkingDraft()
             {
+                RequireAvailableProviders();
                 customizeDraftSnapshots = CaptureWorkingDraft();
                 try
                 {
@@ -577,12 +630,16 @@ namespace ExtendedData
 
             // Map and Coop drafts use the same endpoint/session materialization. The
             // caller owns the detached draft while personal settings are restored.
-            internal Dictionary<string, Dictionary<string, byte[]>> CaptureWorkingDraft() =>
-                CaptureCurrentSnapshots(FindCompatibleViewModels());
+            internal Dictionary<string, Dictionary<string, byte[]>> CaptureWorkingDraft()
+            {
+                RequireAvailableProviders();
+                return CaptureCurrentSnapshots(FindCompatibleViewModels());
+            }
 
             internal void ApplyWorkingDraft(Dictionary<string, Dictionary<string, byte[]>> snapshots,
                 string label, bool editable, ModSettingsDefinition source = null)
             {
+                RequireAvailableProviders();
                 if (source != null) activeCreatorDocument = CloneDocument(source);
                 ApplyDocument(ModSettingsDefinition.CreateModDefaults(),
                     editable: editable, presetLabel: label, preserveCurrentValues: editable,
@@ -591,6 +648,7 @@ namespace ExtendedData
 
             internal Dictionary<string, Dictionary<string, TrailCreatorRule>> CaptureCreatorRulesForActiveTrail()
             {
+                RequireAvailableProviders();
                 var result = new Dictionary<string, Dictionary<string, TrailCreatorRule>>(StringComparer.Ordinal);
                 ModSettingsDefinition document = CloneDocument(activeCreatorDocument);
                 if (document == null || !trailContext) return result;
@@ -606,6 +664,11 @@ namespace ExtendedData
 
             internal void SetMapSourceDocument(ModSettingsDefinition document, string contextId = null)
             {
+                if (document != null)
+                {
+                    document = MissionSettingsMigration.Migrate(document);
+                    if (!PreflightProviders(document, "map:" + contextId, MissionProviderScope.Map)) return;
+                }
                 mapSourceDocument = CloneDocument(document);
                 if (document != null) ModSettingsApplication.EnterContext(BuildRestartContext("map:" + (contextId ?? ""), document, File.Exists(contextId) ? contextId : null));
                 if (!trailSource.IsAvailable)
@@ -616,6 +679,7 @@ namespace ExtendedData
             public IReadOnlyList<ModSettingsWorkingSource> GetSources(string targetGuid)
             {
                 var result = new List<ModSettingsWorkingSource>();
+                if (HasMissingProviders) return result;
                 string preferenceContext = trailSource.IsAvailable ? trailSource.ContextId : workingSourceContextId;
                 if (trailSource.IsAvailable)
                     result.Add(new ModSettingsWorkingSource { Id = ModSettingsWorkingSourceRegistry.TrailId, Kind = ModSettingsWorkingSourceKind.Trail, DisplayName = "Trail settings", IsPreferred = true, PreferenceContextId = preferenceContext });
@@ -630,6 +694,7 @@ namespace ExtendedData
 
             public void ApplyMany(IEnumerable<string> targetGuids, string sourceId)
             {
+                RequireAvailableProviders();
                 if (!trailContext || !workingContextEditable)
                     throw new InvalidOperationException("Mission ModSettings are not currently editable.");
                 bool personal = string.Equals(sourceId, ModSettingsWorkingSourceRegistry.PersonalSettingsId, StringComparison.Ordinal);
@@ -782,6 +847,8 @@ namespace ExtendedData
                     }
                     return;
                 }
+                missingProviders.Clear();
+                mapProviderSelectionId = null;
                 if (!trailContext)
                 {
                     coopSettingsDraft.Reset();
@@ -944,6 +1011,7 @@ namespace ExtendedData
                 string reason;
                 try
                 {
+                    RequireAvailableProviders();
                     if (ModSettingsApplication.PrepareLaunch()) return true;
                     reason = SerpLocalization.Get("ExtendedData.SettingsRestartRequired");
                 }
@@ -3685,6 +3753,11 @@ namespace ExtendedData
                 }
                 catch (Exception exception)
                 {
+                    if (HasMissingProviders)
+                    {
+                        ReportLaunchBlock(ProviderBlockReason, exception.ToString());
+                        return;
+                    }
                     Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/ActivateTrailMakerLobby.activate-trail-maker-mod", "Could not activate the Trail Maker mod-settings draft; applying editable defaults: " + exception);
                     try
                     {
@@ -3769,7 +3842,7 @@ namespace ExtendedData
                     writeTicks = info.LastWriteTimeUtc.Ticks;
                 }
 
-                if (trailContext && activeSidecarEditable == editable &&
+                if (!HasMissingProviders && trailContext && activeSidecarEditable == editable &&
                     activeSidecarPreviewOnly == previewOnly &&
                     activeSidecarAuthoring == authoring &&
                     string.Equals(activeSidecarPath, sidecar, StringComparison.OrdinalIgnoreCase) &&
@@ -3779,13 +3852,14 @@ namespace ExtendedData
                     return exists;
                 }
 
-                trailSource.Clear();
                 try
                 {
                     ModSettingsDefinition document = exists
                         ? ModSettingsJson.Read(sidecar)
                         : ModSettingsDefinition.CreateModDefaults();
                     document = MissionSettingsMigration.Migrate(document);
+                    if (!PreflightProviders(document, sidecar)) return exists;
+                    trailSource.Clear();
                     workingSourceContextId = "trail:" + IOPath.GetFullPath(sidecar);
                     return trailSource.Activate(exists ? document : null, workingSourceContextId, () =>
                     {
@@ -3810,6 +3884,7 @@ namespace ExtendedData
 
             private ModSettingsDefinition CaptureDocument()
             {
+                RequireAvailableProviders();
                 ModSettingsDefinition document = ModSettingsDefinition.CreateModDefaults();
                 Dictionary<string, IModSettingsPresetEndpoint> participants = FindCompatibleViewModels();
 
@@ -3839,6 +3914,7 @@ namespace ExtendedData
                 bool materializeCurrentValues = false,
                 bool preserveEditorModes = false)
             {
+                if (!PreflightProviders(document, presetLabel)) RequireAvailableProviders();
                 ClearActiveSidecar();
                 var shared = new MissionModSettingsDocument {
                     SchemaVersion = document.SchemaVersion,

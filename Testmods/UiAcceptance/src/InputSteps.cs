@@ -42,13 +42,19 @@ namespace UiAcceptance
         {
             Noesis.FrameworkElement element = null;
             yield return new Until("element " + step.Arg(0), () => (element = GameXAMLManagerAPI.Instance.FindGlobalElement(step.Arg(0))) != null && element.IsVisible);
+            foreach (var wait in ClickElement(element, step.Arg(0))) yield return wait;
+        }
+
+        // A left click in the element's middle, sent to Noesis directly (the Windows cursor stays where it is).
+        internal static IEnumerable<Wait> ClickElement(Noesis.FrameworkElement element, string name)
+        {
             Noesis.Point center = element.PointToScreen(new Noesis.Point((float)element.ActualWidth / 2, (float)element.ActualHeight / 2));
             int x = (int)center.X, y = (int)center.Y;
             NoesisView view = NoesisView();
             view.MouseMove(x, y);
             view.MouseButtonDown(x, y, Noesis.MouseButton.Left);
             view.MouseButtonUp(x, y, Noesis.MouseButton.Left);
-            AcceptLog.Info("NOESIS_CLICK " + step.Arg(0) + " at " + x + "," + y);
+            AcceptLog.Info("NOESIS_CLICK " + name + " at " + x + "," + y);
             yield return new Delay(200);
         }
 
@@ -60,6 +66,10 @@ namespace UiAcceptance
 
         // One left click on a game tile: preDLLCallActions publishes the tile, getMouseStateForEngine
         // the button state (1 = down, then 3 = up). Priority.First lets Spectator's own postfixes see it.
+        // Vanilla's overNoesisUI (EditorDirector.Update, FatControler.overNoesisGUI) hit-tests Noesis at the real Windows
+        // cursor (Input.mousePosition), which a map click does not move. During the click the preDLLCallActions postfix
+        // clears it for that pass, as a real click on the map would; otherwise the result depends on where the user's
+        // cursor happens to be, and on a hidden desktop it always counts as over the UI.
         private static int clickX = -1, clickY = -1, clickState;
         private static bool patched;
         private static IEnumerable<Wait> MapClick(Step step) => ClickTile(step.Int(0), step.Int(1));
@@ -77,15 +87,17 @@ namespace UiAcceptance
             }
             clickX = x; clickY = y;
             clickState = 1;
-            yield return new Until("engine read the button-down", () => clickState == 3);
+            // At high speed the engine can read down and up between two frames: wait until it left the down state.
+            yield return new Until("engine read the button-down", () => clickState != 1);
             yield return new Until("engine read the button-up", () => clickState == 0);
             clickX = clickY = -1;
             yield return new Delay(200);
         }
 
-        private static void AfterPreDll(ref int mouseOverX, ref int mouseOverY)
+        private static void AfterPreDll(ref int mouseOverX, ref int mouseOverY, ref bool ___overNoesisUI)
         {
             if (clickX < 0) return;
+            ___overNoesisUI = false;
             mouseOverX = clickX; mouseOverY = clickY;
         }
 

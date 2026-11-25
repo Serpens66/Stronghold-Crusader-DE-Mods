@@ -77,6 +77,10 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 
 ## Vanilla audits with mod integration
 
+- [Extreme Troops](./sem/FBCB9319/knowledge/EXTREME_TROOPS.md) covers unit and projectile bounds, flight trails, the Steam HD comparison, outpost timing, save and multiplayer implications, and archived flight-trail tests.
+
+- [Stone and iron under walls](./sem/FBCB9319/knowledge/WALL_DEPOSIT_RESTORATION.md) records the wall and stair placement masks, building footprint comparison, wall removal paths and standalone testmod.
+
 - [Construction cost tables](./sem/FBCB9319/knowledge/CONSTRUCTION_COST_TABLES.md): native110-row and managed109-row bounds, aliases and Undo parameter contracts; tagged Extender integration and dated game probes.
 
 - [Friendly moat traversal for all unit types](./sem/FBCB9319/knowledge/MOAT_TRAVERSAL_ALL_UNITS.md): all 89 dispatch slots, 20 economic roles, civilian target and building-access gates, independent wander publication, mobile-siege removal, stored modes and save/transfer contracts; 183 indexed functions and five leaf entries checked against the installed PE, static audit with no feature implementation or gameplay acceptance.
@@ -108,6 +112,7 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 
 - [Lord home relocation](./sem/FBCB9319/knowledge/LORD_HOME_TELEPORT.md): failed return paths, building-attack target-loss trigger and deliberately preserved invalid-component rescue, now integrated into BugfixesAndQoL with a default-enabled host option; human return-path suppression confirmed by four real blocked calls in singleplayer, other gameplay/MP cases pending.
 - [AI economy observation boundaries](./sem/FBCB9319/knowledge/AI_ECONOMY_OBSERVATION.md): tax settlement ABI, Pre-only tax notifications, separate AI trade execution and accessibility-group/removal evidence; static audit, runtime acceptance pending.
+- [AI market lifecycle and repair boundaries](./sem/FBCB9319/knowledge/AI_MARKET_LIFECYCLE.md): paired market/recruitment entries, executed Chore54/67 phases, client-only Chore60 restore and terminal local abort; shared-hook/save integration and real two-peer acceptance limits.
 - [AI negative sell thresholds](./sem/FBCB9319/knowledge/AI_SELL_THRESHOLDS.md): phantom-credit cause, all eight categories, native decision/transaction guards and original-function execution evidence; in-game acceptance pending.
 - [AI military admission and recruitment accounting](./sem/FBCB9319/knowledge/AI_MILITARY_ADMISSION.md): group selection, controller handoff of joined recruits in every siege state, APIShared admission consequences; in-game acceptance with AiGroupAdmissionTest (ai-groups, ai-siege).
 - [AI woodcutter construction gate](./sem/FBCB9319/knowledge/AI_WOODCUTTER_BUILD.md)
@@ -195,7 +200,9 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 
 ## Mod and testmod work (not Vanilla)
 
-- [Trapped-unit rescue prototype contracts](./sem/FBCB9319/knowledge/TRAPPED_UNIT_RESCUE_AUDIT.md): identity-preserving relocation and occupancy, physical reverse edges, mounted crew and worker production boundaries under `[Vanilla facts]`; external suppression and experimental acceptance limits remain separate.
+- [Matching Unity Editor and asset pipeline](./sem/FBCB9319/knowledge/UNITY_ASSET_PIPELINE.md) covers the verified D3D11 bundle pipeline, unit sprite and animation workflows, CastlePlanner rendering tests, and other editor uses.
+
+- [Trapped-unit rescue prototype contracts](./sem/FBCB9319/knowledge/TRAPPED_UNIT_RESCUE_AUDIT.md): identity-preserving relocation and occupancy, physical reverse edges, mounted crew and worker production boundaries under `[Vanilla facts]`; the 2026-11-25 additions cover complete cleanup/Keep envelopes, live size14 offsets, movement failure writes, stable waiting and tribe identity. External suppression and experimental acceptance limits remain separate.
 
 - [Knight replacement selection and input lifetime](./sem/FBCB9319/knowledge/KNIGHT_SELECTION_TRANSFERS.md): replacement initialization/removal, three-phase input ordering, stale selection repair and the accepted Extender cancellation boundary; original game scenario user-confirmed, extended editor/MP acceptance pending.
 

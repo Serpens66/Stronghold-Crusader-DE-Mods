@@ -111,3 +111,21 @@ unadmitted with fault code `0`. The host held a matching authenticated receipt
 and a committed round. The client had reached at least tick `8`. These values
 are from that session and can be rechecked through the native countdown,
 `Director.simTickCount`, and APIShared's production gate and receipt fields.
+
+## MP-save human-slot remapping, 2026-11-22 [Vanilla facts]
+
+Rechecked against the native and managed hashes recorded above. In
+Platform_Multiplayer.StartSave, the human gameMembers are initially assigned
+consecutive player IDs 1..N. Managed postLoading and the enclosing successful
+start return before the final human-slot remapping. The host subsequently calls
+remapMPGameMembers from monitorHostGameStart; the client does so in the main-thread
+packet-4 branch. Both paths remap before Director.startSimThread.
+
+remapMPGameMembers assigns each human member its loadPlayerRemapping destination,
+updates the local player and calls EngineInterface.RemapPlayers. Confirmed export
+DLL_RemapPlayers (RVA 0x86580) updates participant/network mappings; occupied human
+destination slots keep their loaded Lord identities. DLL_StartMultiplayerGameSynced
+(RVA 0x878B0) then establishes startup timing. A managed-ready mission alone thus
+does not prove final human slot identity: for a saved roster [1,8], [1,2] can still
+be the temporary managed roster. The first actual simulation callback is after
+this remapping. This is a source/native-contract audit, not a new two-peer run.

@@ -69,6 +69,7 @@
     <Compile Include="src\RandomEventsChatAnnouncements.cs" />
     <Compile Include="src\RandomEventsParticipantResolver.cs" />
     <Compile Include="src\RandomEventsRuntime.cs" />
+    <Compile Include="src\RandomEventsRuntime.Resync.cs" />
     <Compile Include="src\RandomEventsSaveState.cs" />
     <Compile Include="src\RandomEventsState.cs" />
     <Compile Include="src\RandomEventsSettingsViewModel.cs" />

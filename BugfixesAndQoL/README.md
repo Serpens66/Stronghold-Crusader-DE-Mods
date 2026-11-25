@@ -62,6 +62,18 @@ Under **Host → Gates and siege rules → Fixes**, the host can switch these tw
 - **Prevent duplicate engineers** keeps engineers assigned when they finish building a catapult, trebuchet or fire ballista, and prevents all eight siege engine types from taking engineers who already operate another engine or man a tent. AI harassment groups wait until their engineers have finished recruitment before building, helping the AI keep sending siege engines instead of accumulating unused engineers near the guild. Engineers become available again after dismounting. This enabled-by-default host fix also protects new assignments after loading a save; it does not repair crews already duplicated in that save.
 - **Crew loss in fires** makes engineers die with their siege engine when it burns down while they are operating it. It covers catapults, trebuchets, mangonels, siege towers, battering rams, portable shields, ballistas and fire ballistas.
 
+### Restore stone and iron after wall removal
+
+When a wall or stair is removed or destroyed, this fix reveals the stone or iron deposit it covered. It works for player and AI walls, in multiplayer, and in the map editor. The host option is enabled by default under **Host → Gates and siege rules → Fixes**, directly below **Restore terrain after moat removal**.
+
+Older walls need deposit data recorded when they were built. Saves and editor maps created with the former Deposit Restoration test mod can still use that data. Saving with this option turned off clears the recorded deposits in the new file.
+
+### Keep crenels crossable
+
+In Vanilla, crenels on corners, junctions, wall ends and double rows often end up high. High crenels cannot be climbed with ladders, entered by Assassins or reached from siege towers, so such walls can become impossible to storm. With this fix, crenels built by players or the AI alternate between high and low in a fixed checkerboard pattern in every shape, including diagonal walls. Attackers always find low crenels, and units on a wall can step diagonally from one low crenel to the next. Low crenels are drawn as normal straight crenels, so corners and wall ends look clean.
+
+The host option is enabled by default under **Host → Gates and siege rules → Fixes**; all players in a multiplayer match need the mod. Walls that already exist in a map or savegame stay as they are, unless the host switches on one of the options under **Also align existing crenels**: when loading a map in the editor, when loading a savegame, or when starting a map with pre-placed walls. Crenels changed this way keep their new heights even if the option is switched off again later. Changes apply to the next match.
+
 ### Keep stairs behind pitch fields accessible
 
 In some castle designs, pitch fields at the foot of a staircase could make the game treat it as impassable, especially after loading a saved game. This fix restores the route up those stairs for all units, so both player-controlled and AI-controlled units can find their way to the buildings beyond them. The host option is enabled by default.
@@ -104,6 +116,14 @@ When an AI tries to rebuild a tower from its castle plan, its own tower ruin can
 
 ### Better AI overbuild rules
 Stockpiles, markets, granaries, and armouries can clear ordinary obstacles while an AI builds its castle, matching the special placement behavior already used by hovels and recruitment buildings. Protected buildings and their reserved yards are preserved where AI castles overlap. If one AI demolishes a building that another AI immediately rebuilds, the repeated conflict is detected and further demolition is stopped without blocking the first legitimate overbuild attempt.
+
+### Prevent AI overbuying
+
+AI Lords can keep an outdated purchase request after receiving goods from another source, wasting gold on excess purchases and later sales. The enabled-by-default **Prevent AI overbuying** host option under **Host → AI → Fixes** adjusts these outstanding requests.
+
+For example, if an AI orders five weapons and receives one before its market purchase, only four remain to buy, even if it has already used the delivered weapon. The intended purchase batch is preserved; construction-material requests instead follow the current building requirement. Partly fulfilled requests retain their progress when saving and loading.
+
+The fix applies to AI players in singleplayer and multiplayer. The map editor is unaffected. Existing requests in older saves are left alone until the AI generates a new request. Remove the former AI Market Overbuy Diagnostic test mod before using this version.
 
 ### Fix AI stone reserve mechanics
 Fixed wrong stone calculations for AIs, causing it to need longer to build their castle and selling+buying stone within short time.  
@@ -148,6 +168,19 @@ Gatehouses measure the distance to enemies from their center instead of from one
 In Vanilla, the two nervous messages of Custom Lords without their own voice files ("before a siege" and "when weak") show their video without any voice. With this fix they play the Servant's matching recordings that ship with the game. This is a local client fix that is active while the mod and its client features are enabled.
 
 ## Quality-of-life features
+
+### Place buildings by dragging
+
+Select a building, hold the left mouse button on the map and drag to preview several buildings. Release to build the valid, affordable placements. Red previews are skipped. Most buildings are laid out in rows two buildings wide with room for walking. Farms and killing pits fill the area without gaps. Storage sections must connect to each other, and a drag places up to four quarries with room around the block for walking.
+
+**Area construction** is on by default under **Client Options → Camera, building and controls → QoL**, next to **Area demolition**. The option controls your own input. In multiplayer, everyone needs the same Bugfixes and QoL version, and each player can choose whether to drag. If you installed the earlier AreaConstructionTest, remove it before loading this version.
+
+Under **Host Options → Camera, building and controls → QoL**, set limits for **Empty stockpiles** and **Empty granaries and armouries**. The second setting applies separately to each type. Both default to `-1` for the original rules. Use the slider to choose up to 20 or type a number up to 100. These limits apply per player when building by drag or single click and use the game's usual empty-storage count. In multiplayer, everyone uses the host's settings. The original limits apply if the game cannot enable the custom limits for everyone.
+
+Once you release a storage drag, you can close the build menu or select another tool while the game places the remaining valid sections in sequence.
+
+### Demolish occupied walls
+You can demolish your own walls while units are standing on them, using either a single click or area demolition. Nearby enemies can still block demolition. This host option is enabled by default and appears under **Host Options → Camera, building and controls → QoL**.
 
 ### Show ground requirements when building
 This enabled-by-default local option shows current and required ground-tile counts in building tooltips for farms, quarries, iron mines and pitch rigs, and marks unsuitable tiles red when a ground requirement prevents placement. It can be toggled without restarting; building rules remain unchanged.
@@ -209,6 +242,16 @@ The enabled-by-default local **Pitch and moat lines** option is under **Client �
 ### Adjust ally goods-transfer amounts with Ctrl and Shift
 In the ally goods-transfer panel, Shift multiplies the clicked amount by five and Ctrl reduces it to one fifth, while the displayed button values update to show what will be sent. After selecting a good and a positive amount, the send button remains available even if the stock changes. Vanilla rechecks the current stock when clicked; successful and insufficient transfers both keep the panel open with the selection intact, while insufficient goods also play the normal warning.
 
+### Automatically supply allies
+
+The personal **Automatically send to allies** option is enabled by default. Open **Send Goods** in the allies menu, expand **Auto Send**, and select an ally and a good. Set your reserve, the ally's minimum and maximum stock, and a check interval of **1–300 game seconds** (default **30**). Click **Start** to activate that delivery rule.
+
+Your reserve for a good is shared across all recipients. Allies below their minimum receive supplies first; remaining surplus is shared fairly up to their maximums. Deliveries require surplus goods and free storage at the recipient. The interval follows game time, so transfers stop during pause and happen more often in real time at higher game speeds.
+
+A circular arrow marks goods with active rules. Rules are saved with the game. You can pause all your deliveries without deleting them, and each player controls their own rules. Automatic-delivery chat messages are off by default; manual gifts are independent. Change the personal feature switch before or after a match. Remove the old AutoSend test mod; its saved rules are not imported.
+
+Multiplayer support is implemented, but automatic deliveries still await confirmation in a real host/client game.
+
 ### Accept Steam lobby invitations in game
 Incoming invitations can appear as a Yes/No popup ingame. An optional checkbox permanently suppresses further ingame popups for invites from that Steam user; the complete local invite blacklist can be cleared beside this feature's mod setting.
 
@@ -253,6 +296,12 @@ Adds the multiplayer **Game Options** dialog to local Skirmish, including restri
 
 ### Load multiplayer saves alone
 A ready host can load a normal multiplayer save without another human player. Missing human players are removed rather than replaced with AI; existing AI players are restored from the save, and this option is enabled by default.
+
+### Load another save together during multiplayer
+
+The enabled-by-default host option **Load a save during a multiplayer match** is under **QoL → Game setup, multiplayer and spectators**. During a match, the host can use **Load** in the ESC menu. After confirmation, the current match ends and everyone automatically joins the same private lobby, without entering a lobby code again. The normal load dialog shows ordinary and Coop Trail saves together and keeps the usual save checks. Each player is initially set Ready; choosing Unready afterwards is respected.
+
+Cancelling the load dialog leaves the group together in the lobby; it does not resume the old match. All participants need compatible mod support and matching copies of the chosen save. The host can change this option between matches, and loading a save or selecting a Trail does not overwrite it. Remove the old **Multiplayer Save Load Test** from every PC when installing this integrated version.
 
 ### Surrender
 Active players receive a confirmed Surrender button that kills their lord through the normal game rules, preserving the natural defeat and statistics flow.
@@ -301,6 +350,6 @@ Adds "Customize" Button to custom and coop trails. Allows to use custom AI as Al
 
 ## Compatibility
 
-This mod requires the Script Extender and **APIShared 0.50.0 or newer**. Subscribe to APIShared separately when using the Steam modpack.
+This mod requires **Script Extender 2.14.4 or newer** and **APIShared 0.73.2 or newer**. Subscribe to APIShared separately when using the Steam modpack.
 
 All multiplayer participants need matching modpack and APIShared versions. Gameplay timing follows the match's simulation time, keeping movement and other timed features consistent between players with different frame rates.

@@ -25,9 +25,9 @@ namespace StartConditions
         // plugin, map, or settings lifecycles.
         private readonly List<IDisposable> aiStartTroopLifetimeSubscriptions =
             new List<IDisposable>();
-        private readonly Dictionary<int, ProtectedAIStartTroop> protectedAIStartTroopsByUnitId =
+        private Dictionary<int, ProtectedAIStartTroop> protectedAIStartTroopsByUnitId =
             new Dictionary<int, ProtectedAIStartTroop>();
-        private readonly Dictionary<int, ProtectedAIStartTroop> protectedAIStartTroopsByTribeId =
+        private Dictionary<int, ProtectedAIStartTroop> protectedAIStartTroopsByTribeId =
             new Dictionary<int, ProtectedAIStartTroop>();
 
         private bool aiStartTroopIsolationInitialized;
@@ -60,7 +60,10 @@ namespace StartConditions
                     log,
                     context =>
                     {
+                        aiStartTroopRealMultiplayer = context.Mode.IsRealMultiplayer;
                         if (context.IsEditor)
+                            ClearAIStartTroopIsolationState();
+                        else if (aiStartTroopRealMultiplayer && !aiStartTroopResyncReady)
                             ClearAIStartTroopIsolationState();
                         else if (context.IsLoadedSave)
                             BeginLoadedAIStartTroopIsolationMap();
@@ -89,6 +92,7 @@ namespace StartConditions
                     simulationTickRegistered = true;
                 }
                 tickHandlerSubscribed = true;
+                RegisterAIStartTroopResync();
                 aiStartTroopIsolationInitialized = true;
             }
             catch
@@ -159,6 +163,8 @@ namespace StartConditions
         private void ClearAIStartTroopIsolationState()
         {
             aiStartTroopMapActive = false;
+            aiStartTroopRealMultiplayer = false;
+            CompleteAIStartTroopRepair();
             pendingAIStartTroopSaveState = null;
             ClearAIStartTroopTracking();
         }
@@ -385,7 +391,7 @@ namespace StartConditions
 
         private void OnAIStartTroopTribeAssign(TribeAssignUnitEventArgs args)
         {
-            if (!aiStartTroopMapActive ||
+            if (!aiStartTroopMapActive || aiStartTroopHooksSuspended ||
                 (args.UnitId == permittedAIStartTroopAssignmentUnitId &&
                  args.TribeId == permittedAIStartTroopAssignmentTribeId))
             {
@@ -420,7 +426,7 @@ namespace StartConditions
 
         private void OnAIStartTroopTribeDelete(TribeDeleteEventArgs args)
         {
-            if (!aiStartTroopMapActive ||
+            if (!aiStartTroopMapActive || aiStartTroopHooksSuspended ||
                 !protectedAIStartTroopsByTribeId.TryGetValue(args.TribeId, out ProtectedAIStartTroop protectedTroop))
             {
                 return;
@@ -439,7 +445,7 @@ namespace StartConditions
 
         private void OnProtectedAIStartTroopDelete(UnitDeleteEventArgs args)
         {
-            if (!aiStartTroopMapActive)
+            if (!aiStartTroopMapActive || aiStartTroopHooksSuspended)
                 return;
 
             try
@@ -464,7 +470,8 @@ namespace StartConditions
 
         private void OnAIStartTroopValidationTick(int tick)
         {
-            if (!aiStartTroopMapActive || (!aiStartTroopValidationRequired && unchecked(tick - nextAIStartTroopValidationTick) < 0))
+            if (!aiStartTroopMapActive || aiStartTroopRepairing ||
+                (!aiStartTroopValidationRequired && unchecked(tick - nextAIStartTroopValidationTick) < 0))
                 return;
 
             aiStartTroopValidationRequired = false;

@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using CrusaderDE;
@@ -21,6 +22,8 @@ namespace UiAcceptance
             Runner.Register("Lobby.Button", s => Do(view => view.ButtonClicked(s.Arg(0)), 1));
             Runner.Register("Lobby.Play", Play);
             Runner.Register("Lobby.PeaceTime", PeaceTime);
+            Runner.Register("Lobby.GameSpeed", GameSpeed);
+            Runner.Register("Lobby.AddCustomAi", AddCustomAi);
             Runner.Register("Lobby.StartPositions", StartPositions);
             Runner.Register("Lobby.Prebuild", Prebuild);
             Runner.Register("Editor.Start", EditorStart);
@@ -30,29 +33,39 @@ namespace UiAcceptance
             Runner.Register("Mp.Ready", Ready);
             Runner.Register("Mp.Leave", s => GameSteps.Do(() => Platform_Multiplayer.Instance.LeaveLobby()));
             Runner.Register("Mp.Save", s => GameSteps.Do(() => EngineInterface.TriggerMPSave(s.Arg(0) + ".msv")));
+            Runner.Register("Mp.SaveConfirmed", SaveConfirmed);
+            Runner.Register("Mp.AwaitSaveFile", AwaitSaveFile);
             Runner.Register("Mp.LoadSave", MpLoadSave);
             Runner.Register("Mp.ExpectRealMultiplayer", ExpectRealMultiplayer);
             Runner.Register("Mp.Exit", s => GameSteps.Do(() => Director.instance.ExitAppFromMP()));
             Runner.Register("Mp.Follow", Follow);
+            Runner.Register("Mp.SetSpeed", SetMultiplayerSpeed);
+            Runner.Register("Mp.ExpectSpeed", ExpectMultiplayerSpeed);
         }
 
         // Client: follows the host lobby named in the join file from any state — statistics screen,
         // a foreign or own lobby (e.g. BugfixesAndQoL's return-to-lobby after a game), sub-menus — and
         // returns once inside that lobby ("lobby") or once its mission started ("mission"). A lobby ID
         // change while waiting is followed as well. Every action uses Vanilla's own commands, 1 per second.
+        // Optional second argument "fresh": the join file still names the lobby of the previous mission until
+        // the runner publishes the host's next lobby, so that ID is ignored instead of being joined again.
+        private static ulong lastMissionLobby;
         private static IEnumerable<Wait> Follow(Step step)
         {
             bool untilMission = step.Arg(0, "lobby") == "mission";
+            bool fresh = step.Arg(1, "") == "fresh";
+            ulong stale = fresh ? lastMissionLobby : 0;
             string joinFile = Path.Combine(BepInEx.Paths.ConfigPath, "UiAcceptance", "join-lobby.txt");
             long before = Interlocked.Read(ref UiAcceptancePlugin.StartedSession);
             var pace = System.Diagnostics.Stopwatch.StartNew();
             ulong target = 0, joining = 0;
+            if (stale != 0) AcceptLog.Info("MP_FOLLOW ignoring previous mission lobby " + stale);
             yield return new Until(untilMission ? "mission of the followed lobby" : "followed host lobby", () =>
             {
                 if (untilMission && GameSteps.InMission(before)) return true;
                 if (pace.ElapsedMilliseconds < 1000) return false;
                 pace.Restart();
-                try { if (File.Exists(joinFile) && ulong.TryParse(File.ReadAllText(joinFile).Trim(), out ulong id)) target = id; }
+                try { if (File.Exists(joinFile) && ulong.TryParse(File.ReadAllText(joinFile).Trim(), out ulong id)) target = id == stale ? 0 : id; }
                 catch (IOException) { }
                 if (target == 0) return false;
                 var main = MainViewModel.Instance;
@@ -75,7 +88,13 @@ namespace UiAcceptance
                 AcceptLog.Info("MP_FOLLOW " + action);
                 return false;
             });
-            if (untilMission) GameSteps.sessionTicks = Volatile.Read(ref UiAcceptancePlugin.Ticks);
+            if (untilMission)
+            {
+                GameSteps.sessionTicks = Volatile.Read(ref UiAcceptancePlugin.Ticks);
+                // The mission can start before the first join-file read; then the joined lobby names it.
+                ulong missionLobby = target != 0 ? target : Lobby?.currentLobby?.id.m_SteamID ?? 0;
+                if (missionLobby != 0) lastMissionLobby = missionLobby;
+            }
             AcceptLog.Info("MP_FOLLOW done target=" + target);
         }
 
@@ -125,6 +144,78 @@ namespace UiAcceptance
             yield return new Delay(250);
             Lobby.ButtonClicked("ApplySettings");
             yield return new Delay(250);
+        }
+
+        // Starting speed of an MP lobby through the same settings panel. Vanilla stores slider*5 in
+        // MPTEMPsetupData (MP_Settings_GameSpeed_Slider_ValueChanged), ApplySettings copies it into the
+        // private MPsetupData, and StartGame calls SetEngineFrameRate(MPsetupData.starting_gamespeed).
+        // FBCB9319 XAML: slider 2..16, so the lobby offers 10..80; SetEngineFrameRate also resets values above 90
+        // to 40 for non-spectators. Higher MP start speeds are therefore rejected instead of forced.
+        private static IEnumerable<Wait> GameSpeed(Step step)
+        {
+            int speed = step.Int(0);
+            Runner.Require(speed > 0 && speed % 5 == 0, "the lobby speed slider stores multiples of five: " + speed);
+            yield return new Until("lobby ready", LobbyReady);
+            Runner.Require(Lobby.currentLobby.isHost, "only the host applies lobby settings");
+            Lobby.ButtonClicked("Setup");
+            yield return new Delay(250);
+            var slider = FRONT_Multiplayer_Setup.Instance?.RefMP_Settings_GameSpeed_Slider;
+            Runner.Require(slider != null, "Vanilla speed slider is unavailable");
+            float value = speed / 5;
+            Runner.Require(value >= slider.Minimum && value <= slider.Maximum,
+                "speed " + speed + " is outside the Vanilla slider range " + slider.Minimum * 5 + ".." + slider.Maximum * 5);
+            slider.Value = value;
+            // Vanilla's own handler reads the slider itself; calling it again after the bound event is idempotent.
+            Lobby.MP_Settings_GameSpeed_Slider_ValueChanged(null, null);
+            yield return new Delay(250);
+            Lobby.ButtonClicked("ApplySettings");
+            yield return new Delay(250);
+            var setup = GameSteps.Read(typeof(FRONT_Multiplayer), Lobby, "MPsetupData", BindingFlags.Instance) as EngineInterface.MultiplayerSetupData;
+            Runner.Require(setup != null, "no lobby setup data");
+            AcceptLog.Info("LOBBY_GAMESPEED requested=" + speed + " applied=" + setup.starting_gamespeed + " slider=" + slider.Value);
+            Runner.Require(setup.starting_gamespeed == speed, "Vanilla applied starting speed " + setup.starting_gamespeed + ", expected " + speed);
+        }
+
+        // Adds a local custom AI lord by its exact name through Vanilla's custom-lord picker (lobby AI slot "98").
+        // args: lord name. The AI keeps the team Vanilla gives a new AI slot; the step requires that no human
+        // shares that team, so the AI plays on its own side regardless of the number of humans.
+        private static IEnumerable<Wait> AddCustomAi(Step step)
+        {
+            yield return new Until("lobby ready", LobbyReady);
+            Runner.Require(Lobby.currentLobby.isHost, "AI setup requires the host lobby");
+            var session = Lobby.currentLobby;
+            var added = new Platform_Multiplayer.MPLobbyMember[1];
+            foreach (Wait wait in AddCustomLord(Lobby, step.Arg(0), rows => rows.Length == 1 && !rows[0].lord.workshop,
+                "expected exactly one local (non-Workshop) custom lord named " + step.Arg(0), "the custom AI " + step.Arg(0) + " joined", added))
+                yield return wait;
+            var ai = added[0];
+            int team = session.getTeam(ai);
+            var humans = session.members.FindAll(m => IsHuman(m) && !m.dummyToBeKicked);
+            AcceptLog.Info("LOBBY_CUSTOM_AI lord=" + ai.customLordName + " team=" + team + " humans=" + humans.Count +
+                " humanTeams=" + string.Join(",", humans.ConvertAll(m => session.getTeam(m).ToString(System.Globalization.CultureInfo.InvariantCulture))));
+            Runner.Require(team <= 0 || humans.TrueForAll(m => session.getTeam(m) != team),
+                "the custom AI shares team " + team + " with a human");
+        }
+
+        // Shared custom-lord addition (also used by Paired.AddTradingAi). The caller validates the lobby;
+        // rowContract judges the matching picker rows before anything is added. added[0] receives the new member.
+        internal static IEnumerable<Wait> AddCustomLord(FRONT_Multiplayer lobby, string lord,
+            Func<FileRow[], bool> rowContract, string contractFailure, string joined, Platform_Multiplayer.MPLobbyMember[] added)
+        {
+            var session = lobby.currentLobby;
+            var before = session.members.ToArray();
+            lobby.SkirmishAIAddClick("98"); // Open the built-in custom-lord picker.
+            var list = lobby.FindName("CustomLordList") as Noesis.ListView;
+            Runner.Require(list?.ItemsSource != null, "custom lord picker is unavailable");
+            var rows = list.ItemsSource.Cast<object>().OfType<FileRow>()
+                .Where(row => string.Equals(row.lord?.lordName, lord, StringComparison.Ordinal)).ToArray();
+            Runner.Require(rows.Length > 0 && rowContract(rows), contractFailure);
+            list.SelectedItem = rows[0];
+            lobby.ButtonClicked("AddCustomLord");
+            yield return new Until(joined, () => session.members.Count == before.Length + 1);
+            var ai = session.members.Single(member => !before.Contains(member));
+            Runner.Require(ai.customLordName == lord, "unexpected AI after adding " + lord);
+            added[0] = ai;
         }
 
         private static IEnumerable<Wait> Prebuild(Step step)
@@ -195,9 +286,16 @@ namespace UiAcceptance
             yield return new Delay(1500);
             Lobby.ButtonClicked("Host");
             yield return new Delay(800);
+            if (step.Arg(1, "") == "private")
+            {
+                var privacy = typeof(FRONT_Multiplayer).GetField("MPLobbyMode", BindingFlags.Instance | BindingFlags.NonPublic);
+                Runner.Require(privacy != null && privacy.FieldType == typeof(int), "Vanilla lobby privacy field differs");
+                if ((int)privacy.GetValue(Lobby) == 0) Lobby.ButtonClicked("TogglePublic");
+                Runner.Require((int)privacy.GetValue(Lobby) == 4, "Vanilla did not select a private lobby");
+            }
             Lobby.ButtonClicked(step.Arg(0, "DoHost"));
             yield return new Until("hosted lobby", () => LobbyReady() && Lobby.currentLobby.isHost && !FRONT_Multiplayer.skirmishGame);
-            AcceptLog.Info("MP_HOST lobby=" + Lobby.currentLobby.id.m_SteamID);
+            AcceptLog.Info("MP_HOST lobby=" + Lobby.currentLobby.id.m_SteamID + " run=" + AcceptLog.RunId);
         }
 
         private static IEnumerable<Wait> WaitMembers(Step step)
@@ -264,8 +362,31 @@ namespace UiAcceptance
         {
             yield return new Until("own lobby member", () => LobbyReady() && Self() != null);
             yield return new Until("map valid", () => Lobby.currentLobby.isHost || (bool)GameSteps.Read(typeof(FRONT_Multiplayer), Lobby, "MPMapValid", BindingFlags.Instance));
-            if (!Self().ready) Lobby.ButtonClicked("Ready");
-            yield return new Until("own ready state", () => Self()?.ready == true);
+            if (step.Arg(0, "") == "after-peers")
+            {
+                Runner.Require(Lobby.currentLobby.isHost, "waiting for peers before Ready requires the host");
+                yield return new Until("remote human ready", () => LobbyReady() &&
+                    Lobby.currentLobby.members.Exists(m => IsHuman(m) && !m.IsSelf() && !m.dummyToBeKicked) &&
+                    Lobby.currentLobby.members.TrueForAll(m => !IsHuman(m) || m.IsSelf() || m.ready || m.dummyToBeKicked));
+            }
+            // A mod launch guard (e.g. APIShared's production-rule agreement) can still be waiting and
+            // reject the first click; repeat it until Ready sticks. Ready is a toggle, so never click
+            // while already ready, and leave the state time to update between clicks.
+            DateTime nextClick = DateTime.MinValue;
+            int clicks = 0;
+            yield return new Until("own ready state", () =>
+            {
+                var self = Self();
+                if (self?.ready == true) return true;
+                if (self != null && DateTime.UtcNow >= nextClick)
+                {
+                    nextClick = DateTime.UtcNow.AddSeconds(5);
+                    clicks++;
+                    Lobby.ButtonClicked("Ready");
+                }
+                return false;
+            });
+            if (clicks > 1) AcceptLog.Info("MP_READY clicks=" + clicks);
             if (Lobby.currentLobby.isHost)
                 yield return new Until("all human members ready", () => Lobby.currentLobby.members.TrueForAll(m => !IsHuman(m) || m.ready || m.dummyToBeKicked));
         }
@@ -275,11 +396,11 @@ namespace UiAcceptance
         private static IEnumerable<Wait> MpLoadSave(Step step)
         {
             yield return new Until("hosted lobby", () => LobbyReady() && Lobby.currentLobby.isHost);
-            string wanted = Path.GetFileNameWithoutExtension(step.Arg(0));
+            string wanted = SaveName(step);
             FileHeader header = MapFileManager.Instance.GetMPSaves(0, true).Find(h =>
                 string.Equals(Path.GetFileNameWithoutExtension(h.fileName ?? ""), wanted, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(Path.GetFileNameWithoutExtension(h.filePath ?? ""), wanted, StringComparison.OrdinalIgnoreCase));
-            Runner.Require(header != null, "MP save " + step.Arg(0) + " not in Vanilla's MP save list");
+            Runner.Require(header != null, "MP save " + wanted + " not in Vanilla's MP save list");
             Platform_Multiplayer.Instance.SendSaveCRCs(false);
             yield return new Delay(1000);
             long before = Interlocked.Read(ref UiAcceptancePlugin.StartedSession);
@@ -292,7 +413,115 @@ namespace UiAcceptance
             GameSteps.sessionTicks = Volatile.Read(ref UiAcceptancePlugin.Ticks);
         }
 
+        // Without an argument the run's own save name: SerpAcceptance-<RunId>(.msv), the only MP save a run may write.
+        private static string SaveName(Step step)
+        {
+            string name = Path.GetFileNameWithoutExtension(step.Arg(0, "SerpAcceptance-" + AcceptLog.RunId + ".msv"));
+            Runner.Require(name.Length > 0 && name.IndexOfAny(Path.GetInvalidFileNameChars()) < 0, "invalid MP save name: " + name);
+            return name;
+        }
+
+        // Host: Vanilla's MP save (every peer writes its own copy at the same simulation point), then waits
+        // until the local file is newer than the step start and its size has been stable for one second.
+        private static IEnumerable<Wait> SaveConfirmed(Step step)
+        {
+            var mission = UiAcceptancePlugin.Missions?.Current;
+            Runner.Require(mission?.Mode.IsRealMultiplayer == true && mission.IsHost == true, "an MP save requires the host of a real multiplayer mission");
+            string name = SaveName(step);
+            string path = Path.Combine(ConfigSettings.GetSavesPath(), name + ".msv");
+            var previous = new FileInfo(path);
+            DateTime after = previous.Exists ? previous.LastWriteTimeUtc : DateTime.UtcNow.AddSeconds(-2);
+            EngineInterface.TriggerMPSave(name + ".msv");
+            APIShared.Simulation.SimulationTickEvents.TryGetCurrentTick(out int tick);
+            AcceptLog.Info("MP_SAVE_TRIGGERED name=" + name + " path=" + path + " mapTick=" + tick + " replaces=" + previous.Exists);
+            foreach (Wait wait in AwaitStableFile(path, after, previous.Exists)) yield return wait;
+        }
+
+        // Client: the same save written by its own game, newer than the current mission start.
+        private static IEnumerable<Wait> AwaitSaveFile(Step step)
+        {
+            var mission = UiAcceptancePlugin.Missions?.Current;
+            Runner.Require(mission?.Mode.IsRealMultiplayer == true, "the MP save is only written in a real multiplayer mission");
+            string path = Path.Combine(ConfigSettings.GetSavesPath(), SaveName(step) + ".msv");
+            var started = new DateTime(Interlocked.Read(ref UiAcceptancePlugin.StartedUtcTicks), DateTimeKind.Utc);
+            foreach (Wait wait in AwaitStableFile(path, started.AddSeconds(-2), false)) yield return wait;
+        }
+
+        private static IEnumerable<Wait> AwaitStableFile(string path, DateTime after, bool strictlyNewer)
+        {
+            long length = -1;
+            DateTime written = DateTime.MinValue;
+            var stable = System.Diagnostics.Stopwatch.StartNew();
+            yield return new Until("stable MP save " + path, () =>
+            {
+                var file = new FileInfo(path);
+                if (!file.Exists || file.Length <= 0 || (strictlyNewer ? file.LastWriteTimeUtc <= after : file.LastWriteTimeUtc < after))
+                {
+                    length = -1;
+                    return false;
+                }
+                if (file.Length != length || file.LastWriteTimeUtc != written)
+                {
+                    length = file.Length;
+                    written = file.LastWriteTimeUtc;
+                    stable.Restart();
+                    return false;
+                }
+                return stable.ElapsedMilliseconds >= 1000;
+            });
+            AcceptLog.Info("MP_SAVE_FILE path=" + path + " bytes=" + length + " writtenUtc=" + written.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+        }
+
         // Workspace rule: a run counts as real MP only with several human participants in the snapshot.
+        // Vanilla's lobby slider stops at 80; faster MP speeds go through BugfixesAndQoL's synchronized
+        // time-control Chore (limited by its host setting MultiplayerGameSpeedMaximum, at most 200).
+        // args: speed. Host only; every peer then checks the result with Mp.ExpectSpeed.
+        private static IEnumerable<Wait> SetMultiplayerSpeed(Step step)
+        {
+            const BindingFlags instance = BindingFlags.Instance | BindingFlags.NonPublic;
+            Runner.Require(BepInEx.Bootstrap.Chainloader.PluginInfos.TryGetValue("BugfixesAndQoL_Serp", out BepInEx.PluginInfo info),
+                "BugfixesAndQoL is not installed");
+            // The object stays usable after BepInEx's manager is destroyed; only its Unity side is gone.
+            object plugin = info.Instance;
+            object runtime = plugin?.GetType().GetField("runtime", instance)?.GetValue(plugin);
+            object speed = runtime?.GetType().GetField("multiplayerGameSpeedRuntime", instance)?.GetValue(runtime);
+            MethodInfo queue = speed?.GetType().GetMethod("TryQueueChange", instance, null,
+                new[] { typeof(int), typeof(int), typeof(string), typeof(int) }, null);
+            Runner.Require(queue != null && queue.ReturnType == typeof(bool), "BugfixesAndQoL multiplayer speed contract differs");
+            const int setAction = 3;
+            int target = step.Int(0);
+            // A request right at the mission start can be queued and still never execute; ask once the
+            // simulation runs and repeat until the synchronized speed arrived on this peer.
+            yield return new Until("running simulation", () => Director.instance != null && Director.instance.SimRunning);
+            DateTime nextRequest = DateTime.MinValue;
+            yield return new Until("engine speed " + target, () =>
+            {
+                if (Director.instance.EngineFrameRate == target) return true;
+                if (DateTime.UtcNow >= nextRequest)
+                {
+                    nextRequest = DateTime.UtcNow.AddSeconds(5);
+                    bool queued = (bool)queue.Invoke(speed, new object[] { setAction, target, "ui-acceptance", 0 });
+                    AcceptLog.Info("MP_SPEED_REQUEST target=" + target + " queued=" + queued + " current=" + Director.instance.EngineFrameRate);
+                }
+                return false;
+            });
+            AcceptLog.Info("MP_SPEED speed=" + Director.instance.EngineFrameRate);
+        }
+
+        // args: speed. Waits until the synchronized engine speed arrived on this peer.
+        private static IEnumerable<Wait> ExpectMultiplayerSpeed(Step step)
+        {
+            int target = step.Int(0), seen = int.MinValue;
+            yield return new Until("engine speed " + target, () =>
+            {
+                if (Director.instance == null) return false;
+                int current = (int)Director.instance.EngineFrameRate;
+                if (current != seen) { seen = current; AcceptLog.Info("MP_SPEED_SEEN speed=" + current); }
+                return current == target;
+            });
+            AcceptLog.Info("MP_SPEED speed=" + Director.instance.EngineFrameRate);
+        }
+
         private static IEnumerable<Wait> ExpectRealMultiplayer(Step step)
         {
             yield return new Until("mission context", () => UiAcceptancePlugin.LastContext != null);

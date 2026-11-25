@@ -10,10 +10,11 @@
     <GameDir Condition="'$(GameDir)' == ''">E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition</GameDir>
     <ExtenderDir Condition="'$(ExtenderDir)' == ''">$(GameDir)/BepInEx/plugins/000shcdese</ExtenderDir>
     <ApiSharedDir Condition="'$(ApiSharedDir)' == ''">../../../APIShared/BepInEx/plugins/APIShared_Serp</ApiSharedDir>
+    <ImprovedHuntersDir Condition="'$(ImprovedHuntersDir)' == ''">../../BepInEx/plugins/ImprovedHunters_Serp</ImprovedHuntersDir>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System"/><Reference Include="System.Core"/>
-    <Reference Include="ImprovedHunters"><HintPath>../../BepInEx/plugins/ImprovedHunters_Serp/ImprovedHunters.dll</HintPath></Reference>
+    <Reference Include="ImprovedHunters"><HintPath>$(ImprovedHuntersDir)/ImprovedHunters.dll</HintPath></Reference>
     <Reference Include="APIShared"><HintPath>$(ApiSharedDir)/APIShared.dll</HintPath></Reference>
     <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)/SHCDESE.dll</HintPath></Reference>
     <Reference Include="BepInEx"><HintPath>$(GameDir)/BepInEx/core/BepInEx.dll</HintPath></Reference>

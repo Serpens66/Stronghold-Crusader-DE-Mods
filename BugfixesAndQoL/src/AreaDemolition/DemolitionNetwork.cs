@@ -39,7 +39,7 @@ namespace BugfixesAndQoL.AreaDemolition
         private DemolitionTarget[][] batches;
         private DemolitionSimulationPacket inflight;
         private GameplayDispatchTicket inflightDispatch;
-        private bool proofSubmitted, ready, failed, cancelled;
+        private bool proofSubmitted, proofAcksDirty, ready, failed, cancelled;
 
         private sealed class Outbound
         {
@@ -115,6 +115,8 @@ namespace BugfixesAndQoL.AreaDemolition
                 Outbound item;
                 lock(sync)
                 {
+                    // A local native reply can arrive between the pump's initial check and transport entry.
+                    if(proofAcksDirty && IsCurrent())EvaluateProofAcks();
                     if(outbox.Count==0)break;
                     item=outbox.Dequeue();
                     if(item.Generation!=generation || !IsCurrent())
@@ -221,6 +223,7 @@ namespace BugfixesAndQoL.AreaDemolition
                         break;
                     case ControlPacketKind.ProofAck:
                         if(!proofSubmitted || !proofAcks.TryAccept(message.SenderSteamId,packet))return;
+                        proofAcksDirty=true;
                         EvaluateProofAcks();
                         break;
                     case ControlPacketKind.ExecutionAck:
@@ -248,16 +251,25 @@ namespace BugfixesAndQoL.AreaDemolition
             token=ProtocolPolicy.WorldToken(fingerprint,vector);
             proofAttempt=checked(proofAttempt+1);
             proofAcks.Begin(localSteam,nonce,token,proofAttempt,vector);
+            proofAcksDirty=false;
             vectors[token]=vector; proofSubmitted=true;
             QueueSimulation(new DemolitionSimulationPacket {Kind=(byte)SimulationPacketKind.ReadyProof,Token=token,Nonce=nonce,Operation=proofAttempt,Payload=ProtocolPolicy.EncodePeers(vector,true),Digest=fingerprint});
         }
         private void EvaluateProofAcks()
         {
-            if(ready || !proofSubmitted || failed)return;
+            if(!proofAcksDirty)return;
+            proofAcksDirty=false;
+            if(!proofSubmitted || failed)return;
             var outcome=proofAcks.Evaluate();
-            if(outcome==ReadinessAckState.Pending)return;
-            if(outcome==ReadinessAckState.Mismatch)
-            { failed=true; status="Peers disagree about the native readiness proof."; return; }
+            if(outcome==NativeReadinessState.Pending)return;
+            if(outcome==NativeReadinessState.Mismatch)
+            {
+                ready=false; failed=true; status="Peers disagree about the native readiness proof.";
+                if(inflight==null)batches=null;
+                else CancelQueuedBatch();
+                return;
+            }
+            if(ready)return;
             ready=true; status=batches==null ? "Ready." : "Waiting for synchronized demolition.";
             TryQueueBatch();
         }
@@ -351,7 +363,10 @@ namespace BugfixesAndQoL.AreaDemolition
             // Only copied protocol data crosses threads; Pump performs every send on Unity.
             if(destination==localSteam)
             {
-                if((ControlPacketKind)packet.Kind==ControlPacketKind.ProofAck) {if(proofSubmitted)proofAcks.TryAccept(localSteam,packet);}
+                if((ControlPacketKind)packet.Kind==ControlPacketKind.ProofAck)
+                {
+                    if(proofSubmitted && proofAcks.TryAccept(localSteam,packet))proofAcksDirty=true;
+                }
                 else AcceptExecutionAck(localSteam,packet);
                 // Do not queue subsequent Chores from simulation; evaluation happens in Pump.
             }

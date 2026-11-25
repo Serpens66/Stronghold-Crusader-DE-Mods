@@ -19,7 +19,7 @@ namespace PlayerControlRelayTest
         internal int Stance { get; }
         internal int Skipped { get; }
     }
-    internal delegate bool RelayUnitResolver(int slot, int owner, uint maxGlobalId, out int tribe, out int stance);
+    internal delegate bool RelayUnitResolver(RelayUnit expected, out int tribe, out int stance);
     internal delegate int RelayTribeMemberCount(int tribe);
 
     internal static class RelayValidation
@@ -48,21 +48,21 @@ namespace PlayerControlRelayTest
             plan = null;
             if (!TryValidate(command, mapWidth, mapHeight, out reason)) return false;
             if (resolveUnit == null || memberCount == null) { reason = "Live object resolution is unavailable."; return false; }
-            var slots = new List<int>(command.Slots.Count);
-            var tribes = new List<int>(command.Slots.Count);
+            var slots = new List<int>(command.Units.Count);
+            var tribes = new List<int>(command.Units.Count);
             var stances = new int[StanceCount];
-            foreach (int slot in command.Slots)
+            foreach (RelayUnit unit in command.Units)
             {
                 // Units that died or may not be ordered right now drop out; the others still obey.
-                if (!resolveUnit(slot, command.Owner, command.MaxGlobalId, out int tribe, out int stance) ||
+                if (!resolveUnit(unit, out int tribe, out int stance) ||
                     stance < 0 || stance >= StanceCount) continue;
-                slots.Add(slot); tribes.Add(tribe); stances[stance]++;
+                slots.Add(unit.Slot); tribes.Add(tribe); stances[stance]++;
             }
             if (slots.Count == 0) { reason = "None of the requested units can be ordered any more."; return false; }
             int shared = tribes[0];
             foreach (int tribe in tribes) if (tribe != shared) { shared = 0; break; }
             if (shared > 0 && memberCount(shared) != slots.Count) shared = 0;
-            plan = new RelayOrderPlan(slots.ToArray(), tribes.ToArray(), shared, MajorityStance(stances), command.Slots.Count - slots.Count);
+            plan = new RelayOrderPlan(slots.ToArray(), tribes.ToArray(), shared, MajorityStance(stances), command.Units.Count - slots.Count);
             return true;
         }
 

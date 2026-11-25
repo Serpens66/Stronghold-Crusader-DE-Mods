@@ -81,6 +81,7 @@ namespace BugfixesAndQoL
             {
                 TestCoopCustomLordSelectionPolicy();
                 TestCustomCoopAivSyncPolicy();
+                TestMultiplayerAivMissionManifest();
                 TestTrailCustomizationOwnership();
                 Console.WriteLine("Coop AI policy and integration checks: failures=" + failures);
                 return failures == 0 ? 0 : 1;
@@ -122,6 +123,7 @@ namespace BugfixesAndQoL
             TestSurrenderSelectionCleanup();
             TestCoopCustomLordSelectionPolicy();
             TestCustomCoopAivSyncPolicy();
+            TestMultiplayerAivMissionManifest();
             TestTrailCustomizationOwnership();
             TestTunnelPlacementDistancePolicy();
             TestTunnelPlacementDistanceIntegration();
@@ -3160,6 +3162,46 @@ namespace BugfixesAndQoL
                 !MultiplayerAivSyncPolicy.CanUseConfirmedManifest(true, 1, true, true, 17, 18) &&
                 !MultiplayerAivSyncPolicy.CanUseConfirmedManifest(false, 1, true, true, 17, 17),
                 "confirmed extra AIV candidates apply to the current Coop Trail lobby, including replacement Trails");
+        }
+
+        private static void TestMultiplayerAivMissionManifest()
+        {
+            var history = new MultiplayerAivMissionManifest();
+            byte[] payload = { 1, 2, 3 };
+            history.RecordLoad(10, 100, payload);
+            history.RecordEnd(10, 11);
+            Check(history.TakeReplacement(100, true) == null,
+                "a load retired before managed readiness does not authorize a replacement AIV import");
+
+            history.RecordLoad(20, 100, payload);
+            history.RecordStart(20);
+            history.RecordEnd(20, 21);
+            Check(history.TakeReplacement(101, true) == null && history.TakeReplacement(100, false) == null,
+                "the confirmed AIV payload requires both the same lobby and an explicit linked restart");
+            history.RecordEnd(20, null);
+            Check(ReferenceEquals(history.TakeReplacement(100, true), payload) &&
+                history.TakeReplacement(100, true) == null,
+                "an older end cannot clear the new target and its confirmed AIV payload is taken once");
+
+            history.RecordLoad(21, 100, payload);
+            history.RecordStart(21);
+            history.RecordEnd(21, 22);
+            history.RecordEnd(22, null);
+            Check(history.TakeReplacement(100, true) == null,
+                "cancelling a linked AIV restart burns its unused payload");
+
+            history.RecordLoad(25, 100, payload);
+            history.RecordStart(25);
+            history.RecordEnd(25, 26);
+            history.RecordStart(26);
+            Check(history.TakeReplacement(100, true) == null,
+                "a replacement which completed on another route cannot reuse the old AIV payload");
+
+            history.RecordLoad(30, 100, payload);
+            history.RecordStart(30);
+            history.RecordEnd(30, null);
+            Check(history.TakeReplacement(100, true) == null,
+                "an ordinary mission end retires the AIV payload even within the same lobby");
         }
 
         private static void TestClassicMapSizeReader()

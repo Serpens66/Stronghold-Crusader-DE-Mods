@@ -251,6 +251,12 @@ namespace Pathfinding
             ResetMapValidation();
         }
 
+        internal void ResetRepairDerivedState()
+        {
+            ClearTransientState();
+            ResetMapValidation();
+        }
+
         public void Dispose()
         {
             if (sharedBuilderRegistered) return; // Published handler and subscriptions live until process exit.

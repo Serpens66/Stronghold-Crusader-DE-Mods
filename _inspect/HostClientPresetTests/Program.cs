@@ -138,6 +138,11 @@ internal static class Program
                 Console.WriteLine("PASS: Spectator statistics and gameplay-action permissions across mission modes, saves and restarts.");
                 return 0;
             }
+            if (args != null && args.Length == 1 && args[0] == "auto-send-settings")
+            {
+                AutoSendSettingsPresetTests.Run();
+                return 0;
+            }
             if (args != null && args.Length == 1 && args[0] == "peace-proximity")
             {
                 PeaceTimeProximityPresetTests.Run();
@@ -272,6 +277,7 @@ internal static class Program
             TestNoKillRewardHostSettings();
             TestGameplayGateSourceIntegration();
             TestLocalPerPlayerSetting();
+            AutoSendSettingsPresetTests.Run();
             TestShiftRepairAllBuildingsPolicy();
             TestMarketGoodsOrderDefinition();
             TestResyncHostKickPolicy();
@@ -966,8 +972,9 @@ internal static class Program
     {
         string root = Path.GetFullPath(Path.Combine(
             AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
-        string bugfixes = File.ReadAllText(Path.Combine(
-            root, "BugfixesAndQoL", "src", "Settings/BugfixesAndQoLViewModel.cs"));
+        string bugfixes = string.Join(Environment.NewLine, Directory.GetFiles(
+            Path.Combine(root, "BugfixesAndQoL", "src", "Settings"), "BugfixesAndQoLViewModel*.cs")
+            .OrderBy(path => path, StringComparer.Ordinal).Select(File.ReadAllText));
         var personalSettings = System.Text.RegularExpressions.Regex.Matches(
             bugfixes, @"\[SyncPerPlayer(?:\s*,[^\]]+)?\]\s*public\s+[\w<>,.\[\]\s]+?\s+(?<name>\w+)\s*\{");
         Check(personalSettings.Count > 0 && bugfixes.Contains("ConfigurePerPlayerLobbySettings("),

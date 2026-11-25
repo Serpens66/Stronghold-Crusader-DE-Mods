@@ -1,5 +1,6 @@
 using APIShared.ModSettings;
 using APIShared.Input;
+using BugfixesAndQoL.AreaConstruction;
 // Feature: Lobby settings model for the Bugfixes and QoL features.
 using SHCDESE.API.Components.Network;
 using SHCDESE.NoesisUtil;
@@ -8,6 +9,7 @@ using CrusaderDE;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Windows.Input;
 using BepInEx.Logging;
 using Noesis;
@@ -46,6 +48,8 @@ namespace BugfixesAndQoL
 
         private void OnSettingsPresentationPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
+            if (args.PropertyName == nameof(CanEditClientSettings))
+                OnPropertyChanged(nameof(CanConfigureAutoSend));
             if (args.PropertyName == nameof(CanEditHostSettings))
             {
                 OnPropertyChanged(nameof(CanConfigurePeaceTimeCivilianProximity));
@@ -85,12 +89,21 @@ namespace BugfixesAndQoL
         private bool showMpAdvancedSettingsInSingleplayer = true;
         private bool rememberAiAivSettings = true;
         private bool enableCustomLordListEnhancements = true;
+        private bool enableAiMarketOverbuyFix = true;
         private bool enableAiStoneReserveFix = true;
         private bool enableAiSellThresholdFix = false;
         private bool enableAiDefensePatrolFix = true;
         private bool enableAiOutpostRetargetFix = true;
         private bool enableAiRaidRetargetFix = true;
         private bool enableMoatTerrainRestoration = true;
+        private bool enableWallDepositRestoration = true;
+        private bool enableCrenelCheckerboard = true;
+        private bool alignExistingCrenelsInEditor;
+        private bool alignExistingCrenelsOnSaveLoad;
+        private bool alignExistingCrenelsOnMapStart;
+        private bool enableOccupiedWallDemolition = true;
+        private int emptyStockpileLimit = StorageEmptyLimitPolicy.Vanilla;
+        private int emptyGranaryArmouryLimit = StorageEmptyLimitPolicy.Vanilla;
         private bool enableDrawbridgeDestructionFix = true;
         private bool enableSiegeCrewDuplicationFix = true;
         private bool enableSiegeCrewFireLossFix = true;
@@ -124,6 +137,7 @@ namespace BugfixesAndQoL
         private bool enableConnectionRecoverySave = true;
         private bool enableResyncHostKick = true;
         private bool enableReturnToMultiplayerLobby = true;
+        private bool enableIngameMultiplayerSaveLoading = true;
         private bool enableCtrlSingleMarketTrade = true;
         private bool enableSingleBuildingPause = true;
         private bool enableNearestWaterboyTargeting = true;
@@ -157,6 +171,12 @@ namespace BugfixesAndQoL
         private bool enableGatehouseTargetMarkerHeightFix = true;
         private bool enableTroopPanelPageCountFix = true;
         private bool enableVanillaPerformanceOptimizations = true;
+        private const int DefaultProjectileTrailLength = 5;
+        private const int DefaultProjectileTrailMaximum = 10000;
+        private bool enableProjectileTrails = true;
+        private int projectileTrailLength = DefaultProjectileTrailLength;
+        private int projectileTrailMaximum = DefaultProjectileTrailMaximum;
+        private bool replaceStandardProjectileAfterimages = true;
         private bool enableMinimapRefreshThrottle = true;
         private SpriteSheetMergeMode spriteSheetMergeMode = SpriteSheetMergeMode.Automatic;
         private bool enableWorkshopUploadLordSelectionFix = true;
@@ -171,6 +191,7 @@ namespace BugfixesAndQoL
         private bool enableImprovedBuildPreview = true;
         private bool enablePitchMoatLines = true;
         private bool enableAreaDemolition = true;
+        private bool enableAreaConstruction = true;
         private bool enableDamagedHealthBars = true;
         private int healthBarHotkey = DefaultHealthBarHotkey;
         private ModKeybindRegistration healthBarKeybind;
@@ -235,6 +256,7 @@ namespace BugfixesAndQoL
                 nameof(EnableBriefingNoStartingGoldFix),
                 nameof(EnableTroopHudMiddleClickCameraJump),
                 nameof(EnableClientFeatures),
+                nameof(EnableAutoSend),
                 nameof(AllowMinimapWhilePlacingBuilding),
                 nameof(PreventMoveOrderOnPlacementCancel),
                 nameof(AllowCameraMovementWithModifiers),
@@ -376,12 +398,31 @@ namespace BugfixesAndQoL
         public string EnableModText => SerpLocalization.Get(SerpLocalization.EnableMod);
         public string EnableClientFeaturesText => SerpLocalization.Get("BugfixesAndQoL.EnableClientFeatures");
         public string EnableClientFeaturesHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableClientFeaturesHelp");
+        public string EnableAutoSendText => SerpLocalization.Get("BugfixesAndQoL.EnableAutoSend");
+        public string EnableAutoSendHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAutoSendHelp");
         public string EnableHostFeaturesText => SerpLocalization.Get("BugfixesAndQoL.EnableHostFeatures");
         public string EnableHostFeaturesHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableHostFeaturesHelp");
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
         public string QolTitleText => SerpLocalization.Get("BugfixesAndQoL.QolTitle");
         public string EnableMoatTerrainRestorationText => SerpLocalization.Get("BugfixesAndQoL.EnableMoatTerrainRestoration");
         public string EnableMoatTerrainRestorationHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMoatTerrainRestorationHelp");
+        public string EnableWallDepositRestorationText => SerpLocalization.Get("BugfixesAndQoL.EnableWallDepositRestoration");
+        public string EnableWallDepositRestorationHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableWallDepositRestorationHelp");
+        public string EnableCrenelCheckerboardText => SerpLocalization.Get("BugfixesAndQoL.EnableCrenelCheckerboard");
+        public string EnableCrenelCheckerboardHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCrenelCheckerboardHelp");
+        public string AlignExistingCrenelsText => SerpLocalization.Get("BugfixesAndQoL.AlignExistingCrenels");
+        public string AlignExistingCrenelsInEditorText => SerpLocalization.Get("BugfixesAndQoL.AlignExistingCrenelsInEditor");
+        public string AlignExistingCrenelsInEditorHelpText => SerpLocalization.Get("BugfixesAndQoL.AlignExistingCrenelsInEditorHelp");
+        public string AlignExistingCrenelsOnSaveLoadText => SerpLocalization.Get("BugfixesAndQoL.AlignExistingCrenelsOnSaveLoad");
+        public string AlignExistingCrenelsOnSaveLoadHelpText => SerpLocalization.Get("BugfixesAndQoL.AlignExistingCrenelsOnSaveLoadHelp");
+        public string AlignExistingCrenelsOnMapStartText => SerpLocalization.Get("BugfixesAndQoL.AlignExistingCrenelsOnMapStart");
+        public string AlignExistingCrenelsOnMapStartHelpText => SerpLocalization.Get("BugfixesAndQoL.AlignExistingCrenelsOnMapStartHelp");
+        public string EnableOccupiedWallDemolitionText => SerpLocalization.Get("BugfixesAndQoL.EnableOccupiedWallDemolition");
+        public string EnableOccupiedWallDemolitionHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableOccupiedWallDemolitionHelp");
+        public string EmptyStockpileLimitText => SerpLocalization.Get("BugfixesAndQoL.EmptyStockpileLimit");
+        public string EmptyStockpileLimitHelpText => SerpLocalization.Get("BugfixesAndQoL.EmptyStockpileLimitHelp");
+        public string EmptyGranaryArmouryLimitText => SerpLocalization.Get("BugfixesAndQoL.EmptyGranaryArmouryLimit");
+        public string EmptyGranaryArmouryLimitHelpText => SerpLocalization.Get("BugfixesAndQoL.EmptyGranaryArmouryLimitHelp");
         public string EnableTreeBlightDecayFixText => SerpLocalization.Get("BugfixesAndQoL.EnableTreeBlightDecayFix");
         public string EnableTreeBlightDecayFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableTreeBlightDecayFixHelp");
 
@@ -430,6 +471,8 @@ namespace BugfixesAndQoL
                 }
             }
         }
+        public string EnableAiMarketOverbuyFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAiMarketOverbuyFix");
+        public string EnableAiMarketOverbuyFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAiMarketOverbuyFixHelp");
         public string EnableAiStoneReserveFixText => SerpLocalization.Get(SerpLocalization.EnableAiStoneReserveFix);
         public string EnableAiSellThresholdFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAiSellThresholdFix");
         public string EnableAiSellThresholdFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAiSellThresholdFixHelp");
@@ -492,6 +535,8 @@ namespace BugfixesAndQoL
         public string EnableConnectionRecoverySaveHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableConnectionRecoverySaveHelp");
         public string EnableReturnToMultiplayerLobbyText => SerpLocalization.Get("BugfixesAndQoL.EnableReturnToMultiplayerLobby");
         public string EnableReturnToMultiplayerLobbyHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableReturnToMultiplayerLobbyHelp");
+        public string EnableIngameMultiplayerSaveLoadingText => SerpLocalization.Get("BugfixesAndQoL.EnableIngameMultiplayerSaveLoading");
+        public string EnableIngameMultiplayerSaveLoadingHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableIngameMultiplayerSaveLoadingHelp");
         public string CustomTrailsTitleText => SerpLocalization.Get("BugfixesAndQoL.CustomTrailsTitle");
         public string EnableMinimapCursorFollowFixText => SerpLocalization.Get("BugfixesAndQoL.EnableMinimapCursorFollowFix");
         public string EnableMinimapCursorFollowFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMinimapCursorFollowFixHelp");
@@ -519,6 +564,8 @@ namespace BugfixesAndQoL
         public string PitchMoatLinesHelpText => SerpLocalization.Get("BugfixesAndQoL.PitchMoatLinesHelp");
         public string EnableAreaDemolitionText => SerpLocalization.Get("BugfixesAndQoL.EnableAreaDemolition");
         public string EnableAreaDemolitionHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAreaDemolitionHelp");
+        public string EnableAreaConstructionText => SerpLocalization.Get("BugfixesAndQoL.EnableAreaConstruction");
+        public string EnableAreaConstructionHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAreaConstructionHelp");
         public string DamagedHealthBarsHotkeyText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsHotkey");
         public string DamagedHealthBarsHotkeyHelpText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsHotkeyHelp");
         public string DamagedHealthBarsCaptureText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsCapture");
@@ -612,6 +659,14 @@ namespace BugfixesAndQoL
         public string EnableTroopPanelPageCountFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableTroopPanelPageCountFixHelp");
         public string EnableVanillaPerformanceOptimizationsText => SerpLocalization.Get("BugfixesAndQoL.EnableVanillaPerformanceOptimizations");
         public string EnableVanillaPerformanceOptimizationsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableVanillaPerformanceOptimizationsHelp");
+        public string EnableProjectileTrailsText => SerpLocalization.Get("BugfixesAndQoL.EnableProjectileTrails");
+        public string EnableProjectileTrailsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableProjectileTrailsHelp");
+        public string ProjectileTrailLengthText => SerpLocalization.Get("BugfixesAndQoL.ProjectileTrailLength");
+        public string ProjectileTrailLengthHelpText => SerpLocalization.Get("BugfixesAndQoL.ProjectileTrailLengthHelp");
+        public string ProjectileTrailMaximumText => SerpLocalization.Get("BugfixesAndQoL.ProjectileTrailMaximum");
+        public string ProjectileTrailMaximumHelpText => SerpLocalization.Get("BugfixesAndQoL.ProjectileTrailMaximumHelp");
+        public string ReplaceStandardProjectileAfterimagesText => SerpLocalization.Get("BugfixesAndQoL.ReplaceStandardProjectileAfterimages");
+        public string ReplaceStandardProjectileAfterimagesHelpText => SerpLocalization.Get("BugfixesAndQoL.ReplaceStandardProjectileAfterimagesHelp");
         public string EnableMinimapRefreshThrottleText => SerpLocalization.Get("BugfixesAndQoL.EnableMinimapRefreshThrottle");
         public string EnableMinimapRefreshThrottleHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMinimapRefreshThrottleHelp");
         public string SpriteSheetMergeModeText => SerpLocalization.Get("BugfixesAndQoL.SpriteSheetMergeMode");
@@ -815,6 +870,13 @@ namespace BugfixesAndQoL
         }
 
         [APIShared.ModSettings.PresetLocal]
+        public bool EnableAreaConstruction
+        {
+            get => enableAreaConstruction;
+            set => SetSetting(ref enableAreaConstruction, value, nameof(EnableAreaConstruction));
+        }
+
+        [APIShared.ModSettings.PresetLocal]
         public bool EnableDamagedHealthBars
         {
             get => enableDamagedHealthBars;
@@ -1003,6 +1065,40 @@ namespace BugfixesAndQoL
         // Effective switch of all of them. Not public, so it is no setting of its own.
         internal bool VanillaPerformanceOptimizationsActive => EnableClientFeatures && EnableVanillaPerformanceOptimizations;
 
+        [PresetLocal]
+        public bool EnableProjectileTrails
+        {
+            get => enableProjectileTrails;
+            set => SetSetting(ref enableProjectileTrails, value, nameof(EnableProjectileTrails));
+        }
+
+        [PresetLocal]
+        public int ProjectileTrailLength
+        {
+            get => projectileTrailLength;
+            set => SetBoundedIntSetting(ref projectileTrailLength, value, 0, 10,
+                nameof(ProjectileTrailLength), nameof(ProjectileTrailLengthValueText));
+        }
+
+        public string ProjectileTrailLengthValueText => ProjectileTrailLength.ToString(CultureInfo.CurrentCulture);
+
+        [PresetLocal]
+        public int ProjectileTrailMaximum
+        {
+            get => projectileTrailMaximum;
+            set => SetBoundedIntSetting(ref projectileTrailMaximum, value, 0, 60000,
+                nameof(ProjectileTrailMaximum), nameof(ProjectileTrailMaximumValueText));
+        }
+
+        public string ProjectileTrailMaximumValueText => ProjectileTrailMaximum.ToString("N0", CultureInfo.CurrentCulture);
+
+        [SyncHostOnly]
+        public bool ReplaceStandardProjectileAfterimages
+        {
+            get => replaceStandardProjectileAfterimages;
+            set => SetSetting(ref replaceStandardProjectileAfterimages, value, nameof(ReplaceStandardProjectileAfterimages));
+        }
+
         // V13 minimap throttle (drawn at most every 100 ms). Presentation only, so a mismatch cannot
         // desync; it is a host value because a lockstep match runs at the speed of its slowest peer.
         [SyncHostOnly]
@@ -1146,6 +1242,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableAiMarketOverbuyFix
+        {
+            get => enableAiMarketOverbuyFix;
+            set => SetSetting(ref enableAiMarketOverbuyFix, value, nameof(EnableAiMarketOverbuyFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableAiStoneReserveFix
         {
             get => enableAiStoneReserveFix;
@@ -1171,6 +1274,101 @@ namespace BugfixesAndQoL
         {
             get => enableMoatTerrainRestoration;
             set => SetSetting(ref enableMoatTerrainRestoration, value, nameof(EnableMoatTerrainRestoration));
+        }
+
+        [SyncHostOnly]
+        public bool EnableWallDepositRestoration
+        {
+            get => enableWallDepositRestoration;
+            set => SetSetting(ref enableWallDepositRestoration, value, nameof(EnableWallDepositRestoration));
+        }
+
+        // Crenel checkerboard (src/Crenels). All four values are frozen per session at its start.
+        [SyncHostOnly]
+        public bool EnableCrenelCheckerboard
+        {
+            get => enableCrenelCheckerboard;
+            set => SetSetting(ref enableCrenelCheckerboard, value, nameof(EnableCrenelCheckerboard));
+        }
+
+        [SyncHostOnly]
+        public bool AlignExistingCrenelsInEditor
+        {
+            get => alignExistingCrenelsInEditor;
+            set => SetSetting(ref alignExistingCrenelsInEditor, value, nameof(AlignExistingCrenelsInEditor));
+        }
+
+        [SyncHostOnly]
+        public bool AlignExistingCrenelsOnSaveLoad
+        {
+            get => alignExistingCrenelsOnSaveLoad;
+            set => SetSetting(ref alignExistingCrenelsOnSaveLoad, value, nameof(AlignExistingCrenelsOnSaveLoad));
+        }
+
+        [SyncHostOnly]
+        public bool AlignExistingCrenelsOnMapStart
+        {
+            get => alignExistingCrenelsOnMapStart;
+            set => SetSetting(ref alignExistingCrenelsOnMapStart, value, nameof(AlignExistingCrenelsOnMapStart));
+        }
+
+        [SyncHostOnly]
+        public bool EnableOccupiedWallDemolition
+        {
+            get => enableOccupiedWallDemolition;
+            set => SetSetting(ref enableOccupiedWallDemolition, value, nameof(EnableOccupiedWallDemolition));
+        }
+
+        [SyncHostOnly]
+        public int EmptyStockpileLimit
+        {
+            get => emptyStockpileLimit;
+            set => SetEmptyStorageLimit(ref emptyStockpileLimit, value, nameof(EmptyStockpileLimit),
+                nameof(EmptyStockpileLimitSliderValue), nameof(EmptyStockpileLimitValueText));
+        }
+
+        [SyncHostOnly]
+        public int EmptyGranaryArmouryLimit
+        {
+            get => emptyGranaryArmouryLimit;
+            set => SetEmptyStorageLimit(ref emptyGranaryArmouryLimit, value, nameof(EmptyGranaryArmouryLimit),
+                nameof(EmptyGranaryArmouryLimitSliderValue), nameof(EmptyGranaryArmouryLimitValueText));
+        }
+
+        [SHCDESE.API.Components.ModManager.DoNotPersist]
+        public int EmptyStockpileLimitSliderValue
+        {
+            get => StorageLimitSliderValue(EmptyStockpileLimit);
+            set
+            {
+                if (CanApplyStorageSliderValue(value, EmptyStockpileLimitSliderValue))
+                    EmptyStockpileLimit = StorageLimitFromSlider(value);
+            }
+        }
+
+        [SHCDESE.API.Components.ModManager.DoNotPersist]
+        public int EmptyGranaryArmouryLimitSliderValue
+        {
+            get => StorageLimitSliderValue(EmptyGranaryArmouryLimit);
+            set
+            {
+                if (CanApplyStorageSliderValue(value, EmptyGranaryArmouryLimitSliderValue))
+                    EmptyGranaryArmouryLimit = StorageLimitFromSlider(value);
+            }
+        }
+
+        [SHCDESE.API.Components.ModManager.DoNotPersist]
+        public string EmptyStockpileLimitValueText
+        {
+            get => EmptyStockpileLimit.ToString(CultureInfo.InvariantCulture);
+            set => EmptyStockpileLimit = ParseStorageLimit(value);
+        }
+
+        [SHCDESE.API.Components.ModManager.DoNotPersist]
+        public string EmptyGranaryArmouryLimitValueText
+        {
+            get => EmptyGranaryArmouryLimit.ToString(CultureInfo.InvariantCulture);
+            set => EmptyGranaryArmouryLimit = ParseStorageLimit(value);
         }
 
         [SyncHostOnly]
@@ -1515,6 +1713,13 @@ namespace BugfixesAndQoL
             set => SetSetting(ref enableReturnToMultiplayerLobby, value, nameof(EnableReturnToMultiplayerLobby));
         }
 
+        [SyncHostOnly, MissionIndependent]
+        public bool EnableIngameMultiplayerSaveLoading
+        {
+            get => enableIngameMultiplayerSaveLoading;
+            set => SetSetting(ref enableIngameMultiplayerSaveLoading, value, nameof(EnableIngameMultiplayerSaveLoading));
+        }
+
         [SyncHostOnly]
         public bool EnableCtrlSingleMarketTrade
         {
@@ -1603,18 +1808,28 @@ namespace BugfixesAndQoL
             if (CanEditHostSettings)
             {
                 EnableMod = true;
+                ReplaceStandardProjectileAfterimages = true;
                 EnableRandomOpponentSelectionEnhancements = true;
                 EnableMultiplayerStartupStateFix = true;
                 EnablePeaceTimeGameplayFixes = true;
                 EnablePeaceTimeCivilianProximityReduction = true;
                 AllowFullAiMultiplayerLobby = true;
                 ShowMpAdvancedSettingsInSingleplayer = true;
+                EnableAiMarketOverbuyFix = true;
                 EnableAiStoneReserveFix = true;
                 EnableAiSellThresholdFix = false;
                 EnableAiDefensePatrolFix = true;
                 EnableAiOutpostRetargetFix = true;
                 EnableAiRaidRetargetFix = true;
                 EnableMoatTerrainRestoration = true;
+                EnableWallDepositRestoration = true;
+                EnableCrenelCheckerboard = true;
+                AlignExistingCrenelsInEditor = false;
+                AlignExistingCrenelsOnSaveLoad = false;
+                AlignExistingCrenelsOnMapStart = false;
+                EnableOccupiedWallDemolition = true;
+                EmptyStockpileLimit = StorageEmptyLimitPolicy.Vanilla;
+                EmptyGranaryArmouryLimit = StorageEmptyLimitPolicy.Vanilla;
                 EnablePitchStairsFix = true;
                 EnableDrawbridgeDestructionFix = true;
                 EnableSiegeCrewDuplicationFix = true;
@@ -1671,8 +1886,16 @@ namespace BugfixesAndQoL
                 EnableTrailCustomizationButtons = true;
             }
 
+            // The host's personal preference is not locked by a mission's gameplay rules.
+            if (CanEditMissionIndependentHostSettings)
+                EnableIngameMultiplayerSaveLoading = true;
+
             // Every participant resets only their own per-player preferences.
             EnableClientFeatures = true;
+            EnableAutoSend = true;
+            EnableProjectileTrails = true;
+            ProjectileTrailLength = DefaultProjectileTrailLength;
+            ProjectileTrailMaximum = DefaultProjectileTrailMaximum;
             EnableLordAndMapListEnhancements = true;
             EnableMissingMapSaveRecovery = true;
             EnableCompactLobbyChat = true;
@@ -1695,6 +1918,7 @@ namespace BugfixesAndQoL
             EnableImprovedBuildPreview = true;
             EnablePitchMoatLines = true;
             EnableAreaDemolition = true;
+            EnableAreaConstruction = true;
             ArabianIdleSoundVolumePercent = DefaultArabianIdleSoundVolumePercent;
             EnableDamagedHealthBars = true;
             HealthBarHotkey = DefaultHealthBarHotkey;
@@ -1861,11 +2085,42 @@ namespace BugfixesAndQoL
             OnPropertyChanged(textPropertyName);
         }
 
+        private static int StorageLimitSliderValue(int limit) =>
+            limit == StorageEmptyLimitPolicy.Vanilla ? 0 : Math.Min(limit, StorageEmptyLimitPolicy.SliderMaximum);
+
+        private static int StorageLimitFromSlider(int sliderValue) =>
+            sliderValue == 0 ? StorageEmptyLimitPolicy.Vanilla : sliderValue;
+
+        // A binding may echo the capped thumb value when the text field commits a higher limit.
+        private static bool CanApplyStorageSliderValue(int value, int current) =>
+            (uint)value <= StorageEmptyLimitPolicy.SliderMaximum && value != current;
+
+        private static int ParseStorageLimit(string text) =>
+            int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value) ? value : 0;
+
+        private void SetEmptyStorageLimit(ref int field, int value, string propertyName,
+            string sliderPropertyName, string textPropertyName)
+        {
+            if (!CanMutateSettingWithDependents(propertyName, sliderPropertyName, textPropertyName))
+                return;
+
+            if (StorageEmptyLimitPolicy.IsValid(value) && field != value)
+            {
+                field = value;
+                SettingChanged?.Invoke(propertyName);
+                OnPropertyChanged(propertyName);
+                OnPropertyChanged(sliderPropertyName);
+            }
+
+            OnPropertyChanged(textPropertyName);
+        }
+
         internal bool TrySetLocalPlayerId(int playerId)
         {
             if (!enableClientFeatures.TrySetLocalPlayerId(playerId))
                 return false;
 
+            enableAutoSend.TrySetLocalPlayerId(playerId);
             enableMinimapCursorFollowFix.TrySetLocalPlayerId(playerId);
             enableCompleteNotificationSkipOnClick.TrySetLocalPlayerId(playerId);
             enableNotificationLastFrame.TrySetLocalPlayerId(playerId);

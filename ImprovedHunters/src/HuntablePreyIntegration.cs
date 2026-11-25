@@ -18,6 +18,7 @@ namespace ImprovedHunters
         private const int ShortLivedCorpseLifetimeTicks = 1800;
         private const int ChickenCorpseLifetimeTicks = 900;
         private bool targetPolicyRegistered, meatHandlerRegistered;
+        private bool meatResyncReady;
 
         private void RegisterHuntingWithApiShared()
         {
@@ -36,6 +37,12 @@ namespace ImprovedHunters
                 OnHunterMeatYield, out string meatReason);
             if (!meatHandlerRegistered)
                 Shared.DebugLogHelper.LogError(log, "Improved Hunters meat settings are unavailable; Hunters get Vanilla's meat: " + meatReason);
+            else
+            {
+                meatResyncReady = HunterMeatYieldEvents.TryEnableMultiplayerResync(out meatReason);
+                if (!meatResyncReady)
+                    Shared.DebugLogHelper.LogError(log, "Improved Hunters meat settings are unavailable in multiplayer: " + meatReason);
+            }
             ApplyPreyRegistrations();
         }
 
@@ -74,7 +81,8 @@ namespace ImprovedHunters
         private void OnHunterMeatYield(HunterMeatYield yield)
         {
             var type = (eChimps)yield.PreyType;
-            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !settings.IsKnownAnimal(type) ||
+            if ((!meatResyncReady && Shared.GameplayModActivationGate.Snapshot.IsRealMultiplayer) ||
+                !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !settings.IsKnownAnimal(type) ||
                 !IsRuntimeHuntingEnabled(type))
                 return;
             yield.BaseAmount = settings.GetMeatAmount(type);

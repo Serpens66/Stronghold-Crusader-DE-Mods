@@ -476,7 +476,7 @@ function Get-PluginSourceMetadata {
     $manifestFiles = @(Get-ChildItem -LiteralPath $modDir -Recurse -File -Filter 'info.json' | Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' })
     $matchingManifests = @()
     foreach ($file in $manifestFiles) {
-        try { $json = Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json } catch { continue }
+        try { $json = Get-Content -LiteralPath $file.FullName -Raw -Encoding UTF8 | ConvertFrom-Json } catch { continue }
         if ([string]$json.GUID -eq $guidMatch.Groups[1].Value) { $matchingManifests += [pscustomobject]@{ File = $file; Json = $json } }
     }
     if ($matchingManifests.Count -eq 0) { Fail-Pack 3 "No info.json matching GUID $($guidMatch.Groups[1].Value) was found for $ModName." }
@@ -576,7 +576,7 @@ function Get-ReleasePackage {
     $shaText = [IO.File]::ReadAllText($sha)
     $declaredMatch = [regex]::Match($shaText, '(?i)\b([0-9a-f]{64})\b')
     if (-not $declaredMatch.Success -or $declaredMatch.Groups[1].Value.ToLowerInvariant() -ne $actual) { Fail-Pack 7 "SHA-256 file mismatch for $($Mod.Name)." }
-    $prov = Get-Content -LiteralPath $provenance -Raw | ConvertFrom-Json
+    $prov = Get-Content -LiteralPath $provenance -Raw -Encoding UTF8 | ConvertFrom-Json
     if ([string]$prov.Package.Sha256 -ne $actual -or [string]$prov.PluginGuid -ne $Mod.PluginGuid -or [string]$prov.Version -ne $Mod.TargetVersion) {
         Fail-Pack 7 "Provenance mismatch for $($Mod.Name)."
     }
@@ -660,7 +660,7 @@ function Get-ApiSharedReleasePackage {
     if (-not $declaredMatch.Success -or $declaredMatch.Groups[1].Value.ToLowerInvariant() -ne $actualHash) {
         Fail-Pack 7 "SHA-256 file mismatch for $tag."
     }
-    $provenance = Get-Content -LiteralPath $provenancePath -Raw | ConvertFrom-Json
+    $provenance = Get-Content -LiteralPath $provenancePath -Raw -Encoding UTF8 | ConvertFrom-Json
     if ([string]$provenance.Mod -cne 'APIShared' -or
         [string]$provenance.PluginGuid -cne $Infrastructure.Guid -or
         [string]$provenance.Version -cne $Infrastructure.Version -or
@@ -695,7 +695,7 @@ function Get-ApiSharedReleasePackage {
     $packageDirectory = Join-Path $audit "BepInEx\plugins\$($Infrastructure.Guid)"
     $manifestPath = Join-Path $packageDirectory 'info.json'
     if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) { Fail-Pack 7 "APIShared release package lacks info.json." }
-    $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+    $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
     if ([string]$manifest.GUID -cne $Infrastructure.Guid -or [string]$manifest.Version -cne $Infrastructure.Version) {
         Fail-Pack 7 "APIShared release manifest identity mismatch for $tag."
     }
@@ -850,7 +850,7 @@ function Set-ModCompatibility {
 function Add-ReleaseProjectIfNeeded {
     param([object[]]$Mods)
     $path = Join-Path $script:Root 'Shared\Tools\Release\release-projects.json'
-    $config = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+    $config = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
     $changed = $false
     foreach ($mod in $Mods) {
         if ($mod.NeedsProjectRegistration) { $config.Projects = @($config.Projects) + $mod.Name; $changed = $true }
@@ -1347,7 +1347,7 @@ function Set-HostVersion {
     $text = [regex]::Replace($text, '(PluginVersion\s*=\s*")[^"]+("\s*;)', '${1}' + $Version + '${2}', 1)
     Write-Utf8CrLf -Path $source -Text $text
     $infoPath = Join-Path $script:Root 'SerpsModsHost\info.json'
-    $info = Get-Content -LiteralPath $infoPath -Raw | ConvertFrom-Json
+    $info = Get-Content -LiteralPath $infoPath -Raw -Encoding UTF8 | ConvertFrom-Json
     $info.Version = $Version
     if ($info.Description -notmatch '^APIShared must') { $info.Description = 'APIShared must be subscribed separately in the Steam Workshop! / APIShared muss separat im Steam Workshop abonniert werden!' + "`n`n" + $info.Description }
     $info | Add-Member -NotePropertyName APISharedWorkshopUrl -NotePropertyValue "https://steamcommunity.com/sharedfiles/filedetails/?id=$ApiSharedWorkshopItemId" -Force
@@ -1360,7 +1360,7 @@ function Set-HostVersion {
     }
     Write-JsonCrLf -Path $infoPath -Value $info
     $stubPath = Join-Path $script:Root 'SerpsModsHost\serps-modpack.json'
-    $stub = Get-Content -LiteralPath $stubPath -Raw | ConvertFrom-Json
+    $stub = Get-Content -LiteralPath $stubPath -Raw -Encoding UTF8 | ConvertFrom-Json
     $stub.PackVersion = $Version; $stub.HostVersion = $Version
     Write-JsonCrLf -Path $stubPath -Value $stub
 }
@@ -1388,7 +1388,7 @@ function Get-PackReleaseState {
             $p.Commit -ceq $release.targetCommitish -and $p.Map.Sha256 -match '^[a-f0-9]{64}$'
     }
     if (-not (Test-Path -LiteralPath $path)) { Fail-Pack 10 "Latest pack provenance is missing for $tag." }
-    $provenance = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+    $provenance = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
     $mapFileName = [string]$provenance.Map.File
     if ([string]::IsNullOrWhiteSpace($mapFileName) -or [IO.Path]::GetFileName($mapFileName) -cne $mapFileName -or
         -not $mapFileName.EndsWith('.map', [StringComparison]::OrdinalIgnoreCase)) {
@@ -1561,7 +1561,7 @@ try {
     }
 
     $releaseConfigPath = Join-Path $script:Root 'Shared\Tools\Release\release-projects.json'
-    $releaseConfig = Get-Content -LiteralPath $releaseConfigPath -Raw | ConvertFrom-Json
+    $releaseConfig = Get-Content -LiteralPath $releaseConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
     if ($null -eq $releaseConfig.ApiShared) { Fail-Pack 3 'Release configuration lacks the required APIShared infrastructure metadata.' }
     $apiSharedSourceInfoPath = Join-Path $script:ApiMainRoot 'info.json'
     $apiSharedDirectory = Join-Path $script:ApiMainRoot "BepInEx\plugins\$([string]$releaseConfig.ApiShared.Guid)"
@@ -1573,8 +1573,8 @@ try {
     if (-not (Test-Path -LiteralPath $apiSharedInfoPath -PathType Leaf) -or -not (Test-Path -LiteralPath $apiSharedDllPath -PathType Leaf)) {
         Fail-Pack 3 "APIShared infrastructure package is incomplete: $apiSharedDirectory"
     }
-    $apiSharedSourceInfo = Get-Content -LiteralPath $apiSharedSourceInfoPath -Raw | ConvertFrom-Json
-    $apiSharedInfo = Get-Content -LiteralPath $apiSharedInfoPath -Raw | ConvertFrom-Json
+    $apiSharedSourceInfo = Get-Content -LiteralPath $apiSharedSourceInfoPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $apiSharedInfo = Get-Content -LiteralPath $apiSharedInfoPath -Raw -Encoding UTF8 | ConvertFrom-Json
     if ([string]$apiSharedSourceInfo.GUID -cne [string]$releaseConfig.ApiShared.Guid -or
         [string]$apiSharedSourceInfo.Version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') {
         Fail-Pack 3 "APIShared source manifest identity is invalid."
@@ -1804,7 +1804,7 @@ try {
     }
 
     $preparedHostInfoPath = Join-Path $script:Root 'SerpsModsHost\info.json'
-    $preparedHostInfo = Get-Content -LiteralPath $preparedHostInfoPath -Raw | ConvertFrom-Json
+    $preparedHostInfo = Get-Content -LiteralPath $preparedHostInfoPath -Raw -Encoding UTF8 | ConvertFrom-Json
     $previousVersion = if ($null -eq $previousPack) { $null } else { [string]$previousPack.Version }
     $packVersion = Resolve-SteamPackVersion -PreviousVersion $previousVersion -PreparedVersion ([string]$preparedHostInfo.Version)
     Set-HostVersion $packVersion

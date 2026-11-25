@@ -1,4 +1,5 @@
 using APIShared.GameModes;
+using APIShared.Multiplayer;
 // Feature: Per-player Assassin climbing mode and its troop-HUD command.
 using BepInEx.Logging;
 using CrusaderDE;
@@ -13,7 +14,9 @@ using SHCDESE.Interop.Enums;
 using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
 using System;
+using System.Buffers.Binary;
 using System.Globalization;
+using System.IO;
 using UnityEngine;
 
 namespace Pathfinding
@@ -67,6 +70,8 @@ namespace Pathfinding
     internal sealed unsafe class AssassinClimbRuntime : IDisposable
     {
         private const int ChoreProtocolVersion = 1;
+        private const int RepairEntryBytes = sizeof(byte) + sizeof(int);
+        private const int RepairRecordBytes = GamePlayerManagerAPI.MAX_PLAYERS * RepairEntryBytes;
         private const string SaveDataIdentifier = "BugfixesAndQoL-AssassinClimb";
         private readonly ManualLogSource log;
         private readonly PathfindingViewModel settings;
@@ -78,6 +83,7 @@ namespace Pathfinding
         private SessionSaveRecordSlot<AssassinClimbSaveState> saveSlot;
         private bool initialized;
         private bool networkInitialized;
+        private bool resyncRegistered;
         private bool renderStateKnown;
         private APIShared.Presentation.IUiFrameWorkRegistration frameWork;
         private bool presentationSession;
@@ -164,6 +170,56 @@ namespace Pathfinding
             networkInitialized = true;
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
                 LogDebug($"Assassin climb-state synchronization registered: protocolVersion={ChoreProtocolVersion}.");
+        }
+
+        internal void InitializeResync()
+        {
+            resyncRegistered = MultiplayerResyncData.TryRegister(
+                PathfindingPlugin.PluginGuid, "assassin-climb-state", 1, RepairRecordBytes,
+                CaptureRepair, PrepareRepair, CommitRepair, out string reason);
+            if (!resyncRegistered)
+                LogError("Assassin climb-state repair unavailable: " + reason);
+        }
+
+        private byte[] CaptureRepair()
+        {
+            var bytes = new byte[RepairRecordBytes];
+            for (int player = 1; player < climbingAllowed.Length; player++)
+            {
+                int offset = (player - 1) * RepairEntryBytes;
+                bytes[offset] = climbingAllowed[player] ? (byte)1 : (byte)0;
+                BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(offset + 1), lastOperationIds[player]);
+            }
+            return bytes;
+        }
+
+        private static (bool Allowed, int LastApplied)[] PrepareRepair(ReadOnlyMemory<byte> bytes)
+        {
+            if (bytes.Length != RepairRecordBytes)
+                throw new InvalidDataException("Unexpected Assassin climb repair record size.");
+
+            var states = new (bool Allowed, int LastApplied)[GamePlayerManagerAPI.MAX_PLAYERS + 1];
+            ReadOnlySpan<byte> data = bytes.Span;
+            for (int player = 1; player < states.Length; player++)
+            {
+                int offset = (player - 1) * RepairEntryBytes;
+                byte allowed = data[offset];
+                int lastApplied = BinaryPrimitives.ReadInt32LittleEndian(data.Slice(offset + 1));
+                if (allowed > 1 || lastApplied < 0)
+                    throw new InvalidDataException("Invalid Assassin climb state or operation.");
+                states[player] = (allowed != 0, lastApplied);
+            }
+            return states;
+        }
+
+        private void CommitRepair((bool Allowed, int LastApplied)[] states)
+        {
+            // Keep the local sender's nextOperationId. Only the execution watermark is shared.
+            for (int player = 1; player < states.Length; player++)
+            {
+                climbingAllowed[player] = states[player].Allowed;
+                lastOperationIds[player] = states[player].LastApplied;
+            }
         }
 
         public void Initialize()
@@ -437,7 +493,7 @@ namespace Pathfinding
 
         private bool IsChoreTransportReady()
         {
-            return networkInitialized && climbChannel != null && climbChannel.IsAvailable;
+            return resyncRegistered && networkInitialized && climbChannel != null && climbChannel.IsAvailable;
         }
 
         private bool HasSelectedOwnAssassin(int playerId)

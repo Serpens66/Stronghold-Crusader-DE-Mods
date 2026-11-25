@@ -81,3 +81,23 @@ were also checked against the current semantic queries during this move. Relevan
 raw body hashes: `0x99420` =
 `95DBB916A57D1F2755C14493B56A003F7AD047FAB544C01EB652B865A49AC6DD`;
 `0x7D280` = `DCFB48D611AD0D90D46C4D162BF95B7892FDDB6574A64AC79F86884759FBB855`.
+
+## Effect constructor and natural plague creation (audit 2026-11-22, same hash) [Vanilla facts]
+
+Sources: semantic-baseline pseudocode of `0xD17D0` (candidate name level; its only caller `0xD1600`), entry bytes of
+`0x9B2B0` read from the installed DLL (SHA-256 above), and the installed Script Extender's detour pattern. Static only.
+
+- `0xD17D0(_, building)` draws up to 20 random tiles at offsets -15..+14 from the building's position (words
+  `0x64CCCFA`/`0x64CCCFC + building*0x32C`, i.e. record `+0x14A`/`+0x14C` from the base `0x64CCBB0`; RNG word `0x856A6D2`,
+  advanced through `0x7530(0x856A6D0)`), accepts the first tile inside the 800-grid with a nonzero validity byte
+  (`0x3A11EA4[y*800+x]`) and no tile flag of `0x4A5014B1`, and then creates `8 - (rnd % 5 - 2)`
+  = 6..10 clouds on that one tile: each `0x9B2B0(0x2F7A680, 0, 0, 0, x*8, y*8, rawHeight[tile], 0, 0, 0, 0x16, 0)`
+  (position in 1/8 tiles at the tile corner, raw height grid `0x4DDD350`). It then calls `0x2960` (argument `0xBD`) and
+  `0xF4D40` with the tile; no other state is written there.
+- The Script Extender's `c_game_projectile_spawn` detour pattern (`48 89 5C 24 ? 44 89 4C 24 ? 44 89 44 24 ? 89 54 24 ?
+  55 56 57 41 54 41 55 41 56 41 57 48 83 EC ? 8B BC 24`) matches the entry bytes of `0x9B2B0`. Its public
+  `GameProjectileManagerAPI.CreateProjectile(0, 0, x*8, y*8, rawHeight, 0, 0, 0, ProjectileType.Disease, 0)` therefore
+  passes the same twelve arguments as `0xD17D0` (the wrapper adds its Pre/Post events). It does not advance the RNG and
+  does not run `0x2960`/`0xF4D40`; the record itself is created by the same constructor.
+- Mod use [mod integration]: `Testmods/PathfindingHazardTest` creates its plague fixtures this way and checks that the
+  returned record has type 22.

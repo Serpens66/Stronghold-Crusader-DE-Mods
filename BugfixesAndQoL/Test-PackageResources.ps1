@@ -30,6 +30,7 @@ function Assert-SameFile([string]$Source, [string]$Target) {
 Assert-PlainTree $PackageDirectory
 $expected = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
 [void]$expected.Add('info.json')
+[void]$expected.Add('projectiletrails-shader')
 foreach ($folder in @('Patches','Override','Locales')) {
     $sourceRoot = Join-Path $SourceDirectory $folder
     Assert-PlainTree $sourceRoot

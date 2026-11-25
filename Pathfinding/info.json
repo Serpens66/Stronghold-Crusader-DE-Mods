@@ -3,14 +3,14 @@
   "Author": "Serpens66",
   "Name": "Pathfinding",
   "Description": "Faster and smarter unit movement: shared group routes, better commands, gate routing, Assassin climbing, formations, command queue and synchronized troop movement.",
-  "Version": "0.1.13",
+  "Version": "0.1.16",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.3",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.60.0"
+      "MinimumVersion": "0.65.0"
     }
   ],
   "Manifest": 1,
@@ -19,6 +19,19 @@
     "2.8.0.2"
   ],
   "SerpChangelog": [
+    {
+      "Version": "0.1.16",
+      "Changes": [
+        "After a multiplayer resync, pending extended Shift orders are cleared. The current order and the game's own queued commands continue."
+      ]
+    },
+    {
+      "Version": "0.1.15",
+      "Changes": [
+        "With the drawbridge option enabled, your units and allies can use side exits from lowered drawbridges at open gates, even when a building or moat blocks the straight landing. Very complex layouts with several separate landings can still use the previous routing.",
+        "Reduced the time spent updating drawbridge routes during play."
+      ]
+    },
     {
       "Version": "0.1.13",
       "Changes": [

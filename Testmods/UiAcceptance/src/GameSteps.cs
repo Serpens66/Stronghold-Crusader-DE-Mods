@@ -12,7 +12,7 @@ using UnityEngine;
 namespace UiAcceptance
 {
     // Game flow: menus, saves, scenes, pause/speed, waits, screenshots, settings, quitting.
-    internal static class GameSteps
+    internal static partial class GameSteps
     {
         internal static void Register()
         {
@@ -31,6 +31,7 @@ namespace UiAcceptance
             Runner.Register("ExpectElement", ExpectElement);
             Runner.Register("InvokeCommand", InvokeCommand);
             Runner.Register("SetModSetting", SetModSetting);
+            Runner.Register("ModSettingsDefaults", ModSettingsDefaults);
             Runner.Register("RandomEvents", RandomEventsSwitch);
             Runner.Register("ExpectModSetting", ExpectModSetting);
             Runner.Register("Log", s => Do(() => AcceptLog.Info("NOTE " + string.Join(" ", s.Args))));
@@ -43,7 +44,34 @@ namespace UiAcceptance
             Runner.Register("ViewCommand", ViewCommand);
             Runner.Register("Mark", s => Do(() => marks[s.Arg(0)] = AcceptLog.Position));
             Runner.Register("ExpectSince", ExpectSince);
+            Runner.Register("WaitSince", WaitSince);
             Runner.Register("ExpectSequence", ExpectSequence);
+            Runner.Register("ExpectPlugin", ExpectPlugin);
+        }
+
+        // args: plugin GUID, "absent" | "present" | minimum version — pins the mod combination a run proves.
+        private static IEnumerable<Wait> ExpectPlugin(Step step)
+        {
+            string guid = step.Arg(0), wanted = step.Arg(1, "present");
+            bool present = BepInEx.Bootstrap.Chainloader.PluginInfos.TryGetValue(guid, out BepInEx.PluginInfo info);
+            AcceptLog.Info("PLUGIN " + guid + " present=" + present + " version=" + (present ? info.Metadata.Version.ToString() : "-"));
+            if (wanted == "absent")
+                Runner.Require(!present, guid + " must not be installed for this run");
+            else
+            {
+                Runner.Require(present, guid + " is not installed");
+                if (wanted != "present")
+                    Runner.Require(info.Metadata.Version >= new Version(wanted), guid + " " + info.Metadata.Version + " is older than " + wanted);
+            }
+            yield break;
+        }
+
+        // args: mark, regex, min — waits until the marker was logged at least min times since a Mark step.
+        private static IEnumerable<Wait> WaitSince(Step step)
+        {
+            var pattern = new Regex(step.Arg(1), RegexOptions.CultureInvariant);
+            int min = step.Int(2);
+            yield return new Until(min + " x /" + step.Arg(1) + "/ since " + step.Arg(0), () => AcceptLog.Count(MarkPosition(step.Arg(0)), pattern) >= min);
         }
 
         // A mission started by someone else (MP client: the host starts it).
@@ -141,7 +169,8 @@ namespace UiAcceptance
             var players = GamePlayerManagerAPI.Instance;
             AcceptLog.Info("DESCRIBE local=" + players.GetLocalPlayerId() + " spectatorMode=" + state?.spectatorMode +
                 " gameType=" + state?.game_type + " paused=" + players.IsLocalPaused() + " screen=" + Screen.width + "x" + Screen.height +
-                " mode=" + (UiAcceptancePlugin.LastContext != null ? UiAcceptancePlugin.LastContext.Mode.ToDiagnosticString() : "<none>"));
+                " mode=" + (UiAcceptancePlugin.LastContext != null ? UiAcceptancePlugin.LastContext.Mode.ToDiagnosticString() : "<none>") +
+                " speed=" + (Director.instance != null ? Director.instance.EngineFrameRate.ToString(CultureInfo.InvariantCulture) : "-"));
             var units = new int[9];
             foreach (int id in APIShared.UnitAccess.GetAllReallyAliveUnits())
             {

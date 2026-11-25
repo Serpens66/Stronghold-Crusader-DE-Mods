@@ -93,6 +93,29 @@ bisherigen Nachweise.
 
 Stand: 20.10.2026. Untersucht wurden die installierten Spielassemblies, der lokale Script Extender sowie die Arbeitsquellen von BugfixesAndQoL und CastlePlanner.
 
+## Testwelt festlegen statt Zufall wegerklären
+
+Verbindlich für jeden Spieltest. Alles, was das geprüfte Ergebnis beeinflussen kann, legt das Szenario selbst fest und
+prüft es vor dem ersten Prüfschritt. Nichts davon wird aus dem Zufall der Partie oder aus der aktuellen Installation
+des Nutzers übernommen:
+
+- **Karte und Lage:** Karte, Teams und Startpositionen (`Lobby.StartPositions` nach `Lobby.AddAI`), sobald Abstände,
+  Erreichbarkeit, Gelände oder Nachbarburgen eine Rolle spielen. Die Plätze loggen (`LOBBY_KEEP`).
+- **Spieleinstellungen:** Friedenszeit, Geschwindigkeit, Startbedingungen (Ressourcen, fertige KI-Burg) und
+  RandomEvents ausdrücklich setzen.
+- **Modsettings:** zuerst `ModSettingsDefaults`, danach nur die für den Test nötigen Abweichungen per
+  `SetModSetting`. Andere Mods mit Einfluss auf die Testwelt (etwa Burg-Spawn, Ereignisse) ausdrücklich abschalten.
+- **KI:** konkreten Lord sowie AIV und AIC festlegen, wenn KI-Verhalten, KI-Burg, KI-Gebäude oder KI-Einheiten den
+  Test berühren.
+- **Testobjekte:** Positionen von einem festen Bezug aus wählen (Burgtür, selbst gesetztes Gebäude) und jede
+  Vorbedingung vor dem Schritt prüfen: freier Bauplatz, Kosten, Erreichbarkeit über dieselbe Pfadkomponente,
+  passende Einheiten. Reicht ein fester Platz nicht, sucht der Helfer einen geeigneten Platz und loggt ihn.
+
+Scheitert ein Lauf, weil eine dieser Bedingungen zufällig anders war, ist das ein Fehler des Tests und kein
+„flackernder“ Lauf. Zuerst den Testaufbau so ändern, dass die Bedingung festgelegt oder vor dem Schritt geprüft wird,
+dann neu laufen lassen. Wiederholen bis zum Erfolg ist kein Nachweis und keine Erklärung. Ausnahme: Ein Test, der
+gerade verschiedene Lagen abdecken soll, variiert sie ausdrücklich und loggt sie.
+
 ## Was bereits möglich ist
 
 | Aufgabe | Aufrufweg | Nachweis / Grenze |
@@ -207,6 +230,20 @@ Dabei gelten folgende geprüfte Grenzen:
 - Zoom ist lokale Darstellung, auch im Multiplayer. Er muss nicht als Gameplay-Chore an andere Teilnehmer gesendet werden. Für vergleichbare Screenshots Auflösung, Kartengröße, UI-Sichtbarkeit, Kameraposition/-rotation und Zoom-Einstellungen je Teilnehmer festhalten.
 - Im Tutorial löst `adjustZoom` zusätzlich einen Vanilla-`TutorialAction`-Aufruf aus. Ein allgemeiner Screenshot-Test sollte daher einen normalen Testspielstand verwenden, statt unbemerkt Tutorialfortschritt auszulösen.
 
+### Kamera positionieren und Screenshots aufnehmen
+
+Erkenntnisse aus dem Szenario `crenel-look` (Testmod `CrenelatedWallAcceptance`, am 25.11.2026 nach der Übernahme des Zinnen-Features in BugfixesAndQoL entfernt; Läufe vom 25.11.2026, Hash FBCB9319, Hintergrunddesktop 1280×720):
+
+- **Startkamera abwarten:** Nach Partie- und Editorstart gleitet die Kamera noch einige Sekunden (zur Burg bzw. Startposition). Wer in dieser Zeit `setCameraPos`/`setNewPosition` aufruft oder `GameMap.ScreenCentreTileX/Y` liest, bekommt eine Position, die kurz darauf nicht mehr gilt. Vor jeder Kamera- oder Bildmittenabhängigkeit warten, bis `CameraControls2D.instance.getCameraXPos()/getCameraYPos()` über mehrere 500-ms-Proben unverändert sind. Feste Wartezeiten nicht annehmen.
+- **Koordinaten:** Spiel, native Engine und Script Extender verwenden dieselbe Achsreihenfolge. `GameMapTile.gameMapX/Y` und damit `ScreenCentreTileX/Y` sind globale 800er-Koordinaten wie die Extender-Kacheln; es gibt keinen x/y-Tausch (Codeprüfung `GameMap.setGameCoordMapping`, Editor-`PlaceMapperItem`). Die Extender-Doku zu `SetScreenCenterToTilePosition` nennt sie „local“, gemeint sind ebenfalls die globalen Werte.
+- **Kamera auf eine Kachel:** `GamePlayerManagerAPI.SetScreenCenterToTilePosition` rechnet wie Vanillas `GameData.SetCameraFromGameState` (Kachel → Tilemap → Spriteposition + Geländehöhe → `setCameraPos`). Erst nach ruhender Startkamera verwenden. `setNewPosition` wirkt im nächsten `CameraControls2D.Update` ohne Grenzprüfung; `setCameraPos` begrenzt bei gesperrter Karte (`isMapLocked`) auf die Kartengrenzen. Die Kartensperre nicht für Screenshots aufheben: Das ergab ein schwarzes Bild außerhalb der Karte.
+- **Einfacher und robuster:** Testaufbauten für Bilder dort bauen, wo die ruhende Kamera hinschaut (freie Fläche nahe `ScreenCentreTileX/Y`), statt die Kamera zu bewegen. Liegt die nächste freie Fläche zu weit weg, ist sie nicht im Bild; den Suchabstand begrenzen oder danach die Kamera auf die Mitte des Aufbaus setzen.
+- **Karteneditor bevorzugen:** Für reine Anschauungsbilder im Editor bauen (`LoadEditor`, Mauern per `UiWall`/Mapper-Geste). Dort gibt es keine Gebiets-, Burg- oder Steingrenzen; im Gefecht scheiterten Bauten außerhalb des eigenen Gebiets.
+- **Zoom und Aufnahme:** `SetZoomImmediate(0,25f)` lieferte 0,5 (untere Grenze bei dieser Auflösung). Für eine Übersicht 0,5 verwenden und den gewünschten Ausschnitt danach zuschneiden und vergrößern. `ScreenCapture.CaptureScreenshot(pfad)` schreibt asynchron am Frame-Ende; vor der Existenzprüfung etwa 1,5 s warten. Nach Kamera- oder Zoomwechsel einige Simulationsticks und rund 1 s Renderzeit abwarten.
+- **Kartendrehung:** `GameMap.instance.RotateMapRight()`/`RotateMapLeft()` dreht um die Kartenmitte, nicht um die Bildmitte. Ein Aufbau neben der Bildmitte liegt danach außerhalb des Bildes; für Aufnahmen je Rotation die Kamera danach neu ausrichten (Szenario `crenel-look-x`, 25.11.2026).
+- **Zinnen im Editor bauen:** Eine neue Zinne braucht einen bereits gebauten Achsnachbarn (Mauer oder Zinne); ein Zug über mehrere freistehende Kacheln wird ab der zweiten Kachel rot, und ein senkrechter Zinnenzug baute nichts. Formen deshalb Kachel für Kachel vom getragenen Ende aus bauen; Formen ohne Achsnachbarn (Mitte eines X) über eine Hilfsmauer, die danach abgerissen wird. Direkt neben gerade getöteten feindlichen Einheiten zeigt Vanilla den Bau rot; nach etwa 600 Ticks ist er wieder möglich.
+- `Camera.main.WorldToScreenPoint` spiegelte die Kartenkamera nicht wider und eignet sich nicht zur Prüfung, ob ein Objekt im Bild liegt. Nicht sichtbare Einheiten (z. B. Marker) werden nicht gezeichnet und taugen ebenfalls nicht als Positionsmarker.
+
 ## Kleine Helfer für einen Einzelspieler-Testmod
 
 Diese Klasse illustriert direkt nutzbare öffentliche Aufrufe; sie registriert keine Callbacks und startet von sich aus keinen Test. Der Aufrufer gewährleistet die oben beschriebene Missions- und Extender-Bereitschaft und ruft sie auf dem Unity-Main-Thread auf.
@@ -300,7 +337,7 @@ Stand 06.11.2026, DLL `FBCB9319…`, im Spiel geprüft mit `Testmods/UiAcceptanc
 
 - **Gebäude korrekt erzeugen:** `GameBuildingManagerAPI.CreatePrefab(player, x, y, mapper, BuildingScales.GetScale(mapper), 0x0F, true, bypass)`. Der sechste Wert (`a7`) ist die Grafikvariante: `0x0F` wählt wie Vanillas AIV-Bauweg die automatischen Sprites, `0` dagegen kamerabezogene Sprites und ergibt zerrissene Gebäudegrafiken. Für Hütte und Kornspeicher im Spiel bestätigt. Das ist nicht auf jeden Mapper übertragbar: Bei manchen Typen bedeutet der Wert Richtung oder Stil; die geprüfte Liste steht in `CastlePlanner/src/SupplementalPrefabVisualPolicy.cs`.
 - **Rückgabewert ist kein Erfolg:** `CreatePrefab` kann auch bei abgelehntem Bauplatz einen Wert ungleich 0 liefern, etwa auf dem Startlager. Das Gebäude deshalb danach in der Gebäudeliste suchen und sonst den nächsten Platz versuchen. Ein Gebäude erscheint dort sofort. Die Startposition wechselt zwischen den Läufen, feste Abstände zum Lord treffen also manchmal belegte Felder.
-- **Niederlage verhindern:** Auf hoher Spielgeschwindigkeit kann die KI den Lord schon nach wenigen Minuten töten. Danach steht das Spiel auf dem Defeat-Bildschirm, kein Schritt läuft mehr, und erst die Hängererkennung beendet den Prozess. Tests ohne Soldaten laufen deshalb mit Friedenszeit: Schritt `Lobby.PeaceTime` (Knopf `Setup`, Regler, `ApplySettings`) und danach `Hunt.ExpectPeace` als Nachweis. Friedenszeit bleibt aus, wenn Soldaten angreifen sollen.
+- **Niederlage verhindern:** Auf hoher Spielgeschwindigkeit kann die KI den Lord schon nach wenigen Minuten töten. Danach steht das Spiel auf dem Defeat-Bildschirm, kein Schritt läuft mehr, und erst die Hängererkennung beendet den Prozess. Tests ohne Soldaten laufen deshalb mit Friedenszeit: Schritt `Lobby.PeaceTime` (Knopf `Setup`, Regler, `ApplySettings`) und danach `Hunt.ExpectPeace` als Nachweis. Friedenszeit bleibt aus, wenn Soldaten angreifen sollen. Im KI-Skirmish blendet Vanilla den Regler aus (`Show_MPPeacetime` false), und `ApplySettings` schreibt dann 0: dort `MPsetupData.peacetime` direkt vor dem Start setzen (Harmony-Prefix auf `FRONT_Multiplayer`) und den nativen Friedensstatus danach prüfen (Stand 24.11.2026).
 - **Testmod installiert?** Fehlt `BepInEx/plugins/UiAcceptance_Serp`, bleibt das Spiel im Hauptmenü stehen. Vorher `Testmods/UiAcceptance/build.bat /nopause` ausführen.
 
 ### Tiere und Lager in Spieltests
@@ -485,6 +522,12 @@ view.ButtonIngameMenuCommand.Execute("6");
 view.ButtonConfirmationCommand.Execute("1");
 ```
 
+**Friedenszeit im Gefecht (22.11.2026, DLL `FBCB9319…`):** Vanilla setzt bei jeder Kartenwahl `Show_MPPeacetime = !skirmishGame` (`FRONT_Multiplayer`). In einem lokalen Gefecht mit minimalem Plugin-Layout (Script Extender, Fixes, APIShared) bietet die Lobby deshalb keine Friedenszeit an, und `StartSkirmish(..., peaceTimeMinutes)` bricht mit „Peace time is not offered“ ab. Kurze Tests laufen dann ohne Friedenszeit.
+
+**Mauern und Zinnen im Test:** Eine Zinne (Mapper 26) braucht eine angrenzende Mauer- oder Zinnenkachel (0x5C580); auf freiem Feld baut `CreateWall` nichts. Ohne Stein baut es auch bei Kostenfaktor 0 nichts. Auf `4spielerkarte.map` startet der Spieler ohne Stein; `TryAddGood` in kleinen Portionen (25) füllt das vorhandene Lager, 300 auf einmal schlug fehl. Beispiel: [CrenelatedWallAcceptance](Testmods/CrenelatedWallAcceptance/src/Fixture.cs).
+
+**Editor ohne Gegner (22.11.2026, DLL `FBCB9319…`):** Gebäude, Mauern und Zinnen setzt der Editor erst im Burgmodus (`MainViewModel.Instance.MEMode = 1`). Ein Mauerzug wie mit der Maus: `EngineInterface.StartMapperItem(mapper)`, danach `PlaceMapperItem(mapper, x, y, 0, player, !IsMapEditorMode, true, state)` mit Zustand 0 und 1 an der Startkachel, 2 je Kachel und 3 beim Loslassen, alles unter `EngineInterface.threadLock`. Für Werkzeuge, die den Cursor auswerten (Bulldozer `MainControls.CurrentAction = 6`), stattdessen die Kartenmaus emulieren: Harmony-Postfix auf `MainControls.getMouseMapTilePosition` (Render-Kachel über `GameMap.getMapTile`) und auf `EditorDirector.getMouseStateForEngine` (Zustände 1, 2, 3; dabei `overNoesisUI` auf false). Slots wechselt `EditorDirector.SetEditorPlayerID`; neben Mauern eines anderen Slots baut Vanilla nicht. Einheiten mit `CreateUnitLocal` plus `GameTribeManagerAPI.Create`/`AssignUnit` gehorchen im Editor Befehlen wie `AttackWall`. Pausieren über `AutomationRun.SetPause` lehnt der Editor ab; dort nur `WaitForTicks`. Beispiel: [Fixture.Editor.cs](Testmods/CrenelatedWallAcceptance/src/Fixture.Editor.cs).
+
 Missionsbeginn zuverlässig: `APIShared.IMissionLifecycleCapability` (Beobachter registrieren, `notification.IsReplay` überspringen, Sitzungs-ID merken) und `FatControler.currentScene != FrontEnd`. Spielstand laden: siehe „Laden ohne AutoLoadSave“ oben; das klappt beliebig oft in einem Prozess. Der Pfad kommt aus `ConfigSettings.GetSavesPath()`.
 
 Mod-Einstellungen nur im Menü setzen. Fremde Mods: `BepInEx.Bootstrap.Chainloader.PluginInfos[guid].Instance`, dessen Einstellungsobjekt und Eigenschaften per Reflection. Der Wert danach zurücklesen, denn ein Setter kann ablehnen.
@@ -549,7 +592,7 @@ Mehrere Tests waren zuerst grün, ohne etwas zu prüfen:
 - **Szenario-IDs:** Die Schritt-`id` muss im Szenario eindeutig sein, sonst startet der Lauf gar nicht (`step=INIT FAIL`).
 - **Fehlersuche im Test:** Beim Warten alle paar Sekunden den Zustand ins Log schreiben (Einheit, Zustand, Ziel, relevante Felder). Nach einem Timeout ist das fast immer der schnellste Weg zur Ursache; einen zusätzlichen Lauf spart es meist auch.
 - **Wartende Einheit ist nicht frei:** Ein Jäger mit Fleisch in der Hütte sucht kein neues Ziel. Bei großen Mengen braucht er viele Wege, bis er wieder jagt, deshalb vor dem nächsten Fall auf Leerlauf warten (Tragmenge 0 und Zustand 0, 6 oder 7), statt eine feste Zeit zu warten.
-- **Startpositionen und KI-Burgen gehören zur Testwelt:** Im Gefecht wechseln die Startpositionen von Partie zu Partie, und KI-Lords bringen je nach Lobby-Einstellung eine fertige Burg mit Mauern und Toren mit. Was von der Lage abhängt, tritt dann nur in manchen Läufen auf. Beispiel (08.11.2026): Ein Test-Reh auf `399,275` war für den Jäger nur unsichtbar, wenn die eigene Burg bei `403,278` stand; in anderen Partien stand dort keine Burg, und der Test bestand. Ebenso kann Beute innerhalb einer KI-Burg nur durch ein feindliches Tor erreichbar und damit für den Jäger unerreichbar sein. Startpositionen und KI-Lords (Lord, Burgplan, Start mit fertiger Burg) im Log festhalten.
+- **Startpositionen und KI-Burgen gehören zur Testwelt:** Im Gefecht wechseln die Startpositionen von Partie zu Partie, und KI-Lords bringen je nach Lobby-Einstellung eine fertige Burg mit Mauern und Toren mit. Was von der Lage abhängt, tritt dann nur in manchen Läufen auf. Beispiel (08.11.2026): Ein Test-Reh auf `399,275` war für den Jäger nur unsichtbar, wenn die eigene Burg bei `403,278` stand; in anderen Partien stand dort keine Burg, und der Test bestand. Ebenso kann Beute innerhalb einer KI-Burg nur durch ein feindliches Tor erreichbar und damit für den Jäger unerreichbar sein. Startpositionen und KI-Lords (Lord, Burgplan, Start mit fertiger Burg) deshalb festlegen (siehe [Testwelt festlegen statt Zufall wegerklären](#testwelt-festlegen-statt-zufall-wegerklären)) und im Log festhalten.
 - **Vergleiche nur unter gleichen Bedingungen:** Bei A/B-Läufen, Vorher-/Nachher-Vergleichen und Messreihen müssen Startpositionen und KI-Burgen in allen Läufen identisch sein. Sonst ist der Unterschied nicht dem Code zuzuschreiben. `Lobby.StartPositions <Platz Mensch> <Platz KI 1> …` setzt nach `Lobby.AddAI` die Startplätze fest und loggt alle Plätze (`LOBBY_KEEP`). Testgebäude (`Hunt.PlaceHut`) richten sich nach der Burgtür, nicht nach dem herumlaufenden Lord; Vorrichtungen relativ zur Burg (`Hunt.PreyBehindKeep`) oder auf exakten Kacheln (`Hunt.PreyAt`) setzen. Ob zwei Läufe dieselbe Lage hatten, an den geloggten Positionen prüfen (Burg, Hütte, Beute); Läufe mit abweichender Lage nicht miteinander vergleichen. Ob ein KI-Lord seinen Burgplan zufällig wählt, ist noch ungeprüft; bis dahin die KI-Burg im Log festhalten.
 - **Bei jeder Spielgeschwindigkeit:** Der Mod rechnet in Map-Ticks und muss bei jeder Geschwindigkeit gleich funktionieren. Tests warten deshalb auf Spielzustände (`Hunt.WaitHuntersFree`, Beute entfernt), nicht auf feste Echtzeit. Schlägt ein Test nur bei hoher Geschwindigkeit fehl, zuerst nach einer Echtzeit-Abhängigkeit im Test suchen und sie durch eine Zustandsprüfung ersetzen.
 - **Vorrichtungen erreichbar setzen:** `Hunt.Prey` verschiebt ein Test-Tier auf die nächste begehbare Kachel der Wegfläche des Jägers und loggt das (`HUNT_PREY_MOVED`); sonst ignoriert der Jäger es zu Recht. Ring-Tiere bleiben absichtlich im Ring.
@@ -573,7 +616,7 @@ Für Serien eine Schleife um das Skript, und bei einem Abbruch im Vorbereitungss
 
 ### Echter Multiplayer
 
-Zwei Rechner mit gleichem Mod-Stand. Bisher nur für Host/Client-Abläufe gebaut, die Ergebnisse dieser Prüfung stehen noch aus.
+Zwei Rechner mit gleichem Mod-Stand. Beitritt, Kartenstart und zwei erzwungene Einheiten-Resyncs wurden mit zwei Steam-Konten bestätigt. Für die Proben zum Graben, zur Gebäudepause und zum Neustart gelten eigene Erfolgskriterien.
 
 ```csharp
 MainViewModel.Instance.FrontEndMenu.ButtonClicked("Multiplayer");   // 1500 ms warten
@@ -584,7 +627,22 @@ Platform_Multiplayer.Instance.SetInviteLobbyID(id);                 // Client
 Platform_Multiplayer.Instance.ResumeInvite();
 ```
 
+**Client-Spiel aus der Ferne starten.** Der Nutzer startet vor anstehenden Paartests auf dem Client `<Spielordner>\_Automation\Start-ClientStartWatcher.bat` und schließt das Fenster danach; nichts davon wird bei der Anmeldung automatisch eingerichtet. Der Wächter (`Shared/Tools/Automation/ClientStart`) startet ausschließlich das Spiel über `steam://rungameid/3024040`, wenn der Host eine Lauf-ID in `_Automation\start.request` legt, und antwortet in `start.result` mit `STARTED` oder `REFUSED <Grund>` (`mods-disabled`, `already-running`, `invalid-label`). `InGameTest.ClientStart.ps1` kopiert die Wächterdateien (`Install-ClientStartWatcher`) und fordert den Start an (`Request-ClientGameStart`); ein veralteter Herzschlag `watcher.alive` (älter als 20 s) gilt als „Wächter läuft nicht“. `Run-PairedResync.ps1` nutzt das an der Stelle `PRIVATE_LOBBY_READY` und fällt sonst auf den manuellen Clientstart zurück.
+
+**Generischer Paarlauf `Testmods/UiAcceptance/tools/Run-Paired.ps1`** (Stand 24.11.2026, noch ohne echten Lauf): `-HostScenario`, `-ClientScenario`, `-PluginLayout` (Ordner mit genau den Plugin-Paketen für **beide** PCs, inklusive `000shcdese` und `UiAcceptance_Serp`; nicht enthaltene Mods wie `fixes` oder `RandomEvents_Serp` werden vorübergehend herausgenommen), `-ApiPluginPackage`, `-ApiPatcherPackage`, optional `-DryRun` (prüft alles und zeigt den Tauschplan, ändert nichts). Der Fernstart-Wächter ist Pflicht. Der Runner sichert und prüft Plugin-, Patcher- und Save-Inventare beider PCs, schreibt die Join-Datei bei jeder neuen Lobby-ID neu, leitet optionale `relay`-Checkpoints aus dem Szenario weiter und verlangt je Seite genau eine `SUMMARY PASS … failed=0 skipped=0`, keine `MOD_FAILURE` und keine Desync-Zeile. Tests dürfen in `Saves` nur `SerpAcceptance-<Lauf-ID>.msv` anlegen; der Runner archiviert und löscht sie auf beiden Seiten. Das Hashen der Client-Plugins über die Freigabe kostet je Durchgang etwa eine Minute.
+
+Neue Schritte für Paarläufe: `Lobby.GameSpeed <10..80>` (Startgeschwindigkeit; der Vanilla-Lobbyregler endet bei 80), `Mp.SetSpeed <n>` (Host, im Spiel über BugfixesAndQoLs synchronisierten Zeit-Chore; in echtem MP begrenzt durch die Host-Einstellung `MultiplayerGameSpeedMaximum`, höchstens 200, darüber hinaus durch `MaxGameSpeed` des Script Extenders) und `Mp.ExpectSpeed <n>` (jeder Peer), `Lobby.AddCustomAi <Lordname>`, `Mp.SaveConfirmed` / `Mp.AwaitSaveFile` (wartet auf die tatsächliche `.msv`), `Mp.Follow lobby|mission fresh` (ignoriert die Lobby der vorigen Mission), `ExpectPlugin <guid> absent|present|<Mindestversion>`, `WaitSince`, `Observe <Tickabstand>` (passiver Beobachter, ändert nichts, läuft bis zum Spielende über alle Missionen; loggt `OBSERVE … label=…` mit peerunabhängigem Inhalt nach `label=`, damit Host und Client je Tick verglichen werden können, und einmal je Mission `OBSERVE_MISSION`). Szenarien für manuelle Paartests: `scenarios/manual-observe-{host,client}.json`. Den Gebäudezähler pro Spieler (`0x64CCBB4`) berechnet das Spiel jeden Tick aus den vorhandenen Gebäuden neu; ein Schreibzugriff darauf eignet sich nicht als Testvorbereitung, die Grenze `quota − count ≥ 2` braucht echte Gebäude (24.11.2026 gemessen). APIShared loggt `SAVE_SETTINGS_CONFIRMED` nur mit `[Diagnostics] Enabled=true` in `BepInEx\config\APIShared_Serp.cfg` (das Debug-Level allein reicht nicht); Szenarien werten deshalb den erfolgreichen Ladeschritt und das Fehlen der Fehlermarker aus. Fernverwaltung von Aufgaben (RPC) ist auf dem Client gesperrt (Stand 24.11.2026); der Weg über die Freigabe braucht keine Firewalländerung.
+
 Steam gibt private Lobbys über den Freundesstatus nicht preis, daher der Weg über die Datei. Beide Rechner treffen sich ohne eigenes Netzwerk über den Tickzähler seit Missionsbeginn, der ist auf allen Peers gleich. Ob es echter Multiplayer ist, im Modus der Mission prüfen: `realMultiplayer=True` und mindestens zwei `realNetworkGameMembers`. Ein Client muss mitspielen; ein solo gestartetes MP-Spiel beweist keine Synchronisation.
+
+#### Erkenntnisse aus dem kombinierten Lauf vom 23. November 2026
+
+- Trenne Voraussetzungen der Partie von Voraussetzungen einzelner Prüffälle. Einheiten-Resync und ESC-Neustart brauchen keine bestimmte Burgposition, keinen Graben und keinen teilbelieferten Kaufauftrag. Ein Fehler bei der Vorbereitung einer Probe soll nur davon abhängige Schritte blockieren. Fehlt ein erwarteter Zustand, bleibt diese Probe offen.
+- Prüfe den normalen Spielablauf zuerst mit möglichst wenigen Schritten. Für einmalige Abnahmen sind zwei menschliche Teilnehmer mit einer kurzen manuellen Prüfliste oft schneller als ein eigens gebauter Lobby- und Weltaufbau. Vor einem weiteren Lauf mit zwei Rechnern zuerst den konkret gescheiterten Teilschritt prüfen.
+- Verwende in der Lobby Spieler-IDs aus der tatsächlichen Mitgliedszuordnung, falls ein Prüffall eine feste Startposition braucht. Radarposition, Kartenmarker, Koordinate des fertigen Gebäudes und Positionsfeld der Spielerressourcen können sich unterscheiden. Auf The Jordan Valley hatte der Host im Lauf `paired-0a4fed731e28` das Burggebäude korrekt bei `(532,418)` und ein Ressourcenfeld bei `(531,421)`. Die KI-Burg stand bei `(377,280)` neben dem Marker `(376,279)`. Die Prüfung auf exakte Gleichheit mit dem Marker brach die Partie fälschlich ab.
+- Ermittle die für einen Geländetest nötige Fläche auf der geladenen Karte. Prüfe Geländeart, Fläche und Belegung, teile die ausgewählten Koordinaten mit dem Client und platziere Testobjekte über die synchronisierten Spielbefehle. Prüfe die tatsächlich entstandenen Objekte. Die vom Host angelegte Grabenfläche hat keinen Bezug zur KI-Burg.
+- Für einen KI-Verhaltenstest die konkrete AIV- und AIC-Datei festlegen. Prüfe im Spiel die übertragene Variante für den tatsächlichen KI-Spielerslot und vergleiche sie auf Host und Client. Für den Teilauftrag reicht weder ein passender Lordname noch ein Kaufauftrag über fünf Waffen. Der Resync muss den verlangten Zwischenstand mit Teilgutschrift tatsächlich treffen.
+- Behandle Lobby-Einstellungen und Bereitmeldung als eigene Schritte. Der Host wurde zu früh vom Abgleich der Produktionsregeln blockiert. Der anschließende Lauf konnte starten, als der Host erst nach der Bereitmeldung des Clients selbst bereit meldete. Sichere beim Abbruch beide Logs und stelle die temporäre Startkonfiguration nach dem Prozessende zurück.
 
 ### Native Stellen vor dem Einbau prüfen
 

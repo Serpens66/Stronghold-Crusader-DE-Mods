@@ -34,6 +34,21 @@ namespace Pathfinding.UnitCommands
             catch (Exception ex) { TryLogDiagnosticFailure("map-reset-" + stage, ex); }
         }
 
+        internal void ResetRepairDerivedState()
+        {
+            // The command scheduler and native waypoint records survive repair. Only terrain-derived
+            // decisions, in-flight search handoffs and the displayed preview are invalidated here.
+            InvalidateMovementSearchData(terrain: false);
+            nativeCursorAnswers.Clear();
+            nativeCursorAnswerTick = int.MinValue;
+            cursorTopologies.Clear();
+            cachedRouteSummary = default;
+            activePlan = pendingPlan = null;
+            pendingAttackCursorPair = null;
+            Traversal?.ResetRepairDerivedState();
+            formationRuntime?.ClearRepairPreview();
+        }
+
         internal void ResetMapState()
         {
             ResetManualGroupAdmission();

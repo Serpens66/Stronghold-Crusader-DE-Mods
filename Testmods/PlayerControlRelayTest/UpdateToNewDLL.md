@@ -42,11 +42,13 @@ peer executes the same accepted command there, once. Submission or a Steam-packe
 callback never calls the terminal APIs. Capture and execution both identify the
 native world; execution resolves each requested unit again.
 
-A command names unit slots, its owner and the highest global ID among those units at
-capture. Unit global IDs come from the monotonic native counter at `0x183665F84`, shared
-with tribes, so a reused slot carries a higher global ID and is skipped. The slot list is
-sorted and LEB128-delta encoded with at most 1000 bytes; `RelaySlotCodec.Split` divides
-larger selections into separate commands.
+A v6 command carries the common owner and each selected unit's exact slot and global ID.
+The ID counter at `0x183665F84` is shared with tribes. In-place multiplayer repair can
+restore an older unit record to a captured slot, so a maximum ID across the selection
+cannot establish identity. `RelayUnitCodec` requires ascending slots and encodes six
+bytes per unit. It splits large selections into commands of up to 166 units.
+The existing readiness epoch and replay ledgers survive repair. Vanilla Chore 67 makes
+held orders available again, and the relay resolves those orders against exact identities.
 
 Execution rechecks each unit with the selection filter described under Input observation,
 plus owner and global ID. A command without any remaining unit is rejected without a native call.

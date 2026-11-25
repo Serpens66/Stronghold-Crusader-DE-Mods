@@ -91,6 +91,10 @@ namespace ExtremePowers.API
         public SHCDESE.API.LowLevel.CrusaderLibraryLoadContext NativeLoadContext { get; set; }
         /// <summary>Log for native hook errors such as a conflicting patch of another mod.</summary>
         public BepInEx.Logging.ManualLogSource NativeLog { get; set; }
+        /// <summary>Opts into shared repair of fractional mana regeneration. Return true in real
+        /// multiplayer. The native resource update keeps Vanilla regeneration for a fractional rate
+        /// in those missions if registration was unavailable at Unity startup.</summary>
+        public Func<bool> RequiresRegenerationRepair { get; set; }
     }
 
     public interface IExtremePowersApi

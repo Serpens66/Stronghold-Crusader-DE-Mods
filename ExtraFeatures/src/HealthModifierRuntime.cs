@@ -23,6 +23,7 @@ namespace ExtraFeatures
         private LordHealthBasis[] legacyBases;
         private HealthModifierHandle handle;
         private bool archiveRegistered, legacyRegistered;
+        private bool resyncRegistrationAttempted, multiplayerResyncReady;
         private long sessionId;
         private HealthSettingsSnapshot snapshot;
 
@@ -40,6 +41,13 @@ namespace ExtraFeatures
                     out handle, out string reason))
                     throw new InvalidOperationException("Shared health modifiers unavailable: " + reason);
                 handle.SetEnabled(false);
+            }
+            if (!resyncRegistrationAttempted)
+            {
+                resyncRegistrationAttempted = true;
+                multiplayerResyncReady = HealthModifiers.TryEnableMultiplayerResync(out string reason);
+                if (!multiplayerResyncReady)
+                    Shared.DebugLogHelper.LogError(log, "ExtraFeatures multiplayer health repair unavailable: " + reason);
             }
             if (!archiveRegistered)
             {
@@ -65,6 +73,7 @@ namespace ExtraFeatures
             if (!settings.EnableMod || !Shared.GameplayModActivationGate.IsFeatureAllowed(
                 ExtraFeaturesPlugin.PluginGuid, Shared.GameplayFeatureId.LordHealthMultipliers)) return;
             Initialize();
+            if (Shared.GameplayModActivationGate.Snapshot.IsRealMultiplayer && !multiplayerResyncReady) return;
             if (isLoadedSave && legacyBytes != null)
             {
                 try { legacyBases = LordHealthSaveState.Decode(legacyBytes).Records; }

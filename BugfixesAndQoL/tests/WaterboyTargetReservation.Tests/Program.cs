@@ -31,6 +31,7 @@ namespace BugfixesAndQoL
             TestCompoundCoverage();
             TestInvalidationPaths();
             TestStationaryTimeoutAndSuppression();
+            TestRepairRetainsStationarySuppression();
             TestLongRouteAndTickReset();
             TestStationaryTimeoutAcrossSignedWrap();
             TestExtinguishingStateDoesNotTimeout();
@@ -190,6 +191,32 @@ namespace BugfixesAndQoL
             Check(compoundLedger.Claim(1, owner, Id(22, 303), 0, 9, 9, 601) == ReservationClaimResult.Claimed &&
                   compoundLedger.SuppressionCount == 0,
                 "selecting an alternative target clears suppression");
+        }
+
+        private static void TestRepairRetainsStationarySuppression()
+        {
+            var host = new ReservationLedger();
+            var owner = Id(1, 101);
+            var secondWorker = Id(2, 102);
+            var fire = Id(11, 201);
+            host.Claim(1, owner, fire, 0, 5, 5, 0);
+            Check(ReconcileFirst(host, true, ReservationLedger.WalkingState, fire, true, 0, 5, 5, 600) ==
+                ReservationReconcileResult.Stalled, "a stalled owner still has its native target at the repair boundary");
+
+            var rows = new List<WaterboyRepairRow>();
+            host.CopyRepairHistoryTo(rows);
+            Check(rows.Count == 1 && rows[0].Suppressed && rows[0].Owner.Equals(owner) && rows[0].Target.Equals(fire),
+                "host history records the suppressed assignment absent from the native target");
+            var repaired = new ReservationLedger();
+            repaired.RestoreSuppression(rows[0]);
+            Check(repaired.HasRepairHistory(owner) && !repaired.HasRepairHistory(Id(1, 999)),
+                "native seeding skips the suppressed owner but not a replacement identity");
+            Check(repaired.Claim(1, secondWorker, fire, 0, 6, 5, 600) == ReservationClaimResult.Claimed,
+                "a different healthy worker can take the fire after repair");
+            var nativeOnly = new ReservationLedger();
+            nativeOnly.Claim(1, owner, fire, 0, 5, 5, 600);
+            Check(nativeOnly.Claim(1, secondWorker, fire, 0, 6, 5, 600) == ReservationClaimResult.Conflict,
+                "native target reseeding alone would resurrect the stalled reservation");
         }
 
         private static void TestStationaryTimeoutAcrossSignedWrap()

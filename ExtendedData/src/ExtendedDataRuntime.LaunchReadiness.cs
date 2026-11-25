@@ -46,6 +46,7 @@ namespace ExtendedData
             settings.LordDataRemoteStatusChanged += ReadinessInputChanged;
             settings.LordDataLobbyChanged += ReadinessLobbyChanged;
             ModSettingsApplication.PreparationChanged += ReadinessInputChanged;
+            missionSettingsCoordinator.SourcesChanged += MissionSettingsProvidersChanged;
             missionSettingsCoordinator.LaunchBlocked = BlockLaunch;
             WatchConfigurationReadiness();
             QueueLaunchReadiness();
@@ -59,6 +60,7 @@ namespace ExtendedData
             settings.LordDataRemoteStatusChanged -= ReadinessInputChanged;
             settings.LordDataLobbyChanged -= ReadinessLobbyChanged;
             ModSettingsApplication.PreparationChanged -= ReadinessInputChanged;
+            missionSettingsCoordinator.SourcesChanged -= MissionSettingsProvidersChanged;
             foreach (var endpoint in configurationObservers) endpoint.PropertyChanged -= ReadinessInputChanged;
             configurationObservers.Clear();
             if (missionSettingsCoordinator != null) missionSettingsCoordinator.LaunchBlocked = null;
@@ -73,6 +75,7 @@ namespace ExtendedData
                 try
                 {
                     FRONT_Multiplayer self = GetExistingMainViewModel()?.FRONTMultiplayer;
+                    ReportCoopWorkshopDiagnostics(self);
                     if (self?.currentLobby?.isHost != true || selected?.Loaded.LordRequirements == null ||
                         !CurrentSlotRequiresPackage(self)) return;
                     // Inside Vanilla's mission switch the slots still hold the previous mission's Lords.
@@ -94,6 +97,15 @@ namespace ExtendedData
                 if (configurationObservers.Add(endpoint)) endpoint.PropertyChanged += ReadinessInputChanged;
         }
         private void ReadinessInputChanged(object sender, PropertyChangedEventArgs args) => ReadinessInputChanged();
+        private void MissionSettingsProvidersChanged()
+        {
+            // Reuse the existing per-player package status, so the host also waits
+            // for a partner's actual mission settings before issuing Vanilla Start.
+            FRONT_Multiplayer self = GetExistingMainViewModel()?.FRONTMultiplayer;
+            if (!readinessInMission && selected != null && CurrentSlotRequiresPackage(self))
+                RefreshSelectedLordRequirementStatus(self);
+            ReadinessInputChanged();
+        }
         private void ReadinessInputChanged()
         {
             // Notifications may originate on a transport thread; all reads and mutation happen after dispatch.
@@ -202,6 +214,11 @@ namespace ExtendedData
             if (localError) Add(localPackageError, LobbyLaunchStatusKind.Blocking, scope: LobbyLaunchStatusScope.Lobby);
             if (activation.CoopPackages && CurrentSlotRequiresPackage(self))
             {
+                // A save has its own authenticated settings preparation. Do not apply
+                // the still-selected new mission's requirements to that saved world.
+                if (APIShared.Savegames.MultiplayerSavePreparation.Current == null)
+                    Add(missionSettingsCoordinator.ProviderBlockReason, LobbyLaunchStatusKind.Blocking,
+                        scope: LobbyLaunchStatusScope.Lobby);
                 Add(SelectedFeatureDependencyError(), LobbyLaunchStatusKind.Blocking, scope: LobbyLaunchStatusScope.Lobby);
                 if (!localError && (!IsLocalPackageReady() || selected == null))
                     Add(GetLocalBlockReason(), LobbyLaunchStatusKind.Loading);
@@ -231,6 +248,18 @@ namespace ExtendedData
             }
             if (activation.LordDataIntegration && lordDataCoordinator?.NeedsLordStartGate == true)
             {
+                var preparation = APIShared.Savegames.MultiplayerSavePreparation.Current;
+                if (preparation != null)
+                {
+                    var readiness = lordDataCoordinator.PreparedSaveReadiness(preparation);
+                    if (readiness.State != LobbyLaunchGuardState.Ready)
+                        Add(readiness.Reason, readiness.State == LobbyLaunchGuardState.Waiting
+                            ? LobbyLaunchStatusKind.Loading : LobbyLaunchStatusKind.Blocking);
+                    return items;
+                }
+                // The dialog has published host-local values but has not yet transferred
+                // them to the SDK operation. Never compare these against live lobby AIVs.
+                if (lordDataCoordinator.HasPreparedLordSave) return items;
                 // Lord data synchronizes after the package selection; a persistent failure is escalated by APIShared.
                 if (!lordDataCoordinator.IsLocalSelectionReady(CurrentLordInfoMap(self), out string reason,
                     verifyEffectiveData: false)) Add(reason, LobbyLaunchStatusKind.Loading);

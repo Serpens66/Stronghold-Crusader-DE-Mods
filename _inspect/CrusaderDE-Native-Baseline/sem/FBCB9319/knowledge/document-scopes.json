@@ -20,7 +20,11 @@
     "untaggedReason": "Their exact bytes are pinned by validators that do not resolve Git history; their scope is recorded only here and in CURRENT.md."
   },
   "documents": [
-    {"file":"TRAPPED_UNIT_RESCUE_AUDIT.md","scope":"mod","components":["TrappedUnitRescueTest","BugfixesAndQoL","Fixes","Script Extender"],"vanillaSections":["Relocation, occupancy and identity","Search and physical exits differ","Mounted siege crew and dismount","Apple-worker arrival and production boundaries","Native caller bytes"],"note":"Static hash-bound native contracts are explicitly tagged [Vanilla facts]; external suppression and unfinished runtime acceptance remain mod work."},
+    {"file":"UNITY_ASSET_PIPELINE.md","scope":"mod","components":["Unity","Script Extender","BugfixesAndQoL","CastlePlanner"],"note":"Dated AssetBundle runtime evidence and editor workflows for mod assets, tests and authoring."},
+    {"file":"EXTREME_TROOPS.md","scope":"vanilla+integration","components":["CrusaderDE.dll","Assembly-CSharp.dll"],"integrationSections":["Mod options"],"note":"Hash-bound direct reference inventory and static effect audit."},
+    {"file":"WALL_DEPOSIT_RESTORATION.md","scope":"vanilla+integration","components":["CrusaderDE.dll","Script Extender","Fixes","DepositRestorationTest"],"integrationSections":["Runtime integration"]},
+    {"file":"AI_MARKET_LIFECYCLE.md","scope":"vanilla+integration","components":["CrusaderDE.dll","APIShared","AIMarketOverbuyDiagnostic","AIMarketAcceptance","AIBuildDiagnoseTest","BugfixesAndQoL"],"note":"Hash-bound market entry and multiplayer repair phase audit; tagged integration sections distinguish shared ownership, private executable fixtures, local save acceptance and the still-open two-peer repair test."},
+    {"file":"TRAPPED_UNIT_RESCUE_AUDIT.md","scope":"mod","components":["TrappedUnitRescueTest","BugfixesAndQoL","Fixes","Script Extender"],"vanillaSections":["Relocation, occupancy and identity","Search and physical exits differ","Mounted siege crew and dismount","Apple-worker arrival and production boundaries","Native caller bytes","2026-11-25 mutation and in-flight boundaries","Construction envelope closure, 2026-11-25","Movement publication and safe waiting, 2026-11-25"],"note":"Static hash-bound native contracts are explicitly tagged [Vanilla facts]; external suppression and unfinished runtime acceptance remain mod work."},
     {"file":"CONSTRUCTION_COST_TABLES.md","scope":"vanilla+integration","components":["CrusaderDE.dll","Assembly-CSharp.dll","Script Extender","APIShared"],"note":"Hash-bound construction table, alias and Undo parameter audits; tagged integration sections record Extender compatibility and dated game probes."},
     {
       "file": "MOAT_TRAVERSAL_ALL_UNITS.md",
@@ -417,11 +421,12 @@
       "file": "CRENELATED_WALLS.md",
       "scope": "vanilla+integration",
       "components": [
-        "CrenelatedWallTest",
+        "BugfixesAndQoL",
         "APIShared"
       ],
       "integrationSections": [
-        "Consumer contract and validation"
+        "Consumer contract and validation",
+        "Feature moved into BugfixesAndQoL; facts kept from the deleted testmods, 2026-11-25"
       ]
     },
     {

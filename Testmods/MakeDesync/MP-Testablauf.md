@@ -1,0 +1,209 @@
+# Gemeinsamer Multiplayer-Test für Resync, KI-Handel und ESC-Neustart
+
+## Nächste manuelle Resync-Abnahme
+
+Erst die Pakete, Testwelt und Nachweise fertig vorbereiten. Danach folgt ein
+gemeinsamer MP-Termin mit einem Spielstart pro Rechner und mehreren Prüfpunkten
+in derselben Partie. Der untere Ablauf dokumentiert den früheren kombinierten
+Test. Die damalige F10-Abnahme gilt für den eigenständigen Deposit-Testmod.
+
+### Vorbereitung ohne Spielstart
+
+- Die zusammengehörigen Pakete prüfen. MakeDesync 0.2.2 bindet F10 an den
+  integrierten Vorkommens-Fix in BugfixesAndQoL ab 1.0.240. Für das spätere
+  Testlayout nur den integrierten Anbieter vorsehen. Der alte
+  `DepositRestorationTest_Serp` gehört nicht in dieses Layout. Reguläre Nutzerdateien
+  und die ursprüngliche Installation vor dem späteren Tausch sichern.
+- Das gewählte APIShared-Plugin mit seinem Bootstrap aus demselben Paket und
+  die beteiligten Mods einmal auf beiden Seiten abgleichen. Den Start über den
+  Client-Watcher und die Aufzeichnung über den manuellen Paarlauf vorbereiten.
+  Das Testlayout bleibt für den gesamten Termin liegen und wird am Ende einmal
+  zurückgesetzt.
+- Karte und Hostoptionen festlegen. Für den bekannten Kartenaufbau The Jordan
+  Valley verwenden. Solange der Markt-Sonderfall keine nachgewiesene MP-Fixture
+  hat, mit zwei Menschen ohne KI planen. Einzelgebäude-Pause und Gerberei-Fleisch
+  aktivieren, automatische Gebäudeerzeugung und störende Zufallsereignisse
+  für diesen Lauf deaktivieren. Bauplätze und Wege von der tatsächlichen
+  Burgposition aus vor dem jeweiligen Versuch prüfen. Keinen Fall über eine
+  feste Burgkoordinate erzwingen.
+- Beim späteren Termin startet der Nutzer auf dem Client einmal den
+  `_Automation/Start-ClientStartWatcher.bat` und lässt das Fenster offen.
+  Watcher-Herzschlag und Installation vor dem Start prüfen. Für die sichtbare
+  manuelle Partie den Starthelfer erst bei geöffneter privater Host-Lobby
+  anfordern. Die Antwort `STARTED` bestätigt die Steam-Anforderung. Für die
+  Abnahme zählen der Beitritt und laufende Simulation auf beiden Rechnern.
+
+### Prüfpunkte in derselben Partie
+
+1. **Integrierter Vorkommens-Fix.** Vor F10 in derselben Testwelt ein intaktes
+   Stein- oder Eisenvorkommen mit einer Mauer überbauen und sicherstellen,
+   dass die Historie den Eintrag erfasst. Auf dem Client F10 auslösen und
+   den vollständigen Abschluss abwarten. Wenn nur die Vorkommenshistorie
+   abweicht, auf beiden Seiten einen übertragenen Datensatz und 320.804 Bytes
+   erwarten. Mauer entfernen und die freigelegte Ressource vergleichen.
+   Fehlt ein nachgewiesener Mauer-/Vorkommenseintrag, bleibt der Fall offen.
+2. **Gebäudeersatz.** Zwei Holzfällerhütten bauen. Beide pausieren und eine
+   Hütte mit Strg-Klick wieder einschalten. Diese Hütte abreißen und an
+   derselben Stelle neu bauen. Die reguläre Typ-Pause und den Zustand der
+   neuen Hütte auf beiden Rechnern vergleichen. Gleiche Koordinate belegt
+   keinen wiederverwendeten nativen Slot. Für die volle Abnahme muss eine
+   tatsächliche Gebäudereparatur den betreffenden Slot mit alter und neuer
+   Global-ID belegen. Der manuelle Neubau prüft den sichtbaren Normalfall.
+3. **Laufender Fleischtransport.** Gerberei mit Kornspeicher und erreichbarer
+   Kuh aufbauen, den Fleischregler auf drei Gänge stellen und Fleischbestand
+   und Gerberei vor der Probe auf beiden Seiten festhalten. Während der
+   Gerber mit Fleisch zum Kornspeicher läuft, am Client **Strg+Umschalt+F9**
+   drücken. Nach dem Abschluss dieselbe Lieferung und den Fleischzuwachs
+   auf beiden Seiten vergleichen. Währenddessen andere Fleischzufuhr und
+   Verbrauch soweit möglich ausschließen. Alternativ mit einem Jäger nach
+   dem Schlachten und vor der Abgabe prüfen. Einen vorbeibewegten Arbeiter
+   allein nicht als Beleg für einen laufenden Fleischtransport werten.
+4. **Bestätigte Bewegung.** Einen Trupp über eine längere Strecke schicken.
+   Sobald beide Spieler seine Bewegung sehen, bei noch laufender Bewegung
+   am Client erneut **Strg+Umschalt+F9** drücken. Nach abgeschlossenem Resync
+   verfolgen, ob derselbe Trupp genau einmal an seinem ursprünglichen Ziel
+   ankommt. Einfache Bewegung und modseitige Shift-Folgeschritte getrennt
+   auswerten. Eine fehlende Folgeaktion sagt erst mit nachgewiesener
+   Annahmephase aus, ob ein bestätigter Auftrag verloren ging.
+
+Pro Versuch beide Logs sichern und über Reparaturtick, Kategorie,
+Reparaturnummer und übertragenen Datensatz zuordnen. F9 prüft eine native
+Einheitenreparatur. Es kann daneben den Erhalt privater Moddaten belegen,
+liefert aber keinen nativen Gebäudereparaturrecord. Fehlende Ausgangszustände
+oder bloße Sichtprüfung eines anderen Falls als offen vermerken.
+
+### Abgrenzung der Nachweise
+
+Gerber und Jäger haben eigene Abnahmekriterien. Beide in derselben Partie
+aufnehmen, sofern Fleischweg bzw. Beuteabgabe jeweils eindeutig beobachtbar
+sind. Torhaus-Ausnahmen, Respawn und andere bereits implementierte Fälle nur
+in den Termin aufnehmen, wenn ihr Auslöser und ihre Folgeaktion vorab
+feststehen. Eine Reparatur ohne passenden Ausgangszustand zählt für den
+jeweiligen Fall als offen.
+
+Normales Grabenverfüllen und die wiederholten Einheitenreparaturen sind
+bereits belegt. Varianten mit fehlender Mauer, repariertem Gebäudeslot,
+nativer Vollreparatur oder Rest-vier-Marktauftrag brauchen einen passenden
+nachgewiesenen Auslöser. F9/F10 ersetzen diese Nachweise nicht. Anbieterfehler
+und Client-Abbruch können die laufende Partie beenden und werden bei dieser
+Runde anhand der vorhandenen Offline-Prüfungen bewertet. Die echte
+Zwei-Rechner-Abnahme dieser Fehlerfälle bleibt offen. Für einen Lauf mit
+bewusst ausgelöstem Resync die Reparaturmarker direkt auswerten. Das
+allgemeine Desync-Urteil des Paarlauf-Reports allein ist dafür ungeeignet.
+
+## Automatischer Ablauf
+
+Der Host-Treiber startet eine private Partie auf **The Jordan Valley** und
+richtet null Minuten Friedenszeit und den verbündeten Testlord
+**SerpMarketRest4** für den Handel ein. Die Burgpositionen sind frei.
+Sobald die Lobby bereit ist, genügt der normale Spielstart am Client.
+UiAcceptance übernimmt Beitritt und Bereitmeldung. Die aktivierte
+Testkonfiguration gilt für einen Start.
+
+Der Host sucht im laufenden Spiel freie Testflächen und teilt sie dem Client mit.
+Die automatische Probe setzt und entfernt einen 3×3-Graben über Vanillas
+synchronisierte Mapper-Befehle. Sie vergleicht das Kachelraster und die
+private Historie während der Reparatur sowie das Oasengras nach dem Entfernen.
+Der Lauf legt auch zwei Holzfällerhütten für die Einzelpause an und testet
+zwei Einheiten-Resyncs, KI-Handel sowie Abbrechen und zweimaliges Bestätigen
+des originalen ESC-Neustarts. Das natürliche Graben und Verfüllen durch
+Arbeitseinheiten lässt sich mit dem manuellen Ablauf unten gesondert prüfen.
+
+## Manueller Ablauf
+
+Der Ablauf benötigt einen Spielstart pro Rechner. Host und Client verwenden
+getrennte Steam-Konten und starten eine **neue private Skirmish-Partie** mit zwei
+Menschen und mindestens einer KI. Wählt eine Karte mit Oasengras in Reichweite
+der Spieler und Platz für eine wirtschaftlich aktive KI. Der Host aktiviert
+vorher in BugfixesAndQoL **Boden nach Burggrabenentfernung wiederherstellen** und
+**Pausieren einzelner Gebäude aktivieren**. Verschiedene Spielsprachen auf
+Host und Client decken zusätzlich die Übersetzung des Neustartdialogs ab.
+
+Für einen kurzen Lauf eignet sich **The Jordan Valley** mit beliebigen
+Startplätzen und **0 Minuten Friedenszeit**. Auf dem Host kann der Testlord
+**SerpMarketRest4** als Verbündeter hinzugefügt werden. Seine KI-Probe läuft
+nebenbei. Für die Graben-, Gebäudepause- und Neustartprüfung reicht eine
+gewöhnliche KI. Den Graben hebt der Host auf einer freien Grasfläche aus.
+Einheiten-Resync und Vorkommen wurden bereits geprüft und müssen für die
+offenen Fälle nicht wiederholt werden.
+
+Benötigt werden die identischen Pakete auf beiden Rechnern, insbesondere
+APIShared **0.69.0** mit passendem Patcher, BugfixesAndQoL **1.0.237**,
+MakeDesync **0.2.1**, Deposit Restoration **0.3.1**, der
+AI-Market-Diagnosebuild **0.1.0** und MultiplayerRestartTest **0.1.4**.
+Die frühere Partie `test_stone` deckt bereits Mauerabriss und Vorkommen ab.
+Für die positiven ESC-Neustarts bleibt die neue Partie die Ausgangsmission.
+
+## 1. Vorbereitung in der laufenden Partie
+
+1. Lasst die KI einen Markt betreiben und Waffen rekrutieren. Genügend Gold
+   und ein laufender Handel ergeben mehr Beobachtungen vor und nach der
+   Reparatur. Der Client-Lord bleibt bei voller Gesundheit.
+2. Hebt auf Oasengras **genau ein Grabensegment** aus. Merkt euch die Stelle
+   und wartet, bis die Arbeitseinheit das Segment verlassen hat.
+3. Falls zwei Produktionsgebäude desselben Typs vorhanden sind, pausiert den
+   Typ über die normale Pause-Schaltfläche. Startet danach nur Gebäude A
+   wieder, indem ihr **Strg** beim Klick auf die Schaltfläche haltet.
+   Gebäude B bleibt pausiert. Wartet, bis die Zustände auf beiden Rechnern
+   angekommen sind.
+
+## 2. Resync und Handel
+
+1. Am **Client** einmal **Strg+Umschalt+F9** drücken. Wartet, bis das Spiel
+   weiterläuft. Wiederholt F9 nach dem vollständigen Abschluss, wenn ihr den
+   Einheitenfall zweimal in Folge prüfen wollt. Die beiden Versuche müssen
+   getrennte Reparaturnummern erhalten.
+2. Kampf und Änderungen in der Nähe des Grabens während des Versuchs
+   vermeiden. Am **Client** einmal **Strg+Umschalt+F11** drücken. Der
+   erwartete Clientabschluss enthält `mode=moat`, `divergedAtStart=True`,
+   `tileRestored=True`, `historyRestored=True` und `restored=True`.
+   Wenn nur der Grabendatensatz abweicht, meldet APIShared einen übermittelten
+   Datensatz mit **641.616 Bytes**. Ein zweiter abweichender Datensatz
+   wird anhand der Logs ausgewertet.
+3. Nach dem bestätigten Abschluss das Segment mit einem normalen
+   Spielbefehl verfüllen. Beide Seiten vergleichen den ursprünglichen
+   Boden. Am **Client** einmal **Strg+Umschalt+F8** drücken. Der Logmarker
+   `MAKE_DESYNC_MOAT_FILL` soll `restored=True` melden.
+4. Falls ihr die Gebäudepause eingerichtet habt, prüft auf beiden Rechnern
+   direkt nach dem Resync den fortbestehenden Unterschied zwischen A und B.
+   Ein anschließender normaler Typ-Pausenbefehl räumt die Einzelausnahmen
+   für den Typ absichtlich auf.
+5. Lasst die KI noch weiter handeln. Für jeden Resync vergleichen wir auf
+   beiden Rechnern `MAKE_DESYNC_MARKET_BOUNDARY` bei `stage=start`
+   und `stage=complete`. `pass=True` bestätigt für diese Callbackgrenzen
+   unveränderte native Kaufzellen, geleerte private Zuordnungen und die
+   erwarteten Writer-Gates. Neue Handelsmarker oder Zähler nach dem
+   Abschluss belegen, dass die KI wieder Aufträge bearbeitet.
+
+Der spezielle Marktfall mit echtem Fünferauftrag, Rest 4 und Gutschrift 1
+braucht einen bestätigten Auftrag mit genau dieser Historie. `partialBefore`
+zeigt, ob der Beobachter zu Beginn einen passenden Zwischenstand gesehen
+hat. Für eine gezielte Reproduktion fehlt eine synchronisierte MP-Fixture.
+
+## 3. ESC-Neustart zuletzt
+
+1. Öffnet ESC auf beiden Rechnern. Der Host sieht genau den originalen
+   Neustartknopf, der Client kann den Neustart nicht auslösen. Prüft auch
+   die zusätzlichen Mod-Aktionen auf einen zweiten Neustarteintrag.
+2. Host klickt den Originalknopf und antwortet einmal **Nein**. Die Partie
+   läuft weiter. Dann erneut klicken und **Ja** wählen.
+3. Lobby-Wiederaufbau und Spielstart laufen selbständig. In der Zwischenlobby
+   nichts anklicken oder umstellen. In der gestarteten Partie auf beide
+   Rechner schauen: Karte, Slots, Teams, Farben, Lords und KI stimmen
+   mit dem ursprünglichen Start überein. Das Spiel muss auf beiden
+   Rechnern wirklich weiterlaufen. Wartet auf den vollständigen Start
+   und wiederholt den Neustart einmal.
+4. Für die Auswertung brauchen wir auf beiden Rechnern dieselbe
+   `MP_RESTART_TEST`-Operation bis `RESTART_COMPLETE`, dazu
+   `TARGET_LOADED`, `SIMULATION_READY` und fortlaufende Simulation.
+   Host `TARGET_SEED_SENT allPeersLoaded=true` muss auf die Ladebelege
+   beider Teilnehmer folgen.
+
+Bricht eine bereits ausgelöste Reparatur oder ein Neustart nach dem Stoppen
+der alten Partie ab, beendet die Testpartie. Die Abbruch- und
+Disconnect-Fälle werden getrennt von diesem positiven Durchlauf geprüft.
+Die beiden BepInEx-Logs und die Sichtprüfung nach F8 und nach jedem
+Neustart reichen für die gemeinsame Auswertung.
+
+[MakeDesync-Kürzel](USAGE.md) ·
+[ESC-Neustart und Logmarker](../MultiplayerRestartTest/TESTING.md)

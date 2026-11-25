@@ -72,7 +72,7 @@ namespace ExtraFeatures
 
         private bool IsManualOnlyBuilding(int buildingId)
         {
-            if (!automationReady || !mapActive || loadedMapStatePending ||
+            if (!ManualControlAvailable || !mapActive || loadedMapStatePending ||
                 !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
             {
                 return false;

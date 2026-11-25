@@ -9,14 +9,14 @@ namespace RandomEvents
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency("APIShared_Serp", "0.49.0")]
+    [BepInDependency("APIShared_Serp", "0.65.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class RandomEventsPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
         public const string PluginGuid = "RandomEvents_Serp";
         public const string PluginName = "Random Events";
-        public const string PluginVersion = "1.0.60";
+        public const string PluginVersion = "1.0.61";
 
         private RandomEventsRuntime runtime;
         // Process-lived late foreign-patch check of the native detours; rooted by the mission publisher.

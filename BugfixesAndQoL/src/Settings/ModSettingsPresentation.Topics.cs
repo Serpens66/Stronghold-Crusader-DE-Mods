@@ -10,6 +10,7 @@ namespace BugfixesAndQoL
         public SettingsTopicPresentation HostAi { get; private set; }
         public SettingsTopicPresentation HostTroops { get; private set; }
         public SettingsTopicPresentation HostEconomy { get; private set; }
+        public SettingsTopicPresentation HostControls { get; private set; }
         public SettingsTopicPresentation HostSiege { get; private set; }
         public SettingsTopicPresentation HostPerformance { get; private set; }
 
@@ -17,6 +18,10 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableGatehouseTargetMarkerHeightFix => options["EnableGatehouseTargetMarkerHeightFix"];
         public SettingsOptionPresentation EnableTroopPanelPageCountFix => options["EnableTroopPanelPageCountFix"];
         public SettingsOptionPresentation EnableVanillaPerformanceOptimizations => options["EnableVanillaPerformanceOptimizations"];
+        public SettingsOptionPresentation EnableProjectileTrails => options["EnableProjectileTrails"];
+        public SettingsOptionPresentation ProjectileTrailLength => options["ProjectileTrailLength"];
+        public SettingsOptionPresentation ProjectileTrailMaximum => options["ProjectileTrailMaximum"];
+        public SettingsOptionPresentation ReplaceStandardProjectileAfterimages => options["ReplaceStandardProjectileAfterimages"];
         public SettingsOptionPresentation EnableMinimapRefreshThrottle => options["EnableMinimapRefreshThrottle"];
         public SettingsOptionPresentation SpriteSheetMergeModeIndex => options["SpriteSheetMergeModeIndex"];
         public SettingsOptionPresentation EnableCompleteNotificationSkipOnClick => options["EnableCompleteNotificationSkipOnClick"];
@@ -30,9 +35,11 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableMinimapCursorFollowFix => options["EnableMinimapCursorFollowFix"];
         public SettingsOptionPresentation EnableDisbandedUnitControlGroupCleanup => options["EnableDisbandedUnitControlGroupCleanup"];
         public SettingsOptionPresentation EnableEnemyProximityBulldozeCursorFix => options["EnableEnemyProximityBulldozeCursorFix"];
+        public SettingsOptionPresentation EnableAutoSend => options["EnableAutoSend"];
         public SettingsOptionPresentation EnableImprovedBuildPreview => options["EnableImprovedBuildPreview"];
         public SettingsOptionPresentation EnablePitchMoatLines => options["EnablePitchMoatLines"];
         public SettingsOptionPresentation EnableAreaDemolition => options["EnableAreaDemolition"];
+        public SettingsOptionPresentation EnableAreaConstruction => options["EnableAreaConstruction"];
         public SettingsOptionPresentation EnableTroopHudMiddleClickCameraJump => options["EnableTroopHudMiddleClickCameraJump"];
         public SettingsOptionPresentation AllowMinimapWhilePlacingBuilding => options["AllowMinimapWhilePlacingBuilding"];
         public SettingsOptionPresentation PreventMoveOrderOnPlacementCancel => options["PreventMoveOrderOnPlacementCancel"];
@@ -66,11 +73,13 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableTrailCustomizationButtons => options["EnableTrailCustomizationButtons"];
         public SettingsOptionPresentation AllowFullAiMultiplayerLobby => options["AllowFullAiMultiplayerLobby"];
         public SettingsOptionPresentation EnableReturnToMultiplayerLobby => options["EnableReturnToMultiplayerLobby"];
+        public SettingsOptionPresentation EnableIngameMultiplayerSaveLoading => options["EnableIngameMultiplayerSaveLoading"];
         public SettingsOptionPresentation MultiplayerTimeControlPermissionIndex => options["MultiplayerTimeControlPermissionIndex"];
         public SettingsOptionPresentation MultiplayerGameSpeedMaximum => options["MultiplayerGameSpeedMaximum"];
         public SettingsOptionPresentation EnableShiftGameSpeedSteps => options["EnableShiftGameSpeedSteps"];
         public SettingsOptionPresentation EnableSurrenderAndStatistics => options["EnableSurrenderAndStatistics"];
         public SettingsOptionPresentation EnableRandomOpponentSelectionEnhancements => options["EnableRandomOpponentSelectionEnhancements"];
+        public SettingsOptionPresentation EnableAiMarketOverbuyFix => options["EnableAiMarketOverbuyFix"];
         public SettingsOptionPresentation EnableAiStoneReserveFix => options["EnableAiStoneReserveFix"];
         public SettingsOptionPresentation EnableAiDefensePatrolFix => options["EnableAiDefensePatrolFix"];
         public SettingsOptionPresentation EnableAiOutpostRetargetFix => options["EnableAiOutpostRetargetFix"];
@@ -108,6 +117,14 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableWorkshopIdleDelayFix => options["EnableWorkshopIdleDelayFix"];
         public SettingsOptionPresentation EnableGatehouseLivingCaptureFix => options["EnableGatehouseLivingCaptureFix"];
         public SettingsOptionPresentation EnableMoatTerrainRestoration => options["EnableMoatTerrainRestoration"];
+        public SettingsOptionPresentation EnableWallDepositRestoration => options["EnableWallDepositRestoration"];
+        public SettingsOptionPresentation EnableCrenelCheckerboard => options["EnableCrenelCheckerboard"];
+        public SettingsOptionPresentation AlignExistingCrenelsInEditor => options["AlignExistingCrenelsInEditor"];
+        public SettingsOptionPresentation AlignExistingCrenelsOnSaveLoad => options["AlignExistingCrenelsOnSaveLoad"];
+        public SettingsOptionPresentation AlignExistingCrenelsOnMapStart => options["AlignExistingCrenelsOnMapStart"];
+        public SettingsOptionPresentation EnableOccupiedWallDemolition => options["EnableOccupiedWallDemolition"];
+        public SettingsOptionPresentation EmptyStockpileLimit => options["EmptyStockpileLimit"];
+        public SettingsOptionPresentation EmptyGranaryArmouryLimit => options["EmptyGranaryArmouryLimit"];
         public SettingsOptionPresentation EnablePitchStairsFix => options["EnablePitchStairsFix"];
         public SettingsOptionPresentation EnableDrawbridgeDestructionFix => options["EnableDrawbridgeDestructionFix"];
         public SettingsOptionPresentation EnableSiegeCrewDuplicationFix => options["EnableSiegeCrewDuplicationFix"];
@@ -128,6 +145,9 @@ namespace BugfixesAndQoL
             AddOption("SpriteSheetMergeModeIndex", "bugfixes.sprite-sheet-merge", SettingsCategory.Fixes, ClientDisplay);
             AddOption("EnableCompleteNotificationSkipOnClick", "bugfixes.enable-complete-notification-skip-on-click", SettingsCategory.Fixes, ClientDisplay);
             AddOption("ShowSelectedUnitHealth", "bugfixes.show-selected-unit-health", SettingsCategory.Qol, ClientDisplay);
+            AddOption("EnableProjectileTrails", "bugfixes.projectile-trails", SettingsCategory.Qol, ClientDisplay);
+            AddOption("ProjectileTrailLength", "bugfixes.projectile-trail-length", SettingsCategory.Qol, ClientDisplay);
+            AddOption("ProjectileTrailMaximum", "bugfixes.projectile-trail-maximum", SettingsCategory.Qol, ClientDisplay);
             AddOption("ShowForeignTroopHud", "bugfixes.show-foreign-troop-hud", SettingsCategory.Qol, ClientDisplay);
             AddOption("EnableDamagedHealthBars", "bugfixes.damaged-health-bars", SettingsCategory.Qol, ClientDisplay);
             AddOption("ShowCountdownTimers", "bugfixes.show-countdown-timers", SettingsCategory.Qol, ClientDisplay);
@@ -138,9 +158,11 @@ namespace BugfixesAndQoL
             AddOption("EnableMinimapCursorFollowFix", "bugfixes.enable-minimap-cursor-follow-fix", SettingsCategory.Fixes, ClientControls);
             AddOption("EnableDisbandedUnitControlGroupCleanup", "bugfixes.disbanded-unit-control-group-cleanup", SettingsCategory.Fixes, ClientControls);
             AddOption("EnableEnemyProximityBulldozeCursorFix", "bugfixes.enable-enemy-proximity-bulldoze-cursor-fix", SettingsCategory.Fixes, ClientControls);
+            AddOption("EnableAutoSend", "bugfixes.auto-send", SettingsCategory.Qol, ClientControls);
             AddOption("EnableImprovedBuildPreview", "bugfixes.improved-build-preview", SettingsCategory.Qol, ClientControls);
             AddOption("EnablePitchMoatLines", "bugfixes.pitch-moat-lines", SettingsCategory.Qol, ClientControls);
             AddOption("EnableAreaDemolition", "bugfixes.area-demolition", SettingsCategory.Qol, ClientControls);
+            AddOption("EnableAreaConstruction", "bugfixes.area-construction", SettingsCategory.Qol, ClientControls);
             AddOption("EnableTroopHudMiddleClickCameraJump", "bugfixes.troop-hud-middle-click-camera-jump", SettingsCategory.Qol, ClientControls);
             AddOption("AllowMinimapWhilePlacingBuilding", "bugfixes.allow-minimap-while-placing-building", SettingsCategory.Qol, ClientControls);
             AddOption("PreventMoveOrderOnPlacementCancel", "bugfixes.prevent-move-order-on-placement-cancel", SettingsCategory.Qol, ClientControls);
@@ -177,6 +199,7 @@ namespace BugfixesAndQoL
             AddOption("EnableTrailCustomizationButtons", "bugfixes.enable-trail-customization-buttons", SettingsCategory.Qol, HostSetup);
             AddOption("AllowFullAiMultiplayerLobby", "bugfixes.allow-full-ai-multiplayer-lobby", SettingsCategory.Qol, HostSetup);
             AddOption("EnableReturnToMultiplayerLobby", "bugfixes.enable-return-to-multiplayer-lobby", SettingsCategory.Qol, HostSetup);
+            AddOption("EnableIngameMultiplayerSaveLoading", "bugfixes.enable-ingame-multiplayer-save-loading", SettingsCategory.Qol, HostSetup);
             AddOption("MultiplayerTimeControlPermissionIndex", "bugfixes.enable-multiplayer-game-speed-changes", SettingsCategory.Qol, HostSetup);
             AddOption("MultiplayerGameSpeedMaximum", "bugfixes.multiplayer-game-speed-maximum", SettingsCategory.Qol, HostSetup);
             AddOption("EnableShiftGameSpeedSteps", "bugfixes.enable-shift-game-speed-steps", SettingsCategory.Qol, HostSetup);
@@ -184,6 +207,7 @@ namespace BugfixesAndQoL
             AddOption("EnableSurrenderAndStatistics", "bugfixes.enable-surrender-and-statistics", SettingsCategory.Qol, HostSetup);
             AddOption("EnableRandomOpponentSelectionEnhancements", "bugfixes.enable-random-opponent-selection-enhancements", SettingsCategory.Qol, HostSetup);
             HostAi = AddTopic("HostAi", "bugfixes.topic.host-ai", true);
+            AddOption("EnableAiMarketOverbuyFix", "bugfixes.enable-ai-market-overbuy-fix", SettingsCategory.Fixes, HostAi);
             AddOption("EnableAiStoneReserveFix", "bugfixes.enable-ai-stone-reserve-fix", SettingsCategory.Fixes, HostAi);
             AddOption("EnableAiDefensePatrolFix", "bugfixes.enable-ai-defense-patrol-fix", SettingsCategory.Fixes, HostAi);
             AddOption("EnableAiOutpostRetargetFix", "bugfixes.enable-ai-outpost-retarget-fix", SettingsCategory.Fixes, HostAi);
@@ -206,6 +230,7 @@ namespace BugfixesAndQoL
             AddOption("EnableHealerAttackCommandFix", "bugfixes.enable-healer-attack-command-fix", SettingsCategory.Fixes, HostTroops);
             AddOption("EnableLordReturnTeleportFix", "bugfixes.lord-return-teleport-fix", SettingsCategory.Fixes, HostTroops);
             AddOption("EnableLordUnitControls", "bugfixes.enable-lord-unit-controls", SettingsCategory.Qol, HostTroops);
+            AddOption("ReplaceStandardProjectileAfterimages", "bugfixes.replace-standard-projectile-afterimages", SettingsCategory.Qol, HostTroops);
             HostEconomy = AddTopic("HostEconomy", "bugfixes.topic.host-economy", true);
             AddOption("EnableTreeBlightDecayFix", "bugfixes.enable-tree-blight-decay-fix", SettingsCategory.Fixes, HostEconomy);
             AddOption("EnableKeepFlagRotationFix", "bugfixes.enable-keep-flag-rotation-fix", SettingsCategory.Fixes, HostEconomy);
@@ -221,13 +246,22 @@ namespace BugfixesAndQoL
             AddOption("EnableCtrlSingleMarketTrade", "bugfixes.enable-ctrl-single-market-trade", SettingsCategory.Qol, HostEconomy);
             AddOption("EnableBakerMillerBreaks", "bugfixes.enable-baker-miller-breaks", SettingsCategory.Possible, HostEconomy);
             AddOption("EnableWorkshopIdleDelayFix", "bugfixes.enable-workshop-idle-delay-fix", SettingsCategory.Possible, HostEconomy);
+            HostControls = AddTopic("ClientControls", "bugfixes.topic.host-controls", true);
+            AddOption("EnableOccupiedWallDemolition", "bugfixes.occupied-wall-demolition", SettingsCategory.Qol, HostControls);
+            AddOption("EmptyStockpileLimit", "bugfixes.empty-stockpile-limit", SettingsCategory.Qol, HostControls);
+            AddOption("EmptyGranaryArmouryLimit", "bugfixes.empty-granary-armoury-limit", SettingsCategory.Qol, HostControls);
             HostSiege = AddTopic("HostSiege", "bugfixes.topic.host-siege", true);
             AddOption("EnableGatehouseLivingCaptureFix", "bugfixes.enable-gatehouse-living-capture-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableDrawbridgeDestructionFix", "bugfixes.enable-drawbridge-destruction-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableSiegeCrewDuplicationFix", "bugfixes.siege-crew-duplication-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableSiegeCrewFireLossFix", "bugfixes.siege-crew-fire-loss-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableMoatTerrainRestoration", "bugfixes.moat-terrain-restoration", SettingsCategory.Fixes, HostSiege);
+            AddOption("EnableWallDepositRestoration", "bugfixes.wall-deposit-restoration", SettingsCategory.Fixes, HostSiege);
             AddOption("EnablePitchStairsFix", "bugfixes.pitch-stairs-fix", SettingsCategory.Fixes, HostSiege);
+            AddOption("EnableCrenelCheckerboard", "bugfixes.crenel-checkerboard", SettingsCategory.Fixes, HostSiege);
+            AddOption("AlignExistingCrenelsInEditor", "bugfixes.align-existing-crenels-in-editor", SettingsCategory.Fixes, HostSiege);
+            AddOption("AlignExistingCrenelsOnSaveLoad", "bugfixes.align-existing-crenels-on-save-load", SettingsCategory.Fixes, HostSiege);
+            AddOption("AlignExistingCrenelsOnMapStart", "bugfixes.align-existing-crenels-on-map-start", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableTunnelPlacementDistanceFix", "bugfixes.enable-tunnel-placement-distance-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableCenteredGatehouseDistanceFix", "bugfixes.centered-gatehouse-distance", SettingsCategory.Qol, HostSiege);
             AddOption("EnableFairSiegeAmmoRestock", "bugfixes.enable-fair-siege-ammo-restock", SettingsCategory.Qol, HostSiege);

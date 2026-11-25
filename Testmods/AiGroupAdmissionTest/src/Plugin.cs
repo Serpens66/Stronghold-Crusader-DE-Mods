@@ -12,6 +12,7 @@ namespace AiGroupAdmissionTest
     [BepInPlugin(Guid, "AI Group Admission Test", "0.1.0")]
     [BepInDependency("000shcdese", "2.14.3")]
     [BepInDependency("APIShared_Serp", "0.56.1")]
+    [BepInDependency("Spectator_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class Plugin : BaseUnityPlugin
     {
         public const string Guid = "AiGroupAdmissionTest_Serp";
@@ -26,7 +27,7 @@ namespace AiGroupAdmissionTest
             string request = Path.Combine(Paths.ConfigPath, "SerpAutomation", Guid + ".run");
             if (!File.Exists(request)) return;
             var lines = File.ReadAllLines(request);
-            if (lines.Length < 2 || !Fixture.Owns(lines[1])) return;
+            if (lines.Length < 2 || !(Fixture.Owns(lines[1]) || lines[1] == Fixture.OriginalScenario)) return;
             if (!System.Guid.TryParseExact(lines[0], "N", out var runId) || runId == System.Guid.Empty)
             { Stamp("invalid owned request; not consumed"); return; }
             bool siege = lines[1] == Fixture.SiegeScenario || lines[1] == Fixture.SiegeLordScenario;
@@ -37,9 +38,10 @@ namespace AiGroupAdmissionTest
             var api = ApiShared.ForMod(Guid);
             api.WhenReady(_ => {
                 if (!api.Ui.TryPost(() => {
-                    active = new Fixture(map, speed, runId, Stamp) { KillTargetLord = lines[1] == Fixture.SiegeLordScenario };
+                    active = new Fixture(map, speed, runId, Stamp) { KillTargetLord = lines[1] == Fixture.SiegeLordScenario,
+                        OriginalSave = Config.Bind("Fixture", "OriginalSave", "test_diagonal.sav", "Original local save for original-save scenario (read only).").Value };
                     File.Delete(request);
-                    api.Automation.Start(runId, siege ? active.SiegeSteps() : active.Steps(), log,
+                    api.Automation.Start(runId, lines[1] == Fixture.OriginalScenario ? active.OriginalSteps() : siege ? active.SiegeSteps() : active.Steps(), log,
                         result => Stamp("finished status=" + result.Status + " step=" + result.Step + " detail=" + result.Detail), quitWhenDone: true);
                 })) Stamp("Unity dispatch unavailable; request not consumed");
             });

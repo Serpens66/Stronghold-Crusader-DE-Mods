@@ -288,7 +288,10 @@ namespace Shared
     {
         public struct Result { public int Rva; }
         public static Result ResolveUnique(ReadOnlySpan<byte> memory, string pattern, int rva, bool required, string label, object log) => throw new NotSupportedException("Binding is outside this fake game boundary");
-        public static int ResolveRelativeTarget(ReadOnlySpan<byte> memory, int operand, int next) => throw new NotSupportedException();
+    }
+    internal static class NativeInstructionOperands
+    {
+        public static int RipDataTarget(ReadOnlySpan<byte> memory, int rva, bool writable) => throw new NotSupportedException("Binding is outside this fake game boundary");
     }
 }
 namespace APIShared

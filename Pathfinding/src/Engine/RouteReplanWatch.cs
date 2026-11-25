@@ -230,6 +230,7 @@ namespace Pathfinding.Engine
             byte* path = runtime.nativeUnitManager + NativeUnitPathBufferOffset + id * NativeUnitPathBufferStride;
             int x = unit->r_NextTilePositionX2, y = unit->r_NextTilePositionY2;
             ValidateReplanCursor(unit, path, cursor, length, x, y);
+            bool plagueImmune = IsPlagueImmune(unit);
             int end = Math.Min(length, cursor + lookahead);
             for (int i = cursor; i < end; i++)
             {
@@ -238,10 +239,20 @@ namespace Pathfinding.Engine
                 x += FastRouteField.Dx[d]; y += FastRouteField.Dy[d];
                 if ((uint)x >= MapWidth || (uint)y >= MapWidth) { replanUnreadable++; return -1; }
                 int n = y * MapWidth + x;
-                if ((replanTiles[n >> 6] & (1UL << (n & 63))) != 0) { node = n; return i - cursor + 1; }
+                if ((replanTiles[n >> 6] & (1UL << (n & 63))) != 0 && !(plagueImmune && IsPlagueOnlyTile(n, unit->r_ControllableForPlayerId)))
+                { node = n; return i - cursor + 1; }
             }
             return -1;
         }
+
+        // Plague-immune units (IsPlagueImmune; among soldiers the lord) take no plague damage (0x192750's type
+        // table 0x32BC40): a tile that only Pathfinding's plague policy holds neither stops them nor blocks their
+        // probes; fire and other replan sets still do.
+        // Limit: GetReplanPolicy names the first set by owner GUID and registration ID, so a foreign set ordered
+        // after Pathfinding's plague set on the same tile is not seen here.
+        private bool IsPlagueOnlyTile(int node, int player) =>
+            plagueAbortPolicy != null && plagueTiles.Contains(node) && !fireTiles.Contains(node) &&
+            ReferenceEquals(RouteTileRules.GetReplanPolicy(node % MapWidth, node / MapWidth, player), plagueAbortPolicy);
 
         // Development check of the cursor contract: the remaining steps from the next tile end at the
         // move target (196280 stores the current tile as the route start, so the stored start is no
@@ -513,7 +524,8 @@ namespace Pathfinding.Engine
         private const int ReplanProbeSettles = 65536;
         private bool ReplanRouteClear(ReplanWait wait, GameUnit* unit)
         {
-            int probe = CoreRouteProbe(wait.Player, wait.StopX, wait.StopY, wait.TargetX, wait.TargetY, wait.Policy, wait.Remaining, runtime.ResolveMovementSurface(unit));
+            int probe = CoreRouteProbe(wait.Player, wait.StopX, wait.StopY, wait.TargetX, wait.TargetY, wait.Policy, wait.Remaining, runtime.ResolveMovementSurface(unit),
+                IsPlagueImmune(unit));
             replanProbeOutcomes[probe]++;
             return probe == ProbeClear;
         }
@@ -524,8 +536,10 @@ namespace Pathfinding.Engine
         private readonly long[] replanProbeOutcomes = new long[4];
 
         // Whether the core's route from (startX,startY) avoids every replan and burning tile and fits the
-        // policy against `remaining` steps. Consumes the tick's probe budget.
-        private int CoreRouteProbe(int player, int startX, int startY, int targetX, int targetY, RouteReplanPolicy policy, int remaining, RouteSurfaceClass surface = RouteSurfaceClass.Any)
+        // policy against `remaining` steps. Consumes the tick's probe budget. plagueImmune: plague-only tiles
+        // (IsPlagueOnlyTile) do not count for a plague-immune unit.
+        private int CoreRouteProbe(int player, int startX, int startY, int targetX, int targetY, RouteReplanPolicy policy, int remaining,
+            RouteSurfaceClass surface = RouteSurfaceClass.Any, bool plagueImmune = false)
         {
             int start = startY * MapWidth + startX, target = targetY * MapWidth + targetX;
             int code = AnchorNative.mma_single_route_limited(anchorContext, player, target, 1, 0, surface, start, Math.Min(ReplanProbeSettles, Math.Max(1, replanProbeLeft)),
@@ -539,7 +553,7 @@ namespace Pathfinding.Engine
                 x += FastRouteField.Dx[replanRoute[i]]; y += FastRouteField.Dy[replanRoute[i]];
                 int n = y * MapWidth + x;
                 if (!runtime.IsMovementSurfaceAllowed(surface, GameTileManagerAPI.Instance.GetTileId(x, y))) { MarkMovementSurface(n); return ProbeNoRoute; }
-                if ((replanTiles[n >> 6] & (1UL << (n & 63))) != 0 || IsHazardNode(n)) return ProbeRuleTile;
+                if (((replanTiles[n >> 6] & (1UL << (n & 63))) != 0 || IsHazardNode(n)) && !(plagueImmune && IsPlagueOnlyTile(n, player))) return ProbeRuleTile;
             }
             return ProbeClear;
         }

@@ -30,19 +30,29 @@ namespace ImprovedHunters
         private const byte RecordVersion = 1;
         private const int HeaderBytes = 5;
         private const int EntryBytes = 18;
+        internal const int MaximumEncodedBytes = HeaderBytes + EntryBytes * HerdCapacity;
         private const int GridSize = 800;
         private const byte IsDeerFlag = 1;
         private const byte RespawnsFlag = 2;
 
-        private readonly List<WildlifeOrigin> origins = new List<WildlifeOrigin>();
-        private readonly int[] originByHerd = new int[HerdCapacity];
+        private sealed class Content
+        {
+            internal readonly List<WildlifeOrigin> Origins = new List<WildlifeOrigin>();
+            internal readonly int[] OriginByHerd = new int[HerdCapacity];
+            internal bool IsCaptured;
+        }
 
+        private volatile Content content = new Content();
+        private List<WildlifeOrigin> origins => content.Origins;
+        private int[] originByHerd => content.OriginByHerd;
         public WildlifeOriginTable() => Clear();
 
         public object SyncRoot { get; } = new object();
 
         /// <summary>False until this mission's herds were read or restored from its save.</summary>
-        public bool IsCaptured { get; private set; }
+        public bool IsCaptured => content.IsCaptured;
+        internal bool ResyncReady { get; set; }
+        internal volatile bool Repairing;
 
         public int Count => origins.Count;
 
@@ -58,14 +68,17 @@ namespace ImprovedHunters
             }
         }
 
-        public void MarkCaptured() => IsCaptured = true;
+        public void MarkCaptured() => content.IsCaptured = true;
+
+        // The stable table and its lock are shared by the respawn and route features.
+        internal void PublishRepair(WildlifeOriginTable prepared) => content = prepared.content;
 
         public void Clear()
         {
             origins.Clear();
             for (int herd = 0; herd < originByHerd.Length; herd++)
                 originByHerd[herd] = -1;
-            IsCaptured = false;
+            content.IsCaptured = false;
         }
 
         /// <summary>A serial that no longer matches means the game gave the record to a new herd.</summary>
@@ -117,14 +130,22 @@ namespace ImprovedHunters
             return true;
         }
 
-        public byte[] Encode()
+        public byte[] Encode() => Encode(content.Origins);
+
+        internal byte[] EncodeCaptured()
         {
-            using (var stream = new MemoryStream(HeaderBytes + origins.Count * EntryBytes))
+            Content snapshot = content;
+            return snapshot.IsCaptured ? Encode(snapshot.Origins) : null;
+        }
+
+        private static byte[] Encode(List<WildlifeOrigin> entries)
+        {
+            using (var stream = new MemoryStream(HeaderBytes + entries.Count * EntryBytes))
             using (var writer = new BinaryWriter(stream))
             {
                 writer.Write(RecordVersion);
-                writer.Write(origins.Count);
-                foreach (WildlifeOrigin origin in origins)
+                writer.Write(entries.Count);
+                foreach (WildlifeOrigin origin in entries)
                 {
                     writer.Write((byte)((origin.IsDeer ? IsDeerFlag : 0) | (origin.Respawns ? RespawnsFlag : 0)));
                     writer.Write((byte)0);
@@ -141,7 +162,7 @@ namespace ImprovedHunters
         }
 
         /// <summary>Leaves the table cleared and returns false for data that is not a whole valid record.</summary>
-        public bool TryRestore(byte[] data)
+        public bool TryRestore(byte[] data, bool strict = false)
         {
             Clear();
             if (data == null || data.Length < HeaderBytes || data[0] != RecordVersion)
@@ -156,7 +177,7 @@ namespace ImprovedHunters
                 for (int index = 0; index < count; index++)
                 {
                     byte flags = reader.ReadByte();
-                    reader.ReadByte();
+                    byte reserved = reader.ReadByte();
                     var origin = new WildlifeOrigin
                     {
                         IsDeer = (flags & IsDeerFlag) != 0,
@@ -167,7 +188,8 @@ namespace ImprovedHunters
                         HerdSerial = reader.ReadInt32(),
                         ExtinctSinceTick = reader.ReadInt32()
                     };
-                    if (!TryAdd(origin))
+                    if ((strict && (reserved != 0 || (flags & ~(IsDeerFlag | RespawnsFlag)) != 0 ||
+                        origin.HerdSerial == 0)) || !TryAdd(origin))
                     {
                         Clear();
                         return false;
@@ -175,7 +197,7 @@ namespace ImprovedHunters
                 }
             }
 
-            IsCaptured = true;
+            MarkCaptured();
             return true;
         }
 

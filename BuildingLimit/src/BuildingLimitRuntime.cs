@@ -1,5 +1,6 @@
 using BepInEx.Logging;
 using CrusaderDE;
+using APIShared.Multiplayer;
 using APIShared.Presentation;
 using MonoMod.RuntimeDetour;
 using R3;
@@ -27,6 +28,7 @@ namespace BuildingLimit
         private bool towerSiegeCacheAvailable;
         private bool settingsPropertyChangedSubscribed;
         private bool hooksSubscribed;
+        private bool resyncRegistered;
         private bool libraryInitialized;
         private const int BuildingLimitMessageDurationMilliseconds = 3000;
         private static readonly Dictionary<eMappers, BuildingLimitDefinition> BuildingLimitDefinitions = CreateBuildingLimitDefinitions();
@@ -54,7 +56,8 @@ namespace BuildingLimit
             towerSiegeUnitCache = new TowerSiegeUnitCache(log);
         }
 
-        private bool EffectsEnabled => Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod);
+        private bool EffectsEnabled => Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
+            (resyncRegistered || !Shared.GameplayModActivationGate.Snapshot.IsRealMultiplayer);
 
         public void SubscribeHooks()
         {
@@ -75,6 +78,10 @@ namespace BuildingLimit
                 return;
             }
             towerSiegeCacheAvailable = TryInitializeFeature("tower-siege unit cache", towerSiegeUnitCache.SubscribeHooks);
+            resyncRegistered = MultiplayerResyncEvents.TryRegister(
+                BuildingLimitPlugin.PluginGuid, "limit-caches", () => { }, RebuildRepairedCaches, out string resyncReason);
+            if (!resyncRegistered)
+                Shared.DebugLogHelper.LogError(log, "BuildingLimit multiplayer repair support unavailable: " + resyncReason);
             if (!towerSiegeCacheAvailable)
                 {
                     if (Shared.DebugLogHelper.DiagnosticsEnabled)
@@ -129,6 +136,21 @@ namespace BuildingLimit
                     LogDebug("BuildingLimit/BuildingLimitRuntime/InitializeAfterLibraryLoaded", "Applied building limit settings");
             }
             libraryInitialized = true;
+        }
+
+        private void RebuildRepairedCaches()
+        {
+            activeBuildingCache.ResyncAll(raiseEvents: false);
+            if (towerSiegeCacheAvailable)
+                towerSiegeUnitCache.ResyncAll();
+
+            // The native replacement of a record does not confirm a pending placement.
+            long? session = Shared.MissionEvents.CurrentContext?.SessionId;
+            APIShared.ApiShared.ForMod(BuildingLimitPlugin.PluginGuid).Ui.TryPost(() =>
+            {
+                if (session == Shared.MissionEvents.CurrentContext?.SessionId)
+                    ResetBuildingLimitTooltipCache();
+            });
         }
 
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)

@@ -9,6 +9,7 @@ internal static class MissionSettingsAdapterTests
     internal static void Run()
     {
         MissionClassification();
+        MissingMissionProviderTests.Run();
         PreparedEntriesKeepNewOwners();
         var entry = new ModSettingsEntry { PlayerSettings = new[] { "z", "a", "z" } };
         var document = new ModSettingsDefinition {

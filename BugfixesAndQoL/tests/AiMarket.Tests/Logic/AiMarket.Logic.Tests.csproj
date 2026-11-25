@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <NuGetAudit>false</NuGetAudit>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../../src/AI/Market/MarketDemandTarget.cs" Link="MarketDemandTarget.cs" />
+    <Compile Include="../../../src/AI/Market/MarketDemandSaveCodec.cs" Link="MarketDemandSaveCodec.cs" />
+    <Compile Include="../../../src/AI/Market/MarketDemandMissionState.cs" Link="MarketDemandMissionState.cs" />
+  </ItemGroup>
+</Project>

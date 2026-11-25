@@ -49,8 +49,9 @@ namespace Pathfinding.Engine
         private const int EscapeInterval = 8, EscapeRadius = 12, EscapeWindow = 2 * EscapeRadius + 1, EscapeRetryTicks = 40, EscapeProbeTicks = 40;
         // 0x99420 skips fire damage on tiles with these flags; 0x30 marks tiles a unit may not be ordered to.
         private const uint FireImmuneTileFlags = 0xBA7001B1u, EscapeBlockedTargetFlags = 0x30u;
-        // Escape key: hazard tiles entered (bits 13+), a target at the fire front or near a cloud (bit 12), then steps.
-        private const int EscapeFireCost = 8192, EscapeFrontCost = 4096;
+        // Escape key: hazard tiles entered (bits 13+), then steps; a target at the fire front or near a cloud is
+        // kept as a fallback by TryFindFireEscape, not weighted in the key.
+        private const int EscapeFireCost = 8192;
         private readonly HazardTileSet fireTiles = new HazardTileSet();
         // Plague: damaging tiles and their one-tile margin (clouds drift), filled by PlagueRouteRules.
         private readonly HazardTileSet plagueTiles = new HazardTileSet(), plagueNear = new HazardTileSet();
@@ -164,7 +165,8 @@ namespace Pathfinding.Engine
             return plagueEscapeRaised || !IsPlagueRaisedTile(x, y);
         }
 
-        // 0x32BC40: among the soldiers only the lord and the healer are immune to plague.
+        // 0x32BC40 marks the lord and CHIMP_TYPE_HEALER immune. The latter is the apothecary's civilian (the
+        // controllable CHIMP_TYPE_BEDOUIN_HEALER is not immune), so among the soldiers this matters for the lord.
         private static bool IsPlagueImmune(GameUnit* unit) =>
             unit->r_UnitChimp == eChimps.CHIMP_TYPE_LORD || unit->r_UnitChimp == eChimps.CHIMP_TYPE_HEALER;
 
@@ -384,7 +386,8 @@ namespace Pathfinding.Engine
                 if (replanProbeLeft <= 0) { entry.NextProbe = tick + 1; replanProbesDeferred++; continue; }
                 entry.NextProbe = tick + EscapeProbeTicks;
                 int distance = Math.Max(Math.Abs(entry.ReturnX - x), Math.Abs(entry.ReturnY - y));
-                int probe = CoreRouteProbe(entry.Player, x, y, entry.ReturnX, entry.ReturnY, EscapePolicy(entry.Hazard), distance, runtime.ResolveMovementSurface(unit));
+                int probe = CoreRouteProbe(entry.Player, x, y, entry.ReturnX, entry.ReturnY, EscapePolicy(entry.Hazard), distance, runtime.ResolveMovementSurface(unit),
+                    IsPlagueImmune(unit));
                 escapeReturnProbes[probe]++;
                 if (probe != ProbeClear) { LogFireCase("return-blocked", id, $"probe={probe}"); continue; }
                 if (TryMoveSoldier(id, entry.Global, entry.Tribe, entry.ReturnX, entry.ReturnY, out int returnX, out int returnY))

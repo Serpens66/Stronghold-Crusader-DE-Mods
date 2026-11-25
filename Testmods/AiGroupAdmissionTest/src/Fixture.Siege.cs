@@ -216,10 +216,12 @@ namespace AiGroupAdmissionTest
             if (!KillTargetLord || lordKilled) return;
             bool due = state == 6 && simTicks - firstState6Tick >= KillAfterState6Ticks ||
                 state == 5 && simTicks - firstState5Tick >= KillAfterState5Ticks;
-            if (!due) return;
-            lordKilled = true;
+            if (!due || !LordAlive(siegeTarget)) return;
             int lordId = GamePlayerManagerAPI.Instance.GetLordUnitId(siegeTarget);
-            GameUnitManagerAPI.Instance.KillUnit(lordId);
+            if (APIShared.UnitAccess.TryGetById(lordId, out _, out _))
+                GameUnitManagerAPI.Instance.KillUnit(lordId);
+            else return;
+            lordKilled = true;
             log("SIEGE-LORD-KILLED target=" + siegeTarget + " lord=" + lordId + " state=" + state + " simTicks=" + simTicks +
                 " aliveAfter=" + LordAlive(siegeTarget));
         }

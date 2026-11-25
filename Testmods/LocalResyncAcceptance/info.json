@@ -1,0 +1,16 @@
+{
+  "GUID": "LocalResyncAcceptance_Serp",
+  "Author": "Serpens66",
+  "Name": "Local Resync Acceptance",
+  "Description": "Local component checks against live mission state.",
+  "Version": "0.1.0",
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "MinimumScriptExtenderVersion": "2.14.4",
+  "Dependencies": [
+    {"GUID": "APIShared_Serp", "MinimumVersion": "0.72.1"},
+    {"GUID": "BugfixesAndQoL_Serp"},
+    {"GUID": "BuildingLimit_Serp"},
+    {"GUID": "UnitLimit_Serp"}
+  ]
+}

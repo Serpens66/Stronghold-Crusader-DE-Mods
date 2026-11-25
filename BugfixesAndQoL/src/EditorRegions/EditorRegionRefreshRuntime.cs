@@ -1,15 +1,13 @@
 using APIShared.Input;
 using APIShared;
-using APIShared.NativeSites;
+using APIShared.Pathfinding;
 using BepInEx.Logging;
 using HarmonyLib;
 using R3;
 using SHCDESE.API;
-using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
 using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using System.Threading;
 
 namespace BugfixesAndQoL.EditorRegions
@@ -18,8 +16,6 @@ namespace BugfixesAndQoL.EditorRegions
     // SHCDE's startup destruction of the BaseUnityPlugin component.
     internal sealed class EditorRegionRefreshRuntime
     {
-        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
-        private delegate int RebuildDelegate(IntPtr context, int force);
         private static EditorRegionRefreshRuntime instance;
         private readonly RefreshState state = new RefreshState();
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
@@ -28,33 +24,27 @@ namespace BugfixesAndQoL.EditorRegions
         private readonly BugfixesAndQoLViewModel settings;
         private readonly object engineGate;
         private readonly GamePathingManagerAPI pathing;
-        private readonly RebuildDelegate rebuild;
         private bool failed, executionReported;
 
         private EditorRegionRefreshRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings,
-            object engineGate, GamePathingManagerAPI pathing, RebuildDelegate rebuild)
+            object engineGate, GamePathingManagerAPI pathing)
         {
             this.log = log; this.settings = settings; this.engineGate = engineGate;
-            this.pathing = pathing; this.rebuild = rebuild;
+            this.pathing = pathing;
         }
 
-        internal static void Install(CrusaderLibraryLoadContext context, ManualLogSource log, BugfixesAndQoLViewModel settings)
+        internal static void Install(ManualLogSource log, BugfixesAndQoLViewModel settings)
         {
             if (instance != null) return;
             var before = EngineBoundary.ValidateManagedBoundary(out var gateField);
             var input = EngineBoundary.ValidateInputBoundary();
             object gate = gateField.GetValue(null) ?? throw new InvalidOperationException("Engine lock is null.");
-            var resolved = BfqolNativeCache.Current.ResolveUnique(context.Memory, NativeContract.RebuildPattern,
-                NativeContract.RebuildRva, "editor-region-rebuild", log);
-            var claim = NativeSiteRegistry.Register(BugfixesAndQoLPlugin.PluginGuid, "EditorRegionRefresh",
-                new[] { new NativeSiteSpan(resolved.Rva, 1, NativeSiteMode.CallOnly) });
-            if (!claim.Succeeded) throw new InvalidOperationException(claim.Reason);
+            if (!PathComponentRefresh.IsAvailable)
+                throw new InvalidOperationException("APIShared path-component refresh is unavailable.");
             var api = GamePathingManagerAPI.Instance;
             if (api.GetPathfindingContextView().Address == IntPtr.Zero)
                 throw new InvalidOperationException("Pathfinding context unavailable.");
-            var target = IntPtr.Add(context.ModuleHandle, resolved.Rva);
-            var runtime = new EditorRegionRefreshRuntime(log, settings, gate, api,
-                (RebuildDelegate)Marshal.GetDelegateForFunctionPointer(target, typeof(RebuildDelegate)));
+            var runtime = new EditorRegionRefreshRuntime(log, settings, gate, api);
             instance = runtime; // All later failures retain the published patch and its disabled runtime.
             try
             {
@@ -167,10 +157,8 @@ namespace BugfixesAndQoL.EditorRegions
             Shared.DevDiag.Start(ref started);
             try
             {
-                pathing.RequestComponentRebuild();
-                uint generation = view.ComponentGeneration;
-                if (rebuild(view.Address, 1) != 1 || view.ComponentGeneration == generation)
-                    throw new InvalidOperationException("Forced region rebuild did not publish a new generation.");
+                if (!PathComponentRefresh.TryRefresh(force: true, out bool rebuilt, out string reason) || !rebuilt)
+                    throw new InvalidOperationException("Forced region rebuild failed: " + reason);
                 if (!executionReported)
                 {
                     executionReported = true;

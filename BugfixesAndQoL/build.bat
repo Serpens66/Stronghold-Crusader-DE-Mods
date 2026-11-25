@@ -148,6 +148,19 @@ dotnet build "%PROJECT_DIR%..\Shared\Tests\NativePatchGuard.Tests\Shared.NativeP
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 "%PROJECT_DIR%..\Shared\Tests\NativePatchGuard.Tests\bin\Release\net481\Shared.NativePatchGuard.Tests.exe"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+rem Source-aware AI demand contracts use production sources and the installed native backend.
+call :step_start "tests" "AiMarket.Logic.Tests"
+dotnet run --project "%PROJECT_DIR%tests\AiMarket.Tests\Logic\AiMarket.Logic.Tests.csproj" --configuration Release
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "AiMarket.Native.Tests build"
+dotnet build "%PROJECT_DIR%tests\AiMarket.Tests\Native\AiMarket.Native.Tests.csproj" --configuration Release --nologo -v minimal "/p:GameDir=%GAME_DIR%" "/p:ExtenderDir=%EXTENDER_DIR%" "/p:ApiSharedDir=%API_SHARED_DIR%"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "AiMarket.Native.Tests execution"
+"%PROJECT_DIR%tests\AiMarket.Tests\Native\bin\Release\net481\AiMarket.Native.Tests.exe"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 rem Exercise remembered and named AI selection repairs before a checked build can publish output.
 call :step_start "tests" "ai-selection-memory"
 "%MSBUILD%" "%PROJECT_DIR%..\_inspect\BugfixesAndQoLAivMemoryTests\BugfixesAndQoLAivMemoryTests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /nologo /verbosity:minimal %SHCDE_BRANCH_MSBUILD_API%
@@ -180,7 +193,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-MoatT
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "10c-Test-EditorRegions.ps1"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-EditorRegions.ps1" -RunTests
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-EditorRegions.ps1" -RunTests -ApiSharedDir "%API_SHARED_DIR%"
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "11-Test-GatehouseLivingCapturePreflight.ps1"
@@ -474,6 +487,23 @@ call :step_start "compile" "72-BugfixesAndQoL.csproj"
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 if "%BUILD_TEST_MODE%"=="none" goto artifact_tests_completed
+rem The migrated MP load protocol and actual-game fixtures remain offline-only.
+call :step_start "tests" "MultiplayerSaveLoading protocol"
+dotnet run --project "%PROJECT_DIR%tests\MultiplayerSaveLoading.Tests\LoadProtocol.Tests.csproj" --configuration Release -p:ImportDirectoryBuildTargets=false
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "MultiplayerSaveLoading runtime build"
+"%MSBUILD%" "%PROJECT_DIR%tests\MultiplayerSaveLoading.Tests\MultiplayerSaveLoading.Tests.csproj" /p:Configuration=Release /p:ImportDirectoryBuildTargets=false /p:GameDir="%GAME_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%" /nologo /verbosity:minimal
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "MultiplayerSaveLoading runtime"
+"%PROJECT_DIR%tests\MultiplayerSaveLoading.Tests\bin\MultiplayerSaveLoading.Tests.exe" "%GAME_DIR%" "%API_SHARED_DIR%"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "AutoSend.Tests"
+dotnet run --project "%PROJECT_DIR%tests\AutoSend.Tests\AutoSend.Tests.csproj" --configuration Release "/p:GameDir=%GAME_DIR%" "/p:ExtenderDir=%EXTENDER_DIR%"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "TroopPanelPaging.Tests build"
 "%MSBUILD%" "%PROJECT_DIR%tests\TroopPanelPaging.Tests\TroopPanelPaging.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%" /nologo /verbosity:minimal
 call :step_end %ERRORLEVEL%
@@ -490,6 +520,10 @@ call :step_start "tests" "PitchMoatLines.Native.Tests"
 dotnet run --project "%PROJECT_DIR%tests\PitchMoatLines.Native.Tests\PitchMoatLines.Native.Tests.csproj" --configuration Release -- "%LOCAL_PLUGIN_DIR%\BugfixesAndQoL.dll" "%EXTENDER_DIR%"
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "AreaConstruction.AreaGrid.Tests"
+dotnet run --project "%PROJECT_DIR%tests\AreaConstruction\AreaGrid.Tests.csproj" --configuration Release
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed
 call :step_start "tests" "AreaDemolition.Native.Tests"
 dotnet run --project "%PROJECT_DIR%tests\AreaDemolition\Native\Native.Tests.csproj" --configuration Release
 call :step_end %ERRORLEVEL%
@@ -499,7 +533,7 @@ dotnet run --project "%PROJECT_DIR%tests\AreaDemolition\Policy\Policy.Tests.cspr
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "AreaDemolition.Protocol.Tests"
-dotnet run --project "%PROJECT_DIR%tests\AreaDemolition\Protocol\Protocol.Tests.csproj" --configuration Release
+dotnet run --project "%PROJECT_DIR%tests\AreaDemolition\Protocol\Protocol.Tests.csproj" --configuration Release "/p:ApiSharedDir=%API_SHARED_DIR%" "/p:GameDir=%GAME_DIR%" "/p:ExtenderDir=%EXTENDER_DIR%"
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 set "MODSETTINGS_NATIVE_OPTION="

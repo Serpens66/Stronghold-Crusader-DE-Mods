@@ -1,0 +1,56 @@
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup><BaseIntermediateOutputPath>obj\Runtime\</BaseIntermediateOutputPath></PropertyGroup>
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
+    <OutputType>Library</OutputType><AssemblyName>MultiplayerSaveLoading.Tests</AssemblyName>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion><LangVersion>latest</LangVersion>
+    <DebugSymbols>true</DebugSymbols><DebugType>portable</DebugType>
+    <OutputPath>bin\</OutputPath>
+    <GameDir Condition="'$(GameDir)' == ''">E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
+    <Managed>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed</Managed>
+    <Core>$(GameDir)\BepInEx\core</Core>
+    <ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
+    <ApiSharedDir Condition="'$(ApiSharedDir)' == ''">$(GameDir)\BepInEx\plugins\APIShared_Serp</ApiSharedDir>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><StartupObject>SaveLoadTestBootstrap</StartupObject>
+    <AppConfig>Fixture.config</AppConfig>
+    <OutputPath>bin\</OutputPath><IntermediateOutputPath>obj\Runtime\</IntermediateOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System"/><Reference Include="System.Core"/>
+    <Reference Include="BepInEx"><HintPath>$(Core)\BepInEx.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="0Harmony"><HintPath>$(Core)\0Harmony.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Mono.Cecil"><HintPath>$(Core)\Mono.Cecil.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="MonoMod.Utils"><HintPath>$(Core)\MonoMod.Utils.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="MonoMod.RuntimeDetour"><HintPath>$(Core)\MonoMod.RuntimeDetour.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="APIShared"><HintPath>$(ApiSharedDir)\APIShared.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="R3"><HintPath>$(ExtenderDir)\R3.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="System.Buffers"><HintPath>$(ExtenderDir)\System.Buffers.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Assembly-CSharp"><HintPath>$(Managed)\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(Managed)\UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(Managed)\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Noesis.NoesisGUI"><HintPath>$(Managed)\Noesis.NoesisGUI.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="com.rlabrecque.steamworks.net"><HintPath>$(Managed)\com.rlabrecque.steamworks.net.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="BarrierTests.cs" />
+    <Compile Include="RuntimeTests.cs" />
+    <Compile Include="LobbyBridgeTests.cs" />
+    <Compile Include="LocaleTests.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\src\Multiplayer\SaveLoading\*.cs" />
+    <Compile Include="..\..\..\Shared\Runtime\Localization\SerpLocalization.cs"><Link>Shared\SerpLocalization.cs</Link></Compile>
+    <Compile Include="..\..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
+    <Compile Include="FixtureHost.cs" />
+    <Compile Include="FeatureGateTests.cs" />
+    <Content Include="..\..\Locales\*.txt"><Link>Locales\%(Filename)%(Extension)</Link><CopyToOutputDirectory>Always</CopyToOutputDirectory></Content>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

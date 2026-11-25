@@ -1,3 +1,4 @@
+using APIShared.Multiplayer;
 using APIShared.Presentation;
 using BepInEx.Logging;
 using R3;
@@ -33,6 +34,7 @@ namespace UnitLimit
         private RecruitmentAvailabilityUiHook recruitmentAvailabilityUiHook;
         private bool settingsPropertyChangedSubscribed;
         private bool hooksSubscribed;
+        private bool resyncRegistered;
         private bool libraryInitialized;
         private int effectsActive;
         private const int LimitMessageDurationMilliseconds = 3000;
@@ -90,7 +92,8 @@ namespace UnitLimit
         }
 
         private bool EffectsEnabled => Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod);
-        private bool IsEffectsActive => Volatile.Read(ref effectsActive) != 0 && IsUnitLimitModeAllowed();
+        private bool IsEffectsActive => Volatile.Read(ref effectsActive) != 0 && IsUnitLimitModeAllowed() &&
+            (resyncRegistered || !Shared.GameplayModActivationGate.Snapshot.IsRealMultiplayer);
 
         private void InstallPermanentHooks()
         {
@@ -121,6 +124,10 @@ namespace UnitLimit
                 activeSiegeTentCache.OnActiveSiegeTentChanged -= OnActiveSiegeTentChanged;
                 RollbackUnpublishedFeature("active-siege-tent cache", activeSiegeTentCache);
             }
+            resyncRegistered = MultiplayerResyncEvents.TryRegister(
+                UnitLimitPlugin.PluginGuid, "limit-caches", () => { }, RebuildRepairedCaches, out string resyncReason);
+            if (!resyncRegistered)
+                Shared.DebugLogHelper.LogError(log, "UnitLimit multiplayer repair support unavailable: " + resyncReason);
             if (activeUnitCacheAvailable)
             {
                 TryInitializeFeature(
@@ -190,6 +197,24 @@ namespace UnitLimit
             ClearExternalReservations(reason);
             ClearUnitLimitTooltip();
             UnitLimitIntegration.NotifyStateChanged();
+        }
+
+        private void RebuildRepairedCaches()
+        {
+            // A repaired record is not a recruitment receipt, even when its type changes.
+            if (activeUnitCacheAvailable)
+                activeUnitCache.ResyncAll(raiseEvents: false);
+            if (activeSiegeTentCacheAvailable)
+                activeSiegeTentCache.ResyncAll(raiseEvents: false);
+
+            long? session = Shared.MissionEvents.CurrentContext?.SessionId;
+            APIShared.ApiShared.ForMod(UnitLimitPlugin.PluginGuid).Ui.TryPost(() =>
+            {
+                if (session != Shared.MissionEvents.CurrentContext?.SessionId)
+                    return;
+                RefreshCurrentUnitLimitTooltip();
+                UnitLimitIntegration.NotifyStateChanged();
+            });
         }
 
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)

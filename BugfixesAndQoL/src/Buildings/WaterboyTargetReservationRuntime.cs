@@ -16,13 +16,13 @@ using System.Runtime.InteropServices;
 
 namespace BugfixesAndQoL
 {
-    internal sealed unsafe class WaterboyTargetReservationRuntime
+    internal sealed unsafe partial class WaterboyTargetReservationRuntime
     {
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int FindNearestBurningBuildingDelegate(IntPtr buildingManager, int nativeUnitId);
 
         private readonly ManualLogSource log;
-        private readonly ReservationLedger ledger = new ReservationLedger();
+        private ReservationLedger ledger = new ReservationLedger();
         private readonly List<FireReservation> reservationScratch = new List<FireReservation>();
         private readonly List<MaskedFire> maskedFireScratch = new List<MaskedFire>();
         private readonly DetourHandle<FindNearestBurningBuildingDelegate> targetSearchHook =
@@ -37,6 +37,8 @@ namespace BugfixesAndQoL
         private bool initialMapSeedCompleted;
         private volatile bool nativeMapReady;
         private volatile bool optimizationEnabled;
+        private volatile bool repairing;
+        private bool resyncReady;
         // Settings arrive on the UI thread; the ledger is only touched on the simulation thread.
         private volatile bool ledgerResetPending;
 
@@ -90,12 +92,13 @@ namespace BugfixesAndQoL
                 pendingMapUnload = Shared.MissionEvents.Initialization.Subscribe(e =>
                 {
                     if (e.IsBeforeInitialization) OnMapUnload();
-                    else if (e.Phase == APIShared.MissionInitializationPhase.NativeLoaded) OnNativeLoaded();
+                    else if (e.Phase == APIShared.MissionInitializationPhase.NativeLoaded)
+                        OnNativeLoaded(e.Context.Mode.IsRealMultiplayer);
                 });
                 mapEndSubscription = Shared.MissionEvents.Ended.Subscribe(_ => OnMapUnload());
                 // NativeLoaded never replays, and nested/repeated loads can still replace the
                 // initialized state. Confirm the final inventory before regular simulation.
-                mapStartSubscription = Shared.MissionEvents.Started.Subscribe(_ => OnNativeLoaded(true));
+                mapStartSubscription = Shared.MissionEvents.Started.Subscribe(e => OnNativeLoaded(e.Context.Mode.IsRealMultiplayer, required: true));
 
                 transaction = pendingTransaction;
                 mapUnloadSubscription = pendingMapUnload;
@@ -115,6 +118,7 @@ namespace BugfixesAndQoL
                 throw;
             }
 
+            RegisterRepair();
             if (Shared.DebugLogHelper.DiagnosticsEnabled)
                 Shared.DebugLogHelper.LogDebugLimited(log, "BugfixesAndQoL/WaterboyTargetReservationRuntime/Constructor", $"Waterboy QoL hook active: rva=0x{resolution.Rva:X}, " +
                     $"scheme={targetSearchScheme}, displaced={targetSearchDisplacedByteCount}, " +
@@ -146,7 +150,7 @@ namespace BugfixesAndQoL
 
         private int FindNearestEligibleFire(IntPtr buildingManager, int nativeUnitId)
         {
-            if (!correctionAvailable || !optimizationEnabled || ledgerResetPending || !nativeMapReady || !initialMapSeedCompleted)
+            if (repairing || !correctionAvailable || !optimizationEnabled || ledgerResetPending || !nativeMapReady || !initialMapSeedCompleted)
                 return targetSearchHook.Original(buildingManager, nativeUnitId);
             if (!APIShared.Simulation.SimulationTickEvents.TryGetCurrentTick(out int nativeTick))
                 return targetSearchHook.Original(buildingManager, nativeUnitId);
@@ -257,11 +261,16 @@ namespace BugfixesAndQoL
             return selectedBuildingId;
         }
 
-        private void OnNativeLoaded(bool required = false)
+        private void OnNativeLoaded(bool multiplayer, bool required = false)
         {
             try
             {
                 ApplyPendingLedgerReset();
+                if (!resyncReady && multiplayer)
+                {
+                    nativeMapReady = false;
+                    return;
+                }
                 if (!Shared.MissionEvents.TryGetCurrentMapTick(out int tick))
                 {
                     nativeMapReady = false;
@@ -274,12 +283,30 @@ namespace BugfixesAndQoL
             catch (Exception ex) { DisableCorrection("native-load reservation reconstruction failed", ex); }
         }
 
+        private void BeginRepair()
+        {
+            if (!resyncReady) return;
+            repairing = true;
+            preparedLedger = null;
+        }
+
+        private void CompleteRepair()
+        {
+            if (!repairing) return;
+            if (preparedLedger == null)
+                throw new InvalidOperationException("Waterboy repair completed without the host reservations.");
+            ledger = preparedLedger;
+            preparedLedger = null;
+            initialMapSeedCompleted = nativeMapReady && correctionAvailable && optimizationEnabled;
+            repairing = false;
+        }
+
         private void SeedMap(int tick)
         {
             for (int playerId = 1; playerId <= 8; playerId++)
             {
                 ledger.ClearPlayer(playerId);
-                SeedPlayerReservations(playerId, tick);
+                SeedPlayerReservations(ledger, playerId, tick, preserveHistory: false);
             }
             initialMapSeedCompleted = true;
         }
@@ -289,7 +316,7 @@ namespace BugfixesAndQoL
             try
             {
                 ApplyPendingLedgerReset();
-                if (!nativeMapReady || !correctionAvailable || !optimizationEnabled)
+                if (repairing || !nativeMapReady || !correctionAvailable || !optimizationEnabled)
                     return;
                 if (!initialMapSeedCompleted)
                 {
@@ -303,7 +330,7 @@ namespace BugfixesAndQoL
             }
         }
 
-        private void SeedPlayerReservations(int playerId, int currentTick)
+        private void SeedPlayerReservations(ReservationLedger targetLedger, int playerId, int currentTick, bool preserveHistory)
         {
             var candidates = new List<SeedCandidate>();
             int unitCount = GameUnitManagerAPI.Instance.GetUnitsAsSpan().Length;
@@ -319,13 +346,14 @@ namespace BugfixesAndQoL
                 NativeIdentity targetIdentity = ReadTargetIdentity(unit);
                 if (!TryResolveBurningBuilding(targetIdentity, out GameBuilding* target))
                     continue;
+                if (preserveHistory && targetLedger.HasRepairHistory(new NativeIdentity(unitId, unit->r_GlobalId))) continue;
                 candidates.Add(new SeedCandidate(unitId, unit->r_GlobalId, unit->r_AIState,
                     targetIdentity, ReadCompoundKey(target), unit->r_CurrentTilePositionX,
                     unit->r_CurrentTilePositionY, Distance(unit, target)));
             }
             candidates.Sort(SeedCandidate.Compare);
             foreach (SeedCandidate candidate in candidates)
-                ledger.Claim(playerId, candidate.Owner, candidate.Target, candidate.CompoundKey,
+                targetLedger.Claim(playerId, candidate.Owner, candidate.Target, candidate.CompoundKey,
                     candidate.X, candidate.Y, currentTick);
         }
 
@@ -417,6 +445,8 @@ namespace BugfixesAndQoL
 
         private void OnMapUnload()
         {
+            repairing = false;
+            preparedLedger = null;
             nativeMapReady = false;
             ledger.Clear();
             reservationScratch.Clear();

@@ -2,6 +2,60 @@ using System;
 
 namespace BugfixesAndQoL
 {
+    internal sealed class MultiplayerAivMissionManifest
+    {
+        private long session;
+        private ulong lobby;
+        private byte[] payload;
+        private bool ready;
+        private bool replacement;
+
+        internal void RecordLoad(long sessionId, ulong lobbyId, byte[] confirmedPayload)
+        {
+            if (confirmedPayload == null) return;
+            session = sessionId;
+            lobby = lobbyId;
+            payload = confirmedPayload;
+            ready = replacement = false;
+        }
+
+        internal void RecordStart(long sessionId)
+        {
+            if (session != sessionId) return;
+            if (replacement) Clear();
+            else ready = true;
+        }
+
+        internal void RecordEnd(long sessionId, long? linkedReplacement)
+        {
+            if (session != sessionId) return;
+            if (ready && linkedReplacement.HasValue)
+            {
+                session = linkedReplacement.Value;
+                ready = false;
+                replacement = true;
+                return;
+            }
+            Clear();
+        }
+
+        internal byte[] TakeReplacement(ulong lobbyId, bool explicitRestart)
+        {
+            if (!replacement || !explicitRestart || lobby != lobbyId) return null;
+            byte[] result = payload;
+            Clear();
+            return result;
+        }
+
+        private void Clear()
+        {
+            session = 0;
+            lobby = 0;
+            payload = null;
+            ready = replacement = false;
+        }
+    }
+
     internal static class MultiplayerAivSyncPolicy
     {
         public static bool CanAcceptHostPacket(

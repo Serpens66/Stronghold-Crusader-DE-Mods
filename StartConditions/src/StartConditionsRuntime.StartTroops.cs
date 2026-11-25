@@ -425,6 +425,8 @@ namespace StartConditions
             }
 
             bool isolateFromAI = GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
+            if (isolateFromAI && Shared.GameplayModActivationGate.Snapshot.IsRealMultiplayer && !aiStartTroopResyncReady)
+                return; // Without isolation admission, do not hand these extra units to native AI.
             for (int i = 0; i < amount; i++)
             {
                 long createdId = GameUnitManagerAPI.Instance.CreateUnitLocal(

@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using APIShared;
 using APIShared.NativeSites;
+using APIShared.Units;
 using SHCDESE.API;
 using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
@@ -18,20 +19,24 @@ namespace TrappedUnitRescueTest
         internal const string NativeHash = "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
         internal const int MaximumUnitId = 9999, TileCapacity = 320800;
         private readonly byte* image;
+        private readonly string ownerGuid;
         // Instances can only be created after the canonical file/layout/entry audit.
         internal IntPtr ImageBase => (IntPtr)image;
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void RelocateDelegate(IntPtr manager, int id, uint x, uint y, ushort height);
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate long MoveDelegate(IntPtr manager, int id, int x, int y, int mode);
         private readonly RelocateDelegate relocate;
         private readonly MoveDelegate move;
-        private NativeRelocation(IntPtr module)
+        private NativeRelocation(IntPtr module,string ownerGuid)
         {
             image = (byte*)module;
+            this.ownerGuid=ownerGuid;
             relocate = Marshal.GetDelegateForFunctionPointer<RelocateDelegate>(module + 0x19BA40);
             move = Marshal.GetDelegateForFunctionPointer<MoveDelegate>(module + 0x196280);
         }
-        internal static NativeRelocation Create()
+        internal static NativeRelocation Create(string ownerGuid)
         {
+            if(string.IsNullOrWhiteSpace(ownerGuid))throw new ArgumentException("A stable caller GUID is required.",nameof(ownerGuid));
+            if(!UnitMoveEvents.IsAvailable)throw new InvalidOperationException("Verified native move observations are unavailable.");
             ProcessModule selected = null;
             using (var process = Process.GetCurrentProcess())
                 foreach (ProcessModule module in process.Modules)
@@ -45,6 +50,10 @@ namespace TrappedUnitRescueTest
                 throw new InvalidOperationException("Unsupported unit record size.");
             Offset(nameof(GameUnit.r_GlobalId), 0x94); Offset(nameof(GameUnit.r_CurrentTilePositionX), 0xC0);
             Offset(nameof(GameUnit.r_CurrentPositionTileId), 0xD0); Offset(nameof(GameUnit.r_PathPlanStateBitFlags), 0xF2);
+            Offset(nameof(GameUnit.r_NextTilePositionX2),0xDC);Offset(nameof(GameUnit.r_NextTilePositionY2),0xDE);
+            Offset(nameof(GameUnit.r_NextPositionTileId2),0xE0);
+            Offset(nameof(GameUnit.r_TargetTilePositionX2),0xE8);Offset(nameof(GameUnit.r_TargetTilePositionY2),0xEA);
+            Offset(nameof(GameUnit.r_PathPlanLength),0xF8);
             Offset(nameof(GameUnit.r_MovementSubstep), 0xF4); Offset(nameof(GameUnit.r_AssignedEngineer1), 0x310);
             Offset(nameof(GameUnit.r_AIState), 0x2BC); Offset(nameof(GameUnit.r_CurrentHealth), 0x3C4);
             Offset(nameof(GameUnit.N00000573),0x90);Offset(nameof(GameUnit.N000000DB),0x442);
@@ -68,9 +77,9 @@ namespace TrappedUnitRescueTest
                 byte[] guardPrefix={0x9C,0x50,0x41,0x52,0x41,0x53,0x49,0xBA};
                 for(int i=0;i<prefix.Length;i++)if(prefix[i]!=guardPrefix[i])throw new InvalidOperationException("Lord guard stub prefix differs.");
             }
-            var callSite=NativeSiteRegistry.Register("TrappedUnitRescueTest_Serp","Experimental.RelocationCall",0x19BA40,16,NativeSiteMode.CallOnly);
+            var callSite=NativeSiteRegistry.Register(ownerGuid,"Experimental.RelocationCall",0x19BA40,16,NativeSiteMode.CallOnly);
             if(!callSite.Succeeded)throw new InvalidOperationException("Relocation call registration refused: "+callSite.Reason);
-            return new NativeRelocation(selected.BaseAddress);
+            return new NativeRelocation(selected.BaseAddress,ownerGuid);
         }
         [StructLayout(LayoutKind.Sequential)] private struct MemoryInformation
         { internal IntPtr BaseAddress,AllocationBase; internal uint AllocationProtect; internal UIntPtr RegionSize; internal uint State,Protect,Type; }
@@ -108,6 +117,23 @@ namespace TrappedUnitRescueTest
         internal int Head(int tile) => ((short*)(image + 0x4C559B0))[tile];
         internal int Next(GameUnit* unit) => *(short*)((byte*)unit + (0x8FA - 0x65C));
         internal ushort Word(GameUnit* unit, int nativeOffset) => *(ushort*)((byte*)unit + nativeOffset - 0x65C);
+        internal ushort JobWord(GameUnit* unit,int nativeOffset)
+        {
+            if(unit==null || nativeOffset<0x65C || nativeOffset>0xAEA)throw new ArgumentOutOfRangeException(nameof(nativeOffset));
+            return Word(unit,nativeOffset);
+        }
+        internal uint JobDword(GameUnit* unit,int nativeOffset)
+        {
+            if(unit==null || nativeOffset<0x65C || nativeOffset>0xAE8)throw new ArgumentOutOfRangeException(nameof(nativeOffset));
+            return *(uint*)((byte*)unit+nativeOffset-0x65C);
+        }
+        internal bool TryTribeGlobal(int tribeId,out uint globalId)
+        {
+            globalId=0;
+            if(tribeId==0)return true;
+            if(!GameTribeManagerAPI.Instance.TryGetTribeById(tribeId,out var tribe) || tribe==null)return false;
+            globalId=tribe->r_GlobalId;return true;
+        }
         internal bool OrdinaryGround(int tile) => tile >= 0 && (Flags(tile) & 0x5A7015B1u) == 0 && Building(tile) == 0;
         internal bool HasOccupancyExactlyOnce(int tile, int id) => HasOccupancyCount(tile,id,1);
         internal bool HasOccupancyCount(int tile, int id,int expected)
@@ -125,16 +151,31 @@ namespace TrappedUnitRescueTest
         }
         internal bool Relocate(int id, int x, int y)
         {
+            if(!UnitMoveEvents.IsAvailable)return false;
             int tile = Tile(x, y); if (tile < 0) return false;
             relocate((IntPtr)GameGlobalsManager.Instance.GameUnitManagerVA, id, (uint)x, (uint)y, image[0x4DDD350 + tile]);
             return TryUnit(id, out GameUnit* unit) && unit->r_CurrentTilePositionX == x && unit->r_CurrentTilePositionY == y &&
                 unit->r_CurrentPositionTileId == (uint)tile && HasOccupancyExactlyOnce(tile, id);
         }
-        internal bool Reissue(int id, int x, int y)
+        internal bool Reissue(int id, int x, int y,Func<bool> authorityCurrent=null)
+            =>TryReissue(id,x,y,authorityCurrent,out _);
+        internal bool TryReissue(int id,int x,int y,Func<bool> authorityCurrent,out UnitMoveRunResult result)
         {
-            long result = move((IntPtr)GameGlobalsManager.Instance.GameUnitManagerVA, id, x, y, 0);
-            return result > 0 && TryUnit(id, out GameUnit* unit) &&
-                (unit->r_PathPlanLength > 0 && unit->r_PathPlanStateBitFlags != 0 || unit->r_CurrentTilePositionX == x && unit->r_CurrentTilePositionY == y);
+            result=null;
+            if(!TryUnit(id,out var before))return false;
+            uint global=before->r_GlobalId;var type=before->r_UnitChimp;
+            int owner=before->r_ControllableForPlayerId,tribe=before->r_TribeId;
+            if(!TryTribeGlobal(tribe,out uint tribeGlobal) || tribe!=0 && JobDword(before,0x93C)!=tribeGlobal)return false;
+            bool IdentityCurrent()=>TryUnit(id,out var live) && live->r_GlobalId==global && live->r_UnitChimp==type &&
+                live->r_ControllableForPlayerId==owner && live->r_TribeId==tribe && TryTribeGlobal(tribe,out uint currentTribeGlobal) && currentTribeGlobal==tribeGlobal &&
+                (tribe==0 || JobDword(live,0x93C)==tribeGlobal) && (authorityCurrent==null || authorityCurrent());
+            // R3 Post can overwrite or throw after the original. Its managed return is
+            // not evidence of native refusal or publication; use the sole shared owner.
+            if(!UnitMoveEvents.TryRun(ownerGuid,id,x,y,0,IdentityCurrent,
+                ()=>move((IntPtr)GameGlobalsManager.Instance.GameUnitManagerVA,id,x,y,0),out result,out _))return false;
+            return IdentityCurrent() && TryUnit(id,out var unit) && unit->r_TargetTilePositionX2==x && unit->r_TargetTilePositionY2==y &&
+                ((unit->r_PathPlanLength>0 && (unit->r_PathPlanStateBitFlags==2 || unit->r_PathPlanStateBitFlags==4)) ||
+                (unit->r_PathPlanStateBitFlags==0 && unit->r_CurrentTilePositionX==x && unit->r_CurrentTilePositionY==y));
         }
     }
 }

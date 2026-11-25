@@ -11,7 +11,7 @@ using System.Reflection;
 namespace CastlePlanner
 {
     [BepInDependency(ScriptExtenderGuid, "2.10.4")]
-    [BepInDependency("APIShared_Serp", "0.60.0")]
+    [BepInDependency("APIShared_Serp", "0.70.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -24,7 +24,7 @@ namespace CastlePlanner
 
         public const string PluginGuid = "CastlePlanner_Serp";
         public const string PluginName = "CastlePlanner";
-        public const string PluginVersion = "0.8.54";
+        public const string PluginVersion = "0.8.55";
 
         // The BepInEx component is destroyed during startup, so runtime state remains static.
         private static CastlePlannerRuntime runtime;

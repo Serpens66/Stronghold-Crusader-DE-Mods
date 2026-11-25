@@ -1,5 +1,6 @@
 // Feature: Lifecycle orchestration of the Pathfinding features. The relative installation order
 // follows the source mods (BugfixesAndQoL runtime, then the movement engine provider).
+using APIShared.Multiplayer;
 using BepInEx.Logging;
 using Pathfinding.Engine;
 using RedBird.Core.Memory;
@@ -32,11 +33,11 @@ namespace Pathfinding
         private IDisposable mapStartSubscription, mapUnloadSubscription;
         private IntPtr libraryHandle;
         private ScanRegion nativeRegion;
-        private bool nativeLibraryAvailable, fixedLayoutHashValidated;
+        private bool nativeLibraryAvailable, fixedLayoutHashValidated, repairBoundariesReady;
         private bool assemblyPointPlacementPatchUnavailable, mountedStockpileMovementPatchUnavailable, fastRecruitInitializationAttempted;
         private ulong LibraryBase => unchecked((ulong)libraryHandle.ToInt64());
         internal static bool HasMission { get; private set; }
-        internal bool IsShiftQueueReady => processExtendedShiftCommandQueueRuntime?.IsMultiplayerReady == true;
+        internal bool IsShiftQueueReady => repairBoundariesReady && processExtendedShiftCommandQueueRuntime?.IsMultiplayerReady == true;
 
         public PathfindingRuntime(ManualLogSource log, PathfindingViewModel settings, string pluginDirectory)
         {
@@ -62,8 +63,17 @@ namespace Pathfinding
             TryPersistent("automatic gate closing", reachableEnemyGatehouseRuntime.Initialize);
             TryPersistent("Assassin climb-state synchronization", assassinClimbRuntime.InitializeNetwork);
             TryPersistent("Assassin climb-state save data", assassinClimbRuntime.InitializeSaveData);
+            TryPersistent("Assassin climb-state repair", assassinClimbRuntime.InitializeResync);
             TryPersistent("troop movement synchronization save data", troopMovementFixRuntime.InitializeSaveData);
+            TryPersistent("troop movement repair", troopMovementFixRuntime.InitializeResync);
             TryPersistent("Assassin climb cancellation event", assassinClimbCancellationRuntime.Initialize);
+            TryPersistent("repair cache rebuild", () =>
+            {
+                repairBoundariesReady = MultiplayerResyncEvents.TryRegister(PathfindingPlugin.PluginGuid, "route-caches",
+                    () => { }, CompleteResync, out string reason);
+                if (!repairBoundariesReady)
+                    throw new InvalidOperationException(reason);
+            });
             // APIShared owns the button, overflow placement and the single troop-action setup hook.
             TryPersistent("troop action HUD registration", () =>
             {
@@ -78,6 +88,13 @@ namespace Pathfinding
             if (mapUnloadSubscription == null)
                 TryPersistent("gameplay-session end subscription", () => mapUnloadSubscription =
                     Shared.MissionEvents.Ended.Subscribe(_ => EndGameplaySession()));
+        }
+
+        private void CompleteResync()
+        {
+            processExtendedShiftCommandQueueRuntime?.DiscardPendingAfterResync();
+            processUnitCommandPathRuntime?.ResetRepairDerivedState();
+            assassinPathfindingRuntime.ResetRepairDerivedState();
         }
 
         private void EndGameplaySession()

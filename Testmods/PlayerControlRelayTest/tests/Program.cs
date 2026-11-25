@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using PlayerControlRelayTest;
 
 internal static class Program
@@ -13,8 +14,10 @@ internal static class Program
         try { action(); } catch (ArgumentException) { return; }
         throw new Exception("Expected malformed request rejection.");
     }
-    private static RelayCommand Command(long id = 1, int[] slots = null, string epoch = "world-a", int x = 12, uint maxGlobalId = 500)
-        => new RelayCommand(epoch, 2, 123, id, RelayAction.Move, x, 20, maxGlobalId, slots ?? new[] { 1, 2 });
+    private static RelayUnit[] Units(int[] slots, uint globalId = 500) =>
+        slots.Select(slot => new RelayUnit(slot, globalId, 2)).ToArray();
+    private static RelayCommand Command(long id = 1, int[] slots = null, string epoch = "world-a", int x = 12, uint globalId = 500)
+        => new RelayCommand(epoch, 2, 123, id, RelayAction.Move, x, 20, Units(slots ?? new[] { 1, 2 }, globalId));
     private static bool Same(byte[] left, byte[] right)
     {
         if (left.Length != right.Length) return false;
@@ -28,21 +31,22 @@ internal static class Program
     }
     private static void ImmutableRequests()
     {
-        var slots = new[] { 1, 2, 3 };
-        var command = Command(slots: slots); byte[] digest = command.ComputeDigest();
-        slots[0] = 9; digest[0] ^= 255;
-        Check(command.Slots[0] == 1, "Mutable request escaped.");
+        var units = Units(new[] { 1, 2, 3 });
+        var command = new RelayCommand("world-a", 2, 123, 1, RelayAction.Move, 12, 20, units);
+        byte[] digest = command.ComputeDigest();
+        units[0] = new RelayUnit(9, 2, 2); digest[0] ^= 255;
+        Check(command.Units[0].Slot == 1, "Mutable request escaped.");
         Check(!Same(digest, command.ComputeDigest()), "Mutable digest escaped.");
         Check(Command().ComputeDigest().Length == 32, "SHA-256 digest missing.");
         Check(!Same(Command().ComputeDigest(), Command(x: 13).ComputeDigest()), "Target is not digest-bound.");
         Check(!Same(Command().ComputeDigest(), Command(slots: new[] { 1, 3 }).ComputeDigest()), "Units are not digest-bound.");
-        Check(!Same(Command().ComputeDigest(), Command(maxGlobalId: 501).ComputeDigest()), "Identity limit is not digest-bound.");
+        Check(!Same(Command().ComputeDigest(), Command(globalId: 501).ComputeDigest()), "Exact global ID is not digest-bound.");
         Reject(() => Command(slots: Array.Empty<int>()));
         Reject(() => Command(slots: new[] { 2, 1 }));
         Reject(() => Command(slots: new[] { 1, 1 }));
         Reject(() => Command(slots: new[] { 0 }));
-        Reject(() => Command(slots: new[] { RelaySlotCodec.MaximumSlot + 1 }));
-        Reject(() => Command(maxGlobalId: 0));
+        Reject(() => Command(slots: new[] { RelayUnitCodec.MaximumSlot + 1 }));
+        Reject(() => Command(globalId: 0));
         Reject(() => Command(epoch: ""));
         Check(RelayValidation.TryValidate(Command(), 100, 100, out _), "Valid target rejected.");
         Check(!RelayValidation.TryValidate(Command(x: 100), 100, 100, out _), "Outside target admitted.");
@@ -52,7 +56,7 @@ internal static class Program
     private static RelayGestureResult Gesture(bool rightCommands, bool left = false, bool down = false, bool up = false, bool box = false,
         bool shift = false, RelayGestureHit hit = RelayGestureHit.None, bool tile = true, bool paused = false, bool selection = true, bool tool = false) =>
         RelayGesture.Decide(rightCommands, left, down, up, box, shift, hit, tile, paused, selection, tool);
-    private static RelayCommand Action(RelayAction action, int x) => new RelayCommand("epoch", 2, 123, 1, action, x, 20, 500, new[] { 1 });
+    private static RelayCommand Action(RelayAction action, int x) => new RelayCommand("epoch", 2, 123, 1, action, x, 20, Units(new[] { 1 }));
     private static void Gestures()
     {
         foreach (bool right in new[] { false, true })
@@ -110,30 +114,30 @@ internal static class Program
     }
     private static void SlotEncoding()
     {
-        var mixed = new[] { 1, 2, 127, 128, 500, 9999 };
-        Check(string.Join(",", RelaySlotCodec.Decode(RelaySlotCodec.Encode(mixed))) == string.Join(",", mixed), "Slots did not round trip.");
-        Reject(() => RelaySlotCodec.Decode(new byte[0]));
-        Reject(() => RelaySlotCodec.Decode(new byte[] { 0 }));              // A zero delta repeats a slot.
-        Reject(() => RelaySlotCodec.Decode(new byte[] { 0x80 }));           // Truncated value.
-        Reject(() => RelaySlotCodec.Decode(new byte[] { 0x80, 0x80, 0x80, 1 })); // Overlong value.
-        Reject(() => RelaySlotCodec.Decode(new byte[] { 0xFF, 0xFF, 1 }));  // Beyond the native range.
+        var mixed = new[] { new RelayUnit(1, 500, 2), new RelayUnit(2, 1, 2), new RelayUnit(9999, uint.MaxValue, 2) };
+        Check(RelayUnitCodec.Decode(RelayUnitCodec.Encode(mixed, 2), 2).SequenceEqual(mixed), "Exact identities did not round trip.");
+        Reject(() => RelayUnitCodec.Decode(new byte[0], 2));
+        Reject(() => RelayUnitCodec.Decode(new byte[5], 2));
+        Reject(() => RelayUnitCodec.Decode(new byte[] { 1, 0, 0, 0, 0, 0 }, 2)); // Zero generation.
+        Reject(() => RelayUnitCodec.Encode(new[] { new RelayUnit(1, 500, 3) }, 2));
 
-        var all = new int[RelaySlotCodec.MaximumSlot];
-        for (int i = 0; i < all.Length; i++) all[i] = i + 1;
-        var chunks = RelaySlotCodec.Split(all);
+        var all = Enumerable.Range(1, RelayUnitCodec.MaximumSlot).Select(slot => new RelayUnit(slot, (uint)slot + 500, 2)).ToArray();
+        var chunks = RelayUnitCodec.Split(all);
         int total = 0, previous = 0;
-        foreach (int[] chunk in chunks)
+        foreach (RelayUnit[] chunk in chunks)
         {
-            Check(RelaySlotCodec.Encode(chunk).Length <= RelaySlotCodec.MaximumEncodedBytes, "Chunk exceeds its Chore limit.");
-            foreach (int slot in chunk) { Check(slot > previous, "Chunks lost the slot order."); previous = slot; }
+            Check(RelayUnitCodec.Encode(chunk, 2).Length <= RelayUnitCodec.MaximumEncodedBytes, "Chunk exceeds its Chore limit.");
+            foreach (RelayUnit unit in chunk)
+            {
+                Check(unit.Slot > previous && unit.GlobalId == (uint)unit.Slot + 500, "Chunks lost the slot order or identities.");
+                previous = unit.Slot;
+            }
             total += chunk.Length;
         }
         Check(total == all.Length, "Splitting lost units.");
         // Worst spacing still keeps a whole chunk well above any usual selection.
-        var sparse = new List<int>();
-        for (int slot = 200; slot <= RelaySlotCodec.MaximumSlot; slot += 200) sparse.Add(slot);
-        Check(RelaySlotCodec.Split(sparse).Count == 1, "A sparse selection was split unnecessarily.");
-        Check(RelaySlotCodec.Split(new[] { 7 }).Count == 1 && RelaySlotCodec.Split(new int[0]).Count == 0, "Small selections were split.");
+        Check(RelayUnitCodec.Split(Units(new[] { 1, 3000, 9000 })).Count == 1, "A sparse selection was split unnecessarily.");
+        Check(RelayUnitCodec.Split(Units(new[] { 7 })).Count == 1 && RelayUnitCodec.Split(Array.Empty<RelayUnit>()).Count == 0, "Small selections were split.");
     }
     private static void ReplayProtection()
     {
@@ -145,6 +149,7 @@ internal static class Program
         Check(ledger.Reserve(command, out duplicate, out _) && duplicate, "Duplicate lost tombstone.");
         Check(ledger.TryGet(command, out var state, out var reason) && state == RelayOutcome.Submitted && reason == "queued", "Duplicate outcome lost.");
         Check(!ledger.Reserve(Command(x: 13), out _, out _), "Request-ID collision admitted.");
+        Check(!ledger.Reserve(Command(globalId: 499), out _, out _), "Request-ID reuse with replaced unit admitted.");
         Check(!ledger.Record(command, RelayOutcome.Accepted, "retry"), "Submission regressed to executable admission.");
         Check(ledger.Record(command, RelayOutcome.Uncertain, "unknown"), "Unknown submission cannot be retained.");
         Check(ledger.Record(command, RelayOutcome.Executed, "confirmed"), "Confirmed execution not recorded.");
@@ -168,10 +173,12 @@ internal static class Program
         var tribes = new Dictionary<int, int> { [1] = 7, [2] = 7, [3] = 8, [4] = 0 };
         var stances = new Dictionary<int, int> { [1] = 1, [2] = 1, [3] = 2, [4] = 0 };
         var members = new Dictionary<int, int> { [7] = 2, [8] = 5 };
-        RelayUnitResolver unit = (int slot, int owner, uint limit, out int tribe, out int stance) => {
+        var liveIds = new Dictionary<int, uint> { [1] = 500, [2] = 500, [3] = 500, [4] = 500 };
+        RelayUnitResolver unit = (RelayUnit expected, out int tribe, out int stance) => {
             tribe = 0; stance = 0;
-            if (!tribes.TryGetValue(slot, out tribe)) return false;
-            stance = stances[slot]; return true;
+            if (!liveIds.TryGetValue(expected.Slot, out uint globalId) || globalId != expected.GlobalId ||
+                !tribes.TryGetValue(expected.Slot, out tribe)) return false;
+            stance = stances[expected.Slot]; return true;
         };
         RelayTribeMemberCount count = id => members.TryGetValue(id, out int value) ? value : -1;
         bool Plan(int[] slots, out RelayOrderPlan plan) => RelayValidation.TryPlan(Command(slots: slots), 100, 100, unit, count, out plan, out _);
@@ -193,6 +200,12 @@ internal static class Program
         Check(RelayValidation.MajorityStance(new[] { 2, 2, 0 }) == 1, "Tie between 0 and 1.");
         Check(RelayValidation.MajorityStance(new[] { 3, 1, 1 }) == 0, "Clear majority.");
         Check(Plan(new[] { 1, 2, 3 }, out result) && result.Stance == 1, "Plan ignored the majority stance.");
+        foreach (uint replacement in new uint[] { 400, 600 })
+        {
+            liveIds[1] = replacement;
+            Check(Plan(new[] { 1, 2 }, out result) && result.Slots.SequenceEqual(new[] { 2 }) && result.Skipped == 1,
+                "A held order reached an older or newer unit in the repaired slot.");
+        }
     }
     private static void WorldPreparation()
     {

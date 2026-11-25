@@ -22,7 +22,7 @@ using RedBird.X64.Hooks.Transaction;
 
 namespace BugfixesAndQoL
 {
-    internal sealed unsafe class PlaguePopularityFix : IDisposable
+    internal sealed unsafe partial class PlaguePopularityFix : IDisposable
     {
         private const string SaveDataIdentifier = "serp-plague-popularity-v1";
         private const int MinimumProjectilesPerHerd = 6;
@@ -48,11 +48,11 @@ namespace BugfixesAndQoL
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
-        private readonly PlagueHerdLedger herds = new PlagueHerdLedger();
+        private PlagueHerdLedger herds = new PlagueHerdLedger();
         private readonly object stateGate = new object();
         private readonly Func<PlagueProjectileIdentity, bool> isLivingProjectile;
         private volatile bool correctionEnabled;
-        private readonly HashSet<int> managedPlayerIds = new HashSet<int>();
+        private HashSet<int> managedPlayerIds = new HashSet<int>();
         private readonly Dictionary<int, int> popularityCallbackCounts = new Dictionary<int, int>();
         private readonly Dictionary<int, int> correctedCallbackCounts = new Dictionary<int, int>();
         private readonly Dictionary<int, int> diagnosticRevisions = new Dictionary<int, int>();
@@ -133,6 +133,7 @@ namespace BugfixesAndQoL
                     CaptureSaveState,
                     state => MessagePackSerializer.Serialize(state),
                     DeserializeSaveState);
+                RegisterResync();
             }
             catch
             {
@@ -278,10 +279,10 @@ namespace BugfixesAndQoL
 
         private void OnProjectileDelete(ProjectileDeleteEventArgs args)
         {
-            if (!correctionAvailable || herds.Count == 0) return;
+            if (repairing || !correctionAvailable || herds.Count == 0) return;
             lock (stateGate)
             {
-                if (!correctionAvailable || herds.Count == 0)
+                if (repairing || !correctionAvailable || herds.Count == 0)
                     return;
 
                 try
@@ -300,6 +301,7 @@ namespace BugfixesAndQoL
             lock (stateGate)
             {
                 mapActive = true;
+                if (context.Mode.IsRealMultiplayer && !resyncReady) correctionAvailable = false;
                 if (saveSlot != null && saveSlot.TryTake(context, out PlaguePopularitySaveState state))
                     RestoreSaveState(state);
                 if (Shared.DebugLogHelper.DiagnosticsEnabled)
@@ -331,10 +333,10 @@ namespace BugfixesAndQoL
 
         private void CorrectPlaguePopularity(NativePointer<X64SmartCPUContext> context)
         {
-            if (!correctionEnabled || !correctionAvailable || !mapActive) return;
+            if (repairing || !correctionEnabled || !correctionAvailable || !mapActive) return;
             lock (stateGate)
             {
-                if (!correctionEnabled || !correctionAvailable || !mapActive)
+                if (repairing || !correctionEnabled || !correctionAvailable || !mapActive)
                     return;
 
                 try
@@ -487,6 +489,8 @@ namespace BugfixesAndQoL
                     callbackFailureLogged = false;
                 }
                 mapActive = false;
+                repairing = false;
+                pendingResync = null;
                 currentCapture = null;
                 herds.Clear();
                 managedPlayerIds.Clear();

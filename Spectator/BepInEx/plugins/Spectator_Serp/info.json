@@ -3,14 +3,14 @@
   "Author": "Serpens66",
   "Name": "Spectator",
   "Description": "Spectator perspectives, live statistics and local AI testing tools.",
-  "Version": "0.2.8",
+  "Version": "0.2.9",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.56.1"
+      "MinimumVersion": "0.73.0"
     }
   ],
   "Manifest": 1,
@@ -19,6 +19,12 @@
     "2.8.0.2"
   ],
   "SerpChangelog": [
+    {
+      "Version": "0.2.9",
+      "Changes": [
+        "The automatic gate button of Extra Features appears again in the test tools' gate panel and switches the selected AI gate. Requires APIShared 0.73.0."
+      ]
+    },
     {
       "Version": "0.2.8",
       "Changes": [

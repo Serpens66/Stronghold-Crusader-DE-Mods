@@ -19,8 +19,8 @@ keine allgemeine Freigaberegel.
 Der Befehl gilt genau für die angeklickten Einheiten, von einer einzelnen bis zu
 beliebig vielen. Sind sie nicht genau eine ganze Gruppe, bildet jeder Peer im Chore
 daraus eine neue Gruppe, wie Vanilla bei eigener Auswahl. Eine Auswahl, die nicht
-in ein Paket passt (etwa 500 bis 1000 Einheiten, je nach Abstand der IDs), wird auf
-mehrere Gruppen und Chores verteilt. Gestorbene Einheiten fallen weg.
+in ein Paket passt (166 Einheiten mit Slot und Global-ID), wird auf mehrere Gruppen
+und Chores verteilt. Gestorbene oder inzwischen ersetzte Einheiten fallen weg.
 
 Einheiten, die ihr Besitzer gerade selbst ausgewählt hat, erhalten den Befehl ebenfalls.
 Wird dabei eine neue Gruppe gebildet, sieht der Besitzer die Einheit weiter als ausgewählt;
@@ -143,6 +143,11 @@ Die Bedienung mit der echten Maus und alles Folgende ersetzt das nicht:
   schickt ausgewählte Verbündete dorthin. Das Log enthält kein „delivery rejected“.
 - Speichern/Laden, neue Karte und Missionsende prüfen. Alte Rückmeldungen und
   Aufträge dürfen keine neue Welt oder einen neueren Auftrag treffen.
+- Gehaltenen Befehl mit zwei Einheiten während eines echten Einheiten-Resyncs prüfen.
+  Im reparierten Slot eine ältere Global-ID desselben Besitzers belegen, den anderen
+  Slot unverändert lassen. Den verbleibenden Auftrag genau einmal beobachten und den
+  ersetzten Slot ohne Befehlswirkung prüfen. Den Versuch mit jüngerer Ersatz-ID
+  wiederholen. Ein Duplikat derselben Request-ID darf keinen weiteren Befehl auslösen.
 - Auf beiden PCs protokollierte Request-ID, Besitzer, Ausführungstick und
   Ergebnis vergleichen; danach Desync-/Checksum-Verhalten beobachten.
 

@@ -53,6 +53,12 @@ owners produce an explicit gap. All independent entries/events remain active.
 | 0x40740 | 12 | void(profile root, player); AI recruitment, including failure/demand and assignment branches |
 | 0xCCBB0 | 10 | void(player manager); all-player tax/donation accumulation and settlement, including zero floor |
 
+The four market entries in this table are now owned by APIShared's
+`AiMarketEvents` broker. This testmod registers paired observations and owns no
+market entry patch or fallback. Its independent diagnostics remain unchanged.
+The shared broker validates all four entries together; consult APIShared's native
+compatibility contract and tests when updating them.
+
 The fallback searches executable PE sections for the unique complete entry pattern
 on the same supported native hash. A moved/occupied entry is rejected: data layouts
 and caller contracts have no independently proven migration fallback. Unknown hashes
@@ -233,3 +239,26 @@ Review both mods' update contracts together when moving these points or layouts.
 For an update re-audit complete functions/callers, all conditional/alternative exits,
 incoming edges, relocated instructions and the installed backend. Refresh fingerprints,
 offset contracts and machine evidence together. No stale RVA on an unknown image.
+
+## Preserve existing emergency-demolition ownership (2026-11-22)
+
+The combined-game log `.work/a/market-save/001/7563c821acc4/LogOutput.log`
+line3180 showed AIBuild's2D810 entry detour replacing BugfixesAndQoL's already
+published six-byte entry. AIBuild loads after that hard dependency; chaining its
+live FF25 was not safe ownership and triggered the main owner's late-patch guard.
+
+The common economy installer now compares each complete audited displaced span
+with the validated load-image contract BEFORE backend preflight and again just
+before Commit. Any live difference declines that observation and logs unavailable
+coverage with RVA, expected/live bytes and registry owner when available. It
+never changes, follows or chains the occupied entry. Main-mod protection stays
+owned by its existing publisher; AIBuild standalone can still install on pristine
+bytes. Only the displaced span is checked, so an adjacent owner's hook remains
+permitted. No native trade behavior or main-mod source is changed.
+
+`EmergencyEntryGuardAcceptsPristineAndPreservesForeignPublishedJump` runs the
+production guard against a private pristine entry and an FF25 foreign patch,
+asserts byte preservation, and checks a change after an earlier successful
+inspection is refused. Existing backend tests continue checking the pristine
+entry's actual NativeX64 displacement and publication contract. This offline
+proof does not substitute for a subsequent combined-game compatibility run.

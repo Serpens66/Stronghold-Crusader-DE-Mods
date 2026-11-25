@@ -3,6 +3,8 @@ using Noesis;
 using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
+using APIShared.Buildings;
+using APIShared.Presentation;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -29,8 +31,7 @@ namespace Spectator
         private static bool? gateDisplayedClosed;
         private static int gateHudDiagnostics;
         private static readonly List<ToolbarProperty> gateProperties = new List<ToolbarProperty>();
-        private static OptionalGateAutomation gateAutomation;
-        private static bool gateAutomationResolved;
+        private static bool gatePresenterResolved;
 
         // The engine input callback only captures intent. Rendering waits for a completed PlayState update.
         private static void AfterToolsPlayState()
@@ -195,7 +196,7 @@ namespace Spectator
                     CaptureGateProperty(button, PropEx.Sprite1Property);
                     CaptureGateProperty(button, PropEx.Sprite2Property);
                 }
-                BindGateAutomation(view);
+                EnsureGatePresenter();
                 ShowTestGatePanel();
                 LogGateHud("acquire");
 
@@ -206,35 +207,41 @@ namespace Spectator
 
         private static unsafe bool GateIsCurrent(GateSelection value) => CurrentGate(value, out _);
 
-        private static void BindGateAutomation(MainViewModel view)
+        // Gate mods' building panel sections (for example ExtraFeatures' automation switch) see the test panel's gate through
+        // this APIShared presenter and send their owner actions here; they run offline as test actions under the engine lock.
+        private static void EnsureGatePresenter()
         {
+            if (gatePresenterResolved) return;
+            gatePresenterResolved = true;
             try
             {
-                if (!gateAutomationResolved)
-                {
-                    gateAutomationResolved = true;
-                    try
-                    {
-                        gateAutomation = new OptionalGateAutomation(() => {
-                            GateSelection gate = selectedGate;
-                            if (gate != null && GateIsCurrent(gate) && gateAutomation.Ready)
-                                QueueTestAction(new TestAction { Kind = TestActionKind.GateAutomation, Actor = gate.Actor,
-                                    Gate = gate, Force = !gateAutomation.Automatic(gate.Id) });
-                        });
-                    }
-                    catch (Exception error) { gateAutomation = null; LogOnce("TEST_GATE_AUTOMATION_UNAVAILABLE: " + error); }
-                    // Continue binding with a null model: hide an unsupported provider's original button.
-
-                }
-                foreach (string name in new[] { "ExtraFeaturesGatehouseAutomationButtonHost", "ExtraFeaturesDrawbridgeAutomationButtonHost" })
-                {
-                    var host = view.HUDBuildingPanel.FindName(name) as FrameworkElement;
-                    if (host == null) continue;
-                    var button = view.HUDBuildingPanel.FindName(name.Replace("Host", "")) as Button;
-                    GateAutomationBinding.Apply(host, button, gateAutomation?.Model, CaptureGateProperty);
-                }
+                if (!BuildingPanelSections.TryRegisterPresenter(new BuildingPanelPresenterOptions(SpectatorPlugin.PluginGuid,
+                        "test-gate-panel", QueryPresentedGate, SubmitPresentedGateAction), out string reason))
+                    LogOnce("TEST_GATE_PRESENTER_UNAVAILABLE: " + reason);
             }
-            catch (Exception error) { gateAutomation = null; LogOnce("TEST_GATE_AUTOMATION_UNAVAILABLE: " + error); }
+            catch (Exception error) { LogOnce("TEST_GATE_PRESENTER_UNAVAILABLE: " + error); }
+        }
+
+        // Unity thread, every GUI check while sections exist: the gate of the acquired test panel.
+        private static bool QueryPresentedGate(out int buildingId, out int actingPlayerId)
+        {
+            GateSelection gate = selectedGate;
+            buildingId = actingPlayerId = 0;
+            if (gate == null || gateHudOwner == null || gate.Actor != humanSelectedOwner || !GateIsCurrent(gate)) return false;
+            buildingId = gate.Id;
+            actingPlayerId = gate.Actor;
+            return true;
+        }
+
+        private static bool SubmitPresentedGateAction(BuildingActionRequest request, out string reason)
+        {
+            GateSelection gate = selectedGate;
+            if (gate == null || request.BuildingId != gate.Id || request.BuildingGlobalId != gate.Global ||
+                request.ActingPlayerId != gate.Actor || !GateIsCurrent(gate))
+            { reason = "The Spectator test panel no longer shows this building."; return false; }
+            QueueTestAction(new TestAction { Kind = TestActionKind.BuildingAction, Actor = gate.Actor, Gate = gate, BuildingRequest = request });
+            reason = null;
+            return true;
         }
 
         private static unsafe void ShowTestGatePanel()
@@ -246,8 +253,6 @@ namespace Spectator
             var panel = view.HUDBuildingPanel;
             if (panel == null) return;
             bool bridge = selectedGate.Type == eStructs.STRUCT_DRAWBRIDGE;
-            try { gateAutomation?.Refresh(selectedGate.Id, bridge); }
-            catch (Exception error) { LogOnce("TEST_GATE_AUTOMATION_REFRESH: " + error); }
             // Snapshot the real object's state into its own button sprites, without altering PlayState.
             int request = bridge ? building->N00008642_2 : building->r_GateState2;
             int physical = bridge ? building->N0000182B & 0xff : building->r_GateState;

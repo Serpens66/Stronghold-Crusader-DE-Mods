@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.235.0</AssemblyVersion>
-    <FileVersion>1.0.235.0</FileVersion>
+    <AssemblyVersion>1.0.243.0</AssemblyVersion>
+    <FileVersion>1.0.243.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -29,7 +29,20 @@
   <PropertyGroup Condition="'$(ExtenderDir)' == '' and Exists('$(LocalScriptExtenderBuildOutput)\SHCDESE.dll')"><ExtenderDir>$(LocalScriptExtenderBuildOutput)</ExtenderDir></PropertyGroup>
   <PropertyGroup Condition="'$(ExtenderDir)' == '' and Exists('$(LocalScriptExtenderModOutput)\SHCDESE.dll')"><ExtenderDir>$(LocalScriptExtenderModOutput)</ExtenderDir></PropertyGroup>
   <ItemGroup>
+    <Compile Include="src\Multiplayer\SaveLoading\*.cs" />
+    <Compile Include="src\AI\Market\MarketPendingDemandFix.cs" />
+    <Compile Include="src\AI\Market\MarketDemandPersistence.cs" />
+    <Compile Include="src\AI\Market\MarketDemandMissionState.cs" />
+    <Compile Include="src\AI\Market\MarketDemandSaveCodec.cs" />
+    <Compile Include="src\AI\Market\MarketDemandTarget.cs" />
+    <Compile Include="src\AI\Market\MarketDemandSites.cs" />
+    <Compile Include="src\AI\Market\MarketDemandWriterHooks.cs" />
+    <Compile Include="src\AI\Market\MarketAmmoDemandSource.cs" />
+    <Compile Include="src\AI\Market\MarketFixesDemandSource.cs" />
+    <Compile Include="src\AI\Market\MarketDemandFeature.cs" />
+    <Compile Include="src\AutoSend\*.cs" />
     <Compile Include="src\AreaDemolition\*.cs" />
+    <Compile Include="src\AreaConstruction\*.cs" />
     <Compile Include="src\PitchMoatLines\*.cs" />
     <Compile Include="src\Lobby\LocalAutosaveRuntime.cs" />
     <Compile Include="src\Lobby\LongMapFileNames.cs" />
@@ -49,6 +62,7 @@
     <Compile Include="src\GateRouting\GatehouseTargetMarkerHeightPolicy.cs" />
     <Compile Include="src\GateRouting\GatehouseTargetMarkerHeightHook.cs" />
     <Compile Include="src\VanillaPerformance\VanillaPerformanceFeature.cs" />
+    <Compile Include="src\ProjectileTrails\*.cs" />
     <Compile Include="src\VanillaPerformance\RadarRebindOptimization.cs" />
     <Compile Include="src\VanillaPerformance\MeritDataLockOptimization.cs" />
     <Compile Include="src\VanillaPerformance\EnginePresentationBridge.cs" />
@@ -70,6 +84,12 @@
     <Compile Include="src\MoatTerrain\NativeDefinition.cs" />
     <Compile Include="src\MoatTerrain\TerrainRuntime.cs" />
     <Compile Include="src\MoatTerrain\TerrainPublication.cs" />
+    <Compile Include="src\Crenels\CrenelGraphicsHook.cs" />
+    <Compile Include="src\Crenels\CrenelPolicy.cs" />
+    <Compile Include="src\Crenels\CrenelRecords.cs" />
+    <Compile Include="src\Crenels\CrenelRuntime.cs" />
+    <Compile Include="src\WallDeposits\DepositHooks.cs" />
+    <Compile Include="src\WallDeposits\DepositRestoration.cs" />
     <Compile Include="src\DrawbridgeDestructionFix\NativeContract.cs" />
     <Compile Include="src\DrawbridgeDestructionFix\FixRuntime.cs" />
     <Compile Include="src\SiegeCrew\NativeContract.cs" />
@@ -85,6 +105,7 @@
     <Reference Include="MonoMod.RuntimeDetour"><HintPath>$(GameDir)\BepInEx\core\MonoMod.RuntimeDetour.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MonoMod.Utils"><HintPath>$(GameDir)\BepInEx\core\MonoMod.Utils.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.AssetBundleModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.AssetBundleModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.AudioModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.AudioModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.ImageConversionModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.ImageConversionModule.dll</HintPath><Private>false</Private></Reference>
@@ -131,6 +152,7 @@
     <Compile Include="..\Shared\Runtime\Threading\UnityMainThreadDispatch.cs"><Link>Shared\Runtime\Threading\UnityMainThreadDispatch.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\NativePatternResolver.cs"><Link>Shared\Runtime\Native\NativePatternResolver.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\CommittedMemory.cs"><Link>Shared\Runtime\Native\CommittedMemory.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Native\AuditedEntryDetour.cs"><Link>Shared\Runtime\Native\AuditedEntryDetour.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\NativePatchGuard.cs"><Link>Shared\Runtime\Native\NativePatchGuard.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\NativeResolutionCache.cs"><Link>Shared\Runtime\Native\NativeResolutionCache.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Native\NativeInstructionOperands.cs"><Link>Shared\Runtime\Native\NativeInstructionOperands.cs</Link></Compile>
@@ -238,12 +260,14 @@
     <Compile Include="src\Buildings\WaterboyReservationLedger.cs" />
     <Compile Include="src\Buildings\WaterboyNativeDefinition.cs" />
     <Compile Include="src\Buildings\WaterboyTargetReservationRuntime.cs" />
+    <Compile Include="src\Buildings\WaterboyTargetReservationRuntime.Resync.cs" />
     <Compile Include="src\Buildings\WorkerBreakPauseHook.cs" />
     <Compile Include="src\Buildings\WorkshopIdleDelayHook.cs" />
     <Compile Include="src\Buildings\WorkshopIdleDelayNative.cs" />
     <Compile Include="src\TreeBlightDecay\NativeCode.cs" />
     <Compile Include="src\TreeBlightDecay\FixRuntime.cs" />
     <Compile Include="src\Settings\BugfixesAndQoLViewModel.cs" />
+    <Compile Include="src\Settings\BugfixesAndQoLViewModel.AutoSend.cs" />
     <Compile Include="src\Settings\ModSettingsPresentation.cs" />
     <Compile Include="src\Settings\ModSettingsPresentation.Topics.cs" />
     <Compile Include="src\Settings\ModSettingsPresentation.Recommendations.cs" />
@@ -306,6 +330,7 @@
     <Compile Include="src\LordAndControlGroups\LordUnitControlsPolicy.cs" />
     <Compile Include="src\Core\Common\SpectatorInputControlPolicy.cs" />
     <Compile Include="src\Plague\PlaguePopularityFix.cs" />
+    <Compile Include="src\Plague\PlaguePopularityFix.Resync.cs" />
     <Compile Include="src\Plague\PlagueHerdLedger.cs" />
     <Compile Include="src\Plague\PlagueTreatmentFadeFix.cs" />
     <Compile Include="src\Plague\PlagueTargetReservationFix.cs" />
@@ -356,6 +381,7 @@
     <Compile Include="src\Multiplayer\SteamInviteBlacklistStore.cs" />
     <Compile Include="src\Core\Common\StartupDiagnosticPolicy.cs" />
     <Compile Include="src\Buildings\SingleBuildingPauseHook.cs" />
+    <Compile Include="src\Buildings\SingleBuildingPauseHook.Resync.cs" />
     <Compile Include="src\Buildings\SingleBuildingPausePolicy.cs" />
     <Compile Include="src\Buildings\SingleBuildingPauseUiIlContract.cs" />
     <Compile Include="src\Buildings\SingleBuildingPauseOverrideStore.cs" />
@@ -383,11 +409,12 @@
   <ItemGroup>
     <!-- Published neutral replacements are package content too. Always replace stale outputs,
          even when checkout timestamps are older than a previously generated package. -->
-    <Content Include="Patches\**\*;Override\**\*;Locales\**\*;info.json"><CopyToOutputDirectory>Always</CopyToOutputDirectory></Content>
+    <Content Include="Patches\**\*;Override\**\*;Locales\**\*;info.json;projectiletrails-shader"><CopyToOutputDirectory>Always</CopyToOutputDirectory></Content>
   </ItemGroup>
   <ItemGroup>
     <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="System.Buffers"><HintPath>$(ExtenderDir)\System.Buffers.dll</HintPath><Private>false</Private></Reference>
     <Compile Include="..\Shared\Adapters\APIShared\PlayerIdentityHelper.cs"><Link>Shared\Adapters\APIShared\PlayerIdentityHelper.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Gameplay\GroundMovePreviewEligibility.cs"><Link>Shared\Runtime\Gameplay\GroundMovePreviewEligibility.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Gameplay\GameProjectileSlotPolicy.cs"><Link>Shared\Runtime\Gameplay\GameProjectileSlotPolicy.cs</Link></Compile>

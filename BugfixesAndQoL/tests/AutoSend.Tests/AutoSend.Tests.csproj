@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <GameDir Condition="'$(GameDir)' == ''">E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
+    <ExtenderDir Condition="'$(ExtenderDir)' == ''">$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="EditTests.cs" />
+    <Compile Include="IntervalTests.cs" />
+    <Compile Include="PaintTests.cs" />
+    <Compile Include="FeatureTests.cs" />
+    <Compile Include="../../src/AutoSend/AutoSendDisplay.cs" Link="AutoSendDisplay.cs" />
+    <Compile Include="../../src/AutoSend/AutoSendEdits.cs" Link="AutoSendEdits.cs" />
+    <Compile Include="../../src/AutoSend/AutoSendSliderGesture.cs" Link="AutoSendSliderGesture.cs" />
+    <Compile Include="../../src/AutoSend/AutoSendDisclosureState.cs" Link="AutoSendDisclosureState.cs" />
+    <Compile Include="../../src/AutoSend/AutoSendPacket.cs" Link="AutoSendPacket.cs" />
+    <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath></Reference>
+    <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath></Reference>
+    <Compile Include="../../src/AutoSend/AutoSendPolicy.cs" Link="AutoSendPolicy.cs" />
+    <Compile Include="../../src/AutoSend/AutoSendSaveCodec.cs" Link="AutoSendSaveCodec.cs" />
+    <Compile Include="../../src/AutoSend/AutoSendSavedPlayers.cs" Link="AutoSendSavedPlayers.cs" />
+    <Compile Include="../../src/AutoSend/AutoSendEpochs.cs" Link="AutoSendEpochs.cs" />
+    <Compile Include="../../src/AutoSend/AutoSendInitialRoster.cs" Link="AutoSendInitialRoster.cs" />
+  </ItemGroup>
+</Project>

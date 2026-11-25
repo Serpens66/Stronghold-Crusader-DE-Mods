@@ -9,7 +9,8 @@ internal static partial class Program
     {
         var syntax = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
             "Pathfinding/src/Assassins/AssassinClimbRuntime.cs"))).GetRoot();
-        string[] names = { "IsValidClimbPacket", "IsAuthorizedClimbMessage", "OnPacketReceived", "ApplyState" };
+        string[] names = { "IsValidClimbPacket", "IsAuthorizedClimbMessage", "OnPacketReceived", "ApplyState",
+            "CaptureRepair", "PrepareRepair", "CommitRepair" };
         string methods = string.Join("\n", syntax.DescendantNodes().OfType<MethodDeclarationSyntax>()
             .Where(m => names.Contains(m.Identifier.ValueText)).Select(m => m.ToFullString()));
         string extender = Environment.GetEnvironmentVariable("SHCDESE_EXTENDER_DIR") ??
@@ -21,6 +22,8 @@ internal static partial class Program
             throw new Exception("Installed Extender must expose its public constant player bound.");
         string fixture = """
 using System;
+using System.Buffers.Binary;
+using System.IO;
 using SHCDESE.API;
 namespace APIShared.Networking {
  // Public authenticated-message boundary only: native authentication is tested by APIShared.
@@ -39,6 +42,9 @@ public sealed class AssassinClimbStatePacket {
 }
 public sealed class ClimbAuthorityFixture {
  const int ChoreProtocolVersion=1;
+ const int RepairEntryBytes=sizeof(byte)+sizeof(int);
+ const int RepairRecordBytes=GamePlayerManagerAPI.MAX_PLAYERS*RepairEntryBytes;
+ int nextOperationId;
  readonly bool[] climbingAllowed=new bool[GamePlayerManagerAPI.MAX_PLAYERS+1]; readonly int[] lastOperationIds=new int[GamePlayerManagerAPI.MAX_PLAYERS+1];
  void RefreshButtonVisibility() {} void LogDebug(string text) {}
  METHODS
@@ -61,6 +67,21 @@ public sealed class ClimbAuthorityFixture {
   packet.OperationId=3;packet.ProtocolVersion=2;Require(!IsValidClimbPacket(packet),"invalid protocol");r.OnPacketReceived(forged);
   Require(!IsValidClimbPacket(null)&&!IsAuthorizedClimbMessage(null),"nulls");
   Require(r.lastOperationIds[2]==2,"invalid inputs never advance dedup state");
+  var client=new ClimbAuthorityFixture {nextOperationId=3};
+  Require(client.lastOperationIds[2]==0,"different client watermark before repair");
+  byte[] repair=r.CaptureRepair();
+  var prepared=PrepareRepair(repair);
+  Require(client.lastOperationIds[2]==0,"preparing must not mutate the client");
+  client.CommitRepair(prepared);
+  Require(client.climbingAllowed[2]&&client.lastOperationIds[2]==2&&client.nextOperationId==3,"repair applies shared state but leaves the sender sequence local");
+  packet.ProtocolVersion=1; packet.OperationId=2; packet.AllowClimbing=false;
+  client.OnPacketReceived(forged);
+  Require(client.climbingAllowed[2],"held duplicate must not replay after repair");
+  packet.OperationId=3; client.OnPacketReceived(forged);
+  Require(!client.climbingAllowed[2]&&client.lastOperationIds[2]==3,"held newer chore must execute after repair");
+  repair[0]=2;
+  try {PrepareRepair(repair); throw new Exception("bad repaired flag was accepted");}
+  catch (InvalidDataException) {}
  }
 }
 """.Replace("METHODS", methods);

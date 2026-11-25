@@ -271,6 +271,44 @@ namespace EngineHarness
                     Check(replanTriggers == hazardTriggers + 1 && replanWaits.TryGetValue(7, out ReplanWait replacement) && replacement.TargetX == 170,
                         "a replacement order was excluded from hazard checks after ending the previous wait");
                 }
+
+                // Plague-immune types (0x32BC40; IsPlagueImmune) take no plague damage: a tile only the plague policy holds neither
+                // stops them nor blocks their probe. An ordinary soldier still stops, and fire on the tile stops
+                // the lord as well.
+                fire.ClearAll(); AnchorTick(++ticks); ResetReplanWatch(); tribeOrders[3] = plain;
+                var immunePolicy = new APIShared.Pathfinding.RouteReplanPolicy(3, 50, 10, 400);
+                fire.ReplanPolicy = immunePolicy; fireAbortPolicy = null; plagueAbortPolicy = immunePolicy;
+                int plagueNode = 10 * MapWidth + 143;
+                Check(fire.Set(143, 10, APIShared.Pathfinding.RouteTileEffect.Penalty, 254), "plague rule rejected");
+                AnchorTick(++ticks); plagueTiles.Set(plagueNode, true); answer = tooLong;
+                try
+                {
+                    foreach (int chimp in new[] { eChimps.CHIMP_TYPE_LORD, eChimps.CHIMP_TYPE_HEALER, 0 })
+                    {
+                        bool immune = chimp != 0;
+                        walker->r_UnitChimp = chimp; replanSettled.Clear(); replanWaits.Clear();
+                        Route(7, 140, 10, straight, 160, 10); units.Moves.Clear();
+                        long immuneTriggers = replanTriggers;
+                        for (int i = 0; i < 48 && !replanWaits.ContainsKey(7); i++) ReplanTick(++ticks);
+                        Check(immune ? replanTriggers == immuneTriggers && !replanWaits.ContainsKey(7) && units.Moves.Count == 0 : replanWaits.ContainsKey(7),
+                            $"plague-only tile with chimp {chimp}: immune={immune} triggers={replanTriggers - immuneTriggers} waiting={replanWaits.ContainsKey(7)}");
+                        replanProbeLeft = ReplanProbeTickSettles;
+                        int probe = CoreRouteProbe(1, 140, 10, 160, 10, immunePolicy, 20, RouteSurfaceClass.Any, immune);
+                        Check(immune ? probe == ProbeClear : probe == ProbeRuleTile, $"plague-only probe with chimp {chimp} returned {probe}");
+                    }
+                    replanWaits.Clear(); replanSettled.Clear();
+                    walker->r_UnitChimp = eChimps.CHIMP_TYPE_LORD; fireTiles.Set(plagueNode, true);
+                    Route(7, 140, 10, straight, 160, 10);
+                    for (int i = 0; i < 48 && !replanWaits.ContainsKey(7); i++) ReplanTick(++ticks);
+                    Check(replanWaits.ContainsKey(7), "fire on a plague tile did not stop the immune lord");
+                    replanProbeLeft = ReplanProbeTickSettles;
+                    Check(CoreRouteProbe(1, 140, 10, 160, 10, immunePolicy, 20, RouteSurfaceClass.Any, true) == ProbeRuleTile,
+                        "fire on a plague tile did not block the immune lord's probe");
+                }
+                finally
+                {
+                    plagueTiles.Clear(); fireTiles.Clear(); replanWaits.Clear(); replanSettled.Clear(); walker->r_UnitChimp = 0;
+                }
                 plagueAbortPolicy = null;
 
                 // Foreign policies may intentionally continue through their rule tiles after expiry.
@@ -1839,6 +1877,32 @@ namespace EngineHarness
                 // Later requests keep the per-tick budget.
                 AnchorTick(++ticks);
                 Check(anchorMaskNext[3] == Math.Min(AnchorMaskNodesPerTick, total), "a later mask request is not built within the per-tick budget");
+
+                // A repair can replace bytes without firing any ordinary tile notification.
+                int preRepairTask = TryComputeAnchorTask(1, anchor, 1, 7, new[] { start }, 1);
+                Check(preRepairTask != 0 && anchorLiveTasks.Contains(preRepairTask), "repair fixture has no pre-repair task");
+                var queued = fastCommands.Enqueue(1, 3, 300, 150, 10, 0, 1, ticks,
+                    new[] { new FastUnitIdentity(7, 9007) });
+                nativeMovementMasks[blocked] = 0;
+                try
+                {
+                    ResetRepairDerivedState();
+                    Check(anchorLiveTasks.Count == 0 && anchorMaps[1] == null &&
+                        fastSimulationRouting == null && fastCursorRouting == null,
+                        "repair kept a cached route or search task from the old map");
+                    Check(fastCommands.Commands.Count == 1 && ReferenceEquals(fastCommands.Commands[0], queued),
+                        "repair invalidation dropped an outstanding Fast command");
+                    RequestAnchorMask(1);
+                    anchorBuildAll = true;
+                    AnchorTick(++ticks);
+                    Check(AnchorReady(1) && !LiveEdge(1, 10 * MapWidth + 140, 10 * MapWidth + 141, 2, false, null, out _, out _),
+                        "fresh route after repair still uses the old passage");
+                }
+                finally
+                {
+                    nativeMovementMasks[blocked] = 0x44;
+                    fastCommands.Clear();
+                }
             }
             finally
             {

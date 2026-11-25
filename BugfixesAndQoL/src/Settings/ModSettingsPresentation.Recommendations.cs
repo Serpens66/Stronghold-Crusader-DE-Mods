@@ -6,7 +6,17 @@ namespace BugfixesAndQoL
         // no locale lookup at plugin startup and no runtime Markdown parsing.
         private void ApplyApprovedRecommendations()
         {
+            options["EnableAiMarketOverbuyFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAiMarketOverbuyFix");
             options["EnableMoatTerrainRestoration"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableMoatTerrainRestoration");
+            options["EnableWallDepositRestoration"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableWallDepositRestoration");
+            options["EnableOccupiedWallDemolition"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableOccupiedWallDemolition");
+            options["EmptyStockpileLimit"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EmptyStockpileLimit");
+            options["EmptyGranaryArmouryLimit"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EmptyGranaryArmouryLimit");
+            // Added 2026-11-25 with the crenel checkerboard (moved from a testmod): a gameplay rule, not a pure fix.
+            options["EnableCrenelCheckerboard"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableCrenelCheckerboard");
+            options["AlignExistingCrenelsInEditor"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.AlignExistingCrenelsInEditor");
+            options["AlignExistingCrenelsOnSaveLoad"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.AlignExistingCrenelsOnSaveLoad");
+            options["AlignExistingCrenelsOnMapStart"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.AlignExistingCrenelsOnMapStart");
             options["EnablePitchStairsFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnablePitchStairsFix");
             options["PreserveDisplayResolution"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.PreserveDisplayResolution");
             options["EnableGatehouseTargetMarkerHeightFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableGatehouseTargetMarkerHeightFix");
@@ -17,6 +27,10 @@ namespace BugfixesAndQoL
             options["SpriteSheetMergeModeIndex"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.SpriteSheetMergeModeIndex");
             options["EnableCompleteNotificationSkipOnClick"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableCompleteNotificationSkipOnClick");
             options["ShowSelectedUnitHealth"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.ShowSelectedUnitHealth");
+            options["EnableProjectileTrails"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableProjectileTrails");
+            options["ProjectileTrailLength"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.ProjectileTrailLength");
+            options["ProjectileTrailMaximum"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.ProjectileTrailMaximum");
+            options["ReplaceStandardProjectileAfterimages"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.ReplaceStandardProjectileAfterimages");
             options["ShowForeignTroopHud"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.ShowForeignTroopHud");
             options["EnableDamagedHealthBars"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableDamagedHealthBars");
             options["ShowCountdownTimers"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.ShowCountdownTimers");
@@ -29,6 +43,8 @@ namespace BugfixesAndQoL
             options["EnableImprovedBuildPreview"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableImprovedBuildPreview");
             options["EnablePitchMoatLines"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnablePitchMoatLines");
             options["EnableAreaDemolition"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableAreaDemolition");
+            options["EnableAutoSend"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableAutoSend");
+            options["EnableAreaConstruction"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableAreaConstruction");
             options["EnableTroopHudMiddleClickCameraJump"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableTroopHudMiddleClickCameraJump");
             options["AllowMinimapWhilePlacingBuilding"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.AllowMinimapWhilePlacingBuilding");
             options["PreventMoveOrderOnPlacementCancel"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.PreventMoveOrderOnPlacementCancel");
@@ -62,6 +78,7 @@ namespace BugfixesAndQoL
             options["EnableTrailCustomizationButtons"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableTrailCustomizationButtons");
             options["AllowFullAiMultiplayerLobby"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.AllowFullAiMultiplayerLobby");
             options["EnableReturnToMultiplayerLobby"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableReturnToMultiplayerLobby");
+            options["EnableIngameMultiplayerSaveLoading"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableIngameMultiplayerSaveLoading");
             options["MultiplayerTimeControlPermissionIndex"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.MultiplayerTimeControlPermissionIndex");
             options["MultiplayerGameSpeedMaximum"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.MultiplayerGameSpeedMaximum");
             options["EnableShiftGameSpeedSteps"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableShiftGameSpeedSteps");

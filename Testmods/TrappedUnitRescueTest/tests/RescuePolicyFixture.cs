@@ -154,6 +154,11 @@ namespace TrappedUnitRescueTest.Tests
             // Equal population is insufficient: native refresh reads A,0 and misses B.
             Require(!RescueRuntime.HasCoherentCrewShape(new uint[]{1,101,0,0,2,102,0,0},2),
                 "matching nonzero population cannot conceal a hole in the refreshed prefix");
+            var originalCrew=new uint[]{1,101,2,102,0,123,0,0};
+            Require(RescueRuntime.HasCrewAlias(originalCrew,1,101) && RescueRuntime.HasCrewAlias(originalCrew,2,102),
+                "one foreign engine scan rejects a matching lifetime in either original crew slot");
+            Require(!RescueRuntime.HasCrewAlias(originalCrew,2,103),"a stale foreign lifetime is not this engineer");
+            Require(!RescueRuntime.HasCrewAlias(originalCrew,0,123),"unused slot globals cannot invent a crew alias");
         }
         private static unsafe void StateClassification()
         {
@@ -163,8 +168,18 @@ namespace TrappedUnitRescueTest.Tests
                 foreach(ushort flags in new ushort[]{0,2,4})
                 {
                     unit=OrdinaryUnit();unit.r_AIState=state;unit.r_PathPlanStateBitFlags=flags;
-                    Require(RescueRuntime.ClassifyState(&unit)==null,"normal soldier segment accepted");
+                    Require((RescueRuntime.ClassifyState(&unit)==null)==(flags!=0 || state!=101),
+                        "active travel and audited idle are distinct from completed-contact AI101 without a route");
                 }
+            foreach(eChimps type in new[]{eChimps.CHIMP_TYPE_DEER,eChimps.CHIMP_TYPE_LION,eChimps.CHIMP_TYPE_RABBIT})
+            {
+                unit=OrdinaryUnit();unit.r_UnitChimp=type;
+                Require(RescueRuntime.ClassifyState(&unit)=="unproven-unit-type","the same native group-order gate does not admit animal handlers");
+            }
+            unit=OrdinaryUnit();unit.r_UnitChimp=eChimps.CHIMP_TYPE_ENGINEER;unit.r_AIState=1;unit.r_PathPlanStateBitFlags=2;
+            Require(RescueRuntime.ClassifyState(&unit)=="unproven-order-state","engineering task travel is not an ordinary soldier order");
+            unit=OrdinaryUnit();unit.r_UnitChimp=eChimps.CHIMP_TYPE_ENGINEER;
+            Require(RescueRuntime.ClassifyState(&unit)!=null,"stationary Engineer0 may own payload or role work and is not generic idle");
             for(ushort state=126;state<=129;state++)
             {
                 unit=OrdinaryUnit();unit.r_UnitChimp=eChimps.CHIMP_TYPE_ARAB_ASSASIN;unit.r_AIState=state;
@@ -216,13 +231,13 @@ namespace TrappedUnitRescueTest.Tests
                         unit=OrdinaryUnit();unit.r_UnitChimp=type;unit.N000000DB=0;
                         unit.r_AIState=state;unit.r_PathPlanStateBitFlags=flags;
                         bool audited=flags!=0 && (type==eChimps.CHIMP_TYPE_FARMER_APPLE
-                            ? state==2 || state==5 || state==7 || state==8 : state==1);
+                            ? state==2 || state==5 || state==7 || state==8 : state==1 || state==3);
                         Require((RescueRuntime.ClassifyState(&unit)==null)==audited,
                             "only the explicitly audited civilian active travel states are authorized");
                     }
             unit=OrdinaryUnit();unit.r_UnitChimp=eChimps.CHIMP_TYPE_FARMER_APPLE;unit.r_AIState=3;
             unit.r_TargetVegetationId=227;unit.N000000C5=2;
-            Require(RescueRuntime.ClassifyState(&unit)=="apple-worker-needs-audited-active-travel",
+            Require(RescueRuntime.ClassifyState(&unit)=="worker-needs-audited-active-travel",
                 "stationary picker cannot retain state3/counter/tree while being moved beyond the picking approach");
             foreach(eChimps type in new[]{eChimps.CHIMP_TYPE_SPEARMAN,eChimps.CHIMP_TYPE_ARAB_ASSASIN})
                 foreach(ushort state in new ushort[]{2,3,4,5,6,7,8,100,102,103,104,105,106,107})
@@ -242,12 +257,12 @@ namespace TrappedUnitRescueTest.Tests
             foreach(eChimps type in new[]{eChimps.CHIMP_TYPE_TREBUCHET,eChimps.CHIMP_TYPE_MANGONEL,eChimps.CHIMP_TYPE_BALLISTA})
             {
                 unit=OrdinaryUnit();unit.r_UnitChimp=type;unit.N000000DB=0;
-                Require(RescueRuntime.ClassifyState(&unit)=="unclassified-zero-group-order-field",
+                Require(RescueRuntime.ClassifyState(&unit)!=null,
                     "stationary zero-table types are not authorized by the civilian exception");
             }
             unit=OrdinaryUnit();unit.r_UnitChimp=eChimps.CHIMP_TYPE_CATAPULT;unit.r_AIState=8;
             Require(RescueRuntime.ClassifyState(&unit)=="siege-special-state","active siege work/deployment deferred");
-            unit=OrdinaryUnit();unit.r_UnitChimp=eChimps.CHIMP_TYPE_CATAPULT;unit.r_AIState=101;
+            unit=OrdinaryUnit();unit.r_UnitChimp=eChimps.CHIMP_TYPE_CATAPULT;unit.r_AIState=101;unit.r_PathPlanStateBitFlags=2;
             Require(RescueRuntime.ClassifyState(&unit)==null,"ordinary moving device root accepted");
         }
     }

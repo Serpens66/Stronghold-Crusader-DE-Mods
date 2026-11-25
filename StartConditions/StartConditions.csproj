@@ -116,6 +116,7 @@
     <Compile Include="src\StartConditionsRuntime.cs" />
     <Compile Include="src\StartConditionsRuntime.StartTroops.cs" />
     <Compile Include="src\StartConditionsRuntime.AIStartTroopIsolation.cs" />
+    <Compile Include="src\StartConditionsRuntime.AIStartTroopResync.cs" />
     <Compile Include="src\AIStartTroopIsolationSaveState.cs" />
     <Compile Include="src\AIStartTroopRestorePolicy.cs" />
     <Compile Include="src\RepairFailureLogState.cs" />

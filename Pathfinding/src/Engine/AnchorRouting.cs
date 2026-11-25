@@ -253,8 +253,17 @@ namespace Pathfinding.Engine
             if (task != 0 && anchorLiveTasks.Remove(task)) AnchorNative.mma_task_release(anchorContext, task);
         }
 
-        // Map change: tasks and masks belong to the old map and its traversal caches.
         private void ResetAnchorMap()
+        {
+            if (!anchorAvailable) return;
+            ResetAnchorTopology();
+            ResetReplanWatch();
+            ResetFireEscapes();
+        }
+
+        // Tasks and masks describe the map before a load or an in-place repair. Replan
+        // and escape cases are orders with a lifetime of their own; callers reset those separately.
+        private void ResetAnchorTopology()
         {
             if (!anchorAvailable) return;
             foreach (int task in anchorLiveTasks) AnchorNative.mma_task_release(anchorContext, task);
@@ -267,8 +276,6 @@ namespace Pathfinding.Engine
             for (int p = 0; p < anchorMaskNext.Length; p++) { anchorMaskNext[p] = -1; anchorBlocked[p]?.Clear(); }
             anchorSweepCursor = -1; anchorSweepLeft = 0; anchorSweepRequestStart = anchorSweptSinceRequest = 0;
             ResetMovementSurfaces();
-            ResetReplanWatch();
-            ResetFireEscapes();
             ResetGroundFailureProofs();
         }
 

@@ -229,6 +229,8 @@ public static class Platform_Multiplayer
     public sealed class MPLobby
     {
         public bool isHost;
+        public bool coopTrailGame;
+        public int coopTrailID;
         public string settings, crc, mapFileName;
         public readonly List<MPLobbyMember> members = new();
         public int getThisPlayerFromSteamID(ulong id) => members.Single(member => member.id.m_SteamID == id).Slot;

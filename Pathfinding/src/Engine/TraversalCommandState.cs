@@ -36,6 +36,21 @@ namespace Pathfinding.Engine
             MarkFastTopologyAll();
         }
         internal override void ResetMapState() => ResetFastCommandMap();
+        internal override void ResetRepairDerivedState()
+        {
+            ResetAnchorTopology();
+            ResetFastTraversalCaches();
+        }
+
+        private void ResetFastTraversalCaches()
+        {
+            fastSimulationRouting?.Pool.Clear();
+            fastCursorRouting?.Pool.Clear();
+            fastSimulationRouting = fastCursorRouting = null;
+            fastDistribution = null;
+            fastUnitDistributions.Clear();
+        }
+
         internal override void RetainFastMoveDistribution(MoveCommandScope command) => RetainFastDistribution(command);
         // These are prefilters only. The original Fast implementation deliberately
         // leaves the actual decision to its exact reusable traversal fields.

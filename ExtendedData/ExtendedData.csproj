@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>ExtendedData</RootNamespace>
     <AssemblyName>ExtendedData</AssemblyName>
-    <AssemblyVersion>1.0.27.0</AssemblyVersion>
-    <FileVersion>1.0.27.0</FileVersion>
+    <AssemblyVersion>1.0.31.0</AssemblyVersion>
+    <FileVersion>1.0.31.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <Nullable>annotations</Nullable>
@@ -80,7 +80,11 @@
     <Compile Include="src\CoopLaunchBlockDiagnostics.cs" />
     <Compile Include="src\CoopPackageBlockMessages.cs" />
     <Compile Include="src\ExtendedDataRuntime.CoopCache.cs" />
+    <Compile Include="src\ExtendedDataRuntime.CoopWorkshop.cs" />
+    <Compile Include="src\CoopWorkshopDiagnostics.cs" />
     <Compile Include="src\CoopClientLobbyPresentation.cs" />
+    <Compile Include="src\CoopCustomizeLoadPresentation.cs" />
+    <Compile Include="src\CoopMissionSettingsReadiness.cs" />
     <Compile Include="src\ExtendedDataRuntime.LaunchReadiness.cs" />
     <Compile Include="src\CoopMissionDataCopies.cs" />
     <Compile Include="src\ExtendedDataRuntime.CoopAiStart.cs" />
@@ -92,6 +96,9 @@
     <Compile Include="src\FixesLordPreferencesBridge.cs" />
     <Compile Include="src\TypedPreferenceSnapshotCodec.cs" />
     <Compile Include="src\LordDataSyncCoordinator.cs" />
+    <Compile Include="src\LordDataSyncCoordinator.SavePreparation.cs" />
+    <Compile Include="src\LordSaveAuthorProof.cs" />
+    <Compile Include="src\LordSaveFileRead.cs" />
     <Compile Include="src\LordDataSyncCoordinator.FixesAssetSource.cs" />
     <Compile Include="src\LordDataSyncCoordinator.Presentation.cs" />
     <Compile Include="src\LordDataSyncDiagnostics.cs" />
@@ -109,6 +116,7 @@
     <Compile Include="src\TrailMissionSettingsCoordinator.Media.cs" />
     <Compile Include="src\TrailModCompatibilityInfo.cs" />
     <Compile Include="src\TrailSettingsSourceState.cs" />
+    <Compile Include="src\TrailMissingProviderState.cs" />
     <Compile Include="src\CoopSettingsDraftState.cs" />
     <Compile Include="src\TrailWorkshopUploadOptionsViewModel.cs" />
     <Compile Include="src\EditorModSettingsSaveOptionsViewModel.cs" />
