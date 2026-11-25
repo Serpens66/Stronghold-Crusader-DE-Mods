@@ -128,3 +128,53 @@ acceptance and two-computer multiplayer remain open. The historical healthy
 AI110 case remains causally unresolved after re-reading pf-opt/001's native audit
 and pf-startup/001's fix result: full HP and life=3 without previous route/flags
 do not identify the trigger. Fire/plague runtime and UI release gates remain shut.
+
+## Historical pathfinding test line (2026-10-29 to 2026-11-02)
+
+The full run table and final report are retrievable from the root repository:
+`git show e95da5315e2f7567d7ae8c8f6d24f75f3e7804b0:PathfindingRoadmap.md`
+(blob `db59d15b55af19e5f1f0a96c50efcaf1ed409a0d`) and
+`git show e95da5315e2f7567d7ae8c8f6d24f75f3e7804b0:PathfindingFinalReport.md`
+(blob `fba3f58d2a043ef418a72103da59ee4bcca4158f`). The final October test-line
+commit `27841dca6` is an ancestor of the checked `develop` HEAD `49d1dd52a`
+on 2026-11-25. The earlier MoatMove defaults and recommendations describe that
+test line. Current actions are in [Pathfinding/src/TODO.md](../../../../../Pathfinding/src/TODO.md).
+
+- **October 30 stress runs.** `test_stresstest4.sav`, 800×800, eight AI lords,
+  4,800 scripted spawns (up to 9,938 total units), pitch ignition and two
+  attacks, 260 seconds per run. With only the Script Extender, `pf-se-1`
+  recorded seven simulation gaps over 100 ms, up to 213 ms. The final
+  Release builds in `pf-iter-73..75` recorded zero such gaps in the play
+  phase with anchor, single routes and fire avoidance enabled. The scripted
+  mass spawn still produced a long render frame in each run.
+- **Extreme rules.** `pf-cons-3` used a map-wide barrier with one opening,
+  20 moving hazard zones and ×50 moat costs. Two simulation gaps (121 and
+  129 ms) remained with the budget, involving both Vanilla fallback and the
+  core. The raw iteration table records differing workloads and build modes.
+  These runs establish results for that configuration and save.
+- **Reusable contracts and counterexamples.** See
+  [ground and moat builders](GROUND_ROUTE_BUILDERS.md),
+  [group admission](MANUAL_GROUP_ADMISSION.md),
+  [gate query passes](GATEHOUSE_QUERY_PASS.md),
+  [enemy scan and search costs](SIM_TICK_SPIKE_PATHING.md), and the
+  [MoatMove optimization notes](../../../../../Pathfinding/migration/moatmove-notes.md#bewahrte-optimierungslehren)
+  for rejected eager batching, full target fields and command deferral.
+
+### Combined pitch and movement run (2026-11-02)
+
+The report's section 8.1 covers a host run at 10:57:20–11:03:54 Europe/Berlin
+with MoatMove 0.1.6, PitchStairsTest 0.1.0, BugfixesAndQoL 1.0.208, APIShared
+0.23.0 and Script Extender 2.14.3.0. Reported log SHA-256:
+`725265D719174DA5709C1645D6A40AB56A9041903C2AD039F7A779861F845D97`.
+With replanning and escape enabled and a 400-tick wait, the logged windows
+recorded three waits and one resumption, 42 escape starts, zero reported returns,
+one timeout, seven other endings and zero escape failures. Repeated escapes can
+increment the start counter. The counters lack case identities and cannot resolve
+individual endings, confirm animation or verify actual arrival. The subsequent
+load produced no new logged fire events and supplies no save/restore evidence.
+
+The native movement-state chain and the isolated fire lifetime experiment are in
+[FIRE_EFFECTS.md](FIRE_EFFECTS.md). The related pitch height and load findings
+are in [PITCHSTAIRS.md](../../../../../BugfixesAndQoL/docs/PITCHSTAIRS.md#dated-evidence-02112026-eleven-site-builds).
+Current in-game coverage, including the November 22 basic return cases, is in
+[IngameHazards.md](../../../../../Pathfinding/Findings/IngameHazards.md).

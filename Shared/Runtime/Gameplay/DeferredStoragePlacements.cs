@@ -19,6 +19,7 @@ namespace Shared
 
     internal enum StorageSectionState { Missing, NeedsInit, IsAlive, Lost }
     internal enum StorageQueueResult { Waiting, Completed, Aborted, TimedOut }
+    internal enum StorageCreateResult { Created, RejectedByValidation, Unconfirmed }
 
     internal interface IDeferredStorageBackend
     {
@@ -26,7 +27,7 @@ namespace Shared
         StorageSectionState Inspect(StoragePlacement placement);
         bool HasInitializedSeed(eMappers mapper);
         bool CanPlace(StoragePlacement placement, out string reason);
-        bool TryCreate(StoragePlacement placement, out string reason);
+        StorageCreateResult TryCreate(StoragePlacement placement, out string reason);
         void OnReady(StoragePlacement placement, bool created);
     }
 
@@ -37,15 +38,18 @@ namespace Shared
         internal const int TimeoutTicks = 600;
         private readonly List<StoragePlacement> placements = new List<StoragePlacement>();
         private readonly HashSet<int> created = new HashSet<int>();
+        private readonly Action<int, StoragePlacement, string> onValidationRejected;
         private int? firstTick, lastTick;
         private bool processing, ended;
         private StorageQueueResult finalResult;
 
-        internal DeferredStorageQueue(int playerId, IEnumerable<StoragePlacement> source)
+        internal DeferredStorageQueue(int playerId, IEnumerable<StoragePlacement> source,
+            Action<int, StoragePlacement, string> onValidationRejected = null)
         {
             if (playerId < 1 || playerId > 8) throw new ArgumentOutOfRangeException(nameof(playerId));
             if (source == null) throw new ArgumentNullException(nameof(source));
             PlayerId = playerId;
+            this.onValidationRejected = onValidationRejected;
             var unique = new HashSet<Tuple<eMappers, int, int>>();
             foreach (StoragePlacement placement in source)
             {
@@ -58,6 +62,8 @@ namespace Shared
         internal int PlayerId { get; }
         internal int Count => placements.Count;
         internal int Cursor { get; private set; }
+        internal int SkippedCount { get; private set; }
+        internal StoragePlacement? CurrentPlacement => Cursor < placements.Count ? placements[Cursor] : (StoragePlacement?)null;
 
         internal StorageQueueResult Process(int nativeTick, IDeferredStorageBackend backend, out string reason)
         {
@@ -95,8 +101,16 @@ namespace Shared
                     if (!backend.CanPlace(placement, out reason)) return Finish(StorageQueueResult.Aborted);
                     // Claim the attempt before invoking native code, even if it throws/reenters.
                     created.Add(Cursor);
-                    if (!backend.TryCreate(placement, out reason)) return Finish(StorageQueueResult.Aborted);
-                    return StorageQueueResult.Waiting;
+                    StorageCreateResult result = backend.TryCreate(placement, out reason);
+                    if (result == StorageCreateResult.Created) return StorageQueueResult.Waiting;
+                    if (result != StorageCreateResult.RejectedByValidation || onValidationRejected == null)
+                        return Finish(StorageQueueResult.Aborted);
+
+                    // Leave the rejected AIV frame to the game and keep one placement attempt per tick.
+                    Cursor++;
+                    SkippedCount++;
+                    onValidationRejected(nativeTick, placement, reason);
+                    return Cursor == placements.Count ? Finish(StorageQueueResult.Completed) : StorageQueueResult.Waiting;
                 }
                 return Finish(StorageQueueResult.Completed);
             }

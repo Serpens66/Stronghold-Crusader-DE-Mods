@@ -223,7 +223,9 @@ The map editor's Load Map dialog includes a **Show Vanilla maps** checkbox. When
 Its **#** column shows each map's maximum player count and can be clicked to sort the list in either direction.
 The Load Map and Save Map dialogs also include a **Delete Map** button. It asks for confirmation and can delete only maps stored directly in your user `Maps` folder. Vanilla maps and Steam Workshop maps are always protected from deletion.
 
-### Delete savegames from the Load Game dialog
+### See map names and delete saves in the Load Game dialog
+With **Extended map, save and trail dialogs** enabled, the selected savegame's map name appears above the map preview when available.
+
 Select a savegame and click **Delete Save** to remove it after confirmation. This works in singleplayer and multiplayer, including co-op and visible quicksaves. The next savegame is selected automatically afterward.
 
 ### Delete local Trails from the Import Trail dialog

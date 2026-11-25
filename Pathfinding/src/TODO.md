@@ -134,7 +134,8 @@ einen Testmod unter `Testmods/` über die öffentliche Test-API, nicht in den Ha
   einschließlich erneuter Gefahr und überlappender Savefälle bestehen.
   Standposition versus altes Bewegungsziel, getrennte Feuer-/Pestfristen ab sicherer
   Ankunft, blockierte Rückkehr, Fristablauf, neues Feuer/Pest am Fluchtziel und
-  Gefahrenwechsel während Rückkehr. Fertig: Endposition und Gruppenaufnahme sind
+  Gefahrenwechsel während Rückkehr. Fristen auch über Pause und bei unterschiedlichen
+  Spielgeschwindigkeiten prüfen. Fertig: Endposition und Gruppenaufnahme sind
   korrekt, keine Befehlsoszillation und keine unbeabsichtigte Fristverlängerung.
   Erteilten Rückkehrbefehl und tatsächliches Ankommen getrennt nachweisen.
   **Grundfall im Spiel abgenommen (22.11.2026):** Flucht, sichere Ankunft, erteilte
@@ -179,7 +180,7 @@ einen Testmod unter `Testmods/` über die öffentliche Test-API, nicht in den Ha
   Owner-Union, fehlende/unverfügbare optionale Höhenpolicy und Regeländerungen
   geprüft. Andere Mods im echten Spiel nicht neu abgenommen.
   Nur harte Abhängigkeiten sowie mit BFQoL, Fixes und ExtraFeatures-Höhenpolicy;
-  Feuer und Pest einzeln/gemeinsam,
+  Feuer und Pest einzeln/gemeinsam, Pech auf Treppen mit aktiver Pechhöhenkorrektur,
   eigene und fremde APIShared-Routenregeln, Tore/Gräben und Höhenwege.
   Fertig: Regeländerungen invalidieren Kosten/Wege korrekt; Ausfall eines optionalen
   Dienstes lässt Vanilla und unabhängige Funktionen bestehen. Vorhandene allgemeine

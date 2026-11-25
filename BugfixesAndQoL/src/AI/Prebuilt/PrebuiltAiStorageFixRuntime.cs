@@ -8,6 +8,7 @@ using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.Extensions;
+using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
@@ -21,12 +22,16 @@ namespace BugfixesAndQoL
     internal sealed unsafe class PrebuiltAiStorageFixRuntime
     {
         private const int PrebuiltReferenceRva = 0x95FF8;
+        private const int TileManagerRva = 0x405EDB0;
+        private const int PlacementStateOffset = 0x204E6FC;
+        private const int PlacementReasonOffset = 0x204E704;
         private const string PrebuiltReferencePattern =
             "8B 0D ?? ?? ?? ?? 8D 46 FF 0F AB C1 41 B8 64 00 00 00 " +
             "89 0D ?? ?? ?? ?? 8B D6 49 8B CD E8 ?? ?? ?? ??";
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly IntPtr prebuiltPlayersBits;
+        private readonly IntPtr auditedTileManager;
         private List<IDisposable> subscriptions;
         private PlayerWork[] activeWork = Array.Empty<PlayerWork>();
         private long sessionId;
@@ -46,6 +51,8 @@ namespace BugfixesAndQoL
             if (targetRva < 0 || targetRva > memory.Length - sizeof(int))
                 throw new InvalidOperationException("The prebuilt-player bitfield is outside the native image.");
             prebuiltPlayersBits = IntPtr.Add(context.ModuleHandle, targetRva);
+            if (memory.Length >= TileManagerRva + PlacementReasonOffset + sizeof(int))
+                auditedTileManager = IntPtr.Add(context.ModuleHandle, TileManagerRva);
             ValidateInteropLayout();
         }
 
@@ -61,8 +68,8 @@ namespace BugfixesAndQoL
                 }));
                 candidates.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted));
                 candidates.Add(Shared.MissionEvents.Ended.Subscribe(_ => ResetMapState()));
-                candidates.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post).Subscribe(OnBuildingSpawn));
+                candidates.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnBuildingSpawn));
+                candidates.Add(BuildingR3EventHooks.OnPlacementValidation.Observable.Subscribe(OnPlacementValidation));
                 if (!APIShared.Simulation.SimulationTickEvents.TryRegister(
                     BugfixesAndQoLPlugin.PluginGuid, "prebuilt-ai-storage", OnTick, out string reason, 100))
                     throw new InvalidOperationException("Native simulation ticks are unavailable: " + reason);
@@ -154,14 +161,36 @@ namespace BugfixesAndQoL
                     return step->State;
                 });
             return startupPlan.Count == 0 ? null : new PlayerWork(
-                new Shared.DeferredStorageQueue(playerId, startupPlan), backend);
+                new Shared.DeferredStorageQueue(playerId, startupPlan, (tick, placement, reason) =>
+                    Shared.DebugLogHelper.LogWarningLimited(log, "prebuilt-ai-storage-placement-skipped",
+                        $"Prebuilt AI storage placement skipped: player={playerId}, tick={tick}, " +
+                        $"{DescribePlacement(placement)}, reason={reason}. Vanilla can still attempt this AIV frame.")),
+                backend);
         }
 
         private void OnBuildingSpawn(BuildingSpawnEventArgs args)
         {
+            if (!processing) return;
             PlayerWork[] work = activeWork;
             for (int index = 0; index < work.Length; index++)
                 if (!work[index].Finished) work[index].Backend.ObserveSpawn(args);
+        }
+
+        private void OnPlacementValidation(BuildingPlacementValidationEventArgs args)
+        {
+            if (!processing) return;
+            PlayerWork[] work = activeWork;
+            for (int index = 0; index < work.Length; index++)
+                if (!work[index].Finished) work[index].Backend.ObserveValidation(args);
+        }
+
+        private (int State, int Reason)? ReadPlacementValidation()
+        {
+            if (auditedTileManager == IntPtr.Zero ||
+                GameGlobalsManager.Instance.GameTileManagerVA != unchecked((ulong)auditedTileManager.ToInt64()))
+                return null;
+            return (Marshal.ReadInt32(auditedTileManager, PlacementStateOffset),
+                Marshal.ReadInt32(auditedTileManager, PlacementReasonOffset));
         }
 
         private void OnTick(int nativeTick)
@@ -192,10 +221,16 @@ namespace BugfixesAndQoL
                         plan.Finished = true;
                         if (result == Shared.StorageQueueResult.Completed)
                             Shared.DebugLogHelper.LogInfo(log,
-                                $"Prebuilt AI storage queue completed: player={plan.Queue.PlayerId}, tick={nativeTick}, created={plan.Backend.CreatedCount}.");
+                                $"Prebuilt AI storage queue completed: player={plan.Queue.PlayerId}, tick={nativeTick}, " +
+                                $"created={plan.Backend.CreatedCount}, skipped={plan.Queue.SkippedCount}.");
                         else
+                        {
+                            string placement = plan.Queue.CurrentPlacement is Shared.StoragePlacement current
+                                ? $", {DescribePlacement(current)}" : string.Empty;
                             Shared.DebugLogHelper.LogWarningLimited(log, "prebuilt-ai-storage-stop",
-                                $"Prebuilt AI storage queue stopped: player={plan.Queue.PlayerId}, tick={nativeTick}, result={result}, reason={reason}.");
+                                $"Prebuilt AI storage queue stopped: player={plan.Queue.PlayerId}, tick={nativeTick}, " +
+                                $"result={result}, skipped={plan.Queue.SkippedCount}{placement}, reason={reason}.");
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -208,6 +243,9 @@ namespace BugfixesAndQoL
             }
             finally { processing = false; }
         }
+
+        private static string DescribePlacement(Shared.StoragePlacement placement) =>
+            $"frame={placement.SourceIndex}, mapper={placement.Mapper}, tile=({placement.X},{placement.Y})";
 
         private void ResetMapState()
         {
@@ -269,7 +307,8 @@ namespace BugfixesAndQoL
             internal int CreatedCount { get; private set; }
 
             internal AiStorageBackend(PrebuiltAiStorageFixRuntime runtime, int playerId, long capturedSession,
-                int villageSlot, AivVillageState* village, List<Shared.StoragePlacement> placements) : base(playerId)
+                int villageSlot, AivVillageState* village, List<Shared.StoragePlacement> placements)
+                : base(playerId, runtime.ReadPlacementValidation)
             {
                 this.runtime = runtime;
                 this.playerId = playerId;

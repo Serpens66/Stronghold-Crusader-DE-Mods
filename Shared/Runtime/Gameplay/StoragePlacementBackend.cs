@@ -24,15 +24,20 @@ namespace Shared
         // 51790's automatic sprite sentinel, not a direction or building variant.
         private const int AutomaticSpriteVariation = 0x0f;
         private const int NativeMaximumHeight = 200;
+        private const int PlacementBlocked = 1;
+        // Stores adjacency failure from the audited Stores branch of the placement validator.
+        private const int StoresNeedsLiveNeighbor = 3;
         private readonly int playerId;
+        private readonly Func<(int State, int Reason)?> readValidation;
         private readonly Dictionary<Tuple<eStructs, int, int>, Identity> observed =
             new Dictionary<Tuple<eStructs, int, int>, Identity>();
         private readonly ThreadLocal<Stack<Capture>> captures =
             new ThreadLocal<Stack<Capture>>(() => new Stack<Capture>());
 
-        internal StoragePlacementBackend(int playerId)
+        internal StoragePlacementBackend(int playerId, Func<(int State, int Reason)?> readValidation = null)
         {
             this.playerId = playerId;
+            this.readValidation = readValidation;
             Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
             for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
             {
@@ -142,36 +147,73 @@ namespace Shared
         public void ObserveSpawn(BuildingSpawnEventArgs args)
         {
             Stack<Capture> stack = captures.Value;
-            if (stack.Count == 0 || args.Phase != EventHookPhase.Post) return;
+            if (stack.Count == 0) return;
             Capture capture = stack.Peek();
+            // A canceled or redirected spawn is still evidence that construction was reached.
+            if (args.Phase == EventHookPhase.Pre || args.Phase == EventHookPhase.Post)
+                capture.SpawnObserved = true;
+            if (args.Phase != EventHookPhase.Post) return;
             StoragePlacement p = capture.Placement;
             if (args.PlayerId != playerId || args.Building != p.Mapper.ConvertToEStructs() ||
                 args.TileX < p.X || args.TileY < p.Y || args.TileX >= p.X + p.Size || args.TileY >= p.Y + p.Size)
                 return;
             capture.Events++;
-            if (args.ReturnValue <= 0 || args.ReturnValue > int.MaxValue) return;
+            string invalidReturn = InvalidSpawnReturn(args.ReturnValue);
+            if (invalidReturn != null)
+            {
+                capture.RejectSpawn(invalidReturn);
+                return;
+            }
             int id = (int)args.ReturnValue;
-            if (!global::APIShared.BuildingAccess.TryGetById(id, out GameBuilding* b, out _) || b == null ||
-                !Matches(ref *b, args.Building, args.TileX, args.TileY) || !IsPresent(b->r_AliveState)) return;
+            if (!global::APIShared.BuildingAccess.TryGetById(id, out GameBuilding* b, out _) || b == null)
+            {
+                capture.RejectSpawn("lookup-failed");
+                return;
+            }
+            string mismatch = SpawnMismatch(in *b, playerId, args.Building, args.TileX, args.TileY);
+            if (mismatch != null)
+            {
+                capture.RejectSpawn(mismatch);
+                return;
+            }
             Identity identity = new Identity(id, b->r_GlobalId);
             capture.Identities.Add(identity);
             if (args.TileX == p.X && args.TileY == p.Y) capture.Anchor = identity;
         }
 
-        public bool TryCreate(StoragePlacement placement, out string reason)
+        internal static string InvalidSpawnReturn(long id) => id == 0 ? "return=0" :
+            id < 0 || id > int.MaxValue ? "return-out-of-range" : null;
+
+        internal static string SpawnMismatch(in GameBuilding building, int owner, eStructs type, int x, int y)
+        {
+            if (building.r_PlayerIdOwner != owner) return "owner-mismatch";
+            if (building.r_BuildingType != type) return "type-mismatch";
+            if (building.r_TilePositionXBegin != x || building.r_TilePositionYBegin != y) return "tile-mismatch";
+            return IsPresent(building.r_AliveState) ? null : "alive-state-mismatch";
+        }
+
+        internal void ObserveValidation(BuildingPlacementValidationEventArgs args)
+        {
+            Stack<Capture> stack = captures.Value;
+            if (stack.Count != 0) stack.Peek().Validation?.Observe(args);
+        }
+
+        public StorageCreateResult TryCreate(StoragePlacement placement, out string reason)
         {
             reason = string.Empty;
-            var capture = new Capture(placement);
+            var capture = new Capture(placement, readValidation == null ? null :
+                new ValidationObservation(playerId, placement, readValidation));
             Stack<Capture> stack = captures.Value;
             var tiles = GameTileManagerAPI.Instance;
             bool oldEnabled = tiles.TileManager.UsePlacementBlockedOverride;
             bool oldValue = tiles.TileManager.PlacementBlockedOverrideValue;
+            long placementReturn;
             stack.Push(capture);
             try
             {
                 // Even a surrounding temporary override must not weaken this invocation.
                 tiles.TileManager.UsePlacementBlockedOverride = false;
-                GameBuildingManagerAPI.Instance.CreatePrefab(playerId, placement.X, placement.Y,
+                placementReturn = GameBuildingManagerAPI.Instance.CreatePrefab(playerId, placement.X, placement.Y,
                     placement.Mapper, placement.Size, AutomaticSpriteVariation, true, false);
             }
             finally
@@ -182,7 +224,16 @@ namespace Shared
             }
             int expected = placement.Mapper == eMappers.MAPPER_STORES ? 4 : 1;
             if (capture.Events != expected || capture.Identities.Count != expected || capture.Anchor.Id <= 0)
-            { reason = "unconfirmed-storage-spawn"; return false; }
+            {
+                if (capture.Validation?.IsRejectedWithoutSpawn(capture.SpawnObserved) == true)
+                {
+                    reason = $"placement-validation-rejected, {capture.Describe(expected, placementReturn)}";
+                    return StorageCreateResult.RejectedByValidation;
+                }
+                reason = "unconfirmed-storage-spawn";
+                if (capture.Validation != null) reason += ", " + capture.Describe(expected, placementReturn);
+                return StorageCreateResult.Unconfirmed;
+            }
             eStructs type = placement.Mapper.ConvertToEStructs();
             var ids = new HashSet<int>();
             foreach (Identity identity in capture.Identities)
@@ -192,12 +243,17 @@ namespace Shared
                     b->r_PlayerIdOwner != playerId || b->r_BuildingType != type ||
                     b->r_TilePositionXBegin < placement.X || b->r_TilePositionXBegin >= placement.X + placement.Size ||
                     b->r_TilePositionYBegin < placement.Y || b->r_TilePositionYBegin >= placement.Y + placement.Size)
-                { reason = "changed-storage-spawn-identity"; return false; }
+                {
+                    reason = "changed-storage-spawn-identity";
+                    if (capture.Validation != null) reason += ", " + capture.Describe(expected, placementReturn) +
+                        $", changedSpawnId={identity.Id}";
+                    return StorageCreateResult.Unconfirmed;
+                }
                 Remember(identity.Id, ref *b);
             }
             Identity last = capture.Identities[capture.Identities.Count - 1];
             OnCreated(placement, new StorageCreatedSection(capture.Anchor.Id, last.Id, last.GlobalId));
-            return true;
+            return StorageCreateResult.Created;
         }
 
         private StorageSectionState InspectIdentity(Identity identity, eStructs type, int x, int y)
@@ -227,11 +283,94 @@ namespace Shared
         }
         private sealed class Capture
         {
-            internal Capture(StoragePlacement placement) { Placement = placement; }
+            internal Capture(StoragePlacement placement, ValidationObservation validation)
+            { Placement = placement; Validation = validation; }
             internal readonly StoragePlacement Placement;
+            internal readonly ValidationObservation Validation;
             internal readonly List<Identity> Identities = new List<Identity>();
             internal Identity Anchor;
             internal int Events;
+            internal bool SpawnObserved;
+            internal string FirstRejectedSpawn { get; private set; }
+
+            internal string Describe(int expected, long placementReturn) =>
+                $"{Validation.Describe()}, placementReturn={placementReturn}, spawnObserved={SpawnObserved}, " +
+                $"events={Events}/{expected}, valid={Identities.Count}/{expected}, " +
+                $"anchor={(Anchor.Id > 0 ? "present" : "missing")}, firstRejectedSpawn={FirstRejectedSpawn ?? "none"}";
+
+            internal void RejectSpawn(string reason)
+            {
+                if (Validation != null && FirstRejectedSpawn == null) FirstRejectedSpawn = reason;
+            }
+        }
+
+        internal sealed class ValidationObservation
+        {
+            private readonly int playerId;
+            private readonly StoragePlacement placement;
+            private readonly Func<(int State, int Reason)?> read;
+            private int depth;
+            private int calls;
+            private bool customValidation;
+            private BuildingPlacementValidationEventArgs pre;
+            private int? reasonBefore;
+            private (int State, int Reason)? result;
+
+            internal ValidationObservation(int playerId, StoragePlacement placement, Func<(int State, int Reason)?> read)
+            { this.playerId = playerId; this.placement = placement; this.read = read; }
+
+            internal void Observe(BuildingPlacementValidationEventArgs args)
+            {
+                if (args.Phase == EventHookPhase.Pre)
+                {
+                    calls++;
+                    depth++;
+                    if (depth != 1 || !MatchesAttempt(args)) return;
+                    pre = args;
+                    reasonBefore = Read()?.Reason;
+                    return;
+                }
+                if (args.Phase != EventHookPhase.Post || depth == 0) return;
+                if (--depth != 0 || pre == null) return;
+                // Post uses the original arguments. The mutable Pre object still holds
+                // the arguments that subscribers supplied to the native validator.
+                if (MatchesAttempt(args) && MatchesAttempt(pre))
+                {
+                    result = Read();
+                    customValidation = pre.CustomValidationRules;
+                }
+                pre = null;
+            }
+
+            private bool MatchesAttempt(BuildingPlacementValidationEventArgs args) =>
+                args.PlayerId == playerId && args.Mappers == placement.Mapper &&
+                args.TileX == placement.X && args.TileY == placement.Y &&
+                args.Unknown1 == placement.Size && args.Unknown2 == 0;
+
+            private (int State, int Reason)? Read()
+            {
+                try { return read(); }
+                catch (Exception) { return null; } // Support diagnostics must not interrupt placement.
+            }
+
+            private bool HasResult => depth == 0 && calls == 1 && result.HasValue;
+
+            internal bool IsRejectedWithoutSpawn(bool spawnObserved) =>
+                !spawnObserved && HasResult && !customValidation && result.Value.State == PlacementBlocked;
+
+            internal string Describe()
+            {
+                if (!HasResult) return "validation=not-observed";
+                var (state, reason) = result.Value;
+                if (state == 0) return "validation=allowed";
+                string before = reasonBefore.HasValue ? $"0x{reasonBefore.Value:X}" : "unknown";
+                string suffix = !reasonBefore.HasValue || reason == reasonBefore.Value ? " (possibly stale)" : string.Empty;
+                string hint = placement.Mapper == eMappers.MAPPER_STORES && state == PlacementBlocked &&
+                    reason == StoresNeedsLiveNeighbor && suffix.Length == 0 && !customValidation
+                    ? ", nativeReasonHint=no-shared-edge-with-live-stockpile" : string.Empty;
+                return $"validation=blocked, blockState={state}, nativeReasonBefore={before}, " +
+                    $"nativeReason=0x{reason:X}{suffix}, customValidation={customValidation}{hint}";
+            }
         }
     }
 }

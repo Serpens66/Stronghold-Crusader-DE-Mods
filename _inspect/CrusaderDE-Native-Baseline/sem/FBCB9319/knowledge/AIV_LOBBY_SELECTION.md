@@ -1314,3 +1314,46 @@ Native hash rechecked against CURRENT.json. Static, from the semantic pseudocode
 - **Native selector in `0x94350`:** negative values go to the random chooser `0x54F60` (`-1` with alternative rotations, `-2` and lower without). A value `>= 0` (after dropping a `>= 1000` prefix) is `rotation*100 + candidate`: the candidate `v % 100` goes to the fixed fit `0x54DE0`; for `v >= 100` the orientation is `(v/100)*2-2` (100 = 0 degrees, 400 = 270 degrees), otherwise `0x54EC0` draws a random orientation. *(confirmed static)*
 - **Observed (CrenelatedWallAcceptance, run `f32744d3`):** setting `preferredAIVs[1..7] = 100` in a Harmony prefix on `setMultiplayerStartingData` gave Wolf the same pre-built castle (117 crenel placements) in both starts. Random choices before that gave 117, 135 or 186 placements. `start_keep_location_order` only listed the human slot (AI keeps are assigned natively); the test reorders the occupied entries to the lowest valid keep locations.
 - **Corrected observation (2026-11-25):** the earlier note that no wall tile remained 20 ticks after the start was a test counting error (loop over x/y below the map size; tile coordinates of a 400 map exceed 400). At all 540 placed positions the AI walls remained (354 walls, 186 crenels, run 199b6441).
+
+## Close Encounters Snake2 storage adjacency (2026-11-25)
+
+Native hash `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The original map hash is `FBA595F04448E7FB3371C6A3637A0BADE8CB41B051A5F92E873B64852A2A3FD8`.
+MapParser identifies keep slot 4 at (398,531). Of all eight imported Snake
+candidates and four rotations, only Snake2 at 0 degrees projects its sole raw
+Stores frame (offset 5955) to (410,528). The imported 887-word AIV has SHA-256
+`8B7AFD53BBDDD634B0844F8443600E0AF43CB8A816C438C64AEA04B7B2CEF112`.
+
+The Keep builds a starter yard with bounds X=405..409, Y=533..537. The
+prepared 5x5 extension at (410,528) touches it diagonally. Vanilla's
+`0xC72C0 -> 0xC0270` size-five perimeter uses 20 cardinal edge positions
+from RVA `0x2E40E0` and excludes diagonals. Its live result was 0 with all
+four starter records IsAlive. The Stores-specific validator wrote block
+state 1 at `0x789E6` and reason 3 at `0x789F0` and construction did not
+reach the spawn calls. A private-memory test of the original instructions
+returned 1 for single-tile shifts to (410,529) and (409,528), which touch a
+starter record. This control tests adjacency alone.
+
+### Remaining startup work [mod integration]
+
+The background Coop and ordinary Skirmish tests both reproduced the exact
+player 3 Stores rejection on the same map and Keep coordinates with fixed
+selector 101 and verified imported AIV bytes. In Coop, the later prepared
+armoury frame 133 at (399,521) was still RetryPending and absent at tick 452.
+In Skirmish it was absent after the queue abort. A control call at tick 18
+created it through ordinary `CreatePrefab` with placement rules enabled
+and with the first armoury at (395,522) already IsAlive. The test control
+created the record and left AIV bookkeeping to its ordinary owner.
+These runs demonstrate that abandoning the entire queue drops a legitimate
+later placement from the prebuilt startup pass.
+
+Test fixture: `Testmods/PrebuiltAiStorageTest`, scenarios `close-snake2` and
+`skirmish-snake2`. Evidence: `.work/a/snake-storage/001/evidence.txt`.
+
+A follow-up Skirmish run with the same verified fixture observed ordinary
+AI construction for 30.003 wall-clock seconds at game speed 200 (simulation
+ticks 9 through 5812). No player 3 Goods Yard spawn event matched any of the
+four expected records for (410,528). The final state still had all four starter
+records alive and the second Stores frame RetryPending with zero records.
+The observation applies to the host mod configuration and this time window.
+Scenario: `skirmish-snake2-speed200`. Evidence: `.work/a/snake-storage/002/evidence.txt`.

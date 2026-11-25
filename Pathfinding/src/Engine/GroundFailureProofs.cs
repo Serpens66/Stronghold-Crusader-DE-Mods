@@ -6,7 +6,7 @@ using Pathfinding.UnitCommands;
 namespace Pathfinding.Engine
 {
     // Exact reuse of Vanilla's failed ground builds inside one group move (Vanilla audit 30.10.2026,
-    // FBCB9319, PathfindingRoadmap.md). In ground mode F4930 runs a straight attempt (F32B0 for profile 0,
+    // FBCB9319, native baseline GROUND_ROUTE_BUILDERS.md). In ground mode F4930 runs a straight attempt (F32B0 for profile 0,
     // F3060 otherwise; both step only over set direction bits), then DAAC0
     // (skipped with +0x80) and DA590, breadth-first searches over the direction bits of 0x51890D0
     // (DAAC0 a subset). A

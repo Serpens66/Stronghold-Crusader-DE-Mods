@@ -94,7 +94,7 @@ All runs: canonical native SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6
 - Session 1 NewGame: no pitch, all counters 0.
 - Session 2 LoadedSave `test2_pitchstrais2.sav` (written by Vanilla on 01.11.2026 20:44:40, an affected save): `loadPitchTiles=173`, `loadRaisedTiles=173`, scan 173 pitch tiles, `stillLowered=0`. User: buildings behind the pitch stayed, units reached the stair.
 - `fireSourceAdjusted`/`fireNeighborAdjusted` stayed 0 although pitch burned; explained by the next run.
-- MoatMove's movement findings of the same run: [PathfindingFinalReport.md, section 8](../../PathfindingFinalReport.md#8-feuerbewegung-und-rückkehr--nachtrag-vom-02112026).
+- MoatMove's movement findings of the same run: [Combined pitch and movement run](../../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/PATHFINDING_MIGRATION.md#combined-pitch-and-movement-run-2026-11-02).
 
 **12:00-12:02, log SHA-256 `5D8F4AEE…FC1F`, DEVDIAG build `.work/b/working/638.build.json`.** New game, pitch ignited: `fireSourceCalls=648`, `fireSourcePitch=305`, all 305 with MiscDisplay `0x2000`, `fireSourceAdjusted=0`. The stubs of that build excluded `0x2000`; on pitch this bit means "visible to the local player" (see the baseline), so the stubs left own, allied and burning pitch unadjusted and would have made fire spread client-dependent. The following builds decide on PitchTrap only.
 

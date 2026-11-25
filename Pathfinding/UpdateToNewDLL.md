@@ -175,8 +175,7 @@ same hash; Extender APIs only, no RVA of MoatMove's own):
 
 ### Assassin single routes through the anchor core (`src/AnchorRouting.cs`, `TryPublishAnchorSingle`)
 
-Reference SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2` (audit 30.10.2026, summary in
-PathfindingRoadmap.md). No new RVA: the decision reads path-manager fields of the builder call already validated
+Reference SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2` (see the [Assassin search branch in the native baseline](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/GROUND_ROUTE_BUILDERS.md#0xf4930-per-unit-route-builder)). No new RVA: the decision reads path-manager fields of the builder call already validated
 for anchor publication (`+0x80`, `+0x84`, `+0x88`, `+0x94`) and the path region grid (`0x50EC690`, through
 the command runtime's `pathRegionGrid`). In `0xF4930`, an Assassin request (`+0x88 != 0`, `+0x80 == 0`) with start and
 target in one region runs `0xDA590` first; only its failure reaches `0xD9C40`. The core's ground route replaces
@@ -186,7 +185,7 @@ this branch order and the four fields on a new DLL; the feature stays hash-gated
 ### Failed ground builds (`src/GroundFailureProofs.cs`, installed by `FriendlyMoatTraversalProvider.InstallGroundFailureProofs`)
 
 Feature owner: MoatMove (anchor core active). Reference SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
-(audit 30.10.2026, summary in PathfindingRoadmap.md). Inside one group move a start in a proven-closed failure set
+(see the [ground search failure audit](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/GROUND_ROUTE_BUILDERS.md#0xf4930-failure-path-and-the-state-of-a-failed-ground-search-audit-30102026)). Inside one group move a start in a proven-closed failure set
 replays `0xF4930`'s ground failure path without `0xDAAC0`/`0xDA590`; the region gate (`0xE2F60`) and the direct
 attempt (`0xF32B0` for profile 0, `0xF3060` otherwise) still run natively, once each, as in Vanilla.
 

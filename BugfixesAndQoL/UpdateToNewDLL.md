@@ -937,6 +937,17 @@ the first yard through `0xD0630`; only the later `0xC60F0` dispatcher changes
 state 1 to 2. The shared startup queue waits for that regular initialization.
 Creation uses the Extender's `CreatePrefab` with active Vanilla placement rules.
 
+For unconfirmed spawns, the support warning samples the synchronous Extender
+placement validator Pre/Post events during that exact placement attempt. On the
+same fixed hash, the Extender tile-manager address must match module RVA
+`0x405EDB0`. The validator at `0x77E60` writes the Int32 rejection state at
+tile-manager +`0x204E6FC` and can write a reason at +`0x204E704`. The caller
+at `0x6D608` treats every nonzero state as blocked, including state 2 written
+at `0x798D1`. The reason may survive a later validation, so the warning reports
+its before/after values and marks equal values as possibly stale. If the address
+or the event pair cannot be validated, the warning reports `validation=not-observed`.
+These observations do not write either field or change the placement outcome.
+
 The success bookkeeping mirrors `0x51790`: RVA `0x5214D` writes ushort 1 at
 building-manager + id*`0x32C` + `0x324` (GameBuilding + `0x2C8`, named
 `p_UnknownRelevant17`); `0x52174` writes step state 3 and `0x5219F..0x521B1`

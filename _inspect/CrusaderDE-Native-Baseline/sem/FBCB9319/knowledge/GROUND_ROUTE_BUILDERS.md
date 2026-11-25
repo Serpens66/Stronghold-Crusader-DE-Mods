@@ -10,8 +10,8 @@ Native DLL SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2
   1. with `param_3 == 0`, `0xF32B0` (direct attempt);
   2. on failure, `0xDAAC0` with budget `2·(d+4)²`, where `d` comes from `0x79C0` (written to `0x34A9F5C`);
   3. on failure, `0xDA590` with budget 400,000.
-- `+0x80 != 0` goes directly to `0xDA590`. Moat mode (`+0x84`) uses `0xDAFD0` with 400,000. Assassin mode (`+0x88`) uses `0xD9C40`.
-- After a found route `0xE1640` builds the final route (mode argument 1, 2 or 3). Optional `0xDB650` refinement follows when `+0x94 != 0`. The result is stored at `+0x155F68`; failure returns 0 and leaves `+0x7C = 0`.
+- After a skipped or failed straight attempt, `+0x80 != 0` goes directly to `0xDA590` (400,000). With `+0x80 == 0`, moat mode (`+0x84 != 0`, `+0x88 == 0`) tries `0xDAAC0` before `0xDAFD0` (400,000). Assassin mode (`+0x88 != 0`) tries `0xDA590` with budget `10·(d+4)²` when the region IDs match and calls `0xD9C40` if that search fails or the regions differ. Source for the Assassin branch: complete current `0xF4930` semantic body (queried 2026-11-25, candidate function name, explicit branch flow).
+- After a found search route `0xE1640` reconstructs it (mode argument 1, 2 or 3). For profile `param_3 == 0` with `+0x94 != 0`, the builder resets the result, tries `0xDB650` (400,000), runs `0xDA590` (400,000) if needed, then calls `0xE1640` in mode 1. The result is stored at `+0x155F68`; search failure returns 0 after clearing `+0x7C`.
 
 ## 0xDAAC0 and 0xDA590: breadth-first ground searches
 

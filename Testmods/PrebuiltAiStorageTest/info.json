@@ -1,0 +1,24 @@
+{
+  "GUID": "PrebuiltAiStorageTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Prebuilt AI Storage Test",
+  "Version": "0.1.0",
+  "Description": "Explicit request only, reproduces the Close Encounters Snake2 storage start.",
+  "MinimumScriptExtenderVersion": "2.14.4",
+  "Dependencies": [
+    {
+      "GUID": "APIShared_Serp",
+      "MinimumVersion": "0.73.2"
+    },
+    {
+      "GUID": "BugfixesAndQoL_Serp",
+      "MinimumVersion": "1.0.243"
+    },
+    {
+      "GUID": "ExtendedData_Serp",
+      "MinimumVersion": "0.0.0"
+    }
+  ],
+  "Manifest": 1,
+  "NetworkMode": 1
+}

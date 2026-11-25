@@ -1223,8 +1223,8 @@ namespace Pathfinding.Engine
         // Whether F4930 (FBCB9319) would start this builder call with a plain ground search the core's ground
         // profile reproduces: ground mode (+0x84, +0x88 clear), or the Assassin profile (+0x88) with +0x80 and
         // +0x94 clear and start and target in one path region, where F4930 runs DA590's ground breadth-first
-        // search first (Vanilla audit 30.10.2026, PathfindingRoadmap.md; ~110 ms per attack burst in
-        // pf-iter-31). Without a core route the caller keeps Vanilla's DA590 -> D9C40 chain and the weighted
+        // search first (native baseline, GROUND_ROUTE_BUILDERS.md).
+        // Without a core route the caller keeps Vanilla's DA590 -> D9C40 chain and the weighted
         // climb search unchanged; +0x94 (second pass through DB650) and different regions always keep Vanilla.
         private bool AnchorSingleSearchReplaceable(byte* manager, int startTile, int targetTile)
         {

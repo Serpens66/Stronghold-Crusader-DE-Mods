@@ -22,6 +22,20 @@
              AttributeName="Margin"
              Value="45,504,0,0" />
 
+  <Operation Type="Add" XPath="//n:Grid[@Name='RadarRequesterGrid']">
+    <Content>
+      <TextBlock x:Name="BugfixesAndQoLSaveMapName"
+                 Height="24"
+                 Margin="0,-25,0,0"
+                 VerticalAlignment="Top"
+                 TextAlignment="Center"
+                 TextTrimming="CharacterEllipsis"
+                 IsHitTestVisible="False"
+                 Text="{Binding SelectedSaveMapName}"
+                 Visibility="{Binding SelectedSaveMapNameVisibility, FallbackValue=Collapsed}" />
+    </Content>
+  </Operation>
+
   <Operation Type="InsertAfter"
              XPath="//n:ListView[@Name='FileList']/n:ListView.View/n:GridView/n:GridViewColumn[4]">
     <Content>

@@ -208,7 +208,7 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 
 Design, diagnosis, acceptance and migration records of our mods and testmods. Use only their `[Vanilla facts]` sections as Vanilla knowledge.
 
-- [Pathfinding migration and acceptance](./sem/FBCB9319/knowledge/PATHFINDING_MIGRATION.md): ownership, save identities, import/coexistence contracts, dated acceptance evidence and remaining release gates; not Vanilla evidence.
+- [Pathfinding migration and acceptance](./sem/FBCB9319/knowledge/PATHFINDING_MIGRATION.md): ownership, save identities, import/coexistence contracts, dated acceptance evidence, the historical MoatMove stress runs and combined pitch/movement run, and remaining release gates.
 
 - [Assassin attack control test](./sem/FBCB9319/knowledge/ASSASSIN_ATTACK_CONTROL_TEST.md)
 - [Assassin gate-policy diagnosis](./sem/FBCB9319/knowledge/ENEMY_GATE_ASSASSINS.md): separate native/weighted/cached requests, exact directed-edge attribution and explicitly unmeasured native cache/fallback hits.

@@ -1,4 +1,6 @@
 using Shared;
+using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Buildings;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 
@@ -100,7 +102,132 @@ static class Program
             StorageSectionState.IsAlive, StorageSectionState.IsAlive) == StorageSectionState.IsAlive, "complete yard ready");
         CheckAiCompletion();
         CheckStartupPlanGroups();
+        CheckPlacementDiagnostics();
+        CheckPlacementRejection();
         Console.WriteLine($"PASS: {checks} deferred storage checks");
+    }
+
+    static void CheckPlacementRejection()
+    {
+        var stores = new StoragePlacement(2, eMappers.MAPPER_STORES, 410, 528, 5);
+        var armoury = new StoragePlacement(133, eMappers.MAPPER_ARMOURY, 399, 521, 4);
+        var backend = new Fake { ReadySeed = true, RejectedFrame = stores.SourceIndex };
+        var skipped = new List<(int Tick, int Frame, string Reason)>();
+        var queue = new DeferredStorageQueue(3, new[] { stores, armoury },
+            (tick, placement, reason) => skipped.Add((tick, placement.SourceIndex, reason)));
+        Check(queue.Process(8, backend, out _) == StorageQueueResult.Waiting &&
+            skipped.SequenceEqual(new[] { (8, 2, "placement-validation-rejected") }) &&
+            queue.SkippedCount == 1 && backend.Creates == 1 && !backend.States.ContainsKey(2),
+            "confirmed validator rejection skips only the failed frame and makes no completion writes");
+        queue.Process(8, backend, out _);
+        Check(backend.Creates == 1, "skipping a rejected frame still consumes the tick's attempt");
+        Check(queue.Process(9, backend, out _) == StorageQueueResult.Waiting && backend.Creates == 2 &&
+            backend.States[133] == StorageSectionState.NeedsInit,
+            "a later eligible armoury can be placed after the rejected stores");
+        backend.States[133] = StorageSectionState.IsAlive;
+        Check(queue.Process(10, backend, out _) == StorageQueueResult.Completed &&
+            backend.Ready.SequenceEqual(new[] { (133, true) }) && queue.SkippedCount == 1,
+            "only the armoury receives completion bookkeeping");
+
+        backend = new Fake { ReadySeed = true, RejectedFrame = stores.SourceIndex };
+        queue = new DeferredStorageQueue(3, new[] { stores, armoury });
+        Check(queue.Process(8, backend, out _) == StorageQueueResult.Aborted &&
+            queue.SkippedCount == 0 && queue.CurrentPlacement?.SourceIndex == stores.SourceIndex,
+            "CastlePlanner's default policy still stops at the rejected placement");
+
+        backend = new Fake { ReadySeed = true, RejectedFrame = stores.SourceIndex };
+        queue = new DeferredStorageQueue(3, new[] { stores }, (_, _, _) => { });
+        Check(queue.Process(8, backend, out _) == StorageQueueResult.Completed &&
+            queue.SkippedCount == 1 && backend.Ready.Count == 0,
+            "skipping the final placement completes the queue without marking the frame built");
+
+        foreach (bool occupied in new[] { false, true })
+        {
+            backend = new Fake { ReadySeed = true, Blocked = occupied, Unconfirmed = !occupied };
+            queue = new DeferredStorageQueue(3, new[] { stores, armoury },
+                (_, _, _) => throw new Exception("only a confirmed validator rejection may be skipped"));
+            Check(queue.Process(8, backend, out _) == StorageQueueResult.Aborted && queue.SkippedCount == 0 &&
+                queue.CurrentPlacement?.SourceIndex == stores.SourceIndex && !backend.States.ContainsKey(133),
+                "precheck failure or uncertain native mutation still stops the AI queue");
+        }
+    }
+
+    static void CheckPlacementDiagnostics()
+    {
+        var placement = Part(5, eMappers.MAPPER_STORES);
+        BuildingPlacementValidationEventArgs Event(EventHookPhase phase, int player = 2) =>
+            new BuildingPlacementValidationEventArgs(phase, player, placement.X, placement.Y,
+                placement.Mapper, placement.Size, 0);
+
+        foreach (int state in new[] { 0, 1, 2 })
+        {
+            var raw = (State: 0, Reason: 3);
+            var observation = new StoragePlacementBackend.ValidationObservation(2, placement, () => raw);
+            observation.Observe(Event(EventHookPhase.Pre));
+            raw = (state, state == 1 ? 7 : 3);
+            observation.Observe(Event(EventHookPhase.Post));
+            string description = observation.Describe();
+            Check(state == 0 ? description == "validation=allowed" :
+                description.StartsWith("validation=blocked") && description.Contains($"blockState={state}"),
+                $"raw validator state {state} stays distinguishable");
+            Check(description.Contains("possibly stale") == (state == 2),
+                "an unchanged reason on a blocked attempt may be stale");
+            Check(observation.IsRejectedWithoutSpawn(false) == (state == 1) &&
+                !observation.IsRejectedWithoutSpawn(true),
+                "only the ordinary blocked state with no spawn activity confirms rejection");
+        }
+
+        var rawStore = (State: 0, Reason: 7);
+        var adjacent = new StoragePlacementBackend.ValidationObservation(2, placement, () => rawStore);
+        adjacent.Observe(Event(EventHookPhase.Pre));
+        rawStore = (1, 3);
+        adjacent.Observe(Event(EventHookPhase.Post));
+        Check(adjacent.Describe().Contains("nativeReasonHint=no-shared-edge-with-live-stockpile"),
+            "a fresh Stores reason 3 identifies the live edge requirement");
+        var custom = new StoragePlacementBackend.ValidationObservation(2, placement, () => rawStore);
+        var customPre = Event(EventHookPhase.Pre);
+        custom.Observe(customPre);
+        customPre.CustomValidationRules = true;
+        custom.Observe(Event(EventHookPhase.Post));
+        Check(!custom.IsRejectedWithoutSpawn(false), "a custom validator override remains diagnostically uncertain");
+
+        var uncertain = new StoragePlacementBackend.ValidationObservation(2, placement, () => (0, 0));
+        uncertain.Observe(Event(EventHookPhase.Pre, 3));
+        uncertain.Observe(Event(EventHookPhase.Post, 3));
+        uncertain.Observe(Event(EventHookPhase.Post));
+        Check(uncertain.Describe() == "validation=not-observed", "foreign and unpaired events cannot confirm validation");
+
+        uncertain = new StoragePlacementBackend.ValidationObservation(2, placement, () => (1, 3));
+        var pre = Event(EventHookPhase.Pre);
+        uncertain.Observe(pre);
+        pre.TileX++;
+        uncertain.Observe(Event(EventHookPhase.Post));
+        Check(uncertain.Describe() == "validation=not-observed", "changed effective arguments invalidate the observation");
+
+        var repeated = new StoragePlacementBackend.ValidationObservation(2, placement, () => (1, 3));
+        for (int i = 0; i < 2; i++)
+        {
+            repeated.Observe(Event(EventHookPhase.Pre));
+            repeated.Observe(Event(EventHookPhase.Post));
+        }
+        Check(repeated.Describe() == "validation=not-observed" && !repeated.IsRejectedWithoutSpawn(false),
+            "multiple matching validator calls are ambiguous");
+
+        var unavailable = new StoragePlacementBackend.ValidationObservation(2, placement,
+            () => throw new InvalidOperationException("read unavailable"));
+        unavailable.Observe(Event(EventHookPhase.Pre));
+        unavailable.Observe(Event(EventHookPhase.Post));
+        Check(unavailable.Describe() == "validation=not-observed", "read failure stays diagnostic-only");
+
+        Check(StoragePlacementBackend.InvalidSpawnReturn(0) == "return=0" &&
+            StoragePlacementBackend.InvalidSpawnReturn((long)int.MaxValue + 1) != null &&
+            StoragePlacementBackend.InvalidSpawnReturn(3) == null, "unusable return values are distinguished from game IDs");
+        var building = new GameBuilding { r_PlayerIdOwner = 2, r_BuildingType = eStructs.STRUCT_GOODS_YARD,
+            r_TilePositionXBegin = 20, r_TilePositionYBegin = 30, r_AliveState = AliveState.NeedsInit };
+        Check(StoragePlacementBackend.SpawnMismatch(in building, 2, eStructs.STRUCT_GOODS_YARD, 20, 30) == null &&
+            StoragePlacementBackend.SpawnMismatch(in building, 3, eStructs.STRUCT_GOODS_YARD, 20, 30) == "owner-mismatch" &&
+            StoragePlacementBackend.SpawnMismatch(in building, 2, eStructs.STRUCT_GOODS_YARD, 21, 30) == "tile-mismatch",
+            "NeedsInit is valid but a different owner or origin is reported");
     }
 
     static void CheckStartupPlanGroups()
@@ -176,19 +303,25 @@ static class Program
         internal readonly Dictionary<int, StorageSectionState> States = new();
         internal readonly List<(int, bool)> Ready = new();
         internal bool ReadySeed, Blocked, Unconfirmed, Reenter, ThrowOnCreate, Current = true;
+        internal int RejectedFrame = -1;
         internal int Creates;
         internal DeferredStorageQueue Queue;
         public bool IsCurrent(StoragePlacement p, out string reason) { reason = "changed"; return Current; }
         public StorageSectionState Inspect(StoragePlacement p) => States.GetValueOrDefault(p.SourceIndex);
         public bool HasInitializedSeed(eMappers mapper) => ReadySeed;
         public bool CanPlace(StoragePlacement p, out string reason) { reason = "blocked"; return !Blocked; }
-        public bool TryCreate(StoragePlacement p, out string reason)
+        public StorageCreateResult TryCreate(StoragePlacement p, out string reason)
         {
             Creates++; reason = "uncertain";
             if (Reenter) Queue.Process(0, this, out _);
             if (ThrowOnCreate) throw new InvalidOperationException();
+            if (p.SourceIndex == RejectedFrame)
+            {
+                reason = "placement-validation-rejected";
+                return StorageCreateResult.RejectedByValidation;
+            }
             States[p.SourceIndex] = StorageSectionState.NeedsInit;
-            return !Unconfirmed;
+            return Unconfirmed ? StorageCreateResult.Unconfirmed : StorageCreateResult.Created;
         }
         public void OnReady(StoragePlacement p, bool created) => Ready.Add((p.SourceIndex, created));
     }

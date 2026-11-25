@@ -88,6 +88,7 @@ namespace BugfixesAndQoL
         private bool saveFailureLogged;
         private bool uiFailureLogged;
         private HUD_LoadSaveRequester activeRequester;
+        private string selectedSaveMapName = string.Empty;
 
         internal VanillaMapEditorHook(ManualLogSource log, BugfixesAndQoLViewModel settings)
         {
@@ -143,6 +144,9 @@ namespace BugfixesAndQoL
                 GameXAMLManagerAPI.Instance.RegisterBinding(
                     "BugfixesAndQoLDeleteSaveHost",
                     this);
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "BugfixesAndQoLSaveMapName",
+                    this);
                 settings.PropertyChanged += SettingsPropertyChanged;
             }
             catch
@@ -195,6 +199,11 @@ namespace BugfixesAndQoL
                 : Visibility.Collapsed;
 
         public bool DeleteSaveEnabled => CanDeleteSelectedSave();
+
+        public string SelectedSaveMapName => selectedSaveMapName;
+
+        public Visibility SelectedSaveMapNameVisibility =>
+            selectedSaveMapName.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
 
         private bool FeatureEnabled => settings.EnableClientFeatures && settings.ShowLoadSaveDialogControls;
 
@@ -610,8 +619,7 @@ namespace BugfixesAndQoL
                 if (!IsLoadSaveRequester(requesterType))
                     return false;
 
-                ListView list = (ListView)FileListField.GetValue(activeRequester);
-                header = (list?.SelectedItem as FileRow)?.fileHeader;
+                header = GetSelectedFileHeader(activeRequester);
                 return header != null &&
                     SaveDeletionPolicy.TryResolveDeletableSavePath(
                         header.filePath,
@@ -851,6 +859,14 @@ namespace BugfixesAndQoL
 
         private void RefreshUiState()
         {
+            string mapName = ReadSelectedSaveMapName();
+            if (!string.Equals(selectedSaveMapName, mapName, StringComparison.Ordinal))
+            {
+                selectedSaveMapName = mapName;
+                OnPropertyChanged(nameof(SelectedSaveMapName));
+                OnPropertyChanged(nameof(SelectedSaveMapNameVisibility));
+            }
+
             OnPropertyChanged(nameof(ShowVanillaMapsVisibility));
             OnPropertyChanged(nameof(DeleteMapVisibility));
             OnPropertyChanged(nameof(DeleteMapEnabled));
@@ -858,6 +874,44 @@ namespace BugfixesAndQoL
             OnPropertyChanged(nameof(DeleteSaveEnabled));
             DeleteMapCommand.RaiseCanExecuteChanged();
             DeleteSaveCommand.RaiseCanExecuteChanged();
+        }
+
+        private string ReadSelectedSaveMapName()
+        {
+            try
+            {
+                if (!DialogControlsEnabled || !IsLoadSaveRequester(GetActiveRequesterType()))
+                    return string.Empty;
+
+                FileHeader header = GetSelectedFileHeader(activeRequester);
+                string mapName = header?.standAlone_filename?.Trim();
+                // Vanilla substitutes the save filename when the original map name is absent.
+                if (string.IsNullOrEmpty(mapName) ||
+                    string.Equals(mapName, header.fileName?.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    return string.Empty;
+                }
+
+                const string mapExtension = ".map";
+                if (mapName.EndsWith(mapExtension, StringComparison.OrdinalIgnoreCase))
+                    mapName = mapName.Substring(0, mapName.Length - mapExtension.Length).TrimEnd();
+                if (mapName.Length == 0)
+                    return string.Empty;
+
+                string description = string.Empty;
+                return Translate.Instance.translateMapNames(mapName, ref description) ?? string.Empty;
+            }
+            catch (Exception ex)
+            {
+                LogUiFailure("read the selected save's map name", ex);
+                return string.Empty;
+            }
+        }
+
+        private static FileHeader GetSelectedFileHeader(HUD_LoadSaveRequester requester)
+        {
+            ListView list = (ListView)FileListField.GetValue(requester);
+            return (list?.SelectedItem as FileRow)?.fileHeader;
         }
 
         private void ShowDeleteSaveError(string saveName)
