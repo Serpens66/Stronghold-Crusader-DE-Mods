@@ -4,7 +4,7 @@ Stand 25.11.2026. Aktive Entwicklung, noch kein Mergeauftrag und kein Installati
 
 ## Erhaltenswerter Arbeitsstand
 
-Workspace-relative API-Arbeitskopie: `.work/a/rescue-api/001`. Registrierter Git-Worktree, Branch `codex/rescue-observation`, Basis `681f57f36cdd349bc540a52651d81b3effad04a6`. Quellen einschließlich ungetrackter neuer Dateien erhalten. Kein Reset, Stash oder pauschales Bereinigen dieses Ordners; die Entwicklung ist noch nicht durch einen Commit gesichert. Der Schutzvermerk steht in `.work/INDEX.json` unter `RescueApiDevelopment20261125`.
+Workspace-relative API-Arbeitskopie: `.work/a/rescue-api/001`. Registrierter Git-Worktree, Branch `codex/rescue-observation`, Basis `681f57f36cdd349bc540a52651d81b3effad04a6`. Die API-Entwicklung ist seit dem angeforderten Sicherungscommit vom 25.11.2026 vollständig versioniert: `3eee4849a3bb81f7098415a670f457aa8dfa689d`. Der Commit bleibt auf dem eigenen Entwicklungsbranch und ist kein Merge oder Release. Quellen und die Arbeitskopie für die weitere Integration erhalten. Der Schutzvermerk steht in `.work/INDEX.json` unter `RescueApiDevelopment20261125`.
 
 Der kanonische Checkout `APIShared` wurde zuletzt sauber auf `dev/Serpens66`, HEAD `855516b19236e9c0cd809e182b17b74aa69d0123`, geprüft. Das ist eine Momentaufnahme; vor jeder Integration Branch, HEAD, Diff und weitere Worktrees erneut prüfen. Der Originalcheckout bleibt durch diesen Auftrag unverändert.
 
@@ -31,9 +31,13 @@ Der vorhandene Prüfer `tools/BuildProof.ps1`, Funktion `Assert-ApiBuildProof`, 
 
 ## Vor einer später autorisierten Übernahme
 
-1. Aktuellen kanonischen APIShared-Stand und diese uncommittierte Arbeitskopie vergleichen; ungetrackte Quellen gehören ausdrücklich zum Vergleich. Gleichzeitig entwickelte Dienste und Versionsangaben konfliktfrei zusammenführen.
+1. Aktuellen kanonischen APIShared-Stand und diesen gesicherten Entwicklungsbranch vergleichen; gegebenenfalls später hinzugekommene uncommittierte oder ungetrackte Quellen gehören ausdrücklich zum Vergleich. Gleichzeitig entwickelte Dienste und Versionsangaben konfliktfrei zusammenführen.
 2. Die vorhandenen Besitzer für AIV, HumanConstruction und AiMilitaryOrder beibehalten. Keinen zweiten nativen Hook an bereits besessenen Stellen erzeugen; semantische Änderungen an Original-/Mirror-/Wrappergrenzen erneut auditieren.
 3. Vollständigen API-Build, öffentliche API-Baseline und die betroffenen tatsächlichen Verbraucher gegen den zusammengeführten Stand prüfen. Bisherige Fixtures sind Nachweise für diesen Entwicklungsstand, keine Blankofreigabe eines späteren Merges.
 4. Erst bei einem eigenen Installationsauftrag Plugin und Bootstrap-Patcher aus demselben nachgewiesenen Build gemeinsam installieren. Dieser Auftrag installiert nichts.
 
 Die spätere Migration der Rettung nach Pathfinding ist nicht Bestandteil dieses SDK-Merges. Bis dahin bleibt genau dieser Testmod der experimentelle Rettungsbesitzer; Spiel-/Save-/Editor-/Last-/MP-Prüfungen sind in INGAME-PENDING.md aufgelistet.
+
+## P7-Zwischenstand beim Sicherungscommit
+
+Der Rettungs-Testmod enthält inzwischen begonnene P7-Coordinator- und Persistenzänderungen. Der letzte vollständige grüne Gesamtbuild mit61407 Prüfungen liegt vor diesen Änderungen. Die neuen reinen Geometrie-/Intent-Bausteine wurden getrennt geprüft; die Gesamtintegration und der begonnene Persistenztest sind noch nicht abschließend kompiliert oder getestet. Der Sicherungscommit behauptet keine Abnahme dieses Zwischenstands.

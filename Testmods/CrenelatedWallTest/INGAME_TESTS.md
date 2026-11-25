@@ -177,3 +177,13 @@ Testaufbau-Erkenntnisse: Der Beschussschritt im Editor zielte bisher auf die zwe
 Neue Host-Optionen unter der Überschrift „Bestehende Zinnen ebenfalls angleichen“ (Standard aus, pro Sitzung eingefroren): beim Laden einer Karte im Editor, beim Laden eines Spielstands, beim Start einer Karte mit vorplatzierten Mauern. Beim Start (`Started`, nach dem Wiederherstellen der Spielstanddaten) durchsucht der Mod einmal die Karte, nimmt alle noch nicht verwalteten Zinnen auf und gleicht sie über denselben Weg an wie neue Bauten. Logmarker `CRENEL_ADOPT_EXISTING kind=editor|save|map; adopted=…; changed=…`.
 
 Korrekturen aus der unabhängigen Prüfung: keine Laufzeitsperre mehr über den Datei-Hash des RedBird-Backends; Fremdpatch-Erkennung über `Shared.NativePatchGuard` mit erneuter Prüfung bei jedem Missions- und Editorstart; ausstehende Neuzeichnungsmeldungen werden beim Sitzungswechsel verworfen; das Schadensereignis normalisiert nur noch, wenn eine Zinne zerstört wurde.
+
+## Multiplayer-Diagnose (Diagnose-Build, 25.11.2026)
+
+`build.bat /devdiag` baut `src/WallRuntime.DevDiag.cs` ein (im normalen Build entfernt). Zeilen mit Simulationstick, je Zeile ein Hash über die verwalteten Zinnen (ID, Mauer-/Zinnen-/Hoch-Bits, Besitzer):
+- `CRENEL_MP_STATE tick=…` alle 100 Ticks,
+- `CRENEL_MP_REDRAW` bei Korrekturen über die Neuzeichnungsmeldung (z. B. Katapult-Splash),
+- `CRENEL_MP_EVENT phase=bulldoze|damage|save-data-load|resync-prepare|resync-complete`,
+- `CRENEL_MP_SESSION phase=started|resync-begin` mit Start-Tick und den eingefrorenen Optionen.
+
+Auswertung: Host- und Client-Log nach Tick vergleichen; alle Hashes zum selben Tick müssen gleich sein. Der erste abweichende Tick und die Ereigniszeilen davor zeigen den Pfad.
