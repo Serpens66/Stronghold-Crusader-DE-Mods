@@ -113,6 +113,7 @@ namespace BugfixesAndQoL
         private bool enableAiWallTargetingFix = true;
         private bool enablePrebuiltAiWorkshopBothFix = true;
         private bool enablePrebuiltAiStorageFix = true;
+        private bool enableSnake2StockpileAivFix = true;
         private bool enableBakerMillerBreaks;
         private bool enableWorkshopIdleDelayFix;
         private bool removeAIKeepRangeLimit = true;
@@ -631,6 +632,8 @@ namespace BugfixesAndQoL
         public string EnablePrebuiltAiWorkshopBothFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnablePrebuiltAiWorkshopBothFixHelp");
         public string EnablePrebuiltAiStorageFixText => SerpLocalization.Get("BugfixesAndQoL.EnablePrebuiltAiStorageFix");
         public string EnablePrebuiltAiStorageFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnablePrebuiltAiStorageFixHelp");
+        public string EnableSnake2StockpileAivFixText => SerpLocalization.Get("BugfixesAndQoL.EnableSnake2StockpileAivFix");
+        public string EnableSnake2StockpileAivFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableSnake2StockpileAivFixHelp");
         public string EnableTunnelPlacementDistanceFixText => SerpLocalization.Get("BugfixesAndQoL.EnableTunnelPlacementDistanceFix");
         public string EnableTunnelPlacementDistanceFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableTunnelPlacementDistanceFixHelp");
         public string EnableFairSiegeAmmoRestockText => SerpLocalization.Get("BugfixesAndQoL.EnableFairSiegeAmmoRestock");
@@ -1658,6 +1661,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableSnake2StockpileAivFix
+        {
+            get => enableSnake2StockpileAivFix;
+            set => SetSetting(ref enableSnake2StockpileAivFix, value, nameof(EnableSnake2StockpileAivFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableTunnelPlacementDistanceFix
         {
             get => enableTunnelPlacementDistanceFix;
@@ -1869,6 +1879,7 @@ namespace BugfixesAndQoL
                 EnableCorruptLordDataSpawnFix = true;
                 EnablePrebuiltAiWorkshopBothFix = true;
                 EnablePrebuiltAiStorageFix = true;
+                EnableSnake2StockpileAivFix = true;
                 EnableTunnelPlacementDistanceFix = true;
                 EnableFairSiegeAmmoRestock = true;
                 EnableSurrenderAndStatistics = true;

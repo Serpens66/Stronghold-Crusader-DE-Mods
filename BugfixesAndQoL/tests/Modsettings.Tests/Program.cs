@@ -207,6 +207,7 @@ internal static partial class Program
             {
                 Metadata(workspace);
                 SettingsPresentationTests(workspace);
+                Snake2AivSelectionTests(game);
                 Console.WriteLine("PASS: production settings metadata, defaults, reset, report slots and UI: " + checks);
                 return 0;
             }
@@ -325,6 +326,7 @@ internal static partial class Program
             PeaceTimeCivilianCompiledTests(workspace);
             Metadata(workspace);
             SettingsPresentationTests(workspace);
+            Snake2AivSelectionTests(game);
             CompactLobbyChatTests(workspace, game);
             WorkshopOriginalBranchTests();
             CallerGates();
@@ -421,6 +423,40 @@ internal static partial class Program
         object[] pending={parameters[4]};Check(!(bool)up.Invoke(null,pending),"matching Up suppressed even if settings change between events");
         Check((bool)up.Invoke(null,pending),"only one Up suppressed");
     }
+    private static void Snake2AivSelectionTests(string game)
+    {
+        var loader = Assembly.LoadFrom(Path.Combine(game,
+            "Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll"))
+            .GetType("AIVLoader", true);
+        var bank = (short[][])loader.GetField("snake", All).GetValue(null);
+        var original = bank[1];
+        var snapshot = (short[])original.Clone();
+        var select = mod.GetType("BugfixesAndQoL.Snake2StockpileAivFix", true).GetMethod("Select", All);
+        short[] Load(short[] input, short[] builtIn, bool enabled, out bool changedVanilla)
+        {
+            object[] args = { input, builtIn, enabled, null };
+            var result = (short[])select.Invoke(null, args);
+            changedVanilla = (bool)args[3];
+            return result;
+        }
+
+        var enabledPlan = Load(original, original, true, out bool changed);
+        Check(!changed && enabledPlan != original && enabledPlan.Length == original.Length &&
+            enabledPlan[8] == 5855 && original[8] == 5955 &&
+            enabledPlan.Where((word, index) => word != original[index]).Count() == 1,
+            "the audited game AIV changes exactly one word in a copy");
+        Check(Load(original, original, false, out changed) == original && !changed,
+            "switching off restores the unmodified built-in plan in the same process");
+        var restored = Load(original, original, true, out changed);
+        Check(!changed && restored != enabledPlan && restored.SequenceEqual(enabledPlan) && original.SequenceEqual(snapshot),
+            "re-enabling is repeatable and never mutates the game's source plan");
+        Check(Load(snapshot, original, true, out changed) == snapshot && !changed,
+            "an external AIV is preserved even if its bytes equal the built-in AIV");
+        snapshot[0]++;
+        Check(Load(snapshot, snapshot, true, out changed) == snapshot && changed,
+            "a changed game AIV is reported and preserved even if its stockpile offset still matches");
+    }
+
     private static void Metadata(string workspace)
     {
         var scopes=new Dictionary<string,bool>{{"EnableCompactLobbyChat",false},{"EnableLocalAutosave",false},{"EnableLordAndMapListEnhancements",false},{"EnableMissingMapSaveRecovery",false},{"EnablePitchMoatLines",false},{"EnableAreaDemolition",false},{"EnableOccupiedWallDemolition",true},{"EnableTroopPanelPageCountFix",false},{"EnableRandomOpponentSelectionEnhancements",true},{"EnableMultiplayerStartupStateFix",true},{"EnablePeaceTimeGameplayFixes",true},{"EnablePeaceTimeCivilianProximityReduction",true},{"EnablePitchStairsFix",true},{"EnableSiegeCrewDuplicationFix",true},{"EnableSiegeCrewFireLossFix",true},{"EnableTreeBlightDecayFix",true},{"EnablePrebuiltAiStorageFix",true},{"EnableAiOutpostRetargetFix",true}};
@@ -429,6 +465,7 @@ internal static partial class Program
         scopes.Add("EnableProjectileTrails", false);
         scopes.Add("ReplaceStandardProjectileAfterimages", true);
         scopes.Add("EnableIngameMultiplayerSaveLoading", true);
+        scopes.Add("EnableSnake2StockpileAivFix", true);
         MethodBase ctor=modelType.GetConstructors(All).Single();
         List<Tuple<OpCode,object>> body=Instructions(ctor);
         var xaml=new XmlDocument();xaml.Load(Path.Combine(workspace,"BugfixesAndQoL/Override/ScriptExtenderUI/BugfixesAndQoLSettings.xaml"));

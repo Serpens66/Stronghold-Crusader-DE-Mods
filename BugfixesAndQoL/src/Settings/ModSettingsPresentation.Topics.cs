@@ -8,6 +8,7 @@ namespace BugfixesAndQoL
         public SettingsTopicPresentation ClientMarket { get; private set; }
         public SettingsTopicPresentation HostSetup { get; private set; }
         public SettingsTopicPresentation HostAi { get; private set; }
+        public SettingsTopicPresentation HostAivFixes { get; private set; }
         public SettingsTopicPresentation HostTroops { get; private set; }
         public SettingsTopicPresentation HostEconomy { get; private set; }
         public SettingsTopicPresentation HostControls { get; private set; }
@@ -86,6 +87,7 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableAiWallTargetingFix => options["EnableAiWallTargetingFix"];
         public SettingsOptionPresentation EnablePrebuiltAiWorkshopBothFix => options["EnablePrebuiltAiWorkshopBothFix"];
         public SettingsOptionPresentation EnablePrebuiltAiStorageFix => options["EnablePrebuiltAiStorageFix"];
+        public SettingsOptionPresentation EnableSnake2StockpileAivFix => options["EnableSnake2StockpileAivFix"];
         public SettingsOptionPresentation EnableAivDefenderPositionFix => options["EnableAivDefenderPositionFix"];
         public SettingsOptionPresentation FixAIPreplacedMapBuildings => options["FixAIPreplacedMapBuildings"];
         public SettingsOptionPresentation FixAITowerRepair => options["FixAITowerRepair"];
@@ -226,6 +228,8 @@ namespace BugfixesAndQoL
             AddOption("RememberAiAivSettings", "bugfixes.remember-ai-aiv-settings", SettingsCategory.Qol, HostAi);
             AddOption("EnableAIQuarryPileTowardsKeep", "bugfixes.ai-quarry-pile-towards-keep", SettingsCategory.Qol, HostAi);
             AddOption("EnableAiSellThresholdFix", "bugfixes.enable-ai-sell-threshold-fix", SettingsCategory.Possible, HostAi);
+            HostAivFixes = AddTopic("HostAivFixes", "bugfixes.topic.host-aiv-fixes", true);
+            AddOption("EnableSnake2StockpileAivFix", "bugfixes.snake2-stockpile-aiv", SettingsCategory.Fixes, HostAivFixes);
             HostTroops = AddTopic("HostTroops", "bugfixes.topic.host-troops", true);
             AddOption("EnableHealerAttackCommandFix", "bugfixes.enable-healer-attack-command-fix", SettingsCategory.Fixes, HostTroops);
             AddOption("EnableLordReturnTeleportFix", "bugfixes.lord-return-teleport-fix", SettingsCategory.Fixes, HostTroops);

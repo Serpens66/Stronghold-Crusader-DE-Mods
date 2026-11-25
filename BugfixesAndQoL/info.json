@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.244",
+  "Version": "1.0.245",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.4",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,12 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.245",
+      "Changes": [
+        "Fix the built-in Snake2 castle's second stockpile so it touches the starting stockpile and can be built. The host can toggle this fix for the next game under AIV Fixes. It is on by default."
+      ]
+    },
     {
       "Version": "1.0.244",
       "Changes": [

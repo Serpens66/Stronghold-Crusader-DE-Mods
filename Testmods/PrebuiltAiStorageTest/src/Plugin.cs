@@ -41,7 +41,8 @@ namespace PrebuiltAiStorageTest
             if (!File.Exists(request)) return;
             string[] lines = File.ReadAllLines(request);
             if (lines.Length != 2 ||
-                (lines[1] != "close-snake2" && lines[1] != "skirmish-snake2" && lines[1] != "skirmish-snake2-speed200") ||
+                (lines[1] != "close-snake2" && lines[1] != "skirmish-snake2" &&
+                 lines[1] != "skirmish-snake2-speed200" && lines[1] != "snake2-aiv-toggle") ||
                 !System.Guid.TryParseExact(lines[0], "N", out var id)) return;
             var api = ApiShared.ForMod(Guid);
             var log = Logger;
@@ -49,8 +50,10 @@ namespace PrebuiltAiStorageTest
             {
                 var fixture = new Fixture(log, lines[1] != "close-snake2", lines[1] == "skirmish-snake2-speed200");
                 File.Delete(request);
+                Func<AutomationRun, IEnumerable<AutomationWait>> scenario =
+                    lines[1] == "snake2-aiv-toggle" ? fixture.RunAivToggle : fixture.Run;
                 api.Automation.Start(id, new[] { new AutomationStep("exact-close-encounters", TimeSpan.FromSeconds(180),
-                    fixture.Run) }, log, quitWhenDone: true);
+                    scenario) }, log, quitWhenDone: true);
             }));
         }
     }
@@ -100,13 +103,10 @@ namespace PrebuiltAiStorageTest
             object settings = Member(bugfixes, "Settings");
             Set(settings, "EnableLocalAutosave", false);
             Set(settings, "EnablePrebuiltAiStorageFix", true);
+            DisableSnake2FixIfAvailable(settings);
             Require(SimulationTickEvents.TryRegister(Plugin.Guid, "storage-state", ObserveTick,
                 out string tickError, order: 200), "Tick observer unavailable: " + tickError);
-            var original = typeof(EngineInterface).GetMethod("setMultiplayerStartingData", Static, null,
-                new[] { typeof(EngineInterface.MultiplayerSetupData) }, null);
-            Require(original != null && original.IsPublic, "Public Skirmish setup entry not available.");
-            var harmony = new Harmony(Plugin.Guid);
-            harmony.Patch(original, prefix: new HarmonyMethod(typeof(Fixture).GetMethod(nameof(PinSetup), Static)));
+            InstallSkirmishPin();
             using (BuildingR3EventHooks.OnIsBuildingAdjacentToOther.Observable.Subscribe(ObserveAdjacency))
             using (speedObservation ? BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(ObserveTargetSpawn) : null)
             {
@@ -142,6 +142,125 @@ namespace PrebuiltAiStorageTest
                     Log("PASS exact Skirmish Snake2 rejects stockpile and admits later armory with normal rules");
                 }
             }
+        }
+
+        internal IEnumerable<AutomationWait> RunAivToggle(AutomationRun run)
+        {
+            var bugfixes = Chainloader.PluginInfos["BugfixesAndQoL_Serp"].Instance;
+            object settings = Member(bugfixes, "Settings");
+            yield return AutomationWait.Until("ready frontend before changing settings", FrontendReady);
+            Set(settings, "EnableMod", true);
+            Set(settings, "EnableLocalAutosave", false);
+            Set(settings, "EnablePrebuiltAiStorageFix", true);
+            Require(GameAssetManagerAPI.Instance.GetModifiedFileTextContent("AIV/SK_SNAKE_4.aivjson", out _),
+                "Fixes Snake5 override was not indexed.");
+            var vanilla = (short[][])typeof(AIVLoader).GetField("snake", Static).GetValue(null);
+            short[] fixedSnake5 = AIVLoader.getAIVData((int)AILords.SK_SNAKE - 1, 4);
+            Require(fixedSnake5 != null && !fixedSnake5.SequenceEqual(vanilla[4]),
+                "The loader did not use Fixes' Snake5 AIV.");
+            string snake5 = Checksum(ToBytes(fixedSnake5));
+            InstallSkirmishPin();
+            foreach (bool enabled in new[] { true, false, true })
+            {
+                Set(settings, "EnableSnake2StockpileAivFix", enabled);
+                Require(Equals(Member(settings, "EnableSnake2StockpileAivFix"), enabled),
+                    "The singleplayer host setting did not accept the change.");
+                CheckCastlePlannerCorrection(vanilla[1], enabled);
+                pinSkirmish = true;
+                try
+                {
+                    foreach (var wait in StartSkirmish(run)) yield return wait;
+                }
+                finally { pinSkirmish = false; }
+                Require(Checksum(File.ReadAllBytes(run.CurrentMission.FilePath)) == MapHash, "Unexpected map bytes.");
+                CheckToggleImport(vanilla[1], enabled);
+                int targetY = enabled ? TargetY + 1 : TargetY;
+                yield return AutomationWait.Until("stockpile startup settled", () =>
+                {
+                    if (MainViewModel.Instance.Show_HUD_Briefing) MainViewModel.Instance.ButtonBriefingResume(null);
+                    return GameTimeManagerAPI.Instance.GetElapsedMapTicks() >= 24;
+                });
+                int targetParts = Buildings(eStructs.STRUCT_GOODS_YARD).Count(b => b.r_AliveState == AliveState.IsAlive &&
+                    (b.r_TilePositionXBegin == TargetX || b.r_TilePositionXBegin == TargetX + 3) &&
+                    (b.r_TilePositionYBegin == targetY || b.r_TilePositionYBegin == targetY + 3));
+                Require(targetParts == (enabled ? 4 : 0), $"Unexpected stockpile result: enabled={enabled}, alive={targetParts}.");
+                Require(Checksum(ToBytes(AIVLoader.getAIVData((int)AILords.SK_SNAKE - 1, 4))) == snake5,
+                    "Fixes' Snake5 changed after switching the Snake2 fix.");
+                Log($"AIV_TOGGLE enabled={enabled} target={TargetX}/{targetY} alive={targetParts}/4 fixesSnake5={snake5}");
+                MainViewModel.Instance.InitNewScene(Enums.SceneIDS.FrontEnd);
+                yield return AutomationWait.Until("back between matches", () => run.CurrentMission == null && FrontendReady());
+            }
+        }
+
+        private static bool FrontendReady() => MainViewModel.viewModelLoaded &&
+            MainViewModel.Instance.Show_Frontend_MainMenu && !MainViewModel.Instance.Show_IntroSequence;
+
+        private static void InstallSkirmishPin()
+        {
+            var original = typeof(EngineInterface).GetMethod("setMultiplayerStartingData", Static, null,
+                new[] { typeof(EngineInterface.MultiplayerSetupData) }, null);
+            Require(original != null && original.IsPublic, "Public Skirmish setup entry not available.");
+            new Harmony(Plugin.Guid).Patch(original,
+                prefix: new HarmonyMethod(typeof(Fixture).GetMethod(nameof(PinSetup), Static)));
+        }
+
+        private static unsafe void CheckToggleImport(short[] original, bool enabled)
+        {
+            var aiv = GameAIVManagerAPI.Instance;
+            Require(aiv.TryGetVillageSlotByPlayerId(Owner, out int slot) &&
+                aiv.TryGetVillageBySlot(slot, out AivVillageState* village) &&
+                GamePlayerManagerAPI.Instance.GetAILord(Owner) == Enums.AILords.SK_SNAKE &&
+                village->SelectedVariantIndex == Candidate && (int)village->Rotation == 0,
+                "The exact Snake2 variant or rotation was not selected.");
+            Require(aiv.TryGetImportedAIVVariant(Owner - 1, Candidate, out short* raw), "Snake2 import missing.");
+            var imported = new short[AivLength];
+            Marshal.Copy((IntPtr)raw, imported, 0, imported.Length);
+            Require(Checksum(ToBytes(original)) == AivHash && imported.Select((word, index) => word == original[index])
+                .Count(equal => !equal) == (enabled ? 1 : 0) && imported[8] == (enabled ? 5855 : 5955),
+                "Wrong Snake2 import or mutation of the original plan.");
+            int keepId = GamePlayerManagerAPI.Instance.GetPlayerKeepId(Owner);
+            Require(BuildingAccess.TryGetById(keepId, out var keep, out _) &&
+                keep->r_TilePositionXBegin == 398 && keep->r_TilePositionYBegin == 531,
+                "Player 3 Keep is not at (398,531).");
+            Require(aiv.TryGetBuildStep(slot, 2, out AivBuildStep* step) && step->BuildingType == eMappers.MAPPER_STORES,
+                "Snake2 stockpile frame missing.");
+            var tile = GameTileManagerAPI.Instance.GetTileVectorFromId(step->MapTileIdOrBufferIndex);
+            Require(tile.X == TargetX && tile.Y == (enabled ? TargetY + 1 : TargetY), "Unexpected stockpile frame tile.");
+        }
+
+        private static byte[] ToBytes(short[] words)
+        {
+            var bytes = new byte[words.Length * sizeof(short)];
+            Buffer.BlockCopy(words, 0, bytes, 0, bytes.Length);
+            return bytes;
+        }
+
+        private static void DisableSnake2FixIfAvailable(object settings) =>
+            settings.GetType().GetProperty("EnableSnake2StockpileAivFix", Instance)?.SetValue(settings, false);
+
+        private void CheckCastlePlannerCorrection(short[] original, bool enabled)
+        {
+            Require(Chainloader.PluginInfos.TryGetValue("CastlePlanner_Serp", out var planner),
+                "CastlePlanner is missing from the AIV toggle test layout.");
+            var assembly = planner.Instance.GetType().Assembly;
+            var bridge = assembly.GetType("CastlePlanner.BuiltInAivCorrectionBridge", true);
+            string text = (string)bridge.GetMethod("GetText", Static).Invoke(null, new object[] { "SK_SNAKE", 1 });
+            string originalPath = Path.Combine(Path.GetDirectoryName(planner.Location), "VanillaAIV", "snake2.aivjson");
+            Require(File.Exists(originalPath), "CastlePlanner's bundled Snake2 is unavailable.");
+            string resolvedPath = (string)bridge.GetMethod("ResolveFile", Static).Invoke(null,
+                new object[] { "AIV/SK_SNAKE_1.aivjson", originalPath });
+            Require((text != null) == enabled && (resolvedPath != originalPath) == enabled,
+                "CastlePlanner did not track the current Snake2 setting.");
+            if (!enabled) return;
+            Require(File.ReadAllText(resolvedPath) == text, "CastlePlanner import and preview disagree.");
+            object document = assembly.GetType("CastlePlanner.AivJsonReader", true).GetMethod("Parse", Static)
+                .Invoke(null, new object[] { text });
+            short[] raw = (short[])assembly.GetType("CastlePlanner.AivRawDataEncoder", true).GetMethod("Encode", Static)
+                .Invoke(null, new[] { document });
+            Require(raw.Length == original.Length && raw[8] == 5855 &&
+                raw.Where((word, index) => word != original[index]).Count() == 1,
+                "CastlePlanner did not preserve all other Snake2 AIV data.");
+            Log("CASTLEPLANNER_AIV matches corrected Snake2 preview and import");
         }
 
         private static IEnumerable<AutomationWait> StartSkirmish(AutomationRun run)
@@ -196,6 +315,7 @@ namespace PrebuiltAiStorageTest
             var bugfixes = Chainloader.PluginInfos["BugfixesAndQoL_Serp"].Instance;
             object bugfixSettings = Member(bugfixes, "Settings");
             Set(bugfixSettings, "EnableLocalAutosave", false);
+            DisableSnake2FixIfAvailable(bugfixSettings);
             view.FrontEndMenu.ButtonClicked("Coops");
             view.FrontEndMenu.ButtonClicked("Coop");
             yield return AutomationWait.Until("first Coop Trail lobby", () =>

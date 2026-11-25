@@ -23,6 +23,10 @@ Complete AI starting castles use the configured "Both" production choices for th
 ### Complete storage sections in prebuilt AI castles
 In new games with complete AI starting castles, Vanilla leaves out some stockpile, granary, and armoury sections planned in the AIV. This enabled-by-default host fix adds them once the neighbouring storage section is ready, using the normal placement rules; blocked spots stay empty. Loaded games and storage buildings destroyed later are not affected.
 
+### Snake2 stockpile
+
+Moves the second stockpile in the built-in Snake2 castle one tile so it touches the starting stockpile and can be built. The fix is on by default. The host can toggle it under **AIV Fixes** and the change takes effect in the next game.
+
 ### Skip inaccessible AI raid targets
 
 This enabled-by-default host fix makes AI melee raiding groups try another building when Vanilla finds no usable melee attack position for their selected target. It preserves Vanilla's building priorities and does not add proximity scoring. Reachable granaries remain valid targets. Manual attack orders are unchanged.

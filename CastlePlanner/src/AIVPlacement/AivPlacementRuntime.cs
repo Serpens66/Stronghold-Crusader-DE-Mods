@@ -431,7 +431,8 @@ namespace CastlePlanner.AIVPlacement
                     }
 
                     LobbyAivMode mode = GetMode(info);
-                    ProbeOverrides(lordEnumName, mode == LobbyAivMode.Historical ? 1 : 8, assets);
+                    ProbeOverrides(lordEnumName, mode == LobbyAivMode.Historical ? 1 : 8, assets,
+                        includeBuiltInCorrections: mode == LobbyAivMode.Default);
                     foreach (LobbyAivCandidateInput candidate in candidates)
                         ProbeOverrides(candidate.LordEnumName, 8, assets);
                     slots.Add(new LobbyAiSlotInput(
@@ -461,7 +462,8 @@ namespace CastlePlanner.AIVPlacement
                 humanPlayerIds, KeepRangeSettingsBridge.Capture(teams, log));
         }
 
-        private void ProbeOverrides(string lordEnumName, int count, ISet<string> assets)
+        private void ProbeOverrides(string lordEnumName, int count, ISet<string> assets,
+            bool includeBuiltInCorrections = false)
         {
             if (string.IsNullOrEmpty(lordEnumName))
                 return;
@@ -496,6 +498,24 @@ namespace CastlePlanner.AIVPlacement
                 }
                 if (content != null)
                     assets.Add(asset);
+                else if (includeBuiltInCorrections)
+                {
+                    string correctionAsset = LobbyRequestBuilder.BuiltInCorrectionAssetPrefix + asset;
+                    try
+                    {
+                        string correction = BuiltInAivCorrectionBridge.GetText(lordEnumName, index);
+                        if (correction != null)
+                        {
+                            assetOverrideCache[correctionAsset] = correction;
+                            assets.Add(correctionAsset);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        LogWarningOnce("aiv-correction-" + asset,
+                            $"Could not read the built-in AIV correction for {asset}: {ex.Message}");
+                    }
+                }
             }
         }
 

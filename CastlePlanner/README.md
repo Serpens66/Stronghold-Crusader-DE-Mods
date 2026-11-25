@@ -10,6 +10,8 @@
 
 In the lobby, CastlePlanner shows whether the selected AI castles fit on the chosen map, with details for their possible rotations. Hover over a result for warnings about overlaps, elevated moats or drawbridges, and uncertain placement. Results that cannot be evaluated stay marked as unknown; they are not a guarantee that a castle will build successfully. The host can disable these checks in the mod settings.
 
+When BugfixesAndQoL's Snake2 stockpile fix is enabled, placement checks and castle selection use the corrected Snake2 plan.
+
 ## AI castle plan for spectators
 
 Multiplayer spectators can view the accepted AI castle plan of the player they are watching as a read-only blueprint, including the source AIV file name when the session provides it. Eliminated players get the same view; they cannot choose, rotate or confirm a castle, including from a panel opened before elimination.

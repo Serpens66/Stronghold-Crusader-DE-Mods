@@ -249,8 +249,21 @@ namespace CastlePlanner
 
         public bool TryResolve(string option, out string fullPath)
         {
-            return pathByOption.TryGetValue(option ?? string.Empty, out fullPath) &&
-                   File.Exists(fullPath);
+            if (!pathByOption.TryGetValue(option ?? string.Empty, out fullPath) || !File.Exists(fullPath))
+                return false;
+
+            const string vanillaPrefix = "[Vanilla] ";
+            if (option == null || !option.StartsWith(vanillaPrefix, StringComparison.Ordinal))
+                return true;
+            string fileName = option.Substring(vanillaPrefix.Length);
+            // Effective Extender assets already resolve to SK_<LORD>_<INDEX>.aivjson.
+            if (fileName.StartsWith("Community_", StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(Path.GetFileName(fullPath), fileName, StringComparison.OrdinalIgnoreCase) ||
+                !TryGetVanillaAsset(fileName, out string asset))
+                return true;
+
+            fullPath = BuiltInAivCorrectionBridge.ResolveFile(asset, fullPath);
+            return File.Exists(fullPath);
         }
 
         public string GetDisplayName(string option)
@@ -313,7 +326,7 @@ namespace CastlePlanner
             {
                 try
                 {
-                    string path = entry.Value;
+                    if (!TryResolve(entry.Key, out string path)) continue;
                     currentPaths.Add(path);
                     hashes[entry.Key] = GetFingerprint(path, forceRefresh, warning);
                 }

@@ -212,6 +212,7 @@
       <Link>Shared\Runtime\Workshop\WorkshopContentPaths.cs</Link>
     </Compile>
     <Compile Include="src\AivFileCatalog.cs" />
+    <Compile Include="src\BuiltInAivCorrectionBridge.cs" />
     <Compile Include="src\AivCandidateFilePolicy.cs" />
     <Compile Include="src\AivOptionDisplayNames.cs" />
     <Compile Include="src\AivJsonModels.cs" />

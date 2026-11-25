@@ -70,8 +70,12 @@ namespace BugfixesAndQoL
         private static CorruptLordDataSpawnRuntime processCorruptLordDataSpawnRuntime;
         private static PrebuiltAiWorkshopBothFixRuntime processPrebuiltAiWorkshopBothFixRuntime;
         private static PrebuiltAiStorageFixRuntime processPrebuiltAiStorageFixRuntime;
+        private static Snake2StockpileAivFix processSnake2StockpileAivFix;
         private static AIPreplacedBuildingFixRuntime processAIPreplacedBuildingFixRuntime;
         private static AIKeepRangeRuntime processAIKeepRangeRuntime;
+
+        internal static short[] GetBuiltInAivCorrection(int lord, int variant) =>
+            processSnake2StockpileAivFix?.GetCorrection(lord, variant);
 
         internal static bool TryGetLobbyAIKeepRangeBypass(out bool bypass)
         {
@@ -331,6 +335,11 @@ namespace BugfixesAndQoL
             TryInitializePersistentFeature(
                 "prebuilt AI storage fix",
                 () => EnsurePrebuiltAiStorageFixRuntime(context, isFixedLayoutHashValidated));
+            TryInitializePersistentFeature("Snake2 stockpile AIV fix", () =>
+            {
+                if (processSnake2StockpileAivFix == null)
+                    processSnake2StockpileAivFix = new Snake2StockpileAivFix(log, settings);
+            });
             TryInitializePersistentFeature(
                 "nearest-water-carrier targeting QoL",
                 () => EnsureWaterboyTargetReservationRuntime(

@@ -41,7 +41,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.244";
+        public const string PluginVersion = "1.0.245";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;
@@ -161,6 +161,10 @@ namespace BugfixesAndQoL
             runtime = new BugfixesAndQoLRuntime(Logger, Settings);
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
         }
+
+        // Optional integration for CastlePlanner's file-free built-in AIV preview.
+        public static short[] GetBuiltInAivCorrection(int lord, int variant) =>
+            BugfixesAndQoLRuntime.GetBuiltInAivCorrection(lord, variant);
 
         private void InitializePersistentUiAndMapCallbacks()
         {

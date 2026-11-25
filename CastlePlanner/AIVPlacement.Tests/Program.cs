@@ -73,6 +73,7 @@ internal static class Program
             ("preserves multiple custom candidates", PreservesMultipleCustomCandidates),
             ("resolves embedded custom candidate", ResolvesEmbeddedCustomCandidate),
             ("uses Script Extender override", UsesAssetOverride),
+            ("uses built-in corrections only for the default import path", UsesBuiltInCorrection),
             ("loads AIVJSON from the shared core", LoadsAivJsonFromSharedCore),
             ("loads in-memory AIVJSON from the shared core", LoadsInMemoryAivJsonFromSharedCore),
             ("copies mutable inputs", CopiesInputs),
@@ -1395,6 +1396,24 @@ internal static class Program
         using Fixture fixture = new();
         AivPlacementCheckRequest request = fixture.Build(assets: ["AIV/SK_RAT_0.aivjson"]);
         Equal(LobbyCandidateSourceKind.ScriptExtenderAsset, request.Candidates[0].SourceKind);
+    }
+
+    private static void UsesBuiltInCorrection()
+    {
+        using Fixture fixture = new();
+        const string asset = "AIV/SK_RAT_0.aivjson";
+        string corrected = LobbyRequestBuilder.BuiltInCorrectionAssetPrefix + asset;
+        Equal(corrected, fixture.Build(assets: [corrected]).Candidates[0].Source);
+        Equal(asset, fixture.Build(assets: [corrected, asset]).Candidates[0].Source);
+        Equal(LobbyCandidateSourceKind.File, fixture.Build().Candidates[0].SourceKind);
+        Equal(LobbyCandidateSourceKind.File,
+            fixture.Build(slot: Slot(LobbyAivMode.Community), assets: [corrected]).Candidates[0].SourceKind);
+        var custom = Slot(LobbyAivMode.Custom,
+            [new LobbyAivCandidateInput("Default 1", "", 1, true, "SK_RAT")]);
+        Equal(LobbyCandidateSourceKind.File, fixture.Build(slot: custom, assets: [corrected]).Candidates[0].SourceKind);
+        Assert(LobbyRequestBuilder.BuildFingerprint(fixture.Capture(assets: [corrected])) !=
+            LobbyRequestBuilder.BuildFingerprint(fixture.Capture()),
+            "switching the setting must invalidate the previous placement evaluation");
     }
 
     private static void LoadsAivJsonFromSharedCore()

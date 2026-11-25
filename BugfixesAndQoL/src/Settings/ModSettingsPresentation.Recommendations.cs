@@ -90,6 +90,7 @@ namespace BugfixesAndQoL
             options["EnableAiWallTargetingFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAiWallTargetingFix");
             options["EnablePrebuiltAiWorkshopBothFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnablePrebuiltAiWorkshopBothFix");
             options["EnablePrebuiltAiStorageFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnablePrebuiltAiStorageFix");
+            options["EnableSnake2StockpileAivFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableSnake2StockpileAivFix");
             options["EnableAivDefenderPositionFix"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.EnableAivDefenderPositionFix");
             options["FixAIPreplacedMapBuildings"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.FixAIPreplacedMapBuildings");
             options["FixAITowerRepair"].SetApprovedRecommendation(SettingsRecommendationKind.Recommended, "BugfixesAndQoL.SettingsRework.Reason.FixAITowerRepair");

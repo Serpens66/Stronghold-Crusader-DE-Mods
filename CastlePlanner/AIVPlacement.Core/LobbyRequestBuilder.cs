@@ -10,6 +10,8 @@ namespace CastlePlanner.AIVPlacement.Core
 {
     public sealed class LobbyRequestBuilder
     {
+        public const string BuiltInCorrectionAssetPrefix = "BuiltInCorrection/";
+
         public AivPlacementRequestBatch Build(
             long generation,
             LobbyStateCapture capture,
@@ -225,7 +227,8 @@ namespace CastlePlanner.AIVPlacement.Core
                     index,
                     0,
                     vanillaAivDirectory,
-                    assetOverrides));
+                    assetOverrides,
+                    allowBuiltInCorrection: slot.Mode == LobbyAivMode.Default));
             }
             return result;
         }
@@ -238,9 +241,17 @@ namespace CastlePlanner.AIVPlacement.Core
             int sourceIndex,
             ulong checksum,
             string vanillaAivDirectory,
-            ISet<string> assetOverrides)
+            ISet<string> assetOverrides,
+            bool allowBuiltInCorrection = false)
         {
             string asset = $"AIV/{lordEnumName}_{sourceIndex}.aivjson";
+            string correction = BuiltInCorrectionAssetPrefix + asset;
+            if (!assetOverrides.Contains(asset) && allowBuiltInCorrection && assetOverrides.Contains(correction))
+            {
+                return new AivPlacementCandidateRequest(
+                    candidateId, $"{GetAivFileStem(lordEnumName)}{sourceIndex + 1}",
+                    LobbyCandidateSourceKind.ScriptExtenderAsset, correction, checksum, LobbyRequestFailureKind.None);
+            }
             if (assetOverrides.Contains(asset))
             {
                 return new AivPlacementCandidateRequest(

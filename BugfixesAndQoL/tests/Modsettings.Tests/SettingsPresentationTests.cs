@@ -604,6 +604,7 @@ public class SearchPresentationLabels
     public SearchTopicLabel ClientMarket => new SearchTopicLabel { Title = "Theme ClientMarket" };
     public SearchTopicLabel HostSetup => new SearchTopicLabel { Title = "Theme HostSetup" };
     public SearchTopicLabel HostAi => new SearchTopicLabel { Title = "Theme HostAi" };
+    public SearchTopicLabel HostAivFixes => new SearchTopicLabel { Title = "Theme HostAivFixes" };
     public SearchTopicLabel HostTroops => new SearchTopicLabel { Title = "Theme HostTroops" };
     public SearchTopicLabel HostEconomy => new SearchTopicLabel { Title = "Theme HostEconomy" };
     public SearchTopicLabel HostControls => ClientControls;
