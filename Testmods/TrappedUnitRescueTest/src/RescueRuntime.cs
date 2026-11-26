@@ -44,6 +44,7 @@ namespace TrappedUnitRescueTest
         internal NativeRelocation Native => native;
         private readonly Func<bool> enabled;
         private readonly Action<string> report;
+        private readonly Action<UnitSnapshot> candidateCapture;
         internal WorkerResumeSupervisor Workers { get; set; }
         internal Func<long> WorkerTick { get; set; }
         internal Func<bool> WorkerReady { get; set; }
@@ -51,9 +52,9 @@ namespace TrappedUnitRescueTest
         internal Func<UnitSnapshot,RescueCandidate,IdleEscapeRequest> CreateIdleEscapeRequest { get; set; }
         private static readonly int[] Dx = { 0,1,1,1,0,-1,-1,-1 }, Dy = { -1,-1,0,1,1,1,0,-1 };
         internal RescueRuntime(NativeRelocation native, Func<bool> isEnabled, Action<string> report)
-        { this.native = native ?? throw new ArgumentNullException(nameof(native)); enabled = isEnabled ?? throw new ArgumentNullException(nameof(isEnabled)); this.report = report; }
+        { this.native = native ?? throw new ArgumentNullException(nameof(native)); enabled = isEnabled ?? throw new ArgumentNullException(nameof(isEnabled)); this.report = report; candidateCapture=CaptureCandidates; }
         internal UnitSnapshot SnapshotUnit(int id) => SnapshotUnit(id, false);
-        internal UnitSnapshot SnapshotUnit(int id, bool includeOrdinaryStep,bool collectCandidates=true)
+        internal UnitSnapshot SnapshotUnit(int id, bool includeOrdinaryStep,bool collectCandidates=true,int sourceOwner=0)
         {
             if (!native.TryUnit(id, out GameUnit* unit)) return null;
             var value = new UnitSnapshot { Id=id, GlobalId=unit->r_GlobalId, Type=(int)unit->r_UnitChimp, Owner=unit->r_ControllableForPlayerId,
@@ -101,10 +102,15 @@ namespace TrappedUnitRescueTest
             value.AffectedCurrent=true; // Explicit fixture snapshots observe their current tile.
             if((uint)value.NextTileId<NativeRelocation.TileCapacity)
             { value.NextGroundFlags=native.Flags(value.NextTileId);value.NextWasOrdinary=native.OrdinaryGround(value.NextTileId); }
-            if (collectCandidates && value.Unsupported == null && native.OrdinaryGround(value.TileId)) CaptureCandidates(value);
+            if (collectCandidates && value.Unsupported == null && native.OrdinaryGround(value.TileId))
+                CaptureCandidatesForOwner(value,sourceOwner,candidateCapture);
             return value;
         }
-        internal bool TryCaptureMutation(IList<RescueTile> changed,out List<UnitSnapshot> before,out string reason)
+        // The native source owner has already been validated. Zero means unfiltered;
+        // snapshot/identity/chain validation still runs even for discarded owners.
+        internal static void CaptureCandidatesForOwner(UnitSnapshot value,int sourceOwner,Action<UnitSnapshot> capture)
+        {if(sourceOwner==0 || value.Owner==sourceOwner)capture(value);}
+        internal bool TryCaptureMutation(IList<RescueTile> changed,out List<UnitSnapshot> before,out string reason,int sourceOwner=0)
         {
             before=new List<UnitSnapshot>();
             List<RescueDiscoveryUnit> occupants;
@@ -133,7 +139,7 @@ namespace TrappedUnitRescueTest
             var affected=new HashSet<int>();foreach(var tile in changed)affected.Add(tile.TileId);
             foreach(var occupant in occupants)
             {
-                var snapshot=SnapshotUnit(occupant.UnitId,true);
+                var snapshot=SnapshotUnit(occupant.UnitId,true,sourceOwner:sourceOwner);
 #if SERP_DEVDIAG
                 if(snapshot!=null)RescueCaptureDiagnostics.Snapshot(snapshot.Owner,snapshot.Unsupported!=null);
 #endif
@@ -275,7 +281,7 @@ namespace TrappedUnitRescueTest
             type==(int)eChimps.CHIMP_TYPE_SIEGE_TOWER || type==(int)eChimps.CHIMP_TYPE_BATTERING_RAM || type==(int)eChimps.CHIMP_TYPE_PORTABLE_SHIELD || type==(int)eChimps.CHIMP_TYPE_ARAB_BALLISTA;
         private uint[] CaptureCrew(GameUnit* unit)
         {
-            if (!IsSiege((int)unit->r_UnitChimp)) return new uint[0];
+            if (!IsSiege((int)unit->r_UnitChimp)) return Array.Empty<uint>();
             var pairs=new uint[8];
             for(int i=0;i<4;i++) { pairs[i*2]=native.Word(unit,0x96C+i*2); pairs[i*2+1]=*(uint*)((byte*)unit+0x974-0x65C+i*4); }
             return pairs;

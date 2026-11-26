@@ -4,13 +4,16 @@ using TrappedUnitRescueTest.Tests;
 
 internal static class Program
 {
-    private static int Main()
+    private static int Main(string[] args)
     {
         try
         {
+            if(args.Length!=1)throw new ArgumentException("Pass the explicitly selected APIShared plugin package directory.");
             FixesManagedContractFixture.Run();
+            MountedScannerRuntimeFixture.Run(args[0]);
             int native = WorkerGuardFixture.Run();
             RescuePolicyFixture.Run();
+            CandidateOwnerGateFixture.Run();
             IdleEscapeFixture.Run();
             SeriesFixture.Run();
             GeneralObserverFixture.Run();

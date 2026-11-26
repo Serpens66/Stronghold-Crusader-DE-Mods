@@ -1,0 +1,11 @@
+# Fixes mounted keep compatibility island
+
+The testmod corrects the supported mutable-scanner capture in memory before Fixes activates. The selected Fixes DLL remains byte-for-byte unchanged. The declarative provider and all compatibility code live in four removable files under src: FixesMountedScanner.Native.cs, FixesMountedScanner.Contract.cs, FixesMountedScanner.Helpers.cs and FixesMountedScannerCorrection.cs.
+
+The original Fixes mounted recovery option remains authoritative, including when our general rescue setting is OFF. No extra setting or BQoL master policy is introduced. Unknown relevant managed contracts are left untouched with a warning; an unknown native contract during the known installer reports Error and skips only that mounted installer. Known scalar-fixed captures are recognized and left untouched.
+
+One rooted shared SafeIlHook replaces the captured shared scanner with an independent scanner at the immediately captured address; original field type, delayed closure, emitter and native hook ownership stay unchanged. Native hash, complete RVA187110 function snapshot/live bytes, executable module span and original ABI are checked. There is no second native hook or DLL-file rewrite. Remove the four files together to remove the island; shared bootstrap functionality is independent.
+
+Build.ps1 runs tests/MountedScannerRuntimeFixture.cs through the normal test project, directly linking these active production sources. Pass the explicitly selected APIShared plugin package directory to the test executable; the fixture checks actual loaded plugin/bootstrap bytes against that pair. Its scalar fixed/broken variants exist only in memory. It also checks the real DMD prefix, four original delayed generator executions and full managed SafeIlHook publication in the isolated test process; generated game-native code is not executed by the offline tests.
+
+Run-Tests.ps1 always uses an unchanged supplied Fixes package for every comparison profile. There is no OriginalFixes mode switch, additional patcher executable, copied-DLL correction or legacy fallback. Historical game archives retain their original commands and meanings; current game acceptance is recorded in ../SP-ACCEPTANCE.md.

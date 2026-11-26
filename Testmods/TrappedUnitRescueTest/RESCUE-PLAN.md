@@ -1,12 +1,41 @@
 # Plan: allgemeine Einheitenrettung und spätere Integration in Pathfinding
 
-Erstellt: 17.11.2026. Fortschritt aktualisiert: 25.11.2026. Arbeitsplan und fortlaufendes Abnahmeprotokoll.
+Erstellt: 17.11.2026. Fortschritt aktualisiert: 26.11.2026. Arbeitsplan und fortlaufendes Abnahmeprotokoll.
 
 ## Aktueller Auftrag vom 26.11.2026
 
 Der Nutzer autorisiert jetzt die erforderlichen **Singleplayer-Ingame-Tests**, weitere Fehlerkorrekturen und Effizienzprüfung. Installation/Spielstarts warten auf den tatsächlichen Abschluss des Chats „Mehrfachplatzierung erweitern“. Die Testfälle werden kontrolliert erzeugt, mit Friedenszeit, festgelegter geeigneter Karte und deaktivierten RandomEvents. Ausführungs- und Abnahmeplan: [SP-ACCEPTANCE.md](SP-ACCEPTANCE.md).
 
 **Neue Zielentscheidung:** Nach erfolgreicher Finalisierung erfolgt die Übernahme in **BugfixesAndQoL** und die Entfernung des ursprünglichen Testmods. Die nachfolgenden älteren Pathfinding-Migrationsabschnitte beschreiben die frühere Planung; ihre technischen Kompatibilitäts- und Ownershipanforderungen bleiben relevant, der Zielmod ist durch diesen neuen Auftrag ersetzt. Reale Multiplayerfreigabe gehört nicht zu diesem Auftrag.
+
+## Konkrete BQoL-Migrationskarte (26.11.2026)
+
+Dies ist die vorbereitete Quellzuordnung für die bereits festgelegte Zielintegration in **BugfixesAndQoL**, keine durchgeführte Migration oder abgeschlossene Gesamtfreigabe. Erst nach der verbleibenden Singleplayer-/Effizienzabnahme wird integriert und anschließend der Prototyp entfernt. Die älteren Pathfinding-Zielabschnitte unten bleiben historische Planung. Durchführung und Grenzen stehen in [SP-ACCEPTANCE.md](SP-ACCEPTANCE.md), SDK-Verträge in [API-HANDOFF.md](API-HANDOFF.md).
+
+Ein featureeigener Bereich `BugfixesAndQoL/src/TrappedUnitRescue` genügt. Thematische Unterordner können bei Bedarf entstehen; eine tiefe Verzeichnishierarchie ist keine Integrationsvoraussetzung.
+
+| Quellen des Prototyps | Zuordnung im Feature |
+|---|---|
+| `RescueRuntime`, `RescueDiscovery`, `RescueMutationFootprints`, `RescueCleanupProjection`, `RescueCandidateQueue`, Geometrienachweise und Pending-/Geometriecodecs | Rettungskern, kausale Nachweise und begrenzte Verarbeitung |
+| `GeneralRescueObserver` einschließlich `Replans`, `RescueOrderObserver`, `RescueReplanIntent` | Beobachtung über die bestehenden APIShared-Besitzer |
+| Worker-Policies, Binding-/Journey-Snapshots, Ledger, Supervisor und `WorkerRecoveryService`; Command-Policies/-Snapshot und `IdleEscapeOwner` | Qualifizierte Fortsetzung, neuer Idle-Fluchtauftrag und eigene Savedaten |
+| `NativeRelocation`, `NativeMutationFootprints`, `NativeVegetationAccess`, `NativeWorkerResumeWorld`, `NativeIdleEscapeWorld` | Bestehende auditierte native Adapter und Readbacks |
+| `FixesIntegration` und `FixesManagedContract` | Optionale schmale Fixes-Kompatibilität mit logisch begrenzter Unterdrückung |
+| Vier Dateien `FixesMountedScanner*.cs` | Gesondert vollständig entfernbarer Kompatibilitätsbereich; [aktueller Runtime-Vertrag](Audits/FIXES-MOUNTED-RUNTIME.md) |
+
+**Quellausschlüsse:** `RescueRuntime` vor Übernahme von `BeginMutation`/`MutationScope` samt tatsächlichem Testcensus über IDs 1..9999 sowie `AppleMoatReceipt` und ausschließlich dafür benötigten Helfern trennen. Test-`Plugin`, Testsettings und `Metadata`, alle `Fixture.*`, `EditorBrush`/`EditorAcceptanceBrushes`, frühe Provider-/Mono-Testassets, Census, NoJesters und fixturespezifische Performance-/Diagnoseteile gehören nicht in BQoL. Zugehörige Diagnoseaufrufe gemeinsam entfernen; keine fehlenden privaten Diagnoseklassen oder Testabhängigkeiten im Produktions-Diagnosebuild hinterlassen. Geeignete allgemeine `Shared.DevDiag`-Messpunkte können nach ihrem bestehenden Compilegate erhalten bleiben.
+
+**Runtime und gemeinsame Besitzer:** Ein Adapter wie `BugfixesAndQoLRuntime.TrappedUnitRescue.cs` hält genau einen prozessweit verwurzelten Rettungsverbund. Er bindet Initialisierung an den bestehenden LibraryLoaded-Pfad, Einstellungsübernahme an `ApplySettings` und Sitzungsbeginn/-ende an die vorhandenen Gameplay-/Mission-Lifecycle-Publisher. `WorldMutationEvents`, `UnitMoveEvents`, `SimulationTickEvents` und `VersionedSaveData` bleiben ihre gemeinsamen APIShared-Besitzer; keine zusätzlichen Entry-Detours, kopierten Broker oder Fixtureflags übernehmen. Capability-/Registrierungsfehler sperren den betroffenen Rettungspfad. Ohne aktive Einstellung bzw. ohne Arbeit bleiben lokale Erfassung und eigene native Rettungsaufrufe aus.
+
+**Native Ownership ausdrücklich erhalten:** [LordTeleportGuardRuntime](../../BugfixesAndQoL/src/LordTeleportGuard/LordTeleportGuardRuntime.cs) bleibt unter `Lord.HomeTeleportGuard` exklusiver Besitzer der **16 Byte ab 19BA40 bis 19BA50**. Seine Initialisierung geht dem Rettungsadapter voraus; dieser nutzt den geprüften Einstieg einschließlich vorhandenem Guard und dessen unterstützte Call-only-Registrierung. **Kein zweiter 19BA40-Detour**, kein Bypass über ein fremdes Trampolin und keine Änderung des bestehenden Lord-Emitters oder seiner ABI. Der bereits auditierte separate Fixes-Worker-Guard des Prototyps behält seine eigene disjunkte Spanne und wird nur während eigener qualifizierter Rettungs-/Fortsetzungsaktionen logisch aktiviert. Veröffentlichte Hooks bleiben verwurzelt; unbekannte oder überschriebene relevante Spannen werden nicht zurückgepatcht.
+
+**Genau eine neue Hosteinstellung:** Eine `[SyncHostOnly]`-Property, Arbeitsname `EnableTrappedUnitRescue`, kommt unter den vorhandenen BQoL-Master `EnableMod`. Setter, konsistenter Default/Reset, `ModSettingsPresentation.Topics`, Host-Fixes-XAML einschließlich Suche/Tooltip und Locale-Schlüssel werden gemeinsam ergänzt. Der ausgeschaltete experimentelle Testmoddefault ist keine bereits beschlossene Produktionsvoreinstellung. Originale Fixes-Einstellungen werden nicht verändert; ohne Fixes funktioniert die allgemeine Rettung weiterhin. Keine neue harte Abhängigkeit von Fixes, Pathfinding oder einem Testmod.
+
+**SDK, Save und Modi:** Plugin/Manifest benötigen mindestens APIShared 0.74.0 mit den tatsächlich geprüften Diensten; Runtime und Bootstrap werden aus demselben ausdrücklich gewählten Paket verwendet, die Bootstrap-Referenz bleibt `Private=false`. Die Versionsnummer allein ersetzt keinen Paket-/Vertragsnachweis oder die spätere SDK-Übernahme. `WorkerRecoveryService` bekommt BQoL als Save-Owner-GUID und einen stabilen Produktions-Feature-Identifier. Atomare Capture-Sperren, `SaveGamesAndMaps`, Pending-/Geometriearchive, Alter/Versuchsverbrauch sowie Welt-/Order-Rebinding vor dem ersten zugelassenen Takt bleiben erhalten. Keine automatische Übernahme unpublizierter Testmod-Saves oder Reparatur alter Fallen ohne eigenen Nachweis erfinden. Singleplayer und Editor bleiben zugelassen; echte Multiplayer-Rettung bleibt im aktuellen Auftragsumfang deaktiviert. Host-Synchronisierung allein gibt MP nicht frei.
+
+**Produktionsbezogene Prüfungen und Ablösung:** Die weiterhin relevanten Core-/Native-/Persistenzfixtures nach `BugfixesAndQoL/tests/TrappedUnitRescue` übertragen und gegen die dortigen echten Produktionsquellen verdrahten. Die 66 Scanner-Verträge, vorhandene Lord-Guard-Tests einschließlich gemeinsamer Einstiegseigentümerschaft und betroffene Modsettings-/Präsentations-/Reset-/Localeprüfungen erhalten bzw. erweitern; BQoL-Projekt und Buildtreiber binden diese Prüfungen und Quellen ein. Während der Integrationsabnahme darf ein Testmod nur automatisieren/beobachten, nicht parallel einen zweiten Rettungsbesitzer veröffentlichen. Nach bestandener BQoL-Abnahme Prototyp und ersetzte Runtimeverdrahtung entfernen, notwendige kompakte historische Nachweise erhalten. Keine Ingame-Automation in den Hauptmod verschieben.
+
+**Ausdrücklich noch offener Produktpunkt:** Soll die separate Fixes-Scannerkorrektur auch bei **BQoL-Master-OFF** wirken? Das ist bisher nicht entschieden und wird bei der Migration nicht stillschweigend festgelegt. Davon getrennt ist bereits verbindlich: **General-Rescue-OFF darf die originale Fixes-Reiterrettung bzw. deren Scannerkorrektur nicht abschalten.** Dafür wird keine zusätzliche Modsetting eingeführt.
 
 ## 1. Ziel, Auftrag und Zuständigkeit
 
@@ -133,7 +162,11 @@ Verbindlicher Ausgangsnachweis: [TESTING.md](TESTING.md), [AIV-Observer-Audit.md
 
 Der Fehler des geprüften Fixes1.30.0 und seine Korrektur sind unabhängig vom allgemeinen Rettungsalgorithmus belegt: ursprüngliche Läufe046/047 mit aufgestellten echten Reitern scheitern; korrigierte Läufe073/074 bestehen auch bei ausgeschalteter eigener Rettung. Der Fehler betrifft den verzögert ausgewerteten veränderlichen Scanner.
 
-`TemporaryFixes` korrigiert nur verwerfbare Testkopien. Es wird nicht ungeprüft Teil von Pathfinding. Nach einem Upstream-Update den unveränderten Mod und die tatsächlichen Aufrufziele erneut prüfen. Erst bei bestätigter Korrektur den Zusatz samt Aufrufen vollständig entfernen. Keine pauschale Fixes-DLL-Hash-/Versionssperre; relevante Verträge und echte installierte Stubs prüfen. Die Native-Hash-Bindung ist davon getrennt.
+**Aktueller Ersatz vom 26.11.2026:** Die frühere `TemporaryFixes`-CLI samt EXE-Projekt, Build-/Selbsttestaufrufen, Runner-DLL-Korrektur und `-OriginalFixes` ist entfernt. Vier getrennte Runtimequellen unter `src/FixesMountedScanner*.cs` erhalten den ursprünglichen Feldtyp und verwenden nach genau einem Originalscan einen unabhängig gebundenen Scanner. Der gemeinsame deklarative Bootstrap-Provider installiert vor Fixes-Aktivierung einen verwurzelten `SafeIlHook`; kein zusätzlicher nativer Besitzer oder Dateipatch entsteht. Die fremde Mounted-Option bleibt maßgeblich, auch wenn unsere allgemeine Rettung OFF ist. Eine spätere BQoL-Masterbindung ist damit nicht entschieden.
+
+Die 66 regulären Offline-Prüfungen verlinken die vier aktiven Quellen und prüfen das explizit ausgewählte APIShared-/Bootstrap-Paar. Lauf 149 mit unveränderter Fixes-1.31-DLL besteht einschließlich OFF/ON-Matrix und 104 tatsächlichen CALL187110-/Originalfortsetzungsprüfungen; Grenzen wie die nicht belegte dritte Aux-Belegung bleiben offen. Nachweise: [SP-ACCEPTANCE.md](SP-ACCEPTANCE.md#nachtrag-149-runtime-scannerkorrektur-ohne-fixes-dateikopie-bestanden), Aufbau: [Audits/FIXES-MOUNTED-RUNTIME.md](Audits/FIXES-MOUNTED-RUNTIME.md).
+
+Nach einem Upstream-Update den unveränderten Mod und die tatsächlichen Aufrufziele erneut prüfen; eigene Rettung OFF schaltet diese Kompatibilitätskorrektur nicht aus. Bekannte skalare Captures werden übersprungen, unbekannte relevante Verträge nicht verändert. Erst bei bestätigter Upstream-Korrektur die vierteilige Insel samt gewöhnlicher Testverdrahtung vollständig entfernen. Keine pauschale Fixes-DLL-Hash-/Versionssperre; vollständige relevante IL-/Helper-/Feldzugriffe und echte installierte Stubs prüfen. Die Native-Hash-Bindung bleibt davon getrennt.
 
 ## 5. Zielarchitektur und unveränderliche Sicherheitsregeln
 

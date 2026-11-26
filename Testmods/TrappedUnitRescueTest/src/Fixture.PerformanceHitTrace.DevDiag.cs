@@ -48,7 +48,7 @@ namespace TrappedUnitRescueTest
                 {
                     melee=UnitR3EventHooks.OnUnitTakeMeleeDamage.Observable.Subscribe(ObserveMelee);
                     projectile=UnitR3EventHooks.OnUnitTakeProjectileDamageEx.Observable.Subscribe(ObserveProjectile);
-                    fixture.log("performance-health-diagnostic run="+proof.RunId+" profile=rescue-diag-health4000-on"+
+                    fixture.log("performance-health-diagnostic run="+proof.RunId+" profile="+fixture.scenario+
                         " population=4000 walkingPopulation=1000 diagnosticSubscriptions=true performanceAcceptanceClaim=false"+
                         " recordLimit="+RecordLimit+" publicationLimit="+PublicationLimit+" passiveComparison=false");
                 }

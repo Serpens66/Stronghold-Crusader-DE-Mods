@@ -15,7 +15,6 @@ param(
     [ValidateRange(60,86400)][int]$TimeoutSeconds=18000,
     [string]$GameDir='E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition',
     [switch]$SkipBuild,
-    [switch]$OriginalFixes,
     [switch]$DryRun
 )
 $ErrorActionPreference='Stop'
@@ -69,7 +68,7 @@ if(!$owns.Success){throw 'Cannot verify Fixture.Owns declaration; update runner 
 $allowed=@([regex]::Matches($owns.Groups['body'].Value,'value\s*==\s*"(?<name>rescue-[a-z0-9-]+)"') | ForEach-Object {$_.Groups['name'].Value})
 if(!$allowed.Count){throw 'No declared fixture scenarios.'}
 foreach($scenario in $Scenarios){if($scenario -cnotin $allowed){throw "Unknown or unwired scenario: $scenario"}}
-if(@($Scenarios | Where-Object {$_.StartsWith('rescue-perf-',[StringComparison]::Ordinal) -or $_ -ceq 'rescue-diag-health4000-on'}).Count){
+if(@($Scenarios | Where-Object {$_.StartsWith('rescue-perf-',[StringComparison]::Ordinal) -or $_ -ceq 'rescue-diag-health4000-on' -or $_ -ceq 'rescue-diag-nojesters4000-on'}).Count){
     if(!$PerfProbePackage){throw 'Performance scenarios require the explicit diagnostic PerfProbe package.'}
     if($Scenarios.Count -ne 1){throw 'Run one performance scenario per transaction; its ABAB members share one run-owned save.'}
 }
@@ -105,7 +104,7 @@ foreach($package in $packages.GetEnumerator()){
 }
 if(@(Get-ChildItem -LiteralPath $api -File -Filter '*RandomEvents*.dll' -Recurse).Count){throw 'RandomEvents must be absent from the supplied SDK package.'}
 $requestScenario=if($Scenarios.Count -eq 1){$Scenarios[0]}else{'rescue-series'}
-$fixesMode=if($Layout -eq 'Minimal'){'Absent'}elseif($OriginalFixes){'Original'}else{'Temporary130'}
+$fixesMode=if($Layout -eq 'Minimal'){'Absent'}else{'Original'}
 $workshop=Get-WorkshopTestPreflight $game $patcher
 if(!$workshop.Safe){throw ('Workshop state needs ordinary diagnosis/recovery before this test: '+($workshop.Blockers -join '; '))}
 $plan=[ordered]@{Layout=$Layout;Scenarios=$Scenarios;RequestScenario=$requestScenario;Map=$Map;PeaceTimeMinutes=$PeaceTimeMinutes;
@@ -133,7 +132,7 @@ try{
     $priorManagerLaunch=[Environment]::GetEnvironmentVariable('SCDEModManagerLaunchId','Process')
     $managerLaunch=if([string]::IsNullOrEmpty($priorManagerLaunch)){'TrappedUnitRescueTest-'+[Guid]::NewGuid().ToString('N')}else{$priorManagerLaunch}
     if(!$SkipBuild){
-        if($Scenarios -ccontains 'rescue-diag-health4000-on'){
+        if(@($Scenarios|Where-Object {$_ -cin @('rescue-diag-health4000-on','rescue-diag-nojesters4000-on','rescue-perf-4000-nojesters-passive-on')}).Count){
             & (Join-Path $PSScriptRoot 'Build.ps1') -nopause -noinstall -ApiSharedDir $api -DriverArguments @('/devdiag')
         }else{& (Join-Path $PSScriptRoot 'Build.ps1') -nopause -noinstall -ApiSharedDir $api}
     }
@@ -155,10 +154,6 @@ try{
     try{
         $layoutPath=Join-Path $work 'plugins';[void][IO.Directory]::CreateDirectory($layoutPath)
         foreach($package in $packages.GetEnumerator()){Copy-Item -LiteralPath $package.Value -Destination (Join-Path $layoutPath $package.Key) -Recurse}
-        if($Layout -ne 'Minimal' -and !$OriginalFixes){
-            & (Join-Path $PSScriptRoot 'TemporaryFixes/bin/TrappedUnitRescueTest.Fixes130.exe') --patch-copy (Join-Path $layoutPath 'fixes/fixes.dll') *> (Join-Path $evidence 'temporary-fixes.log')
-            if($LASTEXITCODE -ne 0){throw 'Temporary Fixes correction rejected disposable dependency copy; game was not started.'}
-        }
         [IO.File]::WriteAllText((Join-Path $evidence 'series-plan.json'),(($plan|ConvertTo-Json -Depth 6)+"`r`n"),[Text.UTF8Encoding]::new($false))
         $configWritten=$true
         [IO.File]::WriteAllText($cfg,"[Fixture]`r`nMap = $Map`r`nPeaceTimeMinutes = $PeaceTimeMinutes`r`nScenarios = $($Scenarios -join ',')`r`n",[Text.UTF8Encoding]::new($false))
@@ -197,7 +192,7 @@ TextureInventory = false
         & (Join-Path $workspace 'Shared/Tools/Automation/Invoke-InGameTest.ps1') -GameDir $game -ModGuid TrappedUnitRescueTest_Serp `
             -ModPackage (Join-Path $PSScriptRoot 'BepInEx/plugins/TrappedUnitRescueTest_Serp') -ApiPluginPackage $api -ApiPatcherPackage $patcher `
             -PluginLayout $layoutPath -Scenario $requestScenario -OutputDirectory $evidence -TimeoutSeconds $TimeoutSeconds -HiddenDesktop
-        if(@($Scenarios|Where-Object {$_ -cmatch '^rescue-perf-(1000|4000-idle1000walk|9871-idle1000walk)-passive-on$'}).Count){
+        if(@($Scenarios|Where-Object {$_ -cmatch '^rescue-perf-(1000|4000-idle1000walk|9871-idle1000walk|4000-nojesters)-passive-on$'}).Count){
             # The generic runner has closed the process, flushed/copied the log
             # and restored its transaction. Qualify this separate passive profile
             # before reporting success; outer config restore still runs on failure.

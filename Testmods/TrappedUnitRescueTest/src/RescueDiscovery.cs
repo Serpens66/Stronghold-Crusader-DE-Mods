@@ -74,8 +74,9 @@ namespace TrappedUnitRescueTest
                 int visits = 0;
                 foreach (int tile in halo)
                 {
-                    var chain = new HashSet<int>();
                     int id = head(tile);
+                    if(id==0)continue;
+                    var chain = new HashSet<int>();
                     while (id != 0)
                     {
 #if SERP_DEVDIAG

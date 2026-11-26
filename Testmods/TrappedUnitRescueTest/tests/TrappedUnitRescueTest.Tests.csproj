@@ -16,7 +16,6 @@
     <GameDir Condition="'$(GameDir)' == ''">E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition</GameDir>
     <GameManaged>$(GameDir)/Stronghold Crusader Definitive Edition_Data/Managed</GameManaged>
     <ExtenderDir Condition="'$(ExtenderDir)' == ''">$(GameDir)/BepInEx/plugins/000shcdese</ExtenderDir>
-    <ApiSharedDir Condition="'$(ApiSharedDir)' == ''">$(GameDir)/BepInEx/plugins/APIShared_Serp</ApiSharedDir>
     <ImportDirectoryBuildTargets>false</ImportDirectoryBuildTargets>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <PlatformTarget>x64</PlatformTarget>
@@ -77,6 +76,10 @@
       <HintPath>$(ApiSharedDir)/APIShared.dll</HintPath>
       <Private>true</Private>
     </Reference>
+    <Reference Include="APIShared.DependencyBootstrap">
+      <HintPath>$(ApiSharedDir)/../../patchers/APIShared.DependencyBootstrap.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
     <Reference Include="SHCDESE">
       <HintPath>$(ExtenderDir)/SHCDESE.dll</HintPath>
       <Private>true</Private>
@@ -132,6 +135,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="*.cs" />
+    <Compile Include="../src/FixesMountedScanner.Native.cs" />
+    <Compile Include="../src/FixesMountedScanner.Contract.cs" />
+    <Compile Include="../src/FixesMountedScanner.Helpers.cs" />
+    <Compile Include="../src/FixesMountedScannerCorrection.cs" />
     <Compile Include="../src/FixesIntegration.cs" />
     <Compile Include="../src/FixesManagedContract.cs" />
     <Compile Include="../../../Shared/Runtime/Native/NativePatchGuard.cs" />
@@ -169,4 +176,8 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)/Microsoft.CSharp.targets" />
   <Import Project="../../../Directory.Build.targets" />
+  <Target Name="RequireExplicitScannerTestSdk" BeforeTargets="PrepareForBuild">
+    <Error Condition="'$(ApiSharedDir)' == ''" Text="Pass an explicit ApiSharedDir for the runtime/Bootstrap test pair." />
+    <Error Condition="!Exists('$(ApiSharedDir)/APIShared.dll') or !Exists('$(ApiSharedDir)/../../patchers/APIShared.DependencyBootstrap.dll')" Text="The selected APIShared plugin/bootstrap pair is incomplete." />
+  </Target>
 </Project>

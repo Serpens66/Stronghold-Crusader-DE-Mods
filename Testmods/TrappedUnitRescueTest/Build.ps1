@@ -26,12 +26,7 @@ if (-not $env:SHCDE_BRANCH_SOURCE_ROOT -and -not $env:SHCDE_BRANCH_PINNED) {
 if (-not $ApiSharedDir) { $ApiSharedDir = $env:SHCDE_API_SHARED_DIR }
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'tests/Test-PerformanceLog.ps1')
 if ($LASTEXITCODE -ne 0) { throw 'Passive performance evidence contract tests failed.' }
-$temporaryFixProject = Join-Path $PSScriptRoot 'TemporaryFixes/TrappedUnitRescueTest.Fixes130.csproj'
-& dotnet msbuild $temporaryFixProject /t:Build /p:Configuration=Release /verbosity:minimal
-if ($LASTEXITCODE -ne 0) { throw 'Temporary Fixes scanner correction did not compile.' }
-& (Join-Path $PSScriptRoot 'TemporaryFixes/bin/TrappedUnitRescueTest.Fixes130.exe') --self-test `
-    'E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition/BepInEx/plugins/fixes/fixes.dll'
-if ($LASTEXITCODE -ne 0) { throw 'Temporary Fixes scanner correction contract tests failed.' }
+if ([string]::IsNullOrWhiteSpace($ApiSharedDir)) { throw 'Select an explicit APIShared plugin/bootstrap package for runtime and tests.' }
 $arguments = @('msbuild', (Join-Path $PSScriptRoot 'TrappedUnitRescueTest.csproj'), '/t:Build', '/p:Configuration=Release', '/verbosity:minimal')
 if ($ApiSharedDir) { $arguments += '/p:ApiSharedDir=' + [IO.Path]::GetFullPath($ApiSharedDir) }
 & dotnet @arguments
@@ -40,6 +35,6 @@ $testArguments = @('msbuild', (Join-Path $PSScriptRoot 'tests/TrappedUnitRescueT
 if ($ApiSharedDir) { $testArguments += '/p:ApiSharedDir=' + [IO.Path]::GetFullPath($ApiSharedDir) }
 & dotnet @testArguments
 if ($LASTEXITCODE -ne 0) { throw 'TrappedUnitRescueTest native/policy tests did not compile.' }
-& (Join-Path $PSScriptRoot 'tests/bin/TrappedUnitRescueTest.Tests.exe')
+& (Join-Path $PSScriptRoot 'tests/bin/TrappedUnitRescueTest.Tests.exe') ([IO.Path]::GetFullPath($ApiSharedDir))
 if ($LASTEXITCODE -ne 0) { throw 'TrappedUnitRescueTest native/policy tests failed.' }
 Write-Output 'PASS: package built; installation and game runs use the transactional Invoke-InGameTest runner.'

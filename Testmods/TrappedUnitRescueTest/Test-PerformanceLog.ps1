@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param([string]$LogPath,[string]$ExpectedRun,[string]$OutputPath,
-    [ValidateSet('rescue-perf-1000-passive-on','rescue-perf-4000-idle1000walk-passive-on','rescue-perf-9871-idle1000walk-passive-on')]
+    [ValidateSet('rescue-perf-1000-passive-on','rescue-perf-4000-idle1000walk-passive-on','rescue-perf-9871-idle1000walk-passive-on','rescue-perf-4000-nojesters-passive-on')]
     [string]$ExpectedScenario='rescue-perf-1000-passive-on')
 $ErrorActionPreference='Stop'
 
@@ -22,8 +22,79 @@ function Assert-RescuePerformanceLog {
     $population=switch -CaseSensitive ($Scenario){
         'rescue-perf-1000-passive-on'{1000}
         'rescue-perf-4000-idle1000walk-passive-on'{4000}
+        'rescue-perf-4000-nojesters-passive-on'{4000}
         'rescue-perf-9871-idle1000walk-passive-on'{9871}
         default{throw 'PERFORMANCE_UNQUALIFIED: Unknown explicitly selected performance scenario'}
+    }
+    $nativeStateFixture=$Scenario -ceq 'rescue-perf-4000-nojesters-passive-on'
+    $worldRows=@($Lines|Where-Object {$_.Contains('RESCUE_TEST performance-nojesters-world ') -and (Token $_ 'run') -ceq $Run})
+    $readyRows=@($Lines|Where-Object {$_.Contains('RESCUE_TEST performance-nojesters-ready ') -and (Token $_ 'run') -ceq $Run})
+    $baselineRows=@($Lines|Where-Object {$_.Contains('RESCUE_TEST performance-nojesters-baseline ') -and (Token $_ 'run') -ceq $Run})
+    Require (@($Lines|Where-Object {$_.Contains('RESCUE_TEST performance-nojesters-fault ') -and (Token $_ 'run') -ceq $Run}).Count -eq 0) 'Native-state fixture callback failure'
+    if($nativeStateFixture){
+        Require ($baselineRows.Count -eq 1 -and $worldRows.Count -ge 13 -and $worldRows.Count -le 69 -and $readyRows.Count -eq 5) 'Missing bounded native-state fixture evidence'
+        $baseline=$baselineRows[0]
+        Require ((Token $baseline 'schema') -ceq '1' -and (Token $baseline 'profile') -ceq $Scenario -and
+            (Token $baseline 'native-state-fixture') -ieq 'true' -and (Token $baseline 'newSharedBaseline') -ieq 'true' -and
+            (Token $baseline 'generalPerformanceClaim') -ieq 'false' -and (Token $baseline 'defaultProfilesUnchanged') -ieq 'true') 'Invalid native-state baseline qualification'
+        $fresh=@($worldRows|Where-Object {(Token $_ 'phase') -ceq 'fresh'});$ownedLoads=@($worldRows|Where-Object {(Token $_ 'phase') -ceq 'load'})
+        $boundaryRows=@($worldRows|Where-Object {(Token $_ 'phase') -ceq 'boundary'})
+        Require ($fresh.Count -eq 1 -and $ownedLoads.Count -eq 4 -and $boundaryRows.Count -ge 8 -and
+            $worldRows.Count -eq 5+$boundaryRows.Count) 'Incomplete native-state source/load/boundaries'
+        $sessions=[Collections.Generic.HashSet[long]]::new();$worlds=[Collections.Generic.HashSet[long]]::new()
+        [long]$lastPosition=-1;[int]$loadCount=0;[int]$boundaryNumber=0;[long]$liveSession=0;[long]$liveWorld=0
+        $ready=$false
+        $lady=Token $fresh[0] 'lady';[UInt16]$ladyValue=0;Require ([UInt16]::TryParse($lady,[ref]$ladyValue)) 'Invalid preserved Lady word'
+        $stateRows=@($Lines|Where-Object {($_.Contains('RESCUE_TEST performance-nojesters-world ') -or $_.Contains('RESCUE_TEST performance-nojesters-ready ')) -and (Token $_ 'run') -ceq $Run})
+        foreach($row in $stateRows){
+            Require ((Token $row 'schema') -ceq '1' -and (Token $row 'profile') -ceq $Scenario -and
+                (Token $row 'flag') -ceq '0' -and (Token $row 'lady') -ceq $lady -and
+                (Token $row 'allEightPairsEmpty') -ieq 'true' -and (Token $row 'native-state-fixture') -ieq 'true' -and
+                (Token $row 'newSharedBaseline') -ieq 'true' -and (Token $row 'generalPerformanceClaim') -ieq 'false') 'Native-state fixture words/lifetimes differ'
+            [long]$sid=0;[long]$generation=0
+            Require ([long]::TryParse((Token $row 'session'),[ref]$sid) -and [long]::TryParse((Token $row 'world'),[ref]$generation) -and
+                $sid -gt 0 -and $generation -gt 0 -and (Position $row) -gt $lastPosition) 'Native-state world identity/chronology differs'
+            $lastPosition=Position $row
+            if($row.Contains('RESCUE_TEST performance-nojesters-ready ')){
+                [long]$earlyWorld=0
+                Require (!$ready -and $liveSession -gt 0 -and $sid -eq $liveSession -and
+                    [long]::TryParse((Token $row 'earlyWorld'),[ref]$earlyWorld) -and $earlyWorld -eq $liveWorld -and
+                    (Token $row 'tokenSame') -ieq 'true' -and (Token $row 'wordWrites') -ceq '0' -and
+                    (Token $row 'loadCount') -ceq [string]$loadCount) 'Ready did not prove its single exact native-world handoff'
+                Require ($generation -eq $liveWorld -or $worlds.Add($generation)) 'Ready reused a foreign world generation'
+                if($loadCount -eq 0){Require ((Position $row) -lt (Position $baseline)) 'Fresh Ready handoff followed performance preparation'}
+                $liveWorld=$generation;$ready=$true
+                continue
+            }
+            $phase=Token $row 'phase'
+            if($phase -ceq 'fresh'){
+                Require ($liveSession -eq 0 -and (Token $row 'wordWrites') -ceq '1' -and $loadCount -eq 0) 'Fresh native-state write did not occur exactly once'
+                Require ((Position $row) -lt (Position $baseline)) 'Native-state setup was not before performance preparation'
+                Require ($sessions.Add($sid) -and $worlds.Add($generation)) 'Duplicate native-state fresh world'
+                $liveSession=$sid;$liveWorld=$generation
+            }elseif($phase -ceq 'load'){
+                Require ($ready) 'Owned load preceded the prior Ready handoff'
+                $loadCount++
+                Require ((Token $row 'wordWrites') -ceq '0' -and $sessions.Add($sid) -and $worlds.Add($generation)) 'Owned save repaired the flag or reused its old world'
+                $liveSession=$sid;$liveWorld=$generation;$ready=$false
+            }else{
+                Require ($phase -ceq 'boundary' -and $ready) 'Boundary lacks its exact Ready handoff'
+                $boundaryNumber++
+                Require ((Token $row 'wordWrites') -ceq '0' -and $sid -eq $liveSession -and $generation -eq $liveWorld) 'Boundary crossed/repaired native state'
+            }
+            Require ((Token $row 'loadCount') -ceq [string]$loadCount -and (Token $row 'boundary') -ceq [string]$boundaryNumber) 'Native-state load/boundary sequence differs'
+        }
+        for($i=0;$i -lt 4;$i++){
+            $window=@($Lines|Where-Object {$_.Contains('RESCUE_TEST performance-window ') -and (Token $_ 'iteration') -ceq [string]$i})
+            Require ($window.Count -eq 2 -and (Position $ownedLoads[$i]) -lt (Position $window[0])) 'Native-state load is not before its measured windows'
+            $readyForLoad=@($readyRows|Where-Object {(Token $_ 'loadCount') -ceq [string]($i+1)})
+            $opens=@($Lines|Where-Object {$_.Contains('RESCUE_TEST performance-window-open ') -and (Token $_ 'iteration') -ceq [string]$i -and (Token $_ 'run') -ceq $Run})
+            $firstWindow=if($opens.Count){$opens[0]}else{$window[0]}
+            Require ($readyForLoad.Count -eq 1 -and (Position $readyForLoad[0]) -lt (Position $firstWindow)) 'Native-state Ready handoff was not before its measured windows'
+            if($i -lt 3){Require ((Position $window[1]) -lt (Position $ownedLoads[$i+1])) 'Native-state next load preceded old windows'}
+        }
+    }else{
+        Require ($worldRows.Count -eq 0 -and $readyRows.Count -eq 0 -and $baselineRows.Count -eq 0) 'Artificial native-state world cannot qualify as an ordinary baseline'
     }
     $batchCount=[int][Math]::Ceiling($population/32.0)
     $begin=@($Lines|Where-Object {$_.Contains('RESCUE_TEST performance-army-begin ')})
@@ -33,6 +104,13 @@ function Assert-RescuePerformanceLog {
     Require ((Token $begin[0] 'schema') -ceq '1' -and (Token $end[0] 'schema') -ceq '1') 'Unknown manifest schema'
     Require ((Token $begin[0] 'population') -ceq [string]$population -and (Token $begin[0] 'batches') -ceq [string]$batchCount -and
         (Token $begin[0] 'observeArmyMoves') -ieq 'false') 'Expected explicitly selected passive population profile'
+    $stateTokens=[regex]::Matches($begin[0],'(?:^|\s)native-state-fixture=(?<value>\S+)')
+    if($nativeStateFixture){
+        Require ($stateTokens.Count -eq 1 -and $stateTokens[0].Groups['value'].Value -ieq 'true' -and
+            (Token $begin[0] 'baseline') -ceq 'jester-spawn-disabled') 'Manifest lacks the new artificial baseline'
+    }else{
+        Require ($stateTokens.Count -eq 0 -or ($stateTokens.Count -eq 1 -and $stateTokens[0].Groups['value'].Value -ieq 'false')) 'Ordinary manifest conceals a native-state fixture'
+    }
     Require ((Token $end[0] 'count') -ceq [string]$population -and (Token $end[0] 'batches') -ceq [string]$batchCount) 'Incomplete army manifest'
     if($population -gt 1000){
         Require ((Token $begin[0] 'scenario') -ceq $Scenario -and (Token $begin[0] 'walkingPopulation') -ceq '1000' -and
@@ -196,9 +274,9 @@ function Assert-RescuePerformanceLog {
     $terminal=@($Lines|Where-Object {$_ -cmatch ('INGAME_TEST run='+[regex]::Escape($Run)+' result=')})
     Require ($terminal.Count -eq 1 -and $terminal[0] -cmatch ' result=PASS(?:\s|$)') 'Missing exact own terminal PASS'
     Require ((Position $terminal[0]) -gt $cursor) 'Terminal PASS precedes completed performance evidence'
-    return [pscustomobject][ordered]@{Schema=1;Run=$Run;Profile='no-extra-unitmove-demand';Population=$population;WalkingPopulation=1000;Scenario=$Scenario;ManifestBatches=$batchCount;
+    return [pscustomobject][ordered]@{Schema=1;Run=$Run;Profile='no-extra-unitmove-demand';NativeStateFixture=$nativeStateFixture;GeneralPerformanceClaim=$false;Population=$population;WalkingPopulation=1000;Scenario=$Scenario;ManifestBatches=$batchCount;
         ArmyResultCount=$armyResults;CompletedWindows=8;EndpointCompletions=4;Identity=$identity;Qualified=$true;
-        Limitation='Ambient AI; log/pose/endpoints qualify this profile, not higher populations or pure feature overhead'}
+        Limitation=$(if($nativeStateFixture){'Artificial no-new-Jesters world; its separate common-save baseline only; not ordinary-world or general overhead acceptance'}else{'Ambient AI; log/pose/endpoints qualify this profile, not higher populations or pure feature overhead'})}
 }
 
 if($MyInvocation.InvocationName -ne '.'){

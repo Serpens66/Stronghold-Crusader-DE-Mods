@@ -61,7 +61,7 @@ namespace TrappedUnitRescueTest
             RescueCaptureDiagnostics.Owner(owner);
 #endif
             if(tiles.Count==0){before=new List<UnitSnapshot>();return true;}
-            if(!runtime.TryCaptureMutation(tiles,out before,out reason))return false;
+            if(!runtime.TryCaptureMutation(tiles,out before,out reason,owner))return false;
             before.RemoveAll(unit=>unit.Unsupported!=null || owner>0 && unit.Owner!=owner);
             return true;
 #if SERP_DEVDIAG

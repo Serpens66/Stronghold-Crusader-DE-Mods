@@ -91,17 +91,25 @@ namespace TrappedUnitRescueTest
             value == "rescue-auto-commandmoat-nextonly-postmidpoint-on" || value == "rescue-auto-commandmoat-nextonly-postmidpoint-off" ||
             value == "rescue-persistence-parked-on" || value == "rescue-worker-native0save-on" ||
             value == "rescue-diag-health4000-on" ||
+            value == "rescue-diag-nojesters4000-on" || value == "rescue-perf-4000-nojesters-passive-on" ||
             value == "rescue-perf-1000-on" ||
             value == "rescue-perf-1000-passive-on" ||
             value == "rescue-perf-4000-idle1000walk-passive-on" || value == "rescue-perf-9871-idle1000walk-passive-on" ||
             value == "rescue-persistence-on" || value == "rescue-persistence-off" ||
             RescueScenarioSelection.IsMountedKeepPart(value);
-        internal void Stop() { stopped = true; }
+        internal void Stop()
+        {
+            stopped=true;
+#if SERP_DEVDIAG
+            StopNoJestersWorld();
+#endif
+        }
 
         internal IEnumerable<AutomationStep> Steps()
         {
 #if !SERP_DEVDIAG
-            Require(scenario!="rescue-diag-health4000-on","Health event diagnostic profile requires build.bat /devdiag");
+            Require(scenario!="rescue-diag-health4000-on" && scenario!="rescue-diag-nojesters4000-on" && scenario!="rescue-perf-4000-nojesters-passive-on",
+                "Explicit native-state/health diagnostic profiles require build.bat /devdiag");
 #endif
             if (scenario.StartsWith("rescue-editor-",StringComparison.Ordinal))
             {
@@ -133,6 +141,16 @@ namespace TrappedUnitRescueTest
             if (scenario == "rescue-perf-1000-passive-on")
             {
                 foreach (var step in PerformanceSteps(observeArmyMoves:false)) yield return step;
+                yield break;
+            }
+            if(scenario=="rescue-diag-nojesters4000-on" || scenario=="rescue-perf-4000-nojesters-passive-on")
+            {
+#if SERP_DEVDIAG
+                foreach(var step in PerformanceSteps(population:4000,observeArmyMoves:false,
+                    observeHealthEvents:scenario=="rescue-diag-nojesters4000-on"))yield return step;
+#else
+                throw new InvalidOperationException("Native-state test-world profiles require build.bat /devdiag");
+#endif
                 yield break;
             }
             if (scenario=="rescue-diag-health4000-on")
@@ -328,6 +346,11 @@ namespace TrappedUnitRescueTest
         {
             Require(Owns(scenario), "Unowned scenario");
             yield return AutomationWait.Until("fixture main menu before settings",()=>RescueScenarioSeries.MenuReady(run));
+#if SERP_DEVDIAG
+            ArmNoJestersWorld(run);bool noJestersStartCompleted=false;
+            try
+            {
+#endif
             PrepareDeterministicModSettings();
             enable(expectedEnabled); // Only before the mission, never a mid-game setting mutation.
             // The SDK owns the lobby lifetime and invokes preparation only after its roster is ready.
@@ -335,6 +358,11 @@ namespace TrappedUnitRescueTest
             foreach (var wait in run.StartSkirmish(map, new[] { AILords.SK_RAT },
                 peaceTimeMinutes: null, beforeLaunch: ConfigureDeterministicLobby)) yield return wait;
             Require(deterministicLobbyConfigured, "Deterministic lobby was not configured before launch");
+#if SERP_DEVDIAG
+            RequireNoJestersFresh();noJestersStartCompleted=true;
+            }
+            finally{if(!noJestersStartCompleted)StopNoJestersWorld(completing:true);}
+#endif
         }
 
         private IEnumerable<AutomationWait> Prepare(AutomationRun run)

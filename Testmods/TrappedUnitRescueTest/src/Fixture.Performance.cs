@@ -208,7 +208,7 @@ namespace TrappedUnitRescueTest
             log("performance-population run="+proof.RunId+" requested="+population+" physicalBefore="+occupied+" physicalAfter="+PerformanceCensus()+
                 " physicalCapacity="+capacity+" ambientReservation="+proof.AmbientReserve+" freeMarginRequired=64 walkingPopulation=1000 groups="+proof.Groups.Count+" actors="+proof.Actors.Count);
         }
-        private bool IsHigherPerformanceTier()=>scenario=="rescue-diag-health4000-on" || scenario=="rescue-perf-4000-idle1000walk-passive-on" || scenario=="rescue-perf-9871-idle1000walk-passive-on";
+        private bool IsHigherPerformanceTier()=>scenario=="rescue-diag-health4000-on" || scenario=="rescue-diag-nojesters4000-on" || scenario=="rescue-perf-4000-nojesters-passive-on" || scenario=="rescue-perf-4000-idle1000walk-passive-on" || scenario=="rescue-perf-9871-idle1000walk-passive-on";
         private void ConfigurePerformanceLobby(EngineInterface.MultiplayerSetupData setup)
         {
             if(!IsHigherPerformanceTier())return;
@@ -296,6 +296,7 @@ namespace TrappedUnitRescueTest
         {
 #if SERP_DEVDIAG
             proof.HitTrace?.RequireHealthy();
+            CheckNoJestersBoundary(proof);
 #endif
             Require(proof.Actors.Count==proof.Population && proof.ActorIds.Count==proof.Population,"Performance incomplete full-population boundary");
             if(proof.Population>1000)
@@ -398,8 +399,13 @@ namespace TrappedUnitRescueTest
             // save in all four loads. Emit only at setup, never in timing windows.
             Require(proof.Actors.Count==proof.Population && proof.ActorIds.Count==proof.Population,"Performance manifest requires the complete requested initialized tier");
             int batches=(proof.Actors.Count+31)/32;
+            bool nativeStateFixture=false;
+#if SERP_DEVDIAG
+            nativeStateFixture=IsNoJestersProfile();
+#endif
             log("performance-army-begin schema=1 run="+proof.RunId+" population="+proof.Actors.Count+" batches="+batches+
-                " scenario="+scenario+" walkingPopulation=1000 workloadModel=full-idle-1000-walking observeArmyMoves="+(proof.ObserveArmyMoves?"true":"false"));
+                " scenario="+scenario+" walkingPopulation=1000 workloadModel=full-idle-1000-walking observeArmyMoves="+(proof.ObserveArmyMoves?"true":"false")+" native-state-fixture="+nativeStateFixture+
+                " baseline="+(nativeStateFixture?"jester-spawn-disabled":"ordinary-skirmish"));
             for(int batch=0;batch<batches;batch++)
             {
                 int first=batch*32,count=Math.Min(32,proof.Actors.Count-first);var units=new string[count];
@@ -448,6 +454,9 @@ namespace TrappedUnitRescueTest
                 Guid.TryParseExact(saveName.Substring(savePrefix.Length),"N",out actualRun) && actualRun!=Guid.Empty,
                 "Performance owned save does not carry its actual AutomationRun ID");
             proof.RunId=actualRun.ToString("N");
+#if SERP_DEVDIAG
+            BindNoJestersPerformance(proof);
+#endif
             ArmPerformance(proof);string activeLabel=null;ulong identity=0;string saveHash=null;float zoom=PerfectPixelWithZoom.instance.getZoom();
             int referenceCentreX=-1,referenceCentreY=-1;float referenceCameraX=0,referenceCameraY=0,referenceZoom=0;
             try
@@ -478,6 +487,9 @@ namespace TrappedUnitRescueTest
                 for(int iteration=0;iteration<4;iteration++)
                 {
                     proof.Walking=false;proof.PreviousSession=session;proof.Ended=false;
+#if SERP_DEVDIAG
+                    ExpectNoJestersLoad(proof);
+#endif
                     foreach(var wait in PersistenceQuitToMenu(run))yield return wait;
                     proof.Enabled=(iteration&1)!=0;enable(proof.Enabled);proof.Armed=true;proof.Loaded=0;proof.Fault=null;
                     Require(PerformanceHash(proof.Path)==saveHash,"Common ABAB save changed");
@@ -649,7 +661,7 @@ namespace TrappedUnitRescueTest
                 finally
                 {
 #if SERP_DEVDIAG
-                    proof.HitTrace?.Dispose();
+                    try{proof.HitTrace?.Dispose();}finally{StopNoJestersWorld(completing:true);}
 #endif
                 }
             }
