@@ -139,6 +139,27 @@ Grid(new Tile(int.MaxValue, int.MaxValue), size: 26);
 Expect((20, 20), (24, 20), (20, 24), (24, 24));
 Console.WriteLine("PASS: fixed anchor, all drag directions, shrinking, spacing, rectangular footprints and map bounds.");
 
+void CrewGrid(Tile end, int size = 90) =>
+    AreaGrid.Fill(result, anchor, end, 3, 3, size, spaceEveryPlacement: true);
+
+CrewGrid(new Tile(23, 23));
+Expect((20, 20));
+CrewGrid(new Tile(24, 20));
+Expect((20, 20), (24, 20));
+CrewGrid(new Tile(20, 12));
+Expect((20, 20), (20, 16), (20, 12));
+foreach (int dx in new[] { -4, 4 })
+foreach (int dy in new[] { -4, 4 })
+{
+    CrewGrid(new Tile(20 + 2 * dx, 20 + 2 * dy));
+    Expect((20, 20), (20, 20 + dy), (20 + dx, 20 + dy), (20 + dx, 20),
+        (20, 20 + 2 * dy), (20 + dx, 20 + 2 * dy), (20 + 2 * dx, 20 + 2 * dy),
+        (20 + 2 * dx, 20), (20 + 2 * dx, 20 + dy));
+}
+CrewGrid(new Tile(int.MaxValue, int.MaxValue), size: 24);
+Expect((20, 20));
+Console.WriteLine("PASS: crew placements leave one tile between every footprint in both axes.");
+
 if (QuarryLayout.Fill(result, anchor, new Tile(25, 25)))
     throw new InvalidOperationException("A short quarry gesture must use the ordinary single placement.");
 Expect((20, 20));

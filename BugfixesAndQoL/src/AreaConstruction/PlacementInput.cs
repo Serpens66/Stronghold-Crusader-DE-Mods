@@ -429,7 +429,8 @@ namespace BugfixesAndQoL.AreaConstruction
             if (tool == eMappers.MAPPER_KILLING_PIT || NativePlacement.IsFarm(tool))
                 StorageGrid.Fill(grid, start, end, scale, scale, WorldAxisSize);
             else
-                AreaGrid.Fill(grid, start, end, scale, NativePlacement.FootprintHeight(tool, scale), WorldAxisSize);
+                AreaGrid.Fill(grid, start, end, scale, NativePlacement.FootprintHeight(tool, scale), WorldAxisSize,
+                    spaceEveryPlacement: CrewPlacement.Required(tool) != 0);
             eMappers variant = tool;
             foreach (var tile in grid)
             {

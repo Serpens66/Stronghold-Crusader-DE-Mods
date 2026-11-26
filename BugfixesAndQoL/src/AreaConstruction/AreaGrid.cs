@@ -19,7 +19,8 @@ namespace BugfixesAndQoL.AreaConstruction
     {
         // Tile coordinates denote the same footprint reference for all candidates.
         // Enumeration is nearest block first, independent of the final drag extent.
-        internal static void Fill(List<Tile> result, Tile start, Tile end, int width, int height, int mapSize)
+        internal static void Fill(List<Tile> result, Tile start, Tile end, int width, int height, int mapSize,
+            bool spaceEveryPlacement = false)
         {
             result.Clear();
             if (width <= 0 || height <= 0 || mapSize <= 0 || !Inside(start, mapSize))
@@ -33,8 +34,9 @@ namespace BugfixesAndQoL.AreaConstruction
                 return;
             }
 
-            int strideX = 2 * width + 1;
-            int strideY = 2 * height + 1;
+            int blockSize = spaceEveryPlacement ? 1 : 2;
+            int strideX = blockSize * width + 1;
+            int strideY = blockSize * height + 1;
             int blocksX = Math.Abs(dx) / strideX;
             int blocksY = Math.Abs(dy) / strideY;
             int directionX = dx < 0 ? -1 : 1;
@@ -57,9 +59,9 @@ namespace BugfixesAndQoL.AreaConstruction
 
             void AddBlock(int blockX, int blockY)
             {
-                for (int y = 0; y < 2; y++)
+                for (int y = 0; y < blockSize; y++)
                 {
-                    for (int x = 0; x < 2; x++)
+                    for (int x = 0; x < blockSize; x++)
                     {
                         var tile = new Tile(
                             start.X + directionX * (blockX * strideX + x * width),
