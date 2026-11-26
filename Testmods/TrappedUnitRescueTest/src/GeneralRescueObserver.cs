@@ -34,13 +34,40 @@ namespace TrappedUnitRescueTest
             =>TryCapture(context,out before,out _,out reason);
         public bool TryCapture(WorldMutationContext context,out List<UnitSnapshot> before,out IReadOnlyList<RescueTile> plannedWrites,out string reason)
         {
+#if SERP_DEVDIAG
+            long diagnosticStarted=0;
+            Shared.DevDiag.BeginBatch();
+            Shared.DevDiag.Start(ref diagnosticStarted);
+            try
+            {
+#endif
             before=null;plannedWrites=null;
-            if(!footprints.TryPlan(context,out List<RescueTile> tiles,out int owner,out reason))return false;
+            bool planned;List<RescueTile> tiles;int owner;
+#if SERP_DEVDIAG
+            long planStarted=0;Shared.DevDiag.Start(ref planStarted);
+            try
+            {
+#endif
+                planned=footprints.TryPlan(context,out tiles,out owner,out reason);
+#if SERP_DEVDIAG
+            }
+            finally{Shared.DevDiag.StopSpike(ref planStarted,"rescue.capture.plan",2000);}
+#endif
+            if(!planned)return false;
+            Shared.DevDiag.Count("rescue.capture.envelopeTiles",tiles.Count);
             plannedWrites=tiles;
             if(tiles.Count==0){before=new List<UnitSnapshot>();return true;}
             if(!runtime.TryCaptureMutation(tiles,out before,out reason))return false;
             before.RemoveAll(unit=>unit.Unsupported!=null || owner>0 && unit.Owner!=owner);
             return true;
+#if SERP_DEVDIAG
+            }
+            finally
+            {
+                Shared.DevDiag.StopSpike(ref diagnosticStarted,"rescue.capture.total.inclusive",2000);
+                Shared.DevDiag.EndBatch();
+            }
+#endif
         }
         public bool HasChangedTrapCandidate(UnitSnapshot before)=>runtime.HasChangedTrapCandidate(before);
         public bool TryRescue(UnitSnapshot before,string cause,bool resume,out RescueResult result)=>runtime.TryRescue(before,cause,resume,out result);
@@ -296,9 +323,28 @@ namespace TrappedUnitRescueTest
                 }
                 if(!IsCurrent(session,world)){ResetWorld(0);return;}
                 drainedTick=true;lastDrainTick=tick;
+#if SERP_DEVDIAG
+            long replanStarted=0;
+            Shared.DevDiag.Start(ref replanStarted);
+            try
+            {
+#endif
                 ProcessReplans(tick,32);
+#if SERP_DEVDIAG
+            }
+            finally
+            {
+                Shared.DevDiag.StopSpike(ref replanStarted,"rescue.tick.replans",2000);
+            }
+#endif
                 if(!queue.HasWork)return;
                 suppression?.Invoke(true);
+#if SERP_DEVDIAG
+            long recoveryStarted=0;
+            Shared.DevDiag.Start(ref recoveryStarted);
+            try
+            {
+#endif
                 queue.Drain(tick,32,8,candidate=>
                 {
                     if(!IsCurrent(candidate.Identity.SessionId,candidate.Identity.WorldGeneration))
@@ -309,6 +355,13 @@ namespace TrappedUnitRescueTest
                     {Interlocked.Increment(ref rescues);return RescueQueueDecision.Complete;}
                     return result.Status==RescueStatus.NoCandidate ? RescueQueueDecision.Retry : RescueQueueDecision.Reject;
                 });
+#if SERP_DEVDIAG
+            }
+            finally
+            {
+                Shared.DevDiag.StopSpike(ref recoveryStarted,"rescue.tick.recovery",2000);
+            }
+#endif
             }
             finally{try{suppression?.Invoke(false);}finally{Volatile.Write(ref busy,0);}}
         }

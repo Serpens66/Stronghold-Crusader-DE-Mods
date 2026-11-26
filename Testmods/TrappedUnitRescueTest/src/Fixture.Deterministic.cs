@@ -116,6 +116,7 @@ namespace TrappedUnitRescueTest
             Array.Copy(deterministicPlaces,setup.start_keep_location_order,deterministicPlaces.Length);
             setup.peacetime=peaceTimeMinutes;
             setup.advopt_pre_build=0;
+            ConfigurePerformanceLobby(setup);
             // Select exactly the first original Rat plan, independently of localization,
             // custom-lord catalog order or the user's last chosen AIV collection.
             short[] data=AIVLoader.getAIVData(RatLobbyType,0,false,false);

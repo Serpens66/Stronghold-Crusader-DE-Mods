@@ -71,9 +71,15 @@ namespace TrappedUnitRescueTest
             value == "rescue-auto-baker-on" || value == "rescue-auto-baker-off" ||
             value == "rescue-auto-brewer-on" || value == "rescue-auto-brewer-off" ||
             value == "rescue-auto-mason-on" || value == "rescue-auto-mason-off" ||
+            value == "rescue-natural-dig-bank-on" || value == "rescue-natural-dig-bank-off" ||
+            value == "rescue-natural-dig-task-on" || value == "rescue-natural-dig-task-off" ||
+            value == "rescue-natural-fill-bank-on" || value == "rescue-natural-fill-bank-off" ||
             value == "rescue-auto-poleturner-on" || value == "rescue-auto-poleturner-off" ||
+            value == "rescue-auto-smith-on" || value == "rescue-auto-smith-off" ||
+            value == "rescue-auto-armourer-on" || value == "rescue-auto-armourer-off" ||
             value == "rescue-auto-appletree2-on" || value == "rescue-auto-appletree2-off" ||
             value == "rescue-auto-appletree8-on" || value == "rescue-auto-appletree8-off" ||
+            value == "rescue-control-appletree2-on" || value == "rescue-control-appletree8-on" ||
             value == "rescue-auto-idle-on" || value == "rescue-auto-idle-off" ||
             value == "rescue-auto-idlearcher-on" || value == "rescue-auto-idlearcher-off" ||
             value == "rescue-auto-commandmoat-on" || value == "rescue-auto-commandmoat-off" ||
@@ -83,6 +89,7 @@ namespace TrappedUnitRescueTest
             value == "rescue-persistence-parked-on" ||
             value == "rescue-perf-1000-on" ||
             value == "rescue-perf-1000-passive-on" ||
+            value == "rescue-perf-4000-idle1000walk-passive-on" || value == "rescue-perf-9871-idle1000walk-passive-on" ||
             value == "rescue-persistence-on" || value == "rescue-persistence-off" ||
             RescueScenarioSelection.IsMountedKeepPart(value);
         internal void Stop() { stopped = true; }
@@ -99,6 +106,11 @@ namespace TrappedUnitRescueTest
             if (scenario == "rescue-perf-1000-passive-on")
             {
                 foreach (var step in PerformanceSteps(observeArmyMoves:false)) yield return step;
+                yield break;
+            }
+            if (IsHigherPerformanceTier())
+            {
+                foreach(var step in PerformanceSteps(population:scenario=="rescue-perf-4000-idle1000walk-passive-on"?4000:9871,observeArmyMoves:false))yield return step;
                 yield break;
             }
             if (scenario == "rescue-persistence-parked-on")
@@ -141,6 +153,26 @@ namespace TrappedUnitRescueTest
                 foreach (var step in AutomaticMasonSteps()) yield return step;
                 yield break;
             }
+            if (scenario.Contains("-natural-dig-"))
+            {
+                foreach (var step in NaturalMoatWorkSteps()) yield return step;
+                yield break;
+            }
+            if (scenario.Contains("-natural-fill-"))
+            {
+                foreach (var step in NaturalMoatFillSteps()) yield return step;
+                yield break;
+            }
+            if (scenario == "rescue-auto-smith-on" || scenario == "rescue-auto-smith-off")
+            {
+                foreach (var step in AutomaticSmithSteps()) yield return step;
+                yield break;
+            }
+            if (scenario == "rescue-auto-armourer-on" || scenario == "rescue-auto-armourer-off")
+            {
+                foreach (var step in AutomaticArmourerSteps()) yield return step;
+                yield break;
+            }
             if (scenario.Contains("-auto-poleturner-"))
             {
                 foreach (var step in AutomaticPoleturnerSteps()) yield return step;
@@ -154,6 +186,11 @@ namespace TrappedUnitRescueTest
             if (scenario.Contains("-auto-appletree2-") || scenario.Contains("-auto-appletree8-"))
             {
                 foreach (var step in AutomaticAppleTreeSteps()) yield return step;
+                yield break;
+            }
+            if (scenario=="rescue-control-appletree2-on" || scenario=="rescue-control-appletree8-on")
+            {
+                foreach(var step in AppleTreeControlSteps())yield return step;
                 yield break;
             }
             if (scenario.Contains("-auto-oxhome-"))

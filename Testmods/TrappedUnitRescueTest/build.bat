@@ -1,4 +1,5 @@
 @echo off
+rem Build.ps1 delegates source/SDK/DEVDIAG selection to the shared BranchBuild dispatcher.
 set "buildArgs=%*"
 set "buildArgs=%buildArgs:/nopause=-nopause%"
 set "buildArgs=%buildArgs:/noinstall=-noinstall%"

@@ -32,7 +32,11 @@ namespace TrappedUnitRescueTest
             internal string Path,Fault,RunId;
             internal long PreviousSession,LoadedSession;
             internal bool Active,Armed,Ended,Enabled,Walking,ObserveArmyMoves;
-            internal int Loaded,WindowStart,LastCommandTick,Commands,OwnArmyMoves;
+            internal int Loaded,WindowStart,LastCommandTick,Commands,OwnArmyMoves,Population,AmbientReserve,PhysicalCapacity;
+            internal readonly List<Actor> IdleActors=new List<Actor>();
+            internal readonly List<int[]> KeepAreas=new List<int[]>();
+            internal readonly Dictionary<int,uint> TribeGlobals=new Dictionary<int,uint>();
+            internal readonly HashSet<int> PlannedAivTiles=new HashSet<int>();
             internal readonly HashSet<int> ActorIds=new HashSet<int>();
             internal readonly List<Actor> Actors=new List<Actor>();
             internal readonly List<PerformanceGroup> Groups=new List<PerformanceGroup>();
@@ -43,9 +47,10 @@ namespace TrappedUnitRescueTest
         // A single unbound iterator owns all four ordinary save/load transitions.
         private IEnumerable<AutomationStep> PerformanceSteps(int population=1000,int warmupTicks=256,int windowTicks=3600,int speed=40,bool observeArmyMoves=true)
         {
-            Require(population==1000,"Only the first 1000-unit performance tier is currently accepted");
+            Require(population==1000 || population==4000 || population==9871,"Unselected performance tier");
+            Require(population==1000 || !observeArmyMoves,"Higher tiers require the explicit passive profile");
             Require(warmupTicks>=128 && windowTicks>=3600 && (speed==40 || speed==250),"Invalid performance profile");
-            yield return new AutomationStep("performance-1000-identical-save-abab",TimeSpan.FromMinutes(45),
+            yield return new AutomationStep("performance-"+population+"-idle-1000walking-identical-save-abab",TimeSpan.FromMinutes(45),
                 run=>Performance(run,population,warmupTicks,windowTicks,speed,observeArmyMoves),false);
         }
         private void ArmPerformance(PerformanceProof proof)
@@ -145,7 +150,13 @@ namespace TrappedUnitRescueTest
             Plugin.SetGeneralFixtureSession(false);
             int occupied=PerformanceCensus(),capacity=GameUnitManagerAPI.Instance.GetUnitsAsSpan().Length;
             Require(occupied+population+64<=capacity,"Performance population leaves insufficient physical unit-pool headroom");
-            var tiles=GameTileManagerAPI.Instance;int remaining=population;
+            proof.Population=population;proof.PhysicalCapacity=capacity;
+            // Observed ambient peak60 +64 free slots rounds to128. A larger
+            // actual census increases this reservation instead of shrinking the tier.
+            proof.AmbientReserve=population==1000?occupied+64:Math.Max(128,checked(((occupied+64+63)/64)*64));
+            Require(population+proof.AmbientReserve<=capacity,"Requested complete tier exceeds physical capacity plus actual ambient reserve");
+            if(population>1000)PerformanceExtreme(proof,"before-spawn");
+            var tiles=GameTileManagerAPI.Instance;int remaining=1000;
             // Disjoint 28x52 lanes. All geometry enumeration is setup-only.
             for(int y=28;y<800-28 && remaining>0;y+=56)
                 for(int x=16;x<800-16 && remaining>0;x+=32)
@@ -178,12 +189,104 @@ namespace TrappedUnitRescueTest
                     }
                     group.LastX=group.Sample.X;group.LastY=group.Sample.Y;proof.Groups.Add(group);remaining-=count;
                 }
-            Require(remaining==0,"Insufficient genuinely clear connected flat walking lanes for the requested performance population; no partial tier accepted");
-            log("performance-population requested="+population+" physicalBefore="+occupied+" physicalAfter="+PerformanceCensus()+
-                " physicalCapacity="+capacity+" headroomReserved=64 groups="+proof.Groups.Count+" actors="+proof.Actors.Count);
+            Require(remaining==0,"Insufficient genuinely clear connected flat walking lanes for the complete1000 walking cohort; no partial tier accepted");
+            if(population>1000)PerformanceSpawnIdle(proof,population-1000);
+            Require(proof.Actors.Count==population && PerformanceCensus()==occupied+population,"Partial tier or unexpected native spawn census");
+            log("performance-population run="+proof.RunId+" requested="+population+" physicalBefore="+occupied+" physicalAfter="+PerformanceCensus()+
+                " physicalCapacity="+capacity+" ambientReservation="+proof.AmbientReserve+" freeMarginRequired=64 walkingPopulation=1000 groups="+proof.Groups.Count+" actors="+proof.Actors.Count);
+        }
+        private bool IsHigherPerformanceTier()=>scenario=="rescue-perf-4000-idle1000walk-passive-on" || scenario=="rescue-perf-9871-idle1000walk-passive-on";
+        private void ConfigurePerformanceLobby(EngineInterface.MultiplayerSetupData setup)
+        {
+            if(!IsHigherPerformanceTier())return;
+            Require(setup!=null,"Performance Extreme lobby setup unavailable");
+            setup.extreme_troops=1;
+            Require(setup.extreme_troops==1,"Performance Extreme lobby setting rejected");
+            log("performance-extreme-lobby scenario="+scenario+" extremeTroops=1 beforeLaunch=true");
+        }
+        private void PerformanceExtreme(PerformanceProof proof,string boundary)
+        {
+            var setup=EngineInterface.getMultiplayerStartingData();
+            Require(setup!=null && setup.extreme_troops==1,"Higher performance tier requires actual native Extreme mode: "+boundary);
+            log("performance-extreme run="+proof.RunId+" scenario="+scenario+" boundary="+boundary+" extremeTroops=1 publicReadback=true");
+        }
+        private unsafe void PerformanceCaptureIdleExclusions(PerformanceProof proof)
+        {
+            // Resolve concrete live Keep footprints once. The16-tile spacing is
+            // only fixture policy; it is NOT a bound on any future AI building.
+            foreach(int player in new[]{deterministicHuman,deterministicAi})
+            {
+                int id=GamePlayerManagerAPI.Instance.GetPlayerKeepId(player);
+                GameBuilding* keep=null;
+                Require(id>0 && BuildingAccess.TryGetById(id,out keep,out _) && keep!=null,"Performance Keep exclusion unavailable");
+                int left=keep->r_TilePositionXBegin,top=keep->r_TilePositionYBegin;
+                int size=checked((int)keep->r_OccupyTileGridSize);
+                Require(size>0 && size<=32,"Performance Keep footprint invalid");
+                proof.KeepAreas.Add(new[]{left-16,top-16,left+size+16,top+size+16});
+            }
+            var aiv=GameAIVManagerAPI.Instance;
+            Require(aiv.TryGetVillageSlotByPlayerId(deterministicAi,out int slot) &&
+                aiv.TryGetVillageBySlot(slot,out var village) && village->OwnerPlayerId==deterministicAi,"Performance actual AI village unavailable");
+            var steps=aiv.GetBuildSteps(slot);Require(steps.Length==AivVillageState.BUILD_STEP_CAPACITY,"Performance actual AI build-step view invalid");
+            int reads=0;
+            for(int i=0;i<steps.Length;i++)
+            {
+                if(steps[i].State==AivBuildStepState.Inactive)continue;
+                var fields=aiv.GetBuildStepMapTiles(slot,i);
+                Require(fields.Length>0,"Performance active AI build-step has no auditable target tiles");
+                for(int j=0;j<fields.Length;j++)
+                {
+                    Require(++reads<=20000 && fields[j]>=0 && fields[j]<NativeRelocation.TileCapacity,"Performance AI planned-target budget/identity invalid");
+                    proof.PlannedAivTiles.Add(fields[j]);
+                }
+            }
+            log("performance-idle-exclusions keeps="+proof.KeepAreas.Count+" keepSpacingPolicy=16 plannedAivTargets="+proof.PlannedAivTiles.Count+
+                " futureConstructionGuarantee=false boundaryOrdinaryGroundRequired=true");
+        }
+        private unsafe void PerformanceSpawnIdle(PerformanceProof proof,int additional)
+        {
+            PerformanceCaptureIdleExclusions(proof);
+            var tiles=GameTileManagerAPI.Instance;int tribe=0,members=0,remaining=additional;
+            // Setup-only bounded map raster; no commands and no permanent census.
+            for(int y=16;y<784 && remaining>0;y+=2)for(int x=16;x<784 && remaining>0;x+=2)
+            {
+                bool usable=true;
+                foreach(var area in proof.KeepAreas)
+                    if(x>=area[0] && x<=area[2] && y>=area[1] && y<=area[3]){usable=false;break;}
+                if(!usable)continue;
+                foreach(var lane in proof.Groups)
+                    if(x>=lane.X-15 && x<=lane.X+15 && y>=lane.Y-27 && y<=lane.Y+27){usable=false;break;}
+                if(!usable)continue;
+                int height=-1;
+                for(int dy=-1;dy<=1 && usable;dy++)for(int dx=-1;dx<=1;dx++)
+                {
+                    int tile=runtime.Native.Tile(x+dx,y+dy);
+                    if(tile<0 || proof.PlannedAivTiles.Contains(tile) || !runtime.Native.OrdinaryGround(tile) || !tiles.IsTileWalkableAndUnoccupied(tile) ||
+                        tiles.GetTileBuildingId(tile)!=0 || (tiles.GetTilePropertyFlag(tile)&TilePropertyFlag.IsTree)!=0){usable=false;break;}
+                    int h=tiles.GetTileHeight(tile);if(height>=0 && h!=height){usable=false;break;}height=h;
+                }
+                if(!usable)continue;
+                if(members==0){tribe=checked((int)GameTribeManagerAPI.Instance.Create(owner));Require(tribe>0,"Performance idle shared tribe exhausted");}
+                int id=checked((int)GameUnitManagerAPI.Instance.CreateUnitLocal(owner,owner,x,y,height,eChimps.CHIMP_TYPE_SPEARMAN));
+                GameUnit* unit=null;
+                Require(id>0 && UnitAccess.TryGetById(id,out unit,out _) && unit!=null && unit->r_GlobalId!=0 &&
+                    unit->r_UnitChimp==eChimps.CHIMP_TYPE_SPEARMAN && unit->r_CurrentTilePositionX==x && unit->r_CurrentTilePositionY==y,
+                    "Performance idle spawn refused/projected/type changed; partial tier rejected");
+                Require(GameTribeManagerAPI.Instance.AssignUnit(tribe,id) && unit->r_TribeId==tribe,"Performance idle native tribe assignment failed");
+                var actor=new Actor{Id=id,Global=unit->r_GlobalId,Type=eChimps.CHIMP_TYPE_SPEARMAN,Tribe=tribe,X=x,Y=y,SourceX=x,SourceY=y};
+                Require(proof.ActorIds.Add(id),"Performance idle native spawn reused an ID");proof.Actors.Add(actor);proof.IdleActors.Add(actor);
+                remaining--;members=(members+1)%32;
+            }
+            Require(remaining==0,"Insufficient genuinely free flat compact idle area; complete requested tier rejected");
         }
         private unsafe ulong PerformanceBoundary(PerformanceProof proof,bool remember)
         {
+            Require(proof.Actors.Count==proof.Population && proof.ActorIds.Count==proof.Population,"Performance incomplete full-population boundary");
+            if(proof.Population>1000)
+            {
+                Require(PerformanceCensus()+64<=proof.PhysicalCapacity,"Performance actual ambient growth exhausted the reserved free margin");
+                foreach(var actor in proof.IdleActors)PerformanceAtSavedSource(actor);
+            }
             ulong hash=14695981039346656037UL;
             foreach(var actor in proof.Actors)
             {
@@ -194,6 +297,17 @@ namespace TrappedUnitRescueTest
                     Require(unit->r_PathPlanStateBitFlags==0 && unit->r_MovementSubstep==8 && unit->r_CurrentTilePositionX==unit->r_NextTilePositionX2 &&
                         unit->r_CurrentTilePositionY==unit->r_NextTilePositionY2,"Performance common save requires genuinely initialized idle actors");
                     actor.Health=unit->r_CurrentHealth;
+                }
+                if(proof.Population>1000)
+                {
+                    if(remember && !proof.TribeGlobals.ContainsKey(actor.Tribe))
+                    {
+                        Require(runtime.Native.TryTribeGlobal(actor.Tribe,out uint initialGlobal) && initialGlobal!=0,"Performance tribe lifetime unavailable");
+                        proof.TribeGlobals.Add(actor.Tribe,initialGlobal);
+                    }
+                    Require(proof.TribeGlobals.TryGetValue(actor.Tribe,out uint savedGlobal) &&
+                        runtime.Native.TryTribeGlobal(actor.Tribe,out uint liveGlobal) && savedGlobal==liveGlobal &&
+                        runtime.Native.JobDword(unit,0x93C)==savedGlobal,"Performance tribe lifetime or actor's native tribe binding changed");
                 }
                 Require(unit->r_CurrentHealth==actor.Health,"Performance actor health changed");
                 CheckActor(actor,true);
@@ -206,26 +320,28 @@ namespace TrappedUnitRescueTest
         }
         private unsafe void PerformanceAtSavedSources(PerformanceProof proof)
         {
-            foreach(var actor in proof.Actors)
-            {
-                var unit=Resolve(actor);
-                Require(unit->r_CurrentTilePositionX==actor.SourceX && unit->r_CurrentTilePositionY==actor.SourceY &&
-                    unit->r_NextTilePositionX2==actor.SourceX && unit->r_NextTilePositionY2==actor.SourceY &&
-                    unit->r_PathPlanStateBitFlags==0 && unit->r_MovementSubstep==8,
-                    "Performance common-save/idle actor changed its immutable saved source pose");
-                int sourceTile=runtime.Native.Tile(actor.SourceX,actor.SourceY);
-                Require(sourceTile>=0 && runtime.Native.OrdinaryGround(sourceTile),
-                    "Performance saved idle source is no longer ordinary ground: unit="+actor.Id+"/"+actor.Global+" tile="+sourceTile);
-            }
+            foreach(var actor in proof.Actors)PerformanceAtSavedSource(actor);
         }
+        private unsafe void PerformanceAtSavedSource(Actor actor)
+        {
+            var unit=Resolve(actor);
+            Require(unit->r_CurrentTilePositionX==actor.SourceX && unit->r_CurrentTilePositionY==actor.SourceY &&
+                unit->r_NextTilePositionX2==actor.SourceX && unit->r_NextTilePositionY2==actor.SourceY &&
+                unit->r_PathPlanStateBitFlags==0 && unit->r_MovementSubstep==8,
+                "Performance common-save/idle actor changed its immutable saved source pose");
+            int sourceTile=runtime.Native.Tile(actor.SourceX,actor.SourceY);
+            Require(sourceTile>=0 && runtime.Native.OrdinaryGround(sourceTile),
+                "Performance saved idle source is no longer ordinary ground: unit="+actor.Id+"/"+actor.Global+" tile="+sourceTile);
+        }
+
         private void PerformanceManifest(PerformanceProof proof,ulong identity)
         {
             // The same initialized lifetimes are restored from the one ordinary
             // save in all four loads. Emit only at setup, never in timing windows.
-            Require(proof.Actors.Count==1000 && proof.ActorIds.Count==1000,"Performance manifest requires the complete initialized1000-unit tier");
+            Require(proof.Actors.Count==proof.Population && proof.ActorIds.Count==proof.Population,"Performance manifest requires the complete requested initialized tier");
             int batches=(proof.Actors.Count+31)/32;
             log("performance-army-begin schema=1 run="+proof.RunId+" population="+proof.Actors.Count+" batches="+batches+
-                " observeArmyMoves="+(proof.ObserveArmyMoves?"true":"false"));
+                " scenario="+scenario+" walkingPopulation=1000 workloadModel=full-idle-1000-walking observeArmyMoves="+(proof.ObserveArmyMoves?"true":"false"));
             for(int batch=0;batch<batches;batch++)
             {
                 int first=batch*32,count=Math.Min(32,proof.Actors.Count-first);var units=new string[count];
@@ -331,6 +447,7 @@ namespace TrappedUnitRescueTest
                         " cameraY="+PerformanceNumber(loadedCameraY)+" zoom="+PerformanceNumber(loadedZoom)+" rotationApplied=true referencePendingWarmup=true");
                     run.InSimulation(run.CurrentMission,()=>{
                         Require(GameTileManagerAPI.Instance.GetCurrentMapSize()==800 && Plugin.GeneralObserver.IsActive==proof.Enabled,"Performance loaded map/settings mismatch");
+                        if(population>1000)PerformanceExtreme(proof,"load-"+iteration);
                         Require(PerformanceBoundary(proof,false)==identity,"Performance same-save identity checksum differs");
                         PerformanceAtSavedSources(proof);probe.Validate();return true;
                     });
@@ -391,9 +508,9 @@ namespace TrappedUnitRescueTest
                             var observer=Plugin.GeneralObserver;
                             if(proof.ObserveArmyMoves)Require(proof.OwnArmyMoves==0,"Measured performance army received an own recovery call");
                             if(workload==1)foreach(var group in proof.Groups)Require(group.Progress,"A shared walking group's fixed sample made no physical progress");
-                            log("performance-window iteration="+iteration+" enabled="+proof.Enabled+" workload="+(workload==0?"idle":"walking")+
+                            log("performance-window run="+proof.RunId+" iteration="+iteration+" enabled="+proof.Enabled+" workload="+(workload==0?"idle":"walking")+
                                 " startTick="+start+" endTick="+end+" advancingTicks="+unchecked((uint)(end-start))+" warmupTicks="+warmupTicks+
-                                " requestedPopulation="+population+" physicalStart="+physical+" physicalEnd="+PerformanceCensus()+" identity="+identity+
+                                " requestedPopulation="+population+" scenario="+scenario+" walkingPopulation=1000 workloadModel=full-idle-1000-walking physicalStart="+physical+" physicalEnd="+PerformanceCensus()+" identity="+identity+
                                 " ambientAi=true ordinaryGroupCommands="+proof.Commands+" armyObservation="+(proof.ObserveArmyMoves?"final-unitmove":"passive-runtime-log")+
                                 " ownArmyRecoveryCalls="+(proof.ObserveArmyMoves?proof.OwnArmyMoves.ToString(CultureInfo.InvariantCulture):"unobserved")+
                                 " captureDelta="+(observer.CaptureCount-captures)+" attemptDelta="+(observer.AttemptCount-attempts)+" rescueDelta="+(observer.RescueCount-rescues)+" "+summary);return true;
@@ -416,7 +533,7 @@ namespace TrappedUnitRescueTest
                     run.InSimulation(run.CurrentMission,()=>{
                         foreach(var goal in endpoints)Require(GroupMemberArrived(goal),"Performance fixed walking sample did not reach its actual native endpoint");
                         Require(PerformanceBoundary(proof,false)==identity,"Performance endpoint identity changed");
-                        log("performance-endpoints iteration="+iteration+" nativeSampleGoalsArrived="+endpoints.Count+" outsideMeasuredWindow=true");return true;
+                        log("performance-endpoints run="+proof.RunId+" iteration="+iteration+" nativeSampleGoalsArrived="+endpoints.Count+" outsideMeasuredWindow=true");return true;
                     });
                 }
             }

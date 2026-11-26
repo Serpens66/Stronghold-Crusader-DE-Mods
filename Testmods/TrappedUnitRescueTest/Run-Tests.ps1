@@ -193,7 +193,7 @@ TextureInventory = false
         & (Join-Path $workspace 'Shared/Tools/Automation/Invoke-InGameTest.ps1') -GameDir $game -ModGuid TrappedUnitRescueTest_Serp `
             -ModPackage (Join-Path $PSScriptRoot 'BepInEx/plugins/TrappedUnitRescueTest_Serp') -ApiPluginPackage $api -ApiPatcherPackage $patcher `
             -PluginLayout $layoutPath -Scenario $requestScenario -OutputDirectory $evidence -TimeoutSeconds $TimeoutSeconds -HiddenDesktop
-        if($Scenarios -ccontains 'rescue-perf-1000-passive-on'){
+        if(@($Scenarios|Where-Object {$_ -cmatch '^rescue-perf-(1000|4000-idle1000walk|9871-idle1000walk)-passive-on$'}).Count){
             # The generic runner has closed the process, flushed/copied the log
             # and restored its transaction. Qualify this separate passive profile
             # before reporting success; outer config restore still runs on failure.
@@ -206,7 +206,7 @@ TextureInventory = false
                 if($match.Success){$match.Groups['run'].Value}
             })
             if($terminal.Count -ne 1){throw 'Passive performance lacks the exact archived terminal run identity.'}
-            & (Join-Path $PSScriptRoot 'Test-PerformanceLog.ps1') -LogPath $savedLog -ExpectedRun $terminal[0] -OutputPath (Join-Path $evidence 'performance-validation.json')
+            & (Join-Path $PSScriptRoot 'Test-PerformanceLog.ps1') -LogPath $savedLog -ExpectedRun $terminal[0] -ExpectedScenario $Scenarios[0] -OutputPath (Join-Path $evidence 'performance-validation.json')
         }
     }
     catch{$failed=$true;throw}

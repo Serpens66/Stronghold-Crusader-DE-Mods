@@ -47,6 +47,7 @@ namespace TrappedUnitRescueTest
         {
             if (initialized) return;
             initialized = true; instance = this; log = Logger; settings = new Settings();
+            Shared.DevDiag.Attach(log);
             startupThread = Thread.CurrentThread.ManagedThreadId;
             configuredMap = Config.Bind("Fixture", "Map", "4spielerkarte.map", "Disposable local Skirmish map; suitability is checked before each scenario.").Value;
             configuredPeaceTime = Config.Bind("Fixture", "PeaceTimeMinutes", 60, "Explicit peace time for the disposable test world.").Value;
@@ -155,6 +156,13 @@ namespace TrappedUnitRescueTest
             if(!settings.EnableMod || !settings.EnableExperimentalRescue)idleEscapes?.Clear();
             if(workers==null || (generalObserver.PendingCount==0 && workers.Supervisor.Ledger.Count==0 && idleEscapes.Count==0) || !workers.AdmitTick(tick))return;
             if(!UnitMoveEvents.IsAvailable){generalObserver.ClearPending();idleEscapes.Clear();return;}
+#if SERP_DEVDIAG
+            long diagnosticStarted=0;
+            Shared.DevDiag.BeginBatch();
+            Shared.DevDiag.Start(ref diagnosticStarted);
+            try
+            {
+#endif
             generalObserver?.Tick(tick);
             long completed=idleEscapes.CompletedCount;
             idleEscapes.Advance(unchecked((uint)workers.TickValue));
@@ -162,8 +170,25 @@ namespace TrappedUnitRescueTest
             if(workers.Supervisor.Ledger.Count==0 || !workers.Ready || !settings.EnableMod || !settings.EnableExperimentalRescue)return;
             bool fixtureScope=Volatile.Read(ref fixtureActive)!=0 && Volatile.Read(ref generalFixture)==0;
             if(fixtureScope)SetSuppression(true);else SetGeneralSuppression(true);
+#if SERP_DEVDIAG
+            long supervisorStarted=0;Shared.DevDiag.Start(ref supervisorStarted);
+#endif
             try{workers.Supervisor.Tick(workers.TickValue,32,4);}
-            finally{if(fixtureScope)SetSuppression(false);else SetGeneralSuppression(false);}
+            finally
+            {
+#if SERP_DEVDIAG
+                Shared.DevDiag.StopSpike(ref supervisorStarted,"rescue.tick.supervisor",2000);
+#endif
+                if(fixtureScope)SetSuppression(false);else SetGeneralSuppression(false);
+            }
+#if SERP_DEVDIAG
+            }
+            finally
+            {
+                Shared.DevDiag.StopSpike(ref diagnosticStarted,"rescue.tick.total.inclusive",2000);
+                Shared.DevDiag.EndBatch();
+            }
+#endif
         }
         private static bool LocalModeAllowed(MissionContext current)=>current!=null && !current.Mode.IsRealMultiplayer &&
             !current.Mode.HasConflictingCustomizedOrigin && current.Mode.Kind!=APIShared.GameModes.GameModeKind.Unknown;

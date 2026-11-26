@@ -1,0 +1,24 @@
+{
+  "ActiveFilesChanged": false,
+  "Compiled": false,
+  "GameExecuted": false,
+  "Scenario": "rescue-loadcache",
+  "Files": [
+    {
+      "Stage": "LoadCacheAsset.cs.stage",
+      "Target": "Testmods/TrappedUnitRescueTest/LoadCacheAsset/LoadCacheAsset.cs"
+    },
+    {
+      "Stage": "LoadCacheAsset.csproj.stage",
+      "Target": "Testmods/TrappedUnitRescueTest/LoadCacheAsset/LoadCacheAsset.csproj"
+    },
+    {
+      "Stage": "Fixture.AssemblyLoadCache.cs.stage",
+      "Target": "Testmods/TrappedUnitRescueTest/src/Fixture.AssemblyLoadCache.cs"
+    }
+  ],
+  "AdditionalTargetedPatchFiles": [
+    "Testmods/TrappedUnitRescueTest/src/Fixture.cs",
+    "Testmods/TrappedUnitRescueTest/TrappedUnitRescueTest.csproj"
+  ]
+}

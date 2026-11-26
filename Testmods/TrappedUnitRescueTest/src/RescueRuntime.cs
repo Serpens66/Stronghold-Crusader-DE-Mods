@@ -107,9 +107,29 @@ namespace TrappedUnitRescueTest
         internal bool TryCaptureMutation(IList<RescueTile> changed,out List<UnitSnapshot> before,out string reason)
         {
             before=new List<UnitSnapshot>();
+            List<RescueDiscoveryUnit> occupants;
+#if SERP_DEVDIAG
+            long discoveryStarted=0;
+            Shared.DevDiag.Start(ref discoveryStarted);
+            try
+            {
+#endif
             if(!RescueDiscovery.TryCollect(changed,native.Tile,native.Head,ReadDiscoveryUnit,
                 new RescueDiscoveryBudget(4096,16384,512,NativeRelocation.MaximumUnitId,NativeRelocation.TileCapacity),
-                out var occupants,out reason))return false;
+                out occupants,out reason))return false;
+#if SERP_DEVDIAG
+            }
+            finally
+            {
+                Shared.DevDiag.StopSpike(ref discoveryStarted,"rescue.capture.discovery",2000);
+            }
+#endif
+#if SERP_DEVDIAG
+            long snapshotsStarted=0;
+            Shared.DevDiag.Start(ref snapshotsStarted);
+            try
+            {
+#endif
             var affected=new HashSet<int>();foreach(var tile in changed)affected.Add(tile.TileId);
             foreach(var occupant in occupants)
             {
@@ -125,6 +145,13 @@ namespace TrappedUnitRescueTest
                     snapshot.Candidates.Insert(0,new RescueCandidate {X=snapshot.X,Y=snapshot.Y,Tile=snapshot.TileId,Distance=0});
                 before.Add(snapshot);
             }
+#if SERP_DEVDIAG
+            }
+            finally
+            {
+                Shared.DevDiag.StopSpike(ref snapshotsStarted,"rescue.capture.snapshots",2000);
+            }
+#endif
             return true;
         }
         private bool ReadDiscoveryUnit(int id,out RescueDiscoveryUnit record)
