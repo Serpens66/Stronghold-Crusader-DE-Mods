@@ -294,3 +294,33 @@ consumer. Reading only the low SDK ammo byte is also invalid:GameUnit+35E is
 a signed16-bit native value spanning both SDK byte fields.
 Full call/branch, stack, identity and counterexample audit:
 [automatic ammunition source](../../../../../Testmods/AIMarketOverbuyDiagnostic/Findings/AutoAmmoSourceAudit.md).
+
+## Resource extraction can bypass zero caps on the first building [Vanilla facts]
+
+Rechecked 2026-11-26 on the native hash above. The managed LORDJSON transfer and native
+`DLL_SetExtendedLordConfig` at RVA `0x87350` preserve the extraction values. In the
+active AIC the ratios at `0x50..0x5C` are in wood, stone, iron, pitch order.
+The caps at `0x60..0x6C` are in stone, iron, wood, pitch order.
+
+Native construction controller `0x539B0` dispatches through the following checks.
+Each rejects a nonpositive ratio before the count-dependent branch. Each checks
+the cap only when its current building count is positive, so a zero cap by itself
+still permits one building.
+
+| Resource | Check RVA | Construction RVA |
+| --- | --- | --- |
+| Wood | `0x2E1E0` | `0x51540` |
+| Stone | `0x2E0D0` | `0x51270` |
+| Iron | `0x2DC80` | `0x50E00` |
+| Pitch | `0x2DF10` | `0x51190` |
+
+The positive-ratio path still needs its resource, workforce and placement checks.
+The stone predicate can admit the first quarry above 15 population even when the
+population-per-quarry test fails. The separate ox tether check at `0x2DD30` uses
+an existing quarry and resource demand before allowing construction at `0x50F90`.
+
+In a DoNothing skirmish on 4spielerkarte, positive ratios with zero caps produced
+one woodcutter, quarry and pitch digger. The tested start did not demonstrate iron
+mine creation. Setting all four ratios to zero suppressed these buildings in the
+follow-up. Improved Hunters was disabled in the follow-up because its automatic
+hunter's hut follows a separate mod path.

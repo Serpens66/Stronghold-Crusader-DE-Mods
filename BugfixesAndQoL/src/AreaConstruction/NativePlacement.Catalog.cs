@@ -21,6 +21,13 @@ namespace BugfixesAndQoL.AreaConstruction
         {
             switch (mapper)
             {
+                case eMappers.MAPPER_TUNNEL_CONSTRUCTION: return 136;
+                case eMappers.MAPPER_CATAPULT:
+                case eMappers.MAPPER_TREBUCHET:
+                case eMappers.MAPPER_SIEGE_TOWER:
+                case eMappers.MAPPER_BATTERING_RAM:
+                case eMappers.MAPPER_PORTABLE_SHIELD:
+                case eMappers.MAPPER_ARAB_BALLISTA: return 161;
                 case eMappers.MAPPER_HUNTER: return 560;
                 case eMappers.MAPPER_OXENBASE: return 355;
                 case eMappers.MAPPER_STABLES: return 569;

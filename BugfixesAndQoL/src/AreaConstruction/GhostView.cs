@@ -10,7 +10,6 @@ namespace BugfixesAndQoL.AreaConstruction
     {
         private static readonly Color Allowed = new Color(1f, 1f, 1f, 0.59f);
         private static readonly Color Blocked = new Color(0.78f, 0.28f, 0.28f, 0.76f);
-        private static readonly Color CrewGround = new Color(0.62f, 1f, 0.65f, 0.8f);
         private static readonly Color PileGround = new Color(1f, 0.79f, 0.48f, 0.85f);
         private readonly List<SpriteRenderer> sprites = new List<SpriteRenderer>();
         private readonly Dictionary<Tilemap, TilemapRenderer> rows = new Dictionary<Tilemap, TilemapRenderer>();
@@ -38,15 +37,14 @@ namespace BugfixesAndQoL.AreaConstruction
 
             var file = NativePlacement.SpriteFile(tool);
             bool farm = NativePlacement.IsFarm(tool);
-            bool crewFootprint = CrewPlacement.Required(tool) != 0;
             int height = NativePlacement.FootprintHeight(tool, scale);
             Camera camera = Camera.main;
             int shown = 0;
             foreach (var site in sites)
             {
-                if (site.Frame <= 0 && !crewFootprint)
+                if (site.Frame <= 0)
                     continue;
-                Color tint = site.Buildable ? (crewFootprint ? CrewGround : Allowed) : Blocked;
+                Color tint = site.Buildable ? Allowed : Blocked;
                 int cornerX = site.Cursor.X - scale / 2;
                 int cornerY = site.Cursor.Y - scale / 2;
                 for (int y = 0; y < height; y++)
@@ -58,11 +56,7 @@ namespace BugfixesAndQoL.AreaConstruction
                             continue;
 
                         Sprite sprite;
-                        if (crewFootprint)
-                        {
-                            sprite = tile.tileImage;
-                        }
-                        else if (site.PreviewTiles != null)
+                        if (site.PreviewTiles != null)
                         {
                             int token = site.PreviewTiles[y * scale + x];
                             if (token == 0)

@@ -212,7 +212,7 @@ namespace BugfixesAndQoL.AreaConstruction
                 int footprint = BuildingScales.GetScale(selected);
                 int frame = native.Frame(selected, player);
                 if ((uint)(footprint - 1) >= NativePlacement.MaximumFootprint ||
-                    (frame <= 0 && CrewPlacement.Required(selected) == 0) || !native.Begin(selected, player, isEditor) ||
+                    frame <= 0 || !native.Begin(selected, player, isEditor) ||
                     (NativePlacement.IsStorage(selected) && !native.Reserve(selected, player, isEditor, pointer, footprint, ref frame)))
                     return false;
 

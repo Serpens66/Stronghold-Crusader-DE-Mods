@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.246",
+  "Version": "1.0.247",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.4",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,12 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.247",
+      "Changes": [
+        "Split Keep crenels crossable into separate Human and AI (+Editor) host options. Human is on by default. AI (+Editor) is off by default and covers all walls in the map editor."
+      ]
+    },
     {
       "Version": "1.0.246",
       "Changes": [
