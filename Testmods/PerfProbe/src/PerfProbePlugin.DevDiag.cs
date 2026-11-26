@@ -36,6 +36,8 @@ namespace PerfProbe
             PerfProbeInputMarks.BindConfig(config);
             PerfProbeExtras.BindConfig(config);
             PerfProbeThreadSampler.BindConfig(config);
+            PerfProbeSimSampler.LongRunFallback = config.Bind("Sampler", "LongRunFallback", true,
+                "Start the long-run sampling fallback when the regular sampler is disabled. Disable both for timing-only measurements.").Value;
             // The sampler starts in Awake to cover plugin startup; DevDiag output needs the logger now.
             // Default: start only after plugin startup (120 rendered frames). Sampling the main thread
             // during plugin loading hung the game start several times on 2026-10-23 (see

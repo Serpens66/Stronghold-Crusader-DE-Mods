@@ -23,6 +23,7 @@ Add-Type -Path @(
     (Join-Path $probeRoot 'src\PerfProbeLockHistory.DevDiag.cs'),
     (Join-Path $probeRoot 'src\PerfProbeRunTiming.DevDiag.cs'),
     (Join-Path $probeRoot 'src\PerfProbeNativeDurations.DevDiag.cs'),
+    (Join-Path $probeRoot 'src\PerfProbeSimSampler.DevDiag.cs'),
     (Join-Path $probeRoot 'src\PerfProbeAnalysisBuffers.DevDiag.cs'),
     (Join-Path $probeRoot 'src\PerfProbeSampleHistory.DevDiag.cs'),
     (Join-Path $probeRoot 'src\PerfProbeCadence.DevDiag.cs'),

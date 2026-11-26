@@ -60,6 +60,7 @@ namespace TrappedUnitRescueTest
             value == "rescue-auto-worker-on" || value == "rescue-auto-worker-off" ||
             value == "rescue-auto-ox-on" || value == "rescue-auto-ox-off" ||
             value == "rescue-auto-bridge-on" || value == "rescue-auto-bridge-off" ||
+            value == "rescue-auto-aiwall-on" || value == "rescue-auto-aiwall-off" ||
             value == "rescue-auto-next-on" || value == "rescue-auto-next-off" ||
             value == "rescue-auto-group-on" || value == "rescue-auto-group-off" ||
             value == "rescue-auto-oxhome-on" || value == "rescue-auto-oxhome-off" ||
@@ -67,6 +68,12 @@ namespace TrappedUnitRescueTest
             value == "rescue-auto-applestep-on" || value == "rescue-auto-applestep-off" ||
             value == "rescue-auto-applestep-cargo-on" || value == "rescue-auto-applestep-cargo-off" ||
             value == "rescue-auto-miller-on" || value == "rescue-auto-miller-off" ||
+            value == "rescue-auto-baker-on" || value == "rescue-auto-baker-off" ||
+            value == "rescue-auto-brewer-on" || value == "rescue-auto-brewer-off" ||
+            value == "rescue-auto-mason-on" || value == "rescue-auto-mason-off" ||
+            value == "rescue-auto-poleturner-on" || value == "rescue-auto-poleturner-off" ||
+            value == "rescue-auto-appletree2-on" || value == "rescue-auto-appletree2-off" ||
+            value == "rescue-auto-appletree8-on" || value == "rescue-auto-appletree8-off" ||
             value == "rescue-auto-idle-on" || value == "rescue-auto-idle-off" ||
             value == "rescue-auto-idlearcher-on" || value == "rescue-auto-idlearcher-off" ||
             value == "rescue-auto-commandmoat-on" || value == "rescue-auto-commandmoat-off" ||
@@ -74,6 +81,8 @@ namespace TrappedUnitRescueTest
             value == "rescue-auto-commandmoat-nextonly-premidpoint-on" || value == "rescue-auto-commandmoat-nextonly-premidpoint-off" ||
             value == "rescue-auto-commandmoat-nextonly-postmidpoint-on" || value == "rescue-auto-commandmoat-nextonly-postmidpoint-off" ||
             value == "rescue-persistence-parked-on" ||
+            value == "rescue-perf-1000-on" ||
+            value == "rescue-perf-1000-passive-on" ||
             value == "rescue-persistence-on" || value == "rescue-persistence-off" ||
             RescueScenarioSelection.IsMountedKeepPart(value);
         internal void Stop() { stopped = true; }
@@ -82,6 +91,16 @@ namespace TrappedUnitRescueTest
         {
             yield return new AutomationStep("skirmish", TimeSpan.FromSeconds(240), Start);
             yield return new AutomationStep("prepare", TimeSpan.FromSeconds(90), Prepare, true);
+            if (scenario == "rescue-perf-1000-on")
+            {
+                foreach (var step in PerformanceSteps()) yield return step;
+                yield break;
+            }
+            if (scenario == "rescue-perf-1000-passive-on")
+            {
+                foreach (var step in PerformanceSteps(observeArmyMoves:false)) yield return step;
+                yield break;
+            }
             if (scenario == "rescue-persistence-parked-on")
             {
                 foreach (var step in ParkedPersistenceSteps()) yield return step;
@@ -107,9 +126,34 @@ namespace TrappedUnitRescueTest
                 foreach (var step in AutomaticMillerSteps()) yield return step;
                 yield break;
             }
+            if (scenario.Contains("-auto-baker-"))
+            {
+                foreach (var step in AutomaticBakerSteps()) yield return step;
+                yield break;
+            }
+            if (scenario.Contains("-auto-brewer-"))
+            {
+                foreach (var step in AutomaticBrewerSteps()) yield return step;
+                yield break;
+            }
+            if (scenario.Contains("-auto-mason-"))
+            {
+                foreach (var step in AutomaticMasonSteps()) yield return step;
+                yield break;
+            }
+            if (scenario.Contains("-auto-poleturner-"))
+            {
+                foreach (var step in AutomaticPoleturnerSteps()) yield return step;
+                yield break;
+            }
             if (scenario.Contains("-auto-applestep-"))
             {
                 foreach (var step in AutomaticAppleStepSteps()) yield return step;
+                yield break;
+            }
+            if (scenario.Contains("-auto-appletree2-") || scenario.Contains("-auto-appletree8-"))
+            {
+                foreach (var step in AutomaticAppleTreeSteps()) yield return step;
                 yield break;
             }
             if (scenario.Contains("-auto-oxhome-"))
@@ -130,6 +174,11 @@ namespace TrappedUnitRescueTest
             if (scenario.Contains("-auto-bridge-"))
             {
                 foreach (var step in AutomaticBridgeSteps()) yield return step;
+                yield break;
+            }
+            if (scenario.Contains("-auto-aiwall-"))
+            {
+                foreach (var step in AutomaticWallSteps()) yield return step;
                 yield break;
             }
             if (scenario.Contains("-auto-worker-"))

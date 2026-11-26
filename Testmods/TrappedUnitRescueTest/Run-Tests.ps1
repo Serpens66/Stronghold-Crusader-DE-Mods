@@ -11,6 +11,7 @@ param(
     [string]$BugfixesPackage,
     [string]$PathfindingPackage,
     [string]$CastlePlannerPackage,
+    [string]$PerfProbePackage,
     [ValidateRange(60,86400)][int]$TimeoutSeconds=18000,
     [string]$GameDir='E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition',
     [switch]$SkipBuild,
@@ -68,6 +69,10 @@ if(!$owns.Success){throw 'Cannot verify Fixture.Owns declaration; update runner 
 $allowed=@([regex]::Matches($owns.Groups['body'].Value,'value\s*==\s*"(?<name>rescue-[a-z0-9-]+)"') | ForEach-Object {$_.Groups['name'].Value})
 if(!$allowed.Count){throw 'No declared fixture scenarios.'}
 foreach($scenario in $Scenarios){if($scenario -cnotin $allowed){throw "Unknown or unwired scenario: $scenario"}}
+if(@($Scenarios | Where-Object {$_.StartsWith('rescue-perf-',[StringComparison]::Ordinal)}).Count){
+    if(!$PerfProbePackage){throw 'Performance scenarios require the explicit diagnostic PerfProbe package.'}
+    if($Scenarios.Count -ne 1){throw 'Run one performance scenario per transaction; its ABAB members share one run-owned save.'}
+}
 $game=[IO.Path]::GetFullPath($GameDir);$plugins=Join-Path $game 'BepInEx/plugins'
 $api=[IO.Path]::GetFullPath($ApiPluginPackage);$patcher=[IO.Path]::GetFullPath($ApiPatcherPackage)
 foreach($source in @($api,$patcher)){
@@ -91,9 +96,10 @@ $packages=[ordered]@{ '000shcdese'=[IO.Path]::GetFullPath($ExtenderPackage) }
 if($Layout -ne 'Minimal'){$packages['fixes']=[IO.Path]::GetFullPath($FixesPackage)}
 if($Layout -in @('Integrated','Planner')){$packages['BugfixesAndQoL_Serp']=[IO.Path]::GetFullPath($BugfixesPackage);$packages['Pathfinding_Serp']=[IO.Path]::GetFullPath($PathfindingPackage)}
 if($Layout -eq 'Planner'){$packages['CastlePlanner_Serp']=[IO.Path]::GetFullPath($CastlePlannerPackage)}
+if($PerfProbePackage){$packages['PerfProbe_Serp']=[IO.Path]::GetFullPath($PerfProbePackage)}
 foreach($package in $packages.GetEnumerator()){
     if(![IO.Directory]::Exists($package.Value)){throw "Required comparison package absent: $($package.Value)"}
-    $primary=@{'000shcdese'='SHCDESE.dll';'fixes'='fixes.dll';'BugfixesAndQoL_Serp'='BugfixesAndQoL.dll';'Pathfinding_Serp'='Pathfinding.dll';'CastlePlanner_Serp'='CastlePlanner.dll'}[$package.Key]
+    $primary=@{'000shcdese'='SHCDESE.dll';'fixes'='fixes.dll';'BugfixesAndQoL_Serp'='BugfixesAndQoL.dll';'Pathfinding_Serp'='Pathfinding.dll';'CastlePlanner_Serp'='CastlePlanner.dll';'PerfProbe_Serp'='PerfProbe.dll'}[$package.Key]
     if(![IO.File]::Exists((Join-Path $package.Value $primary))){throw "Required comparison assembly absent: $($package.Value)/$primary"}
     if(@(Get-ChildItem -LiteralPath $package.Value -File -Filter '*RandomEvents*.dll' -Recurse).Count){throw 'RandomEvents must be absent from the comparison layout.'}
 }
@@ -131,11 +137,16 @@ try{
     $evidence=New-ShortWorkDirectory -Root $workspace -Kind a -Name rescue-game -Identity ($Layout+'; '+($Scenarios -join ','))
     $cfg=Join-Path $game 'BepInEx/config/TrappedUnitRescueTest_Serp.cfg'
     $cfgExisted=[IO.File]::Exists($cfg);$cfgBytes=if($cfgExisted){[IO.File]::ReadAllBytes($cfg)}else{$null}
+    $perfCfg=Join-Path $game 'BepInEx/config/PerfProbe_Serp.cfg'
+    $perfExisted=[IO.File]::Exists($perfCfg);$perfBytes=if($PerfProbePackage -and $perfExisted){[IO.File]::ReadAllBytes($perfCfg)}else{$null}
+    $perfBackup=Join-Path $evidence 'original-perf-config.bin'
+    if($PerfProbePackage -and $perfExisted){[IO.File]::WriteAllBytes($perfBackup,$perfBytes)}
+    $perfRecovery=if($PerfProbePackage){@{Path=$perfCfg;Existed=$perfExisted;Backup=$perfBackup}}else{$null}
     $originalConfig=Join-Path $evidence 'original-test-config.bin'
     if($cfgExisted){[IO.File]::WriteAllBytes($originalConfig,$cfgBytes)}
     $recoveryRecord=Join-Path $evidence 'config-recovery.json'
     $environmentRecord=@{Name='SCDEModManagerLaunchId';Scope='Process';PriorPresent=![string]::IsNullOrEmpty($priorManagerLaunch);Role='transactional test layout manager'}
-    [IO.File]::WriteAllText($recoveryRecord,((@{Path=$cfg;Existed=$cfgExisted;Backup=$originalConfig;Pending=$true;Environment=$environmentRecord;WorkshopReceipts=$workshop.Receipts}|ConvertTo-Json -Depth 6)+"`r`n"),[Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText($recoveryRecord,((@{Path=$cfg;Existed=$cfgExisted;Backup=$originalConfig;PerfProbe=$perfRecovery;Pending=$true;Environment=$environmentRecord;WorkshopReceipts=$workshop.Receipts}|ConvertTo-Json -Depth 6)+"`r`n"),[Text.UTF8Encoding]::new($false))
     $failed=$false;$configWritten=$false
     try{
         $layoutPath=Join-Path $work 'plugins';[void][IO.Directory]::CreateDirectory($layoutPath)
@@ -147,6 +158,33 @@ try{
         [IO.File]::WriteAllText((Join-Path $evidence 'series-plan.json'),(($plan|ConvertTo-Json -Depth 6)+"`r`n"),[Text.UTF8Encoding]::new($false))
         $configWritten=$true
         [IO.File]::WriteAllText($cfg,"[Fixture]`r`nMap = $Map`r`nPeaceTimeMinutes = $PeaceTimeMinutes`r`nScenarios = $($Scenarios -join ',')`r`n",[Text.UTF8Encoding]::new($false))
+        if($PerfProbePackage){
+            # Equal timing-only instrumentation in both variants. The independent
+            # PerfProbe loader and BOTH regular/fallback samplers stay inactive.
+            $perfConfig=@'
+[Automation]
+Enabled = false
+AutomationOnly = false
+[Sampler]
+Enabled = false
+LongRunFallback = false
+[Spikes]
+Enabled = false
+RunPhaseTiming = true
+TickGapMs = 0
+[Zoom]
+RenderSnapshots = false
+[Extras]
+UpdateSweep = false
+EngineMarkers = false
+BatchCensus = false
+GcTracking = false
+RecordBreakdown = false
+EngineCalls = false
+TextureInventory = false
+'@
+            [IO.File]::WriteAllText($perfCfg,($perfConfig -replace "`r?`n","`r`n"),[Text.UTF8Encoding]::new($false))
+        }
         # This program owns the entire disposable layout transaction. Use the
         # documented external-manager contract, not fake UI/caller identity.
         # HiddenDesktop's CreateProcessW inherits this process environment.
@@ -155,6 +193,21 @@ try{
         & (Join-Path $workspace 'Shared/Tools/Automation/Invoke-InGameTest.ps1') -GameDir $game -ModGuid TrappedUnitRescueTest_Serp `
             -ModPackage (Join-Path $PSScriptRoot 'BepInEx/plugins/TrappedUnitRescueTest_Serp') -ApiPluginPackage $api -ApiPatcherPackage $patcher `
             -PluginLayout $layoutPath -Scenario $requestScenario -OutputDirectory $evidence -TimeoutSeconds $TimeoutSeconds -HiddenDesktop
+        if($Scenarios -ccontains 'rescue-perf-1000-passive-on'){
+            # The generic runner has closed the process, flushed/copied the log
+            # and restored its transaction. Qualify this separate passive profile
+            # before reporting success; outer config restore still runs on failure.
+            $runs=@(Get-ChildItem -LiteralPath $evidence -Directory | Where-Object {$_.Name -cmatch '^[0-9a-f]{12}$'})
+            if($runs.Count -ne 1){throw 'Passive performance requires one uniquely archived game run.'}
+            $savedLog=Join-Path $runs[0].FullName 'LogOutput.log'
+            $savedLines=[IO.File]::ReadAllLines($savedLog)
+            $terminal=@($savedLines | ForEach-Object {
+                $match=[regex]::Match($_,'INGAME_TEST run=(?<run>'+[regex]::Escape($runs[0].Name)+'[0-9a-f]{20}) result=PASS(?:\s|$)')
+                if($match.Success){$match.Groups['run'].Value}
+            })
+            if($terminal.Count -ne 1){throw 'Passive performance lacks the exact archived terminal run identity.'}
+            & (Join-Path $PSScriptRoot 'Test-PerformanceLog.ps1') -LogPath $savedLog -ExpectedRun $terminal[0] -OutputPath (Join-Path $evidence 'performance-validation.json')
+        }
     }
     catch{$failed=$true;throw}
     finally{
@@ -168,11 +221,16 @@ try{
                 if($cfgExisted){[IO.File]::WriteAllBytes($cfg,$cfgBytes)}else{[IO.File]::Delete($cfg)}
                 if([IO.File]::Exists($cfg)-ne$cfgExisted){throw 'Test config existence not restored.'}
                 if($cfgExisted -and [Convert]::ToBase64String([IO.File]::ReadAllBytes($cfg))-cne[Convert]::ToBase64String($cfgBytes)){throw 'Test config bytes not restored.'}
+                if($PerfProbePackage){
+                    if($perfExisted){[IO.File]::WriteAllBytes($perfCfg,$perfBytes)}else{[IO.File]::Delete($perfCfg)}
+                    if([IO.File]::Exists($perfCfg)-ne$perfExisted){throw 'PerfProbe config existence not restored.'}
+                    if($perfExisted -and [Convert]::ToBase64String([IO.File]::ReadAllBytes($perfCfg))-cne[Convert]::ToBase64String($perfBytes)){throw 'PerfProbe config bytes not restored.'}
+                }
             }
             $before=@($workshop.Receipts | ForEach-Object {$_.Name+':'+$_.Sha256}) -join '|'
             $after=@(Get-WorkshopReceiptInventory $game | ForEach-Object {$_.Name+':'+$_.Sha256}) -join '|'
             if($before -cne $after){throw 'Workshop receipts changed during the controlled test; evidence retained for diagnosis.'}
-            [IO.File]::WriteAllText($recoveryRecord,((@{Path=$cfg;Existed=$cfgExisted;Backup=$originalConfig;Pending=$false;Restored=$true;Environment=$environmentRecord;WorkshopReceipts=$workshop.Receipts}|ConvertTo-Json -Depth 6)+"`r`n"),[Text.UTF8Encoding]::new($false))
+            [IO.File]::WriteAllText($recoveryRecord,((@{Path=$cfg;Existed=$cfgExisted;Backup=$originalConfig;PerfProbe=$perfRecovery;Pending=$false;Restored=$true;Environment=$environmentRecord;WorkshopReceipts=$workshop.Receipts}|ConvertTo-Json -Depth 6)+"`r`n"),[Text.UTF8Encoding]::new($false))
             Remove-ShortWorkDirectory -Path $work
         }
         Write-Output ('Test evidence: '+$evidence+'; seriesFailed='+$failed)

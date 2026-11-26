@@ -11,6 +11,14 @@ namespace Shared { internal static class DevDiag { internal static void Log(Func
 
 namespace PerfProbe
 {
+    // External thread-suspension publisher replaced; exercise the production
+    // fallback selection without starting or suspending any actual thread.
+    internal static class PerfProbeThreadSampler
+    {
+        internal static bool IsEnabled;
+        internal static int FallbackCalls;
+        internal static void InstallLongRunSampler() { FallbackCalls++; }
+    }
     // Tests the actual production helpers in an in-memory test assembly, not a mod build.
     public static class DiagnosticHelperTests
     {
@@ -24,6 +32,18 @@ namespace PerfProbe
 
         public static string Run()
         {
+            Check(PerfProbeSimSampler.LongRunFallback, "Existing default long-run sampling changed");
+            PerfProbeSimSampler.LongRunFallback = false;
+            PerfProbeThreadSampler.IsEnabled = false;
+            PerfProbeSimSampler.Install();
+            Check(PerfProbeThreadSampler.FallbackCalls == 0, "Timing-only profile started thread sampling");
+            PerfProbeSimSampler.LongRunFallback = true;
+            PerfProbeThreadSampler.IsEnabled = true;
+            PerfProbeSimSampler.Install();
+            Check(PerfProbeThreadSampler.FallbackCalls == 0, "Regular sampler also started fallback");
+            PerfProbeThreadSampler.IsEnabled = false;
+            PerfProbeSimSampler.Install();
+            Check(PerfProbeThreadSampler.FallbackCalls == 1, "Existing default fallback no longer starts");
             object gate = new object();
             var before = PerfProbeLockTiming.Capture();
             bool taken = false, nested = false;

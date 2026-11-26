@@ -189,6 +189,10 @@ namespace TrappedUnitRescueTest
         private unsafe IUnitMoveInvocation CaptureMillerDeliveryMove(UnitMoveContext context)
         {
             var proof=millerWorld;
+            // OFF observes the real vanilla/Fixes outcome through the shared
+            // worker observer; it cannot have an owned rescue receipt. Keep the
+            // stricter original-goal/handoff chain exclusive to the positive case.
+            if(!expectedEnabled)return null;
             if(proof.Actor==null || proof.Deposits!=0 || context.UnitId!=proof.Actor.Id)return null;
             try
             {
@@ -476,7 +480,7 @@ namespace TrappedUnitRescueTest
                     // output stays AI8 with cargo until B6100 returns.
                     Require(args.Add && (args.Good==eGoods.STORED_FLOUR?args.AddAmount>0 && unit->r_AIState==8 && unit->r_CarryGoodAmount>0:
                         args.AddAmount<0 && unit->r_AIState==4),"Miller event is not the native output/input operation");
-                    if(args.Good==eGoods.STORED_FLOUR && proof.Deposits==0)
+                    if(expectedEnabled && args.Good==eGoods.STORED_FLOUR && proof.Deposits==0)
                         Require(proof.InitialResumeConfirmed && args.BuildingId==proof.DeliveryStore &&
                             store->r_GlobalId==proof.DeliveryStoreGlobal &&
                             unit->r_TargetTilePositionX2==proof.DeliveryGoalX && unit->r_TargetTilePositionY2==proof.DeliveryGoalY,

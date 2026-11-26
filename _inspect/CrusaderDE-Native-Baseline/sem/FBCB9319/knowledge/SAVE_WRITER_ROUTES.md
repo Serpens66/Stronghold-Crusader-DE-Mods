@@ -134,3 +134,13 @@ already announced save queued until the simulation reaches the target
 tick after unpause. The announcement does not imply phase-0 execution.
 This is a static path audit. It does not establish a successful post-pause
 write in any particular session.
+
+## Camera serialization and presentation readiness (26 November 2026)
+
+Rechecked on the native/managed identities at the top of this document. Complete86F80 stores screenCentreX/Y at native globals3A11E58/3A11E5C and separately stores realScreenCentreX/Y at38722A0/38722A4 before52B0. These are distinct presentation quantities. Complete876D0 only records the requested rotation/centre and raises the pending flag; its return does not prove an applied rendered camera.
+
+The managed Vanilla SaveSaveGameOrMap path supplies actual Screen.width/64/zoom and Screen.height/16/zoom to getScreenXYForSaveCentring. That helper quantizes in three-unit and32/16-pixel steps; passing1,1 is not an equivalent camera-save recipe. getRotationCentre derives the currently displayed centre through CalcMapTileFromMousePos. The native save Boolean still has the write-completion limits documented above.
+
+EditorDirector.postLoading resets zoom and requests a forced map rotation. GameMap.processTestMap applies SetCameraFromGameState; after rotateHappened it finishes the pending rotation and reapplies the camera before publishing lastGameState. Fresh PlayState availability alone is therefore not a promise of completed rotation. Even after pendingRotationtriggered and midZoom are clear, CameraControls2D.Update can apply boundsFixCamera on a later Unity frame with zero movement axes, using the current orthographic size, zoom, UI bounds and rotation. Resolution/zoom updates can also change orthographic size before this clamp.
+
+Measurement consequence [test policy]: use Vanilla save arguments, wait for actual load/rotation/zoom presentation, exclude a genuine advancing-tick warmup, and establish the first measured loaded camera as the explicit comparison reference. Verify every subsequent identical-save load against it at the same post-warmup boundary and keep camera/zoom unchanged throughout each measured window. Preserve pre-save and early-load values separately. This is a measurement contract, not permission to write camera/native state or weaken gameplay save validation. Rescue runs123/125 exposed the old fixture assumptions before any valid timing window; run127 uses the corrected presentation boundary.

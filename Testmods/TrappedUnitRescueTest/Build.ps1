@@ -1,6 +1,8 @@
 [CmdletBinding()]
 param([switch]$nopause, [switch]$noinstall, [string]$ApiSharedDir)
 $ErrorActionPreference = 'Stop'
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'tests/Test-PerformanceLog.ps1')
+if ($LASTEXITCODE -ne 0) { throw 'Passive performance evidence contract tests failed.' }
 $temporaryFixProject = Join-Path $PSScriptRoot 'TemporaryFixes/TrappedUnitRescueTest.Fixes130.csproj'
 & dotnet msbuild $temporaryFixProject /t:Build /p:Configuration=Release /verbosity:minimal
 if ($LASTEXITCODE -ne 0) { throw 'Temporary Fixes scanner correction did not compile.' }

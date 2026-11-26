@@ -9,11 +9,12 @@ namespace PerfProbe
     {
         private static int simThreadId;
         private static long runStart;
+        internal static bool LongRunFallback = true;
         internal static int SimThreadId => Volatile.Read(ref simThreadId);
         internal static long RunStart => Volatile.Read(ref runStart);
         internal static void Install()
         {
-            if (!PerfProbeThreadSampler.IsEnabled) PerfProbeThreadSampler.InstallLongRunSampler();
+            if (LongRunFallback && !PerfProbeThreadSampler.IsEnabled) PerfProbeThreadSampler.InstallLongRunSampler();
         }
         internal static void OnRunBegin(long stamp)
         {
