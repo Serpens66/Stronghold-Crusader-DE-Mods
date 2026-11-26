@@ -31,6 +31,10 @@ namespace TrappedUnitRescueTest
         private static readonly WorkerJourneyField[] Tower=Join(Siege,new[]{D(0xA10,"wall-approach-tile")});
         private static readonly WorkerJourneyField[] Engineer=Join(Common,new[]{W(0x9E0,"engineer-payload"),W(0xAA4,"engineer-payload-state")});
         private static readonly WorkerJourneyField[] Demolisher=Join(Common,new[]{W(0x748,"deferred-goal-x"),W(0x74A,"deferred-goal-y")});
+        // Only the new Archer idle family has this schema. Existing command
+        // layouts, active phases and their persisted receipts stay identical.
+        private static readonly WorkerJourneyField[] ArcherIdle=Join(Common,new[]{W(0x748,"deferred-goal-x"),W(0x74A,"deferred-goal-y")});
+        private static readonly int[] ArcherIdleEmpty={0x996,0x998,0x99C,0x6F8,0x9F6,0x9F8,0xA00,0x748,0x74A};
         private readonly uint[] values;
         internal readonly eChimps UnitType;
         internal readonly int AIState;
@@ -39,7 +43,8 @@ namespace TrappedUnitRescueTest
         private static WorkerJourneyField D(int at,string name)=>new WorkerJourneyField(at,4,name);
         private static WorkerJourneyField[] Join(WorkerJourneyField[] first,WorkerJourneyField[] second)
         {var result=new WorkerJourneyField[first.Length+second.Length];Array.Copy(first,result,first.Length);Array.Copy(second,0,result,first.Length,second.Length);return result;}
-        private static WorkerJourneyField[] Fields(eChimps type)=>type==eChimps.CHIMP_TYPE_SIEGE_TOWER?Tower:
+        private static WorkerJourneyField[] Fields(eChimps type,int state)=>IsArcherIdleAnimation(type,state)?ArcherIdle:
+            type==eChimps.CHIMP_TYPE_SIEGE_TOWER?Tower:
             CommandResumePolicy.IsSiege(type)?Siege:type==eChimps.CHIMP_TYPE_ENGINEER?Engineer:
             type==eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER?Demolisher:Plain;
         // Type admission and functional phase admission are intentionally distinct.
@@ -64,7 +69,11 @@ namespace TrappedUnitRescueTest
         // only the audited idle/animation families, never restoration of a goal.
         internal static bool IsSupportedStationaryPhase(eChimps type,int state)=>
             (state==0 || state==1) && IsSupportedPhase(type,state) ||
-            type==eChimps.CHIMP_TYPE_SPEARMAN && state==2;
+            type==eChimps.CHIMP_TYPE_SPEARMAN && state==2 || IsArcherIdleAnimation(type,state);
+        internal static bool IsArcherIdleAnimation(eChimps type,int state)=>
+            type==eChimps.CHIMP_TYPE_ARCHER && (state==7 || state==8 || state==11);
+        internal static bool IsIndependentIdlePhase(eChimps type,int state)=>
+            state==0 || type==eChimps.CHIMP_TYPE_SPEARMAN && state==2 || IsArcherIdleAnimation(type,state);
         internal static int RequiredCrewCount(eChimps type)
         {
             switch(type)
@@ -75,8 +84,8 @@ namespace TrappedUnitRescueTest
                 default:return 0;
             }
         }
-        internal int FieldCount=>Fields(UnitType).Length;
-        internal WorkerJourneyField Field(int index)=>Fields(UnitType)[index];
+        internal int FieldCount=>Fields(UnitType,AIState).Length;
+        internal WorkerJourneyField Field(int index)=>Fields(UnitType,AIState)[index];
         internal uint[] CopyValues()=>(uint[])values.Clone();
         internal static bool TryCapture(eChimps type,int state,Func<int,ushort> word,Func<int,uint> dword,out CommandJourneySnapshot snapshot)
             =>TryCaptureCore(type,state,word,dword,IsSupportedPhase(type,state),out snapshot);
@@ -87,7 +96,7 @@ namespace TrappedUnitRescueTest
             snapshot=null;if(!admitted || word==null || dword==null)return false;
             try
             {
-                var schema=Fields(type);var data=new uint[schema.Length];
+                var schema=Fields(type,state);var data=new uint[schema.Length];
                 for(int i=0;i<data.Length;i++)data[i]=schema[i].Read(word,dword);
                 var candidate=new CommandJourneySnapshot(type,state,data);
                 if(!candidate.Valid())return false;snapshot=candidate;return true;
@@ -100,6 +109,13 @@ namespace TrappedUnitRescueTest
                 !TryGetValue(0x6E6,out var type) || type!=(uint)UnitType || !TryGetValue(0x918,out var state) || state!=(uint)AIState ||
                 !TryGetValue(0xA9E,out var capability) || capability!=1 || !TryGetValue(0x9F4,out var command) ||
                 command==(uint)TribeAICommand.DigMoatTileId || command==(uint)TribeAICommand.Unknown7)return false;
+            if(IsArcherIdleAnimation(UnitType,AIState))
+            {
+                // No explicit attack/work or deferred native return is adopted.
+                //18E9A0 uses99C/6F8 (includingFFFF/FFFE), not just9F6/A00.
+                if(command!=(uint)TribeAICommand.Unknown0 && command!=(uint)TribeAICommand.MoveHerePosition)return false;
+                foreach(int offset in ArcherIdleEmpty)if(!TryGetValue(offset,out uint value) || value!=0)return false;
+            }
             if(UnitType==eChimps.CHIMP_TYPE_ENGINEER &&
                 (!TryGetValue(0x9E0,out var payload) || payload!=0 || !TryGetValue(0xAA4,out var payloadState) || payloadState!=0))return false;
             if(CommandResumePolicy.IsSiege(UnitType))
@@ -123,7 +139,7 @@ namespace TrappedUnitRescueTest
         internal static bool TryRestoreKnownSnapshot(eChimps type,int state,int[] offsets,int[] widths,uint[] source,out CommandJourneySnapshot snapshot)
         {
             snapshot=null;if((!IsSupportedPhase(type,state) && !IsSupportedStationaryPhase(type,state)) || offsets==null || widths==null || source==null)return false;
-            var schema=Fields(type);if(offsets.Length!=schema.Length || widths.Length!=schema.Length || source.Length!=schema.Length)return false;
+            var schema=Fields(type,state);if(offsets.Length!=schema.Length || widths.Length!=schema.Length || source.Length!=schema.Length)return false;
             for(int i=0;i<schema.Length;i++)if(offsets[i]!=schema[i].NativeOffset || widths[i]!=schema[i].Width ||
                 (widths[i]==2 && source[i]>ushort.MaxValue))return false;
             var candidate=new CommandJourneySnapshot(type,state,(uint[])source.Clone());if(!candidate.Valid())return false;

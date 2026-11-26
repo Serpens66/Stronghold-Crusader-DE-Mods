@@ -8,7 +8,7 @@ namespace TrappedUnitRescueTest.Tests
     {
         private static int checks;
         private static void Check(bool value,string reason){checks++;if(!value)throw new InvalidOperationException(reason);}
-        private sealed class Memory
+        internal sealed class Memory
         {
             internal readonly byte[] Data=new byte[0xAEC];
             internal ushort Word(int at)=>(ushort)(Data[at]|Data[at+1]<<8);
@@ -39,7 +39,8 @@ namespace TrappedUnitRescueTest.Tests
                         (state==0 || state==1 && !rangedWithoutIdleOne));
                     bool captured=CommandJourneySnapshot.TryCapture(type,state,memory.Word,memory.Dword,out var snapshot);
                     Check(captured==expected,"explicit type and functional phase matrix");
-                    bool stationaryExpected=expected && (state==0 || state==1) || type==eChimps.CHIMP_TYPE_SPEARMAN && state==2;
+                    bool stationaryExpected=expected && (state==0 || state==1) || type==eChimps.CHIMP_TYPE_SPEARMAN && state==2 ||
+                        type==eChimps.CHIMP_TYPE_ARCHER && (state==7 || state==8 || state==11);
                     Check(CommandJourneySnapshot.IsSupportedStationaryPhase(type,state)==stationaryExpected,
                         "stationary idle admission does not inherit completed contact phases");
                     Check(CommandJourneySnapshot.TryCaptureStationary(type,state,memory.Word,memory.Dword,out _)==stationaryExpected,
@@ -99,7 +100,66 @@ namespace TrappedUnitRescueTest.Tests
             var invalidId=(byte[])encoded.Clone();Array.Copy(BitConverter.GetBytes(NativeRelocation.MaximumUnitId+1),0,invalidId,10,4);
             Check(!loaded.TryRestore(invalidId,100),"out-of-range native unit identity rejected before adoption");
             VerifyNativeFailedOrderHandoff();
+            VerifyArcherStationary();
             Console.WriteLine("PASS: command journey "+checks+" checks; explicit phases, crew, intent schemas and command-kind codec; no game execution.");
+        }
+        private static void VerifyArcherStationary()
+        {
+            var original=new Memory(eChimps.CHIMP_TYPE_ARCHER,0);
+            Check(CommandJourneySnapshot.TryCaptureStationary(eChimps.CHIMP_TYPE_ARCHER,0,original.Word,original.Dword,out var old),"existing Archer0 schema");
+            foreach(int state in new[]{7,8,11})foreach(uint command in new[]{(uint)TribeAICommand.Unknown0,(uint)TribeAICommand.MoveHerePosition})
+            {
+                var memory=new Memory(eChimps.CHIMP_TYPE_ARCHER,state);memory.Word(0x9F4,command);
+                Check(CommandJourneySnapshot.TryCaptureStationary(eChimps.CHIMP_TYPE_ARCHER,state,memory.Word,memory.Dword,out var snapshot),"audited Archer idle animation has stationary intent");
+                Check(snapshot.FieldCount==old.FieldCount+2 && snapshot.Field(old.FieldCount).NativeOffset==0x748 &&
+                    snapshot.Field(old.FieldCount+1).NativeOffset==0x74A,"only new idle schema adds deferred-goal evidence");
+                Check(!CommandJourneySnapshot.TryCapture(eChimps.CHIMP_TYPE_ARCHER,state,memory.Word,memory.Dword,out _) &&
+                    !WorkerResumeTicket.ForCommand(7,42,eChimps.CHIMP_TYPE_ARCHER,state,2,2,33,20,30,snapshot).IsValid,
+                    "stationary Archer animation cannot become an active/parked worker command receipt");
+                var offsets=new int[snapshot.FieldCount];var widths=new int[snapshot.FieldCount];
+                for(int i=0;i<offsets.Length;i++){offsets[i]=snapshot.Field(i).NativeOffset;widths[i]=snapshot.Field(i).Width;}
+                Check(CommandJourneySnapshot.TryRestoreKnownSnapshot(snapshot.UnitType,state,offsets,widths,snapshot.CopyValues(),out var restored) &&
+                    restored.Matches(snapshot.UnitType,state,memory.Word,memory.Dword),"new stationary schema roundtrip preserves immutable idle proof");
+                var pending=new UnitSnapshot{Id=7,GlobalId=42,Type=(int)snapshot.UnitType,Owner=2,Tribe=2,TribeGlobalId=33,Health=100,
+                    X=10,Y=10,TileId=100,NextX=10,NextY=10,NextTileId=100,RequestedX=10,RequestedY=10,
+                    AIState=state,Flags=0,Substep=8,CurrentWasOrdinary=true,AffectedCurrent=true,CrewIdentity=new uint[0],Command=snapshot};
+                pending.Candidates.Add(new RescueCandidate{X=11,Y=10,Tile=101,Distance=1});
+                Check(RescuePendingCodec.TryEncode(new RescuePendingCandidate<UnitSnapshot>("EditorLand",pending,0,0,0),out var encodedIdle) &&
+                    RescuePendingCodec.TryDecode(encodedIdle,out var pendingCopy) &&
+                    pendingCopy.Snapshot.Command.Matches(snapshot.UnitType,state,memory.Word,memory.Dword),
+                    "actual pending codec roundtrip retains new Archer idle no-intent schema");
+                var changedIdle=(byte[])encodedIdle.Clone();changedIdle[changedIdle.Length-4]=1;
+                Check(!RescuePendingCodec.TryDecode(changedIdle,out _),"actual pending codec rejects modified last deferred-goal field");
+                pending.Flags=2;
+                Check(!RescuePendingCodec.TryEncode(new RescuePendingCandidate<UnitSnapshot>("EditorLand",pending,0,0,0),out _),
+                    "new idle phase cannot enter active pending-command persistence");
+                foreach(int at in new[]{0x996,0x99C,0x9F6,0x748,0x74A})foreach(uint value in new uint[]{1,0xFFFE,0xFFFF})
+                {
+                    memory.Word(at,value);
+                    Check(!snapshot.Matches(snapshot.UnitType,state,memory.Word,memory.Dword) &&
+                        !CommandJourneySnapshot.TryCaptureStationary(snapshot.UnitType,state,memory.Word,memory.Dword,out _),"live or sentinel target/deferred intent defeats stationary proof");
+                    memory.Word(at,0);
+                }
+                foreach(int at in new[]{0x998,0x6F8,0x9F8,0xA00})
+                {
+                    memory.Dword(at,0x10000);
+                    Check(!CommandJourneySnapshot.TryCaptureStationary(snapshot.UnitType,state,memory.Word,memory.Dword,out _),"full-width target lifetime cannot be ignored");memory.Dword(at,0);
+                }
+                foreach(var cmd in new[]{TribeAICommand.AttackUnit,TribeAICommand.AttackTilePosition,TribeAICommand.DigMoatTileId,
+                    TribeAICommand.Unknown7,TribeAICommand.AttackBuilding,TribeAICommand.Unknown22,TribeAICommand.AttackWallTileId,TribeAICommand.Unknown34})
+                {
+                    memory.Word(0x9F4,(uint)cmd);
+                    Check(!CommandJourneySnapshot.TryCaptureStationary(snapshot.UnitType,state,memory.Word,memory.Dword,out _),"explicit attack/work command cannot masquerade as no-target idle");
+                }
+                memory.Word(0x9F4,command);
+                var values=snapshot.CopyValues();values[values.Length-1]=1;
+                Check(!CommandJourneySnapshot.TryRestoreKnownSnapshot(snapshot.UnitType,state,offsets,widths,values,out _),"restored new idle proof rejects deferred movement");
+                values=snapshot.CopyValues();int index=Array.IndexOf(offsets,0x99C);values[index]=0xFFFF;
+                Check(!CommandJourneySnapshot.TryRestoreKnownSnapshot(snapshot.UnitType,state,offsets,widths,values,out _),"restored idle proof rejects ranged tile sentinel");
+                memory.Word(0x918,0);
+                Check(!snapshot.Matches(snapshot.UnitType,0,memory.Word,memory.Dword),"natural Archer AI transition supersedes its old immutable idle proof");
+            }
+            Check(!CommandJourneySnapshot.IsSupportedStationaryPhase(eChimps.CHIMP_TYPE_ARCHER,1),"absent native ArcherAI1 remains excluded");
         }
         private static int Tile(int x,int y)=>x>=0 && x<800 && y>=0 && y<800?y*800+x:-1;
         private static void HandoffPose(Memory memory,int flags)
@@ -129,6 +189,16 @@ namespace TrappedUnitRescueTest.Tests
                     "handoff retains live new goal and never edits old receipt");
                 Check(fresh.Command.Matches(fresh.UnitType,fresh.AIState,memory.Word,memory.Dword),"handoff uses the fresh semantic snapshot");
                 for(int i=0;i<bytes.Length;i++)Check(bytes[i]==memory.Data[i],"production handoff preparation is read-only");
+                // Rescue normalization may retain the old accepted Next cache.
+                // A failed foreign order before the next step must still adopt
+                // its fresh live goal, with all actual pose/identity guards intact.
+                foreach(uint inactiveNext in new uint[]{(uint)Tile(5,5),0,uint.MaxValue})
+                {
+                    memory.Dword(0x73C,inactiveNext);
+                    Check(Prepare(memory,ticket,0,out var staleNext) && staleNext.RequestedX==90 && staleNext.RequestedY==91 &&
+                        staleNext.Command.Matches(staleNext.UnitType,staleNext.AIState,memory.Word,memory.Dword),
+                        "failed order adopts fresh intent with inactive packed Next for normalized flags0/2/4/5");
+                }
                 Check(!Prepare(memory,ticket,1,out _) && !Prepare(memory,ticket,-1,out _),"no refusal handoff from positive or unsupported native result");
                 memory.Word(0x918,0);
                 Check(Prepare(memory,ticket,0,out _)==(flags==5),"AI change needs the already owned native barrier");
@@ -139,7 +209,7 @@ namespace TrappedUnitRescueTest.Tests
                 var memory=new Memory(eChimps.CHIMP_TYPE_SPEARMAN,101);var ticket=CommandTicket(memory,eChimps.CHIMP_TYPE_SPEARMAN,101);HandoffPose(memory,2);
                 memory.Word(at,(uint)(memory.Word(at)^1));Check(!Prepare(memory,ticket,0,out _),"actual handoff rejects changed identity/mode/pose/capability");
             }
-            foreach(int at in new[]{0x6F0,0x93C,0x740,0x72C,0x73C})
+            foreach(int at in new[]{0x6F0,0x93C,0x740,0x72C})
             {
                 var memory=new Memory(eChimps.CHIMP_TYPE_SPEARMAN,101);var ticket=CommandTicket(memory,eChimps.CHIMP_TYPE_SPEARMAN,101);HandoffPose(memory,2);
                 memory.Dword(at,memory.Dword(at)^0x10000u);Check(!Prepare(memory,ticket,0,out _),"full-width identity/pose read cannot ignore high bits");

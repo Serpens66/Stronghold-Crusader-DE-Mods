@@ -60,13 +60,68 @@ namespace TrappedUnitRescueTest
             value == "rescue-auto-worker-on" || value == "rescue-auto-worker-off" ||
             value == "rescue-auto-ox-on" || value == "rescue-auto-ox-off" ||
             value == "rescue-auto-bridge-on" || value == "rescue-auto-bridge-off" ||
-            value == "rescue-auto-next-on" || value == "rescue-auto-next-off";
+            value == "rescue-auto-next-on" || value == "rescue-auto-next-off" ||
+            value == "rescue-auto-group-on" || value == "rescue-auto-group-off" ||
+            value == "rescue-auto-oxhome-on" || value == "rescue-auto-oxhome-off" ||
+            value == "rescue-auto-worker-cargo-on" || value == "rescue-auto-worker-cargo-off" ||
+            value == "rescue-auto-applestep-on" || value == "rescue-auto-applestep-off" ||
+            value == "rescue-auto-applestep-cargo-on" || value == "rescue-auto-applestep-cargo-off" ||
+            value == "rescue-auto-miller-on" || value == "rescue-auto-miller-off" ||
+            value == "rescue-auto-idle-on" || value == "rescue-auto-idle-off" ||
+            value == "rescue-auto-idlearcher-on" || value == "rescue-auto-idlearcher-off" ||
+            value == "rescue-auto-commandmoat-on" || value == "rescue-auto-commandmoat-off" ||
+            value == "rescue-auto-commandmoat-postmidpoint-on" || value == "rescue-auto-commandmoat-postmidpoint-off" ||
+            value == "rescue-auto-commandmoat-nextonly-premidpoint-on" || value == "rescue-auto-commandmoat-nextonly-premidpoint-off" ||
+            value == "rescue-auto-commandmoat-nextonly-postmidpoint-on" || value == "rescue-auto-commandmoat-nextonly-postmidpoint-off" ||
+            value == "rescue-persistence-parked-on" ||
+            value == "rescue-persistence-on" || value == "rescue-persistence-off" ||
+            RescueScenarioSelection.IsMountedKeepPart(value);
         internal void Stop() { stopped = true; }
 
         internal IEnumerable<AutomationStep> Steps()
         {
             yield return new AutomationStep("skirmish", TimeSpan.FromSeconds(240), Start);
             yield return new AutomationStep("prepare", TimeSpan.FromSeconds(90), Prepare, true);
+            if (scenario == "rescue-persistence-parked-on")
+            {
+                foreach (var step in ParkedPersistenceSteps()) yield return step;
+                yield break;
+            }
+            if (scenario.Contains("-persistence-"))
+            {
+                foreach (var step in PersistenceSteps()) yield return step;
+                yield break;
+            }
+            if (scenario.Contains("-auto-commandmoat-"))
+            {
+                foreach (var step in AutomaticCommandMoatSteps()) yield return step;
+                yield break;
+            }
+            if (scenario.Contains("-auto-idle-") || scenario.Contains("-auto-idlearcher-"))
+            {
+                foreach (var step in AutomaticIdleSteps()) yield return step;
+                yield break;
+            }
+            if (scenario.Contains("-auto-miller-"))
+            {
+                foreach (var step in AutomaticMillerSteps()) yield return step;
+                yield break;
+            }
+            if (scenario.Contains("-auto-applestep-"))
+            {
+                foreach (var step in AutomaticAppleStepSteps()) yield return step;
+                yield break;
+            }
+            if (scenario.Contains("-auto-oxhome-"))
+            {
+                foreach (var step in AutomaticOxHomeSteps()) yield return step;
+                yield break;
+            }
+            if (scenario.Contains("-auto-group-"))
+            {
+                foreach (var step in AutomaticGroupSteps()) yield return step;
+                yield break;
+            }
             if (scenario.Contains("-auto-next-"))
             {
                 foreach (var step in AutomaticNextSteps()) yield return step;
@@ -129,7 +184,7 @@ namespace TrappedUnitRescueTest
             }
             if (scenario.Contains("-siege-"))
             {
-                yield return new AutomationStep("manned-siege-rescue", TimeSpan.FromSeconds(240), Siege, true);
+                foreach (var step in SiegeSteps()) yield return step;
                 yield break;
             }
             yield return new AutomationStep("native-bridge-spearmen", TimeSpan.FromSeconds(150),
@@ -144,12 +199,13 @@ namespace TrappedUnitRescueTest
         private IEnumerable<AutomationWait> Start(AutomationRun run)
         {
             Require(Owns(scenario), "Unowned scenario");
+            yield return AutomationWait.Until("fixture main menu before settings",()=>RescueScenarioSeries.MenuReady(run));
             PrepareDeterministicModSettings();
             enable(expectedEnabled); // Only before the mission, never a mid-game setting mutation.
-            // Reuse the SDK launch owner. Prepare after its opponent-ready yield and
-            // before its ordinary Play command; the hidden SP slider would reset peace.
-            foreach (var wait in run.StartSkirmish(map, new[] { AILords.SK_RAT }, peaceTimeMinutes: null))
-            { yield return wait; ConfigureDeterministicLobby(); }
+            // The SDK owns the lobby lifetime and invokes preparation only after its roster is ready.
+            // The hidden SP slider would reset peace, so configure the world at this final boundary.
+            foreach (var wait in run.StartSkirmish(map, new[] { AILords.SK_RAT },
+                peaceTimeMinutes: null, beforeLaunch: ConfigureDeterministicLobby)) yield return wait;
             Require(deterministicLobbyConfigured, "Deterministic lobby was not configured before launch");
         }
 

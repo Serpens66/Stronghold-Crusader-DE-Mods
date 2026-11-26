@@ -148,11 +148,18 @@ namespace TrappedUnitRescueTest
                     unit->r_CurrentTilePositionX==original.SourceX && unit->r_CurrentTilePositionY==original.SourceY &&
                     unit->r_NextTilePositionX2==original.SourceX && unit->r_NextTilePositionY2==original.SourceY &&
                     unit->r_CurrentPositionTileId==(uint)GameTileManagerAPI.Instance.GetTileId(original.SourceX,original.SourceY) &&
-                    unit->r_NextPositionTileId2==unit->r_CurrentPositionTileId && unit->r_PathPlanStateBitFlags==5 &&
+                    unit->r_PathPlanStateBitFlags==5 &&
                     unit->r_TargetTilePositionX2==context.X && unit->r_TargetTilePositionY2==context.Y &&
                     unit->r_MovementSubstep==8 && *(uint*)((byte*)unit+0xE4)==0;
                 // Audited native740 is typed GameUnit+E4 (record view starts65C).
                 // The owned Reissue contract requires this packed next marker clear.
+                if(unit!=null)
+                    fixture.log("automatic-next-native-normalized unit="+original.Id+"/"+original.Global+
+                        " current="+unit->r_CurrentTilePositionX+","+unit->r_CurrentTilePositionY+
+                        " currentTile="+unit->r_CurrentPositionTileId+" nextXY="+unit->r_NextTilePositionX2+","+unit->r_NextTilePositionY2+
+                        " inactiveNextTile="+unit->r_NextPositionTileId2+" marker="+(*(uint*)((byte*)unit+0xE4))+
+                        " substep="+unit->r_MovementSubstep+" flags="+unit->r_PathPlanStateBitFlags+" normalized="+FirstNormalized+
+                        " inactiveCacheEqualityRequired=false");
                 return new Completion(context);
             }
             private sealed class Completion : IUnitMoveInvocation

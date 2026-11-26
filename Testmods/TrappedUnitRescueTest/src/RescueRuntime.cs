@@ -203,7 +203,7 @@ namespace TrappedUnitRescueTest
         internal static string ClassifyState(GameUnit* unit) => ClassifyState(unit,false);
         internal static string ClassifyState(GameUnit* unit,bool includeOrdinaryStep)
             =>ClassifyState(unit,includeOrdinaryStep,false);
-        private static string ClassifyState(GameUnit* unit,bool includeOrdinaryStep,bool allowCompletedCapturedStep)
+        private static string ClassifyState(GameUnit* unit,bool includeOrdinaryStep,bool allowCompletedCapturedStep,bool allowCapturedMoatMidpoint=false)
         {
             if(unit==null)return "missing-unit";
             // DCE60 receives native+6EC as its movement-class argument. Mode1 bypasses ordinary
@@ -214,7 +214,7 @@ namespace TrappedUnitRescueTest
             if(ReadStateWord(unit,0x9C8)!=0)return "stored-moat-route-needs-mode-aware-exit-proof";
             if (ReadStateWord(unit,0x9B0)!=0) return "mounted-or-hidden";
             if (ReadStateWord(unit,0x8EC)!=0 || ReadStateWord(unit,0x8F6)!=0) return "portal-or-transport";
-            if (unit->r_MovementSubstep!=8 && (!includeOrdinaryStep || !HasOrdinaryStep(unit))) return "step-in-progress";
+            if (unit->r_MovementSubstep!=8 && (!includeOrdinaryStep || !HasOrdinaryStep(unit)) && !allowCapturedMoatMidpoint) return "step-in-progress";
             if (unit->r_AIState>=126 && unit->r_AIState<=129) return "assassin-transition";
             if (unit->r_IsKilledByProjectile!=0 || unit->r_CurrentHealth==0) return "dying";
             if (unit->r_PathPlanStateBitFlags!=0 && unit->r_PathPlanStateBitFlags!=2 && unit->r_PathPlanStateBitFlags!=4) return "special-path-state";
@@ -230,7 +230,8 @@ namespace TrappedUnitRescueTest
             //143400 state0 selects2 when no idle travel target is found. State2
             //only animates idle, returns to0 and asks181890 for fresh positional recovery.
             bool stationarySpearmanIdle=unit->r_UnitChimp==eChimps.CHIMP_TYPE_SPEARMAN && unit->r_AIState==2 && unit->r_PathPlanStateBitFlags==0;
-            if(!stationarySpearmanIdle && !CommandResumePolicy.IsCommandState(unit->r_UnitChimp,unit->r_AIState))
+            bool stationaryArcherIdle=!activeRoute && CommandJourneySnapshot.IsArcherIdleAnimation(unit->r_UnitChimp,unit->r_AIState);
+            if(!stationarySpearmanIdle && !stationaryArcherIdle && !CommandResumePolicy.IsCommandState(unit->r_UnitChimp,unit->r_AIState))
                 return IsSiege((int)unit->r_UnitChimp)?"siege-special-state":"unproven-order-state";
             if(!activeRoute && !CommandJourneySnapshot.IsSupportedStationaryPhase(unit->r_UnitChimp,unit->r_AIState) &&
                 !(allowCompletedCapturedStep && CommandJourneySnapshot.IsSupportedPhase(unit->r_UnitChimp,unit->r_AIState)))
@@ -403,8 +404,16 @@ namespace TrappedUnitRescueTest
             if(before==null || !native.TryUnit(before.Id,out GameUnit* unit) || unit->r_GlobalId!=before.GlobalId) return Finish(result,RescueStatus.Unsupported,"identity-disappeared");
             before=before.WithCurrentHealth(unit->r_CurrentHealth);
             result.IdentityPreserved=true;
-            if(before.Unsupported!=null || ClassifyState(unit,before.OrdinaryStep,before.OrdinaryStep)!=null || !ValidCrew(before))
-                return Finish(result,RescueStatus.Unsupported,(before.Unsupported??ClassifyState(unit,before.OrdinaryStep,before.OrdinaryStep)??"crew-inconsistent")+
+            // After the native midpoint, Current already equals the captured Next
+            // while the last half-step still runs. Only this prior, fresh-Next-moat
+            // witness permits that exact phase; ordinary SnapshotUnit stays strict.
+            bool capturedMoatMidpoint=before.TileId>=0 && before.TileId<NativeRelocation.TileCapacity &&
+                before.NextTileId>=0 && before.NextTileId<NativeRelocation.TileCapacity &&
+                NativeWorkerResumeWorld.IsCapturedMoatMidpoint(before,(int)unit->r_CurrentPositionTileId,unit->r_CurrentTilePositionX,unit->r_CurrentTilePositionY,
+                    (int)unit->r_NextPositionTileId2,unit->r_NextTilePositionX2,unit->r_NextTilePositionY2,
+                    unit->r_PathPlanStateBitFlags,unit->r_MovementSubstep,native.Flags(before.TileId),native.Flags(before.NextTileId),native.OrdinaryGround(before.TileId));
+            if(before.Unsupported!=null || ClassifyState(unit,before.OrdinaryStep,before.OrdinaryStep,capturedMoatMidpoint)!=null || !ValidCrew(before))
+                return Finish(result,RescueStatus.Unsupported,(before.Unsupported??ClassifyState(unit,before.OrdinaryStep,before.OrdinaryStep,capturedMoatMidpoint)??"crew-inconsistent")+
                     "; ai="+unit->r_AIState+" flags="+unit->r_PathPlanStateBitFlags+" substep="+unit->r_MovementSubstep);
             if(before.Command!=null)
             {
@@ -451,10 +460,16 @@ namespace TrappedUnitRescueTest
                         return Finish(result,RescueStatus.Unsupported,"possible-native-assassin-climb-exit");
                 }
             IdleEscapes?.Release(before.Id); // A new proved mutation supersedes observation of an earlier escape.
-            bool recovered=RelocateAndResume(before,resume,result,sourceTile,completedMoat);
+            // A blocked accepted Next is not the planner's physical source yet.
+            // Keep its still-legal Current via the already captured Distance0
+            // candidate, normalize there under reservation, then reissue normally.
+            bool probeCurrent=RequiresCurrentMoatProbe(completedMoat,native.Flags(sourceTile));
+            bool recovered=RelocateAndResume(before,resume,result,sourceTile,probeCurrent);
             if(recovered)report?.Invoke(result.ToString());
             return recovered;
         }
+        internal static bool RequiresCurrentMoatProbe(bool trappedIsMoat,uint actualCurrentFlags)=>
+            trappedIsMoat && (actualCurrentFlags&(uint)TilePropertyFlag.IsMoat)!=0;
         // Accept at most the one ordinary step captured before this mutation. A different
         // subsequent location cannot inherit old local reachability or an old command.
         internal bool HasChangedTrapCandidate(UnitSnapshot before)
@@ -513,6 +528,11 @@ namespace TrappedUnitRescueTest
                 result.ResumeSucceeded=accepted && outcome==WorkerRecoveryOutcome.Resumed;
                 if(!accepted)return Finish(result,outcome==WorkerRecoveryOutcome.OwnershipUncertain?RescueStatus.IdentityFailed:RescueStatus.Unsupported,reason);
                 if(!result.ResumeSucceeded)return Finish(result,RescueStatus.ResumeFailed,reason);
+                // A captured step may already have committed its original Next.
+                // A successful functional probe need not enter RelocateChecked,
+                // so report the actual live source rather than the old Before XY.
+                if(native.TryUnit(before.Id,out var resumedUnit) && resumedUnit->r_GlobalId==before.GlobalId)
+                {result.AfterX=resumedUnit->r_CurrentTilePositionX;result.AfterY=resumedUnit->r_CurrentTilePositionY;}
                 return Finish(result,RescueStatus.Rescued,reason);
             }
             if(before.Flags==2 || before.Flags==4)return Finish(result,RescueStatus.Unsupported,"active-order-needs-owned-continuation");

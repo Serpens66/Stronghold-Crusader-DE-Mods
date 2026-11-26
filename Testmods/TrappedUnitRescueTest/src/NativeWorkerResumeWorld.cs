@@ -8,7 +8,7 @@ namespace TrappedUnitRescueTest
 {
     // NativeRelocation can only be constructed after the pinned image/layout audit.
     // No pointer survives an API call or enters a saved receipt.
-    internal sealed unsafe class NativeWorkerResumeWorld : IWorkerResumeWorld,IWorkerResumeAuthorityAware,IWorkerResumeBarrierView
+    internal sealed unsafe class NativeWorkerResumeWorld : IWorkerResumeWorld,IWorkerResumeAuthorityAware,IWorkerResumeBarrierView,IWorkerStartedProbeWorld
     {
         private readonly NativeRelocation native;
         private Func<WorkerResumeTicket,bool> authority;
@@ -26,7 +26,8 @@ namespace TrappedUnitRescueTest
                 unit->r_GlobalId!=before.GlobalId || unit->r_CurrentHealth!=before.Health ||
                 unit->r_ControllableForPlayerId!=before.Owner || unit->r_TribeId!=before.Tribe ||
                 !AdmissibleCapturePosition(before,(int)unit->r_CurrentPositionTileId,unit->r_CurrentTilePositionX,unit->r_CurrentTilePositionY,
-                unit->r_PathPlanStateBitFlags,unit->r_MovementSubstep,(int)unit->r_NextPositionTileId2,unit->r_NextTilePositionX2,unit->r_NextTilePositionY2) ||
+                unit->r_PathPlanStateBitFlags,unit->r_MovementSubstep,(int)unit->r_NextPositionTileId2,unit->r_NextTilePositionX2,unit->r_NextTilePositionY2,
+                    CapturedMoatMidpoint(before,unit)) ||
                 !CurrentCoherent(unit) ||
                 (unit->r_MovementSubstep<8 && !NextCoherent(unit)) ||
                 unit->r_TargetTilePositionX2!=before.RequestedX || unit->r_TargetTilePositionY2!=before.RequestedY ||
@@ -63,7 +64,8 @@ namespace TrappedUnitRescueTest
                 unit->r_CurrentHealth!=before.Health || unit->r_ControllableForPlayerId!=before.Owner || unit->r_TribeId!=before.Tribe ||
                 unit->r_TargetTilePositionX2!=before.RequestedX || unit->r_TargetTilePositionY2!=before.RequestedY || !SafeMode(unit) ||
                 !AdmissibleCapturePosition(before,(int)unit->r_CurrentPositionTileId,unit->r_CurrentTilePositionX,unit->r_CurrentTilePositionY,
-                    unit->r_PathPlanStateBitFlags,unit->r_MovementSubstep,(int)unit->r_NextPositionTileId2,unit->r_NextTilePositionX2,unit->r_NextTilePositionY2) ||
+                    unit->r_PathPlanStateBitFlags,unit->r_MovementSubstep,(int)unit->r_NextPositionTileId2,unit->r_NextTilePositionX2,unit->r_NextTilePositionY2,
+                    CapturedMoatMidpoint(before,unit)) ||
                 !CurrentCoherent(unit) ||
                 (unit->r_MovementSubstep<8 && !NextCoherent(unit)) ||
                 !native.TryTribeGlobal(before.Tribe,out uint tribeGlobal) || tribeGlobal!=before.TribeGlobalId ||
@@ -95,7 +97,8 @@ namespace TrappedUnitRescueTest
             return ticket.Command.Matches(unit->r_UnitChimp,unit->r_AIState,
                 offset=>native.JobWord((GameUnit*)pointer,offset),offset=>native.JobDword((GameUnit*)pointer,offset));
         }
-        internal static bool AdmissibleCapturePosition(UnitSnapshot before,int tile,int x,int y,int flags,int substep,int nextTile,int nextX,int nextY)
+        internal static bool AdmissibleCapturePosition(UnitSnapshot before,int tile,int x,int y,int flags,int substep,int nextTile,int nextX,int nextY,
+            bool allowCapturedMoatMidpoint=false)
         {
             if(before==null || substep<0 || substep>8)return false;
             bool oldCurrent=tile==before.TileId && x==before.X && y==before.Y;
@@ -107,6 +110,7 @@ namespace TrappedUnitRescueTest
             if(!oldCurrent && !acceptedNext)return false;
             if(substep<8)
             {
+                if(allowCapturedMoatMidpoint && acceptedNext && nextTile==before.NextTileId && nextX==before.NextX && nextY==before.NextY)return true;
                 if(nextX==x && nextY==y || Math.Abs(nextX-x)>1 || Math.Abs(nextY-y)>1)return false;
                 if(oldCurrent && (!before.OrdinaryStep || nextTile!=before.NextTileId || nextX!=before.NextX || nextY!=before.NextY))return false;
             }
@@ -145,9 +149,8 @@ namespace TrappedUnitRescueTest
         {int tile=native.Tile(unit->r_CurrentTilePositionX,unit->r_CurrentTilePositionY);return tile>=0 && unit->r_CurrentPositionTileId==(uint)tile;}
         private bool NextCoherent(GameUnit* unit)
         {int tile=native.Tile(unit->r_NextTilePositionX2,unit->r_NextTilePositionY2);return tile>=0 && unit->r_NextPositionTileId2==(uint)tile;}
-        private bool ParkablePose(GameUnit* unit)=>unit->r_MovementSubstep==8 && CurrentCoherent(unit) &&
-            unit->r_CurrentPositionTileId==unit->r_NextPositionTileId2 && unit->r_CurrentTilePositionX==unit->r_NextTilePositionX2 &&
-            unit->r_CurrentTilePositionY==unit->r_NextTilePositionY2 && native.Word(unit,0x740)==0 && native.Word(unit,0x742)==0;
+        private bool ParkablePose(GameUnit* unit)=>NativeRelocation.IsNormalizedPose(unit,
+            native.Tile(unit->r_CurrentTilePositionX,unit->r_CurrentTilePositionY),native.JobDword(unit,0x740));
         public WorkerReceiptState Inspect(WorkerResumeTicket ticket,bool continuation)
         {
             if(ticket==null || !ticket.IsValid)return WorkerReceiptState.Unknown;
@@ -221,6 +224,67 @@ namespace TrappedUnitRescueTest
                 !native.TryUnit(ticket.UnitId,out var unit))return false;
             return ParkablePose(unit);
         }
+        internal static bool IsStartedMoatProbeGeometry(UnitSnapshot before,int tile,int x,int y,int nextTile,int nextX,int nextY,
+            int flags,int substep,uint currentFlags,uint nextFlags,bool originalCurrentStillOrdinary=false)
+        {
+            const uint moat=(uint)TilePropertyFlag.IsMoat,wall=(uint)TilePropertyFlag.IsWall;
+            bool originalCurrent=before!=null && tile==before.TileId && x==before.X && y==before.Y;
+            bool capturedNext=before!=null && tile==before.NextTileId && x==before.NextX && y==before.NextY;
+            return before!=null && before.Unsupported==null && ((before.Job!=null) != (before.Command!=null)) && before.OrdinaryStep &&
+                before.Substep>=0 && before.Substep<8 && (before.Flags==2 || before.Flags==4) &&
+                before.AffectedNext && before.CurrentWasOrdinary && before.NextWasOrdinary &&
+                ((before.GroundFlags|before.NextGroundFlags)&(moat|wall))==0 &&
+                (nextFlags&(moat|wall))==moat &&
+                (before.AffectedCurrent && (currentFlags&(moat|wall))==moat ||
+                    capturedNext && !before.AffectedCurrent && originalCurrentStillOrdinary && (currentFlags&(moat|wall))==0) &&
+                (flags==2 || flags==4) && substep>=0 && substep<8 &&
+                (originalCurrent || capturedNext) &&
+                nextTile==before.NextTileId && nextX==before.NextX && nextY==before.NextY &&
+                Math.Max(Math.Abs(before.NextX-before.X),Math.Abs(before.NextY-before.Y))==1 && before.TileId!=before.NextTileId;
+        }
+        internal static bool IsCapturedMoatMidpoint(UnitSnapshot before,int tile,int x,int y,int nextTile,int nextX,int nextY,
+            int flags,int substep,uint currentFlags,uint nextFlags,bool originalCurrentStillOrdinary=false)=>before!=null && tile==before.NextTileId &&
+            x==before.NextX && y==before.NextY && IsStartedMoatProbeGeometry(before,tile,x,y,nextTile,nextX,nextY,flags,substep,currentFlags,nextFlags,originalCurrentStillOrdinary);
+        private bool CapturedMoatMidpoint(UnitSnapshot before,GameUnit* unit)=>before!=null && unit!=null &&
+            before.TileId>=0 && before.TileId<NativeRelocation.TileCapacity && before.NextTileId>=0 && before.NextTileId<NativeRelocation.TileCapacity &&
+            IsCapturedMoatMidpoint(before,(int)unit->r_CurrentPositionTileId,unit->r_CurrentTilePositionX,unit->r_CurrentTilePositionY,
+                (int)unit->r_NextPositionTileId2,unit->r_NextTilePositionX2,unit->r_NextTilePositionY2,
+                unit->r_PathPlanStateBitFlags,unit->r_MovementSubstep,native.Flags(before.TileId),native.Flags(before.NextTileId),native.OrdinaryGround(before.TileId));
+        public WorkerProbePreparation PrepareStartedProbe(WorkerResumeTicket ticket,UnitSnapshot before)
+        {
+            // This is the initial, synchronous transaction only. A restored parked
+            // receipt has no historical started-step authority and never uses it.
+            if(ticket==null || before==null ||
+                !(ticket.Kind==ResumeReceiptKind.Worker && before.Job!=null && before.Command==null ||
+                  ticket.Kind==ResumeReceiptKind.Command && before.Command!=null && before.Job==null) ||
+                ticket.UnitId!=before.Id || ticket.UnitGlobalId!=before.GlobalId ||
+                ticket.UnitType!=(eChimps)before.Type || ticket.AIState!=before.AIState || ticket.Owner!=before.Owner ||
+                ticket.TribeId!=before.Tribe || ticket.TribeGlobalId!=before.TribeGlobalId ||
+                ticket.RequestedX!=before.RequestedX || ticket.RequestedY!=before.RequestedY ||
+                before.TileId<0 || before.TileId>=NativeRelocation.TileCapacity || before.NextTileId<0 || before.NextTileId>=NativeRelocation.TileCapacity ||
+                !IntentAuthorityCurrent(ticket) || Inspect(ticket,false)!=WorkerReceiptState.MatchingActive ||
+                !native.TryUnit(ticket.UnitId,out var unit) || unit->r_CurrentHealth!=before.Health ||
+                !SafeMode(unit) || native.Word(unit,0x8F8)!=0 || !CurrentCoherent(unit) || !NextCoherent(unit) ||
+                !IsStartedMoatProbeGeometry(before,(int)unit->r_CurrentPositionTileId,unit->r_CurrentTilePositionX,unit->r_CurrentTilePositionY,
+                    (int)unit->r_NextPositionTileId2,unit->r_NextTilePositionX2,unit->r_NextTilePositionY2,
+                    unit->r_PathPlanStateBitFlags,unit->r_MovementSubstep,native.Flags(before.TileId),native.Flags(before.NextTileId),native.OrdinaryGround(before.TileId)) ||
+                !native.HasOccupancyExactlyOnce((int)unit->r_CurrentPositionTileId,before.Id) ||
+                !native.HasOccupancyCount(unit->r_CurrentPositionTileId==(uint)before.TileId?before.NextTileId:before.TileId,before.Id,0))
+                return WorkerProbePreparation.Rejected;
+            int x=unit->r_CurrentTilePositionX,y=unit->r_CurrentTilePositionY;
+            int source=(int)unit->r_CurrentPositionTileId,other=source==before.TileId?before.NextTileId:before.TileId;
+            uint health=unit->r_CurrentHealth;
+            // 19BA40 clears740 before unlinking stored Current72C, then relinks
+            // that same tile. No raw pose/AI/job writes and no bank teleport occur.
+            // A false return may follow a partial/foreign mutation: retain ownership.
+            if(!native.Relocate(ticket.UnitId,x,y))return WorkerProbePreparation.OwnershipUncertain;
+            if(!IntentAuthorityCurrent(ticket) || Inspect(ticket,false)!=WorkerReceiptState.MatchingStopped ||
+                !native.TryUnit(ticket.UnitId,out unit) || unit->r_CurrentHealth!=health || !ParkablePose(unit) ||
+                unit->r_CurrentTilePositionX!=x || unit->r_CurrentTilePositionY!=y ||
+                !native.HasOccupancyExactlyOnce(source,before.Id) || !native.HasOccupancyCount(other,before.Id,0))
+                return WorkerProbePreparation.OwnershipUncertain;
+            return WorkerProbePreparation.Ready;
+        }
         public bool ProbeOriginal(WorkerResumeTicket ticket)
         {
             return CanProbeOriginal(ticket) && Inspect(ticket,false)==WorkerReceiptState.MatchingParked && Reissue(ticket);
@@ -277,7 +341,9 @@ namespace TrappedUnitRescueTest
                     ticket.TribeId!=0 && dword(0x93C)!=tribeGlobal || dword(0xA20)==0 || word(0x8F8)!=0 ||
                     word(0x6EC)!=0 || word(0x9C8)>1 || word(0x9B0)!=0 || word(0x8EC)!=0 || word(0x8F6)!=0 ||
                     word(0x750)!=8 || dword(0x740)!=0 || tileAt(x,y)<0 || dword(0x72C)!=(uint)tileAt(x,y) ||
-                    word(0x738)!=x || word(0x73A)!=y || dword(0x73C)!=dword(0x72C))return false;
+                    word(0x738)!=x || word(0x73A)!=y)return false;
+                // Same normalized-pose contract as ParkablePose: native19BA40
+                // leaves inactive packed Next73C unchanged until a new step.
                 ushort goalX=word(0x744),goalY=word(0x746);
                 if(tileAt(goalX,goalY)<0)return false;
                 if(ticket.Kind==ResumeReceiptKind.Command)

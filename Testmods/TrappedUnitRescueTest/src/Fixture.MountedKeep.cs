@@ -3,8 +3,11 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using APIShared;
 using APIShared.Automation;
+using APIShared.Simulation;
+using APIShared.WorldMutations;
 using BepInEx.Bootstrap;
 using R3;
 using RedBird.Abstractions.Hooks.Transaction;
@@ -34,31 +37,113 @@ namespace TrappedUnitRescueTest
         {
             internal Actor Actor;internal int Current,Next,Aux;internal bool DistinctOccupiedAux,OwnRescued;internal int LocalX,LocalY;
         }
+        private sealed class MountedCommittedBuild
+        {
+            internal Fixture Fixture;
+            internal Actor Actor;
+            internal long Session;
+            internal eMappers Mapper;
+            internal int Rotation,X,Y,Scale,TargetY,Ticks,Retries,Claimed,Finished;
+            internal bool Blocked;
+            internal List<MountedOrigin> Origins;
+            internal KeepRecoveryPose Pose;
+            internal uint ExitFlags;
+            internal int ExitHeight;
+            internal string Fault;
+        }
+        private static bool mountedCommittedBuildRegistered;
+        private static volatile MountedCommittedBuild mountedCommittedBuild;
+        private MountedCommittedBuild ArmMountedCommittedBuild(eMappers mapper,int rotation,int targetY,bool blocked,List<MountedOrigin> origins)
+        {
+            if(!mountedCommittedBuildRegistered)
+            {
+                Require(SimulationTickEvents.TryRegister(Plugin.Guid,"acceptance-mounted-committed-build",ObserveMountedCommittedBuild,out string reason),
+                    "Mounted committed construction tick unavailable: "+reason);
+                mountedCommittedBuildRegistered=true;
+            }
+            Require(mountedCommittedBuild==null,"A preceding committed Keep construction is still armed");
+            var request=new MountedCommittedBuild{Fixture=this,Actor=actors[0],Session=session,Mapper=mapper,Rotation=rotation,
+                X=cx,Y=cy,Scale=BuildingScales.GetScale(mapper),TargetY=targetY,Blocked=blocked,Origins=origins};
+            mountedCommittedBuild=request;return request;
+        }
+        private static void ObserveMountedCommittedBuild(int tick)
+        {
+            var request=mountedCommittedBuild;if(request==null || Volatile.Read(ref request.Finished)!=0)return;
+            var fixture=request.Fixture;
+            try
+            {
+                Require(!fixture.stopped && fixture.session==request.Session &&
+                    WorldMutationEvents.TryGetCurrentWorld(out long actualSession,out _) && actualSession==request.Session,
+                    "Committed Keep request lost its original fixture world");
+                // Published ticks already exclude pause; no Unity pause or UI work belongs here.
+                if(GamePlayerManagerAPI.Instance.IsLocalPaused())return;
+                Require(fixture.cx==request.X && fixture.cy==request.Y,"Committed Keep fixture anchor changed while armed");
+                bool acquired=fixture.ObserveMountedApproach(request.Actor,request.X,request.Y,request.Scale,request.TargetY,request.Ticks++,ref request.Retries);
+                if(!acquired)
+                {
+                    Require(request.Ticks<256,"No native pre-midpoint Keep entry in 256 actual simulation callbacks");
+                    return;
+                }
+                // Claim before any native construction. A partial/throwing writer is never retried.
+                Require(Interlocked.CompareExchange(ref request.Claimed,1,0)==0,"Committed Keep writer was already claimed");
+                try
+                {
+                    fixture.suppression(fixture.expectedEnabled);
+                    request.Origins.Add(fixture.CaptureMountedOrigin(request.Actor,true));
+                    using(var mutation=fixture.runtime.BeginMutation("native-keep-pending-step-"+request.Mapper+"-"+request.Rotation,
+                        request.X+request.Scale/2,request.Y+request.Scale/2,request.Scale+2))
+                    {
+                        request.Pose=fixture.BuildMountedKeep(request.Mapper,request.Rotation);
+                        var results=mutation.Complete(false);
+                        foreach(var origin in request.Origins)
+                        {
+                            RescueResult result=results.Single(r=>r.UnitId==origin.Actor.Id);
+                            Require(result.Status!=RescueStatus.Rescued,"Existing local runtime unexpectedly accepted a committed step");
+                            fixture.log("mounted-keep-local-observation unit="+origin.Actor.Id+" result="+result.Status+" source=native-build-over-committed-next-tile");
+                        }
+                    }
+                    fixture.CompleteMountedPreFixes(request.Origins,request.Pose,true,request.Mapper==eMappers.MAPPER_KEEP1,
+                        request.Blocked,out request.ExitFlags,out request.ExitHeight);
+                }
+                finally{fixture.suppression(false);}
+                Volatile.Write(ref request.Finished,1);
+                if(ReferenceEquals(mountedCommittedBuild,request))mountedCommittedBuild=null;
+            }
+            catch(Exception error)
+            {
+                request.Fault=error.ToString();Volatile.Write(ref request.Finished,1);
+                if(ReferenceEquals(mountedCommittedBuild,request))mountedCommittedBuild=null;
+            }
+        }
         // Invoked by Fixture.Steps after the ordinary public automation mission setup.
         private IEnumerable<AutomationStep> MountedKeepSteps()
         {
+            Require(RescueScenarioSelection.TryMountedKeepPart(scenario,out int keepNumber,out int direction),
+                "Mounted keep aggregate must expand into fresh-mission partitions before execution");
             yield return new AutomationStep("mounted-keep-installed-prerequisite",TimeSpan.FromSeconds(30),MountedKeepPrerequisite,true);
-            foreach(eChimps rider in KeepRiders)
+            if(keepNumber==0)
             {
-                eChimps type=rider;
-                yield return new AutomationStep("rider-local-rescue-before-fixes-tick-"+type,TimeSpan.FromSeconds(90),
-                    run=>MountedRiderLocalControl(run,type),true);
-            }
-            foreach(eMappers mapper in new[]{eMappers.MAPPER_KEEP2,eMappers.MAPPER_KEEP3,eMappers.MAPPER_KEEP1})
-                foreach(int rotation in new[]{0,2,4,6})
+                foreach(eChimps rider in KeepRiders)
                 {
-                    eMappers keep=mapper;int direction=rotation;
-                    yield return new AutomationStep("mounted-keep-stationary-"+keep+"-"+direction,TimeSpan.FromSeconds(90),
-                        run=>MountedKeepCase(run,keep,direction,false,KeepRiders[0],false),true);
-                    foreach(eChimps rider in KeepRiders)
-                    {
-                        eChimps type=rider;
-                        yield return new AutomationStep("mounted-keep-committed-"+keep+"-"+direction+"-"+type,TimeSpan.FromSeconds(90),
-                            run=>MountedKeepCase(run,keep,direction,true,type,false),true);
-                    }
+                    eChimps type=rider;
+                    yield return new AutomationStep("rider-local-rescue-before-fixes-tick-"+type,TimeSpan.FromSeconds(90),
+                        run=>MountedRiderLocalControl(run,type),true);
                 }
-            yield return new AutomationStep("mounted-keep-blocked-exit",TimeSpan.FromSeconds(90),
-                run=>MountedKeepCase(run,eMappers.MAPPER_KEEP2,0,true,KeepRiders[0],true),true);
+                yield return new AutomationStep("mounted-keep-blocked-exit",TimeSpan.FromSeconds(90),
+                    run=>MountedKeepCase(run,eMappers.MAPPER_KEEP2,0,true,KeepRiders[0],true),true);
+            }
+            else
+            {
+                eMappers keep=keepNumber==2?eMappers.MAPPER_KEEP2:keepNumber==3?eMappers.MAPPER_KEEP3:eMappers.MAPPER_KEEP1;
+                yield return new AutomationStep("mounted-keep-stationary-"+keep+"-"+direction,TimeSpan.FromSeconds(90),
+                    run=>MountedKeepCase(run,keep,direction,false,KeepRiders[0],false),true);
+                foreach(eChimps rider in KeepRiders)
+                {
+                    eChimps type=rider;
+                    yield return new AutomationStep("mounted-keep-committed-"+keep+"-"+direction+"-"+type,TimeSpan.FromSeconds(90),
+                        run=>MountedKeepCase(run,keep,direction,true,type,false),true);
+                }
+            }
             yield return new AutomationStep("mounted-keep-coverage",TimeSpan.FromSeconds(15),MountedKeepCoverage,true);
         }
         private IEnumerable<AutomationWait> MountedKeepPrerequisite(AutomationRun run)
@@ -175,43 +260,28 @@ namespace TrappedUnitRescueTest
             foreach(var wait in run.SetPause(run.CurrentMission,true))yield return wait;
             foreach(var wait in WaitMountedIdleBoundary(run))yield return wait;
             Execute(run,()=>PrepareMountedActors());
+            MountedCommittedBuild pending=null;
+            bool noRoof=mapper==eMappers.MAPPER_KEEP1;
+            uint exitFlags=0;int exitHeight=0;
+            try
+            {
             if(committed)
             {
                 Execute(run,()=>{
                     StageMountedApproach(actors[0],startX,startY);
+                    pending=ArmMountedCommittedBuild(mapper,rotation,startY,blocked,origins);
                     Require(runtime.Native.Reissue(actors[0].Id,cx+scale+2,startY),"Native mounted approach route was rejected");
                 });
-                bool acquired=false;int retries=0;
-                for(int tick=0;tick<256 && !acquired;tick++)
-                {
-                    foreach(var wait in run.SetPause(run.CurrentMission,false))yield return wait;
-                    yield return run.WaitForTicks(run.CurrentMission,1);
-                    foreach(var wait in run.SetPause(run.CurrentMission,true))yield return wait;
-                    int sample=tick;
-                    acquired=run.InSimulation(run.CurrentMission,()=>ObserveMountedApproach(actors[0],cx,cy,scale,startY,sample,ref retries));
-                }
-                Require(acquired,"No actual committed step crossed the future keep boundary; no unit state was fabricated");
+                foreach(var wait in run.SetPause(run.CurrentMission,false))yield return wait;
+                yield return AutomationWait.Until("actual committed Keep construction in its owning simulation callback",
+                    ()=>Volatile.Read(ref pending.Finished)!=0);
+                foreach(var wait in run.SetPause(run.CurrentMission,true))yield return wait;
+                Require(pending.Fault==null,"Committed Keep simulation capture/build failed: "+pending.Fault);
+                Require(pending.Claimed==1 && pending.Pose!=null && origins.Count==1,"Committed Keep construction did not complete exactly once");
+                pose=pending.Pose;exitFlags=pending.ExitFlags;exitHeight=pending.ExitHeight;
             }
-            bool noRoof=mapper==eMappers.MAPPER_KEEP1;
-            uint exitFlags=0;int exitHeight=0;
-            Execute(run,()=>{
-                if(committed)
-                {
-                    foreach(Actor actor in actors)origins.Add(CaptureMountedOrigin(actor,true));
-                    using(var mutation=runtime.BeginMutation("native-keep-pending-step-"+mapper+"-"+rotation,cx+scale/2,cy+scale/2,scale+2))
-                    {
-                        pose=BuildMountedKeep(mapper,rotation);
-                        var results=mutation.Complete(false);
-                        foreach(var origin in origins)
-                        {
-                            RescueResult result=results.Single(r=>r.UnitId==origin.Actor.Id);
-                            Require(result.Status!=RescueStatus.Rescued,"Existing local runtime unexpectedly accepted a committed step");
-                            log("mounted-keep-local-observation unit="+origin.Actor.Id+" result="+result.Status+" source=native-build-over-committed-next-tile");
-                        }
-                    }
-                }
-                else
-                {
+            else
+                Execute(run,()=>{
                     for(int i=0;i<actors.Count;i++)
                     {
                         Actor actor=actors[i];
@@ -219,25 +289,8 @@ namespace TrappedUnitRescueTest
                         CheckActor(actor,true); // Exact original identity/HP/tribe, old ground occupancy removed.
                         origins.Add(CaptureMountedOrigin(actor,false));
                     }
-                }
-                foreach(var origin in origins)
-                {
-                    LogMountedPostBuild(origin,pose);
-                    if(noRoof)Require(!MountedKeepPredicate(origin.Actor,pose.Keep),"Native KEEP1 unexpectedly acquired an elevated roof predicate");
-                    else Require(MountedKeepPredicate(origin.Actor,pose.Keep),"Actual keep surface did not create the intended rider overlap");
-                    log("mounted-keep-before-fixes rider="+origin.Actor.Type+" unit="+origin.Actor.Id+"/"+origin.Actor.Global+
-                        " keep="+pose.Keep+"/"+pose.KeepGlobal+" rotation="+rotation+" committed="+committed+" blockedExit="+blocked+
-                        " source="+(committed?"native-construction-over-pending-step":"controlled-native-placement-onto-existing-keep")+
-                        " exit="+pose.ExitX+","+pose.ExitY+" hiddenWord9B0="+MountedHiddenWord(origin.Actor));
-                }
-                if(blocked)
-                {
-                    // Explicit negative-case geometry seam. No rider, route or foreign setting is altered.
-                    var tiles=GameTileManagerAPI.Instance;exitFlags=(uint)tiles.GetTilePropertyFlag(pose.ExitTile);exitHeight=tiles.GetTileHeight(pose.ExitTile);
-                    tiles.SetTilePropertyFlag(pose.ExitTile,(TilePropertyFlag)(exitFlags|(uint)TilePropertyFlag.IsWall));
-                    tiles.SetTileHeight(pose.ExitTile,90);GamePathingManagerAPI.Instance.RecalculateTileAndNeighbours(pose.ExitX,pose.ExitY);
-                }
-            });
+                    CompleteMountedPreFixes(origins,pose,false,noRoof,blocked,out exitFlags,out exitHeight);
+                });
             if(noRoof)
             {
                 // Canonical74DA0 writes IsBuilding for KEEP1, never an elevated roof.
@@ -319,6 +372,33 @@ namespace TrappedUnitRescueTest
                     " originalIdentityHealthTribe=true exactDestination=true oldCurrentNextUnlinked=true distinctOccupiedAuxObserved="+origins.Count(o=>o.DistinctOccupiedAux)+" noSecondMove=true ownEnabled="+expectedEnabled);
                 RetireActors();
             });
+            }
+            finally
+            {
+                if(pending!=null && ReferenceEquals(mountedCommittedBuild,pending))mountedCommittedBuild=null;
+            }
+        }
+        private void CompleteMountedPreFixes(List<MountedOrigin> origins,KeepRecoveryPose pose,bool committed,bool noRoof,bool blocked,
+            out uint exitFlags,out int exitHeight)
+        {
+            exitFlags=0;exitHeight=0;
+            foreach(var origin in origins)
+            {
+                LogMountedPostBuild(origin,pose);
+                if(noRoof)Require(!MountedKeepPredicate(origin.Actor,pose.Keep),"Native KEEP1 unexpectedly acquired an elevated roof predicate");
+                else Require(MountedKeepPredicate(origin.Actor,pose.Keep),"Actual keep surface did not create the intended rider overlap");
+                log("mounted-keep-before-fixes rider="+origin.Actor.Type+" unit="+origin.Actor.Id+"/"+origin.Actor.Global+
+                    " keep="+pose.Keep+"/"+pose.KeepGlobal+" rotation="+pose.Rotation+" committed="+committed+" blockedExit="+blocked+
+                    " source="+(committed?"native-construction-over-pending-step":"controlled-native-placement-onto-existing-keep")+
+                    " exit="+pose.ExitX+","+pose.ExitY+" hiddenWord9B0="+MountedHiddenWord(origin.Actor));
+            }
+            if(blocked)
+            {
+                // Same negative-case geometry seam, before the first rider update.
+                var tiles=GameTileManagerAPI.Instance;exitFlags=(uint)tiles.GetTilePropertyFlag(pose.ExitTile);exitHeight=tiles.GetTileHeight(pose.ExitTile);
+                tiles.SetTilePropertyFlag(pose.ExitTile,(TilePropertyFlag)(exitFlags|(uint)TilePropertyFlag.IsWall));
+                tiles.SetTileHeight(pose.ExitTile,90);GamePathingManagerAPI.Instance.RecalculateTileAndNeighbours(pose.ExitX,pose.ExitY);
+            }
         }
         private void FindMountedSite()
         {
@@ -555,11 +635,21 @@ namespace TrappedUnitRescueTest
         private unsafe KeepRecoveryPose BuildMountedKeep(eMappers mapper,int rotation)
         {
             int keepId=0,campId=0;
-            using(var observer=BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(args=>{
-                if(args.Phase!=EventHookPhase.Post || args.PlayerId!=owner || args.ReturnValue<=0)return;
-                if(args.Building==mapper.ConvertToEStructs())keepId=checked((int)args.ReturnValue);
-                if(args.Building==eStructs.STRUCT_CAMPGROUND)campId=checked((int)args.ReturnValue);
-            }))GameBuildingManagerAPI.Instance.CreatePrefab(owner,cx,cy,mapper,BuildingScales.GetScale(mapper),rotation,true,true);
+            var tiles=GameTileManagerAPI.Instance;
+            bool oldOverride=tiles.TileManager.UsePlacementBlockedOverride,oldOverrideValue=tiles.TileManager.PlacementBlockedOverrideValue;
+            try
+            {
+                using(var observer=BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(args=>{
+                    if(args.Phase!=EventHookPhase.Post || args.PlayerId!=owner || args.ReturnValue<=0)return;
+                    if(args.Building==mapper.ConvertToEStructs())keepId=checked((int)args.ReturnValue);
+                    if(args.Building==eStructs.STRUCT_CAMPGROUND)campId=checked((int)args.ReturnValue);
+                }))GameBuildingManagerAPI.Instance.CreatePrefab(owner,cx,cy,mapper,BuildingScales.GetScale(mapper),rotation,true,true);
+            }
+            finally
+            {
+                tiles.TileManager.PlacementBlockedOverrideValue=oldOverrideValue;
+                tiles.TileManager.UsePlacementBlockedOverride=oldOverride;
+            }
             GameBuilding* keep=null;GameBuilding* camp=null;GamePlayerResources* player=null;
             Require(keepId>0 && campId>0 && BuildingAccess.TryGetById(keepId,out keep,out _) && keep!=null &&
                 BuildingAccess.TryGetById(campId,out camp,out _) && camp!=null && keep->r_PlayerIdOwner==owner && camp->r_PlayerIdOwner==owner &&
@@ -674,16 +764,18 @@ namespace TrappedUnitRescueTest
         }
         private IEnumerable<AutomationWait> MountedKeepCoverage(AutomationRun run)
         {
-            Require(mountedStationaryVerified==48 && mountedCommittedVerified==49 && mountedBlockedVerified==1,
-                "Mounted keep matrix incomplete: stationary="+mountedStationaryVerified+" committed="+mountedCommittedVerified+" blocked="+mountedBlockedVerified);
-            Require(mountedNegativeStationary==16 && mountedNegativeCommitted==16,
-                "KEEP1 no-roof negative matrix incomplete");
+            Require(RescueScenarioSelection.TryMountedKeepPart(scenario,out int keepNumber,out int direction),"Unknown mounted keep coverage partition");
+            bool controls=keepNumber==0;
+            Require(mountedStationaryVerified==(controls?0:4) && mountedCommittedVerified==(controls?1:4) && mountedBlockedVerified==(controls?1:0),
+                "Mounted keep partition incomplete: stationary="+mountedStationaryVerified+" committed="+mountedCommittedVerified+" blocked="+mountedBlockedVerified);
+            Require(mountedNegativeStationary==(keepNumber==1?4:0) && mountedNegativeCommitted==(keepNumber==1?4:0),
+                "KEEP1 no-roof negative partition incomplete");
             // Ordinary riding updates only current/next occupancy; no natural nonzero6B8
             // producer is established. Preserve observations and validate actual aux entries
             // when present, without manufacturing an auxiliary occupancy test state.
-            if(expectedEnabled)Require(mountedOwnRescued+mountedRiderBridgeOwnRescued>0,
+            if(expectedEnabled && controls)Require(mountedOwnRescued+mountedRiderBridgeOwnRescued>0,
                 "Coverage open: no actual rider was rescued locally before its natural Fixes rider update; Assassin bridge control cannot establish that interaction");
-            log("mounted-keep-coverage stationary="+mountedStationaryVerified+" committed="+mountedCommittedVerified+" keeps=3 campgroundRotations=4 riderTypes=4 blockedExit=1"+
+            log("mounted-keep-coverage stationary="+mountedStationaryVerified+" committed="+mountedCommittedVerified+" keep="+keepNumber+" campgroundRotation="+direction+" riderTypes=4 blockedExit="+(controls?1:0)+" freshMissionPartition=true aggregatePartitions=13"+
                 " positiveStationary="+(mountedStationaryVerified-mountedNegativeStationary)+" positiveCommitted="+(mountedCommittedVerified-mountedNegativeCommitted)+
                 " noRoofNegativeStationary="+mountedNegativeStationary+" noRoofNegativeCommitted="+mountedNegativeCommitted+
                 " ownEnabled="+expectedEnabled+" keepOwnRescueCount="+mountedOwnRescued+" riderBridgeOwnRescueCount="+mountedRiderBridgeOwnRescued+" distinctOccupiedAuxObserved="+mountedDistinctAuxObserved+" positiveOccupiedAuxRecovered="+mountedPositiveAuxRecovered+

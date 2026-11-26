@@ -142,7 +142,7 @@ namespace TrappedUnitRescueTest
             }
         }
 
-        private unsafe Actor FindMoatWorker(int farm)
+        private unsafe Actor FindMoatWorker(int farm,int requiredState=0)
         {
             ValidateAppleWorld();
             var native=runtime.Native;
@@ -153,7 +153,7 @@ namespace TrappedUnitRescueTest
                     unit->r_UnitChimp!=eChimps.CHIMP_TYPE_FARMER_APPLE || unit->r_ControllableForPlayerId!=owner ||
                     unit->r_LinkedProductionBuildingId!=farm || unit->r_LinkedProductionBuildingGlobalId!=appleWorld.FarmGlobal ||
                     // Hash-bound135E30: 5 returns to the workplace through196280; 7 delivers to a granary through196280.
-                    (unit->r_AIState!=5 && unit->r_AIState!=7) || unit->r_MovementSubstep!=8 ||
+                    (unit->r_AIState!=5 && unit->r_AIState!=7) || requiredState!=0 && unit->r_AIState!=requiredState || unit->r_MovementSubstep!=8 ||
                     (unit->r_PathPlanStateBitFlags!=2 && unit->r_PathPlanStateBitFlags!=4))continue;
                 UnitSnapshot state=runtime.SnapshotUnit(id);
                 if(state==null || state.Unsupported!=null || state.Candidates.Count==0 ||
@@ -182,8 +182,27 @@ namespace TrappedUnitRescueTest
                 TilePropertyFlag.HasStone|TilePropertyFlag.HasIron|TilePropertyFlag.IsSwamp|TilePropertyFlag.IsFarm|TilePropertyFlag.IsMoat|
                 TilePropertyFlag.IsTree|TilePropertyFlag.IsAppleFarm|TilePropertyFlag.IsFarmFence|TilePropertyFlag.IsWheat|TilePropertyFlag.IsHops;
             return (tiles.GetTilePropertyFlag(tile)&excluded)==0 && tiles.GetTileBuildingId(tile)==0 &&
-                tiles.GetTileVegetationId(tile)==0 && tiles.GetTileHeight(tile)<13;
+                tiles.GetTileVegetationId(tile)==0 && tiles.GetTileHeight(tile)<13 && MoatWorkerWithinOwnKeepRange(tile);
             // Native59210 remains authoritative; the fixture still requires the real writer to accept the tile.
+        }
+
+        private bool MoatWorkerWithinOwnKeepRange(int tile)
+        {
+            if(APIShared.GameModes.GameModeHelper.IsMapEditor())return true;
+            var tiles=GameTileManagerAPI.Instance;
+            if(!tiles.IsValidTileId(tile))return false;
+            var buildings=GameBuildingManagerAPI.Instance;
+            int range=buildings.GetKeepProximityRange(tiles.GetCurrentMapSize());
+            int overrideRange=buildings.KeepProximityOverride.GetValue();
+            if(overrideRange>0)range=overrideRange;
+            if(range<0 || range>int.MaxValue-5)return false;
+            var keep=GamePlayerManagerAPI.Instance.GetPlayerKeepPosition(owner);
+            var point=tiles.GetTileVectorFromId(tile);
+            //6FE90->EE320->EEF90 allows range+5+width/2 from the own Keep.
+            // Keep four tiles of margin for brush extent/anchor conventions; no
+            // allied half-range exception is needed for this sufficient filter.
+            int safeRange=range+1;
+            return Math.Max(Math.Abs((long)point.X-keep.X),Math.Abs((long)point.Y-keep.Y))<=safeRange;
         }
 
         private unsafe void InvokeMoatWorkerMove(Actor actor, int targetX, int targetY, out bool accepted, out int lifeAfter, out string moveState)

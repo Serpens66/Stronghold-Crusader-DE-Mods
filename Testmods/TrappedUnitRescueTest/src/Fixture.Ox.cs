@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using APIShared;
 using APIShared.Automation;
+using APIShared.Economy;
+using APIShared.Simulation;
 using CrusaderDE;
 using R3;
 using SHCDESE.API;
@@ -19,6 +21,10 @@ namespace TrappedUnitRescueTest
         private OxObservation oxObservation;
         private int oxQuarry,oxTether,oxQuarryPile;
         private uint oxQuarryGlobal,oxTetherGlobal,oxQuarryPileGlobal;
+        private bool oxDeliveryCapacityValidated;
+        private OxCapacityObservation oxCapacityObservation;
+        private static volatile Fixture oxCapacityFixture;
+        private static bool oxCapacityRegistered;
         private IDisposable oxStorageObserver, oxDropObserver;
         private sealed class OxObservation
         {
@@ -27,6 +33,65 @@ namespace TrappedUnitRescueTest
             internal uint TetherGlobal, PendingGlobal, PendingStone;
             internal bool Active, Pending, PhysicallyNearStorage, CargoEmpty, Lost;
             internal string Fault;
+        }
+        private sealed class OxCapacityObservation
+        {
+            internal long Session;
+            internal bool Pending;
+            internal int[] YardIds;
+            internal uint[] YardGlobals;
+            internal AllyTransferCapacity Capacity;
+            internal string Fault;
+        }
+        private unsafe void RequestOxCapacity(IList<int> yardIds)
+        {
+            if(!oxCapacityRegistered)
+            {
+                Require(SimulationTickEvents.TryRegister(Plugin.Guid,"acceptance-ox-capacity",ReadOxCapacity,out string reason),
+                    "Ox capacity simulation observation unavailable: "+reason);
+                oxCapacityRegistered=true;
+            }
+            oxDeliveryCapacityValidated=false;
+            Require(yardIds!=null && yardIds.Count==4,"Ox capacity needs exactly four new native yard identities");
+            var ids=new int[4];var globals=new uint[4];
+            for(int i=0;i<ids.Length;i++)
+            {
+                ids[i]=yardIds[i];
+                Require(BuildingAccess.TryGetById(ids[i],out GameBuilding* yard,out _) && yard!=null,
+                    "New Ox yard disappeared before capacity request");
+                globals[i]=yard->r_GlobalId;
+            }
+            oxCapacityObservation=new OxCapacityObservation{Session=session,Pending=true,YardIds=ids,YardGlobals=globals};
+            oxCapacityFixture=this;
+        }
+        private static unsafe void ReadOxCapacity(int tick)
+        {
+            var fixture=oxCapacityFixture;var proof=fixture?.oxCapacityObservation;
+            if(fixture==null || fixture.stopped || proof==null || !proof.Pending)return;
+            try
+            {
+                Require(proof.Session==fixture.session,"Ox capacity fixture session changed");
+                bool initializing=false;
+                for(int i=0;i<proof.YardIds.Length;i++)
+                {
+                    Require(BuildingAccess.TryGetById(proof.YardIds[i],out GameBuilding* yard,out _) && yard!=null &&
+                        yard->r_GlobalId==proof.YardGlobals[i] && yard->r_PlayerIdOwner==fixture.owner &&
+                        yard->r_BuildingType==eStructs.STRUCT_GOODS_YARD &&
+                        (yard->r_AliveState==AliveState.IsAlive || yard->r_AliveState==AliveState.NeedsInit),
+                        "Original new Ox capacity yard was deleted or replaced");
+                    initializing|=yard->r_AliveState==AliveState.NeedsInit;
+                }
+                // This event precedes C60F0's building pass. The first post-setup
+                // tick can still see NeedsInit; C5AD0 ignores those records.
+                // Retain demand until all four exact new lifetimes are alive.
+                if(initializing)return;
+                // InSimulation holds only the engine monitor. This actual shared
+                // tick additionally owns the service's SimulationMutationScope.
+                if(!AllyTransfers.TryGetCapacity(fixture.owner,eGoods.STORED_STONE_BLOCKS,out proof.Capacity,out string reason))
+                    proof.Fault="native stone capacity unavailable: "+reason;
+                proof.Pending=false;
+            }
+            catch(Exception error){proof.Fault="native stone capacity failed: "+error.GetType().FullName+": "+error.Message;proof.Pending=false;}
         }
 
         // Natural quarry -> grunt -> tether -> loaded Ox. Only its occupied source geometry is synthetic.
@@ -152,20 +217,40 @@ namespace TrappedUnitRescueTest
         {
             Require(BuildingAccess.TryGetById(tether,out GameBuilding* t,out _) && t!=null,"Actual tether unavailable while placing its delivery yard");
             int scale=BuildingScales.GetScale(eMappers.MAPPER_STORES);
-            Require(TryNearbyOrdinarySite(t->r_TilePositionXBegin,t->r_TilePositionYBegin,scale,out int x,out int y),
-                "No clear ordinary native stockpile footprint near the tether; stone capacity prerequisite unavailable");
-            int yardId=0;
+            var keep=GamePlayerManagerAPI.Instance.GetPlayerKeepPosition(owner);
+            int x=0,y=0;bool found=false;
+            // The occupied moat source must later be inside the real Keep build
+            // range. A remote tether-side yard would keep the entire trip outside.
+            // Do not call FindSite: its cx/cy fields belong to other fixture setup.
+            for(int radius=12;radius<=28 && !found;radius+=2)
+                for(int d=0;d<8;d++)
+                {
+                    int trialX=keep.X+Dx[d]*radius,trialY=keep.Y+Dy[d]*radius;
+                    if(!FlatSquare(trialX+scale/2,trialY+scale/2,scale/2+1,out _))continue;
+                    int centerTile=GameTileManagerAPI.Instance.GetTileId(trialX+scale/2,trialY+scale/2);
+                    if(!MoatWorkerWithinOwnKeepRange(centerTile))continue;
+                    x=trialX;y=trialY;found=true;break;
+                }
+            Require(found,"No flat free actual stockyard site near the own Keep inside the legal moat build range");
+            var yardIds=new List<int>();
             using(var observer=BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(args=>{
                 if(args.Phase==EventHookPhase.Post && args.PlayerId==owner && args.Building==eStructs.STRUCT_GOODS_YARD && args.ReturnValue>0)
-                    yardId=checked((int)args.ReturnValue);
+                    yardIds.Add(checked((int)args.ReturnValue));
             }))
                 GameBuildingManagerAPI.Instance.CreatePrefab(owner,x,y,eMappers.MAPPER_STORES,scale,0,true,true);
-            GameBuilding* yard=null;
-            Require(yardId>0 && BuildingAccess.TryGetById(yardId,out yard,out _) && yard!=null && yard->r_PlayerIdOwner==owner &&
-                yard->r_BuildingType==eStructs.STRUCT_GOODS_YARD && yard->r_GlobalId!=0 && yard->r_CurrentGoodStackAmount==0,
-                "Actual new empty goods yard was not materialized for native8stone handoff");
-            log("ox-delivery-yard id="+yardId+"/"+yard->r_GlobalId+" anchor="+x+","+y+" tether="+tether+
-                " actualStack="+yard->r_CurrentGoodStackAmount+" life="+yard->r_AliveState+" setup=controlled-real-empty-destination noGoodsWrites=true");
+            Require(yardIds.Count==4 && yardIds.Distinct().Count()==4,"Actual fresh stockyard did not create four distinct native records");
+            foreach(int yardId in yardIds)
+            {
+                Require(BuildingAccess.TryGetById(yardId,out GameBuilding* yard,out _) && yard!=null && yard->r_PlayerIdOwner==owner &&
+                    yard->r_BuildingType==eStructs.STRUCT_GOODS_YARD && yard->r_GlobalId!=0 &&
+                    (yard->r_AliveState==AliveState.IsAlive || yard->r_AliveState==AliveState.NeedsInit) &&
+                    yard->r_CurrentGoodStackAmount==0 && yard->r_StoneBlocksAmount==0 && yard->r_LocalStorageGoodType==eGoods.STORED_NULL,
+                    "Actual new empty goods-yard identity/storage precondition failed");
+                log("ox-delivery-yard id="+yardId+"/"+yard->r_GlobalId+" anchor="+x+","+y+" tether="+tether+
+                    " ownKeep="+keep.X+","+keep.Y+" actualStack="+yard->r_CurrentGoodStackAmount+" life="+yard->r_AliveState+
+                    " setup=controlled-real-empty-own-keep-destination capacityCheck=next-native-tick noGoodsWrites=true");
+            }
+            RequestOxCapacity(yardIds);
         }
         private unsafe int CountOwnedStockpiles()
         {
@@ -199,6 +284,16 @@ namespace TrappedUnitRescueTest
         }
         private unsafe string OxProductionReadiness(out bool batchReady)
         {
+            if(!oxDeliveryCapacityValidated)
+            {
+                var proof=oxCapacityObservation;
+                Require(proof!=null && proof.Session==session && !proof.Pending && proof.Fault==null &&
+                    proof.Capacity!=null && proof.Capacity.HasStorage && proof.Capacity.FreeAmount>=48,
+                    "Actual shared-tick stone storage capacity unavailable: "+(proof?.Fault??"missing/pending/below48 capacity"));
+                oxDeliveryCapacityValidated=true;
+                log("ox-delivery-capacity freeStone="+proof.Capacity.FreeAmount+" storedStone="+proof.Capacity.AmountStored+
+                    " actualNativeQuery=true source=shared-simulation-tick");
+            }
             GameBuilding* quarry=null;GameBuilding* tether=null;GameBuilding* pile=null;
             Require(BuildingAccess.TryGetById(oxQuarry,out quarry,out _) && quarry!=null &&
                 BuildingAccess.TryGetById(oxTether,out tether,out _) && tether!=null &&
@@ -294,6 +389,7 @@ namespace TrappedUnitRescueTest
                 }
             candidates.Sort((a, b) => a.Item1 != b.Item1 ? a.Item1.CompareTo(b.Item1) :
                 a.Item3 != b.Item3 ? a.Item3.CompareTo(b.Item3) : a.Item2.CompareTo(b.Item2));
+            int rejectedFootprint=0,rejectedTetherSite=0,rejectedNativeQuarry=0,nativeQuarryAttempts=0;
             foreach (var candidate in candidates)
             {
                 int x = candidate.Item2, y = candidate.Item3;
@@ -306,20 +402,27 @@ namespace TrappedUnitRescueTest
                     if ((tiles.GetTilePropertyFlag(tile) & TilePropertyFlag.HasStone) == 0 || tiles.GetTileBuildingId(tile) != 0 || tiles.GetTileUnitId(tile) != 0)
                     { stone = false; break; }
                 }
-                if (!stone || !TryNearbyOrdinarySite(x, y, 2, out int tx, out int ty)) continue;
+                if (!stone) { rejectedFootprint++; continue; }
+                if (!TryNearbyOrdinarySite(x, y, 2, out int tx, out int ty)) { rejectedTetherSite++; continue; }
                 // Explicit placement bypass is confined to the disposable fixture; the source stone is real.
+                nativeQuarryAttempts++;
                 buildings.CreatePrefab(owner, x, y, eMappers.MAPPER_QUARRY, scale, 0, true, true);
                 int q = tiles.GetTileBuildingId(tiles.GetTileId(x, y));
-                if (q <= 0 || !BuildingAccess.TryGetById(q, out GameBuilding* qb, out _) || qb == null || qb->r_BuildingType != eMappers.MAPPER_QUARRY.ConvertToEStructs()) continue;
+                if (q <= 0 || !BuildingAccess.TryGetById(q, out GameBuilding* qb, out _) || qb == null || qb->r_BuildingType != eMappers.MAPPER_QUARRY.ConvertToEStructs())
+                { rejectedNativeQuarry++; continue; }
                 buildings.CreatePrefab(owner, tx, ty, eMappers.MAPPER_OXENBASE, BuildingScales.GetScale(eMappers.MAPPER_OXENBASE), 0, true, true);
                 int t = tiles.GetTileBuildingId(tiles.GetTileId(tx, ty));
                 if (t <= 0 || !BuildingAccess.TryGetById(t, out GameBuilding* tb, out _) || tb == null || tb->r_BuildingType != eMappers.MAPPER_OXENBASE.ConvertToEStructs())
                     throw new InvalidOperationException("Native quarry exists, but its planned tether failed; setup must not masquerade as coverage");
                 quarry = q; tether = t;
-                log("ox-real-site stoneAnchor=" + x + "," + y + " tetherAnchor=" + tx + "," + ty + " distanceToKeep=" + candidate.Item1);
+                log("ox-real-site stoneAnchor=" + x + "," + y + " tetherAnchor=" + tx + "," + ty + " distanceToKeep=" + candidate.Item1+
+                    " candidates="+candidates.Count+" rejectedFootprint="+rejectedFootprint+" rejectedTetherSite="+rejectedTetherSite+
+                    " nativeQuarryAttempts="+nativeQuarryAttempts+" rejectedNativeQuarry="+rejectedNativeQuarry);
                 return true;
             }
-            log("ox-real-site candidates=" + candidates.Count + " accepted=false");
+            log("ox-real-site candidates=" + candidates.Count + " accepted=false footprintScale="+scale+
+                " rejectedFootprint="+rejectedFootprint+" rejectedTetherSite="+rejectedTetherSite+
+                " nativeQuarryAttempts="+nativeQuarryAttempts+" rejectedNativeQuarry="+rejectedNativeQuarry);
             return false;
         }
 

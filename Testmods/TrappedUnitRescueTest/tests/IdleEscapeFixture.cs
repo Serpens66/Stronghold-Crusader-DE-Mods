@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using APIShared.Units;
+using SHCDESE.Interop;
 
 namespace TrappedUnitRescueTest.Tests
 {
@@ -82,6 +83,7 @@ namespace TrappedUnitRescueTest.Tests
             Require(owner.TryStart(Request(),0,out _) && owner.Count==0 && owner.CompletedCount==1 && world.Relocations==0,"synchronous native physical arrival counted once");
             NativeResults();
             NativePhase();
+            ArcherIdlePhase();
             PhysicalExit();
             Console.WriteLine("IdleEscapeFixture: "+checks+" checks passed");
         }
@@ -158,6 +160,32 @@ namespace TrappedUnitRescueTest.Tests
             // Even a noninvoked/failed completion ends this pre-original phase;
             // NativeResults independently rejects its missing actual-zero facts.
             receipt.Complete(Completion(exact));Require(current.Finished,"completion is idempotent");
+        }
+        private static void ArcherIdlePhase()
+        {
+            foreach(int state in new[]{7,8,11})
+            {
+                var memory=new CommandJourneyFixture.Memory(eChimps.CHIMP_TYPE_ARCHER,state);
+                Require(CommandJourneySnapshot.TryCaptureStationary(eChimps.CHIMP_TYPE_ARCHER,state,memory.Word,memory.Dword,out var intent),"Archer source fixture captures actual idle schema");
+                Func<bool> unchanged=()=>intent.Matches(eChimps.CHIMP_TYPE_ARCHER,memory.Word(0x918),memory.Word,memory.Dword);
+                var phase=new IdleEscapeSourcePhase("ours",Request());var context=Context();var receipt=phase.TryBegin(context);
+                Require(receipt!=null && phase.IsCurrent(true,unchanged),"Archer source proof remains required after own Begin");
+                // Model an actual final-original observer changing the native
+                // target after our Begin: the SAME production phase callback
+                // must deny the original; no source-phase completion occurred.
+                memory.Word(0x99C,123);
+                Require(!phase.IsCurrent(true,unchanged),"foreign ranged target before final original invalidates Archer authority");
+                memory.Word(0x99C,0);memory.Dword(0x6F8,0x10000);
+                Require(!phase.IsCurrent(true,unchanged),"foreign target lifetime high word invalidates original and refusal fallback source");
+                memory.Dword(0x6F8,0);memory.Word(0x748,20);
+                Require(!phase.IsCurrent(true,unchanged),"new deferred order before original defeats source proof");
+                memory.Word(0x748,0);memory.Word(0x918,101);
+                Require(!phase.IsCurrent(true,unchanged),"native phase change before original supersedes old idle proof");
+                receipt.Complete(Completion(context));
+                Require(phase.IsCurrent(true,unchanged),"after exact completion only native-output pose may change; outcome checks remain separate");
+                Require(!phase.IsCurrent(false,unchanged),"completion never overrides persistent order/world authority");
+                Require(!unchanged(),"native phase supersession still defeats later semantic monitoring/fallback");
+            }
         }
         private static void PhysicalExit()
         {

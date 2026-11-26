@@ -472,8 +472,10 @@ and `0x118660`.
 - Path flags 5 prevent `0x188340` from reporting normal arrival, but do not
   freeze all unit logic or undo a pending midpoint marker. `0x186AD0 ->
   0x180230` can consume nonzero DWORD `+0x740` to commit Next. A stable parked
-  pose additionally requires substep 8, Current==Next, coherent packed IDs and
-  a zero marker; flag 5 alone does not establish those conditions.
+  pose additionally requires substep 8, coherent Current packed ID, equal
+  Current/Next XY and a zero DWORD marker; flag 5 alone does not establish
+  those conditions. Packed Next73C is an inactive cache at that boundary and
+  need not equal Current (see the dated 26.11.2026 correction below).
 - `0x19BA40` clears flags `+0x74E`, DWORD `+0x740`, and writes DWORD `+0x750=8`
   (substep8/cursor0). It does not clear requested `+0x744/+0x746`, stored moat
   `+0x9C8`, or old length `+0x754`. Combining relocation with a rejected search
@@ -598,3 +600,68 @@ before Play, with native starting slots/peace/prebuild and actual native lord
 identity checked after loading. The input AIV hash alone is not a native plan
 readback. Game acceptance and final source/package identities are tracked in
 Testmods/TrappedUnitRescueTest/SP-ACCEPTANCE.md and .work/a/rescue-sp/001.
+
+## 26.11.2026 — inactive packed Next after ordinary relocation [Vanilla facts]
+
+Reference hash remains FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2; the installed canonical DLL and the selected dataset were rechecked. This corrects the earlier overstatement that both packed tile IDs must agree at a normalized stationary boundary.
+
+- Complete 19BA40 writes Current72C coherently, copies its selected XY to Current71C/71E and Next738/73A, clears the full DWORD740 and writes DWORD750=8 (substep8/cursor0). It does **not** write packed Next73C. Callees186AD0→186AF0 unlink and180230→1802A0 relink occupancy; with marker740=0,180230 consumes Current72C. The final18BE50 updates rendering offsets, not73C.
+- Complete1855A0 returns from its flags5 branch before199E10. Its ordinary active-step path publishes fresh NextXY and packed73C before consuming that step or calling199E10. The latter's only ordinary caller is1855A0. The fixed global aliases of73C found in the writer/reader review are writers; the separate copied scratch alias provides no later read authority.
+- Reissue196280→19B1B0 uses CurrentXY for a stopped substep8 pose, otherwise NextXY;19B1B0 derives normalized XY from Current72C. This path does not require the inactive packed Next to equal Current. A successful route subsequently publishes the new accepted step before its packed Next is consumed.196840 uses Current72C;18BC00 is rendering work.
+- Concrete legal output: accepted A→B followed by19BA40(A) leaves packed Next=B while Current=A, NextXY=A, substep8 and the full midpoint DWORD=0. Relocation A→C may similarly leave the inactive cache atA. Do not invent a write to73C merely to make a managed guard pass. Active substep<8 still requires a coherent accepted packed Next.
+
+## 26.11.2026 — normalized-pose consumer regression [mod integration]
+
+The prototype's WorkerResumeWorld parking and IdleEscapeWorld stationary predicates incorrectly required Current72C==Next73C even with zero midpoint marker and substep8. The common read contract now retains coherent Current, equal Current/NextXY, substep8 and full DWORD740=0 while ignoring only that inactive cache. No native hook or extra native write is added. The typed-record regression in StartedStepFixture rejects the previous predicate with the exact A→B/relocate(A) state and retains negative Current/XY/substep/low+high-marker tests. Offline before-fix failure and after-fix results are under `.work/a/rescue-sp/001/normalized-before-fix.log` and `normalized-build.log`; this alone is not a game acceptance claim. The original run086 failure and the planned owned-reissue post-call readback are separate runtime evidence.
+
+Actual run090 (`.work/a/rescue-game/090/186265f22096/LogOutput.log`) confirmed the native post-call state before owned reissue: Current150410, inactive Next150411, NextXY equal Current266,387, full marker0, substep8, flags5. After the corrected read predicate the same original unit1/global998 published exactly one own Native1 continuation and physically reached its unchanged goal276,387 with identity/health/tribe/occupancy preserved. The otherwise identical Next-only on case in086 failed at parking with the old predicate. This closes that specific runtime attribution; it is not a full worker/idle/save acceptance.
+
+The same inactive73C equality was also removed from the fresh failed-order handoff reader. Current72C, complete marker740, SS8, XY, native-result, AI-policy and lifetime guards remain. Existing CommandJourneyFixture now includes stale-cache handoffs across flags0/2/4/5 while retaining the negative guards. Integrated offline result: `access-matrix-build-final.log`; the actual foreign failed-order/save scenario is still pending.
+
+## 26.11.2026 — ordinary step boundary and exact Moat brush [Vanilla facts]
+
+Same canonical hash as above. The complete1855A0 path increments750 at185815; when an intermediate step reaches8 and cursor752 still precedes length754, the same call resets750 to0, validates/publishes the following Next and continues its first movement. No ordinary intermediate-tile tick ends atSS8. Endroute instead writes DWORD74E=0x80000 (flags0/SS8); error/special branches can also writeSS8.196280/19B1B0 do not create a newSS8 boundary during an accepted step. Fresh ordinary worker routes can begin atSS8, but this is not evidence that normal transit offers the same sampling window. The full135E30/188340/196280 and movement-helper chain was rechecked; slower polling cannot create this missing phase.
+
+For6FE90, resolve the actual operation value first: IsMoat is40000000, so it selects69850 rather than generic6A620/E3360 BFS.61DB0 calls619C0 for sizes0..13.619C0 zeroes each169-record block (169×24=FD8 bytes) and fills the first size-squared XY records for sizes>1, leaving unused entries zero.69850 reads the requested ordinal from block8DDCC0+(size×169+ordinal)×24;6FE90 subtracts floor(size/2) from both axes. Width2 uses count5 from2D1C38 but only four unique initialized square offsets; the fifth ordinal repeats zero offset. Its unique affected rectangle is [centerX-1..centerX]×[centerY-1..centerY], not a five-cell diamond. Current and an adjacent accepted Next fit when center uses the coordinatewise maximum (with either appropriate pad on an unchanged axis). Generic non-Moat brushes still use the separately audited BFS contract. NativeMutationFootprints already distinguishes the40000000 centered-square case; this is a fixture correction, not a changed production footprint algorithm.
+
+## 26.11.2026 — Miller registration and event timing [Vanilla facts]
+
+1377C0 registers each Miller through native building214+WORD(unit9EE)×2. The GameBuilding view begins at native5C (global134 maps to typedD8, access15A maps to typedFE), making that three-WORD array typed1B8. It is separate from generic employment fields. In successful input phaseR3 the handler first commits AI4, then calls B6100 for RawWheat-1; an event at that goods operation observes AI4. Flour output inR8 calls B6100 with AI8 and positive cargo still present, then clears cargo after return. The acceptance reader keeps exact Unit/context/slot/building-global/body-position and actual physical goods-delta checks; an event name alone is insufficient.
+
+
+## 26.11.2026 — Archer stationary animation and absent AI1 [Vanilla facts]
+
+Canonical SHA-256 was rechecked against CURRENT.json: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2. Public CreateUnitLocal reaches17FEF0/type initializer19A240; removed records are cleared by1869C0, and182B00 changes NeedsInit to alive. The installed/source Archer enum is22. Dispatcher182B00 indexes321CB0 by that type; raw slot321D60 contains18013F540. The machine switch reads byte141CF4[AI] and dword141C98[selector]. AI1 selects22 and returns through141C7D; this is not a missing decompiler case. AI7/8/11 select1410B2/1411CE/1412F6.
+
+The complete13F540 branches establish that7 only performs idle facing197BC0 and animation before returning to0;197BC0 writes direction90C/6AC, not an order. AI8 performs idle animation using9EA/9D8 and then selects0 and181890. AI11 selects longer idle animation variants and likewise reaches0/181890. None of these branches applies damage, produces goods or resumes a worker job.181890 derives positional/occupancy recovery from actual Current and may publish101 through196280, or relocate through19BA40 for its separate terrain case. Such native changes remain authoritative.
+
+Combat/aiming is owned by0/2/101 and4->5->6, including target acquisition18E9A0. Ranged adversary99C and global6F8 are independent of context9F6/9F8 and tileA00;99C also acceptsFFFF/FFFE aiming sentinels. The selector handles explicit commands4/5/9/22/23/34. In particular command5 can install tile aiming fromA40/A42 even with9F6 andA00 zero. The lost-command4 branch can consume deferred748/74A and publish101. Thus zero9F6/A00 or an idle-looking animation does not prove absence of native intent.
+
+### Testmod consequence [Mod policy, not a Vanilla restriction]
+
+Only stationary Archer7/8/11 gain a new idle proof. Their phase-specific immutable schema extends existing common fields with748/74A; existing type/phase layouts are unchanged. The new family admits command0 or completed MoveHerePosition3 only, with zero996/998,99C/6F8,9F6/9F8,A00 and748/74A. Ordinary normalized pose, Current=requested, owner/lifetime/tribe, old ordinary-to-new-Moat causality and all existing special-mode exclusions still apply. AI1, other types with the same numbers and active continuation of7/8/11 remain excluded. Final-original source checks and refusal fallback revalidate the immutable intent; native AI/target/order changes supersede the read-only monitor without restoring old AI. Actual run098/a6d87d24b416 showed a natural ArcherAI8 with normalized pose and zero logged targets being rejected before this extension. This observation is a qualification failure, not an in-game acceptance of the extension. New offline fixtures are source-only until the coordinating build runs.
+
+## Miller stockpile-global and moat placement range,26.11.2026 [Vanilla facts]
+
+Canonical DLL rehashed againstCURRENT.json and DATABASE_INFO.json: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2. Full1377C0 plus B9280/BF9F0/B9AA0/C6EA0/B6100 chain and direct PE displacements were checked. Miller stockpile lifetime is unit native6F8 (typedGameUnit+9C), paired with native98E. It is not700 (typed+A4, role target context). Writers:137AC4(inputR1→3),137DFA(inputreselection),13814C(outputR7→8),138352(outputreselection),138443(nextwheat). Readers137CCA validates input lifetime;137D77 passes6F8 toB6100 wheatdebit(call137D86);138272 passes6F8 toB6100 flourcredit(call13827D). The entire Miller handler has no700 read/write. Selectors returnBuildingID; the caller copies BuildingGlobal(native134,publicD8) into6F8.
+
+All20 audited worker handlers agree on the storage lifetime domain: the18 roles with storage phases use6F8; Mason131430 andMiner1 14D6F0 have no own storage binding. Woodcutter700 holds vegetation serial; Hunter700 holds target context, neither changes the stockpile contract. Inactive role phases may legitimately retain0/stale6F8; only a phase requiring an external store may validate its bound storage lifetime.
+
+Moat EditorTileType6FE90 outside editor has world-level admission gates before physical tile writes: EE640 enemy-unit Euclidean radius15+width/2; EE320 enemy-building/wall BFS radius7+width/2; EEF90 own/allied keep reach. EE320 writes BFS scratch and is not a pure query. Own range uses6AF00(mapSize)+5+width/2; allied reach has separate reduced rules. For a400-wide map the own base is70, so width1 requires the own75-tile allowance. Final eligibility includesHeight<13 and59210, which is a writer/allocator over the64000-slot moat domain, not a read-only placement query. Test/source selection must respect the range rather than forging editor state or invoking these writers as probes.
+
+### Fixture consequence [mod integration]
+
+A legitimate Miller with actualStoreGlobalG,6F8=G and700=0 remains valid natively. A fixture comparing700 toG wrongly rejects it; this is a test setup defect, not a reason to relax runtime bindings. The natural Miller fixture now uses6F8 for exact store lifetime, and logs700 separately as raw target context. Run100 failed acquisition before any moat writer; a repeat with raw original fields is still required to attribute its observed qualification failure precisely.
+
+Run095's real charged Ox stood far beyond ownKeep reach when the actual moat writer rejected placement. The new resource fixture puts its delivery stockpiles near its own keep and waits for all four original storage records to reachIsAlive before the native capacity query. These setup changes are not worker rescue acceptance.
+
+
+## 26.11.2026 — ordinary movement cadence and published substeps [Vanilla facts]
+
+The canonical DLL was rehashed with Get-ApiRepositoryHash: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2, matching CURRENT.json and its database manifest. The complete182B00 and1855A0 bodies were reread under that binary_hash, including real/speculative calls, caller skips, animation skips, route exhaustion and failed-edge branches.335C98 was read from the matching canonical PE: direction thresholds are4,4,3,3,3,4,4,4.
+
+For ordinary movement182B00 first increments native unit DWORD9AC. It skips the real1855A0 call while signed32(9AC-9A8) <= signedWORD74C + signedWORD9A2 + signedWORD916; on admission it writes9A8=9AC and passes signed916 as the movement budget.1855A0 adds signedWORD A2A, initializes its loop counter to0 and continues while the incremented counter <= that budget. Thus916=1/A2A=0 admits two inner iterations, not one. A new path step resets750 to0 and performs its first physical substep in that same iteration; the second iteration publishesSS1. Subsequent admitted movement calls publishSS3 andSS5. With northward direction0, the innerSS4 iteration commits Current to the accepted Next through180230; the published end state isSS5 with Current=Next and raw740 cleared. The speculative param4=1 call remains separately restored by182B00 and is not physical evidence.
+
+The per-inner-iteration animation gate reads BYTE985, not BYTE984: mode1 admits signedWORD9D6 phases4..11, mode2 phases5..9, and other modes reach the ordinary increment branch directly. Closed gates can skip movement even when the caller budget loop executes. BYTE984 instead appears in the distinct failed-step cleanup branch. The already audited occupancy/render helpers do not supply a hidden single-substep boundary. Endroute/failure/special paths retain their separate contracts; the arithmetic above is not a universal promise of motion on every simulation notification.
+
+Acceptance-fixture consequence [test policy]: use genuine published preSS1 or postSS3 on the observed native916=1/A2A=0 Spearman, require an open animation gate and a due next caller update from live9AC/9A8/74C/9A2/916, then verify actual next-tickSS3 orSS5 before ordinary recovery. This disposable fresh-unit fixture rejects wrapping/reordered counters rather than reconstructing them. It never writes speed, counters, animation, AI or pose. Historical run108 (61ae00394621, LogOutput.log2212..2222) exposed the incorrect916=0 fixture prerequisite; it supplied no runtime post-midpoint recovery proof.

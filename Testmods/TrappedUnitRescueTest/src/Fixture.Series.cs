@@ -8,6 +8,36 @@ namespace TrappedUnitRescueTest
 {
     internal static class RescueScenarioSelection
     {
+        internal static bool IsMountedKeepPart(string name)=>TryMountedKeepPart(name,out _,out _);
+        internal static bool TryMountedKeepPart(string name,out int keep,out int rotation)
+        {
+            keep=0;rotation=0;
+            if(name=="rescue-mountedkeep-controls-on" || name=="rescue-mountedkeep-controls-off")return true;
+            foreach(int candidate in new[]{2,3,1})foreach(int direction in new[]{0,2,4,6})
+                if(name=="rescue-mountedkeep-k"+candidate+"-r"+direction+"-on" ||
+                    name=="rescue-mountedkeep-k"+candidate+"-r"+direction+"-off")
+                {keep=candidate;rotation=direction;return true;}
+            return false;
+        }
+        internal static bool TryExpand(string[] selection,out string[] expanded)
+        {
+            expanded=null;if(selection==null || selection.Length==0 || selection.Length>MaximumCases)return false;
+            var result=new List<string>();
+            foreach(string name in selection)
+            {
+                if(string.IsNullOrWhiteSpace(name))return false;
+                if(name=="rescue-mountedkeep-on" || name=="rescue-mountedkeep-off")
+                {
+                    string option=name.EndsWith("-on",StringComparison.Ordinal)?"on":"off";
+                    result.Add("rescue-mountedkeep-controls-"+option);
+                    foreach(int keep in new[]{2,3,1})foreach(int rotation in new[]{0,2,4,6})
+                        result.Add("rescue-mountedkeep-k"+keep+"-r"+rotation+"-"+option);
+                }
+                else result.Add(name);
+                if(result.Count>MaximumCases)return false;
+            }
+            expanded=result.ToArray();return true;
+        }
         internal const string SeriesRequest="rescue-series";
         internal const int MaximumCases=64;
         internal static bool TryParse(string selection,Func<string,bool> owns,out string[] cases)
@@ -143,7 +173,7 @@ namespace TrappedUnitRescueTest
             var view=MainViewModel.Instance;
             return view.Show_HUD_Confirmation || view.Show_HUD_ConfirmationMP || view.Show_HUD_ConfirmationSM || view.Show_HUD_ConfirmationSands;
         }
-        private static bool MenuReady(AutomationRun run)
+        internal static bool MenuReady(AutomationRun run)
         {
             if(run.CurrentMission!=null || !MainViewModel.viewModelLoaded || FatControler.currentScene!=Enums.SceneIDS.FrontEnd)return false;
             var view=MainViewModel.Instance;

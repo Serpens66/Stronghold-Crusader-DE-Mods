@@ -149,6 +149,15 @@ namespace TrappedUnitRescueTest
             }
             return found == expected;
         }
+        // 19BA40 normalizes Current/Next XY and clears the midpoint marker. The
+        // packed Next cache at native73C is inactive until a new step publishes it.
+        internal static bool IsNormalizedPose(GameUnit* unit,int currentTile,uint midpointMarker) =>
+            unit!=null && currentTile>=0 && unit->r_MovementSubstep==8 &&
+            unit->r_CurrentPositionTileId==(uint)currentTile &&
+            unit->r_CurrentTilePositionX==unit->r_NextTilePositionX2 &&
+            unit->r_CurrentTilePositionY==unit->r_NextTilePositionY2 &&
+            midpointMarker==0;
+
         internal bool Relocate(int id, int x, int y)
         {
             if(!UnitMoveEvents.IsAvailable)return false;

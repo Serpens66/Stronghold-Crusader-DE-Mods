@@ -1,5 +1,6 @@
 using System;
 using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
 
 namespace TrappedUnitRescueTest.Tests
 {
@@ -7,7 +8,7 @@ namespace TrappedUnitRescueTest.Tests
     {
         private static int checks;
         private static void Check(bool value,string reason){checks++;if(!value)throw new InvalidOperationException(reason);}
-        private sealed class World : IWorkerResumeWorld,IWorkerResumeAuthorityAware,IWorkerResumeBarrierView
+        private sealed class World : IWorkerResumeWorld,IWorkerResumeAuthorityAware,IWorkerResumeBarrierView,IWorkerStartedProbeWorld
         {
             internal WorkerResumeTicket Ticket;
             internal WorkerReceiptState State=WorkerReceiptState.MatchingActive;
@@ -26,6 +27,20 @@ namespace TrappedUnitRescueTest.Tests
             internal int Originals;
             internal bool ValidateGoal,Coherent=true,CallPoseCurrent=true;
             internal ushort LiveRequestedX;
+            internal WorkerProbePreparation Preparation=WorkerProbePreparation.Rejected;
+            internal int Normalizations;
+            internal Action DuringPreparation;
+            internal Func<bool> BeforePreparation;
+            internal bool ThrowPreparation,PreparationPublishesPose=true;
+            public WorkerProbePreparation PrepareStartedProbe(WorkerResumeTicket ticket,UnitSnapshot before)
+            {
+                Check(BeforePreparation==null || BeforePreparation(),"normalization has reserved ownership before native effects");
+                if(Preparation==WorkerProbePreparation.Rejected)return Preparation;
+                Normalizations++;DuringPreparation?.Invoke();
+                if(ThrowPreparation)throw new InvalidOperationException("normalization wrapper failed");
+                if(Preparation==WorkerProbePreparation.Ready && PreparationPublishesPose){AllowProbe=true;State=WorkerReceiptState.MatchingStopped;}
+                return Preparation;
+            }
             public void BindResumeAuthority(Func<WorkerResumeTicket,bool> isCurrent,Action<WorkerResumeTicket> onSourceLost)
             {authority=isCurrent;invalidateSource=onSourceLost;}
             public bool TryCapture(UnitSnapshot before,out WorkerResumeTicket ticket,out string reason){ticket=Ticket;reason=null;return ticket!=null;}
@@ -160,12 +175,158 @@ namespace TrappedUnitRescueTest.Tests
             nested.Tick(20,512,1);
             Check(nested.Ledger.TryGetParkedByUnit(4,out nestedTicket) && nestedTicket.RequestedX==155 && nestedWorld.Writes==nestedWrites,
                 "drain flush atomically rebinds without an extra native write");
+            VerifyStartedMoatPreparation();
             VerifyNativeAuthority();
             for(int id=1;id<=WorkerResumeLedger.Capacity;id++)
             {supervisor.Ledger.TryReserve(Ticket(id),out var token);supervisor.Ledger.CommitPark(token,999);}
             bool mutated=false;world.Ticket=Ticket(900);
             Check(!supervisor.TryRecover(null,()=>{mutated=true;return true;},4,out _,out _) && !mutated,"capacity prevents native mutation");
             Console.WriteLine("PASS: worker supervisor "+checks+" checks; reservation, safe park, failed resume, replacement and capacity; no game execution.");
+        }
+        private static UnitSnapshot StartedMoatBefore()=>new UnitSnapshot { Id=99,GlobalId=99,Type=(int)eChimps.CHIMP_TYPE_QUARRY_OX,
+            X=5,Y=5,TileId=10,NextX=6,NextY=5,NextTileId=11,Flags=2,Substep=0,OrdinaryStep=true,
+            AffectedCurrent=true,AffectedNext=true,CurrentWasOrdinary=true,NextWasOrdinary=true,Job=Ticket(99).Job };
+        private static unsafe void VerifyStartedMoatPreparation()
+        {
+            uint moat=(uint)TilePropertyFlag.IsMoat,wall=(uint)TilePropertyFlag.IsWall;
+            var before=StartedMoatBefore();
+            for(int substep=0;substep<8;substep++)foreach(int flags in new[]{2,4})
+                Check(NativeWorkerResumeWorld.IsStartedMoatProbeGeometry(before,10,5,5,11,6,5,flags,substep,moat,moat),
+                    "captured original ordinary step may advance before canonical same-Current normalization");
+            for(int substep=1;substep<8;substep++)
+            {
+                Check(NativeWorkerResumeWorld.IsStartedMoatProbeGeometry(before,11,6,5,11,6,5,2,substep,moat,moat) &&
+                    NativeWorkerResumeWorld.IsCapturedMoatMidpoint(before,11,6,5,11,6,5,2,substep,moat,moat),
+                    "native midpoint may commit only the old acceptedNext while its remaining half-step runs");
+                Check(!NativeWorkerResumeWorld.AdmissibleCapturePosition(before,11,6,5,2,substep,11,6,5) &&
+                    NativeWorkerResumeWorld.AdmissibleCapturePosition(before,11,6,5,2,substep,11,6,5,true),
+                    "post-midpoint admission needs the separately proved causal moat capability; defaults remain strict");
+            }
+            var nextOnly=StartedMoatBefore();nextOnly.AffectedCurrent=false;
+            for(int substep=0;substep<8;substep++)foreach(int flags in new[]{2,4})
+            {
+                Check(!NativeWorkerResumeWorld.IsStartedMoatProbeGeometry(nextOnly,10,5,5,11,6,5,flags,substep,0,moat,true),
+                    "Next-only before midpoint must retain ordinary Current through nonprobe reserved recovery");
+                Check(NativeWorkerResumeWorld.IsCapturedMoatMidpoint(nextOnly,11,6,5,11,6,5,flags,substep,0,moat,true),
+                    "only the captured newly moated Next can normalize after its actual midpoint commit");
+            }
+            Check(!NativeWorkerResumeWorld.IsCapturedMoatMidpoint(nextOnly,11,6,5,11,6,5,2,4,0,moat),
+                "Next-only midpoint requires independently confirmed unchanged ordinary old Current");
+            Check(!NativeWorkerResumeWorld.IsCapturedMoatMidpoint(nextOnly,11,6,5,11,6,5,2,4,wall,moat,true),
+                "a newly walled old Current cannot use the Next-only ordinary-bank contract");
+            Check(!NativeWorkerResumeWorld.IsCapturedMoatMidpoint(nextOnly,11,6,5,12,7,5,2,4,0,moat,true),
+                "Next-only midpoint never inherits an unobserved second step");
+            Check(!NativeWorkerResumeWorld.IsStartedMoatProbeGeometry(before,10,5,5,11,6,5,2,4,moat,0,true),
+                "Current-only moat with a healthy accepted Next keeps native physical exit ownership");
+            var legalCurrentWorld=new World{Ticket=Ticket(99),AllowProbe=false,Resume=true,State=WorkerReceiptState.MatchingActive};
+            var legalCurrentOwner=new WorkerResumeSupervisor(legalCurrentWorld);int sameCurrentNormalizations=0;
+            Check(legalCurrentOwner.TryRecover(nextOnly,()=>{
+                Check(legalCurrentOwner.Ledger.ReservedCount==1 && legalCurrentOwner.IsExecutingNativeCall,
+                    "Next-only legal Current is normalized only after a durable intent reservation");
+                sameCurrentNormalizations++;legalCurrentWorld.State=WorkerReceiptState.MatchingStopped;return true;
+            },1,out var legalCurrentOutcome,out _) && legalCurrentOutcome==WorkerRecoveryOutcome.Resumed &&
+                sameCurrentNormalizations==1 && legalCurrentWorld.Probes==0 && legalCurrentWorld.Normalizations==0 &&
+                legalCurrentWorld.Attempts==1 && legalCurrentOwner.Ledger.Count==0,
+                "legal Current route takes one normalization and original-goal resume without a moat-source probe");
+            foreach(var change in new Action<UnitSnapshot>[] { b=>b.AffectedNext=false,b=>b.CurrentWasOrdinary=false,
+                b=>b.NextWasOrdinary=false,b=>b.GroundFlags=moat,b=>b.NextGroundFlags=moat,b=>b.GroundFlags=wall,
+                b=>b.NextGroundFlags=wall,b=>b.OrdinaryStep=false,b=>b.Substep=8,b=>b.Flags=0,b=>b.Job=null,
+                b=>b.Unsupported="foreign-state" })
+            {
+                var invalid=StartedMoatBefore();invalid.AffectedCurrent=false;change(invalid);
+                Check(!NativeWorkerResumeWorld.IsCapturedMoatMidpoint(invalid,11,6,5,11,6,5,2,4,0,moat,true),
+                    "Next-only midpoint preserves all old ordinary, causal, typed-intent and single-step restrictions");
+            }
+            var live=new GameUnit();live.r_UnitChimp=eChimps.CHIMP_TYPE_QUARRY_OX;live.r_AIState=1;live.r_CurrentHealth=1;
+            live.r_PathPlanStateBitFlags=2;live.r_MovementSubstep=4;
+            live.r_CurrentTilePositionX=live.r_NextTilePositionX2=6;live.r_CurrentTilePositionY=live.r_NextTilePositionY2=5;
+            Check(RescueRuntime.ClassifyState(&live,true)=="step-in-progress",
+                "a fresh live snapshot without historical causal input does not adopt a midpoint pose");
+            foreach(var change in new Action<UnitSnapshot>[] { b=>b.AffectedCurrent=false,b=>b.AffectedNext=false,
+                b=>b.CurrentWasOrdinary=false,b=>b.NextWasOrdinary=false,b=>b.GroundFlags=moat,b=>b.NextGroundFlags=moat,
+                b=>b.GroundFlags=wall,b=>b.NextGroundFlags=wall,b=>b.OrdinaryStep=false,b=>b.Substep=8,b=>b.Flags=0,b=>b.Job=null,
+                b=>b.Unsupported="foreign-state" })
+            {
+                var invalid=StartedMoatBefore();change(invalid);
+                Check(!NativeWorkerResumeWorld.IsStartedMoatProbeGeometry(invalid,10,5,5,11,6,5,2,0,moat,moat),
+                    "missing both-new causal endpoint proof cannot cancel a pending step");
+                Check(!NativeWorkerResumeWorld.IsCapturedMoatMidpoint(invalid,11,6,5,11,6,5,2,4,moat,moat),
+                    "post-midpoint capability retains every both-new causal proof requirement");
+            }
+            foreach(uint currentFlags in new[]{0u,moat,wall,moat|wall})foreach(uint nextFlags in new[]{0u,moat,wall,moat|wall})
+                Check(NativeWorkerResumeWorld.IsStartedMoatProbeGeometry(before,10,5,5,11,6,5,2,0,currentFlags,nextFlags)==
+                    (currentFlags==moat && nextFlags==moat),"free Current, free acceptedNext and wall mixtures never normalize");
+            Check(!NativeWorkerResumeWorld.IsStartedMoatProbeGeometry(before,11,6,5,12,7,5,2,0,moat,moat),
+                "a subsequent step from old acceptedNext cannot inherit the old normalization proof");
+            Check(!NativeWorkerResumeWorld.IsStartedMoatProbeGeometry(before,10,5,5,12,5,6,2,0,moat,moat),
+                "another acceptedNext cannot inherit old reachability");
+            Check(!NativeWorkerResumeWorld.IsStartedMoatProbeGeometry(before,10,5,6,11,6,5,2,0,moat,moat),
+                "packed Current and XY must match the captured original endpoint");
+            Check(!NativeWorkerResumeWorld.IsStartedMoatProbeGeometry(before,10,5,5,11,6,5,2,8,moat,moat),
+                "already stopped boundary follows the existing strict probe without started preparation");
+            foreach(var type in new[]{eChimps.CHIMP_TYPE_SPEARMAN,eChimps.CHIMP_TYPE_CATAPULT,eChimps.CHIMP_TYPE_SIEGE_TOWER,
+                eChimps.CHIMP_TYPE_BATTERING_RAM,eChimps.CHIMP_TYPE_PORTABLE_SHIELD,eChimps.CHIMP_TYPE_ARAB_BALLISTA})
+            {
+                var memory=new CommandJourneyFixture.Memory(type,101,199);
+                Check(CommandJourneySnapshot.TryCapture(type,101,memory.Word,memory.Dword,out var command),"real typed command/crew snapshot admits known active phase");
+                var commandBefore=StartedMoatBefore();commandBefore.Id=199;commandBefore.GlobalId=199;
+                commandBefore.Type=(int)type;commandBefore.AIState=101;commandBefore.Owner=2;commandBefore.Tribe=2;commandBefore.TribeGlobalId=33;
+                commandBefore.RequestedX=20;commandBefore.RequestedY=30;commandBefore.Job=null;commandBefore.Command=command;
+                Check(NativeWorkerResumeWorld.IsCapturedMoatMidpoint(commandBefore,11,6,5,11,6,5,2,4,moat,moat),
+                    "qualified active command uses the same exact committed old step geometry");
+                commandBefore.AffectedCurrent=false;
+                Check(NativeWorkerResumeWorld.IsCapturedMoatMidpoint(commandBefore,11,6,5,11,6,5,2,4,0,moat,true),
+                    "Next-only midpoint admits the same immutable command and complete crew schema");
+                commandBefore.AffectedCurrent=true;
+                var commandTicket=WorkerResumeTicket.ForCommand(199,199,type,101,2,2,33,20,30,command);
+                var commandWorld=new World{Ticket=commandTicket,AllowProbe=false,Preparation=WorkerProbePreparation.Ready};
+                var commandOwner=new WorkerResumeSupervisor(commandWorld);
+                Check(commandOwner.TryProbeOrRecover(commandBefore,()=>{commandWorld.State=WorkerReceiptState.MatchingStopped;return true;},1,out var commandResult,out _) &&
+                    commandResult==WorkerRecoveryOutcome.Parked && commandOwner.Ledger.TryGetParkedByUnit(199,out var parkedCommand) &&
+                    ReferenceEquals(parkedCommand.Command,command) && command.Matches(type,101,memory.Word,memory.Dword),
+                    "normalization and failed probe retain the exact immutable original command and every crew binding");
+                Check(commandOwner.Ledger.TrySerialize(out var commandSave),"settled normalized command park uses the existing save schema");
+                var restored=new WorkerResumeLedger();
+                Check(restored.TryRestore(commandSave,1) && restored.TryGetParkedByUnit(199,out var restoredCommand) &&
+                    restoredCommand.Kind==ResumeReceiptKind.Command && restoredCommand.Command.Matches(type,101,memory.Word,memory.Dword),
+                    "saved/restored continuation retains command and full crew identity without new pose authority");
+                if(CommandJourneySnapshot.RequiredCrewCount(type)>0)
+                {
+                    memory.Word(0x96C,777);
+                    Check(!command.Matches(type,101,memory.Word,memory.Dword),"foreign crew rebinding defeats the unchanged native command matcher");
+                }
+            }
+            var world=new World {Ticket=Ticket(99),AllowProbe=false,Preparation=WorkerProbePreparation.Ready,ProbeAccepted=true,FreshMoat=true};
+            var owner=new WorkerResumeSupervisor(world);int relocations=0;
+            world.BeforePreparation=()=>owner.Ledger.ReservedCount==1 && !owner.Ledger.TrySerialize(out _) && owner.IsExecutingNativeCall;
+            Check(owner.TryProbeOrRecover(before,()=>{relocations++;return true;},1,out var result,out _) && result==WorkerRecoveryOutcome.Resumed,
+                "actual native accepted moat route after normalization needs no spatial bank relocation");
+            Check(world.Normalizations==1 && world.Probes==1 && world.Attempts==0 && relocations==0 && owner.Ledger.Count==0,
+                "same-tile normalization alone is not counted as completed recovery or a second reissue");
+            world.AllowProbe=false;world.ProbeAccepted=false;world.FreshMoat=false;world.Resume=true;world.State=WorkerReceiptState.MatchingActive;
+            Check(owner.TryProbeOrRecover(before,()=>{relocations++;world.State=WorkerReceiptState.MatchingStopped;return true;},2,out result,out _) &&
+                result==WorkerRecoveryOutcome.Resumed,"actual native refusal permits existing owned bank fallback after normalization");
+            Check(world.Normalizations==2 && world.Probes==2 && world.Attempts==1 && relocations==1,
+                "worst case bounded by normalization, one probe, one spatial fallback, one reissue: four native operations");
+            foreach(bool throws in new[]{false,true})
+            {
+                var uncertainWorld=new World {Ticket=Ticket(100),AllowProbe=false,Preparation=WorkerProbePreparation.OwnershipUncertain,ThrowPreparation=throws};
+                var uncertain=new WorkerResumeSupervisor(uncertainWorld);int fallback=0;
+                Check(!uncertain.TryProbeOrRecover(before,()=>{fallback++;return true;},3,out result,out _) &&
+                    result==WorkerRecoveryOutcome.OwnershipUncertain && uncertainWorld.Normalizations==1 && uncertainWorld.Probes==0 && fallback==0 &&
+                    uncertain.Ledger.ReservedCount==1 && !uncertain.Ledger.TrySerialize(out _),
+                    "partial normalization or wrapper exception retains reserved ownership and blocks saving without probe/fallback");
+            }
+            var badWorld=new World {Ticket=Ticket(101),AllowProbe=false,Preparation=WorkerProbePreparation.Ready,PreparationPublishesPose=false};
+            var bad=new WorkerResumeSupervisor(badWorld);
+            Check(!bad.TryProbeOrRecover(before,()=>true,4,out result,out _) && result==WorkerRecoveryOutcome.OwnershipUncertain &&
+                badWorld.Probes==0 && bad.Ledger.ReservedCount==1,"reported normalization success cannot bypass the unchanged CanProbeOriginal guard");
+            var nestedWorld=new World {Ticket=Ticket(102),AllowProbe=false,Preparation=WorkerProbePreparation.Ready,Observation=WorkerOrderObservation.Release};
+            var nested=new WorkerResumeSupervisor(nestedWorld);int nestedFallback=0;
+            nestedWorld.DuringPreparation=()=>{Check(nested.ObserveOrderPre(102),"external order sees reserved normalization ownership");nested.ObserveOrderPost(102,5,1);};
+            Check(!nested.TryProbeOrRecover(before,()=>{nestedFallback++;return true;},5,out result,out _) &&
+                result==WorkerRecoveryOutcome.Superseded && nestedWorld.Probes==0 && nestedFallback==0 && nested.Ledger.Count==0,
+                "foreign native order during normalization wins without any stale probe, bank movement or goal restore");
         }
         private static void VerifyNativeAuthority()
         {

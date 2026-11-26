@@ -5,7 +5,7 @@ These prototype contracts were inspected on 2026-11-15. Resolve future baselines
 
 ## Native relocation and observations
 
-- Live callable `0x19BA40`: Winapi void(unit manager, one-based ID, uint tile X, uint tile Y, ushort ground height). Canonical entry bytes, typed layouts and complete image hash are checked. Original routine unlinks/relinks tile occupancy and normalizes current/next/fine position. It does not guarantee job continuation or normalize special AI states.
+- Live callable `0x19BA40`: Winapi void(unit manager, one-based ID, uint tile X, uint tile Y, ushort ground height). Canonical entry bytes, typed layouts and complete image hash are checked. Original routine unlinks/relinks tile occupancy and normalizes Current/Next XY and fine position; inactive packed Next73C is not rewritten (full midpoint DWORD740 is cleared, substep750 becomes8). It does not guarantee job continuation or normalize special AI states.
 - Live callable `0x196280`: native single-unit move pipeline, including existing Script Extender/Pathfinding hooks. Result is inspected; failed experimental reissue is a failure, not a successful rescue-with-continuation.
 - `0x19BA40` may already be owned by BugfixesAndQoL's `Lord.HomeTeleportGuard`. Accept only that registered, byte-validated live entry; never install a competing hook or bypass the owner's restrictions.
 - Read-only image-relative grids: flags `0x48F71B0`, outgoing directions `0x51890D0`, building IDs `0x4B6AA50`, occupancy heads `0x4C559B0`, terrain heights `0x4DDD350`. Packed tile capacity 320800, map mask via the public Extender API.
@@ -162,3 +162,19 @@ For cleanup flag projection, verify every relevant61FC0/vegetation/refresh write
 59730's high-ground alternative invokes scale1 KillingPit at the same tile; AIV-Moat envelopes include it without reproducing its guards. Test nonterminal639C0/69470 using signed byte wrap for all256 progress values, including Fill0 after Chore41. The proven early-return path performs three scalar reads and no footprint allocation/discovery. The source broker still observes all original invocations.
 
 Recheck SDK mapper conversion against native C77C0 and scales against6A190 on SDK updates. The audited installed converter differs for legacy MAPPER_KEEP4/KEEP5 only: managedKEEP_FOUR/FIVE versus nativeSTRUCT_NULL and scale-1; the adapter declines these values. All440 declared values were checked offline. Fixed read/work/closure budgets remain explicit, invocation-local caches never survive a mutation, and successful pure tests remain distinct from gameplay, installation and multiplayer acceptance.
+
+
+## Archer stationary animation proof (26.11.2026)
+
+Recheck full13F540 branches7/8/11 and their entry through182B00 table321CB0[ARCHER22]=13F540. Verify the raw jump tables141CF4/141C98: AI1 is the141C7D return, not a normal idle branch. Close idle facing197BC0 and positional recovery181890, as well as the0/2/101 and4->5->6 combat owners and18E9A0 command/target/deferred-order branches. No new native entry or hook is installed.
+
+The new Archer-only stationary schema records the existing common ranged99C/6F8, melee996/998 and context9F6/9F8/A00 fields plus native unit748/74A deferred goals (typed GameUnit bias65C). It requires empty target/deferred fields and command0 or MoveHerePosition3; all other stationary command schemas and active phase contracts retain their prior layout. Recheck producer/consumer semantics before changing any admission. Existing current-pose, native-original receipt, final-original source phase and refusal-fallback guards remain mandatory. See the dated Archer section in TRAPPED_UNIT_RESCUE_AUDIT.md; offline source fixtures and real game acceptance are separate evidence.
+
+
+## Ordinary-step cadence fixture inventory (26.11.2026)
+
+At audited native SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2, recheck the complete182B00 caller gate and1855A0 inner loop before reusing the automatic command-Moat timing fixture. Native916 is a signed16 budget passed by182B00; signed16 A2A is added, then the0-based inclusive loop performs budget+1 iterations. Admission also depends on signed16 wait74C and9A2 plus signed32 DWORD elapsed9AC-9A8. The fixture reads these values only and predicts the next nonwrapping fresh-unit update; it must verify the actual following counters and physical pose before recovery.
+
+Read inventory with GameUnit view bias65C: native74C/typedF0 signed16 wait;916/2BA signed16 budget;9A2/346 signed16 caller term;A2A/3CE signed16 extra budget;9A8/34C and9AC/350 DWORD counters;985/329 BYTE animation gate;9D6/37A signed16 animation phase;90C/2B0 direction;750/F4 substep;740/E4 complete DWORD midpoint marker.985 modes1 and2 have phase gates4..11 and5..9;984 is a different failed-step cleanup field. Recheck actual widths, signedness, all skip/early-return paths and the restoration of speculative param4=1 updates. Do not infer timing from335C98 alone.
+
+Canonical335C98 direction thresholds are4,4,3,3,3,4,4,4. The observed native Spearman916=1/A2A=0 publishes odd substeps: fresh stepSS1, thenSS3, thenSS5. North direction0 commits at the internalSS4 iteration. The fixture therefore selectsSS1->SS3 before midpoint andSS3->SS5 after midpoint, guarded by the real caller due predicate and an actual pre-recovery read. Native counter/AI/pose writes and weaker recovery guards are not a valid fixture correction. These are static native contracts and test preconditions; game acceptance must still be demonstrated by the actual recorded pre-drain and original-call outcomes.

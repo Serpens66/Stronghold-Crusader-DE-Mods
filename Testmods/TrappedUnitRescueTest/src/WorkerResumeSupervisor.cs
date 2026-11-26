@@ -6,6 +6,9 @@ namespace TrappedUnitRescueTest
     internal enum WorkerRecoveryOutcome { Rejected, Resumed, Parked, OwnershipUncertain, Superseded }
     internal enum WorkerReceiptState { MatchingActive, MatchingParked, MatchingStopped, ReplacedOrGone, Unknown }
     internal enum WorkerOrderObservation { Keep, Release, Rebind }
+    internal enum WorkerProbePreparation { Rejected, Ready, OwnershipUncertain }
+    internal interface IWorkerStartedProbeWorld
+    {WorkerProbePreparation PrepareStartedProbe(WorkerResumeTicket ticket,UnitSnapshot before);}
     internal interface IWorkerResumeAuthorityAware
     {void BindResumeAuthority(Func<WorkerResumeTicket,bool> isCurrent,Action<WorkerResumeTicket> invalidateSource);}
     internal interface IWorkerResumeBarrierView
@@ -61,8 +64,9 @@ namespace TrappedUnitRescueTest
         internal bool TryRecover(UnitSnapshot before,Func<bool> synchronousNativeMutation,long tick,
             out WorkerRecoveryOutcome outcome,out string reason)
             => CoordinateRecovery(before,synchronousNativeMutation,tick,false,out outcome,out reason);
-        // Worst case: one original-goal probe, one relocation and one reissue.
-        // The owner must reserve all three native-call budget slots before entering.
+        // Worst case: one same-tile step normalization, one original-goal probe,
+        // one fallback relocation and one reissue. The bounded admission budget
+        // must allow four native operations per recovery attempt.
         internal bool TryProbeOrRecover(UnitSnapshot before,Func<bool> synchronousFallbackRelocate,long tick,
             out WorkerRecoveryOutcome outcome,out string reason)
             => CoordinateRecovery(before,synchronousFallbackRelocate,tick,true,out outcome,out reason);
@@ -92,7 +96,23 @@ namespace TrappedUnitRescueTest
             ownedUnit=ticket.UnitId;
             if(probeFirst)
             {
-                if(!world.CanProbeOriginal(ticket)){Ledger.Release(token);reason="worker-functional-probe-pose-rejected";return false;}
+                if(!world.CanProbeOriginal(ticket))
+                {
+                    if(!(world is IWorkerStartedProbeWorld started))
+                    {Ledger.Release(token);reason="worker-functional-probe-pose-rejected";return false;}
+                    if(!AuthorityCurrent(ticket))
+                    {outcome=WorkerRecoveryOutcome.OwnershipUncertain;reason="worker-started-probe-superseded";return false;}
+                    var prepared=WorkerProbePreparation.OwnershipUncertain;
+                    executingNativeCall=true;
+                    try{prepared=started.PrepareStartedProbe(ticket,before);}catch{}
+                    finally{executingNativeCall=false;}
+                    if(!AuthorityCurrent(ticket))
+                    {outcome=WorkerRecoveryOutcome.OwnershipUncertain;reason="worker-started-probe-superseded";return false;}
+                    if(prepared==WorkerProbePreparation.Rejected)
+                    {Ledger.Release(token);reason="worker-functional-probe-pose-rejected";return false;}
+                    if(prepared!=WorkerProbePreparation.Ready || !world.CanProbeOriginal(ticket))
+                    {outcome=WorkerRecoveryOutcome.OwnershipUncertain;reason="worker-started-probe-normalization-unconfirmed";return false;}
+                }
                 if(!AuthorityCurrent(ticket) || !world.TryPark(ticket,false))
                 {outcome=WorkerRecoveryOutcome.OwnershipUncertain;reason="worker-functional-probe-arrival-barrier-unavailable";return false;}
                 bool accepted=false;executingNativeCall=true;

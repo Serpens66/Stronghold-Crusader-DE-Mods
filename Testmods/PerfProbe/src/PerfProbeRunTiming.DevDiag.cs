@@ -17,6 +17,7 @@ namespace PerfProbe
         {
             internal long Started, BufferStarted, BufferTicks, LockStarted, Acquired, Released, ReleaseEnded, NativeStarted, NativeEnded, CpuStarted, NativeCpu;
             internal bool Active, BufferObserved, NoBuffer, NativeEntered, NativeCompleted, Skip;
+            internal PerfProbeNativeDurations.Window DurationWindow;
         }
         [ThreadStatic] private static State current;
         // SkipCalls: run(true) from Vanilla's low-FPS compensation or multiplayer frame skipping.
@@ -54,6 +55,7 @@ namespace PerfProbe
         internal static void BeforeNative()
         {
             if (!current.Active) return;
+            current.DurationWindow = PerfProbeNativeDurations.Capture();
             current.NativeStarted = Stopwatch.GetTimestamp();
             current.NativeEntered = true;
             // Never called on the no-buffer path. Native time includes SE/mod callbacks.
@@ -68,6 +70,9 @@ namespace PerfProbe
             current.NativeCpu = cpu < 0 || current.CpuStarted < 0 ? -1 : cpu - current.CpuStarted;
             current.NativeCompleted = true;
             Interlocked.Increment(ref NativeCallsCompleted);
+            // Completed native calls only; no-buffer runs and interrupted calls are excluded.
+            // Timings stop before this diagnostic aggregation, which allocates nothing.
+            current.DurationWindow?.Record(current.NativeEnded-current.NativeStarted,current.NativeCpu,current.Skip);
         }
         internal static string Detail(State value)
         {

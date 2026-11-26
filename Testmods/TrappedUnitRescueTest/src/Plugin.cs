@@ -188,8 +188,11 @@ namespace TrappedUnitRescueTest
                 {Stamp("Invalid owned series selection; not consumed");return;}
             }
             else selection=new[]{lines[1]};
+            if(!RescueScenarioSelection.TryExpand(selection,out var expandedSelection))
+            {Stamp("Expanded series exceeds bounded capacity; request not consumed");return;}
+            selection=expandedSelection;
             APIShared.Automation.AutomationStep[] steps;
-            if(lines[1]==RescueScenarioSelection.SeriesRequest)
+            if(lines[1]==RescueScenarioSelection.SeriesRequest || selection.Length>1)
             {
                 var cases=new RescueSeriesCase[selection.Length];
                 for(int i=0;i<cases.Length;i++)

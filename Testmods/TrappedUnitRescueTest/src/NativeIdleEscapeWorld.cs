@@ -29,9 +29,8 @@ namespace TrappedUnitRescueTest
         }
         private bool Authority(IdleEscapeTicket ticket)=>ticket!=null && authority(ticket.Request);
         private bool CurrentCoherent(GameUnit* u)=>native.Tile(u->r_CurrentTilePositionX,u->r_CurrentTilePositionY)==(int)u->r_CurrentPositionTileId;
-        private bool Stationary(GameUnit* u)=>u->r_PathPlanStateBitFlags==0 && u->r_MovementSubstep==8 && CurrentCoherent(u) &&
-            u->r_CurrentTilePositionX==u->r_NextTilePositionX2 && u->r_CurrentTilePositionY==u->r_NextTilePositionY2 &&
-            u->r_CurrentPositionTileId==u->r_NextPositionTileId2 && native.JobDword(u,0x740)==0;
+        private bool Stationary(GameUnit* u)=>u->r_PathPlanStateBitFlags==0 && NativeRelocation.IsNormalizedPose(u,
+            native.Tile(u->r_CurrentTilePositionX,u->r_CurrentTilePositionY),native.JobDword(u,0x740));
         private bool CandidateSafe(IdleEscapeRequest request,bool arrived=false)
         {
             var c=request.Candidate;
@@ -102,7 +101,8 @@ namespace TrappedUnitRescueTest
                 u->r_TribeId!=b.Tribe || u->r_CurrentHealth!=b.Health || u->r_CurrentTilePositionX!=b.X || u->r_CurrentTilePositionY!=b.Y ||
                 (int)u->r_CurrentPositionTileId!=b.TileId || u->r_TargetTilePositionX2!=b.X || u->r_TargetTilePositionY2!=b.Y ||
                 !CommandResumePolicy.IsIndependentRescueType(u->r_UnitChimp) || u->r_UnitChimp==eChimps.CHIMP_TYPE_ENGINEER || native.Word(u,0xA9E)!=1 ||
-                !(u->r_AIState==0 || u->r_UnitChimp==eChimps.CHIMP_TYPE_SPEARMAN && u->r_AIState==2) ||
+                !CommandJourneySnapshot.IsIndependentIdlePhase(u->r_UnitChimp,u->r_AIState) ||
+                CommandJourneySnapshot.IsArcherIdleAnimation(u->r_UnitChimp,u->r_AIState) && b.Command==null ||
                 WorkerTravelPolicy.TryDescribe(u->r_UnitChimp,u->r_AIState,out _) || native.Word(u,0x6EC)!=0 ||
                 native.Word(u,0x708)!=0 || native.Word(u,0x8F8)!=0 || native.Word(u,0x8EC)!=0 || native.Word(u,0x8F6)!=0 ||
                 native.Word(u,0x9B0)!=0 || native.Word(u,0x9C8)!=0 ||
@@ -132,12 +132,13 @@ namespace TrappedUnitRescueTest
             if(armed!=null || !Authority(t) || stillOwned==null || !stillOwned() || !CanIssue(t))return IdleEscapeMove.Other;
             var c=t.Request.Candidate;
             var frame=new ArmedMove{Owned=stillOwned,Phase=new IdleEscapeSourcePhase(ownerGuid,t.Request)};armed=frame;
+            Func<bool> sourceCurrent=()=>CanIssue(t);
             try
             {
                 // Broker calls this before Pre, after all final-original observers,
                 // and after Post. Only its exact completion ends the source phase.
-                move(t.UnitId,c.X,c.Y,()=>ReferenceEquals(armed,frame) && frame.Owned() && Authority(t) &&
-                    (frame.Phase.Finished || CanIssue(t)),out var result);
+                move(t.UnitId,c.X,c.Y,()=>frame.Phase.IsCurrent(ReferenceEquals(armed,frame) && frame.Owned() && Authority(t),
+                    sourceCurrent),out var result);
                 return ClassifyMove(result,stillOwned() && Authority(t));
             }
             finally {armed=null;}
@@ -193,6 +194,9 @@ namespace TrappedUnitRescueTest
         private UnitMoveContext begun;
         internal bool Finished {get;private set;}
         internal IdleEscapeSourcePhase(string owner,IdleEscapeRequest request){this.owner=owner;this.request=request;}
+        // The actual final-original callback uses this boundary. Native output
+        // may change source pose only after this exact invocation completes.
+        internal bool IsCurrent(bool authority,Func<bool> source)=>authority && (Finished || source!=null && source());
         public IUnitMoveInvocation TryBegin(UnitMoveContext c)
         {
             if(begun!=null || c==null || request==null || c.OriginOwnerGuid!=owner || c.UnitId!=request.Before.Id ||

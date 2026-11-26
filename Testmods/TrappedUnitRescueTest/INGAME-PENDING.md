@@ -1,5 +1,9 @@
 # Noch ausstehende Spielabnahme des allgemeinen Rettungssystems
 
+Aktualisierung26.11.2026: Der Singleplayer-Auftrag ist inzwischen autorisiert und läuft. Nachweise, tatsächliche Teilabnahmen und neu erkannte Lücken stehen in [SP-ACCEPTANCE.md](SP-ACCEPTANCE.md) und `.work/a/rescue-sp/001/results.json`. Die folgenden Listen sind der vollständige ursprüngliche Abnahmeumfang; eine Zeile gilt nur in dem dort ausdrücklich belegten Umfang als erledigt. Zielintegration jetzt BugfixesAndQoL. Noch keine vollständige Abschlussabnahme oder Produktionsübernahme; Multiplayer bleibt außerhalb dieses Auftrags.
+
+Historischer Offline-Ausgangsstand:
+
 Stand: 25.11.2026. **Keine dieser neuen Abnahmen wurde in diesem Offlineauftrag ausgeführt.** Ein erfolgreicher Managed-/Maschinencode-Fixturelauf ersetzt weder tatsächliche Belegung noch Warenlieferung im Spiel. Historische Versuche des früheren Prototyps bleiben in TESTING.md dokumentiert.
 
 Vor jedem später autorisierten Lauf müssen Quell-/SDK-/Paketidentität, passende APIShared-Plugin-/Patcher-Paarung, Spiel-/Extender-/Fixes-Stand und tatsächlich wirksame Einstellungen protokolliert werden. Die neue Entwicklung braucht das zugehörige APIShared-SDK ab 0.74.0; ein ungeprüftes installiertes gleich benanntes Paket genügt nicht. Dieser Bericht ist keine Installations- oder Teststartfreigabe.

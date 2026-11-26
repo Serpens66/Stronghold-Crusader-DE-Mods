@@ -20,6 +20,28 @@ namespace TrappedUnitRescueTest.Tests
                 Check(!RescueScenarioSelection.TryParse(bad,owns,out _),"invalid selection rejected before any case creation");
             Check(!RescueScenarioSelection.TryParse(string.Join(",",Enumerable.Repeat("rescue-on",65)),owns,out _),"bounded selection rejects65 cases");
             Check(RescueScenarioSelection.TryParse(string.Join(",",Enumerable.Repeat("rescue-on",64)),owns,out var maximum) && maximum.Length==64,"maximum explicit series accepted");
+            foreach(string option in new[]{"off","on"})
+            {
+                Check(RescueScenarioSelection.TryExpand(new[]{"rescue-mountedkeep-"+option},out var matrix) && matrix.Length==13,
+                    "one mounted aggregate creates thirteen fresh mission slots");
+                Check(matrix.Distinct(StringComparer.Ordinal).Count()==13 && matrix[0]=="rescue-mountedkeep-controls-"+option &&
+                    matrix.All(name=>name.EndsWith("-"+option,StringComparison.Ordinal) && RescueScenarioSelection.IsMountedKeepPart(name)),
+                    "controls occur once and every bounded partition retains its requested activation");
+                var seen=new HashSet<string>();
+                foreach(string name in matrix.Skip(1))
+                {
+                    Check(RescueScenarioSelection.TryMountedKeepPart(name,out int keep,out int rotation) &&
+                        new[]{2,3,1}.Contains(keep) && new[]{0,2,4,6}.Contains(rotation) && seen.Add(keep+":"+rotation),
+                        "each keep and actual native rotation appears exactly once");
+                }
+            }
+            Check(!RescueScenarioSelection.IsMountedKeepPart("rescue-mountedkeep-k2-r1-on") &&
+                !RescueScenarioSelection.IsMountedKeepPart("rescue-mountedkeep-k4-r0-off") &&
+                !RescueScenarioSelection.IsMountedKeepPart("rescue-mountedkeep-on"),"unknown rotations/keeps and unexpanded aggregates are not internal partitions");
+            Check(RescueScenarioSelection.TryExpand(new[]{"rescue-off","rescue-mountedkeep-on","rescue-on"},out var mixed) &&
+                mixed.Length==15 && mixed[0]=="rescue-off" && mixed[14]=="rescue-on","mixed external selection retains order around expanded fresh worlds");
+            Check(!RescueScenarioSelection.TryExpand(Enumerable.Repeat("rescue-mountedkeep-on",5).ToArray(),out _),
+                "expanded sixty-five mission slots fail before fixture or lifecycle creation");
             int execution=0;
             var original=new AutomationStep("probe",TimeSpan.FromSeconds(23),run=>Invoke(()=>execution++),true);
             var wrapped=RescueSeriesStepMetadata.Prefix(original,"s01-rescue-on-");
