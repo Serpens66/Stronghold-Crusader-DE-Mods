@@ -1,0 +1,33 @@
+{
+  "enabled": true, "series": "DoNothing", "role": "sp", "quitWhenDone": true,
+  "steps": [
+    {"id":"menu","do":"WaitMainMenu","allowErrors":true,"timeoutMs":90000,"stopOnFail":true},
+    {"id":"no-events","do":"RandomEvents","args":["off"],"stopOnFail":true},
+    {"id":"no-autosave","do":"SetModSetting","args":["BugfixesAndQoL.BugfixesAndQoLPlugin::skirmishGameOptionsAccess.settings","EnableLocalAutosave","false"],"stopOnFail":true},
+    {"id":"storage-fix","do":"SetModSetting","args":["BugfixesAndQoL.BugfixesAndQoLPlugin::skirmishGameOptionsAccess.settings","EnablePrebuiltAiStorageFix","true"],"stopOnFail":true},
+    {"id":"no-planner","do":"SetModSetting","args":["CastlePlanner.CastlePlannerPlugin::processSettings","EnableMod","false"],"stopOnFail":true},
+    {"id":"no-hunters","do":"SetModSetting","args":["ImprovedHunters.ImprovedHuntersPlugin::persistentSettings","EnableMod","false"],"stopOnFail":true},
+    {"id":"open","do":"Skirmish.Open","timeoutMs":15000,"stopOnFail":true},
+    {"id":"map","do":"Lobby.SelectMap","args":["4spielerkarte.map"],"timeoutMs":15000,"stopOnFail":true},
+    {"id":"lord","do":"Lobby.AddCustomAi","args":["DoNothing"],"stopOnFail":true},
+    {"id":"slots","do":"Lobby.StartPositions","args":["0","1"],"stopOnFail":true},
+    {"id":"castle-settings","do":"Lobby.Button","args":["AISettings_2"],"stopOnFail":true},
+    {"id":"south","do":"NoesisClick","args":["South_Rotation"],"stopOnFail":true},
+    {"id":"close-castle-settings","do":"Lobby.Button","args":["CancelAISettings"],"stopOnFail":true},
+    {"id":"resources","do":"Lobby.Button","args":["GameType3"],"stopOnFail":true},
+    {"id":"prebuild","do":"Lobby.Prebuild","stopOnFail":true},
+    {"id":"no-peace","do":"Lobby.PeaceTime","args":["0"],"stopOnFail":true},
+    {"id":"play","do":"Lobby.Play","timeoutMs":90000,"stopOnFail":true},
+    {"id":"briefing","do":"AiMilitary.ResumeBriefing","timeoutMs":15000,"stopOnFail":true},
+    {"id":"go","do":"Pause","args":["off"],"stopOnFail":true},
+    {"id":"speed","do":"Speed","args":["250"],"stopOnFail":true},
+    {"id":"build-time","do":"WaitTicks","args":["650"],"timeoutMs":45000,"stopOnFail":true},
+    {"id":"board","do":"Mark","args":["board"],"stopOnFail":true},
+    {"id":"watch-1","do":"WaitTicks","args":["5000"],"timeoutMs":45000,"stopOnFail":true},
+    {"id":"watch-2","do":"WaitTicks","args":["5000"],"timeoutMs":45000,"stopOnFail":true},
+    {"id":"watch-3","do":"WaitTicks","args":["5000"],"timeoutMs":45000,"stopOnFail":true},
+    {"id":"watch-4","do":"WaitTicks","args":["5000"],"timeoutMs":45000,"stopOnFail":true},
+    {"id":"watch-5","do":"WaitTicks","args":["5000"],"timeoutMs":45000,"stopOnFail":true},
+    {"id":"watch-6","do":"WaitTicks","args":["2500"],"timeoutMs":45000,"stopOnFail":true}
+  ]
+}

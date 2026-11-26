@@ -120,7 +120,7 @@ gerade verschiedene Lagen abdecken soll, variiert sie ausdrücklich und loggt si
 
 In Gefechten mit einem KI-Gegner **DoNothing** wählen, wenn das Szenario kein KI-Verhalten prüft. Der Lord ist auf minimale Aktivität ausgelegt und hat keine AIC-Starttruppen. Seine einzige Burgvorlage enthält neben dem Keep fünf zusätzliche Vorratslager, einen Kornspeicher und eine Hütte. Das Spiel erzeugt das erste Vorratslager beim Start am Keep.
 
-Die beiden [Dateien für DoNothing](Testmods/CustomLords/DoNothing/) gehören in `CustomLords\DoNothing` im lokalen SHCDE-Spielprofil unter `%USERPROFILE%\AppData\LocalLow\Firefly Studios\Stronghold Crusader Definitive Edition`. In UiAcceptance den Schritt `Lobby.AddCustomAi` mit `"args": ["DoNothing"]` verwenden. Wenn der Test auf den Bauplan angewiesen ist, AIC, AIV und einen freien, ebenen Startplatz festlegen. Die Lager nach der Anlaufphase prüfen, da jede Erweiterung an ein bereits aktives Lager anschließen muss.
+Die beiden [Dateien für DoNothing](Testmods/CustomLords/DoNothing/) gehören in `CustomLords\DoNothing` im lokalen SHCDE-Spielprofil unter `%USERPROFILE%\AppData\LocalLow\Firefly Studios\Stronghold Crusader Definitive Edition`. In UiAcceptance den Schritt `Lobby.AddCustomAi` mit `"args": ["DoNothing"]` verwenden. Wenn der Test auf den Bauplan angewiesen ist, AIC, AIV und einen freien, ebenen Startplatz festlegen. Die Lager nach der Anlaufphase prüfen, da jede Erweiterung an ein bereits aktives Lager anschließen muss. Für einen Start mit vorgebauter Burg wurde der Aufbau mit dem Lager-Startfix von BugfixesAndQoL geprüft. Falls der Gebäudebestand Teil des Tests ist, den automatischen Hüttenbau von Improved Hunters vor der Partie abschalten.
 
 ## Was bereits möglich ist
 
