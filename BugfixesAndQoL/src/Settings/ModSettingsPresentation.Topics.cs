@@ -121,6 +121,7 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation EnableMoatTerrainRestoration => options["EnableMoatTerrainRestoration"];
         public SettingsOptionPresentation EnableWallDepositRestoration => options["EnableWallDepositRestoration"];
         public SettingsOptionPresentation EnableCrenelCheckerboard => options["EnableCrenelCheckerboard"];
+        public SettingsOptionPresentation EnableCrenelCheckerboardAI => options["EnableCrenelCheckerboardAI"];
         public SettingsOptionPresentation AlignExistingCrenelsInEditor => options["AlignExistingCrenelsInEditor"];
         public SettingsOptionPresentation AlignExistingCrenelsOnSaveLoad => options["AlignExistingCrenelsOnSaveLoad"];
         public SettingsOptionPresentation AlignExistingCrenelsOnMapStart => options["AlignExistingCrenelsOnMapStart"];
@@ -263,6 +264,7 @@ namespace BugfixesAndQoL
             AddOption("EnableWallDepositRestoration", "bugfixes.wall-deposit-restoration", SettingsCategory.Fixes, HostSiege);
             AddOption("EnablePitchStairsFix", "bugfixes.pitch-stairs-fix", SettingsCategory.Fixes, HostSiege);
             AddOption("EnableCrenelCheckerboard", "bugfixes.crenel-checkerboard", SettingsCategory.Fixes, HostSiege);
+            AddOption("EnableCrenelCheckerboardAI", "bugfixes.crenel-checkerboard-ai", SettingsCategory.Fixes, HostSiege);
             AddOption("AlignExistingCrenelsInEditor", "bugfixes.align-existing-crenels-in-editor", SettingsCategory.Fixes, HostSiege);
             AddOption("AlignExistingCrenelsOnSaveLoad", "bugfixes.align-existing-crenels-on-save-load", SettingsCategory.Fixes, HostSiege);
             AddOption("AlignExistingCrenelsOnMapStart", "bugfixes.align-existing-crenels-on-map-start", SettingsCategory.Fixes, HostSiege);

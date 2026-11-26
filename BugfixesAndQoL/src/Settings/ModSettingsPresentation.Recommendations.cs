@@ -14,6 +14,7 @@ namespace BugfixesAndQoL
             options["EmptyGranaryArmouryLimit"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EmptyGranaryArmouryLimit");
             // Added 2026-11-25 with the crenel checkerboard (moved from a testmod): a gameplay rule, not a pure fix.
             options["EnableCrenelCheckerboard"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableCrenelCheckerboard");
+            options["EnableCrenelCheckerboardAI"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.EnableCrenelCheckerboardAI");
             options["AlignExistingCrenelsInEditor"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.AlignExistingCrenelsInEditor");
             options["AlignExistingCrenelsOnSaveLoad"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.AlignExistingCrenelsOnSaveLoad");
             options["AlignExistingCrenelsOnMapStart"].SetApprovedRecommendation(SettingsRecommendationKind.Preference, "BugfixesAndQoL.SettingsRework.Reason.AlignExistingCrenelsOnMapStart");

@@ -93,6 +93,8 @@
     <Compile Include="..\..\BugfixesAndQoL\src\Settings\BugfixesAndQoLViewModel.PeaceTime.cs" />
     <Compile Include="PitchStairsPresetTests.cs" />
     <Compile Include="..\..\BugfixesAndQoL\src\Settings\BugfixesAndQoLViewModel.PitchStairs.cs" />
+    <Compile Include="CrenelOwnerPresetTests.cs" />
+    <Compile Include="..\..\BugfixesAndQoL\src\Settings\BugfixesAndQoLViewModel.Crenels.cs" />
     <Compile Include="ExtremePowersPresetTests.cs" />
     <Compile Include="RandomEventsChatPresetTests.cs" />
     <Compile Include="..\..\RandomEvents\src\RandomEventsSettingsViewModel.cs" />

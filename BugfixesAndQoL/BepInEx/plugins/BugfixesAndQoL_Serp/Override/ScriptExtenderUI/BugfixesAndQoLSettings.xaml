@@ -1969,18 +1969,25 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
                 </CheckBox>
               </Grid>
             </Grid>
-            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.crenel-checkerboard" shared:ModSettingsSearch.Title="{Binding EnableCrenelCheckerboardText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableCrenelCheckerboardHelpText}">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="28"/>
-                <ColumnDefinition Width="*"/>
-              </Grid.ColumnDefinitions>
-              <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableCrenelCheckerboard}"><ContentControl.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ToolTip}"/></ContentControl.ToolTip></ContentControl>
-              <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <CheckBox IsChecked="{Binding EnableCrenelCheckerboard, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" Margin="0,0,14,8"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding EnableCrenelCheckerboardHelpText}"/></CheckBox.ToolTip>
-                  <TextBlock Text="{Binding EnableCrenelCheckerboardText}" Foreground="White" TextWrapping="Wrap"/>
-                </CheckBox>
+            <WrapPanel Margin="0,0,0,8">
+              <TextBlock Text="{Binding EnableCrenelCheckerboardText}" Foreground="White" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="300" Margin="28,0,4,0"/>
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.crenel-checkerboard" shared:ModSettingsSearch.Title="{Binding CrenelHumanSearchText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableCrenelCheckerboardHelpText}">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="28"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableCrenelCheckerboard}"><ContentControl.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ToolTip}"/></ContentControl.ToolTip></ContentControl>
+                <CheckBox Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}" Content="{Binding CrenelHumanText}" IsChecked="{Binding EnableCrenelCheckerboard, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" ToolTipService.ShowDuration="60000"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding EnableCrenelCheckerboardHelpText}"/></CheckBox.ToolTip></CheckBox>
               </Grid>
-            </Grid>
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.crenel-checkerboard-ai" shared:ModSettingsSearch.Title="{Binding CrenelAISearchText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableCrenelCheckerboardAIHelpText}">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="28"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.EnableCrenelCheckerboardAI}"><ContentControl.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ToolTip}"/></ContentControl.ToolTip></ContentControl>
+                <CheckBox Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}" Content="{Binding CrenelAIText}" IsChecked="{Binding EnableCrenelCheckerboardAI, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" ToolTipService.ShowDuration="60000"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding EnableCrenelCheckerboardAIHelpText}"/></CheckBox.ToolTip></CheckBox>
+              </Grid>
+            </WrapPanel>
             <TextBlock Text="{Binding AlignExistingCrenelsText}" Foreground="White" FontWeight="Bold" TextWrapping="Wrap" Margin="28,0,0,4" shared:ModSettingsSearch.Exclude="True"/>
             <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.align-existing-crenels-in-editor" shared:ModSettingsSearch.Title="{Binding AlignExistingCrenelsInEditorText}" shared:ModSettingsSearch.ToolTipText="{Binding AlignExistingCrenelsInEditorHelpText}">
               <Grid.ColumnDefinitions>
@@ -1989,7 +1996,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
               </Grid.ColumnDefinitions>
               <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.AlignExistingCrenelsInEditor}"><ContentControl.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ToolTip}"/></ContentControl.ToolTip></ContentControl>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <CheckBox IsChecked="{Binding AlignExistingCrenelsInEditor, Mode=TwoWay}" IsEnabled="{Binding EnableCrenelCheckerboard}" Foreground="White" ToolTipService.ShowDuration="60000" Margin="20,0,14,4"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding AlignExistingCrenelsInEditorHelpText}"/></CheckBox.ToolTip>
+                <CheckBox IsChecked="{Binding AlignExistingCrenelsInEditor, Mode=TwoWay}" IsEnabled="{Binding EnableCrenelCheckerboardAI}" Foreground="White" ToolTipService.ShowDuration="60000" Margin="20,0,14,4"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding AlignExistingCrenelsInEditorHelpText}"/></CheckBox.ToolTip>
                   <TextBlock Text="{Binding AlignExistingCrenelsInEditorText}" Foreground="White" TextWrapping="Wrap"/>
                 </CheckBox>
               </Grid>
@@ -2001,7 +2008,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
               </Grid.ColumnDefinitions>
               <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.AlignExistingCrenelsOnSaveLoad}"><ContentControl.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ToolTip}"/></ContentControl.ToolTip></ContentControl>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <CheckBox IsChecked="{Binding AlignExistingCrenelsOnSaveLoad, Mode=TwoWay}" IsEnabled="{Binding EnableCrenelCheckerboard}" Foreground="White" ToolTipService.ShowDuration="60000" Margin="20,0,14,4"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding AlignExistingCrenelsOnSaveLoadHelpText}"/></CheckBox.ToolTip>
+                <CheckBox IsChecked="{Binding AlignExistingCrenelsOnSaveLoad, Mode=TwoWay}" IsEnabled="{Binding HasCrenelCheckerboardOwners}" Foreground="White" ToolTipService.ShowDuration="60000" Margin="20,0,14,4"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding AlignExistingCrenelsOnSaveLoadHelpText}"/></CheckBox.ToolTip>
                   <TextBlock Text="{Binding AlignExistingCrenelsOnSaveLoadText}" Foreground="White" TextWrapping="Wrap"/>
                 </CheckBox>
               </Grid>
@@ -2013,7 +2020,7 @@ shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}" sha
               </Grid.ColumnDefinitions>
               <ContentControl Content="{Binding Symbol}" Style="{StaticResource RecommendationMarker}" ToolTipService.ShowDuration="60000" shared:ModSettingsSearch.Exclude="True" DataContext="{Binding SettingsPresentation.AlignExistingCrenelsOnMapStart}"><ContentControl.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding ToolTip}"/></ContentControl.ToolTip></ContentControl>
               <Grid Grid.Column="1" IsEnabled="{Binding CanEditHostSettings}" Opacity="{Binding HostSettingsOpacity}">
-                <CheckBox IsChecked="{Binding AlignExistingCrenelsOnMapStart, Mode=TwoWay}" IsEnabled="{Binding EnableCrenelCheckerboard}" Foreground="White" ToolTipService.ShowDuration="60000" Margin="20,0,14,4"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding AlignExistingCrenelsOnMapStartHelpText}"/></CheckBox.ToolTip>
+                <CheckBox IsChecked="{Binding AlignExistingCrenelsOnMapStart, Mode=TwoWay}" IsEnabled="{Binding HasCrenelCheckerboardOwners}" Foreground="White" ToolTipService.ShowDuration="60000" Margin="20,0,14,4"><CheckBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" apiui:SharedToolTipSizing.Enabled="True" Content="{Binding AlignExistingCrenelsOnMapStartHelpText}"/></CheckBox.ToolTip>
                   <TextBlock Text="{Binding AlignExistingCrenelsOnMapStartText}" Foreground="White" TextWrapping="Wrap"/>
                 </CheckBox>
               </Grid>

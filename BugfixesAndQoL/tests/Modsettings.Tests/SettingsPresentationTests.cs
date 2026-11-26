@@ -292,6 +292,19 @@ internal static partial class Program
             "moat terrain is a host-controlled fix classified as a personal preference");
         Check(modelType.GetProperty("EnableMoatTerrainRestoration").GetCustomAttributesData()
             .Any(a => a.AttributeType.Name == "SyncHostOnlyAttribute"), "moat terrain is synchronized by the host");
+        XmlNode humanCrenels = editors.Single(e => e.Property == "EnableCrenelCheckerboard").Node;
+        XmlNode aiCrenels = editors.Single(e => e.Property == "EnableCrenelCheckerboardAI").Node;
+        Check(humanCrenels.ParentNode.ParentNode == aiCrenels.ParentNode.ParentNode &&
+            SearchAttribute(humanCrenels.ParentNode, "Title") != SearchAttribute(aiCrenels.ParentNode, "Title") &&
+            humanCrenels.Attributes["Content"].Value != aiCrenels.Attributes["Content"].Value,
+            "crenel owner checkboxes share a row with distinct labels and search titles");
+        foreach (var editor in editors.Where(e => e.Property.StartsWith("AlignExistingCrenels", StringComparison.Ordinal)))
+        {
+            string required = editor.Property == "AlignExistingCrenelsInEditor"
+                ? "EnableCrenelCheckerboardAI" : "HasCrenelCheckerboardOwners";
+            Check(BindingProperty(editor.Node.Attributes["IsEnabled"]?.Value) == required,
+                "crenel align editor availability agrees with its applicable owner groups: " + editor.Property);
+        }
         object pitchFix = options.Single(o => (string)Get(o, "PropertyName") == "EnablePitchStairsFix");
         var pitchEditor = editors.Single(e => e.Property == "EnablePitchStairsFix");
         XmlNode pitchRow = Ancestors(pitchEditor.Node).First(a => SearchAttribute(a, "Key") != null);

@@ -53,6 +53,7 @@
     <Compile Include="src\Core\Native\BfqolNativeCache.cs" />
     <Compile Include="src\Core\Native\EngineThreadLock.cs" />
     <Compile Include="src\Settings\BugfixesAndQoLViewModel.PitchStairs.cs" />
+    <Compile Include="src\Settings\BugfixesAndQoLViewModel.Crenels.cs" />
     <Compile Include="src\Settings\BugfixesAndQoLViewModel.MarketGoods.cs" />
     <Compile Include="src\Core\Bootstrap\BugfixesAndQoLRuntime.PitchStairs.cs" />
     <Compile Include="src\PitchStairs\NativeCode.cs" />

@@ -97,7 +97,6 @@ namespace BugfixesAndQoL
         private bool enableAiRaidRetargetFix = true;
         private bool enableMoatTerrainRestoration = true;
         private bool enableWallDepositRestoration = true;
-        private bool enableCrenelCheckerboard = true;
         private bool alignExistingCrenelsInEditor;
         private bool alignExistingCrenelsOnSaveLoad;
         private bool alignExistingCrenelsOnMapStart;
@@ -409,8 +408,6 @@ namespace BugfixesAndQoL
         public string EnableMoatTerrainRestorationHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMoatTerrainRestorationHelp");
         public string EnableWallDepositRestorationText => SerpLocalization.Get("BugfixesAndQoL.EnableWallDepositRestoration");
         public string EnableWallDepositRestorationHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableWallDepositRestorationHelp");
-        public string EnableCrenelCheckerboardText => SerpLocalization.Get("BugfixesAndQoL.EnableCrenelCheckerboard");
-        public string EnableCrenelCheckerboardHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCrenelCheckerboardHelp");
         public string AlignExistingCrenelsText => SerpLocalization.Get("BugfixesAndQoL.AlignExistingCrenels");
         public string AlignExistingCrenelsInEditorText => SerpLocalization.Get("BugfixesAndQoL.AlignExistingCrenelsInEditor");
         public string AlignExistingCrenelsInEditorHelpText => SerpLocalization.Get("BugfixesAndQoL.AlignExistingCrenelsInEditorHelp");
@@ -1286,14 +1283,6 @@ namespace BugfixesAndQoL
             set => SetSetting(ref enableWallDepositRestoration, value, nameof(EnableWallDepositRestoration));
         }
 
-        // Crenel checkerboard (src/Crenels). All four values are frozen per session at its start.
-        [SyncHostOnly]
-        public bool EnableCrenelCheckerboard
-        {
-            get => enableCrenelCheckerboard;
-            set => SetSetting(ref enableCrenelCheckerboard, value, nameof(EnableCrenelCheckerboard));
-        }
-
         [SyncHostOnly]
         public bool AlignExistingCrenelsInEditor
         {
@@ -1834,6 +1823,7 @@ namespace BugfixesAndQoL
                 EnableMoatTerrainRestoration = true;
                 EnableWallDepositRestoration = true;
                 EnableCrenelCheckerboard = true;
+                EnableCrenelCheckerboardAI = false;
                 AlignExistingCrenelsInEditor = false;
                 AlignExistingCrenelsOnSaveLoad = false;
                 AlignExistingCrenelsOnMapStart = false;

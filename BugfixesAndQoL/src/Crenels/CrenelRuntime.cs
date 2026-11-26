@@ -50,8 +50,8 @@ namespace BugfixesAndQoL.Crenels
 
     // Keeps crenels crossable: every crenel the feature manages follows the map checkerboard (diagonal
     // pieces alternate along x), and low special pieces are drawn straight so Vanilla's renderer cannot
-    // raise them again (CrenelGraphicsHook). Managed are crenels built by players or the AI while the
-    // feature was active, plus, per option, crenels that already exist at a session start. Heights are
+    // raise them again (CrenelGraphicsHook). Manages newly built and optionally pre-existing crenels
+    // for the owner groups selected at session start. Heights are
     // never stored; they follow from the synchronized map on every peer.
     // Rooted for the process lifetime by BugfixesAndQoLPlugin (static field) and its publishers.
     internal sealed class CrenelRuntime
@@ -85,7 +85,7 @@ namespace BugfixesAndQoL.Crenels
         private int[][] pendingSave;
         private SortedDictionary<int, CrenelCell> repairedOrigins;
         // Host settings are frozen at the first notification of a session.
-        private bool settingsCaptured, requested, alignInEditor, alignOnSave, alignOnMapStart;
+        private bool settingsCaptured, requested, manageHuman, manageAI, alignInEditor, alignOnSave, alignOnMapStart;
         private bool installed, resyncReady, active, ready, restorePending, repairing;
         private volatile bool agreed;
 
@@ -173,14 +173,18 @@ namespace BugfixesAndQoL.Crenels
         {
             if (!settingsCaptured)
             {
-                requested = settings.EnableMod && settings.EnableCrenelCheckerboard;
+                requested = settings.EnableMod;
+                manageHuman = settings.EnableCrenelCheckerboard;
+                manageAI = settings.EnableCrenelCheckerboardAI;
                 alignInEditor = settings.AlignExistingCrenelsInEditor;
                 alignOnSave = settings.AlignExistingCrenelsOnSaveLoad;
                 alignOnMapStart = settings.AlignExistingCrenelsOnMapStart;
                 settingsCaptured = true;
             }
             // Mode evidence may become known only later in the start; the settings stay frozen.
-            bool allowed = context != null && (context.IsEditor || context.Mode.Kind != GameModeKind.Unknown);
+            bool allowed = context != null && (context.IsEditor
+                ? manageAI
+                : (manageHuman || manageAI) && context.Mode.Kind != GameModeKind.Unknown);
             bool intact = graphics.Intact;
             active = allowed && requested && intact && (!context.Mode.IsRealMultiplayer || agreed);
             if (allowed && requested && !intact && context.Mode.IsRealMultiplayer && agreed)
@@ -190,7 +194,7 @@ namespace BugfixesAndQoL.Crenels
 
         private void Clear()
         {
-            settingsCaptured = requested = alignInEditor = alignOnSave = alignOnMapStart = false;
+            settingsCaptured = requested = manageHuman = manageAI = alignInEditor = alignOnSave = alignOnMapStart = false;
             active = ready = restorePending = repairing = false;
             aiBuilds.Clear(); damageWasCrenel.Clear(); builds.Clear();
             managed.Clear(); signatures.Clear();
@@ -215,9 +219,8 @@ namespace BugfixesAndQoL.Crenels
             finally { prebuilt.Clear(); }
         }
 
-        // Optional per start kind: adopts every crenel that already exists when the session starts (map
-        // designer walls, savegame walls not built by the feature, pre-placed map walls). Runs on every
-        // peer with the frozen host options, after saved managed tiles were restored.
+        // Optional per start kind: adopts existing crenels for the selected owner groups after
+        // saved managed tiles were restored.
         private void AdoptExisting()
         {
             if (!active || !(context.IsEditor ? alignInEditor : context.IsSave ? alignOnSave : alignOnMapStart)) return;
@@ -298,7 +301,7 @@ namespace BugfixesAndQoL.Crenels
                     BuildScope scope = null;
                     try
                     {
-                        if (ready && active && e.WallType == eMappers.MAPPER_CRENAL && GamePlayerManagerAPI.Instance.IsPlayerIdValid(e.PlayerId))
+                        if (ready && active && e.WallType == eMappers.MAPPER_CRENAL && CanManageOwner(e.PlayerId))
                             scope = new BuildScope { Owner = e.PlayerId,
                                 Before = CrenelPolicy.Raster(world, e.TileXBegin, e.TileYBegin, e.TileXEnd, e.TileYEnd, e.BuildWallsMaximum) };
                     }
@@ -313,7 +316,8 @@ namespace BugfixesAndQoL.Crenels
                 {
                     var added = new List<CrenelCell>();
                     foreach (CrenelCell old in completed.Before)
-                        if (world.TryRead(old.X, old.Y, out CrenelCell now) && CrenelPolicy.Crenel(now) && now.Owner == completed.Owner &&
+                        if (world.TryRead(old.X, old.Y, out CrenelCell now) && CrenelPolicy.Crenel(now) &&
+                            (context.IsEditor || now.Owner == completed.Owner) &&
                             (!CrenelPolicy.Crenel(old) || old.Damaged != now.Damaged || old.Owner != now.Owner)) added.Add(now);
                     if (added.Count != 0) Adopt(added);
                 }
@@ -363,11 +367,19 @@ namespace BugfixesAndQoL.Crenels
             var normalize = new SortedSet<int>();
             foreach (CrenelCell cell in added)
             {
+                if (!CanManageOwner(cell.Owner)) continue;
                 managed[cell.Id] = cell.Identity();
                 normalize.Add(cell.Id);
                 AddManagedNeighbours(cell.X, cell.Y, normalize);
             }
-            Normalize(normalize);
+            if (normalize.Count != 0) Normalize(normalize);
+        }
+
+        private bool CanManageOwner(int owner)
+        {
+            if (context.IsEditor) return manageAI;
+            var players = GamePlayerManagerAPI.Instance;
+            return players.IsPlayerIdValid(owner) && (players.IsAIPlayer(owner) ? manageAI : manageHuman);
         }
 
         private void AddManagedNeighbours(int x, int y, SortedSet<int> into)
@@ -390,7 +402,7 @@ namespace BugfixesAndQoL.Crenels
             {
                 if (!managed.TryGetValue(id, out CrenelCell entry)) continue;
                 CrenelCell cell = read(entry.X, entry.Y);
-                if (!CrenelPolicy.Crenel(cell) || cell.Id != id || cell.Owner != entry.Owner)
+                if (!CrenelPolicy.Crenel(cell) || cell.Id != id || cell.Owner != entry.Owner || !CanManageOwner(cell.Owner))
                 {
                     managed.Remove(id); signatures.Remove(id);
                     graphics.Watch(id, false); graphics.SetAssignment(id, null);
