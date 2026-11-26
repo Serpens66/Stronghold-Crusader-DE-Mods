@@ -109,6 +109,37 @@ foreach($population in @(4000,9871)){
     if(!$rejected){throw 'Higher-tier log accepted under default1000 request'};$checks++
 
 }
+# New marker schema is optional for historical logs, complete and strict when present.
+function Add-DiagnosticMarkers([string[]]$inputLines,[int]$population){
+$marked=[Collections.Generic.List[string]]::new();[UInt64]$markerStamp=100
+foreach($line in $inputLines){
+    if($line -like '*performance-window *'){
+        $i=[regex]::Match($line,'iteration=(\d)').Groups[1].Value;$w=[regex]::Match($line,'workload=(\w+)').Groups[1].Value
+        $mode=if([int]$i%2){'True'}else{'False'};$label='rescue-p'+$population+'-'+$i+'-'+$(if($w -eq 'idle'){'idle'}else{'walk'})
+        $marked.Add("RESCUE_TEST performance-window-open schema=1 run=$run iteration=$i workload=$w enabled=$mode label=$label actualTick=10 requestedPopulation=$population monotonicStamp=$markerStamp pausedEngineBoundary=true boundaryThread=1")
+        $markerStamp+=10
+        $marked.Add("RESCUE_TEST performance-window-close schema=1 run=$run iteration=$i workload=$w enabled=$mode label=$label actualTick=3610 requestedPopulation=$population actualAdvancingTicks=3600 monotonicStamp=$markerStamp pausedEngineBoundary=true boundaryThread=1 boundaryThreadAllocatedBytesDelta=-1 processGc0Delta=0 processGc1Delta=0 processGc2Delta=0 noGcDurationClaim=true")
+        $markerStamp+=10;$marked.Add($line+' label='+$label)
+    }else{$marked.Add($line)}
+}
+    return ,$marked
+}
+$marked=Add-DiagnosticMarkers $valid 1000
+$diagnostic=Assert-RescuePerformanceLog -Lines $marked.ToArray() -Run $run
+if(!$diagnostic.Qualified){throw 'Complete optional diagnostic boundary schema rejected'};$checks++
+foreach($population in @(4000,9871)){
+    $profile='rescue-perf-'+$population+'-idle1000walk-passive-on'
+    $tierMarked=Add-DiagnosticMarkers $tierInputs[$profile] $population
+    $qualified=Assert-RescuePerformanceLog -Lines $tierMarked.ToArray() -Run $run -Scenario $profile
+    if(!$qualified.Qualified -or $qualified.Population -ne $population){throw 'Diagnostic higher-tier marker profile rejected'};$checks++
+}
+
+Reject @($marked|Where-Object {$_ -notlike '*performance-window-open *iteration=2 *workload=walking*'}) 'Incomplete diagnostic measurement boundaries'
+Reject @($marked|ForEach-Object {if($_ -like '*performance-window-close *'){$_.Replace('actualTick=3610','actualTick=3609')}else{$_}}) 'Diagnostic boundary tick/stamp chronology differs'
+Reject @($marked|ForEach-Object {if($_ -like '*performance-window-open *'){$_.Replace('run='+$run,'run=ffffffffffffffffffffffffffffffff')}else{$_}}) 'Diagnostic boundary identity differs'
+Reject @($marked|ForEach-Object {$_.Replace('processGc0Delta=0','processGc0Delta=-2')}) 'Invalid diagnostic GC boundary'
+Reject @($marked|ForEach-Object {$_.Replace('boundaryThreadAllocatedBytesDelta=-1','boundaryThreadAllocatedBytesDelta=-2')}) 'Invalid diagnostic allocation/thread boundary'
+
 $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 . (Join-Path $workspace 'Shared/Tools/Paths/WorkPaths.ps1')
 $temporary=New-ShortWorkDirectory -Root $workspace -Kind t -Name rescue-perflog -Identity 'passive log CLI contract'

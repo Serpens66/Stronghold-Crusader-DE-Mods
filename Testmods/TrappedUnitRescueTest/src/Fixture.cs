@@ -47,7 +47,7 @@ namespace TrappedUnitRescueTest
             expectedEnabled = scenario.EndsWith("-on", StringComparison.Ordinal);
         }
 
-        internal static bool Owns(string value) => value == "rescue-on" || value == "rescue-off" ||
+        internal static bool Owns(string value) => value == "rescue-loadcache" || value == "rescue-early-provider" || value == "rescue-on" || value == "rescue-off" ||
             value == "rescue-group-on" || value == "rescue-group-off" ||
             value == "rescue-aiwall-on" || value == "rescue-aiwall-off" ||
             value == "rescue-moat-on" || value == "rescue-moat-off" ||
@@ -80,13 +80,15 @@ namespace TrappedUnitRescueTest
             value == "rescue-auto-appletree2-on" || value == "rescue-auto-appletree2-off" ||
             value == "rescue-auto-appletree8-on" || value == "rescue-auto-appletree8-off" ||
             value == "rescue-control-appletree2-on" || value == "rescue-control-appletree8-on" ||
+            value == "rescue-negative-appletree2-delete-on" || value == "rescue-negative-appletree8-delete-on" ||
+            value == "rescue-negative-appletree2-reuse-on" || value == "rescue-negative-appletree8-reuse-on" ||
             value == "rescue-auto-idle-on" || value == "rescue-auto-idle-off" ||
             value == "rescue-auto-idlearcher-on" || value == "rescue-auto-idlearcher-off" ||
             value == "rescue-auto-commandmoat-on" || value == "rescue-auto-commandmoat-off" ||
             value == "rescue-auto-commandmoat-postmidpoint-on" || value == "rescue-auto-commandmoat-postmidpoint-off" ||
             value == "rescue-auto-commandmoat-nextonly-premidpoint-on" || value == "rescue-auto-commandmoat-nextonly-premidpoint-off" ||
             value == "rescue-auto-commandmoat-nextonly-postmidpoint-on" || value == "rescue-auto-commandmoat-nextonly-postmidpoint-off" ||
-            value == "rescue-persistence-parked-on" ||
+            value == "rescue-persistence-parked-on" || value == "rescue-worker-native0save-on" ||
             value == "rescue-perf-1000-on" ||
             value == "rescue-perf-1000-passive-on" ||
             value == "rescue-perf-4000-idle1000walk-passive-on" || value == "rescue-perf-9871-idle1000walk-passive-on" ||
@@ -96,8 +98,23 @@ namespace TrappedUnitRescueTest
 
         internal IEnumerable<AutomationStep> Steps()
         {
+            if (scenario == "rescue-early-provider")
+            {
+                foreach(var step in EarlyProviderSteps())yield return step;
+                yield break;
+            }
+            if (scenario == "rescue-loadcache")
+            {
+                foreach (var step in AssemblyLoadCacheSteps()) yield return step;
+                yield break;
+            }
             yield return new AutomationStep("skirmish", TimeSpan.FromSeconds(240), Start);
             yield return new AutomationStep("prepare", TimeSpan.FromSeconds(90), Prepare, true);
+            if (scenario == "rescue-worker-native0save-on")
+            {
+                foreach (var step in Native0WorkerPersistenceSteps()) yield return step;
+                yield break;
+            }
             if (scenario == "rescue-perf-1000-on")
             {
                 foreach (var step in PerformanceSteps()) yield return step;
@@ -191,6 +208,12 @@ namespace TrappedUnitRescueTest
             if (scenario=="rescue-control-appletree2-on" || scenario=="rescue-control-appletree8-on")
             {
                 foreach(var step in AppleTreeControlSteps())yield return step;
+                yield break;
+            }
+            if (scenario=="rescue-negative-appletree2-delete-on" || scenario=="rescue-negative-appletree8-delete-on" ||
+                scenario=="rescue-negative-appletree2-reuse-on" || scenario=="rescue-negative-appletree8-reuse-on")
+            {
+                foreach(var step in AppleLifetimeSteps())yield return step;
                 yield break;
             }
             if (scenario.Contains("-auto-oxhome-"))

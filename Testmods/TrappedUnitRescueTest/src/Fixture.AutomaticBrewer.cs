@@ -121,28 +121,34 @@ namespace TrappedUnitRescueTest
             }
             return true;
         }
-        private unsafe Actor FindNaturalBrewer()
+        private unsafe Actor FindNaturalBrewer()=>FindNaturalBrewer(out _,out _);
+        private unsafe Actor FindNaturalBrewer(out string rejection,out UnitSnapshot rejectedBefore)
         {
+            rejection="no-live-owned-linked-loaded-brewer-r8";rejectedBefore=null;
             foreach(int id in UnitAccess.GetAllReallyAliveUnits())
             {
                 if(!UnitAccess.TryGetById(id,out GameUnit* u,out _) || u==null || u->r_UnitChimp!=eChimps.CHIMP_TYPE_BREWER ||
                     u->r_ControllableForPlayerId!=owner || u->r_LinkedProductionBuildingId!=brewerWorld.Brewery ||
                     u->r_LinkedProductionBuildingGlobalId!=brewerWorld.BreweryGlobal || u->r_AIState!=8 || u->r_CarryGoodAmount==0)continue;
                 var before=runtime.SnapshotUnit(id,true,false);
-                if(before==null || before.Unsupported!=null || before.Job==null || !before.OrdinaryStep || before.Substep>=8 ||
-                    !TryStartedMoatAnchor(before,out int x,out int y))continue;
+                rejectedBefore=before;
+                if(before==null){rejection="snapshot-missing";continue;}
+                if(before.Unsupported!=null){rejection="snapshot-unsupported:"+before.Unsupported;continue;}
+                if(before.Job==null){rejection="snapshot-missing-typed-job";continue;}
+                if(!before.OrdinaryStep || before.Substep>=8){rejection="not-started-ordinary-step";continue;}
+                if(!TryStartedMoatAnchor(before,out int x,out int y)){rejection="started-moat-anchor-rejected";continue;}
                 var actor=new Actor{Id=id,Global=u->r_GlobalId,Type=u->r_UnitChimp,Health=u->r_CurrentHealth,Tribe=u->r_TribeId,
                     X=before.X,Y=before.Y,SourceX=before.X,SourceY=before.Y};
                 brewerWorld.Actor=actor;
-                if(!BrewerFutureAccessSafe(before,ValidateBrewer(actor),x,y)){brewerWorld.Actor=null;continue;}
+                if(!BrewerFutureAccessSafe(before,ValidateBrewer(actor),x,y)){rejection="protected-future-access";brewerWorld.Actor=null;continue;}
                 int store=runtime.Native.Word(u,0x98E);
                 if(!BuildingAccess.TryGetById(store,out GameBuilding* goodsyard,out _) || goodsyard==null ||
                     goodsyard->r_GlobalId!=runtime.Native.JobDword(u,0x6F8) || goodsyard->r_AliveState!=AliveState.IsAlive ||
                     goodsyard->r_PlayerIdOwner!=owner || goodsyard->r_BuildingType!=eStructs.STRUCT_GOODS_YARD)
-                {brewerWorld.Actor=null;continue;}
+                {rejection="selected-store-lifetime-owner-type";brewerWorld.Actor=null;continue;}
                 var brewery=ValidateBrewer(actor);int* local=(int*)&brewery->r_NullAmount;
                 if(local[(int)eGoods.STORED_RAW_HOPS]!=0 || local[(int)eGoods.STORED_FOOD_ALE]!=0)
-                {brewerWorld.Actor=null;continue;}
+                {rejection="brewery-local-input-or-output-not-zero";brewerWorld.Actor=null;continue;}
                 brewerWorld.Before=before;return actor;
             }
             return null;

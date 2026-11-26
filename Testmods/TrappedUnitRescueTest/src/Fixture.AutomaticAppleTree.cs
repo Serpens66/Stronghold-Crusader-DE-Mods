@@ -28,8 +28,9 @@ namespace TrappedUnitRescueTest
         private static bool appleTreeTickRegistered;
         private readonly Dictionary<string,int> appleTreeRejects=new Dictionary<string,int>();
         private int appleTreeRejectWitnesses;
-        // Native106A70/31E3C8: phase1 lasts300 updates, phase2 lasts200,
-        // then ripe phase3 lasts1000. These are fixture admission/deadline
+        // Native107390 seeds phase1 progress500, then calls106A70 synchronously:
+        // actual readback is phase2/progress0. After200 natural updates it reaches
+        // ripe phase3 lasting1000. These are fixture admission/deadline
         // bounds, not a claim that arbitrary native paths finish in these times.
         // R8 follows a genuine completed R2/pick, so admit its later source in
         // a separate300/250 window. Both require50 actual updates of reserve.
@@ -43,6 +44,29 @@ namespace TrappedUnitRescueTest
             internal bool ObservedAlive;
         }
         private OuterAppleTreeSetup outerAppleTree;
+
+        private IEnumerable<AutomationWait> SetupNaturalOuterAppleWorld(AutomationRun run)
+        {
+            int startTick=0;
+            Execute(run,()=>{
+                SetupNaturalAppleFarm();
+                Require(SimulationTickEvents.TryGetCurrentTick(out startTick),"Original farm setup has no native tick");
+            });
+            // Offset the real constructor rather than editing maturity later.
+            // The farm must still have no naturally acquired employee afterwards.
+            Director.instance.SetEngineFrameRate(50);
+            foreach(var wait in run.SetPause(run.CurrentMission,false))yield return wait;
+            yield return run.WaitForTicks(run.CurrentMission,128);
+            foreach(var wait in run.SetPause(run.CurrentMission,true))yield return wait;
+            Execute(run,()=>{
+                Require(SimulationTickEvents.TryGetCurrentTick(out int tick),"Delayed outer tree has no native tick");
+                uint elapsed=unchecked((uint)(tick-startTick));
+                Require(elapsed>=128 && elapsed<=144,"Delayed constructor missed its bounded natural setup window");
+                PrepareOuterAppleTree(appleWorld.Farm);
+                log("automatic-apple-outer-tree-natural-delay farmTick="+startTick+" constructorTick="+tick+
+                    " actualElapsedTicks="+elapsed+" workerNotAcquired=true rawMaturityWrites=0");
+            });
+        }
 
         private bool OutsideOriginalOrchard(int x,int y)=>outerAppleTree!=null &&
             (x<outerAppleTree.FarmX || x>=outerAppleTree.FarmX+10 ||
@@ -59,7 +83,8 @@ namespace TrappedUnitRescueTest
         {
             Require(BuildingAccess.TryGetById(farmId,out GameBuilding* farm,out _) && farm!=null &&
                 farm->r_GlobalId==appleWorld.FarmGlobal && farm->r_WorkerId_1==0 &&
-                farm->r_AliveState==AliveState.NeedsInit,
+                farm->r_PlayerIdOwner==owner && farm->r_BuildingType==eStructs.STRUCT_APPLEFARM &&
+                farm->r_AliveState==AliveState.IsAlive,
                 "Outer tree setup must precede the farm's natural worker acquisition");
             var tiles=GameTileManagerAPI.Instance;
             // Native72A50 calls72490 with the original placement origin and10.
@@ -73,18 +98,27 @@ namespace TrappedUnitRescueTest
             CheckOuterAppleAccess(setup.X,setup.Y);
             for(int d=0;d<8;d+=2)CheckOuterAppleAccess(setup.X+Dx[d]*2,setup.Y+Dy[d]*2);
             // This is the public native object constructor's normal initial
-            // growthStage, not a later maturity/counter/job write. Phase1 grows
-            // naturally into ripe phase3; starting immediately ripe expired
+            // growthStage, not a later maturity/counter/job write. The native
+            // constructor normalizes input1 to actual2/0 synchronously; it then
+            // grows naturally into ripe3. Starting immediately ripe expired
             // before original arrival in historical run134. Actual remaining
             // maturity is independently qualified below. Original farm trees
             // remain untouched and continue growing normally.
+            // Explicit public level2 agrees with the normalized real phase2.
+            //59520 recomputes proximity from the actual stage after construction;
+            // automatic proximity would therefore produce the same five-cell cross.
             long created=GameVegetationManagerAPI.Instance.CreateEx(checked((ushort)setup.X),checked((ushort)setup.Y),
-                VegetationType.AppleTree,growthStage:1);
+                VegetationType.AppleTree,treeProximityAreaLevel:2,growthStage:1);
             Require(created>0 && created<int.MaxValue,"Public external apple tree creation failed");
             setup.NativeIndex=checked((int)created);
-            Require(NativeVegetationAccess.TryGet(setup.NativeIndex,out var tree) && tree!=null &&
-                tree->r_AliveState==AliveState.NeedsInit && tree->r_VegetationType==VegetationType.AppleTree &&
-                tree->r_GrowthStage==1 && tree->r_TilePositionX==setup.X && tree->r_TilePositionY==setup.Y &&
+            Require(NativeVegetationAccess.TryGet(setup.NativeIndex,out var tree) && tree!=null,
+                "Created outer tree cannot be resolved in its actual native index domain");
+            log("automatic-apple-outer-constructor-readback nativeIndex="+setup.NativeIndex+" global="+tree->r_GlobalId+
+                " actualLife="+tree->r_AliveState+" actualType="+tree->r_VegetationType+" actualGrowthStage="+tree->r_GrowthStage+
+                " actualGrowthProgress="+tree->r_GrowthProgress+" actualXY="+tree->r_TilePositionX+","+tree->r_TilePositionY+
+                " actualTile="+tree->r_TileId+" inputGrowthStage=1 explicitProximityLevel=2");
+            Require(tree->r_AliveState==AliveState.NeedsInit && tree->r_VegetationType==VegetationType.AppleTree &&
+                tree->r_GrowthStage==2 && tree->r_GrowthProgress==0 && tree->r_TilePositionX==setup.X && tree->r_TilePositionY==setup.Y &&
                 tree->r_TileId==(uint)setup.Tile && tree->r_GlobalId!=0,
                 "Created native tree record/type/lifetime/initial stage differs from its real public constructor");
             setup.Global=tree->r_GlobalId;
@@ -101,6 +135,7 @@ namespace TrappedUnitRescueTest
             log("automatic-apple-outer-tree-setup nativeIndex="+setup.NativeIndex+" sdkId="+(setup.NativeIndex+1)+
                 " global="+setup.Global+" actualTile="+setup.X+","+setup.Y+" futureOrchard="+cx+","+cy+",10"+
                 " initialLife="+tree->r_AliveState+" initialGrowthStage="+tree->r_GrowthStage+
+                " constructorInputPhase=1 actualProgress="+tree->r_GrowthProgress+" explicitProximityLevel=2"+
                 " realProximityCross=true fourApproachesFree=true nativeFarmTreesUnchanged=true workerNotAcquired=true");
         }
         private unsafe bool OuterAppleTreeReady()
@@ -385,7 +420,8 @@ namespace TrappedUnitRescueTest
                     int farm=0,state=scenario.Contains("-appletree8-")?8:2;
                     Require(scenario.Contains("-appletree2-") || scenario.Contains("-appletree8-"),"Missing explicit natural Apple2/8 scenario");
                     run.InSimulation(run.CurrentMission,()=>{Plugin.SetGeneralFixtureSession(false);return true;});
-                    Execute(run,()=>{farm=SetupNaturalAppleFarm();PrepareOuterAppleTree(farm);});
+                    foreach(var wait in SetupNaturalOuterAppleWorld(run))yield return wait;
+                    farm=appleWorld.Farm;
                     // The first genuine external-tree journey precedes maturity
                     // of the unchanged native farm trees. Observe actual ticks
                     // from the start instead of skipping short R2/R8 legs.

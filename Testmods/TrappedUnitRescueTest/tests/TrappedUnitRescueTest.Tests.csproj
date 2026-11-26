@@ -164,6 +164,9 @@
     <Compile Include="../src/WorkerRecoveryService.cs" />
     <Compile Include="../src/RescueMutationFootprints.cs" />
   </ItemGroup>
+  <ItemGroup Condition="'$(SerpDevDiagnostics)' == 'true' or '$(SHCDE_DEVDIAG)' == '1'">
+    <Compile Include="../src/RescueCaptureDiagnostics.DevDiag.cs" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)/Microsoft.CSharp.targets" />
   <Import Project="../../../Directory.Build.targets" />
 </Project>

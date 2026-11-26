@@ -134,6 +134,9 @@ namespace TrappedUnitRescueTest
             foreach(var occupant in occupants)
             {
                 var snapshot=SnapshotUnit(occupant.UnitId,true);
+#if SERP_DEVDIAG
+                if(snapshot!=null)RescueCaptureDiagnostics.Snapshot(snapshot.Owner,snapshot.Unsupported!=null);
+#endif
                 if(snapshot==null || snapshot.GlobalId!=occupant.GlobalId || snapshot.TileId!=occupant.CurrentTile ||
                     snapshot.OrdinaryStep && snapshot.NextTileId!=occupant.NextTile)
                 {before.Clear();reason="occupant-changed-before-snapshot";return false;}
@@ -324,7 +327,16 @@ namespace TrappedUnitRescueTest
             return false;
         }
         private void CaptureCandidates(UnitSnapshot value)
-        { value.Candidates.AddRange(FindLocalCandidates(value.X,value.Y,native.Tile,native.OrdinaryGround,Edge)); }
+        {
+#if SERP_DEVDIAG
+            var diagnosticCandidates=FindLocalCandidates(value.X,value.Y,native.Tile,native.OrdinaryGround,Edge);
+            // Caller proved an ordinary origin: seen = origin plus exactly the returned neighbours.
+            RescueCaptureDiagnostics.CandidateBfs(value.Owner,diagnosticCandidates.Count+1);
+            value.Candidates.AddRange(diagnosticCandidates);
+#else
+            value.Candidates.AddRange(FindLocalCandidates(value.X,value.Y,native.Tile,native.OrdinaryGround,Edge));
+#endif
+        }
         // PURE_LOCAL_SEARCH_BEGIN: shared by runtime and its offline behavior fixture.
         internal static List<RescueCandidate> FindLocalCandidates(int originX,int originY,Func<int,int,int> tileAt,
             Func<int,bool> ordinaryGround,Func<int,int,int,int,bool> hasEdge)

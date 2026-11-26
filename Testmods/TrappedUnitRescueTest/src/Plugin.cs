@@ -45,9 +45,13 @@ namespace TrappedUnitRescueTest
 
         private void Awake()
         {
+            EarlyProviderProbe.OwnAwakeEntered(this);
             if (initialized) return;
             initialized = true; instance = this; log = Logger; settings = new Settings();
             Shared.DevDiag.Attach(log);
+#if SERP_DEVDIAG
+            RescueCaptureDiagnostics.Initialize();
+#endif
             startupThread = Thread.CurrentThread.ManagedThreadId;
             configuredMap = Config.Bind("Fixture", "Map", "4spielerkarte.map", "Disposable local Skirmish map; suitability is checked before each scenario.").Value;
             configuredPeaceTime = Config.Bind("Fixture", "PeaceTimeMinutes", 60, "Explicit peace time for the disposable test world.").Value;
@@ -61,6 +65,7 @@ namespace TrappedUnitRescueTest
                 if (Thread.CurrentThread.ManagedThreadId != startupThread) { Stamp("INIT_FAILED settings readiness left the startup Unity thread"); return; }
                 InitializeSettings();
             });
+            EarlyProviderProbe.OwnAwakeReturned(this);
         }
 
         private static void LibraryLoaded(CrusaderLibraryLoadContext context)

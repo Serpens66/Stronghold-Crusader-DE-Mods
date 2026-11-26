@@ -316,7 +316,7 @@ namespace TrappedUnitRescueTest
             Require(millerWorld.Mill>0 && BuildingAccess.TryGetById(millerWorld.Mill,out mill,out _),"Natural mill was not created");
             millerWorld.MillGlobal=mill->r_GlobalId;
         }
-        private unsafe void ExtendMillerStorage()
+        private unsafe void ExtendMillerStorage(int? requestedX=null,int? requestedY=null)
         {
             Require(millerWorld.Extensions<8,"Eight actual Miller dedicated yards did not preserve output capacity");
             var keep=GamePlayerManagerAPI.Instance.GetPlayerKeepPosition(owner);
@@ -324,7 +324,14 @@ namespace TrappedUnitRescueTest
             // Same controlled-world preflight as the proven Ox delivery yard.
             // Scale5 is the validator parameter, not a claimed physical width.
             // The extra flat envelope covers the constructor's full 0..5 union.
-            for(int radius=12;radius<=28 && !found;radius+=2)
+            Require(requestedX.HasValue==requestedY.HasValue,"Explicit dedicated yard needs both coordinates");
+            if(requestedX.HasValue)
+            {
+                x=requestedX.Value;y=requestedY.Value;
+                int centre=GameTileManagerAPI.Instance.GetTileId(x+scale/2,y+scale/2);
+                found=FlatSquare(x+scale/2,y+scale/2,scale/2+1,out _) && MoatWorkerWithinOwnKeepRange(centre);
+            }
+            else for(int radius=12;radius<=28 && !found;radius+=2)
                 for(int direction=0;direction<8;direction++)
                 {
                     int trialX=keep.X+Dx[direction]*radius,trialY=keep.Y+Dy[direction]*radius;

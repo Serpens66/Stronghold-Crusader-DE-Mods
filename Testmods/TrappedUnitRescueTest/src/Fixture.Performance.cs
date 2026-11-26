@@ -481,6 +481,9 @@ namespace TrappedUnitRescueTest
                             run.InSimulation(run.CurrentMission,()=>{proof.Walking=false;Require(proof.Fault==null,"Performance walking warmup failed: "+proof.Fault);return true;});
                         }
                         int start=0,end=0,physical=0;long captures=0,attempts=0,rescues=0;
+#if SERP_DEVDIAG
+                        RescueCaptureDiagnostics.Sample windowAllocation=default;
+#endif
                         string label="rescue-p"+population+"-"+iteration+"-"+(workload==0?"idle":"walk");
                         run.InSimulation(run.CurrentMission,()=>{
                             PerformanceBoundary(proof,false);if(workload==0)PerformanceAtSavedSources(proof);physical=PerformanceCensus();
@@ -490,14 +493,33 @@ namespace TrappedUnitRescueTest
                             proof.WindowStart=start;proof.LastCommandTick=start;proof.Commands=0;
                             foreach(var group in proof.Groups){group.Progress=false;group.LastX=group.Sample.X;group.LastY=group.Sample.Y;}
                             if(workload==1)PerformanceCommands(proof,true);
-                            probe.Validate();Require(probe.Begin(label),"PerfProbe rejected owned timing window");activeLabel=label;proof.Walking=workload==1;return true;
+                            probe.Validate();
+#if SERP_DEVDIAG
+                            windowAllocation=RescueCaptureDiagnostics.Read();
+#endif
+                            Require(probe.Begin(label),"PerfProbe rejected owned timing window");activeLabel=label;proof.Walking=workload==1;
+#if SERP_DEVDIAG
+                            log("performance-window-open schema=1 run="+proof.RunId+" iteration="+iteration+" workload="+(workload==0?"idle":"walking")+
+                                " enabled="+proof.Enabled+" label="+label+" actualTick="+start+" requestedPopulation="+population+
+                                " monotonicStamp="+System.Diagnostics.Stopwatch.GetTimestamp()+" boundaryThread="+Thread.CurrentThread.ManagedThreadId+
+                                " pausedEngineBoundary=true");
+#endif
+                            return true;
                         });
                         foreach(var wait in run.SetPause(run.CurrentMission,false))yield return wait;
                         yield return run.WaitForTicks(run.CurrentMission,windowTicks);
                         foreach(var wait in run.SetPause(run.CurrentMission,true))yield return wait;
                         string summary=run.InSimulation(run.CurrentMission,()=>{
                             proof.Walking=false;Require(SimulationTickEvents.TryGetCurrentTick(out end),"Performance ending native clock unavailable");
-                            string result=probe.End(label);activeLabel=null;Require(result!=null,"PerfProbe lost the owned timing window");return result;
+                            string result=probe.End(label);activeLabel=null;Require(result!=null,"PerfProbe lost the owned timing window");
+#if SERP_DEVDIAG
+                            var windowEnd=RescueCaptureDiagnostics.Read();
+                            log("performance-window-close schema=1 run="+proof.RunId+" iteration="+iteration+" workload="+(workload==0?"idle":"walking")+
+                                " enabled="+proof.Enabled+" label="+label+" actualTick="+end+" requestedPopulation="+population+
+                                " actualAdvancingTicks="+unchecked((uint)(end-start))+" monotonicStamp="+System.Diagnostics.Stopwatch.GetTimestamp()+
+                                " pausedEngineBoundary=true "+RescueCaptureDiagnostics.WindowDelta(windowAllocation,windowEnd));
+#endif
+                            return result;
                         });
                         run.InSimulation(run.CurrentMission,()=>{
                             Require(proof.Fault==null,"Performance walking failed: "+proof.Fault);

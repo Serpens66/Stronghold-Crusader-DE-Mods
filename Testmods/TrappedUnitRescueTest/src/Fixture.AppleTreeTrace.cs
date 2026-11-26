@@ -148,7 +148,8 @@ namespace TrappedUnitRescueTest
                 {
                     int farm=0,state=scenario.Contains("-appletree8-")?8:2;AppleTreeTransit selected=null;
                     run.InSimulation(run.CurrentMission,()=>{Plugin.SetGeneralFixtureSession(false);return true;});
-                    Execute(run,()=>{farm=SetupNaturalAppleFarm();PrepareOuterAppleTree(farm);});
+                    foreach(var wait in SetupNaturalOuterAppleWorld(run))yield return wait;
+                    farm=appleWorld.Farm;
                     Director.instance.SetEngineFrameRate(50);
                     for(int sample=0;sample<5000 && selected==null;sample++)
                     {

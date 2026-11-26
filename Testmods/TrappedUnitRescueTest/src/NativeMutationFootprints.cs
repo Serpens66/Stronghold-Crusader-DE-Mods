@@ -53,6 +53,9 @@ namespace TrappedUnitRescueTest
         internal bool TryPlan(WorldMutationContext source, out List<RescueTile> tiles, out int owner, out string reason)
         {
             tiles = new List<RescueTile>(); owner = 0; reason = null;
+#if SERP_DEVDIAG
+            Session diagnosticSession=null;int diagnosticRequests=0;
+#endif
             if (source == null) { reason = "missing-mutation-context"; return false; }
             try
             {
@@ -68,6 +71,9 @@ namespace TrappedUnitRescueTest
                     if (!RescueCleanupProjection.MoatCanChangeGeometry(source.Source == WorldMutationSource.MoatFill, memory.Byte(task + 13))) return true;
                 }
                 var session = new Session(memory, budget, maximumBuildingReads);
+#if SERP_DEVDIAG
+                diagnosticSession=session;
+#endif
                 var requests = new List<RescueMutationFootprintRequest>();
                 if (source.Source == WorldMutationSource.AivBuildStep)
                 {
@@ -123,9 +129,19 @@ namespace TrappedUnitRescueTest
                     }
                 }
                 if (owner < 0 || owner > 8) { reason = "mutation-owner-contract"; return false; }
+#if SERP_DEVDIAG
+                diagnosticRequests=requests.Count;
+#endif
                 return PlanRequests(session, requests, out tiles, out reason);
             }
             catch (Exception ex) { reason = ex is InvalidOperationException ? ex.Message : "native-footprint-reader-failed"; return false; }
+#if SERP_DEVDIAG
+            finally
+            {
+                if(diagnosticSession!=null)RescueCaptureDiagnostics.Plan(diagnosticRequests,diagnosticSession.Reads,diagnosticSession.BuildingReads,
+                    diagnosticSession.Context.BrushSearches,diagnosticSession.Context.BrushCacheHits,diagnosticSession.Context.BrushNodes,tiles==null?0:tiles.Count);
+            }
+#endif
         }
         private bool PlanRequests(Session session, List<RescueMutationFootprintRequest> requests, out List<RescueTile> tiles, out string reason)
         {

@@ -129,6 +129,37 @@ function Assert-RescuePerformanceLog {
         Require ([UInt32]::TryParse((Token $head 'advancingTicks'),[ref]$ticks) -and $ticks -ge 3600 -and
             [UInt32]::TryParse((Token $line 'nativeCompleted'),[ref]$completed) -and $completed -ge 3600) 'Insufficient actual native work'
     }
+    # Optional additive schema: old completed logs deliberately have no such markers.
+    $opens=@($Lines|Where-Object {$_.Contains('RESCUE_TEST performance-window-open ')})
+    $closes=@($Lines|Where-Object {$_.Contains('RESCUE_TEST performance-window-close ')})
+    if($opens.Count -ne 0 -or $closes.Count -ne 0){
+        Require ($opens.Count -eq 8 -and $closes.Count -eq 8) 'Incomplete diagnostic measurement boundaries'
+        foreach($window in $windows){
+            $iteration=Token $window 'iteration';$workload=Token $window 'workload'
+            $open=@($opens|Where-Object {(Token $_ 'iteration') -ceq $iteration -and (Token $_ 'workload') -ceq $workload})
+            $close=@($closes|Where-Object {(Token $_ 'iteration') -ceq $iteration -and (Token $_ 'workload') -ceq $workload})
+            Require ($open.Count -eq 1 -and $close.Count -eq 1) 'Duplicate diagnostic measurement boundary'
+            $head=$window.Split(@(' nativeDurationWindow '),[StringSplitOptions]::None)[0]
+            [UInt64]$opened=0;[UInt64]$closed=0
+            foreach($boundary in @($open[0],$close[0])){
+                Require ((Token $boundary 'run') -ceq $Run -and (Token $boundary 'schema') -ceq '1' -and
+                    (Token $boundary 'enabled') -ieq (Token $window 'enabled') -and (Token $boundary 'requestedPopulation') -ceq [string]$population -and
+                    (Token $boundary 'pausedEngineBoundary') -ieq 'true' -and (Token $boundary 'label') -ceq (Token $window 'label')) 'Diagnostic boundary identity differs'
+            }
+            [long]$bytes=0;[int]$openThread=0;[int]$closeThread=0
+            Require ([int]::TryParse((Token $open[0] 'boundaryThread'),[ref]$openThread) -and $openThread -gt 0 -and
+                [int]::TryParse((Token $close[0] 'boundaryThread'),[ref]$closeThread) -and $closeThread -gt 0 -and
+                [long]::TryParse((Token $close[0] 'boundaryThreadAllocatedBytesDelta'),[ref]$bytes) -and $bytes -ge -1 -and
+                ($openThread -eq $closeThread -or $bytes -eq -1) -and (Token $close[0] 'noGcDurationClaim') -ieq 'true') 'Invalid diagnostic allocation/thread boundary'
+            foreach($name in @('processGc0Delta','processGc1Delta','processGc2Delta')){
+                [int]$gc=0;Require ([int]::TryParse((Token $close[0] $name),[ref]$gc) -and $gc -ge -1) 'Invalid diagnostic GC boundary'
+            }
+            Require ((Token $open[0] 'actualTick') -ceq (Token $head 'startTick') -and (Token $close[0] 'actualTick') -ceq (Token $head 'endTick') -and
+                (Token $close[0] 'actualAdvancingTicks') -ceq (Token $head 'advancingTicks') -and
+                [UInt64]::TryParse((Token $open[0] 'monotonicStamp'),[ref]$opened) -and [UInt64]::TryParse((Token $close[0] 'monotonicStamp'),[ref]$closed) -and $closed -gt $opened -and
+                (Position $open[0]) -lt (Position $close[0]) -and (Position $close[0]) -lt (Position $window)) 'Diagnostic boundary tick/stamp chronology differs'
+        }
+    }
     $endpoints=@($Lines|Where-Object {$_.Contains('RESCUE_TEST performance-endpoints ')})
     Require ($endpoints.Count -eq 4) 'Missing physical endpoint completion'
     $endpointSeen=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
@@ -149,6 +180,11 @@ function Assert-RescuePerformanceLog {
         }
         foreach($workload in @('idle','walking')){
             $position=$windowPositions[$iteration.ToString()+'/'+$workload]
+            if($opens.Count -ne 0){
+                $openedLine=@($opens|Where-Object {(Token $_ 'iteration') -ceq [string]$iteration -and (Token $_ 'workload') -ceq $workload})[0]
+                $closedLine=@($closes|Where-Object {(Token $_ 'iteration') -ceq [string]$iteration -and (Token $_ 'workload') -ceq $workload})[0]
+                Require ((Position $openedLine) -gt $cursor -and (Position $closedLine) -gt (Position $openedLine) -and (Position $closedLine) -lt $position) 'Diagnostic boundaries cross workload/mission chronology'
+            }
             Require ($position -gt $cursor) 'Performance evidence chronology differs'
             $cursor=$position
         }

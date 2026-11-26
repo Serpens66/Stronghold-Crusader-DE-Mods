@@ -46,6 +46,9 @@ namespace TrappedUnitRescueTest
             var halo = new SortedSet<int>();
             var records = new Dictionary<int, RescueDiscoveryUnit>();
             var selected = new Dictionary<int, RescueDiscoveryUnit>();
+#if SERP_DEVDIAG
+            int diagnosticLinks=0;
+#endif
             try
             {
                 foreach (var tile in changed)
@@ -75,6 +78,9 @@ namespace TrappedUnitRescueTest
                     int id = head(tile);
                     while (id != 0)
                     {
+#if SERP_DEVDIAG
+                        diagnosticLinks=visits+1;
+#endif
                         if (++visits > budget.MaximumLinks) { reason = "occupancy-walk-budget"; return false; }
                         if (id < 1 || id > budget.MaximumUnitId || !chain.Add(id))
                         { reason = "invalid-or-cyclic-occupancy-chain"; return false; }
@@ -105,6 +111,9 @@ namespace TrappedUnitRescueTest
             {
                 units.Clear(); reason = "discovery-reader-failed"; return false;
             }
+#if SERP_DEVDIAG
+            finally{RescueCaptureDiagnostics.Discovery(halo.Count,diagnosticLinks,selected.Count);}
+#endif
         }
         private static bool ValidTile(int tile, RescueDiscoveryBudget budget) => tile >= 0 && tile < budget.TileCapacity;
         private static bool Same(RescueDiscoveryUnit a, RescueDiscoveryUnit b) => a.UnitId == b.UnitId && a.GlobalId == b.GlobalId &&

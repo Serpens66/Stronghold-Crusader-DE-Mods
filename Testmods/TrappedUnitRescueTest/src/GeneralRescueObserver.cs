@@ -36,6 +36,7 @@ namespace TrappedUnitRescueTest
         {
 #if SERP_DEVDIAG
             long diagnosticStarted=0;
+            var captureAllocation=RescueCaptureDiagnostics.Begin(context==null?default:context.Source);
             Shared.DevDiag.BeginBatch();
             Shared.DevDiag.Start(ref diagnosticStarted);
             try
@@ -56,6 +57,9 @@ namespace TrappedUnitRescueTest
             if(!planned)return false;
             Shared.DevDiag.Count("rescue.capture.envelopeTiles",tiles.Count);
             plannedWrites=tiles;
+#if SERP_DEVDIAG
+            RescueCaptureDiagnostics.Owner(owner);
+#endif
             if(tiles.Count==0){before=new List<UnitSnapshot>();return true;}
             if(!runtime.TryCaptureMutation(tiles,out before,out reason))return false;
             before.RemoveAll(unit=>unit.Unsupported!=null || owner>0 && unit.Owner!=owner);
@@ -64,7 +68,9 @@ namespace TrappedUnitRescueTest
             }
             finally
             {
-                Shared.DevDiag.StopSpike(ref diagnosticStarted,"rescue.capture.total.inclusive",2000);
+                RescueCaptureDiagnostics.End(ref captureAllocation);
+                RescueCaptureDiagnostics.StopCapture(ref diagnosticStarted);
+                RescueCaptureDiagnostics.PublishCapture();
                 Shared.DevDiag.EndBatch();
             }
 #endif
@@ -209,6 +215,12 @@ namespace TrappedUnitRescueTest
             if(!access.TryGetWorld(out long liveSession,out long liveWorld) || liveSession!=context.SessionId || liveWorld!=context.WorldGeneration)return null;
             if(world!=liveWorld)ResetWorld(liveWorld);
             if(failedBatchOverflow)return null;
+#if SERP_DEVDIAG
+            long observerStarted=0;var observerAllocation=RescueCaptureDiagnostics.Read();
+            Shared.DevDiag.BeginBatch();Shared.DevDiag.Start(ref observerStarted);
+            try
+            {
+#endif
             List<UnitSnapshot> before=null;IReadOnlyList<RescueTile> writes=null;string reason=null;bool captured=false;
             try
             {
@@ -218,7 +230,15 @@ namespace TrappedUnitRescueTest
             catch{reason="mutation-capture-exception";}
             // This runs before the original even when no local actor was found.
             // Active captures belong to this compound event, not historical caches.
+#if SERP_DEVDIAG
+            IReadOnlyList<int> retired;bool completeEnvelope;long retirementStarted=0;
+            Shared.DevDiag.Start(ref retirementStarted);
+            Shared.DevDiag.Count("rescue.count.retirementPending",PendingCount);
+            try{retired=RetireHistoricalGeometry(writes,out completeEnvelope);Shared.DevDiag.Count("rescue.count.retiredRecords",retired.Count);}
+            finally{Shared.DevDiag.StopSpike(ref retirementStarted,"rescue.observer.retirement",2000);}
+#else
             var retired=RetireHistoricalGeometry(writes,out bool completeEnvelope);
+#endif
             if(!captured || before==null || !completeEnvelope)
             {
                 if(!batches.TryGetValue(context.BatchId,out Batch partial))
@@ -273,7 +293,17 @@ namespace TrappedUnitRescueTest
             Interlocked.Increment(ref captures);
             return new Completion(context,context.SessionId,id=>IsCurrent(id,context.WorldGeneration),()=>{},
                 () => batch.Invalid=true);
+#if SERP_DEVDIAG
+            }
+            finally
+            {
+                RescueCaptureDiagnostics.EndObserver(observerAllocation);
+                Shared.DevDiag.StopSpike(ref observerStarted,"rescue.observer.begin.inclusive",2000);
+                Shared.DevDiag.EndBatch();
+            }
+#endif
         }
+
         public void OnBatchCompleted(WorldMutationBatchCompletion completion)
         {
             if(IsRecovering)return;

@@ -29,6 +29,7 @@
     <Reference Include="UnityEngine.TilemapModule"><HintPath>$(GameManaged)/UnityEngine.TilemapModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Steamworks.NET"><HintPath>$(GameManaged)/com.rlabrecque.steamworks.net.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="APIShared"><HintPath>$(ApiSharedDir)/APIShared.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="APIShared.DependencyBootstrap"><HintPath>$(ApiSharedDir)/../../patchers/APIShared.DependencyBootstrap.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)/SHCDESE.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Iced"><HintPath>$(ExtenderDir)/Iced.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="RedBird.Abstractions"><HintPath>$(ExtenderDir)/RedBird.Abstractions.dll</HintPath><Private>false</Private></Reference>
@@ -45,6 +46,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="src/*.cs"/>
+    <ProjectReference Include="LoadCacheAsset/LoadCacheAsset.csproj">
+      <Project>{9D372E28-939E-4B93-ACBD-772AF261E4A4}</Project><Name>LoadCacheAsset</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly><Private>false</Private>
+    </ProjectReference>
     <Compile Include="../../Shared/Runtime/Native/NativePatchGuard.cs"><Link>Shared/NativePatchGuard.cs</Link></Compile>
     <Compile Include="../../Shared/Runtime/Native/CommittedMemory.cs"><Link>Shared/CommittedMemory.cs</Link></Compile>
     <Compile Include="../../Shared/Runtime/Localization/SerpLocalization.cs"><Link>Shared/SerpLocalization.cs</Link></Compile>

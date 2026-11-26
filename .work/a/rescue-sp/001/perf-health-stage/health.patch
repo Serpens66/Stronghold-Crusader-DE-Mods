@@ -1,0 +1,69 @@
+--- a/Testmods/TrappedUnitRescueTest/src/Fixture.Performance.cs
++++ b/Testmods/TrappedUnitRescueTest/src/Fixture.Performance.cs
+@@ -31,7 +31,7 @@
+             internal Fixture Fixture;
+             internal string Path,Fault,RunId;
+             internal long PreviousSession,LoadedSession;
+-            internal bool Active,Armed,Ended,Enabled,Walking,ObserveArmyMoves;
++            internal bool Active,Armed,Ended,Enabled,Walking,ObserveArmyMoves,HealthMismatchLogged;
+             internal int Loaded,WindowStart,LastCommandTick,Commands,OwnArmyMoves,Population,AmbientReserve,PhysicalCapacity;
+             internal readonly List<Actor> IdleActors=new List<Actor>();
+             internal readonly List<int[]> KeepAreas=new List<int[]>();
+@@ -290,7 +290,10 @@
+             ulong hash=14695981039346656037UL;
+             foreach(var actor in proof.Actors)
+             {
+-                var unit=Resolve(actor);Require(UnitAccess.IsReallyAlive(unit) && unit->r_CurrentHealth>0 && unit->r_TribeId==actor.Tribe,
++                var unit=Resolve(actor);
++                if(!remember && unit->r_CurrentHealth!=actor.Health && !proof.HealthMismatchLogged)
++                    LogPerformanceHealthMismatch(proof,actor,unit);
++                Require(UnitAccess.IsReallyAlive(unit) && unit->r_CurrentHealth>0 && unit->r_TribeId==actor.Tribe,
+                     "Performance actor lifetime/type/tribe changed");
+                 if(remember)
+                 {
+@@ -317,6 +320,45 @@
+             }
+             if(proof.ObserveArmyMoves)Require(proof.OwnArmyMoves==0,"Ambient world caused an own recovery call on the performance army; this is not an unmutated army sample");
+             return hash;
++        }
++        // Only on the first existing paused-boundary mismatch. No event demand,
++        // native hook, per-tick scan or acceptance-policy change is introduced.
++        private unsafe void LogPerformanceHealthMismatch(PerformanceProof proof,Actor actor,GameUnit* unit)
++        {
++            proof.HealthMismatchLogged=true;
++            bool tickKnown=SimulationTickEvents.TryGetCurrentTick(out int tick);
++            uint actualHealth=unit->r_CurrentHealth;
++            string facts="run="+proof.RunId+" session="+session+" loadedSession="+proof.LoadedSession+
++                " enabled="+proof.Enabled+" nativeTickKnown="+tickKnown+" nativeTick="+tick+
++                " unit="+actor.Id+"/"+actor.Global+" actualGlobal="+unit->r_GlobalId+
++                " expectedType="+(int)actor.Type+" actualType="+(int)unit->r_UnitChimp+
++                " expectedOwner="+owner+" actualOwner="+unit->r_ControllableForPlayerId+
++                " expectedTribe="+actor.Tribe+" actualTribe="+unit->r_TribeId+
++                " expectedHealth="+actor.Health+" actualHealth="+actualHealth+
++                " healthDelta="+((long)actualHealth-actor.Health)+" actualLife="+(int)unit->r_AliveState+
++                " currentX="+unit->r_CurrentTilePositionX+" currentY="+unit->r_CurrentTilePositionY+
++                " currentTile="+unit->r_CurrentPositionTileId+" nextX="+unit->r_NextTilePositionX2+
++                " nextY="+unit->r_NextTilePositionY2+" nextTile="+unit->r_NextPositionTileId2+
++                " flags="+unit->r_PathPlanStateBitFlags+" substep="+unit->r_MovementSubstep+" ai="+unit->r_AIState+
++                " requestedX="+unit->r_TargetTilePositionX2+" requestedY="+unit->r_TargetTilePositionY2+
++                " savedSourceX="+actor.SourceX+" savedSourceY="+actor.SourceY+
++                " walkingCohort="+(!proof.IdleActors.Contains(actor))+" causeUnobserved=true";
++            string terrain;
++            try
++            {
++                terrain=" currentTerrain=["+PerformanceHealthTerrain(unit->r_CurrentPositionTileId)+
++                    "] nextTerrain=["+PerformanceHealthTerrain(unit->r_NextPositionTileId2)+"]";
++            }
++            catch(Exception error){terrain=" terrainReadUnavailable="+error.GetType().Name;}
++            log("performance-first-health-mismatch "+facts+terrain);
++        }
++        private string PerformanceHealthTerrain(uint tile)
++        {
++            if(tile>=NativeRelocation.TileCapacity)return "tile="+tile+" validNativeIndex=false";
++            int index=(int)tile;var tiles=GameTileManagerAPI.Instance;
++            return "tile="+tile+" validNativeIndex=true flags="+runtime.Native.Flags(index).ToString("X8",CultureInfo.InvariantCulture)+
++                " ordinary="+runtime.Native.OrdinaryGround(index)+" building="+tiles.GetTileBuildingId(index)+
++                " vegetation="+tiles.GetTileVegetationId(index)+" height="+tiles.GetTileHeight(index);
+         }
+         private unsafe void PerformanceAtSavedSources(PerformanceProof proof)
+         {
