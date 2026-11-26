@@ -1,99 +1,187 @@
 [CmdletBinding()]
 param(
     [ValidateSet('Minimal','Fixes','Integrated','Planner')][string]$Layout='Fixes',
-    [string[]]$Scenarios=@('rescue-off','rescue-on'),
-    [string]$Map='test AI.map',
-    [ValidateRange(0,180)][int]$PeaceTimeMinutes=0,
+    [string[]]$Scenarios=@('rescue-aivbridge-off','rescue-aivbridge-on'),
+    [string]$Map='4spielerkarte.map',
+    [ValidateRange(0,180)][int]$PeaceTimeMinutes=60,
+    [Parameter(Mandatory)][string]$ApiPluginPackage,
+    [Parameter(Mandatory)][string]$ApiPatcherPackage,
+    [string]$ExtenderPackage,
+    [string]$FixesPackage,
+    [string]$BugfixesPackage,
+    [string]$PathfindingPackage,
+    [string]$CastlePlannerPackage,
+    [ValidateRange(60,86400)][int]$TimeoutSeconds=18000,
     [string]$GameDir='E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition',
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+    [switch]$OriginalFixes,
+    [switch]$DryRun
 )
 $ErrorActionPreference='Stop'
 $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 . (Join-Path $workspace 'Shared/Tools/Paths/WorkPaths.ps1')
-# Own the same process-wide game transaction before reading/configuring any installed state.
-# Invoke-InGameTest runs synchronously on this thread and acquires this mutex recursively.
-$seriesMutex=[Threading.Mutex]::new($false,'Local\SHCDE.InGameTest.3024040')
-$seriesLocked=$false
-try {
-    try { $seriesLocked=$seriesMutex.WaitOne(0) }
-    catch [Threading.AbandonedMutexException] { $seriesLocked=$true }
-    if(!$seriesLocked){throw 'Another in-game test is already running; no test configuration was changed.'}
-if (@(Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue).Count) {
-    throw 'Close the game before starting this test series.'
-}
-if ($Map -match '[\r\n]') { throw 'Map must be a single map filename.' }
-$allowed=@('rescue-off','rescue-on','rescue-group-off','rescue-group-on','rescue-aiwall-off','rescue-aiwall-on','rescue-moat-off','rescue-moat-on','rescue-moatworker-off','rescue-moatworker-on','rescue-worker-off','rescue-worker-on','rescue-ox-off','rescue-ox-on','rescue-siege-off','rescue-siege-on','rescue-mountedkeep-off','rescue-mountedkeep-on','rescue-aivbridge-off','rescue-aivbridge-on')
-foreach($scenario in $Scenarios){if($scenario -notin $allowed){throw "Unknown scenario: $scenario"}}
-if (!$SkipBuild) { & (Join-Path $PSScriptRoot 'Build.ps1') -nopause -noinstall }
-$work=New-ShortWorkDirectory -Root $workspace -Kind t -Name rescue-layout -Identity ("TrappedUnitRescueTest/$Layout")
-$evidence=New-ShortWorkDirectory -Root $workspace -Kind a -Name rescue-game -Identity ("TrappedUnitRescueTest/$Layout; "+($Scenarios -join ','))
-$plugins=Join-Path $GameDir 'BepInEx/plugins'
-$layoutPath=Join-Path $work 'plugins'
-$api=Join-Path $work 'api'
-$patcher=Join-Path $work 'patcher'
-$cfg=Join-Path $GameDir 'BepInEx/config/TrappedUnitRescueTest_Serp.cfg'
-$cfgExisted=[IO.File]::Exists($cfg)
-$cfgBytes=if($cfgExisted){[IO.File]::ReadAllBytes($cfg)}else{$null}
-$failed=$false
-$configWritten=$false
-$originalConfig=Join-Path $evidence 'original-test-config.bin'
-if($cfgExisted){[IO.File]::WriteAllBytes($originalConfig,$cfgBytes)}
-$recoveryRecord=Join-Path $evidence 'config-recovery.json'
-[IO.File]::WriteAllText($recoveryRecord,((@{Path=$cfg;Existed=$cfgExisted;Backup=$originalConfig;Pending=$true} | ConvertTo-Json)+"`r`n"),[Text.UTF8Encoding]::new($false))
-try {
-    [void][IO.Directory]::CreateDirectory($layoutPath)
-    [void][IO.Directory]::CreateDirectory($patcher)
-    $packages=@('000shcdese')
-    if($Layout -ne 'Minimal'){$packages+='fixes'}
-    if($Layout -in @('Integrated','Planner')){$packages+=@('BugfixesAndQoL_Serp','Pathfinding_Serp')}
-    if($Layout -eq 'Planner'){$packages+='CastlePlanner_Serp'}
-    foreach($package in $packages){
-        $source=Join-Path $plugins $package
-        if(![IO.Directory]::Exists($source)){throw "Required installed comparison package absent: $package"}
-        Copy-Item -LiteralPath $source -Destination (Join-Path $layoutPath $package) -Recurse
-    }
-    # Temporary upstream correction operates only on this disposable dependency copy.
-    # Removing this invocation and TemporaryFixes retires it; the runner restores the
-    # original installed Fixes package after every scenario.
-    if($Layout -ne 'Minimal'){
-        & (Join-Path $PSScriptRoot 'TemporaryFixes/bin/TrappedUnitRescueTest.Fixes130.exe') `
-            --patch-copy (Join-Path $layoutPath 'fixes/fixes.dll') *> (Join-Path $evidence 'temporary-fixes.log')
-        if($LASTEXITCODE -ne 0){throw 'Temporary Fixes correction rejected this dependency copy; no game was started.'}
-    }
-    Copy-Item -LiteralPath (Join-Path $plugins 'APIShared_Serp') -Destination $api -Recurse
-    Copy-Item -LiteralPath (Join-Path $GameDir 'BepInEx/patchers/APIShared.DependencyBootstrap.dll') -Destination $patcher
-    $configWritten=$true
-    [IO.File]::WriteAllText($cfg,"[Fixture]`r`nMap = $Map`r`nPeaceTimeMinutes = $PeaceTimeMinutes`r`n",[Text.UTF8Encoding]::new($false))
-    foreach($scenario in $Scenarios){
-        $output=Join-Path $evidence $scenario
-        [void][IO.Directory]::CreateDirectory($output)
-        & (Join-Path $workspace 'Shared/Tools/Automation/Invoke-InGameTest.ps1') -GameDir $GameDir `
-            -ModGuid TrappedUnitRescueTest_Serp -ModPackage (Join-Path $PSScriptRoot 'BepInEx/plugins/TrappedUnitRescueTest_Serp') `
-            -ApiPluginPackage $api -ApiPatcherPackage (Join-Path $patcher 'APIShared.DependencyBootstrap.dll') -PluginLayout $layoutPath `
-            -Scenario $scenario -OutputDirectory $output -TimeoutSeconds 900
-    }
-}
-catch { $failed=$true; throw }
-finally {
-    $gameRunning=@(Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue).Count -ne 0
-    $innerRecovery=Test-Path -LiteralPath (Join-Path $GameDir 'BepInEx/SerpAutomationRollback')
-    if($gameRunning -or $innerRecovery){
-        Write-Warning ("Recovery deferred: gameRunning=$gameRunning innerRecovery=$innerRecovery. Config and layout retained; recovery record: $recoveryRecord")
-        if(!$failed){throw "Test recovery is incomplete: $recoveryRecord"}
-    } else {
-        if($configWritten){
-            if($cfgExisted){[IO.File]::WriteAllBytes($cfg,$cfgBytes)}else{[IO.File]::Delete($cfg)}
-            if([IO.File]::Exists($cfg) -ne $cfgExisted){throw 'Test config existence was not restored.'}
-            if($cfgExisted -and [Convert]::ToBase64String([IO.File]::ReadAllBytes($cfg)) -cne [Convert]::ToBase64String($cfgBytes)){throw 'Test config bytes were not restored.'}
+. (Join-Path $workspace 'Shared/Tools/ApiSharedRepository/RepositoryProcess.Common.ps1')
+function Get-WorkshopReceiptInventory([string]$Game){
+    $directory=Join-Path $Game '_APIShared/Workshop/Receipts'
+    if([IO.Directory]::Exists($directory)){
+        foreach($file in @(Get-ChildItem -LiteralPath $directory -File -Filter '*.json' | Sort-Object Name)){
+            [pscustomobject]@{Name=$file.Name;Sha256=(Get-ApiRepositoryHash $file.FullName).ToUpperInvariant()}
         }
-        [IO.File]::WriteAllText($recoveryRecord,((@{Path=$cfg;Existed=$cfgExisted;Backup=$originalConfig;Pending=$false;Restored=$true} | ConvertTo-Json)+"`r`n"),[Text.UTF8Encoding]::new($false))
-        # The allocator verifies this exact .work/t root before removing reproducible copies.
-        Remove-ShortWorkDirectory -Path $work
     }
-    Write-Output ("Test evidence: "+$evidence+"; seriesFailed="+$failed)
 }
-
-} finally {
-    if($seriesLocked){$seriesMutex.ReleaseMutex()}
-    $seriesMutex.Dispose()
+function Get-WorkshopTestPreflight([string]$Game,[string]$Bootstrap){
+    # Execute the supplied bootstrap's READ-ONLY recovery predicate, not a guessed
+    # session.lock presence test. Genuine interrupted swaps must never be bypassed.
+    $assembly=[Reflection.Assembly]::LoadFile($Bootstrap)
+    $type=$assembly.GetType('APIShared.Workshop.Install.InstallRunner',$true)
+    $requires=$type.GetMethod('RequiresRecovery',[Reflection.BindingFlags]'Static,NonPublic')
+    if(!$requires){throw 'Supplied bootstrap lacks the verified read-only recovery predicate.'}
+    $blockers=[Collections.Generic.List[string]]::new()
+    if([bool]$requires.Invoke($null,@($Game,$false))){$blockers.Add('active Workshop transaction/journal requires genuine recovery')}
+    $work=Join-Path $Game '_APIShared/I'
+    foreach($spec in @(@('r','*.request'),@('q','*.batch'))){
+        $dir=Join-Path $work $spec[0]
+        if([IO.Directory]::Exists($dir)){foreach($file in @(Get-ChildItem -LiteralPath $dir -File -Filter $spec[1])){$blockers.Add($file.FullName)}}
+    }
+    # These are consumed/cleaned before the runtime manager gate; retain them for
+    # ordinary startup/diagnosis rather than letting a test consume user metadata.
+    if([IO.File]::Exists((Join-Path $work 'result.txt'))){$blockers.Add((Join-Path $work 'result.txt'))}
+    foreach($folder in @('restart','x')){
+        $dir=Join-Path $work $folder
+        if(![IO.Directory]::Exists($dir)){continue}
+        foreach($entry in @(Get-ChildItem -LiteralPath $dir -Directory)){
+            $id=[Guid]::Empty;$name=if($folder -eq 'x'){[IO.Path]::GetFileNameWithoutExtension($entry.Name)}else{$entry.Name}
+            if([Guid]::TryParseExact($name,'N',[ref]$id)){$blockers.Add($entry.FullName)}
+        }
+    }
+    [pscustomobject]@{Safe=($blockers.Count -eq 0);Blockers=$blockers.ToArray();Receipts=@(Get-WorkshopReceiptInventory $Game)}
+}
+if([string]::IsNullOrWhiteSpace($Map) -or $Map -match '[\r\n]'){throw 'Map must be one nonempty line.'}
+$normalized=[Collections.Generic.List[string]]::new()
+foreach($entry in $Scenarios){foreach($part in $entry.Split(',')){if([string]::IsNullOrWhiteSpace($part)){throw 'Empty scenario.'};$normalized.Add($part.Trim())}}
+$Scenarios=$normalized.ToArray()
+if($Scenarios.Count -lt 1 -or $Scenarios.Count -gt 64){throw 'Provide1..64 scenarios.'}
+# Fixture.Owns is the executable routing declaration; no future unwired names.
+$fixtureText=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/Fixture.cs'))
+$owns=[regex]::Match($fixtureText,'internal static bool Owns\(string value\)\s*=>\s*(?<body>[\s\S]*?);')
+if(!$owns.Success){throw 'Cannot verify Fixture.Owns declaration; update runner validation before running.'}
+$allowed=@([regex]::Matches($owns.Groups['body'].Value,'value\s*==\s*"(?<name>rescue-[a-z0-9-]+)"') | ForEach-Object {$_.Groups['name'].Value})
+if(!$allowed.Count){throw 'No declared fixture scenarios.'}
+foreach($scenario in $Scenarios){if($scenario -cnotin $allowed){throw "Unknown or unwired scenario: $scenario"}}
+$game=[IO.Path]::GetFullPath($GameDir);$plugins=Join-Path $game 'BepInEx/plugins'
+$api=[IO.Path]::GetFullPath($ApiPluginPackage);$patcher=[IO.Path]::GetFullPath($ApiPatcherPackage)
+foreach($source in @($api,$patcher)){
+    if($source.StartsWith(([IO.Path]::GetFullPath((Join-Path $game 'BepInEx'))).TrimEnd('\','/')+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)){
+        throw 'Supply the explicitly prepared isolated SDK pair, not the installed APIShared package/bootstrap.'
+    }
+}
+$apiDll=Join-Path $api 'APIShared.dll'
+if(![IO.File]::Exists($apiDll) -or ![IO.File]::Exists($patcher)){throw 'Explicit SDK plugin/bootstrap files are missing.'}
+$apiVersion=[Reflection.AssemblyName]::GetAssemblyName($apiDll).Version
+if($apiVersion -lt [Version]'0.74.0.0'){throw "SDK0.74 or newer required; supplied APIShared is $apiVersion"}
+if([Reflection.AssemblyName]::GetAssemblyName($apiDll).Name -cne 'APIShared' -or [Reflection.AssemblyName]::GetAssemblyName($patcher).Name -cne 'APIShared.DependencyBootstrap'){
+    throw 'The supplied files are not the APIShared plugin/bootstrap assembly pair.'
+}
+if(!$ExtenderPackage){$ExtenderPackage=Join-Path $plugins '000shcdese'}
+if(!$FixesPackage){$FixesPackage=Join-Path $plugins 'fixes'}
+if(!$BugfixesPackage){$BugfixesPackage=Join-Path $workspace 'BugfixesAndQoL/BepInEx/plugins/BugfixesAndQoL_Serp'}
+if(!$PathfindingPackage){$PathfindingPackage=Join-Path $workspace 'Pathfinding/BepInEx/plugins/Pathfinding_Serp'}
+if(!$CastlePlannerPackage){$CastlePlannerPackage=Join-Path $workspace 'CastlePlanner/BepInEx/plugins/CastlePlanner_Serp'}
+$packages=[ordered]@{ '000shcdese'=[IO.Path]::GetFullPath($ExtenderPackage) }
+if($Layout -ne 'Minimal'){$packages['fixes']=[IO.Path]::GetFullPath($FixesPackage)}
+if($Layout -in @('Integrated','Planner')){$packages['BugfixesAndQoL_Serp']=[IO.Path]::GetFullPath($BugfixesPackage);$packages['Pathfinding_Serp']=[IO.Path]::GetFullPath($PathfindingPackage)}
+if($Layout -eq 'Planner'){$packages['CastlePlanner_Serp']=[IO.Path]::GetFullPath($CastlePlannerPackage)}
+foreach($package in $packages.GetEnumerator()){
+    if(![IO.Directory]::Exists($package.Value)){throw "Required comparison package absent: $($package.Value)"}
+    $primary=@{'000shcdese'='SHCDESE.dll';'fixes'='fixes.dll';'BugfixesAndQoL_Serp'='BugfixesAndQoL.dll';'Pathfinding_Serp'='Pathfinding.dll';'CastlePlanner_Serp'='CastlePlanner.dll'}[$package.Key]
+    if(![IO.File]::Exists((Join-Path $package.Value $primary))){throw "Required comparison assembly absent: $($package.Value)/$primary"}
+    if(@(Get-ChildItem -LiteralPath $package.Value -File -Filter '*RandomEvents*.dll' -Recurse).Count){throw 'RandomEvents must be absent from the comparison layout.'}
+}
+if(@(Get-ChildItem -LiteralPath $api -File -Filter '*RandomEvents*.dll' -Recurse).Count){throw 'RandomEvents must be absent from the supplied SDK package.'}
+$requestScenario=if($Scenarios.Count -eq 1){$Scenarios[0]}else{'rescue-series'}
+$fixesMode=if($Layout -eq 'Minimal'){'Absent'}elseif($OriginalFixes){'Original'}else{'Temporary130'}
+$workshop=Get-WorkshopTestPreflight $game $patcher
+if(!$workshop.Safe){throw ('Workshop state needs ordinary diagnosis/recovery before this test: '+($workshop.Blockers -join '; '))}
+$plan=[ordered]@{Layout=$Layout;Scenarios=$Scenarios;RequestScenario=$requestScenario;Map=$Map;PeaceTimeMinutes=$PeaceTimeMinutes;
+    HiddenDesktop=$true;SingleLayoutTransaction=$true;SingleGameProcess=$true;ApiPluginPackage=$api;ApiPatcherPackage=$patcher;
+    ApiVersion=$apiVersion.ToString();ComparisonPackages=$packages;TimeoutSeconds=$TimeoutSeconds;FixesMode=$fixesMode;
+    WorkshopMode='ProcessLocalTransactionalTestManager';WorkshopPreflight=$workshop}
+if($DryRun){
+    $evidence=New-ShortWorkDirectory -Root $workspace -Kind a -Name rescue-series-plan -Identity ('read-only '+$Layout)
+    [IO.File]::WriteAllText((Join-Path $evidence 'plan.json'),(($plan|ConvertTo-Json -Depth 6)+"`r`n"),[Text.UTF8Encoding]::new($false))
+    Write-Output ('DRY_RUN no build, game configuration, installation or launch; plan: '+$evidence)
+    [pscustomobject]$plan
+    return
+}
+# Root must release the shared installation/game gate before invoking this path.
+# The one generic invocation owns the entire layout transaction and game process.
+$seriesMutex=[Threading.Mutex]::new($false,'Local\SHCDE.InGameTest.3024040');$seriesLocked=$false
+$managerEnvironmentChanged=$false;$priorManagerLaunch=$null
+try{
+    try{$seriesLocked=$seriesMutex.WaitOne(0)}catch [Threading.AbandonedMutexException]{$seriesLocked=$true}
+    if(!$seriesLocked){throw 'Another in-game test is running; no configuration changed.'}
+    if(@(Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue).Count){throw 'Close the game before starting this series.'}
+    $workshop=Get-WorkshopTestPreflight $game $patcher
+    if(!$workshop.Safe){throw ('Workshop state changed before layout ownership: '+($workshop.Blockers -join '; '))}
+    $plan.WorkshopPreflight=$workshop
+    $priorManagerLaunch=[Environment]::GetEnvironmentVariable('SCDEModManagerLaunchId','Process')
+    $managerLaunch=if([string]::IsNullOrEmpty($priorManagerLaunch)){'TrappedUnitRescueTest-'+[Guid]::NewGuid().ToString('N')}else{$priorManagerLaunch}
+    if(!$SkipBuild){& (Join-Path $PSScriptRoot 'Build.ps1') -nopause -noinstall -ApiSharedDir $api}
+    $work=New-ShortWorkDirectory -Root $workspace -Kind t -Name rescue-layout -Identity ('TrappedUnitRescueTest/'+$Layout)
+    $evidence=New-ShortWorkDirectory -Root $workspace -Kind a -Name rescue-game -Identity ($Layout+'; '+($Scenarios -join ','))
+    $cfg=Join-Path $game 'BepInEx/config/TrappedUnitRescueTest_Serp.cfg'
+    $cfgExisted=[IO.File]::Exists($cfg);$cfgBytes=if($cfgExisted){[IO.File]::ReadAllBytes($cfg)}else{$null}
+    $originalConfig=Join-Path $evidence 'original-test-config.bin'
+    if($cfgExisted){[IO.File]::WriteAllBytes($originalConfig,$cfgBytes)}
+    $recoveryRecord=Join-Path $evidence 'config-recovery.json'
+    $environmentRecord=@{Name='SCDEModManagerLaunchId';Scope='Process';PriorPresent=![string]::IsNullOrEmpty($priorManagerLaunch);Role='transactional test layout manager'}
+    [IO.File]::WriteAllText($recoveryRecord,((@{Path=$cfg;Existed=$cfgExisted;Backup=$originalConfig;Pending=$true;Environment=$environmentRecord;WorkshopReceipts=$workshop.Receipts}|ConvertTo-Json -Depth 6)+"`r`n"),[Text.UTF8Encoding]::new($false))
+    $failed=$false;$configWritten=$false
+    try{
+        $layoutPath=Join-Path $work 'plugins';[void][IO.Directory]::CreateDirectory($layoutPath)
+        foreach($package in $packages.GetEnumerator()){Copy-Item -LiteralPath $package.Value -Destination (Join-Path $layoutPath $package.Key) -Recurse}
+        if($Layout -ne 'Minimal' -and !$OriginalFixes){
+            & (Join-Path $PSScriptRoot 'TemporaryFixes/bin/TrappedUnitRescueTest.Fixes130.exe') --patch-copy (Join-Path $layoutPath 'fixes/fixes.dll') *> (Join-Path $evidence 'temporary-fixes.log')
+            if($LASTEXITCODE -ne 0){throw 'Temporary Fixes correction rejected disposable dependency copy; game was not started.'}
+        }
+        [IO.File]::WriteAllText((Join-Path $evidence 'series-plan.json'),(($plan|ConvertTo-Json -Depth 6)+"`r`n"),[Text.UTF8Encoding]::new($false))
+        $configWritten=$true
+        [IO.File]::WriteAllText($cfg,"[Fixture]`r`nMap = $Map`r`nPeaceTimeMinutes = $PeaceTimeMinutes`r`nScenarios = $($Scenarios -join ',')`r`n",[Text.UTF8Encoding]::new($false))
+        # This program owns the entire disposable layout transaction. Use the
+        # documented external-manager contract, not fake UI/caller identity.
+        # HiddenDesktop's CreateProcessW inherits this process environment.
+        $managerEnvironmentChanged=$true
+        [Environment]::SetEnvironmentVariable('SCDEModManagerLaunchId',$managerLaunch,'Process')
+        & (Join-Path $workspace 'Shared/Tools/Automation/Invoke-InGameTest.ps1') -GameDir $game -ModGuid TrappedUnitRescueTest_Serp `
+            -ModPackage (Join-Path $PSScriptRoot 'BepInEx/plugins/TrappedUnitRescueTest_Serp') -ApiPluginPackage $api -ApiPatcherPackage $patcher `
+            -PluginLayout $layoutPath -Scenario $requestScenario -OutputDirectory $evidence -TimeoutSeconds $TimeoutSeconds -HiddenDesktop
+    }
+    catch{$failed=$true;throw}
+    finally{
+        $gameRunning=@(Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue).Count -ne 0
+        $innerRecovery=Test-Path -LiteralPath (Join-Path $game 'BepInEx/SerpAutomationRollback')
+        if($gameRunning -or $innerRecovery){
+            Write-Warning "Recovery deferred: gameRunning=$gameRunning innerRecovery=$innerRecovery; retained $recoveryRecord"
+            if(!$failed){throw "Test recovery incomplete: $recoveryRecord"}
+        }else{
+            if($configWritten){
+                if($cfgExisted){[IO.File]::WriteAllBytes($cfg,$cfgBytes)}else{[IO.File]::Delete($cfg)}
+                if([IO.File]::Exists($cfg)-ne$cfgExisted){throw 'Test config existence not restored.'}
+                if($cfgExisted -and [Convert]::ToBase64String([IO.File]::ReadAllBytes($cfg))-cne[Convert]::ToBase64String($cfgBytes)){throw 'Test config bytes not restored.'}
+            }
+            $before=@($workshop.Receipts | ForEach-Object {$_.Name+':'+$_.Sha256}) -join '|'
+            $after=@(Get-WorkshopReceiptInventory $game | ForEach-Object {$_.Name+':'+$_.Sha256}) -join '|'
+            if($before -cne $after){throw 'Workshop receipts changed during the controlled test; evidence retained for diagnosis.'}
+            [IO.File]::WriteAllText($recoveryRecord,((@{Path=$cfg;Existed=$cfgExisted;Backup=$originalConfig;Pending=$false;Restored=$true;Environment=$environmentRecord;WorkshopReceipts=$workshop.Receipts}|ConvertTo-Json -Depth 6)+"`r`n"),[Text.UTF8Encoding]::new($false))
+            Remove-ShortWorkDirectory -Path $work
+        }
+        Write-Output ('Test evidence: '+$evidence+'; seriesFailed='+$failed)
+    }
+}finally{
+    try{
+        if($managerEnvironmentChanged){
+            [Environment]::SetEnvironmentVariable('SCDEModManagerLaunchId',$priorManagerLaunch,'Process')
+            if([Environment]::GetEnvironmentVariable('SCDEModManagerLaunchId','Process') -cne $priorManagerLaunch){throw 'Process manager launch environment was not restored.'}
+        }
+    }finally{if($seriesLocked){$seriesMutex.ReleaseMutex()};$seriesMutex.Dispose()}
 }

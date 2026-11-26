@@ -1,5 +1,7 @@
 # Rettungssystem: aktueller Implementierungsstand
 
+Fortsetzung 26.11.2026: Die Singleplayer-Abnahme ist autorisiert und wird nach Abschluss des Mehrfachplatzierungs-Chats ausgeführt. Neue deterministische Weltvorbereitung, Seriensteuerung und automatische Bau-/Next-/Apple-/Ox-Szenarien sind implementiert und mit64120 Offlineprüfungen kompiliert. Das isolierte SDK enthält zusätzlich die geprüfte Lord-ID-Korrektur (1789 Tests). Aktuelle Durchführung: [SP-ACCEPTANCE.md](SP-ACCEPTANCE.md); übrige natürliche Arbeiterfälle: [WORKER-GAME-MATRIX.md](WORKER-GAME-MATRIX.md). Zielintegration jetzt BugfixesAndQoL. Die folgenden Abschnitte halten den vorangegangenen Offlineabschluss fest.
+
 Stand 25.11.2026. Entwicklerbericht und Offline-Nachweis, keine neue Spielabnahme. Der Auftrag bleibt auf Testmod und getrennte APIShared-Arbeitskopie beschränkt. Keine Installation, Spielstarts oder Produktionsmodmigration. Die ausdrücklich angeforderten lokalen Sicherungscommits sind erfolgt; nichts wurde gepusht.
 
 ## Quellzuständigkeit und Entwicklungs-SDK

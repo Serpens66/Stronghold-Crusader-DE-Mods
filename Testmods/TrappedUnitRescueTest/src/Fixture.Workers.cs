@@ -25,8 +25,9 @@ namespace TrappedUnitRescueTest
             internal readonly List<IDisposable> Subscriptions=new List<IDisposable>();
             public void Dispose(){foreach(var subscription in Subscriptions)subscription.Dispose();Subscriptions.Clear();}
         }
-        private bool workerObserversRegistered;
-        private IDisposable applePickupObserver,appleDropObserver;
+        private static bool workerObserversRegistered;
+        private static volatile Fixture workerObserverFixture;
+        private static IDisposable applePickupObserver,appleDropObserver;
         private sealed class WorkerCycleObservation
         {
             internal Actor Actor;internal int Farm,RequestedX,RequestedY,Samples,LastTick,CounterIncrements,RemotePicking,PickupEvents,DropEvents,DropsWithStockIncrease;
@@ -131,15 +132,16 @@ namespace TrappedUnitRescueTest
                 "Apple observer typed layout differs from the hash-bound native tree/counter/cargo contracts");
             if(!workerObserversRegistered)
             {
-                Require(SimulationTickEvents.TryRegister(Plugin.Guid,"apple-worker-cycle",ObserveWorkerTick,out string reason),"Worker tick observation unavailable: "+reason);
-                applePickupObserver=UnitR3EventHooks.OnAppleFarmerPickUpApple.Observable.Subscribe(args=>ObserveAppleEvent(args.UnitId,false));
-                appleDropObserver=UnitR3EventHooks.OnAppleFarmerDropOffApple.Observable.Subscribe(args=>ObserveAppleEvent(args.UnitId,true));
+                Require(SimulationTickEvents.TryRegister(Plugin.Guid,"apple-worker-cycle",tick=>workerObserverFixture?.ObserveWorkerTick(tick),out string reason),"Worker tick observation unavailable: "+reason);
+                applePickupObserver=UnitR3EventHooks.OnAppleFarmerPickUpApple.Observable.Subscribe(args=>workerObserverFixture?.ObserveAppleEvent(args.UnitId,false));
+                appleDropObserver=UnitR3EventHooks.OnAppleFarmerDropOffApple.Observable.Subscribe(args=>workerObserverFixture?.ObserveAppleEvent(args.UnitId,true));
                 workerObserversRegistered=true;
             }
             workerCycle=new WorkerCycleObservation { Actor=actor,Farm=farm,RequestedX=x,RequestedY=y,Active=true };
             workerCycle.Previous=CaptureWorkerFacts(workerCycle);
             workerCycle.HasPrevious=SimulationTickEvents.TryGetCurrentTick(out workerCycle.LastTick);
             workerCycle.HadCargo=workerCycle.Previous.Carry>0;
+            workerObserverFixture=this;
             WorkerFacts initial=workerCycle.Previous;
             log("worker-observation-initial tick="+workerCycle.LastTick+" state="+initial.AIState+" flags="+initial.PathFlags+
                 " tile="+initial.X+","+initial.Y+" counter="+initial.Counter+" selectedTree="+initial.TreeId+"/"+initial.TreeGlobal+

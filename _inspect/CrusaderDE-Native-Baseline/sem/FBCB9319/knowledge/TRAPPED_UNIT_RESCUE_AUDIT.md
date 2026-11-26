@@ -576,3 +576,25 @@ origin. Geometry codec and canonical join preserve both frames. These are tested
 managed ownership rules; they establish neither a universal physical failure
 sensor nor acceptance of native gameplay/save/worker behaviour. See testmod
 Audits/MOVE-FAILURE-SOURCE.md, IMPLEMENTATION.md and INGAME-PENDING.md.
+
+### Automation lord ID domains, 2026-11-26 [mod integration]
+
+The actual referenced Script Extender2.14.6 AILords domain uses built-ins1..29
+(SK_NULL0, SK_X1 excluded), whereas FRONT_Multiplayer.SkirmishAIAddClick and
+MPLobbyMember.GetLordType use lobby built-in indices0..28. The latter reader
+returns (SteamID-1)/8 and the producer stores the passed lobby type. In contrast,
+GamePlayerManagerAPI.GetAILord reads the one-based native AI lineup as AILords.
+These are distinct boundaries; subtracting at the native lineup reader is wrong.
+
+The isolated development SDK's StartSkirmish previously passed the enum integer
+directly to the lobby, making requested SK_RAT select the next built-in instead.
+Its effective Add/Count path now converts the validated enum at that boundary.
+Two regression tests cover all29 accepted built-ins and rejected sentinel,
+custom/undefined values; fullSDK1789 tests passed. This is an API integration
+correction, not a new native RVA/layout finding or proof of game acceptance.
+
+The new rescue fixture pins Rat Default1 source AIV data and catalogue metadata
+before Play, with native starting slots/peace/prebuild and actual native lord
+identity checked after loading. The input AIV hash alone is not a native plan
+readback. Game acceptance and final source/package identities are tracked in
+Testmods/TrappedUnitRescueTest/SP-ACCEPTANCE.md and .work/a/rescue-sp/001.

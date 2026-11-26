@@ -138,6 +138,7 @@
     <Compile Include="../src/RescueRuntime.cs" />
     <Compile Include="../src/IdleEscapeOwner.cs" />
     <Compile Include="../src/NativeIdleEscapeWorld.cs" />
+    <Compile Include="../src/Fixture.Series.cs" />
     <Compile Include="../src/GeneralRescueObserver.cs" />
     <Compile Include="../src/GeneralRescueObserver.Replans.cs" />
     <Compile Include="../src/RescueGeometryWitness.cs" />

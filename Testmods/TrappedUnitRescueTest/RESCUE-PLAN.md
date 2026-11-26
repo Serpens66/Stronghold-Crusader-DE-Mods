@@ -2,6 +2,12 @@
 
 Erstellt: 17.11.2026. Fortschritt aktualisiert: 25.11.2026. Arbeitsplan und fortlaufendes Abnahmeprotokoll.
 
+## Aktueller Auftrag vom 26.11.2026
+
+Der Nutzer autorisiert jetzt die erforderlichen **Singleplayer-Ingame-Tests**, weitere Fehlerkorrekturen und Effizienzprüfung. Installation/Spielstarts warten auf den tatsächlichen Abschluss des Chats „Mehrfachplatzierung erweitern“. Die Testfälle werden kontrolliert erzeugt, mit Friedenszeit, festgelegter geeigneter Karte und deaktivierten RandomEvents. Ausführungs- und Abnahmeplan: [SP-ACCEPTANCE.md](SP-ACCEPTANCE.md).
+
+**Neue Zielentscheidung:** Nach erfolgreicher Finalisierung erfolgt die Übernahme in **BugfixesAndQoL** und die Entfernung des ursprünglichen Testmods. Die nachfolgenden älteren Pathfinding-Migrationsabschnitte beschreiben die frühere Planung; ihre technischen Kompatibilitäts- und Ownershipanforderungen bleiben relevant, der Zielmod ist durch diesen neuen Auftrag ersetzt. Reale Multiplayerfreigabe gehört nicht zu diesem Auftrag.
+
 ## 1. Ziel, Auftrag und Zuständigkeit
 
 Einheiten sollen nach einer Bau- oder Geländeänderung zuverlässig erkannt werden, wenn sie ihren Standort nicht mehr regulär verlassen können. Die Rettung erhält dieselbe Einheit, Gesundheit, Waren, Arbeitsplatz, Besatzung und die weiterhin gültige Befehlsabsicht. Ein unerreichbares Ziel oder längeres Stillstehen allein berechtigt zu keiner Versetzung.

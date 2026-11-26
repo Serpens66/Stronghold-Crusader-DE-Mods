@@ -12,6 +12,7 @@ internal static class Program
             int native = WorkerGuardFixture.Run();
             RescuePolicyFixture.Run();
             IdleEscapeFixture.Run();
+            SeriesFixture.Run();
             GeneralObserverFixture.Run();
             RescueGeometryWitnessFixture.Run();
             RescueReplanIntentFixture.Run();

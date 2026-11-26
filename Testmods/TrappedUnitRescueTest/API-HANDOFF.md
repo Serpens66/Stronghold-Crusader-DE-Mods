@@ -1,5 +1,13 @@
 # Übergabe der isolierten APIShared-Entwicklung
 
+## Aktueller Teststand vom 26.11.2026
+
+Für die jetzt autorisierte Singleplayer-Abnahme wird weiterhin die isolierte Arbeitskopie verwendet. Über dem Sicherungscommit3eee484 liegen drei uncommittierte SDK-Dateien: korrigierte AILords→Lobby-ID-Konvertierung im Starthelfer, zugehörige Regressionstests und Leitfaden. Der kanonische Checkout bleibt unverändert. Vor jeder Übernahme diesen Arbeitsdelta zusätzlich zum Commit berücksichtigen.
+
+Vollständiger neuer SDK-Build:1789 Tests bestanden, ein bestehender optionaler Consumer-Rescan übersprungen; native/Packaging-Fixtures bestanden. Fingerprint `6086468f132af584e87118f1570b5c158f443bca4b9ec915f5a0fbb4d82b06e7`; APIShared.dll SHA256 `E583315D180B66C2BCFB75E28108CEDBDC0E978FA0F29DE5946AE3255FCFC45A`; Bootstrap SHA256 `120F4A744B3057BD6B93BAA4A606A36A6CBF2F9D5994154DAF12942046B5E98B`. Aktueller Nachweis `.work/a/rescue-api/001/.local/build-proof.json`, Buildlog `.work/a/rescue-impl/001/sdk-lordmap-full-final.log`. Die folgenden älteren Fingerprints bleiben historische Checkpoints.
+
+Die Zielintegration ist durch den neuen Nutzerauftrag **BugfixesAndQoL**; Pathfinding bleibt Kompatibilitätspartner. Testablauf und offene Funktionsabnahme stehen in SP-ACCEPTANCE.md und WORKER-GAME-MATRIX.md. Der erfolgreiche Testmod-Vorbereitungsbuild zählt64120 Offlineprüfungen; daraus folgt noch keine neue Spielabnahme.
+
 Stand 25.11.2026. Aktive Entwicklung, noch kein Mergeauftrag und kein Installationspaket für Spieler. Die Testmod-Abnahme bleibt unabhängig von der späteren API-Integration.
 
 ## Erhaltenswerter Arbeitsstand

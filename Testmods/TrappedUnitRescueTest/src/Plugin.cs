@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using APIShared;
 using APIShared.ModSettings;
@@ -30,12 +31,14 @@ namespace TrappedUnitRescueTest
         private static NativeIdleEscapeWorld idleEscapeWorld;
         private static FixesIntegration fixes;
         private static Fixture fixture;
+        private static RescueScenarioSeries series;
         private static IMissionLifecycleCapability missions;
         private static int active, fixtureActive, generalFixture;
         internal static GeneralRescueObserver GeneralObserver => generalObserver;
         private static bool initialized, libraryReady, settingsReady;
         private static Plugin instance;
         private static string configuredMap;
+        private static string configuredScenarios;
         private static int configuredPeaceTime;
         private static int startupThread;
         private static RescueOrderObserver orders;
@@ -45,8 +48,9 @@ namespace TrappedUnitRescueTest
             if (initialized) return;
             initialized = true; instance = this; log = Logger; settings = new Settings();
             startupThread = Thread.CurrentThread.ManagedThreadId;
-            configuredMap = Config.Bind("Fixture", "Map", "test AI.map", "Disposable local Skirmish map; suitability is checked before each scenario.").Value;
-            configuredPeaceTime = Config.Bind("Fixture", "PeaceTimeMinutes", 0, "Optional ordinary lobby peace time; requires a lobby that offers it.").Value;
+            configuredMap = Config.Bind("Fixture", "Map", "4spielerkarte.map", "Disposable local Skirmish map; suitability is checked before each scenario.").Value;
+            configuredPeaceTime = Config.Bind("Fixture", "PeaceTimeMinutes", 60, "Explicit peace time for the disposable test world.").Value;
+            configuredScenarios = Config.Bind("Fixture", "Scenarios", "", "Ordered comma-separated cases for the owned rescue-series request.").Value;
             // Static fields, LibraryLoaded and public mission/automation publishers retain all work
             // after SHCDE destroys early plugin components. There is deliberately no Unity teardown.
             CrusaderLibrary.Instance.LibraryLoaded += LibraryLoaded;
@@ -124,12 +128,14 @@ namespace TrappedUnitRescueTest
                 if (!ApiShared.ForMod(Guid).TryGetMissionLifecycle(out missions, out var diagnostic))
                     throw new InvalidOperationException(diagnostic.Reason);
                 if (!missions.TryRegisterObserver("rescue-session", n => {
+                    series?.MissionStarted(n.Context.SessionId);
                     idleEscapes?.Clear();
                     fixes?.RecheckPublishedHooks();
                     SetActive(Volatile.Read(ref fixtureActive) != 0 && settings.EnableMod && settings.EnableExperimentalRescue);
                     UpdateGeneralSession();
                     workers?.BeginSession(n.Context.SessionId,LocalModeAllowed(n.Context));
-                }, n => { idleEscapes?.Clear();generalObserver?.SetSession(0); generalObserver?.ClearPending(); workers?.EndSession(); Volatile.Write(ref generalFixture, 0); SetActive(false); fixture?.Stop(); }, null, out var observerDiagnostic))
+                }, n => { idleEscapes?.Clear();generalObserver?.SetSession(0); generalObserver?.ClearPending(); workers?.EndSession(); Volatile.Write(ref generalFixture, 0); SetActive(false);
+                    if(series!=null)series.MissionEnded(n.Context.SessionId);else fixture?.Stop(); }, null, out var observerDiagnostic))
                     throw new InvalidOperationException(observerDiagnostic.Reason);
                 settingsReady = true;
                 UpdateGeneralSession();
@@ -168,14 +174,42 @@ namespace TrappedUnitRescueTest
 
         private static void StartRequestedFixture()
         {
-            if (fixture != null) return;
+            if (fixture != null || series != null) return;
             string request = Path.Combine(Paths.ConfigPath, "SerpAutomation", Guid + ".run");
             if (!File.Exists(request)) return;
             string[] lines = File.ReadAllLines(request);
-            if (lines.Length < 2 || !Fixture.Owns(lines[1])) return;
+            if (lines.Length < 2 || !Fixture.Owns(lines[1]) && lines[1]!=RescueScenarioSelection.SeriesRequest) return;
             if (!System.Guid.TryParseExact(lines[0], "N", out var runId) || runId == System.Guid.Empty)
             { Stamp("Invalid owned request; not consumed"); return; }
-            fixture = new Fixture(configuredMap, lines[1], Stamp, runtime, enabled => {
+            string[] selection;
+            if(lines[1]==RescueScenarioSelection.SeriesRequest)
+            {
+                if(!RescueScenarioSelection.TryParse(configuredScenarios,Fixture.Owns,out selection))
+                {Stamp("Invalid owned series selection; not consumed");return;}
+            }
+            else selection=new[]{lines[1]};
+            APIShared.Automation.AutomationStep[] steps;
+            if(lines[1]==RescueScenarioSelection.SeriesRequest)
+            {
+                var cases=new RescueSeriesCase[selection.Length];
+                for(int i=0;i<cases.Length;i++)
+                {
+                    var item=CreateFixture(selection[i]);
+                    cases[i]=new RescueSeriesCase(selection[i],item.Steps(),()=>fixture=item,item.Stop);
+                }
+                series=new RescueScenarioSeries(cases,Stamp);steps=series.Steps().ToArray();
+            }
+            else {fixture=CreateFixture(selection[0]);steps=fixture.Steps().ToArray();}
+            File.Delete(request);
+            ApiShared.ForMod(Guid).Automation.Start(runId, steps, log,
+                result => {
+                    generalObserver?.SetSession(0); Volatile.Write(ref generalFixture, 0);
+                    SetActive(false); Interlocked.Exchange(ref fixtureActive, 0); series?.Stop();fixture?.Stop();
+                    Stamp("finished status=" + result.Status + " detail=" + result.Detail);
+                }, quitWhenDone: true);
+        }
+
+        private static Fixture CreateFixture(string scenario)=>new Fixture(configuredMap, scenario, Stamp, runtime, enabled => {
                 if (enabled && (fixes == null || !fixes.Ready))
                     throw new InvalidOperationException("Experimental rescue is unavailable; the validated Fixes integration did not become ready. Original behavior remains active.");
                 settings.EnableMod = true; settings.EnableExperimentalRescue = enabled;
@@ -189,14 +223,6 @@ namespace TrappedUnitRescueTest
                     throw new InvalidOperationException("Moat-worker baseline requires a validated Fixes installation state.");
                 return fixes.WorkerDeletionInstalled;
             }, configuredPeaceTime);
-            File.Delete(request);
-            ApiShared.ForMod(Guid).Automation.Start(runId, fixture.Steps(), log,
-                result => {
-                    generalObserver?.SetSession(0); Volatile.Write(ref generalFixture, 0);
-                    SetActive(false); Interlocked.Exchange(ref fixtureActive, 0); fixture.Stop();
-                    Stamp("finished status=" + result.Status + " detail=" + result.Detail);
-                }, quitWhenDone: true);
-        }
 
         private static void SetActive(bool enabled)
         {

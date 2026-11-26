@@ -56,13 +56,37 @@ namespace TrappedUnitRescueTest
             value == "rescue-ox-on" || value == "rescue-ox-off" ||
             value == "rescue-siege-on" || value == "rescue-siege-off" ||
             value == "rescue-mountedkeep-on" || value == "rescue-mountedkeep-off" ||
-            value == "rescue-aivbridge-on" || value == "rescue-aivbridge-off";
+            value == "rescue-aivbridge-on" || value == "rescue-aivbridge-off" ||
+            value == "rescue-auto-worker-on" || value == "rescue-auto-worker-off" ||
+            value == "rescue-auto-ox-on" || value == "rescue-auto-ox-off" ||
+            value == "rescue-auto-bridge-on" || value == "rescue-auto-bridge-off" ||
+            value == "rescue-auto-next-on" || value == "rescue-auto-next-off";
         internal void Stop() { stopped = true; }
 
         internal IEnumerable<AutomationStep> Steps()
         {
             yield return new AutomationStep("skirmish", TimeSpan.FromSeconds(240), Start);
             yield return new AutomationStep("prepare", TimeSpan.FromSeconds(90), Prepare, true);
+            if (scenario.Contains("-auto-next-"))
+            {
+                foreach (var step in AutomaticNextSteps()) yield return step;
+                yield break;
+            }
+            if (scenario.Contains("-auto-bridge-"))
+            {
+                foreach (var step in AutomaticBridgeSteps()) yield return step;
+                yield break;
+            }
+            if (scenario.Contains("-auto-worker-"))
+            {
+                foreach (var step in AutomaticWorkerSteps()) yield return step;
+                yield break;
+            }
+            if (scenario.Contains("-auto-ox-"))
+            {
+                foreach (var step in AutomaticOxSteps()) yield return step;
+                yield break;
+            }
             if (scenario.Contains("-aivbridge-"))
             {
                 foreach (var step in AivBridgeSteps()) yield return step;
@@ -120,8 +144,13 @@ namespace TrappedUnitRescueTest
         private IEnumerable<AutomationWait> Start(AutomationRun run)
         {
             Require(Owns(scenario), "Unowned scenario");
+            PrepareDeterministicModSettings();
             enable(expectedEnabled); // Only before the mission, never a mid-game setting mutation.
-            foreach (var wait in run.StartSkirmish(map, new[] { AILords.SK_RAT }, peaceTimeMinutes > 0 ? (int?)peaceTimeMinutes : null)) yield return wait;
+            // Reuse the SDK launch owner. Prepare after its opponent-ready yield and
+            // before its ordinary Play command; the hidden SP slider would reset peace.
+            foreach (var wait in run.StartSkirmish(map, new[] { AILords.SK_RAT }, peaceTimeMinutes: null))
+            { yield return wait; ConfigureDeterministicLobby(); }
+            Require(deterministicLobbyConfigured, "Deterministic lobby was not configured before launch");
         }
 
         private IEnumerable<AutomationWait> Prepare(AutomationRun run)
@@ -136,6 +165,7 @@ namespace TrappedUnitRescueTest
             session = run.CurrentMission.SessionId;
             owner = run.InSimulation(run.CurrentMission, () => GamePlayerManagerAPI.Instance.GetLocalPlayerId());
             Require(owner > 0 && owner <= 8, "No local fixture owner");
+            VerifyDeterministicWorld(run);
             log("fixture-ready scenario=" + scenario + " enabled=" + expectedEnabled + " session=" + session +
                 " map=" + map + " owner=" + owner + " disposable=true source=controlled-native-construction" +
                 " fixesSuppression=owned-synchronous-actions-only");
