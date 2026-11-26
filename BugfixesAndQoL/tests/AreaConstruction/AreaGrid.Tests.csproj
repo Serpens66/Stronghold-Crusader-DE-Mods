@@ -12,6 +12,7 @@
     <Compile Include="../../src/AreaConstruction/StorageEmptyLimitPolicy.cs" Link="StorageEmptyLimitPolicy.cs" />
     <Compile Include="../../src/AreaConstruction/QuarryLayout.cs" Link="QuarryLayout.cs" />
     <Compile Include="../../src/AreaConstruction/CrewPlacement.cs" Link="CrewPlacement.cs" />
+    <Compile Include="../../src/AreaConstruction/PlacementFeedback.cs" Link="PlacementFeedback.cs" />
     <Reference Include="SHCDESE" HintPath="$(ExtenderDir)\SHCDESE.dll" ExternallyResolved="true" Private="true" />
   </ItemGroup>
 </Project>

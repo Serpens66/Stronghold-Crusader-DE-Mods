@@ -349,7 +349,7 @@ namespace BugfixesAndQoL.AreaConstruction
             return false;
         }
 
-        internal void Place(eMappers mapper, Tile cursor, int actor, bool editor)
+        internal void Place(eMappers mapper, Tile cursor, int actor, bool editor, PlacementFeedback feedback)
         {
             int previous = Read(Mapper);
             bool replace = previous != (int)mapper;
@@ -357,6 +357,7 @@ namespace BugfixesAndQoL.AreaConstruction
                 Marshal.WriteInt32(image, Mapper, (int)mapper);
             try
             {
+                using var scope = PlacementFeedback.Enter(feedback);
                 EngineInterface.PlaceMapperItem((int)mapper, cursor.X, cursor.Y, 0, actor, !editor, false, 1);
             }
             finally
@@ -366,7 +367,7 @@ namespace BugfixesAndQoL.AreaConstruction
             }
         }
 
-        internal bool TryPlaceQueuedStorage(eMappers tool, int actor, bool editor, Tile cursor, int scale)
+        internal bool TryPlaceQueuedStorage(eMappers tool, int actor, bool editor, Tile cursor, int scale, PlacementFeedback feedback)
         {
             int frame = 0;
             if (!Reserve(tool, actor, editor, cursor, scale, ref frame))
@@ -378,7 +379,7 @@ namespace BugfixesAndQoL.AreaConstruction
             int lastClickedTile = Read(LastClickedTile);
             try
             {
-                Place(tool, cursor, actor, editor);
+                Place(tool, cursor, actor, editor, feedback);
             }
             finally
             {

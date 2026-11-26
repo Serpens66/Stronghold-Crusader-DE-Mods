@@ -34,6 +34,8 @@ namespace BugfixesAndQoL.AreaConstruction
         private readonly Dictionary<Tile, int> storageFrames = new Dictionary<Tile, int>();
         private readonly List<Tile> quarryPiles = new List<Tile>(4);
         private StorageBuildOrder storageBuild;
+        private NativePlacementFeedback nativeFeedback;
+        private PlacementFeedback buildFeedback;
         private bool storageClockWarningLogged;
         private readonly GhostView view = new GhostView();
         private IMissionPlayStateReadinessCapability readiness;
@@ -66,6 +68,7 @@ namespace BugfixesAndQoL.AreaConstruction
             {
                 Volatile.Write(ref quarry, NativeQuarryPlacement.TryInstall(context, log));
                 Volatile.Write(ref native, new NativePlacement(context, log, storageLimit));
+                nativeFeedback = NativePlacementFeedback.Install(context, log);
                 MethodInfo update = typeof(EditorDirector).GetMethod("Update", BindingFlags.NonPublic | BindingFlags.Instance);
                 MethodInfo button = typeof(EditorDirector).GetMethod(nameof(EditorDirector.updateLeftMouseStateForEngine), new[] { typeof(int) });
                 MethodInfo place = typeof(EngineInterface).GetMethod(nameof(EngineInterface.PlaceMapperItem),
@@ -124,6 +127,7 @@ namespace BugfixesAndQoL.AreaConstruction
                 captured = false;
                 ClearLocalWork();
                 native?.ValidateStorage();
+                nativeFeedback?.Recheck();
                 quarry?.Recheck();
                 mission = notification.Context;
             }
@@ -169,6 +173,7 @@ namespace BugfixesAndQoL.AreaConstruction
         {
             dragging = false;
             toBuild.Clear();
+            buildFeedback = null;
             storageBuild = null;
             quarryOrder = null;
         }
@@ -275,7 +280,7 @@ namespace BugfixesAndQoL.AreaConstruction
                 // the simulation monitor while walking visible scene objects.
                 if (draw && AreaConstructionFeature.LocalEnabled)
                 {
-                    if (!runtime.view.Show(__instance, runtime.map, runtime.tool, runtime.scale, runtime.shown))
+                    if (!runtime.view.Show(__instance, runtime.map, runtime.tool, runtime.scale, runtime.shown, runtime.actor))
                     {
                         runtime.shown.Clear();
                         runtime.storageOrder.Clear();
@@ -311,6 +316,8 @@ namespace BugfixesAndQoL.AreaConstruction
                                 end = releaseTile;
                             Quote();
                         }
+                        buildFeedback = nativeFeedback?.Available == true && !start.Equals(end)
+                            ? new PlacementFeedback() : null;
                         if (tool == eMappers.MAPPER_QUARRY && quarryBlock)
                         {
                             var accepted = new List<Tile>(4);
@@ -446,7 +453,7 @@ namespace BugfixesAndQoL.AreaConstruction
         private void ReleaseStorage()
         {
             if (storageOrder.Count != 0)
-                storageBuild = new StorageBuildOrder(mission.SessionId, map, actor, editor, tool, scale, storageOrder.ToArray());
+                storageBuild = new StorageBuildOrder(mission.SessionId, map, actor, editor, tool, scale, storageOrder.ToArray(), buildFeedback);
         }
 
         private void DrainStorage(EditorDirector director)
@@ -500,7 +507,7 @@ namespace BugfixesAndQoL.AreaConstruction
                 if (!ApplyLocalActivation() || storageBuild != order)
                     return;
                 Tile tile = order.Tiles[order.Next++];
-                if (!native.TryPlaceQueuedStorage(order.Tool, order.Actor, order.Editor, tile, order.Scale))
+                if (!native.TryPlaceQueuedStorage(order.Tool, order.Actor, order.Editor, tile, order.Scale, order.Feedback))
                     continue;
                 native.Submitted();
                 order.Awaiting = tile;
@@ -540,7 +547,7 @@ namespace BugfixesAndQoL.AreaConstruction
                 int unused = 0;
                 if (!native.Reserve(mapper, actor, editor, tile, scale, ref unused))
                     continue;
-                native.Place(mapper, tile, actor, editor);
+                native.Place(mapper, tile, actor, editor, buildFeedback);
                 native.Submitted();
                 submitted++;
                 if (usesCrew)
@@ -669,7 +676,8 @@ namespace BugfixesAndQoL.AreaConstruction
 
         private sealed class StorageBuildOrder
         {
-            internal StorageBuildOrder(long sessionId, GameMap map, int actor, bool editor, eMappers tool, int scale, Tile[] tiles)
+            internal StorageBuildOrder(long sessionId, GameMap map, int actor, bool editor, eMappers tool, int scale, Tile[] tiles,
+                PlacementFeedback feedback)
             {
                 SessionId = sessionId;
                 Map = map;
@@ -678,6 +686,7 @@ namespace BugfixesAndQoL.AreaConstruction
                 Tool = tool;
                 Scale = scale;
                 Tiles = tiles;
+                Feedback = feedback;
             }
 
             internal long SessionId { get; }
@@ -687,6 +696,7 @@ namespace BugfixesAndQoL.AreaConstruction
             internal eMappers Tool { get; }
             internal int Scale { get; }
             internal Tile[] Tiles { get; }
+            internal PlacementFeedback Feedback { get; }
             internal int Next { get; set; }
             internal Tile? Awaiting { get; set; }
             internal StorageBuildCadence Cadence;

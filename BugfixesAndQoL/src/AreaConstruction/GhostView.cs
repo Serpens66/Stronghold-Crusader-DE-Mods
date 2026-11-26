@@ -16,7 +16,7 @@ namespace BugfixesAndQoL.AreaConstruction
         private GameObject root;
         private int visible;
 
-        internal bool Show(EditorDirector director, GameMap map, eMappers tool, int scale, List<Site> sites)
+        internal bool Show(EditorDirector director, GameMap map, eMappers tool, int scale, List<Site> sites, int actor)
         {
             if (spriteLoader.instance == null || map == null || !TryRotation(map.CurrentRotation(), out int rotation))
             {
@@ -37,12 +37,16 @@ namespace BugfixesAndQoL.AreaConstruction
 
             var file = NativePlacement.SpriteFile(tool);
             bool farm = NativePlacement.IsFarm(tool);
+            bool siegeTent = CrewPlacement.Required(tool) != 0 && tool != eMappers.MAPPER_TUNNEL_CONSTRUCTION;
+            int loadedColour = siegeTent ? SpriteMapping.RemapMPLoadedColour(actor) : 0;
             int height = NativePlacement.FootprintHeight(tool, scale);
             Camera camera = Camera.main;
             int shown = 0;
             foreach (var site in sites)
             {
                 if (site.Frame <= 0)
+                    continue;
+                if (siegeTent && site.Buildable && PaintTent(site.Cursor))
                     continue;
                 Color tint = site.Buildable ? Allowed : Blocked;
                 int cornerX = site.Cursor.X - scale / 2;
@@ -114,19 +118,39 @@ namespace BugfixesAndQoL.AreaConstruction
                 return terrain != null;
             }
 
+            bool PaintTent(Tile cursor)
+            {
+                if (!TryProject(cursor.X, cursor.Y, out _, out var terrain, out var center))
+                    return false;
+                var renderer = Prepare(terrain, center);
+                // Use world scale for a map preview, and keep the unmasked cloth white.
+                SpriteMapping.SetBodySprite(renderer, (int)Enums.GM.GM_BODY_TENT, 1, loadedColour, false, 0, 13);
+                if (renderer.sprite != null && renderer.sharedMaterial != null && renderer.sharedMaterial.HasProperty("_TeamMask"))
+                    return true;
+                renderer.enabled = false;
+                shown--;
+                return false;
+            }
+
             void Paint(TilemapRenderer terrain, Vector3 center, Sprite sprite, Color tint)
             {
                 if (sprite == null)
                     return;
+                SpriteRenderer renderer = Prepare(terrain, center);
+                renderer.sharedMaterial = terrain.sharedMaterial;
+                renderer.sprite = sprite;
+                renderer.color = tint;
+            }
+
+            SpriteRenderer Prepare(TilemapRenderer terrain, Vector3 center)
+            {
                 SpriteRenderer renderer = Take(shown++);
                 renderer.gameObject.layer = terrain.gameObject.layer;
                 renderer.sortingLayerID = terrain.sortingLayerID;
                 renderer.sortingOrder = terrain.sortingOrder + 1;
-                renderer.sharedMaterial = terrain.sharedMaterial;
                 renderer.transform.position = center;
-                renderer.sprite = sprite;
-                renderer.color = tint;
                 renderer.enabled = true;
+                return renderer;
             }
         }
 

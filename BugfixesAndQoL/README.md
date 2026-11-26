@@ -181,6 +181,8 @@ Select a building, hold the left mouse button on the map and drag to preview sev
 
 You can also drag to place siege tents and dig tunnels. Select your engineers or tunnelers and choose the construction command from the troop panel. The previews show what you can build with your available resources and selected crew. Each tunnel needs one tunneler. Siege engines need one to four engineers depending on the type.
 
+Placeable siege tent previews show your player colour. Release a drag to hear one placement sound for the group and, for siege tents, one engineer acknowledgement. Single placements keep their usual sounds.
+
 **Area construction** is on by default under **Client Options → Camera, building and controls → QoL**, next to **Area demolition**. The option controls your own input. In multiplayer, everyone needs the same Bugfixes and QoL version, and each player can choose whether to drag. If you installed the earlier AreaConstructionTest, remove it before loading this version.
 
 Under **Host Options → Camera, building and controls → QoL**, set limits for **Empty stockpiles** and **Empty granaries and armouries**. The second setting applies separately to each type. Both default to `-1` for the original rules. Use the slider to choose up to 20 or type a number up to 100. These limits apply per player when building by drag or single click and use the game's usual empty-storage count. In multiplayer, everyone uses the host's settings. The original limits apply if the game cannot enable the custom limits for everyone.

@@ -41,6 +41,28 @@ if (CrewPlacement.Required(eMappers.MAPPER_TUNNEL) != 0 ||
     throw new InvalidOperationException("Ordinary placements must retain the existing budget rules.");
 Console.WriteLine("PASS: all seven crew mappers, live selection limits, and pending crew reservations.");
 
+var firstGesture = new PlacementFeedback();
+using (PlacementFeedback.Enter(firstGesture)) { } // Vanilla rejects the first click before emitting a cue.
+using (PlacementFeedback.Enter(firstGesture))
+{
+    if (!PlacementFeedback.AllowSound() || !PlacementFeedback.AllowVoice())
+        throw new InvalidOperationException("The first accepted siege click must sound and speak.");
+    using (PlacementFeedback.Enter(null))
+        if (!PlacementFeedback.AllowSound() || !PlacementFeedback.AllowVoice())
+            throw new InvalidOperationException("An independent click may play both cues.");
+}
+for (int frame = 0; frame < 18; frame++)
+    using (PlacementFeedback.Enter(firstGesture))
+        if (PlacementFeedback.AllowSound() || PlacementFeedback.AllowVoice())
+            throw new InvalidOperationException("Later clicks in the same gesture must be quiet.");
+using (PlacementFeedback.Enter(new PlacementFeedback()))
+    if (!PlacementFeedback.AllowSound() || PlacementFeedback.AllowSound() || !PlacementFeedback.AllowVoice())
+        throw new InvalidOperationException("A new gesture must own its own placement and speech allowance.");
+if (!PlacementFeedback.AllowSound() || !PlacementFeedback.AllowSound() ||
+    !PlacementFeedback.AllowVoice() || !PlacementFeedback.AllowVoice())
+    throw new InvalidOperationException("Ordinary clicks outside a gesture must remain unchanged.");
+Console.WriteLine("PASS: rejected and delayed placement feedback, independent gestures and single clicks.");
+
 var cadence = new StorageBuildCadence();
 if (!cadence.TryBegin(0))
     throw new InvalidOperationException("The first check must be allowed at native tick zero.");
