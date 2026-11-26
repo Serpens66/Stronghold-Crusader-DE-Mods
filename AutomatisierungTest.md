@@ -116,6 +116,12 @@ Scheitert ein Lauf, weil eine dieser Bedingungen zufällig anders war, ist das e
 dann neu laufen lassen. Wiederholen bis zum Erfolg ist kein Nachweis und keine Erklärung. Ausnahme: Ein Test, der
 gerade verschiedene Lagen abdecken soll, variiert sie ausdrücklich und loggt sie.
 
+### Passiver Testgegner DoNothing
+
+In Gefechten mit einem KI-Gegner **DoNothing** wählen, wenn das Szenario kein KI-Verhalten prüft. Der Lord ist auf minimale Aktivität ausgelegt und hat keine AIC-Starttruppen. Seine einzige Burgvorlage enthält neben dem Keep fünf zusätzliche Vorratslager, einen Kornspeicher und eine Hütte. Das Spiel erzeugt das erste Vorratslager beim Start am Keep.
+
+Die beiden [Dateien für DoNothing](Testmods/CustomLords/DoNothing/) gehören in `CustomLords\DoNothing` im lokalen SHCDE-Spielprofil unter `%USERPROFILE%\AppData\LocalLow\Firefly Studios\Stronghold Crusader Definitive Edition`. In UiAcceptance den Schritt `Lobby.AddCustomAi` mit `"args": ["DoNothing"]` verwenden. Wenn der Test auf den Bauplan angewiesen ist, AIC, AIV und einen freien, ebenen Startplatz festlegen. Die Lager nach der Anlaufphase prüfen, da jede Erweiterung an ein bereits aktives Lager anschließen muss.
+
 ## Was bereits möglich ist
 
 | Aufgabe | Aufrufweg | Nachweis / Grenze |

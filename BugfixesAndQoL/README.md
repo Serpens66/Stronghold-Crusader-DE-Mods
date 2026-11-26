@@ -74,9 +74,11 @@ Older walls need deposit data recorded when they were built. Saves and editor ma
 
 ### Keep crenels crossable
 
-In Vanilla, crenels on corners, junctions, wall ends and double rows often end up high. High crenels cannot be climbed with ladders, entered by Assassins or reached from siege towers, so such walls can become impossible to storm. With this fix, crenels built by players or the AI alternate between high and low in a fixed checkerboard pattern in every shape, including diagonal walls. Attackers always find low crenels, and units on a wall can step diagonally from one low crenel to the next. Low crenels are drawn as normal straight crenels, so corners and wall ends look clean.
+In Vanilla, crenels on corners, junctions, wall ends and double rows often end up high. High crenels cannot be climbed with ladders, entered by Assassins or reached from siege towers, so such walls can become impossible to storm. When enabled for the wall's owner, the fix makes newly built crenels alternate between high and low, including on diagonal walls. Attackers can find low crenels, and units on a wall can step diagonally from one low crenel to the next. Low crenels are drawn as normal straight crenels, so corners and wall ends look clean.
 
-The host option is enabled by default under **Host → Gates and siege rules → Fixes**; all players in a multiplayer match need the mod. Walls that already exist in a map or savegame stay as they are, unless the host switches on one of the options under **Also align existing crenels**: when loading a map in the editor, when loading a savegame, or when starting a map with pre-placed walls. Crenels changed this way keep their new heights even if the option is switched off again later. Changes apply to the next match.
+Under **Host → Gates and siege rules → Fixes**, **Human** is on by default and **AI (+Editor)** is off. All walls in the map editor use **AI (+Editor)**, regardless of player color. All players in a multiplayer match need the mod.
+
+The options under **Also align existing crenels** apply the pattern to walls in the selected owner groups when opening a map in the editor, loading a savegame or starting a map with pre-placed walls. Aligned crenels keep their new heights after the option is switched off. Settings apply from the next match or editor session.
 
 ### Keep stairs behind pitch fields accessible
 

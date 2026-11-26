@@ -1,0 +1,62 @@
+{
+  "pauseDelayAmount": 100,
+  "frames": [
+    {
+      "itemType": 61,
+      "tilePositionOfsets": [
+        5643
+      ],
+      "shouldPause": false
+    },
+    {
+      "itemType": 80,
+      "tilePositionOfsets": [
+        5239
+      ],
+      "shouldPause": false
+    },
+    {
+      "itemType": 54,
+      "tilePositionOfsets": [
+        5639
+      ],
+      "shouldPause": false
+    },
+    {
+      "itemType": 52,
+      "tilePositionOfsets": [
+        5950
+      ],
+      "shouldPause": false
+    },
+    {
+      "itemType": 52,
+      "tilePositionOfsets": [
+        6145
+      ],
+      "shouldPause": false
+    },
+    {
+      "itemType": 52,
+      "tilePositionOfsets": [
+        6140
+      ],
+      "shouldPause": false
+    },
+    {
+      "itemType": 52,
+      "tilePositionOfsets": [
+        4950
+      ],
+      "shouldPause": false
+    },
+    {
+      "itemType": 52,
+      "tilePositionOfsets": [
+        5455
+      ],
+      "shouldPause": false
+    }
+  ],
+  "miscItems": []
+}
