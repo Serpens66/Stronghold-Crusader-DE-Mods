@@ -47,7 +47,7 @@ namespace TrappedUnitRescueTest
             expectedEnabled = scenario.EndsWith("-on", StringComparison.Ordinal);
         }
 
-        internal static bool Owns(string value) => value == "rescue-editor-new-off" || value == "rescue-editor-new-on" ||
+        internal static bool Owns(string value) => value == "rescue-auto-pitch3-off" || value == "rescue-auto-pitch3-on" || value == "rescue-auto-wheat10-off" || value == "rescue-auto-wheat10-on" || value == "rescue-auto-hops8-off" || value == "rescue-auto-hops8-on" || value == "rescue-auto-cattle5-off" || value == "rescue-auto-cattle5-on" || value == "rescue-auto-hunter5-off" || value == "rescue-auto-hunter5-on" || value == "rescue-auto-miner1-off" || value == "rescue-auto-miner1-on" || value == "rescue-auto-fletcher-off" || value == "rescue-auto-fletcher-on" || value == "rescue-editor-new-off" || value == "rescue-editor-new-on" ||
             value == "rescue-editor-load-off" || value == "rescue-editor-load-on" || value == "rescue-loadcache" || value == "rescue-early-provider" || value == "rescue-on" || value == "rescue-off" ||
             value == "rescue-group-on" || value == "rescue-group-off" ||
             value == "rescue-aiwall-on" || value == "rescue-aiwall-off" ||
@@ -72,6 +72,7 @@ namespace TrappedUnitRescueTest
             value == "rescue-auto-baker-on" || value == "rescue-auto-baker-off" ||
             value == "rescue-auto-brewer-on" || value == "rescue-auto-brewer-off" ||
             value == "rescue-auto-mason-on" || value == "rescue-auto-mason-off" ||
+            value == "rescue-auto-woodcutter1-on" || value == "rescue-auto-woodcutter1-off" ||
             value == "rescue-natural-dig-bank-on" || value == "rescue-natural-dig-bank-off" ||
             value == "rescue-natural-dig-task-on" || value == "rescue-natural-dig-task-off" ||
             value == "rescue-natural-fill-bank-on" || value == "rescue-natural-fill-bank-off" ||
@@ -202,6 +203,16 @@ namespace TrappedUnitRescueTest
                 foreach (var step in AutomaticBrewerSteps()) yield return step;
                 yield break;
             }
+            if (scenario.Contains("-auto-wheat10-") || scenario.Contains("-auto-hops8-") || scenario.Contains("-auto-cattle5-"))
+            {
+                foreach (var step in AutomaticFarmerOutputSteps()) yield return step;
+                yield break;
+            }
+            if (scenario.Contains("-auto-woodcutter1-"))
+            {
+                foreach (var step in AutomaticWoodcutterSteps()) yield return step;
+                yield break;
+            }
             if (scenario.Contains("-auto-mason-"))
             {
                 foreach (var step in AutomaticMasonSteps()) yield return step;
@@ -225,6 +236,26 @@ namespace TrappedUnitRescueTest
             if (scenario == "rescue-auto-armourer-on" || scenario == "rescue-auto-armourer-off")
             {
                 foreach (var step in AutomaticArmourerSteps()) yield return step;
+                yield break;
+            }
+            if (scenario == "rescue-auto-miner1-on" || scenario == "rescue-auto-miner1-off")
+            {
+                foreach(var step in AutomaticMiner1Steps())yield return step;
+                yield break;
+            }
+            if (scenario == "rescue-auto-pitch3-off" || scenario == "rescue-auto-pitch3-on")
+            {
+                foreach(var step in AutomaticPitchSteps())yield return step;
+                yield break;
+            }
+            if (scenario == "rescue-auto-hunter5-off" || scenario == "rescue-auto-hunter5-on")
+            {
+                foreach(var step in AutomaticHunterSteps())yield return step;
+                yield break;
+            }
+            if (scenario.Contains("-auto-fletcher-"))
+            {
+                foreach(var step in AutomaticFletcherSteps())yield return step;
                 yield break;
             }
             if (scenario.Contains("-auto-poleturner-"))

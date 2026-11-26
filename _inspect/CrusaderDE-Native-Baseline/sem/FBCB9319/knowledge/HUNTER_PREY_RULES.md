@@ -62,9 +62,9 @@ A value of 1 means one prey update has passed since the last refresh.
 ## Cows
 
 Dairy cows are units (type 51) owned by the player; the Tanner finds them through
-`0x18B470` (same owner, state 0). A cow only exists as part of its farm: update `0x158780` marks it
-for deletion in its first update unless `+0x334` and `+0x364` name a live farm that lists it, so a cow
-spawned alone disappears at once.
+`0x18B470` (same owner, state 0). Update `0x158780` requires a valid linked farm lifetime,
+an unpaused farm and a nonzero regular farmer slot; it does not continuously require the cow's
+own animal slot to list it. A cow spawned without its farm binding is marked for deletion.
 
 Tanner `0x13E0B0`, AI state at `+0x2BC`: state 9 kills the cow and adds exactly 3 hides (good 5);
 state 6 takes one hide and state 5 runs production; at its end `0x18D940(unit,1,1)` sets the carried
@@ -613,3 +613,39 @@ huntable-prey catalogue already participates in the production peer agreement.
 
 The findings above are static. No modified Hunter work cadence or Hunter-specific
 repair payload was exercised in a host-client game.
+
+## Cow farm membership and Tanner reservation, 27 November 2026 [Vanilla facts]
+
+Fresh canonical SHA256 matches CURRENT.json:
+FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+Complete A3A70/158780/18B470/18B540/13E0B0 establish the following
+producer/consumer contract, refining the older Cows paragraph above.
+
+A3A70 creates Cow51 through17FEF0 in animal slots1..3: native building
+ID array1FA+2*slot and global array204+4*slot; slot0 is the regular farmer.
+It stamps Cow990=FarmID,9C0=FarmGlobal,9EE=animal-slot and9F0=FarmID.
+Cow158780 validates that farm lifetime, pause byte2F2 and nonzero regular
+farmer slot0. It does not continuously require the original animal slot
+to retain the cow. States4/5/6/110 legitimately clear that slot when its
+ID still matches; other ordinary states contribute to animal counter2F3.
+Farm animation3→4→5→6 eventually publishes readiness DWORD1A8 and
+returns to0. Animal membership, worker employment and readiness are
+different fields; see TRAPPED_UNIT_RESCUE_AUDIT.md for the typed1A8 reader.
+
+18B470 selects a same-owner live AI0 cow. Tanner2/3 uses selected
+Cow9F6/global9F8 and a separate paired cow route. Cow4 checks its bound
+Tanner ID/global and that Tanner's16-bit8F8 death marker, not generic
+AliveState3. It enters5 on arrival; after1001 AI5 updates it enters6.
+Tanner9's animation frame8 also writes Cow6 without an HP0/8F8 damage
+write. Cow6 completes its own animation, enters110 and only later marks
+Life3. Neither slaughter nor reservation release can be inferred from a
+single HP/AliveState check or continuing animal-slot membership.
+
+The complete original removal1869C0/186C20/19A5D0/123EA0 path has no
+goods refund. After Hunter Meat−6 or Tanner Hide−1, removing that worker
+does not roll the input back, even if carried output has not yet been
+published. Nor does ordinary removal credit already carried output to a
+warehouse. Reusing an employee slot is not resuming that original charge.
+Complete evidence is retained in the current-hash function records and
+.work/a/rescue-tanner/001/AUDIT.md; these are static facts, not an accepted
+generic worker-replacement policy or a promise of immediate new employment.

@@ -2,11 +2,37 @@
 
 Erstellt: 17.11.2026. Fortschritt aktualisiert: 26.11.2026. Arbeitsplan und fortlaufendes Abnahmeprotokoll.
 
+## Neubewertung und akzeptierte Nachteile, 27.11.2026
+
+Die laufende Gesamtaufgabe und Spieltests wurden vom Nutzer pausiert. Lauf164 ist unterbrochen und vollständig wiederhergestellt; abgeschlossene Einzelschritte sind kein Gesamt-PASS. Die nachfolgenden Fortsetzungs- und Abnahmepläne dokumentieren den bisherigen Ansatz und sind noch keine Freigabe seiner unveränderten Weiterführung.
+
+Der Nutzer schlägt vor, nachweislich feststeckende Wirtschaftsarbeiter regulär vollständig zu entfernen und Vanilla die Neubesetzung zu überlassen; Soldaten sollen erhalten und lokal befreit werden. **Ausdrücklich akzeptiert:** Verlust transportierter Waren beziehungsweise bereits verbrauchter Inputs sowie verzögerte oder ausbleibende Neubesetzung unter ungünstigen Vanilla-Bedingungen. Diese Nachteile sind kein erneut vorzulegender Entscheidungspunkt. Die Empfehlung lautet deshalb, die komplexe rollenspezifische Arbeitsfortsetzung durch einen engeren Entfernungspfad für echte Wirtschaftsarbeiter zu ersetzen. Eine Runtimeumstellung wurde in diesem Analyseauftrag noch nicht durchgeführt.
+
+**Ausdrückliche Ergänzung des Nutzers:** Auch feststeckende Bauern werden entfernt. Dazu zählen gewöhnliche Peasants einschließlich arbeitsloser Lagerfeuerbauern sowie landwirtschaftliche Arbeiter. Eine bereits gestartete Rekrutierung eines Soldaten oder rekrutierten Spezialisten darf dabei nicht allein wegen des vorübergehend noch sichtbaren Peasant-Typs als gewöhnlicher Bauer klassifiziert werden; die dokumentierte gleichbleibende Rekrutierungsidentität und der gewünschte Zieltyp bleiben maßgeblich.
+
+Bestehende ereignisbasierte Erkennung, echte Geometrieänderung, ID/Global-/Lebensprüfung, feste Budgets und APIShared-Hookbesitzer bleiben nützlich. Entfernung darf keine bloß untätigen, regulär verborgenen, bereits sterbenden oder absichtlich gelöschten Einheiten treffen. Soldaten, rekrutierte Ingenieure, Belagerungsgeräte und deren Mannschaften dürfen nicht allein wegen einer Nicht-Soldaten-Klassifizierung in diesen Pfad geraten. Ox und andere vom Gebäude erzeugte Hilfseinheiten brauchen ihren eigenen geprüften Ersatzvertrag.
+
+Vor einer Umsetzung ist der gemeinsame Entfernungseinstieg mit Simulationstiming und vorhandenen Fixes-Unterdrückungen abzugleichen; danach braucht es gezielte Tests für endgültige Entfernung, Slotfreigabe, belegte Kacheln und natürliche Neubesetzung unter zulässigen Bedingungen. Kuhreservierung und aktive Arbeitsplatzslots sind ausdrücklich zu prüfen. Waren-/Jobkompensation oder künstliche Sofortersatzbauern sind nicht aus dieser Entscheidung abzuleiten. Allgemeine Spieltests werden hiermit nicht erneut gestartet.
+
+Die zugehörigen gesicherten Vanilla-Erkenntnisse sind in der Baseline ergänzt: `RECRUIT_TRANSFORMATION.md` (Entfernung/Recount/Migration/Jobvergabe), `WORKER_PRODUCTION_BONUS.md`, `WEAPON_WORKSHOP_FIELDS.md`, `HUNTER_PREY_RULES.md` und `TRAPPED_UNIT_RESCUE_AUDIT.md`. Offene alternative Disband-/Recyclingpfade und der genaue KeepDoor-zu-Lagerfeuer-Weg bleiben als solche gekennzeichnet.
+
 ## Aktueller Auftrag vom 26.11.2026
 
-Der Nutzer autorisiert jetzt die erforderlichen **Singleplayer-Ingame-Tests**, weitere Fehlerkorrekturen und Effizienzprüfung. Installation/Spielstarts warten auf den tatsächlichen Abschluss des Chats „Mehrfachplatzierung erweitern“. Die Testfälle werden kontrolliert erzeugt, mit Friedenszeit, festgelegter geeigneter Karte und deaktivierten RandomEvents. Ausführungs- und Abnahmeplan: [SP-ACCEPTANCE.md](SP-ACCEPTANCE.md).
+Der Nutzer autorisiert jetzt die erforderlichen **Singleplayer-Ingame-Tests**, weitere Fehlerkorrekturen und Effizienzprüfung. Die anfängliche Wartebedingung auf den Chat „Mehrfachplatzierung erweitern“ wurde erfüllt; die inzwischen ausgeführten Läufe und ihre Wiederherstellung sind im Abnahmeprotokoll belegt. Die Testfälle werden kontrolliert erzeugt, mit Friedenszeit, festgelegter geeigneter Karte und deaktivierten RandomEvents. Ausführungs- und Abnahmeplan: [SP-ACCEPTANCE.md](SP-ACCEPTANCE.md).
 
 **Neue Zielentscheidung:** Nach erfolgreicher Finalisierung erfolgt die Übernahme in **BugfixesAndQoL** und die Entfernung des ursprünglichen Testmods. Die nachfolgenden älteren Pathfinding-Migrationsabschnitte beschreiben die frühere Planung; ihre technischen Kompatibilitäts- und Ownershipanforderungen bleiben relevant, der Zielmod ist durch diesen neuen Auftrag ersetzt. Reale Multiplayerfreigabe gehört nicht zu diesem Auftrag.
+
+## Abnahmefortschritt am 26.11.2026, 23:34 Uhr
+
+- [x] Vorhandenen DoNothing-Lord über normale Lobbybefehle einbinden und tatsächliche geladene native Identität sowie AIC-/AIV-Fingerprints prüfen; gezielt für die neuen Arbeiterfälle, keine Nullaktivitätsgarantie.
+- [x] Natürlicher Fletcher-R7-Bowfall OFF/ON einschließlich beider vollständiger Waffenlieferungen und neuem Produktionszyklus: Lauf159 PASS.
+- [x] Natürlicher Woodcutter-R1-Fall mit demselben Baum, drei Stämmen, tatsächlichem Yield18 und vollständiger Lagerbuchung: Lauf160 PASS. Vorherige Fixturefehler157/158 bleiben separat dokumentiert.
+- [x] Bestehende fünf Geräte-/Besatzungsfälle mit aktuellem Capture-Optimierungsstand wiederholen: Lauf161 PASS; synthetische Blockierung, keine automatische Quellenfreigabe daraus ableiten.
+- [x] Miner1 R2 mit ursprünglichem Arbeitsplatz und zwei echten Eisenbuchungen; Hunter R5 mit zwei verschiedenen natürlichen Beutetieren und vollständigen Fleischchargen: Lauf162 PASS.
+- [ ] Übrige sieben Arbeiterrollen und bislang offene Phasen-/Produktvarianten akzeptieren; aktuell13/20 Rollen mit mindestens einem positiven natürlichen Fall. Hunter-, Farmer- sowie Grunt-/Pitchman-Verträge werden vor neuen Fixtures vollständig auditiert.
+- [ ] Große Populationen, Quellenbursts, Budgets/Tails und restliche Lifecycle-/P7-/Geometriefälle abschließen; anschließend Produktionsintegration und ursprünglichen Prototyp entfernen. Keine reale MP-Freigabe.
+
+Alle Läufe159–162 wurden auf dem getrennten Desktop ausgeführt und vollständig wiederhergestellt. Vollständige Belege und Grenzen: [SP-ACCEPTANCE.md](SP-ACCEPTANCE.md), aktuelle Rollenübersicht: [WORKER-GAME-MATRIX.md](WORKER-GAME-MATRIX.md). Dies ersetzt keine noch offene Gesamtfreigabe.
 
 ## Konkrete BQoL-Migrationskarte (26.11.2026)
 

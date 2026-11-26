@@ -261,3 +261,133 @@ call. ImprovedHunters' separate Tanner owner may then select meat/capacity250;
 both of its emitted calls use the shared adapter without another entry hook.
 The source definitions, ABI fixtures and update contract live in APIShared.
 Isolated execution does not establish live game or real multiplayer acceptance.
+
+## Fletcher material and cargo publication, 27 November 2026 [Vanilla facts]
+
+Canonical SHA256 was freshly checked against CURRENT.json:
+FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+The complete12D230 handler and its188340/B9280/C90E0/C9080/B9AA0/
+C6EA0/B6100/B6240/18D940/196F80/196FD0 chains were audited. UnitA47
+captures the material requirement2 for Bows17 or3 for Crossbows18; it is
+not a product enum. Building2EA is the latched output and2EC the desired
+output. The public building view starts at native5C; field names alone do
+not establish which product word is currently latched.
+
+R1 consumes one external Wood through B6100 while still AI1/cargo0;
+the caller then sets cargo1 and AI2. R2 credits that Wood to the workshop
+while AI2/cargo1 and clears cargo after the call. AI5 directly clears the
+complete required local2/3-Wood buffer before workAI4; this clear has no
+separate goods-debit callback. Completed AI4 work unhides through196FD0,
+sets AI6, calls18D940(unit,1,1), then assigns returned cargo. Both yield
+phases therefore precede cargo publication and observe AI6/cargo0.
+
+AI6 selects and validates an Armoury, successfully publishes its access
+route, binds98E/6F8 and enters R7. R7 requires actual arrival, C9080
+contact and C6EA0's shared Armoury capacity before each B6100 product+1,
+capacity50. Cargo decreases after the goods call. Native store reselection
+can legitimately change98E/6F8 and the requested goal; a successful first
+credit is not proof of a complete charge. R8 is a waiting/failure branch,
+not another ordinary output phase. Audit provenance and event/member
+checks: .work/a/rescue-fletcher/001/REVIEW.md. These are static contracts;
+the recorded Bow gameplay case does not establish Crossbow acceptance.
+
+## Pitch production and hidden work, 27 November 2026 [Vanilla facts]
+
+On the same current native hash, complete1332B0/ADF70/B6240/BD490/
+CA940/76060 and the shared producer/arrival/storage chains were read.
+Struct6 dispatches toADF70. Its completed animation advances the native
+building84 DWORD and sets completion88; native5C header makes84 public
+GameBuilding+28, UInt32 N0001200A. B6240 mode2 resets completion88 and
+phase174; mode3 selects work mode. CA940 registers employment demand;
+it does not credit Pitch or prove that production has completed.
+
+R4 home arrival enters109/saved1 with positive fade/timer0. After the
+17-update continuation the worker enters AI1 and196F80 hides/unlinks it.
+Arrival188340 alone does not require Current==Home. Actual settled pose
+before hiding, not an invented coordinate equality, establishes the
+subsequent hidden occupancy contract. Completed work in AI1 sets cargo1,
+109/saved2 and196FD0-unhides; negative fade later returns to AI2.
+
+AI2 selects BF9F0(Pitch7), validates C90E0, successfully plans its route,
+stamps Store98E/global6F8, enters AI3 and calls18D940(unit,1,1).
+Yield Pre/Post still observe incoming cargo1; returned cargo is assigned
+afterwards. R3 requires188340, C9080 contact (<3 on each axis), and
+BD490(Pitch7,16), which rejects every other nonzero goods column1..24.
+A visual storage-type field is not this predicate. B6100+1 precedes
+cargo decrement. Invalid contact/capacity can cause legitimate store
+reselection or cargo discard; neither is a physical delivery receipt.
+
+BF9F0 selects an eligible existing partial store before an empty one in
+native index order, rather than by nearest distance. A newly created
+dedicated yard is therefore not necessarily the selected destination.
+Pitch workings require real IsPitch in their4x4 resource area; IsSwamp
+alone is insufficient. No per-worker tarpatch inventory debit is present
+in this production chain. Reproducible complete function exports and
+placement/event checks: .work/a/rescue-pitch/001/AUDIT.md; common chain:
+.work/a/quarry-pitch/001/FIXTURE-PLAN.md. No Pitch game acceptance is
+inferred from those static records.
+
+## Quarry grunt, tether and original Ox, 27 November 2026 [Vanilla facts]
+
+Complete1319A0/AD180/BBA40/198B60 and relevant132910 branches were
+audited on the same hash. The Tether keeps a distinct Ox ID at native
+building2C8 and global at2C4 (public26C/268). Native AD180's invalid
+linked-quarry demolition branch is AI-player-specific; the human branch
+does not require the Tether to adjoin the selected quarry pile.
+
+BBA40 chooses a live owned positive-Stone QuarryPile with valid access,
+using Chebyshev proximity with the optional unitA68 stock bonus. Equal
+scores can replace an earlier candidate, so a later native index can win.
+Empty outbound101 stamps that actual pile/global. At arrival AI2 first
+plans Home successfully, then B6100 withdraws one Stone with capacity48
+while AI2/cargo0. The caller sets cargo1, rebinds Store to original Home
+and enters loaded101. Loaded101 arrival selects AI1 and directly adds1
+to the Tether buffer: no B6100, and no immediate cargo clear. A later
+outbound departure clears that cargo. Event labels cannot substitute for
+these distinct physical transitions.
+
+At buffer>=8 the Grunt successfully plans an external Store route, applies
+198B60, selects AI3, clears the Tether buffer and assigns the actual
+18D940(Ox,8,1) yield to the separate original Ox. This does not give the
+Grunt an eight-Stone cargo. The normal Ox departure requires cargo>=8.
+AI6's fallback checks Ox cargo<0, not<=0; healthy cargo0 does not trigger
+it. The distinct R102 external delivery uses B6100 Stone+1, then clears
+cargo and enters AI3. The full state/event chain is retained in
+.work/a/quarry-pitch/001/FIXTURE-PLAN.md; the independent198B60 stair
+contract is in TRAPPED_UNIT_RESCUE_AUDIT.md. No healthy-cycle102 or
+in-game stair-rescue acceptance follows from the static audit.
+
+## Miner2 direct Mine withdrawal and physical Iron delivery, 27 November 2026 [Vanilla facts]
+
+Current canonical dispatch321CB0 maps Miner2/type32 to14DAC0;
+building2DEAE0 maps Mine/type5 toAD540. Complete14DAC0/AD540/
+193F10/19B930/193A70/191050/191070/BF9F0/C90E0/C9080/
+BD490/B6100/18D940 were audited on the same freshly checked native hash.
+193F10 tests the eight neighbouring building-layer entries for the
+assigned workplace;19B930 refreshes access without publishing a route.
+State2 handles Home retries/rest; state1 waits beyond20 updates before
+selecting work or its empty-buffer state5 animation.
+
+State3 selects an owned Iron store via BF9F0/C90E0. Only successful
+196280 binds98E/global6F8, enters4, directly decrements the original
+Mine Iron by1 and invokes18D940(unit,1,1). This debit bypasses B6100.
+At Yield entry AI4 and the debit are already committed; the returned
+amount has not yet been assigned to cargo9E0. State4 requires188340,
+C9080 contact (<3 each axis), no other nonzero goods among1..24 and
+Iron<48 through BD490. B6100(Iron,+1,48,true) precedes cargo decrement.
+The caller does not check its result before that decrement; actual goods
+delta, not cargo/statistics alone, proves a physical credit.
+
+Failed contact/capacity may reselect a Store; failed replanning sets
+delay−15, and absence of a valid Store access clears cargo. Once empty,
+193A70(unit,1) closes work accounting, then Home is refreshed for
+state2/retry1 or deletion follows if Home cannot be recovered. Initial
+approach uses retry2; the rest helper specifically requires retry1.
+AD540 separately produces local Iron through B6100+1/cap8. Its phase5
+enters wait6 when local Iron>=7;6 returns to0 below7. This is distinct
+from both the direct withdrawal and external capacity48 delivery.
+
+Complete audit and direct PE table checks:
+.work/a/rescue-mine2/001/REVIEW.md. Natural employment and its transient
+Peasant stage are documented in RECRUIT_TRANSFORMATION.md. No Miner2
+gameplay or arbitrary worker-removal acceptance is inferred.

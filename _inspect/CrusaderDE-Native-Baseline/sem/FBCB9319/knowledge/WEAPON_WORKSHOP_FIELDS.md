@@ -57,3 +57,39 @@ that a finished lot exists. The recovery path's withdrawal attempt and following
 yield are separate operations. `0xB6100` rejects a deposit that would exceed the
 specified capacity as a whole. A three-hide deposit with any retained hides
 therefore exceeds the Tanner's Vanilla cap.
+
+## Tanner hide consumption and output publication, 27 November 2026 [Vanilla facts]
+
+The canonical native hash above was freshly rechecked against CURRENT.json.
+Complete13E0B0 and its building/work/arrival/storage/fade/yield chains were
+read, including B10D0/B6240/18B470/18B540/196F80/196FD0/18D940/
+B9AA0/C6EA0/C9080/B6100/191070/19B930. Candidate function labels do
+not replace the confirmed machine and field-flow contracts below.
+
+Tanner AI9 credits Hides5,+3/capacity3, then publishes DWORD918=0006006D
+(109/saved6), positive fade0200 and timer0. The incoming109 exposes
+sixteen intervening visible actor updates; update17 restores6 and196F80
+hides/unlinks the original worker. Neither188340 nor this producer proves
+Current==Home. The actual settled pre-hide Current/packedTile/Home/
+Requested pose can instead anchor that same hidden lifetime.
+
+AI6 waits its native preparation interval and debits Hides−1/capacity48
+while still AI6, starts workshop work and enters5. Completed AI5 work
+resets B6240 and196FD0-unhides before calling18D940(unit,1,1).
+Yield Pre/Post observe AI5/cargo0. The caller stores the returned quantity
+and then publishes109/saved7; this outgoing fade is not an incoming hide
+witness. Vanilla output is fixed Leather23, without an additional local
+Leather+1/−1 pair. One cow supplies three separate hide-consuming charges;
+a fresh charge need not require another cow.
+
+AI7 successfully publishes an Armoury route and binds98E/6F8 before AI8.
+AI8 requires188340, C9080 contact and C6EA0's capacity50 shared across
+all25 goods. B6100(Leather23,+1,50,true) precedes cargo decrement, so
+Goods Post still sees the previous cargo. Actual yield or subsequent
+cargo0 alone is not proof of full physical delivery. The post-batch
+191070/home4/1 chain can reuse remaining hides. Cow reservation/lifetime
+is documented separately in HUNTER_PREY_RULES.md.
+
+Audit record: .work/a/rescue-tanner/001/AUDIT.md and the complete13E0B0
+current-hash export. No Tanner gameplay acceptance, custom meat output,
+MP or arbitrary hidden-worker recovery follows from these static facts.

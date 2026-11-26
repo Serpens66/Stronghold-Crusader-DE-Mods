@@ -467,7 +467,7 @@ and `0x118660`.
   executor. Flags 2/4 can therefore advance an accepted ordinary step while AI
   is idle 0/2; forcing AI101 is not required by that physical executor. However,
   the type handler and other earlier AI consumers can independently select
-  targets or change intent. `0x1855A0` also respects pause `+0x8F8` and physical
+  targets or change intent. `0x1855A0` also checks death marker `+0x8F8` and physical
   edge/portal checks. A published route is not proof of eventual arrival.
 - Path flags 5 prevent `0x188340` from reporting normal arrival, but do not
   freeze all unit logic or undo a pending midpoint marker. `0x186AD0 ->
@@ -792,3 +792,139 @@ The complete feature audit is retained in `Testmods/TrappedUnitRescueTest/Audits
 - Scheduler maintenance may already run during fresh native construction through94350→71670→CDE60→D1AD0→CEF00. An early callback alone does not prove empty original Jester slots. Random/scripted writers1045F0(150), F82B0 and reset/load paths are documented in the complete audit; a foreign reenable remains possible and must not be hidden by continuous enforcement.
 
 Actual run148 (`.work/a/rescue-game/148/b930c6f44262/LogOutput.log`) reported124 melee publications,62 Pre/Post observations: original Spearman28/global1371674 lost2HP per observed interval,10000→9876, native ticks3606..3667. Reported attacker4010/global1375790 was owner2/type57, actual managed Jester. This identifies that observed damage path, not who initiated contact or the cause of earlier unrelated runs. A Jester-disabled test world changes native behavior and cannot be presented as an ordinary-world performance baseline.
+
+### Wood selector growth eligibility and Oak constructor, 2026-11-26 [Vanilla facts]
+
+Installed canonical CrusaderDE.dll SHA256 was independently rechecked as
+FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+Complete current-hash107E00/107390/108800/108320/108280/1095D0/79C0 records
+and the whole file-backed Oak105A10..105D69 machine body were read. The actual
+31DC70 type2 dispatch points to105A10. These are native contracts, not a new
+rescue-runtime defect or a claim of worker gameplay acceptance.
+
+107E00 scans positive native vegetation indices in ascending order. A candidate
+requires Alive2, DWORD growthStage<4 and1086D0's same-global positive resource.
+The growth read is manager+index*9C+A4: the current SE GameVegetation view starts
+at manager+18, hence public r_GrowthStage+8C; progress is manager+A8/public+90.
+Both members were independently verified public UInt32 in the actual installed
+SHCDESE.dll, not merely a publicized game assembly. Among eligible trees with
+at least one reachable direct neighbor and native height compatibility, the
+selector minimizes max(abs(workerX-treeX),abs(workerY-treeY)).79C0 writes that
+maximum to its context+0C, which107E00 reads;79C0's separate Manhattan return
+is NOT the ranking input. A strict less-than update retains the earlier index
+on equal distance. There is no species-priority test in this selector. The
+coordinates are the caller's current worker position, not an assumed hut origin.
+
+107390 writes the requested stage and its type/stage initial-progress table
+value, then calls the type handler synchronously. Oak type2 at stage3 has
+initial progress72 (31E220+(2*7+3)*4), health5 (31DFF0 row) and resource9
+(31DDC0 row). Whole105A10..105D69 only updates animation/render/felling display
+for this case; it does not increment or replace growthStage/progress. Therefore
+public CreateEx(OakTree,Stage3) returns actual3/72 before later simulation.
+Stage4 instead returns4/96 and is excluded from107E00 regardless of its still
+positive health/resources.108280 chooses the same proximity level3 for Oak
+stage3 and4, so this constructor correction does not bypass a footprint rule.
+
+Later normal growth belongs to108800's scheduled108320 branch, not the Oak
+constructor/display handler.108320 increments actual progress only for its
+qualified tree/bucket/mode branch; reaching the next type/stage threshold may
+advance growth and1095D0 refreshes resource/health from the new stage table.
+No fixed per-native-tick maturation duration is inferred from this scheduling.
+R1 arrival in12BC00 subsequently checks actual tree distance and1086A0/1086D0
+serial/felling/resource conditions; it does not reapply107E00's growth<4 test.
+
+[mod integration] The158 fixture originally constructed a Stage4 Oak and its
+saved readback remained healthy/resource-bearing while another natural map
+tree was selected. This is a test-world eligibility error. The scoped correction
+uses the real Stage3 constructor plus immediate actual3/72 readback, preserving
+natural selection and all identity/resource/access guards. It does not force
+selection, alter a worker target or retroactively qualify158 as a rescue test.
+
+## 26.11.2026: Mine employment and Hunter hide witnesses [Vanilla facts]
+
+Canonical Native SHA256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2 was freshly checked. Full14D6F0/14DAC0/AD540/B6340/190B30/B62D0/C9550/C98A0 and12FC70/AE570/109 transition paths were read against current exports, with native PE table and installed public-layout crosschecks. Building table2DEAE0 slots3/5/7 point toACF40/AD540/AE570. Mine type5 has a special B6340 employment branch: existing eligible Peasants become Miner1/type31 in slot0 and Miner2/type32 in slot1, not artificial newly allocated worker identities. Native employee1FA/204 holds ID/global; active worker214 is a distinct WORD array. GameBuilding's native5C header places these at public19E/1A8/1B8. Miner1 R2 completes188340/C9080, hides/unlinks through196F80, then AI1 writes its active slot. AD540 requires active slot0 and its genuine machine completion publishes B6100 Iron6,+1,capacity8,Add=true. This is local Mine production, not a Miner1 external delivery.
+
+Hunter R2 on188340 writes DWORD918=0003006D (109/saved3), WORD986=0200 and timer920=0. Whole109 advances fade by2/saturates31, increments the timer, returns while below17, then restores saved3 and hides/unlinks through196F80 before hut cycle reset. It exposes sixteen intervening visible update states; exact Current==Home is not imposed by these R2/109 producers. The outgoing AI3 branch instead uses109/saved0 withFE20 and immediately196FD0-unhides, so it is not an incoming hide witness. A test can bind the actual settled visible109/saved3 pose/home/requested goal and require its preservation through hide; it need not invent an exact home equality. AI11's real corpse-to-R2 transition stamps corpse timer920=1000; normal Deer75/110 retirement retains its fields until the next unit-pass lifetime teardown. Subsequent R2/production must not require that old corpse still alive.
+
+### Actual singleplayer observation [mod integration]
+
+Run162/23a369605731 with actual DoNothing and original comparison mods completed/restored. Original Miner1 slot0 survived one own successful rescue, registered hidden with zero visible occupancy and participated in actual local Iron0→1→2. OFF stayed alive after bounded48 ticks, with no own rescue/arrival/production; no universal deletion claim. Original Hunter survived one own successful rescue and two natural distinct-Deer cycles yielding9+9 and18 actual Granary credits. Observed visible incoming hide anchors happened to equal Home in this world; this is not a universal home-equality proof. Full limits and compact evidence are in the testmod SP-ACCEPTANCE.md and .work/a/rescue-sp/001/hunter-miner1-162-summary.json.
+
+## 26.11.2026: role-specific published-route postprocessors [Vanilla facts]
+
+On the same canonical hash, whole196280/198620/198B60 and Wheat133DD0/Grunt1319A0 producers were read.196280 publishes requested744/746 and effective endpoint720/722/730.198620(unit,1) can shorten754 and BOTH endpoint-coordinate pairs plus730, or defer via8E8 when8EC!=0. Wheat then restores730 andA00 to its original crop packed tile. AI1 does this on Native1; work4→3 and7→6/8 proceed through shortening and crop stores even after Native0;5→5 stores crop without shortening even after0. Empty output10→field6/8 restores only after1, otherwise takes home fallback. Arrival3/6 face crop730,5 writes its damage grid2 and8 writes120; work4/7 also use crop730. Direct196280 Native0 does not have a confirmed730 write through the checked19B1B0/199CD0 chains. Wheat output9→10 and Hops7→8 have ordinary Store route publication without this crop-restoration step.
+
+Grunt's successful buffer8→output3 producer separately invokes198B60 after196280.198B60 tests ordinary path transitions for IsStairs0x800, writes754=count before the first stair and effective720/722/730 at that stair, leaving requested744/746 untouched. With no stairs it retains the full route; empty/first-transition-stair plans may have length0. Disassembly independently confirms direction-table scale8 (not a misleading scale4 decompiler rendering). Only the Grunt producer directly calls this postprocessor. Production/yield belongs to the separate original Ox and must not be replayed when repairing the Grunt's route.
+
+### Explicit unresolved compatibility boundaries [mod integration]
+
+The current generic NativeWorkerResumeWorld.Reissue calls ordinary196280 without these role-specific poststeps. Wheat's exact Job730 post-original check can reject a Native1 field reissue before crop730 restoration; output10/8 tests do not accept field phases. The Grunt requested goal alone does not prove first-stair limiting of the new route. A real naturally reachable trimmed route with8EC0 under all current ordinary gates remains to be established or refuted; portal8EC!=0 is already excluded. This is a static contract gap, not a reproduced in-game Grunt loss. Separate evidence: .work/a/rescue-farmers/001/REVIEW.md and .work/a/quarry-pitch/001/GRUNT-R3-CONTRACT.md. Both boundaries remain mandatory open before a general production claim; easy output/101 passes do not close them.
+
+### 27.11.2026: Grunt reachability clarification [Vanilla facts]
+
+The static reachability question above is now closed; gameplay acceptance remains open. Current canonical PE data gives Grunt/type8 path profile1.196280 passes that profile into F4930, whose profile1 branch uses F3060. The complete F3060 route builder admits direction-bit transitions without the wall/stair filter of F32B0; profile1 also skips DB650 wall avoidance at F4B94. D86F0 publishes real floor8/lowest-stair24 directional edges. E49D0 floods these into PCL1850EC690 without excluding wall100/stair800 through its seed mask4A5014B1. C5040/C4BF0 special handling concerns Gate/Keep/Tower, not naked stairs. Thus an ordinary Current/Next before a later stair and same-PCL8EC0 is statically reachable; the existing ordinary-entry gate does not remove the need for198B60. No artificial flags or in-game successful stair rescue is inferred. Full chain and scope: .work/a/quarry-pitch/001/GRUNT-R3-CONTRACT.md.
+
+### 27.11.2026: Cattle-farm readiness field [Vanilla facts / fixture correction]
+
+On the same canonical native hash, complete A3A70 and136D40 agree on the local readiness DWORD at native building offset1A8: A3A70's phase6-to0 completion writes1 and the farmer's AI1 branch reads/consumes it. The installed public GameBuilding view begins after native5C, so this is public offset14C, UInt32 r_CheeseAmount. Native158/publicFC instead starts the UInt16 access-candidate cursor followed by accessX atFE. Reading an Int32 there combines unrelated placement fields and cannot witness readiness. The original farmer fixture's158 reader was incorrect and is replaced by the actual typed public cheese DWORD; this is not a Vanilla defect or proof that a cattle gameplay scenario passed. Compact current-hash exports and actual member-width query: .work/a/rescue-sp/001/cattle-farm-width.c and cattle-ready-width-query.json.
+
+## 27.11.2026: Hops crop context versus walking destination [Vanilla facts]
+
+On the same freshly checked canonical native hash, complete134F00/BBB70
+distinguish the selected crop from its cardinal work-neighbour destination.
+BBB70 scans24 stored entries, requires the neighbour's PCL to match farm
+access and absolute height difference<16. Planting selection accepts
+crop damage0/1; harvesting selection accepts14..27.
+
+134F00 issues196280 toward crop+neighbour offset, then stores the crop
+in both unit730 andA00. Its initial field producer does this only after
+Native1; work4→travel3 and work6→travel5 restore them regardless of
+the Move result. Empty output8 restores crop context after successful
+next-field routing; failure takes Home/state2. Unlike Wheat, the complete
+Hops handler does not call198620. Arrival3/5 faces730; work4 writes
+damage2 throughA00 and work6 increments cargo and writes damage80
+throughA00. It does not repeat the earlier14..27 selection gate there.
+
+Wheat output10 and Hops output8 instead retain730 as the ordinary
+published route endpoint; their Store producers do not restore it toA00.
+A field-specific crop correction must not be applied to output states.
+Evidence: current-hash134F00/BBB70/196280/198620, WORKER_PAUSES.md
+and .work/a/rescue-farmers/001/REVIEW.md. No successful field rescue is
+inferred; the incomplete crop-runtime stage is not Vanilla evidence.
+
+## 27.11.2026: Stored farm plot and constructor layouts [Vanilla facts]
+
+Whole776F0/74410/73450 and the corresponding canonical PE tables
+were read on the same hash. Wheat776F0 stores36 packed plot IDs from
+building224, using2D37C0 XY-pair tables with variant stride0x120. Its
+two variants have36 distinct points within relative0..8. Hops74410
+stores24 entries from2D3C40 with stride0xC0, likewise within0..8. Writers
+set IsWheat01000000 or IsHops02000000 and the original building ID.
+Native building header5C puts the plot list at public1C8.
+
+Cattle73450 reads27 records per variant from2D3E00: twelve-byte
+(x,y,initialDamage) triples, not eight-byte XY pairs. All four variants
+have27 distinct points within0..9. Records4..26 receive initial damage
+and FarmFence08000000/building registration. Sparse table membership
+does not mean every cell in the enclosing rectangle has the same role.
+The separate72490 IsFarm parcel is documented in AI_WOODCUTTER_BUILD.md.
+Evidence: actual PE table readbacks and complete constructor records;
+.work/a/rescue-farmers/001/REVIEW.md is an integration snapshot whose
+old native158 readiness claim is superseded by the1A8 correction above.
+
+## 27.11.2026: Prepared-Next relocation187110 [Vanilla facts]
+
+The complete current-hash187110 body is227 bytes and takes native unit
+manager plus one-based unit ID. It clears6BC..6C3,8F6 and9B4, sets
+WORD750=8, unlinks the auxiliary6B8 chain through186AF0 and clears6B8,
+then unlinks ordinary occupancy through186AD0. It adopts already stored
+Next738/73A as Current71C/71E, writes fine coordinates tile*8+4 and packed
+Current72C through the native row table402FF2C, refreshes view18BE50
+and registers occupancy through180230. It is not the five-argument
+19BA40 relocation routine. The former does not itself select safe Next
+coordinates, supply an arbitrary height or prove a complete job/portal
+reset; its exact caller preconditions remain necessary. Ordinary movement
+has no proven nonzero6B8 producer (the earlier auxiliary-coverage limit
+still applies). Evidence: complete CURRENT function187110, its canonical
+machine bytes and the existing186AF0/186AD0/180230 contracts. No unknown
+auxiliary-chain gameplay acceptance is inferred.

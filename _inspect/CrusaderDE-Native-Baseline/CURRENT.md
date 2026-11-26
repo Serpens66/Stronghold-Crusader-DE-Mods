@@ -73,7 +73,7 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 - [Portal table in the path manager](./sem/FBCB9319/knowledge/PORTAL_TABLE.md): `[0]` is the highest used id + 1 (`0xF4540` each tick), first-free allocation by `0xD8510` for gatehouses and ladders, per-tick handler refresh and no renumbering; confirmed by disassembly.
 - [Surrender selection and multiplayer checksum audit](./sem/FBCB9319/knowledge/SURRENDER_SELECTION.md): selected Lord field, checksum buckets, deselection and trace evidence.
 
-- [Weapon workshop production fields](./sem/FBCB9319/knowledge/WEAPON_WORKSHOP_FIELDS.md): current and next goods IDs, interop pointer origin, and verified Vanilla workshop scope.
+- [Weapon workshop production fields](./sem/FBCB9319/knowledge/WEAPON_WORKSHOP_FIELDS.md): current and next goods IDs, interop pointer origin, verified Vanilla workshop scope, and Tanner hide/fade/yield/physical-output ordering.
 
 ## Vanilla audits with mod integration
 
@@ -97,7 +97,7 @@ Only Vanilla behavior; Script Extender names appear only as vocabulary.
 
 - [Custom Lord initial selection and failed dialog refresh](./sem/FBCB9319/knowledge/CUSTOM_LORD_AIV_SELECTION.md): package-first defaults, slot-dependent types, invalid Standard flags, interrupted dialog refresh and supplied snapshot evidence; static audit, live callback sequence unverified.
 
-- [Worker production bonus and reduced output](./sem/FBCB9319/knowledge/WORKER_PRODUCTION_BONUS.md): signed fixed contribution, complete producer/completion chains, reduced Ox loads, display and raw save/transfer/checksum contracts; static and isolated execution evidence, game acceptance separate.
+- [Worker production bonus and reduced output](./sem/FBCB9319/knowledge/WORKER_PRODUCTION_BONUS.md): signed fixed contribution, complete producer/completion chains, reduced Ox loads, display and raw save/transfer/checksum contracts; the 2026-11-27 additions cover Fletcher materials, Pitch hidden work, Grunt/Tether/Ox transfers and Miner2 direct withdrawals/physical deliveries. Static and isolated execution evidence, game acceptance separate.
 
 - [Siege engineer crew timeout](./sem/FBCB9319/knowledge/SIEGE_ENGINEER_CREW_TIMEOUT.md): crew refresh and release at121; pending recruitment, normal101/105 waiting, serialized user-save evidence and the state6 automatic-crew duplication cause.
 - [Hunter prey ownership, reservation and shot states](./sem/FBCB9319/knowledge/HUNTER_PREY_RULES.md): three owner barriers, state 10 as the shot, reservation countdown, chicken population, melee rabbit contact and cow facts; single-player acceptance, multiplayer pending. Includes the complete access list of the reservation word (`+0x448`/`+0xAA4`), its war-dog and Engineer meanings, and corpse dead-time thresholds; herd kinds, spawn arts and route readers; the three filters for units attacking animals by themselves. Static extension of 2026-11-15 records hut/worker identity and meat inventories, deferred delivery, complete AI retirement calls/refund nuances and their native scheduling boundary. The 2026-11-21 audit adds the hut work cadence, the Chore 55 interval reset, and checksum coverage during multiplayer repair.
@@ -179,7 +179,7 @@ Vanilla audits that also contain mod-specific parts; see the `[mod integration]`
 - [Raid target and attack access audit](./sem/FBCB9319/knowledge/RAID_RETARGET.md): target priorities, granary eligibility, command dispatch, attack-tile checks and the savegame observation.
 - [Rally-point terrain slowdown audit (2026-10-08)](./sem/FBCB9319/knowledge/RALLY_TERRAIN_SLOWDOWN.md)
 - [Read-only manual unit path probes](./sem/FBCB9319/knowledge/UNIT_COMMAND_PROBE_SCRATCH.md)
-- [Recruit transformation and rally tracking](./sem/FBCB9319/knowledge/RECRUIT_TRANSFORMATION.md): same-slot recruitment, transient AliveState 4, finalization and consumer lifetime contract.
+- [Recruit transformation and rally tracking](./sem/FBCB9319/knowledge/RECRUIT_TRANSFORMATION.md): same-slot recruitment, transient AliveState 4, finalization, early natural employee-slot publication, vacancy cleanup and conditional reemployment.
 - [Remapped-player Lord spawn audit](./sem/FBCB9319/knowledge/LORD_SLOT_REMAP.md): map-slot reassignment, stale Lord identity fields and the Vanilla spawn suppression path.
 - [Savegame metadata without the original map](./sem/FBCB9319/knowledge/SAVEGAME_MISSING_MAP_METADATA.md): confirmed Vanilla map-availability rejection, embedded Lord presentation, safe serialization boundary and desktop-tested managed testmod.
 - [Savegame modsettings load boundaries](./sem/FBCB9319/knowledge/SAVEGAME_MODSETTINGS_LOAD.md): multiplayer map-load routing, installed archive-context mismatch, Solo/Coop boundaries and readiness validation limits.
