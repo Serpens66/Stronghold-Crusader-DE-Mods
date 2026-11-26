@@ -220,24 +220,38 @@ namespace TrappedUnitRescueTest
             ulong image=unchecked((ulong)runtime.Native.ImageBase.ToInt64());
             byte[] bytes=Shared.CommittedMemory.ReadUpTo(hook.StubAddress,4096);
             var decoder=Iced.Intel.Decoder.Create(64,new Iced.Intel.ByteArrayCodeReader(bytes));decoder.IP=stub;
+            int traversalCalls=0;bool knownCalls=true;
             while(decoder.IP<stub+(ulong)bytes.Length)
             {
                 var instruction=decoder.Decode();
                 if(instruction.Mnemonic==Iced.Intel.Mnemonic.Call && instruction.Op0Kind==Iced.Intel.OpKind.NearBranch64)
+                {
                     log("mounted-hook-call updateRva="+(hook.TargetAddress-image).ToString("X")+
                         " callTargetRva="+unchecked(instruction.NearBranchTarget-image).ToString("X")+
                         " expectedTraversalRva=187110 source=actual-published-stub boundedRead=true");
+                    if(instruction.NearBranchTarget==image+0x187110)traversalCalls++;else knownCalls=false;
+                }
+                else if(instruction.Mnemonic==Iced.Intel.Mnemonic.Call)knownCalls=false;
                 if(instruction.Mnemonic==Iced.Intel.Mnemonic.Jmp && instruction.Op0Kind==Iced.Intel.OpKind.NearBranch64 &&
-                    instruction.NearBranchTarget==hook.TargetAddress+(uint)hook.DisplacedByteCount)return;
+                    instruction.NearBranchTarget==hook.TargetAddress+(uint)hook.DisplacedByteCount)
+                {RequireMountedCallProof(hook,image,traversalCalls,knownCalls);return;}
                 if(instruction.Mnemonic==Iced.Intel.Mnemonic.Jmp && instruction.IsIPRelativeMemoryOperand)
                 {
                     ulong slot=instruction.IPRelativeMemoryAddress;
                     if(slot>=stub && slot+8<=stub+(ulong)bytes.Length &&
-                        BitConverter.ToUInt64(bytes,(int)(slot-stub))==hook.TargetAddress+(uint)hook.DisplacedByteCount)return;
+                        BitConverter.ToUInt64(bytes,(int)(slot-stub))==hook.TargetAddress+(uint)hook.DisplacedByteCount)
+                    {RequireMountedCallProof(hook,image,traversalCalls,knownCalls);return;}
                 }
                 if(instruction.Code==Iced.Intel.Code.INVALID)break;
             }
-            log("mounted-hook-call decodeStoppedWithoutResume=true updateRva="+(hook.TargetAddress-image).ToString("X"));
+            Require(false,"Mounted published stub could not be decoded through its verified original-resume boundary");
+        }
+        private void RequireMountedCallProof(X64InlineHook hook,ulong image,int traversalCalls,bool knownCalls)
+        {
+            Require(knownCalls && traversalCalls==1,
+                "Mounted published stub does not call exactly the audited187110 traversal helper; abort before creating riders");
+            log("mounted-hook-call-proof updateRva="+(hook.TargetAddress-image).ToString("X")+
+                " traversalCalls="+traversalCalls+" allCallsKnown=true resumeVerified=true");
         }
         private IEnumerable<AutomationWait> MountedKeepCase(AutomationRun run,eMappers mapper,int rotation,bool committed,eChimps type,bool blocked)
         {

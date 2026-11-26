@@ -109,6 +109,11 @@ foreach($population in @(4000,9871)){
     if(!$rejected){throw 'Higher-tier log accepted under default1000 request'};$checks++
 
 }
+# An otherwise valid passive record must not conceal active damage observers.
+Reject @($valid + "RESCUE_TEST performance-health-diagnostic run=$run diagnosticSubscriptions=true performanceAcceptanceClaim=false") 'Active health-event diagnosis'
+Reject @($valid + "RESCUE_TEST performance-health-event run=$run reportedArgumentsOnly=true") 'Active health-event diagnosis'
+$otherRun=$valid + 'RESCUE_TEST performance-health-diagnostic run=ffffffffffffffffffffffffffffffff diagnosticSubscriptions=true performanceAcceptanceClaim=false'
+if(!(Assert-RescuePerformanceLog -Lines $otherRun -Run $run).Qualified){throw 'Unrelated-run diagnostic marker rejected otherwise valid current run'};$checks++
 # New marker schema is optional for historical logs, complete and strict when present.
 function Add-DiagnosticMarkers([string[]]$inputLines,[int]$population){
 $marked=[Collections.Generic.List[string]]::new();[UInt64]$markerStamp=100

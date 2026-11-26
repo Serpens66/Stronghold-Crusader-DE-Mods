@@ -69,7 +69,7 @@ if(!$owns.Success){throw 'Cannot verify Fixture.Owns declaration; update runner 
 $allowed=@([regex]::Matches($owns.Groups['body'].Value,'value\s*==\s*"(?<name>rescue-[a-z0-9-]+)"') | ForEach-Object {$_.Groups['name'].Value})
 if(!$allowed.Count){throw 'No declared fixture scenarios.'}
 foreach($scenario in $Scenarios){if($scenario -cnotin $allowed){throw "Unknown or unwired scenario: $scenario"}}
-if(@($Scenarios | Where-Object {$_.StartsWith('rescue-perf-',[StringComparison]::Ordinal)}).Count){
+if(@($Scenarios | Where-Object {$_.StartsWith('rescue-perf-',[StringComparison]::Ordinal) -or $_ -ceq 'rescue-diag-health4000-on'}).Count){
     if(!$PerfProbePackage){throw 'Performance scenarios require the explicit diagnostic PerfProbe package.'}
     if($Scenarios.Count -ne 1){throw 'Run one performance scenario per transaction; its ABAB members share one run-owned save.'}
 }
@@ -132,7 +132,11 @@ try{
     $plan.WorkshopPreflight=$workshop
     $priorManagerLaunch=[Environment]::GetEnvironmentVariable('SCDEModManagerLaunchId','Process')
     $managerLaunch=if([string]::IsNullOrEmpty($priorManagerLaunch)){'TrappedUnitRescueTest-'+[Guid]::NewGuid().ToString('N')}else{$priorManagerLaunch}
-    if(!$SkipBuild){& (Join-Path $PSScriptRoot 'Build.ps1') -nopause -noinstall -ApiSharedDir $api}
+    if(!$SkipBuild){
+        if($Scenarios -ccontains 'rescue-diag-health4000-on'){
+            & (Join-Path $PSScriptRoot 'Build.ps1') -nopause -noinstall -ApiSharedDir $api -DriverArguments @('/devdiag')
+        }else{& (Join-Path $PSScriptRoot 'Build.ps1') -nopause -noinstall -ApiSharedDir $api}
+    }
     $work=New-ShortWorkDirectory -Root $workspace -Kind t -Name rescue-layout -Identity ('TrappedUnitRescueTest/'+$Layout)
     $evidence=New-ShortWorkDirectory -Root $workspace -Kind a -Name rescue-game -Identity ($Layout+'; '+($Scenarios -join ','))
     $cfg=Join-Path $game 'BepInEx/config/TrappedUnitRescueTest_Serp.cfg'

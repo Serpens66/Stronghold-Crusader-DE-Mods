@@ -26,7 +26,11 @@ namespace TrappedUnitRescueTest
             internal bool Active,Reuse,HasTick,ReplacementAliveGlobalChecked,SawDeletionMarker,OriginalTerminated,MoveRetired;
             internal bool OriginalCandidateCaptured,OriginalCandidateRetired;
             internal int ExactOriginalOwnPublications;
-            internal bool SlotMismatchLogged;
+            internal uint AmbientGlobal;
+            internal VegetationType AmbientType;
+            internal int AmbientX,AmbientY,AmbientFirstTick,AmbientLives,AmbientAliveLives;
+            internal bool AmbientPending;
+            internal readonly HashSet<uint> AmbientSeenGlobals=new HashSet<uint>();
             internal string Fault,Outcome="not-observed";
             internal int PreviousAI=-1,PreviousFlags=-1,PreviousCounter=-1,PreviousX=-1,PreviousY=-1;
         }
@@ -132,36 +136,7 @@ namespace TrappedUnitRescueTest
                 }
                 Require(p.ReplacementAliveGlobalChecked || p.Reads<=32,"Replacement never genuinely initialized within its bounded window");
             }
-            else
-            {
-                // Snapshot the two asserted primitives once. A mismatch is not
-                // itself evidence of allocation or a new usable tree lifetime.
-                uint actualGlobal=tree->r_GlobalId;var actualLife=tree->r_AliveState;
-                bool empty=actualGlobal==0 && (int)actualLife==0;
-                if(!empty && !p.SlotMismatchLogged)
-                {
-                    p.SlotMismatchLogged=true;
-                    var actualType=tree->r_VegetationType;
-                    int actualX=tree->r_TilePositionX,actualY=tree->r_TilePositionY;
-                    int originalTile=runtime.Native.Tile(t.TreeX,t.TreeY);
-                    int originalTileVegetation=GameTileManagerAPI.Instance.GetTileVegetationId(originalTile);
-                    bool sameTileNewLife=actualGlobal!=0 && actualGlobal!=t.TreeGlobal &&
-                        (actualLife==AliveState.NeedsInit || actualLife==AliveState.IsAlive) &&
-                        actualType==VegetationType.AppleTree && actualX==t.TreeX && actualY==t.TreeY &&
-                        originalTileVegetation==t.TreeId;
-                    log("apple-lifetime-first-slot-mismatch tick="+tick+" sourceTick="+p.SourceTick+
-                        " elapsedNativeTicks="+unchecked((uint)(tick-p.SourceTick))+" readOrdinal="+p.Reads+
-                        " session="+p.Session+" world="+p.World+" nativeIndex="+t.TreeId+
-                        " capturedGlobal="+t.TreeGlobal+" actualGlobal="+actualGlobal+
-                        " actualLife="+(int)actualLife+" actualLifeName="+actualLife+
-                        " actualType="+(int)actualType+" actualTypeName="+actualType+
-                        " actualX="+actualX+" actualY="+actualY+" originalX="+t.TreeX+" originalY="+t.TreeY+
-                        " originalTile="+originalTile+" originalTileVegetation="+originalTileVegetation+
-                        " sameOriginalTileNewLifeProven="+sameTileNewLife+
-                        " zeroSlotFollowupPrecondition=false allocationNotInferredFromMismatch=true");
-                }
-                Require(empty,"Delete-only zero-slot followup precondition changed; first mismatch primitives logged; no allocation inferred");
-            }
+            else ObserveDeletedAppleSlot(p,tree,tick);
 
             var actor=t.Step.Actor;
             bool original=UnitAccess.TryGetById(actor.Id,out GameUnit* unit,out _) && unit!=null && unit->r_GlobalId==actor.Global;
@@ -192,6 +167,60 @@ namespace TrappedUnitRescueTest
                     " replacementGlobal="+p.ReplacementGlobal);
             }
             p.Outcome="original-alive-native-ai-"+unit->r_AIState;
+        }
+        private unsafe void ObserveDeletedAppleSlot(AppleLifetimeProof p,GameVegetation* tree,int tick)
+        {
+            var original=p.Transit;
+            uint global=tree->r_GlobalId;var life=tree->r_AliveState;
+            Require(!NativeVegetationAccess.TryReadCapturedAliveGlobal(tree,true,original.TreeGlobal,out _),
+                "Deleted original vegetation lifetime became readable as alive again");
+            if(global==0 && (int)life==0)
+            {
+                Require(!p.AmbientPending,"Observed replacement disappeared before its independent alive-global control");
+                p.AmbientGlobal=0;return;
+            }
+            var type=tree->r_VegetationType;
+            int x=tree->r_TilePositionX,y=tree->r_TilePositionY;
+            // Tile validates the fixed grid AND the active playable diamond.
+            int tile=runtime.Native.Tile(x,y);
+            bool nativeTileValid=tile>=0 && tile<NativeRelocation.TileCapacity;
+            int binding=nativeTileValid?GameTileManagerAPI.Instance.GetTileVegetationId(tile):-1;
+            bool boundNewLife=global!=0 && global!=original.TreeGlobal &&
+                (life==AliveState.NeedsInit || life==AliveState.IsAlive) &&
+                type!=VegetationType.None && Enum.IsDefined(typeof(VegetationType),type) && nativeTileValid && binding==original.TreeId;
+            if(!boundNewLife)
+                log("apple-lifetime-slot-invalid tick="+tick+" sourceTick="+p.SourceTick+" readOrdinal="+p.Reads+
+                    " nativeIndex="+original.TreeId+" capturedGlobal="+original.TreeGlobal+" actualGlobal="+global+
+                    " life="+(int)life+" type="+(int)type+" x="+x+" y="+y+" tile="+tile+" binding="+binding);
+            Require(boundNewLife,"Nonempty deleted slot has no independently valid new identity/life/coordinate/tile binding");
+            if(global!=p.AmbientGlobal)
+            {
+                Require(!p.AmbientPending,"Observed replacement changed identity before its independent alive-global control");
+                Require(p.AmbientLives<16 && p.AmbientSeenGlobals.Add(global),
+                    "Replacement lifetime transition budget exhausted or a completed global reappeared");
+                p.AmbientGlobal=global;p.AmbientType=type;p.AmbientX=x;p.AmbientY=y;p.AmbientFirstTick=tick;p.AmbientLives++;p.AmbientPending=true;
+                log("apple-lifetime-natural-slot-reuse tick="+tick+" sourceTick="+p.SourceTick+" readOrdinal="+p.Reads+
+                    " nativeIndex="+original.TreeId+" capturedGlobal="+original.TreeGlobal+" actualNewGlobal="+global+
+                    " actualLife="+life+" actualType="+type+" x="+x+" y="+y+" tile="+tile+" binding="+binding+
+                    " capturedOriginalX="+original.TreeX+" capturedOriginalY="+original.TreeY+
+                    " originalProofUnchanged=true aliveControlPending=true");
+            }
+            Require(type==p.AmbientType && x==p.AmbientX && y==p.AmbientY,
+                "One observed replacement global changed its captured type or physical position");
+            Require(p.AmbientPending || life==AliveState.IsAlive,
+                "One observed initialized replacement regressed to NeedsInit without a new identity");
+            if(life==AliveState.IsAlive && p.AmbientPending)
+            {
+                Require(NativeVegetationAccess.TryReadCapturedAliveGlobal(tree,true,global,out uint live) && live==global &&
+                    !NativeVegetationAccess.TryReadCapturedAliveGlobal(tree,true,original.TreeGlobal,out _),
+                    "Actual alive natural replacement did not independently accept new global and reject captured old global");
+                p.AmbientPending=false;p.AmbientAliveLives++;
+                log("apple-lifetime-natural-alive-control tick="+tick+" nativeIndex="+original.TreeId+
+                    " capturedGlobal="+original.TreeGlobal+" actualNewGlobal="+live+" x="+x+" y="+y+
+                    " actualLife=IsAlive newGlobalControl=true oldGlobalRejected=true originalProofUnchanged=true");
+            }
+            Require(!p.AmbientPending || unchecked((uint)(tick-p.AmbientFirstTick))<=32,
+                "Natural replacement exceeded the fixture's bounded independent initialization window");
         }
         private unsafe void InvalidateAppleLifetime(AppleLifetimeProof p,int farm)
         {
@@ -275,18 +304,31 @@ namespace TrappedUnitRescueTest
                             Require(p.Fault==null && workerCycle.Fault==null,p.Fault??workerCycle.Fault);return true;
                         });
                     }
+                    // A late genuine allocation may still be NeedsInit at tick512.
+                    // Finish only its bounded read-only control, without accepting
+                    // an unproved lifetime or extending observation indefinitely.
+                    for(int sample=0;sample<16 && p.AmbientPending;sample++)
+                    {
+                        yield return run.WaitForTicks(run.CurrentMission,2);
+                        run.InSimulation(run.CurrentMission,()=>{
+                            Require(p.Fault==null && workerCycle.Fault==null,p.Fault??workerCycle.Fault);return true;
+                        });
+                    }
                     foreach(var wait in run.SetPause(run.CurrentMission,true))yield return wait;
                     run.InSimulation(run.CurrentMission,()=>{
                         p.OriginalCandidateRetired=!HasOriginalAppleLifetimePending(p);
                         bool oldReceipt=runtime.Workers.Ledger.TryGetOwnedByUnit(p.Transit.Step.Actor.Id,out var ticket) &&
                             ticket.UnitGlobalId==p.Transit.Step.Actor.Global;
                         Require(p.Fault==null && p.Reads>=512 && (!p.Reuse || p.ReplacementAliveGlobalChecked) &&
+                            !p.AmbientPending && p.AmbientLives==p.AmbientAliveLives &&
                             p.OriginalCandidateCaptured && p.OriginalCandidateRetired && p.ExactOriginalOwnPublications==0 && !oldReceipt &&
                             workerCycle.Fault==null && workerCycle.RemotePicking==0 &&
                             workerCycle.DropEvents==workerCycle.DropsWithStockIncrease,
                             "Lifetime negative lacks exact original candidate retirement or produced old-life publication/receipt/unproved work");
                         log("apple-lifetime-result state="+state+" reuse="+p.Reuse+" actualReplacementAliveGlobalGuard="+
                             p.ReplacementAliveGlobalChecked+" exactOriginalOwnPublications=0 oldLifetimeReceipt=false"+
+                            " naturalReplacementLives="+p.AmbientLives+" naturalReplacementAliveControls="+p.AmbientAliveLives+
+                            " permanentVacantSlotRequired=false originalProofRebound=false"+
                             " capturedOldCandidateRetired="+p.OriginalCandidateRetired+
                             " processingReasonUnobserved=true rescueOutcomePerLifetimeUnobserved=true remotePicking=0 physicalDeposits="+
                             workerCycle.DropsWithStockIncrease+" followupTickCallbacks="+p.Reads+" minimumWaitedNativeTicks=512"+

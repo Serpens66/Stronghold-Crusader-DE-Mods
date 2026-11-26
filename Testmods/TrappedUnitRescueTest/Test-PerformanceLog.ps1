@@ -18,6 +18,7 @@ function Assert-RescuePerformanceLog {
     # Compare positions in the original input, never sorted/filter-only order.
     function Position([string]$Line){return [Array]::IndexOf($Lines,$Line)}
     Require ($Run -cmatch '^[0-9a-f]{32}$') 'Invalid exact run identity'
+    Require (@($Lines|Where-Object {($_.Contains('performance-health-diagnostic ') -or $_.Contains('performance-health-event ')) -and (Token $_ 'run') -ceq $Run}).Count -eq 0) 'Active health-event diagnosis is not a passive performance sample'
     $population=switch -CaseSensitive ($Scenario){
         'rescue-perf-1000-passive-on'{1000}
         'rescue-perf-4000-idle1000walk-passive-on'{4000}

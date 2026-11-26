@@ -163,3 +163,13 @@ Mutation2 beobachtet nach bestätigtem ursprünglichem Resume ebenfalls tatsäch
 ### 26.11.2026 —137 Apple2/8 positive Originalbaumzyklen
 
 Beide ON-Fälle und beide OFF-Kontrollen bestanden im selben vollständig wiederhergestellten Lauf137/3d376462bedf. Öffentliche natürliche Baumvorbereitung nach128 bzw130 echten Ticks ergibt tatsächlich Phase2/0; spätere Source-Reife und ursprüngliche Identität sind einzeln qualifiziert. Apple2:609Rest, echter Originalkontakt nach170Ticks; Apple8:330Rest, Kontakt nach124Ticks. Beide ON anschließend nativePickup1,4 echte Granarycredits, eigene ursprüngliche Native1 genau1, kein RemotePicking. OFF jeweils tatsächliche native Actorlöschung und0 eigene Aufrufe/Credits. Detaillierte Grenzen und Archive in SP-ACCEPTANCE.md. Zielbaum-Löschung/Reuse und echter Native0-Park-Save bleiben unbewiesen.
+
+### 26.11.2026 — 142 echter Native0-Arbeiter-Save bestanden
+
+Lauf142/db3127ff0ec1 schließt den repräsentativen Brauer-Native0-Park-Save: echte Bau-/Moatquelle, ursprünglicher Job mit Cargo Ale1 und Lagerziel; tatsächliche Native0-Aufrufe vor und nach normalem Save/Load. Der erste geladene Tick bestätigt Flags5 und identische serialisierte Besitzdaten, Job, Cargo, Store und Ziel. Nach öffentlicher Maueröffnung genau1 tatsächlicher Native1-Wiederanlauf und genau1 physischer Alecredit, Cargo0 und keine doppelten Credits. Session-/Worldwechsel sind separat geprüft. Keine Veto-Simulation. Vollständiger Beleg und Grenzen in SP-ACCEPTANCE.md; weitere Rollen und Lebenszeitgegenproben bleiben offen.
+
+Lauf144 identifiziert im R2-Delete-Negativtest eine neue NeedsInit-Baumidentität an anderer Position im ehemaligen Slot. Die dauerhafte Zero-Slot-Vorbedingung ist dadurch verletzt; keine bestandene Lebenszeit-Negativabnahme. Alte und neue Generation müssen in der Fixture getrennt beobachtet werden.
+
+### 26.11.2026 — 146 Baum-Lebenszeitnegative R2/R8 bestanden
+
+Alle vier tatsächlichen Lösch-/Same-slot-Reuse-Fälle bestehen, einschließlich echter unabhängig initialisierter neuer Baumgenerationen und positiver neuer/negativer alter Global-ID-Kontrollen. Alter Kandidat jeweils verworfen,0 exakte eigene Veröffentlichungen und kein alter Receipt; mindestens512 Tickcallbacks. Tatsächliche native Arbeiterlöschung, keine Rettungs-/Produktionszyklusbehauptung. Vollständige Identitäten, Kachelbindungen und Grenzen in SP-ACCEPTANCE.md. Geparkte Baum-Receipts und übrige Rollen bleiben separate offene Fälle.

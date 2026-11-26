@@ -30,8 +30,11 @@ namespace TrappedUnitRescueTest
         {
             internal Fixture Fixture;
             internal string Path,Fault,RunId;
+#if SERP_DEVDIAG
+            internal PerformanceHitTrace HitTrace;
+#endif
             internal long PreviousSession,LoadedSession;
-            internal bool Active,Armed,Ended,Enabled,Walking,ObserveArmyMoves;
+            internal bool Active,Armed,Ended,Enabled,Walking,ObserveArmyMoves,HealthMismatchLogged;
             internal int Loaded,WindowStart,LastCommandTick,Commands,OwnArmyMoves,Population,AmbientReserve,PhysicalCapacity;
             internal readonly List<Actor> IdleActors=new List<Actor>();
             internal readonly List<int[]> KeepAreas=new List<int[]>();
@@ -45,13 +48,17 @@ namespace TrappedUnitRescueTest
         private static bool performanceLifecycleRegistered,performanceTickRegistered,performanceMoveRegistered;
 
         // A single unbound iterator owns all four ordinary save/load transitions.
-        private IEnumerable<AutomationStep> PerformanceSteps(int population=1000,int warmupTicks=256,int windowTicks=3600,int speed=40,bool observeArmyMoves=true)
+        private IEnumerable<AutomationStep> PerformanceSteps(int population=1000,int warmupTicks=256,int windowTicks=3600,int speed=40,bool observeArmyMoves=true,bool observeHealthEvents=false)
         {
             Require(population==1000 || population==4000 || population==9871,"Unselected performance tier");
+            Require(!observeHealthEvents || population==4000 && !observeArmyMoves,"Health event diagnosis requires explicit4000/1000 profile");
+#if !SERP_DEVDIAG
+            Require(!observeHealthEvents,"Health event diagnostic profile requires build.bat /devdiag");
+#endif
             Require(population==1000 || !observeArmyMoves,"Higher tiers require the explicit passive profile");
             Require(warmupTicks>=128 && windowTicks>=3600 && (speed==40 || speed==250),"Invalid performance profile");
             yield return new AutomationStep("performance-"+population+"-idle-1000walking-identical-save-abab",TimeSpan.FromMinutes(45),
-                run=>Performance(run,population,warmupTicks,windowTicks,speed,observeArmyMoves),false);
+                run=>Performance(run,population,warmupTicks,windowTicks,speed,observeArmyMoves,observeHealthEvents),false);
         }
         private void ArmPerformance(PerformanceProof proof)
         {
@@ -90,7 +97,13 @@ namespace TrappedUnitRescueTest
         private static void PerformanceEnded(MissionLifecycleNotification notification)
         {
             var proof=performanceProof;
-            if(proof!=null && proof.Active && notification.Context.SessionId==proof.PreviousSession)proof.Ended=true;
+            if(proof!=null && proof.Active && notification.Context.SessionId==proof.PreviousSession)
+            {
+                proof.Ended=true;
+#if SERP_DEVDIAG
+                proof.HitTrace?.Suspend();
+#endif
+            }
         }
         private static void PerformanceStarted(MissionLifecycleNotification notification)
         {
@@ -195,7 +208,7 @@ namespace TrappedUnitRescueTest
             log("performance-population run="+proof.RunId+" requested="+population+" physicalBefore="+occupied+" physicalAfter="+PerformanceCensus()+
                 " physicalCapacity="+capacity+" ambientReservation="+proof.AmbientReserve+" freeMarginRequired=64 walkingPopulation=1000 groups="+proof.Groups.Count+" actors="+proof.Actors.Count);
         }
-        private bool IsHigherPerformanceTier()=>scenario=="rescue-perf-4000-idle1000walk-passive-on" || scenario=="rescue-perf-9871-idle1000walk-passive-on";
+        private bool IsHigherPerformanceTier()=>scenario=="rescue-diag-health4000-on" || scenario=="rescue-perf-4000-idle1000walk-passive-on" || scenario=="rescue-perf-9871-idle1000walk-passive-on";
         private void ConfigurePerformanceLobby(EngineInterface.MultiplayerSetupData setup)
         {
             if(!IsHigherPerformanceTier())return;
@@ -281,6 +294,9 @@ namespace TrappedUnitRescueTest
         }
         private unsafe ulong PerformanceBoundary(PerformanceProof proof,bool remember)
         {
+#if SERP_DEVDIAG
+            proof.HitTrace?.RequireHealthy();
+#endif
             Require(proof.Actors.Count==proof.Population && proof.ActorIds.Count==proof.Population,"Performance incomplete full-population boundary");
             if(proof.Population>1000)
             {
@@ -290,7 +306,10 @@ namespace TrappedUnitRescueTest
             ulong hash=14695981039346656037UL;
             foreach(var actor in proof.Actors)
             {
-                var unit=Resolve(actor);Require(UnitAccess.IsReallyAlive(unit) && unit->r_CurrentHealth>0 && unit->r_TribeId==actor.Tribe,
+                var unit=Resolve(actor);
+                if(!remember && unit->r_CurrentHealth!=actor.Health && !proof.HealthMismatchLogged)
+                    LogPerformanceHealthMismatch(proof,actor,unit);
+                Require(UnitAccess.IsReallyAlive(unit) && unit->r_CurrentHealth>0 && unit->r_TribeId==actor.Tribe,
                     "Performance actor lifetime/type/tribe changed");
                 if(remember)
                 {
@@ -317,6 +336,45 @@ namespace TrappedUnitRescueTest
             }
             if(proof.ObserveArmyMoves)Require(proof.OwnArmyMoves==0,"Ambient world caused an own recovery call on the performance army; this is not an unmutated army sample");
             return hash;
+        }
+        // Only on the first existing paused-boundary mismatch. No event demand,
+        // native hook, per-tick scan or acceptance-policy change is introduced.
+        private unsafe void LogPerformanceHealthMismatch(PerformanceProof proof,Actor actor,GameUnit* unit)
+        {
+            proof.HealthMismatchLogged=true;
+            bool tickKnown=SimulationTickEvents.TryGetCurrentTick(out int tick);
+            uint actualHealth=unit->r_CurrentHealth;
+            string facts="run="+proof.RunId+" session="+session+" loadedSession="+proof.LoadedSession+
+                " enabled="+proof.Enabled+" nativeTickKnown="+tickKnown+" nativeTick="+tick+
+                " unit="+actor.Id+"/"+actor.Global+" actualGlobal="+unit->r_GlobalId+
+                " expectedType="+(int)actor.Type+" actualType="+(int)unit->r_UnitChimp+
+                " expectedOwner="+owner+" actualOwner="+unit->r_ControllableForPlayerId+
+                " expectedTribe="+actor.Tribe+" actualTribe="+unit->r_TribeId+
+                " expectedHealth="+actor.Health+" actualHealth="+actualHealth+
+                " healthDelta="+((long)actualHealth-actor.Health)+" actualLife="+(int)unit->r_AliveState+
+                " currentX="+unit->r_CurrentTilePositionX+" currentY="+unit->r_CurrentTilePositionY+
+                " currentTile="+unit->r_CurrentPositionTileId+" nextX="+unit->r_NextTilePositionX2+
+                " nextY="+unit->r_NextTilePositionY2+" nextTile="+unit->r_NextPositionTileId2+
+                " flags="+unit->r_PathPlanStateBitFlags+" substep="+unit->r_MovementSubstep+" ai="+unit->r_AIState+
+                " requestedX="+unit->r_TargetTilePositionX2+" requestedY="+unit->r_TargetTilePositionY2+
+                " savedSourceX="+actor.SourceX+" savedSourceY="+actor.SourceY+
+                " walkingCohort="+(!proof.IdleActors.Contains(actor))+" causeUnobserved=true";
+            string terrain;
+            try
+            {
+                terrain=" currentTerrain=["+PerformanceHealthTerrain(unit->r_CurrentPositionTileId)+
+                    "] nextTerrain=["+PerformanceHealthTerrain(unit->r_NextPositionTileId2)+"]";
+            }
+            catch(Exception error){terrain=" terrainReadUnavailable="+error.GetType().Name;}
+            log("performance-first-health-mismatch "+facts+terrain);
+        }
+        private string PerformanceHealthTerrain(uint tile)
+        {
+            if(tile>=NativeRelocation.TileCapacity)return "tile="+tile+" validNativeIndex=false";
+            int index=(int)tile;var tiles=GameTileManagerAPI.Instance;
+            return "tile="+tile+" validNativeIndex=true flags="+runtime.Native.Flags(index).ToString("X8",CultureInfo.InvariantCulture)+
+                " ordinary="+runtime.Native.OrdinaryGround(index)+" building="+tiles.GetTileBuildingId(index)+
+                " vegetation="+tiles.GetTileVegetationId(index)+" height="+tiles.GetTileHeight(index);
         }
         private unsafe void PerformanceAtSavedSources(PerformanceProof proof)
         {
@@ -380,7 +438,7 @@ namespace TrappedUnitRescueTest
         {
             using(var stream=File.OpenRead(path))using(var sha=SHA256.Create())return BitConverter.ToString(sha.ComputeHash(stream)).Replace("-","");
         }
-        private IEnumerable<AutomationWait> Performance(AutomationRun run,int population,int warmupTicks,int windowTicks,int speed,bool observeArmyMoves)
+        private IEnumerable<AutomationWait> Performance(AutomationRun run,int population,int warmupTicks,int windowTicks,int speed,bool observeArmyMoves,bool observeHealthEvents=false)
         {
             Require(Path.IsPathRooted(map) && File.Exists(map),"Performance requires the full existing built-in map path for provenance hashing");
             var probe=new PerfProbeReflection();probe.Validate();
@@ -403,6 +461,9 @@ namespace TrappedUnitRescueTest
                     return PerformanceBoundary(proof,true);
                 });
                 PerformanceManifest(proof,identity);
+#if SERP_DEVDIAG
+                if(observeHealthEvents)proof.HitTrace=new PerformanceHitTrace(this,proof);
+#endif
                 yield return AutomationWait.Until("performance common native save safe",()=>Director.instance.SafeToSave());Director.instance.FinishedSaving();
                 // Match EditorDirector.SaveSaveGameOrMap exactly: these are screen
                 // dimensions in native tile units, not an arbitrary1x1 viewport.
@@ -447,9 +508,16 @@ namespace TrappedUnitRescueTest
                         " cameraY="+PerformanceNumber(loadedCameraY)+" zoom="+PerformanceNumber(loadedZoom)+" rotationApplied=true referencePendingWarmup=true");
                     run.InSimulation(run.CurrentMission,()=>{
                         Require(GameTileManagerAPI.Instance.GetCurrentMapSize()==800 && Plugin.GeneralObserver.IsActive==proof.Enabled,"Performance loaded map/settings mismatch");
+#if SERP_DEVDIAG
+                        proof.HitTrace?.BindCurrentWorld(iteration);
+#endif
                         if(population>1000)PerformanceExtreme(proof,"load-"+iteration);
                         Require(PerformanceBoundary(proof,false)==identity,"Performance same-save identity checksum differs");
-                        PerformanceAtSavedSources(proof);probe.Validate();return true;
+                        PerformanceAtSavedSources(proof);probe.Validate();
+#if SERP_DEVDIAG
+                        proof.HitTrace?.SetPhase(iteration,"idle-warmup");
+#endif
+                        return true;
                     });
                     foreach(var wait in run.SetPause(run.CurrentMission,false))yield return wait;
                     yield return run.WaitForTicks(run.CurrentMission,warmupTicks);
@@ -473,6 +541,9 @@ namespace TrappedUnitRescueTest
                         {
                             run.InSimulation(run.CurrentMission,()=>{
                                 Require(SimulationTickEvents.TryGetCurrentTick(out proof.WindowStart),"Performance walking warmup clock unavailable");
+#if SERP_DEVDIAG
+                                proof.HitTrace?.SetPhase(iteration,"walking-warmup");
+#endif
                                 proof.LastCommandTick=proof.WindowStart;PerformanceCommands(proof,true);proof.Walking=true;return true;
                             });
                             foreach(var wait in run.SetPause(run.CurrentMission,false))yield return wait;
@@ -486,6 +557,9 @@ namespace TrappedUnitRescueTest
 #endif
                         string label="rescue-p"+population+"-"+iteration+"-"+(workload==0?"idle":"walk");
                         run.InSimulation(run.CurrentMission,()=>{
+#if SERP_DEVDIAG
+                            proof.HitTrace?.SetPhase(iteration,workload==0?"idle-window":"walking-window");
+#endif
                             PerformanceBoundary(proof,false);if(workload==0)PerformanceAtSavedSources(proof);physical=PerformanceCensus();
                             RequirePerformanceCamera("before-window-"+label,referenceCentreX,referenceCentreY,referenceCameraX,referenceCameraY,referenceZoom);
                             var observer=Plugin.GeneralObserver;captures=observer.CaptureCount;attempts=observer.AttemptCount;rescues=observer.RescueCount;
@@ -541,6 +615,9 @@ namespace TrappedUnitRescueTest
                     // Boundary-only completion proof, outside the measured windows.
                     var endpoints=new List<GroupMemberGoal>();
                     run.InSimulation(run.CurrentMission,()=>{
+#if SERP_DEVDIAG
+                        proof.HitTrace?.SetPhase(iteration,"endpoint-return");
+#endif
                         foreach(var group in proof.Groups)
                         {
                             var sample=group.Sample;int targetY=group.Y+(sample.Y>=group.Y?-16:16);
@@ -562,10 +639,19 @@ namespace TrappedUnitRescueTest
             finally
             {
                 proof.Walking=false;proof.Active=false;proof.Armed=false;
-                if(activeLabel!=null)log("performance-window-rejected "+probe.End(activeLabel));
-                if(ReferenceEquals(performanceProof,proof))performanceProof=null;
-                // The external transactional runner owns removal of this exact run-owned save.
-                log("performance-cleanup ownedSave="+proof.Path+" keptForRunnerCleanup=true");
+                try
+                {
+                    if(activeLabel!=null)log("performance-window-rejected "+probe.End(activeLabel));
+                    if(ReferenceEquals(performanceProof,proof))performanceProof=null;
+                    // The external transactional runner owns removal of this exact run-owned save.
+                    log("performance-cleanup ownedSave="+proof.Path+" keptForRunnerCleanup=true");
+                }
+                finally
+                {
+#if SERP_DEVDIAG
+                    proof.HitTrace?.Dispose();
+#endif
+                }
             }
         }
         private sealed class PerfProbeReflection

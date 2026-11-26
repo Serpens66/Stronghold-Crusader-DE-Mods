@@ -47,7 +47,8 @@ namespace TrappedUnitRescueTest
             expectedEnabled = scenario.EndsWith("-on", StringComparison.Ordinal);
         }
 
-        internal static bool Owns(string value) => value == "rescue-loadcache" || value == "rescue-early-provider" || value == "rescue-on" || value == "rescue-off" ||
+        internal static bool Owns(string value) => value == "rescue-editor-new-off" || value == "rescue-editor-new-on" ||
+            value == "rescue-editor-load-off" || value == "rescue-editor-load-on" || value == "rescue-loadcache" || value == "rescue-early-provider" || value == "rescue-on" || value == "rescue-off" ||
             value == "rescue-group-on" || value == "rescue-group-off" ||
             value == "rescue-aiwall-on" || value == "rescue-aiwall-off" ||
             value == "rescue-moat-on" || value == "rescue-moat-off" ||
@@ -89,6 +90,7 @@ namespace TrappedUnitRescueTest
             value == "rescue-auto-commandmoat-nextonly-premidpoint-on" || value == "rescue-auto-commandmoat-nextonly-premidpoint-off" ||
             value == "rescue-auto-commandmoat-nextonly-postmidpoint-on" || value == "rescue-auto-commandmoat-nextonly-postmidpoint-off" ||
             value == "rescue-persistence-parked-on" || value == "rescue-worker-native0save-on" ||
+            value == "rescue-diag-health4000-on" ||
             value == "rescue-perf-1000-on" ||
             value == "rescue-perf-1000-passive-on" ||
             value == "rescue-perf-4000-idle1000walk-passive-on" || value == "rescue-perf-9871-idle1000walk-passive-on" ||
@@ -98,6 +100,14 @@ namespace TrappedUnitRescueTest
 
         internal IEnumerable<AutomationStep> Steps()
         {
+#if !SERP_DEVDIAG
+            Require(scenario!="rescue-diag-health4000-on","Health event diagnostic profile requires build.bat /devdiag");
+#endif
+            if (scenario.StartsWith("rescue-editor-",StringComparison.Ordinal))
+            {
+                foreach(var step in EditorAcceptanceSteps())yield return step;
+                yield break;
+            }
             if (scenario == "rescue-early-provider")
             {
                 foreach(var step in EarlyProviderSteps())yield return step;
@@ -123,6 +133,15 @@ namespace TrappedUnitRescueTest
             if (scenario == "rescue-perf-1000-passive-on")
             {
                 foreach (var step in PerformanceSteps(observeArmyMoves:false)) yield return step;
+                yield break;
+            }
+            if (scenario=="rescue-diag-health4000-on")
+            {
+#if SERP_DEVDIAG
+                foreach(var step in PerformanceSteps(population:4000,observeArmyMoves:false,observeHealthEvents:true))yield return step;
+#else
+                throw new InvalidOperationException("Health event diagnostic profile requires build.bat /devdiag");
+#endif
                 yield break;
             }
             if (IsHigherPerformanceTier())
