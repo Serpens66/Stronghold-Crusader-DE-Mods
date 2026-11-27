@@ -92,3 +92,72 @@ Common rules seen across all features here: hooks are permanent and logically ac
 
 - Real multiplayer acceptance: drawbridge HP guard, gate capture, gate/bridge automation matrix, crenel resync record alone, wall deposits repair, pitch/stairs variant B, moat terrain, moat land bit, construction refund receipts, building pause.
 - In-game: area demolition (deferred by the user 2026-11-11), moat terrain visuals and farm placement, preview map-edge recovery, pitch/stairs fourteen-site integration, building pause repeated toggles and save/load.
+
+## Construction input idle monitor, 2026-11-28 [mod integration]
+
+`AreaConstruction.PlacementInput.AfterInput` is a process-rooted postfix of `EditorDirector.Update`. Its original unconditional `EngineThreadLock.Gate` acquisition could wait even without a construction gesture. Continuous main-thread samples of four 75–106 ms gaps placed 94.7–97.2% of inner mod frames in this method, with `mono_monitor_enter_v4_internal` present in the full window. The gate is the actual `EngineInterface.threadLock`; the older 88FC artifact demonstrably blocks an otherwise idle callback while a helper holds it (explicit ~750 ms negative control).
+
+The guarded idle path requires no captured gesture, drag, queued sites, storage order, quarry order or unapplied cancellation epoch, and hides the preview on Unity before returning. Primary/HandleButton and AfterInput create local work only on Unity; QuarryTick, lifecycle and cancellation paths can consume or clear it. The active/cancellation paths retain the existing monitor. Local Unity construction input, rather than a player's AI flag, is the authority: manual editor placement into an AI slot remains possible. Non-UI Primary/cursor calls and irrelevant local inputs pass through unchanged. Normal AI building has no placement-feedback or storage-neighbor probe scope. Authenticated replay of an already confirmed human quarry order remains valid on the simulation thread; the independent host storage-limit rule is unchanged.
+
+Normal artifact035A passed seven actual input/monitor cases and the original nineteen relocation/rescue cases in one hidden-desktop transaction (`ca570a3b91a0488cb513c5967ab55a1c`). The idle callback returns while the helper still owns the monitor; cancellation still waits and applies its epoch. These forced monitor tests are not performance timing or active OS mouse-drag acceptance. Evidence and final normal ON/OFF qualification: [BQoL rescue acceptance](../../../../../../BugfixesAndQoL/docs/TrappedUnitRescue.Acceptance.md), `.work/a/area-idle-gate/001/result-composite.json`. No new native hook or native geometry policy follows from this managed idle correction.
+
+
+## Wall construction prices and demolition refunds, 2026-11-28
+
+Static comparison against the installed SHCDESE 2.14.6 assembly, local
+Extender commit 81a7a945c47c2c5dcc347cd1ad3661a54be02429 (tree
+3215dd016cdca0ae7c3a89001f1116ba4d06d0ee), and the local Fixes source.
+The database manifest captures an older Extender snapshot. See the
+[Vanilla audit](../WALL_COSTS_REFUNDS.md) for the canonical native paths.
+
+- `GameBuildingManagerAPI.SetHighWallCostMultiplier` and
+  `SetLowWallCostMultiplier` already alter quarter-stone pricing. Defaults
+  0.5 and 0.25 match Vanilla; native-facing getters truncate value*4.
+  The AOB in `BulkBuildingDetours` resolves to `0xC8D1C`, where the
+  Extender replaces the weighted tile sum. Human walls, crenels and stairs
+  use the same high multiplier. AIV uses the high counter even for low
+  walls, and the free AIV stair variants bypass pricing entirely.
+- The Extender's placement-cost AOB resolves only to `0x941AB`. It takes
+  the existing Vanilla quota Q and computes
+  `floor(floor(4*Q / quartersPerTile) / (low ? 4 : 2))` for positive prices.
+  If quartersPerTile is zero it keeps Q. It does not alter tool selection
+  `0x8BD60` or the separate commit quota at `0x6F2C2`. Example without
+  Fixes: five stone and zero remainder, high price 1.0, gives Vanilla Q=10.
+  The Extender returns five for the drag quota. After a queued five-tile
+  order reaches execution with two stone left, Vanilla commit Q=4 and the
+  strict comparison can admit all five. The debit requests five and the
+  storage helper can only remove the two present. This mismatch follows
+  statically from the current paths. It has no game acceptance.
+- Fixes `ProperLowWallCostFix` adds its own low-wall doubling at execution
+  `0x6F2C2`, Chore adapter `0x11D4A` and the preview cap `0x6136F`.
+  The actual execution mapper is in SI at `0x6F2C2`; the Fixes emitter
+  compares R11 there. The source establishes patch ownership and intent,
+  without establishing effective live limits for arbitrary prices. Fixes'
+  `EnableLowWallRefundFix` changes the branch at `0x13880` from JG to
+  JMP, skipping the halving for every tile. At 50 this gives a quarter
+  per tile, equal to the default low-wall price. Both options were enabled
+  in the local config snapshot.
+- `OnBuildingRefund(Pre)` is invoked for sentinel -1. The Extender forwards
+  the mutable Percentage and supports SkipOriginalFunction there. It
+  supplies player and sentinel, without a tile. The per-material interceptor
+  at `0xC487A` is bypassed on that route. `OnWallBulldoze(Pre)` supplies a
+  tile but runs via `0x63700` after the refund and its wrapper calls the
+  original irrespective of SkipOriginalFunction.
+- BuildingCosts uses ordinary cost-table targets and omits wall rollover
+  structures. ExtraFeatures excludes nonpositive IDs in
+  `NormalizeRefundPercentage`, and APIShared's normal receipt policy
+  requires a positive owned building ID. The ExtraFeatures source comment
+  that the fourth argument is not a percentage is incorrect for the wall
+  sentinel. Sending arbitrary values through the existing event cannot
+  overcome the native refund buckets.
+- A complete manual price setting needs a single mapper-aware price and
+  compatible affordability/charge behavior at selection, preview, queued
+  maximum and execution. A tile-specific refund percentage needs tile/Chore
+  context before the native credit and finer per-player fixed-point
+  accumulation. A policy based on actual purchase price also needs price
+  provenance for free, preplaced, AI and repaired/replaced tiles. Decide
+  explicitly what applies to each, and preserve the separately accounted
+  Undo route. Any synchronized gameplay implementation needs matching
+  rules and remainder state across peers, save/load and resync. These are
+  design constraints from the static audit, with no new implementation or
+  runtime verification.
